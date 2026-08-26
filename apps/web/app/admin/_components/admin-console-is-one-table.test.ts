@@ -176,6 +176,8 @@ const CONVERTED = [
   'settings/payment-methods/page.tsx',
   'vendor-partnerships/page.tsx',
   'website-media/media-table.tsx',
+  // The learned-memory screen, 2026-08-26 — the assistant's own table.
+  'search-memory/search-memory-table.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -113,6 +113,31 @@ test('one phrase means one destination', async () => {
     );
 });
 
+test('learned_from admits exactly the two sources that can write here', async () => {
+  // 'ai' — the model resolved it (ask-the-admin.ts). 'admin' — a person taught
+  // or corrected it (app/admin/search-memory/actions.ts, added 2026-08-26 as
+  // the writer this column was missing — see WHATS_NEXT_Admin_Search_And_
+  // Assistant_2026-08-26.md § 3, "build the teach-it door or drop the value").
+  await db.query(
+    `INSERT INTO public.admin_search_phrases (phrase, href, label, learned_from)
+     VALUES ('taught by a person', '/admin/pricing', 'Pricing', 'admin')`,
+  );
+  const row = await db.query<{ learned_from: string }>(
+    `SELECT learned_from FROM public.admin_search_phrases WHERE phrase = 'taught by a person'`,
+  );
+  assert.equal(row.rows[0]!.learned_from, 'admin');
+
+  await assert.rejects(
+    () =>
+      db.query(
+        `INSERT INTO public.admin_search_phrases (phrase, href, label, learned_from)
+         VALUES ('a third source', '/admin/pricing', 'Pricing', 'guest')`,
+      ),
+    /admin_search_phrases_source_chk/,
+    'a value outside ai/admin was accepted — the CHECK widened without a writer to match',
+  );
+});
+
 test('the vacuous flag is named, so nobody writes another test that trusts it', async () => {
   // The proof, kept live rather than written in a comment: a table created here
   // with no policy and no ALTER already reports row security ON. If a future

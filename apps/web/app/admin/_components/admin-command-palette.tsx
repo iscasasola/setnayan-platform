@@ -2,15 +2,44 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search } from 'lucide-react';
+import { Search, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { claimCommandKey } from '@/lib/command-key-claim';
 import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
+import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
+import type { AdminJob } from '@/lib/admin-map/scan-admin-jobs';
+import { matchJobs, jobDisplayLabel } from '@/lib/admin-map/match-job';
+import { humanizeFieldLabel, fieldKind, askParamKey, ADMIN_ASK_PARAM } from '@/lib/admin-map/humanize-field';
 
 import { askTheAdmin, type AskAnswer } from './ask-actions';
 import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
 
 import { buildDestinations, type Dest, type RowDest } from './admin-destinations';
+
+/**
+ * A job hiding inside an href, the way a page-destination hides in one.
+ *
+ * The AI is handed FORM-DRIVEN JOBS as extra choices (see `ask()` below), each
+ * offered as `${resolvedPath}?admin_ask=<jobName>` — a real, known admin
+ * route, so `isKnownAdminHref` on the server accepts it exactly like any other
+ * page. This is the one place that marker is read back OUT, so a resolved
+ * answer that names a job opens the ask-form instead of just navigating.
+ */
+function jobNameFromHref(href: string): string | null {
+  try {
+    return new URL(href, 'https://admin.invalid').searchParams.get(ADMIN_ASK_PARAM);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cap the ask-form at a sane number of questions. Measured, not guessed: only
+ * two jobs exceed this (`saveUnclaimedVendorProfile`, `upsertEventTypeProfile`,
+ * both 9 fields) — they still open, just with their last field or two filled
+ * on the page itself, same as any field this box never asked about.
+ */
+const MAX_ASK_FIELDS = 8;
 
 /**
  * AdminCommandPalette — ⌘K / Ctrl-K, type three letters, go.
@@ -89,6 +118,50 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
   );
 
   /**
+   * A JOB the sentence names, offered next to the pages it names. See
+   * `match-job.ts` — coverage-gated, so "papic" alone never suggests a form.
+   */
+  const jobHits = useMemo(() => matchJobs(ADMIN_JOBS, q, 3), [q]);
+
+  /**
+   * The ask-form — gathering answers, never pressing the button.
+   *
+   * 🔒 THIS IS THE WHOLE SAFETY CLAIM: everything below writes into LOCAL
+   * STATE and, once "Prepare form" is pressed, into a URL query string. No
+   * server action is ever called from here — the real `createCanonicalLeaf`
+   * (or whichever action the job names) fires only when the admin presses the
+   * REAL button on the REAL page, exactly as the one-person admin plan
+   * requires (2026-07-11): the machine prepares and holds back.
+   */
+  const [askJob, setAskJob] = useState<AdminJob | null>(null);
+  const [askValues, setAskValues] = useState<Record<string, string>>({});
+
+  const openJobAsk = useCallback((job: AdminJob) => {
+    setAskJob(job);
+    setAskValues({});
+    setAsked(null);
+  }, []);
+
+  const askJobFields = useMemo(
+    () => (askJob ? askJob.fields.slice(0, MAX_ASK_FIELDS) : []),
+    [askJob],
+  );
+
+  /** `resolvedPath` + a marker + one `aa_<field>` per non-empty answer. Empty
+   *  fields are simply omitted — the target form's own default stands, same
+   *  as if the admin had never touched that input. */
+  const buildJobHref = useCallback((job: AdminJob, values: Record<string, string>): string => {
+    const [path, existingQs] = job.resolvedPath.split('?');
+    const params = new URLSearchParams(existingQs ?? '');
+    params.set(ADMIN_ASK_PARAM, job.name);
+    for (const field of job.fields) {
+      const v = values[field];
+      if (v !== undefined && v !== '') params.set(askParamKey(field), v);
+    }
+    return `${path}?${params.toString()}`;
+  }, []);
+
+  /**
    * The escape hatch, and the only place a model is ever reached.
    *
    * 🔑 IT IS OFFERED, NEVER AUTOMATIC. Nothing here fires while the free word
@@ -107,13 +180,20 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
       const choices = all
         .filter((d) => d.source !== 'row')
         .map((d) => ({ label: d.label, href: d.href }));
-      setAsked(await askTheAdmin(q, choices));
+      // Form-driven jobs are offered too, under the SAME shape (label + a real
+      // admin href) — the model can choose a job exactly like a page, and
+      // `isKnownAdminHref` accepts it because `resolvedPath` is a real route.
+      const jobChoices = ADMIN_JOBS.filter((j) => j.fields.length > 0).map((j) => ({
+        label: jobDisplayLabel(j),
+        href: buildJobHref(j, {}),
+      }));
+      setAsked(await askTheAdmin(q, [...choices, ...jobChoices]));
     } catch {
       setAsked({ ok: false, reason: 'unavailable' });
     } finally {
       setAsking(false);
     }
-  }, [all, q]);
+  }, [all, q, buildJobHref]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -121,6 +201,8 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
     setSel(0);
     setAsked(null);
     setAsking(false);
+    setAskJob(null);
+    setAskValues({});
   }, []);
 
   // The SHARED focus contract, not a hand-rolled one: trap Tab inside the
@@ -164,6 +246,9 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
         return;
       }
       if (!open) return;
+      // The ask-form has its own text inputs and its own Prepare/Cancel
+      // buttons — the results-navigation keys must not fight typing in them.
+      if (askJob) return;
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSel((s) => (hits.length ? (s + 1) % hits.length : 0));
@@ -181,15 +266,18 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, hits, sel, close, router]);
+  }, [open, hits, sel, close, router, askJob]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
   useEffect(() => {
     setSel(0);
-    // A new question is not the old question's answer.
+    // A new question is not the old question's answer, and typing a new
+    // query means the admin left whatever job they were being asked about.
     setAsked(null);
+    setAskJob(null);
+    setAskValues({});
   }, [q]);
 
   if (!open) return null;
@@ -244,6 +332,101 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
         </div>
 
         <div className="max-h-[min(58vh,430px)] overflow-auto p-1.5">
+          {askJob ? (
+            <div className="p-2">
+              <p className="px-1 pb-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]"
+                style={{ color: 'var(--sn-ink-500)' }}>
+                {jobDisplayLabel(askJob)}
+              </p>
+              <p className="px-1 pb-3 text-[12px]" style={{ color: 'var(--sn-ink-500)' }}>
+                Answer what you know — the rest stays blank on the form. Nothing is
+                submitted here; the page opens with this filled in and you press the
+                real button.
+              </p>
+              <div className="space-y-2.5 px-1">
+                {askJobFields.map((field) => {
+                  const required = askJob.refusedWhenEmpty.includes(field);
+                  const label = humanizeFieldLabel(field);
+                  if (fieldKind(field) === 'boolean') {
+                    return (
+                      <label key={field} className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--sn-ink)' }}>
+                        <input
+                          type="checkbox"
+                          checked={askValues[field] === '1'}
+                          onChange={(e) =>
+                            setAskValues((v) => ({ ...v, [field]: e.target.checked ? '1' : '' }))
+                          }
+                          className="h-3.5 w-3.5"
+                        />
+                        {label}
+                      </label>
+                    );
+                  }
+                  return (
+                    <label key={field} className="block text-[12px]" style={{ color: 'var(--sn-ink-500)' }}>
+                      {label}
+                      {required ? <span aria-hidden> *</span> : null}
+                      <input
+                        value={askValues[field] ?? ''}
+                        onChange={(e) => setAskValues((v) => ({ ...v, [field]: e.target.value }))}
+                        className="mt-0.5 w-full rounded-md border px-2 py-1.5 text-[13px]"
+                        style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink)' }}
+                        aria-required={required}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="mt-4 flex items-center gap-2 px-1">
+                <button
+                  type="button"
+                  onClick={() => setAskJob(null)}
+                  className="rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold"
+                  style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const href = buildJobHref(askJob, askValues);
+                    close();
+                    router.push(href);
+                  }}
+                  // Measured: no job today lists a boolean field as required
+                  // (`refusedWhenEmpty`). Excluded anyway, on purpose — an
+                  // unchecked box IS a legitimate "false", not an empty answer,
+                  // so a required boolean must never be able to block Prepare.
+                  disabled={askJob.refusedWhenEmpty.some(
+                    (f) => fieldKind(f) !== 'boolean' && !askValues[f],
+                  )}
+                  className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold text-white disabled:opacity-40"
+                  style={{ background: 'var(--sn-mulberry-600, #C24E25)' }}
+                >
+                  <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+                  Prepare the form
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+          {jobHits.length > 0 ? (
+            <div className="mx-1.5 mb-1 mt-1 space-y-1">
+              {jobHits.map((j) => (
+                <button
+                  key={j.job.name}
+                  type="button"
+                  onClick={() => openJobAsk(j.job)}
+                  className="flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12.5px] font-semibold"
+                  style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink)' }}
+                >
+                  <Sparkles aria-hidden className="h-3 w-3 shrink-0" style={{ color: 'var(--sn-gold, #A9834B)' }} strokeWidth={2} />
+                  <span>{j.label}</span>
+                  <span className="ml-auto font-mono text-[10px]" style={{ color: 'var(--sn-ink-500)' }}>fill in a form</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
           {unknownNote ? (
             <p
               className="mx-1.5 mb-1 mt-1 rounded-md px-2.5 py-1.5 text-[11.5px]"
@@ -262,6 +445,14 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
                 <button
                   type="button"
                   onClick={() => {
+                    // An answer that names a job opens the ask-form — it is
+                    // still the person who fills it in and presses submit.
+                    const jobName = jobNameFromHref(asked.answer.href);
+                    const job = jobName ? ADMIN_JOBS.find((j) => j.name === jobName) : null;
+                    if (job) {
+                      openJobAsk(job);
+                      return;
+                    }
                     close();
                     router.push(asked.answer.href);
                   }}
@@ -326,6 +517,8 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
                 </div>
               );
             })
+          )}
+            </>
           )}
         </div>
 

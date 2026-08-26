@@ -330,8 +330,26 @@ export function papicCapPhrase(weddingCapPhp: number | null): string {
  * every rung stacks onto whatever the event already holds, including the free
  * pool, and saying so is the difference between a top-up and a replacement.
  */
+/**
+ * The regular price of a rung: ₱1 buys one shot (owner 2026-08-26). It is NOT a
+ * stored column and must never become one — the whole ladder is defined against
+ * this rate, and a stored second copy of a rule is how prices drift.
+ */
+export const PAPIC_PESO_PER_CREDIT = 1;
+
+/** How much of the regular price this rung saves, as a whole percent. */
+export function papicRungDiscountPercent(points: number, pricePhp: number): number | null {
+  const regular = points * PAPIC_PESO_PER_CREDIT;
+  if (!(regular > 0) || !(pricePhp > 0) || pricePhp >= regular) return null;
+  return Math.round((1 - pricePhp / regular) * 100);
+}
+
 export function papicPoolRungPhrase(points: number, pricePhp: number): string {
-  return `${peso(pricePhp)} — adds ${points.toLocaleString('en-PH')} shots to your shared pool`;
+  const base = `${peso(pricePhp)} — adds ${points.toLocaleString('en-PH')} shots to your shared pool`;
+  // ⚠ The saving is DERIVED and only shown when it is real. A rung priced at or
+  // above ₱1 a shot says nothing rather than printing "0% off" or a negative.
+  const off = papicRungDiscountPercent(points, pricePhp);
+  return off == null ? base : `${base} · ${off}% off ${peso(points * PAPIC_PESO_PER_CREDIT)}`;
 }
 
 /**

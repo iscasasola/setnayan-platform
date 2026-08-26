@@ -34,6 +34,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { PAPIC_LADDER_EXPECTED } from './papic-ladder.expected';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -115,26 +116,61 @@ test('Papic One is not sellable at all — there is one product now', async () =
 });
 
 test('the ladder the owner set is exactly what is on sale', async () => {
-  // Owner 2026-08-11, final of four revisions the same day: 50 free, then
-  // ₱50/100 · ₱1,000/3,000 · ₱3,000/10,000 · ₱5,000/20,000. Pinned as a set, not
-  // as prose in a doc — the corpus has been wrong about a live price before, and
-  // a number in a sentence cannot fail.
+  // Owner 2026-08-26, given as a table and then as the rule behind it: a
+  // SCROLLABLE list of sixteen rungs, priced against ₱1 = 1 credit with a
+  // bundle discount that deepens as the number grows. Pinned as a SET, not as
+  // prose in a doc — the corpus has been wrong about a live price before, and a
+  // number in a sentence cannot fail.
   //
-  // ⚠ SUPERSEDES the nine-rung ladder to 30,000 asserted here hours earlier. That
-  // ladder never reached production; it and this file's version of it merge in
-  // the same deploy that corrects them.
+  // ⚠ SUPERSEDES the four-rung ladder of 2026-08-11, which itself superseded a
+  // nine-rung one that never reached production.
+  //
+  // ⚖ 40,000 IS DELIBERATELY ABSENT. His first table had it at ₱10,000 — the
+  // same price as 50,000 — so it was a row nobody could rationally choose. That
+  // was surfaced rather than quietly corrected, and he removed it. Do not
+  // re-add it without a price of its own.
   const rungs = await sellableRungs('papic_pass_tiers');
   assert.deepEqual(
     rungs.map((r) => [Number(r.points), Number(r.php)]),
-    [
-      [100, 50],
-      [3_000, 1_000],
-      [10_000, 3_000],
-      [20_000, 5_000],
-    ],
+    PAPIC_LADDER_EXPECTED.map(([shots, php]) => [shots, php]),
     'the ladder drifted from the owner-set one',
   );
 });
+
+test('the bundle price is always below ₱1 a credit, and never rises per credit', async () => {
+  /*
+    The whole ladder is defined AGAINST ₱1 = 1 credit: the regular price is the
+    credit count itself and the bundle price is a discount off it. Two things
+    follow, and neither is stored anywhere — which is the point, because a
+    stored second copy of a rule is how prices drift.
+
+      1. no rung may cost MORE than ₱1 a credit, or the "discount" is a markup;
+      2. buying more must never cost more PER CREDIT than buying less, or the
+         scroll rewards you for choosing the smaller number.
+
+    ⚠ Rule 2 is `<=`, not `<`, and the reason CHANGED when 40,000 was removed —
+    it is worth stating correctly rather than leaving a stale justification in
+    place. It is not about that rung. The ladder holds a FLAT rate across whole
+    bands by design: ₱0.50 a credit from 100 through 2,000, ₱0.40 from 3,000
+    through 7,000, ₱0.25 across 20,000 and 30,000. A strict `<` would fail on
+    eleven of the sixteen rungs.
+  */
+  const rungs = await sellableRungs('papic_pass_tiers');
+  assert.ok(rungs.length >= 10, `only ${rungs.length} rungs read back — the rules below are vacuous`);
+
+  const bad: string[] = [];
+  let prevRate = Number.POSITIVE_INFINITY;
+  for (const r of rungs) {
+    const credits = Number(r.points);
+    const php = Number(r.php);
+    const rate = php / credits;
+    if (php > credits) bad.push(`${credits} costs ₱${php} — above ₱1 a credit`);
+    if (rate > prevRate) bad.push(`${credits} costs ₱${rate.toFixed(4)} a credit, worse than the rung below it`);
+    prevRate = rate;
+  }
+  assert.deepEqual(bad, [], bad.join('; '));
+});
+
 
 test('every rung is repeatable, which is what makes four of them enough', async () => {
   // A couple wanting 6,000 buys the ₱1,000 rung twice for the same ₱2,000 the

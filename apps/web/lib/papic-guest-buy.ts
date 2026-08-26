@@ -153,14 +153,16 @@ export type PapicGuestOffer = {
 /**
  * PURE. The POOL rungs a guest may buy.
  *
- * `is_topup` rungs are deliberately EXCLUDED. `PAPIC_GUEST_TOPUP` is the
- * repeatable rung that only unlocks once the event already holds
- * PAPIC_TOPUP_UNLOCK_POINTS — a condition about the EVENT's history that a
- * guest standing at the party has no way to know and no business being told
- * about. The three rungs the owner named (PAPIC_GUEST · PAPIC_GUEST_6K ·
- * PAPIC_GUEST_10K) are exactly the non-topup set, so this filter reproduces the
- * owner's list WITHOUT hardcoding it — an admin who retires a rung retires it
- * here too, on the same breath, which a literal array would not do.
+ * `is_topup` rungs are deliberately EXCLUDED. `PAPIC_GUEST_TOPUP` was the
+ * repeatable rung from before every rung became repeatable; it is retired, and
+ * the threshold this docblock used to cite (`PAPIC_TOPUP_UNLOCK_POINTS`) was an
+ * exported constant with ZERO readers, deleted 2026-08-26. The filter stays
+ * because the flag still exists and a future rung could set it.
+ *
+ * The sixteen rungs the owner set (2026-08-26) are exactly the non-topup set,
+ * so this reproduces his list WITHOUT hardcoding it — an admin who retires a
+ * rung retires it here too, in the same breath, which a literal array would
+ * not do.
  */
 export function guestPoolRungs(tiers: readonly PapicPassTier[]): PapicGuestRung[] {
   return tiers

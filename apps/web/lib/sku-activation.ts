@@ -930,6 +930,24 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   PAPIC_GUEST_23K: grantPapicPassPoints,
   PAPIC_GUEST_26K: grantPapicPassPoints,
   PAPIC_GUEST_30K: grantPapicPassPoints,
+  // 🚨 THE SCROLLABLE LADDER, owner 2026-08-26 (migration 20271169479635).
+  // Sixteen rungs from 100 to 50,000, priced off ₱1 = 1 credit with a bundle
+  // discount. EVERY ONE OF THEM MUST BE ON THIS MAP: a rung that is on sale and
+  // missing here takes the couple's money, marks the order paid, and grants
+  // ZERO shots — no throw, no log, nothing to notice but an empty pool.
+  // `papic-rungs-are-fundable.db.test.ts` fails the build if this list and the
+  // sellable rungs ever drift apart, which is the only reason that is safe to
+  // rely on.
+  PAPIC_GUEST_200: grantPapicPassPoints,
+  PAPIC_GUEST_300: grantPapicPassPoints,
+  PAPIC_GUEST_400: grantPapicPassPoints,
+  PAPIC_GUEST_500: grantPapicPassPoints,
+  PAPIC_GUEST_1K: grantPapicPassPoints,
+  PAPIC_GUEST_2K: grantPapicPassPoints,
+  PAPIC_GUEST_4K: grantPapicPassPoints,
+  PAPIC_GUEST_5K: grantPapicPassPoints,
+  PAPIC_GUEST_7K: grantPapicPassPoints,
+  PAPIC_GUEST_50K: grantPapicPassPoints,
   // Retired 2026-07-29 (catalog + papic_pass_tiers row both deactivated) because
   // every rung is additive now, so a separate "+10,000 top-up" was a duplicate of
   // PAPIC_GUEST_10K. The hook stays wired: an order minted before the retirement

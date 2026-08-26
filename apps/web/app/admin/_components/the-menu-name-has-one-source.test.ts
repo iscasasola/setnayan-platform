@@ -239,44 +239,54 @@ test('6 · a sidebar registry slot may not disagree with the item it overlays', 
  *  itself one of these is naming a menu that does not exist. */
 const RETIRED_MENU_NAMES = [
   'Overview HQ',
-  'Money & Settings HQ',
   'Money & Settings',
   'Accounts · Admin',
   'Menu · Admin',
   'Ugat Console',
 ];
 
-/** Every page.tsx under app/admin, found by walking — never hand-listed, so a
- *  page added tomorrow is covered without anybody remembering to add it. */
-function adminPageFiles(dir: string, acc: string[] = []): string[] {
+/** Every source file under app/admin, found by walking — never hand-listed, so
+ *  a file added tomorrow is covered without anybody remembering. */
+function adminSourceFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) adminPageFiles(full, acc);
-    else if (entry === 'page.tsx') acc.push(full);
+    if (statSync(full).isDirectory()) adminSourceFiles(full, acc);
+    else if (/\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry)) acc.push(full);
   }
   return acc;
 }
 
-test('7 · no admin page titles itself with a menu name that was retired', () => {
-  const pages = adminPageFiles(join(__dirname, '..'));
-  assert.ok(pages.length > 40, `walked only ${pages.length} admin pages — the walk is wrong`);
+test('7 · no retired menu name survives anywhere a person can read it', () => {
+  /*
+    🪤 REV 1 OF THIS RULE WAS DECORATION EXACTLY WHERE IT MATTERED, and only a
+    mutation said so. It walked `page.tsx` files and matched `title:`, so it
+    caught five browser-tab titles and was BLIND to the single genuinely
+    VISIBLE offender: "Ugat Console", rendered 391x23px as the entity map's own
+    heading — from a `_components` file, as JSX text rather than a title.
+    Putting that string back left the whole suite GREEN. The rule now walks
+    every admin source and matches the name anywhere in code.
+
+    The banned names are all DISTINCTIVE multi-word strings. The bare words
+    "Overview" and "Accounts" are NOT banned and must not be — "Overview" is a
+    live tab name on two hubs, and a guard that cries wolf teaches you to skim
+    past the one time it is right.
+  */
+  const files = adminSourceFiles(join(__dirname, '..'));
+  assert.ok(files.length > 100, `walked only ${files.length} admin sources — the walk is wrong`);
 
   const offenders: string[] = [];
-  for (const file of pages) {
+  for (const file of files) {
     const src = codeOnly(readFileSync(file, 'utf8'));
     for (const name of RETIRED_MENU_NAMES) {
-      // Only titles — the word may legitimately appear elsewhere ("Overview" is
-      // a real tab name on two hubs). This asks what the PAGE calls itself.
-      const re = new RegExp(`title[:=]\\s*[{]?\\s*['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`);
-      if (re.test(src)) offenders.push(`${file.split('/app/admin/')[1]} still titles itself "${name}"`);
+      if (src.includes(name)) offenders.push(`${file.split('/app/admin/')[1]} still says "${name}"`);
     }
   }
   assert.deepEqual(
     offenders,
     [],
-    'a page that names a retired menu sends the reader looking for a menu that ' +
-      'is not there — and "Money & Settings" is worse than mismatched, it is ' +
-      'false: settings moved to Set up in the recut.',
+    'a page naming a retired menu sends the reader looking for a menu that is ' +
+      'not there — and "Money & Settings" is worse than mismatched, it is FALSE: ' +
+      'the recut moved every settings surface out of Money into Set up.',
   );
 });
 

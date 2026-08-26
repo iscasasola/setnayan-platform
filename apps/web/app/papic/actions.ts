@@ -205,9 +205,27 @@ export type RecordSeatCaptureResult =
 
 /**
  * Record one captured photo for a claimed seat. The bytes are already in R2
- * (the client PUT them via /api/upload); this just writes the papic_photos
- * row under the claimer's session — RLS (papic_photos_claimer_own) permits the
- * insert because the friend claimed this seat and it isn't revoked.
+ * (the client PUT them via /api/upload); this weighs the capture and then
+ * writes the papic_photos row.
+ *
+ * 🔑 THIS FUNCTION IS THE WHOLE FENCE, and that is a change. It used to write
+ * the row under the CLAIMER'S SESSION and lean on RLS, and this docblock said
+ * so — while `authenticated` held INSERT on all 39 grantable columns, so the
+ * same person could POST straight to PostgREST and skip every check below: the
+ * burst limiter, the 10-second cap, the capture window, the paid-order gate,
+ * the put-away gate, the RA 10173 geo control and the credit reservation. As of
+ * migration 20271169487222 that grant is gone and the row goes in with the
+ * SERVICE ROLE, so nothing enforces those rules except the code in this
+ * function. Do not move a check out of it without moving the enforcement.
+ *
+ * ⚠ The authorization it replaced is done EXPLICITLY here, not inherited: the
+ * seat is resolved under the caller's own session (so RLS still scopes the
+ * lookup), `claimer_user_id` is compared to `auth.uid()` by hand, and a revoked
+ * seat is refused — the three things the old WITH CHECK asserted.
+ *
+ * ⛔ The credit reserve and the insert are TWO STEPS, not one transaction. A
+ * death in the gap leaks the reserved credits, which errs against us rather
+ * than the meter. Do not read "service role" as "atomic".
  *
  * Returns the friend's new running capture count, or a soft error the capture
  * UI can show without crashing (never throws — the camera should keep working).

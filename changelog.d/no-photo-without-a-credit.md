@@ -65,6 +65,14 @@ Closing this door broke **8 db tests** — every one of them a guard about this 
 
 🪤 **And rule 0 was decoration on its first run, for the exact reason this whole change exists.** It asked `has_table_privilege(…,'INSERT')` and read FALSE as closed — the function that answers FALSE while 39 column grants are standing. Removing the revoke measured **1 → 0** and the rule stayed **green**. It now censuses every column and every policy: both sabotages red.
 
+## 🪤 And the function's own docblock still described the old behaviour
+
+`recordSeatCapture`'s docblock read: *"this just writes the papic_photos row under the claimer's session — RLS (`papic_photos_claimer_own`) permits the insert because the friend claimed this seat and it isn't revoked."*
+
+Every clause of that was true this morning and none of it is now. **A sentence is not a mechanism — and a sentence that describes a mechanism it no longer has is worse than none**, because the next reader trusts it and writes code against a fence that moved. It now says what is actually true: this function is the whole fence, the authorization is done explicitly here rather than inherited from RLS, and the reserve and the insert are still two steps.
+
+The adversarial pass caught it. **Nothing else could have** — it typechecks, every test passes, and no guard reads prose.
+
 ## Exposure baseline
 
 Regenerated, and the diff read before committing: **39 columns lose `I` (SIU → SU)** and one `cmd=ALL` policy becomes three narrower named ones. **Nothing else in the 6,213-fact baseline moved** — no added line anywhere is a widening.

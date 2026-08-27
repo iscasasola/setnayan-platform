@@ -28,6 +28,7 @@ import {
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
+import { papicManualUploadsClosed } from '@/lib/papic-uploads-open';
 import { combinePointsGates } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captureWindowState } from '@/lib/papic-window';
@@ -276,7 +277,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { data: seat } = await supabase
       .from('paparazzi_seats')
       .select(
-        'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until',
+        'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until, seat_index',
       )
       .eq('claim_qr_token', papicSeatToken)
       .maybeSingle();
@@ -285,6 +286,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { error: 'This seat isn’t yours to upload to.' },
         { status: 403 },
       );
+    }
+
+    // "MAY PHOTOS BE ADDED BY HAND?" — the couple's switch, read on the SERVER.
+    // The record layer is the door (recordSeatCapture asks the same helper); this
+    // is the orphan-byte leak guard, exactly like the window and payment probes
+    // below: no URL ⇒ no bytes uploaded for a capture that is going to be
+    // refused. Only the Uploads camera is affected — every other seat is a real
+    // camera and the switch has no opinion about it.
+    // ⚠ THE `code` IS LOAD-BEARING. Without it the picker turns a code-less 403
+    // into a generic failure and tells somebody their connection is at fault.
+    {
+      let uploadsClosed = false;
+      try {
+        uploadsClosed = await papicManualUploadsClosed(
+          createAdminClient(),
+          seat.event_id as string,
+          (seat as { seat_index?: number | null }).seat_index ?? null,
+        );
+      } catch {
+        uploadsClosed = false;
+      }
+      if (uploadsClosed) {
+        return NextResponse.json(
+          {
+            error: 'Adding photos by hand is switched off for this celebration.',
+            code: 'uploads_closed',
+          },
+          { status: 403 },
+        );
+      }
     }
     // Per-camera seats (sku_code PAPIC_CAMERA_*) carry their own paid-gate +
     // daily quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip

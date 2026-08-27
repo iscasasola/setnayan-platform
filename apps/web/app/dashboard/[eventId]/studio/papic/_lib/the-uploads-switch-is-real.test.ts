@@ -17,14 +17,26 @@
  * point, and an upload costs a credit exactly like a shot — so an open door is
  * not a free one.
  *
- * 🔑 AND THE LIMIT OF THIS GUARD IS WRITTEN DOWN. It checks that the SCREEN
- * obeys the switch, because today the only manual-upload path is the couple's
- * own picker and the only holder of the Uploads camera is the couple — a couple
- * bypassing their own preference harms nobody. **The moment somebody else can
- * upload, hiding a control is not closing a door**, and the server must read
- * this column too. That is the live-photo-wall lesson, where the only "off"
- * switch closed the venue screens while the feed carried on to a hundred
- * phones.
+ * ✅ AND THE SERVER READS IT NOW TOO — 2026-08-26, the same day. This docblock
+ * used to say the screen was enough "because today the only manual-upload path
+ * is the couple's own picker", and named the condition for that stopping being
+ * true. It was a bet on nothing else ever reaching the write, which is the
+ * live-photo-wall shape: the only "off" the product offered closed the venue
+ * screens while the feed carried on to a hundred phones. A server action is a
+ * public endpoint, so a hidden button is one `fetch` from not being hidden.
+ *
+ * `lib/papic-uploads-open.ts` is now asked on BOTH server paths — the presign
+ * (`/api/upload`, as the orphan-byte leak guard) and the write
+ * (`recordSeatCapture`, as the door). It keys on the SEAT — the Uploads camera's
+ * `seat_index` — so it is a fact in the database rather than a claim the client
+ * makes, and it therefore already covers a surface nobody has written yet.
+ * `app/papic/the-meter-is-the-only-door.test.ts` rule 5 pins that, including
+ * that the check sits ABOVE the credit spend.
+ *
+ * 🔑 SO WHAT RULE 8 BELOW STILL DEFENDS IS THE COPY, NOT THE GATE. The OFF text
+ * is a claim about the whole gallery — "Nothing can be added from a phone or
+ * laptop" — and that stays true only while the paths that could add something
+ * are the ones this gate covers.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -154,26 +166,33 @@ test('7 · the value the picker branches on is actually SELECTED from the databa
  *
  * `handles-have-gates.db.test.ts` flags a switch written and read by one surface
  * and asks the question a scanner cannot: does the copy beside it promise
- * something it does not do? For this switch the answer is NO — **today**. The
- * OFF text reads *"Nothing can be added from a phone or laptop"*, which is a
- * claim about the whole gallery, and it is true only because the couple's own
- * picker is the ONLY manual-upload path that exists. That reasoning is written
- * into `tests/db/handles-have-gates.baseline.txt`.
+ * something it does not do? The OFF text reads *"Nothing can be added from a
+ * phone or laptop"*, which is a claim about the WHOLE gallery.
  *
- * A baseline line that stops being true is worse than no line, because it reads
- * as "somebody checked". So this rule fails the moment a FOURTH thing records a
- * capture — a guest picker, a supplier upload, a new camera surface. At that
- * moment two things must happen together, and neither is optional:
+ * ✅ THE GATE HALF IS SETTLED — the server reads the column on both the presign
+ * and the write, keyed on the Uploads camera's seat rather than on which screen
+ * called. So a new surface pointed at that seat is already covered.
  *
- *   1. the OFF copy stops being true unless the new path honours the switch, and
- *   2. **the SERVER must read the column, not just the screen.** Hiding a
- *      control is not closing a door — the live photo wall mirrored to every
- *      guest's phone while the only "off" switch closed the venue screens.
+ * ⛔ THE COPY HALF IS NOT, AND THAT IS WHAT THIS RULE IS FOR. A path that
+ * records captures on a DIFFERENT seat — a guest picker, a supplier upload, a
+ * new camera surface — is outside the gate by design (the switch must never stop
+ * a paparazzo photographing a wedding), and at that moment the OFF sentence
+ * becomes a promise the product does not keep. So this fails the moment a FOURTH
+ * thing records a capture, and whoever trips it owes one answer: does the new
+ * path add photos BY HAND, and if so does it go through the same gate?
+ *
+ * 📎 THE BASELINE LINE THIS USED TO POINT AT IS GONE, and its removal was not a
+ * choice — `handles-have-gates.db.test.ts` demanded it. That baseline records
+ * switches written and read by ONE surface; the moment the server started
+ * reading this column the line stopped being true, and the guard failed until it
+ * was deleted. **A first attempt rewrote it to describe the new arrangement and
+ * that was also refused, correctly**: the file is a list of screen-local
+ * switches, not a place to explain one that has stopped being screen-local.
  *
  * ⚠ Counted at the CALL, not by importing the module: the point is how many
  * places can put a row in, and an import that is never called is not a path.
  */
-test('8 · exactly three things record a capture — a fourth must gate the write, not the button', () => {
+test('8 · exactly three things record a capture — a fourth must answer for the OFF copy', () => {
   const WEB = join(import.meta.dirname, '..', '..', '..', '..', '..', '..');
   const known = [
     'app/dashboard/[eventId]/studio/papic/_components/add-to-library.tsx',
@@ -200,11 +219,10 @@ test('8 · exactly three things record a capture — a fourth must gate the writ
     found,
     known.slice().sort(),
     `the set of capture recorders changed:\n  expected ${known.join('\n           ')}\n  found    ${found.join('\n           ')}\n\n` +
-      `If a NEW one adds photos BY HAND: it must read events.papic_uploads_open ` +
-      `ON THE SERVER before writing, not merely hide its button — and the OFF ` +
-      `copy on the switch ("Nothing can be added from a phone or laptop") stops ` +
-      `being true until it does. Then delete the events.papic_uploads_open line ` +
-      `from tests/db/handles-have-gates.baseline.txt, which says this switch's ` +
-      `effect is local.`,
+      `If a NEW one adds photos BY HAND it must go through the SAME gate — ` +
+      `papicManualUploadsClosed, keyed on the seat, called before the write and ` +
+      `before the presign. Hiding a button is not closing a door. Until it does, ` +
+      `the OFF copy ("Nothing can be added from a phone or laptop") is a promise ` +
+      `the product does not keep.`,
   );
 });

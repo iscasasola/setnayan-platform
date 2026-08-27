@@ -287,6 +287,11 @@ function readable(code: string | undefined): string {
       return 'Your camera dates have finished.';
     case 'clip_too_long':
       return 'That clip is longer than 10 seconds.';
+    // The switch is now read on the SERVER too, so this refusal is reachable —
+    // a stale page, a second tab, or a call that never went near the button. It
+    // names the control, which is on this same screen.
+    case 'uploads_closed':
+      return 'Adding photos by hand is switched off — turn it back on above.';
     case 'too_fast':
       return 'Slow down a moment and try that one again.';
     case 'unauthenticated':

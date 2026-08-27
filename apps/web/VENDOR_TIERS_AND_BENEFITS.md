@@ -126,31 +126,7 @@ _⚠ Enterprise is NO LONGER ∞ on these axes. Cap numbers **owner-confirmed 20
 
 > **All tier caps are MAXIMUM CEILINGS, not defaults** (owner 2026-07-01). A higher tier only *raises the limit* — the vendor operates below it by choice; nothing is forced. The events cap is scoped **per category** (⚠ code's current axis is `slotsPerDay` = per-day; dashboard to reconcile "events per category" vs the per-day slot model when wiring).
 
-### ✦ CUSTOM — 🔴 RETIRED 2026-08-27 (owner) · was "Talk to us" (negotiated · from ₱8,999/28d)
-
-> 🔴 **RETIRED BY OWNER RULING, 2026-08-27. ENTERPRISE IS NOW THE TOP PURCHASABLE
-> TIER.** All six Custom catalogue rows (`vendor_custom_base` ₱8,999 ·
-> `vendor_custom_reach_nationwide` ₱2,499 · `vendor_custom_domain` ₱499 ·
-> `vendor_custom_event_slot` ₱499 · `vendor_custom_reach_step` ₱499 ·
-> `vendor_custom_photo_pack` ₱99) are `is_active = false` as of migration
-> `20271171000513`. Anyone needing more than Enterprise's caps is handled **by
-> hand, off-platform** — there is no priced ladder above Enterprise any more.
->
-> 🔒 **The tier CONCEPT is not deleted.** `vendor_tier_rank()` still ranks
-> `custom` at 6 and the `vendor_tier_state` enum still carries the value —
-> retiring what can be BOUGHT was the ruling; removing the tier would put the
-> no-silent-downgrade guard at risk for nothing. Production held **zero** vendors
-> on custom when this was applied (two profiles, both `solo`).
->
-> 🚨 **AND THE FLAG ALONE DOES NOT CLOSE THE DOOR — this is unfinished, not done.**
-> `lib/vendor-custom-catalog.ts` substitutes a hardcoded literal for any of these
-> rows that goes missing, and its own docblock says deactivating a row *"is not a
-> retirement"*. The vendor-side configurator is still linked from
-> `/vendor-dashboard/subscription` and still quotes the same numbers. Closing it
-> for real means deleting the axes from `CUSTOM_SKU_CODES` and
-> `CUSTOM_UNIT_PRICE_FALLBACK`. **Everything below this banner is HISTORY — the
-> record of how Custom was designed and priced. Do not read it as live.**
-
+### ✦ CUSTOM — "Talk to us" (negotiated · from ₱11,000/28d)
 For franchises and chains beyond Enterprise caps: **more branches · more seats · more capacity**, plus a dedicated account manager. Composed as **Enterprise + ₱999 branches + overflow units + white-glove** (owner 2026-07-03). Multi-brand houses are NOT a Custom composition — one vendor account per brand. **Quotes are computed from the §11 rate card (numbers partially owner-decided; remainder pending sign-off), not invented per deal.**
 
 ---
@@ -234,7 +210,7 @@ _Append a dated entry whenever you change something the other session relies on.
 - **2026-07-04 · strategy session — HQ DISCOUNT + QUOTE-CONTENTS spec added to Stage 2 (owner).** (1) Admin can apply a per-org **discount as amount (₱) or rate (%)** per cycle — applied to the charm-rounded list, re-charmed, annual = 10× discounted; admin-only, surfaced on the vendor quote as an explicit partner-discount line. (2) **Quote leads with the composition** ("they will see what they get for this price") — benefits itemized in plain words before the price; same composition in the payment-instructions email + acceptance screen. Prototype re-published: HQ discount control (₱/% chips + input, live in the breakdown) and "Send quote" now renders the vendor-facing quote preview.
 
 - **2026-07-04 · strategy session — CUSTOM RUNS AS ENTERPRISE for all features, automatically (owner).** Stage-2 provisioning spec gains the entitlement rule: `custom` resolves to Enterprise for every feature gate; only numeric caps come from the purchased composition. Build-audit item added: sweep hard `tier==='enterprise'` equality checks → rank/caps-derived, so Custom inherits every current AND future Enterprise feature with zero per-surface work.
-- **2026-08-27 · price-sheet session — CUSTOM TIER RETIRED; ENTERPRISE IS THE TOP PURCHASABLE TIER (owner).** All six `vendor_custom_*` catalogue rows set `is_active = false` (migration `20271171000513`). Anyone above Enterprise's caps is handled by hand, off-platform. `vendor_tier_rank()` and the `vendor_tier_state` enum are deliberately **untouched** — retiring what can be bought is the ruling; deleting the tier is not. Verified against production first: **zero** vendors on custom (two profiles, both `solo`), so no rank can move. Same session repriced Enterprise **₱8,000 → ₱10,000 / 28d** and **₱80,000 → ₱104,000 / yr**, Solo annual **₱10,000 → ₱10,400**, Pro annual **₱25,000 → ₱26,000**, additional branch **₱999 → ₱1,000**, 3D Booth **₱1,500 → ₱2,500**. Every annual figure is exactly `28-day × 10.4` (thirteen periods, 20% off) — recorded as an observation, never encoded. **⚠ STILL OPEN, reported not built:** the `is_active` flag does NOT close the Custom door — `lib/vendor-custom-catalog.ts` falls back to hardcoded literals for a missing row and the configurator is still linked from the subscription page; closing it means deleting the axes from `CUSTOM_SKU_CODES` + `CUSTOM_UNIT_PRICE_FALLBACK`. **⚠ ALSO OPEN:** the four annual ADD-ON prices the owner's sheet gives (branch ₱10,400 · seat ₱2,600 · Vendor AI ₱15,600 · 3D Booth ₱26,000) were **not created** — every add-on term is a hardcoded 28 days and `create_vendor_subscription` raises `UNMAPPED_SKU_TIER` for any non-tier SKU, so a priced annual add-on row could take money and grant a 28-day window.
+- **2026-08-27 · price-sheet session — VENDOR REPRICE; and the CUSTOM RETIREMENT that was ruled and REVERSED the same day.** **Repriced** (migration `20271171000513`): Enterprise **₱8,000 → ₱10,000 / 28d** and **₱80,000 → ₱104,000 / yr** · Solo annual **₱10,000 → ₱10,400** · Pro annual **₱25,000 → ₱26,000** · Additional Branch **₱999 → ₱1,000** · 3D Booth **₱1,500 → ₱2,500**. Every annual is exactly `28-day × 10.4` (thirteen periods, 20% off) — recorded as an observation, never encoded. **⚖ CUSTOM STAYS LIVE, above Enterprise, as originally designed.** The owner first ruled the tier retired; building it surfaced the fact that killed the ruling, and he reversed it the same day, before anything was applied. 🔑 **THE DURABLE LESSON, and the reason this entry exists: AN `is_active` FLIP IS NOT A RETIREMENT WHEN A CODE-SIDE FALLBACK EXISTS.** `lib/vendor-custom-catalog.ts` reads these rows with `.eq('is_active', true)` and then substitutes a **hardcoded literal** for any row that comes back missing — its own docblock already said, in terms, that deactivating a row *"is not a retirement"* and that the axis *"keeps quoting, at the same price, with the catalog saying it is off."* So the flag would have produced a HALF state: `/vendors` and the homepage stop showing Custom (they filter `is_active`, and `customFrom` has no peso fallback), while the configurator — still linked from `/vendor-dashboard/subscription` — keeps quoting and keeps selling it. A tier invisible to shoppers and fully buyable by anyone already inside. Owner, shown that: a supplier must see exactly what they can buy, and he would rather Custom stay genuinely on sale than ship a tier that looks retired and is not. **Before retiring any catalogue row, grep for a reader that supplies a literal when the row goes missing.** **⚠ ALSO OPEN, unrelated:** the four annual ADD-ON prices on the same sheet (branch ₱10,400 · seat ₱2,600 · Vendor AI ₱15,600 · 3D Booth ₱26,000) were **not created** — every add-on term is a hardcoded 28 days and `create_vendor_subscription` raises `UNMAPPED_SKU_TIER` for any non-tier SKU, so a priced annual add-on row would take the money and grant a 28-day window. **⚠ AND A PRICE CONFLICT:** the ₱2,500 booth figure is what a vendor pays only while `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` is OFF; flipping it makes the in-code tiered matrix (₱2,000 entry / ₱1,500 growth) win and the owner's ₱2,500 is ignored. Reconcile before that flag goes on.
 
 ## 6 · Verification audit (2026-07-01 · origin/main HEAD `3dec2cb`)
 
@@ -329,15 +305,7 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 - **Pending (owner-specified, NOT built):** Enterprise-only **paid extra seats at +₱500/28d each** beyond the base 10. Needs a `vendor_billing_catalog` add-on SKU + a purchased-seat count + effective-cap wiring (`base + purchased`) + a Team "Add seat" CTA + admin reconcile — and a billing-lifecycle decision (co-terminate with the Enterprise sub vs. independent per-seat renewal; lapse behavior). Held for owner sign-off before build.
 - ✅ **Seat-price conflict RESOLVED (owner 2026-07-04): ₱250/28d.** The ₱500 figure above is dead. **PR #2623 merges as-is** (auto-merge armed 2026-07-04); §11's rate card uses ₱250.
 
-## 11 · Custom tier rate card — 🔴 RETIRED 2026-08-27 (history only)
-
-> 🔴 **THE WHOLE OF §11 IS HISTORY.** The Custom tier was retired by owner ruling
-> on 2026-08-27; Enterprise is now the top purchasable tier. The rate card below
-> is kept because it records how the numbers were reasoned and signed, not
-> because any of it is on sale. See the banner on the §2 Custom card for what was
-> actually changed, and for the one thing that is still open.
-
-_Original heading: Custom tier rate card (PROPOSED 2026-07-03 · owner sign-off pending)_
+## 11 · Custom tier rate card (PROPOSED 2026-07-03 · owner sign-off pending)
 
 > **Why:** companies ask for a custom tier and we have no way to hand them a price — the §2 Custom card is a contact prompt with nothing behind it. This section makes Custom **quotable in minutes, from a formula, not per-deal improvisation**. Stage 1 = quote by hand from this card; Stage 2 = HQ admin quote builder computes it (build brief goes out only after the numbers below are signed). All values are **provisional** per the admin-managed-pricing + holistic-review locks — the rate card defines the *structure*; amounts stay editable in the admin catalog.
 
@@ -347,7 +315,7 @@ _Original heading: Custom tier rate card (PROPOSED 2026-07-03 · owner sign-off 
 
 | Component | Price/28d | What it includes |
 |---|---|---|
-| **Custom base** | **₱8,999** ✅ | Everything in Enterprise (main address included; no bundled extra branches) · dedicated account manager · quarterly business review · priority dispute handling · negotiated onboarding (**owner-decided 2026-07-04**: lean base = Enterprise ₱7,499 + ₱1,500 white-glove premium; the ₱14,999 "incl. 3 branches" base is DELETED — it created a dead zone above Enterprise) |
+| **Custom base** | **₱11,000** ✅ (owner 2026-08-27 · was ₱8,999) | Everything in Enterprise (main address included; no bundled extra branches) · dedicated account manager · quarterly business review · priority dispute handling · negotiated onboarding (**owner-decided 2026-07-04**: lean base = Enterprise ₱7,499 + ₱1,500 white-glove premium; the ₱14,999 "incl. 3 branches" base is DELETED — it created a dead zone above Enterprise) |
 | Additional branch (2nd onward) | **+₱999** ✅ | Another address / service-area listing; shares the org's cap pool (**owner-decided 2026-07-03**) |
 | Extended reach | **+₱499 per +100 km** · Nationwide flat **+₱2,499** ✅ | 100 km included in the base (**owner-decided 2026-07-04: Enterprise reach = 100 km**, superseding the 2026-07-01 "nationwide" cap — reach beyond 100 km is Custom revenue) |
 | Extra seat (beyond the org's 10) | **+₱250** ✅ | Reuses the Enterprise extra-seat add-on (**owner-decided 2026-07-04** — the §10 ₱500 figure is dead; PR #2623 merges as-is) |
@@ -360,11 +328,14 @@ _Original heading: Custom tier rate card (PROPOSED 2026-07-03 · owner sign-off 
 
 1. `raw = base + Σ(units)`
 2. **Charm-round UP** to the next ‑99 ending (e.g. ₱19,997 → ₱19,999).
-3. **Floor:** never below the ₱8,999 base (the white-glove premium is the point of Custom).
+3. **Floor:** never below the **₱11,000** base (the white-glove premium is the point of Custom).
+   ⚠ **AND NEVER BELOW ENTERPRISE'S 28-DAY PRICE, WHICH IS THE RULE THAT ACTUALLY BINDS.** On 2026-08-27 Enterprise rose to ₱10,000 while this base sat at ₱8,999, so the tier above cost ₱1,001 LESS than the tier below. That is now enforced by `apps/web/tests/db/custom-sits-above-enterprise.db.test.ts`, which reads both prices out of the catalog and fails the build — **this line is the reasoning, the test is the enforcement.** A prediction of exactly this inversion sat unactioned in `Vendor_Subscription_Ladder_2026-07-22.md` for five weeks; a note in a document cannot fail a build.
 4. **Annual = 10 × the 28-day quote** — same 13-cycles-pay-10 (3 free cycles) math as the rest of the ladder. Annual-first sales motion for Custom.
 5. **Tax-aware floor check** (`price ≥ (cost + margin) ÷ 0.663`): trivially cleared — branches/seats are pure-margin digital; the photo unit is the sole near-cost line and is priced as such on purpose.
 
 ### Worked examples
+
+> ⚠ **THE WORKED EXAMPLES BELOW ARE ARITHMETIC OFF THE OLD ₱8,999 BASE (and the old ₱999 branch) AND ARE KEPT AS LINEAGE — DO NOT QUOTE ONE.** They show the SHAPE of a Custom quote, not a current price. The live figures are the catalog's, and the configurator computes them; re-doing these sums by hand here would just create another copy to go stale.
 
 - **5-branch catering franchise (standard caps):** 8,999 + 4 × 999 = 12,995 → **₱12,999/28d · ₱129,999/yr**.
 - **5-branch franchise scaling up** (30 seats · 600 photos): 12,995 + 20 × 250 + 3 × 99 = 18,292 → **₱18,299/28d** (seat line pending the ₱250/₱500 pick).
@@ -398,7 +369,7 @@ Brief goes to an Opus implementation agent once the remaining sign-off numbers a
 
 All numbers locked (decision trail: 2026-07-03 branches/brand · 2026-07-04 base, reach, seat, units, billing):
 
-- **Base ₱8,999/28d** — Enterprise + white-glove (account manager · QBR · priority disputes · negotiated onboarding); main address + 100 km reach included.
+- **Base ₱11,000/28d** (owner 2026-08-27 · was ₱8,999) — Enterprise + white-glove (account manager · QBR · priority disputes · negotiated onboarding); main address + 100 km reach included.
 - **+₱999** per additional branch (2nd onward, listing-only, shared cap pool).
 - **+₱499 per +100 km reach · Nationwide flat +₱2,499** — Enterprise re-capped at **100 km** (supersedes the 2026-07-01 "nationwide" cap).
 - **+₱250** per extra seat (PR #2623 merges as-is; §10's ₱500 is dead).

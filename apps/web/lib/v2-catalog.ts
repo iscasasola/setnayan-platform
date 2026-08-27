@@ -322,20 +322,29 @@ export const getVendorPrices = cache(async () => {
   const save = (mo: number | null, yr: number | null, fb: string) =>
     mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
   // Fallback strings/numbers mirror the LIVE vendor_billing_catalog ladder
-  // (Solo ₱1,000/₱10,000 · Pro ₱2,500/₱25,000 · Enterprise ₱8,000/₱80,000 —
-  // round-number reprice 2026-07-22) so a DB-unreachable build never renders a
+  // (Solo ₱1,000/₱10,400 · Pro ₱2,500/₱26,000 · Enterprise ₱10,000/₱104,000 —
+  // owner price sheet 2026-08-27) so a DB-unreachable build never renders a
   // stale price. They only ever surface if the catalog read returns empty —
   // the live read wins.
+  //
+  // ⚠ THE THREE `…AnnualSave` FALLBACKS ARE DERIVED, NOT CHOSEN: 28d × 13 − annual
+  // (₱2,600 · ₱6,500 · ₱26,000 — exactly 20% on each, because annual is now
+  // 28d × 10.4 rather than × 10). Re-derive them whenever a price above moves;
+  // they went stale once already, quoting the old ~23% ladder's savings.
+  // ⛔ `branch` deliberately still reads ₱999: it mirrors `vendor_branch_28day`,
+  // which the 2026-08-27 sheet did NOT reprice — its near-twin
+  // `vendor_additional_branch` (the row that actually CHARGES) went to ₱1,000.
+  // That ₱1 gap is a known, reported defect, not a typo here.
   return {
     soloMonthly: fmt(soloMo, '₱1,000'),
-    soloAnnual: fmt(soloYr, '₱10,000'),
-    soloAnnualSave: save(soloMo, soloYr, '₱3,000'),
+    soloAnnual: fmt(soloYr, '₱10,400'),
+    soloAnnualSave: save(soloMo, soloYr, '₱2,600'),
     proMonthly: fmt(proMo, '₱2,500'),
-    proAnnual: fmt(proYr, '₱25,000'),
-    proAnnualSave: save(proMo, proYr, '₱7,500'),
-    enterpriseMonthly: fmt(entMo, '₱8,000'),
-    enterpriseAnnual: fmt(entYr, '₱80,000'),
-    enterpriseAnnualSave: save(entMo, entYr, '₱24,000'),
+    proAnnual: fmt(proYr, '₱26,000'),
+    proAnnualSave: save(proMo, proYr, '₱6,500'),
+    enterpriseMonthly: fmt(entMo, '₱10,000'),
+    enterpriseAnnual: fmt(entYr, '₱104,000'),
+    enterpriseAnnualSave: save(entMo, entYr, '₱26,000'),
     branch: fmt(branch, '₱999'),
     /** `null` when unreadable — callers render the bare label, never a guess. */
     customFrom: customBase == null ? null : `₱${formatPeso(customBase)}`,
@@ -343,11 +352,11 @@ export const getVendorPrices = cache(async () => {
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     num: {
       soloMonthly: soloMo ?? 1000,
-      soloAnnual: soloYr ?? 10000,
+      soloAnnual: soloYr ?? 10400,
       proMonthly: proMo ?? 2500,
-      proAnnual: proYr ?? 25000,
-      enterpriseMonthly: entMo ?? 8000,
-      enterpriseAnnual: entYr ?? 80000,
+      proAnnual: proYr ?? 26000,
+      enterpriseMonthly: entMo ?? 10000,
+      enterpriseAnnual: entYr ?? 104000,
     },
   };
 });

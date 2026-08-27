@@ -43,10 +43,24 @@ export const CUSTOM_SKU_CODES = Object.freeze({
  * math and both configurators — NOT by flipping `is_active`, which would have
  * changed nothing while looking like it had.
  * To retire any other axis: delete it here too, or it survives.
+ *
+ * 🚨 AND IT IS ALSO A BACK DOOR UNDER THE LADDER — 2026-08-27, the day this was
+ * nearly proved the hard way. `base` sat at 8999 while the owner raised
+ * Enterprise to ₱10,000 and Custom's catalog row to ₱11,000 to stay above it.
+ * A missing / inactive / unreadable Custom base row would have made the quote
+ * fall back to ₱8,999 and put the "tier above Enterprise" ₱1,001 BELOW it again
+ * — through a door no catalog-only check can see. Both drifted literals were
+ * corrected in the same change (`base` 8999 → 11000, `branch` 999 → 1000).
+ *
+ * ⛔ SO EVERY NUMBER BELOW IS A SECOND COPY OF A CATALOG PRICE AND MUST MOVE
+ * WITH IT. `custom-sits-above-enterprise.db.test.ts` now enforces exactly that:
+ * it asserts this object agrees with the live catalog axis-by-axis, AND that
+ * this `base` — not just the catalog's — is above Enterprise's 28-day price. A
+ * reprice that edits only the migration fails the build.
  */
 export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
-  base: 8999,
-  branch: 999,
+  base: 11000,
+  branch: 1000,
   reachStep: 499,
   reachNationwide: 2499,
   seat: SEAT_FEE_PHP, // 250

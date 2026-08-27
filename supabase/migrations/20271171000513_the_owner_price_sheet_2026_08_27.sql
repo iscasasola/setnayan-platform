@@ -67,41 +67,122 @@
 --   rule engine. A stored second copy of a pricing rule is how prices drift,
 --   and the owner must stay free to break the relationship on any single row.
 --
--- VENDOR CUSTOM TIER — RETIRED, all six purchasable rows
---   vendor_custom_base             ₱8,999 → off sale
---   vendor_custom_reach_nationwide ₱2,499 → off sale
---   vendor_custom_domain             ₱499 → off sale
---   vendor_custom_event_slot         ₱499 → off sale
---   vendor_custom_reach_step         ₱499 → off sale
---   vendor_custom_photo_pack          ₱99 → off sale
+-- VENDOR CUSTOM TIER — RULED RETIRED, THEN REVERSED THE SAME DAY. UNTOUCHED HERE.
 --
---   Owner's ruling: ENTERPRISE BECOMES THE TOP PURCHASABLE TIER. Anyone needing
---   more than Enterprise's caps is handled by hand, off-platform.
+--   All six Custom rows STAY ON SALE. Five of them — the add-on axes — are not
+--   touched or even named here. The sixth, the base fee, is REPRICED (below),
+--   and that is the only Custom change in this file.
 --
---   🔒 THE TIER CONCEPT IS NOT REMOVED, DELIBERATELY. `vendor_tier_rank()` still
---   ranks 'custom' at 6 and the vendor_tier_state enum still carries the value.
---   Read out of production before writing this: the function names every enum
---   value explicitly and its ELSE arm exists precisely so an unranked value
---   fails CLOSED. Retiring what can be BOUGHT is the ruling; deleting the tier
---   concept is not, and touching the rank function would put the no-silent-
---   downgrade guard at risk for no gain.
---   Measured: production holds TWO vendor profiles and BOTH are `solo`. Nobody
---   is on custom, so no vendor's rank can move because of this.
+--   ⛔ AND THERE IS NO ASSERTION HERE PINNING THEM ON SALE, on purpose. One was
+--   written and removed: it would have made a PRICE migration fail forever the
+--   day the owner legitimately retires one of those rows, and the replay runs
+--   this file on every db test. A migration must not hold an unrelated product
+--   hostage to prove it did not touch it. The inversion rule below is guarded in
+--   the test suite instead, which is where a standing rule belongs.
 --
---   🚨 AND THIS FLAG DOES NOT CLOSE THE CUSTOM DOOR. Say it here because the
---   next reader will assume it does. `lib/vendor-custom-catalog.ts` reads these
---   rows with `.eq('is_active', true)` and substitutes a hardcoded literal for
---   any row that goes missing — its own docblock says, in terms, that
---   deactivating a row "is not a retirement" and that the axis "keeps quoting,
---   at the same price, with the catalog saying it is off." The vendor-side
---   Custom configurator is still linked from the subscription page and still
---   quotes ₱8,999 + the add-on axes off those fallbacks. Closing it for real
---   means deleting the axes from CUSTOM_SKU_CODES and CUSTOM_UNIT_PRICE_FALLBACK
---   — a separate change, reported to the owner rather than smuggled in here.
---   What this migration DOES achieve on the customer-visible side: `/vendors`
---   and the homepage read through `fetchV2VendorCatalog`, which filters
---   `is_active`, and `getVendorPrices` gives `customFrom` NO peso fallback — so
---   the public "from ₱8,999" figure disappears the moment this applies.
+-- CUSTOM BASE — REPRICED, BECAUSE TODAY'S ENTERPRISE RAISE INVERTED THE LADDER
+--   vendor_custom_base  ₱8,999 → ₱11,000  (owner 2026-08-27)
+--
+--   🚨 THE RAISE IN THIS SAME FILE CREATED A LIVE INVERSION. Enterprise went to
+--   ₱10,000 while the Custom base — documented everywhere as "the unlimited tier
+--   ABOVE Enterprise" — sat at ₱8,999. The tier above cost ₱1,001 LESS than the
+--   tier below it. Caught before anyone could act on it: production holds two
+--   vendor profiles and BOTH are `solo`, so nobody was ever quoted the inverted
+--   ladder.
+--
+--   ⚠ THIS WAS PREDICTED AND THE PREDICTION WAS NOT A MECHANISM.
+--   `Vendor_Subscription_Ladder_2026-07-22.md:27` already carried
+--   "⚠ With Enterprise now ₱8,000, round Custom's floor to ₱9,000 for
+--   consistency." Nobody actioned it, and a note in a document cannot fail a
+--   build. That is exactly why the rule now lives in
+--   `apps/web/tests/db/custom-sits-above-enterprise.db.test.ts`, which derives
+--   BOTH figures from the catalog and fails if the base ever falls to or below
+--   Enterprise's 28-day price. The doc records the reasoning; the guard holds it.
+--
+--   🔴 AN OPEN OWNER QUESTION IS ATTACHED TO THIS NUMBER — SEE THE REPORT.
+--   ₱11,000 follows the ₱1,000-above-Enterprise shape of that 07-22 note. But
+--   the SIGNED rate card states a different and stronger construction, and they
+--   disagree: "owner-decided 2026-07-04: lean base = Enterprise ₱7,499 + ₱1,500
+--   white-glove premium" (VENDOR_TIERS_AND_BENEFITS.md §11), which is literally
+--   how the live ₱8,999 was derived, and whose floor note says "the white-glove
+--   premium is the point of Custom". Applied to Enterprise ₱10,000 that rule
+--   gives ₱11,500, not ₱11,000 — and it also shows the 07-22 note was already
+--   off its own precedent (₱8,000 + ₱1,500 = ₱9,500, not ₱9,000). ₱11,000 is
+--   written here because it is what the owner ruled TODAY and a number is his to
+--   set; the ₱500 discrepancy is surfaced rather than silently "corrected", and
+--   moving it is a one-line edit while this branch is unmerged.
+--
+--   ⛔ THE FIVE ADD-ON AXES ARE UNCHANGED (₱99 · ₱499 ×3 · ₱2,499). The
+--   inversion is about the ENTRY price; the axes sit on top of it.
+--
+--   ✅ AND THE BASE IS GENUINELY THE FLOOR — checked in the quote math, not
+--   assumed. `computeCustomQuote` charm-rounds, then floors at base, and the
+--   per-org admin DISCOUNT is floored at base too
+--   (`final28 = Math.max(charmRoundUp(discounted), p.base)`), so neither a
+--   composition nor a discount can quote a Custom plan below the base. Raising
+--   the base therefore closes the inversion on every self-serve and admin quote
+--   path. The one thing outside it is a hand-written org-scoped catalog row
+--   (§11 "Stage 1 — manual"), which is a negotiated deal, not a product path.
+--
+--   🔑 WHY THIS PARAGRAPH EXISTS AT ALL, AND WHY IT IS THE MOST USEFUL THING IN
+--   THIS FILE. Earlier on 2026-08-27 the owner ruled the Custom tier retired and
+--   this migration deactivated all six rows. Building it surfaced the fact that
+--   KILLED the ruling: **flipping is_active does not retire this product.**
+--   `lib/vendor-custom-catalog.ts` reads these rows with `.eq('is_active', true)`
+--   and then substitutes a HARDCODED LITERAL for any row that comes back
+--   missing — so every axis keeps quoting at exactly the same price with the
+--   catalog saying it is off. Its own docblock had already written this down, in
+--   terms: deactivating a row "is not a retirement"; the axis "keeps quoting, at
+--   the same price, with the catalog saying it is off."
+--
+--   So the flag produced a HALF state, not a retirement: `/vendors` and the
+--   homepage would have stopped showing Custom (they read through
+--   `fetchV2VendorCatalog`, which filters is_active, and `customFrom` has no
+--   peso fallback), while the vendor-side configurator — still linked from
+--   /vendor-dashboard/subscription — kept quoting and kept selling it. A tier
+--   invisible to shoppers and fully buyable by anyone already inside.
+--
+--   Shown that, the owner reversed himself the same day: a supplier must see
+--   exactly what they can buy, and he would rather Custom stay genuinely on sale
+--   than ship a tier that looks retired and is not. ⚖ ONE decision, reversed
+--   before anything applied — which is why this file was EDITED rather than
+--   given a second statement putting the rows back. A retire-then-restore pair
+--   would read in the audit trail as two owner rulings when there was one.
+--
+--   ⛔ THE DURABLE RULE, because it will be re-learned otherwise: AN is_active
+--   FLIP IS NOT A RETIREMENT WHEN A CODE-SIDE FALLBACK EXISTS. Before retiring
+--   any catalog row, grep for a reader that supplies a literal when the row goes
+--   missing. If one exists, the flag hides the product from the people who have
+--   not bought it and changes nothing for the people who can.
+--
+--   🔒 `vendor_tier_rank()` and the vendor_tier_state enum were never touched at
+--   any point in this, so there is nothing to undo there either.
+--
+-- THE THREE ANNUAL TITLES NOW STATE A DISCOUNT WE DO NOT GIVE — RETITLED
+--
+--   🚨 THE MULTIPLIER MOVED AND THE PROMISE IN THE NAME DID NOT. Production
+--   billed annual at 28-day × 10 (13 cycles for 10) — about 23% off, or "12
+--   weeks free". The owner's sheet moves every annual to × 10.4, which is
+--   exactly 20% off, or 10.4 weeks. Three row TITLES carried the OLD figure as a
+--   customer-facing claim about money:
+--
+--     solo_vendor_annual        "… (Annual · save 12 weeks)"
+--     pro_vendor_annual         "… (Annual · save ~23%)"
+--     enterprise_vendor_annual  "… (Annual · save ~23%)"
+--
+--   Shipping the new prices under those names advertises a discount we no longer
+--   give. All three now say "save 20%".
+--
+--   ⚖ WHY A PERCENTAGE AND NOT "10.4 weeks". The saving is EXACTLY 20% on all
+--   three (13,000 vs 10,400 · 32,500 vs 26,000 · 130,000 vs 104,000), so the
+--   percentage is precise, uniform and needs no rounding weasel. "10.4 weeks" is
+--   arithmetically identical but reads like a fake-precise number, and the "~"
+--   the old titles needed is exactly what a clean figure avoids.
+--
+--   ⚠ THE SAME CLAIM IS ALSO RENDERED IN TWO PLACES THAT ARE NOT THIS TABLE and
+--   they move in the same change: the annual badge on the subscription cards and
+--   the cycle-toggle hint both hardcoded "12 weeks". The per-tier peso saving
+--   beside them is COMPUTED (28d x 13 - annual), so it re-derives on its own.
 --
 -- ⛔ NOT IN THIS FILE, ON PURPOSE:
 --   · `vendor_photo_challenge` — the sheet prices it ₱2,500/4wk + ₱26,000/yr,
@@ -182,26 +263,47 @@ UPDATE public.vendor_billing_catalog v
  WHERE v.sku_code = r.sku_code
    AND v.price_php IS DISTINCT FROM r.php;
 
--- ── 5 · the Custom tier comes off sale ──────────────────────────────────────
--- 🔑 ONE CODE PER LINE. gitleaks' generic-api-key rule reads a single-line
--- `IN ('A','B','C')` list of upper/underscore identifiers as a leaked
--- credential; it has fired on exactly this shape in this repo before. Splitting
--- the list removes the trigger instead of muting it with an allowlist entry
--- that would break again the next time a line moved.
+-- ── 5 · the three annual titles stop promising the old discount ────────────
+-- A TITLE IS CUSTOMER-FACING COPY, not a label. These three state the saving in
+-- the product name, so a price change that leaves them alone ships a false
+-- promise. Matched on the OLD text so a re-run cannot clobber a later rename.
+--
+-- 🔑 THE PATTERN IS '%23%' — CONTAINS "23" — AND THAT IS DELIBERATE, NOT LAZY.
+-- The first draft wrote '%23%%' meaning "a literal percent sign". In a LIKE
+-- pattern '%%' is NOT an escape (that rule belongs to RAISE / format), so it
+-- parsed as two wildcards and matched only by accident. Matching on "23"
+-- inside a WHERE already scoped to one sku_code is unambiguous, so the simple
+-- pattern is both correct and honest about what it tests.
 UPDATE public.vendor_billing_catalog
-   SET is_active  = FALSE,
+   SET title      = 'Solo Vendor (Annual · save 20%)',
        updated_at = NOW()
- WHERE sku_code IN (
-         'vendor_custom_base',
-         'vendor_custom_reach_nationwide',
-         'vendor_custom_domain',
-         'vendor_custom_event_slot',
-         'vendor_custom_reach_step',
-         'vendor_custom_photo_pack'
-       )
-   AND is_active;
+ WHERE sku_code = 'solo_vendor_annual'
+   AND title LIKE '%12 weeks%';
 
--- ── 6 · refuse to apply if any of it did not take ───────────────────────────
+UPDATE public.vendor_billing_catalog
+   SET title      = 'Pro Vendor (Annual · save 20%)',
+       updated_at = NOW()
+ WHERE sku_code = 'pro_vendor_annual'
+   AND title LIKE '%23%';
+
+UPDATE public.vendor_billing_catalog
+   SET title      = 'Enterprise Vendor (Annual · save 20%)',
+       updated_at = NOW()
+ WHERE sku_code = 'enterprise_vendor_annual'
+   AND title LIKE '%23%';
+
+-- ── 6 · the Custom base rises above Enterprise ──────────────────────────────
+-- Kept as its OWN statement rather than a seventh row in _vendor_reprice,
+-- because it is not part of the price sheet: it is the correction the sheet's
+-- own Enterprise raise made necessary. A future reader diffing this file should
+-- be able to see that distinction without reading the commit message.
+UPDATE public.vendor_billing_catalog
+   SET price_php  = 11000.00,
+       updated_at = NOW()
+ WHERE sku_code = 'vendor_custom_base'
+   AND price_php IS DISTINCT FROM 11000.00;
+
+-- ── 7 · refuse to apply if any of it did not take ───────────────────────────
 -- 🔑 A MIGRATION THAT SILENTLY MATCHED NOTHING IS THE SHAPE THIS PROJECT KEEPS
 -- PAYING FOR. Every statement above is a conditional UPDATE, so a mistyped code
 -- would match zero rows, commit green, and leave the price exactly as it was
@@ -262,30 +364,32 @@ BEGIN
     RAISE EXCEPTION 'vendor reprice did not take: %', v_bad;
   END IF;
 
-  -- The Custom tier is off sale, and Enterprise is still on it.
-  IF EXISTS (
-    SELECT 1 FROM public.vendor_billing_catalog
-     WHERE is_active
-       AND sku_code IN (
-             'vendor_custom_base',
-             'vendor_custom_reach_nationwide',
-             'vendor_custom_domain',
-             'vendor_custom_event_slot',
-             'vendor_custom_reach_step',
-             'vendor_custom_photo_pack'
-           )
-  ) THEN
-    RAISE EXCEPTION 'a Custom-tier row is still on sale';
+  -- No annual row may still advertise the retired discount.
+  SELECT string_agg(sku_code || ' => ' || title, ', ')
+    INTO v_bad
+    FROM public.vendor_billing_catalog
+   WHERE offering_type = 'subscription_annual'
+     AND (title LIKE '%12 weeks%' OR title LIKE '%23%');
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION
+      'an annual row still promises the old ~23%% / 12-weeks discount, but annual is now 20%%: %', v_bad;
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM public.vendor_billing_catalog
-     WHERE is_active AND sku_code = 'enterprise_vendor_monthly'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM public.vendor_billing_catalog
-     WHERE is_active AND sku_code = 'enterprise_vendor_annual'
-  ) THEN
-    RAISE EXCEPTION 'Enterprise must remain purchasable — it is now the top tier';
+  -- 🔑 THE INVERSION MUST BE GONE. Both figures read back out of the catalog,
+  -- never re-typed against each other — the same reason the standing guard in
+  -- the test suite derives both sides. This is the one assertion here that is
+  -- about a RELATIONSHIP rather than a value, and it is the one that would have
+  -- caught today's mistake if it had existed this morning.
+  SELECT format('custom base %s vs enterprise 28-day %s', c.price_php, e.price_php)
+    INTO v_bad
+    FROM public.vendor_billing_catalog c,
+         public.vendor_billing_catalog e
+   WHERE c.sku_code = 'vendor_custom_base'
+     AND e.sku_code = 'enterprise_vendor_monthly'
+     AND c.price_php <= e.price_php;
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION
+      'the tier above Enterprise costs the same or less than Enterprise: %', v_bad;
   END IF;
 
   -- The rungs the owner did NOT move must not have moved. Cheap, and it is the

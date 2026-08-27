@@ -242,6 +242,17 @@ export function CustomConfigurator({
             {peso(quote.final28)}
             <span className="ml-1 text-sm font-normal text-ink/55">per 28 days</span>
           </p>
+          {/*
+            ⚠ DO NOT "HARMONISE" THIS WITH THE TIER CARDS' "save 20%" — IT WOULD
+            BECOME FALSE. On 2026-08-27 the three tier annuals moved to 28-day
+            × 10.4 (exactly 20% off) while CUSTOM's annual is still × 10 —
+            13 cycles for 10, about 23% — because the owner did not rule on
+            Custom's multiplier. So the two surfaces legitimately quote
+            different discounts today, and this one deliberately states the
+            MECHANISM rather than a percentage, which stays true whatever the
+            multiplier is. The divergence is flagged for the owner; until he
+            rules, changing this line to a percentage misprices a live quote.
+          */}
           <p className="mt-1 text-sm tabular-nums text-ink/70">
             {peso(quote.annual)}
             <span className="ml-1 text-xs text-ink/50">

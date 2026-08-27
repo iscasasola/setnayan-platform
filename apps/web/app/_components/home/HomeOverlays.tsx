@@ -33,6 +33,7 @@ import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { PricingData } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
+import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
@@ -120,7 +121,14 @@ const TOTAL_VENDOR_BENEFIT_COUNT = (() => {
   );
   // The dials are LABELS, deliberately price-free, so this module-level count
   // needs no catalog read — see the docblock on VENDOR_CUSTOM_TIER.
-  const custom = VENDOR_CUSTOM_TIER.dials.length;
+  //
+  // 🔑 THE COUNT IS THE TRAP IN THIS HIDE, AND IT IS THE POINT OF THIS LINE.
+  // Custom came off the public pages on 2026-08-27, and this headline number
+  // ("N benefits") turned out to be the ONLY place in this overlay that
+  // referenced it — there is no Custom band here to remove. Left alone it would
+  // have gone on counting dials a customer can no longer see anywhere: a number
+  // quietly overstating the offer, with nothing rendering wrong to give it away.
+  const custom = CUSTOM_TIER_OFFERED_PUBLICLY ? VENDOR_CUSTOM_TIER.dials.length : 0;
   return named + custom + PLAN_CAPABILITY_ROW_COUNT;
 })();
 const TOTAL_VENDOR_BENEFIT_LABEL = TOTAL_VENDOR_BENEFIT_COUNT >= 100 ? '100+' : String(TOTAL_VENDOR_BENEFIT_COUNT);

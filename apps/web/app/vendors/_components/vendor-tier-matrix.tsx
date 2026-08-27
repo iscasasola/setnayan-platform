@@ -50,8 +50,23 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 // automatically" (TIER_CAPS.custom is the Enterprise clone), so every feature
 // row it carries the Enterprise value, and it uniquely owns the Custom-only
 // rows (extra branches, nationwide reach, negotiated ceilings, domain).
+import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
+
 type Col = 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom';
-const COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise', 'custom'];
+const ALL_COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise', 'custom'];
+
+/**
+ * The columns a CUSTOMER sees. Custom is hidden 2026-08-27 (owner: "hide
+ * customized first. let's stay with the 3 first") — see lib/custom-tier-offered.
+ *
+ * 🔑 FILTERED AT THE SOURCE ON PURPOSE. The header, the <colgroup> widths and
+ * every feature row all derive from COLS, so hiding it here removes the column
+ * from all of them at once. Gating each render site separately is how a column
+ * survives in one of them.
+ */
+const COLS: Col[] = CUSTOM_TIER_OFFERED_PUBLICLY
+  ? ALL_COLS
+  : ALL_COLS.filter((c) => c !== 'custom');
 const COL_RANK: Record<Col, number> = {
   verified: 0,
   solo: 1,
@@ -268,7 +283,14 @@ function CellView({ cell, selected }: { cell: Cell; selected: boolean }) {
 export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices }) {
   const [selected, setSelected] = useState<Col>('pro');
   const groups = useMemo(
-    () => [buildLimitsGroup(), ...buildFeatureGroups(), buildCustomOnlyGroup(prices.branch)],
+    () => [
+      buildLimitsGroup(),
+      ...buildFeatureGroups(),
+      // "Custom adds" is a block of rows that are YES on Custom and — on every
+      // other column. With the column hidden it would be a block of dashes
+      // advertising a tier nobody can see.
+      ...(CUSTOM_TIER_OFFERED_PUBLICLY ? [buildCustomOnlyGroup(prices.branch)] : []),
+    ],
     [prices.branch],
   );
 
@@ -506,11 +528,13 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
           your own clients stay free.
         </p>
 
-        {/* Custom "for those who need more" callout — the negotiated tier ABOVE
-            Enterprise. Copy from the shared VENDOR_CUSTOM_TIER constant; the
-            "from ₱X" floor is CUSTOM_FROM_PRICE (parsed from that same constant,
-            never a fresh literal). */}
-        <div
+        {/* The dark "Custom · beyond Enterprise" band lived here. Hidden
+            2026-08-27 with the column above — it is the SECOND public site
+            on this page that quoted a Custom figure, and hiding only the
+            column would have left the price on the page.
+            Restore by setting CUSTOM_TIER_OFFERED_PUBLICLY to true. */}
+        {CUSTOM_TIER_OFFERED_PUBLICLY ? (
+          <div
           className="m-cust-band"
           style={{
             background: 'var(--m-ink)',
@@ -569,6 +593,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
             </div>
           </div>
         </div>
+        ) : null}
       </div>
       <style>{`@media(max-width:720px){ .m-cust-band{grid-template-columns:1fr !important} }`}</style>
     </section>

@@ -44,6 +44,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { VENDOR_TIER_SECTIONS, customTierDialLabels } from '@/app/_components/home/vendor-benefits';
+import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
 import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
 /*
  * 🔑 THE TAPER IS DERIVED, NOT TYPED. The four other public surfaces that state
@@ -366,9 +367,12 @@ export function VendorTierDeltas({
           })}
         </div>
 
-        {/* Custom — the negotiated tier above Enterprise. Its "from" figure is
-            resolved from the live catalog, never parsed out of a label. */}
-        <article
+        {/* The Custom card is HIDDEN from customers 2026-08-27 (owner:
+            "hide customized first. let's stay with the 3 first").
+            Kept, not deleted — one flag restores it, priced from the live
+            catalog exactly as before. See lib/custom-tier-offered.ts. */}
+        {CUSTOM_TIER_OFFERED_PUBLICLY ? (
+          <article
           style={{
             background: 'var(--m-ink)',
             borderRadius: 'var(--m-r-lg)',
@@ -406,9 +410,8 @@ export function VendorTierDeltas({
               maxWidth: '70ch',
             }}
           >
-            Everything in Enterprise, automatically — then only the dials you
-            need, with a dedicated account team. For franchises, chains and
-            multi-location houses.
+            Everything in Enterprise, with its limits removed — then only the
+            dials you need. For franchises, chains and multi-location houses.
           </p>
           <ul
             style={{
@@ -435,6 +438,7 @@ export function VendorTierDeltas({
             </Link>
           </div>
         </article>
+        ) : null}
 
         {/* The grid, for the person who wants to check one row across five
             columns. Collapsed, because reading it is not how anyone decides. */}

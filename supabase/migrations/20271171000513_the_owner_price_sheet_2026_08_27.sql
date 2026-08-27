@@ -329,7 +329,35 @@ UPDATE public.vendor_billing_catalog
  WHERE sku_code = 'enterprise_vendor_annual'
    AND title LIKE '%23%';
 
--- ── 6 · the Custom dials: three rounded, two dropped ───────────────────────
+-- ── 6 · the ADVERTISED branch price catches up with the CHARGED one ────────
+--
+-- 🚨 OUR OWN REPRICE CREATED A LIVE DISCREPANCY, AND THIS CLOSES IT.
+-- "Additional Branch" exists as TWO rows, and a read-only trace settled which
+-- is which:
+--   · `vendor_additional_branch` — read by `fetchBranchFeePhp`
+--     (lib/vendor-branches.ts). THIS IS WHAT THE VENDOR IS CHARGED. Raised to
+--     ₱1,000 by section 4 above.
+--   · `vendor_branch_28day` — read by lib/v2-catalog.ts → the public /vendors
+--     tier matrix, the tier-delta cards, /pricing and llms.txt. THIS IS WHAT WE
+--     ADVERTISE. It was still ₱999.
+--
+-- Left alone, this migration would have shipped **advertise ₱999, charge
+-- ₱1,000** — worse than the duplicate we inherited, because the two would now
+-- DISAGREE. One line fixes it; the duplicate itself is not touched here.
+--
+-- ⛔ NEITHER ROW IS RETIRED IN THIS BRANCH, AND THE ORDER MATTERS.
+-- Retiring the ADVERTISED row drops the price off the public pages; retiring
+-- the CHARGED row breaks billing. The correct sequence is REPOINT-THEN-RETIRE:
+-- move the four display readers onto `vendor_additional_branch` FIRST, prove
+-- the public surfaces still render a price, and only then deactivate
+-- `vendor_branch_28day`. Doing it backwards takes a price off the marketing
+-- pages or stops the charge. That is its own piece of work.
+UPDATE public.vendor_billing_catalog
+   SET price_php = 1000.00, updated_at = NOW()
+ WHERE sku_code = 'vendor_branch_28day'
+   AND price_php IS DISTINCT FROM 1000.00;
+
+-- ── 7 · the Custom dials: three rounded, two dropped ───────────────────────
 -- One code per line — gitleaks reads a single-line IN (...) list of these as a
 -- credential.
 UPDATE public.vendor_billing_catalog
@@ -357,7 +385,7 @@ UPDATE public.vendor_billing_catalog
        )
    AND is_active;
 
--- ── 7 · the Custom base rises above Enterprise ──────────────────────────────
+-- ── 8 · the Custom base rises above Enterprise ──────────────────────────────
 -- Kept as its OWN statement rather than a seventh row in _vendor_reprice,
 -- because it is not part of the price sheet: it is the correction the sheet's
 -- own Enterprise raise made necessary. A future reader diffing this file should
@@ -368,7 +396,7 @@ UPDATE public.vendor_billing_catalog
  WHERE sku_code = 'vendor_custom_base'
    AND price_php IS DISTINCT FROM 11000.00;
 
--- ── 8 · refuse to apply if any of it did not take ───────────────────────────
+-- ── 9 · refuse to apply if any of it did not take ───────────────────────────
 -- 🔑 A MIGRATION THAT SILENTLY MATCHED NOTHING IS THE SHAPE THIS PROJECT KEEPS
 -- PAYING FOR. Every statement above is a conditional UPDATE, so a mistyped code
 -- would match zero rows, commit green, and leave the price exactly as it was
@@ -438,6 +466,22 @@ BEGIN
   IF v_bad IS NOT NULL THEN
     RAISE EXCEPTION
       'an annual row still promises the old ~23%% / 12-weeks discount, but annual is now 20%%: %', v_bad;
+  END IF;
+
+  -- 🔑 ADVERTISED AND CHARGED MUST AGREE. This is the assertion that would have
+  -- caught the discrepancy this migration nearly shipped: the public pages read
+  -- one row and billing reads another, so they are compared to each other
+  -- rather than each to a literal.
+  SELECT format('advertised %s vs charged %s', a.price_php, c.price_php)
+    INTO v_bad
+    FROM public.vendor_billing_catalog a,
+         public.vendor_billing_catalog c
+   WHERE a.sku_code = 'vendor_branch_28day'
+     AND c.sku_code = 'vendor_additional_branch'
+     AND a.price_php <> c.price_php;
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION
+      'the advertised branch price and the charged branch price disagree: %', v_bad;
   END IF;
 
   -- The three rounded dials, by the object.

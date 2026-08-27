@@ -57,7 +57,12 @@ import { fileURLToPath } from 'node:url';
 // and reports a pass. Every symbol is asserted below before anything uses it.
 import { inquiryPlaceholderLabel, GENERIC_HOST_NOUN } from './inquiry-mask';
 import { ANCHOR_BY_TYPE } from './event-anchor';
-import { defaultHostNoun, HONOREE_NOUNS, toProfile } from './event-type-profile';
+import {
+  defaultHostNoun,
+  HONOREE_NOUNS,
+  toProfile,
+  type ProfileRow,
+} from './event-type-profile';
 import { eventWordsFromProfile } from '../app/[slug]/_lib/event-words';
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -209,25 +214,26 @@ test('only a wedding opens with "A couple"', () => {
 });
 
 test('MECHANISM: host_noun wins, and a row predating it still resolves', () => {
-  const row = (terminology: Record<string, unknown>) =>
-    ({
-      event_type: 'birthday',
-      terminology,
-      enabled_surfaces: null,
-      marketplace_enabled: null,
-      event_class: null,
-      layer_mode: null,
-      multi_day: null,
-      onboarding_flow_key: null,
-      role_set_key: null,
-      template_pack_key: null,
-      monogram_set_key: null,
-      reveal_pack_key: null,
-      budget_taxonomy_key: null,
-      schedule_seed_key: null,
-      statutory_pack_key: null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
+  // Typed as the real `ProfileRow` — no `as any`. A cast here would let the
+  // fixture drift from the shape `toProfile` actually reads, which is the same
+  // "the test agrees with itself" failure this repo has paid for before.
+  const row = (terminology: Record<string, unknown>): ProfileRow => ({
+    event_type: 'birthday',
+    terminology,
+    enabled_surfaces: null,
+    marketplace_enabled: null,
+    event_class: null,
+    layer_mode: null,
+    multi_day: null,
+    onboarding_flow_key: null,
+    role_set_key: null,
+    template_pack_key: null,
+    monogram_set_key: null,
+    reveal_pack_key: null,
+    budget_taxonomy_key: null,
+    schedule_seed_key: null,
+    statutory_pack_key: null,
+  });
 
   // A row that carries its own host_noun uses it.
   assert.equal(

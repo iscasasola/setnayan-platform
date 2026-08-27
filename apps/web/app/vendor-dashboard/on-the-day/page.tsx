@@ -22,7 +22,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
 import {
@@ -66,8 +66,13 @@ export const metadata = { title: 'On the Day · Vendor' };
  *
  * Every number is wired LIVE — nothing is hardcoded to the prototype's sample:
  *   • The dark event card = the vendor's own booked event dated TODAY, resolved
- *     from fetchVendorPoolBookings (RLS-scoped) + get_vendor_event_brief (the
- *     SECURITY DEFINER booked-vendor brief RPC) for the couple / date / venue.
+ *     from fetchVendorRoomEvents + get_vendor_event_brief (the SECURITY DEFINER
+ *     booked-vendor brief RPC) for the couple / date / venue.
+ *     ⚠ THIS USED TO SAY "fetchVendorPoolBookings (RLS-scoped)" AND THAT WAS
+ *     THE BUG. The schedule pool has one writer, reached by one booking path,
+ *     so a supplier who pressed Agree, or one the couple booked by scanning a
+ *     Locked QR (money already moved), held no pool row and this screen told
+ *     them they had no event. `fetchVendorRoomEvents` asks all three.
  *   • Delivery-to-the-couple progress = the real completion handshake + the
  *     posted delivery handovers (booking_handovers) — a 3-stage derivation, not
  *     an invented percent.
@@ -182,9 +187,11 @@ export default async function VendorOnTheDayPage({
   const kind = resolveDayOfConsoleKind(profile.services);
   const today = phToday();
 
-  // The vendor's booked events (RLS-scoped) → keep the one dated TODAY. A vendor
-  // may hold several pool slots on the same event; collapse to one card/event.
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  // Every event this shop is booked on — the schedule pool PLUS the two booking
+  // paths that never write a pool row (the supplier's own Agree, and a Locked QR
+  // the couple scanned) → keep the one dated TODAY. `fetchVendorRoomEvents`
+  // already collapses to one entry per (event, date).
+  const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   const todaysBooking =
     bookings.find((b) => b.bookedDate === today) ?? null;
 

@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SponsoredShotsStrip } from '../_components/sponsored-shots-strip';
 import { fetchVendorPapicAllowance } from '@/lib/vendor-papic-grants';
@@ -45,7 +45,7 @@ export default async function VendorPapicCapturePage({
   if (!profile) redirect(back);
 
   const booking =
-    (await fetchVendorPoolBookings(supabase, profile.vendor_profile_id)).find(
+    (await fetchVendorRoomEvents(supabase, profile.vendor_profile_id)).find(
       (b) => b.eventId === eventId,
     ) ?? null;
   // Not booked on this event at all ⇒ nothing here is theirs. That check stays.

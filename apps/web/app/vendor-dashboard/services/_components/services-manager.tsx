@@ -492,6 +492,8 @@ export async function VendorServicesManager({
   if ((!hasLiveOffPeak && offPeakCandidate) || offPeakPrefillId) {
     try {
       const [bookings, blocks] = await Promise.all([
+        // DEMAND, not the room: lean months are derived from dates that actually
+        // consumed capacity, which is what an off-peak offer is priced against.
         fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
         fetchVendorBlocks(supabase, profile.vendor_profile_id),
       ]);

@@ -260,14 +260,31 @@ test('the money row offers BOTH answers, and shows what they sent', () => {
   // The refusal stays behind a fold: a no must not be one mis-tap from a yes.
   assert.match(body, /<details/, 'the refusal came out from behind its fold');
   assert.match(read(PAGE), /rejectLock=\{vendorRejectDeposit\}/, 'the desk is not wired to the shipped reject action');
-  // ONE mechanism for one answer. A second RPC would be two ways to say no,
-  // which is how they come to disagree.
-  for (const invented of ['decline_vendor_deposit', 'deposit_declined_at', 'deposit_not_received']) {
+  /*
+    ONE MECHANISM FOR ONE ANSWER. A second RPC or a second notification type
+    would be two ways to say no, which is how they come to disagree.
+
+    ⚠ NARROWED 2026-08-27, AND DELIBERATELY NOT WEAKENED. Rev 1 also banned the
+    COLUMN name `deposit_declined_at`, which was right for one day: at the time,
+    the refusal ERASED the couple's claim, so any mention of a refusal column
+    meant somebody had invented a parallel path. The owner then ruled that the
+    couple keeps their record, so the ONE shipped mechanism now writes exactly
+    that column and the desk legitimately reads it — the ban had started
+    forbidding the fix. What must stay forbidden is a rival ROUTINE and a rival
+    notification type, plus the positive fact that the desk's refusal is still
+    the shipped action. That is strictly more than rev 1 asserted, not less.
+  */
+  for (const invented of ['decline_vendor_deposit', 'deposit_not_received']) {
     assert.ok(
       !read(OVERVIEW).includes(invented) && !sections.includes(invented),
       `a second way to say no appeared (${invented}) — reject_vendor_deposit already does this`,
     );
   }
+  assert.match(
+    read(PAGE),
+    /import \{[\s\S]*?vendorRejectDeposit[\s\S]*?\} from '\.\/clients\/\[eventId\]\/actions'/,
+    'the desk stopped using the shipped refusal action — check nothing has grown a rival',
+  );
 });
 
 test('the desk says what happened when the answer was given on it', () => {

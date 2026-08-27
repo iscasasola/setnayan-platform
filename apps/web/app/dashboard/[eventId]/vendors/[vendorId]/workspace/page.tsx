@@ -311,6 +311,29 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
   if (vendorErr || !vendorRow) notFound();
 
+  /*
+    THE SUPPLIER'S REFUSAL — READ SEPARATELY, AND THAT IS DELIBERATE.
+    🪤 The two columns arrive with this change, and app code deploys in parallel
+    with the migration. PostgREST refuses the WHOLE query when a select names a
+    column it does not know, and the read above answers a refusal with
+    `notFound()` — so folding these into it would turn a live celebration's
+    supplier page into "not found" for the length of a deploy. Its own read
+    degrades to "no refusal", which is exactly true while the column does not
+    exist: nothing can have written one.
+  */
+  const depositRefusal = await (async () => {
+    const { data, error } = await supabase
+      .from('event_vendors')
+      .select('deposit_declined_at, deposit_decline_reason')
+      .eq('vendor_id', vendorId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as { deposit_declined_at: string | null; deposit_decline_reason: string | null };
+    if (!row.deposit_declined_at) return null;
+    return { declinedAt: row.deposit_declined_at, reason: row.deposit_decline_reason };
+  })();
+
   // ── PR-H · IS THIS BOOKED, OR MERELY ASKED? ─────────────────────────────
   // The workspace is the screen a couple opens to manage a booking, and every
   // word on it — the "Locked" chip, the next-step rail, "hold the date" — was
@@ -1503,6 +1526,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             depositRecordedAt={ev.deposit_recorded_at}
             depositAcknowledgedAt={ev.deposit_acknowledged_at}
             depositProofUrl={ev.deposit_proof_url}
+            depositDeclinedAt={depositRefusal?.declinedAt ?? null}
+            depositDeclineReason={depositRefusal?.reason ?? null}
           />
 
           {/*

@@ -350,7 +350,7 @@ export async function fetchVendorOverviewData(
     covers their events too. The deletion card would have inherited the
     identical hole — a supplier asked to release a celebration, not told which.
   */
-  const [lockRequests, lockAgreementRequests, deletionRequests] =
+  const [lockRequests, lockAgreementRequests, deletionRequests, declinedDeposits] =
     await Promise.all([
       fetchLockRequests(admin, vendorProfileId),
       // Flag-gated so the extra read does not even run while the handshake is
@@ -360,6 +360,7 @@ export async function fetchVendorOverviewData(
         : Promise.resolve([] as LockAgreementRequest[]),
       // NOT flag-gated: the deletion handshake is live, not dark.
       fetchDeletionRequests(admin, vendorProfileId),
+      fetchDeclinedDepositIds(admin, vendorProfileId),
     ]);
 
   /*
@@ -469,6 +470,14 @@ export async function fetchVendorOverviewData(
   }
 
   for (const lr of lockRequests) {
+    /*
+      ANSWERED IS ANSWERED. A supplier who said "it never arrived" has given
+      their answer, so the row leaves the desk exactly as a confirmation makes it
+      leave — and it must, or the desk would ask the same question forever now
+      that the refusal marks the claim instead of erasing it. The couple's own
+      record stays where it is; what leaves is the QUESTION, not the money.
+    */
+    if (declinedDeposits.has(lr.eventVendorId)) continue;
     const meta = eventMeta.get(lr.eventId);
     whatsNew.push({
       kind: 'lock',
@@ -638,6 +647,8 @@ export async function fetchVendorOverviewData(
   }
 
   for (const lr of lockRequests) {
+    // Same reason as the feed above: an answered claim is not an open task.
+    if (declinedDeposits.has(lr.eventVendorId)) continue;
     const meta = eventMeta.get(lr.eventId);
     ongoing.push({
       id: `ong-lock-${lr.eventVendorId}`,
@@ -944,6 +955,36 @@ async function fetchDeletionRequests(
     eventVendorId: r.vendor_id,
     requestedAt: r.delete_requested_at,
   }));
+}
+
+/**
+ * Claims this supplier has already ANSWERED with "it never arrived".
+ *
+ * 🪤 ITS OWN GUARDED READ, ON PURPOSE — not a filter on the read below. The
+ * column arrives with this change, and app code deploys in parallel with the
+ * migration: naming an unknown column makes PostgREST refuse the WHOLE query,
+ * which would take every deposit card off the desk for the length of the
+ * deploy. A separate read degrades to "no refusals exist", which is exactly
+ * TRUE while the column does not exist — nothing can have written one.
+ */
+async function fetchDeclinedDepositIds(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<Set<string>> {
+  const { data, error } = await admin
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .not('deposit_declined_at', 'is', null);
+  if (error) {
+    logQueryError('vendor-overview:fetchDeclinedDepositIds', error, {
+      vendor_profile_id: vendorProfileId,
+    });
+    return new Set();
+  }
+  return new Set(
+    ((data ?? []) as Array<{ vendor_id: string }>).map((r) => r.vendor_id),
+  );
 }
 
 async function fetchLockRequests(

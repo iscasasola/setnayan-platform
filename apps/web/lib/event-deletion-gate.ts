@@ -200,18 +200,38 @@ export function supplierIsReleased(args: {
  * so every signal here is the COUPLE'S OWN RECORD of having paid. That is the
  * best evidence the platform has, and it is why the remedy is to ask the
  * supplier rather than to decide for them.
+ *
+ * ── AND WHY A REFUSED CLAIM DOES NOT COUNT (2026-08-27) ────────────────────
+ * A supplier can now declare that a recorded deposit never reached them, and —
+ * owner ruling the same day — that no longer ERASES the couple's record; it
+ * marks it. Two of the signals above are exactly what the old destructive
+ * refusal used to delete: `depositRecordedAt` and the ledger row behind
+ * `hasLoggedPayment`. If they kept counting after a refusal, THE COUPLE COULD NO
+ * LONGER DELETE THEIR OWN CELEBRATION — it would be held forever pending the
+ * agreement of a supplier who says they were never paid for it.
+ *
+ * 🔑 SO THE REFUSAL SUPPRESSES EXACTLY THOSE TWO, AND NOTHING ELSE. That makes
+ * this function behave, after a refusal, byte-identically to how it behaved when
+ * the refusal wiped those two facts — which is the point: keeping the couple's
+ * record was meant to change what they can SEE, not who holds their delete.
+ * `vendorStatus` and `depositPaidPhp` survive a refusal because the old refusal
+ * never touched them either: they are the couple advancing the booking and the
+ * amount they typed, not the claim the supplier answered.
  */
 export function supplierWasPaid(args: {
   vendorStatus: string | null;
   depositPaidPhp: number | null;
   depositRecordedAt: string | null;
   hasLoggedPayment: boolean;
+  /** When the supplier declared the recorded deposit never reached them. */
+  depositDeclinedAt?: string | null;
 }): boolean {
+  const refused = Boolean(args.depositDeclinedAt);
   return (
     args.vendorStatus === 'deposit_paid' ||
     (args.depositPaidPhp ?? 0) > 0 ||
-    args.depositRecordedAt !== null ||
-    args.hasLoggedPayment
+    (!refused && args.depositRecordedAt !== null) ||
+    (!refused && args.hasLoggedPayment)
   );
 }
 

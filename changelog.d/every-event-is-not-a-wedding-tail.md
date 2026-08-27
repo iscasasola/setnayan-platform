@@ -121,8 +121,28 @@ words fix. The WORDS were the defect and they are fixed.
 Also unchanged: `ROLE_SUBTYPE_LABEL` in `lib/event-moderators.ts` is a
 wedding-shaped co-host role list (Bride · Groom · Ninong · Maid of honor) shown
 on the same invitation door — a role-set build, not a noun swap.
+**And a SIXTH instance of the class, found on the way out and deliberately left
+for its own PR:** `lib/inquiry-mask.ts`'s `inquiryPlaceholderLabel` renders
+*"A couple planning a funeral in Manila"* to a supplier — the event type is right
+there in the same function and only the article uses it. That module is
+DEPENDENCY-FREE by design, so making it type-aware means threading an organiser
+noun through **6 call sites** (the supplier's messages, bookings and overview
+card, plus two admin demo screens). A design change with callers, not a word swap.
+Finally, with the nouns fixed the VERB is still celebratory on both doors — a wake
+now reads *"Help plan Lolo Pedro's Wake"*. `EventWords` already carries `solemn`
+and the tree already branches on it elsewhere, so a solemn arm is cheap; it is not
+a wedding word and was not what was asked for, so it is reported, not slipped in.
 
-**🛡 MUTATIONS — 14, ALL RED, EVERY ONE MEASURED.** Each sabotage printed its
+**🪤 AND FIXING THE NOUN BROKE THE GRAMMAR — caught by RENDERING the sentence,
+not by reading it.** The co-host door carried the literal "a wedding". Replacing
+it with `a ${w.eventWord}` reads correctly for the two nouns anyone looks at —
+"a wedding", "a wake" — and **"a event"** for the generic profile, "a anniversary"
+for an anniversary. It was only visible after printing the finished sentence for
+all three profiles. **The moment a noun stops being hardcoded, its GRAMMAR stops
+being hardcoded with it.** `articleFor` now lives in `event-words.ts` beside
+`possessiveOf`, which exists for exactly the same reason ('parents' → 'parents’').
+
+**🛡 MUTATIONS — 16, ALL RED, EVERY ONE MEASURED.** Each sabotage printed its
 occurrence count before → after (all 1 → 0, so all landed), and the exit code
 was printed beside the TAP summary. Backups were keyed on the FULL PATH and
 restored from those backups, never `git checkout --`. Baseline was proved green

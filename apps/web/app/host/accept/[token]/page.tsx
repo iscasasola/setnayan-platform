@@ -10,7 +10,7 @@ import {
 import { acceptHostInvite, declineHostInvite } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
-import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { articleFor, eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 
 export const metadata = {
   title: 'Accept your invitation',
@@ -99,7 +99,8 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
   // never through a literal.
   const w = await eventWordsForEvent(invite.event_id);
   const eventName =
-    (eventRow as { display_name?: string | null } | null)?.display_name ?? `a ${w.eventWord}`;
+    (eventRow as { display_name?: string | null } | null)?.display_name ??
+    `${articleFor(w.eventWord)} ${w.eventWord}`;
   const eventDate = (eventRow as { event_date?: string | null } | null)?.event_date ?? null;
   // "Wedding date:" · "Wake date:" · "Birthday date:" — only the article-less
   // first letter is capitalised, matching the guest tree's own convention.

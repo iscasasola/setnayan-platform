@@ -89,15 +89,29 @@ test('🚨 an unmeasured fact renders a dash, and 0 is only ever a real 0', () =
   );
 });
 
-test('the strip sits above the rooms, not inside one', () => {
+test('the strip comes before anything that asks the couple to decide', () => {
+  // ⚠ THIS USED TO READ "above the rooms". The rooms were deleted on
+  // 2026-08-27 (one page, four ways in), which made `indexOf` return -1 and the
+  // comparison pass or fail for reasons that had nothing to do with the rule.
+  // The rule itself never mentioned tabs: a person is told the state of their
+  // own celebration BEFORE anything asks them for a decision. Reversing that is
+  // how this screen came to open on a look picker.
   const page = readFileSync(PAGE, 'utf8');
   const mount = page.indexOf('<WhereYouStand');
-  const firstRoom = page.indexOf("{room === '");
   assert.ok(mount > 0, 'the facts strip is not mounted');
-  assert.ok(
-    mount < firstRoom,
-    'the facts strip moved inside a room — then it answers "where do I stand" only for whoever guessed the right tab',
-  );
+
+  for (const [what, needle] of [
+    ['the one next step', 'Do this first · then the library fills itself'],
+    ['the four ways in', 'Four ways into your library'],
+    ['the set-once rows', 'Set once, change any time'],
+  ] as const) {
+    const at = page.indexOf(needle);
+    assert.ok(at > 0, `"${needle}" is gone — this guard has lost the anchor for ${what}`);
+    assert.ok(
+      mount < at,
+      `the facts strip now renders AFTER ${what} — a person is asked to decide something before being told where they stand`,
+    );
+  }
 });
 
 test('the attention colour is the one that passes in BOTH themes', () => {

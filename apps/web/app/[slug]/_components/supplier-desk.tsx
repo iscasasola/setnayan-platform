@@ -169,6 +169,30 @@ export function SupplierDesk({
             ) : null}
           </header>
 
+          {/* THE BRIDGE — one line, and only on a day this person is genuinely
+              working twice. Design § E: a caterer with a morning christening and
+              an evening reception has two desks at two addresses and no time to
+              hunt for links mid-service. 🔒 It names only celebrations THIS
+              person can enter; the read behind it admits profiles they own and
+              refuses to answer at all unless they are booked in this room. */}
+          {desk.alsoToday.length > 0 ? (
+            <ConsolePlate className="space-y-1.5">
+              <ConsoleHeading as="h3">You are also working today</ConsoleHeading>
+              <ul className="space-y-1">
+                {desk.alsoToday.map((e) => (
+                  <li key={e.eventId}>
+                    <Link
+                      href={e.href}
+                      className="text-sm font-semibold text-link underline underline-offset-2"
+                    >
+                      {e.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </ConsolePlate>
+          ) : null}
+
           {/* WHERE. The venue and its address are the two facts withheld until a
               supplier has agreed — so once they have, they are the first thing,
               on every day of the booking and not only on the last one. The

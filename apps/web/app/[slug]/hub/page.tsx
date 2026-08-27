@@ -848,7 +848,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         />
       ) : null}
 
-      {/* After the day, the viewable recap album. */}
+      {/* The recap album — offered once the couple has PUBLISHED it, not once
+          the calendar says the day is over. See `albumRoomLink`. */}
       {recapHref ? (
         <Link
           href={recapHref}

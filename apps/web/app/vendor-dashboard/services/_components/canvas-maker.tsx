@@ -43,6 +43,14 @@ import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-group
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
+import {
+  KEEP_VERSION,
+  keepAgeLabel,
+  keepStorageKey,
+  readKeep,
+  serializeKeep,
+  type CanvasKeep,
+} from '@/lib/canvas-draft-keep';
 
 export type { AudienceOption };
 
@@ -110,9 +118,28 @@ import {
  */
 
 type OtherCategory = { value: string; label: string };
+/**
+ * The kinds of service a shop can make a card for, in the SAME groups and with
+ * the SAME live taxonomy labels as My Shop's picker — one list, drawn twice.
+ */
+export type CategoryChoice = OtherCategory & {
+  /**
+   * 'covered' — a family this shop already works in · 'open' — a new family its
+   * plan still has room for · 'locked' — the save would refuse it.
+   *
+   * 🔑 THE STANDING IS DECIDED BY THE SAME FUNCTIONS THE SAVE ENFORCES
+   * (`lib/vendor-category-parents.ts`), never re-derived here — a second copy of
+   * a permission rule drifts, and the copy on the screen would be the
+   * optimistic one.
+   */
+  standing: 'covered' | 'open' | 'locked';
+  /** Why it is refused, in the vendor's own words. Only on 'locked'. */
+  why?: string;
+};
+export type CategoryGroup = { key: string; label: string; options: CategoryChoice[] };
 export type CoverageAudience = { eventTypes: string[]; faiths: string[] };
 
-type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience';
+type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience' | 'kind' | 'intro';
 
 /** Where a card-health finding sends the vendor. 'title' is inline on the card. */
 const SHEET_FOR_FINDING: Record<CardHealthSheet, SheetKey | 'title'> = {
@@ -143,6 +170,10 @@ export function CanvasMaker({
   coverageAudience = {},
   coverageAllowed = {},
   initial = null,
+  categoryOptions = [],
+  firstCardEver = false,
+  coverageNames = [],
+  shopName = '',
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -176,11 +207,311 @@ export function CanvasMaker({
    * created for that card stay on that card").
    */
   initial?: CanvasInitial | null;
+  /**
+   * ─── THE KIND OF SERVICE IS A FIELD ON THE CARD (owner 2026-08-28) ────────
+   *
+   * Owner, on "+ Create service card": *"i just bounces to a page for a link to
+   * service card. we want it to directly go to a page to create a service
+   * card."* So `/vendor-dashboard/services/new` opens THIS with no category
+   * chosen and hands in the whole list — the vendor picks the kind here, on the
+   * card, the way they pick the price and the audience.
+   *
+   * ⚠ EMPTY IS THE NORMAL CASE, NOT A DEGRADED ONE. `/services/new/[category]`
+   * takes the category from its route and passes NO options, so that screen is
+   * byte-identical to before: no kind region, no kind sheet, nothing to choose.
+   * A guard pins both halves.
+   */
+  categoryOptions?: CategoryGroup[];
+  /**
+   * Has this shop never made a card? Then the pass opens by saying what a card
+   * IS — once, ever. A supplier making their fourth card knows, and explaining
+   * it again is the bombardment in a politer costume.
+   */
+  firstCardEver?: boolean;
+  /**
+   * What this shop calls the things it covers, in ITS OWN words. The kinds list
+   * and the coverage tree are two vocabularies — SetnaProd's leaf is *Pabati*
+   * and no "Pabati" pill exists — so the band that leads is labelled with these
+   * rather than asking a supplier to recognise their trade under a word they
+   * never chose. The pills themselves are still bridged by FAMILY.
+   */
+  coverageNames?: string[];
+  /** Used only to write a first card name they can change. */
+  shopName?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const [sheet, setSheet] = useState<SheetKey | null>(null);
+  const [kindQuery, setKindQuery] = useState('');
+  /**
+   * 🔑 THE POSTED CATEGORY IS STATE, NOT THE PROP. It is one hidden input under
+   * its shipped name either way, so `commitVendorService` cannot tell which
+   * screen chose it — the same contract every other region on this card keeps.
+   */
+  const allChoices = useMemo(
+    () => categoryOptions.flatMap((g) => g.options),
+    [categoryOptions],
+  );
+  const coveredChoices = useMemo(
+    () => allChoices.filter((o) => o.standing === 'covered'),
+    [allChoices],
+  );
+  /**
+   * The one sentence explaining every greyed kind. One line, not one per pill:
+   * a shop on a one-family plan would otherwise read the same upgrade sentence
+   * twenty-odd times, which is the bombardment this change exists to remove.
+   */
+  const lockedWhy = useMemo(
+    () => allChoices.find((o) => o.standing === 'locked' && o.why)?.why ?? null,
+    [allChoices],
+  );
+  /**
+   * ⚡ A ONE-TRADE SHOP IS ASKED NOTHING. If the whole shop covers exactly one
+   * kind, that IS the answer — pre-picking it keeps the maker at zero steps for
+   * the commonest case instead of opening with a question that has one button.
+   * It stays editable: the region is still there and still opens the sheet.
+   */
+  const [category, setCategory] = useState(
+    categoryValue || (coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? '') : ''),
+  );
+  /**
+   * Did the shop's own record answer this, rather than the vendor? Then the card
+   * SAYS so — an answer that appeared by itself and does not explain where it
+   * came from reads as the product having decided for them.
+   */
+  const categoryRef = useRef('');
+  /**
+   * Has the vendor touched the name? Once they have, nothing writes it again —
+   * a field that rewrites itself under somebody's cursor is worse than a blank.
+   */
+  const titleTouched = useRef(false);
+  const [kindFromShop, setKindFromShop] = useState(
+    !categoryValue && coveredChoices.length === 1,
+  );
+  const canChooseKind = categoryOptions.length > 0;
+  useEffect(() => {
+    categoryRef.current = category;
+  }, [category]);
+
+
+  const keepKey = keepStorageKey(vendorProfileId);
+  const [offeredKeep, setOfferedKeep] = useState<CanvasKeep | null>(null);
+  const [keepDecided, setKeepDecided] = useState(false);
+
+  /**
+   * ═══ THE FIRST PASS — TWO ANSWERS, THEN IT IS LIVE ═══════════════════════
+   * (owner 2026-08-28, on the drawn prototype: *"i want it to be as simple as
+   * possible… so they do not feel bombarded"*, and then, on this shape,
+   * *"looks better"*.)
+   *
+   * A blank card asks the ONLY two things the publish gate has ever required —
+   * a cover photo and one Setnayan Exclusive — one at a time, in the sheets the
+   * maker already owns, with the card visible above painting itself. Everything
+   * else on this screen is optional and always was; it simply looked required
+   * because it was all on at once.
+   *
+   * ⚖ THIS IS NOT A WIZARD BOLTED ON TOP. There is no second form, no step
+   * validation, no Back-and-Continue over pages: the pass only decides which
+   * sheet is open, so the maker is still zero steps ("the card is the form",
+   * owner-locked 2026-07-27) and every field still posts in one submit.
+   *
+   * 🔑 THE KIND IS ONLY ASKED WHEN THE SHOP'S OWN RECORD CANNOT ANSWER IT. A
+   * one-trade shop has it pre-filled above, so its pass is two questions, not
+   * three. Steps are frozen at mount — answering must not renumber the
+   * question the vendor is looking at.
+   */
+  const firstPassSteps = useMemo<SheetKey[]>(() => {
+    if (!canChooseKind || initial !== null) return [];
+    const steps: SheetKey[] = [];
+    if (firstCardEver) steps.push('intro');
+    if (!category) steps.push('kind');
+    steps.push('media', 'excl');
+    return steps;
+    // Frozen at mount ON PURPOSE — answering must not renumber the question the
+    // vendor is looking at, so `category` and `firstCardEver` are read once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [passIndex, setPassIndex] = useState(firstPassSteps.length > 0 ? 0 : -1);
+  // ⚠ AN UNANSWERED OFFER SUSPENDS THE PASS. Opening the first question over
+  // "you left a card here" would ask them to start something while the thing
+  // they were doing is still on screen unclaimed.
+  const inPass =
+    passIndex >= 0 && passIndex < firstPassSteps.length && !(offeredKeep && !keepDecided);
+  const passStep = inPass ? firstPassSteps[passIndex] : null;
+  // The pass drives which sheet is open; closing a sheet leaves the pass, which
+  // is the "I'll build it myself" escape and needs no separate control.
+  useEffect(() => {
+    if (inPass) setSheet(passStep ?? null);
+  }, [inPass, passStep]);
+  const leavePass = useCallback(() => {
+    setPassIndex(-1);
+    setSheet(null);
+  }, []);
+
+  /**
+   * ═══ THE HALF-FINISHED CARD IS KEPT (owner 2026-08-28: *"add it"*) ════════
+   *
+   * The maker saves in ONE submit, so until now a lost signal or a closed tab
+   * took the photo, the sentence and the price with it and said nothing. What
+   * was typed is now held in this browser (never in our database — see
+   * lib/canvas-draft-keep.ts for why a server autosave would mint junk cards)
+   * and OFFERED BACK on return. It is never restored silently: work reappearing
+   * unasked is its own kind of alarming, and they may well want a fresh card.
+   */
+  const clearKeep = useCallback(() => {
+    try {
+      window.localStorage.removeItem(keepKey);
+    } catch {
+      /* storage can refuse outright; nothing here is worth an error for */
+    }
+  }, [keepKey]);
+
+  // Read once, before anything is typed. A copy (`initial`) is deliberately
+  // exempt: they asked for THAT card, not for an abandoned one.
+  useEffect(() => {
+    if (initial !== null) return;
+    try {
+      const found = readKeep(window.localStorage.getItem(keepKey), Date.now());
+      if (found) setOfferedKeep(found);
+    } catch {
+      /* unreadable storage simply means nothing was kept */
+    }
+  }, [keepKey, initial]);
+
+  /**
+   * Hold what is on the form, a moment after typing stops.
+   *
+   * ⚠ FILE PICKERS ARE SKIPPED AND THEIR HIDDEN KEYS ARE NOT. A chosen file is
+   * not a value we could ever put back, but the picker has already uploaded the
+   * object and written its key into an ordinary hidden field — so a restored
+   * card still carries its photo.
+   */
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const hold = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const fields: [string, string][] = [];
+        for (const el of Array.from(form.elements)) {
+          const node = el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+          if (!node.name) continue;
+          const type = (node as HTMLInputElement).type;
+          if (type === 'file' || type === 'submit' || type === 'button') continue;
+          if ((type === 'checkbox' || type === 'radio') && !(node as HTMLInputElement).checked)
+            continue;
+          fields.push([node.name, node.value]);
+        }
+        const raw = serializeKeep({
+          v: KEEP_VERSION,
+          at: Date.now(),
+          category: categoryRef.current,
+          fields,
+        });
+        if (!raw) return; // too big to hold — keep nothing rather than half
+        try {
+          window.localStorage.setItem(keepKey, raw);
+        } catch {
+          /* full or blocked storage must never break the maker */
+        }
+      }, 800);
+    };
+    form.addEventListener('input', hold);
+    form.addEventListener('change', hold);
+    // The one thing that must NOT survive: a card that got saved. Submitting is
+    // the end of this draft either way — published or kept as a draft row.
+    form.addEventListener('submit', clearKeep);
+    return () => {
+      if (timer) clearTimeout(timer);
+      form.removeEventListener('input', hold);
+      form.removeEventListener('change', hold);
+      form.removeEventListener('submit', clearKeep);
+    };
+  }, [keepKey, clearKeep]);
+  /**
+   * Put a kept card back.
+   *
+   * 🔑 THE TWO KINDS OF FIELD NEED TWO DIFFERENT MOVES. The card's own inputs
+   * (name, the Exclusive, the kind, the coverage) are React state — assigning
+   * their DOM value would be overwritten on the next render. Everything inside
+   * the shipped editors is uncontrolled, so its value goes on the node and an
+   * `input` event is dispatched, which is what the card's own snapshot reader
+   * listens to — without it the card would hold the values and not show them.
+   *
+   * ⚖ A NAME WITH NOWHERE TO LAND IS DROPPED, not forced. Rows a vendor added by
+   * hand do not exist yet on a fresh mount; half-restoring them into the wrong
+   * row would be worse than the honest gap.
+   */
+  const restoreKeep = useCallback((keep: CanvasKeep) => {
+    const form = formRef.current;
+    if (keep.category) {
+      setCategory(keep.category);
+      setKindFromShop(false);
+    }
+    for (const [name, value] of keep.fields) {
+      if (name === 'title') setTitle(value);
+      else if (name === 'exclusive_perk_text') setPerk(value);
+      else if (name === 'coverage_id') setCoverageId(value);
+      else if (name === 'category') continue; // carried above, in state
+      else if (form) {
+        const node = form.elements.namedItem(name);
+        const target = (
+          node instanceof RadioNodeList ? node.item(0) : node
+        ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+        if (!target || !('value' in target)) continue;
+        if (target instanceof HTMLInputElement && (target.type === 'checkbox' || target.type === 'radio')) {
+          target.checked = true;
+        } else {
+          target.value = value;
+        }
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    setKeepDecided(true);
+    setPassIndex(-1);
+    setSheet(null);
+  }, []);
+
+  const nextInPass = useCallback(() => {
+    setPassIndex((i) => {
+      const next = i + 1;
+      if (next >= firstPassSteps.length) {
+        setSheet(null);
+        return -1;
+      }
+      return next;
+    });
+  }, [firstPassSteps.length]);
+  const activeCategoryLabel =
+    categoryOptions
+      .flatMap((g) => g.options)
+      .find((o) => o.value === category)?.label ??
+    (category === categoryValue ? categoryLabel : category);
+  /**
+   * "Comes with" bundles the shop's OTHER cards, so the kind this card IS has
+   * to drop out of that list the moment it is chosen — otherwise the vendor is
+   * offered a card that comes bundled with itself.
+   */
+  /**
+   * ✍ THE NAME IS WRITTEN FOR THEM (drawn: *"Card name — written for you, change
+   * it if you like"*). Blank is legal — the save stores no title and the card
+   * falls back to the kind — but a card that arrives already called something is
+   * a card, and a blank field is a chore. Only ever on a maker they have not
+   * typed into, and never over an existing name.
+   */
+  useEffect(() => {
+    if (titleTouched.current) return;
+    if (initial !== null) return;
+    if (!category || !activeCategoryLabel) return;
+    setTitle(shopName ? `${activeCategoryLabel} by ${shopName}`.slice(0, 80) : activeCategoryLabel);
+  }, [category, activeCategoryLabel, shopName, initial]);
+
+  const otherCategoriesShown = useMemo(
+    () => otherCategories.filter((c) => c.value !== category),
+    [otherCategories, category],
+  );
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? '');
   const [perk, setPerk] = useState(initial?.exclusivePerkText ?? '');
@@ -385,10 +716,109 @@ export function CanvasMaker({
     setSheet(key);
   };
 
-  const blocked = health.blockers.length > 0;
+  /**
+   * 🔒 NOTHING SAVES WITHOUT A KIND — INCLUDING A DRAFT. `commitVendorService`
+   * parses the category on both paths and THROWS on an empty one, so an
+   * enabled "Save as draft" here would hand the vendor a raw error for a
+   * question the card never asked out loud. Both buttons wait for it.
+   */
+  const needsCategory = category.length === 0;
+  const blocked = health.blockers.length > 0 || needsCategory;
+
+  /**
+   * The pass's own controls. Continue is never a gate — a supplier who has
+   * nothing to add here moves on and the card says what is still missing when
+   * they reach Publish. **Skip is on every question**, because a first pass a
+   * vendor cannot leave is a wizard wearing a card's clothes.
+   */
+  /**
+   * ⚖ CONTINUE WAITS FOR THE ANSWER; SKIP NEVER DOES (drawn 2026-08-28: *"the
+   * Continue button stays off until the required thing on that sheet exists"*).
+   * The two questions ARE the publish gate, so letting Continue past an empty
+   * one only moves the same refusal further from the field that fixes it. The
+   * escape is the skip line below, which leaves the pass entirely — never a
+   * disabled button with no way past it.
+   */
+  const passAnswered =
+    passStep === 'media'
+      ? snap.hasCover
+      : passStep === 'excl'
+        ? perk.trim().length > 0
+        : true;
+  const passFooter = inPass ? (
+    <div className="space-y-2 pt-1">
+      <button
+        type="button"
+        onClick={nextInPass}
+        disabled={!passAnswered}
+        className="button-primary min-h-[44px] w-full disabled:opacity-50"
+      >
+        {passStep === 'intro'
+          ? 'Start my card'
+          : passIndex === firstPassSteps.length - 1
+            ? 'Done — show my card'
+            : 'Continue'}
+      </button>
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.12em]"
+          style={{ color: 'var(--m-slate-3)' }}
+        >
+          {passIndex + 1} of {firstPassSteps.length}
+        </span>
+        <button
+          type="button"
+          onClick={leavePass}
+          className="text-xs underline"
+          style={{ color: 'var(--m-slate-2)' }}
+        >
+          Skip — I&rsquo;ll build it myself
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="sn-canvas space-y-4">
+      {/* ── YOU LEFT A CARD HERE ─────────────────────────────────────────────
+          Offered, never restored behind their back: work reappearing unasked is
+          its own kind of alarming, and they may simply want a fresh card. Both
+          answers are final — picking up clears nothing until they save, and
+          starting fresh throws the kept one away on the spot. */}
+      {offeredKeep && !keepDecided ? (
+        <div
+          className="rounded-xl border p-3 text-sm"
+          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
+        >
+          <p style={{ color: 'var(--m-ink)' }}>
+            You left a card here{' '}
+            <span className="font-semibold">{keepAgeLabel(offeredKeep.at, Date.now())}</span>. Nothing
+            was published — it is only on this device.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => restoreKeep(offeredKeep)}
+              className="button-primary min-h-[40px] px-4"
+            >
+              Pick up where I left off
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearKeep();
+                setOfferedKeep(null);
+                setKeepDecided(true);
+              }}
+              className="min-h-[40px] rounded-full border px-4 text-sm font-medium"
+              style={{ borderColor: line, color: 'var(--m-slate)' }}
+            >
+              Start a fresh card
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── STARTED FROM ANOTHER CARD ────────────────────────────────────────
           Two facts the vendor needs BEFORE they press anything, and the second
           is the one that would otherwise bite them silently.
@@ -426,7 +856,7 @@ export function CanvasMaker({
         </div>
       ) : null}
       <form ref={formRef} action={commitVendorService} className="space-y-4">
-        <input type="hidden" name="category" value={categoryValue} />
+        <input type="hidden" name="category" value={category} />
         {claimToken ? <input type="hidden" name="claim_token" value={claimToken} /> : null}
         {/* The coverage this card sits in. Chosen in the audience sheet; the
             FIELD lives here under its shipped name so the payload is unchanged. */}
@@ -437,14 +867,23 @@ export function CanvasMaker({
             sticky header carries the meter, the grade, the item count (which IS
             the expand toggle), the coach chip, and the diagnostics beneath it.
             Nothing health-shaped renders anywhere else on this page. */}
-        <HealthHeader
-          health={health}
-          open={diagnosticsOpen}
-          onToggle={() => setDiagnosticsOpen((v) => !v)}
-          onGo={goTo}
-        />
+        {/* ⚡ NO METER DURING THE PASS. The card painting itself IS the
+            progress; a "Blocked 30/100" over two unanswered questions grades a
+            vendor for not having finished a thing they have just started. */}
+        {inPass ? null : (
+          <HealthHeader
+            health={health}
+            open={diagnosticsOpen}
+            onToggle={() => setDiagnosticsOpen((v) => !v)}
+            onGo={goTo}
+          />
+        )}
 
         {/* ═══ THE CARD — every region is a control ═══════════════════════════ */}
+        {/* ⚠ THE PULSE IS ON A WRAPPER, NOT ON THE CARD. Keying the card itself
+            would remount the title input mid-typing; this way the "your card can
+            go live now" beat costs nothing inside it. */}
+        <div key={blocked ? 'card-blocked' : 'card-ready'} className={blocked ? undefined : 'sn-paint-live rounded-2xl'}>
         <div
           className="overflow-hidden rounded-2xl border"
           style={{ borderColor: line, background: paper }}
@@ -462,10 +901,10 @@ export function CanvasMaker({
             <span className="flex justify-center" style={{ background: 'var(--m-orange-4)' }}>
               <span className="relative flex aspect-square w-full max-w-[280px] flex-col items-center justify-center gap-1 text-sm">
                 {snap.hasCover ? (
-                  <>
+                  <span key="cover-set" className="sn-paint-cover flex flex-col items-center gap-1">
                     <Check aria-hidden className="h-5 w-5" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
                     <span style={{ color: 'var(--m-orange-2)' }}>Cover set — tap to change</span>
-                  </>
+                  </span>
                 ) : (
                   <>
                     <ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
@@ -511,32 +950,74 @@ export function CanvasMaker({
             ) : null}
           </button>
 
+          {/* ── WHAT KIND OF SERVICE THIS IS ─────────────────────────────────
+              Only on the no-category entrance (`/services/new`), where nothing
+              upstream has answered it. It sits ABOVE the name because it is the
+              question the vendor came here with, and because every editor below
+              it — pricing basis, what's included, the customization list — is
+              drawn for a particular kind of service. */}
+          {canChooseKind ? (
+            <CardRegion onClick={() => setSheet('kind')} label="Choose what kind of service this is">
+              {category ? (
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span style={{ color: 'var(--m-ink)' }}>{activeCategoryLabel}</span>
+                  {kindFromShop ? (
+                    <span
+                      className="font-mono text-[9px] uppercase tracking-[0.12em]"
+                      style={{ color: 'var(--m-slate-3)' }}
+                    >
+                      from your shop · change
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5" style={{ color: 'var(--m-orange-2)' }}>
+                  <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                  What kind of service is this?
+                  <span className="font-mono text-[9px] uppercase tracking-[0.12em]">required</span>
+                </span>
+              )}
+            </CardRegion>
+          ) : null}
+
           {/* Title — edited INLINE on the card, never in a sheet. */}
           <input
             ref={titleRef}
             id="title"
             name="title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              titleTouched.current = true;
+              setTitle(e.target.value);
+            }}
             maxLength={80}
             aria-label="Service name"
-            placeholder={categoryLabel}
+            placeholder={activeCategoryLabel || "Service name"}
             className="w-full border-0 bg-transparent px-4 pb-1 pt-3 text-[17px] font-semibold tracking-[-0.01em] outline-none placeholder:font-normal"
             style={{ color: 'var(--m-ink)' }}
           />
 
           <CardRegion onClick={() => setSheet('price')} label="Edit price">
             {snap.hasPrice ? (
-              <span style={{ color: 'var(--m-ink)' }}>{snap.priceLine}</span>
+              // 🔑 REMOUNTED, NOT CLASS-TOGGLED. A CSS animation that has already
+              // run does not replay because a class is set again; keying the node
+              // on the value itself is what makes each new answer land visibly.
+              <span key={snap.priceLine} className="sn-paint-in" style={{ color: 'var(--m-ink)' }}>
+                {snap.priceLine}
+              </span>
             ) : (
               <span style={{ color: 'var(--m-slate-3)' }}>
-                Add your price — or leave it as quote-on-request
+                Add a price — couples look for it first. Or leave it as price-on-request.
               </span>
             )}
           </CardRegion>
 
           <CardRegion onClick={() => setSheet('excl')} label="Edit your Setnayan Exclusive">
-            <span className="flex items-center gap-1.5" style={{ color: 'var(--m-orange-2)' }}>
+            <span
+              key={perk.trim().length > 0 ? 'perk-set' : 'perk-empty'}
+              className={`flex items-center gap-1.5${perk.trim() ? ' sn-paint-in' : ''}`}
+              style={{ color: 'var(--m-orange-2)' }}
+            >
               <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
               {perk.trim() ? perk.trim() : 'Add your Setnayan Exclusive'}
             </span>
@@ -544,7 +1025,11 @@ export function CanvasMaker({
 
           <CardRegion onClick={() => setSheet('custom')} label="Edit what couples get">
             {comesWith.length ? (
-              <span className="flex flex-wrap gap-x-3 gap-y-1" style={{ color: 'var(--m-slate)' }}>
+              <span
+                key={comesWith.join('|')}
+                className="sn-paint-in flex flex-wrap gap-x-3 gap-y-1"
+                style={{ color: 'var(--m-slate)' }}
+              >
                 {comesWith.slice(0, 3).map((c) => (
                   <span key={c} className="inline-flex items-center gap-1">
                     <Check aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
@@ -569,10 +1054,11 @@ export function CanvasMaker({
             </span>
           </CardRegion>
         </div>
+        </div>
 
         {/* Comes with — bundles the vendor's OTHER cards. Only when they have
             some; the couple reads it straight off the card. */}
-        {otherCategories.length > 0 ? (
+        {otherCategoriesShown.length > 0 ? (
           <details className="rounded-xl border" style={{ borderColor: line, background: paper }}>
             <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
               Comes with{snap.linkedCount > 0 ? ` · ${snap.linkedCount}` : ''}
@@ -582,7 +1068,7 @@ export function CanvasMaker({
                 Other things you offer that come bundled with this one. Up to 6.
               </p>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {otherCategories.map((c) => (
+                {otherCategoriesShown.map((c) => (
                   <label
                     key={c.value}
                     className="flex min-h-[38px] items-center gap-2 rounded-lg border px-3 py-2 text-sm"
@@ -606,7 +1092,7 @@ export function CanvasMaker({
         {/* ── Recap + publish. NO meter, NO second guidance line — the sticky
             header is the only progress surface (owner 2026-07-27). ────────── */}
         <dl className="space-y-1.5 rounded-xl border p-3 text-sm" style={{ borderColor: line, background: paper }}>
-          <Recap k="Category" v={categoryLabel} />
+          <Recap k="Category" v={activeCategoryLabel || '— not chosen yet'} />
           <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
           <Recap k="Setnayan Exclusive" v={perk.trim() ? 'Set' : '— not set'} />
           <Recap
@@ -636,13 +1122,75 @@ export function CanvasMaker({
           <SubmitButton
             name="publish"
             value="false"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full border px-5 py-2.5 text-sm font-medium"
+            disabled={needsCategory}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-full border px-5 py-2.5 text-sm font-medium disabled:opacity-50"
             style={{ borderColor: line, color: 'var(--m-slate)' }}
             pendingLabel="Saving…"
           >
             Save as draft
           </SubmitButton>
         </div>
+
+        {needsCategory ? (
+          <p className="text-xs" style={{ color: 'var(--m-orange-2)' }}>
+            Tell us what kind of service this is and both buttons open up.
+          </p>
+        ) : blocked ? (
+          // ⚖ THE REFUSAL IS SHORT AND SAYS NOTHING IS LOST. The header above
+          // already names each missing thing and links to it; what a supplier
+          // needs here is that finishing costs them nothing they have typed.
+          <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+            Everything you have typed stays on this screen while you finish.
+          </p>
+        ) : (
+          <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+            Your card is ready. Publishing saves everything in one go and puts it in front of
+            couples. You can change anything, any time.
+          </p>
+        )}
+
+        {/* ═══ MAKE IT RICHER — OPTIONAL, FOREVER ══════════════════════════
+            Everything a card CAN carry, named and reachable, under the card
+            rather than on it. It opens the same sheets the card's own regions
+            open — one maker, listed twice, never a second editor.
+            ⚖ It stays shut by default: the whole point of the two questions is
+            that a supplier can stop here, and a list that greets them open is
+            the wall coming back one section lower. */}
+        <details className="rounded-xl border" style={{ borderColor: line, background: paper }}>
+          <summary
+            className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium"
+            style={{ color: 'var(--m-ink)' }}
+          >
+            Make it richer — all optional, any time
+          </summary>
+          <div className="divide-y border-t" style={{ borderColor: line }}>
+            {[
+              { key: 'price' as SheetKey, name: 'Price', what: 'Couples look for it first — one number' },
+              { key: 'media' as SheetKey, name: 'More photos & a short clip', what: 'Up to 5 photos and one 30-second video' },
+              { key: 'custom' as SheetKey, name: 'What couples get', what: 'What is included, and the choices they can make' },
+              { key: 'price' as SheetKey, name: 'Discounts, crew & lead time', what: 'Early-booking and off-season rates, how many you bring' },
+              { key: 'audience' as SheetKey, name: 'Who it is for', what: 'The celebrations and faiths this card is found under' },
+            ].map((row) => (
+              <button
+                key={`${row.key}-${row.name}`}
+                type="button"
+                onClick={() => setSheet(row.key)}
+                className="flex min-h-[52px] w-full items-center gap-3 px-3 py-2.5 text-left"
+                style={{ borderColor: line }}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                    {row.name}
+                  </span>
+                  <span className="block text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    {row.what}
+                  </span>
+                </span>
+                <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+              </button>
+            ))}
+          </div>
+        </details>
 
         <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
           Availability is set on your Calendar, and payment terms are agreed in each
@@ -652,11 +1200,221 @@ export function CanvasMaker({
         {/* ═══ SHEETS — always mounted, `hidden` when closed, so every field
             posts whether or not its sheet was ever opened. ═══════════════════ */}
 
+        {/* ═══ WHAT A CARD IS — ONCE, EVER ════════════════════════════════
+            Only on a shop's very first card. It carries no field: it is the one
+            screen that answers "what am I about to make?", which a first-timer
+            cannot get from a form no matter how short it is. */}
+        {inPass && firstCardEver ? (
+          <CanvasSheet
+            id="canvas-intro"
+            title="A card is how couples meet what you make"
+            open={sheet === 'intro'}
+            onClose={leavePass}
+            confirmLabel={null}
+            guided
+            footer={passStep === 'intro' ? passFooter : null}
+          >
+            {/* A sample card, because three sentences about a card are not a
+                card. Somebody else's, plainly labelled — never a fake one of
+                theirs. */}
+            <div
+              className="overflow-hidden rounded-xl border"
+              style={{ borderColor: line, background: paper }}
+            >
+              <div
+                className="flex h-24 items-center justify-center"
+                style={{ background: 'var(--m-orange-4)' }}
+              >
+                <ImageIcon aria-hidden className="h-6 w-6" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
+              </div>
+              <div className="space-y-0.5 px-3 py-2.5">
+                <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+                  Kuya Dan Photo &amp; Video — Full Day
+                </p>
+                <p className="text-[13px]" style={{ color: 'var(--m-ink)' }}>
+                  from ₱44,999 per event
+                </p>
+                <p className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--m-orange-2)' }}>
+                  <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                  Free engagement mini-shoot for Setnayan couples
+                </p>
+              </div>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              Another supplier&rsquo;s card — this is what couples browse.
+            </p>
+            <ul className="space-y-2.5 text-sm" style={{ color: 'var(--m-slate)' }}>
+              <li className="flex gap-2">
+                <ImageIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
+                <span>
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The photo sells it.</span>{' '}
+                  It is the first and often the only thing a couple looks at.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
+                <span>
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The price can wait.</span>{' '}
+                  Add it on the card afterwards, or leave it as quote-on-request.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
+                <span>
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Exclusive is why they book here.</span>{' '}
+                  One thing couples only get through Setnayan.
+                </span>
+              </li>
+            </ul>
+            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+              Two answers and your card can go live. Everything else is optional, always.
+            </p>
+          </CanvasSheet>
+        ) : null}
+
+        {/* ═══ WHAT KIND OF SERVICE ═══════════════════════════════════════
+            The same grouped list My Shop's picker draws, from the same live
+            taxonomy labels — but it lands ON the card instead of navigating to
+            it. Choosing closes the sheet; the card, the pricing basis and the
+            customization editor all redraw for the chosen kind. */}
+        {canChooseKind ? (
+          <CanvasSheet
+            id="canvas-kind"
+            title="What kind of service?"
+            open={sheet === 'kind'}
+            onClose={inPass ? leavePass : () => setSheet(null)}
+            confirmLabel={inPass || !category ? null : 'Update card'}
+            guided={inPass}
+            footer={passStep === 'kind' ? passFooter : null}
+          >
+            {coveredChoices.length > 0 ? (
+              <>
+                <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                  {coverageNames.length > 0
+                    ? `What you already do — your ${coverageNames.slice(0, 3).join(', ')}${
+                        coverageNames.length > 3 ? ` and ${coverageNames.length - 3} more` : ''
+                      }.`
+                    : 'What you already do.'}{' '}
+                  A kind can hold more than one card, so you can add another where you
+                  already work.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {coveredChoices.map((opt) => (
+                    <KindPill
+                      key={opt.value}
+                      opt={opt}
+                      on={opt.value === category}
+                      onPick={() => {
+                        setCategory(opt.value);
+                        setKindFromShop(false);
+                        if (inPass) nextInPass();
+                        else setSheet(null);
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                Pick the one this card is for. A kind can hold more than one card, so
+                you can add another even where you already work.
+              </p>
+            )}
+
+            {/* ── EVERYTHING ELSE — NARROWED, NEVER HIDDEN ────────────────────
+                A shop legitimately grows (a photographer adding a photo booth),
+                so nothing is removed: the rest of the list is one tap away.
+                What the plan cannot hold is shown greyed WITH THE REASON, which
+                is the whole repair — that refusal used to arrive after the card
+                was written, as a redirect that threw the work away. */}
+            <details
+              className="rounded-xl border"
+              style={{ borderColor: line }}
+              open={coveredChoices.length === 0}
+            >
+              <summary
+                className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium"
+                style={{ color: 'var(--m-ink)' }}
+              >
+                {coveredChoices.length > 0 ? 'Something else I do' : 'All kinds of service'}
+              </summary>
+              <div className="space-y-4 border-t px-3 pb-3 pt-3" style={{ borderColor: line }}>
+                {/* A brand-new shop is the ONE state that meets the whole list —
+                    six groups is a wall to read and a second to search. */}
+                <input
+                  type="search"
+                  value={kindQuery}
+                  onChange={(e) => setKindQuery(e.target.value)}
+                  placeholder="Search all kinds — “catering”, “photobooth”…"
+                  aria-label="Search kinds of service"
+                  className="input-field"
+                />
+                {categoryOptions.map((group) => {
+                  const rest = group.options
+                    .filter((o) => o.standing !== 'covered')
+                    .filter((o) =>
+                      kindQuery.trim().length === 0
+                        ? true
+                        : o.label.toLowerCase().includes(kindQuery.trim().toLowerCase()),
+                    );
+                  if (rest.length === 0) return null;
+                  return (
+                    <div key={group.key} className="space-y-1.5">
+                      <p
+                        className="font-mono text-[10px] uppercase tracking-[0.15em]"
+                        style={{ color: 'var(--m-slate-3)' }}
+                      >
+                        {group.label}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {rest.map((opt) => (
+                          <KindPill
+                            key={opt.value}
+                            opt={opt}
+                            on={opt.value === category}
+                            onPick={() => {
+                              setCategory(opt.value);
+                              setKindFromShop(false);
+                              if (inPass) nextInPass();
+                              else setSheet(null);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                {kindQuery.trim().length > 0 &&
+                categoryOptions.every((g) =>
+                  g.options.every(
+                    (o) =>
+                      o.standing === 'covered' ||
+                      !o.label.toLowerCase().includes(kindQuery.trim().toLowerCase()),
+                  ),
+                ) ? (
+                  <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    Nothing matches “{kindQuery.trim()}”. Try a plainer word — or tell us what
+                    you do from My Shop and we will add it.
+                  </p>
+                ) : null}
+                {lockedWhy ? (
+                  <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    {lockedWhy}
+                  </p>
+                ) : null}
+              </div>
+            </details>
+          </CanvasSheet>
+        ) : null}
+
         <CanvasSheet
           id="canvas-media"
-          title="Photos"
+          title={inPass ? 'Show one photo' : 'Photos'}
           open={sheet === 'media'}
-          onClose={() => setSheet(null)}
+          onClose={inPass ? leavePass : () => setSheet(null)}
+          confirmLabel={inPass ? null : 'Update card'}
+          guided={inPass}
+          footer={passStep === 'media' ? passFooter : null}
         >
           <Field
             label="Cover photo"
@@ -697,7 +1455,7 @@ export function CanvasMaker({
         >
           <PricingBasisEditor
             idPrefix="canvas"
-            category={categoryValue}
+            category={category}
             defaults={
               initial?.pricing ?? {
                 pricing_basis: 'fixed',
@@ -724,7 +1482,7 @@ export function CanvasMaker({
           </Field>
           <IncludedFlags
             idPrefix="canvas"
-            category={categoryValue}
+            category={category}
             defaults={
               initial?.included ?? {
                 crew_meal_included: false,
@@ -758,9 +1516,12 @@ export function CanvasMaker({
 
         <CanvasSheet
           id="canvas-excl"
-          title="Setnayan Exclusive"
+          title={inPass ? 'Why book you here?' : 'Setnayan Exclusive'}
           open={sheet === 'excl'}
-          onClose={() => setSheet(null)}
+          onClose={inPass ? leavePass : () => setSheet(null)}
+          confirmLabel={inPass ? null : 'Update card'}
+          guided={inPass}
+          footer={passStep === 'excl' ? passFooter : null}
         >
           <Field label="Your Setnayan Exclusive" htmlFor="exclusive_perk_text">
             <input
@@ -804,7 +1565,7 @@ export function CanvasMaker({
               the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no
               field, exactly as the wizard behaves. */}
           {customizationEnabled ? (
-            <CustomizationStep categoryValue={categoryValue} categoryLabel={categoryLabel} />
+            <CustomizationStep categoryValue={category} categoryLabel={activeCategoryLabel} />
           ) : null}
         </CanvasSheet>
       </form>
@@ -956,6 +1717,47 @@ function toggle(list: string[], key: string): string[] {
 }
 
 // ── Card regions ────────────────────────────────────────────────────────────
+
+/**
+ * One kind of service, as a pill.
+ *
+ * 🔒 A LOCKED PILL IS NOT A BUTTON. It is disabled, not merely styled grey —
+ * a pill that looks refused and still submits is the worst of both, and the
+ * refusal it would meet lives on the far side of a whole authored card.
+ */
+function KindPill({
+  opt,
+  on,
+  onPick,
+}: {
+  opt: CategoryChoice;
+  on: boolean;
+  onPick: () => void;
+}) {
+  const locked = opt.standing === 'locked';
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      disabled={locked}
+      title={locked ? opt.why : undefined}
+      onClick={onPick}
+      className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm disabled:cursor-not-allowed"
+      style={{
+        borderColor: on ? 'var(--m-orange-2)' : line,
+        background: on ? 'var(--m-orange-4)' : paper,
+        color: locked ? 'var(--m-slate-2)' : on ? 'var(--m-orange-2)' : 'var(--m-ink)',
+        opacity: locked ? 0.55 : 1,
+      }}
+    >
+      {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> : null}
+      {opt.label}
+      {locked ? (
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em]">upgrade</span>
+      ) : null}
+    </button>
+  );
+}
 
 function CardRegion({
   onClick,
@@ -1280,12 +2082,24 @@ function CanvasSheet({
   open,
   onClose,
   confirmLabel = 'Update card',
+  guided = false,
+  footer = null,
   children,
 }: {
   id: string;
   title: string;
   open: boolean;
   onClose: () => void;
+  /**
+   * ⚡ THE FIRST PASS DOES NOT VEIL THE CARD (owner 2026-08-28, on the drawn
+   * prototype). During the two questions the card IS the progress bar — it has
+   * to be visible painting itself, so the guided presentation drops the dark
+   * backdrop and sits lower. Every other sheet is unchanged: an edit made later
+   * is a modal, because nothing is being built behind it.
+   */
+  guided?: boolean;
+  /** The guided strip's own controls, under the fields. */
+  footer?: ReactNode;
   /**
    * The explicit confirm at the sheet's foot (owner 2026-07-28: "pop ups must
    * have update button to avoid confusion"). Edits already applied live — this
@@ -1305,14 +2119,25 @@ function CanvasSheet({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+        className={
+          guided
+            ? 'absolute inset-0 cursor-default'
+            : 'absolute inset-0 bg-ink/40 backdrop-blur-sm'
+        }
       />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${id}-title`}
-        className="sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto max-h-[78dvh] w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none"
+        className={`sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto ${
+          guided
+            ? // On a laptop the question stops being a drawer over the card and
+              // becomes a column beside it — the card is what they are building,
+              // and a 1400px screen has no reason to hide it behind a sheet.
+              'max-h-[58dvh] lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'
+            : 'max-h-[78dvh]'
+        } w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none`}
         style={{ borderColor: line, background: paper }}
       >
         <header
@@ -1334,6 +2159,7 @@ function CanvasSheet({
         </header>
         <div className="sn-canvas-rise space-y-3 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
           {children}
+          {footer}
           {confirmLabel !== null ? (
             // type="button" is LOAD-BEARING: most sheets render INSIDE the one
             // card <form> — a default-submit button here would submit the card.

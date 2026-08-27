@@ -13,7 +13,7 @@ import {
 } from '@/lib/songs';
 import { addRepertoireSong, removeRepertoireSong, setPerformanceLink } from './actions';
 import { ShopNotice } from '../_components/kit';
-import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
+import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 
 export const metadata = { title: 'Your repertoire · Vendor' };
 
@@ -50,7 +50,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
         {/* Same dead end as the Shop's Create button: this renders for an act
             that has NO music service yet, which is the state that lands on
             Coverage with the picker shut. */}
-        <Link href={SERVICE_PICKER_HREF} className="button-primary inline-flex w-fit">
+        <Link href={SERVICE_MAKER_HREF} className="button-primary inline-flex w-fit">
           Add a music service
         </Link>
       </section>

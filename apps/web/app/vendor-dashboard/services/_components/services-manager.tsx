@@ -99,7 +99,7 @@ import { buildServiceCardCongrats } from '@/lib/service-card-congrats';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
   SERVICE_PICKER_ANCHOR_ID,
-  SERVICE_PICKER_HASH,
+  SERVICE_MAKER_HREF,
   servicePickerRequested,
 } from '@/lib/service-picker-anchor';
 import { CoveragePanel } from './coverage-panel';
@@ -675,8 +675,15 @@ export async function VendorServicesManager({
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <SectionEyebrow>Your services</SectionEyebrow>
+          {/* 🔑 ONE DOOR (owner 2026-08-28: *"make sure this is connected to the
+              top nav create a card and the link from the shop"*). This used to
+              jump to the drawer BELOW — a supplier pressing the same words in
+              two places got two different products: the top bar opened the card
+              maker and My Shop opened a wall of category pills. Both open the
+              maker now. The drawer stays for ADDING COVERAGE and as the
+              canvas-off fallback, which is why it keeps its own longer name. */}
           <Link
-            href={SERVICE_PICKER_HASH}
+            href={SERVICE_MAKER_HREF}
             className="inline-flex items-center gap-1.5 text-sm font-medium"
             style={{ color: 'var(--m-orange-2)' }}
           >
@@ -798,7 +805,10 @@ export async function VendorServicesManager({
             <p className="mx-auto mt-1 max-w-md text-xs" style={{ color: 'var(--m-slate-2)' }}>
               Add your first service so couples can find and book you.
             </p>
-            <Link href={SERVICE_PICKER_HASH} className="button-primary mt-3 inline-flex">
+            {/* The FIRST card a shop ever makes is pressed here — the one
+                place the old drawer was worst, because a shop with no cards has
+                nothing to recognise in a list of 34 kinds. */}
+            <Link href={SERVICE_MAKER_HREF} className="button-primary mt-3 inline-flex">
               Add a service
             </Link>
           </div>

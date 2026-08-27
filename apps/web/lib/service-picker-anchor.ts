@@ -58,8 +58,17 @@ export const SERVICE_PICKER_PARAM = 'newcard';
 export const SERVICE_PICKER_HREF =
   `/vendor-dashboard/shop?${SERVICE_PICKER_PARAM}=1#${SERVICE_PICKER_ANCHOR_ID}` as const;
 
-/** In-page jump (already on My Shop) — same id, never re-typed. */
-export const SERVICE_PICKER_HASH = `#${SERVICE_PICKER_ANCHOR_ID}` as const;
+/**
+ * ⛔ `SERVICE_PICKER_HASH` IS RETIRED (2026-08-28) AND MUST NOT COME BACK AS A
+ * "CREATE" LINK. It was the in-page jump to the drawer, and when the shop's own
+ * *Add a service* controls started opening the maker it was left with zero
+ * callers. A constant nothing links to is a door nobody opens — the shape this
+ * repo keeps paying for — so it is gone rather than kept "just in case".
+ *
+ * The drawer itself SURVIVES on its own anchor id: it is how coverage is added,
+ * and it is where `/services/new` sends a shop whose canvas maker is switched
+ * off. What was deleted is the LINK, not the target.
+ */
 
 /**
  * Did this request ask for the picker?
@@ -71,3 +80,22 @@ export const SERVICE_PICKER_HASH = `#${SERVICE_PICKER_ANCHOR_ID}` as const;
 export function servicePickerRequested(raw: unknown): boolean {
   return raw === '1' || raw === 'true';
 }
+
+/**
+ * ─── WHERE "+ CREATE SERVICE CARD" GOES NOW (owner 2026-08-28) ─────────────
+ *
+ * Owner, on pressing it: *"i just bounces to a page for a link to service card.
+ * we want it to directly go to a page to create a service card."* He is right —
+ * everything below fixed the button LANDING somewhere, and where it landed was
+ * still My Shop with a drawer full of links. The press should open the maker.
+ *
+ * So the create links point HERE, at the maker itself, and the kind of service
+ * is chosen ON the card instead of on the way to it — which is the owner-locked
+ * shape of that screen ("THE MAKER IS ZERO STEPS — THE CARD IS THE FORM").
+ *
+ * ⚠ THE PICKER CONSTANTS ABOVE ARE NOT DEAD AND MUST NOT BE DELETED. The
+ * drawer on My Shop still exists, still opens on `?newcard=1`, and is where
+ * `/services/new` sends a shop when the canvas maker is switched off — the
+ * 6-step wizard takes its category from the ROUTE and cannot ask for one.
+ */
+export const SERVICE_MAKER_HREF = '/vendor-dashboard/services/new' as const;

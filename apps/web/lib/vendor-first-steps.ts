@@ -28,7 +28,7 @@
  * Pure + input-only so the ordering rules are testable without a database.
  */
 
-import { SERVICE_PICKER_HREF } from './service-picker-anchor';
+import { SERVICE_MAKER_HREF } from './service-picker-anchor';
 
 export type FirstStepKey =
   | 'shop_details'
@@ -161,7 +161,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       // zero cards is exactly who the services screen lands on the Coverage tab
       // — with the card picker in a hidden panel behind a shut drawer. Step two
       // of a new supplier's own checklist opened a page that did nothing.
-      href: SERVICE_PICKER_HREF,
+      href: SERVICE_MAKER_HREF,
       cta: 'Create a service',
       meter:
         serviceCount > 0

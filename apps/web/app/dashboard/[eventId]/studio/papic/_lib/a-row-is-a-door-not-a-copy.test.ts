@@ -46,8 +46,16 @@ test('🚨 the look is a ROW, not five cards on the page', () => {
 });
 
 test('🚨 the sheet renders the SHIPPED picker, never a copy of it', () => {
-  const row = /<SettingRow[\s\S]*?<\/SettingRow>/.exec(PAGE)?.[0] ?? '';
-  assert.ok(row, 'no SettingRow block found');
+  // ⚠ ANCHOR ON THE LABEL, NOT ON "the first SettingRow". This matched the first
+  // row on the page, which was fine while the look was the only one. The
+  // 2026-08-27 one-page rebuild put the capture window above it, so the guard
+  // started reading the WRONG row's contents and reported the look's picker
+  // missing. A guard keyed on position answers a question about position.
+  const row =
+    /<SettingRow(?:(?!<\/SettingRow>)[\s\S])*?label="Your Papic look"[\s\S]*?<\/SettingRow>/.exec(
+      PAGE,
+    )?.[0] ?? '';
+  assert.ok(row, 'no SettingRow block labelled "Your Papic look" was found');
   assert.ok(
     /<StylePicker\b/.test(row),
     'the sheet no longer renders StylePicker. A reimplementation of the five looks here is a SECOND COPY of a shipped control — the failure this file exists for.',

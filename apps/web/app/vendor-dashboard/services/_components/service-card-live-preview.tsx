@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Star, Gift, Plus, AlertCircle, Lock, ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Gift, Plus, AlertCircle, Lock, ImageIcon, CheckCircle2 } from 'lucide-react';
 
 /**
  * Live service-card preview (v20 prototype — owner: "when we create a service
@@ -229,9 +229,11 @@ export function ServiceCardLivePreview({
             {leafPathLabel}
           </p>
           <p className="flex items-center gap-2 text-xs">
-            <span className="inline-flex items-center gap-1" style={{ color: 'var(--m-orange-2)' }}>
-              <Star aria-hidden className="h-3 w-3" strokeWidth={1.75} /> 4.5
-            </span>
+            {/* No star here on purpose — the real card shows a "shop
+                rating" only once the shop has a real review, never a
+                per-card number (see CardRecordSection). A hardcoded 4.5
+                would tell the vendor couples see praise this card has
+                not earned. */}
             <span className="font-medium" style={{ color: 'var(--m-orange-2)' }}>
               {snap.priceText}
             </span>

@@ -63,7 +63,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { WEDDING_TILE_ORDER, TILE_PARENT } from './taxonomy';
+import { WEDDING_TILE_ORDER, TILE_PARENT, ADMIN_ONLY_TILES } from './taxonomy';
+import { fallbackSnapshot } from './taxonomy-snapshot';
 import { canonicalServicesForTile } from './vendor-counts';
 
 /**
@@ -97,8 +98,13 @@ test('every marketplace tile resolves to at least one canonical service', () => 
   // Keep the tile id alongside its rendered label — re-deriving the id by
   // splitting the label back apart is both fragile and, under
   // `noUncheckedIndexedAccess`, not even well-typed.
+  // An ADMIN-ONLY branch is not a dead shelf — it is a filing cabinet nothing
+  // renders (see ADMIN_ONLY_TILES). The distinction is derived, not allowlisted:
+  // un-hide one and it drops straight back into this scan. The case below pins
+  // that every member really is invisible and really is empty, so this
+  // exemption can never cover a branch a couple can reach.
   const dead = WEDDING_TILE_ORDER.filter(
-    (tile) => canonicalServicesForTile(tile).length === 0,
+    (tile) => !ADMIN_ONLY_TILES.has(tile) && canonicalServicesForTile(tile).length === 0,
   );
 
   const unexpected = dead
@@ -147,4 +153,29 @@ test('every allowlisted tile is a real tile (typo guard)', () => {
     [],
     `KNOWN_DEAD_TILES names tiles that do not exist in WEDDING_TILE_ORDER: ${bogus.join(', ')}`,
   );
+});
+
+test('an admin-only branch is invisible AND empty — the exemption cannot cover a live shelf', () => {
+  // The dead-tile scan above skips ADMIN_ONLY_TILES. That is only safe while
+  // every member is genuinely unreachable, so assert both halves here rather
+  // than trusting the name of the set.
+  const snapshot = fallbackSnapshot();
+  const known = new Set<string>(WEDDING_TILE_ORDER);
+  for (const tile of ADMIN_ONLY_TILES) {
+    assert.ok(known.has(tile), `${tile} is not a real tile — typo in ADMIN_ONLY_TILES`);
+    assert.equal(
+      snapshot.hiddenCategories[tile],
+      true,
+      `${tile} is exempted from the dead-tile scan but the fallback snapshot ` +
+        'renders it as a VISIBLE branch — that is a silently empty shelf with ' +
+        'the guard switched off, the exact thing this file exists to prevent.',
+    );
+    assert.equal(
+      canonicalServicesForTile(tile).length,
+      0,
+      `${tile} now resolves to marketplace-visible canonicals. If it is meant ` +
+        'to be sellable, take it out of ADMIN_ONLY_TILES (an OWNER decision — ' +
+        'it opens a supplier category) rather than leaving it exempt.',
+    );
+  }
 });

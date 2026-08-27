@@ -330,6 +330,44 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Ceremony Venue',
     cardKind: 'inclusions',
   },
+  // ── ADMIN-ONLY BRANCHES (2026-08-27) ───────────────────────────────────────
+  // `officiants`, `counseling_seminars`, `wedding_paperwork` and
+  // `travel_honeymoon` are marketplace_hidden filing cabinets: they exist so
+  // the ~30 deliberately-unsold canonicals under them stop piling up in the
+  // admin's "Unfiled" tray. NO BOOTH IS EVER RENDERED FROM THEM — a floor plan
+  // only ever places a tile a couple actually booked, and these are not
+  // bookable. They are here because `Record<WeddingTile, …>` is exhaustive by
+  // construction, and that exhaustiveness is exactly the check that caught them
+  // when the tiles were added. Plain desks, so if one ever DOES become sellable
+  // it renders as something sane rather than crashing.
+  officiants: {
+    chassis: 'DESK',
+    props: [],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Officiant',
+    cardKind: 'inclusions',
+  },
+  counseling_seminars: {
+    chassis: 'DESK',
+    props: [],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Counseling & Seminars',
+    cardKind: 'inclusions',
+  },
+  wedding_paperwork: {
+    chassis: 'DESK',
+    props: [],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Paperwork & Government',
+    cardKind: 'inclusions',
+  },
+  travel_honeymoon: {
+    chassis: 'DESK',
+    props: [{ kind: 'calendar_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'vest', idle: 'present', count: 1 },
+    signText: 'Travel & Honeymoon',
+    cardKind: 'inclusions',
+  },
   // ── PLANNING ───────────────────────────────────────────────────────────────
   date_specialist: {
     chassis: 'DESK',

@@ -19,6 +19,18 @@
  *     (Card 04, shipped 2026-05-29); paperwork lives in the Setnayan AI
  *     wizard. The keys stay in the map so admin/lookup consumers don't drop
  *     them into "Unmapped".
+ *
+ *     ⚠ 2026-08-27 — HIDDEN IS NOT THE SAME AS UNFILED, and for 30 of these
+ *     rows the two were conflated for three months. They carried a folder and
+ *     NO tile, so `/admin/taxonomy?view=unfiled` listed them as work nobody
+ *     had done — while the four branches that are their exact homes
+ *     (`officiants` · `counseling_seminars` · `wedding_paperwork` ·
+ *     `travel_honeymoon`, created in the admin console 2026-07-03) sat empty.
+ *     Every one now names its tile. NOTHING about their visibility changed:
+ *     all 30 keep `marketplaceHidden`, and every consumer that could surface
+ *     them (`/explore` via deriveBuckets, the /open-shop picker via
+ *     getCoverageTaxonomy, the vendor profile picker) drops a hidden leaf
+ *     BEFORE it ever looks at the tile. Filing is bookkeeping, not exposure.
  *   - Setnayan first-party services fold UNDER their parent's tiles as an
  *     option (flagged `setnayan`), never as a standalone "★ Setnayan" tile.
  *
@@ -158,8 +170,17 @@ export const WEDDING_FOLDER_SLUG: Record<WeddingFolder, string> = {
 
 // ─── ~53 tiles ──────────────────────────────────────────────────────────────
 /**
- * The visible shopping tiles. Each tile groups one or more canonical_services
- * into a single decision. `filipiniana_barongs` is a CROSS-VIEW (the same
+ * The shopping tiles. Each tile groups one or more canonical_services
+ * into a single decision.
+ *
+ * Most are couple-visible. Four are ADMIN-ONLY filing cabinets, flagged
+ * `marketplace_hidden` on their `service_categories` row: `officiants`,
+ * `counseling_seminars`, `wedding_paperwork` and `travel_honeymoon`. They
+ * exist so the ~30 deliberately-unsold canonicals under them have a home in
+ * the tree instead of piling up in the admin's "Unfiled" tray — see the
+ * 2026-08-27 note at the top of this file.
+ *
+ * `filipiniana_barongs` is a CROSS-VIEW (the same
  * terno/barong vendors as the attire tiles, surfaced via the tradition facet —
  * see FILIPINIANA_BARONG_CANONICALS), not a separate bucket.
  */
@@ -167,9 +188,13 @@ export type WeddingTile =
   // VENUE
   | 'reception'
   | 'ceremony_venue'
+  | 'officiants'
+  | 'counseling_seminars'
+  | 'wedding_paperwork'
   // PLANNING
   | 'coordinator'
   | 'date_specialist'
+  | 'travel_honeymoon'
   // FEAST
   | 'cake'
   | 'catering'
@@ -253,12 +278,51 @@ export type WeddingTile =
   // SPECIALTY
   | 'reveal_element';
 
+/**
+ * ADMIN-ONLY TILES — branches a couple never sees, and never should.
+ *
+ * These four exist to give the ~30 deliberately-unsold canonicals under them
+ * (every celebrant, the pre-marriage seminars, the marriage paperwork, the
+ * honeymoon planners) a HOME IN THE TREE. Before 2026-08-27 those services
+ * carried a folder and no tile at all, so `/admin/taxonomy?view=unfiled` listed
+ * them as 30 pieces of work nobody had done, while these four branches sat
+ * empty three rows away. Filing them is bookkeeping — see the 2026-08-27 note
+ * at the top of this file.
+ *
+ * 🔑 THIS SET IS WHY THEY ARE NOT "DEAD TILES". `taxonomy-tile-reachability.
+ * test.ts` fails a tile that resolves to zero canonicals, because a visible
+ * empty shelf is a whole trade couples cannot find. That reasoning does not
+ * apply to a branch nothing renders — but the guard could not tell the two
+ * apart, because the DB expresses the difference (`service_categories.
+ * marketplace_hidden`) and the constant had NO WAY TO SAY IT: `fallbackSnapshot`
+ * hard-coded `hiddenCategories: {}`. So the moment one DB read hiccuped, every
+ * consumer trusting that snapshot would have treated these four as ordinary
+ * visible branches. This set closes both holes from one declaration, and it is
+ * DERIVED rather than allowlisted — a fifth admin-only branch is covered the
+ * day it is added, and un-hiding one turns it straight back into a dead-tile
+ * failure.
+ *
+ * ⚠ Membership here is NOT how a leaf is hidden. A canonical's own
+ * `marketplaceHidden` does that, independently, and is what every marketplace
+ * consumer actually reads.
+ */
+export const ADMIN_ONLY_TILES: ReadonlySet<WeddingTile> = new Set([
+  'officiants',
+  'counseling_seminars',
+  'wedding_paperwork',
+  'travel_honeymoon',
+] as const);
+
 /** Tile → its parent. */
 export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   reception: 'venue',
   ceremony_venue: 'venue',
+  officiants: 'venue',
+  counseling_seminars: 'venue',
+  wedding_paperwork: 'venue',
   coordinator: 'planning',
   date_specialist: 'planning',
+  travel_honeymoon: 'planning',
   cake: 'feast',
   catering: 'feast',
   stations: 'feast',
@@ -333,10 +397,14 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   // VENUE
   'reception',
   'ceremony_venue',
+  'officiants',
+  'counseling_seminars',
+  'wedding_paperwork',
   'accommodation',
   // PLANNING
   'coordinator',
   'date_specialist',
+  'travel_honeymoon',
   // FEAST
   'cake',
   'catering',
@@ -422,8 +490,12 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
 export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   reception: 'Reception',
   ceremony_venue: 'Ceremony',
+  officiants: 'Officiants',
+  counseling_seminars: 'Counseling & Seminars',
+  wedding_paperwork: 'Paperwork & Government',
   coordinator: 'Coordinator / Planner',
   date_specialist: 'Date & Feng-shui Specialist',
+  travel_honeymoon: 'Travel & Honeymoon',
   cake: 'Cake',
   catering: 'Catering',
   stations: 'Stations',
@@ -497,8 +569,12 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
 export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   reception: 'reception',
   ceremony_venue: 'ceremony-venue',
+  officiants: 'officiants',
+  counseling_seminars: 'counseling-seminars',
+  wedding_paperwork: 'wedding-paperwork',
   coordinator: 'coordinator',
   date_specialist: 'date-specialist',
+  travel_honeymoon: 'travel-honeymoon',
   cake: 'cake',
   catering: 'catering',
   stations: 'stations',
@@ -676,8 +752,15 @@ export type TaxonomyEntry = {
   /** Parent placement (10-parent model, since 2026-05-31). */
   folder: WeddingFolder;
   /**
-   * Visible tile this canonical rolls up into. Omitted when
-   * `marketplaceHidden` is true (officiants / paperwork / deferred).
+   * Tile this canonical rolls up into. REQUIRED IN PRACTICE — every row in
+   * `TAXONOMY_MAP` names one, and `tests/db/every-service-has-a-tile.db.test.ts`
+   * fails if a row in the live table does not. It stays optional in the type
+   * only because the DB column is nullable; a new entry without a tile is the
+   * defect that test exists to catch.
+   *
+   * ⚠ A tile is NOT a promise of visibility. `marketplaceHidden` decides that,
+   * independently, and four tiles (officiants · counseling_seminars ·
+   * wedding_paperwork · travel_honeymoon) are themselves admin-only.
    */
   tile?: WeddingTile;
   /**
@@ -729,33 +812,33 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   //   marketplaceHidden (officiant auto-resolves from the ceremony venue;
   //   paperwork → Setnayan AI wizard).
   // ════════════════════════════════════════════════════════════════════
-  catholic_priest:                   { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base', faith: 'Catholic' },
-  civil_judge:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
-  civil_mayor:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
-  civil_justice_of_peace:            { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
-  inc_minister:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.3', faith: 'INC' },
-  born_again_pastor:                 { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Born Again' },
-  charismatic_pastor:                { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
-  mainline_protestant_pastor:        { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
-  muslim_imam:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.4', faith: 'Muslim' },
-  cultural_tribal_elder:             { folder: 'venue', marketplaceHidden: true, phase: 'V1.5+', faith: 'Cultural' },
-  jewish_rabbi:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Jewish' },
-  aglipayan_priest:                  { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Aglipayan', ph: true },
-  lds_officiant:                     { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'LDS' },
-  sda_pastor:                        { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'SDA' },
-  jw_elder:                          { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'JW' },
-  hindu_pandit:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Hindu' },
-  sikh_granthi:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Sikh' },
-  buddhist_monk:                     { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Buddhist' },
-  orthodox_priest:                   { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Orthodox' },
-  christian_premarital_counseling:   { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
-  officiant_priest_minister:         { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
-  pre_cana_seminar:                  { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true, faith: 'Catholic' },
-  cfo_seminar:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true },
-  inc_counseling:                    { folder: 'venue', marketplaceHidden: true, phase: 'V1.3', ph: true, faith: 'INC' },
-  muslim_pre_wedding_counseling:     { folder: 'venue', marketplaceHidden: true, phase: 'V1.4', ph: true, faith: 'Muslim' },
-  marriage_license_expediting:       { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true },
-  apostille_dfa_authentication:      { folder: 'venue', marketplaceHidden: true, phase: 'V1.3', ph: true },
+  catholic_priest:                   { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.1 base', faith: 'Catholic' },
+  civil_judge:                       { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.1 base' },
+  civil_mayor:                       { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.1 base' },
+  civil_justice_of_peace:            { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.1 base' },
+  inc_minister:                      { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.3', faith: 'INC' },
+  born_again_pastor:                 { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Born Again' },
+  charismatic_pastor:                { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
+  mainline_protestant_pastor:        { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
+  muslim_imam:                       { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.4', faith: 'Muslim' },
+  cultural_tribal_elder:             { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.5+', faith: 'Cultural' },
+  jewish_rabbi:                      { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Jewish' },
+  aglipayan_priest:                  { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Aglipayan', ph: true },
+  lds_officiant:                     { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'LDS' },
+  sda_pastor:                        { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'SDA' },
+  jw_elder:                          { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'JW' },
+  hindu_pandit:                      { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Hindu' },
+  sikh_granthi:                      { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Sikh' },
+  buddhist_monk:                     { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Buddhist' },
+  orthodox_priest:                   { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.2', faith: 'Orthodox' },
+  christian_premarital_counseling:   { folder: 'venue', tile: 'counseling_seminars', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
+  officiant_priest_minister:         { folder: 'venue', tile: 'officiants', marketplaceHidden: true, phase: 'V1.1 base' },
+  pre_cana_seminar:                  { folder: 'venue', tile: 'counseling_seminars', marketplaceHidden: true, phase: 'V1.2', ph: true, faith: 'Catholic' },
+  cfo_seminar:                       { folder: 'venue', tile: 'counseling_seminars', marketplaceHidden: true, phase: 'V1.2', ph: true },
+  inc_counseling:                    { folder: 'venue', tile: 'counseling_seminars', marketplaceHidden: true, phase: 'V1.3', ph: true, faith: 'INC' },
+  muslim_pre_wedding_counseling:     { folder: 'venue', tile: 'counseling_seminars', marketplaceHidden: true, phase: 'V1.4', ph: true, faith: 'Muslim' },
+  marriage_license_expediting:       { folder: 'venue', tile: 'wedding_paperwork', marketplaceHidden: true, phase: 'V1.2', ph: true },
+  apostille_dfa_authentication:      { folder: 'venue', tile: 'wedding_paperwork', marketplaceHidden: true, phase: 'V1.3', ph: true },
   // ── ACCOMMODATION (tile `accommodation`) — where you SLEEP ────────────────
   // Re-shelved off `reception` 2026-08-01 (travel vertical). `accommodation`
   // was already tagged ['travel','wedding'] in the DB but sat on the wedding
@@ -844,9 +927,9 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   // date-selection "Consult a date specialist" CTA. Own tile (NOT 'coordinator').
   date_fengshui_consultant:          { folder: 'planning', tile: 'date_specialist', phase: 'V1.1.1', faith: 'Chinese', ph: true, tradition: true },
   // Travel + niche logistics leave the marketplace (wizard host-task / deferred).
-  honeymoon_planner:                 { folder: 'planning', marketplaceHidden: true, phase: 'V1.1 base' },
-  destination_wedding_travel_coordinator: { folder: 'planning', marketplaceHidden: true, phase: 'V1.2' },
-  visa_wedding_logistics:            { folder: 'planning', marketplaceHidden: true, phase: 'V1.5+', ph: true },
+  honeymoon_planner:                 { folder: 'planning', tile: 'travel_honeymoon', marketplaceHidden: true, phase: 'V1.1 base' },
+  destination_wedding_travel_coordinator: { folder: 'planning', tile: 'travel_honeymoon', marketplaceHidden: true, phase: 'V1.2' },
+  visa_wedding_logistics:            { folder: 'venue', tile: 'wedding_paperwork', marketplaceHidden: true, phase: 'V1.5+', ph: true },
 
   // ════════════════════════════════════════════════════════════════════
   // FEAST — the catered meal. Cake · Catering · Stations.

@@ -61,14 +61,35 @@ typed. Every spelling now normalises to one before counting.
 of the Pro-tier helper, not rendered text" — false; the same file rendered the
 sentence above. **AND THE DETECTOR COULD NOT HAVE SEEN IT EITHER.** Its
 `^[^<>{}=(]*` anchor fails at character zero on a line opening with `{` or `<`,
-which is how copy is normally written (`{event.display_name} …their wedding…`,
-`<Perk>…couples…</Perk>`), and its inner alternation was spelt SINGULAR with a
-trailing `\b`, so `couples` and `weddings` were invisible. Two independent
-failures, either alone sufficient. The anchor is now tried on the raw line, on
-the line with interpolations removed, and on the line with JSX tags removed;
-plurals are spelt once and shared. Measured over all 128 files of that tree: the
-widened rule surfaces EXACTLY ONE line the old rule missed — the recap sentence
-— and the non-exempt offender count stays 0. No baseline to pay down.
+which is how copy is normally written, and its inner alternation was spelt
+SINGULAR with a trailing `\b`, so `couples` and `weddings` were invisible. Two
+independent failures, either alone sufficient. Proved on the predicates
+themselves, in isolation, rather than by running the old guard (removing the
+exemption exposes the file's IMPORT line, so that control goes red for the wrong
+reason and proves nothing):
+
+| line | old | new |
+|---|---|---|
+| `{event.display_name} hasn&rsquo;t published their wedding recap.` | **false** | true |
+| `<Perk>Marketplace exposure to other PH couples</Perk>` | **false** | true |
+| `hasn&rsquo;t published their wedding recap.` (positive control) | true | true |
+
+The anchor is now tried on the raw line, on the line with interpolations
+removed, and on the line with JSX tags removed; plurals are spelt once and
+shared. Measured over all 128 files of that tree: the widened rule surfaces
+EXACTLY ONE line the old rule missed — the recap sentence — and the non-exempt
+offender count stays 0. No baseline to pay down.
+
+**🪤 AND THE FIRST CUT OF MY OWN FIX REPRODUCED THE DISEASE IT WAS FIXING.** It
+kept the FILE exemption for `recap/page.tsx` and merely rewrote its reason to be
+true — which quietly removed the file from the new claim-check, whose subjects
+are derived from the reasons that say "not rendered text". Reverting the recap
+sentence then left the guard **GREEN**: the page was unguarded a second time, by
+the very commit repairing it. Only the mutation run found it; review would not
+have. The exemption is now a LINE pardon — the import line and nothing else —
+so the rendered stand-in sits back under the main scan where it always belonged,
+and a second mutation on a DIFFERENT line of that same file confirms the pardon
+does not spread. **When one line needs pardoning, pardon the line.**
 
 **A NEW RULE, AND IT DOES NOT NEED A LIST.** `doors-are-designed.test.ts` gains
 "no door tells a mourner they are looking at a wedding", DERIVING its file set
@@ -101,14 +122,21 @@ Also unchanged: `ROLE_SUBTYPE_LABEL` in `lib/event-moderators.ts` is a
 wedding-shaped co-host role list (Bride · Groom · Ninong · Maid of honor) shown
 on the same invitation door — a role-set build, not a noun swap.
 
-**🛡 MUTATIONS.** Every assertion was broken on purpose with the occurrence
-count printed before → after; details in the PR body. The apostrophe repair was
-proved in all three spellings separately, because a repaired guard that still
-cannot fail is a second decoration reading as a fix.
-🪤 And `npx tsc --noEmit` printed `errors=0` while exiting **134** on this
-machine — the documented crash — until the heap was raised; at
-`--max-old-space-size=8192` it is `errors=0 EXIT=0`. Print the exit code beside
-the count.
+**🛡 MUTATIONS — 14, ALL RED, EVERY ONE MEASURED.** Each sabotage printed its
+occurrence count before → after (all 1 → 0, so all landed), and the exit code
+was printed beside the TAP summary. Backups were keyed on the FULL PATH and
+restored from those backups, never `git checkout --`. Baseline was proved green
+first. The apostrophe repair was proved in all three spellings SEPARATELY —
+entity, curly and straight — because a repaired guard that still cannot fail is
+a second decoration reading as a fix. Both new floors were broken on purpose and
+both went red; both bills were made stale on purpose and both went red.
+🪤 And a note that corrects itself rather than a repo bug: running `npx tsc
+--noEmit` DIRECTLY printed `errors=0` while exiting **134**, which reads exactly
+like the documented crash. It is not one — `pnpm typecheck` sets
+`NODE_OPTIONS=--max-old-space-size=7168`, and bypassing the repo's own script
+loses it. Through the real script: `errors=0 EXIT=0`; `pnpm lint` EXIT=0 with no
+new warnings. **Print the exit code beside the count, and run the repo's script
+rather than the tool it wraps.**
 
 SPEC IMPACT: None. No schema, no migration, no price, no owner-locked decision
 moves. Every wedding surface reads byte-identically.

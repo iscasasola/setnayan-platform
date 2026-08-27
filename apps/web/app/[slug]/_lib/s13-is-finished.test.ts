@@ -84,18 +84,39 @@ const ALLOWED: Record<string, string> = {
     'resolveProfile defaults and the Pro-tier helper import, not rendered text. Named in its own right now that a bare "page.tsx" no longer wildcards eleven files.',
   'print/print-sheet.tsx': 'Docblocks and a CSS class name; its rendered strings are all resolved.',
   '_components/editorial/editorial-content.tsx': 'An import of the Pro-tier helper (`couple-website-pro`), not rendered text.',
-  // 🛑 THIS REASON WAS FALSE, AND THE EXEMPTION IS WHAT MADE IT INVISIBLE. The
-  // page also RENDERED "hasn’t published their wedding recap" in its
-  // not-ready-yet stand-in — on every event type, since the surface gate above
-  // it refuses nothing (every seeded type carries `website`). The stand-in now
-  // reads the event's own word, and the third test below re-checks this claim
-  // against the file instead of trusting the sentence.
-  'recap/page.tsx':
-    'The Pro-tier helper import and a resolveProfile default. Its one rendered ' +
-    'sentence resolves the event word — checked, not asserted.',
+  // 🛑 `recap/page.tsx` USED TO SIT HERE, exempt for "an import of the Pro-tier
+  // helper, not rendered text". The import was real and the reason was FALSE:
+  // the same file rendered "hasn’t published their wedding recap" to the guests
+  // of every birthday, debut and wake whose day had passed. It is no longer a
+  // FILE exemption — see ALLOWED_LINES below.
   '_components/public-hideable-widget.tsx': 'An import of the Chinese-wedding gate, not rendered text.',
   'pabuya/page.tsx': 'A resolveProfile default, not rendered text.',
 };
+
+/**
+ * PARDONS KEYED ON A LINE, NOT ON A FILE — and this is the lesson of the commit
+ * that added them.
+ *
+ * 🔴 A FILE-LEVEL EXEMPTION BLINDS THIS GUARD TO EVERYTHING IN THE FILE. That is
+ * how `recap/page.tsx` came to be pardoned for an IMPORT while rendering a
+ * wedding word to guests of every event type — a true sentence about one line
+ * bought silence over the whole file, and nothing could ever report it.
+ *
+ * 🪤 AND THE FIRST ATTEMPT AT THIS FIX REPRODUCED THE DISEASE. It kept the file
+ * exemption and merely rewrote its REASON to be true — which removed the file
+ * from the derived claim-check below (whose subjects are the reasons that say
+ * "not rendered text"), leaving the page unguarded a second time. The mutation
+ * run caught it: reverting the sentence left the guard GREEN. Nothing but
+ * measuring would have found that. **When only one line needs pardoning, pardon
+ * the LINE.**
+ */
+const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string }> = [
+  {
+    file: 'recap/page.tsx',
+    snippet: "from '@/lib/couple-website-pro'",
+    why: 'The Pro-tier helper import. The rest of this file — its rendered stand-in included — stays under the scan.',
+  },
+];
 
 function tsFiles(dir: string): string[] {
   const out: string[] = [];
@@ -173,9 +194,10 @@ test('every wedding word left in the guest tree is one we chose to keep', () => 
     const src = strip(readFileSync(file, 'utf8'));
     for (const [i, line] of src.split('\n').entries()) {
       if (!WORD.test(line)) continue;
-      if (isQuoted(line) || isJsxText(line)) {
-        offenders.push(`${rel}:${i + 1}  ${line.trim().slice(0, 80)}`);
-      }
+      if (!(isQuoted(line) || isJsxText(line))) continue;
+      // A LINE pardon covers exactly its own line — never the file around it.
+      if (ALLOWED_LINES.some((a) => a.file === rel && line.includes(a.snippet))) continue;
+      offenders.push(`${rel}:${i + 1}  ${line.trim().slice(0, 80)}`);
     }
   }
   assert.deepEqual(
@@ -201,6 +223,20 @@ test('the allowed list is a BILL — every entry still has a wedding word in it'
     stale,
     [],
     `these exemptions are no longer needed — delete their lines: ${stale.join(', ')}`,
+  );
+});
+
+test('the LINE pardons are a bill too — every snippet still exists', () => {
+  // A pardon nobody needs is permission left lying around. If the line is gone,
+  // its entry goes with it rather than standing as silence over a file.
+  const gone = ALLOWED_LINES.filter(({ file, snippet }) => {
+    const abs = join(TREE, file);
+    return !existsSync(abs) || !strip(readFileSync(abs, 'utf8')).includes(snippet);
+  }).map((a) => `${a.file} :: ${a.snippet}`);
+  assert.deepEqual(
+    gone,
+    [],
+    `these line pardons are stale — delete them: ${gone.join(', ')}`,
   );
 });
 

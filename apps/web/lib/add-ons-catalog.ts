@@ -592,6 +592,14 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     key: 'custom-qr-guest',
     // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
     dayOfOnly: true,
+    // 🪑 THE PURCHASE HALF OF THE SEAT-ROOM GATE (owner 2026-08-28). This SKU
+    // prints a branded QR per guest that opens their SEAT PASS. On a kind with
+    // no 'seating' surface that pass now 404s, so offering the ₱1,499 card
+    // there would sell something the buyer's guests cannot open — which is the
+    // defect app/[slug]/seat/page.tsx records having already been fixed once.
+    // Every kind that keeps 'seating' (14 of 17, incl. every wedding) is
+    // byte-identical.
+    surface: 'seating',
     tags: ['Invitation', 'Guests', 'Branding'],
     label: 'Custom QR per guest',
     Icon: QrCode,

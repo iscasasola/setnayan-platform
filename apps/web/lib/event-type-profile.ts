@@ -400,6 +400,17 @@ export const TRAVEL_PROFILE: EventTypeProfile = {
     celebrantNoun: 'organizer',
     celebrantShape: 'multiple',
   },
+  // 🪑 A TRIP HAS NO BANQUET FLOOR (owner 2026-08-28, "only its own rooms").
+  // This constant's job is to MIRROR the seeded row — see WAKE_PROFILE's note
+  // below, which says so — and migration 20271175884168 withdraws 'seating'
+  // from the travel row. Leaving it here would make the code's own answer for a
+  // trip disagree with the database's on every read error.
+  //
+  // ⚠ `date` and `hangout` lose the same surface but have NO named fallback, so
+  // on a DB error they degrade to GENERIC_PROFILE and keep the seat rooms. That
+  // asymmetry is deliberate and is the safe direction — inventing two more
+  // constants to mirror two more rows is how the fallbacks and the table drift.
+  enabledSurfaces: GENERIC_PROFILE.enabledSurfaces.filter((s) => s !== 'seating'),
   layerMode: 'roaming',
   multiDay: true,
   onboardingFlowKey: 'travel',

@@ -119,6 +119,13 @@ export function SourceRow({
           onClose={() => setOpen(false)}
           labelledById={headingId}
           title={sheetTitle ?? label}
+          /* ⚠ WIDE, BECAUSE THESE BODIES ARE SETTINGS SURFACES, NOT ONE
+             DECISION. Behind these four rows sit the QR buttons plus the
+             off-list camera ladder, the entire guest-camera tier card with its
+             two quotes, and an upload dropzone. At 22rem every one of those
+             wraps a control per line and turns a choice into scrolling — which
+             is the `wide` prop's own stated reason for existing. */
+          wide
         >
           <h2 id={headingId} className="sr-only">
             {sheetTitle ?? label}

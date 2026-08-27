@@ -55,16 +55,18 @@ export type CanonicalMapping =
  */
 export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping> = {
   // ── A wake's own trades (2026-08-27) ──────────────────────────────────────
-  // ⚠ EXEMPT, AND NOT BECAUSE THEY HAVE NO TILE. Each of these HAS a live
-  // marketplace tile — `funeral_home`, `cremation`, `memorial_park` under the
-  // `farewell` branch. What they have no place in is THIS map, which is the
-  // couple-side WEDDING vocabulary: `WeddingTile` is the set of tiles a couple
-  // planning a wedding navigates, and a crematorium is not one of them.
-  // Forcing them onto a wedding tile to satisfy the Record would put a hearse
-  // in a couple's transport tile, which is the drift this file exists to stop.
-  funeral_home: { kind: 'exempt', reason: 'no_canonical_tile' },
-  cremation: { kind: 'exempt', reason: 'no_canonical_tile' },
-  memorial_park: { kind: 'exempt', reason: 'no_canonical_tile' },
+  // 1:1 onto their same-named tile, exactly as the fourteen non-wedding gap
+  // leaves (tour_guide, referee_official, event_medic …) already do.
+  // ⚠ I FIRST WROTE THESE AS `exempt`, reasoning that a crematorium is not a
+  // wedding tile. That was wrong in the way that matters: a category with no
+  // tile is DROPPED from the couple's Shortlist silently — `buildShortlistFolders`
+  // does `if (!tile) continue;` — so a family who shortlisted a funeral home
+  // would simply never see it again. What keeps these off a WEDDING's shortlist
+  // is the tile's `applicable_event_types` scope, which is the mechanism built
+  // for exactly this and is why the gap leaves stopped being exempt in 2026-07.
+  funeral_home: { kind: 'tile', tile: 'funeral_home' },
+  cremation: { kind: 'tile', tile: 'cremation' },
+  memorial_park: { kind: 'tile', tile: 'memorial_park' },
   // ── Opened to the marketplace 2026-08-27 (owner ruling) ────────────────────
   // *"marriage-paper helper yes. honeymoon planner yes"* — both are people a
   // couple hires, unlike the officiant two lines down, who comes with the

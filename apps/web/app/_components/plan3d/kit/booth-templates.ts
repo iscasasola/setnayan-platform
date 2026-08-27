@@ -78,6 +78,33 @@ export type BoothTemplateSpec = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
+  // ── FAREWELL (2026-08-27) ──────────────────────────────────────────────────
+  // ⚠ A DESK, NEVER A BOOTH. Every other entry in this table is something that
+  // stands at a celebration; these three are the quiet consultation a family
+  // has. One attendant, formal, no props beyond the paperwork — a hearse or a
+  // casket display rendered as party furniture would be grotesque, and the
+  // Record type forces an entry whether or not anyone thought about it.
+  funeral_home: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Funeral Home',
+    cardKind: 'inclusions',
+  },
+  cremation: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Cremation',
+    cardKind: 'inclusions',
+  },
+  memorial_park: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Memorial Park',
+    cardKind: 'inclusions',
+  },
   // ── FEAST ──────────────────────────────────────────────────────────────────
   catering: {
     // 2026-07-08 owner polish: "they have a LONG table of food" — the classic

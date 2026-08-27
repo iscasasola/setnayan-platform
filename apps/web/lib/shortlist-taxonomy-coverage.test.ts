@@ -59,10 +59,30 @@ const GAP_LEAF_PARENT: Record<string, WeddingFolder> = {
   event_insurance: 'insurance',
   personal_accident_insurance: 'insurance',
   restaurant_reservation: 'dining',
+  // ── A wake's own trades (2026-08-27) ──────────────────────────────────────
+  // DELIBERATE, and the guard offered exactly two doors: a plan group, or here.
+  // These take THIS one because `wedding-plan-groups.ts` is the WEDDING plan —
+  // adding a crematorium to it would put a funeral in a couple's budget
+  // sections. A wake getting plan groups of its own is the owner's stated next
+  // step ("1 first then 2 after"); until it lands these are gap leaves with a
+  // declared folder, which is precisely what the fourteen above are.
+  funeral_home: 'farewell',
+  cremation: 'farewell',
+  memorial_park: 'farewell',
 };
 const GAP_LEAVES = Object.keys(GAP_LEAF_PARENT) as WeddingTile[];
 
 test('every VendorCategory bridges to a tile (no considered pick is ever dropped)', () => {
+  // 49 → 52 on 2026-08-27 (second change that day): a wake gained three trades
+  // of its own — `funeral_home`, `cremation`, `memorial_park`. RE-DERIVED, not
+  // bumped: each bridges 1:1 to its same-named tile (case 2 proves the tile is
+  // live), each is a DECLARED gap leaf under the new `farewell` folder rather
+  // than an accident (case 6), and none is claimed by a wedding PLAN_GROUP —
+  // which is correct, because a crematorium has no place in a couple's budget
+  // sections. What keeps them off a wedding's Shortlist is the tile's
+  // `applicable_event_types` scope, the mechanism the fourteen gap leaves
+  // already rely on. So every assertion that made 49 meaningful still holds.
+  //
   // 47 → 49 on 2026-08-27: the owner opened `wedding_paperwork` and
   // `travel_honeymoon` to the marketplace (*"marriage-paper helper yes.
   // honeymoon planner yes"*), and a marketplace branch a couple can browse
@@ -73,7 +93,7 @@ test('every VendorCategory bridges to a tile (no considered pick is ever dropped
   // meaningful still holds at 49.
   assert.equal(
     VENDOR_CATEGORIES.length,
-    49,
+    52,
     'enum size changed — re-derive the contract before editing this number',
   );
   for (const c of VENDOR_CATEGORIES) {
@@ -96,8 +116,11 @@ test('every bridged tile is a LIVE taxonomy tile', () => {
   }
 });
 
-test('the 14 non-wedding gap leaves land on their OWN tile, under a non-wedding family', () => {
-  assert.equal(GAP_LEAVES.length, 14);
+test('the 17 non-wedding gap leaves land on their OWN tile, under a non-wedding family', () => {
+  // 14 → 17 on 2026-08-27: a wake's three trades joined the register. The
+  // FLOOR is what makes this number worth asserting — it fails if somebody
+  // quietly drops a gap leaf out rather than deciding where it goes.
+  assert.equal(GAP_LEAVES.length, 17);
   for (const leaf of GAP_LEAVES) {
     assert.equal(
       tileForCategory(leaf as unknown as VendorCategory),

@@ -14,6 +14,13 @@ import {
   buildInquiryCard,
   type InquiryWhatsNewCard,
 } from '@/lib/vendor-overview-inquiry-card';
+import {
+  lockAskPhase,
+  meetingAskPhase,
+  reviewNeedsReply,
+  threadOwesReply,
+} from '@/lib/answers-desk';
+import { resolveAppointmentLabel, type AppointmentKind } from '@/lib/appointments';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { computeMonthlySubtotals, fetchVendorEarnings } from '@/lib/vendor-earnings';
@@ -30,15 +37,22 @@ import {
  * The prototype's Overview is a DECISION SURFACE — "what needs you today" — not
  * a stat board. Three live streams feed it:
  *
- *   1. WHAT'S NEW  — a decision feed. Each card = one thing to act on:
- *        · New inquiry (pending chat thread) — Accept burns the region-banded
- *          token cost (◎1/2/3 keyed to the couple's event region), or Decline.
- *        · Lock request — a couple recorded a downpayment off-platform; the
- *          vendor Confirms the lock (acknowledge_vendor_deposit) or Views it.
- *        · New 5-star review — awaiting the vendor's public reply.
- *        · Delivery delay flagged — a couple disputed a handover.
- *   2. ONGOING     — the vendor's open tasks: unanswered inquiries, draft
- *        contracts still to send, lock requests still to confirm.
+ *   1. WHAT'S NEW — THE ANSWERS DESK. Every answer this shop owes anybody, one
+ *      list across all their celebrations, OLDEST WAITING FIRST with the age on
+ *      the row. Each card is one thing to answer, and — the 2026-08-27 delta —
+ *      the answer is given ON the row wherever the answer works:
+ *        · New inquiry (pending chat thread) — Accept (free) or Decline.
+ *        · Booking ask — the couple asked; agree or turn it down. Past its
+ *          7-day deadline it becomes a closed line that keeps its place.
+ *        · A celebration you were paid for is being removed — agree or hold.
+ *        · Downpayment recorded — confirm it.
+ *        · An unanswered review AT ANY RATING, with the reply box on the card.
+ *        · Delivery delay flagged — a judgement, so a sentence and a way in.
+ *        · A reply owed in an accepted conversation.
+ *        · A meeting time the couple proposed.
+ *        · A quote, and a contract, written and never sent.
+ *   2. ONGOING     — the vendor's open tasks: unanswered inquiries and booking
+ *        asks. (Draft contracts moved INTO the feed — one thing, one list.)
  *   3. UPCOMING    — the next booked events by date (schedule-pool bookings).
  *
  * DATA-SOURCE HONESTY (per the build brief — never invent a number):
@@ -98,12 +112,31 @@ export type WhatsNewCard =
       proofUrl: string | null;
       recordedAt: string;
     }
+  /*
+    THE BOOKING ASK WHOSE WINDOW CLOSED. Its own kind, because it is not a
+    question any more: `vendor_agree_to_lock` expires LAZILY — only on the answer
+    path — so a lapsed ask keeps `lock_request_state = 'pending'` and the
+    answerable card above kept offering it, saying "Last day to answer" (the day
+    count floors at 0) about something that now returns `expired` when pressed.
+    It holds its place in the feed for a week and carries no buttons at all.
+  */
+  | {
+      kind: 'lock_request_lapsed';
+      id: string;
+      eventId: string;
+      eventVendorId: string;
+      eventDate: string | null;
+      requestedAt: string;
+      expiresAt: string | null;
+    }
   | {
       kind: 'review';
       id: string;
       reviewId: string;
       coupleName: string;
       quote: string | null;
+      /** 1–5, or null when unreadable. Decides the card's words AND its colour. */
+      rating: number | null;
       createdAt: string;
     }
   | {
@@ -112,6 +145,67 @@ export type WhatsNewCard =
       eventId: string;
       eventName: string;
       label: string | null;
+      createdAt: string;
+    }
+  /*
+    A REPLY OWED IN AN ACCEPTED CONVERSATION — and it is probably the commonest
+    row on this desk. The enquiry card above is PRE-accept only, so a couple the
+    shop has already booked waiting on an answer appeared nowhere, while that is
+    the exact thing we measure and publish as this shop's reply speed.
+  */
+  | {
+      kind: 'message';
+      id: string;
+      threadId: string;
+      eventId: string;
+      coupleName: string;
+      /** A short excerpt of what they said last — never the whole thread. */
+      excerpt: string | null;
+      lastMessageAt: string;
+    }
+  /*
+    THE COUPLE PROPOSED A TIME. Deadlined by the meeting itself, so `passed`
+    rows drop out of the waited-longest order (see `meetingAskPhase`).
+  */
+  | {
+      kind: 'meeting';
+      id: string;
+      appointmentId: string;
+      eventId: string;
+      vendorProfileId: string;
+      coupleName: string;
+      label: string;
+      meetingKind: AppointmentKind;
+      location: string | null;
+      scheduledAt: string | null;
+      durationMin: number | null;
+      proposedAt: string;
+      /** True once the proposed time has been and gone — a closed line, no buttons. */
+      passed: boolean;
+    }
+  /*
+    A QUOTE THIS SHOP WROTE AND NEVER SENT. A reminder that OPENS it — never a
+    Send button on a feed card: sending retires every other live quote this shop
+    has out with that couple, which is not a decision to make in one tap from a
+    list.
+  */
+  | {
+      kind: 'quote_draft';
+      id: string;
+      proposalId: string;
+      publicId: string | null;
+      eventId: string | null;
+      title: string;
+      totalCentavos: number | null;
+      createdAt: string;
+    }
+  /** A contract this shop drafted and never sent. Same shape, same treatment. */
+  | {
+      kind: 'contract_draft';
+      id: string;
+      contractId: string;
+      eventId: string;
+      title: string;
       createdAt: string;
     };
 
@@ -191,7 +285,15 @@ export async function fetchVendorOverviewData(
   const vendorCategory = primaryCategoryLabel(services);
 
   // --- 1. Vendor's own-session reads (RLS-scoped, fail-soft) -----------------
-  const [threads, reviews, contracts, poolBookings, disputes] = await Promise.all([
+  const [
+    threads,
+    reviews,
+    contracts,
+    poolBookings,
+    disputes,
+    meetingProposals,
+    draftQuotes,
+  ] = await Promise.all([
     fetchVendorThreads(supabase, vendorProfileId).catch(() => []),
     fetchReviewsForVendorWithCouple(supabase, vendorProfileId, { limit: 50 }).catch(
       () => [],
@@ -202,9 +304,29 @@ export async function fetchVendorOverviewData(
     // does not have. Widening it needs a stable id first — its own change.
     fetchVendorPoolBookings(supabase, vendorProfileId).catch(() => []),
     fetchDisputedHandovers(supabase, vendorProfileId),
+    // Both read under the vendor's OWN session: event_appointments carries a
+    // vendor-read policy keyed on vendor_profile_id, and vendor_proposals is the
+    // shop's own table (the Proposals surface reads it the same way).
+    fetchCoupleMeetingProposals(supabase, vendorProfileId),
+    fetchUnsentQuotes(supabase, vendorProfileId),
   ]);
 
   const pendingThreads = threads.filter((t) => t.inquiry_status === 'pending');
+  /*
+    THE ACCEPTED LANE — where a reply is actually owed.
+    · `accepted` only: displaced / withdrawn / expired threads are conversations
+      that ended, and nagging a supplier to answer one is a door onto nothing.
+    · An ARCHIVED thread is one the supplier deliberately put away, and a newer
+      message auto-unarchives it (`computeArchived`), so a thread that is still
+      archived has nothing newer than the moment they filed it.
+  */
+  const acceptedThreads = threads.filter(
+    (t) => t.inquiry_status === 'accepted' && !t.archived,
+  );
+  const owedReplies = await fetchOwedThreadReplies(
+    supabase,
+    acceptedThreads.map((t) => t.thread_id),
+  );
 
   // --- 2. Admin-scoped reads (vendor's own profile only) ---------------------
   // Lock requests: the couple recorded a deposit; the vendor still needs to
@@ -240,12 +362,42 @@ export async function fetchVendorOverviewData(
       fetchDeletionRequests(admin, vendorProfileId),
     ]);
 
+  /*
+    THE ASK SPLITS BY ITS OWN MATERIALIZED DEADLINE. `fetchLockAgreementRequests`
+    can only ask for `lock_request_state = 'pending'`, and expiry in this product
+    is LAZY — flipped on the answer path, never by a sweeper — so a lapsed ask is
+    indistinguishable from a live one at the query. The phase is decided here,
+    once, from the stamped deadline.
+  */
+  const now = Date.now();
+  const answerableAsks = lockAgreementRequests.filter(
+    (r) => lockAskPhase(r.expiresAt, now) === 'answerable',
+  );
+  const lapsedAsks = lockAgreementRequests.filter(
+    (r) => lockAskPhase(r.expiresAt, now) === 'lapsed',
+  );
+
+  const draftContracts = contracts.filter((c) => c.status === 'draft');
+  const answerableMeetings = meetingProposals.filter(
+    (m) => meetingAskPhase(m.scheduledAt, now) !== 'dropped',
+  );
+
   const eventIds = [
     ...new Set([
       ...inquiryEventIds,
       ...bookingEventIds,
       ...lockAgreementRequests.map((r) => r.eventId),
       ...deletionRequests.map((r) => r.eventId),
+      // The four kinds added with the desk. Their event ids all come from rows
+      // the vendor's OWN session returned; the meta read is admin-scoped
+      // enrichment of ids already proved, never a way to reach a new event.
+      ...owedReplies.map((m) => {
+        const thread = acceptedThreads.find((t) => t.thread_id === m.threadId);
+        return thread?.event_id ?? null;
+      }).filter((id): id is string => Boolean(id)),
+      ...answerableMeetings.map((m) => m.eventId),
+      ...draftQuotes.map((q) => q.eventId).filter((id): id is string => Boolean(id)),
+      ...draftContracts.map((c) => c.event_id),
     ]),
   ];
   const eventMeta = await fetchEventMeta(admin, eventIds);
@@ -285,7 +437,7 @@ export async function fetchVendorOverviewData(
 
   // PR-H step 2 FIRST: being ASKED outranks confirming a deposit, because it
   // carries a 7-day fuse and the other one does not.
-  for (const ar of lockAgreementRequests) {
+  for (const ar of answerableAsks) {
     const meta = eventMeta.get(ar.eventId);
     whatsNew.push({
       kind: 'lock_request',
@@ -330,15 +482,114 @@ export async function fetchVendorOverviewData(
     });
   }
 
+  /*
+    THE LAPSED ASK KEEPS ITS PLACE. Sorted on `requestedAt`, exactly like the
+    answerable card it replaces, so the row does not move when the window shuts —
+    it changes what it says. A row that simply vanishes reads as one you answered.
+  */
+  for (const ar of lapsedAsks) {
+    const meta = eventMeta.get(ar.eventId);
+    whatsNew.push({
+      kind: 'lock_request_lapsed',
+      id: `lockreq-lapsed-${ar.eventVendorId}`,
+      eventId: ar.eventId,
+      eventVendorId: ar.eventVendorId,
+      eventDate: meta?.eventDate ?? null,
+      requestedAt: ar.requestedAt,
+      expiresAt: ar.expiresAt,
+    });
+  }
+
+  /*
+    EVERY UNANSWERED REVIEW, AT EVERY RATING. The shipped filter was
+    `rating_overall !== 5 || vendor_reply` — so a ONE-STAR review, the one that
+    most needs an answer, could never reach this desk at all, and nothing
+    anywhere reported that it had been excluded. The rating rides on the card
+    because it decides both the words and the colour (see `reviewTemper`).
+  */
   for (const r of reviews) {
-    if (r.rating_overall !== 5 || r.vendor_reply) continue;
+    if (!reviewNeedsReply(r)) continue;
     whatsNew.push({
       kind: 'review',
       id: `rev-${r.review_id}`,
       reviewId: r.review_id,
       coupleName: r.couple_display_name ?? 'A verified couple',
       quote: r.body?.trim() ? r.body.trim() : null,
+      rating: typeof r.rating_overall === 'number' ? r.rating_overall : null,
       createdAt: r.created_at,
+    });
+  }
+
+  // A reply owed inside a conversation this shop already accepted.
+  for (const m of owedReplies) {
+    const thread = acceptedThreads.find((t) => t.thread_id === m.threadId);
+    if (!thread) continue;
+    const meta = eventMeta.get(thread.event_id);
+    whatsNew.push({
+      kind: 'message',
+      id: `msg-${m.threadId}`,
+      threadId: m.threadId,
+      eventId: thread.event_id,
+      // Post-accept, so the couple's own event name is theirs to see. The
+      // `events` embed on a vendor's thread read is null (a vendor holds no
+      // events RLS), which is why this comes from the scoped meta read.
+      coupleName: meta?.displayName ?? thread.event?.display_name ?? 'A couple',
+      excerpt: m.excerpt,
+      lastMessageAt: m.lastMessageAt,
+    });
+  }
+
+  // The couple proposed a time. A passed proposal stays as a closed line.
+  for (const mp of answerableMeetings) {
+    const meta = eventMeta.get(mp.eventId);
+    const passed = meetingAskPhase(mp.scheduledAt, now) === 'passed';
+    whatsNew.push({
+      kind: 'meeting',
+      id: `appt-${mp.appointmentId}`,
+      appointmentId: mp.appointmentId,
+      eventId: mp.eventId,
+      vendorProfileId,
+      coupleName: meta?.displayName ?? 'A couple',
+      label: mp.label,
+      meetingKind: mp.meetingKind,
+      location: mp.location,
+      scheduledAt: mp.scheduledAt,
+      durationMin: mp.durationMin,
+      proposedAt: mp.proposedAt,
+      passed,
+    });
+  }
+
+  /*
+    A QUOTE, THEN A CONTRACT, THAT NEVER WENT OUT.
+    ⚠ THIS LIST IS DRAFTS, AND IT SAYS SO ON THE CARD. A quote can also be
+    created-and-sent in one step from a chat thread (`sendProposalCore` inserts a
+    draft and flips it to `sent` in the same call), so this lane cannot see that
+    one at all — and when that flip fails it deletes its own draft, best effort.
+    So "you have no unsent quotes" is a true statement about drafts, not a claim
+    that every quote you ever wrote reached somebody.
+  */
+  for (const q of draftQuotes) {
+    whatsNew.push({
+      kind: 'quote_draft',
+      id: `qd-${q.proposalId}`,
+      proposalId: q.proposalId,
+      publicId: q.publicId,
+      eventId: q.eventId,
+      title: q.title,
+      totalCentavos: q.totalCentavos,
+      createdAt: q.createdAt,
+    });
+  }
+
+  for (const c of draftContracts) {
+    whatsNew.push({
+      kind: 'contract_draft',
+      id: `cd-${c.contract_id}`,
+      contractId: c.contract_id,
+      eventId: c.event_id,
+      title: c.title,
+      createdAt: c.created_at,
     });
   }
 
@@ -377,7 +628,7 @@ export async function fetchVendorOverviewData(
 
   // The open-task list must report the ask too, or a supplier's own "what do I
   // owe anyone" list under-reports the one item with a deadline on it.
-  for (const ar of lockAgreementRequests) {
+  for (const ar of answerableAsks) {
     ongoing.push({
       id: `ong-lockreq-${ar.eventVendorId}`,
       label: 'Agree to a booking, or turn it down',
@@ -396,15 +647,12 @@ export async function fetchVendorOverviewData(
     });
   }
 
-  for (const c of contracts) {
-    if (c.status !== 'draft') continue;
-    ongoing.push({
-      id: `ong-contract-${c.contract_id}`,
-      label: `Send the contract "${c.title}"`,
-      dueChip: 'Awaiting you',
-      href: `/vendor-dashboard/contracts`,
-    });
-  }
+  /*
+    ⛔ THE DRAFT CONTRACTS ARE NOT LISTED TWICE. They used to live only here, as
+    an open task with a hand-typed "Awaiting you" and no age; they are cards in
+    the feed now, with the age every other row carries. Re-adding them here would
+    put one thing in two lists with two different clocks.
+  */
 
   // --- Assemble UPCOMING (next 5 booked events by date) ----------------------
   const today = todayManila();
@@ -519,6 +767,23 @@ function cardTimestamp(card: WhatsNewCard): Date {
     case 'review':
       return new Date(card.createdAt);
     case 'dispute':
+      return new Date(card.createdAt);
+    // The lapsed ask keeps the answerable card's key on purpose — it must not
+    // move when the window closes, only change what it says.
+    case 'lock_request_lapsed':
+      return new Date(card.requestedAt);
+    case 'message':
+      return new Date(card.lastMessageAt);
+    /*
+      A LIVE PROPOSAL IS ORDERED BY WHEN THEY ASKED; A PASSED ONE BY THE TIME
+      THAT PASSED. Ordering a dead ask by how long it has been waiting would let
+      a tasting that already happened claim the top of the list.
+    */
+    case 'meeting':
+      return new Date(card.passed && card.scheduledAt ? card.scheduledAt : card.proposedAt);
+    case 'quote_draft':
+      return new Date(card.createdAt);
+    case 'contract_draft':
       return new Date(card.createdAt);
   }
 }
@@ -721,6 +986,197 @@ async function fetchLockRequests(
     coupleName: null,
     proofUrl: r.deposit_proof_url,
     recordedAt: r.deposit_recorded_at,
+  }));
+}
+
+// --- The four answers the desk gained (all vendor's-own-session reads) -------
+
+/*
+  ⛔ WHAT IS DELIBERATELY NOT HERE. Four kinds of answer a supplier is asked for
+  elsewhere in this product do NOT join this desk, because the answer does not
+  work yet — the waitlist pick, a paid crew shift, a guest's song request, and
+  "somebody says they paid you". `ANSWERS_THAT_DO_NOT_JOIN` in
+  `lib/answers-desk.ts` carries the reason on each, in one copy, and the guard
+  reads that list rather than a hand-typed one. A row would be a door onto
+  nothing: the supplier presses, something says it worked, and nobody is helped.
+*/
+
+type OwedReply = {
+  threadId: string;
+  excerpt: string | null;
+  lastMessageAt: string;
+};
+
+/**
+ * "Which conversations are waiting on ME?" — the LAST message in each accepted
+ * thread, kept when the shop did not write it.
+ *
+ * 🔑 THE QUESTION IS AUTHORSHIP, NOT AN UNREAD MARKER. Reading a message is not
+ * answering it, and `count_unread_message_threads()` answers a different
+ * question (and only as a total).
+ *
+ * 🪤 NO SILENT CAP. One batched read, newest first, reduced to the first row per
+ * thread. If it ever reaches the cap the truncation is LOGGED — an unreported
+ * truncation on this desk would hide exactly the oldest owed answers, which are
+ * the rows it exists to surface.
+ */
+const OWED_REPLY_SCAN_CAP = 2000;
+
+async function fetchOwedThreadReplies(
+  supabase: SupabaseClient,
+  threadIds: string[],
+): Promise<OwedReply[]> {
+  if (threadIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('thread_id, sender_role, body, created_at')
+    .in('thread_id', threadIds)
+    .order('created_at', { ascending: false })
+    .limit(OWED_REPLY_SCAN_CAP);
+  if (error) {
+    logQueryError('vendor-overview:fetchOwedThreadReplies', error, {
+      threadCount: threadIds.length,
+    });
+    return [];
+  }
+  const rows = (data ?? []) as Array<{
+    thread_id: string;
+    sender_role: string | null;
+    body: string | null;
+    created_at: string;
+  }>;
+  if (rows.length >= OWED_REPLY_SCAN_CAP) {
+    console.warn(
+      `[vendor-overview] owed-reply scan hit its ${OWED_REPLY_SCAN_CAP}-row cap over ` +
+        `${threadIds.length} threads — the oldest owed replies may be missing from the desk.`,
+    );
+  }
+  const newestPerThread = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    if (!newestPerThread.has(row.thread_id)) newestPerThread.set(row.thread_id, row);
+  }
+  const out: OwedReply[] = [];
+  for (const row of newestPerThread.values()) {
+    if (!threadOwesReply(row.sender_role)) continue;
+    const body = row.body?.trim();
+    out.push({
+      threadId: row.thread_id,
+      excerpt: body ? body.slice(0, 140) : null,
+      lastMessageAt: row.created_at,
+    });
+  }
+  return out;
+}
+
+type MeetingProposal = {
+  appointmentId: string;
+  eventId: string;
+  label: string;
+  meetingKind: AppointmentKind;
+  location: string | null;
+  scheduledAt: string | null;
+  durationMin: number | null;
+  proposedAt: string;
+};
+
+/**
+ * Meeting times the COUPLE proposed and this shop has not answered.
+ *
+ * `initiated_by = 'couple'` is the whole point: `respondAppointment` refuses an
+ * answer from the side that proposed, so a vendor-initiated row is not something
+ * the vendor can answer — offering it would be a control that refuses the person
+ * it is shown to.
+ *
+ * 🔑 `proposedAt` IS `updated_at`, NOT `created_at`. A propose-new keeps the same
+ * row and flips authorship, so `created_at` is the first round's instant — using
+ * it would overstate how long this supplier has owed an answer, on a desk whose
+ * whole order is who has waited longest.
+ *
+ * The label resolves without the type catalog (`resolveAppointmentLabel` with no
+ * preset map): a custom meeting's own name, else the type in words. One less read
+ * on the home page, and it can never render a label from a stale catalog row.
+ */
+async function fetchCoupleMeetingProposals(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<MeetingProposal[]> {
+  const { data, error } = await supabase
+    .from('event_appointments')
+    .select(
+      'appointment_id, event_id, kind, type, custom_label, location, scheduled_at, duration_min, updated_at',
+    )
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('status', 'proposed')
+    .eq('initiated_by', 'couple')
+    .order('updated_at', { ascending: true });
+  if (error) {
+    logQueryError('vendor-overview:fetchCoupleMeetingProposals', error, {
+      vendor_profile_id: vendorProfileId,
+    });
+    return [];
+  }
+  return ((data ?? []) as Array<{
+    appointment_id: string;
+    event_id: string;
+    kind: AppointmentKind;
+    type: string;
+    custom_label: string | null;
+    location: string | null;
+    scheduled_at: string | null;
+    duration_min: number | null;
+    updated_at: string;
+  }>).map((r) => ({
+    appointmentId: r.appointment_id,
+    eventId: r.event_id,
+    label: resolveAppointmentLabel({ type: r.type, custom_label: r.custom_label }, {}),
+    meetingKind: r.kind,
+    location: r.location,
+    scheduledAt: r.scheduled_at,
+    durationMin: r.duration_min,
+    proposedAt: r.updated_at,
+  }));
+}
+
+type UnsentQuote = {
+  proposalId: string;
+  publicId: string | null;
+  eventId: string | null;
+  title: string;
+  totalCentavos: number | null;
+  createdAt: string;
+};
+
+/** Quotes saved as drafts and never sent. See the card push for what this cannot see. */
+async function fetchUnsentQuotes(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<UnsentQuote[]> {
+  const { data, error } = await supabase
+    .from('vendor_proposals')
+    .select('proposal_id, public_id, event_id, title, total_centavos, created_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('status', 'draft')
+    .order('created_at', { ascending: true });
+  if (error) {
+    logQueryError('vendor-overview:fetchUnsentQuotes', error, {
+      vendor_profile_id: vendorProfileId,
+    });
+    return [];
+  }
+  return ((data ?? []) as Array<{
+    proposal_id: string;
+    public_id: string | null;
+    event_id: string | null;
+    title: string | null;
+    total_centavos: number | null;
+    created_at: string;
+  }>).map((r) => ({
+    proposalId: r.proposal_id,
+    publicId: r.public_id,
+    eventId: r.event_id,
+    title: r.title?.trim() || 'Untitled quote',
+    totalCentavos: r.total_centavos,
+    createdAt: r.created_at,
   }));
 }
 

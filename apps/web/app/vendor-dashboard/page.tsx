@@ -18,6 +18,12 @@ import {
   vendorAgreeToDeletion,
   vendorDeclineDeletion,
 } from './clients/[eventId]/actions';
+// The desk TAKES these two answers rather than linking away to them. Both are
+// the shipped actions, unchanged in what they enforce: the reply action still
+// posts one final public reply through the vendor's own session, and
+// `respondAppointment` still refuses an answer from the side that proposed.
+import { postVendorReply } from './reviews/actions';
+import { respondAppointment } from '@/app/_components/appointments-actions';
 import {
   VendorTodayFocal,
   VendorEnergyStats,
@@ -49,9 +55,12 @@ import { PageMasthead } from '@/app/_components/page-masthead';
  * board. Three live streams, all wired to real sources (never the mockup's
  * sample numbers), assembled in `fetchVendorOverviewData`:
  *
- *   1. "What's new"  — a decision feed of act-on-now cards (new inquiries —
- *      answering couples is free · lock requests · new 5-star
- *      reviews awaiting a reply · flagged delivery delays). Centrepiece.
+ *   1. "What's new"  — THE ANSWERS DESK: every answer this shop owes anybody,
+ *      oldest waiting first, answered on the row wherever the answer works (new
+ *      inquiries — answering couples is free · booking asks · unanswered
+ *      reviews at any rating, with the reply box on the card · flagged delivery
+ *      delays · replies owed in accepted conversations · meeting times the
+ *      couple proposed · quotes and contracts never sent). Centrepiece.
  *   2. Amber note    — the "answering couples is free" explainer.
  *   3. "Ongoing"     — the vendor's open tasks with due chips.
  *   4. "Upcoming schedules" — the next 5 booked events by date.
@@ -312,6 +321,8 @@ export default async function VendorOverviewPage() {
         declineLock={vendorDeclineLock}
         agreeDeletion={vendorAgreeToDeletion}
         declineDeletion={vendorDeclineDeletion}
+        postReviewReply={postVendorReply}
+        respondMeeting={respondAppointment}
       />
 
       {/* 2 · Token note — cost follows the customer's event location. A subtle

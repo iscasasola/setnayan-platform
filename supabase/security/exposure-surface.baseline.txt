@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6217
+# facts: 6223
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     571
-#   col       4573
-#   policy    847
+#   tpriv     572
+#   col       4577
+#   policy    848
 #   view      8
 #   func      214
 #
@@ -404,6 +404,7 @@ tpriv	public.songs|anon	SIUD
 tpriv	public.songs|authenticated	SIUD
 tpriv	public.stewardship_transfers|anon	SIUD
 tpriv	public.stewardship_transfers|authenticated	SIUD
+tpriv	public.supplier_night_before_email_log|authenticated	SIUD
 tpriv	public.supplier_vendor_sku_pricing|authenticated	SIUD
 tpriv	public.supplier_vendor_skus|authenticated	SIUD
 tpriv	public.supplies_order_line_items|authenticated	SIUD
@@ -3669,6 +3670,10 @@ col	public.stewardship_transfers.to_user_id	anon=SIU authenticated=SIU
 col	public.stewardship_transfers.transfer_id	anon=SIU authenticated=SIU
 col	public.stewardship_transfers.transfer_kind	anon=SIU authenticated=SIU
 col	public.stewardship_transfers.verification_ref	anon=SIU authenticated=SIU
+col	public.supplier_night_before_email_log.event_date	anon=- authenticated=SIU
+col	public.supplier_night_before_email_log.event_vendor_id	anon=- authenticated=SIU
+col	public.supplier_night_before_email_log.resend_id	anon=- authenticated=SIU
+col	public.supplier_night_before_email_log.sent_at	anon=- authenticated=SIU
 col	public.supplier_vendor_sku_pricing.created_at	anon=- authenticated=SIU
 col	public.supplier_vendor_sku_pricing.effective_from	anon=- authenticated=SIU
 col	public.supplier_vendor_sku_pricing.effective_to	anon=- authenticated=SIU
@@ -5728,6 +5733,7 @@ policy	public.songs|songs_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenti
 policy	public.songs|songs_authenticated_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true
 policy	public.songs|songs_public_select	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.stewardship_transfers|stewardship_transfers_participant_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(is_admin() OR (from_user_id = auth.uid()) OR (to_user_id = auth.uid())) check=NULL
+policy	public.supplier_night_before_email_log|supplier_night_before_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.supplier_vendor_sku_pricing|supplier_vendor_sku_pricing_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM (supplier_vendor_skus svs JOIN vendor_profiles vp ON ((vp.vendor_profile_id = svs.vendor_profile_id))) WHERE ((svs.sku_id = supplier_vendor_sku_pricing.sku_id) AND (vp.user_id = auth.uid())))) check=NULL
 policy	public.supplier_vendor_skus|supplier_vendor_skus_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = supplier_vendor_skus.vendor_profile_id) AND (vp.user_id = auth.uid())))) check=NULL
 policy	public.supplier_vendor_skus|supplier_vendor_skus_team_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL

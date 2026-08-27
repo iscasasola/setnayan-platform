@@ -25,6 +25,18 @@ export type RunOfShowBlock = {
   /** Schedule block type — feeds the per-trade relevance lens. Empty string when
    *  a legacy row has none, which the lens treats as "no rule", never a throw. */
   block_type?: string;
+  /**
+   * Did the organiser publish this line to the guests?
+   *
+   * ⚠ OPTIONAL, AND ITS ABSENCE MUST NEVER READ AS "PRIVATE". A caller that did
+   * not ask for the column gets `undefined`; only an explicit `false` means the
+   * guests were never told. The supplier's desk on the celebration's own page
+   * is the one surface that shows a non-public line, and it MARKS it — the
+   * booked-supplier read policy on `event_schedule_blocks` has no public/private
+   * filter at all (it excludes only `coordinator_only`), while the anonymous
+   * policy does, so this flag is the only thing that distinguishes them.
+   */
+  is_public?: boolean;
 };
 
 export type RunOfShowState = {

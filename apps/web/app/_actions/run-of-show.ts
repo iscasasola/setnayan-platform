@@ -53,7 +53,14 @@ export async function fetchRunOfShowBlocks(
     // `block_type` drives the per-trade relevance lens (lib/role-run-of-day.ts).
     // One extra column on a read this console already makes, rather than a second
     // query on a live day-of screen.
-    .select('block_id, label, start_at, end_at, location, run_state, actual_start_at, block_type')
+    // `is_public` travels because the supplier's desk on the celebration's own
+    // page renders the whole running order and must MARK the lines the guests
+    // were never told about. Additive for the other two readers, which ignore
+    // it: the anonymous policy already filters the column away, so a guest's
+    // rows all come back `true`.
+    .select(
+      'block_id, label, start_at, end_at, location, run_state, actual_start_at, block_type, is_public',
+    )
     .eq('event_id', eventId)
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
@@ -67,6 +74,7 @@ export async function fetchRunOfShowBlocks(
     run_state: (b.run_state as RunState) ?? 'upcoming',
     actual_start_at: (b.actual_start_at as string | null) ?? null,
     block_type: (b.block_type as string | null) ?? '',
+    is_public: (b.is_public as boolean | null) ?? true,
   }));
 }
 

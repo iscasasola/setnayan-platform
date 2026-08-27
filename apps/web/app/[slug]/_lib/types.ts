@@ -59,6 +59,22 @@ export type EventRow = {
   public_id: string;
   display_name: string;
   event_date: string | null;
+  /**
+   * The LAST day, for a celebration that spans several (`events.event_end_date`).
+   *
+   * 🔴 IT WAS BEING READ BEFORE IT WAS BEING SELECTED. `page.tsx` has cast for
+   * this field since the day-of lifecycle learned about ranges — and the event
+   * shell's select never named the column, so the cast resolved `undefined`
+   * every time and the multi-day arm of `getLifecyclePhase` has never once run.
+   * Latent only because production holds no ranged celebration (measured
+   * 2026-08-27: 5 events, 0 with an end date). Now selected, and typed here so
+   * the next reader cannot cast their way past it.
+   */
+  event_end_date?: string | null;
+  /** The organiser closed this celebration out (`events.cleared_at`). Day-of
+   *  surfaces are over once it is set, whatever the calendar says. Selected for
+   *  the same reason as the field above. */
+  cleared_at?: string | null;
   venue_name: string | null;
   venue_address: string | null;
   venue_latitude: number | null;

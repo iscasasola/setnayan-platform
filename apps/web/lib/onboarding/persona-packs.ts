@@ -68,6 +68,39 @@ export type TypePersonaPack = {
  * in `derivePackPlan`, so packs can be authored generously.
  */
 export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
+  /**
+   * 🕊️ THE FUNERAL. The narrowest pack in the file, because the type reaches only
+   * EIGHT categories: catering · choir · coordinator · florist · guest_shuttle ·
+   * photo_video · printing (scoped by migration 20271163083797) + the universal
+   * `livestream`. `derivePackPlan` intersects against the type's real tiles, so
+   * nothing outside that set could surface even if it were written here.
+   *
+   * ⚖ `servicesByPersona` deliberately offers only TWO things and never a camera
+   * rung. The solemn register's rule is "no marketing upsells", and Papic is
+   * already granted free on every event — putting a paid rung in a bereaved
+   * family's starter plan is exactly what that rule forbids. Live Studio earns
+   * its place because the relatives who cannot fly home are the whole reason a
+   * wake is streamed, and the memorial page is the thing the family keeps.
+   */
+  funeral: {
+    essentials: ['catering', 'florist', 'photo_video', 'coordinator'],
+    byPersona: {
+      keepsake: ['printing', 'livestream', 'choir'],
+      big_celebration: ['guest_shuttle', 'catering', 'choir'],
+      best_of_both: ['printing', 'choir', 'guest_shuttle'],
+      intimate_romance: ['choir', 'printing'],
+      modern_statement: ['printing', 'livestream'],
+      rooted_tradition: ['choir', 'printing', 'guest_shuttle'],
+    },
+    servicesByPersona: {
+      keepsake: ['advanced_website'],
+      big_celebration: ['panood'],
+      best_of_both: ['panood', 'advanced_website'],
+      intimate_romance: ['advanced_website'],
+      modern_statement: ['advanced_website'],
+      rooted_tradition: ['panood', 'advanced_website'],
+    },
+  },
   birthday: {
     essentials: ['cake', 'catering', 'host_mc', 'photo_booth'],
     byPersona: {

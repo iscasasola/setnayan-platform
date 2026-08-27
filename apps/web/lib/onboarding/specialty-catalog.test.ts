@@ -20,7 +20,7 @@ import {
 const EXPECTED_TYPES = [
   'wedding', 'debut', 'christening', 'birthday', 'gender_reveal', 'anniversary',
   'graduation', 'reunion', 'gala_night', 'corporate', 'tournament', 'travel',
-  'celebration', 'simple_event',
+  'celebration', 'simple_event', 'funeral',
 ] as const;
 
 const FIELD_TYPES = new Set<string>(SPECIALTY_FIELD_TYPES);

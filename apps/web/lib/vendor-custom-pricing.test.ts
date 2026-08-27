@@ -48,29 +48,29 @@ test('charmRoundUp: non-positive / non-finite → 0', () => {
   assert.equal(charmRoundUp(Infinity), 0);
 });
 
-test('base only quotes the CHARM-ROUNDED base, which is no longer the base itself', () => {
+test('THE SENTENCE ON THE PAGE: a base-only Custom plan quotes EXACTLY the base', () => {
   /*
-    🚨 READ THIS BEFORE "FIXING" THE NUMBER. This case used to assert
-    `final28 === 8999`, and it was exactly true: the old base ₱8,999 already
-    ended in ‑99, so it was a FIXED POINT of `charmRoundUp` and a base-only plan
-    quoted the base fee unchanged.
+    🔑 "Starts at ₱11,000" has to be true of the quote, not just of the
+    catalog row. This is that sentence, pinned.
 
-    The owner set the base to ₱11,000 on 2026-08-27. ₱11,000 is NOT a fixed
-    point — charmRoundUp(11000) = 11099 — so a base-only Custom plan now quotes
-    **₱11,099** against a ₱11,000 base. Nothing is broken and no rule changed;
-    the two owner decisions simply interact.
+    It was false for one afternoon and the failure is worth remembering: the
+    quote used to charm-round every total up to a ‑99 ending, so a base-only
+    plan quoted ₱11,099 against an ₱11,000 base. Nobody had noticed in the
+    months before, because the OLD base ₱8,999 already ended in ‑99 and was a
+    FIXED POINT of the rounding — raising the base to a round number is what
+    made a long-standing behaviour visible for the first time.
 
-    ⚖ The charm rule is DELIBERATELY NOT touched here. He declined to retire
-    charm pricing repo-wide the same day ("we will adjust them manually on the
-    app"), and rounding the TOTAL is a different decision from rounding the
-    DIALS. Whether a Custom quote should end in ‑99 at all is flagged for him.
+    ⚖ A ROUNDING RULE IS INVISIBLE UNTIL A VALUE STOPS SATISFYING IT. That is
+    the generalisable half, and it is why this assertion is written as an
+    equality against `PRICES.base` rather than against a literal: it stays true
+    through the next reprice, and it fails the moment anything is added on top.
   */
   const q = computeCustomQuote(BASE, PRICES);
-  assert.equal(q.list28, 11099); // charm(11000) = 11099
-  assert.equal(q.final28, 11099);
+  assert.equal(q.list28, PRICES.base);
+  assert.equal(q.final28, PRICES.base);
+  assert.equal(q.final28, 11000);
   assert.equal(q.discountValue, 0);
-  assert.equal(q.annual, charmRoundUp(11099 * 10)); // 110990 → 110999
-  assert.equal(q.annual, 110999);
+  assert.equal(q.annual, 114400); // 11,000 × 10.4 — a 20% saving, nothing added on top
 });
 
 test('floor: below-base raw never quotes under the base fee', () => {
@@ -80,38 +80,41 @@ test('floor: below-base raw never quotes under the base fee', () => {
     { ...BASE, seats: 2, photos: 50, slotsPerCategory: 1 },
     PRICES,
   );
-  // raw == base (excess clamps every under-baseline axis to 0), then charm.
-  assert.equal(q.final28, 11099);
+  // raw == base (excess clamps every under-baseline axis to 0).
+  assert.equal(q.final28, 11000);
   // The property that actually matters, stated independently of the number:
   assert.ok(q.final28 >= PRICES.base, 'a quote may never land under the base fee');
 });
 
-test('5-branch = 15,099', () => {
+test('5-branch = 15,000 — exactly what the dials add up to', () => {
   const q = computeCustomQuote({ ...BASE, branches: 5 }, PRICES);
   assert.equal(q.raw, 15000); // 11,000 + 4 × 1,000
-  assert.equal(q.final28, 15099); // charm(15000)
+  assert.equal(q.final28, 15000); // no bump: the quote IS the sum
 });
 
-test('5-branch nationwide = 17,599', () => {
+test('5-branch nationwide = 17,500', () => {
   const q = computeCustomQuote({ ...BASE, branches: 5, nationwide: true }, PRICES);
   assert.equal(q.raw, 17500); // 11,000 + 4 × 1,000 + 2,500
-  assert.equal(q.final28, 17599); // charm(17500)
+  assert.equal(q.final28, 17500);
 });
 
 // LINEAGE OF THIS ONE CASE, because it keeps moving and each move was a ruling:
 //   ₱25,999  original, with the 100-token axis
 //   ₱15,999  2026-08-07, tokens retired
-//   ₱18,099  2026-08-27, base ₱8,999→₱11,000 · branch ₱999→₱1,000 ·
+//   ₱18,099  2026-08-27 morning, base ₱8,999→₱11,000 · branch ₱999→₱1,000 ·
 //            nationwide ₱2,499→₱2,500 · domain ₱499→₱500
+//   ₱18,000  2026-08-27, the charm bump turned OFF for Custom totals — the
+//            round dials were being un-rounded by it before anyone saw them
 // The arithmetic below is re-derived from the rate card, never adjusted to make
 // the test pass.
-test('full-service (5-branch nationwide + domain) = 18,099', () => {
+test('full-service (5-branch nationwide + domain) = 18,000', () => {
   const q = computeCustomQuote(
     { ...BASE, branches: 5, nationwide: true, domain: true },
     PRICES,
   );
   assert.equal(q.raw, 18000); // 11,000 + 4,000 + 2,500 + 500
-  assert.equal(q.final28, 18099); // charm(18000)
+  assert.equal(q.final28, 18000);
+  assert.equal(q.annual, 187200); // 18,000 × 10.4
 });
 
 test('reachKm costs NOTHING now — nationwide is the only reach upgrade', () => {
@@ -138,27 +141,27 @@ test('photos cost NOTHING now — the +100 pack was dropped', () => {
 });
 
 test('amount discount: applied to list, re-charm-rounded, floored at base', () => {
-  // list = 17,599 (5-branch nationwide) − ₱2,000 = 15,599 → already ‑99 → 15,599
+  // list = 17,500 (5-branch nationwide) − ₱2,000 = 15,500. No re-rounding.
   const q = computeCustomQuote(
     { ...BASE, branches: 5, nationwide: true },
     PRICES,
     { type: 'amount', value: 2000 },
   );
-  assert.equal(q.list28, 17599);
-  assert.equal(q.final28, 15599);
+  assert.equal(q.list28, 17500);
+  assert.equal(q.final28, 15500);
   assert.equal(q.discountValue, 2000);
-  assert.equal(q.annual, charmRoundUp(15599 * 10)); // 155990 → 155999
+  assert.equal(q.annual, 161200); // 15,500 × 10.4
 });
 
-test('percent discount: applied to list, re-charm-rounded UP to next ‑99', () => {
-  // list = 15,099 (5-branch) × (1 − 0.10) = 13,589.1 → charm rounds UP → 13,599.
+test('percent discount: applied to the list, rounded to whole pesos, floored', () => {
+  // list = 15,000 (5-branch) × (1 − 0.10) = 13,500 exactly. No bump.
   const q = computeCustomQuote(
     { ...BASE, branches: 5 },
     PRICES,
     { type: 'percent', value: 10 },
   );
-  assert.equal(q.list28, 15099);
-  assert.equal(q.final28, 13599);
+  assert.equal(q.list28, 15000);
+  assert.equal(q.final28, 13500);
   assert.equal(q.discountValue, 1500);
 });
 
@@ -168,28 +171,25 @@ test('discount never pushes below the base fee (floored)', () => {
     PRICES,
     { type: 'percent', value: 90 },
   );
-  // Floored at the base EXACTLY — the floor is applied after the charm, so this
-  // is one of the few quotes that does not end in ‑99.
-  assert.equal(q.final28, 11000);
+  // 🔒 THE FLOOR SURVIVED THE ROUNDING REMOVAL. `Math.max(charmRoundUp(x), base)`
+  // was doing two jobs; only the rounding left. A 90% discount on ₱15,000 is
+  // ₱1,500, and a Custom plan must still never quote below its base fee.
   assert.equal(q.final28, PRICES.base);
+  assert.equal(q.final28, 11000);
 });
 
-test('annual re-charms whenever final28 × 10 lands on a round hundred', () => {
+test('INVERTED: nothing is added on top of a total, at 28 days or annually', () => {
   /*
-    ⚠ THIS CASE WAS REBUILT 2026-08-27 RATHER THAN RENUMBERED, because its old
-    target became UNREACHABLE and quietly renumbering it would have left a test
-    that proved nothing.
+    ⚠ THIS CASE IS INVERTED, NOT RENUMBERED. Its entire purpose used to be
+    proving that the charm bump HAPPENS — that a ‑99 28-day price times ten
+    re-charmed by exactly 9. The owner turned that bump off for Custom quotes on
+    2026-08-27, so a test asserting it fires is not a test that needs new
+    numbers; it is a test asserting the opposite of the rule. Renumbering it to
+    fresh ‑99 figures would have quietly re-encoded the behaviour he removed.
 
-    It used to hunt a composition worth exactly ₱16,999 so that ×10 = 169,990
-    would re-charm to 169,999. Under the rounded rate card every unit is a
-    multiple of 250 (base 11,000 · branch 1,000 · nationwide 2,500 · slot 500 ·
-    seat 250 · domain 500), so `raw` is always a multiple of 250 and no
-    composition can land in the 16,900–16,999 window that charms to 16,999.
-
-    So it now asserts the PROPERTY instead of one arithmetic coincidence: a
-    charm-rounded 28-day price always ends in ‑99, therefore ×10 always ends in
-    ‑990, therefore the annual always re-charms by exactly 9. That is true for
-    every composition, which is strictly more than the old single case proved.
+    So it now asserts the rule that replaced it, across the same spread of
+    compositions: a quote is EXACTLY the sum of its dials, and the annual is
+    EXACTLY ten times the 28-day figure. Nothing is added anywhere.
   */
   const compositions = [
     { ...BASE, branches: 5 },
@@ -200,20 +200,26 @@ test('annual re-charms whenever final28 × 10 lands on a round hundred', () => {
 
   for (const c of compositions) {
     const q = computeCustomQuote(c, PRICES);
-    assert.equal(q.final28 % 100, 99, `final28 ${q.final28} should charm to a ‑99 ending`);
+    // The 28-day figure is the raw sum (floored at base) — no bump.
+    assert.equal(q.final28, Math.max(q.raw, PRICES.base), `final28 drifted from raw for ${JSON.stringify(c)}`);
+    // The annual is a clean ×10.4 — no bump on the way out either.
     assert.equal(
       q.annual,
-      q.final28 * 10 + 9,
-      `annual should be final28 × 10 re-charmed by 9 (got ${q.annual} from ${q.final28})`,
+      Math.round(q.final28 * 10.4),
+      `annual is not exactly ×10.4 (got ${q.annual} from ${q.final28})`,
     );
-    assert.equal(q.annual, charmRoundUp(q.final28 * 10));
+    // And it lands on a whole peso — ×10.4 can leave a fraction on a
+    // discounted total, which is the one place rounding is legitimate.
+    assert.equal(q.annual % 1, 0, `annual ${q.annual} is not a whole peso`);
+    // And nothing ends in the old charm signature.
+    assert.notEqual(q.final28 % 100, 99, `final28 ${q.final28} still carries a ‑99 charm ending`);
   }
 
-  // And one worked example spelled out, so the property has a concrete anchor:
-  // 5-branch = 15,099 → ×10 = 150,990 → charm → 150,999.
+  // One worked example spelled out, so the property has a concrete anchor:
+  // 5-branch = 11,000 + 4 × 1,000 = 15,000 → annual 15,000 × 10.4 = 156,000.
   const five = computeCustomQuote({ ...BASE, branches: 5 }, PRICES);
-  assert.equal(five.final28, 15099);
-  assert.equal(five.annual, 150999);
+  assert.equal(five.final28, 15000);
+  assert.equal(five.annual, 156000);
 });
 
 test('discountValue is exactly list28 − final28', () => {

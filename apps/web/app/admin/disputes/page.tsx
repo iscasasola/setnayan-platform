@@ -233,8 +233,20 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
     );
   }
 
-  // Tier priority rank — index into VENDOR_TIERS (free=0 … enterprise=highest),
-  // so enterprise > pro > solo > verified > free. A vendor with no resolved
+  // Tier priority rank — index into VENDOR_TIERS (free=0 … custom=highest), so
+  // custom > enterprise > pro > solo > verified > free. The comment used to
+  // stop at "enterprise", omitting `custom` while the CODE already ranked it —
+  // corrected 2026-08-27, behaviour unchanged.
+  //
+  // ⚖ THIS IS QUEUE ORDERING, NOT A CONCIERGE, AND IT SURVIVES THE 2026-08-27
+  // RULING FOR EXACTLY THAT REASON. The owner ruled Custom is a CAPABILITY
+  // upgrade, not human attention, and the marketing promises of a "dedicated
+  // account manager" and a "named contact" were deleted that day because
+  // nothing implemented them. This sort DOES exist and costs nothing, so it
+  // stays — but it must never be advertised as a person or as a response time.
+  // There is no response-time promise anywhere in this product.
+  //
+  // A vendor with no resolved
   // profile (e.g. deleted) defaults to 'free' via asVendorTier(undefined).
   const tierRank = (vendorProfileId: string): number =>
     VENDOR_TIERS.indexOf(vendorTierMap.get(vendorProfileId) ?? 'free');

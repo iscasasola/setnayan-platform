@@ -127,6 +127,9 @@ _⚠ Enterprise is NO LONGER ∞ on these axes. Cap numbers **owner-confirmed 20
 > **All tier caps are MAXIMUM CEILINGS, not defaults** (owner 2026-07-01). A higher tier only *raises the limit* — the vendor operates below it by choice; nothing is forced. The events cap is scoped **per category** (⚠ code's current axis is `slotsPerDay` = per-day; dashboard to reconcile "events per category" vs the per-day slot model when wiring).
 
 ### ✦ CUSTOM — "Talk to us" (negotiated · from ₱11,000/28d)
+
+> 🔴 **RETIRED BY OWNER RULING 2026-08-27 — THE WHITE-GLOVE PREMIUM IS GONE.** Owner, verbatim: *"custom does not mean they get their own concierge from us. it just means they get an upgrade the 3 tiers does not provide."* **Custom is defined by CAPABILITY, not by human attention** — no dedicated account manager, no quarterly business review, no concierge, no named contact. Custom = everything Enterprise has with its ceilings removed. The construction below (*Enterprise + ₱1,500 white-glove premium*) is therefore **superseded**, and with it the ₱11,500 base it would have implied: **₱11,000 is final.** ⚖ Nothing was owed to anybody — all four white-glove promises were marketing copy with **no implementation whatsoever** (no manager assignment, no review scheduling, no response promise), and production has never had a Custom subscriber. The lineage below is kept as history.
+
 For franchises and chains beyond Enterprise caps: **more branches · more seats · more capacity**, plus a dedicated account manager. Composed as **Enterprise + ₱999 branches + overflow units + white-glove** (owner 2026-07-03). Multi-brand houses are NOT a Custom composition — one vendor account per brand. **Quotes are computed from the §11 rate card (numbers partially owner-decided; remainder pending sign-off), not invented per deal.**
 
 ---
@@ -328,7 +331,9 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 
 1. `raw = base + Σ(units)`
 2. **Charm-round UP** to the next ‑99 ending (e.g. ₱19,997 → ₱19,999).
-3. **Floor:** never below the **₱11,000** base (the white-glove premium is the point of Custom).
+3. **Floor:** never below the **₱11,000** base.
+   🔴 **The clause that used to end this line — *"the white-glove premium is the point of Custom"* — is
+   RETIRED (owner 2026-08-27).** The point of Custom is the ceilings coming off, not human attention.
    ⚠ **AND NEVER BELOW ENTERPRISE'S 28-DAY PRICE, WHICH IS THE RULE THAT ACTUALLY BINDS.** On 2026-08-27 Enterprise rose to ₱10,000 while this base sat at ₱8,999, so the tier above cost ₱1,001 LESS than the tier below. That is now enforced by `apps/web/tests/db/custom-sits-above-enterprise.db.test.ts`, which reads both prices out of the catalog and fails the build — **this line is the reasoning, the test is the enforcement.** A prediction of exactly this inversion sat unactioned in `Vendor_Subscription_Ladder_2026-07-22.md` for five weeks; a note in a document cannot fail a build.
 4. **Annual = 10 × the 28-day quote** — same 13-cycles-pay-10 (3 free cycles) math as the rest of the ladder. Annual-first sales motion for Custom.
 5. **Tax-aware floor check** (`price ≥ (cost + margin) ÷ 0.663`): trivially cleared — branches/seats are pure-margin digital; the photo unit is the sole near-cost line and is priced as such on purpose.

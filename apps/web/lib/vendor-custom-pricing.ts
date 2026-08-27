@@ -7,8 +7,12 @@
  * admin quote surface can show the breakdown.
  *
  * RATE CARD (per 28-day cycle · prices are the ARGUMENT, these are the shape):
- *   - base:            everything in Enterprise + white-glove · main address +
- *                      100 km reach + 10 seats + 8 slots/category + 300 photos.
+ *   - base:            everything in Enterprise WITH ITS LIMITS REMOVED · main
+ *                      address + 100 km reach + 10 seats + 8 slots/category +
+ *                      300 photos. ⚖ NOT "white-glove": the owner ruled on
+ *                      2026-08-27 that Custom is a CAPABILITY upgrade, not
+ *                      human attention — no account manager, no review, no
+ *                      concierge. None of those was ever built.
  *   - branch:          +price per ADDITIONAL branch (2nd onward).
  *   - reach:           reachNationwide, flat. THE ONLY REACH UPGRADE (owner
  *                      2026-08-27). The old +₱499-per-100km ladder is gone.
@@ -17,8 +21,11 @@
  *   - domain:          +domain flat if a custom domain is included.
  *
  * CHARM: round UP to the next ‑99 (…x99). Floor at base (a plan can never quote
- * below the base fee). Annual = charm(final28 × 10) — a subscription year is 13
- * cycles billed for 10 (first 3 free).
+ * below the base fee). Annual = final28 × 10.4 — a 20% saving on the 28-day
+ * rate, the SAME multiplier Solo/Pro/Enterprise use since the 2026-08-27 price
+ * sheet. ⚠ It was × 10 ("13 cycles, pay 10, 3 free") until the owner aligned it
+ * on 2026-08-27; that phrasing is now FALSE and must not come back — 13 cycles
+ * at 10.4 is 2.6 free, not 3.
  *
  * DISCOUNT (per org · optional): amount (₱ off) OR rate (% off) applied to the
  * charm-rounded LIST price, then RE-charm-rounded. Annual = 10 × the discounted
@@ -96,7 +103,7 @@ export interface CustomQuote {
   discountValue: number;
   /** Charm-rounded 28-day price after discount, floored at base. */
   final28: number;
-  /** Annual price = charm(final28 × 10). */
+  /** Annual price = final28 × 10.4 (20% off the 28-day rate). */
   annual: number;
 }
 
@@ -113,6 +120,20 @@ export const CUSTOM_BASE = Object.freeze({
  *   16997 → 16999 · 16999 → 16999 · 17000 → 17099.
  * A value already ending in ‑99 is unchanged; anything else rounds up to the
  * next hundred minus one. Non-finite / non-positive inputs pass through as 0.
+ *
+ * ⛔ NOTHING APPLIES THIS TO A CUSTOM QUOTE ANY MORE — owner 2026-08-27.
+ * `computeCustomQuote` used to run it over the list price, the discounted price
+ * AND the annual, which quietly put a ‑99 back on every total. He had just
+ * rounded five prices to whole numbers precisely to get clean figures, so the
+ * bump was undoing the rounding before it ever reached a buyer. A Custom plan
+ * now quotes exactly what its dials add up to.
+ *
+ * ⚖ THE FUNCTION IS KEPT ON PURPOSE, not overlooked. He ruled on CUSTOM QUOTE
+ * TOTALS, not on charm pricing as a platform-wide mechanism — the same day's
+ * DECISION_LOG row records that charm pricing is explicitly NOT retired, and
+ * `SETNAYAN_AI` still sells at ₱2,499. This is the tested, documented encoding
+ * of that convention, with zero call sites today. Deleting it is a separate
+ * call; wiring it back onto Custom totals needs a new ruling.
  */
 export function charmRoundUp(n: number): number {
   if (!Number.isFinite(n) || n <= 0) return 0;
@@ -154,23 +175,41 @@ export function computeCustomQuote(
     extraSlots * p.slot +
     (c.domain ? p.domain : 0);
 
-  // List price: charm-round, floored at base (a plan never quotes below base).
-  const list28 = Math.max(charmRoundUp(raw), p.base);
+  // List price: exactly what the dials add up to, floored at base.
+  //
+  // 🔑 THAT `Math.max` WAS DOING TWO JOBS AND ONLY ONE OF THEM LEFT. It rounded
+  // AND it floored. The charm bump is gone (owner 2026-08-27); the floor STAYS,
+  // because a composition below every baseline must still quote the base fee
+  // rather than something under it.
+  const list28 = Math.max(raw, p.base);
 
-  // Discount: apply to the charm-rounded list, re-charm-round, floor at base.
+  // Discount: applied to the list, floored at base. No re-rounding either — the
+  // same bump on the way out would have re-dirtied a discounted total.
   let final28 = list28;
   if (discount && discount.value > 0) {
     const discounted =
       discount.type === 'percent'
         ? list28 * (1 - discount.value / 100)
         : list28 - discount.value;
-    final28 = Math.max(charmRoundUp(discounted), p.base);
+    // A percentage can land on a fraction of a peso. Round to whole pesos —
+    // that is what "whole numbers" means for a figure somebody is quoted, and
+    // it is NOT the charm bump: it never adds 99, and an exact peso is
+    // unchanged.
+    final28 = Math.max(Math.round(discounted), p.base);
   }
 
   const discountValue = list28 - final28;
 
-  // Annual: charm(final28 × 10) — 13 cycles billed for 10.
-  const annual = charmRoundUp(final28 * 10);
+  // Annual: final28 × 10.4 — a 20% saving, matching every other tier since the
+  // 2026-08-27 price sheet (owner aligned Custom to it the same day).
+  //
+  // 🔑 THE ROUNDING HERE IS NOT THE CHARM BUMP COMING BACK. Every undiscounted
+  // total is a multiple of 250, and 250 × 10.4 = 2,600, so those land on exact
+  // pesos on their own. A DISCOUNTED total is an arbitrary integer, and × 10.4
+  // can leave a fraction of a peso (e.g. 13,501 → 140,410.4). `Math.round`
+  // settles that to whole pesos — it never adds 99, and an already-exact figure
+  // passes through untouched.
+  const annual = Math.round(final28 * 10.4);
 
   return { raw, list28, discountValue, final28, annual };
 }

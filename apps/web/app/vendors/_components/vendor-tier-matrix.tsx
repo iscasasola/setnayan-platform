@@ -49,7 +49,7 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 // `custom` is the negotiated tier ABOVE Enterprise — it "runs as Enterprise
 // automatically" (TIER_CAPS.custom is the Enterprise clone), so every feature
 // row it carries the Enterprise value, and it uniquely owns the Custom-only
-// rows (extra branches, nationwide reach, dedicated account manager, domain).
+// rows (extra branches, nationwide reach, negotiated ceilings, domain).
 type Col = 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom';
 const COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise', 'custom'];
 const COL_RANK: Record<Col, number> = {
@@ -555,7 +555,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
               'More branches & team seats',
               'Nationwide reach',
               'Higher photo & event limits',
-              'Dedicated account manager · white-glove',
+              'Negotiated seat & event-slot ceilings',
             ].map((cl) => (
               <div key={cl} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: '#e4dac7' }}>
                 <span aria-hidden style={{ color: 'var(--m-orange)', fontWeight: 700 }}>＋</span>

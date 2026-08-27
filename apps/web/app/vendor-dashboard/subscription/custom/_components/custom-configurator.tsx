@@ -100,7 +100,7 @@ export function CustomConfigurator({
   const extraSlots = Math.max(0, comp.slotsPerCategory - CUSTOM_BASE.slotsPerCategory);
 
   const lines: { label: string; amount: number }[] = [
-    { label: 'Base — Enterprise + white-glove', amount: unitPrices.base },
+    { label: 'Base — Enterprise with its limits removed', amount: unitPrices.base },
   ];
   if (extraBranches > 0)
     lines.push({
@@ -219,21 +219,21 @@ export function CustomConfigurator({
             <span className="ml-1 text-sm font-normal text-ink/55">per 28 days</span>
           </p>
           {/*
-            ⚠ DO NOT "HARMONISE" THIS WITH THE TIER CARDS' "save 20%" — IT WOULD
-            BECOME FALSE. On 2026-08-27 the three tier annuals moved to 28-day
-            × 10.4 (exactly 20% off) while CUSTOM's annual is still × 10 —
-            13 cycles for 10, about 23% — because the owner did not rule on
-            Custom's multiplier. So the two surfaces legitimately quote
-            different discounts today, and this one deliberately states the
-            MECHANISM rather than a percentage, which stays true whatever the
-            multiplier is. The divergence is flagged for the owner; until he
-            rules, changing this line to a percentage misprices a live quote.
+            Custom's annual was × 10 ("13 cycles, pay 10, 3 free") until the
+            owner aligned it to × 10.4 on 2026-08-27 — the same 20% every other
+            tier gets. The old mechanism sentence is FALSE at 10.4 (13 cycles at
+            10.4 is 2.6 free, not 3), so it says the saving instead, in the same
+            words as the three tier cards.
+
+            ⚠ A WARNING THAT USED TO SIT HERE — "do not harmonise this with the
+            tier cards' save 20%, it would misprice a live quote" — WAS DELETED
+            WITH THE RULING THAT MADE IT OBSOLETE. It was correct while the
+            multipliers differed and became actively misleading the moment they
+            did not.
           */}
           <p className="mt-1 text-sm tabular-nums text-ink/70">
             {peso(quote.annual)}
-            <span className="ml-1 text-xs text-ink/50">
-              per year — 13 cycles, pay 10 (3 free)
-            </span>
+            <span className="ml-1 text-xs text-ink/50">per year — save 20%</span>
           </p>
 
           <div className="mt-4 space-y-1.5 border-t border-ink/10 pt-3">

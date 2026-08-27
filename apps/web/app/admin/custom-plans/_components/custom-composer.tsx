@@ -405,7 +405,7 @@ export function CustomComposer({
             <ul className="space-y-1.5 text-sm text-ink/80">
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                All Enterprise features + white-glove onboarding
+                All Enterprise features, with its limits removed
               </li>
               <li className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
@@ -460,7 +460,7 @@ export function CustomComposer({
                 </div>
               ) : null}
               <div className="mt-1 flex items-center justify-between text-sm text-ink/60">
-                <span>Annual (13 cycles, first 3 free)</span>
+                <span>Annual (save 20%)</span>
                 <span className="tabular-nums">{peso(quote.annual)}</span>
               </div>
             </div>

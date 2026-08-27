@@ -99,18 +99,22 @@
 --   BOTH figures from the catalog and fails if the base ever falls to or below
 --   Enterprise's 28-day price. The doc records the reasoning; the guard holds it.
 --
---   🔴 AN OPEN OWNER QUESTION IS ATTACHED TO THIS NUMBER — SEE THE REPORT.
---   ₱11,000 follows the ₱1,000-above-Enterprise shape of that 07-22 note. But
---   the SIGNED rate card states a different and stronger construction, and they
---   disagree: "owner-decided 2026-07-04: lean base = Enterprise ₱7,499 + ₱1,500
---   white-glove premium" (VENDOR_TIERS_AND_BENEFITS.md §11), which is literally
---   how the live ₱8,999 was derived, and whose floor note says "the white-glove
---   premium is the point of Custom". Applied to Enterprise ₱10,000 that rule
---   gives ₱11,500, not ₱11,000 — and it also shows the 07-22 note was already
---   off its own precedent (₱8,000 + ₱1,500 = ₱9,500, not ₱9,000). ₱11,000 is
---   written here because it is what the owner ruled TODAY and a number is his to
---   set; the ₱500 discrepancy is surfaced rather than silently "corrected", and
---   moving it is a one-line edit while this branch is unmerged.
+--   ✅ ₱11,000 IS FINAL. THE ₱500 QUESTION IS CLOSED, NOT PENDING.
+--   It was briefly open: the SIGNED rate card derived the old ₱8,999 as
+--   "Enterprise ₱7,499 + ₱1,500 white-glove premium", which applied to
+--   Enterprise ₱10,000 would have given ₱11,500 instead. That was surfaced
+--   rather than silently "corrected" — and then the owner settled it by
+--   removing its premise. On 2026-08-27 he ruled, verbatim: *"custom does not
+--   mean they get their own concierge from us. it just means they get an
+--   upgrade the 3 tiers does not provide."*
+--
+--   Custom is a CAPABILITY upgrade — Enterprise with its ceilings removed — so
+--   the white-glove premium no longer exists to be priced, and there is nothing
+--   left for ₱11,000 to be reconciled against. Nothing was owed to anybody
+--   either: all four white-glove promises (account manager, quarterly review,
+--   named contact, onboarding/migration) were pure marketing copy with no
+--   implementation, and production has never had a Custom subscriber. The
+--   marketing copy was deleted in this same PR.
 --
 --   ⛔ THE FIVE ADD-ON AXES ARE UNCHANGED (₱99 · ₱499 ×3 · ₱2,499). The
 --   inversion is about the ENTRY price; the axes sit on top of it.

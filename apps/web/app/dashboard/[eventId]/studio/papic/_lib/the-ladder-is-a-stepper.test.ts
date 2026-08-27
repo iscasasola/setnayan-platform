@@ -70,14 +70,16 @@ test('🚨 the rungs are sorted so that + always costs more', () => {
 test('the ends of the ladder are read from the rungs, not described', () => {
   assert.match(
     STEPPER_CODE,
-    /rungs\[0\]\.pricePhp/,
+    /const floor = rungs\[0\]/,
     'the floor is no longer read from the first rung',
   );
   assert.match(
     STEPPER_CODE,
-    /rungs\[rungs\.length - 1\]\.pricePhp/,
+    /const ceiling = rungs\[rungs\.length - 1\]/,
     'the ceiling is no longer read from the last rung',
   );
+  assert.match(STEPPER_CODE, /peso\(floor\.pricePhp\)/, 'the floor is no longer shown');
+  assert.match(STEPPER_CODE, /peso\(ceiling\.pricePhp\)/, 'the ceiling is no longer shown');
 });
 
 test('🚨 the dropdown is gone from the card — one control, not two', () => {

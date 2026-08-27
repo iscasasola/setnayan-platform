@@ -46,6 +46,13 @@ export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
 
   const at = Math.min(Math.max(i, 0), rungs.length - 1);
   const rung = rungs[at];
+  const floor = rungs[0];
+  const ceiling = rungs[rungs.length - 1];
+  // ⚠ `noUncheckedIndexedAccess` is on in this repo, and it is right to be: the
+  // clamp above guarantees these three exist, but a future edit to the clamp
+  // would not. Reading them once, here, is what keeps that guarantee in one
+  // place instead of at five render sites.
+  if (!rung || !floor || !ceiling) return null;
   const atFloor = at === 0;
   const atCeiling = at === rungs.length - 1;
 
@@ -98,7 +105,7 @@ export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
           dead end somebody has to guess at. Both figures are the real first and
           last rung — never a typed range. */}
       <p className="text-[11px] text-ink/50">
-        {peso(rungs[0].pricePhp)} to {peso(rungs[rungs.length - 1].pricePhp)} ·{' '}
+        {peso(floor.pricePhp)} to {peso(ceiling.pricePhp)} ·{' '}
         {rungs.length} sizes · add any of them again later.
       </p>
 

@@ -52,6 +52,9 @@ export type VendorCategory =
   | 'guest_booth'
   | 'wedding_paperwork'
   | 'travel_honeymoon'
+  | 'funeral_home'
+  | 'cremation'
+  | 'memorial_park'
   | 'misc';
 
 export type VendorStatus =
@@ -114,9 +117,16 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
   'wedding_paperwork',
   'travel_honeymoon',
   'misc',
+  'funeral_home',
+  'cremation',
+  'memorial_park',
 ];
 
 export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
+  // ── A wake's own trades (2026-08-27) ──────────────────────────────────────
+  funeral_home: 'Funeral Home',
+  cremation: 'Cremation',
+  memorial_park: 'Memorial Park',
   wedding_paperwork: 'Paperwork & Government',
   travel_honeymoon: 'Travel & Honeymoon',
   venue: 'Venue',

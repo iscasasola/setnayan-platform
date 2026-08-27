@@ -56,6 +56,9 @@ import {
   Utensils,
   Video,
   Wrench,
+  Feather,
+  Flame,
+  TreePine,
 } from 'lucide-react';
 
 import type { VendorCategory } from './vendors';
@@ -65,6 +68,11 @@ import type { VendorCategory } from './vendors';
  * "Your services" row leading icon + the coverage chips.
  */
 export const VENDOR_CATEGORY_ICON: Record<VendorCategory, LucideIcon> = {
+  // A wake's own trades. Feather = the farewell branch's own glyph; Flame for
+  // cremation; TreePine for a memorial park, which is literally a garden.
+  funeral_home: Feather,
+  cremation: Flame,
+  memorial_park: TreePine,
   wedding_paperwork: FileText,
   travel_honeymoon: Plane,
   venue: Building2,

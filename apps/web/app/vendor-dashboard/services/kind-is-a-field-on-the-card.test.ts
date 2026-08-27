@@ -368,3 +368,79 @@ test('on a laptop the question sits beside the card, not over it', () => {
   // Only the guided presentation moves — an ordinary edit is still a sheet.
   assert.match(src, /: 'max-h-\[78dvh\]'/, 'the normal sheet lost its own sizing');
 });
+
+// ---------------------------------------------------------------------------
+// THE SHIPPED SCREEN MATCHES WHAT WAS DRAWN (owner 2026-08-28 · "make sure we
+// achieve that output" — prototypes/service_card_wizard_2026-08-28.html rev 2)
+// ---------------------------------------------------------------------------
+//
+// ⚖ EACH ONE IS A PROMISE THE DRAWING MAKES, not a preference. They are pinned
+// separately so a regression names the promise it broke rather than "the maker
+// changed".
+
+test('Continue waits for the answer; skip never does', () => {
+  const src = read(MAKER);
+  // Drawn: "the Continue button stays off until the required thing on that sheet
+  // exists". Letting it past an empty question only moves the same refusal
+  // further from the field that fixes it.
+  assert.match(src, /passStep === 'media'\s*\n?\s*\? snap\.hasCover/, 'the photo question stopped waiting for a photo');
+  assert.match(
+    src,
+    /passStep === 'excl'[\s\S]{0,40}perk\.trim\(\)\.length > 0/,
+    'the Exclusive question stopped waiting for a sentence',
+  );
+  assert.match(src, /disabled=\{!passAnswered\}/, 'Continue stopped waiting at all');
+  // The escape must survive the gate, or it is a disabled button with no way past.
+  assert.match(src, /Skip — I&rsquo;ll build it myself/, 'the skip went away with the gate');
+});
+
+test('the card name is written for them, and never over their typing', () => {
+  const src = read(MAKER);
+  assert.match(src, /`\$\{activeCategoryLabel\} by \$\{shopName\}`/, 'the name stopped being written from the kind');
+  assert.match(src, /if \(titleTouched\.current\) return;/, 'the name would be rewritten under the cursor');
+  assert.match(src, /titleTouched\.current = true;/, 'typing stopped claiming the name');
+});
+
+test('the covered band speaks the shop’s own words', () => {
+  const src = read(MAKER);
+  // SetnaProd's leaf is "Pabati" and no "Pabati" pill exists — the pills bridge
+  // by family, so the BAND has to quote the coverage or a supplier is asked to
+  // recognise their trade under a word they never chose.
+  assert.match(src, /What you already do — your \$\{coverageNames/, 'the covered band stopped naming the coverage');
+  const door = read(NEW_DOOR);
+  assert.match(door, /coverageNames=\{coverageNames\}/, 'the door stopped passing the coverage names');
+  assert.match(door, /leafLabel\(c\.canonical_service\)/, 'the coverage names stopped coming from the taxonomy');
+});
+
+test('the full list is searchable, and says so when nothing matches', () => {
+  const src = read(MAKER);
+  assert.match(src, /type="search"/, 'the search over all kinds is gone');
+  assert.match(src, /Nothing matches/, 'an empty search result says nothing at all');
+});
+
+test('the optional depth is named under the card, and starts shut', () => {
+  const src = read(MAKER);
+  assert.match(src, /Make it richer — all optional, any time/, 'the optional list is gone');
+  // ⚖ SHUT BY DEFAULT: the point of two questions is that a supplier can stop —
+  // a list that greets them open is the wall coming back one section lower.
+  const at = src.indexOf('Make it richer');
+  const tag = src.lastIndexOf('<details', at);
+  assert.ok(tag > 0 && !/\bopen\b/.test(src.slice(tag, at)), 'the optional list started open');
+  // It opens the SAME sheets the card opens — one maker, listed twice.
+  assert.match(src, /onClick=\{\(\) => setSheet\(row\.key\)\}/, 'the optional list stopped opening the shipped sheets');
+});
+
+test('the publish moment says the right thing in both directions', () => {
+  const src = read(MAKER);
+  assert.match(src, /Everything you have typed stays on this screen while you finish\./, 'the refusal stopped reassuring');
+  assert.match(src, /Your card is ready\./, 'the ready state stopped saying so');
+});
+
+test('the explainer shows a card, because that is what it is explaining', () => {
+  const src = read(MAKER);
+  const intro = src.slice(src.indexOf('id="canvas-intro"'));
+  const body = intro.slice(0, intro.indexOf('</CanvasSheet>'));
+  assert.match(body, /from ₱44,999 per event/, 'the sample card is gone from the explainer');
+  // Plainly somebody else's — never a fake card of theirs.
+  assert.match(body, /Another supplier&rsquo;s card/, 'the sample stopped saying whose it is');
+});

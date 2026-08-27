@@ -186,3 +186,52 @@ sheet hiding its confirm always).
 Measured: `TSC_EXIT=0` · `ERRORS=0` · `# tests 1387 # pass 1387 # fail 0`.
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.
+
+## 2026-08-28 · feat(vendor): the shipped maker is measured against the drawing, and the gaps closed
+
+Owner: *"plan all the fixes and make sure we achieve that output"*. The approved prototype
+(`prototypes/service_card_wizard_2026-08-28.html` rev 2) was read promise by promise against the
+branch. Eleven were already built. **Seven were gaps and are closed here:**
+
+1. **Continue waits for the answer** on the question that owns it (drawn: *"the Continue button
+   stays off until the required thing on that sheet exists"*). Letting it past an empty question
+   only moves the same refusal further from the field that fixes it. **Skip survives the gate** —
+   a disabled button with no way past it is a trap, not a gate.
+2. **The card name is written for them** — `"{kind} by {shop}"`, editable, and **never rewritten
+   once they have typed**. Measured first: the title is NOT part of the publish gate and a blank one
+   is stored as NULL, so this is a courtesy, not a new requirement.
+3. **The covered band speaks the shop's own words** — *"What you already do — your Pabati, your
+   Day-Of Coordinators."* The pills bridge by FAMILY because no "Pabati" pill exists; without the
+   band quoting the coverage, a supplier is asked to recognise their trade under a word they never
+   chose.
+4. **The full list is searchable**, with an honest line when nothing matches. A brand-new shop is
+   the one state that meets all six groups — and the one state where that is the right answer.
+5. **"Make it richer"** names the optional depth under the card (price · more photos and a clip ·
+   what couples get · discounts, crew and lead time · who it is for). **Shut by default** — the
+   point of two questions is that a supplier can stop, and a list that greets them open is the wall
+   coming back one section lower. Every row opens a SHIPPED sheet: one maker, listed twice.
+6. **The publish moment says the right thing in both directions** — *"Everything you have typed
+   stays on this screen while you finish"* when blocked, *"Your card is ready…"* when not.
+7. **The explainer shows a card**, plainly labelled as another supplier's, because three sentences
+   about a card are not a card.
+
+**Deliberately not built, named rather than skipped:** the desktop card is not pinned left at full
+size (one column plus a right-hand question panel, same information) · no second "Already done /
+Finish these two" list at the blocked moment, since the shipped health header already names each
+missing thing and links to it · `?from=` and `?claim=` keep the `[category]` door, which already
+knows the kind.
+
+🪤 **Declaration order bit twice in one change** — two effects read a `const` declared below them.
+`tsc` names it as a block-scope error rather than failing at runtime, which is the only reason it
+was caught before a build.
+
+📋 The whole comparison, what was measured, and the three open owner questions:
+`WHATS_NEXT_Service_Card_Maker_2026-08-28.md`.
+
+🛡 7 more assertions · **7 mutations, printed before → after, all RED** (Continue stops waiting ·
+the name rewritten over typing · the band drops the shop's words · search removed · the richer list
+opening by default · the reassurance removed · the sample card removed).
+
+Measured: `TSC_EXIT=0` · `ERRORS=0` · `# tests 1394 # pass 1394 # fail 0` · five lints exit 0.
+
+SPEC IMPACT: `WHATS_NEXT_Service_Card_Maker_2026-08-28.md` + `DECISION_LOG.md` 2026-08-28 row.

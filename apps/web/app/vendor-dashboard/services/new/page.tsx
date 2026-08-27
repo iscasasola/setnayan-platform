@@ -118,6 +118,7 @@ export default async function NewServiceCardPage() {
     ...(await coverageParents(supabase, profile.vendor_profile_id)),
   ]);
 
+
   const categoryOptions: CategoryGroup[] = SERVICE_GROUPS.map((group) => ({
     key: group.key,
     label: group.label,
@@ -147,6 +148,17 @@ export default async function NewServiceCardPage() {
       ? coverageLabels.pathLabel(c.canonical_service)
       : c.canonical_service,
   }));
+
+  // ── THE SHOP'S OWN WORDS FOR WHAT IT COVERS ──────────────────────────────
+  // The kinds list and the coverage tree are two vocabularies: SetnaProd's leaf
+  // is *Pabati* and no "Pabati" pill exists. The chooser bridges by FAMILY, so
+  // the band that leads is labelled with the shop's own leaf names — otherwise
+  // a supplier is asked to recognise their trade under a word they never chose.
+  const coverageNames = vendorCoverages
+    .map((c) =>
+      coverageLabels ? coverageLabels.leafLabel(c.canonical_service) : c.canonical_service,
+    )
+    .filter((n): n is string => typeof n === 'string' && n.length > 0);
 
   const eventTypeOptions = (await getEventTypeVocab().catch(() => [])).map((e) => ({
     key: e.key,
@@ -188,6 +200,8 @@ export default async function NewServiceCardPage() {
         categoryLabel=""
         categoryOptions={categoryOptions}
         firstCardEver={ownCategories.length === 0}
+        coverageNames={coverageNames}
+        shopName={profile.business_name ?? ''}
         otherCategories={otherCategories}
         coverages={coverageOptions}
         vendorProfileId={profile.vendor_profile_id}

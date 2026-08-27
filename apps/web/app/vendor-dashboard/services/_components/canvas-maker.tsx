@@ -172,6 +172,8 @@ export function CanvasMaker({
   initial = null,
   categoryOptions = [],
   firstCardEver = false,
+  coverageNames = [],
+  shopName = '',
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -226,11 +228,22 @@ export function CanvasMaker({
    * it again is the bombardment in a politer costume.
    */
   firstCardEver?: boolean;
+  /**
+   * What this shop calls the things it covers, in ITS OWN words. The kinds list
+   * and the coverage tree are two vocabularies — SetnaProd's leaf is *Pabati*
+   * and no "Pabati" pill exists — so the band that leads is labelled with these
+   * rather than asking a supplier to recognise their trade under a word they
+   * never chose. The pills themselves are still bridged by FAMILY.
+   */
+  coverageNames?: string[];
+  /** Used only to write a first card name they can change. */
+  shopName?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const [sheet, setSheet] = useState<SheetKey | null>(null);
+  const [kindQuery, setKindQuery] = useState('');
   /**
    * 🔑 THE POSTED CATEGORY IS STATE, NOT THE PROP. It is one hidden input under
    * its shipped name either way, so `commitVendorService` cannot tell which
@@ -268,6 +281,11 @@ export function CanvasMaker({
    * came from reads as the product having decided for them.
    */
   const categoryRef = useRef('');
+  /**
+   * Has the vendor touched the name? Once they have, nothing writes it again —
+   * a field that rewrites itself under somebody's cursor is worse than a blank.
+   */
+  const titleTouched = useRef(false);
   const [kindFromShop, setKindFromShop] = useState(
     !categoryValue && coveredChoices.length === 1,
   );
@@ -275,6 +293,7 @@ export function CanvasMaker({
   useEffect(() => {
     categoryRef.current = category;
   }, [category]);
+
 
   const keepKey = keepStorageKey(vendorProfileId);
   const [offeredKeep, setOfferedKeep] = useState<CanvasKeep | null>(null);
@@ -475,6 +494,20 @@ export function CanvasMaker({
    * to drop out of that list the moment it is chosen — otherwise the vendor is
    * offered a card that comes bundled with itself.
    */
+  /**
+   * ✍ THE NAME IS WRITTEN FOR THEM (drawn: *"Card name — written for you, change
+   * it if you like"*). Blank is legal — the save stores no title and the card
+   * falls back to the kind — but a card that arrives already called something is
+   * a card, and a blank field is a chore. Only ever on a maker they have not
+   * typed into, and never over an existing name.
+   */
+  useEffect(() => {
+    if (titleTouched.current) return;
+    if (initial !== null) return;
+    if (!category || !activeCategoryLabel) return;
+    setTitle(shopName ? `${activeCategoryLabel} by ${shopName}`.slice(0, 80) : activeCategoryLabel);
+  }, [category, activeCategoryLabel, shopName, initial]);
+
   const otherCategoriesShown = useMemo(
     () => otherCategories.filter((c) => c.value !== category),
     [otherCategories, category],
@@ -698,12 +731,27 @@ export function CanvasMaker({
    * they reach Publish. **Skip is on every question**, because a first pass a
    * vendor cannot leave is a wizard wearing a card's clothes.
    */
+  /**
+   * ⚖ CONTINUE WAITS FOR THE ANSWER; SKIP NEVER DOES (drawn 2026-08-28: *"the
+   * Continue button stays off until the required thing on that sheet exists"*).
+   * The two questions ARE the publish gate, so letting Continue past an empty
+   * one only moves the same refusal further from the field that fixes it. The
+   * escape is the skip line below, which leaves the pass entirely — never a
+   * disabled button with no way past it.
+   */
+  const passAnswered =
+    passStep === 'media'
+      ? snap.hasCover
+      : passStep === 'excl'
+        ? perk.trim().length > 0
+        : true;
   const passFooter = inPass ? (
     <div className="space-y-2 pt-1">
       <button
         type="button"
         onClick={nextInPass}
-        className="button-primary min-h-[44px] w-full"
+        disabled={!passAnswered}
+        className="button-primary min-h-[44px] w-full disabled:opacity-50"
       >
         {passStep === 'intro'
           ? 'Start my card'
@@ -938,7 +986,10 @@ export function CanvasMaker({
             id="title"
             name="title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              titleTouched.current = true;
+              setTitle(e.target.value);
+            }}
             maxLength={80}
             aria-label="Service name"
             placeholder={activeCategoryLabel || "Service name"}
@@ -956,7 +1007,7 @@ export function CanvasMaker({
               </span>
             ) : (
               <span style={{ color: 'var(--m-slate-3)' }}>
-                Add your price — or leave it as quote-on-request
+                Add a price — couples look for it first. Or leave it as price-on-request.
               </span>
             )}
           </CardRegion>
@@ -1084,7 +1135,62 @@ export function CanvasMaker({
           <p className="text-xs" style={{ color: 'var(--m-orange-2)' }}>
             Tell us what kind of service this is and both buttons open up.
           </p>
-        ) : null}
+        ) : blocked ? (
+          // ⚖ THE REFUSAL IS SHORT AND SAYS NOTHING IS LOST. The header above
+          // already names each missing thing and links to it; what a supplier
+          // needs here is that finishing costs them nothing they have typed.
+          <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+            Everything you have typed stays on this screen while you finish.
+          </p>
+        ) : (
+          <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+            Your card is ready. Publishing saves everything in one go and puts it in front of
+            couples. You can change anything, any time.
+          </p>
+        )}
+
+        {/* ═══ MAKE IT RICHER — OPTIONAL, FOREVER ══════════════════════════
+            Everything a card CAN carry, named and reachable, under the card
+            rather than on it. It opens the same sheets the card's own regions
+            open — one maker, listed twice, never a second editor.
+            ⚖ It stays shut by default: the whole point of the two questions is
+            that a supplier can stop here, and a list that greets them open is
+            the wall coming back one section lower. */}
+        <details className="rounded-xl border" style={{ borderColor: line, background: paper }}>
+          <summary
+            className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium"
+            style={{ color: 'var(--m-ink)' }}
+          >
+            Make it richer — all optional, any time
+          </summary>
+          <div className="divide-y border-t" style={{ borderColor: line }}>
+            {[
+              { key: 'price' as SheetKey, name: 'Price', what: 'Couples look for it first — one number' },
+              { key: 'media' as SheetKey, name: 'More photos & a short clip', what: 'Up to 5 photos and one 30-second video' },
+              { key: 'custom' as SheetKey, name: 'What couples get', what: 'What is included, and the choices they can make' },
+              { key: 'price' as SheetKey, name: 'Discounts, crew & lead time', what: 'Early-booking and off-season rates, how many you bring' },
+              { key: 'audience' as SheetKey, name: 'Who it is for', what: 'The celebrations and faiths this card is found under' },
+            ].map((row) => (
+              <button
+                key={`${row.key}-${row.name}`}
+                type="button"
+                onClick={() => setSheet(row.key)}
+                className="flex min-h-[52px] w-full items-center gap-3 px-3 py-2.5 text-left"
+                style={{ borderColor: line }}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                    {row.name}
+                  </span>
+                  <span className="block text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    {row.what}
+                  </span>
+                </span>
+                <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+              </button>
+            ))}
+          </div>
+        </details>
 
         <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
           Availability is set on your Calendar, and payment terms are agreed in each
@@ -1108,6 +1214,35 @@ export function CanvasMaker({
             guided
             footer={passStep === 'intro' ? passFooter : null}
           >
+            {/* A sample card, because three sentences about a card are not a
+                card. Somebody else's, plainly labelled — never a fake one of
+                theirs. */}
+            <div
+              className="overflow-hidden rounded-xl border"
+              style={{ borderColor: line, background: paper }}
+            >
+              <div
+                className="flex h-24 items-center justify-center"
+                style={{ background: 'var(--m-orange-4)' }}
+              >
+                <ImageIcon aria-hidden className="h-6 w-6" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
+              </div>
+              <div className="space-y-0.5 px-3 py-2.5">
+                <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+                  Kuya Dan Photo &amp; Video — Full Day
+                </p>
+                <p className="text-[13px]" style={{ color: 'var(--m-ink)' }}>
+                  from ₱44,999 per event
+                </p>
+                <p className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--m-orange-2)' }}>
+                  <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                  Free engagement mini-shoot for Setnayan couples
+                </p>
+              </div>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              Another supplier&rsquo;s card — this is what couples browse.
+            </p>
             <ul className="space-y-2.5 text-sm" style={{ color: 'var(--m-slate)' }}>
               <li className="flex gap-2">
                 <ImageIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
@@ -1155,8 +1290,13 @@ export function CanvasMaker({
             {coveredChoices.length > 0 ? (
               <>
                 <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                  What you already do. A kind can hold more than one card, so you can
-                  add another where you already work.
+                  {coverageNames.length > 0
+                    ? `What you already do — your ${coverageNames.slice(0, 3).join(', ')}${
+                        coverageNames.length > 3 ? ` and ${coverageNames.length - 3} more` : ''
+                      }.`
+                    : 'What you already do.'}{' '}
+                  A kind can hold more than one card, so you can add another where you
+                  already work.
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {coveredChoices.map((opt) => (
@@ -1199,8 +1339,24 @@ export function CanvasMaker({
                 {coveredChoices.length > 0 ? 'Something else I do' : 'All kinds of service'}
               </summary>
               <div className="space-y-4 border-t px-3 pb-3 pt-3" style={{ borderColor: line }}>
+                {/* A brand-new shop is the ONE state that meets the whole list —
+                    six groups is a wall to read and a second to search. */}
+                <input
+                  type="search"
+                  value={kindQuery}
+                  onChange={(e) => setKindQuery(e.target.value)}
+                  placeholder="Search all kinds — “catering”, “photobooth”…"
+                  aria-label="Search kinds of service"
+                  className="input-field"
+                />
                 {categoryOptions.map((group) => {
-                  const rest = group.options.filter((o) => o.standing !== 'covered');
+                  const rest = group.options
+                    .filter((o) => o.standing !== 'covered')
+                    .filter((o) =>
+                      kindQuery.trim().length === 0
+                        ? true
+                        : o.label.toLowerCase().includes(kindQuery.trim().toLowerCase()),
+                    );
                   if (rest.length === 0) return null;
                   return (
                     <div key={group.key} className="space-y-1.5">
@@ -1228,6 +1384,19 @@ export function CanvasMaker({
                     </div>
                   );
                 })}
+                {kindQuery.trim().length > 0 &&
+                categoryOptions.every((g) =>
+                  g.options.every(
+                    (o) =>
+                      o.standing === 'covered' ||
+                      !o.label.toLowerCase().includes(kindQuery.trim().toLowerCase()),
+                  ),
+                ) ? (
+                  <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    Nothing matches “{kindQuery.trim()}”. Try a plainer word — or tell us what
+                    you do from My Shop and we will add it.
+                  </p>
+                ) : null}
                 {lockedWhy ? (
                   <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
                     {lockedWhy}

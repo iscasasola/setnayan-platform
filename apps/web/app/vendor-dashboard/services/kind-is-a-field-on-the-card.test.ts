@@ -244,3 +244,59 @@ test('a pre-filled kind says where it came from', () => {
   assert.match(src, /from your shop · change/, 'the pre-filled kind stopped explaining itself');
   assert.match(src, /setKindFromShop\(false\)/, 'picking a kind by hand still claims it came from the shop');
 });
+
+// ---------------------------------------------------------------------------
+// THE HALF-FINISHED CARD IS KEPT (owner 2026-08-28 · "add it")
+// ---------------------------------------------------------------------------
+
+test('what was typed is held in the vendor’s own browser, never in a card row', () => {
+  const src = read(MAKER);
+  // 🔑 A SERVER AUTOSAVE WOULD MINT A JUNK CARD PER ABANDONED ATTEMPT — in the
+  // shop's own list and in the caps that count cards. The keep is local.
+  assert.match(src, /window\.localStorage\.setItem\(keepKey/, 'the keep stopped being written');
+  assert.match(src, /keepStorageKey\(vendorProfileId\)/, 'the keep stopped being scoped to this shop');
+  assert.ok(
+    !/from '\.\.\/actions'[\s\S]{0,4000}autosave/i.test(src),
+    'an autosave into the database appeared',
+  );
+});
+
+test('every touch of storage is wrapped — it throws outright in some browsers', () => {
+  const src = read(MAKER);
+  // A card maker that white-screens because a convenience could not write is a
+  // far worse product than one that quietly does not keep.
+  for (const call of ['getItem', 'setItem', 'removeItem']) {
+    const at = src.indexOf(`localStorage.${call}`);
+    assert.ok(at > 0, `localStorage.${call} is gone`);
+    const around = src.slice(Math.max(0, at - 400), at + 200);
+    assert.match(around, /try \{/, `localStorage.${call} is no longer wrapped`);
+  }
+});
+
+test('a kept card is offered, never restored behind their back', () => {
+  const src = read(MAKER);
+  assert.match(src, /You left a card here/, 'the offer is gone — work would come back unasked');
+  assert.match(src, /Pick up where I left off/, 'the way to take it back is gone');
+  assert.match(src, /Start a fresh card/, 'the way to refuse it is gone');
+  // An unanswered offer must not have a question opening on top of it.
+  assert.match(
+    src,
+    /!\(offeredKeep && !keepDecided\)/,
+    'the first pass stopped waiting for the offer to be answered',
+  );
+});
+
+test('saving clears the keep, and a copied card never offers one', () => {
+  const src = read(MAKER);
+  assert.match(src, /addEventListener\('submit', clearKeep\)/, 'a saved card would keep offering its own draft back');
+  assert.match(src, /if \(initial !== null\) return;/, 'a card started FROM another card started offering an abandoned one');
+});
+
+test('restoring puts state through React and everything else through the DOM', () => {
+  const src = read(MAKER);
+  // Assigning a DOM value to a controlled input is overwritten on next render;
+  // setting state for an uncontrolled editor field does nothing at all. Both
+  // halves are needed, and the dispatched event is what makes the card SHOW it.
+  assert.match(src, /if \(name === 'title'\) setTitle\(value\)/, 'the name stopped restoring through state');
+  assert.match(src, /dispatchEvent\(new Event\('input', \{ bubbles: true \}\)\)/, 'restored fields stopped telling the card');
+});

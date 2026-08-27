@@ -100,3 +100,45 @@ and ungraded · a pre-filled kind explains itself. **6 mutations, printed before
 · the pre-fill going silent).
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.
+
+## 2026-08-28 · feat(vendor): a half-finished service card is kept, and offered back
+
+Owner, on the open question: *"add it"*.
+
+The maker saves in ONE submit by design, so a lost signal, a phone call or a closed tab took the
+photo, the sentence and the price with it and **said nothing**. *Save as draft* existed, but it is a
+button somebody has to know to press before the thing they are afraid of happens.
+
+**What was typed is now held in the vendor's own browser** and offered back on return —
+*"You left a card here 20 minutes ago. Nothing was published — it is only on this device."* with
+**Pick up where I left off** and **Start a fresh card**.
+
+🔑 **IN THEIR BROWSER, NOT IN OUR DATABASE, AND THAT IS THE DESIGN.** A server-side autosave would
+mint a real card row per abandoned attempt — junk in the shop's own list, in the caps that count
+cards per kind, and in every read that counts what a shop offers. Nothing becomes a card until they
+press Publish or Save as draft, exactly as before.
+
+⚖ **Offered, never restored behind their back.** Work reappearing unasked is its own kind of
+alarming, and they may simply want a fresh card. An unanswered offer also **suspends the first
+pass**, so a question never opens on top of it.
+
+**Not kept, deliberately:** the file picker itself (a chosen file is not a value — but the picker has
+already uploaded the object and written its key into a hidden field, so a restored card still carries
+its photo) · rows a vendor added by hand, which do not exist on a fresh mount and would half-restore
+into the wrong row · anything older than a week · anything from another shop on the same browser.
+
+🔒 **Every touch of storage is wrapped.** `localStorage` throws outright in private windows and with
+site data blocked; a maker that white-screens because a convenience could not write is far worse than
+one that quietly does not keep. Saving clears the keep; a card started FROM another card never offers
+one.
+
+🔑 **Restoring needs both halves:** the card's own fields are React state (a DOM assignment would be
+overwritten on the next render) and everything inside the shipped editors is uncontrolled (state does
+nothing) — so those get their value on the node plus a dispatched `input`, which is what makes the
+card SHOW what came back.
+
+🛡 `lib/canvas-draft-keep.test.ts` — 10 assertions, weighted to the REFUSALS (old shape · past its
+week · blank card · every malformed shape · oversized) — plus 5 in the maker's guard. **9 mutations,
+printed before → after, all RED.**
+
+SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.

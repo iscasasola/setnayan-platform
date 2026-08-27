@@ -43,6 +43,14 @@ import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-group
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
+import {
+  KEEP_VERSION,
+  keepAgeLabel,
+  keepStorageKey,
+  readKeep,
+  serializeKeep,
+  type CanvasKeep,
+} from '@/lib/canvas-draft-keep';
 
 export type { AudienceOption };
 
@@ -252,10 +260,18 @@ export function CanvasMaker({
    * SAYS so — an answer that appeared by itself and does not explain where it
    * came from reads as the product having decided for them.
    */
+  const categoryRef = useRef('');
   const [kindFromShop, setKindFromShop] = useState(
     !categoryValue && coveredChoices.length === 1,
   );
   const canChooseKind = categoryOptions.length > 0;
+  useEffect(() => {
+    categoryRef.current = category;
+  }, [category]);
+
+  const keepKey = keepStorageKey(vendorProfileId);
+  const [offeredKeep, setOfferedKeep] = useState<CanvasKeep | null>(null);
+  const [keepDecided, setKeepDecided] = useState(false);
 
   /**
    * ═══ THE FIRST PASS — TWO ANSWERS, THEN IT IS LIVE ═══════════════════════
@@ -288,7 +304,11 @@ export function CanvasMaker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [passIndex, setPassIndex] = useState(firstPassSteps.length > 0 ? 0 : -1);
-  const inPass = passIndex >= 0 && passIndex < firstPassSteps.length;
+  // ⚠ AN UNANSWERED OFFER SUSPENDS THE PASS. Opening the first question over
+  // "you left a card here" would ask them to start something while the thing
+  // they were doing is still on screen unclaimed.
+  const inPass =
+    passIndex >= 0 && passIndex < firstPassSteps.length && !(offeredKeep && !keepDecided);
   const passStep = inPass ? firstPassSteps[passIndex] : null;
   // The pass drives which sheet is open; closing a sheet leaves the pass, which
   // is the "I'll build it myself" escape and needs no separate control.
@@ -299,6 +319,132 @@ export function CanvasMaker({
     setPassIndex(-1);
     setSheet(null);
   }, []);
+
+  /**
+   * ═══ THE HALF-FINISHED CARD IS KEPT (owner 2026-08-28: *"add it"*) ════════
+   *
+   * The maker saves in ONE submit, so until now a lost signal or a closed tab
+   * took the photo, the sentence and the price with it and said nothing. What
+   * was typed is now held in this browser (never in our database — see
+   * lib/canvas-draft-keep.ts for why a server autosave would mint junk cards)
+   * and OFFERED BACK on return. It is never restored silently: work reappearing
+   * unasked is its own kind of alarming, and they may well want a fresh card.
+   */
+  const clearKeep = useCallback(() => {
+    try {
+      window.localStorage.removeItem(keepKey);
+    } catch {
+      /* storage can refuse outright; nothing here is worth an error for */
+    }
+  }, [keepKey]);
+
+  // Read once, before anything is typed. A copy (`initial`) is deliberately
+  // exempt: they asked for THAT card, not for an abandoned one.
+  useEffect(() => {
+    if (initial !== null) return;
+    try {
+      const found = readKeep(window.localStorage.getItem(keepKey), Date.now());
+      if (found) setOfferedKeep(found);
+    } catch {
+      /* unreadable storage simply means nothing was kept */
+    }
+  }, [keepKey, initial]);
+
+  /**
+   * Hold what is on the form, a moment after typing stops.
+   *
+   * ⚠ FILE PICKERS ARE SKIPPED AND THEIR HIDDEN KEYS ARE NOT. A chosen file is
+   * not a value we could ever put back, but the picker has already uploaded the
+   * object and written its key into an ordinary hidden field — so a restored
+   * card still carries its photo.
+   */
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const hold = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const fields: [string, string][] = [];
+        for (const el of Array.from(form.elements)) {
+          const node = el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+          if (!node.name) continue;
+          const type = (node as HTMLInputElement).type;
+          if (type === 'file' || type === 'submit' || type === 'button') continue;
+          if ((type === 'checkbox' || type === 'radio') && !(node as HTMLInputElement).checked)
+            continue;
+          fields.push([node.name, node.value]);
+        }
+        const raw = serializeKeep({
+          v: KEEP_VERSION,
+          at: Date.now(),
+          category: categoryRef.current,
+          fields,
+        });
+        if (!raw) return; // too big to hold — keep nothing rather than half
+        try {
+          window.localStorage.setItem(keepKey, raw);
+        } catch {
+          /* full or blocked storage must never break the maker */
+        }
+      }, 800);
+    };
+    form.addEventListener('input', hold);
+    form.addEventListener('change', hold);
+    // The one thing that must NOT survive: a card that got saved. Submitting is
+    // the end of this draft either way — published or kept as a draft row.
+    form.addEventListener('submit', clearKeep);
+    return () => {
+      if (timer) clearTimeout(timer);
+      form.removeEventListener('input', hold);
+      form.removeEventListener('change', hold);
+      form.removeEventListener('submit', clearKeep);
+    };
+  }, [keepKey, clearKeep]);
+  /**
+   * Put a kept card back.
+   *
+   * 🔑 THE TWO KINDS OF FIELD NEED TWO DIFFERENT MOVES. The card's own inputs
+   * (name, the Exclusive, the kind, the coverage) are React state — assigning
+   * their DOM value would be overwritten on the next render. Everything inside
+   * the shipped editors is uncontrolled, so its value goes on the node and an
+   * `input` event is dispatched, which is what the card's own snapshot reader
+   * listens to — without it the card would hold the values and not show them.
+   *
+   * ⚖ A NAME WITH NOWHERE TO LAND IS DROPPED, not forced. Rows a vendor added by
+   * hand do not exist yet on a fresh mount; half-restoring them into the wrong
+   * row would be worse than the honest gap.
+   */
+  const restoreKeep = useCallback((keep: CanvasKeep) => {
+    const form = formRef.current;
+    if (keep.category) {
+      setCategory(keep.category);
+      setKindFromShop(false);
+    }
+    for (const [name, value] of keep.fields) {
+      if (name === 'title') setTitle(value);
+      else if (name === 'exclusive_perk_text') setPerk(value);
+      else if (name === 'coverage_id') setCoverageId(value);
+      else if (name === 'category') continue; // carried above, in state
+      else if (form) {
+        const node = form.elements.namedItem(name);
+        const target = (
+          node instanceof RadioNodeList ? node.item(0) : node
+        ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+        if (!target || !('value' in target)) continue;
+        if (target instanceof HTMLInputElement && (target.type === 'checkbox' || target.type === 'radio')) {
+          target.checked = true;
+        } else {
+          target.value = value;
+        }
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    setKeepDecided(true);
+    setPassIndex(-1);
+    setSheet(null);
+  }, []);
+
   const nextInPass = useCallback(() => {
     setPassIndex((i) => {
       const next = i + 1;
@@ -572,6 +718,45 @@ export function CanvasMaker({
 
   return (
     <div className="sn-canvas space-y-4">
+      {/* ── YOU LEFT A CARD HERE ─────────────────────────────────────────────
+          Offered, never restored behind their back: work reappearing unasked is
+          its own kind of alarming, and they may simply want a fresh card. Both
+          answers are final — picking up clears nothing until they save, and
+          starting fresh throws the kept one away on the spot. */}
+      {offeredKeep && !keepDecided ? (
+        <div
+          className="rounded-xl border p-3 text-sm"
+          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
+        >
+          <p style={{ color: 'var(--m-ink)' }}>
+            You left a card here{' '}
+            <span className="font-semibold">{keepAgeLabel(offeredKeep.at, Date.now())}</span>. Nothing
+            was published — it is only on this device.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => restoreKeep(offeredKeep)}
+              className="button-primary min-h-[40px] px-4"
+            >
+              Pick up where I left off
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearKeep();
+                setOfferedKeep(null);
+                setKeepDecided(true);
+              }}
+              className="min-h-[40px] rounded-full border px-4 text-sm font-medium"
+              style={{ borderColor: line, color: 'var(--m-slate)' }}
+            >
+              Start a fresh card
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── STARTED FROM ANOTHER CARD ────────────────────────────────────────
           Two facts the vendor needs BEFORE they press anything, and the second
           is the one that would otherwise bite them silently.

@@ -184,6 +184,39 @@
 --   the cycle-toggle hint both hardcoded "12 weeks". The per-tier peso saving
 --   beside them is COMPUTED (28d x 13 - annual), so it re-derives on its own.
 --
+-- THE CUSTOM DIALS — THREE ROUNDED, TWO DROPPED (owner 2026-08-27)
+--
+--   vendor_custom_reach_nationwide  ₱2,499 → ₱2,500
+--   vendor_custom_event_slot          ₱499 → ₱500
+--   vendor_custom_domain              ₱499 → ₱500
+--
+--   Owner: *"make the whole number 500, 2500"*. That is the THIRD rounding of a
+--   -1 charm ending in one day, after Live Studio ₱2,999 → ₱3,000 and Thank You
+--   ₱2,499 → ₱2,500.
+--   ⛔ AND IT IS NOT A GENERAL RULE. Asked whether charm pricing should be
+--   retired repo-wide he declined: *"no we will adjust them manually on the app
+--   since i have control on the prices there as well."* SETNAYAN_AI stays
+--   ₱2,499. The catalog is MEANT to hold a mix of -1 and round endings. Do not
+--   sweep, harmonise or "tidy" price endings — see the DECISION_LOG row.
+--
+--   DROPPED, and dropping is NOT this flag alone:
+--     vendor_custom_reach_step   +100 km, ₱499  — nationwide is now the ONLY
+--                                                 reach upgrade
+--     vendor_custom_photo_pack   +100 portfolio photos, ₱99
+--
+--   🔑 THE CODE CAME OUT FIRST, AND THAT ORDER IS THE WHOLE POINT.
+--   `lib/vendor-custom-catalog.ts` substitutes a hardcoded literal for any row
+--   that goes missing, so deactivating these two rows on their own would have
+--   changed NOTHING — both axes would have gone on quoting at ₱499 and ₱99 with
+--   the catalog saying they were off. That module's own docblock has said so
+--   since the token retirement of 2026-08-07, and it names the fix: delete the
+--   axis from the SKU map, the fallback, `CustomUnitPrices`, the quote math and
+--   BOTH configurators. All of that is in this PR; the UPDATE below is the last
+--   step, not the first.
+--
+--   Safe by arithmetic: `vendor_custom_plans` holds ZERO rows in production, so
+--   no stored composition can be re-priced by the removal.
+--
 -- ⛔ NOT IN THIS FILE, ON PURPOSE:
 --   · `vendor_photo_challenge` — the sheet prices it ₱2,500/4wk + ₱26,000/yr,
 --     which is a change of SELLING MODEL (per-event → recurring), not a price.
@@ -292,7 +325,35 @@ UPDATE public.vendor_billing_catalog
  WHERE sku_code = 'enterprise_vendor_annual'
    AND title LIKE '%23%';
 
--- ── 6 · the Custom base rises above Enterprise ──────────────────────────────
+-- ── 6 · the Custom dials: three rounded, two dropped ───────────────────────
+-- One code per line — gitleaks reads a single-line IN (...) list of these as a
+-- credential.
+UPDATE public.vendor_billing_catalog
+   SET price_php = 2500.00, updated_at = NOW()
+ WHERE sku_code = 'vendor_custom_reach_nationwide'
+   AND price_php IS DISTINCT FROM 2500.00;
+
+UPDATE public.vendor_billing_catalog
+   SET price_php = 500.00, updated_at = NOW()
+ WHERE sku_code = 'vendor_custom_event_slot'
+   AND price_php IS DISTINCT FROM 500.00;
+
+UPDATE public.vendor_billing_catalog
+   SET price_php = 500.00, updated_at = NOW()
+ WHERE sku_code = 'vendor_custom_domain'
+   AND price_php IS DISTINCT FROM 500.00;
+
+-- The two dropped axes come off sale. Deactivated, never deleted: a row that
+-- vanishes takes its own history with it, and the code no longer reads either.
+UPDATE public.vendor_billing_catalog
+   SET is_active = FALSE, updated_at = NOW()
+ WHERE sku_code IN (
+         'vendor_custom_reach_step',
+         'vendor_custom_photo_pack'
+       )
+   AND is_active;
+
+-- ── 7 · the Custom base rises above Enterprise ──────────────────────────────
 -- Kept as its OWN statement rather than a seventh row in _vendor_reprice,
 -- because it is not part of the price sheet: it is the correction the sheet's
 -- own Enterprise raise made necessary. A future reader diffing this file should
@@ -303,7 +364,7 @@ UPDATE public.vendor_billing_catalog
  WHERE sku_code = 'vendor_custom_base'
    AND price_php IS DISTINCT FROM 11000.00;
 
--- ── 7 · refuse to apply if any of it did not take ───────────────────────────
+-- ── 8 · refuse to apply if any of it did not take ───────────────────────────
 -- 🔑 A MIGRATION THAT SILENTLY MATCHED NOTHING IS THE SHAPE THIS PROJECT KEEPS
 -- PAYING FOR. Every statement above is a conditional UPDATE, so a mistyped code
 -- would match zero rows, commit green, and leave the price exactly as it was
@@ -373,6 +434,32 @@ BEGIN
   IF v_bad IS NOT NULL THEN
     RAISE EXCEPTION
       'an annual row still promises the old ~23%% / 12-weeks discount, but annual is now 20%%: %', v_bad;
+  END IF;
+
+  -- The three rounded dials, by the object.
+  SELECT string_agg(format('%s=%s', v.sku_code, v.price_php), ', ')
+    INTO v_bad
+    FROM public.vendor_billing_catalog v
+    JOIN (VALUES
+            ('vendor_custom_reach_nationwide', 2500.00::NUMERIC),
+            ('vendor_custom_event_slot',        500.00),
+            ('vendor_custom_domain',            500.00)
+         ) AS w(code, php) ON w.code = v.sku_code
+   WHERE v.price_php <> w.php OR NOT v.is_active;
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION 'a Custom dial did not round, or went inactive: %', v_bad;
+  END IF;
+
+  -- And the two dropped axes are off sale.
+  IF EXISTS (
+    SELECT 1 FROM public.vendor_billing_catalog
+     WHERE is_active
+       AND sku_code IN (
+             'vendor_custom_reach_step',
+             'vendor_custom_photo_pack'
+           )
+  ) THEN
+    RAISE EXCEPTION 'a dropped Custom axis is still on sale';
   END IF;
 
   -- 🔑 THE INVERSION MUST BE GONE. Both figures read back out of the catalog,

@@ -203,13 +203,38 @@ test("the Custom rate card's fallback object agrees with the catalog, axis by ax
     ⛔ Axes come from CUSTOM_SKU_CODES, never hand-listed here, so an axis added
     later is covered without anyone editing this test.
   */
+  /*
+    ⚖ THE ANTI-VACUITY CHECK IS DERIVED, NOT A HAND-TYPED COUNT — and it got
+    STRONGER when the rate card shrank, not weaker.
+
+    It used to read `length >= 8`. Two axes were genuinely dropped on
+    2026-08-27 (the +100 km reach step and the +100-photo pack), so a literal
+    floor would have had to be edited down to 6 — and editing a guard's number
+    to match the code it guards is how a floor quietly becomes a rubber stamp.
+
+    So neither number is written here. The two maps are required to describe
+    the SAME set of axes, which catches strictly more than a count did:
+      · an empty import (both sides empty is caught by the `base` anchor);
+      · an axis deleted from one map and forgotten in the other — exactly the
+        half-removal this whole change was about avoiding.
+  */
+  const skuKeys = Object.keys(CUSTOM_SKU_CODES).sort();
+  const fallbackKeys = Object.keys(CUSTOM_UNIT_PRICE_FALLBACK).sort();
+
   assert.ok(
-    CUSTOM_UNIT_PRICE_FALLBACK && Object.keys(CUSTOM_UNIT_PRICE_FALLBACK).length >= 8,
-    'CUSTOM_UNIT_PRICE_FALLBACK did not import intact — every assertion below would be vacuous',
+    CUSTOM_SKU_CODES.base && CUSTOM_UNIT_PRICE_FALLBACK.base > 0,
+    'the Custom BASE axis is missing — the imports are empty, or the rate card lost its floor. ' +
+      'Every assertion below would be vacuous.',
+  );
+  assert.deepEqual(
+    fallbackKeys,
+    skuKeys,
+    'CUSTOM_SKU_CODES and CUSTOM_UNIT_PRICE_FALLBACK disagree about which axes exist — ' +
+      'an axis was dropped from one and left in the other. Retiring an axis means deleting it ' +
+      'from BOTH, or the fallback keeps quoting a price the catalog no longer has.',
   );
 
   const codes = Object.entries(CUSTOM_SKU_CODES) as [keyof typeof CUSTOM_SKU_CODES, string][];
-  assert.ok(codes.length >= 8, `only ${codes.length} axes enumerated — near-vacuous`);
 
   const drift: string[] = [];
   for (const [axis, sku] of codes) {

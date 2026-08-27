@@ -129,13 +129,12 @@ export function CustomComposer({
   const setP = (key: keyof CustomUnitPrices, value: number) =>
     setPrices((p) => ({ ...p, [key]: Number.isFinite(value) && value >= 0 ? value : 0 }));
 
-  const reachSteps = comp.nationwide
-    ? 0
-    : Math.max(0, Math.round((Math.min(comp.reachKm, CUSTOM_BASE.reachMaxKm) - CUSTOM_BASE.reachKm) / 100));
+  // The +100 km reach step and the +100-photo pack were dropped 2026-08-27
+  // (owner): nationwide is the only reach upgrade. Their arithmetic is deleted
+  // rather than left computing a line that can only ever be worth zero.
   const extraBranches = Math.max(0, comp.branches - 1);
   const extraSeats = Math.max(0, comp.seats - CUSTOM_BASE.seats);
   const extraSlots = Math.max(0, comp.slotsPerCategory - CUSTOM_BASE.slotsPerCategory);
-  const photoPacks = Math.ceil(Math.max(0, comp.photos - CUSTOM_BASE.photos) / 100);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -194,19 +193,9 @@ export function CustomComposer({
 
               <Knob
                 icon={<MapPin className="h-4 w-4" strokeWidth={2} />}
-                label={comp.nationwide ? 'Reach · Nationwide' : `Reach · ${comp.reachKm} km`}
-                hint="100 km included. Step up to 500 km, or flip to nationwide."
+                label={comp.nationwide ? 'Reach · Nationwide' : `Reach · ${CUSTOM_BASE.reachKm} km`}
+                hint="100 km included. Nationwide is the only reach upgrade."
               >
-                <input
-                  type="range"
-                  min={CUSTOM_BASE.reachKm}
-                  max={CUSTOM_BASE.reachMaxKm}
-                  step={100}
-                  value={comp.reachKm}
-                  disabled={comp.nationwide}
-                  onChange={(e) => setK('reachKm', Number(e.target.value))}
-                  className="w-full accent-ink disabled:opacity-40"
-                />
                 <label className="mt-1.5 flex items-center gap-2 text-xs text-ink/70">
                   <input
                     type="checkbox"
@@ -326,11 +315,9 @@ export function CustomComposer({
                       [
                         ['base', 'Base / 28d'],
                         ['branch', 'Per branch'],
-                        ['reachStep', 'Reach +100 km'],
                         ['reachNationwide', 'Nationwide'],
                         ['seat', 'Per extra seat'],
                         ['slot', 'Per +1 slot'],
-                        ['photoPack', 'Per +100 photos'],
                         ['domain', 'Custom domain'],
                       ] as Array<[keyof CustomUnitPrices, string]>
                     ).map(([key, label]) => (
@@ -427,7 +414,7 @@ export function CustomComposer({
               </li>
               <li className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                {comp.nationwide ? 'Nationwide reach' : `${comp.reachKm} km service reach`}
+                {comp.nationwide ? 'Nationwide reach' : `${CUSTOM_BASE.reachKm} km service reach`}
               </li>
               <li className="flex items-center gap-2">
                 <Users className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
@@ -437,11 +424,6 @@ export function CustomComposer({
                 <CalendarClock className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
                 {comp.slotsPerCategory} event slots / category
                 {extraSlots > 0 ? ` (+${extraSlots})` : ''}
-              </li>
-              <li className="flex items-center gap-2">
-                <Images className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                {comp.photos} portfolio photos
-                {photoPacks > 0 ? ` (+${photoPacks} pack${photoPacks === 1 ? '' : 's'})` : ''}
               </li>
               {comp.domain ? (
                 <li className="flex items-center gap-2">
@@ -498,16 +480,13 @@ export function CustomComposer({
               <input type="hidden" name="nationwide" value={String(comp.nationwide)} />
               <input type="hidden" name="seats" value={comp.seats} />
               <input type="hidden" name="slotsPerCategory" value={comp.slotsPerCategory} />
-              <input type="hidden" name="photos" value={comp.photos} />
               <input type="hidden" name="domain" value={String(comp.domain)} />
               <input type="hidden" name="api_access" value={String(comp.api_access ?? false)} />
               <input type="hidden" name="unit_base" value={prices.base} />
               <input type="hidden" name="unit_branch" value={prices.branch} />
-              <input type="hidden" name="unit_reachStep" value={prices.reachStep} />
               <input type="hidden" name="unit_reachNationwide" value={prices.reachNationwide} />
               <input type="hidden" name="unit_seat" value={prices.seat} />
               <input type="hidden" name="unit_slot" value={prices.slot} />
-              <input type="hidden" name="unit_photoPack" value={prices.photoPack} />
               <input type="hidden" name="unit_domain" value={prices.domain} />
               <input type="hidden" name="discount_type" value={discountType} />
               <input type="hidden" name="discount_value" value={discountValue} />

@@ -21,13 +21,27 @@ import { SEAT_SKU_CODE, SEAT_FEE_PHP } from './vendor-seats';
 export const CUSTOM_SKU_CODES = Object.freeze({
   base: 'vendor_custom_base',
   branch: 'vendor_additional_branch',
-  reachStep: 'vendor_custom_reach_step',
   reachNationwide: 'vendor_custom_reach_nationwide',
   seat: SEAT_SKU_CODE, // vendor_extra_seat
   slot: 'vendor_custom_event_slot',
-  photoPack: 'vendor_custom_photo_pack',
   domain: 'vendor_custom_domain',
 });
+
+/*
+ * TWO AXES WERE DROPPED HERE ON 2026-08-27 (owner), AND DELETING THESE ENTRIES
+ * IS THE PART THAT MAKES IT REAL:
+ *
+ *   reachStep  'vendor_custom_reach_step'   +100 km, was ₱499
+ *   photoPack  'vendor_custom_photo_pack'   +100 portfolio photos, was ₱99
+ *
+ * Nationwide is now the ONLY reach upgrade. The catalog rows are deactivated in
+ * migration 20271171000513 as well — but that flag alone would have changed
+ * NOTHING, because `read()` below substitutes a literal for any row that goes
+ * missing and the axis would have kept quoting at the same price forever. That
+ * is the worked example this file's own docblock has carried since the token
+ * retirement of 2026-08-07, and it is why the removal is a deletion here first
+ * and a migration second.
+ */
 
 /**
  * Fallback unit prices — matches the seed rate card exactly (owner-signed
@@ -43,6 +57,9 @@ export const CUSTOM_SKU_CODES = Object.freeze({
  * math and both configurators — NOT by flipping `is_active`, which would have
  * changed nothing while looking like it had.
  * To retire any other axis: delete it here too, or it survives.
+ * DONE AGAIN 2026-08-27 for `reachStep` and `photoPack`, following exactly that
+ * precedent — deleted from the SKU map, this fallback, `CustomUnitPrices`, the
+ * quote math and BOTH configurators, and only then deactivated in the catalog.
  *
  * 🚨 AND IT IS ALSO A BACK DOOR UNDER THE LADDER — 2026-08-27, the day this was
  * nearly proved the hard way. `base` sat at 8999 while the owner raised
@@ -61,12 +78,15 @@ export const CUSTOM_SKU_CODES = Object.freeze({
 export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
   base: 11000,
   branch: 1000,
-  reachStep: 499,
-  reachNationwide: 2499,
+  // Rounded off their -1 charm endings 2026-08-27 (owner: "make the whole
+  // number 500, 2500") — the third such rounding that day, after Live Studio
+  // ₱2,999 -> ₱3,000 and Thank You ₱2,499 -> ₱2,500. These move WITH their
+  // catalog rows in the same change; `fallback-prices-match-the-catalog` fails
+  // the build if they ever disagree.
+  reachNationwide: 2500,
   seat: SEAT_FEE_PHP, // 250
-  slot: 499,
-  photoPack: 99,
-  domain: 499,
+  slot: 500,
+  domain: 500,
 });
 
 function positivePrice(raw: unknown, fallback: number): number {
@@ -110,11 +130,9 @@ export async function fetchCustomUnitPrices(
   return {
     base: read(c.base, f.base),
     branch: read(c.branch, f.branch),
-    reachStep: read(c.reachStep, f.reachStep),
     reachNationwide: read(c.reachNationwide, f.reachNationwide),
     seat: read(c.seat, f.seat),
     slot: read(c.slot, f.slot),
-    photoPack: read(c.photoPack, f.photoPack),
     domain: read(c.domain, f.domain),
   };
 }

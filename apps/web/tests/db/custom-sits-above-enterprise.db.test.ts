@@ -136,9 +136,18 @@ test('the imported fallback is really there — this guard cannot run on an empt
     CUSTOM_UNIT_PRICE_FALLBACK && typeof CUSTOM_UNIT_PRICE_FALLBACK === 'object',
     'CUSTOM_UNIT_PRICE_FALLBACK did not import — every assertion below would be vacuous',
   );
+  // ⚖ DERIVED, not a hand-typed count. This used to assert `length >= 8`; two
+  // axes were genuinely dropped on 2026-08-27, and rather than edit the number
+  // down — which turns a floor into a rubber stamp — it now anchors on the one
+  // axis that must always exist and on the two maps agreeing.
   assert.ok(
-    Object.keys(CUSTOM_UNIT_PRICE_FALLBACK).length >= 8,
-    `the fallback imported with only ${Object.keys(CUSTOM_UNIT_PRICE_FALLBACK).length} axes — expected the full rate card`,
+    CUSTOM_UNIT_PRICE_FALLBACK.base > 0,
+    'the Custom BASE axis is missing from the fallback — the import is empty, or the rate card lost its floor',
+  );
+  assert.deepEqual(
+    Object.keys(CUSTOM_UNIT_PRICE_FALLBACK).sort(),
+    Object.keys(CUSTOM_SKU_CODES).sort(),
+    'the SKU map and the fallback disagree about which axes exist',
   );
   assert.equal(
     CUSTOM_SKU_CODES.base,

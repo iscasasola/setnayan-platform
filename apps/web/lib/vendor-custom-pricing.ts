@@ -10,11 +10,10 @@
  *   - base:            everything in Enterprise + white-glove · main address +
  *                      100 km reach + 10 seats + 8 slots/category + 300 photos.
  *   - branch:          +price per ADDITIONAL branch (2nd onward).
- *   - reach:           +reachStep per +100 km (steps to 500 km) OR reachNationwide
- *                      flat (nationwide replaces the per-step reach entirely).
+ *   - reach:           reachNationwide, flat. THE ONLY REACH UPGRADE (owner
+ *                      2026-08-27). The old +₱499-per-100km ladder is gone.
  *   - seats:           +seat per EXTRA team seat (beyond the base 10).
  *   - slots:           +slot per +1 event slot / category (beyond the base 8).
- *   - photos:          +photoPack per +100 portfolio photos (beyond the base 300).
  *   - domain:          +domain flat if a custom domain is included.
  *
  * CHARM: round UP to the next ‑99 (…x99). Floor at base (a plan can never quote
@@ -30,7 +29,16 @@
 export interface CustomComposition {
   /** TOTAL branches the vendor operates (main + additional). 1 = main only. */
   branches: number;
-  /** Reach in km (base 100). Ignored when `nationwide` is true. */
+  /**
+   * Reach in km. NO LONGER PURCHASABLE — the +100 km step was dropped
+   * 2026-08-27 and nationwide is the only reach upgrade, so this never differs
+   * from the base except on a hand-negotiated plan an admin records directly.
+   *
+   * KEPT rather than deleted because it is a stored CAPABILITY, not a price:
+   * `vendorEffectiveCaps` reads it to compute a Custom plan's serviceRadiusKm.
+   * `computeCustomQuote` no longer reads it at all, so it cannot cost anybody
+   * anything; if it is ever made settable again it needs a price first.
+   */
   reachKm: number;
   /** Nationwide reach — a flat add-on that replaces the per-step reach ladder. */
   nationwide: boolean;
@@ -38,7 +46,11 @@ export interface CustomComposition {
   seats: number;
   /** TOTAL event slots per category (base 8 included). */
   slotsPerCategory: number;
-  /** TOTAL portfolio photos (base 300 included). */
+  /**
+   * TOTAL portfolio photos. NO LONGER PURCHASABLE — the +100-photo pack was
+   * dropped 2026-08-27. Kept for the same reason as `reachKm`: a stored
+   * capability that `vendorEffectiveCaps` reads, priced by nothing.
+   */
   photos: number;
   /** Custom domain included. */
   domain: boolean;
@@ -61,16 +73,12 @@ export interface CustomUnitPrices {
   base: number;
   /** Per additional branch (2nd onward). */
   branch: number;
-  /** Per +100 km reach step. */
-  reachStep: number;
-  /** Flat nationwide-reach add-on. */
+  /** Flat nationwide-reach add-on — the ONLY reach upgrade (owner 2026-08-27). */
   reachNationwide: number;
   /** Per extra team seat (beyond base 10). */
   seat: number;
   /** Per +1 event slot / category (beyond base 8). */
   slot: number;
-  /** Per +100 portfolio photos (beyond base 300). */
-  photoPack: number;
   /** Flat custom-domain add-on. */
   domain: number;
 }
@@ -98,8 +106,6 @@ export const CUSTOM_BASE = Object.freeze({
   seats: 10,
   slotsPerCategory: 8,
   photos: 300,
-  /** Per-step reach caps at 500 km (4 steps of +100). Nationwide is separate. */
-  reachMaxKm: 500,
 });
 
 /**
@@ -111,12 +117,6 @@ export const CUSTOM_BASE = Object.freeze({
 export function charmRoundUp(n: number): number {
   if (!Number.isFinite(n) || n <= 0) return 0;
   return Math.ceil((n + 1) / 100) * 100 - 1;
-}
-
-/** Count of billable +100 km reach steps above the 100 km base (capped 500 km). */
-function reachSteps(reachKm: number): number {
-  const clamped = Math.min(Math.max(reachKm, CUSTOM_BASE.reachKm), CUSTOM_BASE.reachMaxKm);
-  return Math.max(0, Math.round((clamped - CUSTOM_BASE.reachKm) / 100));
 }
 
 /** Non-negative excess of `total` over an included `base`, integer-floored. */
@@ -139,12 +139,12 @@ export function computeCustomQuote(
   const p = unitPrices;
 
   const additionalBranches = excess(c.branches, 1); // main branch is included
-  const reach = c.nationwide
-    ? p.reachNationwide
-    : reachSteps(c.reachKm) * p.reachStep;
+  // Reach is now BINARY: the included base, or nationwide. There is no priced
+  // middle any more, so `c.reachKm` no longer contributes to the total — see
+  // CustomComposition.reachKm for why the field itself survives.
+  const reach = c.nationwide ? p.reachNationwide : 0;
   const extraSeats = excess(c.seats, CUSTOM_BASE.seats);
   const extraSlots = excess(c.slotsPerCategory, CUSTOM_BASE.slotsPerCategory);
-  const photoPacks = Math.ceil(excess(c.photos, CUSTOM_BASE.photos) / 100);
 
   const raw =
     p.base +
@@ -152,7 +152,6 @@ export function computeCustomQuote(
     reach +
     extraSeats * p.seat +
     extraSlots * p.slot +
-    photoPacks * p.photoPack +
     (c.domain ? p.domain : 0);
 
   // List price: charm-round, floored at base (a plan never quotes below base).

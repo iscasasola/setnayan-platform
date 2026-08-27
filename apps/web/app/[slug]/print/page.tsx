@@ -30,7 +30,7 @@ import { renderUrlQrSvg } from '@/lib/qr';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsFor } from '../_lib/event-words';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
-import { loadVendorBooking } from '../_lib/loaders';
+import { viewerIsBookedSupplier } from '@/lib/booked-supplier';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import {
@@ -149,6 +149,15 @@ export default async function EditorialPrintPage({
         never a second copy of that query.
     `isSignedInEventHost` remains the host arm, and a host is admitted at every
     audience before belonging is consulted at all.
+
+    🔴 AND THE SUPPLIER ARM WAS TOO WIDE UNTIL 2026-08-27. It asked whether the
+    booking read returned ANYTHING — i.e. whether a LINK existed — while the
+    event page's own lock screen asked the row's STATUS. `acceptReuseRequest`
+    mints a linked row at 'shortlisted' for an offer the couple has still to
+    lock, so a supplier the couple was merely CONSIDERING counted as one of the
+    people of the day and could print, in full, a story kept to them. The rule
+    is shared now (`viewerIsBookedSupplier`), so the sheet and the screen cannot
+    hold two opinions about who was booked.
   */
   const guestSession = await readGuestSession();
   const holdsGuestPass = guestSession?.event_id === event.event_id;
@@ -161,8 +170,7 @@ export default async function EditorialPrintPage({
       data: { user },
     } = await viewerClient.auth.getUser();
     if (user) {
-      isBookedSupplier =
-        (await loadVendorBooking(createAdminClient(), event.event_id, user.id)) !== null;
+      isBookedSupplier = await viewerIsBookedSupplier(event.event_id, user.id);
     }
   }
   const printViewer = {

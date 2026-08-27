@@ -5,7 +5,8 @@
  * (`loadVendorBooking`) all shipped 2026-08-03 — and on a PRIVATE event none of
  * it could ever run, because `app/[slug]/page.tsx` refused the supplier ~200
  * lines before the gate was called. They met "scan your invitation QR", a QR
- * nobody sends a supplier. 4 of 6 production events are private.
+ * nobody sends a supplier. Measured 2026-08-27: 3 of the 5 production events
+ * are private.
  *
  * This file pins the two halves of the fifth path:
  *
@@ -121,6 +122,26 @@ test('NOT PRESENT: no guest name, seat, email or RSVP reaches the supplier', asy
   }
   for (const key of ['guestName', 'guests', 'guestEmail', 'rsvpStatus', 'tableAssignment']) {
     assert.equal(key in (cap as object), false, `the supplier payload carries ${key}`);
+  }
+});
+
+test('THE CAPABILITY ITSELF asks the status — a shortlisted link gets nothing', async () => {
+  // 🔴 IT DID NOT, UNTIL 2026-08-27. This gate admitted on the existence of a
+  // link while the lock screen one file away asked the status, so the doorway
+  // told a supplier the couple was merely CONSIDERING "You are booked here" —
+  // and `belongsToThisEvent`, whose whole job is deciding who may read a story
+  // the couple kept to the people of their day, was handed `true` for them.
+  for (const status of ['shortlisted', 'considering', 'inquiry', 'requested', null]) {
+    const cap = await resolveVendorCapability({
+      eventId: 'event-A',
+      viewerUserId: 'u1',
+      checkVendorBooking: async () => ({
+        vendorProfileId: 'vp1',
+        businessName: 'San Marco',
+        bookingStatus: status,
+      }),
+    });
+    assert.equal(cap, null, `a '${status}' row must not produce a capability`);
   }
 });
 

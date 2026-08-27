@@ -251,6 +251,12 @@ export type VendorBookingCheck = (
  * decision was made. Anything that DISCLOSES the couple's celebration must ask
  * this question, never the link.
  *
+ * ⚠ IT IS ASKED IN ONE PLACE NOW. Every surface that needs the answer goes
+ * through `viewerIsBookedSupplier` (lib/booked-supplier.ts) — the page's lock
+ * screen, the shared gate the seven sub-routes ask, the print keepsake and the
+ * capability below. Two of those four used to test the link instead, which is
+ * how "You are booked here" came to be shown to a supplier nobody had booked.
+ *
  * The status set is imported, never re-typed: `COMMITTED_BOOKING_STATUSES` is
  * pinned by a drift test to the booking-fee RPC's own list, so "booked enough
  * to read the page" cannot quietly drift away from "booked enough to be
@@ -267,9 +273,23 @@ export function vendorBookingIsCommitted(bookingStatus: string | null): boolean 
  *
  * Denies, in order:
  *   - no signed-in account (a guest cookie is not an account);
- *   - signed in, but not booked here.
+ *   - signed in, but not listed on this event at all;
+ *   - listed, but not BOOKED — see below.
  *
  * Nothing about the request can shortcut the booking read.
+ *
+ * 🔴 THE THIRD DENIAL IS NEW (2026-08-27) AND IT CLOSES A LIVE ONE. This gate
+ * used to admit on the mere existence of a link, while the docblock above it
+ * claimed "the database confirmed this auth user owns a vendor profile the
+ * couple booked" and the doorway it produces says, in words, "You are booked
+ * here". `lib/reusable-bookings.server.ts` mints a linked row at 'shortlisted'
+ * for a reuse offer the couple has yet to lock — so a supplier the couple was
+ * only considering was told they were booked, and, worse, was counted by
+ * `belongsToThisEvent` as one of "the people of this celebration", which is the
+ * whole gate on a story the couple restricted to exactly those people.
+ * 🔑 The private lock screen one file away had asked the status all along. *A
+ * rule written three times had two copies laxer — and the lax ones were the two
+ * deciding a disclosure.*
  */
 export async function resolveVendorCapability(input: {
   eventId: string;
@@ -279,6 +299,7 @@ export async function resolveVendorCapability(input: {
   if (!input.viewerUserId) return null;
   const booked = await input.checkVendorBooking(input.viewerUserId);
   if (!booked) return null;
+  if (!vendorBookingIsCommitted(booked.bookingStatus)) return null;
   return {
     capability: 'vendor',
     vendorUserId: input.viewerUserId,

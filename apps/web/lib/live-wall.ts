@@ -23,6 +23,7 @@ import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveCapturerNames } from '@/lib/capture-credit';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventPapicActive } from '@/lib/papic-seats';
@@ -141,6 +142,11 @@ type WallFeedRow = {
   width_px: number | null;
   height_px: number | null;
   sort_at: string;
+  /** Which capture table the frame came from — `wall_visible_photos` returns
+   *  SETOF wall_feed, so these have always been on the row; the credit is the
+   *  first thing to read them. */
+  source_table?: string | null;
+  source_id?: string | null;
 };
 
 async function rowToTile(row: WallFeedRow): Promise<WallTile | null> {
@@ -155,6 +161,129 @@ async function rowToTile(row: WallFeedRow): Promise<WallTile | null> {
     heightPx: row.height_px,
     sortAt: row.sort_at,
   };
+}
+
+/**
+ * Attach the per-tile credit to a snapshot's tiles.
+ *
+ * Two reads, both keyed on ids that are already on the feed rows: the capture
+ * tables for the capturer, then `resolveCapturerNames` for the words. Returns
+ * the tiles unchanged on any trouble — a wall that cannot name its cameras is a
+ * wall without credits, never a wall that fails to draw.
+ */
+async function attachWallCredits(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  rows: WallFeedRow[],
+  tiles: WallTile[],
+): Promise<WallTile[]> {
+  try {
+    const bySource = new Map<string, WallFeedRow>();
+    for (const r of rows) bySource.set(r.feed_id, r);
+
+    const photoIds = [
+      ...new Set(
+        rows
+          .filter((r) => r.source_table === 'papic_photos' && r.source_id)
+          .map((r) => r.source_id as string),
+      ),
+    ];
+    const captureIds = [
+      ...new Set(
+        rows
+          .filter((r) => r.source_table === 'papic_guest_captures' && r.source_id)
+          .map((r) => r.source_id as string),
+      ),
+    ];
+    if (photoIds.length === 0 && captureIds.length === 0) return tiles;
+
+    const [photoRes, captureRes] = await Promise.all([
+      photoIds.length
+        ? admin
+            .from('papic_photos')
+            .select('photo_id, paparazzi_seat_id, captured_by_person_id, captured_at')
+            .in('photo_id', photoIds)
+        : Promise.resolve({ data: [], error: null }),
+      captureIds.length
+        ? admin
+            .from('papic_guest_captures')
+            .select('capture_id, guest_id, captured_by_person_id, captured_at')
+            .in('capture_id', captureIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    type Origin = {
+      person: string | null;
+      guest: string | null;
+      seat: string | null;
+      capturedAt: string | null;
+    };
+    const originById = new Map<string, Origin>();
+    for (const p of (photoRes.error ? [] : (photoRes.data ?? [])) as Record<string, unknown>[]) {
+      originById.set(p.photo_id as string, {
+        person: (p.captured_by_person_id as string | null) ?? null,
+        guest: null,
+        seat: (p.paparazzi_seat_id as string | null) ?? null,
+        capturedAt: (p.captured_at as string | null) ?? null,
+      });
+    }
+    for (const c of (captureRes.error ? [] : (captureRes.data ?? [])) as Record<string, unknown>[]) {
+      originById.set(c.capture_id as string, {
+        person: (c.captured_by_person_id as string | null) ?? null,
+        guest: (c.guest_id as string | null) ?? null,
+        seat: null,
+        capturedAt: (c.captured_at as string | null) ?? null,
+      });
+    }
+
+    const seatIds = [
+      ...new Set([...originById.values()].map((o) => o.seat).filter((v): v is string => !!v)),
+    ];
+    const seatRows = seatIds.length
+      ? ((
+          await admin
+            .from('paparazzi_seats')
+            .select('seat_id, claimer_user_id, guest_id')
+            .eq('event_id', eventId)
+            .in('seat_id', seatIds)
+        ).data ?? [])
+      : [];
+    const seatById = new Map(
+      (seatRows as { seat_id: string; claimer_user_id: string | null; guest_id: string | null }[]).map(
+        (r) => [r.seat_id, r],
+      ),
+    );
+
+    const credits = await resolveCapturerNames(eventId, {
+      personIds: [...originById.values()].map((o) => o.person),
+      guestIds: [
+        ...[...originById.values()].map((o) => o.guest),
+        ...[...seatById.values()].map((r) => r.guest_id),
+      ],
+      userIds: [...seatById.values()].map((r) => r.claimer_user_id),
+    });
+
+    return tiles.map((tile) => {
+      const row = bySource.get(tile.feedId);
+      const origin = row?.source_id ? originById.get(row.source_id) : undefined;
+      if (!origin) return tile;
+      const seat = origin.seat ? seatById.get(origin.seat) : undefined;
+      const hidden =
+        (origin.person && credits.hidden.has(origin.person)) ||
+        (origin.guest && credits.hidden.has(origin.guest)) ||
+        (seat?.guest_id ? credits.hidden.has(seat.guest_id) : false);
+      const name = hidden
+        ? null
+        : ((origin.person ? credits.byPerson.get(origin.person) : undefined) ??
+          (origin.guest ? credits.byGuest.get(origin.guest) : undefined) ??
+          (seat?.guest_id ? credits.byGuest.get(seat.guest_id) : undefined) ??
+          (seat?.claimer_user_id ? credits.byUser.get(seat.claimer_user_id) : undefined) ??
+          null);
+      return { ...tile, capturedBy: name, capturedAt: origin.capturedAt };
+    });
+  } catch {
+    return tiles;
+  }
 }
 
 /**
@@ -321,6 +450,17 @@ export async function getWallSnapshot(
     (t): t is WallTile => Boolean(t),
   );
 
+  // ── WHO TOOK EACH TILE ──────────────────────────────────────────────────
+  //
+  // Gallery archetype § 2: every tile names its camera. Resolved here, once per
+  // snapshot, from the source rows the feed already points at — never per tile.
+  //
+  // 🔒 Faceblocked guests are dropped by `resolveCapturerNames`, which is the
+  // same rule the caption author below already obeys.
+  // ⚠ Best-effort: a failed lookup leaves the credits empty and the wall draws
+  // exactly as it does today.
+  const credited = await attachWallCredits(admin, eventId, rows, tiles);
+
   // Hero counter = TOTAL visible on the wall (not just the since-cursor
   // delta). Cheap head-count on the feed mirror; the reader's per-row
   // re-checks govern what actually renders.
@@ -370,7 +510,7 @@ export async function getWallSnapshot(
   );
 
   return {
-    tiles,
+    tiles: credited,
     caption,
     count: visibleCount ?? tiles.length,
     mode,

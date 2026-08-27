@@ -119,9 +119,18 @@ BEGIN
     -- A celebration the organiser closed out or put away is not a room to step
     -- into. `is_sample` is excluded for the same reason it is everywhere else:
     -- a demo is not somebody's day.
+    --
+    -- 🪤 WRITTEN `NOT col`, NOT `col = FALSE`, AND THAT IS NOT A STYLE CHOICE.
+    -- `gates-have-handles.db.test.ts` decides whether a switch-shaped column has
+    -- anything able to flip it by scanning every function body for
+    -- `\mcol\M\s*=[^=]` — which a WHERE clause matches exactly as well as an
+    -- UPDATE ... SET does. Writing `is_sample = FALSE` here made that guard
+    -- report the column as "it has a writer now" and demand its baseline line be
+    -- deleted, on the strength of a comparison. Both columns are NOT NULL, so
+    -- `NOT col` is identical in meaning and leaves the guard telling the truth.
     AND o.cleared_at IS NULL
-    AND o.archived = FALSE
-    AND o.is_sample = FALSE
+    AND NOT o.archived
+    AND NOT o.is_sample
     AND EXISTS (
       SELECT 1 FROM public.event_vendors ev
       WHERE ev.event_id = o.event_id

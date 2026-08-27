@@ -38,7 +38,7 @@ const ENABLED_TYPES = [
   'anniversary',
   'graduation',
   'reunion',
-  'funeral',
+  'wake',
 ] as const;
 
 /** A representative tile set in the real WEDDING-shaped taxonomy sort order. */

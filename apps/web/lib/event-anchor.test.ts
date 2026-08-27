@@ -70,7 +70,7 @@ test('ANCHOR_BY_TYPE covers all 17 known types', () => {
   const expected = [
     'wedding', 'anniversary', 'debut', 'birthday', 'christening', 'gender_reveal',
     'travel', 'graduation', 'reunion', 'corporate', 'tournament', 'gala_night',
-    'celebration', 'simple_event', 'date', 'hangout', 'funeral',
+    'celebration', 'simple_event', 'date', 'hangout', 'wake',
   ];
   assert.deepEqual(Object.keys(ANCHOR_BY_TYPE).sort(), [...expected].sort());
 });

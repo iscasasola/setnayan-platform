@@ -98,7 +98,7 @@ test('the map covers every live event type — a new type cannot repeat by accid
     'reunion', 'gala_night', 'simple_event', 'date', 'hangout',
     // funeral: [] — it happens once; a death anniversary (babang luksa) is a
     // different event a family creates, not this one repeating.
-    'funeral',
+    'wake',
   ];
   for (const t of LIVE) {
     assert.ok(t in CADENCES_BY_TYPE, `${t} has no entry in CADENCES_BY_TYPE`);

@@ -82,7 +82,7 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
    * its place because the relatives who cannot fly home are the whole reason a
    * wake is streamed, and the memorial page is the thing the family keeps.
    */
-  funeral: {
+  wake: {
     essentials: ['catering', 'florist', 'photo_video', 'coordinator'],
     byPersona: {
       keepsake: ['printing', 'livestream', 'choir'],

@@ -28,13 +28,13 @@
  * `event_type_onboarding.axis_overrides` / `reveal_overrides` exist and would
  * carry this copy — and they FAIL OPEN. `getOnboardingSpec` degrades to the
  * defaults on any read error, so a DB hiccup would put "Joyful & lively" back in
- * front of a grieving family. Same reasoning, same shape, as `FUNERAL_PROFILE`
+ * front of a grieving family. Same reasoning, same shape, as `WAKE_PROFILE`
  * in lib/event-type-profile.ts, whose own migration says a hiccup "must never
  * flip a wake's page back to 'The celebration is underway'". The admin override
  * still layers on top of THIS base — HQ can still edit the words, it just cannot
  * lose them.
  *
- * ─── KEYED ON THE REGISTER, NEVER ON `eventType === 'funeral'` ──────────────
+ * ─── KEYED ON THE REGISTER, NEVER ON `eventType === 'wake'` ────────────────
  * Deliberate, and it is the precedent the solemn build already set: the next
  * solemn type (a memorial, an anniversary of a death) inherits this by declaring
  * its register, with no second list to remember.

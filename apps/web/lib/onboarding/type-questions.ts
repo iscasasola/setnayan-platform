@@ -47,7 +47,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
    * 🕊️ THE FUNERAL — THREE questions, not four, and every option is something a
    * bereaved family is actually arranging that week.
    *
-   * Derived from the shipped FUNERAL_TEMPLATE checklist (lib/checklist-event-
+   * Derived from the shipped WAKE_TEMPLATE checklist (lib/checklist-event-
    * type-defs.ts), not invented: the funeral home, the papers, the wake schedule,
    * the food, the flowers, the procession transport, the memorial cards. The
    * questions ask which of those the family wants help finding; the checklist
@@ -64,7 +64,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
    * one is skippable — including by answering "not decided yet", which is the
    * true state of most of these in the first days.
    */
-  funeral: [
+  wake: [
     {
       id: 'service',
       eyebrow: 'The service',

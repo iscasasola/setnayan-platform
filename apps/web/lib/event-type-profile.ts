@@ -158,7 +158,7 @@ export type ProfileTerminology = {
    * Parsed strictly in toProfile: anything that is not the literal 'solemn'
    * resolves to the fallback profile's register, so a typo in an admin-edited
    * row degrades to today's voice for the 15 celebratory types — and the
-   * FUNERAL_PROFILE code fallback keeps a funeral solemn even when its DB row
+   * WAKE_PROFILE code fallback keeps a funeral solemn even when its DB row
    * is missing entirely.
    */
   register: 'celebratory' | 'solemn';
@@ -420,9 +420,9 @@ export const TRAVEL_PROFILE: EventTypeProfile = {
  * same ruling) — the pabuya surfaces stay reachable and wear their gentler
  * solemn wording instead of "digital money dance".
  */
-export const FUNERAL_PROFILE: EventTypeProfile = {
+export const WAKE_PROFILE: EventTypeProfile = {
   ...GENERIC_PROFILE,
-  eventType: 'funeral',
+  eventType: 'wake',
   terminology: {
     organizerNoun: 'family',
     personA: null,
@@ -443,7 +443,7 @@ function fallbackFor(eventType: string): EventTypeProfile {
   if (eventType === 'wedding') return WEDDING_PROFILE;
   if (eventType === 'simple_event') return SIMPLE_PROFILE;
   if (eventType === 'travel') return TRAVEL_PROFILE;
-  if (eventType === 'funeral') return FUNERAL_PROFILE;
+  if (eventType === 'wake') return WAKE_PROFILE;
   return { ...GENERIC_PROFILE, eventType };
 }
 
@@ -498,7 +498,7 @@ export function toProfile(row: ProfileRow): EventTypeProfile {
       vipTierLabel: str(t.vip_tier_label, fb.terminology.vipTierLabel),
       // Only the exact literals are honoured; anything else takes the code
       // fallback's register, so a malformed row can neither turn a birthday
-      // solemn nor a funeral celebratory (FUNERAL_PROFILE carries 'solemn').
+      // solemn nor a funeral celebratory (WAKE_PROFILE carries 'solemn').
       register:
         t.register === 'solemn'
           ? 'solemn'

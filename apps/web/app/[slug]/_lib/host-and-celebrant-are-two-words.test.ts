@@ -43,7 +43,7 @@ import {
   applyEventCelebrantShape,
   celebrantShapeIsVisible,
   defaultHostNoun,
-  FUNERAL_PROFILE,
+  WAKE_PROFILE,
   GENERIC_PROFILE,
   isCelebrantShape,
   shapedCelebrant,
@@ -96,8 +96,8 @@ test('a wedding reads "the couple" on BOTH axes, under EVERY shape', () => {
 test('a wake speaks of the family on both axes, and no shape pluralises it', () => {
   for (const shape of SHAPES) {
     const w = eventWordsFromProfile({
-      ...FUNERAL_PROFILE,
-      terminology: { ...FUNERAL_PROFILE.terminology, celebrantShape: shape },
+      ...WAKE_PROFILE,
+      terminology: { ...WAKE_PROFILE.terminology, celebrantShape: shape },
     });
     assert.equal(w.theHost, 'the family');
     assert.equal(w.theCelebrant, 'the family');

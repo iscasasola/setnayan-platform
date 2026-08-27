@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 
 import { eventWordsFromProfile, solemnAdjustedPhase } from './event-words';
 import {
-  FUNERAL_PROFILE,
+  WAKE_PROFILE,
   WEDDING_PROFILE,
   GENERIC_PROFILE,
   SIMPLE_PROFILE,
@@ -49,7 +49,7 @@ function src(rel: string): string {
 // ── 1 · THE FUNERAL'S OWN WORDS ─────────────────────────────────────────────
 
 test('a funeral resolves the family, the wake, the gathering — and solemn', () => {
-  const w = eventWordsFromProfile(FUNERAL_PROFILE);
+  const w = eventWordsFromProfile(WAKE_PROFILE);
   assert.equal(w.organizer, 'family');
   assert.equal(w.theOrganizer, 'the family');
   assert.equal(w.TheOrganizer, 'The family');
@@ -65,14 +65,14 @@ test('the code fallback keeps a funeral solemn when its DB row is missing', () =
   // TRAVEL_PROFILE exists so a read error cannot flip a trip single-day; this
   // is the same contract with higher stakes — a read error must never flip a
   // wake's page back to "The celebration is underway".
-  assert.equal(FUNERAL_PROFILE.terminology.register, 'solemn');
-  assert.equal(FUNERAL_PROFILE.eventType, 'funeral');
+  assert.equal(WAKE_PROFILE.terminology.register, 'solemn');
+  assert.equal(WAKE_PROFILE.eventType, 'wake');
   // And it never re-acquires the wedding-only surfaces.
-  assert.ok(!FUNERAL_PROFILE.enabledSurfaces.includes('save_the_date'));
-  assert.ok(!FUNERAL_PROFILE.enabledSurfaces.includes('monogram'));
+  assert.ok(!WAKE_PROFILE.enabledSurfaces.includes('save_the_date'));
+  assert.ok(!WAKE_PROFILE.enabledSurfaces.includes('monogram'));
   // A funeral is a personal milestone — communities never own those (owner
   // lock 2026-07-15; the events_community_class_consistency CHECK agrees).
-  assert.equal(FUNERAL_PROFILE.eventClass, 'personal');
+  assert.equal(WAKE_PROFILE.eventClass, 'personal');
 });
 
 // ── 2 · 🔒 EVERY PRE-EXISTING TYPE STAYS CELEBRATORY, BYTE-IDENTICALLY ──────

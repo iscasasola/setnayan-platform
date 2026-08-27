@@ -65,6 +65,7 @@
  *     PlanGroups in the grid until the filter ships.
  */
 
+import { WEDDING_TILE_SLUG } from './taxonomy';
 import type { PlanGroupId } from './wedding-plan-groups';
 
 /**
@@ -163,7 +164,7 @@ export const WEDDING_ESSENTIALS: ReadonlyArray<WeddingEssential> = [
     label: 'Venue',
     hint: 'Where you say I do + where you celebrate. Often two different places.',
     planGroups: ['ceremony_venue', 'reception_venue'],
-    primaryHref: (_eventId) => `/explore?folder=reception`,
+    primaryHref: (_eventId) => `/explore?folder=venue`,
     primaryCtaLabel: 'Browse venues',
     softMonthsBefore: 12,
   },
@@ -193,18 +194,30 @@ export const WEDDING_ESSENTIALS: ReadonlyArray<WeddingEssential> = [
     label: 'Catering',
     hint: 'Food + service. Tastings happen 4-6 months out; book the team earlier.',
     planGroups: ['catering'],
-    primaryHref: (_eventId) => `/explore?folder=catering`,
+    primaryHref: (_eventId) => `/explore?folder=feast`,
     primaryCtaLabel: 'Browse caterers',
     softMonthsBefore: 9,
   },
   {
     id: 'officiant',
+    // ⚖ OWNER RULING 2026-08-27, verbatim: *"for priest (there are rules) so
+    // this needs to be under their church (which is at the ceremony venue)."*
+    // A priest is not a supplier you shop for — they come with the parish, and
+    // the parish IS the ceremony venue. So this card no longer offers a
+    // marketplace of officiants (there has never been one: all 20 officiant
+    // services are marketplace-hidden by the 2026-05-31 lock, so the old
+    // "Browse officiants" button could not have shown a single one even if its
+    // link had worked). It points at the ceremony venue instead.
+    //
+    // 🔑 The word is OFFICIANT, never "celebrant". In Filipino English a
+    // celebrant is the person being celebrated — PR #4896 exists to keep those
+    // two apart, and reusing it here would undo that in the same month.
     kind: 'vendor_pick',
     label: 'Officiant',
-    hint: 'Priest, pastor, or judge. Civil ceremonies need them booked early too.',
+    hint: 'Your priest, pastor, imam or judge usually comes with the ceremony venue. Lock the church or hall and the officiant follows.',
     planGroups: ['officiant'],
-    primaryHref: (_eventId) => `/explore?folder=ceremony`,
-    primaryCtaLabel: 'Browse officiants',
+    primaryHref: (_eventId) => `/explore?folder=venue&tile=${WEDDING_TILE_SLUG.ceremony_venue}`,
+    primaryCtaLabel: 'Choose ceremony venue',
     softMonthsBefore: 9,
   },
   {

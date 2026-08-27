@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import {
@@ -95,6 +96,15 @@ export async function POST(req: Request) {
         .select('member_type')
         .eq('event_id', event.event_id)
         .eq('user_id', user.id)
+        // 🔴 A FOURTH COPY OF THE SAME SHAPE, found by the derived sweep rather
+        // than by reading: it selected `member_type` and then answered
+        // `if (member || moderator)`, so ANY member row suppressed the count —
+        // while the comment above names couple/coordinator. `event_members` is
+        // the event's people table and `'guest'` is one of its types, so a guest
+        // who scanned the QR had their save-the-date view silently deleted from
+        // the couple's own number. Not a disclosure like its three siblings, but
+        // the same defect: a column asked for and never compared.
+        .in('member_type', [...HOST_MEMBER_TYPES])
         .maybeSingle(),
       admin
         .from('event_moderators')

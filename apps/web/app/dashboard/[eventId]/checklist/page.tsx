@@ -74,9 +74,13 @@ export default async function EventChecklistPage({ params }: Props) {
   // A locked door beats a blank page that looks like an unplanned wedding.
   // Since migration 20271161203067 every accepted delegate IS a member, so for
   // them this gate is a belt — it exists for the next role that is not.
+  // `user_id`, not `member_type` — an existence check that never compared the
+  // type it asked for. Deliberately ANY member (the comment above says so); it
+  // simply stops requesting a column it has no opinion about, which is the shape
+  // `host-means-host.test.ts` sweeps for.
   const { data: checklistMembership, error: checklistMembershipError } = await supabase
     .from('event_members')
-    .select('member_type')
+    .select('user_id')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();

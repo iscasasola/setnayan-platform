@@ -48,6 +48,7 @@ import { GuestDoorwayStrip } from './guest-doorway-strip';
 import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { VendorDoorway } from './vendor-doorway';
 import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
@@ -647,7 +648,16 @@ export async function SiteBody({
           */
           viewer={{
             isHost: viewerIsHost,
-            belongsToEvent: identity.kind === 'guest' || vendorCapability !== null,
+            // ⚖ THROUGH THE ONE SHARED RULE (`_lib/belongs-to-this-event.ts`),
+            // because the print keepsake at /{slug}/print asks the same question
+            // and answered it with a hardcoded `true` — so a stranger could
+            // print a story the couple had kept to the people of their day.
+            // Two surfaces, each resolving its own facts, one rule between them:
+            // neither can hold a different opinion about who belongs here.
+            belongsToEvent: belongsToThisEvent({
+              holdsGuestPass: identity.kind === 'guest',
+              isBookedSupplier: vendorCapability !== null,
+            }),
           }}
         />
         {memento}

@@ -77,6 +77,18 @@ export async function JoinFlow({
   // One resolve covers all nine sentences below, the SIGNED-OUT arm included.
   // This component is already an async server component holding the event id,
   // so no prop, no default and no call-site change is needed.
+  //
+  // ⚠ THAT SENTENCE WAS TRUE OF THE CALL AND FALSE OF THE ANSWER, and this door
+  // is where it cost the most. Both resolvers read `public.events` through the
+  // cookie-scoped session client, and that table has no SELECT policy admitting
+  // `anon` — so for a signed-out visitor the read came back empty and BOTH fell
+  // through to the wedding: the mourner who scanned a wake's QR was told about
+  // "the couple", and this door offered them "Maid of honor", "Ring bearer" and
+  // "Veil sponsor". They now read the event's own type with the service-role
+  // client (`lib/event-type-profile.ts`), so the signed-out arm gets the
+  // celebration's real words and its real role set.
+  // 🔑 A RESOLVER THAT IS CALLED IS NOT A RESOLVER THAT CAN ANSWER — the guard
+  // written for this counted the CALL, and the call was there the whole time.
   const w = await eventWordsForEvent(eventId);
   const errorMessage = errorKey ? (roleErrors(w)[errorKey] ?? errorKey) : null;
   const loginHref = `/login?next=${encodeURIComponent(returnPath)}`;

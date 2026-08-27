@@ -21,6 +21,15 @@
  * 🔒 THE FUNERAL NOUN IS `family`, NEVER `host` — no fallback in these files may
  * introduce "host", which is wrong for the one type this work exists for.
  *
+ * ⚠ AND THE HALF THESE RULES COULD NOT SEE. Rule 2 counts that the resolver is
+ * CALLED. It was — and it still answered "wedding" to every signed-out visitor,
+ * because underneath it read `public.events` through the cookie-scoped session
+ * client and that table has no SELECT policy admitting `anon`. So the wake's own
+ * join door said "the couple" to the mourner who scanned its QR while this file
+ * was green. *A resolver that is called is not a resolver that can answer.* The
+ * read is service-role scoped now, and `lib/signed-out-words-are-the-events-own.test.ts`
+ * pins the MECHANISM rather than the call.
+ *
  * ── MUTATIONS, MEASURED ─────────────────────────────────────────────────────
  * · revert one signed-out string in the join door → `the couple` there 0 → 1 · RED
  * · drop the resolver call from the join door → `eventWordsForEvent` 1 → 0 · RED

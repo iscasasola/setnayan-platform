@@ -298,7 +298,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const [advMemberRes, advDelegateRes] = await Promise.all([
     supabase
       .from('event_members')
-      .select('member_type')
+      // `user_id`, not `member_type`: the comment above states the rule is ANY
+      // event_members row, and the type was requested and never compared — the
+      // shape `host-means-host.test.ts` sweeps for. Behaviour is unchanged.
+      .select('user_id')
       .eq('event_id', eventId)
       .eq('user_id', user.id)
       .maybeSingle(),

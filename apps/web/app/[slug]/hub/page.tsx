@@ -43,11 +43,10 @@ import {
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
-import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
-import { canViewSlugEvent } from '@/lib/slug-access';
+import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
@@ -164,32 +163,28 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const session = await readGuestSession();
   const guestSessionMatches = session?.event_id === event.event_id;
 
-  let isHost = false;
-  if (isValidPhaseParam && !isDemoEvent) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      const [{ data: memberRow }, { data: moderatorRow }] = await Promise.all([
-        admin
-          .from('event_members')
-          .select('member_type')
-          .eq('event_id', event.event_id)
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        admin
-          .from('event_moderators')
-          .select('moderator_id')
-          .eq('event_id', event.event_id)
-          .eq('user_id', user.id)
-          .not('accepted_at', 'is', null)
-          .is('removed_at', null)
-          .maybeSingle(),
-      ]);
-      isHost = Boolean(memberRow) || Boolean(moderatorRow);
-    }
-  }
+  /*
+    🔴 THIS WAS THE THIRD COPY OF THE HOST CHECK, AND IT HELD THE PRE-FIX RULE.
+    It ran `event_members … .select('member_type')` and then returned
+    `Boolean(memberRow)` — the column was asked for and never compared. But
+    `event_members` IS NOT A HOST TABLE: `'guest'` is one of its member types,
+    written by the event-QR scan-to-join, the cookie link and the cross-device
+    magic link. So any signed-in member — a guest who merely scanned the QR —
+    read as a HOST here, which is precisely what `?phase=` needs: it let them
+    force `dayOfPhase` to 'live'/'post' and switch on day-of surfaces the couple
+    had not launched (the live-stream embed, the mirrored photo wall, the recap
+    door) on a PRIVATE celebration. That jump-ahead is the exact harm the fix in
+    `host-scope.ts` was written to kill.
+
+    🔑 A CLONE INHERITS THE BUG ITS TWIN FIXED — third instance in this repo.
+    Two twins were repaired and pinned (`loadHostMembership` and
+    `isSignedInEventHost`); this one was never on the guard's hand-typed list,
+    so it stayed green while shipping the defect. There is no fourth copy now:
+    this asks the ONE shared definition, whose own docblock names exactly this
+    "hosts may preview" rule as its reason for existing.
+  */
+  const isHost =
+    isValidPhaseParam && !isDemoEvent ? await isSignedInEventHost(event.event_id) : false;
   const phasePreviewAllowed = isDemoEvent || isHost;
   const phaseOverride: DayOfPhase | null =
     isValidPhaseParam && phasePreviewAllowed

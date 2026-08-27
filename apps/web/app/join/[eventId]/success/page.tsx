@@ -43,7 +43,12 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
       .maybeSingle(),
     admin
       .from('event_members')
-      .select('member_type, role')
+      // `role`, not `member_type` — this screen prints the guest's ROLE and has
+      // never had an opinion about member_type. Asking for a column and not
+      // comparing it is the shape that let a QR-scan guest read as a HOST three
+      // separate times; `host-means-host.test.ts` now sweeps for it, so an
+      // existence check must not request the column it does not use.
+      .select('role')
       .eq('event_id', eventId)
       .eq('user_id', user.id)
       .maybeSingle(),

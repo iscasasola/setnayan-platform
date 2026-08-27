@@ -167,9 +167,18 @@ export async function CoupleChallengesManager({
   // the caller it was written for. It is idempotent, advisory-locked per event,
   // and MATERIALIZE-ONCE/NEVER-DELETE — a de-selection is board_slot = NULL, not
   // a row delete — so calling it on a page render neither duplicates nor
-  // destroys anything. Fail-soft on error (the wrapper returns 0), and the list
-  // below still renders — just without positions.
-  await ensurePapicBoard(supabase, eventId);
+  // destroys anything. Fail-soft on error, and the list below still renders —
+  // just without positions.
+  //
+  // 🔑 AND WHETHER IT RAN IS LOAD-BEARING, WHICH IS WHY THE ANSWER IS KEPT.
+  // From 2026-08-23 until 20271173829027 this call was REFUSED on every render:
+  // the pabati retirement revoked `authenticated` from the resolver and never
+  // granted it back. Nothing threw, so the screen carried on and read the only
+  // state it could see — every board_slot NULL — as "the board is full and these
+  // are queued behind it". An unbuilt board is not a full one, and the couple
+  // was told to delete their own challenges to make room on a board that was
+  // empty. `resolved` is what stops this screen inventing that again.
+  const board = await ensurePapicBoard(supabase, eventId);
 
   // Approved missions only — live or hidden. Pending vendor challenges
   // (approved=false) belong to the approval panel, not the curation list.
@@ -204,6 +213,23 @@ export async function CoupleChallengesManager({
   const onBoard = missions.filter((m) => m.board_slot !== null);
   const offBoard = missions.filter((m) => m.board_slot === null);
   const waiting = offBoard.filter((m) => m.is_active);
+
+  // ── 🔑 MAY THIS SCREEN SAY "WAITING FOR A FREE SPOT"? ──────────────────────
+  // Only when there is a board to be waiting BEHIND. Two ways that is false,
+  // and they used to look identical to this component:
+  //
+  //   · the resolver was refused, so NOTHING has a slot — the live bug this
+  //     flag was added for; and
+  //   · the resolver ran and put nothing on the board, which it cannot do while
+  //     an active approved couple pick exists (the couple lane is slotted
+  //     FIRST), so an empty board beside waiting rows means the two reads
+  //     disagree and we do not know which is right.
+  //
+  // ⚠ THE DIRECTION IS THE WHOLE POINT. "Your board is full, hide one to make
+  // room" is an instruction to DELETE something, given on the strength of a
+  // measurement we do not have. Not-measured is never zero and never a limit
+  // reached: when we cannot tell, we say we cannot tell.
+  const boardIsTrustworthy = board.resolved && (onBoard.length > 0 || waiting.length === 0);
 
   // Cost of the board a guest actually sees, per guest. Fail-soft: the pool read
   // degrades to "absent" on any error and we then say nothing about a balance
@@ -627,9 +653,20 @@ export async function CoupleChallengesManager({
                   <ChallengeRow key={m.mission_id} m={m} eventId={eventId} />
                 ))}
               </ul>
-            ) : (
+            ) : boardIsTrustworthy ? (
               <p className="mt-2 text-sm text-ink/45">
                 Nothing is showing yet — unhide one below, or add a challenge above.
+              </p>
+            ) : (
+              /* ⚠ NOT "nothing is showing yet". That sentence is a statement
+                 about the board, and we could not read the board. Telling a
+                 couple their challenges reach nobody — when the truth is that we
+                 failed to work it out — is the same confident lie in a quieter
+                 voice. */
+              <p className="mt-2 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
+                We couldn&rsquo;t work out which of these your guests see just
+                now. Refresh in a moment &mdash; nothing has changed, and nothing
+                needs removing.
               </p>
             )}
           </div>
@@ -640,13 +677,23 @@ export async function CoupleChallengesManager({
                 Not showing · {offBoard.length}
               </h4>
               <p className="mt-0.5 text-xs text-ink/55">
-                {waiting.length > 0
-                  ? `Your guests see ${BOARD_SIZE} challenges at a time. ${
-                      waiting.length === 1
-                        ? 'This one is waiting for a free spot'
-                        : `These ${waiting.length} are waiting for a free spot`
-                    } — hide one above to make room.`
-                  : 'Hidden by you. Tap the eye to bring one back.'}
+                {waiting.length === 0
+                  ? 'Hidden by you. Tap the eye to bring one back.'
+                  : boardIsTrustworthy
+                    ? `Your guests see ${BOARD_SIZE} challenges at a time. ${
+                        waiting.length === 1
+                          ? 'This one is waiting for a free spot'
+                          : `These ${waiting.length} are waiting for a free spot`
+                      } — hide one above to make room.`
+                    : /* 🔑 THE INVERSION THIS SCREEN SHIPPED. "Waiting for a
+                         free spot — hide one above to make room" claims the
+                         board is FULL. When the resolver was refused, every
+                         challenge had a null slot and this branch fired on an
+                         EMPTY board: a couple with nothing showing to anyone was
+                         told to delete their own challenges to make room. Say
+                         what is actually known instead, and never ask for a
+                         deletion on the strength of a reading we do not have. */
+                      'We couldn’t work out where these sit on your board just now. Refresh in a moment — nothing has changed, and nothing needs removing.'}
               </p>
               <ul className="mt-2 space-y-2">
                 {offBoard.map((m) => (

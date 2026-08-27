@@ -53,7 +53,11 @@ export async function GET() {
   // could never have caught this, so a db test now calls this exact path with a
   // NULL session and asserts a board comes back.
   //
-  await ensurePapicBoard(admin, session.event_id).catch(() => 0);
+  // The result is deliberately discarded HERE and nowhere else. A guest reads
+  // whatever board exists; if the build could not run they keep the board they
+  // already had, which is the right failure for a phone at a party. The COUPLE's
+  // screen is the one that must know the difference, and it does.
+  await ensurePapicBoard(admin, session.event_id).catch(() => undefined);
 
   const missions = await fetchGuestMissions(admin, session.guest_id).catch(() => []);
   return NextResponse.json({ missions });

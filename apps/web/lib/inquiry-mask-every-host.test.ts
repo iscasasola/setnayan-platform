@@ -117,6 +117,18 @@ const PROD_NOUNS: Record<string, { organizer: string; host: string }> = {
   wedding: { organizer: 'couple', host: 'couple' },
 };
 
+/**
+ * Narrowed lookup. `noUncheckedIndexedAccess` is on in this repo, so
+ * `PROD_NOUNS[t]` is `… | undefined` — and a `!` would turn a genuinely missing
+ * row into a confusing crash three assertions later. Throwing here names the
+ * type that has no recorded noun.
+ */
+function nounsFor(type: string): { organizer: string; host: string } {
+  const n = PROD_NOUNS[type];
+  if (!n) throw new Error(`no production noun recorded for event type "${type}"`);
+  return n;
+}
+
 test('the seventeen types are derived, complete, and floored', () => {
   // FLOOR: a scan that matched nothing (or fewer than the seeded set) must fail
   // rather than vacuously pass every loop below.
@@ -130,7 +142,7 @@ test('the seventeen types are derived, complete, and floored', () => {
 });
 
 test('FOUR types name the honoree, and the host noun is what repairs them', () => {
-  const honoree = ALL_TYPES.filter((t) => HONOREE_NOUNS.has(PROD_NOUNS[t].organizer));
+  const honoree = ALL_TYPES.filter((t) => HONOREE_NOUNS.has(nounsFor(t).organizer));
   assert.deepEqual(
     honoree,
     ['anniversary', 'birthday', 'debut', 'graduation'],
@@ -141,11 +153,11 @@ test('FOUR types name the honoree, and the host noun is what repairs them', () =
   assert.ok(honoree.length >= 4);
   for (const t of honoree) {
     assert.notEqual(
-      PROD_NOUNS[t].host,
-      PROD_NOUNS[t].organizer,
+      nounsFor(t).host,
+      nounsFor(t).organizer,
       `${t}: host noun must differ from the honoree organiser noun`,
     );
-    assert.equal(defaultHostNoun(PROD_NOUNS[t].organizer), PROD_NOUNS[t].host);
+    assert.equal(defaultHostNoun(nounsFor(t).organizer), nounsFor(t).host);
   }
 });
 
@@ -164,14 +176,22 @@ test('every type × every branch renders grammatically', () => {
       const label = inquiryPlaceholderLabel({
         eventType: b.withType ? type : null,
         city: b.city,
-        hostNoun: b.withType ? PROD_NOUNS[type].host : null,
+        hostNoun: b.withType ? nounsFor(type).host : null,
       });
       rendered += 1;
       // The opener is "A <noun> planning" or "An <noun> planning" — and the
       // article must AGREE. This is the assertion that catches "A organizer".
       const m = /^(An?) ([a-z]+) planning (an?) ([a-z ]+?)(?: in (.+))?$/.exec(label);
       assert.ok(m, `unparseable placeholder for ${type} [${b.name}]: ${label}`);
-      const [, hostArticle, hostNoun, typeArticle, typeNoun] = m!;
+      const hostArticle = m?.[1];
+      const hostNoun = m?.[2];
+      const typeArticle = m?.[3];
+      const typeNoun = m?.[4];
+      assert.ok(
+        hostArticle && hostNoun && typeArticle && typeNoun,
+        `placeholder did not yield all four grammar parts for ${type} [${b.name}]: ${label}`,
+      );
+      if (!hostArticle || !hostNoun || !typeArticle || !typeNoun) return;
       assert.equal(
         hostArticle,
         /^[aeiou]/.test(hostNoun) ? 'An' : 'A',
@@ -182,7 +202,7 @@ test('every type × every branch renders grammatically', () => {
         /^[aeiou]/.test(typeNoun) ? 'an' : 'a',
         `wrong article before "${typeNoun}" — ${type} [${b.name}]: ${label}`,
       );
-      assert.equal(hostNoun, b.withType ? PROD_NOUNS[type].host : GENERIC_HOST_NOUN);
+      assert.equal(hostNoun, b.withType ? nounsFor(type).host : GENERIC_HOST_NOUN);
       // Identity can never appear: nothing identifying is a parameter.
       assert.ok(!/[&@]|https?:|\+63|S89[A-Z]-/.test(label), `identity-shaped: ${label}`);
     }
@@ -200,17 +220,22 @@ test('only a wedding opens with "A couple"', () => {
       inquiryPlaceholderLabel({
         eventType: type,
         city: 'Manila',
-        hostNoun: PROD_NOUNS[type].host,
+        hostNoun: nounsFor(type).host,
       }),
     );
   }
+  const openerFor = (type: string): string => {
+    const o = openers.get(type);
+    if (!o) throw new Error(`no placeholder rendered for event type "${type}"`);
+    return o;
+  };
   // 🔒 THE WEDDING LITERAL — byte-identical to what shipped before the change.
-  assert.equal(openers.get('wedding'), 'A couple planning a wedding in Manila');
-  const coupled = ALL_TYPES.filter((t) => openers.get(t)!.startsWith('A couple'));
+  assert.equal(openerFor('wedding'), 'A couple planning a wedding in Manila');
+  const coupled = ALL_TYPES.filter((t) => openerFor(t).startsWith('A couple'));
   assert.deepEqual(coupled, ['wedding'], `these types still say "A couple": ${coupled}`);
   // The two the defect was reported for, spelled out.
-  assert.equal(openers.get('funeral'), 'A family planning a funeral in Manila');
-  assert.equal(openers.get('corporate'), 'An organizer planning a corporate in Manila');
+  assert.equal(openerFor('funeral'), 'A family planning a funeral in Manila');
+  assert.equal(openerFor('corporate'), 'An organizer planning a corporate in Manila');
 });
 
 test('MECHANISM: host_noun wins, and a row predating it still resolves', () => {
@@ -347,7 +372,9 @@ test('the parameter stays REQUIRED — no default may creep in', () => {
     src,
   );
   assert.ok(sig, 'could not find the inquiryPlaceholderLabel parameter list');
-  const params = sig![1];
+  const params = sig?.[1];
+  assert.ok(params, 'the parameter list came back empty — the extraction regex missed');
+  if (!params) return;
   assert.match(params, /hostNoun: string \| null;/, 'hostNoun must be a required `string | null`');
   assert.doesNotMatch(params, /hostNoun\?:/, 'hostNoun must not become optional');
   // The two neighbouring params ARE optional — proving the extraction really

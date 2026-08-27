@@ -314,9 +314,23 @@ test('every call site passes the organiser noun', () => {
 
 test('the parameter stays REQUIRED — no default may creep in', () => {
   const src = strip(readFileSync(join(WEB, 'lib', 'inquiry-mask.ts'), 'utf8'));
-  // Required (no `?`) and no `= '…'` default in the destructure or the type.
-  assert.match(src, /hostNoun: string \| null;/, 'hostNoun must be a required `string | null`');
-  assert.doesNotMatch(src, /hostNoun\?:/, 'hostNoun must not become optional');
+  // ⚠ SCOPED TO THE FUNCTION'S OWN PARAMETER LIST. A bare file-level match for
+  // `hostNoun: string | null;` is ALSO satisfied by the exported
+  // INQUIRY_MASK_UNKNOWN constant's type — so it would stay green with the
+  // parameter made optional. That is the file-level-match trap this repo keeps
+  // paying for; the parameter object is extracted first.
+  const sig = /export function inquiryPlaceholderLabel\(input: \{([\s\S]*?)\}\): string \{/.exec(
+    src,
+  );
+  assert.ok(sig, 'could not find the inquiryPlaceholderLabel parameter list');
+  const params = sig![1];
+  assert.match(params, /hostNoun: string \| null;/, 'hostNoun must be a required `string | null`');
+  assert.doesNotMatch(params, /hostNoun\?:/, 'hostNoun must not become optional');
+  // The two neighbouring params ARE optional — proving the extraction really
+  // looked at the parameter list and not at some other block.
+  assert.match(params, /eventType\?:/);
+  assert.match(params, /city\?:/);
+  assert.doesNotMatch(src, /hostNoun\?:/, 'hostNoun must not become optional anywhere');
   assert.doesNotMatch(
     src,
     /hostNoun[^;\n]*=\s*['"`]/,

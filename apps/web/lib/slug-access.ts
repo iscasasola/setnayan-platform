@@ -8,6 +8,8 @@ import {
   requiresInvitedAccount,
 } from '@/lib/event-visibility';
 import { readGuestSession } from '@/lib/guest-session';
+import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 
 /**
  * canViewSlugEvent — the single source of truth for "may the current viewer see
@@ -24,8 +26,11 @@ import { readGuestSession } from '@/lib/guest-session';
  *     event's guest list, PLUS the guest-cookie and host paths below. A
  *     stranger, and anyone merely holding the link, gets the same locked page.
  *   • private             → only an invited guest with a matching guest-session
- *     cookie, OR a signed-in host (event_members couple/host, or an accepted +
- *     non-removed event_moderator). Everyone else (strangers) is blocked.
+ *     cookie, a signed-in SEAT-HOLDER (their account is bound to a seat on this
+ *     event's guest list), OR a signed-in host (event_members couple/coordinator,
+ *     or an accepted + non-removed event_moderator). Everyone else (strangers,
+ *     and a signed-in member who is only a `'guest'`-type row with no seat) is
+ *     blocked.
  *
  * Anything unreadable coalesces to 'private' (fail safe), matching the page.
  *
@@ -58,6 +63,30 @@ export async function canViewSlugEvent(
   if (!user) return false;
 
   if (await isSignedInEventHost(eventId)) return true;
+
+  // Path B2 — signed-in SEAT-HOLDER, on BOTH closed visibilities.
+  //
+  // 🔒 THIS SHIPS IN THE SAME COMMIT AS THE HOST NARROWING ABOVE, AND MUST.
+  // app/[slug]/page.tsx has admitted a seat-holder on `private` since
+  // 2026-08-13 (`findGuestSeatForUser`); this shared gate never grew that arm,
+  // and the over-wide host check was masking the divergence — a seat-bound
+  // account read as a "host" here and was let through by accident. Narrowing
+  // host alone would start bouncing, off all seven sub-routes, exactly the
+  // people the page was rewritten to admit: the guest cookie has a hard 60-day
+  // life with no sliding refresh, and save-the-dates go out 6–12 months ahead,
+  // so the ORDINARY invited cousin has no live cookie by the day itself.
+  //
+  // 🔒 NOT A WIDENING — it is the SAME claim by a stronger key. The cookie says
+  // "this browser once held guest X's QR"; the membership row says "this
+  // AUTHENTICATED ACCOUNT is bound to guest X", a binding established by holding
+  // that QR or clicking a link emailed to the address on the seat.
+  // `findGuestSeatForUser` requires the caller's OWN row, member_type='guest', a
+  // non-null guest_id, no `hidden_at` (their own Leave) and no `guests.deleted_at`
+  // (the host's eviction) — so removing somebody closes this in the same instant.
+  //
+  // ⚠ It admits them to the PAGE ONLY. No guest session is minted, so every
+  // per-guest surface still keys on the cookie this viewer does not have.
+  if ((await findGuestSeatForUser(eventId, user.id)) !== null) return true;
 
   // Path C — signed-in guest. ONLY for 'invited_accounts': a private
   // celebration deliberately does not admit somebody just for being on the
@@ -159,7 +188,23 @@ export async function isInvitedAccount(
 
 /**
  * isSignedInEventHost — is the CURRENT signed-in user a host of this event?
- * (a couple member in event_members, OR an accepted + non-removed moderator).
+ * (a couple/coordinator member in event_members, OR an accepted + non-removed
+ * moderator).
+ *
+ * 🔴 THIS SELECTED `member_type` AND NEVER COMPARED IT, returning
+ * `Boolean(memberRow)`. `event_members` IS NOT A HOST TABLE — it is the event's
+ * people table, and `'guest'` is one of its values, written by the event-QR
+ * scan-to-join, the cookie link and the cross-device magic link. So ANY signed-in
+ * member, including a guest who merely scanned the QR, was a HOST here: they
+ * passed the private gate on all seven sub-routes, and the keepsake reader
+ * (`who-can-see-your-story.ts`) returns true for a host BEFORE it tests the
+ * audience — so they could read the couple's unfinished story months before it
+ * was published.
+ * 🔑 This is the exact bug `app/[slug]/_lib/host-scope.ts` was written to kill.
+ * The twin (`loadHostMembership`) was fixed and pinned; THIS CLONE NEVER
+ * INHERITED IT. *A clone inherits the bug its twin fixed.* Both now filter on
+ * the one shared `HOST_MEMBER_TYPES` definition, and `host-means-host.test.ts`
+ * pins BOTH by source so a third copy cannot quietly hold a laxer rule.
  *
  * Extracted from the inline `event_members` / `event_moderators` check that
  * app/[slug]/page.tsx runs for its private-gate + `?phase=` preview allowance,
@@ -181,6 +226,7 @@ export async function isSignedInEventHost(eventId: string): Promise<boolean> {
       .select('member_type')
       .eq('event_id', eventId)
       .eq('user_id', user.id)
+      .in('member_type', [...HOST_MEMBER_TYPES])
       .maybeSingle(),
     admin
       .from('event_moderators')

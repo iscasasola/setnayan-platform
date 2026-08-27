@@ -43,6 +43,10 @@
  * · re-inline the pre-fix host read in app/[slug]/hub/page.tsx → sweep offenders
  *   0 → 1 · RED.
  * · gut the filter in app/api/std/view/route.ts → offenders 0 → 1 · RED.
+ *   ⚠ THIS ONE WAS GREEN ON THE FIRST RUN, at a landed count of 1 → 0, because
+ *   the sweep was reading that file's own comment ABOUT member_type as the
+ *   comparison. Comments are stripped now. Found by counting, never by review —
+ *   which is the fifth time in this repo.
  * · delete the seat-holder arm from the shared gate → `findGuestSeatForUser`
  *   in slug-access.ts 1 → 0 · RED.
  * · delete it from the page instead → in page.tsx 2 → 0 · RED.
@@ -96,6 +100,23 @@ function sourceFiles(): string[] {
  *  enough to cover a `Promise.all` pair plus the branch that consumes it. */
 const WINDOW = 2500;
 
+/**
+ * Blank out comments, keeping every newline so reported line numbers stay true.
+ *
+ * 🪤 THIS WAS NOT AN AFTERTHOUGHT — THE SWEEP WAS DECORATION WITHOUT IT, and the
+ * mutation run is what said so. Every file this guard polices now carries a
+ * paragraph EXPLAINING the defect, and those paragraphs say "member_type" out
+ * loud. So the scan read the prose about the bug as the comparison that fixes
+ * it: gutting the real filter in `app/api/std/view/route.ts` left the count
+ * 1 → 0 and the guard **stayed green**. A guard that its own explanatory comment
+ * satisfies is worth nothing. Strip first, match second.
+ */
+function stripComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m, lead) => lead + ' '.repeat(m.length - lead.length));
+}
+
 type Sweep = {
   files: number;
   chains: number;
@@ -115,7 +136,7 @@ function sweepEventMemberReads(): Sweep {
   const offenders: string[] = [];
 
   for (const file of files) {
-    const src = readFileSync(file, 'utf8');
+    const src = stripComments(readFileSync(file, 'utf8'));
     let i = 0;
     while ((i = src.indexOf(".from('event_members')", i)) !== -1) {
       chains++;

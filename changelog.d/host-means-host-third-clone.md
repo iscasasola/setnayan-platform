@@ -72,6 +72,18 @@ member: the WORDS are corrected, the behaviour deliberately is not, because
 narrowing an authorization gate the dashboard layout already opens is a product
 call and not a typo fix. Named, not changed.
 
+**🪤 AND THE NEW SWEEP WAS ITSELF DECORATION ON ITS FIRST RUN.** Gutting the real
+`member_type` filter in the view beacon landed cleanly — count 1 → 0 — and the
+guard stayed GREEN, because every file it polices now carries a paragraph
+EXPLAINING the defect and those paragraphs say `member_type` out loud. The scan
+read the prose about the bug as the comparison that fixes it. **Strip comments
+before matching**, and note that this is the SIXTH time in this repo a guard has
+passed while protecting nothing — found by counting, never by review. 13
+mutations were run in total, each printed before → after; one did not land (2
+occurrences where the script asserted 1) and the harness said so before running
+anything. The previous hand-typed guard, run unchanged against the re-inlined
+third clone, reported **5/5 pass, exit 0**.
+
 Prod at the time of the fix: 5 events (2 open) · 6 event_members rows, **all**
 host-type · 2 non-wedding events. So #1 and #4's clone are latent today and one
 QR scan from real; #3 bites on two live celebrations right now.

@@ -26,7 +26,6 @@ import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
 import { closedEventAdmits } from '@/lib/closed-event-admission';
 import { loadVendorBooking, viewerIsBookedSupplier } from '@/lib/booked-supplier';
-import { supplierDeskIsOpen } from '@/lib/supplier-desk-rule';
 import { loadSupplierDesk } from './_lib/supplier-desk.server';
 import type { DoorwayFacts } from './_lib/site-nav';
 import {
@@ -789,19 +788,31 @@ async function InvitationBody({
     ── THE SUPPLIER'S DESK, AND WHY IT IS RESOLVED HERE ─────────────────────
 
     Owner 2026-08-27: *"on the day. is the integration of the vendors to the
-    event's event hub."* On the day — and only on the day — the doorway strip
-    above stops being a link out and becomes the supplier's own desk, in place.
-    There is no new route: this is the same `/{slug}` every guest opens.
+    event's event hub."* The doorway strip above stops being a link out and
+    becomes the supplier's own desk, in place. There is no new route: this is
+    the same `/{slug}` every guest opens.
+
+    ⏳ AND IT IS NO LONGER ONLY ON THE DAY. S3 shipped a room that lived about
+    thirty hours; the binding design's own strongest sentence is against it —
+    *"a day-only room recreates the midnight-door mistake this product has
+    already paid once to learn"* — because the venue's address and the call time
+    are wanted in the weeks BEFORE, and confirming a shot landed happens the
+    morning AFTER. So the loader is asked on every day of the booking's life and
+    it decides which of four states to build: the call sheet, the day, the week
+    of looking back, and one quiet line long after.
 
     🔒 TWO GATES, IN THIS ORDER, AND NEITHER IS OPTIONAL.
       1. `vendorCapability` — the database confirmed a COMMITTED booking for
          this signed-in account. A cookie-only guest has no account and no
-         capability, so nothing below runs for a visitor, ever.
-      2. `supplierDeskIsOpen` — it is actually the day. That question is asked
-         of `getMenuLifecyclePhase`, the SAME rule the organiser's own day-of
-         desk uses, so the two cannot drift: 06:00 the morning after (a
-         reception runs past midnight), the LAST day of a range rather than the
-         first, and closed once the organiser clears the celebration out.
+         capability, so nothing below runs for a visitor, ever. It is still the
+         OUTER gate: widening the window moved the second gate, never the first.
+      2. The stage, decided inside the loader by `supplierDeskStage` from the
+         four fields handed to it here. That rule asks `getMenuLifecyclePhase`,
+         the SAME rule the organiser's own day-of desk uses, so the two cannot
+         drift: 06:00 the morning after (a reception runs past midnight), the
+         LAST day of a range rather than the first, and closed once the organiser
+         clears the celebration out. A celebration with no date at all yields no
+         stage and no desk — the strip stays the link it has always been.
 
     🚨 AND THE READ IS DELIBERATELY NOT MADE WITH `admin`, WHICH IS IN SCOPE ON
     THIS LINE. This page renders with the service role; every RLS rule keeping a
@@ -811,16 +822,14 @@ async function InvitationBody({
     answered the admin way (the capability above already was, scoped by a
     session-proved id); event CONTENT never is.
   */
-  const supplierDesk =
-    vendorCapability &&
-    supplierDeskIsOpen({
-      eventDate: event.event_date,
-      eventEndDate: event.event_end_date ?? null,
-      clearedAt: event.cleared_at ?? null,
-      tz: venueTz,
-    })
-      ? await loadSupplierDesk(vendorCapability)
-      : null;
+  const supplierDesk = vendorCapability
+    ? await loadSupplierDesk(vendorCapability, {
+        eventDate: event.event_date,
+        eventEndDate: event.event_end_date ?? null,
+        clearedAt: event.cleared_at ?? null,
+        tz: venueTz,
+      })
+    : null;
   // ── THE PEOPLE OF THIS CELEBRATION ───────────────────────────────────────
   //
   // Owner 2026-08-20: a chapter can be shared with "all in that event only".

@@ -49,6 +49,7 @@ import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { VendorDoorway } from './vendor-doorway';
+import { SupplierRibbon } from './supplier-ribbon';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
 import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
@@ -1863,6 +1864,22 @@ export async function SiteBody({
           (3) it renders `null` for a null model, so a guest's DOM is unchanged
           byte-for-byte. */}
       <OwnerRibbon model={ownerRibbon} />
+      {/* THE SUPPLIER'S RIBBON — mounted here for reason (2) above, and for one
+          of its own: in the Save-the-Date phase the film covers the viewport at
+          z-50 with the veil at z-60, and the supplier's strip renders in
+          ordinary flow underneath both. A booked supplier signing in to check
+          the address got a wedding film and no visible way to their call sheet,
+          for every one of the ~9 months a booking spends more than 90 days out.
+          The design puts the door above the film for exactly this. It renders
+          in no other phase: everywhere else the strip below IS the top of the
+          page for a supplier. */}
+      {vendorCapability && plan.body === 'save_the_date' ? (
+        <SupplierRibbon
+          businessName={vendorCapability.businessName}
+          when={supplierDesk?.countdown ?? supplierDesk?.eventDateLabel ?? null}
+          hasDesk={supplierDesk != null}
+        />
+      ) : null}
       {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
           the event is effectively public (couple launched their Save-the-Date);
           the abuse-report entry (target_type='event') is present on any listed

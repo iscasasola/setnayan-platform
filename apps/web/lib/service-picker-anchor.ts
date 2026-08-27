@@ -99,3 +99,32 @@ export function servicePickerRequested(raw: unknown): boolean {
  * 6-step wizard takes its category from the ROUTE and cannot ask for one.
  */
 export const SERVICE_MAKER_HREF = '/vendor-dashboard/services/new' as const;
+
+/**
+ * ─── WHERE A PLAN-LOCKED KIND LEADS (owner 2026-08-28, S3) ─────────────────
+ *
+ * The maker greys a kind of service the shop's plan cannot hold, with one
+ * sentence of reason for the whole greyed set (canvas-maker.tsx's `lockedWhy`).
+ * That sentence used to explain and stop. Asked where it should lead — the
+ * pricing page, or the "tell us what you do" intake — the owner chose the
+ * intake: `proposeCategory` in services/actions.ts, already shipped, already
+ * rendered on My Shop's Tools tab. This is that link's one home, so the id
+ * typed on the section and the param read by the tab chooser cannot drift —
+ * same shape as `SERVICE_PICKER_ANCHOR_ID` above.
+ *
+ * ⚠ THE PILL ITSELF STAYS DISABLED. It is not the link — a locked pill that
+ * still navigates on click reads as pressable, which the maker deliberately
+ * refuses. The link lives in the one reason sentence beside it instead.
+ */
+export const PROPOSE_CATEGORY_ANCHOR_ID = 'propose-category';
+
+/** Carries the intent through the redirect, same reasoning as `SERVICE_PICKER_PARAM`. */
+export const PROPOSE_CATEGORY_PARAM = 'wantCategory';
+
+/** Did this request arrive asking to tell us what they do? */
+export function proposeCategoryRequested(raw: unknown): boolean {
+  return raw === '1' || raw === 'true';
+}
+
+export const PROPOSE_CATEGORY_HREF =
+  `/vendor-dashboard/services?${PROPOSE_CATEGORY_PARAM}=1#${PROPOSE_CATEGORY_ANCHOR_ID}` as const;

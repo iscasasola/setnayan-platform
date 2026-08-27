@@ -734,9 +734,13 @@ export async function proposeCategory(formData: FormData) {
 
   const label = String(formData.get('proposed_label') ?? '').trim();
   const note = String(formData.get('proposed_note') ?? '').trim() || null;
+  // Set only when this submit came from the maker's plan-locked-kind link
+  // (S3, owner 2026-08-28) — carries "Back to your card" through the redirect,
+  // since a server action can't read the page's own URL for it.
+  const fromLockedKind = formData.get('from_locked_kind') === '1' ? '&wantCategory=1' : '';
   if (label.length < 2 || label.length > 80) {
     return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent('Category name must be 2–80 characters.')}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent('Category name must be 2–80 characters.')}${fromLockedKind}`,
     );
   }
 
@@ -747,13 +751,13 @@ export async function proposeCategory(formData: FormData) {
   });
   if (error) {
     return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}${fromLockedKind}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
-  redirect(`${await servicesReturnBase()}?requested=1`);
+  redirect(`${await servicesReturnBase()}?requested=1${fromLockedKind}`);
 }
 
 export async function updateVendorService(formData: FormData) {

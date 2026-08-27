@@ -312,6 +312,24 @@ test('every call site passes the organiser noun', () => {
   }
 });
 
+test('inquiry-mask.ts stays DEPENDENCY-FREE — the reason the noun is threaded', () => {
+  // 🔑 THIS IS THE PREMISE OF THE WHOLE DESIGN. The module's docblock promises
+  // it is "dependency-free (safe to import anywhere + unit-testable)", which is
+  // exactly why the noun cannot be resolved here and must be passed in. If a
+  // future edit adds an import, the honest fix becomes "just read the profile"
+  // — and the required parameter stops earning its keep. Fail loudly instead.
+  const raw = readFileSync(join(WEB, 'lib', 'inquiry-mask.ts'), 'utf8');
+  const imports = strip(raw).match(/^\s*import\s/gm) ?? [];
+  assert.equal(
+    imports.length,
+    0,
+    `lib/inquiry-mask.ts must import nothing; found ${imports.length} import(s)`,
+  );
+  assert.doesNotMatch(strip(raw), /\brequire\(/, 'no runtime require() either');
+  // FLOOR — the file must actually have been read.
+  assert.ok(raw.length > 500, 'inquiry-mask.ts read back suspiciously short');
+});
+
 test('the parameter stays REQUIRED — no default may creep in', () => {
   const src = strip(readFileSync(join(WEB, 'lib', 'inquiry-mask.ts'), 'utf8'));
   // ⚠ SCOPED TO THE FUNCTION'S OWN PARAMETER LIST. A bare file-level match for

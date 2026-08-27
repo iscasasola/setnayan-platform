@@ -96,6 +96,19 @@ test('the onboarding welcome is seeded in the quiet voice', async () => {
   assert.ok(!String(intro.headline).toLowerCase().includes('celebrat'));
 });
 
+test('the funeral names its own onboarding pack in the column', async () => {
+  // It shipped NULL — the only enabled type with no value here — so the flow
+  // resolved the pack key 'generic' and everything authored for a wake was
+  // unreachable, while the admin editor (which falls back to the event type)
+  // showed HQ a pack the visitor never got. Asserted BY THE OBJECT, not by
+  // schema_migrations.
+  const r = await db.query<{ onboarding_flow_key: string | null }>(
+    `SELECT onboarding_flow_key FROM public.event_type_profiles WHERE event_type = 'funeral'`,
+  );
+  assert.equal(r.rows.length, 1, 'no funeral profile row');
+  assert.equal(r.rows[0]!.onboarding_flow_key, 'funeral');
+});
+
 test('the marketplace reaches the funeral through its seven scoped tiles', async () => {
   const r = await db.query<{ id: string }>(
     `SELECT id FROM public.service_categories

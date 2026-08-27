@@ -78,6 +78,9 @@ type Props = {
   intro: OnboardingIntro | null;
   questions: TypeQuestion[];
   personaPack: TypePersonaPack | null;
+  /** The event type's register. 'solemn' only ever changes WORDS — never a
+   *  screen, never a sequence index. See solemn-content.ts. */
+  register: 'celebratory' | 'solemn';
   revealByPersona: Record<string, GenericPersonaReveal>;
   quizAxes: ExpAxis[];
   authed: boolean;
@@ -159,6 +162,7 @@ export function GenericOnboarding(props: Props) {
     intro,
     questions,
     personaPack,
+    register,
     revealByPersona,
     quizAxes,
     authed,
@@ -1325,17 +1329,31 @@ export function GenericOnboarding(props: Props) {
       );
     }
     // congrats
+    //
+    // 🕊️ THE ONLY SCREEN IN THIS FILE WHOSE WORDS ARE ITS OWN — every other one
+    // renders copy that comes down from the resolved spec, which is why the
+    // solemn register is otherwise a pure data swap. A wake must not be closed
+    // with a sparkle and "You're all set", so this screen carries the register's
+    // two arms. The celebratory arm is BYTE-IDENTICAL to what shipped and is
+    // pinned as a frozen literal by solemn-onboarding.test.ts.
+    const solemn = register === 'solemn';
     return (
       <div className="text-center">
         <div className="mb-4 text-5xl" aria-hidden>
-          ✨
+          {solemn ? '🕊️' : '✨'}
         </div>
-        <Eyebrow>You’re all set</Eyebrow>
+        <Eyebrow>{solemn ? 'Everything is in one place' : 'You’re all set'}</Eyebrow>
         <Title>
-          {displayName.trim() ? `“${displayName.trim()}”` : `Your ${label.toLowerCase()}`} is ready.
+          {solemn
+            ? displayName.trim()
+              ? `“${displayName.trim()}” is arranged.`
+              : 'The arrangements are in one place.'
+            : `${displayName.trim() ? `“${displayName.trim()}”` : `Your ${label.toLowerCase()}`} is ready.`}
         </Title>
         <p className="mt-4 text-ink/60">
-          We’ll set up your dashboard{authed ? '' : ' — no account needed to start'}.
+          {solemn
+            ? `We’ll open your page${authed ? '' : ' — no account needed to start'}. Take whatever time you need with it.`
+            : `We’ll set up your dashboard${authed ? '' : ' — no account needed to start'}.`}
         </p>
         {error === 'sign_in' ? (
           <p className="mt-4 text-sm text-mulberry">

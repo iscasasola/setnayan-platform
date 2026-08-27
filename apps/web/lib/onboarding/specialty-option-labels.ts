@@ -249,6 +249,23 @@ export const SPECIALTY_OPTION_LABELS: Readonly<Record<string, string>> = {
   treasurer: 'Treasurer',
   other: 'Other',
   none: 'None',
+  // ── Funeral · the rite and what follows ──────────────────────────────────
+  // 🔑 `catholic_mass` is ALREADY IN THIS FILE (the christening rite) and is
+  // deliberately re-used rather than duplicated as `funeral_mass` — the map is
+  // keyed by the stored VALUE, so a second key for the same rite would be two
+  // words for one thing and only one of them would ever be corrected.
+  christian_service: 'Christian service',
+  inc_service: 'INC service',
+  muslim_rite: 'Muslim rite',
+  memorial_service: 'Memorial service',
+  no_rite: 'No religious rite',
+  burial: 'Burial',
+  cremation: 'Cremation',
+  // Its own entry rather than the humanised fallback ("Undecided"), because in
+  // the first days after a death this is the honest answer to most of the
+  // screen and it should not read like an omission.
+  undecided: 'Not decided yet',
+
 };
 
 /**

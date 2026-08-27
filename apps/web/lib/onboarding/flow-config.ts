@@ -52,7 +52,22 @@ export function resolveOnboardingFlow(profile: EventTypeProfile): OnboardingFlow
   const flowKey = profile.onboardingFlowKey ?? 'generic';
   return {
     flowKey,
-    personaPackKey: flowKey,
+    /**
+     * 🔑 THE PACK KEY FALLS BACK TO THE EVENT TYPE, NOT TO `flowKey`.
+     *
+     * Every seeded profile sets `onboarding_flow_key` to its own event type, so
+     * for sixteen types these are the same string and nothing changes. The
+     * seventeenth — the funeral, added 2026-08-24 — shipped with the column
+     * NULL, so it resolved to 'generic': its own questions and its own starter
+     * plan were unreachable no matter what was authored for it, while
+     * /admin/event-types/[type]/onboarding (which already falls back to the
+     * event type) showed HQ the pack the visitor was not being given. Two
+     * answers to one question; this is the one the admin screen already used.
+     *
+     * Inert for a type with no pack authored: PER_TYPE_QUESTIONS / PERSONA_PACKS
+     * have no 'generic' key either, so both resolve to the same empty defaults.
+     */
+    personaPackKey: profile.onboardingFlowKey ?? profile.eventType,
     screens: [...GENERIC_ONBOARDING_SCREENS],
     eventType: profile.eventType,
   };

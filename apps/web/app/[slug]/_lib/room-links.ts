@@ -83,6 +83,50 @@ export type RoomLinksInput = {
 };
 
 /**
+ * THE ONE PLACE THAT DECIDES WHETHER THE ALBUM DOOR IS OFFERED.
+ *
+ * ── THE DRIFT, MEASURED 2026-08-27 ──────────────────────────────────────────
+ * THREE surfaces offered a way into the couple's recap album and only ONE of
+ * them asked whether the album exists:
+ *
+ *   · the rooms footer (`resolveRoomLinks`, below) asked `recapPublished` ✅
+ *   · the live hub's photos panel asked `dayOfPhase === 'post'`             ❌
+ *   · the PUBLIC event-day bar on the invitation page asked the same        ❌
+ *
+ * The phase was standing in for "the album is out", and it is wrong in BOTH
+ * directions. `post` is only T+36h → T+60h (`lib/day-of-mode.ts`), so the two
+ * phase-gated doors offered the album during the ~24 hours when the couple has
+ * almost certainly NOT published it yet — a guest tapped through and was told
+ * "The recap isn't ready yet" — and then went dark FOREVER at T+60h, hiding a
+ * genuinely published album that the rooms footer beside them still offered.
+ *
+ * 🔑 `loadRoomLinks`' own docblock predicted this exactly: gathering the facts
+ * once avoids "six copies of the same reads and six chances for one of them to
+ * drift into asking a slightly different question." These were the seventh and
+ * eighth copies.
+ *
+ * 🔒 The rule restated, not re-decided: a doorway is gated on what the
+ * DESTINATION demands. `/[slug]/recap` renders "The recap isn't ready yet"
+ * until the couple publishes, so publication — and nothing else — opens this
+ * door. The FACT behind it (and its fail-closed read) lives in
+ * `album-door.server.ts`; this is the rule the fact is fed to.
+ *
+ * ⚠ The LABEL is deliberately not shared. Each surface names this door in its
+ * own voice ("The album" in the rooms footer, "See the recap gallery" in the
+ * hub, "Photos" on the event-day bar). What must never diverge again is
+ * WHETHER the door is offered and WHERE it points — callers that only need the
+ * address take `.href` and supply their own words.
+ */
+export function albumRoomLink(
+  slug: string | null | undefined,
+  recapPublished: boolean,
+): RoomLink | null {
+  const clean = (slug ?? '').trim();
+  if (!clean || !recapPublished) return null;
+  return { key: 'album', label: 'The album', href: `/${encodeURIComponent(clean)}/recap` };
+}
+
+/**
  * The rooms this visitor can actually reach from where they are standing.
  * Order is fixed and deliberate: where you are → what you need in the room →
  * what you do afterwards. Never re-sorted per viewer; a list that reorders
@@ -126,10 +170,10 @@ export function resolveRoomLinks(input: RoomLinksInput): RoomLink[] {
     all.push({ key: 'hub', label: 'Happening now', href: `${base}/hub` });
   }
 
-  // The story afterwards.
-  if (input.recapPublished) {
-    all.push({ key: 'album', label: 'The album', href: `${base}/recap` });
-  }
+  // The story afterwards — THE shared rule, so this footer, the live hub and
+  // the public event-day bar cannot drift apart again.
+  const album = albumRoomLink(input.slug, input.recapPublished);
+  if (album) all.push(album);
 
   // Never offer a room to itself — that is the one link on the page that is
   // guaranteed to do nothing.

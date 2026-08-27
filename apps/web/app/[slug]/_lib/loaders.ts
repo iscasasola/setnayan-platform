@@ -19,6 +19,7 @@
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
 import { cache } from 'react';
+import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
 import { COMMITTED_BOOKING_STATUSES } from '@/lib/vendor-addon-first5-free';
 import { after } from 'next/server';
@@ -919,11 +920,21 @@ export const loadLiveLayer = cache(
     // NOT to `/[slug]/live-wall`, which is a JSON poll-feed route handler (the
     // LiveWallBlock's freshness endpoint), never a navigable page. After the day,
     // it points at the viewable recap album.
+    //
+    // ⚠ THE SECOND HALF OF THAT SENTENCE USED TO ASK THE CALENDAR, NOT THE
+    // ALBUM. It read `dayOfPhase === 'post' ? /recap : null`, with no check
+    // that the couple had published anything — so an ANONYMOUS visitor to the
+    // invitation address tapped "Photos" during the T+36h→T+60h window and
+    // landed on "The recap isn't ready yet", and after T+60h the button went
+    // dark forever even once the album WAS published. The rooms footer on the
+    // same event applied the correct rule the whole time. One decision now,
+    // shared by all three surfaces — see `album-door.server.ts`.
+    //
+    // The live-wall branch is untouched: during the day "Photos" anchors to the
+    // wall mirrored inline on this page, which is a different destination.
     const publicAlbumHref = liveWall
       ? `/${event.slug}#live-photo-wall`
-      : dayOfPhase === 'post'
-        ? `/${event.slug}/recap`
-        : null;
+      : ((await resolveAlbumDoor(event))?.href ?? null);
 
     return {
       scheduleBlocks,

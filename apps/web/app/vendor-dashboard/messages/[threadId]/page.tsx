@@ -13,6 +13,7 @@ import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
 import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
 import { FOUNDER_BADGE_LABEL, FOUNDER_INQUIRY_NOTE } from '@/lib/founder-seats';
 import { isInquiryRevealed, inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
+import { inquiryHostNoun } from '@/lib/inquiry-mask.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -251,6 +252,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const maskedInquiryLabel = inquiryPlaceholderLabel({
     eventType: inquiryBasics?.event_type ?? null,
     city: regionLabel(inquiryBasics?.region ?? null),
+    // The organiser noun follows the event type, so a wake reads "A family" and
+    // a corporate booking "An organizer" instead of every type reading "A couple".
+    hostNoun: await inquiryHostNoun(inquiryBasics?.event_type ?? null),
   });
   const headerLabel = inquiryRevealed ? coupleLabel : maskedInquiryLabel;
 

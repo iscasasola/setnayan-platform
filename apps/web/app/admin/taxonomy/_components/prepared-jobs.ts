@@ -92,6 +92,8 @@ export type PreparedCatalogKey =
   | 'eventType'
   | 'faith'
   | 'tile'
+  /** Folders AND tiles — both are taxonomy nodes and both can be renamed. */
+  | 'node'
   | 'service'
   | 'request'
   | 'icon';
@@ -293,7 +295,11 @@ export const PREPARED_TAXONOMY_JOBS: ReadonlyMap<string, PreparedJobSpec> = new 
     verb: 'Rename',
     summary: 'Renames a folder or tile. Its address never changes.',
     fields: [
-      { field: 'id', kind: 'choice', label: 'Which tile', from: 'tile' },
+      // FOLDERS TOO, not just tiles. This action renames any taxonomy node, and
+      // offering only tiles would leave "rename the Food folder" resolving to
+      // nothing with no way to finish the job from the card — a dead end
+      // wearing the honest-miss notice.
+      { field: 'id', kind: 'choice', label: 'Which folder or tile', from: 'node' },
       { field: 'label_en', kind: 'text', label: 'New name' },
     ],
   }),
@@ -393,11 +399,24 @@ export function resolveByWords(
 ): { value: string; matched: boolean } {
   const needle = query.trim().toLowerCase();
   if (!needle) return { value: '', matched: false };
+  /**
+   * ⚠ THE LOOSE RUNGS NEED A FLOOR. A closed pick can carry a label as short as
+   * "On", and `"turn marketplace_hidden on".includes("on")` is true of a great
+   * many sentences that were not about it. Substring matching on one or two
+   * characters is not recognition, it is a coin toss dressed as a match — so
+   * both loose rungs are held to three characters and anything shorter has to
+   * match a value or a label outright.
+   */
+  const LOOSE_MIN = 3;
   const hit =
     options.find((o) => o.value.toLowerCase() === needle) ??
     options.find((o) => o.label.toLowerCase() === needle) ??
-    options.find((o) => o.label.toLowerCase().includes(needle)) ??
-    options.find((o) => needle.includes(o.label.toLowerCase()));
+    (needle.length >= LOOSE_MIN
+      ? options.find((o) => o.label.toLowerCase().includes(needle))
+      : undefined) ??
+    options.find(
+      (o) => o.label.length >= LOOSE_MIN && needle.includes(o.label.toLowerCase()),
+    );
   return hit ? { value: hit.value, matched: true } : { value: '', matched: false };
 }
 

@@ -186,6 +186,27 @@ test('words that match nothing resolve to nothing', () => {
   assert.equal(resolveByWords('   ', OPTIONS).value, '');
 });
 
+/**
+ * ⚠ A ONE- OR TWO-LETTER SUBSTRING IS NOT RECOGNITION. Closed picks carry
+ * labels as short as "On", and a great many sentences contain those letters
+ * without being about that option.
+ */
+test('a very short label cannot be matched by merely appearing inside a phrase', () => {
+  const shortLabels = [
+    { value: '1', label: 'On' },
+    { value: '0', label: 'Off' },
+  ];
+  // "on" is a substring of "the second one", and must not win because of it.
+  assert.equal(resolveByWords('the second one', shortLabels).value, '');
+  // Said outright, it still resolves — the floor only governs the loose rungs.
+  assert.equal(resolveByWords('On', shortLabels).value, '1');
+  assert.equal(resolveByWords('turn it Off', shortLabels).value, '0');
+});
+
+test('a one- or two-letter query cannot pick a record by substring', () => {
+  assert.equal(resolveByWords('an', OPTIONS).value, '', 'a two-letter query guessed a whole record');
+});
+
 test('the stored value keeps its own casing — only the matching is case-blind', () => {
   const titleCase = [{ value: 'Roman_Catholic', label: 'Roman Catholic' }];
   // faith_key is TITLE-CASE in the database; handing back what the admin typed
@@ -199,10 +220,31 @@ const CATALOGS: PreparedCatalogs = {
   eventType: OPTIONS,
   faith: [{ value: 'Roman_Catholic', label: 'Roman Catholic' }],
   tile: [{ value: 'tile-photo', label: 'Photo booths' }],
+  node: [
+    { value: 'folder-food', label: 'Food' },
+    { value: 'tile-photo', label: 'Photo booths' },
+  ],
   service: [{ value: 'svc_photo', label: 'Photography' }],
   request: [{ value: 'req-1', label: 'Balloons — Acme' }],
   icon: [{ value: 'Camera', label: 'Camera' }],
 };
+
+/**
+ * 🔑 RENAMING REACHES FOLDERS TOO. `renameTaxonomyNode` renames any taxonomy
+ * node; offering only tiles would leave "rename the Food folder" resolving to
+ * nothing, with no way to finish the job from the card — a dead end wearing the
+ * honest-miss notice.
+ */
+test('a folder can be renamed from the card, not just a tile', () => {
+  const spec = PREPARED_TAXONOMY_JOBS.get('renameTaxonomyNode')!;
+  const out = buildPreparedValues(
+    spec,
+    paramsFrom({ id: 'Food', label_en: 'Food & drink' }),
+    CATALOGS,
+  );
+  assert.equal(out.values.id, 'folder-food', 'a folder cannot be reached by the rename card');
+  assert.equal(out.values.label_en, 'Food & drink');
+});
 
 function paramsFrom(raw: Record<string, string>) {
   const sp = new URLSearchParams();

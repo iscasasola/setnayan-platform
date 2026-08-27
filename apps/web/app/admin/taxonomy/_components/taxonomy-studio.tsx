@@ -542,6 +542,12 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
       // only the MATCHING is case-insensitive, never the value handed back.
       faith: data.faithVocabFull.map((f) => ({ value: f.key, label: f.label })),
       tile: data.tiles.map((t) => ({ value: t.id, label: t.label })),
+      // Folders FIRST, so "rename the Food folder" cannot be won by a tile that
+      // merely contains the word.
+      node: [
+        ...data.folders.map((f) => ({ value: f.id, label: f.label })),
+        ...data.tiles.map((t) => ({ value: t.id, label: t.label })),
+      ],
       service: data.services.map((s) => ({ value: s.canonical, label: s.displayEn })),
       request: data.requests.map((r) => ({
         value: r.requestId,
@@ -549,7 +555,15 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
       })),
       icon: data.iconNames.map((n) => ({ value: n, label: n })),
     }),
-    [data.eventTypeVocab, data.faithVocabFull, data.tiles, data.services, data.requests, data.iconNames],
+    [
+      data.eventTypeVocab,
+      data.faithVocabFull,
+      data.folders,
+      data.tiles,
+      data.services,
+      data.requests,
+      data.iconNames,
+    ],
   );
 
   const [preparedJob, setPreparedJob] = useState<{

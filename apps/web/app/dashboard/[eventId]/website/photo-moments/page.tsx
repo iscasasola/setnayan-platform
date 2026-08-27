@@ -5,7 +5,7 @@ import { parsePhotoMomentsConfig } from './config';
 import { PhotoMomentsEditor } from './_components/photo-moments-editor';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Photo moments' };
+export const metadata = { title: 'Camera cues' };
 
 /**
  * /dashboard/[eventId]/website/photo-moments — Photo Moments editor.

@@ -80,7 +80,7 @@ export function HeroPhotoPanel({
   );
 }
 
-/** Photo gallery — the couple's own shots (Website Pro). */
+/** Photos you add — the host's own uploaded shots (Website Pro). */
 export function GalleryPanel({
   action,
   eventId,
@@ -107,8 +107,8 @@ export function GalleryPanel({
         acceptedTypes={IMAGE_TYPES}
         currentValue={currentRefs}
         initialDisplayUrls={displayUrls}
-        label="Your photos"
-        help={`Engagement or pre-wedding shots — up to ${maxFiles}.`}
+        label="Photos you add"
+        help={`Photos you upload yourself — up to ${maxFiles}.`}
       />
       <SaveButton />
     </form>

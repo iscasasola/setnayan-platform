@@ -50,6 +50,7 @@ import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { VendorDoorway } from './vendor-doorway';
+import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
 import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
@@ -370,6 +371,13 @@ type SiteBodyProps = {
    *  event does not recognise — the page never decides that itself. */
   chaptersOnThisDay?: ChapterOnThisDay[];
   vendorCapability?: VendorCapability | null;
+  /** THE SUPPLIER'S DESK — built only on the day, only for a booked supplier,
+   *  and only from reads made under that supplier's OWN session. Null on every
+   *  other day and for everybody else, in which case the doorway stays the
+   *  link-out it has always been. Resolved on the page, never here: this
+   *  component takes an admin client and must not become the thing that reads a
+   *  celebration's private cues with it. */
+  supplierDesk?: SupplierDeskModel | null;
 };
 
 export async function SiteBody({
@@ -407,6 +415,7 @@ export async function SiteBody({
   editorMode = false,
   ownerCapability = null,
   vendorCapability = null,
+  supplierDesk = null,
   chaptersOnThisDay = [],
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
@@ -1970,7 +1979,13 @@ export async function SiteBody({
           also invited them, or anonymously with just the link. Gating it inside
           one tree would hide it from the other half of real suppliers.
           `vendorCapability` is null for everyone else, so nothing renders. */}
-      {vendorCapability ? <VendorDoorway capability={vendorCapability} /> : null}
+      {vendorCapability ? (
+        <VendorDoorway
+          capability={vendorCapability}
+          desk={supplierDesk ?? null}
+          words={clientWords}
+        />
+      ) : null}
       {identity.kind === 'anonymous' ? anonymousTree(identity) : guestTree(identity)}
       {/* THE GUEST DOORWAY STRIP — two finished pages and one sentence about the
           broadcast, on the page every guest already has.

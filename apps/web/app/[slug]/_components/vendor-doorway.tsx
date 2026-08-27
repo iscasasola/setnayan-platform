@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { Briefcase, ArrowRight } from 'lucide-react';
 import type { VendorCapability } from '../_lib/site-identity';
+import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
+import type { ClientEventWords } from './event-words-provider';
+import { SupplierDesk } from './supplier-desk';
 
 /**
  * VendorDoorway — the strip a booked supplier sees on their client's own
@@ -14,11 +17,24 @@ import type { VendorCapability } from '../_lib/site-identity';
  * project's own wayfinding rule calls a shipped surface with no doorway a
  * defect; this is that defect, for the whole supplier side.
  *
- * ── A DOOR, NOT A ROOM ──────────────────────────────────────────────────────
+ * ── A DOOR, NOT A ROOM — EXCEPT ON THE DAY (2026-08-27) ─────────────────────
  * It LINKS OUT rather than rendering anything. A supplier works many weddings;
  * their week, their invoices and their other clients do not belong inside one
  * couple's page. So the strip is deliberately a single line and a link — the
  * couple's site stays the couple's.
+ *
+ * 🔑 THAT REASONING SURVIVES; ONLY ITS CONCLUSION NARROWS. Owner, 2026-08-27:
+ * *"on the day. is the integration of the vendors to the event's event hub. so
+ * we would still want to to be an event hub"*, and — before a line was written —
+ * *"we are redesigning not placing a new page."* So there is NO second product
+ * and no new route. From the day this celebration begins until six the morning
+ * after it ends, this same strip in this same place renders `SupplierDesk`
+ * instead of a link. Every other day of the year it is byte-identical to what
+ * it has always been, which is the point: a supplier is only ever handed one
+ * day's worth of somebody else's celebration.
+ *
+ * The sentence above is the boundary the desk is held to — THIS event's tools,
+ * and nothing about their week, their invoices or their other clients.
  *
  * ── WHY IT IS SAFE ──────────────────────────────────────────────────────────
  * It renders ONLY from a `VendorCapability`, which is produced solely by
@@ -32,7 +48,22 @@ import type { VendorCapability } from '../_lib/site-identity';
  * on screen — so the strip cannot become a second, unaudited leak of event
  * data to a supplier.
  */
-export function VendorDoorway({ capability }: { capability: VendorCapability }) {
+export function VendorDoorway({
+  capability,
+  desk,
+  words,
+}: {
+  capability: VendorCapability;
+  /** Non-null ONLY on the day (and only when every content read under the
+   *  supplier's own session succeeded). Null on every other day, and null
+   *  whenever the desk could not be built honestly — in which case the supplier
+   *  loses the desk and keeps the door, never the other way round. */
+  desk?: SupplierDeskModel | null;
+  /** The celebration's own words, for the one sentence the desk says about the
+   *  people throwing it. A wake does not have a couple. */
+  words: ClientEventWords;
+}) {
+  if (desk) return <SupplierDesk desk={desk} words={words} />;
   return (
     <aside
       className="mx-auto mt-6 w-full max-w-3xl px-4"

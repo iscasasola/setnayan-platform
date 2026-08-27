@@ -10,6 +10,7 @@ import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { resolveModules, type DayOfModuleId } from '@/lib/vendor-dayof-modules';
+import { dayOfModuleHref } from '@/lib/vendor-dayof-module-href';
 import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
@@ -72,38 +73,6 @@ export const metadata = { title: 'Live · On the Day' };
 /** PH wall-clock today (UTC+8) as 'YYYY-MM-DD'. */
 function phToday(): string {
   return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-/** Where each enabled module's tool lives — the launched console links out to
- *  the surface that already owns each tool (no duplicated data plumbing). */
-function moduleHref(id: DayOfModuleId, eventId: string): string | null {
-  switch (id) {
-    case 'shot_list':
-    case 'run_of_show':
-    case 'pax_headcount':
-    case 'delivery_handover':
-    case 'issues_log':
-      return `/vendor-dashboard/on-the-day`;
-    case 'production_sheet':
-      return `/vendor-dashboard/clients/${eventId}/production-sheet`;
-    case 'setlist':
-      return `/vendor-dashboard/repertoire`;
-    case 'qr_scanner':
-      // null, NOT a link: the seat scanner is a panel on THIS page (SeatScanner
-      // inside FloorCommand), not a destination. It used to point at the
-      // generic client page, which has no scanner — a tile that promised a
-      // scan and delivered a client record.
-      return null;
-    case 'review_qr':
-    case 'live_reviews':
-      return null; // rendered inline below
-    case 'vendor_papic':
-      // Counsel-gated: the link is filtered out below unless the capability is
-      // live (isVendorPapicCaptureEnabled); the page itself also fail-closes.
-      return `/vendor-dashboard/on-the-day/live/${eventId}/papic`;
-    case 'guest_delivery':
-      return null; // counsel-gated — not launched here yet
-  }
 }
 
 export default async function VendorOnTheDayLivePage({
@@ -258,7 +227,7 @@ export default async function VendorOnTheDayLivePage({
   // is approved; otherwise it stays dark (the module card shows "Needs setup").
   const papicEnabled = await isVendorPapicCaptureEnabled();
   const linkModules = modules
-    .map((m) => ({ mod: m, href: moduleHref(m.id, eventId) }))
+    .map((m) => ({ mod: m, href: dayOfModuleHref(m.id, eventId) }))
     .filter(
       (x): x is { mod: (typeof modules)[number]; href: string } =>
         x.href != null && !(x.mod.id === 'vendor_papic' && !papicEnabled),

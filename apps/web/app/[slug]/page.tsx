@@ -26,6 +26,8 @@ import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
 import { closedEventAdmits } from '@/lib/closed-event-admission';
 import { loadVendorBooking, viewerIsBookedSupplier } from '@/lib/booked-supplier';
+import { supplierDeskIsOpen } from '@/lib/supplier-desk-rule';
+import { loadSupplierDesk } from './_lib/supplier-desk.server';
 import type { DoorwayFacts } from './_lib/site-nav';
 import {
   resolveEffectiveVisibility,
@@ -701,7 +703,10 @@ async function InvitationBody({
       getLifecyclePhase(
         event.event_date,
         venueTz,
-        (event as { event_end_date?: string | null }).event_end_date ?? null,
+        // ⚠ THIS USED TO BE A CAST OVER A COLUMN THE SELECT NEVER NAMED, so it
+        // resolved `undefined` on every render and the multi-day arm below it
+        // has never run. The column is selected now (see `_lib/types.ts`).
+        event.event_end_date ?? null,
       ),
     eventTypeProfile.terminology.register === 'solemn',
   );
@@ -779,6 +784,43 @@ async function InvitationBody({
     viewerUserId: viewerAccount?.id ?? null,
     checkVendorBooking: (userId) => loadVendorBooking(event.event_id, userId),
   });
+
+  /*
+    ── THE SUPPLIER'S DESK, AND WHY IT IS RESOLVED HERE ─────────────────────
+
+    Owner 2026-08-27: *"on the day. is the integration of the vendors to the
+    event's event hub."* On the day — and only on the day — the doorway strip
+    above stops being a link out and becomes the supplier's own desk, in place.
+    There is no new route: this is the same `/{slug}` every guest opens.
+
+    🔒 TWO GATES, IN THIS ORDER, AND NEITHER IS OPTIONAL.
+      1. `vendorCapability` — the database confirmed a COMMITTED booking for
+         this signed-in account. A cookie-only guest has no account and no
+         capability, so nothing below runs for a visitor, ever.
+      2. `supplierDeskIsOpen` — it is actually the day. That question is asked
+         of `getMenuLifecyclePhase`, the SAME rule the organiser's own day-of
+         desk uses, so the two cannot drift: 06:00 the morning after (a
+         reception runs past midnight), the LAST day of a range rather than the
+         first, and closed once the organiser clears the celebration out.
+
+    🚨 AND THE READ IS DELIBERATELY NOT MADE WITH `admin`, WHICH IS IN SCOPE ON
+    THIS LINE. This page renders with the service role; every RLS rule keeping a
+    supplier out of the guest list and the organiser's private cues is inert
+    here. `loadSupplierDesk` opens its own cookie-scoped client and asks the
+    same policies the supplier's own dashboard asks. Authorization may be
+    answered the admin way (the capability above already was, scoped by a
+    session-proved id); event CONTENT never is.
+  */
+  const supplierDesk =
+    vendorCapability &&
+    supplierDeskIsOpen({
+      eventDate: event.event_date,
+      eventEndDate: event.event_end_date ?? null,
+      clearedAt: event.cleared_at ?? null,
+      tz: venueTz,
+    })
+      ? await loadSupplierDesk(vendorCapability)
+      : null;
   // ── THE PEOPLE OF THIS CELEBRATION ───────────────────────────────────────
   //
   // Owner 2026-08-20: a chapter can be shared with "all in that event only".
@@ -892,6 +934,7 @@ async function InvitationBody({
     // are null for everyone else, so nothing renders for a stranger.
     ownerCapability,
     vendorCapability,
+    supplierDesk,
     // The stories written about this day, for the people of this day. Loaded
     // ONLY for a viewer the event recognises — a passer-by on a public event
     // page is not one of them — so a chapter shared with "the people of this

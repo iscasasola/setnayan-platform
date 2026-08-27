@@ -1410,7 +1410,14 @@ function Omnibox({
           <input
             ref={inputRef}
             className="ug-navinput"
-            placeholder="Search vendors · events · users · orders · taxonomy — ⌘K"
+            /*
+              THE PLACEHOLDER IS THE ONLY PLACE THIS FEATURE ANNOUNCES ITSELF.
+              A guest search nobody knows about is a fix nobody can reach —
+              the third time that has cost this project — so "guests" is named
+              here, and a guard fails if the search learns a record kind the
+              bar never mentions.
+            */
+            placeholder="Search vendors · events · guests · users · orders · taxonomy — ⌘K"
             value={q}
             onChange={(e) => {
               setQ(e.target.value);

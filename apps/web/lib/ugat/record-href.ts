@@ -44,10 +44,33 @@
  *   status, so it is the one surface that always contains the record you found.
  *   ⏭ It cannot focus a single row yet; giving that ledger a search term is a
  *   real follow-up, not a thing to fake here with a link that lands empty.
+ * · **guest** → the CELEBRATION they belong to, via the `event` arm. A guest
+ *   has no admin page of their own — there is no `/admin/guests`, no
+ *   `[guestId]` segment anywhere in the admin tree, and the only `from('guests')`
+ *   in it is a count. This is not an oversight to route around: the guests
+ *   table in this very console already resolves its rows the same way, and says
+ *   why ("a guest… has no admin page"). Sending them to the celebration is the
+ *   honest answer, and it is the surface any action on a guest would live on.
+ *
+ * ── WHY THERE IS NO `person` KIND, MEASURED ─────────────────────────────────
+ * `public.people` was the other half of the ask and it is deliberately absent,
+ * because every destination it could have is a link that lands nowhere:
+ * · **It has no admin surface at all** — zero references to `people` or
+ *   `person_id` in the entire `app/admin` tree. Structural, not a count.
+ * · `/admin/users/[userId]` is the tempting answer and it resolves for exactly
+ *   NONE of the people you could find by name. Measured in prod: all 9 claimed
+ *   people carry NO name of their own, and both people who DO have a name are
+ *   unclaimed — so they have no user row, and that page `notFound()`s on a
+ *   person id. The two populations are disjoint.
+ * · A claimed person is already reachable: their account is what carries the
+ *   name, and the `user` arm above already finds it. A person hit would be a
+ *   duplicate row pointing at the same page.
+ * ⏭ Giving `people` a real home is a genuine follow-up. It needs a surface
+ * first, not a sixth entry in this switch.
  */
 
 /** Every kind of record the Entity map's search can return. */
-export const UGAT_RECORD_KINDS = ['vendor', 'event', 'user', 'order', 'taxonomy'] as const;
+export const UGAT_RECORD_KINDS = ['vendor', 'event', 'user', 'order', 'taxonomy', 'guest'] as const;
 
 export type UgatRecordKind = (typeof UGAT_RECORD_KINDS)[number];
 
@@ -62,7 +85,12 @@ export type UgatRecordRef =
   | { kind: 'event'; publicId: string | null; slug: string | null }
   | { kind: 'user'; userId: string }
   | { kind: 'order' }
-  | { kind: 'taxonomy'; tileId: string | null; canonicalService: string };
+  | { kind: 'taxonomy'; tileId: string | null; canonicalService: string }
+  /**
+   * A guest is named by the CELEBRATION they belong to, never by themselves —
+   * there is no per-guest page to carry a guest id to.
+   */
+  | { kind: 'guest'; eventPublicId: string | null; eventSlug: string | null };
 
 /** Where this one record opens. Always a real address — never undefined. */
 export function ugatRecordHref(ref: UgatRecordRef): string {
@@ -79,6 +107,17 @@ export function ugatRecordHref(ref: UgatRecordRef): string {
         ? `/admin/accounts?tab=events&q=${encodeURIComponent(term)}`
         : '/admin/accounts?tab=events';
     }
+    case 'guest':
+      // DELEGATED, never a second copy of the same URL. Two hand-written
+      // versions of one destination drift, and this repo has paid for that
+      // shape more than once — when the events surface changes address, a
+      // guest must move with it or start landing on a page that no longer
+      // exists.
+      return ugatRecordHref({
+        kind: 'event',
+        publicId: ref.eventPublicId,
+        slug: ref.eventSlug,
+      });
     case 'taxonomy':
       return ref.tileId
         ? `/admin/taxonomy?open=${encodeURIComponent(ref.tileId)}`

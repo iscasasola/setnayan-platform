@@ -2,7 +2,8 @@ import { Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
-import { papicPoolRungPhrase, papicBucketPhrase } from '@/lib/papic-tier-copy';
+import { papicBucketPhrase, papicRungDiscountPercent } from '@/lib/papic-tier-copy';
+import { CreditStepper } from './credit-stepper';
 import { purchasePapicPoolTopUp } from '../actions';
 
 /**
@@ -131,19 +132,24 @@ export async function PapicPoolCard({
       <form action={purchasePapicPoolTopUp} className="space-y-3">
         <input type="hidden" name="event_id" value={eventId} />
 
-        <label className="block space-y-1">
-          <span className="text-xs font-medium text-ink/70">How many shots</span>
-          <select
-            name="service_code"
-            className="w-full rounded-xl border border-ink/15 bg-surface px-3 py-2 text-sm text-ink"
-          >
-            {rungs.map((r) => (
-              <option key={r.serviceCode} value={r.serviceCode}>
-                {papicPoolRungPhrase(r.points, r.pricePhp as number)}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* ⚠ A DROPDOWN MADE THE PERSON READ SIXTEEN SENTENCES TO FIND ONE
+            NUMBER. Owner 2026-08-28: *"we want a +- value and they will see how
+            much will be added."* The stepper walks the SAME sixteen rungs — it
+            is a different control over the identical ladder, never a second
+            price list — and shows what is paid and what lands, together.
+            ⚠ Sorted by PRICE here, so plus always costs more. The catalog's own
+            order is not guaranteed, and a ladder whose + goes down is worse than
+            a dropdown. */}
+        <CreditStepper
+          rungs={[...rungs]
+            .sort((a, b) => (a.pricePhp as number) - (b.pricePhp as number))
+            .map((r) => ({
+              serviceCode: r.serviceCode,
+              points: r.points,
+              pricePhp: r.pricePhp as number,
+              discountPercent: papicRungDiscountPercent(r.points, r.pricePhp as number),
+            }))}
+        />
 
         <button
           type="submit"

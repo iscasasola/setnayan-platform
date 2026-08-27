@@ -17,18 +17,19 @@ import { CalendarClock, MapPin, ScanLine } from 'lucide-react';
  */
 
 /** Which browsable section an empty plate stands in for. */
-export type EmptySectionKind = 'details' | 'story' | 'photos';
+export type EmptySectionKind = 'details' | 'story';
 
 const PRESENT_COPY: Record<EmptySectionKind, string> = {
   details: 'The program is being written.',
   story: 'Their story is being written.',
-  // ⚠ UNREACHABLE TODAY — measured 2026-08-17. `SectionEmptyPlate` has exactly
-  // two call sites (site-body's `details` and `story` plates); nothing anywhere
-  // passes kind="photos". Left as-is deliberately: rewording a string no guest
-  // can reach would be a fix nobody can see. WHOEVER WIRES THIS UP must take the
-  // organiser's word from `_lib/event-words.ts` like every other room does, or a
-  // birthday's guests will read "The couple's photos will appear here."
-  photos: 'The couple’s photos will appear here.',
+  // 🗑 A `photos` PLATE USED TO LIVE HERE AND NO GUEST COULD EVER REACH IT.
+  // `SectionEmptyPlate` has exactly two call sites — site-body's `details` and
+  // `story` plates — and nothing anywhere passed kind="photos". It had been
+  // carried since 2026-08-17 with a note saying so, and it still said "the
+  // couple's photos", which would have been wrong at a birthday or a wake the
+  // day anybody wired it up. A plate nobody can reach is not an empty state, so
+  // it is deleted rather than reworded. WHOEVER ADDS A PHOTOS PLATE must take
+  // the organiser's word from `_lib/event-words.ts`, as every other room does.
 };
 
 // "for this ___" — filled from EventWords.occasion. 'celebration' for every
@@ -37,7 +38,6 @@ const PRESENT_COPY: Record<EmptySectionKind, string> = {
 const PAST_COPY: Record<EmptySectionKind, (occasion: string) => string> = {
   details: (o) => `No program was published for this ${o}.`,
   story: (o) => `No story was shared for this ${o}.`,
-  photos: (o) => `No photos were shared for this ${o}.`,
 };
 
 /**

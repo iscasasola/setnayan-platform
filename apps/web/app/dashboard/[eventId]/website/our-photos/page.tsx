@@ -10,7 +10,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Edit our photos' };
+export const metadata = { title: 'Photos you add' };
 
 const MAX_PHOTOS = 24;
 
@@ -91,7 +91,7 @@ export default async function OurPhotosEditorPage({
   return (
     <section className="space-y-6">
       <PageMasthead
-        title="Your own gallery"
+        title="Photos you add"
       />
       <div className="mt-3 space-y-3">
         {saved ? (
@@ -125,7 +125,7 @@ export default async function OurPhotosEditorPage({
           currentValue={currentRefs}
           initialDisplayUrls={initialDisplayUrls}
           variant="wide"
-          label="Gallery photos"
+          label="Photos you add"
           help={`JPG, PNG, or WebP. Up to 10 MB each · up to ${MAX_PHOTOS} photos. Drag to add more; remove any you don't want before saving.`}
         />
         <SubmitButton pendingLabel="Saving…" className="button-primary">Save gallery</SubmitButton>

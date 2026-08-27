@@ -125,7 +125,10 @@ before(async () => {
 });
 
 after(async () => {
-  await replay?.close?.();
+  // The PGlite handle is what closes — `ReplayResult` has no close() of its
+  // own. An optional-chained call on the wrapper RAN GREEN and typechecked RED,
+  // which is the whole reason CI runs both.
+  await db?.close();
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

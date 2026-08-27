@@ -137,6 +137,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   brain:
     'Curated knowledge feeding the Setnayan AI chat. Browse chunks by topic.',
   ugat: 'The live entity map — every platform entity type, its live count, and the audited connections between them.',
+  'search-memory':
+    'Every phrasing the search box has answered with the assistant. Correct one that points somewhere wrong, or delete it.',
 
   // ── App Performance group (key 'funnels') ─────────────────────────────
   'app-performance':
@@ -256,6 +258,13 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   compliance: 'npc bir legal privacy dpo',
   taxonomy: 'categories services vocabulary tags event types',
   menus: 'labels icons rename nav navigation',
+  // The four phrasings that already reached this page while it was map-only,
+  // kept working by hand: a menu item's searchable words are label + group
+  // label + description + alias, and THE ROUTE IS NOT AMONG THEM — so the
+  // '/admin/search-memory' string it used to match on disappears the moment it
+  // becomes a menu row. Its two job phrases ("teach search phrase", "delete
+  // search phrase") still attach by href and are not repeated here.
+  'search-memory': 'learned taught teach correct phrases what has the search box learned ai memory',
   users: 'accounts people customers couples',
   vendors: 'suppliers shops businesses',
   venues: 'places locations',

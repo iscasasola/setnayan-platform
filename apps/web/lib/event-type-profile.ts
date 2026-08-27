@@ -87,7 +87,20 @@ const COLLECTIVE_NOUNS: ReadonlySet<string> = new Set(['couple', 'family']);
  * plural, and deliberately small: the seeded nouns are all regular. A collective
  * noun never reaches this — see `shapedCelebrant`.
  */
+const IRREGULAR_PLURALS: Record<string, string> = {
+  child: 'children',
+  person: 'people',
+  man: 'men',
+  woman: 'women',
+};
+
 function pluralOf(noun: string): string {
+  // ⚠ THE NOUN IS ADMIN-TYPED, so this cannot assume a regular one. 'child' is
+  // the realistic case — a christening's celebrant — and the regular rule
+  // renders "the childs" to a guest. The seeded nouns are all regular; these
+  // four are the ones a person would actually type into that box.
+  const irregular = IRREGULAR_PLURALS[noun];
+  if (irregular) return irregular;
   if (/(?:s|x|z|ch|sh)$/.test(noun)) return `${noun}es`;
   if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
   return `${noun}s`;
@@ -434,7 +447,7 @@ function fallbackFor(eventType: string): EventTypeProfile {
   return { ...GENERIC_PROFILE, eventType };
 }
 
-type ProfileRow = {
+export type ProfileRow = {
   event_type: string;
   terminology: Record<string, unknown> | null;
   enabled_surfaces: string[] | null;
@@ -452,7 +465,16 @@ type ProfileRow = {
   statutory_pack_key: string | null;
 };
 
-function toProfile(row: ProfileRow): EventTypeProfile {
+/**
+ * Exported ONLY so the fallback chain can be exercised without a database.
+ *
+ * 🪤 IT WAS NOT, AND THE GUARD LOOKED FINE. A mutation that defaulted
+ * `celebrantNoun` to the CODE profile instead of the row's own organiser noun —
+ * which downgrades fifteen seeded types to "the host" — left the whole suite
+ * GREEN, because every case built its profile by hand and none came through
+ * here. A guard that never runs the function it is about is decoration.
+ */
+export function toProfile(row: ProfileRow): EventTypeProfile {
   const t = (row.terminology ?? {}) as Record<string, unknown>;
   const fb = fallbackFor(row.event_type);
   const str = (v: unknown, d: string): string =>

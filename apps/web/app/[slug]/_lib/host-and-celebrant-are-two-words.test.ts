@@ -47,9 +47,11 @@ import {
   GENERIC_PROFILE,
   isCelebrantShape,
   shapedCelebrant,
+  toProfile,
   WEDDING_PROFILE,
   type CelebrantShape,
   type EventTypeProfile,
+  type ProfileRow,
 } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from './event-words';
 
@@ -116,6 +118,82 @@ test('a row carrying ONLY an organiser noun keeps every word it reads today', ()
     );
     assert.equal(w.theOrganizer, `the ${noun}`, `${noun}: the organiser axis must not move`);
   }
+});
+
+/** A row exactly as it sits in production today: a terminology blob with the
+ *  pre-2026-08-27 keys and NOTHING else. This is the shape the fallback has to
+ *  survive, and building it by hand is what made an earlier version of this
+ *  suite pass through a mutation that broke fifteen event types. */
+function rowAsSeeded(eventType: string, organizerNoun: string): ProfileRow {
+  return {
+    event_type: eventType,
+    terminology: {
+      organizer_noun: organizerNoun,
+      person_a: null,
+      person_b: null,
+      seat_word: 'table',
+      event_word: eventType,
+      vip_tier_label: 'Guests of honor',
+    },
+    enabled_surfaces: null,
+    marketplace_enabled: null,
+    event_class: null,
+    layer_mode: null,
+    multi_day: null,
+    onboarding_flow_key: null,
+    role_set_key: null,
+    template_pack_key: null,
+    monogram_set_key: null,
+    reveal_pack_key: null,
+    budget_taxonomy_key: null,
+    schedule_seed_key: null,
+    statutory_pack_key: null,
+  };
+}
+
+test('THE REAL PARSER fills both nouns from the row, never from the code profile', () => {
+  // 🔴 THE LINE THIS EXISTS FOR. Defaulting `celebrantNoun` to the fallback
+  // profile's would answer 'host' for a birthday (organiser 'celebrant', code
+  // fallback GENERIC) — fifteen of the sixteen seeded types silently downgraded
+  // to "the host" while every hand-built fixture still agreed with itself.
+  const seeded: [string, string][] = [
+    ['wedding', 'couple'],
+    ['birthday', 'celebrant'],
+    ['debut', 'celebrant'],
+    ['graduation', 'graduate'],
+    ['corporate', 'organizer'],
+    ['christening', 'host'],
+  ];
+  for (const [type, noun] of seeded) {
+    const t = toProfile(rowAsSeeded(type, noun)).terminology;
+    assert.equal(t.celebrantNoun, noun, `${type}: celebrant word must be the row's own`);
+    assert.equal(t.hostNoun, defaultHostNoun(noun), `${type}: host word`);
+    assert.equal(t.organizerNoun, noun, `${type}: the organiser axis must not move`);
+  }
+});
+
+test('THE REAL PARSER honours the new keys when a row carries them', () => {
+  const row = rowAsSeeded('birthday', 'celebrant');
+  row.terminology = {
+    ...(row.terminology as Record<string, unknown>),
+    host_noun: 'family',
+    celebrant_noun: 'child',
+    celebrant_shape: 'multiple',
+  };
+  const t = toProfile(row).terminology;
+  assert.equal(t.hostNoun, 'family');
+  assert.equal(t.celebrantNoun, 'child');
+  assert.equal(t.celebrantShape, 'multiple');
+  // 'child' is the realistic admin-typed noun and the regular rule would render
+  // "the childs" to a guest.
+  assert.equal(eventWordsFromProfile(toProfile(row)).theCelebrant, 'the children');
+});
+
+test('THE REAL PARSER refuses a malformed shape rather than guessing', () => {
+  const row = rowAsSeeded('birthday', 'celebrant');
+  row.terminology = { ...(row.terminology as Record<string, unknown>), celebrant_shape: 'pair' };
+  // GENERIC_PROFILE is the code fallback for 'birthday'.
+  assert.equal(toProfile(row).terminology.celebrantShape, GENERIC_PROFILE.terminology.celebrantShape);
 });
 
 test('the host noun is the organiser noun UNLESS it names the honoree', () => {

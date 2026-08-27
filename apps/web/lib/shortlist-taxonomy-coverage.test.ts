@@ -59,16 +59,6 @@ const GAP_LEAF_PARENT: Record<string, WeddingFolder> = {
   event_insurance: 'insurance',
   personal_accident_insurance: 'insurance',
   restaurant_reservation: 'dining',
-  // ── A wake's own trades (2026-08-27) ──────────────────────────────────────
-  // DELIBERATE, and the guard offered exactly two doors: a plan group, or here.
-  // These take THIS one because `wedding-plan-groups.ts` is the WEDDING plan —
-  // adding a crematorium to it would put a funeral in a couple's budget
-  // sections. A wake getting plan groups of its own is the owner's stated next
-  // step ("1 first then 2 after"); until it lands these are gap leaves with a
-  // declared folder, which is precisely what the fourteen above are.
-  funeral_home: 'farewell',
-  cremation: 'farewell',
-  memorial_park: 'farewell',
 };
 const GAP_LEAVES = Object.keys(GAP_LEAF_PARENT) as WeddingTile[];
 
@@ -116,11 +106,14 @@ test('every bridged tile is a LIVE taxonomy tile', () => {
   }
 });
 
-test('the 17 non-wedding gap leaves land on their OWN tile, under a non-wedding family', () => {
-  // 14 → 17 on 2026-08-27: a wake's three trades joined the register. The
-  // FLOOR is what makes this number worth asserting — it fails if somebody
-  // quietly drops a gap leaf out rather than deciding where it goes.
-  assert.equal(GAP_LEAVES.length, 17);
+test('the 14 non-wedding gap leaves land on their OWN tile, under a non-wedding family', () => {
+  // 17 → 14: the wake's three trades were gap leaves for one change and are
+  // now claimed by PLAN GROUPS of their own (`farewell_home`,
+  // `farewell_cremation`, `farewell_memorial_park`), so they leave this
+  // register — which is the direction this file's allowlist is supposed to
+  // move. A gap leaf is a trade nobody has decided where to file; these have
+  // been decided.
+  assert.equal(GAP_LEAVES.length, 14);
   for (const leaf of GAP_LEAVES) {
     assert.equal(
       tileForCategory(leaf as unknown as VendorCategory),

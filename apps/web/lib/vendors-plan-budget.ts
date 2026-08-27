@@ -37,7 +37,8 @@ import {
   type PlanGroupId,
   type PlanCardPick,
   type EventVendorRowInput,
-} from '@/lib/wedding-plan-groups';
+
+  planGroupsForEventType,} from '@/lib/wedding-plan-groups';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import {
@@ -596,6 +597,16 @@ function childStateOf(
  */
 export function buildPlanBudgetModel(args: {
   vendorRows: ReadonlyArray<EventVendorRowInput>;
+  /**
+   * The event's type, so the plan shows ITS sections rather than a wedding's.
+   * Omitted → 'wedding', which is every caller's behaviour before 2026-08-27
+   * and is what keeps this additive.
+   *
+   * 🔑 A WAKE BORROWED THE WEDDING'S PLAN UNTIL NOW: the funeral home — the
+   * largest thing a family arranges — bucketed into "Logistics & Misc" beside
+   * the giveaways.
+   */
+  eventType?: string | null;
   estimatedBudgetCentavos: number | null;
   daysUntilWedding: number | null;
   ceremonyType: string | null;
@@ -768,7 +779,7 @@ export function buildPlanBudgetModel(args: {
   // ceremony_venue → `ceremony_venue`; accommodation + reception_venue →
   // `reception`) need their distinct hardcoded labels to stay distinguishable.
   const tileUseCount = new Map<WeddingTile, number>();
-  for (const group of PLAN_GROUPS) {
+  for (const group of planGroupsForEventType(args.eventType)) {
     if (!group.catalogTile) continue;
     tileUseCount.set(
       group.catalogTile,
@@ -802,7 +813,7 @@ export function buildPlanBudgetModel(args: {
   // Falls back to the hardcoded catalogFolder / tier order whenever the DB
   // snapshot is absent (taxonomy undefined) or a group has no catalogTile.
   const primaryGroupByTile = new Map<WeddingTile, PlanGroupId>();
-  for (const group of PLAN_GROUPS) {
+  for (const group of planGroupsForEventType(args.eventType)) {
     if (group.catalogTile && !primaryGroupByTile.has(group.catalogTile)) {
       primaryGroupByTile.set(group.catalogTile, group.id);
     }
@@ -921,7 +932,9 @@ export function buildPlanBudgetModel(args: {
   // Entry-point / no-tile groups (and any tile missing from the snapshot) sort
   // last, preserving their incoming tier order. No-op when the snapshot is absent.
   if (taxonomy) {
-    const groupById = new Map<PlanGroupId, PlanGroup>(PLAN_GROUPS.map((g) => [g.id, g]));
+    const groupById = new Map<PlanGroupId, PlanGroup>(
+      planGroupsForEventType(args.eventType).map((g) => [g.id, g]),
+    );
     for (const [folder, children] of childrenByFolder) {
       const tileSeq = taxonomy.tilesByParent[folder] ?? [];
       const tileRank = new Map<WeddingTile, number>(tileSeq.map((t, i) => [t, i]));

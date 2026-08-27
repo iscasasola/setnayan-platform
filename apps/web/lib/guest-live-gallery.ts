@@ -43,6 +43,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveCapturerNames } from '@/lib/capture-credit';
 
 const URL_TTL_SECONDS = 60 * 60;
 
@@ -61,6 +62,22 @@ export type GuestLivePhoto = {
    * where the photo was TAKEN, not in this week's.
    */
   capturedAt: string | null;
+  /**
+   * WHO TOOK IT — the name this photograph is credited to, or null.
+   *
+   * Gallery archetype § 2: *"Credit is a feature."* On a guest's own page it is
+   * also the answer to the question they actually have — *who got this shot of
+   * me?* — which until now the page could not answer at all.
+   *
+   * 🔒 A guest who has asked not to be shown (`faceblock_enabled`) is never
+   * named here, matching the rule the wall already applies to caption authors.
+   * ⚠ Null is the common case today: the person spine is nameless in production.
+   *
+   * ⚠ REQUIRED-AND-NULLABLE, not optional. Optional would let a future caller
+   * build a photo that never answers the question at all, and `undefined` reads
+   * the same as "no credit" while meaning "nobody decided". Null is a decision.
+   */
+  capturedBy: string | null;
 };
 
 export type GuestLiveGallery = {
@@ -121,7 +138,7 @@ export async function getGuestLiveGallery(
       photoIds.length
         ? admin
             .from('papic_photos')
-            .select('photo_id, r2_object_key, thumb_r2_key, tile_r2_key, display_r2_key, captured_at')
+            .select('photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, thumb_r2_key, tile_r2_key, display_r2_key, captured_at')
             .in('photo_id', photoIds)
             .eq('moderation_state', 'clean')
             .eq('photo_type', 'photo')
@@ -129,6 +146,8 @@ export async function getGuestLiveGallery(
         : Promise.resolve({
             data: [] as {
               photo_id: string;
+              paparazzi_seat_id?: string | null;
+              captured_by_person_id?: string | null;
               r2_object_key: string;
               thumb_r2_key: string | null;
               display_r2_key: string | null;
@@ -138,7 +157,7 @@ export async function getGuestLiveGallery(
       captureIds.length
         ? admin
             .from('papic_guest_captures')
-            .select('capture_id, r2_object_key, thumb_r2_key, tile_r2_key, display_r2_key, captured_at')
+            .select('capture_id, guest_id, captured_by_person_id, r2_object_key, thumb_r2_key, tile_r2_key, display_r2_key, captured_at')
             .in('capture_id', captureIds)
             .eq('moderation_state', 'clean')
             // Guest CLIPS (media_type='clip') are excluded — this gallery is
@@ -151,6 +170,8 @@ export async function getGuestLiveGallery(
         : Promise.resolve({
             data: [] as {
               capture_id: string;
+              guest_id?: string | null;
+              captured_by_person_id?: string | null;
               r2_object_key: string;
               thumb_r2_key: string | null;
               display_r2_key: string | null;
@@ -205,6 +226,70 @@ export async function getGuestLiveGallery(
       }
     }
 
+    // ── WHO TOOK EACH ONE ────────────────────────────────────────────────
+    // Resolved once, from the ids on the rows this read already returned. See
+    // lib/capture-credit.ts for why the name lookup is service-role and why that
+    // widens nothing.
+    const seatIdsForCredit = new Set<string>();
+    const personIdsForCredit = new Set<string>();
+    const guestIdsForCredit = new Set<string>();
+    const creditKeyById = new Map<string, { person?: string | null; seat?: string | null; guest?: string | null }>();
+    for (const p of photosRes.data ?? []) {
+      const person = (p as { captured_by_person_id?: string | null }).captured_by_person_id ?? null;
+      const seat = (p as { paparazzi_seat_id?: string | null }).paparazzi_seat_id ?? null;
+      if (person) personIdsForCredit.add(person);
+      if (seat) seatIdsForCredit.add(seat);
+      creditKeyById.set(p.photo_id, { person, seat });
+    }
+    for (const c of capturesRes.data ?? []) {
+      const person = (c as { captured_by_person_id?: string | null }).captured_by_person_id ?? null;
+      const shooter = (c as { guest_id?: string | null }).guest_id ?? null;
+      if (person) personIdsForCredit.add(person);
+      if (shooter) guestIdsForCredit.add(shooter);
+      creditKeyById.set(c.capture_id, { person, guest: shooter });
+    }
+
+    const seatRows = seatIdsForCredit.size
+      ? ((
+          await admin
+            .from('paparazzi_seats')
+            .select('seat_id, claimer_user_id, guest_id')
+            .eq('event_id', eventId)
+            .in('seat_id', [...seatIdsForCredit])
+        ).data ?? [])
+      : [];
+    const seatById = new Map(
+      (seatRows as { seat_id: string; claimer_user_id: string | null; guest_id: string | null }[]).map(
+        (r) => [r.seat_id, r],
+      ),
+    );
+    for (const r of seatById.values()) if (r.guest_id) guestIdsForCredit.add(r.guest_id);
+
+    const credits = await resolveCapturerNames(eventId, {
+      personIds: personIdsForCredit,
+      guestIds: guestIdsForCredit,
+      userIds: [...seatById.values()].map((r) => r.claimer_user_id),
+    });
+
+    const creditFor = (id: string): string | null => {
+      const k = creditKeyById.get(id);
+      if (!k) return null;
+      // 🔒 Asked not to be shown ⇒ not named, whichever id we hold them by.
+      if (k.person && credits.hidden.has(k.person)) return null;
+      if (k.guest && credits.hidden.has(k.guest)) return null;
+      if (k.person && credits.byPerson.has(k.person)) return credits.byPerson.get(k.person) ?? null;
+      if (k.guest && credits.byGuest.has(k.guest)) return credits.byGuest.get(k.guest) ?? null;
+      const seat = k.seat ? seatById.get(k.seat) : undefined;
+      if (seat?.guest_id) {
+        if (credits.hidden.has(seat.guest_id)) return null;
+        if (credits.byGuest.has(seat.guest_id)) return credits.byGuest.get(seat.guest_id) ?? null;
+      }
+      if (seat?.claimer_user_id && credits.byUser.has(seat.claimer_user_id)) {
+        return credits.byUser.get(seat.claimer_user_id) ?? null;
+      }
+      return null;
+    };
+
     const ordered = tags
       .map((t) => ({
         id: t.source_id as string,
@@ -221,7 +306,13 @@ export async function getGuestLiveGallery(
         top.map(async ({ id, sourceTable, key }) => {
           const url = await displayUrlForStoredAsset(key, { ttlSeconds: URL_TTL_SECONDS });
           return url
-            ? { id, sourceTable, url, capturedAt: shotAtById.get(id) ?? null }
+            ? {
+                id,
+                sourceTable,
+                url,
+                capturedAt: shotAtById.get(id) ?? null,
+                capturedBy: creditFor(id),
+              }
             : null;
         }),
       )

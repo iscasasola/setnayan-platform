@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
   AlertCircle,
@@ -2022,6 +2023,36 @@ async function GalleryPreviewCard({
   eventId: string;
 }) {
   const supabase = await createClient();
+
+  // THE VENUE'S CLOCK, for the gallery's per-tile credit ("Ninang Cora · 4:12 PM").
+  //
+  // ⚠ ITS OWN SELECT, DELIBERATELY, AND THIS IS NOT TIDINESS. Naming a column
+  // PostgREST will not serve makes it refuse the WHOLE query, and this page's
+  // main event read answers a refusal with `notFound()` — so folding two
+  // coordinates into it would turn a grant problem into a live celebration
+  // rendering as missing. Both columns are granted to `authenticated` in
+  // production (verified 2026-08-27); this shape means that stops being
+  // load-bearing.
+  //
+  // 🔑 NO ZONE ⇒ NO TIME. A refusal here drops the time half of every credit and
+  // keeps the name. It never prints the reader's own clock as the venue's.
+  const { data: venueForClock, error: venueForClockError } = await supabase
+    .from('events')
+    .select('venue_latitude, venue_longitude')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  // A REFUSED QUERY IS NOT A THROWN ERROR — bound, logged, and it changes
+  // nothing the screen STATES: the credits keep the name and drop the time.
+  if (venueForClockError) {
+    logQueryError('PapicStudioPage.venueForClock', venueForClockError, { eventId }, 'graceful_degrade');
+  }
+  const galleryTimeZone = venueForClock
+    ? eventTimezoneFromCoords(
+        (venueForClock.venue_latitude as number | null) ?? null,
+        (venueForClock.venue_longitude as number | null) ?? null,
+      )
+    : null;
+
   const [photos, densityRows, seesAll, preservationTotals] = await Promise.all([
     fetchPapicGallery(supabase, eventId),
     getKwentoDensity(eventId, 60),
@@ -2113,6 +2144,7 @@ async function GalleryPreviewCard({
         <PapicGalleryGrid
           photos={photos}
           eventId={eventId}
+          timeZone={galleryTimeZone}
           kwentoDensity={kwentoDensity}
           preservationTotals={preservationTotals}
           chapters={galleryChapters}

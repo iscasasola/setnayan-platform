@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPin, Sparkles, X } from 'lucide-react';
+import { MapPin, Sparkles } from 'lucide-react';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
@@ -15,7 +15,6 @@ import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
-  removeMyTag,
   claimAccountAction,
   saveAttendedVendorAction,
 } from '../actions';
@@ -85,6 +84,7 @@ import {
   type WaxSealConfig,
 } from '@/lib/wax-seal/types';
 import { LiveWallBlock } from './live-wall-block';
+import { PhotosOfYouGallery } from './photos-of-you-gallery';
 import { GuestHubCard } from './guest-hub-card';
 import { YourSeatBlock } from './your-seat-block';
 import {
@@ -959,6 +959,7 @@ export async function SiteBody({
                   initialTiles={liveWall.tiles}
                   initialCount={liveWall.count}
                   initialCaption={liveWall.caption}
+                  timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                 />
               </section>
             ) : null}
@@ -1362,6 +1363,7 @@ export async function SiteBody({
                     initialTiles={liveWall.tiles}
                     initialCount={liveWall.count}
                     initialCaption={liveWall.caption}
+                    timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                   />
                 </>
               ) : null}
@@ -1413,96 +1415,16 @@ export async function SiteBody({
                   the read failed, so the three states can finally be told
                   apart. */}
               {isLive || isPost ? (
-                <section
-                  aria-label="Photos of you"
-                  className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                      {isLive ? (
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
-                      ) : null}
-                      Photos of you{isLive ? ' — so far' : ''}
-                    </p>
-                    <p className="text-sm text-ink/70">
-                      {(guestLiveGallery?.total ?? 0).toLocaleString()}
-                      {isLive ? ' so far' : ''}
-                    </p>
-                  </div>
-                  {/* Post-event grace (Invite/Join v2): a no-login guest can still save
-                      their photos for ~24h after the wedding, then it closes — an
-                      account keeps them forever. The claim-account box already sits near
-                      the top of the page for accountless viewers. */}
-                  {isPost && showClaimAccountCta ? (
-                    <p className="mt-3 rounded-lg border-l-2 border-gild bg-veil/60 px-3 py-2 text-sm text-ink/80">
-                      These close about a day after the {clientWords.eventWord}. Save the ones you want now —
-                      or make a free account (the box near the top) to keep them.
-                    </p>
-                  ) : null}
-                  {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —
-                      are big enough for an older guest (Guest Legibility Floor). */}
-                  {!guestLiveGallery ? (
-                    // The read failed. Say so — and say whose fault it is.
-                    <p className="mt-4 rounded-lg border border-ink/10 bg-white px-3 py-3 text-sm text-ink/70">
-                      We couldn&rsquo;t load your photos just now. Nothing is lost — pull
-                      down to refresh in a moment.
-                    </p>
-                  ) : guestLiveGallery.photos.length === 0 ? (
-                    // Genuinely none yet. The commonest state early in a day, and
-                    // the one a guest most needs reassurance about.
-                    <p className="mt-4 rounded-lg border border-ink/10 bg-white px-3 py-3 text-sm text-ink/70">
-                      {isLive
-                        ? 'No one has tagged you yet — your photos appear here as they’re taken.'
-                        : `No photos of you were tagged at this ${clientWords.occasion}.`}
-                    </p>
-                  ) : null}
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    {(guestLiveGallery?.photos ?? []).map((p) => (
-                      <figure
-                        key={p.id}
-                        className="group relative aspect-square overflow-hidden rounded-lg bg-ink/5"
-                      >
-                        {/* Presigned URL — raw <img> (optimizer would cache expiry).
-                            Wrapped in a link so a tap opens the full-size image to save
-                            — the no-login download path during the grace window. */}
-                        <a
-                          href={p.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label="Open full size to save"
-                          className="block h-full w-full"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                        </a>
-                        {/* "Not me" — drop a wrong auto-face guess of yourself on this
-                            one shot (you stay enrolled for the rest). Auto-tags only;
-                            a photographer's QR tag can't be removed here. A real
-                            ≥44px labelled control, legible over the photo. */}
-                        <form
-                          action={removeMyTag.bind(null, event.event_id, p.sourceTable, p.id)}
-                          className="absolute right-1.5 top-1.5"
-                        >
-                          <SubmitButton
-                            className="inline-flex min-h-[44px] items-center gap-1 rounded-full bg-ink/65 px-3 text-sm font-semibold text-cream shadow-sm backdrop-blur-sm transition hover:bg-ink/80 focus-visible:bg-ink/80"
-                            pendingLabel="Removing…"
-                          >
-                            <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-                            Not me
-                          </SubmitButton>
-                        </form>
-                      </figure>
-                    ))}
-                  </div>
-                  {guestLiveGallery && guestLiveGallery.photos.length > 0 ? (
-                    <p className="mt-3 text-sm text-ink/70">
-                      {isLive
-                        ? `More arrive as the day unfolds — and every photo of you is yours to keep after the ${clientWords.occasion}.`
-                        : 'Tap any photo to open it full size and save it.'}{' '}
-                      Tap <span className="font-medium">Not me</span> on any photo that isn&rsquo;t you.
-                    </p>
-                  ) : null}
-                </section>
+                <PhotosOfYouGallery
+                  gallery={guestLiveGallery}
+                  eventId={event.event_id}
+                  isLive={isLive}
+                  isPost={isPost}
+                  showClaimAccountCta={showClaimAccountCta}
+                  occasion={clientWords.occasion}
+                  eventWord={clientWords.eventWord}
+                  timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+                />
               ) : null}
 
               {/* Invite/Join v2 — the no-login photo grace has ended for this accountless

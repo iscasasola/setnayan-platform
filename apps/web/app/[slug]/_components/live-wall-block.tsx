@@ -5,6 +5,8 @@ import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 import { useEffect, useRef, useState } from 'react';
 import { mergeTiles, type WallTile } from '@/lib/live-wall-logic';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
+import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
+import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
 
 /**
  * LiveWallBlock — the Salamisim Live Photo Wall, mirrored onto the guest's
@@ -26,6 +28,21 @@ import { SavePhotoButton } from '@/app/_components/save-photo-button';
  *
  * New tiles enter with a soft rise+fade (the Daily-Prophet entrance), capped
  * at the newest 12 on screen.
+ *
+ * ── THE OBSIDIAN SURFACE (gallery archetype § 2, route chip: DAY-OF LIVE PHOTO
+ * WALL CARD) ────────────────────────────────────────────────────────────────
+ *
+ * Ported 2026-08-27. Dark because photographs carry the colour — a SURFACE
+ * decision on a light-locked app, not a theme, and there is no toggle.
+ *
+ * 🚨 COLOURS COME ONLY FROM `--sn-ob-*`. Nothing sets `html.dark` here, so
+ * `text-ink` resolves to the LIGHT near-black and measures 1.27:1 on this panel;
+ * `text-terracotta` (the pulse dot this card used) measures 5.21:1 and survives,
+ * but the family it belongs to does not, so the whole card uses the obsidian set
+ * rather than a mix somebody has to remember.
+ *
+ * 🔒 THE VENUE PROJECTION IS UNTOUCHED (owner-locked 2026-06-11). This is the
+ * guest's PHONE mirror only.
  */
 
 const DISPLAY_CAP = 12;
@@ -38,11 +55,16 @@ export function LiveWallBlock({
   initialTiles,
   initialCount,
   initialCaption,
+  timeZone,
 }: {
   slug: string;
   initialTiles: WallTile[];
   initialCount: number;
   initialCaption: LiveWallCaption;
+  /** The VENUE's zone, for the "· 4:12 PM" half of a tile's credit. Absent ⇒
+   *  the name shows alone; the reader's own clock is never printed as the
+   *  venue's. */
+  timeZone?: string | null;
 }) {
   // The event's own word for whoever is throwing it. Falls back to the exact
   // wording this surface shipped with, so a missing provider cannot regress a
@@ -61,6 +83,10 @@ export function LiveWallBlock({
   const [closed, setClosed] = useState(false);
   // feedIds present at first paint — only LATER arrivals animate in.
   const seededIds = useRef(new Set(initialTiles.map((t) => t.feedId)));
+  // The tile a guest opened. Held by feedId rather than by the tile itself so
+  // the 25s poll can replace the collection underneath without the open frame
+  // becoming a stale object — and so a tile the wall drops closes cleanly.
+  const [openedId, setOpenedId] = useState<string | null>(null);
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -159,14 +185,18 @@ export function LiveWallBlock({
 
   // Newest first on a phone; tiles arrive ascending by sortAt.
   const display = tiles.slice(-DISPLAY_CAP).reverse();
+  // Resolved from the CURRENT tiles every render, so a frame the couple takes
+  // down mid-view closes the lightbox instead of leaving it holding a photo the
+  // wall has already withdrawn.
+  const opened = openedId ? (tiles.find((t) => t.feedId === openedId) ?? null) : null;
   if (display.length === 0) {
     return (
       <section
         aria-label="Live photo wall"
-        className="rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm"
+        className="sn-gal p-6 text-center"
       >
         <LiveWallHeader count={0} occasion={w.occasion} />
-        <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
+        <p className="sn-gal-soft mx-auto mt-2 max-w-prose text-sm">
           {closed
             ? // Said plainly, and without blame. The wall did not break and the
               // guest did nothing wrong — the couple chose to keep it to the
@@ -183,42 +213,83 @@ export function LiveWallBlock({
   return (
     <section
       aria-label="Live photo wall"
-      className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
+      className="sn-gal p-5 sm:p-6"
     >
       <LiveWallHeader count={count} occasion={w.occasion} />
       <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
         {display.map((tile) => (
           <figure
             key={tile.feedId}
-            className={`relative aspect-square overflow-hidden rounded-lg bg-ink/5 ${
+            className={`sn-gal-tile aspect-square ${
               seededIds.current.has(tile.feedId) ? '' : 'animate-wall-enter'
             }`}
           >
-            {/* Presigned, screened wall-safe derivative — plain <img> (the
-                optimizer would cache an expiring URL). */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={tile.url}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
+            {/* "Click any tile for the lightbox" — a guest watching the wall can
+                stop on one frame instead of only ever seeing it thumbnail-sized
+                as it scrolls past. */}
+            <button
+              type="button"
+              onClick={() => setOpenedId(tile.feedId)}
+              aria-label="Open this photo"
+              className="block h-full w-full"
+            >
+              {/* Presigned, screened wall-safe derivative — plain <img> (the
+                  optimizer would cache an expiring URL). */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={tile.url}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            </button>
             {tile.url ? (
               <SavePhotoButton
                 url={tile.url}
                 filename={`setnayan-photo-${tile.feedId}.jpg`}
               />
             ) : null}
+            {/* WHO TOOK IT. Silent when we do not know, and silent for a guest
+                who has asked not to be shown. */}
+            <GalleryCredit
+              name={tile.capturedBy}
+              capturedAt={tile.capturedAt}
+              timeZone={timeZone}
+              raised
+            />
           </figure>
         ))}
       </div>
       {caption ? (
-        <p className="mt-4 border-t border-ink/10 pt-3 text-center font-serif text-sm italic text-ink/75">
+        <p className="sn-gal-text mt-4 border-t border-[rgb(251_250_247/0.12)] pt-3 text-center font-serif text-sm italic">
           &ldquo;{caption.text}&rdquo;
-          <span className="ml-1.5 font-sans text-xs not-italic text-ink/50">
+          <span className="sn-gal-soft ml-1.5 font-sans text-xs not-italic">
             — {caption.author}
           </span>
         </p>
+      ) : null}
+      {opened ? (
+        <GalleryLightbox
+          src={opened.url}
+          kind="photo"
+          capturedByName={opened.capturedBy}
+          capturedAt={opened.capturedAt}
+          timeZone={timeZone}
+          onClose={() => setOpenedId(null)}
+          actions={
+            // NOT SavePhotoButton — that control is `absolute inset-x-0 bottom-0`
+            // by design, correct pinned to a tile and wrong inside a dialog,
+            // where it would leave the card and sit over its own credit.
+            <a
+              href={opened.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
+            >
+              Open full size to save
+            </a>
+          }
+        />
       ) : null}
       {/* Scoped entrance animation — soft rise + fade for tiles that arrive
           while the guest watches (Daily-Prophet feel, no library). */}
@@ -234,13 +305,13 @@ export function LiveWallBlock({
 function LiveWallHeader({ count, occasion }: { count: number; occasion: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
+      <p className="sn-gal-kick inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em]">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
         Live from the {occasion}
       </p>
       {count > 0 ? (
-        <p className="flex items-baseline gap-1 text-ink/55">
-          <span className="font-serif text-xl italic leading-none tabular-nums text-ink">
+        <p className="sn-gal-soft flex items-baseline gap-1">
+          <span className="sn-gal-text font-serif text-xl italic leading-none tabular-nums">
             {count.toLocaleString()}
           </span>
           <span className="text-xs">moment{count === 1 ? '' : 's'} and counting</span>

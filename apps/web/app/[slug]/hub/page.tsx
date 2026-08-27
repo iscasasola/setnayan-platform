@@ -845,6 +845,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           initialTiles={liveWall.tiles}
           initialCount={liveWall.count}
           initialCaption={liveWall.caption}
+          timeZone={eventTz}
         />
       ) : null}
 

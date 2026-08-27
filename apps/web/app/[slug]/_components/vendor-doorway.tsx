@@ -27,13 +27,19 @@ import { SupplierDesk } from './supplier-desk';
  * *"on the day. is the integration of the vendors to the event's event hub. so
  * we would still want to to be an event hub"*, and — before a line was written —
  * *"we are redesigning not placing a new page."* So there is NO second product
- * and no new route. From the day this celebration begins until six the morning
- * after it ends, this same strip in this same place renders `SupplierDesk`
- * instead of a link. Every other day of the year it is byte-identical to what
- * it has always been, which is the point: a supplier is only ever handed one
- * day's worth of somebody else's celebration.
+ * and no new route: this same strip in this same place renders `SupplierDesk`
+ * instead of a link.
  *
- * The sentence above is the boundary the desk is held to — THIS event's tools,
+ * ⏳ AND IT IS NOT ONLY THE DAY ANY MORE. S3 opened the desk on the day and shut
+ * it at six the next morning — thirty hours of a booking's life — and the
+ * binding design's own strongest sentence is against that: *"a day-only room
+ * recreates the midnight-door mistake."* The desk now has four states (call
+ * sheet · today · look back · the quiet line), so the door is open whenever a
+ * supplier looks. What did NOT widen is who may open it: `VendorCapability` is
+ * the same gate it always was, and the plain link below is still what a
+ * supplier gets when the desk cannot be built honestly.
+ *
+ * The boundary the desk is held to is unchanged — THIS event's facts and tools,
  * and nothing about their week, their invoices or their other clients.
  *
  * ── WHY IT IS SAFE ──────────────────────────────────────────────────────────
@@ -54,10 +60,10 @@ export function VendorDoorway({
   words,
 }: {
   capability: VendorCapability;
-  /** Non-null ONLY on the day (and only when every content read under the
-   *  supplier's own session succeeded). Null on every other day, and null
-   *  whenever the desk could not be built honestly — in which case the supplier
-   *  loses the desk and keeps the door, never the other way round. */
+  /** Non-null whenever the celebration has a date AND every content read under
+   *  the supplier's own session succeeded. Null when the desk could not be
+   *  built honestly — in which case the supplier loses the desk and keeps the
+   *  door, never the other way round. */
   desk?: SupplierDeskModel | null;
   /** The celebration's own words, for the one sentence the desk says about the
    *  people throwing it. A wake does not have a couple. */

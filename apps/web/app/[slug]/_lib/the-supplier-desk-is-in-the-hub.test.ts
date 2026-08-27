@@ -35,7 +35,11 @@ import { fileURLToPath } from 'node:url';
 
 import {
   supplierDeskIsOpen,
+  supplierDeskStage,
+  countdownLine,
+  daysToGo,
   deskTools,
+  LOOK_BACK_DAYS,
   PRIVATE_LINE_NOTE,
 } from '../../../lib/supplier-desk-rule';
 import { dayOfModuleHref, DAY_OF_CONSOLE_HREF } from '../../../lib/vendor-dayof-module-href';
@@ -233,13 +237,22 @@ test('a brief that refuses gives back the door, never an empty desk', () => {
   );
 });
 
-test('the desk cannot render without the capability, and cannot render off the day', () => {
+test('the desk cannot render without the capability, and the stage is decided from the event’s own dates', () => {
   const page = stripComments(read(PAGE));
   assert.match(
     page,
-    /const supplierDesk =\s*\n?\s*vendorCapability &&\s*\n?\s*supplierDeskIsOpen\(/,
-    'both gates, in this order — the capability first, because it is what proves an account',
+    /const supplierDesk = vendorCapability\s*\n?\s*\? await loadSupplierDesk\(vendorCapability, \{/,
+    'the capability is still the OUTER gate — widening the window moved the DATE gate and nothing ' +
+      'else, and a desk reachable without a proved booking is the whole failure this guards',
   );
+  // The four facts the stage is decided from. A dropped one does not throw: it
+  // reads as undefined, and the stage silently answers for a different day.
+  for (const field of ['eventDate:', 'eventEndDate:', 'clearedAt:', 'tz: venueTz']) {
+    assert.ok(
+      page.includes(field),
+      `${field} is no longer handed to the loader — the stage would be decided without it`,
+    );
+  }
   const door = stripComments(read(DOORWAY));
   assert.match(
     door,
@@ -292,4 +305,177 @@ test('the desk brings this day and nothing else — no other client, no money', 
         'invoices and their other clients do not belong inside one celebration’s page',
     );
   }
+});
+
+// ── 4 · THE DESK HAS A WHOLE LIFE, NOT ONE DAY ─────────────────────────────
+//
+// hub2, 2026-08-28. What S3 shipped lived about thirty hours. The binding
+// design's strongest sentence is against exactly that — "a day-only room
+// recreates the midnight-door mistake" — so the door now has four states. What
+// must not happen while widening it:
+//
+//   1. The states overlap or leave a gap, so a supplier gets two desks or none.
+//   2. The look-back edge is re-derived instead of read off the same instant
+//      the day arm closes on — the way the bottom nav once disagreed with the
+//      surface it pointed at by 36 hours.
+//   3. The countdown is computed by subtracting instants, which is how a
+//      12 December wedding came to read 11 December on 41 screens.
+//   4. A piece silently vanishes on a day it cannot speak for, so an early
+//      room reads as a broken one.
+
+test('the four states tile the whole life of a booking with no gap and no overlap', () => {
+  const base = { eventDate: '2026-02-14', tz: TZ };
+  const at = (nowMs: number) => supplierDeskStage({ ...base, nowMs });
+
+  assert.equal(at(DAY_START - 200 * 24 * H), 'call_sheet', 'seven months out');
+  assert.equal(at(DAY_START - 43 * 24 * H), 'call_sheet', 'the design’s own "43 days to go"');
+  assert.equal(at(DAY_START + 10 * H), 'today');
+  assert.equal(at(DAY_START + 26 * H), 'today', 'a reception still running at 2am');
+  assert.equal(at(DAY_START + 30 * H + 1), 'look_back', 'six the next morning');
+  assert.equal(at(DAY_START + (30 + 24 * (LOOK_BACK_DAYS - 1)) * H), 'look_back');
+  assert.equal(
+    at(DAY_START + (30 + 24 * LOOK_BACK_DAYS) * H + 1),
+    'archive',
+    'a supplier’s past work is their portfolio, so the door goes quiet rather than shutting',
+  );
+});
+
+test('the look-back edge IS the instant the live desk closes — not a second derivation', () => {
+  // The one boundary two rules must agree on. If the look-back window were
+  // anchored on its own arithmetic, a drift of hours would leave a supplier
+  // with no desk at all in the gap — at 7am the morning after, which is
+  // precisely when a photographer checks what they shot.
+  const base = { eventDate: '2026-02-14', tz: TZ };
+  const closes = DAY_START + 30 * H; // 06:00 the day after, Manila
+  assert.equal(supplierDeskIsOpen({ ...base, nowMs: closes - 1 }), true);
+  assert.equal(supplierDeskStage({ ...base, nowMs: closes - 1 }), 'today');
+  assert.equal(supplierDeskStage({ ...base, nowMs: closes }), 'look_back');
+});
+
+test('a closed-out celebration goes quiet, and one with no date has no desk at all', () => {
+  assert.equal(
+    supplierDeskStage({
+      eventDate: '2026-02-14',
+      clearedAt: '2026-01-02T02:00:00Z',
+      tz: TZ,
+      nowMs: DAY_START - 30 * 24 * H,
+    }),
+    'archive',
+    'the organiser closed it out before the day — there is nothing to look back on',
+  );
+  assert.equal(
+    supplierDeskStage({ eventDate: null, tz: TZ, nowMs: DAY_START }),
+    null,
+    'no date, no honest call sheet — the strip stays the link it has always been',
+  );
+});
+
+test('the countdown counts sleeps at the VENUE, never a subtraction of instants', () => {
+  // DAY_START is 2026-02-13T16:00Z: midnight on the 14th in Manila, and still
+  // 11am on the 13th in New York. A countdown that reads the runtime's own
+  // clock — which on Vercel is UTC — answers "1" for a venue where the day has
+  // already begun. Same instant, two venues, two honest answers.
+  assert.equal(daysToGo({ eventDate: '2026-02-14', tz: TZ, nowMs: DAY_START }), 0);
+  assert.equal(
+    daysToGo({ eventDate: '2026-02-14', tz: 'America/New_York', nowMs: DAY_START }),
+    1,
+    'the zone must move the answer — a fixed anchor would return the same number everywhere',
+  );
+  assert.equal(daysToGo({ eventDate: '2026-02-14', tz: TZ, nowMs: DAY_START - 43 * 24 * H }), 43);
+  assert.equal(daysToGo({ eventDate: null, tz: TZ, nowMs: DAY_START }), null);
+});
+
+test('the countdown says days, deliberately — a work surface may not round', () => {
+  assert.equal(countdownLine(43), '43 days to go', 'the design’s own words');
+  assert.equal(countdownLine(1), 'Tomorrow');
+  assert.equal(countdownLine(0), 'Today');
+  assert.equal(countdownLine(-3), null, 'nothing to count down to');
+  // lib/papic-chapters.ts rolls 43 up to "1 month to go". Right for an album
+  // heading, wrong for a supplier deciding when to order stock and book a crew.
+  assert.doesNotMatch(countdownLine(43) ?? '', /month/);
+});
+
+test('nothing on the desk silently vanishes on a day it cannot speak for', () => {
+  const desk = stripComments(read(DESK));
+  // The venue plate used to render only when a venue existed, so a booking with
+  // no venue set showed no "Where" at all. The design's rule is the opposite:
+  // "never a piece that silently isn't there" — each piece says something true.
+  assert.match(
+    desk,
+    /hasn’t set/,
+    'the Where plate must say the place is not set yet rather than disappearing',
+  );
+  assert.match(
+    desk,
+    /The floor desk closed at six the morning after/,
+    'after the day the console tile is replaced by a sentence, not removed',
+  );
+  assert.match(
+    desk,
+    /The floor desk itself opens on the day/,
+    'before the day the console link says which half of it works early',
+  );
+  assert.match(desk, /Not settled yet/, 'a headcount still filling in must say so');
+});
+
+test('the live now-next header renders on the day and on no other day', () => {
+  // It answers "what is happening NOW" from blocks that store the venue's WALL
+  // CLOCK, not an instant. Pointed at a celebration months out it counts down
+  // to a time on the wrong day — the wall-clock-vs-instant family that once put
+  // nine surfaces 480 minutes out.
+  const desk = stripComments(read(DESK));
+  assert.match(
+    desk,
+    /\{isToday && hasProgramme \? \(\s*\n?\s*<RunOfShowHeader/,
+    'the live header must be gated on the day itself, not merely on there being a programme',
+  );
+  assert.equal(
+    (desk.match(/<RunOfShowHeader/g) ?? []).length,
+    1,
+    'one mount — a second is a second gate to forget',
+  );
+});
+
+test('the day-of desk still says what it shipped saying', () => {
+  // Widening the window must not quietly redraw the one state that already
+  // works. These are the day arm's own words, frozen.
+  const desk = stripComments(read(DESK));
+  for (const shipped of [
+    'Your desk today',
+    'Open your day-of console',
+    'The floor tools you switched on for this booking.',
+    'coming, of everyone invited',
+  ]) {
+    assert.ok(desk.includes(shipped), `the day-of desk lost "${shipped}"`);
+  }
+});
+
+test('the room still does not grow a chat of its own', () => {
+  // The design refuses one outright: "a third channel would split one
+  // conversation across three places." The call sheet LINKS to the thread the
+  // organiser and the supplier already have; it does not open a new one.
+  const desk = stripComments(read(DESK));
+  assert.match(desk, /vendor-dashboard\/messages\/\$\{desk\.threadId\}/);
+  const loader = stripComments(read(LOADER));
+  assert.match(loader, /from\('chat_threads'\)/);
+  assert.doesNotMatch(
+    loader,
+    /\.insert\(|\.upsert\(/,
+    'the desk reads; it must never create a thread, a message or anything else',
+  );
+});
+
+test('the wider window did not widen the read', () => {
+  const loader = stripComments(read(LOADER));
+  // Every new read is still made with the caller's own cookie session, and the
+  // brief's booked-stage gate is untouched — a supplier who was only ASKED gets
+  // no call sheet either, because the room is built of the three things
+  // withheld until yes.
+  assert.equal((loader.match(/createAdminClient/g) ?? []).length, 0);
+  assert.match(loader, /brief\.stage !== 'booked'/);
+  assert.match(
+    loader,
+    /supplierDeskStage\(when\)/,
+    'the stage is resolved from the passed facts, not re-queried here',
+  );
 });

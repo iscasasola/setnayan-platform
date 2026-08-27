@@ -113,6 +113,34 @@ test('every prepared job is registered, so the box stops saying the page will no
   }
 });
 
+/**
+ * 🪤 THE BOX ONLY ASKS SO MANY QUESTIONS, AND THE CLIFF IS SILENT.
+ *
+ * The palette asks about the first `MAX_ASK_FIELDS` fields of a job and no
+ * more. A prepared job with more fields than that would be offered as
+ * "fill in a form", ask about some of them, and open a card whose remaining
+ * boxes are blank — with nothing on screen saying why. The cap is read out of
+ * the palette's own source rather than copied, so LOWERING it fails here
+ * instead of quietly truncating a card.
+ */
+test('no prepared job asks for more fields than the box will ever gather', () => {
+  const paletteSrc = readFileSync(
+    join(HERE, '..', '..', '_components', 'admin-command-palette.tsx'),
+    'utf8',
+  );
+  const cap = /const MAX_ASK_FIELDS = (\d+)/.exec(paletteSrc);
+  assert.ok(cap, 'MAX_ASK_FIELDS moved in the palette — re-pin this guard rather than guessing a cap');
+  const max = Number(cap![1]);
+  assert.ok(max > 0, 'the question cap parsed as zero — this guard is proving nothing');
+  for (const name of prepared) {
+    const count = PREPARED_TAXONOMY_JOBS.get(name)!.fields.length;
+    assert.ok(
+      count <= max,
+      `${name} has ${count} fields but the box only ever asks about ${max} — its card would open part-filled and say nothing`,
+    );
+  }
+});
+
 // ── The exclusions, derived from the code rather than from prose ─────────────
 
 /**

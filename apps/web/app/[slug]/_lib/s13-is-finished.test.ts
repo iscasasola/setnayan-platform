@@ -31,46 +31,61 @@ import { fileURLToPath } from 'node:url';
 const TREE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WORD = /\b(wedding|weddings|couple|couples|bride|groom)\b/i;
 
-/** Files whose wedding words are CORRECT, with the reason each is allowed. */
+/**
+ * Files whose wedding words are CORRECT, with the reason each is allowed.
+ *
+ * 🔴 KEYS ARE TREE-RELATIVE PATHS AND ARE MATCHED EXACTLY. They used to be BARE
+ * BASENAMES matched with `rel.endsWith(k)`, which is not an exemption list — it
+ * is a wildcard. `'page.tsx'` alone exempted **11 files** and `'actions.ts'`
+ * exempted 4: measured, **36 of the 127 files in this tree — 28% — were exempt**,
+ * and any new file shipping as a `page.tsx` or an `actions.ts` under
+ * `app/[slug]/` was born exempt and silently unguarded.
+ *
+ * ✅ Re-running the detector over every previously-exempt file produces **ZERO
+ * new offenders** — an exactness change with no behaviour delta today, and it is
+ * what lets the guard see the next file.
+ */
 const ALLOWED: Record<string, string> = {
-  'tea-ceremony-card.tsx':
+  '_components/tea-ceremony-card.tsx':
     'BUCKET 1 — the tea ceremony exists BECAUSE it is a wedding, and is already shown only for a Chinese wedding.',
-  'our-love-story-widget.tsx':
+  '_components/our-love-story-widget.tsx':
     'BUCKET 1 — the love story. A graduation has no equivalent; inventing one would be worse than leaving it out.',
-  'save-the-date-film.tsx':
+  '_components/save-the-date-film.tsx':
     'BUCKET 1 — the cinematic openings are a wedding-signature paid feature.',
-  'site-body.tsx':
+  '_components/site-body.tsx':
     "BUCKET 1 — \"Bride's side\" / \"Groom's side\". A graduation groups guests too, but not by two sides of an aisle.",
-  'event-words-provider.tsx':
+  '_components/event-words-provider.tsx':
     'The fallback constant. It is DEFINED as the wedding wording on purpose, so a missing provider cannot regress the only case that exists in production.',
-  'event-words.ts':
+  '_lib/event-words.ts':
     "The resolver's own default parameter (`?? 'wedding'`), matching every other guest-tree call site.",
-  'countdown.tsx':
+  '_components/countdown.tsx':
     'The wedding-vow branch. A wedding keeps "Until we say ‘I do’"; every other type reads "Until the day".',
-  'empty-states.tsx':
+  '_components/empty-states.tsx':
     'UNREACHABLE — nothing passes kind="photos". Rewording a string no guest can reach would be a fix nobody can see.',
-  'save-the-date.tsx':
+  '_components/save-the-date.tsx':
     'A calendar UID (`wedding-<id>@setnayan.com`). Never rendered; changing it would break calendar de-duplication for invitations already sent.',
-  'event-noun.ts':
+  '_lib/event-noun.ts':
     'The older two-way noun helper, still used by callers outside this work.',
-  'voices.ts':
+  '_components/editorial/voices.ts':
     "BUCKET 1 — the badges \"Parents of the bride\" / \"Parents of the groom\". These name WEDDING ROLES, and the roles themselves are wedding-only (`guests.role` has no birthday equivalent). A birthday's guests carry `guest`, so the badge never renders. Neutralising these would invent a role nobody holds.",
-  'compose.ts':
+  '_components/editorial/compose.ts':
     "The recap composer's own event-type comparison (`eventType === 'wedding'`) — it is what DECIDES the voice, not a word any guest reads. It exists because the story page used to announce \"Mateo Turns Seven Are Married\".",
-  'data.ts':
+  '_components/editorial/data.ts':
     'The five SAMPLE weddings’ editorial content — demo material, not any real event’s copy.',
-  'types.ts': 'A type union (`side: bride | groom | both`), not rendered text.',
-  'host-scope.ts': "A membership-type literal (`'couple'`), not rendered text.",
-  'site-nav.ts': "A viewer-kind literal (`kind: 'couple'`), not rendered text.",
-  'loaders.ts': "A resolveProfile default, not rendered text.",
+  '_lib/types.ts': 'A type union (`side: bride | groom | both`), not rendered text.',
+  '_lib/host-scope.ts': "A membership-type literal (`'couple'`), not rendered text.",
+  '_lib/site-nav.ts': "A viewer-kind literal (`kind: 'couple'`), not rendered text.",
+  '_lib/loaders.ts': "A resolveProfile default, not rendered text.",
   'actions.ts': "A membership-type filter, not rendered text.",
   'rotate-qr-actions.ts': "A membership-type filter, not rendered text.",
-  'keepsake.css.ts': 'A CSS class name (`.k-couple-quote`), not rendered text.',
-  'page.tsx': "resolveProfile defaults and surface gates, not rendered text.",
-  'print-sheet.tsx': 'Docblocks and a CSS class name; its rendered strings are all resolved.',
-  'editorial-content.tsx': 'An import of the Pro-tier helper (`couple-website-pro`), not rendered text.',
+  'print/keepsake.css.ts': 'A CSS class name (`.k-couple-quote`), not rendered text.',
+  'page.tsx': 'resolveProfile defaults and surface gates, not rendered text.',
+  'print/page.tsx':
+    'resolveProfile defaults and the Pro-tier helper import, not rendered text. Named in its own right now that a bare "page.tsx" no longer wildcards eleven files.',
+  'print/print-sheet.tsx': 'Docblocks and a CSS class name; its rendered strings are all resolved.',
+  '_components/editorial/editorial-content.tsx': 'An import of the Pro-tier helper (`couple-website-pro`), not rendered text.',
   'recap/page.tsx': 'An import of the Pro-tier helper, not rendered text.',
-  'public-hideable-widget.tsx': 'An import of the Chinese-wedding gate, not rendered text.',
+  '_components/public-hideable-widget.tsx': 'An import of the Chinese-wedding gate, not rendered text.',
   'pabuya/page.tsx': 'A resolveProfile default, not rendered text.',
 };
 
@@ -94,7 +109,8 @@ test('every wedding word left in the guest tree is one we chose to keep', () => 
   const offenders: string[] = [];
   for (const file of tsFiles(TREE)) {
     const rel = file.slice(TREE.length + 1);
-    if (Object.keys(ALLOWED).some((k) => rel.endsWith(k))) continue;
+    // EXACT. `endsWith` here is what made 28% of this tree exempt by accident.
+    if (Object.hasOwn(ALLOWED, rel)) continue;
     const src = strip(readFileSync(file, 'utf8'));
     for (const [i, line] of src.split('\n').entries()) {
       if (!WORD.test(line)) continue;
@@ -118,7 +134,7 @@ test('the allowed list is a BILL — every entry still has a wedding word in it'
   const stale: string[] = [];
   const all = tsFiles(TREE);
   for (const key of Object.keys(ALLOWED)) {
-    const hit = all.find((f) => f.endsWith(key));
+    const hit = all.find((f) => f.slice(TREE.length + 1) === key);
     if (!hit) continue; // file moved or gone — covered by the scan above
     if (!WORD.test(readFileSync(hit, 'utf8'))) stale.push(key);
   }
@@ -132,10 +148,10 @@ test('the allowed list is a BILL — every entry still has a wedding word in it'
 test('the four BUCKET 1 files are named, so flattening a wedding fails too', () => {
   // The owner's ruling: a wedding must never be flattened into "an event".
   for (const f of [
-    'tea-ceremony-card.tsx',
-    'our-love-story-widget.tsx',
-    'save-the-date-film.tsx',
-    'site-body.tsx',
+    '_components/tea-ceremony-card.tsx',
+    '_components/our-love-story-widget.tsx',
+    '_components/save-the-date-film.tsx',
+    '_components/site-body.tsx',
   ]) {
     assert.ok(ALLOWED[f], `${f} lost its BUCKET 1 exemption — a wedding is being flattened`);
   }

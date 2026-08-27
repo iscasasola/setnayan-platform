@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6216
+# facts: 6217
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4573
 #   policy    847
 #   view      8
-#   func      213
+#   func      214
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6081,6 +6081,7 @@ func	public.demand_radar_admin()	secdef=yes exec=anon,authenticated search_path=
 func	public.demand_radar_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.detect_self_review_signal(p_vendor_profile_id uuid, p_reviewer_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ensure_papic_auto_missions(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.ensure_papic_board(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.evaluate_earned_token_expiry(p_vendor_id uuid)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.event_comp_active_skus(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp

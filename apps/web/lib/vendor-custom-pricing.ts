@@ -140,6 +140,85 @@ export function charmRoundUp(n: number): number {
   return Math.ceil((n + 1) / 100) * 100 - 1;
 }
 
+/**
+ * The two terms a subscription may be bought for, and nothing else.
+ * Owner 2026-08-27: *"subscription will only extend their plans for an
+ * additional 28 days … or 1 year."*
+ */
+export type CustomPlanTerm = '28d' | 'annual';
+
+/** Days a term buys. 365 for a year — NOT 13 × 28 (= 364); see the annual note. */
+export const CUSTOM_TERM_DAYS: Readonly<Record<CustomPlanTerm, number>> = {
+  '28d': 28,
+  annual: 365,
+};
+
+/**
+ * The annual multiplier — a 20% saving on the 28-day rate, the same one
+ * Solo/Pro/Enterprise took in the 2026-08-27 price sheet.
+ */
+export const CUSTOM_ANNUAL_MULTIPLIER = 10.4;
+
+/**
+ * The annual price for a 28-day total. THE ONLY PLACE ×10.4 IS APPLIED.
+ *
+ * ⛔ THE ANNUAL FIGURE IS DERIVED, NEVER STORED. `vendor_custom_plans` holds
+ * `quoted_28d_php` and nothing else, on purpose: a stored annual would be a
+ * second copy of a price, which is the drift this codebase spent 2026-08-27
+ * closing everywhere else. The quote, the order amount and the activation
+ * binding all call THIS function, so they cannot disagree.
+ *
+ * Rounds to whole pesos: an undiscounted total is a multiple of 250 and lands
+ * exact on its own, but a discounted total × 10.4 can leave a fraction. This is
+ * not the retired charm bump — it never adds 99, and an exact peso is unchanged.
+ */
+export function annualFromMonthly(php28: number): number {
+  const n = Number(php28);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(n * CUSTOM_ANNUAL_MULTIPLIER);
+}
+
+/**
+ * What a term costs, given the 28-day total. The one switch every caller uses,
+ * so no path can invent its own arithmetic.
+ */
+export function priceForTerm(php28: number, term: CustomPlanTerm): number {
+  return term === 'annual' ? annualFromMonthly(php28) : php28;
+}
+
+/**
+ * When a Custom plan should expire after a purchase of `term` is activated.
+ *
+ * 🔑 IT EXTENDS. Remaining time is kept and the new term is added ON TOP —
+ * `GREATEST(now, existing) + termDays` — mirroring, deliberately and exactly,
+ * what `_apply_subscription_credit` does in SQL for the three ordinary tiers.
+ * Owner 2026-08-27: *"subscription will only extend their plans for an
+ * additional 28 days … or 1 year."*
+ *
+ * 🚨 THE BUG THIS REPLACES: the Custom activation hook used to write
+ * `now + 28 days` straight over `tier_expires_at`, discarding whatever was
+ * left. A shop with 300 days remaining who renewed came out with 28. It went
+ * unnoticed because the SQL path already had the GREATEST — and Custom does not
+ * use the SQL path.
+ *
+ * An already-lapsed plan (expiry in the past, or none) starts from `nowMs`,
+ * which is the same `GREATEST(now(), …)` behaviour.
+ *
+ * PURE — takes its clock, returns an ISO string, so the extend property is
+ * unit-testable without a database.
+ */
+export function customPlanExpiryFrom(
+  nowMs: number,
+  existingExpiryMs: number | null,
+  term: CustomPlanTerm,
+): string {
+  const base =
+    existingExpiryMs !== null && Number.isFinite(existingExpiryMs) && existingExpiryMs > nowMs
+      ? existingExpiryMs
+      : nowMs;
+  return new Date(base + CUSTOM_TERM_DAYS[term] * 24 * 60 * 60 * 1000).toISOString();
+}
+
 /** Non-negative excess of `total` over an included `base`, integer-floored. */
 function excess(total: number, base: number): number {
   const t = Number.isFinite(total) ? Math.floor(total) : base;
@@ -209,7 +288,7 @@ export function computeCustomQuote(
   // can leave a fraction of a peso (e.g. 13,501 → 140,410.4). `Math.round`
   // settles that to whole pesos — it never adds 99, and an already-exact figure
   // passes through untouched.
-  const annual = Math.round(final28 * 10.4);
+  const annual = annualFromMonthly(final28);
 
   return { raw, list28, discountValue, final28, annual };
 }

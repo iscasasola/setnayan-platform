@@ -91,6 +91,10 @@ export function CustomConfigurator({
 
   const editable = adjusting;
 
+  // The two terms a subscription may be bought for, and nothing else (owner
+  // 2026-08-27). Default '28d' — the cheaper commitment is the safe default.
+  const [term, setTerm] = useState<'28d' | 'annual'>('28d');
+
   // Per-line breakdown (what each axis adds beyond the included base).
   // The +100 km reach step and the +100-photo pack were dropped 2026-08-27
   // (owner) — nationwide is the only reach upgrade now. Their maths is gone
@@ -134,6 +138,7 @@ export function CustomConfigurator({
       <input type="hidden" name="seats" value={comp.seats} />
       <input type="hidden" name="slotsPerCategory" value={comp.slotsPerCategory} />
       <input type="hidden" name="domain" value={comp.domain ? 'true' : 'false'} />
+      <input type="hidden" name="term" value={term} />
       <input type="hidden" name="channel" value={channel} />
 
       {/* ── Controls ─────────────────────────────────────────────────────── */}
@@ -214,10 +219,46 @@ export function CustomConfigurator({
       <aside className="lg:sticky lg:top-6 lg:self-start">
         <div className="sn-tile p-5">
           <p className="sn-eye">Your Custom plan</p>
+          {/*
+            🔑 THE FIGURE SHOWN IS THE FIGURE CHARGED. Both come from the same
+            `quote`, and the server recomputes it from the catalog before
+            minting — so the number here and the number on the order are the
+            same by construction, not by agreement.
+          */}
           <p className="mt-2 text-3xl font-semibold tabular-nums text-ink">
-            {peso(quote.final28)}
-            <span className="ml-1 text-sm font-normal text-ink/55">per 28 days</span>
+            {peso(term === 'annual' ? quote.annual : quote.final28)}
+            <span className="ml-1 text-sm font-normal text-ink/55">
+              {term === 'annual' ? 'per year' : 'per 28 days'}
+            </span>
           </p>
+
+          <div
+            role="radiogroup"
+            aria-label="Billing term"
+            className="mt-3 flex items-center gap-1 rounded-lg border border-ink/12 p-1"
+          >
+            {([
+              ['28d', 'Every 28 days'],
+              ['annual', 'Yearly · save 20%'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={term === value}
+                disabled={!editable}
+                onClick={() => setTerm(value)}
+                className={
+                  'flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ' +
+                  (term === value
+                    ? 'bg-ink text-white'
+                    : 'text-ink/70 hover:bg-ink/5')
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {/*
             Custom's annual was × 10 ("13 cycles, pay 10, 3 free") until the
             owner aligned it to × 10.4 on 2026-08-27 — the same 20% every other
@@ -231,9 +272,11 @@ export function CustomConfigurator({
             multipliers differed and became actively misleading the moment they
             did not.
           */}
-          <p className="mt-1 text-sm tabular-nums text-ink/70">
-            {peso(quote.annual)}
-            <span className="ml-1 text-xs text-ink/50">per year — save 20%</span>
+          <p className="mt-2 text-sm tabular-nums text-ink/70">
+            {term === 'annual' ? peso(quote.final28) : peso(quote.annual)}
+            <span className="ml-1 text-xs text-ink/50">
+              {term === 'annual' ? 'per 28 days instead' : 'per year — save 20%'}
+            </span>
           </p>
 
           <div className="mt-4 space-y-1.5 border-t border-ink/10 pt-3">

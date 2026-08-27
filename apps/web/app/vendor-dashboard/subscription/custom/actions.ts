@@ -11,11 +11,13 @@ import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role'
 import {
   computeCustomQuote,
   CUSTOM_BASE,
+  priceForTerm,
   type CustomComposition,
+  type CustomPlanTerm,
 } from '@/lib/vendor-custom-pricing';
 import {
   fetchCustomUnitPrices,
-  customPlanServiceKey,
+  customPlanServiceKeyForTerm,
 } from '@/lib/vendor-custom-catalog';
 
 /**
@@ -151,6 +153,19 @@ export async function requestCustomPlan(formData: FormData) {
     backErr('Could not price this plan. Please try again.');
   }
 
+  // 🔒 THE TERM IS THE ONLY NEW THING THE FORM CARRIES, AND IT IS A CHOICE, NOT
+  // A PRICE. Anything unrecognised falls to '28d' — the cheaper term — so a
+  // tampered or truncated POST can never buy a year's entitlement.
+  // The AMOUNT is still re-derived server-side from our own recomputed
+  // `final28`, never read from the request, so the figure the page quoted and
+  // the figure we charge are the same number by construction.
+  const term: CustomPlanTerm =
+    String(formData.get('term') ?? '').trim() === 'annual' ? 'annual' : '28d';
+  const chargePhp = priceForTerm(final28, term);
+  if (!Number.isFinite(chargePhp) || chargePhp <= 0) {
+    backErr('Could not price this plan. Please try again.');
+  }
+
   const referenceCode = generateReferenceCode();
 
   // 1) Upsert the composed plan row → pending_payment. Don't mutate an ACTIVE
@@ -221,9 +236,9 @@ export async function requestCustomPlan(formData: FormData) {
       orderRowFor(
         { userId: user.id, eventId: null, vendorProfileId },
         {
-          service_key: customPlanServiceKey(vendorProfileId),
-          description: 'Custom Plan (28-day)',
-          requested_total_php: final28,
+          service_key: customPlanServiceKeyForTerm(vendorProfileId, term),
+          description: term === 'annual' ? 'Custom Plan (1 year)' : 'Custom Plan (28-day)',
+          requested_total_php: chargePhp,
           status: 'submitted',
           reference_code: referenceCode,
         },
@@ -240,7 +255,7 @@ export async function requestCustomPlan(formData: FormData) {
     paymentRowFor(
       { userId: user.id, verifiedOrderId: orderId },
       {
-        amount_php: final28,
+        amount_php: chargePhp,
         channel,
         reference_number: null,
         screenshot_url: null,

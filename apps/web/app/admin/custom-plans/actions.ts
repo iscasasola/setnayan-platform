@@ -11,7 +11,7 @@ import {
   type CustomDiscount,
   type CustomUnitPrices,
 } from '@/lib/vendor-custom-pricing';
-import { fetchCustomUnitPrices, customPlanServiceKey } from '@/lib/vendor-custom-catalog';
+import { fetchCustomUnitPrices, customPlanServiceKeyForTerm } from '@/lib/vendor-custom-catalog';
 
 export type CustomPlanActionState =
   | { status: 'idle' }
@@ -220,14 +220,25 @@ export async function sendCustomQuote(
   // Apply-then-pay order + pending payment (mirrors the branch/seat buy flow) so
   // the quote appears in /admin/payments. event_id NULL = vendor subscription.
   const referenceCode = generateReferenceCode();
+
+  // 🔒 THE HQ QUOTE PATH IS 28-DAY ONLY, DELIBERATELY AND EXPLICITLY.
+  // It is not an oversight and it must not silently mint a 28-day charge for a
+  // yearly request: this surface has no term control, so no yearly request can
+  // reach it. The term lives on the ORDER's service_key, and this path always
+  // builds the '28d' one — so an admin-composed quote is unambiguously a 28-day
+  // purchase, and the activation hook binds it against `quoted_28d_php`
+  // untouched. A supplier who wants the year buys it themselves on
+  // /vendor-dashboard/subscription/custom, where the choice exists.
+  // If HQ ever needs to quote a year, add the control HERE and pass the term to
+  // `customPlanServiceKeyForTerm` + `priceForTerm` — both already take it.
   const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
     .insert({
       event_id: null,
       user_id: user.id,
       vendor_profile_id: vendorProfileId,
-      service_key: customPlanServiceKey(vendorProfileId),
-      description: `Custom Tier — ${businessName}`,
+      service_key: customPlanServiceKeyForTerm(vendorProfileId, '28d'),
+      description: `Custom Tier — ${businessName} (28-day)`,
       requested_total_php: final28,
       status: 'submitted',
       reference_code: referenceCode,

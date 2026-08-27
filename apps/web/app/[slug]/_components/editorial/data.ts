@@ -2376,8 +2376,18 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       songUrl = null;
     }
   }
+  // 🔴 THE FALLBACK ALWAYS FIRED FOR A NON-WEDDING, AND IT NAMED A WEDDING.
+  // `love_story.anchors.song` is a WEDDING-shaped field — a birthday or a debut
+  // has no love story and so never carries one. So any non-wedding that bought
+  // a Pakanta song had it credited to every guest reading their recap as
+  // "Their wedding song". The event's own word is already resolved above for
+  // the challenge prompts; it costs nothing to be right here too.
+  // 🔒 A wedding reads byte-identically ('wedding'). On a profile read error
+  // `eventNoun` is undefined and the credit goes plain rather than wrong —
+  // the same degrade rule the noun above already follows.
+  const songFallback = eventNoun ? `Their ${eventNoun} song` : 'Their song';
   const songLabel = songUrl
-    ? asString(loveStory.anchors?.song) ?? 'Their wedding song'
+    ? asString(loveStory.anchors?.song) ?? songFallback
     : asString(loveStory.anchors?.song);
   const song = { url: songUrl, label: songLabel };
 

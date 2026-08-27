@@ -7,6 +7,7 @@ import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 
 export const metadata = {
   title: 'Claim your Setnayan profile',
@@ -15,6 +16,9 @@ export const metadata = {
 };
 
 type Props = { params: Promise<{ token: string }> };
+
+/** 'family' → 'Family'. Only the first letter, matching the guest tree. */
+const capitalise = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
 
 export default async function VendorClaimPage({ params }: Props) {
   const { token } = await params;
@@ -29,13 +33,35 @@ export default async function VendorClaimPage({ params }: Props) {
   const categoryLabel = parentVendor
     ? (VENDOR_CATEGORY_LABEL[parentVendor.category as VendorCategory] ?? parentVendor.category)
     : (invite.service_category ?? 'Vendor');
+  // THE SUPPLIER'S OWN DOOR, OPENED SIGNED OUT FROM AN EMAILED LINK — and it
+  // said "They're planning their wedding on 3 September 2026" on every event
+  // type. A funeral home invited by a family arranging a wake read that
+  // sentence about the funeral it had just been booked for.
+  //
+  // ⚠ The invite carries `event_id`, so the type was always resolvable; nothing
+  // was ever asked. `eventWordsForEvent` reads through the SERVICE-ROLE
+  // resolver, which matters here because this page is reached with no session
+  // and `public.events` admits no `anon` SELECT — the session-scoped read this
+  // resolver used to make answered "wedding" for exactly this kind of visitor
+  // (PR #4897). React-`cache()`d, so the four sentences below cost one read.
+  //
+  // 🔒 A WEDDING READS BYTE-IDENTICALLY (`eventWord` is 'wedding'). An
+  // ADMIN-SOURCE invite carries no event at all, and now says "event" where it
+  // used to assert a wedding it had no evidence for — the honest direction.
+  const words = event ? await eventWordsForEvent(event.event_id) : null;
+  const eventWord = words?.eventWord ?? 'event';
+  // The eyebrow names WHO sent the invite. `hostNoun` is 'couple' for a wedding
+  // (so "Couple invite" is unchanged), 'family' for a funeral, and 'host' for
+  // the types whose organiser noun is the honoree — never the honoree itself,
+  // which is why it reads `host` and not `organizer`.
+  const inviterEyebrow = `${capitalise(words?.host ?? 'host')} invite`;
   const eventDateLabel = event?.event_date
     ? new Date(event.event_date).toLocaleDateString('en-PH', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
       })
-    : 'their upcoming wedding';
+    : `their upcoming ${eventWord}`;
   const inviterName = event?.couple_display_name ?? 'Setnayan';
 
   // ------------------------------------------------------------------
@@ -90,7 +116,7 @@ export default async function VendorClaimPage({ params }: Props) {
     return (
       <DoorShell
         width="lg"
-        eyebrow="Couple invite"
+        eyebrow={inviterEyebrow}
         title={
           <>
             <strong className="font-semibold">{inviterName}</strong> locked you in as their{' '}
@@ -99,7 +125,7 @@ export default async function VendorClaimPage({ params }: Props) {
         }
         sub={
           <>
-            They&rsquo;re planning their wedding on{' '}
+            They&rsquo;re planning their {eventWord} on{' '}
             <strong className="text-ink">{eventDateLabel}</strong>. Claim your free Setnayan
             profile to confirm the schedule and keep everything in one place.
           </>
@@ -250,8 +276,8 @@ export default async function VendorClaimPage({ params }: Props) {
         }
         sub={
           <>
-            <strong className="text-ink">{inviterName}</strong> wants to connect their
-            wedding ({eventDateLabel}) to your existing profile.
+            <strong className="text-ink">{inviterName}</strong> wants to connect their{' '}
+            {eventWord} ({eventDateLabel}) to your existing profile.
           </>
         }
       >
@@ -295,7 +321,7 @@ export default async function VendorClaimPage({ params }: Props) {
   return (
     <DoorShell
       width="lg"
-      eyebrow="Couple invite"
+      eyebrow={inviterEyebrow}
       title={
         <>
           <strong className="font-semibold">{inviterName}</strong> invited you to claim your
@@ -305,7 +331,7 @@ export default async function VendorClaimPage({ params }: Props) {
       sub={
         <>
           They&rsquo;ve added you as their{' '}
-          <strong className="text-ink">{categoryLabel}</strong> for their wedding on{' '}
+          <strong className="text-ink">{categoryLabel}</strong> for their {eventWord} on{' '}
           <strong className="text-ink">{eventDateLabel}</strong>.
         </>
       }

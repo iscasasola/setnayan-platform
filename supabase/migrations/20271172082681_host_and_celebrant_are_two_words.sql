@@ -112,8 +112,21 @@ COMMENT ON COLUMN public.events.celebrant_shape IS
 -- query, so every user-session read of `events` goes silently empty. The db
 -- coverage tests structurally cannot catch it: their `before()` re-applies the
 -- lockdown and recomputes the allowlist over the new column.
+-- SELECT ONLY, and the missing verb is the point.
+--
+-- 🪤 THE FIRST CUT OF THIS MIGRATION ALSO GRANTED UPDATE, copied from the
+-- template beside it without asking whether THIS column's writer needed it. It
+-- does not: `updateEventMatchCriteria` applies its patch through the SERVICE
+-- ROLE, so the grant bought nothing and handed `authenticated` a write it never
+-- uses. `exposure-freeze.db.test.ts` caught it, and the tempting reflex —
+-- regenerate the baseline — would have RECORDED the over-grant as intended.
+-- **Read the diff before you regenerate; that file exists to make a human look.**
+--
+-- SELECT is genuinely required, twice: `resolveProfileByEvent` reads the column
+-- through the caller's own session, and `events_host` computes its projection
+-- from `has_column_privilege('authenticated', …)`, so without it the column is a
+-- PHANTOM on the view the Personalization page actually reads.
 GRANT SELECT (celebrant_shape) ON public.events TO authenticated;
-GRANT UPDATE (celebrant_shape) ON public.events TO authenticated;
 -- ⚠ `anon` gets nothing. A signed-out visitor reads the WORD on the page; how
 -- the celebration configured it is not theirs. The guest tree resolves the word
 -- server-side, so nothing on a public page needs this column client-side.

@@ -17,8 +17,11 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { ensurePapicBoard } from '@/lib/papic-games';
 import {
   BOARD_SIZE,
+  boardIsTrustworthy,
+  boardOccupancyClaim,
   coupleSlots,
   displayChallengePrompt,
+  type BoardReading,
   type CaptureKind,
   type PapicMissionSource,
 } from '@/lib/papic-missions';
@@ -229,7 +232,17 @@ export async function CoupleChallengesManager({
   // room" is an instruction to DELETE something, given on the strength of a
   // measurement we do not have. Not-measured is never zero and never a limit
   // reached: when we cannot tell, we say we cannot tell.
-  const boardIsTrustworthy = board.resolved && (onBoard.length > 0 || waiting.length === 0);
+  //
+  // The rule lives in `lib/papic-missions.ts` beside BOARD_SIZE, not in this
+  // JSX, so it can be tested without a Supabase client — and so a second screen
+  // cannot answer the same question differently.
+  const reading: BoardReading = {
+    resolved: board.resolved,
+    onBoardCount: onBoard.length,
+    waitingCount: waiting.length,
+  };
+  const boardReadable = boardIsTrustworthy(reading);
+  const notShowingClaim = boardOccupancyClaim(reading);
 
   // Cost of the board a guest actually sees, per guest. Fail-soft: the pool read
   // degrades to "absent" on any error and we then say nothing about a balance
@@ -653,7 +666,7 @@ export async function CoupleChallengesManager({
                   <ChallengeRow key={m.mission_id} m={m} eventId={eventId} />
                 ))}
               </ul>
-            ) : boardIsTrustworthy ? (
+            ) : boardReadable ? (
               <p className="mt-2 text-sm text-ink/45">
                 Nothing is showing yet — unhide one below, or add a challenge above.
               </p>
@@ -677,23 +690,22 @@ export async function CoupleChallengesManager({
                 Not showing · {offBoard.length}
               </h4>
               <p className="mt-0.5 text-xs text-ink/55">
-                {waiting.length === 0
+                {/* 🔑 THE INVERSION THIS SCREEN SHIPPED. "Waiting for a free
+                    spot — hide one above to make room" claims the board is
+                    FULL. When the resolver was refused every challenge had a
+                    null slot and that branch fired on an EMPTY board: a couple
+                    with nothing showing to anyone was told to delete their own
+                    challenges to make room. Which sentence is allowed is now
+                    `boardOccupancyClaim`'s decision, not this file's. */}
+                {notShowingClaim.kind === 'hidden_by_you'
                   ? 'Hidden by you. Tap the eye to bring one back.'
-                  : boardIsTrustworthy
+                  : notShowingClaim.kind === 'waiting'
                     ? `Your guests see ${BOARD_SIZE} challenges at a time. ${
-                        waiting.length === 1
+                        notShowingClaim.waiting === 1
                           ? 'This one is waiting for a free spot'
-                          : `These ${waiting.length} are waiting for a free spot`
+                          : `These ${notShowingClaim.waiting} are waiting for a free spot`
                       } — hide one above to make room.`
-                    : /* 🔑 THE INVERSION THIS SCREEN SHIPPED. "Waiting for a
-                         free spot — hide one above to make room" claims the
-                         board is FULL. When the resolver was refused, every
-                         challenge had a null slot and this branch fired on an
-                         EMPTY board: a couple with nothing showing to anyone was
-                         told to delete their own challenges to make room. Say
-                         what is actually known instead, and never ask for a
-                         deletion on the strength of a reading we do not have. */
-                      'We couldn’t work out where these sit on your board just now. Refresh in a moment — nothing has changed, and nothing needs removing.'}
+                    : 'We couldn’t work out where these sit on your board just now. Refresh in a moment — nothing has changed, and nothing needs removing.'}
               </p>
               <ul className="mt-2 space-y-2">
                 {offBoard.map((m) => (

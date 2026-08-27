@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { UgatEntityType } from './graph';
 import { scoreUgatMatch } from './data-pure';
+import { ugatRecordHref } from './record-href';
 
 export { scoreUgatMatch } from './data-pure';
 
@@ -317,7 +318,12 @@ export interface UgatRow {
   name: string;
   /** Ordered column values (strings, already formatted / redacted). */
   cells: string[];
-  /** Optional in-app cross-link (opens the admin surface for this record). */
+  /**
+   * Where this ONE row opens, when a per-record admin surface exists for it.
+   * Genuinely optional here, unlike on a search hit: three of the nine tables
+   * (services · threads · communities) have no admin page of their own, and the
+   * console falls back to the type card for those rather than inventing a link.
+   */
   href?: string;
   /** Optional status chip: [label, tone]. */
   status?: [string, 'ok' | 'wait' | 'neutral' | 'report'];
@@ -410,7 +416,7 @@ async function loadUgatTableInner(
           id: u.public_id ?? u.user_id,
           type: 'user' as const,
           name: u.display_name || u.email || u.public_id || 'User',
-          href: '/admin/users',
+          href: ugatRecordHref({ kind: 'user', userId: u.user_id }),
           cells: [u.account_type ?? '—', fmtDate(u.created_at)],
         }));
         // prepend the name column value into cells for the client renderer
@@ -446,7 +452,11 @@ async function loadUgatTableInner(
           id: e.public_id ?? e.event_id,
           type: 'event' as const,
           name: e.display_name || e.public_id || 'Event',
-          href: '/admin/events',
+          href: ugatRecordHref({
+            kind: 'event',
+            publicId: e.public_id ?? null,
+            slug: null,
+          }),
           cells: [
             e.display_name || e.public_id || 'Event',
             e.event_type ?? '—',
@@ -497,7 +507,14 @@ async function loadUgatTableInner(
             id: e.public_id ?? e.event_id,
             type: 'guest' as const,
             name: e.display_name || e.public_id || 'Event',
-            href: '/admin/events',
+            // A guests row IS an event (this table is per-event tallies), so it
+            // opens the event — never a guest, who has no admin page and whose
+            // PII this surface deliberately never loads.
+            href: ugatRecordHref({
+              kind: 'event',
+              publicId: e.public_id ?? null,
+              slug: null,
+            }),
             cells: [
               e.display_name || e.public_id || 'Event',
               String(t.invited),
@@ -526,7 +543,7 @@ async function loadUgatTableInner(
           id: v.public_id ?? v.vendor_profile_id,
           type: 'vendor' as const,
           name: v.business_name || v.public_id || 'Vendor',
-          href: `/admin/vendors/${v.vendor_profile_id}/edit`,
+          href: ugatRecordHref({ kind: 'vendor', vendorProfileId: v.vendor_profile_id }),
           status: [
             v.verification_state ?? 'unverified',
             statusTone(v.verification_state ?? 'unverified'),
@@ -589,7 +606,7 @@ async function loadUgatTableInner(
           id: o.public_id ?? o.order_id,
           type: 'order' as const,
           name: o.reference_code || o.public_id || 'Order',
-          href: '/admin/payments',
+          href: ugatRecordHref({ kind: 'order' }),
           status: [o.status ?? 'unknown', statusTone(o.status ?? 'unknown')] as [
             string,
             'ok' | 'wait' | 'neutral' | 'report',
@@ -766,9 +783,13 @@ export interface UgatSearchHit {
   type: UgatEntityType;
   title: string;
   sub: string;
-  /** The type node to highlight when this hit is selected. */
-  typeNodeId: string;
-  href?: string;
+  /**
+   * Where this ONE record opens. REQUIRED, and that is the fix: it was optional
+   * and unread, so every hit opened a diagram of its own type instead. Making
+   * it non-optional is what stops a sixth kind shipping without a destination —
+   * the compiler refuses it rather than a reviewer noticing.
+   */
+  href: string;
   score: number;
 }
 
@@ -777,28 +798,14 @@ export interface UgatSearchGroup {
   hits: UgatSearchHit[];
 }
 
-const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
-  community: 'TYPE-SAMAHAN',
-  papic: 'TYPE-PAPIC',
-  person: 'TYPE-PERSON',
-  package: 'TYPE-PACKAGE',
-  proposal: 'TYPE-PROPOSAL',
-  contract: 'TYPE-CONTRACT',
-  availability: 'TYPE-AVAILABILITY',
-  geography: 'TYPE-GEOGRAPHY',
-  seatplan: 'TYPE-SEATPLAN',
-  runofshow: 'TYPE-RUNOFSHOW',
-  livestudio: 'TYPE-LIVESTUDIO',
-  user: 'TYPE-USERS',
-  event: 'TYPE-EVENTS',
-  guest: 'TYPE-GUESTS',
-  vendor: 'TYPE-VENDORS',
-  service: 'TYPE-SERVICES',
-  order: 'TYPE-ORDERS',
-  thread: 'TYPE-THREADS',
-  billing: 'TYPE-BILLING',
-  taxonomy: 'TYPE-TAXONOMY',
-};
+/*
+ * `TYPE_NODE_FOR` USED TO LIVE HERE and it is deliberately gone. It existed to
+ * stamp every hit with the type node the console highlighted INSTEAD of opening
+ * the record — the defect itself. With hits now carrying a real destination it
+ * had no reader left, and leaving it would have replaced one dead field with
+ * another. The table browser keeps its own map, which is still live: a row on a
+ * table with no per-record admin page still falls back to the type card.
+ */
 
 async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
   const q = query.trim();
@@ -847,8 +854,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'vendor' as const,
       title: v.business_name || v.public_id || 'Vendor',
       sub: v.business_slug ? `/${v.business_slug}` : (v.public_id ?? ''),
-      typeNodeId: TYPE_NODE_FOR.vendor,
-      href: `/admin/vendors/${v.vendor_profile_id}/edit`,
+      href: ugatRecordHref({ kind: 'vendor', vendorProfileId: v.vendor_profile_id }),
       score: scoreUgatMatch(v.business_name ?? v.business_slug ?? '', q),
     }))
     .sort((a, b) => b.score - a.score);
@@ -860,8 +866,11 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'event' as const,
       title: e.display_name || e.public_id || 'Event',
       sub: e.slug ? `/${e.slug}` : (e.public_id ?? ''),
-      typeNodeId: TYPE_NODE_FOR.event,
-      href: '/admin/events',
+      href: ugatRecordHref({
+        kind: 'event',
+        publicId: e.public_id ?? null,
+        slug: e.slug ?? null,
+      }),
       score: scoreUgatMatch(e.display_name ?? e.slug ?? '', q),
     }))
     .sort((a, b) => b.score - a.score);
@@ -873,8 +882,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'user' as const,
       title: u.display_name || u.email || u.public_id || 'User',
       sub: u.email ?? (u.public_id ?? ''),
-      typeNodeId: TYPE_NODE_FOR.user,
-      href: '/admin/users',
+      href: ugatRecordHref({ kind: 'user', userId: u.user_id }),
       score: scoreUgatMatch(`${u.display_name ?? ''} ${u.email ?? ''}`, q),
     }))
     .sort((a, b) => b.score - a.score);
@@ -886,8 +894,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'order' as const,
       title: o.reference_code || o.public_id || 'Order',
       sub: `${o.service_key ?? '—'} · ${o.status ?? '—'}`,
-      typeNodeId: TYPE_NODE_FOR.order,
-      href: '/admin/payments',
+      href: ugatRecordHref({ kind: 'order' }),
       score: scoreUgatMatch(`${o.reference_code ?? ''} ${o.service_key ?? ''}`, q),
     }))
     .sort((a, b) => b.score - a.score);
@@ -899,8 +906,11 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'taxonomy' as const,
       title: t.canonical_service,
       sub: `Taxonomy leaf · tile ${t.tile_id ?? '—'}`,
-      typeNodeId: TYPE_NODE_FOR.taxonomy,
-      href: '/admin/taxonomy',
+      href: ugatRecordHref({
+        kind: 'taxonomy',
+        tileId: t.tile_id ?? null,
+        canonicalService: t.canonical_service ?? '',
+      }),
       score: scoreUgatMatch(t.canonical_service ?? '', q),
     }))
     .sort((a, b) => b.score - a.score);

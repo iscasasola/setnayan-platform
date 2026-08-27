@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "627d0f70b",
+  "generatedFromRef": "a273b8de2",
   "routeCount": 406,
   "destinations": 875,
-  "actions": 589,
-  "blocks": 4069,
+  "actions": 590,
+  "blocks": 4071,
   "routes": {
     "/": {
       "files": [
@@ -6176,6 +6176,7 @@
         "dashboard/[eventId]/studio/papic/_components/papic-cameras-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-pool-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-stage.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-actions.ts",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-toggle.tsx",
@@ -6184,7 +6185,6 @@
         "dashboard/[eventId]/studio/papic/_components/source-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/uploads-open-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx",
-        "dashboard/[eventId]/studio/papic/_components/where-you-stand.tsx",
         "dashboard/[eventId]/studio/papic/actions.ts",
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
         "dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx",
@@ -6247,6 +6247,7 @@
         "DriveReconnectBanner",
         "DriveSafetyPanel",
         "DslrBridgeSection",
+        "EmptyRoll",
         "ExtraCamerasPicker",
         "FaceTaggingChoice",
         "Fact",
@@ -6276,6 +6277,7 @@
         "PapicGalleryGrid",
         "PapicLightbox",
         "PapicPoolCard",
+        "PapicStage",
         "PapicWindowPicker",
         "PaymentUnderReview",
         "PickerFilters",
@@ -6291,6 +6293,7 @@
         "ShowcaseToggle",
         "ShutterSection",
         "SourceRow",
+        "StandingsStrip",
         "StatusBanners",
         "Stepper",
         "StudioBuyHero",
@@ -6301,8 +6304,7 @@
         "UploadsOpenChoice",
         "VendorChallengesApproval",
         "VendorMediaControls",
-        "WallTileLayout",
-        "WhereYouStand"
+        "WallTileLayout"
       ]
     },
     "/dashboard/[eventId]/studio/papic/challenges": {
@@ -8841,6 +8843,7 @@
         "formAction",
         "null",
         "postReviewReply",
+        "rejectLock",
         "renewAction",
         "respondMeeting",
         "toggleInstagramMediaVisibility"

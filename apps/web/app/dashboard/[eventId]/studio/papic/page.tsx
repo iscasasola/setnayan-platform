@@ -42,7 +42,8 @@ import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { AddToLibrary } from './_components/add-to-library';
 import { UploadsOpenChoice } from './_components/uploads-open-choice';
 import { claimUploadsCamera } from './actions';
-import { WhereYouStand } from './_components/where-you-stand';
+import { PapicStage } from './_components/papic-stage';
+import { readPapicStandings } from '@/lib/papic-standings';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import {
   resolveStoredWindow,
@@ -393,6 +394,23 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   );
   const windowIsSet = !!(ev.papic_window_start && ev.papic_window_end);
 
+  // ⚠ READ ONCE, USED TWICE. The stage needs to know whether the library is
+  // empty (roll or photographs) and the facts strip on its edge reports the same
+  // three numbers. Two components counting the same thing is a definition twice,
+  // and this page has already paid for that shape once.
+  const standings = await readPapicStandings(createAdminClient(), eventId);
+
+  // Whole days until the cameras open. null when the dates are unset, or when
+  // the window has already started — the stage says something different in each
+  // case, and "0 days" is not the same sentence as "open now".
+  const papicOpensInDays = (() => {
+    if (!windowIsSet || !papicWindow.startIso) return null;
+    const startMs = Date.parse(papicWindow.startIso);
+    if (!Number.isFinite(startMs)) return null;
+    const diff = startMs - Date.now();
+    return diff > 0 ? Math.ceil(diff / 86_400_000) : null;
+  })();
+
   // ⚠ THERE ARE NO ROOMS ANY MORE — see the "four ways in" section below.
   // `resolvePapicRoom` and its outcome→room map are deleted, not disabled: with
   // one page every confirmation banner is always on screen, so the whole reason
@@ -692,15 +710,35 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         preserveError={preserveError}
       />
 
-      {/* ⚠ WHERE YOU STAND — four facts, first, always.
-          The order is deliberate: a person is told the state of their own
-          celebration BEFORE anything asks them to decide something. Reversing
-          it is how this screen came to open on a look picker. */}
-      <WhereYouStand
-        eventId={eventId}
+      {/* ⚠ THE STAGE — the page opens on the library, in every state.
+          Owner 2026-08-28: *"it doesn't look like a photo app control center. it
+          still feels like it is a business page."* Every product in this market
+          opens on its content; the four facts still come before anything asks
+          for a decision, they simply sit on the thing they describe now.
+          See _components/papic-stage.tsx for the reasoning and the measured
+          contrast ratios on the dark ground. */}
+      <PapicStage
+        standings={standings}
         windowIsSet={windowIsSet}
         windowSummary={papicWindowSummary}
-      />
+        opensInDays={papicOpensInDays}
+        uploadsOpen={uploadsOpen}
+        firstMemorySlot={
+          /* ⚠ A DOOR, NOT A SECOND PICKER. The upload sheet lives behind the
+             "Your uploads" way-in below; putting the picker here too would be a
+             second copy of a control, which is the failure this codebase pays
+             for most. This scrolls to it. */
+          <a
+            href="#ways-into-your-library"
+            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-cream"
+            style={{ backgroundColor: '#C24E25' }}
+          >
+            Add the first memory
+          </a>
+        }
+      >
+        <GalleryPreviewCard eventId={eventId} />
+      </PapicStage>
 
       {/* ⚠ EXACTLY ONE NEXT STEP, AND IT KNOWS THE MOMENT.
           Owner, opening his own wedding's Papic page: *"entering papic inside an
@@ -795,7 +833,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           beyond the two questions the owner deleted (photo quality, "where your
           photos go"). The crew QRs, the off-list camera, the guest-camera tier
           and the uploads picker are behind these four rows, unredrawn. */}
-      <section className="space-y-3">
+      <section className="space-y-3" id="ways-into-your-library">
         <h2 className="text-lg font-semibold tracking-tight text-ink">
           Four ways into your library
         </h2>
@@ -970,9 +1008,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           Everything lands in the same library and is screened before anyone sees it.
         </p>
       </section>
-
-      {/* ══ YOUR LIBRARY ═════════════════════════════════════════════════════ */}
-      <GalleryPreviewCard eventId={eventId} />
 
       {/* ══ CREDITS — one shared pot, and the ways to add to it ═══════════════
           Bought where the number is watched, per the drawing. The meter, the

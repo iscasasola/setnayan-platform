@@ -29,6 +29,10 @@ import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsFor } from '../_lib/event-words';
+import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
+import { loadVendorBooking } from '../_lib/loaders';
+import { createClient } from '@/lib/supabase/server';
+import { readGuestSession } from '@/lib/guest-session';
 import {
   resolveEventMonogram,
   HERO_MONOGRAM_COLUMNS,
@@ -124,13 +128,47 @@ export default async function EditorialPrintPage({
     itself. Gating only the component would have left a couple's "only me" story
     fully readable at /<slug>/print.
 
-    The two checks above already establish who this is: `canViewSlugEvent`
-    admits the event's own people, and `isSignedInEventHost` the host. The
-    audience narrows within that — a story kept to the celebration is refused to
-    nobody who got this far, but a story kept to the couple is refused to
-    everyone but them.
+    🔴 `belongsToEvent` WAS THE LITERAL `true`, AND THE SENTENCE THAT JUSTIFIED
+    IT WAS FALSE. It read "canViewSlugEvent admits the event's own people, so the
+    audience narrows within that" — but that gate OPENS with
+    `if (openToStrangers(visibility)) return true`, and `openToStrangers` is
+    public||unlisted. On any celebration the couple had made public or unlisted
+    it admits a stranger OUTRIGHT and establishes nothing whatever about
+    belonging — while `storyAudienceAdmits`, whose entire answer for a story kept
+    to `'event'` is `return viewer.belongsToEvent`, was therefore saying yes to
+    everybody. An anonymous visitor could print, in full, the story the couple
+    had restricted to the people of their day, while the page beside it correctly
+    refused them the same words. `robots: noindex` is not access control either.
+
+    ⚖ IT IS DERIVED NOW, THROUGH THE SAME RULE THE SCREEN USES
+    (`_lib/belongs-to-this-event.ts`), and it FAILS CLOSED: this route has no
+    page above it to hand the facts down, so it establishes them itself and any
+    arm it cannot establish stays `false`.
+      · the guest pass — a redeemed invitation for THIS event, on this device;
+      · the booked supplier — answered by the SAME probe the event page uses,
+        never a second copy of that query.
+    `isSignedInEventHost` remains the host arm, and a host is admitted at every
+    audience before belonging is consulted at all.
   */
-  const printViewer = { isHost: await isSignedInEventHost(event.event_id), belongsToEvent: true };
+  const guestSession = await readGuestSession();
+  const holdsGuestPass = guestSession?.event_id === event.event_id;
+  // Only ask the supplier question while it can still change the answer — a
+  // pass already admits them, and a stranger costs nothing to refuse.
+  let isBookedSupplier = false;
+  if (!holdsGuestPass) {
+    const viewerClient = await createClient();
+    const {
+      data: { user },
+    } = await viewerClient.auth.getUser();
+    if (user) {
+      isBookedSupplier =
+        (await loadVendorBooking(createAdminClient(), event.event_id, user.id)) !== null;
+    }
+  }
+  const printViewer = {
+    isHost: await isSignedInEventHost(event.event_id),
+    belongsToEvent: belongsToThisEvent({ holdsGuestPass, isBookedSupplier }),
+  };
   if (data && data.audience && !storyAudienceAdmits(data.audience, printViewer)) {
     redirect(`/${slug}`);
   }

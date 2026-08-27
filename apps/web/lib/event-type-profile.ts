@@ -20,6 +20,7 @@
 import { cache } from 'react';
 
 import { createClient } from './supabase/server';
+import { createAdminClient } from './supabase/admin';
 import { resolveRoleSet, type RoleSet } from './role-sets';
 
 export type ProfileSurface =
@@ -491,24 +492,88 @@ export function strandedWithoutWebsiteMessage(
 }
 
 /**
+ * The event's OWN type columns — the one read behind every by-event resolver.
+ *
+ * 🔴 THIS READ USED TO BE MADE WITH THE COOKIE-SCOPED SESSION CLIENT, AND IT
+ * ANSWERED NOTHING FOR A SIGNED-OUT VISITOR. `public.events` has three SELECT
+ * policies and ALL THREE are `roles={authenticated}` — measured against
+ * production, not read off a migration — so the number of policies admitting
+ * `anon` is ZERO. A signed-out read therefore came back empty, `!data` was true,
+ * and the resolver fell through to WEDDING_PROFILE.
+ *
+ * 🚨 THAT IS THE BACK DOOR INTO THE FUNERAL WORK. PR #4793 exists precisely so a
+ * wake never speaks in wedding words — solemn register, no countdown, "A gift of
+ * sympathy" rather than a money dance. But the mourner who scans the wake's QR
+ * arrives SIGNED OUT, on the one surface anonymous mourners actually land on,
+ * and every by-event resolver handed them the full celebratory vocabulary: the
+ * join door said "the couple", and the wake's role picker offered "Maid of
+ * honor", "Ring bearer" and "Veil sponsor". The register the whole stream was
+ * built to protect was arriving wrong through the arm nobody was signed in to.
+ *
+ * ⚠ THE COLUMN GRANT WAS NEVER THE BLOCKER, AND "ADD THE GRANT" IS THE OBVIOUS
+ * WRONG FIX. `has_column_privilege('anon','public.events','event_type','SELECT')`
+ * is already TRUE — RLS is what refuses the row. This repo's per-column
+ * allowlist trap on `events` is real and is a different trap; do not confuse the
+ * two.
+ *
+ * ⚖ SO IT READS WITH THE SERVICE-ROLE CLIENT, AND THAT IS A DELIBERATE WIDENING
+ * — say it out loud rather than let a future reader find it. What crosses the
+ * boundary is three columns describing what KIND of celebration this is, turned
+ * into a noun and a list of role names; no event row, no name, no date, no venue
+ * ever leaves. The event's own public page already renders exactly these
+ * type-derived words to anonymous visitors (it reads the shell with the admin
+ * client and calls `eventWordsFor(event.event_type)`), so nothing is disclosed
+ * here that the page beside it does not already say aloud. For the ~13 signed-in
+ * dashboard callers the answer is UNCHANGED — they could always read their own
+ * event; only the refused-read arm moves.
+ *
+ * 🔑 ONE READ, NOT TWO. The ceremony columns come back with the type, so the
+ * role-set resolver below no longer makes a second (also-refused) round trip.
+ */
+const readEventTypeRow = cache(
+  async (
+    eventId: string,
+  ): Promise<{
+    event_type: string | null;
+    ceremony_type: string | null;
+    secondary_ceremony_type: string | null;
+  } | null> => {
+    try {
+      const admin = createAdminClient();
+      const { data } = await admin
+        .from('events')
+        .select('event_type, ceremony_type, secondary_ceremony_type')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      return (data as {
+        event_type: string | null;
+        ceremony_type: string | null;
+        secondary_ceremony_type: string | null;
+      } | null) ?? null;
+    } catch {
+      return null;
+    }
+  },
+);
+
+/**
  * Server helper: the EventTypeProfile for an event id (fetches its event_type).
- * A missing event / read error degrades to WEDDING_PROFILE so existing wedding
- * flows are unaffected. Cached per request + per eventId. (Iteration 0053 P2.)
+ *
+ * ⚠ `null` HERE NOW MEANS "NO SUCH EVENT", AND ONLY THAT. The docblock that
+ * stood here said "a missing event / read error degrades to WEDDING_PROFILE" —
+ * it conflated the two, which is how the defect above came to read as the
+ * design rather than as a trap. A refused read was indistinguishable from an
+ * event that does not exist, and the fallback quietly made every signed-out
+ * celebration a wedding. The read can no longer be refused; a genuinely absent
+ * row still degrades to WEDDING_PROFILE, which is the original 0053 contract.
+ *
+ * Cached per request + per eventId. (Iteration 0053 P2.)
  */
 export const resolveProfileByEvent = cache(
   async (eventId: string): Promise<EventTypeProfile> => {
-    try {
-      const sb = await createClient();
-      const { data } = await sb
-        .from('events')
-        .select('event_type')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      if (!data) return WEDDING_PROFILE;
-      return resolveProfile((data.event_type as string | null) ?? 'wedding');
-    } catch {
-      return WEDDING_PROFILE;
-    }
+    const row = await readEventTypeRow(eventId);
+    if (!row) return WEDDING_PROFILE;
+    return resolveProfile(row.event_type ?? 'wedding');
   },
 );
 
@@ -529,6 +594,12 @@ export const resolveProfileByEvent = cache(
  * Returns a plain string so it can also feed the CLIENT quick-add sheet (which
  * resolves its picker list from a roleSetKey prop via resolveRoleSet). Cached
  * per request + per eventId; degrades to the profile key on any read error.
+ *
+ * ⚠ IT MADE A SECOND COOKIE-SCOPED READ, WITH THE SAME BLIND SPOT as the profile
+ * read above: refused for a signed-out visitor, so the join door's role picker
+ * fell back to the Catholic wedding cast on every event it could not see — a
+ * wake included. Both halves now come from the ONE service-role read, so a
+ * signed-out visitor gets the celebration's real role set.
  */
 export const resolveRoleSetKeyForEvent = cache(
   async (eventId: string): Promise<string | null> => {
@@ -536,20 +607,11 @@ export const resolveRoleSetKeyForEvent = cache(
     // Only weddings get a ceremony-specific role set; everything else (generic /
     // simple / future types) uses its profile default untouched.
     if (profile.roleSetKey !== 'wedding') return profile.roleSetKey;
-    try {
-      const sb = await createClient();
-      const { data } = await sb
-        .from('events')
-        .select('ceremony_type, secondary_ceremony_type')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      const primary = (data?.ceremony_type as string | null) ?? null;
-      const secondary = (data?.secondary_ceremony_type as string | null) ?? null;
-      if (primary === 'muslim' || secondary === 'muslim') return 'wedding_muslim';
-      return profile.roleSetKey;
-    } catch {
-      return profile.roleSetKey;
-    }
+    const row = await readEventTypeRow(eventId);
+    const primary = row?.ceremony_type ?? null;
+    const secondary = row?.secondary_ceremony_type ?? null;
+    if (primary === 'muslim' || secondary === 'muslim') return 'wedding_muslim';
+    return profile.roleSetKey;
   },
 );
 

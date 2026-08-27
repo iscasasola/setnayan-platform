@@ -109,9 +109,14 @@ export async function POST(req: NextRequest) {
   // Event-membership check. RLS would also protect the eventual row writes, but
   // we gate the presign itself so a non-member can't mint upload URLs against
   // someone else's event prefix.
+  // `user_id`, not `member_type`: this is an EXISTENCE check ("are you on this
+  // event at all"), which is the right question here, and it never compared the
+  // type it asked for. That shape is exactly how a QR-scan guest came to read as
+  // a host elsewhere, so the guard sweeps for it — an existence check asks for a
+  // column it has an opinion about, or a column it does not name at all.
   const { data: membership } = await supabase
     .from('event_members')
-    .select('member_type')
+    .select('user_id')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();

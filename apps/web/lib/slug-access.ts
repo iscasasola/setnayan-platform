@@ -203,14 +203,26 @@ export async function isInvitedAccount(
  * 🔑 This is the exact bug `app/[slug]/_lib/host-scope.ts` was written to kill.
  * The twin (`loadHostMembership`) was fixed and pinned; THIS CLONE NEVER
  * INHERITED IT. *A clone inherits the bug its twin fixed.* Both now filter on
- * the one shared `HOST_MEMBER_TYPES` definition, and `host-means-host.test.ts`
- * pins BOTH by source so a third copy cannot quietly hold a laxer rule.
+ * the one shared `HOST_MEMBER_TYPES` definition.
+ *
+ * ⚠ AND THE SENTENCE THAT STOOD HERE WAS FALSE. It claimed the guard "pins BOTH
+ * by source so a third copy cannot quietly hold a laxer rule". It could not: the
+ * guard pinned a HAND-TYPED list of three paths, and a THIRD copy was live in
+ * `app/[slug]/hub/page.tsx` — where it let a QR-scan guest force `?phase=` and
+ * switch on day-of surfaces the couple had not launched — for the entire time
+ * that guard was green. A fourth sat in the save-the-date view beacon. A
+ * hand-typed list is a list of the doors somebody thought of, and writing "so a
+ * third copy cannot" beside one does not make it so. `host-means-host.test.ts`
+ * now DERIVES its file set from the tree and is FLOORED, so a sweep that stops
+ * seeing anything fails instead of reading as a pass.
  *
  * Extracted from the inline `event_members` / `event_moderators` check that
  * app/[slug]/page.tsx runs for its private-gate + `?phase=` preview allowance,
- * so surfaces that need the same "hosts can preview" rule (e.g. the /[slug]/print
- * keepsake, which lets hosts preview pre-event) share ONE implementation instead
- * of re-deriving it. Returns false for anonymous / guest-cookie-only viewers.
+ * so surfaces that need the same "hosts can preview" rule share ONE
+ * implementation instead of re-deriving it — the /[slug]/print keepsake, which
+ * lets hosts preview pre-event, and the /[slug]/hub `?phase=` preview, which had
+ * re-derived it and got it wrong. Returns false for anonymous / guest-cookie-only
+ * viewers.
  */
 export async function isSignedInEventHost(eventId: string): Promise<boolean> {
   const supabase = await createClient();

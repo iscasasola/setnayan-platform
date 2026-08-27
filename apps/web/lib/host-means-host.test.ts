@@ -1,42 +1,63 @@
 /**
  * HOST MEANS HOST — and a seat-holder still gets in.
  *
- * ── WHAT THIS PINS, AND WHY IT IS A SOURCE SCAN ─────────────────────────────
- * `lib/slug-access.ts` is `server-only`, so a unit test cannot import it. The
- * two facts below are therefore asserted against the SOURCE, which is exactly
- * where the defect lived: a query that selected `member_type` and never
- * compared it.
+ * ── WHY THIS GUARD WAS REWRITTEN ────────────────────────────────────────────
+ * Rev 1 pinned a HAND-TYPED list of three paths. A THIRD copy of the defect was
+ * live in `app/[slug]/hub/page.tsx` the entire time it was green: the same
+ * `event_members … .select('member_type')` read, coerced straight to a boolean,
+ * so a guest who had merely scanned the event QR read as a HOST and could use
+ * `?phase=` to switch on day-of surfaces the couple had not launched. It was not
+ * on the list, so nothing could fire. A fourth copy sat in the save-the-date
+ * view beacon, silently deleting a guest's view from the couple's own count.
  *
- * 1 · BOTH TWINS FILTER ON THE ONE SHARED DEFINITION.
+ * 🔑 A HAND-ENUMERATED LIST IS A LIST OF THE DOORS SOMEBODY THOUGHT OF. The
+ * sweep below therefore DERIVES its file set from the tree and fails on ANY
+ * occurrence of the shape, including one written tomorrow in a file that does
+ * not exist yet. `lib/slug-access.ts` used to claim rev 1 "pins BOTH by source
+ * so a third copy cannot quietly hold a laxer rule"; it could not, and that
+ * sentence is corrected there.
+ *
+ * ── WHAT IT PINS ────────────────────────────────────────────────────────────
+ * 1 · NO UNCONSTRAINED `member_type` READ ANYWHERE (the derived sweep).
  *   `event_members` IS NOT A HOST TABLE — `'guest'` is one of its member types,
  *   written by the event-QR scan-to-join, the cookie link and the cross-device
- *   magic link. `loadHostMembership` (app/[slug]/_lib/loaders.ts) was fixed and
- *   pinned; its clone `isSignedInEventHost` (lib/slug-access.ts) never inherited
- *   the fix, so ANY signed-in member — a guest who merely scanned the QR — read
- *   as a HOST: through the private gate on all seven sub-routes, and past the
- *   keepsake reader, which answers true for a host BEFORE it tests the audience.
- *   A clone inherits the bug its twin fixed, so the guard covers the PAIR.
+ *   magic link. Asking for `member_type` and never comparing it is the defect,
+ *   whatever the file. An existence check ("are they on this event at all") is
+ *   legitimate and simply must not request the column it has no opinion about.
  *
- * 2 · THE SHARED GATE HAS A SEAT-HOLDER ARM.
+ * 2 · THE TWO SHARED DEFINITIONS FILTER ON THE ONE SHARED CONSTANT.
+ *   `loadHostMembership` (app/[slug]/_lib/loaders.ts) and `isSignedInEventHost`
+ *   (lib/slug-access.ts) are what every surface is expected to reach for, so
+ *   they are asserted positively too — a sweep can only prove the ABSENCE of the
+ *   bad shape, never the PRESENCE of the good one.
+ *
+ * 3 · THE SHARED GATE HAS A SEAT-HOLDER ARM.
  *   The over-wide host check was masking a missing arm: `app/[slug]/page.tsx`
  *   admits a seat-holder on `private`, the shared gate did not. Narrowing host
  *   without adding it would bounce every invited guest whose 60-day cookie has
  *   expired — the ordinary case, since save-the-dates go out 6–12 months ahead.
- *   The two must never diverge again, so both are asserted here.
  *
  * ── MUTATIONS, EACH MEASURED BY OCCURRENCE COUNT ────────────────────────────
- * · delete the member-type filter from either twin → `.in('member_type'` across
- *   the two files 2 → 1 · RED.
+ * · gut the member-type filter in EITHER twin → `.in('member_type'` in that file
+ *   1 → 0 · RED (rules 1 and 2 both).
+ * · re-inline the pre-fix host read in app/[slug]/hub/page.tsx → sweep offenders
+ *   0 → 1 · RED.
+ * · gut the filter in app/api/std/view/route.ts → offenders 0 → 1 · RED.
  * · delete the seat-holder arm from the shared gate → `findGuestSeatForUser`
  *   in slug-access.ts 1 → 0 · RED.
  * · delete it from the page instead → in page.tsx 2 → 0 · RED.
- * An unmeasured mutation proves nothing; five guards have shipped in this repo
- * protecting nothing, and every one was found by counting.
+ * An unmeasured mutation proves nothing; guards have shipped in this repo five
+ * separate times protecting nothing, and every one was found by counting.
+ *
+ * ⚠ AND THE SWEEP IS FLOORED. An empty sweep is the failure mode a derived guard
+ * invites: rename a directory or tighten a regex and "0 offenders" reads exactly
+ * like a clean tree. The floors fail this test when the scan stops SEEING
+ * things, so it cannot go quiet without saying so.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { HOST_MEMBER_TYPES, isHostMemberType } from '@/app/[slug]/_lib/host-scope';
@@ -53,7 +74,106 @@ function count(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
-test('both host reads FILTER on member_type, not merely select it', () => {
+// ── THE DERIVED SWEEP ───────────────────────────────────────────────────────
+
+/** Every shipped source file under the app + lib trees. Tests are excluded — a
+ *  test may legitimately spell the bad shape out in order to describe it. */
+function sourceFiles(): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules' || entry === '.next') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry)) out.push(p);
+    }
+  };
+  for (const root of ['app', 'lib']) walk(join(WEB, root));
+  return out;
+}
+
+/** How far past a `.from('event_members')` we look for the comparison. Wide
+ *  enough to cover a `Promise.all` pair plus the branch that consumes it. */
+const WINDOW = 2500;
+
+type Sweep = {
+  files: number;
+  chains: number;
+  selectingMemberType: number;
+  offenders: string[];
+};
+
+/**
+ * Find every `event_members` read that ASKS FOR `member_type` and never compares
+ * it — neither in the query (`.in(` / `.eq(` / `.neq(` / `.not(`) nor in the code
+ * that consumes the row.
+ */
+function sweepEventMemberReads(): Sweep {
+  const files = sourceFiles();
+  let chains = 0;
+  let selectingMemberType = 0;
+  const offenders: string[] = [];
+
+  for (const file of files) {
+    const src = readFileSync(file, 'utf8');
+    let i = 0;
+    while ((i = src.indexOf(".from('event_members')", i)) !== -1) {
+      chains++;
+      const win = src.slice(i, i + WINDOW);
+      const selected = /\.select\(\s*['"`][^'"`]*member_type/.exec(win);
+      if (selected) {
+        selectingMemberType++;
+        const constrainedInQuery = /\.(in|eq|neq|not)\(\s*['"`]member_type/.test(win);
+        const consumed =
+          /member_type/.test(win.slice(selected.index + selected[0].length)) ||
+          /isHostMemberType|HOST_MEMBER_TYPES/.test(win);
+        if (!constrainedInQuery && !consumed) {
+          offenders.push(`${relative(WEB, file)}:${src.slice(0, i).split('\n').length}`);
+        }
+      }
+      i += 10;
+    }
+  }
+  return { files: files.length, chains, selectingMemberType, offenders };
+}
+
+test('NO event_members read asks for member_type and then never compares it', () => {
+  const sweep = sweepEventMemberReads();
+
+  // THE FLOOR FIRST. A sweep that has stopped seeing anything reports zero
+  // offenders, which is indistinguishable from a clean tree. These numbers sit
+  // deliberately far below the real counts when this was written (3,275 files ·
+  // 235 reads · 97 selecting member_type) so ordinary churn never trips them and
+  // a scan gone blind always does.
+  assert.ok(
+    sweep.files >= 500,
+    `the sweep found only ${sweep.files} source files — it has gone blind, not clean`,
+  );
+  assert.ok(
+    sweep.chains >= 50,
+    `only ${sweep.chains} event_members reads found — either the query spelling ` +
+      'changed or the walk no longer reaches the tree. An empty sweep is not a pass.',
+  );
+  assert.ok(
+    sweep.selectingMemberType >= 20,
+    `only ${sweep.selectingMemberType} reads select member_type — the .select() ` +
+      'match no longer recognises the real spelling; this guard is now decoration',
+  );
+
+  assert.deepEqual(
+    sweep.offenders,
+    [],
+    'These reads ask event_members for `member_type` and never compare it, so ANY ' +
+      "member row — a QR-scan guest's included — answers the question. That is the " +
+      'bug host-scope.ts was written to kill, and it shipped three times. Either ' +
+      'filter on HOST_MEMBER_TYPES, or stop selecting a column you have no opinion ' +
+      `about.\n${sweep.offenders.map((o) => `  · ${o}`).join('\n')}`,
+  );
+});
+
+// ── THE POSITIVE PINS ───────────────────────────────────────────────────────
+
+test('both shared host reads FILTER on member_type, not merely select it', () => {
   const filter = ".in('member_type', [...HOST_MEMBER_TYPES])";
   const found = [SHARED_GATE, CACHED_TWIN].map((f) => count(read(f), filter));
   assert.deepEqual(
@@ -63,14 +183,9 @@ test('both host reads FILTER on member_type, not merely select it', () => {
       'HOST_MEMBER_TYPES. A read that selects member_type without comparing it ' +
       'treats a QR-scan guest as a host — the bug host-scope.ts was written to kill.',
   );
-  assert.equal(
-    found.reduce((a, b) => a + b, 0),
-    2,
-    'the pair is what is pinned; one copy holding a laxer rule is the defect',
-  );
 });
 
-test('both host reads import the ONE shared definition, never a retyped literal', () => {
+test('both shared host reads import the ONE definition, never a retyped literal', () => {
   for (const file of [SHARED_GATE, CACHED_TWIN]) {
     assert.ok(
       /import\s*\{[^}]*HOST_MEMBER_TYPES/.test(read(file)),

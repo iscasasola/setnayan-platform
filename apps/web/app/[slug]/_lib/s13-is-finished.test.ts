@@ -60,8 +60,6 @@ const ALLOWED: Record<string, string> = {
     "The resolver's own default parameter (`?? 'wedding'`), matching every other guest-tree call site.",
   '_components/countdown.tsx':
     'The wedding-vow branch. A wedding keeps "Until we say ‘I do’"; every other type reads "Until the day".',
-  '_components/empty-states.tsx':
-    'UNREACHABLE — nothing passes kind="photos". Rewording a string no guest can reach would be a fix nobody can see.',
   '_components/save-the-date.tsx':
     'A calendar UID (`wedding-<id>@setnayan.com`). Never rendered; changing it would break calendar de-duplication for invitations already sent.',
   '_lib/event-noun.ts':

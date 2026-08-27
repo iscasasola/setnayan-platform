@@ -198,9 +198,9 @@ export default async function GalleriesHubPage({ params }: Props) {
     const ready = ourPhotosMeasured && ourPhotos.length > 0;
     sources.push({
       key: 'our-photos',
-      name: 'Your photos',
+      name: 'Photos you add',
       blurb: ready
-        ? 'The photos you chose for your Event Hub.'
+        ? 'The photos you uploaded to your Event Hub.'
         : ourPhotosMeasured
           ? 'Add your own photos to your Event Hub.'
           : 'We couldn’t check your photos just now — this does not mean there are none. Open your photos to look, and reload in a moment.',

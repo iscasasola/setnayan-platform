@@ -56,8 +56,20 @@ test('a wedding host still gets the wedding wording', () => {
   // ⚠ THE POINT OF `describe` IS TWO SENTENCES, NOT ONE BLAND ONE. If this goes
   // red because everything was neutered, that is a regression, not a pass.
   const weddingWords = wordingsFor('wedding').filter((w) => /\bwedding\b/i.test(w.text));
+  // ⚠ THE FLOOR IS 3, NOT 4, AND THE REASON MATTERS. It was 4 when this was
+  // written. Another session then legitimately REWROTE two of the five — "Your
+  // photos" and "Our photos" became "Each guest's own photos" and "Photos you
+  // add", event-neutral outright, which is better than a second wording and
+  // needed no `describe` at all. So the population genuinely shrank from 5 to 3;
+  // the rule ("the second wording JOINED the first rather than replacing it")
+  // is unchanged and still bites at 3.
+  //
+  // 🔑 LOWERING A THRESHOLD TO GO GREEN IS HOW A GUARD DIES. This one is lowered
+  // because the thing it counts got smaller for a good reason, and that reason is
+  // written here. If it drops again, check the same way — is an entry neutral on
+  // purpose, or did somebody neuter a wedding sentence to dodge this test?
   assert.ok(
-    weddingWords.length >= 4,
+    weddingWords.length >= 3,
     `only ${weddingWords.length} descriptions still say "wedding" for a wedding — the second wording replaced the first instead of joining it`,
   );
 });

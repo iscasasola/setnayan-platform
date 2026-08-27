@@ -169,16 +169,15 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
   },
   {
     type: 'photo_moments',
-    label: 'Photo moments',
-    description: 'Tell guests when to lift the camera and when to stay present.',
+    label: 'Camera cues',
+    description: 'When you want guests shooting, and when you want them present.',
     is_always_on: false,
     editor_subroute: 'photo-moments',
   },
   {
     type: 'your_photos',
-    label: 'Your photos',
-    description: 'A space for the guest’s tagged photos after the wedding.',
-    describe: (noun) => `A space for the guest’s tagged photos after the ${noun}.`,
+    label: 'Each guest’s own photos',
+    description: 'The card promising every guest the photos they are tagged in.',
     is_always_on: false,
     editor_subroute: null,
   },
@@ -205,13 +204,8 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
   },
   {
     type: 'our_photos',
-    label: 'Our photos',
-    // ⚠ NO `describe` HERE, DELIBERATELY. This sentence named "engagement or
-    // pre-wedding shots" — wedding-only, and there is no wedding-flavoured
-    // version worth keeping, so the base sentence is simply corrected for every
-    // type. A `describe` that returns the same string for both nouns is
-    // decoration, and my own guard caught exactly that on the first cut.
-    description: 'A gallery of your own photos — the ones you already have.',
+    label: 'Photos you add',
+    description: 'A gallery of photos you upload yourself, shown to everyone.',
     is_always_on: false,
     editor_subroute: 'our-photos',
   },

@@ -57,6 +57,7 @@ const SAMPLE: Record<UgatRecordKind, UgatRecordRef> = {
   event: { kind: 'event', publicId: 'S89E-ABCDEFGHJK', slug: 'ana-at-marco' },
   order: { kind: 'order' },
   taxonomy: { kind: 'taxonomy', tileId: 'photo-video', canonicalService: 'setnayan_photo' },
+  guest: { kind: 'guest', eventPublicId: 'S89E-ABCDEFGHJK', eventSlug: 'ana-at-marco' },
 };
 
 /** Every routable page in the admin tree, as segment arrays. `[x]` = wildcard. */
@@ -155,6 +156,45 @@ test('a taxonomy leaf with no tile still opens somewhere real', () => {
 
 test('an event with neither a public id nor a slug still opens somewhere real', () => {
   const href = ugatRecordHref({ kind: 'event', publicId: null, slug: null });
+  assert.ok(resolvesToARealPage(href), `${href} does not resolve`);
+});
+
+test('a guest opens their CELEBRATION, narrowed to it — never a page of every guest', () => {
+  // A guest has no admin page. The honest destination is the celebration, and
+  // it must carry the term that narrows the list to that one row — a link to
+  // the unfiltered events tab would be the "opens a list" defect all over again.
+  const href = ugatRecordHref(SAMPLE.guest);
+  assert.ok(resolvesToARealPage(href), `${href} does not resolve`);
+  assert.match(href, /[?&]q=S89E-ABCDEFGHJK/, 'the guest hit did not narrow to its celebration');
+
+  // The guest's OWN id must never appear: there is nowhere to carry it to, and
+  // a link that looks per-guest but is not is worse than an honest one.
+  const withIds = ugatRecordHref({
+    kind: 'guest',
+    eventPublicId: 'S89E-ZZZZZZZZZZ',
+    eventSlug: 'some-wedding',
+  });
+  assert.doesNotMatch(withIds, /guest/i, `a guest id leaked into the destination: ${withIds}`);
+});
+
+test('a guest and their event resolve to the SAME address, by delegation', () => {
+  // Two hand-written copies of one URL drift. If the events surface ever moves,
+  // a guest must move with it — this fails the moment they are written twice.
+  const asGuest = ugatRecordHref({
+    kind: 'guest',
+    eventPublicId: 'S89E-ABCDEFGHJK',
+    eventSlug: 'ana-at-marco',
+  });
+  const asEvent = ugatRecordHref({
+    kind: 'event',
+    publicId: 'S89E-ABCDEFGHJK',
+    slug: 'ana-at-marco',
+  });
+  assert.equal(asGuest, asEvent, 'a guest and their celebration drifted to different addresses');
+});
+
+test('a guest whose celebration has neither id nor slug still opens somewhere real', () => {
+  const href = ugatRecordHref({ kind: 'guest', eventPublicId: null, eventSlug: null });
   assert.ok(resolvesToARealPage(href), `${href} does not resolve`);
 });
 

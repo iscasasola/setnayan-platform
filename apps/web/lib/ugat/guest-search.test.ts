@@ -45,15 +45,40 @@ const DATA_TS = join(HERE, 'data.ts');
 const CONSOLE_TSX = join(WEB_ROOT, 'app', 'admin', 'ugat', '_components', 'ugat-console.tsx');
 const ACTIONS_TS = join(WEB_ROOT, 'app', 'admin', 'ugat', 'actions.ts');
 
-/** The guest read, isolated — so a count below is about THAT query, not the file. */
+/**
+ * The SEARCH's guest read, isolated — so a count below is about THAT query.
+ *
+ * 🪤 THIS HELPER WAS DECORATIVE ON ITS FIRST RUN, AND IT TOOK THE TWO MOST
+ * IMPORTANT ASSERTIONS IN THIS FILE DOWN WITH IT. It located the query with
+ * `indexOf(".from('guests')")` — but this module reads `guests` TWICE, and the
+ * first hit is the per-event RSVP TALLY several hundred lines earlier. So the
+ * contact-detail fence was inspecting a query that selects two columns, and
+ * adding `email` to the real search passed. Worse, the deleted-guest assertion
+ * passed FOR THE WRONG REASON: the tally has its own `deleted_at` filter, so
+ * deleting the search's filter changed nothing the guard could see. Both were
+ * caught only by mutation, never by reading.
+ *
+ * Anchored to `ugatSearchInner`'s body first, then to the read inside it. The
+ * floor assertion below is what stops a future rename silently collapsing this
+ * to an empty string, which would make every "does not contain" assertion pass.
+ */
 function guestSelectBlock(): string {
   const src = stripComments(readFileSync(DATA_TS, 'utf8'));
-  const start = src.indexOf(".from('guests')");
-  assert.ok(start > 0, "the search no longer reads from('guests') at all");
-  // From the guests read to the end of its chained call. Deliberately scoped:
-  // a file-level match cannot say WHICH query named a column, and this repo has
-  // shipped a decorative guard that way more than once.
-  return src.slice(start, start + 900);
+  const fnStart = src.indexOf('async function ugatSearchInner');
+  assert.ok(fnStart > 0, 'ugatSearchInner could not be located');
+  const fnEnd = src.indexOf('export const ugatSearch', fnStart);
+  assert.ok(fnEnd > fnStart, 'the end of ugatSearchInner could not be located');
+  const body = src.slice(fnStart, fnEnd);
+
+  const start = body.indexOf(".from('guests')");
+  assert.ok(start >= 0, "the SEARCH no longer reads from('guests') at all");
+  const block = body.slice(start, start + 700);
+
+  // FLOOR — an empty or mislocated block makes every negative assertion below
+  // vacuously true. These two prove we are looking at the search's own query.
+  assert.match(block, /first_name/, 'the located block is not the search query (no first_name)');
+  assert.match(block, /rsvp_status/, 'the located block is not the search query (no rsvp_status)');
+  return block;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

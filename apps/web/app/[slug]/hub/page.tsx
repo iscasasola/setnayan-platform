@@ -616,9 +616,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             </Link>
           ) : (
             <p className="text-sm text-ink/55">
-              {words.organizerIsHonoree
-                ? 'Seats will be assigned closer to the day.'
-                : `${words.TheOrganizer} will assign seats closer to the day.`}
+              {`${words.TheHost} will assign seats closer to the day.`}
             </p>
           )}
         </article>
@@ -711,9 +709,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             Day-of schedule
           </p>
           <p className="mt-2 text-sm text-ink/60">
-            {words.organizerIsHonoree
-              ? 'The program hasn’t been published yet. Check back closer to the day.'
-              : `${words.TheOrganizer} hasn’t published the program yet. Check back closer to the day.`}
+            {`${words.TheHost} hasn’t published the program yet. Check back closer to the day.`}
           </p>
         </article>
       )}

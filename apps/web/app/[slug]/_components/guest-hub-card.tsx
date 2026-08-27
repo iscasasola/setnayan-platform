@@ -386,9 +386,7 @@ export function GuestHubCard({
                 </Link>
               ) : (
                 <span className="mt-0.5 text-xs text-ink/45">
-                  {words.organizerIsHonoree
-                ? 'Seats will be assigned closer to the date.'
-                : `${words.TheOrganizer} will assign seats closer to the date.`}
+                  {`${words.TheHost} will assign seats closer to the date.`}
                 </span>
               )}
             </div>

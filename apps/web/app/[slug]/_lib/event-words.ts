@@ -42,8 +42,12 @@
  * host", which is correct-but-plain for every non-wedding type — never wrong.
  */
 import {
+  defaultHostNoun,
+  HONOREE_NOUNS,
   resolveProfile,
   resolveProfileByEvent,
+  shapedCelebrant,
+  type CelebrantShape,
   type EventTypeProfile,
 } from '@/lib/event-type-profile';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -106,15 +110,52 @@ export type EventWords = {
    * where `celebrant` does not.
    */
   organizerIsHonoree: boolean;
+
+  // ── THE HOST AXIS AND THE CELEBRANT AXIS (owner ruling 2026-08-27) ────────
+  //
+  // Owner, verbatim: *"each event can be set to a single host or multiple host.
+  // depending on the type of event. yes, there can be multiple hosts for every
+  // event, but the one celebratiing is the celebrant that can be single,
+  // couple, or multiple people."*
+  //
+  // 🔑 THIS SUPERSEDES THE 2026-08-18 WORKAROUND, IT DOES NOT CONTRADICT IT.
+  // That ruling kept ONE noun and had the six admin sentences DROP the person
+  // when it named the honoree — "The seating plan hasn't been published" rather
+  // than "The celebrant hasn't published the seating plan". It was the right
+  // call with one word available. With two, the sentence can name the right
+  // people instead of naming nobody, which is what those sentences were always
+  // trying to do. `organizerIsHonoree` is kept and still true; it no longer has
+  // to carry the repair.
+  //
+  // 🔒 A WEDDING IS UNAFFECTED IN EVERY FIELD BELOW. Both nouns are 'couple'
+  // and 'couple' is collective, so no shape can pluralise it.
+
+  /** Bare host noun, lower case — 'couple' · 'family' · 'host' · 'organizer'. */
+  host: string;
+  /** 'the couple' · 'the host' — who does the admin work, mid-sentence. */
+  theHost: string;
+  /** 'The couple' — sentence-initial. */
+  TheHost: string;
+  /** 'the couple’s' — mid-sentence possessive. */
+  theHostPossessive: string;
+  /** 'The couple’s' — sentence-initial possessive. */
+  TheHostPossessive: string;
+
+  /** Bare celebrant noun, ALREADY SHAPED — 'couple' · 'celebrant' · 'graduates'. */
+  celebrant: string;
+  /** 'the couple' · 'the celebrant' · 'the graduates' — who the event is FOR. */
+  theCelebrant: string;
+  /** 'The couple' — sentence-initial. */
+  TheCelebrant: string;
+  /** 'the couple’s' — mid-sentence possessive. */
+  theCelebrantPossessive: string;
+  /** 'The couple’s' — sentence-initial possessive. */
+  TheCelebrantPossessive: string;
+  /** How many people the celebrant is: 'single' · 'couple' · 'multiple'. */
+  celebrantShape: CelebrantShape;
 };
 
-/**
- * The two words that name who the event is ABOUT. Anything else — including a
- * word added later — is treated as the organiser and keeps being named, which
- * is today's behaviour and the safe direction: naming a real organiser reads
- * fine, naming a child who arranged nothing does not.
- */
-const HONOREE_NOUNS = new Set(['celebrant', 'graduate']);
+
 
 /** 'couple' → 'couple’s'. A noun already ending in s takes the bare mark
  *  ('parents' → 'parents’'), which is why this is a function and not a `+ "’s"`
@@ -147,6 +188,36 @@ export function eventWordsFromProfile(profile: EventTypeProfile): EventWords {
     occasion,
     solemn: profile.terminology.register === 'solemn',
     organizerIsHonoree: HONOREE_NOUNS.has(organizer),
+    ...peopleWords(profile),
+  };
+}
+
+/**
+ * The host and celebrant axes. Split out so the fallback chain is readable in
+ * one place: every noun here is `''`-guarded the same way the organiser noun
+ * is, because this file is downstream of an admin-editable table and a blank
+ * would render "The  hasn’t published the seating plan".
+ */
+function peopleWords(profile: EventTypeProfile) {
+  const t = profile.terminology;
+  // Falling back through the ORGANISER noun (not a literal) is what keeps a
+  // wedding byte-identical when a row predates these keys: 'couple' → 'couple'.
+  const organizer = t.organizerNoun?.trim() || 'host';
+  const host = t.hostNoun?.trim() || defaultHostNoun(organizer);
+  const shape = t.celebrantShape ?? 'single';
+  const celebrant = shapedCelebrant(t.celebrantNoun?.trim() || organizer, shape);
+  return {
+    host,
+    theHost: `the ${host}`,
+    TheHost: `The ${host}`,
+    theHostPossessive: `the ${possessiveOf(host)}`,
+    TheHostPossessive: `The ${possessiveOf(host)}`,
+    celebrant,
+    theCelebrant: `the ${celebrant}`,
+    TheCelebrant: `The ${celebrant}`,
+    theCelebrantPossessive: `the ${possessiveOf(celebrant)}`,
+    TheCelebrantPossessive: `The ${possessiveOf(celebrant)}`,
+    celebrantShape: shape,
   };
 }
 

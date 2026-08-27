@@ -9,6 +9,7 @@
 // fields) stay stale after wizard save".
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { resolveCadence } from '@/lib/event-anchor';
+import { isCelebrantShape } from '@/lib/event-type-profile';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -712,6 +713,24 @@ export async function updateEventMatchCriteria(
   //
   // Absent from the form ⇒ untouched. A person editing their budget must not
   // silently switch off a repeat they never saw.
+  // ── WHO IS BEING CELEBRATED, AND HOW MANY OF THEM ──────────────────────────
+  // Owner 2026-08-27: *"the one celebratiing is the celebrant that can be
+  // single, couple, or multiple people."* Hosts are not asked about — however
+  // many there are is a COUNT of this event's host members, never a stored
+  // second copy of a fact the database already holds.
+  //
+  // Absent from the form ⇒ untouched, the same rule as the budget and the
+  // repeat above. An EMPTY value is meaningful and different: it clears back to
+  // the event type's own shape.
+  if (formData.has('celebrant_shape')) {
+    const raw = formData.get('celebrant_shape');
+    const shape = typeof raw === 'string' ? raw.trim() : '';
+    if (shape !== '' && !isCelebrantShape(shape)) {
+      return { ok: false, code: 'invalid_input', message: 'Invalid celebrant shape' };
+    }
+    updatePatch.celebrant_shape = shape === '' ? null : shape;
+  }
+
   if (formData.has('recur_cadence')) {
     // The SERVER's view of what this event is — never a type posted by the
     // client, the same rule the BaZi gate below follows for ceremony_type.

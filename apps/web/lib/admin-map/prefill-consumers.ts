@@ -4,14 +4,25 @@
  * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
  * The search box can gather answers for any of the 185 form-driven jobs and
  * navigate to `?admin_ask=<job>&aa_<field>=<value>`. Reading those params back
- * is per-page work, and measured over the shipped tree exactly ONE page does
- * it — the taxonomy studio — for exactly ONE job.
+ * is per-page work, and measured over the shipped tree TWO jobs are wired, both
+ * on the taxonomy studio. The other 183 are not, and the box says so.
  *
- * So for 184 of 185 jobs the box was asking up to eight questions, promising
- * on screen that *"the page opens with this filled in"*, and then opening a
- * page that never looked. The admin retyped everything, with no error and
- * nothing to blame. **A promise nothing keeps is the failure this console has
- * paid for repeatedly — a gate with no handle, in a new costume.**
+ * Before this registry existed the box asked up to eight questions for any of
+ * them, promised on screen that *"the page opens with this filled in"*, and
+ * then opened a page that never looked. The admin retyped everything, with no
+ * error and nothing to blame. **A promise nothing keeps is the failure this
+ * console has paid for repeatedly — a gate with no handle, in a new costume.**
+ *
+ * 🔴 AND THE FIRST CUT REGISTERED THE WRONG JOB FOR THE OWNER'S OWN SENTENCE.
+ * `createCanonicalLeaf` was wired and described in three files as *"the job
+ * behind the box's own flagship example"*. It is not. The owner typed **"add a
+ * new category on the taxonomy service"**, and a CATEGORY is a node under a
+ * parent — `createTaxonomyNode`. `createCanonicalLeaf` adds a SERVICE inside a
+ * category that already exists: a different act, on a different form. So the
+ * one sentence this whole feature was built for asked its two questions and
+ * threw both away, while every guard stayed green because the job that WAS
+ * wired was wired correctly. **Naming the flagship wrongly is how a feature
+ * comes to be complete for everything except the case it exists for.**
  *
  * 🔑 THIS LIST IS NOT TRUSTED — IT IS CHECKED. `prefill-consumers.test.ts`
  * scans every admin page for code that compares the ask marker against a job
@@ -27,7 +38,12 @@
  * Add a name here ONLY together with the code that reads it — the guard
  * derives the truth from the pages themselves.
  */
-export const PREFILL_CONSUMER_JOBS: readonly string[] = ['createCanonicalLeaf'];
+export const PREFILL_CONSUMER_JOBS: readonly string[] = [
+  /** Add a CATEGORY (a tile under a parent folder) — the owner's own sentence. */
+  'createTaxonomyNode',
+  /** Add a SERVICE inside a category that already exists. */
+  'createCanonicalLeaf',
+];
 
 const CONSUMERS = new Set(PREFILL_CONSUMER_JOBS);
 

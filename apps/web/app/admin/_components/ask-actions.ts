@@ -52,11 +52,17 @@ export async function askTheAdmin(
   // list for no gain: a model choosing between 22 Papic SKUs is not the question
   // anybody is asking when the word matching has already failed.
   //
-  // 🔑 RANK FIRST, SLICE SECOND. This used to be `choices.slice(0, 120)` over a
-  // list built as [...pages, ...jobs], which cut 151 of the 185 form-driven jobs
-  // — 82% — purely because they sorted late. `createTaxonomyNode` was already
-  // gone and `createCanonicalLeaf`, the flagship, was four pages from following
-  // it. See rank-choices.ts for the measurements and for why the cap is 140.
+  // 🔑 RANK FIRST, SLICE SECOND, AND CAPABILITY COUNTS. This used to be
+  // `choices.slice(0, 120)` over a list built as [...pages, ...jobs], which cut
+  // 151 of the 185 form-driven jobs — 82% — purely because they sorted late.
+  // `createTaxonomyNode` — the job the owner's own sentence asks for — was
+  // already gone, and `createCanonicalLeaf` was four pages from following it.
+  //
+  // Ranking on word overlap alone then made that sentence WORSE, not better: it
+  // promoted ten more jobs that cannot fill a form past the two that can,
+  // because they carry the literal word "category" while the capable pair are
+  // labelled "node" and "leaf". See rank-choices.ts for both measurements, for
+  // why the cap is 140, and for why the capability nudge is gated on overlap.
   const answer = await askTheModel(question, rankChoicesForModel(choices, question));
   if (!answer) return { ok: false, reason: 'nothing' };
 

@@ -80,3 +80,21 @@ export function buildNavRows<T>(offerAsk: boolean, hits: readonly T[]): PaletteN
     ...hits.map((dest) => ({ kind: 'dest' as const, dest })),
   ];
 }
+
+/**
+ * How far page hit `i` is pushed down the nav list — DERIVED FROM THE ROWS.
+ *
+ * 🔑 THE HIGHLIGHT AND THE THING ENTER OPENS ARE TWO READINGS OF ONE LIST, and
+ * the palette computes the second one as `i + offset`. An offset kept as its
+ * own literal is a second opinion about the same fact: get it wrong and every
+ * page row paints its highlight one place away from the row Enter actually
+ * opens — the palette's own comment calls that "its own live bug", and nothing
+ * executed it.
+ *
+ * Counting the non-destination rows makes the two impossible to disagree, and
+ * `the highlighted row is the row Enter opens` in the escape-hatch guard walks
+ * every hit through it rather than asserting the number 1.
+ */
+export function hitOffsetOf<T>(rows: readonly PaletteNavRow<T>[]): number {
+  return rows.filter((row) => row.kind !== 'dest').length;
+}

@@ -306,6 +306,29 @@ export type AddServicePrefill = {
   isPh: boolean;
 };
 
+/**
+ * What the search box's assistant gathered for `createTaxonomyNode` — ADD A
+ * CATEGORY, which is the owner's own sentence ("add a new category on the
+ * taxonomy service") and a different act from adding a service to a category
+ * that already exists (`AddServicePrefill`, above).
+ *
+ * The parent is carried as the admin's own WORDS, not an id — the box never
+ * knows a real `parent_id` — so the studio resolves it against the real folder
+ * list. `parentId` is null when nothing matched: an honest miss, which leaves
+ * the folder picker on whatever is already selected rather than guessing and
+ * filing a category under the wrong parent.
+ */
+export type NewCategoryPrefill = {
+  /** Remount key, same job as `AddServicePrefill.nonce` — a second ask must
+   *  refresh the uncontrolled inputs of a form that is already open. */
+  nonce: string;
+  parentId: string | null;
+  /** The words the admin gave for the parent, shown when they resolved to
+   *  nothing so the miss is visible rather than silent. */
+  parentQuery: string;
+  labelEn: string;
+};
+
 export type StudioView =
   | 'all'
   | 'faith'
@@ -314,6 +337,18 @@ export type StudioView =
   | 'requests'
   | 'vocab-event'
   | 'vocab-faith';
+
+/**
+ * The views that still render the folder rail + tile grid — and therefore the
+ * only ones where the "new category" composer can be seen at all. The other
+ * four (`unfiled` · `requests` · both vocabularies) replace that whole pane.
+ *
+ * Derived from the ONE render branch that decides it, not from memory: an ask
+ * arriving while the admin sits on Requests must move them somewhere the
+ * prepared form is visible, or the box has "prepared" something into a pane
+ * that is not on screen.
+ */
+const VIEWS_WITH_TILE_GRID = new Set<StudioView>(['all', 'faith', 'scoped']);
 
 const PHASE_TONE_BASE = 'bg-ink/5 text-ink/70';
 
@@ -364,11 +399,18 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
 
   // ── Prefilled from the search box's assistant (createCanonicalLeaf) ─────────
   //
-  // The admin can now ask the search box "add a new category on the taxonomy
-  // service" and answer a few questions there; it navigates here carrying
-  // `?admin_ask=createCanonicalLeaf&aa_<field>=<value>`. This is the ONE
-  // consumer wired so far — see `lib/admin-map/humanize-field.ts` for the
-  // param contract and `admin-command-palette.tsx` for where it is built.
+  // The admin asks the search box to add a SERVICE to a tile and answers a few
+  // questions there; it navigates here carrying
+  // `?admin_ask=createCanonicalLeaf&aa_<field>=<value>`. See
+  // `lib/admin-map/humanize-field.ts` for the param contract and
+  // `admin-command-palette.tsx` for where it is built.
+  //
+  // ⚠ THIS IS NOT THE OWNER'S SENTENCE. This docblock used to claim it handled
+  // *"add a new category on the taxonomy service"*. It does not and cannot: a
+  // CATEGORY is a tile under a parent folder — `createTaxonomyNode`, read by
+  // the effect below. Adding a SERVICE goes inside a category that already
+  // exists. Two acts, two forms; naming the wrong one here is what let three
+  // pull requests ship believing the flagship case was covered.
   //
   // 🔑 THE ASSISTANT NEVER KNOWS A REAL tile_id — it only has the words the
   // admin typed for "which tile", so this resolves that text against the real
@@ -431,6 +473,49 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
       isPh: searchParams.get('aa_is_ph') === '1',
     });
   }, [searchParams, askSignature, data.tiles]);
+
+  // ── Prefilled from the search box's assistant (createTaxonomyNode) ─────────
+  //
+  // 🔴 THE ONE THE OWNER ACTUALLY ASKED FOR. He typed, in production, "add a
+  // new category on the taxonomy service". A CATEGORY is a tile under a parent
+  // folder — `createTaxonomyNode` — not a service inside a category, which is
+  // the sibling effect above. For three attempts the box asked his two
+  // questions (which parent · what label) and threw both answers away, because
+  // this page only ever read the OTHER job's marker. Every guard stayed green:
+  // the job that was wired was wired correctly.
+  //
+  // 🔑 THE PARENT IS RESOLVED, NEVER GUESSED, AND THE FORM SHOWS IT. The box
+  // only has the words the admin typed, so a miss leaves the picker on the
+  // folder already selected and says so on screen — filing a category under a
+  // silently-wrong parent is worse than asking once more.
+  const [newCategoryPrefill, setNewCategoryPrefill] = useState<NewCategoryPrefill | null>(null);
+  const appliedCategoryAskRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get(ADMIN_ASK_PARAM) !== 'createTaxonomyNode') return;
+    if (appliedCategoryAskRef.current === askSignature) return;
+    appliedCategoryAskRef.current = askSignature;
+    const parentQuery = (searchParams.get('aa_parent_id') ?? '').trim();
+    const needle = parentQuery.toLowerCase();
+    const parent = needle
+      ? (data.folders.find((f) => f.id.toLowerCase() === needle) ??
+        data.folders.find((f) => f.label.toLowerCase() === needle) ??
+        data.folders.find((f) => f.label.toLowerCase().includes(needle)) ??
+        data.folders.find((f) => needle.includes(f.label.toLowerCase())))
+      : undefined;
+    if (parent) setSelectedFolder(parent.id);
+    // The composer lives in the tile grid, and four views replace that grid
+    // entirely (Unfiled · Requests · both vocabularies). Landing an ask on one
+    // of them would render the prepared form nowhere at all — the same
+    // "prepared and invisible" failure this whole feature keeps producing.
+    setView((v) => (VIEWS_WITH_TILE_GRID.has(v) ? v : 'all'));
+    setNewCategoryPrefill({
+      nonce: askSignature,
+      parentId: parent?.id ?? null,
+      parentQuery,
+      labelEn: searchParams.get('aa_label_en') ?? '',
+    });
+  }, [searchParams, askSignature, data.folders]);
 
   const [dragTileId, setDragTileId] = useState<string | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
@@ -781,6 +866,85 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
 
           {/* ── Center — tile cards ──────────────────────────────────────── */}
           <div className={pending ? 'opacity-60 transition-opacity' : ''}>
+            {/*
+              THE PREPARED CATEGORY, ABOVE THE GRID SO IT IS THE FIRST THING ON
+              SCREEN. It renders ONLY when the search box actually prepared one
+              — the everyday "Add tile" ghost at the end of the grid is
+              untouched, so nothing about the ordinary flow changes.
+
+              🔒 IT PREPARES, IT NEVER PRESSES. This is a real <form action=…>
+              posting the real `createTaxonomyNode`; the values are
+              `defaultValue`s the admin can edit, and the category exists only
+              once THEY press Create. That is the one-person admin plan
+              (2026-07-11) — the machine may prepare and hold back.
+            */}
+            {newCategoryPrefill ? (
+              <form
+                // The nonce remounts the uncontrolled inputs, or a SECOND ask
+                // would leave the first ask's answers sitting in the boxes.
+                key={newCategoryPrefill.nonce}
+                action={createTaxonomyNode}
+                className="mb-4 rounded-xl border border-success-200 bg-success-50/40 p-3"
+              >
+                <p className="flex items-center gap-1.5 text-[11px] text-success-800">
+                  <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
+                  Prepared from your question in the search box — check the folder and the
+                  name, then press Create category yourself. Nothing has been added yet.
+                </p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <label className="flex-1 text-[11px] text-ink/60">
+                    Folder it goes under
+                    <select
+                      name="parent_id"
+                      required
+                      defaultValue={newCategoryPrefill.parentId ?? selectedFolder}
+                      className="mt-0.5 w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+                    >
+                      {data.folders.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex-1 text-[11px] text-ink/60">
+                    Category name
+                    <input
+                      name="label_en"
+                      required
+                      minLength={2}
+                      maxLength={80}
+                      defaultValue={newCategoryPrefill.labelEn}
+                      placeholder="e.g. Photo booths"
+                      className="mt-0.5 w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+                    />
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <SubmitButton
+                      className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"
+                      pendingLabel="Creating…"
+                    >
+                      Create category
+                    </SubmitButton>
+                    <button
+                      type="button"
+                      onClick={() => setNewCategoryPrefill(null)}
+                      className="rounded-md border border-ink/15 px-3 py-1.5 text-xs text-ink/60 hover:bg-ink/5"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+                {/* A miss is SAID OUT LOUD. Silence here is how a category ends
+                    up filed under whatever folder happened to be selected. */}
+                {newCategoryPrefill.parentId === null && newCategoryPrefill.parentQuery ? (
+                  <p className="mt-2 text-[11px] text-warn-800">
+                    No folder here is called “{newCategoryPrefill.parentQuery}” — pick the right
+                    one above before creating.
+                  </p>
+                ) : null}
+              </form>
+            ) : null}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {visibleTiles.map((tile, idx) => (
                 <TileCard

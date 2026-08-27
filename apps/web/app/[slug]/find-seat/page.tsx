@@ -55,6 +55,9 @@ export default async function FindSeatPage({ params }: Props) {
   // the old `!== 'wedding'`), now config-driven.
   const profile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(profile, 'website')) notFound();
+  // 🪑 Seat rooms exist only for kinds that seat people — see seat/page.tsx for
+  // the full rule and the writer half that makes narrowing this safe.
+  if (!surfaceEnabled(profile, 'seating')) notFound();
   // The same profile, reused for its WORDS — the plate below said "the couple"
   // to a graduation. Wedding → 'couple', so a wedding is byte-identical.
   const words = eventWordsFromProfile(profile);

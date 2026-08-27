@@ -69,6 +69,9 @@ export default async function FindMyTablePage({ params }: Props) {
   // the old `!== 'wedding'`), now config-driven.
   const profile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(profile, 'website')) notFound();
+  // 🪑 Seat rooms exist only for kinds that seat people — see seat/page.tsx for
+  // the full rule and the writer half that makes narrowing this safe.
+  if (!surfaceEnabled(profile, 'seating')) notFound();
   // Reused for its WORDS as well as its gate. Wedding → 'couple', unchanged.
   const words = eventWordsFromProfile(profile);
   const roomLinks = await loadRoomLinks({

@@ -13,6 +13,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   vendorAcknowledgeDeposit,
+  vendorRejectDeposit,
   vendorAgreeToLock,
   vendorDeclineLock,
   vendorAgreeToDeletion,
@@ -103,7 +104,31 @@ function todayLabel(): string {
   });
 }
 
-export default async function VendorOverviewPage() {
+/**
+ * The desk takes two answers that redirect back to it — the deposit refusal and
+ * (via its own path) the review reply. A REFUSAL IN SILENCE IS INDISTINGUISHABLE
+ * FROM ONE THAT NEVER HAPPENED: the row simply vanishes, so without this the
+ * supplier who just said "it never arrived" has no way to know it was recorded
+ * and the couple told. Four outcomes, each said plainly.
+ */
+const DEPOSIT_ANSWER_NOTICE: Record<string, string> = {
+  ok: 'We told them it never reached you. Their record of paying is cleared, so they can send it again with the right receipt.',
+  already: 'That was already answered — nothing changed.',
+  already_confirmed:
+    'You had already confirmed this payment, so it can no longer be marked as never received. Open the customer if that needs sorting out.',
+  not_recorded: 'There was nothing to answer — they have no payment recorded here.',
+  error: 'That did not go through. Nothing changed — please try again.',
+};
+
+export default async function VendorOverviewPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ deposit_answer?: string }>;
+}) {
+  const search = (await searchParams) ?? {};
+  const depositAnswer = search.deposit_answer
+    ? DEPOSIT_ANSWER_NOTICE[search.deposit_answer] ?? DEPOSIT_ANSWER_NOTICE.error
+    : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -311,12 +336,29 @@ export default async function VendorOverviewPage() {
           at least one current-period award (empty list renders nothing). */}
       <SpotlightAwardBanner awards={spotlightAwards} />
 
+      {/* The outcome of an answer given ON this page, said where it was given. */}
+      {depositAnswer ? (
+        <div
+          role="status"
+          className="sn-tile mb-6 flex items-start gap-3 p-4 text-sm text-ink/80"
+        >
+          <Info
+            aria-hidden
+            className="mt-0.5 h-4 w-4 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: 'var(--sn-gold-700)' }}
+          />
+          <p>{depositAnswer}</p>
+        </div>
+      ) : null}
+
       {/* 1 · What's new — the decision feed (centrepiece) */}
       <WhatsNewFeed
         cards={whatsNew}
         acceptInquiry={acceptInquiry}
         declineInquiry={declineInquiry}
         confirmLock={vendorAcknowledgeDeposit}
+        rejectLock={vendorRejectDeposit}
         agreeLock={vendorAgreeToLock}
         declineLock={vendorDeclineLock}
         agreeDeletion={vendorAgreeToDeletion}

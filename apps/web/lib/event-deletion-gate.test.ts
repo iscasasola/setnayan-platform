@@ -243,6 +243,56 @@ test('paid is read four ways, because a couple records it four ways', () => {
   assert.equal(supplierWasPaid({ ...NONE, hasLoggedPayment: true }), true);
 });
 
+test('a REFUSED claim does not hold the couple’s delete — and the other two signals still do', () => {
+  /*
+    2026-08-27. A supplier can declare a recorded deposit never reached them, and
+    the owner ruled the same day that this no longer ERASES the couple's record.
+    Two of the four signals above are exactly what the old destructive refusal
+    deleted — the claim timestamp and the ledger row. If they kept counting, THE
+    COUPLE COULD NEVER DELETE THEIR OWN CELEBRATION: it would be held pending the
+    agreement of a supplier who says they were never paid for it.
+  */
+  const REFUSED = {
+    vendorStatus: 'contracted',
+    depositPaidPhp: 0,
+    depositRecordedAt: '2026-08-01T00:00:00Z',
+    hasLoggedPayment: true,
+    depositDeclinedAt: '2026-08-02T00:00:00Z',
+  };
+  assert.equal(
+    supplierWasPaid(REFUSED),
+    false,
+    'a supplier who says they were never paid still holds the couple’s delete',
+  );
+
+  /*
+    🔑 THE EQUIVALENCE THAT MAKES THIS SAFE: after a refusal this function must
+    answer exactly what it answered when the refusal WIPED those two facts.
+    Keeping the couple's record was meant to change what they can SEE, not who
+    holds their delete.
+  */
+  const asTheOldErasureLeftIt = {
+    ...REFUSED,
+    depositRecordedAt: null,
+    hasLoggedPayment: false,
+    depositDeclinedAt: null,
+  };
+  assert.equal(supplierWasPaid(REFUSED), supplierWasPaid(asTheOldErasureLeftIt));
+
+  // And the two the old refusal never touched keep counting: the couple
+  // advancing the booking, and the amount they typed.
+  assert.equal(supplierWasPaid({ ...REFUSED, vendorStatus: 'deposit_paid' }), true);
+  assert.equal(supplierWasPaid({ ...REFUSED, depositPaidPhp: 5000 }), true);
+
+  // An unrefused claim is unchanged — the new argument is optional and absent
+  // everywhere else in the codebase.
+  assert.equal(
+    supplierWasPaid({ ...REFUSED, depositDeclinedAt: null }),
+    true,
+    'the refusal-aware read changed the answer for a claim nobody refused',
+  );
+});
+
 test('a supplier who AGREED releases, whatever else is true', () => {
   // Owner 2026-08-21: "they can only delete it if the vendors with paid purchase
   // accepts that this deletion." An 'agreed' IS that acceptance — it releases

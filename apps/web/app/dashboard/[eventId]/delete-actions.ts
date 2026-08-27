@@ -306,7 +306,7 @@ export async function getEventDeletionImpact(
       admin
         .from('event_vendors')
         .select(
-          'vendor_id, status, completion_status, deposit_paid_php, deposit_recorded_at, delete_request_state',
+          'vendor_id, status, completion_status, deposit_paid_php, deposit_recorded_at, deposit_declined_at, delete_request_state',
         )
         .eq('event_id', trimmed),
       admin
@@ -338,6 +338,12 @@ export async function getEventDeletionImpact(
           depositPaidPhp: (v.deposit_paid_php as number | null) ?? null,
           depositRecordedAt: (v.deposit_recorded_at as string | null) ?? null,
           hasLoggedPayment: paidVendorIds.has(v.vendor_id as string),
+          // A supplier who has DECLARED they were never paid does not hold the
+          // couple's delete on the strength of that claim. Before 2026-08-27 the
+          // refusal deleted the claim and the ledger row outright, so this read
+          // reached the same answer by finding nothing; the record is kept now,
+          // so the answer has to be asked for.
+          depositDeclinedAt: (v.deposit_declined_at as string | null) ?? null,
         });
         if (!paid) return false;
         return !supplierIsReleased({

@@ -1952,14 +1952,22 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // The word this event uses for whoever it belongs to. Degrades to undefined →
   // displayChallengePrompt falls back to "the host": plain, but never WRONG. A
   // raw {host} on a public page would be.
+  //
+  // ⚠ THE EVENT WORD IS RESOLVED HERE TOO, AND IT WAS THE MISSING HALF. Only
+  // `{organizer}` was passed, so every `{event}` token fell back to the neutral
+  // literal "event" — a guest who ANSWERED a prompt reading "birthday" met it
+  // again on the recap saying "event". Same profile, same read, no extra query.
   let organizerNoun: string | undefined;
+  let eventNoun: string | undefined;
   try {
     const profile = await resolveProfile(
       asString((event as Record<string, unknown>).event_type) ?? 'wedding',
     );
     organizerNoun = profile.terminology.organizerNoun;
+    eventNoun = profile.terminology.eventWord;
   } catch {
     organizerNoun = undefined;
+    eventNoun = undefined;
   }
 
   try {
@@ -2032,7 +2040,10 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           if (!url) continue; // an unresolvable ref is an absence, not a broken img
 
           challengeAnswers.push({
-            prompt: displayChallengePrompt(rawPrompt, { organizer: organizerNoun }),
+            prompt: displayChallengePrompt(rawPrompt, {
+              organizer: organizerNoun,
+              eventWord: eventNoun,
+            }),
             mediaType: isClip ? 'clip' : 'photo',
             url,
             posterUrl: isClip

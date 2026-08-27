@@ -71,6 +71,8 @@ export function PabuyaManager({
   publicRouteEnabled,
   initialMethods,
   qrDisplayUrls,
+  organizerPossessive,
+  theOrganizer,
 }: {
   eventId: string;
   coupleName: string | null;
@@ -79,6 +81,12 @@ export function PabuyaManager({
   publicRouteEnabled: boolean;
   initialMethods: ManagerMethod[];
   qrDisplayUrls: Record<string, string>;
+  /** The event's own possessive — 'the couple’s' · 'the family’s'. Threaded in
+   *  because this is a client component and the words resolve on the server.
+   *  Required, so the LIVE PREVIEW below can never drift from the guest page. */
+  organizerPossessive: string;
+  /** The event's own mid-sentence noun — 'the couple' · 'the family'. */
+  theOrganizer: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -201,7 +209,7 @@ export function PabuyaManager({
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
       {/* ── LEFT: manager ──────────────────────────────────────────────── */}
       <div className="space-y-5">
-        <PabuyaTrustNote audience="couple" />
+        <PabuyaTrustNote audience="couple" organizerPossessive={organizerPossessive} />
 
         {error ? (
           <p
@@ -551,7 +559,7 @@ export function PabuyaManager({
                 Pabuya
               </p>
               <p className="mt-1 font-display text-xl italic text-ink">
-                {coupleName ? `A blessing for ${coupleName}` : 'A blessing for the couple'}
+                {coupleName ? `A blessing for ${coupleName}` : `A blessing for ${theOrganizer}`}
               </p>
             </div>
             <PabuyaCardList
@@ -559,7 +567,7 @@ export function PabuyaManager({
               emptyHint="Add a method to see how guests will send you a gift."
             />
             <div className="mt-4">
-              <PabuyaTrustNote audience="guest" />
+              <PabuyaTrustNote audience="guest" organizerPossessive={organizerPossessive} />
             </div>
           </div>
 

@@ -10,15 +10,30 @@ import { JoinShell } from './join-shell';
 import { ROLE_LABELS } from '@/lib/guests';
 import { readGuestSession } from '@/lib/guest-session';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { eventWordsForEvent, type EventWords } from '@/app/[slug]/_lib/event-words';
 
-const ROLE_ERROR: Record<string, string> = {
-  invalid_token: 'This invite link is no longer valid. Ask the couple to send you a fresh one.',
-  invalid_role: 'Please pick a valid role.',
-  missing_name: 'Please enter your name so the couple can find you on their list.',
-  already_member: "You're already on this event's guest list.",
-  join_closed: 'This event has reached its sign-up limit. Please ask the couple to add you.',
-  join_failed: 'Something went wrong adding you. Please try again, or ask the couple.',
-};
+/**
+ * The refusal sentences, resolved from the event's OWN word for whoever is
+ * throwing it.
+ *
+ * 🔴 THESE WERE A MODULE CONSTANT SAYING "the couple" ON EVERY EVENT TYPE, and
+ * this door is where a guest scanning a QR lands — including at a wake. A
+ * wedding reads byte-identically (`organizerNoun` is `'couple'`), which is the
+ * safety property `event-words.ts` exists to hold.
+ *
+ * 🔒 NO DEFAULT, NO 'host' FALLBACK. A funeral's word is `family`; "host" is
+ * wrong for the one event type this work exists for.
+ */
+function roleErrors(w: EventWords): Record<string, string> {
+  return {
+    invalid_token: `This invite link is no longer valid. Ask ${w.theOrganizer} to send you a fresh one.`,
+    invalid_role: 'Please pick a valid role.',
+    missing_name: `Please enter your name so ${w.theOrganizer} can find you on their list.`,
+    already_member: "You're already on this event's guest list.",
+    join_closed: `This event has reached its sign-up limit. Please ask ${w.theOrganizer} to add you.`,
+    join_failed: `Something went wrong adding you. Please try again, or ask ${w.theOrganizer}.`,
+  };
+}
 
 export type JoinFlowEvent = {
   event_id: string;
@@ -59,7 +74,11 @@ export async function JoinFlow({
     venue_name: event.venue_name,
   };
   const roleSet = await resolveRoleSetForEvent(eventId);
-  const errorMessage = errorKey ? (ROLE_ERROR[errorKey] ?? errorKey) : null;
+  // One resolve covers all nine sentences below, the SIGNED-OUT arm included.
+  // This component is already an async server component holding the event id,
+  // so no prop, no default and no call-site change is needed.
+  const w = await eventWordsForEvent(eventId);
+  const errorMessage = errorKey ? (roleErrors(w)[errorKey] ?? errorKey) : null;
   const loginHref = `/login?next=${encodeURIComponent(returnPath)}`;
   const signupHref = `/signup?next=${encodeURIComponent(returnPath)}`;
 
@@ -104,7 +123,9 @@ export async function JoinFlow({
                 autoComplete="name"
                 className="input-field"
               />
-              <p className="text-sm text-ink/70">Use the name the couple would have on their list.</p>
+              <p className="text-sm text-ink/70">
+                Use the name {w.theOrganizer} would have on their list.
+              </p>
             </div>
             <div className="space-y-1.5">
               <span className="block text-sm font-medium text-ink">Your role</span>
@@ -132,7 +153,7 @@ export async function JoinFlow({
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-ink/55">The couple can refine it later.</p>
+                <p className="mt-1 text-xs text-ink/55">{w.TheOrganizer} can refine it later.</p>
               </details>
             </div>
             <div className="space-y-1.5">
@@ -226,7 +247,7 @@ export async function JoinFlow({
             , <span className="font-medium text-ink">{user.email}</span>
           </>
         )}
-        . Tell us your name so the couple can find you on their guest list.
+        . Tell us your name so {w.theOrganizer} can find you on their guest list.
       </p>
 
       <form action={action} className="mt-6 space-y-4">
@@ -245,7 +266,7 @@ export async function JoinFlow({
             className="input-field"
           />
           <p className="text-sm text-ink/70">
-            Use the name the couple would have on their list.
+            Use the name {w.theOrganizer} would have on their list.
           </p>
         </div>
         <div className="space-y-1.5">
@@ -271,7 +292,7 @@ export async function JoinFlow({
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-ink/55">The couple can refine it later.</p>
+            <p className="mt-1 text-xs text-ink/55">{w.TheOrganizer} can refine it later.</p>
           </details>
         </div>
         <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Checking…">

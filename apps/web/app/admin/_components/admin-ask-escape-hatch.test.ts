@@ -47,7 +47,9 @@ import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
 import {
   MIN_SENTENCE_TOKENS,
   buildNavRows,
+  hitOffsetOf,
   shouldOfferAssistant,
+  type PaletteNavRow,
 } from '@/lib/admin-map/palette-nav';
 
 import { buildDestinations, type Dest } from './admin-destinations';
@@ -261,5 +263,85 @@ test('the palette actually wires this gate — not merely this test file', () =>
     src,
     /onClick=\{\(\) => openAnswer\(asked\.answer\)\}/,
     'the escape hatch stopped routing an answer through openAnswer',
+  );
+});
+
+/**
+ * ── THE HIGHLIGHT AND ENTER ARE ONE LIST, EXECUTED ──────────────────────────
+ *
+ * 🪤 THIS PAIR REPLACES TWO ASSERTIONS THAT WERE DECORATION, both proved by
+ * mutation against the shipped tree with the counts printed before → after:
+ *
+ *   · `buildNavRows(askRowSelectable, hits)` → `buildNavRows(false, hits)`
+ *     (1 → 0) reproduces the #4892 bug EXACTLY — the offer still renders and
+ *     still paints its `sel === 0` highlight, but the list the keyboard walks
+ *     holds only page hits, so Enter opens Taxonomy. **156 pass, 0 fail.**
+ *   · `const hitOffset = askRowSelectable ? 1 : 0;` → `= 0;` (1 → 0) puts every
+ *     page row's highlight one place from the row Enter opens. **156 pass, 0
+ *     fail.**
+ *
+ * 🔑 WHY THE OLD ONES COULD NOT FIRE. The order tests call
+ * `buildNavRows(offersAssistant(FLAGSHIP), hits)` — they supply their OWN first
+ * argument, so they can never see what the COMPONENT passes. And the two source
+ * greps looked for `const target = navRows[sel]` and `target.kind === 'ask'`,
+ * which both survive the mutation as DEAD CODE. **A regex matching unreachable
+ * code is not proof of reachability, and a test that hand-feeds the argument
+ * under test cannot see the wiring break.**
+ *
+ * So the offset is now DERIVED (`hitOffsetOf`), which is executed below over
+ * every hit; and the two arguments the component passes are pinned as wiring,
+ * against comment-stripped source, because a `'use client'` component cannot be
+ * imported into a node:test file and its call sites are the one thing that
+ * genuinely cannot be executed here.
+ */
+test('the highlighted row IS the row Enter opens, for every page hit', () => {
+  const hits: Dest[] = rankBySentence(ALL, FLAGSHIP, score, 30).hits;
+  const rows: PaletteNavRow<Dest>[] = buildNavRows(offersAssistant(FLAGSHIP), hits);
+  const offset = hitOffsetOf(rows);
+
+  assert.ok(hits.length > 0, 'no page hits to walk — re-check this guard');
+  assert.equal(offset, 1, 'the flagship shows the ask row, so its hits start one row down');
+  for (let i = 0; i < hits.length; i++) {
+    const row: PaletteNavRow<Dest> | undefined = rows[i + offset];
+    assert.equal(row?.kind, 'dest', `nav row ${i + offset} is not a page hit — the offset is wrong`);
+    assert.equal(
+      row?.kind === 'dest' ? row.dest.href : null,
+      hits[i]?.href,
+      `page hit ${i} highlights nav row ${i + offset}, which opens something else — the highlight and Enter have drifted apart`,
+    );
+  }
+
+  // And with no ask row the offset must be zero, or every ordinary lookup
+  // inherits the drift instead.
+  const plain = buildNavRows(false, hits);
+  assert.equal(hitOffsetOf(plain), 0, 'an ordinary lookup gained an offset it has no row for');
+});
+
+test('the palette passes the REAL gate into the nav list, and derives the offset from it', () => {
+  const src = palette();
+  // 🔑 THE ARGUMENT, NOT THE CALL. `buildNavRows(false, hits)` still "calls
+  // buildNavRows" and still leaves every consumer of navRows standing, which is
+  // exactly how the previous guard stayed green while Enter opened Taxonomy.
+  assert.match(
+    src,
+    /const navRows = useMemo\(\s*\(\) => buildNavRows\(askRowSelectable, hits\)/,
+    'the palette no longer builds its nav list from askRowSelectable — the ask row can render, highlight, and still not be what Enter opens (this is the #4892 bug)',
+  );
+  // …and that gate must itself come from the shared rule, not a constant.
+  assert.match(
+    src,
+    /const askRowSelectable = showAskEscapeHatch &&/,
+    'askRowSelectable stopped being derived from the shared escape-hatch gate',
+  );
+  // The offset is counted off the rows. A literal here is a second opinion
+  // about the same fact, and that is the drift the test above exists to catch.
+  assert.match(
+    src,
+    /const hitOffset = hitOffsetOf\(navRows\)/,
+    'the palette computes its own hit offset again instead of counting it off the nav rows — the highlight and Enter can now disagree',
+  );
+  assert.ok(
+    !/const hitOffset = askRowSelectable/.test(src),
+    'the offset is being re-derived from the gate rather than from the rows',
   );
 });

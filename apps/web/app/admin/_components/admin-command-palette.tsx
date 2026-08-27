@@ -9,9 +9,15 @@ import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
 import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
 import type { AdminJob } from '@/lib/admin-map/scan-admin-jobs';
 import { matchJobs, jobDisplayLabel } from '@/lib/admin-map/match-job';
-import { humanizeFieldLabel, fieldKind, askParamKey, ADMIN_ASK_PARAM } from '@/lib/admin-map/humanize-field';
+import {
+  humanizeFieldLabel,
+  fieldKind,
+  askParamKey,
+  ADMIN_ASK_PARAM,
+  jobNameFromAskHref,
+} from '@/lib/admin-map/humanize-field';
 import { jobPrefillIsRead } from '@/lib/admin-map/prefill-consumers';
-import { buildNavRows, shouldOfferAssistant } from '@/lib/admin-map/palette-nav';
+import { buildNavRows, hitOffsetOf, shouldOfferAssistant } from '@/lib/admin-map/palette-nav';
 
 import { askTheAdmin, type AskAnswer } from './ask-actions';
 import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
@@ -19,21 +25,19 @@ import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
 import { buildDestinations, type Dest, type RowDest } from './admin-destinations';
 
 /**
- * A job hiding inside an href, the way a page-destination hides in one.
+ * A job hiding inside an href, the way a page-destination hides in one, is read
+ * by the SHARED `jobNameFromAskHref` — imported above, not re-declared here.
  *
  * The AI is handed FORM-DRIVEN JOBS as extra choices (see `ask()` below), each
- * offered as `${resolvedPath}?admin_ask=<jobName>` — a real, known admin
- * route, so `isKnownAdminHref` on the server accepts it exactly like any other
- * page. This is the one place that marker is read back OUT, so a resolved
- * answer that names a job opens the ask-form instead of just navigating.
+ * offered as `${resolvedPath}?admin_ask=<jobName>` — a real, known admin route,
+ * so `isKnownAdminHref` on the server accepts it exactly like any other page.
+ * Reading the marker back out is what lets a resolved answer that names a job
+ * open the ask-form instead of just navigating.
+ *
+ * 🔑 IT USED TO BE PRIVATE TO THIS FILE, and this file is `'use client'` — so
+ * the ranker, which now has to know whether a candidate can fill a form, could
+ * not import it and would have needed its own copy of the same rule.
  */
-function jobNameFromHref(href: string): string | null {
-  try {
-    return new URL(href, 'https://admin.invalid').searchParams.get(ADMIN_ASK_PARAM);
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Cap the ask-form at a sane number of questions. Measured, not guessed: only
@@ -263,7 +267,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
    */
   const openAnswer = useCallback(
     (answer: { href: string }) => {
-      const jobName = jobNameFromHref(answer.href);
+      const jobName = jobNameFromAskHref(answer.href);
       const job = jobName ? ADMIN_JOBS.find((j) => j.name === jobName) : null;
       if (job) {
         openJobAsk(job);
@@ -306,9 +310,17 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
 
   const navRows = useMemo(() => buildNavRows(askRowSelectable, hits), [askRowSelectable, hits]);
 
-  /** How far the page hits are pushed down by the ask row, so the highlight and
-   *  the thing Enter opens can never drift apart. */
-  const hitOffset = askRowSelectable ? 1 : 0;
+  /**
+   * How far the page hits are pushed down by the ask row, so the highlight and
+   * the thing Enter opens can never drift apart.
+   *
+   * 🔑 COUNTED OFF `navRows`, NEVER RE-DERIVED FROM `askRowSelectable`. Written
+   * as its own `askRowSelectable ? 1 : 0` it was a SECOND opinion about the
+   * same fact, and a measured mutation to a bare `0` left all 156 admin tests
+   * green while every page row highlighted one place away from the row Enter
+   * opened. Reading it back off the list makes that disagreement unwritable.
+   */
+  const hitOffset = hitOffsetOf(navRows);
 
   /** What pressing Enter on the ask row does, which depends on how far the
    *  assistant has got: ask it, or open what it already answered. */

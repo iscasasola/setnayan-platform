@@ -28,4 +28,27 @@ The second is worse than the reported one: it is **step two of a new supplier's 
 - A picker request selects the **Service cards** tab and renders the `<details>` **open**. ⚖ The coverage-first default is **not** reversed: a supplier who simply opens My Shop still starts on Coverage. Only an explicit "make me a card" press moves them — the one case where coverage-first is the wrong answer.
 - All four links use the shared href. A guard pins each one and fails if a fifth is ever hand-typed.
 
+**The port baseline is regenerated, and here is the count.**
+
+`lint-port-no-lost-controls` fails when a ported route can no longer reach something it used to offer, and its own message says to regenerate in the same PR. That is what happened. **Counted, not assumed** — a structural diff of the baseline before and after, per route:
+
+| route | change |
+|---|---|
+| `/vendor-dashboard` | − `/vendor-dashboard/services` |
+| `/vendor-dashboard/earnings` | − `/vendor-dashboard/services` |
+| `/vendor-dashboard/repertoire` | − `/vendor-dashboard/services` |
+
+**Nothing is lost by any of the three.** `/vendor-dashboard/services` is not a page — it is a **retired redirect stub** (owner 2026-07-02, *"My Services" folded into My Shop*), and its own docblock says so. Each of these three links now goes straight to the editor's real address with the picker open, one redirect hop shorter. The stub redirect is also exactly what *dropped the fragment* in transit, which is the bug being fixed. Zero routes were added or removed, and **zero actions changed**.
+
+⚠ **Two further destination lines moved, and they are NOT this PR's** — recorded here rather than left for a reader to trip over:
+
+| route | change |
+|---|---|
+| `/[slug]` | + `/[seg]/recap` |
+| `/admin` | + `/admin/search-memory` |
+
+Both are **additions**, both belong to `main`, whose committed baseline was stale about them — this branch changes no file under `app/[slug]` or `app/admin`. They were absorbed because the baseline is generated from the whole tree and cannot be regenerated for three routes only. They are safe by direction: this guard fails on **removals**, so an added line can never hide a lost control — it can only make the guard *stricter*, by requiring those two links to keep existing.
+
+⚖ **The guided wizard is untouched**, checked rather than assumed: `/vendor-dashboard/services/new/[category]` is a separate segment, still its own route in the baseline, still reachable from the stub, and its live callers still link to it.
+
 SPEC IMPACT: None — no SKU, price, schema or product rule changes. The owner-locked `CREATE` wording (2026-08-15) and the `.fd-btn-gold` treatment are untouched; only the destination changed.

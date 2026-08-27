@@ -101,6 +101,8 @@ import {
   SERVICE_PICKER_ANCHOR_ID,
   SERVICE_MAKER_HREF,
   servicePickerRequested,
+  PROPOSE_CATEGORY_ANCHOR_ID,
+  proposeCategoryRequested,
 } from '@/lib/service-picker-anchor';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
@@ -158,6 +160,13 @@ export type ServicesManagerSearch = {
    *  vendor_service_id values, that service's Discount section opens
    *  pre-filled with an `off_peak` discount keyed to the lean months. */
   offpeak?: string;
+  /**
+   * "I clicked the reason a kind was greyed in the maker" — set by
+   * `PROPOSE_CATEGORY_HREF` (lib/service-picker-anchor.ts). Lands on Tools,
+   * scrolled to "Tell us what you do" (spec S3, owner 2026-08-28: the greyed
+   * pill's reason should lead to the intake, not the pricing page).
+   */
+  wantCategory?: string;
 };
 
 type CategoryRequestRow = {
@@ -528,6 +537,10 @@ export async function VendorServicesManager({
   // product? That is an INTENT, and it outranks the coverage-first default.
   const pickerRequested = servicePickerRequested(search.newcard);
 
+  // Did they arrive from the maker's own "your plan can't hold this yet" line
+  // (S3, owner 2026-08-28)? Also an intent — lands on Tools, at the form.
+  const wantsCategoryForm = proposeCategoryRequested(search.wantCategory);
+
   // v20 tab landing: category-request confirmations land on Tools; any
   // service-targeted param (open add form, off-peak prefill) or an existing
   // service list lands on Service cards; a brand-new vendor starts on Coverage
@@ -542,7 +555,7 @@ export async function VendorServicesManager({
   // ⚖ The coverage-first default is NOT reversed: a vendor who simply opens My
   // Shop still starts on Coverage. Only an explicit "make me a card" press
   // moves them, which is the one case where coverage-first is the wrong answer.
-  const defaultTab = search.requested
+  const defaultTab = search.requested || wantsCategoryForm
     ? 2
     : pickerRequested || addCategory !== null || offPeakPrefillId !== null || services.length > 0
       ? 1
@@ -1310,20 +1323,42 @@ export async function VendorServicesManager({
       ) : null}
 
       {/* Request a new category — the "Add coverage" on-ramp for services not in
-          the directory (spec 0023 §3.2c). */}
+          the directory (spec 0023 §3.2c). Also where a plan-locked kind in the
+          maker sends a supplier (S3, owner 2026-08-28) — same form, so the
+          heading branches: their kind IS in the directory, their plan just
+          doesn't cover another one yet. */}
       <section
+        id={PROPOSE_CATEGORY_ANCHOR_ID}
         className="space-y-4 rounded-2xl border p-5"
         style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
       >
         <div className="space-y-1">
+          {wantsCategoryForm ? (
+            // The return half of "must come back to the card being made"
+            // (S3). The maker itself already offers a half-finished card back
+            // on return (lib/canvas-draft-keep.ts) — this is the explicit door
+            // back to it, not a second copy of that mechanism.
+            <Link
+              href={SERVICE_MAKER_HREF}
+              className="inline-flex text-xs font-medium underline underline-offset-2"
+              style={{ color: 'var(--m-slate)' }}
+            >
+              ← Back to your card
+            </Link>
+          ) : null}
           <h2 className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-            Don&rsquo;t see your service?
+            {wantsCategoryForm ? "Want to add that kind of service?" : "Don't see your service?"}
           </h2>
           <p className="max-w-prose text-sm" style={{ color: 'var(--m-slate)' }}>
-            Tell us what you do — we&rsquo;ll review it and add it to the directory.
+            {wantsCategoryForm
+              ? "Your plan doesn't cover it yet. Tell us what you do and we'll take it from there."
+              : "Tell us what you do — we'll review it and add it to the directory."}
           </p>
         </div>
         <form action={proposeCategory} className="grid gap-3 sm:grid-cols-[2fr_3fr_auto] sm:items-end">
+          {/* Survives the redirect so "Back to your card" still shows after
+              submitting — server actions can't read the page's own URL. */}
+          <input type="hidden" name="from_locked_kind" value={wantsCategoryForm ? '1' : ''} />
           <Field label="Service name" htmlFor="propose-label">
             <input
               id="propose-label"

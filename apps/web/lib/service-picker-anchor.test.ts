@@ -241,11 +241,19 @@ test('no new hand-typed picker link creeps back in anywhere', () => {
 
 test('My Shop’s own "Add a service" controls open the maker', () => {
   const mgr = read(MANAGER);
-  // ⚖ COUNTED, NOT MATCHED ONCE: there are two of them — the section header and
-  // the empty state — and the empty state is the one a first-time shop actually
-  // presses. A single match would pass with the other still pointing at a wall.
+  // ⚖ COUNTED, NOT MATCHED ONCE: there are two CREATE links — the section
+  // header and the empty state — and the empty state is the one a first-time
+  // shop actually presses. A single match would pass with the other still
+  // pointing at a wall.
+  //
+  // A third, added 2026-08-28 (S3), is NOT a create door — a supplier who
+  // follows the plan-locked-kind link to "tell us what you do" gets an
+  // explicit "Back to your card" link back to the SAME maker, to resume the
+  // card they were building. Same href, different intent; if this count ever
+  // grows past 3 without a name for the new one, that is the regression this
+  // guard exists to catch.
   const toMaker = [...mgr.matchAll(/href=\{SERVICE_MAKER_HREF\}/g)].length;
-  assert.equal(toMaker, 2, `expected both shop create links to open the maker, found ${toMaker}`);
+  assert.equal(toMaker, 3, `expected the two create links plus the S3 return link, found ${toMaker}`);
   assert.ok(
     !/href=\{SERVICE_PICKER_HASH\}/.test(mgr),
     'a shop create link went back to the in-page drawer',

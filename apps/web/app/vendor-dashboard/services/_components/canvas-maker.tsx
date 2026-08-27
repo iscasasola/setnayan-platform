@@ -19,6 +19,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import Link from 'next/link';
 
 import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -43,6 +44,7 @@ import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-group
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
+import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
 import {
   KEEP_VERSION,
   keepAgeLabel,
@@ -1399,7 +1401,16 @@ export function CanvasMaker({
                 ) : null}
                 {lockedWhy ? (
                   <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                    {lockedWhy}
+                    {lockedWhy}{' '}
+                    <Link
+                      href={PROPOSE_CATEGORY_HREF}
+                      className="underline underline-offset-2"
+                      style={{ color: 'var(--m-ink)' }}
+                    >
+                      Tell us what you do
+                    </Link>
+                    {' '}and we&rsquo;ll take it from there — this card stays exactly as you left
+                    it.
                   </p>
                 ) : null}
               </div>

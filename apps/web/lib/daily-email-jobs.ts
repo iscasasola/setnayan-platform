@@ -24,6 +24,7 @@ import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import { eventSkuActive } from '@/lib/entitlements';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { addDaysToIso } from '@/lib/anniversary-dates';
+import { runSupplierNightBeforeEmailReminders } from '@/lib/supplier-night-before-email';
 import { eventWordsFor, type EventWords } from '@/app/[slug]/_lib/event-words';
 
 /**
@@ -681,6 +682,16 @@ export async function runDailyEmailJobs(): Promise<void> {
   try {
     if (await claimPeriodicJob('connection-request-expiry', DAILY_GAP_MS))
       await runConnectionRequestExpiry();
+  } catch {
+    /* best-effort */
+  }
+  // S5 — ships OFF (WHATS_NEXT_Suppliers_Room_SESSIONS_2026-08-27.md). The
+  // claim always fires; runSupplierNightBeforeEmailReminders() itself no-ops
+  // until isSupplierNightBeforeEmailEnabled() is flipped, so this mount stays
+  // permanently present rather than being a second thing to remember to wire.
+  try {
+    if (await claimPeriodicJob('supplier-night-before-email', DAILY_GAP_MS))
+      await runSupplierNightBeforeEmailReminders();
   } catch {
     /* best-effort */
   }

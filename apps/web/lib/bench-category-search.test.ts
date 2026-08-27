@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { benchSearchGroupForTile, benchSearchScopeForTile } from './bench-category-search';
 import { PLAN_GROUPS } from './wedding-plan-groups';
 import { canonicalServicesForTile } from './vendor-counts';
-import { WEDDING_TILES_BY_PARENT } from './taxonomy';
+import { WEDDING_TILES_BY_PARENT, ADMIN_ONLY_TILES } from './taxonomy';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
@@ -71,7 +71,13 @@ test('a tile finer than every plan group still gets a real scope', () => {
     assert.equal(benchSearchScopeForTile(tile).tile, tile);
   }
   // …and the tile scope is not a fiction: it resolves to real canonicals.
-  const withoutCanonicals = orphan.filter((t) => canonicalServicesForTile(t as never).length === 0);
+  // ADMIN_ONLY_TILES are filing cabinets, not shelves — nothing renders a bench
+  // row for one, so "resolves to no canonicals" is their designed state rather
+  // than an empty sheet somebody can reach. `taxonomy-tile-reachability.test.ts`
+  // is what pins them invisible; this file only has to stop counting them.
+  const withoutCanonicals = orphan.filter(
+    (t) => !ADMIN_ONLY_TILES.has(t as never) && canonicalServicesForTile(t as never).length === 0,
+  );
   assert.deepEqual(
     withoutCanonicals,
     ['editorial'],

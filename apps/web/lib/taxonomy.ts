@@ -278,6 +278,41 @@ export type WeddingTile =
   // SPECIALTY
   | 'reveal_element';
 
+/**
+ * ADMIN-ONLY TILES — branches a couple never sees, and never should.
+ *
+ * These four exist to give the ~30 deliberately-unsold canonicals under them
+ * (every celebrant, the pre-marriage seminars, the marriage paperwork, the
+ * honeymoon planners) a HOME IN THE TREE. Before 2026-08-27 those services
+ * carried a folder and no tile at all, so `/admin/taxonomy?view=unfiled` listed
+ * them as 30 pieces of work nobody had done, while these four branches sat
+ * empty three rows away. Filing them is bookkeeping — see the 2026-08-27 note
+ * at the top of this file.
+ *
+ * 🔑 THIS SET IS WHY THEY ARE NOT "DEAD TILES". `taxonomy-tile-reachability.
+ * test.ts` fails a tile that resolves to zero canonicals, because a visible
+ * empty shelf is a whole trade couples cannot find. That reasoning does not
+ * apply to a branch nothing renders — but the guard could not tell the two
+ * apart, because the DB expresses the difference (`service_categories.
+ * marketplace_hidden`) and the constant had NO WAY TO SAY IT: `fallbackSnapshot`
+ * hard-coded `hiddenCategories: {}`. So the moment one DB read hiccuped, every
+ * consumer trusting that snapshot would have treated these four as ordinary
+ * visible branches. This set closes both holes from one declaration, and it is
+ * DERIVED rather than allowlisted — a fifth admin-only branch is covered the
+ * day it is added, and un-hiding one turns it straight back into a dead-tile
+ * failure.
+ *
+ * ⚠ Membership here is NOT how a leaf is hidden. A canonical's own
+ * `marketplaceHidden` does that, independently, and is what every marketplace
+ * consumer actually reads.
+ */
+export const ADMIN_ONLY_TILES: ReadonlySet<WeddingTile> = new Set([
+  'officiants',
+  'counseling_seminars',
+  'wedding_paperwork',
+  'travel_honeymoon',
+] as const);
+
 /** Tile → its parent. */
 export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   reception: 'venue',

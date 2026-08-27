@@ -36,3 +36,23 @@ Owner, looking at `/admin/taxonomy?view=unfiled`: *"there are so many that are n
 🔴 **OWNER DECISION, deliberately not made here:** whether officiants, pre-marriage counselling, marriage paperwork and honeymoon planners should become things a supplier can list and a couple can book. Today they deliberately are not, per the 2026-05-31 lock. This change makes the admin tree tell the truth about them; it does not reopen that question.
 
 SPEC IMPACT: None on price, SKU or product scope. Data + placement only; no service changes visibility, and no couple- or supplier-facing surface renders differently.
+
+### The two guards that fired, and why neither was wrong
+
+Adding the four branches to the code constant turned **two existing unit guards red** — `taxonomy-tile-reachability.test.ts` ("DEAD TILE(S) INTRODUCED") and `bench-category-search.test.ts`. They were **correct to fire**: both compute a tile's canonicals through `deriveBuckets`, which excludes `marketplaceHidden` leaves, so from where they stand a new tile with only hidden leaves is exactly a zero-canonical shelf — the defect class that "has now shipped three times", per that file's own header.
+
+The reachability guard offers `KNOWN_DEAD_TILES` as the escape, and using it would have been the cheap answer and the wrong one — *a baseline is a bill, not a decision*, and four lines of "known broken" would have described these branches as defects awaiting a fix that is never coming.
+
+**The real gap was that the constant had no way to say "admin-only".** The database does (`service_categories.marketplace_hidden`); `fallbackSnapshot()` hard-coded `hiddenCategories: {}` with the comment *"constant fallback has no hidden tiles"* — true until this change, and quietly false the moment these four entered the constant. Left alone, **one failed DB read would have promoted four never-rendered branches to ordinary visible ones**, in the exact moment the fallback exists for.
+
+So `ADMIN_ONLY_TILES` is now a first-class export of `lib/taxonomy.ts`, and three things read it: `fallbackSnapshot()` builds `hiddenCategories` from it, and both guards exempt its members. **Derived, not allowlisted** — a fifth admin-only branch is covered the day it is added, and taking one out of the set drops it straight back into the dead-tile scan. A new case pins that every member is *both* flagged hidden in the fallback *and* resolves to zero visible canonicals, so the exemption can never be stretched over a branch a couple can reach.
+
+`lib/taxonomy.test.ts`'s "fallback `hiddenCategories` must be empty" assertion is **replaced, not relaxed**: it now asserts the fallback's hidden set equals `ADMIN_ONLY_TILES` in both directions, which is a stronger claim than the one it replaced.
+
+### Verification
+
+`typecheck` exit 0, 0 errors — and it earned its keep: adding four tiles broke two exhaustive `Record<WeddingTile, …>` maps (`WEDDING_TILE_ICON`, the 3-D plan's `BOOTH_TEMPLATES`) that no grep for the tile names would have surfaced. `test:unit` **10254/10254**. `test:db` **1612/1612** before the guard rework.
+
+**Pre-flighted against the live production database, read-only, before pushing:** the four `UPDATE`s match **30 rows, exactly the 30 in the tray** (`targets_listed 30 · would_be_updated 30 · target_missing_from_db 0 · unfiled_now 30`); **`targets_not_hidden = 0`**, so not one of them can become visible; the branch `INSERT` conflicts on all four and does nothing in prod; the `crew_meal_supply` schema row inserts exactly one row.
+
+**7 mutations, every one measured by occurrence count before → after, every one RED on the intended assertion:** delete the officiants filing → *unfiled* + *hold ALL of them* red · un-hide the officiants branch → *did NOT make them sellable* red · file the celebrants under the wrong folder → *folder is its branch's parent* red · point a filing at a tier-1 folder id → *names a live tier-2 branch* red · empty the taxonomy table → the **META floor** red (the assertions below it would otherwise have passed against nothing) · drop a tile out of `ADMIN_ONLY_TILES` → both re-derived guards red · keep it in the set but stop hiding it in the fallback → the new invisible-AND-empty case red.

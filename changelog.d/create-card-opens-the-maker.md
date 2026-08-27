@@ -235,3 +235,29 @@ opening by default · the reassurance removed · the sample card removed).
 Measured: `TSC_EXIT=0` · `ERRORS=0` · `# tests 1394 # pass 1394 # fail 0` · five lints exit 0.
 
 SPEC IMPACT: `WHATS_NEXT_Service_Card_Maker_2026-08-28.md` + `DECISION_LOG.md` 2026-08-28 row.
+
+## 2026-08-28 · fix(vendor): ONE door — My Shop's own "Add a service" opens the maker too
+
+Owner: *"also make sure this is connected to the top nav create a card and the link from the shop"*.
+
+**The top bar opened the maker; My Shop's own *Add a service* — the same words, the same intent —
+still jumped to the drawer of 34 category pills.** A supplier pressing the same words in two places
+got two different products. **Both of My Shop's create controls now open the maker**, and the
+second one matters most: the empty state (*"No services yet"*) is what a first-time shop actually
+presses, and a shop with no cards has nothing to recognise in a list of 34 kinds.
+
+⛔ **`SERVICE_PICKER_HASH` is RETIRED, and its target is not.** With both links moved it had zero
+callers, and a constant nothing links to is a door nobody opens — the shape this repo keeps paying
+for. **The drawer itself survives**: it is how COVERAGE is added, and it is where `/services/new`
+sends a shop whose canvas maker is switched off (the 6-step wizard takes its kind from the route and
+cannot ask for one). What was deleted is the LINK, never the target — asserted in both directions.
+
+🛡 The guard **counts both links** rather than matching once: a single match passes with the other
+still pointing at a wall. **3 mutations, printed before → after, all RED** — the header link
+reverting (2 → 1, which is exactly the half-fix a one-match assertion would have missed), the
+empty-state link reverting, and the drawer being deleted along with the link.
+
+Measured: `TSC_EXIT=0` · `ERRORS=0` · `# tests 344` on the touched suites, `# tests 1018` on the
+vendor suite · `lint:port-controls` and `lint-nested-forms` exit 0.
+
+SPEC IMPACT: `WHATS_NEXT_Service_Card_Maker_2026-08-28.md`.

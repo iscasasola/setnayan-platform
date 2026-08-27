@@ -58,8 +58,17 @@ export const SERVICE_PICKER_PARAM = 'newcard';
 export const SERVICE_PICKER_HREF =
   `/vendor-dashboard/shop?${SERVICE_PICKER_PARAM}=1#${SERVICE_PICKER_ANCHOR_ID}` as const;
 
-/** In-page jump (already on My Shop) — same id, never re-typed. */
-export const SERVICE_PICKER_HASH = `#${SERVICE_PICKER_ANCHOR_ID}` as const;
+/**
+ * ⛔ `SERVICE_PICKER_HASH` IS RETIRED (2026-08-28) AND MUST NOT COME BACK AS A
+ * "CREATE" LINK. It was the in-page jump to the drawer, and when the shop's own
+ * *Add a service* controls started opening the maker it was left with zero
+ * callers. A constant nothing links to is a door nobody opens — the shape this
+ * repo keeps paying for — so it is gone rather than kept "just in case".
+ *
+ * The drawer itself SURVIVES on its own anchor id: it is how coverage is added,
+ * and it is where `/services/new` sends a shop whose canvas maker is switched
+ * off. What was deleted is the LINK, not the target.
+ */
 
 /**
  * Did this request ask for the picker?

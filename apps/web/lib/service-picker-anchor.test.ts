@@ -31,7 +31,6 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import {
   SERVICE_PICKER_ANCHOR_ID,
-  SERVICE_PICKER_HASH,
   SERVICE_PICKER_HREF,
   SERVICE_PICKER_PARAM,
   SERVICE_MAKER_HREF,
@@ -69,7 +68,15 @@ test('the href carries a query param, because a fragment does not reach the serv
     SERVICE_PICKER_HREF.endsWith(`#${SERVICE_PICKER_ANCHOR_ID}`),
     'the picker href lost its anchor — it would open the page without scrolling',
   );
-  assert.equal(SERVICE_PICKER_HASH, `#${SERVICE_PICKER_ANCHOR_ID}`);
+  // ⛔ The in-page hash link is RETIRED — every "create a card" control opens the
+  // maker now, so the constant had zero callers and a link nobody writes is a
+  // door nobody opens. The drawer keeps its anchor id; only the link is gone.
+  assert.ok(
+    !/export const SERVICE_PICKER_HASH/.test(
+      readFileSync(join(WEB, 'lib/service-picker-anchor.ts'), 'utf8'),
+    ),
+    'the retired in-page picker link came back — point it at the maker instead',
+  );
 });
 
 test('the href does NOT go through the retired address that eats the fragment', () => {
@@ -221,4 +228,37 @@ test('no new hand-typed picker link creeps back in anywhere', () => {
   // passes vacuously and proves nothing.
   assert.equal(scanned, suspects.length, 'the sweep did not read every file');
   assert.ok(read(MANAGER).length > 1000, 'the manager read back empty — the scan is pointed at nothing');
+});
+
+// ---------------------------------------------------------------------------
+// ONE DOOR — INCLUDING THE ONES INSIDE MY SHOP (owner 2026-08-28)
+// ---------------------------------------------------------------------------
+//
+// *"also make sure this is connected to the top nav create a card and the link
+// from the shop"*. The top bar opened the maker while My Shop's own **Add a
+// service** — same words, same intent — still jumped to a drawer of 34 category
+// pills. A supplier pressing the same words in two places got two products.
+
+test('My Shop’s own "Add a service" controls open the maker', () => {
+  const mgr = read(MANAGER);
+  // ⚖ COUNTED, NOT MATCHED ONCE: there are two of them — the section header and
+  // the empty state — and the empty state is the one a first-time shop actually
+  // presses. A single match would pass with the other still pointing at a wall.
+  const toMaker = [...mgr.matchAll(/href=\{SERVICE_MAKER_HREF\}/g)].length;
+  assert.equal(toMaker, 2, `expected both shop create links to open the maker, found ${toMaker}`);
+  assert.ok(
+    !/href=\{SERVICE_PICKER_HASH\}/.test(mgr),
+    'a shop create link went back to the in-page drawer',
+  );
+});
+
+test('the drawer survives as the coverage door and the canvas-off fallback', () => {
+  // ⛔ What was retired is the LINK, not the target. Deleting the drawer would
+  // take "add coverage" with it, and would strand `/services/new` when the
+  // canvas maker is switched off — the 6-step wizard cannot ask for a kind.
+  const mgr = read(MANAGER);
+  assert.match(mgr, /id=\{SERVICE_PICKER_ANCHOR_ID\}/, 'the drawer lost its anchor');
+  assert.match(mgr, /Add a service or coverage/, 'the coverage door is gone');
+  const page = read('app/vendor-dashboard/services/new/page.tsx');
+  assert.match(page, /redirect\(SERVICE_PICKER_HREF\)/, 'the canvas-off fallback lost its target');
 });

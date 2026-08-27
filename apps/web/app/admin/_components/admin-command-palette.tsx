@@ -18,6 +18,13 @@ import {
 } from '@/lib/admin-map/humanize-field';
 import { jobPrefillIsRead } from '@/lib/admin-map/prefill-consumers';
 import { buildNavRows, hitOffsetOf, shouldOfferAssistant } from '@/lib/admin-map/palette-nav';
+import {
+  toAdminRecordRows,
+  MIN_RECORD_QUERY_LENGTH,
+  RECORD_SEARCH_DEBOUNCE_MS,
+  type AdminRecordRow,
+} from '@/lib/admin-map/admin-record-rows';
+import { searchAdminRecords } from './record-search';
 
 import { askTheAdmin, type AskAnswer } from './ask-actions';
 import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
@@ -128,6 +135,70 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
    * `match-job.ts` — coverage-gated, so "papic" alone never suggests a form.
    */
   const jobHits = useMemo(() => matchJobs(ADMIN_JOBS, q, 3), [q]);
+
+  /**
+   * THE RECORDS THEMSELVES — a guest, a shop, a celebration, an account.
+   *
+   * 🔴 WHAT THIS CLOSES. The owner ruled that an admin must be able to find any
+   * guest by name across every celebration. That search was built and works —
+   * and it lives inside the Entity map console at `/admin/ugat/map`, a page you
+   * have to already know about. THIS box, the one he asked for by name after
+   * saying *"i do not see the AI searchbar"*, searched no record at all:
+   * measured, its only reads are the retail catalog and the learned-phrase
+   * memory, so its corpus is the menu, the scanned routes, the job vocabulary
+   * and the SKU list. Typing a guest's name here returned nothing, and the
+   * assistant could not rescue it — every href it answers with is re-validated
+   * against the route map, so it can only ever return a PAGE.
+   *
+   * 🔑 IT CALLS THE SHIPPED SEARCH, AND WRITES NO SECOND ONE. `searchAdminRecords`
+   * delegates to the search that already opens with `requireAdminAction()` and
+   * already carries the reviewed ILIKE sanitiser, the `deleted_at is null`
+   * filter and the guest privacy fence. A search written here would be a second
+   * copy of all four, free to drift from the one that was actually reviewed —
+   * and this reads with the SERVICE ROLE, so that app-side gate is the entire
+   * fence. It is imported from a module that exposes ONE read rather than from
+   * the admin actions module, so the box cannot reach a mutation even if one is
+   * added to that file later.
+   *
+   * ⚖ DESKTOP ONLY, by the owner's ruling — mobile is for answering requests
+   * and confirming decisions. That is already structural rather than asserted
+   * here: the visible box is `hidden … lg:flex` and the only other way in is
+   * ⌘K, which needs a keyboard.
+   */
+  const [records, setRecords] = useState<AdminRecordRow[]>([]);
+
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < MIN_RECORD_QUERY_LENGTH) {
+      setRecords([]);
+      return;
+    }
+    /*
+      One in-flight answer per keystroke. `cancelled` is what makes a slow
+      response for "mar" unable to overwrite a fast one for "maria" — the
+      effect re-runs on every change of `q`, so the previous request is
+      disowned before the next is sent. Without it the box can settle on the
+      results of a query nobody is looking at any more.
+    */
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void searchAdminRecords(term).then(
+        (groups) => {
+          if (!cancelled) setRecords(toAdminRecordRows(groups));
+        },
+        // A refused or failed read shows no records rather than stale ones.
+        // The page and job hits above are unaffected: the box keeps working as
+        // a navigator even when the database cannot be reached.
+        () => {
+          if (!cancelled) setRecords([]);
+        },
+      );
+    }, RECORD_SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [q]);
 
   /**
    * THE BUG THIS CLOSES: the owner typed the spec's own flagship example —
@@ -308,7 +379,10 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
    */
   const askRowSelectable = showAskEscapeHatch && !(asked !== null && !asked.ok);
 
-  const navRows = useMemo(() => buildNavRows(askRowSelectable, hits), [askRowSelectable, hits]);
+  const navRows = useMemo(
+    () => buildNavRows(askRowSelectable, hits, records),
+    [askRowSelectable, hits, records],
+  );
 
   /**
    * How far the page hits are pushed down by the ask row, so the highlight and
@@ -394,7 +468,10 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
           return;
         }
         close();
-        router.push(target.dest.href);
+        // ONE list, so a found RECORD opens on Enter exactly like a page does.
+        // Records that render but cannot be reached by the keyboard would be
+        // the same defect the ask row already had here.
+        router.push(target.kind === 'record' ? target.record.href : target.dest.href);
       }
     }
     document.addEventListener('keydown', onKey);
@@ -724,6 +801,62 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
                   </div>
                 );
               })}
+
+              {/*
+                THE RECORDS THEMSELVES — the guest, the shop, the celebration.
+                Rendered AFTER the pages and in the same list the keyboard
+                walks, so `navIndex` below is the real index in `navRows`
+                rather than a second opinion about it.
+
+                🔒 A ROW SHOWS WHAT IDENTIFIES THE RECORD AND NOTHING MORE —
+                a name, a status, and which celebration it belongs to. No
+                email, no phone, no address; those live on the record's own
+                page. `toAdminRecordRows` is what enforces that, so it holds
+                for every category at once instead of the one that needed it.
+              */}
+              {records.length ? (
+                <>
+                  <p
+                    className="px-3 pb-1 pt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]"
+                    style={{ color: 'var(--sn-ink-500)' }}
+                  >
+                    Records
+                  </p>
+                  {records.map((r, i) => {
+                    const navIndex = hits.length + i + hitOffset;
+                    return (
+                      <button
+                        key={`${r.kind}:${r.id}`}
+                        type="button"
+                        onMouseMove={() => setSel(navIndex)}
+                        onClick={() => {
+                          close();
+                          router.push(r.href);
+                        }}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm"
+                        style={navIndex === sel ? { background: 'var(--sn-paper-2, #F5EEE1)' } : undefined}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold" style={{ color: 'var(--sn-ink)' }}>
+                            {r.title}
+                          </span>
+                          {r.detail ? (
+                            <span className="block truncate text-[11.5px]" style={{ color: 'var(--sn-ink-500)' }}>
+                              {r.detail}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span
+                          className="ml-auto shrink-0 font-mono text-[10.5px]"
+                          style={{ color: 'var(--sn-ink-500)' }}
+                        >
+                          {r.category}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              ) : null}
             </>
           )}
             </>

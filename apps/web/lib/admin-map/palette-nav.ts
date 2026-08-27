@@ -59,7 +59,15 @@ export function shouldOfferAssistant(args: {
   return args.hitCount > 0 && args.jobHitCount === 0 && isSentenceShaped(args.query);
 }
 
-export type PaletteNavRow<T> = { kind: 'ask' } | { kind: 'dest'; dest: T };
+export type PaletteNavRow<T, R = never> =
+  | { kind: 'ask' }
+  | { kind: 'dest'; dest: T }
+  /**
+   * A found RECORD — a guest, a shop, a celebration, an account. Last in the
+   * list on purpose: the box's headline job is still navigation, and a record
+   * must never outrank the page you were reaching for.
+   */
+  | { kind: 'record'; record: R };
 
 /**
  * The rows the keyboard walks, IN THE ORDER THEY RENDER.
@@ -70,14 +78,26 @@ export type PaletteNavRow<T> = { kind: 'ask' } | { kind: 'dest'; dest: T };
  * page is one arrow press away. Reversing it is one line — move the ask row to
  * the end of this array — and nothing else has to change.
  *
- * 🔒 IDENTICAL FOR EVERY ORDINARY LOOKUP. When `offerAsk` is false this returns
- * exactly `hits`, so short noun-shaped queries keep today's indices, today's
- * highlight and today's Enter target.
+ * 🔒 IDENTICAL FOR EVERY ORDINARY LOOKUP. When `offerAsk` is false and no
+ * record matched, this returns exactly `hits`, so short noun-shaped queries
+ * keep today's indices, today's highlight and today's Enter target.
+ *
+ * 🔑 RECORDS JOIN THIS LIST RATHER THAN SITTING BESIDE IT, and that is the
+ * whole reason they are here at all. Rendering them as their own block below
+ * would leave them in neither the arrow-key ring nor the Enter path — which is
+ * EXACTLY the defect this file was split out to fix, when the assistant offer
+ * was visible on screen and unreachable by the only gesture the owner uses.
+ * One list for the ring, for Enter and for the renderer, or it happens again.
  */
-export function buildNavRows<T>(offerAsk: boolean, hits: readonly T[]): PaletteNavRow<T>[] {
+export function buildNavRows<T, R = never>(
+  offerAsk: boolean,
+  hits: readonly T[],
+  records: readonly R[] = [],
+): PaletteNavRow<T, R>[] {
   return [
     ...(offerAsk ? [{ kind: 'ask' as const }] : []),
     ...hits.map((dest) => ({ kind: 'dest' as const, dest })),
+    ...records.map((record) => ({ kind: 'record' as const, record })),
   ];
 }
 
@@ -94,7 +114,19 @@ export function buildNavRows<T>(offerAsk: boolean, hits: readonly T[]): PaletteN
  * Counting the non-destination rows makes the two impossible to disagree, and
  * `the highlighted row is the row Enter opens` in the escape-hatch guard walks
  * every hit through it rather than asserting the number 1.
+ *
+ * 🪤 IT COUNTS ONLY THE ROWS **BEFORE** THE HITS, AND IT HAS TO. This used to
+ * be `rows.filter(kind !== 'dest').length` — every non-destination row,
+ * wherever it sat. That was correct while the ask row was the only one and it
+ * was always first. Record rows are appended AFTER the hits, so the old count
+ * added them to the offset too: the box would have shipped with every page row
+ * highlighting N places away from the row Enter opened, the exact bug this
+ * function's own docblock says it exists to make unwritable — reintroduced by
+ * adding a row somewhere else entirely. Leading-count, never total-count.
  */
-export function hitOffsetOf<T>(rows: readonly PaletteNavRow<T>[]): number {
-  return rows.filter((row) => row.kind !== 'dest').length;
+export function hitOffsetOf<T, R = never>(rows: readonly PaletteNavRow<T, R>[]): number {
+  const firstDest = rows.findIndex((row) => row.kind === 'dest');
+  // No destinations at all ⇒ the offset indexes nothing. Returning the leading
+  // count keeps it equal to the old behaviour for that case.
+  return firstDest === -1 ? rows.filter((row) => row.kind !== 'dest').length : firstDest;
 }

@@ -365,7 +365,7 @@ test('no door mounts an app bottom bar', () => {
  * thought of*, and that list has already missed three real doors. A door for
  * THIS rule is simply a file that imports the shared shell — so a door added
  * tomorrow is covered on the day it is written, with nobody remembering to add
- * it. (Measured: 23 files, against the 21 hand-listed above.)
+ * it. (Measured: 23 files, against the 20 hand-listed above.)
  *
  * 🛡 AND IT HAS A FLOOR. A derived sweep that stops matching finds nothing and
  * reports a clean pass — the exact failure this repo keeps paying for. Below

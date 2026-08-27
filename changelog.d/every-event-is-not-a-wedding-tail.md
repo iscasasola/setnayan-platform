@@ -93,7 +93,7 @@ does not spread. **When one line needs pardoning, pardon the line.**
 
 **A NEW RULE, AND IT DOES NOT NEED A LIST.** `doors-are-designed.test.ts` gains
 "no door tells a mourner they are looking at a wedding", DERIVING its file set
-from the DoorShell import (23 files, against the 21 hand-listed in the same
+from the DoorShell import (23 files, against the 20 hand-listed in the same
 file — whose own docblock already says *a hand-enumerated list is a list of the
 doors you thought of*, having missed three real doors). It has a FLOOR, so a
 sweep that stops matching FAILS instead of reading as a clean pass. Its bill is

@@ -34,6 +34,7 @@ import {
   SERVICE_PICKER_HASH,
   SERVICE_PICKER_HREF,
   SERVICE_PICKER_PARAM,
+  SERVICE_MAKER_HREF,
   servicePickerRequested,
 } from '@/lib/service-picker-anchor';
 
@@ -50,6 +51,7 @@ test('the module under test actually loaded', () => {
   assert.equal(typeof servicePickerRequested, 'function', 'servicePickerRequested did not import');
   assert.equal(typeof SERVICE_PICKER_ANCHOR_ID, 'string');
   assert.ok(SERVICE_PICKER_ANCHOR_ID.length > 0, 'the anchor id is empty');
+  assert.equal(typeof SERVICE_MAKER_HREF, 'string');
 });
 
 // ---------------------------------------------------------------------------
@@ -135,15 +137,21 @@ test('the anchor id is stamped from the shared constant, never hand-typed', () =
 });
 
 // ---------------------------------------------------------------------------
-// 3 · EVERY "MAKE ME A CARD" LINK USES IT
+// 3 · EVERY "MAKE ME A CARD" LINK OPENS THE MAKER
 // ---------------------------------------------------------------------------
+//
+// ⚖ THE DESTINATION CHANGED 2026-08-28 AND THE POINT OF THESE CHECKS DID NOT.
+// Owner: *"i just bounces to a page for a link to service card. we want it to
+// directly go to a page to create a service card."* The links used to open My
+// Shop's drawer — reachable, but a page ABOUT making a card. They open the
+// maker now. Both hrefs still live in one module so no caller hand-types either.
 
-test('every Create-a-service link in the product points at the picker', () => {
+test('every Create-a-service link in the product opens the maker', () => {
   // ⚖ ENUMERATED BY GREPPING THE TARGET, NOT FROM A REMEMBERED LIST OF CALLERS.
-  // The report named ONE button. Four links aim a supplier at making a card, and
-  // the second is worse than the reported one: the shop's own first-run
-  // checklist step "Put up your first service" renders ONLY while the supplier
-  // has zero cards — the exact state that lands on Coverage.
+  // The original report named ONE button. Four links aim a supplier at making a
+  // card, and the second is worse than the reported one: the shop's own
+  // first-run checklist step "Put up your first service" renders ONLY while the
+  // supplier has zero cards.
   const sites = [
     'app/vendor-dashboard/layout.tsx',
     'lib/vendor-first-steps.ts',
@@ -151,27 +159,43 @@ test('every Create-a-service link in the product points at the picker', () => {
     'app/vendor-dashboard/earnings/surface.tsx',
   ];
   // 🪤 THE FIRST CUT OF THIS ASSERTION WAS DECORATION, AND ONLY A MEASURED
-  // MUTATION FOUND IT. It matched `SERVICE_PICKER_HREF` anywhere in the file, so
-  // reverting the checklist's href to the old string left the IMPORT standing
-  // and the guard stayed GREEN — a file-level match cannot say whether the
-  // constant is USED. And the negative half assumed JSX (`href=`) while
-  // `vendor-first-steps.ts` is a plain object literal (`href:`), so it could
-  // never fire there either. Both halves were blind on the one call site that
-  // matters most. Match the USAGE, and accept both spellings.
-  const usesConstant = /href[:=]\s*\{?\s*SERVICE_PICKER_HREF\s*\}?/;
+  // MUTATION FOUND IT. It matched the constant anywhere in the file, so
+  // reverting one href to a hand-typed string left the IMPORT standing and the
+  // guard stayed GREEN — a file-level match cannot say whether the constant is
+  // USED. And the negative half assumed JSX (`href=`) while
+  // `vendor-first-steps.ts` is a plain object literal (`href:`).
+  const usesConstant = /href[:=]\s*\{?\s*SERVICE_MAKER_HREF\s*\}?/;
   const usesRetired = /href[:=]\s*\{?\s*["'`]\/vendor-dashboard\/services/;
   for (const s of sites) {
     const src = read(s);
     assert.match(
       src,
       usesConstant,
-      `${s} stopped USING the shared picker href — an import alone is not a link`,
+      `${s} stopped USING the shared maker href — an import alone is not a link`,
     );
     assert.ok(
       !usesRetired.test(src),
       `${s} points a supplier at the retired services address again`,
     );
   }
+});
+
+test('the maker href is a route that exists and draws the card', () => {
+  // EXISTING IS NOT THE SAME AS REACHABLE, one level up: a create button that
+  // opens a 404 is the same dead end as one that scrolls nowhere.
+  assert.equal(SERVICE_MAKER_HREF, '/vendor-dashboard/services/new');
+  const page = read('app/vendor-dashboard/services/new/page.tsx');
+  assert.ok(page.length > 500, 'the maker route read back empty — this check is pointed at nothing');
+  assert.match(page, /<CanvasMaker/, 'the maker route stopped rendering the maker');
+});
+
+test('the picker constants survive, because the canvas-off fallback needs them', () => {
+  // The 6-step wizard takes its category from the ROUTE, so with the canvas
+  // maker switched off `/services/new` hands the vendor back to My Shop's
+  // drawer. Deleting these as "dead" would strand that path silently.
+  const page = read('app/vendor-dashboard/services/new/page.tsx');
+  assert.match(page, /redirect\(SERVICE_PICKER_HREF\)/, 'the canvas-off fallback stopped using the picker');
+  assert.match(page, /canvasMakerEnabled\(\)/, 'the maker route stopped checking the flag');
 });
 
 test('no new hand-typed picker link creeps back in anywhere', () => {

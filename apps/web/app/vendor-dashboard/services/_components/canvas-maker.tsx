@@ -110,9 +110,14 @@ import {
  */
 
 type OtherCategory = { value: string; label: string };
+/**
+ * The kinds of service a shop can make a card for, in the SAME groups and with
+ * the SAME live taxonomy labels as My Shop's picker — one list, drawn twice.
+ */
+export type CategoryGroup = { key: string; label: string; options: OtherCategory[] };
 export type CoverageAudience = { eventTypes: string[]; faiths: string[] };
 
-type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience';
+type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience' | 'kind';
 
 /** Where a card-health finding sends the vendor. 'title' is inline on the card. */
 const SHEET_FOR_FINDING: Record<CardHealthSheet, SheetKey | 'title'> = {
@@ -143,6 +148,7 @@ export function CanvasMaker({
   coverageAudience = {},
   coverageAllowed = {},
   initial = null,
+  categoryOptions = [],
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -176,11 +182,47 @@ export function CanvasMaker({
    * created for that card stay on that card").
    */
   initial?: CanvasInitial | null;
+  /**
+   * ─── THE KIND OF SERVICE IS A FIELD ON THE CARD (owner 2026-08-28) ────────
+   *
+   * Owner, on "+ Create service card": *"i just bounces to a page for a link to
+   * service card. we want it to directly go to a page to create a service
+   * card."* So `/vendor-dashboard/services/new` opens THIS with no category
+   * chosen and hands in the whole list — the vendor picks the kind here, on the
+   * card, the way they pick the price and the audience.
+   *
+   * ⚠ EMPTY IS THE NORMAL CASE, NOT A DEGRADED ONE. `/services/new/[category]`
+   * takes the category from its route and passes NO options, so that screen is
+   * byte-identical to before: no kind region, no kind sheet, nothing to choose.
+   * A guard pins both halves.
+   */
+  categoryOptions?: CategoryGroup[];
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const [sheet, setSheet] = useState<SheetKey | null>(null);
+  /**
+   * 🔑 THE POSTED CATEGORY IS STATE, NOT THE PROP. It is one hidden input under
+   * its shipped name either way, so `commitVendorService` cannot tell which
+   * screen chose it — the same contract every other region on this card keeps.
+   */
+  const [category, setCategory] = useState(categoryValue);
+  const canChooseKind = categoryOptions.length > 0;
+  const activeCategoryLabel =
+    categoryOptions
+      .flatMap((g) => g.options)
+      .find((o) => o.value === category)?.label ??
+    (category === categoryValue ? categoryLabel : category);
+  /**
+   * "Comes with" bundles the shop's OTHER cards, so the kind this card IS has
+   * to drop out of that list the moment it is chosen — otherwise the vendor is
+   * offered a card that comes bundled with itself.
+   */
+  const otherCategoriesShown = useMemo(
+    () => otherCategories.filter((c) => c.value !== category),
+    [otherCategories, category],
+  );
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? '');
   const [perk, setPerk] = useState(initial?.exclusivePerkText ?? '');
@@ -385,7 +427,14 @@ export function CanvasMaker({
     setSheet(key);
   };
 
-  const blocked = health.blockers.length > 0;
+  /**
+   * 🔒 NOTHING SAVES WITHOUT A KIND — INCLUDING A DRAFT. `commitVendorService`
+   * parses the category on both paths and THROWS on an empty one, so an
+   * enabled "Save as draft" here would hand the vendor a raw error for a
+   * question the card never asked out loud. Both buttons wait for it.
+   */
+  const needsCategory = category.length === 0;
+  const blocked = health.blockers.length > 0 || needsCategory;
 
   return (
     <div className="sn-canvas space-y-4">
@@ -426,7 +475,7 @@ export function CanvasMaker({
         </div>
       ) : null}
       <form ref={formRef} action={commitVendorService} className="space-y-4">
-        <input type="hidden" name="category" value={categoryValue} />
+        <input type="hidden" name="category" value={category} />
         {claimToken ? <input type="hidden" name="claim_token" value={claimToken} /> : null}
         {/* The coverage this card sits in. Chosen in the audience sheet; the
             FIELD lives here under its shipped name so the payload is unchanged. */}
@@ -511,6 +560,26 @@ export function CanvasMaker({
             ) : null}
           </button>
 
+          {/* ── WHAT KIND OF SERVICE THIS IS ─────────────────────────────────
+              Only on the no-category entrance (`/services/new`), where nothing
+              upstream has answered it. It sits ABOVE the name because it is the
+              question the vendor came here with, and because every editor below
+              it — pricing basis, what's included, the customization list — is
+              drawn for a particular kind of service. */}
+          {canChooseKind ? (
+            <CardRegion onClick={() => setSheet('kind')} label="Choose what kind of service this is">
+              {category ? (
+                <span style={{ color: 'var(--m-ink)' }}>{activeCategoryLabel}</span>
+              ) : (
+                <span className="flex items-center gap-1.5" style={{ color: 'var(--m-orange-2)' }}>
+                  <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                  What kind of service is this?
+                  <span className="font-mono text-[9px] uppercase tracking-[0.12em]">required</span>
+                </span>
+              )}
+            </CardRegion>
+          ) : null}
+
           {/* Title — edited INLINE on the card, never in a sheet. */}
           <input
             ref={titleRef}
@@ -520,7 +589,7 @@ export function CanvasMaker({
             onChange={(e) => setTitle(e.target.value)}
             maxLength={80}
             aria-label="Service name"
-            placeholder={categoryLabel}
+            placeholder={activeCategoryLabel || "Service name"}
             className="w-full border-0 bg-transparent px-4 pb-1 pt-3 text-[17px] font-semibold tracking-[-0.01em] outline-none placeholder:font-normal"
             style={{ color: 'var(--m-ink)' }}
           />
@@ -572,7 +641,7 @@ export function CanvasMaker({
 
         {/* Comes with — bundles the vendor's OTHER cards. Only when they have
             some; the couple reads it straight off the card. */}
-        {otherCategories.length > 0 ? (
+        {otherCategoriesShown.length > 0 ? (
           <details className="rounded-xl border" style={{ borderColor: line, background: paper }}>
             <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
               Comes with{snap.linkedCount > 0 ? ` · ${snap.linkedCount}` : ''}
@@ -582,7 +651,7 @@ export function CanvasMaker({
                 Other things you offer that come bundled with this one. Up to 6.
               </p>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {otherCategories.map((c) => (
+                {otherCategoriesShown.map((c) => (
                   <label
                     key={c.value}
                     className="flex min-h-[38px] items-center gap-2 rounded-lg border px-3 py-2 text-sm"
@@ -606,7 +675,7 @@ export function CanvasMaker({
         {/* ── Recap + publish. NO meter, NO second guidance line — the sticky
             header is the only progress surface (owner 2026-07-27). ────────── */}
         <dl className="space-y-1.5 rounded-xl border p-3 text-sm" style={{ borderColor: line, background: paper }}>
-          <Recap k="Category" v={categoryLabel} />
+          <Recap k="Category" v={activeCategoryLabel || '— not chosen yet'} />
           <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
           <Recap k="Setnayan Exclusive" v={perk.trim() ? 'Set' : '— not set'} />
           <Recap
@@ -636,13 +705,20 @@ export function CanvasMaker({
           <SubmitButton
             name="publish"
             value="false"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full border px-5 py-2.5 text-sm font-medium"
+            disabled={needsCategory}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-full border px-5 py-2.5 text-sm font-medium disabled:opacity-50"
             style={{ borderColor: line, color: 'var(--m-slate)' }}
             pendingLabel="Saving…"
           >
             Save as draft
           </SubmitButton>
         </div>
+
+        {needsCategory ? (
+          <p className="text-xs" style={{ color: 'var(--m-orange-2)' }}>
+            Tell us what kind of service this is and both buttons open up.
+          </p>
+        ) : null}
 
         <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
           Availability is set on your Calendar, and payment terms are agreed in each
@@ -651,6 +727,61 @@ export function CanvasMaker({
 
         {/* ═══ SHEETS — always mounted, `hidden` when closed, so every field
             posts whether or not its sheet was ever opened. ═══════════════════ */}
+
+        {/* ═══ WHAT KIND OF SERVICE ═══════════════════════════════════════
+            The same grouped list My Shop's picker draws, from the same live
+            taxonomy labels — but it lands ON the card instead of navigating to
+            it. Choosing closes the sheet; the card, the pricing basis and the
+            customization editor all redraw for the chosen kind. */}
+        {canChooseKind ? (
+          <CanvasSheet
+            id="canvas-kind"
+            title="What kind of service?"
+            open={sheet === 'kind'}
+            onClose={() => setSheet(null)}
+            confirmLabel={category ? 'Update card' : null}
+          >
+            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+              Pick the one this card is for. A kind can hold more than one card, so
+              you can come back and add another under the same one.
+            </p>
+            {categoryOptions.map((group) => (
+              <div key={group.key} className="space-y-1.5">
+                <p
+                  className="font-mono text-[10px] uppercase tracking-[0.15em]"
+                  style={{ color: 'var(--m-slate-3)' }}
+                >
+                  {group.label}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {group.options.map((opt) => {
+                    const on = opt.value === category;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => {
+                          setCategory(opt.value);
+                          setSheet(null);
+                        }}
+                        className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm"
+                        style={{
+                          borderColor: on ? 'var(--m-orange-2)' : line,
+                          background: on ? 'var(--m-orange-4)' : paper,
+                          color: on ? 'var(--m-orange-2)' : 'var(--m-ink)',
+                        }}
+                      >
+                        {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> : null}
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </CanvasSheet>
+        ) : null}
 
         <CanvasSheet
           id="canvas-media"
@@ -697,7 +828,7 @@ export function CanvasMaker({
         >
           <PricingBasisEditor
             idPrefix="canvas"
-            category={categoryValue}
+            category={category}
             defaults={
               initial?.pricing ?? {
                 pricing_basis: 'fixed',
@@ -724,7 +855,7 @@ export function CanvasMaker({
           </Field>
           <IncludedFlags
             idPrefix="canvas"
-            category={categoryValue}
+            category={category}
             defaults={
               initial?.included ?? {
                 crew_meal_included: false,
@@ -804,7 +935,7 @@ export function CanvasMaker({
               the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no
               field, exactly as the wizard behaves. */}
           {customizationEnabled ? (
-            <CustomizationStep categoryValue={categoryValue} categoryLabel={categoryLabel} />
+            <CustomizationStep categoryValue={category} categoryLabel={activeCategoryLabel} />
           ) : null}
         </CanvasSheet>
       </form>

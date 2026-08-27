@@ -71,3 +71,22 @@ export const SERVICE_PICKER_HASH = `#${SERVICE_PICKER_ANCHOR_ID}` as const;
 export function servicePickerRequested(raw: unknown): boolean {
   return raw === '1' || raw === 'true';
 }
+
+/**
+ * ─── WHERE "+ CREATE SERVICE CARD" GOES NOW (owner 2026-08-28) ─────────────
+ *
+ * Owner, on pressing it: *"i just bounces to a page for a link to service card.
+ * we want it to directly go to a page to create a service card."* He is right —
+ * everything below fixed the button LANDING somewhere, and where it landed was
+ * still My Shop with a drawer full of links. The press should open the maker.
+ *
+ * So the create links point HERE, at the maker itself, and the kind of service
+ * is chosen ON the card instead of on the way to it — which is the owner-locked
+ * shape of that screen ("THE MAKER IS ZERO STEPS — THE CARD IS THE FORM").
+ *
+ * ⚠ THE PICKER CONSTANTS ABOVE ARE NOT DEAD AND MUST NOT BE DELETED. The
+ * drawer on My Shop still exists, still opens on `?newcard=1`, and is where
+ * `/services/new` sends a shop when the canvas maker is switched off — the
+ * 6-step wizard takes its category from the ROUTE and cannot ask for one.
+ */
+export const SERVICE_MAKER_HREF = '/vendor-dashboard/services/new' as const;

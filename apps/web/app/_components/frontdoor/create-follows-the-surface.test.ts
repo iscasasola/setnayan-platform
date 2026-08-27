@@ -36,37 +36,30 @@ test('a surface that says nothing still gets "+ Create event"', () => {
   );
 });
 
-test('the Shop makes a service card, and points at a picker that exists', () => {
+test('the Shop makes a service card, and the press opens the maker', () => {
   const vendor = read('app/vendor-dashboard/layout.tsx');
   assert.match(vendor, /createSlot=\{/, 'the Shop lost its own create button');
   assert.match(vendor, /\+ Create service card/, 'the Shop button stopped naming what it makes');
-  // ⚠ THIS ASSERTION USED TO PIN THE BROKEN HREF, AND PASSED THROUGHOUT.
-  // It read `href="/vendor-dashboard/services#add-service-picker"` and, three
-  // lines down, checked that an element with that id EXISTED. Both were true and
-  // the button still did nothing: that address is a retired stub whose redirect
-  // drops the fragment, and the anchor sat in a hidden tab inside a shut
-  // `<details>`. **Existing is not the same as reachable** — the reachability
-  // half now lives in `lib/service-picker-anchor.test.ts`.
+  // ⚠ THIS ASSERTION HAS PINNED A BROKEN DESTINATION ONCE ALREADY, AND PASSED
+  // THROUGHOUT. It read `href="/vendor-dashboard/services#add-service-picker"`
+  // and, three lines down, checked that an element with that id EXISTED. Both
+  // were true and the button still did nothing. **Existing is not the same as
+  // reachable**, so what is asserted here is the DESTINATION KIND: the press
+  // must open the maker itself, not a page of links to it (owner 2026-08-28).
   assert.match(
     vendor,
-    /href=\{SERVICE_PICKER_HREF\}/,
-    'the Shop button stopped using the one shared picker href',
+    /href=\{SERVICE_MAKER_HREF\}/,
+    'the Shop button stopped using the one shared maker href',
   );
   assert.ok(
     !/href="\/vendor-dashboard\/services#/.test(vendor),
     'the Shop button went back to the retired address, whose redirect eats the fragment',
   );
-  // The anchor must be a real element, or the button opens the page and does
-  // nothing visible — the quietest failure in this family.
-  const manager = readFileSync(
-    join(WEB, 'app/vendor-dashboard/services/_components/services-manager.tsx'),
-    'utf8',
-  );
-  assert.match(
-    manager,
-    /id=\{SERVICE_PICKER_ANCHOR_ID\}/,
-    'the picker anchor is gone — the button lands nowhere',
-  );
+  // The maker route has to be a real page, or the button opens a 404 — the
+  // reachability half, kept here because this file owns the button.
+  const maker = read('app/vendor-dashboard/services/new/page.tsx');
+  assert.match(maker, /<CanvasMaker/, 'the create route stopped rendering the maker');
+  assert.ok(maker.length > 500, 'the maker route read back empty — this check is pointed at nothing');
   // And it must not still offer a wedding.
   assert.ok(
     !/\/dashboard\/create-event/.test(vendor),

@@ -198,3 +198,95 @@ directly in the corpus at `~/Documents/Claude/Projects/Setnayan/`, together with
 `apps/web/VENDOR_TIERS_AND_BENEFITS.md`, which carry the vendor reprice and the
 record that Custom was ruled retired and reversed the same day. Both continue to
 describe Custom as a LIVE tier above Enterprise, because it is one.
+
+---
+
+## 2026-08-27 · fix(security): SEC-7 — a failed price read refuses the sale instead of guessing
+
+Owner ruling, after the risk was surfaced from the Setnayan AI investigation:
+**refuse the sale.** Better to tell a customer "try again in a minute" than take
+their money at a figure nobody chose.
+
+`lib/setnayan-ai-event-pricing.ts` destructured every Supabase read as
+`const { data } = await …`, throwing the `error` away. A network blip, a timeout
+or an RLS refusal therefore landed on the **same branch** as "this row
+legitimately has no price", and both charged the hardcoded ladder. Supabase
+resolves with `{ data: null, error }` rather than throwing, so no `try/catch`
+anywhere could have caught it.
+
+🚨 **And the call site made it worse than a guess.** The resolver returned
+`null` on failure and `order-charge-authority.ts` read `if (perType != null)` —
+so a failed per-type read did not merely invent a price, it **fell through and
+billed the flat `SETNAYAN_AI` row** instead of the tier the customer was shown.
+On the one product that has genuinely sold (a paid ₱2,499 order, 2026-08-25).
+
+**The fix keeps three facts apart where there were two:**
+
+- **read error** → `read_error` → the caller returns
+  `{ ok: false, refusal: 'read_error' }`, which the existing machinery renders as
+  *"We could not confirm the price for this right now. Please try again in a
+  moment."* No caller change was needed — checkout already logs a fault and
+  returns that copy, and onboarding already omits the line rather than minting
+  ₱0.
+- **absent row** → unchanged. Still falls back to the owner-locked ladder, which
+  is exactly what that ladder is for: an environment where the seeding migration
+  has not run must still quote the locked number. Verified against production —
+  all four tier rows exist and match the ladder exactly (A 2499/1499 · B
+  1499/899 · C 899/499 · D 199/99) — so in prod this branch is unreachable, and
+  refusing on it would buy nothing while breaking every unseeded environment.
+- **Tier E** → still ₱0, decided before any read, so a broken database cannot
+  turn "no vendors" into a refusal.
+
+⚖ **Whether an absent row should ALSO refuse is flagged as a separate owner
+decision, deliberately not folded in.** His ruling was about the failed read.
+
+The superseded intro/renewal resolver was fixed in the same pass even though it
+has no callers, so the shape survives nowhere in the file.
+
+**Blast radius — what can now refuse that could not before:** only a genuine
+Supabase `error` on the `events` read or the catalogue read, and only while
+`setnayan_ai_per_event_pricing_enabled` is true (it is, in prod). Every clean
+read, every absent row, and Tier E all behave exactly as before — pinned by
+three "must still be chargeable" tests beside the refusal ones.
+
+**Guard:** `lib/sec7-refuse-rather-than-guess.test.ts` (in `lib/` because
+`test:unit` globs `lib/**` and `app/**` only). Its fake client fails a read the
+way Supabase actually does — resolving with `{ data: null, error }`. Ten tests:
+four refusals, four must-still-work, and two structural ones that catch the
+regression as a **deletion** rather than a wrong value (no read may discard its
+error; the caller must not go back to a null-check). Mutation-checked both
+halves independently, counts printed before→after: reinstating the swallow →
+3 RED at exit 1; reinstating the caller's null-check → 1 RED at exit 1. Restored
+from `cp` backups.
+
+✅ **THE LAST HOLE IS CLOSED — `tests/db/ai-tier-ladder-matches-the-catalog.db.test.ts`.**
+The Setnayan AI fallback is a per-tier LADDER rather than a constant/row pair,
+so the general drift guard structurally cannot see it (it stays in that guard's
+`UNPAIRED` with that reason). It was therefore the one set of hidden prices that
+could still diverge from the admin pricing screen with nothing complaining — on
+the product with the only real sale this platform has taken.
+
+Both sides derived: `AI_TIER_SKU` joined against the catalogue for every tier
+with a non-null SKU, comparing **both** ladders. **A tier that cannot resolve to
+a row FAILS rather than skipping** — a silently-skipped tier is a guard that
+shrinks as the ladder grows — and two anti-vacuity floors sit under it against
+this repo's empty-named-exports trap. **Tier E is modelled, not treated as
+unresolvable**: it has no SKU because with no vendors Setnayan AI is not present,
+so it is priced ₱0 before any read and the must-resolve rule cannot demand a row
+that should never exist.
+
+🔑 **The sign-up comparison mirrors the resolver instead of reading one column.**
+A NULL `onboarding_price_php` means "no discount", and the resolver then charges
+the regular price — so the catalogue's *effective* sign-up figure is
+`usable(onboarding) ? onboarding : retail`. Comparing the raw column would call a
+legitimate no-discount row "drift" and, worse, would **miss a discount being
+dropped from the catalogue while the code still promises one**.
+
+It passes today, and that is the point: its value is entirely in the day someone
+reprices a tier and the code ladder stays behind — which is exactly what happened
+to four other constants this same afternoon. Mutation-checked on both ladders
+independently, counts printed before→after: regular C 899→999 → **RED at exit 1**;
+sign-up C 499→449 → **RED at exit 1**. Restored from a `cp` backup.
+
+SPEC IMPACT: recorded in the `DECISION_LOG.md` 2026-08-27 row — the ruling, and
+that it closes a SEC-7 divergence on the only product with a real sale.

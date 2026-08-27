@@ -55,18 +55,17 @@
 
 -- 0 ── THE COARSE CATEGORIES. `vendor_category` is the 55-value enum that is
 --      actually STORED on a shop and drives every marketplace filter; the
---      taxonomy above is only what a vendor NAVIGATES. Not one of the 55 was for
+--      taxonomy below is only what a vendor NAVIGATES. Not one of the 55 was for
 --      a death, and `no-service-lands-in-misc.db.test.ts` exists precisely to
 --      refuse a branch with nowhere to land (owner 2026-08-09: *"we do not like
 --      having categories under misc"*).
 --
 -- ⚖ THREE, NOT SIX, AND THAT IS THE INDUSTRY AND NOT LAZINESS. In the
---      Philippines a funeral home IS the bundled business — it holds the chapel,
---      does the embalming, sells the casket and provides the hearse. A memorial
---      park and a crematorium are separate companies. So four of the six new
---      branches fold into `funeral_home`, and the two that are genuinely
---      different trades get their own. A casket retailer filed under
---      `funeral_home` is where a family would look for one.
+--      Philippines the funeral home IS the bundled business — it holds the
+--      chapel, does the embalming, sells the casket and provides the hearse. A
+--      memorial park and a crematorium are separate companies. So the casket,
+--      the hearse and the embalming are SERVICES under the funeral home rather
+--      than trades of their own.
 --
 -- ⚠ ADDED, NEVER USED IN THIS MIGRATION. A new enum value cannot be referenced
 --      in the transaction that creates it; nothing below writes one.
@@ -74,51 +73,62 @@ ALTER TYPE public.vendor_category ADD VALUE IF NOT EXISTS 'funeral_home';
 ALTER TYPE public.vendor_category ADD VALUE IF NOT EXISTS 'cremation';
 ALTER TYPE public.vendor_category ADD VALUE IF NOT EXISTS 'memorial_park';
 
--- 1 ── the folder.
-INSERT INTO public.service_categories
-       (id, parent_id, tier, kind, label_en, label_short, slug, sort_order, scope,
-        status, service_nature, icon_name, applicable_event_types)
-VALUES ('farewell', NULL, 1, 'branch',
-        'Funeral homes & farewell', 'Farewell', 'farewell', 15, 'global',
-        'active', 'service', 'Feather', NULL)
-    ON CONFLICT (id) DO NOTHING;
+-- ── EVERY ROW BELOW IS GENERATED, NOT HAND-WRITTEN ──────────────────────────
+--
+-- 🔑 `scripts/gen-taxonomy-seed.ts` emits these from `lib/taxonomy.ts`, which is
+-- the authored source of truth for the tree during the Phase-1 transition. My
+-- first cut of this migration hand-wrote SIX branches; the code defines THREE
+-- tiles, and the two would have disagreed from the day they landed — a DB with
+-- branches the code has no tile for. Regenerated and spliced instead, so DB and
+-- code say the same thing by construction.
+--
+-- Re-run after any change to TAXONOMY_MAP or the folder/tile maps:
+--   npx tsx scripts/gen-taxonomy-seed.ts
 
--- 2 ── its leaves. Scoped to the wake and nothing else.
+-- 1 ── the branch + its three tiles.
 INSERT INTO public.service_categories
-       (id, parent_id, tier, kind, label_en, label_short, slug, sort_order, scope,
-        status, service_nature, applicable_event_types)
+  (id, parent_id, tier, kind, label_en, label_short, slug, sort_order, scope, marketplace_hidden)
 VALUES
-  ('funeral_home',  'farewell', 2, 'leaf', 'Funeral homes & chapels',   'Funeral homes', 'funeral-homes',   71, 'global', 'active', 'service', ARRAY['wake']),
-  ('casket_urn',    'farewell', 2, 'leaf', 'Caskets & urns',            'Caskets & urns','caskets-urns',    72, 'global', 'active', 'service', ARRAY['wake']),
-  ('cremation',     'farewell', 2, 'leaf', 'Cremation',                 'Cremation',     'cremation',       73, 'global', 'active', 'service', ARRAY['wake']),
-  ('memorial_park', 'farewell', 2, 'leaf', 'Memorial parks & interment','Memorial parks','memorial-parks',  74, 'global', 'active', 'service', ARRAY['wake']),
-  ('hearse',        'farewell', 2, 'leaf', 'Hearse & funeral transport','Hearse',        'hearse',          75, 'global', 'active', 'service', ARRAY['wake']),
-  ('embalming',     'farewell', 2, 'leaf', 'Embalming & preparation',   'Preparation',   'embalming',       76, 'global', 'active', 'service', ARRAY['wake'])
+  ('farewell', NULL, 1, 'branch', 'Funeral homes & farewell', 'Farewell', 'farewell', 15, 'global', FALSE),
+  ('funeral_home', 'farewell', 2, 'leaf', 'Funeral Home', NULL, 'funeral-homes', 75, 'global', FALSE),
+  ('cremation', 'farewell', 2, 'leaf', 'Cremation', NULL, 'cremation', 76, 'global', FALSE),
+  ('memorial_park', 'farewell', 2, 'leaf', 'Memorial Park', NULL, 'memorial-parks', 77, 'global', FALSE)
     ON CONFLICT (id) DO NOTHING;
 
--- 3 ── 🛑 THE OFFICIANT IS DELIBERATELY *NOT* TOUCHED, and this block is the
---      record of a change I wrote and then removed.
---
---      I had this migration add `wake` to the `officiants` leaf, on the
---      reasoning that onboarding asks which rite is being held and never offers
---      the priest who leads it. Measured before shipping: `officiants` is
---      `marketplace_hidden = true` — an ADMIN-ONLY filing cabinet, and its own
---      docblock in lib/taxonomy.ts says why: an officiant is not someone you
---      hire from a marketplace, they come with the parish. The 25 deliberately
---      unsold canonicals under it exist so they have a home in the admin tree
---      instead of piling into "Unfiled".
---
---      🔑 SO THE SCOPE WOULD HAVE SURFACED NOTHING, and — worse — the guard I
---      had written for it would have reported success. A gate with no handle,
---      certified by its own test. That reasoning applies to a funeral Mass
---      exactly as it does to a wedding: the priest comes with the parish.
---
---      ⚠ THE SAME IS TRUE OF `livestream`, which I earlier recorded as "already
---      reached by every type because its scope is NULL". True and irrelevant:
---      it is `marketplace_hidden` too. So the onboarding answer *"let them watch
---      the service"* does NOT today resolve to a bookable supplier. That is a
---      real gap, it is NOT this migration's to close, and it is written here
---      rather than left as a pleasant assumption.
+-- 2 ── the twelve services under them.
+--      🇵🇭 `body_repatriation` is not padding — a family burying an OFW is
+--      arranging exactly this, and no wedding-shaped taxonomy would have
+--      produced it.
+INSERT INTO public.canonical_service_taxonomy
+  (canonical_service, folder_id, tile_id, phase, faith, is_ph, is_setnayan, is_rental, dietary, is_tradition, marketplace_hidden, secondary_tiles)
+VALUES
+  ('funeral_chapel', 'farewell', 'funeral_home', 'V1.5+', NULL, TRUE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('wake_package', 'farewell', 'funeral_home', 'V1.5+', NULL, TRUE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('casket', 'farewell', 'funeral_home', 'V1.5+', NULL, FALSE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('urn', 'farewell', 'funeral_home', 'V1.5+', NULL, FALSE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('embalming_preparation', 'farewell', 'funeral_home', 'V1.5+', NULL, FALSE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('hearse_funeral_transport', 'farewell', 'funeral_home', 'V1.5+', NULL, FALSE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('body_repatriation', 'farewell', 'funeral_home', 'V1.5+', NULL, TRUE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('cremation_service', 'farewell', 'cremation', 'V1.5+', NULL, FALSE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('columbarium_niche', 'farewell', 'cremation', 'V1.5+', NULL, TRUE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('memorial_lot', 'farewell', 'memorial_park', 'V1.5+', NULL, TRUE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('interment_service', 'farewell', 'memorial_park', 'V1.5+', NULL, FALSE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[]),
+  ('mausoleum', 'farewell', 'memorial_park', 'V1.5+', NULL, TRUE, FALSE, FALSE, NULL, FALSE, FALSE, '{}'::TEXT[])
+    ON CONFLICT (canonical_service) DO NOTHING;
+
+-- 3 ── the SCOPE, which the generator does not emit because `lib/taxonomy.ts`
+--      does not carry it. Both tables, so a filter reading either one agrees.
+--      ⚖ Scoped to the wake ALONE: an unscoped leaf shows at every celebration,
+--      which is a casket in a birthday's category list.
+UPDATE public.service_categories
+   SET applicable_event_types = ARRAY['wake']
+ WHERE parent_id = 'farewell'
+   AND applicable_event_types IS DISTINCT FROM ARRAY['wake'];
+
+UPDATE public.canonical_service_taxonomy
+   SET applicable_event_types = ARRAY['wake']
+ WHERE folder_id = 'farewell'
+   AND applicable_event_types IS DISTINCT FROM ARRAY['wake'];
 
 COMMENT ON TABLE public.service_categories IS
   'The marketplace taxonomy. NOTE (2026-08-27): a wake reaches its own '
@@ -137,8 +147,8 @@ BEGIN
     FROM public.service_categories
    WHERE parent_id = 'farewell' AND status = 'active'
      AND applicable_event_types = ARRAY['wake'];
-  IF v_own <> 6 THEN
-    RAISE EXCEPTION 'refusing to apply: expected 6 wake-only farewell leaves, found %', v_own;
+  IF v_own <> 3 THEN
+    RAISE EXCEPTION 'refusing to apply: expected 3 wake-only farewell leaves, found %', v_own;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM public.service_categories WHERE id='farewell' AND tier=1 AND status='active') THEN
@@ -148,6 +158,15 @@ BEGIN
   -- …and every new leaf must be marketplace-VISIBLE. This is the check the
   -- officiant mistake earns: a leaf that is scoped correctly and hidden shows a
   -- family nothing, and every other assertion here would still pass.
+  -- …and every tile must carry SERVICES. A tile with zero canonicals is a DEAD
+  -- SHELF: marketplace search short-circuits on it and the vendor picker prunes
+  -- the branch, so the trade is unfindable with no error anywhere. This is the
+  -- guard `taxonomy-tile-reachability` enforces in code; asserted here too
+  -- because the data is what actually decides.
+  IF (SELECT count(*) FROM public.canonical_service_taxonomy WHERE folder_id='farewell') < 12 THEN
+    RAISE EXCEPTION 'refusing to apply: the farewell tiles have fewer than 12 services — a tile with none renders as an empty shelf and the trade becomes unfindable';
+  END IF;
+
   IF EXISTS (SELECT 1 FROM public.service_categories
               WHERE parent_id = 'farewell' AND marketplace_hidden IS TRUE) THEN
     RAISE EXCEPTION 'refusing to apply: a farewell leaf is marketplace_hidden — it would be scoped to the wake and invisible to the family';

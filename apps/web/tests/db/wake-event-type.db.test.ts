@@ -121,23 +121,56 @@ test('the wake names its own onboarding pack in the column', async () => {
   assert.equal(r.rows[0]!.onboarding_flow_key, 'wake');
 });
 
-test('the marketplace reaches the wake through its seven scoped tiles', async () => {
+test('the marketplace reaches the wake — seven borrowed tiles and three of its own', async () => {
   const r = await db.query<{ id: string }>(
     `SELECT id FROM public.service_categories
       WHERE 'wake' = ANY(applicable_event_types) ORDER BY id`,
   );
   const ids = r.rows.map((row) => row.id);
+  // 7 → 10 on 2026-08-27: the owner ruled that death-care suppliers are listed,
+  // and the wake gained the first categories that are ITS OWN rather than
+  // borrowed from a celebration.
+  //
+  // 🔑 THE SPLIT IS THE POINT, not the total. The first seven are shared leaves
+  // a wedding also uses; the last three exist only for a wake. Before this, a
+  // family who had just lost someone could reach a coordinator and a florist
+  // and NOT a funeral home — the marketplace had 276 services and not one of
+  // them was for a death.
+  //
   // FLOORED — an empty sweep must not pass — and exact, so a silent widening
   // of the wake's marketplace is a decision someone makes here, on purpose.
   assert.deepEqual(ids, [
+    // borrowed
     'catering',
     'choir',
     'coordinator',
+    'cremation',
     'florist',
+    'funeral_home',
     'guest_shuttle',
+    'memorial_park',
     'photo_video',
     'printing',
   ]);
+});
+
+test('🚨 every farewell tile carries services — an empty shelf is an unfindable trade', async () => {
+  // A tile with zero canonicals is NOT an empty state a person sees: marketplace
+  // search short-circuits on it and the vendor-side picker prunes the branch, so
+  // the trade simply cannot be found and nothing anywhere errors. This is the
+  // db-side twin of `lib/taxonomy-tile-reachability.test.ts`, asserted here
+  // because the DATA is what actually decides.
+  const r = await db.query<{ tile_id: string; n: number }>(
+    `SELECT tile_id, count(*)::int AS n
+       FROM public.canonical_service_taxonomy
+      WHERE folder_id = 'farewell'
+      GROUP BY tile_id ORDER BY tile_id`,
+  );
+  assert.deepEqual(
+    r.rows.map((x) => `${x.tile_id}:${x.n}`),
+    ['cremation:2', 'funeral_home:7', 'memorial_park:3'],
+    'a farewell tile lost its services — it now renders as an empty shelf and the trade is unfindable',
+  );
 });
 
 test('an event can BE a wake — and a community can never own one', async () => {

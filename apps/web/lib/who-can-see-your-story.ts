@@ -48,8 +48,8 @@ export const STORY_AUDIENCE_NOTE: Record<StoryAudience, string> = {
     'Nobody else can open it — not even your guests. You can keep writing and choose later.',
   event:
     'The people of that day can read it — the hosts, the guests who have a seat, ' +
-    'and the suppliers who worked it. It stays off Setnayan’s Stories and off ' +
-    'search engines.',
+    'and the shops you booked, including the staff those shops send to work your ' +
+    'celebration. It stays off Setnayan’s Stories and off search engines.',
   published:
     'Anyone with your link can read it, and Setnayan may feature it on Stories.',
 };

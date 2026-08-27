@@ -53,7 +53,12 @@ import {
   unretireEventTypeVocab,
   updateEventTypePresentation,
 } from '../actions';
-import type { PreparedCatalogs, PreparedJobSpec, PreparedValues } from './prepared-jobs';
+import type {
+  PreparedCatalogs,
+  PreparedField,
+  PreparedJobSpec,
+  PreparedValues,
+} from './prepared-jobs';
 
 /** Anything Next will accept as a `<form action=…>`. */
 type FormAction = (formData: FormData) => void | Promise<void> | Promise<never>;
@@ -111,7 +116,17 @@ export function PreparedJobCard({
   // nothing at all rather than a card that cannot work.
   if (!action) return null;
 
-  const missed = spec.fields.filter((f) => prepared.misses[f.field]);
+  // Only a field the admin can SEE can be reported as a miss. `carry` is hidden
+  // plumbing (which view to return to) — it is never resolved against a catalog,
+  // so it can never miss, and it carries no label to name in the message. The
+  // predicate says that in the type rather than trusting it: without it a future
+  // `carry` landing in `misses` would render "Nothing here is called …" against
+  // `undefined`, which is the silent-wrong-record failure this card exists to
+  // prevent, wearing a different hat.
+  const missed = spec.fields.filter(
+    (f): f is Exclude<PreparedField, { kind: 'carry' }> =>
+      f.kind !== 'carry' && Boolean(prepared.misses[f.field]),
+  );
 
   return (
     <form

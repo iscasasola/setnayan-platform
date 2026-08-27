@@ -93,25 +93,42 @@ SELECT 'wake', 'Wake', v.emoji, v.enabled, v.status, v.sort_order, v.onboarding_
 UPDATE public.event_type_profiles   SET event_type = 'wake' WHERE event_type = 'funeral';
 UPDATE public.event_type_onboarding SET event_type = 'wake' WHERE event_type = 'funeral';
 
+-- 2b ── 🚨 AND THE POINTER INSIDE THE ROW, WHICH IS A SECOND VALUE SAYING
+--       "funeral" AND IS NOT THE PRIMARY KEY. `onboarding_flow_key` names the
+--       persona pack the onboarding page looks up — the starter plan, the three
+--       questions. The code-side pack was renamed with everything else, so
+--       leaving this string alone would point a live column at a pack that no
+--       longer exists: a family choosing a wake would get the quiet intro and
+--       then NO questions and NO starter plan, with nothing thrown and nothing
+--       logged. Every other type stores its own name here, so this is the
+--       consistent value as well as the working one.
+--
+--       🔑 A RENAME IS EVERY SPELLING OF THE VALUE, NOT THE PRIMARY KEY. The
+--       replay found this, not the survey: the survey counted rows whose
+--       event_type was 'funeral' and this column is not that column.
+UPDATE public.event_type_profiles
+   SET onboarding_flow_key = 'wake'
+ WHERE onboarding_flow_key = 'funeral';
+
 -- 3 ── the events themselves. Zero rows today; written anyway, because a
 --      migration that only works on an empty table is a migration that silently
 --      does nothing the day it matters. Legal now that the parent exists.
 UPDATE public.events                SET event_type = 'wake' WHERE event_type = 'funeral';
 
--- 3 ── the marketplace tiles scoped to this type (7 rows). Array membership, so
+-- 4 ── the marketplace tiles scoped to this type (7 rows). Array membership, so
 --      the swap is element-wise and leaves every other type in place.
 UPDATE public.service_categories
    SET applicable_event_types = array_replace(applicable_event_types, 'funeral', 'wake')
  WHERE 'funeral' = ANY(applicable_event_types);
 
--- 4 ── the same swap on the canonical taxonomy. ZERO rows carry it today (every
+-- 5 ── the same swap on the canonical taxonomy. ZERO rows carry it today (every
 --      death-care leaf is still unbuilt), so this is a no-op — included so the
 --      two taxonomies cannot drift apart the moment somebody adds the first one.
 UPDATE public.canonical_service_taxonomy
    SET applicable_event_types = array_replace(applicable_event_types, 'funeral', 'wake')
  WHERE 'funeral' = ANY(applicable_event_types);
 
--- 5 ── and only now the old row, which by here is referenced by nothing. If any
+-- 6 ── and only now the old row, which by here is referenced by nothing. If any
 --      child were still pointing at it, ON DELETE CASCADE would silently take
 --      that child with it — which is why this is the last statement and not the
 --      first.
@@ -144,6 +161,12 @@ BEGIN
   IF v_left <> 0 THEN
     RAISE EXCEPTION
       'refusing to apply: % row(s) still carry event_type ''funeral'' after the rename', v_left;
+  END IF;
+
+  -- …and no OTHER spelling of the value survives either. This is the one the
+  -- replay caught: a column that is not the primary key, holding the same word.
+  IF EXISTS (SELECT 1 FROM public.event_type_profiles WHERE onboarding_flow_key = 'funeral') THEN
+    RAISE EXCEPTION 'refusing to apply: a profile still points its onboarding_flow_key at ''funeral'' — the wake would get no questions and no starter plan, silently';
   END IF;
 
   -- …and the wake must actually EXIST afterwards. Without this, deleting the

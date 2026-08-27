@@ -1,10 +1,22 @@
 /**
- * THE FUNERAL EVENT TYPE EXISTS, AND IT IS SOLEMN — migration
+ * THE WAKE EVENT TYPE EXISTS, AND IT IS SOLEMN — migrations
+ * 20271163083797_the_words_follow_the_occasion (which created it as `funeral`)
+ * and 20271173859461_the_event_is_a_wake (which corrected the name), asserted
+ * against the replayed schema rather than trusted from their own comments.
+ *
+ * ⚖ THE NAME IS THE OWNER'S, 2026-08-27: "Wake is the viewing (our event not
+ * funeral). Funeral is the ceremony until burial." The wake is the stretch a
+ * family plans here; the funeral is the ceremony on its closing day and keeps
+ * that word on the run-of-show, in onboarding and as a supplier category. If a
+ * later sweep tries to make this file say "funeral" again, it is undoing a
+ * distinction, not fixing a typo.
+ *
+ * (original header) — migration
  * 20271163083797_the_words_follow_the_occasion, asserted against the replayed
  * schema rather than trusted from its own comments.
  *
- * Owner ruling 2026-08-17 ("yes to all four"): the funeral is approved as a
- * new event type, a wake MAY accept money with gentler wording, and the build
+ * Owner ruling 2026-08-17 ("yes to all four"): the type is approved as a new
+ * event type, a wake MAY accept money with gentler wording, and the build
  * is a TONE change across the guest tree. The tone switch is the profile's
  * `register: 'solemn'` — so this file pins the DATA that every solemn branch
  * in the app hangs from. If the row drifts (an admin save that rebuilds the
@@ -36,20 +48,20 @@ test('the vocab row exists, enabled, with its own emoji', async () => {
     sort_order: number;
   }>(
     `SELECT label_en, enabled, status, emoji, sort_order
-       FROM public.event_type_vocab WHERE event_type = 'funeral'`,
+       FROM public.event_type_vocab WHERE event_type = 'wake'`,
   );
-  assert.equal(r.rows.length, 1, 'no funeral row in event_type_vocab');
+  assert.equal(r.rows.length, 1, 'no wake row in event_type_vocab');
   const row = r.rows[0]!;
-  assert.equal(row.label_en, 'Funeral');
+  assert.equal(row.label_en, 'Wake');
   assert.equal(row.enabled, true);
   assert.equal(row.status, 'active');
   assert.equal(row.emoji, '🕊️');
   // 🕯️ is christening's — the two must not collide on the picker.
   const clash = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM public.event_type_vocab
-      WHERE emoji = '🕊️' AND event_type <> 'funeral'`,
+      WHERE emoji = '🕊️' AND event_type <> 'wake'`,
   );
-  assert.equal(clash.rows[0]!.n, 0, 'another type shares the funeral emoji');
+  assert.equal(clash.rows[0]!.n, 0, 'another type shares the wake emoji');
 });
 
 test('the profile carries the solemn register and the family’s words', async () => {
@@ -61,9 +73,9 @@ test('the profile carries the solemn register and the family’s words', async (
     marketplace_enabled: boolean;
   }>(
     `SELECT terminology, enabled_surfaces, event_class, multi_day, marketplace_enabled
-       FROM public.event_type_profiles WHERE event_type = 'funeral'`,
+       FROM public.event_type_profiles WHERE event_type = 'wake'`,
   );
-  assert.equal(r.rows.length, 1, 'no funeral row in event_type_profiles');
+  assert.equal(r.rows.length, 1, 'no wake row in event_type_profiles');
   const row = r.rows[0]!;
   const t = row.terminology;
   assert.equal(t.register, 'solemn');
@@ -84,9 +96,9 @@ test('the profile carries the solemn register and the family’s words', async (
 
 test('the onboarding welcome is seeded in the quiet voice', async () => {
   const r = await db.query<{ intro: Record<string, unknown> }>(
-    `SELECT intro FROM public.event_type_onboarding WHERE event_type = 'funeral'`,
+    `SELECT intro FROM public.event_type_onboarding WHERE event_type = 'wake'`,
   );
-  assert.equal(r.rows.length, 1, 'no funeral row in event_type_onboarding');
+  assert.equal(r.rows.length, 1, 'no wake row in event_type_onboarding');
   const intro = r.rows[0]!.intro;
   // Shape-complete, or resolveOnboardingSpec's isIntro() rejects the whole
   // override and the family gets "shape a plan made for your celebration".
@@ -96,27 +108,27 @@ test('the onboarding welcome is seeded in the quiet voice', async () => {
   assert.ok(!String(intro.headline).toLowerCase().includes('celebrat'));
 });
 
-test('the funeral names its own onboarding pack in the column', async () => {
+test('the wake names its own onboarding pack in the column', async () => {
   // It shipped NULL — the only enabled type with no value here — so the flow
   // resolved the pack key 'generic' and everything authored for a wake was
   // unreachable, while the admin editor (which falls back to the event type)
   // showed HQ a pack the visitor never got. Asserted BY THE OBJECT, not by
   // schema_migrations.
   const r = await db.query<{ onboarding_flow_key: string | null }>(
-    `SELECT onboarding_flow_key FROM public.event_type_profiles WHERE event_type = 'funeral'`,
+    `SELECT onboarding_flow_key FROM public.event_type_profiles WHERE event_type = 'wake'`,
   );
-  assert.equal(r.rows.length, 1, 'no funeral profile row');
-  assert.equal(r.rows[0]!.onboarding_flow_key, 'funeral');
+  assert.equal(r.rows.length, 1, 'no wake profile row');
+  assert.equal(r.rows[0]!.onboarding_flow_key, 'wake');
 });
 
-test('the marketplace reaches the funeral through its seven scoped tiles', async () => {
+test('the marketplace reaches the wake through its seven scoped tiles', async () => {
   const r = await db.query<{ id: string }>(
     `SELECT id FROM public.service_categories
-      WHERE 'funeral' = ANY(applicable_event_types) ORDER BY id`,
+      WHERE 'wake' = ANY(applicable_event_types) ORDER BY id`,
   );
   const ids = r.rows.map((row) => row.id);
   // FLOORED — an empty sweep must not pass — and exact, so a silent widening
-  // of the funeral's marketplace is a decision someone makes here, on purpose.
+  // of the wake's marketplace is a decision someone makes here, on purpose.
   assert.deepEqual(ids, [
     'catering',
     'choir',
@@ -128,16 +140,16 @@ test('the marketplace reaches the funeral through its seven scoped tiles', async
   ]);
 });
 
-test('an event can BE a funeral — and a community can never own one', async () => {
+test('an event can BE a wake — and a community can never own one', async () => {
   // The FK accepts the registered type.
   const ok = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ('Paalam, Lolo', 'funeral', DATE '2026-09-04') RETURNING event_id`,
+     VALUES ('Paalam, Lolo', 'wake', DATE '2026-09-04') RETURNING event_id`,
   );
   assert.equal(ok.rows.length, 1);
 
   // events_community_class_consistency lists the community-eligible types and
-  // 'funeral' is not among them — a personal milestone stays personal (owner
+  // 'wake' is not among them — a personal milestone stays personal (owner
   // lock 2026-07-15). Assert the refusal so a future widening is deliberate.
   const community = await db.query<{ community_id: string }>(
     `INSERT INTO public.communities (name) VALUES ('Samahan Test') RETURNING community_id`,
@@ -145,7 +157,7 @@ test('an event can BE a funeral — and a community can never own one', async ()
   await assert.rejects(
     db.query(
       `INSERT INTO public.events (display_name, event_type, event_date, community_id)
-       VALUES ('A community funeral', 'funeral', DATE '2026-09-05', $1)`,
+       VALUES ('A community wake', 'wake', DATE '2026-09-05', $1)`,
       [community.rows[0]!.community_id],
     ),
     /events_community_class_consistency|check constraint/i,

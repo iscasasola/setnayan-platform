@@ -45,6 +45,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
+import { resolveAlbumDoor } from '../_lib/album-door.server';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
@@ -433,7 +434,16 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       liveWall = null; // wall trouble must never break the hub
     }
   }
-  const recapHref = isPost ? `/${event.slug}/recap` : null;
+  // THE ALBUM DOOR — the same decision the rooms footer and the public
+  // event-day bar make, taken from the one place that makes it.
+  //
+  // This used to ask `isPost`, which is not a question about whether the album
+  // exists. `post` is only T+36h → T+60h, so this card appeared during the ~24
+  // hours when the couple has almost certainly not published yet — the guest
+  // tapped "See the recap gallery" and was told "The recap isn't ready yet" —
+  // and then vanished forever at T+60h even once the album WAS published.
+  // Wrong in both directions. See `albumRoomLink`'s docblock.
+  const recapHref = (await resolveAlbumDoor(event))?.href ?? null;
   const hasPhotos = Boolean(guest) || Boolean(liveWall) || Boolean(recapHref);
 
   // ── THE TWO DOORS NOTHING IN THE PRODUCT USED TO OPEN. ─────────────────────
@@ -838,7 +848,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         />
       ) : null}
 
-      {/* After the day, the viewable recap album. */}
+      {/* The recap album — offered once the couple has PUBLISHED it, not once
+          the calendar says the day is over. See `albumRoomLink`. */}
       {recapHref ? (
         <Link
           href={recapHref}

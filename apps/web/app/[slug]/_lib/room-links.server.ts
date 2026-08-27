@@ -1,8 +1,9 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isRecapPublished } from '@/lib/auto-recap';
 import { getDayOfPhase } from '@/lib/day-of-mode';
+
+import { albumDoorPublished } from './album-door.server';
 
 import { loadDoorwayFacts } from './loaders';
 import { resolveRoomLinks, type RoomKey, type RoomLink } from './room-links';
@@ -42,9 +43,12 @@ export async function loadRoomLinks(input: {
 
   const [facts, recapPublished] = await Promise.all([
     loadDoorwayFacts(admin, event.event_id, event.event_type ?? null),
-    // A failed read here must not invent an album that is not there: a link to
-    // a 404 is worse than no link, and a guest turned away once stops tapping.
-    isRecapPublished(event.event_id).catch(() => false),
+    // The album door's fact, shared with the live hub and the public event-day
+    // bar. Its fail-closed read (a link to a dead end is worse than no link,
+    // and a guest turned away once stops tapping) now lives in ONE place so
+    // those two surfaces inherit it instead of inventing their own gate — see
+    // `album-door.server.ts`.
+    albumDoorPublished(event.event_id),
   ]);
 
   // The live hub's entry exists only while the event is running or has just

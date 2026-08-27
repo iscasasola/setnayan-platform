@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ee888a54e",
+  "generatedFromRef": "598219caa",
   "routeCount": 406,
-  "destinations": 872,
+  "destinations": 871,
   "actions": 587,
-  "blocks": 4050,
+  "blocks": 4051,
   "routes": {
     "/": {
       "files": [
@@ -600,6 +600,7 @@
         "[slug]/_components/what-to-bring-widget.tsx",
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
+        "[slug]/_lib/album-door.server.ts",
         "[slug]/_lib/belongs-to-this-event.ts",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
@@ -629,6 +630,7 @@
         "/[seg]/hub",
         "/[seg]/invite",
         "/[seg]/print",
+        "/[seg]/recap",
         "/[seg]/seat/claim?t=[seg]",
         "/[seg]/welcome",
         "/api/guest/qr",
@@ -776,6 +778,7 @@
         "RigidStage",
         "RigidWebGL",
         "RoamWatchPicker",
+        "RoomLink",
         "RsvpPill",
         "RsvpWidget",
         "RunOfShowHeader",
@@ -1150,6 +1153,7 @@
         "/admin/receipts",
         "/admin/repost-watch",
         "/admin/reviews",
+        "/admin/search-memory",
         "/admin/secrets",
         "/admin/settings/payment-methods",
         "/admin/settings?tab=compliance",
@@ -8799,7 +8803,6 @@
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/performance",
         "/vendor-dashboard/reviews",
-        "/vendor-dashboard/services",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
       ],
@@ -9441,7 +9444,6 @@
       ],
       "destinations": [
         "/vendor-dashboard/earnings?page=[seg]",
-        "/vendor-dashboard/services",
         "/vendor-dashboard/subscription"
       ],
       "actions": [],
@@ -10115,9 +10117,7 @@
         "vendor-dashboard/repertoire/loading.tsx",
         "vendor-dashboard/repertoire/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/services"
-      ],
+      "destinations": [],
       "actions": [
         "addRepertoireSong",
         "removeRepertoireSong",

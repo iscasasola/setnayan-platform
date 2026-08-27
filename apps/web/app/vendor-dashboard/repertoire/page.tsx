@@ -13,6 +13,7 @@ import {
 } from '@/lib/songs';
 import { addRepertoireSong, removeRepertoireSong, setPerformanceLink } from './actions';
 import { ShopNotice } from '../_components/kit';
+import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 
 export const metadata = { title: 'Your repertoire · Vendor' };
 
@@ -46,7 +47,10 @@ export default async function RepertoirePage({ searchParams }: Props) {
           music service to your profile and your set list will appear here, so couples
           whose chosen songs you play see you as a better match.
         </p>
-        <Link href="/vendor-dashboard/services" className="button-primary inline-flex w-fit">
+        {/* Same dead end as the Shop's Create button: this renders for an act
+            that has NO music service yet, which is the state that lands on
+            Coverage with the picker shut. */}
+        <Link href={SERVICE_PICKER_HREF} className="button-primary inline-flex w-fit">
           Add a music service
         </Link>
       </section>

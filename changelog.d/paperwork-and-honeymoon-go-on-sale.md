@@ -38,3 +38,11 @@ It was a sibling of Ceremony under **"Venues & churches"** — correct while it 
 `typecheck` 0 errors · full `test:unit` and `test:db` green. **Pre-flighted read-only against live production:** all 5 services present and currently hidden · 3 under paperwork + 2 under travel = exactly 5 · both branches currently hidden · the `planning` folder is open, so the opened branches are reachable · the enum currently lacks both values (so the `ALTER TYPE` is not a silent no-op) · the two shut branches leak nothing today.
 
 SPEC IMPACT: **Two new bookable supplier categories.** No price, SKU or fee change — the booking fee and every payment path are untouched. Corpus row: `DECISION_LOG.md` 2026-08-27.
+
+### The typecheck found the fourth thing
+
+Adding two `PlanGroupId`s broke three **exhaustive** `Record<PlanGroupId, string>` copy tables in `lib/todays-one-thing.ts` — *why it matters* · the CTA label · the action title — the hero card the couple actually reads. No grep for the category names would have found them; the type did. Filled in brand voice (*"The licence is only good for 120 days, and the CENOMAR plus your parish papers take weeks to gather"* · *"Sort your marriage papers"* · *"Plan your honeymoon"*).
+
+⚠ **Noted, not fixed here:** the untouched `officiant` plan group still deep-links via `subcategoryHint: 'officiant_priest_minister'`, a canonical that is marketplace-hidden — so *"Find an officiant"* on the same hero card is the same fake door [#4899](https://github.com/iscasasola/setnayan-platform/pull/4899) fixes on the Essentials card. Different file, different PR; called out so it is not discovered as a surprise.
+
+**7 mutations across the two PRs of this ruling, each measured by occurrence count before → after, each RED on the intended assertion.** The three that matter here: a careless `WHERE` opening all four branches → the migration's own `DO` block **raises and the whole replay fails**, which is the deploy refusing rather than a test complaining · quietly re-hiding `travel_honeymoon` → case 7 · opening a branch while leaving every service under it hidden → case 7 again, on the visible-leaves arm rather than the hidden arm.

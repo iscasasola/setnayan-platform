@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { claimCommandKey } from '@/lib/command-key-claim';
+import { searchTokens } from '@/lib/search-stop-words';
 import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
 import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
 import type { AdminJob } from '@/lib/admin-map/scan-admin-jobs';
@@ -124,6 +125,31 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
   const jobHits = useMemo(() => matchJobs(ADMIN_JOBS, q, 3), [q]);
 
   /**
+   * A word must clear this to make the query "a sentence describing a task",
+   * not "a couple of words naming a thing". Two content words is exactly what
+   * "papic pricing" and "vendor payouts" are — ordinary lookups that must NOT
+   * grow an AI nag beside their answer. `MIN_SHARED_WORDS` in match-job.ts
+   * already draws that same 2-vs-more line for the deterministic job matcher;
+   * this is the identical shape one layer up, for whether to even OFFER the
+   * escape hatch once a job match has already come back empty.
+   */
+  const MIN_SENTENCE_TOKENS = 3;
+
+  /**
+   * THE BUG THIS CLOSES: the owner typed the spec's own flagship example —
+   * "add a new category on the taxonomy service" — and the box just opened
+   * Taxonomy. `hits` is never empty for that query (the literal word
+   * "taxonomy" is a page name), so the old `hits.length === 0` gate could
+   * never reach step 3 (`ask-the-admin.ts`) for the exact case it exists to
+   * bridge — a page's OWN vocabulary was shadowing the assistant. This is
+   * offered only when (a) no deterministic job already answered it — a real
+   * job match is strictly better and needs no AI — and (b) the sentence has
+   * enough words to be describing a task rather than naming a page. It is
+   * additive: the top page hit and Enter-to-navigate are both unchanged.
+   */
+  const showAskEscapeHatch = hits.length > 0 && jobHits.length === 0 && searchTokens(q).length >= MIN_SENTENCE_TOKENS;
+
+  /**
    * The ask-form — gathering answers, never pressing the button.
    *
    * 🔒 THIS IS THE WHOLE SAFETY CLAIM: everything below writes into LOCAL
@@ -167,8 +193,10 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
    * 🔑 IT IS OFFERED, NEVER AUTOMATIC. Nothing here fires while the free word
    * matching has an answer — which is nearly always — so the ordinary day costs
    * ₱0. A phrase it has been taught before never reaches a model either: the
-   * action looks that up first. The button appears only when the box would
-   * otherwise say "nothing", which is exactly the case the owner kept hitting.
+   * action looks that up first. The button appears when the box would
+   * otherwise say "nothing" — and, secondary and below the top hit, when the
+   * box found a page only by an accident of vocabulary while the sentence
+   * still reads as a task (`showAskEscapeHatch` above).
    */
   const [asking, setAsking] = useState(false);
   const [asked, setAsked] = useState<AskAnswer | null>(null);
@@ -204,6 +232,26 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
     setAskJob(null);
     setAskValues({});
   }, []);
+
+  /**
+   * Shared by both places an assistant answer can be clicked — the primary
+   * "nothing matched" panel and the secondary offer beside a real page hit.
+   * An answer naming a job opens the ask-form (still the person who presses
+   * the real button); anything else is an ordinary page navigation.
+   */
+  const openAnswer = useCallback(
+    (answer: { href: string }) => {
+      const jobName = jobNameFromHref(answer.href);
+      const job = jobName ? ADMIN_JOBS.find((j) => j.name === jobName) : null;
+      if (job) {
+        openJobAsk(job);
+        return;
+      }
+      close();
+      router.push(answer.href);
+    },
+    [openJobAsk, close, router],
+  );
 
   // The SHARED focus contract, not a hand-rolled one: trap Tab inside the
   // dialog while open, close on Escape, and restore focus to whatever opened it.
@@ -444,18 +492,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
               {asked?.ok ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    // An answer that names a job opens the ask-form — it is
-                    // still the person who fills it in and presses submit.
-                    const jobName = jobNameFromHref(asked.answer.href);
-                    const job = jobName ? ADMIN_JOBS.find((j) => j.name === jobName) : null;
-                    if (job) {
-                      openJobAsk(job);
-                      return;
-                    }
-                    close();
-                    router.push(asked.answer.href);
-                  }}
+                  onClick={() => openAnswer(asked.answer)}
                   className="mt-3 w-full rounded-lg border px-3 py-2.5 text-left"
                   style={{ borderColor: 'var(--sn-line)' }}
                 >
@@ -492,31 +529,84 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
               )}
             </div>
           ) : (
-            hits.map((d, i) => {
-              const header = d.group !== lastGroup ? ((lastGroup = d.group), d.group) : null;
-              return (
-                <div key={d.href + d.label}>
-                  {header ? (
-                    <p className="px-3 pb-1 pt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]"
-                      style={{ color: 'var(--sn-ink-500)' }}>{header}</p>
-                  ) : null}
-                  <button
-                    type="button"
-                    onMouseMove={() => setSel(i)}
-                    onClick={() => {
-                      close();
-                      router.push(d.href);
-                    }}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-semibold"
-                    style={i === sel ? { background: 'var(--sn-paper-2, #F5EEE1)' } : undefined}
-                  >
-                    <span>{d.label}</span>
-                    <span className="ml-auto truncate font-mono text-[10.5px]"
-                      style={{ color: 'var(--sn-ink-500)' }}>{d.group}</span>
-                  </button>
+            <>
+              {hits.map((d, i) => {
+                const header = d.group !== lastGroup ? ((lastGroup = d.group), d.group) : null;
+                return (
+                  <div key={d.href + d.label}>
+                    {header ? (
+                      <p className="px-3 pb-1 pt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]"
+                        style={{ color: 'var(--sn-ink-500)' }}>{header}</p>
+                    ) : null}
+                    <button
+                      type="button"
+                      onMouseMove={() => setSel(i)}
+                      onClick={() => {
+                        close();
+                        router.push(d.href);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-semibold"
+                      style={i === sel ? { background: 'var(--sn-paper-2, #F5EEE1)' } : undefined}
+                    >
+                      <span>{d.label}</span>
+                      <span className="ml-auto truncate font-mono text-[10.5px]"
+                        style={{ color: 'var(--sn-ink-500)' }}>{d.group}</span>
+                    </button>
+                  </div>
+                );
+              })}
+              {/*
+                THE SECOND HALF OF THE FLAGSHIP EXAMPLE. "add a new category on
+                the taxonomy service" always finds the Taxonomy PAGE (its own
+                name is a literal word in the query), so the box must never
+                reach this far to say "nothing" — the old gate on that state was
+                the whole bug. This is deliberately quieter than the top hit:
+                a one-line offer, never a card, so a normal lookup like "papic
+                pricing" (below MIN_SENTENCE_TOKENS) never sees it at all.
+              */}
+              {showAskEscapeHatch ? (
+                <div
+                  className="mx-1.5 mb-1 mt-2 border-t pt-2"
+                  style={{ borderColor: 'var(--sn-line-soft, #F1ECE3)' }}
+                >
+                  {asked?.ok ? (
+                    <button
+                      type="button"
+                      onClick={() => openAnswer(asked.answer)}
+                      className="flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left"
+                      style={{ borderColor: 'var(--sn-line)' }}
+                    >
+                      <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0" style={{ color: 'var(--sn-gold, #A9834B)' }} strokeWidth={2} />
+                      <span>
+                        <span className="block text-[12.5px] font-semibold" style={{ color: 'var(--sn-ink)' }}>
+                          {asked.answer.label}
+                        </span>
+                        <span className="block text-[11px]" style={{ color: 'var(--sn-ink-500)' }}>
+                          {asked.answer.because}
+                        </span>
+                      </span>
+                    </button>
+                  ) : asked && !asked.ok ? (
+                    <p className="px-2.5 py-1 text-[11px]" style={{ color: 'var(--sn-ink-500)' }}>
+                      {asked.reason === 'unavailable'
+                        ? 'The assistant is not switched on here.'
+                        : 'It could not place that one either.'}
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={ask}
+                      disabled={asking}
+                      className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[11.5px] font-medium disabled:opacity-50"
+                      style={{ color: 'var(--sn-ink-500)' }}
+                    >
+                      <Sparkles aria-hidden className="h-3 w-3 shrink-0" style={{ color: 'var(--sn-gold, #A9834B)' }} strokeWidth={2} />
+                      {asking ? 'Thinking…' : `Not this? Ask Setnayan to walk you through “${q.trim()}” instead`}
+                    </button>
+                  )}
                 </div>
-              );
-            })
+              ) : null}
+            </>
           )}
             </>
           )}

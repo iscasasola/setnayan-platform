@@ -6,6 +6,8 @@ import { upsertEventTypeProfile } from '../../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { defaultHostNoun, isCelebrantShape } from '@/lib/event-type-profile';
+
 export const metadata = { title: 'Onboarding profile · Event Types · Admin' };
 // Admin-client DB read → keep dynamic (same rationale as the roster page).
 export const dynamic = 'force-dynamic';
@@ -98,6 +100,15 @@ export default async function EventTypeProfilePage({
     seat_word: str(t.seat_word) || 'table',
     event_word: str(t.event_word) || vocab.label_en.toLowerCase(),
     vip_tier_label: str(t.vip_tier_label) || 'Guests of honor',
+    // The two words the organiser noun used to do alone (owner 2026-08-27).
+    // Prefilled with the SAME rule the resolver falls back through, so an
+    // admin opening a row that predates these keys sees the values already in
+    // force rather than two empty boxes.
+    host_noun: str(t.host_noun) || defaultHostNoun(str(t.organizer_noun) || (isWedding ? 'couple' : 'host')),
+    celebrant_noun: str(t.celebrant_noun) || str(t.organizer_noun) || (isWedding ? 'couple' : 'host'),
+    celebrant_shape: isCelebrantShape(t.celebrant_shape)
+      ? t.celebrant_shape
+      : (isWedding ? 'couple' : 'single'),
   };
   const enabled = new Set(
     profileData?.enabled_surfaces ??
@@ -154,6 +165,22 @@ export default async function EventTypeProfilePage({
             <label>
               <span className={LABEL}>Organizer noun</span>
               <input name="organizer_noun" defaultValue={term.organizer_noun} className={FIELD} placeholder="host" />
+            </label>
+            <label>
+              <span className={LABEL}>Host noun <span className="normal-case text-ink/40">(who runs it)</span></span>
+              <input name="host_noun" defaultValue={term.host_noun} className={FIELD} placeholder="host" />
+            </label>
+            <label>
+              <span className={LABEL}>Celebrant noun <span className="normal-case text-ink/40">(who it&rsquo;s for)</span></span>
+              <input name="celebrant_noun" defaultValue={term.celebrant_noun} className={FIELD} placeholder="celebrant" />
+            </label>
+            <label>
+              <span className={LABEL}>Celebrant shape <span className="normal-case text-ink/40">(default; each event may override)</span></span>
+              <select name="celebrant_shape" defaultValue={term.celebrant_shape} className={FIELD}>
+                <option value="single">single — one person</option>
+                <option value="couple">couple — two people</option>
+                <option value="multiple">multiple — several people</option>
+              </select>
             </label>
             <label>
               <span className={LABEL}>Event word</span>

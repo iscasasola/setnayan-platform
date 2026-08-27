@@ -8,6 +8,7 @@ import { getConfirmedVendorCount } from '@/lib/events';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { titleCase } from '@/lib/personalized-menu';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
+import { celebrantShapeIsVisible, resolveProfile } from '@/lib/event-type-profile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import {
   cadencesForType,
@@ -48,6 +49,14 @@ export const metadata = { title: 'Personalization' };
  * precedent) so the Home "Personalize" link + the More-tab activeMatch stay
  * valid. Guard mirrors /for-you (getUser → redirect; maybeSingle → notFound).
  */
+/** What each shape is called on screen. Shared by the default option's hint so
+ *  a person can see what "however this usually goes" means for their type. */
+const CELEBRANT_SHAPE_LABELS: Record<'single' | 'couple' | 'multiple', string> = {
+  single: 'one person',
+  couple: 'a couple',
+  multiple: 'several people',
+};
+
 export default async function PersonalizationPage({
   params,
 }: {
@@ -71,6 +80,9 @@ export default async function PersonalizationPage({
       'event_id, display_name, event_type, archived, bride_name, groom_name, region, mood_feel_key, ' +
         // The repeat — read back so the control shows what is actually stored.
         'recurs, recur_cadence, ' +
+        // Who this celebration is FOR, and how many of them (owner 2026-08-27).
+        // NULL — every row today — means "use this event type's own shape".
+        'celebrant_shape, ' +
         'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
         'ceremony_type_locked_at, event_date, event_date_precision, date_mode, date_candidates, ' +
         'date_window_start, date_window_end, estimated_pax, venue_setting, ' +
@@ -179,6 +191,20 @@ export default async function PersonalizationPage({
   const repeatForced = cadenceIsForced(repeatType);
   const storedCadence = effectiveCadence(e['recurs'] === true, str('recur_cadence'));
 
+  // ── who is being celebrated ───────────────────────────────────────────────
+  // Offered ONLY where the answer could change a word a guest reads. A wedding's
+  // noun is 'couple' and a wake's is 'family'; both are collective, so no shape
+  // pluralises them and the control would be a question asked for nothing.
+  //
+  // 🔑 THE HOSTS ARE NOT ASKED ABOUT ANYWHERE ON THIS PAGE, ON PURPOSE. Owner
+  // 2026-08-27: there can be many on any event — and how many there are is
+  // already known, because it is who holds a host's key to this celebration.
+  const celebrantProfile = await resolveProfile(str('event_type') ?? 'wedding');
+  const celebrantNoun = celebrantProfile.terminology.celebrantNoun;
+  const showCelebrantShape = celebrantShapeIsVisible(celebrantNoun);
+  const celebrantTypeDefaultLabel =
+    CELEBRANT_SHAPE_LABELS[celebrantProfile.terminology.celebrantShape];
+
   return (
     <section className="sn-col space-y-5">
       <PageMasthead title="Personalization" />
@@ -205,6 +231,9 @@ export default async function PersonalizationPage({
           repeatOptions={repeatOptions}
           repeatForced={repeatForced}
           initialCadence={storedCadence ?? ''}
+          showCelebrantShape={showCelebrantShape}
+          initialCelebrantShape={str('celebrant_shape') ?? ''}
+          celebrantTypeDefaultLabel={celebrantTypeDefaultLabel}
         />
       </div>
 

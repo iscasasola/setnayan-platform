@@ -12,6 +12,7 @@ import {
   unretireEventTypeCore,
 } from '@/lib/event-types-mutations';
 import {
+  isCelebrantShape,
   surfacesStrandedWithoutWebsite,
   strandedWithoutWebsiteMessage,
 } from '@/lib/event-type-profile';
@@ -417,6 +418,18 @@ export async function upsertEventTypeProfile(formData: FormData) {
   const terminology = {
     ...storedTerminology,
     organizer_noun: cleanOptional(formData.get('organizer_noun'), 60),
+    // The two words the organiser noun used to do alone (owner 2026-08-27).
+    // Blank ⇒ the key is cleared and the resolver's per-row default takes over
+    // (the organiser noun itself, or a plain 'host' where it names the
+    // honoree), which is the same value it had before this form knew them.
+    host_noun: cleanOptional(formData.get('host_noun'), 60),
+    celebrant_noun: cleanOptional(formData.get('celebrant_noun'), 60),
+    // Strictly parsed. An unrecognised value is written as null rather than
+    // stored, so a malformed save falls back to the code default instead of
+    // pinning a shape nothing understands.
+    celebrant_shape: isCelebrantShape(formData.get('celebrant_shape'))
+      ? formData.get('celebrant_shape')
+      : null,
     person_a: cleanOptional(formData.get('person_a'), 60),
     person_b: cleanOptional(formData.get('person_b'), 60),
     seat_word: cleanOptional(formData.get('seat_word'), 60),

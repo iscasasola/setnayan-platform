@@ -34,6 +34,98 @@ export type ProfileSurface =
   | 'day_of'
   | 'gallery';
 
+/**
+ * HOW MANY PEOPLE THE CELEBRANT IS (owner ruling 2026-08-27).
+ *
+ * Owner, verbatim: *"each event can be set to a single host or multiple host …
+ * yes, there can be multiple hosts for every event, but the one celebratiing is
+ * the celebrant that can be single, couple, or multiple people."*
+ *
+ * So HOSTS are always potentially many — that needs no setting, it is a count of
+ * the event's own host members — while the CELEBRANT carries a shape, because it
+ * cannot be counted from anything we store: a wedding's two celebrants may both
+ * be members, one, or neither.
+ *
+ * The shape is only ever VISIBLE on a countable person-noun ('celebrant',
+ * 'graduate'). A collective noun — 'couple', 'family' — never pluralises, which
+ * is why a wedding reads identically under every shape.
+ */
+export type CelebrantShape = 'single' | 'couple' | 'multiple';
+
+/**
+ * The two seeded nouns that name the person the event is ABOUT rather than the
+ * person who RUNS it. At a seven-year-old's birthday the celebrant is the
+ * seven-year-old, so "The celebrant is still arranging the venue layout" names
+ * the wrong person entirely.
+ *
+ * Anything else — including a noun added later — is treated as an organiser word
+ * and stays the host noun too. That is the safe direction: naming a real
+ * organiser reads fine, naming a child who arranged nothing does not.
+ */
+export const HONOREE_NOUNS: ReadonlySet<string> = new Set(['celebrant', 'graduate']);
+
+/**
+ * What a type's HOST noun is when its row has no `host_noun` of its own — i.e.
+ * every row seeded before 2026-08-27, and any row an admin has not revisited.
+ *
+ * The organiser noun IS the host noun, except where it names the honoree, in
+ * which case the host is a plain 'host'. This is what makes the change
+ * byte-identical for a wedding ('couple' runs it AND is honoured by it — which
+ * is exactly why 'couple' worked where 'celebrant' did not).
+ */
+/**
+ * Nouns that already describe a GROUP, so a shape can never pluralise them.
+ *
+ * 'couple' is the load-bearing one: it is the wedding's celebrant noun under
+ * the 'couple' shape, and "the couples" would be a live defect on the only
+ * event type anyone has ever seen in production. 'family' is the funeral's.
+ */
+const COLLECTIVE_NOUNS: ReadonlySet<string> = new Set(['couple', 'family']);
+
+/**
+ * 'celebrant' → 'celebrants' · 'graduate' → 'graduates'. Ordinary English
+ * plural, and deliberately small: the seeded nouns are all regular. A collective
+ * noun never reaches this — see `shapedCelebrant`.
+ */
+function pluralOf(noun: string): string {
+  if (/(?:s|x|z|ch|sh)$/.test(noun)) return `${noun}es`;
+  if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
+  return `${noun}s`;
+}
+
+/**
+ * The celebrant noun under its shape.
+ *
+ * 'single' and 'couple' both return the noun untouched — a 'couple' shape means
+ * the noun ALREADY names two people ('couple'), never that a singular noun
+ * should be doubled. Only 'multiple' pluralises, and only a countable noun.
+ */
+export function shapedCelebrant(noun: string, shape: CelebrantShape): string {
+  if (shape !== 'multiple') return noun;
+  return COLLECTIVE_NOUNS.has(noun) ? noun : pluralOf(noun);
+}
+/**
+ * Would a shape change anything a guest READS for this celebrant noun?
+ *
+ * FALSE for a collective noun, where every shape renders the same word — so the
+ * control that sets it is not offered. A picker that provably cannot change
+ * what anybody sees is a question asked for nothing, and this repo has shipped
+ * a stored value nothing reads more than once.
+ */
+export function celebrantShapeIsVisible(noun: string): boolean {
+  return !COLLECTIVE_NOUNS.has(noun.trim());
+}
+
+/** Strict parse for the stored `celebrant_shape` key. Anything else is not a
+ *  shape — the caller takes its code fallback rather than inventing one. */
+export function isCelebrantShape(v: unknown): v is CelebrantShape {
+  return v === 'single' || v === 'couple' || v === 'multiple';
+}
+
+export function defaultHostNoun(organizerNoun: string): string {
+  return HONOREE_NOUNS.has(organizerNoun) ? 'host' : organizerNoun;
+}
+
 export type ProfileTerminology = {
   organizerNoun: string; // 'couple' | 'host' | 'celebrant' | ...
   personA: string | null; // 'bride'
@@ -63,6 +155,31 @@ export type ProfileTerminology = {
    * and 'gathering' for the funeral, where "celebration" is the defect.
    */
   occasionNoun: string;
+  /**
+   * WHO RUNS THIS EVENT — the word for the people doing the admin work:
+   * publishing a seating plan, arranging the venue, posting the programme,
+   * holding the guest list. There may be one of them or many (owner 2026-08-27:
+   * *"there can be multiple hosts for every event"*), so this noun is never
+   * counted — the event's host members are.
+   *
+   * Falls back to `defaultHostNoun(organizerNoun)`, so a row seeded before this
+   * field existed reads exactly as it does today.
+   */
+  hostNoun: string;
+  /**
+   * WHO IS BEING CELEBRATED — the word for the person or people the event is
+   * FOR: whose gift page this is, who a greeting is on its way to, whose
+   * gallery the shots land in.
+   *
+   * Falls back to the row's OWN `organizer_noun` (not the code fallback's), so
+   * every one of the 16 seeded types keeps the exact word it reads today.
+   *
+   * 🔒 For a wedding, `hostNoun` and `celebrantNoun` are BOTH 'couple'. That is
+   * the safety property: the couple both run the event and are honoured by it.
+   */
+  celebrantNoun: string;
+  /** How many people the celebrant is. Only visible on a countable noun. */
+  celebrantShape: CelebrantShape;
 };
 
 export type EventTypeProfile = {
@@ -125,6 +242,9 @@ export const WEDDING_PROFILE: EventTypeProfile = {
     vipTierLabel: 'Family & sponsors',
     register: 'celebratory',
     occasionNoun: 'celebration',
+    hostNoun: 'couple',
+    celebrantNoun: 'couple',
+    celebrantShape: 'couple',
   },
   enabledSurfaces: ALL_SURFACES,
   marketplaceEnabled: true,
@@ -163,6 +283,9 @@ export const GENERIC_PROFILE: EventTypeProfile = {
     vipTierLabel: 'Guests of honor',
     register: 'celebratory',
     occasionNoun: 'celebration',
+    hostNoun: 'host',
+    celebrantNoun: 'host',
+    celebrantShape: 'single',
   },
   enabledSurfaces: [
     'website',
@@ -207,6 +330,9 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
     vipTierLabel: 'Guests',
     register: 'celebratory',
     occasionNoun: 'celebration',
+    hostNoun: 'host',
+    celebrantNoun: 'host',
+    celebrantShape: 'single',
   },
   // ⚠ 'website' IS REQUIRED HERE, and leaving it out was a DEAD END (2026-08-02).
   //
@@ -257,6 +383,9 @@ export const TRAVEL_PROFILE: EventTypeProfile = {
     vipTierLabel: 'Travelers',
     register: 'celebratory',
     occasionNoun: 'celebration',
+    hostNoun: 'organizer',
+    celebrantNoun: 'organizer',
+    celebrantShape: 'multiple',
   },
   layerMode: 'roaming',
   multiDay: true,
@@ -290,6 +419,9 @@ export const FUNERAL_PROFILE: EventTypeProfile = {
     vipTierLabel: 'Immediate family',
     register: 'solemn',
     occasionNoun: 'gathering',
+    hostNoun: 'family',
+    celebrantNoun: 'family',
+    celebrantShape: 'single',
   },
   multiDay: true,
 };
@@ -327,10 +459,16 @@ function toProfile(row: ProfileRow): EventTypeProfile {
     typeof v === 'string' && v.length > 0 ? v : d;
   const strOrNull = (v: unknown, d: string | null): string | null =>
     typeof v === 'string' && v.length > 0 ? v : d;
+  // Resolved FIRST: both new nouns fall back through it, not through the code
+  // profile. A birthday row carries organizer_noun 'celebrant' while its code
+  // fallback is GENERIC ('host'), so defaulting the celebrant word to the
+  // fallback profile would have SILENTLY DOWNGRADED fifteen seeded types to
+  // "the host" — a regression dressed as a default.
+  const organizerNoun = str(t.organizer_noun, fb.terminology.organizerNoun);
   return {
     eventType: row.event_type,
     terminology: {
-      organizerNoun: str(t.organizer_noun, fb.terminology.organizerNoun),
+      organizerNoun,
       personA: strOrNull(t.person_a, fb.terminology.personA),
       personB: strOrNull(t.person_b, fb.terminology.personB),
       seatWord: str(t.seat_word, fb.terminology.seatWord),
@@ -346,6 +484,16 @@ function toProfile(row: ProfileRow): EventTypeProfile {
             ? 'celebratory'
             : fb.terminology.register,
       occasionNoun: str(t.occasion_noun, fb.terminology.occasionNoun),
+      // The row's OWN organiser noun is the default for both, via the shared
+      // rule — so every row seeded before 2026-08-27 reads exactly as it does
+      // today, and a wedding is byte-identical.
+      hostNoun: str(t.host_noun, defaultHostNoun(organizerNoun)),
+      celebrantNoun: str(t.celebrant_noun, organizerNoun),
+      // Strict literals only, exactly like `register`: a typo in an
+      // admin-edited row takes the code fallback rather than inventing a shape.
+      celebrantShape: isCelebrantShape(t.celebrant_shape)
+        ? t.celebrant_shape
+        : fb.terminology.celebrantShape,
     },
     enabledSurfaces:
       Array.isArray(row.enabled_surfaces) && row.enabled_surfaces.length > 0
@@ -530,26 +678,43 @@ export function strandedWithoutWebsiteMessage(
  * 🔑 ONE READ, NOT TWO. The ceremony columns come back with the type, so the
  * role-set resolver below no longer makes a second (also-refused) round trip.
  */
+type EventTypeRow = {
+  event_type: string | null;
+  ceremony_type: string | null;
+  secondary_ceremony_type: string | null;
+  celebrant_shape?: string | null;
+};
+
+const EVENT_ROW_BASE = 'event_type, ceremony_type, secondary_ceremony_type';
+
 const readEventTypeRow = cache(
-  async (
-    eventId: string,
-  ): Promise<{
-    event_type: string | null;
-    ceremony_type: string | null;
-    secondary_ceremony_type: string | null;
-  } | null> => {
+  async (eventId: string): Promise<EventTypeRow | null> => {
     try {
       const admin = createAdminClient();
-      const { data } = await admin
+      // 🪤 NAMING A COLUMN THAT DOES NOT EXIST YET MAKES POSTGREST REFUSE THE
+      // WHOLE QUERY — and this one read backs the entire guest tree's
+      // vocabulary. In the window where this code is deployed and its migration
+      // is not, a single select would return no row, `!row` would answer
+      // WEDDING_PROFILE, and EVERY celebration of every type would silently
+      // become a wedding. That is the exact defect this function was just
+      // rewritten to kill, so the new column is asked for in a way that can only
+      // cost itself: on error, retry without it and take the type's own shape.
+      const full = await admin
         .from('events')
-        .select('event_type, ceremony_type, secondary_ceremony_type')
+        .select(`${EVENT_ROW_BASE}, celebrant_shape`)
         .eq('event_id', eventId)
         .maybeSingle();
-      return (data as {
-        event_type: string | null;
-        ceremony_type: string | null;
-        secondary_ceremony_type: string | null;
-      } | null) ?? null;
+      // ⚠ Supabase RESOLVES with `{ error }`; it does not throw. The catch below
+      // cannot see a refused query, which is what makes this branch load-bearing
+      // rather than defensive decoration.
+      if (!full.error) return (full.data as EventTypeRow | null) ?? null;
+
+      const base = await admin
+        .from('events')
+        .select(EVENT_ROW_BASE)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      return (base.data as EventTypeRow | null) ?? null;
     } catch {
       return null;
     }
@@ -571,11 +736,35 @@ const readEventTypeRow = cache(
  */
 export const resolveProfileByEvent = cache(
   async (eventId: string): Promise<EventTypeProfile> => {
+    // THEIRS, kept: one cached ADMIN read, shared with resolveRoleSetKeyForEvent.
+    // Mine used the caller's own session and a second query — wrong on both
+    // counts here. The docblock above records why: a refused read was
+    // indistinguishable from a missing event, and quietly made every
+    // signed-out celebration a wedding.
     const row = await readEventTypeRow(eventId);
     if (!row) return WEDDING_PROFILE;
-    return resolveProfile(row.event_type ?? 'wedding');
+    const profile = await resolveProfile(row.event_type ?? 'wedding');
+    // …and this celebration's own celebrant shape, if it set one. NULL — every
+    // row today — leaves the event type's default exactly in place.
+    return applyEventCelebrantShape(
+      profile,
+      isCelebrantShape(row.celebrant_shape) ? row.celebrant_shape : null,
+    );
   },
 );
+
+/** Pure — overlay a per-event shape onto a resolved profile. Exported for the
+ *  tests, which is the only way to exercise it without a database. */
+export function applyEventCelebrantShape(
+  profile: EventTypeProfile,
+  shape: CelebrantShape | null,
+): EventTypeProfile {
+  if (!shape || shape === profile.terminology.celebrantShape) return profile;
+  return {
+    ...profile,
+    terminology: { ...profile.terminology, celebrantShape: shape },
+  };
+}
 
 /**
  * Server helper: the ROLE-SET KEY for an event id, ceremony-aware.

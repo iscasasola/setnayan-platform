@@ -1170,6 +1170,10 @@ export async function renderVendorBySlug({
   let featuredEditorials: VendorFeaturedStory[] = [];
   if (showEditorials) {
     try {
+      // ⛔ THE PUBLIC SHOP PAGE MUST NEVER USE fetchVendorRoomEvents. This is read by
+      // strangers. The room read admits an AGREED-but-unpaid booking, and publishing
+      // those here would tell the world about weddings the couple has not paid a
+      // downpayment on. A public claim needs the pool row, not the handshake.
       const bookings = await fetchVendorPoolBookings(admin, vendor.vendor_profile_id);
       const stories = await loadVendorFeaturedStories(bookings.map((b) => b.eventId));
       const byId = new Map(stories.map((s) => [s.eventId, s]));

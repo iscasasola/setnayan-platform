@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { resolveModules, type DayOfModuleId } from '@/lib/vendor-dayof-modules';
@@ -132,7 +132,7 @@ export default async function VendorOnTheDayLivePage({
   // the grantee path (admin-loaded partial row) is assignable too.
   let profile: { vendor_profile_id: string; services: string[] } | null = ownProfile;
   let booking = ownProfile
-    ? (await fetchVendorPoolBookings(supabase, ownProfile.vendor_profile_id)).find(
+    ? (await fetchVendorRoomEvents(supabase, ownProfile.vendor_profile_id)).find(
         (b) => b.eventId === eventId,
       ) ?? null
     : null;
@@ -170,7 +170,7 @@ export default async function VendorOnTheDayLivePage({
           profile = vp as { vendor_profile_id: string; services: string[] };
           profileClient = admin;
           booking =
-            (await fetchVendorPoolBookings(admin, vpid)).find((b) => b.eventId === eventId) ?? null;
+            (await fetchVendorRoomEvents(admin, vpid)).find((b) => b.eventId === eventId) ?? null;
         }
       }
     }

@@ -104,6 +104,9 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .eq('is_active', true)
         .order('package_name', { ascending: true }),
+      // LEFT ON THE POOL READ, named not fixed: an agreed-but-unpaid client will not
+      // appear in the proposal picker. Not capacity — the same room question one
+      // screen over, deliberately outside this piece's day-of scope.
       fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
     ]);
 

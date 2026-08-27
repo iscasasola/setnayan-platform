@@ -47,6 +47,9 @@ export default async function VendorRecapsPage() {
     );
   }
 
+  // LEFT ON THE POOL READ, named not fixed: an agreed booking's recap will not
+  // list here. Not capacity — the same room question one screen over, kept out
+  // of this piece because recaps share their loader with the public showcase.
   const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
   const recaps = await loadVendorRecaps(bookings.map((b) => b.eventId));
 

@@ -5,7 +5,7 @@ import { resolveSongDeskAccess, fetchBookedTiles } from '@/lib/song-desk-gate';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { saveDayOfOverride } from '@/lib/vendor-dayof-config';
 import { resolveModules } from '@/lib/vendor-dayof-modules';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -81,7 +81,7 @@ async function requireSongDeskAct(eventId: string): Promise<SongDeskGate> {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, error: 'No vendor profile.' };
 
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
 
   // The DECISION lives in lib/song-desk-gate.ts with the identity as an
   // argument. Everything above this line is the part that can only happen in a
@@ -239,7 +239,7 @@ export async function saveDayOfModules(
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, error: 'No vendor profile.' };
 
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   const booking = bookings.find((b) => b.eventId === eventId);
   if (!booking) return { ok: false, error: 'You are not booked on this event.' };
 
@@ -370,7 +370,7 @@ async function requireBookedVendor(eventId: string) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { error: 'No vendor profile.' as const };
 
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { error: 'You are not booked on this event.' as const };
   }
@@ -561,7 +561,7 @@ export async function setEventAccessGrant(
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, error: 'No vendor profile.' };
 
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { ok: false, error: 'You are not booked on this event.' };
   }

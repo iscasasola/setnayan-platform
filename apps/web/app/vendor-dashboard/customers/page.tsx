@@ -146,6 +146,8 @@ async function CustomersPipeline({ searchParams }: Props) {
     tierProbe,
   ] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
+    // CAPACITY, not the room: fullDatesForPool() counts these against each pool's
+    // seat count. A booking with no pool cannot consume a pool seat.
     fetchVendorPoolBookings(supabase, vendorProfileId),
     fetchVendorBlocks(supabase, vendorProfileId),
     fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),

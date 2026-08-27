@@ -221,6 +221,8 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
 
   const [pools, bookings, blocks, services, waitlist, dayStates] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
+    // CAPACITY, not the room: every booking here is keyed into byPool by poolId to
+    // paint the day states. Widening it would drop rows into a null pool.
     fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
     namedCalendars

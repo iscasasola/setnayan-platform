@@ -450,6 +450,9 @@ const vendorCalendarReach: Probe = {
     let blind = 0;
     for (const [vendorProfileId, expected] of truthByVendor) {
       truth += expected;
+      // LEFT DELIBERATELY: this probe exists to watch THIS reader's own filter, and
+      // its raw count above mirrors it exactly. Swapping it would make the probe
+      // compare two different questions and never disagree.
       const got = (await fetchVendorPoolBookings(admin, vendorProfileId)).length;
       seen += Math.min(got, expected);
       if (got < expected) blind += 1;

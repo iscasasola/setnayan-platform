@@ -196,6 +196,9 @@ export async function fetchVendorOverviewData(
       () => [],
     ),
     fetchVendorContracts(supabase, vendorProfileId).catch(() => []),
+    // LEFT ON THE POOL READ, and this one is a real gap, named not fixed: the
+    // upcoming list keys its React ids on poolBookingId, which an agreed booking
+    // does not have. Widening it needs a stable id first — its own change.
     fetchVendorPoolBookings(supabase, vendorProfileId).catch(() => []),
     fetchDisputedHandovers(supabase, vendorProfileId),
   ]);

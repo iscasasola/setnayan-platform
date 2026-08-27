@@ -71,6 +71,25 @@ export type WidgetCatalogEntry = {
   label: string;
   description: string;
   is_always_on: boolean;
+  /**
+   * ⚠ THE DESCRIPTION A NON-WEDDING HOST READS.
+   *
+   * `description` below is the wedding wording and stays the default, because
+   * for a wedding it is the better sentence — "your wedding-day run-of-show"
+   * beats "your event-day run-of-show". Five of these sixteen named a wedding
+   * outright, and the screen that prints them (website/widgets) is where a
+   * family setting up a FUNERAL page chooses what their guests will see. They
+   * read "Days to the wedding" five times.
+   *
+   * 🔑 SO THE FIX IS A SECOND WORDING, NOT A NEUTERED ONE. `describe(noun)` is
+   * consulted first where it exists; everything else keeps one sentence for
+   * every type, which is correct when the sentence names no occasion at all.
+   *
+   * ⚠ THE GUEST SIDE WAS ALREADY THREADED — this is the HOST's setup screen,
+   * which the 16-event-type sweep did not cover. Do not read this as the guest
+   * tree being unthreaded; it is not.
+   */
+  describe?: (noun: 'wedding' | 'event') => string;
   editor_subroute: string | null;
 };
 
@@ -114,6 +133,7 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
     type: 'countdown',
     label: 'Countdown',
     description: 'Days to the wedding. Hides itself once the day arrives.',
+    describe: (noun) => `Days to the ${noun}. Hides itself once the day arrives.`,
     is_always_on: false,
     editor_subroute: null,
   },
@@ -121,6 +141,7 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
     type: 'schedule',
     label: 'Schedule',
     description: 'Your wedding-day run-of-show.',
+    describe: (noun) => `Your ${noun}-day run-of-show.`,
     is_always_on: false,
     editor_subroute: null,
   },
@@ -128,6 +149,7 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
     type: 'rsvp',
     label: 'RSVP',
     description: "The wedding's load-bearing form. Always visible.",
+    describe: (noun) => `The ${noun}'s load-bearing form. Always visible.`,
     is_always_on: true,
     editor_subroute: null,
   },
@@ -156,6 +178,7 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
     type: 'your_photos',
     label: 'Your photos',
     description: 'A space for the guest’s tagged photos after the wedding.',
+    describe: (noun) => `A space for the guest’s tagged photos after the ${noun}.`,
     is_always_on: false,
     editor_subroute: null,
   },
@@ -183,7 +206,12 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
   {
     type: 'our_photos',
     label: 'Our photos',
-    description: 'A gallery of your own photos — engagement or pre-wedding shots.',
+    // ⚠ NO `describe` HERE, DELIBERATELY. This sentence named "engagement or
+    // pre-wedding shots" — wedding-only, and there is no wedding-flavoured
+    // version worth keeping, so the base sentence is simply corrected for every
+    // type. A `describe` that returns the same string for both nouns is
+    // decoration, and my own guard caught exactly that on the first cut.
+    description: 'A gallery of your own photos — the ones you already have.',
     is_always_on: false,
     editor_subroute: 'our-photos',
   },

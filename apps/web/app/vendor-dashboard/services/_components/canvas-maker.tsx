@@ -114,7 +114,21 @@ type OtherCategory = { value: string; label: string };
  * The kinds of service a shop can make a card for, in the SAME groups and with
  * the SAME live taxonomy labels as My Shop's picker — one list, drawn twice.
  */
-export type CategoryGroup = { key: string; label: string; options: OtherCategory[] };
+export type CategoryChoice = OtherCategory & {
+  /**
+   * 'covered' — a family this shop already works in · 'open' — a new family its
+   * plan still has room for · 'locked' — the save would refuse it.
+   *
+   * 🔑 THE STANDING IS DECIDED BY THE SAME FUNCTIONS THE SAVE ENFORCES
+   * (`lib/vendor-category-parents.ts`), never re-derived here — a second copy of
+   * a permission rule drifts, and the copy on the screen would be the
+   * optimistic one.
+   */
+  standing: 'covered' | 'open' | 'locked';
+  /** Why it is refused, in the vendor's own words. Only on 'locked'. */
+  why?: string;
+};
+export type CategoryGroup = { key: string; label: string; options: CategoryChoice[] };
 export type CoverageAudience = { eventTypes: string[]; faiths: string[] };
 
 type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience' | 'kind';
@@ -207,7 +221,32 @@ export function CanvasMaker({
    * its shipped name either way, so `commitVendorService` cannot tell which
    * screen chose it — the same contract every other region on this card keeps.
    */
-  const [category, setCategory] = useState(categoryValue);
+  const allChoices = useMemo(
+    () => categoryOptions.flatMap((g) => g.options),
+    [categoryOptions],
+  );
+  const coveredChoices = useMemo(
+    () => allChoices.filter((o) => o.standing === 'covered'),
+    [allChoices],
+  );
+  /**
+   * The one sentence explaining every greyed kind. One line, not one per pill:
+   * a shop on a one-family plan would otherwise read the same upgrade sentence
+   * twenty-odd times, which is the bombardment this change exists to remove.
+   */
+  const lockedWhy = useMemo(
+    () => allChoices.find((o) => o.standing === 'locked' && o.why)?.why ?? null,
+    [allChoices],
+  );
+  /**
+   * ⚡ A ONE-TRADE SHOP IS ASKED NOTHING. If the whole shop covers exactly one
+   * kind, that IS the answer — pre-picking it keeps the maker at zero steps for
+   * the commonest case instead of opening with a question that has one button.
+   * It stays editable: the region is still there and still opens the sheet.
+   */
+  const [category, setCategory] = useState(
+    categoryValue || (coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? '') : ''),
+  );
   const canChooseKind = categoryOptions.length > 0;
   const activeCategoryLabel =
     categoryOptions
@@ -741,45 +780,85 @@ export function CanvasMaker({
             onClose={() => setSheet(null)}
             confirmLabel={category ? 'Update card' : null}
           >
-            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              Pick the one this card is for. A kind can hold more than one card, so
-              you can come back and add another under the same one.
-            </p>
-            {categoryOptions.map((group) => (
-              <div key={group.key} className="space-y-1.5">
-                <p
-                  className="font-mono text-[10px] uppercase tracking-[0.15em]"
-                  style={{ color: 'var(--m-slate-3)' }}
-                >
-                  {group.label}
+            {coveredChoices.length > 0 ? (
+              <>
+                <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                  What you already do. A kind can hold more than one card, so you can
+                  add another where you already work.
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {group.options.map((opt) => {
-                    const on = opt.value === category;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => {
-                          setCategory(opt.value);
-                          setSheet(null);
-                        }}
-                        className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm"
-                        style={{
-                          borderColor: on ? 'var(--m-orange-2)' : line,
-                          background: on ? 'var(--m-orange-4)' : paper,
-                          color: on ? 'var(--m-orange-2)' : 'var(--m-ink)',
-                        }}
-                      >
-                        {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> : null}
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+                  {coveredChoices.map((opt) => (
+                    <KindPill
+                      key={opt.value}
+                      opt={opt}
+                      on={opt.value === category}
+                      onPick={() => {
+                        setCategory(opt.value);
+                        setSheet(null);
+                      }}
+                    />
+                  ))}
                 </div>
+              </>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                Pick the one this card is for. A kind can hold more than one card, so
+                you can add another even where you already work.
+              </p>
+            )}
+
+            {/* ── EVERYTHING ELSE — NARROWED, NEVER HIDDEN ────────────────────
+                A shop legitimately grows (a photographer adding a photo booth),
+                so nothing is removed: the rest of the list is one tap away.
+                What the plan cannot hold is shown greyed WITH THE REASON, which
+                is the whole repair — that refusal used to arrive after the card
+                was written, as a redirect that threw the work away. */}
+            <details
+              className="rounded-xl border"
+              style={{ borderColor: line }}
+              open={coveredChoices.length === 0}
+            >
+              <summary
+                className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium"
+                style={{ color: 'var(--m-ink)' }}
+              >
+                {coveredChoices.length > 0 ? 'Something else I do' : 'All kinds of service'}
+              </summary>
+              <div className="space-y-4 border-t px-3 pb-3 pt-3" style={{ borderColor: line }}>
+                {categoryOptions.map((group) => {
+                  const rest = group.options.filter((o) => o.standing !== 'covered');
+                  if (rest.length === 0) return null;
+                  return (
+                    <div key={group.key} className="space-y-1.5">
+                      <p
+                        className="font-mono text-[10px] uppercase tracking-[0.15em]"
+                        style={{ color: 'var(--m-slate-3)' }}
+                      >
+                        {group.label}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {rest.map((opt) => (
+                          <KindPill
+                            key={opt.value}
+                            opt={opt}
+                            on={opt.value === category}
+                            onPick={() => {
+                              setCategory(opt.value);
+                              setSheet(null);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                {lockedWhy ? (
+                  <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    {lockedWhy}
+                  </p>
+                ) : null}
               </div>
-            ))}
+            </details>
           </CanvasSheet>
         ) : null}
 
@@ -1087,6 +1166,47 @@ function toggle(list: string[], key: string): string[] {
 }
 
 // ── Card regions ────────────────────────────────────────────────────────────
+
+/**
+ * One kind of service, as a pill.
+ *
+ * 🔒 A LOCKED PILL IS NOT A BUTTON. It is disabled, not merely styled grey —
+ * a pill that looks refused and still submits is the worst of both, and the
+ * refusal it would meet lives on the far side of a whole authored card.
+ */
+function KindPill({
+  opt,
+  on,
+  onPick,
+}: {
+  opt: CategoryChoice;
+  on: boolean;
+  onPick: () => void;
+}) {
+  const locked = opt.standing === 'locked';
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      disabled={locked}
+      title={locked ? opt.why : undefined}
+      onClick={onPick}
+      className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm disabled:cursor-not-allowed"
+      style={{
+        borderColor: on ? 'var(--m-orange-2)' : line,
+        background: on ? 'var(--m-orange-4)' : paper,
+        color: locked ? 'var(--m-slate-2)' : on ? 'var(--m-orange-2)' : 'var(--m-ink)',
+        opacity: locked ? 0.55 : 1,
+      }}
+    >
+      {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> : null}
+      {opt.label}
+      {locked ? (
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em]">upgrade</span>
+      ) : null}
+    </button>
+  );
+}
 
 function CardRegion({
   onClick,

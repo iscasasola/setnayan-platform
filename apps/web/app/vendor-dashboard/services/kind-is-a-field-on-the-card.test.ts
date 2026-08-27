@@ -114,3 +114,71 @@ test('the old door is untouched — a route-chosen kind has nothing to choose', 
   );
   assert.match(src, /categoryValue=\{cat\}/, 'the [category] route stopped fixing the kind from its URL');
 });
+
+// ---------------------------------------------------------------------------
+// THE CHOOSER OFFERS WHAT THIS SHOP MAY ACTUALLY LIST (owner 2026-08-28)
+// ---------------------------------------------------------------------------
+//
+// *"so many categories? should the choices be only for the service we actually
+// cover and not all?"* — and the caps were already enforced, just too late: the
+// save refuses AFTER the card is authored, by redirecting the work away. The
+// rule now answers in one place and is asked twice.
+
+const RULE = 'lib/vendor-category-parents.ts';
+const SAVE = 'app/vendor-dashboard/services/actions.ts';
+
+test('one definition of the rule, asked by both the chooser and the save', () => {
+  // 🔑 TWO COPIES OF A PERMISSION RULE ALWAYS DRIFT, and the copy on the screen
+  // would be the optimistic one — offering a kind the save refuses is exactly
+  // the defect being fixed. So the save must IMPORT it, not keep its own.
+  const save = read(SAVE);
+  assert.match(
+    save,
+    /import \{ parentsOfCategory, coverageParents \} from '@\/lib\/vendor-category-parents'/,
+    'the save went back to its own copy of the family rule',
+  );
+  assert.ok(
+    !/function parentsOfCategory/.test(save),
+    'a second copy of parentsOfCategory is back in the save',
+  );
+  assert.ok(
+    !/async function coverageParents/.test(save),
+    'a second copy of coverageParents is back in the save',
+  );
+  assert.ok(read(RULE).length > 1000, 'the shared rule read back empty');
+});
+
+test('the chooser asks that rule, with the shop’s real caps', () => {
+  const src = read(NEW_DOOR);
+  assert.match(src, /standingForCategory\(/, 'the chooser stopped asking which kinds are allowed');
+  // The caps have to be THIS shop's, including the founder override the save
+  // applies — a chooser reading the default tier would grey a founder's list.
+  assert.match(src, /tierCaps\(asVendorTier\(tierRowTyped\?\.tier_state\)\)/, 'the chooser stopped reading the shop’s plan');
+  assert.match(src, /is_founder === true/, 'the chooser stopped honouring the founder override');
+  // Families come from cards ∪ coverages — coverage is the source of truth, and
+  // a coverage-first shop (zero cards) is the common case.
+  assert.match(src, /coverageParents\(supabase/, 'the chooser stopped counting coverage families');
+});
+
+test('a refused kind is disabled, not merely greyed', () => {
+  const src = read(MAKER);
+  assert.match(
+    src,
+    /disabled=\{locked\}/,
+    'a locked kind became pressable again — it would be refused after the whole card was written',
+  );
+  assert.match(src, /const locked = opt\.standing === 'locked';/, 'the pill stopped reading the standing');
+  // One sentence for the whole greyed set, not one per pill.
+  assert.match(src, /lockedWhy/, 'the greyed kinds stopped explaining themselves');
+});
+
+test('a one-trade shop is asked nothing', () => {
+  const src = read(MAKER);
+  assert.match(
+    src,
+    /coveredChoices\.length === 1 \? \(coveredChoices\[0\]\?\.value \?\? ''\) : ''/,
+    'the single covered kind stopped pre-filling — a question with one answer is not a question',
+  );
+  // …and it is still editable: the region and its sheet do not disappear.
+  assert.match(src, /canChooseKind = categoryOptions\.length > 0/, 'pre-filling started hiding the chooser');
+});

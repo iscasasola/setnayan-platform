@@ -31,3 +31,36 @@ they now pin the destination KIND ("the press opens the maker") and that the mak
 page rendering the card — *existing is not the same as reachable*, one level up.
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.
+
+## 2026-08-28 · fix(vendor): the kind chooser offers what this shop may actually list
+
+Owner, on the same screen: *"looking at our service card creation with so many categories? should
+the choices be only for the service we actually cover and not all?"*
+
+**Measured before answering, on his own shop.** The chooser offers 52 category keys (~34 pills
+after duplicate labels collapse). SetnaProd is on **Solo — one family of business** — covers
+*Pabati* (booths) and *Day-Of Coordinators* (planning), and has zero cards. The save has always
+enforced two caps — cards per kind, families per plan — **and enforces them after the card is
+authored**, as a redirect carrying an error string. So most of those pills were refusals waiting to
+happen, collected after the photo was uploaded and the work was gone.
+
+**What changed.** What the shop already works in leads. Everything else is one tap away under
+*Something else I do*. What the plan cannot hold is greyed, **disabled**, and carries the reason
+once — not once per pill. Nothing is removed from the list: a shop legitimately grows, and a
+chooser that silently dropped kinds would read as *"Setnayan does not do that"*.
+
+**And a shop that covers exactly one kind is asked nothing** — it is pre-filled and still editable.
+A question with one answer is not a question.
+
+🔑 **ONE DEFINITION, ASKED TWICE.** `lib/vendor-category-parents.ts` now holds the family rule and
+the save imports it — the chooser cannot drift from the refusal. Two copies of a permission rule
+always drift and the copy on the screen would have been the optimistic one.
+
+⚠ **FAILS OPEN BY CONSTRUCTION.** An unreadable coverage read means an empty family set, which
+offers everything and meets the save's own gate as before. A read failure must never delete a kind
+a supplier is entitled to sell — asserted in both directions.
+
+🛡 `lib/vendor-category-parents.test.ts` (8 assertions on the pure rule, cases taken from the live
+shop) + 4 more in the maker's guard. **8 mutations, printed before → after, all RED.**
+
+SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.

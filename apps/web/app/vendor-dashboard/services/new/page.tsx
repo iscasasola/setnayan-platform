@@ -21,6 +21,12 @@ import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import {
+  coverageParents,
+  parentsOfCategory,
+  standingForCategory,
+} from '@/lib/vendor-category-parents';
 
 export const metadata = { title: 'Add a service' };
 
@@ -71,25 +77,65 @@ export default async function NewServiceCardPage() {
   }
   const labelFor = (cat: VendorCategory): string =>
     tax ? labelForVendorCategory(cat, tax) : displayServiceLabel(cat);
-  const categoryOptions: CategoryGroup[] = SERVICE_GROUPS.map((group) => ({
-    key: group.key,
-    label: group.label,
-    options: groupDisplayOptions(group.members, labelFor).map((opt) => ({
-      value: opt.primaryKey,
-      label: opt.label,
-    })),
-  })).filter((g) => g.options.length > 0);
-
-  // Everything this shop already offers — the "comes with" options. The maker
-  // drops whichever kind the vendor picks, so a card is never offered as
-  // bundling itself.
+  // Everything this shop already offers — the "comes with" options, and half of
+  // what decides which kinds it may add. The maker drops whichever kind the
+  // vendor picks, so a card is never offered as bundling itself.
   const { data: ownRows } = await supabase
     .from('vendor_services')
     .select('category')
     .eq('vendor_profile_id', profile.vendor_profile_id);
-  const otherCategories = Array.from(
-    new Set(((ownRows ?? []) as { category: string }[]).map((r) => r.category)),
-  ).map((c) => ({ value: c, label: displayServiceLabel(c) }));
+  const ownCategories = ((ownRows ?? []) as { category: string }[]).map((r) => r.category);
+  const otherCategories = Array.from(new Set(ownCategories)).map((c) => ({
+    value: c,
+    label: displayServiceLabel(c),
+  }));
+  const cardsByCategory: Record<string, number> = {};
+  for (const c of ownCategories) cardsByCategory[c] = (cardsByCategory[c] ?? 0) + 1;
+
+  // ── WHICH KINDS THIS SHOP MAY ACTUALLY LIST (owner 2026-08-28) ────────────
+  // *"so many categories? should the choices be only for the service we
+  // actually cover and not all?"* — asked with the SAME functions the save
+  // enforces (`lib/vendor-category-parents.ts`), so the answer cannot drift
+  // from the refusal. Before this, a kind the plan could not hold was picked,
+  // the whole card was authored, and Publish redirected the work away with an
+  // upgrade sentence.
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state, is_founder')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const tierRowTyped = tierRow as
+    | { tier_state?: string | null; is_founder?: boolean | null }
+    | null;
+  const baseCaps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
+  // Founder override, identical to the save's (owner 2026-06-09).
+  const caps =
+    tierRowTyped?.is_founder === true
+      ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
+      : baseCaps;
+  const existingParents = new Set<string>([
+    ...ownCategories.flatMap((c) => parentsOfCategory(c as VendorCategory)),
+    ...(await coverageParents(supabase, profile.vendor_profile_id)),
+  ]);
+
+  const categoryOptions: CategoryGroup[] = SERVICE_GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    options: groupDisplayOptions(group.members, labelFor).map((opt) => {
+      const st = standingForCategory(opt.primaryKey, {
+        existingParents,
+        cardsByCategory,
+        parentCategories: caps.parentCategories,
+        servicesPerLeaf: caps.servicesPerLeaf,
+      });
+      return {
+        value: opt.primaryKey,
+        label: opt.label,
+        standing: st.standing,
+        why: st.standing === 'locked' ? st.why : undefined,
+      };
+    }),
+  })).filter((g) => g.options.length > 0);
 
   const [vendorCoverages, coverageLabels] = await Promise.all([
     fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),

@@ -711,26 +711,41 @@ const EVENT_ROW_BASE = 'event_type, ceremony_type, secondary_ceremony_type';
 
 const readEventTypeRow = cache(
   async (eventId: string): Promise<EventTypeRow | null> => {
+    // 🪤 NAMING A COLUMN THAT DOES NOT EXIST YET MAKES POSTGREST REFUSE THE WHOLE
+    // QUERY — and this one read backs the entire guest tree's vocabulary. In the
+    // window where this code is deployed and its migration is not, a single
+    // select would return no row, `!row` would answer WEDDING_PROFILE, and EVERY
+    // celebration of every type would silently become a wedding. That is the
+    // exact defect this function was rewritten to kill, so the new column is
+    // asked for in a way that can only cost itself: on error, retry without it
+    // and take the event type's own shape.
+    //
+    // ⚠ Supabase RESOLVES with `{ error }`; it does not throw — the catch cannot
+    // see a refused query, which is what makes the retry load-bearing rather
+    // than defensive decoration.
+    //
+    // 🔒 BOTH READS STAY WITHIN SIGHT OF THE CLIENT THAT MAKES THEM, and this
+    // comment sits ABOVE it for that reason: `signed-out-words-are-the-events-own`
+    // reads back 400 characters from each read of that table to name the client
+    // making it, and reports "unknown" when it cannot see one. It is right to —
+    // a reader that cannot tell which client makes a read cannot certify it, and
+    // this module is where a session-scoped read once turned every signed-out
+    // celebration into a wedding. Keep the construction adjacent to both reads;
+    // prose belongs up here, where it cannot push them out of view.
+    //
+    // ⚠ That guard matches by substring and does not strip comments, so writing
+    // the call expression in prose here would make this paragraph count as a
+    // third read of that table — reported as an unscoped one. Named, not worked
+    // around: it is another session's guard and cries wolf rather than going
+    // blind, which is the safe direction of the two.
     try {
       const admin = createAdminClient();
-      // 🪤 NAMING A COLUMN THAT DOES NOT EXIST YET MAKES POSTGREST REFUSE THE
-      // WHOLE QUERY — and this one read backs the entire guest tree's
-      // vocabulary. In the window where this code is deployed and its migration
-      // is not, a single select would return no row, `!row` would answer
-      // WEDDING_PROFILE, and EVERY celebration of every type would silently
-      // become a wedding. That is the exact defect this function was just
-      // rewritten to kill, so the new column is asked for in a way that can only
-      // cost itself: on error, retry without it and take the type's own shape.
       const full = await admin
         .from('events')
         .select(`${EVENT_ROW_BASE}, celebrant_shape`)
         .eq('event_id', eventId)
         .maybeSingle();
-      // ⚠ Supabase RESOLVES with `{ error }`; it does not throw. The catch below
-      // cannot see a refused query, which is what makes this branch load-bearing
-      // rather than defensive decoration.
       if (!full.error) return (full.data as EventTypeRow | null) ?? null;
-
       const base = await admin
         .from('events')
         .select(EVENT_ROW_BASE)

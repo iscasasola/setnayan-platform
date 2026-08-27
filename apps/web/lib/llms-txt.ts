@@ -15,7 +15,10 @@
  * SKU. Examples found on 2026-07-31, all of which the old guard called fine:
  *   · Live Studio sold as "Mobile ₱1,299/day · Desktop ₱2,499/day" — that device
  *     split was retired (PANOOD_SYSTEM_MOBILE / PANOOD_SYSTEM, is_active=false)
- *     and today it is ONE SKU, LIVE_STUDIO ₱2,999.
+ *     and today it is ONE SKU, LIVE_STUDIO — at whatever the catalog row says.
+ *     (The figure that used to be typed here went stale on 2026-08-27 when the
+ *     owner moved it. A price in a docblock is a promise nothing checks; the
+ *     row is the only honest answer.)
  *   · Camera Bridge advertised at ₱500/day — CAMERA_BRIDGE is is_active=false.
  *   · Papic Pool quoted at ₱999 / ₱1,999 / ₱2,999 — the live rows are ₱1,000 /
  *     ₱2,000 / ₱3,000 (the charm→round reprice).

@@ -82,6 +82,8 @@ export type PlanGroupId =
   | 'accommodation'
   // Paper tier
   | 'invitations_stationery'
+  | 'wedding_paperwork'
+  | 'travel_honeymoon'
   | 'logistics';
 
 /**
@@ -584,6 +586,47 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     catalogFolder: 'prints',
     catalogTile: 'printing',
     subcategoryHint: 'invitation_print',
+  },
+  {
+    // ⚖ OWNER RULING 2026-08-27 — *"marriage-paper helper yes. honeymoon
+    // planner yes"*. Both categories went on sale in migration 20271173139836;
+    // these two cards are what makes "on sale" real for the couple.
+    //
+    // 🔑 A BOOKABLE CATEGORY WITH NO PLAN GROUP IS HALF-SHIPPED. `bucketVendors
+    // ByGroup` parks a pick whose category no group claims into
+    // UNBUCKETED_FALLBACK_GROUP — "Logistics & Misc". So without these two, a
+    // couple could shortlist a marriage-licence expediter, lock them, and find
+    // the money under "Logistics & Misc" with no card of its own.
+    // `shortlist-taxonomy-coverage.test.ts` is what said so, by name, the
+    // moment the categories were added.
+    //
+    // ⚠ GAP_LEAF_PARENT was the other candidate and is the WRONG home: that
+    // registry is pinned to the 2026-07-20 gap-leaf document ("the doc lists
+    // exactly 14"), and its members are NON-wedding event-type leaves a wedding
+    // couple never meets. These two are wedding-only, which is exactly why a
+    // wedding couple would notice the money vanishing.
+    //
+    // Both scope themselves to weddings for free: `planGroupsForEventType`
+    // joins `catalogTile` to `service_categories.applicable_event_types`, and
+    // both tiles are `['wedding']`.
+    id: 'wedding_paperwork',
+    label: 'Marriage papers',
+    hint: 'Someone to run the licence, CENOMAR and the DFA paperwork for you. The licence is only valid 120 days — start about 4 months out.',
+    tier: 'paper',
+    categories: ['wedding_paperwork'],
+    monthsBefore: 4,
+    catalogFolder: 'planning',
+    catalogTile: 'wedding_paperwork',
+  },
+  {
+    id: 'travel_honeymoon',
+    label: 'Honeymoon',
+    hint: 'A planner for the trip after — flights, the resort, the itinerary. Book once the wedding date is fixed.',
+    tier: 'extras',
+    categories: ['travel_honeymoon'],
+    monthsBefore: 3,
+    catalogFolder: 'planning',
+    catalogTile: 'travel_honeymoon',
   },
   {
     id: 'logistics',

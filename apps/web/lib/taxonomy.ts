@@ -173,12 +173,16 @@ export const WEDDING_FOLDER_SLUG: Record<WeddingFolder, string> = {
  * The shopping tiles. Each tile groups one or more canonical_services
  * into a single decision.
  *
- * Most are couple-visible. Four are ADMIN-ONLY filing cabinets, flagged
- * `marketplace_hidden` on their `service_categories` row: `officiants`,
- * `counseling_seminars`, `wedding_paperwork` and `travel_honeymoon`. They
- * exist so the ~30 deliberately-unsold canonicals under them have a home in
- * the tree instead of piling up in the admin's "Unfiled" tray — see the
- * 2026-08-27 note at the top of this file.
+ * Most are couple-visible. TWO are ADMIN-ONLY filing cabinets, flagged
+ * `marketplace_hidden` on their `service_categories` row: `officiants` and
+ * `counseling_seminars`. They exist so the 25 deliberately-unsold canonicals
+ * under them have a home in the tree instead of piling up in the admin's
+ * "Unfiled" tray — see the 2026-08-27 note at the top of this file.
+ *
+ * `wedding_paperwork` and `travel_honeymoon` were in that set for one day and
+ * the owner opened them on 2026-08-27; `wedding_paperwork` moved from the
+ * `venue` folder to `planning` in the same change, because a couple hunting
+ * for someone to expedite a marriage licence does not open "Venues & churches".
  *
  * `filipiniana_barongs` is a CROSS-VIEW (the same
  * terno/barong vendors as the attire tiles, surfaced via the tradition facet —
@@ -307,10 +311,22 @@ export type WeddingTile =
  * consumer actually reads.
  */
 export const ADMIN_ONLY_TILES: ReadonlySet<WeddingTile> = new Set([
+  // ⚖ OWNER RULING 2026-08-27 — asked which of these four should become things
+  // a supplier can list and a couple can book, he opened two and kept two shut:
+  //
+  //   officiants          SHUT · *"for priest (there are rules) so this needs
+  //                        to be under their church (which is at the ceremony
+  //                        venue)."* A priest is not shopped for; they come
+  //                        with the parish, and `officiant-auto-resolve.ts`
+  //                        has surfaced exactly that since 2026-05-30.
+  //   counseling_seminars SHUT · not asked about, so not moved. Pre-Cana and
+  //                        the rest attach to the rite the same way the
+  //                        officiant does. Reopening it is his call, not a
+  //                        tidy-up.
+  //   wedding_paperwork   OPENED · *"marriage-paper helper yes"*.
+  //   travel_honeymoon    OPENED · *"honeymoon planner yes"*.
   'officiants',
   'counseling_seminars',
-  'wedding_paperwork',
-  'travel_honeymoon',
 ] as const);
 
 /** Tile → its parent. */
@@ -319,7 +335,7 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   ceremony_venue: 'venue',
   officiants: 'venue',
   counseling_seminars: 'venue',
-  wedding_paperwork: 'venue',
+  wedding_paperwork: 'planning',
   coordinator: 'planning',
   date_specialist: 'planning',
   travel_honeymoon: 'planning',
@@ -399,12 +415,12 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'ceremony_venue',
   'officiants',
   'counseling_seminars',
-  'wedding_paperwork',
   'accommodation',
   // PLANNING
   'coordinator',
   'date_specialist',
   'travel_honeymoon',
+  'wedding_paperwork',
   // FEAST
   'cake',
   'catering',
@@ -759,8 +775,9 @@ export type TaxonomyEntry = {
    * defect that test exists to catch.
    *
    * ⚠ A tile is NOT a promise of visibility. `marketplaceHidden` decides that,
-   * independently, and four tiles (officiants · counseling_seminars ·
-   * wedding_paperwork · travel_honeymoon) are themselves admin-only.
+   * independently, and TWO tiles (officiants · counseling_seminars) are
+   * themselves admin-only — see ADMIN_ONLY_TILES for the 2026-08-27 ruling that
+   * opened the other two.
    */
   tile?: WeddingTile;
   /**
@@ -837,8 +854,8 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   cfo_seminar:                       { folder: 'venue', tile: 'counseling_seminars', marketplaceHidden: true, phase: 'V1.2', ph: true },
   inc_counseling:                    { folder: 'venue', tile: 'counseling_seminars', marketplaceHidden: true, phase: 'V1.3', ph: true, faith: 'INC' },
   muslim_pre_wedding_counseling:     { folder: 'venue', tile: 'counseling_seminars', marketplaceHidden: true, phase: 'V1.4', ph: true, faith: 'Muslim' },
-  marriage_license_expediting:       { folder: 'venue', tile: 'wedding_paperwork', marketplaceHidden: true, phase: 'V1.2', ph: true },
-  apostille_dfa_authentication:      { folder: 'venue', tile: 'wedding_paperwork', marketplaceHidden: true, phase: 'V1.3', ph: true },
+  marriage_license_expediting:       { folder: 'planning', tile: 'wedding_paperwork', phase: 'V1.2', ph: true },
+  apostille_dfa_authentication:      { folder: 'planning', tile: 'wedding_paperwork', phase: 'V1.3', ph: true },
   // ── ACCOMMODATION (tile `accommodation`) — where you SLEEP ────────────────
   // Re-shelved off `reception` 2026-08-01 (travel vertical). `accommodation`
   // was already tagged ['travel','wedding'] in the DB but sat on the wedding
@@ -927,9 +944,9 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   // date-selection "Consult a date specialist" CTA. Own tile (NOT 'coordinator').
   date_fengshui_consultant:          { folder: 'planning', tile: 'date_specialist', phase: 'V1.1.1', faith: 'Chinese', ph: true, tradition: true },
   // Travel + niche logistics leave the marketplace (wizard host-task / deferred).
-  honeymoon_planner:                 { folder: 'planning', tile: 'travel_honeymoon', marketplaceHidden: true, phase: 'V1.1 base' },
-  destination_wedding_travel_coordinator: { folder: 'planning', tile: 'travel_honeymoon', marketplaceHidden: true, phase: 'V1.2' },
-  visa_wedding_logistics:            { folder: 'venue', tile: 'wedding_paperwork', marketplaceHidden: true, phase: 'V1.5+', ph: true },
+  honeymoon_planner:                 { folder: 'planning', tile: 'travel_honeymoon', phase: 'V1.1 base' },
+  destination_wedding_travel_coordinator: { folder: 'planning', tile: 'travel_honeymoon', phase: 'V1.2' },
+  visa_wedding_logistics:            { folder: 'planning', tile: 'wedding_paperwork', phase: 'V1.5+', ph: true },
 
   // ════════════════════════════════════════════════════════════════════
   // FEAST — the catered meal. Cake · Catering · Stations.

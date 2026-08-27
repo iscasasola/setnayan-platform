@@ -82,6 +82,11 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   // is the safer default, since a video-only shop is the rarer case.
   photo_video: 'photographer',
   editorial: 'photographer',
+  // Opened to the marketplace 2026-08-27 (owner ruling). Without these two the
+  // `no-service-lands-in-misc` guard fails: a visible branch with no coarse
+  // category files every vendor under it as "Miscellaneous", silently.
+  wedding_paperwork: 'wedding_paperwork',
+  travel_honeymoon: 'travel_honeymoon',
 
   // ── Look ─────────────────────────────────────────────────────────────────
   brides_attire: 'gown_designer',

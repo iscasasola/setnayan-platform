@@ -63,9 +63,17 @@ const GAP_LEAF_PARENT: Record<string, WeddingFolder> = {
 const GAP_LEAVES = Object.keys(GAP_LEAF_PARENT) as WeddingTile[];
 
 test('every VendorCategory bridges to a tile (no considered pick is ever dropped)', () => {
+  // 47 → 49 on 2026-08-27: the owner opened `wedding_paperwork` and
+  // `travel_honeymoon` to the marketplace (*"marriage-paper helper yes.
+  // honeymoon planner yes"*), and a marketplace branch a couple can browse
+  // needs a coarse category to store. The contract was RE-DERIVED, not bumped:
+  // both new categories bridge 1:1 to their same-named tile (case 2 below
+  // proves the tile is live), both are claimed by a real PLAN_GROUP, and
+  // neither is a gap leaf — so every assertion in this file that made 47
+  // meaningful still holds at 49.
   assert.equal(
     VENDOR_CATEGORIES.length,
-    47,
+    49,
     'enum size changed — re-derive the contract before editing this number',
   );
   for (const c of VENDOR_CATEGORIES) {

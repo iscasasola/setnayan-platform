@@ -90,3 +90,64 @@ the room surviving a weak-signal venue (§ H, its own project).
 SPEC IMPACT: `EVENT_HUB_UNISON_2026-08-28.md` § 6 gap 3 ("the supplier's desk is
 day-of only") and gap 5 (the after-the-day surfaces) are closed; a
 `DECISION_LOG.md` row is appended in the spec corpus.
+
+---
+
+## 2026-08-28 · fix(event-hub): a supplier never sits through a film to get to work
+
+The call sheet above opens months before the day — and **months before the day
+is exactly when the celebration's page is the Save-the-Date film**: `fixed
+inset-0 z-[50]`, with the reveal veil above it at z-[60]. The supplier's strip
+renders in ordinary document flow underneath both. So a booked photographer
+signing in to check the address got a wedding film and **no visible way to their
+own call sheet**, for every one of the ~9 months a booking spends more than 90
+days out. Shipping the call sheet without this would have been a fix nobody can
+reach — three times now in this project.
+
+The binding design puts the door above the film for exactly this reason:
+*"a ribbon there sits above everything, including the save-the-date film that
+today paints the supplier's only strip out of sight for months."*
+
+**RULE 0 — both halves were already solved on this page.**
+
+* **The chrome is the host's.** `owner-ribbon.tsx` is the same idea for the host
+  on the same page, and its docblock had already worked out the hard part:
+  `sticky top-0 z-[90]` *"clears the Save-the-Date stack (film z-50/70, reveal
+  z-60, touch glow z-80)."* Same stack, same answer, same materials.
+* **The way out of the film is the film's own.** The button dispatches
+  `STD_FILM_EXIT_EVENT` — the event `StdFilmHandoff` already listens for, and
+  which `reveal-overlay.tsx` also listens for **so the veil retires with it**.
+  The film is a PAID product: it is lifted, never spent, and *"Watch our film"*
+  still brings both back.
+
+It mounts in that one phase only — everywhere else the strip below already IS
+the top of the page for a supplier — and it carries nothing that would have
+needed a second gate: the trading name from the capability the server proved,
+and the countdown the desk model already resolved under the supplier's own
+session. A guard pins its prop list, so a fourth prop has to be argued for.
+
+🪤 **AND THE GUARD READS THE STACK'S OWN NUMBERS RATHER THAN A REMEMBERED ONE.**
+A hardcoded `> 70` keeps passing on the day somebody raises the film. It scans
+the six takeover components for their `z-[n]`, takes the maximum, and fails if
+the ribbon is not strictly above it — with a floor so an extractor that stops
+matching cannot pass everything by finding nothing.
+
+🚨 **A THIRD GUARD CAUGHT A REAL PROBLEM IN THE FIRST HALF OF THIS BRANCH, AND
+IT WAS RIGHT TO.** Folding the day's console link and the call sheet's setup
+link into one computed `href` made `lint-port-no-lost-controls` report that
+`/{slug}` had LOST `/vendor-dashboard/on-the-day` — its extractor matches `href`
+followed by a **literal**, so a ternary is invisible to it. The tempting fix is
+to regenerate the baseline, which would have **recorded a removal that had not
+happened**. Instead both tiles are now one small component each call site hands
+a literal href, which is shorter code and leaves the guard able to see both.
+
+🪤 **AND MY OWN FIRST MUTATION RUN LIED IN A NEW WAY.** Sabotaging `z-[90]` →
+`z-[55]` reported the marker landing 0 → 1 and the guard staying **green** — a
+decorative guard, seemingly. It was not: the first `z-[90]` in that file is in
+the **docblock**, the guard strips comments before matching, and the className
+was untouched. Re-run against the className, it goes red. *An occurrence count
+proves a sabotage landed somewhere, not that it landed where you aimed.*
+
+**6 mutations on this half, all measured, all red.**
+
+SPEC IMPACT: None beyond the row above — same feature, made reachable.

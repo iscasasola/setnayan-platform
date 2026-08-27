@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight, MapPin, MessageSquare, Users } from 'lucide-react';
 
 import { formatBlockTimeRange } from '@/lib/schedule';
+import { SUPPLIER_DESK_ANCHOR } from './supplier-ribbon';
 import { PRIVATE_LINE_NOTE, type SupplierDeskStage } from '@/lib/supplier-desk-rule';
 import {
   ConsoleEyebrow,
@@ -74,6 +75,41 @@ import type { ClientEventWords } from './event-words-provider';
  * DATE gate and nothing else; the capability gate is untouched.
  */
 
+/**
+ * One tool tile. Factored out for two reasons, and the second is the load-bearing
+ * one:
+ *
+ *   1. The console tile and the per-tool tiles were the same twenty lines twice.
+ *   2. 🔑 A COMPUTED `href` IS INVISIBLE TO `lint-port-no-lost-controls`. Its
+ *      extractor matches `href` followed by a literal, so folding the day's
+ *      console link and the call sheet's setup link into one ternary made the
+ *      whole `/{slug}` route read as having LOST `/vendor-dashboard/on-the-day`
+ *      — a false alarm that could only be silenced by recording a removal that
+ *      had not happened. With a tile component each call site writes its own
+ *      literal, and the guard can see both.
+ */
+function ToolTile({ href, title, blurb }: { href: string; title: string; blurb: string }) {
+  return (
+    <Link
+      href={href}
+      className="sn-press group relative flex items-center justify-between gap-3 border border-ink/10 bg-paper p-4 transition-colors hover:border-gild/40"
+    >
+      <span aria-hidden className="pointer-events-none absolute inset-1.5 border border-ink/[0.08]" />
+      <span className="relative min-w-0">
+        <span className="block font-pahina text-base font-light leading-snug tracking-tight text-ink">
+          {title}
+        </span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-ink/70">{blurb}</span>
+      </span>
+      <ArrowUpRight
+        aria-hidden
+        className="relative h-5 w-5 shrink-0 text-ink/45 transition-colors group-hover:text-gild"
+        strokeWidth={1.75}
+      />
+    </Link>
+  );
+}
+
 /** The one word at the top that tells a supplier where in the booking they are. */
 const EYEBROW: Record<SupplierDeskStage, string> = {
   call_sheet: 'Your call sheet',
@@ -106,7 +142,11 @@ export function SupplierDesk({
   const ranLines = desk.blocks.filter((b) => b.run_state === 'done').length;
 
   return (
-    <aside className="mx-auto mt-6 w-full max-w-3xl px-4" aria-label={ARIA[desk.stage]}>
+    <aside
+      id={SUPPLIER_DESK_ANCHOR}
+      className="mx-auto mt-6 w-full max-w-3xl px-4"
+      aria-label={ARIA[desk.stage]}
+    >
       <div className="border-t-[3px] border-terracotta bg-paper-deep">
         <div className="space-y-5 p-5 sm:p-6">
           <header className="space-y-1.5">
@@ -285,62 +325,23 @@ export function SupplierDesk({
               <p className="text-sm leading-relaxed text-ink/70">
                 The floor desk closed at six the morning after. Everything below still opens.
               </p>
+            ) : isToday ? (
+              <ToolTile
+                href="/vendor-dashboard/on-the-day"
+                title="Open your day-of console"
+                blurb="The floor tools you switched on for this booking."
+              />
             ) : (
-              <Link
-                href={
-                  isToday
-                    ? '/vendor-dashboard/on-the-day'
-                    : `/vendor-dashboard/on-the-day?event=${desk.vendorEventId}`
-                }
-                className="sn-press group relative flex items-center justify-between gap-3 border border-ink/10 bg-paper p-4 transition-colors hover:border-gild/40"
-              >
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-1.5 border border-ink/[0.08]"
-                />
-                <span className="relative min-w-0">
-                  <span className="block font-pahina text-base font-light leading-snug tracking-tight text-ink">
-                    {isToday ? 'Open your day-of console' : 'Set up your console for this day'}
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-relaxed text-ink/70">
-                    {isToday
-                      ? 'The floor tools you switched on for this booking.'
-                      : 'Choose the tools you’ll use. The floor desk itself opens on the day.'}
-                  </span>
-                </span>
-                <ArrowUpRight
-                  aria-hidden
-                  className="relative h-5 w-5 shrink-0 text-ink/45 transition-colors group-hover:text-gild"
-                  strokeWidth={1.75}
-                />
-              </Link>
+              <ToolTile
+                href={`/vendor-dashboard/on-the-day?event=${desk.vendorEventId}`}
+                title="Set up your console for this day"
+                blurb="Choose the tools you’ll use. The floor desk itself opens on the day."
+              />
             )}
             {desk.tools.length > 0 ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 {desk.tools.map((t) => (
-                  <Link
-                    key={t.id}
-                    href={t.href}
-                    className="sn-press group relative flex items-center justify-between gap-3 border border-ink/10 bg-paper p-4 transition-colors hover:border-gild/40"
-                  >
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute inset-1.5 border border-ink/[0.08]"
-                    />
-                    <span className="relative min-w-0">
-                      <span className="block font-pahina text-base font-light leading-snug tracking-tight text-ink">
-                        {t.label}
-                      </span>
-                      <span className="mt-0.5 block text-xs leading-relaxed text-ink/70">
-                        {t.blurb}
-                      </span>
-                    </span>
-                    <ArrowUpRight
-                      aria-hidden
-                      className="relative h-5 w-5 shrink-0 text-ink/45 transition-colors group-hover:text-gild"
-                      strokeWidth={1.75}
-                    />
-                  </Link>
+                  <ToolTile key={t.id} href={t.href} title={t.label} blurb={t.blurb} />
                 ))}
               </div>
             ) : null}

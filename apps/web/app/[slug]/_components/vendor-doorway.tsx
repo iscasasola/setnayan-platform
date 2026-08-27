@@ -4,6 +4,7 @@ import type { VendorCapability } from '../_lib/site-identity';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
 import type { ClientEventWords } from './event-words-provider';
 import { SupplierDesk } from './supplier-desk';
+import { SUPPLIER_DESK_ANCHOR } from './supplier-ribbon';
 
 /**
  * VendorDoorway — the strip a booked supplier sees on their client's own
@@ -72,6 +73,7 @@ export function VendorDoorway({
   if (desk) return <SupplierDesk desk={desk} words={words} />;
   return (
     <aside
+      id={SUPPLIER_DESK_ANCHOR}
       className="mx-auto mt-6 w-full max-w-3xl px-4"
       aria-label="Your supplier tools for this event"
     >

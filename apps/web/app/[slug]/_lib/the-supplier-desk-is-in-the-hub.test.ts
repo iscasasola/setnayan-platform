@@ -479,3 +479,37 @@ test('the wider window did not widen the read', () => {
     'the stage is resolved from the passed facts, not re-queried here',
   );
 });
+
+// ── 5 · THE BRIDGE BETWEEN TWO ROOMS ON ONE DAY ────────────────────────────
+
+test('the bridge is asked on the day and on no other day', () => {
+  const loader = stripComments(read(LOADER));
+  assert.match(
+    loader,
+    /stage === 'today'\s*\n?\s*\? supabase\.rpc\('get_vendor_same_day_bookings'/,
+    'before and after the day "you are also at" is not a fact anybody is about to act on, and the ' +
+      'design puts the line inside the live room',
+  );
+  const desk = stripComments(read(DESK));
+  assert.match(desk, /desk\.alsoToday\.length > 0/);
+});
+
+test('the bridge does NOT reuse the shipped admin-client reader', () => {
+  const loader = stripComments(read(LOADER));
+  // `fetchVendorRoomEvents` answers almost exactly this question and opens
+  // `createAdminClient()` internally — right for the vendor dashboard, and
+  // inside a guest-facing page it would put every other celebration's name
+  // through the one client this file exists to keep out.
+  assert.doesNotMatch(loader, /fetchVendorRoomEvents/);
+  assert.equal((loader.match(/createAdminClient/g) ?? []).length, 0);
+});
+
+test('a refused bridge costs one line, never the desk', () => {
+  const loader = stripComments(read(LOADER));
+  assert.match(
+    loader,
+    /Array\.isArray\(\(alsoRows as \{ data\?: unknown \}\)\.data\)/,
+    'an unreadable list of other bookings must not take a supplier’s running order away from them ' +
+      'on the day — the same posture the brief read already takes',
+  );
+});

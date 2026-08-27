@@ -92,7 +92,13 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'UploadsOpenChoice',
   'VendorChallengesApproval',
   'VendorMediaControls',
-  'WhereYouStand',
+  // ⚠ RENAMED, NOT REMOVED (2026-08-28). `WhereYouStand` rendered the four facts
+  // on white above the page; `PapicStage` renders the SAME four facts fused onto
+  // the dark library panel that now opens the page, and the counts behind them
+  // moved into one shared reader. The control a person uses is unchanged — this
+  // line follows it rather than being deleted, because deleting a line from this
+  // bill is how a control goes missing quietly.
+  'PapicStage',
 ] as const;
 
 test('🚨 every control the three rooms held is still mounted on the one page', () => {

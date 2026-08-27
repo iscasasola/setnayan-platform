@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ArrowUpRight,
+  FileText,
   Star,
   Inbox,
   ListTodo,
@@ -569,6 +570,7 @@ export function WhatsNewFeed({
   acceptInquiry,
   declineInquiry,
   confirmLock,
+  rejectLock,
   agreeLock,
   declineLock,
   agreeDeletion,
@@ -580,6 +582,8 @@ export function WhatsNewFeed({
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
   confirmLock: (formData: FormData) => void | Promise<void>;
+  /** "It never arrived" — the shipped reject action, reachable from the row at last. */
+  rejectLock: (formData: FormData) => void | Promise<void>;
   agreeLock: (formData: FormData) => void | Promise<void>;
   declineLock: (formData: FormData) => void | Promise<void>;
   agreeDeletion: (formData: FormData) => void | Promise<void>;
@@ -613,6 +617,7 @@ export function WhatsNewFeed({
                 acceptInquiry={acceptInquiry}
                 declineInquiry={declineInquiry}
                 confirmLock={confirmLock}
+                rejectLock={rejectLock}
                 agreeLock={agreeLock}
                 declineLock={declineLock}
                 agreeDeletion={agreeDeletion}
@@ -633,6 +638,7 @@ function FeedCard({
   acceptInquiry,
   declineInquiry,
   confirmLock,
+  rejectLock,
   agreeLock,
   declineLock,
   agreeDeletion,
@@ -644,6 +650,8 @@ function FeedCard({
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
   confirmLock: (formData: FormData) => void | Promise<void>;
+  /** "It never arrived" — the shipped reject action, reachable from the row at last. */
+  rejectLock: (formData: FormData) => void | Promise<void>;
   agreeLock: (formData: FormData) => void | Promise<void>;
   declineLock: (formData: FormData) => void | Promise<void>;
   agreeDeletion: (formData: FormData) => void | Promise<void>;
@@ -681,7 +689,7 @@ function FeedCard({
           declineDeletion={declineDeletion}
         />
       ) : card.kind === 'lock' ? (
-        <LockBody card={card} confirmLock={confirmLock} />
+        <LockBody card={card} confirmLock={confirmLock} rejectLock={rejectLock} />
       ) : card.kind === 'review' ? (
         <ReviewBody card={card} postReviewReply={postReviewReply} />
       ) : card.kind === 'message' ? (
@@ -940,21 +948,72 @@ function DeleteRequestBody({
   );
 }
 
+/**
+ * SOMEBODY SAYS THEY PAID YOU — and now the row can say NO.
+ *
+ * ⚖ OWNER RULING 2026-08-27, asked directly: *"yes. they can declare it."*
+ *
+ * 🔑 RULE 0: THE "NO" WAS ALREADY BUILT — it is `vendorRejectDeposit` and the
+ * `reject_vendor_deposit` RPC behind it, shipped with an ownership gate, a
+ * single-winner UPDATE and a reason that reaches the couple. What did not exist
+ * was a way to reach it from HERE: the desk asked a money question and offered
+ * one answer, with the other one screen away on the customer's own card. So this
+ * mirrors that card's control exactly rather than inventing a second way to say
+ * no — two mechanisms for one answer is how they come to disagree.
+ *
+ * 🧾 AND THE RECEIPT WAS ALREADY IN THE CARD'S HAND. `proofUrl` has been fetched
+ * into this card since it was written and never rendered once, so a supplier was
+ * asked to confirm a payment without being shown the proof of it — the answer the
+ * whole row exists for, decided blind.
+ *
+ * 🗣 THE COPY IS A CLAIM NOW, NOT A FACT. It read "Downpayment received", which
+ * states as settled the very thing the supplier is being asked to judge.
+ *
+ * ⛔ The refusal stays behind a fold with its own reason box. A "no" is a real
+ * answer the couple needs and must not be one mis-tap from the "yes" — the same
+ * restraint the booking-ask and deletion cards keep.
+ */
 function LockBody({
   card,
   confirmLock,
+  rejectLock,
 }: {
   card: Extract<WhatsNewCard, { kind: 'lock' }>;
   confirmLock: (formData: FormData) => void | Promise<void>;
+  rejectLock: (formData: FormData) => void | Promise<void>;
 }) {
   const detail = metaLine([
-    'Downpayment received',
-    card.eventDate ? `${shortDate(card.eventDate)} wedding` : null,
+    'They say they have paid your downpayment',
+    card.eventDate ? shortDate(card.eventDate) : null,
   ]);
+  // A local binding, not `card.proofUrl` inline: narrowing a nullable PROPERTY
+  // inside JSX did not survive here (`string | null` reached an `href` that takes
+  // `string | undefined`), and the typecheck said so. A const narrows once and
+  // reads better than a non-null assertion, which would have silenced the one
+  // check that noticed.
+  const receiptUrl = card.proofUrl;
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.coupleName}</p>
-      <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+      <p className="mt-0.5 text-sm text-ink/60">
+        {detail}
+        {' · '}
+        <AgeLine since={card.recordedAt} />
+      </p>
+      {receiptUrl ? (
+        <a
+          href={receiptUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-2 hover:underline"
+          style={{ color: 'var(--sn-gold-700)' }}
+        >
+          <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          See what they sent
+        </a>
+      ) : (
+        <p className="mt-2 text-sm text-ink/55">They attached no receipt.</p>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={confirmLock}>
           <input type="hidden" name="event_id" value={card.eventId} />
@@ -964,7 +1023,7 @@ function LockBody({
             className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
             style={{ background: 'var(--sn-success)' }}
           >
-            Confirm lock
+            Yes, it arrived
           </SubmitButton>
         </form>
         <Link
@@ -975,6 +1034,39 @@ function LockBody({
           View
         </Link>
       </div>
+      <details className="mt-3">
+        <summary className="cursor-pointer text-sm text-ink/60">
+          It hasn&rsquo;t reached you?
+        </summary>
+        <form action={rejectLock} className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="event_id" value={card.eventId} />
+          <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          {/* Comes back HERE with the outcome, instead of moving the supplier to
+              another screen the moment they answer. The action selects from a
+              fixed pair — the posted value is never used as a path. */}
+          <input type="hidden" name="return_to" value="/vendor-dashboard" />
+          <input
+            type="text"
+            name="reason"
+            maxLength={200}
+            placeholder="Why? (optional — they see this)"
+            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            style={{ borderColor: 'var(--sn-line)' }}
+          />
+          <SubmitButton
+            pendingLabel="Sending…"
+            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold"
+            style={{ borderColor: 'var(--sn-danger)', color: 'var(--sn-danger)' }}
+          >
+            It never arrived
+          </SubmitButton>
+        </form>
+        <p className="mt-2 max-w-prose text-[12px] text-ink/55">
+          Their record of paying is cleared so they can send it again with the
+          right receipt. It does not cancel the booking, and nothing about your
+          date changes.
+        </p>
+      </details>
     </>
   );
 }

@@ -218,6 +218,71 @@ test('the answer is taken ON the row, not linked away from', () => {
   assert.match(read(PAGE), /postReviewReply=\{postVendorReply\}/, 'the desk is not wired to the reply action');
 });
 
+test('the money row offers BOTH answers, and shows what they sent', () => {
+  /*
+    ⚖ OWNER RULING 2026-08-27: *"yes. they can declare it."*
+    🔑 RULE 0 — the "no" was already built (`vendorRejectDeposit` → the
+    `reject_vendor_deposit` RPC, with its own ownership gate and single-winner
+    UPDATE). What was missing was a way to reach it from the desk, which asked a
+    money question and offered one answer. This pins the reach, and pins that
+    nobody invented a SECOND way to say no.
+    🧾 And `proofUrl` had been fetched into this card since it was written and
+    never rendered once — a supplier was asked to confirm a payment without
+    being shown the proof of it.
+  */
+  const sections = read(SECTIONS);
+  const start = sections.indexOf('function LockBody');
+  const end = sections.indexOf('function ReviewBody');
+  assert.ok(start > 0 && end > start, 'LockBody moved');
+  const body = sections.slice(start, end);
+  assert.match(body, /action=\{confirmLock\}/, 'the money row lost its yes');
+  assert.match(body, /action=\{rejectLock\}/, 'the money row lost its no — the only answer is yes again');
+  /*
+    🪤 REV 1 OF THIS ASSERTION WAS DECORATION AND THE MUTATION RUN CAUGHT IT: it
+    matched `card.proofUrl` ANYWHERE, and the field is named twice — in the
+    branch and in the link. Replacing the branch with `{false ? (` left the
+    `href` standing, count 2 → 1, and the guard stayed green while the receipt
+    was gone. Both halves are pinned separately now.
+  */
+  // Both halves of the receipt: the branch that decides, and the link itself.
+  // (`receiptUrl` is a local binding of `card.proofUrl` — narrowing the nullable
+  // property inline did not survive the typecheck.)
+  assert.match(body, /const receiptUrl = card\.proofUrl;/, 'the card no longer reads the receipt at all');
+  assert.ok(
+    body.includes('{receiptUrl ? ('),
+    'the receipt branch is gone — the supplier answers a money question blind',
+  );
+  assert.ok(
+    body.includes('href={receiptUrl}'),
+    'nothing links to the receipt any more',
+  );
+  assert.match(body, /They attached no receipt\./, 'the no-receipt case says nothing at all');
+  // The refusal stays behind a fold: a no must not be one mis-tap from a yes.
+  assert.match(body, /<details/, 'the refusal came out from behind its fold');
+  assert.match(read(PAGE), /rejectLock=\{vendorRejectDeposit\}/, 'the desk is not wired to the shipped reject action');
+  // ONE mechanism for one answer. A second RPC would be two ways to say no,
+  // which is how they come to disagree.
+  for (const invented of ['decline_vendor_deposit', 'deposit_declined_at', 'deposit_not_received']) {
+    assert.ok(
+      !read(OVERVIEW).includes(invented) && !sections.includes(invented),
+      `a second way to say no appeared (${invented}) — reject_vendor_deposit already does this`,
+    );
+  }
+});
+
+test('the desk says what happened when the answer was given on it', () => {
+  // A refusal in silence is indistinguishable from one that never happened: the
+  // row vanishes either way. Every status the RPC can return has words.
+  const page = read(PAGE);
+  assert.match(page, /deposit_answer/, 'the desk cannot show the outcome of an answer given on it');
+  for (const status of ['ok', 'already', 'already_confirmed', 'not_recorded', 'error']) {
+    assert.ok(
+      new RegExp(`(^|[^a-z_])${status}:`, 'm').test(page),
+      `the RPC can return '${status}' and the desk has no words for it`,
+    );
+  }
+});
+
 test('a closed window carries no control at all', () => {
   const sections = read(SECTIONS);
   for (const [fn, next] of [

@@ -224,6 +224,15 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
  * deposit markers so they must re-submit; never un-locks the booking; can't touch
  * a confirmed deposit). Then notifies the couple to re-submit. Ownership is
  * enforced inside the SECURITY DEFINER RPC, so this wrapper just forwards.
+ *
+ * 2026-08-27 — REACHABLE FROM THE ANSWERS DESK (owner: "yes. they can declare
+ * it."). The desk asked this money question and offered only YES; the NO lived
+ * here, one screen away, so the answer was posted from the customer card or not
+ * at all. `return_to` brings the supplier back to whichever surface they
+ * answered on — an answer that silently moves you to another page reads like a
+ * mis-press.
+ * 🔒 THE POSTED VALUE IS NEVER USED AS A PATH. It selects one of two known
+ * surfaces; anything else falls back to the customer card.
  */
 export async function vendorRejectDeposit(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -281,8 +290,12 @@ export async function vendorRejectDeposit(formData: FormData) {
     }
   }
 
-  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   const flag = error ? 'error' : env.status ?? 'ok';
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  if (formData.get('return_to') === '/vendor-dashboard') {
+    revalidatePath('/vendor-dashboard');
+    redirect(`/vendor-dashboard?deposit_answer=${flag}`);
+  }
   redirect(`/vendor-dashboard/clients/${eventId}?deposit_reject=${flag}`);
 }
 

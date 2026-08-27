@@ -142,3 +142,47 @@ week · blank card · every malformed shape · oversized) — plus 5 in the make
 printed before → after, all RED.**
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.
+
+## 2026-08-28 · feat(vendor): the card explains itself once, paints itself, and sits beside the question
+
+Owner: *"build it"* — the three presentation pieces the prototype drew and the first build left out.
+
+**Explained once, ever.** A shop's very FIRST card opens with one screen saying what a card is —
+the photo sells it · the price can wait · the Exclusive is why they book here. It carries no field.
+A supplier making their fourth card never sees it; explaining again is the bombardment in a politer
+costume.
+
+**The card paints itself.** The cover settles in, the price line and what-couples-get land as they
+change, the Exclusive lights up, and the card pulses once the moment it could go live. During the
+first pass there is no meter and no score, so this IS the progress.
+
+🔑 **REMOUNTED, NOT CLASS-TOGGLED.** A CSS animation that has already run does not replay because
+its class is set again — each node is keyed on its own value, which is the whole mechanism. A static
+`className` here animates once and then never again, and looks correct in review.
+⚠ **The ready-pulse is on a WRAPPER, not the card**: keying the card itself would remount the name
+field mid-typing.
+🔒 All three keyframes carry a from-state (opacity 0 / scale) that must never be the resting state,
+so the `prefers-reduced-motion` freeze is asserted, not assumed — without it a supplier who asked for
+no motion gets a card stuck invisible.
+
+**On a laptop the question sits beside the card**, not over it: the guided panel becomes a right-hand
+column at `lg`. An ordinary edit is still a bottom sheet, because nothing is being built behind it.
+
+⚖ **AN EXISTING GUARD FIRED AND WAS WIDENED RATHER THAN WEAKENED.** `canvas-sheet-confirm` pinned
+*"exactly one sheet may hide the confirm"* (owner 2026-07-28: *"pop ups must have update button"*).
+The rule is about a sheet you can only leave by the ×; the guided sheets give Continue / Done plus a
+skip. It now asserts the real rule — **a sheet may hide the confirm only when it carries a real
+control of its own** — and still names the only two that may hide it unconditionally.
+🪤 **AND ITS OWN TAG REGEX WAS WRONG AND FAILED SILENTLY:** `<CanvasSheet[\s\S]*?>` stops at the
+first `>` in the tag — the ARROW in `onClose={() => …}` — so every sheet with an inline handler was
+cut short and its `confirmLabel` was never read. Caught by the assertion disagreeing with the file,
+not by review.
+
+🛡 5 more assertions · **8 mutations, printed before → after, all RED** (explainer shown to everyone ·
+price painted with a static class · cover not settling · pulse moved onto the card · desktop column
+removed · reduced-motion guard dropped · a guided sheet with neither confirm nor footer · an ordinary
+sheet hiding its confirm always).
+
+Measured: `TSC_EXIT=0` · `ERRORS=0` · `# tests 1387 # pass 1387 # fail 0`.
+
+SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.

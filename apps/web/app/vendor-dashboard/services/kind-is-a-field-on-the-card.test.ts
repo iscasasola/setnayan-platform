@@ -234,7 +234,10 @@ test('the card stays visible while it paints, and is not graded mid-build', () =
   const src = read(MAKER);
   // The guided sheet drops the dark veil; every later edit is still a modal.
   assert.match(src, /guided\s*\n?\s*\? 'absolute inset-0 cursor-default'/, 'the first pass started veiling the card it is painting');
-  assert.match(src, /guided \? 'max-h-\[58dvh\]' : 'max-h-\[78dvh\]'/, 'the guided sheet stopped leaving the card room');
+  // ⚠ Matches the guided branch's OPENING, not the whole class string: the
+  // desktop column was added to that same branch later, and an assertion pinned
+  // to the exact string would have failed for a change it does not care about.
+  assert.match(src, /guided\s*\n?\s*\?[\s\S]{0,400}'max-h-\[58dvh\]/, 'the guided sheet stopped leaving the card room');
   // No meter over two unanswered questions.
   assert.match(src, /\{inPass \? null : \(\s*<HealthHeader/, 'the score came back during the first pass');
 });
@@ -299,4 +302,69 @@ test('restoring puts state through React and everything else through the DOM', (
   // halves are needed, and the dispatched event is what makes the card SHOW it.
   assert.match(src, /if \(name === 'title'\) setTitle\(value\)/, 'the name stopped restoring through state');
   assert.match(src, /dispatchEvent\(new Event\('input', \{ bubbles: true \}\)\)/, 'restored fields stopped telling the card');
+});
+
+// ---------------------------------------------------------------------------
+// THE CARD PAINTS ITSELF, EXPLAINS ITSELF ONCE, AND SITS BESIDE THE QUESTION
+// (owner 2026-08-28 · "build it")
+// ---------------------------------------------------------------------------
+
+test('the card is explained once, ever — never to a shop on its fourth card', () => {
+  const src = read(MAKER);
+  assert.match(src, /if \(firstCardEver\) steps\.push\('intro'\)/, 'the first-card explainer is gone');
+  const door = read(NEW_DOOR);
+  assert.match(
+    door,
+    /firstCardEver=\{ownCategories\.length === 0\}/,
+    'the explainer stopped asking whether this shop has ever made a card',
+  );
+  // It carries no field — it is the one screen that answers "what am I making?"
+  assert.ok(
+    !/id="canvas-intro"[\s\S]{0,1200}<input/.test(src),
+    'the explainer grew a field — it is a sentence, not a question',
+  );
+});
+
+test('a value arriving on the card is REMOUNTED, not class-toggled', () => {
+  const src = read(MAKER);
+  // 🔑 A CSS animation that has already run does not replay because the class is
+  // set again. Keying each node on its own value is the whole mechanism; a
+  // static className here would animate once and then never again.
+  assert.match(src, /key=\{snap\.priceLine\} className="sn-paint-in"/, 'the price stopped landing visibly');
+  assert.match(src, /key=\{comesWith\.join\('\|'\)\}/, 'what couples get stopped landing visibly');
+  assert.match(src, /key=\{perk\.trim\(\)\.length > 0 \? 'perk-set' : 'perk-empty'\}/, 'the Exclusive stopped lighting up');
+  assert.match(src, /key="cover-set" className="sn-paint-cover/, 'the cover stopped settling in');
+});
+
+test('every painted state has a reduced-motion off switch', () => {
+  // ⚠ ALL THREE CARRY A FROM-STATE (opacity 0 / scale) THAT MUST NEVER BE THE
+  // RESTING STATE — without the guard, a supplier who asked for no motion gets
+  // a card stuck invisible.
+  const css = read('app/globals.css');
+  for (const cls of ['sn-paint-in', 'sn-paint-cover', 'sn-paint-live']) {
+    assert.match(css, new RegExp(`\\.${cls}\\s*\\{[^}]*animation`), `${cls} lost its animation`);
+  }
+  const reduced = css.slice(css.indexOf('.sn-paint-in    {'));
+  const block = reduced.slice(reduced.indexOf('@media (prefers-reduced-motion: reduce)'));
+  for (const cls of ['sn-paint-in', 'sn-paint-cover', 'sn-paint-live']) {
+    assert.ok(block.slice(0, 400).includes(cls), `${cls} is not frozen under reduced motion`);
+  }
+});
+
+test('the ready pulse cannot remount the card it sits on', () => {
+  const src = read(MAKER);
+  // Keying the CARD would remount the title input mid-typing. The wrapper costs
+  // nothing inside it.
+  assert.match(
+    src,
+    /key=\{blocked \? 'card-blocked' : 'card-ready'\} className=\{blocked \? undefined : 'sn-paint-live/,
+    'the ready pulse moved onto the card itself, which remounts the name field',
+  );
+});
+
+test('on a laptop the question sits beside the card, not over it', () => {
+  const src = read(MAKER);
+  assert.match(src, /lg:right-0[^']*lg:max-w-\[400px\]/, 'the guided panel stopped becoming a column on desktop');
+  // Only the guided presentation moves — an ordinary edit is still a sheet.
+  assert.match(src, /: 'max-h-\[78dvh\]'/, 'the normal sheet lost its own sizing');
 });

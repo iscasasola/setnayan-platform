@@ -187,6 +187,7 @@ export default async function NewServiceCardPage() {
         categoryValue=""
         categoryLabel=""
         categoryOptions={categoryOptions}
+        firstCardEver={ownCategories.length === 0}
         otherCategories={otherCategories}
         coverages={coverageOptions}
         vendorProfileId={profile.vendor_profile_id}

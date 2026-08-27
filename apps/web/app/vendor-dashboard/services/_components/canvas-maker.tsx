@@ -139,7 +139,7 @@ export type CategoryChoice = OtherCategory & {
 export type CategoryGroup = { key: string; label: string; options: CategoryChoice[] };
 export type CoverageAudience = { eventTypes: string[]; faiths: string[] };
 
-type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience' | 'kind';
+type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience' | 'kind' | 'intro';
 
 /** Where a card-health finding sends the vendor. 'title' is inline on the card. */
 const SHEET_FOR_FINDING: Record<CardHealthSheet, SheetKey | 'title'> = {
@@ -171,6 +171,7 @@ export function CanvasMaker({
   coverageAllowed = {},
   initial = null,
   categoryOptions = [],
+  firstCardEver = false,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -219,6 +220,12 @@ export function CanvasMaker({
    * A guard pins both halves.
    */
   categoryOptions?: CategoryGroup[];
+  /**
+   * Has this shop never made a card? Then the pass opens by saying what a card
+   * IS — once, ever. A supplier making their fourth card knows, and explaining
+   * it again is the bombardment in a politer costume.
+   */
+  firstCardEver?: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -298,9 +305,12 @@ export function CanvasMaker({
   const firstPassSteps = useMemo<SheetKey[]>(() => {
     if (!canChooseKind || initial !== null) return [];
     const steps: SheetKey[] = [];
+    if (firstCardEver) steps.push('intro');
     if (!category) steps.push('kind');
     steps.push('media', 'excl');
     return steps;
+    // Frozen at mount ON PURPOSE — answering must not renumber the question the
+    // vendor is looking at, so `category` and `firstCardEver` are read once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [passIndex, setPassIndex] = useState(firstPassSteps.length > 0 ? 0 : -1);
@@ -695,7 +705,11 @@ export function CanvasMaker({
         onClick={nextInPass}
         className="button-primary min-h-[44px] w-full"
       >
-        {passIndex === firstPassSteps.length - 1 ? 'Done — show my card' : 'Continue'}
+        {passStep === 'intro'
+          ? 'Start my card'
+          : passIndex === firstPassSteps.length - 1
+            ? 'Done — show my card'
+            : 'Continue'}
       </button>
       <div className="flex items-center justify-between gap-3">
         <span
@@ -818,6 +832,10 @@ export function CanvasMaker({
         )}
 
         {/* ═══ THE CARD — every region is a control ═══════════════════════════ */}
+        {/* ⚠ THE PULSE IS ON A WRAPPER, NOT ON THE CARD. Keying the card itself
+            would remount the title input mid-typing; this way the "your card can
+            go live now" beat costs nothing inside it. */}
+        <div key={blocked ? 'card-blocked' : 'card-ready'} className={blocked ? undefined : 'sn-paint-live rounded-2xl'}>
         <div
           className="overflow-hidden rounded-2xl border"
           style={{ borderColor: line, background: paper }}
@@ -835,10 +853,10 @@ export function CanvasMaker({
             <span className="flex justify-center" style={{ background: 'var(--m-orange-4)' }}>
               <span className="relative flex aspect-square w-full max-w-[280px] flex-col items-center justify-center gap-1 text-sm">
                 {snap.hasCover ? (
-                  <>
+                  <span key="cover-set" className="sn-paint-cover flex flex-col items-center gap-1">
                     <Check aria-hidden className="h-5 w-5" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
                     <span style={{ color: 'var(--m-orange-2)' }}>Cover set — tap to change</span>
-                  </>
+                  </span>
                 ) : (
                   <>
                     <ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
@@ -930,7 +948,12 @@ export function CanvasMaker({
 
           <CardRegion onClick={() => setSheet('price')} label="Edit price">
             {snap.hasPrice ? (
-              <span style={{ color: 'var(--m-ink)' }}>{snap.priceLine}</span>
+              // 🔑 REMOUNTED, NOT CLASS-TOGGLED. A CSS animation that has already
+              // run does not replay because a class is set again; keying the node
+              // on the value itself is what makes each new answer land visibly.
+              <span key={snap.priceLine} className="sn-paint-in" style={{ color: 'var(--m-ink)' }}>
+                {snap.priceLine}
+              </span>
             ) : (
               <span style={{ color: 'var(--m-slate-3)' }}>
                 Add your price — or leave it as quote-on-request
@@ -939,7 +962,11 @@ export function CanvasMaker({
           </CardRegion>
 
           <CardRegion onClick={() => setSheet('excl')} label="Edit your Setnayan Exclusive">
-            <span className="flex items-center gap-1.5" style={{ color: 'var(--m-orange-2)' }}>
+            <span
+              key={perk.trim().length > 0 ? 'perk-set' : 'perk-empty'}
+              className={`flex items-center gap-1.5${perk.trim() ? ' sn-paint-in' : ''}`}
+              style={{ color: 'var(--m-orange-2)' }}
+            >
               <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
               {perk.trim() ? perk.trim() : 'Add your Setnayan Exclusive'}
             </span>
@@ -947,7 +974,11 @@ export function CanvasMaker({
 
           <CardRegion onClick={() => setSheet('custom')} label="Edit what couples get">
             {comesWith.length ? (
-              <span className="flex flex-wrap gap-x-3 gap-y-1" style={{ color: 'var(--m-slate)' }}>
+              <span
+                key={comesWith.join('|')}
+                className="sn-paint-in flex flex-wrap gap-x-3 gap-y-1"
+                style={{ color: 'var(--m-slate)' }}
+              >
                 {comesWith.slice(0, 3).map((c) => (
                   <span key={c} className="inline-flex items-center gap-1">
                     <Check aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
@@ -971,6 +1002,7 @@ export function CanvasMaker({
               {audienceLabel}
             </span>
           </CardRegion>
+        </div>
         </div>
 
         {/* Comes with — bundles the vendor's OTHER cards. Only when they have
@@ -1061,6 +1093,49 @@ export function CanvasMaker({
 
         {/* ═══ SHEETS — always mounted, `hidden` when closed, so every field
             posts whether or not its sheet was ever opened. ═══════════════════ */}
+
+        {/* ═══ WHAT A CARD IS — ONCE, EVER ════════════════════════════════
+            Only on a shop's very first card. It carries no field: it is the one
+            screen that answers "what am I about to make?", which a first-timer
+            cannot get from a form no matter how short it is. */}
+        {inPass && firstCardEver ? (
+          <CanvasSheet
+            id="canvas-intro"
+            title="A card is how couples meet what you make"
+            open={sheet === 'intro'}
+            onClose={leavePass}
+            confirmLabel={null}
+            guided
+            footer={passStep === 'intro' ? passFooter : null}
+          >
+            <ul className="space-y-2.5 text-sm" style={{ color: 'var(--m-slate)' }}>
+              <li className="flex gap-2">
+                <ImageIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
+                <span>
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The photo sells it.</span>{' '}
+                  It is the first and often the only thing a couple looks at.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
+                <span>
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The price can wait.</span>{' '}
+                  Add it on the card afterwards, or leave it as quote-on-request.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
+                <span>
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Exclusive is why they book here.</span>{' '}
+                  One thing couples only get through Setnayan.
+                </span>
+              </li>
+            </ul>
+            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+              Two answers and your card can go live. Everything else is optional, always.
+            </p>
+          </CanvasSheet>
+        ) : null}
 
         {/* ═══ WHAT KIND OF SERVICE ═══════════════════════════════════════
             The same grouped list My Shop's picker draws, from the same live
@@ -1887,7 +1962,12 @@ function CanvasSheet({
         aria-modal="true"
         aria-labelledby={`${id}-title`}
         className={`sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto ${
-          guided ? 'max-h-[58dvh]' : 'max-h-[78dvh]'
+          guided
+            ? // On a laptop the question stops being a drawer over the card and
+              // becomes a column beside it — the card is what they are building,
+              // and a 1400px screen has no reason to hide it behind a sheet.
+              'max-h-[58dvh] lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'
+            : 'max-h-[78dvh]'
         } w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none`}
         style={{ borderColor: line, background: paper }}
       >

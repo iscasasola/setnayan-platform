@@ -24,6 +24,8 @@ import { readGuestSession } from '@/lib/guest-session';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
+import { closedEventAdmits } from '@/lib/closed-event-admission';
+import { loadVendorBooking, viewerIsBookedSupplier } from '@/lib/booked-supplier';
 import type { DoorwayFacts } from './_lib/site-nav';
 import {
   resolveEffectiveVisibility,
@@ -47,7 +49,6 @@ import {
   loadGuestContext,
   loadHostMembership,
   loadCoupleMembership,
-  loadVendorBooking,
   loadDayOfBroadcast,
   loadLiveLayer,
   loadDoorwayFacts,
@@ -60,7 +61,6 @@ import {
   guestIdentity,
   resolveOwnerCapability,
   resolveVendorCapability,
-  vendorBookingIsCommitted,
   type AnonymousReason,
   type OwnerCapability,
 } from './_lib/site-identity';
@@ -454,6 +454,15 @@ async function InvitationBody({
   // This file and `lib/slug-access.ts` are the two places that decide who reads
   // a celebration, and the exclusion spelling is exactly what made the sibling
   // helper treat a brand-new private setting as fully public across 31 callers.
+  //
+  // 🔑 THE RULE IS SHARED, THE FACTS ARE NOT. Which of the five claims below
+  // admits somebody is decided by `closedEventAdmits`
+  // (lib/closed-event-admission.ts) — the same function `canViewSlugEvent`
+  // asks for the seven sub-routes. It was written twice before, and the copies
+  // drifted: this page grew the booked-supplier arm and the shared gate did
+  // not, so a supplier who got past this screen was bounced off every sub-page
+  // of the celebration they were working. This file still resolves its own
+  // FACTS — lazily, stopping at the first `true`, because the rule is an OR.
   if (visibility === 'private' || visibility === 'invited_accounts') {
     // Path A — guest cookie session for this exact event. Legitimate
     // invited guest already redeemed their personal link.
@@ -502,7 +511,8 @@ async function InvitationBody({
     // `resolveVendorCapability` was called: a booked supplier is not a redeemed
     // guest, not a host, not a seat-holder and not an invited account, so they
     // met the lock screen telling them to "scan your invitation QR" — a QR
-    // nobody ever sends a supplier. 4 of 6 production events are private.
+    // nobody ever sends a supplier. Measured 2026-08-27: 3 of the 5
+    // production events are private.
     //
     // 🔒 IT ADMITS THEM TO THE PAGE AND NOTHING ELSE — the same boundary Path C
     // states for seat-holders. No guest session is minted (a render cannot write
@@ -521,6 +531,23 @@ async function InvitationBody({
     // Same React.cache'd read the doorway itself uses further down, so this
     // costs no extra query for the viewer who turns out to be one.
     let isBookedSupplier = false;
+    // Path D — 'invited_accounts' ONLY. A guest whose account is not bound to a
+    // seat, but who owns a person the hosts put on the list (their email
+    // resolved to a `people` row this account has claimed). They never redeemed
+    // anything, which is exactly the case this setting exists for: "anyone on
+    // the guest list who has an account".
+    //
+    // 🔒 NOT EXTENDED TO 'private'. That setting has always meant hosts plus a
+    // redeemed invitation, and quietly widening it here would change a promise
+    // the couple already made to themselves. The visibility check that enforces
+    // it lives in the shared rule now, so this page and the sub-routes cannot
+    // hold different opinions about it.
+    //
+    // ⚠ IT IS ITS OWN FLAG NOW. It used to be written back into `isSeatHolder`,
+    // which made a person who had redeemed nothing indistinguishable from one
+    // holding a seat — two different claims sharing one variable is how a later
+    // edit hands the weaker one a surface built for the stronger.
+    let isInvitedAccountViewer = false;
     if (!guestSessionMatches) {
       const supabase = await createClient();
       const {
@@ -531,33 +558,35 @@ async function InvitationBody({
         if (!isAuthedHost) {
           isSeatHolder =
             (await findGuestSeatForUser(event.event_id, user.id)) !== null;
-          // Path D — 'invited_accounts' ONLY. A guest whose account is not bound
-          // to a seat, but who owns a person the hosts put on the list (their
-          // email resolved to a `people` row this account has claimed). They
-          // never redeemed anything, which is exactly the case this setting
-          // exists for: "anyone on the guest list who has an account".
-          //
-          // 🔒 NOT EXTENDED TO 'private'. That setting has always meant hosts
-          // plus a redeemed invitation, and quietly widening it here would
-          // change a promise the couple already made to themselves.
           if (!isSeatHolder && visibility === 'invited_accounts') {
-            isSeatHolder = await isInvitedAccount(event.event_id, user.id);
+            isInvitedAccountViewer = await isInvitedAccount(event.event_id, user.id);
           }
           // Path E, resolved last — see the block comment above. Deliberately
           // its OWN flag and never folded into `isSeatHolder`: a supplier is
           // not a guest, and letting the two share a variable is how a later
           // edit reaches for "the guest one" and hands a supplier a guest
           // surface.
-          if (!isSeatHolder) {
-            const booking = await loadVendorBooking(admin, event.event_id, user.id);
-            isBookedSupplier =
-              booking !== null && vendorBookingIsCommitted(booking.bookingStatus);
+          //
+          // 🔒 THE PREDICATE IS THE SHARED ONE (`viewerIsBookedSupplier`), not a
+          // status test written here. Three surfaces asked this question and two
+          // of them asked it of the LINK alone — which admits a 'shortlisted'
+          // reuse row the couple has not locked.
+          if (!isSeatHolder && !isInvitedAccountViewer) {
+            isBookedSupplier = await viewerIsBookedSupplier(event.event_id, user.id);
           }
         }
       }
     }
 
-    if (!guestSessionMatches && !isAuthedHost && !isSeatHolder && !isBookedSupplier) {
+    if (
+      !closedEventAdmits(visibility, {
+        holdsGuestPass: guestSessionMatches,
+        isSignedInHost: isAuthedHost,
+        isSeatHolder,
+        isInvitedAccount: isInvitedAccountViewer,
+        isBookedSupplier,
+      })
+    ) {
       return (
         <PrivateLanding
           event={event}
@@ -748,7 +777,7 @@ async function InvitationBody({
   const vendorCapability = await resolveVendorCapability({
     eventId: event.event_id,
     viewerUserId: viewerAccount?.id ?? null,
-    checkVendorBooking: (userId) => loadVendorBooking(admin, event.event_id, userId),
+    checkVendorBooking: (userId) => loadVendorBooking(event.event_id, userId),
   });
   // ── THE PEOPLE OF THIS CELEBRATION ───────────────────────────────────────
   //
@@ -796,8 +825,15 @@ async function InvitationBody({
   // blessing", and is redirected straight back with no explanation. So the
   // door asks the destination's own question.
   //
-  // It costs nothing on the ordinary path: when the two visibilities agree, the
-  // gate at the top of this function has ALREADY proved the answer is yes.
+  // 🪤 AND THE SENTENCE THAT USED TO STAND HERE WAS FALSE. It read "when the two
+  // visibilities agree, the gate at the top of this function has ALREADY proved
+  // the answer is yes" — true when it was written, and untrue from the moment
+  // this page grew a fifth way in that `canViewSlugEvent` did not have. A booked
+  // supplier passed the gate above, took this shortcut, and was drawn a "Send a
+  // blessing" card leading to a page that redirected them straight back out. The
+  // shortcut is sound again ONLY because both gates now decide through the one
+  // rule in `lib/closed-event-admission.ts` and resolve the same five facts; it
+  // becomes a lie again the day one side grows a sixth arm alone.
   const rawVisibility = event.landing_page_visibility ?? 'private';
   const pabuyaViewerAllowed =
     rawVisibility === visibility

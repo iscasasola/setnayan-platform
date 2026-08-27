@@ -131,9 +131,14 @@ test("the event page admits a signed-in person holding a seat", () => {
       '60-day cookie lapsed is told to scan a QR again — on a page they are on ' +
       'the guest list for.',
   );
+  // ⚠ THE REFUSAL IS NO LONGER AN OR-CHAIN WRITTEN HERE. It is
+  // `closedEventAdmits`, the same rule `canViewSlugEvent` asks for the seven
+  // sub-routes, because the hand-written chain in this file and the one in the
+  // shared gate had drifted apart — see lib/one-rule-for-a-closed-celebration
+  // .test.ts, which pins that both sides resolve every fact the rule takes.
   assert.match(
     src,
-    /if \(!guestSessionMatches && !isAuthedHost && !isSeatHolder && !isBookedSupplier\) \{/,
+    /closedEventAdmits\(visibility, \{[\s\S]{0,400}?isSeatHolder,/,
     'The seat check exists but the refusal does not honour it — the same trap ' +
       'with an extra variable.',
   );
@@ -143,14 +148,19 @@ test('the event page admits a BOOKED SUPPLIER — the fifth path', () => {
   // The same defect as the seat holder above, one audience along: the supplier
   // doorway, its gate and its read all shipped, and on a private event the page
   // refused the supplier ~200 lines before the gate ran. They met "scan your
-  // invitation QR" — a QR nobody sends a supplier. 4 of 6 production events are
-  // private.
+  // invitation QR" — a QR nobody sends a supplier. Measured 2026-08-27: 3 of
+  // the 5 production events are private.
   const src = read(SLUG_PAGE);
   assert.match(
     src,
-    /isBookedSupplier =\s*\n?\s*booking !== null && vendorBookingIsCommitted\(booking\.bookingStatus\);/,
+    /isBookedSupplier = await viewerIsBookedSupplier\(event\.event_id, user\.id\);/,
     'The private gate no longer consults the booking. Every supplier the couple ' +
       'booked is told to scan an invitation QR they were never given.',
+  );
+  assert.match(
+    src,
+    /closedEventAdmits\(visibility, \{[\s\S]{0,400}?isBookedSupplier,/,
+    'The booking is resolved and then thrown away — the refusal does not honour it.',
   );
   // 🔒 BOOKED, not merely LISTED. `acceptReuseRequest` mints a LINKED row at
   // 'shortlisted', so testing the link alone would admit a supplier the couple
@@ -161,6 +171,16 @@ test('the event page admits a BOOKED SUPPLIER — the fifth path', () => {
     /isBookedSupplier = \(?await loadVendorBooking\([^)]*\)\)? !== null/,
     'The gate admits on the LINK alone. A shortlisted reuse-accept row is linked ' +
       'and is not a booking — the status is what must decide.',
+  );
+  // 🔒 AND THE INVITED-ACCOUNT ARM KEEPS ITS OWN FLAG. It used to be written
+  // back into `isSeatHolder`, so somebody who had redeemed nothing became
+  // indistinguishable from somebody holding a seat.
+  assert.doesNotMatch(
+    src,
+    /isSeatHolder = await isInvitedAccount\(/,
+    'Being on the list is being recorded as holding a seat. Two different claims ' +
+      'sharing one variable is how the weaker one gets handed the stronger one’s ' +
+      'surface.',
   );
   // The supplier is NOT folded into the guest variable: a supplier is not a
   // guest, and sharing the flag is how a later edit hands them a guest surface.

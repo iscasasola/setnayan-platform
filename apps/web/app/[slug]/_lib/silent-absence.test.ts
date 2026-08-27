@@ -44,6 +44,13 @@ import { fileURLToPath } from 'node:url';
 // `new URL(...).pathname` percent-encodes the brackets in `[slug]`.
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LOADERS = readFileSync(join(HERE, 'loaders.ts'), 'utf8');
+// The booked-supplier read moved OUT of loaders.ts on 2026-08-27 — three
+// surfaces need it and this module's own header forbids cross-route imports —
+// so its soft failure is now asserted where it lives.
+const BOOKED_SUPPLIER = readFileSync(
+  join(HERE, '..', '..', '..', 'lib', 'booked-supplier.ts'),
+  'utf8',
+);
 const VENUE = readFileSync(join(HERE, '..', 'venue', 'page.tsx'), 'utf8');
 
 function loaderSource(name: string): string {
@@ -126,7 +133,12 @@ test('the seat lookup keeps its graceful degrade', () => {
 });
 
 test('the vendor doorway keeps its soft failure', () => {
-  const src = loaderSource('loadVendorBooking');
+  const src = BOOKED_SUPPLIER;
+  assert.match(
+    src,
+    /export const loadVendorBooking = cache\(/,
+    'loadVendorBooking is gone or renamed — update this test rather than deleting it.',
+  );
   assert.match(
     src,
     /return null;/,

@@ -9,6 +9,8 @@ import {
 } from '@/lib/event-visibility';
 import { readGuestSession } from '@/lib/guest-session';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { viewerIsBookedSupplier } from '@/lib/booked-supplier';
+import { closedEventAdmits, type ClosedEventFacts } from '@/lib/closed-event-admission';
 import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 
 /**
@@ -27,10 +29,20 @@ import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
  *     stranger, and anyone merely holding the link, gets the same locked page.
  *   • private             → only an invited guest with a matching guest-session
  *     cookie, a signed-in SEAT-HOLDER (their account is bound to a seat on this
- *     event's guest list), OR a signed-in host (event_members couple/coordinator,
- *     or an accepted + non-removed event_moderator). Everyone else (strangers,
- *     and a signed-in member who is only a `'guest'`-type row with no seat) is
- *     blocked.
+ *     event's guest list), a signed-in host (event_members couple/coordinator,
+ *     or an accepted + non-removed event_moderator), OR a supplier the couple
+ *     has BOOKED on this event. Everyone else (strangers, and a signed-in
+ *     member who is only a `'guest'`-type row with no seat) is blocked.
+ *
+ * 🔑 THE RULE ITSELF IS NOT WRITTEN HERE. `closedEventAdmits`
+ * (lib/closed-event-admission.ts) holds it, because `app/[slug]/page.tsx`
+ * decides the same thing for its own lock screen and the two copies had already
+ * drifted: the page grew the booked-supplier arm on 2026-08-17 and this gate
+ * never did, so a booked supplier who could open the couple's private page was
+ * bounced off all seven sub-routes of it — silently, because the refusal is
+ * byte-identical to a stranger's. What is written here is only how each FACT is
+ * resolved, and the facts are resolved lazily: the rule is an OR, so a question
+ * that is never asked stays false and cannot change the answer.
  *
  * Anything unreadable coalesces to 'private' (fail safe), matching the page.
  *
@@ -51,9 +63,18 @@ export async function canViewSlugEvent(
   const visibility = normalizeVisibility(visibilityRaw);
   if (openToStrangers(visibility)) return true;
 
+  const facts: ClosedEventFacts = {
+    holdsGuestPass: false,
+    isSignedInHost: false,
+    isSeatHolder: false,
+    isInvitedAccount: false,
+    isBookedSupplier: false,
+  };
+
   // Path A — invited guest who redeemed their personal link on this device.
   const session = await readGuestSession();
-  if (session?.event_id === eventId) return true;
+  facts.holdsGuestPass = session?.event_id === eventId;
+  if (closedEventAdmits(visibility, facts)) return true;
 
   // Path B — signed-in host (couple member or accepted moderator).
   const supabase = await createClient();
@@ -62,7 +83,8 @@ export async function canViewSlugEvent(
   } = await supabase.auth.getUser();
   if (!user) return false;
 
-  if (await isSignedInEventHost(eventId)) return true;
+  facts.isSignedInHost = await isSignedInEventHost(eventId);
+  if (closedEventAdmits(visibility, facts)) return true;
 
   // Path B2 — signed-in SEAT-HOLDER, on BOTH closed visibilities.
   //
@@ -86,17 +108,43 @@ export async function canViewSlugEvent(
   //
   // ⚠ It admits them to the PAGE ONLY. No guest session is minted, so every
   // per-guest surface still keys on the cookie this viewer does not have.
-  if ((await findGuestSeatForUser(eventId, user.id)) !== null) return true;
+  facts.isSeatHolder = (await findGuestSeatForUser(eventId, user.id)) !== null;
+  if (closedEventAdmits(visibility, facts)) return true;
+
+  // Path D — a supplier this couple has BOOKED on this event.
+  //
+  // 🔴 THE DIVERGENCE THIS CLOSES. `app/[slug]/page.tsx` has admitted a booked
+  // supplier past its own lock screen since 2026-08-17 (PR #4483 corrected the
+  // ordering in exactly that one file and touched no sub-route). This gate is
+  // what the other seven surfaces ask, and it had no supplier arm — so the
+  // photographer working a private wedding could open the couple's page and was
+  // then refused the venue address, the recap, both seat finders, the live hub,
+  // the money-gift page and the print keepsake. Every one of those refusals
+  // looks exactly like a stranger's, which is why nothing ever reported it.
+  //
+  // 🔒 BOOKED, NOT MERELY LISTED, and the predicate is shared, not re-typed:
+  // `lib/reusable-bookings.server.ts` mints a linked row at 'shortlisted' for a
+  // reuse offer the couple has yet to lock, and a supplier the couple is still
+  // only considering has not been chosen to read a private celebration. Same
+  // boundary PR-H draws on the vendor brief: an ASKED supplier gets no venue
+  // address and no run-of-show.
+  //
+  // 🔒 IT ADMITS THEM TO THE PAGE AND NOTHING ELSE. No guest session is minted,
+  // so every per-guest surface still keys on the cookie this viewer does not
+  // have.
+  facts.isBookedSupplier = await viewerIsBookedSupplier(eventId, user.id);
+  if (closedEventAdmits(visibility, facts)) return true;
 
   // Path C — signed-in guest. ONLY for 'invited_accounts': a private
   // celebration deliberately does not admit somebody just for being on the
   // list, because 'private' means hosts and redeemed invitations only. Widening
-  // it here would quietly change what 'private' has always promised.
+  // it here would quietly change what 'private' has always promised — which is
+  // why the visibility, and not only the fact, has to allow it inside the rule.
   if (requiresInvitedAccount(visibility)) {
-    return await isInvitedAccount(eventId, user.id);
+    facts.isInvitedAccount = await isInvitedAccount(eventId, user.id);
   }
 
-  return false;
+  return closedEventAdmits(visibility, facts);
 }
 
 /**

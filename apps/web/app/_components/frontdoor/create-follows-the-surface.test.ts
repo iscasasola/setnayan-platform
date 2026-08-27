@@ -40,10 +40,21 @@ test('the Shop makes a service card, and points at a picker that exists', () => 
   const vendor = read('app/vendor-dashboard/layout.tsx');
   assert.match(vendor, /createSlot=\{/, 'the Shop lost its own create button');
   assert.match(vendor, /\+ Create service card/, 'the Shop button stopped naming what it makes');
+  // ⚠ THIS ASSERTION USED TO PIN THE BROKEN HREF, AND PASSED THROUGHOUT.
+  // It read `href="/vendor-dashboard/services#add-service-picker"` and, three
+  // lines down, checked that an element with that id EXISTED. Both were true and
+  // the button still did nothing: that address is a retired stub whose redirect
+  // drops the fragment, and the anchor sat in a hidden tab inside a shut
+  // `<details>`. **Existing is not the same as reachable** — the reachability
+  // half now lives in `lib/service-picker-anchor.test.ts`.
   assert.match(
     vendor,
-    /href="\/vendor-dashboard\/services#add-service-picker"/,
-    'the Shop button stopped pointing at the category picker',
+    /href=\{SERVICE_PICKER_HREF\}/,
+    'the Shop button stopped using the one shared picker href',
+  );
+  assert.ok(
+    !/href="\/vendor-dashboard\/services#/.test(vendor),
+    'the Shop button went back to the retired address, whose redirect eats the fragment',
   );
   // The anchor must be a real element, or the button opens the page and does
   // nothing visible — the quietest failure in this family.
@@ -51,7 +62,11 @@ test('the Shop makes a service card, and points at a picker that exists', () => 
     join(WEB, 'app/vendor-dashboard/services/_components/services-manager.tsx'),
     'utf8',
   );
-  assert.match(manager, /id="add-service-picker"/, 'the picker anchor is gone — the button lands nowhere');
+  assert.match(
+    manager,
+    /id=\{SERVICE_PICKER_ANCHOR_ID\}/,
+    'the picker anchor is gone — the button lands nowhere',
+  );
   // And it must not still offer a wedding.
   assert.ok(
     !/\/dashboard\/create-event/.test(vendor),

@@ -26,6 +26,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
+import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 
 /**
  * Vendor dashboard layout — the shop, under the ONE shell.
@@ -409,9 +410,19 @@ export default async function VendorDashboardLayout({
 
           It points at the picker, not a bare /new route, because a card cannot
           exist without a category: the guided wizard asks for one first.
+
+          🔴 AND FOR A SUPPLIER WITH NO CARDS — the person this button is FOR —
+          it used to point at nothing reachable. The old href carried only
+          `#add-service-picker` at `/vendor-dashboard/services`, a retired
+          address that redirects to My Shop and rebuilds the URL from query
+          params, so the fragment was dropped in transit; and the picker sits in
+          the Service cards tab, which a vendor with zero cards does not land
+          on, inside a `<details>` that is shut. The page opened, nothing
+          scrolled, nothing opened, and no error was shown. The href now lives
+          in `lib/service-picker-anchor.ts` beside the id it has to match.
         */
         createSlot={
-          <Link href="/vendor-dashboard/services#add-service-picker" className="fd-btn-gold">
+          <Link href={SERVICE_PICKER_HREF} className="fd-btn-gold">
             + Create service card
           </Link>
         }

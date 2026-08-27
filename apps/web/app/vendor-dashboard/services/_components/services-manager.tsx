@@ -97,6 +97,11 @@ import {
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { buildServiceCardCongrats } from '@/lib/service-card-congrats';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import {
+  SERVICE_PICKER_ANCHOR_ID,
+  SERVICE_PICKER_HASH,
+  servicePickerRequested,
+} from '@/lib/service-picker-anchor';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
 import { ManagerTabs } from './manager-tabs';
@@ -124,6 +129,17 @@ export type ServicesManagerSearch = {
   error?: string;
   add?: string;
   requested?: string;
+  /**
+   * "I came here to make a service card" — set by every Create-a-service link
+   * in the product (see `lib/service-picker-anchor.ts`).
+   *
+   * 🔑 IT IS A QUERY PARAM BECAUSE A `#fragment` NEVER REACHES THE SERVER, and
+   * the server is what picks the tab and opens the drawer. The button used to
+   * carry only a fragment, so it arrived here as no signal at all: a supplier
+   * with zero cards landed on Coverage with the picker shut, and the button
+   * appeared to do nothing.
+   */
+  newcard?: string;
   /**
    * Set by commitVendorService on a CREATE only — 'live' | 'draft', the new
    * card's actual state. Triggers the congratulations banner (owner
@@ -506,13 +522,27 @@ export async function VendorServicesManager({
       : `${basePath}?add=${cat}#add-${cat}`;
   const specialistTools = specialistToolsForCategories(distinctCategories);
 
+  // Did they arrive by pressing a "Create a service card" link anywhere in the
+  // product? That is an INTENT, and it outranks the coverage-first default.
+  const pickerRequested = servicePickerRequested(search.newcard);
+
   // v20 tab landing: category-request confirmations land on Tools; any
   // service-targeted param (open add form, off-peak prefill) or an existing
   // service list lands on Service cards; a brand-new vendor starts on Coverage
   // (coverage-first — pick what you serve, then build cards inside it).
+  //
+  // 🔴 AND THAT LAST CLAUSE IS WHAT BROKE THE CREATE BUTTON. `services.length >
+  // 0` sends an established shop to Service cards, so the tab was right for
+  // everyone EXCEPT the supplier with no cards yet — who is precisely the person
+  // the Create button exists for. They landed on Coverage, with the picker in a
+  // hidden panel behind a shut drawer, and nothing said so.
+  //
+  // ⚖ The coverage-first default is NOT reversed: a vendor who simply opens My
+  // Shop still starts on Coverage. Only an explicit "make me a card" press
+  // moves them, which is the one case where coverage-first is the wrong answer.
   const defaultTab = search.requested
     ? 2
-    : addCategory !== null || offPeakPrefillId !== null || services.length > 0
+    : pickerRequested || addCategory !== null || offPeakPrefillId !== null || services.length > 0
       ? 1
       : 0;
 
@@ -644,7 +674,7 @@ export async function VendorServicesManager({
         <div className="flex items-center justify-between gap-3">
           <SectionEyebrow>Your services</SectionEyebrow>
           <Link
-            href="#add-service-picker"
+            href={SERVICE_PICKER_HASH}
             className="inline-flex items-center gap-1.5 text-sm font-medium"
             style={{ color: 'var(--m-orange-2)' }}
           >
@@ -656,11 +686,16 @@ export async function VendorServicesManager({
         {/* Category chooser — opens the guided wizard for the chosen category
             (or the inline ?add= form when the wizard is off). Both "Add a
             service" and "Add coverage" jump here. */}
+        {/* 🔑 `open` MUST INCLUDE THE PICKER REQUEST, OR THE FIX IS HALF A FIX.
+            Landing on the right tab in front of a shut drawer is the same dead
+            end one step later: the anchor scrolls to a closed `<details>` and
+            the supplier still has nothing to press. `scroll-mt-24` keeps it
+            clear of the sticky bar once it is open. */}
         <details
-          id="add-service-picker"
+          id={SERVICE_PICKER_ANCHOR_ID}
           className="scroll-mt-24 rounded-2xl border"
           style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-          open={addCategory !== null}
+          open={addCategory !== null || pickerRequested}
         >
           <summary
             className="flex cursor-pointer select-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium"
@@ -761,7 +796,7 @@ export async function VendorServicesManager({
             <p className="mx-auto mt-1 max-w-md text-xs" style={{ color: 'var(--m-slate-2)' }}>
               Add your first service so couples can find and book you.
             </p>
-            <Link href="#add-service-picker" className="button-primary mt-3 inline-flex">
+            <Link href={SERVICE_PICKER_HASH} className="button-primary mt-3 inline-flex">
               Add a service
             </Link>
           </div>

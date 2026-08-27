@@ -24,7 +24,7 @@ import {
   RECORD_SEARCH_DEBOUNCE_MS,
   type AdminRecordRow,
 } from '@/lib/admin-map/admin-record-rows';
-import { fetchUgatSearch } from '../ugat/actions';
+import { searchAdminRecords } from './record-search';
 
 import { askTheAdmin, type AskAnswer } from './ask-actions';
 import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
@@ -150,12 +150,15 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
    * assistant could not rescue it — every href it answers with is re-validated
    * against the route map, so it can only ever return a PAGE.
    *
-   * 🔑 IT CALLS THE SHIPPED SEARCH, AND WRITES NO SECOND ONE. `fetchUgatSearch`
-   * opens with `requireAdminAction()` and carries the reviewed ILIKE sanitiser,
-   * the `deleted_at is null` filter and the guest privacy fence. A search
-   * written here would be a second copy of all four, free to drift from the
-   * one that was actually reviewed — and this reads with the SERVICE ROLE, so
-   * that app-side gate is the entire fence.
+   * 🔑 IT CALLS THE SHIPPED SEARCH, AND WRITES NO SECOND ONE. `searchAdminRecords`
+   * delegates to the search that already opens with `requireAdminAction()` and
+   * already carries the reviewed ILIKE sanitiser, the `deleted_at is null`
+   * filter and the guest privacy fence. A search written here would be a second
+   * copy of all four, free to drift from the one that was actually reviewed —
+   * and this reads with the SERVICE ROLE, so that app-side gate is the entire
+   * fence. It is imported from a module that exposes ONE read rather than from
+   * the admin actions module, so the box cannot reach a mutation even if one is
+   * added to that file later.
    *
    * ⚖ DESKTOP ONLY, by the owner's ruling — mobile is for answering requests
    * and confirming decisions. That is already structural rather than asserted
@@ -179,7 +182,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
     */
     let cancelled = false;
     const timer = setTimeout(() => {
-      void fetchUgatSearch(term).then(
+      void searchAdminRecords(term).then(
         (groups) => {
           if (!cancelled) setRecords(toAdminRecordRows(groups));
         },

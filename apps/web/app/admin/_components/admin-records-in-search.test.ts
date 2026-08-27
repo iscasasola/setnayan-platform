@@ -78,9 +78,30 @@ test('with no records the list is byte-for-byte what it was', () => {
 
 test('the palette actually runs the shipped search', () => {
   const src = read(PALETTE);
-  assert.match(src, /import \{ fetchUgatSearch \}/, 'the box no longer calls the shipped search');
-  assert.match(src, /fetchUgatSearch\(term\)/, 'the search is imported but never called');
+  assert.match(src, /import \{ searchAdminRecords \}/, 'the box no longer calls the shipped search');
+  assert.match(src, /searchAdminRecords\(term\)/, 'the search is imported but never called');
   assert.match(src, /toAdminRecordRows\(groups\)/, 'the results never become rows');
+});
+
+test('the box reads through a module that can only ever READ', () => {
+  /*
+    The palette is forbidden from importing an `/actions` module because that
+    is where mutations live (admin-job-ask-form.test.ts, one-person admin plan
+    2026-07-11). This is the door it uses instead, and the property worth
+    pinning is not that it is called something else — it is that this module
+    cannot become a way to act. It delegates to the ALREADY-GATED search and
+    exports nothing but that one read.
+  */
+  const src = read('app/admin/_components/record-search.ts');
+  const exported = [...src.matchAll(/export\s+async\s+function\s+(\w+)/g)].map((m) => m[1]);
+  assert.deepEqual(exported, ['searchAdminRecords'], 'the read-only door grew another export');
+  assert.doesNotMatch(src, /export\s+(const|let|var|class)\b/, 'the read-only door grew a non-function export');
+  assert.match(src, /return fetchUgatSearch\(query\)/, 'it stopped delegating to the gated search');
+  // It must not re-implement the gate or the query: one gate, one search.
+  assert.doesNotMatch(src, /createAdminClient|\.from\(['"]/, 'the read-only door opened its own query');
+  for (const verb of ['insert', 'update', 'delete', 'upsert']) {
+    assert.doesNotMatch(src, new RegExp(`\\.${verb}\\(`), `the read-only door can ${verb}`);
+  }
 });
 
 test('the palette writes NO second search of its own', () => {

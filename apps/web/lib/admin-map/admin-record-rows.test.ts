@@ -40,8 +40,9 @@ test('an email address never reaches a result row', () => {
     group('Users', [hit({ type: 'user', title: 'Ana Reyes', sub: 'ana.reyes@example.com' })]),
   ]);
   assert.equal(rows.length, 1, 'the row itself must still be findable');
-  assert.equal(rows[0].title, 'Ana Reyes', 'the NAME is what identifies the record');
-  assert.equal(rows[0].detail, '', 'a contact detail must not be shown');
+  const row = rows[0]!;
+  assert.equal(row.title, 'Ana Reyes', 'the NAME is what identifies the record');
+  assert.equal(row.detail, '', 'a contact detail must not be shown');
 });
 
 test('an email EMBEDDED in an otherwise fine subtitle drops the whole subtitle', () => {
@@ -50,7 +51,7 @@ test('an email EMBEDDED in an otherwise fine subtitle drops the whole subtitle',
   const rows = toAdminRecordRows([
     group('Guests', [hit({ sub: 'Replied yes · maria@example.com · Ana & Marco' })]),
   ]);
-  assert.equal(rows[0].detail, '');
+  assert.equal(rows[0]!.detail, '');
 });
 
 test('a phone number never reaches a result row', () => {
@@ -71,7 +72,7 @@ test('a DATE in a subtitle is not mistaken for a phone number', () => {
 
 test('an ordinary status subtitle survives untouched', () => {
   const rows = toAdminRecordRows([group('Guests', [hit({ sub: 'Replied yes · Ana & Marco' })])]);
-  assert.equal(rows[0].detail, 'Replied yes · Ana & Marco');
+  assert.equal(rows[0]!.detail, 'Replied yes · Ana & Marco');
 });
 
 /* ── THE RULING SURVIVING THE CAP ───────────────────────────────────────── */

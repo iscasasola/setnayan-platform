@@ -64,3 +64,39 @@ a supplier is entitled to sell — asserted in both directions.
 shop) + 4 more in the maker's guard. **8 mutations, printed before → after, all RED.**
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.
+
+## 2026-08-28 · feat(vendor): a blank card asks two questions, then it is live
+
+Owner: *"i want it to be as simple as possible when they create a service card… so they do not feel
+bombarded"*, and on the drawn shape: *"looks better"*.
+
+**What a supplier now does.** A blank card asks the only two things the publish gate has ever
+required — **one photo**, then **one sentence** (the Setnayan Exclusive) — one at a time, with their
+card visible above painting itself as they answer. Then the pass ends and the whole card is there,
+with everything optional as quiet rows beneath it.
+
+**Nothing about the screen's contract changed.** There is no second form, no step validation and no
+Back/Continue over pages: the pass only decides which sheet is open. Same single `<form>`, same
+`commitVendorService`, same field names, `canvas-field-parity` untouched. "The card is the form"
+(owner-locked 2026-07-27) survives — the wall was never the model, it was everything being on at
+once.
+
+**The kind is asked only when the shop's own record cannot answer it.** A one-trade shop has it
+pre-filled from its coverage and reads *"from your shop · change"* on the card, so its pass is two
+questions, not three. An answer that appears by itself and does not say where it came from reads as
+the product deciding for them.
+
+⚖ **Continue is never a gate and Skip is on every question.** A first pass a vendor cannot leave is
+a wizard wearing a card's clothes; the publish gate stays the only gate.
+⚡ **No meter during the pass** — a "Blocked 30/100" over two unanswered questions grades somebody
+for not having finished what they just started. The card filling in is the progress.
+🪟 **The guided sheet does not veil the card it is painting** (no dark backdrop, shorter panel).
+Every later edit is still a modal, because nothing is being built behind it.
+
+🛡 5 more assertions in the maker's guard — the pass asks the gate and nothing else · it cannot leak
+onto the `[category]` door or a copied card · every question can be left · the card stays visible
+and ungraded · a pre-filled kind explains itself. **6 mutations, printed before → after, all RED**
+(a third question added · the pass leaking · skip removed · the veil returning · the meter returning
+· the pre-fill going silent).
+
+SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 row.

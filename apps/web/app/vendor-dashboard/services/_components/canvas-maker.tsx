@@ -247,7 +247,68 @@ export function CanvasMaker({
   const [category, setCategory] = useState(
     categoryValue || (coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? '') : ''),
   );
+  /**
+   * Did the shop's own record answer this, rather than the vendor? Then the card
+   * SAYS so — an answer that appeared by itself and does not explain where it
+   * came from reads as the product having decided for them.
+   */
+  const [kindFromShop, setKindFromShop] = useState(
+    !categoryValue && coveredChoices.length === 1,
+  );
   const canChooseKind = categoryOptions.length > 0;
+
+  /**
+   * ═══ THE FIRST PASS — TWO ANSWERS, THEN IT IS LIVE ═══════════════════════
+   * (owner 2026-08-28, on the drawn prototype: *"i want it to be as simple as
+   * possible… so they do not feel bombarded"*, and then, on this shape,
+   * *"looks better"*.)
+   *
+   * A blank card asks the ONLY two things the publish gate has ever required —
+   * a cover photo and one Setnayan Exclusive — one at a time, in the sheets the
+   * maker already owns, with the card visible above painting itself. Everything
+   * else on this screen is optional and always was; it simply looked required
+   * because it was all on at once.
+   *
+   * ⚖ THIS IS NOT A WIZARD BOLTED ON TOP. There is no second form, no step
+   * validation, no Back-and-Continue over pages: the pass only decides which
+   * sheet is open, so the maker is still zero steps ("the card is the form",
+   * owner-locked 2026-07-27) and every field still posts in one submit.
+   *
+   * 🔑 THE KIND IS ONLY ASKED WHEN THE SHOP'S OWN RECORD CANNOT ANSWER IT. A
+   * one-trade shop has it pre-filled above, so its pass is two questions, not
+   * three. Steps are frozen at mount — answering must not renumber the
+   * question the vendor is looking at.
+   */
+  const firstPassSteps = useMemo<SheetKey[]>(() => {
+    if (!canChooseKind || initial !== null) return [];
+    const steps: SheetKey[] = [];
+    if (!category) steps.push('kind');
+    steps.push('media', 'excl');
+    return steps;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [passIndex, setPassIndex] = useState(firstPassSteps.length > 0 ? 0 : -1);
+  const inPass = passIndex >= 0 && passIndex < firstPassSteps.length;
+  const passStep = inPass ? firstPassSteps[passIndex] : null;
+  // The pass drives which sheet is open; closing a sheet leaves the pass, which
+  // is the "I'll build it myself" escape and needs no separate control.
+  useEffect(() => {
+    if (inPass) setSheet(passStep ?? null);
+  }, [inPass, passStep]);
+  const leavePass = useCallback(() => {
+    setPassIndex(-1);
+    setSheet(null);
+  }, []);
+  const nextInPass = useCallback(() => {
+    setPassIndex((i) => {
+      const next = i + 1;
+      if (next >= firstPassSteps.length) {
+        setSheet(null);
+        return -1;
+      }
+      return next;
+    });
+  }, [firstPassSteps.length]);
   const activeCategoryLabel =
     categoryOptions
       .flatMap((g) => g.options)
@@ -475,6 +536,40 @@ export function CanvasMaker({
   const needsCategory = category.length === 0;
   const blocked = health.blockers.length > 0 || needsCategory;
 
+  /**
+   * The pass's own controls. Continue is never a gate — a supplier who has
+   * nothing to add here moves on and the card says what is still missing when
+   * they reach Publish. **Skip is on every question**, because a first pass a
+   * vendor cannot leave is a wizard wearing a card's clothes.
+   */
+  const passFooter = inPass ? (
+    <div className="space-y-2 pt-1">
+      <button
+        type="button"
+        onClick={nextInPass}
+        className="button-primary min-h-[44px] w-full"
+      >
+        {passIndex === firstPassSteps.length - 1 ? 'Done — show my card' : 'Continue'}
+      </button>
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.12em]"
+          style={{ color: 'var(--m-slate-3)' }}
+        >
+          {passIndex + 1} of {firstPassSteps.length}
+        </span>
+        <button
+          type="button"
+          onClick={leavePass}
+          className="text-xs underline"
+          style={{ color: 'var(--m-slate-2)' }}
+        >
+          Skip — I&rsquo;ll build it myself
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="sn-canvas space-y-4">
       {/* ── STARTED FROM ANOTHER CARD ────────────────────────────────────────
@@ -525,12 +620,17 @@ export function CanvasMaker({
             sticky header carries the meter, the grade, the item count (which IS
             the expand toggle), the coach chip, and the diagnostics beneath it.
             Nothing health-shaped renders anywhere else on this page. */}
-        <HealthHeader
-          health={health}
-          open={diagnosticsOpen}
-          onToggle={() => setDiagnosticsOpen((v) => !v)}
-          onGo={goTo}
-        />
+        {/* ⚡ NO METER DURING THE PASS. The card painting itself IS the
+            progress; a "Blocked 30/100" over two unanswered questions grades a
+            vendor for not having finished a thing they have just started. */}
+        {inPass ? null : (
+          <HealthHeader
+            health={health}
+            open={diagnosticsOpen}
+            onToggle={() => setDiagnosticsOpen((v) => !v)}
+            onGo={goTo}
+          />
+        )}
 
         {/* ═══ THE CARD — every region is a control ═══════════════════════════ */}
         <div
@@ -608,7 +708,17 @@ export function CanvasMaker({
           {canChooseKind ? (
             <CardRegion onClick={() => setSheet('kind')} label="Choose what kind of service this is">
               {category ? (
-                <span style={{ color: 'var(--m-ink)' }}>{activeCategoryLabel}</span>
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span style={{ color: 'var(--m-ink)' }}>{activeCategoryLabel}</span>
+                  {kindFromShop ? (
+                    <span
+                      className="font-mono text-[9px] uppercase tracking-[0.12em]"
+                      style={{ color: 'var(--m-slate-3)' }}
+                    >
+                      from your shop · change
+                    </span>
+                  ) : null}
+                </span>
               ) : (
                 <span className="flex items-center gap-1.5" style={{ color: 'var(--m-orange-2)' }}>
                   <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
@@ -777,8 +887,10 @@ export function CanvasMaker({
             id="canvas-kind"
             title="What kind of service?"
             open={sheet === 'kind'}
-            onClose={() => setSheet(null)}
-            confirmLabel={category ? 'Update card' : null}
+            onClose={inPass ? leavePass : () => setSheet(null)}
+            confirmLabel={inPass || !category ? null : 'Update card'}
+            guided={inPass}
+            footer={passStep === 'kind' ? passFooter : null}
           >
             {coveredChoices.length > 0 ? (
               <>
@@ -794,7 +906,9 @@ export function CanvasMaker({
                       on={opt.value === category}
                       onPick={() => {
                         setCategory(opt.value);
-                        setSheet(null);
+                        setKindFromShop(false);
+                        if (inPass) nextInPass();
+                        else setSheet(null);
                       }}
                     />
                   ))}
@@ -844,7 +958,9 @@ export function CanvasMaker({
                             on={opt.value === category}
                             onPick={() => {
                               setCategory(opt.value);
-                              setSheet(null);
+                              setKindFromShop(false);
+                              if (inPass) nextInPass();
+                              else setSheet(null);
                             }}
                           />
                         ))}
@@ -864,9 +980,12 @@ export function CanvasMaker({
 
         <CanvasSheet
           id="canvas-media"
-          title="Photos"
+          title={inPass ? 'Show one photo' : 'Photos'}
           open={sheet === 'media'}
-          onClose={() => setSheet(null)}
+          onClose={inPass ? leavePass : () => setSheet(null)}
+          confirmLabel={inPass ? null : 'Update card'}
+          guided={inPass}
+          footer={passStep === 'media' ? passFooter : null}
         >
           <Field
             label="Cover photo"
@@ -968,9 +1087,12 @@ export function CanvasMaker({
 
         <CanvasSheet
           id="canvas-excl"
-          title="Setnayan Exclusive"
+          title={inPass ? 'Why book you here?' : 'Setnayan Exclusive'}
           open={sheet === 'excl'}
-          onClose={() => setSheet(null)}
+          onClose={inPass ? leavePass : () => setSheet(null)}
+          confirmLabel={inPass ? null : 'Update card'}
+          guided={inPass}
+          footer={passStep === 'excl' ? passFooter : null}
         >
           <Field label="Your Setnayan Exclusive" htmlFor="exclusive_perk_text">
             <input
@@ -1531,12 +1653,24 @@ function CanvasSheet({
   open,
   onClose,
   confirmLabel = 'Update card',
+  guided = false,
+  footer = null,
   children,
 }: {
   id: string;
   title: string;
   open: boolean;
   onClose: () => void;
+  /**
+   * ⚡ THE FIRST PASS DOES NOT VEIL THE CARD (owner 2026-08-28, on the drawn
+   * prototype). During the two questions the card IS the progress bar — it has
+   * to be visible painting itself, so the guided presentation drops the dark
+   * backdrop and sits lower. Every other sheet is unchanged: an edit made later
+   * is a modal, because nothing is being built behind it.
+   */
+  guided?: boolean;
+  /** The guided strip's own controls, under the fields. */
+  footer?: ReactNode;
   /**
    * The explicit confirm at the sheet's foot (owner 2026-07-28: "pop ups must
    * have update button to avoid confusion"). Edits already applied live — this
@@ -1556,14 +1690,20 @@ function CanvasSheet({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+        className={
+          guided
+            ? 'absolute inset-0 cursor-default'
+            : 'absolute inset-0 bg-ink/40 backdrop-blur-sm'
+        }
       />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${id}-title`}
-        className="sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto max-h-[78dvh] w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none"
+        className={`sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto ${
+          guided ? 'max-h-[58dvh]' : 'max-h-[78dvh]'
+        } w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none`}
         style={{ borderColor: line, background: paper }}
       >
         <header
@@ -1585,6 +1725,7 @@ function CanvasSheet({
         </header>
         <div className="sn-canvas-rise space-y-3 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
           {children}
+          {footer}
           {confirmLabel !== null ? (
             // type="button" is LOAD-BEARING: most sheets render INSIDE the one
             // card <form> — a default-submit button here would submit the card.

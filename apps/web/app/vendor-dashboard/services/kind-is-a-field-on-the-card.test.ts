@@ -182,3 +182,65 @@ test('a one-trade shop is asked nothing', () => {
   // …and it is still editable: the region and its sheet do not disappear.
   assert.match(src, /canChooseKind = categoryOptions\.length > 0/, 'pre-filling started hiding the chooser');
 });
+
+// ---------------------------------------------------------------------------
+// THE FIRST PASS — TWO ANSWERS, THEN IT IS LIVE (owner 2026-08-28)
+// ---------------------------------------------------------------------------
+//
+// *"i want it to be as simple as possible… so they do not feel bombarded"*, then
+// on the drawn shape: *"looks better"*. A blank card asks only the two things
+// the publish gate has ever required, one at a time, with the card visible above
+// painting itself. Everything else was always optional and only LOOKED required
+// because it was all on screen at once.
+
+test('the pass asks the publish gate and nothing else', () => {
+  const src = read(MAKER);
+  // ⚖ The steps ARE the gate: cover photo · Setnayan Exclusive. If a third
+  // question ever joins them it is a product decision, not a tidy-up, and it
+  // fails here first.
+  assert.match(
+    src,
+    /steps\.push\('media', 'excl'\)/,
+    'the first pass started asking for something other than the two required things',
+  );
+  // The kind is asked ONLY when the shop's own record cannot answer it.
+  assert.match(src, /if \(!category\) steps\.push\('kind'\)/, 'the pass started asking a shop that already knows');
+});
+
+test('the pass is only ever the blank card on the new-card door', () => {
+  const src = read(MAKER);
+  assert.match(
+    src,
+    /if \(!canChooseKind \|\| initial !== null\) return \[\];/,
+    'the first pass leaked onto the [category] door or onto a copied card',
+  );
+  // Frozen at mount: answering must not renumber the question on screen.
+  assert.match(src, /const \[passIndex, setPassIndex\] = useState/, 'the pass stopped tracking where it is');
+});
+
+test('every question can be left, and leaving lands on the whole card', () => {
+  const src = read(MAKER);
+  assert.match(src, /Skip &rsquo;|Skip — I&rsquo;ll build it myself/, 'the skip out of the pass is gone');
+  assert.match(src, /onClose=\{inPass \? leavePass : \(\) => setSheet\(null\)\}/, 'closing a guided sheet stopped leaving the pass');
+  // Continue is never a gate — a vendor with nothing to add here moves on and
+  // meets the real gate at Publish.
+  assert.ok(
+    !/disabled=\{[^}]*inPass/.test(src),
+    'the pass grew a gate of its own — the publish gate is the only gate',
+  );
+});
+
+test('the card stays visible while it paints, and is not graded mid-build', () => {
+  const src = read(MAKER);
+  // The guided sheet drops the dark veil; every later edit is still a modal.
+  assert.match(src, /guided\s*\n?\s*\? 'absolute inset-0 cursor-default'/, 'the first pass started veiling the card it is painting');
+  assert.match(src, /guided \? 'max-h-\[58dvh\]' : 'max-h-\[78dvh\]'/, 'the guided sheet stopped leaving the card room');
+  // No meter over two unanswered questions.
+  assert.match(src, /\{inPass \? null : \(\s*<HealthHeader/, 'the score came back during the first pass');
+});
+
+test('a pre-filled kind says where it came from', () => {
+  const src = read(MAKER);
+  assert.match(src, /from your shop · change/, 'the pre-filled kind stopped explaining itself');
+  assert.match(src, /setKindFromShop\(false\)/, 'picking a kind by hand still claims it came from the shop');
+});

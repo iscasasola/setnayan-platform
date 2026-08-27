@@ -20,7 +20,7 @@
  * label_en only; a re-home edits parent_id (+ denormalized folder_id) only.
  */
 
-import { useCallback, useEffect, useMemo, useState, useTransition, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -295,6 +295,9 @@ export type InspectorTab = 'details' | 'services' | 'refinements';
  *  the admin has reviewed or pressed anything. See the `TaxonomyStudio` mount
  *  effect for how it is read off the URL. */
 export type AddServicePrefill = {
+  /** The ask params this prefill came from — used as a remount key so a SECOND
+   *  ask about an already-open tile still refreshes the uncontrolled inputs. */
+  nonce: string;
   displayNameEn: string;
   faith: string;
   refinementLabel: string;
@@ -373,8 +376,37 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
   // pre-opens rather than guessing wrong and silently misplacing a service.
   const searchParams = useSearchParams();
   const [addServicePrefill, setAddServicePrefill] = useState<AddServicePrefill | null>(null);
+
+  /**
+   * 🔴 THE DEAD END THIS CLOSES. This effect used to carry an empty dependency
+   * array with a comment claiming it "runs once, off the URL the page loaded
+   * with". True, and that was the bug: the search box is mounted on EVERY admin
+   * page including this one, so the most likely place to be when you ask to add
+   * a taxonomy category is /admin/taxonomy itself. Answering there and pressing
+   * the button is a SAME-ROUTE navigation — React reconciles instead of
+   * remounting, `useSearchParams` hands over the new values, and an empty
+   * dependency array never looks again. The page did not change, nothing
+   * opened, nothing filled, and no error was shown. Every answer was discarded.
+   *
+   * 🔑 THE SIGNATURE IS WHAT MAKES RE-RUNNING SAFE. It is built from the ask
+   * params ALONE, so typing in the filter box (which calls `syncUrl` and
+   * rewrites ?q= on every keystroke) cannot re-apply a prefill over edits the
+   * admin has already made by hand — only a genuinely NEW ask does.
+   */
+  const askSignature = useMemo(
+    () =>
+      [...searchParams.entries()]
+        .filter(([k]) => k === ADMIN_ASK_PARAM || k.startsWith('aa_'))
+        .map(([k, v]) => `${k}=${v}`)
+        .sort()
+        .join('&'),
+    [searchParams],
+  );
+  const appliedAskRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (searchParams.get(ADMIN_ASK_PARAM) !== 'createCanonicalLeaf') return;
+    if (appliedAskRef.current === askSignature) return;
     const tileQuery = (searchParams.get('aa_tile_id') ?? '').trim().toLowerCase();
     const match = tileQuery
       ? (data.tiles.find((t) => t.label.toLowerCase() === tileQuery) ??
@@ -382,9 +414,15 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
         data.tiles.find((t) => tileQuery.includes(t.label.toLowerCase())))
       : null;
     if (!match) return;
+    appliedAskRef.current = askSignature;
     setOpenTileId(match.id);
     setOpenTab('services');
     setAddServicePrefill({
+      // The signature doubles as the remount key for the inspector below — see
+      // the `key` on <Inspector>. Without it a second ask about a tile that is
+      // ALREADY open changes no key, the uncontrolled defaultValue inputs never
+      // re-mount, and the new answers are silently ignored.
+      nonce: askSignature,
       displayNameEn: searchParams.get('aa_display_name_en') ?? '',
       faith: searchParams.get('aa_faith') ?? '',
       refinementLabel: searchParams.get('aa_refinement_label') ?? '',
@@ -392,9 +430,7 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
       isRental: searchParams.get('aa_is_rental') === '1',
       isPh: searchParams.get('aa_is_ph') === '1',
     });
-    // Runs once, off the URL the page loaded with — not a dependency loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, askSignature, data.tiles]);
 
   const [dragTileId, setDragTileId] = useState<string | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
@@ -832,7 +868,10 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
       >
         {openTile ? (
           <Inspector
-            key={openTile.id}
+            // The prefill nonce is part of the key on purpose: a new ask about
+            // a tile that is already open must re-mount this subtree, or its
+            // uncontrolled defaultValue inputs keep the previous answers.
+            key={`${openTile.id}:${addServicePrefill?.nonce ?? ''}`}
             tile={openTile}
             data={data}
             services={servicesByTile.get(openTile.id) ?? []}

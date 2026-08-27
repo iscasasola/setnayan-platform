@@ -150,15 +150,25 @@ test('every Create-a-service link in the product points at the picker', () => {
     'app/vendor-dashboard/repertoire/page.tsx',
     'app/vendor-dashboard/earnings/surface.tsx',
   ];
+  // 🪤 THE FIRST CUT OF THIS ASSERTION WAS DECORATION, AND ONLY A MEASURED
+  // MUTATION FOUND IT. It matched `SERVICE_PICKER_HREF` anywhere in the file, so
+  // reverting the checklist's href to the old string left the IMPORT standing
+  // and the guard stayed GREEN — a file-level match cannot say whether the
+  // constant is USED. And the negative half assumed JSX (`href=`) while
+  // `vendor-first-steps.ts` is a plain object literal (`href:`), so it could
+  // never fire there either. Both halves were blind on the one call site that
+  // matters most. Match the USAGE, and accept both spellings.
+  const usesConstant = /href[:=]\s*\{?\s*SERVICE_PICKER_HREF\s*\}?/;
+  const usesRetired = /href[:=]\s*\{?\s*["'`]\/vendor-dashboard\/services/;
   for (const s of sites) {
     const src = read(s);
     assert.match(
       src,
-      /SERVICE_PICKER_HREF/,
-      `${s} stopped using the shared picker href — its link lands on the wrong tab`,
+      usesConstant,
+      `${s} stopped USING the shared picker href — an import alone is not a link`,
     );
     assert.ok(
-      !/href=["']\/vendor-dashboard\/services["']/.test(src),
+      !usesRetired.test(src),
       `${s} points a supplier at the retired services address again`,
     );
   }

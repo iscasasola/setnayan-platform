@@ -47,12 +47,22 @@ function walk(dir: string): string[] {
  */
 function scanConsumers(): Set<string> {
   const found = new Set<string>();
-  const pattern = /ADMIN_ASK_PARAM\s*\)\s*[!=]==\s*['"]([A-Za-z0-9_]+)['"]/g;
+  const patterns = [
+    // The hand-written shape: an effect comparing the marker against one job.
+    /ADMIN_ASK_PARAM\s*\)\s*[!=]==\s*['"]([A-Za-z0-9_]+)['"]/g,
+    // The generic shape: one table entry per job, each declaring the fields its
+    // form needs. The CALL is the reader — a name cannot appear here without
+    // the descriptor that makes the card work, and deleting the descriptor
+    // takes the name with it. Same derivation, one spelling wider.
+    /preparedJob\(\s*['"]([A-Za-z0-9_]+)['"]/g,
+  ];
   for (const file of walk(ADMIN_DIR)) {
     // The palette WRITES these params; it is not a destination that reads them.
     if (file.endsWith('admin-command-palette.tsx')) continue;
     const src = stripComments(readFileSync(file, 'utf8'));
-    for (const m of src.matchAll(pattern)) if (m[1]) found.add(m[1]);
+    for (const pattern of patterns) {
+      for (const m of src.matchAll(pattern)) if (m[1]) found.add(m[1]);
+    }
   }
   return found;
 }

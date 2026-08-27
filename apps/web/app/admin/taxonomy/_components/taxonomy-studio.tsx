@@ -55,6 +55,14 @@ import {
 import Link from 'next/link';
 import { getLucideIcon } from '@/lib/nav-icons';
 import { ADMIN_ASK_PARAM } from '@/lib/admin-map/humanize-field';
+import { PreparedJobCard } from './prepared-job-card';
+import {
+  PREPARED_TAXONOMY_JOBS,
+  buildPreparedValues,
+  type PreparedCatalogs,
+  type PreparedJobSpec,
+  type PreparedValues,
+} from './prepared-jobs';
 import { Sheet } from '@/app/_components/sheet';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -517,6 +525,76 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
     });
   }, [searchParams, askSignature, data.folders]);
 
+  // ── Prefilled from the search box's assistant (every OTHER wired job) ──────
+  //
+  // The two effects above are hand-written, one per job, and that does not
+  // scale: this page hosts 43 form-driven jobs, so 41 of them gathered the
+  // admin's answers and threw them away. This is the generic half — a table of
+  // job → what its form needs (`prepared-jobs.ts`) and one card that renders any
+  // entry of it as a real form (`prepared-job-card.tsx`).
+  //
+  // 🔑 THE CATALOGS ARE THE PAGE'S OWN PROPS. Nothing new is fetched, so a
+  // prepared card can never be more or less current than the rows beside it.
+  const preparedCatalogs = useMemo<PreparedCatalogs>(
+    () => ({
+      eventType: data.eventTypeVocab.map((v) => ({ value: v.key, label: v.label })),
+      // TITLE-CASE faith_key is the stored value and must never be lowercased —
+      // only the MATCHING is case-insensitive, never the value handed back.
+      faith: data.faithVocabFull.map((f) => ({ value: f.key, label: f.label })),
+      tile: data.tiles.map((t) => ({ value: t.id, label: t.label })),
+      // Folders FIRST, so "rename the Food folder" cannot be won by a tile that
+      // merely contains the word.
+      node: [
+        ...data.folders.map((f) => ({ value: f.id, label: f.label })),
+        ...data.tiles.map((t) => ({ value: t.id, label: t.label })),
+      ],
+      service: data.services.map((s) => ({ value: s.canonical, label: s.displayEn })),
+      request: data.requests.map((r) => ({
+        value: r.requestId,
+        label: `${r.proposedLabel} — ${r.vendorName}`,
+      })),
+      icon: data.iconNames.map((n) => ({ value: n, label: n })),
+    }),
+    [
+      data.eventTypeVocab,
+      data.faithVocabFull,
+      data.folders,
+      data.tiles,
+      data.services,
+      data.requests,
+      data.iconNames,
+    ],
+  );
+
+  const [preparedJob, setPreparedJob] = useState<{
+    nonce: string;
+    jobName: string;
+    spec: PreparedJobSpec;
+    prepared: PreparedValues;
+  } | null>(null);
+  const appliedPreparedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const jobName = searchParams.get(ADMIN_ASK_PARAM);
+    if (!jobName) return;
+    const spec = PREPARED_TAXONOMY_JOBS.get(jobName);
+    // Not one of the generic jobs — the two hand-written effects above own
+    // theirs, and everything else still gets the box's honest "this page does
+    // not fill itself in yet".
+    if (!spec) return;
+    // Keyed on the ask params ALONE, like its two siblings: typing in the filter
+    // box rewrites ?q= on every keystroke, and re-applying a prefill over edits
+    // the admin has already made by hand would be its own quiet defect.
+    if (appliedPreparedRef.current === askSignature) return;
+    appliedPreparedRef.current = askSignature;
+    setPreparedJob({
+      nonce: askSignature,
+      jobName,
+      spec,
+      prepared: buildPreparedValues(spec, (key) => searchParams.get(key), preparedCatalogs),
+    });
+  }, [searchParams, askSignature, preparedCatalogs]);
+
   const [dragTileId, setDragTileId] = useState<string | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
   const [dropTileIdx, setDropTileIdx] = useState<number | null>(null);
@@ -756,6 +834,31 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
             <X className="h-3.5 w-3.5" aria-hidden />
           </button>
         </div>
+      ) : null}
+
+      {/*
+        THE PREPARED JOB, ABOVE THE VIEW SWITCH ON PURPOSE.
+
+        Every other pane on this page is replaceable — four views swap the whole
+        centre out — so anything rendered INSIDE one can be prepared into a pane
+        that is not on screen. That has been this feature's recurring failure,
+        and the shipped category composer needs a whole set (VIEWS_WITH_TILE_GRID)
+        plus a view switch to dodge it. Rendering here dodges it structurally
+        instead: the card is self-contained (its pickers carry the full lists),
+        so it needs no particular pane, and it never moves the admin off the view
+        they were on.
+      */}
+      {preparedJob ? (
+        <PreparedJobCard
+          // The nonce remounts the uncontrolled inputs, or a SECOND ask would
+          // leave the first ask's answers sitting in the boxes.
+          key={preparedJob.nonce}
+          jobName={preparedJob.jobName}
+          spec={preparedJob.spec}
+          prepared={preparedJob.prepared}
+          catalogs={preparedCatalogs}
+          onDiscard={() => setPreparedJob(null)}
+        />
       ) : null}
 
       {view === 'unfiled' ? (

@@ -43,6 +43,42 @@ export const PREFILL_CONSUMER_JOBS: readonly string[] = [
   'createTaxonomyNode',
   /** Add a SERVICE inside a category that already exists. */
   'createCanonicalLeaf',
+
+  // ── The generic reader (app/admin/taxonomy/_components/prepared-jobs.ts) ───
+  //
+  // Twenty-two more jobs on the same page, served by ONE table + ONE card
+  // rather than twenty-two hand-written effects. Every name below is a
+  // `preparedJob('<name>', …)` entry, and the guard scans for exactly that
+  // call — so a name here without its descriptor fails, and a descriptor
+  // deleted while the name stays fails too.
+  //
+  // Nineteen of that page's jobs are still absent ON PURPOSE — destructive
+  // ones, ones that post a list the generator cannot see, ones whose form
+  // identity is a bound argument. `prepared-jobs.ts` records each reason and
+  // its own guard derives the destructive and list-posting rules from the
+  // code rather than trusting the prose.
+  'createEventTypeRoster',
+  'createFaithVocab',
+  'mapCategoryRequest',
+  'promoteCategoryRequest',
+  'relabelEventTypeVocab',
+  'relabelFaithVocab',
+  'remapCanonical',
+  'renameTaxonomyNode',
+  'reorderEventTypeVocab',
+  'reorderFaithVocab',
+  'resolveCategoryRequest',
+  'setCategoryHidden',
+  'setCategoryIcon',
+  'setEventTypeLaunch',
+  'setEventTypeVocabStatus',
+  'setFaithLaunchStatus',
+  'setFaithLaunchThreshold',
+  'setFaithVocabStatus',
+  'setServiceFaith',
+  'setServiceFlag',
+  'unretireEventTypeVocab',
+  'updateEventTypePresentation',
 ];
 
 const CONSUMERS = new Set(PREFILL_CONSUMER_JOBS);

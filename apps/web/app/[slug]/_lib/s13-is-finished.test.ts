@@ -24,7 +24,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -84,7 +84,15 @@ const ALLOWED: Record<string, string> = {
     'resolveProfile defaults and the Pro-tier helper import, not rendered text. Named in its own right now that a bare "page.tsx" no longer wildcards eleven files.',
   'print/print-sheet.tsx': 'Docblocks and a CSS class name; its rendered strings are all resolved.',
   '_components/editorial/editorial-content.tsx': 'An import of the Pro-tier helper (`couple-website-pro`), not rendered text.',
-  'recap/page.tsx': 'An import of the Pro-tier helper, not rendered text.',
+  // 🛑 THIS REASON WAS FALSE, AND THE EXEMPTION IS WHAT MADE IT INVISIBLE. The
+  // page also RENDERED "hasn’t published their wedding recap" in its
+  // not-ready-yet stand-in — on every event type, since the surface gate above
+  // it refuses nothing (every seeded type carries `website`). The stand-in now
+  // reads the event's own word, and the third test below re-checks this claim
+  // against the file instead of trusting the sentence.
+  'recap/page.tsx':
+    'The Pro-tier helper import and a resolveProfile default. Its one rendered ' +
+    'sentence resolves the event word — checked, not asserted.',
   '_components/public-hideable-widget.tsx': 'An import of the Chinese-wedding gate, not rendered text.',
   'pabuya/page.tsx': 'A resolveProfile default, not rendered text.',
 };
@@ -99,11 +107,62 @@ function tsFiles(dir: string): string[] {
   return out;
 }
 
+/**
+ * ONE strip, shared by every rule in this file — deliberately, because two
+ * rules in one guard that resolve their input differently is how a regression
+ * ships green here. The trailing-`//` pass is new: `? // the anchor lives on a
+ * SHIPPED block; a couple's own column…` is a COMMENT, and the old
+ * line-leading-only rule left it standing as prose that reads as a defect. The
+ * `[^:]` lookbehind spares `https://`. Measured across the tree: it removes 2
+ * comment hits and changes the offender count by 0.
+ */
 const strip = (s: string) =>
   s
     .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+    .replace(/^\s*\/\/.*$/gm, ' ')
+    .replace(/(^|[^:])\/\/.*$/gm, (_m, p1: string) => p1);
+
+/**
+ * 🔴 THE OLD DETECTOR SPELT THE WORDS SINGULAR — `\b(wedding|couple|bride|
+ * groom)\b` — while the gate above it (`WORD`) already knew the plurals. `\b`
+ * after `couple` cannot match "couples", so EVERY plural was invisible to both
+ * halves of the test. It is spelt once, here, and shared.
+ */
+const RENDERED_WORD = /\b(weddings?|couples?|brides?|grooms?)\b/i;
+
+/** A wedding word inside a string/template literal — an import, a filter, a class. */
+const isQuoted = (line: string) =>
+  new RegExp(`['"\`][^'"\`]*${RENDERED_WORD.source}`, 'i').test(line);
+
+/**
+ * A wedding word standing in JSX TEXT — the kind a guest reads.
+ *
+ * 🔴 THE OLD RULE WAS ONE ANCHORED REGEX, AND IT IS WHY THE RECAP PAGE'S
+ * SENTENCE WAS UNREACHABLE BY THIS GUARD EVEN WITHOUT ITS EXEMPTION.
+ * `^[^<>{}=(]*` fails at character zero on a line that OPENS with `{` or `<` —
+ * which is how guest-tree copy is normally written:
+ *
+ *     {event.display_name} hasn’t published their wedding recap.
+ *     <Perk>Marketplace exposure to other PH couples</Perk>
+ *
+ * So the two most natural ways to write a sentence were the two shapes the
+ * detector could not see. It now tries the anchor three times: on the raw line,
+ * on the line with `{…}` interpolations removed, and on the line with JSX TAGS
+ * removed as well — the last leaving only what a person actually reads.
+ *
+ * 📏 MEASURED BEFORE SHIPPING, over all 128 files of this tree: the widened
+ * rule surfaces EXACTLY ONE line the old rule missed — the recap sentence this
+ * commit fixes — and the non-exempt offender count stays 0. No churn, no
+ * baseline to pay down.
+ */
+const isJsxText = (line: string) => {
+  const t = line.trim();
+  const noInterp = t.replace(/\{[^{}]*\}/g, '');
+  const noTags = noInterp.replace(/<[^<>]*>/g, ' ').trim();
+  const anchored = new RegExp(`^[^<>{}=(]*${RENDERED_WORD.source}`, 'i');
+  return anchored.test(t) || anchored.test(noInterp) || anchored.test(noTags);
+};
 
 test('every wedding word left in the guest tree is one we chose to keep', () => {
   const offenders: string[] = [];
@@ -114,9 +173,9 @@ test('every wedding word left in the guest tree is one we chose to keep', () => 
     const src = strip(readFileSync(file, 'utf8'));
     for (const [i, line] of src.split('\n').entries()) {
       if (!WORD.test(line)) continue;
-      const quoted = /['"`][^'"`]*\b(wedding|couple|bride|groom)\b/i.test(line);
-      const jsx = /^[^<>{}=(]*\b(wedding|couple|bride|groom)\b/i.test(line.trim());
-      if (quoted || jsx) offenders.push(`${rel}:${i + 1}  ${line.trim().slice(0, 80)}`);
+      if (isQuoted(line) || isJsxText(line)) {
+        offenders.push(`${rel}:${i + 1}  ${line.trim().slice(0, 80)}`);
+      }
     }
   }
   assert.deepEqual(
@@ -142,6 +201,67 @@ test('the allowed list is a BILL — every entry still has a wedding word in it'
     stale,
     [],
     `these exemptions are no longer needed — delete their lines: ${stale.join(', ')}`,
+  );
+});
+
+/**
+ * AN EXEMPTION IS A CLAIM. THIS RE-CHECKS THE CLAIM AGAINST THE FILE.
+ *
+ * 🔴 WHY IT EXISTS. `recap/page.tsx` was exempt "An import of the Pro-tier
+ * helper, not rendered text." The import was real; the reason was false — the
+ * same file rendered "hasn’t published their wedding recap" to the guests of
+ * every birthday, debut and wake whose day had passed. Nothing could catch it:
+ * the exemption is FILE-level, so it blinds the scan to everything in the file,
+ * and the sentence's shape was invisible to the detector anyway. Two
+ * independent failures, stacked, and each one alone was enough.
+ *
+ * 🔑 THE FILE SET IS DERIVED FROM THE REASONS, NOT HAND-LISTED. Whichever
+ * entries CLAIM their wedding words are not rendered text are the entries this
+ * re-checks — so a new exemption written with that phrase is covered the day it
+ * is added, and nobody has to remember to add it here. A hand-typed list here
+ * would be the very thing that let the recap page through.
+ *
+ * ⚖ SCOPED TO `.tsx` ON PURPOSE. Only a `.tsx` file can hold JSX text. A `.ts`
+ * file's wedding words are types, filters and CSS class names — `keepsake.css.ts`
+ * writes `.k-couple-quote` inside a CSS template and would otherwise be reported
+ * three times. A guard that cries wolf teaches you to skim past the one time it
+ * is right, so it is narrowed rather than left noisy.
+ *
+ * 🛡 AND IT HAS A FLOOR. If the reason wording is ever reworded away, this scan
+ * would silently check nothing and pass — the shape of an empty sweep reading
+ * as a clean result. Below the floor it FAILS.
+ */
+const CLAIMS_NOT_RENDERED = /not rendered text|never rendered|not a word any guest reads/i;
+const CLAIM_CHECK_FLOOR = 5;
+
+test('an exemption that claims "not rendered text" is telling the truth', () => {
+  const liars: string[] = [];
+  let checked = 0;
+  for (const [rel, reason] of Object.entries(ALLOWED)) {
+    if (!CLAIMS_NOT_RENDERED.test(reason)) continue;
+    if (!rel.endsWith('.tsx')) continue;
+    const abs = join(TREE, rel);
+    if (!existsSync(abs)) continue; // moved/gone — the BILL test above reports it
+    checked++;
+    for (const [i, line] of strip(readFileSync(abs, 'utf8')).split('\n').entries()) {
+      if (!WORD.test(line)) continue;
+      if (isQuoted(line)) continue; // a quoted literal is not rendered TEXT
+      if (isJsxText(line)) liars.push(`${rel}:${i + 1}  ${line.trim().slice(0, 90)}`);
+    }
+  }
+  assert.ok(
+    checked >= CLAIM_CHECK_FLOOR,
+    `this check swept only ${checked} files (floor ${CLAIM_CHECK_FLOOR}) — the ` +
+      'reason wording it derives its file set from has drifted, and an empty ' +
+      'sweep looks exactly like a clean result. Fix the derivation, not the floor.',
+  );
+  assert.deepEqual(
+    liars,
+    [],
+    'these files are exempt on the grounds that their wedding words are not ' +
+      'rendered text, and a guest can read these lines:\n' +
+      `${liars.join('\n')}\n\nResolve the word from the event type, or rewrite ` +
+      'the exemption so it says what is actually true.',
   );
 });
 

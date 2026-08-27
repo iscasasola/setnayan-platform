@@ -35,6 +35,10 @@
  * · drop the resolver call from the join door → `eventWordsForEvent` 1 → 0 · RED
  * · drop the required prop at the preview call site → TYPECHECK fails, which is
  *   that half's guard and is stronger than a string count.
+ * · restore the gift-page possessive in ALL THREE spellings — straight `'`,
+ *   curly `’`, and the `&rsquo;` entity that actually shipped — 0 → 1 each · RED
+ *   each. Before this commit the entity spelling scored 0 and passed.
+ * · restore "Their wedding song" in the recap data → 0 → 1 · RED.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -52,7 +56,30 @@ const strip = (s: string) =>
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/^\s*\/\/.*$/gm, ' ');
 
+/**
+ * EVERY WAY A PERSON WRITES AN APOSTROPHE, COLLAPSED TO ONE.
+ *
+ * 🔴 WITHOUT THIS, THE POSSESSIVE CHECK BELOW COULD NOT MATCH THE STRING IT WAS
+ * WRITTEN TO CONDEMN. It searched for `the couple’s` — the CURLY character
+ * U+2019 — and the line this whole file exists because of was
+ * `it goes directly to the couple&rsquo;s` — the HTML ENTITY. Measured against
+ * the pre-fix source at 87edd2fc7^: curly 0 · straight 0 · entity 1. The guard
+ * scored ZERO on the exact source it condemned, and reported a pass.
+ *
+ * 🔑 THE ENTITY IS NOT AN ODDITY, IT IS THE HOUSE STYLE. `react/no-unescaped-
+ * entities` makes a bare `'` in JSX text a lint error, so anyone restoring this
+ * sentence writes `&rsquo;` (or pastes `’`). The one spelling the old needle
+ * knew was the one least likely to be typed. *A check that cannot match is not
+ * a passing check* — same family as `f.event_dateX` and the recap page's own
+ * exemption, which is fixed in the same commit.
+ */
+const oneApostrophe = (s: string) =>
+  s.replace(/&rsquo;|&#8217;|&#x2019;|&apos;|&#39;|[‘’ʼ‛`´]/gi, "'");
+
 const count = (h: string, n: string) => h.split(n).length - 1;
+/** Count a phrase however its apostrophe was spelt. Needle uses a plain `'`. */
+const countAnyApostrophe = (haystack: string, needle: string) =>
+  count(oneApostrophe(haystack).toLowerCase(), oneApostrophe(needle).toLowerCase());
 
 const JOIN_DOOR = join('app', 'join', '[eventId]', '_components', 'join-flow.tsx');
 const GIFT_CARDS = join('app', '_components', 'pabuya', 'pabuya-card-list.tsx');
@@ -98,9 +125,10 @@ test('the gift-page trust note takes a REQUIRED noun, with no default', () => {
     'a default here hides the second caller — the parity the preview exists for',
   );
   assert.equal(
-    count(strip(src).toLowerCase(), 'the couple’s'),
+    countAnyApostrophe(strip(src), "the couple's"),
     0,
-    'the gift page must not name a wedding on a funeral',
+    'the gift page must not name a wedding on a funeral — in ANY spelling of ' +
+      "the apostrophe (straight ' · curly ’ · &rsquo; · &#8217; · &apos;)",
   );
 });
 
@@ -152,6 +180,28 @@ test('the recap resolves BOTH the organiser noun and the event word', () => {
     /organizer:\s*organizerNoun,\s*\n\s*eventWord:\s*eventNoun,/.test(src),
     'a guest who ANSWERED a prompt reading "birthday" met it again on the recap ' +
       'saying "event", because only the organiser noun was passed',
+  );
+});
+
+test('the song credit is never hardcoded to a wedding', () => {
+  // 🔴 `songLabel` fell back to the literal "Their wedding song", and that
+  // fallback ALWAYS fired for a non-wedding: its alternative is
+  // `love_story.anchors.song`, a WEDDING-shaped field a birthday or a debut
+  // never carries. So any other celebration that bought a custom song had it
+  // credited to every guest reading their recap as the couple's wedding song.
+  // The event word is already resolved a few hundred lines above for the
+  // challenge prompts — it costs nothing to be right here too.
+  const src = strip(read(RECAP_DATA));
+  assert.equal(
+    countAnyApostrophe(src, 'wedding song'),
+    0,
+    'the recap must not credit a wedding song on a birthday, a debut or a wake ' +
+      '— derive it from the event word already resolved in this function',
+  );
+  assert.ok(
+    /Their \$\{eventNoun\} song/.test(src),
+    'the credit must be built from the resolved event word, so a wedding still ' +
+      'reads "Their wedding song" byte-for-byte and every other type reads its own',
   );
 });
 

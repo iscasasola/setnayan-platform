@@ -10,6 +10,7 @@ import {
 import { acceptHostInvite, declineHostInvite } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 
 export const metadata = {
   title: 'Accept your invitation',
@@ -76,8 +77,33 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
       : Promise.resolve({ data: null }),
   ]);
 
-  const eventName = (eventRow as { display_name?: string | null } | null)?.display_name ?? 'a wedding';
+  // THIS DOOR IS OPENED SIGNED OUT, FROM AN EMAILED LINK, ON EVERY EVENT TYPE.
+  //
+  // 🔴 It said "Wedding date: 3 September 2026" to whoever opened it, and fell
+  // back to the literal "a wedding" for an event with no name. A family
+  // arranging a wake invites an aunt to help; she opens the link from her
+  // inbox and is told her brother's funeral is a wedding.
+  //
+  // ⚠ THE RESOLVER MUST BE THE SERVICE-ROLE ONE, AND THAT IS NOT A DETAIL.
+  // `public.events` has no SELECT policy admitting `anon`, so the cookie-scoped
+  // read this resolver used to make came back empty for a signed-out visitor
+  // and answered WEDDING for every celebration (PR #4897). `eventWordsForEvent`
+  // now reads through `resolveProfileByEvent`, which is service-role scoped and
+  // React-`cache()`d per request — so this costs one read and answers the same
+  // in both arms of the sign-in gate below.
+  //
+  // 🔒 A WEDDING READS BYTE-IDENTICALLY: `eventWord` is 'wedding' for the
+  // wedding profile, so both sentences reproduce their old text exactly.
+  // 🔒 AND NO FALLBACK HERE MAY SAY "host" — a funeral's word is `family`, and
+  // its event word is `wake`. Both fall back through the event's own words,
+  // never through a literal.
+  const w = await eventWordsForEvent(invite.event_id);
+  const eventName =
+    (eventRow as { display_name?: string | null } | null)?.display_name ?? `a ${w.eventWord}`;
   const eventDate = (eventRow as { event_date?: string | null } | null)?.event_date ?? null;
+  // "Wedding date:" · "Wake date:" · "Birthday date:" — only the article-less
+  // first letter is capitalised, matching the guest tree's own convention.
+  const dateLabel = `${w.eventWord.charAt(0).toUpperCase()}${w.eventWord.slice(1)} date`;
   const inviterName =
     (inviterRow as { display_name?: string | null; email?: string | null } | null)?.display_name?.trim() ||
     (inviterRow as { email?: string | null } | null)?.email ||
@@ -246,7 +272,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
       }
       meta={
         eventDate
-          ? `Wedding date: ${new Date(eventDate).toLocaleDateString('en-PH', {
+          ? `${dateLabel}: ${new Date(eventDate).toLocaleDateString('en-PH', {
               month: 'long',
               day: 'numeric',
               year: 'numeric',

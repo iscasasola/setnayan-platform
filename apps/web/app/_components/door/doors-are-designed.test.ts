@@ -346,6 +346,135 @@ test('no door mounts an app bottom bar', () => {
   assert.deepEqual(offenders, [], `Found: ${offenders.join(', ')}`);
 });
 
+/* ══════════════════════════════════════════════════════════════════════════
+   5 · A DOOR SPEAKS THE EVENT'S OWN WORDS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * A DOOR IS OPENED FROM AN EMAILED LINK, SIGNED OUT, ON EVERY EVENT TYPE — and
+ * two of them told the reader they were looking at a wedding.
+ *
+ * · `/host/accept/[token]` rendered `Wedding date: 3 September 2026` and fell
+ *   back to the literal "a wedding" for an unnamed event. A family arranging a
+ *   wake invites an aunt as co-host; she opens the link and reads that.
+ * · `/vendor/claim/[token]` rendered "They're planning their wedding on …" in
+ *   three places, to a supplier who had just been booked for the funeral.
+ *
+ * ⛔ THE FILE SET IS DERIVED, NOT THE `DOORS` LIST ABOVE. This file's own
+ * docblock records why: *a hand-enumerated list is a list of the doors you
+ * thought of*, and that list has already missed three real doors. A door for
+ * THIS rule is simply a file that imports the shared shell — so a door added
+ * tomorrow is covered on the day it is written, with nobody remembering to add
+ * it. (Measured: 23 files, against the 21 hand-listed above.)
+ *
+ * 🛡 AND IT HAS A FLOOR. A derived sweep that stops matching finds nothing and
+ * reports a clean pass — the exact failure this repo keeps paying for. Below
+ * the floor it FAILS instead.
+ */
+const DOOR_IMPORT = /from\s+['"]@\/app\/_components\/door\/door-shell['"]/;
+const DOOR_FLOOR = 15;
+
+/**
+ * 🔑 THE PLURALS ARE PART OF THE PATTERN. A sibling guard spelt these singular
+ * with a trailing `\b`, which cannot match "couples" — so every plural was
+ * invisible to it. Spelt once, used by both halves below.
+ */
+const WEDDING_WORD = /\b(weddings?|couples?|brides?|grooms?)\b/i;
+
+/**
+ * What a PERSON reads, as opposed to what the file merely contains. The anchor
+ * is tried three ways because a line of copy rarely begins with its own words:
+ * raw · with `{…}` interpolations removed · with JSX tags removed too. Without
+ * the second, `{name} …their wedding…` is invisible; without the third,
+ * `<Perk>…couples…</Perk>` is.
+ */
+const readsAsText = (line: string): boolean => {
+  const t = line.trim();
+  const noInterp = t.replace(/\{[^{}]*\}/g, '');
+  const noTags = noInterp.replace(/<[^<>]*>/g, ' ').trim();
+  const anchored = new RegExp(`^[^<>{}=(]*${WEDDING_WORD.source}`, 'i');
+  const quoted = new RegExp(`['"\`][^'"\`]*${WEDDING_WORD.source}`, 'i');
+  return quoted.test(t) || anchored.test(t) || anchored.test(noInterp) || anchored.test(noTags);
+};
+
+/**
+ * THE BILL — AND IT IS KEYED ON A LINE, NOT ON A FILE.
+ *
+ * 🔑 THAT IS THE WHOLE LESSON OF THIS COMMIT. The sibling guard exempts by
+ * FILE, and `recap/page.tsx` was exempt "an import of the Pro-tier helper, not
+ * rendered text" — while the same file rendered "their wedding recap" to every
+ * birthday and wake whose day had passed. A file-level exemption blinds a guard
+ * to everything in the file, including the thing it is for. Here an entry
+ * pardons one SNIPPET, so the rest of the file stays under guard.
+ *
+ * ⚖ These four are about SETNAYAN'S CUSTOMER BASE, not about the reader's own
+ * event — "who else is on this marketplace". Whether Setnayan describes its
+ * customers as "couples" now that it serves sixteen event types is a
+ * positioning call and the owner's, not a typo fix. Surfaced, not silently
+ * rewritten.
+ */
+const ALLOWED_DOOR_LINES: ReadonlyArray<{ file: string; snippet: string }> = [
+  { file: 'forgot-password/page.tsx', snippet: 'One account for couples planning their' },
+  { file: 'vendor/claim/[token]/page.tsx', snippet: 'Marketplace exposure to other PH couples' },
+  { file: 'vendor/claim/[token]/page.tsx', snippet: 'Chat with couples in-app' },
+  { file: 'vendor/claim/[token]/page.tsx', snippet: 'Couples browsing the marketplace' },
+];
+
+function doorFiles(): Array<{ rel: string; src: string }> {
+  const out: Array<{ rel: string; src: string }> = [];
+  for (const file of TSX_FILES) {
+    const raw = readFileSync(file, 'utf8');
+    if (!DOOR_IMPORT.test(raw)) continue;
+    out.push({ rel: file.slice(APP.length + 1), src: code(raw) });
+  }
+  return out;
+}
+
+test('no door tells a mourner they are looking at a wedding', () => {
+  const doors = doorFiles();
+  assert.ok(
+    doors.length >= DOOR_FLOOR,
+    `Only ${doors.length} doors found (floor ${DOOR_FLOOR}). This rule DERIVES ` +
+      'its file set from the DoorShell import; a sweep that has stopped matching ' +
+      'finds nothing and reads exactly like a clean pass. Fix the derivation, ' +
+      'never the floor.',
+  );
+  const offenders: string[] = [];
+  for (const { rel, src } of doors) {
+    for (const [i, line] of src.split('\n').entries()) {
+      if (!WEDDING_WORD.test(line)) continue;
+      if (!readsAsText(line)) continue;
+      const pardoned = ALLOWED_DOOR_LINES.some(
+        (a) => a.file === rel && line.includes(a.snippet),
+      );
+      if (!pardoned) offenders.push(`${rel}:${i + 1}  ${line.trim().slice(0, 90)}`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'A door is opened from an emailed link by somebody with no session, and the ' +
+      "event's type is always resolvable there. Resolve the word with " +
+      '`eventWordsForEvent(eventId)` — which reads through the SERVICE-ROLE ' +
+      'resolver, the only one that can answer a signed-out visitor.\n' +
+      `${offenders.join('\n')}`,
+  );
+});
+
+test('the door word bill is a BILL — every pardoned line still exists', () => {
+  // A pardon nobody needs is permission left lying around. If the copy is gone,
+  // the line here goes with it rather than standing as a standing exemption.
+  const doors = doorFiles();
+  const stale = ALLOWED_DOOR_LINES.filter(
+    (a) => !doors.some((d) => d.rel === a.file && d.src.includes(a.snippet)),
+  ).map((a) => `${a.file} :: ${a.snippet}`);
+  assert.deepEqual(
+    stale,
+    [],
+    `these pardons are no longer needed — delete their lines: ${stale.join(', ')}`,
+  );
+});
+
 test('every door keeps a way out', () => {
   // DoorShell renders the wordmark → "/" for all of them, so this asserts the
   // single place that promise lives rather than twelve copies of it.

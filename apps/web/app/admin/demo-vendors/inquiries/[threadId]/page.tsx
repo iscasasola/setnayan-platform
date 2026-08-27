@@ -12,7 +12,12 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById, fetchMessages, formatChatTimestamp } from '@/lib/chat';
-import { isInquiryRevealed, inquiryPlaceholderLabel, inquiryCityLabel } from '@/lib/inquiry-mask.server';
+import {
+  isInquiryRevealed,
+  inquiryPlaceholderLabel,
+  inquiryCityLabel,
+  inquiryHostNoun,
+} from '@/lib/inquiry-mask.server';
 import { adminAcceptInquiry, adminDeclineInquiry, adminReplyAsVendor } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -60,6 +65,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
     : inquiryPlaceholderLabel({
         eventType: event?.event_type ?? null,
         city: inquiryCityLabel(event?.region ?? null),
+        hostNoun: await inquiryHostNoun(event?.event_type ?? null),
       });
 
   return (

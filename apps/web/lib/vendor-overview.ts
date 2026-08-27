@@ -9,6 +9,7 @@ import { fetchVendorContracts } from '@/lib/contracts';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { resolveRegion } from '@/lib/region-source';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { inquiryHostNounsByType } from '@/lib/inquiry-mask.server';
 import {
   buildInquiryCard,
   type InquiryWhatsNewCard,
@@ -245,6 +246,13 @@ export async function fetchVendorOverviewData(
     ]),
   ];
   const eventMeta = await fetchEventMeta(admin, eventIds);
+  // The organiser noun per event TYPE, for the masked inquiry cards below. The
+  // couple's identity still cannot reach the card — a type is not a person —
+  // and a type we cannot resolve yields no noun, so the card says "a host"
+  // rather than guessing a wedding.
+  const inquiryHostNouns = await inquiryHostNounsByType(
+    pendingThreads.map((t) => eventMeta.get(t.event_id)?.eventType ?? null),
+  );
 
   // --- Assemble WHAT'S NEW ---------------------------------------------------
   const whatsNew: WhatsNewCard[] = [];
@@ -267,6 +275,7 @@ export async function fetchVendorOverviewData(
         eventType: meta?.eventType ?? null,
         region: meta?.region ?? null,
         category: vendorCategory,
+        hostNoun: meta?.eventType ? (inquiryHostNouns.get(meta.eventType) ?? null) : null,
       }),
     );
   }

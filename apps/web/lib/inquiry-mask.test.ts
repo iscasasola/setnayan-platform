@@ -14,7 +14,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isInquiryRevealed, inquiryPlaceholderLabel } from './inquiry-mask';
+import {
+  isInquiryRevealed,
+  inquiryPlaceholderLabel,
+  GENERIC_HOST_NOUN,
+  INQUIRY_MASK_UNKNOWN,
+} from './inquiry-mask';
 
 test('isInquiryRevealed: burned token (accepted_at set) reveals', () => {
   assert.equal(isInquiryRevealed({ accepted_at: '2026-07-15T00:00:00Z', inquiry_status: 'accepted' }), true);
@@ -39,34 +44,107 @@ test('isInquiryRevealed: revealed stays revealed after transitioning to displace
 });
 
 test('placeholder: type + city reads naturally with the right article', () => {
+  // 🔒 THE WEDDING LITERAL. This exact string is what shipped before the noun
+  // was threaded in, and it must not move — a wedding's host noun is 'couple'.
   assert.equal(
-    inquiryPlaceholderLabel({ eventType: 'wedding', city: 'Cebu' }),
+    inquiryPlaceholderLabel({ eventType: 'wedding', city: 'Cebu', hostNoun: 'couple' }),
     'A couple planning a wedding in Cebu',
   );
   assert.equal(
-    inquiryPlaceholderLabel({ eventType: 'anniversary', city: 'Cebu' }),
-    'A couple planning an anniversary in Cebu',
+    inquiryPlaceholderLabel({ eventType: 'anniversary', city: 'Cebu', hostNoun: 'host' }),
+    'A host planning an anniversary in Cebu',
   );
 });
 
 test('placeholder: type only', () => {
-  assert.equal(inquiryPlaceholderLabel({ eventType: 'wedding' }), 'A couple planning a wedding');
+  assert.equal(
+    inquiryPlaceholderLabel({ eventType: 'wedding', hostNoun: 'couple' }),
+    'A couple planning a wedding',
+  );
 });
 
 test('placeholder: city only', () => {
-  assert.equal(inquiryPlaceholderLabel({ city: 'Davao' }), 'A couple planning an event in Davao');
+  assert.equal(
+    inquiryPlaceholderLabel({ city: 'Davao', hostNoun: 'couple' }),
+    'A couple planning an event in Davao',
+  );
 });
 
 test('placeholder: neither known degrades to a fully generic label', () => {
-  assert.equal(inquiryPlaceholderLabel({}), 'A couple planning an event');
-  assert.equal(inquiryPlaceholderLabel({ eventType: null, city: null }), 'A couple planning an event');
+  // ⚠ A DELIBERATE, VISIBLE CHANGE. This branch used to read "A couple planning
+  // an event" — the wedding assumption in its purest form, applied at exactly
+  // the moment we know nothing at all. Unknown now reads the generic noun.
+  assert.equal(inquiryPlaceholderLabel({ hostNoun: null }), 'A host planning an event');
+  assert.equal(
+    inquiryPlaceholderLabel({ eventType: null, city: null, hostNoun: null }),
+    'A host planning an event',
+  );
+  assert.equal(inquiryPlaceholderLabel(INQUIRY_MASK_UNKNOWN), 'A host planning an event');
+  // A blank/whitespace noun is the same as absent — the column is admin-typed.
+  assert.equal(inquiryPlaceholderLabel({ hostNoun: '   ' }), 'A host planning an event');
+  assert.equal(GENERIC_HOST_NOUN, 'host');
 });
 
-test('placeholder: never leaks identity — no couple name can appear', () => {
-  // Even if callers somehow pass hostile-looking values, the label is assembled
-  // only from event_type + city — it can never surface a display_name.
-  const label = inquiryPlaceholderLabel({ eventType: 'birthday', city: 'Metro Manila' });
-  assert.ok(label.startsWith('A couple planning'));
-  assert.ok(!/&|@|\bmr\b|\bmrs\b/i.test(label));
+test('placeholder: the ARTICLE follows the noun, not a hardcoded "A "', () => {
+  // 'organizer' is the seeded noun for corporate · gala_night · tournament ·
+  // travel. Before this, the opener was a hardcoded "A " and this read
+  // "A organizer planning a corporate event".
+  assert.equal(
+    inquiryPlaceholderLabel({ eventType: 'corporate', city: 'Makati', hostNoun: 'organizer' }),
+    'An organizer planning a corporate in Makati',
+  );
+  assert.equal(
+    inquiryPlaceholderLabel({ hostNoun: 'organizer' }),
+    'An organizer planning an event',
+  );
+  // …and a consonant noun keeps the bare article.
+  assert.equal(
+    inquiryPlaceholderLabel({ eventType: 'funeral', city: 'Manila', hostNoun: 'family' }),
+    'A family planning a funeral in Manila',
+  );
+});
+
+test('placeholder: the noun is lower-cased mid-sentence', () => {
+  // The column is admin-editable; "A Couple planning" would be wrong English.
+  assert.equal(
+    inquiryPlaceholderLabel({ eventType: 'wedding', hostNoun: 'Couple' }),
+    'A couple planning a wedding',
+  );
+});
+
+test('placeholder: never leaks identity — no name/title/contact/venue can appear', () => {
+  // The label is assembled ONLY from event_type + city + the type's noun. Feed
+  // every identifying field this repo holds for an event as if a caller had
+  // smuggled them in: none of them is a parameter, so none can reach the string.
+  const IDENTITY = [
+    'Ana & Marco',
+    'Ana',
+    'Marco',
+    'A&M',
+    'ana@example.com',
+    '+63 917 555 0101',
+    'Blue Leaf Events Pavilion',
+    '12 Kalayaan Ave, Quezon City',
+    'https://setnayan.com/ana-at-marco',
+    'S89E-4KQ2X7M1AB',
+  ];
+  for (const hostNoun of ['couple', 'family', 'organizer', 'host', null]) {
+    for (const branch of [
+      { eventType: 'birthday', city: 'Metro Manila' },
+      { eventType: 'funeral', city: null },
+      { eventType: null, city: 'Cebu' },
+      { eventType: null, city: null },
+    ]) {
+      const label = inquiryPlaceholderLabel({ ...branch, hostNoun });
+      for (const secret of IDENTITY) {
+        assert.ok(
+          !label.toLowerCase().includes(secret.toLowerCase()),
+          `placeholder leaked "${secret}": ${label}`,
+        );
+      }
+      assert.ok(!/&|@|\bmr\b|\bmrs\b|https?:|\+63|S89[A-Z]-/i.test(label), label);
+      assert.ok(/^An? [a-z]+ planning /.test(label), `bad opener: ${label}`);
+    }
+  }
 });
 

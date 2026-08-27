@@ -175,7 +175,7 @@ export const PAPIC_ACCESS_PHASE_1_TYPES = [
   // funeral profile enables `rsvp`, the last live gate below. The guest-tree
   // surfaces it renders on speak the solemn register. If the owner wants
   // wakes excluded from the camera, this one line is the whole change.
-  'funeral',
+  'wake',
 ] as const;
 
 /**

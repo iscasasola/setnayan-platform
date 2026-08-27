@@ -208,7 +208,7 @@ const HANGOUT_TEMPLATE: ChecklistTemplateItem[] = [
 // Filipino family actually does between a death and the interment. Without a
 // dedicated def this type would seed the CELEBRATION template ("Set the
 // purpose & theme", "Book a host") — the exact wrong voice at the worst time.
-const FUNERAL_TEMPLATE: ChecklistTemplateItem[] = [
+const WAKE_TEMPLATE: ChecklistTemplateItem[] = [
   { key: 'fun_funeral_home', title: 'Arrange with the funeral home (chapel or home wake)', category: 'vendors', dueOffsetDays: 7 },
   { key: 'fun_documents', title: 'Secure the papers (death certificate, permits)', category: 'paperwork', dueOffsetDays: 6 },
   { key: 'fun_schedule', title: 'Set the wake schedule and the day of the service', category: 'logistics', dueOffsetDays: 6 },
@@ -236,7 +236,7 @@ export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeCheckli
   hangout: { eventType: 'hangout', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['restaurant'], template: HANGOUT_TEMPLATE },
   // anchorCategory null: the funeral home is the anchor in life, but it has no
   // plan-group key, and a home wake needs no venue booking at all.
-  funeral: { eventType: 'funeral', dateModel: 'input', anchorCategory: null, tier2Core: ['catering', 'florist', 'photo_video'], template: FUNERAL_TEMPLATE },
+  wake: { eventType: 'wake', dateModel: 'input', anchorCategory: null, tier2Core: ['catering', 'florist', 'photo_video'], template: WAKE_TEMPLATE },
 };
 
 /**

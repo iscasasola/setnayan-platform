@@ -10,6 +10,13 @@
  * all — and it is the sixth place this product has assumed every event is a
  * wedding.
  *
+ * ⚖ THE TYPE IS NOW `wake`, NOT `funeral` (owner 2026-08-27: "Wake is the
+ * viewing (our event not funeral). Funeral is the ceremony until burial."). The
+ * sentence above is left as it was REPORTED — that is the defect's own history
+ * and rewriting it would erase what a supplier actually saw. What a funeral home
+ * reads today is "A family planning a wake in Manila", which is both the fix and
+ * the correct word: the wake is the stretch they are being asked to serve.
+ *
  * ── WHY THE HOST NOUN AND NOT THE ORGANISER NOUN ────────────────────────────
  * Measured in production 2026-08-27, FOUR of the seventeen seeded types carry
  * an `organizer_noun` that names the person the event is ABOUT rather than the
@@ -105,7 +112,6 @@ const PROD_NOUNS: Record<string, { organizer: string; host: string }> = {
   corporate: { organizer: 'organizer', host: 'organizer' },
   date: { organizer: 'host', host: 'host' },
   debut: { organizer: 'celebrant', host: 'host' },
-  funeral: { organizer: 'family', host: 'family' },
   gala_night: { organizer: 'organizer', host: 'organizer' },
   gender_reveal: { organizer: 'host', host: 'host' },
   graduation: { organizer: 'graduate', host: 'host' },
@@ -114,6 +120,7 @@ const PROD_NOUNS: Record<string, { organizer: string; host: string }> = {
   simple_event: { organizer: 'host', host: 'host' },
   tournament: { organizer: 'organizer', host: 'organizer' },
   travel: { organizer: 'organizer', host: 'organizer' },
+  wake: { organizer: 'family', host: 'family' },
   wedding: { organizer: 'couple', host: 'couple' },
 };
 
@@ -234,7 +241,7 @@ test('only a wedding opens with "A couple"', () => {
   const coupled = ALL_TYPES.filter((t) => openerFor(t).startsWith('A couple'));
   assert.deepEqual(coupled, ['wedding'], `these types still say "A couple": ${coupled}`);
   // The two the defect was reported for, spelled out.
-  assert.equal(openerFor('funeral'), 'A family planning a funeral in Manila');
+  assert.equal(openerFor('wake'), 'A family planning a wake in Manila');
   assert.equal(openerFor('corporate'), 'An organizer planning a corporate in Manila');
 });
 

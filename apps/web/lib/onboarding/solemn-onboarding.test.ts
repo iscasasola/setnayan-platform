@@ -33,13 +33,13 @@ import { PER_TYPE_QUESTIONS } from './type-questions';
 import { PERSONA_PACKS } from './persona-packs';
 import { getSpecialtyFields } from './specialty-catalog';
 import { resolveOnboardingFlow } from './flow-config';
-import { FUNERAL_PROFILE } from '@/lib/event-type-profile';
+import { WAKE_PROFILE } from '@/lib/event-type-profile';
 
 /** The EIGHT service categories a funeral can actually reach — the seven scoped
  *  by migration 20271163083797 plus the universal `livestream`. Read out of the
  *  live taxonomy, not remembered. An `adds` id outside this set is dropped by
  *  the shell's intersection and the question means nothing. */
-const FUNERAL_CATEGORIES = new Set([
+const WAKE_CATEGORIES = new Set([
   'catering', 'choir', 'coordinator', 'florist',
   'guest_shuttle', 'photo_video', 'printing', 'livestream',
 ]);
@@ -119,7 +119,7 @@ test('no celebratory vocabulary anywhere in the solemn quiz or reveal', () => {
       assert.deepEqual(offendingWords(text), [], `reveal ${k}: "${text}"`);
     }
   }
-  for (const q of PER_TYPE_QUESTIONS.funeral ?? []) {
+  for (const q of PER_TYPE_QUESTIONS.wake ?? []) {
     for (const text of [q.eyebrow, q.question]) {
       checked++;
       assert.deepEqual(offendingWords(text), [], `question ${q.id}: "${text}"`);
@@ -131,7 +131,7 @@ test('no celebratory vocabulary anywhere in the solemn quiz or reveal', () => {
       }
     }
   }
-  for (const f of getSpecialtyFields('funeral')) {
+  for (const f of getSpecialtyFields('wake')) {
     for (const text of [f.label, f.help ?? '']) {
       checked++;
       assert.deepEqual(offendingWords(text), [], `field ${f.key}: "${text}"`);
@@ -155,19 +155,19 @@ test('the CELEBRATORY copy still says the celebratory words (the check can fire)
 // ---- 3. the register reaches the resolver on every path ---------------------
 
 test('a solemn register swaps the BASE quiz + reveal, before any override', () => {
-  const solemn = resolveOnboardingSpec('funeral', 'funeral', null, 'solemn');
+  const solemn = resolveOnboardingSpec('wake', 'wake', null, 'solemn');
   assert.equal(solemn.register, 'solemn');
   assert.equal(solemn.axes[2]!.options[1]!.title, 'Warm, and full of stories');
   assert.equal(solemn.revealByPersona.big_celebration!.name, 'The Wide Circle');
 
   // The degrade path — a failed/absent override row — must stay solemn. This is
   // the case an admin `axis_overrides` row could not have covered.
-  const noRow = resolveOnboardingSpec('funeral', 'funeral', null, 'solemn');
+  const noRow = resolveOnboardingSpec('wake', 'wake', null, 'solemn');
   assert.equal(noRow.revealByPersona.big_celebration!.name, 'The Wide Circle');
 });
 
 test('an admin override still layers ON TOP of the solemn base', () => {
-  const spec = resolveOnboardingSpec('funeral', 'funeral', {
+  const spec = resolveOnboardingSpec('wake', 'wake', {
     intro: null,
     questions: null,
     persona_pack: null,
@@ -209,28 +209,28 @@ test('the closing screen has a solemn arm, and the celebratory arm is unchanged'
 
 // ---- 4. the funeral's own content is reachable and means something ----------
 
-test('the funeral resolves its OWN pack key, with or without the migration', () => {
+test('the wake resolves its OWN pack key, with or without the migration', () => {
   // NULL onboarding_flow_key (prod today, pre-migration) must still reach the
   // funeral's pack — this is the half that does not depend on a db push.
-  const flow = resolveOnboardingFlow({ ...FUNERAL_PROFILE, onboardingFlowKey: null });
-  assert.equal(flow.personaPackKey, 'funeral');
-  assert.ok(PER_TYPE_QUESTIONS.funeral, 'the funeral has no questions');
-  assert.ok(PERSONA_PACKS.funeral, 'the funeral has no starter plan');
+  const flow = resolveOnboardingFlow({ ...WAKE_PROFILE, onboardingFlowKey: null });
+  assert.equal(flow.personaPackKey, 'wake');
+  assert.ok(PER_TYPE_QUESTIONS.wake, 'the wake has no questions');
+  assert.ok(PERSONA_PACKS.wake, 'the wake has no starter plan');
 
-  const spec = resolveOnboardingSpec('funeral', flow.personaPackKey, null, 'solemn');
+  const spec = resolveOnboardingSpec('wake', flow.personaPackKey, null, 'solemn');
   assert.equal(spec.questions.length, 3);
   assert.ok(spec.personaPack, 'the pack must resolve through the same key the page uses');
 });
 
-test('every funeral answer adds a category the funeral can actually reach', () => {
+test('every wake answer adds a category the wake can actually reach', () => {
   let addsSeen = 0;
-  for (const q of PER_TYPE_QUESTIONS.funeral ?? []) {
+  for (const q of PER_TYPE_QUESTIONS.wake ?? []) {
     for (const o of q.options) {
       for (const id of o.adds) {
         addsSeen++;
         assert.ok(
-          FUNERAL_CATEGORIES.has(id),
-          `${q.id}/${o.key} adds "${id}", which a funeral cannot reach — the shell drops it silently`,
+          WAKE_CATEGORIES.has(id),
+          `${q.id}/${o.key} adds "${id}", which a wake cannot reach — the shell drops it silently`,
         );
       }
     }
@@ -238,14 +238,14 @@ test('every funeral answer adds a category the funeral can actually reach', () =
   assert.ok(addsSeen >= 8, `only ${addsSeen} adds — the questions shape nothing`);
 });
 
-test('the funeral starter plan stays inside the eight categories', () => {
-  const pack = PERSONA_PACKS.funeral!;
+test('the wake starter plan stays inside the eight categories', () => {
+  const pack = PERSONA_PACKS.wake!;
   for (const id of pack.essentials) {
-    assert.ok(FUNERAL_CATEGORIES.has(id), `essential "${id}" is out of the funeral's reach`);
+    assert.ok(WAKE_CATEGORIES.has(id), `essential "${id}" is out of the wake's reach`);
   }
   for (const [persona, extras] of Object.entries(pack.byPersona)) {
     for (const id of extras) {
-      assert.ok(FUNERAL_CATEGORIES.has(id), `${persona} extra "${id}" is out of reach`);
+      assert.ok(WAKE_CATEGORIES.has(id), `${persona} extra "${id}" is out of reach`);
     }
   }
   // "no marketing upsells" (the solemn register's own rule): no paid camera rung
@@ -258,12 +258,12 @@ test('the funeral starter plan stays inside the eight categories', () => {
 });
 
 test('the funeral detail screen asks by name for the things a wake has', () => {
-  const keys = getSpecialtyFields('funeral').map((f) => f.key);
+  const keys = getSpecialtyFields('wake').map((f) => f.key);
   for (const k of ['departed_name', 'wake_place', 'pasiyam_start', 'resting_place', 'eulogists']) {
     assert.ok(keys.includes(k), `the funeral detail screen is missing ${k}`);
   }
   // Rosters are never hard-capped (catalog rule 1) — a wake is held up by many.
-  for (const f of getSpecialtyFields('funeral')) {
+  for (const f of getSpecialtyFields('wake')) {
     if (f.type === 'person_roster') {
       assert.ok(f.item_fields && f.item_fields.length > 0, `${f.key} roster has no item fields`);
     }

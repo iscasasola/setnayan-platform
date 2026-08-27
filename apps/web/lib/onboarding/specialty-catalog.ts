@@ -78,9 +78,9 @@ export type SpecialtySpec = {
 
 /** The catalog, keyed by event_type. Concatenated from the per-type culture objects. */
 export const SPECIALTY_CATALOG: Record<string, SpecialtySpec> = {
-  "funeral": {
-    "type": "funeral",
-    "label": "Funeral (Lamay at libing)",
+  "wake": {
+    "type": "wake",
+    "label": "Wake (Lamay at libing)",
     "terminology": "Lamay/burol = the nights of the wake. Pasiyam = the nine nights of prayer after the death. Babang-luksa = the end of mourning, about a year on. Abuloy = the gift of sympathy given to the family.",
     "the_hook": "The pasiyam is asked for by name, and the roster of who is speaking and who is carrying is uncapped \u2014 a Filipino wake is held up by many hands.",
     "avoid": [

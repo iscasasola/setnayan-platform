@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // THAT IS FALSE, and it is what let a wedding word survive on this page.
   // Migration 20270804110223 added `website` to EVERY seeded type ("unlock all
   // now", 2026-07-12) and 20271102084500 re-adds it to any type carrying
-  // `day_of`/`gallery`; GENERIC_PROFILE and FUNERAL_PROFILE both list it. So
+  // `day_of`/`gallery`; GENERIC_PROFILE and WAKE_PROFILE both list it. So
   // this gate is TRUE for every event type in production and refuses nothing —
   // it is an admin config switch, not a wedding filter.
   const websiteOn = event

@@ -5,6 +5,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { COMMITTED_BOOKING_STATUSES } from '@/lib/vendor-addon-first5-free';
 import { vendorBookingIsCommitted } from '@/app/[slug]/_lib/site-identity';
+import { shopsThisAccountMayActFor } from '@/lib/who-may-act-for-a-shop';
 
 /**
  * "IS THE SIGNED-IN VIEWER A SUPPLIER THIS COUPLE BOOKED ON THIS EVENT?" — the
@@ -56,10 +57,20 @@ export type SupplierBooking = {
 /**
  * The booking read, verbatim from the loader it replaces.
  *
- * TWO JOINS, ONE ANSWER. `event_vendors` is the couple's own list of who they
- * booked; `linked_vendor_profile_id` is set once a real Setnayan vendor claims
- * that row. An unclaimed hand-typed "Tita's Catering" resolves to nobody, which
- * is correct — there is no account to send anywhere.
+ * TWO HALVES, ONE ANSWER. First, which SHOPS this account may act for on this
+ * celebration (owner · shop admin · granted staff — see
+ * `lib/who-may-act-for-a-shop.ts`). Then, which of those the couple actually
+ * listed here: `event_vendors` is the couple's own list of who they booked, and
+ * `linked_vendor_profile_id` is set once a real Setnayan vendor claims that row.
+ * An unclaimed hand-typed "Tita's Catering" resolves to nobody, which is correct
+ * — there is no account to send anywhere.
+ *
+ * ⚠ THE FIRST HALF IS THE ONLY THING THAT CHANGED, AND IT CHANGES FOUR SCREENS
+ * AT ONCE — the private-event lock screen, the shared gate the seven sub-pages
+ * ask, the print keepsake, and the supplier capability behind the desk and
+ * "one of the people of this celebration". They all ask this one question on
+ * purpose; widening it widens all four, which is the point and is why the list
+ * is written here rather than left to be discovered.
  *
  * WHICH ROW, WHEN THERE ARE SEVERAL. A couple can book two businesses belonging
  * to the same person (a caterer who is also the florist). It reads every
@@ -81,11 +92,57 @@ export const loadVendorBooking = cache(
   async (eventId: string, userId: string): Promise<SupplierBooking | null> => {
     const admin = createAdminClient();
 
-    // The businesses this user owns or administers.
+    // ── WHICH SHOPS THIS ACCOUNT MAY ACT FOR, ON THIS CELEBRATION ──────────
+    //
+    // 🔴 THIS USED TO BE ONE QUERY — `vendor_profiles.user_id = userId` — WHICH
+    // MEANT THE SHOP'S REGISTERED OWNER AND NOBODY ELSE. The comment above it
+    // said "owns or administers"; the query only ever asked the first. So the
+    // photographer's second shooter, sent to run the day, was turned away from
+    // the celebration their own shop is booked for — while the shop's own
+    // day-of console and `get_vendor_event_brief` (profile owner UNION
+    // `vendor_team_members`) had admitted them all along. The narrow copy was
+    // the one deciding the celebration page.
+    //
+    // ⚖ OWNER RULING 2026-08-27, built as given: *"the staff who handles the
+    // event will handle the event fully but the vendor owner also has access to
+    // oversight all their business"*, with 2026-08-26's *"the ones they were
+    // given"*. The rule those two sentences make is in
+    // `lib/who-may-act-for-a-shop.ts`, pure and pinned; only the FACTS are read
+    // here.
+    //
+    // 🔒 THE GRANT READ CARRIES THE EVENT. A grant is per (shop, event), so it
+    // is filtered to THIS event and to `revoked_at IS NULL` in SQL — the rule
+    // module has no event id and cannot re-check it. Revoking a grant closes
+    // this in the same instant.
+    const [ownedRes, teamRes, grantRes] = await Promise.all([
+      admin.from('vendor_profiles').select('vendor_profile_id').eq('user_id', userId),
+      admin.from('vendor_team_members').select('vendor_profile_id, role').eq('user_id', userId),
+      admin
+        .from('vendor_event_access_grants')
+        .select('vendor_profile_id')
+        .eq('event_id', eventId)
+        .eq('grantee_user_id', userId)
+        .is('revoked_at', null),
+    ]);
+
+    const actingFor = shopsThisAccountMayActFor({
+      ownedProfileIds: ((ownedRes.data ?? []) as { vendor_profile_id: string }[]).map(
+        (v) => v.vendor_profile_id,
+      ),
+      teamRows: ((teamRes.data ?? []) as { vendor_profile_id: string; role: string | null }[]).map(
+        (t) => ({ vendorProfileId: t.vendor_profile_id, role: t.role }),
+      ),
+      grantedProfileIds: ((grantRes.data ?? []) as { vendor_profile_id: string }[]).map(
+        (g) => g.vendor_profile_id,
+      ),
+    });
+    if (actingFor.length === 0) return null;
+
+    // Their trading names — the desk and the doorway both say whose shop it is.
     const { data: mine } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
-      .eq('user_id', userId);
+      .in('vendor_profile_id', actingFor);
     const owned = (mine ?? []) as { vendor_profile_id: string; business_name: string }[];
     if (owned.length === 0) return null;
 

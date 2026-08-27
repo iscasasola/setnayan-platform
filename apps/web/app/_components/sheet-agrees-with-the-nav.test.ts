@@ -42,11 +42,12 @@ const NAV_CODE = strip(NAV);
 /** The breakpoint at which the phone bottom bar stops being drawn. */
 function navPhoneCeiling(): string {
   const m = /\b(sm|md|lg|xl|2xl):hidden\b/.exec(NAV_CODE);
+  const bp = m?.[1];
   assert.ok(
-    m,
+    bp,
     'the bottom nav no longer hides at a breakpoint — this guard has lost the side it measures against',
   );
-  return m![1];
+  return bp;
 }
 
 /** The breakpoint at which the sheet stops being a bottom sheet. */
@@ -54,11 +55,12 @@ function sheetDockPoint(): string {
   // The dock is expressed as `<bp>:justify-end` on the positioning wrapper —
   // that is the single line that turns a bottom sheet into a side drawer.
   const m = /\b(sm|md|lg|xl|2xl):justify-end\b/.exec(SHEET_CODE);
+  const bp = m?.[1];
   assert.ok(
-    m,
+    bp,
     'the sheet no longer docks with a `:justify-end` — if the layout was rewritten, re-point this guard rather than deleting it',
   );
-  return m![1];
+  return bp;
 }
 
 test('🚨 the sheet docks exactly where the phone navigation gives up', () => {
@@ -93,9 +95,11 @@ test('the wide drawer is still wider than the narrow one', () => {
   // invert without any test noticing.
   const wide = /:w-\[min\((\d+(?:\.\d+)?)rem/.exec(SHEET_CODE);
   const narrow = /:w-\[(\d+(?:\.\d+)?)rem\]/.exec(SHEET_CODE);
-  assert.ok(wide && narrow, 'the two drawer widths are no longer both expressed in rem');
+  const w = wide?.[1];
+  const n = narrow?.[1];
+  assert.ok(w && n, 'the two drawer widths are no longer both expressed in rem');
   assert.ok(
-    Number(wide![1]) > Number(narrow![1]),
-    `the "wide" drawer (${wide![1]}rem) is not wider than the default (${narrow![1]}rem)`,
+    Number(w) > Number(n),
+    `the "wide" drawer (${w}rem) is not wider than the default (${n}rem)`,
   );
 });

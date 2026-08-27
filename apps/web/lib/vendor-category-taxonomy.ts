@@ -54,6 +54,12 @@ export type CanonicalMapping =
  * runtime drift.
  */
 export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping> = {
+  // ── Opened to the marketplace 2026-08-27 (owner ruling) ────────────────────
+  // *"marriage-paper helper yes. honeymoon planner yes"* — both are people a
+  // couple hires, unlike the officiant two lines down, who comes with the
+  // parish. Clean 1:1 onto the branches that already carried their names.
+  wedding_paperwork: { kind: 'tile', tile: 'wedding_paperwork' },
+  travel_honeymoon: { kind: 'tile', tile: 'travel_honeymoon' },
   // ── A · clean 1:1 ──────────────────────────────────────────────────────────
   venue: { kind: 'tile', tile: 'reception' },
   religious_venue: { kind: 'tile', tile: 'ceremony_venue' },

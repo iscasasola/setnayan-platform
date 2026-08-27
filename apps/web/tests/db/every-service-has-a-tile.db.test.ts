@@ -36,13 +36,26 @@ import { createReplayedDb, type ReplayResult } from './replay-migrations';
 let replay: ReplayResult;
 let db: PGlite;
 
-/** The four branches that exist to hold deliberately-unsold services. */
-const ADMIN_ONLY_BRANCHES = [
-  'officiants',
-  'counseling_seminars',
-  'wedding_paperwork',
-  'travel_honeymoon',
-] as const;
+/**
+ * The branches that exist to hold deliberately-unsold services.
+ *
+ * ⚠ WAS FOUR, IS TWO — and this list shrank because the OWNER shrank it, not
+ * because a test went red. Ruling 2026-08-27, verbatim: *"for priest (there are
+ * rules) so this needs to be under their church (which is at the ceremony
+ * venue). marriage-paper helper yes. honeymoon planner yes"* —
+ * `wedding_paperwork` and `travel_honeymoon` went on sale in migration
+ * 20271173139836. `counseling_seminars` stayed because he was not asked about
+ * it, not because anything decided it should.
+ *
+ * 🔑 REMOVING A LINE HERE IS A PRODUCT DECISION, NOT A FIX. Case 5 is what
+ * makes it one: it fails the moment a service under one of these becomes
+ * marketplace-visible, so opening a category cannot happen as a side effect of
+ * a refactor — somebody has to come here and delete the name on purpose.
+ */
+const ADMIN_ONLY_BRANCHES = ['officiants', 'counseling_seminars'] as const;
+
+/** Branches the owner OPENED — pinned so they cannot silently close again. */
+const OPENED_BRANCHES = ['wedding_paperwork', 'travel_honeymoon'] as const;
 
 before(async () => {
   replay = await createReplayedDb();
@@ -171,8 +184,8 @@ test('filing did NOT make the unsold services sellable', async () => {
 });
 
 test('the branches that hold the unsold services hold ALL of them', async () => {
-  // A floor, not a total: pinning the exact 30 would go red the moment a
-  // legitimate 31st celebrant is added, and a maintainer would relax it. What
+  // A floor, not a total: pinning an exact count goes red the moment a
+  // legitimate extra celebrant is added, and a maintainer would relax it. What
   // must never happen is the count sliding back toward zero.
   const r = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n
@@ -180,8 +193,51 @@ test('the branches that hold the unsold services hold ALL of them', async () => 
       WHERE tile_id = ANY($1::text[])`,
     [[...ADMIN_ONLY_BRANCHES]],
   );
+  // 30 filed by 20271172444653, minus the 5 the owner put on sale in
+  // 20271173139836 = 25.
   assert.ok(
-    (r.rows[0]?.n ?? 0) >= 30,
-    `expected at least the 30 services migration 20271172444653 filed, found ${r.rows[0]?.n}`,
+    (r.rows[0]?.n ?? 0) >= 25,
+    `expected at least the 25 services still filed under the admin-only branches, found ${r.rows[0]?.n}`,
+  );
+});
+
+test('the two branches the owner opened are on sale, and reachable', async () => {
+  // The mirror of case 5. "Everything is filed" and "nothing leaked" are both
+  // satisfied by a change that quietly re-hides these — which would take five
+  // services off the marketplace with no error anywhere, the same silence this
+  // whole file exists to break.
+  const branches = await db.query<{ id: string; hidden: boolean; visible_leaves: number }>(
+    `SELECT c.id,
+            c.marketplace_hidden AS hidden,
+            (SELECT count(*)::int FROM canonical_service_taxonomy t
+              WHERE t.tile_id = c.id AND coalesce(t.marketplace_hidden,false) = false) AS visible_leaves
+       FROM service_categories c
+      WHERE c.id = ANY($1::text[])`,
+    [[...OPENED_BRANCHES]],
+  );
+  assert.equal(branches.rows.length, OPENED_BRANCHES.length, 'an opened branch has gone missing');
+  for (const b of branches.rows) {
+    assert.equal(b.hidden, false, `${b.id} was re-hidden — the owner opened it on 2026-08-27`);
+    assert.ok(
+      b.visible_leaves > 0,
+      `${b.id} is visible but every service under it is hidden — a branch a couple ` +
+        'can open and find nothing in, which /explore prunes silently',
+    );
+  }
+
+  // A visible branch under a HIDDEN parent is invisible anyway — getCoverage
+  // Taxonomy drops the whole subtree. Opening a branch means opening its path.
+  const orphaned = await db.query<{ id: string; parent_id: string }>(
+    `SELECT c.id, c.parent_id
+       FROM service_categories c
+       JOIN service_categories p ON p.id = c.parent_id
+      WHERE c.id = ANY($1::text[])
+        AND (coalesce(p.marketplace_hidden,false) = true OR coalesce(p.status,'') = 'retired')`,
+    [[...OPENED_BRANCHES]],
+  );
+  assert.deepEqual(
+    orphaned.rows.map((o) => `${o.id} hangs off hidden/retired ${o.parent_id}`),
+    [],
+    'an opened branch sits under a folder nobody can reach',
   );
 });

@@ -35,4 +35,22 @@ An unbuilt board is not a full one. The couple was asked to **delete their own w
 
 Safe by arithmetic today: production holds 40 missions across 2 events, **all** of them Setnayan fills placed by the service-role guest path, and **zero** couple picks — so no couple's own choice has ever been resolved onto a board, and there is no existing board for this to disturb.
 
+**The exposure baseline gains exactly one line, and here is why it was accepted rather than narrowed.**
+
+`supabase/security/exposure-surface.baseline.txt` is a generated file with no room for a reason on the line itself, so the reason lives in the migration beside the `GRANT` and is summarised here. The line added is:
+
+```
+func  public.ensure_papic_board(p_event_id uuid)  secdef=yes exec=authenticated search_path=public
+```
+
+**Counted, not assumed:** 6216 → 6217 facts. **One** capability line added, **zero** removed, **zero** occurrences of `anon` on the added line. Nothing else was swept in.
+
+Accepted because all three hold:
+
+1. **The grant names `authenticated` only** — not `PUBLIC` (which would include `anon`), not `anon`. The generated fact independently agrees: it reads `exec=authenticated`.
+2. **The function authorizes its own caller.** Being `authenticated` is not enough — a signed-in stranger is refused by the function's own `RAISE`; you must be the event's couple/coordinator or an admin. That is exactly what the freeze asks of a `SECURITY DEFINER` function PostgREST publishes.
+3. **It restores a privilege lost to an unpaired REVOKE.** This is the baseline catching up with an accident being undone, not new reach. The sibling `ensure_papic_auto_missions(uuid)` has carried the identical fact all along.
+
+⚠ **The caveat that matters more than the fix.** The in-function authorization block is *skipped* when `auth.uid()` IS NULL — deliberately, because that is how `service_role` calls it. The safety of this grant therefore rests **entirely on `anon` never holding EXECUTE**. Granting `anon` later would not merely widen this one line; it would hand the board builder to strangers on every event with the guard silently skipped. Verified against production before granting: the live ACL was `{postgres=X/postgres,service_role=X/postgres}` — neither `anon` nor `authenticated` held EXECUTE, which is the accident this migration undoes.
+
 SPEC IMPACT: None — no SKU, price, or product rule changes. `BOARD_SIZE` (10) and the couple/vendor lane split are untouched; this restores a privilege that was lost by accident and stops one screen making a claim it cannot support.

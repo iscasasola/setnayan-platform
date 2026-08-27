@@ -47,6 +47,38 @@
 -- deliberately does not disturb it.
 --
 -- Idempotent: GRANT is a no-op when the privilege is already held.
+--
+-- ── WHY THE EXPOSURE BASELINE ADMITS THIS, recorded here because
+--    `supabase/security/exposure-surface.baseline.txt` is a GENERATED file with
+--    no room for a reason on the line itself. The line it gains is exactly:
+--
+--      func  public.ensure_papic_board(p_event_id uuid)
+--            secdef=yes exec=authenticated search_path=public
+--
+--    ONE capability, and the regeneration absorbed nothing else — counted, not
+--    assumed: 6216 → 6217 facts, one line added, zero removed.
+--
+--    It is admitted rather than narrowed because all three of these hold:
+--      1. The grant names `authenticated` ONLY. Not PUBLIC (which would sweep in
+--         `anon`), not `anon`. The generated fact agrees — it reads
+--         `exec=authenticated`, with no `anon` on it.
+--      2. THE FUNCTION AUTHORIZES ITS OWN CALLER. A signed-in stranger is
+--         refused by the RAISE above; being `authenticated` is not enough, you
+--         must be the event's couple/coordinator or an admin. That is precisely
+--         what the freeze asks of a SECURITY DEFINER function it publishes.
+--      3. It RESTORES a privilege lost to an unpaired REVOKE, so this is the
+--         baseline catching up with an accident being undone — not new reach.
+--         Its sibling `ensure_papic_auto_missions(uuid)` has carried the
+--         identical fact all along.
+--
+--    ⚠ THE LOAD-BEARING CAVEAT FOR WHOEVER TOUCHES THIS NEXT: the authorization
+--    block is SKIPPED when `auth.uid()` IS NULL, deliberately — that is how
+--    `service_role` calls it. So the safety of this grant rests ENTIRELY on
+--    `anon` never holding EXECUTE. Granting anon later would not merely widen
+--    this line; it would hand the board builder to strangers on every event,
+--    with the in-function guard silently skipped. Verified against production
+--    before granting: the live ACL was `{postgres=X/postgres,service_role=X/postgres}`
+--    — neither `anon` nor `authenticated` held EXECUTE.
 
 GRANT EXECUTE ON FUNCTION public.ensure_papic_board(uuid) TO authenticated;
 

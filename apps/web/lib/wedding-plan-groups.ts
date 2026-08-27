@@ -46,6 +46,11 @@ import {
 } from '@/lib/taxonomy';
 
 export type PlanGroupId =
+  // A wake's own sections (2026-08-27) — see the three groups at the end of
+  // PLAN_GROUPS and `planGroupsForEventType`.
+  | 'farewell_home'
+  | 'farewell_cremation'
+  | 'farewell_memorial_park'
   // Foundation tier
   | 'ceremony_venue'
   | 'reception_venue'
@@ -153,6 +158,18 @@ export type PlanGroup = {
    * 2026-05-22 22-card grid expansion.
    */
   subcategoryHint?: string;
+  /**
+   * Event types this card belongs to. OMITTED = every type, which is what all
+   * 40-odd wedding-shaped groups are and must stay: adding a scope to them
+   * would be a behaviour change dressed as a refactor.
+   *
+   * 🔑 IT SCOPES WHAT A PERSON SEES, NEVER HOW A PICK BUCKETS.
+   * `planGroupForCategory` stays unfiltered on purpose — a category resolves to
+   * its group whatever the event is, so a stored pick can never become
+   * unbucketable by looking at it from the wrong screen. The filter belongs on
+   * the render, and only there.
+   */
+  eventTypes?: ReadonlyArray<string>;
   /**
    * When false, this card is an entry-point card only — it doesn't
    * bucket-receive vendor picks (its `categories` array is empty), and
@@ -642,6 +659,56 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     monthsBefore: 2,
     catalogFolder: 'transport',
   },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // A WAKE'S OWN SECTIONS — owner 2026-08-27 ("1 first then 2 after")
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // ⚖ WHAT THIS REPLACES. A wake borrowed the wedding's plan wholesale, so the
+  // funeral home — the single largest thing a family arranges — bucketed into
+  // "Logistics & Misc" beside the giveaways and the security detail. Nothing
+  // errored; the number was simply filed under the wrong heading, on the screen
+  // a grieving family uses to work out what they can afford.
+  //
+  // ⏱ `monthsBefore` IS A LIE HERE AND IS SET TO 0 DELIBERATELY. Every other
+  // card answers "how long before the day should this be locked" — a wedding is
+  // planned for a year. A death is not planned at all: the funeral home is
+  // chosen within hours, and a countdown to it would be obscene. 0 means "now",
+  // which is the only honest value, and the solemn register already suppresses
+  // the countdown rendering (`the-wake-never-celebrates`).
+  {
+    id: 'farewell_home',
+    label: 'Funeral home',
+    hint: 'The chapel or home wake, the casket, the preparation, the hearse.',
+    tier: 'foundation',
+    categories: ['funeral_home'],
+    monthsBefore: 0,
+    catalogFolder: 'farewell',
+    catalogTile: 'funeral_home',
+    eventTypes: ['wake'],
+  },
+  {
+    id: 'farewell_cremation',
+    label: 'Cremation',
+    hint: 'The crematorium, and a niche if the family wants one.',
+    tier: 'foundation',
+    categories: ['cremation'],
+    monthsBefore: 0,
+    catalogFolder: 'farewell',
+    catalogTile: 'cremation',
+    eventTypes: ['wake'],
+  },
+  {
+    id: 'farewell_memorial_park',
+    label: 'Memorial park',
+    hint: 'The lot or mausoleum, and the interment itself.',
+    tier: 'foundation',
+    categories: ['memorial_park'],
+    monthsBefore: 0,
+    catalogFolder: 'farewell',
+    catalogTile: 'memorial_park',
+    eventTypes: ['wake'],
+  },
 ];
 
 /**
@@ -747,6 +814,24 @@ export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
  * their categories array is empty by definition; vendor rows with
  * shared VendorCategory enum values resolve to the primary card.
  */
+/**
+ * The plan cards a given event type actually shows.
+ *
+ * ⚖ A WAKE BORROWED THE WEDDING'S BUDGET SECTIONS UNTIL NOW, so a funeral home
+ * landed in "Logistics & Misc" beside the giveaways. Owner 2026-08-27, having
+ * ruled that death-care suppliers are listed: *"1 first then 2 after"* — this is
+ * the after.
+ *
+ * An unscoped group belongs to every type (that is every wedding-shaped card
+ * here, unchanged). A scoped one shows only where it is named.
+ */
+export function planGroupsForEventType(
+  eventType: string | null | undefined,
+): ReadonlyArray<PlanGroup> {
+  const t = eventType ?? 'wedding';
+  return PLAN_GROUPS.filter((g) => !g.eventTypes || g.eventTypes.includes(t));
+}
+
 export function planGroupForCategory(
   category: VendorCategory,
 ): PlanGroupId | null {

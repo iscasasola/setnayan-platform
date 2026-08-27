@@ -140,6 +140,19 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   personal_accident_insurance: 'personal_accident_insurance',
   travel_insurance: 'travel_insurance',
   reveal_element: 'reveal_element',
+
+  // ── Farewell — a wake's own suppliers (2026-08-27) ────────────────────────
+  // ⚖ FOUR BRANCHES FOLD INTO ONE COARSE CATEGORY, deliberately. In the
+  // Philippines the funeral home IS the bundled business: it holds the chapel,
+  // does the embalming, sells the casket and provides the hearse. A family
+  // looking for any of those looks for a funeral home. A memorial park and a
+  // crematorium are separate trades and keep their own.
+  funeral_home: 'funeral_home',
+  casket_urn: 'funeral_home',
+  embalming: 'funeral_home',
+  hearse: 'funeral_home',
+  cremation: 'cremation',
+  memorial_park: 'memorial_park',
 };
 
 /** The coarse category for a branch, or null when the branch is unknown here. */

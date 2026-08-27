@@ -67,7 +67,11 @@ export type WeddingFolder =
   | 'dining'
   | 'logistics_safety'
   | 'insurance'
-  | 'specialty';
+  | 'specialty'
+  // ── A wake's own trades (2026-08-27). Same shape as the gap-leaf families
+  //    above: a folder that is not a wedding's, living in a vocabulary whose
+  //    name predates the product having more than one kind of event.
+  | 'farewell';
 
 /** Canonical render order for the catalog (parent tabs). */
 export const WEDDING_FOLDER_ORDER: ReadonlyArray<WeddingFolder> = [
@@ -86,6 +90,8 @@ export const WEDDING_FOLDER_ORDER: ReadonlyArray<WeddingFolder> = [
   'logistics_safety',
   'insurance',
   'specialty',
+  // A wake's own trades — last, so no celebration's catalog changes shape.
+  'farewell',
 ];
 
 /**
@@ -107,6 +113,7 @@ export const WEDDING_FOLDER_ORDER: ReadonlyArray<WeddingFolder> = [
  * `scripts/gen-taxonomy-seed.ts`. Change one, change both.
  */
 export const WEDDING_FOLDER_LABEL: Record<WeddingFolder, string> = {
+  farewell: 'Funeral homes & farewell',
   venue: 'Venues & churches',
   planning: 'Coordinators & planners',
   feast: 'Catering & cake',
@@ -132,6 +139,7 @@ export const WEDDING_FOLDER_LABEL: Record<WeddingFolder, string> = {
  * lockstep rule as the long labels above: the DB carries its own copy.
  */
 export const WEDDING_FOLDER_SHORT_LABEL: Record<WeddingFolder, string> = {
+  farewell: 'Farewell',
   venue: 'Venues',
   planning: 'Planners',
   feast: 'Catering',
@@ -151,6 +159,7 @@ export const WEDDING_FOLDER_SHORT_LABEL: Record<WeddingFolder, string> = {
 
 /** URL slug for catalog scroll-anchoring + `?folder=` scoping. */
 export const WEDDING_FOLDER_SLUG: Record<WeddingFolder, string> = {
+  farewell: 'farewell',
   venue: 'venue',
   planning: 'planning',
   feast: 'feast',
@@ -280,7 +289,17 @@ export type WeddingTile =
   | 'personal_accident_insurance'
   | 'travel_insurance'
   // SPECIALTY
-  | 'reveal_element';
+  | 'reveal_element'
+  // FAREWELL — a wake's own trades (2026-08-27)
+  // ⚠ The type is called WeddingTile and these are not weddings. That name was
+  // already outgrown before this: tour_guide, referee_official and travel
+  // insurance live here too. What keeps a crematorium off a couple's Shortlist
+  // is the tile's own `applicable_event_types` scope, NOT its absence from this
+  // union — a missing tile drops the pick SILENTLY, which is the exact defect
+  // this file's coverage test was written after.
+  | 'funeral_home'
+  | 'cremation'
+  | 'memorial_park';
 
 /**
  * ADMIN-ONLY TILES — branches a couple never sees, and never should.
@@ -406,6 +425,9 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   personal_accident_insurance: 'insurance',
   travel_insurance: 'insurance',
   reveal_element: 'specialty',
+  funeral_home: 'farewell',
+  cremation: 'farewell',
+  memorial_park: 'farewell',
 };
 
 /** Tile render order (grouped by parent, in parent order). */
@@ -500,10 +522,17 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'travel_insurance',
   // SPECIALTY
   'reveal_element',
+  // FAREWELL
+  'funeral_home',
+  'cremation',
+  'memorial_park',
 ];
 
 /** Tile heading + card label. */
 export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
+  funeral_home: 'Funeral Home',
+  cremation: 'Cremation',
+  memorial_park: 'Memorial Park',
   reception: 'Reception',
   ceremony_venue: 'Ceremony',
   officiants: 'Officiants',
@@ -583,6 +612,9 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
 
 /** URL slug for tile-scoped vendor-grid (`?tile=`). */
 export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
+  funeral_home: 'funeral-homes',
+  cremation: 'cremation',
+  memorial_park: 'memorial-parks',
   reception: 'reception',
   ceremony_venue: 'ceremony-venue',
   officiants: 'officiants',
@@ -664,6 +696,7 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
 export const WEDDING_TILES_BY_PARENT: Record<WeddingFolder, WeddingTile[]> =
   (() => {
     const map: Record<WeddingFolder, WeddingTile[]> = {
+      farewell: [],
       venue: [],
       planning: [],
       feast: [],
@@ -823,6 +856,31 @@ export type TaxonomyEntry = {
  * are unchanged — vendors keep their `services[]` tags; this is a re-grouping.
  */
 export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
+  // ════════════════════════════════════════════════════════════════════
+  // FAREWELL — a wake's own trades (owner 2026-08-27: yes, we list them)
+  // ════════════════════════════════════════════════════════════════════
+  // ⚠ WITHOUT THESE THE THREE FAREWELL TILES ARE DEAD SHELVES. Marketplace
+  // search short-circuits on zero canonicals and the vendor picker prunes the
+  // branch, so the trade becomes unfindable with no error anywhere — which is
+  // the opposite of the ruling. `KNOWN_DEAD_TILES` was the other door and is
+  // the wrong one: its own guard says an entry there records a known-BROKEN
+  // shelf and is not a way to make the test green.
+  //
+  // 🇵🇭 `body_repatriation` is not padding. A Filipino family burying an OFW
+  // is arranging exactly this, and no wedding-shaped taxonomy would ever have
+  // produced it.
+  funeral_chapel: { folder: 'farewell', tile: 'funeral_home', phase: 'V1.5+', ph: true },
+  wake_package: { folder: 'farewell', tile: 'funeral_home', phase: 'V1.5+', ph: true },
+  casket: { folder: 'farewell', tile: 'funeral_home', phase: 'V1.5+' },
+  urn: { folder: 'farewell', tile: 'funeral_home', phase: 'V1.5+' },
+  embalming_preparation: { folder: 'farewell', tile: 'funeral_home', phase: 'V1.5+' },
+  hearse_funeral_transport: { folder: 'farewell', tile: 'funeral_home', phase: 'V1.5+' },
+  body_repatriation: { folder: 'farewell', tile: 'funeral_home', phase: 'V1.5+', ph: true },
+  cremation_service: { folder: 'farewell', tile: 'cremation', phase: 'V1.5+' },
+  columbarium_niche: { folder: 'farewell', tile: 'cremation', phase: 'V1.5+', ph: true },
+  memorial_lot: { folder: 'farewell', tile: 'memorial_park', phase: 'V1.5+', ph: true },
+  interment_service: { folder: 'farewell', tile: 'memorial_park', phase: 'V1.5+' },
+  mausoleum: { folder: 'farewell', tile: 'memorial_park', phase: 'V1.5+', ph: true },
   // ════════════════════════════════════════════════════════════════════
   // VENUE — Reception + Ceremony are venue_directory / venue_setting backed.
   //   Officiants + pre-marriage + paperwork stay in the map but are

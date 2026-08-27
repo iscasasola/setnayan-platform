@@ -103,12 +103,17 @@ import {
   Video,
   Wand2,
   type LucideIcon,
+  Feather,
+  Flame,
 } from 'lucide-react';
 
 import type { WeddingFolder, WeddingTile } from '@/lib/taxonomy';
 
 /** Tile → Coverage Strip icon. Exhaustive over `WeddingTile` by construction. */
 export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
+  funeral_home: Feather,
+  cremation: Flame,
+  memorial_park: TreePine,
   // VENUE
   reception: PartyPopper,
   ceremony_venue: Church,
@@ -243,6 +248,7 @@ export function tileIcon(tile: string): LucideIcon {
  * it gets an icon.
  */
 export const WEDDING_FOLDER_ICON: Record<WeddingFolder, LucideIcon> = {
+  farewell: Feather,
   venue: Building2,
   planning: ClipboardList,
   feast: UtensilsCrossed,

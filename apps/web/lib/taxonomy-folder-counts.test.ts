@@ -53,6 +53,14 @@ const BASELINE: Record<string, number> = {
   logistics_safety: 2,
   insurance: 3,
   specialty: 1,
+  // NEW 2026-08-27 (second change that day): a wake's own trades — owner ruled
+  // yes to listing death-care suppliers. 12 services under three tiles
+  // (funeral home · cremation · memorial park).
+  //
+  // 🔑 THE ARITHMETIC AGAIN: +12 here and EVERY OTHER FOLDER UNCHANGED. These
+  // are new services, not moved ones — nothing left another folder to get here,
+  // which is what a -n/+n pair would have shown.
+  farewell: 12,
 };
 
 test('every folder count matches the measured baseline', () => {
@@ -72,12 +80,13 @@ test('every folder count matches the measured baseline', () => {
   );
 });
 
-test('the countable total is 241 of the 276 taxonomy entries', () => {
+test('the countable total is 253 of the 288 taxonomy entries', () => {
   const total = Object.values(FOLDER_SERVICE_COUNT).reduce((a, b) => a + b, 0);
   assert.equal(
     total,
-    // 236 + the 5 services the owner put on sale 2026-08-27.
-    241,
+    // 236 + the 5 put on sale 2026-08-27 + the 12 farewell services added the
+    // same day = 253. Re-derived from the two deltas, not bumped to match.
+    253,
     'the two exclusions (marketplaceHidden, setnayan) must both still apply',
   );
 });

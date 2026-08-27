@@ -14,7 +14,6 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
-  VENDOR_CATEGORY_LABEL,
   displayServiceLabel,
   formatPhp,
   isCanonicalService,
@@ -1058,9 +1057,7 @@ export async function renderVendorBySlug({
       const explicitLabel =
         (link as { linked_label?: string | null }).linked_label ?? null;
       if (!anchor || !canonical) continue;
-      const label =
-        explicitLabel?.trim() ||
-        (isCanonicalService(canonical) ? displayServiceLabel(canonical) : canonical);
+      const label = explicitLabel?.trim() || displayServiceLabel(canonical);
       const bucket = linkedByService.get(anchor);
       if (bucket) bucket.push(label);
       else linkedByService.set(anchor, [label]);
@@ -1072,10 +1069,7 @@ export async function renderVendorBySlug({
   // (source='couple_added'). Whether to SHOW it also depends on coupleEventId,
   // resolved further below (after the viewer's events load).
   const serviceLabel = (s: VendorServiceRow): string =>
-    (s.title?.trim() ||
-      (isCanonicalService(s.category)
-        ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
-        : s.category)) as string;
+    s.title?.trim() || displayServiceLabel(s.category);
   const servicePriceLabel = (s: VendorServiceRow): string =>
     !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0
       ? `from ${formatPhp(s.starting_price_php)}`
@@ -1420,9 +1414,7 @@ export async function renderVendorBySlug({
       ])
     : [[], null];
   const requirementCategoryLabel = requirementCategoryKey
-    ? isCanonicalService(requirementCategoryKey)
-      ? displayServiceLabel(requirementCategoryKey)
-      : requirementCategoryKey
+    ? displayServiceLabel(requirementCategoryKey)
     : null;
 
   // ── PER-SERVICE inquiry context (flag: NEXT_PUBLIC_SERVICE_DETAILS_ENABLED) ─
@@ -1519,9 +1511,7 @@ export async function renderVendorBySlug({
           priceLabel: servicePriceLabel(s),
           leadTierNote: leadTierNoteFor(s),
           categoryKey: s.category,
-          categoryLabel: isCanonicalService(s.category)
-            ? displayServiceLabel(s.category)
-            : s.category,
+          categoryLabel: displayServiceLabel(s.category),
           linked: (linkedByService.get(s.vendor_service_id) ?? []).map((label) => ({
             label,
           })),
@@ -1708,9 +1698,7 @@ export async function renderVendorBySlug({
   // GEO enrichment → Solo+ (seoPlan.entityGraph); always on while the gate is
   // dark.
   if (seoPlan.entityGraph && Array.isArray(vendor.services) && vendor.services.length > 0) {
-    vendorJsonLd.knowsAbout = vendor.services.map((s: string) =>
-      isCanonicalService(s) ? displayServiceLabel(s) : s,
-    );
+    vendorJsonLd.knowsAbout = vendor.services.map((s: string) => displayServiceLabel(s));
   }
 
   // Aggregate rating ONLY when real reviews exist. Never invent ratings.
@@ -1796,7 +1784,7 @@ export async function renderVendorBySlug({
         position: i + 1,
         itemOffered: {
           '@type': 'Service',
-          name: isCanonicalService(s) ? displayServiceLabel(s) : s,
+          name: displayServiceLabel(s),
           provider: { '@id': `${SITE_URL}/${slug}#business` },
         },
       })),
@@ -3279,9 +3267,14 @@ function toServiceCard(
    *  the flag-OFF card ships exactly the bytes it ships today. */
   detailsEnabled: boolean,
 ): ServiceCard {
-  const label = isCanonicalService(row.category)
-    ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
-    : row.category;
+  // ⚠ MUST read the vendor's own title first. This card is what the
+  // maker's live preview promises "exactly what couples see" — a card
+  // authored with a name (or the maker's own kind-derived default) must
+  // show that name, not silently fall back to the bare category. And for
+  // a CUSTOM category the fallback must go through `displayServiceLabel`,
+  // never the raw stored key — see its own docblock on why a couple must
+  // never be shown a database key on this exact card.
+  const label = row.title?.trim() || displayServiceLabel(row.category);
   const priceLabel =
     !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`

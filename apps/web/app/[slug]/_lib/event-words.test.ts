@@ -22,8 +22,11 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { eventWordsFromProfile } from './event-words';
+import { articleFor, eventWordsFromProfile } from './event-words';
 import {
   WEDDING_PROFILE,
   GENERIC_PROFILE,
@@ -206,4 +209,41 @@ test('the typographic apostrophe is used, never the straight one', () => {
   const w = eventWordsFromProfile(WEDDING_PROFILE);
   assert.ok(w.theOrganizerPossessive.includes('’'));
   assert.ok(!w.theOrganizerPossessive.includes("'"));
+});
+
+test('the indefinite article follows the resolved noun, not the wedding it replaced', () => {
+  // 🪤 A BUG THAT WAS REAL FOR A FEW MINUTES AND WAS CAUGHT BY RENDERING THE
+  // SENTENCE, NOT BY READING IT. The co-host invitation door carried the literal
+  // "a wedding"; replacing it with `a ${w.eventWord}` reads correctly for the two
+  // nouns anyone looks at — "a wedding", "a wake" — and "A EVENT" for the generic
+  // profile, "a anniversary" for an anniversary. The moment a noun stops being
+  // hardcoded, its GRAMMAR stops being hardcoded with it.
+  assert.equal(articleFor('wedding'), 'a');
+  assert.equal(articleFor('wake'), 'a');
+  assert.equal(articleFor('birthday'), 'a');
+  assert.equal(articleFor('event'), 'an');
+  assert.equal(articleFor('anniversary'), 'an');
+  // Case and stray whitespace: this noun comes from an admin-editable table.
+  assert.equal(articleFor('  Event '), 'an');
+});
+
+test('the co-host door builds its event name through that article', () => {
+  // The door is SCANNED rather than imported: it is an async server component
+  // that reads a database, so calling it here would need a live Supabase. What
+  // is pinned is that the article is a CALL, not a concatenation.
+  const src = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'host', 'accept', '[token]', 'page.tsx'),
+    'utf8',
+  );
+  assert.match(
+    src,
+    /articleFor\(w\.eventWord\)\}\s*\$\{w\.eventWord\}/,
+    'the co-host invitation must build "a wake" / "an event" through articleFor, ' +
+      'never by concatenating a bare article onto a resolved noun',
+  );
+  assert.doesNotMatch(
+    src,
+    /\?\?\s*`a \$\{w\.eventWord\}`/,
+    'a bare "a ${w.eventWord}" renders "a event" — use articleFor',
+  );
 });

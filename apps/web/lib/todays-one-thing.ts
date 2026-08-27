@@ -104,6 +104,10 @@ export type ResolvedTask = {
  * aware, planner-tone, no jargon, no marketing fluff.
  */
 const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
+  wedding_paperwork:
+    'The licence is only good for 120 days, and the CENOMAR plus your parish papers take weeks to gather. A helper does the queuing so the clock never runs out on you.',
+  travel_honeymoon:
+    'Flights and resorts only get dearer, and the good dates go first. Sort the trip once your wedding date is fixed.',
   wellness_fitness:
     'Skin, teeth and fitness plans need months, not weeks — derma courses and dental work run 3-6 months before the first fitting.',
   guest_booth:
@@ -170,6 +174,8 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
  * "explore" / "find" maps cleanly to the deep-link destination.
  */
 const CTA_LABEL: Record<PlanGroupId, string> = {
+  wedding_paperwork: 'Find a paperwork helper',
+  travel_honeymoon: 'Browse honeymoon planners',
   wellness_fitness: 'Browse wellness & fitness',
   guest_booth: 'Browse guest booths',
   reception_venue: 'Browse reception venues',
@@ -207,6 +213,8 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
  * "Lock your reception venue" rather than just "Reception venue".
  */
 const ACTION_TITLE: Record<PlanGroupId, string> = {
+  wedding_paperwork: 'Sort your marriage papers',
+  travel_honeymoon: 'Plan your honeymoon',
   wellness_fitness: 'Start your wellness plan',
   guest_booth: 'Add your guest booths',
   reception_venue: 'Lock your reception venue',

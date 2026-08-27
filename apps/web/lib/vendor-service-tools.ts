@@ -29,6 +29,7 @@ import {
   Compass,
   Crown,
   Cross,
+  FileText,
   Flag,
   Flower2,
   Gem,
@@ -43,6 +44,7 @@ import {
   MonitorPlay,
   Music,
   Palette,
+  Plane,
   PartyPopper,
   Scissors,
   Shield,
@@ -63,6 +65,8 @@ import type { VendorCategory } from './vendors';
  * "Your services" row leading icon + the coverage chips.
  */
 export const VENDOR_CATEGORY_ICON: Record<VendorCategory, LucideIcon> = {
+  wedding_paperwork: FileText,
+  travel_honeymoon: Plane,
   venue: Building2,
   religious_venue: Church,
   catering: Utensils,

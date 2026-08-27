@@ -29,7 +29,17 @@ import {
 /** The measured baseline — every one verified against the shipped taxonomy. */
 const BASELINE: Record<string, number> = {
   venue: 28,
-  planning: 12,
+  // 12 → 17 on 2026-08-27. The owner opened `wedding_paperwork` (3 services)
+  // and `travel_honeymoon` (2) to the marketplace, and Paperwork & Government
+  // moved from the `venue` folder to `planning` in the same change.
+  //
+  // 🔑 THE ARITHMETIC IS THE PROOF THAT NOTHING ELSE MOVED: +5 here and `venue`
+  // UNCHANGED at 28. The three paperwork services left `venue` but were
+  // marketplace-hidden, so they were never in its count to begin with — a
+  // folder move alone would have shown as -3/+3. Seeing +5/-0 is what says the
+  // delta is exactly the five services that went on sale, and no exclusion was
+  // quietly dropped (which is the failure this baseline exists to catch).
+  planning: 17,
   feast: 7,
   design: 26,
   program: 20,
@@ -62,11 +72,12 @@ test('every folder count matches the measured baseline', () => {
   );
 });
 
-test('the countable total is 236 of the 276 taxonomy entries', () => {
+test('the countable total is 241 of the 276 taxonomy entries', () => {
   const total = Object.values(FOLDER_SERVICE_COUNT).reduce((a, b) => a + b, 0);
   assert.equal(
     total,
-    236,
+    // 236 + the 5 services the owner put on sale 2026-08-27.
+    241,
     'the two exclusions (marketplaceHidden, setnayan) must both still apply',
   );
 });

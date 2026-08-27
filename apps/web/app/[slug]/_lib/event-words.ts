@@ -166,6 +166,22 @@ function possessiveOf(noun: string): string {
 }
 
 /**
+ * "a wedding" · "a wake" · "an event" · "an anniversary".
+ *
+ * 🪤 IT LIVES HERE FOR THE SAME REASON `possessiveOf` DOES: the moment a noun
+ * stops being hardcoded, its GRAMMAR stops being hardcoded with it. A door that
+ * used to say the literal "a wedding" and now says `a ${w.eventWord}` reads
+ * "a event" for the generic profile and "a anniversary" for an anniversary —
+ * measured, not imagined; that is exactly what the first cut of this change
+ * shipped, and rendering the sentence for all three profiles is what caught it.
+ * Interpolating a resolved noun after a bare article is now a call, not a
+ * concatenation.
+ */
+export function articleFor(noun: string): 'a' | 'an' {
+  return /^[aeiou]/i.test(noun.trim()) ? 'an' : 'a';
+}
+
+/**
  * Pure — derive the words from an already-resolved profile. Exported so tests
  * and any caller that ALREADY holds a profile (several pages resolve one for
  * the surface gate) can avoid a second resolve.

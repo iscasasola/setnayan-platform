@@ -94,7 +94,8 @@ export default function PrivacyPage() {
             which is also where any biometric face vector is stored), the APAC
             region (Cloudflare R2, our media storage, which holds photos,
             videos, and the selfie image you upload if you enrol a face),
-            United States (Anthropic Console for Setnayan AI), and United States
+            United States (Anthropic — Setnayan AI, vendor Deep Search, and reading
+            an uploaded payment receipt), and United States
             (Google LLC, when you connect the optional Google Drive or YouTube
             integrations) — are subject to RA 10173 § 21 and the
             provider&rsquo;s adequacy commitments. We do not run servers of our
@@ -144,7 +145,11 @@ export default function PrivacyPage() {
             <li>Account info — email, password (hashed), display name, optional phone + profile photo URL</li>
             <li>Event data you create — guest lists, vendor records, budget items, schedule, mood-board palettes</li>
             <li>Messages you send via the in-app chat</li>
-            <li>Payment metadata — order amounts, reference codes, channel, your screenshot if you upload one</li>
+            <li>
+              Payment metadata — order amounts, reference codes, channel, your
+              screenshot if you upload one (which we read automatically to check
+              the reference you typed — see below)
+            </li>
             <li>Anonymized product analytics — page views, button clicks, funnel events (via PostHog · no personal identifiers)</li>
             <li>Error reports — uncaught exceptions + their stack traces sent to Sentry so we can fix bugs; no message bodies, payment details, or guest data are included</li>
             <li>Automatic — IP address (truncated to first 3 octets for QR scan events), browser user-agent, timestamps</li>
@@ -711,6 +716,40 @@ export default function PrivacyPage() {
             business (consent + contract); for any incidental, already-public
             third-party content we rely on legitimate interest (RA 10173 &sect;
             12(f)), minimised to a business summary and short retention.
+          </p>
+        </Section>
+
+        <Section title="Reading your payment receipt">
+          <p>
+            When you upload a screenshot of your bank or GCash transfer as proof
+            of payment, we send that picture to <strong>Anthropic</strong> (United
+            States; see Subprocessors below) and ask it to do one thing:{' '}
+            <strong>type out the text it can see</strong>. We compare the result
+            against the reference number you typed and the amount your order owes,
+            so a mistyped reference is caught while you are still on the screen and
+            able to fix it.
+          </p>
+          <p className="pt-2">
+            <strong>A receipt is a bank document</strong>, and it usually shows an
+            account name and part of an account number. We are naming this
+            separately rather than leaving it inside &ldquo;AI features&rdquo;
+            because that is a different kind of information from the rest of what
+            we send.
+          </p>
+          <p className="pt-2">
+            <strong>What we keep.</strong> Not the transcript. We store only the
+            reference numbers and the peso amounts found on the picture, whether
+            they matched, and one plain sentence for our reviewer. The screenshot
+            itself is kept exactly as it already was — it is your proof of payment,
+            and nothing about that changed. The AI is <strong>never</strong> asked
+            whether a payment is genuine, and it cannot approve, reject or settle
+            anything: a person does that.
+          </p>
+          <p className="pt-2">
+            <strong>Lawful basis.</strong> Contract — checking a payment you made
+            to us is part of providing what you bought (RA 10173 &sect; 12(b)),
+            minimised to a reference check with the transcript discarded. It is
+            never used for profiling, and it is never trained on.
           </p>
         </Section>
 
@@ -1567,7 +1606,14 @@ export default function PrivacyPage() {
             <li>Resend (transactional email)</li>
             <li>Sentry (server-side error monitoring · stack traces only)</li>
             <li>PostHog Cloud (product analytics)</li>
-            <li>Anthropic (AI features, including AI web research for the vendor Deep Search tool · United States · never trained on your data)</li>
+            <li>
+              Anthropic (AI features · United States · never trained on your
+              data) — AI web research for the vendor Deep Search tool, and
+              reading the payment receipt you upload so we can check the
+              reference number you typed. A receipt is a bank document: see
+              &ldquo;Reading your payment receipt&rdquo; above for exactly what
+              is sent and what is kept.
+            </li>
             <li>Suno (AI music generation for Pakanta and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
               Google (YouTube Data API — used for any event broadcast through

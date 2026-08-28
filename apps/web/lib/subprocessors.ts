@@ -59,7 +59,7 @@ export const SUBPROCESSORS: readonly Subprocessor[] = [
   { name: 'Resend', role: 'Transactional email', jurisdiction: 'United States', personal_data: true, dpa_on_file: false, publicListed: true },
   { name: 'Sentry', role: 'Server-side error monitoring — stack traces only', jurisdiction: 'United States', personal_data: true, dpa_on_file: false, publicListed: true },
   { name: 'PostHog', role: 'Product analytics — opt-out available', jurisdiction: 'US/EU cloud — confirm instance', personal_data: true, dpa_on_file: false, publicListed: true },
-  { name: 'Anthropic', role: 'AI features, including vendor Deep Search — never trained on your data', jurisdiction: 'United States', personal_data: true, dpa_on_file: false, publicListed: true },
+  { name: 'Anthropic', role: 'AI features — vendor Deep Search, and reading an uploaded payment receipt (a bank document: account name and partial account number) to check the reference the buyer typed; the transcript is not kept — never trained on your data', jurisdiction: 'United States', personal_data: true, dpa_on_file: false, publicListed: true },
   { name: 'Suno', role: 'AI music generation — no guest or personal data is sent', jurisdiction: 'United States', personal_data: false, dpa_on_file: false, publicListed: true },
   {
     name: 'Google',

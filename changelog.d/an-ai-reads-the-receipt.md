@@ -57,8 +57,37 @@ It does not mean money arrived — only the bank's own message says that. A
 screenshot is a picture and pictures are made in seconds; this is not a fraud
 control and no copy calls it one.
 
-SPEC IMPACT: Yes — Anthropic's declared subprocessor role ("AI features,
-including vendor Deep Search") now also covers reading payment screenshots, which
-carry account names and numbers. Flagged for the owner as DPO; the corpus row and
-the public `/privacy` subprocessor line need the wider wording before this is
-switched on for real payments.
+## 2026-08-29 · docs(privacy): the disclosure the receipt reader was waiting for
+
+The owner, as registered DPO, ruled on it directly — *"so add it. yes."* — and it
+lands in this same PR rather than after it, because the disclosure and the code
+that sends the data must never be able to ship apart.
+
+Anthropic was already a declared subprocessor, so nothing was undeclared. What
+was wrong is its declared ROLE: *"AI features, including AI web research for the
+vendor Deep Search tool"* does not cover a bank screenshot, which carries an
+account name and part of an account number. That is a new category of personal
+data under RA 10173.
+
+Widened in four places, not one — the public subprocessor entry, the cross-border
+transfer sentence, the "what we collect" bullet, and the internal compliance
+record — plus a new public section, **"Reading your payment receipt"**, modelled
+on the Deep Search section: it names Anthropic, says out loud that a receipt is a
+bank document instead of hiding it under "AI features", states the lawful basis
+(contract, § 12(b)), and records what is kept.
+
+The notice promises "Not the transcript", and that promise is now checked against
+the INSERT payload rather than trusted: only the reference numbers and amounts
+found, whether they matched, and one sentence for the reviewer.
+
+New guard `lib/the-receipt-reader-is-disclosed.test.ts`. The existing
+`subprocessor-drift.test.ts` cross-checks the two lists **by name**, which is why
+it could not catch this: a company already on both lists can start receiving an
+entirely new kind of data and that guard stays green. This one keys every
+assertion on the seam that does the sending — delete the reader and the
+obligation goes with it — and opens with a vacuity check so it can never pass on
+nothing. Five mutations, each measured before → after, all red.
+
+SPEC IMPACT: Applied. `DECISION_LOG.md` carries the 2026-08-29 DPO ruling row.
+The public `/privacy` notice and `lib/subprocessors.ts` are updated in this PR;
+nothing further is owed.

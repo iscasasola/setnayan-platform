@@ -58,6 +58,7 @@ export function PaymentAsksPanel({
   asks,
   measured,
   notice,
+  canAsk,
 }: {
   eventId: string;
   /** What to call the customer in the sentence. Already identity-safe upstream. */
@@ -67,6 +68,17 @@ export function PaymentAsksPanel({
   measured: boolean;
   /** The `?ask=` outcome flag, or null. */
   notice: string | null;
+  /**
+   * Whether this customer has actually booked. FALSE renders THE NOTICE AND
+   * NOTHING ELSE.
+   *
+   * 🔴 IT EXISTS BECAUSE ONE REFUSAL HAD NOWHERE TO LAND. The action answers a
+   * vanished booking with `?ask=notbooked`, and the panel used to render only
+   * on a booked customer — so that particular refusal was redirected onto a
+   * page that could not show it. A guard that refuses in silence is
+   * indistinguishable from one that passed.
+   */
+  canAsk: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -105,7 +117,7 @@ export function PaymentAsksPanel({
         </p>
       ) : null}
 
-      {!measured ? (
+      {!canAsk ? null : !measured ? (
         <p className="flex items-center gap-2 rounded-lg border border-warn-300/50 bg-warn-50 px-3 py-2.5 text-sm text-warn-900">
           <Wallet aria-hidden className="h-4 w-4 shrink-0" /> We could not load
           what you have already asked for. Check back before asking again, so{' '}
@@ -146,6 +158,7 @@ export function PaymentAsksPanel({
         </p>
       )}
 
+      {canAsk ? (
       <form
         action={vendorAskForPayment}
         className="rounded-xl border border-ink/10 bg-white px-3 py-3"
@@ -201,6 +214,12 @@ export function PaymentAsksPanel({
           this money — this just tells them what you are waiting for.
         </p>
       </form>
+      ) : (
+        <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> You can
+          ask for a payment once {customerName} has booked you.
+        </p>
+      )}
     </div>
   );
 }

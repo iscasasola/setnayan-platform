@@ -29,3 +29,18 @@ or raise a change order.
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-28 (S4) + `WHATS_NEXT_Shop_Redesign_SESSIONS_2026-08-28.md`
 — S4 marked built; the 48h-vs-7-day lock window is surfaced as an owner question, not implemented.
+
+**And the repair above turned out to be a CLASS, not two functions.** Grepping the RECEIVER of
+every `.from('event_vendors')` under `app/vendor-dashboard/**` found **five** session-client reads,
+each a silent zero. Three are fixed here; the worst was **`deleteVendorService`**, whose
+"retire it, don't delete it" guard counts the bookings pointing at a service — always 0 on the
+shop's session, so deleting a service hard-deleted it and `SET NULL`'d `event_vendors.service_id`
+on any booking that named it, erasing which service a couple bought. Inert in production (0 of 45
+bookings carry a `service_id`), which is why it was safe to fix rather than urgent.
+
+Two are **named, not fixed**, each with its reason on the record in
+`app/vendor-dashboard/a-shop-cannot-read-its-own-booking.test.ts` — the guard that now fails on any
+NEW one and on a stale exemption: the host/MC cue composer (`script-actions.ts`, every save answers
+"You are not booked on this event") and the manpower open-gig list (`manpower/surface.tsx`, paid
+work reads as "hosts are not offering any"). Both need their downstream writes measured in their
+own PR; repairing the gate alone would move the silence one statement later.

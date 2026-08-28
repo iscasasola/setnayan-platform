@@ -1274,7 +1274,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     policy is gated on `current_vendor_booked_event_ids()`, so a form there would
     be a door that always refuses.
   */
-  const askPanel = isBooked ? (
+  const askNotice = typeof search.ask === 'string' ? search.ask : null;
+  // Rendered when the shop CAN ask, or when it just tried and needs to be told
+  // why it could not — never nothing in the second case.
+  const askPanel = isBooked || askNotice ? (
     <PaymentAsksPanel
       eventId={eventId}
       customerName={eventName}
@@ -1292,7 +1295,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         createdAt: a.created_at,
       }))}
       measured={asksMeasured}
-      notice={typeof search.ask === 'string' ? search.ask : null}
+      notice={askNotice}
+      canAsk={isBooked}
     />
   ) : null;
 

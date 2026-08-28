@@ -57,8 +57,9 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
+import { SIGNED_IN_LANDING } from '@/lib/sign-in-landing';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
@@ -391,7 +392,7 @@ type Props = {
    * ⚠ APPLIED IN THE APP VARIANT ONLY, deliberately. On `/` the events row
    * reads "Back to your events" — a sentence chosen for someone standing
    * OUTSIDE their own app (see the row's own note below), not the registry's
-   * "My Events". That divergence already ships and is intentional; piping the
+   * "Events". That divergence already ships and is intentional; piping the
    * registry into the public page would silently revert it. Inside the app,
    * where the row is a plain destination, the registry wins.
    */
@@ -640,6 +641,7 @@ export function FrontDoorShell({
    */
   const MainEl = ownsMain ? 'div' : 'main';
   const pathname = usePathname();
+  const router = useRouter();
   /*
     ⚠ EXACT PATH MATCH, read during render so the class is server-rendered
     rather than applied in an effect after paint. `usePathname()` already
@@ -759,9 +761,22 @@ export function FrontDoorShell({
     reader: a link, that opens a dialog. `prefetch` is off because the fallback
     page is rarely taken.
   */
+  /*
+    ⚖ AND ON SUCCESS IT GOES TO EVENTS — owner 2026-08-28: *"when you log in,
+    you should go directly to Events"*.
+
+    🔑 THE OPTION IS PASSED HERE, NOT BUILT INTO THE PANEL. `SignInHerePanel` is
+    shared: a shop page opens the same panel to retry a save the person had
+    already pressed, and a guest page opens it mid-flow. Making the PANEL
+    navigate would throw away the half-written enquiry the seam exists to keep —
+    the one thing its own docblock forbids. Only the front door asks to leave.
+
+    `router.push` runs before the panel's `router.refresh()`, which then
+    re-renders the board it just navigated to.
+  */
   const onSignInPress = (e: React.MouseEvent) => {
     e.preventDefault();
-    openSignIn();
+    openSignIn({ onSignedIn: () => router.push(SIGNED_IN_LANDING) });
   };
 
   // Escape closes whichever layer is open — the off-canvas rail first, since

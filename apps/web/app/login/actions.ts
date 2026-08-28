@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
+import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { captureEvent } from '@/lib/analytics';
@@ -80,9 +81,10 @@ async function exchangeCredentials(formData: FormData): Promise<
   // means "stay signed in"; anything else means session-only.
   const remember = String(formData.get('remember') ?? '') === 'on';
   const rawNext = safeNext(formData.get('next'));
-  // Signing in from the front door RETURNS YOU TO THE FRONT DOOR (owner
-  // 2026-08-13: "i thought that once we log in, it still looks like the public
-  // website, but we have added sidebar"). `/` is no longer rewritten away.
+  // Where a FAILED attempt goes back to — the page they were on, untouched.
+  // The success destination is resolved separately below, because they are two
+  // different questions: a refusal returns you to where you were, a sign-in
+  // takes you where you asked to be.
   const fallbackNext = rawNext;
 
   if (!email || !password) {
@@ -154,7 +156,7 @@ async function exchangeCredentials(formData: FormData): Promise<
     accountHomePath() is deliberately NOT deleted — /login?next=/dashboard and
     every caller that asks for an account home still uses it.
   */
-  const destination = fallbackNext;
+  const destination = signInDestination(rawNext);
 
   return { ok: true, destination };
 }

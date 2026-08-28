@@ -1543,7 +1543,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'Couple onboarding quiz · preference picker on the dashboard',
     guardedBy: 'current_event_ids() — the event-scoped RLS spine',
     traps:
-      'The two halves of matching have UNEQUAL integrity: couple picks are FK-anchored (this joint); vendor cards are string-glued (chain 8 · F9). ⚠ And the anchor is service_categories — NOTHING in the entire schema carries a foreign key into canonical_service_taxonomy, whose PK is on canonical_service, not tile_id. That strengthens F9 rather than softening it: the canonical taxonomy has no referential integrity pointing at it from anywhere.',
+      'The two halves of matching have UNEQUAL integrity: couple picks are FK-anchored (this joint); vendor cards are string-glued (chain 8 · F9). ⚠ And the anchor is service_categories, NOT canonical_service_taxonomy, whose PK is on canonical_service, not tile_id. ⚠ CORRECTED 2026-08-28 (C2): "nothing references canonical_service_taxonomy" is no longer true — canonical_service_aliases.canonical_service now carries a real RESTRICT FK into it, the first anywhere in the schema. That does NOT soften F9: vendor_services.category is still bare, unvalidated TEXT with no FK of its own.',
   },
   {
     id: 'J14',

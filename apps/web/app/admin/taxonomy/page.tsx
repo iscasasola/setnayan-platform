@@ -25,9 +25,13 @@ import {
   type StudioEventTypeVocab,
   type StudioFaithVocab,
   type StudioTileOption,
+  type StudioRequestDraft,
 } from './_components/taxonomy-studio';
 
+import Link from 'next/link';
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
+import { resolveMergedService } from '@/lib/service-merge-forward';
 import { KpiStatCard } from '../_components/kpi-stat-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Taxonomy Studio · Admin' };
@@ -63,6 +67,18 @@ type ReqRow = {
   status: string;
   mapped_to_canonical: string | null;
   proposed_by_vendor_id: string;
+};
+
+/** One `taxonomy_category_request_drafts` row, exactly as read (C4). */
+type DraftRow = {
+  request_id: string;
+  suggested_label: string;
+  suggested_tile_id: string | null;
+  tile_reason: string | null;
+  verdict: string;
+  closest_existing: string | null;
+  near_matches: unknown;
+  drafted_by: string;
 };
 
 type RefLeafRow = {
@@ -151,6 +167,22 @@ export default async function AdminTaxonomyPage({
   const error = first(sp.error);
 
   const admin = createAdminClient();
+
+  // One trade, many names (C2 2026-08-28) — how many proposed aliases are
+  // waiting for a person before they can answer anybody. See
+  // /admin/taxonomy/aliases and lib/service-trade-aliases.ts. Fails silent
+  // to 0 — a broken count must never take the whole Studio page down with
+  // it, and 0 already renders as "nothing waiting", the safe default.
+  let pendingAliasCount = 0;
+  try {
+    const pendingAliasRes = await admin
+      .from('canonical_service_aliases')
+      .select('id', { count: 'exact', head: true })
+      .is('reviewed_at', null);
+    pendingAliasCount = pendingAliasRes.count ?? 0;
+  } catch {
+    pendingAliasCount = 0;
+  }
 
   const [schemasRes, tax, eventVocabRes, faithRes, reqRes, deadlinesRes, refLeafRes, refOptRes] =
     await Promise.all([
@@ -471,6 +503,84 @@ export default async function AdminTaxonomyPage({
       reqVendorName.set(vp.vendor_profile_id, vp.business_name ?? 'a vendor');
     }
   }
+  // ── Requests → the drafted proposal, when there is one (C4, 2026-08-28) ──
+  // A request arrives READY TO PRESS instead of as a bare label: a cleaner
+  // name, the branch it might belong under, and the near-matches that were
+  // considered and rejected with a reason each.
+  //
+  // 🔒 THE DRAFT IS NEVER TRUSTED TO STILL NAME A LIVE TRADE. Every key it
+  // carries is resolved through the merge-forward map and dropped silently if
+  // it no longer names a visible trade — a trade can be merged away or retired
+  // long after the draft was written, and a reviewer comparing against a trade
+  // that no longer exists is being shown fiction. Same posture
+  // `reviewedAliasesByLiveTrade` takes with a stored alias.
+  //
+  // ⚠ FAILS SILENT AS ITS OWN QUERY: a database that has not run the migration
+  // (or any read error) yields no drafts, and every request renders exactly as
+  // it did before this existed.
+  const draftByRequest = new Map<string, StudioRequestDraft>();
+  if (pendingRequests.length > 0) {
+    const [draftRes, mergeForwards] = await Promise.all([
+      admin
+        .from('taxonomy_category_request_drafts')
+        .select(
+          'request_id, suggested_label, suggested_tile_id, tile_reason, verdict, closest_existing, near_matches, drafted_by',
+        )
+        .in(
+          'request_id',
+          pendingRequests.map((r) => r.request_id),
+        ),
+      getServiceMergeForwards().catch(() => ({})),
+    ]);
+    const liveTradeLabel = new Map(services.map((s) => [s.canonical, s.displayEn]));
+    const liveTileLabel = new Map<string, string>(
+      tiles.map((t) => [String(t.id), t.label] as const),
+    );
+    const liveLabelFor = (key: string): string | null => {
+      const live = resolveMergedService(key, mergeForwards);
+      const label = liveTradeLabel.get(live);
+      return label ? label : null;
+    };
+    for (const row of (draftRes.data ?? []) as DraftRow[]) {
+      const nearMatches: StudioRequestDraft['nearMatches'] = [];
+      for (const m of Array.isArray(row.near_matches) ? row.near_matches : []) {
+        if (!m || typeof m !== 'object') continue;
+        const key = String((m as Record<string, unknown>).canonical_service ?? '');
+        const label = liveLabelFor(key);
+        if (!label) continue;
+        nearMatches.push({
+          canonical: resolveMergedService(key, mergeForwards),
+          label,
+          whyNot: String((m as Record<string, unknown>).why_not ?? ''),
+        });
+      }
+      const closest = row.closest_existing ? liveLabelFor(row.closest_existing) : null;
+      draftByRequest.set(row.request_id, {
+        suggestedLabel: row.suggested_label,
+        // A tile that has since been retired must not be pre-selected, and its
+        // NAME is read from the live tree rather than carried on the draft.
+        suggestedTileId:
+          row.suggested_tile_id && liveTileLabel.has(row.suggested_tile_id)
+            ? row.suggested_tile_id
+            : null,
+        suggestedTileLabel: row.suggested_tile_id
+          ? liveTileLabel.get(row.suggested_tile_id) ?? null
+          : null,
+        tileReason: row.tile_reason,
+        verdict: row.verdict === 'existing' && closest ? 'existing' : 'new',
+        closestExisting:
+          closest && row.closest_existing
+            ? {
+                canonical: resolveMergedService(row.closest_existing, mergeForwards),
+                label: closest,
+              }
+            : null,
+        nearMatches,
+        draftedBy: row.drafted_by,
+      });
+    }
+  }
+
   const demandCounts = new Map<string, number>();
   for (const r of allRequests) {
     if (r.status === 'mapped' && r.mapped_to_canonical) {
@@ -524,6 +634,7 @@ export default async function AdminTaxonomyPage({
       proposedLabel: r.proposed_label,
       proposedNote: r.proposed_note,
       vendorName: reqVendorName.get(r.proposed_by_vendor_id) ?? 'a vendor',
+      draft: draftByRequest.get(r.request_id) ?? null,
     })),
     iconNames: [], // filled below (import kept server-side)
     folderDefaultIcon: FOLDER_DEFAULT_ICON,
@@ -542,6 +653,14 @@ export default async function AdminTaxonomyPage({
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Taxonomy Studio"
+        actions={
+          <Link
+            href="/admin/taxonomy/aliases"
+            className="text-sm font-medium text-ink/60 hover:text-ink"
+          >
+            Trade aliases{pendingAliasCount > 0 ? ` (${pendingAliasCount} waiting)` : ''}
+          </Link>
+        }
       />
 
       {ok ? (

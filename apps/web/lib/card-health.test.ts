@@ -22,6 +22,7 @@ import {
   type CardHealthLine,
   type CardHealthSnapshot,
 } from './card-health';
+import { PUBLISH_COACH_MESSAGE } from './service-publish-gate';
 import {
   applyLineState,
   newFollowUpLine,
@@ -366,16 +367,39 @@ test('no event types hints at the audience sheet', () => {
   assert.equal(hint?.sheet, 'audience');
 });
 
-test('no price is a HINT, never a blocker — "quote on request" is a real answer', () => {
+test('NO PRICE IS A BLOCKER — a card nobody can find must not go live', () => {
+  // ⚖ THIS REVERSES THIS FILE'S OWN EARLIER TEST, deliberately (owner-drawn
+  // 2026-08-28). It used to assert "no price is a HINT, never a blocker,
+  // because quote-on-request is a real answer". That was an engineering
+  // rationale, never an owner lock, and it is now the other way: a card with no
+  // figure has nothing a couple's budget can be matched against.
   const h = scoreCardHealth(perfect({ hasPrice: false }));
-  const hint = h.hints.find((x) => x.code === 'no_price');
-  assert.ok(hint, 'no_price hint expected');
-  assert.equal(hint?.sheet, 'price');
-  assert.match(hint?.message ?? '', /^Set your price/);
-  // The shipped wizard publishes without a price; so must this.
-  assert.equal(h.blockers.length, 0);
-  assert.notEqual(h.grade, 'blocked');
+  assert.equal(
+    h.hints.find((x) => x.code === 'no_price'),
+    undefined,
+    'no_price must no longer be a hint',
+  );
+  const blocker = h.blockers.find((x) => x.code === 'no_price');
+  assert.ok(blocker, 'no_price blocker expected');
+  assert.equal(blocker?.sheet, 'price');
+  assert.equal(h.grade, 'blocked');
+  assert.ok(h.score <= 30, `a blocked card is capped at 30, got ${h.score}`);
   assert.equal(h.nextAction.sheet, 'price');
+});
+
+test('the price blocker speaks the SAME sentence the maker uses everywhere', () => {
+  const h = scoreCardHealth(perfect({ hasPrice: false }));
+  assert.equal(
+    h.blockers.find((x) => x.code === 'no_price')?.message,
+    PUBLISH_COACH_MESSAGE.price,
+    'card health kept its own copy of the price sentence',
+  );
+});
+
+test('a priced, exclusive-bearing card has neither publish blocker', () => {
+  const h = scoreCardHealth(perfect({ hasPrice: true, exclusiveText: 'Free extra hour' }));
+  assert.equal(h.blockers.find((x) => x.code === 'no_price'), undefined);
+  assert.equal(h.blockers.find((x) => x.code === 'no_exclusive'), undefined);
 });
 
 // ════════════════════════════════════════════════════════════════════════════

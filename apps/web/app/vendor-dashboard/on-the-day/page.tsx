@@ -49,10 +49,11 @@ import { IssuesLog } from './_components/issues-log';
 import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { EventPicker } from './_components/event-picker';
+import { collapseToPickerDays, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { ShopEmpty } from '../_components/kit';
 
-export const metadata = { title: 'On the Day · Vendor' };
+export const metadata = { title: 'Event Hub · Vendor' };
 
 /**
  * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor
@@ -195,25 +196,24 @@ export default async function VendorOnTheDayPage({
   const todaysBooking =
     bookings.find((b) => b.bookedDate === today) ?? null;
 
-  // Step 1 of the launcher — the pick-event list. Dedupe to one row per event
-  // (a vendor can hold several pool slots on one event) and classify each as
-  // today / upcoming / past for the picker + the configure/launch affordances.
-  const pickerBookings = [...new Map(bookings.map((b) => [b.eventId, b])).values()]
-    .map((b) => ({
-      eventId: b.eventId,
-      eventName: b.eventName,
-      bookedDate: b.bookedDate,
-      when: (b.bookedDate === today ? 'today' : b.bookedDate > today ? 'upcoming' : 'past') as
-        | 'today'
-        | 'upcoming'
-        | 'past',
-    }))
-    .sort((a, b) => a.bookedDate.localeCompare(b.bookedDate));
+  // Step 1 of the launcher — the pick-a-day list. ONE ROW PER DAY YOU ARE ON,
+  // never one per celebration. The rule (and the bug it replaces) lives in
+  // `lib/vendor-day-picker.ts`, pure and tested; this file only supplies today.
+  const pickerBookings = collapseToPickerDays(bookings, today).map((b) => ({
+    eventId: b.eventId,
+    eventName: b.eventName,
+    bookedDate: b.bookedDate,
+    when: b.when,
+  }));
 
   // Step 2 — configure a specific booking ahead of time (?event=<id>). Renders a
   // focused setup view for any booked event (today's or upcoming), then returns.
+  //
+  // ⚠ A celebration can hold SEVERAL of this shop's days and `?event=<id>` names
+  // only the celebration, so which day it is about is a decision — made in
+  // `lib/vendor-day-picker.ts`, not by whichever row the array yielded first.
   const configureBooking = configureId
-    ? bookings.find((b) => b.eventId === configureId) ?? null
+    ? pickConfigureDay(bookings, configureId, today)
     : null;
   if (configureBooking) {
     return (

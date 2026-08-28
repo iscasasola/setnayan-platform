@@ -76,7 +76,19 @@ async function newEvent(label: string, date: string | null = null): Promise<{ ev
 async function newBooking(
   eventId: string,
   vpid: string | null,
-  opts: { status?: string; category?: string; pending?: boolean; requestedDaysAgo?: number } = {},
+  opts: {
+    status?: string;
+    category?: string;
+    pending?: boolean;
+    requestedDaysAgo?: number;
+    /**
+     * ⚖ THE WINDOW IS 48 HOURS (owner 2026-08-28), so a fixture measured in
+     * DAYS can no longer place a request inside it: `requestedDaysAgo: 6` used
+     * to mean "live, one day left" and now means "expired four days ago".
+     * Anything that needs to sit INSIDE the window says so in hours.
+     */
+    requestedHoursAgo?: number;
+  } = {},
 ): Promise<string> {
   const r = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
@@ -92,7 +104,10 @@ async function newBooking(
       vpid,
       opts.pending ? 'pending' : null,
       opts.pending
-        ? new Date(Date.now() - (opts.requestedDaysAgo ?? 0) * 86400_000).toISOString()
+        ? new Date(
+            Date.now() -
+              (opts.requestedHoursAgo ?? (opts.requestedDaysAgo ?? 0) * 24) * 3600_000,
+          ).toISOString()
         : null,
     ],
   );
@@ -166,7 +181,7 @@ after(async () => {
 });
 
 // ── 1 · the ask does not book ───────────────────────────────────────────────
-test('a request leaves the status ladder alone and materializes a 7-day deadline', async () => {
+test('a request leaves the status ladder alone and materializes a 48-hour deadline', async () => {
   const { eventId } = await newEvent('ask');
   const { vpid } = await newVendor('ask@prh.test');
   const b = await newBooking(eventId, vpid, { pending: true });
@@ -176,9 +191,11 @@ test('a request leaves the status ladder alone and materializes a 7-day deadline
   assert.equal(row.lock_request_state, 'pending');
   assert.ok(row.lock_request_expires_at, 'the deadline must be materialized by the trigger');
   // MUTATION: delete the materialization arm in the trigger ⇒ this reddens.
-  const days =
-    (new Date(String(row.lock_request_expires_at)).getTime() - Date.now()) / 86400_000;
-  assert.ok(days > 6.9 && days < 7.1, `deadline must be ~7 days out, got ${days}`);
+  // ⚖ 48 HOURS, owner ruling 2026-08-28 (this asserted ~7 days, which is what
+  // the trigger shipped with and what the 2026-06-02 lock never said).
+  const hours =
+    (new Date(String(row.lock_request_expires_at)).getTime() - Date.now()) / 3600_000;
+  assert.ok(hours > 47.5 && hours < 48.5, `deadline must be ~48 hours out, got ${hours}`);
 });
 
 // ── 2 · THE ARCHITECTURE TEST ───────────────────────────────────────────────
@@ -342,20 +359,23 @@ test('a MULTI-pick category is untouched by that index', async () => {
 });
 
 // ── 7 · the nudge fires once PER ROUND, not once per row ────────────────────
-test('the day-5 nudge fires once — and a RE-ASK is nudgeable again', async () => {
+test('the 24-hour nudge fires once — and a RE-ASK is nudgeable again', async () => {
   const { eventId } = await newEvent('nudge');
   const { vpid, uid: vendorUid } = await newVendor('nudge@prh.test');
-  const b = await newBooking(eventId, vpid, { pending: true, requestedDaysAgo: 6 });
-  // The trigger stamps expires_at from lock_requested_at, so a 6-day-old ask
-  // still has a live deadline.
+  // ⚖ 30 HOURS: past the 24-hour reminder, still inside the 48-hour window.
+  // This said `requestedDaysAgo: 6` under the old seven-day rule; at 48 hours a
+  // six-day-old ask is four days DEAD, and the nudge's own
+  // `expires_at > NOW()` clause would exclude it — the test would have gone red
+  // for the right reason and been "fixed" by loosening the wrong thing.
+  const b = await newBooking(eventId, vpid, { pending: true, requestedHoursAgo: 30 });
 
-  const first = await db.query<Row>(`SELECT * FROM public.nudge_stale_lock_requests(5, 200)`);
-  assert.equal(first.rows.length, 1, 'a 6-day-old request is due a nudge');
+  const first = await db.query<Row>(`SELECT * FROM public.nudge_stale_lock_requests(1, 200)`);
+  assert.equal(first.rows.length, 1, 'a 30-hour-old request is due a nudge');
   const stamp = (await read(b)).lock_request_nudged_at;
   assert.ok(stamp);
 
-  const second = await db.query<Row>(`SELECT * FROM public.nudge_stale_lock_requests(5, 200)`);
-  assert.equal(second.rows.length, 0, 'it must not re-nudge daily from day 5 to day 7');
+  const second = await db.query<Row>(`SELECT * FROM public.nudge_stale_lock_requests(1, 200)`);
+  assert.equal(second.rows.length, 0, 'it must not re-nudge on every pass until the deadline');
   assert.equal(String((await read(b)).lock_request_nudged_at), String(stamp));
 
   // THE RE-ASK. Decline, then ask again — the stamp must clear or every later
@@ -368,7 +388,7 @@ test('the day-5 nudge fires once — and a RE-ASK is nudgeable again', async () 
   await db.query(
     `UPDATE public.event_vendors
         SET lock_request_state = 'pending',
-            lock_requested_at = NOW() - INTERVAL '6 days'
+            lock_requested_at = NOW() - INTERVAL '30 hours'
       WHERE vendor_id = $1`,
     [b],
   );
@@ -377,7 +397,7 @@ test('the day-5 nudge fires once — and a RE-ASK is nudgeable again', async () 
     null,
     'MUTATION: remove the reset beside the deadline ⇒ this reddens',
   );
-  const third = await db.query<Row>(`SELECT * FROM public.nudge_stale_lock_requests(5, 200)`);
+  const third = await db.query<Row>(`SELECT * FROM public.nudge_stale_lock_requests(1, 200)`);
   assert.equal(third.rows.length, 1, 'the second round is nudgeable too');
 });
 
@@ -414,11 +434,17 @@ test('neither sweep ever touches a booking that is already confirmed', async () 
   const deadEvt = await newEvent('qr-dead');
   const { vpid } = await newVendor('qr@prh.test');
 
-  // (a) window still LIVE (requested 6d ago ⇒ expires in ~1d) ⇒ only the status
+  // (a) window still LIVE (requested 30h ago ⇒ expires in ~18h) ⇒ only the status
   //     floor can keep the nudge off it.
+  //     ⚠ THIS WAS `requestedDaysAgo: 6` AND WOULD HAVE KEPT PASSING FOR THE
+  //     WRONG REASON. Under the 48-hour window a six-day-old ask is expired, so
+  //     the WINDOW clause would have excluded it and the status floor — the only
+  //     thing this row exists to test — would never have been exercised. That is
+  //     the exact failure the comment above warns about, arriving by a change to
+  //     a number somewhere else.
   const paidLiveWindow = await newBooking(liveEvt.eventId, vpid, {
     pending: true,
-    requestedDaysAgo: 6,
+    requestedHoursAgo: 30,
   });
   // (b) window LAPSED ⇒ only the status floor can keep the expiry off it.
   const paidDeadWindow = await newBooking(deadEvt.eventId, vpid, {
@@ -435,7 +461,7 @@ test('neither sweep ever touches a booking that is already confirmed', async () 
     [paidDeadWindow],
   );
 
-  const nudged = await db.query<Row>(`SELECT * FROM public.nudge_stale_lock_requests(5, 200)`);
+  const nudged = await db.query<Row>(`SELECT * FROM public.nudge_stale_lock_requests(1, 200)`);
   const expired = await db.query<Row>(`SELECT * FROM public.expire_stale_lock_requests(200)`);
 
   // MUTATION: drop the status floor from nudge_stale_lock_requests ⇒ the
@@ -548,8 +574,8 @@ test('a vendor cannot reach a booking by owning the service it points at', async
   const outsider = await newVendor('outsider@prh.test');
 
   const svc = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category)
-     VALUES ($1, 'photography') RETURNING vendor_service_id`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1, 'photography', 40000, 'Free extra hour') RETURNING vendor_service_id`,
     [outsider.vpid],
   );
   const tm = await db.query<{ vendor_team_member_id: string }>(

@@ -126,7 +126,7 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
   },
   {
     key: 'on-the-day',
-    label: 'On the Day',
+    label: 'Event Hub',
     href: '/vendor-dashboard/on-the-day',
     icon: CalendarCheck,
     matchPrefix: '/vendor-dashboard/on-the-day',

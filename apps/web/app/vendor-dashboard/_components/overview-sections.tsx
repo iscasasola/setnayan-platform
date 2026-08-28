@@ -16,7 +16,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { waitingAge } from '@/lib/waiting-age';
-import { lockRequestDaysLeft } from '@/lib/lock-request-state';
+import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { reviewTemper, CLOSED_WINDOW_GRACE_DAYS } from '@/lib/answers-desk';
 import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
 import { APPOINTMENT_KIND_LABEL } from '@/lib/appointments';
@@ -805,13 +805,12 @@ function LockRequestBody({
   declineLock: (formData: FormData) => void | Promise<void>;
 }) {
   // Rendered on the server, so "now" is the render instant.
-  const daysLeft = lockRequestDaysLeft(card.expiresAt, new Date());
-  const fuse =
-    daysLeft === null
-      ? null
-      : daysLeft === 0
-        ? 'Last day to answer'
-        : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left to answer`;
+  // ONE phrasing, shared with the customer card and the Customers roster — three
+  // surfaces wording the same deadline three ways is how they come to disagree
+  // about it. The window is 48 hours (owner 2026-08-28), so this now counts in
+  // HOURS below a day: "Last day to answer" spent half a two-day fuse saying the
+  // same thing at 23 hours and at 3 minutes.
+  const fuse = lockRequestFuseLabel(card.expiresAt, new Date());
   const detail = metaLine([
     card.eventDate ? shortDate(card.eventDate) : null,
     // waitingAge returns { label, overdue } — metaLine wants strings.

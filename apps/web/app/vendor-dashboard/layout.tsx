@@ -277,7 +277,7 @@ export default async function VendorDashboardLayout({
   // an unanswered discount offer past its window RELEASES the vendor's held reach
   // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.
   after(() => maybeSweepExpiredCreatorOffers().catch(() => {}));
-  // PR-H · nudge at day 5, close at day 7. Mounted in BOTH layouts on purpose:
+  // PR-H · nudge at 24 hours, close at 48 (owner 2026-08-28). Mounted in BOTH layouts on purpose:
   // the DB compare-and-swap picks exactly one winner per gap window, and an
   // admin-only mount would wait for an admin page view — production is
   // pre-launch-quiet, so a supplier's 7-day fuse would hang on somebody

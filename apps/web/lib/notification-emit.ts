@@ -136,7 +136,7 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'new_chapter_from_followed',
   // PR-H lock handshake (2026-07-27). ALL SIX are transactional and all six
   // must reach a person who is not in the app:
-  //   · received/nudge → the SUPPLIER, who has 7 days to answer and may never
+  //   · received/nudge → the SUPPLIER, who has 48 hours to answer and may never
   //     open the dashboard. An in-app-only nudge reaches exactly the suppliers
   //     who do not need it, which is the whole reason the owner ordered it.
   //   · agreed/declined/expired → the COUPLE, who is waiting on an answer they

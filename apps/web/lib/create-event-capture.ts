@@ -19,6 +19,7 @@
  * real band and a guest count are present. Trivially unit-testable.
  */
 
+import { bandMidBudgetPhp } from './budget-band-money';
 import type { BudgetBand } from './budget-bands-shared';
 
 export type CreateCaptureInput = {
@@ -105,10 +106,13 @@ export function resolveCreateCapture(
   const rawBand = str(input.budgetBandRaw);
   const bandValue = rawBand === 'nolimit' ? 'no_limit' : rawBand;
   const band = bandValue ? bands.find((b) => b.value === bandValue) ?? null : null;
-  const estimatedBudgetCentavos =
-    band && band.med > 0 && estimatedPax != null
-      ? Math.round(band.med * estimatedPax * 100)
-      : null;
+  // The band-to-pesos arithmetic lives in ONE file now (lib/budget-band-money).
+  // This flow stores the MIDDLE of the band; the wedding onboarding stores the
+  // TOP. Same value as before, byte for byte — the point of routing it through
+  // the shared module is that the disagreement is now visible in one place
+  // instead of hidden in two.
+  const midPhp = bandMidBudgetPhp(band?.med ?? null, estimatedPax);
+  const estimatedBudgetCentavos = midPhp == null ? null : Math.round(midPhp * 100);
 
   // Dates — window when explicitly chosen AND a valid start/end pair, else the
   // candidate list (up to 4, de-duped, chronological). No usable date → null mode.

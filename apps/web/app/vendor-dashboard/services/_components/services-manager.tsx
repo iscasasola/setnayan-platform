@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
+import { reachTally, serviceReach } from '@/lib/service-reach';
 import {
   bracketsToDrafts,
   discountsToDrafts,
@@ -801,6 +802,38 @@ export async function VendorServicesManager({
           </div>
         ) : null}
 
+        {/* One honest line about the whole list. Rendered ONLY when a card is
+            actually short — a shop whose cards are all priced is told nothing,
+            because a permanent green tick is noise. "N of M reaching everyone
+            they could" never becomes a score to climb: full reach is the
+            ceiling, and it costs one number. */}
+        {(() => {
+          const tally = reachTally(listedServices);
+          if (!tally || tally.full === tally.total) return null;
+          const short = tally.total - tally.full;
+          return (
+            <p
+              className="rounded-xl border px-4 py-2.5 text-xs"
+              style={{
+                borderColor: 'var(--m-orange-3)',
+                background: 'var(--m-orange-4)',
+                // MEASURED, not assumed: the canonical text gold #8A6B39 is
+                // 4.21:1 on this #F3ECDF tint — an AA FAIL on its own wash.
+                // --m-orange-deep #5C4726 measures 7.5:1 here and 8.81:1 on
+                // white. Gold has no headroom; never tint under it.
+                color: 'var(--m-orange-deep)',
+              }}
+            >
+              <span className="font-semibold">
+                {tally.full} of {tally.total} {tally.total === 1 ? 'card is' : 'cards are'} reaching
+                everyone {tally.total === 1 ? 'it' : 'they'} could.
+              </span>{' '}
+              {short === 1 ? 'One card has' : `${short} cards have`} no price, so we can’t tell
+              which couples {short === 1 ? 'it' : 'they'} suit.
+            </p>
+          );
+        })()}
+
         {services.length === 0 ? (
           <div
             className="rounded-2xl border border-dashed p-8 text-center"
@@ -835,9 +868,17 @@ export async function VendorServicesManager({
                   ? (coverageLabelById.get(svc.coverage_id) as string)
                   : 'Unassigned';
               const Icon = iconForVendorCategory(svc.category);
-              const priceLabel = svc.starting_price_php
-                ? `from ${formatPhp(svc.starting_price_php)}`
-                : 'quote on request';
+              // PRICE DECIDES REACH (S5). The old label for a priceless card
+              // read `quote on request` — a phrase that tells the shop nothing
+              // is wrong. It is: a card we cannot price is one we cannot match
+              // to a couple's budget, and the couple sees no figure. The claim
+              // is derived from the SEARCH's own pricing function
+              // (lib/service-reach → smart-sort), never written a second time.
+              const reach = serviceReach(svc);
+              const priceLabel =
+                reach.startsAtPhp != null
+                  ? `from ${formatPhp(reach.startsAtPhp)}`
+                  : 'no price set';
               const paxLabel =
                 svc.added_pax_price_php && svc.added_pax_price_php > 0
                   ? `+${formatPhp(svc.added_pax_price_php)}/${svc.category === 'crew_meals' ? 'meal' : 'guest'}`
@@ -901,6 +942,35 @@ export async function VendorServicesManager({
                           ? ` · ${coverageLabelById.get(svc.coverage_id)}`
                           : ''}
                         {svc.is_active ? '' : ' · hidden'}
+                      </p>
+                      {/* The reach this card's price is earning — on the card
+                          itself, every time the shop looks at the list, not in
+                          a report they would have to go and find.
+                          ⛔ TWO STATES ONLY. A bigger price never earns more
+                          reach; that would be selling placement. */}
+                      <p
+                        className="mt-1 flex items-center gap-1.5 text-[11px]"
+                        style={{
+                          color:
+                            reach.level === 'full'
+                              ? 'var(--m-slate-2)'
+                              : 'var(--m-orange-deep)',
+                        }}
+                      >
+                        <span
+                          aria-hidden
+                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{
+                            background:
+                              reach.level === 'full'
+                                ? 'var(--m-slate-3)'
+                                : 'var(--m-orange-deep)',
+                          }}
+                        />
+                        <span className="truncate">
+                          {reach.label}
+                          {reach.level === 'full' ? '' : ' in Edit details'}
+                        </span>
                       </p>
                     </div>
                     {svcDiscount ? (
@@ -1353,6 +1423,15 @@ export async function VendorServicesManager({
             {wantsCategoryForm
               ? "Your plan doesn't cover it yet. Tell us what you do and we'll take it from there."
               : "Tell us what you do — we'll review it and add it to the directory."}
+          </p>
+          {/* Nothing here is a gate. A supplier who cannot find their trade must
+              be able to finish their card today and correct it later — the card
+              is universal (owner, 2026-08-28: "the card is universal fit for any
+              service"). Said on the screen, not only in a docblock. */}
+          <p className="max-w-prose text-sm" style={{ color: 'var(--m-slate)' }}>
+            You don&rsquo;t have to wait for us. Make your card under{' '}
+            <strong>Miscellaneous</strong> now and switch it to your own kind the moment we add
+            it.
           </p>
         </div>
         <form action={proposeCategory} className="grid gap-3 sm:grid-cols-[2fr_3fr_auto] sm:items-end">

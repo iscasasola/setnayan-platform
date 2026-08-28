@@ -136,6 +136,71 @@ test('the Budget Planner is NOT given the estimate', () => {
   );
 });
 
+// ── 2a · THE COUPLE IS TOLD WHEN WE RANKED ON A GUESS ─────────────────────
+
+test('`budgetSource` and the band label have a reader — neither is a dead field', () => {
+  // A field with no reader is the shape this repo keeps paying for. These two
+  // exist so a surface can SAY it ranked on an estimate; if nothing reads them,
+  // it doesn't.
+  const search = read('app/dashboard/[eventId]/vendors/_actions/category-search.ts');
+  assert.match(search, /alloc\.budgetSource === 'band'/, 'the search must branch on the source');
+  assert.match(search, /alloc\.budgetBandLabel/, 'and name the band the couple chose');
+  const overlay = read(
+    'app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx',
+  );
+  assert.match(overlay, /res\.budgetEstimate/, 'the overlay must take it from the result');
+  assert.match(overlay, /budgetEstimate\.eventBudgetPhp/, 'and render the figure');
+  assert.match(overlay, /budgetEstimate\.bandLabel/, 'and the band, in the couple’s own word');
+});
+
+test('the estimate notice claims an effect only where there was one', () => {
+  // The notice is set INSIDE the branch that produced a category budget. An
+  // estimate that resolved no leaf for this category decided nothing here, and
+  // saying otherwise would be a lie about the couple's own money.
+  const src = read('app/dashboard/[eventId]/vendors/_actions/category-search.ts');
+  assert.match(
+    src,
+    /categoryBudgetPhp = leaf \? leaf\.amountPhp : null;\s*if \(alloc\.budgetSource === 'band' && categoryBudgetPhp != null\)/,
+    'budgetEstimate must be set only when a category budget actually resolved',
+  );
+});
+
+test('the notice is NOT behind the smart-sort flag', () => {
+  // The band-derived budget is not flag-gated either — it moves the compat score
+  // for everyone. A notice hidden behind a switch the ranking ignores would
+  // leave most couples ranked on a number nothing on screen mentions.
+  const search = read('app/dashboard/[eventId]/vendors/_actions/category-search.ts');
+  assert.match(
+    search,
+    /\.\.\.\(budgetEstimate \? \{ budgetEstimate \} : \{\}\)/,
+    'the field must be returned unconditionally on its own presence',
+  );
+  assert.ok(
+    !/smartSort \? \{ budgetEstimate/.test(search),
+    'budgetEstimate must never be gated on the smart-sort flag',
+  );
+  const overlay = read(
+    'app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx',
+  );
+  assert.ok(
+    !/SMART_SORT_ON && budgetEstimate/.test(overlay),
+    'the notice must render without the flag',
+  );
+});
+
+test('the two budget banners are mutually exclusive', () => {
+  // Telling somebody to RAISE a budget they never set is nonsense, and two
+  // stacked banners above one list is noise.
+  const overlay = read(
+    'app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx',
+  );
+  assert.match(
+    overlay,
+    /SMART_SORT_ON && budgetRaise && !budgetEstimate/,
+    'the raise-your-budget nudge must stand down when we are ranking on an estimate',
+  );
+});
+
 // ── 2b · THE SHOP IS TOLD, IN THE LIST IT ALREADY READS ───────────────────
 
 test('the services list states the reach, and no longer calls no price a quote', () => {

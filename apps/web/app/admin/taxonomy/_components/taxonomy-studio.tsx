@@ -72,6 +72,7 @@ import {
   createTaxonomyNode,
   createCanonicalLeaf,
   remapCanonical,
+  mergeCanonicalService,
   setServiceFaith,
   setCategoryEventTypes,
   setCategoryHidden,
@@ -1677,6 +1678,125 @@ function PhotoField({
   );
 }
 
+/**
+ * Fold one trade into another — the undo the taxonomy never had.
+ *
+ * 🔑 THE TARGETS ARE THE TRADE'S OWN SIBLINGS, and that is not laziness. A
+ * duplicate trade is created inside the branch it belongs to — the live
+ * example is `Sorbetes Cart` sitting beside `Ice Cream Cart` under Food Cart.
+ * Offering all 288 as targets would invite a merge across branches, which is a
+ * different act (`remapCanonical` moves a trade; this DESTROYS one as a
+ * separate word). If the right destination is in another branch, move it here
+ * first, then merge.
+ *
+ * ⚠ Confirmed by TYPING THE NAME, not by an "are you sure?". A merge moves
+ * every shop that listed under this trade and there is no un-merge — the same
+ * bar the corpus already sets for a hard delete with no undo.
+ */
+function MergeTradeControl({
+  service,
+  siblings,
+}: {
+  service: StudioService;
+  siblings: StudioService[];
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [dest, setDest] = useState('');
+  const [typed, setTyped] = useState('');
+  const [flash, setFlash] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+
+  const targets = siblings.filter((t) => t.canonical !== service.canonical);
+  if (targets.length === 0) return null;
+
+  const armed = dest !== '' && typed.trim() === service.displayEn;
+
+  return (
+    <div className="mt-1.5 border-t border-ink/10 pt-1.5">
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-[11px] text-ink/50 underline hover:text-mulberry"
+        >
+          Combine into another trade…
+        </button>
+      ) : (
+        <div className="space-y-1.5 rounded-lg border border-warn-200 bg-warn-50/50 p-2">
+          <p className="text-[11px] leading-snug text-ink/70">
+            Every shop listed under <strong>{service.displayEn}</strong> moves to the trade you
+            pick. The old name keeps working on links already out there. This cannot be undone.
+          </p>
+          <select
+            value={dest}
+            onChange={(e) => setDest(e.target.value)}
+            aria-label={`Combine ${service.canonical} into`}
+            className="w-full rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink"
+          >
+            <option value="">— combine into —</option>
+            {targets.map((t) => (
+              <option key={t.canonical} value={t.canonical}>
+                {t.displayEn}
+              </option>
+            ))}
+          </select>
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={`Type "${service.displayEn}" to confirm`}
+            aria-label="Type the trade name to confirm"
+            className="w-full rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={!armed || pending}
+              onClick={() =>
+                start(async () => {
+                  const res = await mergeCanonicalService(service.canonical, dest);
+                  if (res.ok) {
+                    setFlash({ kind: 'ok', text: res.message });
+                    setOpen(false);
+                    router.refresh();
+                  } else {
+                    setFlash({ kind: 'error', text: res.error });
+                  }
+                })
+              }
+              className="rounded-md bg-mulberry px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+            >
+              {pending ? 'Combining…' : 'Combine'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setDest('');
+                setTyped('');
+              }}
+              className="text-[11px] text-ink/50 underline hover:text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {flash ? (
+        <p
+          className={
+            flash.kind === 'ok'
+              ? 'mt-1 text-[11px] text-ink/70'
+              : 'mt-1 text-[11px] text-danger-700'
+          }
+        >
+          {flash.text}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ServicesTab({
   tile,
   data,
@@ -1779,6 +1899,9 @@ function ServicesTab({
                   </SubmitButton>
                 </form>
               </div>
+
+              {/* Combine this trade into another one in the same branch. */}
+              <MergeTradeControl service={s} siblings={services} />
 
               {/* Leaf refinements (vendor attribute schema) editor */}
               <LeafRefinementsPanel tile={tile} service={s} />

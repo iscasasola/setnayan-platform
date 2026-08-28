@@ -93,6 +93,7 @@ import {
   vendorDeclineLock,
 } from './actions';
 import { lockRequestDaysLeft } from '@/lib/lock-request-state';
+import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
   appointmentCategoriesFor,
@@ -395,6 +396,17 @@ type VendorChangeOrderRow = {
   created_at: string;
 };
 
+/** One open "please send ₱X" this shop has put to this customer. */
+type PaymentAskRow = {
+  ask_id: string;
+  /** PostgREST returns NUMERIC as a string; never assume a number. */
+  amount_php: number | string | null;
+  note: string | null;
+  due_date: string | null;
+  status: 'open' | 'withdrawn';
+  created_at: string;
+};
+
 type ProposalRow = {
   proposal_id: string;
   public_id: string;
@@ -426,6 +438,8 @@ type Props = {
     change_order?: string;
     change_order_resp?: string;
     handover?: string;
+    /** The payment-ask outcome flag — see PaymentAsksPanel. */
+    ask?: string;
   }>;
 };
 
@@ -707,6 +721,39 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   }
   const changeOrdersMeasured = !changeOrderRowsError;
   const changeOrders = (changeOrderRows ?? []) as VendorChangeOrderRow[];
+
+  /*
+    PAYMENT ASKS (booked only) — what this shop has asked this customer for.
+
+    Read on the vendor's OWN session: `vendor_payment_asks` carries a vendor
+    SELECT policy (booked event ∩ own profile), so RLS is doing the scoping here
+    rather than an admin client pretending to.
+
+    ⚠ AN UNREADABLE ASK IS NOT "NO ASK". `?? []` would hide a live request for
+    money — the shop would see nothing outstanding, ask again, and the couple
+    would receive the same bill twice from a screen that looked calm. Measured
+    separately (`asksMeasured`) so the panel can say "we could not read this"
+    instead of "there is nothing here", which are opposite sentences.
+  */
+  const { data: askRows, error: askRowsError } = isBooked && eventVendorId
+    ? await supabase
+        .from('vendor_payment_asks')
+        .select('ask_id, amount_php, note, due_date, status, created_at')
+        .eq('event_vendor_id', eventVendorId)
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(20)
+    : { data: null, error: null };
+  if (askRowsError) {
+    logQueryError(
+      'VendorClientDetail.paymentAsks',
+      askRowsError,
+      { eventId },
+      'graceful_degrade',
+    );
+  }
+  const asksMeasured = !askRowsError;
+  const paymentAsks = (askRows ?? []) as PaymentAskRow[];
 
   // Delivery handovers (booked). event_vendor scoped — safe to read for the
   // vendor's own booking via their RLS.
@@ -1200,6 +1247,49 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   );
 
+  /*
+    THE ASK PANEL — AND WHERE IT HAD TO GO, WHICH IS NOT WHERE IT LOOKS LIKE IT
+    SHOULD.
+
+    🔴 THIS PAGE HAS TWO SHELLS AND ONLY ONE OF THEM HAS A "PAYMENTS" TAB. The
+    unified RelationshipTabShell (chat · quote · payments · files · …) renders
+    ONLY behind `NEXT_PUBLIC_RELATIONSHIP_WORKSPACE_ENABLED`, which defaults
+    OFF. The shell production actually serves has six tabs and `payments` is not
+    one of them — `normalizeTab` does not accept the word, so a redirect to
+    `?tab=payments` silently lands on Overview.
+
+    The panel therefore lives on **Quote & Payments** (`quoteNode`), the one
+    money tab BOTH shells render, immediately under the balance it is about. One
+    copy, one redirect target, reachable on either arm. *A fix nobody can reach
+    is no fix* — this repo has paid for that three times, and the third was the
+    owner finding it.
+
+    ⛔ NOT rendered when the shop is not booked. `vendor_payment_asks`' insert
+    policy is gated on `current_vendor_booked_event_ids()`, so a form there would
+    be a door that always refuses.
+  */
+  const askPanel = isBooked ? (
+    <PaymentAsksPanel
+      eventId={eventId}
+      customerName={eventName}
+      asks={paymentAsks.map((a) => ({
+        askId: a.ask_id,
+        // PostgREST hands NUMERIC back as a STRING. `Number(null)` is 0, which
+        // would render "₱0" — a real-looking figure for a value we do not have —
+        // so an unreadable amount becomes null and the row prints an em dash.
+        amountPhp:
+          a.amount_php == null || Number.isNaN(Number(a.amount_php))
+            ? null
+            : Number(a.amount_php),
+        note: a.note,
+        dueDate: a.due_date,
+        createdAt: a.created_at,
+      }))}
+      measured={asksMeasured}
+      notice={typeof search.ask === 'string' ? search.ask : null}
+    />
+  ) : null;
+
   const quoteNode = (
     <QuoteTab
       proposals={proposals}
@@ -1208,6 +1298,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       planStepRows={planStepRows}
       pendingPayments={pendingPayments}
       threadId={threadId}
+      askPanel={askPanel}
     />
   );
 
@@ -1486,6 +1577,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Reuses VendorPaymentLive exactly as the thread page does — no payment logic is
   // reimplemented. A genuine empty state stands in when there's nothing to confirm
   // or the booking isn't live.
+
   const paymentsTabNode =
     isBooked && threadId ? (
       pendingPayments.length === 0 && planRowsAll.length === 0 ? (
@@ -2477,8 +2569,15 @@ function QuoteTab(props: {
   planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null;
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
   threadId: string | null;
+  /**
+   * "Ask for a payment" — passed in rather than built here so this component
+   * stays a pure renderer and the panel has exactly ONE call site. Null when
+   * the shop is not booked, which is also when the insert policy would refuse.
+   */
+  askPanel: React.ReactNode;
 }) {
-  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, threadId } = props;
+  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, threadId, askPanel } =
+    props;
   const steps = planStepRows?.steps ?? null;
 
   return (
@@ -2646,6 +2745,9 @@ function QuoteTab(props: {
           </Link>
         ) : null}
       </div>
+
+      {/* Ask for a payment — directly under the balance it is about. */}
+      {askPanel}
     </div>
   );
 }

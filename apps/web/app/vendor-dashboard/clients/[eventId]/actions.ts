@@ -579,15 +579,17 @@ export async function vendorPostHandover(formData: FormData) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  // Resolve THIS org's booking (event_vendors.vendor_id) — RLS already scopes
-  // vendor reads to their own bookings — for the denormalized event_vendor_id.
-  const { data: ev } = await supabase
-    .from('event_vendors')
-    .select('vendor_id')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', profile.vendor_profile_id)
-    .maybeSingle();
-  const eventVendorId = (ev as { vendor_id?: string } | null)?.vendor_id ?? null;
+  /*
+    🔴 THIS READ WAS DEAD, AND SO WAS THE WHOLE ACTION. It ran on the vendor's
+    own session under the comment "RLS already scopes vendor reads to their own
+    bookings" — measured against production 2026-08-28, `event_vendors` carries
+    four policies and NOT ONE admits a vendor, so the booked shop read 0 rows of
+    its own booking and every delivery handover ever attempted bounced to
+    `?handover=error`. Nothing threw: `maybeSingle()` on an RLS refusal returns
+    `{ data: null }`, which is byte-identical to "you are not booked here".
+    Now resolved by the shared helper, admin-scoped to the caller's OWN profile.
+  */
+  const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
   if (!eventVendorId) {
     redirect(`/vendor-dashboard/clients/${eventId}?handover=error`);
   }
@@ -719,15 +721,14 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  // Resolve THIS org's booking (event_vendors.vendor_id) on this event. RLS on
-  // event_vendors already scopes vendor reads to their own bookings.
-  const { data: ev } = await supabase
-    .from('event_vendors')
-    .select('vendor_id')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', profile.vendor_profile_id)
-    .maybeSingle();
-  const eventVendorId = (ev as { vendor_id?: string } | null)?.vendor_id ?? null;
+  /*
+    🔴 SAME DEAD READ AS `vendorPostHandover`, same false comment, same outcome:
+    a supplier could never raise a change order — every attempt redirected
+    `?change_order=error`. Two shipped features, one wrong sentence about RLS,
+    and no symptom anywhere but a flag a person had to interpret. See
+    `resolveOwnBookingId` for the measurement.
+  */
+  const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
   if (!eventVendorId) {
     redirect(`/vendor-dashboard/clients/${eventId}?change_order=error`);
   }
@@ -1166,4 +1167,180 @@ export async function vendorAgreeToDeletion(formData: FormData) {
 
 export async function vendorDeclineDeletion(formData: FormData) {
   return answerDeletionRequest(formData, false);
+}
+
+// ==========================================================================
+// ASK A BOOKED CUSTOMER FOR A PAYMENT (S4, 2026-08-28)
+//
+// The shop types an amount, what it is for, and optionally when it would like
+// it. The couple is told and reads it on the same workspace card that already
+// carries their deposit, plan and receipt. Nothing here moves money: the couple
+// still pays the shop directly, off-platform, and the ledger is still the only
+// record of what arrived.
+//
+// 🔑 THE INSERT GOES THROUGH THE CALLER'S OWN SESSION, ON PURPOSE. The fence is
+// the RLS WITH CHECK on `vendor_payment_asks` (a confirmed booking of a profile
+// this caller owns, `status='open'`, `asked_by_user_id = auth.uid()`), and the
+// service-role client carries no user — writing through it would step outside
+// every one of those rules while looking identical in the diff.
+// ==========================================================================
+
+/**
+ * Resolve THIS shop's `event_vendors` row on an event, scoped by the caller's
+ * own vendor_profile_id.
+ *
+ * 🔴 IT USES THE ADMIN CLIENT AND THAT IS NOT AN OPTIMISATION — IT IS THE ONLY
+ * THING THAT WORKS. Measured against production (2026-08-28, in a rolled-back
+ * transaction, as the shop's own authenticated role): `event_vendors` carries
+ * FOUR policies — `couple_read`, `couple_write`, `moderator_read`,
+ * `moderator_write` — and **not one of them admits a vendor**. The shop that is
+ * genuinely booked on the one marketplace booking in production reads
+ * **0 rows** of it through its own session.
+ *
+ * ⚠ TWO SHIPPED ACTIONS IN THIS FILE ALREADY DO IT THE OTHER WAY, EACH UNDER A
+ * COMMENT ASSERTING THIS WORKS ("RLS already scopes vendor reads to their own
+ * bookings"). It does not, and both are repaired to call this helper in the
+ * same commit: `vendorPostHandover` (a supplier delivering a gallery link,
+ * proof or sign-off) and `vendorRaiseChangeOrder` (a supplier proposing an
+ * add-on) could NEVER resolve a booking, so both bounced to their own error
+ * flag on every attempt, for every shop, always. Nothing threw and nothing
+ * logged — `maybeSingle()` on an RLS refusal returns `{ data: null }`, byte for
+ * byte what "this shop is not booked here" looks like. *An RLS denial and an
+ * empty read are the same value.*
+ *
+ * The scoping is what keeps this safe: the id it filters on is the caller's own
+ * profile, resolved from their session one line earlier, and the only column it
+ * returns is the booking's primary key.
+ */
+async function resolveOwnBookingId(
+  eventId: string,
+  vendorProfileId: string,
+): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .maybeSingle();
+  return (data as { vendor_id?: string } | null)?.vendor_id ?? null;
+}
+
+/**
+ * vendorAskForPayment — "please send ₱X".
+ *
+ * Every refusal ends on a NAMED flag the page renders. A guard that refuses in
+ * silence is indistinguishable from one that passed, and this one refuses for
+ * four different reasons.
+ */
+export async function vendorAskForPayment(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    redirect('/vendor-dashboard/clients');
+  }
+  const amount = parseAmount(formData.get('amount_php'));
+  if (amount === null) {
+    redirect(`/vendor-dashboard/clients/${eventId}?tab=quote&ask=amount`);
+  }
+  const dueRaw = formData.get('due_date');
+  const dueDate = typeof dueRaw === 'string' && dueRaw.length > 0 ? dueRaw : null;
+  const note = nullIfBlank(formData.get('note'), 500);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
+  if (!eventVendorId) {
+    redirect(`/vendor-dashboard/clients/${eventId}?tab=quote&ask=notbooked`);
+  }
+
+  // RLS is the fence: confirmed booking ∩ own profile ∩ status='open' ∩
+  // asked_by_user_id = auth.uid(). A shop that is merely in conversation is
+  // refused HERE, not by a TypeScript check somebody could route around.
+  const { error } = await supabase.from('vendor_payment_asks').insert({
+    event_vendor_id: eventVendorId,
+    event_id: eventId,
+    vendor_profile_id: profile.vendor_profile_id,
+    amount_php: amount,
+    note,
+    due_date: dueDate,
+    status: 'open',
+    asked_by_user_id: user.id,
+  });
+
+  if (!error) {
+    try {
+      const admin = createAdminClient();
+      const shopName = profile.business_name?.trim() || 'Your supplier';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id as string,
+          type: 'vendor_payment_asked',
+          title: `${shopName} asked for a payment`,
+          // The amount is the whole point of the message — a notice saying
+          // "they asked for something" makes the reader open the page to find
+          // out what, which is the shape this repo already fixed once on the
+          // Papic studio banner that named no figure.
+          body: note
+            ? `₱${amount.toLocaleString('en-PH')} — ${note}`
+            : `₱${amount.toLocaleString('en-PH')}`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      console.error('[vendorAskForPayment] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(
+    `/vendor-dashboard/clients/${eventId}?tab=quote&ask=${error ? 'error' : 'sent'}`,
+  );
+}
+
+/**
+ * vendorWithdrawPaymentAsk — take it back.
+ *
+ * 🔑 THE INVERSE, SHIPPED WITH THE FORWARD PRIMITIVE. An ask is a sentence about
+ * somebody's money; leaving it on their screen after it is settled or was a
+ * mistake is the defect, not a missing nicety.
+ *
+ * Forwards to the single-winner SECURITY DEFINER RPC — the only writer of a
+ * resolved state, since neither side holds an UPDATE policy or an UPDATE grant.
+ * Called on the CALLER'S OWN SESSION: the RPC resolves ownership from
+ * `auth.uid()`, which is NULL on the service-role client, so a service-role
+ * call would refuse every withdrawal while looking finished.
+ */
+export async function vendorWithdrawPaymentAsk(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const askId = formData.get('ask_id');
+  if (typeof eventId !== 'string' || typeof askId !== 'string') {
+    redirect('/vendor-dashboard/clients');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('withdraw_vendor_payment_ask', {
+    p_ask_id: askId,
+  });
+  const ok = !error && (data as { ok?: boolean } | null)?.ok === true;
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(
+    `/vendor-dashboard/clients/${eventId}?tab=quote&ask=${ok ? 'withdrawn' : 'error'}`,
+  );
 }

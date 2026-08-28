@@ -51,6 +51,27 @@ const LEAF_CANONICAL_SERVICES: Record<string, readonly string[]> = {
   accommodation: ['accommodation'],
 };
 
+/**
+ * canonical_service → the benchmark leaf that prices it. A REVERSE INDEX of
+ * `LEAF_CANONICAL_SERVICES` above, built once — never a second hand-typed table,
+ * which is how the two would drift.
+ *
+ * The marketplace grid needs it: its category filter names a canonical service
+ * (`photographer`), while the couple's budget is split by benchmark leaf
+ * (`photography`). Null for a category no leaf prices — the caller must then
+ * treat the budget as unknown rather than guess.
+ */
+const PLAN_GROUP_BY_CANONICAL: Record<string, string> = Object.fromEntries(
+  Object.entries(LEAF_CANONICAL_SERVICES).flatMap(([leaf, canonicals]) =>
+    canonicals.map((c) => [c, leaf]),
+  ),
+);
+
+export function planGroupForCanonicalService(canonical: string | null | undefined): string | null {
+  if (!canonical) return null;
+  return PLAN_GROUP_BY_CANONICAL[canonical] ?? null;
+}
+
 export type BenchmarkRow = {
   plan_group_id: string;
   label: string;

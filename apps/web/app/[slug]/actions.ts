@@ -902,6 +902,31 @@ export async function removeMyTag(
     return;
   }
   const admin = createAdminClient();
+  /*
+    🔴 THE `source = 'auto_face'` FILTER IS GONE, AND IT WAS MAKING THIS BUTTON
+    DO NOTHING AT ALL.
+
+    "Not me" renders on EVERY photograph in a guest's gallery, and this update
+    only ever matched a FACE-RECOGNITION guess. Measured in production: 2 photo
+    tags exist in total and BOTH are `manual_pick` — there has never been a
+    single `auto_face` tag, because face matching is switched off on every
+    event. So the control rendered everywhere, said "Removing…", revalidated the
+    page, and left the tag exactly where it was. No error, nothing logged, and
+    the only symptom an absence.
+
+    ⚖ AND THE NARROW VERSION WAS ANSWERING THE WRONG QUESTION. Whether a wrong
+    tag came from a face model or a mis-scanned QR is our implementation detail;
+    the guest's problem is identical either way — a photograph of somebody else
+    is filed under their name. Detaching themselves is theirs to do, it removes
+    the ASSOCIATION and never the photograph, and `removed_by: 'guest'` records
+    who did it.
+
+    ⛔ STILL SCOPED TO THIS GUEST'S OWN TAG ON THIS ONE PHOTO. `guest_id` comes
+    from the session cookie, never from the form, so nobody can untag anybody
+    else — and asking for the PHOTOGRAPH itself to come down is a different
+    control (`askToTakeMyPhotoDown` below), because that is not theirs to
+    decide alone.
+  */
   await admin
     .from('photo_tags')
     .update({ removed_at: new Date().toISOString(), removed_by: 'guest' })
@@ -909,10 +934,151 @@ export async function removeMyTag(
     .eq('guest_id', session.guest_id)
     .eq('source_table', sourceTable)
     .eq('source_id', sourceId)
-    .eq('source', 'auto_face')
     .is('removed_at', null);
 
   const { data: ev } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (ev?.slug) revalidatePath(`/${ev.slug}`);
+}
+
+export type TakedownResult =
+  | { ok: true; alreadyAsked: boolean }
+  | { ok: false; message: string };
+
+/**
+ * A GUEST ASKS FOR A PHOTOGRAPH OF THEMSELVES TO BE TAKEN DOWN.
+ *
+ * ─── THE PERSON THIS IS FOR ────────────────────────────────────────────────
+ * Somebody who scanned a QR at a wedding, has no Setnayan account, and never
+ * will. Until now they could ask us for exactly nothing: no settings page
+ * exists under an event's address, the "Report" control shipped on public
+ * profiles and chat threads is not mounted anywhere they can reach, and the
+ * only button on their own gallery — "Not me" — detaches a tag and leaves the
+ * photograph up.
+ *
+ * ⚖ AND WE PROMISE THEM OTHERWISE, IN WRITING, AT THE MOMENT WE COLLECT IT.
+ * The consent box on the selfie step reads *"I can remove my photo anytime in
+ * my settings"* and cites RA 10173. They have no settings. This is the door
+ * that sentence has always implied.
+ *
+ * ─── WHY IT IS A REQUEST AND NOT A DELETE ──────────────────────────────────
+ * 🔑 THE PHOTOGRAPH IS NOT THEIRS. It was taken by somebody else, at somebody
+ * else's celebration, and it may hold four other people. A guest pressing a
+ * button that erases it outright would let any one person in a group shot
+ * destroy it for the rest — so the tag comes off immediately (that IS theirs)
+ * and the photograph goes to a person.
+ *
+ * ⚖ THE TAG IS DROPPED FIRST AND ON PURPOSE. Whatever we decide about the
+ * photograph, somebody objecting to their own likeness should stop being FILED
+ * under it in the same press — that half needs nobody's permission and should
+ * not wait in a queue.
+ *
+ * ─── WHERE IT LANDS ────────────────────────────────────────────────────────
+ * `user_reports`, the one moderation queue, using `reporter_guest_id` — a
+ * column built in 20261108000000 for exactly this accountless person and, until
+ * today, written by only one path. The reason is `remove_my_likeness`, added by
+ * 20271179297156 for the same reason a name matters anywhere: filed as `other`
+ * it would arrive indistinguishable from spam, and this is the one report that
+ * carries a statutory clock.
+ */
+export async function askToTakeMyPhotoDown(
+  eventId: string,
+  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  sourceId: string,
+  formData: FormData,
+): Promise<TakedownResult> {
+  const session = await readGuestSession();
+  /*
+    🔒 THE SESSION IS THE WHOLE GATE, AND IT IS NOT DECORATION. This page is
+    PUBLIC — an event address serves anybody with the link — so without this a
+    stranger could post takedowns against a wedding's photographs all day. The
+    cookie proves they were let in and which celebration they belong to; the
+    id it carries is never read from the form.
+  */
+  if (!session || session.event_id !== eventId) {
+    return {
+      ok: false,
+      message: 'Open this from your own invitation link and we can help.',
+    };
+  }
+  if (!sourceId) return { ok: false, message: 'Which photo?' };
+
+  const note = String(formData.get('note') ?? '')
+    .trim()
+    .slice(0, 2000);
+
+  const admin = createAdminClient();
+
+  // Their tag comes off now — see the docblock. Best-effort: a failure here
+  // must not swallow the request, which is the half that needs a person.
+  try {
+    await admin
+      .from('photo_tags')
+      .update({ removed_at: new Date().toISOString(), removed_by: 'guest' })
+      .eq('event_id', eventId)
+      .eq('guest_id', session.guest_id)
+      .eq('source_table', sourceTable)
+      .eq('source_id', sourceId)
+      .is('removed_at', null);
+  } catch (err) {
+    console.error('[takedown] could not drop the guest tag', err);
+  }
+
+  /*
+    🪤 ONE OPEN ASK PER PHOTO PER GUEST — checked, because there is no unique
+    index to lean on and a person who presses twice must not fill a moderation
+    queue with the same objection. Read first, then insert: a race here costs a
+    duplicate row for a human to glance past, never a lost request, and that is
+    the correct direction to be wrong in.
+  */
+  const { data: existing } = await admin
+    .from('user_reports')
+    .select('report_id')
+    .eq('event_id', eventId)
+    .eq('reporter_guest_id', session.guest_id)
+    .eq('target_type', 'photo')
+    .eq('target_id', sourceId)
+    .eq('reason', 'remove_my_likeness')
+    .eq('status', 'open')
+    .maybeSingle();
+
+  if (existing) {
+    await revalidateEventSlug(eventId);
+    return { ok: true, alreadyAsked: true };
+  }
+
+  const { error } = await admin.from('user_reports').insert({
+    event_id: eventId,
+    reporter_guest_id: session.guest_id,
+    target_type: 'photo',
+    target_id: sourceId,
+    reason: 'remove_my_likeness',
+    /*
+      The photo's own table is recorded in the details, because `target_id`
+      alone cannot say which of the two capture tables it belongs to and the
+      person answering has to find the picture.
+    */
+    details: `${sourceTable}${note ? ` — ${note}` : ''}`,
+  });
+
+  if (error) {
+    console.error('[takedown] request failed', error);
+    return {
+      ok: false,
+      message: 'We couldn’t send that just now. Please try again.',
+    };
+  }
+
+  await revalidateEventSlug(eventId);
+  return { ok: true, alreadyAsked: false };
+}
+
+/** Refresh the celebration page after a guest-side change. */
+async function revalidateEventSlug(eventId: string): Promise<void> {
+  const { data: ev } = await createAdminClient()
     .from('events')
     .select('slug')
     .eq('event_id', eventId)

@@ -68,6 +68,15 @@ const REASON_LABEL: Record<string, string> = {
   hate_harassment: 'Hate / harassment',
   spam: 'Spam',
   not_my_event: 'Not from this event',
+  /*
+    ⚖ NOT AN ABUSE REPORT, AND IT MUST NOT READ AS ONE. This is the data
+    subject's own objection to a photograph of themselves — RA 10173's right to
+    object — filed from their own gallery on the event page, by somebody who
+    usually has no account at all. It carries a statutory clock the other five
+    do not. Before 20271179297156 there was no word for it and it would have
+    arrived as `Other`, indistinguishable from spam.
+  */
+  remove_my_likeness: 'Asked us to take their photo down (RA 10173)',
   other: 'Other',
 };
 

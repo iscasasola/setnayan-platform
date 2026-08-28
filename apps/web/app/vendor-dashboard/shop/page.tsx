@@ -359,7 +359,11 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       .eq('vendor_profile_id', vendorId)
       .gte('viewed_at', weekStart)
       .then((r) => r.count ?? 0, () => 0),
-    fetchVendorBranches(supabase, vendorId).catch(() => []),
+    // Service-role ORDER reader (branch rows still run under the caller's RLS).
+    // A shop's second manager cannot see the order its owner paid, so without
+    // this a live branch reads back to them as "Pending payment" — and that
+    // status is now what decides whether the branch is public and usable.
+    fetchVendorBranches(supabase, vendorId, createAdminClient()).catch(() => []),
     fetchVendorTeam(supabase, vendorId).catch(() => [] as VendorTeamMemberRow[]),
     // LEFT ON THE POOL READ: these eventIds become the "Featured editorials"
     // picker, i.e. what this shop publishes about itself. Same reason as

@@ -112,6 +112,7 @@ import {
 } from '@/lib/integration-config';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
+import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import {
@@ -1246,6 +1247,25 @@ export async function renderVendorBySlug({
     is_verified: vendor.verification_state === 'verified',
   });
 
+  // The shop's OTHER locations, as a customer may see them (owner-ruled
+  // 2026-08-28: yes, customers should see a supplier's branches — and a branch
+  // must be PAID FOR to be one of them).
+  //
+  // Until this, a shop with five paid branches looked identical to a shop with
+  // none: the branch library was a private label on My Shop and nothing about
+  // it reached the marketplace, this page, search or the map.
+  //
+  // 🔒 Read with the SERVICE-ROLE client already in scope, scoped to the shop
+  // this page is rendering — `vendor_branches` has no `anon` policy, and the
+  // fix for that is not a blanket public read on a table that also holds every
+  // unpaid and cancelled branch with its street address and coordinates. Only
+  // the name and the city come back, and only for branches whose fee is paid
+  // and whose 28-day window is live.
+  const publicBranches = await fetchPublicVendorBranches(
+    admin,
+    vendor.vendor_profile_id,
+  ).catch(() => []);
+
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public
   // page so the supabase client may have no user; that's fine — the gate
   // renders a "Sign in to follow" CTA in that case.
@@ -2287,6 +2307,37 @@ export async function renderVendorBySlug({
               longitude={vendor.hq_longitude}
               addressFallback={vendor.hq_address ?? vendor.location_city ?? null}
             />
+            {/* Other locations (2026-08-29). The shop's paid, live branches —
+                name and city only. The map above stays the headquarters pin:
+                one pin is what this embed draws, and a second address without
+                a second pin is clearer than a pin that moves. Nothing here is
+                added to the JSON-LD or the sitemap: those are claims Google
+                republishes, and a branch that lapses would leave one standing
+                after it stopped being true. */}
+            {publicBranches.length > 0 ? (
+              <div className="space-y-1.5 pt-1">
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                  Also here
+                </p>
+                <ul className="space-y-1 text-sm text-ink/70">
+                  {publicBranches.map((b) => (
+                    <li key={b.branchId} className="flex items-start gap-1.5">
+                      <MapPin
+                        aria-hidden
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                        strokeWidth={1.75}
+                      />
+                      <span>
+                        <span className="text-ink">{b.branchLabel}</span>
+                        {b.branchCity ? (
+                          <span className="text-ink/60"> · {b.branchCity}</span>
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </section>
 

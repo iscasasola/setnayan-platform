@@ -22,6 +22,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
@@ -37,7 +38,7 @@ import {
   fetchInclusionsByService,
   fetchBracketsByService,
 } from '@/lib/vendor-services';
-import { fetchVendorBranches } from '@/lib/vendor-branches';
+import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
 import {
   fetchVendorPoolBookings,
   fetchVendorBlocks,
@@ -392,16 +393,35 @@ export async function VendorServicesManager({
   const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
   // #3 time-bound slots: ENTERPRISE-only plotting (keyed on the enterprise tier).
   const canPlotSlots = canPlotTimeSlots(tier);
-  const branches =
+  const allBranches =
     // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so Custom
     // gets the branch picker without a hard equality edit.
+    // The service-role ORDER reader matters here: a shop's second manager
+    // cannot see the order its owner paid, so without it every branch would
+    // read as unpaid to them and the gate below would refuse a live branch.
     isTierAtLeast(tier, 'enterprise')
-      ? (await fetchVendorBranches(supabase, profile.vendor_profile_id)).filter(
-          (b) => b.status !== 'cancelled',
-        )
+      ? (
+          await fetchVendorBranches(
+            supabase,
+            profile.vendor_profile_id,
+            createAdminClient(),
+          )
+        ).filter((b) => b.status !== 'cancelled')
       : [];
-  const showBranchPicker = branches.length > 0;
-  const branchLabelById = new Map(branches.map((b) => [b.branch_id, b.branch_label]));
+  // Owner 2026-08-28 — "paid". Only a paid, in-window branch may be CHOSEN.
+  // The picker used to offer every non-cancelled branch, so a branch nobody
+  // had paid for was fully usable. The server refuses it too; this is the
+  // half that means a vendor never meets that refusal by accident.
+  const branches = allBranches.filter((b) => branchIsUsable(b.status));
+  const showBranchPicker = allBranches.length > 0;
+  // Labels come from ALL branches, not just the choosable ones: a card already
+  // filed under a lapsed branch must keep naming it. Dropping it here would
+  // have relabelled that card "assigned to You" — a silent lie about where the
+  // vendor filed their own work.
+  const branchLabelById = new Map(allBranches.map((b) => [b.branch_id, b.branch_label]));
+  const inactiveBranchIds = new Set(
+    allBranches.filter((b) => !branchIsUsable(b.status)).map((b) => b.branch_id),
+  );
 
   // (The standalone "Explore card preview" section — and its review/badge/
   // display-name reads — was REMOVED per the owner's v20 prototype ("remove
@@ -885,7 +905,9 @@ export async function VendorServicesManager({
                   : 'flat';
               const branchLabel =
                 svc.branch_id && branchLabelById.has(svc.branch_id)
-                  ? (branchLabelById.get(svc.branch_id) as string)
+                  ? `${branchLabelById.get(svc.branch_id) as string}${
+                      inactiveBranchIds.has(svc.branch_id) ? ' (not active)' : ''
+                    }`
                   : 'You';
               const hasSlots =
                 (slotsByService.get(svc.vendor_service_id)?.length ?? 0) > 0;
@@ -1179,6 +1201,16 @@ export async function VendorServicesManager({
                             id={`branch-${svc.vendor_service_id}`}
                             branches={branches}
                             defaultValue={svc.branch_id ?? ''}
+                            inactiveOption={
+                              svc.branch_id && inactiveBranchIds.has(svc.branch_id)
+                                ? {
+                                    branch_id: svc.branch_id,
+                                    branch_label: branchLabelById.get(
+                                      svc.branch_id,
+                                    ) as string,
+                                  }
+                                : null
+                            }
                           />
                         ) : null}
                         {/* Multi-discount list (Phase 3b). Preserves the
@@ -1773,13 +1805,27 @@ function BranchSelect({
   id,
   branches,
   defaultValue,
+  inactiveOption = null,
 }: {
   id: string;
   branches: { branch_id: string; branch_label: string }[];
   defaultValue: string;
+  /**
+   * The branch this card is ALREADY filed under, when that branch is no longer
+   * paid for. It is offered so the value the card holds is still on the list —
+   * a <select> whose defaultValue names no option silently falls back to the
+   * first one, so leaving it out would move the card to "Main (no branch)" the
+   * next time the vendor saved an unrelated field, with nothing said. It is
+   * marked, and the server refuses it for any card not already on it.
+   */
+  inactiveOption?: { branch_id: string; branch_label: string } | null;
 }) {
   return (
-    <Field label="Branch" htmlFor={id} help="Which location offers this service.">
+    <Field
+      label="Branch"
+      htmlFor={id}
+      help="Which location offers this service. Only branches you have paid for can be chosen."
+    >
       <select id={id} name="branch_id" defaultValue={defaultValue} className="input-field cursor-pointer">
         <option value="">Main (no branch)</option>
         {branches.map((b) => (
@@ -1787,6 +1833,11 @@ function BranchSelect({
             {b.branch_label}
           </option>
         ))}
+        {inactiveOption ? (
+          <option key={inactiveOption.branch_id} value={inactiveOption.branch_id}>
+            {inactiveOption.branch_label} (not active)
+          </option>
+        ) : null}
       </select>
     </Field>
   );

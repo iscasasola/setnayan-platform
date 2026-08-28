@@ -144,6 +144,20 @@ export type PipelineThread = {
    * free of the chat layer. False means the couple's identity is still masked.
    */
   revealed: boolean;
+  /**
+   * `chat_threads.updated_at` — the last thing that happened on this thread,
+   * from EITHER side. It is what separates a live conversation from something
+   * the shop is holding.
+   *
+   * 🔑 TWO NEARER-LOOKING FIELDS WERE MEASURED AND REJECTED.
+   * `vendor_first_reply_at` is the FIRST reply, so a thread alive for weeks
+   * would read as quiet for weeks; `accepted_at` is when identity was revealed,
+   * not when anybody last spoke. "Nothing has happened here since" is the fact
+   * a shop can act on, and the only one of the three that stays true.
+   *
+   * Optional, and a missing value fails toward `talking` — see `quietDaysOf`.
+   */
+  lastActivityAt?: string | null;
 };
 
 /** An `event_vendors` row, reduced to the facts this derivation needs. */

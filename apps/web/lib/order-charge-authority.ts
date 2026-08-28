@@ -158,8 +158,20 @@ export async function resolveOrderChargeCentavos(
           eventId,
           priceContext,
         );
-        if (perType != null) {
-          return sealServerResolvedTotal(perType, 'setnayan_ai_event_type');
+        // THREE STATES, AND THE MIDDLE ONE IS WHY THIS IS NOT AN `if (x != null)`.
+        //
+        //   read_error -> REFUSE. Owner-ruled 2026-08-27. Previously this
+        //     returned null and FELL THROUGH to the flat retail row below, so a
+        //     failed read did not merely guess - it billed a DIFFERENT PRICE
+        //     than the one this branch exists to charge, silently.
+        //   absent -> fall through, exactly as the old `null` did. The event row
+        //     is genuinely not there; the ordinary catalog charge stands.
+        //   resolved -> seal it.
+        if (perType.status === 'read_error') {
+          return { ok: false, refusal: 'read_error', detail: perType.message };
+        }
+        if (perType.status === 'resolved') {
+          return sealServerResolvedTotal(perType.centavos, 'setnayan_ai_event_type');
         }
       }
     }

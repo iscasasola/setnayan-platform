@@ -32,7 +32,7 @@ import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
 /** Mirrors the shape of live prod on 2026-07-31, retired rows included. */
 const RETAIL: RetailRow[] = [
   // --- active ---
-  { service_code: 'COUPLE_WEBSITE_PRO', title: 'Couple Website PRO', retail_price_php: 3500, is_active: true },
+  { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Hub Pro', retail_price_php: 3500, is_active: true },
   // ── THE PAPIC LADDER, owner 2026-08-26 ──────────────────────────────────
   // ⚠ SIXTEEN ROWS, and this fixture is the SECOND hand-typed copy of the
   // catalog that this file's own docblock warns about. When a rung's price or
@@ -52,8 +52,8 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PAPIC_GUEST_7K', title: 'Papic — add 7,000 shots', retail_price_php: 2800, is_active: true },
   { service_code: 'PAPIC_GUEST_10K', title: 'Papic — add 10,000 shots', retail_price_php: 3200, is_active: true },
   { service_code: 'PAPIC_GUEST_30K', title: 'Papic — add 30,000 shots', retail_price_php: 7500, is_active: true },
-  { service_code: 'PAPIC_GUEST_50K', title: 'Papic — add 50,000 shots', retail_price_php: 10000, is_active: true },
-  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 2999, is_active: true },
+  { service_code: 'PAPIC_GUEST_50K', title: 'Papic — add 50,000 shots', retail_price_php: 11200, is_active: true },
+  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 3000, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on
@@ -61,7 +61,7 @@ const RETAIL: RetailRow[] = [
   // must move in the same PR as the real one, or the suite passes green while
   // production serves the fallback stub.
   { service_code: 'LIVE_WALL', title: 'Live Venue Photo Wall', retail_price_php: 2500, is_active: false },
-  { service_code: 'PAPIC_ADDON_THANK_YOU', title: 'Thank You', retail_price_php: 2499, is_active: true },
+  { service_code: 'PAPIC_ADDON_THANK_YOU', title: 'Thank You', retail_price_php: 2500, is_active: true },
   // ⚠ 6,000 IS BACK ON THE LADDER (owner 2026-08-26, ₱2,400) after being retired
   // on 2026-08-11. It was the fixture's example of a retired SKU; that role now
   // belongs to PAPIC_ADDON_STORIES and LIVE_WALL below, so the 'a retired SKU
@@ -111,11 +111,11 @@ const RETAIL: RetailRow[] = [
 
 const VENDOR = [
   { sku_code: 'solo_vendor_monthly', title: 'Solo (28d)', price_php: 1000, is_active: true },
-  { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 10000, is_active: true },
+  { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 10400, is_active: true },
   { sku_code: 'pro_vendor_monthly', title: 'Pro (28d)', price_php: 2500, is_active: true },
-  { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 25000, is_active: true },
-  { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 8000, is_active: true },
-  { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 80000, is_active: true },
+  { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 26000, is_active: true },
+  { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 10000, is_active: true },
+  { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 104000, is_active: true },
   { sku_code: 'vendor_branch_28day', title: 'Branch', price_php: 999, is_active: true },
 ];
 

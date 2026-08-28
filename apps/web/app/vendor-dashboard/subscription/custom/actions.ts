@@ -11,11 +11,13 @@ import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role'
 import {
   computeCustomQuote,
   CUSTOM_BASE,
+  priceForTerm,
   type CustomComposition,
+  type CustomPlanTerm,
 } from '@/lib/vendor-custom-pricing';
 import {
   fetchCustomUnitPrices,
-  customPlanServiceKey,
+  customPlanServiceKeyForTerm,
 } from '@/lib/vendor-custom-catalog';
 
 /**
@@ -71,21 +73,21 @@ function boolField(raw: FormDataEntryValue | null): boolean {
 function parseComposition(formData: FormData): CustomComposition {
   const nationwide = boolField(formData.get('nationwide'));
   const branches = Math.max(1, Math.min(50, intField(formData.get('branches'), 1)));
-  const reachKmRaw = intField(formData.get('reachKm'), CUSTOM_BASE.reachKm);
-  // Snap reach to a valid +100 km step within [100, 500].
-  const reachStepped = Math.round(reachKmRaw / 100) * 100;
-  const reachKm = Math.max(
-    CUSTOM_BASE.reachKm,
-    Math.min(CUSTOM_BASE.reachMaxKm, reachStepped),
-  );
+  // 🔒 REACH IS PINNED TO THE INCLUDED BASE AND IS NOT READ FROM THE FORM.
+  // The +100 km step was dropped 2026-08-27 (owner) — nationwide is the only
+  // reach upgrade. Continuing to accept a posted `reachKm` would let a crafted
+  // POST widen a shop's service radius for FREE, because nothing prices it any
+  // more. The one remaining reach lever is the `nationwide` flag above, which
+  // still costs `reachNationwide`.
+  const reachKm = CUSTOM_BASE.reachKm;
   const seats = Math.max(CUSTOM_BASE.seats, Math.min(500, intField(formData.get('seats'), CUSTOM_BASE.seats)));
   const slotsPerCategory = Math.max(
     CUSTOM_BASE.slotsPerCategory,
     Math.min(200, intField(formData.get('slotsPerCategory'), CUSTOM_BASE.slotsPerCategory)),
   );
-  const photosRaw = intField(formData.get('photos'), CUSTOM_BASE.photos);
-  // Snap photos to a +100 step, floored at the base 300.
-  const photos = Math.max(CUSTOM_BASE.photos, Math.round(photosRaw / 100) * 100);
+  // 🔒 Same for portfolio photos: the +100 pack was dropped 2026-08-27, so a
+  // posted `photos` would be an unpriced capability upgrade. Pinned to base.
+  const photos = CUSTOM_BASE.photos;
   const domain = boolField(formData.get('domain'));
 
   return {
@@ -148,6 +150,19 @@ export async function requestCustomPlan(formData: FormData) {
   const quote = computeCustomQuote(composition, unitPrices);
   const final28 = quote.final28;
   if (!Number.isFinite(final28) || final28 <= 0) {
+    backErr('Could not price this plan. Please try again.');
+  }
+
+  // 🔒 THE TERM IS THE ONLY NEW THING THE FORM CARRIES, AND IT IS A CHOICE, NOT
+  // A PRICE. Anything unrecognised falls to '28d' — the cheaper term — so a
+  // tampered or truncated POST can never buy a year's entitlement.
+  // The AMOUNT is still re-derived server-side from our own recomputed
+  // `final28`, never read from the request, so the figure the page quoted and
+  // the figure we charge are the same number by construction.
+  const term: CustomPlanTerm =
+    String(formData.get('term') ?? '').trim() === 'annual' ? 'annual' : '28d';
+  const chargePhp = priceForTerm(final28, term);
+  if (!Number.isFinite(chargePhp) || chargePhp <= 0) {
     backErr('Could not price this plan. Please try again.');
   }
 
@@ -221,9 +236,9 @@ export async function requestCustomPlan(formData: FormData) {
       orderRowFor(
         { userId: user.id, eventId: null, vendorProfileId },
         {
-          service_key: customPlanServiceKey(vendorProfileId),
-          description: 'Custom Plan (28-day)',
-          requested_total_php: final28,
+          service_key: customPlanServiceKeyForTerm(vendorProfileId, term),
+          description: term === 'annual' ? 'Custom Plan (1 year)' : 'Custom Plan (28-day)',
+          requested_total_php: chargePhp,
           status: 'submitted',
           reference_code: referenceCode,
         },
@@ -240,7 +255,7 @@ export async function requestCustomPlan(formData: FormData) {
     paymentRowFor(
       { userId: user.id, verifiedOrderId: orderId },
       {
-        amount_php: final28,
+        amount_php: chargePhp,
         channel,
         reference_number: null,
         screenshot_url: null,

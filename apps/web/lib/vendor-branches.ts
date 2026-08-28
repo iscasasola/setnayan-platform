@@ -30,10 +30,20 @@ import { tierCaps } from './vendor-tier-caps';
  * "prices are admin-managed"). Read it server-side with `fetchBranchFeePhp()`.
  * This literal is the BACKWARD-COMPATIBLE fallback used when the catalog row is
  * missing (e.g. the seeding migration hasn't been applied yet) — so the branch
- * flow keeps working at ₱999 regardless of migration state. The UI still
- * imports this for static copy; the order-creation path resolves the live price.
+ * flow keeps working regardless of migration state. The UI still imports this
+ * for static copy; the order-creation path resolves the live price.
+ *
+ * 🚨 IT IS ALSO A BACK DOOR UNDER THE PRICE, and it was one: this read ₱999 for
+ * the whole day the owner raised `vendor_additional_branch` to ₱1,000
+ * (2026-08-27). Any failed or pre-migration catalog read would have quietly
+ * charged yesterday's price while the catalog looked correct — the same shape
+ * as the Custom-base fallback found the same day, which would have put a whole
+ * tier back below Enterprise. ⛔ THIS NUMBER IS A SECOND COPY OF A CATALOG
+ * PRICE: move it in the SAME change as the migration.
+ * `custom-sits-above-enterprise.db.test.ts` now compares every declared fallback
+ * against its live catalog row and fails the build on drift.
  */
-export const BRANCH_FEE_PHP = 999;
+export const BRANCH_FEE_PHP = 1000;
 export const BRANCH_FEE_CENTAVOS = BRANCH_FEE_PHP * 100;
 
 /** The catalog sku_code the branch fee is read from (seeded by migration). */

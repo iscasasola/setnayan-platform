@@ -1,4 +1,5 @@
 import 'server-only';
+import { setupPricePhp, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 
 /**
  * onboarding-services-orders.ts — turn what the couple picked on the onboarding
@@ -114,17 +115,26 @@ const lineTotal = (p: Part) => p.unitPhp * p.quantity;
  * away free.
  */
 async function priceOf(admin: SupabaseClient, serviceCode: string): Promise<number | null> {
-  const { data } = await admin
-    .from('platform_retail_catalog_v2')
-    .select('retail_price_php, onboarding_price_php, is_active')
-    .eq('service_code', serviceCode)
-    .maybeSingle();
+  const [{ data }, { data: settings }] = await Promise.all([
+    admin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php, onboarding_price_php, is_active')
+      .eq('service_code', serviceCode)
+      .maybeSingle(),
+    admin.from('platform_settings').select('onboarding_discount_pct').eq('id', 1).maybeSingle(),
+  ]);
   if (data?.is_active !== true) return null;
-  const signup = Number(data?.onboarding_price_php ?? 0);
   const retail = Number(data?.retail_price_php ?? 0);
-  // A sign-up price ABOVE retail is a data error, not an offer: fall back rather
-  // than charging somebody more for buying early.
-  const php = Number.isFinite(signup) && signup > 0 && signup <= retail ? signup : retail;
+  // 🔑 THE SAME FUNCTION THE CARD USED. The screen and the charge cannot quote
+  // different figures if they cannot hold different rules.
+  const php = setupPricePhp(
+    retail,
+    data?.onboarding_price_php == null ? null : Number(data.onboarding_price_php),
+    readOnboardingDiscountPct(
+      (settings as { onboarding_discount_pct?: number | string | null } | null)
+        ?.onboarding_discount_pct,
+    ),
+  );
   if (!Number.isFinite(php) || php <= 0) return null;
   return php;
 }

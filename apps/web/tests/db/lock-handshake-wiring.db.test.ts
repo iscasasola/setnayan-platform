@@ -548,8 +548,8 @@ test('a vendor cannot reach a booking by owning the service it points at', async
   const outsider = await newVendor('outsider@prh.test');
 
   const svc = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category)
-     VALUES ($1, 'photography') RETURNING vendor_service_id`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1, 'photography', 40000, 'Free extra hour') RETURNING vendor_service_id`,
     [outsider.vpid],
   );
   const tm = await db.query<{ vendor_team_member_id: string }>(

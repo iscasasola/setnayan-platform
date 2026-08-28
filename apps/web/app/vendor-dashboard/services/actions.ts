@@ -1475,7 +1475,8 @@ export async function commitVendorService(formData: FormData) {
       hasPrice: priceIsSet(fields.starting_price_php as number | null),
       hasExclusive: exclusiveIsSet(fields.exclusive_perk_text as string | null),
     });
-    if (unmet.length > 0) return back(PUBLISH_REFUSAL_MESSAGE[unmet[0]]);
+    const firstUnmet = unmet[0];
+    if (firstUnmet) return back(PUBLISH_REFUSAL_MESSAGE[firstUnmet]);
   }
 
   // ---- ★ Customization step (flag-dark behind packageAuthoringEnabled) ----
@@ -1968,10 +1969,11 @@ export async function toggleVendorServiceActive(formData: FormData) {
       hasPrice: priceIsSet(row.starting_price_php),
       hasExclusive: exclusiveIsSet(row.exclusive_perk_text),
     });
-    if (unmet.length > 0) {
+    const firstUnmet = unmet[0];
+    if (firstUnmet) {
       return redirect(
         `${await servicesReturnBase()}?error=${encodeURIComponent(
-          PUBLISH_REFUSAL_MESSAGE[unmet[0]],
+          PUBLISH_REFUSAL_MESSAGE[firstUnmet],
         )}`,
       );
     }

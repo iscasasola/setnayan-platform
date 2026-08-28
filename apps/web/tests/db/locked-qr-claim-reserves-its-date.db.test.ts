@@ -75,8 +75,8 @@ before(async () => {
   // this row the resolver returns NULL for every case, the acquire never runs,
   // and "the claim was not refused" would be true for the wrong reason.
   await db.query(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category)
-     VALUES ($1, 'photographer')`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1, 'photographer', 40000, 'Free extra hour')`,
     [vendorProfileId],
   );
 });

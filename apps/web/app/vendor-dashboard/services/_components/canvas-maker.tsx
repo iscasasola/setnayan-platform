@@ -885,6 +885,14 @@ export function CanvasMaker({
         {/* ⚠ THE PULSE IS ON A WRAPPER, NOT ON THE CARD. Keying the card itself
             would remount the title input mid-typing; this way the "your card can
             go live now" beat costs nothing inside it. */}
+        {/* 🖥 PINNED, NOT SHRUNK — but only DURING the pass, and only at
+            lg+ (see .sn-canvas-pass-pin in globals.css). An ordinary edit,
+            after the pass, is never pinned: nothing is being built behind
+            those sheets, so the card stays exactly where it always has.
+            A SEPARATE wrapper, on purpose — the pulse wrapper below keeps
+            its own untouched key+className so keying the card itself still
+            cannot happen by accident. */}
+        <div className={inPass ? 'sn-canvas-pass-pin' : undefined}>
         <div key={blocked ? 'card-blocked' : 'card-ready'} className={blocked ? undefined : 'sn-paint-live rounded-2xl'}>
         <div
           className="overflow-hidden rounded-2xl border"
@@ -1057,7 +1065,17 @@ export function CanvasMaker({
           </CardRegion>
         </div>
         </div>
+        </div>
 
+        {/* 🖥 HIDDEN DURING THE PASS AT lg+, ONLY. Below 1024px this wrapper is
+            inert (see .sn-canvas-pass-hide in globals.css) — a phone renders
+            every one of these exactly as before. At lg+, once the card above
+            is pinned instead of sitting in the form's flow, this content has
+            nothing left to sit under and would float up behind it; hiding it
+            here matches HealthHeader's own `{inPass ? null : …}` two dozen
+            lines up, which already treats all of this as noise during the
+            pass. Still mounted, so every field inside keeps posting. */}
+        <div className={inPass ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'}>
         {/* Comes with — bundles the vendor's OTHER cards. Only when they have
             some; the couple reads it straight off the card. */}
         {otherCategoriesShown.length > 0 ? (
@@ -1198,6 +1216,7 @@ export function CanvasMaker({
           Availability is set on your Calendar, and payment terms are agreed in each
           couple&rsquo;s inquiry — so this card stays simple.
         </p>
+        </div>
 
         {/* ═══ SHEETS — always mounted, `hidden` when closed, so every field
             posts whether or not its sheet was ever opened. ═══════════════════ */}

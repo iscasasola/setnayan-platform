@@ -3794,6 +3794,50 @@ html:active-view-transition .sn-page-enter { animation: none; }
   .sn-paint-live { animation: none; opacity: 1; transform: none; box-shadow: none; }
 }
 
+/* ═══ THE LAPTOP GETS ITS TWO COLUMNS (owner 2026-08-28) ════════════════════
+ * During the two-question guided pass the drawn desktop layout pins the card
+ * beside the question instead of shrinking it inside the page's centred
+ * `max-w-2xl` column. Below 1024px NEITHER rule exists — both classes are
+ * declared only inside this one media query, so a phone renders exactly what
+ * it rendered before this change, unconditionally.
+ *
+ *   .sn-canvas-pass-pin   the card itself. `position: fixed` so it escapes
+ *                         the page's own max-width the same way the guided
+ *                         question sheet already does (see .sn-canvas-sheet's
+ *                         `lg:` rules) — `left` reads the shared shell's own
+ *                         `--fd-rail` custom property, so it sits beside the
+ *                         app rail rather than under it, at either rail width
+ *                         (240px full / 72px icon-strip).
+ *   .sn-canvas-pass-hide  everything that used to render BELOW the card
+ *                         during the pass (recap, publish, "make it richer").
+ *                         The pass already treats that content as noise on a
+ *                         phone-sized page — see HealthHeader's own
+ *                         `{inPass ? null : …}` two lines up — but on a
+ *                         laptop that content is left with nothing to sit
+ *                         under (the fixed card doesn't reserve height in the
+ *                         page's flow), so it is hidden here rather than left
+ *                         to float up and overlap the pinned card. It is
+ *                         still rendered, just not painted, so the sheet's own
+ *                         fields keep posting.
+ *
+ * The fallback values (240px / 61px) are only for a render that somehow never
+ * inherits `.fd`'s custom properties (a corrupted style tree); on every real
+ * paint of this page the vendor dashboard is always the app-chrome rail.
+ * ═════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  .sn-canvas-pass-pin {
+    position: fixed;
+    z-index: 30;
+    left: var(--fd-rail, 240px);
+    top: calc(var(--fd-bar, 61px) + 24px);
+    bottom: 24px;
+    width: 420px;
+    overflow-y: auto;
+    padding-right: 8px;
+  }
+  .sn-canvas-pass-hide { display: none; }
+}
+
 /* Phone ergonomics for the whole canvas, including the SHIPPED editors it
  * mounts (customization / inclusions / discounts / pricing). iOS zooms the
  * viewport on focus for any control under 16px, which on a bottom sheet throws

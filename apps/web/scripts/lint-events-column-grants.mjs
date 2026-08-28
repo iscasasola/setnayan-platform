@@ -28,9 +28,23 @@
  * it, not CI. This guard reads the MIGRATION TEXT, which no harness can
  * re-derive, so it cannot be fooled the same way.
  *
- * ⚠ It judges only what it can be sure of: an `ADD COLUMN` on `public.events`
- * in a migration whose prefix is above the lockdown. Anything else is skipped.
+ * ⚠ It judges only what it can be sure of: an `ADD COLUMN` on `public.events`.
  * A guard that cries wolf teaches you to skim past the one time it is right.
+ *
+ * ── 🚨 THE PREFIX CUTOFF WAS THE HOLE — REMOVED 2026-08-29 ──────────────────
+ * This guard used to examine only migrations whose PREFIX sorts above the
+ * lockdown (`f.slice(0,14) > LOCKDOWN`). **Prefix order is not apply order.**
+ * `20271003190000_events_site_art_direction.sql` carries a prefix six days
+ * BELOW the lockdown and was committed 5h47m AFTER it; production applies such
+ * files with `db push --include-all`, so the column landed after the allow-list
+ * had been computed and was born unreadable. The guard could not see the file
+ * at all, and `site_art_direction` was refused to every signed-in person for
+ * over a month — bouncing the couple out of their own website editor.
+ *
+ * So the cutoff is gone. EVERY migration is read, at any prefix, and a column
+ * is acceptable only if it (a) carries its own grant, (b) is deny-listed, or
+ * (c) is in GRANDFATHERED below. A future out-of-order file adds a column name
+ * that is in none of the three, so it fails wherever its prefix sorts.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -46,33 +60,63 @@ const LOCKDOWN = '20271007100000';
  *  is a decision that the app cannot read or write that column through a user
  *  session — add one only with a reason. */
 const NO_GRANT_NEEDED = new Set([
-  // Deliberately revoked from authenticated after being added (20271121501756).
-  'papic_guest_capture_early',
+  // ── ⚖ DELIBERATE: named in a lockdown deny-set, withheld on purpose ───────
+  // The event master QR token and the two Google Drive OAuth token columns.
+  // 20271007100000 names all three and explains each. Read only through the
+  // admin client (verified 2026-08-29: app/api/crew/register-device/route.ts
+  // resolves `supabase` from createAdminClient() on line 150, NOT the session
+  // client declared on line 120 — a scan that reads the nearest identifier
+  // backwards calls that a defect and is wrong).
+  'master_qr_token',
+  'photo_delivery_oauth_token_encrypted',
+  'photo_delivery_oauth_expires_at',
 
-  // ── ⚠ PRE-EXISTING DEBT, RECORDED SO THE GUARD CAN PROTECT NEW COLUMNS ────
-  // A BASELINE IS A BILL, NOT A DECISION — so here is the bill, measured against
-  // PRODUCTION on 2026-08-15, not assumed:
-  //
-  //   column                            auth SELECT   in events_host
-  //   setnayan_ai_tier_at_purchase          0              1  (private_columns)
-  //   kwento_flash_auto_wall                0              0
-  //   last_kwento_notify_at                 0              0
-  //   date_forced_by_lock_of                0              0
-  //   papic_vendor_challenges_enabled       0              0
-  //   panood_manual_on_air_at               0              0
-  //
-  // Six columns that NO user session can read. Whether each is a live defect
-  // depends on whether its feature reads it through the cookie-scoped client or
-  // only through service_role — that is six separate investigations, and they
-  // are not this change's to make. They are listed here so a NEW column cannot
-  // hide among them. **Each line is a promise that somebody will check it.**
+  // ── ⚖ DELIBERATE: guest-lock deny-sets (20271008731642, 20271025120000) ───
+  // Private details kept off the guest surface. Each is read through the admin
+  // client or via events_host.
+  'partner_a_birth_date',
+  'partner_a_birth_time',
+  'partner_b_birth_date',
+  'partner_b_birth_time',
+  'bazi_birthdata_consent_at',
+  'estimated_budget_centavos',
+  'budget_band',
+  'wizard_state',
+  'photo_delivery_folder_id',
+  'photo_delivery_folder_name',
+  'photo_delivery_account_email',
   'setnayan_ai_tier_at_purchase',
+  'signature_details',
+  'honoree_label',
+  'honoree_dependent_id',
+
+  // ── ✅ THE 2026-08-15 BILL IS PAID — every line below was CHECKED ──────────
+  // That list said: "Whether each is a live defect depends on whether its
+  // feature reads it through the cookie-scoped client or only through
+  // service_role — that is six separate investigations… **Each line is a
+  // promise that somebody will check it.**"
+  //
+  // Checked 2026-08-29, by resolving the client at every `.from('events')`
+  // select naming each column across app/ and lib/ (21 such reads; 17 admin):
+  //
+  //   date_forced_by_lock_of           → LIVE DEFECT. Fixed — granted.
+  //   papic_guest_capture_early        → LIVE DEFECT. Fixed — granted.
+  //   kwento_flash_auto_wall           → admin-only (live/page.tsx:123,
+  //                                      live/actions.ts:85, papic/kwento:134)
+  //   last_kwento_notify_at            → admin-only (papic/kwento:165,215)
+  //   panood_manual_on_air_at          → admin-only (panood/control:537,
+  //                                      control/actions.ts:835,854)
+  //   papic_vendor_challenges_enabled  → no user-session reader at all
+  //   setnayan_ai_tier_at_purchase     → deny-listed above; admin-only
+  //
+  // The four below are omissions rather than decisions — nothing denied them,
+  // they simply never carried a grant — but every reader is the admin client,
+  // so granting them would widen a read that nothing needs. Left withheld ON
+  // PURPOSE, which is a decision now and not a debt.
   'kwento_flash_auto_wall',
   'last_kwento_notify_at',
-  'papic_pool_token',
-  'date_forced_by_lock_of',
-  'papic_vendor_challenges_enabled',
   'panood_manual_on_air_at',
+  'papic_vendor_challenges_enabled',
 
   // ⚠ HAS ITS GRANT, BUT IS ABSENT FROM events_host — verified in production
   // (auth SELECT = 1, in_host_view = 0). Nothing has rebuilt the view since it
@@ -83,10 +127,152 @@ const NO_GRANT_NEEDED = new Set([
   'face_tagging_declined_by_couple',
 ]);
 
+/**
+ * Columns that already existed when the prefix cutoff was removed (2026-08-29).
+ *
+ * GENERATED, never hand-typed: every `ADD COLUMN` on `public.events` across all
+ * migrations at that commit, minus the three this change grants. They are
+ * grandfathered because re-litigating 120 historical columns is not this
+ * guard's job — its job is that the NEXT one cannot go missing.
+ *
+ * 🔑 A NEW COLUMN CANNOT HIDE HERE. This is a set of NAMES, so a future
+ * migration adding a column at ANY prefix — above the lockdown or below it —
+ * introduces a name absent from this set, absent from NO_GRANT_NEEDED, and
+ * therefore checked. That is the whole point of replacing the prefix cutoff:
+ * the old rule keyed on where a file SORTS, this one keys on whether a column
+ * is NEW.
+ *
+ * ⚠ DO NOT ADD TO THIS SET. A new name here is a column somebody decided a
+ * signed-in person may not read, without saying so — put it in NO_GRANT_NEEDED
+ * with a reason, or grant it.
+ */
+const GRANDFATHERED = new Set([
+  'anchor_kind',
+  'attire_guide_palette',
+  'auspicious_reasons',
+  'auto_seat_last_used_at',
+  'bride_name',
+  'budget_band',
+  'celebrant_shape',
+  'ceremony_type',
+  'ceremony_type_locked_at',
+  'ceremony_type_locked_by',
+  'cleared_at',
+  'community_id',
+  'concierge_status',
+  'concierge_trial_used_at',
+  'concierge_unlock_source',
+  'concierge_unlock_via_vendor_profile_id',
+  'date_mode',
+  'date_status',
+  'dress_code_config',
+  'estimated_budget_centavos',
+  'estimated_pax',
+  'event_date_precision',
+  'event_end_date',
+  'experience_for_whom',
+  'face_tagging_declined_by_couple',
+  'final_pax',
+  'full_res_drop_warned_at',
+  'headcount_basis',
+  'honoree_label',
+  'is_sample',
+  'is_surprise',
+  'kwento_flash_auto_wall',
+  'kwento_free_grandfathered',
+  'landing_page_hero_image_url',
+  'landing_page_visibility',
+  'last_kwento_notify_at',
+  'launch_mode',
+  'live_media_public',
+  'live_studio_guest_pick_enabled',
+  'live_studio_roam_manifest',
+  'mahr_description',
+  'master_qr_token',
+  'master_qr_token_rotated_at',
+  'monogram_cipher_config',
+  'monogram_custom_generation_id',
+  'monogram_custom_svg',
+  'monogram_frame_key',
+  'monogram_motion_key',
+  'monogram_studio_config',
+  'monogram_style',
+  'monogram_text',
+  'monogram_uploaded_svg',
+  'mood_feel_key',
+  'our_photos',
+  'pakanta_song_r2_key',
+  'panood_manual_on_air_at',
+  'panood_roam_manifest',
+  'panood_watch_url',
+  'panood_watch_url_facebook',
+  'papic_cost_cap_php',
+  'papic_face_mode',
+  'papic_ltd_cap_php',
+  'papic_mini_cap_php',
+  'papic_pool_token',
+  'papic_quality_tier',
+  'papic_storage_target',
+  'papic_style',
+  'papic_uploads_open',
+  'papic_vendor_challenges_enabled',
+  'papic_window_start',
+  'partner_a_birth_date',
+  'photo_delivery_provider',
+  'photo_delivery_sync_mode',
+  'photo_moments_config',
+  'photo_wall_photos',
+  'planning_mode',
+  'pool_gallery_open',
+  'recap_social_optout_at',
+  'reception_design',
+  'recur_cadence',
+  'region',
+  'roadmap_completed',
+  'role_palette',
+  'rsvp_backdrop',
+  'scheduled_launch_at',
+  'sde_video_r2_key',
+  'seating_autoplace_enabled',
+  'seating_group_adjacency',
+  'setnayan_ai_active',
+  'setnayan_ai_active_until',
+  'setnayan_ai_intro_used',
+  'setnayan_ai_tier_at_purchase',
+  'share_budget_band',
+  'showcase_featured_at',
+  'signature_details',
+  'site_bg_color',
+  'site_bg_music_source',
+  'slug',
+  'std_background',
+  'std_film_accent_hex',
+  'std_film_ceremony_name',
+  'std_film_date',
+  'std_launched_at',
+  'std_media',
+  'std_media_nsfw',
+  'std_reveal_effects',
+  'std_reveal_template',
+  'std_theme',
+  'style_preferences',
+  'timezone',
+  'tracked_categories',
+  'venue_entrance_x',
+  'venue_latitude',
+  'venue_longitude',
+  'venue_name',
+  'wall_photo_count',
+  'wax_seal_config',
+  'website_open_browse',
+  'what_to_bring',
+  'wizard_state',
+]);
+
+// EVERY migration, at any prefix — see "THE PREFIX CUTOFF WAS THE HOLE" above.
 const files = readdirSync(DIR)
   .filter((f) => f.endsWith('.sql'))
-  .sort()
-  .filter((f) => f.slice(0, 14) > LOCKDOWN);
+  .sort();
 
 // column -> the migration that added it
 const added = new Map();
@@ -112,25 +298,30 @@ for (const f of files) {
   // mutation that renamed the view away left the guard GREEN — the same prefix
   // trap as `f.event_dateX`, hit for the third time in this repo today.
   if (/CREATE\s+VIEW\s+(?:public\.)?events_host\b/i.test(code)) rebuildsHostView.add(f);
-  // A migration that RE-GRANTS THE WHOLE COMPUTED ALLOWLIST covers every column
-  // that exists when it runs.
+  // ── 🚨 THE BLANKET-GRANT CREDIT IS GONE, AND REMOVING IT IS THE WHOLE FIX ──
+  // This used to say: a migration that re-grants the WHOLE computed allow-list
+  // (`GRANT SELECT (%s) ON public.events`) covers every column added before it,
+  // so `for (const [col] of added) granted.add(col)`.
   //
-  // 🪤 THIS TEST USED TO BE `has_column_privilege( || string_agg(` AND THAT MADE
-  // THE GUARD DECORATION FOR ITS OWN HEADLINE CASE. Those two appear in a VIEW
-  // PROJECTION too — this very change rebuilds `events_host` that way — so the
-  // guard credited `recur_cadence` as granted purely because the same file
-  // computed a view. Deleting the real `GRANT SELECT (recur_cadence)` left it
-  // GREEN. Caught by mutating it, not by reading it.
+  // That is true only in FILENAME order — which is the replay's order, and NOT
+  // production's. `20271003190000_events_site_art_direction.sql` sorts below the
+  // lock-down and applied ABOVE it, so the credit excused a column the lock-down
+  // could not possibly have granted.
   //
-  // The act is a DYNAMIC GRANT ON THE TABLE — `GRANT SELECT (%s) ON public.events`
-  // — which is what 20271007100000:184 actually executes. A view projection
-  // cannot satisfy that.
-  if (/GRANT\s+SELECT\s*\(\s*%s\s*\)\s+ON\s+(?:public\.)?events/i.test(code)) {
-    for (const [col] of added) granted.add(col);
-  }
+  // 🪤 MEASURED, NOT REASONED: with the credit still in place, deleting the real
+  // `GRANT SELECT (site_art_direction)` from this change's migration (occurrence
+  // count 1 → 0) left this guard GREEN — decoration for its own headline case,
+  // in the very commit written to fix it. Caught by mutating it.
+  //
+  // History no longer needs the credit: GRANDFATHERED excuses every column that
+  // already existed, as a set of NAMES, which no ordering can distort. So every
+  // NEW column must carry its own explicit `GRANT SELECT (col)`, wherever its
+  // file sorts.
 }
 
-const missing = [...added.entries()].filter(([col]) => !granted.has(col) && !NO_GRANT_NEEDED.has(col));
+const missing = [...added.entries()].filter(
+  ([col]) => !granted.has(col) && !NO_GRANT_NEEDED.has(col) && !GRANDFATHERED.has(col),
+);
 
 /**
  * ── THE HOST VIEW IS THE OTHER HALF, AND IT IS THE HALF THAT 500s A PAGE ────
@@ -162,7 +353,7 @@ const missingRebuild = [...added.entries()].filter(
 
 if (missing.length === 0 && missingRebuild.length === 0) {
   console.log(
-    `✓ every events column added after ${LOCKDOWN} carries its SELECT grant and its events_host rebuild (${added.size} checked)`,
+    `✓ every events column carries its SELECT grant and its events_host rebuild — every migration read, at any prefix (${added.size} checked, ${GRANDFATHERED.size} grandfathered)`,
   );
   process.exit(0);
 }

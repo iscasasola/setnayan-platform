@@ -54,6 +54,17 @@ export interface SubscriptionCardData {
   capLines: string[];
   isCurrent: boolean;
   isPaid: boolean;
+  /**
+   * Set when this plan's term is SHORTER than the time the shop already holds,
+   * to the sentence explaining it (owner 2026-08-27: *"they cannot purchase a
+   * smaller timeline"*). The card then shows that sentence where its button
+   * would be.
+   *
+   * ⚠ NOT THE RULE — `create_vendor_subscription` refuses the purchase in the
+   * database. This only stops a shop meeting the refusal after choosing. A
+   * disabled button is a courtesy; the server is the gate.
+   */
+  tooShortReason?: string | null;
 }
 
 function mobileSrp(webPrice: number): number {
@@ -212,7 +223,18 @@ export function SubscriptionCards({
                   live Upgrade button to an unverified vendor, so the only way to
                   learn the rule was to pick a plan and be refused. A gate the
                   screen doesn't mention is indistinguishable from a bug. */}
-              {verified ? (
+              {/* The same rule, one step further: a plan shorter than the time
+                  the shop already holds cannot be bought at all (owner
+                  2026-08-27). The database refuses it; this says so BEFORE the
+                  click, so nobody picks a plan only to be turned away. */}
+              {verified && card.tooShortReason ? (
+                <p
+                  className="mt-5 rounded-md border px-3 py-2.5 text-sm text-ink/70"
+                  style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+                >
+                  {card.tooShortReason}
+                </p>
+              ) : verified ? (
                 <form action={startSubscriptionPurchase} className="mt-5">
                   <input type="hidden" name="sku_code" value={card.sku} />
                   <SubmitButton

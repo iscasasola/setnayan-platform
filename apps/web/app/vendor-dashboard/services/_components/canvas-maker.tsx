@@ -45,6 +45,7 @@ import type { CanvasInitial } from '@/lib/canvas-initial';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
+import { rankTradeMatches, type TradeMatch } from '@/lib/kind-search-trades';
 import {
   KEEP_VERSION,
   keepAgeLabel,
@@ -137,6 +138,13 @@ export type CategoryChoice = OtherCategory & {
   standing: 'covered' | 'open' | 'locked';
   /** Why it is refused, in the vendor's own words. Only on 'locked'. */
   why?: string;
+  /**
+   * The branch a search-found TRADE sits under, e.g. "Food Cart" — shown in
+   * small type on the pill so two similarly-named trades are told apart.
+   * Only set on results from the "Matches what you typed" band (C1
+   * 2026-08-28); a legacy or coverage pill carries none.
+   */
+  hint?: string;
 };
 export type CategoryGroup = { key: string; label: string; options: CategoryChoice[] };
 export type CoverageAudience = { eventTypes: string[]; faiths: string[] };
@@ -176,6 +184,7 @@ export function CanvasMaker({
   firstCardEver = false,
   coverageNames = [],
   shopName = '',
+  tradeOptions = [],
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -240,6 +249,17 @@ export function CanvasMaker({
   coverageNames?: string[];
   /** Used only to write a first card name they can change. */
   shopName?: string;
+  /**
+   * ─── EVERY LIVE TRADE, FOR THE SEARCH BAND (C1 2026-08-28) ────────────────
+   *
+   * The 262 visible coverage leaves (`getCoverageTaxonomy()`, the SAME
+   * visibility rule as the coverage picker), each already carrying the
+   * standing `lib/vendor-category-parents.ts` would give it. Distinct from
+   * `coverageNames` above — that is only the shop's OWN declared coverage;
+   * this is every trade in the live taxonomy, searched only once a supplier
+   * types (never rendered as a wall — see `rankTradeMatches`).
+   */
+  tradeOptions?: TradeMatch[];
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -267,6 +287,28 @@ export function CanvasMaker({
   const lockedWhy = useMemo(
     () => allChoices.find((o) => o.standing === 'locked' && o.why)?.why ?? null,
     [allChoices],
+  );
+  /**
+   * Every kind value already sitting on this screen — the coverage band AND
+   * every legacy pill, covered or not. A ranked trade whose key is already in
+   * here must not render a second time (C1 2026-08-28) — 16 of the 262 live
+   * trades share their exact key with a legacy card-kind, so this is not only
+   * the "already covered" case the search band exists to avoid repeating.
+   */
+  const existingKindValues = useMemo(
+    () => new Set(allChoices.map((o) => o.value)),
+    [allChoices],
+  );
+  /**
+   * "Matches what you typed" — the 262 live trades, ranked by
+   * `lib/taxonomy-search-rank.ts` (imported, never reimplemented — see
+   * `lib/kind-search-trades.ts`), excluding anything already shown above.
+   * Search-results-only: `rankTradeMatches` returns `[]` below the shared
+   * minimum query length, so this never renders as a wall of 262 pills.
+   */
+  const rankedTrades = useMemo(
+    () => rankTradeMatches(tradeOptions, kindQuery, existingKindValues),
+    [tradeOptions, kindQuery, existingKindValues],
   );
   /**
    * ⚡ A ONE-TRADE SHOP IS ASKED NOTHING. If the whole shop covers exactly one
@@ -1373,6 +1415,44 @@ export function CanvasMaker({
                   aria-label="Search kinds of service"
                   className="input-field"
                 />
+                {/* ── EVERY LIVE TRADE, RANKED — SEARCH RESULTS ONLY (C1 2026-08-28) ──
+                    The 262 real trades in the coverage taxonomy are not among the
+                    legacy pills below; they only ever appear here, once a supplier
+                    types, ranked by the same shared matcher the couple-side search
+                    uses. Empty query → `rankedTrades` is `[]` → this renders nothing,
+                    which is the whole point: the rest of the list stays one tap away
+                    instead of becoming a second wall under the first one. */}
+                {rankedTrades.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <p
+                      className="font-mono text-[10px] uppercase tracking-[0.15em]"
+                      style={{ color: 'var(--m-slate-3)' }}
+                    >
+                      Matches what you typed
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {rankedTrades.map((t) => (
+                        <KindPill
+                          key={t.key}
+                          opt={{
+                            value: t.key,
+                            label: t.label,
+                            standing: t.standing,
+                            why: t.why,
+                            hint: t.branch,
+                          }}
+                          on={t.key === category}
+                          onPick={() => {
+                            setCategory(t.key);
+                            setKindFromShop(false);
+                            if (inPass) nextInPass();
+                            else setSheet(null);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {categoryOptions.map((group) => {
                   const rest = group.options
                     .filter((o) => o.standing !== 'covered')
@@ -1409,6 +1489,7 @@ export function CanvasMaker({
                   );
                 })}
                 {kindQuery.trim().length > 0 &&
+                rankedTrades.length === 0 &&
                 categoryOptions.every((g) =>
                   g.options.every(
                     (o) =>
@@ -1785,6 +1866,14 @@ function KindPill({
     >
       {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> : null}
       {opt.label}
+      {/* A search-found TRADE carries its branch — "Sorbetes Cart" and "Ice
+          Cream Cart" are both real trades under "Food Cart" and need telling
+          apart. Legacy and coverage pills carry no hint and render as before. */}
+      {opt.hint ? (
+        <span className="text-[10px]" style={{ color: 'var(--m-slate-3)' }}>
+          · {opt.hint}
+        </span>
+      ) : null}
       {locked ? (
         <span className="font-mono text-[9px] uppercase tracking-[0.12em]">upgrade</span>
       ) : null}

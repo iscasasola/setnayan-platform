@@ -243,7 +243,7 @@ export function PapicHub() {
         details and your RSVP. There is no second website, and nothing to send anyone twice.
       </p>
 
-      <div className="mt-6 overflow-hidden rounded-[26px] border border-[var(--m-line)]">
+      <div className="mt-6 overflow-hidden rounded-[var(--m-r-lg)] border border-[var(--m-line)]">
         {/* A sliver of the celebration page above, so the obsidian panel is
             visibly INSIDE something rather than floating. */}
         <div className="border-b border-[var(--m-line)] bg-[var(--m-paper)] px-4 py-4">

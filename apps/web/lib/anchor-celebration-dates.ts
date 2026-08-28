@@ -112,3 +112,46 @@ export function activeCelebrationPick(
   if (options.saturdayAfterISO && value === options.saturdayAfterISO) return 'saturday_after';
   return 'other';
 }
+
+/**
+ * ── THE CHIPS OWN THEIR TWO DAYS; THE CALENDAR OWNS EVERYTHING ELSE ────────
+ *
+ * 🔴 THE DEFECT THIS EXISTS FOR (owner, 2026-08-28, looking at his own birthday
+ * screen): *"picking on the day and the saturday after does not change anything
+ * on the calendar. is that correct?"* It was not correct.
+ *
+ * `pickCelebrationDay` set `dateValue` — the single-date field — and nothing
+ * else. But the screen commits `dateCandidates` whenever that list is non-empty,
+ * and the calendar renders from the same list. So the moment a person touched
+ * the calendar once, the chips wrote to a field nobody downstream was reading:
+ * the chip lit up, the calendar did not move, and **the day that got saved was
+ * the one still sitting in the calendar** — a lit control claiming a day the
+ * event was not going to have.
+ *
+ * 🔑 THE COMMENT ON `activeCelebrationPick` SAYS THE CHIPS ARE "A VIEW OF THE
+ * DATE FIELD, NEVER A PARALLEL STATE". That was true of the field and false of
+ * the screen — the field itself had become the parallel state. A second source
+ * of truth does not announce itself; it just disagrees.
+ *
+ * The rule this function encodes: tapping a chip puts ITS day in your list and
+ * takes the other chip's day out, because the two chips are two answers to one
+ * question. Dates you picked yourself on the calendar are never touched.
+ *
+ * Returns the new list, or **null when it will not fit** — the caller must then
+ * disable the chip rather than drop a date the person chose. Silently discarding
+ * one would be the same defect wearing the opposite coat.
+ */
+export function celebrationDatesAfterPick(
+  options: CelebrationOptions | null,
+  current: readonly string[],
+  iso: string,
+  max: number,
+): string[] | null {
+  const owned = new Set(
+    [options?.onTheDayISO, options?.saturdayAfterISO].filter((d): d is string => Boolean(d)),
+  );
+  // Everything the person chose for themselves, in their own right.
+  const kept = current.filter((d) => d && d !== iso && !owned.has(d));
+  if (kept.length + 1 > max) return null;
+  return [...kept, iso].sort();
+}

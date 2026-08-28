@@ -139,3 +139,22 @@ test('the reviewer may correct the minted NAME, and a bad correction is refused 
   const studio = read('app/admin/taxonomy/_components/taxonomy-studio.tsx');
   assert.match(studio, /name="proposed_label_override"/);
 });
+
+test('the corrected name is published as OPTIONAL, never as a field the job demands', async () => {
+  // The ⌘K checklist reads this. An optional field listed as refused-when-empty
+  // builds a checklist demanding something nobody has to give — the failure
+  // `scan-admin-jobs.ts` names in its own docblock, which this action's shape
+  // very nearly caused (see the trap note beside the range check).
+  const { ADMIN_JOBS } = await import('./admin-map/admin-jobs.generated');
+  const job = ADMIN_JOBS.find((j) => j.name === 'promoteCategoryRequest');
+  assert.ok(job, 'the mint left the scanned job list');
+  assert.ok(
+    job.fields.includes('proposed_label_override'),
+    'the reviewer’s name box is no longer a field of the job',
+  );
+  assert.equal(
+    job.refusedWhenEmpty.includes('proposed_label_override'),
+    false,
+    'the optional name correction is being advertised as required',
+  );
+});

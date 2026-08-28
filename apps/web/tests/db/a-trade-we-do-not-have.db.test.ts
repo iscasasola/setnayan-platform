@@ -114,7 +114,7 @@ test('row security is ON and the ONLY policy is the admin one', async () => {
   );
 });
 
-test('anon holds NO privilege on the table — the second lock, not the only one', async () => {
+test('NEITHER anon NOR authenticated holds a privilege — the second lock, not the only one', async () => {
   // Anti-vacuity, and it EARNED ITS KEEP on the first run: the control was
   // originally `taxonomy_category_requests`, which reads FALSE — that table is
   // in one of the shipped anon-revoke batches — and the whole test failed for
@@ -129,13 +129,26 @@ test('anon holds NO privilege on the table — the second lock, not the only one
   );
   assert.equal(control?.ok, true, 'the probe itself is broken — it answers false for everything');
 
-  for (const priv of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
-    const r = await one<{ ok: boolean }>(
-      `SELECT has_table_privilege('anon', $1, $2) AS ok`,
-      [`public.${TABLE}`, priv],
-    );
-    assert.equal(r?.ok, false, `anon still holds ${priv}`);
+  for (const role of ['anon', 'authenticated']) {
+    for (const priv of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
+      const r = await one<{ ok: boolean }>(`SELECT has_table_privilege($1, $2, $3) AS ok`, [
+        role,
+        `public.${TABLE}`,
+        priv,
+      ]);
+      assert.equal(r?.ok, false, `${role} still holds ${priv}`);
+    }
   }
+
+  // 🚨 AND ASK PER COLUMN. `has_table_privilege` answers FALSE while COLUMN
+  // grants stand — the trap that made a table-level audit read a table as
+  // closed while it was open (the samahan sweep, 25 reported / 9 real).
+  const cols = await one<{ n: number }>(
+    `SELECT count(*)::int AS n FROM information_schema.column_privileges
+      WHERE table_schema='public' AND table_name=$1 AND grantee IN ('anon','authenticated')`,
+    [TABLE],
+  );
+  assert.equal(cols?.n, 0, 'a column-level grant survives the table-level revoke');
 });
 
 test('a draft cannot outlive its request', async () => {

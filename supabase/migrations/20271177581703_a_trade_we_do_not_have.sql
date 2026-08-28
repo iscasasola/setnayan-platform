@@ -147,9 +147,24 @@ CREATE POLICY taxonomy_category_request_drafts_admin_all
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
--- Defence in depth, and the second lock rather than the only one: nothing
--- anonymous has any business here at all, and a table whose sole fence is one
--- RLS policy is one badly-written future policy away from a public key. See
--- tests/db/anon-table-grants-closed.db.test.ts for why a REVOKE alone is a
--- point-in-time act and must be re-asserted by a test.
+-- 🔒 NOBODY REACHES THIS TABLE THROUGH POSTGREST AT ALL — not a supplier, not a
+-- visitor, and not even an admin's own session. Every read is made by
+-- /admin/taxonomy with the service-role client and every write by
+-- `proposeCategory` with the same, so there is no legitimate session-level
+-- caller to break, and the policy above becomes the second lock rather than the
+-- only one.
+--
+-- 🚨 THIS IS NOT DECORATION AND THE EXPOSURE-FREEZE GUARD PROVED IT. Without
+-- these two lines the schema's default ACL hands `authenticated` SELECT/INSERT/
+-- UPDATE on all NINE columns — 11 new capabilities, counted by
+-- tests/db/exposure-freeze.db.test.ts, which failed on the first run of this
+-- migration. The tempting fix was to regenerate that baseline; that would have
+-- RECORDED the widening as intended. RLS is ROW-level and can never hide a
+-- column, so a grant left standing is one badly-written future policy away from
+-- the public anon key.
+--
+-- ⚠ A REVOKE IS A POINT-IN-TIME ACT — `CREATE OR REPLACE` in an unrelated
+-- migration has silently re-applied default privileges in this schema before,
+-- which is why tests/db/a-trade-we-do-not-have.db.test.ts re-asserts it.
 REVOKE ALL ON public.taxonomy_category_request_drafts FROM anon;
+REVOKE ALL ON public.taxonomy_category_request_drafts FROM authenticated;

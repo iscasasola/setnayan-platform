@@ -1123,8 +1123,19 @@ export async function promoteCategoryRequest(formData: FormData) {
   // the supplier's label would mint a trade the admin did not type while
   // reporting success — the one outcome worse than an error on a control that
   // creates a permanent public category.
+  //
+  // 🪤 THE RANGE TEST IS DELIBERATELY NOT WRITTEN AS
+  // `if (overrideRaw && (overrideRaw.length < 2 || …))`. `scan-admin-jobs.ts`
+  // reads a refusal as "an `if` line testing this local's emptiness with a
+  // refusal within three lines", so that shape publishes this OPTIONAL field to
+  // the ⌘K checklist as `refusedWhenEmpty` — a checklist demanding something
+  // nobody has to give, which is the exact failure that scanner's own docblock
+  // warns about. Named rather than worked around silently: the scanner cannot
+  // currently tell an optional RANGE check from a required-field check.
   const overrideRaw = String(formData.get('proposed_label_override') ?? '').trim();
-  if (overrideRaw && (overrideRaw.length < 2 || overrideRaw.length > 80)) {
+  const overrideLength = overrideRaw.length;
+  const overrideOutOfRange = overrideLength > 0 && (overrideLength < 2 || overrideLength > 80);
+  if (overrideOutOfRange) {
     redirectBack(formData, 'error', 'Name must be 2–80 characters.');
   }
   const mintLabel = overrideRaw || req.proposed_label;

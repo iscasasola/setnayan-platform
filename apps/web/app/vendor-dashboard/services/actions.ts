@@ -44,6 +44,12 @@ import {
 } from '@/lib/vendor-service-payment-schedules';
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
+import {
+  PUBLISH_REFUSAL_MESSAGE,
+  exclusiveIsSet,
+  priceIsSet,
+  unmetPublishRequirements,
+} from '@/lib/service-publish-gate';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { validatePackageDraft, type DraftItem } from '@/lib/package-authoring';
 import {
@@ -1290,8 +1296,11 @@ export async function setServicePaymentSchedule(formData: FormData) {
  * the wizard path (the legacy card keeps its own actions per owner 2026-06-20).
  *
  * vendor_service_id present → UPDATE (edit); absent → INSERT (create, with the
- * create-only tier-cap pre-check). `publish=true` flips is_active on (gated to a
- * non-empty perk, re-enforced in the RPC). Time-slots are NOT handled here —
+ * create-only tier-cap pre-check). `publish=true` flips is_active on, gated on
+ * `unmetPublishRequirements` (a starting price + a non-empty Setnayan
+ * Exclusive) — and re-enforced under it by the RPC and by the
+ * `enforce_service_publish_gate` trigger, which is the actual fence.
+ * Time-slots are NOT handled here —
  * they keep addServiceTimeSlot/deleteServiceTimeSlot (Enterprise + booking lock).
  */
 export async function commitVendorService(formData: FormData) {
@@ -1443,6 +1452,30 @@ export async function commitVendorService(formData: FormData) {
     };
   } catch (e) {
     return back((e as Error).message);
+  }
+
+  // ---- THE PUBLISH GATE (owner-drawn 2026-08-28) --------------------------
+  //
+  // A card may go live only once it carries a starting price and a Setnayan
+  // Exclusive. Asked HERE, from `lib/service-publish-gate.ts`, so the vendor
+  // gets a sentence naming the field instead of a database error — the same
+  // function the maker's meter asks, so the screen and the save cannot disagree
+  // about whether Publish should have been pressable.
+  //
+  // 🔒 THIS IS NOT THE FENCE. `enforce_service_publish_gate` (migration
+  // 20271176775619) is, because `authenticated` holds UPDATE on every column of
+  // `vendor_services` under a row-ownership policy — a shop can flip
+  // `is_active` through PostgREST and never reach this line. Removing this
+  // check would not open the door; it would only make the refusal ugly.
+  //
+  // A DRAFT IS NEVER JUDGED. `publish === false` skips all of it, which is what
+  // keeps "Save as draft" a real escape from an unfinished card.
+  if (publish) {
+    const unmet = unmetPublishRequirements({
+      hasPrice: priceIsSet(fields.starting_price_php as number | null),
+      hasExclusive: exclusiveIsSet(fields.exclusive_perk_text as string | null),
+    });
+    if (unmet.length > 0) return back(PUBLISH_REFUSAL_MESSAGE[unmet[0]]);
   }
 
   // ---- ★ Customization step (flag-dark behind packageAuthoringEnabled) ----
@@ -1903,21 +1936,42 @@ export async function toggleVendorServiceActive(formData: FormData) {
   }
   const is_active = nextRaw === 'true' || nextRaw === 'on' || nextRaw === '1';
 
-  // Publish gate (Part B, v2.1 §7.2): exclusive_perk_text is required to
-  // publish (is_active=true). Drafts (is_active=false) may omit it.
+  // Publish gate — the SAME rule the maker's meter and the database trigger
+  // ask (lib/service-publish-gate.ts). This path is the on/off switch on the
+  // Services list, which can turn a long-forgotten draft live without ever
+  // opening the maker, so it has to ask the whole question and not just the
+  // half this action used to know (the Exclusive). Drafts are never judged.
+  //
+  // ⚠ A READ ERROR FAILS CLOSED. Supabase resolves with `{ error }` rather than
+  // throwing, and an unread row used to reach `perk === undefined` and be
+  // refused for the wrong reason. It is refused deliberately now, and said so:
+  // publishing on a row we could not read would be publishing on no evidence.
   if (is_active) {
-    const { data: svcRow } = await supabase
+    const { data: svcRow, error: readError } = await supabase
       .from('vendor_services')
-      .select('exclusive_perk_text')
+      .select('exclusive_perk_text, starting_price_php')
       .eq('vendor_service_id', idRaw)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-    const perk = (svcRow as { exclusive_perk_text?: string | null } | null)
-      ?.exclusive_perk_text;
-    if (!perk || perk.trim().length === 0) {
+    if (readError || !svcRow) {
       return redirect(
         `${await servicesReturnBase()}?error=${encodeURIComponent(
-          'A Setnayan Exclusive perk is required to publish this service.',
+          'We could not read this card just now, so it was not published. Try again in a moment.',
+        )}`,
+      );
+    }
+    const row = svcRow as {
+      exclusive_perk_text?: string | null;
+      starting_price_php?: number | null;
+    };
+    const unmet = unmetPublishRequirements({
+      hasPrice: priceIsSet(row.starting_price_php),
+      hasExclusive: exclusiveIsSet(row.exclusive_perk_text),
+    });
+    if (unmet.length > 0) {
+      return redirect(
+        `${await servicesReturnBase()}?error=${encodeURIComponent(
+          PUBLISH_REFUSAL_MESSAGE[unmet[0]],
         )}`,
       );
     }

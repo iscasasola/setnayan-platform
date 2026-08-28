@@ -349,11 +349,17 @@ export function CanvasMaker({
    * possible… so they do not feel bombarded"*, and then, on this shape,
    * *"looks better"*.)
    *
-   * A blank card asks the ONLY two things the publish gate has ever required —
-   * a cover photo and one Setnayan Exclusive — one at a time, in the sheets the
-   * maker already owns, with the card visible above painting itself. Everything
-   * else on this screen is optional and always was; it simply looked required
-   * because it was all on at once.
+   * A blank card asks the ONLY things the publish gate requires — a cover
+   * photo, a starting price and one Setnayan Exclusive — one at a time, in the
+   * sheets the maker already owns, with the card visible above painting itself.
+   * Everything else on this screen is optional and always was; it simply looked
+   * required because it was all on at once.
+   *
+   * 🔑 THE PASS IS THE GATE, SAID OUT LOUD — so when the gate grew a price
+   * (owner-drawn 2026-08-28), the pass grew the same question. A pass that
+   * stops one short of what Publish needs hands the supplier a finished-looking
+   * card and a shut button, which is the bombardment this shape was drawn to
+   * remove, arriving one screen later.
    *
    * ⚖ THIS IS NOT A WIZARD BOLTED ON TOP. There is no second form, no step
    * validation, no Back-and-Continue over pages: the pass only decides which
@@ -370,7 +376,7 @@ export function CanvasMaker({
     const steps: SheetKey[] = [];
     if (firstCardEver) steps.push('intro');
     if (!category) steps.push('kind');
-    steps.push('media', 'excl');
+    steps.push('media', 'price', 'excl');
     return steps;
     // Frozen at mount ON PURPOSE — answering must not renumber the question the
     // vendor is looking at, so `category` and `firstCardEver` are read once.
@@ -786,9 +792,11 @@ export function CanvasMaker({
   const passAnswered =
     passStep === 'media'
       ? snap.hasCover
-      : passStep === 'excl'
-        ? perk.trim().length > 0
-        : true;
+      : passStep === 'price'
+        ? snap.hasPrice
+        : passStep === 'excl'
+          ? perk.trim().length > 0
+          : true;
   const passFooter = inPass ? (
     <div className="space-y-2 pt-1">
       <button
@@ -1156,6 +1164,7 @@ export function CanvasMaker({
         <dl className="space-y-1.5 rounded-xl border p-3 text-sm" style={{ borderColor: line, background: paper }}>
           <Recap k="Category" v={activeCategoryLabel || '— not chosen yet'} />
           <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
+          <Recap k="Price" v={snap.hasPrice ? snap.priceLine : '— not set'} />
           <Recap k="Setnayan Exclusive" v={perk.trim() ? 'Set' : '— not set'} />
           <Recap
             k="What couples get"
@@ -1566,6 +1575,7 @@ export function CanvasMaker({
           title="Price"
           open={sheet === 'price'}
           onClose={() => setSheet(null)}
+          footer={passStep === 'price' ? passFooter : null}
         >
           <PricingBasisEditor
             idPrefix="canvas"
@@ -1589,6 +1599,14 @@ export function CanvasMaker({
             Per head sets the minimum pax you can serve · per hour covers a first block
             then bills each extra hour · per event is flat, whatever the hours or pax.
             Either way the real number is quoted in each couple&rsquo;s inquiry.
+          </p>
+          {/* WHY THE NUMBER IS ASKED FOR AT ALL — said where the field is, not
+              in a banner afterwards. A supplier reading "required" with no
+              reason reads a toll gate; this is the one sentence that makes it
+              their own interest. */}
+          <p className="text-xs" style={{ color: 'var(--m-orange-2)' }}>
+            A starting price is required to publish. It is how a couple planning a
+            budget finds this card — with no figure there is nothing to match them to.
           </p>
           <DiscountsEditor initial={initial?.discounts ?? []} />
           <Field label="Crew size (optional)" htmlFor="crew_size">

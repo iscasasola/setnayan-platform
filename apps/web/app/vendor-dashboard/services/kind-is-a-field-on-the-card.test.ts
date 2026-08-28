@@ -26,6 +26,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
+import { PUBLISH_REQUIREMENTS } from '@/lib/service-publish-gate';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..', '..', '..');
@@ -207,13 +208,47 @@ test('a one-trade shop is asked nothing', () => {
 
 test('the pass asks the publish gate and nothing else', () => {
   const src = read(MAKER);
-  // ⚖ The steps ARE the gate: cover photo · Setnayan Exclusive. If a third
-  // question ever joins them it is a product decision, not a tidy-up, and it
-  // fails here first.
-  assert.match(
-    src,
-    /steps\.push\('media', 'excl'\)/,
-    'the first pass started asking for something other than the two required things',
+  // ⚖ The steps ARE the gate. This guard is DERIVED from the gate rather than
+  // hard-typed, so it keeps meaning as the gate changes: every requirement in
+  // `PUBLISH_REQUIREMENTS` must have a question in the pass, and the pass must
+  // ask nothing that is not either a requirement or one of the two the maker
+  // owns for itself (the kind, and the cover photo the server never asks for).
+  //
+  // 🔑 IT ALREADY EARNED ITS KEEP ONCE. Its previous form pinned the literal
+  // `steps.push('media', 'excl')` with the note "if a third question ever joins
+  // them it is a product decision, not a tidy-up, and it fails here first" — and
+  // on 2026-08-28 a price joined the publish gate and this is exactly where it
+  // failed. The decision is the owner's (his own drawing: "Publish stays shut
+  // until the price is in"); the guard did its job by making it be one.
+  // ⚠ EVERY `steps.push(...)` in the memo, not the first one. A single-match
+  // read finds `steps.push('intro')` and concludes the pass asks one question —
+  // green for a pass that asks nothing the gate requires.
+  const steps = [...src.matchAll(/steps\.push\(([^)]*)\)/g)].flatMap((m) =>
+    [...m[1].matchAll(/'([a-z]+)'/g)].map((o) => o[1]),
+  );
+  assert.ok(steps.length >= 3, `the pass pushes only ${steps.length} steps — it stopped being the gate`);
+  const SHEET_FOR_REQUIREMENT: Record<string, string> = { price: 'price', exclusive: 'excl' };
+  for (const requirement of PUBLISH_REQUIREMENTS) {
+    assert.ok(
+      steps.includes(SHEET_FOR_REQUIREMENT[requirement]),
+      `the publish gate requires "${requirement}" and the first pass never asks for it — ` +
+        'a supplier finishes the pass and meets a shut Publish button',
+    );
+    // …and the question must be answerable-gated, or Continue walks past it.
+    assert.match(
+      src,
+      new RegExp(`passStep === '${SHEET_FOR_REQUIREMENT[requirement]}'`),
+      `the "${requirement}" question is in the pass with no Continue rule of its own`,
+    );
+  }
+  const OWN = ['media', 'intro', 'kind'];
+  const extras = steps.filter(
+    (s) => !OWN.includes(s) && !Object.values(SHEET_FOR_REQUIREMENT).includes(s),
+  );
+  assert.deepEqual(
+    extras,
+    [],
+    'the first pass grew a question that is not part of the publish gate — a product decision, not a tidy-up',
   );
   // The kind is asked ONLY when the shop's own record cannot answer it.
   assert.match(src, /if \(!category\) steps\.push\('kind'\)/, 'the pass started asking a shop that already knows');

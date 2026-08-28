@@ -28,8 +28,15 @@
  * § "NEUTRALISATION".
  *
  * ── WHERE THE RULES COME FROM (nothing here is invented) ───────────────────
- * • cover + Setnayan Exclusive — the shipped publish gate (`canPublish` in
- *   service-wizard.tsx, re-checked server-side in commitVendorService).
+ * • price + Setnayan Exclusive — `unmetPublishRequirements`
+ *   (lib/service-publish-gate.ts), the SAME function the two server actions and
+ *   the `enforce_service_publish_gate` database trigger ask. This module holds
+ *   no copy of that rule.
+ * • cover photo — the wizard's own client-side `canPublish`. Deliberately NOT
+ *   in the shared gate: the server has never required one, so putting it there
+ *   would be a new server rule smuggled in as a refactor. It stays a blocker
+ *   HERE, which only ever makes the maker stricter than the save — the safe
+ *   direction.
  * • card text — `findVendorTextViolation` (lib/service-text-integrity.ts),
  *   which runs the chat detector's 'card' profile. It is FLAG-GATED: with
  *   NEXT_PUBLIC_SERVICE_TEXT_INTEGRITY_ENABLED off it returns null, so this
@@ -43,6 +50,11 @@
  *   quote a line back to the vendor.
  */
 import { autoName, findVendorTextViolation } from './service-text-integrity';
+import {
+  PUBLISH_COACH_MESSAGE,
+  exclusiveIsSet,
+  unmetPublishRequirements,
+} from './service-publish-gate';
 import { isFollowUp, lineStateOf, type LineState } from './service-customization-draft';
 import type { DraftItem } from './package-authoring';
 
@@ -86,9 +98,15 @@ export type CardHealthSnapshot = {
   /** Showcase gallery photos (the cover is separate and not counted here). */
   photoCount: number;
   hasClip: boolean;
-  /** Any of the three bases resolved to a number. FALSE IS LEGAL — the listing
-   *  is a menu and "quote on request" is a real answer, so this is a HINT, never
-   *  a blocker (the shipped wizard publishes without a price too). */
+  /**
+   * Any of the three bases resolved to a real figure (a typed `0` is NOT one —
+   * see `priceIsSet`). FALSE IS A BLOCKER since 2026-08-28: the card cannot
+   * publish. This reverses the rule that stood here before, which argued a
+   * missing price was a hint because "quote on request is a real answer" — the
+   * owner has ruled the other way, because a card carrying no figure has
+   * nothing a couple's budget can be matched against, so nobody finds it. The
+   * quoted figure is still the real one; what must exist is a STARTING number.
+   */
   hasPrice: boolean;
   title: string;
   exclusiveText: string;
@@ -208,11 +226,26 @@ export function scoreCardHealth(snapshot: CardHealthSnapshot): CardHealth {
       message: 'Add a cover photo — required to publish.',
     });
   }
-  if (snapshot.exclusiveText.trim().length === 0) {
+  // The price and the Setnayan Exclusive are not this module's opinion — they
+  // are THE publish gate, asked of the one function the server actions and the
+  // database trigger also ask (lib/service-publish-gate.ts). Adding a
+  // requirement there lights it up here with no edit; that is the point.
+  const REQUIREMENT_SHEET: Record<'price' | 'exclusive', CardHealthSheet> = {
+    price: 'price',
+    exclusive: 'excl',
+  };
+  const REQUIREMENT_CODE: Record<'price' | 'exclusive', string> = {
+    price: 'no_price',
+    exclusive: 'no_exclusive',
+  };
+  for (const requirement of unmetPublishRequirements({
+    hasPrice: snapshot.hasPrice,
+    hasExclusive: exclusiveIsSet(snapshot.exclusiveText),
+  })) {
     blockers.push({
-      code: 'no_exclusive',
-      sheet: 'excl',
-      message: 'Setnayan Exclusive: required to publish.',
+      code: REQUIREMENT_CODE[requirement],
+      sheet: REQUIREMENT_SHEET[requirement],
+      message: PUBLISH_COACH_MESSAGE[requirement],
     });
   }
 
@@ -311,17 +344,6 @@ export function scoreCardHealth(snapshot: CardHealthSnapshot): CardHealth {
   }
 
   // ── HINTS — fine as it is; this would lift it ─────────────────────────────
-  // No price is publishable ("quote on request"), but a card with no number on
-  // it is the one a couple scrolls past, so it is worth one nudge.
-  if (!snapshot.hasPrice) {
-    hints.push({
-      code: 'no_price',
-      sheet: 'price',
-      message:
-        'Set your price — even a starting number. Cards with no figure at all get ' +
-        'skipped; the real one is still quoted in the inquiry.',
-    });
-  }
   if (snapshot.photoCount < THIN_GALLERY_PHOTOS && !snapshot.hasClip) {
     hints.push({
       code: 'thin_media',

@@ -96,8 +96,8 @@ before(async () => {
 
   for (const cat of ['photography', 'videography']) {
     const r = await db.query<{ vendor_service_id: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php)
-       VALUES ($1, $2, 40000) RETURNING vendor_service_id`,
+      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+       VALUES ($1, $2, 40000, 'Free extra hour') RETURNING vendor_service_id`,
       [vendorProfileId, cat],
     );
     if (cat === 'photography') cardA = r.rows[0]!.vendor_service_id;

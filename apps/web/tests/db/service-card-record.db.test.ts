@@ -67,8 +67,8 @@ async function readRecord(svc: string): Promise<RecordRow> {
 /** A fresh card on the fixture shop, so a test's counts are not diluted. */
 async function newCard(category: string): Promise<string> {
   const r = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php)
-     VALUES ($1, $2, 1000) RETURNING vendor_service_id`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1, $2, 1000, 'Free extra hour') RETURNING vendor_service_id`,
     [vendorProfileId, category],
   );
   return r.rows[0]!.vendor_service_id;
@@ -195,15 +195,15 @@ before(async () => {
   vendorProfileId = vp.rows[0]!.vendor_profile_id;
 
   const svc = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php)
-     VALUES ($1, 'photography', 50000) RETURNING vendor_service_id`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1, 'photography', 50000, 'Free extra hour') RETURNING vendor_service_id`,
     [vendorProfileId],
   );
   serviceId = svc.rows[0]!.vendor_service_id;
 
   const svc2 = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php)
-     VALUES ($1, 'videography', 60000) RETURNING vendor_service_id`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1, 'videography', 60000, 'Free extra hour') RETURNING vendor_service_id`,
     [vendorProfileId],
   );
   otherServiceId = svc2.rows[0]!.vendor_service_id;
@@ -465,8 +465,8 @@ test('pax is BANDED in SQL at the documented thresholds, never returned raw', as
   // A dedicated card so the banding fixture is not diluted by earlier events.
   const svc = (
     await db.query<{ vendor_service_id: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php)
-       VALUES ($1, 'catering', 1000) RETURNING vendor_service_id`,
+      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+       VALUES ($1, 'catering', 1000, 'Free extra hour') RETURNING vendor_service_id`,
       [vendorProfileId],
     )
   ).rows[0]!.vendor_service_id;
@@ -546,8 +546,8 @@ test('a ledger row carries EXACTLY three keys — no id, no name, no exact date'
 test('the ledger is PAST-ONLY — a future booking counts but never becomes a row', async () => {
   const svc = (
     await db.query<{ vendor_service_id: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php)
-       VALUES ($1, 'florist', 1000) RETURNING vendor_service_id`,
+      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+       VALUES ($1, 'florist', 1000, 'Free extra hour') RETURNING vendor_service_id`,
       [vendorProfileId],
     )
   ).rows[0]!.vendor_service_id;
@@ -572,8 +572,8 @@ test('the ledger is PAST-ONLY — a future booking counts but never becomes a ro
 test('the ledger is capped at 6 and ordered newest-first', async () => {
   const svc = (
     await db.query<{ vendor_service_id: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php)
-       VALUES ($1, 'hair_makeup', 1000) RETURNING vendor_service_id`,
+      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+       VALUES ($1, 'hair_makeup', 1000, 'Free extra hour') RETURNING vendor_service_id`,
       [vendorProfileId],
     )
   ).rows[0]!.vendor_service_id;

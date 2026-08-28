@@ -185,6 +185,32 @@ test('no price at all is legal and says so — the listing is a menu', () => {
   }
 });
 
+test('ZERO IS NOT A PRICE — in any basis, in a bracket, or as a flat figure', () => {
+  // 🪤 The drift this closes: `num()` returns 0 for a typed `0`, so the card
+  // used to render "₱0 flat" and report hasPrice TRUE while the save stored a 0
+  // and the publish gate refused it. The screen and the gate disagreed by
+  // exactly one value, and the couple would have read a free wedding.
+  const zeros: Array<[string, Record<string, string | string[]>]> = [
+    ['fixed flat', { pricing_basis: 'fixed', starting_price_php: '0' }],
+    ['fixed bracket', { pricing_basis: 'fixed', bracket_price: ['0'] }],
+    ['per head', { pricing_basis: 'per_pax', per_pax_price_php: '0', min_pax: '50' }],
+    ['per hour', { pricing_basis: 'per_hour', hour_base_php: '0', min_hours: '4' }],
+  ];
+  for (const [what, fields] of zeros) {
+    const s = cardPriceLine(form(fields));
+    assert.equal(s.hasPrice, false, `${what}: a zero must not read as priced`);
+    assert.equal(s.priceLine, '', `${what}: a zero must not render a price line`);
+  }
+});
+
+test('a zero bracket is dropped, and the cheapest REAL band still anchors', () => {
+  const s = cardPriceLine(
+    form({ pricing_basis: 'fixed', bracket_price: ['0', '65000', '95000'] }),
+  );
+  assert.equal(s.hasPrice, true);
+  assert.equal(s.priceLine, 'from ₱65,000 · by guest count');
+});
+
 test('junk in a price field never renders a broken card', () => {
   const s = cardPriceLine(form({ pricing_basis: 'fixed', starting_price_php: '   ' }));
   assert.equal(s.hasPrice, false);

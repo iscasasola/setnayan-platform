@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Lock } from 'lucide-react';
 import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -17,6 +17,8 @@ import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { serviceWizardSteps } from '@/lib/service-customization-draft';
+import { cardPriceLine } from '@/lib/canvas-form-snapshot';
+import { PUBLISH_COACH_MESSAGE, unmetPublishRequirements } from '@/lib/service-publish-gate';
 
 /**
  * ServiceWizard — the guided "create a service" flow (vendor Services builder
@@ -64,6 +66,44 @@ export function ServiceWizard({
   const [perk, setPerk] = useState('');
   const [linkCount, setLinkCount] = useState(0);
   const [photoKey, setPhotoKey] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
+  const [hasPrice, setHasPrice] = useState(false);
+
+  /**
+   * Does this card carry a price yet?
+   *
+   * The three pricing bases and the pax-bracket table are drawn by
+   * `PricingBasisEditor` / `PriceBracketsEditor`, which own their own inputs —
+   * the wizard keeps no copy of any of them. So the answer is read off the LIVE
+   * FORM, using `cardPriceLine`, the same function the card preview above uses
+   * and the same `priceIsSet` rule the server and the database trigger apply. A
+   * second reading of "is this priced" is how a Publish button ends up
+   * disagreeing with the save.
+   *
+   * Same mechanic as `ServiceCardLivePreview`, for the same reason: the bracket
+   * editor writes React-controlled HIDDEN inputs, whose updates fire no native
+   * DOM event, so the listeners alone would miss a price typed into a bracket.
+   */
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    const read = () => {
+      try {
+        setHasPrice(cardPriceLine(new FormData(form)).hasPrice);
+      } catch {
+        /* a mid-render read never breaks the form */
+      }
+    };
+    read();
+    form.addEventListener('input', read);
+    form.addEventListener('change', read);
+    const tick = setInterval(read, 400);
+    return () => {
+      form.removeEventListener('input', read);
+      form.removeEventListener('change', read);
+      clearInterval(tick);
+    };
+  }, []);
 
   // ★ Customization ships FLAG-DARK behind the existing package-authoring flag
   // (NEXT_PUBLIC_*, so it inlines into this client bundle). Off ⇒ the step is
@@ -88,12 +128,21 @@ export function ServiceWizard({
   const isLast = clamped === steps.length - 1;
   const hasPhoto = photoKey.trim().length > 0;
   const hasPerk = perk.trim().length > 0;
-  const canPublish = hasPhoto && hasPerk;
+  /**
+   * What is still missing before this card may face a couple, asked of
+   * `lib/service-publish-gate.ts` — the one function the two server actions and
+   * the `enforce_service_publish_gate` trigger also ask. The cover photo is the
+   * WIZARD'S OWN extra requirement and is deliberately not in that shared rule:
+   * the server has never asked for one, and quietly moving it into the shared
+   * gate would make it a new server rule dressed up as a refactor.
+   */
+  const unmetToPublish = unmetPublishRequirements({ hasPrice, hasExclusive: hasPerk });
+  const canPublish = hasPhoto && unmetToPublish.length === 0;
 
   const show = (id: string) => (activeId === id ? {} : { hidden: true });
 
   return (
-    <form action={commitVendorService} className="space-y-5">
+    <form ref={formRef} action={commitVendorService} className="space-y-5">
       <input type="hidden" name="category" value={categoryValue} />
       {claimToken ? (
         <input type="hidden" name="claim_token" value={claimToken} />
@@ -318,20 +367,27 @@ export function ServiceWizard({
           {title ? <Recap k="Title" v={title} /> : null}
           {/* Pricing recap lives in the live card preview above — it reads the
               form directly, so it can honestly show whichever basis is active. */}
+          <Recap k="Price" v={hasPrice ? 'Set' : '— not set (required to publish)'} />
           <Recap k="Setnayan Exclusive" v={perk || '— not set (required to publish)'} />
           {linkCount > 0 ? <Recap k="Comes with" v={`${linkCount} service${linkCount === 1 ? '' : 's'}`} /> : null}
         </dl>
         <p className="text-xs text-ink/55">
           Availability is set on your <span className="font-medium text-ink">Calendar</span>, and payment terms are agreed in each couple&rsquo;s inquiry — so this listing stays simple.
         </p>
+        {/* The refusal NAMES EVERY missing thing, one line each. The old copy
+            enumerated combinations of two by hand and could only ever mention
+            two; with the price in the gate that shape would silently hide the
+            third and send the vendor back to a card that still will not
+            publish. Saving a draft is offered in the same breath — it is the
+            escape, and it is never refused. */}
         {!canPublish ? (
-          <p className="rounded-md bg-warn-50 px-3 py-2 text-xs text-warn-900">
-            {!hasPhoto && !hasPerk
-              ? 'Add a cover photo (step 1) and a Setnayan Exclusive (step 3) to publish — or save as a draft for now.'
-              : !hasPhoto
-                ? 'Add a cover photo (step 1) to publish — or save as a draft for now.'
-                : 'Add a Setnayan Exclusive (step 3) to publish — or save as a draft for now.'}
-          </p>
+          <div className="space-y-1 rounded-md bg-warn-50 px-3 py-2 text-xs text-warn-900">
+            {!hasPhoto ? <p>Add a cover photo (step 1) to publish.</p> : null}
+            {unmetToPublish.map((requirement) => (
+              <p key={requirement}>{PUBLISH_COACH_MESSAGE[requirement]}</p>
+            ))}
+            <p>You can save this as a draft for now and finish it later.</p>
+          </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
           <SubmitButton

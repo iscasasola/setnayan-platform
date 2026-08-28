@@ -117,35 +117,53 @@ async function seed(tag: string, status = 'contracted'): Promise<World> {
   };
 }
 
-/** Insert an ask through a real session. Returns the row count that landed. */
+/**
+ * Insert an ask through a real session. Returns HOW MANY ROWS LANDED, measured
+ * by counting the table before and after — not by `RETURNING`.
+ *
+ * 🔴 IT USED `RETURNING ask_id` AND THAT MADE TWO OF THESE TESTS PASS FOR THE
+ * WRONG REASON. `INSERT … RETURNING` needs the SELECT policy as well, so an
+ * insert the WITH CHECK happily admitted still threw — and the test read the
+ * throw as "the insert policy refused it". Measured by mutation: deleting the
+ * booked-event requirement from the WITH CHECK left this suite GREEN. Counting
+ * rows asks the question the test claims to ask.
+ *
+ * ⚠ AND `status` IS PAIRED WITH ITS TIMESTAMP. Posting `'withdrawn'` with a
+ * NULL `withdrawn_at` is refused by the coherence CHECK whatever the policy
+ * says, so the forged-status test was measuring the CHECK. It now supplies a
+ * timestamp, leaving the policy as the only thing that can refuse.
+ */
 async function tryAsk(
   w: World,
   as: string,
   over: Partial<{ vendorProfileId: string; status: string; askedBy: string; amount: string }> = {},
 ): Promise<number> {
+  const before = await countAsks();
   await asUser(as);
+  const status = over.status ?? 'open';
   try {
-    const r = await db.query<{ ask_id: string }>(
+    await db.query(
       `INSERT INTO public.vendor_payment_asks
-         (event_vendor_id, event_id, vendor_profile_id, amount_php, note, status, asked_by_user_id)
-       VALUES ($1,$2,$3,$4,'Second installment',$5,$6) RETURNING ask_id`,
+         (event_vendor_id, event_id, vendor_profile_id, amount_php, note, status, withdrawn_at, asked_by_user_id)
+       VALUES ($1,$2,$3,$4,'Second installment',$5,$6,$7)`,
       [
         w.eventVendorId,
         w.eventId,
         over.vendorProfileId ?? w.vendorProfileId,
         over.amount ?? '18000',
-        over.status ?? 'open',
+        status,
+        // Satisfy the coherence CHECK so the POLICY is the only fence left.
+        status === 'withdrawn' ? new Date().toISOString() : null,
         over.askedBy ?? as,
       ],
     );
-    return r.rows.length;
   } catch {
-    // An RLS refusal on INSERT raises 42501 through PostgREST too; either shape
-    // is a refusal, and the assertion below is "nothing landed" in both.
-    return 0;
+    // An RLS refusal raises 42501; either shape is a refusal, and the count
+    // below is the answer in both.
   } finally {
     await reset();
   }
+  return (await countAsks()) - before;
 }
 
 async function countAsks(): Promise<number> {
@@ -197,6 +215,14 @@ test('a shop cannot sign an ask in somebody else’s name', async () => {
 test('a shop cannot post an ask that is already withdrawn', async () => {
   // Posting a resolved state writes history nobody lived through, and it is the
   // one state the RPC exists to be the only writer of.
+  //
+  // ⚠ MEASURED, AND WORTH SAYING: NO SINGLE-CLAUSE MUTATION CAN MAKE THIS FAIL.
+  // Three fences hold it — `status = 'open'`, `withdrawn_at IS NULL`, and the
+  // coherence CHECK — and each covers the others. Removing `status = 'open'`
+  // alone leaves this test GREEN, which reads exactly like a decorative guard
+  // and is not one: removing BOTH policy clauses turns this line RED (verified
+  // by mutation, 1 → 0 occurrences). That redundancy is the design; the test
+  // asserts the OUTCOME, which is what a shop can actually do.
   const w = await seed('forge-status');
   const before = await countAsks();
   assert.equal(await tryAsk(w, w.shopOwner, { status: 'withdrawn' }), 0);

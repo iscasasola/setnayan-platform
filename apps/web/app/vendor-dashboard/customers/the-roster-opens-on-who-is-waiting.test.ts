@@ -129,12 +129,17 @@ test('the roster never reaches for a name except behind identityRevealed', () =>
 });
 
 test('the page builds the placeholder from the SHIPPED mask, not a local one', () => {
+  // ⚠ `\b` IS LOAD-BEARING. Without it this rule was DECORATION, measured:
+  // renaming the call to `DISABLED_fetchInquiryMaskMeta(` left the original as a
+  // SUBSTRING and the guard stayed green while the mask was gone. Same prefix
+  // trap as `f.event_dateX`, and the reason every sabotage here is counted
+  // rather than assumed to have landed.
   assert.ok(
-    /fetchInquiryMaskMeta\s*\(/.test(pageSrc),
+    /\bfetchInquiryMaskMeta\s*\(/.test(pageSrc),
     'the roster stopped using fetchInquiryMaskMeta — a second anonymisation path has been written',
   );
   assert.ok(
-    /inquiryPlaceholderLabel\s*\(\s*\{/.test(pageSrc),
+    /\binquiryPlaceholderLabel\s*\(\s*\{/.test(pageSrc),
     'the placeholder call lost its explicit fields — inquiry-mask-every-host cannot see a spread',
   );
 });

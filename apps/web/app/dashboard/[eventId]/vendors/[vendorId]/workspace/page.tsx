@@ -29,7 +29,7 @@
 // ============================================================================
 
 import type { ReactNode } from 'react';
-import { logQueryError } from '@/lib/supabase/error-detect';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
 import Link from 'next/link';
@@ -82,6 +82,16 @@ import {
   type SnapshotChargeLine,
 } from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
+import { PaymentAsksCard } from './_components/payment-asks-card';
+
+/** One open payment ask, as PostgREST returns it (NUMERIC arrives as a string). */
+type CouplePaymentAskRow = {
+  ask_id: string;
+  amount_php: number | string | null;
+  note: string | null;
+  due_date: string | null;
+  created_at: string;
+};
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
@@ -340,6 +350,51 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       reason: row.deposit_decline_reason,
       settlementNote: row.deposit_dispute_note,
     };
+  })();
+
+  /*
+    WHAT THIS SUPPLIER IS WAITING FOR (S4, 2026-08-28).
+
+    Read on the couple's OWN session: `vendor_payment_asks` carries a couple
+    SELECT policy (their own event, plus their delegates). No admin client, no
+    SECURITY DEFINER — the couple is the party being asked.
+
+    ⚠ ITS OWN READ, NOT FOLDED INTO THE MAIN SELECT, for the same reason the
+    deposit refusal above is separate: app code deploys in parallel with the
+    migration, PostgREST refuses the WHOLE query when a select names a relation
+    it does not know, and this page answers a refused primary read with
+    `notFound()`. Folding it in would turn a live celebration's supplier page
+    into "not found" for the length of a deploy.
+
+    ⚠ AND `measured` IS CARRIED, NOT COLLAPSED TO `?? []`. Here empty and
+    unreadable are OPPOSITE sentences: an empty list tells the couple nobody is
+    waiting on their money.
+  */
+  const paymentAsks = await (async () => {
+    const { data, error } = await supabase
+      .from('vendor_payment_asks')
+      .select('ask_id, amount_php, note, due_date, created_at')
+      .eq('event_vendor_id', vendorId)
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    /*
+      🪤 A RELATION THIS DEPLOY HAS NOT SEEN YET IS NOT AN UNREADABLE ONE.
+      App code and its migration land in parallel, so for the length of a deploy
+      this table may not exist — and `measured: false` would put an amber "we
+      could not check whether your supplier is waiting on a payment" banner on
+      EVERY supplier page of EVERY celebration, about a table in which nothing
+      can possibly have been written. `42P01` degrades to a true empty; only a
+      genuine refusal or outage is reported as unmeasured.
+    */
+    if (error) {
+      const absent = isMissingRelationError(error);
+      if (!absent) {
+        logQueryError('CoupleVendorWorkspace.paymentAsks', error, { eventId }, 'graceful_degrade');
+      }
+      return { measured: absent, rows: [] as CouplePaymentAskRow[] };
+    }
+    return { measured: true, rows: (data ?? []) as CouplePaymentAskRow[] };
   })();
 
   // ── PR-H · IS THIS BOOKED, OR MERELY ASKED? ─────────────────────────────
@@ -1527,6 +1582,29 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             vendor-acknowledgement handshake. Setnayan never holds the money;
             recording does not change the order status (orthogonal markers).
           */}
+          {/*
+            ABOVE the deposit card on purpose: "they are waiting for ₱18,000" is
+            the reason a couple would reach for "Record deposit", so it has to
+            come first in the reading order.
+          */}
+          <PaymentAsksCard
+            vendorName={displayName}
+            measured={paymentAsks.measured}
+            asks={paymentAsks.rows.map((a) => ({
+              askId: a.ask_id,
+              // PostgREST returns NUMERIC as a STRING, and `Number(null)` is 0 —
+              // which would print "₱0", a real-looking figure for a value we do
+              // not have. Unreadable becomes null and renders an em dash.
+              amountPhp:
+                a.amount_php == null || Number.isNaN(Number(a.amount_php))
+                  ? null
+                  : Number(a.amount_php),
+              note: a.note,
+              dueDate: a.due_date,
+              createdAt: a.created_at,
+            }))}
+          />
+
           <DepositReservation
             eventId={eventId}
             vendorId={ev.vendor_id}

@@ -201,6 +201,23 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'a live access key in it turns a privacy right into a disclosure risk. The ' +
     'celebrations the feed described are exported in full from `events` and ' +
     '`event_members` regardless.',
+  // ── added 2026-08-28 with the table itself (S4) ──
+  vendor_payment_asks:
+    'Not the account holder’s data to export, on the axis this guardrail ' +
+    'enforces. A payment ask is a sentence from a SHOP to a COUPLE ("please ' +
+    'send ₱18,000 — second installment"); the only `*_user_id` column is ' +
+    '`asked_by_user_id`, the shop staffer who typed it, which is an ACTOR ' +
+    'STAMP — the same call `event_stage_notes` makes two entries below for the ' +
+    'same shape. No reader selects it: the couple is shown the SHOP asking, ' +
+    'never a named person. Exporting it to that staffer would hand one ' +
+    'employee a record of a money conversation between their employer and ' +
+    'somebody else’s celebration. ' +
+    'STATED PLAINLY RATHER THAN LEFT IMPLIED: the COUPLE is also a data ' +
+    'subject of this row, and they are not the account holder this column ' +
+    'names, so this exclusion does not answer their side. It sits with every ' +
+    'other event-scoped supplier record (bookings, change orders, the payment ' +
+    'ledger) — none of which the export reaches today either — and belongs ' +
+    'with them the day that whole class is covered, not as a special case.',
   // ── added 2026-08-05 with the table itself ──
   event_stage_notes:
     'Not the subject’s data to export. A stage note is an operational instruction about ' +

@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6258
+# facts: 6276
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     574
-#   col       4606
-#   policy    850
+#   tpriv     575
+#   col       4618
+#   policy    854
 #   view      8
-#   func      216
+#   func      217
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -507,6 +507,7 @@ tpriv	public.vendor_papic_captures|anon	SIUD
 tpriv	public.vendor_papic_captures|authenticated	SIUD
 tpriv	public.vendor_partnerships|anon	SIUD
 tpriv	public.vendor_partnerships|authenticated	SIUD
+tpriv	public.vendor_payment_asks|authenticated	SI
 tpriv	public.vendor_payment_methods|authenticated	SD
 tpriv	public.vendor_payouts|authenticated	SIUD
 tpriv	public.vendor_portion_rules|authenticated	SIUD
@@ -4480,6 +4481,18 @@ col	public.vendor_partnerships.recommended_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.recommending_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.relationship_type	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.status	anon=SIU authenticated=SIU
+col	public.vendor_payment_asks.amount_php	anon=- authenticated=SI
+col	public.vendor_payment_asks.ask_id	anon=- authenticated=SI
+col	public.vendor_payment_asks.asked_by_user_id	anon=- authenticated=SI
+col	public.vendor_payment_asks.created_at	anon=- authenticated=SI
+col	public.vendor_payment_asks.due_date	anon=- authenticated=SI
+col	public.vendor_payment_asks.event_id	anon=- authenticated=SI
+col	public.vendor_payment_asks.event_vendor_id	anon=- authenticated=SI
+col	public.vendor_payment_asks.note	anon=- authenticated=SI
+col	public.vendor_payment_asks.status	anon=- authenticated=SI
+col	public.vendor_payment_asks.updated_at	anon=- authenticated=SI
+col	public.vendor_payment_asks.vendor_profile_id	anon=- authenticated=SI
+col	public.vendor_payment_asks.withdrawn_at	anon=- authenticated=SI
 col	public.vendor_payment_methods.account_name	anon=- authenticated=SIU
 col	public.vendor_payment_methods.account_number	anon=- authenticated=SIU
 col	public.vendor_payment_methods.created_at	anon=- authenticated=SIU
@@ -5927,6 +5940,10 @@ policy	public.vendor_partnerships|proposer inserts vendor partnership	mode=PERMI
 policy	public.vendor_partnerships|proposer withdraws vendor partnership	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(recommending_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=((recommending_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = 'withdrawn'::text))
 policy	public.vendor_partnerships|public read accepted vendor partnerships	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((is_active = true) AND (status = 'accepted'::text)) check=NULL
 policy	public.vendor_partnerships|recipient responds to vendor partnership	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(recommended_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=((recommended_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = ANY (ARRAY['accepted'::text, 'declined'::text])))
+policy	public.vendor_payment_asks|vendor_payment_asks_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.vendor_payment_asks|vendor_payment_asks_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) check=NULL
+policy	public.vendor_payment_asks|vendor_payment_asks_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = 'open'::text) AND (withdrawn_at IS NULL) AND (asked_by_user_id = auth.uid()))
+policy	public.vendor_payment_asks|vendor_payment_asks_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))) check=NULL
 policy	public.vendor_payment_methods|vendor_payment_methods_owner	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = auth.uid()))) check=(vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = auth.uid())))
 policy	public.vendor_payment_methods|vendor_payment_methods_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_payouts|vendor_payouts_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_payouts.vendor_profile_id) AND (vp.user_id = auth.uid())))) check=NULL
@@ -6277,3 +6294,4 @@ func	public.wall_clear_caption(p_message_id uuid)	secdef=yes exec=authenticated 
 func	public.wall_retract(p_source_table text, p_source_id uuid, p_also_gallery boolean)	secdef=yes exec=authenticated search_path=public
 func	public.wall_unhide(p_source_table text, p_source_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.withdraw_change_order(p_change_order_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.withdraw_vendor_payment_ask(p_ask_id uuid)	secdef=yes exec=authenticated search_path=public

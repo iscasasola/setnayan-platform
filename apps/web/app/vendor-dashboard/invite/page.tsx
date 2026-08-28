@@ -17,6 +17,7 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LockedQrGenerator } from './_components/locked-qr-generator';
 import { ShopCard, ShopNotice } from '../_components/kit';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
 
 export const metadata = { title: 'QR Code Generator · Vendor' };
 
@@ -265,10 +266,11 @@ async function LockedMode({
   const activeServices = (
     await fetchVendorServices(supabase, vendorProfileId).catch(() => [])
   ).filter((s) => s.is_active);
+  const kindLabel = await cardKindLabeller();
   const serviceOptions = activeServices.length
     ? activeServices.map((s) => ({
         value: s.vendor_service_id,
-        label: s.title ?? VENDOR_CATEGORY_LABEL[s.category as VendorCategory] ?? s.category,
+        label: s.title ?? kindLabel(s.category),
       }))
     : coverage;
 

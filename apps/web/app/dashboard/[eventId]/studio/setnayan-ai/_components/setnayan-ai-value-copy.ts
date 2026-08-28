@@ -117,10 +117,9 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
   // windows the app really tracks — never a vague "and your paperwork", which
   // would be the same false promise in softer words.
   const deadlineBody = hasStatutoryPaperwork
-    ? 'Recommended booking windows plus your PH marriage paperwork — license, ' +
-      'Pre-Cana, PSA — counted down and surfaced before they bite.'
-    : 'Recommended booking windows for every category, counted down and surfaced ' +
-      'before they bite.';
+    ? 'Every category’s booking windows, plus your PH marriage paperwork — ' +
+      'license, Pre-Cana, PSA.'
+    : 'Every category’s booking windows, counted down before they bite.';
 
   return [
     {
@@ -138,10 +137,8 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
           // wording would have sold a free one. Both are failures.
           title: 'Builds your suggested team by best fit, not cheapest',
           body:
-            'The “% match” on each vendor is free for everyone. What Setnayan AI ' +
-            'changes is how your suggested TEAM is assembled — around fit with ' +
-            'your date, budget and the rest of your line-up, instead of simply ' +
-            'the lowest price.',
+            'Your whole line-up is picked to fit your date and budget, not by ' +
+            'lowest price. (The “% match” itself is free for everyone.)',
         },
       ],
     },
@@ -153,9 +150,7 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
         {
           id: 'next_move',
           title: 'Tells you the one thing to do next',
-          body:
-            'Out of everything in flight, it names the single most-urgent move and ' +
-            'how far you’ve come — no more staring at a to-do pile.',
+          body: 'One most-urgent move, instead of a to-do pile to stare at.',
         },
       ],
     },
@@ -167,46 +162,51 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
           id: 'payments',
           title: 'Flags a payment before it’s due',
           body:
-            'Every vendor balance and due date, watched — so a deposit deadline ' +
-            'never sneaks up and costs you the booking.',
+            'Every balance and due date watched, so a deposit deadline never ' +
+            'costs you the booking.',
         },
         {
           id: 'budget',
           title: 'Warns you before you go over budget',
           body:
-            'It adds up what you’ve committed against your target and speaks up ' +
-            'while there’s still room to trim, not after.',
+            'It adds up what you’ve committed against your target while there’s ' +
+            'still room to trim.',
         },
         {
           id: 'price_watch',
           title: 'Tells you when a vendor you’re watching changes their price',
           body:
-            'It keeps the figure you were quoted and checks it against what the ' +
-            'vendor charges now, so a quiet rise before you have signed does not ' +
-            'reach you as a surprise on the invoice.',
+            'We keep the figure you were quoted and check it against what they ' +
+            'charge now, so a quiet rise never lands on the invoice.',
         },
         {
           id: 'date_watch',
           title: 'Tells you when someone you’re considering gets booked — or frees up',
           body:
-            'The one you were still deciding on takes another booking on your ' +
-            'date, and you hear it from us rather than from a reply three days ' +
-            'later. It works the other way too, when a full favourite opens up.',
+            'You hear it from us, not from a reply three days later. It works ' +
+            'the other way too, when a full favourite opens up.',
         },
         {
           id: 'schedule_clash',
           title: 'Warns you when two things clash on the day',
           body:
-            'Two parts of the run-of-show booked over each other, or a supplier ' +
-            'due somewhere they cannot be, gets caught while it is still a ' +
-            'calendar problem instead of a problem on the day itself.',
+            'Two parts booked over each other, caught while it is still a ' +
+            'calendar problem.',
         },
         {
           id: 'demand',
-          title: 'Notices when someone eyes your date',
+          // ⚠ REWORDED 2026-08-28. "it tells you" promised a MESSAGE and there is
+          // no notification path for this: no trigger, no snapshot input, no
+          // guard code. What genuinely ships is the marker on the vendor list
+          // (`eyeingByVendorId`, gated on the paid flag) — real, and paid, but
+          // something you SEE when you look rather than something that reaches
+          // you. Same family as the `chase` line removed on 2026-08-12; caught
+          // here before it cost anybody, because the owner asked whether the
+          // card was truthful.
+          title: 'Shows you who else is eyeing your date',
           body:
-            `When another ${organizerNoun} starts looking at a vendor you’re ` +
-            'considering for your date, it tells you — so you can lock them in first.',
+            `Your vendor list marks anyone another ${organizerNoun} starts ` +
+            'looking at for your date, so you can lock them in first.',
         },
       ],
     },

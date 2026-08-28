@@ -132,14 +132,26 @@ test('one definition of the rule, asked by both the chooser and the save', () =>
   // would be the optimistic one — offering a kind the save refuses is exactly
   // the defect being fixed. So the save must IMPORT it, not keep its own.
   const save = read(SAVE);
+  // ⚠ MATCHED BY WHAT IT IMPORTS, NOT BY ONE FORMATTING OF THE IMPORT LINE.
+  // The original assertion pinned a single-line `import { a, b } from '…'`, so
+  // adding a third name (`parentsOfKind`, when a card's kind became allowed to
+  // be the shop's own coverage word) reflowed it to multi-line and the guard
+  // went red for a reason that had nothing to do with the rule it protects.
   assert.match(
     save,
-    /import \{ parentsOfCategory, coverageParents \} from '@\/lib\/vendor-category-parents'/,
+    /from '@\/lib\/vendor-category-parents'/,
     'the save went back to its own copy of the family rule',
   );
+  for (const name of ['parentsOfKind', 'coverageParents']) {
+    assert.match(save, new RegExp(`\\b${name}\\b`), `the save stopped asking ${name}`);
+  }
   assert.ok(
     !/function parentsOfCategory/.test(save),
     'a second copy of parentsOfCategory is back in the save',
+  );
+  assert.ok(
+    !/function parentsOfKind/.test(save),
+    'a second copy of parentsOfKind is back in the save',
   );
   assert.ok(
     !/async function coverageParents/.test(save),
@@ -403,13 +415,30 @@ test('the card name is written for them, and never over their typing', () => {
 
 test('the covered band speaks the shop’s own words', () => {
   const src = read(MAKER);
-  // SetnaProd's leaf is "Pabati" and no "Pabati" pill exists — the pills bridge
-  // by family, so the BAND has to quote the coverage or a supplier is asked to
-  // recognise their trade under a word they never chose.
-  assert.match(src, /What you already do — your \$\{coverageNames/, 'the covered band stopped naming the coverage');
   const door = read(NEW_DOOR);
-  assert.match(door, /coverageNames=\{coverageNames\}/, 'the door stopped passing the coverage names');
+  // 🔑 THE RULE IS UNCHANGED AND IS NOW MET MORE STRONGLY. SetnaProd's leaf is
+  // "Pabati"; a supplier must never be asked to recognise their trade under a
+  // word they never chose.
+  //
+  // When this was written no "Pabati" PILL existed — the pills bridged by
+  // FAMILY — so the only way to say the shop's own word was to quote it in the
+  // band's prose: `What you already do — your ${coverageNames…}`. The owner then
+  // ruled on the vocabulary itself (2026-08-28, *"yes their own words"*), so the
+  // band's pills ARE the coverage words now and their stored value is the leaf.
+  // Keeping the old assertion would have pinned the WORKAROUND and rejected the
+  // fix; quoting the names in prose as well would print *Pabati* twice, once as
+  // text and once as the thing you press.
+  assert.match(
+    door,
+    /const coverageKindOptions = vendorCoverages\.map\(/,
+    'the covered band stopped being built from the shop’s own coverage',
+  );
   assert.match(door, /leafLabel\(c\.canonical_service\)/, 'the coverage names stopped coming from the taxonomy');
+  assert.match(door, /value: c\.canonical_service/, 'the band offers the shop’s words but stores something else');
+  // The band still says whose words these are, and the names still reach the
+  // maker for that sentence.
+  assert.match(src, /in your own words/, 'the covered band stopped saying whose words these are');
+  assert.match(door, /coverageNames=\{coverageNames\}/, 'the door stopped passing the coverage names');
 });
 
 test('the full list is searchable, and says so when nothing matches', () => {

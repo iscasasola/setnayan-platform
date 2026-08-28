@@ -34,6 +34,8 @@ export type SelfPersonalization = {
   /** ISO `YYYY-MM-DD`, or null. Age is derived, never stored. */
   birthdate: string | null;
   gender: Sex | null;
+  /** What they call themselves, trimmed; null when they have not set one. */
+  displayName: string | null;
 };
 
 export const EMPTY_SELF_PERSONALIZATION: SelfPersonalization = {
@@ -41,6 +43,7 @@ export const EMPTY_SELF_PERSONALIZATION: SelfPersonalization = {
   civilStatus: null,
   birthdate: null,
   gender: null,
+  displayName: null,
 };
 
 /**
@@ -57,7 +60,7 @@ export const getSelfPersonalization = cache(
     const supabase = await createClient();
     const { data } = await supabase
       .from('users')
-      .select('religion, civil_status, birth_date, sex')
+      .select('religion, civil_status, birth_date, sex, display_name')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -71,6 +74,13 @@ export const getSelfPersonalization = cache(
           ? data.birth_date
           : null,
       gender: isSex(data.sex) ? data.sex : null,
+      // The name they call themselves. Read here because a birthday with no
+      // celebrant typed on it is THEIR OWN, and the details screen was asking
+      // them to type a name the account already holds.
+      displayName:
+        typeof data.display_name === 'string' && data.display_name.trim()
+          ? data.display_name.trim()
+          : null,
     };
   },
 );

@@ -7,6 +7,7 @@ import {
   SERVICE_GROUPS,
   displayServiceLabel,
   groupDisplayOptions,
+  isCanonicalService,
   type VendorCategory,
 } from '@/lib/vendors';
 import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
@@ -24,9 +25,10 @@ import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import {
   coverageParents,
-  parentsOfCategory,
+  parentsOfKind,
   standingForCategory,
 } from '@/lib/vendor-category-parents';
+import { buildLeafIndex, cardKindLabel, humanizeKind } from '@/lib/service-card-kind';
 
 export const metadata = { title: 'Add a service' };
 
@@ -85,10 +87,6 @@ export default async function NewServiceCardPage() {
     .select('category')
     .eq('vendor_profile_id', profile.vendor_profile_id);
   const ownCategories = ((ownRows ?? []) as { category: string }[]).map((r) => r.category);
-  const otherCategories = Array.from(new Set(ownCategories)).map((c) => ({
-    value: c,
-    label: displayServiceLabel(c),
-  }));
   const cardsByCategory: Record<string, number> = {};
   for (const c of ownCategories) cardsByCategory[c] = (cardsByCategory[c] ?? 0) + 1;
 
@@ -113,35 +111,93 @@ export default async function NewServiceCardPage() {
     tierRowTyped?.is_founder === true
       ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
       : baseCaps;
+  // The live leaves — a card's kind may be one of the shop's OWN coverage words
+  // (owner 2026-08-28), so families are resolved leaf-first and legacy second.
+  const leaves = buildLeafIndex(await getCoverageTaxonomy().catch(() => []));
   const existingParents = new Set<string>([
-    ...ownCategories.flatMap((c) => parentsOfCategory(c as VendorCategory)),
+    ...ownCategories.flatMap((c) => parentsOfKind(c, leaves)),
     ...(await coverageParents(supabase, profile.vendor_profile_id)),
   ]);
 
-
-  const categoryOptions: CategoryGroup[] = SERVICE_GROUPS.map((group) => ({
-    key: group.key,
-    label: group.label,
-    options: groupDisplayOptions(group.members, labelFor).map((opt) => {
-      const st = standingForCategory(opt.primaryKey, {
-        existingParents,
-        cardsByCategory,
-        parentCategories: caps.parentCategories,
-        servicesPerLeaf: caps.servicesPerLeaf,
-      });
-      return {
-        value: opt.primaryKey,
-        label: opt.label,
-        standing: st.standing,
-        why: st.standing === 'locked' ? st.why : undefined,
-      };
-    }),
-  })).filter((g) => g.options.length > 0);
 
   const [vendorCoverages, coverageLabels] = await Promise.all([
     fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),
     resolveCoverageLabels().catch(() => null),
   ]);
+
+  const standingOf = (key: string) =>
+    standingForCategory(key, {
+      existingParents,
+      cardsByCategory,
+      parentCategories: caps.parentCategories,
+      servicesPerLeaf: caps.servicesPerLeaf,
+      leaves,
+    });
+
+  // ── THE SHOP'S OWN WORDS COME FIRST (owner 2026-08-28: *"yes their own
+  //    words"*) ────────────────────────────────────────────────────────────
+  // A supplier used to say what they sell twice, in two lists that do not
+  // agree: coverage says *Pabati* and the kinds list has no such word, so the
+  // maker bridged BY FAMILY and asked a Pabati shop to file under *Photobooth*.
+  // Their own coverage words are now real choices whose stored value is the
+  // leaf itself. Nothing was removed — the 52 legacy kinds are still one tap
+  // below, so a shop that grows into something it does not yet cover is never
+  // stuck.
+  const coverageKindOptions = vendorCoverages.map((c) => {
+    const st = standingOf(c.canonical_service);
+    return {
+      value: c.canonical_service,
+      // ⚠ NEVER THE BARE KEY, EVEN WHEN THE TAXONOMY READ FAILS. `leafLabel`
+      // already humanises a leaf it cannot find, but `coverageLabels` is null
+      // when the whole read threw — and this file's entire point is that a
+      // supplier is shown a word, not a database key.
+      label: coverageLabels
+        ? coverageLabels.leafLabel(c.canonical_service)
+        : humanizeKind(c.canonical_service),
+      // A covered leaf leads the sheet unless the plan genuinely refuses it —
+      // 'covered' and 'open' render identically, so this only decides WHICH
+      // band it sits in, never whether it is pressable.
+      standing: st.standing === 'locked' ? ('locked' as const) : ('covered' as const),
+      why: st.standing === 'locked' ? st.why : undefined,
+    };
+  });
+  const leadWithOwnWords = coverageKindOptions.some((o) => o.standing === 'covered');
+
+  // The "comes with" options — a card the vendor already has. Named through the
+  // shared resolver so a card filed under the shop's own word reads as *Pabati*
+  // here too, and a card filed under a key we no longer know is humanised
+  // rather than printed raw.
+  const otherCategories = Array.from(new Set(ownCategories)).map((c) => ({
+    value: c,
+    label: cardKindLabel(c, leaves, isCanonicalService(c) ? displayServiceLabel(c) : null),
+  }));
+
+  const legacyGroups: CategoryGroup[] = SERVICE_GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    options: groupDisplayOptions(group.members, labelFor).map((opt) => {
+      const st = standingOf(opt.primaryKey);
+      return {
+        value: opt.primaryKey,
+        label: opt.label,
+        // ⚠ RE-BANDED, NEVER REMOVED. When the shop's own words are leading, a
+        // legacy pill for the same family (*Photobooth* beside their *Pabati*)
+        // would sit in that band as a second, vaguer way to file one card. It
+        // moves down to "Something else I do" instead — still offered, still
+        // pressable, just not competing with the supplier's own word for it.
+        standing:
+          leadWithOwnWords && st.standing === 'covered' ? ('open' as const) : st.standing,
+        why: st.standing === 'locked' ? st.why : undefined,
+      };
+    }),
+  })).filter((g) => g.options.length > 0);
+
+  const categoryOptions: CategoryGroup[] = [
+    ...(coverageKindOptions.length > 0
+      ? [{ key: 'your-coverage', label: 'What you cover', options: coverageKindOptions }]
+      : []),
+    ...legacyGroups,
+  ];
   const coverageOptions = vendorCoverages.map((c) => ({
     id: c.id,
     label: coverageLabels

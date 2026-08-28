@@ -1,7 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
+import {
+  VENDOR_CATEGORY_CANONICAL,
+  tilesForVendorCategory,
+} from '@/lib/vendor-category-taxonomy';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
+import { leafFamilies, type LeafIndex } from '@/lib/service-card-kind';
 import { TILE_PARENT } from '@/lib/taxonomy';
 import type { VendorCategory } from '@/lib/vendors';
 
@@ -42,9 +46,36 @@ import type { VendorCategory } from '@/lib/vendors';
  * against the cap — so they are always offerable.
  */
 export function parentsOfCategory(category: VendorCategory): string[] {
+  // ⚠ TOTAL ON PURPOSE. `VENDOR_CATEGORY_CANONICAL` is a Record over the 52
+  // legacy keys, so an unknown key indexes to `undefined` and
+  // `tilesForVendorCategory` throws on `.kind`. That is not hypothetical: this
+  // is called with values read straight out of `vendor_services.category`, a
+  // plain TEXT column with no database-level check, and BOTH rows in production
+  // hold `live_band` / `host_mc` — tile ids that are not in the 52 at all. A
+  // family count is a cap input; it must never be the thing that 500s the page a
+  // supplier makes their card on.
+  if (!(category in VENDOR_CATEGORY_CANONICAL)) return [];
   return tilesForVendorCategory(category)
     .map((tile) => TILE_PARENT[tile] as string)
     .filter(Boolean);
+}
+
+/**
+ * THE FAMILIES A CARD'S STORED KIND COUNTS AGAINST — leaf or legacy.
+ *
+ * A card's kind may now be a COVERAGE LEAF (owner 2026-08-28, *"yes their own
+ * words"*), so the family a card files under is resolved from the live taxonomy
+ * when the key is a leaf, and through the legacy bridge when it is not. One
+ * question, asked in one place, whichever vocabulary the value is in.
+ *
+ * 🔑 THE LEAF PATH AND `coverageParents()` MUST AGREE, and they do because both
+ * read the tier-1 `folderId` out of the SAME `getCoverageTaxonomy()` tree. A
+ * shop that covers *Pabati* and makes a *Pabati* card must count ONE family, not
+ * two — a second copy of that rule would drift and the optimistic copy would be
+ * the one on screen.
+ */
+export function parentsOfKind(key: string, leaves: LeafIndex): string[] {
+  return leafFamilies(key, leaves) ?? parentsOfCategory(key as VendorCategory);
 }
 
 /**
@@ -106,7 +137,7 @@ export type CategoryStanding =
  * a read failure must not delete a kind a supplier is entitled to sell.
  */
 export function standingForCategory(
-  category: VendorCategory,
+  category: string,
   ctx: {
     /** Families already claimed by this shop's cards ∪ coverages. */
     existingParents: ReadonlySet<string>;
@@ -114,6 +145,12 @@ export function standingForCategory(
     cardsByCategory: Readonly<Record<string, number>>;
     parentCategories: number;
     servicesPerLeaf: number;
+    /**
+     * The live coverage leaves, so a card filed under the shop's OWN word is
+     * capped by the same family as the legacy pill it replaces. Omitted → legacy
+     * behaviour, byte-identical to before leaves were choosable.
+     */
+    leaves?: LeafIndex;
   },
 ): CategoryStanding {
   const inKind = ctx.cardsByCategory[category] ?? 0;
@@ -123,7 +160,9 @@ export function standingForCategory(
       why: `You already have ${inKind} here — your plan allows ${ctx.servicesPerLeaf}.`,
     };
   }
-  const parents = parentsOfCategory(category);
+  const parents = ctx.leaves
+    ? parentsOfKind(category, ctx.leaves)
+    : parentsOfCategory(category as VendorCategory);
   // No family at all (officiant, church fees, security, miscellaneous) — never
   // counted, so never refused.
   if (parents.length === 0) return { standing: 'open' };

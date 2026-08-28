@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 287 jobs, 186 of them form-driven, as of 6b5ea4164.
+// that performs it. 298 jobs, 196 of them form-driven, as of e3ef0a065.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -1290,6 +1290,45 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "reactivateBundleRow",
+    "phrase": "reactivate bundle row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "package_code"
+    ],
+    "refusedWhenEmpty": [
+      "package_code"
+    ],
+    "destructive": false
+  },
+  {
+    "name": "reactivateRetailRow",
+    "phrase": "reactivate retail row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "service_code"
+    ],
+    "refusedWhenEmpty": [
+      "service_code"
+    ],
+    "destructive": false
+  },
+  {
+    "name": "reactivateVendorRow",
+    "phrase": "reactivate vendor row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "sku_code"
+    ],
+    "refusedWhenEmpty": [
+      "sku_code"
+    ],
+    "destructive": false
+  },
+  {
     "name": "recomputePriceBands",
     "phrase": "recompute price bands",
     "ownerPath": "/admin/price-bands",
@@ -1505,6 +1544,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "removeAllSafeRetailRows",
+    "phrase": "remove all safe retail rows",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
     "name": "removeAward",
     "phrase": "remove award",
     "ownerPath": "/admin/spotlight-awards",
@@ -1563,6 +1611,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/taxonomy",
     "fields": [],
     "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
+    "name": "removeRetailRowForGood",
+    "phrase": "remove retail row for good",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "service_code"
+    ],
+    "refusedWhenEmpty": [
+      "service_code"
+    ],
     "destructive": true
   },
   {
@@ -1909,6 +1970,23 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": true
   },
   {
+    "name": "retireBundleRow",
+    "phrase": "retire bundle row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "package_code",
+      "reason",
+      "replaced_by"
+    ],
+    "refusedWhenEmpty": [
+      "package_code",
+      "reason",
+      "replaced_by"
+    ],
+    "destructive": true
+  },
+  {
     "name": "retireEventType",
     "phrase": "retire event type",
     "ownerPath": "/admin/event-types",
@@ -1953,6 +2031,40 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "retired"
     ],
     "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
+    "name": "retireRetailRow",
+    "phrase": "retire retail row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "service_code",
+      "reason",
+      "replaced_by"
+    ],
+    "refusedWhenEmpty": [
+      "service_code",
+      "reason",
+      "replaced_by"
+    ],
+    "destructive": true
+  },
+  {
+    "name": "retireVendorRow",
+    "phrase": "retire vendor row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "sku_code",
+      "reason",
+      "replaced_by"
+    ],
+    "refusedWhenEmpty": [
+      "sku_code",
+      "reason",
+      "replaced_by"
+    ],
     "destructive": true
   },
   {
@@ -2039,23 +2151,31 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "saveAllPricing",
-    "phrase": "save all pricing",
-    "ownerPath": "/admin/pricing",
-    "resolvedPath": "/admin/pricing",
-    "fields": [
-      "setnayan_pay_fee_pct"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
     "name": "saveBackgroundVideo",
     "phrase": "save background video",
     "ownerPath": "/admin/background-videos",
     "resolvedPath": "/admin/background-videos",
     "fields": [],
     "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveBundleRow",
+    "phrase": "save bundle row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "package_code",
+      "title",
+      "price",
+      "desc",
+      "active"
+    ],
+    "refusedWhenEmpty": [
+      "package_code",
+      "title",
+      "desc"
+    ],
     "destructive": false
   },
   {
@@ -2101,6 +2221,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/social-queue",
     "fields": [
       "is_active"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveFeeSetting",
+    "phrase": "save fee setting",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "setnayan_pay_fee_pct"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2196,6 +2327,32 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "saveRetailRow",
+    "phrase": "save retail row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "service_code",
+      "title",
+      "desc",
+      "price",
+      "cost",
+      "active",
+      "onboarding_price",
+      "billing_period",
+      "is_pax_priced",
+      "pax_floor",
+      "pax_floor_price",
+      "pax_increment_size",
+      "pax_increment_price"
+    ],
+    "refusedWhenEmpty": [
+      "service_code",
+      "title"
+    ],
+    "destructive": false
+  },
+  {
     "name": "saveRevealStudio",
     "phrase": "save reveal studio",
     "ownerPath": "/admin/reveal-studio",
@@ -2222,6 +2379,23 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     ],
     "refusedWhenEmpty": [
       "vendor_profile_id"
+    ],
+    "destructive": false
+  },
+  {
+    "name": "saveVendorRow",
+    "phrase": "save vendor row",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "sku_code",
+      "price",
+      "desc",
+      "active"
+    ],
+    "refusedWhenEmpty": [
+      "sku_code",
+      "desc"
     ],
     "destructive": false
   },

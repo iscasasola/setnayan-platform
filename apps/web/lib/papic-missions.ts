@@ -168,6 +168,70 @@ export function coupleSlots(vendorUsed: number): number {
   return Math.max(0, BOARD_SIZE - Math.min(vendorUsed, VENDOR_SLOTS));
 }
 
+// ---------------------------------------------------------------------------
+// MAY A SCREEN SAY THE BOARD IS FULL?
+//
+// 🚨 THIS EXISTS BECAUSE ONE SHIPPED AND SAID IT WRONGLY. From 2026-08-23 the
+// board resolver was refused for the couple's own session (an unpaired REVOKE
+// in the pabati retirement, restored by 20271173829027), so every `board_slot`
+// was NULL. The couple's screen read that state and concluded the board was
+// FULL: it told a couple whose challenges reached NOBODY that these were
+// "waiting for a free spot — hide one above to make room". An unbuilt board is
+// not a full one, and the instruction was to delete their own work.
+//
+// 🔑 THE RULE, AND WHY IT IS A FUNCTION RATHER THAN AN EXPRESSION IN THE JSX.
+// The condition is the claim most likely to become a lie, and inline in a
+// server component that needs a Supabase client it could not be tested at all
+// — the same reasoning that pulled `orderForShelf` out of the picker query.
+// ---------------------------------------------------------------------------
+
+/** What the counts were measured against. `resolved` is FALSE when the board
+ *  resolver did not run or was refused — the state in which nothing about
+ *  occupancy is known. */
+export type BoardReading = {
+  resolved: boolean;
+  onBoardCount: number;
+  waitingCount: number;
+};
+
+/**
+ * TRUE only when this reading may be described to a person as an occupancy.
+ *
+ * Two ways it is false, and they used to look identical to the screen:
+ *   · the resolver never answered (`resolved` false); and
+ *   · it answered with an EMPTY board while active challenges sit unslotted —
+ *     which the resolver cannot produce, because the couple lane is slotted
+ *     FIRST, so an empty board beside waiting rows means the two reads
+ *     disagree and we do not know which is right.
+ *
+ * ⚠ Not-measured is never zero and never a limit reached. Fail toward "we could
+ * not check", never toward "you are full".
+ */
+export function boardIsTrustworthy(r: BoardReading): boolean {
+  return r.resolved && (r.onBoardCount > 0 || r.waitingCount === 0);
+}
+
+/** What the "Not showing" line is entitled to say. */
+export type BoardClaim =
+  /** Every unslotted challenge is one the couple hid themselves. */
+  | { kind: 'hidden_by_you' }
+  /** The board is genuinely full and these are queued behind it. */
+  | { kind: 'waiting'; waiting: number }
+  /** We could not work the board out. Says so; asks for nothing. */
+  | { kind: 'unknown' };
+
+/**
+ * 🔑 `waiting` IS THE ONLY BRANCH THAT MAY ASK FOR A DELETION, so it is the one
+ * branch gated on a trustworthy reading. `hidden_by_you` is checked first and
+ * needs no board at all: those rows are off the board by the couple's own act,
+ * which is true whether or not the resolver ran.
+ */
+export function boardOccupancyClaim(r: BoardReading): BoardClaim {
+  if (r.waitingCount === 0) return { kind: 'hidden_by_you' };
+  if (!boardIsTrustworthy(r)) return { kind: 'unknown' };
+  return { kind: 'waiting', waiting: r.waitingCount };
+}
+
 // A library challenge as the resolver sees it (a papic_challenge_library row).
 export type ChallengeLibraryItem = {
   libraryId: number;

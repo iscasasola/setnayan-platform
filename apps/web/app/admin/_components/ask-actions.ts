@@ -10,6 +10,7 @@
  */
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { rankChoicesForModel } from '@/lib/admin-map/rank-choices';
 import {
   askTheModel,
   recallPhrase,
@@ -47,11 +48,22 @@ export async function askTheAdmin(
 
   if (!aiConfigured()) return { ok: false, reason: 'unavailable' };
 
-  // Every page, but not every ROW. ~90 lines of "name → address" is about two
-  // thousand tokens — fractions of a centavo — while the price rows alone would
-  // multiply that for no gain: a model choosing between 22 Papic SKUs is not the
-  // question anybody is asking when the word matching has already failed.
-  const answer = await askTheModel(question, choices.slice(0, 120));
+  // Every page, but not every ROW — the price rows alone would multiply the
+  // list for no gain: a model choosing between 22 Papic SKUs is not the question
+  // anybody is asking when the word matching has already failed.
+  //
+  // 🔑 RANK FIRST, SLICE SECOND, AND CAPABILITY COUNTS. This used to be
+  // `choices.slice(0, 120)` over a list built as [...pages, ...jobs], which cut
+  // 151 of the 185 form-driven jobs — 82% — purely because they sorted late.
+  // `createTaxonomyNode` — the job the owner's own sentence asks for — was
+  // already gone, and `createCanonicalLeaf` was four pages from following it.
+  //
+  // Ranking on word overlap alone then made that sentence WORSE, not better: it
+  // promoted ten more jobs that cannot fill a form past the two that can,
+  // because they carry the literal word "category" while the capable pair are
+  // labelled "node" and "leaf". See rank-choices.ts for both measurements, for
+  // why the cap is 140, and for why the capability nudge is gated on overlap.
+  const answer = await askTheModel(question, rankChoicesForModel(choices, question));
   if (!answer) return { ok: false, reason: 'nothing' };
 
   await rememberPhrase(question, answer);

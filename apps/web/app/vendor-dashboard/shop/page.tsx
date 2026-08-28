@@ -350,6 +350,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       .then((r) => r.count ?? 0, () => 0),
     fetchVendorBranches(supabase, vendorId).catch(() => []),
     fetchVendorTeam(supabase, vendorId).catch(() => [] as VendorTeamMemberRow[]),
+    // LEFT ON THE POOL READ: these eventIds become the "Featured editorials"
+    // picker, i.e. what this shop publishes about itself. Same reason as
+    // real-stories — a public claim needs the pool row, not the handshake.
     fetchVendorPoolBookings(supabase, vendorId).catch(() => []),
     supabase
       .from('vendor_partnerships')

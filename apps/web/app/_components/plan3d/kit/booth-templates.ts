@@ -78,6 +78,33 @@ export type BoothTemplateSpec = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
+  // ── FAREWELL (2026-08-27) ──────────────────────────────────────────────────
+  // ⚠ A DESK, NEVER A BOOTH. Every other entry in this table is something that
+  // stands at a celebration; these three are the quiet consultation a family
+  // has. One attendant, formal, no props beyond the paperwork — a hearse or a
+  // casket display rendered as party furniture would be grotesque, and the
+  // Record type forces an entry whether or not anyone thought about it.
+  funeral_home: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Funeral Home',
+    cardKind: 'inclusions',
+  },
+  cremation: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Cremation',
+    cardKind: 'inclusions',
+  },
+  memorial_park: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Memorial Park',
+    cardKind: 'inclusions',
+  },
   // ── FEAST ──────────────────────────────────────────────────────────────────
   catering: {
     // 2026-07-08 owner polish: "they have a LONG table of food" — the classic
@@ -328,6 +355,44 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     ],
     staff: { outfit: 'uniform', idle: 'present', count: 1 },
     signText: 'Ceremony Venue',
+    cardKind: 'inclusions',
+  },
+  // ── ADMIN-ONLY BRANCHES (2026-08-27) ───────────────────────────────────────
+  // `officiants`, `counseling_seminars`, `wedding_paperwork` and
+  // `travel_honeymoon` are marketplace_hidden filing cabinets: they exist so
+  // the ~30 deliberately-unsold canonicals under them stop piling up in the
+  // admin's "Unfiled" tray. NO BOOTH IS EVER RENDERED FROM THEM — a floor plan
+  // only ever places a tile a couple actually booked, and these are not
+  // bookable. They are here because `Record<WeddingTile, …>` is exhaustive by
+  // construction, and that exhaustiveness is exactly the check that caught them
+  // when the tiles were added. Plain desks, so if one ever DOES become sellable
+  // it renders as something sane rather than crashing.
+  officiants: {
+    chassis: 'DESK',
+    props: [],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Officiant',
+    cardKind: 'inclusions',
+  },
+  counseling_seminars: {
+    chassis: 'DESK',
+    props: [],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Counseling & Seminars',
+    cardKind: 'inclusions',
+  },
+  wedding_paperwork: {
+    chassis: 'DESK',
+    props: [],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Paperwork & Government',
+    cardKind: 'inclusions',
+  },
+  travel_honeymoon: {
+    chassis: 'DESK',
+    props: [{ kind: 'calendar_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'vest', idle: 'present', count: 1 },
+    signText: 'Travel & Honeymoon',
     cardKind: 'inclusions',
   },
   // ── PLANNING ───────────────────────────────────────────────────────────────

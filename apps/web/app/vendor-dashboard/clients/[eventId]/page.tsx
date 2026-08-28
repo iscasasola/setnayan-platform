@@ -518,7 +518,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       admin
         .from('event_vendors')
         .select(
-          'vendor_id, source, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
+          'vendor_id, source, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, deposit_proof_url',
         )
         .eq('event_id', eventId)
         .eq('marketplace_vendor_id', profile.vendor_profile_id)
@@ -579,6 +579,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     customer_confirmed_received_at: string | null;
     deposit_recorded_at: string | null;
     deposit_acknowledged_at: string | null;
+    deposit_declined_at: string | null;
+    deposit_decline_reason: string | null;
     deposit_proof_url: string | null;
   } | null;
 
@@ -589,6 +591,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const depositRecorded = Boolean(completion?.deposit_recorded_at);
   const depositAcked = Boolean(completion?.deposit_acknowledged_at);
+  /*
+    THE SUPPLIER'S OWN ANSWER, KEPT (2026-08-27). A refusal used to ERASE the
+    couple's claim, so this screen simply stopped showing the block — the state
+    was invisible because the facts were gone. The couple keeps their record
+    now (owner ruling), which means the claim survives a refusal and this card
+    must SAY so, or it would ask the same question again forever.
+  */
+  const depositDeclined = Boolean(completion?.deposit_declined_at);
   const eventVendorId = completion?.vendor_id ?? null;
   const isCompleteConfirmed =
     completion?.completion_status === 'confirmed' ||
@@ -907,12 +917,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     activityEvents.push({
       id: 'deposit-recorded',
       kind: 'deposit',
-      title: depositAcked ? 'Deposit confirmed' : 'Deposit recorded',
+      title: depositAcked
+        ? 'Deposit confirmed'
+        : depositDeclined
+          ? 'You said this never reached you'
+          : 'Deposit recorded',
       detail: depositAcked
         ? 'You confirmed the couple’s deposit — their date is locked in.'
-        : 'The couple recorded a deposit — confirm receipt to lock the date.',
-      at: completion.deposit_acknowledged_at ?? completion.deposit_recorded_at,
-      sortAt: Date.parse(completion.deposit_acknowledged_at ?? completion.deposit_recorded_at),
+        : depositDeclined
+          ? 'They were told, and their own record of paying was kept. If they send it again you’ll be asked once more.'
+          : 'The couple recorded a deposit — confirm receipt to lock the date.',
+      at:
+        completion.deposit_acknowledged_at ??
+        completion.deposit_declined_at ??
+        completion.deposit_recorded_at,
+      sortAt: Date.parse(
+        completion.deposit_acknowledged_at ??
+          completion.deposit_declined_at ??
+          completion.deposit_recorded_at,
+      ),
     });
   }
   if (completion?.service_marked_complete_at) {
@@ -1168,6 +1191,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
       depositAcked={depositAcked}
+      depositDeclined={depositDeclined}
       isCompleteConfirmed={isCompleteConfirmed}
       isDisputed={isDisputed}
       isVendorMarked={isVendorMarked}
@@ -1867,10 +1891,14 @@ function OverviewTab(props: {
   posterDisplayUrl: string | null;
   completion: {
     deposit_proof_url: string | null;
+    /** The supplier's own words when they said it never reached them. */
+    deposit_decline_reason?: string | null;
   } | null;
   eventVendorId: string | null;
   depositRecorded: boolean;
   depositAcked: boolean;
+  /** They answered "it never arrived" — a state that keeps the couple's record. */
+  depositDeclined: boolean;
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
@@ -1900,6 +1928,7 @@ function OverviewTab(props: {
     eventVendorId,
     depositRecorded,
     depositAcked,
+    depositDeclined,
     isCompleteConfirmed,
     isDisputed,
     isVendorMarked,
@@ -2226,13 +2255,16 @@ function OverviewTab(props: {
       ) : null}
 
       {/* Deposit acknowledge (booked). */}
-      {/* Reject outcome — shown outside the deposit card because a successful
-          reject clears the recorded markers (depositRecorded flips false). */}
+      {/* Reject outcome. ⚠ IT USED TO SIT OUTSIDE THE DEPOSIT CARD because a
+          successful reject erased the claim and the card vanished with it. The
+          couple keeps their record now, so the card stays and says what
+          happened; this notice is the confirmation of the press itself. */}
       {search.deposit_reject === 'ok' ? (
         <Card>
           <p className="text-sm text-ink/75">
-            <span className="font-medium text-ink">Marked as not received.</span> The couple was
-            asked to re-submit their downpayment proof — you&rsquo;ll be prompted again when they do.
+            <span className="font-medium text-ink">Marked as not received.</span> They were told, and
+            their own record of paying was kept — a payment can be slow or land under a different
+            name. If they send it again you&rsquo;ll be asked once more.
           </p>
         </Card>
       ) : search.deposit_reject === 'error' ? (
@@ -2268,6 +2300,53 @@ function OverviewTab(props: {
                   </>
                 ) : null}
               </span>
+            </div>
+          ) : depositDeclined ? (
+            /*
+              YOU SAID IT NEVER REACHED YOU — a state that could not exist before
+              2026-08-27, because the refusal erased the claim and this whole card
+              disappeared with it. The couple keeps their record now, so the card
+              stays and reports the answer instead of asking again.
+              🔑 CONFIRM SURVIVES; REFUSE DOES NOT. A payment can turn up a day
+              later under a different name, and the acknowledge RPC clears the
+              refusal for exactly that. Refusing twice would change nothing, so
+              there is no second refusal to press.
+            */
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="text-sm text-ink/70">
+                <span className="font-medium text-ink">You said this never reached you.</span> They
+                were told, and their own record of paying was kept.
+                {completion?.deposit_decline_reason ? (
+                  <>
+                    {' '}
+                    Your words: &ldquo;{completion.deposit_decline_reason}&rdquo;
+                  </>
+                ) : null}
+                {completion?.deposit_proof_url ? (
+                  <>
+                    {' '}
+                    <a
+                      href={completion.deposit_proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-mulberry underline-offset-2 hover:underline"
+                    >
+                      <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> View what
+                      they sent
+                    </a>
+                  </>
+                ) : null}
+              </div>
+              <form action={vendorAcknowledgeDeposit}>
+                <input type="hidden" name="event_id" value={eventId} />
+                <input type="hidden" name="vendor_id" value={eventVendorId} />
+                <SubmitButton
+                  className="button-secondary w-full shrink-0 sm:w-auto"
+                  pendingLabel="Confirming…"
+                >
+                  It arrived after all
+                </SubmitButton>
+              </form>
             </div>
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

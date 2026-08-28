@@ -36,6 +36,7 @@ export function CustomerBottomNav({
   navSlots,
   hideKeys,
   guestCount,
+  seatingEnabled,
 }: {
   eventId: string;
   phase?: MenuLifecyclePhase;
@@ -50,8 +51,12 @@ export function CustomerBottomNav({
   /** Top-level menu keys to drop for this event type (e.g. ['explore','budget']
    *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
   hideKeys?: string[];
+  /** Whether this event type enables 'seating' — gates the DAY-OF "Seats" tab.
+   *  `hideKeys` cannot express it: the day-of branch returns before that filter
+   *  runs. Resolved from the profile in layout.tsx. */
+  seatingEnabled?: boolean;
 }) {
-  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys });
+  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys, seatingEnabled });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
     // All phases apply nav-registry overrides (label + icon) — plan, day-of, and

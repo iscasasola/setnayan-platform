@@ -20,9 +20,14 @@ import {
   parseDiscountRows,
   type DiscountDraft,
 } from '@/lib/vendor-discount-rows';
-import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
+import { parentsOfKind, coverageParents } from '@/lib/vendor-category-parents';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
-import { TILE_PARENT } from '@/lib/taxonomy';
+import {
+  buildLeafIndex,
+  isCoverageLeafKind,
+  EMPTY_LEAF_INDEX,
+  type LeafIndex,
+} from '@/lib/service-card-kind';
 import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
 import {
   SLOT_LABEL_MAX,
@@ -54,73 +59,56 @@ import { savePackage } from '../packages/actions';
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
 /**
- * The distinct PARENT folder(s) (of the 10) a vendor category surfaces under.
- * Routes through the vendor→canonical bridge (NOT TAXONOMY_MAP, which is keyed
- * by v11 canonicals the legacy VendorCategory enum doesn't match). Exempt
- * categories (officiant/fees/etc.) return [] and don't count toward the cap.
+ * THE ONE GATE THAT DECIDES WHAT A CARD MAY BE FILED UNDER.
+ *
+ * ⚖ WIDENED 2026-08-28 (owner, asked twice: *"yes their own words"*). Two
+ * vocabularies are now legal in `vendor_services.category`:
+ *
+ *   · a COVERAGE LEAF from the live admin taxonomy — the supplier's own word,
+ *     *Pabati*, which is what the chooser now offers first; and
+ *   · a legacy `VENDOR_CATEGORIES` key, kept as the fallback for a shop whose
+ *     coverage does not cover what this card is for. Nothing was removed and
+ *     nothing was migrated.
+ *
+ * 🔒 STILL A CLOSED SET, AND THAT MATTERS: the column is plain TEXT with no
+ * database-level check and `save_vendor_service` validates nothing (read out of
+ * production with `pg_get_functiondef`), so this function is the entire fence.
+ * The leaf half is checked against the LIVE TREE rather than a list in code —
+ * that is the whole reason the taxonomy lives in the database, and it is why an
+ * admin adding a trade makes it a card kind with no deploy.
+ *
+ * ⚠ THE ALLOWED-LEAF SET IS PASSED IN, NEVER FETCHED HERE. It comes from the
+ * same `getCoverageTaxonomy()` the chooser rendered, so the screen cannot offer
+ * a kind the save then refuses — two copies of a permission rule always drift,
+ * and the copy on the screen would be the optimistic one. An unreadable tree
+ * yields an empty index and this degrades to exactly the legacy behaviour: a
+ * refusal a supplier can act on, never a silently accepted unknown word.
  */
-function parentsOfCategory(category: VendorCategory): string[] {
-  return tilesForVendorCategory(category)
-    .map((tile) => TILE_PARENT[tile] as string)
-    .filter(Boolean);
-}
-
-/**
- * The tier-1 parent folders already claimed by the vendor's COVERAGES
- * (`vendor_coverages` rows), resolved canonical_service → tier-1 folder via the
- * live taxonomy tree. Coverage is becoming the source of truth for what a
- * vendor offers (owner-locked 2026-07-02 "coverage drives Explore"), so the
- * parent-category cap must count coverage parents alongside legacy
- * vendor_services.category parents — otherwise a coverage-first vendor gets a
- * FREE ride past the cap (or, inversely, a service under an already-covered
- * parent gets wrongly blocked). Tier-1 `service_categories.id` values ARE the
- * TILE_PARENT folder vocabulary ('venue', 'planning', …), so the union is
- * apples-to-apples. FAIL-SOFT: any read error returns [] → the check degrades
- * to the legacy services-only behavior instead of blocking an honest save.
- */
-async function coverageParents(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-): Promise<string[]> {
-  try {
-    const [{ data: covs }, tree] = await Promise.all([
-      supabase
-        .from('vendor_coverages')
-        .select('canonical_service')
-        .eq('vendor_profile_id', vendorProfileId),
-      getCoverageTaxonomy(),
-    ]);
-    const covered = new Set(
-      ((covs ?? []) as { canonical_service: string }[]).map((r) => r.canonical_service),
-    );
-    if (covered.size === 0) return [];
-    const parents = new Set<string>();
-    for (const p of tree)
-      for (const b of p.branches)
-        for (const l of b.leaves)
-          if (covered.has(l.canonicalService)) parents.add(p.folderId);
-    return Array.from(parents);
-  } catch {
-    return []; // fail-soft → legacy services-only counting
-  }
-}
-
-/**
- * The submitted `category` is the legacy VendorCategory enum key — the
- * WIRE/STORED vocabulary written to `vendor_services.category`. It is NOT a
- * taxonomy tile key: the 30 enum keys and the DB tile keys deliberately don't
- * match (see lib/vendor-category-taxonomy.ts · the A/B/C bucket study). The
- * enum stays anchored to the live DB tree through VENDOR_CATEGORY_CANONICAL +
- * validateVendorCategoryMapping (which surfaces drift to admins), so we keep
- * validating against VENDOR_CATEGORIES here — swapping to tile keys would reject
- * every existing stored value. DISPLAY labels follow the admin taxonomy via
- * labelForVendorCategory(); storage/validation are intentionally untouched.
- */
-function parseCategory(raw: FormDataEntryValue | null): VendorCategory {
-  if (typeof raw !== 'string' || !CATEGORY_SET.has(raw)) {
+function parseCategory(
+  raw: FormDataEntryValue | null,
+  leaves: LeafIndex = EMPTY_LEAF_INDEX,
+): VendorCategory {
+  if (
+    typeof raw !== 'string' ||
+    !(CATEGORY_SET.has(raw) || isCoverageLeafKind(raw, leaves))
+  ) {
     throw new Error('Unknown service category.');
   }
   return raw as VendorCategory;
+}
+
+/**
+ * The live coverage leaves, for the gate above and the family caps below.
+ *
+ * FAIL-SOFT to an empty index — a taxonomy hiccup must not stop a supplier
+ * saving a card under a legacy kind, and it must never widen the gate either.
+ */
+async function currentLeafIndex(): Promise<LeafIndex> {
+  try {
+    return buildLeafIndex(await getCoverageTaxonomy());
+  } catch {
+    return EMPTY_LEAF_INDEX;
+  }
 }
 
 function parseInt0OrNull(raw: FormDataEntryValue | null): number | null {
@@ -534,8 +522,12 @@ export async function createVendorService(formData: FormData) {
   let bracketRows: BracketDraft[];
   let exclusive_perk_text: string | null;
   let showcase: ReturnType<typeof parseShowcaseMedia>;
+  // The live leaves, read ONCE and used for both the gate and the family cap —
+  // so "may I file under this?" and "which family does it count against?" can
+  // never answer from two different snapshots of the tree.
+  const leaves = await currentLeafIndex();
   try {
-    category = parseCategory(formData.get('category'));
+    category = parseCategory(formData.get('category'), leaves);
     // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
     pricing = parsePricingFields(formData);
     transport_flat_fee_php = parseInt0OrNull(formData.get('transport_flat_fee_php'));
@@ -674,10 +666,10 @@ export async function createVendorService(formData: FormData) {
   // a NEW parent beyond the allowance (adding within covered parents is free).
   // Counts the UNION of legacy service-category parents ∪ coverage parents —
   // coverage is becoming the source of truth (see coverageParents).
-  const newParents = parentsOfCategory(category);
+  const newParents = parentsOfKind(category, leaves);
   if (caps.parentCategories !== Infinity && newParents.length > 0) {
     const existingParents = new Set([
-      ...existing.flatMap((r) => parentsOfCategory(r.category)),
+      ...existing.flatMap((r) => parentsOfKind(r.category, leaves)),
       ...(await coverageParents(supabase, profile.vendor_profile_id)),
     ]);
     const introducesNew = newParents.some((p) => !existingParents.has(p));
@@ -788,9 +780,13 @@ export async function proposeCategory(formData: FormData) {
 
   const label = String(formData.get('proposed_label') ?? '').trim();
   const note = String(formData.get('proposed_note') ?? '').trim() || null;
+  // Set only when this submit came from the maker's plan-locked-kind link
+  // (S3, owner 2026-08-28) — carries "Back to your card" through the redirect,
+  // since a server action can't read the page's own URL for it.
+  const fromLockedKind = formData.get('from_locked_kind') === '1' ? '&wantCategory=1' : '';
   if (label.length < 2 || label.length > 80) {
     return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent('Category name must be 2–80 characters.')}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent('Category name must be 2–80 characters.')}${fromLockedKind}`,
     );
   }
 
@@ -801,13 +797,13 @@ export async function proposeCategory(formData: FormData) {
   });
   if (error) {
     return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}${fromLockedKind}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
-  redirect(`${await servicesReturnBase()}?requested=1`);
+  redirect(`${await servicesReturnBase()}?requested=1${fromLockedKind}`);
 }
 
 export async function updateVendorService(formData: FormData) {
@@ -1367,7 +1363,7 @@ export async function commitVendorService(formData: FormData) {
     // On edit the category is immutable; read it from the existing row instead
     // of trusting the form. On create it comes from the chosen category step.
     if (isCreate) {
-      category = parseCategory(formData.get('category'));
+      category = parseCategory(formData.get('category'), await currentLeafIndex());
     } else {
       const { data: row } = await supabase
         .from('vendor_services')
@@ -1596,10 +1592,11 @@ export async function commitVendorService(formData: FormData) {
     // Parent cap counts the UNION of legacy service-category parents ∪ the
     // vendor's coverage parents — coverage is becoming the source of truth
     // (see coverageParents; fail-soft to services-only on read error).
-    const newParents = parentsOfCategory(category);
+    const capLeaves = await currentLeafIndex();
+    const newParents = parentsOfKind(category, capLeaves);
     if (caps.parentCategories !== Infinity && newParents.length > 0) {
       const existingParents = new Set([
-        ...existing.flatMap((r) => parentsOfCategory(r.category)),
+        ...existing.flatMap((r) => parentsOfKind(r.category, capLeaves)),
         ...(await coverageParents(supabase, profile.vendor_profile_id)),
       ]);
       const introducesNew = newParents.some((p) => !existingParents.has(p));

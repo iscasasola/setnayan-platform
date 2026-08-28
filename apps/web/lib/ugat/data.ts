@@ -6,7 +6,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { UgatEntityType } from './graph';
-import { scoreUgatMatch } from './data-pure';
+import {
+  scoreUgatMatch,
+  sanitizeIlikeTerm,
+  guestNameOrFilter,
+  guestDisplayName,
+  guestRsvpLabel,
+} from './data-pure';
+import { ugatRecordHref } from './record-href';
 
 export { scoreUgatMatch } from './data-pure';
 
@@ -22,10 +29,28 @@ export { scoreUgatMatch } from './data-pure';
  *
  * ADMIN OFF-LIMITS LOCK (project_setnayan_admin_account_access_model): this is
  * an internal surface using the RLS-bypassing service-role client, but it NEVER
- * selects chat message BODIES, guest FACE data, or file CONTENTS. The Guests
- * table is aggregate-only (per-event RSVP breakdown — no individual guest PII in
- * slice 1, per the privacy lock). Threads carry event×vendor + status + last
- * activity only — never a message.
+ * selects chat message BODIES, guest FACE data, or file CONTENTS. Threads carry
+ * event×vendor + status + last activity only — never a message. **That half of
+ * the lock is untouched and must stay untouched.**
+ *
+ * ⚖ THE GUEST HALF WAS NARROWED BY THE OWNER ON 2026-08-27, AND ONLY BY NAME.
+ * Asked directly — framed to him as a privacy posture call — whether an admin
+ * should be able to search ANY guest by name across EVERY celebration, he
+ * answered **YES**. So `ugatSearch()` now finds an individual guest. The lock
+ * that used to read "no individual guest PII in slice 1" is superseded to
+ * exactly this extent and no further:
+ *   · SEARCHABLE by name only — `first_name`, `last_name`, `display_name`.
+ *     Deliberately NOT by email or mobile: the ruling was "by name", and a
+ *     reverse lookup from a contact detail is a different power nobody granted.
+ *   · A HIT SHOWS what identifies the record — the name, the RSVP status, and
+ *     which celebration. **Never a contact detail.** `email`, `mobile` and
+ *     `address` are not selected by this module at all; they live on the
+ *     record's own surface, which is the privacy-preserving default the
+ *     shipped record links already follow.
+ *   · The Guests TABLE BROWSER below stays AGGREGATE-ONLY. Browsing every
+ *     guest is not what was asked for, and widening it was not ruled on.
+ * ⚠ Do not read this as the lock being lifted. Anyone widening it further needs
+ * a new ruling, not this comment.
  *
  * CACHING: counts are wrapped in `unstable_cache({ revalidate: 60 })` (the
  * spotlight-awards.ts admin-read pattern) so the map header is one cheap round
@@ -317,7 +342,12 @@ export interface UgatRow {
   name: string;
   /** Ordered column values (strings, already formatted / redacted). */
   cells: string[];
-  /** Optional in-app cross-link (opens the admin surface for this record). */
+  /**
+   * Where this ONE row opens, when a per-record admin surface exists for it.
+   * Genuinely optional here, unlike on a search hit: three of the nine tables
+   * (services · threads · communities) have no admin page of their own, and the
+   * console falls back to the type card for those rather than inventing a link.
+   */
   href?: string;
   /** Optional status chip: [label, tone]. */
   status?: [string, 'ok' | 'wait' | 'neutral' | 'report'];
@@ -410,7 +440,7 @@ async function loadUgatTableInner(
           id: u.public_id ?? u.user_id,
           type: 'user' as const,
           name: u.display_name || u.email || u.public_id || 'User',
-          href: '/admin/users',
+          href: ugatRecordHref({ kind: 'user', userId: u.user_id }),
           cells: [u.account_type ?? '—', fmtDate(u.created_at)],
         }));
         // prepend the name column value into cells for the client renderer
@@ -446,7 +476,11 @@ async function loadUgatTableInner(
           id: e.public_id ?? e.event_id,
           type: 'event' as const,
           name: e.display_name || e.public_id || 'Event',
-          href: '/admin/events',
+          href: ugatRecordHref({
+            kind: 'event',
+            publicId: e.public_id ?? null,
+            slug: null,
+          }),
           cells: [
             e.display_name || e.public_id || 'Event',
             e.event_type ?? '—',
@@ -497,7 +531,14 @@ async function loadUgatTableInner(
             id: e.public_id ?? e.event_id,
             type: 'guest' as const,
             name: e.display_name || e.public_id || 'Event',
-            href: '/admin/events',
+            // A guests row IS an event (this table is per-event tallies), so it
+            // opens the event — never a guest, who has no admin page and whose
+            // PII this surface deliberately never loads.
+            href: ugatRecordHref({
+              kind: 'event',
+              publicId: e.public_id ?? null,
+              slug: null,
+            }),
             cells: [
               e.display_name || e.public_id || 'Event',
               String(t.invited),
@@ -508,7 +549,8 @@ async function loadUgatTableInner(
           };
         });
         base.note =
-          'Aggregate view only — per-event RSVP tallies. Individual guest PII is off-limits in slice 1 (privacy lock).';
+          'Aggregate view only — per-event RSVP tallies. Browsing individual guests stays off-limits here; ' +
+          'searching one by name is the door the owner opened (2026-08-27), and it lives in the search bar above.';
         return base;
       }
       case 'vendors': {
@@ -526,7 +568,7 @@ async function loadUgatTableInner(
           id: v.public_id ?? v.vendor_profile_id,
           type: 'vendor' as const,
           name: v.business_name || v.public_id || 'Vendor',
-          href: `/admin/vendors/${v.vendor_profile_id}/edit`,
+          href: ugatRecordHref({ kind: 'vendor', vendorProfileId: v.vendor_profile_id }),
           status: [
             v.verification_state ?? 'unverified',
             statusTone(v.verification_state ?? 'unverified'),
@@ -589,7 +631,7 @@ async function loadUgatTableInner(
           id: o.public_id ?? o.order_id,
           type: 'order' as const,
           name: o.reference_code || o.public_id || 'Order',
-          href: '/admin/payments',
+          href: ugatRecordHref({ kind: 'order' }),
           status: [o.status ?? 'unknown', statusTone(o.status ?? 'unknown')] as [
             string,
             'ok' | 'wait' | 'neutral' | 'report',
@@ -758,17 +800,22 @@ export const loadUgatTable = cache(loadUgatTableInner);
 
 /* ═════════════════════════════════════════════════════════════════════════
    ⌘K OMNIBOX SEARCH — live, server-side, across vendors · events · users ·
-   orders · taxonomy names. Grouped results. Off-limits lock applies (no
-   messages / face / files). Ranking is a pure helper (unit-tested).
+   orders · taxonomy names · GUESTS (by name, owner ruling 2026-08-27).
+   Grouped results. Off-limits lock still applies (no messages / face / files,
+   and no guest contact details). Ranking is a pure helper (unit-tested).
    ═════════════════════════════════════════════════════════════════════════ */
 export interface UgatSearchHit {
   id: string;
   type: UgatEntityType;
   title: string;
   sub: string;
-  /** The type node to highlight when this hit is selected. */
-  typeNodeId: string;
-  href?: string;
+  /**
+   * Where this ONE record opens. REQUIRED, and that is the fix: it was optional
+   * and unread, so every hit opened a diagram of its own type instead. Making
+   * it non-optional is what stops a sixth kind shipping without a destination —
+   * the compiler refuses it rather than a reviewer noticing.
+   */
+  href: string;
   score: number;
 }
 
@@ -777,36 +824,31 @@ export interface UgatSearchGroup {
   hits: UgatSearchHit[];
 }
 
-const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
-  community: 'TYPE-SAMAHAN',
-  papic: 'TYPE-PAPIC',
-  person: 'TYPE-PERSON',
-  package: 'TYPE-PACKAGE',
-  proposal: 'TYPE-PROPOSAL',
-  contract: 'TYPE-CONTRACT',
-  availability: 'TYPE-AVAILABILITY',
-  geography: 'TYPE-GEOGRAPHY',
-  seatplan: 'TYPE-SEATPLAN',
-  runofshow: 'TYPE-RUNOFSHOW',
-  livestudio: 'TYPE-LIVESTUDIO',
-  user: 'TYPE-USERS',
-  event: 'TYPE-EVENTS',
-  guest: 'TYPE-GUESTS',
-  vendor: 'TYPE-VENDORS',
-  service: 'TYPE-SERVICES',
-  order: 'TYPE-ORDERS',
-  thread: 'TYPE-THREADS',
-  billing: 'TYPE-BILLING',
-  taxonomy: 'TYPE-TAXONOMY',
-};
+/*
+ * `TYPE_NODE_FOR` USED TO LIVE HERE and it is deliberately gone. It existed to
+ * stamp every hit with the type node the console highlighted INSTEAD of opening
+ * the record — the defect itself. With hits now carrying a real destination it
+ * had no reader left, and leaving it would have replaced one dead field with
+ * another. The table browser keeps its own map, which is still live: a row on a
+ * table with no per-record admin page still falls back to the type card.
+ */
 
 async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   const admin = createAdminClient();
-  const like = `%${q.replace(/[%_]/g, (m) => '\\' + m)}%`;
+  /*
+    SHARED SANITIZER, and it fixes the four arms below as well as the new one.
+    This used to escape `%` and `_` and nothing else — but `.or()` splits its
+    clauses on COMMAS, so any query containing one (`Dela Cruz, Maria`) built a
+    malformed filter, PostgREST refused the whole query, and every arm resolved
+    with an error and no rows. The box said "No matches" and nothing was logged.
+    Rejected, not thrown; the only symptom is an absence.
+  */
+  const like = `%${sanitizeIlikeTerm(q)}%`;
+  const guestFilter = guestNameOrFilter(q);
 
-  const [vendors, events, users, orders, tiles] = await Promise.all([
+  const [vendors, events, users, orders, tiles, guests] = await Promise.all([
     admin
       .from('vendor_profiles')
       .select('vendor_profile_id, public_id, business_name, business_slug')
@@ -837,7 +879,56 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       .ilike('canonical_service', like)
       .limit(6)
       .then(({ data }) => data ?? [], () => []),
+    /*
+      GUESTS — by NAME, and nothing that is not a name.
+      · `email`, `mobile` and `address` are not in this select, so there is no
+        arm of this feature where a contact detail can reach a screen.
+      · `deleted_at is null` — a removed guest is not a record to hand back.
+      · A refused read is LOGGED rather than silently becoming "no matches";
+        Supabase resolves with `{ error }` instead of throwing, so without this
+        a closed grant and an empty guest list look identical.
+    */
+    guestFilter === null
+      ? Promise.resolve([])
+      : admin
+          .from('guests')
+          .select('guest_id, public_id, first_name, last_name, display_name, rsvp_status, event_id')
+          .or(guestFilter)
+          .is('deleted_at', null)
+          .limit(6)
+          .then(
+            ({ data, error }) => {
+              if (error) logQueryError('ugat search (guests)', error);
+              return data ?? [];
+            },
+            () => [],
+          ),
   ]);
+
+  /*
+    WHICH CELEBRATION each found guest belongs to. A name on its own does not
+    identify anybody — there is more than one Maria — and the celebration is
+    also where the hit LANDS, so this read is what makes the destination real
+    rather than a guess. Only runs when a guest actually matched.
+  */
+  const guestEventById = new Map<string, { public_id: string | null; display_name: string | null; slug: string | null }>();
+  const guestEventIds = Array.from(
+    new Set((guests as any[]).map((g) => g.event_id).filter(Boolean)),
+  );
+  if (guestEventIds.length) {
+    const { data: guestEvents, error: guestEventsError } = await admin
+      .from('events')
+      .select('event_id, public_id, display_name, slug')
+      .in('event_id', guestEventIds);
+    if (guestEventsError) logQueryError('ugat search (guest events)', guestEventsError);
+    for (const e of guestEvents ?? []) {
+      guestEventById.set(e.event_id, {
+        public_id: e.public_id ?? null,
+        display_name: e.display_name ?? null,
+        slug: e.slug ?? null,
+      });
+    }
+  }
 
   const groups: UgatSearchGroup[] = [];
 
@@ -847,8 +938,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'vendor' as const,
       title: v.business_name || v.public_id || 'Vendor',
       sub: v.business_slug ? `/${v.business_slug}` : (v.public_id ?? ''),
-      typeNodeId: TYPE_NODE_FOR.vendor,
-      href: `/admin/vendors/${v.vendor_profile_id}/edit`,
+      href: ugatRecordHref({ kind: 'vendor', vendorProfileId: v.vendor_profile_id }),
       score: scoreUgatMatch(v.business_name ?? v.business_slug ?? '', q),
     }))
     .sort((a, b) => b.score - a.score);
@@ -860,8 +950,11 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'event' as const,
       title: e.display_name || e.public_id || 'Event',
       sub: e.slug ? `/${e.slug}` : (e.public_id ?? ''),
-      typeNodeId: TYPE_NODE_FOR.event,
-      href: '/admin/events',
+      href: ugatRecordHref({
+        kind: 'event',
+        publicId: e.public_id ?? null,
+        slug: e.slug ?? null,
+      }),
       score: scoreUgatMatch(e.display_name ?? e.slug ?? '', q),
     }))
     .sort((a, b) => b.score - a.score);
@@ -873,8 +966,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'user' as const,
       title: u.display_name || u.email || u.public_id || 'User',
       sub: u.email ?? (u.public_id ?? ''),
-      typeNodeId: TYPE_NODE_FOR.user,
-      href: '/admin/users',
+      href: ugatRecordHref({ kind: 'user', userId: u.user_id }),
       score: scoreUgatMatch(`${u.display_name ?? ''} ${u.email ?? ''}`, q),
     }))
     .sort((a, b) => b.score - a.score);
@@ -886,8 +978,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'order' as const,
       title: o.reference_code || o.public_id || 'Order',
       sub: `${o.service_key ?? '—'} · ${o.status ?? '—'}`,
-      typeNodeId: TYPE_NODE_FOR.order,
-      href: '/admin/payments',
+      href: ugatRecordHref({ kind: 'order' }),
       score: scoreUgatMatch(`${o.reference_code ?? ''} ${o.service_key ?? ''}`, q),
     }))
     .sort((a, b) => b.score - a.score);
@@ -899,12 +990,42 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'taxonomy' as const,
       title: t.canonical_service,
       sub: `Taxonomy leaf · tile ${t.tile_id ?? '—'}`,
-      typeNodeId: TYPE_NODE_FOR.taxonomy,
-      href: '/admin/taxonomy',
+      href: ugatRecordHref({
+        kind: 'taxonomy',
+        tileId: t.tile_id ?? null,
+        canonicalService: t.canonical_service ?? '',
+      }),
       score: scoreUgatMatch(t.canonical_service ?? '', q),
     }))
     .sort((a, b) => b.score - a.score);
   if (tileHits.length) groups.push({ category: 'Taxonomy', hits: tileHits });
+
+  /*
+    A GUEST HIT SHOWS THREE THINGS: who they are, whether they replied, and
+    whose celebration it is. That is what identifies the record — no more.
+    The celebration is named because a name alone identifies nobody, and it is
+    also the only surface an admin can act on, since a guest has no page.
+  */
+  const guestHits: UgatSearchHit[] = (guests as any[])
+    .map((g) => {
+      const name = guestDisplayName(g);
+      const ev = guestEventById.get(g.event_id);
+      const where = ev?.display_name || ev?.public_id || 'an unnamed celebration';
+      return {
+        id: g.public_id ?? g.guest_id,
+        type: 'guest' as const,
+        title: name,
+        sub: `${guestRsvpLabel(g.rsvp_status)} · ${where}`,
+        href: ugatRecordHref({
+          kind: 'guest',
+          eventPublicId: ev?.public_id ?? null,
+          eventSlug: ev?.slug ?? null,
+        }),
+        score: scoreUgatMatch(name, q),
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+  if (guestHits.length) groups.push({ category: 'Guests', hits: guestHits });
 
   return groups;
 }

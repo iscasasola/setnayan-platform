@@ -2,6 +2,7 @@
 
 import {
   DateCalendar,
+  MAXMULTI,
   type DateCalendarValue,
 } from '@/app/onboarding/_shared/date-calendar';
 
@@ -25,6 +26,7 @@ import {
 } from '@/lib/event-anchor';
 import {
   activeCelebrationPick,
+  celebrationDatesAfterPick,
   celebrationOptionsFor,
   formatCelebrationDay,
   ordinal,
@@ -32,6 +34,7 @@ import {
 import { takeHonoree } from '@/lib/onboarding/honoree-handoff';
 import { takeMoment } from '@/lib/onboarding/moment-handoff';
 import { birthdayWhoFromAge } from '@/lib/onboarding/birthday-who-from-age';
+import { birthdayMilestoneFromAge } from '@/lib/onboarding/birthday-milestone-from-age';
 import { effortLimit } from '@/lib/onboarding/generic-plan';
 import type { Sex } from '@/lib/event-anchor';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
@@ -78,6 +81,9 @@ type Props = {
   intro: OnboardingIntro | null;
   questions: TypeQuestion[];
   personaPack: TypePersonaPack | null;
+  /** The event type's register. 'solemn' only ever changes WORDS — never a
+   *  screen, never a sequence index. See solemn-content.ts. */
+  register: 'celebratory' | 'solemn';
   revealByPersona: Record<string, GenericPersonaReveal>;
   quizAxes: ExpAxis[];
   authed: boolean;
@@ -99,6 +105,8 @@ type Props = {
   prefill?: OnboardingPrefill;
   /** The signed-in person's own next-birthday age, when this is a birthday. */
   selfBirthdayAge?: number | null;
+  /** The account holder's own name, for their own birthday's celebrant field. */
+  selfName?: string | null;
   /** Their sex, when on file — it decides which debut age is the adult line. */
   selfSex?: Sex;
   /**
@@ -159,6 +167,7 @@ export function GenericOnboarding(props: Props) {
     intro,
     questions,
     personaPack,
+    register,
     revealByPersona,
     quizAxes,
     authed,
@@ -166,6 +175,7 @@ export function GenericOnboarding(props: Props) {
     nextPath = null,
     prefill = EMPTY_PREFILL,
   selfBirthdayAge = null,
+  selfName = null,
   selfSex = null,
     servicesStepView = null,
     servicesStepAiValue = null,
@@ -286,7 +296,6 @@ export function GenericOnboarding(props: Props) {
     );
     return { prefillDetails: parts.details, prefillSpecialty: parts.specialty };
   }, [prefill, questions, specialtyFields]);
-  const prefilledSpecialtyKeys = useMemo(() => Object.keys(prefillSpecialty), [prefillSpecialty]);
   // Per-type signature-moment screens, injected into the sequence after 'region'.
   // A tq_ question the profile already answers is dropped (its answer is seeded
   // into `details`, so the derived plan still counts its adds).
@@ -488,13 +497,58 @@ export function GenericOnboarding(props: Props) {
     setDateValue((v) => (!v || v === previous ? iso : v));
   }, [hydrated, anchorOptions?.onTheDayISO]);
 
-  function pickCelebrationDay(iso: string, openPicker = false) {
+  /**
+   * THE DAYS THE CHIPS AND THE CALENDAR BOTH ANSWER WITH. One list, read the one
+   * way, in all three places that used to spell this expression out — the
+   * calendar's prop, the commit payload, and now the chips. When two of them
+   * agreed and the third did not, that was the bug.
+   */
+  const celebrationDates = useMemo(
+    () => (dateCandidates.length > 0 ? dateCandidates : dateValue ? [dateValue] : []),
+    [dateCandidates, dateValue],
+  );
+
+  /**
+   * 🔴 THIS USED TO SET `dateValue` AND NOTHING ELSE. Owner, 2026-08-28:
+   * *"picking on the day and the saturday after does not change anything on the
+   * calendar. is that correct?"* It was not. The screen commits `dateCandidates`
+   * whenever that list has anything in it, and the calendar draws from the same
+   * list — so once a person had touched the calendar even once, the chip wrote
+   * to a field nothing downstream was reading. **The chip lit, the calendar sat
+   * still, and the date that got saved was the one the chip did not name.**
+   * Doing nothing visible was the kinder half of the failure.
+   */
+  /**
+   * Can this chip's day still fit? Only false when the person is already holding
+   * four days of their own choosing. The chip is DISABLED in that state rather
+   * than silently doing nothing — "nothing happens when I tap it" is the whole
+   * complaint this change exists to answer, and shipping a second version of it
+   * would be its own joke.
+   */
+  function canPickCelebrationDay(iso: string): boolean {
+    return celebrationDatesAfterPick(anchorOptions, celebrationDates, iso, MAXMULTI) !== null;
+  }
+
+  function pickCelebrationDay(iso: string) {
+    const next = celebrationDatesAfterPick(anchorOptions, celebrationDates, iso, MAXMULTI);
+    // Refused only when the person already holds four days of their own. The
+    // chip is disabled in that state, so this is a floor, not a silent drop.
+    if (!next) return;
+    // A chip names a specific day, so it answers in the specific-date mode. A
+    // chip that sets a date the flexible window then ignores is a dead control
+    // wearing a live one's clothes.
+    setDateMode('specific');
+    setDateCandidates(next);
     setDateValue(iso);
-    if (!openPicker) return;
+  }
+
+  /** "Another day" promises the calendar, so it brings the calendar — and picks
+   *  nothing on the way. It used to select the on-the-day date, which is the one
+   *  answer the person had just said they did not want. */
+  function showTheCalendar() {
     const el = dateCalendarRef.current;
     if (!el) return;
-    // Bring the calendar to them rather than opening a picker they did not ask
-    // for. `smooth` is respected by the browser's reduced-motion setting.
+    // `smooth` is respected by the browser's reduced-motion setting.
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -629,6 +683,82 @@ export function GenericOnboarding(props: Props) {
     setDetails((d) => (d.who ? d : { ...d, who: derivedWho }));
   }, [hydrated, derivedWho]);
 
+  /**
+   * ── THE DETAILS SCREEN ASKED THE SAME THREE THINGS AGAIN ───────────────────
+   *
+   * 🔴 Owner, 2026-08-28, on his own 40th: *"some of these were answered already
+   * like, Celebrant, Turning, what kind of milestone (40)."*
+   *
+   * 🔑 AND THE SHARPEST ONE IS THE MILESTONE: three screens earlier the flow had
+   * **skipped the party-type question because it knew the answer**, then asked
+   * the same thing again here under a different word. *The flow proved it knew,
+   * and asked anyway.* That is worse than never having known.
+   *
+   * 🪤 THE MACHINERY FOR THIS ALREADY EXISTS AND IS UNREACHABLE, WHICH IS WHY
+   * THE FIX GOES AROUND IT. `partitionOnboardingPrefill` already routes a
+   * pre-answered fact into `prefillSpecialty`, and a seeded specialty field
+   * already renders labelled "From your profile" — shipped, working, and fed by
+   * `deriveOnboardingPrefill`, which sits behind `onboardingV2BriefEnabled()`.
+   * That flag is fail-closed and OFF, so `prefill` is `EMPTY_PREFILL` on every
+   * request and this half of the 2026-08-20 fix has **never once run in
+   * production**. Routing through it now would ship a repair switched off and
+   * looking done — the exact trap the age fix was written to dodge two screens
+   * earlier. The flag holds back a WIDER profile brief; it does not hold back a
+   * birthday's own celebrant.
+   *
+   * ⚖ NEVER OVERWRITES. Each field fills only an answer-shaped hole, so a draft
+   * restored from an earlier visit and anything typed a second ago both win.
+   */
+  const derivedMilestone = birthdayMilestoneFromAge(knownBirthdayAge, selfSex);
+  const derivedSpecialty = useMemo(() => {
+    if (eventType !== 'birthday') return {};
+    const out: Record<string, unknown> = {};
+    // Whose birthday: the name they typed, or — when they left it blank, which
+    // has always meant "mine" — the name on their own account.
+    const name = honoree.trim() || (knownBirthdayAge != null ? (selfName ?? '') : '');
+    if (name) out.celebrant_name = name;
+    if (knownBirthdayAge != null) out.celebrant_age = knownBirthdayAge;
+    if (derivedMilestone) out.milestone_type = derivedMilestone;
+    return out;
+  }, [eventType, honoree, knownBirthdayAge, selfName, derivedMilestone]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const keys = Object.keys(derivedSpecialty);
+    if (keys.length === 0) return;
+    setSpecialtyValues((v) => {
+      // `''`, `null` and `undefined` are all "unanswered"; a real 0 is not, and
+      // a birthday age can never be 0 anyway. Comparing against the hole rather
+      // than against falsiness is what keeps a typed answer safe.
+      const holes = keys.filter((k) => v[k] === undefined || v[k] === null || v[k] === '');
+      if (holes.length === 0) return v;
+      const next = { ...v };
+      for (const k of holes) next[k] = derivedSpecialty[k];
+      return next;
+    });
+  }, [hydrated, derivedSpecialty]);
+
+  /**
+   * Which specialty fields are showing an answer the person did not type. The
+   * flag-gated profile prefill contributes some; the birthday facts this flow
+   * already holds contribute the rest (see `derivedSpecialty` below).
+   *
+   * 🔑 A KEY LEAVES THIS SET THE MOMENT ITS VALUE STOPS BEING OURS. The label
+   * says "From your profile", so it must be true of what is on screen RIGHT NOW
+   * — a field still wearing that badge over a value the person typed themselves
+   * is a small lie, and it is the kind that teaches somebody to distrust the
+   * badge everywhere else.
+   */
+  const prefilledSpecialtyKeys = useMemo(
+    () => [
+      ...Object.keys(prefillSpecialty),
+      ...Object.keys(derivedSpecialty).filter(
+        (k) => !(k in prefillSpecialty) && specialtyValues[k] === derivedSpecialty[k],
+      ),
+    ],
+    [prefillSpecialty, derivedSpecialty, specialtyValues],
+  );
+
   const go = useCallback(
     (delta: number) => {
       setError(null);
@@ -682,14 +812,7 @@ export function GenericOnboarding(props: Props) {
       // as a candidate, so a person who only tapped a chip commits exactly what
       // they did before this calendar existed.
       dateMode,
-      dateCandidates:
-        dateMode === 'specific'
-          ? dateCandidates.length > 0
-            ? dateCandidates
-            : dateValue
-              ? [dateValue]
-              : []
-          : [],
+      dateCandidates: dateMode === 'specific' ? celebrationDates : [],
       windowStart: dateMode === 'window' ? windowStart : null,
       windowEnd: dateMode === 'window' ? windowEnd : null,
       moodFeelKey: feel,
@@ -1095,7 +1218,8 @@ export function GenericOnboarding(props: Props) {
             <div className="mt-6 flex flex-wrap gap-2">
               <button
                 type="button"
-                className={chip(activePick === 'on_the_day')}
+                className={chip(celebrationDates.includes(anchorOptions.onTheDayISO))}
+                disabled={!canPickCelebrationDay(anchorOptions.onTheDayISO)}
                 onClick={() => pickCelebrationDay(anchorOptions.onTheDayISO)}
               >
                 On the day · {onTheDayLabel}
@@ -1103,7 +1227,8 @@ export function GenericOnboarding(props: Props) {
               {anchorOptions.saturdayAfterISO && saturdayLabel ? (
                 <button
                   type="button"
-                  className={chip(activePick === 'saturday_after')}
+                  className={chip(celebrationDates.includes(anchorOptions.saturdayAfterISO))}
+                  disabled={!canPickCelebrationDay(anchorOptions.saturdayAfterISO)}
                   onClick={() => pickCelebrationDay(anchorOptions.saturdayAfterISO!)}
                 >
                   The Saturday after · {saturdayLabel}
@@ -1112,7 +1237,7 @@ export function GenericOnboarding(props: Props) {
               <button
                 type="button"
                 className={chip(activePick === 'other')}
-                onClick={() => pickCelebrationDay(anchorOptions.onTheDayISO, true)}
+                onClick={showTheCalendar}
               >
                 Another day
               </button>
@@ -1128,9 +1253,7 @@ export function GenericOnboarding(props: Props) {
             <DateCalendar
               chrome="bare"
               mode={dateMode}
-              candidates={
-                dateCandidates.length > 0 ? dateCandidates : dateValue ? [dateValue] : []
-              }
+              candidates={celebrationDates}
               windowStart={windowStart}
               windowEnd={windowEnd}
               onChange={(patch: DateCalendarValue) => {
@@ -1325,17 +1448,31 @@ export function GenericOnboarding(props: Props) {
       );
     }
     // congrats
+    //
+    // 🕊️ THE ONLY SCREEN IN THIS FILE WHOSE WORDS ARE ITS OWN — every other one
+    // renders copy that comes down from the resolved spec, which is why the
+    // solemn register is otherwise a pure data swap. A wake must not be closed
+    // with a sparkle and "You're all set", so this screen carries the register's
+    // two arms. The celebratory arm is BYTE-IDENTICAL to what shipped and is
+    // pinned as a frozen literal by solemn-onboarding.test.ts.
+    const solemn = register === 'solemn';
     return (
       <div className="text-center">
         <div className="mb-4 text-5xl" aria-hidden>
-          ✨
+          {solemn ? '🕊️' : '✨'}
         </div>
-        <Eyebrow>You’re all set</Eyebrow>
+        <Eyebrow>{solemn ? 'Everything is in one place' : 'You’re all set'}</Eyebrow>
         <Title>
-          {displayName.trim() ? `“${displayName.trim()}”` : `Your ${label.toLowerCase()}`} is ready.
+          {solemn
+            ? displayName.trim()
+              ? `“${displayName.trim()}” is arranged.`
+              : 'The arrangements are in one place.'
+            : `${displayName.trim() ? `“${displayName.trim()}”` : `Your ${label.toLowerCase()}`} is ready.`}
         </Title>
         <p className="mt-4 text-ink/60">
-          We’ll set up your dashboard{authed ? '' : ' — no account needed to start'}.
+          {solemn
+            ? `We’ll open your page${authed ? '' : ' — no account needed to start'}. Take whatever time you need with it.`
+            : `We’ll set up your dashboard${authed ? '' : ' — no account needed to start'}.`}
         </p>
         {error === 'sign_in' ? (
           <p className="mt-4 text-sm text-mulberry">

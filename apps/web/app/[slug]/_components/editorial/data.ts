@@ -1952,14 +1952,22 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // The word this event uses for whoever it belongs to. Degrades to undefined →
   // displayChallengePrompt falls back to "the host": plain, but never WRONG. A
   // raw {host} on a public page would be.
+  //
+  // ⚠ THE EVENT WORD IS RESOLVED HERE TOO, AND IT WAS THE MISSING HALF. Only
+  // `{organizer}` was passed, so every `{event}` token fell back to the neutral
+  // literal "event" — a guest who ANSWERED a prompt reading "birthday" met it
+  // again on the recap saying "event". Same profile, same read, no extra query.
   let organizerNoun: string | undefined;
+  let eventNoun: string | undefined;
   try {
     const profile = await resolveProfile(
       asString((event as Record<string, unknown>).event_type) ?? 'wedding',
     );
     organizerNoun = profile.terminology.organizerNoun;
+    eventNoun = profile.terminology.eventWord;
   } catch {
     organizerNoun = undefined;
+    eventNoun = undefined;
   }
 
   try {
@@ -2032,7 +2040,10 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           if (!url) continue; // an unresolvable ref is an absence, not a broken img
 
           challengeAnswers.push({
-            prompt: displayChallengePrompt(rawPrompt, { organizer: organizerNoun }),
+            prompt: displayChallengePrompt(rawPrompt, {
+              organizer: organizerNoun,
+              eventWord: eventNoun,
+            }),
             mediaType: isClip ? 'clip' : 'photo',
             url,
             posterUrl: isClip
@@ -2365,8 +2376,18 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       songUrl = null;
     }
   }
+  // 🔴 THE FALLBACK ALWAYS FIRED FOR A NON-WEDDING, AND IT NAMED A WEDDING.
+  // `love_story.anchors.song` is a WEDDING-shaped field — a birthday or a debut
+  // has no love story and so never carries one. So any non-wedding that bought
+  // a Pakanta song had it credited to every guest reading their recap as
+  // "Their wedding song". The event's own word is already resolved above for
+  // the challenge prompts; it costs nothing to be right here too.
+  // 🔒 A wedding reads byte-identically ('wedding'). On a profile read error
+  // `eventNoun` is undefined and the credit goes plain rather than wrong —
+  // the same degrade rule the noun above already follows.
+  const songFallback = eventNoun ? `Their ${eventNoun} song` : 'Their song';
   const songLabel = songUrl
-    ? asString(loveStory.anchors?.song) ?? 'Their wedding song'
+    ? asString(loveStory.anchors?.song) ?? songFallback
     : asString(loveStory.anchors?.song);
   const song = { url: songUrl, label: songLabel };
 

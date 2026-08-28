@@ -15,7 +15,7 @@ import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { computeRetimePatches } from '@/lib/schedule-ros';
@@ -38,7 +38,7 @@ async function requireCoordinator(eventId: string) {
     return { error: 'Only the coordinator can run the floor.' as const };
   }
 
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { error: 'You are not booked on this event.' as const };
   }

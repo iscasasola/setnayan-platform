@@ -12,6 +12,7 @@ import {
   fetchInquiryMaskMeta,
   inquiryPlaceholderLabel,
   isInquiryRevealed,
+  INQUIRY_MASK_UNKNOWN,
 } from '@/lib/inquiry-mask.server';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
 import {
@@ -93,7 +94,7 @@ export default async function VendorMessagesPage() {
             title={
               isInquiryRevealed(t)
                 ? (t.event?.display_name ?? 'Event')
-                : inquiryPlaceholderLabel(inquiryMaskMeta.get(t.event_id) ?? {})
+                : inquiryPlaceholderLabel(inquiryMaskMeta.get(t.event_id) ?? INQUIRY_MASK_UNKNOWN)
             }
             badge={
               t.inquiry_status === 'pending' ? (

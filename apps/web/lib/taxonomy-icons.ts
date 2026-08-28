@@ -49,6 +49,7 @@ import {
   Disc3,
   Drama,
   Dumbbell,
+  FileText,
   Flag,
   Flower2,
   Footprints,
@@ -62,6 +63,7 @@ import {
   Laptop,
   Lightbulb,
   Mail,
+  MessageCircle,
   Map,
   Martini,
   Megaphone,
@@ -97,22 +99,34 @@ import {
   Users,
   Utensils,
   UtensilsCrossed,
+  UserCheck,
   Video,
   Wand2,
   type LucideIcon,
+  Feather,
+  Flame,
 } from 'lucide-react';
 
 import type { WeddingFolder, WeddingTile } from '@/lib/taxonomy';
 
 /** Tile → Coverage Strip icon. Exhaustive over `WeddingTile` by construction. */
 export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
+  funeral_home: Feather,
+  cremation: Flame,
+  memorial_park: TreePine,
   // VENUE
   reception: PartyPopper,
   ceremony_venue: Church,
+  // Admin-only filing branches (2026-08-27) — never drawn for a couple, but
+  // WEDDING_TILE_ICON is exhaustive over WeddingTile by construction.
+  officiants: UserCheck,
+  counseling_seminars: MessageCircle,
+  wedding_paperwork: FileText,
   accommodation: Bed,
   // PLANNING
   coordinator: ClipboardList,
   date_specialist: CalendarDays,
+  travel_honeymoon: Plane,
   // FEAST
   cake: Cake,
   catering: UtensilsCrossed,
@@ -234,6 +248,7 @@ export function tileIcon(tile: string): LucideIcon {
  * it gets an icon.
  */
 export const WEDDING_FOLDER_ICON: Record<WeddingFolder, LucideIcon> = {
+  farewell: Feather,
   venue: Building2,
   planning: ClipboardList,
   feast: UtensilsCrossed,

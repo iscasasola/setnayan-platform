@@ -57,8 +57,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const event = await fetchEvent(slug);
   // Iteration 0053: recap is a public /[slug] page → the 'website' surface.
-  // Generic profiles disable it, so non-weddings keep the no-index stub (same as
-  // the old `!== 'wedding'`), now config-driven.
+  //
+  // 🛑 THE COMMENT THAT STOOD HERE SAID "generic profiles disable it, so
+  // non-weddings keep the no-index stub (same as the old `!== 'wedding'`)".
+  // THAT IS FALSE, and it is what let a wedding word survive on this page.
+  // Migration 20270804110223 added `website` to EVERY seeded type ("unlock all
+  // now", 2026-07-12) and 20271102084500 re-adds it to any type carrying
+  // `day_of`/`gallery`; GENERIC_PROFILE and WAKE_PROFILE both list it. So
+  // this gate is TRUE for every event type in production and refuses nothing —
+  // it is an admin config switch, not a wedding filter.
   const websiteOn = event
     ? surfaceEnabled(await resolveProfile(event.event_type), 'website')
     : false;
@@ -93,9 +100,17 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const event = await fetchEvent(slug);
   if (!event) notFound();
-  // Iteration 0053: recap is a public /[slug] page → the 'website' surface
-  // (generic profiles disable it → non-weddings still notFound(), now config-driven).
+  // The same admin config switch as in generateMetadata — and, as the note
+  // there records, it is TRUE for every event type shipped today. A non-wedding
+  // therefore RENDERS this page; it is not filtered out here.
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+
+  // …which is why this page needs the event's own words. A birthday's guests
+  // reach the stand-in below from the hub's "See the recap gallery" link, which
+  // appears for every type once the day has passed.
+  // 🔒 `eventWord` is 'wedding' for the wedding profile, and `resolveProfile` is
+  // React-`cache()`d, so a wedding reads byte-identically at no extra read.
+  const words = await eventWordsFor(event.event_type);
 
   // Visibility gate (owner 2026-06-20): don't leak a private page's couple name
   // via the recap (incl. the "not ready" stand-in). A published recap lives on
@@ -134,8 +149,8 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
           <Sparkles aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-4 font-display text-3xl italic">The recap isn&rsquo;t ready yet</h1>
           <p className="mt-3 max-w-prose text-ink/65">
-            {event.display_name} hasn&rsquo;t published their wedding recap. Check back soon — or
-            visit their page in the meantime.
+            {event.display_name} hasn&rsquo;t published their {words.eventWord} recap. Check back
+            soon — or visit their page in the meantime.
           </p>
           <Link
             href={`/${event.slug}`}

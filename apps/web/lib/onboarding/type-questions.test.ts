@@ -19,6 +19,7 @@ const ENABLED_TYPES = [
   'anniversary',
   'graduation',
   'reunion',
+  'wake',
 ] as const;
 
 test('every enabled type has at least one well-formed question', () => {

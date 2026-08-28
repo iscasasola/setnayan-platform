@@ -4208,6 +4208,41 @@ export async function recordDeposit(
     return { status: 'error', message: updateErr.message };
   }
 
+  /*
+    SENDING IT AGAIN CLEARS THE SUPPLIER'S REFUSAL (2026-08-27, owner: the couple
+    keeps their record).
+    🔑 THE DATABASE CANNOT INFER THIS. `deposit_recorded_at` is COALESCEd above,
+    so a re-send changes no marker a trigger could watch — the couple's act of
+    re-recording IS the fresh claim, and this is the only thing that puts the
+    question back on the supplier's desk after a refusal.
+    🔒 One direction only: `guard_event_vendor_deposit_ack` lets a couple CLEAR
+    the refusal and never set one.
+    🪤 ITS OWN STATEMENT, AFTER the write above, deliberately. These columns
+    arrive with this change and app code deploys in parallel with the migration;
+    naming them in the main update would make PostgREST refuse the whole thing,
+    so a couple recording money mid-deploy would be told it failed. Here the
+    worst case is a stale refusal for a few minutes, logged, on a claim that has
+    just been re-sent anyway.
+  */
+  {
+    const { error: clearErr } = await supabase
+      .from('event_vendors')
+      .update({
+        deposit_declined_at: null,
+        deposit_decline_reason: null,
+        deposit_declined_by_user_id: null,
+      })
+      .eq('vendor_id', vendorId)
+      .eq('event_id', eventId);
+    if (clearErr) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[recordDeposit] could not clear the supplier's refusal for vendor_id=${vendorId}:`,
+        clearErr.message,
+      );
+    }
+  }
+
   // Log the money against the couple's ledger (their own record — not a charge
   // through Setnayan). FAIL-CONSISTENT (bug fix 2026-07-19, unconditional): the
   // old best-effort posture let the deposit marker land while the ledger insert

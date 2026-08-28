@@ -13,11 +13,18 @@ import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   vendorAcknowledgeDeposit,
+  vendorRejectDeposit,
   vendorAgreeToLock,
   vendorDeclineLock,
   vendorAgreeToDeletion,
   vendorDeclineDeletion,
 } from './clients/[eventId]/actions';
+// The desk TAKES these two answers rather than linking away to them. Both are
+// the shipped actions, unchanged in what they enforce: the reply action still
+// posts one final public reply through the vendor's own session, and
+// `respondAppointment` still refuses an answer from the side that proposed.
+import { postVendorReply } from './reviews/actions';
+import { respondAppointment } from '@/app/_components/appointments-actions';
 import {
   VendorTodayFocal,
   VendorEnergyStats,
@@ -49,9 +56,12 @@ import { PageMasthead } from '@/app/_components/page-masthead';
  * board. Three live streams, all wired to real sources (never the mockup's
  * sample numbers), assembled in `fetchVendorOverviewData`:
  *
- *   1. "What's new"  — a decision feed of act-on-now cards (new inquiries —
- *      answering couples is free · lock requests · new 5-star
- *      reviews awaiting a reply · flagged delivery delays). Centrepiece.
+ *   1. "What's new"  — THE ANSWERS DESK: every answer this shop owes anybody,
+ *      oldest waiting first, answered on the row wherever the answer works (new
+ *      inquiries — answering couples is free · booking asks · unanswered
+ *      reviews at any rating, with the reply box on the card · flagged delivery
+ *      delays · replies owed in accepted conversations · meeting times the
+ *      couple proposed · quotes and contracts never sent). Centrepiece.
  *   2. Amber note    — the "answering couples is free" explainer.
  *   3. "Ongoing"     — the vendor's open tasks with due chips.
  *   4. "Upcoming schedules" — the next 5 booked events by date.
@@ -94,7 +104,31 @@ function todayLabel(): string {
   });
 }
 
-export default async function VendorOverviewPage() {
+/**
+ * The desk takes two answers that redirect back to it — the deposit refusal and
+ * (via its own path) the review reply. A REFUSAL IN SILENCE IS INDISTINGUISHABLE
+ * FROM ONE THAT NEVER HAPPENED: the row simply vanishes, so without this the
+ * supplier who just said "it never arrived" has no way to know it was recorded
+ * and the couple told. Four outcomes, each said plainly.
+ */
+const DEPOSIT_ANSWER_NOTICE: Record<string, string> = {
+  ok: 'We told them it never reached you. Their record of paying is cleared, so they can send it again with the right receipt.',
+  already: 'That was already answered — nothing changed.',
+  already_confirmed:
+    'You had already confirmed this payment, so it can no longer be marked as never received. Open the customer if that needs sorting out.',
+  not_recorded: 'There was nothing to answer — they have no payment recorded here.',
+  error: 'That did not go through. Nothing changed — please try again.',
+};
+
+export default async function VendorOverviewPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ deposit_answer?: string }>;
+}) {
+  const search = (await searchParams) ?? {};
+  const depositAnswer = search.deposit_answer
+    ? DEPOSIT_ANSWER_NOTICE[search.deposit_answer] ?? DEPOSIT_ANSWER_NOTICE.error
+    : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -302,16 +336,35 @@ export default async function VendorOverviewPage() {
           at least one current-period award (empty list renders nothing). */}
       <SpotlightAwardBanner awards={spotlightAwards} />
 
+      {/* The outcome of an answer given ON this page, said where it was given. */}
+      {depositAnswer ? (
+        <div
+          role="status"
+          className="sn-tile mb-6 flex items-start gap-3 p-4 text-sm text-ink/80"
+        >
+          <Info
+            aria-hidden
+            className="mt-0.5 h-4 w-4 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: 'var(--sn-gold-700)' }}
+          />
+          <p>{depositAnswer}</p>
+        </div>
+      ) : null}
+
       {/* 1 · What's new — the decision feed (centrepiece) */}
       <WhatsNewFeed
         cards={whatsNew}
         acceptInquiry={acceptInquiry}
         declineInquiry={declineInquiry}
         confirmLock={vendorAcknowledgeDeposit}
+        rejectLock={vendorRejectDeposit}
         agreeLock={vendorAgreeToLock}
         declineLock={vendorDeclineLock}
         agreeDeletion={vendorAgreeToDeletion}
         declineDeletion={vendorDeclineDeletion}
+        postReviewReply={postVendorReply}
+        respondMeeting={respondAppointment}
       />
 
       {/* 2 · Token note — cost follows the customer's event location. A subtle

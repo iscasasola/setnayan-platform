@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
   AlertCircle,
@@ -41,7 +42,8 @@ import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { AddToLibrary } from './_components/add-to-library';
 import { UploadsOpenChoice } from './_components/uploads-open-choice';
 import { claimUploadsCamera } from './actions';
-import { WhereYouStand } from './_components/where-you-stand';
+import { PapicStage } from './_components/papic-stage';
+import { readPapicStandings } from '@/lib/papic-standings';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import {
   resolveStoredWindow,
@@ -51,6 +53,7 @@ import {
 import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
 import { SettingRow } from './_components/setting-row';
+import { SourceRow } from './_components/source-row';
 import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
 import { VendorChallengesApproval } from './vendor-challenges-approval';
 import { CoupleChallengesManager } from './couple-challenges-manager';
@@ -102,7 +105,6 @@ import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
-import { resolvePapicRoom, PAPIC_ROOM_TABS } from './_lib/rooms';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { groupIntoChapters } from '@/lib/alaala-chapters';
@@ -165,7 +167,10 @@ type Props = {
     limited_error?: string;
     papic_window_saved?: string;
     papic_window_error?: string;
-    /** Which room to open — see _lib/rooms.ts. Anything unrecognised is ignored. */
+    /** ⚠ ACCEPTED AND IGNORED. Papic was three tabs until 2026-08-27; links,
+     *  bookmarks and the couple's own browser history still carry `?tab=`. It
+     *  is typed so the value cannot become an unhandled key, and read by
+     *  nothing — there is one page now, and every control is on it. */
     tab?: string;
     // ⚠ THESE NINE WERE EMITTED AND READ BY NOTHING. Every one is redirected
     // back by an action on this route, and not one appeared in this type — so
@@ -208,10 +213,6 @@ const SDK_MATRIX = [
 
 export default async function PapicAddonPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  // ⚠ THE WHOLE OBJECT IS KEPT, not just the destructured names. `resolvePapicRoom`
-  // reads the outcome params to decide which room a redirect lands in, and it
-  // must see every key — a second hand-maintained copy of that list is how one
-  // gets forgotten.
   const search = await searchParams;
   const {
     drive_connected: driveConnected,
@@ -393,15 +394,28 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   );
   const windowIsSet = !!(ev.papic_window_start && ev.papic_window_end);
 
-  // ⚠ WHICH ROOM THIS REQUEST OPENS ON. Pure, and unit-tested in _lib/rooms.ts:
-  // an explicit tab wins, then the outcome the action just redirected with, then
-  // where the couple is in the event.
-  const room = resolvePapicRoom({
-    requested: search.tab,
-    outcomes: search,
-    windowStart: (ev.papic_window_start as string | null) ?? null,
-    windowEnd: (ev.papic_window_end as string | null) ?? null,
-  });
+  // ⚠ READ ONCE, USED TWICE. The stage needs to know whether the library is
+  // empty (roll or photographs) and the facts strip on its edge reports the same
+  // three numbers. Two components counting the same thing is a definition twice,
+  // and this page has already paid for that shape once.
+  const standings = await readPapicStandings(createAdminClient(), eventId);
+
+  // Whole days until the cameras open. null when the dates are unset, or when
+  // the window has already started — the stage says something different in each
+  // case, and "0 days" is not the same sentence as "open now".
+  const papicOpensInDays = (() => {
+    if (!windowIsSet || !papicWindow.startIso) return null;
+    const startMs = Date.parse(papicWindow.startIso);
+    if (!Number.isFinite(startMs)) return null;
+    const diff = startMs - Date.now();
+    return diff > 0 ? Math.ceil(diff / 86_400_000) : null;
+  })();
+
+  // ⚠ THERE ARE NO ROOMS ANY MORE — see the "four ways in" section below.
+  // `resolvePapicRoom` and its outcome→room map are deleted, not disabled: with
+  // one page every confirmation banner is always on screen, so the whole reason
+  // that map existed (a "saved" message landing in a room nobody was looking at)
+  // is gone rather than guarded.
 
   // Unlock-all umbrella (admin-managed price; owning it frees Unli).
   const unlockAdmin = createAdminClient();
@@ -648,36 +662,23 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         Back to add-ons
       </Link>
 
-      {/* Header — short. */}
       {/*
         ⚖ NAME AND PROMISE, BUT NO PRICE — AND THE ABSENCE IS THE DECISION.
         The brief asked every buy page to open with "product name, one-line
-        promise, price". Measured, this page does not have *a* price: it sells a shot ladder, a Keep Full-Res
-        subscription and an unlock-everything bundle, side by side.
-        Hoisting one of them above the fold would say the page costs that, which
-        is the opposite of honest. So the figures stay beside the exact thing
-        each one buys, and the hero does the half it can do truthfully.
+        promise, price". Measured, this page does not have *a* price: it sells a
+        credit ladder, a Keep Full-Res subscription and an unlock-everything
+        bundle, side by side. Hoisting one of them above the fold would say the
+        page costs that, which is the opposite of honest. So the figures stay
+        beside the exact thing each one buys, and the hero does the half it can
+        do truthfully.
       */}
       <StudioBuyHero productName={PAPIC_HERO.label} promise={PAPIC_HERO.blurb} />
 
-      {/* ⚠ THE STRIP SITS BELOW StatusBanners ON PURPOSE. A confirmation must be
-          visible whichever room resolves — if the outcome→room map ever misses a
-          case, the couple still sees that their change saved, in the wrong room
-          rather than nowhere. Belt and braces, cheaply. */}
-      <nav className="sn-seg" aria-label="Papic sections">
-        {PAPIC_ROOM_TABS.map((t) => (
-          <Link
-            key={t.room}
-            href={`/dashboard/${eventId}/studio/papic?tab=${t.room}`}
-            className="sn-seg-item"
-            aria-current={room === t.room ? 'page' : undefined}
-            scroll={false}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </nav>
-
+      {/* ⚠ EVERY CONFIRMATION, ON THE ONE PAGE. When this screen had three
+          rooms, an action's outcome had to be mapped to a room or its "saved"
+          message landed somewhere nobody was looking. There is one page now, so
+          every banner is always visible and that whole class of bug is gone
+          rather than guarded. */}
       <StatusBanners
         driveConnected={!!driveConnected}
         driveDisconnected={!!driveDisconnected}
@@ -709,33 +710,46 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         preserveError={preserveError}
       />
 
-      {/* ⚠ WHERE YOU STAND — four facts, above every room and above the ask.
-          The order is deliberate: a person is told the state of their own
-          celebration BEFORE anything asks them to decide something. Reversing
-          it is how this screen came to open on a look picker. */}
-      <WhereYouStand
-        eventId={eventId}
+      {/* ⚠ THE STAGE — the page opens on the library, in every state.
+          Owner 2026-08-28: *"it doesn't look like a photo app control center. it
+          still feels like it is a business page."* Every product in this market
+          opens on its content; the four facts still come before anything asks
+          for a decision, they simply sit on the thing they describe now.
+          See _components/papic-stage.tsx for the reasoning and the measured
+          contrast ratios on the dark ground. */}
+      <PapicStage
+        standings={standings}
         windowIsSet={windowIsSet}
         windowSummary={papicWindowSummary}
-      />
+        opensInDays={papicOpensInDays}
+        uploadsOpen={uploadsOpen}
+        firstMemorySlot={
+          /* ⚠ A DOOR, NOT A SECOND PICKER. The upload sheet lives behind the
+             "Your uploads" way-in below; putting the picker here too would be a
+             second copy of a control, which is the failure this codebase pays
+             for most. This scrolls to it. */
+          <a
+            href="#ways-into-your-library"
+            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-cream"
+            style={{ backgroundColor: '#C24E25' }}
+          >
+            Add the first memory
+          </a>
+        }
+      >
+        <GalleryPreviewCard eventId={eventId} />
+      </PapicStage>
 
-      {/* ⚠ THE ONE REQUIRED ACT, IN WHATEVER ROOM THE COUPLE LANDS IN.
+      {/* ⚠ EXACTLY ONE NEXT STEP, AND IT KNOWS THE MOMENT.
           Owner, opening his own wedding's Papic page: *"entering papic inside an
           event needs to me simpler and better to manage. if I am a customer and
           I see this, I will be confused."*
 
-          🔑 THE ROOMS FILE ALREADY CLAIMED THIS EXISTED. `resolvePapicRoom`
-          sends a couple with no capture window to Set up, and its comment gave
-          the reason: *"Unset means Set up, where the attention row is."* There
-          was no attention row. The picker's ONLY mount was inside Cameras &
-          shots — a room a new couple never lands in — so the single thing
-          standing between them and a working camera was in the one place they
-          could not see it. Measured 2026-08-26: all five production events have
-          no window set, so EVERY couple who has ever opened Papic landed in a
-          room that could not tell them what to do.
-
-          It renders in all three rooms on purpose. Which room a person is in is
-          not a reason to hide the only thing they must do. */}
+          Before the dates are picked there is only one thing that matters, and
+          nothing can be captured without it. Once they are picked, the next real
+          thing is handing the cameras out — which used to be a small tile two
+          sections inside a tab the couple had to guess. Two states, never both:
+          a page with two "do this first" cards has no first. */}
       {!windowIsSet ? (
         <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface">
           <div className="h-[3px] w-full bg-mulberry" aria-hidden />
@@ -768,386 +782,311 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             />
           </div>
         </section>
-      ) : null}
-
-      {/* Photos — the room they come back to for years. */}
-      {room === 'photos' ? (
-        <>
-        {/* ⚠ ADDING TO THE LIBRARY BELONGS IN THE LIBRARY, not in Set up.
-            Owner 2026-08-26: *"papic is the source where they collect media
-            files for that event."* The person who has just been shown what is
-            in their library is the person about to add to it. Putting the
-            picker behind a settings tab is how a look picker came to be the
-            first thing anybody saw. */}
-        <section className="space-y-4 sn-tile p-5 sm:p-6">
-          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <Upload aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-            Add to your library
-          </h2>
-          {!uploadsOpen ? (
-            <p className="max-w-prose text-sm text-ink/65">
-              Adding photos by hand is switched off for this celebration — only
-              what your cameras capture goes into the gallery. You can turn it
-              back on in Set up.
+      ) : claimLinkUnclaimed > 0 ? (
+        <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface">
+          <div className="h-[3px] w-full bg-mulberry" aria-hidden />
+          <div className="space-y-3 p-5 sm:p-6">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-mulberry-600">
+              Right now
             </p>
-          ) : uploadsToken ? (
-            <AddToLibrary token={uploadsToken} />
-          ) : (
-            <form action={claimUploadsCamera} className="space-y-3">
-              <input type="hidden" name="event_id" value={eventId} />
-              <p className="max-w-prose text-sm text-ink/65">
-                Add photos and clips from your phone or laptop — older memories
-                too. They land in the same gallery as everything your cameras
-                take, and cost the same: one credit a photo.
-              </p>
-              <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
-            </form>
-          )}
-        </section>
-
-        {/* ── Keep Full-Res (owner 2026-07-11 · sold on apply-then-pay) ─────── */}
-        {ownsKeepFullRes ? (
-          <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
-            ✓ <span className="font-medium text-ink">Keep Full-Res is active</span> — we
-            keep every full-resolution original for this event, undegraded.
-          </section>
-        ) : keepFullResPricePhp ? (
-          <section className="flex flex-wrap items-center justify-between gap-3 sn-tile p-5">
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex items-center gap-2">
-                <HardDrive className="h-4 w-4 text-mulberry" aria-hidden />
-                <h2 className="text-sm font-semibold text-ink">Keep your full-res originals</h2>
-              </div>
-              {/* ⚠ Said "After 3 months" — the clock became SIX months on
-                  2026-08-02 and this card was never updated. It is dormant today
-                  (it renders only while the Keep Full-Res SKU is active, and that
-                  is switched off), so nobody has read the wrong number — but a
-                  dormant screen with a stale number is a landmine for whenever
-                  the owner flips the SKU back on. */}
-              <p className="text-xs text-ink/60">
-                Your online gallery stays free, for life. After 6 months we keep a
-                beautiful compressed copy, and your full-resolution originals live in
-                your own Google Drive. Want us to keep every pristine original too?
-              </p>
-            </div>
-            {papicPlatformSettings ? (
-              <InlineCheckoutDrawer
-                eventId={eventId}
-                serviceKey="HIGH_RES_ARCHIVE"
-                displayName="Keep Full-Res"
-                originalPriceCentavos={String(Math.round(keepFullResPricePhp * 100))}
-                settings={papicPlatformSettings}
-                triggerLabel={`Keep Full-Res · ${formatPhp(keepFullResPricePhp)}/yr`}
-                triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-mulberry/40 px-4 py-2.5 text-sm font-medium text-mulberry hover:bg-mulberry/5"
-              />
-            ) : (
-              <span className="shrink-0 font-mono text-sm text-ink/60">
-                {formatPhp(keepFullResPricePhp)}/yr
-              </span>
-            )}
-          </section>
-        ) : null}
-
-        {/* Gallery. */}
-        <GalleryPreviewCard eventId={eventId} />
-
-        {/* Two levers the couple holds over their own photos, side by side
-            because they answer the same question — what happens to pictures of my
-            guests. Each renders nothing when it has nothing to offer. */}
-        <VendorMediaControls eventId={eventId} />
-        {/* Moderation — a slim, real action. */}
-        <section className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <p className="flex items-center gap-2 text-sm text-ink/75">
-            <Lock aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
-            Review guest photos — hide, report, or block a camera.
-          </p>
-          <Link
-            href={`/dashboard/${eventId}/studio/papic/moderation`}
-            className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-mulberry hover:text-mulberry-600"
-          >
-            Open moderation
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
-        </section>
-
-        {/* Shared Pool Gallery — couple-only open/close (build ⑥). Self-gates on
-            the env flag + Papic-active; renders nothing until both hold. */}
-        <PoolGalleryCard eventId={eventId} />
-
-        <MagazineCard eventId={eventId} />
-        <RecapCard eventId={eventId} />
-        <LifeFlashCard eventId={eventId} />
-
-        </>
-      ) : null}
-
-      {/* Cameras & shots — the room they run the day from. */}
-      {room === 'cameras' ? (
-        <>
-        {/* Unlock-all — the one-price headline (only when not yet owned). */}
-        {papicUnlockPricePhp && !ownsPapicUnlock ? (
-          <section className="flex flex-col gap-3 rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Everything Papic, one price
-              </h2>
-              <p className="max-w-prose text-sm text-ink/70">
-                Unlimited cameras for the whole {papicEventWord} + every add-on (Kwento,
-                Photo Wall, Thank You, Stories, Camera Bridge).
-              </p>
-            </div>
-            {papicPlatformSettings ? (
-              <InlineCheckoutDrawer
-                eventId={eventId}
-                serviceKey="PAPIC_UNLOCK"
-                displayName="Unlock all of Papic"
-                originalPriceCentavos={String(Math.round(papicUnlockPricePhp * 100))}
-                settings={papicPlatformSettings}
-                triggerLabel={`Unlock all · ${formatPhp(papicUnlockPricePhp)}`}
-                triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
-              />
-            ) : (
-              <span className="shrink-0 font-mono text-sm text-ink/60">
-                {formatPhp(papicUnlockPricePhp)}
-              </span>
-            )}
-          </section>
-        ) : null}
-
-        {/* ── Your cameras — the core. ──────────────────────────────────────── */}
-        <section className="space-y-4 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6">
-          <div className="flex items-center gap-2">
-            <Camera aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-            <h2 className="text-xl font-semibold tracking-tight">Your cameras</h2>
-          </div>
-
-          {/* ── HOW PEOPLE ACTUALLY START SHOOTING. ─────────────────────────
-              Owner, 2026-08-01: "i cannot find the qr for the papic services."
-              They were not missing — they were behind a small text link tucked
-              into the header of the off-guest-list tile, two sections down. The
-              QR is the whole mechanic of Papic, so it gets its own block, at the
-              top of Your cameras, with the counts resolved here rather than
-              making the couple open a page to discover them. */}
-          {claimLinkTotal > 0 ? (
-            <div className="sn-tile flex flex-wrap items-center justify-between gap-3 border border-terracotta/30 p-4 sm:p-5">
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-                  <QrCode aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-                  Camera QR codes
-                </p>
-                <p className="mt-0.5 max-w-prose text-xs text-ink/60">
-                  {claimLinkUnclaimed > 0
-                    ? `${claimLinkUnclaimed} of ${claimLinkTotal} still to hand out. `
-                    : `All ${claimLinkTotal} claimed. `}
-                  Each camera has its own QR and link — show it, they scan, they
-                  shoot. Every shot draws from your shared pool.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={`/dashboard/${eventId}/studio/papic/crew`}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
-                >
-                  <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Show the QR codes
-                </Link>
-                <Link
-                  href={`/dashboard/${eventId}/studio/papic/crew/print`}
-                  target="_blank"
-                  rel="noopener"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-                >
-                  Print cards
-                </Link>
-              </div>
-            </div>
-          ) : null}
-
-          {/* Capture window — sets the price (days) AND how long cameras shoot.
-              ⚠ ONLY ONCE IT IS SET. While it is unset the picker lives in the
-              do-this-first card above, which renders in EVERY room; showing it
-              here as well would put two of the same picker on one page. */}
-          {windowIsSet ? (
-          <PapicWindowPicker
-            eventId={eventId}
-            eventType={(ev.event_type as string | null) ?? null}
-            eventDate={(ev.event_date as string | null) ?? null}
-            windowStart={(ev.papic_window_start as string | null) ?? null}
-            windowEnd={(ev.papic_window_end as string | null) ?? null}
-            windowIsSet={windowIsSet}
-            days={papicDays}
-            summary={papicWindowSummary}
-          />
-          ) : null}
-
-          <LimitedCard
-            eventId={eventId}
-            guestCount={limitedGuestCount}
-            guestCameraCount={guestCameraCount}
-            status={limitedStatus}
-            currentTier={limitedTier}
-            limitedQuote={limitedQuote}
-            unlimitedQuote={unlimitedQuote}
-            limitedPointsPerDay={papicTierConfig.roll.pointsPerDay}
-            unlimitedPointsPerDay={papicTierConfig.unlimited.pointsPerDay}
-            days={papicDays}
-            windowSummary={papicWindowSummary}
-          />
-
-          {/* Unlimited extras — the only off-list path. */}
-          <div className="sn-tile p-4 sm:p-5">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-ink">
-                  Add a camera that isn&rsquo;t on the guest list
-                </p>
-                <p className="text-xs text-ink/60">
-                  A videographer friend, a hired second shooter — pick their tier.
-                  {extraCameraCount !== null && extraCameraCount > 0
-                    ? ` ${extraCameraCount} active.`
-                    : ''}
-                </p>
-              </div>
+            <h2 className="text-lg font-semibold tracking-tight text-ink">
+              {claimLinkUnclaimed} camera QR{claimLinkUnclaimed === 1 ? '' : 's'}{' '}
+              {claimLinkUnclaimed === 1 ? 'is' : 'are'} still in your pocket
+            </h2>
+            <p className="max-w-prose text-sm text-ink/65">
+              Show them at the door — each one is a camera. They scan, they shoot,
+              and it all lands in your library.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={`/dashboard/${eventId}/studio/papic/crew`}
-                className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:text-terracotta-700"
+                className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
               >
-                {/* ⚠ SAY "QR". This read "Crew & claim links", and the QR codes +
-                    the printable cards live behind it — so the word never appeared
-                    anywhere on the path to them, and the owner could not find the
-                    QRs at all. The page they open is titled "Your photo crew" and
-                    renders a QR per camera; the label just never said so. */}
-                Camera QR codes &amp; claim links
-                <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Show the QR codes
+              </Link>
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew/print`}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+              >
+                Print cards
               </Link>
             </div>
-            <div className="max-w-sm">
-              <ExtraCamerasPicker
-                eventId={eventId}
-                // ⚠ FILTER BEFORE MAP. PAPIC_RUNGS is a static vocabulary of every
-                // rung the code can SPEAK, not a list of what is on SALE — the
-                // sale list is `papic_tier_config.is_active`, which an admin
-                // edits without a deploy. Mapping the constant straight to the
-                // picker put both RETIRED rungs on a live buy button: 'ltd'
-                // (migration 20270828150000) and 'unlimited' (20270830568357) are
-                // both is_active=false, as are their catalog price rows — so they
-                // quoted ₱50 / ₱200 off the fail-closed FALLBACK constants in
-                // lib/papic-cameras.ts, which exist so a retired rung cannot
-                // quote ₱0, not so it can keep selling. It also broke the
-                // 2026-07-30 naming lock: "Papic Ltd" and "Papic Max" are not
-                // products, and only Pool and One may appear on a display surface.
-                rungs={PAPIC_RUNGS.filter((rung) => papicTierConfig[rung].isActive).map(
-                  (rung) => ({
-                    rung,
-                    title: papicTierConfig[rung].displayTitle,
-                    ratePhp: papicRungRate(cameraRates, rung),
-                    // ⚠ THE BUCKET, FROM THE TABLE THE GRANT READS.
-                    //
-                    // This used to pass `papic_tier_config.points_per_day` — the
-                    // OLD per-camera-per-DAY meter, whose 'mini' row is NULL on
-                    // prod. NULL reads as "unlimited" to every copy helper, so the
-                    // picker advertised "No limit · archived to your Drive" on a
-                    // ₱50 camera. It is not unlimited: the approval path
-                    // `papic_grant_camera_points()` grants
-                    // `papic_one_tiers[PAPIC_CAMERA_MINI_DAY].points` per seat —
-                    // 50 on prod — and the fail-closed reserve stops the shutter
-                    // there. So the picker sold unlimited and delivered 50, on the
-                    // SAME screen as the Papic One card correctly saying "50
-                    // shots". Reading the rung table is what makes the claim true
-                    // (lib/papic-tier-config-read.ts says so in its own header).
-                    points:
-                      papicOneTiers.find((t) => t.serviceCode === papicRungSku(rung))
-                        ?.points ?? null,
-                    capPhp: papicRungCapPhp[rung],
-                    // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30 Mini
-                    // rung. Nothing frees the ₱50 Ltd rung today.
-                    free:
-                      rung === 'unlimited'
-                        ? ownsPapicUnlock
-                        : rung === 'mini'
-                          ? ownsPapicUnlockLtd
-                          : false,
-                  }),
-                )}
-                days={papicDays}
-                windowSummary={papicWindowSummary}
-              />
-            </div>
           </div>
-
         </section>
-
-        {/* Capture-pool meter (build ③ PR-1) — READ-ONLY, flag-dark behind
-            NEXT_PUBLIC_PAPIC_POOL_BAR (default off → renders nothing). Self-gates
-            flag → viewer-RLS membership → pool-applies. Mounted here, right under
-            the cameras it meters — deliberately NOT in the add-on region below,
-            which PR #3581 (PoolGalleryCard) is concurrently editing. */}
-        <HostPoolMeterCard eventId={eventId} />
-
-        {/* Papic ONE — buy a dedicated camera, or RELOAD one that already exists
-            (owner-locked 2026-07-29). Mounted right under the pool meter because
-            the two are the two halves of the model: the meter is the SHARED pool,
-            this is the camera that does not share. Minimal by design — the
-            polished card ships with the onboarding cards; what could not wait is
-            the doorway, because the free One camera is armed for every event from
-            this PR onward and a camera nobody can reload is a dead end. */}
-        {/* Papic POOL — the buy path for the SHARED pool (2026-07-31). Mounted
-            ABOVE the One card because Pool is the product a couple meets first:
-            the free 50-pt grant is a pool grant, the onboarding services card
-            leads with the Pool ladder, and the Suite CTA that lands here reads
-            "Open the pool". Until now this page answered that CTA with a One
-            camera and nothing else — the Pool ladder was advertised in two live
-            places and buyable in none, while all three PAPIC_GUEST* rows sat
-            is_active=true and `grantPapicPassPoints` sat wired and unreachable.
-            Self-gating to null when no rung has a live catalog price. */}
-        <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
-
-        {/* YOUR CAMERAS — hand shots to one camera's QR, or take unspent ones
-            back (owner 2026-08-11). This replaced the Papic One buy card: a
-            dedicated camera is no longer bought, it is made out of shots the
-            couple already owns. Mounted directly under the buy card because the
-            two are one flow now — buy shots above, share them out below.
-            `papicOneError` is still read from the URL above so a redirect from
-            an order minted before the change still finds somewhere to land. */}
-        <PapicCamerasCard
-          eventId={eventId}
-          error={shotsError ?? papicOneError ?? null}
-          justSet={shotsSet ?? null}
-        />
-
-        {/* Guests chipped in (owner-locked 2026-07-29) — flag-dark behind
-            NEXT_PUBLIC_PAPIC_GUEST_BUY, self-gating to null when off, when the
-            viewer is not a member, or when no guest has bought anything. Sits
-            directly under the two cards it reports on, because a guest's purchase
-            lands in exactly one of them: a pool top-up in the meter above, a One
-            reload on the camera card. NOTIFICATION ONLY — there is no control
-            here, deliberately: the host is told, not asked. */}
-        <GuestContributionsCard eventId={eventId} />
-
-        <GuestCamerasChoice eventId={eventId} />
-
-        </>
       ) : null}
 
-      {/* Set up — the choices they make once, months before. */}
-      {room === 'setup' ? (
-        <>
-        {/* ⚠ YOUR PAPIC LOOK IS A ROW NOW, NOT FIVE CARDS.
-            Owner, opening his own wedding's Papic page: *"entering papic inside
-            an event needs to me simpler and better to manage. if I am a
-            customer and I see this, I will be confused."* The FIRST thing on
-            that screen was five large gradient cards asking him to pick a look
-            — a decision made once, months before the day, occupying the space
-            where "what do I do" belongs.
+      {/* ══ FOUR WAYS INTO YOUR LIBRARY ═══════════════════════════════════════
+          🔑 THIS SECTION IS WHAT REPLACED THE THREE TABS.
 
-            🔑 THE RULE IS HOW OFTEN YOU TOUCH IT. Made once → a row showing its
-            current answer. Come back to it → stays on the page. We can answer
-            it ourselves → deleted (photo quality, where photos go, 2026-08-26).
+          The page used to open by asking a person to choose between Photos ·
+          Cameras & shots · Set up — a question about our filing, asked before
+          anything had been said about their celebration. The approved drawing
+          (prototypes/papic_control_center_2026-08-25.html) replaces that choice
+          with the thing itself: the four ways media gets into the library, each
+          reporting what it has contributed and what it is waiting on.
 
-            ⚠ THE PICKER IS NOT REDRAWN. `StylePicker` ships into the sheet
-            exactly as it is, lock note and all — a row is a different DOOR to
-            the same control, never a second copy of it. */}
-        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+          ⚠ EVERY CONTROL FROM ALL THREE ROOMS STILL EXISTS — the drawing's own
+          port contract itemises where each one went, and nothing was dropped
+          beyond the two questions the owner deleted (photo quality, "where your
+          photos go"). The crew QRs, the off-list camera, the guest-camera tier
+          and the uploads picker are behind these four rows, unredrawn. */}
+      <section className="space-y-3" id="ways-into-your-library">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">
+          Four ways into your library
+        </h2>
+        <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+          <SourceRow
+            icon={<QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Crew cameras"
+            blurb="Friends with a QR — free, add any number"
+            state={
+              !windowIsSet
+                ? 'Waiting for dates'
+                : claimLinkUnclaimed > 0
+                  ? `${claimLinkUnclaimed} to hand out`
+                  : claimLinkTotal > 0
+                    ? `${claimLinkTotal} claimed`
+                    : 'None yet'
+            }
+            attention={!windowIsSet || claimLinkUnclaimed > 0}
+            sheetTitle="Crew cameras"
+          >
+            <p className="mb-4 text-sm text-ink/65">
+              Each camera has its own QR and link — show it, they scan, they
+              shoot. Every shot draws from your shared credits.
+            </p>
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew`}
+                className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
+              >
+                <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Show the QR codes
+              </Link>
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew/print`}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+              >
+                Print cards
+              </Link>
+            </div>
+
+            {/* The ONLY off-list path — a videographer friend, a hired second
+                shooter. Unchanged; it simply lives behind this row now. */}
+            <div className="border-t border-ink/10 pt-4">
+              <p className="text-sm font-semibold text-ink">
+                Add a camera that isn&rsquo;t on the guest list
+              </p>
+              <p className="mb-3 text-xs text-ink/60">
+                A videographer friend, a hired second shooter — pick their tier.
+                {extraCameraCount !== null && extraCameraCount > 0
+                  ? ` ${extraCameraCount} active.`
+                  : ''}
+              </p>
+              <div className="max-w-sm">
+                <ExtraCamerasPicker
+                  eventId={eventId}
+                  // ⚠ FILTER BEFORE MAP. PAPIC_RUNGS is a static vocabulary of every
+                  // rung the code can SPEAK, not a list of what is on SALE — the
+                  // sale list is `papic_tier_config.is_active`, which an admin
+                  // edits without a deploy. Mapping the constant straight to the
+                  // picker put both RETIRED rungs on a live buy button.
+                  rungs={PAPIC_RUNGS.filter((rung) => papicTierConfig[rung].isActive).map(
+                    (rung) => ({
+                      rung,
+                      title: papicTierConfig[rung].displayTitle,
+                      ratePhp: papicRungRate(cameraRates, rung),
+                      // ⚠ THE BUCKET, FROM THE TABLE THE GRANT READS —
+                      // papic_one_tiers, which papic_grant_camera_points() reads
+                      // on approval. The old per-camera-per-DAY meter is NULL for
+                      // 'mini' on prod, and NULL reads as "unlimited" to every
+                      // copy helper, so the picker advertised no limit on a
+                      // camera the reserve stops at 50.
+                      points:
+                        papicOneTiers.find((t) => t.serviceCode === papicRungSku(rung))
+                          ?.points ?? null,
+                      capPhp: papicRungCapPhp[rung],
+                      // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the Mini
+                      // rung. Nothing frees the Ltd rung today.
+                      free:
+                        rung === 'unlimited'
+                          ? ownsPapicUnlock
+                          : rung === 'mini'
+                            ? ownsPapicUnlockLtd
+                            : false,
+                    }),
+                  )}
+                  days={papicDays}
+                  windowSummary={papicWindowSummary}
+                />
+              </div>
+            </div>
+          </SourceRow>
+
+          <SourceRow
+            icon={<Users aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Guest cameras"
+            blurb="Every invited guest — their invitation QR is the camera"
+            state={
+              limitedStatus === 'active'
+                ? guestCameraCount === null
+                  ? '—'
+                  : `${guestCameraCount} ready`
+                : limitedStatus === 'pending_payment'
+                  ? 'Payment under review'
+                  : 'Your event day'
+            }
+            sheetTitle="Guest cameras"
+          >
+            <LimitedCard
+              eventId={eventId}
+              guestCount={limitedGuestCount}
+              guestCameraCount={guestCameraCount}
+              status={limitedStatus}
+              currentTier={limitedTier}
+              limitedQuote={limitedQuote}
+              unlimitedQuote={unlimitedQuote}
+              limitedPointsPerDay={papicTierConfig.roll.pointsPerDay}
+              unlimitedPointsPerDay={papicTierConfig.unlimited.pointsPerDay}
+              days={papicDays}
+              windowSummary={papicWindowSummary}
+            />
+          </SourceRow>
+
+          {/* ⚠ THE UPLOAD ROW IS GOVERNED BY THE COUPLE'S OWN SWITCH, and the
+              switch is read on its own round trip (see `uploadsRow` above) —
+              the first cut read it off the main event select, which never named
+              the column, so it reported OPEN whatever the couple had chosen. */}
+          <SourceRow
+            icon={<Upload aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Your uploads"
+            blurb="Older memories from your phone or laptop"
+            state={uploadsOpen ? 'Open now' : 'Off'}
+            sheetTitle="Add to your library"
+          >
+            {!uploadsOpen ? (
+              <p className="max-w-prose text-sm text-ink/65">
+                Adding photos by hand is switched off for this celebration — only
+                what your cameras capture goes into the gallery. You can turn it
+                back on under &ldquo;Set once, change any time&rdquo;.
+              </p>
+            ) : uploadsToken ? (
+              <AddToLibrary token={uploadsToken} />
+            ) : (
+              <form action={claimUploadsCamera} className="space-y-3">
+                <input type="hidden" name="event_id" value={eventId} />
+                <p className="max-w-prose text-sm text-ink/65">
+                  Add photos and clips from your phone or laptop — older memories
+                  too. They land in the same gallery as everything your cameras
+                  take, and cost the same: one credit a photo.
+                </p>
+                <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
+              </form>
+            )}
+          </SourceRow>
+
+          {/* ⚠ INERT ON PURPOSE — NO SHEET, NO PRESS. The supplier capture lane
+              is built and switched off behind the outstanding privacy ruling
+              about a supplier collecting guests' photographs, so today a booked
+              photographer can only hand over a link to their own gallery.
+              Giving this row a door would be a control that cannot do the thing
+              it names. It stays visible because the gap is real and the couple
+              should be able to see where it closes. */}
+          <SourceRow
+            icon={<Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Suppliers"
+            blurb="Your photographer's finished work, straight into your library"
+            state="Not open yet"
+          />
+        </div>
+        <p className="px-1 text-xs text-ink/55">
+          Everything lands in the same library and is screened before anyone sees it.
+        </p>
+      </section>
+
+      {/* ══ CREDITS — one shared pot, and the ways to add to it ═══════════════
+          Bought where the number is watched, per the drawing. The meter, the
+          ladder, handing credits to one camera, and what guests chipped in are
+          four faces of one thing and now sit together. */}
+      <HostPoolMeterCard eventId={eventId} />
+      <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
+      {/* Hand credits to one camera's QR, or take unspent ones back (owner
+          2026-08-11). 🔑 Dedicated credits are a FLOOR, not a ceiling — a
+          capture spends the camera's own first and the pot pays the remainder. */}
+      <PapicCamerasCard
+        eventId={eventId}
+        error={shotsError ?? papicOneError ?? null}
+        justSet={shotsSet ?? null}
+      />
+      {/* NOTIFICATION ONLY — the host is told what guests chipped in, not asked. */}
+      <GuestContributionsCard eventId={eventId} />
+
+      {/* ══ MADE FROM YOUR LIBRARY ═══════════════════════════════════════════ */}
+      <RecapCard eventId={eventId} />
+      <MagazineCard eventId={eventId} />
+      <LifeFlashCard eventId={eventId} />
+
+      {/* ══ YOUR PHOTOS, YOUR SAY ════════════════════════════════════════════ */}
+      <VendorMediaControls eventId={eventId} />
+      <section className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <p className="flex items-center gap-2 text-sm text-ink/75">
+          <Lock aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
+          Review guest photos — hide, report, or block a camera.
+        </p>
+        <Link
+          href={`/dashboard/${eventId}/studio/papic/moderation`}
+          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-mulberry hover:text-mulberry-600"
+        >
+          Open moderation
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+      </section>
+      <PoolGalleryCard eventId={eventId} />
+
+      {/* ══ SET ONCE, CHANGE ANY TIME ════════════════════════════════════════
+          🔑 THE RULE IS HOW OFTEN YOU TOUCH IT. Made once → a row showing its
+          current answer. Come back to it → stays on the page as a card. We can
+          answer it ourselves → deleted outright (photo quality, and where the
+          photos go, both on the owner's 2026-08-26 ruling).
+
+          ⚠ NO PICKER IS REDRAWN. Each row's sheet holds the shipped control
+          exactly as it ships, lock notes and all. A row is a different DOOR to
+          the same control, never a second copy of it — and the components that
+          render nothing when there is nothing to decide still do, so no row
+          exists for a choice that cannot be made. */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">
+          Set once, change any time
+        </h2>
+        <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+          {/* The capture window, once it exists. While it is UNSET it is the
+              do-this-first card at the top instead — never both, or a couple
+              sees two identical date pickers on one page. */}
+          {windowIsSet ? (
+            <SettingRow
+              icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+              label="When your cameras can shoot"
+              value={papicWindowSummary}
+              sheetTitle="When your cameras can shoot"
+            >
+              <PapicWindowPicker
+                eventId={eventId}
+                eventType={(ev.event_type as string | null) ?? null}
+                eventDate={(ev.event_date as string | null) ?? null}
+                windowStart={(ev.papic_window_start as string | null) ?? null}
+                windowEnd={(ev.papic_window_end as string | null) ?? null}
+                windowIsSet={windowIsSet}
+                days={papicDays}
+                summary={papicWindowSummary}
+              />
+            </SettingRow>
+          ) : null}
+
           <SettingRow
             icon={<Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
             label="Your Papic look"
@@ -1161,62 +1100,139 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             </p>
             <StylePicker eventId={eventId} current={papicStyle} />
           </SettingRow>
+
+          <FaceTaggingChoice eventId={eventId} variant="row" />
+          <GuestCamerasChoice eventId={eventId} variant="row" />
+          <UploadsOpenChoice eventId={eventId} open={uploadsOpen} variant="row" />
         </div>
+      </section>
 
-        {/* Yours to keep — Google Drive as an OFFER, not a destination choice.
-            Owner 2026-08-26: "i was thinking of not asking for setnayan storage?
-            what we want is to offer them to sync this to a google drive." The
-            either/or it replaced never worked: no capture or storage path has
-            ever read events.papic_storage_target, so "Use my Google Drive only"
-            was never Drive-only and every photo has always landed in Setnayan
-            storage. We hold the photos; Drive is a copy on top. */}
-        <DriveCopyCard
-          eventId={eventId}
-          driveOAuthReady={driveOAuthReady}
-          driveGrant={driveGrant}
-          loginEmail={user.email ?? null}
-        />
+      {/* ══ YOURS TO KEEP ════════════════════════════════════════════════════
+          Google Drive as an OFFER, not a destination choice. Owner 2026-08-26:
+          "i was thinking of not asking for setnayan storage? what we want is to
+          offer them to sync this to a google drive." The either/or it replaced
+          never worked — no capture or storage path has ever read the storage
+          column, so "Use my Google Drive only" was never Drive-only and every
+          photo has always landed in Setnayan storage. We hold the photos; Drive
+          is a copy on top. */}
+      <DriveCopyCard
+        eventId={eventId}
+        driveOAuthReady={driveOAuthReady}
+        driveGrant={driveGrant}
+        loginEmail={user.email ?? null}
+      />
 
-        <UploadsOpenChoice eventId={eventId} open={uploadsOpen} />
+      {/* ══ EXTRAS FOR THE DAY ═══════════════════════════════════════════════ */}
+      <CoupleChallengesManager eventId={eventId} />
+      <VendorChallengesApproval eventId={eventId} />
+      <LiveWallCard eventId={eventId} />
 
-        <FaceTaggingChoice eventId={eventId} />
+      {/* Setup & help — folded away, as today. */}
+      <details className="group sn-tile">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-ink/80 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2">
+            <CircleHelp aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+            Setup &amp; help — DSLR pairing, the shutter, capture defaults
+          </span>
+          <ChevronRight
+            aria-hidden
+            className="h-4 w-4 text-ink/50 transition-transform group-open:rotate-90"
+            strokeWidth={2}
+          />
+        </summary>
+        <div className="space-y-6 border-t border-ink/10 p-5">
+          <DslrBridgeSection />
+          <ShutterSection />
+          <CaptureDefaultsSection />
+        </div>
+      </details>
 
-        {/* Papic Games — the couple's own challenge authoring + curation (§5).
-            Self-gates on the flag. */}
-        {/* The picker MOVED to /studio/papic/challenges (owner, 2026-08-21:
-            "the need to have a real screen"). What is left here is a summary
-            and a door — same component, `standalone` off, so the two can never
-            disagree about how many are chosen. */}
-        <CoupleChallengesManager eventId={eventId} />
+      {/* ══ OUTSIDE THE LIBRARY, ON PURPOSE ══════════════════════════════════
+          The owner's purpose lock, said out loud on the screen it governs:
+          *"papic is the source where they collect media files for that event.
+          that will be our purpose. so the only exceptions will be the save the
+          date video, or event video."* */}
+      <section className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-4 text-xs text-ink/60 sm:p-5">
+        <span className="font-medium text-ink/75">Outside the library, on purpose:</span>{' '}
+        your save-the-date film and your event film live with your event&rsquo;s
+        pages, not here. They are made <em>for</em> your day; this library
+        collects what was captured <em>of</em> it.
+      </section>
 
-        {/* Papic Games — pending vendor challenges awaiting the couple's okay (§3.6).
-            Self-gates on the flag + hides when there's nothing to review. */}
-        <VendorChallengesApproval eventId={eventId} />
-
-        {/* Add-on services (shipped surfaces). */}
-        <LiveWallCard eventId={eventId} />
-
-        {/* Setup & help — folded away. */}
-        <details className="group sn-tile">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-ink/80 [&::-webkit-details-marker]:hidden">
-            <span className="flex items-center gap-2">
-              <CircleHelp aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
-              Setup &amp; help — DSLR pairing, the shutter, capture defaults
-            </span>
-            <ChevronRight
-              aria-hidden
-              className="h-4 w-4 text-ink/50 transition-transform group-open:rotate-90"
-              strokeWidth={2}
-            />
-          </summary>
-          <div className="space-y-6 border-t border-ink/10 p-5">
-            <DslrBridgeSection />
-            <ShutterSection />
-            <CaptureDefaultsSection />
+      {/* ══ THE OFFERS, LAST ═════════════════════════════════════════════════
+          ⚖ AN OFFER NEVER OUTRANKS THE DAY, OR THE KEEPSAKE. Both of these used
+          to open a room — the unlock bundle was the first thing in Cameras &
+          shots. They are true and they are for sale; they are not what a person
+          came here to do. */}
+      {papicUnlockPricePhp && !ownsPapicUnlock ? (
+        <section className="flex flex-col gap-3 rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold tracking-tight">
+              Everything Papic, one price
+            </h2>
+            <p className="max-w-prose text-sm text-ink/70">
+              Unlimited cameras for the whole {papicEventWord} + every add-on (Kwento,
+              Photo Wall, Thank You, Stories, Camera Bridge).
+            </p>
           </div>
-        </details>
+          {papicPlatformSettings ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="PAPIC_UNLOCK"
+              displayName="Unlock all of Papic"
+              originalPriceCentavos={String(Math.round(papicUnlockPricePhp * 100))}
+              settings={papicPlatformSettings}
+              triggerLabel={`Unlock all · ${formatPhp(papicUnlockPricePhp)}`}
+              triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
+            />
+          ) : (
+            <span className="shrink-0 font-mono text-sm text-ink/60">
+              {formatPhp(papicUnlockPricePhp)}
+            </span>
+          )}
+        </section>
+      ) : null}
 
-        </>
+      {ownsKeepFullRes ? (
+        <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
+          ✓ <span className="font-medium text-ink">Keep Full-Res is active</span> — we
+          keep every full-resolution original for this event, undegraded.
+        </section>
+      ) : keepFullResPricePhp ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 sn-tile p-5">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-mulberry" aria-hidden />
+              <h2 className="text-sm font-semibold text-ink">Keep your full-res originals</h2>
+            </div>
+            {/* ⚠ Said "After 3 months" — the clock became SIX months on
+                2026-08-02 and this card was never updated. It is dormant today
+                (it renders only while the Keep Full-Res SKU is active, and that
+                is switched off), so nobody has read the wrong number — but a
+                dormant screen with a stale number is a landmine for whenever
+                the owner flips the SKU back on. */}
+            <p className="text-xs text-ink/60">
+              Your online gallery stays free, for life. After 6 months we keep a
+              beautiful compressed copy, and your full-resolution originals live in
+              your own Google Drive. Want us to keep every pristine original too?
+            </p>
+          </div>
+          {papicPlatformSettings ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="HIGH_RES_ARCHIVE"
+              displayName="Keep Full-Res"
+              originalPriceCentavos={String(Math.round(keepFullResPricePhp * 100))}
+              settings={papicPlatformSettings}
+              triggerLabel={`Keep Full-Res · ${formatPhp(keepFullResPricePhp)}/yr`}
+              triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-mulberry/40 px-4 py-2.5 text-sm font-medium text-mulberry hover:bg-mulberry/5"
+            />
+          ) : (
+            <span className="shrink-0 font-mono text-sm text-ink/60">
+              {formatPhp(keepFullResPricePhp)}/yr
+            </span>
+          )}
+        </section>
       ) : null}
 
       <MiniTour tourKey="customer_papic_v1" />
@@ -2042,6 +2058,36 @@ async function GalleryPreviewCard({
   eventId: string;
 }) {
   const supabase = await createClient();
+
+  // THE VENUE'S CLOCK, for the gallery's per-tile credit ("Ninang Cora · 4:12 PM").
+  //
+  // ⚠ ITS OWN SELECT, DELIBERATELY, AND THIS IS NOT TIDINESS. Naming a column
+  // PostgREST will not serve makes it refuse the WHOLE query, and this page's
+  // main event read answers a refusal with `notFound()` — so folding two
+  // coordinates into it would turn a grant problem into a live celebration
+  // rendering as missing. Both columns are granted to `authenticated` in
+  // production (verified 2026-08-27); this shape means that stops being
+  // load-bearing.
+  //
+  // 🔑 NO ZONE ⇒ NO TIME. A refusal here drops the time half of every credit and
+  // keeps the name. It never prints the reader's own clock as the venue's.
+  const { data: venueForClock, error: venueForClockError } = await supabase
+    .from('events')
+    .select('venue_latitude, venue_longitude')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  // A REFUSED QUERY IS NOT A THROWN ERROR — bound, logged, and it changes
+  // nothing the screen STATES: the credits keep the name and drop the time.
+  if (venueForClockError) {
+    logQueryError('PapicStudioPage.venueForClock', venueForClockError, { eventId }, 'graceful_degrade');
+  }
+  const galleryTimeZone = venueForClock
+    ? eventTimezoneFromCoords(
+        (venueForClock.venue_latitude as number | null) ?? null,
+        (venueForClock.venue_longitude as number | null) ?? null,
+      )
+    : null;
+
   const [photos, densityRows, seesAll, preservationTotals] = await Promise.all([
     fetchPapicGallery(supabase, eventId),
     getKwentoDensity(eventId, 60),
@@ -2133,6 +2179,7 @@ async function GalleryPreviewCard({
         <PapicGalleryGrid
           photos={photos}
           eventId={eventId}
+          timeZone={galleryTimeZone}
           kwentoDensity={kwentoDensity}
           preservationTotals={preservationTotals}
           chapters={galleryChapters}

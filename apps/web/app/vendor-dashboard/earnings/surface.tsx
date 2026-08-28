@@ -27,6 +27,7 @@ import {
   type VendorVerificationState,
 } from '@/lib/payouts';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 
 export const metadata = { title: 'Earnings · Vendor' };
 
@@ -373,7 +374,9 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
             <p className="text-sm font-medium text-ink">No bookings logged yet.</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
               Add services on the{' '}
-              <Link href="/vendor-dashboard/services" className="text-mulberry hover:underline">
+              {/* An empty ledger means no bookings, which usually means no
+                  cards — so this lands on the picker, not the Coverage tab. */}
+              <Link href={SERVICE_MAKER_HREF} className="text-mulberry hover:underline">
                 Services
               </Link>{' '}
               tab. Once couples lock you on their event, your booked work shows

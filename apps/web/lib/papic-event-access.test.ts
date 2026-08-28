@@ -73,7 +73,7 @@ test('every Phase-1 closed-roster type is allowed today', () => {
     'hangout',
     // Added with the type (2026-08-24, W4-WORDS) under the standing 2026-08-01
     // "offer Papic everywhere" ruling — see the array's own comment.
-    'funeral',
+    'wake',
   ]);
 });
 

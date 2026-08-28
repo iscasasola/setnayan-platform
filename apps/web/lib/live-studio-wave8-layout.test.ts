@@ -332,7 +332,27 @@ test('WAVE 8 — the shared <Sheet> `wide` prop is additive (existing callers un
   // A default of false is what makes this safe to add to a primitive other
   // surfaces already mount.
   assert.match(primitive, /wide = false/);
-  assert.match(primitive, /wide \? 'sm:w-\[min\(34rem,92vw\)\]' : 'sm:w-\[22rem\]'/);
+  // ⚠ THE BREAKPOINT IS DELIBERATELY NOT PINNED HERE ANY MORE, AND THIS IS NOT A
+  // WEAKENING. This line read `sm:w-[min(34rem,92vw)]' : 'sm:w-[22rem]` and went
+  // red on 2026-08-28 when the sheet's dock point moved from `sm:` to `lg:` —
+  // a change about something else entirely (the drawer was docking at 640px
+  // while the phone bottom bar stays on screen to 1023px, so the app rendered
+  // phone chrome and a desktop drawer at once).
+  //
+  // 🔑 WHAT THIS TEST IS ABOUT IS THAT `wide` IS ADDITIVE: it defaults false, and
+  // it chooses between two widths at ONE breakpoint. That is still asserted, on
+  // both halves. The breakpoint itself is now pinned harder than a literal ever
+  // did, by app/_components/sheet-agrees-with-the-nav.test.ts, which reads it out
+  // of the sheet AND the bottom nav and fails when the two disagree.
+  const ternary = /wide \? '([a-z0-9]+):w-\[min\(34rem,92vw\)\]' : '([a-z0-9]+):w-\[22rem\]'/.exec(
+    primitive,
+  );
+  assert.ok(ternary, 'the wide/narrow width ternary is gone from the sheet primitive');
+  assert.equal(
+    ternary![1],
+    ternary![2],
+    'the wide and narrow drawer widths flip at DIFFERENT breakpoints — one of them is stranded',
+  );
 });
 
 test('WAVE 8 — the window strip `compact` prop is additive and clamps rather than deletes', () => {

@@ -43,6 +43,63 @@ export type TypeQuestion = {
  * Every question is skippable; only answered options shape `interested_categories`.
  */
 export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
+  /**
+   * 🕊️ THE FUNERAL — THREE questions, not four, and every option is something a
+   * bereaved family is actually arranging that week.
+   *
+   * Derived from the shipped WAKE_TEMPLATE checklist (lib/checklist-event-
+   * type-defs.ts), not invented: the funeral home, the papers, the wake schedule,
+   * the food, the flowers, the procession transport, the memorial cards. The
+   * questions ask which of those the family wants help finding; the checklist
+   * still lists all of them either way.
+   *
+   * ⚖ Every `adds` id is one of the EIGHT categories a funeral can actually
+   * reach (catering · choir · coordinator · florist · guest_shuttle ·
+   * photo_video · printing, scoped by migration 20271163083797, plus the
+   * universal `livestream`). The shell intersects `adds` against the type's real
+   * tiles, so an out-of-scope slug would be dropped silently — which is exactly
+   * how a question becomes decoration. These were read out of the live taxonomy.
+   *
+   * 🔒 No question asks the family to rank, rate or celebrate anything, and every
+   * one is skippable — including by answering "not decided yet", which is the
+   * true state of most of these in the first days.
+   */
+  wake: [
+    {
+      id: 'service',
+      eyebrow: 'The service',
+      question: 'How will the farewell be held?',
+      options: [
+        { key: 'mass', title: 'A funeral Mass', desc: 'A church service before the interment.', adds: ['choir', 'printing'] },
+        { key: 'service', title: 'A memorial service', desc: 'A gathering and a few words, without a Mass.', adds: ['printing'] },
+        { key: 'private', title: 'Quietly, family only', desc: 'No public programme.', adds: [] },
+        { key: 'undecided', title: 'Not decided yet', desc: 'You can come back to this.', adds: [] },
+      ],
+    },
+    {
+      id: 'far_away',
+      eyebrow: 'Those far away',
+      question: 'Some who loved them cannot be here.',
+      options: [
+        { key: 'stream', title: 'Let them watch the service', desc: 'A private stream for family who are abroad.', adds: ['livestream'] },
+        { key: 'photos', title: 'Share photographs afterwards', desc: 'So they can see the days they missed.', adds: ['photo_video'] },
+        { key: 'both', title: 'Both', desc: 'Watch on the day, and keep the photographs.', adds: ['livestream', 'photo_video'] },
+        { key: 'none', title: 'Everyone will be here', desc: 'No need for either.', adds: [] },
+      ],
+    },
+    {
+      id: 'help',
+      eyebrow: 'What would help',
+      question: 'What would take the most off your hands?',
+      options: [
+        { key: 'food', title: 'Food for those keeping vigil', desc: 'Coffee, pandesal and meals through the nights.', adds: ['catering'] },
+        { key: 'flowers', title: 'Flowers and the chapel setting', desc: 'Wreaths, the casket spray, the room itself.', adds: ['florist'] },
+        { key: 'prints', title: 'Memorial cards and the tarpaulin', desc: 'The printing, done and delivered.', adds: ['printing'] },
+        { key: 'transport', title: 'Transport for the procession', desc: 'Getting everyone to the church and the resting place.', adds: ['guest_shuttle'] },
+        { key: 'arrangements', title: 'Someone to handle the arrangements', desc: 'A coordinator to carry the calls and the timing.', adds: ['coordinator'] },
+      ],
+    },
+  ],
   birthday: [
     {
       id: 'highlight',

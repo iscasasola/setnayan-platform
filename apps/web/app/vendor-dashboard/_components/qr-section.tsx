@@ -16,6 +16,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 
 import { QrCard } from './qr-card';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
 
 /**
  * VendorQrSection — the vendor's QR row (Shortlist ↔ Locked), self-contained.
@@ -54,13 +55,15 @@ export async function VendorQrSection({
   const activeServices = (
     await fetchVendorServices(supabase, vendorProfileId).catch(() => [])
   ).filter((s) => s.is_active);
+  // A card's kind may be the shop's OWN coverage word now, so its name comes
+  // from the shared labeller rather than a local fallback that ends in the key.
+  const kindLabel = await cardKindLabeller();
   const serviceOptions = activeServices.length
     ? activeServices.map((s) => ({
         value: s.vendor_service_id,
-        label:
-          s.title ?? VENDOR_CATEGORY_LABEL[s.category as VendorCategory] ?? s.category,
+        label: s.title ?? kindLabel(s.category),
       }))
-    : coverage.map((c) => ({ value: c as string, label: VENDOR_CATEGORY_LABEL[c] ?? c }));
+    : coverage.map((c) => ({ value: c as string, label: kindLabel(c as string) }));
   const contractOptions = (
     await fetchVendorContracts(supabase, vendorProfileId).catch(() => [])
   )

@@ -84,6 +84,8 @@ export default async function VendorClientsPage({ searchParams }: Props) {
 
   const [pools, bookings, blocks, threads] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
+    // CAPACITY, not the room: this row is paired with the pool it belongs to and
+    // rendered under that pool's label — an agreed booking holds no pool.
     fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
     fetchVendorThreads(supabase, profile.vendor_profile_id),

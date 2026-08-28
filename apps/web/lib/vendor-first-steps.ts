@@ -28,6 +28,8 @@
  * Pure + input-only so the ordering rules are testable without a database.
  */
 
+import { SERVICE_MAKER_HREF } from './service-picker-anchor';
+
 export type FirstStepKey =
   | 'shop_details'
   | 'service_card'
@@ -154,7 +156,12 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       n: 2,
       title: 'Put up your first service',
       body: 'A service card is what a couple actually books — a photo, what it covers, and your starting price. You can build it now; it stays private until you go live.',
-      href: '/vendor-dashboard/services',
+      // 🔴 THE WORST INSTANCE OF THE DEAD CREATE LINK, because of WHO sees it:
+      // this step renders only while `serviceCount === 0`, and a vendor with
+      // zero cards is exactly who the services screen lands on the Coverage tab
+      // — with the card picker in a hidden panel behind a shut drawer. Step two
+      // of a new supplier's own checklist opened a page that did nothing.
+      href: SERVICE_MAKER_HREF,
       cta: 'Create a service',
       meter:
         serviceCount > 0

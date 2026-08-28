@@ -69,6 +69,9 @@ export default async function FindMyTablePage({ params }: Props) {
   // the old `!== 'wedding'`), now config-driven.
   const profile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(profile, 'website')) notFound();
+  // 🪑 Seat rooms exist only for kinds that seat people — see seat/page.tsx for
+  // the full rule and the writer half that makes narrowing this safe.
+  if (!surfaceEnabled(profile, 'seating')) notFound();
   // Reused for its WORDS as well as its gate. Wedding → 'couple', unchanged.
   const words = eventWordsFromProfile(profile);
   const roomLinks = await loadRoomLinks({
@@ -152,7 +155,7 @@ export default async function FindMyTablePage({ params }: Props) {
       <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
         <PromptCard
           title="The floor plan is on its way"
-          body={`${words.organizerIsHonoree ? 'The venue layout is still being arranged.' : `${words.TheOrganizer} is still arranging the venue layout.`} Check back closer to the day — your table map will appear here.`}
+          body={`${words.TheHost} is still arranging the venue layout. Check back closer to the day — your table map will appear here.`}
         />
       </Shell>
     );
@@ -200,9 +203,7 @@ export default async function FindMyTablePage({ params }: Props) {
         ) : (
           <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
             You haven&rsquo;t been seated at a table yet.{' '}
-            {words.organizerIsHonoree
-              ? 'Once the seating is posted, your spot lights up on this map.'
-              : `Once ${words.theOrganizer} seats you, your spot lights up on this map.`}
+            {`Once ${words.theHost} seats you, your spot lights up on this map.`}
           </p>
         )}
 

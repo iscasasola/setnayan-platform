@@ -118,6 +118,19 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   // recap): the event-type profile decides, and a missing profile row degrades
   // to ENABLED, matching GENERIC_PROFILE. A wedding is unchanged.
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+  // 🪑 THE SEAT ROOMS BELONG TO THE KINDS THAT SEAT PEOPLE (owner 2026-08-28,
+  // "only its own rooms"; the grid is EVENT_HUB_UNIVERSAL_DESIGN_2026-08-17 § A).
+  // A trip, a dinner date and a hangout have no banquet floor, so this pass
+  // could only ever have shown its "no seat yet" plate forever. ABSENT, NEVER
+  // GREYED (§ D rule 2) — hence notFound(), not an empty state.
+  //
+  // 🔴 READ THE COMMENT ABOVE BEFORE WIDENING THIS. This gate is only safe
+  // because the same commit closes the WRITER: the seating room redirects, the
+  // day-of Seats tab is omitted, and the paid CUSTOM_QR_GUEST add-on carries
+  // `surface: 'seating'`. Narrowing this line ALONE re-creates the exact defect
+  // the block above records — a host who bought the branded QR pass, whose
+  // guests then land on "this page does not exist".
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'seating')) notFound();
 
   // The three guest-facing strings below said "wedding" outright. That was
   // harmless while the page 404'd for everything else; opening it to a debut or
@@ -435,7 +448,7 @@ async function PersonalPass({
       <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="The floor plan is on its way"
-          body={`${words.organizerIsHonoree ? 'The venue layout is still being arranged.' : `${words.TheOrganizer} is still arranging the venue layout.`} Check back closer to the day — your seat pass will appear here.`}
+          body={`${words.TheHost} is still arranging the venue layout. Check back closer to the day — your seat pass will appear here.`}
         />
       </SeatPassShell>
     );
@@ -493,9 +506,7 @@ async function PersonalPass({
         ) : (
           <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
             You haven&rsquo;t been seated at a table yet.{' '}
-            {words.organizerIsHonoree
-              ? 'Once the seating is posted, your spot lights up on this map.'
-              : `Once ${words.theOrganizer} seats you, your spot lights up on this map.`}
+            {`Once ${words.theHost} seats you, your spot lights up on this map.`}
           </p>
         )}
 

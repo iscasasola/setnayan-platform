@@ -20,7 +20,7 @@
  * label_en only; a re-home edits parent_id (+ denormalized folder_id) only.
  */
 
-import { useCallback, useEffect, useMemo, useState, useTransition, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -55,6 +55,14 @@ import {
 import Link from 'next/link';
 import { getLucideIcon } from '@/lib/nav-icons';
 import { ADMIN_ASK_PARAM } from '@/lib/admin-map/humanize-field';
+import { PreparedJobCard } from './prepared-job-card';
+import {
+  PREPARED_TAXONOMY_JOBS,
+  buildPreparedValues,
+  type PreparedCatalogs,
+  type PreparedJobSpec,
+  type PreparedValues,
+} from './prepared-jobs';
 import { Sheet } from '@/app/_components/sheet';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -295,12 +303,38 @@ export type InspectorTab = 'details' | 'services' | 'refinements';
  *  the admin has reviewed or pressed anything. See the `TaxonomyStudio` mount
  *  effect for how it is read off the URL. */
 export type AddServicePrefill = {
+  /** The ask params this prefill came from — used as a remount key so a SECOND
+   *  ask about an already-open tile still refreshes the uncontrolled inputs. */
+  nonce: string;
   displayNameEn: string;
   faith: string;
   refinementLabel: string;
   refinementOptions: string;
   isRental: boolean;
   isPh: boolean;
+};
+
+/**
+ * What the search box's assistant gathered for `createTaxonomyNode` — ADD A
+ * CATEGORY, which is the owner's own sentence ("add a new category on the
+ * taxonomy service") and a different act from adding a service to a category
+ * that already exists (`AddServicePrefill`, above).
+ *
+ * The parent is carried as the admin's own WORDS, not an id — the box never
+ * knows a real `parent_id` — so the studio resolves it against the real folder
+ * list. `parentId` is null when nothing matched: an honest miss, which leaves
+ * the folder picker on whatever is already selected rather than guessing and
+ * filing a category under the wrong parent.
+ */
+export type NewCategoryPrefill = {
+  /** Remount key, same job as `AddServicePrefill.nonce` — a second ask must
+   *  refresh the uncontrolled inputs of a form that is already open. */
+  nonce: string;
+  parentId: string | null;
+  /** The words the admin gave for the parent, shown when they resolved to
+   *  nothing so the miss is visible rather than silent. */
+  parentQuery: string;
+  labelEn: string;
 };
 
 export type StudioView =
@@ -311,6 +345,18 @@ export type StudioView =
   | 'requests'
   | 'vocab-event'
   | 'vocab-faith';
+
+/**
+ * The views that still render the folder rail + tile grid — and therefore the
+ * only ones where the "new category" composer can be seen at all. The other
+ * four (`unfiled` · `requests` · both vocabularies) replace that whole pane.
+ *
+ * Derived from the ONE render branch that decides it, not from memory: an ask
+ * arriving while the admin sits on Requests must move them somewhere the
+ * prepared form is visible, or the box has "prepared" something into a pane
+ * that is not on screen.
+ */
+const VIEWS_WITH_TILE_GRID = new Set<StudioView>(['all', 'faith', 'scoped']);
 
 const PHASE_TONE_BASE = 'bg-ink/5 text-ink/70';
 
@@ -361,11 +407,18 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
 
   // ── Prefilled from the search box's assistant (createCanonicalLeaf) ─────────
   //
-  // The admin can now ask the search box "add a new category on the taxonomy
-  // service" and answer a few questions there; it navigates here carrying
-  // `?admin_ask=createCanonicalLeaf&aa_<field>=<value>`. This is the ONE
-  // consumer wired so far — see `lib/admin-map/humanize-field.ts` for the
-  // param contract and `admin-command-palette.tsx` for where it is built.
+  // The admin asks the search box to add a SERVICE to a tile and answers a few
+  // questions there; it navigates here carrying
+  // `?admin_ask=createCanonicalLeaf&aa_<field>=<value>`. See
+  // `lib/admin-map/humanize-field.ts` for the param contract and
+  // `admin-command-palette.tsx` for where it is built.
+  //
+  // ⚠ THIS IS NOT THE OWNER'S SENTENCE. This docblock used to claim it handled
+  // *"add a new category on the taxonomy service"*. It does not and cannot: a
+  // CATEGORY is a tile under a parent folder — `createTaxonomyNode`, read by
+  // the effect below. Adding a SERVICE goes inside a category that already
+  // exists. Two acts, two forms; naming the wrong one here is what let three
+  // pull requests ship believing the flagship case was covered.
   //
   // 🔑 THE ASSISTANT NEVER KNOWS A REAL tile_id — it only has the words the
   // admin typed for "which tile", so this resolves that text against the real
@@ -373,8 +426,37 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
   // pre-opens rather than guessing wrong and silently misplacing a service.
   const searchParams = useSearchParams();
   const [addServicePrefill, setAddServicePrefill] = useState<AddServicePrefill | null>(null);
+
+  /**
+   * 🔴 THE DEAD END THIS CLOSES. This effect used to carry an empty dependency
+   * array with a comment claiming it "runs once, off the URL the page loaded
+   * with". True, and that was the bug: the search box is mounted on EVERY admin
+   * page including this one, so the most likely place to be when you ask to add
+   * a taxonomy category is /admin/taxonomy itself. Answering there and pressing
+   * the button is a SAME-ROUTE navigation — React reconciles instead of
+   * remounting, `useSearchParams` hands over the new values, and an empty
+   * dependency array never looks again. The page did not change, nothing
+   * opened, nothing filled, and no error was shown. Every answer was discarded.
+   *
+   * 🔑 THE SIGNATURE IS WHAT MAKES RE-RUNNING SAFE. It is built from the ask
+   * params ALONE, so typing in the filter box (which calls `syncUrl` and
+   * rewrites ?q= on every keystroke) cannot re-apply a prefill over edits the
+   * admin has already made by hand — only a genuinely NEW ask does.
+   */
+  const askSignature = useMemo(
+    () =>
+      [...searchParams.entries()]
+        .filter(([k]) => k === ADMIN_ASK_PARAM || k.startsWith('aa_'))
+        .map(([k, v]) => `${k}=${v}`)
+        .sort()
+        .join('&'),
+    [searchParams],
+  );
+  const appliedAskRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (searchParams.get(ADMIN_ASK_PARAM) !== 'createCanonicalLeaf') return;
+    if (appliedAskRef.current === askSignature) return;
     const tileQuery = (searchParams.get('aa_tile_id') ?? '').trim().toLowerCase();
     const match = tileQuery
       ? (data.tiles.find((t) => t.label.toLowerCase() === tileQuery) ??
@@ -382,9 +464,15 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
         data.tiles.find((t) => tileQuery.includes(t.label.toLowerCase())))
       : null;
     if (!match) return;
+    appliedAskRef.current = askSignature;
     setOpenTileId(match.id);
     setOpenTab('services');
     setAddServicePrefill({
+      // The signature doubles as the remount key for the inspector below — see
+      // the `key` on <Inspector>. Without it a second ask about a tile that is
+      // ALREADY open changes no key, the uncontrolled defaultValue inputs never
+      // re-mount, and the new answers are silently ignored.
+      nonce: askSignature,
       displayNameEn: searchParams.get('aa_display_name_en') ?? '',
       faith: searchParams.get('aa_faith') ?? '',
       refinementLabel: searchParams.get('aa_refinement_label') ?? '',
@@ -392,9 +480,120 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
       isRental: searchParams.get('aa_is_rental') === '1',
       isPh: searchParams.get('aa_is_ph') === '1',
     });
-    // Runs once, off the URL the page loaded with — not a dependency loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, askSignature, data.tiles]);
+
+  // ── Prefilled from the search box's assistant (createTaxonomyNode) ─────────
+  //
+  // 🔴 THE ONE THE OWNER ACTUALLY ASKED FOR. He typed, in production, "add a
+  // new category on the taxonomy service". A CATEGORY is a tile under a parent
+  // folder — `createTaxonomyNode` — not a service inside a category, which is
+  // the sibling effect above. For three attempts the box asked his two
+  // questions (which parent · what label) and threw both answers away, because
+  // this page only ever read the OTHER job's marker. Every guard stayed green:
+  // the job that was wired was wired correctly.
+  //
+  // 🔑 THE PARENT IS RESOLVED, NEVER GUESSED, AND THE FORM SHOWS IT. The box
+  // only has the words the admin typed, so a miss leaves the picker on the
+  // folder already selected and says so on screen — filing a category under a
+  // silently-wrong parent is worse than asking once more.
+  const [newCategoryPrefill, setNewCategoryPrefill] = useState<NewCategoryPrefill | null>(null);
+  const appliedCategoryAskRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get(ADMIN_ASK_PARAM) !== 'createTaxonomyNode') return;
+    if (appliedCategoryAskRef.current === askSignature) return;
+    appliedCategoryAskRef.current = askSignature;
+    const parentQuery = (searchParams.get('aa_parent_id') ?? '').trim();
+    const needle = parentQuery.toLowerCase();
+    const parent = needle
+      ? (data.folders.find((f) => f.id.toLowerCase() === needle) ??
+        data.folders.find((f) => f.label.toLowerCase() === needle) ??
+        data.folders.find((f) => f.label.toLowerCase().includes(needle)) ??
+        data.folders.find((f) => needle.includes(f.label.toLowerCase())))
+      : undefined;
+    if (parent) setSelectedFolder(parent.id);
+    // The composer lives in the tile grid, and four views replace that grid
+    // entirely (Unfiled · Requests · both vocabularies). Landing an ask on one
+    // of them would render the prepared form nowhere at all — the same
+    // "prepared and invisible" failure this whole feature keeps producing.
+    setView((v) => (VIEWS_WITH_TILE_GRID.has(v) ? v : 'all'));
+    setNewCategoryPrefill({
+      nonce: askSignature,
+      parentId: parent?.id ?? null,
+      parentQuery,
+      labelEn: searchParams.get('aa_label_en') ?? '',
+    });
+  }, [searchParams, askSignature, data.folders]);
+
+  // ── Prefilled from the search box's assistant (every OTHER wired job) ──────
+  //
+  // The two effects above are hand-written, one per job, and that does not
+  // scale: this page hosts 43 form-driven jobs, so 41 of them gathered the
+  // admin's answers and threw them away. This is the generic half — a table of
+  // job → what its form needs (`prepared-jobs.ts`) and one card that renders any
+  // entry of it as a real form (`prepared-job-card.tsx`).
+  //
+  // 🔑 THE CATALOGS ARE THE PAGE'S OWN PROPS. Nothing new is fetched, so a
+  // prepared card can never be more or less current than the rows beside it.
+  const preparedCatalogs = useMemo<PreparedCatalogs>(
+    () => ({
+      eventType: data.eventTypeVocab.map((v) => ({ value: v.key, label: v.label })),
+      // TITLE-CASE faith_key is the stored value and must never be lowercased —
+      // only the MATCHING is case-insensitive, never the value handed back.
+      faith: data.faithVocabFull.map((f) => ({ value: f.key, label: f.label })),
+      tile: data.tiles.map((t) => ({ value: t.id, label: t.label })),
+      // Folders FIRST, so "rename the Food folder" cannot be won by a tile that
+      // merely contains the word.
+      node: [
+        ...data.folders.map((f) => ({ value: f.id, label: f.label })),
+        ...data.tiles.map((t) => ({ value: t.id, label: t.label })),
+      ],
+      service: data.services.map((s) => ({ value: s.canonical, label: s.displayEn })),
+      request: data.requests.map((r) => ({
+        value: r.requestId,
+        label: `${r.proposedLabel} — ${r.vendorName}`,
+      })),
+      icon: data.iconNames.map((n) => ({ value: n, label: n })),
+    }),
+    [
+      data.eventTypeVocab,
+      data.faithVocabFull,
+      data.folders,
+      data.tiles,
+      data.services,
+      data.requests,
+      data.iconNames,
+    ],
+  );
+
+  const [preparedJob, setPreparedJob] = useState<{
+    nonce: string;
+    jobName: string;
+    spec: PreparedJobSpec;
+    prepared: PreparedValues;
+  } | null>(null);
+  const appliedPreparedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const jobName = searchParams.get(ADMIN_ASK_PARAM);
+    if (!jobName) return;
+    const spec = PREPARED_TAXONOMY_JOBS.get(jobName);
+    // Not one of the generic jobs — the two hand-written effects above own
+    // theirs, and everything else still gets the box's honest "this page does
+    // not fill itself in yet".
+    if (!spec) return;
+    // Keyed on the ask params ALONE, like its two siblings: typing in the filter
+    // box rewrites ?q= on every keystroke, and re-applying a prefill over edits
+    // the admin has already made by hand would be its own quiet defect.
+    if (appliedPreparedRef.current === askSignature) return;
+    appliedPreparedRef.current = askSignature;
+    setPreparedJob({
+      nonce: askSignature,
+      jobName,
+      spec,
+      prepared: buildPreparedValues(spec, (key) => searchParams.get(key), preparedCatalogs),
+    });
+  }, [searchParams, askSignature, preparedCatalogs]);
 
   const [dragTileId, setDragTileId] = useState<string | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
@@ -637,6 +836,31 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
         </div>
       ) : null}
 
+      {/*
+        THE PREPARED JOB, ABOVE THE VIEW SWITCH ON PURPOSE.
+
+        Every other pane on this page is replaceable — four views swap the whole
+        centre out — so anything rendered INSIDE one can be prepared into a pane
+        that is not on screen. That has been this feature's recurring failure,
+        and the shipped category composer needs a whole set (VIEWS_WITH_TILE_GRID)
+        plus a view switch to dodge it. Rendering here dodges it structurally
+        instead: the card is self-contained (its pickers carry the full lists),
+        so it needs no particular pane, and it never moves the admin off the view
+        they were on.
+      */}
+      {preparedJob ? (
+        <PreparedJobCard
+          // The nonce remounts the uncontrolled inputs, or a SECOND ask would
+          // leave the first ask's answers sitting in the boxes.
+          key={preparedJob.nonce}
+          jobName={preparedJob.jobName}
+          spec={preparedJob.spec}
+          prepared={preparedJob.prepared}
+          catalogs={preparedCatalogs}
+          onDiscard={() => setPreparedJob(null)}
+        />
+      ) : null}
+
       {view === 'unfiled' ? (
         <UnfiledTray unfiled={unfiled.filter(svcMatch)} data={data} />
       ) : view === 'requests' ? (
@@ -745,6 +969,85 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
 
           {/* ── Center — tile cards ──────────────────────────────────────── */}
           <div className={pending ? 'opacity-60 transition-opacity' : ''}>
+            {/*
+              THE PREPARED CATEGORY, ABOVE THE GRID SO IT IS THE FIRST THING ON
+              SCREEN. It renders ONLY when the search box actually prepared one
+              — the everyday "Add tile" ghost at the end of the grid is
+              untouched, so nothing about the ordinary flow changes.
+
+              🔒 IT PREPARES, IT NEVER PRESSES. This is a real <form action=…>
+              posting the real `createTaxonomyNode`; the values are
+              `defaultValue`s the admin can edit, and the category exists only
+              once THEY press Create. That is the one-person admin plan
+              (2026-07-11) — the machine may prepare and hold back.
+            */}
+            {newCategoryPrefill ? (
+              <form
+                // The nonce remounts the uncontrolled inputs, or a SECOND ask
+                // would leave the first ask's answers sitting in the boxes.
+                key={newCategoryPrefill.nonce}
+                action={createTaxonomyNode}
+                className="mb-4 rounded-xl border border-success-200 bg-success-50/40 p-3"
+              >
+                <p className="flex items-center gap-1.5 text-[11px] text-success-800">
+                  <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
+                  Prepared from your question in the search box — check the folder and the
+                  name, then press Create category yourself. Nothing has been added yet.
+                </p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <label className="flex-1 text-[11px] text-ink/60">
+                    Folder it goes under
+                    <select
+                      name="parent_id"
+                      required
+                      defaultValue={newCategoryPrefill.parentId ?? selectedFolder}
+                      className="mt-0.5 w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+                    >
+                      {data.folders.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex-1 text-[11px] text-ink/60">
+                    Category name
+                    <input
+                      name="label_en"
+                      required
+                      minLength={2}
+                      maxLength={80}
+                      defaultValue={newCategoryPrefill.labelEn}
+                      placeholder="e.g. Photo booths"
+                      className="mt-0.5 w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+                    />
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <SubmitButton
+                      className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"
+                      pendingLabel="Creating…"
+                    >
+                      Create category
+                    </SubmitButton>
+                    <button
+                      type="button"
+                      onClick={() => setNewCategoryPrefill(null)}
+                      className="rounded-md border border-ink/15 px-3 py-1.5 text-xs text-ink/60 hover:bg-ink/5"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+                {/* A miss is SAID OUT LOUD. Silence here is how a category ends
+                    up filed under whatever folder happened to be selected. */}
+                {newCategoryPrefill.parentId === null && newCategoryPrefill.parentQuery ? (
+                  <p className="mt-2 text-[11px] text-warn-800">
+                    No folder here is called “{newCategoryPrefill.parentQuery}” — pick the right
+                    one above before creating.
+                  </p>
+                ) : null}
+              </form>
+            ) : null}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {visibleTiles.map((tile, idx) => (
                 <TileCard
@@ -832,7 +1135,10 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
       >
         {openTile ? (
           <Inspector
-            key={openTile.id}
+            // The prefill nonce is part of the key on purpose: a new ask about
+            // a tile that is already open must re-mount this subtree, or its
+            // uncontrolled defaultValue inputs keep the previous answers.
+            key={`${openTile.id}:${addServicePrefill?.nonce ?? ''}`}
             tile={openTile}
             data={data}
             services={servicesByTile.get(openTile.id) ?? []}

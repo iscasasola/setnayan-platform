@@ -1243,7 +1243,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     publishedAt: '2026-08-24',
     eventDateLabel: 'May 2026',
     city: 'Lipa',
-    eventType: 'Funeral',
+    eventType: 'Wake',
     ceremonyType: 'Catholic funeral mass',
     venueSetting: 'Family home & parish',
     venueName: 'The Villanueva home, then San Sebastian Parish, Lipa',

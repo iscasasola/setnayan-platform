@@ -41,6 +41,12 @@ export default async function VendorRealStoriesPage() {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
+  // LEFT ON THE POOL READ, ON PURPOSE — and NOT because this is capacity.
+  // It is the same "which events did this shop work" question the day-of screens
+  // ask, one screen over. It feeds loadVendorFeaturedStories, whose output the
+  // shop can promote onto its PUBLIC page, so widening it here would put an
+  // agreed-but-unpaid booking one click from strangers — the same leak
+  // app/v/[slug] is guarded against. Widening needs that gate first.
   const bookings = await fetchVendorPoolBookings(
     supabase,
     profile.vendor_profile_id,

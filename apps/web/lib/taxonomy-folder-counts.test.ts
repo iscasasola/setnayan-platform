@@ -29,7 +29,17 @@ import {
 /** The measured baseline — every one verified against the shipped taxonomy. */
 const BASELINE: Record<string, number> = {
   venue: 28,
-  planning: 12,
+  // 12 → 17 on 2026-08-27. The owner opened `wedding_paperwork` (3 services)
+  // and `travel_honeymoon` (2) to the marketplace, and Paperwork & Government
+  // moved from the `venue` folder to `planning` in the same change.
+  //
+  // 🔑 THE ARITHMETIC IS THE PROOF THAT NOTHING ELSE MOVED: +5 here and `venue`
+  // UNCHANGED at 28. The three paperwork services left `venue` but were
+  // marketplace-hidden, so they were never in its count to begin with — a
+  // folder move alone would have shown as -3/+3. Seeing +5/-0 is what says the
+  // delta is exactly the five services that went on sale, and no exclusion was
+  // quietly dropped (which is the failure this baseline exists to catch).
+  planning: 17,
   feast: 7,
   design: 26,
   program: 20,
@@ -43,6 +53,14 @@ const BASELINE: Record<string, number> = {
   logistics_safety: 2,
   insurance: 3,
   specialty: 1,
+  // NEW 2026-08-27 (second change that day): a wake's own trades — owner ruled
+  // yes to listing death-care suppliers. 12 services under three tiles
+  // (funeral home · cremation · memorial park).
+  //
+  // 🔑 THE ARITHMETIC AGAIN: +12 here and EVERY OTHER FOLDER UNCHANGED. These
+  // are new services, not moved ones — nothing left another folder to get here,
+  // which is what a -n/+n pair would have shown.
+  farewell: 12,
 };
 
 test('every folder count matches the measured baseline', () => {
@@ -62,11 +80,13 @@ test('every folder count matches the measured baseline', () => {
   );
 });
 
-test('the countable total is 236 of the 276 taxonomy entries', () => {
+test('the countable total is 253 of the 288 taxonomy entries', () => {
   const total = Object.values(FOLDER_SERVICE_COUNT).reduce((a, b) => a + b, 0);
   assert.equal(
     total,
-    236,
+    // 236 + the 5 put on sale 2026-08-27 + the 12 farewell services added the
+    // same day = 253. Re-derived from the two deltas, not bumped to match.
+    253,
     'the two exclusions (marketplaceHidden, setnayan) must both still apply',
   );
 });

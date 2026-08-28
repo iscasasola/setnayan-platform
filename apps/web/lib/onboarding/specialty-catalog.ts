@@ -78,6 +78,122 @@ export type SpecialtySpec = {
 
 /** The catalog, keyed by event_type. Concatenated from the per-type culture objects. */
 export const SPECIALTY_CATALOG: Record<string, SpecialtySpec> = {
+  "wake": {
+    "type": "wake",
+    "label": "Wake (Lamay at libing)",
+    "terminology": "Lamay/burol = the nights of the wake. Pasiyam = the nine nights of prayer after the death. Babang-luksa = the end of mourning, about a year on. Abuloy = the gift of sympathy given to the family.",
+    "the_hook": "The pasiyam is asked for by name, and the roster of who is speaking and who is carrying is uncapped \u2014 a Filipino wake is held up by many hands.",
+    "avoid": [
+      "the word celebration, anywhere",
+      "a countdown to the service",
+      "asking the family to rank or rate anything",
+      "requiring any field \u2014 in the first days most answers are honestly 'not yet'",
+      "assuming a church rite, a burial rather than cremation, or a chapel rather than a home wake"
+    ],
+    "signature_fields": [
+      {
+        "key": "departed_name",
+        "label": "Who we are remembering",
+        "type": "text"
+      },
+      {
+        "key": "born_on",
+        "label": "Born",
+        "type": "date"
+      },
+      {
+        "key": "passed_on",
+        "label": "Passed away",
+        "type": "date"
+      },
+      {
+        "key": "wake_place",
+        "label": "Where the wake is held",
+        "type": "text",
+        "help": "A funeral chapel, the family home, or a parish \u2014 whichever it is."
+      },
+      {
+        "key": "wake_nights",
+        "label": "Nights of lamay",
+        "type": "number",
+        "help": "How many nights the wake will run. Leave it blank if it is not settled."
+      },
+      {
+        "key": "rite_type",
+        "label": "The rite",
+        "type": "select",
+        "options": [
+          "catholic_mass",
+          "christian_service",
+          "inc_service",
+          "muslim_rite",
+          "memorial_service",
+          "no_rite",
+          "undecided"
+        ]
+      },
+      {
+        "key": "officiant_parish",
+        "label": "Priest, pastor or parish",
+        "type": "text",
+        "show_when": {
+          "field": "rite_type",
+          "equals": ["catholic_mass", "christian_service", "inc_service", "muslim_rite"]
+        }
+      },
+      {
+        "key": "final_arrangement",
+        "label": "Burial or cremation",
+        "type": "select",
+        "options": ["burial", "cremation", "undecided"]
+      },
+      {
+        "key": "resting_place",
+        "label": "The resting place",
+        "type": "text",
+        "help": "The cemetery, memorial park or columbarium."
+      },
+      {
+        "key": "pasiyam_start",
+        "label": "Pasiyam \u2014 the nine nights of prayer",
+        "type": "date",
+        "help": "The first night. We will keep the nine in your schedule."
+      },
+      {
+        "key": "immediate_family",
+        "label": "Immediate family",
+        "type": "person_roster",
+        "help": "Who the notices name, and who the messages of sympathy reach.",
+        "item_fields": [
+          { "key": "person_name", "type": "text" },
+          { "key": "relation", "type": "text" }
+        ]
+      },
+      {
+        "key": "pallbearers",
+        "label": "Those carrying",
+        "type": "person_roster",
+        "item_fields": [
+          { "key": "person_name", "type": "text" }
+        ]
+      },
+      {
+        "key": "eulogists",
+        "label": "Those speaking",
+        "type": "person_roster",
+        "item_fields": [
+          { "key": "person_name", "type": "text" },
+          { "key": "relation", "type": "text" }
+        ]
+      },
+      {
+        "key": "obituary_note",
+        "label": "A few words for the notice",
+        "type": "textarea",
+        "help": "Whatever you would like people to read. It can wait."
+      }
+    ]
+  },
   "wedding": {
     "type": "wedding",
     "label": "Wedding (Kasal)",

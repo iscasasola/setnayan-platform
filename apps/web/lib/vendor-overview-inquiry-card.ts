@@ -57,6 +57,13 @@ export function buildInquiryCard(input: {
   region: string | null;
   /** The vendor's own primary service label (what they were inquired FOR). */
   category: string | null;
+  /**
+   * The organiser noun for this event's type — REQUIRED, NO DEFAULT, `null`
+   * when unresolved. This module is pure like `inquiry-mask.ts`, so the noun is
+   * threaded in from the server caller rather than read here; see
+   * `inquiryPlaceholderLabel` for why a default would be the wrong shape.
+   */
+  hostNoun: string | null;
 }): InquiryWhatsNewCard {
   const city = regionLabel(input.region);
   return {
@@ -64,7 +71,11 @@ export function buildInquiryCard(input: {
     id: `inq-${input.threadId}`,
     threadId: input.threadId,
     title: 'New inquiry — New customer',
-    descriptor: inquiryPlaceholderLabel({ eventType: input.eventType, city }),
+    descriptor: inquiryPlaceholderLabel({
+      eventType: input.eventType,
+      city,
+      hostNoun: input.hostNoun,
+    }),
     eventDate: input.eventDate,
     place: city,
     category: input.category,

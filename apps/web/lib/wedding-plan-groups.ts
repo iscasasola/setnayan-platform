@@ -46,6 +46,11 @@ import {
 } from '@/lib/taxonomy';
 
 export type PlanGroupId =
+  // A wake's own sections (2026-08-27) — see the three groups at the end of
+  // PLAN_GROUPS and `planGroupsForEventType`.
+  | 'farewell_home'
+  | 'farewell_cremation'
+  | 'farewell_memorial_park'
   // Foundation tier
   | 'ceremony_venue'
   | 'reception_venue'
@@ -82,6 +87,8 @@ export type PlanGroupId =
   | 'accommodation'
   // Paper tier
   | 'invitations_stationery'
+  | 'wedding_paperwork'
+  | 'travel_honeymoon'
   | 'logistics';
 
 /**
@@ -151,6 +158,18 @@ export type PlanGroup = {
    * 2026-05-22 22-card grid expansion.
    */
   subcategoryHint?: string;
+  /**
+   * Event types this card belongs to. OMITTED = every type, which is what all
+   * 40-odd wedding-shaped groups are and must stay: adding a scope to them
+   * would be a behaviour change dressed as a refactor.
+   *
+   * 🔑 IT SCOPES WHAT A PERSON SEES, NEVER HOW A PICK BUCKETS.
+   * `planGroupForCategory` stays unfiltered on purpose — a category resolves to
+   * its group whatever the event is, so a stored pick can never become
+   * unbucketable by looking at it from the wrong screen. The filter belongs on
+   * the render, and only there.
+   */
+  eventTypes?: ReadonlyArray<string>;
   /**
    * When false, this card is an entry-point card only — it doesn't
    * bucket-receive vendor picks (its `categories` array is empty), and
@@ -586,6 +605,47 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     subcategoryHint: 'invitation_print',
   },
   {
+    // ⚖ OWNER RULING 2026-08-27 — *"marriage-paper helper yes. honeymoon
+    // planner yes"*. Both categories went on sale in migration 20271173139836;
+    // these two cards are what makes "on sale" real for the couple.
+    //
+    // 🔑 A BOOKABLE CATEGORY WITH NO PLAN GROUP IS HALF-SHIPPED. `bucketVendors
+    // ByGroup` parks a pick whose category no group claims into
+    // UNBUCKETED_FALLBACK_GROUP — "Logistics & Misc". So without these two, a
+    // couple could shortlist a marriage-licence expediter, lock them, and find
+    // the money under "Logistics & Misc" with no card of its own.
+    // `shortlist-taxonomy-coverage.test.ts` is what said so, by name, the
+    // moment the categories were added.
+    //
+    // ⚠ GAP_LEAF_PARENT was the other candidate and is the WRONG home: that
+    // registry is pinned to the 2026-07-20 gap-leaf document ("the doc lists
+    // exactly 14"), and its members are NON-wedding event-type leaves a wedding
+    // couple never meets. These two are wedding-only, which is exactly why a
+    // wedding couple would notice the money vanishing.
+    //
+    // Both scope themselves to weddings for free: `planGroupsForEventType`
+    // joins `catalogTile` to `service_categories.applicable_event_types`, and
+    // both tiles are `['wedding']`.
+    id: 'wedding_paperwork',
+    label: 'Marriage papers',
+    hint: 'Someone to run the licence, CENOMAR and the DFA paperwork for you. The licence is only valid 120 days — start about 4 months out.',
+    tier: 'paper',
+    categories: ['wedding_paperwork'],
+    monthsBefore: 4,
+    catalogFolder: 'planning',
+    catalogTile: 'wedding_paperwork',
+  },
+  {
+    id: 'travel_honeymoon',
+    label: 'Honeymoon',
+    hint: 'A planner for the trip after — flights, the resort, the itinerary. Book once the wedding date is fixed.',
+    tier: 'extras',
+    categories: ['travel_honeymoon'],
+    monthsBefore: 3,
+    catalogFolder: 'planning',
+    catalogTile: 'travel_honeymoon',
+  },
+  {
     id: 'logistics',
     label: 'Logistics & Misc',
     hint: 'Transportation, security, giveaways, and the rest.',
@@ -598,6 +658,56 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     ],
     monthsBefore: 2,
     catalogFolder: 'transport',
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // A WAKE'S OWN SECTIONS — owner 2026-08-27 ("1 first then 2 after")
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // ⚖ WHAT THIS REPLACES. A wake borrowed the wedding's plan wholesale, so the
+  // funeral home — the single largest thing a family arranges — bucketed into
+  // "Logistics & Misc" beside the giveaways and the security detail. Nothing
+  // errored; the number was simply filed under the wrong heading, on the screen
+  // a grieving family uses to work out what they can afford.
+  //
+  // ⏱ `monthsBefore` IS A LIE HERE AND IS SET TO 0 DELIBERATELY. Every other
+  // card answers "how long before the day should this be locked" — a wedding is
+  // planned for a year. A death is not planned at all: the funeral home is
+  // chosen within hours, and a countdown to it would be obscene. 0 means "now",
+  // which is the only honest value, and the solemn register already suppresses
+  // the countdown rendering (`the-wake-never-celebrates`).
+  {
+    id: 'farewell_home',
+    label: 'Funeral home',
+    hint: 'The chapel or home wake, the casket, the preparation, the hearse.',
+    tier: 'foundation',
+    categories: ['funeral_home'],
+    monthsBefore: 0,
+    catalogFolder: 'farewell',
+    catalogTile: 'funeral_home',
+    eventTypes: ['wake'],
+  },
+  {
+    id: 'farewell_cremation',
+    label: 'Cremation',
+    hint: 'The crematorium, and a niche if the family wants one.',
+    tier: 'foundation',
+    categories: ['cremation'],
+    monthsBefore: 0,
+    catalogFolder: 'farewell',
+    catalogTile: 'cremation',
+    eventTypes: ['wake'],
+  },
+  {
+    id: 'farewell_memorial_park',
+    label: 'Memorial park',
+    hint: 'The lot or mausoleum, and the interment itself.',
+    tier: 'foundation',
+    categories: ['memorial_park'],
+    monthsBefore: 0,
+    catalogFolder: 'farewell',
+    catalogTile: 'memorial_park',
+    eventTypes: ['wake'],
   },
 ];
 
@@ -704,6 +814,24 @@ export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
  * their categories array is empty by definition; vendor rows with
  * shared VendorCategory enum values resolve to the primary card.
  */
+/**
+ * The plan cards a given event type actually shows.
+ *
+ * ⚖ A WAKE BORROWED THE WEDDING'S BUDGET SECTIONS UNTIL NOW, so a funeral home
+ * landed in "Logistics & Misc" beside the giveaways. Owner 2026-08-27, having
+ * ruled that death-care suppliers are listed: *"1 first then 2 after"* — this is
+ * the after.
+ *
+ * An unscoped group belongs to every type (that is every wedding-shaped card
+ * here, unchanged). A scoped one shows only where it is named.
+ */
+export function planGroupsForEventType(
+  eventType: string | null | undefined,
+): ReadonlyArray<PlanGroup> {
+  const t = eventType ?? 'wedding';
+  return PLAN_GROUPS.filter((g) => !g.eventTypes || g.eventTypes.includes(t));
+}
+
 export function planGroupForCategory(
   category: VendorCategory,
 ): PlanGroupId | null {

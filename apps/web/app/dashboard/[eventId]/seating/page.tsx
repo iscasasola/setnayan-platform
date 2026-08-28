@@ -3,7 +3,7 @@ import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-ro
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
-import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { resolveRoleSetForEvent, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import {
   fetchGuestsByEvent,
@@ -41,6 +41,15 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   const { view: viewParam } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // 🪑 THE WRITER HALF OF THE SEAT-ROOM GATE (owner 2026-08-28, "only its own
+  // rooms"). The three guest seat rooms and the 3D walk now refuse a kind whose
+  // profile has no 'seating'. Leaving THIS door open would let that host build a
+  // seat plan and buy the branded per-guest QR pass whose guests then land on
+  // "this page does not exist" — the exact defect app/[slug]/seat/page.tsx was
+  // repaired for. Narrowing a read rule makes every writer of it a cliff, so
+  // both halves ship together. Mirrors the budget guard exactly.
+  const seatingProfile = await resolveProfileByEvent(eventId);
+  if (!surfaceEnabled(seatingProfile, 'seating')) redirect(`/dashboard/${eventId}`);
   const supabase = await createClient();
 
   // A delegate the host never shared the guest list with reads ZERO guest rows

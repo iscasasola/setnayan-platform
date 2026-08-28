@@ -63,9 +63,27 @@ const GAP_LEAF_PARENT: Record<string, WeddingFolder> = {
 const GAP_LEAVES = Object.keys(GAP_LEAF_PARENT) as WeddingTile[];
 
 test('every VendorCategory bridges to a tile (no considered pick is ever dropped)', () => {
+  // 49 → 52 on 2026-08-27 (second change that day): a wake gained three trades
+  // of its own — `funeral_home`, `cremation`, `memorial_park`. RE-DERIVED, not
+  // bumped: each bridges 1:1 to its same-named tile (case 2 proves the tile is
+  // live), each is a DECLARED gap leaf under the new `farewell` folder rather
+  // than an accident (case 6), and none is claimed by a wedding PLAN_GROUP —
+  // which is correct, because a crematorium has no place in a couple's budget
+  // sections. What keeps them off a wedding's Shortlist is the tile's
+  // `applicable_event_types` scope, the mechanism the fourteen gap leaves
+  // already rely on. So every assertion that made 49 meaningful still holds.
+  //
+  // 47 → 49 on 2026-08-27: the owner opened `wedding_paperwork` and
+  // `travel_honeymoon` to the marketplace (*"marriage-paper helper yes.
+  // honeymoon planner yes"*), and a marketplace branch a couple can browse
+  // needs a coarse category to store. The contract was RE-DERIVED, not bumped:
+  // both new categories bridge 1:1 to their same-named tile (case 2 below
+  // proves the tile is live), both are claimed by a real PLAN_GROUP, and
+  // neither is a gap leaf — so every assertion in this file that made 47
+  // meaningful still holds at 49.
   assert.equal(
     VENDOR_CATEGORIES.length,
-    47,
+    52,
     'enum size changed — re-derive the contract before editing this number',
   );
   for (const c of VENDOR_CATEGORIES) {
@@ -89,6 +107,12 @@ test('every bridged tile is a LIVE taxonomy tile', () => {
 });
 
 test('the 14 non-wedding gap leaves land on their OWN tile, under a non-wedding family', () => {
+  // 17 → 14: the wake's three trades were gap leaves for one change and are
+  // now claimed by PLAN GROUPS of their own (`farewell_home`,
+  // `farewell_cremation`, `farewell_memorial_park`), so they leave this
+  // register — which is the direction this file's allowlist is supposed to
+  // move. A gap leaf is a trade nobody has decided where to file; these have
+  // been decided.
   assert.equal(GAP_LEAVES.length, 14);
   for (const leaf of GAP_LEAVES) {
     assert.equal(

@@ -41,7 +41,7 @@
  */
 'use client';
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import './date-calendar.css';
 
 /**
@@ -147,6 +147,34 @@ export function DateCalendar({
   const [multi, setMulti] = useState<Date[]>(() =>
     candidates.length ? candidates.map(fromISO) : [],
   );
+  /**
+   * ── THE PROP IS ALLOWED TO SPEAK AFTER MOUNT ───────────────────────────────
+   *
+   * 🔴 `multi` is seeded ONCE and was then the sole source of truth, so a
+   * `candidates` prop that changed later was IGNORED. That is the deeper half of
+   * the 2026-08-28 defect: even once the day chips were taught to write the
+   * candidate list, the calendar would have gone on drawing what it had at
+   * mount. **The chip would still have appeared to do nothing.**
+   *
+   * 🔑 THIS CANNOT LOOP, and the reason is structural rather than a guard: every
+   * local click `lift`s the new list upward, so the parent's value and this
+   * state are already equal by the time the prop comes back — the comparison is
+   * a no-op on the path a person actually takes. It differs only when something
+   * OUTSIDE the calendar changed the answer, which is exactly when the calendar
+   * should redraw.
+   *
+   * ⚖ IT ADOPTS, IT NEVER LIFTS. Writing back from here would let a mounting
+   * calendar rewrite its parent's state, which is how a "sync" turns into a
+   * second author. Reading is safe; writing is not.
+   */
+  const lastAdopted = useRef(candidates.join('|'));
+  useEffect(() => {
+    const incoming = candidates.join('|');
+    if (incoming === lastAdopted.current) return;
+    lastAdopted.current = incoming;
+    setMulti(candidates.map(fromISO));
+  }, [candidates]);
+
   const [rStart, setRStart] = useState<Date | null>(() => (windowStart ? fromISO(windowStart) : null));
   const [rEnd, setREnd] = useState<Date | null>(() => (windowEnd ? fromISO(windowEnd) : null));
   const [pickingEnd, setPickingEnd] = useState(false);

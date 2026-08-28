@@ -22,6 +22,7 @@ test("What's-new inquiry card: no `eventName` field is ever shipped", () => {
     eventType: 'wedding',
     region: 'ncr',
     category: 'Photography',
+    hostNoun: 'couple',
   });
   // The field that leaked the couple's event title is structurally gone.
   assert.equal('eventName' in card, false);
@@ -37,6 +38,7 @@ test("What's-new inquiry card: payload contains no couple identity", () => {
     eventType: 'wedding',
     region: 'c-visayas',
     category: 'Catering',
+    hostNoun: 'couple',
   });
   const serialized = JSON.stringify(card);
   // No name-like tokens can appear — the descriptor is built from event_type +
@@ -55,6 +57,9 @@ test("What's-new inquiry card: masked facts stay non-identifying (city-level pla
     eventType: 'birthday',
     region: 'ncr',
     category: null,
+    // A birthday's HOST noun. Its `organizer_noun` is 'celebrant' — the child
+    // being celebrated, who did not book the photographer.
+    hostNoun: 'host',
   });
   // place is a city/area label, never a venue name/address.
   assert.equal(typeof card.place, 'string');
@@ -64,6 +69,8 @@ test("What's-new inquiry card: masked facts stay non-identifying (city-level pla
   assert.ok(!('tokenCost' in card), 'inquiry cards must not carry a token cost');
   assert.equal(card.kind, 'inquiry');
   assert.equal(card.threadId, 'S89T-band');
+  // The noun follows the type: a birthday is not planned by "a couple".
+  assert.match(card.descriptor, /^A host planning a birthday in /);
 });
 
 test("What's-new inquiry card: unknown region/type degrade to a fully generic descriptor", () => {
@@ -74,7 +81,10 @@ test("What's-new inquiry card: unknown region/type degrade to a fully generic de
     eventType: null,
     region: null,
     category: null,
+    hostNoun: null,
   });
-  assert.equal(card.descriptor, 'A couple planning an event');
+  // ⚠ Was "A couple planning an event" — the wedding assumption applied at the
+  // exact moment nothing about the event is known. Now the generic noun.
+  assert.equal(card.descriptor, 'A host planning an event');
   assert.equal(card.place, null);
 });

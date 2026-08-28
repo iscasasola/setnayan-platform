@@ -29,6 +29,15 @@ export async function postVendorReply(formData: FormData) {
   if (typeof reviewId !== 'string' || typeof reply !== 'string') {
     throw new Error('Invalid input');
   }
+  /*
+    WHERE THE REPLY WAS WRITTEN. The Answers Desk (`/vendor-dashboard`) takes
+    this answer on the row now, so revalidating only the Reviews page would leave
+    the answered review sitting on the desk still asking to be answered.
+    🔒 The posted value is never trusted as a path: it selects a REVALIDATION
+    TARGET from a fixed pair. An attacker-supplied string cannot reach
+    revalidatePath, and there is no redirect here at all.
+  */
+  const answeredOnTheDesk = formData.get('return_to') === '/vendor-dashboard';
 
   const supabase = await createClient();
   const { profile } = await requireVendorProfile(supabase);
@@ -63,6 +72,7 @@ export async function postVendorReply(formData: FormData) {
   }
 
   revalidatePath('/vendor-dashboard/reviews');
+  if (answeredOnTheDesk) revalidatePath('/vendor-dashboard');
 }
 
 /**

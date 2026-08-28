@@ -318,6 +318,11 @@ export default async function EventLayout({ children, params }: Props) {
   // 'monogram' surface (weddings today). Non-wedding events without it never see
   // the monogram maker in the nav. Threaded to the desktop sidebar.
   const monogramEnabled = surfaceEnabled(profile, 'monogram');
+  // 🪑 Gates the DAY-OF "Seats" tab to kinds that seat people (owner
+  // 2026-08-28). Passed as its own prop rather than through `navHideKeys`,
+  // which by its own docblock only filters the PLANNING tree — the day-of
+  // branch returns before that filter, so a hideKeys entry would hide nothing.
+  const seatingEnabled = surfaceEnabled(profile, 'seating');
 
   const tr = makeT(locale);
 
@@ -537,7 +542,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside the rail's content column so it
           doesn't inherit it. */}
-      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} />
+      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} />
       {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
           the locked BottomNav pill, never a 7th tab. Floats above the pill's
           right end, hides when the docked SubNav is up + in the After phase. */}
@@ -553,7 +558,7 @@ export default async function EventLayout({ children, params }: Props) {
           the server-built panel, and the bottom nav collapses to icons-only while
           it's docked. Self-gates to null outside any menu's section. eventDate
           drives the Guests Day-of time-gate. */}
-      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} slug={(event.slug as string | null) ?? null} />
+      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} seatingEnabled={seatingEnabled} slug={(event.slug as string | null) ?? null} />
     </>
   );
 }

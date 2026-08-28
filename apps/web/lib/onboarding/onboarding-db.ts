@@ -21,6 +21,7 @@ import {
   type OnboardingOverrideRow,
   type OnboardingSpec,
 } from './onboarding-spec';
+import type { OnboardingRegister } from './solemn-content';
 
 export type { OnboardingSpec, OnboardingIntro, OnboardingOverrideRow } from './onboarding-spec';
 export { resolveOnboardingSpec } from './onboarding-spec';
@@ -30,7 +31,18 @@ export { resolveOnboardingSpec } from './onboarding-spec';
  * spec (defaults + any admin override). Degrades to all-defaults on any error.
  */
 export const getOnboardingSpec = cache(
-  async (eventType: string, packKey: string): Promise<OnboardingSpec> => {
+  async (
+    eventType: string,
+    packKey: string,
+    /**
+     * The type's `terminology.register` (from the already-resolved profile).
+     * 🔑 It is passed to EVERY degrade path below, not just the happy one — the
+     * whole reason the solemn quiz + reveal copy lives in code rather than in
+     * `axis_overrides` is that this read fails open, and a wake must not fall
+     * back to "Joyful & lively — music, dancing, and a packed floor."
+     */
+    register: OnboardingRegister = 'celebratory',
+  ): Promise<OnboardingSpec> => {
     try {
       const sb = await createClient();
       const { data, error } = await sb
@@ -38,14 +50,15 @@ export const getOnboardingSpec = cache(
         .select('intro, questions, persona_pack, reveal_overrides, axis_overrides')
         .eq('event_type', eventType)
         .maybeSingle();
-      if (error) return resolveOnboardingSpec(eventType, packKey, null);
+      if (error) return resolveOnboardingSpec(eventType, packKey, null, register);
       return resolveOnboardingSpec(
         eventType,
         packKey,
         (data as OnboardingOverrideRow | null) ?? null,
+        register,
       );
     } catch {
-      return resolveOnboardingSpec(eventType, packKey, null);
+      return resolveOnboardingSpec(eventType, packKey, null, register);
     }
   },
 );

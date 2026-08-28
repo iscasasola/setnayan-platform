@@ -23,6 +23,7 @@ import 'server-only';
  * throwing. The route owns the published-gate decision.
  */
 
+import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
@@ -115,8 +116,22 @@ function initialsFrom(displayName: string): string {
   return letters.slice(0, 2).join('') || displayName.slice(0, 1).toUpperCase();
 }
 
-/** Read the publish row for an event (service-role; never throws). */
-export async function getRecapStatus(eventId: string): Promise<RecapStatusRow | null> {
+/**
+ * Read the publish row for an event (service-role; never throws).
+ *
+ * `React.cache`d — matching `loadDoorwayFacts` and the rest of the `[slug]`
+ * loaders — because the answer is now asked several times in a single render
+ * and it is a pure read. `/[slug]/recap` alone asks THREE times (its
+ * `generateMetadata`, its `loadRoomLinks` call and its own publish check), and
+ * the event page's album door adds another. One query per request now.
+ *
+ * ⚠ SAFE BECAUSE NOTHING READS THIS AFTER WRITING IT IN THE SAME REQUEST —
+ * checked, not assumed: `publishRecap` / `unpublishRecap` (the only writers of
+ * `event_recaps.status` outside admin) upsert and never read the row back, so
+ * a memoised value cannot go stale mid-request. If a future writer needs to
+ * read its own write, give it an uncached read rather than removing this.
+ */
+export const getRecapStatus = cache(async (eventId: string): Promise<RecapStatusRow | null> => {
   try {
     const admin = createAdminClient();
     const { data } = await admin
@@ -133,7 +148,7 @@ export async function getRecapStatus(eventId: string): Promise<RecapStatusRow | 
   } catch {
     return null;
   }
-}
+});
 
 /** True only when the couple has the public recap turned on. */
 export async function isRecapPublished(eventId: string): Promise<boolean> {

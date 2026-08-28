@@ -113,8 +113,23 @@ export function PabuyaCardList({
  */
 export function PabuyaTrustNote({
   audience = 'guest',
+  organizerPossessive,
 }: {
   audience?: 'guest' | 'couple';
+  /**
+   * The event's own possessive for whoever is throwing it — `'the couple’s'`,
+   * `'the family’s'`, `'the celebrant’s'`. Comes from `EventWords`.
+   *
+   * 🔒 REQUIRED, NOT OPTIONAL-WITH-A-DEFAULT, and that is the whole point. This
+   * note has TWO guest-audience callers — the public gift page and the couple's
+   * LIVE PREVIEW of that same page — and a default would hide the second one:
+   * the preview would keep saying "the couple's" while guests read "the
+   * family's", destroying the byte-for-byte parity the preview exists for. A
+   * dropped prop is a typecheck failure; that IS the guard.
+   *
+   * 🔒 NEVER default it to "the host's": a funeral's noun is `family`.
+   */
+  organizerPossessive: string;
 }) {
   return (
     <div className="flex items-start gap-2.5 rounded-2xl border border-success-200 bg-success-50 px-4 py-3">
@@ -136,8 +151,9 @@ export function PabuyaTrustNote({
         ) : (
           <>
             <b className="text-ink">Setnayan never touches your money.</b> We
-            only show you where to send it — it goes directly to the couple&rsquo;s
-            own account. No commission, no middleman, no fees.
+            only show you where to send it — it goes directly to{' '}
+            {organizerPossessive} own account. No commission, no middleman, no
+            fees.
           </>
         )}
       </p>

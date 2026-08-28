@@ -1,6 +1,7 @@
 import { Upload } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setPapicUploadsOpen } from '../actions';
+import { SettingRow } from './setting-row';
 
 /**
  * WHO MAY ADD PHOTOS BY HAND — one quiet row, two states.
@@ -17,14 +18,51 @@ import { setPapicUploadsOpen } from '../actions';
  * ⚠ THE COPY SAYS WHAT IT COSTS, because "allow uploads" reads like a free
  * door. Every upload spends a credit exactly as a camera shot does, and a
  * couple deciding this should be deciding it knowing that.
+ *
+ * ⚠ `variant="row"` IS THE SAME CONTROL BEHIND A DIFFERENT DOOR — the control
+ * centre files this under "Set once, change any time". Two explicit buttons,
+ * unchanged; only the chrome around them differs.
  */
 export function UploadsOpenChoice({
   eventId,
   open,
+  variant = 'card',
 }: {
   eventId: string;
   open: boolean;
+  variant?: 'card' | 'row';
 }) {
+  const explanation = open
+    ? 'Photos and clips can be added from a phone or laptop — older memories included. Each one uses a credit, the same as a camera shot.'
+    : 'Only what your cameras capture goes into this gallery. Nothing can be added from a phone or laptop.';
+
+  const control = (
+    <form action={setPapicUploadsOpen} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="open" value={open ? '0' : '1'} />
+      <SubmitButton className={open ? 'sn-btn-secondary' : 'sn-btn-primary'}>
+        {open ? 'Turn this off' : 'Turn this on'}
+      </SubmitButton>
+      <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
+        {open ? 'On' : 'Off'}
+      </span>
+    </form>
+  );
+
+  if (variant === 'row') {
+    return (
+      <SettingRow
+        icon={<Upload aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+        label="Adding photos by hand"
+        value={open ? 'On' : 'Off'}
+        sheetTitle="Adding photos by hand"
+      >
+        <p className="mb-4 text-sm text-ink/65">{explanation}</p>
+        {control}
+      </SettingRow>
+    );
+  }
+
   return (
     <section className="space-y-3 sn-tile p-5 sm:p-6">
       <div className="space-y-1">
@@ -32,23 +70,10 @@ export function UploadsOpenChoice({
           <Upload aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
           Adding photos by hand
         </h2>
-        <p className="max-w-prose text-sm text-ink/60">
-          {open
-            ? 'Photos and clips can be added from a phone or laptop — older memories included. Each one uses a credit, the same as a camera shot.'
-            : 'Only what your cameras capture goes into this gallery. Nothing can be added from a phone or laptop.'}
-        </p>
+        <p className="max-w-prose text-sm text-ink/60">{explanation}</p>
       </div>
 
-      <form action={setPapicUploadsOpen} className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="event_id" value={eventId} />
-        <input type="hidden" name="open" value={open ? '0' : '1'} />
-        <SubmitButton className={open ? 'sn-btn-secondary' : 'sn-btn-primary'}>
-          {open ? 'Turn this off' : 'Turn this on'}
-        </SubmitButton>
-        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
-          {open ? 'On' : 'Off'}
-        </span>
-      </form>
+      {control}
     </section>
   );
 }

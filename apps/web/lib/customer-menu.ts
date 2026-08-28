@@ -130,6 +130,20 @@ export type CustomerMenuCtx = {
    *  "Launch" route child. Resolved from the profile in
    *  layout.tsx. Undefined/false → the child is omitted. */
   websiteEnabled?: boolean;
+  /** Whether this event type enables the 'seating' surface — gates the DAY-OF
+   *  "Seats" tab (owner 2026-08-28, "only its own rooms").
+   *
+   *  🔑 THIS CANNOT BE DONE WITH `hideKeys`, AND THAT IS THE WHOLE REASON THE
+   *  FIELD EXISTS. `hideKeys` filters `planningMenus` at the very bottom of
+   *  buildCustomerMenuTree; the day-of branch RETURNS BEFORE IT. Adding 'seats'
+   *  to hideKeys would compile, read as correct, and hide nothing — a gate with
+   *  no handle. (There is also no 'seats' key in the planning tree at all:
+   *  seating lives inside Guests' activeMatch.)
+   *
+   *  ⚠ UNDEFINED MEANS SHOW, deliberately — a caller that has not been taught
+   *  this field must not silently lose the tab. Only an explicit `false` hides
+   *  it, and layout.tsx always passes the resolved value. */
+  seatingEnabled?: boolean;
   /** The event's public slug, resolved from the event row in layout.tsx.
    *  NOTE: the "Launch" child no longer routes on it (2026-07-25 — Launch opens
    *  the unified website editor, which carries its own "View live" link); the
@@ -162,7 +176,12 @@ export function buildCustomerMenuTree(
     return [
       { key: 'now',      label: 'Now',       icon: Home,          href: base,                              activeMatch: base,                              activeMatchExact: true  },
       { key: 'checkin',  label: 'Check-in',  icon: QrCode,        href: `${base}/guests/checkin`,          activeMatch: `${base}/guests/checkin`                                  },
-      { key: 'seats',    label: 'Seats',     icon: LayoutGrid,    href: `${base}/seating`,                 activeMatch: `${base}/seating`                                         },
+      // 🪑 Omitted for a kind with no 'seating' surface — its /seating room
+      // redirects, so the tab would be a link that bounces. `!== false` keeps
+      // an un-taught caller (and every seating kind) byte-identical.
+      ...(ctx.seatingEnabled !== false
+        ? [{ key: 'seats' as const, label: 'Seats', icon: LayoutGrid, href: `${base}/seating`, activeMatch: `${base}/seating` }]
+        : []),
       { key: 'services', label: 'Services',  icon: Rocket,        href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
       { key: 'schedule', label: 'Schedule',  icon: CalendarClock, href: `${base}/schedule`,                activeMatch: `${base}/schedule`                                        },
     ];

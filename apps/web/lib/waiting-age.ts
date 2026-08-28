@@ -1,13 +1,17 @@
 /**
  * How long a couple has been waiting for a vendor's reply, in words.
  *
- * Design § 2.4 EXTEND 1 — shown on pending enquiry cards only. A vendor looking
- * at their list should be able to see which couple has been left longest without
- * opening anything, because that is the one most likely to book someone else.
+ * Design § 2.4 EXTEND 1 — a vendor looking at their list should be able to see
+ * which couple has been left longest without opening anything, because that is
+ * the one most likely to book someone else.
  *
- * 🔑 ENQUIRIES ONLY, ON PURPOSE. Lock requests, reviews and disputes carry
- * timestamps too, but none of them is a clock a vendor is answerable to. Putting
- * an age on those would invent an SLA nobody agreed to.
+ * 🔑 ON EVERY ROW OF THE ANSWERS DESK, CORRECTED 2026-08-27. This said
+ * "ENQUIRIES ONLY, ON PURPOSE … putting an age on those would invent an SLA
+ * nobody agreed to", and it was already untrue when it was read — the booking
+ * ask and the deletion ask had both been carrying it for weeks. It is also the
+ * wrong rule now: the feed is sorted OLDEST WAITING FIRST, so the age is not a
+ * promised reply time, it is the REASON a row sits where it sits. Hiding it left
+ * a supplier unable to see why one card was above another.
  *
  * 🪤 THIS IS AN ELAPSED DURATION, NOT A CALENDAR DIFFERENCE, so it is computed
  * in milliseconds and never by comparing dates. "Waiting 2 days" across a

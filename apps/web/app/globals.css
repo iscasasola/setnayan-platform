@@ -2626,6 +2626,41 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-ink-900:    #1B1A17;
   --sn-ink-black:  #17160F;
 
+  /* ── THE GALLERY'S OBSIDIAN SURFACE (archetype 02, owner-approved 2026-08-04)
+     ────────────────────────────────────────────────────────────────────────
+     The app is LIGHT-LOCKED and there is no theme toggle. The gallery alone
+     runs on obsidian, because photographs carry the colour and the chrome has
+     to recede. That makes it a SURFACE, not a mode — and the distinction is
+     the whole reason these seven values exist instead of reusing the palette.
+
+     🚨 EVERY THEME TOKEN FAILS ON THIS SURFACE, AND FAILS SILENTLY. `mulberry`,
+     `ink`, `terracotta` and friends resolve to their LIGHT values here, because
+     nothing sets `html.dark` on a light-locked page — a dark island is not dark
+     mode. Measured against #17160F:
+       mulberry     #C24E25  3.81:1  FAIL
+       mulberry-600 #B04722  3.26:1  FAIL   ← the "safe in dark mode" one
+       mulberry-700 #9D3F1E  2.73:1  FAIL
+       ink          #2C2A29  1.27:1  invisible
+     So a tile that reaches for `text-ink` or `text-mulberry` is not slightly
+     off, it is unreadable. Obsidian chrome uses ONLY the tokens below.
+
+     Measured on #17160F (WCAG 2.1 contrast, computed not estimated):
+       --sn-ob-text  #FBFAF7  17.37:1  AAA
+       --sn-ob-soft  #B6B9BE   9.22:1  AAA
+       --sn-ob-gold  #CBA766   7.99:1  AAA  ← gold is safe HERE and only here;
+                                              the same family is 4.95:1 at best
+                                              on white and 2.27:1 for this hue
+       --sn-ob-cta   #E5794E   6.20:1  AA   (obsidian label on it: 6.20:1)
+       --sn-ob-link  #9DB2CE   8.37:1  AAA
+     On the raised card #1E2229: text 15.29:1 · soft 8.11:1 · gold 7.04:1. */
+  --sn-ob-page:    #17160F;   /* = --sn-ink-black, named for the surface */
+  --sn-ob-card:    #1E2229;
+  --sn-ob-text:    #FBFAF7;
+  --sn-ob-soft:    #B6B9BE;
+  --sn-ob-cta:     #E5794E;
+  --sn-ob-gold:    #CBA766;   /* = --sn-gold-300 */
+  --sn-ob-link:    #9DB2CE;
+
   /* gold accent — the only decorative color */
   --sn-gold-100:   #F3ECDF;
   --sn-gold-300:   #CBA766;
@@ -3722,6 +3757,87 @@ html:active-view-transition .sn-page-enter { animation: none; }
   .sn-canvas-rise { animation: none; opacity: 1; transform: none; }
   .sn-canvas-meter { transition: none; }
 }
+/* ═══ THE CARD PAINTS ITSELF (owner 2026-08-28) ═════════════════════════════
+ * The first pass shows no meter and no score, so the ONLY progress a supplier
+ * gets is the card visibly becoming a card. These three carry that:
+ *
+ *   .sn-paint-in   one value arriving on the card — replayed by REMOUNTING the
+ *                  node (React `key` = the value), never by a class toggle,
+ *                  which cannot restart an animation that is already finished.
+ *   .sn-paint-cover the cover photo landing: a settle, not a slide, because it
+ *                  is replacing a placeholder in the same box.
+ *   .sn-paint-live  the card going live at publish.
+ *
+ * ⚠ EVERY ONE CARRIES A FROM-STATE THAT MUST NEVER BE THE RESTING STATE, so the
+ * reduced-motion guard below is not optional — without it a supplier who has
+ * asked for no motion gets a card stuck at opacity 0.
+ * ═════════════════════════════════════════════════════════════════════════ */
+@keyframes sn-paint-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes sn-paint-cover {
+  from { opacity: 0; transform: scale(1.03); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes sn-paint-live {
+  0%   { box-shadow: 0 0 0 0 rgba(194, 78, 37, 0.35); }
+  70%  { box-shadow: 0 0 0 14px rgba(194, 78, 37, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(194, 78, 37, 0); }
+}
+.sn-paint-in    { animation: sn-paint-in 260ms ease both; }
+.sn-paint-cover { animation: sn-paint-cover 320ms ease both; }
+.sn-paint-live  { animation: sn-paint-live 900ms ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .sn-paint-in,
+  .sn-paint-cover,
+  .sn-paint-live { animation: none; opacity: 1; transform: none; box-shadow: none; }
+}
+
+/* ═══ THE LAPTOP GETS ITS TWO COLUMNS (owner 2026-08-28) ════════════════════
+ * During the two-question guided pass the drawn desktop layout pins the card
+ * beside the question instead of shrinking it inside the page's centred
+ * `max-w-2xl` column. Below 1024px NEITHER rule exists — both classes are
+ * declared only inside this one media query, so a phone renders exactly what
+ * it rendered before this change, unconditionally.
+ *
+ *   .sn-canvas-pass-pin   the card itself. `position: fixed` so it escapes
+ *                         the page's own max-width the same way the guided
+ *                         question sheet already does (see .sn-canvas-sheet's
+ *                         `lg:` rules) — `left` reads the shared shell's own
+ *                         `--fd-rail` custom property, so it sits beside the
+ *                         app rail rather than under it, at either rail width
+ *                         (240px full / 72px icon-strip).
+ *   .sn-canvas-pass-hide  everything that used to render BELOW the card
+ *                         during the pass (recap, publish, "make it richer").
+ *                         The pass already treats that content as noise on a
+ *                         phone-sized page — see HealthHeader's own
+ *                         `{inPass ? null : …}` two lines up — but on a
+ *                         laptop that content is left with nothing to sit
+ *                         under (the fixed card doesn't reserve height in the
+ *                         page's flow), so it is hidden here rather than left
+ *                         to float up and overlap the pinned card. It is
+ *                         still rendered, just not painted, so the sheet's own
+ *                         fields keep posting.
+ *
+ * The fallback values (240px / 61px) are only for a render that somehow never
+ * inherits `.fd`'s custom properties (a corrupted style tree); on every real
+ * paint of this page the vendor dashboard is always the app-chrome rail.
+ * ═════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  .sn-canvas-pass-pin {
+    position: fixed;
+    z-index: 30;
+    left: var(--fd-rail, 240px);
+    top: calc(var(--fd-bar, 61px) + 24px);
+    bottom: 24px;
+    width: 420px;
+    overflow-y: auto;
+    padding-right: 8px;
+  }
+  .sn-canvas-pass-hide { display: none; }
+}
+
 /* Phone ergonomics for the whole canvas, including the SHIPPED editors it
  * mounts (customization / inclusions / discounts / pricing). iOS zooms the
  * viewport on focus for any control under 16px, which on a bottom sheet throws
@@ -3733,4 +3849,103 @@ html:active-view-transition .sn-page-enter { animation: none; }
   .sn-canvas input:not([type='checkbox']):not([type='radio']),
   .sn-canvas select,
   .sn-canvas textarea { font-size: 16px; }
+}
+
+/* ============================================================================
+   THE GALLERY ARCHETYPE — the obsidian surface, ported not redrawn
+   ----------------------------------------------------------------------------
+   Source of truth: prototypes/archetype_content_editorial_gallery_detail_2026-08-01.html
+   § 2 · GALLERY (obsidian), owner-approved 2026-08-04 with no changes requested.
+   That drawing is BINDING: a delta between a ported screen and it is a defect in
+   the port, not a fresh design decision.
+
+   Its own designer's note names the three rules these classes carry:
+     · "Dark is a surface, not a mode."  Obsidian exists only here.
+     · "Credit is a feature."  Every tile names its camera, because in a samahan
+       album who shot it is part of the memory.
+     · "Lightbox honours the scroll."  It rises over the grid; the grid never
+       re-renders.
+
+   ⚠ COLOURS ONLY COME FROM --sn-ob-*. See the measured failure table beside
+   those tokens: every theme colour is unreadable on this surface, silently.
+
+   ⚠ THESE ARE THREE SCREENS, NOT ONE COMPONENT IN THREE COSTUMES. The couple's
+   grid, the guest's "photos of you" and the day-of wall have different data,
+   different gates and different jobs. They share this SKIN and the lightbox;
+   they are deliberately not merged.
+   ========================================================================== */
+
+.sn-gal {
+  background: var(--sn-ob-page);
+  color: var(--sn-ob-text);
+  border: 1px solid rgb(251 250 247 / 0.10);
+  border-radius: 16px;
+}
+/* The couple's grid renders inside the dashboard's own page flow rather than as
+   a card, so it takes the surface without the card's border radius. */
+.sn-gal-page { background: var(--sn-ob-page); color: var(--sn-ob-text); }
+
+.sn-gal-kick  { color: var(--sn-ob-gold); }        /* 7.99:1 */
+.sn-gal-soft  { color: var(--sn-ob-soft); }        /* 9.22:1 */
+.sn-gal-text  { color: var(--sn-ob-text); }        /* 17.37:1 */
+.sn-gal-link  { color: var(--sn-ob-link); }        /* 8.37:1 */
+
+.sn-gal-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sn-ob-card);
+  border: 1px solid rgb(251 250 247 / 0.07);
+}
+
+/* THE CREDIT. A gradient foot, not a solid bar: the photograph keeps the tile
+   and the name still clears AA over the darkest stop (paper on rgba(23,22,15,.82)
+   measures 16.70:1). It is `pointer-events-none` so it can never eat the tap
+   that opens the lightbox. */
+.sn-gal-credit {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 22px 8px 6px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(23 22 15 / 0), rgb(23 22 15 / 0.82));
+  color: rgb(251 250 247 / 0.85);
+}
+
+/* Chip row — the filter bar. `.on` is the archetype's gold wash. */
+.sn-gal-credit-raised { bottom: 44px; padding-bottom: 2px; }
+
+.sn-gal-chip {
+  color: var(--sn-ob-soft);
+  border: 1px solid rgb(251 250 247 / 0.18);
+  background: transparent;
+  transition: color .18s ease, border-color .18s ease, background .18s ease;
+}
+.sn-gal-chip:hover { border-color: rgb(251 250 247 / 0.40); color: var(--sn-ob-text); }
+.sn-gal-chip.is-on { background: rgb(203 167 102 / 0.16); border-color: var(--sn-ob-gold); color: var(--sn-ob-gold); }
+
+.sn-gal-badge {
+  background: rgb(23 22 15 / 0.72);
+  border: 1px solid rgb(251 250 247 / 0.20);
+  color: var(--sn-ob-text);
+}
+.sn-gal-badge-gold { color: var(--sn-ob-gold); }
+
+/* Outline action on obsidian — the lightbox's Save/Close pair. */
+.sn-gal-btn {
+  border: 1px solid rgb(251 250 247 / 0.28);
+  color: var(--sn-ob-text);
+  background: transparent;
+  transition: border-color .18s ease, background .18s ease;
+}
+.sn-gal-btn:hover { border-color: rgb(251 250 247 / 0.55); background: rgb(251 250 247 / 0.06); }
+.sn-gal-btn-cta { background: var(--sn-ob-cta); border-color: var(--sn-ob-cta); color: var(--sn-ob-page); }
+
+/* Lightbox — obsidian scrim + raised card. */
+.sn-gal-scrim { background: rgb(23 22 15 / 0.92); }
+.sn-gal-lb-card {
+  background: var(--sn-ob-card);
+  border: 1px solid rgb(251 250 247 / 0.14);
+  color: var(--sn-ob-text);
+  border-radius: 18px;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
 }

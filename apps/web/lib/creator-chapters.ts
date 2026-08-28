@@ -168,8 +168,8 @@ export const CHAPTER_AUDIENCE_NOTE: Record<ChapterStatus, string> = {
   draft: 'Nobody else can open it. You can keep writing and choose later.',
   event:
     'The people of that day can read it — the hosts, the guests who have a seat, ' +
-    'and the suppliers who worked it. It stays off your public page and off Setnayan’s ' +
-    'Stories.',
+    'and the shops you booked, including the staff those shops send to work your ' +
+    'celebration. It stays off your public page and off Setnayan’s Stories.',
   published:
     'Anyone with your address can read it, and Setnayan may feature it on Stories.',
 };

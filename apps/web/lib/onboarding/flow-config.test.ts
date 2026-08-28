@@ -9,10 +9,13 @@ import assert from 'node:assert/strict';
 import { GENERIC_PROFILE, WEDDING_PROFILE, type EventTypeProfile } from '@/lib/event-type-profile';
 import { resolveOnboardingFlow, GENERIC_ONBOARDING_SCREENS } from './flow-config';
 
-test('generic profile (no flow key) → flowKey + personaPackKey both "generic"', () => {
+test('a profile with no flow key keeps flowKey "generic" and packs by EVENT TYPE', () => {
   const flow = resolveOnboardingFlow({ ...GENERIC_PROFILE, eventType: 'birthday' });
   assert.equal(flow.flowKey, 'generic');
-  assert.equal(flow.personaPackKey, 'generic');
+  // Was 'generic'. A NULL onboarding_flow_key made a type's own authored pack
+  // unreachable — the funeral shipped that way — while the admin editor already
+  // fell back to the event type. One answer now, and it is the admin's.
+  assert.equal(flow.personaPackKey, 'birthday');
   assert.equal(flow.eventType, 'birthday');
   assert.deepEqual(flow.screens, [...GENERIC_ONBOARDING_SCREENS]);
 });

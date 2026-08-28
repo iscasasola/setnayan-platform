@@ -583,6 +583,24 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/ugat/map',
       },
       {
+        // Search memory — what the admin's search box has LEARNED, and the only
+        // place to correct or delete it. The page, both its buttons and a real
+        // production row all shipped; it was in NO menu, so it was also absent
+        // from /admin/more ("All surfaces"), which derives from this same file.
+        // Reachable only by typing into the box — which is where you land when
+        // the box has already answered you wrong. A FIX NOBODY CAN REACH IS NO
+        // FIX, and this feature has hit that once already (the AI search bar
+        // the owner could not see, 2026-08-26).
+        //
+        // Sits beside Entity map on purpose: both are the machinery behind the
+        // search box rather than a queue of work.
+        key: 'search-memory',
+        label: 'Search memory',
+        href: '/admin/search-memory',
+        icon: Lightbulb,
+        matchPrefix: '/admin/search-memory',
+      },
+      {
         // Repointed to the Accounts Studio Demo vendors tab (slice 4, final).
         // matchPrefix keeps this item lit on the legacy /admin/demo-vendors
         // path + the standalone /admin/demo-vendors/inquiries +

@@ -5,6 +5,7 @@ import { fetchThreadById } from '@/lib/chat';
 import { fetchThreadInterests } from '@/lib/thread-interests';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
 
 // Native-facing compose options for the vendor chat quick-action row: the
 // vendor's proposal templates + packages (for "Send proposal" / quote) and the
@@ -44,15 +45,14 @@ export async function GET(
   const alreadyOnThread = new Set(
     existingInterests.map((r) => r.vendor_service_id).filter((v): v is string => v !== null),
   );
+  const kindLabel = await cardKindLabeller();
   const services: OfferOption[] = ownServices
     .filter((s) => s.is_active && !alreadyOnThread.has(s.vendor_service_id))
     .map((s) => ({
       vendorServiceId: s.vendor_service_id,
-      label:
-        s.title?.trim() ||
-        (isCanonicalService(s.category)
-          ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
-          : s.category),
+      // A card's kind may be the shop's own coverage word; the shared labeller
+      // owns the fallback chain so no screen can end it at the raw key.
+      label: s.title?.trim() || kindLabel(s.category),
     }));
 
   // Proposal templates + packages (RLS scopes both to the vendor's org).

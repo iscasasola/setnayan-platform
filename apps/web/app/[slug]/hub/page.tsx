@@ -43,11 +43,11 @@ import {
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
-import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
+import { resolveAlbumDoor } from '../_lib/album-door.server';
 import { readGuestSession } from '@/lib/guest-session';
-import { canViewSlugEvent } from '@/lib/slug-access';
+import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
@@ -164,32 +164,28 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const session = await readGuestSession();
   const guestSessionMatches = session?.event_id === event.event_id;
 
-  let isHost = false;
-  if (isValidPhaseParam && !isDemoEvent) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      const [{ data: memberRow }, { data: moderatorRow }] = await Promise.all([
-        admin
-          .from('event_members')
-          .select('member_type')
-          .eq('event_id', event.event_id)
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        admin
-          .from('event_moderators')
-          .select('moderator_id')
-          .eq('event_id', event.event_id)
-          .eq('user_id', user.id)
-          .not('accepted_at', 'is', null)
-          .is('removed_at', null)
-          .maybeSingle(),
-      ]);
-      isHost = Boolean(memberRow) || Boolean(moderatorRow);
-    }
-  }
+  /*
+    🔴 THIS WAS THE THIRD COPY OF THE HOST CHECK, AND IT HELD THE PRE-FIX RULE.
+    It ran `event_members … .select('member_type')` and then returned
+    `Boolean(memberRow)` — the column was asked for and never compared. But
+    `event_members` IS NOT A HOST TABLE: `'guest'` is one of its member types,
+    written by the event-QR scan-to-join, the cookie link and the cross-device
+    magic link. So any signed-in member — a guest who merely scanned the QR —
+    read as a HOST here, which is precisely what `?phase=` needs: it let them
+    force `dayOfPhase` to 'live'/'post' and switch on day-of surfaces the couple
+    had not launched (the live-stream embed, the mirrored photo wall, the recap
+    door) on a PRIVATE celebration. That jump-ahead is the exact harm the fix in
+    `host-scope.ts` was written to kill.
+
+    🔑 A CLONE INHERITS THE BUG ITS TWIN FIXED — third instance in this repo.
+    Two twins were repaired and pinned (`loadHostMembership` and
+    `isSignedInEventHost`); this one was never on the guard's hand-typed list,
+    so it stayed green while shipping the defect. There is no fourth copy now:
+    this asks the ONE shared definition, whose own docblock names exactly this
+    "hosts may preview" rule as its reason for existing.
+  */
+  const isHost =
+    isValidPhaseParam && !isDemoEvent ? await isSignedInEventHost(event.event_id) : false;
   const phasePreviewAllowed = isDemoEvent || isHost;
   const phaseOverride: DayOfPhase | null =
     isValidPhaseParam && phasePreviewAllowed
@@ -438,7 +434,16 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       liveWall = null; // wall trouble must never break the hub
     }
   }
-  const recapHref = isPost ? `/${event.slug}/recap` : null;
+  // THE ALBUM DOOR — the same decision the rooms footer and the public
+  // event-day bar make, taken from the one place that makes it.
+  //
+  // This used to ask `isPost`, which is not a question about whether the album
+  // exists. `post` is only T+36h → T+60h, so this card appeared during the ~24
+  // hours when the couple has almost certainly not published yet — the guest
+  // tapped "See the recap gallery" and was told "The recap isn't ready yet" —
+  // and then vanished forever at T+60h even once the album WAS published.
+  // Wrong in both directions. See `albumRoomLink`'s docblock.
+  const recapHref = (await resolveAlbumDoor(event))?.href ?? null;
   const hasPhotos = Boolean(guest) || Boolean(liveWall) || Boolean(recapHref);
 
   // ── THE TWO DOORS NOTHING IN THE PRODUCT USED TO OPEN. ─────────────────────
@@ -621,9 +626,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             </Link>
           ) : (
             <p className="text-sm text-ink/55">
-              {words.organizerIsHonoree
-                ? 'Seats will be assigned closer to the day.'
-                : `${words.TheOrganizer} will assign seats closer to the day.`}
+              {`${words.TheHost} will assign seats closer to the day.`}
             </p>
           )}
         </article>
@@ -716,9 +719,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             Day-of schedule
           </p>
           <p className="mt-2 text-sm text-ink/60">
-            {words.organizerIsHonoree
-              ? 'The program hasn’t been published yet. Check back closer to the day.'
-              : `${words.TheOrganizer} hasn’t published the program yet. Check back closer to the day.`}
+            {`${words.TheHost} hasn’t published the program yet. Check back closer to the day.`}
           </p>
         </article>
       )}
@@ -844,10 +845,12 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           initialTiles={liveWall.tiles}
           initialCount={liveWall.count}
           initialCaption={liveWall.caption}
+          timeZone={eventTz}
         />
       ) : null}
 
-      {/* After the day, the viewable recap album. */}
+      {/* The recap album — offered once the couple has PUBLISHED it, not once
+          the calendar says the day is over. See `albumRoomLink`. */}
       {recapHref ? (
         <Link
           href={recapHref}

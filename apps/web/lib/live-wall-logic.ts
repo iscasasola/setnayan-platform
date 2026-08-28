@@ -13,6 +13,23 @@ export interface WallTile {
   widthPx: number | null;
   heightPx: number | null;
   sortAt: string; // ISO — the cursor
+  /**
+   * WHO TOOK IT, for the tile's credit — resolved server-side in lib/live-wall.ts.
+   *
+   * Gallery archetype § 2: *"Credit is a feature. Every tile names its camera."*
+   *
+   * 🔒 A guest who has asked not to be shown (`faceblock_enabled`) is never named
+   * here. The wall already refuses to name them as a CAPTION author; naming them
+   * as the photographer on the same screen, to the same room, would be the same
+   * disclosure wearing a different label.
+   *
+   * ⚠ OPTIONAL, and absent is the ordinary case — the credit simply does not
+   * render. The VENUE PROJECTOR path (`ingestToWall`/`broadcastTile`) does not
+   * set it: that surface is owner-locked and untouched by the guest-phone port.
+   */
+  capturedBy?: string | null;
+  /** When it was shot — the time half of the credit. */
+  capturedAt?: string | null;
 }
 
 export type WallMode = 'coming_soon' | 'pre_event' | 'live' | 'recap' | 'archive';

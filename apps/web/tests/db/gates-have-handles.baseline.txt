@@ -108,7 +108,6 @@ feature_policy.enabled_for_vendors_certified | Same table, same reason.
 feature_policy.enabled_for_vendors_coming_soon | Same table, same reason.
 
 # ── DERIVED / STAMPED AT WRITE TIME, not switches ──────────────────────────
-papic_photos.geo_unavailable | Stamped by the capture client at upload ("geo was ON but produced no usable fix"), not a switch anybody flips.
 events.setnayan_ai_intro_used | Consumed-once marker for intro pricing; stamped by the order path, never toggled by a person.
 events.is_surprise | Host-side framing marker; the comment states the real seal is landing_page_visibility, which has its own control.
 event_vendors.excluded_from_market_median | Analyst/data-quality marker on locked bookings, not a user control.

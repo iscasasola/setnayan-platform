@@ -8,6 +8,13 @@
 //     (amount · optional method/reference · optional proof upload).
 //   • recorded, not acked  → "Date held · awaiting vendor confirmation" chip.
 //   • acknowledged          → "Confirmed by vendor" chip.
+//   • THE VENDOR SAYS IT NEVER REACHED THEM → their words, and a way to send it
+//     again. New 2026-08-27, and the reason it can exist: a refusal used to
+//     DELETE the couple's amount, receipt, method and ledger row, so this card
+//     fell back to "Paid a deposit off-platform? Record it" — reading as though
+//     they had never recorded anything. Owner ruling: **"yes they keep their
+//     record."** A supplier not seeing the money is not evidence the couple did
+//     not send it; a transfer can be slow or land under another name.
 //
 // OFF-PLATFORM MONEY: this records a host-entered PHP figure for the couple's
 // own ledger and holds the date — it is NOT a charge through Setnayan. Setnayan
@@ -15,7 +22,7 @@
 // ==========================================================================
 
 import { useRef, useState, useTransition } from 'react';
-import { CalendarCheck, CheckCircle2, Clock, FileText, Loader2 } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, FileText, Loader2 } from 'lucide-react';
 import { recordDeposit } from '../../../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -26,6 +33,10 @@ type Props = {
   depositRecordedAt: string | null;
   depositAcknowledgedAt: string | null;
   depositProofUrl: string | null;
+  /** When the supplier said the recorded deposit never reached them. */
+  depositDeclinedAt: string | null;
+  /** Their own words, if they gave any. */
+  depositDeclineReason: string | null;
 };
 
 function fmtDate(iso: string | null): string {
@@ -48,6 +59,8 @@ export function DepositReservation({
   depositRecordedAt,
   depositAcknowledgedAt,
   depositProofUrl,
+  depositDeclinedAt,
+  depositDeclineReason,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -57,6 +70,7 @@ export function DepositReservation({
 
   const recorded = Boolean(depositRecordedAt);
   const acked = Boolean(depositAcknowledgedAt);
+  const declined = Boolean(depositDeclinedAt);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -92,6 +106,11 @@ export function DepositReservation({
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Confirmed by vendor
           </span>
+        ) : declined ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-danger-300 bg-danger-50 px-2.5 py-1 text-[11px] font-semibold text-danger-700">
+            <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            {vendorName} says it hasn&rsquo;t reached them
+          </span>
         ) : recorded ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-warn-300 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold text-warn-900">
             <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -106,7 +125,9 @@ export function DepositReservation({
           {vendorName}&rsquo;s schedule.{' '}
           {acked
             ? `Confirmed by ${vendorName} on ${fmtDate(depositAcknowledgedAt)}.`
-            : `${vendorName} will confirm they received it.`}
+            : declined
+              ? `On ${fmtDate(depositDeclinedAt)} they said it hadn’t reached them. Your record here is kept — a transfer can be slow, or arrive under a different name.`
+              : `${vendorName} will confirm they received it.`}
         </p>
       ) : (
         <p className="text-[11px] text-ink/60">
@@ -115,6 +136,12 @@ export function DepositReservation({
           your money — this is your own record.
         </p>
       )}
+
+      {declined && depositDeclineReason ? (
+        <p className="rounded-md border border-danger-200 bg-danger-50 px-2.5 py-1.5 text-[11px] text-ink/75">
+          {vendorName}&rsquo;s words: &ldquo;{depositDeclineReason}&rdquo;
+        </p>
+      ) : null}
 
       {depositProofUrl ? (
         <a
@@ -128,14 +155,20 @@ export function DepositReservation({
         </a>
       ) : null}
 
-      {!recorded && !open ? (
+      {/* 🔑 A REFUSED CLAIM MUST REOPEN THIS FORM. The CTA used to render only
+          when nothing was recorded, which worked ONLY because a refusal deleted
+          the record. With the record kept, that condition alone would leave the
+          couple told their payment was refused and given no way to answer — a
+          fix nobody can reach. Sending again clears the refusal and puts the
+          question back in front of the supplier. */}
+      {(!recorded || declined) && !open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
         >
           <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Record deposit
+          {declined ? 'Send it again' : 'Record deposit'}
         </button>
       ) : null}
 

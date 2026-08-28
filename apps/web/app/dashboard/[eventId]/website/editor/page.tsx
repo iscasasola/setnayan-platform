@@ -400,15 +400,15 @@ export default async function WebsiteEditorPage({
         },
         {
           key: 'gallery',
-          label: 'Photo gallery',
-          blurb: 'Your engagement and prenup shots.',
+          label: 'Photos you add',
+          blurb: 'A gallery you upload yourself.',
           href: `${w}/our-photos`,
           anchor: 'gallery',
           pro: true,
           locked: galleryLocked,
           status: galleryLocked ? undefined : `${galleryRefs.length} photo${galleryRefs.length === 1 ? '' : 's'}`,
           panel: galleryLocked ? (
-            lockPanel('Photo gallery')
+            lockPanel('Photos you add')
           ) : (
             <GalleryPanel
               action={updateOurPhotos.bind(null, eventId)}
@@ -436,8 +436,8 @@ export default async function WebsiteEditorPage({
         },
         {
           key: 'photo-moments',
-          label: 'Photo moments',
-          blurb: 'When to lift the camera, when to stay present.',
+          label: 'Camera cues',
+          blurb: 'When you want guests shooting, and when present.',
           href: `${w}/photo-moments`,
           anchor: 'details',
           panel: <PhotoMomentsPanel eventId={eventId} initial={photoMomentsConfig} />,

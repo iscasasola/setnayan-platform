@@ -199,6 +199,52 @@ export function isEventDayActive(
   return phase === 'live' || phase === 'post';
 }
 
+/**
+ * THE INSTANT A CELEBRATION IS OVER: 06:00, in the venue's own clock, on the
+ * day after its LAST day. `NaN` when there is no readable date.
+ *
+ * ── WHY IT IS EXPORTED RATHER THAN INLINE ───────────────────────────────────
+ * It was computed inside `getMenuLifecyclePhase` and nowhere else, because
+ * nothing else needed it. The supplier's desk now does: its look-back state
+ * runs from this instant, and re-deriving "six the morning after" beside the
+ * function that already owns it is precisely the second copy this module's own
+ * comments keep refusing to write. One derivation, two readers.
+ *
+ * The six hours, the LAST day rather than the first, and the calendar-day step
+ * (never `+24h`, which lands an hour off across a DST boundary) are all
+ * explained at MORNING_AFTER_MS above.
+ */
+export function morningAfterInstantMs(
+  eventDate: string | Date | null | undefined,
+  tz?: string,
+  eventEndDate?: string | Date | null,
+): number {
+  const firstDay = normalizeCalendarDay(eventDate);
+  const lastDay = normalizeCalendarDay(eventEndDate) ?? firstDay;
+  if (!lastDay) return NaN;
+  return eventDateToEpoch(nextCalendarDay(lastDay), tz) + MORNING_AFTER_MS;
+}
+
+/**
+ * The calendar day `YYYY-MM-DD` it is RIGHT NOW at the venue.
+ *
+ * Every other "what day is it" helper in this repo hardcodes Asia/Manila
+ * (`manilaTodayISO`, `manilaToday`, `manilaTodayIso` — three of them). This one
+ * takes the zone, because the desk that reads it is told the venue's, and a
+ * hardcoded fourth would be wrong the first time somebody marries abroad.
+ * An unrecognised zone must never throw on a guest's invitation, so it falls
+ * back to the runtime's own day.
+ */
+export function calendarDayInZone(tz?: string, nowMs?: number): string {
+  const at = new Date(nowMs ?? Date.now());
+  try {
+    // 'en-CA' formats as YYYY-MM-DD; the zone is what pins the day boundary.
+    return new Intl.DateTimeFormat('en-CA', tz ? { timeZone: tz } : {}).format(at);
+  } catch {
+    return new Intl.DateTimeFormat('en-CA').format(at);
+  }
+}
+
 /** The Event Lifecycle Menu phase — which menu the bottom nav shows. */
 // NOT the public-website lifecycle: that is `LifecyclePhase` in lib/invitation-widgets.ts (save_the_date → rsvp → event → editorial), which `app/[slug]/page.tsx` consumes. Renamed from `LifecyclePhase` (OPEN-BROWSE PR1) to end the name collision.
 export type MenuLifecyclePhase = 'plan' | 'dayof' | 'after';
@@ -262,9 +308,7 @@ export function getMenuLifecyclePhase(
   */
   const firstDay = normalizeCalendarDay(eventDate);
   const lastDay = normalizeCalendarDay(eventEndDate) ?? firstDay;
-  const morningAfterMs = lastDay
-    ? eventDateToEpoch(nextCalendarDay(lastDay), tz) + MORNING_AFTER_MS
-    : NaN;
+  const morningAfterMs = morningAfterInstantMs(eventDate, tz, eventEndDate);
   const now = nowMs ?? Date.now();
   if (Number.isFinite(morningAfterMs) && now >= morningAfterMs) return 'after';
 

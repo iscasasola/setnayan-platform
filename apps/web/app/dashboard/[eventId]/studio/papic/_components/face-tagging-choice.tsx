@@ -1,6 +1,7 @@
 import { ScanFace } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
+import { SettingRow } from './setting-row';
 import { createClient } from '@/lib/supabase/server';
 import { eventTypeForcesModeB } from '@/lib/papic-face-mode';
 import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
@@ -19,8 +20,24 @@ import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
  * because "turn it on" is not a thing a couple can do. Offering a control that
  * silently cannot enable anything is the empty-promise shape this project keeps
  * getting caught by; an absent card is the honest version.
+ *
+ * ⚠ `variant="row"` IS THE SAME CONTROL BEHIND A DIFFERENT DOOR. The approved
+ * control-centre drawing files this under "Set once, change any time" as a row
+ * showing its current answer, with the full explanation and the switch in the
+ * sheet behind it. The form is passed through untouched — a redraw here would
+ * be a second copy of a control, which is the thing this codebase pays for.
+ *
+ * 🔑 AND THE ABSENCE LOGIC STAYS INSIDE THIS COMPONENT, deliberately. If the
+ * page decided whether to draw the row, a row would exist for events where the
+ * control renders nothing — a gate with no handle, in a new costume.
  */
-export async function FaceTaggingChoice({ eventId }: { eventId: string }) {
+export async function FaceTaggingChoice({
+  eventId,
+  variant = 'card',
+}: {
+  eventId: string;
+  variant?: 'card' | 'row';
+}) {
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -44,6 +61,46 @@ export async function FaceTaggingChoice({ eventId }: { eventId: string }) {
 
   const declined = row.face_tagging_declined_by_couple === true;
 
+  const explanation = declined ? (
+    <>
+      Off for your event. Guests get their photos when someone scans their QR
+      or tags them — nobody&rsquo;s face is measured.
+    </>
+  ) : (
+    <>
+      Guests who choose to add a selfie get their photos found for them
+      automatically. It is always their choice — nothing is stored unless
+      they agree — and you can switch it off for your whole event.
+    </>
+  );
+
+  const control = (
+    <form action={setCoupleFaceTaggingDeclined}>
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="declined" value={declined ? '0' : '1'} />
+      <SubmitButton
+        pendingLabel="Saving…"
+        className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
+      >
+        {declined ? 'Turn it back on' : 'Turn it off for my event'}
+      </SubmitButton>
+    </form>
+  );
+
+  if (variant === 'row') {
+    return (
+      <SettingRow
+        icon={<ScanFace aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+        label="Finding people in photos"
+        value={declined ? 'Off' : 'On'}
+        sheetTitle="Finding people in photos"
+      >
+        <p className="mb-4 text-sm text-ink/65">{explanation}</p>
+        {control}
+      </SettingRow>
+    );
+  }
+
   return (
     <section className="space-y-3 sn-tile p-5 sm:p-6">
       <div className="space-y-1">
@@ -51,32 +108,10 @@ export async function FaceTaggingChoice({ eventId }: { eventId: string }) {
           <ScanFace aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={1.75} />
           Finding people in photos
         </h2>
-        <p className="max-w-prose text-sm text-ink/60">
-          {declined ? (
-            <>
-              Off for your event. Guests get their photos when someone scans their QR
-              or tags them — nobody&rsquo;s face is measured.
-            </>
-          ) : (
-            <>
-              Guests who choose to add a selfie get their photos found for them
-              automatically. It is always their choice — nothing is stored unless
-              they agree — and you can switch it off for your whole event.
-            </>
-          )}
-        </p>
+        <p className="max-w-prose text-sm text-ink/60">{explanation}</p>
       </div>
 
-      <form action={setCoupleFaceTaggingDeclined}>
-        <input type="hidden" name="event_id" value={eventId} />
-        <input type="hidden" name="declined" value={declined ? '0' : '1'} />
-        <SubmitButton
-          pendingLabel="Saving…"
-          className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
-        >
-          {declined ? 'Turn it back on' : 'Turn it off for my event'}
-        </SubmitButton>
-      </form>
+      {control}
     </section>
   );
 }

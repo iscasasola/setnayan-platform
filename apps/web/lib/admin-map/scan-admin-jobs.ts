@@ -179,6 +179,49 @@ function resolvePath(
   return '/admin';
 }
 
+
+/**
+ * Does this job REFUSE TO RUN when `local` is empty?
+ *
+ * 🔴 THE EMPTINESS TEST MUST REACH A REFUSAL, NOT MERELY A BRANCH. Asking only
+ * "is there an emptiness test on this local?" is wrong, and it was caught the
+ * hour the binding above was widened: `setCategoryIcon` writes
+ *   `const iconName = next === '' ? null : next;`
+ * — an empty icon LEGITIMATELY CLEARS the icon. Read as a refusal it published
+ * `icon_name` as required, which is the failure this file already warns about
+ * from the other side: a checklist that demands things nobody has to give.
+ *
+ * 🔑 AND THE REFUSAL LIST IS THE EXPENSIVE HALF. A first cut matched only
+ * `throw`/`redirect`, and that DROPPED 33 jobs which plainly do refuse —
+ * `grantFounderSeat` says no with `fail(...)`, `saveRetailRow` with
+ * `return { ok: false, … }`, `createTaxonomyNode` with `redirectBack(...)`.
+ * A guard that silently narrows is worse than the gap it replaced, so every
+ * way this admin says no is matched — including the two quietest, a bare
+ * `return;` (setEventFaceMode) and `return err(...)` (activateCustomPlan), and the whole set is measured against the
+ * previous output before it is believed: additive only, no job may LOSE a
+ * field it used to declare.
+ */
+const REFUSES =
+  /\b(?:throw\b|fail\s*\(|backWith\s*\(|notFound\s*\(|redirect\w*\s*\(|return\s*;|return\s+[A-Za-z_$][\w$]*\s*\(|return\s*\{[^}]*\b(?:ok\s*:\s*false|error|message)\b)/;
+
+export function refusesWhenEmpty(body: string, local: string): boolean {
+  // The emptiness tests this admin actually uses: a falsy check (135 sites), a
+  // length floor, and an explicit empty-string comparison.
+  const emptiness = new RegExp(
+    `(?:!${local}\\b|${local}\\.length\\s*<|${local}\\s*===\\s*'')`,
+  );
+  const lines = body.split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? '';
+    // It must be a GUARD on this local — never a plain assignment or a ternary.
+    if (!/\bif\s*\(/.test(line)) continue;
+    if (!emptiness.test(line)) continue;
+    // The refusal may sit on the same line or in the block it opens.
+    if (REFUSES.test(lines.slice(i, i + 3).join('\n'))) return true;
+  }
+  return false;
+}
+
 export function scanAdminJobs(adminRoot: string): AdminJob[] {
   // Which folders hold a page, and who imports each actions module. Both are
   // facts read off disk — the alternative is a hand-kept list of exceptions,
@@ -225,17 +268,33 @@ export function scanAdminJobs(adminRoot: string): AdminJob[] {
       // optional toggles, and calling those required would build a checklist
       // that demands things nobody has to give.
       const refusedWhenEmpty: string[] = [];
+      /*
+        🔑 THE BINDING IS MATCHED BY ITS SHAPE, NOT BY A LIST OF WRAPPERS.
+
+        This used to read `const X = String(formData.get('key')` and nothing
+        else — so it saw 195 of the ~415 bindings in this admin, UNDER HALF.
+        Measured 2026-08-28: 145 more are a BARE `const X = formData.get('key')`
+        and 68 more are `const X = someHelper(formData.get('key'))`
+        (`nullIfBlank`, `parseId`, …). Every one of those jobs was published as
+        refusing NOTHING, so the operator checklist understated what they need.
+
+        ⚠ A LIST OF HELPER NAMES WOULD BE A BILL SOMEBODY HAS TO KEEP PAYING,
+        and the next helper written would be invisible again — the same reason
+        the gated-function and notice-type guards derive their sets instead of
+        typing them. So the rule is structural: a `const` whose initialiser
+        mentions `formData.get('key')` binds that key, whatever wraps it.
+
+        The REFUSAL side is deliberately UNCHANGED. Widening what counts as a
+        refusal is a different question with the opposite failure mode: calling
+        an optional toggle "required" builds a checklist that demands things
+        nobody has to give.
+      */
       for (const f of body.matchAll(
-        /const\s+([A-Za-z0-9_]+)\s*=\s*String\(formData\.get\(\s*'([^']+)'/g,
+        /const\s+([A-Za-z0-9_]+)\s*=\s*[^\n;]*?formData\.get\(\s*'([^']+)'/g,
       )) {
         const [, local, key] = f;
         if (!local || !key) continue;
-        // The two shapes this admin actually uses, measured across every
-        // actions file: a falsy check (135 sites) and a length floor.
-        const falsy = new RegExp(`if\\s*\\(\\s*!${local}\\b`).test(body);
-        const tooShort = new RegExp(`${local}\\.length\\s*<`).test(body);
-        const emptyString = new RegExp(`${local}\\s*===\\s*''`).test(body);
-        if ((falsy || tooShort || emptyString) && !refusedWhenEmpty.includes(key)) {
+        if (refusesWhenEmpty(body, local) && !refusedWhenEmpty.includes(key)) {
           refusedWhenEmpty.push(key);
         }
       }

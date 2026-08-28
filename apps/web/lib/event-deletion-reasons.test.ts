@@ -70,7 +70,17 @@ test('six reasons, and the codes are what the database will accept', () => {
         `the database refuses is refused, not thrown — the row simply never ` +
         `lands and nobody is told.`,
     );
-    assert.ok(r.label.length > 0 && r.label !== r.code);
+    /*
+      🪤 CAST TO `string` BOTH SIDES. `DELETION_REASONS` is `as const`, so the
+      labels and the codes are two literal unions with no member in common —
+      TypeScript reads the comparison as always-true and refuses to compile it.
+      The check is still worth making at runtime: a label left equal to its code
+      is somebody's placeholder shown to a person.
+    */
+    assert.ok(
+      r.label.length > 0 && (r.label as string) !== (r.code as string),
+      `The reason ${r.code} has no words of its own.`,
+    );
   }
   assert.ok(!isDeletionReasonCode('anything_else'));
   assert.equal(deletionReasonLabel('made_by_mistake'), 'Made it by mistake');
@@ -168,7 +178,9 @@ test('the impact read names the block and counts pending payments apart', () => 
   while (at >= 0) {
     const window = src.slice(at, at + 220);
     for (const m of window.matchAll(/\.eq\('status', '([a-z_]+)'\)/g)) {
-      payStatuses.add(m[1]);
+      // `noUncheckedIndexedAccess` — a capture group is `string | undefined`
+      // even when the pattern guarantees it. Skip rather than store `undefined`.
+      if (m[1]) payStatuses.add(m[1]);
     }
     at = src.indexOf("from('payments')", at + 1);
   }

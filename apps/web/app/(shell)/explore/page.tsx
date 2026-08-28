@@ -63,6 +63,8 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
+import { resolveMergedService } from '@/lib/service-merge-forward';
 import {
   resolveEventTypeKeysForToken,
   type EventTypeSearchOption,
@@ -1149,6 +1151,29 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // DB-driven event-type roster (2026-06-13 cutover) — ACTIVE vocab rows.
   // parseFilters only shape-checked ?event_type=; here it's validated against
   // the live roster (unknown / retired keys fall back to null = no filter).
+  // ── AN OLD TRADE KEY STILL LANDS ON ITS REPLACEMENT ──────────────────────
+  // `?category=` is the one trade key that travels OUTSIDE our tables — onto a
+  // printed QR, a save-the-date, a bookmark, a link we emitted a year ago. When
+  // an admin folds one trade into another, every row we hold is moved by
+  // `merge_canonical_service()`, but those links still name the old word, and
+  // `.contains('services', [category])` would match nothing: the visitor gets
+  // an empty marketplace that reads as "nobody does this" rather than "we call
+  // it something else now".
+  //
+  // 🔑 THIS IS THE READER, AND IT SHIPS WITH THE WRITER ON PURPOSE. Slug
+  // forwarding for renamed web addresses was written in this repo and had NO
+  // READER FOR MONTHS while two screens promised it worked.
+  //
+  // Fails open: an unknown key is returned unchanged, so this can never become
+  // a gate on a category nobody has merged.
+  const mergeForwards = await getServiceMergeForwards();
+  if (filters.category) {
+    const forwarded = resolveMergedService(filters.category, mergeForwards);
+    if (forwarded !== filters.category) {
+      filters = { ...filters, category: forwarded };
+    }
+  }
+
   const eventTypeVocab = await getEventTypeVocab();
   const eventTypeKeys = new Set(eventTypeVocab.map((t) => t.key));
   const eventTypeLabel = new Map(eventTypeVocab.map((t) => [t.key, t.label]));

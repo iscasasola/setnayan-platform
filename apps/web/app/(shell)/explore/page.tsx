@@ -62,6 +62,7 @@ import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
+import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 import { resolveMergedService } from '@/lib/service-merge-forward';
@@ -2559,13 +2560,27 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       })(),
     ]);
 
-  // Enrich each visible row with the new optional fields. Real-vendor
-  // cards stay price-less per the 2026-05-16 hide-prices lock UNLESS
-  // demo mode is on (which already populates `demo_starts_at_label`
-  // above) — passing `starting_price_php` only for demo rows preserves
-  // that contract while letting the card's price line stay generic.
-  // V1.1 candidate: surface `starting_price_php` for real vendors too
-  // once the hide-prices lock is reconsidered (owner decision pending).
+  // Which of these shops asked us NOT to show their prices publicly. ONE query
+  // for the page, read through the SAME rule the shop's own page uses
+  // (lib/vendor-service-attributes). Fails open → nobody hidden → today's
+  // behaviour, because a transient read failure must never blank the price of
+  // every shop on the marketplace.
+  const hidingPrices = await fetchVendorsHidingPricesPublicly(
+    admin,
+    visible.map((v) => v.vendor_profile_id),
+  );
+
+  // Enrich each visible row with the new optional fields.
+  //
+  // 💰 THE PRICE IS ON THE CARD NOW (owner, 2026-08-28: "their service cards
+  // has the prices"). The 2026-05-16 hide-prices lock this block used to cite
+  // was SUPERSEDED on 2026-07-16 by `hide_prices_publicly` — an opt-in-to-hide
+  // that defaults to SHOW — and the shop's own page has honoured it ever since,
+  // printing "from ₱X" on every service card. The grid was the one screen that
+  // never got the memo: it computed each shop's cheapest starting price for
+  // EVERY visible vendor, a few lines above, and then threw it away for
+  // everyone but demo rows. Showing it here discloses nothing a visitor could
+  // not read one tap later on the shop's page.
   for (const v of visible) {
     const meta = verificationByVendorId.get(v.vendor_profile_id) ?? null;
     // E10 — did the anonymity read actually answer for THIS vendor? Null fields
@@ -2592,10 +2607,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // Off-Season Promos (Wave 5) — surface a LIVE off-peak offer (if any) so
     // the card shows the "Off-season savings" badge + the filter can narrow.
     v.off_peak_offer = svc?.offPeak ?? null;
-    // Only expose starting_price_php on demo cards in V1; real cards
-    // keep the price line hidden per hide-prices lock.
+    // The cheapest active service's starting price — for every shop, unless
+    // that shop opted out of public prices. Demo rows keep their own
+    // `demo_starts_at_label` path untouched.
     v.starting_price_php =
-      v.is_demo === true && svc?.startingPrice ? svc.startingPrice : null;
+      svc?.startingPrice && !hidingPrices.has(v.vendor_profile_id)
+        ? svc.startingPrice
+        : null;
     // Relationship depth — 0 for logged-out visitors and vendors with no
     // relationship to this couple's event.
     v.relationship_depth = relationshipDepthMap.get(v.vendor_profile_id) ?? 0;

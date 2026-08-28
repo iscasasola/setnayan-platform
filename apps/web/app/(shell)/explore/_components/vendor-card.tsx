@@ -308,10 +308,11 @@ export async function VendorCard({
     return haversineKm(venueAnchor.lat, venueAnchor.lng, lat, lng);
   })();
 
-  // Price line — only render when a real number is available. The
-  // 2026-05-16 hide-prices lock keeps real-vendor cards price-less in
-  // V1; this surface still respects that by gating on the page-level
-  // enrichment (which itself respects the hide-prices contract).
+  // Price line — only render when a real number is available. Every shop's
+  // cheapest starting price reaches this card now (owner 2026-08-28), EXCEPT a
+  // shop that ticked `hide_prices_publicly`; the page-level enrichment does
+  // that gating, through the same rule the shop's own page uses. This component
+  // is unchanged and always could show a real price — it was never given one.
   const priceLine = vendor.starting_price_php
     ? `Starts at ${formatPhp(vendor.starting_price_php)}`
     : isDemoCard && vendor.demo_starts_at_label
@@ -466,10 +467,9 @@ export async function VendorCard({
       ) : null}
 
       {/* Price line — independent surface, doesn't share the badge
-          row so it can sit above the meta-row consistently. Real
-          vendors stay price-less in V1 (hide-prices lock); demo
-          vendors and any vendor that opts into surfacing
-          `starting_price_php` light up. */}
+          row so it can sit above the meta-row consistently. Shows for
+          any shop whose page would show it too; a shop that opted out
+          of public prices reaches here with a null and renders nothing. */}
       {priceLine ? (
         <p className={`font-mono text-xs ${
           isDemoCard ? 'text-warn-800/90' : 'text-ink/70'

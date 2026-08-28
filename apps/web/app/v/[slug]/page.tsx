@@ -158,6 +158,7 @@ import {
 } from '@/lib/demo-mode';
 import {
   fetchVendorServiceAttributes,
+  payloadHidesPricesPublicly,
   fetchSchemaWithSharedGroups,
 } from '@/lib/vendor-service-attributes';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
@@ -623,10 +624,11 @@ async function fetchVendorHidesPricesPublicly(
 ): Promise<boolean> {
   try {
     const rows = await fetchVendorServiceAttributes(admin, vendorProfileId);
-    return rows.some((row) => {
-      const payload = (row.attribute_payload ?? {}) as Record<string, unknown>;
-      return payload.hide_prices_publicly === true;
-    });
+    // The predicate itself lives in lib/vendor-service-attributes now — the
+    // marketplace grid reads the same rule in batch, and two copies of "does
+    // this shop hide its prices" is exactly how a shop that opted out ends up
+    // with its prices on the marketplace anyway.
+    return rows.some((row) => payloadHidesPricesPublicly(row.attribute_payload));
   } catch (err) {
     console.warn(
       '[v/[slug]] hide_prices_publicly read failed — defaulting to show',

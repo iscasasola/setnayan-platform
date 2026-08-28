@@ -529,7 +529,7 @@ export type LockMilestone = {
 
 export type FinalizeVendorResult =
   | { status: 'ok'; vendorId: string; lockedStatus: string; milestone: LockMilestone }
-  // PR-H: the press was an ASK, not a booking. The supplier now has 7 days to
+  // PR-H: the press was an ASK, not a booking. The supplier now has 48 HOURS to
   // agree or decline; nothing downstream has fired and no money is owed. Only
   // reachable with NEXT_PUBLIC_LOCK_HANDSHAKE_ENABLED on AND a marketplace
   // supplier behind the row — an off-platform name has nobody who could answer,
@@ -1507,7 +1507,7 @@ export async function finalizeVendor(
     //
     // ⚠ UNDER THE HANDSHAKE THIS WRITES AN ASK, NOT A BOOKING.
     // The row stays 'considering' and carries lock_request_state='pending'; the
-    // guard trigger materializes the 7-day deadline and clears any nudge stamp
+    // guard trigger materializes the 48-hour deadline and clears any nudge stamp
     // from a previous round. The supplier's yes is what writes 'contracted', in
     // one statement inside vendor_agree_to_lock.
     //
@@ -1594,14 +1594,14 @@ export async function finalizeVendor(
   // ══════════════════════════════════════════════════════════════════════
   if (handshakeAsk) {
     const requestedAt = new Date();
-    // The DB materializes the real deadline; this mirrors the same 7 days for
+    // The DB materializes the real deadline; this mirrors the same 48 hours for
     // the toast. Slice B reads the stored value back for the countdown, so the
     // number shown is the number enforced.
     const expiresAt = new Date(requestedAt.getTime() + 7 * 86_400_000).toISOString();
 
     // Tell the supplier they have been ASKED — never `booking_confirmed`,
     // which says the opposite. Fail-soft: the request is already recorded, and
-    // an unsent notification must not roll it back. The day-5 nudge and the
+    // an unsent notification must not roll it back. The 24-hour nudge and the
     // 7-day expiry are the safety net if this one never lands.
     try {
       const adminClient = createAdminClient();
@@ -1625,7 +1625,7 @@ export async function finalizeVendor(
           userId: vendorUserId,
           type: 'lock_request_received',
           title: `${who} wants to book you`,
-          body: `${who} has asked you to take their booking. You have 7 days to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
+          body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
         });
       }
@@ -4231,6 +4231,18 @@ export async function recordDeposit(
         deposit_declined_at: null,
         deposit_decline_reason: null,
         deposit_declined_by_user_id: null,
+        // …and with it any Setnayan settlement OF that refusal (2026-08-28).
+        // The settlement describes the refusal on the row; once the couple has
+        // sent it again there is no refusal for it to describe, and leaving it
+        // would let the NEXT refusal look already-settled and never reach the
+        // admin queue. The permanent history is in admin_audit_log.
+        // 🔒 Legal for the couple's own session for the same reason the three
+        // lines above are: guard_event_vendor_deposit_ack refuses SETTING these
+        // and allows CLEARING them.
+        deposit_dispute_settled_at: null,
+        deposit_dispute_outcome: null,
+        deposit_dispute_note: null,
+        deposit_dispute_settled_by_user_id: null,
       })
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId);

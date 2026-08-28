@@ -46,8 +46,8 @@ async function newVendor(email: string): Promise<string> {
 
 async function newService(vendor: string): Promise<string> {
   const r = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php)
-     VALUES ($1, 'photography', 50000) RETURNING vendor_service_id`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1, 'photography', 50000, 'Free extra hour') RETURNING vendor_service_id`,
     [vendor],
   );
   return r.rows[0]!.vendor_service_id;

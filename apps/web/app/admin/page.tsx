@@ -777,7 +777,10 @@ function laneRollup(tiles: LaneTile[]): {
     state === 'overdue'
       ? 'bg-[var(--sn-danger-soft)] text-[var(--sn-danger)]'
       : state === 'due-soon' || state === 'open'
-        ? 'bg-[var(--sn-warning-soft)] text-[var(--sn-warning)]'
+        // --sn-warning on --sn-warning-soft is 2.92:1. The deep token is the
+        // one the kit ships for text on this tint (5.84:1) — see the tone
+        // ladder in ActionQueueTile for why the amber family always needs it.
+        ? 'bg-[var(--sn-warning-soft)] text-[var(--sn-warning-deep)]'
         : 'bg-ink/5 text-ink/60';
   return { open, unavailable, state, chip };
 }
@@ -855,22 +858,56 @@ function ActionQueueTile({
   nowMs: number;
 }) {
   const hasWork = (value ?? 0) > 0;
-  // Three-step tone ladder (council fix #11 added the middle rung): overdue
-  // (past SLA) escalates to RED — matching the nav badges + the command
-  // center; due-soon (last quarter of the SLA window) gets its own ringed
-  // amber so the early-warning tier no longer collapses into generic
-  // has-work amber; everything-else-with-work stays amber; clear is muted.
+  // Tone ladder (council fix #11 added the due-soon rung; 2026-08-28 made the
+  // has-work rung visible at all — see the block below): overdue escalates to
+  // RED, matching the nav badges + the command center; due-soon is the ringed
+  // early warning; ANY work at all now tints; clear is the only plain tile.
   const overdue = dueState === 'overdue';
   const dueSoon = dueState === 'due-soon';
-  // Three-step WARM-semantic tone ladder (Glass PR-8 · § 3.4 — the canonical
-  // #A6483B danger / #B77E2E warning tones replace the stock red-*/warn-*
-  // scales). Opaque tints, no backdrop-filter: these nest inside the lane's
-  // glass `.sn-tile`, so they stay flat (blur budget § 1.6). overdue → danger ·
-  // due-soon → warning · open-but-fine → calm white w/ warm numerals · clear →
-  // muted ink.
+  /*
+    FOUR-step WARM-semantic tone ladder (Glass PR-8 · § 3.4 — the canonical
+    #A6483B danger and #B77E2E warning tones replace the stock Tailwind red and
+    warn scales). Opaque tints, no backdrop-filter: these nest inside the lane's
+    glass `.sn-tile`, so they stay flat (blur budget § 1.6).
+
+    🚨 THE THIRD RUNG USED TO BE INVISIBLE, AND IT IS THE ONE THAT MATTERS.
+    A tile holding work-but-not-yet-late was `bg-white/75` and a CLEAR tile was
+    `bg-white/70` — and `.sn-tile`, the lane these nest in, is `--m-paper`
+    = #FFFFFF. White at ANY alpha over white composites to white, so the two
+    states did not merely look similar: they rendered THE SAME COLOUR. The only
+    thing separating "somebody's money is waiting" from "nothing to do" was a
+    3.5px triangle and a 10px label. The owner, looking at his own console with
+    one payment pending, said these cells "need to stand out when there are
+    things to decide on" — he was reading a tile that was, by construction,
+    identical to the three zeros beside it.
+    🔑 AN ALPHA STEP OVER ITS OWN GROUND COLOUR IS NOT A DIFFERENCE. Two tints
+    of white on white are one tint. The tint has to be a different HUE to exist.
+
+    So work now TINTS and clear does not — that is the big jump, and it is the
+    one a person sees across a lane of four. The clock pressure is then carried
+    by a ring on top of the tint rather than by the tint itself, so the ladder
+    still has four distinguishable rungs:
+      overdue  → danger tint + 2px danger ring   ("past SLA")
+      due-soon → warning tint + 1px warning ring ("due soon")
+      open     → warning tint, no ring            ← was indistinguishable
+      clear    → plain white, no icon, no ring
+
+    🎨 AND THE TEXT ON THE WARNING TINT WAS AN AA FAILURE, SHIPPED.
+    `--sn-warning` (#B77E2E) on `--sn-warning-soft` (#F6EAD2) measures 2.92:1 —
+    below the 4.5:1 body floor AND below the 3:1 large-text floor the 30px
+    numeral needs. The kit already ships the fix and says so at the token:
+    `--sn-warning-deep` (#7A5119) is 5.84:1 on that same tint, and exists for
+    exactly this pairing. The due-soon rung has been drawing 2.92:1 text since
+    it was written; it reads as deep-amber-on-cream and passes on nobody's
+    screen. Danger is fine as-is and is untouched: #A6483B on #F3E1DC = 4.61:1.
+    ⚠ Never reach for the plain `--sn-warning` on top of `--sn-warning-soft`.
+    The gold/amber family has almost no headroom — it passes on paper against
+    white and fails against its own tint, which is the same trap that put gold
+    eyebrows at 3.37:1 across the doors.
+  */
   const tone = overdue
     ? {
-        card: 'border-ink/10 bg-[var(--sn-danger-soft)]',
+        card: 'border-ink/10 bg-[var(--sn-danger-soft)] ring-2 ring-[color:var(--sn-danger)]/45',
         icon: 'text-[color:var(--sn-danger)]',
         label: 'text-[color:var(--sn-danger)]',
         arrow: 'text-[color:var(--sn-danger)]',
@@ -879,21 +916,21 @@ function ActionQueueTile({
       }
     : dueSoon
       ? {
-          card: 'border-ink/10 bg-[var(--sn-warning-soft)]',
-          icon: 'text-[color:var(--sn-warning)]',
-          label: 'text-[color:var(--sn-warning)]',
-          arrow: 'text-[color:var(--sn-warning)]',
-          value: 'text-[color:var(--sn-warning)]',
-          sub: 'text-[color:var(--sn-warning)]',
+          card: 'border-ink/10 bg-[var(--sn-warning-soft)] ring-1 ring-[color:var(--sn-warning)]/55',
+          icon: 'text-[color:var(--sn-warning-deep)]',
+          label: 'text-[color:var(--sn-warning-deep)]',
+          arrow: 'text-[color:var(--sn-warning-deep)]',
+          value: 'text-[color:var(--sn-warning-deep)]',
+          sub: 'text-[color:var(--sn-warning-deep)]',
         }
       : hasWork
         ? {
-            card: 'border-ink/10 bg-white/75',
-            icon: 'text-[color:var(--sn-warning)]',
-            label: 'text-[color:var(--sn-warning)]',
-            arrow: 'text-[color:var(--sn-warning)]',
+            card: 'border-ink/10 bg-[var(--sn-warning-soft)]',
+            icon: 'text-[color:var(--sn-warning-deep)]',
+            label: 'text-[color:var(--sn-warning-deep)]',
+            arrow: 'text-[color:var(--sn-warning-deep)]',
             value: 'text-[color:var(--sn-ink-900)]',
-            sub: 'text-[color:var(--sn-ink-500)]',
+            sub: 'text-[color:var(--sn-warning-deep)]',
           }
         : {
             card: 'border-ink/10 bg-white/70',

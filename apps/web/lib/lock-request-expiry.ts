@@ -4,7 +4,13 @@ import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { emitNotification } from '@/lib/notification-emit';
 
 /**
- * THE DAY-5 NUDGE AND THE 7-DAY FUSE — one pass, cron-free.
+ * THE 24-HOUR REMINDER AND THE 48-HOUR FUSE — one pass, cron-free.
+ *
+ * ⚖ 48 HOURS IS THE OWNER'S RULING (2026-08-28). The reminder moved WITH it and
+ * had to: `nudge_stale_lock_requests` requires `lock_request_expires_at > NOW()`,
+ * so a day-5 reminder against a 48-hour deadline could never match a row. It
+ * would not have broken loudly — it would have swept nothing and reported
+ * success forever.
  *
  * The shipped data layer had NO sweeper: expiry was flipped lazily inside
  * `vendor_agree_to_lock` / `vendor_decline_lock`, and BOTH of those need the
@@ -60,10 +66,17 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
   let nudged = 0;
   let expired = 0;
 
-  // ── 1 · NUDGE (day 5) ──────────────────────────────────────────────────
+  // ── 1 · NUDGE (24 hours in, 24 hours left) ─────────────────────────────
+  //
+  // ⚠ NOT GUARANTEED, and this is the honest cost of a 48-hour window on a
+  // cron-free sweep. Passes are traffic-driven with a 20-hour floor, so on a
+  // regular cadence one always falls in the 24 hours between the reminder and
+  // the deadline (48 − 24 = 24 > 20). If traffic goes quiet for more than a day
+  // — today's state, pre-launch — a request can close having warned nobody. No
+  // threshold fixes that; only a real schedule would.
   try {
     const { data, error } = await admin.rpc('nudge_stale_lock_requests', {
-      p_days: 5,
+      p_days: 1,
       p_limit: 200,
     });
     if (error) {
@@ -86,7 +99,7 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
             userId: uid,
             type: 'lock_request_nudge',
             title: `${who} is still waiting`,
-            body: `${who} asked you to take their booking and has not heard back. You have about 2 days left to agree or decline before the request closes.`,
+            body: `${who} asked you to take their booking and has not heard back. You have about a day left to agree or decline before the request closes.`,
             relatedUrl: '/vendor-dashboard',
           });
         } catch (e) {
@@ -98,7 +111,7 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
     console.error('[lock-request-expiry] nudge threw:', e);
   }
 
-  // ── 2 · EXPIRE (day 7) ─────────────────────────────────────────────────
+  // ── 2 · EXPIRE (48 hours) ──────────────────────────────────────────────
   try {
     const { data, error } = await admin.rpc('expire_stale_lock_requests', { p_limit: 200 });
     if (error) {
@@ -126,7 +139,7 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
               userId: m.user_id,
               type: 'lock_request_expired',
               title: `${vendorName} did not answer`,
-              body: `${vendorName} did not reply within 7 days, so your request is closed. You can ask them again or pick someone else.`,
+              body: `${vendorName} did not reply within 48 hours, so your request is closed. You can ask them again or pick someone else.`,
               relatedUrl: `/dashboard/${r.event_id}/vendors`,
             });
           }
@@ -144,7 +157,10 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
 
 /**
  * Cron-free daily pass, fired from `after()` on request traffic.
- * DAILY, not weekly: a 7-day fuse checked weekly can fire on day 13.
+ * DAILY, not weekly: a 48-hour fuse checked weekly could fire a week late.
+ * ⚠ AND THE GAP IS NOW THE BINDING CONSTRAINT, not the cadence label — see the
+ * reminder's own note above: 20 hours between passes against a 48-hour window
+ * leaves no slack for a quiet day.
  * Best-effort; never throws — a missed day retries on the next eligible request.
  */
 export async function maybeRunLockRequestExpiry(): Promise<void> {

@@ -1,6 +1,7 @@
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { Gauge, TrendingUp, Radar, Info } from 'lucide-react';
+import { replyTimeVerdict } from '@/lib/vendor-reply-time';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -48,6 +49,7 @@ import {
 } from '@/lib/vendor-feature-gate';
 import { VendorTierGate, VendorTierTeaser } from '../_components/tier-gate';
 import { HealthCompositeCard } from './_components/health-composite-card';
+import { ReplyClaimCard } from './_components/reply-claim-card';
 import { GrowthRecsCard } from './_components/growth-recs-card';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
@@ -233,7 +235,14 @@ export default async function PerformanceHome({
       supabase
         .from('vendor_activity_stats')
         .select(
-          'quality_score, response_rate_pct, booking_completion_rate_pct, profile_completeness_pct, review_avg_bayesian, review_count, inquiry_to_booking_pct, finalized_booking_count, avg_response_minutes',
+          // ⚠ `replied_thread_count` and `last_active_at` are what turn a median into
+        // a CLAIM — the sample floor and the recency test both live in
+        // `lib/vendor-reply-time.ts`, and a select that omits either would make
+        // this page explain a different rule from the one the public card obeys.
+        // Both columns exist in production and carry table-wide SELECT grants
+        // (checked before adding them: `vendor_activity_stats` has no per-column
+        // allowlist, so naming them cannot make PostgREST refuse the whole read).
+        'quality_score, response_rate_pct, booking_completion_rate_pct, profile_completeness_pct, review_avg_bayesian, review_count, inquiry_to_booking_pct, finalized_booking_count, avg_response_minutes, replied_thread_count, last_active_at',
         )
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle()
@@ -634,6 +643,20 @@ export default async function PerformanceHome({
     ? await fetchVendorVerifiedMedian(profile.vendor_profile_id)
     : null;
 
+  // The public reply-time claim, decided by the SAME function the marketplace
+  // card calls — never a second copy of the floor, the sentinel, the four-hour
+  // line or the recency test. `statsRow` is null when that read failed, and
+  // the verdict's own fail-closed path then reports "nothing shown yet", which
+  // is what a couple would in fact be seeing.
+  const replyVerdict = replyTimeVerdict({
+    avgResponseMinutes: (statsRow as { avg_response_minutes?: number | null } | null)
+      ?.avg_response_minutes,
+    repliedThreadCount: (statsRow as { replied_thread_count?: number | null } | null)
+      ?.replied_thread_count,
+    lastActiveAt: (statsRow as { last_active_at?: string | null } | null)?.last_active_at,
+    now: Date.now(),
+  });
+
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* ── Arrangement (owner 2026-07-02 design pass): ONE bounded windowed zone
@@ -646,6 +669,11 @@ export default async function PerformanceHome({
         <HealthCompositeCard health={health} monthDelta={monthDelta}>
           <GrowthRecsCard recs={growthRecs} />
         </HealthCompositeCard>
+        {/* The one number on this page a COUPLE also reads. Free on every tier:
+            it is not analytics about somebody else's market, it is a claim
+            Setnayan publishes about this shop, so the shop is entitled to know
+            what it says and what would change it. */}
+        <ReplyClaimCard verdict={replyVerdict} />
         {verifiedMedian ? <VerifiedMedianCard data={verifiedMedian} /> : null}
       </div>
 

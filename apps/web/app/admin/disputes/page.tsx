@@ -24,6 +24,7 @@ import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { DepositDisputesSection } from './_components/deposit-disputes-section';
 export const metadata = { title: 'Disputes · Admin' };
 
 /**
@@ -360,7 +361,8 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
         />
       </div>
 
-      
+      {/* The money question only Setnayan can answer (owner 2026-08-28). */}
+      <DepositDisputesSection />
     </div>
   );
 }

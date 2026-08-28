@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 
 import {
   lockRequestStateOf,
-  lockRequestDaysLeft,
+  lockRequestHoursLeft,
+  lockRequestFuseLabel,
+  LOCK_ANSWER_WINDOW_HOURS,
   isAwaitingVendor,
   type LockRequestRow,
 } from './lock-request-state';
@@ -78,11 +80,30 @@ test('isAwaitingVendor is true only while the supplier owes an answer', () => {
   assert.equal(isAwaitingVendor(row('considering', 'declined'), true), false);
 });
 
-test('days left is whole days, floored at zero, and null without a deadline', () => {
+test('hours left is whole hours, floored at zero, and null without a deadline', () => {
   const now = new Date('2026-08-15T00:00:00Z');
-  assert.equal(lockRequestDaysLeft('2026-08-22T00:00:00Z', now), 7);
-  assert.equal(lockRequestDaysLeft('2026-08-15T06:00:00Z', now), 1, 'part of a day still counts');
-  assert.equal(lockRequestDaysLeft('2026-08-10T00:00:00Z', now), 0, 'never negative');
-  assert.equal(lockRequestDaysLeft(null, now), null);
-  assert.equal(lockRequestDaysLeft('not-a-date', now), null);
+  assert.equal(lockRequestHoursLeft('2026-08-17T00:00:00Z', now), 48, 'the whole window');
+  assert.equal(lockRequestHoursLeft('2026-08-15T06:00:00Z', now), 6);
+  assert.equal(lockRequestHoursLeft('2026-08-15T00:20:00Z', now), 1, 'part of an hour still counts');
+  assert.equal(lockRequestHoursLeft('2026-08-10T00:00:00Z', now), 0, 'never negative');
+  assert.equal(lockRequestHoursLeft(null, now), null);
+  assert.equal(lockRequestHoursLeft('not-a-date', now), null);
+});
+
+test('the window constant is 48 hours — the owner ruling, 2026-08-28', () => {
+  assert.equal(LOCK_ANSWER_WINDOW_HOURS, 48);
+});
+
+test('THE FUSE COUNTS IN HOURS BELOW A DAY — which is the whole reason it changed', () => {
+  // 🔴 ON A 48-HOUR WINDOW THE OLD DAY-GRANULAR LABEL SPENT HALF THE WINDOW
+  // SAYING "Last day to answer" — the same words at 23 hours and at 3 minutes.
+  const now = new Date('2026-08-15T00:00:00Z');
+  const at = (iso: string) => lockRequestFuseLabel(iso, now);
+  assert.equal(at('2026-08-17T00:00:00Z'), '2 days left to answer');
+  assert.equal(at('2026-08-16T01:00:00Z'), '2 days left to answer', '25h still reads in days');
+  assert.equal(at('2026-08-15T23:00:00Z'), '23 hours left to answer');
+  assert.equal(at('2026-08-15T03:00:00Z'), '3 hours left to answer');
+  assert.equal(at('2026-08-15T00:30:00Z'), '1 hour left to answer', 'singular, not "1 hours"');
+  assert.equal(at('2026-08-14T00:00:00Z'), 'closing now', 'a lapsed ask does not claim time it has not got');
+  assert.equal(lockRequestFuseLabel(null, now), null, 'no deadline, no invented number');
 });

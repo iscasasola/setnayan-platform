@@ -59,7 +59,7 @@ const CAPTION: Record<string, string> = {
   shop: 'Shop',
   customers: 'Customers',
   performance: 'Performance',
-  'on-the-day': 'On the day',
+  'on-the-day': 'Hub',
 };
 
 export function VendorRailContext({

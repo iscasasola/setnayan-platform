@@ -46,6 +46,7 @@ import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
 import { rankTradeMatches, type TradeMatch } from '@/lib/kind-search-trades';
+import { isTradeSearchMiss, collectiblePhraseFor } from '@/lib/collected-trade-phrase';
 import {
   KEEP_VERSION,
   keepAgeLabel,
@@ -311,6 +312,69 @@ export function CanvasMaker({
     [tradeOptions, kindQuery, existingKindValues],
   );
   /**
+   * ═══ C3 2026-08-28 — "IT REMEMBERS WHAT SUPPLIERS CONFIRM" ═══════════════
+   *
+   * Every live trade key the search band can possibly return — the exact set
+   * `rankedTrades` draws candidates from, never a second list that could
+   * disagree with it. Picking a key OUTSIDE this set (Miscellaneous, a
+   * legacy department pill) has nothing to teach the trade search, so it is
+   * never collectible — see `collected-trade-phrase.ts`.
+   */
+  const liveTradeKeySet = useMemo(() => new Set(tradeOptions.map((t) => t.key)), [tradeOptions]);
+  /**
+   * Did ANY legacy department pill's own label match the typed query? The
+   * exact filter `rest` (below) uses to decide what to show — computed once
+   * here so the on-screen "Nothing matches…" message and the miss-tracking
+   * effect below can never drift into disagreeing with each other about
+   * what counts as a miss.
+   */
+  const anyLegacyLabelMatches = useMemo(() => {
+    const q = kindQuery.trim().toLowerCase();
+    return categoryOptions.some((g) =>
+      g.options.some((o) => o.standing !== 'covered' && o.label.toLowerCase().includes(q)),
+    );
+  }, [categoryOptions, kindQuery]);
+  /**
+   * THE ONE PLACE THAT DECIDES A MISS — imported, never re-derived (see the
+   * docblock on `isTradeSearchMiss`). Drives both the "Nothing matches…"
+   * message below and `lastMissedQuery`.
+   */
+  const kindSearchMissed = useMemo(
+    () =>
+      isTradeSearchMiss({
+        query: kindQuery,
+        rankedTradeCount: rankedTrades.length,
+        anyLegacyLabelMatches,
+      }),
+    [kindQuery, rankedTrades, anyLegacyLabelMatches],
+  );
+  /**
+   * The most recent typed query that missed, held open across a CLEARED
+   * search box (a supplier who sees "Nothing matches…" and then clears the
+   * field to browse manually is still resolving that same miss) but
+   * DROPPED the moment a later non-empty query finds something — continuing
+   * to shadow a stale miss onto an unrelated later pick is exactly the
+   * wrong-pairing risk this feature exists to bound. `null` once nothing is
+   * pending, or once a pick has consumed it (see `pickCategory`).
+   */
+  const [lastMissedQuery, setLastMissedQuery] = useState<string | null>(null);
+  useEffect(() => {
+    const q = kindQuery.trim();
+    if (kindSearchMissed) {
+      setLastMissedQuery(q);
+    } else if (q.length > 0) {
+      setLastMissedQuery(null);
+    }
+  }, [kindQuery, kindSearchMissed]);
+  /**
+   * Set only when the pending miss above resolved into a real, live trade —
+   * posted as `collected_kind_phrase` so `commitVendorService` can remember
+   * the pairing, ONLY once the card is actually saved. Never trusted at
+   * face value server-side: the action re-derives whether `category` is a
+   * live trade fresh, from the taxonomy the save itself just enforced.
+   */
+  const [collectPhrase, setCollectPhrase] = useState<string | null>(null);
+  /**
    * ⚡ A ONE-TRADE SHOP IS ASKED NOTHING. If the whole shop covers exactly one
    * kind, that IS the answer — pre-picking it keeps the maker at zero steps for
    * the commonest case instead of opening with a question that has one button.
@@ -338,6 +402,25 @@ export function CanvasMaker({
     categoryRef.current = category;
   }, [category]);
 
+  /**
+   * THE ONE PLACE A KIND IS PICKED (C3 2026-08-28). Every `KindPill.onPick`
+   * in the kind sheet — the covered band, a ranked-trade result, a legacy
+   * department pill — routes through here so `collectPhrase` can never fall
+   * out of sync with what was actually chosen. See `lastMissedQuery` above
+   * for why the pending miss survives a cleared search box but not a later
+   * query that found something.
+   */
+  const pickCategory = useCallback(
+    (key: string) => {
+      setCategory(key);
+      setKindFromShop(false);
+      setCollectPhrase(
+        collectiblePhraseFor({ missedQuery: lastMissedQuery, pickedKey: key, liveTradeKeys: liveTradeKeySet }),
+      );
+      setLastMissedQuery(null);
+    },
+    [lastMissedQuery, liveTradeKeySet],
+  );
 
   const keepKey = keepStorageKey(vendorProfileId);
   const [offeredKeep, setOfferedKeep] = useState<CanvasKeep | null>(null);
@@ -349,11 +432,17 @@ export function CanvasMaker({
    * possible… so they do not feel bombarded"*, and then, on this shape,
    * *"looks better"*.)
    *
-   * A blank card asks the ONLY two things the publish gate has ever required —
-   * a cover photo and one Setnayan Exclusive — one at a time, in the sheets the
-   * maker already owns, with the card visible above painting itself. Everything
-   * else on this screen is optional and always was; it simply looked required
-   * because it was all on at once.
+   * A blank card asks the ONLY things the publish gate requires — a cover
+   * photo, a starting price and one Setnayan Exclusive — one at a time, in the
+   * sheets the maker already owns, with the card visible above painting itself.
+   * Everything else on this screen is optional and always was; it simply looked
+   * required because it was all on at once.
+   *
+   * 🔑 THE PASS IS THE GATE, SAID OUT LOUD — so when the gate grew a price
+   * (owner-drawn 2026-08-28), the pass grew the same question. A pass that
+   * stops one short of what Publish needs hands the supplier a finished-looking
+   * card and a shut button, which is the bombardment this shape was drawn to
+   * remove, arriving one screen later.
    *
    * ⚖ THIS IS NOT A WIZARD BOLTED ON TOP. There is no second form, no step
    * validation, no Back-and-Continue over pages: the pass only decides which
@@ -370,7 +459,7 @@ export function CanvasMaker({
     const steps: SheetKey[] = [];
     if (firstCardEver) steps.push('intro');
     if (!category) steps.push('kind');
-    steps.push('media', 'excl');
+    steps.push('media', 'price', 'excl');
     return steps;
     // Frozen at mount ON PURPOSE — answering must not renumber the question the
     // vendor is looking at, so `category` and `firstCardEver` are read once.
@@ -786,9 +875,11 @@ export function CanvasMaker({
   const passAnswered =
     passStep === 'media'
       ? snap.hasCover
-      : passStep === 'excl'
-        ? perk.trim().length > 0
-        : true;
+      : passStep === 'price'
+        ? snap.hasPrice
+        : passStep === 'excl'
+          ? perk.trim().length > 0
+          : true;
   const passFooter = inPass ? (
     <div className="space-y-2 pt-1">
       <button
@@ -901,6 +992,11 @@ export function CanvasMaker({
       ) : null}
       <form ref={formRef} action={commitVendorService} className="space-y-4">
         <input type="hidden" name="category" value={category} />
+        {/* C3 2026-08-28 — set only when the current `category` resolved a
+            genuine search miss (see `collectPhrase` above). Empty on every
+            ordinary save; `commitVendorService` re-validates it against the
+            live taxonomy before remembering anything. */}
+        <input type="hidden" name="collected_kind_phrase" value={collectPhrase ?? ''} />
         {claimToken ? <input type="hidden" name="claim_token" value={claimToken} /> : null}
         {/* The coverage this card sits in. Chosen in the audience sheet; the
             FIELD lives here under its shipped name so the payload is unchanged. */}
@@ -1156,6 +1252,7 @@ export function CanvasMaker({
         <dl className="space-y-1.5 rounded-xl border p-3 text-sm" style={{ borderColor: line, background: paper }}>
           <Recap k="Category" v={activeCategoryLabel || '— not chosen yet'} />
           <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
+          <Recap k="Price" v={snap.hasPrice ? snap.priceLine : '— not set'} />
           <Recap k="Setnayan Exclusive" v={perk.trim() ? 'Set' : '— not set'} />
           <Recap
             k="What couples get"
@@ -1371,8 +1468,7 @@ export function CanvasMaker({
                       opt={opt}
                       on={opt.value === category}
                       onPick={() => {
-                        setCategory(opt.value);
-                        setKindFromShop(false);
+                        pickCategory(opt.value);
                         if (inPass) nextInPass();
                         else setSheet(null);
                       }}
@@ -1443,8 +1539,7 @@ export function CanvasMaker({
                           }}
                           on={t.key === category}
                           onPick={() => {
-                            setCategory(t.key);
-                            setKindFromShop(false);
+                            pickCategory(t.key);
                             if (inPass) nextInPass();
                             else setSheet(null);
                           }}
@@ -1477,8 +1572,7 @@ export function CanvasMaker({
                             opt={opt}
                             on={opt.value === category}
                             onPick={() => {
-                              setCategory(opt.value);
-                              setKindFromShop(false);
+                              pickCategory(opt.value);
                               if (inPass) nextInPass();
                               else setSheet(null);
                             }}
@@ -1488,18 +1582,11 @@ export function CanvasMaker({
                     </div>
                   );
                 })}
-                {kindQuery.trim().length > 0 &&
-                rankedTrades.length === 0 &&
-                categoryOptions.every((g) =>
-                  g.options.every(
-                    (o) =>
-                      o.standing === 'covered' ||
-                      !o.label.toLowerCase().includes(kindQuery.trim().toLowerCase()),
-                  ),
-                ) ? (
+                {kindSearchMissed ? (
                   <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
                     Nothing matches “{kindQuery.trim()}”. Try a plainer word — or tell us what
-                    you do from My Shop and we will add it.
+                    you do from My Shop and we will add it. Either way you are not stuck: pick{' '}
+                    <strong>Miscellaneous</strong> for now and change it once we have your kind.
                   </p>
                 ) : null}
                 {lockedWhy ? (
@@ -1566,6 +1653,7 @@ export function CanvasMaker({
           title="Price"
           open={sheet === 'price'}
           onClose={() => setSheet(null)}
+          footer={passStep === 'price' ? passFooter : null}
         >
           <PricingBasisEditor
             idPrefix="canvas"
@@ -1589,6 +1677,14 @@ export function CanvasMaker({
             Per head sets the minimum pax you can serve · per hour covers a first block
             then bills each extra hour · per event is flat, whatever the hours or pax.
             Either way the real number is quoted in each couple&rsquo;s inquiry.
+          </p>
+          {/* WHY THE NUMBER IS ASKED FOR AT ALL — said where the field is, not
+              in a banner afterwards. A supplier reading "required" with no
+              reason reads a toll gate; this is the one sentence that makes it
+              their own interest. */}
+          <p className="text-xs" style={{ color: 'var(--m-orange-2)' }}>
+            A starting price is required to publish. It is how a couple planning a
+            budget finds this card — with no figure there is nothing to match them to.
           </p>
           <DiscountsEditor initial={initial?.discounts ?? []} />
           <Field label="Crew size (optional)" htmlFor="crew_size">

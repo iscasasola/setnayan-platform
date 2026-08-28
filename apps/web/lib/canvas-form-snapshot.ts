@@ -19,6 +19,8 @@
  * this is a rendering of `pricing_basis` and friends.
  */
 
+import { priceIsSet } from './service-publish-gate';
+
 export type CanvasFormSnapshot = {
   hasCover: boolean;
   /** Showcase gallery photos. The cover is a separate field and not counted. */
@@ -66,6 +68,22 @@ function php(n: number): string {
 }
 
 /**
+ * A MONEY field, which is not the same thing as a number.
+ *
+ * 🪤 ZERO IS NOT A PRICE, and reading it as one was a live drift between this
+ * card and the save. `num()` happily returns 0 for a typed `0`, so the card
+ * rendered "₱0 flat" and reported `hasPrice: true` — the meter called the card
+ * complete and the couple would have read a free wedding. The save path stores
+ * that 0 too (`parseInt0OrNull` accepts it), and the publish gate refuses it
+ * (`priceIsSet`), so the screen and the gate disagreed by exactly one value.
+ * One definition now, shared with the gate.
+ */
+function money(v: FormDataEntryValue | null | undefined): number | null {
+  const n = num(v);
+  return priceIsSet(n) ? n : null;
+}
+
+/**
  * The price line a couple reads, in the owner's own words for the three bases
  * (owner-locked 2026-07-27 / clarified 2026-07-28):
  *
@@ -79,15 +97,17 @@ function php(n: number): string {
  *              anchor when the vendor set them (the shipped card-preview rule).
  *                                           → "₱80,000 flat"
  *
- * No price at all is legal — the listing is a menu and the real number is quoted
- * in the couple's inquiry — so this returns `hasPrice: false` rather than a zero.
+ * No price at all returns `hasPrice: false` rather than a zero — and since
+ * 2026-08-28 that is what holds Publish shut (lib/service-publish-gate.ts). The
+ * real number is still quoted in the couple's inquiry; what the card must carry
+ * is a STARTING figure, or a couple's budget has nothing to match it against.
  */
 export function cardPriceLine(fd: FormData): { priceLine: string; hasPrice: boolean } {
   const basis = String(fd.get('pricing_basis') ?? 'fixed');
   const isCrewMeals = String(fd.get('category') ?? '') === 'crew_meals';
 
   if (basis === 'per_pax') {
-    const rate = num(fd.get('per_pax_price_php'));
+    const rate = money(fd.get('per_pax_price_php'));
     if (rate == null) return { priceLine: '', hasPrice: false };
     const minPax = num(fd.get('min_pax'));
     const unit = isCrewMeals ? 'per meal' : 'per head';
@@ -99,7 +119,7 @@ export function cardPriceLine(fd: FormData): { priceLine: string; hasPrice: bool
   }
 
   if (basis === 'per_hour') {
-    const base = num(fd.get('hour_base_php'));
+    const base = money(fd.get('hour_base_php'));
     if (base == null) return { priceLine: '', hasPrice: false };
     const minHours = num(fd.get('min_hours'));
     const extra = num(fd.get('extra_hour_php'));
@@ -110,7 +130,7 @@ export function cardPriceLine(fd: FormData): { priceLine: string; hasPrice: bool
 
   const brackets = fd
     .getAll('bracket_price')
-    .map((v) => num(v))
+    .map((v) => money(v))
     .filter((n): n is number => n != null);
   if (brackets.length) {
     const low = Math.min(...brackets);
@@ -119,7 +139,7 @@ export function cardPriceLine(fd: FormData): { priceLine: string; hasPrice: bool
       hasPrice: true,
     };
   }
-  const flat = num(fd.get('starting_price_php'));
+  const flat = money(fd.get('starting_price_php'));
   if (flat == null) return { priceLine: '', hasPrice: false };
   return { priceLine: `${php(flat)} flat`, hasPrice: true };
 }

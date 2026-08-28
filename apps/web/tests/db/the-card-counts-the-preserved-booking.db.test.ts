@@ -84,8 +84,8 @@ async function newShop(): Promise<{ vpid: string; userId: string; sid: string }>
     );
   }
   const s = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category)
-     VALUES ($1,'photography') RETURNING vendor_service_id`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1,'photography',40000,'Free extra hour') RETURNING vendor_service_id`,
     [vpid],
   );
   return { vpid, userId, sid: s.rows[0]!.vendor_service_id };

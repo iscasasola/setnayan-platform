@@ -15,6 +15,7 @@
  * = events.estimated_budget_centavos.
  */
 import { createClient } from './supabase/server';
+import { fetchBudgetBands } from './budget-bands-read';
 import { BUDGET_BANDS_FALLBACK, type BudgetBand } from './budget-bands-shared';
 
 // Re-exported so existing server-side importers of '@/lib/budget-bands' keep the
@@ -25,34 +26,19 @@ import { BUDGET_BANDS_FALLBACK, type BudgetBand } from './budget-bands-shared';
 export { BUDGET_BANDS_FALLBACK } from './budget-bands-shared';
 export type { BudgetBand } from './budget-bands-shared';
 
-type BandRow = {
-  band_slug: string;
-  label: string;
-  tag: string | null;
-  per_head_median_centavos: number | string;
-  sort_order: number;
-};
-
 /**
  * Fetch the active budget feel-bands ordered by sort_order. DB-first; on ANY
  * error or empty result returns BUDGET_BANDS_FALLBACK. `med` is centavos/100
  * (pesos) with no lossy rounding.
+ *
+ * The read itself now lives in lib/budget-bands-read (client-taking, no
+ * next/headers) so the vendor-search budget path can reuse the SAME query with
+ * its own client — one ladder, one fallback, one place to change.
  */
 export async function getBudgetBands(): Promise<BudgetBand[]> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('budget_band_config')
-      .select('band_slug,label,tag,per_head_median_centavos,sort_order')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
-    if (error || !data || data.length === 0) return BUDGET_BANDS_FALLBACK;
-    return (data as BandRow[]).map((r) => ({
-      value: r.band_slug,
-      label: r.label,
-      tag: r.tag ?? '',
-      med: Number(r.per_head_median_centavos) / 100,
-    }));
+    return await fetchBudgetBands(supabase);
   } catch {
     return BUDGET_BANDS_FALLBACK;
   }

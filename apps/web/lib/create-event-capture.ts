@@ -19,6 +19,7 @@
  * real band and a guest count are present. Trivially unit-testable.
  */
 
+import { bandReachBudgetPhp } from './budget-band-money';
 import type { BudgetBand } from './budget-bands-shared';
 
 export type CreateCaptureInput = {
@@ -105,10 +106,18 @@ export function resolveCreateCapture(
   const rawBand = str(input.budgetBandRaw);
   const bandValue = rawBand === 'nolimit' ? 'no_limit' : rawBand;
   const band = bandValue ? bands.find((b) => b.value === bandValue) ?? null : null;
-  const estimatedBudgetCentavos =
-    band && band.med > 0 && estimatedPax != null
-      ? Math.round(band.med * estimatedPax * 100)
-      : null;
+  // 💰 THE SAME FIGURE THE COUPLE WAS JUST SHOWN, and the same one the wedding
+  // flow stores. This used to be the MIDDLE of the band while the wedding
+  // onboarding stored the TOP — one band, one guest count, two budgets about a
+  // fifth apart depending on which door they came through, and that number
+  // decides which suppliers they see. Owner 2026-08-29 approved closing it by
+  // showing the range on this form too and storing what is on screen.
+  //
+  // ⚠ The screen and this line must not drift again: the picker prints
+  // `bandRangePhp(...).highPhp` and this stores `bandReachBudgetPhp`, which IS
+  // that same high end. A test pins them equal.
+  const topPhp = bandReachBudgetPhp(band?.med ?? null, estimatedPax);
+  const estimatedBudgetCentavos = topPhp == null ? null : Math.round(topPhp * 100);
 
   // Dates — window when explicitly chosen AND a valid start/end pair, else the
   // candidate list (up to 4, de-duped, chronological). No usable date → null mode.

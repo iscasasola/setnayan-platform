@@ -133,3 +133,58 @@ test('the suggestion list is capped', () => {
   const many = rankTaxonomyOptions(OPTIONS, 'er', 8);
   assert.ok(many.length <= 8, `expected ≤8 suggestions, got ${many.length}`);
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// ALIASES (C2, 2026-08-28) — "sorbetes", "sorbetero" and "ice cream cart"
+// should all find a trade even when the word never appears in the label.
+// ─────────────────────────────────────────────────────────────────────────
+
+test('a word that appears in NO real option matches only through an alias', () => {
+  // "sorbetero" is not a substring of any real taxonomy label — reproduces
+  // the exact gap C2 exists to close, against the REAL 262-trade options.
+  const withoutAlias = rankTaxonomyOptions(OPTIONS, 'sorbetero');
+  assert.deepEqual(withoutAlias, [], 'fixture sanity: "sorbetero" already matched something by letters alone');
+
+  const withAlias = OPTIONS.map((o) =>
+    o.key === 'sorbetes_cart' ? { ...o, aliases: ['sorbetero'] } : o,
+  );
+  const rows = rankTaxonomyOptions(withAlias, 'sorbetero');
+  assert.ok(
+    rows.some((r) => r.key === 'sorbetes_cart'),
+    `"sorbetero" with the alias attached still missed sorbetes_cart: ${JSON.stringify(rows)}`,
+  );
+});
+
+test('an option with NO aliases field ranks byte-identically to before this field existed', () => {
+  // Every option in OPTIONS has no `aliases` key at all — this is the
+  // regression guard for the refactor from if/else-if to textTierScore+max.
+  for (const q of ['photographer', 'photobooth', 'booth', 'caterer', 'zzz-nothing']) {
+    const rows = rankTaxonomyOptions(OPTIONS, q);
+    assert.deepEqual(
+      rows.map((r) => r.key),
+      rankTaxonomyOptions(OPTIONS.map((o) => ({ ...o, aliases: [] })), q).map((r) => r.key),
+      `"${q}" ranked differently once every option carried an empty aliases array`,
+    );
+  }
+});
+
+test('an alias never resurrects a below-minimum-length query', () => {
+  const withAlias = [{ key: 'sorbetes_cart', label: 'Sorbetes Cart', aliases: ['a'] }];
+  assert.deepEqual(rankTaxonomyOptions(withAlias, 'a'), []);
+});
+
+test('a direct label match and an alias match on the SAME option do not double-count or crash', () => {
+  const opt = [{ key: 'photo_booth', label: 'Photo Booth', aliases: ['pabati', 'photo booth'] }];
+  const rows = rankTaxonomyOptions(opt, 'photo booth');
+  assert.equal(rows.length, 1);
+});
+
+test('an alias match is still capped by `limit`, same as a label match', () => {
+  const opts = Array.from({ length: 10 }, (_, i) => ({
+    key: `k${i}`,
+    label: `Unrelated ${i}`,
+    aliases: ['sorbetero'],
+  }));
+  const rows = rankTaxonomyOptions(opts, 'sorbetero', 3);
+  assert.equal(rows.length, 3);
+});

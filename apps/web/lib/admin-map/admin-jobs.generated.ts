@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 299 jobs, 196 of them form-driven, as of e0d2bc96e.
+// that performs it. 304 jobs, 201 of them form-driven, as of 2077be35f.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -18,7 +18,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "custom_plan_id"
     ],
     "refusedWhenEmpty": [
-      "vendor_profile_id"
+      "vendor_profile_id",
+      "custom_plan_id"
     ],
     "destructive": false
   },
@@ -62,7 +63,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "recurs_monthly",
       "receipt"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "expensed_on",
+      "vendor_name"
+    ],
     "destructive": false
   },
   {
@@ -102,7 +106,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "priority",
       "rationale"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "tile_id",
+      "service_code"
+    ],
     "destructive": false
   },
   {
@@ -136,7 +143,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "flag_id",
       "admin_notes"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "flag_id",
+      "admin_notes"
+    ],
     "destructive": false
   },
   {
@@ -148,7 +158,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "flag_id",
       "admin_notes"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "flag_id",
+      "admin_notes"
+    ],
     "destructive": false
   },
   {
@@ -171,7 +184,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "user_id",
       "admin_notes"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "user_id",
+      "admin_notes"
+    ],
     "destructive": false
   },
   {
@@ -224,7 +240,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "request_id"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "request_id"
+    ],
     "destructive": false
   },
   {
@@ -324,7 +342,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "approval_id"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "approval_id"
+    ],
     "destructive": false
   },
   {
@@ -334,6 +354,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/subscriptions",
     "fields": [
       "purchase_id"
+    ],
+    "refusedWhenEmpty": [
+      "purchase_id"
+    ],
+    "destructive": false
+  },
+  {
+    "name": "approveTradeAlias",
+    "phrase": "approve trade alias",
+    "ownerPath": "/admin/taxonomy/aliases",
+    "resolvedPath": "/admin/taxonomy/aliases",
+    "fields": [
+      "id"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -386,7 +419,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "expense_id",
       "receipt"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "expense_id"
+    ],
     "destructive": false
   },
   {
@@ -546,6 +581,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     ],
     "refusedWhenEmpty": [
       "current_slug",
+      "new_slug",
       "reason"
     ],
     "destructive": false
@@ -680,7 +716,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "show_banner"
     ],
     "refusedWhenEmpty": [
-      "title"
+      "title",
+      "starts_at",
+      "ends_at"
     ],
     "destructive": false
   },
@@ -725,7 +763,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "request_id"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "request_id"
+    ],
     "destructive": false
   },
   {
@@ -789,7 +829,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "song_id"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "song_id"
+    ],
     "destructive": true
   },
   {
@@ -952,7 +994,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "appeal_id",
       "reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {
@@ -1138,7 +1182,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "mapped_to_canonical"
     ],
     "refusedWhenEmpty": [
-      "request_id"
+      "request_id",
+      "mapped_to_canonical"
     ],
     "destructive": false
   },
@@ -1217,7 +1262,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "dup_id",
       "canonical_id"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "dup_id",
+      "canonical_id"
+    ],
     "destructive": false
   },
   {
@@ -1271,10 +1319,12 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/taxonomy",
     "fields": [
       "request_id",
-      "tile_id"
+      "tile_id",
+      "proposed_label_override"
     ],
     "refusedWhenEmpty": [
-      "request_id"
+      "request_id",
+      "tile_id"
     ],
     "destructive": false
   },
@@ -1384,7 +1434,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "proof_url",
       "refund_amount_php"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {
@@ -1396,7 +1448,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "appeal_id",
       "reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": true
   },
   {
@@ -1450,7 +1504,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "approval_id",
       "reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "approval_id"
+    ],
     "destructive": true
   },
   {
@@ -1461,6 +1517,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "purchase_id",
       "reason"
+    ],
+    "refusedWhenEmpty": [
+      "purchase_id"
+    ],
+    "destructive": true
+  },
+  {
+    "name": "rejectTradeAlias",
+    "phrase": "reject trade alias",
+    "ownerPath": "/admin/taxonomy/aliases",
+    "resolvedPath": "/admin/taxonomy/aliases",
+    "fields": [
+      "id"
     ],
     "refusedWhenEmpty": [],
     "destructive": true
@@ -1534,7 +1603,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "payout_id",
       "reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "payout_id"
+    ],
     "destructive": false
   },
   {
@@ -1548,7 +1619,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "_view"
     ],
     "refusedWhenEmpty": [
-      "canonical_service"
+      "canonical_service",
+      "tile_id"
     ],
     "destructive": false
   },
@@ -1736,7 +1808,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "target_email",
       "rationale"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "target_email"
+    ],
     "destructive": false
   },
   {
@@ -1747,7 +1821,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "payment_id"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "payment_id"
+    ],
     "destructive": false
   },
   {
@@ -1881,7 +1957,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "resolution",
       "resolution_notes"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "resolution_notes"
+    ],
     "destructive": false
   },
   {
@@ -1915,7 +1993,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "action",
       "resolution_notes"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "resolution_notes"
+    ],
     "destructive": false
   },
   {
@@ -1989,9 +2069,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "replaced_by"
     ],
     "refusedWhenEmpty": [
-      "package_code",
-      "reason",
-      "replaced_by"
+      "package_code"
     ],
     "destructive": true
   },
@@ -2053,9 +2131,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "replaced_by"
     ],
     "refusedWhenEmpty": [
-      "service_code",
-      "reason",
-      "replaced_by"
+      "service_code"
     ],
     "destructive": true
   },
@@ -2070,9 +2146,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "replaced_by"
     ],
     "refusedWhenEmpty": [
-      "sku_code",
-      "reason",
-      "replaced_by"
+      "sku_code"
     ],
     "destructive": true
   },
@@ -2182,8 +2256,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     ],
     "refusedWhenEmpty": [
       "package_code",
-      "title",
-      "desc"
+      "title"
     ],
     "destructive": false
   },
@@ -2306,6 +2379,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "saveOnboardingDiscount",
+    "phrase": "save onboarding discount",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "onboarding_discount_pct"
+    ],
+    "refusedWhenEmpty": [
+      "onboarding_discount_pct"
+    ],
+    "destructive": false
+  },
+  {
     "name": "savePaymentInstruments",
     "phrase": "save payment instruments",
     "ownerPath": "/admin/settings",
@@ -2403,8 +2489,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "active"
     ],
     "refusedWhenEmpty": [
-      "sku_code",
-      "desc"
+      "sku_code"
     ],
     "destructive": false
   },
@@ -2653,7 +2738,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "active"
     ],
     "refusedWhenEmpty": [
-      "event_type"
+      "event_type",
+      "active"
     ],
     "destructive": false
   },
@@ -2789,7 +2875,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "note",
       "evidence"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "note"
+    ],
     "destructive": false
   },
   {
@@ -2914,7 +3002,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "song_id",
       "curated"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "song_id"
+    ],
     "destructive": false
   },
   {
@@ -2959,6 +3049,22 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "decision"
     ],
     "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "settleDepositDispute",
+    "phrase": "settle deposit dispute",
+    "ownerPath": "/admin/disputes",
+    "resolvedPath": "/admin/disputes",
+    "fields": [
+      "event_vendor_id",
+      "outcome",
+      "note"
+    ],
+    "refusedWhenEmpty": [
+      "event_vendor_id",
+      "note"
+    ],
     "destructive": false
   },
   {
@@ -3135,6 +3241,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "unteachTradeAlias",
+    "phrase": "unteach trade alias",
+    "ownerPath": "/admin/taxonomy/aliases",
+    "resolvedPath": "/admin/taxonomy/aliases",
+    "fields": [
+      "id"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "updateAllocationConfig",
     "phrase": "update allocation config",
     "ownerPath": "/admin/budget-planner",
@@ -3268,7 +3385,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "offset_value",
       "offset_unit"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "deadline_id"
+    ],
     "destructive": false
   },
   {
@@ -3369,7 +3488,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "vendor_id",
       "note"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "note"
+    ],
     "destructive": false
   },
   {
@@ -3385,6 +3506,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "source"
     ],
     "refusedWhenEmpty": [
+      "file",
       "label"
     ],
     "destructive": false

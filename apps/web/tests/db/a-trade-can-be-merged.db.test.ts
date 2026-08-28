@@ -103,7 +103,8 @@ test('the merge moves every shop-side holder, collisions included', async () => 
      VALUES ($1,$3), ($2,$3), ($2,$4)`,
     [a, b, SRC, DST],
   );
-  await db.query(`INSERT INTO vendor_services (vendor_profile_id, category) VALUES ($1,$2),($3,$2)`, [
+  await db.query(`INSERT INTO vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+     VALUES ($1,$2,40000,'Free extra hour'),($3,$2,40000,'Free extra hour')`, [
     a,
     SRC,
     b,

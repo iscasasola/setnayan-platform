@@ -47,6 +47,11 @@ import { ReachMap } from './_components/reach-map';
 import { ServiceRadiusFields } from './_components/service-radius-fields';
 import { VenueMatchCard } from './_components/venue-match-card';
 import { PublicLineCard } from './_components/public-line-card';
+import { SuggestedCoverageCard } from './_components/suggested-coverage-card';
+import {
+  fetchPendingSignupCoverageSuggestion,
+  type PendingCoverageSuggestion,
+} from '@/lib/vendor-signup-coverage-suggest-reader';
 import { RequestCorrectionCard } from './_components/request-correction-card';
 import {
   fetchCorrectionRequests,
@@ -236,6 +241,12 @@ type ShopData = {
    * "waiting on Setnayan" instead of inviting the same request a second time.
    */
   openCorrections: VendorCorrectionRequestRow[];
+  /**
+   * The shop's one open "your website suggests you also do…" suggestion
+   * (C5, 2026-08-28) — null when the flag is off, nothing was read yet, the
+   * read found nothing usable, or the shop already resolved it.
+   */
+  pendingCoverageSuggestion: PendingCoverageSuggestion | null;
 };
 
 async function loadShopData(): Promise<ShopData | 'no-vendor'> {
@@ -665,6 +676,19 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     reviewOptions = [];
   }
 
+  // "Your website suggests you also do…" (C5, 2026-08-28) — best-effort; a
+  // read hiccup here must never break My Shop, so it degrades to "nothing to
+  // suggest" exactly like the review-options read above.
+  let pendingCoverageSuggestion: PendingCoverageSuggestion | null = null;
+  try {
+    pendingCoverageSuggestion = await fetchPendingSignupCoverageSuggestion(
+      vendorId,
+      profile.services ?? [],
+    );
+  } catch {
+    pendingCoverageSuggestion = null;
+  }
+
   return {
     businessName,
     initials: deriveInitials(businessName),
@@ -679,6 +703,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     // returns [] on ANY error, so a read hiccup shows the ask-card with nothing
     // pending rather than hiding the only doorway a wrong address has.
     openCorrections,
+    pendingCoverageSuggestion,
     websiteLive:
       Boolean(profile.business_slug) &&
       isPubliclyVisible(profile.public_visibility),
@@ -958,6 +983,16 @@ async function ShopHome({
               initialTagline={data.tagline}
               initialWebsite={data.website}
             />
+            {/* "Your website suggests you also do…" (C5, 2026-08-28) — only
+                renders when a completed, unresolved signup-suggestion dossier
+                found trades this shop has not already declared. Suggested,
+                never applied: nothing here writes coverage on its own. */}
+            {data.pendingCoverageSuggestion ? (
+              <SuggestedCoverageCard
+                dossierId={data.pendingCoverageSuggestion.dossierId}
+                suggestions={data.pendingCoverageSuggestion.suggestions}
+              />
+            ) : null}
             {/* Day-of shortlist opt-in + the social celebration opt-out. Both
                 only ACT on a verified shop, so routing them through the
                 verified-locked inline editor would have made them settable

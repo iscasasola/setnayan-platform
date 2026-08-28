@@ -27,9 +27,24 @@ import {
   buildCustomerCalendarMonth,
   summarizeMonthlyPayments,
   computeEventMoneyPositions,
-  type CustomerRow,
-  type CustomerStatus,
+  type EventMoneyPosition,
 } from '@/lib/vendor-customers';
+import {
+  customerLaneOf,
+  groupByLane,
+  holdingByDate,
+  CUSTOMER_LANES,
+  type CustomerLane,
+  type PipelineCustomer,
+} from '@/lib/vendor-customer-pipeline';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import {
+  fetchInquiryMaskMeta,
+  inquiryPlaceholderLabel,
+  isInquiryRevealed,
+  INQUIRY_MASK_UNKNOWN,
+} from '@/lib/inquiry-mask.server';
+import { CustomersRoster, type RosterRow } from './_components/customers-roster';
 import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
 import { VendorQrSection } from '../_components/qr-section';
@@ -55,60 +70,26 @@ export const metadata = { title: 'My Customers · Vendor' };
  * clearly-empty state rather than inventing a value.
  */
 
-type Props = { searchParams: Promise<{ m?: string; et?: string; cat?: string }> };
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return 'Date not set';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function initialsOf(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return 'SN';
-  if (words.length === 1) return (words[0]!.slice(0, 2) || 'SN').toUpperCase();
-  return (words[0]![0]! + words[1]![0]!).toUpperCase();
-}
-
-const STATUS_PILL: Record<
-  CustomerStatus,
-  { label: string; bg: string; fg: string; border: string }
-> = {
-  booked: {
-    label: 'Booked',
-    bg: 'rgba(79,107,74,0.12)',
-    fg: 'var(--m-sage-deep)',
-    border: 'rgba(79,107,74,0.28)',
-  },
-  locked: {
-    label: 'Locked',
-    bg: 'var(--m-orange-4)',
-    fg: 'var(--m-orange-deep)',
-    border: 'var(--m-orange-3)',
-  },
-  whitelist: {
-    // Warm-semantic info-slate — violet/purple is retired app-wide (contract § 7).
-    label: 'Whitelist',
-    bg: 'var(--sn-info-soft)',
-    fg: 'var(--sn-info)',
-    border: 'color-mix(in srgb, var(--sn-info) 30%, transparent)',
-  },
-  waitlist: {
-    label: 'Waitlist',
-    bg: 'var(--sn-warning-soft)',
-    fg: 'var(--sn-warning-deep)',
-    border: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
-  },
-  in_conversation: {
-    label: 'In conversation',
-    bg: 'var(--m-paper-2)',
-    fg: 'var(--m-slate)',
-    border: 'var(--m-line)',
-  },
+type Props = {
+  searchParams: Promise<{ m?: string; et?: string; cat?: string; lane?: string }>;
 };
+
+/*
+  🗑 `STATUS_PILL` LIVED HERE AND IS DELETED. It mapped five statuses —
+  booked · locked · whitelist · waitlist · in_conversation — to pill colours,
+  and the assembly loop below it could only ever produce TWO of them. `locked`,
+  `whitelist` and `waitlist` were unreachable by construction: no code path
+  wrote them onto a row. The register recorded "Booked and Waitlist filters
+  already exist in customers/page.tsx"; measured, the PILL existed and the
+  filter never did.
+
+  ⛔ AND NO `waitlist` LANE REPLACES IT. A shop can be waitlisted against, but
+  picking somebody off that waitlist does nothing today and still reports
+  success — a chip whose only action is a lie is a fake door. The couple-facing
+  waitlist queue still surfaces on the month calendar below as a per-day chip,
+  where it says something true. Lane tones now live with the rows they colour,
+  in `_components/customers-roster.tsx`.
+*/
 
 function categoryLabel(key: string): string {
   return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
@@ -266,10 +247,82 @@ async function CustomersPipeline({ searchParams }: Props) {
     };
   });
 
-  // ── Section 4: customers list ────────────────────────────────────────────
+  // ── Section 4 (NOW THE PAGE'S FIRST BLOCK): the customers roster ─────────
+  //
+  // 🔴 WHAT THIS REPLACED, AND WHY. The roster was assembled from exactly two
+  // sources — live pool bookings, and chat threads whose `inquiry_status` was
+  // ALREADY 'accepted'. So a couple who had asked and not been accepted, and a
+  // couple waiting on this shop's yes, were both invisible on the page called
+  // "my customers". Its own `STATUS_PILL` map carried `locked`, `whitelist` and
+  // `waitlist` labels that NO ROW COULD EVER HOLD: the loop below only ever
+  // wrote `booked` or `in_conversation`. Three of five pills were unreachable.
+  //
+  // 🔑 THE LANES ARE DERIVED IN ONE PURE MODULE, not here. This block's job is
+  // to gather the three inputs — the shop's bookings, its threads, and the
+  // non-identifying facts a masked row needs — and hand them over.
   const moneyByEvent = computeEventMoneyPositions(paydayRows);
+  const handshakeEnabled = isLockHandshakeEnabled();
+  // ONE "now" for the whole derivation and the render, so a customer cannot sit
+  // one side of the quiet boundary in the lane count and the other on the row.
+  const rosterNowMs = Date.now();
 
-  // Booked events (live pool reservations) grouped by event.
+  /*
+    THE SHOP'S OWN `event_vendors` ROWS — read with the ADMIN CLIENT, SCOPED BY
+    THE CALLER'S OWN PROFILE ID.
+
+    🔴 NOT AN OPTIMISATION. Measured against production 2026-08-28 as the shop's
+    own authenticated role, in a rolled-back transaction: `event_vendors` carries
+    four policies — couple read, couple write, moderator read, moderator write —
+    and NOT ONE admits a vendor. The shop that is genuinely booked on the one
+    marketplace booking in production reads ZERO rows of it through its own
+    session. This is the same shape `fetchLockAgreementRequests` uses on the
+    Answers Desk, and the reason a vendor SELECT policy on `event_vendors` is
+    deliberately not opened: it would hand suppliers the couple's whole booking
+    row, budget figures included. The id it filters on came from this caller's
+    own session one line earlier.
+
+    ⚠ AN UNREADABLE BOOKING SET IS NOT AN EMPTY ONE. Refused, every booked and
+    finished customer silently leaves the roster and the shop reads it as having
+    no clients — so the error is logged rather than swallowed by `?? []`.
+  */
+  const rosterAdmin = createAdminClient();
+  const { data: evRows, error: evRowsError } = await rosterAdmin
+    .from('event_vendors')
+    .select(
+      'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at',
+    )
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .is('archived_at', null)
+    // A covered cascade line carries no request of its own — only the anchor is
+    // asked — and folding one in would put the same celebration on the roster
+    // twice. Same filter the Answers Desk applies to the identical question.
+    .or('package_role.is.null,package_role.eq.anchor');
+  if (evRowsError) {
+    logQueryError(
+      'VendorCustomersPage.rosterBookings',
+      evRowsError,
+      { vendor_profile_id: vendorProfileId },
+      'graceful_degrade',
+    );
+  }
+  const bookingRows = (evRows ?? []) as {
+    vendor_id: string;
+    event_id: string;
+    status: string | null;
+    lock_request_state: string | null;
+    lock_requested_at: string | null;
+    lock_request_expires_at: string | null;
+  }[];
+  const bookingByEvent = new Map(bookingRows.map((r) => [r.event_id, r]));
+
+  // One thread per event — the newest, since `fetchVendorThreads` already
+  // returns them newest-first. A second thread on the same celebration is one
+  // customer, not two rows.
+  const threadByEvent = new Map<string, (typeof threads)[number]>();
+  for (const t of threads) if (!threadByEvent.has(t.event_id)) threadByEvent.set(t.event_id, t);
+
+  // Booked events (live pool reservations) grouped by event — RETAINED
+  // UNCHANGED because the CALENDAR reads its venue/type enrichment below.
   const bookedByEvent = new Map<
     string,
     { eventName: string; eventDate: string | null; threadId: string | null }
@@ -284,21 +337,21 @@ async function CustomersPipeline({ searchParams }: Props) {
     }
   }
 
-  // Enrich booked events with date + venue (place) via the admin client — the
-  // vendor is party to the booking but holds no events RLS (same pattern as
-  // fetchVendorPoolBookings' name lookup). Request-local map (never module
+  // Enrich with date + venue + type via the admin client — the vendor is party
+  // to the booking but holds no `events` RLS. Request-local maps (never module
   // state) so concurrent requests never bleed venues into each other.
   const venueByEvent = new Map<string, string | null>();
-  // event_type per booked event — feeds the calendar's Type filter (bookings
-  // themselves carry no event_type). Same admin lookup, one extra column.
   const eventTypeByEvent = new Map<string, string | null>();
-  const bookedEventIds = [...bookedByEvent.keys()];
-  if (bookedEventIds.length > 0) {
-    const admin = createAdminClient();
-    const { data: eventRows, error: eventRowsError } = await admin
+  const eventNameByEvent = new Map<string, string | null>();
+  const eventDateByEvent = new Map<string, string | null>();
+  const rosterEventIds = [
+    ...new Set([...bookedByEvent.keys(), ...bookingByEvent.keys(), ...threadByEvent.keys()]),
+  ];
+  if (rosterEventIds.length > 0) {
+    const { data: eventRows, error: eventRowsError } = await rosterAdmin
       .from('events')
-      .select('event_id, event_date, venue_name, event_type')
-      .in('event_id', bookedEventIds);
+      .select('event_id, display_name, event_date, venue_name, event_type')
+      .in('event_id', rosterEventIds);
     // ⚠ THE EVENT DATE, VENUE AND TYPE for every booked client. Refused, all
     // ⚠ three go null: the date column empties, the venue disappears, and the
     // ⚠ list SORTS DIFFERENTLY — rows without a date fall to the bottom, so the
@@ -315,6 +368,7 @@ async function CustomersPipeline({ searchParams }: Props) {
     }
     for (const e of (eventRows ?? []) as {
       event_id: string;
+      display_name: string | null;
       event_date: string | null;
       venue_name: string | null;
       event_type: string | null;
@@ -323,44 +377,103 @@ async function CustomersPipeline({ searchParams }: Props) {
       if (g) g.eventDate = e.event_date;
       venueByEvent.set(e.event_id, e.venue_name);
       eventTypeByEvent.set(e.event_id, e.event_type);
+      eventNameByEvent.set(e.event_id, e.display_name);
+      eventDateByEvent.set(e.event_id, e.event_date);
     }
   }
 
-  const rows: CustomerRow[] = [];
-  for (const [eventId, g] of bookedByEvent) {
-    rows.push({
-      eventId,
-      eventName: g.eventName,
-      eventDate: g.eventDate,
-      place: venueByEvent.get(eventId) ?? null,
-      status: 'booked',
-      threadId: g.threadId,
-      money: moneyByEvent.get(eventId) ?? null,
-    });
+  /*
+    THE MASK. Every row that is NOT entitled to the couple's identity renders
+    the same neutral placeholder the Answers Desk uses — "A couple planning a
+    wedding in Metro Manila" — built from event type + city only.
+
+    🔑 THE SHIPPED HELPER, NOT A NEW ONE. `fetchInquiryMaskMeta` selects ONLY
+    `event_type` + `region`; there is no input path through which a display name
+    can reach the placeholder. A second mask written here would be a second
+    chance to get anonymisation-until-accept wrong.
+  */
+  const maskMeta = await fetchInquiryMaskMeta(rosterAdmin, rosterEventIds);
+
+  const derived: PipelineCustomer[] = [];
+  for (const eventId of rosterEventIds) {
+    const t = threadByEvent.get(eventId);
+    const b = bookingByEvent.get(eventId);
+    const mask = maskMeta.get(eventId) ?? INQUIRY_MASK_UNKNOWN;
+    const row = customerLaneOf(
+      {
+        eventId,
+        thread: t
+          ? {
+              threadId: t.thread_id,
+              inquiryStatus: t.inquiry_status ?? null,
+              createdAt: t.created_at ?? null,
+              revealed: isInquiryRevealed(t),
+              // The LAST thing that happened, from either side — what separates
+              // a live conversation from something the shop is holding.
+              lastActivityAt: t.updated_at ?? null,
+            }
+          : null,
+        booking: b
+          ? {
+              eventVendorId: b.vendor_id,
+              status: b.status,
+              lock_request_state: b.lock_request_state,
+              requestedAt: b.lock_requested_at,
+              expiresAt: b.lock_request_expires_at,
+            }
+          : null,
+        // The name is SUPPLIED for every event; whether it is USED is decided by
+        // the pure derivation, never here.
+        eventName:
+          eventNameByEvent.get(eventId) ?? bookedByEvent.get(eventId)?.eventName ?? null,
+        // ⚠ THE THREE FIELDS ARE SPELLED OUT, NOT SPREAD. `hostNoun` is a
+        // REQUIRED parameter with no default precisely so a new call site
+        // cannot silently keep saying "A couple planning a funeral", and
+        // `inquiry-mask-every-host.test.ts` enforces that by reading the CALL —
+        // passing an object it cannot see inside defeats the check even when
+        // the value is correct.
+        descriptor: inquiryPlaceholderLabel({
+          eventType: mask.eventType,
+          city: mask.city,
+          hostNoun: mask.hostNoun,
+        }),
+        eventDate: eventDateByEvent.get(eventId) ?? null,
+        place: venueByEvent.get(eventId) ?? null,
+        // A live hold in this shop's own pool. The roster this replaced derived
+        // "booked" from THIS ALONE; carrying it forward is what stops the
+        // rewrite from silently dropping a customer whose `event_vendors` row is
+        // archived or was never stamped with a marketplace id.
+        poolBooked: bookedByEvent.has(eventId),
+      },
+      handshakeEnabled,
+      rosterNowMs,
+    );
+    if (row) derived.push(row);
   }
 
-  // In-conversation events — accepted threads without a live booking.
-  for (const t of threads) {
-    if (t.inquiry_status !== 'accepted') continue;
-    if (bookedByEvent.has(t.event_id)) continue;
-    rows.push({
-      eventId: t.event_id,
-      eventName: t.event?.display_name ?? 'A Setnayan event',
-      eventDate: t.event?.event_date ?? null,
-      place: null,
-      status: 'in_conversation',
-      threadId: t.thread_id,
-      money: moneyByEvent.get(t.event_id) ?? null,
-    });
-  }
-
-  // Sort: soonest event date first, undated last.
-  rows.sort((a, b) => {
-    if (a.eventDate && b.eventDate) return a.eventDate.localeCompare(b.eventDate);
-    if (a.eventDate) return -1;
-    if (b.eventDate) return 1;
-    return a.eventName.localeCompare(b.eventName);
-  });
+  const lanes = groupByLane(derived);
+  const laneCounts = {
+    waiting: lanes.waiting.length,
+    holding: lanes.holding.length,
+    talking: lanes.talking.length,
+    booked: lanes.booked.length,
+    finished: lanes.finished.length,
+  } as Record<CustomerLane, number>;
+  /*
+    Computed over EVERY derived customer, never over `rosterRows` — filtering to
+    a lane must not make a date clash disappear. That is the difference between
+    a warning and a decoration.
+  */
+  const holdingPerDate = holdingByDate(derived);
+  const activeLane =
+    (CUSTOMER_LANES as readonly string[]).includes(search.lane ?? '')
+      ? (search.lane as CustomerLane)
+      : null;
+  // Waiting first, always — that is what "opens on who is waiting" means. The
+  // chip narrows the same list; it never reorders it.
+  const rosterRows: RosterRow[] = (
+    activeLane ? lanes[activeLane] : CUSTOMER_LANES.flatMap((l) => lanes[l])
+  ).map((r) => ({ ...r, note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null) }));
 
   // Filter option sets (real data · presentational for now).
   const serviceOptions: FilterOption[] = [
@@ -401,6 +514,51 @@ async function CustomersPipeline({ searchParams }: Props) {
     // wash (`.sn-ambient`, inherited from the shell) shows through the glass tiles.
     <section className="min-h-full">
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        {/*
+          THE ROSTER IS THE PAGE'S FIRST BLOCK NOW.
+
+          It used to sit at the bottom, under the month calendar, three summary
+          tiles and the QR panel — so a shop opening "Customers" met a grid of
+          dates before it met a person, and the one thing it could actually be
+          late on was the last thing on the screen. The brief is one sentence:
+          Customers opens on who is waiting.
+
+          ⛔ Nothing was DELETED to make room. The calendar, the tiles and the
+          QR panel all still render, in the same order, immediately below.
+        */}
+        {/*
+          🔑 "Book of business" IS BACK, DELIBERATELY. It lived in the old
+          Section-4 header, which this block replaced, and it opens a DIFFERENT
+          view of the same people (the Clients accordion below, with outside
+          clients the roster does not carry). Dropping it would have been a lost
+          control — the thing `lint-port-no-lost-controls` exists to catch, and
+          a redesign is exactly when it happens.
+        */}
+        <div className="-mb-1 flex justify-end">
+          <Link
+            href="?open=clients"
+            scroll={false}
+            className="inline-flex items-center gap-1 text-sm font-semibold"
+            style={{ color: 'var(--sn-gold-700)' }}
+          >
+            <CalendarDays className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            Book of business
+          </Link>
+        </div>
+
+        <CustomersRoster
+          rows={rosterRows}
+          activeLane={activeLane}
+          counts={laneCounts}
+          nowMs={rosterNowMs}
+          holdingPerDate={holdingPerDate}
+          keepParams={new URLSearchParams(
+            Object.entries({ m: search.m, et: search.et, cat: search.cat }).filter(
+              (e): e is [string, string] => typeof e[1] === 'string',
+            ),
+          ).toString()}
+        />
+
         {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
         <CustomersCalendar
           initialDayStates={dayStates}
@@ -588,105 +746,39 @@ async function CustomersPipeline({ searchParams }: Props) {
           month={month}
         />
 
-        {/* Section 4 — customers list (`.sn-tile` panel of opaque `.sn-row` items;
-            the list can be long, so rows stay flat per the blur budget § 1.6). */}
-        <div>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="sn-sec">Customers</h2>
-            <Link
-              href="?open=clients"
-              scroll={false}
-              className="inline-flex items-center gap-1 text-sm font-semibold"
-              style={{ color: 'var(--sn-gold-700)' }}
-            >
-              <CalendarDays className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Book of business
-            </Link>
-          </div>
-          {rows.length === 0 ? (
-            <ShopEmpty>
-              No customers yet. When a couple books you, or you accept an inquiry,
-              they show up here with their event, date, and where they&rsquo;re at
-              with payments.
-            </ShopEmpty>
-          ) : (
-            <div className="sn-tile p-2 sm:p-2.5">
-              <ul className="space-y-1">
-                {rows.map((r) => {
-                  const pill = STATUS_PILL[r.status];
-                  const note = moneyNote(r);
-                  const inner = (
-                    <>
-                      <span
-                        aria-hidden
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
-                      >
-                        {initialsOf(r.eventName)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                            {r.eventName}
-                          </span>
-                          <span
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
-                            style={{ background: pill.bg, color: pill.fg, border: `1px solid ${pill.border}` }}
-                          >
-                            {pill.label}
-                          </span>
-                        </span>
-                        <span className="mt-0.5 block truncate font-mono text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                          {fmtDate(r.eventDate)}
-                          {r.place ? ` · ${r.place}` : ''}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-right font-mono text-xs" style={{ color: note.tone }}>
-                        {note.text}
-                      </span>
-                    </>
-                  );
-                  return (
-                    <li key={`${r.status}:${r.eventId}`}>
-                      {r.threadId ? (
-                        <Link
-                          href={`/vendor-dashboard/messages/${r.threadId}`}
-                          className="sn-row group flex items-center gap-3 px-3.5 py-3 transition-transform hover:translate-x-0.5"
-                        >
-                          {inner}
-                        </Link>
-                      ) : (
-                        <div className="sn-row flex items-center gap-3 px-3.5 py-3">{inner}</div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-        </div>
       </div>
     </section>
   );
 }
 
-/** The right-aligned money note for a customer row. */
-function moneyNote(r: CustomerRow): { text: string; tone: string } {
-  if (r.status === 'in_conversation') {
-    return { text: 'Quote pending', tone: 'var(--m-slate-2)' };
-  }
-  const m = r.money;
+/**
+ * The right-aligned money note on a roster row.
+ *
+ * ⚠ IT SAYS NOTHING ON A MASKED ROW, and that is not tidiness. A balance is a
+ * fact about a specific couple's booking; printing one beside "A couple planning
+ * a wedding in Metro Manila" would narrow an anonymous row to a person by the
+ * money attached to it. `waiting` therefore carries no figure at all.
+ *
+ * ⚠ AND "Downpayment in" IS NOT SAID WHEN NOTHING IS KNOWN. The old version
+ * printed it for any booked row with no resolvable plan — including one where
+ * the money read had simply come back empty — so a shop that had received
+ * nothing was told a downpayment was in. A booking with no plan now says
+ * "No plan yet", which is what is true.
+ */
+function moneyNote(
+  r: PipelineCustomer,
+  m: EventMoneyPosition | null,
+): { text: string; tone: string } | null {
+  if (r.lane === 'waiting') return null;
+  if (r.lane === 'talking') return { text: 'Quote pending', tone: 'var(--m-slate-2)' };
   if (!m || m.allUnresolved || m.installmentCount === 0) {
-    // Booked but no resolvable installment plan yet.
-    return { text: 'Downpayment in', tone: 'var(--m-slate-2)' };
+    return { text: 'No plan yet', tone: 'var(--m-slate-2)' };
   }
-  if (m.fullyPaid) {
-    return { text: 'Fully paid', tone: 'var(--m-sage-deep)' };
-  }
+  if (m.fullyPaid) return { text: 'Fully paid', tone: 'var(--m-sage-deep)' };
   if (m.balancePhp > 0) {
     return { text: `Balance ${formatPhp(m.balancePhp)}`, tone: 'var(--m-ink)' };
   }
-  return { text: 'Downpayment in', tone: 'var(--m-slate-2)' };
+  return { text: 'Settled', tone: 'var(--m-sage-deep)' };
 }
 
 

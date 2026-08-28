@@ -717,6 +717,32 @@ export default function PrivacyPage() {
             third-party content we rely on legitimate interest (RA 10173 &sect;
             12(f)), minimised to a business summary and short retention.
           </p>
+          <p className="pt-2">
+            <strong>Free coverage suggestion at sign-up.</strong> Separately,
+            Setnayan may also run this same read — once, for free, on{' '}
+            <strong>our own initiative</strong> rather than the vendor&rsquo;s —
+            the first time a shop adds its own website, to <strong>suggest</strong>{' '}
+            additional service categories the shop can confirm belong on their
+            profile. This never changes a shop&rsquo;s coverage by itself: the
+            shop always sees the suggestion on screen and must tick and confirm
+            it before anything is added. It uses the same Anthropic web search,
+            the same public sources, the same minimisation to a structured
+            summary, and the same rolling 180-day deletion described above.
+          </p>
+          <p className="pt-2">
+            <strong>Lawful basis (sign-up suggestion).</strong> Because Setnayan,
+            not the shop, initiates this read, we rely on{' '}
+            <strong>legitimate interest</strong> (RA 10173 &sect; 12(f)) in
+            helping a new shop describe its own business accurately — never
+            consent, since the shop has not asked for this particular run. The
+            interest is narrow and reversible: only the shop&rsquo;s own public
+            business information is read, nothing is applied without the shop&rsquo;s
+            own confirmation, and a shop may object at any time through our{' '}
+            <Link href="/help" className="text-terracotta hover:underline">
+              Help Center
+            </Link>{' '}
+            or our Data Protection Officer (above).
+          </p>
         </Section>
 
         <Section title="Reading your payment receipt">

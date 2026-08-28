@@ -136,6 +136,10 @@ type EventBudgetRow = {
   event_date: string | null;
   event_date_precision: string | null;
   estimated_budget_centavos: number | null;
+  /** The couple's budget FEEL (`events.budget_band`) — the only budget answer
+   *  many couples ever give. Read so budget-fit can fall back to the band-
+   *  derived figure when no peso amount was stated (lib/budget-band-money). */
+  budget_band: string | null;
   /** Set when the couple has locked/updated their mood board — feeds the
    *  dependency engine (florals/cake/LED/invites design from it · §4B). */
   mood_board_updated_at: string | null;
@@ -205,7 +209,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // read path; same columns, same row shape, guests get zero rows.
       .from('events_host')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
+        'event_date, event_date_precision, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
       // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
       // bigserial (internal joins only) and `event_id` is the uuid every route
@@ -518,12 +522,21 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // budget_fit stays neutral anyway), and fail-open: any error → empty map →
     // neutral, never blocks the vendors page.
     const budgetByPlanGroup = new Map<string, number>();
-    if (ev?.estimated_budget_centavos != null) {
+    // PRICE DECIDES REACH: the gate now also opens for a couple who chose a
+    // budget FEEL and a guest count but never typed a figure — the resolver
+    // turns their band into a number (lib/budget-band-money) and this page's
+    // budget_fit stops being frozen at neutral for exactly the couples whose
+    // only budget answer WAS the band. Still skipped for a couple who answered
+    // neither, so the no-budget path issues the queries it always did.
+    if (ev?.estimated_budget_centavos != null || (ev?.budget_band != null && ev?.estimated_pax != null)) {
       try {
         const alloc = await resolveAllocationInputs(supabase, eventId);
-        if (alloc.budgetPhp != null) {
+        // Same explicit opt-in as the category-search overlay, so the page's %
+        // and the overlay's % can never disagree about this couple's budget.
+        const searchBudgetPhp = alloc.budgetPhp ?? alloc.estimatedBudgetPhp;
+        if (searchBudgetPhp != null) {
           const allocResult = computeBudgetAllocation({
-            budgetPhp: alloc.budgetPhp,
+            budgetPhp: searchBudgetPhp,
             leaves: alloc.leaves,
             config: alloc.config,
           });

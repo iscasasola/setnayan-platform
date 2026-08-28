@@ -363,6 +363,14 @@ export const PREPARED_TAXONOMY_JOBS: ReadonlyMap<string, PreparedJobSpec> = new 
     fields: [
       { field: 'request_id', kind: 'choice', label: 'Which request', from: 'request' },
       { field: 'tile_id', kind: 'choice', label: 'Put it on', from: 'tile' },
+      // Optional. Left blank, the trade is minted under the supplier's own
+      // words — exactly as before this box existed (C4, 2026-08-28).
+      {
+        field: 'proposed_label_override',
+        kind: 'text',
+        label: 'Name it',
+        hint: 'Leave blank to use the words the supplier typed.',
+      },
     ],
   }),
   preparedJob('resolveCategoryRequest', {

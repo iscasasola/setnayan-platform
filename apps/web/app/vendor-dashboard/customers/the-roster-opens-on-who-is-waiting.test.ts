@@ -160,6 +160,47 @@ test('the page builds the placeholder from the SHIPPED mask, not a local one', (
   );
 });
 
+// ── 3b · THE HOLDING EXPOSURE ─────────────────────────────────────────────
+
+test('the date-clash count is computed over EVERY customer, not the filtered list', () => {
+  // 🔴 THE ONE WAY THIS FEATURE GOES QUIETLY WRONG. `rosterRows` is already
+  // narrowed by the `?lane=` chip; counting clashes from it would make the
+  // warning vanish the moment a shop pressed "Booked" — a warning that
+  // disappears when you look away is worse than no warning.
+  assert.ok(
+    /holdingByDate\(derived\)/.test(pageSrc),
+    'holdingByDate is no longer computed over the full derived set',
+  );
+  assert.ok(
+    !/holdingByDate\(rosterRows\)/.test(pageSrc),
+    'the clash count is computed from the FILTERED rows — it would vanish under a chip',
+  );
+});
+
+test('the roster is handed the clash map and one shared "now"', () => {
+  assert.ok(/holdingPerDate=\{holdingPerDate\}/.test(pageSrc), 'the clash map is not passed');
+  // One clock for the derivation AND the render, so a customer cannot sit one
+  // side of the quiet boundary in the lane count and the other on the row.
+  assert.ok(/nowMs=\{rosterNowMs\}/.test(pageSrc), 'the render uses a second clock');
+  assert.ok(
+    !/customerLaneOf\([\s\S]{0,400}?Date\.now\(\)/.test(pageSrc),
+    'the derivation reads the clock itself instead of the shared instant',
+  );
+});
+
+test('the quiet signal is the thread’s LAST activity, not its first reply', () => {
+  // `vendor_first_reply_at` is the FIRST reply, so a thread alive for weeks
+  // would read as quiet for weeks. Measured and rejected before the build.
+  assert.ok(
+    /lastActivityAt:\s*t\.updated_at/.test(pageSrc),
+    'the holding lane is no longer fed by the thread’s last activity',
+  );
+  assert.ok(
+    !/lastActivityAt:\s*t\.vendor_first_reply_at/.test(pageSrc),
+    'the quiet signal was switched to the FIRST reply — a live thread would read as cold',
+  );
+});
+
 // ── 4 · WHAT MUST NOT COME BACK ───────────────────────────────────────────
 
 test('no waitlist lane, and no unreachable status pill map', () => {

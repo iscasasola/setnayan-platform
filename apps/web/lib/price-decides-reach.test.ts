@@ -76,6 +76,15 @@ test('the two stored answers still differ, and the file says so', () => {
   assert.ok(top! > mid!, 'the onboarding stores the top; create-event stores the middle');
 });
 
+test('the onboarding still reads the ends of the range it always read', () => {
+  // The shell's bandLo/bandHi are now thin wrappers. A swapped pair would show
+  // every couple the wrong half of their own band, and typecheck would not
+  // notice — both are numbers.
+  const src = read('app/onboarding/wedding/_components/onboarding-shell.tsx');
+  assert.match(src, /const bandLo[\s\S]{0,120}?lowPhp/, 'bandLo must read the LOW end');
+  assert.match(src, /const bandHi[\s\S]{0,120}?highPhp/, 'bandHi must read the HIGH end');
+});
+
 // ── 2 · THE SEARCH OPTS IN, AND BOTH SURFACES AGREE ───────────────────────
 
 test('the resolver reads the couple’s band on a query it already makes', () => {
@@ -105,6 +114,19 @@ test('the Budget Planner is NOT given the estimate', () => {
   assert.ok(
     !/estimatedBudgetPhp/.test(src),
     'the planner must not silently adopt the band-derived estimate',
+  );
+});
+
+// ── 2b · THE SHOP IS TOLD, IN THE LIST IT ALREADY READS ───────────────────
+
+test('the services list states the reach, and no longer calls no price a quote', () => {
+  const src = read('app/vendor-dashboard/services/_components/services-manager.tsx');
+  assert.match(src, /from '@\/lib\/service-reach'/);
+  assert.match(src, /serviceReach\(svc\)/, 'the claim must be computed per card');
+  assert.match(src, /\{reach\.label\}/, 'and rendered, not merely computed');
+  assert.ok(
+    !/quote on request/.test(src),
+    'a card with no price is not "quote on request" — that told the shop nothing was wrong',
   );
 });
 

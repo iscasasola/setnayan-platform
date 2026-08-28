@@ -83,8 +83,16 @@ export type AllocationInputs = {
   estimatedBudgetPhp: number | null;
   /** Where the number a consumer should search with came from. 'stated' = the
    *  couple's own figure · 'band' = derived from their feel band + guest count ·
-   *  null = unknown, which every consumer must read as neutral, never as ₱0. */
+   *  null = unknown, which every consumer must read as neutral, never as ₱0.
+   *
+   *  A surface that RANKS on the band-derived estimate must SAY SO — a couple
+   *  matched against ₱900,000 they never typed cannot correct a number they were
+   *  never shown. */
   budgetSource: 'stated' | 'band' | null;
+  /** The band's own label ("Classic", "Elevated") when `budgetSource` is 'band',
+   *  so the surface can name what the couple actually chose rather than quoting
+   *  a slug or a bare figure. Null in every other case. */
+  budgetBandLabel: string | null;
   /** One per active benchmark leaf, ready for computeBudgetAllocation. */
   leaves: PlannerLeafInput[];
   /** Engine knobs (admin-tunable). */
@@ -294,15 +302,20 @@ export async function resolveAllocationInputs(
   // direction — an unreadable ladder falls back in code, and any failure leaves
   // this null, which consumers read as "unknown" (neutral), never as ₱0.
   let estimatedBudgetPhp: number | null = null;
+  let budgetBandLabel: string | null = null;
   if (budgetPhp == null && ev?.budget_band && pax != null) {
     try {
       const bands = await fetchBudgetBands(client);
-      estimatedBudgetPhp = bandReachBudgetPhp(
-        bandMedianPerHeadPhp(bands, ev.budget_band),
-        pax,
-      );
+      const med = bandMedianPerHeadPhp(bands, ev.budget_band);
+      estimatedBudgetPhp = bandReachBudgetPhp(med, pax);
+      if (estimatedBudgetPhp != null) {
+        budgetBandLabel =
+          bands.find((b) => b.value === (ev.budget_band === 'nolimit' ? 'no_limit' : ev.budget_band))
+            ?.label ?? null;
+      }
     } catch {
       estimatedBudgetPhp = null;
+      budgetBandLabel = null;
     }
   }
   const budgetSource: 'stated' | 'band' | null =
@@ -373,7 +386,7 @@ export async function resolveAllocationInputs(
       };
     });
 
-  return { budgetPhp, estimatedBudgetPhp, budgetSource, leaves, config, pax };
+  return { budgetPhp, estimatedBudgetPhp, budgetSource, budgetBandLabel, leaves, config, pax };
 }
 
 // ── Admin aggregates (de-identified, min-N gated) ────────────────────────────

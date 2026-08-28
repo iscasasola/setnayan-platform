@@ -23,9 +23,10 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { createPortal } from 'react-dom';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { haptic } from '@/lib/haptics';
-import { VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
+import { formatPhp, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import {
   searchCategoryVendors,
+  type CategorySearchResult,
   type CategoryVendorResult,
 } from '../_actions/category-search';
 import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
@@ -204,6 +205,14 @@ export function CategorySearchOverlay({
   // Smart-sort "raise your budget?" pressure from the server (flag-gated; false
   // when the flag is off since the server omits the field then).
   const [budgetRaise, setBudgetRaise] = useState(false);
+  // The couple never stated a budget — this search ranked on their FEEL BAND
+  // turned into a figure. Not flag-gated (nor is the estimate), and it is not
+  // decoration: budget-fit is the second-largest dimension of the match %, so a
+  // couple ranked against a number they never typed must be shown the number and
+  // handed the way to replace it.
+  const [budgetEstimate, setBudgetEstimate] = useState<
+    NonNullable<CategorySearchResult['budgetEstimate']> | null
+  >(null);
   const [loading, setLoading] = useState(true);
   // "Show vendors farther away" expander — the out-of-range vendors, fetched
   // lazily on demand so the default view stays in-range (the radius reach gate).
@@ -260,6 +269,7 @@ export function CategorySearchOverlay({
         setHasCoords(res.hasReceptionCoords);
         setLastMinuteLocked(res.isLastMinuteLocked === true);
         setBudgetRaise(res.budgetPressure === true);
+        setBudgetEstimate(res.budgetEstimate ?? null);
         setFacetCatalog(res.facets);
         setFacetDefaults(res.facetDefaults);
         // New search → collapse any expanded "farther away" set.
@@ -607,7 +617,32 @@ export function CategorySearchOverlay({
             {/* Smart-sort "raise your budget?" nudge — only when the flag is on
                 AND every shown option starts above the couple's category budget.
                 Advisory, never a filter. */}
-            {SMART_SORT_ON && budgetRaise ? (
+            {/* "We're matching on an estimate" — shown when the couple picked a
+                budget FEEL and never typed a figure, so the number ranking these
+                results is one we worked out, not one they chose. It takes
+                precedence over the raise-your-budget nudge below: telling
+                somebody to raise a budget they never set is nonsense. */}
+            {budgetEstimate ? (
+              <div className="budget-nudge">
+                <p className="lead">We&rsquo;re matching on an estimate</p>
+                <p className="sub">
+                  You chose{' '}
+                  {budgetEstimate.bandLabel ? (
+                    <strong>{budgetEstimate.bandLabel}</strong>
+                  ) : (
+                    'a budget feel'
+                  )}
+                  {budgetEstimate.pax != null
+                    ? ` for about ${budgetEstimate.pax} guests`
+                    : ''}
+                  , so we&rsquo;re working from around{' '}
+                  {formatPhp(budgetEstimate.eventBudgetPhp)} for the whole
+                  celebration. Put in your own figure and these results follow it.
+                </p>
+                <a href={`/dashboard/${eventId}/budget`}>Set your budget</a>
+              </div>
+            ) : null}
+            {SMART_SORT_ON && budgetRaise && !budgetEstimate ? (
               <div className="budget-nudge">
                 <p className="lead">
                   These {label.toLowerCase()} vendors start above your budget

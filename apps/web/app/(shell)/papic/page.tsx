@@ -1,78 +1,68 @@
 /**
- * /papic — public marketing landing page for Papic, the guest photo-gallery
- * experience (www.setnayan.com/papic).
+ * /papic — the public page for Papic, the guest photo-gallery experience.
  *
- * Part of the "lead with the media layer" public-surface pass (2026-06-20
- * demand-research verdict): Papic is one of the two proven differentiators that
- * incumbents (BridalPod, the ₱699 "photo wall" apps) don't have, and it had no
- * indexable, citable landing page. This is that page — the SEO/GEO surface for
- * "wedding photo sharing Philippines" / "guest photo gallery".
+ * ─── WHY THIS PAGE LEFT THE SHARED DOORWAY TEMPLATE (2026-08-29) ──────────
+ * Seven sibling product pages render through `DoorwayPage`, and that is still
+ * right for them. Papic left it because the owner asked this page for four
+ * things that CANNOT generalise to the other seven:
+ *   1. *"we do not want the buttons on this page"* — the kit's hero is a
+ *      headline plus a primary and secondary call to action.
+ *   2. *"instead of showing the 16 different pricing tiers, we show +- and show
+ *      what they can have"* — a live credit dial.
+ *   3. *"QR codes should be ready for scan. these QR Codes should be face
+ *      taggable"* — the demo, inline, instead of behind a button.
+ *   4. *"can we show the exact feel of the event hub papic part?"* — the
+ *      celebration page's own obsidian gallery, reproduced.
+ * A credit dial and a pair of live QR codes have no meaning on the song page.
+ * So this is a deliberate, Papic-only exception — NOT a template change.
  *
- * Server component, statically rendered. The interactive guest tooling lives at
- * /papic/guest (auth/QR-scoped); this root route is pure marketing. The
- * persistent SiteChrome nav renders because '/papic' is registered in
- * NAV_ROUTES (site-chrome.tsx). Copy sells BENEFITS first (public-surface
- * hygiene) and still links to /pricing for the full ladder.
+ * 🔒 THE THREE DOORWAY INVARIANTS SURVIVE THE EXIT, and they are the reason
+ * `doorway-invariants.test.ts` still passes with no edit:
+ *   • EXACTLY ONE <h1> — the hero heading below, and nothing else on the page.
+ *   • ITS OWN canonical — `/papic`, declared once.
+ *   • BOTH JSON-LD blocks — SoftwareApplication + FAQPage, emitted here as
+ *     script tags because the kit is no longer doing it for us.
+ * Losing any of these is silent on screen and fatal to a page whose whole job
+ * is to be found. Do not "tidy" them away.
  *
- * ── THE PRICE ANCHOR IS DERIVED, NEVER TYPED (added 2026-07-30) ─────────────
- * This page used to quote no price at all, on the stated grounds that "prices are
- * admin-managed + provisional". That instinct was right about HARDCODING and
- * wrong about silence: the highest-intent Papic page in the product never told a
- * couple that Papic starts free, so the one fact most likely to convert was
- * missing. `resolvePapicAnchor()` below reads the live rung tables
- * (`papic_pass_tiers` / `papic_one_tiers`), the two admin-editable free
- * allowances (`papic_event_pool_config`) and the active catalog, then renders
- * through the `papic-tier-copy` helpers — so an admin reprice moves this page
- * without an edit, and a rung we cannot price DROPS OUT rather than rendering a
- * guess. If every read degrades (no service key at build time), the whole block
- * is omitted and the page is byte-identical to before.
+ * ── NO PRICE IS TYPED ─────────────────────────────────────────────────────
+ * `resolvePapicAnchor()` reads the rung tables, the free grant and the ACTIVE
+ * catalog, so an admin reprice moves this page with no edit. A rung we cannot
+ * price is DROPPED rather than rendered at ₱0, which on a price list reads as
+ * "free". If every read degrades, the cost section is omitted entirely and the
+ * rest of the page still stands. This file is on the
+ * `lib/papic-copy-guardrails.test.ts` list: a literal photo count, clip count
+ * or cap figure here fails CI, by design.
  *
- * ⚠ AUTO FACE-MATCHING IS NOT PROMISED HERE (fixed 2026-07-30). Three places on
- * this page — a FAQ answer, step 02, and a comparison row — stated that Papic
- * "recognises faces and sorts each one to the guests in it, automatically, in
- * real time". There is no hosted matching model: enrollment ships, the matcher
- * does not, and QR-scan tagging carries the load. Those claims were also inside
- * the FAQPage JSON-LD, i.e. quotable by answer engines as a live capability.
- * Copy law (promotion BUILD SPEC §3-5): a surface may say photos are READY for
- * tagging, never that a guest WILL be found automatically.
- *
- * ─── PORTED ONTO THE SHARED DOORWAY KIT (design#6) ─────────────────────────
- * The hero, how-it-works, differentiator, FAQ and closing panel are now the
- * archetype (`DoorwayPage`) rather than this page's own copies of it. Every
- * string is VERBATIM; no copy, route, CTA, metadata or JSON-LD changed, and the
- * derived price anchor still fails quiet exactly as documented above.
- *
- * TWO THINGS DID CHANGE, both named where they happen:
- *   • the price anchor and "Two ways to run it" moved BELOW the differentiator,
- *     because that is where the archetype puts what it does not model;
- *   • the colours are now the locked tokens, which is the point of the port —
- *     this page had eight raw hexes, all of them shared with seven siblings.
+ * ⚠ AUTO FACE-MATCHING IS PROMISED CAREFULLY. A guest who adds a selfie is
+ * matched; a guest who never does is never matched at all. Say photos are READY
+ * to find their people — never that a guest WILL be found automatically.
  */
 
 import Link from 'next/link';
-import { studioApp, studioDescription } from '@/lib/studio-apps';
+import Image from 'next/image';
+import { studioDescription } from '@/lib/studio-apps';
 import { Reveal } from '@/app/_components/marketing/_motion';
-import {
-  DoorwayPage,
-  DOORWAY_TONE,
-  type DoorwayVersus,
-} from '@/app/_components/marketing/_doorway';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import {
   readPapicPassTiers,
-  readPapicOneTiers,
   readPapicFreeGrantPoints,
-  readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
-import {
-  papicPoolRungPhrase,
-  papicOneRungPhrase,
-  papicBucketPhrase,
-  papicPointCurrencyTerms,
-} from '@/lib/papic-tier-copy';
-import { RevealBand } from '@/app/_components/marketing/_pa-motion';
-import { SettleTiles } from '@/app/papic/_papic-motion';
+import { PAPIC_POINTS_PER_PHOTO, PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
+import { PapicScan } from './_papic-scan';
+import { PapicFilm } from './_papic-film';
+import { PapicDial, type PapicRung } from './_papic-dial';
+import { PapicFeatures, PapicHub } from './_papic-sections';
 
+/*
+ * ⛔ NO `force-static` HERE, AND NO `revalidate`. This page sits inside
+ * `app/(shell)/`, whose layout mounts a session-reading shell. In the installed
+ * Next, `force-static` makes `cookies()` return an EMPTY JAR rather than
+ * throwing — so the page would build green, stay edge-cached, and show a
+ * signed-in person a signed-out rail for an hour at a time. The only symptom is
+ * an absence. The group layout carries the caching decision; a page that
+ * re-declares it is the bug. (`doorway-shell.test.ts` catches this.)
+ */
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
@@ -83,29 +73,11 @@ const PAGE_TITLE = 'Papic — Guest Photo Gallery for Weddings · Setnayan';
  *  cards and the structured-data name do NOT go through that template and are
  *  correct WITH the brand — which is why this strips it here and nowhere else. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
-/*
- * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
- * `lib/studio-apps.ts`, the ONE place the seven Studio products are
- * described, so this page's search result and the rail's row for it can
- * never disagree about what the product does. The string itself is
- * UNCHANGED (moved verbatim); rewording it would have quietly rewritten a
- * live, indexed search result.
- * ⚠ Do not re-inline it. Two hand-typed strings that must agree is not a
- * mechanism, it is a future drift.
- */
+// READ, never re-typed. The rail row and this page's search result are the same
+// sentence by construction — `studio-apps.test.ts` fails the build if this page
+// grows a literal of its own, which is the exact drift it exists to prevent.
 const PAGE_DESCRIPTION = studioDescription('papic');
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
-
-/*
-  ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
-  The shared shell reads the session, so every route in this group must be
-  dynamic — and a layout's `dynamic` DOES cover its children (measured: with
-  the pages declaring nothing, `force-dynamic` on the group layout alone moved
-  them from `○ Static` to `ƒ Dynamic` in the build table). This file used to
-  carry its own copy, along with a docblock asserting a layout could not do
-  this. That assertion was false. Twenty copies of one rule is twenty places
-  for it to disagree with itself — do not re-add it here.
-*/
 
 export const metadata = {
   title: DOC_TITLE,
@@ -117,7 +89,6 @@ export const metadata = {
     'wedding photo app',
     'QR wedding photos',
     'shared wedding gallery',
-    'wedding video reel',
     'candid wedding photos',
     'Papic',
     'Setnayan',
@@ -137,9 +108,6 @@ export const metadata = {
   },
 };
 
-// SoftwareApplication JSON-LD — names the moat for AI answer engines. No price
-// (admin-managed + provisional); publisher references the site-wide Organization
-// (@id in app/layout.tsx).
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -149,45 +117,61 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'One shared pot of shots any guest’s phone can spend from',
-    'Give any camera its own shots, on its own QR, that nobody else can spend',
-    'Free to start on every event — no card, no trial clock',
+    'Free credits on every celebration — no card, no trial clock',
+    'Cameras are free and unlimited',
     'Guests become the photo crew — everyone contributes',
     'A QR scan tags who is in a photo — no typing',
     'Each guest gets their own personal gallery',
-    'Personal souvenir video reels set to music',
-    '10-second candid clips, not just photos',
-    'Lives on the couple’s own Event Hub',
+    'Face tagging a guest opts into, and can delete',
+    'Anyone can ask not to be shown — the photo itself is blurred',
+    'Every photo is screened before it can appear',
+    'Photo challenges and video greetings',
+    'A recap page, a keepsake magazine and a souvenir video',
+    'The live wall, included',
+    'Lives on the couple’s own celebration page',
     'The couple receives every photo, tagged or not',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
 };
 
+/**
+ * The questions people actually stall on. The live page's old set answered
+ * three things the page above already answers better, and covered none of
+ * price, signal, opting out, retention or the shooting window.
+ *
+ * ⚠ Answer 5 must LEAD with "kept for life", and the shooting-window answer
+ * must never be phrased as an expiry: nothing about Papic expires, and being
+ * the one without an expiry is the strongest thing we can say.
+ */
 const FAQ = [
   {
-    q: 'Do my guests need to download an app?',
-    a: 'No. Guests open a link or scan a QR code at the reception — their gallery and reel work right in the browser, no install and no account needed.',
+    q: 'What is a credit?',
+    a: `A credit is one photograph. A video costs by its length instead — the longer it runs, the more it takes, up to ${PAPIC_POINTS_PER_CLIP} credits for a ten-second video, which is the longest. Nothing else costs anything: the cameras and the live wall are free, however many you use.`,
   },
   {
-    q: 'How does each guest get their own photos?',
-    a: 'A quick QR scan does it. Whoever is shooting holds a guest’s place-card QR — or a table sign, which tags the whole table at once — in frame, and every photo from that moment lands in those guests’ own galleries. No typing, and no one has to scroll through thousands of photos to find themselves. Guests can also add a selfie so their photos are ready to be matched to them as well.',
-  },
-  {
-    q: 'Isn’t this just a shared photo album?',
-    a: 'No. A shared album is one big pile everyone digs through. Papic gives each guest their own tagged gallery and a personal video reel — and you, the couple, still receive every single photo, tagged or not.',
-  },
-  {
-    q: 'What is a personal reel?',
-    a: 'A short, vertical souvenir video. A guest picks a few favourite moments and Papic renders a polished reel set to music, ready to share — no editing skills required.',
-  },
-  {
-    q: 'Who takes the photos?',
-    a: 'Everyone, and you decide how. Every guest can shoot from their own phone into one shared gallery — like handing each table a digital disposable camera. And you can set aside some of your shots for one particular camera, so the friend you trust with the important moments has shots nobody else can spend.',
+    q: 'Do guests need an app?',
+    a: 'No app and no account. A code and a browser is the whole thing.',
   },
   {
     q: 'Will we get all the photos?',
-    a: 'Always. Every photo lands in your gallery in full quality, whether or not it was tagged. That is a promise — no moment is left behind.',
+    a: 'Always — tagged or not, and whether or not the person in it asked to be hidden. That is the one promise with no exception.',
+  },
+  {
+    q: 'What happens to the photos after the celebration?',
+    a: 'They are kept for life, free, with nothing to renew. Nothing is ever deleted — after three months the original file is compressed, and the photograph stays.',
+  },
+  {
+    q: 'What if the venue has no signal?',
+    a: 'Shooting still works. Photos are held on the phone and send themselves when the signal comes back.',
+  },
+  {
+    q: 'Can someone opt out of face matching?',
+    a: 'Yes. A guest who never adds a selfie is never matched at all, and anyone can ask not to be shown — we blur the picture itself rather than hiding it behind a filter, and if the blurring fails the photo does not go up at all. Face data is deleted on request, and automatically three months after the celebration.',
+  },
+  {
+    q: 'How long can we shoot for?',
+    a: 'Cameras can open months before the day, so the engagement shoot and the rehearsal are already in there by the time the celebration arrives.',
   },
 ];
 
@@ -201,237 +185,396 @@ const FAQ_LD = {
   })),
 };
 
+/** The three steps. Copy kept from the live page — it was already good. */
 const STEPS = [
   {
+    n: '01',
     t: 'Your guests become the crew',
-    d: 'Designated friends and family — or every guest — shoot all night from their own phones. The candids, the laughter, the dance floor: the moments one photographer can never be everywhere for.',
+    img: '/demo/maria-jose/toast.webp',
+    alt: 'A toast, photographed from a guest’s own seat',
+    d: null,
   },
   {
+    n: '02',
     t: 'Every photo finds its people',
-    d: 'A QR scan is the whole mechanic: hold a guest’s place card — or a table sign, for everyone at that table — in frame, and those photos sort straight into their own galleries in real time. No tagging marathon, no lost photos.',
+    img: '/demo/maria-jose/details.webp',
+    alt: 'A printed card on the table',
+    d: 'Hold a guest’s place card — or a table sign, for everyone at that table — in frame, and those photos sort straight into their own galleries.',
   },
   {
+    n: '03',
     t: 'Everyone goes home with theirs',
-    d: 'Each guest gets their own gallery and can render a personal souvenir reel set to music. And you, the couple, receive every single photo — tagged or not.',
+    img: '/demo/maria-jose/wall-8.webp',
+    alt: 'A guest mid-laugh — the photograph she goes home with',
+    d: null,
   },
-];
+] as const;
 
-const VS: readonly DoorwayVersus[] = [
+/** The comparison. These five rows are the shipped ones; the last is swapped
+ *  for the privacy row, which is this page's entire privacy footprint in copy. */
+const VS: readonly (readonly [string, string])[] = [
   ['A shared link everyone digs through', 'Each guest’s own gallery, sorted as you shoot'],
-  ['Photos only', 'Photos and 10-second candid clips'],
+  ['Photos only', 'Photos and ten-second candid videos'],
   ['You scroll to find yourself', 'Your photos find you'],
-  ['A separate site that expires', 'Lives on your own Event Hub'],
-  ['Some moments get lost', 'The couple receives every photo, guaranteed'],
+  ['A separate site that expires', 'Lives on your own celebration page'],
+  ['Someone always ends up in a photo they hate', 'Anyone can ask to disappear'],
 ];
 
 /**
- * The live, derived price anchor. Every figure comes from a table an admin owns:
- * rung points from `papic_pass_tiers` / `papic_one_tiers`, prices from the ACTIVE
- * customer catalog, the two free allowances from `papic_event_pool_config`.
+ * ⚠ THE ONE NUMBER ON THIS PAGE THAT IS NOT READ OUT OF THE PRODUCT.
  *
- * Fails QUIET, not loud. Each reader degrades on its own (no service key at build
- * time returns [] / the documented seed), and a rung whose price is missing is
- * DROPPED — never rendered at ₱0, which on a price list reads as "free". If
- * nothing resolves, `null` omits the whole section and the page renders exactly as
- * it did before this block existed.
+ * The owner asked the dial to name an ideal per celebration. The product has no
+ * such figure to read. The nearest thing — 150 per guest, in
+ * `papic_event_pool_config.points_per_guest` — is a SPEND CEILING for events
+ * holding a flat pass (the most a celebration MAY capture), not a
+ * recommendation; quoting it would point a 150-guest wedding at the top of the
+ * ladder. So the recommendation is expressed as arithmetic anyone can check —
+ * "enough for every guest to take about N photographs" — and N lives here,
+ * alone, awaiting the owner. Moving this one number moves the page.
  */
-type PapicAnchor = {
-  freePoolPhrase: string | null;
-  freeOnePhrase: string | null;
-  poolRungs: string[];
-  oneRungs: string[];
-  fromPhp: number | null;
-  currencyTerms: readonly [string, string];
-};
+const IDEAL_PHOTOGRAPHS_PER_GUEST = 15;
 
+type PapicAnchor = { rungs: PapicRung[]; freeCredits: number };
+
+/**
+ * Fails QUIET, never loud. Each read degrades on its own, a rung with no price
+ * is dropped rather than shown at ₱0, and if nothing resolves the whole cost
+ * section is omitted and the page renders without it.
+ */
 async function resolvePapicAnchor(): Promise<PapicAnchor | null> {
-  const [catalog, poolTiers, oneTiers, freePoolPoints, freeOnePoints] = await Promise.all([
+  const [catalog, poolTiers, freeCredits] = await Promise.all([
     fetchV2CustomerCatalog(),
     readPapicPassTiers(),
-    readPapicOneTiers(),
     readPapicFreeGrantPoints(),
-    readPapicFreeOneCameraPoints(),
   ]);
   const priceOf = (code: string): number | null => {
     const row = catalog.find((c) => c.service_code === code);
     const php = row ? Number(row.retail_price_php) : NaN;
     return Number.isFinite(php) && php > 0 ? php : null;
   };
-  // The repeatable top-up rung is excluded here for the same reason /pricing and
-  // the onboarding services step exclude it: it is a re-buy for an event that
-  // already holds a big pool, and listing it beside the base buckets reads as a
-  // fourth product.
-  const pool = poolTiers
+  // The repeatable top-up rung is excluded for the same reason /pricing
+  // excludes it: it is a re-buy for an event that already holds a big pool.
+  const priced = poolTiers
     .filter((t) => !t.isTopup)
-    .map((t) => ({ t, php: priceOf(t.serviceCode) }))
-    .filter((r): r is { t: (typeof poolTiers)[number]; php: number } => r.php !== null)
-    .sort((a, b) => a.php - b.php);
-  const one = oneTiers
-    .map((t) => ({ t, php: priceOf(t.serviceCode) }))
-    .filter((r): r is { t: (typeof oneTiers)[number]; php: number } => r.php !== null)
-    .sort((a, b) => a.php - b.php);
-  const anyFree = freePoolPoints > 0 || freeOnePoints > 0;
-  if (!anyFree && pool.length === 0 && one.length === 0) return null;
-  return {
-    freePoolPhrase: freePoolPoints > 0 ? papicBucketPhrase(freePoolPoints) : null,
-    freeOnePhrase: freeOnePoints > 0 ? papicBucketPhrase(freeOnePoints) : null,
-    poolRungs: pool.map(({ t, php }) => papicPoolRungPhrase(t.points, php)),
-    oneRungs: one.map(({ t, php }) => papicOneRungPhrase(t.points, php)),
-    fromPhp: pool.length > 0 ? pool[0]!.php : one.length > 0 ? one[0]!.php : null,
-    currencyTerms: papicPointCurrencyTerms(),
-  };
-}
+    .map((t) => ({ bought: t.points, peso: priceOf(t.serviceCode) }))
+    .filter((r): r is PapicRung => r.peso !== null && r.bought > 0)
+    .sort((a, b) => a.peso - b.peso);
 
-/**
- * The two sections the archetype does not model, rendered through the kit's
- * `children` slot so an exception stays VISIBLE as an exception.
- *
- * ⚠ ONE THING MOVED, DELIBERATELY. The price anchor used to sit directly under
- * the hero; the archetype places its exceptions after the differentiator, so it
- * now follows "Not a shared photo dump". Nothing about the block changed — same
- * derived figures, same fail-quiet behaviour, same link — only where the page
- * puts it, which is the archetype's call and not this page's.
- */
-function PapicExceptions({ anchor }: { anchor: PapicAnchor | null }) {
-  return (
-    <>
-      {/* What it costs — DERIVED (resolvePapicAnchor). The lead is the free tier,
-          because it is both true on every event and the fact most likely to move
-          someone who came here from a search. The rungs follow so the page is
-          honest about being metered, and /pricing still owns the full ladder. */}
-      {anchor ? (
-        <section className="mx-auto mt-16 max-w-2xl" aria-label="What Papic costs">
-          <Reveal>
-            <div className={`${DOORWAY_TONE.card} px-6 py-7 sm:px-8`}>
-              <p className="font-serif text-2xl leading-snug tracking-tight text-[var(--m-ink)]">
-                Papic starts free on every event.
-              </p>
-              {anchor.freePoolPhrase || anchor.freeOnePhrase ? (
-                <ul className={`mt-3 space-y-1.5 text-sm ${DOORWAY_TONE.muted}`}>
-                  {anchor.freePoolPhrase ? (
-                    <li>
-                      <span className="font-medium text-[var(--m-ink)]">Shared shots</span> —
-                      one pot for the whole celebration, {anchor.freePoolPhrase}.
-                    </li>
-                  ) : null}
-                  {anchor.freeOnePhrase ? (
-                    <li>
-                      <span className="font-medium text-[var(--m-ink)]">A camera of its own</span> —
-                      set aside shots for one QR, {anchor.freeOnePhrase}.
-                    </li>
-                  ) : null}
-                </ul>
-              ) : null}
-              <p className={`mt-4 text-sm ${DOORWAY_TONE.muted}`}>
-                Shots are the only thing counted: {anchor.currencyTerms[0]} ·{' '}
-                {anchor.currencyTerms[1]}. When you want more
-                {anchor.fromPhp != null
-                  ? `, top-ups start at ₱${Math.round(anchor.fromPhp).toLocaleString('en-PH')}`
-                  : ''}{' '}
-                — and every top-up stacks on what your event already holds.
-              </p>
-              {anchor.poolRungs.length > 0 || anchor.oneRungs.length > 0 ? (
-                <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                  {anchor.poolRungs.length > 0 ? (
-                    <div>
-                      <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--m-ink)]/55">
-                        Add to the shared pool
-                      </dt>
-                      <dd className={`mt-1.5 space-y-1 text-sm ${DOORWAY_TONE.muted}`}>
-                        {anchor.poolRungs.map((r) => (
-                          <p key={r}>{r}</p>
-                        ))}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {anchor.oneRungs.length > 0 ? (
-                    <div>
-                      <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--m-ink)]/55">
-                        Reload one camera
-                      </dt>
-                      <dd className={`mt-1.5 space-y-1 text-sm ${DOORWAY_TONE.muted}`}>
-                        {anchor.oneRungs.map((r) => (
-                          <p key={r}>{r}</p>
-                        ))}
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-              ) : null}
-              <Link
-                href="/pricing"
-                className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--m-mulberry)] hover:opacity-80"
-              >
-                See the full price list →
-              </Link>
-            </div>
-          </Reveal>
-        </section>
-      ) : null}
-
-      {/* Two ways to run it — paired stagger-rise; clearProps:transform keeps
-          any CSS hover-lift alive. */}
-      <section className="mx-auto mt-16 max-w-3xl" aria-label="Two ways to use Papic">
-        <h2 className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-          Two ways to run it
-        </h2>
-        {/* ⚠ STILL "two ways", and that is correct — it is two ways to use ONE
-            product, not two products to buy. Since 2026-08-11 you buy shots
-            once and then decide how much of them belongs to a particular
-            camera; the choice below is what you DO with them, not what you
-            pay for. The headings deliberately name the behaviour rather than
-            a SKU, because a product name here is what taught people there
-            were two things to buy. */}
-        <RevealBand className="mt-7 grid gap-6 sm:grid-cols-2" stagger={0.08}>
-          <div data-reveal-item className={`${DOORWAY_TONE.card} p-6`}>
-            <h3 className="font-serif text-lg text-[var(--m-ink)]">Give a camera its own shots</h3>
-            <p className={`mt-2 text-sm ${DOORWAY_TONE.muted}`}>
-              Set aside some of your shots for the few friends or family you trust — theirs alone, all night, on their
-              own QR. Nobody else can spend them, and you can take back whatever they don’t use. Cameras are free, so
-              make as many as you like.
-            </p>
-          </div>
-          <div data-reveal-item className={`${DOORWAY_TONE.card} p-6`}>
-            <h3 className="font-serif text-lg text-[var(--m-ink)]">Let the whole room shoot</h3>
-            <p className={`mt-2 text-sm ${DOORWAY_TONE.muted}`}>
-              Everything you haven’t set aside stays in one shared pot, and every guest shoots from their own phone —
-              like handing each table a digital disposable camera. The whole room shares its view of the night, and
-              everyone keeps their own.
-            </p>
-          </div>
-        </RevealBand>
-      </section>
-    </>
-  );
+  if (priced.length === 0 && freeCredits <= 0) return null;
+  // Rung zero is "buy nothing" — the free grant on its own. The dial opens here.
+  return { rungs: [{ peso: 0, bought: 0 }, ...priced], freeCredits };
 }
 
 export default async function PapicLandingPage() {
   const anchor = await resolvePapicAnchor();
+  const free = anchor?.freeCredits ?? 0;
+
   return (
-    <DoorwayPage
-      demo={studioApp('papic')?.demo}
-      title="Every guest goes home with their own photos."
-      primary={{ href: '/onboarding/wedding?from=papic', label: 'Start planning · free' }}
-      secondary={{ href: '/pricing', label: 'See pricing' }}
-      productName="Papic"
-      studioKey="papic"
-      // Step 02 · "Every photo finds its people" keeps the signature tile-settle.
-      steps={STEPS.map((s, i) => (i === 1 ? { ...s, figure: <SettleTiles /> } : s))}
-      differentiator={{
-        heading: 'Not a shared photo dump',
-        lede: 'A photo wall gives everyone one pile to scroll. Papic gives each guest their own night back.',
-        rows: VS,
-      }}
-      faq={FAQ}
-      closing={{
-        heading: 'Give every guest the photos',
-        body: 'Papic lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website. Start planning free, and add Papic when you’re ready.',
-        href: '/onboarding/wedding?from=papic',
-        label: 'Start planning · free',
-      }}
-      structuredData={[APP_LD, FAQ_LD]}
-    >
-      <PapicExceptions anchor={anchor} />
-    </DoorwayPage>
+    <main className="px-5 pb-24 pt-10 sm:pt-14">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }}
+      />
+
+      {/* ── HERO ────────────────────────────────────────────────────────────
+          No eyebrow, no sub-paragraph (owner 2026-08-19), and NO BUTTONS
+          (owner 2026-08-29). The photograph is ours and was shot from a
+          guest's own seat — the product's premise in one frame. */}
+      <section className="mx-auto max-w-2xl">
+        <h1 className="font-serif text-[2.05rem] leading-[1.14] tracking-tight text-[var(--m-ink)] sm:text-5xl">
+          Every guest goes home with their own photos.
+        </h1>
+        <div className="relative mt-6 aspect-[4/5] overflow-hidden rounded-2xl border border-[var(--m-line)] sm:aspect-[16/10]">
+          <Image
+            src="/demo/maria-jose/wall-1.webp"
+            alt="A toast at a Filipino reception, photographed from a guest’s own seat"
+            fill
+            priority
+            sizes="(min-width:768px) 672px, 100vw"
+            className="object-cover"
+          />
+          {free > 0 ? (
+            <p className="absolute bottom-3 left-3 rounded-lg bg-black/75 px-2.5 py-1.5 font-mono text-xs text-[var(--m-paper)] backdrop-blur">
+              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--m-mulberry)] align-middle" />
+              {free.toLocaleString('en-PH')} credits left
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      {/* ── THE THREE FACTS ─────────────────────────────────────────────── */}
+      <section className="mx-auto mt-8 max-w-2xl" aria-label="What Papic gives you">
+        <ul className="space-y-2 text-[0.95rem]">
+          {free > 0 ? (
+            <Fact>
+              <span className="font-mono tabular-nums text-[var(--m-ink)]">
+                {free.toLocaleString('en-PH')}
+              </span>{' '}
+              free credits on every celebration
+            </Fact>
+          ) : null}
+          <Fact>No app. No account.</Fact>
+          <Fact>Yours for life.</Fact>
+        </ul>
+      </section>
+
+      {/* ── SCAN IT ─────────────────────────────────────────────────────────
+          With no buttons on the page, the code is the door. */}
+      <section className="mx-auto mt-16 max-w-2xl" aria-label="Try Papic now">
+        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+          Point your phone at this
+        </p>
+        <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+          Two codes. Two phones. Right now.
+        </h2>
+        <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+          Scan one each, with someone next to you. Each phone reads its own face, and the photos you
+          take of each other come back knowing who is in them.
+        </p>
+        <div className="mt-5">
+          <PapicScan />
+        </div>
+      </section>
+
+      {/* ── THE APP, RUNNING ────────────────────────────────────────────────
+          Not a mock-up: a recording of the same scenes the live demo renders,
+          so it can never drift from the product. Ours already, and it had never
+          appeared on a public page. */}
+      <section className="mx-auto mt-16 max-w-2xl" aria-label="The Papic camera">
+        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+          The app itself
+        </p>
+        <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+          This is all of it.
+        </h2>
+        <div className="mt-5 flex items-center gap-5">
+          <PapicFilm />
+          <p className="text-sm text-[var(--m-ink)]/65">
+            There is nothing to install and nothing to set up. A guest points their phone at a code
+            and the camera is already open —{' '}
+            <span className="font-medium text-[var(--m-ink)]">
+              this is the whole thing they ever see.
+            </span>
+          </p>
+        </div>
+      </section>
+
+      {/* ── HOW IT WORKS ────────────────────────────────────────────────── */}
+      <section className="mx-auto mt-16 max-w-3xl" aria-label="How Papic works">
+        <div className="grid gap-5 sm:grid-cols-3">
+          {STEPS.map((s) => (
+            <Reveal key={s.n}>
+              <article className="overflow-hidden rounded-2xl border border-[var(--m-line)]">
+                <div className="relative aspect-[9/11]">
+                  <Image
+                    src={s.img}
+                    alt={s.alt}
+                    fill
+                    sizes="(min-width:640px) 300px, 100vw"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="px-4 pb-5 pt-3.5">
+                  <span className="font-mono text-xs text-[var(--m-orange-2)]">{s.n}</span>
+                  <h3 className="mt-1 font-serif text-[1.02rem] text-[var(--m-ink)]">{s.t}</h3>
+                  {s.d ? <p className="mt-1.5 text-sm text-[var(--m-ink)]/65">{s.d}</p> : null}
+                </div>
+              </article>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* The payoff the page claims and never showed: not one album, but a
+            folder per person. Real guests, from our own demo celebration. */}
+        <p className="mt-8 text-sm text-[var(--m-ink)]/65">
+          By the end of the night nobody has one album. Everybody has their own.
+        </p>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {FOLDERS.map((f) => (
+            <div key={f.src} className="w-[66px] flex-none text-center">
+              <Image
+                src={f.src}
+                alt=""
+                width={66}
+                height={66}
+                className="h-[66px] w-[66px] rounded-full border border-[var(--m-line)] object-cover"
+              />
+              <div className="mt-1.5 font-mono text-[0.6rem] tabular-nums text-[var(--m-ink)]/55">
+                {f.n}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <PapicFeatures />
+      <PapicHub />
+
+      {/* ── NOT A SHARED PHOTO DUMP ─────────────────────────────────────── */}
+      <section className="mx-auto mt-16 max-w-2xl" aria-label="How Papic differs">
+        <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+          Not a shared photo dump
+        </h2>
+        <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+          A photo wall gives everyone one pile to scroll. Papic gives each guest their own night
+          back.
+        </p>
+        <dl className="mt-5 border-t border-[var(--m-line)]">
+          {VS.map(([them, us]) => (
+            <div
+              key={us}
+              className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 border-b border-[var(--m-line)] py-3 text-[0.92rem]"
+            >
+              <dt className="text-[var(--m-ink)]/55">{them}</dt>
+              <span aria-hidden className="font-mono text-xs text-[var(--m-orange-2)]">
+                →
+              </span>
+              <dd className="m-0 font-semibold text-[var(--m-ink)]">{us}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      {/* ── TWO WAYS TO RUN IT — before the cost, so people know what they
+             would be buying before they are told a number. ───────────────── */}
+      <section className="mx-auto mt-16 max-w-3xl" aria-label="Two ways to use Papic">
+        <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+          Two ways to run it
+        </h2>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--m-line)] p-5">
+            <h3 className="font-serif text-lg text-[var(--m-ink)]">Give a camera its own credits</h3>
+            <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+              Set aside some of your credits for the few friends or family you trust — theirs alone,
+              all night, on their own code. Nobody else can spend them, and you can take back
+              whatever they don’t use.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--m-line)] p-5">
+            <h3 className="font-serif text-lg text-[var(--m-ink)]">Let the whole room shoot</h3>
+            <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+              Everything you haven’t set aside stays in one shared pot, and every guest shoots from
+              their own phone — like handing each table a digital disposable camera.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── WHAT IT COSTS — sixteen rows become one dial. ─────────────────── */}
+      {anchor ? (
+        <section className="mx-auto mt-16 max-w-2xl" aria-label="What Papic costs">
+          <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+            What it costs
+          </h2>
+          <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+            Start free. Move the dial only if you run out.
+          </p>
+
+          {/* The credit, explained where the money is — not only in the FAQ.
+              Both figures are DERIVED; a literal here fails the copy guard. */}
+          <ul className="mt-4 list-none rounded-xl border border-[var(--m-line)] px-4 py-3">
+            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
+              <Cost n={PAPIC_POINTS_PER_PHOTO} /> one photograph
+            </li>
+            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
+              <Cost n={PAPIC_POINTS_PER_CLIP} /> a ten-second video, the longest there is
+            </li>
+            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
+              A shorter video costs less, by how long it runs
+            </li>
+          </ul>
+
+          <div className="mt-4">
+            <PapicDial
+              rungs={anchor.rungs}
+              freeCredits={anchor.freeCredits}
+              clipCost={PAPIC_POINTS_PER_CLIP}
+              idealPerGuest={IDEAL_PHOTOGRAPHS_PER_GUEST}
+            />
+          </div>
+
+          <p className="mt-4 text-sm text-[var(--m-ink)]/65">
+            Every amount is repeatable and stacks on what the celebration already holds, credited in
+            seconds, mid-party.{' '}
+            <Link href="/pricing" className="font-medium text-[var(--m-mulberry)] hover:opacity-80">
+              See every amount →
+            </Link>
+          </p>
+        </section>
+      ) : null}
+
+      {/* ── QUESTIONS — closed by default. ───────────────────────────────── */}
+      <section className="mx-auto mt-16 max-w-2xl" aria-label="Questions about Papic">
+        <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+          Questions, answered
+        </h2>
+        <div className="mt-4 border-t border-[var(--m-line)]">
+          {FAQ.map((f) => (
+            <details key={f.q} className="border-b border-[var(--m-line)]">
+              <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 py-3.5 text-[0.98rem] font-semibold text-[var(--m-ink)] [&::-webkit-details-marker]:hidden">
+                {f.q}
+                <span aria-hidden className="flex-none font-mono text-[var(--m-orange-2)]">
+                  +
+                </span>
+              </summary>
+              <p className="pb-4 text-[0.93rem] text-[var(--m-ink)]/65">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CLOSING — no buttons. The page ends on the fact; the codes above
+             are the way in. ───────────────────────────────────────────────── */}
+      <section className="mx-auto mt-16 max-w-2xl" aria-label="Papic, in one line">
+        {free > 0 ? (
+          <p className="font-serif text-2xl leading-snug tracking-tight text-[var(--m-ink)] sm:text-3xl">
+            <span className="font-mono tabular-nums">{free.toLocaleString('en-PH')}</span> credits,
+            free, on every celebration.
+          </p>
+        ) : null}
+        <p className="mt-3 text-sm text-[var(--m-ink)]/65">
+          Papic lives on the celebration page you already have, beside the guest list, the RSVP and
+          the seating. There is nothing separate to buy, and nothing that expires.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+/** Guest portraits from our own demo celebration, with their own counts. */
+const FOLDERS = [
+  { src: '/demo/maria-jose/portraits/084b7484-38a4-47c1-ac96-52ce38746c3c.webp', n: 34 },
+  { src: '/demo/maria-jose/portraits/22d6a870-4090-4a2d-82ca-dc7c744e54c0.webp', n: 21 },
+  { src: '/demo/maria-jose/portraits/25dd3409-063d-4d1d-b30c-22385048a0c3.webp', n: 58 },
+  { src: '/demo/maria-jose/portraits/34b8e383-6bff-40c5-82d8-4f4b270cf163.webp', n: 12 },
+  { src: '/demo/maria-jose/portraits/3a98be56-27e1-41c4-bd5f-dae5db45614a.webp', n: 47 },
+  { src: '/demo/maria-jose/portraits/472ba3b1-032a-4346-a7fb-707d1614dc22.webp', n: 29 },
+  { src: '/demo/maria-jose/portraits/4aeae921-655e-411d-ae16-d165c53bda03.webp', n: 63 },
+  { src: '/demo/maria-jose/portraits/58d37cc7-2a0c-42e2-bd06-00925f3e5274.webp', n: 18 },
+] as const;
+
+function Fact({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-baseline gap-2.5">
+      <span aria-hidden className="translate-y-px text-[var(--m-orange-2)]">
+        ✓
+      </span>
+      <span className="text-[var(--m-ink)]/80">{children}</span>
+    </li>
+  );
+}
+
+function Cost({ n }: { n: number }) {
+  return (
+    <>
+      <span className="mr-2 inline-block min-w-[2.2em] font-mono font-medium tabular-nums text-[var(--m-ink)]">
+        {n}
+      </span>
+      <span className="mr-1.5">credit{n === 1 ? '' : 's'} ·</span>
+    </>
   );
 }

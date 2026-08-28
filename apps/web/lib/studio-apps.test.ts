@@ -176,11 +176,28 @@ test('a "try it" marker is backed by a real demo button on that page', () => {
   for (const a of STUDIO_APPS) {
     const src = pageSource(a.key);
     if (a.demo) {
-      assert.match(
-        src,
-        new RegExp(`demo=\\{studioApp\\('${a.key}'\\)\\?\\.demo\\}`),
-        `/${a.key} carries a "try it" marker in the rail but its page does not ` +
-          'render the demo button. The marker is a fake door.',
+      /*
+        TWO LEGAL WAYS TO KEEP THE PROMISE, and the page must use one of them.
+
+        Every doorway that renders the shared kit passes the demo down to a
+        "Try the demo" button. `/papic` does not: on 2026-08-29 the owner
+        removed the buttons from that page and asked for the codes themselves
+        ("QR codes should be ready for scan"), so it mounts the live session
+        INLINE instead. That keeps the rail's promise more strongly than a
+        button does — the demo is on the page, already running.
+
+        The rule stays "the marker must be backed by something real". Only the
+        list of what counts as real has grown, and it is an ALLOW-LIST keyed by
+        page: a doorway that renders neither still fails, which is the fake
+        door this test was written to catch.
+      */
+      const passesToKit = new RegExp(`demo=\\{studioApp\\('${a.key}'\\)\\?\\.demo\\}`).test(src);
+      const mountsInline = a.key === 'papic' && /<PapicScan\s*\/>/.test(src);
+      assert.ok(
+        passesToKit || mountsInline,
+        `/${a.key} carries a "try it" marker in the rail but its page neither ` +
+          'passes the demo to the doorway kit nor mounts a live demo of its ' +
+          'own. The marker is a fake door.',
       );
     } else {
       assert.doesNotMatch(

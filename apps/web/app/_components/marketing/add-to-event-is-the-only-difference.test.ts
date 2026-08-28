@@ -94,8 +94,27 @@ test('the create row reuses the signed-out destination, inventing no second rout
 });
 
 test('every doorway that sells an addable service passes its key', () => {
+  /*
+    ⚠ `papic` LEFT THIS LIST ON 2026-08-29, AND IT IS A REAL REMOVAL — recorded
+    here rather than quietly dropped, because it narrows an owner ruling.
+
+    The 2026-08-21 ruling was *"the only difference is add to an event button."*
+    On 2026-08-29 the owner ruled the Papic page has NO buttons at all
+    ("we do not want the buttons on this page"), so there is no primary CTA left
+    for `studioKey` to swap. A key on a page with no button governs nothing, and
+    a control that governs nothing must not render — this repo's own rule.
+
+    WHAT IT COSTS, stated plainly: a signed-in couple loses the *Add to an
+    event* shortcut FROM THIS PAGE. It is a shortcut, not the capability —
+    Papic is in the add-ons catalog and is added from the Studio inside the
+    celebration itself. If the owner wants that one button back, it is the only
+    button this page would carry, and that is his call, not a tidy-up.
+
+    Every OTHER doorway still carries its key, which is what the assertion below
+    is really protecting: this is one named exception, not a weakened rule.
+  */
   const expected = [
-    'papic', 'panood', 'pawebsite', 'pa3d', 'palogo', 'setnayan-ai', 'patiktok',
+    'panood', 'pawebsite', 'pa3d', 'palogo', 'setnayan-ai', 'patiktok',
     // The song — public page added 2026-08-21 so it could join the Studio rail.
     'pakanta',
   ].sort();

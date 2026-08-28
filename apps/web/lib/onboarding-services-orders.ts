@@ -95,15 +95,37 @@ type Part = {
 
 const lineTotal = (p: Part) => p.unitPhp * p.quantity;
 
-/** Live, active, and priced — or null. The price gate for the two Papic parts. */
+/**
+ * Live, active, and priced — or null. The price gate for the two Papic parts.
+ *
+ * ⚖ THE SIGN-UP PRICE IS THE PRICE HERE. Owner, 2026-08-28: *"we give them a 10%
+ * discount if they purchase now. They can order later, but they will lose the
+ * 10% discount."* This function IS "now" — it only ever runs while minting the
+ * bill for a freshly-committed event.
+ *
+ * 🔑 THE CARD AND THE CHARGE MUST READ THE SAME COLUMN. A discount shown on the
+ * card and not applied here is a bill that disagrees with the screen somebody
+ * agreed to, which is worse than never offering it — and this file is where the
+ * money is actually decided, so it re-reads the catalog rather than trusting a
+ * figure that came through the browser.
+ *
+ * ⚠ NULL MEANS "NO SIGN-UP DISCOUNT", NEVER ZERO. Reading a NULL discount as 0
+ * would pass the `php > 0` gate at exactly the wrong moment and hand the product
+ * away free.
+ */
 async function priceOf(admin: SupabaseClient, serviceCode: string): Promise<number | null> {
   const { data } = await admin
     .from('platform_retail_catalog_v2')
-    .select('retail_price_php, is_active')
+    .select('retail_price_php, onboarding_price_php, is_active')
     .eq('service_code', serviceCode)
     .maybeSingle();
-  const php = Number(data?.retail_price_php ?? 0);
-  if (!Number.isFinite(php) || php <= 0 || data?.is_active !== true) return null;
+  if (data?.is_active !== true) return null;
+  const signup = Number(data?.onboarding_price_php ?? 0);
+  const retail = Number(data?.retail_price_php ?? 0);
+  // A sign-up price ABOVE retail is a data error, not an offer: fall back rather
+  // than charging somebody more for buying early.
+  const php = Number.isFinite(signup) && signup > 0 && signup <= retail ? signup : retail;
+  if (!Number.isFinite(php) || php <= 0) return null;
   return php;
 }
 

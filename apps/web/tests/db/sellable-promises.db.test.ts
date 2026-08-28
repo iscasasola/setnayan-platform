@@ -10,6 +10,18 @@
  *   • EVENT_SUBDOMAIN (₱999/yr, is_active=TRUE) — "Your own web address —
  *     yourname.setnayan.com". No such address resolves: there is no wildcard
  *     DNS and no subdomain-aware routing. Owner ruled it off sale 2026-08-10.
+ *     ⚠ UPDATED 2026-08-29: the owner then ruled the switched-off prices should
+ *     be DELETED, and this row was one of the 35 that went. The rule it exists
+ *     to enforce is unchanged and the assertion is STRONGER, not weaker: the
+ *     test now demands the subdomain be NOT SELLABLE — absent or off sale, both
+ *     accepted, on sale still refused. Deleting the row is the harder guarantee
+ *     of the two, because an admin can flip `is_active` back on the pricing
+ *     screen and cannot resurrect a row that is gone.
+ *     🔑 THE ONE THING THAT MUST NOT HAPPEN HERE IS THE EASY ONE: dropping the
+ *     assertion because its subject vanished. That is the "an absence reads as
+ *     a pass" shape this file's own META test was written to prevent, and the
+ *     META test is kept — re-aimed at the catalogue and at the row that IS
+ *     still live — for exactly that reason.
  *
  *   • ANIMATED_MONOGRAM (₱1,000, is_active=TRUE) — "…and up on the LED stage
  *     screen. Includes the Live Background." The monogram works and stays on
@@ -70,23 +82,39 @@ async function row(code: string) {
   return res.rows[0] ?? null;
 }
 
-test('META: the catalog and both rows survive the replay', async () => {
+test('META: the catalog replays and the live subject survives it', async () => {
   // Without this, every assertion below would pass vacuously on a missing row —
   // the same "an absence reads as a pass" shape that let the dead vendor gate
   // ship. Prove the subject exists before asserting anything about it.
+  //
+  // ⚠ EVENT_SUBDOMAIN IS NO LONGER ASSERTED TO EXIST — it was deleted with the
+  // other 34 retired prices on 2026-08-29. So the anti-vacuity claim it used to
+  // carry is made TWO other ways instead of being quietly dropped: the
+  // catalogue must be non-empty (the query mechanism works at all), and
+  // ANIMATED_MONOGRAM — still live, still the subject of two assertions below —
+  // must be present.
+  const all = await db.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM public.platform_retail_catalog_v2`,
+  );
+  assert.ok(
+    Number(all.rows[0]!.n) > 0,
+    'the replayed catalog is empty — every assertion in this file would pass on nothing.',
+  );
   assert.ok(await row('ANIMATED_MONOGRAM'), 'ANIMATED_MONOGRAM is not in the replayed catalog.');
-  assert.ok(await row('EVENT_SUBDOMAIN'), 'EVENT_SUBDOMAIN is not in the replayed catalog.');
 });
 
-test('the Custom Subdomain is off sale', async () => {
+test('the Custom Subdomain is not sellable', async () => {
+  // Absent OR off sale both pass; ON SALE fails. The promise is what is
+  // guarded, and it cannot be made from a row that does not exist — checkout's
+  // own resolver answers 'unknown' for a missing code and refuses the sale.
   const r = await row('EVENT_SUBDOMAIN');
   assert.equal(
-    r!.is_active,
+    r?.is_active ?? false,
     false,
     'EVENT_SUBDOMAIN is on sale again. ₱999/year buys an address that resolves ' +
       'nowhere — there is no wildcard DNS and no subdomain-aware routing. Owner ' +
-      'ruled it off sale 2026-08-10. Put it back on sale only in the PR that ' +
-      'ships the provisioning.',
+      'ruled it off sale 2026-08-10 and deleted the row 2026-08-29. Sell it only ' +
+      'in the PR that ships the provisioning.',
   );
 });
 

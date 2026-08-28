@@ -27,12 +27,34 @@ const SKU_CODE = 'COUPLE_WEBSITE_PRO';
 
 /**
  * /dashboard/[eventId]/studio/website-pro — the couple-facing buy surface for
- * Couple Website PRO (₱4,999 · the UMBRELLA · owner 2026-07-04). One purchase
- * confers every premium website touch across the lifecycle — Save the Date
- * openings, RSVP, on-the-day, AND Editorial PRO — plus drops the watermark
- * everywhere. Wires the EXISTING apply-then-pay flow (live catalog price +
- * platform BDO/GCash settings → InlineCheckoutDrawer → submitOrderAction). No
- * new payment mechanics.
+ * Event Hub PRO (the UMBRELLA · owner 2026-07-04). Price is read LIVE from the
+ * catalog, never written here. Wires the EXISTING apply-then-pay flow (live
+ * catalog price + platform BDO/GCash settings → InlineCheckoutDrawer →
+ * submitOrderAction). No new payment mechanics.
+ *
+ * 🛑 THIS DOCBLOCK USED TO SAY "₱4,999 ... Save the Date openings, RSVP,
+ * on-the-day, AND Editorial PRO". THREE OF THOSE FOUR CLAIMS WERE UNTRUE, and
+ * BENEFITS below repeated two of them to a paying customer. Corrected
+ * 2026-08-29 after enumerating every gate that actually reads this SKU:
+ *   · the price was ₱3,500, not ₱4,999 — which is why no number is written
+ *     into a comment here any more;
+ *   · RSVP — NOTHING is gated. Every couple gets the RSVP page. The legacy
+ *     PRO_RSVP / RSVP_PRO_WEBSITE keys this SKU "collapsed" were, in
+ *     lib/couple-website-pro.ts's own words, "dead/never-wired";
+ *   · on-the-day — NOTHING is gated either. Measured: every
+ *     `eventCoupleWebsiteProActive` call under app/[slug] resolves the
+ *     WATERMARK and nothing else;
+ *   · Editorial PRO — real once, and now FREE FOR EVERYONE. It joined
+ *     FREE_FOR_ALL_SKUS on 2026-08-23 ("keep it free if this costs us
+ *     nothing"), and eventSkuActive checks that set BEFORE any order lookup,
+ *     so a couple who pays for this gets nothing extra from that alias.
+ *     ⚠ The alias in SKU_OWNERSHIP_ALIASES is deliberately UNTOUCHED — it is
+ *     harmless and reversing the free ruling is the owner's call, not a copy
+ *     fix. It simply may not be SOLD as an inclusion while it is free.
+ *
+ * 🔑 THE RULE THIS LEAVES BEHIND: a benefit line may name only something a
+ * non-buyer is actually refused. If no gate reads this SKU for it, it is not
+ * an inclusion — it is a sentence that survived the feature it described.
  *
  * Ownership-aware:
  *   • Active (admin-approved) → "Unlocked" + a link into the website hub.
@@ -45,11 +67,23 @@ type Props = { params: Promise<{ eventId: string }> };
 
 const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
 
+/**
+ * Every line here is a thing a couple WITHOUT this upgrade is refused, checked
+ * against the gate that refuses them. Nothing else belongs in this list.
+ *   1 → SKU_OWNERSHIP_ALIASES grants STD_PREMIUM_OPENINGS, and the reveal is
+ *       sold nowhere else (its own row is off sale, so this is the only door).
+ *   2 → website/site-chrome gates the looping music + the video hero.
+ *   3 → website/our-photos renders WebsiteProLock without this.
+ *   4 → website/colors refuses to persist a colour without this, server-side.
+ *   5 → the watermark drops on the Event Hub, the recap, the printable sheet
+ *       and the story — four surfaces, all reading this one SKU.
+ */
 const BENEFITS = [
-  'A cinematic reveal on your Save the Date.',
-  'The premium RSVP page your guests answer on.',
-  'Your live, on-the-day page for the celebration.',
-  'The Setnayan watermark removed across your whole website.',
+  'The cinematic reveal on your Save the Date — it comes only with this.',
+  'Background music and a video across the top of your Event Hub.',
+  'Your own photo gallery on your Event Hub — your engagement or pre-wedding photos.',
+  'Your own colours for the page and its buttons.',
+  'The Setnayan mark taken off everywhere your guests see it — the page, the printable version, your story and the recap.',
 ];
 
 export default async function WebsiteProBuyPage({ params }: Props) {

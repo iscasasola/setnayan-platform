@@ -4,16 +4,19 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 /**
  * apps/web/lib/couple-website-pro.ts
  *
- * Ownership / active gate for the paid COUPLE_WEBSITE_PRO SKU (₱3,999 · the
- * single "Pro website" unlock · migration 20270103020000). Mirrors
+ * Ownership / active gate for the paid COUPLE_WEBSITE_PRO SKU — Event Hub PRO,
+ * the single "Pro website" unlock (migration 20270103020000). ⚠ NO PRICE IS
+ * WRITTEN HERE: this docblock carried ₱3,999 while a second one four lines
+ * further down carried ₱4,999 and the live row said ₱3,500 — three figures for
+ * one product, in one file. Read the catalog. Mirrors
  * lib/animated-monogram.ts exactly — a thin, bundle-aware wrapper over the
  * shared lib/entitlements.ts readers so this couple SKU gates orders ONE way
  * (refund-aware, graceful-degrade, defense-in-depth).
  *
  * CANONICAL SKU (load-bearing): COUPLE_WEBSITE_PRO is the ONE website-Pro key.
  * It COLLAPSED the three dead/never-wired keys PRO_WEBSITE, PRO_RSVP and
- * EVENT_WEBSITE (owner 2026-06-14 · "free 4-in-1 couple website + ONE ₱3,999
- * PRO unlock" — Pricing.md §00 + memory project_setnayan_pricing_tiers). Gate
+ * EVENT_WEBSITE (owner 2026-06-14, quoted as HISTORY — the ₱3,999 in his
+ * wording is that day's price, not today's; the catalog is the price). Gate
  * EVERY couple-website Pro perk on THIS key, not the legacy ones. The legacy
  * lib/pro-website.ts (PRO_WEBSITE_SERVICE_KEY) was dead-but-inert and was DELETED
  * 2026-08-06 (zero importers). Kept in this note so the next reader does not go
@@ -62,7 +65,7 @@ export async function eventCoupleWebsiteProActive(
   return eventSkuActive(supabase, eventId, COUPLE_WEBSITE_PRO_SERVICE_KEY);
 }
 
-/** Standalone à-la-carte Editorial PRO SKU (owner 2026-07-04 · ₱3,499). Unlocks
+/** Standalone à-la-carte Editorial PRO SKU (owner 2026-07-04). Unlocks
  *  the same "Editor's Desk" authorship perks as the Couple Website PRO umbrella,
  *  bought on its own. The catalog row lands via a parallel PR; until then an
  *  absent/inactive SKU simply reads false, so there's no ordering dependency. */
@@ -74,8 +77,13 @@ export const EDITORIAL_PRO_SERVICE_KEY = 'EDITORIAL_PRO';
  * no-watermark).
  *
  * DUAL UNLOCK (owner 2026-07-04): a couple has Editorial PRO when EITHER
- *   • the standalone à-la-carte EDITORIAL_PRO SKU (₱3,499) is active, OR
- *   • the Couple Website PRO umbrella (₱4,999, includes Editorial PRO) is active.
+ *   • the standalone à-la-carte EDITORIAL_PRO SKU is active, OR
+ *   • the Event Hub PRO umbrella is active.
+ * ⚠ AND SINCE 2026-08-23 THE FIRST ARM IS ALWAYS TRUE: EDITORIAL_PRO joined
+ * FREE_FOR_ALL_SKUS, which eventSkuActive checks before any order lookup, so
+ * every couple passes here. The dual unlock is kept because the free ruling is
+ * reversible and the owner's to reverse — but Event Hub PRO may NOT be SOLD on
+ * this inclusion while it is free (see the buy surface's own docblock).
  * Both are checked bundle-aware + admin-approved via eventSkuActive; an absent
  * EDITORIAL_PRO catalog row just returns false (graceful-degrade in
  * lib/entitlements), so the umbrella path keeps working before the à-la-carte

@@ -12,12 +12,19 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * handoff doc, which itself warns its own numbers can go stale): of the 43
  * retired customer rows, a batch of them are pointed at ONLY by the Papic
  * tier-config tables (`papic_one_tiers` / `papic_pass_tiers` /
- * `papic_tier_config`), and every one of those pointers is inert — 0 seats
- * reference the code, 0 `papic_one_orders` rows exist at all, and the one
- * function that reads `PAPIC_CAMERA_MINI_DAY` by name already misses its
- * `is_active` filter and falls back to a hardcoded default. Those three
- * tables CASCADE on delete, so removing a catalog row cleans them up for
- * free — that is a feature, not a risk, for a row proven unused.
+ * `papic_tier_config`), and those pointers are inert — 0 seats reference the
+ * code and 0 `papic_one_orders` rows exist at all.
+ *
+ * 🛑 CORRECTED 2026-08-29 — THIS DOCBLOCK SAID "Those THREE tables CASCADE on
+ * delete", AND ONE OF THEM DOES NOT. Read out of prod by the constraint, not
+ * from a migration: `papic_one_tiers` and `papic_pass_tiers` are ON DELETE
+ * CASCADE, but `papic_tier_config.rate_service_code` is ON DELETE **NO
+ * ACTION**. So a pointer this file graded "informational" was in fact the
+ * database refusing the delete outright — the admin pressed "remove for good"
+ * on the four `PAPIC_CAMERA_*_DAY` rows and got a raw Postgres error instead of
+ * a plain sentence. A `papicTierConfigPointer` now BLOCKS, with a reason
+ * somebody can read; the two CASCADE tables stay informational, which is what
+ * that grading was always right about.
  *
  * What DOES block removal, because each is a real consequence:
  *   - the SKU is still a component of a bundle that is itself on sale
@@ -48,6 +55,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  */
 
 export const KNOWN_CODE_LITERAL_DEPENDENCIES: ReadonlySet<string> = new Set([
+  // ── lib/setnayan-ai-type-pricing.ts · AI_TIER_SKU ────────────────────────
+  // The price of the assisted planner for 15 of 17 event types.
   'SETNAYAN_AI_B',
   'SETNAYAN_AI_C',
   'SETNAYAN_AI_D',
@@ -56,6 +65,35 @@ export const KNOWN_CODE_LITERAL_DEPENDENCIES: ReadonlySet<string> = new Set([
   // breath — kept out of the removable set on the same reasoning until it is
   // independently re-verified.
   'SETNAYAN_AI_RENEW',
+
+  // ── lib/papic-cameras.ts · fetchCameraRates ──────────────────────────────
+  // ⚠ ADDED 2026-08-29, AND THE SWEEP THAT FOUND THEM IS THE POINT: the list
+  // above was found by reading ONE migration's docblock, and this file said so
+  // ("a floor, not a ceiling"). Enumerating every `from('platform_retail_
+  // catalog_v2')` call site instead — rather than every code — turned up a
+  // second family with the identical shape.
+  //
+  // `fetchCameraRates` reads all four by literal string with NO `is_active`
+  // filter and substitutes a hardcoded constant when a row is missing. Its
+  // output is not decoration:
+  //   · studio/papic/page.tsx renders GuestCameraTierPicker from
+  //     cameraRates.roll / .unlimited — a live buy surface gated on guest
+  //     count, NOT on papic_tier_config.is_active;
+  //   · studio/papic/actions.ts feeds the same rates to computeCameraQuote,
+  //     which sets requested_total_php on a real `orders` row.
+  // So two of these four price a charge a couple can make today. Deleting one
+  // moves no number (catalogue 100/50/50/200 == the fallbacks 100/50/50/200)
+  // — it moves the price out of the owner's reach and into a deploy.
+  //
+  // 🔑 All four are locked together, not just the two that render: the reader
+  // cross-falls-back mini <-> roll, so half a rate table is worse than all of
+  // it. And `fallback-prices-match-the-catalog.db.test.ts` EXEMPTS
+  // papic-cameras.ts from its automatic pairing ("many constants, mostly
+  // retired rungs"), so nothing else was watching these.
+  'PAPIC_CAMERA_ROLL_DAY',
+  'PAPIC_CAMERA_MINI_DAY',
+  'PAPIC_CAMERA_LTD_DAY',
+  'PAPIC_CAMERA_UNLIMITED_DAY',
 ]);
 
 export type RetailRemovability = {
@@ -64,8 +102,17 @@ export type RetailRemovability = {
   heldByLiveActivation: boolean;
   liveActivationCount: number;
   knownCodeDependency: boolean;
-  /** Informational only — does NOT block removal (see file docblock). */
+  /**
+   * A pointer from `papic_one_tiers` / `papic_pass_tiers` — both ON DELETE
+   * CASCADE, so they clean themselves up. Informational only; does NOT block.
+   */
   papicConfigPointer: boolean;
+  /**
+   * A pointer from `papic_tier_config.rate_service_code`, which is ON DELETE
+   * **NO ACTION** — the database will REFUSE the delete. This BLOCKS, so the
+   * admin reads a sentence instead of a raw Postgres foreign-key error.
+   */
+  papicTierConfigPointer: boolean;
   safeToRemove: boolean;
   reasons: string[];
 };
@@ -125,14 +172,28 @@ export async function computeRetailRemovabilityMap(
   }
   const everSold = new Set<string>((ordersRes.data ?? []).map((r) => r.service_key as string));
   const [oneTiers, passTiers, tierConfig] = papicRes;
-  const papicPointer = new Set<string>([
+  // ⚠ SPLIT ON THE DELETE RULE, NOT ON THE TABLE FAMILY. These three tables
+  // look interchangeable and are not: two CASCADE, one does not.
+  const papicCascadePointer = new Set<string>([
     ...(oneTiers.data ?? []).map((r) => r.service_code as string),
     ...(passTiers.data ?? []).map((r) => r.service_code as string),
-    ...(tierConfig.data ?? []).map((r) => r.rate_service_code as string),
   ]);
+  const papicTierConfigPointer = new Set<string>(
+    (tierConfig.data ?? []).map((r) => r.rate_service_code as string),
+  );
 
   for (const code of retiredServiceCodes) {
-    map.set(code, classify(code, bundleHeld, activationCounts, everSold, papicPointer));
+    map.set(
+      code,
+      classify(
+        code,
+        bundleHeld,
+        activationCounts,
+        everSold,
+        papicCascadePointer,
+        papicTierConfigPointer,
+      ),
+    );
   }
   return map;
 }
@@ -142,14 +203,16 @@ function classify(
   bundleHeld: Set<string>,
   activationCounts: Map<string, number>,
   everSold: Set<string>,
-  papicPointer: Set<string>,
+  papicCascadePointer: Set<string>,
+  papicTierConfigPointerSet: Set<string>,
 ): RetailRemovability {
   const heldByActiveBundle = bundleHeld.has(code);
   const liveActivationCount = activationCounts.get(code) ?? 0;
   const heldByLiveActivation = liveActivationCount > 0;
   const neverSold = !everSold.has(code);
   const knownCodeDependency = KNOWN_CODE_LITERAL_DEPENDENCIES.has(code);
-  const papicConfigPointer = papicPointer.has(code);
+  const papicConfigPointer = papicCascadePointer.has(code);
+  const papicTierConfigPointer = papicTierConfigPointerSet.has(code);
 
   const reasons: string[] = [];
   if (heldByActiveBundle) reasons.push('It is still listed inside a bundle that is on sale');
@@ -164,9 +227,16 @@ function classify(
   if (knownCodeDependency) {
     reasons.push('Its price is still read directly by app code even though it is off the price page');
   }
+  if (papicTierConfigPointer) {
+    reasons.push('The Papic camera-rate settings still point at it — clear that first');
+  }
 
   const safeToRemove =
-    neverSold && !heldByActiveBundle && !heldByLiveActivation && !knownCodeDependency;
+    neverSold &&
+    !heldByActiveBundle &&
+    !heldByLiveActivation &&
+    !knownCodeDependency &&
+    !papicTierConfigPointer;
 
   return {
     neverSold,
@@ -175,6 +245,7 @@ function classify(
     liveActivationCount,
     knownCodeDependency,
     papicConfigPointer,
+    papicTierConfigPointer,
     safeToRemove,
     reasons,
   };
@@ -199,6 +270,7 @@ export async function recheckRetailRemovability(
       liveActivationCount: 0,
       knownCodeDependency: KNOWN_CODE_LITERAL_DEPENDENCIES.has(serviceCode),
       papicConfigPointer: false,
+      papicTierConfigPointer: false,
       safeToRemove: !KNOWN_CODE_LITERAL_DEPENDENCIES.has(serviceCode),
       reasons: [],
     }

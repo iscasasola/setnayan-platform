@@ -9,10 +9,17 @@ export type PickerBooking = {
 };
 
 /**
- * Step 1 of the launcher — pick a booked event to set up your day-of app for.
- * TODAY events are launchable now; UPCOMING events are configurable ahead of
- * time; PAST events are shown for reference. Selecting an event routes to
- * `?event=<id>` (the configure view); today's event also gets a Launch button.
+ * Step 1 of the launcher — pick a DAY you are on.
+ *
+ * TODAY is launchable now; UPCOMING days are configurable ahead of time; PAST
+ * days are shown for reference. Selecting one routes to `?event=<id>` (the
+ * configure view); today's day also gets a Launch button.
+ *
+ * 🔑 ONE ROW PER DAY, NOT PER CELEBRATION. A supplier can be booked on two days
+ * of the same wedding — the rehearsal dinner and the day itself — and both are
+ * days they have to turn up to. The React key is therefore the (event, date)
+ * pair: keying on `eventId` alone silently drops one of two legitimate rows,
+ * which is exactly the collapse the caller used to do upstream.
  */
 export function EventPicker({
   bookings,
@@ -35,7 +42,7 @@ export function EventPicker({
           });
           return (
             <li
-              key={b.eventId}
+              key={`${b.eventId}::${b.bookedDate}`}
               className="sn-tile flex items-center justify-between gap-3"
               style={active ? { borderColor: 'var(--m-ink)' } : undefined}
             >

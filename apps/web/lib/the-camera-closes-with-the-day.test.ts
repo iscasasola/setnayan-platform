@@ -112,10 +112,28 @@ test('the route asks the ONE resolver — it does not re-derive "over"', () => {
 });
 
 test('the route reads the LAST day and the venue’s zone, not just the first date', () => {
+  // 🪤 THIS TEST USED TO MATCH THE COLUMN NAMES ANYWHERE IN THE FILE AND WAS
+  // DECORATION — mutation testing proved it. The names also appear in the
+  // `.select(...)`, so stopping PASSING them to the resolver (the actual
+  // regression: a festival closing on day one, the server's clock deciding, a
+  // host's close-out ignored) left all three strings in place and the test
+  // green. It asserts the ARGUMENT LIST now.
   const src = route();
-  assert.match(src, /event_end_date/, 'a festival must not close on its first day');
-  assert.match(src, /timezone/, 'the venue’s clock decides');
-  assert.match(src, /cleared_at/, 'and the host’s own "close out the day"');
+  const call = src.match(/getMenuLifecyclePhase\(([\s\S]*?)\)\s*;/);
+  assert.ok(call, 'the resolver call must be findable');
+  const args = call[1]!;
+  assert.match(args, /ev\.event_date/, 'the first day must be passed');
+  assert.match(args, /ev\.cleared_at/, 'the host’s own "close out the day" must be passed');
+  assert.match(args, /ev\.timezone/, 'the venue’s clock must be passed, not the server’s');
+  assert.match(args, /ev\.event_end_date/, 'the LAST day must be passed — a festival has middle days');
+  // And the row really carries them, so the arguments are not undefined.
+  for (const col of ['event_date', 'event_end_date', 'timezone', 'cleared_at']) {
+    assert.match(
+      src,
+      new RegExp(`\\.select\\([^)]*${col}`),
+      `${col} must be SELECTed, or the argument above is silently undefined`,
+    );
+  }
 });
 
 test('the gate runs BEFORE anything is uploaded or spent', () => {

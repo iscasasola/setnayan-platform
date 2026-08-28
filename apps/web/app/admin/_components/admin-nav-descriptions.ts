@@ -72,6 +72,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   reviews: 'Review appeals awaiting a decision.',
   'concierge-abuse': 'Trial-cycling flags to review.',
   'account-deletions': 'Self-serve account-deletion requests to review.',
+  'event-deletions': 'A couple has asked us to remove a celebration money is holding.',
   'user-reports': 'Reported guest-gallery content awaiting moderation.',
   'repost-watch':
     'Cross-vendor image matches flagged for review — detect only, never auto-takedown.',
@@ -242,6 +243,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   fraud: 'scam suspicious fake abuse',
   'user-reports': 'report flag complaint abuse takedown',
   'account-deletions': 'erasure delete privacy gdpr ra10173 right to be forgotten',
+  'event-deletions': 'remove celebration event delete refund void paid order request couple',
   'data-privacy': 'npc privacy dpo consent ra10173 filing',
   approvals: 'pending sign off second admin two admin',
   subscriptions: 'pro plan upgrade billing recurring',

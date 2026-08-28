@@ -5,6 +5,10 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  collectEventMediaRefs,
+  sweepEventMedia,
+} from '@/lib/event-media-sweep';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 
 async function requireAdmin() {
@@ -57,8 +61,35 @@ export async function deleteEvent(formData: FormData) {
   // Migration `20271138150255` moves it into a BEFORE DELETE trigger, so every
   // path — this one, a direct API call, and one nobody has written yet — holds
   // the word. Writing it here too would be a second, driftable copy.
+  /*
+    🚨 THE FILES GO TOO — AND UNTIL 2026-08-28 THEY DID NOT.
+
+    The couple's own removal collects every R2 object first and sweeps them
+    after the row is gone, because afterwards there is nothing left to name
+    them: the keys live on the photo rows and on the celebration itself, and
+    both disappear with the DELETE. This path did not, so an admin removal left
+    the photographs sitting in storage — unreachable, because the rows that
+    named them were gone — while the product's own confirmation tells the couple
+    "your photos and everything about this celebration are deleted for good".
+
+    A promise made on one screen is not kept by the path that happens to run.
+    Collected BEFORE, swept AFTER, best-effort: the celebration is already gone
+    by then and a failed object delete must not turn a completed removal into an
+    error message.
+  */
+  const mediaRefs = await collectEventMediaRefs(eventId);
+
   const { error } = await admin.from('events').delete().eq('event_id', eventId);
   if (error) throw new Error(error.message);
+
+  if (mediaRefs && mediaRefs.length > 0) {
+    const swept = await sweepEventMedia(mediaRefs);
+    if (swept.failed > 0) {
+      console.error(
+        `[admin-delete-event] ${swept.failed} of ${mediaRefs.length} files could not be removed`,
+      );
+    }
+  }
 
   revalidatePath('/admin/events');
 }

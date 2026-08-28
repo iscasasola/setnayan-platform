@@ -202,6 +202,12 @@ export default async function AdminOverview() {
           'Self-serve deletion requests (RA 10173)',
           '/admin/account-deletions',
         ),
+        queueTile(
+          'event-deletions',
+          'Celebration removals',
+          'A couple has asked us to remove one money is holding',
+          '/admin/event-deletions',
+        ),
         // Council fix #2: integrity-watch is in the digest (feeds totalOpen +
         // the overdue tally) but had NO tile — an open flag could render
         // "1 open · 1 past SLA" while every visible tile showed 0.

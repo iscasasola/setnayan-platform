@@ -192,6 +192,7 @@ export async function GET() {
     broadcastsSentRes,
     dayRequestsRes,
     accessRequestsRes,
+    eventRemovalReasonsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -492,6 +493,27 @@ export async function GET() {
       .select('request_id, event_id, requested_areas, note, status, decisions, created_at')
       .eq('requester_user_id', user.id)
       .order('created_at', { ascending: true }),
+    /*
+      RA 10173 (2026-08-28) — why the subject removed a celebration, in their
+      own words, plus any note they wrote asking us to remove one money was
+      holding. Free text they typed about themselves: it belongs in their
+      export.
+
+      ⚖ `reviewed_by` and `admin_note` are deliberately NOT selected. The note
+      is OUR answer written by a member of staff — an action ON their record,
+      not personal data OF them — the same line already drawn for
+      `event_day_requests` and `event_access_requests` above. They do receive
+      that answer, as a notification, at the moment it is written.
+
+      🔑 SCOPED TO `user_id`, THE AUTHOR — never to the celebration. A
+      co-organiser's reason for removing a shared celebration is their record,
+      not this person's.
+    */
+    supabase
+      .from('event_deletion_requests')
+      .select('event_name, reason_code, reason, status, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -534,6 +556,10 @@ export async function GET() {
   );
   const dayRequests = listOutcome('day_requests_authored', dayRequestsRes);
   const accessRequests = listOutcome('event_access_requests_made', accessRequestsRes);
+  const eventRemovalReasons = listOutcome(
+    'event_removals_asked_for',
+    eventRemovalReasonsRes,
+  );
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -684,6 +710,7 @@ export async function GET() {
     // Access the subject ASKED for (not what they were granted — that lives on
     // the moderator record).
     event_access_requests_made: accessRequests.rows,
+    event_removals_asked_for: eventRemovalReasons.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/

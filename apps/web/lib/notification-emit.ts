@@ -88,6 +88,15 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'dispute_resolved',
   // New vendor/couple message (the canonical "new_vendor_message").
   'chat_message',
+  /*
+    A SHOP HAS KEPT A DATE FOR THIS COUPLE — email, not just the tray.
+    The three "a slot opened" waitlist paths already email every couple waiting
+    on a date; this is the ONE waitlist event that told nobody, and it is the
+    time-critical half: `max_waitlist_acceptances` lets the shop pick somebody
+    else, so a couple who never hears loses a date that was being held for them.
+    Transactional, so deliberately NOT in MARKETING_GATED_EMAIL_TYPES.
+  */
+  'waitlist_picked',
   // Payment lifecycle (Phase 2 PR-B, 2026-06-20). The transactional money
   // signals the couple should get an email for: their payment plan is ready
   // (info_sent), a payment was confirmed by the vendor, and the plan cleared.
@@ -169,6 +178,14 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'deletion_request_nudge',
   'deletion_request_agreed',
   'deletion_request_declined',
+  /*
+    Our answer to a couple who asked us to remove a celebration. Transactional
+    by any reading — they asked a question about their own money and are waiting
+    on it — and it must reach somebody who is not in the app, because the whole
+    point of the request is that they could not do the thing themselves.
+    Deliberately NOT marketing-gated, same as the four above.
+  */
+  'event_deletion_answered',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

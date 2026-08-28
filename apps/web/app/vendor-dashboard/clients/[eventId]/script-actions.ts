@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveOwnBookingId } from './actions';
 import { labelKey, toTemplate } from '@/lib/emcee-lines';
 
 /**
@@ -63,6 +65,27 @@ function err(message: string): ScriptActionState {
 // uses"; it never was.
 const BOOKED_STATUSES = ['contracted', 'deposit_paid', 'delivered', 'complete'];
 
+/**
+ * Is this booking at a stage where a cue makes sense?
+ *
+ * Split out from the gate above because `resolveOwnBookingId` deliberately
+ * carries NO status floor — a delivery handover and a change order are raised on
+ * bookings at stages a run-of-show cue is not, and one shared resolver with four
+ * different floors baked in would be a resolver nobody could reuse.
+ *
+ * Reads on the admin client for the same reason the id does: `event_vendors` has
+ * no vendor SELECT policy, so asking on the session answers "no" to everybody.
+ */
+async function isBookedStatus(eventVendorId: string): Promise<boolean> {
+  const { data } = await createAdminClient()
+    .from('event_vendors')
+    .select('status')
+    .eq('vendor_id', eventVendorId)
+    .maybeSingle();
+  const status = (data as { status?: string | null } | null)?.status ?? null;
+  return !!status && BOOKED_STATUSES.includes(status);
+}
+
 export async function saveBlockScript(
   _prev: ScriptActionState,
   formData: FormData,
@@ -88,16 +111,43 @@ export async function saveBlockScript(
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return err('No vendor profile found for this account.');
 
-  // Booked on THIS event — the same check the rest of the Customer Card uses.
-  const { data: booking, error: bookingError } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, status')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', profile.vendor_profile_id)
-    .in('status', BOOKED_STATUSES)
-    .maybeSingle();
-  if (bookingError) return err('Could not confirm your booking on this event.');
-  if (!booking) return err('You are not booked on this event.');
+  /*
+    🔴 THIS GATE WAS DEAD, AND SO WAS EVERY SAVE BEHIND IT.
+
+    It ran on the vendor's OWN session under a comment saying it was "the same
+    check the rest of the Customer Card uses". Measured against production as
+    the shop's own authenticated role, in a rolled-back transaction:
+    `event_vendors` carries four policies — couple read, couple write, moderator
+    read, moderator write — and NOT ONE admits a vendor. A shop genuinely booked
+    on a celebration reads ZERO rows of it. So `booking` was always null and
+    EVERY attempt to save a cue answered "You are not booked on this event" —
+    for every shop, always. Nothing threw: `maybeSingle()` on an RLS refusal
+    returns `{ data: null }`, byte-identical to "you are not booked here".
+
+    This is the FOURTH site with that bug (after `vendorPostHandover`,
+    `vendorRaiseChangeOrder` and `deleteVendorService`) and it uses the SAME
+    helper as the others rather than a fourth copy of the repair.
+
+    ⚠ IT WAS NAMED-NOT-FIXED ON 2026-08-28 for a specific reason — the writes
+    BEHIND it also run on the session, and repairing a gate whose downstream is
+    equally shut just moves the silence one statement later. That is now
+    measured rather than assumed: `event_schedule_blocks` carries
+    `event_schedule_blocks_booked_vendor_read`, and `vendor_block_scripts` and
+    `vendor_lines` are both `FOR ALL` on `current_vendor_ids()` — which every
+    real shop satisfies, because `/open-shop` seeds a founding admin seat on
+    registration. Proved end to end in a rolled-back transaction against
+    production: with that seat present, this caller reads the blocks and the
+    script upsert lands.
+  */
+  const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
+  if (!eventVendorId) return err('You are not booked on this event.');
+
+  // The STATUS floor is still this action's own, because `resolveOwnBookingId`
+  // deliberately does not carry one — a handover and a change order are raised
+  // on bookings at stages a cue is not. Read on the same admin client for the
+  // same reason the id was.
+  const bookedNow = await isBookedStatus(eventVendorId);
+  if (!bookedNow) return err('You are not booked on this event.');
 
   // Re-read the block from the DB rather than trusting the form: `is_public`
   // decides whether this text may ever be reused, so it must come from the row.

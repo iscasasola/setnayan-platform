@@ -1211,8 +1211,12 @@ export async function vendorDeclineDeletion(formData: FormData) {
  * The scoping is what keeps this safe: the id it filters on is the caller's own
  * profile, resolved from their session one line earlier, and the only column it
  * returns is the booking's primary key.
+ *
+ * EXPORTED 2026-08-29 so `script-actions.ts` — the fourth site with this bug —
+ * uses THIS one rather than a fifth copy. Every copy of a rule is a copy that
+ * can be fixed alone and drift.
  */
-async function resolveOwnBookingId(
+export async function resolveOwnBookingId(
   eventId: string,
   vendorProfileId: string,
 ): Promise<string | null> {

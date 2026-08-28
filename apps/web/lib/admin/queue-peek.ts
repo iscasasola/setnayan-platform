@@ -133,6 +133,11 @@ export const JUDGEMENT_QUEUES: Record<string, string> = {
   'concierge-abuse': 'Abuse flags need their history before a verdict.',
   'account-deletions':
     'An erasure request is a legal duty with a clock. Opens the case file.',
+  /* Added 2026-08-28. Approving one DESTROYS a celebration and voids paid
+     services with no automatic refund — the most irreversible thing in this
+     console. It is a judgement about somebody's money, never a fact to tick. */
+  'event-deletions':
+    'Removing a celebration destroys its photos and ends what was paid for. Opens the case file.',
   'force-majeure': 'An event-impacting flag affects other people’s bookings too.',
   /* Added 2026-08-26. Force-complete unlocks a couple's public review; uphold
      non-delivery freezes it. Both notify the couple and both move a rating —

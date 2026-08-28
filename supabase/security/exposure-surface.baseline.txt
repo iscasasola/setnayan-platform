@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6297
+# facts: 6312
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     573
-#   col       4638
-#   policy    856
+#   col       4648
+#   policy    861
 #   view      8
 #   func      218
 #
@@ -1336,6 +1336,16 @@ col	public.event_delegates.revoked_by_user_id	anon=SIU authenticated=SIU
 col	public.event_delegates.revoked_reason	anon=SIU authenticated=SIU
 col	public.event_delegates.role	anon=SIU authenticated=SIU
 col	public.event_delegates.updated_at	anon=SIU authenticated=SIU
+col	public.event_deletion_requests.admin_note	anon=- authenticated=S
+col	public.event_deletion_requests.created_at	anon=- authenticated=S
+col	public.event_deletion_requests.event_id	anon=- authenticated=SI
+col	public.event_deletion_requests.event_name	anon=- authenticated=SI
+col	public.event_deletion_requests.id	anon=- authenticated=S
+col	public.event_deletion_requests.reason	anon=- authenticated=SI
+col	public.event_deletion_requests.reason_code	anon=- authenticated=SI
+col	public.event_deletion_requests.reviewed_at	anon=- authenticated=S
+col	public.event_deletion_requests.status	anon=- authenticated=SU
+col	public.event_deletion_requests.user_id	anon=- authenticated=SI
 col	public.event_editorial.created_at	anon=- authenticated=SIU
 col	public.event_editorial.draft_json	anon=- authenticated=SIU
 col	public.event_editorial.edited_by_couple	anon=- authenticated=SIU
@@ -5404,6 +5414,11 @@ policy	public.event_day_requests|event_day_requests_vendor_insert	mode=PERMISSIV
 policy	public.event_day_requests|event_day_requests_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((author_user_id = auth.uid()) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids))) check=NULL
 policy	public.event_delegates|event_delegates_couple_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_delegates.event_id) AND (em.user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid()))))))
 policy	public.event_delegates|event_delegates_couple_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_delegates.event_id) AND (em.user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid())))))) OR (delegate_user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid())))) check=NULL
+policy	public.event_deletion_requests|edr_admin_select_all	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.event_deletion_requests|edr_admin_update_all	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=is_admin() check=is_admin()
+policy	public.event_deletion_requests|edr_user_cancel_own	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((user_id = auth.uid()) AND (status = 'pending'::text)) check=((user_id = auth.uid()) AND (status = 'cancelled'::text))
+policy	public.event_deletion_requests|edr_user_insert_own	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = auth.uid()) AND (event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))
+policy	public.event_deletion_requests|edr_user_select_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = auth.uid()) check=NULL
 policy	public.event_editorial|event_editorial_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = auth.uid()) AND (users.account_type = 'admin'::account_type)))) check=NULL
 policy	public.event_editorial|event_editorial_couple_rw	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_editorial|event_editorial_moderator_rw	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT em.event_id FROM event_moderators em WHERE ((em.user_id = auth.uid()) AND (em.accepted_at IS NOT NULL) AND (em.removed_at IS NULL)))) check=(event_id IN ( SELECT em.event_id FROM event_moderators em WHERE ((em.user_id = auth.uid()) AND (em.accepted_at IS NOT NULL) AND (em.removed_at IS NULL))))

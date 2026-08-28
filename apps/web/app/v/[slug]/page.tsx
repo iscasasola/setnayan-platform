@@ -1570,6 +1570,8 @@ export async function renderVendorBySlug({
   let waitlistDate: string | null = null;
   let waitlistEnabled = false;
   let alreadyWaitlisted = false;
+  /** The shop has CHOSEN this couple for the date and is holding it for them. */
+  let waitlistPicked = false;
   if (
     user &&
     bookable &&
@@ -1618,7 +1620,13 @@ export async function renderVendorBySlug({
       // Has this couple already joined (pending/notified)?
       const { data: existing, error: existingError } = await admin
         .from('vendor_date_waitlist')
-        .select('waitlist_id')
+        // 🔴 `accepted_at` IS READ NOW, AND IT WAS THE MISSING HALF. This
+        // selected `waitlist_id` alone and filtered on `status`, so a couple the
+        // shop had CHOSEN was shown the identical "we'll email you the moment it
+        // opens up" as one still waiting. `pickWaitlistCouple` writes
+        // `accepted_at` and leaves `status` alone, so nothing in this query
+        // could ever have moved.
+        .select('waitlist_id, accepted_at')
         .eq('vendor_profile_id', vendor.vendor_profile_id)
         .eq('user_id', user.id)
         .eq('requested_date', coupleEventDate)
@@ -1630,6 +1638,9 @@ export async function renderVendorBySlug({
         logQueryError('PublicVendorPage.existing', existingError, { slug }, 'graceful_degrade');
       }
       alreadyWaitlisted = Array.isArray(existing) && existing.length > 0;
+      waitlistPicked =
+        Array.isArray(existing) &&
+        existing.some((r) => (r as { accepted_at?: string | null }).accepted_at != null);
     }
   }
   const waitlistNotice = typeof search?.wl === 'string' ? search.wl : null;
@@ -2885,6 +2896,22 @@ export async function renderVendorBySlug({
               </p>
               {!waitlistEnabled ? (
                 <p className="mt-1 text-sm text-ink/70">This date is unavailable.</p>
+              ) : waitlistPicked ? (
+                /*
+                  THE PICKED STATE. Before 2026-08-29 this branch did not exist:
+                  a couple the shop had chosen read the same "we'll email you the
+                  moment it opens up" as one still waiting, because the query
+                  above never looked at `accepted_at`.
+
+                  ⏳ IT SAYS THE DATE IS BEING HELD, NOT THAT IT IS THEIRS. The
+                  shop can pick more than one couple (`max_waitlist_acceptances`)
+                  and nothing here books anything — promising more than that
+                  would be a promise the product cannot keep.
+                */
+                <p className="mt-1 text-sm font-semibold text-ink">
+                  {displayLabel} has kept this date for you. Message them to book it — they
+                  can hold it for only so long.
+                </p>
               ) : alreadyWaitlisted || waitlistNotice === 'joined' ? (
                 <p className="mt-1 text-sm text-ink/70">
                   You&rsquo;re on the waitlist for this date — we&rsquo;ll email you the moment it

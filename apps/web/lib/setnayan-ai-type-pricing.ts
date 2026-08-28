@@ -2,15 +2,26 @@
  * setnayan-ai-type-pricing.ts — per-EVENT-TYPE Setnayan AI pricing (pure).
  *
  * Owner-locked 2026-07-22 ("go"): Setnayan AI is priced by AI LOAD — "how much
- * data is needed to help them" — on a DISCRETE 5-point ladder, not a range:
+ * data is needed to help them" — on a DISCRETE 5-point ladder, not a range.
  *
- *   Tier A  ₱1,499  Wedding
- *   Tier B  ₱899    Debut · Corporate
- *   Tier C  ₱499    Christening · Birthday · Celebration · Travel · Tournament
- *                   · Anniversary · Graduation · Reunion
- *   Tier D  ₱99     Gender reveal · Dinner Date
- *   Tier E  ₱0      Simple Event / any digital-services-only (no vendors →
- *                   Setnayan AI is not present → nothing to price)
+ * ⚠ THIS HEADER LISTED PRICES THAT HAD NOT BEEN TRUE FOR MONTHS — it said
+ * A ₱1,499 · B ₱899 · C ₱499 · D ₱99 while the constants below said 2,499 /
+ * 1,499 / 899 / 199. A docblock that quotes prices becomes a second price list
+ * the moment anybody reprices, so it now names the BANDS and the catalog, and
+ * quotes no amount at all:
+ *
+ *   Tier A  Wedding
+ *   Tier B  Debut · Corporate · Gala Night
+ *   Tier C  Christening · Birthday · Celebration · Travel · Anniversary ·
+ *           Graduation · Reunion          ← also where an UNASSIGNED kind lands
+ *   Tier D  Tournament · Gender reveal · Date · Hangout
+ *   Tier E  Simple Event — Setnayan AI is NOT OFFERED (no vendors to reach).
+ *           ⚠ "not offered" is not "free"; there is no SKU and no price row.
+ *
+ * The live amounts are in `platform_retail_catalog_v2` and are owner-editable at
+ * /admin/pricing → "Setnayan AI prices". The band ASSIGNMENT is likewise owner-
+ * editable since 2026-08-28 and lives in `event_type_vocab.ai_price_tier`; the
+ * map below is the fallback for an unreadable read.
  *
  * This module is the pure CLASSIFICATION only: event_type → tier → the catalog
  * SKU whose `retail_price_php` is the price. It never hardcodes a LIVE price —
@@ -114,8 +125,19 @@ export const AI_TIER_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
 export const AI_TIER_ONBOARDING_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
   A: 1499,
   B: 899,
-  C: 499,
-  D: 99,
+  // ⚖ MOVED 2026-08-28 BY THE OWNER'S SINGLE-DISCOUNT RULING, not by a code
+  // decision: all four bands now share ONE sign-up discount of 40%, replacing
+  // four per-band discounts that had drifted to 40.02 / 40.03 / 44.49 / 50.25.
+  // At 40% and whole-peso rounding, A and B are unchanged and these two move:
+  //   C  ₱899 → ₱539  (was ₱499)
+  //   D  ₱199 → ₱119  (was  ₱99)
+  // He was shown this arithmetic and chose the number knowing it. These
+  // constants are the LAST-RESORT values used only when the catalog row is
+  // unreadable, so they must track the catalog or an outage would charge the
+  // old price — which is what ai-tier-ladder-matches-the-catalog.db.test.ts
+  // exists to catch, and what it caught here.
+  C: 539,
+  D: 119,
   E: 0,
 };
 

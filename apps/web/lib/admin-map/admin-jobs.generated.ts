@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 298 jobs, 195 of them form-driven, as of 075239e66.
+// that performs it. 302 jobs, 198 of them form-driven, as of 91b1feaba.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -2158,6 +2158,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "saveBookingFeeSchedule",
+    "phrase": "save booking fee schedule",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "booking_fee_rate_pct",
+      "booking_fee_tail_rate_pct",
+      "booking_fee_tier1_limit_php"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "saveBundleRow",
     "phrase": "save bundle row",
     "ownerPath": "/admin/pricing",
@@ -2219,6 +2232,18 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/social-queue",
     "fields": [
       "is_active"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveFamilyDiscount",
+    "phrase": "save family discount",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "family",
+      "discount_pct"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2291,6 +2316,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "oauth_id",
       "client_secret"
     ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "savePapicLadder",
+    "phrase": "save papic ladder",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
   },
@@ -2605,6 +2639,21 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     ],
     "refusedWhenEmpty": [
       "event_id"
+    ],
+    "destructive": false
+  },
+  {
+    "name": "setEventTypeBand",
+    "phrase": "set event type band",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "event_type",
+      "band"
+    ],
+    "refusedWhenEmpty": [
+      "event_type",
+      "band"
     ],
     "destructive": false
   },

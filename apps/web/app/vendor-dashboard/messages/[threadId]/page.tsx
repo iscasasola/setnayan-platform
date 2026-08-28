@@ -67,6 +67,7 @@ import {
   fetchInquirerCollabActive,
   type ThreadAttribution,
 } from '@/lib/inquiry-attribution';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -263,15 +264,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       .map((r) => r.vendor_service_id)
       .filter((v): v is string => v !== null),
   );
+  const kindLabel = await cardKindLabeller();
   const offerOptions: VendorOfferOption[] = ownServices
     .filter((s) => s.is_active && !alreadyOnThread.has(s.vendor_service_id))
     .map((s) => ({
       vendorServiceId: s.vendor_service_id,
-      label:
-        s.title?.trim() ||
-        (isCanonicalService(s.category)
-          ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
-          : s.category),
+      // A card's kind may be the shop's own coverage word; the shared labeller
+      // owns the fallback chain so no screen can end it at the raw key.
+      label: s.title?.trim() || kindLabel(s.category),
     }));
 
   const proposalTemplates = ((tplRes.data ?? []) as { template_id: string; template_name: string }[]).map(

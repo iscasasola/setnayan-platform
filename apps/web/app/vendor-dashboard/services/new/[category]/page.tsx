@@ -3,11 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import {
-  VENDOR_CATEGORIES,
-  displayServiceLabel,
-  type VendorCategory,
-} from '@/lib/vendors';
+import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { resolveClaimContextForService } from '@/lib/vendor-invite-actions';
 import { ServiceWizard } from '../../_components/service-wizard';
 import { CanvasMaker } from '../../_components/canvas-maker';
@@ -17,6 +13,8 @@ import {
   resolveCoverageLabels,
 } from '@/lib/vendor-coverages';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
+import { buildLeafIndex, isCoverageLeafKind } from '@/lib/service-card-kind';
 import { buildCanvasInitialFromCard } from '@/lib/vendor-card-copy';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
@@ -41,7 +39,17 @@ export default async function NewServicePage({
 }) {
   const { category } = await params;
   const { claim, from } = await searchParams;
-  if (!CATEGORY_SET.has(category)) notFound();
+  // ⚖ TWO VOCABULARIES ARE LEGAL HERE (owner 2026-08-28, *"yes their own
+  // words"*): a legacy kind, or one of the shop's own COVERAGE LEAVES. Without
+  // the second arm this route 404s on a card the new door legitimately created —
+  // and it is reached by "start from one of your cards" (`?from=`), so a leaf
+  // card would simply have no copy button that works.
+  //
+  // 🔑 Checked against the LIVE TREE, exactly as the save's gate is, so the two
+  // cannot disagree about what a valid kind is.
+  const kindLabel = await cardKindLabeller();
+  const leafKinds = buildLeafIndex(await getCoverageTaxonomy().catch(() => []));
+  if (!CATEGORY_SET.has(category) && !isCoverageLeafKind(category, leafKinds)) notFound();
   const cat = category as VendorCategory;
 
   const supabase = await createClient();
@@ -87,7 +95,7 @@ export default async function NewServicePage({
         .map((r) => r.category)
         .filter((c) => c !== cat),
     ),
-  ).map((c) => ({ value: c, label: displayServiceLabel(c as VendorCategory) }));
+  ).map((c) => ({ value: c, label: kindLabel(c) }));
 
   // The vendor's coverages → the "assign this card to a coverage" picker.
   const [vendorCoverages, coverageLabels] = await Promise.all([
@@ -182,7 +190,7 @@ export default async function NewServicePage({
               {claimContext.coupleDisplayName}
             </span>{' '}
             — they added you to their{' '}
-            <span className="font-semibold text-ink">{displayServiceLabel(cat)}</span>{' '}
+            <span className="font-semibold text-ink">{kindLabel(cat)}</span>{' '}
             plan. Saving links it straight to their wedding.
           </p>
         </div>
@@ -190,7 +198,7 @@ export default async function NewServicePage({
       {canvas ? (
         <CanvasMaker
           categoryValue={cat}
-          categoryLabel={displayServiceLabel(cat)}
+          categoryLabel={kindLabel(cat)}
           otherCategories={otherCategories}
           coverages={coverageOptions}
           vendorProfileId={profile.vendor_profile_id}
@@ -204,7 +212,7 @@ export default async function NewServicePage({
       ) : (
         <ServiceWizard
           categoryValue={cat}
-          categoryLabel={displayServiceLabel(cat)}
+          categoryLabel={kindLabel(cat)}
           otherCategories={otherCategories}
           coverages={coverageOptions}
           vendorProfileId={profile.vendor_profile_id}

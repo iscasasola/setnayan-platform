@@ -551,6 +551,10 @@ type Props = {
      *  flag or the ?folder=/?tile=/?from=plan deep-links dashboard planning
      *  cards set. */
     browse?: string;
+    /** The ranking lens the visitor picked (owner 2026-08-29). Validated against
+     *  the approved registry in `parseFilters`; an unknown value is null, never
+     *  a fallback to a different lens. */
+    lens?: string;
   }>;
 };
 

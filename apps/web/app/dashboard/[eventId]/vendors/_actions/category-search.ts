@@ -810,9 +810,16 @@ export async function searchCategoryVendors(input: {
     }
     try {
       const alloc = await resolveAllocationInputs(supabase, eventId);
-      if (alloc.budgetPhp != null) {
+      // PRICE DECIDES REACH: a couple who picked a budget FEEL and never typed a
+      // figure used to be indistinguishable from a couple who answered nothing —
+      // no budget → neutral fit → their answer decided which shops they saw not
+      // at all. The band-derived estimate is opted into HERE, explicitly, and
+      // only for searching; the Budget Planner still reads `budgetPhp` alone,
+      // because a money plan is the couple's to state, not ours to guess.
+      const searchBudgetPhp = alloc.budgetPhp ?? alloc.estimatedBudgetPhp;
+      if (searchBudgetPhp != null) {
         const result = computeBudgetAllocation({
-          budgetPhp: alloc.budgetPhp,
+          budgetPhp: searchBudgetPhp,
           leaves: alloc.leaves,
           config: alloc.config,
         });

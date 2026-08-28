@@ -93,6 +93,7 @@ import { REFINEMENTS_BY_KEY, REFINEMENTS_DATA, type RefineLeaf, type RefineOptio
 import { EXP_AXES, EXP_DIALS, EXP_PERSONA_BY_KEY, resolvePersona, derivePlanFromPersona, type ExpAxisId, type ExpForWhom } from '../_data/experience-personas';
 import { type OnboardingPickChip } from '@/lib/onboarding-refinements';
 import { type BudgetBand, BUDGET_BANDS_FALLBACK } from '@/lib/budget-bands-shared';
+import { BAND_ROUNDING_PHP, bandRangePhp } from '@/lib/budget-band-money';
 import {
   weaveStory,
   masthead as weaveMasthead,
@@ -370,14 +371,17 @@ const budgetTierBand = (band: string) =>
 /* ── budget AMOUNT math (owner 2026-06-02: text box + line picker + min-floor + max-of-range) ──
    Per-head median × pax, ±20%, rounded to the nearest ₱50k. These are pure (no band
    array dependency), so they stay module-scope; the band-aware helpers live in-component. */
-const round50k = (n: number) => Math.round(n / 50000) * 50000;
-const bandLo = (med: number, pax: number) => round50k(med * 0.8 * pax);
-const bandHi = (med: number, pax: number) => {
-  const a = round50k(med * 0.8 * pax);
-  let z = round50k(med * 1.2 * pax);
-  if (z <= a) z = a + 50000;
-  return z;
-};
+/* The band range the couple reads under the pills. The arithmetic moved to
+   lib/budget-band-money (ONE home — create-event derives a budget from the same
+   ladder and used to do it with its own copy); these two stay as the local
+   names the ~10 call sites below already use, and produce byte-identical
+   figures — the fallbacks reproduce the OLD degenerate answers exactly (an
+   unusable band/pax pair used to round to lo ₱0 and hi ₱0 + one ₱50k step), so
+   this is a refactor with no behaviour in it. Every real caller is already
+   guarded by `budgetSet` / `no_limit` / the PRICED_BANDS filter. */
+const bandLo = (med: number, pax: number) => bandRangePhp(med, pax)?.lowPhp ?? 0;
+const bandHi = (med: number, pax: number) =>
+  bandRangePhp(med, pax)?.highPhp ?? BAND_ROUNDING_PHP;
 const fmtPeso = (n: number) =>
   n >= 1e6 ? `₱${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` : `₱${Math.round(n / 1000)}K`;
 

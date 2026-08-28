@@ -88,6 +88,15 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'dispute_resolved',
   // New vendor/couple message (the canonical "new_vendor_message").
   'chat_message',
+  /*
+    A SHOP HAS KEPT A DATE FOR THIS COUPLE — email, not just the tray.
+    The three "a slot opened" waitlist paths already email every couple waiting
+    on a date; this is the ONE waitlist event that told nobody, and it is the
+    time-critical half: `max_waitlist_acceptances` lets the shop pick somebody
+    else, so a couple who never hears loses a date that was being held for them.
+    Transactional, so deliberately NOT in MARKETING_GATED_EMAIL_TYPES.
+  */
+  'waitlist_picked',
   // Payment lifecycle (Phase 2 PR-B, 2026-06-20). The transactional money
   // signals the couple should get an email for: their payment plan is ready
   // (info_sent), a payment was confirmed by the vendor, and the plan cleared.

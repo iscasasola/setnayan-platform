@@ -98,13 +98,21 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'microsite_featured_editorial_ids, microsite_featured_service_ids, ' +
   'microsite_hero_photo_key, microsite_pinned_review_id, microsite_sections, ' +
   'microsite_video_ids, name_revealed_at, next_renewal_due_at, outer_radius_km, ' +
+  // A scheduled plan change, and money the shop is holding against a future
+  // bill. Exported, never withheld: this is the shop's own commercial record —
+  // what they are on, what it becomes, and what we still owe them. A
+  // subject-access response that omitted a BALANCE WE HOLD would be incomplete
+  // in exactly the way that matters.
+  'pending_tier, pending_tier_billing_cycle, pending_tier_period_days, ' +
+  'pending_tier_purchase_id, pending_tier_scheduled_at, pending_tier_sku_code, ' +
   'portfolio_r2_keys, presentation_pattern, public_id, public_visibility, ' +
   'real_name_unlocked_at, registered_address, registered_business_name, registered_zip, ' +
   'registration_number_needs_review, registration_number_normalized, ' +
   'registration_number_raw, registration_number_submitted_at, same_day_available, ' +
   'screen_name, screen_name_id, screen_name_slug, screen_name_taxonomy, services, ' +
   'show_team_bookings_in_backend_count, social_feature_opt_out, social_featured_at, ' +
-  'social_post_url, supplier_categories, tagline, tier_billing_cycle, tier_expires_at, ' +
+  'social_post_url, subscription_credit_php, supplier_categories, tagline, ' +
+  'tier_billing_cycle, tier_expires_at, ' +
   'tier_state, tin_number, tin_type, updated_at, user_id, vendor_profile_id, venue_type, ' +
   'verification_state, waitlist_enabled, website, weddings_done_approx';
 

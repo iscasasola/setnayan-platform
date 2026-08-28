@@ -167,3 +167,19 @@ SPEC IMPACT: `Pricing.md § 00` and
 now admin-editable (defaults unchanged); the Setnayan AI ladder carries one 40%
 sign-up discount with bands C and D at ₱539 / ₱119; the Papic ladder is
 expressed as five anchors; `LIVE_STUDIO` is `per_day`.
+
+### Guard kept honest, not loosened
+
+- `booking-fee-schedule-summary.test.ts`'s "the order description is derived,
+  never a hard-coded rate" pin required `bookingFeeScheduleSummary()` to be
+  called with **no argument**. Making the taper owner-editable is exactly what
+  forced an argument (`liveSchedule`), so that regex encoded an incidental fact
+  rather than the rule it exists to enforce. It now accepts no argument **or a
+  single identifier** — never a literal, because
+  `bookingFeeScheduleSummary({ rate: 0.05, ... })` is a hard-coded rate wearing
+  a function call, and the sibling `(5%)`-literal assertion cannot see it. The
+  blanket widening would have reopened that door through the argument.
+  Mutation-checked red both ways (typed `(5%)`, inline schedule literal), and
+  the second assertion proven to fire on its own.
+
+SPEC IMPACT: None.

@@ -33,7 +33,11 @@
  *                                 pointing at it. FIXED. (Inert in production —
  *                                 zero of 45 bookings carry a service_id — which
  *                                 is why it was safe to fix rather than urgent.)
- *   · the two in EXEMPT below   — NAMED, NOT FIXED. See their reasons.
+ *   · `script-actions.ts`       — the host/MC cue composer: every save answered
+ *                                 "You are not booked on this event". FIXED
+ *                                 2026-08-29, once its downstream was measured
+ *                                 rather than assumed (see below).
+ *   · the one in EXEMPT below   — NAMED, NOT FIXED. See its reason.
  *
  * 🔑 THE LIST IS DERIVED FROM THE TREE, NEVER TYPED OUT. A hand-written list of
  * offenders is a list of the ones somebody thought of, and all four above were
@@ -61,14 +65,6 @@ const EXEMPT: Record<string, string> = {
     'PRESENT IN PRODUCTION (pg_proc, 2026-08-28) — so the fallback is not reached, ' +
     'and when it is (a pre-migration environment) it degrades to a null link ' +
     'rather than to a wrong answer.',
-  'app/vendor-dashboard/clients/[eventId]/script-actions.ts':
-    'DEAD, NAMED, NOT FIXED. The host/MC cue composer gates on this read, so ' +
-    'every save answers "You are not booked on this event." The receiver swap is ' +
-    'one line, but the two writes it guards (`vendor_block_scripts`, ' +
-    '`vendor_lines`) also run on the session and have NOT been checked for their ' +
-    'own policies — repairing the gate without them would move the silence one ' +
-    'statement later, which is worse than leaving it where it can be found. Its ' +
-    'own PR, with its own downstream measurement.',
   'app/vendor-dashboard/manpower/surface.tsx':
     'DEAD, NAMED, NOT FIXED — and its own docblock already says what it costs: ' +
     'the list of events the shop is booked on decides whether the open-gig read ' +
@@ -178,6 +174,13 @@ test('the three repaired sites stay repaired', () => {
   const repaired = [
     'app/vendor-dashboard/clients/[eventId]/actions.ts',
     'app/vendor-dashboard/services/actions.ts',
+    // Added 2026-08-29 when the host/MC cue composer was repaired. Its downstream
+    // was the reason it waited: `event_schedule_blocks` carries a booked-vendor
+    // read, and `vendor_block_scripts` / `vendor_lines` are FOR ALL on
+    // `current_vendor_ids()`, which every real shop satisfies because
+    // `/open-shop` seeds a founding admin seat. Proved end to end against
+    // production in a rolled-back transaction before the gate was touched.
+    'app/vendor-dashboard/clients/[eventId]/script-actions.ts',
   ];
   for (const rel of repaired) {
     const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));

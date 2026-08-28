@@ -16,6 +16,10 @@ import {
   type VendorRowProp,
 } from '@/app/admin/pricing/_components/catalog-editor';
 import { FeeForm } from '@/app/admin/pricing/_components/fee-form';
+import { BookingFeeForm } from '@/app/admin/pricing/_components/booking-fee-form';
+import { saveBookingFeeSchedule } from '@/app/admin/pricing/price-control-actions';
+import { BOOKING_FEE } from '@/lib/booking-fee';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { SetupDiscountForm } from '@/app/admin/pricing/_components/setup-discount-form';
 import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { LegacyCatalogDisclosure } from '@/app/admin/pricing/_components/legacy-catalog';
@@ -131,7 +135,9 @@ export async function PricingSurface(_props: Props) {
       .order('display_order', { ascending: true }),
     admin
       .from('platform_settings')
-      .select('setnayan_pay_fee_pct, onboarding_discount_pct')
+      .select(
+        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
+      )
       .eq('id', 1)
       .maybeSingle(),
   ]);
@@ -153,6 +159,28 @@ export async function PricingSurface(_props: Props) {
   const storedDiscount = settingsRes.data?.onboarding_discount_pct;
   const discountIsFromDb = storedDiscount != null && Number.isFinite(Number(storedDiscount));
   const discountPct = readOnboardingDiscountPct(storedDiscount);
+
+  // The SUPPLIER-side booking fee. Falls back to the locked code schedule so an
+  // unreadable settings row shows today's numbers rather than blanks or zeros.
+  const bfRow = settingsRes.data as {
+    booking_fee_rate_pct?: number | string | null;
+    booking_fee_tail_rate_pct?: number | string | null;
+    booking_fee_tier1_limit_php?: number | string | null;
+  } | null;
+  const bfFromDb =
+    bfRow?.booking_fee_rate_pct != null && Number.isFinite(Number(bfRow.booking_fee_rate_pct));
+  const bookingFee = {
+    ratePct: bfFromDb ? Number(bfRow!.booking_fee_rate_pct) : BOOKING_FEE.rate * 100,
+    tailRatePct:
+      bfRow?.booking_fee_tail_rate_pct != null && Number.isFinite(Number(bfRow.booking_fee_tail_rate_pct))
+        ? Number(bfRow.booking_fee_tail_rate_pct)
+        : BOOKING_FEE.tailRate * 100,
+    tier1LimitPhp:
+      bfRow?.booking_fee_tier1_limit_php != null && Number.isFinite(Number(bfRow.booking_fee_tier1_limit_php))
+        ? Number(bfRow.booking_fee_tier1_limit_php)
+        : BOOKING_FEE.tier1LimitPhp,
+    isFromDb: bfFromDb,
+  };
 
   const retiredRetailCodes = retailRows.filter((r) => !r.is_active).map((r) => r.service_code);
   const allCodes = [
@@ -286,6 +314,30 @@ export async function PricingSurface(_props: Props) {
           customer&apos;s cost. Code constant {SETNAYAN_PAY_FEE_PCT}% is the fallback.
         </p>
         <FeeForm action={saveFeeSetting} feePct={feePct} feeIsFromDb={feeIsFromDb} />
+      </section>
+
+      {/*
+        ⚠ TWO DIFFERENT 5%s, ONE SCREEN APART. The block above is a CUSTOMER-side
+        gateway fee (dormant); this one is charged to the SUPPLIER. They are given
+        separate headings and each names who pays in its own first line, because
+        the collision is exactly how the wrong number gets edited.
+      */}
+      <section className="mt-10">
+        <h2 className="mb-1 text-base font-semibold tracking-tight">Vendor booking fee</h2>
+        <p className="mb-3 max-w-prose text-sm text-ink/60">
+          What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set:
+          the rate below the threshold, the threshold itself, and the rate above it. The minimum
+          and the no-cap rule are fixed.
+        </p>
+        <BookingFeeForm
+          action={saveBookingFeeSchedule}
+          ratePct={bookingFee.ratePct}
+          tailRatePct={bookingFee.tailRatePct}
+          tier1LimitPhp={bookingFee.tier1LimitPhp}
+          minPhp={BOOKING_FEE.minPhp}
+          isFromDb={bookingFee.isFromDb}
+          enabled={isBookingFeeEnabled()}
+        />
       </section>
 
       <section className="mt-10">

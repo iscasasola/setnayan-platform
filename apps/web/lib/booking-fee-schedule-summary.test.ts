@@ -94,6 +94,18 @@ test('PIN: the summary agrees with bookingFeePhp at the band, the tail, and the 
  * EVERY booking above ₱100,000. Re-typing any fixed rate into that money
  * document — "(5%)", "(5% then 1%)" — reintroduces the same class of bug at the
  * next reprice, so the parenthetical must come from bookingFeeScheduleSummary().
+ *
+ * AN ARGUMENT IS LEGAL, A LITERAL IS NOT (widened 2026-08-28). This guard used
+ * to require the call to take NO argument. That encoded an incidental fact, not
+ * the rule: making the fee schedule owner-editable is exactly what forced an
+ * argument, because the summary must now render the schedule the admin has
+ * saved rather than the compiled-in constants. So a call WITH an argument is
+ * fine — but only if that argument is a VARIABLE. Passing a schedule inline,
+ * `bookingFeeScheduleSummary({ rate: 0.05, tier1LimitPhp: 100000, tailRate: 0.01 })`,
+ * is a hard-coded rate wearing a function call, and the "(5%)"-literal check
+ * further down CANNOT see it — it only hunts for `(N%` text. Widening this to
+ * `\([^)]*\)` would therefore reopen, through the argument, the very door this
+ * guard exists to hold shut. Hence: no argument, or one identifier.
  */
 test('GUARD: the order description is derived, never a hard-coded rate', () => {
   const src = readFileSync(new URL('./booking-fee-lock.server.ts', import.meta.url), 'utf8');
@@ -102,8 +114,22 @@ test('GUARD: the order description is derived, never a hard-coded rate', () => {
   assert.ok(descLine, 'collectBookingFeeAtLock must still set an order description');
   assert.match(
     descLine,
-    /\$\{bookingFeeScheduleSummary\(\)\}/,
-    'the description parenthetical must be interpolated from bookingFeeScheduleSummary()',
+    /\$\{bookingFeeScheduleSummary\(\s*(?:[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*)?\)\}/,
+    'the description parenthetical must be interpolated from bookingFeeScheduleSummary(), called with no argument or a single variable',
+  );
+
+  // And say the second half out loud, so a failure names the real rule rather
+  // than reading as "the regex is fussy about spacing".
+  const callArg = descLine.match(/bookingFeeScheduleSummary\(([^)]*)\)/);
+  assert.ok(callArg, 'the description must call bookingFeeScheduleSummary()');
+  // `([^)]*)` always participates when the match succeeds, so the `?? ''` is
+  // only there to satisfy noUncheckedIndexedAccess; '' is the legal no-argument
+  // form, and the identifier shape is pinned by the assertion above regardless.
+  const scheduleArg = (callArg[1] ?? '').trim();
+  assert.doesNotMatch(
+    scheduleArg,
+    /[{}[\]'"`]|^[-+]?[\d.]/,
+    'the schedule must be passed as a variable — an inline object or numeric literal is a hard-coded rate in a costume the "(5%)" check below cannot see',
   );
 
   // No hard-coded percentage anywhere in the fee-order writer's CODE. Comments

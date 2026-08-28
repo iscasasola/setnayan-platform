@@ -5,6 +5,7 @@ import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 // `booking-fee.ts` is a pure value → value module (no I/O, no `server-only`),
 // so importing it from this `.server.ts` file is fine in both directions.
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 
 /**
  * Collect the vendor Booking Fee AT LOCK — the DB-touching half of the LOCK
@@ -148,6 +149,15 @@ export async function collectBookingFeeAtLock(
   // the 2026-07-25 taper a ₱1M booking is billed ₱14,000 (1.40%), so the money
   // document the vendor reads overstated its own rate. Keep it derived: a
   // reprice must move the copy with the math, in one place.
+  // ⚠ AND SINCE 2026-08-28 THE SCHEDULE IS OWNER-EDITABLE, so the sentence must
+  // be composed from the LIVE settings, not from the code constants. The amount
+  // beside it comes from `booking_fee_centavos` (SQL, authoritative) which
+  // already reads those settings — quoting the constants here would print one
+  // rate on a bill computed at another, which is the very bug the paragraph
+  // above describes, one level up. Falls back to the locked schedule on a
+  // failed read, never to silence.
+  const liveSchedule = await getBookingFeeSchedule(admin);
+
   const { data: orderRow, error: oErr } = await admin
     .from('orders')
     .insert({
@@ -155,7 +165,7 @@ export async function collectBookingFeeAtLock(
       user_id: payerUserId,
       vendor_profile_id: vendorProfileId,
       service_key: serviceKey,
-      description: `Setnayan booking fee (${bookingFeeScheduleSummary()}) — up for verification, confirmation within 24 hrs`,
+      description: `Setnayan booking fee (${bookingFeeScheduleSummary(liveSchedule)}) — up for verification, confirmation within 24 hrs`,
       requested_total_php: amountPhp,
       status: 'submitted',
       reference_code: referenceCode,

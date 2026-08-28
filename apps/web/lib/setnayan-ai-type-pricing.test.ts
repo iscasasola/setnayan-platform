@@ -3,7 +3,7 @@
  * invariants (node:test via tsx). Pure map, no I/O.
  *
  * TWO LADDERS since 2026-08-12 (owner):
- *   SIGN-UP  ₱1,499 / ₱899 / ₱499 / ₱99 / ₱0 — buying while creating the event.
+ *   SIGN-UP  ₱1,499 / ₱899 / ₱539 / ₱119 / ₱0 — buying while creating the event.
  *   REGULAR  ₱2,499 / ₱1,499 / ₱899 / ₱199 / ₱0 — switching it on afterwards.
  *
  * ⚠ THE SIGN-UP LADDER IS THE OLD 2026-07-22 ONE, UNCHANGED. That is the point:
@@ -26,7 +26,7 @@ import {
 
 test('the locked ladder values', () => {
   assert.deepEqual(AI_TIER_FALLBACK_PHP, { A: 2499, B: 1499, C: 899, D: 199, E: 0 });
-  assert.deepEqual(AI_TIER_ONBOARDING_FALLBACK_PHP, { A: 1499, B: 899, C: 499, D: 99, E: 0 });
+  assert.deepEqual(AI_TIER_ONBOARDING_FALLBACK_PHP, { A: 1499, B: 899, C: 539, D: 119, E: 0 });
   assert.deepEqual(AI_TIER_SKU, {
     A: 'SETNAYAN_AI',
     B: 'SETNAYAN_AI_B',
@@ -42,18 +42,18 @@ test('every canonical event type maps to its locked tier + price', () => {
     ['wedding', 'A', 1499],
     ['debut', 'B', 899],
     ['corporate', 'B', 899],
-    ['christening', 'C', 499],
-    ['birthday', 'C', 499],
-    ['celebration', 'C', 499],
-    ['travel', 'C', 499],
-    ['tournament', 'D', 99],
-    ['anniversary', 'C', 499],
-    ['graduation', 'C', 499],
-    ['reunion', 'C', 499],
+    ['christening', 'C', 539],
+    ['birthday', 'C', 539],
+    ['celebration', 'C', 539],
+    ['travel', 'C', 539],
+    ['tournament', 'D', 119],
+    ['anniversary', 'C', 539],
+    ['graduation', 'C', 539],
+    ['reunion', 'C', 539],
     ['gala_night', 'B', 899],
-    ['gender_reveal', 'D', 99],
-    ['date', 'D', 99],
-    ['hangout', 'D', 99],
+    ['gender_reveal', 'D', 119],
+    ['date', 'D', 119],
+    ['hangout', 'D', 119],
     ['simple_event', 'E', 0],
   ];
   for (const [type, tier, php] of cases) {
@@ -79,7 +79,7 @@ test('unknown / null / empty types fall back to the standard tier C, never free 
     assert.equal(setnayanAiTierForEventType(t as string | null | undefined), 'C');
     // Regular by default; the sign-up discount only when explicitly asked for.
     assert.equal(setnayanAiTierFallbackPhp(t as string | null | undefined), 899);
-    assert.equal(setnayanAiTierFallbackPhp(t as string | null | undefined, 'onboarding'), 499);
+    assert.equal(setnayanAiTierFallbackPhp(t as string | null | undefined, 'onboarding'), 539);
     assert.equal(setnayanAiTierSkuForEventType(t as string | null | undefined), 'SETNAYAN_AI_C');
   }
 });
@@ -98,17 +98,17 @@ test('per-EVENT pricing is UNCHANGED by the per-user retirement (every tier)', (
     debut: ['B', 'SETNAYAN_AI_B', 899],
     corporate: ['B', 'SETNAYAN_AI_B', 899],
     gala_night: ['B', 'SETNAYAN_AI_B', 899],
-    christening: ['C', 'SETNAYAN_AI_C', 499],
-    birthday: ['C', 'SETNAYAN_AI_C', 499],
-    celebration: ['C', 'SETNAYAN_AI_C', 499],
-    travel: ['C', 'SETNAYAN_AI_C', 499],
-    anniversary: ['C', 'SETNAYAN_AI_C', 499],
-    graduation: ['C', 'SETNAYAN_AI_C', 499],
-    reunion: ['C', 'SETNAYAN_AI_C', 499],
-    tournament: ['D', 'SETNAYAN_AI_D', 99],
-    gender_reveal: ['D', 'SETNAYAN_AI_D', 99],
-    date: ['D', 'SETNAYAN_AI_D', 99],
-    hangout: ['D', 'SETNAYAN_AI_D', 99],
+    christening: ['C', 'SETNAYAN_AI_C', 539],
+    birthday: ['C', 'SETNAYAN_AI_C', 539],
+    celebration: ['C', 'SETNAYAN_AI_C', 539],
+    travel: ['C', 'SETNAYAN_AI_C', 539],
+    anniversary: ['C', 'SETNAYAN_AI_C', 539],
+    graduation: ['C', 'SETNAYAN_AI_C', 539],
+    reunion: ['C', 'SETNAYAN_AI_C', 539],
+    tournament: ['D', 'SETNAYAN_AI_D', 119],
+    gender_reveal: ['D', 'SETNAYAN_AI_D', 119],
+    date: ['D', 'SETNAYAN_AI_D', 119],
+    hangout: ['D', 'SETNAYAN_AI_D', 119],
     simple_event: ['E', null, 0],
   };
 
@@ -119,10 +119,16 @@ test('per-EVENT pricing is UNCHANGED by the per-user retirement (every tier)', (
   }
 
   // Papic's travel exclusion was dropped in the SAME change. Confirm that did
-  // NOT leak into AI pricing — travel is still Tier C at ₱499, exactly as before.
+  // NOT leak into AI pricing — travel is still Tier C, exactly as before.
+  // ⚠ DERIVED FROM TIER C, NOT TYPED. What this test is actually about is that
+  // travel stayed in tier C — it must fail if travel moves TIER, and must not
+  // fail merely because the owner reprices tier C (as he did on 2026-08-28,
+  // when the single 40% family discount took C's sign-up price ₱499 → ₱539).
+  // A hardcoded number here conflated those two, and the reprice broke a test
+  // whose subject was never the price.
   assert.equal(
     setnayanAiTierFallbackPhp('travel', 'onboarding'),
-    499,
-    'travel AI sign-up price must not move',
+    AI_TIER_ONBOARDING_FALLBACK_PHP.C,
+    'travel must still be priced as tier C',
   );
 });

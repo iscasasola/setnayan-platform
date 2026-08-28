@@ -27,6 +27,7 @@ import {
   type StudioTileOption,
 } from './_components/taxonomy-studio';
 
+import Link from 'next/link';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { KpiStatCard } from '../_components/kpi-stat-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -151,6 +152,22 @@ export default async function AdminTaxonomyPage({
   const error = first(sp.error);
 
   const admin = createAdminClient();
+
+  // One trade, many names (C2 2026-08-28) — how many proposed aliases are
+  // waiting for a person before they can answer anybody. See
+  // /admin/taxonomy/aliases and lib/service-trade-aliases.ts. Fails silent
+  // to 0 — a broken count must never take the whole Studio page down with
+  // it, and 0 already renders as "nothing waiting", the safe default.
+  let pendingAliasCount = 0;
+  try {
+    const pendingAliasRes = await admin
+      .from('canonical_service_aliases')
+      .select('id', { count: 'exact', head: true })
+      .is('reviewed_at', null);
+    pendingAliasCount = pendingAliasRes.count ?? 0;
+  } catch {
+    pendingAliasCount = 0;
+  }
 
   const [schemasRes, tax, eventVocabRes, faithRes, reqRes, deadlinesRes, refLeafRes, refOptRes] =
     await Promise.all([
@@ -542,6 +559,14 @@ export default async function AdminTaxonomyPage({
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Taxonomy Studio"
+        actions={
+          <Link
+            href="/admin/taxonomy/aliases"
+            className="text-sm font-medium text-ink/60 hover:text-ink"
+          >
+            Trade aliases{pendingAliasCount > 0 ? ` (${pendingAliasCount} waiting)` : ''}
+          </Link>
+        }
       />
 
       {ok ? (

@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 300 jobs, 197 of them form-driven, as of b4a27195a.
+// that performs it. 303 jobs, 200 of them form-driven, as of d9882ae3e.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -358,6 +358,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "refusedWhenEmpty": [
       "purchase_id"
     ],
+    "destructive": false
+  },
+  {
+    "name": "approveTradeAlias",
+    "phrase": "approve trade alias",
+    "ownerPath": "/admin/taxonomy/aliases",
+    "resolvedPath": "/admin/taxonomy/aliases",
+    "fields": [
+      "id"
+    ],
+    "refusedWhenEmpty": [],
     "destructive": false
   },
   {
@@ -1509,6 +1520,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "refusedWhenEmpty": [
       "purchase_id"
     ],
+    "destructive": true
+  },
+  {
+    "name": "rejectTradeAlias",
+    "phrase": "reject trade alias",
+    "ownerPath": "/admin/taxonomy/aliases",
+    "resolvedPath": "/admin/taxonomy/aliases",
+    "fields": [
+      "id"
+    ],
+    "refusedWhenEmpty": [],
     "destructive": true
   },
   {
@@ -3200,6 +3222,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/fraud",
     "fields": [
       "reason"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "unteachTradeAlias",
+    "phrase": "unteach trade alias",
+    "ownerPath": "/admin/taxonomy/aliases",
+    "resolvedPath": "/admin/taxonomy/aliases",
+    "fields": [
+      "id"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

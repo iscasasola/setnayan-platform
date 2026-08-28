@@ -42,6 +42,15 @@ export type TradeMatch = {
   standing: 'covered' | 'open' | 'locked';
   /** Only set when `standing === 'locked'`. */
   why?: string;
+  /**
+   * Reviewed synonyms for this trade — "sorbetero" for Sorbetes Cart (C2,
+   * 2026-08-28). Already resolved through the merge-forward map and already
+   * filtered to visible trades by `lib/service-trade-aliases.ts` before
+   * this object is built; this field is search text, nothing more. Same
+   * field name as `RankableOption.aliases` on purpose — `rankTaxonomyOptions`
+   * picks it up with no mapping needed.
+   */
+  aliases?: readonly string[];
 };
 
 /**

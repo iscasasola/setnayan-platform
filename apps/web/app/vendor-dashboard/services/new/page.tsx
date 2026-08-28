@@ -30,6 +30,9 @@ import {
 } from '@/lib/vendor-category-parents';
 import { buildLeafIndex, cardKindLabel, humanizeKind } from '@/lib/service-card-kind';
 import type { TradeMatch } from '@/lib/kind-search-trades';
+import { reviewedAliasesByLiveTrade } from '@/lib/service-trade-aliases';
+import { getReviewedTradeAliasRows } from '@/lib/service-trade-aliases-db';
+import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 
 export const metadata = { title: 'Add a service' };
 
@@ -238,6 +241,23 @@ export default async function NewServiceCardPage() {
     coverageAllowed[c.id] = allowedByLeaf.get(c.canonical_service) ?? null;
   }
 
+  // ── ONE TRADE, MANY NAMES (C2 2026-08-28) ──────────────────────────────
+  // "sorbetes", "sorbetero" and "ice cream cart" should all find a trade,
+  // even when the word itself never appears in the trade's own label. Both
+  // reads fail silent to "no aliases" — the search band then behaves
+  // exactly as C1 shipped it, never an error a supplier did not ask for.
+  const liveTradeKeys = new Set<string>(
+    tree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService))),
+  );
+  const [aliasRows, mergeForwards] = await Promise.all([
+    getReviewedTradeAliasRows().catch(() => []),
+    getServiceMergeForwards().catch(() => ({})),
+  ]);
+  // Reviewed aliases only, resolved through the merge-forward map, dropped
+  // silently if they no longer name a currently visible trade — a leaf can
+  // be retired or merged into another after an alias row is written.
+  const aliasesByLiveKey = reviewedAliasesByLiveTrade(aliasRows, mergeForwards, liveTradeKeys);
+
   // ── EVERY LIVE TRADE, FOR THE SEARCH BAND (C1 2026-08-28) ─────────────────
   // Today the kind sheet's search only matches the ~46 legacy pills; the 262
   // real trades in this same tree are not searchable there at all. This is
@@ -256,6 +276,7 @@ export default async function NewServiceCardPage() {
           branch: b.label,
           standing: st.standing,
           why: st.standing === 'locked' ? st.why : undefined,
+          aliases: aliasesByLiveKey.get(l.canonicalService),
         };
       }),
     ),

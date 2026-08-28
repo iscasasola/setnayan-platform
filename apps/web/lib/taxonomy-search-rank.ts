@@ -23,6 +23,16 @@ export type RankableOption = {
   key: string;
   /** The human label derived from that key, e.g. `Photo Booth`. */
   label: string;
+  /**
+   * Other words that mean the same thing — reviewed aliases like
+   * "sorbetero" for Sorbetes Cart (C2, 2026-08-28: `lib/service-trade-aliases.ts`).
+   * Matched with the SAME letter tiers as the label (start / contains /
+   * squashed-spelling), so a phrase that never appears in the label at all
+   * can still find the option. Omit or leave empty for an option with no
+   * known aliases — ranking is then byte-identical to before this field
+   * existed.
+   */
+  aliases?: readonly string[];
 };
 
 /**
@@ -60,15 +70,23 @@ export function rankTaxonomyOptions<T extends RankableOption>(
     const labelLc = opt.label.toLowerCase();
     const keyLc = opt.key.toLowerCase();
 
-    let score = 0;
-    if (labelLc.startsWith(trimmed)) score = 4;
-    else if (labelLc.includes(trimmed)) score = 3;
-    else if (keyLc.includes(snakeQuery)) score = 2;
-    else if (
-      squashedQuery.length >= MIN_QUERY_LEN &&
-      labelLc.replace(/[^a-z0-9]+/g, '').includes(squashedQuery)
-    )
-      score = 1;
+    // Tiers 4/3/1 are "does this TEXT start with / contain / squash-match
+    // the query" — the label is one such text, and so is every alias. Tier
+    // 2 stays label/key-specific (the canonical KEY containing the snake
+    // form of the query) since an alias phrase has no key of its own.
+    //
+    // 🔑 THIS IS A `max`, NOT AN `if/else-if` CHAIN, AND THAT IS DELIBERATE.
+    // The four original tiers were mutually exclusive by construction (each
+    // condition tests a DIFFERENT text: label-starts, label-contains,
+    // key-snake, label-squashed), so taking the highest TRUE tier produces
+    // the identical result the old if/else-if chain did — this is a pure
+    // refactor, not a behaviour change, which is why every existing test in
+    // taxonomy-search-rank.test.ts still holds with `aliases` never set.
+    let score = textTierScore(labelLc, trimmed, squashedQuery);
+    if (keyLc.includes(snakeQuery)) score = Math.max(score, 2);
+    for (const alias of opt.aliases ?? []) {
+      score = Math.max(score, textTierScore(alias.toLowerCase(), trimmed, squashedQuery));
+    }
 
     if (score > 0) matches.push({ opt, score });
   }
@@ -77,4 +95,20 @@ export function rankTaxonomyOptions<T extends RankableOption>(
     (a, b) => b.score - a.score || a.opt.label.localeCompare(b.opt.label),
   );
   return matches.slice(0, limit).map((m) => m.opt);
+}
+
+/**
+ * Tiers 4 / 3 / 1 against one piece of text, already lowercased — the
+ * label-shaped rules, factored out so the label and every alias are scored
+ * by the exact same logic (one matcher, tested once).
+ */
+function textTierScore(textLc: string, trimmedQuery: string, squashedQuery: string): number {
+  if (textLc.startsWith(trimmedQuery)) return 4;
+  if (textLc.includes(trimmedQuery)) return 3;
+  if (
+    squashedQuery.length >= MIN_QUERY_LEN &&
+    textLc.replace(/[^a-z0-9]+/g, '').includes(squashedQuery)
+  )
+    return 1;
+  return 0;
 }

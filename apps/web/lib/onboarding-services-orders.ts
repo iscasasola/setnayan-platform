@@ -304,9 +304,27 @@ export async function mintOnboardingServiceOrders(
     // The studio is one tap away and is where they go once it is paid; arriving
     // there is not load-bearing, because nothing is provisioned until an admin
     // approves the payment.
+    // ── AND SETTING UP IS NOT FINISHED UNTIL THE BILL IS ────────────────────
+    //
+    // ⚖ Owner, 2026-08-28: *"i will go here? it should be settled first. […]
+    // Then the onboarding end. No option to pay later. then need to go back to
+    // uncheck their papic and setnayan AI purchase."* — softened the same day by
+    // the discount ruling: leaving IS allowed now, it just costs 10% more.
+    //
+    // 🔑 SO THE LAST STEP IS THE PAYMENT PAGE ITSELF, NOT A DASHBOARD BILL. The
+    // order page is where a bill LIVES; `/pay/[reference]` is where one is
+    // SETTLED — it carries the QR with the amount already in it, the account
+    // number, and the proof form. Landing somebody on the ledger entry for a
+    // thing they are ready to pay for right now is the same defect as the studio
+    // banner this line already replaced once, one step further along.
+    //
+    // `setup=1` is what tells that page it is the last step of setting up rather
+    // than a bill somebody came back to: it removes the way out that reads as
+    // "pay later" and offers the two doors the owner named — pay it, or remove
+    // the items.
     return {
       orderPublicIds: [String(order.public_id)],
-      paymentPath: `/dashboard/${eventId}/orders/${orderId}?created=1`,
+      paymentPath: `/pay/${encodeURIComponent(referenceCode)}?setup=1`,
     };
   } catch (e) {
     // Non-fatal by contract — see the docblock. The event and its free grants

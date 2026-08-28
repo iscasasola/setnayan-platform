@@ -400,6 +400,27 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: 24,
     filter: (q) => q.eq('status', 'pending'),
   },
+  /*
+    lane MONEY, not trust — and the lane is the interesting choice.
+
+    A couple asks us to remove a celebration ONLY when money is in the way: a
+    bill we confirmed, or a payment nobody has checked yet. Every one of these
+    rows is somebody waiting to hear what happens to what they paid, which is
+    the money lane's whole definition. Filing it under trust would rank it above
+    a payment awaiting confirmation while being, in substance, the same person
+    waiting on the same money.
+
+    ⚠ `status='pending'` ONLY. `self_removed` rows are reasons recorded on a
+    removal that needed nobody's answer — there are far more of them, they are
+    already final, and counting them would show a queue that can never drain.
+  */
+  {
+    key: 'event-deletions',
+    table: 'event_deletion_requests',
+    lane: 'money',
+    slaHours: 24,
+    filter: (q) => q.eq('status', 'pending'),
+  },
   // lane trust · 12h — a colleague is BLOCKED on you.
   {
     key: 'approvals',

@@ -178,6 +178,14 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'deletion_request_nudge',
   'deletion_request_agreed',
   'deletion_request_declined',
+  /*
+    Our answer to a couple who asked us to remove a celebration. Transactional
+    by any reading — they asked a question about their own money and are waiting
+    on it — and it must reach somebody who is not in the app, because the whole
+    point of the request is that they could not do the thing themselves.
+    Deliberately NOT marketing-gated, same as the four above.
+  */
+  'event_deletion_answered',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

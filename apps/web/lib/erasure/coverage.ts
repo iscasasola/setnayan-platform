@@ -1188,6 +1188,20 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'The subject’s private saved-vendor list, keyed to them alone.',
   },
   {
+    table: 'event_deletion_requests',
+    column: 'user_id',
+    why:
+      'The subject’s own words about why they removed a celebration, plus any ' +
+      'note they wrote asking us to. Free text they typed, keyed to them alone. ' +
+      '⚖ IT IS NOT AN ACCOUNTABILITY RECORD, unlike account_deletion_requests ' +
+      'beside it: that one is the erasure request itself and must survive to ' +
+      'evidence that erasure was asked for. This one is about a CELEBRATION, ' +
+      'and the money decision behind it lives in orders / payments / receipts, ' +
+      'which carry their own classifications. 🔑 The row already disappears ' +
+      'with a hard account delete (user_id REFERENCES auth.users ON DELETE ' +
+      'CASCADE); this makes that a decision rather than a side effect.',
+  },
+  {
     table: 'user_follows',
     column: 'follower_user_id',
     why: 'The subject’s OUTBOUND follow list. Inbound edges (followed_user_id) are another account’s list — left, and flagged in the PR.',

@@ -144,6 +144,23 @@ export async function EventsSurface({
   let paidVendorsMeasured = true;
   let stdViewsMeasured = true;
 
+  /*
+    ── WHAT SETNAYAN'S OWN MONEY LOOKS LIKE ON THIS EVENT ────────────────────
+    🚨 THE DELETE BUTTON BELOW NAMED PAID *VENDORS* AND NOTHING ELSE, so the
+    one kind of money HQ can actually destroy — a bill paid to US, a BIR
+    official receipt, a payment sitting unchecked — went unmentioned in the
+    confirmation. The couple-side panel refuses outright on exactly those, and
+    an admin could walk past that refusal in one press without ever being told
+    what they were voiding.
+
+    ⚖ IT STILL DOES NOT BLOCK, and that is deliberate: answering a couple's
+    request IS a removal past this gate, and HQ is where a person decides. What
+    changes is that the person deciding is shown the money first. Being
+    explicit beats being silent.
+  */
+  const setnayanMoneyByEvent = new Map<string, string[]>();
+  let setnayanMoneyMeasured = true;
+
   if (eventIds.length > 0) {
     const [guestsRes, paidOrdersRes, stdViewsRes] = await Promise.all([
       admin
@@ -208,6 +225,78 @@ export async function EventsSurface({
         paidVendorsByEvent.get(row.event_id)!.add(row.vendor_profile_id);
       }
     }
+    /*
+      Two reads, because PostgREST cannot express "a payment whose order belongs
+      to this event" in one filter: get every bill on these events, then ask
+      about those bills. `settled` is a bill that reached a paying state;
+      `unchecked` is a payment nobody has looked at yet — different facts, and
+      only one of them means we have the money.
+
+      Any read failing leaves `setnayanMoneyMeasured` false, and the message
+      then SAYS it could not check rather than printing a confident silence.
+    */
+    const ordersRes = await admin
+      .from('orders')
+      .select('order_id,event_id,status')
+      .in('event_id', eventIds);
+    if (ordersRes.error) {
+      logQueryError('AdminEventsPage (setnayan money)', ordersRes.error);
+      setnayanMoneyMeasured = false;
+    } else {
+      const orderRows = (ordersRes.data ?? []) as Array<{
+        order_id: string;
+        event_id: string;
+        status: string | null;
+      }>;
+      const eventOfOrder = new Map(orderRows.map((o) => [o.order_id, o.event_id]));
+      const orderIds = orderRows.map((o) => o.order_id);
+
+      const settled = new Map<string, number>();
+      for (const o of orderRows) {
+        if (!o.status) continue;
+        if (!['paid', 'fulfilled', 'refunded', 'lapsed'].includes(o.status)) continue;
+        settled.set(o.event_id, (settled.get(o.event_id) ?? 0) + 1);
+      }
+
+      const receipts = new Map<string, number>();
+      const unchecked = new Map<string, number>();
+      if (orderIds.length > 0) {
+        const [receiptsRes, paymentsRes] = await Promise.all([
+          admin.from('receipts').select('order_id').in('order_id', orderIds),
+          admin
+            .from('payments')
+            .select('order_id')
+            .in('order_id', orderIds)
+            .eq('status', 'pending'),
+        ]);
+        if (receiptsRes.error || paymentsRes.error) {
+          setnayanMoneyMeasured = false;
+        } else {
+          for (const r of (receiptsRes.data ?? []) as Array<{ order_id: string }>) {
+            const ev = eventOfOrder.get(r.order_id);
+            if (ev) receipts.set(ev, (receipts.get(ev) ?? 0) + 1);
+          }
+          for (const r of (paymentsRes.data ?? []) as Array<{ order_id: string }>) {
+            const ev = eventOfOrder.get(r.order_id);
+            if (ev) unchecked.set(ev, (unchecked.get(ev) ?? 0) + 1);
+          }
+        }
+      }
+
+      for (const id of eventIds) {
+        const parts: string[] = [];
+        const s1 = settled.get(id) ?? 0;
+        const r1 = receipts.get(id) ?? 0;
+        const u1 = unchecked.get(id) ?? 0;
+        if (s1 > 0) parts.push(`${s1} settled bill${s1 === 1 ? '' : 's'} paid to Setnayan`);
+        if (r1 > 0) parts.push(`${r1} official receipt${r1 === 1 ? '' : 's'}`);
+        if (u1 > 0) {
+          parts.push(`${u1} payment${u1 === 1 ? '' : 's'} nobody has checked yet`);
+        }
+        if (parts.length > 0) setnayanMoneyByEvent.set(id, parts);
+      }
+    }
+
     if (stdViewRows) {
       for (const row of stdViewRows) {
         stdViewsByEvent.set(
@@ -416,11 +505,26 @@ export async function EventsSurface({
               const paidVendorCount = paidVendorsByEvent.get(e.event_id)?.size ?? 0;
               const cascade =
                 'Guests, members, seating, budget, schedule all cascade-delete.';
+              /*
+                🔑 SETNAYAN'S OWN MONEY IS NAMED FIRST, because it is the part
+                the couple cannot destroy themselves. Their panel refuses
+                outright on a settled bill, a receipt or an unchecked payment
+                and sends them to /admin/event-deletions; pressing Delete here
+                is how that request gets answered, so the person answering has
+                to see what they are voiding. An unreadable check says so
+                rather than printing nothing.
+              */
+              const money = setnayanMoneyByEvent.get(e.event_id) ?? [];
+              const moneyNote = !setnayanMoneyMeasured
+                ? ' We could NOT check what was paid to Setnayan on it.'
+                : money.length > 0
+                  ? ` It carries ${money.join(' · ')} — removing it ends what was bought and no money goes back automatically.`
+                  : '';
               const message = !paidVendorsMeasured
-                ? `Hard-delete "${e.display_name}"? We could NOT read this event's paid vendors, so it may have orders attached that will lose their event link. ${cascade} Not reversible.`
+                ? `Hard-delete "${e.display_name}"? We could NOT read this event's paid vendors, so it may have orders attached that will lose their event link.${moneyNote} ${cascade} Not reversible.`
                 : paidVendorCount > 0
-                  ? `Hard-delete "${e.display_name}"? This event has ${paidVendorCount} paid vendor${paidVendorCount === 1 ? '' : 's'} — their order rows survive but lose the event link. ${cascade} Not reversible.`
-                  : `Hard-delete "${e.display_name}"? ${cascade} Not reversible — the host can put it away instead from its Personalization page if they might want it back.`;
+                  ? `Hard-delete "${e.display_name}"? This event has ${paidVendorCount} paid vendor${paidVendorCount === 1 ? '' : 's'} — their order rows survive but lose the event link.${moneyNote} ${cascade} Not reversible.`
+                  : `Hard-delete "${e.display_name}"?${moneyNote} ${cascade} Not reversible — the host can put it away instead from its Personalization page if they might want it back.`;
               return (
                 <ConfirmForm action={deleteEvent} message={message}>
                   <input type="hidden" name="event_id" value={e.event_id} />

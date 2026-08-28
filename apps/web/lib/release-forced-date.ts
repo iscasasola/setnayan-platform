@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * releaseForcedDate — give the wedding date back when the couple undoes the lock
@@ -61,13 +62,26 @@ export async function releaseForcedDate(
 ): Promise<ReleaseForcedDateOutcome> {
   const { eventId, vendorId } = args;
 
-  const { data: row } = await supabase
+  const { data: row, error: rowError } = await supabase
     .from('events')
     .select(
       'date_forced_by_lock_of, std_launched_at, scheduled_launch_at, landing_page_visibility',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // 🚨 A REFUSED READ USED TO ANSWER "nothing to do". `date_forced_by_lock_of`
+  // carried no SELECT grant, so through a user session PostgREST refused this
+  // WHOLE query with 42501; `row` came back null, `owner` was undefined, and the
+  // function returned 'not_forced_by_this_vendor' — which reads as a decision
+  // and was actually a failure. Every caller (deleteVendor,
+  // revertVendorToConsidering, cancelBookingAsHost) passes the user-session
+  // client, so a date forced by a supplier's lock stayed forced after that
+  // supplier was removed. The grant is fixed (20271179873885); this log means
+  // the two states can never again be told apart only in hindsight.
+  if (rowError) {
+    logQueryError('releaseForcedDate.event', rowError, { eventId, vendorId }, 'graceful_degrade');
+  }
 
   const owner = (row as { date_forced_by_lock_of?: string | null } | null)
     ?.date_forced_by_lock_of;

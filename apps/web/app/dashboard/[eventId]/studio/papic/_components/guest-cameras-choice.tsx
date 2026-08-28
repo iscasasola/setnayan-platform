@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { setPapicGuestCaptureEarly } from '../guest-window-actions';
 import { SettingRow } from './setting-row';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * "When guests can shoot" — the host's button over everyone else's phone.
@@ -49,7 +50,17 @@ export async function GuestCamerasChoice({
 
   // ⚠ Supabase resolves with { error } rather than throwing, and an RLS denial
   // reads as an empty result. Either way there is nothing trustworthy to render.
-  if (error || !data) return null;
+  //
+  // 🚨 AND FOR WEEKS THAT WAS A LIE OF OMISSION. `papic_guest_capture_early`
+  // carried no SELECT grant, so PostgREST refused the WHOLE query with 42501 and
+  // this returned null on every render — the host's own switch was never once on
+  // screen, and nothing anywhere said so. The grant is fixed (20271179873885);
+  // the log is so the NEXT refusal leaves a trail instead of a blank space.
+  if (error) {
+    logQueryError('GuestCamerasChoice.event', error, { eventId }, 'graceful_degrade');
+    return null;
+  }
+  if (!data) return null;
 
   // Nothing to schedule if guest cameras are not on for this event. Uses the
   // admin client because the pass/pool check reads rows the couple's own client

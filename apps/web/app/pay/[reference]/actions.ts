@@ -9,6 +9,7 @@ import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 
 /**
  * The one proof submission, for every purchase.
@@ -207,4 +208,67 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
 
   revalidatePath(`/pay/${reference}`);
   redirect(`/pay/${encodeURIComponent(reference)}?sent=1`);
+}
+
+/**
+ * removeSetupExtras — the ONE other thing this page can do.
+ *
+ * ⚖ OWNER, 2026-08-28: *"No option to pay later. then need to go back to uncheck
+ * their papic and setnayan AI purchase."*
+ *
+ * 🔑 "GO BACK AND UNCHECK" IS A CANCEL, NOT A REWIND. By the time anybody sees
+ * this page the event EXISTS — it is committed before the bill is minted, which
+ * is where the reference number comes from. Walking them back into the wizard
+ * would mean re-running a commit that has already happened, and the likeliest
+ * outcome of that is a second celebration. So the honest implementation of "go
+ * back and uncheck" is: cancel the bill for the extras, and finish.
+ *
+ * ⚖ REMOVING THE EXTRAS NEVER REMOVES THE CELEBRATION. The event and its free
+ * shots are live either way. A payment screen must not be the thing that decides
+ * whether somebody's birthday exists.
+ *
+ * 🔒 IT IS THE SAME RULE AS THE DASHBOARD'S OWN CANCEL, DELIBERATELY. Only the
+ * pre-payment statuses may be cancelled, named positively — a settled bill is
+ * not cancellable, because cancelling one is a refund request and this is not
+ * the door for that. The row is scoped to the caller's own `user_id` AND read
+ * back, because Supabase does not throw: an RLS refusal and a no-op update are
+ * the same shape, so without the read-back a refused cancel would redirect to a
+ * success message.
+ */
+export async function removeSetupExtras(formData: FormData) {
+  const orderId = formData.get('order_id');
+  const reference = formData.get('reference');
+  const eventId = formData.get('event_id');
+  if (typeof orderId !== 'string' || typeof reference !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: cancelled, error } = await supabase
+    .from('orders')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('order_id', orderId)
+    .eq('user_id', user.id)
+    .in('status', CANCELLABLE_ORDER_STATUSES)
+    .select('order_id');
+  if (error) throw new Error(error.message);
+
+  if (!cancelled || cancelled.length === 0) {
+    // Already settled, already cancelled, or not theirs. Say so rather than
+    // claiming it worked and sending them away.
+    revalidatePath(`/pay/${reference}`);
+    redirect(`/pay/${encodeURIComponent(reference)}?setup=1&error=${encodeURIComponent(
+      'We could not remove those — the payment may already be recorded. Nothing was changed.',
+    )}`);
+  }
+
+  revalidatePath(`/pay/${reference}`);
+  // Straight into the celebration that already exists. Never back into the
+  // wizard: the commit has happened and re-entering it risks a second event.
+  redirect(typeof eventId === 'string' && eventId ? `/dashboard/${eventId}` : '/dashboard');
 }

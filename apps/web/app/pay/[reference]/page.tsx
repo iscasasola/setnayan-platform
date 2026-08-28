@@ -6,6 +6,7 @@ import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { mintOrderQr } from '@/lib/emv-qr';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
+import { removeSetupExtras } from './actions';
 
 /**
  * /pay/[reference] â THE payment page. One page for every purchase.
@@ -29,7 +30,7 @@ export const metadata = { title: 'Pay' };
 
 type Props = {
   params: Promise<{ reference: string }>;
-  searchParams: Promise<{ sent?: string; error?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; setup?: string }>;
 };
 
 export default async function PayPage({ params, searchParams }: Props) {
@@ -97,6 +98,25 @@ export default async function PayPage({ params, searchParams }: Props) {
    * redirect straight after the form posts, before the proof row is readable.
    */
   const waiting = proofSent || (search.sent === '1' && !needsBetterProof);
+
+  /**
+   * ── THE LAST STEP OF SETTING UP, RATHER THAN A BILL SOMEBODY CAME BACK TO ──
+   *
+   * ⚖ Owner, 2026-08-28: *"i will go here? it should be settled first. […] Then
+   * the onboarding end. No option to pay later. then need to go back to uncheck
+   * their papic and setnayan AI purchase."*
+   *
+   * 🔑 THE PAGE IS THE SAME; ITS FRAMING AND ITS EXITS ARE NOT. In setup mode
+   * the "back" link is removed — it points at the dashboard, which on this
+   * screen reads as exactly the "pay later" door the owner struck — and it is
+   * replaced by the two doors he named: settle it, or remove the items.
+   *
+   * ⚖ AND REMOVING IS NOT LOSING THE CELEBRATION. The event is already created
+   * and its free shots are already live by the time anybody reaches this page;
+   * what a removal cancels is the BILL. Anything else would make a payment
+   * screen the thing that decides whether somebody's birthday exists.
+   */
+  const setup = search.setup === '1';
   const resubmitNotice =
     needsBetterProof
       ? (latestRow?.admin_resubmit_notice?.trim() ||
@@ -148,13 +168,22 @@ export default async function PayPage({ params, searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
-      {payable.back && (
-        <Link
-          href={payable.back.href}
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-link underline"
-        >
-          {payable.back.label}
-        </Link>
+      {setup ? (
+        <p className="mb-4 rounded-[var(--m-r-lg)] border border-terracotta/30 bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
+          <span className="font-semibold">Last step.</span>{' '}
+          {waiting
+            ? 'Your celebration is set up and live. We just need to confirm this payment.'
+            : 'Your celebration is already set up and its free shots are live. Settle this and the extras you picked switch on too.'}
+        </p>
+      ) : (
+        payable.back && (
+          <Link
+            href={payable.back.href}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm text-link underline"
+          >
+            {payable.back.label}
+          </Link>
+        )
       )}
       {/*
         ââ ONCE THE PROOF IS IN, THE INSTRUCTIONS ARE OVER ââââââââââââââââââââ
@@ -249,6 +278,47 @@ export default async function PayPage({ params, searchParams }: Props) {
 
       {search.error && (
         <p className="sn-tile mt-4 border-mulberry/40 p-4 text-sm text-ink">{search.error}</p>
+      )}
+
+      {/*
+        ── THE TWO DOORS, AND THERE IS NO THIRD ───────────────────────────────
+        Owner: *"No option to pay later. then need to go back to uncheck their
+        papic and setnayan AI purchase."* So: settle it (the panel below), or
+        remove the extras. What is deliberately absent is the third door that
+        used to be here as a "back to your dashboard" link — on this screen that
+        reads as "skip this", which is the one thing he struck.
+
+        ⚖ The removal is worded as a CHOICE, not a warning, and it names the cost
+        of it: they can add these later, at the price without the set-up
+        discount. Hiding that would make the cheaper offer feel like a trap.
+      */}
+      {setup && !waiting && (
+        <form action={removeSetupExtras} className="mt-5 text-center">
+          <input type="hidden" name="order_id" value={payable.orderId} />
+          <input type="hidden" name="reference" value={payable.reference} />
+          {payable.eventId && <input type="hidden" name="event_id" value={payable.eventId} />}
+          <button
+            type="submit"
+            className="text-sm text-ink/60 underline underline-offset-4 hover:text-ink"
+          >
+            I don&rsquo;t want these after all — remove them
+          </button>
+          <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-ink/45">
+            Your celebration and its free shots stay live. You can add these any time
+            from your studio — at the normal price, without the set-up discount.
+          </p>
+        </form>
+      )}
+
+      {setup && waiting && payable.eventId && (
+        <div className="mt-5 text-center">
+          <Link href={`/dashboard/${payable.eventId}`} className="button-primary inline-flex">
+            Finish setting up
+          </Link>
+          <p className="mt-2 text-xs text-ink/45">
+            Nothing else to do here — we&rsquo;ll email you the moment it&rsquo;s confirmed.
+          </p>
+        </div>
       )}
 
       {!waiting && (

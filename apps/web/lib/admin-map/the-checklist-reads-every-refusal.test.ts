@@ -58,10 +58,20 @@ test('a ternary mapping empty → null is NOT a refusal', () => {
   // The real setCategoryIcon / retireRetailRow / saveVendorRow shape: an empty
   // value is LEGAL and is stored as null. Reading it as a refusal tells an
   // operator a field is required when leaving it blank is the whole point.
+  // ⚠ THE NEARBY REFUSAL IS THE POINT, and an isolated snippet does NOT test
+  // this. In the real retireRetailRow the empty-to-null ternary sits a line or
+  // two from a genuine `return { ok: false … }` for a DIFFERENT field, so a
+  // matcher that looked at emptiness + "a refusal nearby" — without requiring
+  // the emptiness to be inside an `if (…)` guard — would read the ternary as a
+  // refusal. Measured: with the guard requirement removed, this is what fails.
   assert.equal(
-    refusesWhenEmpty(`const iconName = next === '' ? null : next;`, 'next'),
+    refusesWhenEmpty(
+      `const iconName = next === '' ? null : next;\n` +
+        `if (!other) return { ok: false, message: 'Missing something else.' };`,
+      'next',
+    ),
     false,
-    'an empty-to-null ternary was read as a refusal',
+    'an empty-to-null ternary beside an unrelated refusal was read as a refusal',
   );
   assert.equal(
     refusesWhenEmpty(
@@ -90,9 +100,7 @@ test('an emptiness test on a DIFFERENT local does not count', () => {
 /* ── 3 · THE FLOOR — an empty parse reports a perfectly clean sweep ───────── */
 
 test('FLOOR: the shipped checklist still declares a real number of refusals', async () => {
-  const { ADMIN_JOBS } = (await import('./admin-jobs.generated')) as {
-    ADMIN_JOBS: { name: string; refusedWhenEmpty: string[] }[];
-  };
+  const { ADMIN_JOBS } = await import('./admin-jobs.generated');
   const total = ADMIN_JOBS.reduce((n, j) => n + j.refusedWhenEmpty.length, 0);
   // Measured 108 the day the binding was widened (was 75, of which 5 were the
   // ternary false positive). Floored well under that: this exists so a scanner

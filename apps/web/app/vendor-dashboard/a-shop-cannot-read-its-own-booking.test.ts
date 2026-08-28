@@ -37,7 +37,10 @@
  *                                 "You are not booked on this event". FIXED
  *                                 2026-08-29, once its downstream was measured
  *                                 rather than assumed (see below).
- *   · the one in EXEMPT below   — NAMED, NOT FIXED. See its reason.
+ *   · `manpower/surface.tsx`    — the open-gig list: a booked shop was told
+ *                                 "hosts are not offering any". FIXED
+ *                                 2026-08-29, together with the FOUR other
+ *                                 walls behind it (see that PR).
  *
  * 🔑 THE LIST IS DERIVED FROM THE TREE, NEVER TYPED OUT. A hand-written list of
  * offenders is a list of the ones somebody thought of, and all four above were
@@ -65,15 +68,6 @@ const EXEMPT: Record<string, string> = {
     'PRESENT IN PRODUCTION (pg_proc, 2026-08-28) — so the fallback is not reached, ' +
     'and when it is (a pre-migration environment) it degrades to a null link ' +
     'rather than to a wrong answer.',
-  'app/vendor-dashboard/manpower/surface.tsx':
-    'DEAD, NAMED, NOT FIXED — and its own docblock already says what it costs: ' +
-    'the list of events the shop is booked on decides whether the open-gig read ' +
-    'RUNS AT ALL, so paid work a shop could claim reads as "hosts are not ' +
-    'offering any". That file ALREADY handles the ERROR case and carries an ' +
-    '`eligibleMeasured` flag; what it cannot see is that an RLS refusal is not ' +
-    'an error. Same reason as above: `manpower_gigs` is mid-repair in a separate ' +
-    'contract (it has a live NOT NULL schema drift), so the gate and its ' +
-    'downstream belong in one change, not this one.',
 };
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -181,6 +175,7 @@ test('the three repaired sites stay repaired', () => {
     // `/open-shop` seeds a founding admin seat. Proved end to end against
     // production in a rolled-back transaction before the gate was touched.
     'app/vendor-dashboard/clients/[eventId]/script-actions.ts',
+    'app/vendor-dashboard/manpower/surface.tsx',
   ];
   for (const rel of repaired) {
     const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));

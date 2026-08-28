@@ -108,9 +108,15 @@ ALTER TABLE public.vendor_payment_asks ENABLE ROW LEVEL SECURITY;
 -- `authenticated` on every newly created relation — measured in prod during
 -- this migration's own rolled-back dry run: the table came into existence with
 -- SEVEN table-level grants to `anon`. RLS with no anon policy means anon reads
--- zero rows, but a grant nobody revoked is exactly the shape that produced
--- "361 of 368 tables grant SELECT+INSERT to anon". Revoke first, then grant
--- back only the two verbs the shipped paths use.
+-- zero rows, but a grant nobody revoked is debt somebody pays later.
+--
+-- ⚠ THE FIGURE THIS COMMENT FIRST QUOTED WAS STALE, AND THE REAL ONE CHANGES
+-- WHAT IT MEANS. The corpus records "361 of 368 tables grant SELECT+INSERT to
+-- anon". Measured in production 2026-08-28: **389 base tables, RLS on for all
+-- 389, anon holding INSERT on 197 and SELECT on 208** — about HALF, not 98%.
+-- So this is not a stock default nobody has ever addressed; roughly half the
+-- schema has been revoked at some point and half has not. Revoking here keeps
+-- this table on the closed side rather than adding to the pile.
 --
 -- 🔑 REVOKED AT TABLE LEVEL, WHICH IS WHAT ALSO DROPS COLUMN GRANTS. A
 -- column-by-column revoke leaves the NEXT column granted, and

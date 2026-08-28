@@ -120,8 +120,21 @@ test('the notice names the DATE — it does not make somebody open a page to fin
   // And the date is rendered in the venue's civil day, not UTC. `new Date` on a
   // bare DATE reads the day BEFORE anywhere west of Greenwich — the mistake this
   // repo has paid for across 41 screens.
+  //
+  // ⚠ SCOPED TO THE FORMATTER'S OWN BODY. A file-level match was DECORATION:
+  // `actions.ts` carries a second `+08:00` (the schedule block's `blocked_at`),
+  // so dropping the anchor here left 1 of 2 standing and the guard stayed green.
+  // Measured by mutation, 2 → 1. *A file-level count cannot say which site.*
+  const formatter = (() => {
+    const start = actions.indexOf('function prettyWaitlistDate');
+    assert.ok(start > 0, 'prettyWaitlistDate is gone — the notice has no date formatter');
+    const next = actions.indexOf('\nfunction ', start + 10);
+    const end = actions.indexOf('\nexport ', start + 10);
+    const stop = [next, end].filter((n) => n > 0).sort((a, b) => a - b)[0];
+    return actions.slice(start, stop ?? undefined);
+  })();
   assert.match(
-    actions,
+    formatter,
     /T00:00:00\+08:00/,
     'the waitlist date is formatted without the +08:00 anchor — it will read a day early',
   );

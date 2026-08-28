@@ -194,6 +194,40 @@ test('a booking ask outranks an un-accepted enquiry — one person, one row', ()
   assert.equal(row?.eventVendorId, 'ev1');
 });
 
+// ── 4b · THE POOL-RESERVATION FLOOR — the anti-regression ─────────────────
+
+test('a live pool hold with no booking row is still a customer', () => {
+  // The roster this replaced derived "booked" from pool bookings ALONE. A hold
+  // whose `event_vendors` row is archived, or was never stamped with a
+  // marketplace id, must not vanish from the shop's own customer list.
+  const row = customerLaneOf(input({ poolBooked: true }), true);
+  assert.equal(row?.lane, 'booked');
+  assert.equal(row?.identityRevealed, true);
+});
+
+test('a live pool hold lifts a talking row to booked', () => {
+  const row = customerLaneOf(input({ thread: thread('accepted'), poolBooked: true }), true);
+  assert.equal(row?.lane, 'booked');
+});
+
+test('a live pool hold does NOT outrank an unanswered booking ask', () => {
+  // Of the two facts, the one the shop must act on is the question.
+  const row = customerLaneOf(
+    input({ booking: booking('considering', 'pending'), poolBooked: true }),
+    true,
+  );
+  assert.equal(row?.lane, 'waiting');
+  assert.equal(row?.waitingKind, 'booking_ask');
+  // …and the mask still holds: a floor must not become a way past it.
+  assert.equal(row?.identityRevealed, false);
+  assert.equal(row?.title, DESCRIPTOR);
+});
+
+test('a live pool hold does not drag a finished celebration back to booked', () => {
+  const row = customerLaneOf(input({ booking: booking('delivered'), poolBooked: true }), true);
+  assert.equal(row?.lane, 'finished');
+});
+
 // ── 5 · ORDER ──────────────────────────────────────────────────────────────
 
 test('waiting is oldest first', () => {

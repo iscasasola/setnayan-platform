@@ -142,6 +142,20 @@ export type PipelineInput = {
   eventDate: string | null;
   /** Venue name — an identity-bearing fact, gated exactly like the name. */
   place: string | null;
+  /**
+   * A LIVE, UNRELEASED reservation in this shop's own schedule pool
+   * (`vendor_schedule_pool_bookings`, `released_at IS NULL`).
+   *
+   * 🔴 IT IS HERE TO STOP A REGRESSION, and the regression is a person
+   * disappearing. The roster this replaced derived "booked" from pool bookings
+   * ALONE and never read `event_vendors`; deriving it from `event_vendors`
+   * alone is strictly better about WHICH state a booking is in and strictly
+   * worse about EXISTENCE — a pool reservation whose `event_vendors` row is
+   * archived, or was never stamped with `marketplace_vendor_id`, would have
+   * silently left the shop's customer list. A held date is a booking whatever
+   * else is missing, so this floors the lane rather than deciding it.
+   */
+  poolBooked?: boolean;
 };
 
 export type PipelineCustomer = {
@@ -223,6 +237,18 @@ export function customerLaneOf(
   } else if (thread?.inquiryStatus === 'accepted') {
     lane = 'talking';
   }
+
+  /*
+    THE POOL-RESERVATION FLOOR. A live hold cannot make somebody LESS than a
+    customer, so it lifts `null` and `talking` to `booked`.
+
+    ⛔ IT DOES NOT OUTRANK `waiting`. A held date beside an unanswered booking
+    ask is a contradiction (the handshake bypasses the slot acquire precisely so
+    an ask holds nothing), and of the two facts the one the shop must act on is
+    the question. Nor does it touch `finished`: a delivered celebration whose
+    reservation was never released is finished, not live.
+  */
+  if (input.poolBooked && (lane === null || lane === 'talking')) lane = 'booked';
 
   if (lane === null) return null;
 

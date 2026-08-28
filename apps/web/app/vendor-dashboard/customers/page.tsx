@@ -432,6 +432,11 @@ async function CustomersPipeline({ searchParams }: Props) {
         }),
         eventDate: eventDateByEvent.get(eventId) ?? null,
         place: venueByEvent.get(eventId) ?? null,
+        // A live hold in this shop's own pool. The roster this replaced derived
+        // "booked" from THIS ALONE; carrying it forward is what stops the
+        // rewrite from silently dropping a customer whose `event_vendors` row is
+        // archived or was never stamped with a marketplace id.
+        poolBooked: bookedByEvent.has(eventId),
       },
       handshakeEnabled,
     );

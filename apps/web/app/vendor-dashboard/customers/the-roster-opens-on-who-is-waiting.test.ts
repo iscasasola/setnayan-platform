@@ -77,6 +77,22 @@ test('the page derives lanes with customerLaneOf — it does not re-decide them'
   assert.ok(/\bgroupByLane\s*\(/.test(pageSrc), 'groupByLane is no longer used');
 });
 
+test('the page still passes the pool-reservation floor', () => {
+  // 🔴 THE ANTI-REGRESSION, AND IT WAS UNGUARDED UNTIL A MUTATION SAID SO.
+  // Deleting this one line from the page left the whole suite GREEN while a
+  // customer with a live hold and no `event_vendors` row silently left the
+  // roster — exactly the disappearance the floor exists to prevent, and
+  // invisible because the pure core's own tests cannot see the call site.
+  assert.ok(
+    /\bpoolBooked\s*:/.test(pageSrc),
+    'the page stopped passing poolBooked — a held date with no event_vendors row now vanishes from the roster',
+  );
+  assert.ok(
+    /poolBooked:\s*bookedByEvent\.has\(/.test(pageSrc),
+    'poolBooked is no longer derived from the live pool reservations',
+  );
+});
+
 test('the page ASKS the handshake flag rather than assuming an answer', () => {
   // With the flag off, `lockRequestStateOf` can only answer locked/none, so the
   // "waiting on your yes" kind must be unreachable BY THE SAME ANSWER the

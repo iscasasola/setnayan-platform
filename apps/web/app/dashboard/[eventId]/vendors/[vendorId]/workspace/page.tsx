@@ -29,7 +29,7 @@
 // ============================================================================
 
 import type { ReactNode } from 'react';
-import { logQueryError } from '@/lib/supabase/error-detect';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
 import Link from 'next/link';
@@ -378,7 +378,22 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       .eq('status', 'open')
       .order('created_at', { ascending: false })
       .limit(20);
-    if (error) return { measured: false, rows: [] as CouplePaymentAskRow[] };
+    /*
+      🪤 A RELATION THIS DEPLOY HAS NOT SEEN YET IS NOT AN UNREADABLE ONE.
+      App code and its migration land in parallel, so for the length of a deploy
+      this table may not exist — and `measured: false` would put an amber "we
+      could not check whether your supplier is waiting on a payment" banner on
+      EVERY supplier page of EVERY celebration, about a table in which nothing
+      can possibly have been written. `42P01` degrades to a true empty; only a
+      genuine refusal or outage is reported as unmeasured.
+    */
+    if (error) {
+      const absent = isMissingRelationError(error);
+      if (!absent) {
+        logQueryError('CoupleVendorWorkspace.paymentAsks', error, { eventId }, 'graceful_degrade');
+      }
+      return { measured: absent, rows: [] as CouplePaymentAskRow[] };
+    }
     return { measured: true, rows: (data ?? []) as CouplePaymentAskRow[] };
   })();
 

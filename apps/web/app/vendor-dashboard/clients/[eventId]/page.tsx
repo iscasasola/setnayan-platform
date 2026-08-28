@@ -137,7 +137,7 @@ import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-payment-live';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
-import { logQueryError } from '@/lib/supabase/error-detect';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 // The tree kit (W4-B): `Card` here IS ShopCard — the local definition this
 // file used to carry was byte-identical to the kit's dominant card recipe.
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
@@ -744,7 +744,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .order('created_at', { ascending: false })
         .limit(20)
     : { data: null, error: null };
-  if (askRowsError) {
+  // 🪤 SAME DEPLOY-WINDOW CARVE-OUT AS THE COUPLE'S SIDE. A relation this build
+  // has not seen yet is a TRUE empty — nothing can have been written into a
+  // table that does not exist — and reporting it as unmeasured would put the
+  // "we could not load what you have already asked for" warning on every booked
+  // customer's page for the length of a deploy. Only a real refusal counts.
+  const asksAbsent = isMissingRelationError(askRowsError);
+  if (askRowsError && !asksAbsent) {
     logQueryError(
       'VendorClientDetail.paymentAsks',
       askRowsError,
@@ -752,7 +758,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       'graceful_degrade',
     );
   }
-  const asksMeasured = !askRowsError;
+  const asksMeasured = !askRowsError || asksAbsent;
   const paymentAsks = (askRows ?? []) as PaymentAskRow[];
 
   // Delivery handovers (booked). event_vendor scoped — safe to read for the

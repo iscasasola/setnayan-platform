@@ -1424,6 +1424,15 @@ export async function VendorServicesManager({
               ? "Your plan doesn't cover it yet. Tell us what you do and we'll take it from there."
               : "Tell us what you do — we'll review it and add it to the directory."}
           </p>
+          {/* Nothing here is a gate. A supplier who cannot find their trade must
+              be able to finish their card today and correct it later — the card
+              is universal (owner, 2026-08-28: "the card is universal fit for any
+              service"). Said on the screen, not only in a docblock. */}
+          <p className="max-w-prose text-sm" style={{ color: 'var(--m-slate)' }}>
+            You don&rsquo;t have to wait for us. Make your card under{' '}
+            <strong>Miscellaneous</strong> now and switch it to your own kind the moment we add
+            it.
+          </p>
         </div>
         <form action={proposeCategory} className="grid gap-3 sm:grid-cols-[2fr_3fr_auto] sm:items-end">
           {/* Survives the redirect so "Back to your card" still shows after

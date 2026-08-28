@@ -1508,7 +1508,8 @@ export function CanvasMaker({
                 ) ? (
                   <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
                     Nothing matches “{kindQuery.trim()}”. Try a plainer word — or tell us what
-                    you do from My Shop and we will add it.
+                    you do from My Shop and we will add it. Either way you are not stuck: pick{' '}
+                    <strong>Miscellaneous</strong> for now and change it once we have your kind.
                   </p>
                 ) : null}
                 {lockedWhy ? (

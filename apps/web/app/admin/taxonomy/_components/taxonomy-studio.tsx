@@ -113,6 +113,9 @@ import {
   setServiceSecondaryTiles,
   type StudioActionResult,
 } from '../actions';
+// The key `promoteCategoryRequest` will actually mint, computed by the same
+// rule the action runs — never a second hand-typed slugifier.
+import { mintKeyFor } from '@/lib/category-proposal-draft';
 
 // ── Serializable prop shapes (mirror the server page's derivations) ───────────
 
@@ -186,11 +189,37 @@ export type StudioService = {
   refinements: StudioLeafRefinement[];
 };
 
+/**
+ * The drafted proposal attached to one request (C4, 2026-08-28) — a cleaner
+ * name, the branch it might belong under, and the near-matches that were
+ * considered and REJECTED with a reason each.
+ *
+ * ⛔ IT IS AN OPINION, NOT AN OUTCOME. Nothing here presses anything: the four
+ * shipped controls are unchanged and an admin still submits one of them. Every
+ * key on it has already been resolved through the merge-forward map and dropped
+ * if it no longer names a visible trade (see the page's own read).
+ */
+export type StudioRequestDraft = {
+  suggestedLabel: string;
+  suggestedTileId: string | null;
+  /** That tile's own name, resolved live — never a label the model supplied. */
+  suggestedTileLabel: string | null;
+  tileReason: string | null;
+  /** `existing` = we think we already have this; Map rather than Promote. */
+  verdict: 'new' | 'existing';
+  closestExisting: { canonical: string; label: string } | null;
+  nearMatches: Array<{ canonical: string; label: string; whyNot: string }>;
+  /** A model id, or `lexical` when the shipped ranker answered it for free. */
+  draftedBy: string;
+};
+
 export type StudioRequest = {
   requestId: string;
   proposedLabel: string;
   proposedNote: string | null;
   vendorName: string;
+  /** Null whenever the drafter is switched off, or had nothing to say. */
+  draft: StudioRequestDraft | null;
 };
 
 export type VocabItem = { key: string; label: string };
@@ -4008,39 +4037,15 @@ function RequestsQueue({ requests, data }: { requests: StudioRequest[]; data: St
                 </span>
               </div>
               {r.proposedNote ? <p className="text-xs text-ink/65">{r.proposedNote}</p> : null}
+              {/* ⚠ THE NEAR-MATCHES SIT ABOVE THE BUTTONS, NEVER BELOW THEM.
+                  A queue with a suggestion attached is a queue people stop
+                  reading, and the entire point of the person in the middle is
+                  lost if the answer can be accepted without the alternatives
+                  having been read. Pinned by
+                  near-matches-sit-above-the-button.test.ts. */}
+              <RequestDraftNotes draft={r.draft} />
               <div className="flex flex-wrap items-end gap-2">
-                <form action={promoteCategoryRequest} className="flex items-center gap-1">
-                  <input type="hidden" name="request_id" value={r.requestId} />
-                  <input type="hidden" name="_view" value="requests" />
-                  <select
-                    name="tile_id"
-                    defaultValue=""
-                    required
-                    aria-label="Promote under tile"
-                    className="max-w-[150px] rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
-                  >
-                    <option value="" disabled>
-                      promote under tile…
-                    </option>
-                    {data.folders.map((f) => (
-                      <optgroup key={f.id} label={f.label}>
-                        {data.tiles
-                          .filter((t) => t.parentId === f.id)
-                          .map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.label}
-                            </option>
-                          ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                  <SubmitButton
-                    className="rounded-md border border-success-300 bg-white px-2 py-1 text-[11px] font-medium text-success-700 hover:bg-success-50"
-                    pendingLabel="Promoting…"
-                  >
-                    Promote ✓
-                  </SubmitButton>
-                </form>
+                <PromoteRequestForm request={r} data={data} />
                 <form action={mapCategoryRequest} className="flex items-center gap-1">
                   <input type="hidden" name="request_id" value={r.requestId} />
                   <input type="hidden" name="_view" value="requests" />
@@ -4101,5 +4106,130 @@ function RequestsQueue({ requests, data }: { requests: StudioRequest[]; data: St
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * The drafted proposal, rendered ABOVE the four controls (C4, 2026-08-28).
+ *
+ * ⛔ IT PRESSES NOTHING AND OFFERS NO CONTROL OF ITS OWN. Everything here is
+ * text a reviewer reads before choosing one of the shipped outcomes. Removing a
+ * trade later strands the shops that listed under it, so a mint is close to
+ * permanent — the near-matches are placed first so "is this actually something
+ * we already have?" is answered before the button is in reach.
+ */
+function RequestDraftNotes({ draft }: { draft: StudioRequestDraft | null }) {
+  if (!draft) return null;
+  return (
+    <div className="space-y-2 rounded-lg border border-ink/15 bg-cream/60 p-3">
+      {draft.verdict === 'existing' && draft.closestExisting ? (
+        <p className="text-xs font-semibold text-ink">
+          We think we already have this — {draft.closestExisting.label}. Map it rather than adding
+          a second name for the same trade.
+        </p>
+      ) : null}
+      <div className="space-y-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/70">
+          Closest things we already have — read these first
+        </p>
+        {draft.nearMatches.length === 0 ? (
+          <p className="text-xs text-ink/65">
+            Nothing on our list came close. That is a reason to look harder, not a reason to add
+            it.
+          </p>
+        ) : (
+          <ul className="space-y-0.5">
+            {draft.nearMatches.map((m) => (
+              <li key={m.canonical} className="text-xs text-ink/75">
+                <span className="font-medium text-ink">{m.label}</span> — {m.whyNot}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {draft.suggestedTileLabel ? (
+        <p className="text-xs text-ink/75">
+          Suggested branch: <span className="font-medium text-ink">{draft.suggestedTileLabel}</span>
+          {draft.tileReason ? ` — ${draft.tileReason}` : null} A branch is the weakest part of any
+          draft. Check it before adding.
+        </p>
+      ) : (
+        <p className="text-xs text-ink/65">
+          No branch suggested — you are placing this one yourself.
+        </p>
+      )}
+      <p className="text-[10px] uppercase tracking-[0.12em] text-ink/50">
+        drafted by {draft.draftedBy} · a suggestion, not a decision
+      </p>
+    </div>
+  );
+}
+
+/**
+ * PROMOTE — the shipped mint, with the draft's name and branch filled in.
+ *
+ * 🔑 THE NAME IS AN INPUT, NOT A LABEL. Without it the drafted "clean name"
+ * would be decoration: the mint slugifies whatever label it is given, so a
+ * suggestion nothing can apply is a stored value with no reader — the defect
+ * shape this repo keeps paying for. The key is derived live by `mintKeyFor`,
+ * which is the same rule the action itself will run, so "Add it" is never a
+ * surprise.
+ *
+ * ⚠ THE BRANCH IS THE WEAKEST PART OF ANY DRAFT and the screen says so. It is
+ * prefilled, never locked, and an undrafted request still opens on the same
+ * blank "promote under tile…" it always did.
+ */
+function PromoteRequestForm({ request, data }: { request: StudioRequest; data: StudioData }) {
+  const draft = request.draft;
+  const [label, setLabel] = useState(draft?.suggestedLabel ?? request.proposedLabel);
+  const key = mintKeyFor(label);
+  return (
+    <form action={promoteCategoryRequest} className="flex flex-wrap items-center gap-1">
+      <input type="hidden" name="request_id" value={request.requestId} />
+      <input type="hidden" name="_view" value="requests" />
+      <label className="sr-only" htmlFor={`promote-label-${request.requestId}`}>
+        Name for the new service
+      </label>
+      <input
+        id={`promote-label-${request.requestId}`}
+        name="proposed_label_override"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        minLength={2}
+        maxLength={80}
+        className="w-40 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
+      />
+      <span className="font-mono text-[10px] text-ink/60">
+        {key ? `→ ${key}` : 'needs letters or numbers'}
+      </span>
+      <select
+        name="tile_id"
+        defaultValue={draft?.suggestedTileId ?? ''}
+        required
+        aria-label="Promote under tile"
+        className="max-w-[150px] rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
+      >
+        <option value="" disabled>
+          promote under tile…
+        </option>
+        {data.folders.map((f) => (
+          <optgroup key={f.id} label={f.label}>
+            {data.tiles
+              .filter((t) => t.parentId === f.id)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+          </optgroup>
+        ))}
+      </select>
+      <SubmitButton
+        className="rounded-md border border-success-300 bg-white px-2 py-1 text-[11px] font-medium text-success-700 hover:bg-success-50"
+        pendingLabel="Promoting…"
+      >
+        Promote ✓
+      </SubmitButton>
+    </form>
   );
 }

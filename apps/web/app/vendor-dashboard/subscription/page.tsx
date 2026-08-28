@@ -42,6 +42,8 @@ import {
 } from './_components/subscription-cards';
 import { AiAddonCard } from './_components/ai-addon-card';
 import { BoothAddonCard } from './_components/booth-addon-card';
+import { PlanChangeNotice } from './_components/plan-change-notice';
+import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
@@ -81,7 +83,15 @@ function fmtDate(s: string) {
 }
 
 type Props = {
-  searchParams: Promise<{ ordered?: string; error?: string; cycle?: string }>;
+  searchParams: Promise<{
+    ordered?: string;
+    error?: string;
+    cycle?: string;
+    /** A plan change that cost nothing -- the shop's own credit covered it. */
+    applied?: string;
+    /** A scheduled change was called off. */
+    kept?: string;
+  }>;
 };
 
 // Self-serve subscription tiers. All three paid tiers (Solo · Pro · Enterprise)
@@ -91,6 +101,14 @@ type Props = {
 type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
 
 const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
+
+/**
+ * How many days each cycle BUYS. These are the two periods
+ * `create_vendor_subscription` writes (28 / 365) — the same numbers the
+ * too-short rule is measured against there, so the screen and the database
+ * cannot disagree about what a "monthly" plan is worth.
+ */
+const TERM_DAYS: Record<'monthly' | 'annual', number> = { monthly: 28, annual: 365 };
 
 const TIER_PITCH: Record<PaidTier, string> = {
   solo: 'For solo pros — one category, your real business name, unlimited inquiries.',
@@ -170,6 +188,26 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     (tierRow as { tier_billing_cycle?: string | null } | null)?.tier_billing_cycle ?? null;
   const isVerifiedVendor =
     (tierRow as { verification_state?: string | null } | null)?.verification_state === 'verified';
+
+  // ── A scheduled plan change, and money the shop is holding ────────────────
+  // ⚠ ITS OWN QUERY, DELIBERATELY. Naming a column PostgREST does not know
+  // refuses the WHOLE select — and the select above also carries
+  // `verification_state`, which gates both add-on cards. Folding these two
+  // columns in would mean that on any environment running ahead of this
+  // migration the plan screen silently loses the current plan, the renewal date
+  // AND both add-ons at once. Kept separate, an unmigrated database degrades to
+  // "nothing scheduled, no money held", which is the truth there anyway.
+  const { data: planChangeRow } = await supabase
+    .from('vendor_profiles')
+    .select('pending_tier, subscription_credit_php')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const pendingTier =
+    (planChangeRow as { pending_tier?: string | null } | null)?.pending_tier ?? null;
+  const heldCreditPhp = Number(
+    (planChangeRow as { subscription_credit_php?: number | string | null } | null)
+      ?.subscription_credit_php ?? 0,
+  );
 
   // ── Vendor AI ("the AI Chatbot") add-on state (owner 2026-07-22) ───────────
   // Paid (Solo+) + verified only. Soft reads (fetchVendorAiAddonState is
@@ -334,6 +372,31 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
                     </span>
                   )}
                 </div>
+
+        {/* A scheduled change, and money the shop is holding — in plain words,
+            each shown only when it is true. The date it names is
+            `tierExpiresAt`; there is no separate stored effective date. */}
+        <PlanChangeNotice
+          situation={{
+            currentTier,
+            pendingTier,
+            tierExpiresAt,
+            creditPhp: heldCreditPhp,
+          }}
+        />
+
+        {search.applied && (
+                  <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+                    ✓ Done — there was nothing to pay. The money already on your
+                    account covered it, and your new plan is on now.
+                  </div>
+                )}
+        {search.kept && (
+                  <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+                    ✓ Your plan stays as it is. What you paid for the change is on
+                    your account and comes off your next bill.
+                  </div>
+                )}
         {search.ordered && (
                   <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
                     ✓ Order started. Pay with the reference{' '}
@@ -396,6 +459,14 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
               {
                 tier,
                 sku,
+                // A plan shorter than the time this shop already holds cannot be
+                // bought (owner 2026-08-27). Decided per CYCLE, not per tier —
+                // it is the TERM LENGTH that is measured, so on a shop with 300
+                // days left every monthly card carries it and every annual card
+                // does not.
+                tooShortReason: termIsTooShort(TERM_DAYS[cycle], tierExpiresAt, now)
+                  ? termTooShortMessage(tierExpiresAt)
+                  : null,
                 pitch: TIER_PITCH[tier],
                 price,
                 cycle,

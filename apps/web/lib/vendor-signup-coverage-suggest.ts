@@ -30,7 +30,11 @@
  * nobody asked to see. This is a known, accepted limitation of a first
  * build, not a bug: a confidently wrong guess is worse than a missed one.
  */
-import { rankTaxonomyOptions, type RankableOption } from './taxonomy-search-rank';
+import {
+  MAX_SUGGESTIONS,
+  rankTaxonomyOptions,
+  type RankableOption,
+} from './taxonomy-search-rank';
 
 /** One live trade, as this matcher needs it — a strict subset of `TradeMatch`
  *  (kind-search-trades.ts) with no `standing`, because a signup suggestion is
@@ -51,10 +55,11 @@ export type CoverageSuggestion = {
   sourcePhrase: string;
 };
 
-/** How many suggestions a card is willing to show at once — the same cap the
- *  card maker's own search band uses (`MAX_SUGGESTIONS`), so this never
- *  becomes a wall of chips. */
-const MAX_SUGGESTIONS = 8;
+/* How many suggestions a card shows at once is NOT redefined here. Its own
+ * comment already said it was "the same cap the card maker's own search band
+ * uses" — so it was a COPY of a rule, and two definitions of one rule do not
+ * stay equal. `MAX_SUGGESTIONS` is imported from `taxonomy-search-rank`, the
+ * module this file already depends on for the matching itself. */
 
 /**
  * Match each detected-services phrase against the live trade catalogue and

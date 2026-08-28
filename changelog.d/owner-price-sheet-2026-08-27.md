@@ -55,8 +55,26 @@ how prices drift, and he must stay free to break it on any single row.
 
 **Vendor Custom tier — ruled RETIRED, then REVERSED the same day. It stays ON SALE.**
 
-Base repriced instead: `vendor_custom_base` ₱8,999 → **₱11,000**. The five add-on
-axes are unchanged (₱99 · ₱499 ×3 · ₱2,499).
+Base repriced instead: `vendor_custom_base` ₱8,999 → **₱11,000**.
+
+**The dials: three rounded, two DROPPED** (owner 2026-08-27, *"make the whole
+number 500, 2500"*). `vendor_custom_reach_nationwide` ₱2,499 → **₱2,500** ·
+`vendor_custom_event_slot` ₱499 → **₱500** · `vendor_custom_domain` ₱499 →
+**₱500**. `vendor_extra_seat` (₱250) and `vendor_additional_branch` (₱1,000,
+repriced above) are unchanged here.
+
+Dropped: `vendor_custom_reach_step` (+100 km, ₱499) — **nationwide is now the
+only reach upgrade** — and `vendor_custom_photo_pack` (+100 portfolio photos,
+₱99). 🔑 **Dropping is not the `is_active` flip alone**, for the reason this
+whole fragment is about: `fetchCustomUnitPrices` substitutes a literal for any
+row that goes missing, so deactivating those two rows on their own would have
+left both axes quoting at ₱499 and ₱99 forever with the catalog saying they
+were off. Both are deleted from the SKU map, the fallback, `CustomUnitPrices`,
+the quote math and BOTH configurators; the `UPDATE` is the last step, not the
+first. The vendor's Custom configurator loses its km slider and its portfolio-
+photo stepper with them, and gains a plain "Nationwide reach" toggle. Safe by
+arithmetic: `vendor_custom_plans` holds **zero** rows in production, so no
+stored composition can be re-priced by the removal.
 
 🔓 **The retirement was reversed because of what building it surfaced, and that
 is the durable lesson: AN `is_active` FLIP IS NOT A RETIREMENT WHEN A CODE-SIDE

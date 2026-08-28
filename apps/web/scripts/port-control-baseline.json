@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4527a990a",
-  "routeCount": 405,
-  "destinations": 872,
-  "actions": 583,
-  "blocks": 4031,
+  "generatedFromRef": "b4e88eb65",
+  "routeCount": 406,
+  "destinations": 873,
+  "actions": 586,
+  "blocks": 4047,
   "routes": {
     "/": {
       "files": [
@@ -1080,7 +1080,10 @@
         "admin/_components/admin-nav-fab.tsx",
         "admin/_components/admin-nav-groups.tsx",
         "admin/_components/admin-rail-context.tsx",
+        "admin/_components/admin-search-box.tsx",
+        "admin/_components/admin-search-open-event.ts",
         "admin/_components/admin-sidebar.tsx",
+        "admin/_components/ask-actions.ts",
         "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-grid.tsx",
@@ -1191,11 +1194,14 @@
         "ActionQueueTile",
         "AdminBottomNav",
         "AdminCommandPalette",
+        "AdminJob",
         "AdminNavFab",
         "AdminRailContext",
         "AdminRailRow",
+        "AdminSearchBox",
         "AppRailShell",
         "AppleSecretReminder",
+        "AskAnswer",
         "BottomNav",
         "CountUp",
         "EditingIsOnTheComputer",
@@ -2426,7 +2432,8 @@
       ],
       "actions": [
         "holdPayoutAction",
-        "markPayoutPaidAction"
+        "markPayoutPaidAction",
+        "releasePayoutHoldAction"
       ],
       "blocks": [
         "AdminUser",
@@ -2646,6 +2653,21 @@
         "PageMasthead",
         "SubmitButton",
         "VendorFakeFlagCard"
+      ]
+    },
+    "/admin/search-memory": {
+      "files": [
+        "admin/search-memory/actions.ts",
+        "admin/search-memory/page.tsx",
+        "admin/search-memory/search-memory-table.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ConsoleTable",
+        "PageMasthead",
+        "Result",
+        "SearchMemoryTable"
       ]
     },
     "/admin/secrets": {
@@ -3010,6 +3032,7 @@
       "blocks": [
         "AddLeafFieldForm",
         "AddOptionForm",
+        "AddServicePrefill",
         "Badge",
         "EventTypeVocabPanel",
         "FaithLaunchButton",
@@ -6115,6 +6138,7 @@
     },
     "/dashboard/[eventId]/studio/papic": {
       "files": [
+        "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-cameras-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx",
@@ -6131,6 +6155,8 @@
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-toggle.tsx",
         "dashboard/[eventId]/studio/papic/_components/recap-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/setting-row.tsx",
+        "dashboard/[eventId]/studio/papic/_components/uploads-open-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx",
         "dashboard/[eventId]/studio/papic/_components/where-you-stand.tsx",
         "dashboard/[eventId]/studio/papic/_lib/rooms.ts",
@@ -6168,6 +6194,7 @@
         "action",
         "activatePapicLimited",
         "addLibraryChallengeAction",
+        "claimUploadsCamera",
         "createCoupleChallengeAction",
         "deleteCoupleChallengeAction",
         "purchasePapicExtras",
@@ -6179,11 +6206,14 @@
         "setCoupleFaceTaggingDeclined",
         "setPapicGuestCaptureEarly",
         "setPapicStyle",
+        "setPapicUploadsOpen",
         "setPapicWindow",
         "setVendorCapturesHidden"
       ],
       "blocks": [
         "ActionResult",
+        "AddToLibrary",
+        "Blob",
         "CaptureDefaultsSection",
         "ChallengeRow",
         "ClipLightbox",
@@ -6207,6 +6237,7 @@
         "GuestCamerasChoice",
         "GuestContributionsCard",
         "HTMLDivElement",
+        "HTMLInputElement",
         "HostPoolMeterCard",
         "InlineCheckoutDrawer",
         "LegendDot",
@@ -6228,7 +6259,10 @@
         "PreservationMeterLine",
         "PreserveToggle",
         "RecapCard",
+        "Row",
         "SavePhotoButton",
+        "SettingRow",
+        "Sheet",
         "ShowcaseToggle",
         "ShutterSection",
         "StatusBanners",
@@ -6238,6 +6272,7 @@
         "SubmitButton",
         "TierOption",
         "Unmeasured",
+        "UploadsOpenChoice",
         "VendorChallengesApproval",
         "VendorMediaControls",
         "WallTileLayout",
@@ -8761,6 +8796,7 @@
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/performance",
         "/vendor-dashboard/reviews",
+        "/vendor-dashboard/services",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
       ],
@@ -9641,12 +9677,14 @@
         "markAllNotificationsRead"
       ],
       "blocks": [
+        "ArrayBuffer",
         "Link",
         "ListPageSkeleton",
         "NotificationsList",
         "PermissionState",
         "PushToggle",
-        "SubmitButton"
+        "SubmitButton",
+        "UnblockGuide"
       ]
     },
     "/vendor-dashboard/on-the-day": {
@@ -10459,7 +10497,6 @@
         "K",
         "Link",
         "PageMasthead",
-        "ReachControl",
         "StepperControl",
         "ToggleControl"
       ]

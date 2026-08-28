@@ -5,6 +5,8 @@ import {
   BadgeCheck,
   Gauge,
   Gift,
+  Sparkles,
+  Camera,
 } from 'lucide-react';
 import {
   TablePageSkeleton,
@@ -15,6 +17,8 @@ import { PricingSurface } from './_surfaces/pricing-surface';
 import { CustomPlansSurface } from './_surfaces/custom-plans-surface';
 import { PriceBandsSurface } from './_surfaces/price-bands-surface';
 import { FreeWindowsSurface } from './_surfaces/free-windows-surface';
+import { AiPricesSurface } from './_surfaces/ai-prices-surface';
+import { PapicLadderSurface } from './_surfaces/papic-ladder-surface';
 
 /**
  * Catalog Studio — the tabbed /admin/pricing shell that consolidates the Money
@@ -55,6 +59,8 @@ export const dynamic = 'force-dynamic';
 
 const TABS = [
   'pricing',
+  'setnayan-ai',
+  'papic-shots',
   'custom-plans',
   'price-bands',
   'free-windows',
@@ -69,17 +75,30 @@ function coerceTab(v: string | undefined): Tab {
   return (TABS as readonly string[]).includes(v ?? '') ? (v as Tab) : 'pricing';
 }
 
+/*
+  ⚠ "Price bands" MEANT TWO DIFFERENT THINGS AND THAT IS HOW THE WRONG SCREEN
+  GETS EDITED. The existing tab is the vendor Price-Position feature — what
+  suppliers in a category typically charge, worked out from their own published
+  prices. It has nothing to do with what Setnayan charges. Renamed to
+  "Market price bands" (2026-08-28) so the new Setnayan AI band editor one tab
+  away cannot be confused with it. The tab KEY is unchanged, so every existing
+  deep link and redirect stub still resolves.
+*/
 const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
   { key: 'pricing', label: 'Pricing', icon: DollarSign },
+  { key: 'setnayan-ai', label: 'Setnayan AI prices', icon: Sparkles },
+  { key: 'papic-shots', label: 'Papic shot prices', icon: Camera },
   { key: 'custom-plans', label: 'Custom plans', icon: BadgeCheck },
-  { key: 'price-bands', label: 'Price bands', icon: Gauge },
+  { key: 'price-bands', label: 'Market price bands', icon: Gauge },
   { key: 'free-windows', label: 'Free windows', icon: Gift },
 ];
 
 const TAB_TITLE: Record<Tab, string> = {
   pricing: 'Pricing',
+  'setnayan-ai': 'Setnayan AI prices',
+  'papic-shots': 'Papic shot prices',
   'custom-plans': 'Custom plans',
-  'price-bands': 'Price bands',
+  'price-bands': 'Market price bands',
   'free-windows': 'Free windows',
 };
 
@@ -109,6 +128,24 @@ function activeSurface(
   // price-bands' recomputed) MUST be forwarded or the success/error banners
   // silently stop rendering after a mutation.
   switch (tab) {
+    case 'setnayan-ai':
+      return (
+        <AiPricesSurface
+          searchParams={Promise.resolve({
+            saved: first(search.saved),
+            error: first(search.error),
+          })}
+        />
+      );
+    case 'papic-shots':
+      return (
+        <PapicLadderSurface
+          searchParams={Promise.resolve({
+            saved: first(search.saved),
+            error: first(search.error),
+          })}
+        />
+      );
     case 'custom-plans':
       return (
         <CustomPlansSurface

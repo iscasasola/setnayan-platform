@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6312
+# facts: 6318
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     573
-#   col       4648
+#   col       4654
 #   policy    861
 #   view      8
 #   func      218
@@ -177,8 +177,8 @@ tpriv	public.event_type_onboarding|anon	SIUD
 tpriv	public.event_type_onboarding|authenticated	SIUD
 tpriv	public.event_type_profiles|anon	SIUD
 tpriv	public.event_type_profiles|authenticated	SIUD
-tpriv	public.event_type_vocab|anon	SIUD
-tpriv	public.event_type_vocab|authenticated	SIUD
+tpriv	public.event_type_vocab|anon	S
+tpriv	public.event_type_vocab|authenticated	S
 tpriv	public.event_vendor_3d_plan_unlocks|authenticated	SIUD
 tpriv	public.event_vendor_booth_placements|anon	SIUD
 tpriv	public.event_vendor_booth_placements|authenticated	SIUD
@@ -1726,17 +1726,18 @@ col	public.event_type_profiles.statutory_pack_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.template_pack_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.terminology	anon=SIU authenticated=SIU
 col	public.event_type_profiles.updated_at	anon=SIU authenticated=SIU
-col	public.event_type_vocab.created_at	anon=SIU authenticated=SIU
-col	public.event_type_vocab.description	anon=SIU authenticated=SIU
-col	public.event_type_vocab.emoji	anon=SIU authenticated=SIU
-col	public.event_type_vocab.enabled	anon=SIU authenticated=SIU
-col	public.event_type_vocab.event_type	anon=SIU authenticated=SIU
-col	public.event_type_vocab.hero_photo_url	anon=SIU authenticated=SIU
-col	public.event_type_vocab.label_en	anon=SIU authenticated=SIU
-col	public.event_type_vocab.onboarding_href	anon=SIU authenticated=SIU
-col	public.event_type_vocab.sort_order	anon=SIU authenticated=SIU
-col	public.event_type_vocab.status	anon=SIU authenticated=SIU
-col	public.event_type_vocab.updated_at	anon=SIU authenticated=SIU
+col	public.event_type_vocab.ai_price_tier	anon=S authenticated=S
+col	public.event_type_vocab.created_at	anon=S authenticated=S
+col	public.event_type_vocab.description	anon=S authenticated=S
+col	public.event_type_vocab.emoji	anon=S authenticated=S
+col	public.event_type_vocab.enabled	anon=S authenticated=S
+col	public.event_type_vocab.event_type	anon=S authenticated=S
+col	public.event_type_vocab.hero_photo_url	anon=S authenticated=S
+col	public.event_type_vocab.label_en	anon=S authenticated=S
+col	public.event_type_vocab.onboarding_href	anon=S authenticated=S
+col	public.event_type_vocab.sort_order	anon=S authenticated=S
+col	public.event_type_vocab.status	anon=S authenticated=S
+col	public.event_type_vocab.updated_at	anon=S authenticated=S
 col	public.event_vendor_3d_plan_unlocks.created_at	anon=- authenticated=SIU
 col	public.event_vendor_3d_plan_unlocks.event_id	anon=- authenticated=SIU
 col	public.event_vendor_3d_plan_unlocks.id	anon=- authenticated=SIU
@@ -3275,6 +3276,7 @@ col	public.platform_secret_rotations.secret_id	anon=- authenticated=SIU
 col	public.platform_secret_rotations.updated_at	anon=- authenticated=SIU
 col	public.platform_settings.admin_digest_enabled	anon=- authenticated=S
 col	public.platform_settings.admin_digest_last_sent_at	anon=- authenticated=S
+col	public.platform_settings.ai_signup_discount_pct	anon=- authenticated=S
 col	public.platform_settings.bdo_account_name	anon=- authenticated=S
 col	public.platform_settings.bdo_account_number	anon=- authenticated=S
 col	public.platform_settings.bdo_available_as_of	anon=- authenticated=S
@@ -3289,6 +3291,9 @@ col	public.platform_settings.bir_authorized_rep_title	anon=- authenticated=S
 col	public.platform_settings.bir_payor_address	anon=- authenticated=S
 col	public.platform_settings.bir_payor_name	anon=- authenticated=S
 col	public.platform_settings.bir_payor_zip	anon=- authenticated=S
+col	public.platform_settings.booking_fee_rate_pct	anon=- authenticated=S
+col	public.platform_settings.booking_fee_tail_rate_pct	anon=- authenticated=S
+col	public.platform_settings.booking_fee_tier1_limit_php	anon=- authenticated=S
 col	public.platform_settings.brand_apple_touch_url	anon=- authenticated=S
 col	public.platform_settings.brand_favicon_ico_url	anon=- authenticated=S
 col	public.platform_settings.brand_icon_master_url	anon=- authenticated=S
@@ -3328,6 +3333,7 @@ col	public.platform_settings.onboarding_bg_music_enabled	anon=- authenticated=S
 col	public.platform_settings.onboarding_bg_music_r2_key	anon=- authenticated=S
 col	public.platform_settings.onboarding_bg_music_r2_keys	anon=- authenticated=S
 col	public.platform_settings.onboarding_discount_pct	anon=- authenticated=S
+col	public.platform_settings.papic_signup_discount_pct	anon=- authenticated=S
 col	public.platform_settings.photo_delivery_oauth_redirect_uri	anon=- authenticated=S
 col	public.platform_settings.radar_enabled	anon=- authenticated=S
 col	public.platform_settings.radar_min_n_floor	anon=- authenticated=S
@@ -6270,7 +6276,7 @@ func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason t
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=public
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=anon,authenticated search_path=public

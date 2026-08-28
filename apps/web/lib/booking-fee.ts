@@ -56,7 +56,36 @@
  * **5% on the first ₱100,000, then 1% on the amount above.** Floor ₱50 survives;
  * still no cap. Supersedes the 2026-07-24 flat 5%.
  */
-export const BOOKING_FEE = {
+/**
+ * The three numbers the OWNER may set, plus the two he may not.
+ *
+ * ⚖ OWNER RULING 2026-08-28: the head rate, the band ceiling and the tail rate
+ * are his to change from /admin/pricing → "Vendor booking fee". They live on
+ * `platform_settings` and are read by `getBookingFeeSchedule()`
+ * (lib/booking-fee-settings.server.ts) and by the SQL mirror
+ * `public.booking_fee_centavos`.
+ *
+ * 🔒 `minPhp` (the ₱50 floor) and the absence of a cap are NOT owner-editable.
+ * He ruled on the taper and did not rule on these; they stay fixed in code
+ * rather than being quietly widened along with the rest.
+ */
+export type BookingFeeSchedule = {
+  /** Rate on the first `tier1LimitPhp` of the booking (0.05 = 5%). */
+  rate: number;
+  /** Rate on everything above `tier1LimitPhp` — the taper that softens big deals. */
+  tailRate: number;
+  /** Where the head band ends and the tail begins. */
+  tier1LimitPhp: number;
+  /** Minimum fee (and floor) for any positive proposal. FIXED, not editable. */
+  minPhp: number;
+};
+
+/**
+ * The DEFAULT schedule — the owner-locked 2026-07-25 taper, and the fallback
+ * used whenever the settings row is unreadable. Every function below takes a
+ * schedule and defaults to this one, so no existing caller changed behaviour.
+ */
+export const BOOKING_FEE: BookingFeeSchedule = {
   /** Rate on the first `tier1LimitPhp` of the booking. */
   rate: 0.05,
   /** Rate on everything above `tier1LimitPhp` — the taper that softens big deals. */
@@ -91,13 +120,16 @@ export const BOOKING_FEE_TIER1_LIMIT_PHP = BOOKING_FEE.tier1LimitPhp;
  * continuous at ₱100,000 (₱5,000 either way) and monotonic, so no vendor is
  * ever better off declaring less.
  */
-export function bookingFeePhp(proposalPhp: number): number {
+export function bookingFeePhp(
+  proposalPhp: number,
+  schedule: BookingFeeSchedule = BOOKING_FEE,
+): number {
   if (!Number.isFinite(proposalPhp) || proposalPhp <= 0) return 0;
-  const tier1 = Math.min(proposalPhp, BOOKING_FEE.tier1LimitPhp);
-  const tier2 = Math.max(0, proposalPhp - BOOKING_FEE.tier1LimitPhp);
-  const linear = tier1 * BOOKING_FEE.rate + tier2 * BOOKING_FEE.tailRate;
+  const tier1 = Math.min(proposalPhp, schedule.tier1LimitPhp);
+  const tier2 = Math.max(0, proposalPhp - schedule.tier1LimitPhp);
+  const linear = tier1 * schedule.rate + tier2 * schedule.tailRate;
   // Floor at ₱50 — no upper cap (owner 2026-07-25; the floor SURVIVES the taper).
-  const bounded = Math.max(linear, BOOKING_FEE.minPhp);
+  const bounded = Math.max(linear, schedule.minPhp);
   return Math.round(bounded * 100) / 100; // centavo precision
 }
 
@@ -106,9 +138,12 @@ export function bookingFeePhp(proposalPhp: number): number {
  * ("you keep 95%"). Returns 0 for a non-positive proposal. Equals the flat 5%
  * at and above the floor; higher below ₱1,000.
  */
-export function bookingFeeEffectiveRate(proposalPhp: number): number {
+export function bookingFeeEffectiveRate(
+  proposalPhp: number,
+  schedule: BookingFeeSchedule = BOOKING_FEE,
+): number {
   if (!Number.isFinite(proposalPhp) || proposalPhp <= 0) return 0;
-  return bookingFeePhp(proposalPhp) / proposalPhp;
+  return bookingFeePhp(proposalPhp, schedule) / proposalPhp;
 }
 
 /** A rate (0.05) as display copy ("5%", "2.5%") — never "2.5000000000000004%". */
@@ -150,10 +185,12 @@ function formatPhpAmount(amountPhp: number): string {
  * Every claim this string makes is pinned against `bookingFeePhp` in
  * booking-fee-schedule-summary.test.ts.
  */
-export function bookingFeeScheduleSummary(): string {
-  const head = formatRatePct(BOOKING_FEE.rate);
-  const tail = formatRatePct(BOOKING_FEE.tailRate);
-  const band = formatPhpAmount(BOOKING_FEE.tier1LimitPhp);
-  const floor = formatPhpAmount(BOOKING_FEE.minPhp);
+export function bookingFeeScheduleSummary(
+  schedule: BookingFeeSchedule = BOOKING_FEE,
+): string {
+  const head = formatRatePct(schedule.rate);
+  const tail = formatRatePct(schedule.tailRate);
+  const band = formatPhpAmount(schedule.tier1LimitPhp);
+  const floor = formatPhpAmount(schedule.minPhp);
   return `${head} of the first ${band}, then ${tail}, minimum ${floor}`;
 }

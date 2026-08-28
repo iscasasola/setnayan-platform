@@ -330,6 +330,57 @@ test('the panel asks why on an ordinary removal AND on a request', () => {
   );
 });
 
+test('the HQ delete names Setnayan\'s own money before it destroys it', () => {
+  /*
+    🚨 THE SECOND DOOR. A couple's panel REFUSES on a settled bill, an official
+    receipt or an unchecked payment. HQ → Accounts → Events has a Delete button
+    that walks straight past that refusal — which is correct, because answering
+    a couple's request IS a removal past the gate. What was wrong is that its
+    confirmation named paid VENDORS and nothing else, so the one kind of money
+    only HQ can destroy went unmentioned in the sentence somebody reads before
+    pressing.
+
+    It still does not block. The person deciding is shown the money first.
+  */
+  const src = read(
+    resolve(APP, 'admin', 'accounts', '_surfaces', 'events-surface.tsx'),
+  );
+  assert.match(
+    src,
+    /const message = /,
+    'The confirm message must still be composed here.',
+  );
+  /*
+    🪤 THE INTERPOLATIONS ARE COUNTED, NOT THE VARIABLE. A bare /moneyNote/
+    matches the `const moneyNote = …` declaration, which survives happily when
+    every `${moneyNote}` is stripped out of the message — the mutation went 4→1
+    and this assertion reported a clean pass. THREE branches compose that
+    message and all three must carry it, or the one branch somebody forgot is
+    the one an admin reads.
+  */
+  assert.equal(
+    count(src, '${moneyNote}'),
+    3,
+    'All three branches of the confirm message must name what was paid to ' +
+      'Setnayan, not only paid vendors. A settled bill and a BIR receipt are ' +
+      'the part a couple cannot destroy themselves.',
+  );
+  assert.match(
+    src,
+    /We could NOT check what was paid to Setnayan/,
+    'An unreadable money check must SAY so. A confident silence over a failed ' +
+      'read is how this console already shipped a green tick on a query that ' +
+      'never ran.',
+  );
+  for (const signal of ["'receipts'", "'payments'"]) {
+    assert.ok(
+      src.includes(signal),
+      `The surface must read ${signal} — a bill's status alone is rewritable ` +
+        `by the buyer, which is why the couple-side gate keys on these two.`,
+    );
+  }
+});
+
 test('the admin removal takes the photographs with it', () => {
   /*
     🚨 UNTIL 2026-08-28 IT DID NOT, and the couple's own confirmation says

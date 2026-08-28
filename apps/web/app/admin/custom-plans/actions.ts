@@ -6,11 +6,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import {
   computeCustomQuote,
+  CUSTOM_BASE,
   type CustomComposition,
   type CustomDiscount,
   type CustomUnitPrices,
 } from '@/lib/vendor-custom-pricing';
-import { fetchCustomUnitPrices, customPlanServiceKey } from '@/lib/vendor-custom-catalog';
+import { fetchCustomUnitPrices, customPlanServiceKeyForTerm } from '@/lib/vendor-custom-catalog';
 
 export type CustomPlanActionState =
   | { status: 'idle' }
@@ -75,18 +76,22 @@ function bool(raw: FormDataEntryValue | null): boolean {
 function parseComposition(formData: FormData): CustomComposition {
   return {
     branches: Math.max(1, Math.floor(num(formData.get('branches'), 1))),
-    reachKm: Math.max(0, Math.floor(num(formData.get('reachKm'), 100))),
+    // Pinned to the included base, NOT read from the form: the +100 km step
+     // was dropped 2026-08-27 and nationwide is the only reach upgrade. Reading
+     // a form field with no price behind it would be a free dial.
+    reachKm: CUSTOM_BASE.reachKm,
     nationwide: bool(formData.get('nationwide')),
     seats: Math.max(0, Math.floor(num(formData.get('seats'), 10))),
     slotsPerCategory: Math.max(0, Math.floor(num(formData.get('slotsPerCategory'), 8))),
-    photos: Math.max(0, Math.floor(num(formData.get('photos'), 300))),
+    // Pinned to the included base — the +100-photo pack was dropped 2026-08-27.
+    photos: CUSTOM_BASE.photos,
     domain: bool(formData.get('domain')),
     api_access: bool(formData.get('api_access')),
   };
 }
 
 /**
- * Per-quote unit-price overrides. The admin may nudge any of the 9 unit prices
+ * Per-quote unit-price overrides. The admin may nudge any of the unit prices
  * for THIS quote only — they are NOT persisted (the catalog stays authoritative;
  * edit those at /admin/pricing). We start from the live catalog values (read
  * server-side, defensively) and override only the axes the form carries a valid
@@ -108,11 +113,9 @@ async function parseUnitPrices(
   return {
     base: over('unit_base', catalog.base),
     branch: over('unit_branch', catalog.branch),
-    reachStep: over('unit_reachStep', catalog.reachStep),
     reachNationwide: over('unit_reachNationwide', catalog.reachNationwide),
     seat: over('unit_seat', catalog.seat),
     slot: over('unit_slot', catalog.slot),
-    photoPack: over('unit_photoPack', catalog.photoPack),
     domain: over('unit_domain', catalog.domain),
   };
 }
@@ -217,14 +220,25 @@ export async function sendCustomQuote(
   // Apply-then-pay order + pending payment (mirrors the branch/seat buy flow) so
   // the quote appears in /admin/payments. event_id NULL = vendor subscription.
   const referenceCode = generateReferenceCode();
+
+  // 🔒 THE HQ QUOTE PATH IS 28-DAY ONLY, DELIBERATELY AND EXPLICITLY.
+  // It is not an oversight and it must not silently mint a 28-day charge for a
+  // yearly request: this surface has no term control, so no yearly request can
+  // reach it. The term lives on the ORDER's service_key, and this path always
+  // builds the '28d' one — so an admin-composed quote is unambiguously a 28-day
+  // purchase, and the activation hook binds it against `quoted_28d_php`
+  // untouched. A supplier who wants the year buys it themselves on
+  // /vendor-dashboard/subscription/custom, where the choice exists.
+  // If HQ ever needs to quote a year, add the control HERE and pass the term to
+  // `customPlanServiceKeyForTerm` + `priceForTerm` — both already take it.
   const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
     .insert({
       event_id: null,
       user_id: user.id,
       vendor_profile_id: vendorProfileId,
-      service_key: customPlanServiceKey(vendorProfileId),
-      description: `Custom Tier — ${businessName}`,
+      service_key: customPlanServiceKeyForTerm(vendorProfileId, '28d'),
+      description: `Custom Tier — ${businessName} (28-day)`,
       requested_total_php: final28,
       status: 'submitted',
       reference_code: referenceCode,

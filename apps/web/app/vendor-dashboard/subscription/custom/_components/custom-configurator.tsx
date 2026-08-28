@@ -91,17 +91,20 @@ export function CustomConfigurator({
 
   const editable = adjusting;
 
+  // The two terms a subscription may be bought for, and nothing else (owner
+  // 2026-08-27). Default '28d' — the cheaper commitment is the safe default.
+  const [term, setTerm] = useState<'28d' | 'annual'>('28d');
+
   // Per-line breakdown (what each axis adds beyond the included base).
-  const reachSteps = comp.nationwide
-    ? 0
-    : Math.max(0, Math.round((comp.reachKm - CUSTOM_BASE.reachKm) / 100));
+  // The +100 km reach step and the +100-photo pack were dropped 2026-08-27
+  // (owner) — nationwide is the only reach upgrade now. Their maths is gone
+  // rather than left computing a line worth zero.
   const extraBranches = Math.max(0, comp.branches - 1);
   const extraSeats = Math.max(0, comp.seats - CUSTOM_BASE.seats);
   const extraSlots = Math.max(0, comp.slotsPerCategory - CUSTOM_BASE.slotsPerCategory);
-  const photoPacks = Math.max(0, Math.ceil((comp.photos - CUSTOM_BASE.photos) / 100));
 
   const lines: { label: string; amount: number }[] = [
-    { label: 'Base — Enterprise + white-glove', amount: unitPrices.base },
+    { label: 'Base — Enterprise with its limits removed', amount: unitPrices.base },
   ];
   if (extraBranches > 0)
     lines.push({
@@ -110,11 +113,6 @@ export function CustomConfigurator({
     });
   if (comp.nationwide)
     lines.push({ label: 'Nationwide reach', amount: unitPrices.reachNationwide });
-  else if (reachSteps > 0)
-    lines.push({
-      label: `Reach to ${PESO.format(comp.reachKm)} km (${reachSteps} × ${peso(unitPrices.reachStep)})`,
-      amount: reachSteps * unitPrices.reachStep,
-    });
   if (extraSeats > 0)
     lines.push({
       label: `${extraSeats} extra seat${extraSeats === 1 ? '' : 's'} × ${peso(unitPrices.seat)}`,
@@ -124,11 +122,6 @@ export function CustomConfigurator({
     lines.push({
       label: `${extraSlots} extra slot${extraSlots === 1 ? '' : 's'}/category × ${peso(unitPrices.slot)}`,
       amount: extraSlots * unitPrices.slot,
-    });
-  if (photoPacks > 0)
-    lines.push({
-      label: `${photoPacks} × +100 photos × ${peso(unitPrices.photoPack)}`,
-      amount: photoPacks * unitPrices.photoPack,
     });
   if (comp.domain)
     lines.push({ label: 'Custom domain', amount: unitPrices.domain });
@@ -141,12 +134,11 @@ export function CustomConfigurator({
     >
       {/* Hidden composition — the SERVER re-prices from these + the catalog. */}
       <input type="hidden" name="branches" value={comp.branches} />
-      <input type="hidden" name="reachKm" value={comp.reachKm} />
       <input type="hidden" name="nationwide" value={comp.nationwide ? 'true' : 'false'} />
       <input type="hidden" name="seats" value={comp.seats} />
       <input type="hidden" name="slotsPerCategory" value={comp.slotsPerCategory} />
-      <input type="hidden" name="photos" value={comp.photos} />
       <input type="hidden" name="domain" value={comp.domain ? 'true' : 'false'} />
+      <input type="hidden" name="term" value={term} />
       <input type="hidden" name="channel" value={channel} />
 
       {/* ── Controls ─────────────────────────────────────────────────────── */}
@@ -180,12 +172,13 @@ export function CustomConfigurator({
           suffix={comp.branches === 1 ? 'main only' : undefined}
         />
 
-        <ReachControl
-          reachKm={comp.reachKm}
-          nationwide={comp.nationwide}
+        <ToggleControl
+          icon={<MapPin className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+          label="Nationwide reach"
+          hint="Base 100 km included. Nationwide is the only reach upgrade."
+          checked={comp.nationwide}
           disabled={!editable}
-          onReach={(v) => set('reachKm', v)}
-          onNationwide={(v) => set('nationwide', v)}
+          onChange={(v) => set('nationwide', v)}
         />
 
         <StepperControl
@@ -212,18 +205,6 @@ export function CustomConfigurator({
           onChange={(v) => set('slotsPerCategory', v)}
         />
 
-        <StepperControl
-          icon={<Images className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
-          label="Portfolio photos"
-          hint="Base 300 included. Priced per +100."
-          value={comp.photos}
-          min={CUSTOM_BASE.photos}
-          max={5000}
-          step={100}
-          disabled={!editable}
-          onChange={(v) => set('photos', v)}
-        />
-
         <ToggleControl
           icon={<Globe className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
           label="Custom domain"
@@ -238,14 +219,63 @@ export function CustomConfigurator({
       <aside className="lg:sticky lg:top-6 lg:self-start">
         <div className="sn-tile p-5">
           <p className="sn-eye">Your Custom plan</p>
+          {/*
+            🔑 THE FIGURE SHOWN IS THE FIGURE CHARGED. Both come from the same
+            `quote`, and the server recomputes it from the catalog before
+            minting — so the number here and the number on the order are the
+            same by construction, not by agreement.
+          */}
           <p className="mt-2 text-3xl font-semibold tabular-nums text-ink">
-            {peso(quote.final28)}
-            <span className="ml-1 text-sm font-normal text-ink/55">per 28 days</span>
+            {peso(term === 'annual' ? quote.annual : quote.final28)}
+            <span className="ml-1 text-sm font-normal text-ink/55">
+              {term === 'annual' ? 'per year' : 'per 28 days'}
+            </span>
           </p>
-          <p className="mt-1 text-sm tabular-nums text-ink/70">
-            {peso(quote.annual)}
+
+          <div
+            role="radiogroup"
+            aria-label="Billing term"
+            className="mt-3 flex items-center gap-1 rounded-lg border border-ink/12 p-1"
+          >
+            {([
+              ['28d', 'Every 28 days'],
+              ['annual', 'Yearly · save 20%'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={term === value}
+                disabled={!editable}
+                onClick={() => setTerm(value)}
+                className={
+                  'flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ' +
+                  (term === value
+                    ? 'bg-ink text-white'
+                    : 'text-ink/70 hover:bg-ink/5')
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {/*
+            Custom's annual was × 10 ("13 cycles, pay 10, 3 free") until the
+            owner aligned it to × 10.4 on 2026-08-27 — the same 20% every other
+            tier gets. The old mechanism sentence is FALSE at 10.4 (13 cycles at
+            10.4 is 2.6 free, not 3), so it says the saving instead, in the same
+            words as the three tier cards.
+
+            ⚠ A WARNING THAT USED TO SIT HERE — "do not harmonise this with the
+            tier cards' save 20%, it would misprice a live quote" — WAS DELETED
+            WITH THE RULING THAT MADE IT OBSOLETE. It was correct while the
+            multipliers differed and became actively misleading the moment they
+            did not.
+          */}
+          <p className="mt-2 text-sm tabular-nums text-ink/70">
+            {term === 'annual' ? peso(quote.final28) : peso(quote.annual)}
             <span className="ml-1 text-xs text-ink/50">
-              per year — 13 cycles, pay 10 (3 free)
+              {term === 'annual' ? 'per 28 days instead' : 'per year — save 20%'}
             </span>
           </p>
 
@@ -432,80 +462,6 @@ function StepperControl({
         </span>
       </div>
       {suffix && <p className="mt-1 text-right text-[11px] text-ink/45">{suffix}</p>}
-    </ControlShell>
-  );
-}
-
-function ReachControl({
-  reachKm,
-  nationwide,
-  disabled,
-  onReach,
-  onNationwide,
-}: {
-  reachKm: number;
-  nationwide: boolean;
-  disabled?: boolean;
-  onReach: (v: number) => void;
-  onNationwide: (v: boolean) => void;
-}) {
-  const min = CUSTOM_BASE.reachKm;
-  const max = CUSTOM_BASE.reachMaxKm;
-  const stepDisabled = disabled || nationwide;
-  const clamp = (v: number) => Math.max(min, Math.min(max, v));
-
-  return (
-    <ControlShell
-      icon={<MapPin className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
-      label="Service reach"
-      hint="Base 100 km included. Step to 500 km, or go nationwide."
-    >
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => onReach(clamp(reachKm - 100))}
-          disabled={stepDisabled || reachKm <= min}
-          aria-label="Decrease reach"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-ink/15 text-ink transition-colors hover:border-ink/30 disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Minus className="h-4 w-4" strokeWidth={2} aria-hidden />
-        </button>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={100}
-          value={reachKm}
-          disabled={stepDisabled}
-          onChange={(e) => onReach(clamp(Number(e.target.value)))}
-          aria-label="Service reach in kilometres"
-          className="h-2 w-full min-w-0 cursor-pointer accent-terracotta disabled:cursor-not-allowed disabled:opacity-45"
-        />
-        <button
-          type="button"
-          onClick={() => onReach(clamp(reachKm + 100))}
-          disabled={stepDisabled || reachKm >= max}
-          aria-label="Increase reach"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-ink/15 text-ink transition-colors hover:border-ink/30 disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-        </button>
-        <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums text-ink">
-          {nationwide ? '—' : `${PESO.format(reachKm)}km`}
-        </span>
-      </div>
-
-      <label className="mt-3 flex cursor-pointer items-center gap-2.5 text-sm text-ink">
-        <input
-          type="checkbox"
-          checked={nationwide}
-          disabled={disabled}
-          onChange={(e) => onNationwide(e.target.checked)}
-          className="h-4 w-4 rounded border-ink/25 accent-terracotta focus:ring-terracotta/40 disabled:cursor-not-allowed"
-        />
-        Nationwide reach{' '}
-        <span className="text-xs text-ink/50">(overrides the km slider)</span>
-      </label>
     </ControlShell>
   );
 }

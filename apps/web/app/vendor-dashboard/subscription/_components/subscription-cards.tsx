@@ -173,7 +173,7 @@ export function SubscriptionCards({
               </p>
               {cycle === 'annual' && (
                 <p className="mt-1 inline-flex w-fit items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-800">
-                  Save 12 weeks vs paying monthly
+                  Save 20% vs paying monthly
                 </p>
               )}
               {native && (

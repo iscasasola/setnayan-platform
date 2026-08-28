@@ -140,18 +140,46 @@ test('and the forgery guards the window shares a function with are all still the
   // The migration REPLACES a function whose other job is refusing a couple's
   // attempt to write the supplier's answer. Retyping it is how one of those
   // disappears, so the body was copied — and this asserts the copy kept them.
-  const def = (await functionBody('guard_event_vendor_lock_handshake')).replace(/\s+/g, ' ');
-  for (const clause of [
+  //
+  // 🔴 IT USED TO CHECK THE WHOLE BODY FOR EACH COLUMN NAME AND WAS DECORATION.
+  // Measured by mutation: deleting `lock_request_nudged_at` from the INSERT
+  // branch left this test GREEN, because the same column still appears in the
+  // UPDATE branch and on the reset line. *A file-level count cannot say which
+  // BRANCH still asks.* Each branch is now extracted and checked on its own.
+  const def = await functionBody('guard_event_vendor_lock_handshake');
+  const flat = def.replace(/\s+/g, ' ');
+
+  const insertBranch = flat.slice(
+    flat.indexOf("IF TG_OP = 'INSERT' THEN"),
+    flat.indexOf("ELSIF TG_OP = 'UPDATE' THEN"),
+  );
+  const updateBranch = flat.slice(
+    flat.indexOf("ELSIF TG_OP = 'UPDATE' THEN"),
+    flat.indexOf('lock_request_expires_at :='),
+  );
+  assert.ok(insertBranch.length > 200, 'the INSERT branch vanished from the guard');
+  assert.ok(updateBranch.length > 200, 'the UPDATE branch vanished from the guard');
+
+  // THE VENDOR'S ANSWER, five columns, refused on BOTH verbs. A permissive
+  // `FOR ALL` couple policy plus a table-wide UPDATE grant is why both matter:
+  // without the INSERT arm a couple could create a row BORN 'agreed'.
+  for (const col of [
     'lock_agreed_at',
     'lock_declined_at',
     'lock_decline_reason',
     'lock_answered_by_user_id',
     'lock_request_nudged_at',
+  ]) {
+    assert.ok(insertBranch.includes(col), `the INSERT arm lost ${col} when the window moved`);
+    assert.ok(updateBranch.includes(col), `the UPDATE arm lost ${col} when the window moved`);
+  }
+
+  for (const clause of [
     "a booking cannot be created already carrying the vendor''s lock answer",
     'is set only by the vendor lock-handshake RPCs',
     'this booking has a live lock request',
   ]) {
-    assert.ok(def.includes(clause), `the guard lost "${clause}" when the window moved`);
+    assert.ok(flat.includes(clause), `the guard lost "${clause}" when the window moved`);
   }
 });
 

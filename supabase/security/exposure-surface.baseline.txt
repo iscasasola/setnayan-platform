@@ -9,11 +9,11 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6321
+# facts: 6320
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     573
+#   tpriv     572
 #   col       4654
 #   policy    863
 #   view      8
@@ -445,7 +445,6 @@ tpriv	public.vendor_bot_config|anon	SIUD
 tpriv	public.vendor_bot_config|authenticated	SIUD
 tpriv	public.vendor_bot_replies|anon	SIUD
 tpriv	public.vendor_bot_replies|authenticated	SIUD
-tpriv	public.vendor_branches|anon	SIUD
 tpriv	public.vendor_branches|authenticated	SIUD
 tpriv	public.vendor_calendar_blocks|anon	SIUD
 tpriv	public.vendor_calendar_blocks|authenticated	SIUD
@@ -4041,17 +4040,17 @@ col	public.vendor_bot_replies.message_id	anon=SIU authenticated=SIU
 col	public.vendor_bot_replies.thread_id	anon=SIU authenticated=SIU
 col	public.vendor_bot_replies.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_bot_replies.was_llm	anon=SIU authenticated=SIU
-col	public.vendor_branches.branch_address	anon=SIU authenticated=SIU
-col	public.vendor_branches.branch_city	anon=SIU authenticated=SIU
-col	public.vendor_branches.branch_id	anon=SIU authenticated=SIU
-col	public.vendor_branches.branch_label	anon=SIU authenticated=SIU
-col	public.vendor_branches.branch_latitude	anon=SIU authenticated=SIU
-col	public.vendor_branches.branch_longitude	anon=SIU authenticated=SIU
-col	public.vendor_branches.branch_radius_km	anon=SIU authenticated=SIU
-col	public.vendor_branches.branch_subscription_active	anon=SIU authenticated=SIU
-col	public.vendor_branches.cancelled_at	anon=SIU authenticated=SIU
-col	public.vendor_branches.created_at	anon=SIU authenticated=SIU
-col	public.vendor_branches.parent_vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_branches.branch_address	anon=- authenticated=SIU
+col	public.vendor_branches.branch_city	anon=- authenticated=SIU
+col	public.vendor_branches.branch_id	anon=- authenticated=SIU
+col	public.vendor_branches.branch_label	anon=- authenticated=SIU
+col	public.vendor_branches.branch_latitude	anon=- authenticated=SIU
+col	public.vendor_branches.branch_longitude	anon=- authenticated=SIU
+col	public.vendor_branches.branch_radius_km	anon=- authenticated=SIU
+col	public.vendor_branches.branch_subscription_active	anon=- authenticated=SIU
+col	public.vendor_branches.cancelled_at	anon=- authenticated=SIU
+col	public.vendor_branches.created_at	anon=- authenticated=SIU
+col	public.vendor_branches.parent_vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_calendar_blocks.block_id	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.block_label	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.block_source	anon=SIU authenticated=SIU

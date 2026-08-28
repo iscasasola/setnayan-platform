@@ -17,6 +17,13 @@ import {
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
+  deriveBranchStatus,
+  fetchLatestBranchOrders,
+  resolveBranchAssignment,
+  type BranchAssignment,
+  type RequestedBranchStatus,
+} from '@/lib/vendor-branches';
+import {
   parseDiscountRows,
   type DiscountDraft,
 } from '@/lib/vendor-discount-rows';
@@ -373,25 +380,74 @@ async function ensureProfile() {
 }
 
 /**
- * Resolve a submitted branch_id to a branch the vendor actually owns, else null
- * ("main / unassigned"). The FK guarantees it's a real branch; this guarantees
- * it's THIS vendor's branch — a foreign/blank/missing value coerces to null.
+ * Resolve a submitted branch_id to the branch this card is filed under.
+ *
+ * Two questions, in order:
+ *  1. **Is it yours?** A foreign / blank / missing value coerces to null
+ *     ("main / unassigned") exactly as it always has — the FK proves the branch
+ *     is real, this proves it is THIS vendor's.
+ *  2. **Is it paid for?** Owner-ruled 2026-08-28: "paid". Until this, the only
+ *     filter anywhere was `status !== 'cancelled'`, so a branch nobody had ever
+ *     paid for could be chosen in the picker AND accepted here. The picker no
+ *     longer offers one; THIS is the half that holds when the form is posted
+ *     directly, because a hidden option is not a rule.
+ *
+ * ⚠ The paid status is read with a SERVICE-ROLE client. `orders_owner_read`
+ * scopes activation orders to whoever paid, so a shop's second manager reads
+ * every branch as unpaid — which, once status is a gate, refuses a live branch.
+ * The vendor id it is scoped by comes from the session, never from the form.
+ *
+ * Returns a refusal in WORDS rather than silently coercing to "main": moving a
+ * vendor's card somewhere they did not ask for, with no message, is the shape
+ * this repo keeps paying for.
  */
 async function resolveBranchId(
   supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
   vendorProfileId: string,
   raw: FormDataEntryValue | null,
-): Promise<string | null> {
-  if (typeof raw !== 'string') return null;
+  serviceId: string | null,
+): Promise<BranchAssignment> {
+  if (typeof raw !== 'string') return { ok: true, branchId: null };
   const t = raw.trim();
-  if (!t) return null;
-  const { data } = await supabase
+  if (!t) return { ok: true, branchId: null };
+
+  const { data: owned } = await supabase
     .from('vendor_branches')
-    .select('branch_id')
+    .select('branch_id,cancelled_at')
     .eq('branch_id', t)
     .eq('parent_vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  return data ? t : null;
+  if (!owned) {
+    return resolveBranchAssignment({ requested: t, requestedStatus: null, current: null });
+  }
+
+  let current: string | null = null;
+  if (serviceId) {
+    const { data: svc } = await supabase
+      .from('vendor_services')
+      .select('branch_id')
+      .eq('vendor_service_id', serviceId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    current = (svc as { branch_id?: string | null } | null)?.branch_id ?? null;
+  }
+
+  // Direction on a read error here is neither "unpaid" nor "fine": an
+  // unreadable order is UNKNOWN, and it gets its own refusal. Reading it as
+  // unpaid would tell a vendor whose branch is live that they have not paid
+  // for it — a false statement about their money, which they would act on.
+  let status: RequestedBranchStatus;
+  try {
+    const latest = await fetchLatestBranchOrders(createAdminClient(), [t]);
+    status = deriveBranchStatus(
+      owned as { cancelled_at: string | null },
+      latest.get(t),
+      Date.now(),
+    );
+  } catch {
+    status = 'unknown';
+  }
+  return resolveBranchAssignment({ requested: t, requestedStatus: status, current });
 }
 
 /**
@@ -614,11 +670,18 @@ export async function createVendorService(formData: FormData) {
     }
   }
 
-  const branch_id = await resolveBranchId(
+  const branchPick = await resolveBranchId(
     supabase,
     profile.vendor_profile_id,
     formData.get('branch_id'),
+    null,
   );
+  if (!branchPick.ok) {
+    return redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(branchPick.message)}`,
+    );
+  }
+  const branch_id = branchPick.branchId;
 
   // Tier caps on service creation (Vendor_Tier_Capability_Matrix_2026-06-07).
   // Fetch tier + the founder flag ONCE; both caps read them.
@@ -920,11 +983,18 @@ export async function updateVendorService(formData: FormData) {
     }
   }
 
-  const branch_id = await resolveBranchId(
+  const branchPick = await resolveBranchId(
     supabase,
     profile.vendor_profile_id,
     formData.get('branch_id'),
+    idRaw,
   );
+  if (!branchPick.ok) {
+    return redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(branchPick.message)}`,
+    );
+  }
+  const branch_id = branchPick.branchId;
 
   // Per-service daily capacity (#2), capped by the tier's slotsPerDay.
   const { data: tierRow } = await supabase
@@ -1412,11 +1482,14 @@ export async function commitVendorService(formData: FormData) {
       typeof titleRaw === 'string' && titleRaw.trim().length > 0
         ? titleRaw.trim().slice(0, 80)
         : null;
-    const branch_id = await resolveBranchId(
+    const branchPick = await resolveBranchId(
       supabase,
       profile.vendor_profile_id,
       formData.get('branch_id'),
+      serviceId,
     );
+    if (!branchPick.ok) return back(branchPick.message);
+    const branch_id = branchPick.branchId;
 
     // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
     const pricing = parsePricingFields(formData);

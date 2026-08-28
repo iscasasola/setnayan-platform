@@ -128,6 +128,85 @@ export function branchAutoRadiusKm(): number {
 
 export type BranchStatus = 'active' | 'pending_payment' | 'expired' | 'cancelled';
 
+/**
+ * The ONE question every branch surface asks: may this branch be USED?
+ *
+ * Owner-ruled 2026-08-28, one word — **"paid"**. A branch is a paid add-on, so
+ * nothing it unlocks happens before the fee is in and the 28-day window is
+ * live: it is not shown to customers, and no service card may be newly filed
+ * under it. `pending_payment` and `expired` are both "not yet"; `cancelled`
+ * is "no".
+ *
+ * ⚠ WHAT THIS REPLACED, because the shape recurs: the branch picker and the
+ * My Shop list both filtered on `status !== 'cancelled'`, so a branch that had
+ * never been paid for was fully usable and paying flipped a chip from orange
+ * to green and did nothing else. One rule, one name, one place — the picker,
+ * the server-side resolve and the public read all call THIS.
+ */
+export function branchIsUsable(status: BranchStatus): boolean {
+  return status === 'active';
+}
+
+/** The refusal a vendor reads when they try to file a card under an unpaid branch. */
+export const BRANCH_NOT_ACTIVE_MESSAGE =
+  'That branch is not active yet. Pay its fee and we will switch it on \u2014 until then, file this under your main location.';
+
+export type BranchAssignment =
+  | { ok: true; branchId: string | null }
+  | { ok: false; message: string };
+
+/**
+ * The refusal when the branch's paid state could not be READ at all.
+ * Deliberately not {@link BRANCH_NOT_ACTIVE_MESSAGE}: telling a vendor their
+ * paid branch is unpaid because a query stumbled is a false statement about
+ * their money, and they would go and pay again.
+ */
+export const BRANCH_STATUS_UNREADABLE_MESSAGE =
+  'We could not check that branch just now. Please try again in a moment.';
+
+/** "Owned, but we could not tell whether it is paid up." */
+export type RequestedBranchStatus = BranchStatus | 'unknown' | null;
+
+/**
+ * Decide which branch a service card is filed under. PURE on purpose — the
+ * ownership lookup and the paid-status read happen in the server action; this
+ * is the rule, and it is the thing the tests pin.
+ *
+ * - nothing requested → main (no branch). Unchanged.
+ * - a branch this vendor does not own → main. Unchanged: a foreign id is a
+ *   forgery, and coercing it is the long-standing behaviour.
+ * - an ACTIVE branch → filed there.
+ * - an unpaid / lapsed branch the card is ALREADY filed under → kept.
+ *   Keeping a card where it already sits is not a NEW use of an unpaid branch,
+ *   and silently moving it to "main" during an unrelated edit would delete the
+ *   vendor's own filing with nothing said on screen. The branch is still
+ *   invisible to customers either way.
+ * - an unpaid / lapsed branch, newly chosen → REFUSED, in words.
+ * - a branch whose paid state could not be READ → refused in DIFFERENT words.
+ *   "Your branch is not active" and "we could not check" are not the same
+ *   sentence, and only one of them is true during an outage.
+ */
+export function resolveBranchAssignment(input: {
+  requested: string | null;
+  requestedStatus: RequestedBranchStatus;
+  current: string | null;
+}): BranchAssignment {
+  const { requested, requestedStatus, current } = input;
+  if (!requested) return { ok: true, branchId: null };
+  if (requestedStatus === null) return { ok: true, branchId: null };
+  if (requestedStatus !== 'unknown' && branchIsUsable(requestedStatus)) {
+    return { ok: true, branchId: requested };
+  }
+  if (current !== null && current === requested) return { ok: true, branchId: requested };
+  return {
+    ok: false,
+    message:
+      requestedStatus === 'unknown'
+        ? BRANCH_STATUS_UNREADABLE_MESSAGE
+        : BRANCH_NOT_ACTIVE_MESSAGE,
+  };
+}
+
 export type VendorBranchRow = {
   branch_id: string;
   parent_vendor_profile_id: string;
@@ -177,14 +256,65 @@ export function deriveBranchStatus(
 }
 
 /**
+ * The latest activation order per branch, newest first (so renewals win).
+ * Split out of {@link fetchVendorBranches} because the PUBLIC read needs the
+ * same derivation without the dashboard's session-scoped branch read.
+ */
+export async function fetchLatestBranchOrders(
+  orderReader: SupabaseClient,
+  branchIds: string[],
+): Promise<Map<string, LatestOrder>> {
+  const latest = new Map<string, LatestOrder>();
+  if (branchIds.length === 0) return latest;
+  const { data, error } = await orderReader
+    .from('orders')
+    .select('service_key,reference_code,status,expires_at,created_at')
+    .in('service_key', branchIds.map(branchServiceKey))
+    .order('created_at', { ascending: false });
+  // 🔑 THROWS rather than returning an empty map. "I could not read the orders"
+  // and "this branch has never been paid for" produce the same empty result,
+  // and now that the answer decides whether a branch is public and usable, the
+  // two need different handling: the public read must claim nothing, the
+  // dashboard must still list the branch, and the write path must refuse in
+  // words that are TRUE. Each caller says which it wants; none may inherit
+  // "unpaid" from a network blip by accident.
+  if (error) throw new Error(`fetchLatestBranchOrders failed: ${error.message}`);
+  for (const o of (data ?? []) as Array<LatestOrder & { service_key: string }>) {
+    const id = branchIdFromServiceKey(o.service_key);
+    if (id && !latest.has(id)) {
+      latest.set(id, {
+        reference_code: o.reference_code,
+        status: o.status,
+        expires_at: o.expires_at,
+      });
+    }
+  }
+  return latest;
+}
+
+/**
  * Read a vendor's branches and enrich each with its latest activation order so
  * the dashboard can show active / pending / expired + the reference code to pay.
- * Runs under the caller's RLS: vendor_branches admits owner+admin; orders are
- * owner-read by user_id, so the order resolves for whoever created it.
+ * The BRANCH rows run under the caller's RLS (vendor_branches admits
+ * owner+admin), which is right: they are that shop's rows.
+ *
+ * ⚠ `orderReader` — PASS A SERVICE-ROLE CLIENT. The activation orders are read
+ * under `orders_owner_read` (`user_id = auth.uid() OR is_admin() OR …`), so a
+ * shop's OTHER manager cannot see the order the shop's owner paid: the branch
+ * reads back to them as `pending_payment` while it is live. That was merely
+ * cosmetic while nothing gated on the status. It is a FALSE REFUSAL now that
+ * being usable and being public both hang off it — so every manager of the
+ * shop must read the same answer. The id it is scoped by is resolved from the
+ * session, never from form input.
+ *
+ * It is REQUIRED rather than defaulting to `supabase` on purpose: a default
+ * that is the wrong value is how the next caller inherits a bug silently. The
+ * compiler now asks every new caller which client it means.
  */
 export async function fetchVendorBranches(
   supabase: SupabaseClient,
   vendorProfileId: string,
+  orderReader: SupabaseClient,
 ): Promise<VendorBranchView[]> {
   const { data, error } = await supabase
     .from('vendor_branches')
@@ -197,28 +327,16 @@ export async function fetchVendorBranches(
   const branches = (data ?? []) as VendorBranchRow[];
   if (branches.length === 0) return [];
 
-  // Pull the activation orders for these branches in one round-trip, newest
-  // first, so each branch maps to its MOST RECENT order (handles renewals).
-  const keys = branches.map((b) => branchServiceKey(b.branch_id));
-  const { data: orders } = await supabase
-    .from('orders')
-    .select('service_key,reference_code,status,expires_at,created_at')
-    .in('service_key', keys)
-    .order('created_at', { ascending: false });
-
-  const latestByBranch = new Map<string, LatestOrder>();
-  for (const o of (orders ?? []) as Array<
-    LatestOrder & { service_key: string }
-  >) {
-    const id = branchIdFromServiceKey(o.service_key);
-    if (id && !latestByBranch.has(id)) {
-      latestByBranch.set(id, {
-        reference_code: o.reference_code,
-        status: o.status,
-        expires_at: o.expires_at,
-      });
-    }
-  }
+  // Direction on a read error: KEEP LISTING THE BRANCHES. This is the shop's
+  // own management screen — hiding a vendor's branches because one query
+  // stumbled is worse than showing them without their reference code. They
+  // read as `pending_payment`, which is what the screen showed before this
+  // function could tell the two apart; the WRITE path is where a wrong answer
+  // would cost something, and it fails differently on purpose.
+  const latestByBranch = await fetchLatestBranchOrders(
+    orderReader,
+    branches.map((b) => b.branch_id),
+  ).catch(() => new Map<string, LatestOrder>());
 
   const nowMs = Date.now();
   return branches.map((b) => {
@@ -230,4 +348,70 @@ export async function fetchVendorBranches(
       expires_at: order?.expires_at ?? null,
     };
   });
+}
+
+/** What a CUSTOMER is shown about a branch: its name and the city it is in. */
+export type PublicVendorBranch = {
+  branchId: string;
+  branchLabel: string;
+  branchCity: string;
+};
+
+/**
+ * The shop's other locations, as a customer may see them (owner-ruled
+ * 2026-08-28: **yes**, customers should see a supplier's branches).
+ *
+ * 🔒 THREE DELIBERATE NARROWINGS, all of them the point of this function:
+ *
+ * 1. **PAID AND LIVE ONLY.** `branchIsUsable` is the gate, so an unpaid,
+ *    lapsed or cancelled branch is not a public claim about where this shop
+ *    works.
+ * 2. **NAME AND CITY ONLY.** The street address, the pin, the service radius,
+ *    the parent id and the internal `branch_subscription_active` flag are
+ *    never projected. A customer needs to know the shop is in their city; the
+ *    rest is the shop's operational detail.
+ * 3. **FAILS CLOSED.** A read error returns an empty list, never a partial or
+ *    unfiltered one — a public page must not make a claim it could not check.
+ *
+ * ⚠ `reader` must be a SERVICE-ROLE client. `vendor_branches` has policies for
+ * `authenticated` only and none for `anon`, so a public page cannot read it
+ * through a visitor's session — and the fix for that is NOT a blanket `anon`
+ * read on the table (which would hand out every unpaid and cancelled branch,
+ * with its address and coordinates, to anyone with the public key). This is
+ * the shop's own public data, keyed by the shop the page is already rendering.
+ */
+export async function fetchPublicVendorBranches(
+  reader: SupabaseClient,
+  vendorProfileId: string,
+  nowMs: number = Date.now(),
+): Promise<PublicVendorBranch[]> {
+  const { data, error } = await reader
+    .from('vendor_branches')
+    .select('branch_id,branch_label,branch_city,cancelled_at,created_at')
+    .eq('parent_vendor_profile_id', vendorProfileId)
+    .is('cancelled_at', null)
+    .order('created_at', { ascending: true });
+  if (error || !data) return [];
+  const rows = data as Array<
+    Pick<VendorBranchRow, 'branch_id' | 'branch_label' | 'branch_city' | 'cancelled_at'>
+  >;
+  if (rows.length === 0) return [];
+
+  let latest: Map<string, LatestOrder>;
+  try {
+    latest = await fetchLatestBranchOrders(
+      reader,
+      rows.map((r) => r.branch_id),
+    );
+  } catch {
+    return [];
+  }
+
+  return rows
+    .filter((r) => branchIsUsable(deriveBranchStatus(r, latest.get(r.branch_id), nowMs)))
+    .map((r) => ({
+      branchId: r.branch_id,
+      branchLabel: r.branch_label,
+      branchCity: r.branch_city,
+    }));
 }

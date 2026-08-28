@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 303 jobs, 200 of them form-driven, as of 231dd6961.
+// that performs it. 305 jobs, 202 of them form-driven, as of a985f9a3d.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -279,6 +279,21 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/moodboard-library",
     "fields": [],
     "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "approveEventDeletion",
+    "phrase": "approve event deletion",
+    "ownerPath": "/admin/event-deletions",
+    "resolvedPath": "/admin/event-deletions",
+    "fields": [
+      "request_id",
+      "admin_note"
+    ],
+    "refusedWhenEmpty": [
+      "request_id",
+      "admin_note"
+    ],
     "destructive": false
   },
   {
@@ -1460,6 +1475,21 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/verify",
     "fields": [],
     "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
+    "name": "rejectEventDeletion",
+    "phrase": "reject event deletion",
+    "ownerPath": "/admin/event-deletions",
+    "resolvedPath": "/admin/event-deletions",
+    "fields": [
+      "request_id",
+      "admin_note"
+    ],
+    "refusedWhenEmpty": [
+      "request_id",
+      "admin_note"
+    ],
     "destructive": true
   },
   {

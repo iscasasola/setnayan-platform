@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deletionReasonLabel } from '@/lib/event-deletion-reasons';
@@ -66,8 +67,14 @@ export default async function EventDeletionsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-xl font-bold text-ink">Celebration removals</h1>
-      <p className="mt-1 max-w-prose text-sm text-ink/70">
+      {/*
+        The page name lives in the document for screen readers, skip links and
+        heading order, and draws nothing — the admin bar already says where you
+        are, so a visible title is the same word twice (owner-locked, and
+        `admin-page-starts-at-its-content.test.ts` holds it).
+      */}
+      <PageMasthead title="Celebration removals" />
+      <p className="max-w-prose text-sm text-ink/70">
         A couple can remove their own celebration. They can’t when money has
         moved — a bill we confirmed, a receipt, or a payment nobody has checked
         yet. Those come here.

@@ -24,6 +24,37 @@
 -- what they are ABOUT (a user vs an event) and merging them would put a
 -- celebration's name on a row about a person.
 --
+-- ─── THE COLUMNS, EXPLAINED HERE AND NOT INSIDE THE TABLE ──────────────────
+-- 🪤 THE PROSE IS OUT OF THE COLUMN LIST ON PURPOSE, AND THE FIRST CUT LEARNED
+--    IT THE HARD WAY. `lib/security/migration-schema.ts` splits a CREATE TABLE
+--    body on top-level commas and takes the first word of each segment as a
+--    column name — it does not strip `/* … */`. Two explanatory blocks in the
+--    body meant the scanner never saw `reason_code` or `status` at all (it read
+--    "rather", "comparable", "and", "already" instead), and
+--    `query-column-scan` then reported ten phantom column references in code
+--    that was correct. **A comment inside a column list is parsed as schema.**
+--
+--   reason_code · WHY A CODE **AND** FREE TEXT. Owner: *"they can pick a reason
+--     for deleting. or they state their reason."* The code is what can be
+--     counted — six answers comparable across everybody who ever leaves. The
+--     text is what is useful on the ones that need an answer ("can the shots go
+--     to my sister's wedding instead?"). `other` is the code that makes the text
+--     load-bearing; the APP requires text for it, not a CHECK, because a
+--     half-typed sentence must not come back as a database error on a screen
+--     somebody is trying to leave.
+--
+--   status · `self_removed` IS NOT A REQUEST AND IS DELIBERATELY IN THE SAME
+--     TABLE. Most removals are not blocked by anything: the couple types the
+--     name and the celebration goes. That still asks why, and the answer has to
+--     live somewhere. A second table would mean two places to read "why did
+--     people leave" from, and the pair would drift — this repo's most-paid-for
+--     defect shape. One table; the status says whether anybody has to answer it.
+--     Nothing ever moves INTO `self_removed`: it is written once, already final.
+--
+--   event_id · no foreign key. event_name · snapshotted. See decision 1 below.
+--   reviewed_by · ON DELETE SET NULL, so removing an admin account does not
+--     wipe the record of what was asked and answered.
+--
 -- ─── THE TWO DECISIONS WORTH READING ────────────────────────────────────────
 --
 -- 1 · `event_id` HAS NO FOREIGN KEY, AND THAT IS THE POINT.
@@ -78,30 +109,9 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.event_deletion_requests (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-  -- ⚠ NO FOREIGN KEY — see decision 1 in the header. A row about a celebration
-  -- must outlive the celebration, because the `self_removed` rows are written
-  -- on the way out of one.
   event_id        UUID NOT NULL,
-  -- Snapshotted at filing time. After the delete there is nothing to resolve
-  -- the name from, and "removed a celebration" with no name is not a record.
   event_name      TEXT NOT NULL,
-
   user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-
-  /*
-    WHY A CODE **AND** FREE TEXT, rather than either alone.
-
-    Owner: *"they can pick a reason for deleting. or they state their reason."*
-    The code is what can be counted — six answers, comparable across everybody
-    who ever leaves. The text is what is actually useful on the ones that need
-    an answer ("can the shots go to my sister's wedding instead?").
-
-    `other` is a legal code and is the one that makes the text load-bearing;
-    the app requires text when the code is `other`. That rule lives in the app
-    rather than in a CHECK because a half-typed sentence must not be a database
-    error on the way out of a screen somebody is trying to leave.
-  */
   reason_code     TEXT NOT NULL
                     CHECK (reason_code IN (
                       'not_happening',
@@ -112,18 +122,6 @@ CREATE TABLE IF NOT EXISTS public.event_deletion_requests (
                       'other'
                     )),
   reason          TEXT,
-
-  /*
-    `self_removed` IS NOT A REQUEST AND IS DELIBERATELY IN THE SAME TABLE.
-
-    Most removals are not blocked by anything: the couple types the name and
-    the celebration goes. That still asks why, and the answer has to live
-    somewhere. A second table would mean two places to read "why did people
-    leave" from, and the pair would drift — this repo's most-paid-for defect
-    shape. One table, and the status says whether anybody has to answer it.
-
-    Nothing ever moves INTO `self_removed`: it is written once, already final.
-  */
   status          TEXT NOT NULL DEFAULT 'pending'
                     CHECK (status IN (
                       'pending',
@@ -132,11 +130,7 @@ CREATE TABLE IF NOT EXISTS public.event_deletion_requests (
                       'cancelled',
                       'self_removed'
                     )),
-
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-  -- Admin review metadata. ON DELETE SET NULL so removing an admin account
-  -- does not wipe the record of what was asked and answered.
   reviewed_by     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   reviewed_at     TIMESTAMPTZ,
   admin_note      TEXT

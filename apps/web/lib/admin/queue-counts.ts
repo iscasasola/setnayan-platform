@@ -164,6 +164,65 @@ export async function countStuckCompletions(
   return { count, oldestAt };
 }
 
+/**
+ * The `disputes` count, asking the same question the disputes PAGE asks.
+ *
+ * 🔴 WHY IT IS A DIGEST AND NOT A FILTER. /admin/disputes shows TWO kinds of
+ * dispute since 2026-08-28: the `vendor_disputes` queue it always had, and a
+ * supplier's "the downpayment never reached me" (owner: "we will confirm it
+ * manually"), which lives on `event_vendors` because vendor_disputes' own
+ * CHECK (payout_id IS NOT NULL OR order_id IS NOT NULL) cannot be satisfied by
+ * off-platform couple→supplier money. One def counts one table, so leaving the
+ * plain filter here would UNDERCOUNT — the exact failure this file already
+ * records for `completions` (badge 45, page 1) and warns about for
+ * `repost-watch`. A lane that quietly reports less than its page is worse than
+ * a lane that is absent.
+ *
+ * ⚠ AN OPEN DEPOSIT DISPUTE IS BOTH HALVES: refused AND not yet settled. The
+ * second half is what makes a SECOND refusal a fresh question rather than one
+ * that inherits the first settlement and never appears again.
+ *
+ * 🔑 EITHER SIDE FAILING DEGRADES THE WHOLE COUNT TO `null`, never to a
+ * smaller number. `null` renders as "unavailable"; a partial sum renders as a
+ * confident wrong total, which is how an admin is told there is less work
+ * waiting than there is.
+ */
+export async function countOpenDisputes(
+  admin: SupabaseClient,
+  _nowMs: number,
+): Promise<AdminQueueDigestRow> {
+  const [classic, deposits] = await Promise.all([
+    admin
+      .from('vendor_disputes')
+      .select('created_at')
+      .eq('status', 'open')
+      .order('created_at', { ascending: true }),
+    admin
+      .from('event_vendors')
+      .select('deposit_declined_at')
+      .not('deposit_declined_at', 'is', null)
+      .is('deposit_dispute_settled_at', null)
+      .order('deposit_declined_at', { ascending: true }),
+  ]);
+
+  if (classic.error || !Array.isArray(classic.data)) {
+    logQueryError('countOpenDisputes (vendor_disputes)', classic.error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+  if (deposits.error || !Array.isArray(deposits.data)) {
+    logQueryError('countOpenDisputes (deposit)', deposits.error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+
+  const count = classic.data.length + deposits.data.length;
+  const oldests = [
+    (classic.data[0] as { created_at?: string } | undefined)?.created_at ?? null,
+    (deposits.data[0] as { deposit_declined_at?: string } | undefined)?.deposit_declined_at ?? null,
+  ].filter((v): v is string => Boolean(v));
+  const oldestAt = oldests.length > 0 ? oldests.reduce((a, b) => (a < b ? a : b)) : null;
+  return { count, oldestAt };
+}
+
 const QUEUE_DEFS: QueueDef[] = [
   /* ─── ADDED 2026-08-19 · THE OWNER WENT THROUGH THEM ONE BY ONE ───────────
      The Work page said "You're all caught up" while counting 14 queues and
@@ -181,8 +240,12 @@ const QUEUE_DEFS: QueueDef[] = [
        · repost-watch      — TWO source tables (`vendor_image_flags` AND
          `vendor_qr_media_flags`). One def counts one table, so adding it here
          would UNDERCOUNT, and a lane that quietly reports less than its page is
-         worse than a lane that is absent. Extending the framework to sum two
-         tables is a separate change.
+         worse than a lane that is absent.
+         ⚠ THE LAST SENTENCE HERE USED TO READ "extending the framework to sum
+         two tables is a separate change." That is now STALE and it is exactly
+         the kind of sentence this file records as the mechanism that keeps a
+         gap alive: `disputes` sums two tables today via `countOpenDisputes`.
+         The pattern to copy is there; repost-watch simply has not been done.
      ⛔ And payouts stays out — owner 2026-08-19: *"we do not have a payout."*
   ─────────────────────────────────────────────────────────────────────────── */
   {
@@ -298,7 +361,11 @@ const QUEUE_DEFS: QueueDef[] = [
     table: 'vendor_disputes',
     lane: 'trust',
     slaHours: 24,
+    // Coarse cut only — the COUNT comes from `digest`, which also counts the
+    // deposit disputes this page has shown since 2026-08-28. Never re-point a
+    // consumer at this filter alone; it sees one of the two tables.
     filter: (q) => q.eq('status', 'open'),
+    digest: countOpenDisputes,
   },
   // lane trust — event-impacting.
   {

@@ -173,7 +173,7 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
     // On the Day — the free, category-conditional day-of console (Phase 7).
     key: 'onday',
-    label: 'On the Day',
+    label: 'Event Hub',
     href: '/vendor-dashboard/on-the-day',
     icon: CalendarCheck,
     activeMatch: '/vendor-dashboard/on-the-day',

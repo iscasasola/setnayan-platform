@@ -31,6 +31,7 @@
  * ones, flag their payments) would be fake doors.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { setupPricePhp, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import {
@@ -72,6 +73,7 @@ export async function readServicesStepView(
     freeOnePoints,
     aiPricePhp,
     aiListPricePhp,
+    settingsRow,
   ] =
     await Promise.all([
       fetchV2CustomerCatalog(),
@@ -98,7 +100,26 @@ export async function readServicesStepView(
       aiOffered
         ? resolveSetnayanAiDisplayPricePhp(client, eventType, 'regular').catch(() => 0)
         : Promise.resolve(0),
+      // The house set-up discount. Owner 2026-08-28: editable at any moment, so
+      // it is READ here rather than baked into any row.
+      // Wrapped so a failed settings read degrades to the default rather than
+      // taking the whole screen down with it.
+      (async () => {
+        try {
+          const r = await client
+            .from('platform_settings')
+            .select('onboarding_discount_pct')
+            .eq('id', 1)
+            .maybeSingle();
+          return r.data as { onboarding_discount_pct?: number | string | null } | null;
+        } catch {
+          return null;
+        }
+      })(),
     ]);
+  // ⚠ Fails to the DEFAULT, never to zero: a settings read that fails must not
+  // silently retract a discount the rest of the screen is advertising.
+  const discountPct = readOnboardingDiscountPct(settingsRow?.onboarding_discount_pct);
 
   /**
    * ── WHAT IT COSTS HERE, AND WHAT IT COSTS LATER ────────────────────────────
@@ -116,12 +137,15 @@ export async function readServicesStepView(
    * discount, and reading NULL as 0 would hand them away free — the exact
    * direction the AI resolver already warns about in its own body.
    */
-  const priceOfRow = (row: { retail_price_php: number; onboarding_price_php?: number | null }) => {
-    const signup = row.onboarding_price_php;
-    return typeof signup === 'number' && Number.isFinite(signup) && signup > 0
-      ? signup
-      : Number(row.retail_price_php);
-  };
+  // 🔑 ONE RULE, READ BY THE CARD AND BY THE CHARGE. `setupPricePhp` is the same
+  // function `onboarding-services-orders.ts` mints with, so a figure on this
+  // screen cannot differ from the one on the bill.
+  const priceOfRow = (row: { retail_price_php: number; onboarding_price_php?: number | null }) =>
+    setupPricePhp(
+      Number(row.retail_price_php),
+      row.onboarding_price_php == null ? null : Number(row.onboarding_price_php),
+      discountPct,
+    );
   const pricePhpByCode = new Map<string, number>(
     customerSkus.map((s) => [s.service_code, priceOfRow(s)]),
   );

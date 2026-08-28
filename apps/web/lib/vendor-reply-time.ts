@@ -56,34 +56,93 @@ export type ReplyTimeInputs = {
 };
 
 /**
- * The badge text, or `null` for "say nothing".
+ * WHY the badge is or is not shown — every refusal, named.
  *
- * `null` is the common answer and the safe one: no sample, an unreadable
- * number, a stale login, or a median that is not fast all mean the same thing
- * to a couple — this card makes no promise about replies.
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * The shop that this claim is ABOUT could not see it. `replyTimeBadgeLabel`
+ * answers `null` five different ways and a shop owner met all five as the same
+ * thing: nothing on their card, and no idea whether that was a bug, a rule, or
+ * something they could change. A figure with no meaning attached is a figure
+ * nobody acts on — and an ABSENT figure with no meaning attached is worse.
+ *
+ * 🔑 ONE DECISION, TWO SHAPES. `replyTimeBadgeLabel` is now DERIVED from this
+ * function rather than repeating its five tests, so the sentence a shop reads
+ * on My Performance and the badge a couple reads on the marketplace can never
+ * disagree about what is true. A second copy of these rules is exactly how the
+ * `0`-means-instant defect got onto a public card in the first place.
  */
-export function replyTimeBadgeLabel(input: ReplyTimeInputs): string | null {
+export type ReplyTimeVerdict =
+  /** Shown. `label` is the exact string a couple reads. */
+  | { shown: true; label: string; medianMinutes: number; sample: number }
+  /** Fewer than `REPLY_TIME_MIN_SAMPLE` replies — "usually" is not earned yet. */
+  | { shown: false; reason: 'not_enough_replies'; sample: number }
+  /** The median is missing, 0 (the no-data sentinel) or impossible. */
+  | { shown: false; reason: 'no_median' }
+  /** Real median, but at or above the four-hour line. */
+  | { shown: false; reason: 'too_slow'; medianMinutes: number }
+  /** No sign-in on record, or none inside `RECENTLY_ACTIVE_MS`. */
+  | { shown: false; reason: 'away' };
+
+/**
+ * Minutes → the human duration, in the SAME rounding the public badge uses.
+ * Exported so a screen explaining the badge can never print a different number
+ * from the badge itself.
+ */
+export function formatReplyMinutes(mins: number): string {
+  return mins < 60 ? `${mins}m` : `${Math.round(mins / 60)}h`;
+}
+
+/** Minutes → the exact words on the public badge. */
+function replyPhrase(mins: number): string {
+  return `Usually responds in ${formatReplyMinutes(mins)}`;
+}
+
+export function replyTimeVerdict(input: ReplyTimeInputs): ReplyTimeVerdict {
   const { avgResponseMinutes: avg, repliedThreadCount, lastActiveAt, now } = input;
 
   // THE SAMPLE FLOOR, first — before any arithmetic, so a fast-looking median
   // from one reply cannot reach the rest of this function at all.
   const sample = typeof repliedThreadCount === 'number' ? repliedThreadCount : 0;
-  if (!Number.isFinite(sample) || sample < REPLY_TIME_MIN_SAMPLE) return null;
+  if (!Number.isFinite(sample) || sample < REPLY_TIME_MIN_SAMPLE) {
+    return {
+      shown: false,
+      reason: 'not_enough_replies',
+      sample: Number.isFinite(sample) ? Math.max(0, sample) : 0,
+    };
+  }
 
   // THE SENTINEL. 0 means "nothing to average", not "answered instantly".
   // Negative and non-finite are impossible-by-construction and refused anyway:
   // an impossible number printed on a public card is worse than no card.
-  if (typeof avg !== 'number' || !Number.isFinite(avg) || avg <= 0) return null;
-
-  if (avg >= FAST_REPLY_THRESHOLD_MIN) return null;
-
-  // A badge about how quickly somebody replies is a claim about NOW.
-  if (!lastActiveAt) return null;
-  const lastActive = Date.parse(lastActiveAt);
-  if (!Number.isFinite(lastActive) || now - lastActive > RECENTLY_ACTIVE_MS) return null;
+  if (typeof avg !== 'number' || !Number.isFinite(avg) || avg <= 0) {
+    return { shown: false, reason: 'no_median' };
+  }
 
   const mins = Math.round(avg);
-  return mins < 60
-    ? `Usually responds in ${mins}m`
-    : `Usually responds in ${Math.round(mins / 60)}h`;
+  if (avg >= FAST_REPLY_THRESHOLD_MIN) {
+    return { shown: false, reason: 'too_slow', medianMinutes: mins };
+  }
+
+  // A badge about how quickly somebody replies is a claim about NOW.
+  if (!lastActiveAt) return { shown: false, reason: 'away' };
+  const lastActive = Date.parse(lastActiveAt);
+  if (!Number.isFinite(lastActive) || now - lastActive > RECENTLY_ACTIVE_MS) {
+    return { shown: false, reason: 'away' };
+  }
+
+  return { shown: true, label: replyPhrase(mins), medianMinutes: mins, sample };
+}
+
+/**
+ * The badge text, or `null` for "say nothing".
+ *
+ * `null` is the common answer and the safe one: no sample, an unreadable
+ * number, a stale login, or a median that is not fast all mean the same thing
+ * to a couple — this card makes no promise about replies.
+ *
+ * ⚠ DERIVED, NEVER RE-IMPLEMENTED. Every rule lives in `replyTimeVerdict`.
+ */
+export function replyTimeBadgeLabel(input: ReplyTimeInputs): string | null {
+  const verdict = replyTimeVerdict(input);
+  return verdict.shown ? verdict.label : null;
 }

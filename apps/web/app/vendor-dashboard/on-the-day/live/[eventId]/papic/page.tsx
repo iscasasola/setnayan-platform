@@ -11,7 +11,7 @@ import { fetchVendorPapicAllowance } from '@/lib/vendor-papic-grants';
 import { PapicCaptureController } from '../_components/papic-capture-controller';
 import { OwnCapturesStrip } from '../_components/own-captures-strip';
 
-export const metadata = { title: 'Papic capture · On the Day' };
+export const metadata = { title: 'Papic capture · Event Hub' };
 
 /** PH wall-clock today (UTC+8) as 'YYYY-MM-DD'. */
 function phToday(): string {
@@ -91,7 +91,7 @@ export default async function VendorPapicCapturePage({
           style={{ color: 'var(--m-slate-2)' }}
         >
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />{' '}
-          {isEventDay ? 'Back to the floor' : 'Back to On the Day'}
+          {isEventDay ? 'Back to the floor' : 'Back to the Event Hub'}
         </Link>
         <span className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
           {isEventDay ? 'Papic capture' : 'What you shot'}

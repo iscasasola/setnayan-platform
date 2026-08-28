@@ -177,8 +177,8 @@ before(async () => {
   ).rows[0]!.vendor_profile_id;
   F.serviceId = (
     await db.query<{ vendor_service_id: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category)
-       VALUES ($1,'catering') RETURNING vendor_service_id`,
+      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
+       VALUES ($1,'catering',40000,'Free extra hour') RETURNING vendor_service_id`,
       [F.vendorProfile],
     )
   ).rows[0]!.vendor_service_id;

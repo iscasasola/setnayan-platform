@@ -169,7 +169,7 @@ export function BenchVendorActions({
           offering Lock — which the one-pending-request-per-group unique index
           would then REJECT, handing the couple an error for doing the only
           thing the screen offered. The deadline is the DB's own stamped value,
-          never a recomputed 7 days. */}
+          never a recomputed window. */}
       {actions.withdraw ? (
         <span className="vact note">
           <Hourglass size={12} strokeWidth={1.9} aria-hidden />

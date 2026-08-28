@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6292
+# facts: 6312
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     575
-#   col       4628
-#   policy    860
+#   tpriv     573
+#   col       4648
+#   policy    861
 #   view      8
-#   func      217
+#   func      218
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -88,11 +88,8 @@ tpriv	public.coordinator_broadcasts|anon	SD
 tpriv	public.coordinator_broadcasts|authenticated	SD
 tpriv	public.coordinator_feature_recommendations|authenticated	SIUD
 tpriv	public.couple_briefs|authenticated	SIUD
-tpriv	public.couple_event_type_notify_signups|anon	SIUD
 tpriv	public.couple_event_type_notify_signups|authenticated	SIUD
-tpriv	public.couple_waitlist_signups|anon	SIUD
 tpriv	public.couple_waitlist_signups|authenticated	SIUD
-tpriv	public.couple_wedding_type_notify_signups|anon	SIUD
 tpriv	public.couple_wedding_type_notify_signups|authenticated	SIUD
 tpriv	public.creator_chapters|anon	SIUD
 tpriv	public.creator_chapters|authenticated	SIUD
@@ -464,6 +461,7 @@ tpriv	public.vendor_correction_requests|authenticated	SIUD
 tpriv	public.vendor_coverages|anon	SIUD
 tpriv	public.vendor_coverages|authenticated	SIUD
 tpriv	public.vendor_creator_offers|authenticated	SIUD
+tpriv	public.vendor_credit_ledger|authenticated	S
 tpriv	public.vendor_custom_plans|anon	SIUD
 tpriv	public.vendor_custom_plans|authenticated	SIUD
 tpriv	public.vendor_date_waitlist|anon	SIUD
@@ -1056,34 +1054,34 @@ col	public.couple_briefs.expires_at	anon=- authenticated=SIU
 col	public.couple_briefs.status	anon=- authenticated=SIU
 col	public.couple_briefs.token_cost_per_submission	anon=- authenticated=SIU
 col	public.couple_briefs.updated_at	anon=- authenticated=SIU
-col	public.couple_event_type_notify_signups.created_at	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.email	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.event_type	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.notes	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.region	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.signup_id	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.user_id	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.created_at	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.email	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.full_name	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.ip_address	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.location_city	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.notified_at	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.partner_name	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.source	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.updated_at	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.user_agent	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.waitlist_id	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.wedding_date	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.ceremony_type_interested	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.created_at	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.email	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.expected_wedding_date	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.notes	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.notified_at	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.region	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.signup_id	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.user_id	anon=SIU authenticated=SIU
+col	public.couple_event_type_notify_signups.created_at	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.email	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.event_type	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.notes	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.region	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.signup_id	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.user_id	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.created_at	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.email	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.full_name	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.ip_address	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.location_city	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.notified_at	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.partner_name	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.source	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.updated_at	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.user_agent	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.waitlist_id	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.wedding_date	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.ceremony_type_interested	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.created_at	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.email	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.expected_wedding_date	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.notes	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.notified_at	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.region	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.signup_id	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.user_id	anon=- authenticated=SIU
 col	public.creator_chapters.body	anon=SIU authenticated=SIU
 col	public.creator_chapters.chapter_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.created_at	anon=SIU authenticated=SIU
@@ -4165,6 +4163,13 @@ col	public.vendor_creator_offers.refunded_at	anon=- authenticated=SIU
 col	public.vendor_creator_offers.responded_at	anon=- authenticated=SIU
 col	public.vendor_creator_offers.status	anon=- authenticated=SIU
 col	public.vendor_creator_offers.vendor_id	anon=- authenticated=SIU
+col	public.vendor_credit_ledger.balance_after_php	anon=- authenticated=S
+col	public.vendor_credit_ledger.balance_before_php	anon=- authenticated=S
+col	public.vendor_credit_ledger.created_at	anon=- authenticated=S
+col	public.vendor_credit_ledger.delta_php	anon=- authenticated=S
+col	public.vendor_credit_ledger.ledger_id	anon=- authenticated=S
+col	public.vendor_credit_ledger.reason	anon=- authenticated=S
+col	public.vendor_credit_ledger.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_custom_plans.composition	anon=SIU authenticated=SIU
 col	public.vendor_custom_plans.created_at	anon=SIU authenticated=SIU
 col	public.vendor_custom_plans.created_by	anon=SIU authenticated=SIU
@@ -4630,6 +4635,12 @@ col	public.vendor_profiles.microsite_video_ids	anon=- authenticated=SIU
 col	public.vendor_profiles.name_revealed_at	anon=- authenticated=SIU
 col	public.vendor_profiles.next_renewal_due_at	anon=- authenticated=SIU
 col	public.vendor_profiles.outer_radius_km	anon=- authenticated=SIU
+col	public.vendor_profiles.pending_tier	anon=- authenticated=SIU
+col	public.vendor_profiles.pending_tier_billing_cycle	anon=- authenticated=SIU
+col	public.vendor_profiles.pending_tier_period_days	anon=- authenticated=SIU
+col	public.vendor_profiles.pending_tier_purchase_id	anon=- authenticated=SIU
+col	public.vendor_profiles.pending_tier_scheduled_at	anon=- authenticated=SIU
+col	public.vendor_profiles.pending_tier_sku_code	anon=- authenticated=SIU
 col	public.vendor_profiles.portfolio_r2_keys	anon=- authenticated=SIU
 col	public.vendor_profiles.presentation_pattern	anon=- authenticated=SIU
 col	public.vendor_profiles.public_id	anon=S authenticated=SIU
@@ -4652,6 +4663,7 @@ col	public.vendor_profiles.show_team_bookings_in_backend_count	anon=- authentica
 col	public.vendor_profiles.social_feature_opt_out	anon=- authenticated=SIU
 col	public.vendor_profiles.social_featured_at	anon=- authenticated=SIU
 col	public.vendor_profiles.social_post_url	anon=- authenticated=SIU
+col	public.vendor_profiles.subscription_credit_php	anon=- authenticated=SIU
 col	public.vendor_profiles.supplier_categories	anon=- authenticated=SIU
 col	public.vendor_profiles.tagline	anon=S authenticated=SIU
 col	public.vendor_profiles.tier_billing_cycle	anon=- authenticated=SIU
@@ -5016,10 +5028,14 @@ col	public.vendor_subscriptions.addon_token_pack_sku	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.amount_php	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.billing_cycle	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.created_at	anon=SIU authenticated=SIU
+col	public.vendor_subscriptions.credit_applied_php	anon=SIU authenticated=SIU
+col	public.vendor_subscriptions.credit_carry_forward_php	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.expires_at	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.holder_user_id	anon=SIU authenticated=SIU
+col	public.vendor_subscriptions.list_price_php	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.paid_at	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.period_days	anon=SIU authenticated=SIU
+col	public.vendor_subscriptions.plan_change_kind	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.purchase_id	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.reference_code	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.rejection_reason	anon=SIU authenticated=SIU
@@ -5139,9 +5155,11 @@ col	public.vendor_web_dossiers.dossier	anon=SIU authenticated=SIU
 col	public.vendor_web_dossiers.error	anon=SIU authenticated=SIU
 col	public.vendor_web_dossiers.id	anon=SIU authenticated=SIU
 col	public.vendor_web_dossiers.inputs	anon=SIU authenticated=SIU
+col	public.vendor_web_dossiers.kind	anon=SIU authenticated=SIU
 col	public.vendor_web_dossiers.model	anon=SIU authenticated=SIU
 col	public.vendor_web_dossiers.requested_by	anon=SIU authenticated=SIU
 col	public.vendor_web_dossiers.status	anon=SIU authenticated=SIU
+col	public.vendor_web_dossiers.suggestion_dismissed_at	anon=SIU authenticated=SIU
 col	public.vendor_web_dossiers.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.venue_directory.amenities	anon=SIU authenticated=SIU
 col	public.venue_directory.capacity_max	anon=SIU authenticated=SIU
@@ -5320,12 +5338,12 @@ policy	public.coordinator_feature_recommendations|cfr_couple_update	mode=PERMISS
 policy	public.coordinator_feature_recommendations|cfr_moderator_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) AND (recommended_by_user_id = auth.uid()))
 policy	public.coordinator_feature_recommendations|cfr_moderator_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
 policy	public.couple_event_type_notify_signups|event_type_notify_signups_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
-policy	public.couple_event_type_notify_signups|event_type_notify_signups_insert	mode=PERMISSIVE cmd=INSERT roles=anon,authenticated using=NULL check=true
+policy	public.couple_event_type_notify_signups|event_type_notify_signups_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true
 policy	public.couple_waitlist_signups|couple_waitlist_signups_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.couple_waitlist_signups|couple_waitlist_signups_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=is_admin() check=is_admin()
-policy	public.couple_waitlist_signups|couple_waitlist_signups_public_insert	mode=PERMISSIVE cmd=INSERT roles=anon,authenticated using=NULL check=true
+policy	public.couple_waitlist_signups|couple_waitlist_signups_public_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true
 policy	public.couple_wedding_type_notify_signups|notify_signups_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=is_admin() check=is_admin()
-policy	public.couple_wedding_type_notify_signups|notify_signups_insert_any	mode=PERMISSIVE cmd=INSERT roles=anon,authenticated using=NULL check=true
+policy	public.couple_wedding_type_notify_signups|notify_signups_insert_any	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true
 policy	public.couple_wedding_type_notify_signups|notify_signups_read_own_or_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = auth.uid()) OR is_admin()) check=NULL
 policy	public.creator_chapters|admin_full_access_creator_chapters	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.creator_chapters|creator_owns_chapter	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = auth.uid()) check=(user_id = auth.uid())
@@ -5875,6 +5893,7 @@ policy	public.vendor_coverages|vendor_coverages_admin_read	mode=PERMISSIVE cmd=S
 policy	public.vendor_coverages|vendor_coverages_vendor_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_creator_offers|vendor_creator_offers_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.vendor_creator_offers|vendor_creator_offers_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) OR (creator_user_id = auth.uid()) OR is_admin()) check=NULL
+policy	public.vendor_credit_ledger|vendor_credit_ledger_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) OR is_console_admin()) check=NULL
 policy	public.vendor_custom_plans|vendor_custom_plans_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.vendor_custom_plans|vendor_custom_plans_vendor_access	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_date_waitlist|vendor_date_waitlist_couple_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(user_id = auth.uid())
@@ -6120,6 +6139,7 @@ func	public.call_rtc_can_access(p_topic text)	secdef=no exec=authenticated searc
 func	public.cancel_event_deletion_request(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_service_slot_reservation(p_reservation_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_lock_request(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.cancel_vendor_plan_change()	secdef=yes exec=authenticated search_path=""
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
 func	public.clear_vendor_payment_plan(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.compute_attribute_completeness(payload jsonb, schema jsonb)	secdef=no exec=anon,authenticated search_path=UNPINNED

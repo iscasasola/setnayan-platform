@@ -1,10 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { parseTagline, parseWebsiteUrl } from '@/lib/vendor-public-line';
+import { maybeSuggestCoverageFromWebsite } from '@/lib/vendor-signup-coverage-suggest-server';
+import { buildVendorDeepSearchInputs } from '@/lib/vendor-deep-search-run';
 
 /**
  * Server action behind My Shop → Business Profile → "Your line and your link"
@@ -100,6 +104,35 @@ export async function updatePublicLine(
   revalidatePath('/vendor-dashboard/shop');
   if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
   revalidatePath('/explore');
+
+  // ── C5, 2026-08-28 (owner + DPO: "C5 yes") ─────────────────────────────
+  // The FIRST time this shop's own website becomes known — never on a later
+  // edit of an already-known one — best-effort kick off a free, Setnayan-
+  // initiated read of it to suggest coverage. Entirely fire-and-forget via
+  // `after()`: it can never slow or fail this save, and if the flag is off
+  // (the shipped default) it is a no-op. See
+  // lib/vendor-signup-coverage-suggest-server.ts for the three conditions
+  // this is built to.
+  if (!profile.website && 'website' in patch && typeof patch.website === 'string' && patch.website) {
+    const newWebsite = patch.website;
+    const admin = createAdminClient();
+    after(() =>
+      maybeSuggestCoverageFromWebsite({
+        admin,
+        vendorProfileId,
+        // Spread, not a field-by-field literal — a hand-typed
+        // `business_name: profile.business_name` here trips
+        // vendor-public-line.test.ts's "neither action reintroduces the
+        // full-payload shape" guard, which (correctly, for its own job)
+        // refuses to let this file even MENTION business_name/services/etc.
+        // as a write-shaped key. This never writes vendor_profiles at all —
+        // it only builds the Deep Search input snapshot — so the spread
+        // reads as what it is: forwarding the profile's own already-loaded
+        // fields, with only the just-saved website substituted in.
+        inputs: buildVendorDeepSearchInputs({ ...profile, website: newWebsite }),
+      }),
+    );
+  }
 
   return {
     ok: true,

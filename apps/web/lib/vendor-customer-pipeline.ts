@@ -21,8 +21,10 @@
  * database. Read out of production by the object (2026-08-28),
  * `event_vendors.lock_request_state` is TEXT, its CHECK admits exactly
  * `pending · agreed · declined · cancelled · expired`, and the window it is
- * enforced on is the MATERIALIZED `lock_request_expires_at` (~7 days), not 48
- * hours. Building the screen from the spec would have typechecked, demoed
+ * enforced on is the MATERIALIZED `lock_request_expires_at`. ⚖ THAT WINDOW IS
+ * NOW 48 HOURS — owner ruling 2026-08-28, which closed the gap this paragraph
+ * was written to report: the spec had always said 48 hours and the shipped
+ * trigger stamped seven days. Building the screen from the spec would have typechecked, demoed
  * perfectly, and been wrong about which couples are booked.
  *
  * THE MAP, WRITTEN DOWN ONCE SO NOBODY RE-DERIVES IT:

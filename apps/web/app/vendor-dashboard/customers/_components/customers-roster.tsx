@@ -6,7 +6,7 @@ import {
   type CustomerLane,
   type PipelineCustomer,
 } from '@/lib/vendor-customer-pipeline';
-import { lockRequestDaysLeft } from '@/lib/lock-request-state';
+import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { ShopEmpty } from '../../_components/kit';
 
 /**
@@ -120,14 +120,16 @@ function ageLabel(r: RosterRow, now: number): string | null {
 
 /**
  * The fuse on a booking ask, from the MATERIALIZED deadline the trigger stamped
- * — the number shown is the number enforced. A lapsed ask floors at 0 and says
- * "last day", exactly as the Answers Desk card does; the two must not disagree.
+ * — the number shown is the number enforced.
+ *
+ * 🔑 THE PHRASING IS THE SHARED ONE. This used to word it itself ("last day to
+ * answer", "2 days left") beside two other surfaces wording it two other ways,
+ * which is how three screens come to disagree about one deadline. The window is
+ * 48 hours (owner 2026-08-28), so it counts in HOURS below a day.
  */
 function fuseLabel(r: RosterRow, now: Date): string | null {
   if (r.waitingKind !== 'booking_ask') return null;
-  const left = lockRequestDaysLeft(r.expiresAt, now);
-  if (left === null) return null;
-  return left === 0 ? 'last day to answer' : `${left} day${left === 1 ? '' : 's'} left`;
+  return lockRequestFuseLabel(r.expiresAt, now);
 }
 
 export function CustomersRoster({

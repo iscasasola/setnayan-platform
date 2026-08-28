@@ -18,6 +18,21 @@ import {
   type PaymentStatus,
 } from '@/lib/orders';
 import {
+  ONBOARDING_SERVICES_SKU,
+  readOnboardingOrderItems,
+} from '@/lib/onboarding-order-items';
+import { SETNAYAN_AI_SKU, resolveSetnayanAiTypePricePhp } from '@/lib/setnayan-ai-event-pricing';
+import { MONEY_STATUSES } from '@/lib/payment-reference-match';
+import {
+  deskBillLineLabel,
+  deskDuplicateVerdict,
+  summarizeDeskMoney,
+  type DeskBillLine,
+  type DeskDuplicate,
+} from '@/lib/admin-payment-desk';
+import { eventTypeLabel } from '@/lib/demand-radar';
+import { formatEventDate } from '@/lib/events';
+import {
   approvePayment,
   batchApprovePayments,
   confirmOrderTotal,
@@ -249,6 +264,15 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   // the promise and the queue position cannot drift apart.
   const sameDayOrderIds = await fetchSameDayOrderIds(admin, payments);
 
+  // ── WHAT THE CARD MUST BE ABLE TO SAY (owner 2026-08-28) ──────────────────
+  // "we should also know what they ordered and what event and what they will
+  // get" · "used a discount. what they get. the amount that should be sent."
+  // Three batched reads, each with its OWN failure story said out loud on the
+  // card — a silently empty bill is something an admin might approve against.
+  const eventInfo = await fetchOrderEventInfo(admin, payments);
+  const deskBills = await fetchDeskBills(admin, payments, eventInfo.byEventId);
+  const dupExposure = await fetchDuplicateExposure(admin, payments);
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <PageMasthead
@@ -338,6 +362,9 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           payments={payments}
           screenshotUrlMap={screenshotUrlMap}
           sameDayOrderIds={sameDayOrderIds}
+          eventInfo={eventInfo}
+          deskBills={deskBills}
+          dupExposure={dupExposure}
         />
       )}
     </div>
@@ -510,8 +537,17 @@ function PaymentsList({
   payments,
   screenshotUrlMap,
   sameDayOrderIds,
+  eventInfo,
+  deskBills,
+  dupExposure,
 }: {
   payments: PaymentJoined[];
+  /** Which celebration each order belongs to — see fetchOrderEventInfo. */
+  eventInfo: OrderEventInfoResult;
+  /** Itemised bill per order_id — see fetchDeskBills. */
+  deskBills: Map<string, DeskBill>;
+  /** Reference collisions per pending payment_id — see fetchDuplicateExposure. */
+  dupExposure: DuplicateExposureResult;
   /**
    * order_ids whose event is TODAY in Manila. Resolved in the page (async) and
    * passed down because this component is synchronous — and passed as a SET of
@@ -560,24 +596,34 @@ function PaymentsList({
   // an order for an event happening TODAY jumps the whole queue, above even a
   // clean match, because a clean match on next month's wedding can wait and this
   // cannot. Read here rather than joined so a failure costs the ORDERING only.
-  const decorated = payments.map((p) => ({
-    p,
-    sameDay: sameDayOrderIds.has(p.order_id),
-    decisive:
-      p.status === 'pending' &&
-      isDecisivePaymentMatch({
-        referenceNumber: p.reference_number,
-        referenceCode: p.order?.reference_code ?? null,
-        amountPhp: p.amount_php,
-        requestedTotalPhp: p.order?.requested_total_php ?? null,
-        confirmedTotalPhp: p.order?.confirmed_total_php ?? null,
-        voucherDiscountPhp:
-          p.order?.voucher_discount_centavos != null
-            ? Number(p.order.voucher_discount_centavos) / 100
-            : 0,
-        serviceKey: p.order?.service_key ?? null,
-      }),
-  }));
+  const decorated = payments.map((p) => {
+    // A reference collision known BEFORE the click. Computed with the same
+    // rule approvePaymentCore consults, so the card and the refusal agree.
+    const dup = p.status === 'pending' ? (dupExposure.byPaymentId.get(p.payment_id) ?? null) : null;
+    return {
+      p,
+      sameDay: sameDayOrderIds.has(p.order_id),
+      dup,
+      decisive:
+        p.status === 'pending' &&
+        // A collided row is never one-click/batch material — the core would
+        // refuse or warn anyway; sending it through the full confirm form is
+        // what puts the informed acknowledgement in front of the admin.
+        dup === null &&
+        isDecisivePaymentMatch({
+          referenceNumber: p.reference_number,
+          referenceCode: p.order?.reference_code ?? null,
+          amountPhp: p.amount_php,
+          requestedTotalPhp: p.order?.requested_total_php ?? null,
+          confirmedTotalPhp: p.order?.confirmed_total_php ?? null,
+          voucherDiscountPhp:
+            p.order?.voucher_discount_centavos != null
+              ? Number(p.order.voucher_discount_centavos) / 100
+              : 0,
+          serviceKey: p.order?.service_key ?? null,
+        }),
+    };
+  });
   // Stable sort, two keys in priority order: TODAY's events first (the clock is
   // the constraint), then clean matches (speed of clearing). Stable, so anything
   // tied keeps the created_at order the query already applied.
@@ -603,7 +649,7 @@ function PaymentsList({
       <BatchApproveBar action={batchApprovePayments} totalCleanMatches={totalCleanMatches} />
       <div className="sn-tile">
       <ul className="space-y-3">
-      {ordered.map(({ p, decisive, sameDay }) => {
+      {ordered.map(({ p, decisive, sameDay, dup }) => {
         // Did the couple put OUR order code in their transfer note?
         //
         // ⚠ Since the per-order payment QR shipped (2026-07-31) this is rarely
@@ -664,11 +710,35 @@ function PaymentsList({
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-medium text-ink">{p.order.description}</p>
                 {p.order.service_key ? (
-                  <span className="rounded bg-ink/[0.06] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
-                    {p.order.service_key}
+                  /* A raw machine code is our word, not the owner's. Say what a
+                     person reads; keep the code reachable on hover. */
+                  <span
+                    title={p.order.service_key}
+                    className="rounded bg-ink/[0.06] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55"
+                  >
+                    {p.order.service_key === ONBOARDING_SERVICES_SKU
+                      ? 'Bought while creating their event'
+                      : deskBills.get(p.order_id)?.kind === 'single'
+                        ? (deskBills.get(p.order_id) as Extract<DeskBill, { kind: 'single' }>).line
+                            .label
+                        : p.order.service_key}
                   </span>
                 ) : null}
               </div>
+            ) : null}
+
+            <CelebrationLine
+              eventId={p.order?.event_id ?? null}
+              info={p.order?.event_id ? (eventInfo.byEventId.get(p.order.event_id) ?? null) : null}
+              readFailed={eventInfo.failed}
+            />
+
+            {p.order ? (
+              <DeskMoneyBlock
+                bill={deskBills.get(p.order_id) ?? { kind: 'none' }}
+                order={p.order}
+                transferredPhp={p.amount_php}
+              />
             ) : null}
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -689,12 +759,12 @@ function PaymentsList({
             </div>
 
             {p.order ? (
+              /* The numbers moved into the money block above, which quotes the
+                 SAME "amount to send" the approval guard checks. Repeating the
+                 raw stored total here (pre-voucher when unconfirmed) put a
+                 second, sometimes different figure one line away from it. */
               <p className="text-xs text-ink/65">
-                Order total:{' '}
-                <span className="font-mono">
-                  {formatPhp(p.order.confirmed_total_php ?? p.order.requested_total_php)}
-                </span>
-                {' · status '}
+                Order status{' '}
                 <span className="font-mono">{ORDER_STATUS_LABEL[p.order.status]}</span>
                 {noteCarriesOrderCode ? (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-success-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-success)]">
@@ -790,21 +860,58 @@ function PaymentsList({
                       Also mark order as paid
                     </label>
                     {/*
-                      Unticked by default, and only ever meaningful after the
-                      admin has been REFUSED once and read the warning naming
-                      the other order. 🔑 It cannot unlock the same-order case —
-                      one transfer counted twice against one bill is refused in
-                      the core no matter what this box says, because the
-                      shortfall guard would add it up into a false "fully paid".
+                      THE ACKNOWLEDGEMENT ONLY RENDERS WHEN THERE IS SOMETHING
+                      TO ACKNOWLEDGE (owner 2026-08-28: "the bank will not tell
+                      us that it did. so i don't have any basis to know if it
+                      matched so i cannot approve it"). On a card with no
+                      collision it was a question with no evidence on screen.
+                      `dup` is derived with the SAME rule approvePaymentCore
+                      consults, so the box appears exactly when the guard would
+                      warn — and it names the other order, so the tick is an
+                      informed one. Unticked by default, always. 🔑 It cannot
+                      unlock the same-order case — one transfer counted twice
+                      against one bill is refused in the core no matter what
+                      this box says, because the shortfall guard would add it
+                      up into a false "fully paid".
                     */}
-                    <label className="flex items-center gap-2 text-xs text-ink/65">
-                      <input
-                        type="checkbox"
-                        name="acknowledge_duplicate"
-                        className="h-4 w-4 cursor-pointer accent-terracotta"
-                      />
-                      One transfer really covers two orders — I checked the bank
-                    </label>
+                    {dup?.kind === 'other_order' ? (
+                      <label className="flex items-start gap-2 rounded-md border border-[color:var(--sn-warning)] bg-[var(--sn-warning-soft)] p-2 text-xs text-[color:var(--sn-warning-deep)]">
+                        <input
+                          type="checkbox"
+                          name="acknowledge_duplicate"
+                          className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+                        />
+                        <span>
+                          This reference is already counted on order{' '}
+                          <span className="font-mono font-semibold">
+                            {dup.otherOrderPublicId ?? 'another order'}
+                          </span>
+                          {dup.otherAmountPhp != null ? (
+                            <> ({formatPhp(dup.otherAmountPhp)} counted there)</>
+                          ) : null}
+                          . Tick only if one transfer really covers both — check the bank first.
+                        </span>
+                      </label>
+                    ) : dup?.kind === 'same_order' ? (
+                      <p className="rounded-md border border-[color:var(--sn-warning)] bg-[var(--sn-warning-soft)] p-2 text-xs text-[color:var(--sn-warning-deep)]">
+                        This reference is already counted on THIS order. Approving it again would
+                        count one transfer twice, so the approval will be refused — there is no
+                        override for this case.
+                      </p>
+                    ) : dupExposure.failed ? (
+                      /* The collision check could not run — the approval guard
+                         will refuse with its own message, but the way out of
+                         that refusal needs the box to exist. Say why it shows. */
+                      <label className="flex items-center gap-2 text-xs text-ink/65">
+                        <input
+                          type="checkbox"
+                          name="acknowledge_duplicate"
+                          className="h-4 w-4 cursor-pointer accent-terracotta"
+                        />
+                        One transfer really covers two orders — I checked the bank (we could not
+                        check past payments automatically just now)
+                      </label>
+                    ) : null}
                     <SubmitButton
                       className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
                       pendingLabel="Approving…"
@@ -1013,6 +1120,441 @@ function Stat({ label, value, mono = false }: { label: string; value: string; mo
       </dd>
     </div>
   );
+}
+
+// ─── WHICH CELEBRATION (owner 2026-08-28: "what event") ──────────────────────
+
+type OrderEventInfo = {
+  publicId: string;
+  displayName: string;
+  eventType: string | null;
+  eventDate: string | null;
+};
+
+type OrderEventInfoResult = {
+  /** keyed by event_id. */
+  byEventId: Map<string, OrderEventInfo>;
+  /** True when the read itself failed — the card says so instead of a blank. */
+  failed: boolean;
+};
+
+/**
+ * The event behind each order on screen — name, type, date — in one batched
+ * read. `orders.event_id` was already selected on this page and used only to
+ * ring same-day rows; nothing ever rendered WHICH celebration the money was
+ * for.
+ *
+ * Distinct from fetchSameDayOrderIds on purpose: that one degrades to an empty
+ * set because losing it costs only ORDERING. Losing THIS must be said on the
+ * card ("could not read"), because "no celebration" is also a legitimate state
+ * (plenty of orders are not event-scoped) and the two must never look alike.
+ */
+async function fetchOrderEventInfo(
+  admin: ReturnType<typeof createAdminClient>,
+  payments: readonly PaymentJoined[],
+): Promise<OrderEventInfoResult> {
+  const ids = [...new Set(payments.map((p) => p.order?.event_id).filter((v): v is string => !!v))];
+  const byEventId = new Map<string, OrderEventInfo>();
+  if (ids.length === 0) return { byEventId, failed: false };
+  const { data, error } = await admin
+    .from('events')
+    .select('event_id, public_id, display_name, event_type, event_date')
+    .in('event_id', ids);
+  if (error || !Array.isArray(data)) return { byEventId, failed: true };
+  for (const row of data) {
+    const r = row as {
+      event_id: string;
+      public_id: string;
+      display_name: string | null;
+      event_type: string | null;
+      event_date: string | null;
+    };
+    byEventId.set(r.event_id, {
+      publicId: r.public_id,
+      displayName: (r.display_name ?? '').trim() || r.public_id,
+      eventType: r.event_type,
+      eventDate: r.event_date,
+    });
+  }
+  return { byEventId, failed: false };
+}
+
+/**
+ * One line saying which celebration this money is for — or saying, plainly,
+ * why there isn't one. Three states that must never look alike (the same
+ * principle as buyerLabel above): not event-scoped is INTENT, a failed read is
+ * a fault, and a missing row means the celebration was removed.
+ */
+function CelebrationLine({
+  eventId,
+  info,
+  readFailed,
+}: {
+  eventId: string | null;
+  info: OrderEventInfo | null;
+  readFailed: boolean;
+}) {
+  if (!eventId) {
+    return (
+      <p className="text-xs text-ink/55">
+        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">For</span>{' '}
+        Not tied to a celebration — an account-level purchase.
+      </p>
+    );
+  }
+  if (!info) {
+    return (
+      <p className="text-xs text-[color:var(--sn-warning-deep)]">
+        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">For</span>{' '}
+        {readFailed
+          ? 'Could not read which celebration this is for — reload before approving.'
+          : 'The celebration on this bill no longer exists.'}
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs text-ink/65">
+      <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">For</span>{' '}
+      <span className="font-medium text-ink">{info.displayName}</span>
+      {info.eventType ? <> · {eventTypeLabel(info.eventType)}</> : null}
+      {' · '}
+      {/* A NULL date must read as intent, never as a blank or a dash that looks
+          like a broken join — same rule as buyerLabel. */}
+      {info.eventDate ? formatEventDate(info.eventDate) : 'no date set'}
+      {' · '}
+      <a
+        className="text-link underline-offset-2 hover:underline"
+        href={`/admin/accounts?tab=events&q=${encodeURIComponent(info.publicId)}`}
+      >
+        Open event
+      </a>
+    </p>
+  );
+}
+
+// ─── WHAT THEY BOUGHT + THE MONEY (owner 2026-08-28) ─────────────────────────
+
+/**
+ * What the bill covers, per order:
+ *   • 'lines'      — an onboarding BASKET, itemised from its own line rows.
+ *   • 'single'     — an ordinary one-product order, titled from the catalog.
+ *   • 'none'       — a legacy ad-hoc order with no product key; the money block
+ *                    still renders (owed comes from the order row itself).
+ *   • 'unreadable' — a basket whose lines could not be read. Said out loud —
+ *                    a silently empty bill is something an admin might approve
+ *                    against.
+ */
+type DeskBill =
+  | { kind: 'lines'; lines: DeskBillLine[] }
+  | { kind: 'single'; line: DeskBillLine }
+  | { kind: 'none' }
+  | { kind: 'unreadable' };
+
+/**
+ * Itemise every order on screen.
+ *
+ * 🔑 REUSES THE ONE AUTHORITY for basket lines — readOnboardingOrderItems
+ * (activation, reversal and ownership already read it; a desk with its own
+ * read would be the second copy that drifts). Titles + retail prices come from
+ * the catalog in one batched read, in the same shape the customer's own pay
+ * page renders (lib/payable-by-reference.ts).
+ *
+ * Setnayan AI's REGULAR price is per event type (lib/setnayan-ai-type-pricing),
+ * so its catalog retail (the wedding tier) would overstate the saving on every
+ * other type — resolved per type via the display helper, cached per type, and
+ * left null (no saving claimed) when the event's type is unknown.
+ */
+async function fetchDeskBills(
+  admin: ReturnType<typeof createAdminClient>,
+  payments: readonly PaymentJoined[],
+  eventsById: ReadonlyMap<string, OrderEventInfo>,
+): Promise<Map<string, DeskBill>> {
+  const out = new Map<string, DeskBill>();
+  // Distinct orders on screen (several payments can share one order).
+  const orders = new Map<string, NonNullable<PaymentJoined['order']>>();
+  for (const p of payments) {
+    if (p.order && !orders.has(p.order_id)) orders.set(p.order_id, p.order);
+  }
+  if (orders.size === 0) return out;
+
+  const basketIds = [...orders.entries()]
+    .filter(([, o]) => o.service_key === ONBOARDING_SERVICES_SKU)
+    .map(([id]) => id);
+  const itemsByOrder = new Map<string, Awaited<ReturnType<typeof readOnboardingOrderItems>>>();
+  await Promise.all(
+    basketIds.map(async (id) => {
+      itemsByOrder.set(id, await readOnboardingOrderItems(admin, id));
+    }),
+  );
+
+  // Every service code the cards will name.
+  const codes = new Set<string>();
+  for (const items of itemsByOrder.values()) for (const i of items) codes.add(i.serviceCode);
+  for (const o of orders.values()) {
+    if (o.service_key && o.service_key !== ONBOARDING_SERVICES_SKU) codes.add(o.service_key);
+  }
+  const titleFor = new Map<string, string>();
+  const retailFor = new Map<string, number>();
+  if (codes.size > 0) {
+    const { data, error } = await admin
+      .from('platform_retail_catalog_v2')
+      .select('service_code, title, retail_price_php')
+      .in('service_code', [...codes]);
+    // A failed catalog read degrades to raw codes with NO retail column — the
+    // bill still itemises off its own stored lines; only the "normally" figures
+    // and the saving line go quiet (regularPhp stays null → no claim invented).
+    if (!error && Array.isArray(data)) {
+      for (const row of data) {
+        const r = row as { service_code?: string; title?: string; retail_price_php?: number };
+        if (!r.service_code) continue;
+        if (typeof r.title === 'string' && r.title.trim()) titleFor.set(r.service_code, r.title);
+        const retail = Number(r.retail_price_php);
+        if (Number.isFinite(retail) && retail > 0) retailFor.set(r.service_code, retail);
+      }
+    }
+  }
+
+  // Per-event-type regular price for Setnayan AI, cached per type.
+  const aiRegularByType = new Map<string, number>();
+  const aiRegularFor = async (eventType: string | null): Promise<number | null> => {
+    if (!eventType) return null;
+    const hit = aiRegularByType.get(eventType);
+    if (hit != null) return hit;
+    // Display helper by design — never the charge path (this is a screen).
+    const php = await resolveSetnayanAiTypePricePhp(admin, eventType, 'regular');
+    aiRegularByType.set(eventType, php);
+    return php;
+  };
+
+  for (const [orderId, o] of orders) {
+    const eventType = o.event_id ? (eventsById.get(o.event_id)?.eventType ?? null) : null;
+    if (o.service_key === ONBOARDING_SERVICES_SKU) {
+      const items = itemsByOrder.get(orderId) ?? [];
+      if (items.length === 0) {
+        // Could be a failed read or a genuinely empty basket — readOnboarding-
+        // OrderItems keeps those apart from nobody on purpose. Either way a
+        // basket with no visible lines is not something to approve against.
+        out.set(orderId, { kind: 'unreadable' });
+        continue;
+      }
+      const lines: DeskBillLine[] = [];
+      for (const i of items) {
+        const regularUnit =
+          i.serviceCode === SETNAYAN_AI_SKU
+            ? await aiRegularFor(eventType)
+            : (retailFor.get(i.serviceCode) ?? null);
+        lines.push({
+          serviceCode: i.serviceCode,
+          label: deskBillLineLabel(titleFor.get(i.serviceCode), i.serviceCode, i.quantity),
+          quantity: i.quantity,
+          chargedPhp: i.unitPricePhp * i.quantity,
+          regularPhp: regularUnit != null ? regularUnit * i.quantity : null,
+        });
+      }
+      out.set(orderId, { kind: 'lines', lines });
+    } else if (o.service_key) {
+      const chargedPhp = Number(o.confirmed_total_php ?? o.requested_total_php);
+      const regularPhp =
+        o.service_key === SETNAYAN_AI_SKU
+          ? await aiRegularFor(eventType)
+          : (retailFor.get(o.service_key) ?? null);
+      out.set(orderId, {
+        kind: 'single',
+        line: {
+          serviceCode: o.service_key,
+          label: deskBillLineLabel(titleFor.get(o.service_key), o.service_key, 1),
+          quantity: 1,
+          chargedPhp,
+          regularPhp,
+        },
+      });
+    } else {
+      out.set(orderId, { kind: 'none' });
+    }
+  }
+  return out;
+}
+
+/**
+ * The money, top to bottom, in the Ledger register (mono figures, right-aligned
+ * column): what each line normally costs → what the sign-up discount took off →
+ * any voucher → AMOUNT TO SEND → what the buyer actually transferred → the
+ * difference.
+ *
+ * 🔒 The AMOUNT TO SEND is summarizeDeskMoney's `owedPhp`, which is
+ * orderGrossOwed with the shortfall guard's own arguments — this card can never
+ * quote a figure the guard would then refuse.
+ */
+function DeskMoneyBlock({
+  bill,
+  order,
+  transferredPhp,
+}: {
+  bill: DeskBill;
+  order: NonNullable<PaymentJoined['order']>;
+  transferredPhp: number;
+}) {
+  const lines: DeskBillLine[] =
+    bill.kind === 'lines' ? bill.lines : bill.kind === 'single' ? [bill.line] : [];
+  const money = summarizeDeskMoney({
+    lines,
+    requestedTotalPhp: order.requested_total_php,
+    confirmedTotalPhp: order.confirmed_total_php,
+    voucherDiscountCentavos: order.voucher_discount_centavos,
+    serviceKey: order.service_key,
+    transferredPhp,
+  });
+  const row = 'flex items-baseline justify-between gap-3';
+  const num = 'shrink-0 text-right font-mono';
+  return (
+    <div className="rounded-md border border-ink/10 bg-ink/[0.02] p-3">
+      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+        What this bill covers
+      </p>
+      {bill.kind === 'unreadable' ? (
+        <p className="mt-1 rounded-md border border-[color:var(--sn-warning)] bg-[var(--sn-warning-soft)] p-2 text-xs text-[color:var(--sn-warning-deep)]">
+          Could not read what&rsquo;s on this bill. Do not approve against a blank bill — reload,
+          and if it stays blank, this is a fault on our side.
+        </p>
+      ) : null}
+      <dl className="mt-1 space-y-0.5 text-sm">
+        {lines.map((l) => (
+          <div key={l.serviceCode} className={row}>
+            <dt className="min-w-0 text-ink/75">{l.label}</dt>
+            {/* Each line shows what it NORMALLY costs; the discount row below
+                takes the difference off, landing on the amount to send. */}
+            <dd className={`${num} text-ink`}>{formatPhp(l.regularPhp ?? l.chargedPhp)}</dd>
+          </div>
+        ))}
+        {money.signupSavingPhp > 0 ? (
+          <div className={row}>
+            <dt className="text-ink/75">Sign-up discount</dt>
+            <dd className={`${num} text-ink`}>−{formatPhp(money.signupSavingPhp)}</dd>
+          </div>
+        ) : null}
+        {money.voucherPhp > 0 ? (
+          <div className={row}>
+            <dt className="text-ink/75">
+              Voucher
+              {money.voucherInsideConfirmedTotal ? (
+                <span className="text-ink/50"> (already in the confirmed total)</span>
+              ) : null}
+            </dt>
+            <dd className={`${num} text-ink`}>
+              {money.voucherInsideConfirmedTotal ? '' : '−'}
+              {formatPhp(money.voucherPhp)}
+            </dd>
+          </div>
+        ) : null}
+        <div className={`${row} border-t border-ink/10 pt-1`}>
+          <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
+            Amount to send
+          </dt>
+          <dd className={`${num} font-semibold text-ink`}>{formatPhp(money.owedPhp)}</dd>
+        </div>
+        <div className={row}>
+          <dt className="text-ink/75">They transferred</dt>
+          <dd className={`${num} text-ink`}>{formatPhp(money.transferredPhp)}</dd>
+        </div>
+      </dl>
+      {money.verdict === 'exact' ? (
+        <p className="mt-1 text-xs font-medium text-[color:var(--sn-success-deep)]">
+          Covers the amount to send exactly.
+        </p>
+      ) : money.verdict === 'short' ? (
+        <p className="mt-1 text-xs font-medium text-[color:var(--sn-warning-deep)]">
+          {formatPhp(Math.abs(money.deltaPhp))} short of the amount to send.
+        </p>
+      ) : (
+        <p className="mt-1 text-xs font-medium text-[color:var(--sn-warning-deep)]">
+          {formatPhp(money.deltaPhp)} more than the amount to send.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── REFERENCE COLLISIONS, KNOWN BEFORE THE CLICK (owner 2026-08-28) ─────────
+
+/** What the card renders about a collision — enriched for naming. */
+type CardDuplicate =
+  | { kind: 'same_order' }
+  | { kind: 'other_order'; otherOrderPublicId: string | null; otherAmountPhp: number | null };
+
+type DuplicateExposureResult = {
+  byPaymentId: Map<string, CardDuplicate>;
+  /** True when the collision read failed — the generic checkbox renders so the
+      guard's own refusal message still has a box to point at. */
+  failed: boolean;
+};
+
+/**
+ * Which pending payments' references collide with money already counted.
+ *
+ * DERIVED THE SAME WAY approvePaymentCore derives it — the same MONEY_STATUSES
+ * read, the same classifyDuplicate rule (via deskDuplicateVerdict) — so the
+ * checkbox appears exactly when the guard would warn, and never otherwise. The
+ * guard's read is unbounded for the same reason this one is: a duplicate check
+ * with a window is a duplicate check with a blind spot.
+ */
+async function fetchDuplicateExposure(
+  admin: ReturnType<typeof createAdminClient>,
+  payments: readonly PaymentJoined[],
+): Promise<DuplicateExposureResult> {
+  const byPaymentId = new Map<string, CardDuplicate>();
+  const pending = payments.filter((p) => p.status === 'pending' && p.reference_number);
+  if (pending.length === 0) return { byPaymentId, failed: false };
+
+  const { data, error } = await admin
+    .from('payments')
+    .select('payment_id, order_id, reference_number, amount_php, status, order:orders(public_id)')
+    .in('status', MONEY_STATUSES);
+  if (error || !Array.isArray(data)) return { byPaymentId, failed: true };
+
+  const priors = data.map((row) => {
+    // `as unknown` first: PostgREST's generated type for the `order` embed is
+    // an ARRAY even though this FK join returns at most one row — the same
+    // cast every other embed on this page already uses.
+    const r = row as unknown as {
+      payment_id: string;
+      order_id: string;
+      reference_number: string | null;
+      amount_php: number;
+      status: string;
+      order: { public_id: string } | null;
+    };
+    return {
+      paymentId: r.payment_id,
+      orderId: r.order_id,
+      referenceNumber: r.reference_number,
+      status: r.status,
+      amountPhp: Number(r.amount_php),
+      orderPublicId: r.order?.public_id ?? null,
+    };
+  });
+  const priorById = new Map(priors.map((r) => [r.paymentId, r]));
+
+  for (const p of pending) {
+    const verdict: DeskDuplicate | null = deskDuplicateVerdict({
+      referenceNumber: p.reference_number,
+      orderId: p.order_id,
+      // Mirror the guard's `.neq('payment_id', me)` — moot while matched rows
+      // can never be pending, kept so the two reads stay the same shape.
+      priors: priors.filter((r) => r.paymentId !== p.payment_id),
+    });
+    if (!verdict) continue;
+    if (verdict.kind === 'same_order') {
+      byPaymentId.set(p.payment_id, { kind: 'same_order' });
+    } else {
+      const prior = priorById.get(verdict.priorPaymentId);
+      byPaymentId.set(p.payment_id, {
+        kind: 'other_order',
+        otherOrderPublicId: prior?.orderPublicId ?? null,
+        otherAmountPhp: prior?.amountPhp ?? null,
+      });
+    }
+  }
+  return { byPaymentId, failed: false };
 }
 
 

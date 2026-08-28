@@ -31,6 +31,7 @@ import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor } from '@/lib/order-mint-identity';
 import { vendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import { notifyAdminsSubscriptionPending } from '@/lib/subscription-purchase-notify';
+import { termTooShortMessage } from '@/lib/vendor-plan-change-words';
 
 const ERR = (msg: string) =>
   redirect('/vendor-dashboard/subscription?error=' + encodeURIComponent(msg));
@@ -86,6 +87,29 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
     if (m.includes('INVALID_SKU') || m.includes('UNMAPPED_SKU_TIER')) {
       ERR('That plan is no longer available. Refresh and try again.');
     }
+    // A purchase may never be shorter than the time the shop already holds
+    // (owner 2026-08-27). The picker disables the too-short option, so this is
+    // the backstop for a stale page or a hand-posted form — but it is the SERVER
+    // that decides, and a shop that gets here still reads a sentence naming the
+    // day they are paid up to, never a raw code.
+    //
+    // ⚠ The date is read off the ORIGINAL message, not the upper-cased copy: the
+    // `m` above is `.toUpperCase()`, which is fine for matching a code and wrong
+    // for extracting anything.
+    if (m.includes('TERM_TOO_SHORT')) {
+      const day = /(\d{4}-\d{2}-\d{2})/.exec(error.message ?? '')?.[1] ?? null;
+      ERR(termTooShortMessage(day));
+    }
+    // Only one plan change may be waiting to be paid at a time. Two open changes
+    // could each be quoted against the same money the shop is holding, and each
+    // be honoured — so the second is refused here rather than the balance being
+    // reserved at order time and then having to be given back.
+    if (m.includes('ONE_PLAN_CHANGE_PENDING')) {
+      ERR(
+        'You already have a plan change waiting to be paid. Pay that one first, ' +
+          'or switch back to your current plan, then you can start another.',
+      );
+    }
     ERR("We couldn't start that upgrade right now. Please try again.");
   }
 
@@ -126,7 +150,29 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
     .select('title')
     .eq('sku_code', skuCode)
     .maybeSingle();
+  // 🔑 THE PRORATED FIGURE IS THE ORDER'S FIGURE. `amount_php` is what the RPC
+  // decided the shop owes — list price minus whatever credit it applied — and it
+  // is mirrored straight into `requested_total_php` below. That matters because
+  // reconciliation compares a payment against THE ORDER'S OWN amount and never
+  // re-derives a list price from the catalog: if the order carried the list
+  // price instead, every prorated plan change would arrive looking like a short
+  // payment and be refused. Nothing here may substitute a catalog price for it.
   const amountPhp = Number(row?.amount_php ?? 0);
+
+  // ── NOTHING LEFT TO PAY ───────────────────────────────────────────────────
+  // When the shop's own credit covers the whole bill, the database applies the
+  // change on the spot and hands back a row that is already `paid`. There is no
+  // money to reconcile, so there must be no order, no admin alert, and above all
+  // no payment-instructions screen: sending somebody to pay ₱0 with a reference
+  // number reads as a broken product.
+  const alreadyPaid =
+    row && typeof row.status === 'string' && row.status === 'paid';
+  if (alreadyPaid) {
+    revalidatePath('/vendor-dashboard/subscription');
+    revalidatePath('/vendor-dashboard');
+    redirect('/vendor-dashboard/subscription?applied=1');
+  }
+
   let payPath: string | null = null;
   if (purchaseId && ref && vendorId && Number.isFinite(amountPhp) && amountPhp > 0) {
     try {
@@ -160,6 +206,42 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
   // The shared payment page when we have one, otherwise exactly what shipped
   // before — the plan screen's own instructions panel.
   redirect(payPath ?? '/vendor-dashboard/subscription?ordered=' + encodeURIComponent(ref ?? ''));
+}
+
+/**
+ * Call off a scheduled plan change — the inverse of starting one.
+ *
+ * 🔑 A FORWARD PRIMITIVE WITH NO INVERSE TRAPS PEOPLE. A shop that schedules a
+ * move down and then changes its mind must be able to say so; without this the
+ * only way back would be an admin doing it for them, which nothing tells them
+ * to ask for.
+ *
+ * What they paid is NOT lost. `cancel_vendor_plan_change` moves it onto their
+ * account as money waiting for the next bill, because it is money they have
+ * already handed over and a change of mind is not a reason to keep it.
+ *
+ * The shop is resolved inside the RPC from `auth.uid()` — nothing about which
+ * shop this touches comes from the form.
+ */
+export async function cancelScheduledPlanChange(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase.rpc('cancel_vendor_plan_change');
+  if (error) {
+    const m = error.message?.toUpperCase() ?? '';
+    if (m.includes('NOT_VENDOR_ADMIN')) {
+      ERR('Only a store admin can change the plan. Ask an admin on your team.');
+    }
+    ERR("We couldn't undo that just now. Please try again.");
+  }
+
+  revalidatePath('/vendor-dashboard/subscription');
+  revalidatePath('/vendor-dashboard');
+  redirect('/vendor-dashboard/subscription?kept=1');
 }
 
 /**

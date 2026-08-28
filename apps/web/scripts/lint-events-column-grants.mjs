@@ -346,6 +346,16 @@ const missing = [...added.entries()].filter(
 // `std_media_nsfw`, which prod confirms IS in the view (a later rebuild picked
 // it up). Verified before loosening: `std_media_nsfw` in_host_view=1,
 // `face_tagging_declined_by_couple` in_host_view=0.
+//
+// ⚠ AND THIS HALF STILL REASONS IN FILENAME ORDER — named, not fixed. `r >= f`
+// asks whether a rebuild file SORTS after the adding file, which is the exact
+// assumption the SELECT-grant half above was just stripped of: a rebuild that
+// sorts later may have APPLIED earlier, and then it never saw the column. It is
+// not biting today — the three columns this change grants are absent from
+// events_host (verified in production) and nothing reads them through that view;
+// every reader uses `.from('events')` directly. Fixing it properly needs the
+// same treatment (a grandfathered set of names), and that is its own change with
+// its own measurement, not a rider on this one.
 const rebuildAfter = [...rebuildsHostView].sort();
 const missingRebuild = [...added.entries()].filter(
   ([col, f]) => !NO_GRANT_NEEDED.has(col) && !rebuildAfter.some((r) => r >= f),

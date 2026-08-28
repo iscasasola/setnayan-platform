@@ -1,6 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import {
+  MAX_ONBOARDING_DISCOUNT_PCT,
+  DEFAULT_ONBOARDING_DISCOUNT_PCT,
+} from '@/lib/onboarding-discount';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
@@ -558,6 +562,81 @@ export async function reactivateVendorRow(
 
   revalidateCatalogSurfaces();
   return { ok: true, message: 'Back on sale.' };
+}
+
+// ─── The set-up discount — platform_settings.onboarding_discount_pct ──────
+
+/**
+ * ⚖ OWNER, 2026-08-28: *"I want to be able to change 10% anytime. so I can set
+ * discount on onboarding today and change it tomorrow. or anytime i want."*
+ *
+ * 🔴 THE FIRST ANSWER WAS A STAMP, NOT A DIAL. The house 10% shipped as sixteen
+ * per-row prices written once by a migration. That does not follow a reprice, it
+ * never shows what the discount currently IS, and it can only ever deepen — a
+ * stored 10%-off price is cheaper than a 5%-off calculation, so turning it down
+ * would have done nothing at all, silently.
+ *
+ * 🔑 SO THE PERCENTAGE IS THE STORED RULE and every set-up price derives from it
+ * (`lib/onboarding-discount.ts`, read by the card AND the charge). The per-row
+ * "sign-up price" beside it stays what it has always been: a DELIBERATE
+ * exception — Setnayan AI's 40% — never a copy of this number.
+ *
+ * Its own form and its own save, exactly like the fee below: a singleton must
+ * never share a save button with the catalog browser.
+ */
+export async function saveOnboardingDiscount(
+  _prev: RowActionState,
+  formData: FormData,
+): Promise<RowActionState> {
+  const { userId: adminUserId } = await requireAdminAction();
+  const admin = createAdminClient();
+
+  const raw = String(formData.get('onboarding_discount_pct') ?? '').trim();
+  const pct = Number(raw);
+  // ⚠ An empty box is REFUSED, not read as 0. `Number('')` is 0 and 0 is a legal
+  // discount, so a blank save would silently retract the discount from every
+  // product at once.
+  if (raw === '' || !Number.isFinite(pct) || pct < 0 || pct > MAX_ONBOARDING_DISCOUNT_PCT) {
+    return {
+      ok: false,
+      message: `Discount must be a number between 0 and ${MAX_ONBOARDING_DISCOUNT_PCT}.`,
+    };
+  }
+  const pctR = round2(pct);
+
+  const { data: prior } = await admin
+    .from('platform_settings')
+    .select('onboarding_discount_pct')
+    .eq('id', 1)
+    .maybeSingle();
+  const priorPct =
+    prior?.onboarding_discount_pct != null
+      ? Number(prior.onboarding_discount_pct)
+      : DEFAULT_ONBOARDING_DISCOUNT_PCT;
+  if (priorPct === pctR) return { ok: true, message: 'No changes to save.' };
+
+  const { error } = await admin
+    .from('platform_settings')
+    .update({ onboarding_discount_pct: pctR, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
+
+  await admin.from('admin_audit_log').insert({
+    action: 'onboarding_discount_edit',
+    target_id: 'onboarding_discount_pct',
+    actor_user_id: adminUserId,
+    // One edit moves every set-up price on the platform, so it is recorded with
+    // what it was.
+    metadata: {
+      table: 'platform_settings',
+      field: 'onboarding_discount_pct',
+      before: priorPct,
+      after: pctR,
+    },
+  });
+
+  revalidatePath('/admin/pricing');
+  return { ok: true, message: `Saved — ${pctR}% off during set-up.` };
 }
 
 // ─── Platform fee — platform_settings.setnayan_pay_fee_pct (singleton) ────

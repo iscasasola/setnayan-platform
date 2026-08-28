@@ -5,7 +5,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
-import { saveFeeSetting } from '@/app/admin/pricing/actions';
+import { saveOnboardingDiscount, saveFeeSetting } from '@/app/admin/pricing/actions';
 import { computeRetailRemovabilityMap } from '@/lib/admin/pricing-removability';
 import { fetchPricingAuditHistory } from '@/lib/admin/pricing-audit-history';
 import {
@@ -16,6 +16,8 @@ import {
   type VendorRowProp,
 } from '@/app/admin/pricing/_components/catalog-editor';
 import { FeeForm } from '@/app/admin/pricing/_components/fee-form';
+import { SetupDiscountForm } from '@/app/admin/pricing/_components/setup-discount-form';
+import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { LegacyCatalogDisclosure } from '@/app/admin/pricing/_components/legacy-catalog';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -127,7 +129,11 @@ export async function PricingSurface(_props: Props) {
       )
       .order('is_active', { ascending: false })
       .order('display_order', { ascending: true }),
-    admin.from('platform_settings').select('setnayan_pay_fee_pct').eq('id', 1).maybeSingle(),
+    admin
+      .from('platform_settings')
+      .select('setnayan_pay_fee_pct, onboarding_discount_pct')
+      .eq('id', 1)
+      .maybeSingle(),
   ]);
 
   if (retailRes.error) logQueryError('AdminPricingPage (retail)', retailRes.error);
@@ -142,6 +148,11 @@ export async function PricingSurface(_props: Props) {
   const settingsFee = settingsRes.data?.setnayan_pay_fee_pct;
   const feeIsFromDb = settingsFee != null && Number.isFinite(Number(settingsFee));
   const feePct = feeIsFromDb ? Number(settingsFee) : SETNAYAN_PAY_FEE_PCT;
+  // The house set-up discount. Owner 2026-08-28 — editable at any moment, so it
+  // is READ here every time rather than baked into any catalog row.
+  const storedDiscount = settingsRes.data?.onboarding_discount_pct;
+  const discountIsFromDb = storedDiscount != null && Number.isFinite(Number(storedDiscount));
+  const discountPct = readOnboardingDiscountPct(storedDiscount);
 
   const retiredRetailCodes = retailRows.filter((r) => !r.is_active).map((r) => r.service_code);
   const allCodes = [
@@ -252,6 +263,20 @@ export async function PricingSurface(_props: Props) {
       )}
 
       <PriceCatalogBrowser rows={rows} retailTitlesForReplacement={retailTitlesForReplacement} />
+
+      <section className="mt-10">
+        <h2 className="mb-1 text-base font-semibold tracking-tight">Set-up discount</h2>
+        <p className="mb-3 text-sm text-ink/60">
+          How much off anything a customer buys while they are still setting up their
+          celebration. Order the same thing afterwards and they pay the normal price.
+          One number — every set-up price on the platform follows it.
+        </p>
+        <SetupDiscountForm
+          action={saveOnboardingDiscount}
+          discountPct={discountPct}
+          isFromDb={discountIsFromDb}
+        />
+      </section>
 
       <section className="mt-10">
         <h2 className="mb-1 text-base font-semibold tracking-tight">Platform fee</h2>

@@ -95,13 +95,21 @@ test('🔴 the charge reads the sign-up price, not just the card', () => {
   // A discount shown on the card and not applied at checkout is a bill that
   // disagrees with the screen somebody agreed to — worse than never offering it.
   const src = strip(read('lib/onboarding-services-orders.ts'));
+  /**
+   * 🔁 RE-POINTED 2026-08-28: the mint used to compare the two prices inline.
+   * Both the card and the charge now go through ONE shared rule
+   * (`setupPricePhp`), because the owner made the percentage editable at any
+   * time — and a screen must not be able to quote a figure the checkout will not
+   * honour. The refusal to charge MORE for buying early moved into that function
+   * and is asserted there, on its own inputs, where it can actually be exercised.
+   */
   assert.match(
     src,
     /\.select\('retail_price_php, onboarding_price_php, is_active'\)/,
-    'the mint must read the sign-up price',
+    'the mint must read the per-row override',
   );
-  assert.match(src, /signup > 0 && signup <= retail \? signup : retail/,
-    'and use it, falling back rather than charging MORE for buying early');
+  assert.match(src, /onboarding_discount_pct/, 'and the live house discount');
+  assert.match(src, /setupPricePhp\(/, 'and price through the shared rule, never its own copy');
 });
 
 test('🪤 a NULL discount is never read as free', () => {
@@ -111,11 +119,11 @@ test('🪤 a NULL discount is never read as free', () => {
   assert.match(src, /if \(!Number\.isFinite\(php\) \|\| php <= 0\) return null;/,
     'an unpriced row must still be refused');
   const server = strip(read('lib/onboarding/services-step-server.ts'));
-  assert.match(
-    server,
-    /typeof signup === 'number' && Number\.isFinite\(signup\) && signup > 0/,
-    'the card must treat a missing discount as "no discount", never as zero',
-  );
+  // 🔁 The "missing discount is not zero" rule moved into `setupPricePhp` with
+  // the rest of the pricing, and is asserted on real inputs in
+  // the-onboarding-discount-is-a-dial.test.ts. What matters HERE is that the
+  // card prices through it rather than keeping a copy.
+  assert.match(server, /setupPricePhp\(/, 'the card must price through the shared rule');
   /**
    * 🪤 AND THE RESOLVER MUST BE THE ONE ACTUALLY USED. This assertion is here
    * because its absence was caught by mutation, not by review: gutting the map
@@ -128,7 +136,7 @@ test('🪤 a NULL discount is never read as free', () => {
   assert.match(
     server,
     /pricePhpByCode = new Map<string, number>\(\s*customerSkus\.map\(\(s\) => \[s\.service_code, priceOfRow\(s\)\]\)/,
-    'the price the card shows must be BUILT from the sign-up resolver',
+    'the price the card shows must be BUILT from the resolver, not merely near it',
   );
   assert.match(
     server,

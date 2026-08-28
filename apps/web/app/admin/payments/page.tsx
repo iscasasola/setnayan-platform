@@ -1512,7 +1512,10 @@ async function fetchDuplicateExposure(
   if (error || !Array.isArray(data)) return { byPaymentId, failed: true };
 
   const priors = data.map((row) => {
-    const r = row as {
+    // `as unknown` first: PostgREST's generated type for the `order` embed is
+    // an ARRAY even though this FK join returns at most one row — the same
+    // cast every other embed on this page already uses.
+    const r = row as unknown as {
       payment_id: string;
       order_id: string;
       reference_number: string | null;

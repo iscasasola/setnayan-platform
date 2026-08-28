@@ -19,7 +19,7 @@
  * real band and a guest count are present. Trivially unit-testable.
  */
 
-import { bandMidBudgetPhp } from './budget-band-money';
+import { bandReachBudgetPhp } from './budget-band-money';
 import type { BudgetBand } from './budget-bands-shared';
 
 export type CreateCaptureInput = {
@@ -106,13 +106,18 @@ export function resolveCreateCapture(
   const rawBand = str(input.budgetBandRaw);
   const bandValue = rawBand === 'nolimit' ? 'no_limit' : rawBand;
   const band = bandValue ? bands.find((b) => b.value === bandValue) ?? null : null;
-  // The band-to-pesos arithmetic lives in ONE file now (lib/budget-band-money).
-  // This flow stores the MIDDLE of the band; the wedding onboarding stores the
-  // TOP. Same value as before, byte for byte — the point of routing it through
-  // the shared module is that the disagreement is now visible in one place
-  // instead of hidden in two.
-  const midPhp = bandMidBudgetPhp(band?.med ?? null, estimatedPax);
-  const estimatedBudgetCentavos = midPhp == null ? null : Math.round(midPhp * 100);
+  // 💰 THE SAME FIGURE THE COUPLE WAS JUST SHOWN, and the same one the wedding
+  // flow stores. This used to be the MIDDLE of the band while the wedding
+  // onboarding stored the TOP — one band, one guest count, two budgets about a
+  // fifth apart depending on which door they came through, and that number
+  // decides which suppliers they see. Owner 2026-08-29 approved closing it by
+  // showing the range on this form too and storing what is on screen.
+  //
+  // ⚠ The screen and this line must not drift again: the picker prints
+  // `bandRangePhp(...).highPhp` and this stores `bandReachBudgetPhp`, which IS
+  // that same high end. A test pins them equal.
+  const topPhp = bandReachBudgetPhp(band?.med ?? null, estimatedPax);
+  const estimatedBudgetCentavos = topPhp == null ? null : Math.round(topPhp * 100);
 
   // Dates — window when explicitly chosen AND a valid start/end pair, else the
   // candidate list (up to 4, de-duped, chronological). No usable date → null mode.

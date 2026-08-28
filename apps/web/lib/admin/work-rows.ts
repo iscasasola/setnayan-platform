@@ -62,6 +62,7 @@ export const BASE_ROWS: BaseRow[] = [
   { key: 'reviews', label: 'Reviews', href: '/admin/reviews', icon: Star, description: 'Review appeals awaiting a decision.' },
   { key: 'concierge-abuse', label: 'Setnayan AI abuse', href: '/admin/concierge-abuse', icon: Flag, description: 'Trial-cycling flags to review.' },
   { key: 'account-deletions', label: 'Account deletions', href: '/admin/account-deletions', icon: UserX, description: 'Self-serve account-deletion requests to review.' },
+  { key: 'event-deletions', label: 'Celebration removals', href: '/admin/event-deletions', icon: UserX, description: 'A couple has asked us to remove a celebration money is holding.' },
   { key: 'approvals', label: 'Two-admin approvals', href: '/admin/approvals', icon: CheckCheck, description: 'A colleague is waiting on your second sign-off.' },
   { key: 'help', label: 'Help', href: '/admin/help', icon: LifeBuoy, description: 'Open help-center tickets.' },
   { key: 'vendor-partnerships', label: 'Partnerships', href: '/admin/vendor-partnerships', icon: Handshake, description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.' },

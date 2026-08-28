@@ -163,6 +163,10 @@ export type NotificationType =
   | 'deletion_request_nudge'
   | 'deletion_request_agreed'
   | 'deletion_request_declined'
+  // We answered a couple's request to remove a celebration money was holding.
+  // ⚠ ALSO an ENUM value — 20271177706777. See the warning four lines up: a
+  // TS-only member typechecks and then the INSERT is refused in silence.
+  | 'event_deletion_answered'
   | 'pax_surcharge_changed'
   | 'vendor_joined'
   | 'editorial_decision'
@@ -358,6 +362,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   deletion_request_nudge: 'Still waiting on your answer',
   deletion_request_agreed: 'A supplier agreed to the removal',
   deletion_request_declined: 'A supplier would rather keep it for now',
+  event_deletion_answered: 'About removing a celebration',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Vendor joined',
   editorial_decision: 'Editorial decision',
@@ -478,6 +483,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   deletion_request_nudge: 'bg-danger-100 text-danger-900',
   deletion_request_agreed: 'bg-success-200 text-success-900',
   deletion_request_declined: 'bg-warn-100 text-warn-900',
+  // Danger: this one either removed a celebration or refused to.
+  event_deletion_answered: 'bg-danger-100 text-danger-900',
   // A changed guest-count charge needs the couple's attention/confirm → amber.
   pax_surcharge_changed: 'bg-warn-100 text-warn-900',
   // An invited vendor accepting/claiming = a positive arrival → emerald.

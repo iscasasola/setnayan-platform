@@ -446,6 +446,36 @@ export async function r2SignedGet(args: {
 
 
 /**
+ * Read an object's BYTES on the server, without ever minting a URL for it.
+ *
+ * 🔑 WHY THIS EXISTS ALONGSIDE `r2SignedGet`. A presigned GET is a link anyone
+ * holding it can open for as long as it lives, which is right for an `<img src>`
+ * in a page an admin is already looking at, and wrong for a private document we
+ * only need to read once inside a server action. Payment screenshots carry
+ * account numbers and names; handing one a 24-hour public URL so that our own
+ * process can fetch it back creates an exposure that never had to exist.
+ *
+ * Throws if R2 is not configured, exactly like the other writers here.
+ */
+export async function r2GetBytes(args: {
+  bucket: R2BucketName;
+  key: string;
+}): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+  const client = requireR2Client();
+  const out = await client.send(
+    new GetObjectCommand({ Bucket: args.bucket, Key: args.key }),
+  );
+  const body = out.Body;
+  if (!body) throw new Error(`R2 object has no body: ${args.bucket}/${args.key}`);
+  // `transformToByteArray` is on the SDK's stream mixin in every runtime we
+  // ship to (Node on Vercel, Node locally). Typed loosely because the union the
+  // SDK declares includes Blob and ReadableStream shapes that never occur here.
+  const bytes = await (body as { transformToByteArray: () => Promise<Uint8Array> })
+    .transformToByteArray();
+  return { bytes, contentType: out.ContentType ?? null };
+}
+
+/**
  * Returns the direct public URL for an R2 object. Alias for `publicUrlFor`
  * scoped to typed bucket names so the call site can't pass an arbitrary
  * string.

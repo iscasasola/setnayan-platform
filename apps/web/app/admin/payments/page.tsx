@@ -24,6 +24,7 @@ import {
   refundOrder,
   rejectPayment,
   requestPaymentResubmit,
+  rereadPaymentReceipt,
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -41,6 +42,19 @@ type Props = {
 };
 
 type Filter = 'pending' | 'all' | 'orders_needing_quote';
+
+/** One row of `payment_receipt_reads` — advisory, see the migration's header. */
+type ReceiptReadRow = {
+  payment_id: string;
+  status: 'ok' | 'unreadable' | 'failed';
+  reference_matches: boolean | null;
+  amount_matches: boolean | null;
+  seen_references: string[] | null;
+  seen_amounts: number[] | null;
+  summary: string | null;
+  error: string | null;
+  created_at: string;
+};
 
 type PaymentJoined = {
   payment_id: string;
@@ -238,6 +252,25 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     }),
   );
 
+  // ── WHAT THE READER SAW ON EACH PICTURE ───────────────────────────────────
+  // Newest advisory read per payment (lib/payment-receipt-read.server.ts). One
+  // query for the page, ordered newest-first, and the first row per payment wins
+  // — a re-read supersedes an earlier one rather than appending a second card.
+  //
+  // ⛔ NOTHING BELOW GATES ON THIS. It renders a card and nothing else: no row
+  // is hidden, no button is disabled, and `decisive` is computed without it.
+  const receiptReads: Record<string, ReceiptReadRow> = {};
+  if (payments.length > 0) {
+    const { data: reads } = await admin
+      .from('payment_receipt_reads')
+      .select('payment_id,status,reference_matches,amount_matches,seen_references,seen_amounts,summary,error,created_at')
+      .in('payment_id', payments.map((p) => p.payment_id))
+      .order('created_at', { ascending: false });
+    for (const r of (reads ?? []) as unknown as ReceiptReadRow[]) {
+      if (!receiptReads[r.payment_id]) receiptReads[r.payment_id] = r;
+    }
+  }
+
   // ── SAME-DAY FIRST (owner 2026-08-02) ─────────────────────────────────────
   // "have an emergency purchase part if the event day is the day itself. these
   // will be priority." A 24-hour SLA is a fine promise on an ordinary order and
@@ -338,6 +371,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           payments={payments}
           screenshotUrlMap={screenshotUrlMap}
           sameDayOrderIds={sameDayOrderIds}
+          receiptReads={receiptReads}
         />
       )}
     </div>
@@ -510,6 +544,7 @@ function PaymentsList({
   payments,
   screenshotUrlMap,
   sameDayOrderIds,
+  receiptReads,
 }: {
   payments: PaymentJoined[];
   /**
@@ -526,6 +561,15 @@ function PaymentsList({
    * readable — it must be presigned before it can render.
    */
   screenshotUrlMap: Record<string, string>;
+  /**
+   * Map of payment_id → the NEWEST advisory read of that payment's screenshot.
+   * Resolved in the page component (the table has RLS on and no policy, so only
+   * the service-role client there can see it).
+   *
+   * ⛔ RENDERED, NEVER CONSULTED. `decisive` below is computed without it and a
+   * guard pins that: `lib/an-ai-may-not-approve-money.test.ts`.
+   */
+  receiptReads: Record<string, ReceiptReadRow>;
 }) {
   if (payments.length === 0) {
     return (
@@ -737,6 +781,12 @@ function PaymentsList({
                 </a>
               </div>
             ) : null}
+
+            <ReceiptReadCard
+              read={receiptReads[p.payment_id]}
+              paymentId={p.payment_id}
+              hasScreenshot={Boolean(p.screenshot_url)}
+            />
 
             {p.status === 'pending' ? (
               <div className="space-y-2 border-t border-ink/10 pt-3">
@@ -1058,4 +1108,96 @@ async function fetchSameDayOrderIds(
   } catch {
     return out;
   }
+}
+
+/**
+ * What the reader saw on the buyer's screenshot.
+ *
+ * Owner, 2026-08-28: *"can we assign an AI to verify if that last 6 digits do
+ * exist on the photo?"* This is the answer, sitting above the approve button so
+ * the admin does not have to be the OCR.
+ *
+ * ⛔ IT IS A CARD AND NOTHING ELSE. It hides no row, disables no control and
+ * feeds no predicate — `decisive`, which gates one-click approval, is computed
+ * without ever looking at this. The one-person admin plan (2026-07-11) binds it:
+ * the machine may prepare and may hold back, it may never be the thing that lets
+ * money through.
+ *
+ * 🎨 The text tokens are the `-deep` pair on purpose. `--sn-success` on
+ * `--sn-success-soft` measures 3.97:1 — below the 4.5:1 floor — and the repo
+ * ships `--sn-success-deep` (5.03:1) and `--sn-warning-deep` (5.84:1) for
+ * exactly this placement, saying so in globals.css beside the definition.
+ * ⚠ The older "Order code in note" badge a few lines up still uses the plain
+ * pair and is a real AA failure; it is NAMED here, not silently changed, because
+ * a colour edit on somebody else's badge belongs in its own change.
+ */
+function ReceiptReadCard({
+  read,
+  paymentId,
+  hasScreenshot,
+}: {
+  read: ReceiptReadRow | undefined;
+  paymentId: string;
+  hasScreenshot: boolean;
+}) {
+  // No picture ⇒ nothing to read, and no card. A buyer may send a reference
+  // number alone (the form allows it), and an empty "we could not read it" card
+  // on that row would look like a fault where there is none.
+  if (!hasScreenshot) return null;
+
+  const tone: 'agrees' | 'disagrees' | 'unknown' =
+    read?.status !== 'ok'
+      ? 'unknown'
+      : read.reference_matches === false || read.amount_matches === false
+        ? 'disagrees'
+        : read.reference_matches === true
+          ? 'agrees'
+          : 'unknown';
+
+  const skin =
+    tone === 'agrees'
+      ? 'border-[color:var(--sn-success)]/35 bg-[var(--sn-success-soft)] text-[color:var(--sn-success-deep)]'
+      : tone === 'disagrees'
+        ? 'border-[color:var(--sn-danger)]/35 bg-[var(--sn-danger-soft)] text-[color:var(--sn-danger)]'
+        : 'border-ink/12 bg-ink/[0.03] text-ink/70';
+
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 text-xs ${skin}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.15em]">
+          Reading their screenshot
+        </span>
+        <form action={rereadPaymentReceipt} className="ml-auto">
+          <input type="hidden" name="payment_id" value={paymentId} />
+          <SubmitButton
+            className="rounded px-2 py-0.5 text-[11px] font-semibold underline underline-offset-2 hover:opacity-80"
+            pendingLabel="Reading…"
+          >
+            {read ? 'Read it again' : 'Read it'}
+          </SubmitButton>
+        </form>
+      </div>
+
+      <p className="mt-1.5 leading-relaxed">
+        {read
+          ? (read.summary ?? read.error ?? 'Nothing came back.')
+          : 'Nobody has read this picture yet.'}
+      </p>
+
+      {read?.status === 'ok' && (read.seen_references?.length || read.seen_amounts?.length) ? (
+        // What the parser actually found, so the sentence above can be checked
+        // rather than believed.
+        <p className="mt-1 font-mono text-[11px] opacity-80">
+          {[
+            read.seen_references?.length ? `on it: ${read.seen_references.join(' · ')}` : null,
+            read.seen_amounts?.length
+              ? `amounts: ${read.seen_amounts.map((a) => `₱${Number(a).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`).join(' · ')}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join('  |  ')}
+        </p>
+      ) : null}
+    </div>
+  );
 }

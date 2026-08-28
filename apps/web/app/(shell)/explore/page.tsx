@@ -63,6 +63,15 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
+import {
+  exploreLensScore,
+  offerableExploreLenses,
+  type ExploreVendor,
+} from '@/lib/explore-lens';
+import { LENSES, type LensKey, isLensKey } from '@/lib/ranking-lenses';
+import { planGroupForCanonicalService, resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { priceFitScore } from '@/lib/smart-sort';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 import { resolveMergedService } from '@/lib/service-merge-forward';
@@ -803,6 +812,10 @@ function parseFilters(
    *  stay always-rendered. Filter logic still applies silently — host
    *  just doesn't see the filter UI. */
   focusedMode: boolean;
+  /** The RANKING LENS the visitor picked (`?lens=`), or null. Validated against
+   *  the approved registry — an unknown value is null, never a guess. It is only
+   *  APPLIED if the page can honestly offer it; see the ordering pass. */
+  lens: LensKey | null;
   /** Owner directive 2026-05-30 — contextual sub-category filter inline
    *  with search. Per-folder axis: Ceremony surfaces a Faith pill
    *  (catholic / christian / inc / muslim / cultural) so couples narrow
@@ -901,6 +914,11 @@ function parseFilters(
   // null (no narrow applied) so typos don't break the page.
   const rawFaith = (raw.faith ?? '').trim().toLowerCase();
   const faithFilter = (FAITH_URL_TO_KEY[rawFaith] ?? null) as FaithKey | null;
+  // An unrecognised ?lens= is null, not a fallback to some other lens: a
+  // stale or hand-typed link must land on today's ordering, never on a
+  // different one silently.
+  const rawLens = typeof raw.lens === 'string' ? raw.lens : '';
+  const lens: LensKey | null = isLensKey(rawLens) ? rawLens : null;
   return {
     q,
     category,
@@ -917,6 +935,7 @@ function parseFilters(
     venueFacet,
     focusedMode,
     faithFilter,
+    lens,
   };
 }
 
@@ -2726,6 +2745,98 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     });
   }
 
+  // ── The couple's budget for THE FILTERED CATEGORY ────────────────────────
+  // Only resolved when a category filter is on and the visitor has an event.
+  // The budget is split per benchmark leaf, so an unfiltered grid has no figure
+  // to compare against and this map stays empty — which makes the budget lens
+  // hide itself rather than order by a meaningless number.
+  //
+  // Fails open in every direction: no event, no budget, a category no leaf
+  // prices, or a read error all leave the map empty and the grid unchanged.
+  const categoryBudgetFitByVendorId = new Map<string, number>();
+  if (coupleEventId && filters.category) {
+    try {
+      const planGroup = planGroupForCanonicalService(filters.category);
+      if (planGroup) {
+        const alloc = await resolveAllocationInputs(supabase, coupleEventId);
+        // The same explicit opt-in the couple's own search makes: their stated
+        // figure, else the one derived from their budget FEEL.
+        const budgetPhp = alloc.budgetPhp ?? alloc.estimatedBudgetPhp;
+        if (budgetPhp != null) {
+          const leaf = computeBudgetAllocation({
+            budgetPhp,
+            leaves: alloc.leaves,
+            config: alloc.config,
+          }).leaves.find((l) => l.canonicalService === planGroup);
+          if (leaf) {
+            for (const v of visible) {
+              const startsAt = servicesByVendorId.get(v.vendor_profile_id)?.startingPrice ?? null;
+              if (startsAt != null && startsAt > 0) {
+                categoryBudgetFitByVendorId.set(
+                  v.vendor_profile_id,
+                  priceFitScore(startsAt, leaf.amountPhp),
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Empty map → the budget lens hides itself. A marketplace must not fall
+      // over because a budget could not be read.
+    }
+  }
+
+  // ── THE RANKING LENSES (owner 2026-08-29: "use the lenses") ──────────────
+  // The couple's own shortlist has ordered by the five approved lenses since
+  // 2026-07-27; the public grid never did — it ordered by reviews and rating and
+  // knew nothing about budget or distance. It uses the SAME scorer now, through
+  // the SAME weight vectors (lib/explore-lens → lib/compat-score). No second
+  // scorer, no bespoke comparator.
+  //
+  // 🔑 IT RUNS LAST, AND RELATIONSHIP DEPTH STILL WINS. A shop the couple
+  // already knows floats above the lens order, exactly as it does under every
+  // other sort on this page — the lens decides the order WITHIN a depth, not
+  // whether somebody's own supplier can be pushed down the page.
+  //
+  // ⚠ Nothing changes for a stranger, or on today's marketplace. Each lens
+  // hides itself unless at least three shops are on the page and at least two
+  // carry its driving input, so a signed-out visitor and a one-shop production
+  // both see only "Best matches" — and that lens re-orders nothing.
+  const lensCandidates: ExploreVendor[] = visible.map((v) => ({
+    distanceKm:
+      venueAnchor && v.hq_latitude != null && v.hq_longitude != null
+        ? haversineKm(venueAnchor.lat, venueAnchor.lng, Number(v.hq_latitude), Number(v.hq_longitude))
+        : null,
+    avgRating: v.avg_rating_overall ?? null,
+    reviewCount: v.review_count ?? null,
+    verified: v.public_visibility === 'verified',
+    // ⛔ ONLY when the visitor has filtered to a category. The couple's budget is
+    // split PER CATEGORY, so a shop's starting price can only be compared with
+    // the budget for the category it is in — ordering a mixed grid against one
+    // category's figure would be a number that means nothing. Null here makes
+    // the lens hide itself by its own gate rather than lie.
+    budgetFitRatio: categoryBudgetFitByVendorId.get(v.vendor_profile_id) ?? null,
+    // ⏭ `firstVerifiedAt` is deliberately not resolved yet — it needs a
+    // `vendor_tier_history` read this page does not make, so the "New here" lens
+    // hides itself. Named rather than faked: `created_at` is row-insert time
+    // (the ADMIN's date for seeded profiles), which the 2026-07-27 ruling
+    // REJECTED as the freshness anchor.
+  }));
+  const offerableLenses = offerableExploreLenses(lensCandidates);
+  const activeLens: LensKey | null =
+    filters.lens && offerableLenses.includes(filters.lens) ? filters.lens : null;
+  if (activeLens && activeLens !== 'fit') {
+    const scoreOf = new Map<string, number>(
+      visible.map((v, i) => [v.vendor_profile_id, exploreLensScore(lensCandidates[i]!, activeLens)]),
+    );
+    visible = [...visible].sort((a, b) => {
+      const depth = (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0);
+      if (depth !== 0) return depth;
+      return (scoreOf.get(b.vendor_profile_id) ?? 0) - (scoreOf.get(a.vendor_profile_id) ?? 0);
+    });
+  }
+
   // Badge computation runs against the enriched `visible` set so
   // percentile thresholds reflect what's on this page.
   const badgesByVendorId = computeVendorBadges(
@@ -2973,6 +3084,48 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               *
               *  Hidden when the grid is empty, so it can never sit above "no
               *  vendors found" offering to re-order nothing. */}
+            {/* ── THE LENS CHIPS (owner 2026-08-29: "use the lenses") ──────────
+                Rendered ONLY when more than one lens is offerable — with a
+                single chip there is nothing to choose, and a lone control that
+                changes nothing reads as broken. On today's marketplace, and for
+                any signed-out visitor, that is exactly the case: only "Best
+                matches" is offerable and this strip does not appear at all.
+
+                ⛔ Kept VISUALLY SEPARATE from the plain Sort row below, which is
+                the bench's own rule: "Top rated" is a comparator the visitor
+                asked for, while a lens is Setnayan recommending an order. The
+                two must not read as one list of equivalent options. */}
+            {visible.length > 0 && offerableLenses.length > 1 ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-ink/55">Show me</span>
+                {offerableLenses.map((k) => {
+                  const active = (activeLens ?? 'fit') === k;
+                  return (
+                    <Link
+                      key={k}
+                      href={buildHref(filters, { lens: k, page: 1 })}
+                      aria-current={active ? 'true' : undefined}
+                      className="inline-flex min-h-[36px] items-center rounded-full border px-3 text-xs font-semibold transition-colors"
+                      style={
+                        active
+                          ? {
+                              background: 'var(--m-orange-4)',
+                              borderColor: 'var(--m-orange-3)',
+                              color: 'var(--m-orange-deep)',
+                            }
+                          : {
+                              background: 'var(--m-paper)',
+                              borderColor: 'var(--m-line)',
+                              color: 'var(--m-slate-2)',
+                            }
+                      }
+                    >
+                      {LENSES[k].label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
             {visible.length > 0 ? (
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-ink/55">Sort</span>
@@ -3232,6 +3385,7 @@ function buildHref(
     venueDefault?: 'on' | 'off';
     focusedMode?: boolean;
     faithFilter?: FaithKey | null;
+    lens?: LensKey | null;
   },
   patch: Partial<{
     q: string;
@@ -3248,6 +3402,7 @@ function buildHref(
     venueDefault: 'on' | 'off';
     focusedMode: boolean;
     faithFilter: FaithKey | null;
+    lens: LensKey | null;
   }>,
 ): string {
   const merged = { ...filters, ...patch };
@@ -3284,6 +3439,10 @@ function buildHref(
   if (merged.faithFilter) {
     params.set('faith', FAITH_KEY_TO_URL[merged.faithFilter]);
   }
+  // The ranking lens (owner 2026-08-29). `fit` is the default and is emitted as
+  // NOTHING, so today's URLs stay byte-identical and a shared link that carries
+  // no lens lands on today's ordering — which is what every existing link is.
+  if (merged.lens && merged.lens !== 'fit') params.set('lens', merged.lens);
   const qs = params.toString();
   return qs.length > 0 ? `/explore?${qs}` : '/explore';
 }

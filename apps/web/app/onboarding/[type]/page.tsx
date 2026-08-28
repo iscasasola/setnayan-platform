@@ -162,6 +162,9 @@ export default async function GenericOnboardingPage({
       prefill={prefill}
       selfBirthdayAge={selfBirthdayAge}
       selfSex={self.gender}
+      // Their own name, for the celebrant field on their own birthday. Same
+      // scope as the age: a self fact, handed to their own wizard.
+      selfName={self.displayName}
       // Manila today, so the anchor's next return is computed off the server's
       // clock rather than the visitor's device timezone.
       todayISO={manilaToday()}

@@ -104,9 +104,29 @@ test('🔴 the two FREE features stay off the paid card', () => {
   // already had them, and both are one careless copy edit from coming back.
   const ids = new Set(idsOnCard());
   assert.equal(ids.has('distance'), false, 'distance sorting is free for everyone');
+  /**
+   * 🪤 THIS ASSERTION WAS BRITTLE AND ONE OF ITS TWO ALTERNATIVES COULD NEVER
+   * MATCH (found 2026-08-28, while shortening the card). It pinned two EXACT
+   * strings:
+   *   • the concierge phrase — which lives in a comment and is WRAPPED across
+   *     two `//` lines, so the regex never matched it and never could;
+   *   • the old body wording — so the whole guard rested on one sentence
+   *     surviving verbatim. Rewording the same true claim turned it red.
+   *
+   * 🔑 A GUARD THAT PINS A SENTENCE IS PINNING THE PROSE, NOT THE PROMISE. What
+   * must stay true is that the card SAYS the % match is free; how it says so is
+   * a copy decision, so the match is on the claim, not on one sentence.
+   *
+   * 🪤 AND THE FIRST REPAIR WAS WORSE THAN THE BRITTLENESS. It normalised `//`
+   * away so the wrapped COMMENT would count — and then deleting the disclaimer
+   * from the visible body left the guard GREEN, because the comment alone
+   * satisfied it. Caught by mutation, not by review. **A customer does not read
+   * comments**, so the assertion now runs on comment-stripped source only.
+   */
+  const rendered = CARD.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.match(
-    CARD,
-    /the paid layer is the concierge, not the score|“% match” on each vendor is free/,
+    rendered.replace(/\s+/g, ' '),
+    /“% match”[^.]{0,60}free/,
     'the rank entry must keep saying the % match itself is free, or it drifts '
       + 'back into claiming a free feature',
   );

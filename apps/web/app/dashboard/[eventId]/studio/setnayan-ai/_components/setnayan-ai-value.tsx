@@ -176,20 +176,26 @@ export function SetnayanAiValue({
       {/* The "impossible by hand" close — the point of the whole surface. */}
       <div className="rounded-xl border border-mulberry/20 bg-mulberry/5 p-5">
         <p className="text-sm text-ink/75">
+          {/*
+            🔴 THIS USED TO SAY "never sleeps" — 2026-08-28, and it was not true.
+            The guard sweep runs on a VISIT (`after(() => sweepGuardNotifications)`
+            in the event layout, throttled to once per event per 6h). It is
+            visit-driven, not a cron: this project has no scheduler. So the honest
+            claim is that it is watching and tells you — the payment guard by
+            email, the rest in the app — not that it works while you sleep.
+            Shorter and truer at once, which is usually how over-claims read.
+          */}
           {live ? (
             <>
-              Keeping this by hand would mean re-checking every vendor, every
-              deadline and every payment yourself — each week, for the months
-              until your {eventWord}. Setnayan AI does it continuously, never
-              forgets, and never sleeps. That’s the part a person simply can’t
-              hold in their head.
+              By hand this is re-checking every vendor, deadline and payment,
+              every week until your {eventWord}. Setnayan AI keeps the list and
+              tells you what moved.
             </>
           ) : (
             <>
-              Doing all of this yourself means re-checking every vendor, every
-              deadline and every payment by hand — each week, for the months
-              until your {eventWord}. Setnayan AI holds it for you, continuously,
-              so nothing slips while you’re living your life.
+              By hand this is re-checking every vendor, deadline and payment,
+              every week until your {eventWord}. Setnayan AI holds it, so nothing
+              slips while you’re living your life.
             </>
           )}
         </p>

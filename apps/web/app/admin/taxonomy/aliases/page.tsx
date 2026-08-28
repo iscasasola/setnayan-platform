@@ -158,7 +158,7 @@ export default async function TradeAliasesPage({
             ? 'No reviewed aliases yet.'
             : q
               ? 'Nothing waiting for review matches that filter.'
-              : 'Nothing waiting for review. Run scripts/seed-trade-aliases.ts to propose more.'}
+              : 'Nothing waiting for review. From the code repo, run \'pnpm -F @setnayan/web exec tsx scripts/seed-trade-aliases.ts\' to ask for more words.'}
         </p>
       ) : (
         <ul className="space-y-3">

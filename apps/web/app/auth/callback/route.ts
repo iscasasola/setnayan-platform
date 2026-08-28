@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { safeNext } from '@/lib/auth';
+import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
 
@@ -13,10 +14,11 @@ export async function GET(request: NextRequest) {
   // open redirect — anything in `?next=` lands the browser off-domain
   // after a successful exchange.
   const rawNext = safeNext(url.searchParams.get('next'));
-  // `next` is honoured for EVERY origin, `/` included — signing in from the
-  // front door returns you to the front door (owner 2026-08-13). This must stay
-  // identical to app/login/actions.ts; see the note further down.
-  const fallbackNext = rawNext;
+  // A real destination is honoured exactly as given; only the bare `/` becomes
+  // the Events board (owner 2026-08-28). ONE rule, shared with
+  // app/login/actions.ts — never a second copy of the line, which is how Google
+  // sign-in and password sign-in came to be two answers to one question.
+  const fallbackNext = signInDestination(rawNext);
   // Vendor-signup intent, round-tripped by oauth-actions.ts (?as=vendor).
   const intent = url.searchParams.get('as');
 

@@ -145,7 +145,7 @@ export type NotificationType =
   // (the create wrapper no-ops otherwise, so the emit path is never reached).
   | 'papic_challenge_pending'
   // PR-H, the lock handshake (owner 2026-07-27). The couple's Lock ASKS; the
-  // supplier's yes is what books them. `nudge` is the day-5 reminder the owner
+  // supplier's yes is what books them. `nudge` is the 24-hour reminder the owner
   // ordered (§6.3) and echoes the 2026-06-02 lock, "the vendor is nudged not to
   // drag it". All five are EMAIL-enabled: a request carries a 7-day fuse, and
   // the nudge exists specifically for the supplier who never opens the app.

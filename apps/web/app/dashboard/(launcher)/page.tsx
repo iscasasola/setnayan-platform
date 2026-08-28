@@ -955,7 +955,7 @@ export default async function LauncherPage({
           on My Events. we don't need that text.").
 
           It is not DELETED, it is unpainted. The top bar already names this
-          place — the nav entry `customer.account.events` reads "My Events" — so
+          place — the nav entry `customer.account.events` reads "Events" — so
           the h1 was the same word twice, one under the other, which is the
           shape the 2026-08-18 one-line ruling was aimed at in the first place.
 

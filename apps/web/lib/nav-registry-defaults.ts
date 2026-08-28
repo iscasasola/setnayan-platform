@@ -232,12 +232,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 0,
   },
+  // ⚖ "Events", not "My Events" — owner 2026-08-28: *"remove My since event
+  // events of other people that you are invited will be here"*. The board
+  // genuinely holds both: a card carries either "You organise this" or the fact
+  // you were invited, and an invited card opens the celebration's own page
+  // rather than the organiser's dashboard. "My" claimed ownership of half of
+  // them.
   {
     key: "customer.account.events",
     scope: "customer",
     area: "customer-account",
     route: "/dashboard",
-    label: "My Events",
+    label: "Events",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "CalendarHeart",

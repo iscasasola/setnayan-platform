@@ -7,19 +7,23 @@ import { fileURLToPath } from 'node:url';
 /**
  * WHERE A SIGN-IN LANDS YOU — and the two doors agreeing about it.
  *
- * Owner, 2026-08-13, having signed in and arrived in the ops console: "i thought
- * that once we log in, it still looks like the public website, but we have added
- * sidebar". That is what the approved drawing shows, and the in-place panel
- * (_components/auth/sign-in-here-panel.tsx → router.refresh()) already does it.
+ * ⚠ THIS FILE WAS REWRITTEN 2026-08-28 AND THE OLD RULE IS THE INTERESTING
+ * PART. It used to assert that NEITHER door may rewrite a `/` destination —
+ * written 2026-08-13, after the owner signed in and arrived in the ops console:
+ * *"i thought that once we log in, it still looks like the public website, but
+ * we have added sidebar"*.
  *
- * The WHOLE-PAGE doors did not. Both rewrote an absent-or-`/` destination to
- * `/dashboard` and then handed it to accountHomePath(), so a cold sign-in went
- * vendor → /vendor-dashboard · admin → /admin · else /dashboard, and never back
- * to the page you started on.
+ * Owner 2026-08-28: *"when you log in, you should go directly to Events"*. So
+ * the bare `/` IS rewritten now, to the Events board. That is not the ops
+ * console coming back — HQ is what he objected to, and Events is the board he
+ * has now asked for by name — and every OTHER origin is still honoured exactly
+ * as it was, which is the half of the 2026-08-13 rule that survives untouched.
  *
- * That rule was correct when it was written: `/` was the ELN cinematic homepage,
- * which had NOTHING for a signed-in person. `/` became the front door on
- * 2026-08-13 and grew a signed-in state, so the premise expired.
+ * 🔑 IT IS ASSERTED AS A CALL TO ONE SHARED RULE, NOT AS A SHAPE. The old
+ * version banned the regex `rawNext === '/' ?`, and `lib/sign-in-landing.ts`
+ * would have sailed straight past it — a guard passing while the behaviour it
+ * guards is reversed. Requiring the CALL means a door that stops honouring the
+ * rule, by any spelling, fails here.
  *
  * ⚠ WHY THIS IS A SOURCE SCAN AND NOT A BEHAVIOUR TEST. Both destinations are
  * computed inside a server action / route handler that exchanges credentials
@@ -61,15 +65,18 @@ test('both sign-in doors exist and are non-trivial — the walk cannot silently 
   }
 });
 
-test('neither door rewrites an absent-or-"/" destination to /dashboard', () => {
+test('both doors resolve their destination through the one shared rule', () => {
   for (const path of DOORS) {
     const src = code(readFileSync(path, 'utf8'));
     assert.ok(
+      /signInDestination\s*\(/.test(src),
+      `${path} no longer calls signInDestination(). Where a sign-in lands is ` +
+        `decided in lib/sign-in-landing.ts and nowhere else.`,
+    );
+    assert.ok(
       !/rawNext\s*===\s*['"]\/['"]\s*\?/.test(src),
-      `${path} still rewrites the destination when next is "/". Signing in from ` +
-        `the front door must return to the front door — safeNext() already ` +
-        `collapses an absent or unsafe next to "/", so this branch is the one ` +
-        `that used to throw the owner into the ops console.`,
+      `${path} hand-rolls the "/" branch again. That is how the password door ` +
+        `and the OAuth callback became two answers to one question.`,
     );
   }
 });
@@ -91,7 +98,8 @@ test('the two doors agree — a difference is two answers to one question', () =
   const shapes = DOORS.map((path) => {
     const src = code(readFileSync(path, 'utf8'));
     return {
-      rewrites: /rawNext\s*===\s*['"]\/['"]\s*\?/.test(src),
+      sharedRule: /signInDestination\s*\(/.test(src),
+      handRolled: /rawNext\s*===\s*['"]\/['"]\s*\?/.test(src),
       byAccountType: /accountHomePath\s*\(/.test(src),
     };
   });

@@ -451,12 +451,17 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   // /studio/editorial-pro buy surface stays but upsells Website PRO for
   // non-owners (never posts the retired EDITORIAL_PRO SKU).
   {
-    // Couple Website PRO — the UMBRELLA unlock, and (2026-07-22) the ONLY way to
-    // get the Save-the-Date Cinematic Reveal + Editorial PRO, both now bundle-
-    // only. One ₱3,500 purchase confers every premium website touch across the
-    // whole lifecycle (Reveal openings + RSVP + on-the-day + Editorial PRO) and
-    // drops the "Powered by Setnayan" watermark everywhere. serviceKey
-    // COUPLE_WEBSITE_PRO. opensDirect → its own /studio/website-pro buy surface.
+    // Event Hub PRO — the UMBRELLA unlock, and (2026-07-22) the ONLY way to get
+    // the Save-the-Date Cinematic Reveal. serviceKey COUPLE_WEBSITE_PRO.
+    // opensDirect → its own /studio/website-pro buy surface.
+    //
+    // 🛑 CORRECTED 2026-08-29. This comment and the blurb below both listed
+    // "RSVP + on-the-day + Editorial PRO" as inclusions. RSVP and on-the-day
+    // are gated on NOTHING — every couple has them — and Editorial PRO went
+    // FREE FOR EVERYONE on 2026-08-23 (FREE_FOR_ALL_SKUS), so it can no longer
+    // be sold as part of this. The full working is in the buy surface's own
+    // docblock; the rule is that a blurb may name only what a non-buyer is
+    // actually refused.
     key: 'website-pro',
     tags: ['Website', 'Upgrade', 'Popular'],
     surface: 'website',
@@ -466,7 +471,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0002',
     status: 'live',
     category: 'digital_services',
-    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, Editorial PRO authoring, and no watermark.',
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and colours, and no watermark.',
     cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',

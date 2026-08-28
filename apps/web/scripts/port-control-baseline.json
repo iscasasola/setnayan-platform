@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9fed15915",
-  "routeCount": 407,
-  "destinations": 876,
-  "actions": 594,
-  "blocks": 4085,
+  "generatedFromRef": "f1993d556",
+  "routeCount": 409,
+  "destinations": 882,
+  "actions": 610,
+  "blocks": 4133,
   "routes": {
     "/": {
       "files": [
@@ -333,22 +333,35 @@
     },
     "/(shell)/papic": {
       "files": [
+        "(shell)/papic/_papic-dial.tsx",
+        "(shell)/papic/_papic-film.tsx",
+        "(shell)/papic/_papic-scan.tsx",
+        "(shell)/papic/_papic-sections.tsx",
         "(shell)/papic/loading.tsx",
         "(shell)/papic/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=papic",
         "/pricing"
       ],
       "actions": [],
       "blocks": [
-        "DoorwayPage",
+        "Code",
+        "Cost",
+        "DemoQrPair",
+        "Fact",
+        "HTMLVideoElement",
+        "HubHead",
+        "Image",
         "Link",
+        "Mini",
         "PapicAnchor",
-        "PapicExceptions",
+        "PapicDial",
+        "PapicFeatures",
+        "PapicFilm",
+        "PapicHub",
+        "PapicScan",
         "Reveal",
-        "RevealBand",
-        "SettleTiles"
+        "Row"
       ]
     },
     "/(shell)/patiktok": {
@@ -832,6 +845,8 @@
         "T",
         "THREE.CanvasTexture",
         "THREE.Texture",
+        "TakeItDown",
+        "TakedownResult",
         "TeaCeremonyCard",
         "TeamBehindTheDay",
         "TheirSong",
@@ -1144,6 +1159,7 @@
         "/admin/directory",
         "/admin/disputes",
         "/admin/editorial-review",
+        "/admin/event-deletions",
         "/admin/events",
         "/admin/force-majeure",
         "/admin/founder-seats",
@@ -1843,17 +1859,20 @@
     },
     "/admin/disputes": {
       "files": [
+        "admin/disputes/_components/deposit-disputes-section.tsx",
         "admin/disputes/actions.ts",
         "admin/disputes/loading.tsx",
         "admin/disputes/page.tsx"
       ],
       "destinations": [],
       "actions": [
-        "resolveDispute"
+        "resolveDispute",
+        "settleDepositDispute"
       ],
       "blocks": [
         "ConfirmForm",
         "ConsoleTable",
+        "DepositDisputesSection",
         "DisputesTable",
         "FilterStrip",
         "HandoverEvidence",
@@ -1892,6 +1911,20 @@
         "PageMasthead",
         "StatusBadge",
         "SubmitButton"
+      ]
+    },
+    "/admin/event-deletions": {
+      "files": [
+        "admin/event-deletions/actions.ts",
+        "admin/event-deletions/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "approveEventDeletion",
+        "rejectEventDeletion"
+      ],
+      "blocks": [
+        "PageMasthead"
       ]
     },
     "/admin/event-types": {
@@ -2412,6 +2445,7 @@
         "admin/payments/page.tsx"
       ],
       "destinations": [
+        "/admin/accounts?tab=events&q=[seg]",
         "/admin/payments?filter=[seg]",
         "/admin/payments?filter=[seg]${platform ?",
         "/admin/payments?filter=[seg]${target ?"
@@ -2423,19 +2457,25 @@
         "confirmOrderTotal",
         "refundOrder",
         "rejectPayment",
-        "requestPaymentResubmit"
+        "requestPaymentResubmit",
+        "rereadPaymentReceipt"
       ],
       "blocks": [
         "BatchApproveBar",
         "BatchApproveCheckbox",
+        "CelebrationLine",
         "ConfirmForm",
+        "DeskMoneyBlock",
+        "DuplicateExposureResult",
         "FilterChip",
         "HTMLInputElement",
         "InboxMatcher",
+        "OrderEventInfoResult",
         "OrdersNeedingQuote",
         "PageMasthead",
         "PaymentsList",
         "PlatformChip",
+        "ReceiptReadCard",
         "RefundForm",
         "Stat",
         "SubmitButton"
@@ -2481,17 +2521,24 @@
     "/admin/pricing": {
       "files": [
         "admin/pricing/_components/action-state.ts",
+        "admin/pricing/_components/ai-bands-editor.tsx",
+        "admin/pricing/_components/booking-fee-form.tsx",
         "admin/pricing/_components/catalog-editor.tsx",
         "admin/pricing/_components/fee-form.tsx",
         "admin/pricing/_components/legacy-catalog.tsx",
+        "admin/pricing/_components/papic-ladder-editor.tsx",
+        "admin/pricing/_components/setup-discount-form.tsx",
+        "admin/pricing/_surfaces/ai-prices-surface.tsx",
         "admin/pricing/_surfaces/custom-plans-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
         "admin/pricing/_surfaces/free-windows-surface.tsx",
+        "admin/pricing/_surfaces/papic-ladder-surface.tsx",
         "admin/pricing/_surfaces/price-bands-surface.tsx",
         "admin/pricing/_surfaces/pricing-surface.tsx",
         "admin/pricing/actions.ts",
         "admin/pricing/loading.tsx",
-        "admin/pricing/page.tsx"
+        "admin/pricing/page.tsx",
+        "admin/pricing/price-control-actions.ts"
       ],
       "destinations": [
         "/admin/addons/pricing-report",
@@ -2500,17 +2547,26 @@
         "/admin/pricing?tab=pricing"
       ],
       "actions": [
+        "bandFormAction",
         "createFreeWindow",
         "deleteFreeWindow",
         "formAction",
+        "ladderFormAction",
         "reactivateFormAction",
         "recomputePriceBands",
         "removeFormAction",
         "retireFormAction",
+        "saveBookingFeeSchedule",
+        "saveDiscountAction",
         "saveFeeSetting",
+        "saveOnboardingDiscount",
         "setFreeWindowActive"
       ],
       "blocks": [
+        "AiBandsEditor",
+        "AiPricesSurface",
+        "BandCard",
+        "BookingFeeForm",
         "CardBody",
         "CardFooter",
         "ConsoleTable",
@@ -2518,6 +2574,7 @@
         "CustomPlansSurface",
         "EmptyState",
         "Family",
+        "FamilyDiscountCard",
         "FeeForm",
         "FieldLabel",
         "FreeWindowsSurface",
@@ -2529,6 +2586,9 @@
         "Link",
         "MoneyField",
         "PageMasthead",
+        "PapicDiscountCard",
+        "PapicLadderEditor",
+        "PapicLadderSurface",
         "PriceBandsSurface",
         "PriceCatalogBrowser",
         "PricingSurface",
@@ -2540,11 +2600,14 @@
         "SaleOrDraftShelves",
         "SaveSection",
         "ServiceCatalogRow",
+        "SetupDiscountForm",
         "Shelf",
+        "Stat",
         "SubmitButton",
         "Suspense",
         "TablePageSkeleton",
         "Tag",
+        "UnassignedTray",
         "ViewState"
       ]
     },
@@ -3024,7 +3087,8 @@
       "destinations": [
         "/admin/event-types/[seg]/categories",
         "/admin/event-types/[seg]/onboarding",
-        "/admin/event-types/[seg]/profile"
+        "/admin/event-types/[seg]/profile",
+        "/admin/taxonomy/aliases"
       ],
       "actions": [
         "action",
@@ -3085,7 +3149,9 @@
         "LeafHiddenFields",
         "LeafRefinementsPanel",
         "Link",
+        "ListPageSkeleton",
         "LucideByName",
+        "MergeTradeControl",
         "NewCategoryPrefill",
         "OptionCard",
         "OptionGrid",
@@ -3093,9 +3159,11 @@
         "PhotoField",
         "PreparedCatalogs",
         "PreparedJobCard",
+        "PromoteRequestForm",
         "RefThumb",
         "RefinementsTab",
         "ReorderButtons",
+        "RequestDraftNotes",
         "RequestsQueue",
         "ServiceFlagsPanel",
         "ServicesTab",
@@ -3107,6 +3175,25 @@
         "TileCard",
         "UnfiledTray",
         "VocabRowShell"
+      ]
+    },
+    "/admin/taxonomy/aliases": {
+      "files": [
+        "admin/taxonomy/aliases/actions.ts",
+        "admin/taxonomy/aliases/page.tsx"
+      ],
+      "destinations": [
+        "/admin/taxonomy"
+      ],
+      "actions": [
+        "approveTradeAlias",
+        "rejectTradeAlias",
+        "unteachTradeAlias"
+      ],
+      "blocks": [
+        "KpiStatCard",
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/ugat": {
@@ -4105,6 +4192,7 @@
         "NewEventCard",
         "ProgressRing",
         "PutAwaySwitch",
+        "ReasonPicker",
         "SectionLabel",
         "ShelfInfo",
         "ShopLogo",
@@ -4305,6 +4393,7 @@
         "PromoFreeWindowBanner",
         "QrBody",
         "ReadRefusedNotice",
+        "RequestResult",
         "RevealChoice",
         "ReviewAxis",
         "ReviewRow",
@@ -6997,6 +7086,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/host-service-details.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/payment-asks-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx",
@@ -7044,6 +7134,7 @@
         "HostServiceDetails",
         "Icon",
         "Link",
+        "PaymentAsksCard",
         "PaymentPlanStepper",
         "QuoteBridge",
         "ReadRefusedNotice",
@@ -8309,8 +8400,11 @@
         "pay/[reference]/actions.ts",
         "pay/[reference]/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]"
+      ],
       "actions": [
+        "removeSetupExtras",
         "submitPaymentProof"
       ],
       "blocks": [
@@ -9133,6 +9227,7 @@
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/photo-challenge-buy.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
@@ -9176,13 +9271,15 @@
         "toggleClientNoteDone",
         "vendorAcknowledgeDeposit",
         "vendorAgreeToLock",
+        "vendorAskForPayment",
         "vendorDeclineLock",
         "vendorMarkServiceComplete",
         "vendorPostHandover",
         "vendorRaiseChangeOrder",
         "vendorRejectDeposit",
         "vendorRespondChangeOrder",
-        "vendorWithdrawChangeOrder"
+        "vendorWithdrawChangeOrder",
+        "vendorWithdrawPaymentAsk"
       ],
       "blocks": [
         "ActivityFeed",
@@ -9204,6 +9301,7 @@
         "LockRequestAnswer",
         "LockRow",
         "OverviewTab",
+        "PaymentAsksPanel",
         "PhotoChallengeActionState",
         "PhotoChallengeBuy",
         "PipelineStrip",
@@ -9403,10 +9501,12 @@
       "files": [
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
+        "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/page.tsx"
       ],
       "destinations": [
+        "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/services"
       ],
@@ -9422,6 +9522,7 @@
         "CustomersCalendar",
         "CustomersFilterBar",
         "CustomersPipeline",
+        "CustomersRoster",
         "FeatureAccordion",
         "FilterSelect",
         "Link",
@@ -10016,6 +10117,7 @@
         "vendor-dashboard/performance/_components/perf-links.ts",
         "vendor-dashboard/performance/_components/performance-controls.tsx",
         "vendor-dashboard/performance/_components/reanimate.tsx",
+        "vendor-dashboard/performance/_components/reply-claim-card.tsx",
         "vendor-dashboard/performance/_components/reputation-card.tsx",
         "vendor-dashboard/performance/_components/roi-attribution-card.tsx",
         "vendor-dashboard/performance/_components/scope-note.tsx",
@@ -10024,7 +10126,9 @@
         "vendor-dashboard/performance/_components/verified-median-card.tsx",
         "vendor-dashboard/performance/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/vendor-dashboard/customers"
+      ],
       "actions": [],
       "blocks": [
         "AttributionBar",
@@ -10051,6 +10155,7 @@
         "PillarBar",
         "Reanimate",
         "ReanimateCtx.Provider",
+        "ReplyClaimCard",
         "ReputationCard",
         "RoiAttributionCard",
         "ScopePill",
@@ -10258,6 +10363,7 @@
         "AmountInput",
         "AttributeFieldRenderer",
         "Basis",
+        "BranchAssignment",
         "BranchSelect",
         "CanvasFormSnapshot",
         "CanvasKeep",
@@ -10361,6 +10467,7 @@
         "vendor-dashboard/shop/_components/request-correction-card.tsx",
         "vendor-dashboard/shop/_components/service-radius-fields.tsx",
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
+        "vendor-dashboard/shop/_components/suggested-coverage-card.tsx",
         "vendor-dashboard/shop/_components/venue-match-card.tsx",
         "vendor-dashboard/shop/_components/verify-section.tsx",
         "vendor-dashboard/shop/_components/visibility-card.tsx",
@@ -10372,6 +10479,7 @@
         "vendor-dashboard/shop/page.tsx",
         "vendor-dashboard/shop/public-line-actions.ts",
         "vendor-dashboard/shop/radius-actions.ts",
+        "vendor-dashboard/shop/suggested-coverage-actions.ts",
         "vendor-dashboard/shop/venue-match-actions.ts",
         "vendor-dashboard/shop/visibility-actions.ts"
       ],
@@ -10409,6 +10517,7 @@
         "AutoReplySection",
         "BranchManager",
         "BranchPanel",
+        "CallerVendorProfile",
         "CheckGroup",
         "ClientReference",
         "ClientReferencesInput",
@@ -10479,6 +10588,8 @@
         "SubmitBlock",
         "SubmitButton",
         "SubmitResult",
+        "SuggestedCoverageActionResult",
+        "SuggestedCoverageCard",
         "Suspense",
         "Switch",
         "TeamPanel",
@@ -10508,6 +10619,7 @@
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
         "vendor-dashboard/subscription/_components/cycle-toggle.tsx",
+        "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
         "vendor-dashboard/subscription/_components/price-position-card.tsx",
         "vendor-dashboard/subscription/_components/subscription-cards.tsx",
         "vendor-dashboard/subscription/actions.ts",
@@ -10523,6 +10635,7 @@
         "/vendor-dashboard/subscription?cycle=[seg]"
       ],
       "actions": [
+        "cancelScheduledPlanChange",
         "formAction",
         "startSubscriptionPurchase"
       ],
@@ -10535,6 +10648,7 @@
         "Link",
         "PageMasthead",
         "PayBox",
+        "PlanChangeNotice",
         "PositionHeadline",
         "SubmitButton",
         "SubscriptionCards",

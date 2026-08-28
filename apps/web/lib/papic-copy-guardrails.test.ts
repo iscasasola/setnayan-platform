@@ -59,6 +59,13 @@ const PAPIC_COPY_FILES = [
   // `/ 3` while enforcement metered a clip at 8. Listing it is half the fix;
   // COMPUTED_POINTS_DIVISOR below is the other half.
   'app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx',
+  // The public Papic page and its credit dial (2026-08-29). The page replaced
+  // sixteen printed price rows with a +/- dial, so it now renders a capacity
+  // claim on every step of that dial — exactly the surface this list exists
+  // for. The dial is listed separately because the numbers render THERE, and a
+  // guard that reads only the page would miss a literal moved one file over.
+  'app/(shell)/papic/page.tsx',
+  'app/(shell)/papic/_papic-dial.tsx',
 ];
 
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');

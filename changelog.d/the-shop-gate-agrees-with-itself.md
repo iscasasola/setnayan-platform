@@ -52,3 +52,19 @@ card needs a price and a Setnayan Exclusive (the publish gate shipped this
 morning). A seed the database refuses proves nothing about the policy under test.
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-28.
+
+**THE FREEZE fired, and it was right to.** A predicate change cannot be
+mechanically proven to narrow, so the exposure guard hands it to a human. Read,
+and recorded here rather than waved through:
+
+- The delta is **one line** — the same capability, differently gated. Fact count
+  unchanged at **6274**; nothing added, nothing removed.
+- **Roles unchanged** (`authenticated`), **command unchanged** (SELECT), the
+  `is_active` leg unchanged.
+- The predicate swaps `is_published = true` for
+  `public_visibility = 'verified' AND verification_state = 'verified'` — the
+  exact pair `vendor_profiles_public_read` already uses, so a card is now public
+  on precisely the condition its shop is.
+- **Against production it is a two-way move, both correct**: the hidden fixture
+  shop's cards leave the admitted set, and the verified real shop's enter it.
+  Same count (1 → 1), different shop, and the different shop is the right one.

@@ -1310,11 +1310,14 @@ export function CanvasMaker({
           >
             {coveredChoices.length > 0 ? (
               <>
+                {/* ⚠ THE BAND NOW SPEAKS THE SHOP'S OWN WORDS (owner 2026-08-28,
+                    *"yes their own words"*), so the pills below ARE the coverage
+                    names. This sentence used to LIST those same names — keeping
+                    it would print *Pabati* twice, once in prose and once as the
+                    thing you press. */}
                 <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
                   {coverageNames.length > 0
-                    ? `What you already do — your ${coverageNames.slice(0, 3).join(', ')}${
-                        coverageNames.length > 3 ? ` and ${coverageNames.length - 3} more` : ''
-                      }.`
+                    ? 'What you already do, in your own words.'
                     : 'What you already do.'}{' '}
                   A kind can hold more than one card, so you can add another where you
                   already work.

@@ -15,9 +15,10 @@ import {
   extraSeatsFromPaidCount,
 } from '@/lib/vendor-seats';
 import {
-  vendorProfileIdFromCustomPlanServiceKey,
+  customPlanTargetFromServiceKey,
   selectActivatableCustomPlan,
 } from '@/lib/vendor-custom-catalog';
+import { customPlanExpiryFrom } from '@/lib/vendor-custom-pricing';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
@@ -1359,7 +1360,38 @@ const PREFIX_HOOKS: ReadonlyArray<{
       if (!branchId) return;
       // SEC-4b: the paying order must belong to the branch's parent vendor.
       await assertOrderOwnsVendorTarget(ctx, await branchOwnerVendorId(ctx, branchId));
-      const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
+      // ── 🚨 THIS RESET THE WINDOW TOO — same defect as the Custom hook ─────
+      // It wrote `now + 28 days` with no read of what the branch already had, so
+      // renewing early THREW AWAY the remaining days: 20 days left plus a
+      // renewal gave 28 from today, not 48. Same class, same harm, and it
+      // penalises the same person — the one who pays before being chased.
+      //
+      // ⚖ FIXING IT HERE APPLIES THE OWNER'S EXISTING RULING RATHER THAN MAKING
+      // A NEW ONE. 2026-08-27: *"subscription will only extend their plans for
+      // an additional 28 days. or 1 year."* A branch add-on is a subscription;
+      // it was one of the ones that did not extend.
+      //
+      // 🔑 THE BRANCH ROW HAS NO EXPIRY COLUMN — the window lives on
+      // `orders.expires_at`, and `deriveBranchStatus` reads the LATEST order to
+      // decide active/expired. So "what it already had" must be read from that
+      // same place, or the two disagree. Shares `customPlanExpiryFrom` with the
+      // Custom path: identical semantics, one implementation.
+      const { data: priorOrder } = await ctx.admin
+        .from('orders')
+        .select('expires_at')
+        .eq('service_key', ctx.serviceKey)
+        .eq('status', 'paid')
+        .order('expires_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const priorExpiry = Date.parse(
+        (priorOrder as { expires_at?: string | null } | null)?.expires_at ?? '',
+      );
+      const expiresAt = customPlanExpiryFrom(
+        Date.now(),
+        Number.isFinite(priorExpiry) ? priorExpiry : null,
+        '28d',
+      );
       await ctx.admin
         .from('vendor_branches')
         .update({ branch_subscription_active: true, cancelled_at: null })
@@ -1427,10 +1459,11 @@ const PREFIX_HOOKS: ReadonlyArray<{
     // Idempotent: a prior 'service_activated' ledger row for this order
     // short-circuits, so a re-approval (whose plan is now 'active', not a
     // payable candidate) is a safe no-op instead of a spurious refusal.
-    match: (serviceKey) => vendorProfileIdFromCustomPlanServiceKey(serviceKey) !== null,
+    match: (serviceKey) => customPlanTargetFromServiceKey(serviceKey) !== null,
     run: async (ctx) => {
-      const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);
-      if (!vendorProfileId) return;
+      const target = customPlanTargetFromServiceKey(ctx.serviceKey);
+      if (!target) return;
+      const { vendorProfileId, term } = target;
       // SEC-4b: the key names the vendor directly — the order must be theirs.
       await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
 
@@ -1469,7 +1502,7 @@ const PREFIX_HOOKS: ReadonlyArray<{
         .in('status', ['quoted', 'pending_payment', 'active'])
         .order('updated_at', { ascending: false });
       const candidateRows = Array.isArray(candidates) ? candidates : [];
-      const targetId = selectActivatableCustomPlan(candidateRows, amountPhp);
+      const targetId = selectActivatableCustomPlan(candidateRows, amountPhp, term);
       if (!targetId) {
         // Crash-recovery no-op: if the org already holds an ACTIVE plan priced at
         // this order's amount, a prior run provisioned it but its final ledger
@@ -1504,7 +1537,36 @@ const PREFIX_HOOKS: ReadonlyArray<{
       // on non-renewal like Pro/Enterprise. (The comp lever activateCustomPlan
       // intentionally leaves this NULL = never lapses — white-glove deals; do NOT
       // copy this stamp there.)
-      const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
+      // ── 🚨 THIS USED TO RESET THE TERM, AND IT WAS A REAL DEFECT ──────────
+      // It read `new Date(Date.now() + 28 days)` and wrote that STRAIGHT OVER
+      // `tier_expires_at` — no read of the existing value, no GREATEST. A Custom
+      // shop who renewed early lost every remaining day, and the earlier they
+      // renewed the more they lost: the good customer paid the price.
+      //
+      // 🔑 IT WAS MISSED BECAUSE THE FIX EXISTED ON THE OTHER PATH. The three
+      // ordinary tiers renew through `_apply_subscription_credit`, whose live
+      // body has always carried
+      //   GREATEST(now(), COALESCE(tier_expires_at, now())) + period_days
+      // and reading THAT is what produced a false all-clear for Custom — even
+      // though Custom provably never calls it. **A fix on a sibling path is not
+      // a fix on this one**, however similar the two look.
+      //
+      // Owner 2026-08-27: *"subscription will only extend their plans for an
+      // additional 28 days … or 1 year."* Both halves are honoured here: only
+      // two terms exist, and a purchase EXTENDS.
+      const { data: profileRow } = await ctx.admin
+        .from('vendor_profiles')
+        .select('tier_expires_at')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle();
+      const existingExpiry = Date.parse(
+        (profileRow as { tier_expires_at?: string | null } | null)?.tier_expires_at ?? '',
+      );
+      const expiresAt = customPlanExpiryFrom(
+        Date.now(),
+        Number.isFinite(existingExpiry) ? existingExpiry : null,
+        term,
+      );
       const { error: tierErr } = await ctx.admin
         .from('vendor_profiles')
         .update({ tier_state: 'custom', tier_expires_at: expiresAt })

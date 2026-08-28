@@ -32,6 +32,7 @@ export type ChannelInfo = {
 
 export function PayPanel({
   rechecked,
+  setup,
   proofSent,
   resubmitNotice,
   requiresReference,
@@ -53,6 +54,8 @@ export function PayPanel({
    * and an unlucky read keeps trying.
    */
   rechecked: boolean;
+  /** TRUE when this bill is part of the onboarding set-up flow (`?setup=1`). */
+  setup: boolean;
   proofSent: boolean;
   /** What the admin asked for, when they sent the payer back for better proof. */
   resubmitNotice: string | null;
@@ -141,6 +144,7 @@ export function PayPanel({
             channel={channel}
             requiresReference={requiresReference}
             rechecked={rechecked}
+            setup={setup}
           />
         )}
       </section>
@@ -302,6 +306,7 @@ function ProofForm({
   channel,
   requiresReference,
   rechecked,
+  setup,
 }: {
   orderId: string;
   reference: string;
@@ -309,6 +314,7 @@ function ProofForm({
   channel: Channel;
   requiresReference: boolean;
   rechecked: boolean;
+  setup: boolean;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [big, setBig] = useState(false);
@@ -330,6 +336,8 @@ function ProofForm({
       <input type="hidden" name="client_idempotency_key" value={idempotencyKey} />
       {/* Their second attempt. See `rechecked` on PayPanel — we ask once. */}
       {rechecked && <input type="hidden" name="rechecked" value="1" />}
+      {/* So a recheck can send them back to the SAME screen they were on. */}
+      {setup && <input type="hidden" name="setup" value="1" />}
 
       <p className="text-sm text-ink/65">
         Send us the screenshot and the last 6 digits of your reference number. We confirm within 24

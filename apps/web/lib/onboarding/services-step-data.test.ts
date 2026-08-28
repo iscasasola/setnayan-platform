@@ -153,7 +153,19 @@ test('Setnayan AI renders only when the gate resolved a price', () => {
   // The numeric twin was added 2026-08-11 so the running total can add the tick
   // up. Both must be present and must agree — a label and a figure that disagree
   // is a couple charged something other than what they read.
-  assert.deepEqual(build().ai, { priceLabel: '₱1,499', pricePhp: 1499 });
+  // `listPricePhp` collapses onto `pricePhp` with no sign-up discount passed,
+  // which is the truth for a type that has none — the card then compares the two
+  // and shows nothing, rather than a "save ₱0" badge (owner 2026-08-28).
+  assert.deepEqual(build().ai, { priceLabel: '₱1,499', pricePhp: 1499, listPricePhp: 1499 });
+  // With a real later price it carries both, so the saving can be stated.
+  assert.deepEqual(build({ aiPricePhp: 1499, aiListPricePhp: 2499 }).ai, {
+    priceLabel: '₱1,499',
+    pricePhp: 1499,
+    listPricePhp: 2499,
+  });
+  // 🪤 A later price BELOW what they pay is bad data, not an offer: it must not
+  // become "save -₱600".
+  assert.equal(build({ aiPricePhp: 1499, aiListPricePhp: 999 }).ai?.listPricePhp, 1499);
   // The vendor-free gate closes it with null — never with a ₱0 offer, because
   // "Setnayan AI cannot be free" (owner 2026-07-27).
   assert.equal(build({ aiPricePhp: null }).ai, null);

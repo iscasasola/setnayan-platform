@@ -176,8 +176,16 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Up to 300 portfolio photos', b: 'A deep portfolio to show your full range.' },
           { n: 'Up to 8 events per category / day', b: 'Run at real studio volume.' },
           { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
-          { n: 'Quarterly business review', soon: true, b: 'A scheduled review of your numbers with our team.' },
-          { n: 'Priority dispute + account management', soon: true, b: 'A named contact and front-of-line dispute handling.' },
+          // ⛔ TWO ROWS WERE DELETED HERE 2026-08-27 (owner ruling). "Quarterly
+          // business review" and "a named contact" promised HUMAN ATTENTION
+          // that does not exist and was never built — no review scheduling, no
+          // manager assignment, nobody named. They carried `soon: true`, which
+          // is not a licence to advertise a thing nobody has started.
+          // What DOES exist is queue ORDERING: /admin/disputes resolves each
+          // shop's tier and surfaces higher tiers first. That is real, so it is
+          // the only thing claimed — with no response-time promise attached,
+          // because no response-time promise exists anywhere in the product.
+          { n: 'Front-of-line dispute handling', b: 'Disputes from higher tiers surface first in our queue.' },
         ],
       },
     ],
@@ -223,7 +231,15 @@ export type CustomDial = {
 export const VENDOR_CUSTOM_TIER = {
   name: 'Custom',
   tagline:
-    'Everything in Enterprise, automatically, plus dials for what you need: more branches, reach up to nationwide, more team seats and event slots, a bigger portfolio, and your own domain. A dedicated account manager and quarterly business review come with it.',
+    // ⚖ CUSTOM IS DEFINED BY CAPABILITY, NOT BY HUMAN ATTENTION — owner
+    // 2026-08-27, verbatim: "custom does not mean they get their own concierge
+    // from us. it just means they get an upgrade the 3 tiers does not provide."
+    // The old line promised a dedicated account manager and a quarterly review;
+    // neither was ever built. It said so unqualified, to every shop reading our
+    // prices. What is left is only what the dials actually deliver.
+    // ⚠ "a bigger portfolio" also went: the +100-photo pack was dropped the
+    // same day, so portfolio size is no longer a Custom dial at all.
+    'Everything in Enterprise, with its limits removed: more branches, nationwide reach, more team seats, more event slots per category, and your own web address.',
   // Custom-only dials, enumerated (owner 2026-07-05) so the /vendors benefit
   // surface AND the cross-tier benefit count reflect the full negotiated tier.
   // Each is a real thing a Custom vendor gets — the single source of truth for
@@ -232,11 +248,8 @@ export const VENDOR_CUSTOM_TIER = {
     { label: 'Additional branches', priced: (p: string) => `Additional branches (${p} each)` },
     { label: 'Nationwide reach' },
     { label: 'Your own custom domain' },
-    { label: 'Dedicated account manager · white-glove' },
     { label: 'Negotiated team-seat ceiling' },
     { label: 'Negotiated event-slot ceiling' },
-    { label: 'Unlimited portfolio' },
-    { label: 'White-glove onboarding & data migration' },
   ] as CustomDial[],
 };
 

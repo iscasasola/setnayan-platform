@@ -28,13 +28,28 @@ export const VENDOR_3D_BOOTH_SKU_CODE = 'vendor_3d_booth';
 export const VENDOR_3D_BOOTH_PERIOD_DAYS = 28;
 
 /**
- * Fallback ₱1,500 / 28-day renewal price. The live catalog value wins; this is
- * the last-resort figure used only when the `vendor_3d_booth` row is missing or
+ * Fallback 28-day renewal price. The live catalog value wins; this is the
+ * last-resort figure used only when the `vendor_3d_booth` row is missing or
  * unreadable (e.g. the seeding migration hasn't been applied, or a CI build with
  * no service-role key). Never hardcode this in UI copy — read via
  * {@link fetchVendor3dBoothPricePhp}.
+ *
+ * 🚨 ₱1,500 → ₱2,500 on 2026-08-27, WITH the catalog row, because a stale
+ * fallback is a back door under an owner-set price: a failed read would have
+ * charged the old ₱1,500 while the catalog said ₱2,500. ⛔ A SECOND COPY OF A
+ * CATALOG PRICE — move it in the SAME change as the migration.
+ * `custom-sits-above-enterprise.db.test.ts` compares it to the live row.
+ *
+ * ⚠ TWO PRICES GOVERN THIS PRODUCT AND WHICH ONE APPLIES IS A FLAG.
+ * `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` OFF (the default) → checkout uses
+ * the flat catalog price, so ₱2,500 is what a vendor pays and this fallback
+ * must match it. ON → `vendor-addon-tier-pricing.ts` wins with the 2026-07-25
+ * tiered matrix (`ads_3d_plan`: ₱2,000 entry / ₱1,500 growth) and the owner's
+ * ₱2,500 is ignored entirely. That matrix is NOT changed here — he priced the
+ * catalog row, not the matrix — but the two disagree and must be reconciled
+ * before that flag is ever switched on.
  */
-export const VENDOR_3D_BOOTH_FALLBACK_PHP = 1500;
+export const VENDOR_3D_BOOTH_FALLBACK_PHP = 2500;
 
 export type Vendor3dBoothPriceInputs = {
   /** Has this vendor already consumed its one-time free first cycle? */

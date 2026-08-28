@@ -64,7 +64,15 @@ export async function readServicesStepView(
     profile.marketplaceEnabled === true &&
     setnayanAiTierSkuForEventType(eventType) !== null;
 
-  const [customerSkus, poolTiers, oneTiers, freePoolPoints, freeOnePoints, aiPricePhp] =
+  const [
+    customerSkus,
+    poolTiers,
+    oneTiers,
+    freePoolPoints,
+    freeOnePoints,
+    aiPricePhp,
+    aiListPricePhp,
+  ] =
     await Promise.all([
       fetchV2CustomerCatalog(),
       readPapicPassTiers(),
@@ -83,9 +91,41 @@ export async function readServicesStepView(
             () => 0,
           )
         : Promise.resolve(0),
+      // The SAME resolver in 'regular' context — what the planner costs if they
+      // come back for it later. Through the shared resolver for the same reason
+      // as above, and failing to 0 so a read error simply hides the comparison
+      // rather than inventing one.
+      aiOffered
+        ? resolveSetnayanAiDisplayPricePhp(client, eventType, 'regular').catch(() => 0)
+        : Promise.resolve(0),
     ]);
 
+  /**
+   * ── WHAT IT COSTS HERE, AND WHAT IT COSTS LATER ────────────────────────────
+   *
+   * ⚖ Owner, 2026-08-28: *"we give them a 10% discount if they purchase now.
+   * They can order later, but they will lose the 10% discount."*
+   *
+   * 🔑 RULE 0: `onboarding_price_php` IS THAT RULE, ALREADY IN THE CATALOG and
+   * already charged for Setnayan AI. This screen was reading `retail_price_php`
+   * for the Papic rungs and so quoted the later price at the one moment the
+   * earlier one applies. `fetchV2CustomerCatalog` was ALREADY selecting the
+   * discount column — the value was in this function's hands the whole time.
+   *
+   * ⚠ NULL MEANS "NO SIGN-UP DISCOUNT", NEVER ZERO. Most catalog rows carry no
+   * discount, and reading NULL as 0 would hand them away free — the exact
+   * direction the AI resolver already warns about in its own body.
+   */
+  const priceOfRow = (row: { retail_price_php: number; onboarding_price_php?: number | null }) => {
+    const signup = row.onboarding_price_php;
+    return typeof signup === 'number' && Number.isFinite(signup) && signup > 0
+      ? signup
+      : Number(row.retail_price_php);
+  };
   const pricePhpByCode = new Map<string, number>(
+    customerSkus.map((s) => [s.service_code, priceOfRow(s)]),
+  );
+  const listPricePhpByCode = new Map<string, number>(
     customerSkus.map((s) => [s.service_code, Number(s.retail_price_php)]),
   );
 
@@ -94,8 +134,10 @@ export async function readServicesStepView(
     poolTiers,
     oneTiers,
     pricePhpByCode,
+    listPricePhpByCode,
     freePoolPoints,
     freeOnePoints,
     aiPricePhp: aiOffered ? aiPricePhp : null,
+    aiListPricePhp: aiOffered ? aiListPricePhp : null,
   });
 }

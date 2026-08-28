@@ -32,7 +32,14 @@ export type PapicRungView = {
   /** platform_retail_catalog_v2 service_code — the React key. Never displayed. */
   key: string;
   points: number;
+  /** What it costs HERE — the sign-up price. This is what gets charged. */
   pricePhp: number;
+  /**
+   * The regular price, for the "instead of" line. Equal to `pricePhp` when this
+   * rung has no sign-up discount, so a card can compare the two and show nothing
+   * when they match — a "save ₱0" badge is worse than no badge.
+   */
+  listPricePhp: number;
 };
 
 /** One of the two Papic products, as the card reads it. */
@@ -79,6 +86,12 @@ export type AiCardView = {
    * tell the server what to bill.
    */
   pricePhp: number;
+  /**
+   * What the planner costs if they come back for it AFTER the create flow.
+   * Equal to `pricePhp` when this type carries no sign-up discount, so the card
+   * and the total compare the two and show nothing when they match.
+   */
+  listPricePhp: number;
 };
 
 export type ServicesStepView = {
@@ -103,6 +116,7 @@ const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
 function rungsFrom(
   tiers: ReadonlyArray<{ serviceCode: string; points: number }>,
   pricePhpByCode: ReadonlyMap<string, number>,
+  listPricePhpByCode: ReadonlyMap<string, number> = new Map(),
 ): PapicRungView[] {
   return tiers
     .map((t) => {
@@ -110,7 +124,14 @@ function rungsFrom(
       if (typeof pricePhp !== 'number' || !Number.isFinite(pricePhp) || pricePhp <= 0) {
         return null;
       }
-      return { key: t.serviceCode, points: t.points, pricePhp };
+      // A missing or nonsensical list price means "no discount to show", never
+      // zero — a rung claiming it was reduced from ₱0 is worse than a silent one.
+      const listed = listPricePhpByCode.get(t.serviceCode);
+      const listPricePhp =
+        typeof listed === 'number' && Number.isFinite(listed) && listed > pricePhp
+          ? listed
+          : pricePhp;
+      return { key: t.serviceCode, points: t.points, pricePhp, listPricePhp };
     })
     .filter((r): r is PapicRungView => r !== null)
     .sort((a, b) => a.pricePhp - b.pricePhp);
@@ -126,21 +147,37 @@ export function buildServicesStepView(input: {
   eventWord: string;
   poolTiers: readonly PapicPassTier[];
   oneTiers: readonly PapicOneTier[];
-  /** service_code → price (pesos), from the ACTIVE customer catalog only. */
+  /**
+   * service_code → what this costs HERE (pesos), from the ACTIVE customer
+   * catalog only. This is the SIGN-UP price where the row has one — owner
+   * 2026-08-28, *"10% for all purchase on onboarding"* — and it is also what
+   * gets charged, because the mint reads the same column.
+   */
   pricePhpByCode: ReadonlyMap<string, number>;
+  /**
+   * service_code → the regular price, for the "instead of" line. Optional: a row
+   * with no sign-up discount simply does not appear here and its rung shows one
+   * price, which is the truth for that rung.
+   */
+  listPricePhpByCode?: ReadonlyMap<string, number>;
   freePoolPoints: number;
   freeOnePoints: number;
   /** null ⇒ the gate closed. Never 0-as-a-signal — 0 is a price, not an absence. */
   aiPricePhp: number | null;
+  /** The planner's regular price, for the "later" comparison. Defaults to the
+   *  sign-up one, which is the truth for a type with no discount. */
+  aiListPricePhp?: number | null;
 }): ServicesStepView {
   const {
     eventWord,
     poolTiers,
     oneTiers,
     pricePhpByCode,
+    listPricePhpByCode,
     freePoolPoints,
     freeOnePoints,
     aiPricePhp,
+    aiListPricePhp,
   } = input;
 
   const types: PapicTypeView[] = [
@@ -159,6 +196,7 @@ export function buildServicesStepView(input: {
       rungs: rungsFrom(
         poolTiers.filter((t) => !t.isTopup),
         pricePhpByCode,
+        listPricePhpByCode,
       ),
     },
     // ⚠ NO 'one' ENTRY (owner 2026-08-11). Papic One is retired: there is one
@@ -177,7 +215,17 @@ export function buildServicesStepView(input: {
     papic: { eventWord, types, currencyTerms: papicPointCurrencyTerms() },
     ai:
       aiPricePhp != null && aiPricePhp > 0
-        ? { priceLabel: peso(aiPricePhp), pricePhp: aiPricePhp }
+        ? {
+            priceLabel: peso(aiPricePhp),
+            pricePhp: aiPricePhp,
+            // Never below what they pay: bad data must not print "save -₱600".
+            listPricePhp:
+              typeof aiListPricePhp === 'number' &&
+              Number.isFinite(aiListPricePhp) &&
+              aiListPricePhp > aiPricePhp
+                ? aiListPricePhp
+                : aiPricePhp,
+          }
         : null,
   };
 }

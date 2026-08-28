@@ -46,13 +46,35 @@ const SIMPLE = 'app/onboarding/simple/actions.ts';
 const BILL = 'app/dashboard/[eventId]/orders/[orderId]/page.tsx';
 const CARD = 'app/onboarding/_shared/services-step.tsx';
 
-// ── 1 · the mint points at the bill ────────────────────────────────────────
-test('the onboarding mint sends a buyer to the order it just minted', () => {
+// ── 1 · the mint points at where the money can be sent ─────────────────────
+test('the onboarding mint sends a buyer to the page that can TAKE the payment', () => {
+  /**
+   * 🔁 RE-POINTED 2026-08-28, AND IT IS A STEP CLOSER TO THE MONEY, NOT A
+   * WEAKENING. This assertion used to pin `/dashboard/{id}/orders/{orderId}` —
+   * the fix for the owner's *"i had a price to pay. but i there was no payment.
+   * it just created."* Correct at the time: it replaced the Papic studio, whose
+   * banner named no amount and no account.
+   *
+   * But the order page is where a bill LIVES; `/pay/[reference]` is where one is
+   * SETTLED — the QR with the figure already inside it, the account number, the
+   * proof form. Owner, 2026-08-28, looking at that same order page: *"i will go
+   * here? it should be settled first. […] Then the onboarding end."*
+   *
+   * What this test has always protected is unchanged and is checked below: from
+   * the end of the wizard there must be a way to actually send the money, and it
+   * must never be a page that merely confirms something.
+   */
   const src = stripComments(read(MINT));
   assert.match(
     src,
-    /paymentPath:\s*`\/dashboard\/\$\{eventId\}\/orders\/\$\{orderId\}\?created=1`/,
-    'the mint must return the order\'s own bill page as paymentPath',
+    /paymentPath: `\/pay\/\$\{encodeURIComponent\(referenceCode\)\}\?setup=1`/,
+    'the mint must open the payment page, flagged as the last step of setting up',
+  );
+  // And the destination it replaced must not come back by a later edit.
+  assert.doesNotMatch(
+    src,
+    /paymentPath: `\/dashboard\/\$\{eventId\}\/orders/,
+    'the ledger entry is where a bill lives, not where it is settled',
   );
 });
 

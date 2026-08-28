@@ -102,7 +102,12 @@ test('a RETIRED retail SKU is rejected (COUPLE_WEBSITE_PRO / INDOOR_BLUEPRINT)',
   assert.equal(await sellability(client), 'retired');
 });
 
-test('an ACTIVE bundle is sellable (PAPIC_UNLOCK must not be eaten by the guard)', async () => {
+// ⚠ The example this case used to name was PAPIC_UNLOCK. Both Papic unlock
+// bundles were RETIRED by owner ruling on 2026-08-27, so naming one here would
+// assert a live bundle that no longer exists. The rule under test is generic and
+// unchanged — an active bundle row must not be swept up by the retirement guard
+// — and the fixture was always synthetic, so nothing about the assertion moved.
+test('an ACTIVE bundle is sellable — a bundle must not be eaten by the guard', async () => {
   const { client } = stubAdmin({ retail: null, pkg: { is_active: true } });
   assert.equal(await sellability(client), 'sellable');
 });

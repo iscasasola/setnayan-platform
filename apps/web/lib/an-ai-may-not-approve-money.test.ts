@@ -175,8 +175,18 @@ test('the message tells them to attach the picture again', () => {
   // A message that only said "check the digits" would trade their proof for a
   // typo fix.
   const action = read('app/pay/[reference]/actions.ts');
-  const msg = /'([^']*reference number[^']*)'/i.exec(action.slice(action.indexOf("'recheck'")))?.[1];
+  // Anchored on the CONSTANT, not on a nearby literal: rev 1 searched forward
+  // from the string 'recheck', and a refactor that moved the message into a
+  // variable broke the guard rather than the behaviour.
+  const msg = /const askMsg =\s*'([^']*)'/.exec(action)?.[1];
   assert.ok(msg, 'the recheck message went missing');
   assert.match(msg, /attach your screenshot again/i);
   assert.match(msg, /just send it again/i);
+  // And the set-up flow has to survive the round trip — dropping it silently
+  // takes away a door the buyer had a moment ago.
+  assert.match(
+    action,
+    /formData\.get\('setup'\) === '1' \? '&setup=1'/,
+    'a recheck now drops the buyer out of the set-up flow',
+  );
 });

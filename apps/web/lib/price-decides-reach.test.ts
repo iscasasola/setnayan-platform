@@ -31,34 +31,47 @@ const WEB_ROOT = join(process.cwd(), process.cwd().endsWith('/apps/web') ? '' : 
 const read = (rel: string) => stripComments(readFileSync(join(WEB_ROOT, rel), 'utf8'));
 
 const BAND_MONEY = 'lib/budget-band-money.ts';
-/** Every file that turns a budget band into pesos. Adding one means adding it
- *  here — the point is that the list is short and visible. */
-const BAND_MONEY_CALLERS = [
-  'lib/create-event-capture.ts',
-  'lib/budget-allocation-data.ts',
-  'app/onboarding/wedding/_components/onboarding-shell.tsx',
+/** Every file that turns a budget band into pesos, and the CALL each one must
+ *  make. An import is not a call: the first version of this rule matched the
+ *  import line, so re-implementing the arithmetic inline while leaving a now-
+ *  unused import in place passed it. Measured, not reasoned — the mutation went
+ *  green. */
+const BAND_MONEY_CALLERS: ReadonlyArray<{ rel: string; call: RegExp }> = [
+  { rel: 'lib/create-event-capture.ts', call: /bandMidBudgetPhp\(/ },
+  { rel: 'lib/budget-allocation-data.ts', call: /bandReachBudgetPhp\(/ },
+  {
+    rel: 'app/onboarding/wedding/_components/onboarding-shell.tsx',
+    call: /bandRangePhp\(/,
+  },
 ];
 
 // ── 1 · ONE HOME FOR THE ARITHMETIC ───────────────────────────────────────
 
-test('every band-to-pesos caller imports the shared module', () => {
-  for (const rel of BAND_MONEY_CALLERS) {
+test('every band-to-pesos caller CALLS the shared module, not just imports it', () => {
+  for (const { rel, call } of BAND_MONEY_CALLERS) {
+    const src = read(rel);
     assert.match(
-      read(rel),
+      src,
       /from ['"](@\/lib|\.)\/budget-band-money['"]/,
       `${rel} must get the band arithmetic from ${BAND_MONEY}`,
     );
+    assert.match(src, call, `${rel} must actually call it — an unused import proves nothing`);
   }
 });
 
-test('no caller re-implements the band spread', () => {
-  // 0.8 / 1.2 around the per-head median, rounded to ₱50,000 — the shape of the
-  // copy that drifted. It may exist in exactly one file.
-  for (const rel of BAND_MONEY_CALLERS) {
+test('no caller re-implements the arithmetic', () => {
+  // Two shapes, because the drift came in two: the 0.8 / 1.2 spread rounded to
+  // ₱50,000 (the onboarding's copy) and the bare `med x pax` identity
+  // (create-event's). Either may exist in exactly one file.
+  for (const { rel } of BAND_MONEY_CALLERS) {
     const src = read(rel);
     assert.ok(!/\*\s*0\.8\s*\*/.test(src), `${rel} re-implements the band low end`);
     assert.ok(!/\*\s*1\.2\s*\*/.test(src), `${rel} re-implements the band high end`);
     assert.ok(!/\/\s*50000\s*\)\s*\*\s*50000/.test(src), `${rel} re-implements the ₱50k rounding`);
+    assert.ok(
+      !/\bmed\b[^;\n]{0,30}\*[^;\n]{0,30}\b(pax|estimatedPax|guests)\b/.test(src),
+      `${rel} re-implements med x pax`,
+    );
   }
   const home = read(BAND_MONEY);
   assert.match(home, /BAND_SPREAD_LOW/);
@@ -89,7 +102,13 @@ test('the onboarding still reads the ends of the range it always read', () => {
 
 test('the resolver reads the couple’s band on a query it already makes', () => {
   const src = read('lib/budget-allocation-data.ts');
-  assert.match(src, /budget_band/, 'budget_band must be in the events_host select');
+  // The SELECT STRING, not the file. A bare /budget_band/ match is satisfied by
+  // the row type and the property read, so dropping the column from the query
+  // passed it — measured, the mutation went green.
+  const select = src.match(/\.select\(\s*'([^']*events_host[^']*|[^']*estimated_budget_centavos[^']*)'/);
+  assert.ok(select, 'the events_host select must be findable');
+  assert.match(select[1]!, /\bbudget_band\b/, 'budget_band must be IN the select list');
+  assert.match(src, /ev\?\.budget_band/, 'and read off the row');
   assert.match(src, /estimatedBudgetPhp/);
   assert.match(src, /budgetSource/);
 });

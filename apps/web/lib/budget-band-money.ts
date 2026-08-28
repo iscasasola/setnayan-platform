@@ -71,7 +71,11 @@ export function bandRangePhp(
 }
 
 /**
- * The budget to SEARCH with when the couple has stated no figure of their own.
+ * THE band's peso figure: the top of the range, and the ONE answer.
+ *
+ * It is what both doors store (owner 2026-08-29) and what the vendor search
+ * falls back to when a couple stated no figure of their own. Those were two
+ * different numbers until that ruling; they are the same one now, from here.
  *
  * It is the TOP of the band, and the direction is deliberate. This number does
  * not charge anybody anything — it decides which shops a couple is shown. An
@@ -91,28 +95,24 @@ export function bandReachBudgetPhp(
 }
 
 /**
- * The MIDDLE of the band — the plain `per_head_median x pax` identity written on
- * `budget_band_config` itself.
+ * ⛔ RETIRED 2026-08-29 — THE DRIFT IS SETTLED, AND THIS IS THE HALF THAT WENT.
  *
- * ⚠ THIS IS THE OTHER ANSWER, AND THAT IS THE POINT. `create-event` stores this
- * as the couple's budget while the wedding onboarding stores `bandRangePhp().
- * highPhp`, so the same band and the same guest count become two different
- * budgets depending on which door the couple came through — a ~20% gap, and it
- * decides which shops they are shown. Both writers now call THIS file, so the
- * disagreement is one visible line instead of two implementations that never
- * met. Neither stored value is changed here: moving a couple's saved budget is
- * the owner's call, not a refactor's. Whoever settles it edits one file.
+ * There used to be a `bandMidBudgetPhp` here: `per_head_median x pax`, the plain
+ * identity written on `budget_band_config` itself. `create-event` stored it
+ * while the wedding onboarding stored the TOP of the same band, so one band and
+ * one guest count became two budgets about a fifth apart depending on which door
+ * the couple came through — and that number decides which suppliers they see.
+ *
+ * ⚖ OWNER 2026-08-29, on the recommendation that both doors show the couple the
+ * range before saving it: **"ok"**. So the short form now prints the range as
+ * they type and stores what they were shown, exactly as the wedding flow always
+ * has, and there is one answer instead of two.
+ *
+ * The middle is not kept beside the top "just in case": a second function nobody
+ * calls is how the two crept apart in the first place. The arithmetic that
+ * produced it is still here — it is `bandRangePhp`, whose ends are 0.8x and 1.2x
+ * that same median.
  */
-export function bandMidBudgetPhp(
-  medPerHeadPhp: number | null | undefined,
-  pax: number | null | undefined,
-): number | null {
-  const med = typeof medPerHeadPhp === 'number' ? medPerHeadPhp : Number(medPerHeadPhp);
-  const guests = typeof pax === 'number' ? pax : Number(pax);
-  if (!Number.isFinite(med) || med <= 0) return null;
-  if (!Number.isFinite(guests) || guests <= 0) return null;
-  return med * guests;
-}
 
 /** Look up one band's per-head median (PESOS) in a band ladder. Null when the
  *  slug is absent or carries no median. Accepts the legacy `nolimit` spelling

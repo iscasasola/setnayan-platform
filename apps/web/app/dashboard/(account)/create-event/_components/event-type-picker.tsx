@@ -5,6 +5,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
+import { bandRangePhp } from '@/lib/budget-band-money';
+
+/** ₱1.2M / ₱900K — the grain the onboarding's own band pills print, so the two
+ *  doors read the same as well as store the same. */
+function pesoShort(n: number): string {
+  return n >= 1_000_000
+    ? `₱${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}M`
+    : `₱${Math.round(n / 1000)}K`;
+}
 import { createWeddingEvent } from '../actions';
 import { type EventTypeKey, type EventTypeRow } from './event-types';
 import { EventTypePhotoPicker } from './event-type-photo-picker';
@@ -120,6 +129,22 @@ export function EventTypePicker({
   // Soft planning-horizon advisory (council § 5 card 2 — never a block): set
   // when the typed party date sits beyond the selected life type's horizon.
   const [farHorizon, setFarHorizon] = useState(false);
+  // 💰 THE COUPLE SEES THE NUMBER BEFORE WE SAVE IT (owner 2026-08-29).
+  // This form used to take a budget feel and a guest count, show no figure at
+  // all, and store one — a different one from the wedding flow, about a fifth
+  // apart for the same two answers. Now the range appears as they type and what
+  // is stored is its top, which is exactly what the wedding flow stores.
+  const [budgetBandDraft, setBudgetBandDraft] = useState('');
+  const [paxDraft, setPaxDraft] = useState('');
+  /** The band's range for the guest count typed so far — null until BOTH are
+   *  answered, because a range needs both and half an answer is not a number.
+   *  `no_limit` carries no median and correctly yields null: a couple with no
+   *  ceiling has no range to be shown. */
+  const budgetRange = (() => {
+    const med = budgetBands.find((b) => b.value === budgetBandDraft)?.med ?? null;
+    const pax = Number.parseInt(paxDraft, 10);
+    return bandRangePhp(med, Number.isFinite(pax) ? pax : null);
+  })();
   const conciergeChoice: ConciergeChoice = 'diy';
   const formRef = useRef<HTMLFormElement | null>(null);
   const autoAdvanced = useRef(false);
@@ -554,15 +579,23 @@ export function EventTypePicker({
                 max={9999}
                 min={1}
                 name="estimated_pax"
+                onChange={(e) => setPaxDraft(e.target.value)}
                 placeholder="e.g. 120"
                 type="number"
+                value={paxDraft}
               />
             </div>
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="budget_band">
                 Budget feel
               </label>
-              <select className="input-field" defaultValue="" id="budget_band" name="budget_band">
+              <select
+                className="input-field"
+                id="budget_band"
+                name="budget_band"
+                onChange={(e) => setBudgetBandDraft(e.target.value)}
+                value={budgetBandDraft}
+              >
                 <option value="">Not sure yet</option>
                 {budgetBands.map((b) => (
                   <option key={b.value} value={b.value}>
@@ -570,9 +603,23 @@ export function EventTypePicker({
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-ink/50">
-                A rough feel — with your guest count we’ll estimate a starting budget.
-              </p>
+              {/* The figure itself, live. It replaces "we'll estimate a starting
+                  budget" — a promise about a number the couple never saw, made on
+                  the screen that was about to store it. */}
+              {budgetRange ? (
+                <p className="text-xs text-ink/70">
+                  About{' '}
+                  <span className="font-medium text-ink">
+                    {pesoShort(budgetRange.lowPhp)} – {pesoShort(budgetRange.highPhp)}
+                  </span>{' '}
+                  for {paxDraft} guests. We’ll start you at the top of that and you can
+                  change it any time.
+                </p>
+              ) : (
+                <p className="text-xs text-ink/50">
+                  A rough feel — add your guest count and we’ll show you the range.
+                </p>
+              )}
             </div>
           </fieldset>
 

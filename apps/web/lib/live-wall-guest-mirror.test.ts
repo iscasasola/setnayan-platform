@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   DEFAULT_WALL_GUEST_VISIBILITY,
@@ -127,6 +127,56 @@ test('no guest wall surface asks about ownership without asking about the couple
         `half of the question on its own, which is exactly the bug`,
     );
   }
+});
+
+/**
+ * 🔑 THE LIST ABOVE IS HAND-ENUMERATED, AND A HAND-ENUMERATED GUARD LIST IS A
+ * LIST OF THE SURFACES SOMEBODY THOUGHT OF.
+ *
+ * The wall reaches a guest in TWO PLACES ON PURPOSE — the event page and the
+ * Live hub — plus the freshness feed that keeps both current. That duplication
+ * is deliberate (a guest needs it in both) and must NOT be "fixed". What must
+ * hold is that the two never drift apart on the host's one on/off question.
+ *
+ * So the set is DERIVED from the guest tree instead of trusted: any file under
+ * `app/[slug]/` that pulls wall data (`getWallSnapshot`) is a guest wall
+ * surface, and the derived set must equal the enumerated one. A fourth surface
+ * fails here on the day it is written — before anyone has to remember this file
+ * exists — and a surface that quietly stops pulling the snapshot fails too.
+ */
+const GUEST_TREE = join(WEB, 'app', '[slug]');
+
+function tsFilesUnder(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) out.push(...tsFilesUnder(p));
+    else if (/\.tsx?$/.test(e) && !/\.test\./.test(e)) out.push(p);
+  }
+  return out;
+}
+
+test('the guest wall surfaces are DERIVED, so a fourth one cannot appear unguarded', () => {
+  const derived = tsFilesUnder(GUEST_TREE)
+    .filter((f) => /getWallSnapshot\(/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(WEB.length + 1))
+    .sort();
+
+  // A floor: if the detector is ever reworded away this would sweep nothing and
+  // pass — an empty sweep reads exactly like a clean result.
+  assert.ok(
+    derived.length >= 3,
+    `this scan found only ${derived.length} wall surfaces in the guest tree — ` +
+      'the detector has stopped matching, not the surfaces stopped existing',
+  );
+
+  assert.deepEqual(
+    derived,
+    [...GUEST_WALL_SURFACES].sort(),
+    'the guest tree serves the wall from a set of files that is no longer the ' +
+      'set this file gates. Add the new surface to GUEST_WALL_SURFACES (and give ' +
+      'it guestWallMirrorActive), or delete the one that stopped serving it.',
+  );
 });
 
 test('the venue projection is deliberately NOT gated on the guest mirror', () => {

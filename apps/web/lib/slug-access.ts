@@ -8,6 +8,10 @@ import {
   requiresInvitedAccount,
 } from '@/lib/event-visibility';
 import { readGuestSession } from '@/lib/guest-session';
+import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { viewerIsBookedSupplier } from '@/lib/booked-supplier';
+import { closedEventAdmits, type ClosedEventFacts } from '@/lib/closed-event-admission';
+import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 
 /**
  * canViewSlugEvent — the single source of truth for "may the current viewer see
@@ -24,8 +28,21 @@ import { readGuestSession } from '@/lib/guest-session';
  *     event's guest list, PLUS the guest-cookie and host paths below. A
  *     stranger, and anyone merely holding the link, gets the same locked page.
  *   • private             → only an invited guest with a matching guest-session
- *     cookie, OR a signed-in host (event_members couple/host, or an accepted +
- *     non-removed event_moderator). Everyone else (strangers) is blocked.
+ *     cookie, a signed-in SEAT-HOLDER (their account is bound to a seat on this
+ *     event's guest list), a signed-in host (event_members couple/coordinator,
+ *     or an accepted + non-removed event_moderator), OR a supplier the couple
+ *     has BOOKED on this event. Everyone else (strangers, and a signed-in
+ *     member who is only a `'guest'`-type row with no seat) is blocked.
+ *
+ * 🔑 THE RULE ITSELF IS NOT WRITTEN HERE. `closedEventAdmits`
+ * (lib/closed-event-admission.ts) holds it, because `app/[slug]/page.tsx`
+ * decides the same thing for its own lock screen and the two copies had already
+ * drifted: the page grew the booked-supplier arm on 2026-08-17 and this gate
+ * never did, so a booked supplier who could open the couple's private page was
+ * bounced off all seven sub-routes of it — silently, because the refusal is
+ * byte-identical to a stranger's. What is written here is only how each FACT is
+ * resolved, and the facts are resolved lazily: the rule is an OR, so a question
+ * that is never asked stays false and cannot change the answer.
  *
  * Anything unreadable coalesces to 'private' (fail safe), matching the page.
  *
@@ -46,9 +63,18 @@ export async function canViewSlugEvent(
   const visibility = normalizeVisibility(visibilityRaw);
   if (openToStrangers(visibility)) return true;
 
+  const facts: ClosedEventFacts = {
+    holdsGuestPass: false,
+    isSignedInHost: false,
+    isSeatHolder: false,
+    isInvitedAccount: false,
+    isBookedSupplier: false,
+  };
+
   // Path A — invited guest who redeemed their personal link on this device.
   const session = await readGuestSession();
-  if (session?.event_id === eventId) return true;
+  facts.holdsGuestPass = session?.event_id === eventId;
+  if (closedEventAdmits(visibility, facts)) return true;
 
   // Path B — signed-in host (couple member or accepted moderator).
   const supabase = await createClient();
@@ -57,17 +83,68 @@ export async function canViewSlugEvent(
   } = await supabase.auth.getUser();
   if (!user) return false;
 
-  if (await isSignedInEventHost(eventId)) return true;
+  facts.isSignedInHost = await isSignedInEventHost(eventId);
+  if (closedEventAdmits(visibility, facts)) return true;
+
+  // Path B2 — signed-in SEAT-HOLDER, on BOTH closed visibilities.
+  //
+  // 🔒 THIS SHIPS IN THE SAME COMMIT AS THE HOST NARROWING ABOVE, AND MUST.
+  // app/[slug]/page.tsx has admitted a seat-holder on `private` since
+  // 2026-08-13 (`findGuestSeatForUser`); this shared gate never grew that arm,
+  // and the over-wide host check was masking the divergence — a seat-bound
+  // account read as a "host" here and was let through by accident. Narrowing
+  // host alone would start bouncing, off all seven sub-routes, exactly the
+  // people the page was rewritten to admit: the guest cookie has a hard 60-day
+  // life with no sliding refresh, and save-the-dates go out 6–12 months ahead,
+  // so the ORDINARY invited cousin has no live cookie by the day itself.
+  //
+  // 🔒 NOT A WIDENING — it is the SAME claim by a stronger key. The cookie says
+  // "this browser once held guest X's QR"; the membership row says "this
+  // AUTHENTICATED ACCOUNT is bound to guest X", a binding established by holding
+  // that QR or clicking a link emailed to the address on the seat.
+  // `findGuestSeatForUser` requires the caller's OWN row, member_type='guest', a
+  // non-null guest_id, no `hidden_at` (their own Leave) and no `guests.deleted_at`
+  // (the host's eviction) — so removing somebody closes this in the same instant.
+  //
+  // ⚠ It admits them to the PAGE ONLY. No guest session is minted, so every
+  // per-guest surface still keys on the cookie this viewer does not have.
+  facts.isSeatHolder = (await findGuestSeatForUser(eventId, user.id)) !== null;
+  if (closedEventAdmits(visibility, facts)) return true;
+
+  // Path D — a supplier this couple has BOOKED on this event.
+  //
+  // 🔴 THE DIVERGENCE THIS CLOSES. `app/[slug]/page.tsx` has admitted a booked
+  // supplier past its own lock screen since 2026-08-17 (PR #4483 corrected the
+  // ordering in exactly that one file and touched no sub-route). This gate is
+  // what the other seven surfaces ask, and it had no supplier arm — so the
+  // photographer working a private wedding could open the couple's page and was
+  // then refused the venue address, the recap, both seat finders, the live hub,
+  // the money-gift page and the print keepsake. Every one of those refusals
+  // looks exactly like a stranger's, which is why nothing ever reported it.
+  //
+  // 🔒 BOOKED, NOT MERELY LISTED, and the predicate is shared, not re-typed:
+  // `lib/reusable-bookings.server.ts` mints a linked row at 'shortlisted' for a
+  // reuse offer the couple has yet to lock, and a supplier the couple is still
+  // only considering has not been chosen to read a private celebration. Same
+  // boundary PR-H draws on the vendor brief: an ASKED supplier gets no venue
+  // address and no run-of-show.
+  //
+  // 🔒 IT ADMITS THEM TO THE PAGE AND NOTHING ELSE. No guest session is minted,
+  // so every per-guest surface still keys on the cookie this viewer does not
+  // have.
+  facts.isBookedSupplier = await viewerIsBookedSupplier(eventId, user.id);
+  if (closedEventAdmits(visibility, facts)) return true;
 
   // Path C — signed-in guest. ONLY for 'invited_accounts': a private
   // celebration deliberately does not admit somebody just for being on the
   // list, because 'private' means hosts and redeemed invitations only. Widening
-  // it here would quietly change what 'private' has always promised.
+  // it here would quietly change what 'private' has always promised — which is
+  // why the visibility, and not only the fact, has to allow it inside the rule.
   if (requiresInvitedAccount(visibility)) {
-    return await isInvitedAccount(eventId, user.id);
+    facts.isInvitedAccount = await isInvitedAccount(eventId, user.id);
   }
 
-  return false;
+  return closedEventAdmits(visibility, facts);
 }
 
 /**
@@ -159,13 +236,41 @@ export async function isInvitedAccount(
 
 /**
  * isSignedInEventHost — is the CURRENT signed-in user a host of this event?
- * (a couple member in event_members, OR an accepted + non-removed moderator).
+ * (a couple/coordinator member in event_members, OR an accepted + non-removed
+ * moderator).
+ *
+ * 🔴 THIS SELECTED `member_type` AND NEVER COMPARED IT, returning
+ * `Boolean(memberRow)`. `event_members` IS NOT A HOST TABLE — it is the event's
+ * people table, and `'guest'` is one of its values, written by the event-QR
+ * scan-to-join, the cookie link and the cross-device magic link. So ANY signed-in
+ * member, including a guest who merely scanned the QR, was a HOST here: they
+ * passed the private gate on all seven sub-routes, and the keepsake reader
+ * (`who-can-see-your-story.ts`) returns true for a host BEFORE it tests the
+ * audience — so they could read the couple's unfinished story months before it
+ * was published.
+ * 🔑 This is the exact bug `app/[slug]/_lib/host-scope.ts` was written to kill.
+ * The twin (`loadHostMembership`) was fixed and pinned; THIS CLONE NEVER
+ * INHERITED IT. *A clone inherits the bug its twin fixed.* Both now filter on
+ * the one shared `HOST_MEMBER_TYPES` definition.
+ *
+ * ⚠ AND THE SENTENCE THAT STOOD HERE WAS FALSE. It claimed the guard "pins BOTH
+ * by source so a third copy cannot quietly hold a laxer rule". It could not: the
+ * guard pinned a HAND-TYPED list of three paths, and a THIRD copy was live in
+ * `app/[slug]/hub/page.tsx` — where it let a QR-scan guest force `?phase=` and
+ * switch on day-of surfaces the couple had not launched — for the entire time
+ * that guard was green. A fourth sat in the save-the-date view beacon. A
+ * hand-typed list is a list of the doors somebody thought of, and writing "so a
+ * third copy cannot" beside one does not make it so. `host-means-host.test.ts`
+ * now DERIVES its file set from the tree and is FLOORED, so a sweep that stops
+ * seeing anything fails instead of reading as a pass.
  *
  * Extracted from the inline `event_members` / `event_moderators` check that
  * app/[slug]/page.tsx runs for its private-gate + `?phase=` preview allowance,
- * so surfaces that need the same "hosts can preview" rule (e.g. the /[slug]/print
- * keepsake, which lets hosts preview pre-event) share ONE implementation instead
- * of re-deriving it. Returns false for anonymous / guest-cookie-only viewers.
+ * so surfaces that need the same "hosts can preview" rule share ONE
+ * implementation instead of re-deriving it — the /[slug]/print keepsake, which
+ * lets hosts preview pre-event, and the /[slug]/hub `?phase=` preview, which had
+ * re-derived it and got it wrong. Returns false for anonymous / guest-cookie-only
+ * viewers.
  */
 export async function isSignedInEventHost(eventId: string): Promise<boolean> {
   const supabase = await createClient();
@@ -181,6 +286,7 @@ export async function isSignedInEventHost(eventId: string): Promise<boolean> {
       .select('member_type')
       .eq('event_id', eventId)
       .eq('user_id', user.id)
+      .in('member_type', [...HOST_MEMBER_TYPES])
       .maybeSingle(),
     admin
       .from('event_moderators')

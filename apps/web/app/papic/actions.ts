@@ -6,7 +6,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { releaseCaptureCredits } from '@/lib/papic-release-capture';
+// ⚠ `releaseCaptureCredits` is NOT imported here any more, and that is
+// deliberate. The seat path's spend and its row commit in one transaction, so
+// there is nothing to hand back; the guest route still imports it, because that
+// path's reserve and insert are genuinely two steps. See the record block below.
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
@@ -32,11 +35,10 @@ import {
   isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
-  resolvePointsGate,
-  type PointsGateVerdict,
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
+import { papicManualUploadsClosed } from '@/lib/papic-uploads-open';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
@@ -214,18 +216,33 @@ export type RecordSeatCaptureResult =
  * same person could POST straight to PostgREST and skip every check below: the
  * burst limiter, the 10-second cap, the capture window, the paid-order gate,
  * the put-away gate, the RA 10173 geo control and the credit reservation. As of
- * migration 20271169487222 that grant is gone and the row goes in with the
+ * migration 20271169487222 that grant is gone and the row goes in through the
  * SERVICE ROLE, so nothing enforces those rules except the code in this
  * function. Do not move a check out of it without moving the enforcement.
  *
  * ⚠ The authorization it replaced is done EXPLICITLY here, not inherited: the
  * seat is resolved under the caller's own session (so RLS still scopes the
  * lookup), `claimer_user_id` is compared to `auth.uid()` by hand, and a revoked
- * seat is refused — the three things the old WITH CHECK asserted.
+ * seat is refused — the three things the old WITH CHECK asserted. All three are
+ * then asked AGAIN inside the record function, against the row.
  *
- * ⛔ The credit reserve and the insert are TWO STEPS, not one transaction. A
- * death in the gap leaks the reserved credits, which errs against us rather
- * than the meter. Do not read "service role" as "atomic".
+ * ✅ THE CREDIT AND THE PHOTOGRAPH ARE NOW ONE TRANSACTION (migration
+ * 20271170528490). This used to reserve the credits and then write the row in
+ * two round trips, with an application-side unwind for the ordinary failure —
+ * which could not cover a process death, a timeout or a deploy landing in the
+ * gap, each of which left the couple charged for a photograph that does not
+ * exist. `papic_record_seat_capture` does the authorization, the split reserve
+ * and the insert in one SECURITY DEFINER function: they commit together or
+ * neither happens, and there is nothing left for an unwind to do. This follows
+ * the shape `papic_record_guest_capture` has used for the guest half of Papic
+ * since it shipped.
+ *
+ * ⛔ THE FIVE GATES BELOW STILL LIVE HERE, and every one of them refuses BEFORE
+ * a credit is touched: the Upstash burst limiter (which cannot move into
+ * Postgres and fails open by design), the 10-second clip cap, the capture
+ * window, the paid-order gate and the put-away gate. Moving one of them out of
+ * this function without moving its enforcement re-opens exactly what
+ * 20271169487222 closed.
  *
  * Returns the friend's new running capture count, or a soft error the capture
  * UI can show without crashing (never throws — the camera should keep working).
@@ -304,7 +321,7 @@ export async function recordSeatCapture(
   const { data: seat, error: seatError } = await supabase
     .from('paparazzi_seats')
     .select(
-      'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until',
+      'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until, seat_index',
     )
     .eq('claim_qr_token', cleanToken)
     .maybeSingle();
@@ -358,18 +375,14 @@ export async function recordSeatCapture(
   // leak guard). Free cameras (tier 'free' · provisionFreeCamerasAdmin) meter
   // through the same points gate at the free budget.
   //
-  // Capture-points reserved by the metering gate below are tracked at THIS scope
-  // so an ABORT after the gate (most notably the papic_photos insert failing)
-  // can release them — otherwise the couple's points are spent on a capture that
-  // produced no photo (a silent points leak).
-  let abortReleaseSeatId: string | null = null;
-  let abortReleaseEventId: string | null = null;
-  // ⚠ TWO FIGURES, NOT ONE COST. A capture can be paid from BOTH balances at
-  // once (owner 2026-08-11: "spend 2 and take 6"), so an abort has to put each
-  // half back where it came from. A single `cost` released to either side alone
-  // silently moves credits between the camera and the pot — it would either
-  // inflate the camera's guaranteed floor or hand the couple back credits the
-  // camera actually spent.
+  // ⚠ THERE IS NO LONGER AN ABORT SCOPE HERE, AND THAT IS THE FIX, NOT AN
+  // OMISSION. Two locals used to carry the seat + event through the function so
+  // a failed insert could hand the reserved credits back. The spend and the row
+  // now commit in one transaction (papic_record_seat_capture), so there is no
+  // state between them for anything to clean up — and no window in which a
+  // process death could leave credits spent on a photograph that does not exist.
+  // Do not reintroduce a release on this path: it would refund a spend that
+  // either committed with its row or never happened.
   /*
     ── PUT AWAY = the shutter stops (owner 2026-08-16) ───────────────────────
     OUTSIDE the `if (cameraTier)` block, deliberately. It sat inside on the
@@ -386,9 +399,9 @@ export async function recordSeatCapture(
     satisfied by the buggy placement too — an ORDER check says nothing about
     which conditional you are nested inside.
 
-    Not in the credit reservation below either: that call is skipped entirely
-    for an event holding the Papic Unlock pass, so a gate there would be missing
-    on exactly the events that paid the most.
+    Not folded into the record call below either: metering is skipped entirely
+    for an event holding the Papic Unlock pass (cost 0), so a gate expressed as
+    part of the spend would be missing on exactly the events that paid the most.
 
     Fails OPEN — see the helper for why a read failure must never stop a live
     celebration's cameras. Wrapped, because an unavailable admin client must
@@ -408,8 +421,46 @@ export async function recordSeatCapture(
     return { ok: false, error: 'event_put_away' };
   }
 
-  let abortReleaseDedicated = 0;
-  let abortReleasePool = 0;
+  /*
+    ── "MAY PHOTOS BE ADDED BY HAND?" — READ ON THE SERVER, NOT ON THE SCREEN ──
+
+    The couple's switch (`events.papic_uploads_open`) shipped governing the
+    studio PAGE: it hides the file picker. That was honest while the couple was
+    the only person it could stop, and dishonest the moment anything else can
+    reach this function — a hidden button is one `fetch` away from not being
+    hidden, and a server action is a public endpoint.
+
+    🔑 THE SEAT IS WHAT ANSWERS IT. The picker is not a separate capture path; it
+    is the Uploads camera taking a shot. So the gate keys on the seat's own
+    `seat_index`, a fact in the database rather than a claim the client makes,
+    and it therefore holds for a surface nobody has written yet.
+
+    ⛔ EVERY OTHER SEAT PASSES THROUGH UNTOUCHED. Turning this off must never
+    stop a paparazzo photographing a wedding — the OFF copy promises exactly
+    that: "Only what your cameras capture."
+
+    ⚠ Above the metering on purpose: a refused upload must not have spent a
+    credit. Fails OPEN on an unreadable switch — see the helper for why.
+  */
+  {
+    let uploadsClosed = false;
+    try {
+      uploadsClosed = await papicManualUploadsClosed(
+        createAdminClient(),
+        seat.event_id as string,
+        seat.seat_index as number | null,
+      );
+    } catch {
+      uploadsClosed = false;
+    }
+    if (uploadsClosed) return { ok: false, error: 'uploads_closed' };
+  }
+
+  // The capture's price, in credits. 0 means "do not meter this one" — an event
+  // holding the Papic Unlock pass, or a legacy PAPIC_SEATS pack seat, both of
+  // which have always skipped the reserve. ONE number describing what this
+  // capture is worth, handed to the record function, which spends it or refuses.
+  let meterCost = 0;
   {
     if (cameraTier) {
       // ── Capture WINDOW gate (owner 2026-06-26) ──────────────────────────
@@ -474,159 +525,84 @@ export async function recordSeatCapture(
         }
         if (!paid) return { ok: false, error: 'awaiting_payment' };
       }
-      // Capture-POINTS reserve (Papic v3 · brief PR-3) — the AUTHORITATIVE,
-      // race-safe gate: 1 photo = 1 pt · 1 clip = 7 pts, atomically booked by
-      // papic_reserve_camera_points against the tier's daily budget from
-      // papic_tier_config (roll 20 · ltd 70 · free/mini/unlimited NULL=∞
-      // passthrough — free + Papic One draw ONLY the shared event pool per the
-      // one-pool model; admin-editable, never hardcoded here). Fail-CLOSED on any RPC failure
-      // EXCEPT function-not-found (resolvePointsGate — the seam-cutover
-      // carve-out): metering is money logic now, so an outage must block, not
-      // silently un-meter. The presign probe (api/upload) is only the
-      // orphan-byte leak guard; this reserve is the gate of record.
-      {
-        // 🔑 THE LENGTH IS KNOWN HERE, so this is where a video is billed for
-        // what it actually was (owner 2026-08-11: 1-2s=2 · 3s=3 · 4-6s=5 ·
-        // 7-10s=8). The presign seam above could not know it — no file exists
-        // yet — so it gates on the cheapest band and this reserve is the gate
-        // of record, exactly as it already was for the flat price.
-        //
-        // `durationMs` is client-stamped and this file already calls it
-        // spoofable (see the clip_too_long check). papicClipCost bills an
-        // absent or nonsense length at the TOP band, so the only thing a
-        // tampered client can do by lying is pay MORE.
-        const cost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo', durationMs);
-
-        // ── ONE GATE, BOTH BALANCES (owner 2026-08-11) ────────────────────
-        //
-        // This used to be TWO calls: reserve the camera's own credits, then ask
-        // the shared pot. That pair had a defect the owner caught — the pot
-        // stood down for any camera that had EVER held dedicated credits, not
-        // one that had any LEFT, so a camera given 3 shots took its 3 and then
-        // stopped dead with a thousand credits sitting unspent in the event.
-        // Dedicating was acting as a ceiling instead of a floor.
-        //
-        // 🔑 THE SPLIT CANNOT BE DECIDED BY TWO CALLS IN SEQUENCE. The first one
-        // MUTATES, so by the time the second ran the camera's counter had
-        // already moved, and a camera that spent its last credit looked
-        // identical to one that never had any. Whatever the second call decided
-        // would double-charge some captures and let others through free.
-        //
-        // So it is one call now, under one row lock, in one transaction: spend
-        // the camera's own first, the pot covers the remainder ("spend 2 and
-        // take 6"), and either both halves commit or neither does.
-        //
-        // ⚠ THE REFUSAL UNWIND THAT STOOD HERE IS GONE, and its absence is the
-        // point. It existed because one ledger could book while the other
-        // refused. All-or-nothing removes the state it cleaned up — there is no
-        // longer a moment where a refused capture has spent anything.
-        let gate: PointsGateVerdict = 'allow';
-        let dedicatedSpent = 0;
-        let poolSpent = 0;
-        if (!unlocked) {
-          try {
-            const admin = createAdminClient();
-            const { data, error: splitErr } = await admin.rpc('papic_reserve_capture_split', {
-              p_seat_id: seat.seat_id,
-              p_event_id: seat.event_id,
-              p_cost: cost,
-            });
-            // A set-returning function arrives as an array of one row.
-            const row = (Array.isArray(data) ? data[0] : data) as
-              | { ok?: unknown; dedicated_spent?: unknown; pool_spent?: unknown }
-              | null
-              | undefined;
-            gate = resolvePointsGate(
-              splitErr ? (splitErr.code ?? 'unknown') : null,
-              // An indeterminate shape is fail-CLOSED, not "allowed" — metering
-              // is money logic and a missing answer must never un-meter a camera.
-              row == null ? null : row.ok === true ? true : row.ok === false ? false : null,
-            );
-            if (row?.ok === true) {
-              dedicatedSpent = Number(row.dedicated_spent) || 0;
-              poolSpent = Number(row.pool_spent) || 0;
-            }
-          } catch {
-            gate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
-          }
-        }
-
-        // ALLOWED: the reserved credits stay spent — record EXACTLY what came
-        // from each side, so a later abort puts each half back where it came
-        // from. Releasing the whole cost to either side alone would silently
-        // move credits between the camera and the pot.
-        if (gate === 'allow' && (dedicatedSpent > 0 || poolSpent > 0)) {
-          abortReleaseSeatId = seat.seat_id as string;
-          abortReleaseEventId = seat.event_id as string;
-          abortReleaseDedicated = dedicatedSpent;
-          abortReleasePool = poolSpent;
-        }
-
-        if (gate === 'exhausted') {
-          return { ok: false, error: 'camera_points_exhausted' };
-        }
-        if (gate === 'blocked') {
-          return { ok: false, error: 'points_check_failed' };
-        }
+      // 🔑 THE LENGTH IS KNOWN HERE, so this is where a video is billed for
+      // what it actually was (owner 2026-08-11: 1-2s=2 · 3s=3 · 4-6s=5 ·
+      // 7-10s=8). The presign seam above could not know it — no file exists
+      // yet — so it gates on the cheapest band and the reserve is the gate of
+      // record, exactly as it already was for the flat price.
+      //
+      // `durationMs` is client-stamped and this file already calls it
+      // spoofable (see the clip_too_long check). papicClipCost bills an absent
+      // or nonsense length at the TOP band, so the only thing a tampered client
+      // can do by lying is pay MORE.
+      //
+      // An event holding the Papic Unlock pass shoots unmetered — cost stays 0.
+      if (!unlocked) {
+        meterCost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo', durationMs);
       }
     }
   }
-
-  // Captures are uncapped and permanent (expires_at stays null). The retired
-  // free sampler was the only path that ever set an expiry.
-  const expiresAt: string | null = null;
 
   // Capture geolocation (papic_geo_metadata, RA 10173). Fail-closed: geo is
   // written ONLY when the data-privacy control is active — a hostile direct
   // caller that transmits geo to a control-off event has it dropped here (the
   // client also self-gates and won't request a fix when off). buildPapicGeoFields
-  // returns {} when off → spreading it writes no geo column, leaving them NULL.
+  // returns {} when off → the record call then names no coordinates at all and
+  // the columns stay NULL, with `geo_unavailable` at its FALSE default. The rule
+  // itself stays in that one helper; this passes its DECISION to the database.
   //
   // ⚠ THAT SENTENCE WAS ASPIRATIONAL UNTIL 2026-08-26 and is true now. A direct
   // caller did not have to come through here at all — `authenticated` held
   // INSERT on papic_photos (at column level, so a table-level audit read clean),
   // and a POST straight to PostgREST wrote whatever geolocation it liked onto an
-  // event that had switched the control off. See the writer block below.
+  // event that had switched the control off.
   const geoEnabled = await isDataPrivacyControlActive('papic_geo_metadata');
-  const geoFields = buildPapicGeoFields(geoEnabled, geo);
+  const geoFields = buildPapicGeoFields(geoEnabled, geo) as {
+    geo_lat?: number;
+    geo_lon?: number;
+    geo_accuracy_m?: number | null;
+    geo_unavailable?: boolean;
+  };
 
   let insertedPhotoId: string | null = null;
 
   /*
-    ── THE ROW IS WRITTEN WITH THE SERVICE ROLE, AND THAT IS THE WHOLE GATE ────
+    ── ONE CALL: AUTHORIZE, SPEND, WRITE — OR NONE OF THE THREE ────────────────
 
     Everything above this line — the burst limiter, the 10-second cap, the
-    capture window, the paid-order gate, the put-away gate, the geo privacy
-    control, and the credit reservation — used to be advice. The insert went in
-    through the CLAIMER'S OWN SESSION, and `authenticated` held INSERT on
-    papic_photos, so the same person could skip this function and POST straight
-    to /rest/v1/papic_photos with the public anon key: no credits spent, no
-    length checked, no window, no payment, geo written on an event that had
-    switched geo off.
+    capture window, the paid-order gate, the put-away gate, the uploads switch
+    and the geo privacy control — used to be advice. The insert went in through
+    the CLAIMER'S OWN SESSION, and `authenticated` held INSERT on papic_photos,
+    so the same person could skip this function and POST straight to
+    /rest/v1/papic_photos with the public anon key: no credits spent, no length
+    checked, no window, no payment, geo written on an event that had switched
+    geo off.
 
     🔑 THE GRANT WAS INVISIBLE AT TABLE LEVEL. It was held on all 39 grantable
     COLUMNS, so `role_table_grants` reported no INSERT at all and an audit read
-    clean. Migration 20271169487222 revokes it — at TABLE level, because that is
-    what drops column grants — and splits the claimer's FOR ALL policy so it no
+    clean. Migration 20271169487222 revoked it — at TABLE level, because that is
+    what drops column grants — and split the claimer's FOR ALL policy so it no
     longer declares an INSERT arm nobody can use.
 
-    So this write must not use `supabase`. It uses the service role, and the
-    checks above are now the only door rather than the recommended one.
+    ✅ AND THE SPEND AND THE ROW ARE NOW ONE TRANSACTION (20271170528490). This
+    block used to reserve the credits several statements above and write the row
+    here, unwinding in application code when the insert came back with an error.
+    That unwind is deleted, and its absence is the point: it could only ever run
+    if this process was still alive to run it, so a death, a timeout or a deploy
+    landing in the gap left the couple charged for a photograph that does not
+    exist. `papic_record_seat_capture` re-checks the seat, spends the credits and
+    inserts the row inside one SECURITY DEFINER function — they commit together
+    or neither happens.
+
+    ⚠ THE FUNCTION IS SERVICE-ROLE ONLY, so `writer` must be the admin client.
+    Calling it from the caller's session both fails (no EXECUTE) and, if that
+    were ever granted, would let a claimer walk past all five gates above.
 
     ⚠ An unavailable admin client is a REFUSAL here, not a fail-open. The reads
     above fail open on purpose — a config error must never stop a wedding being
     photographed by wrongly answering a question. This is not a question: with
     the grant gone there is no second path to fall back to, so the honest
     outcome is a soft error the camera can show and retry.
-
-    ⛔ THIS IS STILL TWO STEPS, NOT ONE TRANSACTION. The credits were reserved
-    above and the row is written here; a failure between them unwinds in
-    application code below. A process that dies in the gap leaks the reserved
-    credits — charged for a photo that does not exist. That errs against us
-    rather than against the meter, which is the right direction to fail while it
-    stands, but it is debt: the repair is a SECURITY DEFINER function that
-    reserves and inserts under one transaction, which deletes the unwind
-    outright. Do not read "service role" as "atomic".
   */
   let writer: SupabaseClient;
   try {
@@ -636,90 +612,66 @@ export async function recordSeatCapture(
   }
 
   {
-    const insertWithoutPoster = () =>
-      writer
-        .from('papic_photos')
-        .insert({
-          event_id: seat.event_id,
-          paparazzi_seat_id: seat.seat_id,
-          r2_object_key: cleanKey,
-          photo_type: kind === 'clip' ? 'clip' : 'photo',
-          // clip_web_r2_key / clip_web_bytes are left NULL here — the web copy is
-          // stamped by the off-drain persistSeatClipWebCopy follow-up.
-          expires_at: expiresAt,
-          ...geoFields,
-        })
-        .select('photo_id')
-        .single();
-
-    let { data: inserted, error: insertError } = cleanPoster
-      ? await writer
-          .from('papic_photos')
-          .insert({
-            event_id: seat.event_id,
-            paparazzi_seat_id: seat.seat_id,
-            r2_object_key: cleanKey,
-            photo_type: 'clip',
-            // The poster frame the NSFW screen classifies as the clip's proxy.
-            poster_r2_key: cleanPoster,
-            expires_at: expiresAt,
-            ...geoFields,
-          })
-          .select('photo_id')
-          .single()
-      : await insertWithoutPoster();
-
-    // Pre-migration env (poster_r2_key OR the geo columns absent → PostgREST
-    // PGRST204): retry with the MINIMAL shape (no poster, no geo) — losing the
-    // screen proxy or the geo stamp must never lose the clip/photo itself.
-    if (insertError && insertError.code === 'PGRST204') {
-      ({ data: inserted, error: insertError } = await writer
-        .from('papic_photos')
-        .insert({
-          event_id: seat.event_id,
-          paparazzi_seat_id: seat.seat_id,
-          r2_object_key: cleanKey,
-          photo_type: kind === 'clip' ? 'clip' : 'photo',
-          expires_at: expiresAt,
-        })
-        .select('photo_id')
-        .single());
-    }
-
-    if (insertError) {
-      // The capture was metered (points reserved) but the row never landed —
-      // release the reserved points so the couple isn't charged for a photo
-      // that does not exist. Best-effort + never fatal (mirrors the refusal
-      // unwind above); a failed release costs points, not a broken camera.
-      // ⚠ THIS USED TO END `.then(() => undefined, () => undefined)`.
-      // Supabase RESOLVES with { error } rather than throwing, so the second
-      // handler almost never ran and the FIRST discarded a real failure: a
-      // revoked grant, a replaced signature or a lock wait left the credits
-      // spent, the photo absent, and NOTHING anywhere knowing. Best-effort was
-      // right; SILENT was the bug.
+    const { data: recorded, error: recordError } = await writer.rpc(
+      'papic_record_seat_capture',
       {
-        const rel = (() => {
-          try {
-            return createAdminClient();
-          } catch {
-            return null;
-          }
-        })();
-        if (rel) {
-          // ONE call, both halves — passing back exactly the two figures the
-          // reserve returned, which is the whole reason it returns them.
-          await releaseCaptureCredits(rel, {
-            seatId: abortReleaseSeatId,
-            eventId: abortReleaseEventId,
-            dedicatedSpent: abortReleaseDedicated,
-            poolSpent: abortReleasePool,
-            callSite: 'recordSeatCapture.releaseAfterInsertFailed',
-          });
-        }
-      }
-      return { ok: false, error: insertError.message.slice(0, 80) };
+        p_seat_id: seat.seat_id,
+        p_event_id: seat.event_id,
+        // 🔑 IDENTITY IS AN ARGUMENT, RESOLVED HERE. Inside the function
+        // `current_user` is its OWNER and `auth.uid()` is empty (we call as the
+        // service role), so neither can answer "who is shooting". This is the
+        // id RLS already scoped the seat lookup by, and the function compares it
+        // to the seat's claimer again on its own side.
+        p_claimer_user_id: user.id,
+        p_r2_object_key: cleanKey,
+        p_photo_type: kind === 'clip' ? 'clip' : 'photo',
+        // clip_web_r2_key / clip_web_bytes are left NULL — the web copy is
+        // stamped by the off-drain persistSeatClipWebCopy follow-up.
+        p_poster_r2_key: cleanPoster,
+        p_cost: meterCost,
+        p_geo_lat: geoFields.geo_lat ?? null,
+        p_geo_lon: geoFields.geo_lon ?? null,
+        p_geo_accuracy_m: geoFields.geo_accuracy_m ?? null,
+        p_geo_unavailable: geoFields.geo_unavailable ?? null,
+      },
+    );
+
+    if (recordError) {
+      // ⚠ NO FUNCTION-NOT-FOUND CARVE-OUT, DELIBERATELY. `resolvePointsGate`
+      // treats a missing RPC as "allow" because a missing METER should not stop
+      // a camera. This RPC is not the meter — it is the write. There is nothing
+      // to fall through to (the INSERT grant is gone), so a missing function is
+      // an outage, and the honest answer is a soft error the camera retries
+      // rather than a success it invents.
+      logQueryError(
+        'recordSeatCapture.record',
+        recordError,
+        { seat_id: seat.seat_id },
+        'will_throw',
+      );
+      return {
+        ok: false,
+        error: recordError.code === '42883' ? 'unavailable' : 'record_failed',
+      };
     }
-    insertedPhotoId = (inserted?.photo_id as string) ?? null;
+
+    const result = (recorded ?? {}) as { status?: string; photo_id?: string | null };
+    switch (result.status) {
+      case 'ok':
+        break;
+      case 'exhausted':
+        return { ok: false, error: 'camera_points_exhausted' };
+      case 'not_your_seat':
+        return { ok: false, error: 'not_your_seat' };
+      case 'revoked':
+        return { ok: false, error: 'revoked' };
+      default:
+        // An unrecognised or absent status is fail-CLOSED. Metering is money
+        // logic; a missing answer must never be reported to the camera as a
+        // photograph that landed.
+        return { ok: false, error: 'record_failed' };
+    }
+    insertedPhotoId = result.photo_id ?? null;
   }
 
   // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs in

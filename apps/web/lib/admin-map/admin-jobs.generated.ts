@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 295 jobs, 195 of them form-driven, as of fcb713105.
+// that performs it. 297 jobs, 195 of them form-driven, as of 3b72cc269.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -769,6 +769,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "id"
     ],
+    "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
+    "name": "deleteSearchPhraseAction",
+    "phrase": "delete search phrase",
+    "ownerPath": "/admin/search-memory",
+    "resolvedPath": "/admin/search-memory",
+    "fields": [],
     "refusedWhenEmpty": [],
     "destructive": true
   },
@@ -3002,6 +3011,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "teachSearchPhraseAction",
+    "phrase": "teach search phrase",
+    "ownerPath": "/admin/search-memory",
+    "resolvedPath": "/admin/search-memory",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "toggleBackgroundVideoPublish",
     "phrase": "toggle background video publish",
     "ownerPath": "/admin/background-videos",
@@ -3394,6 +3412,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "event_type",
       "organizer_noun",
+      "host_noun",
+      "celebrant_noun",
+      "celebrant_shape",
       "person_a",
       "person_b",
       "seat_word",

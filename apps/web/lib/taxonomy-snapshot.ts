@@ -7,6 +7,7 @@
  * `next/headers` / the server client. `taxonomy-db.ts` re-exports the type.
  */
 import {
+  ADMIN_ONLY_TILES,
   WEDDING_FOLDER_ORDER,
   WEDDING_FOLDER_LABEL,
   WEDDING_FOLDER_SHORT_LABEL,
@@ -113,7 +114,13 @@ export function fallbackSnapshot(): TaxonomySnapshot {
     tileEventTypes: {}, // constant fallback has no event scoping → all universal
     categoryIcons: {}, // constant fallback has no admin icon overrides → all default
     categoryPhotos: {}, // constant fallback has no admin photo overrides
-    hiddenCategories: {}, // constant fallback has no hidden tiles
+    // The constant DOES know about hidden branches — the four admin-only
+    // filing tiles. Hard-coding {} here meant that on any DB read failure the
+    // fallback quietly promoted them to ordinary visible branches. Derived from
+    // ADMIN_ONLY_TILES so a fifth is covered without editing this line.
+    hiddenCategories: Object.fromEntries(
+      [...ADMIN_ONLY_TILES].map((t) => [t, true as const]),
+    ) as Record<string, true>,
     map: { ...TAXONOMY_MAP },
   };
 }

@@ -19,8 +19,8 @@
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
 import { cache } from 'react';
+import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
-import { COMMITTED_BOOKING_STATUSES } from '@/lib/vendor-addon-first5-free';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
@@ -118,7 +118,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, guest_list_edit_deadline, guest_count_locked_at',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, guest_list_edit_deadline, guest_count_locked_at',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -221,99 +221,16 @@ export const loadHostMembership = cache(
 );
 
 /**
- * Booked-vendor probe for the vendor doorway.
- *
- * WHAT IT ANSWERS: "is the signed-in viewer a supplier this couple has booked
- * on THIS event, and if so which of their businesses is it?" It is the vendor
- * twin of `loadHostMembership`, and it is deliberately just as narrow — it
- * returns an id and a trading name, never anything about the event.
- *
- * WHY THE ADMIN CLIENT. The couple's `/[slug]` page renders for anonymous
- * visitors with no RLS session, exactly as `loadHostMembership` and the widget
- * registry already do. The membership question is answered HERE, in one query,
- * and the answer is the only thing that travels — so a stranger cannot reach a
- * vendor control by asking for one.
- *
- * TWO JOINS, ONE ANSWER. `event_vendors` is the couple's own list of who they
- * booked; `linked_vendor_profile_id` is set once a real Setnayan vendor claims
- * that row. So an unclaimed hand-typed "Tita's Catering" resolves to nobody,
- * which is correct — there is no account to send anywhere.
- *
- * ⚠ A LINKED ROW IS NOT ALWAYS A BOOKED ROW, so the row's `status` travels with
- * the answer. Three code paths stamp the link (grep the COLUMN, never a
- * remembered list): the couple's own lock in `dashboard/[eventId]/vendors/
- * actions.ts`, the chat lock in `lib/chat-lock-booking.server.ts` — both at
- * 'contracted' — and `lib/reusable-bookings.server.ts`, which mints a
- * **'shortlisted'** reuse-accept row the couple has still to lock. So "linked"
- * answers *which* business, and only `status` answers *whether they are booked*.
- * Callers that are deciding a DISCLOSURE must ask the status; see
- * `vendorBookingIsCommitted` in _lib/site-identity.ts and its one caller, the
- * private-event gate in page.tsx.
- *
- * WHICH ROW, WHEN THERE ARE SEVERAL. A couple can book two businesses belonging
- * to the same person (a caterer who is also the florist). The previous
- * `.limit(1)` took whichever row Postgres handed back first, so the strip's
- * trading name — and now the gate's answer — would have been arbitrary. It now
- * reads every matching row and PREFERS a committed one, falling back to the
- * first link, so the strongest true claim wins deterministically.
- *
- * React.cache'd: the page asks once even if several surfaces want it — the
- * private gate near the top of page.tsx and the doorway ~200 lines later share
- * this single query.
+ * ⛔ `loadVendorBooking` USED TO LIVE HERE AND HAS MOVED to
+ * `lib/booked-supplier.ts`. Do not add it back: three surfaces need it — this
+ * route's lock screen, its supplier doorway and `/{slug}/print` — and this
+ * module's own header says its loaders must not be imported from other routes.
+ * Two of the three had drifted into asking whether a LINK existed rather than
+ * whether the couple had BOOKED anybody, which admits a 'shortlisted' reuse row
+ * the couple has not locked. It is one read and one predicate now, and it is
+ * still React.cache'd — keyed on (eventId, userId) rather than on a client
+ * instance, so every surface in one request shares the single query.
  */
-export const loadVendorBooking = cache(
-  async (
-    admin: AdminClient,
-    eventId: string,
-    userId: string,
-  ): Promise<{
-    vendorProfileId: string;
-    businessName: string;
-    /** `event_vendors.status` of the row that linked them. */
-    bookingStatus: string | null;
-  } | null> => {
-    // The businesses this user owns or administers.
-    const { data: mine } = await admin
-      .from('vendor_profiles')
-      .select('vendor_profile_id, business_name')
-      .eq('user_id', userId);
-    const owned = (mine ?? []) as { vendor_profile_id: string; business_name: string }[];
-    if (owned.length === 0) return null;
-
-    // …narrowed to the ones the couple actually listed on this event.
-    const { data: booked } = await admin
-      .from('event_vendors')
-      .select('linked_vendor_profile_id, status')
-      .eq('event_id', eventId)
-      .in(
-        'linked_vendor_profile_id',
-        owned.map((v) => v.vendor_profile_id),
-      );
-
-    const rows = (booked ?? []) as {
-      linked_vendor_profile_id: string | null;
-      status: string | null;
-    }[];
-    const usable = rows.filter(
-      (r): r is { linked_vendor_profile_id: string; status: string | null } =>
-        typeof r.linked_vendor_profile_id === 'string' && r.linked_vendor_profile_id.length > 0,
-    );
-    const chosen =
-      usable.find((r) =>
-        (COMMITTED_BOOKING_STATUSES as readonly string[]).includes(r.status ?? ''),
-      ) ?? usable[0];
-    if (!chosen) return null;
-
-    const id = chosen.linked_vendor_profile_id;
-    const match = owned.find((v) => v.vendor_profile_id === id);
-    if (!match) return null;
-    return {
-      vendorProfileId: match.vendor_profile_id,
-      businessName: match.business_name,
-      bookingStatus: chosen.status ?? null,
-    };
-  },
-);
 
 /**
  * Day-of announcements for the GUEST side.
@@ -919,11 +836,21 @@ export const loadLiveLayer = cache(
     // NOT to `/[slug]/live-wall`, which is a JSON poll-feed route handler (the
     // LiveWallBlock's freshness endpoint), never a navigable page. After the day,
     // it points at the viewable recap album.
+    //
+    // ⚠ THE SECOND HALF OF THAT SENTENCE USED TO ASK THE CALENDAR, NOT THE
+    // ALBUM. It read `dayOfPhase === 'post' ? /recap : null`, with no check
+    // that the couple had published anything — so an ANONYMOUS visitor to the
+    // invitation address tapped "Photos" during the T+36h→T+60h window and
+    // landed on "The recap isn't ready yet", and after T+60h the button went
+    // dark forever even once the album WAS published. The rooms footer on the
+    // same event applied the correct rule the whole time. One decision now,
+    // shared by all three surfaces — see `album-door.server.ts`.
+    //
+    // The live-wall branch is untouched: during the day "Photos" anchors to the
+    // wall mirrored inline on this page, which is a different destination.
     const publicAlbumHref = liveWall
       ? `/${event.slug}#live-photo-wall`
-      : dayOfPhase === 'post'
-        ? `/${event.slug}/recap`
-        : null;
+      : ((await resolveAlbumDoor(event))?.href ?? null);
 
     return {
       scheduleBlocks,

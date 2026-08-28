@@ -3,6 +3,7 @@ import { loadRoomLinks } from '../_lib/room-links.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { eventNoun } from '@/lib/event-noun';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchBooths } from '@/lib/seating';
@@ -63,6 +64,33 @@ export default async function VenuePage({
     throw new Error(`venue: could not read the event for "${slug}": ${paletteRow.error.message}`);
   }
   if (!paletteRow.data) notFound();
+
+  // 🪑 THE 3D WALK IS A SEAT ROOM (owner 2026-08-28, "only its own rooms").
+  //
+  // Prod's `public_venue_scene` ALREADY refuses an event whose profile lacks
+  // 'seating' — verified by reading the live function body, not a migration —
+  // but it refuses by answering `{published: false}`, which this page draws as
+  // the "plan not posted yet" plate. For a kind that will NEVER have a floor
+  // plan that plate is a promise it can never keep, and the approved grid's own
+  // rule is ABSENT, NEVER GREYED (§ D rule 2). So the refusal is made explicit
+  // here, ahead of the plate.
+  //
+  // 🔑 This is deliberately NOT a second copy of the RPC's rule — it reads the
+  // SAME surface from the SAME profile. If it ever disagrees with the RPC, the
+  // RPC still wins and the guest sees the plate; this only ever makes the
+  // refusal cleaner, never more permissive.
+  //
+  // ⚠ NO `?? 'wedding'` HERE. Defaulting an unknown type to a wedding is the
+  // disease `s13-is-finished.test.ts` bills for, and it would be wrong twice
+  // over: it would hand a wedding's rooms to an event whose type we could not
+  // read. An empty string matches no profile row and degrades to
+  // GENERIC_PROFILE, which ENABLES seating — so an unreadable event keeps its
+  // room. FAIL OPEN: only a stored row that says "no seating" closes this door.
+  const venueEventType =
+    (paletteRow.data as { event_type?: string | null }).event_type ?? '';
+  if (!surfaceEnabled(await resolveProfile(venueEventType), 'seating')) {
+    notFound();
+  }
 
   // 🚨 THE GATE THIS PAGE'S OWN COMMENTS CLAIMED AND NOBODY HAD WRITTEN.
   //

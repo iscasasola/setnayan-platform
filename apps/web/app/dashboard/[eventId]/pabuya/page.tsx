@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { PabuyaManager } from './_components/pabuya-manager';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 
 export const metadata = { title: 'Pabuya · E-Gifts' };
 
@@ -57,6 +58,10 @@ export default async function PabuyaDashboardPage({ params }: Props) {
     if (m.qr_r2_key && m.qrDisplayUrl) qrDisplayUrls[m.qr_r2_key] = m.qrDisplayUrl;
   }
 
+  // The event's own words, so the LIVE PREVIEW below reads byte-identically to
+  // what a guest gets on the public gift page. Parity is the preview's whole job.
+  const words = await eventWordsForEvent(eventId);
+
   return (
     <div className="mx-auto w-full max-w-5xl">
       <PageMasthead title="The digital money dance" />
@@ -64,6 +69,8 @@ export default async function PabuyaDashboardPage({ params }: Props) {
       <PabuyaManager
         eventId={eventId}
         coupleName={event?.display_name ?? null}
+        organizerPossessive={words.theOrganizerPossessive}
+        theOrganizer={words.theOrganizer}
         slug={event?.slug ?? null}
         visibility={event?.landing_page_visibility ?? null}
         publicRouteEnabled={isPabuyaPublicRouteEnabled()}

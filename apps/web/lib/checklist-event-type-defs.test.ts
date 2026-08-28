@@ -28,7 +28,7 @@ const ENABLED_TYPES = [
   // funeral joined 2026-08-24 (W4-WORDS): without its own short-runway def it
   // would seed the CELEBRATION template — "Set the purpose & theme", "Book a
   // host" — at a wake, in the week a family least needs a celebration list.
-  'funeral',
+  'wake',
 ];
 
 test('checklistDefForEventType: wedding / null / unset fall back to the wedding template (null)', () => {
@@ -36,7 +36,9 @@ test('checklistDefForEventType: wedding / null / unset fall back to the wedding 
   assert.equal(checklistDefForEventType(null), null);
   assert.equal(checklistDefForEventType(undefined), null);
   // An unknown type also falls back rather than crashing. ('funeral' was this
-  // test's example of an unknown type until it became a real one.)
+  // test's example of an unknown type until it became a real one — and is now
+  // not a type at all: the type is 'wake', and a funeral is the ceremony inside
+  // it. Owner 2026-08-27.)
   assert.equal(checklistDefForEventType('pet_adoption'), null);
 });
 

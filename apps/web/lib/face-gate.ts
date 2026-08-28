@@ -27,6 +27,16 @@ import type {
  * dependency (tracked for a later pass).
  */
 
+/** The refusal findings this gate can report. The WORDS live at the capture
+ *  screen, which is the only place that knows the event's own nouns. */
+export type FaceGateReason =
+  | 'no_face'
+  | 'many_faces'
+  | 'too_far'
+  | 'not_frontal'
+  | 'too_dark'
+  | 'too_bright';
+
 export type FaceGateResult = {
   /** false → detector couldn't run; caller should allow the selfie unchecked. */
   available: boolean;
@@ -38,8 +48,17 @@ export type FaceGateResult = {
   bboxRatio: number;
   frontal: boolean;
   brightness: number;
-  /** Human-readable retake hint when !ok. */
-  reason?: string;
+  /**
+   * WHY the shot was refused, as a CODE — never a sentence.
+   *
+   * 🔒 THIS FILE MUST NEVER GROW EVENT CONTEXT. It is a pure browser-side
+   * quality helper with no event id and no words, and one of these hints used
+   * to read "…so the couple recognizes you" on every event type, wake included.
+   * The fix is NOT to pass it an event — that is how the next leak gets
+   * written. The capture screen already holds the resolved words, so it owns
+   * the sentence and this owns the finding.
+   */
+  reasonCode?: FaceGateReason;
   meta: Record<string, unknown>;
 };
 
@@ -175,25 +194,25 @@ export async function runFaceGate(
   }
 
   let ok = true;
-  let reason: string | undefined;
+  let reasonCode: FaceGateReason | undefined;
   if (faceCount === 0) {
     ok = false;
-    reason = "We couldn't find your face — center yourself in the frame.";
+    reasonCode = 'no_face';
   } else if (faceCount > 1) {
     ok = false;
-    reason = 'Only you should be in this photo — just one face, please.';
+    reasonCode = 'many_faces';
   } else if (bboxRatio < MIN_BBOX_RATIO) {
     ok = false;
-    reason = 'Move a little closer so your face fills more of the frame.';
+    reasonCode = 'too_far';
   } else if (!frontal) {
     ok = false;
-    reason = 'Look straight at the camera so the couple recognizes you.';
+    reasonCode = 'not_frontal';
   } else if (brightness < BRIGHTNESS_MIN) {
     ok = false;
-    reason = "It's a bit dark — find brighter, even light.";
+    reasonCode = 'too_dark';
   } else if (brightness > BRIGHTNESS_MAX) {
     ok = false;
-    reason = 'Too bright — turn away from the glare and retake.';
+    reasonCode = 'too_bright';
   }
 
   const sizeScore = Math.max(0, Math.min(1, bboxRatio / (MIN_BBOX_RATIO * 2.5)));
@@ -207,7 +226,7 @@ export async function runFaceGate(
     bboxRatio: Number(bboxRatio.toFixed(3)),
     frontal,
     brightness: Number(brightness.toFixed(3)),
-    reason,
+    reasonCode,
     meta: {
       gate_version: FACE_GATE_VERSION,
       faceCount,

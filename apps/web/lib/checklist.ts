@@ -1153,9 +1153,10 @@ const CHECKLIST_EVENT_LABELS: Record<string, { noun: string; title: string }> = 
   hangout: { noun: 'hangout', title: 'Hangout' },
   // The solemn type (owner 2026-08-17, "yes to all four"). `noun` fills "Your
   // ___" and "your ___ date" — 'service' is the one word that reads with
-  // dignity in both slots ("Your service", "your service date"); 'funeral' or
-  // 'wake' in the possessive eyebrow reads like a sentence about the reader.
-  funeral: { noun: 'service', title: 'Funeral' },
+  // dignity in both slots ("Your service", "your service date"); the type's own
+  // name in the possessive eyebrow — "your wake date" — reads like a sentence
+  // about the reader rather than about the day.
+  wake: { noun: 'service', title: 'Wake' },
 };
 
 /**

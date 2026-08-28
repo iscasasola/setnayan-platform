@@ -167,7 +167,7 @@ export default async function PabuyaPublicPage({
         )}
 
         <div className="mt-6">
-          <PabuyaTrustNote audience="guest" />
+          <PabuyaTrustNote audience="guest" organizerPossessive={words.theOrganizerPossessive} />
         </div>
 
         <footer className="mt-12 border-t border-ink/10 pt-8 text-center">

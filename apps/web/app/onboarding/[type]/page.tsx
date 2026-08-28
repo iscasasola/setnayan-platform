@@ -76,7 +76,9 @@ export default async function GenericOnboardingPage({
   const [{ data: userData }, tiles, spec] = await Promise.all([
     supabase.auth.getUser(),
     getOnboardingTiles(type),
-    getOnboardingSpec(type, flow.personaPackKey),
+    // The register rides along so a wake's quiz + reveal are solemn on EVERY
+    // path, including the two where the override read fails (solemn-content.ts).
+    getOnboardingSpec(type, flow.personaPackKey, profile.terminology.register),
   ]);
   const user = userData.user;
 
@@ -150,6 +152,7 @@ export default async function GenericOnboardingPage({
       intro={spec.intro}
       questions={spec.questions}
       personaPack={spec.personaPack}
+      register={spec.register}
       revealByPersona={spec.revealByPersona}
       quizAxes={spec.axes}
       authed={!!user}

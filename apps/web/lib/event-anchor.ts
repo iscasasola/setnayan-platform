@@ -62,7 +62,7 @@ export const ANCHOR_BY_TYPE: Record<string, TypeAnchorDefault> = {
   hangout: { kind: 'fixed_date', dateModel: 'input' },
   // The family enters the service date directly; nothing anchors it to a
   // recorded person-date the way a birthday is.
-  funeral: { kind: 'fixed_date', dateModel: 'input' },
+  wake: { kind: 'fixed_date', dateModel: 'input' },
 };
 
 /** Unknown/admin-created types fall back to a chosen fixed date. */
@@ -197,7 +197,7 @@ export const CADENCES_BY_TYPE: Record<string, readonly RecurCadence[]> = {
   graduation: [],
   // A death anniversary (babang luksa) is a real yearly occasion — but it is a
   // DIFFERENT event a family creates, not this one repeating.
-  funeral: [],
+  wake: [],
 
   // Definitionally the return of one date (owner-locked).
   anniversary: ['annual'],

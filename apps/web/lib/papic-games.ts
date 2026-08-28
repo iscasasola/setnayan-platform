@@ -40,16 +40,56 @@ export async function ensureAutoMissions(
 // single parameter. PostgREST resolves an RPC by its EXACT set of named
 // arguments, so passing the old `p_pabati_active` here matches nothing and the
 // call is REFUSED, not thrown — the board would silently never materialize.
+//
+// 🚨 AND THE SAME MIGRATION TOOK THE `authenticated` EXECUTE GRANT WITH IT —
+// an unpaired REVOKE, restored by 20271173829027. For the whole planning period
+// this call was refused on every render of the couple's own challenge screen.
+// Nothing threw and nothing logged, because of the line below.
+//
+// 🔑 THAT IS WHY THIS NO LONGER RETURNS A BARE NUMBER. `0` was doing two jobs —
+// "the board is empty" and "I could not build the board" — and the caller had no
+// way to tell them apart, so the screen went on to describe an unbuilt board as
+// a FULL one. A refusal now says so, and the caller must decide what to do with
+// it. Fail-soft is preserved: nothing here throws, and the capture surface still
+// renders on a refusal.
+export type PapicBoardBuild = {
+  /**
+   * TRUE only when the resolver actually ran and answered. FALSE when the RPC
+   * was refused, and FALSE when the feature flag is off — in both cases nobody
+   * has worked out which challenges reach a guest, which is the only thing a
+   * caller may conclude from it.
+   */
+  resolved: boolean;
+  /** Live slots on the board. Meaningless unless `resolved` is true. */
+  slots: number;
+};
+
+/** A refusal, and the reason it is never a number. Shared so the two failure
+ *  paths cannot drift into disagreeing about what "no board" means. */
+const BOARD_UNRESOLVED: PapicBoardBuild = { resolved: false, slots: 0 };
+
 export async function ensurePapicBoard(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<number> {
-  if (!papicGamesEnabled()) return 0;
+): Promise<PapicBoardBuild> {
+  if (!papicGamesEnabled()) return BOARD_UNRESOLVED;
   const { data, error } = await supabase.rpc('ensure_papic_board' as never, {
     p_event_id: eventId,
   } as never);
-  if (error) return 0; // fail-soft: a board hiccup must never break the capture surface
-  return typeof data === 'number' ? data : 0;
+  // ⚠ SUPABASE DOES NOT THROW — it resolves with `{ error }`. A try/catch around
+  // this call is decoration; reading `error` is the only way to know. The board
+  // is best-effort by design, so this must not throw either — but a silent
+  // return is what hid a permission failure for days, so it is logged.
+  if (error) {
+    console.warn(
+      `[papic-games] board build refused — event=${eventId}: ` +
+        `${error.message}${error.code ? ` (${error.code})` : ''}. ` +
+        'Guests keep whatever board they already have; the couple is told we ' +
+        'could not work it out, never that their board is full.',
+    );
+    return BOARD_UNRESOLVED;
+  }
+  return { resolved: true, slots: typeof data === 'number' ? data : 0 };
 }
 
 // A guest reads their OWN event's live missions + own completion flags (anon RPC,

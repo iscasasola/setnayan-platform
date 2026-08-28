@@ -6,6 +6,7 @@ import {
 } from '@/lib/papic-cameras';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolvePlayRef } from '@/lib/papic-display-ref';
+import { resolveCapturerNames } from '@/lib/capture-credit';
 
 // The couple's real Papic gallery — both crew (paparazzi) captures and guest
 // captures, with presigned thumbnails. Reads under the COUPLE's RLS session
@@ -68,9 +69,42 @@ export type GalleryPhoto = {
   // their approved clip is live or still waiting on consent.
   showcaseApproved?: boolean;
   showcaseConsent?: boolean;
+  /**
+   * WHO TOOK IT — the name the tile credits, or null when we do not know.
+   *
+   * Gallery archetype § 2: *"Credit is a feature. Every tile names its camera."*
+   *
+   * ⚠ NULL IS THE COMMON CASE TODAY AND IS NOT A BUG. Measured against
+   * production 2026-08-27: 14 of 14 photographs carry a capturer id, and 0 of
+   * them resolve to a name, because 32 of the 34 rows in the person spine have
+   * no name at all. The tile renders no credit rather than "Unknown" — see
+   * `lib/capture-credit-pure.ts`.
+   */
+  capturedBy?: string | null;
+  /**
+   * The bigger derivative the LIGHTBOX shows — `display_r2_key` (long edge 1280)
+   * where the row has one, else whatever the tile is using.
+   *
+   * ⚠ NOT the same as `url`, and the difference is the whole point: `url` is the
+   * 320px thumbnail, correct for a six-across grid and visibly mush when a
+   * couple opens one frame full-screen. The archetype's lightbox is where
+   * somebody actually looks at the photograph.
+   *
+   * ⚠ AND NOT `saveUrl` either. That route streams the full-res original through
+   * an EXIF/GPS strip for a DOWNLOAD; serving it as an on-screen image would put
+   * a multi-megabyte original behind every tap.
+   */
+  viewUrl?: string | null;
 };
 
 const GALLERY_LIMIT = 120;
+
+/** Distinct, non-empty string ids out of a possibly-sparse column. */
+function ids(values: (string | null | undefined)[]): string[] {
+  const out = new Set<string>();
+  for (const v of values) if (typeof v === 'string' && v.length > 0) out.add(v);
+  return [...out];
+}
 
 function mapTagSource(source: string | undefined): GalleryTagSource {
   if (!source) return 'untagged';
@@ -89,7 +123,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
+        'photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -97,7 +131,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        'capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
+        'capture_id, guest_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -188,10 +222,77 @@ export async function fetchPapicGallery(
     /* untagged fallback */
   }
 
-  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl' | 'saveUrl'> & {
+  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl' | 'saveUrl' | 'viewUrl'> & {
     ref: string | null;
     videoRef: string | null;
+    viewRef: string | null;
   };
+
+  // ── WHO TOOK EACH FRAME ─────────────────────────────────────────────────
+  //
+  // Three sources, because there are three kinds of camera in this gallery and
+  // they record their operator differently: a crew seat carries a stamped
+  // capturer person (and, failing that, the account that claimed it), a guest
+  // capture carries the guest, and a supplier's documentation carries the shop.
+  //
+  // Resolved ONCE for the whole page, from the ids on rows this RLS-bound read
+  // has already been allowed to see — never per tile, and never widening.
+  const seatIds = ids(visibleSeat.map((r) => r.paparazzi_seat_id as string | null));
+  const { data: seatRowsForCredit } = seatIds.length
+    ? await supabase
+        .from('paparazzi_seats')
+        .select('seat_id, claimer_user_id, guest_id')
+        .eq('event_id', eventId)
+        .in('seat_id', seatIds)
+    : { data: [] as { seat_id: string; claimer_user_id: string | null; guest_id: string | null }[] };
+  const seatById = new Map(
+    (seatRowsForCredit ?? []).map((r) => [
+      r.seat_id as string,
+      r as { seat_id: string; claimer_user_id: string | null; guest_id: string | null },
+    ]),
+  );
+
+  const credits = await resolveCapturerNames(eventId, {
+    personIds: [
+      ...visibleSeat.map((r) => r.captured_by_person_id as string | null),
+      ...visibleGuest.map((r) => r.captured_by_person_id as string | null),
+    ],
+    guestIds: [
+      ...visibleGuest.map((r) => r.guest_id as string | null),
+      ...(seatRowsForCredit ?? []).map((r) => r.guest_id as string | null),
+    ],
+    userIds: (seatRowsForCredit ?? []).map((r) => r.claimer_user_id as string | null),
+  });
+
+  // A supplier's captures are credited to the SHOP, not to a person: the couple
+  // hired the business, and the individual behind the camera is the vendor's
+  // staff, not somebody in the samahan.
+  const vendorIdsForCredit = ids(
+    visibleVendor.map((r) => (r as { vendor_profile_id?: string }).vendor_profile_id ?? null),
+  );
+  const { data: vendorNameRows } = vendorIdsForCredit.length
+    ? await supabase
+        .from('vendor_profiles')
+        .select('vendor_profile_id, business_name')
+        .in('vendor_profile_id', vendorIdsForCredit)
+    : { data: [] as { vendor_profile_id: string; business_name: string | null }[] };
+  const vendorNameById = new Map(
+    (vendorNameRows ?? [])
+      .filter((r) => typeof r.business_name === 'string' && (r.business_name as string).trim())
+      .map((r) => [r.vendor_profile_id as string, (r.business_name as string).trim()]),
+  );
+
+  /** The seat's own answer, tried in order: stamped person → guest → account. */
+  function seatCredit(row: { paparazzi_seat_id?: unknown; captured_by_person_id?: unknown }): string | null {
+    const personId = typeof row.captured_by_person_id === 'string' ? row.captured_by_person_id : null;
+    if (personId && credits.byPerson.has(personId)) return credits.byPerson.get(personId) ?? null;
+    const seat = typeof row.paparazzi_seat_id === 'string' ? seatById.get(row.paparazzi_seat_id) : undefined;
+    if (seat?.guest_id && credits.byGuest.has(seat.guest_id)) return credits.byGuest.get(seat.guest_id) ?? null;
+    if (seat?.claimer_user_id && credits.byUser.has(seat.claimer_user_id)) {
+      return credits.byUser.get(seat.claimer_user_id) ?? null;
+    }
+    return null;
+  }
 
   const seatPhotos: Pre[] = visibleSeat.map((r) => {
     const isClip = r.photo_type === 'clip';
@@ -206,6 +307,12 @@ export async function fetchPapicGallery(
         (r.display_r2_key as string | null) ??
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
+      // The lightbox's bigger frame — display first, then whatever the tile has.
+      viewRef:
+        (r.display_r2_key as string | null) ??
+        (r.thumb_r2_key as string | null) ??
+        (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
+        null,
       // The playable video for a clip resolves through resolvePlayRef (clip_web
       // web copy preferred, drop-safe) — never the raw key directly; the tile
       // shows its poster. Photos have no separate video.
@@ -232,6 +339,7 @@ export async function fetchPapicGallery(
       // boolean; pre-migration rows (column absent) read undefined → false.
       showcaseApproved: isClip ? Boolean(r.couple_approved_for_showcase) : undefined,
       showcaseConsent: isClip ? Boolean(r.consent_to_public) : undefined,
+      capturedBy: seatCredit(r),
     };
   });
 
@@ -252,6 +360,11 @@ export async function fetchPapicGallery(
         (r.display_r2_key as string | null) ??
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
+      viewRef:
+        (r.display_r2_key as string | null) ??
+        (r.thumb_r2_key as string | null) ??
+        (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
+        null,
       videoRef: isClip
         ? resolvePlayRef({
             media_type: 'clip',
@@ -269,6 +382,11 @@ export async function fetchPapicGallery(
       capturedAt: r.captured_at as string,
       showcaseApproved: isClip ? Boolean(r.couple_approved_for_showcase) : undefined,
       showcaseConsent: isClip ? Boolean(r.consent_to_public) : undefined,
+      capturedBy:
+        (typeof r.captured_by_person_id === 'string'
+          ? (credits.byPerson.get(r.captured_by_person_id) ?? null)
+          : null) ??
+        (typeof r.guest_id === 'string' ? (credits.byGuest.get(r.guest_id) ?? null) : null),
     };
   });
 
@@ -284,6 +402,11 @@ export async function fetchPapicGallery(
       ref: isClip
         ? (r.poster_r2_key as string | null)
         : (r.r2_object_key as string | null),
+      // Vendor captures carry no derivatives, so the tile ref IS the biggest we
+      // have — the lightbox opens the same object rather than nothing.
+      viewRef: isClip
+        ? (r.poster_r2_key as string | null)
+        : (r.r2_object_key as string | null),
       videoRef: isClip ? (r.r2_object_key as string | null) : null,
       kind: isClip ? ('clip' as const) : ('photo' as const),
       source: 'vendor' as const,
@@ -292,6 +415,8 @@ export async function fetchPapicGallery(
       capturedAt: r.captured_at as string,
       showcaseApproved: undefined,
       showcaseConsent: undefined,
+      capturedBy:
+        vendorNameById.get((r as { vendor_profile_id?: string }).vendor_profile_id ?? '') ?? null,
     };
   });
 
@@ -300,10 +425,18 @@ export async function fetchPapicGallery(
   );
 
   return Promise.all(
-    merged.map(async ({ ref, videoRef, ...rest }) => ({
+    merged.map(async ({ ref, videoRef, viewRef, ...rest }) => ({
       ...rest,
       url: ref ? await displayUrlForStoredAsset(ref) : null,
       playUrl: videoRef ? await displayUrlForStoredAsset(videoRef) : null,
+      // Same object as the tile when there is no bigger derivative — never null
+      // while the tile has something, so the lightbox opens on every frame the
+      // grid can draw.
+      viewUrl: viewRef
+        ? await displayUrlForStoredAsset(viewRef)
+        : ref
+          ? await displayUrlForStoredAsset(ref)
+          : null,
       // Full-res, geo-stripped save via the same-origin route (photos only;
       // clips save through the video path). The route re-checks couple auth +
       // event scope, so the id/src in the URL confer no access on their own.

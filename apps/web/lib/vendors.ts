@@ -50,6 +50,11 @@ export type VendorCategory =
   | 'restaurant_reservation'
   | 'wellness_fitness'
   | 'guest_booth'
+  | 'wedding_paperwork'
+  | 'travel_honeymoon'
+  | 'funeral_home'
+  | 'cremation'
+  | 'memorial_park'
   | 'misc';
 
 export type VendorStatus =
@@ -107,10 +112,23 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
   'restaurant_reservation',
   'wellness_fitness',
   'guest_booth',
+  // Opened to the marketplace 2026-08-27 on the owner's ruling — see
+  // ADMIN_ONLY_TILES in lib/taxonomy.ts for the two that stayed shut.
+  'wedding_paperwork',
+  'travel_honeymoon',
   'misc',
+  'funeral_home',
+  'cremation',
+  'memorial_park',
 ];
 
 export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
+  // ── A wake's own trades (2026-08-27) ──────────────────────────────────────
+  funeral_home: 'Funeral Home',
+  cremation: 'Cremation',
+  memorial_park: 'Memorial Park',
+  wedding_paperwork: 'Paperwork & Government',
+  travel_honeymoon: 'Travel & Honeymoon',
   venue: 'Venue',
   religious_venue: 'Religious Ceremony Venue',
   catering: 'Catering',
@@ -423,6 +441,8 @@ export const SERVICE_GROUPS: ReadonlyArray<{
       'personal_accident_insurance',
       'travel_insurance',
       'wellness_fitness',
+      'wedding_paperwork',
+      'travel_honeymoon',
     ],
   },
   {

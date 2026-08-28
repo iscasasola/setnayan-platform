@@ -456,7 +456,14 @@ function WidgetRow({
             </span>
           ) : null}
         </div>
-        <p className="text-xs text-ink/55">{catalog.description}</p>
+        {/* ⚠ THE HOST'S OWN WORD, NOT ALWAYS "wedding". Five of the sixteen
+            descriptions named a wedding outright, and this is the screen where a
+            family setting up a funeral page chooses what their guests will see —
+            they read "Days to the wedding" five times while doing it. The row
+            already carries `noun`; it simply was not used for this line.
+            `describe` is consulted first and falls back to the wedding wording,
+            which stays the better sentence for a wedding. */}
+        <p className="text-xs text-ink/55">{catalog.describe?.(noun) ?? catalog.description}</p>
         {editorHref ? (
           <Link
             href={editorHref}

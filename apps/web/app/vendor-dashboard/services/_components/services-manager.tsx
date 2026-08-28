@@ -97,6 +97,13 @@ import {
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { buildServiceCardCongrats } from '@/lib/service-card-congrats';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import {
+  SERVICE_PICKER_ANCHOR_ID,
+  SERVICE_MAKER_HREF,
+  servicePickerRequested,
+  PROPOSE_CATEGORY_ANCHOR_ID,
+  proposeCategoryRequested,
+} from '@/lib/service-picker-anchor';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
 import { ManagerTabs } from './manager-tabs';
@@ -125,6 +132,17 @@ export type ServicesManagerSearch = {
   add?: string;
   requested?: string;
   /**
+   * "I came here to make a service card" — set by every Create-a-service link
+   * in the product (see `lib/service-picker-anchor.ts`).
+   *
+   * 🔑 IT IS A QUERY PARAM BECAUSE A `#fragment` NEVER REACHES THE SERVER, and
+   * the server is what picks the tab and opens the drawer. The button used to
+   * carry only a fragment, so it arrived here as no signal at all: a supplier
+   * with zero cards landed on Coverage with the picker shut, and the button
+   * appeared to do nothing.
+   */
+  newcard?: string;
+  /**
    * Set by commitVendorService on a CREATE only — 'live' | 'draft', the new
    * card's actual state. Triggers the congratulations banner (owner
    * 2026-07-28): care for the card, substance over count, events document onto
@@ -142,6 +160,13 @@ export type ServicesManagerSearch = {
    *  vendor_service_id values, that service's Discount section opens
    *  pre-filled with an `off_peak` discount keyed to the lean months. */
   offpeak?: string;
+  /**
+   * "I clicked the reason a kind was greyed in the maker" — set by
+   * `PROPOSE_CATEGORY_HREF` (lib/service-picker-anchor.ts). Lands on Tools,
+   * scrolled to "Tell us what you do" (spec S3, owner 2026-08-28: the greyed
+   * pill's reason should lead to the intake, not the pricing page).
+   */
+  wantCategory?: string;
 };
 
 type CategoryRequestRow = {
@@ -476,6 +501,8 @@ export async function VendorServicesManager({
   if ((!hasLiveOffPeak && offPeakCandidate) || offPeakPrefillId) {
     try {
       const [bookings, blocks] = await Promise.all([
+        // DEMAND, not the room: lean months are derived from dates that actually
+        // consumed capacity, which is what an off-peak offer is priced against.
         fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
         fetchVendorBlocks(supabase, profile.vendor_profile_id),
       ]);
@@ -506,13 +533,31 @@ export async function VendorServicesManager({
       : `${basePath}?add=${cat}#add-${cat}`;
   const specialistTools = specialistToolsForCategories(distinctCategories);
 
+  // Did they arrive by pressing a "Create a service card" link anywhere in the
+  // product? That is an INTENT, and it outranks the coverage-first default.
+  const pickerRequested = servicePickerRequested(search.newcard);
+
+  // Did they arrive from the maker's own "your plan can't hold this yet" line
+  // (S3, owner 2026-08-28)? Also an intent — lands on Tools, at the form.
+  const wantsCategoryForm = proposeCategoryRequested(search.wantCategory);
+
   // v20 tab landing: category-request confirmations land on Tools; any
   // service-targeted param (open add form, off-peak prefill) or an existing
   // service list lands on Service cards; a brand-new vendor starts on Coverage
   // (coverage-first — pick what you serve, then build cards inside it).
-  const defaultTab = search.requested
+  //
+  // 🔴 AND THAT LAST CLAUSE IS WHAT BROKE THE CREATE BUTTON. `services.length >
+  // 0` sends an established shop to Service cards, so the tab was right for
+  // everyone EXCEPT the supplier with no cards yet — who is precisely the person
+  // the Create button exists for. They landed on Coverage, with the picker in a
+  // hidden panel behind a shut drawer, and nothing said so.
+  //
+  // ⚖ The coverage-first default is NOT reversed: a vendor who simply opens My
+  // Shop still starts on Coverage. Only an explicit "make me a card" press
+  // moves them, which is the one case where coverage-first is the wrong answer.
+  const defaultTab = search.requested || wantsCategoryForm
     ? 2
-    : addCategory !== null || offPeakPrefillId !== null || services.length > 0
+    : pickerRequested || addCategory !== null || offPeakPrefillId !== null || services.length > 0
       ? 1
       : 0;
 
@@ -643,8 +688,15 @@ export async function VendorServicesManager({
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <SectionEyebrow>Your services</SectionEyebrow>
+          {/* 🔑 ONE DOOR (owner 2026-08-28: *"make sure this is connected to the
+              top nav create a card and the link from the shop"*). This used to
+              jump to the drawer BELOW — a supplier pressing the same words in
+              two places got two different products: the top bar opened the card
+              maker and My Shop opened a wall of category pills. Both open the
+              maker now. The drawer stays for ADDING COVERAGE and as the
+              canvas-off fallback, which is why it keeps its own longer name. */}
           <Link
-            href="#add-service-picker"
+            href={SERVICE_MAKER_HREF}
             className="inline-flex items-center gap-1.5 text-sm font-medium"
             style={{ color: 'var(--m-orange-2)' }}
           >
@@ -656,11 +708,16 @@ export async function VendorServicesManager({
         {/* Category chooser — opens the guided wizard for the chosen category
             (or the inline ?add= form when the wizard is off). Both "Add a
             service" and "Add coverage" jump here. */}
+        {/* 🔑 `open` MUST INCLUDE THE PICKER REQUEST, OR THE FIX IS HALF A FIX.
+            Landing on the right tab in front of a shut drawer is the same dead
+            end one step later: the anchor scrolls to a closed `<details>` and
+            the supplier still has nothing to press. `scroll-mt-24` keeps it
+            clear of the sticky bar once it is open. */}
         <details
-          id="add-service-picker"
+          id={SERVICE_PICKER_ANCHOR_ID}
           className="scroll-mt-24 rounded-2xl border"
           style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-          open={addCategory !== null}
+          open={addCategory !== null || pickerRequested}
         >
           <summary
             className="flex cursor-pointer select-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium"
@@ -761,7 +818,10 @@ export async function VendorServicesManager({
             <p className="mx-auto mt-1 max-w-md text-xs" style={{ color: 'var(--m-slate-2)' }}>
               Add your first service so couples can find and book you.
             </p>
-            <Link href="#add-service-picker" className="button-primary mt-3 inline-flex">
+            {/* The FIRST card a shop ever makes is pressed here — the one
+                place the old drawer was worst, because a shop with no cards has
+                nothing to recognise in a list of 34 kinds. */}
+            <Link href={SERVICE_MAKER_HREF} className="button-primary mt-3 inline-flex">
               Add a service
             </Link>
           </div>
@@ -1263,20 +1323,42 @@ export async function VendorServicesManager({
       ) : null}
 
       {/* Request a new category — the "Add coverage" on-ramp for services not in
-          the directory (spec 0023 §3.2c). */}
+          the directory (spec 0023 §3.2c). Also where a plan-locked kind in the
+          maker sends a supplier (S3, owner 2026-08-28) — same form, so the
+          heading branches: their kind IS in the directory, their plan just
+          doesn't cover another one yet. */}
       <section
+        id={PROPOSE_CATEGORY_ANCHOR_ID}
         className="space-y-4 rounded-2xl border p-5"
         style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
       >
         <div className="space-y-1">
+          {wantsCategoryForm ? (
+            // The return half of "must come back to the card being made"
+            // (S3). The maker itself already offers a half-finished card back
+            // on return (lib/canvas-draft-keep.ts) — this is the explicit door
+            // back to it, not a second copy of that mechanism.
+            <Link
+              href={SERVICE_MAKER_HREF}
+              className="inline-flex text-xs font-medium underline underline-offset-2"
+              style={{ color: 'var(--m-slate)' }}
+            >
+              ← Back to your card
+            </Link>
+          ) : null}
           <h2 className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-            Don&rsquo;t see your service?
+            {wantsCategoryForm ? "Want to add that kind of service?" : "Don't see your service?"}
           </h2>
           <p className="max-w-prose text-sm" style={{ color: 'var(--m-slate)' }}>
-            Tell us what you do — we&rsquo;ll review it and add it to the directory.
+            {wantsCategoryForm
+              ? "Your plan doesn't cover it yet. Tell us what you do and we'll take it from there."
+              : "Tell us what you do — we'll review it and add it to the directory."}
           </p>
         </div>
         <form action={proposeCategory} className="grid gap-3 sm:grid-cols-[2fr_3fr_auto] sm:items-end">
+          {/* Survives the redirect so "Back to your card" still shows after
+              submitting — server actions can't read the page's own URL. */}
+          <input type="hidden" name="from_locked_kind" value={wantsCategoryForm ? '1' : ''} />
           <Field label="Service name" htmlFor="propose-label">
             <input
               id="propose-label"

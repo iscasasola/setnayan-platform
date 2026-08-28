@@ -46,6 +46,12 @@ export function DetailsForm({
   repeatOptions = [],
   repeatForced = false,
   initialCadence = '',
+  // Who is being celebrated, and how many of them (owner 2026-08-27). Empty
+  // string = "however this kind of celebration usually goes", i.e. the type's
+  // own shape — which is what every event holds today.
+  showCelebrantShape = false,
+  initialCelebrantShape = '',
+  celebrantTypeDefaultLabel = '',
 }: {
   eventId: string;
   initialBrideFirst: string;
@@ -71,10 +77,19 @@ export function DetailsForm({
   initialPartnerBBirthDate?: string;
   initialPartnerBBirthTime?: string;
   repeatOptions?: readonly { value: string; label: string }[];
+  /** FALSE for a type where the question cannot arise — a wedding is always a
+   *  couple, and a wake has no celebrant to count. Nothing renders and the key
+   *  is not posted, so the payload stays byte-identical for those types. */
+  showCelebrantShape?: boolean;
+  initialCelebrantShape?: string;
+  /** What "usually" means for this event type, shown on the default option so
+   *  the person can see what they are leaving alone. */
+  celebrantTypeDefaultLabel?: string;
   repeatForced?: boolean;
   initialCadence?: string;
 }) {
   const [cadence, setCadence] = useState(initialCadence);
+  const [celebrantShape, setCelebrantShape] = useState(initialCelebrantShape);
   const [brideFirst, setBrideFirst] = useState(initialBrideFirst);
   const [brideLast, setBrideLast] = useState(initialBrideLast);
   const [groomFirst, setGroomFirst] = useState(initialGroomFirst);
@@ -134,6 +149,10 @@ export function DetailsForm({
       // this is a repair, never a new decision.
       fd.set('recur_cadence', repeatForced ? (repeatOptions[0]?.value ?? '') : cadence);
     }
+    // Only posted when the section is on screen. The server treats an ABSENT
+    // key as "leave it alone" and an EMPTY one as "back to the type's default",
+    // so posting a box nobody was shown would silently clear a real choice.
+    if (showCelebrantShape) fd.set('celebrant_shape', celebrantShape);
     if (showBaziBirthData) {
       fd.set('bazi_birthdata_consent', baziConsent ? '1' : '0');
       fd.set('partner_a_birth_date', partnerABirthDate);
@@ -306,6 +325,43 @@ export function DetailsForm({
                                  one date. A sentence, not a picker — there is
                                  nothing to decide.
             · a choice         → the cadences this type may honestly use. */}
+      {/* WHO IS BEING CELEBRATED — owner 2026-08-27: *"the one celebratiing is
+          the celebrant that can be single, couple, or multiple people."*
+
+          🔑 THE HOSTS ARE DELIBERATELY NOT ASKED ABOUT HERE. However many
+          people run this celebration is already known — it is who holds a
+          host's key to it — so asking again would be a second copy of a fact
+          that can only disagree with the first. This asks the one thing
+          nothing we already store can answer. */}
+      {showCelebrantShape ? (
+        <div className="space-y-1.5">
+          <label htmlFor="celebrant_shape" className="block text-xs font-medium text-ink/70">
+            Who is this for?
+          </label>
+          <select
+            id="celebrant_shape"
+            value={celebrantShape}
+            onChange={(e) => {
+              setCelebrantShape(e.target.value);
+              setSaved(false);
+            }}
+            className={selectClass}
+          >
+            <option value="">
+              {celebrantTypeDefaultLabel
+                ? `However this usually goes \u2014 ${celebrantTypeDefaultLabel}`
+                : 'However this usually goes'}
+            </option>
+            <option value="single">One person</option>
+            <option value="couple">A couple</option>
+            <option value="multiple">Several people</option>
+          </select>
+          <p className="text-[11px] text-ink/50">
+            Changes how your guests are spoken to.
+          </p>
+        </div>
+      ) : null}
+
       {repeatOptions.length > 0 ? (
         <div className="space-y-1.5">
           <label htmlFor="recur_cadence" className="block text-xs font-medium text-ink/70">

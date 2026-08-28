@@ -124,7 +124,7 @@ export const HOST_ROLES_BY_EVENT_TYPE: Readonly<
   // claims — and none of the wedding cast. Without this entry the picker
   // fails open to the full wedding-shaped list at exactly the event where
   // "Maid of honor" would land worst.
-  funeral: [...ORGANISERS, ...UNIVERSAL],
+  wake: [...ORGANISERS, ...UNIVERSAL],
 
   // Work events: an organiser and people who can look. No family vocabulary.
   corporate: [...ORGANISERS, 'viewer'],

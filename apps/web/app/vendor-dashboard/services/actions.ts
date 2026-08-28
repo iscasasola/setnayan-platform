@@ -20,9 +20,7 @@ import {
   parseDiscountRows,
   type DiscountDraft,
 } from '@/lib/vendor-discount-rows';
-import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
-import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
-import { TILE_PARENT } from '@/lib/taxonomy';
+import { parentsOfCategory, coverageParents } from '@/lib/vendor-category-parents';
 import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
 import {
   SLOT_LABEL_MAX,
@@ -52,58 +50,6 @@ import {
 import { savePackage } from '../packages/actions';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
-
-/**
- * The distinct PARENT folder(s) (of the 10) a vendor category surfaces under.
- * Routes through the vendor→canonical bridge (NOT TAXONOMY_MAP, which is keyed
- * by v11 canonicals the legacy VendorCategory enum doesn't match). Exempt
- * categories (officiant/fees/etc.) return [] and don't count toward the cap.
- */
-function parentsOfCategory(category: VendorCategory): string[] {
-  return tilesForVendorCategory(category)
-    .map((tile) => TILE_PARENT[tile] as string)
-    .filter(Boolean);
-}
-
-/**
- * The tier-1 parent folders already claimed by the vendor's COVERAGES
- * (`vendor_coverages` rows), resolved canonical_service → tier-1 folder via the
- * live taxonomy tree. Coverage is becoming the source of truth for what a
- * vendor offers (owner-locked 2026-07-02 "coverage drives Explore"), so the
- * parent-category cap must count coverage parents alongside legacy
- * vendor_services.category parents — otherwise a coverage-first vendor gets a
- * FREE ride past the cap (or, inversely, a service under an already-covered
- * parent gets wrongly blocked). Tier-1 `service_categories.id` values ARE the
- * TILE_PARENT folder vocabulary ('venue', 'planning', …), so the union is
- * apples-to-apples. FAIL-SOFT: any read error returns [] → the check degrades
- * to the legacy services-only behavior instead of blocking an honest save.
- */
-async function coverageParents(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-): Promise<string[]> {
-  try {
-    const [{ data: covs }, tree] = await Promise.all([
-      supabase
-        .from('vendor_coverages')
-        .select('canonical_service')
-        .eq('vendor_profile_id', vendorProfileId),
-      getCoverageTaxonomy(),
-    ]);
-    const covered = new Set(
-      ((covs ?? []) as { canonical_service: string }[]).map((r) => r.canonical_service),
-    );
-    if (covered.size === 0) return [];
-    const parents = new Set<string>();
-    for (const p of tree)
-      for (const b of p.branches)
-        for (const l of b.leaves)
-          if (covered.has(l.canonicalService)) parents.add(p.folderId);
-    return Array.from(parents);
-  } catch {
-    return []; // fail-soft → legacy services-only counting
-  }
-}
 
 /**
  * The submitted `category` is the legacy VendorCategory enum key — the
@@ -788,9 +734,13 @@ export async function proposeCategory(formData: FormData) {
 
   const label = String(formData.get('proposed_label') ?? '').trim();
   const note = String(formData.get('proposed_note') ?? '').trim() || null;
+  // Set only when this submit came from the maker's plan-locked-kind link
+  // (S3, owner 2026-08-28) — carries "Back to your card" through the redirect,
+  // since a server action can't read the page's own URL for it.
+  const fromLockedKind = formData.get('from_locked_kind') === '1' ? '&wantCategory=1' : '';
   if (label.length < 2 || label.length > 80) {
     return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent('Category name must be 2–80 characters.')}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent('Category name must be 2–80 characters.')}${fromLockedKind}`,
     );
   }
 
@@ -801,13 +751,13 @@ export async function proposeCategory(formData: FormData) {
   });
   if (error) {
     return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}${fromLockedKind}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
-  redirect(`${await servicesReturnBase()}?requested=1`);
+  redirect(`${await servicesReturnBase()}?requested=1${fromLockedKind}`);
 }
 
 export async function updateVendorService(formData: FormData) {

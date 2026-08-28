@@ -76,14 +76,36 @@ test('no route-level loading.tsx comes back', () => {
         `the boundary inside page.tsx, after the routing decisions, instead.`,
     );
   }
-  // The two that legitimately exist do not carry the slug dispatch.
+  // 🚨 THESE TWO WERE EXEMPTED, AND THE EXEMPTION'S REASON WAS FALSE.
+  //
+  // It read: "these routes resolve no slug-vs-vendor dispatch and cannot
+  // soft-404", and the body was `assert.ok(true)` — an exemption that could
+  // never fail, justified by a claim nobody had measured. Both pages call
+  // notFound() for an event that does not exist, and a loading.tsx commits the
+  // 200 long before that line runs. The dispatch was never what caused it.
+  //
+  // MEASURED IN PROD 2026-08-28, not reasoned about — the same way the vendor
+  // route below was caught:
+  //   /definitely-not-a-real-event-xyz/find-my-table  → HTTP 200
+  //   /definitely-not-a-real-event-xyz/welcome        → HTTP 200
+  //   /definitely-not-a-real-event-xyz/find-seat      → HTTP 404  (no loading.tsx)
+  //   /definitely-not-a-real-event-xyz/print          → HTTP 404  (no loading.tsx)
+  // So every junk URL under those two paths told a crawler it had found a page.
+  //
+  // 🔑 A GUARD'S EXEMPTION IS A CLAIM WITH AN EXPIRY DATE. This one was written
+  // when both routes were younger; `find-my-table` has since grown ten awaits
+  // and three notFound() calls. Deleting the files costs a skeleton on two fast
+  // lookups (no R2 presigns — the round-trips that made the invitation page
+  // need streaming at all). If either ever needs one back, the boundary goes
+  // INSIDE page.tsx after the routing decisions, exactly as the docblock says.
   for (const sub of ['welcome', 'find-my-table']) {
-    if (existsSync(join(ROUTE, sub, 'loading.tsx'))) {
-      // Fine — these routes resolve no slug-vs-vendor dispatch and cannot
-      // soft-404. Asserted here so the sweep above is not read as "no loading
-      // file anywhere", which would be wrong.
-      assert.ok(true);
-    }
+    assert.ok(
+      !existsSync(join(ROUTE, sub, 'loading.tsx')),
+      `${sub}/loading.tsx is back. It commits HTTP 200 before the body runs, ` +
+        `so this route's notFound() calls render the 404 UI with a 200 status ` +
+        `— measured in prod 2026-08-28. Put the boundary inside page.tsx, ` +
+        `after every notFound(), where the status is already settled.`,
+    );
   }
 });
 

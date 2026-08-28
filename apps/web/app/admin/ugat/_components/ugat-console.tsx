@@ -9,6 +9,7 @@ import {
   useTransition,
 } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { claimCommandKey } from '@/lib/command-key-claim';
 import {
   UGAT_TYPES,
@@ -346,14 +347,7 @@ export function UgatConsole({
       </div>
 
       {/* ── omnibox ── */}
-      <Omnibox
-        savedSearches={savedSearches}
-        onOpenRecord={(typeNodeId) => {
-          setControl('map');
-          openTypeNode(typeNodeId);
-        }}
-        onRunSaved={(table) => goToTable(table)}
-      />
+      <Omnibox savedSearches={savedSearches} onRunSaved={(table) => goToTable(table)} />
 
       {/* ── scope note ── */}
       <div className="ug-scopebar">
@@ -1353,11 +1347,9 @@ function FindingCard({
    ═════════════════════════════════════════════════════════════════════════ */
 function Omnibox({
   savedSearches,
-  onOpenRecord,
   onRunSaved,
 }: {
   savedSearches: UgatSavedSearch[];
-  onOpenRecord: (typeNodeId: string) => void;
   onRunSaved: (table: UgatTableKey) => void;
 }) {
   const [q, setQ] = useState('');
@@ -1418,7 +1410,14 @@ function Omnibox({
           <input
             ref={inputRef}
             className="ug-navinput"
-            placeholder="Search vendors · events · users · orders · taxonomy — ⌘K"
+            /*
+              THE PLACEHOLDER IS THE ONLY PLACE THIS FEATURE ANNOUNCES ITSELF.
+              A guest search nobody knows about is a fix nobody can reach —
+              the third time that has cost this project — so "guests" is named
+              here, and a guard fails if the search learns a record kind the
+              bar never mentions.
+            */
+            placeholder="Search vendors · events · guests · users · orders · taxonomy — ⌘K"
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
@@ -1466,15 +1465,20 @@ function Omnibox({
                   <div key={g.category}>
                     <div className="ug-nd-hd">{g.category}</div>
                     {g.hits.map((h) => (
-                      <button
-                        type="button"
+                      /*
+                        A REAL LINK, not a button that highlights a diagram.
+                        `h.href` is the record's own admin page; it is required
+                        on the type, so there is no arm here where a hit renders
+                        without somewhere to go. A Link also restores the things
+                        a button silently took away — middle-click, open-in-new-
+                        tab, and the address on hover before you commit to it.
+                      */
+                      <Link
                         key={h.id + h.title}
+                        href={h.href}
                         className="ug-nd-item"
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setOpen(false);
-                          onOpenRecord(h.typeNodeId);
-                        }}
+                        onClick={() => setOpen(false)}
                       >
                         <span
                           className="ug-nd-ic"
@@ -1490,7 +1494,7 @@ function Omnibox({
                           <div className="ug-nd-s">{h.sub}</div>
                         </div>
                         <span className="ug-nd-cat">{UGAT_TYPE_VOCAB[h.type].label}</span>
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 ))
@@ -1531,6 +1535,7 @@ function TablesView({
   const [page, setPage] = useState(0);
   const [data, setData] = useState<UgatTablePage | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   // let external callers (omnibox / cards) switch the table
   useEffect(() => {
@@ -1635,7 +1640,18 @@ function TablesView({
                   </thead>
                   <tbody>
                     {data.rows.map((r) => (
-                      <tr key={r.id} onClick={() => onRowOpen(TYPE_NODE[r.type])}>
+                      /*
+                        THE ROW RENDERED ITS RECORD'S ID AND THREW IT AWAY ON
+                        THE LINE ABOVE — every click opened the type card, so
+                        clicking SetnaProd opened the word "Vendors". A row now
+                        opens its own record when one has an admin page, and
+                        only falls back to the type card for the three tables
+                        that genuinely have none (services · threads · samahan).
+                      */
+                      <tr
+                        key={r.id}
+                        onClick={() => (r.href ? router.push(r.href) : onRowOpen(TYPE_NODE[r.type]))}
+                      >
                         {r.cells.map((cell, ci) => (
                           <td key={ci}>
                             {ci === 0 ? (

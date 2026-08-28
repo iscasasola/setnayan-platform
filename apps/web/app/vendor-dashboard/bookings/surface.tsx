@@ -12,6 +12,7 @@ import {
   fetchInquiryMaskMeta,
   inquiryPlaceholderLabel,
   isInquiryRevealed,
+  INQUIRY_MASK_UNKNOWN,
 } from '@/lib/inquiry-mask.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPreparationItemsByEvent } from '@/lib/preparation';
@@ -323,7 +324,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                       <p className="truncate text-sm font-semibold text-ink">
                         {isInquiryRevealed(r)
                           ? (r.event?.display_name ?? 'Event')
-                          : inquiryPlaceholderLabel(inquiryMaskMeta.get(r.event_id) ?? {})}
+                          : inquiryPlaceholderLabel(inquiryMaskMeta.get(r.event_id) ?? INQUIRY_MASK_UNKNOWN)}
                       </p>
                     </div>
                     <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">

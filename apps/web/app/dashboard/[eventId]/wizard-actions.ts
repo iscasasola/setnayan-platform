@@ -1371,16 +1371,28 @@ export async function searchVendorRecommendations(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Event membership · only hosts of this event can search recs against
-  // its filters. Mirrors the auth-gate in every other wizard action above.
+  // Event membership · a member of this event may search recs against its
+  // filters. Mirrors the auth-gate in every other wizard action above.
+  //
+  // ⚠ THE WORDS HERE SAID "hosts" AND THE CODE ADMITS ANY MEMBER — corrected to
+  // say what it does, NOT narrowed. `event_members` is the event's people table
+  // and `'guest'` is one of its types, so this is a membership gate, not a host
+  // gate. Narrowing it is a product call, not a typo fix: the dashboard layout
+  // itself admits any member, so tightening one search inside a dashboard the
+  // same person may open would make the two disagree. Named here rather than
+  // changed. (Prod holds zero non-host member rows today, so nothing turns on
+  // it either way right now.)
+  //
+  // `user_id`, not `member_type`: the type was requested and never compared —
+  // the shape `host-means-host.test.ts` sweeps for.
   const { data: membership, error: membershipErr } = await supabase
     .from('event_members')
-    .select('member_type')
+    .select('user_id')
     .eq('event_id', args.eventId)
     .eq('user_id', user.id)
     .maybeSingle();
   if (membershipErr || !membership) {
-    throw new Error('Not a host of this event.');
+    throw new Error('Not a member of this event.');
   }
 
   const admin = createAdminClient();

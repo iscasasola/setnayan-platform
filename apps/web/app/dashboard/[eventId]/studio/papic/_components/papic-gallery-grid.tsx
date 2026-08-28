@@ -1,7 +1,7 @@
 'use client';
 
-import { Fragment, useRef, useState } from 'react';
-import { Play, Download, Sparkles, X, Loader2, Gem } from 'lucide-react';
+import { Fragment, useState } from 'react';
+import { Play, Download, Sparkles, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
 import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
 import {
@@ -13,12 +13,29 @@ import {
 import { formatPhp } from '@/lib/budget';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { saveMediaToDevice } from '@/lib/save-to-device';
-import { useModalA11y } from '@/lib/use-modal-a11y';
 import { setClipShowcaseApproval, setGuestClipShowcaseApproval, setCapturePreserved } from '../actions';
+import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
+import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
 // handles the client-side filter state + render.
+//
+// ── THE OBSIDIAN SURFACE (gallery archetype § 2, owner-approved 2026-08-04) ──
+//
+// This screen is one of the archetype's four named subjects, and it wore the
+// cream app skin until 2026-08-27. It is dark now because photographs carry the
+// colour and the chrome has to recede — a SURFACE decision, not a theme: the app
+// stays light-locked and there is no toggle.
+//
+// 🚨 SO EVERY COLOUR IN HERE COMES FROM `--sn-ob-*` AND NOTHING ELSE. On a
+// light-locked page nothing sets `html.dark`, so `text-ink` and `text-mulberry`
+// resolve to their LIGHT values on this panel and measure 1.27:1 and 3.81:1
+// against it. They do not look slightly wrong; they disappear.
+//
+// ⚠ THIS IS NOT THE SAME COMPONENT AS THE GUEST'S "PHOTOS OF YOU" OR THE DAY-OF
+// WALL. They share the skin and the lightbox and nothing else — different data,
+// different gates, different jobs. Do not merge them.
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -31,9 +48,11 @@ const FILTERS = [
 type FilterId = (typeof FILTERS)[number]['id'];
 
 function tagDotClass(source: GalleryTagSource): string {
+  // ⚠ On obsidian the neutral dot cannot be `bg-ink/30` — ink is the LIGHT
+  // theme's near-black here and disappears into the tile.
   if (source === 'auto_face') return 'bg-success-500';
-  if (source === 'qr' || source === 'manual') return 'bg-terracotta';
-  return 'bg-ink/30';
+  if (source === 'qr' || source === 'manual') return 'bg-[var(--sn-ob-gold)]';
+  return 'bg-[rgb(251_250_247/0.35)]';
 }
 
 /**
@@ -45,7 +64,7 @@ function tagDotClass(source: GalleryTagSource): string {
 function kwentoDotClass(density: number): string {
   if (density >= 3) return 'bg-warn-400';
   if (density === 2) return 'bg-warn-300';
-  return 'bg-ink/30';
+  return 'bg-[rgb(251_250_247/0.35)]';
 }
 
 export function PapicGalleryGrid({
@@ -54,6 +73,7 @@ export function PapicGalleryGrid({
   kwentoDensity,
   preservationTotals,
   chapters,
+  timeZone,
 }: {
   photos: GalleryPhoto[];
   /**
@@ -86,10 +106,22 @@ export function PapicGalleryGrid({
   /** Map of photoId → story count. When provided, photos with ≥1 story get a
    *  small density dot in the lower-right corner of their thumbnail. */
   kwentoDensity?: Map<string, number>;
+  /**
+   * The VENUE's IANA zone, for the "· 4:12 PM" half of each credit.
+   *
+   * ⚠ OPTIONAL, AND ABSENT MEANS THE TIME IS DROPPED — never that the reader's
+   * own clock is printed instead. `captured_at` is a real instant, so formatting
+   * it without the event's zone shows a Manila 4:12 PM reception as 8:12 AM to a
+   * relative abroad, looking exactly like a fact.
+   */
+  timeZone?: string | null;
 }) {
   const [filter, setFilter] = useState<FilterId>('all');
-  // Clip the couple tapped to play, shown full-screen in the lightbox.
-  const [playing, setPlaying] = useState<GalleryPhoto | null>(null);
+  // The frame the couple opened — a photograph or a clip. It used to be clips
+  // only, so a couple could never look at one of their own PHOTOGRAPHS larger
+  // than a sixth of a phone width. The archetype says "click any tile for the
+  // lightbox"; this is that.
+  const [opened, setOpened] = useState<GalleryPhoto | null>(null);
 
   const shown = photos.filter((p) => {
     if (filter === 'tagged') return p.tagged;
@@ -128,7 +160,7 @@ export function PapicGalleryGrid({
   }
 
   return (
-    <>
+    <section className="sn-gal space-y-4 p-4 sm:p-6">
       <ul className="flex flex-wrap gap-2" role="list" aria-label="Gallery filters">
         {FILTERS.map((f) => {
           const active = f.id === filter;
@@ -138,11 +170,9 @@ export function PapicGalleryGrid({
                 type="button"
                 onClick={() => setFilter(f.id)}
                 aria-pressed={active}
-                className={
-                  active
-                    ? 'inline-flex items-center gap-1 rounded-full bg-terracotta px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-cream'
-                    : 'inline-flex items-center gap-1 rounded-full bg-ink/5 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60 hover:bg-ink/10 hover:text-ink/80'
-                }
+                className={`sn-gal-chip inline-flex items-center gap-1 rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.15em] ${
+                  active ? 'is-on' : ''
+                }`}
               >
                 {f.label}
               </button>
@@ -155,7 +185,7 @@ export function PapicGalleryGrid({
         <a
           href={`/dashboard/${eventId}/studio/papic/gallery-zip`}
           download
-          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10"
+          className="sn-gal-btn mt-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
         >
           <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Download all
@@ -163,10 +193,10 @@ export function PapicGalleryGrid({
       ) : null}
 
       {eventId && photos.some((p) => p.kind === 'clip') ? (
-        <p className="flex items-start gap-1.5 text-xs text-ink/55">
-          <Sparkles aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} />
+        <p className="sn-gal-soft flex items-start gap-1.5 text-xs">
+          <Sparkles aria-hidden className="sn-gal-kick mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
           <span>
-            Tap the <span className="font-medium text-ink/70">sparkle</span> on a clip to add it to your public
+            Tap the <span className="sn-gal-text font-medium">sparkle</span> on a clip to add it to your public
             memory orb. It only goes live once the guest in it has also consented to public sharing.
           </span>
         </p>
@@ -175,7 +205,7 @@ export function PapicGalleryGrid({
       <PreservationMeterLine totals={preservationTotals ?? null} />
 
       {shown.length === 0 ? (
-        <p className="text-sm text-ink/55">No photos in this view yet.</p>
+        <p className="sn-gal-soft text-sm">No photos in this view yet.</p>
       ) : (
         <ul
           className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
@@ -185,13 +215,13 @@ export function PapicGalleryGrid({
             <Fragment key={p.id}>
               {headingFor.has(p.id) ? (
                 <li className="col-span-full pt-3 first:pt-0">
-                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink/45">
+                  <h3 className="sn-gal-kick font-mono text-[11px] font-bold uppercase tracking-[0.16em]">
                     {headingFor.get(p.id)}
                   </h3>
                 </li>
               ) : null}
             <li>
-              <div className="relative aspect-square overflow-hidden rounded-lg bg-ink/5">
+              <div className="sn-gal-tile aspect-square">
                 {p.url ? (
                   // Presigned R2 thumbnail — a plain img keeps the dynamic, short-
                   // lived URL out of next/image's domain allowlist + optimizer.
@@ -211,24 +241,29 @@ export function PapicGalleryGrid({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="h-full w-full bg-ink/10" aria-hidden />
+                  <div className="h-full w-full bg-[rgb(251_250_247/0.06)]" aria-hidden />
                 )}
-                {/* Clips are playable: a full-tile button opens the lightbox; the
-                    centred play disc is the affordance (decorative, click-through). */}
-                {p.kind === 'clip' && p.playUrl && (
+                {/* EVERY tile opens — "click any tile for the lightbox" (archetype
+                    § 2). It used to be clips only, so a couple could never look
+                    at one of their own photographs bigger than a grid cell.
+                    Rendered BEFORE the corner controls so those still win the tap.
+                    The centred play disc is the clip affordance only. */}
+                {(p.kind === 'clip' ? p.playUrl : p.viewUrl ?? p.url) ? (
                   <button
                     type="button"
-                    onClick={() => setPlaying(p)}
-                    aria-label="Play video clip"
-                    className="absolute inset-0 flex items-center justify-center bg-black/10 transition hover:bg-black/25"
+                    onClick={() => setOpened(p)}
+                    aria-label={p.kind === 'clip' ? 'Play video clip' : 'Open photograph'}
+                    className="absolute inset-0 flex items-center justify-center transition hover:bg-black/20"
                   >
-                    <span className="rounded-full bg-black/55 p-2 text-cream">
-                      <Play aria-hidden className="h-4 w-4 fill-cream" strokeWidth={2} />
-                    </span>
+                    {p.kind === 'clip' ? (
+                      <span className="rounded-full bg-black/55 p-2 text-[var(--sn-ob-text)]">
+                        <Play aria-hidden className="h-4 w-4 fill-[var(--sn-ob-text)]" strokeWidth={2} />
+                      </span>
+                    ) : null}
                   </button>
-                )}
+                ) : null}
                 {p.kind === 'clip' && (
-                  <span className="pointer-events-none absolute right-1 top-1 rounded-full bg-black/55 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-cream">
+                  <span className="sn-gal-badge pointer-events-none absolute right-1 top-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide">
                     Video
                   </span>
                 )}
@@ -263,16 +298,25 @@ export function PapicGalleryGrid({
                   <SavePhotoButton url={p.saveUrl} filename={`setnayan-photo-${p.id}.jpg`} />
                 ) : null}
                 <span
-                  className={`absolute bottom-1 left-1 h-2 w-2 rounded-full ring-1 ring-white/70 ${tagDotClass(p.tagSource)}`}
+                  className={`absolute bottom-1 left-1 z-10 h-2 w-2 rounded-full ring-1 ring-white/70 ${tagDotClass(p.tagSource)}`}
                   aria-hidden
                 />
                 {kwentoDensity && (kwentoDensity.get(p.id) ?? 0) >= 1 ? (
                   <span
-                    className={`absolute bottom-1 right-1 h-2 w-2 rounded-full ring-1 ring-white/70 ${kwentoDotClass(kwentoDensity.get(p.id) ?? 1)}`}
+                    className={`absolute bottom-1 right-1 z-10 h-2 w-2 rounded-full ring-1 ring-white/70 ${kwentoDotClass(kwentoDensity.get(p.id) ?? 1)}`}
                     title={`${kwentoDensity.get(p.id)} guest ${kwentoDensity.get(p.id) === 1 ? 'story' : 'stories'}`}
                     aria-hidden
                   />
                 ) : null}
+                {/* WHO TOOK IT. Renders nothing when we do not know, which is
+                    every photograph in production today. */}
+                <GalleryCredit
+                  name={p.capturedBy}
+                  capturedAt={p.capturedAt}
+                  timeZone={timeZone}
+                  clearsCorners
+                  raised={Boolean(p.saveUrl && p.kind === 'photo')}
+                />
               </div>
             </li>
             </Fragment>
@@ -280,51 +324,46 @@ export function PapicGalleryGrid({
         </ul>
       )}
 
-      {playing?.playUrl ? (
-        <ClipLightbox photo={playing} onClose={() => setPlaying(null)} />
+      {opened ? (
+        <PapicLightbox photo={opened} onClose={() => setOpened(null)} timeZone={timeZone} />
       ) : null}
-    </>
+    </section>
   );
 }
 
 /**
- * Full-screen clip player — opens when the couple taps a video tile. Native
- * <video controls> (autoplay, muted-safe, loop) plus an explicit download of the
- * real video. Uses the shared modal-a11y primitive (focus trap + Esc + scroll
- * lock + restore) like every other Setnayan overlay.
+ * The couple's frame, full screen — the shared gallery lightbox plus the one
+ * action only this surface has: downloading the real video of a clip.
+ *
+ * 🔑 THE OVERLAY ITSELF IS NO LONGER LOCAL. Three galleries render the same
+ * archetype lightbox; a fourth private copy of it is how the three drift apart.
+ * What stays here is what is genuinely the couple's: the clip download.
  */
-function ClipLightbox({ photo, onClose }: { photo: GalleryPhoto; onClose: () => void }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+function PapicLightbox({
+  photo,
+  onClose,
+  timeZone,
+}: {
+  photo: GalleryPhoto;
+  onClose: () => void;
+  timeZone?: string | null;
+}) {
   const [saving, setSaving] = useState(false);
-  useModalA11y({ open: true, onClose, containerRef: dialogRef });
+  const isClip = photo.kind === 'clip' && Boolean(photo.playUrl);
+  const src = isClip ? (photo.playUrl as string) : (photo.viewUrl ?? photo.url);
+  if (!src) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/85 p-4"
-      onClick={onClose}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Video clip"
-        tabIndex={-1}
-        className="relative flex max-h-full w-full max-w-2xl flex-col items-center outline-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* video controls include the browser's own download in most engines;
-            autoPlay is muted-safe (mobile blocks autoplay-with-sound). */}
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video
-          src={photo.playUrl ?? undefined}
-          poster={photo.url ?? undefined}
-          controls
-          autoPlay
-          playsInline
-          loop
-          className="max-h-[80vh] w-auto max-w-full rounded-lg bg-black"
-        />
-        <div className="mt-3 flex items-center gap-2">
+    <GalleryLightbox
+      src={src}
+      posterSrc={photo.url}
+      kind={isClip ? 'clip' : 'photo'}
+      capturedByName={photo.capturedBy}
+      capturedAt={photo.capturedAt}
+      timeZone={timeZone}
+      onClose={onClose}
+      actions={
+        isClip ? (
           <button
             type="button"
             disabled={saving}
@@ -343,7 +382,7 @@ function ClipLightbox({ photo, onClose }: { photo: GalleryPhoto; onClose: () => 
               await saveMediaToDevice(photo.playUrl, `setnayan-clip-${photo.id}`);
               setSaving(false);
             }}
-            className="inline-flex items-center gap-1.5 rounded-md bg-cream/10 px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-cream/20 disabled:opacity-60"
+            className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-60"
           >
             {saving ? (
               <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
@@ -352,17 +391,18 @@ function ClipLightbox({ photo, onClose }: { photo: GalleryPhoto; onClose: () => 
             )}
             {saving ? 'Saving…' : 'Download clip'}
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-md bg-cream px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-cream/90"
+        ) : photo.saveUrl ? (
+          <a
+            href={photo.saveUrl}
+            download
+            className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
           >
-            <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+            <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Save photo
+          </a>
+        ) : null
+      }
+    />
   );
 }
 
@@ -410,8 +450,11 @@ function ShowcaseToggle({
         aria-label={title}
         className={
           approved
-            ? `inline-flex items-center justify-center rounded-full p-1 text-cream ring-1 ring-white/70 ${live ? 'bg-terracotta' : 'bg-warn-400'}`
-            : 'inline-flex items-center justify-center rounded-full bg-black/45 p-1 text-cream/85 ring-1 ring-white/40 hover:bg-black/65'
+            ? // On obsidian the LIVE state wears the surface's own gold rather
+              // than the theme terracotta, which resolves to its light value
+              // here. The glyph takes the page colour: 7.99:1 on that gold.
+                `inline-flex items-center justify-center rounded-full p-1 text-[var(--sn-ob-page)] ring-1 ring-white/70 ${live ? 'bg-[var(--sn-ob-gold)]' : 'bg-warn-400'}`
+            : 'inline-flex items-center justify-center rounded-full bg-black/45 p-1 text-[rgb(251_250_247/0.85)] ring-1 ring-white/40 hover:bg-black/65'
         }
       >
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
@@ -454,9 +497,9 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
   const nonePicked = totals.kept === 0;
 
   return (
-    <div className="rounded-lg border border-ink/10 bg-cream/60 p-3">
+    <div className="rounded-lg border border-[rgb(251_250_247/0.12)] bg-[rgb(251_250_247/0.04)] p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="text-xs font-medium text-ink/80">
+        <p className="sn-gal-text text-xs font-medium">
           {nonePicked ? (
             <>Nothing chosen to keep at full size yet</>
           ) : (
@@ -468,22 +511,22 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
           )}
         </p>
         {nonePicked ? null : (
-          <p className="font-mono text-xs text-ink/55">
+          <p className="sn-gal-soft font-mono text-xs">
             {totals.keptCredits.toLocaleString('en-PH')} / {covered.toLocaleString('en-PH')} credits
           </p>
         )}
       </div>
       {nonePicked ? null : (
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[rgb(251_250_247/0.12)]">
           <div
             className="h-full bg-success-500"
             style={{ width: `${Math.min(100, Math.round((totals.keptCredits / covered) * 100))}%` }}
           />
         </div>
       )}
-      <p className="mt-2 text-[11px] leading-relaxed text-ink/55">
+      <p className="sn-gal-soft mt-2 text-[11px] leading-relaxed">
         Every photo and video is kept at full size until three months after your event ends — that
-        part is included. <strong className="font-medium text-ink/70">After that</strong>, they
+        part is included. <strong className="sn-gal-text font-medium">After that</strong>, they
         become smaller copies unless you choose to keep them.{' '}
         {nonePicked ? (
           <>Tap a photo to choose it. A photo is one credit; a 10-second video is{' '}
@@ -535,7 +578,7 @@ function PreserveToggle({
       <span
         title="This one is already stored smaller. That cannot be undone — the full-size original is gone."
         aria-label="Already stored smaller"
-        className="absolute right-1 top-1 inline-flex items-center justify-center rounded-full bg-black/35 p-1 text-cream/50 ring-1 ring-white/20"
+        className="absolute right-1 top-1 inline-flex items-center justify-center rounded-full bg-black/35 p-1 text-[rgb(251_250_247/0.5)] ring-1 ring-white/20"
       >
         <Gem aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
       </span>
@@ -557,8 +600,8 @@ function PreserveToggle({
         aria-pressed={preserved}
         className={
           preserved
-            ? 'inline-flex items-center justify-center rounded-full bg-success-500 p-1 text-cream ring-1 ring-white/70'
-            : 'inline-flex items-center justify-center rounded-full bg-black/45 p-1 text-cream/85 ring-1 ring-white/40 hover:bg-black/65'
+            ? 'inline-flex items-center justify-center rounded-full bg-success-500 p-1 text-[var(--sn-ob-text)] ring-1 ring-white/70'
+            : 'inline-flex items-center justify-center rounded-full bg-black/45 p-1 text-[rgb(251_250_247/0.85)] ring-1 ring-white/40 hover:bg-black/65'
         }
       >
         <Gem aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

@@ -496,7 +496,7 @@ const PROGRAMS: Record<string, Beat[]> = {
   gender_reveal: GENDER_REVEAL,
   graduation: GRADUATION,
   tournament: TOURNAMENT,
-  funeral: FUNERAL,
+  wake: FUNERAL,
   // Travel deliberately seeds NOTHING (ai-travel-scheduling): a trip is a
   // multi-day itinerary built from hotel night-blocks + tour time-blocks
   // (lib/schedule-travel.ts), not a single-evening party spine — the GENERIC

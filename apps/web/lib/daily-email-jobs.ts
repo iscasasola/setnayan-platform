@@ -24,6 +24,8 @@ import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import { eventSkuActive } from '@/lib/entitlements';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { addDaysToIso } from '@/lib/anniversary-dates';
+import { runSupplierNightBeforeEmailReminders } from '@/lib/supplier-night-before-email';
+import { eventWordsFor, type EventWords } from '@/app/[slug]/_lib/event-words';
 
 /**
  * CRON-FREE daily email jobs — the anniversary digest, subscription-renewal
@@ -59,7 +61,39 @@ type AnniversaryCandidate = {
   couple_user_id: string;
   couple_email: string;
   couple_name: string | null;
+  /**
+   * The event's own type, added to the selector by migration 20271174085072.
+   *
+   * ⚠ OPTIONAL ON PURPOSE, AND THAT IS A DEPLOY-WINDOW GUARD, NOT LOOSENESS.
+   * If this code ships before its migration applies, the older function returns
+   * no such column and every candidate arrives with `undefined` — see
+   * `anniversaryWordsFor`, which refuses to send rather than guessing.
+   */
+  event_type?: string | null;
 };
+
+/**
+ * The event's own words for the anniversary mail, or `null` if we must not send.
+ *
+ * 🔒 FAILS TOWARD SILENCE, IN BOTH DIRECTIONS. An unknown type (the deploy
+ * window above) and a solemn one both return `null`. The selector already
+ * refuses solemn types — this is the second gate, and it exists because the
+ * first one lives in SQL a future caller may not go through.
+ *
+ * `resolveProfile` reads `event_type_profiles`, which is anon-readable
+ * (`event_type_profiles_read_all`), so it answers correctly in this job's
+ * session-less `after()` context and degrades to the code profile on any error
+ * — and the code profile for a funeral is FUNERAL_PROFILE, which is solemn.
+ */
+async function anniversaryWordsFor(
+  eventType: string | null | undefined,
+): Promise<{ eventType: string; words: EventWords } | null> {
+  const key = (eventType ?? '').trim();
+  if (!key) return null;
+  const words = await eventWordsFor(key);
+  if (words.solemn) return null;
+  return { eventType: key, words };
+}
 
 export async function runAnniversaryDigest(): Promise<{ scanned: number; sent: number }> {
   const pToday = manilaTodayIso();
@@ -76,7 +110,17 @@ export async function runAnniversaryDigest(): Promise<{ scanned: number; sent: n
   let sent = 0;
   for (const c of candidates) {
     try {
-      // Claim the per-anniversary lock FIRST. A unique-violation (23505) means
+      // 🔒 THE OCCASION IS RESOLVED BEFORE THE LOCK IS CLAIMED, DELIBERATELY.
+      // The lock is once a YEAR: claiming it and then declining to send burns
+      // this event's whole anniversary. Skipping first means a deploy-window
+      // miss is simply retried tomorrow.
+      const occasion = await anniversaryWordsFor(c.event_type);
+      if (!occasion) {
+        console.warn('[anniversary-digest] no send for', c.event_id, '— type:', c.event_type ?? '(absent)');
+        continue;
+      }
+
+      // Claim the per-anniversary lock. A unique-violation (23505) means
       // it's already been sent this year — skip without sending.
       const { error: lockErr } = await admin
         .from('anniversary_email_log')
@@ -86,12 +130,18 @@ export async function runAnniversaryDigest(): Promise<{ scanned: number; sent: n
       const to = (c.couple_email ?? '').trim();
       if (!to) continue; // no reachable address; lock already claimed → no retry
 
-      const { subject, text, html } = buildAnniversaryEmail({
+      const built = buildAnniversaryEmail({
         coupleName: (c.couple_name ?? '').trim() || (c.display_name ?? '').trim(),
         eventName: (c.display_name ?? '').trim(),
         yearsAgo: c.years_ago,
         ctaHref: `${APP_URL}/dashboard/library?tab=photos`,
+        eventType: occasion.eventType,
+        words: occasion.words,
       });
+      // The builder's own refusal (solemn register). Unreachable behind the two
+      // gates above — kept because "unreachable" is a claim, not a mechanism.
+      if (!built) continue;
+      const { subject, text, html } = built;
 
       const result = await sendEmail({ to, subject, text, html, headers: anniversaryUnsubscribeHeaders() });
       if (result.ok) {
@@ -120,8 +170,8 @@ export async function runAnniversaryDigest(): Promise<{ scanned: number; sent: n
 // ── First-anniversary HEADS-UP (planning-timing, ~6 weeks before) ────────────
 // Reuses couples_with_anniversary_today with a FUTURE target date: the couples
 // whose anniversary falls on (today + 6 weeks) with years_ago === 1 are exactly
-// those whose FIRST anniversary is 6 weeks out. Own-data only (the couple's
-// wedding date) — zero PII beyond what the day-of digest already reads.
+// those whose FIRST anniversary is 6 weeks out. Own-data only (the event's own
+// date) — zero PII beyond what the day-of digest already reads.
 const HEADSUP_WEEKS = 6;
 const HEADSUP_DAYS = HEADSUP_WEEKS * 7;
 
@@ -143,6 +193,14 @@ export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: 
   let sent = 0;
   for (const c of candidates) {
     try {
+      // Same order as the digest, and for the same reason — the lock is
+      // once a year, so it is claimed only once we know we will send.
+      const occasion = await anniversaryWordsFor(c.event_type);
+      if (!occasion) {
+        console.warn('[anniversary-headsup] no send for', c.event_id, '— type:', c.event_type ?? '(absent)');
+        continue;
+      }
+
       const { error: lockErr } = await admin
         .from('anniversary_headsup_log')
         .insert({ event_id: c.event_id, anniversary_year: anniversaryYear });
@@ -151,7 +209,7 @@ export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: 
       const to = (c.couple_email ?? '').trim();
       if (!to) continue;
 
-      const { subject, text, html } = buildAnniversaryHeadsupEmail({
+      const built = buildAnniversaryHeadsupEmail({
         coupleName: (c.couple_name ?? '').trim() || (c.display_name ?? '').trim(),
         eventName: (c.display_name ?? '').trim(),
         // The year page is retired into the board's "Worth planning" shelf
@@ -160,7 +218,11 @@ export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: 
         // today is a link that 404s the day somebody deletes the redirect.
         ctaHref: `${APP_URL}/dashboard#worth-planning`,
         weeksAway: HEADSUP_WEEKS,
+        eventType: occasion.eventType,
+        words: occasion.words,
       });
+      if (!built) continue;
+      const { subject, text, html } = built;
 
       const result = await sendEmail({ to, subject, text, html, headers: anniversaryUnsubscribeHeaders() });
       if (result.ok) {
@@ -620,6 +682,16 @@ export async function runDailyEmailJobs(): Promise<void> {
   try {
     if (await claimPeriodicJob('connection-request-expiry', DAILY_GAP_MS))
       await runConnectionRequestExpiry();
+  } catch {
+    /* best-effort */
+  }
+  // S5 — ships OFF (WHATS_NEXT_Suppliers_Room_SESSIONS_2026-08-27.md). The
+  // claim always fires; runSupplierNightBeforeEmailReminders() itself no-ops
+  // until isSupplierNightBeforeEmailEnabled() is flipped, so this mount stays
+  // permanently present rather than being a second thing to remember to wire.
+  try {
+    if (await claimPeriodicJob('supplier-night-before-email', DAILY_GAP_MS))
+      await runSupplierNightBeforeEmailReminders();
   } catch {
     /* best-effort */
   }

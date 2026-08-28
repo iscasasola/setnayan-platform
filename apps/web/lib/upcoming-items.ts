@@ -54,6 +54,7 @@ import {
 } from './appointments';
 import {
   PLAN_GROUPS,
+  planGroupsForEventType,
   canonicalServiceToPlanGroupId,
   statusOfVendor,
   type PlanGroupId,
@@ -688,6 +689,7 @@ async function fetchRecommendedDeadlineItems(
   eventId: string,
   eventDate: string | null,
   now: Date,
+  eventType?: string | null,
 ): Promise<UpcomingItem[]> {
   if (!eventDate) return [];
   const wedding = new Date(`${eventDate}T12:00:00`);
@@ -728,7 +730,18 @@ async function fetchRecommendedDeadlineItems(
     deadlineMap.set(r.ref_key, { value: r.offset_value, unit: r.offset_unit });
   }
 
-  return PLAN_GROUPS.filter(
+  /*
+    ⚠ SCOPED TO THE EVENT'S OWN SECTIONS. Unfiltered, a wake would be handed a
+    wedding's deadline list — "lock your reception venue eight months out" — to
+    a family arranging a funeral. And the reverse: a couple would get a
+    "choose the funeral home" reminder.
+
+    🔑 THE WAKE'S OWN CARDS CARRY `monthsBefore: 0`, which is the honest value
+    (a funeral home is chosen within hours, not planned for a year) and keeps
+    them from becoming a countdown. The solemn register suppresses countdown
+    RENDERING separately; this is the data side of the same promise.
+  */
+  return planGroupsForEventType(eventType).filter(
     (g) => g.countsTowardLockable !== false && !lockedGroups.has(g.id),
   )
     .map((g) => {

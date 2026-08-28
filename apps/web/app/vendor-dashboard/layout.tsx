@@ -26,6 +26,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
+import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 
 /**
  * Vendor dashboard layout — the shop, under the ONE shell.
@@ -407,11 +408,25 @@ export default async function VendorDashboardLayout({
           this bar (2026-08-15: renaming it read as DELETING it — he scanned for
           the word and it was gone), so it stays.
 
-          It points at the picker, not a bare /new route, because a card cannot
-          exist without a category: the guided wizard asks for one first.
+          🔴 IT OPENS THE MAKER ITSELF (owner 2026-08-28: *"i just bounces to a
+          page for a link to service card. we want it to directly go to a page
+          to create a service card."*). It used to open My Shop with a drawer of
+          category links, which is a page ABOUT making a card rather than the
+          card. The kind of service is now asked for ON the card, so one press
+          lands on the thing being made.
+
+          🔴 AND BEFORE THAT IT REACHED NOTHING AT ALL for a supplier with no
+          cards — the person this button is FOR. The old href carried only
+          `#add-service-picker` at `/vendor-dashboard/services`, a retired
+          address that redirects to My Shop and rebuilds the URL from query
+          params, so the fragment was dropped in transit; and the picker sits in
+          the Service cards tab, which a vendor with zero cards does not land
+          on, inside a `<details>` that is shut. The page opened, nothing
+          scrolled, nothing opened, and no error was shown. Both hrefs live in
+          `lib/service-picker-anchor.ts`, never hand-typed.
         */
         createSlot={
-          <Link href="/vendor-dashboard/services#add-service-picker" className="fd-btn-gold">
+          <Link href={SERVICE_MAKER_HREF} className="fd-btn-gold">
             + Create service card
           </Link>
         }

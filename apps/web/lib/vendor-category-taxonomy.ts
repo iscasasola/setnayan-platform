@@ -54,6 +54,25 @@ export type CanonicalMapping =
  * runtime drift.
  */
 export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping> = {
+  // ── A wake's own trades (2026-08-27) ──────────────────────────────────────
+  // 1:1 onto their same-named tile, exactly as the fourteen non-wedding gap
+  // leaves (tour_guide, referee_official, event_medic …) already do.
+  // ⚠ I FIRST WROTE THESE AS `exempt`, reasoning that a crematorium is not a
+  // wedding tile. That was wrong in the way that matters: a category with no
+  // tile is DROPPED from the couple's Shortlist silently — `buildShortlistFolders`
+  // does `if (!tile) continue;` — so a family who shortlisted a funeral home
+  // would simply never see it again. What keeps these off a WEDDING's shortlist
+  // is the tile's `applicable_event_types` scope, which is the mechanism built
+  // for exactly this and is why the gap leaves stopped being exempt in 2026-07.
+  funeral_home: { kind: 'tile', tile: 'funeral_home' },
+  cremation: { kind: 'tile', tile: 'cremation' },
+  memorial_park: { kind: 'tile', tile: 'memorial_park' },
+  // ── Opened to the marketplace 2026-08-27 (owner ruling) ────────────────────
+  // *"marriage-paper helper yes. honeymoon planner yes"* — both are people a
+  // couple hires, unlike the officiant two lines down, who comes with the
+  // parish. Clean 1:1 onto the branches that already carried their names.
+  wedding_paperwork: { kind: 'tile', tile: 'wedding_paperwork' },
+  travel_honeymoon: { kind: 'tile', tile: 'travel_honeymoon' },
   // ── A · clean 1:1 ──────────────────────────────────────────────────────────
   venue: { kind: 'tile', tile: 'reception' },
   religious_venue: { kind: 'tile', tile: 'ceremony_venue' },

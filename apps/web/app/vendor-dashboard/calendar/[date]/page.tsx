@@ -97,6 +97,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
   const month = date.slice(0, 7);
   const [pools, bookings, blocks, dayStates, waitlist] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
+    // CAPACITY, not the room: this counts consumption per pool for one day.
     fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
     fetchVendorDayStates(supabase, profile.vendor_profile_id, date, date),

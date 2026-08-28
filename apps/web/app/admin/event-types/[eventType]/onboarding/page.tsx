@@ -107,7 +107,15 @@ export default async function EventTypeOnboardingPage({
   ]);
 
   const hasOverride = !!rowData;
-  const spec = resolveOnboardingSpec(eventType, packKey, rowData ?? null);
+  // The register rides along so HQ edits a wake against the copy a bereaved
+  // family actually sees. Without it this screen would show the celebratory
+  // base for a solemn type and an admin would 'fix' words nobody is shown.
+  const spec = resolveOnboardingSpec(
+    eventType,
+    packKey,
+    rowData ?? null,
+    profile.terminology.register,
+  );
 
   const categoryOptions = tiles.map((t) => ({ value: t.cat, label: t.label }));
   const serviceOptions = Object.keys(INAPP_TO_SERVICE_CODE).map((k) => ({

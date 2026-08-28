@@ -76,25 +76,71 @@ test('the learned-phrase memory is reachable by the service role and nobody else
   );
 });
 
-test('the memory refuses an address outside the admin', async () => {
-  // The floor under the application check. If somebody deletes the app-side
-    // validation, a model cannot still store a link to somewhere else.
+test('the memory refuses an address that leaves Setnayan', async () => {
+  /*
+    ⚠ THIS RULE CHANGED ON 2026-08-27 AND THE OLD ONE WAS A LIVE DEFECT.
+    The CHECK was `href LIKE '/admin%'`, which refused the ONE curated
+    destination the console offers outside /admin — "My account",
+    /dashboard/profile, which exists because the admin doorway has no other
+    path to change-password or sign-out-other-devices. `isKnownAdminHref`
+    deliberately ACCEPTS it, so the two rules contradicted each other: the
+    teach door showed a raw database error, and the AI learner (which only
+    LOGS a failed write) silently failed to remember a correct answer forever.
+
+    🔑 THE APP VALIDATOR IS AUTHORITATIVE and the database agrees with it now.
+    This table has RLS on with zero policies and zero browser grants — checked
+    directly above — so the CHECK was never a boundary against an untrusted
+    client, and as an integrity rule it was both too loose (it admitted
+    /admin/does-not-exist, a dead link) and too tight. What survives here is
+    the floor it was actually reaching for: a learned phrase must never
+    navigate an admin OFF Setnayan.
+  */
+  const mustBeRefused: Array<[string, string]> = [
+    ['an absolute url', 'https://example.com'],
+    // Both of these start with a slash and still leave the site in a browser.
+    ['a protocol-relative url', '//example.com/steal'],
+    ['a backslash-smuggled host', '/\\example.com'],
+    ['the bare root', '/'],
+    ['no leading slash at all', 'admin/pricing'],
+  ];
+  for (const [why, href] of mustBeRefused) {
     await assert.rejects(
-  () =>
-    db.query(
-      `INSERT INTO public.admin_search_phrases (phrase, href, label)
-       VALUES ('anywhere', 'https://example.com', 'Elsewhere')`,
-    ),
-  /admin_search_phrases_href_chk/,
+      () =>
+        db.query(
+          `INSERT INTO public.admin_search_phrases (phrase, href, label)
+           VALUES ($1, $2, 'Elsewhere')`,
+          [`anywhere ${why}`, href],
+        ),
+      /admin_search_phrases_href_chk/,
+      `${why} (${href}) was accepted — a learned phrase can send an admin off Setnayan`,
     );
-    await db.query(
-  `INSERT INTO public.admin_search_phrases (phrase, href, label)
-   VALUES ('papic prices', '/admin/pricing?tab=pricing', 'Pricing')`,
-    );
-    const ok = await db.query<{ n: string }>(
-  `SELECT count(*)::text AS n FROM public.admin_search_phrases`,
-    );
-    assert.equal(ok.rows[0]!.n, '1', 'the legitimate row did not store');
+  }
+
+  await db.query(
+    `INSERT INTO public.admin_search_phrases (phrase, href, label)
+     VALUES ('papic prices', '/admin/pricing?tab=pricing', 'Pricing')`,
+  );
+  const ok = await db.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM public.admin_search_phrases`,
+  );
+  assert.equal(ok.rows[0]!.n, '1', 'the legitimate row did not store');
+});
+
+test('the one curated destination outside /admin can actually be saved', async () => {
+  // The regression this migration exists for. Before it, pressing Save on
+  // "My account" in the teach-it dropdown hit the database and bounced.
+  await db.query(
+    `INSERT INTO public.admin_search_phrases (phrase, href, label)
+     VALUES ('change my password', '/dashboard/profile', 'My account')`,
+  );
+  const row = await db.query<{ href: string }>(
+    `SELECT href FROM public.admin_search_phrases WHERE phrase = 'change my password'`,
+  );
+  assert.equal(
+    row.rows[0]?.href,
+    '/dashboard/profile',
+    'the curated "My account" destination is refused by the database again',
+  );
 });
 
 test('one phrase means one destination', async () => {
@@ -111,6 +157,31 @@ test('one phrase means one destination', async () => {
   /admin_search_phrases_phrase_key/,
   'the same phrase can be taught two different answers',
     );
+});
+
+test('learned_from admits exactly the two sources that can write here', async () => {
+  // 'ai' — the model resolved it (ask-the-admin.ts). 'admin' — a person taught
+  // or corrected it (app/admin/search-memory/actions.ts, added 2026-08-26 as
+  // the writer this column was missing — see WHATS_NEXT_Admin_Search_And_
+  // Assistant_2026-08-26.md § 3, "build the teach-it door or drop the value").
+  await db.query(
+    `INSERT INTO public.admin_search_phrases (phrase, href, label, learned_from)
+     VALUES ('taught by a person', '/admin/pricing', 'Pricing', 'admin')`,
+  );
+  const row = await db.query<{ learned_from: string }>(
+    `SELECT learned_from FROM public.admin_search_phrases WHERE phrase = 'taught by a person'`,
+  );
+  assert.equal(row.rows[0]!.learned_from, 'admin');
+
+  await assert.rejects(
+    () =>
+      db.query(
+        `INSERT INTO public.admin_search_phrases (phrase, href, label, learned_from)
+         VALUES ('a third source', '/admin/pricing', 'Pricing', 'guest')`,
+      ),
+    /admin_search_phrases_source_chk/,
+    'a value outside ai/admin was accepted — the CHECK widened without a writer to match',
+  );
 });
 
 test('the vacuous flag is named, so nobody writes another test that trusts it', async () => {

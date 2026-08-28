@@ -39,6 +39,20 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GALLERY = readFileSync(join(HERE, '..', '..', '..', 'lib', 'guest-live-gallery.ts'), 'utf8');
 const BODY = readFileSync(join(HERE, '..', '_components', 'site-body.tsx'), 'utf8');
+/**
+ * The "Photos of you" section moved OUT of site-body.tsx on 2026-08-27 when it
+ * was ported to the gallery archetype's obsidian surface — it needs client state
+ * for the lightbox, and site-body is a server component.
+ *
+ * ⚠ THE THREE STATES DID NOT MOVE, AND THAT IS WHAT THIS FILE WATCHES. These
+ * assertions follow the code to its new file rather than being relaxed: the
+ * failure they exist to catch — "nobody has tagged you yet" and "the read broke"
+ * collapsing into one answer — is exactly the kind a port loses quietly.
+ */
+const PHOTOS_OF_YOU = readFileSync(
+  join(HERE, '..', '_components', 'photos-of-you-gallery.tsx'),
+  'utf8',
+);
 const WALL = readFileSync(join(HERE, '..', '_components', 'live-wall-block.tsx'), 'utf8');
 
 test('an empty gallery is a real answer, not the same as a broken read', () => {
@@ -115,13 +129,13 @@ test('the section renders for the whole window, whatever the answer is', () => {
       'photos yet — or a failed read — sees nothing at all where it should be.',
   );
   assert.match(
-    BODY,
+    PHOTOS_OF_YOU,
     /No one has tagged you yet/,
     'The empty state lost its words. This is the commonest state early in a day ' +
       'and the one a guest most needs reassurance about.',
   );
   assert.match(
-    BODY,
+    PHOTOS_OF_YOU,
     /We couldn&rsquo;t load your photos just now/,
     'The failed-read state lost its words, so it reads as "you have none".',
   );
@@ -129,13 +143,13 @@ test('the section renders for the whole window, whatever the answer is', () => {
 
 test('the gallery never asserts a count or a promise it cannot back', () => {
   assert.match(
-    BODY,
-    /\(guestLiveGallery\?\.total \?\? 0\)\.toLocaleString\(\)/,
+    PHOTOS_OF_YOU,
+    /\(gallery\?\.total \?\? 0\)\.toLocaleString\(\)/,
     'The count reads through a possibly-null gallery again.',
   );
   assert.match(
-    BODY,
-    /\{guestLiveGallery && guestLiveGallery\.photos\.length > 0 \? \(/,
+    PHOTOS_OF_YOU,
+    /\{photos\.length > 0 \? \(/,
     '"More arrive as the day unfolds" and "Tap any photo" must not render over ' +
       'an empty grid or a failed read — they describe photos that are not there.',
   );

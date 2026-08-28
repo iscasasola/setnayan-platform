@@ -12,7 +12,7 @@ import {
   ShieldCheck,
   Upload,
 } from 'lucide-react';
-import type { FaceGateResult } from '@/lib/face-gate';
+import type { FaceGateReason, FaceGateResult } from '@/lib/face-gate';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 
 /**
@@ -67,6 +67,33 @@ async function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
     return canvas;
   } finally {
     URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * The retake hints, in words.
+ *
+ * 🔑 `lib/face-gate.ts` returns a CODE and nothing else. One of these sentences
+ * used to live in that file and read "…so the couple recognizes you" on every
+ * event type — a wake included — and the fix was NOT to hand the pure browser
+ * helper an event. The resolved words are already here, so the sentence is here.
+ */
+function faceGateHint(code: FaceGateReason | undefined, theOrganizer: string): string {
+  switch (code) {
+    case 'no_face':
+      return "We couldn't find your face — center yourself in the frame.";
+    case 'many_faces':
+      return 'Only you should be in this photo — just one face, please.';
+    case 'too_far':
+      return 'Move a little closer so your face fills more of the frame.';
+    case 'not_frontal':
+      return `Look straight at the camera so ${theOrganizer} recognizes you.`;
+    case 'too_dark':
+      return "It's a bit dark — find brighter, even light.";
+    case 'too_bright':
+      return 'Too bright — turn away from the glare and retake.';
+    default:
+      return 'Try another shot for a clearer match.';
   }
 }
 
@@ -667,7 +694,7 @@ export function SelfieCapture({
                       strokeWidth={2}
                     />
                     <span>
-                      {gate.reason}{' '}
+                      {faceGateHint(gate.reasonCode, w.theOrganizer)}{' '}
                       <span className="text-ink/50">
                         Saved anyway — retake for a clearer match.
                       </span>

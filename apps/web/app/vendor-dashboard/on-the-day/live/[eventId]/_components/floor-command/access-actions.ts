@@ -15,7 +15,7 @@ import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { normalizeRequestedAreas } from '@/lib/floor-command';
 import { resolveAreaLevel, type DelegateArea, type ModeratorPermissions } from '@/lib/event-moderators';
 
@@ -101,7 +101,7 @@ export async function askHostForAccess(
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, error: 'No vendor profile.' };
 
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { ok: false, error: 'You are not booked on this event.' };
   }

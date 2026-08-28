@@ -14,6 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  ADMIN_ONLY_TILES,
   TAXONOMY_MAP,
   TILE_PARENT,
   WEDDING_FAITH_KEYS,
@@ -84,12 +85,30 @@ test('faith keys are title-case (lowercasing breaks the === marketplace filter)'
 
 // ── Taxonomy Studio · representation layer (icons + photos) ──────────────────
 
-test('fallback snapshot carries EMPTY icon/photo maps and source=fallback', () => {
+test('fallback snapshot: empty icon/photo maps, source=fallback, hidden = the admin-only tiles', () => {
   const snap = fallbackSnapshot();
   assert.equal(snap.source, 'fallback');
+  // Icons and photos are genuinely admin-only overrides — the constant has none.
   assert.deepEqual(snap.categoryIcons, {}, 'fallback categoryIcons must be empty');
   assert.deepEqual(snap.categoryPhotos, {}, 'fallback categoryPhotos must be empty');
-  assert.deepEqual(snap.hiddenCategories, {}, 'fallback hiddenCategories must be empty');
+
+  // ⚠ CHANGED 2026-08-27, and the old assertion was the weaker claim. This used
+  // to demand `hiddenCategories` be EMPTY, on the reasoning that hiding is an
+  // admin act and the constant records no admin acts. That stopped being true
+  // when the four ADMIN_ONLY_TILES were added to the constant: leaving the
+  // fallback empty meant that on any DB read failure — the one moment this
+  // snapshot is used — four branches nothing should ever render would have been
+  // promoted to ordinary visible ones. Now asserted in BOTH directions against
+  // the set itself, so the fallback and `ADMIN_ONLY_TILES` cannot drift apart
+  // and a fifth admin-only tile needs no edit here.
+  assert.deepEqual(
+    Object.keys(snap.hiddenCategories).sort(),
+    [...ADMIN_ONLY_TILES].sort(),
+    'fallback hiddenCategories must be exactly the admin-only tiles',
+  );
+  for (const tile of ADMIN_ONLY_TILES) {
+    assert.equal(snap.hiddenCategories[tile], true, `${tile} must be flagged hidden in the fallback`);
+  }
 });
 
 test('DB snapshot flags tile-level marketplace_hidden (sparse — only true ids present)', () => {

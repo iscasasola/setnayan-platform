@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4527a990a",
-  "routeCount": 405,
-  "destinations": 872,
-  "actions": 583,
-  "blocks": 4031,
+  "generatedFromRef": "77986a910",
+  "routeCount": 407,
+  "destinations": 878,
+  "actions": 590,
+  "blocks": 4076,
   "routes": {
     "/": {
       "files": [
@@ -561,6 +561,7 @@
         "[slug]/_components/pahina-masthead.tsx",
         "[slug]/_components/pahina-motion.tsx",
         "[slug]/_components/photo-moments-widget.tsx",
+        "[slug]/_components/photos-of-you-gallery.tsx",
         "[slug]/_components/private-landing.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -592,6 +593,8 @@
         "[slug]/_components/std-background-layer.tsx",
         "[slug]/_components/std-film-handoff.tsx",
         "[slug]/_components/std-view-beacon.tsx",
+        "[slug]/_components/supplier-desk.tsx",
+        "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
         "[slug]/_components/vendor-doorway.tsx",
@@ -600,6 +603,8 @@
         "[slug]/_components/what-to-bring-widget.tsx",
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
+        "[slug]/_lib/album-door.server.ts",
+        "[slug]/_lib/belongs-to-this-event.ts",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
         "[slug]/_lib/guest-details-changed.ts",
@@ -611,6 +616,7 @@
         "[slug]/_lib/site-identity.ts",
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
+        "[slug]/_lib/supplier-desk.server.ts",
         "[slug]/_lib/types.ts",
         "[slug]/actions.ts",
         "[slug]/announcement-actions.ts",
@@ -628,6 +634,7 @@
         "/[seg]/hub",
         "/[seg]/invite",
         "/[seg]/print",
+        "/[seg]/recap",
         "/[seg]/seat/claim?t=[seg]",
         "/[seg]/welcome",
         "/api/guest/qr",
@@ -636,7 +643,10 @@
         "/papic/guest",
         "/signup",
         "/v/[seg]",
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/on-the-day",
+        "/vendor-dashboard/on-the-day?event=[seg]"
       ],
       "actions": [
         "action",
@@ -657,6 +667,10 @@
         "ClipFrame",
         "Colophon",
         "ConsentVeto",
+        "ConsoleEyebrow",
+        "ConsoleHeading",
+        "ConsolePlate",
+        "ConsoleRule",
         "CountdownWidget",
         "CssFallback",
         "CustomColumnBody",
@@ -688,6 +702,8 @@
         "Flap",
         "FourFlapEnvelope",
         "FromTheCouple",
+        "GalleryCredit",
+        "GalleryLightbox",
         "GlowBlob",
         "GracefulFallback",
         "GuestCameraPlayer",
@@ -756,6 +772,7 @@
         "PhotoGallery",
         "PhotoMomentModeBadge",
         "PhotoMomentsWidget",
+        "PhotosOfYouGallery",
         "PrivateLanding",
         "ProgressRing",
         "PublicEventDayBar",
@@ -775,6 +792,7 @@
         "RigidStage",
         "RigidWebGL",
         "RoamWatchPicker",
+        "RoomLink",
         "RsvpPill",
         "RsvpWidget",
         "RunOfShowHeader",
@@ -805,6 +823,9 @@
         "StripCell",
         "StudioRevealPlayer",
         "SubmitButton",
+        "SupplierDesk",
+        "SupplierDeskModel",
+        "SupplierRibbon",
         "SupportingStrip",
         "SurfaceMaps",
         "Suspense",
@@ -815,6 +836,7 @@
         "TeamBehindTheDay",
         "TheirSong",
         "TierComparisonWidget",
+        "ToolTile",
         "VeilLook",
         "VeilReveal",
         "VendorCapability",
@@ -836,7 +858,6 @@
     },
     "/[slug]/find-my-table": {
       "files": [
-        "[slug]/find-my-table/loading.tsx",
         "[slug]/find-my-table/page.tsx"
       ],
       "destinations": [
@@ -844,7 +865,6 @@
       ],
       "actions": [],
       "blocks": [
-        "DetailPageSkeleton",
         "EntrancePos",
         "Link",
         "LiveRefresher",
@@ -1055,7 +1075,6 @@
     "/[slug]/welcome": {
       "files": [
         "[slug]/welcome/actions.ts",
-        "[slug]/welcome/loading.tsx",
         "[slug]/welcome/page.tsx"
       ],
       "destinations": [],
@@ -1064,7 +1083,6 @@
         "confirmAction"
       ],
       "blocks": [
-        "DetailPageSkeleton",
         "DoorNotice",
         "DoorShell",
         "SubmitButton"
@@ -1080,10 +1098,14 @@
         "admin/_components/admin-nav-fab.tsx",
         "admin/_components/admin-nav-groups.tsx",
         "admin/_components/admin-rail-context.tsx",
+        "admin/_components/admin-search-box.tsx",
+        "admin/_components/admin-search-open-event.ts",
         "admin/_components/admin-sidebar.tsx",
+        "admin/_components/ask-actions.ts",
         "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-grid.tsx",
+        "admin/_components/record-search.ts",
         "admin/_components/what-you-change.tsx",
         "admin/_overview-tile.tsx",
         "admin/error.tsx",
@@ -1146,6 +1168,7 @@
         "/admin/receipts",
         "/admin/repost-watch",
         "/admin/reviews",
+        "/admin/search-memory",
         "/admin/secrets",
         "/admin/settings/payment-methods",
         "/admin/settings?tab=compliance",
@@ -1191,11 +1214,14 @@
         "ActionQueueTile",
         "AdminBottomNav",
         "AdminCommandPalette",
+        "AdminJob",
         "AdminNavFab",
         "AdminRailContext",
         "AdminRailRow",
+        "AdminSearchBox",
         "AppRailShell",
         "AppleSecretReminder",
+        "AskAnswer",
         "BottomNav",
         "CountUp",
         "EditingIsOnTheComputer",
@@ -2426,7 +2452,8 @@
       ],
       "actions": [
         "holdPayoutAction",
-        "markPayoutPaidAction"
+        "markPayoutPaidAction",
+        "releasePayoutHoldAction"
       ],
       "blocks": [
         "AdminUser",
@@ -2646,6 +2673,21 @@
         "PageMasthead",
         "SubmitButton",
         "VendorFakeFlagCard"
+      ]
+    },
+    "/admin/search-memory": {
+      "files": [
+        "admin/search-memory/actions.ts",
+        "admin/search-memory/page.tsx",
+        "admin/search-memory/search-memory-table.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ConsoleTable",
+        "PageMasthead",
+        "Result",
+        "SearchMemoryTable"
       ]
     },
     "/admin/secrets": {
@@ -2959,6 +3001,8 @@
     },
     "/admin/taxonomy": {
       "files": [
+        "admin/taxonomy/_components/prepared-job-card.tsx",
+        "admin/taxonomy/_components/prepared-jobs.ts",
         "admin/taxonomy/_components/taxonomy-studio.tsx",
         "admin/taxonomy/actions.ts",
         "admin/taxonomy/loading.tsx",
@@ -2977,6 +3021,7 @@
         "createCanonicalLeaf",
         "createEventTypeRoster",
         "createFaithVocab",
+        "createTaxonomyNode",
         "mapCategoryRequest",
         "promoteCategoryRequest",
         "relabelEventTypeVocab",
@@ -3010,6 +3055,7 @@
       "blocks": [
         "AddLeafFieldForm",
         "AddOptionForm",
+        "AddServicePrefill",
         "Badge",
         "EventTypeVocabPanel",
         "FaithLaunchButton",
@@ -3027,10 +3073,13 @@
         "LeafRefinementsPanel",
         "Link",
         "LucideByName",
+        "NewCategoryPrefill",
         "OptionCard",
         "OptionGrid",
         "PageMasthead",
         "PhotoField",
+        "PreparedCatalogs",
+        "PreparedJobCard",
         "RefThumb",
         "RefinementsTab",
         "ReorderButtons",
@@ -6115,6 +6164,8 @@
     },
     "/dashboard/[eventId]/studio/papic": {
       "files": [
+        "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
+        "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-cameras-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx",
@@ -6127,13 +6178,15 @@
         "dashboard/[eventId]/studio/papic/_components/papic-cameras-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-pool-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-stage.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-actions.ts",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-toggle.tsx",
         "dashboard/[eventId]/studio/papic/_components/recap-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/setting-row.tsx",
+        "dashboard/[eventId]/studio/papic/_components/source-row.tsx",
+        "dashboard/[eventId]/studio/papic/_components/uploads-open-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx",
-        "dashboard/[eventId]/studio/papic/_components/where-you-stand.tsx",
-        "dashboard/[eventId]/studio/papic/_lib/rooms.ts",
         "dashboard/[eventId]/studio/papic/actions.ts",
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
         "dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx",
@@ -6161,13 +6214,13 @@
         "/dashboard/[seg]/studio/papic/magazine",
         "/dashboard/[seg]/studio/papic/moderation",
         "/dashboard/[seg]/studio/papic/recap",
-        "/dashboard/[seg]/studio/papic?tab=[seg]",
         "/dashboard/life-flash?scope=e[seg]"
       ],
       "actions": [
         "action",
         "activatePapicLimited",
         "addLibraryChallengeAction",
+        "claimUploadsCamera",
         "createCoupleChallengeAction",
         "deleteCoupleChallengeAction",
         "purchasePapicExtras",
@@ -6179,34 +6232,40 @@
         "setCoupleFaceTaggingDeclined",
         "setPapicGuestCaptureEarly",
         "setPapicStyle",
+        "setPapicUploadsOpen",
         "setPapicWindow",
         "setVendorCapturesHidden"
       ],
       "blocks": [
         "ActionResult",
+        "AddToLibrary",
+        "Blob",
         "CaptureDefaultsSection",
         "ChallengeRow",
-        "ClipLightbox",
         "CoupleChallengesManager",
+        "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",
         "DriveCopyCard",
         "DriveReconnectBanner",
         "DriveSafetyPanel",
         "DslrBridgeSection",
+        "EmptyRoll",
         "ExtraCamerasPicker",
         "FaceTaggingChoice",
         "Fact",
         "FilterChip",
         "FilterId",
         "Fragment",
+        "GalleryCredit",
+        "GalleryLightbox",
         "GalleryPhoto",
         "GalleryPreviewCard",
         "GridPageSkeleton",
         "GuestCameraTierPicker",
         "GuestCamerasChoice",
         "GuestContributionsCard",
-        "HTMLDivElement",
+        "HTMLInputElement",
         "HostPoolMeterCard",
         "InlineCheckoutDrawer",
         "LegendDot",
@@ -6219,7 +6278,9 @@
         "MiniTour",
         "PapicCamerasCard",
         "PapicGalleryGrid",
+        "PapicLightbox",
         "PapicPoolCard",
+        "PapicStage",
         "PapicWindowPicker",
         "PaymentUnderReview",
         "PickerFilters",
@@ -6228,9 +6289,14 @@
         "PreservationMeterLine",
         "PreserveToggle",
         "RecapCard",
+        "Row",
         "SavePhotoButton",
+        "SettingRow",
+        "Sheet",
         "ShowcaseToggle",
         "ShutterSection",
+        "SourceRow",
+        "StandingsStrip",
         "StatusBanners",
         "Stepper",
         "StudioBuyHero",
@@ -6238,10 +6304,10 @@
         "SubmitButton",
         "TierOption",
         "Unmeasured",
+        "UploadsOpenChoice",
         "VendorChallengesApproval",
         "VendorMediaControls",
-        "WallTileLayout",
-        "WhereYouStand"
+        "WallTileLayout"
       ]
     },
     "/dashboard/[eventId]/studio/papic/challenges": {
@@ -8754,12 +8820,15 @@
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
         "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/earnings",
         "/vendor-dashboard/locked-qr",
+        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/performance",
+        "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
@@ -8776,12 +8845,16 @@
         "disconnectInstagram",
         "formAction",
         "null",
+        "postReviewReply",
+        "rejectLock",
         "renewAction",
+        "respondMeeting",
         "toggleInstagramMediaVisibility"
       ],
       "blocks": [
         "AccountSwitcher",
         "AddBranchForm",
+        "AgeLine",
         "AgentHome",
         "AppRailShell",
         "BottomNav",
@@ -8793,6 +8866,7 @@
         "Collapsible",
         "ComingSoon",
         "Connected",
+        "ContractDraftBody",
         "CopyButton",
         "CorrectionRequestResult",
         "CountUp",
@@ -8812,10 +8886,13 @@
         "Link",
         "LockBody",
         "LockRequestBody",
+        "LockRequestLapsedBody",
         "LockedBody",
         "LockedQrGenerator",
         "Marker",
         "MediaTile",
+        "MeetingBody",
+        "MessageBody",
         "NavFab",
         "NotConnected",
         "OngoingTasks",
@@ -8824,6 +8901,7 @@
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
         "QrCard",
+        "QuoteDraftBody",
         "ReviewBody",
         "RowSkeleton",
         "Screen",
@@ -9402,7 +9480,6 @@
       ],
       "destinations": [
         "/vendor-dashboard/earnings?page=[seg]",
-        "/vendor-dashboard/services",
         "/vendor-dashboard/subscription"
       ],
       "actions": [],
@@ -9641,12 +9718,14 @@
         "markAllNotificationsRead"
       ],
       "blocks": [
+        "ArrayBuffer",
         "Link",
         "ListPageSkeleton",
         "NotificationsList",
         "PermissionState",
         "PushToggle",
-        "SubmitButton"
+        "SubmitButton",
+        "UnblockGuide"
       ]
     },
     "/vendor-dashboard/on-the-day": {
@@ -10074,9 +10153,7 @@
         "vendor-dashboard/repertoire/loading.tsx",
         "vendor-dashboard/repertoire/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/services"
-      ],
+      "destinations": [],
       "actions": [
         "addRepertoireSong",
         "removeRepertoireSong",
@@ -10170,6 +10247,7 @@
         "Basis",
         "BranchSelect",
         "CanvasFormSnapshot",
+        "CanvasKeep",
         "CanvasSheet",
         "CardRecordSection",
         "CardRegion",
@@ -10202,6 +10280,7 @@
         "Icon",
         "IncludedFlags",
         "InclusionsEditor",
+        "KindPill",
         "LastMinuteFields",
         "LineRow",
         "Link",
@@ -10227,6 +10306,19 @@
         "SubLabel",
         "SubmitButton",
         "YourCoverage"
+      ]
+    },
+    "/vendor-dashboard/services/new": {
+      "files": [
+        "vendor-dashboard/services/new/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/shop"
+      ],
+      "actions": [],
+      "blocks": [
+        "CanvasMaker",
+        "Link"
       ]
     },
     "/vendor-dashboard/services/new/[category]": {

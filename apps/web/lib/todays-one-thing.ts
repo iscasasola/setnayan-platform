@@ -104,6 +104,21 @@ export type ResolvedTask = {
  * aware, planner-tone, no jargon, no marketing fluff.
  */
 const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
+  // ── A wake's own sections (2026-08-27) ────────────────────────────────────
+  // ⚠ THE VOICE CHANGES HERE AND THAT IS THE POINT. Every other line in this
+  // table nudges a couple toward a deadline. A family arranging a funeral is
+  // not behind schedule and must never be told they are — these say what the
+  // choice decides, and stop.
+  farewell_home:
+    'Almost everything else follows from this one — the chapel or the home wake, the preparation, the casket, the hearse. Most families settle it in the first day.',
+  farewell_cremation:
+    'Whether there is a cremation, and where. It changes what the days afterward look like.',
+  farewell_memorial_park:
+    'Where they will rest, and the interment itself. Some families already hold a lot; many decide it now.',
+  wedding_paperwork:
+    'The licence is only good for 120 days, and the CENOMAR plus your parish papers take weeks to gather. A helper does the queuing so the clock never runs out on you.',
+  travel_honeymoon:
+    'Flights and resorts only get dearer, and the good dates go first. Sort the trip once your wedding date is fixed.',
   wellness_fitness:
     'Skin, teeth and fitness plans need months, not weeks — derma courses and dental work run 3-6 months before the first fitting.',
   guest_booth:
@@ -170,6 +185,11 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
  * "explore" / "find" maps cleanly to the deep-link destination.
  */
 const CTA_LABEL: Record<PlanGroupId, string> = {
+  farewell_home: 'Find a funeral home',
+  farewell_cremation: 'Find a crematorium',
+  farewell_memorial_park: 'Find a memorial park',
+  wedding_paperwork: 'Find a paperwork helper',
+  travel_honeymoon: 'Browse honeymoon planners',
   wellness_fitness: 'Browse wellness & fitness',
   guest_booth: 'Browse guest booths',
   reception_venue: 'Browse reception venues',
@@ -207,6 +227,13 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
  * "Lock your reception venue" rather than just "Reception venue".
  */
 const ACTION_TITLE: Record<PlanGroupId, string> = {
+  // ⚠ NOT "Lock your funeral home". The verb every other card uses is a
+  // planner's verb; this is a family choosing where someone will rest.
+  farewell_home: 'Choose the funeral home',
+  farewell_cremation: 'Decide about cremation',
+  farewell_memorial_park: 'Choose where they will rest',
+  wedding_paperwork: 'Sort your marriage papers',
+  travel_honeymoon: 'Plan your honeymoon',
   wellness_fitness: 'Start your wellness plan',
   guest_booth: 'Add your guest booths',
   reception_venue: 'Lock your reception venue',

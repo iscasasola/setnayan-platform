@@ -58,6 +58,9 @@ export const DAY_OF_FAMILY_ORDER: readonly DayOfFamily[] = [
 
 /** Which family each marketplace folder belongs to. */
 const FOLDER_FAMILY: Record<WeddingFolder, DayOfFamily> = {
+  // A funeral home, a crematorium and a memorial park all COORDINATE the day —
+  // they run the sequence the family follows, they do not set up a room.
+  farewell: 'coordinate',
   venue: 'setup',
   planning: 'coordinate',
   feast: 'serve',

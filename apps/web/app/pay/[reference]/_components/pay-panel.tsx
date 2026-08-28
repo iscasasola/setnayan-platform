@@ -31,6 +31,8 @@ export type ChannelInfo = {
 };
 
 export function PayPanel({
+  rechecked,
+  setup,
   proofSent,
   resubmitNotice,
   requiresReference,
@@ -41,6 +43,19 @@ export function PayPanel({
   bdo,
   activatesLine,
 }: {
+  /**
+   * TRUE on the render right after we asked them to check their reference
+   * against their own picture. It rides into the form as a hidden field, and
+   * the action then accepts whatever the picture says.
+   *
+   * 🔑 WE ASK ONCE. Somebody who has already sent money must always have a way
+   * through — they are the ones a stricter rule would trap, because a person
+   * with a genuinely wrong receipt gives up while a person with a real payment
+   * and an unlucky read keeps trying.
+   */
+  rechecked: boolean;
+  /** TRUE when this bill is part of the onboarding set-up flow (`?setup=1`). */
+  setup: boolean;
   proofSent: boolean;
   /** What the admin asked for, when they sent the payer back for better proof. */
   resubmitNotice: string | null;
@@ -128,6 +143,8 @@ export function PayPanel({
             amountPhp={amountPhp}
             channel={channel}
             requiresReference={requiresReference}
+            rechecked={rechecked}
+            setup={setup}
           />
         )}
       </section>
@@ -288,12 +305,16 @@ function ProofForm({
   amountPhp,
   channel,
   requiresReference,
+  rechecked,
+  setup,
 }: {
   orderId: string;
   reference: string;
   amountPhp: number;
   channel: Channel;
   requiresReference: boolean;
+  rechecked: boolean;
+  setup: boolean;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [big, setBig] = useState(false);
@@ -313,6 +334,10 @@ function ProofForm({
       <input type="hidden" name="amount_php" value={amountPhp} />
       <input type="hidden" name="channel" value={channel} />
       <input type="hidden" name="client_idempotency_key" value={idempotencyKey} />
+      {/* Their second attempt. See `rechecked` on PayPanel — we ask once. */}
+      {rechecked && <input type="hidden" name="rechecked" value="1" />}
+      {/* So a recheck can send them back to the SAME screen they were on. */}
+      {setup && <input type="hidden" name="setup" value="1" />}
 
       <p className="text-sm text-ink/65">
         Send us the screenshot and the last 6 digits of your reference number. We confirm within 24
@@ -365,12 +390,26 @@ function ProofForm({
           Last 6 digits of your reference number
           {requiresReference && <span className="font-normal text-ink/55"> · required</span>}
         </span>
+        {/*
+          🪤 THIS FIELD USED TO CARRY `maxLength={6}`, WHICH SILENTLY DELETED
+          MOST OF WHAT ANYBODY PASTED. The sentence below invites a full paste,
+          and the server that receives it says in terms that "six is a minimum,
+          not a maximum" and keeps up to 64 characters — but the browser cut the
+          value to six before either of them ever saw it, with no error and no
+          sign anything had been dropped. Somebody following the instruction
+          exactly got the WORST result: their long, unambiguous reference
+          arrived as the first six characters of itself.
+
+          The pattern is widened to match, and admits the spaces and dashes
+          GCash prints into a grouped reference ("0043 457 367694") — the server
+          strips them anyway, and refusing them made a correct paste look wrong.
+        */}
         <input
           name="reference_last6"
           inputMode="numeric"
           autoComplete="off"
-          maxLength={6}
-          pattern="[A-Za-z0-9]{4,6}"
+          maxLength={64}
+          pattern="[A-Za-z0-9][A-Za-z0-9 \-]{3,63}"
           placeholder="••••••"
           required={requiresReference}
           className="input-field font-mono tracking-[0.2em]"

@@ -1492,3 +1492,60 @@ export async function releasePayoutHoldAction(formData: FormData) {
     `/admin/payouts?flash=${encodeURIComponent('Payout hold released.')}`,
   );
 }
+
+/**
+ * Read this payment's screenshot again.
+ *
+ * Owner, 2026-08-28: *"can we assign an AI to verify if that last 6 digits do
+ * exist on the photo?"* The buyer's own submission already triggers a read; this
+ * is the button for the payments that predate it, and for retrying one that came
+ * back 'failed' because a key or a network was down for a minute.
+ *
+ * ⛔ IT MOVES NOTHING. No status, no promotion, no notification — it writes one
+ * advisory row and re-renders the page. The one-person admin plan (2026-07-11)
+ * is the rule it obeys: the machine may prepare and may hold back, it may never
+ * be the thing that lets money through.
+ *
+ * ⚠ `after()`, not awaited, for the same reason the buyer's path uses it: a
+ * model call takes seconds and an admin pressing a button should not watch a
+ * spinner. The consequence is honest and worth stating — the page they land on
+ * still shows the OLD card, and the new one appears on their next refresh.
+ */
+export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const paymentId = nullIfBlank(formData.get('payment_id'));
+  if (!paymentId) throw new Error('Missing payment_id.');
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('payments')
+    .select('payment_id,screenshot_url,reference_number,amount_php')
+    .eq('payment_id', paymentId)
+    .maybeSingle();
+
+  const row = data as {
+    screenshot_url: string | null;
+    reference_number: string | null;
+    amount_php: number | string | null;
+  } | null;
+
+  if (row?.screenshot_url) {
+    after(async () => {
+      const { runPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
+      await runPaymentReceiptRead({
+        admin,
+        paymentId,
+        screenshotRef: row.screenshot_url,
+        typedReference: row.reference_number,
+        // The amount ON THE PAYMENT ROW, which is the order's own figure — the
+        // pay page stamps it and the form cannot influence it. Reading the
+        // order again here would be a second source for one number.
+        expectedPhp: row.amount_php == null ? null : Number(row.amount_php),
+      });
+    });
+  }
+
+  revalidatePath('/admin/payments');
+  redirect('/admin/payments');
+}

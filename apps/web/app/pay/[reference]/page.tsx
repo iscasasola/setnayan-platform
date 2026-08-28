@@ -30,7 +30,7 @@ export const metadata = { title: 'Pay' };
 
 type Props = {
   params: Promise<{ reference: string }>;
-  searchParams: Promise<{ sent?: string; error?: string; setup?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; recheck?: string; setup?: string }>;
 };
 
 export default async function PayPage({ params, searchParams }: Props) {
@@ -281,6 +281,24 @@ export default async function PayPage({ params, searchParams }: Props) {
       )}
 
       {/*
+        THE ONE ASK. The reference they typed was not on the picture they sent,
+        so we hand it back once — owner 2026-08-28: *"if the reference code did
+        not match, please type again or upload a cleaner photo."*
+
+        ⚠ IT IS NOT AN ERROR AND IS NOT PAINTED AS ONE. Nothing has failed and
+        nothing has been refused; the person may well be right and our reader
+        wrong. It wears the notice tone, it says what to do, and the sentence
+        that keeps it honest — "if you are sure, just send it again" — is part of
+        the message the action redirects with, so it cannot be dropped by styling
+        this block differently.
+      */}
+      {search.recheck && (
+        <p className="sn-tile mt-4 border-[color:var(--sn-warning)]/40 bg-[var(--sn-warning-soft)] p-4 text-sm text-[color:var(--sn-warning-deep)]">
+          {search.recheck}
+        </p>
+      )}
+
+      {/*
         ── THE TWO DOORS, AND THERE IS NO THIRD ───────────────────────────────
         Owner: *"No option to pay later. then need to go back to uncheck their
         papic and setnayan AI purchase."* So: settle it (the panel below), or
@@ -323,6 +341,20 @@ export default async function PayPage({ params, searchParams }: Props) {
 
       {!waiting && (
       <PayPanel
+        /*
+          Their second attempt carries `rechecked`, which tells the action to
+          accept whatever the picture says. We ask once and then get out of the
+          way — a person who has already sent money must always have a way
+          through.
+        */
+        rechecked={Boolean(search.recheck)}
+        /*
+          Carried so the recheck redirect can put it back. Without it, asking a
+          buyer to check their reference would silently drop them OUT of the
+          set-up flow — the "remove these extras" door disappears and the
+          discount framing with it. Two changes that each behave correctly alone.
+        */
+        setup={setup}
         proofSent={false}
         resubmitNotice={resubmitNotice}
         requiresReference={payable.requiresReference}

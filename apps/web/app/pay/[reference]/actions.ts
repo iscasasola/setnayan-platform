@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { paymentRowFor } from '@/lib/order-mint-identity';
@@ -163,21 +164,85 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
       ? idempotencyRaw.trim().slice(0, 64)
       : null;
 
+  // ── WE READ THEIR PICTURE BEFORE WE ACCEPT IT ─────────────────────────────
+  // Owner, 2026-08-28: *"can we assign an AI to verify if that last 6 digits do
+  // exist on the photo?"* and then *"if the reference code did not match, please
+  // type again or upload a cleaner photo."*
+  //
+  // So the read happens HERE, in the request, rather than after the response:
+  // the only moment a mistyped reference can still be fixed cheaply is while the
+  // person who typed it is looking at the screen. Once this row lands it becomes
+  // an admin's job and a round trip by email.
+  //
+  // ⚠ IT MUST NEVER COST SOMEBODY A PAYMENT THEY HAVE ALREADY SENT. The reader
+  // is bounded (20s) and every failure — no key, timeout, unreadable picture —
+  // comes back as "we do not know", which falls through and accepts. Only a
+  // DEFINITE no sends them back, and only ONCE: see `askedAlready`.
+  const receiptRead = screenshotUrl
+    ? await (async () => {
+        const { readPaymentReceiptFromR2 } = await import('@/lib/payment-receipt-read.server');
+        return readPaymentReceiptFromR2({
+          screenshotRef: screenshotUrl,
+          typedReference: bankReference,
+          expectedPhp: payable.amountPhp,
+        });
+      })()
+    : null;
+
+  // 🔑 WE ASK ONCE, THEN WE GET OUT OF THE WAY. The second submit is accepted
+  // whatever the picture says, and the disagreement travels to the admin's queue
+  // instead. A person who really paid must always have a way through — and they
+  // are the ones who would be trapped, because somebody with a genuinely wrong
+  // receipt simply gives up, while somebody with a real payment and an unlucky
+  // reader would keep trying forever. The marker is a query parameter and is
+  // therefore trivially forgeable, which is correct: forging it means "yes, I am
+  // sure", which is exactly the answer we are willing to take.
+  const askedAlready = formData.get('rechecked') === '1';
+  if (!askedAlready) {
+    const { shouldAskBuyerToFix } = await import('@/lib/payment-receipt-read.server');
+    if (shouldAskBuyerToFix(receiptRead)) {
+      // ⚠ THE SENTENCE HAS TO SAY "ATTACH IT AGAIN", AND THAT IS NOT PADDING.
+      // This redirect re-renders an empty form: the picture they picked lives in
+      // the browser's own file input, which does not survive a navigation. A
+      // message that only said "check the digits" would get us a corrected
+      // reference WITH NO SCREENSHOT — we would have traded their proof for a
+      // typo fix, and neither of us would notice until an admin opened a
+      // payment with nothing to look at.
+      // ⚠ `setup` IS CARRIED BACK, and forgetting it is a silent downgrade:
+      // this screen renders a different set of doors during onboarding, so a
+      // recheck that dropped it would quietly take away the "remove these
+      // extras" choice and the set-up discount framing on the way past.
+      const askMsg =
+        'We could not find that reference number on your picture. Please check the digits and attach your screenshot again. If you are sure it is right, just send it again.';
+      redirect(
+        `/pay/${encodeURIComponent(reference)}?recheck=${encodeURIComponent(askMsg)}` +
+          (formData.get('setup') === '1' ? '&setup=1' : ''),
+      );
+    }
+  }
+
   const moneyWriter = createMoneyWriterClient();
-  const { error } = await moneyWriter.from('payments').insert(
-    paymentRowFor(
-      { userId: user.id, verifiedOrderId: payable.orderId },
-      {
-        // The ORDER's amount, never the form's — see the header.
-        amount_php: payable.amountPhp,
-        channel,
-        reference_number: bankReference,
-        screenshot_url: screenshotUrl,
-        paid_at: new Date().toISOString().slice(0, 10),
-        client_idempotency_key: idempotencyKey,
-      },
-    ),
-  );
+  // `.select()` so the new row's id comes back — the receipt read below needs
+  // it. ⚠ It does NOT change the duplicate behaviour: on the 23505 retry the
+  // insert still fails, `data` is null, and the branch below handles it.
+  const { data: inserted, error } = await moneyWriter
+    .from('payments')
+    .insert(
+      paymentRowFor(
+        { userId: user.id, verifiedOrderId: payable.orderId },
+        {
+          // The ORDER's amount, never the form's — see the header.
+          amount_php: payable.amountPhp,
+          channel,
+          reference_number: bankReference,
+          screenshot_url: screenshotUrl,
+          paid_at: new Date().toISOString().slice(0, 10),
+          client_idempotency_key: idempotencyKey,
+        },
+      ),
+    )
+    .select('payment_id')
+    .maybeSingle();
 
   // 23505 on (order_id, client_idempotency_key) means their first submit landed
   // and they pressed again — that is success, not a failure.
@@ -203,6 +268,17 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
       eventId: payable.eventId ?? '',
       amountPhp: payable.amountPhp,
       channel,
+    });
+  }
+
+  // File what we read against the row we just made, so the admin sees it too.
+  // ⚠ After the response — the buyer has waited for the read once already and
+  // must not also wait for the note about it.
+  const newPaymentId = (inserted as { payment_id: string } | null)?.payment_id ?? null;
+  if (!error && newPaymentId && receiptRead) {
+    after(async () => {
+      const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
+      await recordPaymentReceiptRead(moneyWriter, newPaymentId, receiptRead);
     });
   }
 

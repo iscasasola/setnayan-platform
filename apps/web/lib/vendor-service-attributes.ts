@@ -133,6 +133,81 @@ export async function fetchVendorServiceAttributes(
   return (data ?? []) as VendorAttributePayload[];
 }
 
+/**
+ * "Hide my prices publicly" — the ONE rule, and the one place that reads it.
+ *
+ * Opt-in-to-HIDE (Social_Share_Settings_Council_Verdict 2026-07-16 #6, Option A):
+ * absent or false means SHOW, which is what every existing shop does. A shop is
+ * one business, so hiding is business-wide — true if they ticked it on ANY of
+ * their pricing sections.
+ *
+ * 🔑 IT LIVES HERE BECAUSE IT HAS TWO CALLERS NOW. The shop's own page has
+ * honoured it since it shipped; the marketplace grid did not, because the grid
+ * hid EVERY real shop's price and so never had to ask. Now that the grid shows
+ * prices, a second copy of this rule is how a shop that opted out ends up with
+ * its prices on the marketplace anyway — the worst version of this feature.
+ *
+ * ⚠ FAILS OPEN (→ show) on any read error, deliberately and unchanged: a
+ * transient failure must never mass-hide the prices of every shop on the page.
+ */
+export function payloadHidesPricesPublicly(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  return (payload as Record<string, unknown>).hide_prices_publicly === true;
+}
+
+/**
+ * Which of these shops hide their prices publicly — ONE query for the whole
+ * marketplace page, not one per card. Returns the ids that hide; a shop absent
+ * from the set shows its prices, which is the default and today's behaviour.
+ *
+ * Fails open (empty set → everybody shows) for the same reason the per-shop
+ * reader does.
+ */
+/**
+ * The row-folding half of the batch read, split out so it is testable without a
+ * database: which shops in these attribute rows hide their prices. A shop is one
+ * business — one section ticked hides the lot.
+ */
+export function hidingSetFromAttributeRows(
+  rows: ReadonlyArray<{ vendor_profile_id: string; attribute_payload: unknown }>,
+): Set<string> {
+  const hiding = new Set<string>();
+  for (const row of rows) {
+    if (payloadHidesPricesPublicly(row.attribute_payload)) hiding.add(row.vendor_profile_id);
+  }
+  return hiding;
+}
+
+export async function fetchVendorsHidingPricesPublicly(
+  supabase: SupabaseClient,
+  vendorProfileIds: ReadonlyArray<string>,
+): Promise<Set<string>> {
+  const hiding = new Set<string>();
+  if (vendorProfileIds.length === 0) return hiding;
+  try {
+    const { data, error } = await supabase
+      .from('vendor_service_attributes')
+      .select('vendor_profile_id, attribute_payload')
+      .in('vendor_profile_id', vendorProfileIds as string[]);
+    if (error) {
+      console.warn(
+        '[vendor-service-attributes] hide_prices_publicly batch read failed — defaulting to show',
+        error.message,
+      );
+      return hiding;
+    }
+    return hidingSetFromAttributeRows(
+      (data ?? []) as ReadonlyArray<{ vendor_profile_id: string; attribute_payload: unknown }>,
+    );
+  } catch (err) {
+    console.warn(
+      '[vendor-service-attributes] hide_prices_publicly batch read threw — defaulting to show',
+      err instanceof Error ? err.message : String(err),
+    );
+    return hiding;
+  }
+}
+
 export type CanonicalServiceCatalogRow = {
   canonical_service: string;
   display_name_en: string;

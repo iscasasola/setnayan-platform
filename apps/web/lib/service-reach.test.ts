@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { reachTally, serviceReach } from '@/lib/service-reach';
 import { paxAdjustedStartsAtPhp, priceFitScore, PRICE_FIT_NEUTRAL } from '@/lib/smart-sort';
+import { priceIsSet } from '@/lib/service-publish-gate';
 
 test('a priced card has full reach and reports its own floor', () => {
   const r = serviceReach({ pricing_basis: 'fixed', starting_price_php: 85_000 });
@@ -95,6 +96,23 @@ test('a dearer card earns exactly the same reach as a cheaper one', () => {
   assert.equal(cheap.level, dear.level);
   assert.equal(cheap.label, dear.label);
   assert.equal(cheap.note, dear.note);
+});
+
+// ── Reach and the publish gate must agree about "priced" ──────────────────
+
+test('on the anchor column, reach and the publish gate give the same answer', () => {
+  // S3's gate asks `priceIsSet(starting_price_php)`; reach asks what the SEARCH
+  // can price. They are different questions and must not disagree about the
+  // same card: `parsePricingFields` syncs the anchor for per-pax and per-hour
+  // cards, so the anchor is the shared truth for every card the app can make.
+  for (const value of [null, undefined, 0, -1, 1, 85_000, Number.NaN]) {
+    const card = { pricing_basis: 'fixed', starting_price_php: value as number | null };
+    assert.equal(
+      serviceReach(card).level === 'full',
+      priceIsSet(value as number | null),
+      `disagreement on starting_price_php = ${String(value)}`,
+    );
+  }
 });
 
 // ── reachTally ─────────────────────────────────────────────────────────────

@@ -168,13 +168,52 @@ test('the booked shop sees the open shift; a shop that is not booked does not', 
 
 test('once claimed, the shift leaves every other shop’s view', async () => {
   // A shop sees work it can TAKE, never a record of what a rival was paid.
+  //
+  // 🔴 THE RIVAL MUST BE BOOKED HERE TOO, OR THIS TEST PROVES NOTHING. The
+  // first version left them unbooked, so the booked-event gate excluded them
+  // whatever the claim state was — measured by mutation: deleting the
+  // `vendor_profile_id IS NULL AND status = 'pending'` clause left this GREEN.
+  // Booking the rival leaves that clause as the ONLY thing that can hide it.
   const w = await seed('see-claimed');
+  await reset();
+  await db.query(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
+     VALUES ($1,'videographer','Rival Crew','contracted',$2)`, [w.eventId, w.rival]);
   const gig = await openGig(w);
+
+  assert.equal(await visibleTo(w.rivalOwner), 1, 'both booked shops should see it while OPEN');
+
   await setAuthUid(db, w.shopOwner);
   await db.query(`SELECT public.claim_manpower_gig($1)`, [gig]);
   await setAuthUid(db, null);
-  assert.equal(await visibleTo(w.rivalOwner), 0);
+
+  assert.equal(await visibleTo(w.rivalOwner), 0, 'a booked rival can still see work already taken');
   assert.equal(await visibleTo(w.shopOwner), 1, 'the claimer keeps it via the owner policy');
+});
+
+test('the claim keeps its single-winner precondition IN THE UPDATE', async () => {
+  /*
+    ⚠ A STRUCTURAL ASSERTION, AND THE REASON IS STATED RATHER THAN HIDDEN.
+    The `vendor_profile_id IS NULL AND status = 'pending'` in the UPDATE's WHERE
+    is DEFENCE IN DEPTH against a row claimed between the SELECT … FOR UPDATE
+    and the write. A serial test cannot reach it — the early
+    `IF v_claimed_by IS NOT NULL` returns first — so deleting it left the whole
+    suite GREEN, measured. Rather than pretend a behavioural test covers it,
+    this reads the shipped function body: the clause is either there or it is
+    not, and its removal is now visible.
+  */
+  await reset();
+  const r = await db.query<{ def: string }>(
+    `SELECT pg_get_functiondef(p.oid) AS def FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname='public' AND p.proname='claim_manpower_gig'`);
+  const body = r.rows[0]!.def.replace(/\s+/g, ' ');
+  const update = body.slice(body.indexOf('UPDATE public.manpower_gigs'));
+  assert.match(
+    update,
+    /WHERE gig_id = p_gig_id AND vendor_profile_id IS NULL AND status = 'pending'/,
+    'the claim UPDATE lost its single-winner precondition — a lost race could overwrite a held shift',
+  );
 });
 
 // ── 3 · AND CAN CLAIM IT ──────────────────────────────────────────────────

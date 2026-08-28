@@ -17,6 +17,9 @@ import {
   comparePipelineCustomers,
   groupByLane,
   waitingDays,
+  quietDaysOf,
+  holdingByDate,
+  HOLDING_QUIET_DAYS,
   CUSTOMER_LANES,
   type PipelineInput,
 } from './vendor-customer-pipeline';
@@ -36,11 +39,16 @@ function input(over: Partial<PipelineInput> = {}): PipelineInput {
   };
 }
 
+const NOW = Date.parse('2026-08-20T00:00:00Z');
+
 const thread = (
   inquiryStatus: string | null,
   createdAt: string | null = '2026-08-01T00:00:00Z',
   revealed = inquiryStatus === 'accepted',
-) => ({ threadId: 't1', inquiryStatus, createdAt, revealed });
+  // Default:recent enough to stay `talking`, so every pre-existing test keeps
+  // meaning what it meant before the fifth lane arrived.
+  lastActivityAt: string | null = '2026-08-19T00:00:00Z',
+) => ({ threadId: 't1', inquiryStatus, createdAt, revealed, lastActivityAt });
 
 const booking = (
   status: string | null,
@@ -65,7 +73,7 @@ test('a pending enquiry is somebody waiting on the shop', () => {
 });
 
 test('an accepted enquiry with no booking is talking', () => {
-  const row = customerLaneOf(input({ thread: thread('accepted') }), false);
+  const row = customerLaneOf(input({ thread: thread('accepted') }), false, NOW);
   assert.equal(row?.lane, 'talking');
   assert.equal(row?.waitingKind, null);
 });
@@ -94,13 +102,22 @@ test('a live booking ask is waiting — but ONLY with the handshake flag on', ()
   assert.equal(customerLaneOf(input({ booking: booking('considering', 'pending') }), false), null);
 });
 
-test('THE FOUR LANES ALL WORK WITH THE FLAG OFF — only the booking-ask kind does not', () => {
+test('EVERY LANE WORKS WITH THE FLAG OFF — only the booking-ask kind does not', () => {
+  // ⚠ THIS WENT RED WHEN THE FIFTH LANE ARRIVED, AND IT WAS RIGHT TO. It is
+  // derived from CUSTOMER_LANES, so a new lane is unreachable until somebody
+  // proves it reachable — extended here rather than loosened, which is the
+  // whole point of deriving the list instead of typing it out.
   const lanes = new Set(
     [
-      customerLaneOf(input({ thread: thread('pending') }), false),
-      customerLaneOf(input({ thread: thread('accepted') }), false),
-      customerLaneOf(input({ booking: booking('deposit_paid') }), false),
-      customerLaneOf(input({ booking: booking('delivered') }), false),
+      customerLaneOf(input({ thread: thread('pending') }), false, NOW),
+      customerLaneOf(input({ thread: thread('accepted') }), false, NOW),
+      customerLaneOf(
+        input({ thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-01T00:00:00Z') }),
+        false,
+        NOW,
+      ),
+      customerLaneOf(input({ booking: booking('deposit_paid') }), false, NOW),
+      customerLaneOf(input({ booking: booking('delivered') }), false, NOW),
     ].map((r) => r?.lane),
   );
   for (const lane of CUSTOMER_LANES) {
@@ -158,7 +175,7 @@ test('a booked or talking row is entitled to the name and the venue', () => {
   for (const row of [
     customerLaneOf(input({ booking: booking('contracted') }), true),
     customerLaneOf(input({ booking: booking('complete') }), true),
-    customerLaneOf(input({ thread: thread('accepted') }), true),
+    customerLaneOf(input({ thread: thread('accepted') }), true, NOW),
   ]) {
     assert.equal(row?.identityRevealed, true);
     assert.equal(row?.title, 'Ana & Marco');
@@ -206,7 +223,7 @@ test('a live pool hold with no booking row is still a customer', () => {
 });
 
 test('a live pool hold lifts a talking row to booked', () => {
-  const row = customerLaneOf(input({ thread: thread('accepted'), poolBooked: true }), true);
+  const row = customerLaneOf(input({ thread: thread('accepted'), poolBooked: true }), true, NOW);
   assert.equal(row?.lane, 'booked');
 });
 
@@ -226,6 +243,141 @@ test('a live pool hold does NOT outrank an unanswered booking ask', () => {
 test('a live pool hold does not drag a finished celebration back to booked', () => {
   const row = customerLaneOf(input({ booking: booking('delivered'), poolBooked: true }), true);
   assert.equal(row?.lane, 'finished');
+});
+
+// ── 4c · HOLDING — the fifth lane ─────────────────────────────────────────
+
+test('an answered enquiry that has gone quiet is HOLDING, not talking', () => {
+  const row = customerLaneOf(
+    input({ thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-11T00:00:00Z') }),
+    true,
+    NOW,
+  );
+  assert.equal(row?.lane, 'holding');
+  assert.equal(row?.quietDays, 9, 'the number the shop acts on');
+});
+
+test('the boundary is exercised from BOTH sides, in one process', () => {
+  // 🔑 THE REASON `nowMs` IS A PARAMETER. A core that read the clock itself
+  // could only ever be tested on one side of its own threshold.
+  const at = (daysQuiet: number) =>
+    customerLaneOf(
+      input({
+        thread: thread(
+          'accepted',
+          '2026-08-01T00:00:00Z',
+          true,
+          new Date(NOW - daysQuiet * 86_400_000).toISOString(),
+        ),
+      }),
+      true,
+      NOW,
+    )?.lane;
+  assert.equal(at(HOLDING_QUIET_DAYS - 1), 'talking', 'one day short is still a conversation');
+  assert.equal(at(HOLDING_QUIET_DAYS), 'holding', 'the threshold is inclusive');
+  assert.equal(at(HOLDING_QUIET_DAYS + 30), 'holding');
+});
+
+test('an unreadable clock fails toward TALKING, never toward holding', () => {
+  // Telling a shop a live conversation has gone cold is worse than not telling
+  // them a cold one has.
+  for (const bad of [null, 'not a date']) {
+    const row = customerLaneOf(
+      input({ thread: thread('accepted', '2026-08-01T00:00:00Z', true, bad) }),
+      true,
+      NOW,
+    );
+    assert.equal(row?.lane, 'talking', `lastActivityAt=${String(bad)} must not become holding`);
+    assert.equal(row?.quietDays, null);
+  }
+});
+
+test('a BOOKING outranks quietness — a booked customer is never "holding"', () => {
+  const row = customerLaneOf(
+    input({
+      thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-01-01T00:00:00Z'),
+      booking: booking('contracted'),
+    }),
+    true,
+    NOW,
+  );
+  assert.equal(row?.lane, 'booked');
+  assert.equal(row?.quietDays, null, 'quietDays belongs to holding and nowhere else');
+});
+
+test('a holding row is entitled to the name — it reaches there via an ACCEPTED thread', () => {
+  const row = customerLaneOf(
+    input({ thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-01T00:00:00Z') }),
+    true,
+    NOW,
+  );
+  assert.equal(row?.lane, 'holding');
+  assert.equal(row?.identityRevealed, true);
+  assert.equal(row?.title, 'Ana & Marco');
+});
+
+test('quietDaysOf floors at zero and refuses to invent a number', () => {
+  assert.equal(quietDaysOf('2026-08-11T00:00:00Z', NOW), 9);
+  assert.equal(quietDaysOf('2026-08-25T00:00:00Z', NOW), 0, 'a future stamp is not negative days');
+  assert.equal(quietDaysOf(null, NOW), null);
+  assert.equal(quietDaysOf('not a date', NOW), null);
+});
+
+// ── 4d · THE EXPOSURE — "four couples for one date" ───────────────────────
+
+test('holdingByDate counts the shop\'s exposure per date', () => {
+  const hold = (eventId: string, eventDate: string | null) =>
+    customerLaneOf(
+      input({
+        eventId,
+        eventDate,
+        thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-01T00:00:00Z'),
+      }),
+      true,
+      NOW,
+    )!;
+  const rows = [
+    hold('a', '2027-02-14'),
+    hold('b', '2027-02-14'),
+    hold('c', '2027-02-14'),
+    hold('d', '2027-03-01'),
+  ];
+  const by = holdingByDate(rows);
+  assert.equal(by.get('2027-02-14'), 3, 'three couples holding one Saturday');
+  assert.equal(by.get('2027-03-01'), 1);
+});
+
+test('it counts ONLY holding — a live conversation is work, not exposure', () => {
+  const talking = customerLaneOf(
+    input({ eventId: 'live', eventDate: '2027-02-14', thread: thread('accepted') }),
+    true,
+    NOW,
+  )!;
+  const booked = customerLaneOf(
+    input({ eventId: 'booked', eventDate: '2027-02-14', booking: booking('contracted') }),
+    true,
+    NOW,
+  )!;
+  assert.equal(talking.lane, 'talking');
+  assert.equal(booked.lane, 'booked');
+  assert.equal(holdingByDate([talking, booked]).size, 0, 'neither is exposure');
+});
+
+test('an UNDATED customer is never counted into a clash', () => {
+  // A couple with no date cannot be double-promised one; bucketing them under
+  // "no date" would invent a clash out of the one thing they have in common.
+  const undated = (eventId: string) =>
+    customerLaneOf(
+      input({
+        eventId,
+        eventDate: null,
+        thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-01T00:00:00Z'),
+      }),
+      true,
+      NOW,
+    )!;
+  const by = holdingByDate([undated('x'), undated('y'), undated('z')]);
+  assert.equal(by.size, 0, 'three undated customers are not a clash');
 });
 
 // ── 5 · ORDER ──────────────────────────────────────────────────────────────

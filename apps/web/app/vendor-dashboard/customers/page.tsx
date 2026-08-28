@@ -32,6 +32,7 @@ import {
 import {
   customerLaneOf,
   groupByLane,
+  holdingByDate,
   CUSTOMER_LANES,
   type CustomerLane,
   type PipelineCustomer,
@@ -261,6 +262,9 @@ async function CustomersPipeline({ searchParams }: Props) {
   // non-identifying facts a masked row needs — and hand them over.
   const moneyByEvent = computeEventMoneyPositions(paydayRows);
   const handshakeEnabled = isLockHandshakeEnabled();
+  // ONE "now" for the whole derivation and the render, so a customer cannot sit
+  // one side of the quiet boundary in the lane count and the other on the row.
+  const rosterNowMs = Date.now();
 
   /*
     THE SHOP'S OWN `event_vendors` ROWS — read with the ADMIN CLIENT, SCOPED BY
@@ -404,6 +408,9 @@ async function CustomersPipeline({ searchParams }: Props) {
               inquiryStatus: t.inquiry_status ?? null,
               createdAt: t.created_at ?? null,
               revealed: isInquiryRevealed(t),
+              // The LAST thing that happened, from either side — what separates
+              // a live conversation from something the shop is holding.
+              lastActivityAt: t.updated_at ?? null,
             }
           : null,
         booking: b
@@ -439,6 +446,7 @@ async function CustomersPipeline({ searchParams }: Props) {
         poolBooked: bookedByEvent.has(eventId),
       },
       handshakeEnabled,
+      rosterNowMs,
     );
     if (row) derived.push(row);
   }
@@ -446,10 +454,17 @@ async function CustomersPipeline({ searchParams }: Props) {
   const lanes = groupByLane(derived);
   const laneCounts = {
     waiting: lanes.waiting.length,
+    holding: lanes.holding.length,
     talking: lanes.talking.length,
     booked: lanes.booked.length,
     finished: lanes.finished.length,
   } as Record<CustomerLane, number>;
+  /*
+    Computed over EVERY derived customer, never over `rosterRows` — filtering to
+    a lane must not make a date clash disappear. That is the difference between
+    a warning and a decoration.
+  */
+  const holdingPerDate = holdingByDate(derived);
   const activeLane =
     (CUSTOMER_LANES as readonly string[]).includes(search.lane ?? '')
       ? (search.lane as CustomerLane)
@@ -535,7 +550,8 @@ async function CustomersPipeline({ searchParams }: Props) {
           rows={rosterRows}
           activeLane={activeLane}
           counts={laneCounts}
-          nowMs={Date.now()}
+          nowMs={rosterNowMs}
+          holdingPerDate={holdingPerDate}
           keepParams={new URLSearchParams(
             Object.entries({ m: search.m, et: search.et, cat: search.cat }).filter(
               (e): e is [string, string] => typeof e[1] === 'string',

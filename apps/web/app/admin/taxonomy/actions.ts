@@ -2723,3 +2723,87 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
     next ? `Cross-listed on ${next.length} more ${next.length === 1 ? 'tile' : 'tiles'}.` : 'Cross-listing cleared.',
   );
 }
+
+// ── Merging two TRADES · the undo the taxonomy never had ────────────────────
+//
+// Owner, 2026-08-28: "if ever a category added a new one, are we capable of
+// rerouting them, combining them to an existing, or renaming the category in
+// the future?"
+//
+// Renaming was already safe (`renameTaxonomyNode` writes label_en, never the
+// key). Moving a trade between branches shipped (`remapCanonical`). Combining
+// two BRANCHES shipped (`deleteTileWithDestination`). Combining two TRADES did
+// not exist at all — this is it.
+
+/**
+ * Admin: fold trade A into trade B.
+ *
+ * 🔑 THE WORK IS IN SQL, NOT HERE, AND THAT IS THE DESIGN.
+ * `merge_canonical_service()` moves all TWELVE columns that hold a trade key in
+ * ONE TRANSACTION. Two measured reasons it is not a sequence of writes in this
+ * file, the way `deleteTileWithDestination` above does it:
+ *
+ *   1. SIX of the twelve sit under a UNIQUE constraint that includes the key
+ *      (vendor_coverages, vendor_service_attributes, event_vendor_preferences,
+ *      vendor_screen_name_sequences, vendor_schedule_pool_categories,
+ *      vendor_service_links). A plain UPDATE throws the moment one shop holds
+ *      BOTH trades — the ordinary case for a merge, not an edge case. Each one
+ *      drops the colliding source row first.
+ *   2. Twelve tables with compensating rollback leaves shops HALF-MOVED on any
+ *      failure. One function is one transaction: whole, or nothing.
+ *
+ * The source trade is never deleted. It stays as a tombstone carrying
+ * `merged_into` so an old key on a printed QR still resolves — read by
+ * `lib/service-merge-forward.ts`, wired into /explore in the same change.
+ *
+ * @see lib/taxonomy-merge-holders.ts — the registry of who holds a trade key
+ */
+export async function mergeCanonicalService(
+  sourceKey: string,
+  destinationKey: string,
+): Promise<StudioActionResult> {
+  const gate = await requireAdminJson();
+  if ('error' in gate) return { ok: false, error: gate.error };
+
+  const source = String(sourceKey ?? '').trim();
+  const dest = String(destinationKey ?? '').trim();
+  if (!source || !dest) return { ok: false, error: 'Pick both a trade and where it should go.' };
+  if (source === dest) return { ok: false, error: 'Pick a different destination trade.' };
+
+  const admin = createAdminClient();
+
+  // Labels for the message + the audit row, read BEFORE the merge — afterwards
+  // the source is hidden and a later read would have to explain itself.
+  const { data: names } = await admin
+    .from('canonical_service_schemas')
+    .select('canonical_service, display_name_en')
+    .in('canonical_service', [source, dest]);
+  const labelOf = (k: string) =>
+    (names ?? []).find((n) => n.canonical_service === k)?.display_name_en ?? k;
+
+  const { data, error } = await admin.rpc('merge_canonical_service', {
+    p_source: source,
+    p_dest: dest,
+    p_actor: gate.user.id,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const moved = (data as { moved?: Record<string, number> } | null)?.moved ?? {};
+  const totalMoved = Object.values(moved).reduce((a, b) => a + (Number(b) || 0), 0);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.merge_canonical',
+    target_table: 'canonical_service_taxonomy',
+    target_id: source,
+    before_json: { canonical_service: source, label_en: labelOf(source) },
+    after_json: { merged_into: dest, label_en: labelOf(dest), moved },
+    actor_user_id: gate.user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  return {
+    ok: true,
+    message: `"${labelOf(source)}" is now part of "${labelOf(dest)}" — ${totalMoved} record(s) moved. The old name still resolves.`,
+  };
+}

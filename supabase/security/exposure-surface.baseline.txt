@@ -822,6 +822,7 @@ col	public.canonical_service_taxonomy.is_rental	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.is_setnayan	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.is_tradition	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.marketplace_hidden	anon=SIU authenticated=SIU
+col	public.canonical_service_taxonomy.merged_into	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.phase	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.secondary_tiles	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.tile_id	anon=SIU authenticated=SIU

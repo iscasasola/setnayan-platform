@@ -30,9 +30,9 @@ const POOL: PapicTypeView = {
   freePoints: 50,
   freeCameras: null,
   rungs: [
-    { key: 'P_A', points: 3_000, pricePhp: 1_000 },
-    { key: 'P_B', points: 6_000, pricePhp: 2_000 },
-    { key: 'P_C', points: 10_000, pricePhp: 3_000 },
+    { key: 'P_A', points: 3_000, pricePhp: 1_000, listPricePhp: 1_000 },
+    { key: 'P_B', points: 6_000, pricePhp: 2_000, listPricePhp: 2_000 },
+    { key: 'P_C', points: 10_000, pricePhp: 3_000, listPricePhp: 3_000 },
   ],
 };
 
@@ -42,8 +42,8 @@ const ONE: PapicTypeView = {
   freePoints: 5,
   freeCameras: 1,
   rungs: [
-    { key: 'O_A', points: 50, pricePhp: 50 },
-    { key: 'O_B', points: 100, pricePhp: 100 },
+    { key: 'O_A', points: 50, pricePhp: 50, listPricePhp: 50 },
+    { key: 'O_B', points: 100, pricePhp: 100, listPricePhp: 100 },
   ],
 };
 
@@ -124,7 +124,7 @@ test('the ladder is DATA — a nine-rung Pool needs no code change', () => {
   const NINE: PapicTypeView = {
     ...POOL,
     rungs: [3_000, 6_000, 10_000, 13_000, 16_000, 20_000, 23_000, 26_000, 30_000].map(
-      (points, i) => ({ key: `R${i}`, points, pricePhp: (i + 1) * 1_000 }),
+      (points, i) => ({ key: `R${i}`, points, pricePhp: (i + 1) * 1_000, listPricePhp: (i + 1) * 1_000 }),
     ),
   };
 

@@ -83,10 +83,12 @@ import {
 } from '@/lib/onboarding/services-step-data';
 import {
   poolPriceAt,
+  poolListPriceAt,
   poolShotsAt,
   poolStepCount,
   poolStepOf,
   quoteServicesStepSelection,
+  quoteServicesStepLaterSelection,
   setAi,
   stepPool,
   type ServicesStepSelection,
@@ -211,15 +213,42 @@ function Stepper({
   );
 }
 
-/** The live price of whatever is currently picked, or the free label. */
-function PriceLine({ pricePhp }: { pricePhp: number }) {
+/**
+ * The live price of whatever is currently picked, or the free label.
+ *
+ * ⚖ Owner, 2026-08-28: *"we give them a 10% discount if they purchase now. They
+ * can order later, but they will lose the 10% discount."* The saving is stated
+ * on the line where the money is, and the later price is named — a discount that
+ * does not say what you are saving it against is just a price.
+ *
+ * ⛔ NO INVENTED "WAS" PRICE. `listPricePhp` equals `pricePhp` on a rung with no
+ * sign-up discount, so this whole block simply does not render there. Showing a
+ * struck-through figure nobody has ever been charged is the oldest trick in
+ * retail, and it is not one we are doing.
+ */
+function PriceLine({ pricePhp, listPricePhp }: { pricePhp: number; listPricePhp?: number }) {
+  const saving = listPricePhp != null && listPricePhp > pricePhp ? listPricePhp - pricePhp : 0;
   return pricePhp > 0 ? (
-    <p className="mt-3 flex items-baseline justify-between gap-3 rounded-[var(--m-r-sm)] bg-ink/[0.03] px-3 py-2">
-      <span className="text-sm text-ink/65">You&rsquo;ll pay</span>
-      <span className="font-mono text-base font-semibold tabular-nums text-ink">
-        {peso(pricePhp)}
-      </span>
-    </p>
+    <>
+      <p className="mt-3 flex items-baseline justify-between gap-3 rounded-[var(--m-r-sm)] bg-ink/[0.03] px-3 py-2">
+        <span className="text-sm text-ink/65">You&rsquo;ll pay</span>
+        <span className="flex items-baseline gap-2">
+          {saving > 0 && (
+            <span className="font-mono text-xs tabular-nums text-ink/40 line-through">
+              {peso(listPricePhp!)}
+            </span>
+          )}
+          <span className="font-mono text-base font-semibold tabular-nums text-ink">
+            {peso(pricePhp)}
+          </span>
+        </span>
+      </p>
+      {saving > 0 && (
+        <p className="mt-1.5 text-center text-xs text-terracotta-700">
+          You save {peso(saving)} by adding it now — it&rsquo;s {peso(listPricePhp!)} later.
+        </p>
+      )}
+    </>
   ) : (
     <p className="mt-3 flex items-baseline justify-between gap-3 rounded-[var(--m-r-sm)] bg-terracotta/10 px-3 py-2">
       <span className="text-sm text-ink/70">Included</span>
@@ -270,7 +299,7 @@ function PoolPicker({
         onDec={() => onChange(stepPool(type, selection, -1))}
         onInc={() => onChange(stepPool(type, selection, +1))}
       />
-      <PriceLine pricePhp={poolPriceAt(type, step)} />
+      <PriceLine pricePhp={poolPriceAt(type, step)} listPricePhp={poolListPriceAt(type, step)} />
       {step < last ? (
         <p className="mt-2 text-center text-xs text-ink/60">
           Press <span className="font-semibold text-ink">+</span> to add{' '}
@@ -433,8 +462,50 @@ export function ServicesStep({
     [papic.types, selection, ai],
   );
 
+  /**
+   * What everything on this screen would cost if they came back for it later.
+   * Zero when nothing is picked, and zero when nothing carries a discount — so
+   * the saving line disappears on its own rather than announcing "save ₱0".
+   */
+  const laterPhp = useMemo(
+    () =>
+      selection
+        ? quoteServicesStepLaterSelection(papic.types, selection, ai?.listPricePhp ?? ai?.pricePhp ?? null)
+        : 0,
+    [papic.types, selection, ai],
+  );
+  const savingPhp = Math.max(0, laterPhp - quote.totalPhp);
+
   return (
     <div className={['flex flex-col gap-4', className].filter(Boolean).join(' ')}>
+      {/*
+        ── THE DISCOUNT HAS TO BE READABLE, AND SO DOES ITS DEADLINE ─────────
+        Owner, 2026-08-28: *"Onboarding discount should be visible and easy to
+        understand that this discount only applies on onboarding."*
+
+        🔑 A DISCOUNT NOBODY NOTICES IS A DISCOUNT WE PAID FOR AND DID NOT SELL,
+        and one whose deadline is not stated is one somebody feels tricked by
+        later. So it is said three times, in the three places a person actually
+        looks: here before they choose, on each item as they choose it, and on
+        the total when they are about to agree.
+
+        ⚖ "AT LEAST 10%" IS DELIBERATE. The owner's rule is 10% (*"10% for all
+        purchase on onboarding"*), and Setnayan AI already carries a deeper
+        sign-up price — 40%, and 44% on the birthday tier. Advertising a flat
+        "10% off" beside a card giving 40% would understate our own offer;
+        promising more than 10% would over-claim on the Papic rungs. The floor is
+        the honest word for a floor.
+      */}
+      {interactive && (
+        <p className="rounded-[var(--m-r-lg)] border border-terracotta/30 bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
+          <span className="font-semibold">
+            Anything you add here is at least 10% off.
+          </span>{' '}
+          This is a set-up price — it ends when you finish. You can always add these
+          later from your studio, at the normal price.
+        </p>
+      )}
+
       {/* ── CARD 1 · PAPIC — already on, free, informational ─────────────── */}
       <article className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-emerald-700">
@@ -516,7 +587,12 @@ export function ServicesStep({
           <h2 className="mt-3 text-balance font-serif text-2xl font-medium italic leading-tight text-ink">
             A planner that already knows every vendor in the room.
           </h2>
-          <p className="mt-1.5 flex items-baseline gap-2">
+          <p className="mt-1.5 flex flex-wrap items-baseline gap-2">
+            {ai.listPricePhp > ai.pricePhp && (
+              <span className="font-mono text-sm tabular-nums text-ink/40 line-through">
+                {peso(ai.listPricePhp)}
+              </span>
+            )}
             <span className="font-mono text-lg font-semibold tabular-nums text-ink">
               {ai.priceLabel}
             </span>
@@ -524,6 +600,15 @@ export function ServicesStep({
               one-time · yours through your {eventWord}
             </span>
           </p>
+          {/* The planner's sign-up saving is the biggest on the screen and was
+              the only one not stated. Rendered from the same comparison as the
+              rungs, so a type with no discount says nothing at all. */}
+          {ai.listPricePhp > ai.pricePhp && (
+            <p className="mt-1 text-xs text-terracotta-700">
+              {peso(ai.listPricePhp - ai.pricePhp)} off while you&rsquo;re setting up —
+              it&rsquo;s {peso(ai.listPricePhp)} later.
+            </p>
+          )}
 
           {/* The nine wired capabilities, type-aware (#3865). Never re-authored here. */}
           {aiValue ? <div className="mt-4">{aiValue}</div> : null}
@@ -611,7 +696,23 @@ export function ServicesStep({
                 {quote.totalPhp > 0 ? peso(quote.totalPhp) : 'Free'}
               </dd>
             </div>
+            {savingPhp > 0 && (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-sm text-terracotta-700">
+                  You save by setting up now
+                </dt>
+                <dd className="font-mono text-sm font-semibold tabular-nums text-terracotta-700">
+                  &minus;{peso(savingPhp)}
+                </dd>
+              </div>
+            )}
           </dl>
+          {savingPhp > 0 && (
+            <p className="mt-2 text-xs leading-relaxed text-ink/60">
+              The same things cost {peso(laterPhp)} if you add them later. This price
+              is only while you&rsquo;re setting up.
+            </p>
+          )}
           <p className="mt-3 text-xs leading-relaxed text-ink/55">
             {quote.totalPhp > 0 ? (
               <>

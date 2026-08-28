@@ -54,7 +54,11 @@ const HOOKS = [
   },
   {
     name: 'custom plan',
-    extract: 'const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);',
+    // Re-anchored 2026-08-27: the hook now resolves the vendor AND the term
+    // together (28-day vs annual) from either service-key shape, so the old
+    // single-purpose extractor is gone. The gate is still this hook's first
+    // effect, which is what the assertion below actually checks.
+    extract: 'const target = customPlanTargetFromServiceKey(ctx.serviceKey);',
     firstEffect: 'assertOrderOwnsVendorTarget(', // gate is this hook's first statement
   },
   {

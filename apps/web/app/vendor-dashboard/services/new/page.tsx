@@ -29,6 +29,7 @@ import {
   standingForCategory,
 } from '@/lib/vendor-category-parents';
 import { buildLeafIndex, cardKindLabel, humanizeKind } from '@/lib/service-card-kind';
+import type { TradeMatch } from '@/lib/kind-search-trades';
 
 export const metadata = { title: 'Add a service' };
 
@@ -237,6 +238,29 @@ export default async function NewServiceCardPage() {
     coverageAllowed[c.id] = allowedByLeaf.get(c.canonical_service) ?? null;
   }
 
+  // ── EVERY LIVE TRADE, FOR THE SEARCH BAND (C1 2026-08-28) ─────────────────
+  // Today the kind sheet's search only matches the ~46 legacy pills; the 262
+  // real trades in this same tree are not searchable there at all. This is
+  // every VISIBLE leaf — the identical visibility rule `getCoverageTaxonomy`
+  // already applies (retired / marketplace-hidden nodes are already absent
+  // from `tree`) — each carrying the branch it sits under and the SAME
+  // standing the save enforces (`standingOf`, above), so a capped supplier
+  // can never pick a trade here and be refused only at Publish.
+  const tradeOptions: TradeMatch[] = tree.flatMap((p) =>
+    p.branches.flatMap((b) =>
+      b.leaves.map((l) => {
+        const st = standingOf(l.canonicalService);
+        return {
+          key: l.canonicalService,
+          label: l.label,
+          branch: b.label,
+          standing: st.standing,
+          why: st.standing === 'locked' ? st.why : undefined,
+        };
+      }),
+    ),
+  );
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <Link
@@ -255,6 +279,7 @@ export default async function NewServiceCardPage() {
         categoryValue=""
         categoryLabel=""
         categoryOptions={categoryOptions}
+        tradeOptions={tradeOptions}
         firstCardEver={ownCategories.length === 0}
         coverageNames={coverageNames}
         shopName={profile.business_name ?? ''}

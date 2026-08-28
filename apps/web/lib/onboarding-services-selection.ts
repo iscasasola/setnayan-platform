@@ -122,6 +122,19 @@ export function poolPriceAt(type: PapicTypeView, step: number): number {
   return poolRungAt(type, step)?.pricePhp ?? 0;
 }
 
+/**
+ * What the same step costs if you come back for it LATER (owner 2026-08-28:
+ * *"They can order later, but they will lose the 10% discount."*).
+ *
+ * Equal to `poolPriceAt` when this rung carries no sign-up discount, so a caller
+ * can compare the two and show the saving ONLY when there is one. Never invents
+ * a "was" price — that is the oldest trick in retail and we are not doing it.
+ */
+export function poolListPriceAt(type: PapicTypeView, step: number): number {
+  const rung = poolRungAt(type, step);
+  return rung ? Math.max(rung.listPricePhp, rung.pricePhp) : 0;
+}
+
 /** Move the Pool stepper by ±1, clamped at both ends. Returns a new selection. */
 export function stepPool(
   type: PapicTypeView,
@@ -170,6 +183,36 @@ export function quoteServicesStepSelection(
   // hundred, so folding them into one number makes Papic look like the thing
   // that got expensive. The screen shows two lines.
   return { poolPhp, aiPhp, papicPhp: poolPhp, totalPhp: poolPhp + aiPhp };
+}
+
+/**
+ * The same selection at LATER prices — what these exact picks would cost if the
+ * person came back for them after the create flow.
+ *
+ * ⚖ Owner, 2026-08-28: *"They can order later, but they will lose the 10%
+ * discount."* — and *"Onboarding discount should be visible and easy to
+ * understand that this discount only applies on onboarding."* A discount whose
+ * deadline is not stated is one somebody feels tricked by later, so the screen
+ * has to be able to name the other number.
+ *
+ * ⛔ IT CANNOT INVENT ONE. Every rung's `listPricePhp` collapses onto its
+ * `pricePhp` when that rung carries no sign-up discount, so a catalog with no
+ * discounts makes this identical to the real total and the saving line vanishes
+ * on its own. **There is no path here that produces a struck-through figure
+ * nobody was ever charged.**
+ *
+ * ⚠ DISPLAY ONLY, like its sibling. The server re-reads every price when it
+ * mints; this is a sentence on a screen, never an input to a charge.
+ */
+export function quoteServicesStepLaterSelection(
+  types: readonly PapicTypeView[],
+  selection: ServicesStepSelection,
+  aiListPricePhp: number | null = null,
+): number {
+  const pool = types.find((t) => t.id === 'pool');
+  const poolPhp = pool ? poolListPriceAt(pool, poolStepOf(pool, selection)) : 0;
+  const aiPhp = selection.ai && aiListPricePhp && aiListPricePhp > 0 ? aiListPricePhp : 0;
+  return poolPhp + aiPhp;
 }
 
 /**

@@ -3,8 +3,12 @@
  *
  * Locks the server wrapper: it reads the event's stored intro-used state + both
  * catalog prices and returns the right charge in centavos — ₱499 (49900) on the
- * first cycle, ₱799 (79900) after — falling back safely and returning null when
- * the event can't be read.
+ * first cycle, ₱799 (79900) after.
+ *
+ * ⚠ THE RETURN SHAPE CHANGED 2026-08-27 from `number | null` to a three-state
+ * resolution. `null` used to mean BOTH "the event row is absent" and, in effect,
+ * "the read failed" — and the caller answered both by billing a different price.
+ * These expectations moved with the signature; the amounts are untouched.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -51,7 +55,7 @@ test('first cycle (intro not used) → ₱499 = 49900 centavos', async () => {
     fakeAdmin({ introUsed: false, prices: PRICES }),
     'S89E-abc',
   );
-  assert.equal(c, 49900);
+  assert.deepEqual(c, { status: 'resolved', centavos: 49900 });
 });
 
 test('renewal (intro used) → ₱799 = 79900 centavos', async () => {
@@ -59,15 +63,17 @@ test('renewal (intro used) → ₱799 = 79900 centavos', async () => {
     fakeAdmin({ introUsed: true, prices: PRICES }),
     'S89E-abc',
   );
-  assert.equal(c, 79900);
+  assert.deepEqual(c, { status: 'resolved', centavos: 79900 });
 });
 
-test('event row absent → null (caller keeps the normal catalog charge)', async () => {
+test('event row absent → `absent` (caller keeps the normal catalog charge)', async () => {
   const c = await resolveSetnayanAiEventChargeCentavos(
     fakeAdmin({ introUsed: null, prices: PRICES }),
     'S89E-missing',
   );
-  assert.equal(c, null);
+  // Still a fall-through, not a refusal — an absent event row is a fact, not a
+  // failure. Only a genuine read ERROR refuses; see sec7-refuse-rather-than-guess.
+  assert.deepEqual(c, { status: 'absent' });
 });
 
 test('missing renewal catalog row → safe fallback ₱799 on a renewal', async () => {
@@ -75,5 +81,7 @@ test('missing renewal catalog row → safe fallback ₱799 on a renewal', async 
     fakeAdmin({ introUsed: true, prices: [{ service_code: 'SETNAYAN_AI', retail_price_php: 499 }] }),
     'S89E-abc',
   );
-  assert.equal(c, 79900); // renewal price falls back to 799 when the row is absent
+  // An absent CATALOG row still falls back to the locked constant — deliberate,
+  // and unchanged by the SEC-7 fix, which only altered the failed-read case.
+  assert.deepEqual(c, { status: 'resolved', centavos: 79900 });
 });

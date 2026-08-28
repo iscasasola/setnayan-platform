@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 212 single-column FKs onto auth.users / public.users
-# CASCADE=61  RESTRICT=3  SET NULL=148
+# 215 single-column FKs onto auth.users / public.users
+# CASCADE=61  RESTRICT=3  SET NULL=151
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -147,7 +147,9 @@ photo_delivery_jobs.triggered_by_user_id            SET NULL     nullable  -> us
 photo_messages.reviewed_by_user_id                  SET NULL     nullable  -> auth.users
 platform_compliance_facts.updated_by                SET NULL     nullable  -> users
 platform_expenses.created_by                        SET NULL     nullable  -> users
+platform_package_catalog.retired_by_admin_id        SET NULL     nullable  -> auth.users
 platform_package_catalog.updated_by_admin_id        SET NULL     nullable  -> auth.users
+platform_retail_catalog_v2.retired_by_admin_id      SET NULL     nullable  -> auth.users
 platform_retail_catalog_v2.updated_by_admin_id      SET NULL     nullable  -> auth.users
 promo_free_windows.created_by                       SET NULL     nullable  -> users
 push_subscriptions.user_id                          CASCADE      NOT NULL  -> users
@@ -185,6 +187,7 @@ vendor_ad_subscriptions.cancelled_by_user_id        SET NULL     nullable  -> us
 vendor_admin_motion_votes.voter_user_id             CASCADE      NOT NULL  -> auth.users
 vendor_admin_motions.proposed_by                    CASCADE      NOT NULL  -> auth.users
 vendor_admin_motions.target_user_id                 CASCADE      NOT NULL  -> auth.users
+vendor_billing_catalog.retired_by_admin_id          SET NULL     nullable  -> auth.users
 vendor_contract_signatures.signer_user_id           RESTRICT     NOT NULL  -> users
 vendor_contracts.cancelled_by_user_id               SET NULL     nullable  -> users
 vendor_contracts.uploaded_by_user_id                SET NULL     nullable  -> users

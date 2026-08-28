@@ -95,15 +95,37 @@ type Part = {
 
 const lineTotal = (p: Part) => p.unitPhp * p.quantity;
 
-/** Live, active, and priced — or null. The price gate for the two Papic parts. */
+/**
+ * Live, active, and priced — or null. The price gate for the two Papic parts.
+ *
+ * ⚖ THE SIGN-UP PRICE IS THE PRICE HERE. Owner, 2026-08-28: *"we give them a 10%
+ * discount if they purchase now. They can order later, but they will lose the
+ * 10% discount."* This function IS "now" — it only ever runs while minting the
+ * bill for a freshly-committed event.
+ *
+ * 🔑 THE CARD AND THE CHARGE MUST READ THE SAME COLUMN. A discount shown on the
+ * card and not applied here is a bill that disagrees with the screen somebody
+ * agreed to, which is worse than never offering it — and this file is where the
+ * money is actually decided, so it re-reads the catalog rather than trusting a
+ * figure that came through the browser.
+ *
+ * ⚠ NULL MEANS "NO SIGN-UP DISCOUNT", NEVER ZERO. Reading a NULL discount as 0
+ * would pass the `php > 0` gate at exactly the wrong moment and hand the product
+ * away free.
+ */
 async function priceOf(admin: SupabaseClient, serviceCode: string): Promise<number | null> {
   const { data } = await admin
     .from('platform_retail_catalog_v2')
-    .select('retail_price_php, is_active')
+    .select('retail_price_php, onboarding_price_php, is_active')
     .eq('service_code', serviceCode)
     .maybeSingle();
-  const php = Number(data?.retail_price_php ?? 0);
-  if (!Number.isFinite(php) || php <= 0 || data?.is_active !== true) return null;
+  if (data?.is_active !== true) return null;
+  const signup = Number(data?.onboarding_price_php ?? 0);
+  const retail = Number(data?.retail_price_php ?? 0);
+  // A sign-up price ABOVE retail is a data error, not an offer: fall back rather
+  // than charging somebody more for buying early.
+  const php = Number.isFinite(signup) && signup > 0 && signup <= retail ? signup : retail;
+  if (!Number.isFinite(php) || php <= 0) return null;
   return php;
 }
 
@@ -304,9 +326,27 @@ export async function mintOnboardingServiceOrders(
     // The studio is one tap away and is where they go once it is paid; arriving
     // there is not load-bearing, because nothing is provisioned until an admin
     // approves the payment.
+    // ── AND SETTING UP IS NOT FINISHED UNTIL THE BILL IS ────────────────────
+    //
+    // ⚖ Owner, 2026-08-28: *"i will go here? it should be settled first. […]
+    // Then the onboarding end. No option to pay later. then need to go back to
+    // uncheck their papic and setnayan AI purchase."* — softened the same day by
+    // the discount ruling: leaving IS allowed now, it just costs 10% more.
+    //
+    // 🔑 SO THE LAST STEP IS THE PAYMENT PAGE ITSELF, NOT A DASHBOARD BILL. The
+    // order page is where a bill LIVES; `/pay/[reference]` is where one is
+    // SETTLED — it carries the QR with the amount already in it, the account
+    // number, and the proof form. Landing somebody on the ledger entry for a
+    // thing they are ready to pay for right now is the same defect as the studio
+    // banner this line already replaced once, one step further along.
+    //
+    // `setup=1` is what tells that page it is the last step of setting up rather
+    // than a bill somebody came back to: it removes the way out that reads as
+    // "pay later" and offers the two doors the owner named — pay it, or remove
+    // the items.
     return {
       orderPublicIds: [String(order.public_id)],
-      paymentPath: `/dashboard/${eventId}/orders/${orderId}?created=1`,
+      paymentPath: `/pay/${encodeURIComponent(referenceCode)}?setup=1`,
     };
   } catch (e) {
     // Non-fatal by contract — see the docblock. The event and its free grants

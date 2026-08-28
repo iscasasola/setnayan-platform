@@ -39,7 +39,19 @@ export const PAPIC_LADDER_EXPECTED: readonly (readonly [number, number])[] = [
   [10_000, 3_200],
   [20_000, 5_000],
   [30_000, 7_500],
-  [50_000, 10_000],
+  // ⚖ 50,000 MOVED ₱10,000 → ₱11,200 ON 2026-08-27, owner ruling, applied as
+  // given. It shallows the discount at the very top (80% → 77.6%) rather than
+  // deepening it, which is the one thing about this ladder that is no longer a
+  // smooth curve — and it is his call, not a defect to be smoothed out.
+  //
+  // Both rules the guard below actually enforces still hold, which is why
+  // nothing in `papic-rungs-are-fundable.db.test.ts` was weakened to accept it:
+  // ₱11,200 is still far under ₱1 a credit, and ₱0.224 a credit is still
+  // cheaper than 30,000's ₱0.25, so the scroll never rewards you for buying
+  // less. The guard tests the per-credit RATE, never the discount PERCENTAGE —
+  // if it had tested the percentage, the honest fix would have been to move the
+  // expectation and say so out loud, never to relax the rule.
+  [50_000, 11_200],
 ] as const;
 
 /** The regular rate the whole ladder is discounted against: ₱1 buys one shot. */

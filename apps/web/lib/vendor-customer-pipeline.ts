@@ -34,6 +34,7 @@
  *   requested        chat_threads.inquiry_status='pending'   waiting
  *   lock_requested   lockRequestStateOf(...) === 'requested' waiting
  *   accepted         chat_threads.inquiry_status='accepted'  talking
+ *   (none)           …and nothing has happened for 7 days    holding
  *   confirmed        lockRequestStateOf(...) === 'locked'    booked
  *   (none)           status IN ('delivered','complete')      finished
  *
@@ -51,9 +52,9 @@
  * `lockRequestStateOf` takes the handshake flag as a PARAMETER and, with it
  * false, answers only `locked` or `none`. So while
  * `NEXT_PUBLIC_LOCK_HANDSHAKE_ENABLED` is unflipped the `booking_ask` KIND can
- * never appear. ⚠ THAT IS NOT "the page renders two of four lanes": the
+ * never appear. ⚠ THAT IS NOT "the page renders two of the lanes": the
  * enquiry half of `waiting`, `talking`, `booked` and `finished` all read
- * columns the flag does not touch, so all four lanes work with the flag off —
+ * columns the flag does not touch, so every lane works with the flag off —
  * one of the two things that can put somebody in `waiting` is simply
  * unreachable. Nothing here re-decides the flag; it is threaded in, exactly as
  * `flag-chokepoint-scan.test.ts` requires of every consumer of that core.
@@ -65,11 +66,16 @@
  * writing). A chip that files people into a lane whose only action is a lie is
  * a fake door. The couple-facing waitlist queue still surfaces on the month
  * calendar as a per-day chip, where it says a true thing.
- * ⛔ NO `holding` LANE ("you said yes, they have not booked"). `agreed`-but-
- * unconfirmed is mapped to `cancelled` by the shared core, on purpose and with
- * its reasons written down there. Re-deciding it here would be a second
- * mapping — which is how two screens start disagreeing about who is booked.
- * It is an owner question, raised in the PR, not a silent build.
+ * ✅ THE `holding` LANE EXISTS NOW — owner-approved 2026-08-28, and it is NOT
+ * built the way this paragraph used to warn against. It said: "`agreed`-but-
+ * unconfirmed is mapped to `cancelled` by the shared core, so re-deciding it
+ * here would be a second mapping — how two screens start disagreeing about who
+ * is booked." That risk was real for the OBVIOUS build and was measured away
+ * rather than managed: `vendor_agree_to_lock`, read out of the live production
+ * object, writes `status = 'contracted'` in the SAME STATEMENT as
+ * `lock_request_state = 'agreed'`. A shop's yes IS the booking. So the state the
+ * owner described — you answered, they never committed — lives in the ENQUIRY,
+ * not the handshake, and `lockRequestStateOf` is untouched.
  *
  * PURE + dependency-light so it is trivially unit-testable and safe to import
  * from a server component. No Supabase, no `server-only`, no `Date.now()` that
@@ -78,15 +84,34 @@
 
 import { lockRequestStateOf, type LockRequestRow } from '@/lib/lock-request-state';
 
-/** The four lanes the roster opens on, in the order they are shown. */
-export type CustomerLane = 'waiting' | 'talking' | 'booked' | 'finished';
+/** The lanes the roster opens on, in the order they are shown. */
+export type CustomerLane = 'waiting' | 'holding' | 'talking' | 'booked' | 'finished';
 
+/**
+ * ⚖ `holding` IS THE FIFTH LANE, OWNER-APPROVED 2026-08-28. It sits SECOND
+ * because it is where money leaks: a customer the shop answered who then went
+ * quiet is not a conversation, it is an unclosed sale.
+ */
 export const CUSTOMER_LANES: readonly CustomerLane[] = [
   'waiting',
+  'holding',
   'talking',
   'booked',
   'finished',
 ] as const;
+
+/**
+ * How long an answered enquiry may sit untouched before it stops being a
+ * conversation and starts being something the shop is holding.
+ *
+ * 🔑 THE SIGNAL IS THE THREAD'S OWN `updated_at` — its LAST activity, from
+ * either side. Two nearer-looking fields were measured and rejected:
+ * `vendor_first_reply_at` is the FIRST reply, so a thread alive for weeks would
+ * read as quiet for weeks; and `accepted_at` is when identity was revealed, not
+ * when anybody last spoke. "Nothing has happened here since" is the fact the
+ * shop can act on, and it is the only one of the three that stays true.
+ */
+export const HOLDING_QUIET_DAYS = 7;
 
 /** Which of the two unanswered questions put this person in `waiting`. */
 export type WaitingKind =
@@ -119,6 +144,20 @@ export type PipelineThread = {
    * free of the chat layer. False means the couple's identity is still masked.
    */
   revealed: boolean;
+  /**
+   * `chat_threads.updated_at` — the last thing that happened on this thread,
+   * from EITHER side. It is what separates a live conversation from something
+   * the shop is holding.
+   *
+   * 🔑 TWO NEARER-LOOKING FIELDS WERE MEASURED AND REJECTED.
+   * `vendor_first_reply_at` is the FIRST reply, so a thread alive for weeks
+   * would read as quiet for weeks; `accepted_at` is when identity was revealed,
+   * not when anybody last spoke. "Nothing has happened here since" is the fact
+   * a shop can act on, and the only one of the three that stays true.
+   *
+   * Optional, and a missing value fails toward `talking` — see `quietDaysOf`.
+   */
+  lastActivityAt?: string | null;
 };
 
 /** An `event_vendors` row, reduced to the facts this derivation needs. */
@@ -173,6 +212,11 @@ export type PipelineCustomer = {
   /** The lock ask's materialized deadline, for the fuse. Null unless a booking_ask. */
   expiresAt: string | null;
   /**
+   * Whole days since anything happened on this customer's thread. Set on
+   * `holding` (it is what put them there) and left null everywhere else.
+   */
+  quietDays: number | null;
+  /**
    * What the row is called. THE COUPLE'S OWN NAME ONLY WHERE IDENTITY IS
    * ALREADY THEIRS TO SEE — see `identityRevealed` below. Otherwise the neutral
    * descriptor, which carries no name, no title, no venue and no contact.
@@ -207,6 +251,12 @@ export type PipelineCustomer = {
 export function customerLaneOf(
   input: PipelineInput,
   handshakeEnabled: boolean,
+  /**
+   * "Now", in epoch ms. Passed in rather than read, so the whole derivation
+   * stays a pure function of its inputs and the `holding` boundary can be
+   * exercised on both sides in one test process.
+   */
+  nowMs: number = Date.now(),
 ): PipelineCustomer | null {
   const { thread, booking } = input;
   const lockState = booking
@@ -220,6 +270,7 @@ export function customerLaneOf(
   let waitingKind: WaitingKind | null = null;
   let waitingSince: string | null = null;
   let expiresAt: string | null = null;
+  let quietDays: number | null = null;
 
   if (lockState === 'locked') {
     lane =
@@ -237,7 +288,32 @@ export function customerLaneOf(
     waitingKind = 'inquiry';
     waitingSince = thread.createdAt;
   } else if (thread?.inquiryStatus === 'accepted') {
-    lane = 'talking';
+    /*
+      ⚖ THE FIFTH LANE. "You said yes; they haven't booked yet" — owner-approved
+      2026-08-28.
+
+      🔑 IT IS **NOT** THE LOCK HANDSHAKE, AND THAT WAS MEASURED BEFORE IT WAS
+      BUILT. The obvious reading of "you said yes" is
+      `lock_request_state = 'agreed'`. Read out of the live production object,
+      `vendor_agree_to_lock` writes `status = 'contracted'` IN THE SAME STATEMENT
+      as `lock_request_state = 'agreed'` — so under the shipped machine a shop's
+      yes IS the booking, and that state is `booked`, never a fifth thing. The
+      only place a shop can have answered somebody who then failed to commit is
+      the ENQUIRY, which is what the drawing's own nudge copy says too: "9 days
+      since you REPLIED".
+
+      ⛔ This is also why `lockRequestStateOf` is NOT touched. Building the lane
+      on top of `'agreed'` would have meant re-mapping the shared core that six
+      surfaces derive "who is booked" from — the risk raised when this was put to
+      the owner. Measuring it away is better than managing it.
+    */
+    const quiet = quietDaysOf(thread.lastActivityAt ?? null, nowMs);
+    if (quiet !== null && quiet >= HOLDING_QUIET_DAYS) {
+      lane = 'holding';
+      quietDays = quiet;
+    } else {
+      lane = 'talking';
+    }
   }
 
   /*
@@ -269,7 +345,11 @@ export function customerLaneOf(
     mean the shop is party to the celebration. Both are entitled to the name.
   */
   const identityRevealed =
-    lane === 'booked' || lane === 'finished' || (lane === 'talking' && !!thread?.revealed);
+    lane === 'booked' ||
+    lane === 'finished' ||
+    // `holding` is a slice of `talking` — both reach here only through an
+    // ACCEPTED thread, so both are entitled to the name on the same grounds.
+    ((lane === 'talking' || lane === 'holding') && !!thread?.revealed);
 
   return {
     eventId: input.eventId,
@@ -277,6 +357,7 @@ export function customerLaneOf(
     waitingKind,
     waitingSince,
     expiresAt,
+    quietDays,
     title: identityRevealed ? (input.eventName?.trim() || input.descriptor) : input.descriptor,
     identityRevealed,
     eventDate: input.eventDate,
@@ -314,12 +395,39 @@ export function comparePipelineCustomers(
   return a.title.localeCompare(b.title);
 }
 
+/**
+ * HOW MANY PEOPLE THE SHOP IS HOLDING ON EACH DATE — the number the owner said
+ * nothing shows, keyed by 'YYYY-MM-DD'.
+ *
+ * "A shop holding four couples for one date is exposed and nothing shows them
+ * that." A single quiet enquiry is a lead going cold; four of them on one
+ * Saturday is a shop that has told four couples it is free and can serve one.
+ *
+ * ⛔ IT COUNTS ONLY `holding`, NOT `talking`, AND NOT `booked`. A live
+ * conversation is work in progress, not exposure — counting it would make the
+ * warning fire on a shop that is simply busy, and a warning that fires when
+ * nothing is wrong teaches you to skim past the one time it is right.
+ *
+ * ⛔ AND IT NEVER COUNTS AN UNDATED CUSTOMER. A couple who has not set a date
+ * cannot be double-promised one; bucketing them together under "no date" would
+ * invent a clash out of the one thing they have in common.
+ */
+export function holdingByDate(rows: PipelineCustomer[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    if (r.lane !== 'holding' || !r.eventDate) continue;
+    out.set(r.eventDate, (out.get(r.eventDate) ?? 0) + 1);
+  }
+  return out;
+}
+
 /** Rows per lane, each internally ordered by {@link comparePipelineCustomers}. */
 export function groupByLane(
   rows: PipelineCustomer[],
 ): Record<CustomerLane, PipelineCustomer[]> {
   const out: Record<CustomerLane, PipelineCustomer[]> = {
     waiting: [],
+    holding: [],
     talking: [],
     booked: [],
     finished: [],
@@ -327,6 +435,19 @@ export function groupByLane(
   for (const r of rows) out[r.lane].push(r);
   for (const lane of CUSTOMER_LANES) out[lane].sort(comparePipelineCustomers);
   return out;
+}
+
+/**
+ * Whole days since a thread last moved, floored at 0. Null when there is no
+ * readable timestamp — which files the customer under `talking`, the safer of
+ * the two: telling a shop a live conversation has gone cold is worse than not
+ * telling them a cold one has.
+ */
+export function quietDaysOf(lastActivityAt: string | null, now: number): number | null {
+  if (!lastActivityAt) return null;
+  const t = Date.parse(lastActivityAt);
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.floor((now - t) / 86_400_000));
 }
 
 /**

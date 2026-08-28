@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import {
   CUSTOMER_LANES,
   waitingDays,
+  HOLDING_QUIET_DAYS,
   type CustomerLane,
   type PipelineCustomer,
 } from '@/lib/vendor-customer-pipeline';
@@ -35,6 +36,7 @@ import { ShopEmpty } from '../../_components/kit';
 
 const LANE_LABEL: Record<CustomerLane, string> = {
   waiting: 'Waiting on you',
+  holding: 'Holding',
   talking: 'Talking',
   booked: 'Booked',
   finished: 'Finished',
@@ -46,6 +48,17 @@ const LANE_LABEL: Record<CustomerLane, string> = {
  */
 const LANE_CHIP: Record<CustomerLane, { bg: string; fg: string; border: string }> = {
   waiting: {
+    bg: 'var(--sn-warning-soft)',
+    fg: 'var(--sn-warning-deep)',
+    border: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
+  },
+  /*
+    HOLDING WEARS THE SAME WARM SEMANTIC AS WAITING, and that is the rule, not a
+    coincidence: colour carries STATUS here, and both lanes mean "this is on
+    you". It is deliberately NOT a second, louder colour — a shop with quiet
+    leads is not in trouble, it has work to do.
+  */
+  holding: {
     bg: 'var(--sn-warning-soft)',
     fg: 'var(--sn-warning-deep)',
     border: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
@@ -109,8 +122,15 @@ function hrefFor(r: RosterRow): string | null {
   return href;
 }
 
-/** "asked today" · "waiting 3 days" — never a number we could not measure. */
+/** "asked today" · "waiting 3 days" · "quiet 9 days" — never an unmeasured number. */
 function ageLabel(r: RosterRow, now: number): string | null {
+  if (r.lane === 'holding') {
+    // The number that makes the lane actionable. `quietDays` is what PUT this
+    // customer here, so it is never null on a holding row — but it is still
+    // read defensively rather than asserted, because a row is worth showing
+    // without its age and is not worth crashing a page over.
+    return r.quietDays === null ? null : `quiet ${r.quietDays} days`;
+  }
   if (r.lane !== 'waiting') return null;
   const days = waitingDays(r.waitingSince, now);
   if (days === null) return null;
@@ -139,16 +159,33 @@ export function CustomersRoster({
   nowMs,
   /** Preserved on every chip link so a filter never drops the visible month. */
   keepParams,
+  /**
+   * How many people the shop is holding on each date — computed across ALL
+   * customers, not just the ones on screen, so filtering to a lane cannot make
+   * a clash disappear.
+   */
+  holdingPerDate,
 }: {
   rows: RosterRow[];
   activeLane: CustomerLane | null;
   counts: Record<CustomerLane, number>;
   nowMs: number;
   keepParams: string;
+  holdingPerDate: Map<string, number>;
 }) {
   const now = new Date(nowMs);
   const total = CUSTOMER_LANES.reduce((n, l) => n + counts[l], 0);
   const waitingCount = counts.waiting;
+  /*
+    Sorted soonest-date-first, so the date a shop has to resolve NEXT is the one
+    it reads first — and capped, because a warning that becomes a wall of dates
+    stops being a warning.
+  */
+  const clashes = [...holdingPerDate.entries()]
+    .filter(([, n]) => n > 1)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(0, 4);
+
   const chipHref = (lane: CustomerLane | null) => {
     const q = new URLSearchParams(keepParams);
     if (lane) q.set('lane', lane);
@@ -169,6 +206,39 @@ export function CustomersRoster({
               : ''}
         </p>
       </div>
+
+      {/*
+        THE EXPOSURE LINE — the thing the owner said nothing shows.
+
+        "A shop holding four couples for one date is exposed and nothing shows
+        them that." One quiet enquiry is a lead going cold; several on ONE
+        Saturday is a shop that has told several couples it is free and can serve
+        one of them.
+
+        ⛔ It renders ONLY when a date genuinely has more than one, and it names
+        the dates rather than giving a total — "3 couples on 2 dates" is a
+        statistic, "14 Feb · 3" is something a person can act on this morning.
+      */}
+      {clashes.length > 0 ? (
+        <div
+          className="mb-3 rounded-xl border px-3.5 py-2.5 text-sm"
+          style={{
+            background: 'var(--sn-warning-soft)',
+            borderColor: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
+            color: 'var(--sn-warning-deep)',
+          }}
+        >
+          <span className="font-semibold">
+            {clashes.length === 1
+              ? 'One date has more than one customer holding it.'
+              : `${clashes.length} dates have more than one customer holding them.`}
+          </span>{' '}
+          {clashes
+            .map(([date, n]) => `${fmtDate(date)} · ${n}`)
+            .join(' · ')}
+          . You can only take one.
+        </div>
+      ) : null}
 
       <div className="mb-3 flex flex-wrap gap-2">
         <Link
@@ -251,7 +321,9 @@ export function CustomersRoster({
                           ? 'Wants to book you'
                           : r.waitingKind === 'inquiry'
                             ? 'Asked you something'
-                            : LANE_LABEL[r.lane]}
+                            : r.lane === 'holding'
+                              ? 'Hasn’t booked yet'
+                              : LANE_LABEL[r.lane]}
                       </span>
                     </span>
                     <span

@@ -144,6 +144,13 @@ export function ServiceWizard({
   return (
     <form ref={formRef} action={commitVendorService} className="space-y-5">
       <input type="hidden" name="category" value={categoryValue} />
+      {/* C3 2026-08-28 — always empty here on purpose. The wizard takes its
+          category from the URL route and has no kind-SEARCH band (that only
+          exists on the canvas), so there is never a genuine search miss to
+          collect from this screen. The field still has to exist — see
+          canvas-field-parity.test.ts, which keeps commitVendorService
+          untouchable by requiring both renderings post the same field set. */}
+      <input type="hidden" name="collected_kind_phrase" value="" />
       {claimToken ? (
         <input type="hidden" name="claim_token" value={claimToken} />
       ) : null}

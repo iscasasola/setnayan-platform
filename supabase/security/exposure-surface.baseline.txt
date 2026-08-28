@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6253
+# facts: 6262
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     572
-#   col       4605
-#   policy    848
+#   tpriv     573
+#   col       4612
+#   policy    849
 #   view      8
 #   func      216
 #
@@ -462,6 +462,7 @@ tpriv	public.vendor_correction_requests|authenticated	SIUD
 tpriv	public.vendor_coverages|anon	SIUD
 tpriv	public.vendor_coverages|authenticated	SIUD
 tpriv	public.vendor_creator_offers|authenticated	SIUD
+tpriv	public.vendor_credit_ledger|authenticated	S
 tpriv	public.vendor_custom_plans|anon	SIUD
 tpriv	public.vendor_custom_plans|authenticated	SIUD
 tpriv	public.vendor_date_waitlist|anon	SIUD
@@ -4140,6 +4141,13 @@ col	public.vendor_creator_offers.refunded_at	anon=- authenticated=SIU
 col	public.vendor_creator_offers.responded_at	anon=- authenticated=SIU
 col	public.vendor_creator_offers.status	anon=- authenticated=SIU
 col	public.vendor_creator_offers.vendor_id	anon=- authenticated=SIU
+col	public.vendor_credit_ledger.balance_after_php	anon=- authenticated=S
+col	public.vendor_credit_ledger.balance_before_php	anon=- authenticated=S
+col	public.vendor_credit_ledger.created_at	anon=- authenticated=S
+col	public.vendor_credit_ledger.delta_php	anon=- authenticated=S
+col	public.vendor_credit_ledger.ledger_id	anon=- authenticated=S
+col	public.vendor_credit_ledger.reason	anon=- authenticated=S
+col	public.vendor_credit_ledger.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_custom_plans.composition	anon=SIU authenticated=SIU
 col	public.vendor_custom_plans.created_at	anon=SIU authenticated=SIU
 col	public.vendor_custom_plans.created_by	anon=SIU authenticated=SIU
@@ -5841,6 +5849,7 @@ policy	public.vendor_coverages|vendor_coverages_admin_read	mode=PERMISSIVE cmd=S
 policy	public.vendor_coverages|vendor_coverages_vendor_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_creator_offers|vendor_creator_offers_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.vendor_creator_offers|vendor_creator_offers_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) OR (creator_user_id = auth.uid()) OR is_admin()) check=NULL
+policy	public.vendor_credit_ledger|vendor_credit_ledger_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) OR is_console_admin()) check=NULL
 policy	public.vendor_custom_plans|vendor_custom_plans_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.vendor_custom_plans|vendor_custom_plans_vendor_access	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_date_waitlist|vendor_date_waitlist_couple_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(user_id = auth.uid())

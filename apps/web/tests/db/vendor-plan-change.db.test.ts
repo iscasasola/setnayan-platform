@@ -459,22 +459,132 @@ test('a shop with nothing scheduled lapses exactly as it always did', async () =
   assert.equal(after.tier_expires_at, null);
 });
 
-test('a lapse does NOT eat the credit the shop has already paid for', async () => {
-  // ⚖ FLAGGED, NOT DECIDED. The owner has not ruled on what happens to carried
-  // credit when a shop lapses entirely. Persisting it is the reversible choice —
-  // it is money they already paid — so that is what ships, and this pins it so a
-  // future change to it has to be deliberate.
+test('a lapse EXPIRES the credit, and leaves a record of it', async () => {
+  // ⚖ OWNER RULED 2026-08-28: *"it expires when they lapse"*, chosen over
+  // keeping it. This test is the INVERSION of the one that used to sit here
+  // pinning the opposite — inverted rather than deleted and replaced, so the
+  // behaviour was never unpinned in the gap between the two.
+  //
+  // 🔑 THE MOMENT OF EXPIRY IS THE SWEEP, NOT THE CLOCK. `tier_expires_at`
+  // passing does nothing on its own; the sweep is login-driven and cron-free and
+  // is the only thing that actually runs. A shop whose owner never signs in
+  // therefore keeps the balance until somebody does.
   const v = await newVendor('pro', "NOW() - INTERVAL '1 day'");
   await db.query(
     `UPDATE public.vendor_profiles SET subscription_credit_php = 4200
       WHERE vendor_profile_id = $1`,
     [v],
   );
+
+  // Before the sweep runs the money is still there — the clock alone took
+  // nothing. Asserting this makes the MOMENT part of the contract rather than an
+  // accident of when the test happened to look.
+  assert.equal(Number((await profile(v)).subscription_credit_php), 4200);
+
   await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [v]);
   assert.equal(
     Number((await profile(v)).subscription_credit_php),
+    0,
+    'the credit survived a lapse — the owner ruled that it expires',
+  );
+
+  // 🚨 NEVER DESTROY A BALANCE SILENTLY. Prod holds real paid subscriptions;
+  // money vanishing with no trace is indefensible the first time a supplier asks
+  // where it went.
+  const led = await db.query<{
+    delta_php: string;
+    balance_after_php: string;
+    reason: string;
+  }>(
+    `SELECT delta_php, balance_after_php, reason
+       FROM public.vendor_credit_ledger WHERE vendor_profile_id = $1
+      ORDER BY created_at DESC LIMIT 1`,
+    [v],
+  );
+  assert.ok(led.rows[0], 'money disappeared with no ledger row behind it');
+  assert.equal(Number(led.rows[0]!.delta_php), -4200, 'the record must carry the amount lost');
+  assert.equal(Number(led.rows[0]!.balance_after_php), 0);
+  assert.equal(led.rows[0]!.reason, 'lapse', 'the record must say WHY the money went');
+});
+
+test('a shop with NO credit lapses cleanly and writes no ledger noise', async () => {
+  // The common case by far. A movement log that records non-movements is a log
+  // nobody can read.
+  const v = await newVendor('pro', "NOW() - INTERVAL '1 day'");
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [v]);
+  assert.equal(Number((await profile(v)).subscription_credit_php), 0);
+  const n = await db.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM public.vendor_credit_ledger WHERE vendor_profile_id = $1`,
+    [v],
+  );
+  assert.equal(n.rows[0]!.c, '0', 'a zero balance going to zero is not a movement');
+});
+
+test('APPLYING A SCHEDULED CHANGE IS NOT A LAPSE — it must not eat the balance', async () => {
+  // 🚨 THE BOUNDARY THAT MATTERS MOST NOW THAT LAPSING DESTROYS MONEY. Both
+  // paths live in the SAME sweep and both are triggered by `tier_expires_at`
+  // passing; only one of them is a shop going away. A shop moving to the Solo
+  // plan it scheduled and PAID FOR is CONTINUING, and taking its balance there
+  // would be theft dressed as policy.
+  const v = await newVendor('pro', "NOW() + INTERVAL '20 days'");
+  const p = await pendingPurchase(v, 'solo', {
+    kind: 'downgrade',
+    list: 1000,
+    credit: 0,
+    carry: 0,
+  });
+  await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
+  await db.query(
+    `UPDATE public.vendor_profiles SET subscription_credit_php = 4200,
+            tier_expires_at = NOW() - INTERVAL '1 minute'
+      WHERE vendor_profile_id = $1`,
+    [v],
+  );
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [v]);
+
+  const after = await profile(v);
+  assert.equal(after.tier_state, 'solo', 'the scheduled plan should have landed');
+  assert.equal(
+    Number(after.subscription_credit_php),
     4200,
-    "a lapse silently expired the shop's money",
+    'applying a scheduled change ate the balance — that path is not a lapse',
+  );
+  const n = await db.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM public.vendor_credit_ledger
+      WHERE vendor_profile_id = $1 AND reason = 'lapse'`,
+    [v],
+  );
+  assert.equal(n.rows[0]!.c, '0', 'a continuing shop was recorded as having lapsed');
+});
+
+test('a SCHEDULED change nobody paid for still lapses, and still expires the credit', async () => {
+  // The other direction of the same boundary. An unpaid schedule is dropped and
+  // the shop genuinely lapses, so the balance goes with it — otherwise stamping
+  // an intention nobody paid for would be a way to keep money alive forever.
+  const v = await newVendor('pro', "NOW() + INTERVAL '20 days'");
+  const p = await pendingPurchase(v, 'solo', {
+    kind: 'downgrade',
+    list: 1000,
+    credit: 0,
+    carry: 0,
+  });
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET pending_tier = 'solo', pending_tier_period_days = 28,
+            pending_tier_purchase_id = $2, pending_tier_scheduled_at = NOW(),
+            subscription_credit_php = 4200,
+            tier_expires_at = NOW() - INTERVAL '1 minute'
+      WHERE vendor_profile_id = $1`,
+    [v, p],
+  );
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [v]);
+
+  const after = await profile(v);
+  assert.equal(after.tier_state, 'verified', 'an unpaid schedule must lapse');
+  assert.equal(
+    Number(after.subscription_credit_php),
+    0,
+    'a genuine lapse must expire the credit even when a schedule was stamped',
   );
 });
 

@@ -103,7 +103,7 @@ COMMENT ON COLUMN public.vendor_profiles.pending_tier IS
 COMMENT ON COLUMN public.vendor_profiles.pending_tier_purchase_id IS
   'The PAID vendor_subscriptions purchase that bought the pending plan. The applier refuses to grant a pending tier without one -- a scheduled plan nobody paid for must lapse like any other, never switch itself on.';
 COMMENT ON COLUMN public.vendor_profiles.subscription_credit_php IS
-  'Carried-forward subscription credit in PHP. Money the shop has already paid that outlived the bill it was credited against; it is spent automatically against later plan charges until it runs out. Never capped, never refunded, and NOT cleared when a plan lapses -- see sweep_vendor_tier_expiry.';
+  'Carried-forward subscription credit in PHP. Money the shop has already paid that outlived the bill it was credited against; it is spent automatically against later plan charges until it runs out. Never capped and never refunded. EXPIRES when the shop lapses (owner 2026-08-28) -- see sweep_vendor_tier_expiry and vendor_credit_ledger.';
 
 -- ----------------------------------------------------------------------------
 -- 2. The three terms of the bill, recorded on the purchase.
@@ -625,10 +625,17 @@ BEGIN
   END IF;
 
   -- ── THE ORIGINAL LAPSE, UNCHANGED ────────────────────────────────────────
-  -- `subscription_credit_php` IS NOT CLEARED HERE. It is money the shop has
-  -- already paid us. Whether a lapse should ever consume it has NOT been ruled
-  -- on by the owner; keeping it is the reversible choice, and expiring somebody
-  -- money in silence is not a default anyone should pick on their behalf.
+  -- `subscription_credit_php` is not cleared here. It is money the shop has
+  -- already paid us, and when this was written the owner had not ruled on
+  -- whether a lapse should consume it — so keeping it was the reversible choice.
+  --
+  -- ⚠ SUPERSEDED THE NEXT DAY. Owner 2026-08-28: *"it expires when they lapse"*.
+  -- `20271178284709_credit_expires_when_a_shop_lapses.sql` replaces this function
+  -- so the lapse zeroes the balance and writes a `vendor_credit_ledger` row.
+  -- Corrected here rather than left standing, because a comment asserting the
+  -- opposite of the shipped behaviour is exactly what this codebase keeps paying
+  -- for — and this migration has never been applied anywhere, so it is still
+  -- editable.
   SELECT (tier_state = 'custom')
     INTO v_was_custom
     FROM public.vendor_profiles
@@ -661,7 +668,7 @@ END;
 $function$;
 
 COMMENT ON FUNCTION public.sweep_vendor_tier_expiry(UUID) IS
-  'Login-driven, cron-free. Applies a PAID scheduled plan change the moment the current term runs out, and otherwise reverts an expired pro/enterprise/custom tier to verified/free. A scheduled plan with no paid purchase behind it is dropped, never granted. Carried subscription credit is deliberately left alone on a lapse.';
+  'Login-driven, cron-free. Applies a PAID scheduled plan change the moment the current term runs out, and otherwise reverts an expired pro/enterprise/custom tier to verified/free. A scheduled plan with no paid purchase behind it is dropped, never granted. (Carried credit was left alone here; superseded 2026-08-28 by 20271178284709, which expires it on lapse.)';
 
 -- ----------------------------------------------------------------------------
 -- 8. Changing your mind. A forward primitive with no inverse is how a shop ends

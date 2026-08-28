@@ -9,11 +9,11 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6277
+# facts: 6274
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     575
+#   tpriv     572
 #   col       4618
 #   policy    855
 #   view      8
@@ -88,11 +88,8 @@ tpriv	public.coordinator_broadcasts|anon	SD
 tpriv	public.coordinator_broadcasts|authenticated	SD
 tpriv	public.coordinator_feature_recommendations|authenticated	SIUD
 tpriv	public.couple_briefs|authenticated	SIUD
-tpriv	public.couple_event_type_notify_signups|anon	SIUD
 tpriv	public.couple_event_type_notify_signups|authenticated	SIUD
-tpriv	public.couple_waitlist_signups|anon	SIUD
 tpriv	public.couple_waitlist_signups|authenticated	SIUD
-tpriv	public.couple_wedding_type_notify_signups|anon	SIUD
 tpriv	public.couple_wedding_type_notify_signups|authenticated	SIUD
 tpriv	public.creator_chapters|anon	SIUD
 tpriv	public.creator_chapters|authenticated	SIUD
@@ -1056,34 +1053,34 @@ col	public.couple_briefs.expires_at	anon=- authenticated=SIU
 col	public.couple_briefs.status	anon=- authenticated=SIU
 col	public.couple_briefs.token_cost_per_submission	anon=- authenticated=SIU
 col	public.couple_briefs.updated_at	anon=- authenticated=SIU
-col	public.couple_event_type_notify_signups.created_at	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.email	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.event_type	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.notes	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.region	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.signup_id	anon=SIU authenticated=SIU
-col	public.couple_event_type_notify_signups.user_id	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.created_at	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.email	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.full_name	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.ip_address	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.location_city	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.notified_at	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.partner_name	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.source	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.updated_at	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.user_agent	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.waitlist_id	anon=SIU authenticated=SIU
-col	public.couple_waitlist_signups.wedding_date	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.ceremony_type_interested	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.created_at	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.email	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.expected_wedding_date	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.notes	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.notified_at	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.region	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.signup_id	anon=SIU authenticated=SIU
-col	public.couple_wedding_type_notify_signups.user_id	anon=SIU authenticated=SIU
+col	public.couple_event_type_notify_signups.created_at	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.email	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.event_type	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.notes	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.region	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.signup_id	anon=- authenticated=SIU
+col	public.couple_event_type_notify_signups.user_id	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.created_at	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.email	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.full_name	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.ip_address	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.location_city	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.notified_at	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.partner_name	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.source	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.updated_at	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.user_agent	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.waitlist_id	anon=- authenticated=SIU
+col	public.couple_waitlist_signups.wedding_date	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.ceremony_type_interested	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.created_at	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.email	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.expected_wedding_date	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.notes	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.notified_at	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.region	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.signup_id	anon=- authenticated=SIU
+col	public.couple_wedding_type_notify_signups.user_id	anon=- authenticated=SIU
 col	public.creator_chapters.body	anon=SIU authenticated=SIU
 col	public.creator_chapters.chapter_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.created_at	anon=SIU authenticated=SIU
@@ -5310,12 +5307,12 @@ policy	public.coordinator_feature_recommendations|cfr_couple_update	mode=PERMISS
 policy	public.coordinator_feature_recommendations|cfr_moderator_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) AND (recommended_by_user_id = auth.uid()))
 policy	public.coordinator_feature_recommendations|cfr_moderator_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
 policy	public.couple_event_type_notify_signups|event_type_notify_signups_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
-policy	public.couple_event_type_notify_signups|event_type_notify_signups_insert	mode=PERMISSIVE cmd=INSERT roles=anon,authenticated using=NULL check=true
+policy	public.couple_event_type_notify_signups|event_type_notify_signups_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true
 policy	public.couple_waitlist_signups|couple_waitlist_signups_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.couple_waitlist_signups|couple_waitlist_signups_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=is_admin() check=is_admin()
-policy	public.couple_waitlist_signups|couple_waitlist_signups_public_insert	mode=PERMISSIVE cmd=INSERT roles=anon,authenticated using=NULL check=true
+policy	public.couple_waitlist_signups|couple_waitlist_signups_public_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true
 policy	public.couple_wedding_type_notify_signups|notify_signups_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=is_admin() check=is_admin()
-policy	public.couple_wedding_type_notify_signups|notify_signups_insert_any	mode=PERMISSIVE cmd=INSERT roles=anon,authenticated using=NULL check=true
+policy	public.couple_wedding_type_notify_signups|notify_signups_insert_any	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true
 policy	public.couple_wedding_type_notify_signups|notify_signups_read_own_or_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = auth.uid()) OR is_admin()) check=NULL
 policy	public.creator_chapters|admin_full_access_creator_chapters	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.creator_chapters|creator_owns_chapter	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = auth.uid()) check=(user_id = auth.uid())

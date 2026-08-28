@@ -992,6 +992,6 @@ test('home has no greeting eyebrow and no tail hanging off the title', () => {
     src,
     /<h1 className="text-\[1\.375rem\]/,
     'The visible page title is back. The owner removed it on 2026-08-20 as a ' +
-      'duplicate of the "My Events" nav entry directly above it.',
+      'duplicate of the Events nav entry directly above it.',
   );
 });

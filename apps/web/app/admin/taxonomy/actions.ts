@@ -1112,7 +1112,35 @@ export async function promoteCategoryRequest(formData: FormData) {
     redirectBack(formData, 'error', 'Pick a valid tile.');
   }
 
-  const canonical = slugify(req.proposed_label, '_');
+  // The NAME the new trade is minted under. Defaults to the supplier's own
+  // words — absent this field the behaviour is byte-identical to before it
+  // existed — but the reviewer may correct it in the box, which is what makes
+  // the C4 draft's "clean name" something other than decoration ("Pet grooming
+  // for weddings" → "Pet Attendants"). A supplier types a sentence; a
+  // canonical_service key is not a sentence.
+  //
+  // 🔒 A PRESENT-BUT-BAD OVERRIDE IS REFUSED, NEVER IGNORED. Falling back to
+  // the supplier's label would mint a trade the admin did not type while
+  // reporting success — the one outcome worse than an error on a control that
+  // creates a permanent public category.
+  //
+  // 🪤 THE RANGE TEST IS DELIBERATELY NOT WRITTEN AS
+  // `if (overrideRaw && (overrideRaw.length < 2 || …))`. `scan-admin-jobs.ts`
+  // reads a refusal as "an `if` line testing this local's emptiness with a
+  // refusal within three lines", so that shape publishes this OPTIONAL field to
+  // the ⌘K checklist as `refusedWhenEmpty` — a checklist demanding something
+  // nobody has to give, which is the exact failure that scanner's own docblock
+  // warns about. Named rather than worked around silently: the scanner cannot
+  // currently tell an optional RANGE check from a required-field check.
+  const overrideRaw = String(formData.get('proposed_label_override') ?? '').trim();
+  const overrideLength = overrideRaw.length;
+  const overrideOutOfRange = overrideLength > 0 && (overrideLength < 2 || overrideLength > 80);
+  if (overrideOutOfRange) {
+    redirectBack(formData, 'error', 'Name must be 2–80 characters.');
+  }
+  const mintLabel = overrideRaw || req.proposed_label;
+
+  const canonical = slugify(mintLabel, '_');
   if (!canonical) {
     redirectBack(formData, 'error', 'Label needs letters or numbers.');
   }
@@ -1128,7 +1156,7 @@ export async function promoteCategoryRequest(formData: FormData) {
   const { error: schemaErr } = await admin.from('canonical_service_schemas').insert({
     canonical_service: canonical,
     schema_version: 1,
-    display_name_en: req.proposed_label,
+    display_name_en: mintLabel,
     shared_attribute_groups: [],
     category_specific_attributes: {},
     filter_facets: [],
@@ -1165,7 +1193,14 @@ export async function promoteCategoryRequest(formData: FormData) {
     action: 'taxonomy.request_promote',
     target_table: 'taxonomy_category_requests',
     target_id: requestId,
-    after_json: { canonical_service: canonical, tile_id: tileId, label: req.proposed_label },
+    after_json: {
+      canonical_service: canonical,
+      tile_id: tileId,
+      label: mintLabel,
+      // What the SUPPLIER asked for, kept beside what was minted — the two
+      // differ whenever a reviewer accepted or edited the drafted name.
+      requested_label: req.proposed_label,
+    },
     actor_user_id: user.id,
   });
 

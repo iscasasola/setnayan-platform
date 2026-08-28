@@ -160,6 +160,11 @@ const FLAGS: FlagSpec[] = [
       // showing one — a dead branch nobody can test.
       'app/dashboard/[eventId]/vendors/page.tsx',
       'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx',
+      // The SHOP's screen, added 2026-08-28 (S4). Its roster files a customer
+      // into one of four lanes, and "waiting on your yes" is the only lane the
+      // handshake can populate — so with the flag off that lane must be empty
+      // BY THE SAME ANSWER the couple's screens get, not by a second guess.
+      'app/vendor-dashboard/customers/page.tsx',
     ],
     pureCores: [
       // Takes `enabled` as a PARAMETER — six surfaces derive their state from

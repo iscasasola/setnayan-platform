@@ -168,7 +168,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Fired from ADMIN traffic so the heavy matview REFRESH never rides an
   // end-user request; daily DB claim + device-fingerprint gate inside. Never throws.
   after(() => maybeRunFraudClusterSweep().catch(() => {}));
-  // PR-H · nudge at day 5, close at day 7. Mounted in BOTH layouts on purpose:
+  // PR-H · nudge at 24 hours, close at 48 (owner 2026-08-28). Mounted in BOTH layouts on purpose:
   // the DB compare-and-swap picks exactly one winner per gap window, and an
   // admin-only mount would wait for an admin page view — production is
   // pre-launch-quiet, so a supplier's 7-day fuse would hang on somebody

@@ -87,14 +87,61 @@ export function isAwaitingVendor(row: LockRequestRow, enabled: boolean): boolean
 }
 
 /**
- * Whole days left before the request lapses, floored at 0.
+ * HOW LONG A SUPPLIER HAS TO ANSWER A BOOKING ASK — owner ruling 2026-08-28,
+ * asked and answered in one word: **48 hours**.
+ *
+ * 🔑 THIS IS A MIRROR, NOT THE RULE. The window is DECIDED in one place, the
+ * database: `guard_event_vendor_lock_handshake` stamps
+ * `lock_requested_at + INTERVAL '48 hours'` onto `lock_request_expires_at` the
+ * moment a row becomes pending. This constant exists only so the SENTENCES a
+ * person reads ("you have 48 hours to agree or decline") come from the same
+ * number as the deadline that is enforced. `the-answer-window-is-48-hours.db.test.ts`
+ * fails if the two ever disagree — a rule the database keeps and a sentence the
+ * product prints are two copies of one number, and two copies drift.
+ *
+ * ⚠ IT MUST NOT BE USED TO COMPUTE A DEADLINE. Every countdown reads the
+ * MATERIALIZED `lock_request_expires_at`, so the number shown is the number
+ * enforced — and so a row stamped under the old seven-day rule keeps the window
+ * it was actually given rather than being shortened retroactively by a constant.
+ */
+export const LOCK_ANSWER_WINDOW_HOURS = 48;
+
+/**
+ * Whole HOURS left before the request lapses, floored at 0.
+ *
+ * 🔴 IT USED TO BE DAYS, AND DAYS STOPPED BEING TRUE AT 48 HOURS. On a
+ * seven-day fuse "2 days left" was a fair summary. On a two-day fuse the
+ * day-granular version spends HALF the whole window saying "Last day to
+ * answer" — the same words at 23 hours and at 3 minutes — which is the shape of
+ * a countdown that reads as urgent exactly when it is not and stops meaning
+ * anything exactly when it should.
+ *
  * Reads the MATERIALIZED deadline so the number shown is the number enforced —
  * the trigger stamps it on every transition into pending, and a re-ask gets a
  * fresh one rather than inheriting the dead deadline of the round before.
  */
-export function lockRequestDaysLeft(expiresAt: string | null, now: Date = new Date()): number | null {
+export function lockRequestHoursLeft(expiresAt: string | null, now: Date = new Date()): number | null {
   if (!expiresAt) return null;
   const ms = new Date(expiresAt).getTime() - now.getTime();
   if (!Number.isFinite(ms)) return null;
-  return Math.max(0, Math.ceil(ms / 86_400_000));
+  return Math.max(0, Math.ceil(ms / 3_600_000));
+}
+
+/**
+ * The fuse as a person reads it — ONE phrasing, so the Answers Desk, the
+ * customer card and the Customers roster cannot word the same deadline three
+ * ways. Null when there is no readable deadline: a row still renders, without a
+ * countdown, rather than claiming a number nobody measured.
+ */
+export function lockRequestFuseLabel(
+  expiresAt: string | null,
+  now: Date = new Date(),
+): string | null {
+  const hours = lockRequestHoursLeft(expiresAt, now);
+  if (hours === null) return null;
+  if (hours === 0) return 'closing now';
+  if (hours === 1) return '1 hour left to answer';
+  if (hours < 24) return `${hours} hours left to answer`;
+  const days = Math.ceil(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} left to answer`;
 }

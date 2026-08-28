@@ -597,7 +597,7 @@ export async function lockPackage(
   if (handshakeAsk) {
     // Tell the supplier they have been ASKED. Fail-soft, exactly as the single-
     // service path: the request is already recorded, and an unsent notification
-    // must not roll it back — the day-5 nudge and the 7-day fuse are the net.
+    // must not roll it back — the 24-hour nudge and the 48-hour fuse are the net.
     try {
       const adminClient = createAdminClient();
       const [{ data: vProfile }, { data: evtRow }] = await Promise.all([
@@ -615,7 +615,7 @@ export async function lockPackage(
           userId: vendorUserId,
           type: 'lock_request_received',
           title: `${who} wants to book your ${pkg.package_name}`,
-          body: `${who} has asked you to take their booking. You have 7 days to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
+          body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
         });
       }

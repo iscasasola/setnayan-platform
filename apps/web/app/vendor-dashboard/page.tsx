@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, Info, PartyPopper } from 'lucide-react';
+import { AlertTriangle, ArrowRight, EyeOff, Info, PartyPopper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -42,6 +42,10 @@ import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
 import { manilaToday } from '@/lib/std-views';
 import { formatPhp } from '@/lib/vendors';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import {
+  shopFindability,
+  findabilityNotice,
+} from '@/lib/vendor-shop-findable';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -260,6 +264,17 @@ export default async function VendorOverviewPage({
   const heroInquiries = whatsNew.filter((c) => c.kind === 'inquiry').length;
   const heroEarnedPhp = earnings?.earnedThisYearPhp ?? null;
 
+  // WHY COUPLES CAN'T FIND YOU — decided once, in `lib/vendor-shop-findable.ts`,
+  // from the `public_visibility` already on this row (no extra query) and from
+  // whether the first-steps rail is on screen (so the two can never argue).
+  // `notice` is null for a live shop and for a shop still working through
+  // approval, where the rail says it better.
+  const findability = shopFindability({
+    publicVisibility: (profile as { public_visibility?: unknown }).public_visibility,
+    railShowing: firstSteps != null,
+  });
+  const findabilityBanner = findabilityNotice(findability);
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* Hero — greeting eyebrow → `.sn-h1` statement → mono stat line (§ 3.3). */}
@@ -279,7 +294,13 @@ export default async function VendorOverviewPage({
                 // come true: it told a vendor to wait for something that will
                 // never arrive until they finish the steps below.
                 'No couple can find you yet — your first steps are below.'
-              : "You're all caught up — new leads land here the moment a couple unlocks you."}
+              : // ⚠ THE SAME PROMISE, ONE COLUMN OVER. The rail only knows about
+                // `verification_state`; a shop can be approved and still not
+                // listed, and telling that shop to sit tight and wait for leads
+                // is telling it to wait for something that cannot arrive.
+                !findability.findable
+                ? 'No couple can find you yet — see the note below.'
+                : "You're all caught up — new leads land here the moment a couple unlocks you."}
         </p>
         {milestone ? (
           <div className="pt-1.5">
@@ -305,6 +326,38 @@ export default async function VendorOverviewPage({
           </div>
         ) : null}
       </header>
+
+      {/* Why couples can't find you. Mutually exclusive with the rail below by
+          construction — `shopFindability` returns the silent state whenever the
+          rail is showing — so this is never a second voice on the same subject.
+          It sits FIRST because an invisible shop has nothing else worth reading
+          on this page: every count below it is a count of people who could not
+          reach it. */}
+      {findabilityBanner ? (
+        <div
+          className="mt-6 flex items-start gap-3 rounded-xl border px-4 py-3.5"
+          style={{
+            borderColor: 'var(--m-orange-3)',
+            background: 'var(--m-orange-4)',
+            color: 'var(--m-orange-deep)',
+          }}
+        >
+          <EyeOff aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <div className="min-w-0 text-sm leading-relaxed">
+            <p className="font-semibold">{findabilityBanner.title}</p>
+            <p className="mt-0.5">{findabilityBanner.body}</p>
+            {findabilityBanner.cta ? (
+              <Link
+                href={findabilityBanner.cta.href}
+                className="mt-2 inline-flex items-center gap-1 font-semibold underline"
+              >
+                {findabilityBanner.cta.label}
+                <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {/* First steps — the order of operations, ABOVE the focal tile and the
           feed. For a shop that isn't approved yet those are all zeros and an

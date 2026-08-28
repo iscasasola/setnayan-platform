@@ -26,7 +26,7 @@ import {
 import { SpecializationSlot } from './_components/specialization-slot';
 import { registeredSpecializationSets } from './_components/specialization-registry';
 
-export const metadata = { title: 'Live · On the Day' };
+export const metadata = { title: 'Live · Event Hub' };
 
 /**
  * The launched day-of console.

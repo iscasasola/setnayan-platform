@@ -186,6 +186,22 @@ export type CategorySearchResult = {
    *  soft re-rank alone can't help and the overlay nudges the couple to lift the
    *  budget. Omitted entirely when the flag is off (off-path shape is unchanged). */
   budgetPressure?: boolean;
+  /** Present ONLY when this search ranked on a budget the couple never stated —
+   *  their feel band and guest count, turned into a figure (lib/budget-band-money).
+   *
+   *  🔑 IT IS NOT OPTIONAL POLISH. The band-derived budget moves the
+   *  second-largest dimension of the match %, so without this a couple is ranked
+   *  against a number they were never shown and cannot correct. Set only when the
+   *  estimate ACTUALLY produced a budget for THIS category — an estimate that
+   *  changed nothing here must not claim it did. */
+  budgetEstimate?: {
+    /** The whole-celebration figure we searched with, in PHP. */
+    eventBudgetPhp: number;
+    /** The band the couple chose, in their words ("Classic"). Null if unnamed. */
+    bandLabel: string | null;
+    /** The guest count the figure was built from. */
+    pax: number | null;
+  };
 };
 
 const EMPTY: CategorySearchResult = {
@@ -797,6 +813,10 @@ export async function searchCategoryVendors(input: {
   //                         in-scope, standalone (non-linked) active services.
   let livePax: number | null = null;
   let categoryBudgetPhp: number | null = null;
+  /** Set only when the couple stated no figure AND the band-derived estimate
+   *  produced a budget for THIS category — i.e. only when it really decided
+   *  something here. */
+  let budgetEstimate: CategorySearchResult['budgetEstimate'] = undefined;
   const startsAtByVendor = new Map<string, number | null>();
   // Budget-fit is now part of the FREE compat score (2026-07-12), so the price +
   // budget reads run for EVERY search, not only when smart-sort is on. Each read
@@ -810,9 +830,16 @@ export async function searchCategoryVendors(input: {
     }
     try {
       const alloc = await resolveAllocationInputs(supabase, eventId);
-      if (alloc.budgetPhp != null) {
+      // PRICE DECIDES REACH: a couple who picked a budget FEEL and never typed a
+      // figure used to be indistinguishable from a couple who answered nothing —
+      // no budget → neutral fit → their answer decided which shops they saw not
+      // at all. The band-derived estimate is opted into HERE, explicitly, and
+      // only for searching; the Budget Planner still reads `budgetPhp` alone,
+      // because a money plan is the couple's to state, not ours to guess.
+      const searchBudgetPhp = alloc.budgetPhp ?? alloc.estimatedBudgetPhp;
+      if (searchBudgetPhp != null) {
         const result = computeBudgetAllocation({
-          budgetPhp: alloc.budgetPhp,
+          budgetPhp: searchBudgetPhp,
           leaves: alloc.leaves,
           config: alloc.config,
         });
@@ -821,9 +848,17 @@ export async function searchCategoryVendors(input: {
         // (a group the planner doesn't benchmark) → null → neutral fit.
         const leaf = result.leaves.find((l) => l.canonicalService === groupId);
         categoryBudgetPhp = leaf ? leaf.amountPhp : null;
+        if (alloc.budgetSource === 'band' && categoryBudgetPhp != null) {
+          budgetEstimate = {
+            eventBudgetPhp: searchBudgetPhp,
+            bandLabel: alloc.budgetBandLabel,
+            pax: alloc.pax,
+          };
+        }
       }
     } catch {
       categoryBudgetPhp = null;
+      budgetEstimate = undefined;
     }
     if (ids.length > 0) {
       try {
@@ -1178,5 +1213,8 @@ export async function searchCategoryVendors(input: {
     facetDefaults,
     // Only present when the flag is on → off-path result shape is unchanged.
     ...(smartSort ? { budgetPressure: budgetRaisePressure } : {}),
+    // NOT flag-gated: the band-derived budget is not either, so a couple ranked
+    // on an estimate must be told regardless of the smart-sort switch.
+    ...(budgetEstimate ? { budgetEstimate } : {}),
   };
 }

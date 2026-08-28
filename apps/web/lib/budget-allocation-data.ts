@@ -19,6 +19,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LeafInput, AllocationConfig } from './budget-allocation';
+import { bandMedianPerHeadPhp, bandReachBudgetPhp } from './budget-band-money';
+import { fetchBudgetBands } from './budget-bands-read';
 import { logQueryError } from './supabase/error-detect';
 
 /** Map each benchmark leaf (plan_group_id) to the vendor `canonical_service`
@@ -63,8 +65,34 @@ export type BenchmarkRow = {
 export type PlannerLeafInput = LeafInput & { label: string };
 
 export type AllocationInputs = {
-  /** Couple's budget in PHP (estimated_budget_centavos / 100). Null = not set. */
+  /** Couple's budget in PHP (estimated_budget_centavos / 100). Null = not set.
+   *  STATED ONLY — a figure the couple typed or dragged. The Budget Planner
+   *  reads this and nothing else: a money PLAN is theirs to make, and filling it
+   *  in from an estimate would put words in their mouth. */
   budgetPhp: number | null;
+  /** The band-derived budget for a couple who chose a budget FEEL but never
+   *  stated a figure (lib/budget-band-money · the top of their band at their
+   *  guest count). Null when `budgetPhp` is set, when there is no band or no
+   *  guest count, or when the band is "no limit".
+   *
+   *  It exists for REACH, not for planning: the vendor search treats an unknown
+   *  budget as a neutral fit, so a couple who answered the band question and
+   *  nothing else used to get no segmentation at all — their answer decided
+   *  nothing. Consumers opt in EXPLICITLY (`budgetPhp ?? estimatedBudgetPhp`);
+   *  nothing inherits it by accident. */
+  estimatedBudgetPhp: number | null;
+  /** Where the number a consumer should search with came from. 'stated' = the
+   *  couple's own figure · 'band' = derived from their feel band + guest count ·
+   *  null = unknown, which every consumer must read as neutral, never as ₱0.
+   *
+   *  A surface that RANKS on the band-derived estimate must SAY SO — a couple
+   *  matched against ₱900,000 they never typed cannot correct a number they were
+   *  never shown. */
+  budgetSource: 'stated' | 'band' | null;
+  /** The band's own label ("Classic", "Elevated") when `budgetSource` is 'band',
+   *  so the surface can name what the couple actually chose rather than quoting
+   *  a slug or a bare figure. Null in every other case. */
+  budgetBandLabel: string | null;
   /** One per active benchmark leaf, ready for computeBudgetAllocation. */
   leaves: PlannerLeafInput[];
   /** Engine knobs (admin-tunable). */
@@ -242,7 +270,12 @@ export async function resolveAllocationInputs(
       // on the base table by 20271008731642. The view is the couple/moderator-scoped
       // read path; same columns, same row shape, guests get zero rows.
       .from('events_host')
-      .select('event_id, estimated_budget_centavos, estimated_pax, event_date, region')
+      // `budget_band` rides along on a read that already happens — it is in the
+      // events_host projection and SELECT-granted to `authenticated` (verified
+      // against prod by the column ACL, not by a migration comment; naming an
+      // ungranted column would make PostgREST refuse this WHOLE query and every
+      // couple would silently lose the budget they DO have).
+      .select('event_id, estimated_budget_centavos, estimated_pax, event_date, region, budget_band')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchActiveBenchmarks(client),
@@ -255,11 +288,38 @@ export async function resolveAllocationInputs(
         estimated_pax?: number | null;
         event_date?: string | null;
         region?: string | null;
+        budget_band?: string | null;
       }
     | null;
   const budgetPhp =
     ev?.estimated_budget_centavos != null ? Math.round(Number(ev.estimated_budget_centavos) / 100) : null;
   const pax = ev?.estimated_pax != null ? Number(ev.estimated_pax) : null;
+
+  // ── The budget FEEL band becomes a number (lib/budget-band-money) ──────────
+  // Only when the couple stated no figure: a stated budget always wins, and the
+  // extra read is skipped entirely on that path, so a couple with a budget
+  // issues exactly the queries they issued before. Fails open in every
+  // direction — an unreadable ladder falls back in code, and any failure leaves
+  // this null, which consumers read as "unknown" (neutral), never as ₱0.
+  let estimatedBudgetPhp: number | null = null;
+  let budgetBandLabel: string | null = null;
+  if (budgetPhp == null && ev?.budget_band && pax != null) {
+    try {
+      const bands = await fetchBudgetBands(client);
+      const med = bandMedianPerHeadPhp(bands, ev.budget_band);
+      estimatedBudgetPhp = bandReachBudgetPhp(med, pax);
+      if (estimatedBudgetPhp != null) {
+        budgetBandLabel =
+          bands.find((b) => b.value === (ev.budget_band === 'nolimit' ? 'no_limit' : ev.budget_band))
+            ?.label ?? null;
+      }
+    } catch {
+      estimatedBudgetPhp = null;
+      budgetBandLabel = null;
+    }
+  }
+  const budgetSource: 'stated' | 'band' | null =
+    budgetPhp != null ? 'stated' : estimatedBudgetPhp != null ? 'band' : null;
   const region = ev?.region ?? null;
   const eventDate = ev?.event_date ?? null;
 
@@ -326,7 +386,7 @@ export async function resolveAllocationInputs(
       };
     });
 
-  return { budgetPhp, leaves, config, pax };
+  return { budgetPhp, estimatedBudgetPhp, budgetSource, budgetBandLabel, leaves, config, pax };
 }
 
 // ── Admin aggregates (de-identified, min-N gated) ────────────────────────────

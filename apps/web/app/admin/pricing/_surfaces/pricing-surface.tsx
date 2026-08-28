@@ -5,7 +5,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
-import { saveFeeSetting } from '@/app/admin/pricing/actions';
+import { saveOnboardingDiscount, saveFeeSetting } from '@/app/admin/pricing/actions';
 import { computeRetailRemovabilityMap } from '@/lib/admin/pricing-removability';
 import { fetchPricingAuditHistory } from '@/lib/admin/pricing-audit-history';
 import {
@@ -20,6 +20,8 @@ import { BookingFeeForm } from '@/app/admin/pricing/_components/booking-fee-form
 import { saveBookingFeeSchedule } from '@/app/admin/pricing/price-control-actions';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { SetupDiscountForm } from '@/app/admin/pricing/_components/setup-discount-form';
+import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { LegacyCatalogDisclosure } from '@/app/admin/pricing/_components/legacy-catalog';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -134,7 +136,7 @@ export async function PricingSurface(_props: Props) {
     admin
       .from('platform_settings')
       .select(
-        'setnayan_pay_fee_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
+        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
       )
       .eq('id', 1)
       .maybeSingle(),
@@ -152,6 +154,11 @@ export async function PricingSurface(_props: Props) {
   const settingsFee = settingsRes.data?.setnayan_pay_fee_pct;
   const feeIsFromDb = settingsFee != null && Number.isFinite(Number(settingsFee));
   const feePct = feeIsFromDb ? Number(settingsFee) : SETNAYAN_PAY_FEE_PCT;
+  // The house set-up discount. Owner 2026-08-28 — editable at any moment, so it
+  // is READ here every time rather than baked into any catalog row.
+  const storedDiscount = settingsRes.data?.onboarding_discount_pct;
+  const discountIsFromDb = storedDiscount != null && Number.isFinite(Number(storedDiscount));
+  const discountPct = readOnboardingDiscountPct(storedDiscount);
 
   // The SUPPLIER-side booking fee. Falls back to the locked code schedule so an
   // unreadable settings row shows today's numbers rather than blanks or zeros.
@@ -284,6 +291,20 @@ export async function PricingSurface(_props: Props) {
       )}
 
       <PriceCatalogBrowser rows={rows} retailTitlesForReplacement={retailTitlesForReplacement} />
+
+      <section className="mt-10">
+        <h2 className="mb-1 text-base font-semibold tracking-tight">Set-up discount</h2>
+        <p className="mb-3 text-sm text-ink/60">
+          How much off anything a customer buys while they are still setting up their
+          celebration. Order the same thing afterwards and they pay the normal price.
+          One number — every set-up price on the platform follows it.
+        </p>
+        <SetupDiscountForm
+          action={saveOnboardingDiscount}
+          discountPct={discountPct}
+          isFromDb={discountIsFromDb}
+        />
+      </section>
 
       <section className="mt-10">
         <h2 className="mb-1 text-base font-semibold tracking-tight">Platform fee</h2>

@@ -22,6 +22,7 @@ import {
 } from '@/lib/vendor-discount-rows';
 import { parentsOfKind, coverageParents } from '@/lib/vendor-category-parents';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
+import { maybeDraftCategoryProposal } from '@/lib/category-proposal-draft-server';
 import {
   buildLeafIndex,
   isCoverageLeafKind,
@@ -44,6 +45,12 @@ import {
 } from '@/lib/vendor-service-payment-schedules';
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
+import {
+  PUBLISH_REFUSAL_MESSAGE,
+  exclusiveIsSet,
+  priceIsSet,
+  unmetPublishRequirements,
+} from '@/lib/service-publish-gate';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { validatePackageDraft, type DraftItem } from '@/lib/package-authoring';
 import {
@@ -790,16 +797,36 @@ export async function proposeCategory(formData: FormData) {
     );
   }
 
-  const { error } = await supabase.from('taxonomy_category_requests').insert({
-    proposed_by_vendor_id: profile.vendor_profile_id,
-    proposed_label: label,
-    proposed_note: note,
-  });
+  const { data: created, error } = await supabase
+    .from('taxonomy_category_requests')
+    .insert({
+      proposed_by_vendor_id: profile.vendor_profile_id,
+      proposed_label: label,
+      proposed_note: note,
+    })
+    // RETURNING the id, because the draft below is keyed on an id THIS INSERT
+    // produced. A drafter that accepted a request id from the form would let a
+    // signed-in stranger attach a forged proposal to somebody else's request —
+    // the rule is the call site, not the function.
+    .select('request_id')
+    .single();
   if (error) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}${fromLockedKind}`,
     );
   }
+
+  // ── THE REQUEST ARRIVES READY TO PRESS (C4, 2026-08-28) ───────────────────
+  // Draft the proposal for the admin queue: a cleaner name, the branch it may
+  // belong under, and the near-matches we rejected with a reason each. SHIPS
+  // DARK (`CATEGORY_PROPOSAL_DRAFT_ENABLED`, default OFF).
+  //
+  // ⛔ IT DRAFTS; IT NEVER MINTS. A person presses Promote on /admin/taxonomy.
+  // 🔒 AND IT CANNOT COST THE SUPPLIER THEIR REQUEST — the insert above has
+  // already happened, and `maybeDraftCategoryProposal` never throws: no key, no
+  // network, a refusal or a slow model all leave a plain request in the queue,
+  // exactly as before this existed.
+  await maybeDraftCategoryProposal(created?.request_id ?? '', label, note);
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
@@ -1290,8 +1317,11 @@ export async function setServicePaymentSchedule(formData: FormData) {
  * the wizard path (the legacy card keeps its own actions per owner 2026-06-20).
  *
  * vendor_service_id present → UPDATE (edit); absent → INSERT (create, with the
- * create-only tier-cap pre-check). `publish=true` flips is_active on (gated to a
- * non-empty perk, re-enforced in the RPC). Time-slots are NOT handled here —
+ * create-only tier-cap pre-check). `publish=true` flips is_active on, gated on
+ * `unmetPublishRequirements` (a starting price + a non-empty Setnayan
+ * Exclusive) — and re-enforced under it by the RPC and by the
+ * `enforce_service_publish_gate` trigger, which is the actual fence.
+ * Time-slots are NOT handled here —
  * they keep addServiceTimeSlot/deleteServiceTimeSlot (Enterprise + booking lock).
  */
 export async function commitVendorService(formData: FormData) {
@@ -1443,6 +1473,31 @@ export async function commitVendorService(formData: FormData) {
     };
   } catch (e) {
     return back((e as Error).message);
+  }
+
+  // ---- THE PUBLISH GATE (owner-drawn 2026-08-28) --------------------------
+  //
+  // A card may go live only once it carries a starting price and a Setnayan
+  // Exclusive. Asked HERE, from `lib/service-publish-gate.ts`, so the vendor
+  // gets a sentence naming the field instead of a database error — the same
+  // function the maker's meter asks, so the screen and the save cannot disagree
+  // about whether Publish should have been pressable.
+  //
+  // 🔒 THIS IS NOT THE FENCE. `enforce_service_publish_gate` (migration
+  // 20271176775619) is, because `authenticated` holds UPDATE on every column of
+  // `vendor_services` under a row-ownership policy — a shop can flip
+  // `is_active` through PostgREST and never reach this line. Removing this
+  // check would not open the door; it would only make the refusal ugly.
+  //
+  // A DRAFT IS NEVER JUDGED. `publish === false` skips all of it, which is what
+  // keeps "Save as draft" a real escape from an unfinished card.
+  if (publish) {
+    const unmet = unmetPublishRequirements({
+      hasPrice: priceIsSet(fields.starting_price_php as number | null),
+      hasExclusive: exclusiveIsSet(fields.exclusive_perk_text as string | null),
+    });
+    const firstUnmet = unmet[0];
+    if (firstUnmet) return back(PUBLISH_REFUSAL_MESSAGE[firstUnmet]);
   }
 
   // ---- ★ Customization step (flag-dark behind packageAuthoringEnabled) ----
@@ -1903,21 +1958,43 @@ export async function toggleVendorServiceActive(formData: FormData) {
   }
   const is_active = nextRaw === 'true' || nextRaw === 'on' || nextRaw === '1';
 
-  // Publish gate (Part B, v2.1 §7.2): exclusive_perk_text is required to
-  // publish (is_active=true). Drafts (is_active=false) may omit it.
+  // Publish gate — the SAME rule the maker's meter and the database trigger
+  // ask (lib/service-publish-gate.ts). This path is the on/off switch on the
+  // Services list, which can turn a long-forgotten draft live without ever
+  // opening the maker, so it has to ask the whole question and not just the
+  // half this action used to know (the Exclusive). Drafts are never judged.
+  //
+  // ⚠ A READ ERROR FAILS CLOSED. Supabase resolves with `{ error }` rather than
+  // throwing, and an unread row used to reach `perk === undefined` and be
+  // refused for the wrong reason. It is refused deliberately now, and said so:
+  // publishing on a row we could not read would be publishing on no evidence.
   if (is_active) {
-    const { data: svcRow } = await supabase
+    const { data: svcRow, error: readError } = await supabase
       .from('vendor_services')
-      .select('exclusive_perk_text')
+      .select('exclusive_perk_text, starting_price_php')
       .eq('vendor_service_id', idRaw)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-    const perk = (svcRow as { exclusive_perk_text?: string | null } | null)
-      ?.exclusive_perk_text;
-    if (!perk || perk.trim().length === 0) {
+    if (readError || !svcRow) {
       return redirect(
         `${await servicesReturnBase()}?error=${encodeURIComponent(
-          'A Setnayan Exclusive perk is required to publish this service.',
+          'We could not read this card just now, so it was not published. Try again in a moment.',
+        )}`,
+      );
+    }
+    const row = svcRow as {
+      exclusive_perk_text?: string | null;
+      starting_price_php?: number | null;
+    };
+    const unmet = unmetPublishRequirements({
+      hasPrice: priceIsSet(row.starting_price_php),
+      hasExclusive: exclusiveIsSet(row.exclusive_perk_text),
+    });
+    const firstUnmet = unmet[0];
+    if (firstUnmet) {
+      return redirect(
+        `${await servicesReturnBase()}?error=${encodeURIComponent(
+          PUBLISH_REFUSAL_MESSAGE[firstUnmet],
         )}`,
       );
     }
@@ -2078,12 +2155,36 @@ export async function deleteVendorService(formData: FormData) {
   // deleted. It vanishes from the vendor's public page exactly as before, and
   // the couple keeps the record of what they bought. Only a service nobody has
   // touched is deleted outright.
-  const { count: pickedCount } = await supabase
+  /*
+    🔴 THIS COUNT RAN ON THE SHOP'S OWN SESSION AND COULD ONLY EVER ANSWER ZERO.
+    Measured against production 2026-08-28 as the shop's authenticated role, in a
+    rolled-back transaction: `event_vendors` carries four policies — couple read,
+    couple write, moderator read, moderator write — and NOT ONE admits a vendor,
+    so a shop reads zero rows of a table holding 45. The guard the comment above
+    describes therefore could not fire: every delete took the "nobody has touched
+    it" branch, hard-deleted the service, and SET NULL'd `event_vendors.service_id`
+    on any booking that pointed at it — erasing which service a couple bought,
+    including on a `contracted` row.
+
+    🔢 NOBODY HAS BEEN HARMED, and the arithmetic is why: production holds 45
+    bookings and ZERO of them carry a `service_id` at all, so the true count is
+    also zero today. The guard was inert, not wrong-answered — which is exactly
+    the window in which to fix it.
+
+    The admin client answers "has anyone picked this?", a yes/no about a service
+    id the caller is proved to own on the very next statement. It reads one
+    count and no rows.
+  */
+  const { count: pickedCount, error: pickedError } = await createAdminClient()
     .from('event_vendors')
     .select('vendor_id', { count: 'exact', head: true })
     .eq('service_id', idRaw);
 
-  if ((pickedCount ?? 0) > 0) {
+  // ⚠ AND AN UNREADABLE COUNT MUST NOT MEAN ZERO. `count` comes back null on an
+  // error, and `?? 0` would send an unmeasured service straight down the DELETE
+  // branch — the same silence, one layer up. Fail toward RETIRING it: the shop
+  // sees the card leave their public page either way, and nobody loses a record.
+  if (pickedError || (pickedCount ?? 0) > 0) {
     const { error: retireErr } = await supabase
       .from('vendor_services')
       .update({ is_active: false, updated_at: new Date().toISOString() })

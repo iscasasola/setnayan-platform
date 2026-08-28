@@ -22,6 +22,7 @@ import {
 } from '@/lib/vendor-discount-rows';
 import { parentsOfKind, coverageParents } from '@/lib/vendor-category-parents';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
+import { maybeDraftCategoryProposal } from '@/lib/category-proposal-draft-server';
 import {
   buildLeafIndex,
   isCoverageLeafKind,
@@ -796,16 +797,36 @@ export async function proposeCategory(formData: FormData) {
     );
   }
 
-  const { error } = await supabase.from('taxonomy_category_requests').insert({
-    proposed_by_vendor_id: profile.vendor_profile_id,
-    proposed_label: label,
-    proposed_note: note,
-  });
+  const { data: created, error } = await supabase
+    .from('taxonomy_category_requests')
+    .insert({
+      proposed_by_vendor_id: profile.vendor_profile_id,
+      proposed_label: label,
+      proposed_note: note,
+    })
+    // RETURNING the id, because the draft below is keyed on an id THIS INSERT
+    // produced. A drafter that accepted a request id from the form would let a
+    // signed-in stranger attach a forged proposal to somebody else's request —
+    // the rule is the call site, not the function.
+    .select('request_id')
+    .single();
   if (error) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}${fromLockedKind}`,
     );
   }
+
+  // ── THE REQUEST ARRIVES READY TO PRESS (C4, 2026-08-28) ───────────────────
+  // Draft the proposal for the admin queue: a cleaner name, the branch it may
+  // belong under, and the near-matches we rejected with a reason each. SHIPS
+  // DARK (`CATEGORY_PROPOSAL_DRAFT_ENABLED`, default OFF).
+  //
+  // ⛔ IT DRAFTS; IT NEVER MINTS. A person presses Promote on /admin/taxonomy.
+  // 🔒 AND IT CANNOT COST THE SUPPLIER THEIR REQUEST — the insert above has
+  // already happened, and `maybeDraftCategoryProposal` never throws: no key, no
+  // network, a refusal or a slow model all leave a plain request in the queue,
+  // exactly as before this existed.
+  await maybeDraftCategoryProposal(created?.request_id ?? '', label, note);
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');

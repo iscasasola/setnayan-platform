@@ -92,7 +92,7 @@ import {
   vendorAgreeToLock,
   vendorDeclineLock,
 } from './actions';
-import { lockRequestDaysLeft } from '@/lib/lock-request-state';
+import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
@@ -3500,14 +3500,14 @@ function LockRequestAnswer({
   expiresAt: string | null;
 }) {
   // Server-rendered, so "now" is the render instant. The deadline is the one the
-  // DATABASE stamped and the sweep enforces — never a recomputed seven days.
-  const daysLeft = lockRequestDaysLeft(expiresAt, new Date());
+  // DATABASE stamped and the sweep enforces — never a window recomputed here.
+  const left = lockRequestFuseLabel(expiresAt, new Date());
   const fuse =
-    daysLeft === null
+    left === null
       ? 'They are waiting on your answer.'
-      : daysLeft === 0
-        ? 'Last day to answer — after today the request closes and they will look elsewhere.'
-        : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left to answer — after that the request closes and they will look elsewhere.`;
+      : left === 'closing now'
+        ? 'Closing now — once it does, the request is gone and they will look elsewhere.'
+        : `${left} — after that the request closes and they will look elsewhere.`;
   return (
     <div
       className="mt-3 rounded-2xl border p-4"

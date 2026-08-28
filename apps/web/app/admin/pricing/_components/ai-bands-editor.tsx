@@ -351,7 +351,7 @@ function BandCard({
     >
       <header className="flex flex-wrap items-center gap-4 border-b border-ink/10 bg-ink/[0.02] p-4">
         <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] font-mono text-[15px] font-bold ${
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md font-mono text-[15px] font-bold ${
             notOffered ? 'bg-ink/8 text-ink/55' : 'bg-gold/[0.16] text-gold-deep'
           }`}
         >
@@ -423,9 +423,9 @@ function BandCard({
             {band.kinds.map((k) => (
               <span
                 key={k.eventType}
-                className="inline-flex items-center gap-2 rounded-[10px] border border-ink/12 bg-cream px-2.5 py-1.5 text-[13.5px] font-semibold"
+                className="inline-flex items-center gap-2 rounded-md border border-ink/12 bg-cream px-2.5 py-1.5 text-[13.5px] font-semibold"
               >
-                <span className="flex h-[17px] w-[17px] items-center justify-center rounded-[5px] border-[1.5px] border-terracotta-700 bg-terracotta-700 text-cream">
+                <span className="flex h-[17px] w-[17px] items-center justify-center rounded-sm border-[1.5px] border-terracotta-700 bg-terracotta-700 text-cream">
                   <Check className="h-[11px] w-[11px]" strokeWidth={2.6} aria-hidden />
                 </span>
                 <span className="text-[15px] leading-none" aria-hidden>

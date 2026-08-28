@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { BOOKING_FEE } from '@/lib/booking-fee';
+import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import {
   PAPIC_ANCHOR_SHOTS,
   buildPapicLadder,
@@ -132,8 +133,24 @@ export async function saveBookingFeeSchedule(
   });
 
   revalidatePath('/admin/pricing');
+  // NARROWED from a layout-scoped bust of the vendor dashboard root — which threw
+  // away the whole dashboard shell, for every supplier, on an edit that happens
+  // maybe twice a year, to refresh a number that shell never shows.
+  // (Written without the literal call: lint-vendor-layout-revalidate.mjs scans raw
+  // source and does not strip comments, so quoting it here re-trips the guard.)
+  //
+  // Measured, not assumed: the only component that renders the SCHEDULE in words is
+  // app/vendors/_components/vendor-tier-deltas.tsx, and it is mounted on /vendors
+  // ALONE — so the line below covers the entire public claim. Nothing under
+  // /vendor-dashboard renders the schedule; the fee figures there are per-order
+  // amounts already computed and stored at charge time, which a reprice does not
+  // move. (booking-fees/page.tsx quotes "5% … then 1%" in a DOCBLOCK, not in JSX.)
+  //
+  // Kept page-scoped on the booking-fee surface because that is the vendor's money
+  // document for these charges and the plausible home for a rendered schedule line
+  // later; page scope costs one path instead of the shell.
   revalidatePath('/vendors');
-  revalidatePath('/vendor-dashboard', 'layout');
+  revalidatePath(VENDOR_BOOKING_FEES_PATH);
   return {
     ok: true,
     message: `Saved — ${rate}% of the first ₱${band.toLocaleString('en-PH')}, then ${tail}%.`,

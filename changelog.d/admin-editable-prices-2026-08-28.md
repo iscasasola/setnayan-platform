@@ -183,3 +183,31 @@ expressed as five anchors; `LIVE_STUDIO` is `per_day`.
   the second assertion proven to fire on its own.
 
 SPEC IMPACT: None.
+
+### Two blocking guards this PR had tripped
+
+Both were its own code, and both had been hidden behind the failing unit step —
+the aggregate never ran, so they only surfaced once the suite went green.
+
+- **Radius tokens.** The AI-bands editor drew three ad-hoc corners. They now use
+  the existing scale (`rounded-md` = 8px for the band badge and the toggle chip,
+  matching the near-identical chip six lines up; `rounded-sm` = 4px for the 17px
+  checkbox). 🪤 **This guard is ADVISORY locally and blocking only under CI's
+  `RADIUS_LINT_STRICT=1`** — a local run exits 0 and prints a warning nobody
+  reads. A guard that is advisory locally and blocking in CI will always be
+  discovered late.
+- **Vendor-layout revalidation — NARROWED, not baselined.** Saving the booking fee
+  threw away the entire vendor dashboard shell, for every supplier, to refresh a
+  number that shell never shows. Measured: the only component rendering the
+  schedule in words is `vendor-tier-deltas.tsx`, mounted on `/vendors` alone, which
+  the line above already covers; nothing under `/vendor-dashboard` renders it (the
+  booking-fees page quotes the rate in a docblock, not in JSX) and its fee figures
+  are per-order amounts stored at charge time, which a reprice does not move. Now
+  page-scoped on `/vendor-dashboard/booking-fees`. **The baseline was deliberately
+  NOT bumped** — a baseline is a bill, not a decision, and this bill did not need
+  paying.
+  🪤 `lint-vendor-layout-revalidate.mjs` **scans raw source and does not strip
+  comments**, so a comment quoting the call it removed re-trips it. Named here, not
+  worked around: the comment is worded without the literal.
+
+SPEC IMPACT: None.

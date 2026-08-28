@@ -11,6 +11,7 @@ import {
   fetchVendorBookingFeePaidPhp,
 } from '@/lib/vendor-papic-grants';
 import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 
 // POST /api/vendor/papic-capture
 //
@@ -22,10 +23,16 @@ import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
 // under the vendor's RLS client (the insert policy is the hard booked/own-profile
 // gate) → NSFW-screen in the background.
 //
-// ⚠️ COUNSEL-GATED: this whole surface is gated by isVendorPapicCaptureEnabled()
-// (the admin Data Privacy control `vendor_papic_capture`, default OFF). Until the
-// DPO/NPC ruling flips it, this route 403s and no guest PI is collected. Geo is
-// never stored; the 10s clip cap is a product lock; NSFW is always-on.
+// ⚠️ THIS SURFACE IS LIVE. It is gated by isVendorPapicCaptureEnabled() (the
+// admin Data Privacy control `vendor_papic_capture`), and that control has been
+// **ACTIVE IN PRODUCTION SINCE 2026-07-16 04:51 UTC**, approved by the owner.
+// This comment used to say "default OFF … this route 403s", and six weeks of
+// planning read it and believed the lane was shut. A privacy control's state
+// lives in the DATABASE; a comment describing it is a claim with an expiry date.
+// Geo is never stored; the 10s clip cap is a product lock; NSFW is always-on.
+//
+// ⏱ AND THE LANE NOW CLOSES WITH THE CELEBRATION — owner 2026-08-28: *"they get
+// to use it until event day."* See THE WINDOW below.
 
 export const runtime = 'nodejs';
 
@@ -147,6 +154,49 @@ export async function POST(req: Request) {
   // The fee can only ever RAISE the number (see `allowancePointsFor`), and an
   // unread fee is `null`, which grants nothing — never a zero that would look
   // like "they paid nothing".
+  // ── THE WINDOW ────────────────────────────────────────────────────────────
+  // Owner 2026-08-28: *"they get to use it until event day."* A supplier's
+  // camera documents their own work, so it is open through the celebration and
+  // shut once the celebration is over.
+  //
+  // 🔑 IT REUSES THE ONE RESOLVER RATHER THAN DEFINING "OVER" A SECOND TIME.
+  // `getMenuLifecyclePhase` already answers it for the whole product — 06:00 in
+  // the VENUE's clock on the day after `COALESCE(event_end_date, event_date)`,
+  // or the moment the host presses "Close out the day". Six hours rather than
+  // midnight because a Filipino reception runs past twelve; the last day rather
+  // than the first because a festival's middle days are not "after". Every one
+  // of those was argued out where that function lives, and re-deriving them
+  // here is exactly the second opinion this codebase keeps paying for.
+  //
+  // ⚠ FAILS OPEN, deliberately. An unreadable event, a missing date or an
+  // unrecognised timezone leaves the phase at 'plan' and the lane open — a
+  // transient read failure must not silently stop a supplier capturing on the
+  // one day they are standing at the venue. What closes this lane is a date we
+  // could actually read.
+  const { data: eventRow } = await admin
+    .from('events')
+    .select('event_date, event_end_date, timezone, cleared_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const ev = eventRow as {
+    event_date: string | null;
+    event_end_date: string | null;
+    timezone: string | null;
+    cleared_at: string | null;
+  } | null;
+  if (ev) {
+    const phase = getMenuLifecyclePhase(
+      ev.event_date,
+      ev.cleared_at,
+      ev.timezone ?? undefined,
+      undefined,
+      ev.event_end_date,
+    );
+    if (phase === 'after') {
+      return NextResponse.json({ error: 'event_over' }, { status: 403 });
+    }
+  }
+
   const [tier, spent, feePaidPhp] = await Promise.all([
     deriveVendorPapicTier(admin, vendorProfileId, eventId),
     fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),

@@ -109,68 +109,71 @@ export async function acceptManpowerGig(
     return { status: 'not_signed_in' };
   }
 
-  // Resolve vendor_profile_id for the calling user.
-  const { data: vendor } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  /*
+    🔴 EVERY STATEMENT THIS REPLACED WAS REFUSED, AND NONE OF THEM THREW.
 
-  if (!vendor) {
-    return { status: 'no_vendor_profile' };
-  }
+    Measured in production 2026-08-29:
+      · the pre-check read `manpower_gigs` on the caller's session, and all
+        three vendor SELECT policies key on `vendor_profile_id` being the
+        caller's OWN shop — an OPEN gig is NULL, so it matched none. `existing`
+        was always null ⇒ every claim answered 'not_found'.
+      · the UPDATE had **zero** UPDATE policies to satisfy — there were none on
+        the table for anybody but an admin.
+      · and no open gig could exist to claim anyway: `vendor_profile_id` was
+        NOT NULL in production while the repo declared it nullable.
 
-  // Pre-check the gig's current state. The accept UPDATE below is the
-  // authoritative gate (it's RLS-protected and atomic against status='pending'),
-  // but this pre-check gives us a friendlier error message when the gig is
-  // simply gone vs. when the wallet is empty.
-  const { data: existing, error: fetchError } = await supabase
-    .from('manpower_gigs')
-    .select('gig_id, status, vendor_profile_id')
-    .eq('gig_id', gigId)
-    .maybeSingle();
+    🔒 IT IS AN RPC NOW, NOT A WIDER POLICY, AND THAT IS THE WHOLE POINT.
+    `authenticated` holds UPDATE on every column of this table, so any UPDATE
+    policy broad enough to let a shop claim a gig is also broad enough to let it
+    rewrite `cash_amount_php_centavos` — editing what it is about to be paid.
+    `claim_manpower_gig` is SECURITY DEFINER, single-winner, and the only writer
+    of `vendor_profile_id` from a user session. THE ROW IS YOURS, THE FIELD IS
+    NOT.
 
-  if (fetchError) {
-    return { status: 'error', message: fetchError.message };
+    ⚠ CALLED ON THE CALLER'S OWN SESSION. The function resolves ownership from
+    `auth.uid()`; on the service-role client that is NULL and every claim would
+    be refused while the feature looked finished.
+  */
+  const { data, error } = await supabase.rpc('claim_manpower_gig', {
+    p_gig_id: gigId,
+  });
+  if (error) {
+    return { status: 'error', message: error.message };
   }
-  if (!existing) {
-    return { status: 'not_found' };
-  }
-  if (existing.status !== 'pending' || existing.vendor_profile_id !== null) {
-    return { status: 'already_claimed' };
-  }
-
-  // Atomic claim — accepting is FREE (no token consume). Match
-  // `status='pending'` + `vendor_profile_id IS NULL` to prevent races: if
-  // another vendor's UPDATE landed between our pre-check and this write, the
-  // WHERE returns 0 rows and we return 'race_lost'.
-  const nowIso = new Date().toISOString();
-  const { data: claimed, error: claimError } = await supabase
-    .from('manpower_gigs')
-    .update({
-      status: 'accepted',
-      vendor_profile_id: vendor.vendor_profile_id,
-      accepted_at: nowIso,
-    })
-    .eq('gig_id', gigId)
-    .eq('status', 'pending')
-    .is('vendor_profile_id', null)
-    .select('*')
-    .maybeSingle();
-
-  if (claimError) {
-    return { status: 'error', message: claimError.message };
-  }
-  if (!claimed) {
-    console.warn(
-      '[manpower] Race-lost on acceptManpowerGig — gig already claimed by another vendor.',
-      { gigId, vendorProfileId: vendor.vendor_profile_id },
-    );
-    return { status: 'race_lost' };
+  const out = (data ?? {}) as { ok?: boolean; reason?: string; event_id?: string };
+  if (!out.ok) {
+    switch (out.reason) {
+      case 'not_found':
+        return { status: 'not_found' };
+      case 'not_booked_here':
+        // Not an error and not a race — this shop is not booked on that
+        // celebration, so the shift was never theirs to take.
+        return { status: 'not_found' };
+      case 'already_claimed':
+        // A lost race deliberately never names the rival that won it.
+        console.warn('[manpower] claim lost — the shift was taken first.', { gigId });
+        return { status: 'race_lost' };
+      case 'not_open':
+        return { status: 'already_claimed' };
+      default:
+        return { status: 'error', message: out.reason ?? 'Could not claim that shift.' };
+    }
   }
 
   revalidatePath('/vendor-dashboard/manpower');
-  revalidatePath(`/dashboard/${claimed.event_id}/manpower`);
+  if (out.event_id) revalidatePath(`/dashboard/${out.event_id}/manpower`);
+
+  // Read the claimed row back through the OWNER policy, which now matches it.
+  const { data: claimed } = await supabase
+    .from('manpower_gigs')
+    .select('*')
+    .eq('gig_id', gigId)
+    .maybeSingle();
+  if (!claimed) {
+    // The claim landed; only the read-back did not. Reporting an error here
+    // would tell a shop it failed to take work it now holds.
+    return { status: 'ok', gig: { gig_id: gigId } as ManpowerGigRow };
+  }
 
   return { status: 'ok', gig: claimed as ManpowerGigRow };
 }
@@ -336,12 +339,21 @@ export async function postManpowerGig(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // RLS on event_members + manpower_gigs (host SELECT policy) gates the
-  // INSERT indirectly: we INSERT with posted_by_user_id = auth.uid() · the
-  // SELECT on the returned row enforces host-membership. Non-hosts get a
-  // PostgREST-level error that surfaces as a generic failure (the policy
-  // model is INSERT-allowed-for-authenticated, but the returning SELECT
-  // requires host membership · same pattern as event-qr regenerate).
+  /*
+    🔴 THIS COMMENT DESCRIBED A MECHANISM THAT DID NOT EXIST. It asserted "the
+    policy model is INSERT-allowed-for-authenticated"; measured in production
+    2026-08-29, `manpower_gigs` had **ZERO INSERT policies** — so RLS refused
+    every post outright, and the NOT NULL on `vendor_profile_id` would have
+    killed it even if one had existed. A host could never post a crew shift.
+
+    `manpower_gigs_host_posts_open` (migration 20271179151893) is the real gate
+    now: the host's own celebration, in their own name, OPEN and PENDING. The
+    `vendor_profile_id IS NULL` clause is load-bearing — without it a host could
+    post a shift pre-assigned to a shop that never agreed to it.
+
+    `status` is left to its column default rather than sent, so the value the
+    policy checks is the value the database chose.
+  */
   const { error: insertError } = await supabase.from('manpower_gigs').insert({
     event_id: eventId,
     posted_by_user_id: user.id,

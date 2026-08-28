@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { HardHat, Clock, BadgeCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { GigCard } from './_components/gig-card';
 import type { ManpowerGigRow, ManpowerGigStatus } from './actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -103,11 +104,23 @@ export default async function VendorManpowerPage() {
       )
       .eq('vendor_profile_id', vendor.vendor_profile_id)
       .order('posted_at', { ascending: false }),
-    // 2. Events the vendor is involved with (→ open gigs below).
-    supabase
+    // 2. Events the vendor is BOOKED on (→ open gigs below).
+    //
+    // 🔴 THIS READ WAS DEAD AND SO WAS EVERYTHING BEHIND IT. It ran on the
+    // vendor's own session; `event_vendors` carries four policies (couple
+    // read/write, moderator read/write) and NOT ONE admits a vendor, so a
+    // booked shop read ZERO rows of its own booking, `eligibleEventIds` was
+    // always empty, the open-gig query below was SKIPPED ENTIRELY, and the
+    // panel reported "hosts are not offering any". Fourth site of that bug.
+    //
+    // Admin client scoped by the caller's OWN profile id — the same shape the
+    // Answers Desk and the customers roster use, and the only thing that works.
+    createAdminClient()
       .from('event_vendors')
       .select('event_id')
-      .eq('marketplace_vendor_id', vendor.vendor_profile_id),
+      .eq('marketplace_vendor_id', vendor.vendor_profile_id)
+      .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete'])
+      .is('archived_at', null),
   ]);
 
   if (myGigsError) {
@@ -122,6 +135,8 @@ export default async function VendorManpowerPage() {
   // ⚠ skipped entirely, and the panel said "No gigs yet · open gigs appear here
   // ⚠ once a host you serve posts one" — paid work they could claim today,
   // ⚠ reported as hosts not offering any. Nothing on screen looked broken.
+  // ⚠ (The comment was right about the COST and wrong about the CAUSE: it
+  // ⚠ handled the error case, and an RLS refusal is not an error. See above.)
   if (eventLinksError) {
     logQueryError('vendor-manpower:eventLinks', eventLinksError, {
       vendorProfileId: vendor.vendor_profile_id,

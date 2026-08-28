@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
-import { bandRangePhp, bandMidBudgetPhp, bandReachBudgetPhp } from '@/lib/budget-band-money';
+import { bandRangePhp, bandReachBudgetPhp } from '@/lib/budget-band-money';
 import { priceFitScore, isBudgetFiltered, PRICE_FIT_NEUTRAL } from '@/lib/smart-sort';
 
 const WEB_ROOT = join(process.cwd(), process.cwd().endsWith('/apps/web') ? '' : 'apps/web');
@@ -37,7 +37,7 @@ const BAND_MONEY = 'lib/budget-band-money.ts';
  *  unused import in place passed it. Measured, not reasoned — the mutation went
  *  green. */
 const BAND_MONEY_CALLERS: ReadonlyArray<{ rel: string; call: RegExp }> = [
-  { rel: 'lib/create-event-capture.ts', call: /bandMidBudgetPhp\(/ },
+  { rel: 'lib/create-event-capture.ts', call: /bandReachBudgetPhp\(/ },
   { rel: 'lib/budget-allocation-data.ts', call: /bandReachBudgetPhp\(/ },
   {
     rel: 'app/onboarding/wedding/_components/onboarding-shell.tsx',
@@ -78,15 +78,21 @@ test('no caller re-implements the arithmetic', () => {
   assert.match(home, /BAND_SPREAD_HIGH/);
 });
 
-test('the two stored answers still differ, and the file says so', () => {
-  // Not a bug to fix here — a decision to surface. If these ever converge,
-  // somebody made a call about a couple's money and this test should be the
-  // thing that notices.
-  const mid = bandMidBudgetPhp(5000, 150);
+test('both doors now store the SAME figure — the drift is settled', () => {
+  // ⚖ THIS TEST DID ITS JOB. It used to assert the two answers still DIFFER,
+  // with a note saying that if they ever converged, somebody had made a call
+  // about a couple's money and this was the thing that should notice. Somebody
+  // did: owner 2026-08-29, **"ok"** to showing the range on the short form and
+  // storing what the couple was shown. It now pins the convergence instead.
   const top = bandReachBudgetPhp(5000, 150);
-  assert.equal(mid, 750_000);
-  assert.equal(top, 900_000);
-  assert.ok(top! > mid!, 'the onboarding stores the top; create-event stores the middle');
+  assert.equal(top, 900_000, 'the top of the band at 150 guests');
+  assert.equal(top, bandRangePhp(5000, 150)!.highPhp, 'and it IS the range’s high end');
+  // The retired middle must not come back as a second answer.
+  const home = read(BAND_MONEY);
+  assert.ok(
+    !/export function bandMidBudgetPhp/.test(home),
+    'a second stored answer is how the two crept apart in the first place',
+  );
 });
 
 test('the onboarding still reads the ends of the range it always read', () => {
@@ -96,6 +102,37 @@ test('the onboarding still reads the ends of the range it always read', () => {
   const src = read('app/onboarding/wedding/_components/onboarding-shell.tsx');
   assert.match(src, /const bandLo[\s\S]{0,120}?lowPhp/, 'bandLo must read the LOW end');
   assert.match(src, /const bandHi[\s\S]{0,120}?highPhp/, 'bandHi must read the HIGH end');
+});
+
+test('the short form SHOWS the figure it is about to store', () => {
+  // The whole point of the 2026-08-29 ruling: this form used to take a budget
+  // feel and a guest count, print nothing, and save a number. It prints the
+  // range now — and what it saves is that range's HIGH end, so screen and
+  // storage cannot drift apart into the same defect a second time.
+  const picker = read('app/dashboard/(account)/create-event/_components/event-type-picker.tsx');
+  assert.match(picker, /bandRangePhp\(/, 'the picker must compute the range from the shared module');
+  assert.match(picker, /budgetRange\.lowPhp/, 'and print its low end');
+  assert.match(picker, /budgetRange\.highPhp/, 'and its high end');
+  assert.ok(
+    !/we’ll estimate a starting budget|we'll estimate a starting budget/.test(picker),
+    'the vague promise about an unseen number must be gone',
+  );
+
+  const capture = read('lib/create-event-capture.ts');
+  assert.match(capture, /bandReachBudgetPhp\(/, 'and the capture must store the top');
+  assert.ok(
+    !/bandMidBudgetPhp/.test(capture),
+    'the middle is retired — storing it again re-opens the two-door drift',
+  );
+
+  // Proved, not asserted from the source: the stored figure IS the printed one.
+  for (const [med, pax] of [[2000, 100], [5000, 150], [11000, 240], [15000, 300]]) {
+    assert.equal(
+      bandReachBudgetPhp(med, pax),
+      bandRangePhp(med, pax)!.highPhp,
+      `screen and storage must agree at med ${med} x ${pax}`,
+    );
+  }
 });
 
 // ── 2 · THE SEARCH OPTS IN, AND BOTH SURFACES AGREE ───────────────────────

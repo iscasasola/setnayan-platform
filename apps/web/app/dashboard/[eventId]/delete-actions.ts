@@ -16,6 +16,13 @@ import {
   supplierWasPaid,
 } from '@/lib/event-deletion-gate';
 import { manilaTodayISO } from '@/lib/event-board';
+import {
+  blockCanBeAsked,
+  blockKind,
+  isDeletionReasonCode,
+  reasonIsComplete,
+  type BlockKind,
+} from '@/lib/event-deletion-reasons';
 import { emitNotification } from '@/lib/notification-emit';
 
 /**
@@ -82,6 +89,29 @@ export type DeletionImpact = {
   blocked: boolean;
   /** Why it is blocked, in the couple's words. Null when it is not. */
   blockedReason: string | null;
+  /**
+   * WHICH of four things is holding it.
+   *
+   * 🔴 Until 2026-08-28 all four wore one sentence and the owner's verdict on
+   * it was ***"still failed to identify"***. This is what lets the panel say
+   * something different for each, and what lets it offer a door for exactly the
+   * two that have one.
+   */
+  blockKind: BlockKind | null;
+  /** TRUE when "Ask us to remove it" should be on screen. */
+  canAsk: boolean;
+  /**
+   * What was actually bought, so a refusal about money can NAME the money.
+   * Empty when nothing was, or when the read failed — never a guess.
+   */
+  paidItems: { description: string; amountPhp: number | null }[];
+  /** The couple's own open request, when they have already asked. */
+  pendingRequest: {
+    id: string;
+    reasonCode: string;
+    reason: string | null;
+    createdAt: string;
+  } | null;
 };
 
 export type ImpactResult =
@@ -247,28 +277,90 @@ export async function getEventDeletionImpact(
   */
   const { data: orderRows, error: orderErr } = await admin
     .from('orders')
-    .select('order_id')
+    .select('order_id, status, description, requested_total_php, confirmed_total_php')
     .eq('event_id', trimmed);
 
   let paymentRows: number | null = null;
   let receiptRows: number | null = null;
+  /*
+    🔑 SPLIT BY STATUS, BECAUSE "WE HAVE YOUR MONEY" AND "NOBODY HAS OPENED
+    YOUR SCREENSHOT" ARE DIFFERENT FACTS AND ONLY ONE OF THEM IS TRUE HERE.
+
+    `payment_status` is pending / matched / rejected — there is no 'paid'
+    (a query filtering for one comes back rejected, not thrown, which is how a
+    duplicate-reference guard once ran inert for a month). `matched` is an admin
+    having confirmed the transfer; `pending` is a screenshot nobody has looked
+    at. A `rejected` payment is deliberately NEITHER: it is money we have looked
+    at and said did not arrive, so it must not hold somebody's celebration
+    hostage.
+
+    Both still count toward `paymentRows`, which is what BLOCKS — a payment we
+    have not checked is exactly the case where refusing is right. What changes
+    is what the person is TOLD.
+  */
+  let matchedPayments: number | null = null;
+  let pendingPayments: number | null = null;
+  const paidItems: { description: string; amountPhp: number | null }[] = [];
+
   if (orderErr) {
-    // Unreadable order list ⇒ both money signals stay null ⇒ blocked.
+    // Unreadable order list ⇒ every money signal stays null ⇒ blocked.
   } else {
-    const orderIds = (orderRows ?? []).map((r) => r.order_id as string);
+    const orders = (orderRows ?? []) as {
+      order_id: string;
+      status: string | null;
+      description: string | null;
+      requested_total_php: number | string | null;
+      confirmed_total_php: number | string | null;
+    }[];
+    const orderIds = orders.map((r) => r.order_id);
+
+    /*
+      What was bought, for the sentence that names it. The CONFIRMED total wins
+      where there is one — that is the figure a receipt would carry — and the
+      requested total is what a bill still waiting on us says. A missing or
+      unparseable amount stays null and the panel prints the line without a
+      number rather than inventing a zero.
+    */
+    for (const o of orders) {
+      if (o.status === 'cancelled' || o.status === 'draft') continue;
+      const raw = o.confirmed_total_php ?? o.requested_total_php;
+      const n = raw === null || raw === undefined ? NaN : Number(raw);
+      paidItems.push({
+        description: o.description?.trim() || 'A Setnayan service',
+        amountPhp: Number.isFinite(n) ? n : null,
+      });
+    }
+
     if (orderIds.length === 0) {
       // No orders at all — nothing could have been paid against this event.
       paymentRows = 0;
       receiptRows = 0;
+      matchedPayments = 0;
+      pendingPayments = 0;
     } else {
-      [paymentRows, receiptRows] = await Promise.all([
-        readCount(
-          admin.from('payments').select('*', HEAD).in('order_id', orderIds),
-        ),
-        readCount(
-          admin.from('receipts').select('*', HEAD).in('order_id', orderIds),
-        ),
-      ]);
+      [paymentRows, receiptRows, matchedPayments, pendingPayments] =
+        await Promise.all([
+          readCount(
+            admin.from('payments').select('*', HEAD).in('order_id', orderIds),
+          ),
+          readCount(
+            admin.from('receipts').select('*', HEAD).in('order_id', orderIds),
+          ),
+          readCount(
+            admin
+              .from('payments')
+              .select('*', HEAD)
+              .in('order_id', orderIds)
+              .eq('status', 'matched'),
+          ),
+          readCount(
+            admin
+              .from('payments')
+              .select('*', HEAD)
+              .in('order_id', orderIds)
+              .eq('status', 'pending'),
+          ),
+        ]);
     }
   }
 
@@ -375,13 +467,62 @@ export async function getEventDeletionImpact(
     the one a couple can actually do something about, and it names WHO is holding
     it. "Something has been paid for" would be true and useless here.
   */
-  const blockedReason = blocked
-    ? unreadable
-      ? 'We couldn’t check what’s been paid for on this celebration, so we haven’t removed it. Please try again in a moment, or message us and we’ll sort it out.'
-      : (unsettledPaidSuppliers ?? 0) > 0
-        ? `You’ve paid ${unsettledPaidSuppliers === 1 ? 'a supplier' : `${unsettledPaidSuppliers} suppliers`} for this celebration, so it can’t be removed yet — they’d lose the booking they were paid for. Put it away instead, or message us and we’ll help sort it out with them.`
-        : 'Something on this celebration has already been paid for, so it can’t be removed here. Put it away instead, or message us and we’ll help.'
+  const kind = blocked
+    ? blockKind({
+        unreadable,
+        unsettledPaidSuppliers,
+        settledOrders,
+        receiptRows,
+        matchedPayments,
+        pendingPayments,
+      })
     : null;
+
+  /*
+    ⚠ `blocked` AND `kind` ARE COMPUTED SEPARATELY AND MUST NOT DISAGREE.
+    `deletionIsBlocked` is the gate and stays the authority; `blockKind` only
+    describes it. If the gate says no and the describer finds nothing to name,
+    the honest answer is the unreadable one — never silence, which would render
+    a refusal with no sentence at all.
+  */
+  const describedKind: BlockKind | null = blocked ? (kind ?? 'unreadable') : null;
+
+  const blockedReason =
+    describedKind === 'unreadable'
+      ? 'We couldn’t check what’s been paid for on this celebration, so we haven’t removed it. Please try again in a moment, or message us and we’ll sort it out.'
+      : describedKind === 'suppliers'
+        ? `You’ve paid ${unsettledPaidSuppliers === 1 ? 'a supplier' : `${unsettledPaidSuppliers} suppliers`} for this celebration, so it can’t be removed yet — they’d lose the booking they were paid for. Put it away instead, or message us and we’ll help sort it out with them.`
+        : describedKind === 'awaiting_check'
+          ? 'We’re still checking a payment on this celebration, so it can’t be removed yet. Tell us why you want it removed and a person will answer you.'
+          : describedKind === 'settled'
+            ? 'Removing this ends what you’ve paid for on it. It stops working and doesn’t move to another celebration, and we can’t put the money back automatically — so tell us why and a person will answer you.'
+            : null;
+
+  /*
+    THE COUPLE'S OWN OPEN REQUEST. Read even when nothing is blocking: a request
+    can outlive the thing that caused it (a payment gets rejected, a supplier
+    agrees), and a person who asked and then sees no trace of it will ask again.
+    A failed read leaves it null, which shows the ask button again — the safe
+    direction, because the one-pending-per-celebration index refuses the
+    duplicate rather than queueing it twice.
+  */
+  let pendingRequest: DeletionImpact['pendingRequest'] = null;
+  {
+    const { data: reqRow } = await admin
+      .from('event_deletion_requests')
+      .select('id, reason_code, reason, created_at')
+      .eq('event_id', trimmed)
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (reqRow) {
+      pendingRequest = {
+        id: reqRow.id as string,
+        reasonCode: reqRow.reason_code as string,
+        reason: (reqRow.reason as string | null) ?? null,
+        createdAt: reqRow.created_at as string,
+      };
+    }
+  }
 
   return {
     ok: true,
@@ -393,6 +534,10 @@ export async function getEventDeletionImpact(
       bookedVendors,
       blocked,
       blockedReason,
+      blockKind: describedKind,
+      canAsk: blockCanBeAsked(describedKind) && pendingRequest === null,
+      paidItems,
+      pendingRequest,
     },
   };
 }
@@ -468,6 +613,44 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
     asked for it, and refusing at this point would leave them unable to remove
     anything because of a storage read — but nothing is reported as swept.
   */
+  /*
+    ── WHY THEY LEFT, WRITTEN BEFORE THE CELEBRATION IS ──────────────────────
+    Owner 2026-08-28: *"they can pick a reason for deleting. or they state
+    their reason."*
+
+    🔑 THE ORDER IS THE WHOLE THING. This row must exist BEFORE the DELETE, and
+    `event_deletion_requests.event_id` deliberately carries NO foreign key — a
+    cascade would take the answer with the celebration it is about, so the one
+    moment anybody tells us why they left is the one moment we could not keep.
+    `event_name` is snapshotted for the same reason: afterwards there is nothing
+    to resolve it from.
+
+    Written with the SERVICE ROLE, and the membership check above is the
+    authorization — the house pattern, and the same client the delete uses two
+    calls below.
+
+    ⚖ NON-FATAL BY CHOICE. If the reason cannot be written, the person still
+    gets their celebration removed. Refusing a removal because a survey row
+    failed would be the tail wagging the dog. Logged so the gap is visible.
+  */
+  const reasonCode = String(formData.get('reason_code') ?? '').trim();
+  const reasonText = String(formData.get('reason') ?? '').trim();
+  if (isDeletionReasonCode(reasonCode)) {
+    const { error: reasonErr } = await createAdminClient()
+      .from('event_deletion_requests')
+      .insert({
+        event_id: eventId,
+        event_name: impact.impact.eventName,
+        user_id: member.userId,
+        reason_code: reasonCode,
+        reason: reasonText.slice(0, 1000) || null,
+        status: 'self_removed',
+      });
+    if (reasonErr) {
+      console.error('[delete-event] could not record the reason', reasonErr);
+    }
+  }
+
   const mediaRefs = await collectEventMediaRefs(eventId);
 
   /*
@@ -703,4 +886,164 @@ export async function withdrawSupplierAsk(
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard/${eventId}`);
   return { ok: true, asked: Number((data as { cancelled?: number })?.cancelled ?? 0) };
+}
+
+export type RequestResult =
+  | { ok: true; alreadyOpen: boolean }
+  | { ok: false; message: string };
+
+/**
+ * Ask US to remove a celebration that money is holding.
+ *
+ * ─── THE REFUSAL THIS REPLACES ─────────────────────────────────────────────
+ * A celebration held by money paid to Setnayan had ONE sentence and a Cancel
+ * button. "Message us and we'll help" was written down and was not a control —
+ * a dead end dressed as an offer. Owner 2026-08-28, looking at it:
+ * ***"still failed to identify"***.
+ *
+ * ─── WHY IT IS A REQUEST AND NOT A "REMOVE IT ANYWAY" ──────────────────────
+ * ⚖ The alternative on the table was to let the couple press on and lose what
+ * they paid for. That is a promise about money printed next to services that
+ * carry a BIR official receipt, and it can be made at 1 a.m. with nobody in the
+ * loop. A person answering each one costs nothing today — production has held
+ * exactly one bill, ever — and keeps the money decision with a human until
+ * there is enough of it to write a rule from. The screen therefore says "we
+ * can't put the money back automatically", which stays true whichever way that
+ * rule eventually goes.
+ *
+ * 🔑 THE GATE IS RE-CHECKED HERE, NOT TRUSTED FROM THE PANEL. A caller can post
+ * this for a celebration nothing is holding; that is not harmful, but it puts a
+ * row in a queue for a person to read about a removal they could have done
+ * themselves. Refused, with the reason said out loud.
+ */
+export async function requestEventDeletion(
+  formData: FormData,
+): Promise<RequestResult> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  const reasonCode = String(formData.get('reason_code') ?? '').trim();
+  const reasonText = String(formData.get('reason') ?? '').trim();
+
+  if (!eventId) return { ok: false, message: 'Which celebration?' };
+
+  const member = await requireCoupleMember(eventId);
+  if (!member) {
+    return {
+      ok: false,
+      message: 'Only the people organising this celebration can ask.',
+    };
+  }
+
+  if (!reasonIsComplete(reasonCode, reasonText)) {
+    return {
+      ok: false,
+      message:
+        reasonCode === 'other'
+          ? 'Tell us in a few words and we’ll sort it out.'
+          : 'Pick a reason so we know what to do about it.',
+    };
+  }
+
+  const impact = await getEventDeletionImpact(eventId);
+  if (!impact.ok) return { ok: false, message: impact.message };
+  if (!blockCanBeAsked(impact.impact.blockKind)) {
+    return {
+      ok: false,
+      message:
+        'There’s nothing for us to sort out on this one — you can remove it yourself.',
+    };
+  }
+
+  /*
+    🔑 WRITTEN THROUGH THE COUPLE'S OWN SESSION, NOT THE SERVICE ROLE. The
+    insert policy checks BOTH that the row is theirs and that the celebration is
+    one they organise, so a row in this queue is provably self-filed. Using the
+    admin client here would be one import away from a signed-in stranger putting
+    somebody else's wedding — and its name — into an admin queue.
+  */
+  const supabase = await createClient();
+  const { error } = await supabase.from('event_deletion_requests').insert({
+    event_id: eventId,
+    event_name: impact.impact.eventName,
+    user_id: member.userId,
+    reason_code: reasonCode,
+    reason: reasonText.slice(0, 1000) || null,
+  });
+
+  if (error) {
+    /*
+      The one-pending-per-celebration index refused a duplicate. That is the
+      button being pressed twice, not a failure — report it as the request they
+      already have rather than as an error they cannot act on.
+    */
+    if (
+      error.code === '23505' ||
+      error.message.toLowerCase().includes('duplicate') ||
+      error.message.includes('one_pending_per_event')
+    ) {
+      revalidatePath('/dashboard');
+      return { ok: true, alreadyOpen: true };
+    }
+    console.error('[delete-event] request failed', error);
+    return {
+      ok: false,
+      message: 'We couldn’t send that just now. Please try again.',
+    };
+  }
+
+  /*
+    🔔 TELL SOMEBODY. A request nobody knows about is the supplier-ask defect in
+    a different costume: the row is marked, nothing speaks, and the couple waits
+    on a question that never reached anyone. Admin notices live in the console's
+    own queue — this repo does not push or email admins — so the queue count is
+    the notification, and `/admin/event-deletions` is where it lands.
+  */
+  revalidatePath('/dashboard');
+  revalidatePath('/admin/event-deletions');
+  return { ok: true, alreadyOpen: false };
+}
+
+/**
+ * Take the question back.
+ *
+ * 🔑 SHIPS WITH THE ASK, AND IS ACTUALLY CALLED — the panel renders it under
+ * "we have your request". This repo has twice shipped a granted, tested,
+ * commented inverse with ZERO callers (`cancel_vendor_lock_request`, and then
+ * `withdrawSupplierAsk` in this very file), so the button comes with the door.
+ *
+ * Runs through the couple's own session: the cancel policy admits only their
+ * own still-pending row, and only into 'cancelled'.
+ */
+export async function cancelEventDeletionRequest(
+  formData: FormData,
+): Promise<RequestResult> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) return { ok: false, message: 'Which celebration?' };
+
+  const member = await requireCoupleMember(eventId);
+  if (!member) {
+    return {
+      ok: false,
+      message: 'Only the people organising this celebration can withdraw it.',
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('event_deletion_requests')
+    .update({ status: 'cancelled' })
+    .eq('event_id', eventId)
+    .eq('user_id', member.userId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('[delete-event] withdraw request failed', error);
+    return {
+      ok: false,
+      message: 'We couldn’t withdraw that just now. Please try again.',
+    };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/admin/event-deletions');
+  return { ok: true, alreadyOpen: false };
 }

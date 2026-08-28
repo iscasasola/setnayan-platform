@@ -1,0 +1,49 @@
+-- picking_someone_tells_them
+-- ============================================================================
+-- WHEN A SHOP PICKS SOMEBODY OFF ITS WAITLIST, THAT PERSON IS TOLD.
+--
+-- ── WHAT WAS ALREADY THERE, MEASURED BEFORE ANYTHING WAS WRITTEN ───────────
+-- The Booked-Out Waitlist is not new and its notifying is not missing. THREE
+-- entry points already ship, and all three say the same thing — "a slot
+-- opened":
+--   · `notifyWaitlistSlot`              — the shop's one-click "tell them all"
+--   · `notifyWaitlistIfBookingReleased` — automatic, when a booking is released
+--   · `sendWaitlistSlotOpenedEmail`     — the message all of them send
+-- Each flips every `pending` row for that date to `notified` and emails EVERY
+-- couple waiting on it.
+--
+-- 🔴 THE PICK IS THE ONE WAITLIST EVENT WITH NO MESSAGE. `pickWaitlistCouple`
+-- stamps `accepted_at` on exactly one row and stops. Nothing emails, nothing
+-- notifies, and the couple's OWN view of it keys on
+-- `status IN ('pending','notified')` and never looks at `accepted_at` — so
+-- after being chosen they still read "You're on the waitlist for this date —
+-- we'll email you the moment it opens up." The shop is told it worked. The
+-- person it happened to is told nothing.
+--
+-- The asymmetry is the whole defect: "this date might free up" SHOUTS to
+-- everybody; "I have kept it for you" whispers to nobody. And it is the second
+-- half that is time-critical — `max_waitlist_acceptances` means the shop can
+-- pick somebody else, so a couple who is never told can lose a date that was
+-- being held for them.
+--
+-- ── WHY A NEW LABEL AND NOT `vendor_status_change` ────────────────────────
+-- The tray groups by type and the type decides the copy, the colour and whether
+-- an email goes. Reusing a generic label would file "a shop has kept 14 February
+-- for you" beside profile-approval notices, and no allowlist entry could send
+-- one without sending the other.
+--
+-- 🪤 A LABEL THE ENUM HAS NEVER HEARD OF IS REFUSED, NOT THROWN:
+-- `emitNotification` logs it and the action it follows still completes, so the
+-- notice silently reaches nobody and CI stays green. Three types shipped that
+-- way before `every-notice-type-exists-in-the-database.test.ts` existed.
+--
+-- 🔢 SAFE BY ARITHMETIC. Production holds ZERO waitlist rows — none ever
+-- created, none ever picked, none ever notified — and ZERO shops have the
+-- waitlist switched on (measured 2026-08-29). Nobody has been harmed by the
+-- silence, and nothing is sent to anybody by this change today.
+--
+-- BARE migration (no BEGIN/COMMIT): `ALTER TYPE … ADD VALUE` cannot run inside
+-- an explicit transaction block. Idempotent + re-run safe.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'waitlist_picked';

@@ -23,6 +23,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   asVendorTier,
@@ -377,9 +379,11 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
   if ((count ?? 0) >= cap) backToCalendar(formData, 'waitlist_full');
 
   // Pick the next couple in line (oldest interest) that isn't picked yet.
+  // `user_id` comes back too — it is who the pick HAPPENED TO, and the reason
+  // this action can tell them at all.
   const { data: next } = await supabase
     .from('vendor_date_waitlist')
-    .select('waitlist_id')
+    .select('waitlist_id, user_id')
     .eq('vendor_profile_id', vp)
     .eq('requested_date', requestedDate)
     .is('accepted_at', null)
@@ -389,15 +393,85 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!next) backToCalendar(formData, 'waitlist_none');
 
+  const picked = next as { waitlist_id: string; user_id: string | null };
+
   const { error } = await supabase
     .from('vendor_date_waitlist')
     .update({ accepted_at: new Date().toISOString() })
-    .eq('waitlist_id', (next as { waitlist_id: string }).waitlist_id)
+    .eq('waitlist_id', picked.waitlist_id)
     .eq('vendor_profile_id', vp)
     .is('accepted_at', null);
   if (error) backToCalendar(formData, 'save_failed');
+
+  /*
+    🔴 AND NOW THE COUPLE IS TOLD. Until 2026-08-29 this action stamped
+    `accepted_at` and stopped: the shop was shown "picked", and the person it
+    happened to learned nothing. Their own view of the waitlist keys on
+    `status IN ('pending','notified')` and never looked at `accepted_at`, so
+    after being chosen they still read "we'll email you the moment it opens up".
+
+    The asymmetry was the defect. The THREE shipped notify paths all say "a slot
+    opened" and shout it to EVERY couple waiting on the date; "I have kept it for
+    you" — the half that is time-critical, because `max_waitlist_acceptances`
+    lets this shop pick somebody else — said nothing to anybody.
+
+    ⚠ BEST-EFFORT, AND AFTER THE WRITE. The pick is the thing that must not fail;
+    a notifier that threw would roll a real decision back over a message. But it
+    is REPORTED, never silently discarded — a swallowed error here is how the
+    silence came back.
+  */
+  if (picked.user_id) {
+    try {
+      const admin = createAdminClient();
+      const { data: vrow } = await admin
+        .from('vendor_profiles')
+        .select('business_name, screen_name, business_slug')
+        .eq('vendor_profile_id', vp)
+        .maybeSingle();
+      const v = vrow as
+        | { business_name: string | null; screen_name: string | null; business_slug: string | null }
+        | null;
+      const shop = v?.business_name?.trim() || v?.screen_name?.trim() || 'A supplier';
+      await emitNotification({
+        userId: picked.user_id,
+        type: 'waitlist_picked',
+        title: `${shop} has kept ${prettyWaitlistDate(requestedDate)} for you`,
+        // The date is the whole message, so it is IN the message — a notice that
+        // makes somebody open a page to find out which date is a notice that
+        // waits until they have time.
+        body: `You were on the waitlist and ${shop} has chosen you. Book it with them soon — they can hold it for only so long.`,
+        relatedUrl: v?.business_slug ? `/${v.business_slug}` : '/explore',
+      });
+    } catch (e) {
+      console.error('[waitlist] pick notify failed:', String(e), {
+        waitlist_id: picked.waitlist_id,
+      });
+    }
+  }
+
   revalidateScheduleSurfaces();
   backToCalendar(formData, 'waitlist_picked');
+}
+
+/**
+ * The date as a person reads it, in the VENUE'S OWN CIVIL DAY.
+ *
+ * ⚠ `requested_date` is a bare DATE. `new Date('2026-02-14')` is midnight UTC,
+ * which is the 13th anywhere west of Greenwich — the mistake this repo has paid
+ * for across 41 screens. The `+08:00` anchor is the same one every other
+ * waitlist surface uses.
+ */
+function prettyWaitlistDate(date: string): string {
+  try {
+    return new Date(`${date}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return date;
+  }
 }
 
 /**

@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+
+import { bandRangePhp } from '@/lib/budget-band-money';
 import { resolveCreateCapture, type AreaResolver } from './create-event-capture';
 import { BUDGET_BANDS_FALLBACK } from './budget-bands-shared';
 
@@ -152,10 +154,20 @@ test('past dates are rejected when a `today` bound is given (no planning in the 
   assert.equal(w.dateMode, null);
 });
 
-test('budget: band + pax → estimated centavos (med per-head × pax × 100)', () => {
-  const r = resolveCreateCapture({ budgetBandRaw: 'classic', paxRaw: '200' }, BANDS); // classic med 5000
+test('budget: band + pax → the TOP of the band, which is what the couple was shown', () => {
+  // ⚖ CHANGED 2026-08-29, owner-approved. This used to store `med x pax` — the
+  // MIDDLE — while the wedding onboarding stored the top of the same band, so
+  // the same two answers became two budgets a fifth apart depending on the door.
+  // The short form now prints the range as the couple types and stores its top,
+  // exactly as the wedding flow does. classic med 5000 x 200 guests:
+  //   was  ₱1,000,000 (the middle, never shown to anybody)
+  //   now  ₱1,200,000 (1.2 x, rounded to ₱50k — the figure on screen)
+  const r = resolveCreateCapture({ budgetBandRaw: 'classic', paxRaw: '200' }, BANDS);
   assert.equal(r.budgetBand, 'classic');
-  assert.equal(r.estimatedBudgetCentavos, 100_000_000);
+  assert.equal(r.estimatedBudgetCentavos, 120_000_000);
+  // And it IS the high end of the range the picker prints — not a number that
+  // merely happens to be bigger.
+  assert.equal(r.estimatedBudgetCentavos, bandRangePhp(5000, 200)!.highPhp * 100);
 });
 
 test('budget band without pax → band saved, amount null; no_limit + legacy alias', () => {
@@ -178,5 +190,7 @@ test('all together: candidates + pax + budget', () => {
   );
   assert.deepEqual(r.dateCandidates, ['2027-06-01', '2027-06-08']);
   assert.equal(r.estimatedPax, 80);
-  assert.equal(r.estimatedBudgetCentavos, 3500 * 80 * 100);
+  // The top of the band, matching the range on screen — see the budget test above.
+  assert.equal(r.estimatedBudgetCentavos, bandRangePhp(3500, 80)!.highPhp * 100);
+  assert.equal(r.estimatedBudgetCentavos, 35_000_000);
 });

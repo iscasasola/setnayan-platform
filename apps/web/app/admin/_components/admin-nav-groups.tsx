@@ -164,6 +164,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/account-deletions',
       },
       {
+        // A couple asking us to remove a celebration that money is holding —
+        // a confirmed bill, or a payment nobody has checked yet. Distinct from
+        // Account deletions above: that closes a PERSON, this removes one
+        // celebration and leaves the account alone.
+        key: 'event-deletions',
+        label: 'Celebration removals',
+        href: '/admin/event-deletions',
+        icon: UserX,
+        matchPrefix: '/admin/event-deletions',
+      },
+      {
         // UGC report queue (Apple 1.2 / Google Play UGC). Reports filed against
         // Papic guest gallery content land here for moderator review.
         key: 'user-reports',

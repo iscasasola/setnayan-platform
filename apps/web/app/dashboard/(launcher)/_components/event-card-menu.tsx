@@ -8,10 +8,17 @@ import { setEventArchived } from '../../[eventId]/archive-actions';
 import {
   askSuppliersToAgree,
   withdrawSupplierAsk,
+  cancelEventDeletionRequest,
   deleteOwnEvent,
   getEventDeletionImpact,
+  requestEventDeletion,
   type DeletionImpact,
 } from '../../[eventId]/delete-actions';
+import {
+  DELETION_REASONS,
+  deletionReasonLabel,
+  reasonIsComplete,
+} from '@/lib/event-deletion-reasons';
 import { buildWeddingIcs, icsDataHref } from '@/lib/calendar-links';
 
 /**
@@ -114,6 +121,20 @@ export function EventCardMenu({
   const [error, setError] = useState<string | null>(null);
   /** How many suppliers were just asked — null until the couple presses. */
   const [asked, setAsked] = useState<number | null>(null);
+  /**
+   * Which of the six they picked, and anything they typed.
+   *
+   * Owner 2026-08-28: *"they can pick a reason for deleting. or they state
+   * their reason."* Empty is a legal state on an ordinary removal — the reason
+   * is asked, never demanded, because the alternative is holding somebody's
+   * own celebration hostage to a survey.
+   */
+  const [reasonCode, setReasonCode] = useState<string>('');
+  const [reasonText, setReasonText] = useState('');
+  /** TRUE once they press "Ask us to remove it" — the reason step is showing. */
+  const [asking, setAsking] = useState(false);
+  /** TRUE once the request is in. */
+  const [requested, setRequested] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -124,6 +145,10 @@ export function EventCardMenu({
     setTyped('');
     setError(null);
     setAsked(null);
+    setReasonCode('');
+    setReasonText('');
+    setAsking(false);
+    setRequested(false);
   }
 
   function putAway() {
@@ -216,11 +241,57 @@ export function EventCardMenu({
     });
   }
 
+  function sendRequest() {
+    setError(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('reason_code', reasonCode);
+    fd.set('reason', reasonText);
+    startTransition(async () => {
+      try {
+        const res = await requestEventDeletion(fd);
+        if (!res.ok) {
+          setError(res.message);
+          return;
+        }
+        setRequested(true);
+        setAsking(false);
+        router.refresh();
+      } catch (err) {
+        console.error('[event-card-menu] request rejected', err);
+        setError('We couldn’t send that just now. Please try again.');
+      }
+    });
+  }
+
+  function withdrawRequest() {
+    setError(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    startTransition(async () => {
+      try {
+        const res = await cancelEventDeletionRequest(fd);
+        if (!res.ok) {
+          setError(res.message);
+          return;
+        }
+        setRequested(false);
+        setImpact((prev) => (prev ? { ...prev, pendingRequest: null, canAsk: true } : prev));
+        router.refresh();
+      } catch (err) {
+        console.error('[event-card-menu] withdraw request rejected', err);
+        setError('We couldn’t withdraw that just now. Please try again.');
+      }
+    });
+  }
+
   function confirmDelete() {
     setError(null);
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('confirm_name', typed);
+    fd.set('reason_code', reasonCode);
+    fd.set('reason', reasonText);
     startTransition(async () => {
       try {
         const res = await deleteOwnEvent(fd);
@@ -394,6 +465,59 @@ export function EventCardMenu({
                   <p className="mt-1.5 text-[12px] text-ink/60">
                     {error ? error : 'Checking what’s on this one…'}
                   </p>
+                ) : requested || impact.pendingRequest ? (
+                  /*
+                    🔑 THE REQUEST IS SHOWN WHEREVER THEY LEFT IT, AND CAN BE
+                    TAKEN BACK. A person who asks and then sees no trace of it
+                    asks again — and the one-open-request-per-celebration rule
+                    would refuse the second press with an error about a
+                    duplicate, which reads as the product being broken.
+                  */
+                  <>
+                    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+                      <strong className="font-semibold text-ink">
+                        We have your request
+                      </strong>{' '}
+                      — nothing is removed until we answer, and we’ll let you
+                      know when we do.
+                    </p>
+                    {impact.pendingRequest ? (
+                      <p className="mt-1 text-[11.5px] leading-snug text-ink/55">
+                        You said: {deletionReasonLabel(impact.pendingRequest.reasonCode).toLowerCase()}
+                        {impact.pendingRequest.reason
+                          ? ` — “${impact.pendingRequest.reason}”`
+                          : ''}
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={withdrawRequest}
+                      disabled={pending}
+                      className="sn-press mt-2 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink disabled:opacity-60"
+                    >
+                      {pending ? 'Withdrawing…' : 'Withdraw the request'}
+                    </button>
+                  </>
+                ) : asking ? (
+                  /*
+                    THE REASON STEP. The same six answers as an ordinary
+                    removal, so what we learn is comparable however somebody
+                    leaves; the box is where they say what they actually want
+                    done about the money.
+                  */
+                  <>
+                    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+                      Tell us why and a person will answer you.
+                    </p>
+                    <ReasonPicker
+                      code={reasonCode}
+                      onCode={setReasonCode}
+                      text={reasonText}
+                      onText={setReasonText}
+                      textLabel="Anything we should know?"
+                      textRequired={reasonCode === 'other'}
+                    />
+                  </>
                 ) : impact.blocked ? (
                   /* The refusal is stated BEFORE anything is typed. Asking
                      somebody to type their wedding's name and then telling
@@ -403,14 +527,48 @@ export function EventCardMenu({
                       {impact.blockedReason}
                     </p>
                     {/*
+                      🚨 AND NOW IT SAYS WHICH MONEY. Until 2026-08-28 a refusal
+                      about a bill we had confirmed, a screenshot nobody had
+                      opened, and a check that failed all wore ONE sentence, and
+                      the owner's verdict on it was "still failed to identify" —
+                      on a celebration where, measured in production, nothing
+                      had been confirmed at all.
+
+                      The list is only drawn where there IS money of ours in the
+                      way. A supplier refusal already names who is holding it,
+                      and an unreadable one must name nothing, because the whole
+                      reason it refused is that it could not read.
+                    */}
+                    {(impact.blockKind === 'settled' ||
+                      impact.blockKind === 'awaiting_check') &&
+                    impact.paidItems.length > 0 ? (
+                      <ul className="mt-2 grid gap-1">
+                        {impact.paidItems.map((item, i) => (
+                          <li
+                            key={`${item.description}-${i}`}
+                            className="flex items-start justify-between gap-2 rounded-md bg-ink/5 px-2 py-1.5 text-[11.5px] leading-snug"
+                          >
+                            <span className="font-semibold text-ink">
+                              {item.description}
+                            </span>
+                            {item.amountPhp !== null ? (
+                              <span className="shrink-0 font-bold text-ink tabular-nums">
+                                ₱{item.amountPhp.toLocaleString('en-PH')}
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {/*
                       🔑 A REFUSAL WITH A DOOR. Owner 2026-08-21: a paid supplier
                       must ACCEPT the deletion — so where suppliers are what is
                       holding it, the couple gets the ask rather than a dead end.
-                      Only offered when suppliers are the reason: money paid to
-                      Setnayan, or an unreadable check, has no supplier to ask
-                      and the button would be a door to nothing.
+                      Only offered when suppliers are the reason: it asks the
+                      suppliers directly, which is a better door than putting a
+                      person in the middle of somebody else's money.
                     */}
-                    {(impact.unsettledPaidSuppliers ?? 0) > 0 ? (
+                    {impact.blockKind === 'suppliers' ? (
                       <button
                         type="button"
                         onClick={askSuppliers}
@@ -420,10 +578,43 @@ export function EventCardMenu({
                         {pending ? 'Asking…' : 'Ask them to agree'}
                       </button>
                     ) : null}
+                    {/*
+                      ⛔ AND THE UNREADABLE ONE KEEPS ITS DEAD END, DELIBERATELY.
+                      `canAsk` is false there because there is nothing to
+                      request about — we do not yet know whether there is
+                      anything to request about. A button would be a door to a
+                      room we cannot describe.
+                    */}
+                    {impact.canAsk ? (
+                      <button
+                        type="button"
+                        onClick={() => setAsking(true)}
+                        disabled={pending}
+                        className="sn-press mt-2.5 inline-flex items-center gap-2 rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
+                      >
+                        Ask us to remove it
+                      </button>
+                    ) : null}
                   </>
                 ) : (
                   <>
                     <ImpactLines impact={impact} />
+                    {/*
+                      ⚖ ASKED, NEVER DEMANDED. The Remove button does not wait
+                      on this — holding somebody's own celebration hostage to a
+                      survey would be the product asking for a favour on the way
+                      out. It is here because this is the ONLY moment anybody
+                      will ever tell us why they left, and it costs one tap.
+                    */}
+                    <ReasonPicker
+                      code={reasonCode}
+                      onCode={setReasonCode}
+                      text={reasonText}
+                      onText={setReasonText}
+                      textLabel="Anything you want to add?"
+                      textRequired={false}
+                      optional
+                    />
                     <label className="mt-2.5 block text-[11.5px] font-semibold text-ink/70">
                       Type <span className="font-bold text-ink">{eventName}</span> to
                       confirm
@@ -474,13 +665,22 @@ export function EventCardMenu({
                 <div className="mt-3 flex items-center justify-end gap-1.5">
                   <button
                     type="button"
-                    onClick={close}
+                    onClick={asking ? () => setAsking(false) : close}
                     disabled={pending}
                     className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-ink/70 hover:text-ink disabled:opacity-60"
                   >
-                    Cancel
+                    {asking ? 'Back' : 'Cancel'}
                   </button>
-                  {impact && !impact.blocked ? (
+                  {asking ? (
+                    <button
+                      type="button"
+                      onClick={sendRequest}
+                      disabled={pending || !reasonIsComplete(reasonCode, reasonText)}
+                      className="rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream disabled:opacity-45"
+                    >
+                      {pending ? 'Sending…' : 'Send it'}
+                    </button>
+                  ) : impact && !impact.blocked ? (
                     <button
                       type="button"
                       onClick={confirmDelete}
@@ -547,5 +747,86 @@ function ImpactLines({ impact }: { impact: DeletionImpact }) {
       </strong>{' '}
       — you can’t bring any of it back, and neither can we.
     </p>
+  );
+}
+
+/**
+ * The six answers plus a box — the SAME control on an ordinary removal and on a
+ * request, and that is the point.
+ *
+ * 🔑 ONE PICKER, TWO PLACES. What we learn has to be comparable however
+ * somebody leaves: if the blocked path offered a different set of reasons from
+ * the unblocked one, "why do people remove celebrations" would be two questions
+ * with two answers and neither could be added up. The only thing that differs
+ * is the label over the box and whether it is required.
+ *
+ * ⚠ REAL `<button>`s, not divs with click handlers. These are toggles a person
+ * reaches with the keyboard on the way out of something irreversible;
+ * `aria-pressed` is what makes the chosen one audible.
+ */
+function ReasonPicker({
+  code,
+  onCode,
+  text,
+  onText,
+  textLabel,
+  textRequired,
+  optional = false,
+}: {
+  code: string;
+  onCode: (c: string) => void;
+  text: string;
+  onText: (t: string) => void;
+  textLabel: string;
+  textRequired: boolean;
+  /** Ordinary removals say so — the button never waits on this. */
+  optional?: boolean;
+}) {
+  return (
+    <div className="mt-2.5">
+      <p className="text-[11.5px] font-semibold text-ink/70">
+        Why are you removing it?
+        {optional ? (
+          <span className="ml-1 font-normal text-ink/45">Optional</span>
+        ) : null}
+      </p>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {DELETION_REASONS.map((r) => {
+          const on = r.code === code;
+          return (
+            <button
+              key={r.code}
+              type="button"
+              aria-pressed={on}
+              /* Pressing the chosen one again clears it — on an optional
+                 question, a choice you cannot take back is a trap. */
+              onClick={() => onCode(on ? '' : r.code)}
+              className={`rounded-full border px-2 py-1 text-[11.5px] font-semibold transition-colors ${
+                on
+                  ? 'border-mulberry bg-mulberry text-cream'
+                  : 'border-ink/20 text-ink/70 hover:border-ink/40 hover:text-ink'
+              }`}
+            >
+              {r.label}
+            </button>
+          );
+        })}
+      </div>
+      {code ? (
+        <label className="mt-2 block text-[11.5px] font-semibold text-ink/70">
+          {textLabel}
+          {textRequired ? null : (
+            <span className="ml-1 font-normal text-ink/45">Optional</span>
+          )}
+          <textarea
+            value={text}
+            onChange={(e) => onText(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-[12px] font-normal leading-snug text-ink outline-none focus:border-mulberry"
+          />
+        </label>
+      ) : null}
+    </div>
   );
 }

@@ -28,7 +28,7 @@ import {
   parentsOfKind,
   standingForCategory,
 } from '@/lib/vendor-category-parents';
-import { buildLeafIndex, cardKindLabel } from '@/lib/service-card-kind';
+import { buildLeafIndex, cardKindLabel, humanizeKind } from '@/lib/service-card-kind';
 
 export const metadata = { title: 'Add a service' };
 
@@ -147,9 +147,13 @@ export default async function NewServiceCardPage() {
     const st = standingOf(c.canonical_service);
     return {
       value: c.canonical_service,
+      // ⚠ NEVER THE BARE KEY, EVEN WHEN THE TAXONOMY READ FAILS. `leafLabel`
+      // already humanises a leaf it cannot find, but `coverageLabels` is null
+      // when the whole read threw — and this file's entire point is that a
+      // supplier is shown a word, not a database key.
       label: coverageLabels
         ? coverageLabels.leafLabel(c.canonical_service)
-        : c.canonical_service,
+        : humanizeKind(c.canonical_service),
       // A covered leaf leads the sheet unless the plan genuinely refuses it —
       // 'covered' and 'open' render identically, so this only decides WHICH
       // band it sits in, never whether it is pressable.

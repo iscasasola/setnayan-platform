@@ -169,9 +169,26 @@ test('the offline seeding script never sets reviewed_at — only a person may do
   assert.doesNotMatch(
     src,
     /reviewed_at\s*:/,
-    'scripts/seed-trade-aliases.ts writes reviewed_at — an AI-seeded row must always land UNREVIEWED',
+    'scripts/seed-trade-aliases.ts writes reviewed_at — a mined row must always land UNREVIEWED',
   );
-  assert.match(src, /written_by:\s*'ai'/, "seeded rows must be marked written_by: 'ai'");
+  assert.match(src, /source:\s*'mined'/, "mined rows must be marked source: 'mined'");
+});
+
+test('the seeding script asks NO model — no Anthropic import, no messages.create call', () => {
+  // 🛑 CORRECTED 2026-08-28: this script used to call Claude. Owner: "when
+  // we do not have data yet, do not recommend. collect first." The words
+  // are MINED from our own attribute schemas now — see
+  // lib/trade-alias-miner.ts. Pinned here so the model call cannot creep
+  // back in without this test noticing.
+  const src = read(SEED_SCRIPT);
+  assert.doesNotMatch(src, /@anthropic-ai\/sdk/, 'the seeding script re-imported the Anthropic SDK');
+  assert.doesNotMatch(src, /new Anthropic\(/, 'the seeding script re-added a model client');
+  assert.doesNotMatch(src, /messages\.create\(/, 'the seeding script re-added a model call');
+  assert.match(
+    src,
+    /import \{ mineTradeAliases \} from '\.\.\/lib\/trade-alias-miner';/,
+    'the seeding script stopped importing the miner',
+  );
 });
 
 test('the seeding script reuses normalisePhrase instead of re-deriving it', () => {
@@ -208,5 +225,15 @@ test('the migration hides an unreviewed row from anon/authenticated, and gates w
     sql,
     /REFERENCES public\.canonical_service_taxonomy \(canonical_service\)/,
     'the alias table lost its FK to the taxonomy — see dangling-trade-keys.ts for why every holder should have one',
+  );
+  assert.match(
+    sql,
+    /source\s+text NOT NULL DEFAULT 'mined'/,
+    "the source column lost its 'mined' default — the miner is today's only writer",
+  );
+  assert.match(
+    sql,
+    /CHECK \(source IN \('mined', 'collected', 'proposed'\)\)/,
+    'the source vocabulary drifted from mined | collected | proposed',
   );
 });

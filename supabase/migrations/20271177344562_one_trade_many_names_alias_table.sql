@@ -5,7 +5,7 @@
 -- those words is guaranteed to appear inside the trade's own label
 -- ("Sorbetes Cart") — the lexical ranker in lib/taxonomy-search-rank.ts
 -- matches letters, not meaning. This table is the cheap fix: a phrase, the
--- trade it means, who wrote it, and whether a PERSON has reviewed it.
+-- trade it means, HOW it was obtained, and whether a PERSON has reviewed it.
 --
 -- ⚖ WHY NOT EMBEDDINGS — see WHATS_NEXT_The_Category_Suggester_2026-08-28.md
 -- § R. The evidence for embeddings beating prompting is a SUPERVISED
@@ -16,20 +16,30 @@
 -- extensions.vector(N) -> text, so a db test about it would be vacuous by
 -- construction. An alias list does the same job at this project's size.
 --
--- WHO WRITES A ROW
--- An offline script (`scripts/seed-trade-aliases.ts`), run by an admin, asks
--- Claude for synonyms per trade and inserts them UNREVIEWED
--- (reviewed_at IS NULL, written_by='ai'). Supplier text never enters this
--- path — the script reads the taxonomy and writes synonyms; nothing a
--- supplier typed is ever sent anywhere. That is why this slice needs no new
--- data processor and no privacy-notice change. An admin may also type one by
--- hand (written_by='admin'), which is reviewed by the same act of writing it.
+-- 🛑 CORRECTED 2026-08-28 — NOT A MODEL CALL. Owner: "when we do not have
+-- data yet, do not recommend. collect first." then "initially, we already
+-- have a target service for each category. that is our initial data." The
+-- first cut of this table asked Claude for synonyms; it does not any more.
+-- `scripts/seed-trade-aliases.ts` now MINES `source='mined'` rows straight
+-- from `canonical_service_schemas.category_specific_attributes` — the
+-- enum / multi_select option values every category's own attribute schema
+-- already carries (`photo_booth` already lists "360 booth", "gif booth",
+-- "polaroid instax" among its booth_types options) — see
+-- lib/trade-alias-miner.ts. No model call, no network, no key required, and
+-- the column is named for HOW a phrase was obtained (mined from our own
+-- data today; collected from what a real supplier typed and picked, or
+-- proposed by asking a model, both later and both unbuilt) rather than WHO
+-- typed it, because the honest distinction from here on is the METHOD.
 --
 -- 🔒 AN UNREVIEWED ALIAS MUST ANSWER NOBODY. The read policy below enforces
 -- this at the RLS layer (unreviewed rows are invisible to anon/authenticated
 -- outright), and the application re-checks it — the same belt-and-braces
 -- posture `isKnownAdminHref` uses for a model's answer: never trust a single
--- layer to hold alone.
+-- layer to hold alone. A MINED word still needs a person's yes — an option
+-- value that survives the miner's distinctiveness filters is not
+-- automatically a good SEARCH word for the trade (see the miner's own
+-- docblock for a live example), so review stays mandatory regardless of
+-- source.
 --
 -- 🔑 THE STORED TRADE IS NOT TRUSTED FROM HERE. A trade can be merged into
 -- another after this row is written (merge_canonical_service tombstones the
@@ -40,9 +50,9 @@
 
 CREATE TABLE IF NOT EXISTS public.canonical_service_aliases (
   id                 bigserial PRIMARY KEY,
-  -- The words a supplier or the model used, normalised (lowercased, collapsed
-  -- whitespace) — same normalisation on the way in and the way out, or a
-  -- lookup never hits. Reuses lib/admin-map/ask-the-admin.ts's
+  -- The words mined, collected, or proposed, normalised (lowercased,
+  -- collapsed whitespace) — same normalisation on the way in and the way
+  -- out, or a lookup never hits. Reuses lib/admin-map/ask-the-admin.ts's
   -- normalisePhrase; do not invent a second normaliser.
   phrase             text NOT NULL,
   -- The trade this phrase means. NOT trusted to still be the live key at
@@ -52,16 +62,22 @@ CREATE TABLE IF NOT EXISTS public.canonical_service_aliases (
   canonical_service  text NOT NULL
     REFERENCES public.canonical_service_taxonomy (canonical_service)
     ON DELETE RESTRICT,
-  -- 'ai' = the offline seeding script; 'admin' = typed by hand.
-  written_by         text NOT NULL DEFAULT 'ai',
+  -- HOW this phrase was obtained, not who typed it:
+  --   'mined'     — harvested from our own canonical_service_schemas
+  --                 attribute options (scripts/seed-trade-aliases.ts, today).
+  --   'collected' — a real supplier typed it, picked the trade, saved the
+  --                 card (a later slice — not built).
+  --   'proposed'  — a model was asked (a later slice — not built; the
+  --                 embeddings-vs-LLM question in § R applies here too).
+  source             text NOT NULL DEFAULT 'mined',
   -- NULL = not yet reviewed, answers nobody. Set once a person confirms it.
   reviewed_at        timestamptz,
   reviewed_by        uuid REFERENCES auth.users (id) ON DELETE SET NULL,
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT canonical_service_aliases_phrase_key UNIQUE (phrase),
-  CONSTRAINT canonical_service_aliases_written_by_chk
-    CHECK (written_by IN ('ai', 'admin')),
+  CONSTRAINT canonical_service_aliases_source_chk
+    CHECK (source IN ('mined', 'collected', 'proposed')),
   CONSTRAINT canonical_service_aliases_phrase_len_chk
     CHECK (char_length(phrase) BETWEEN 2 AND 80),
   -- A reviewer must be on record whenever a row is marked reviewed — an
@@ -75,6 +91,11 @@ COMMENT ON TABLE public.canonical_service_aliases IS
   'canonical_service it means. Unreviewed rows (reviewed_at IS NULL) answer '
   'nobody. Resolved through the merge-forward map at read time, never '
   'trusted to still name a live trade. See C2, 2026-08-28.';
+
+COMMENT ON COLUMN public.canonical_service_aliases.source IS
+  'How the phrase was obtained: mined (from our own attribute schemas, '
+  'the only writer today) | collected (a real supplier confirmed it) | '
+  'proposed (a model suggested it) — not who typed it.';
 
 CREATE INDEX IF NOT EXISTS canonical_service_aliases_trade_idx
   ON public.canonical_service_aliases (canonical_service);

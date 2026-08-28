@@ -807,8 +807,8 @@ col	public.canonical_service_aliases.id	anon=SIU authenticated=SIU
 col	public.canonical_service_aliases.phrase	anon=SIU authenticated=SIU
 col	public.canonical_service_aliases.reviewed_at	anon=SIU authenticated=SIU
 col	public.canonical_service_aliases.reviewed_by	anon=SIU authenticated=SIU
+col	public.canonical_service_aliases.source	anon=SIU authenticated=SIU
 col	public.canonical_service_aliases.updated_at	anon=SIU authenticated=SIU
-col	public.canonical_service_aliases.written_by	anon=SIU authenticated=SIU
 col	public.canonical_service_schemas.canonical_service	anon=SIU authenticated=SIU
 col	public.canonical_service_schemas.category_specific_attributes	anon=SIU authenticated=SIU
 col	public.canonical_service_schemas.created_at	anon=SIU authenticated=SIU

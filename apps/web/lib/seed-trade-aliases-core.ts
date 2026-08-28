@@ -6,11 +6,23 @@
  * `app/**` — a test file dropped under `scripts/` never runs in CI and
  * silently proves nothing (the exact "put the guard where the glob can
  * see it" trap this repo has already paid for once). `fetchLiveTrades`
- * (a DB read shape) and `parseProposals` (pure parsing) live here so
+ * and `fetchSchemaAttributeRows` (both DB read shapes) live here so
  * `seed-trade-aliases-core.test.ts` actually executes; the script itself
- * stays a thin CLI wrapper (argv, the Anthropic call, the write).
+ * stays a thin CLI wrapper (argv, the write). The actual WORD-MINING logic
+ * — which options survive, which get dropped and why — is pure and lives
+ * in `lib/trade-alias-miner.ts`, tested on its own.
+ *
+ * 🛑 CORRECTED 2026-08-28 — this module used to also carry `parseProposals`,
+ * for parsing a MODEL's JSON reply. That path is gone: the alias list is
+ * mined from our own data now, not asked of Claude (owner: "when we do not
+ * have data yet, do not recommend. collect first."). Removed rather than
+ * left unused — dead code nobody calls is debt, not a feature kept in
+ * reserve. If a later "proposed" source is ever built, it is a fresh
+ * design against the `source` column's own reserved value, not a
+ * resurrection of this file's old shape.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SchemaRow as MinerSchemaRow } from './trade-alias-miner';
 
 // ── Live trades, read directly (no Next request context in a CLI script —
 // this cannot import lib/vendor-coverages.ts, which needs next/headers via
@@ -31,7 +43,7 @@ type CanonRow = {
   tile_id: string | null;
   marketplace_hidden: boolean | null;
 };
-type SchemaRow = { canonical_service: string; display_name_en: string | null };
+type DisplayNameRow = { canonical_service: string; display_name_en: string | null };
 
 export type LiveTrade = {
   key: string;
@@ -52,7 +64,7 @@ export async function fetchLiveTrades(admin: SupabaseClient): Promise<LiveTrade[
   ]);
   const cats = (catsRes.data ?? []) as CategoryRow[];
   const canon = (canonRes.data ?? []) as CanonRow[];
-  const schemas = (schemaRes.data ?? []) as SchemaRow[];
+  const schemas = (schemaRes.data ?? []) as DisplayNameRow[];
   const isActive = (c: { status: string | null; marketplace_hidden: boolean | null }) =>
     c.status !== 'retired' && c.marketplace_hidden !== true;
   const catById = new Map(cats.map((c) => [c.id, c]));
@@ -72,33 +84,15 @@ export async function fetchLiveTrades(admin: SupabaseClient): Promise<LiveTrade[
   return out;
 }
 
-// ── The model's reply, parsed and validated. Never trusted to have named a
-// real trade — a fabricated key is silently dropped, the same posture
-// `askTheModel` in ask-the-admin.ts takes with an out-of-range choice. ──
-export type Proposal = { key: string; aliases: string[] };
-
-export function parseProposals(text: string, batch: readonly LiveTrade[]): Proposal[] {
-  const validKeys = new Set(batch.map((t) => t.key));
-  let parsed: unknown;
-  try {
-    const match = text.match(/\[[\s\S]*\]/);
-    parsed = JSON.parse(match ? match[0] : text);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  const out: Proposal[] = [];
-  for (const row of parsed) {
-    if (!row || typeof row !== 'object') continue;
-    const key = (row as Record<string, unknown>).key;
-    const aliases = (row as Record<string, unknown>).aliases;
-    if (typeof key !== 'string' || !validKeys.has(key)) continue;
-    if (!Array.isArray(aliases)) continue;
-    const clean = aliases
-      .filter((a): a is string => typeof a === 'string')
-      .map((a) => a.trim())
-      .filter((a) => a.length >= 2 && a.length <= 80);
-    if (clean.length) out.push({ key, aliases: clean });
-  }
-  return out;
+/**
+ * Every category's own attribute schema — the raw material
+ * `lib/trade-alias-miner.ts` mines. A minimal, separate query (not folded
+ * into `fetchLiveTrades`'s existing `canonical_service_schemas` select)
+ * because that query only ever asked for `display_name_en`; naming an
+ * additional column there would be a second thing to keep in sync with
+ * what THIS function actually needs.
+ */
+export async function fetchSchemaAttributeRows(admin: SupabaseClient): Promise<MinerSchemaRow[]> {
+  const { data } = await admin.from('canonical_service_schemas').select('canonical_service,category_specific_attributes');
+  return (data ?? []) as MinerSchemaRow[];
 }

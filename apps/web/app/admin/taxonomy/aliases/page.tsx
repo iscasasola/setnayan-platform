@@ -14,12 +14,17 @@ export const dynamic = 'force-dynamic';
  * 2026-08-28).
  *
  * 🔒 WHY THIS PAGE EXISTS AT ALL: an alias with `reviewed_at IS NULL`
- * answers nobody — see actions.ts. `scripts/seed-trade-aliases.ts` writes
- * proposals here unreviewed; this is the only door that turns one into
+ * answers nobody — see actions.ts. `scripts/seed-trade-aliases.ts` MINES
+ * words straight out of our own `canonical_service_schemas` attribute
+ * options (no model, no network — see lib/trade-alias-miner.ts) and writes
+ * them here unreviewed; this is the only door that turns one into
  * something the maker's search can actually use. Ship a table with a review
  * screen that nobody ever opens and the whole feature stays permanently
  * switched off — the "gate with no handle" shape this repo keeps paying
- * for, avoided here by shipping BOTH in the same PR.
+ * for, avoided here by shipping BOTH in the same PR. A MINED word still
+ * needs a person's yes — surviving the miner's distinctiveness filters
+ * does not make an option value a good search word (see that file's own
+ * docblock for a real example), so review stays mandatory.
  */
 export default async function TradeAliasesPage({
   searchParams,
@@ -38,7 +43,7 @@ export default async function TradeAliasesPage({
   const [pendingRes, reviewedCountRes, labels] = await Promise.all([
     admin
       .from('canonical_service_aliases')
-      .select('id,phrase,canonical_service,written_by,created_at')
+      .select('id,phrase,canonical_service,source,created_at')
       .is('reviewed_at', null)
       .order('canonical_service', { ascending: true })
       .order('created_at', { ascending: true })
@@ -54,7 +59,7 @@ export default async function TradeAliasesPage({
     ),
   ]);
 
-  type Row = { id: number; phrase: string; canonical_service: string; written_by: string; created_at: string };
+  type Row = { id: number; phrase: string; canonical_service: string; source: string; created_at: string };
   const pending = (pendingRes.data ?? []) as Row[];
   const reviewedCount = reviewedCountRes.count ?? 0;
 
@@ -62,7 +67,7 @@ export default async function TradeAliasesPage({
   if (tab === 'reviewed') {
     const { data } = await admin
       .from('canonical_service_aliases')
-      .select('id,phrase,canonical_service,written_by,created_at')
+      .select('id,phrase,canonical_service,source,created_at')
       .not('reviewed_at', 'is', null)
       .order('canonical_service', { ascending: true })
       .limit(500);
@@ -158,7 +163,7 @@ export default async function TradeAliasesPage({
             ? 'No reviewed aliases yet.'
             : q
               ? 'Nothing waiting for review matches that filter.'
-              : 'Nothing waiting for review. From the code repo, run \'pnpm -F @setnayan/web exec tsx scripts/seed-trade-aliases.ts\' to ask for more words.'}
+              : 'Nothing waiting for review. From the code repo, run \'pnpm -F @setnayan/web exec tsx scripts/seed-trade-aliases.ts\' to mine more words from what we already know about each trade.'}
         </p>
       ) : (
         <ul className="space-y-3">
@@ -177,7 +182,7 @@ export default async function TradeAliasesPage({
                     <span className="text-sm text-ink">
                       &ldquo;{r.phrase}&rdquo;{' '}
                       <span className="font-mono text-[10px] uppercase tracking-wide text-ink/40">
-                        {r.written_by}
+                        {r.source}
                       </span>
                     </span>
                     <span className="flex gap-2">

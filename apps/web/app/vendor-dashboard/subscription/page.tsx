@@ -43,6 +43,7 @@ import {
 import { AiAddonCard } from './_components/ai-addon-card';
 import { BoothAddonCard } from './_components/booth-addon-card';
 import { PlanChangeNotice } from './_components/plan-change-notice';
+import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
@@ -100,6 +101,14 @@ type Props = {
 type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
 
 const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
+
+/**
+ * How many days each cycle BUYS. These are the two periods
+ * `create_vendor_subscription` writes (28 / 365) — the same numbers the
+ * too-short rule is measured against there, so the screen and the database
+ * cannot disagree about what a "monthly" plan is worth.
+ */
+const TERM_DAYS: Record<'monthly' | 'annual', number> = { monthly: 28, annual: 365 };
 
 const TIER_PITCH: Record<PaidTier, string> = {
   solo: 'For solo pros — one category, your real business name, unlimited inquiries.',
@@ -450,6 +459,14 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
               {
                 tier,
                 sku,
+                // A plan shorter than the time this shop already holds cannot be
+                // bought (owner 2026-08-27). Decided per CYCLE, not per tier —
+                // it is the TERM LENGTH that is measured, so on a shop with 300
+                // days left every monthly card carries it and every annual card
+                // does not.
+                tooShortReason: termIsTooShort(TERM_DAYS[cycle], tierExpiresAt, now)
+                  ? termTooShortMessage(tierExpiresAt)
+                  : null,
                 pitch: TIER_PITCH[tier],
                 price,
                 cycle,

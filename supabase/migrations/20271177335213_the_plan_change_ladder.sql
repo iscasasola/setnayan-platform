@@ -16,6 +16,14 @@
 --                             the end of its paid term; the cheaper plan begins
 --                             when that term ends.
 --
+-- ── AND A PURCHASE MAY NEVER BE SHORTER THAN THE TIME YOU HOLD ─────────────
+-- Owner, same day: *"they cannot purchase a smaller timeline. if they paid for
+-- a year. their purchase must cover the same timeline."* A 28-day purchase is
+-- refused outright while more than 28 days remain — at the SERVER, in
+-- `create_vendor_subscription`, because a hidden option is not a rule. The
+-- picker disables it too, so nobody meets the refusal only after choosing.
+-- See the gate itself for why this deliberately diverges from the industry norm.
+--
 -- 🔑 DIRECTION IS BY PLAN, NEVER BY THE AMOUNT ON THE ORDER. `vendor_tier_rank`
 -- is the ladder (free 1 · verified 2 · solo 3 · pro 4 · enterprise 5 · custom 6)
 -- and it already exists — no second ranking is invented here. An annual Solo
@@ -222,6 +230,7 @@ DECLARE
   v_applied   NUMERIC(12,2);
   v_carry     NUMERIC(12,2);
   v_amount    NUMERIC(12,2);
+  v_expires_at TIMESTAMPTZ;
 BEGIN
   -- Admin-only: resolve the store where the caller is an admin (multi-admin org
   -- model -- NOT founder-only). Preserved from 20270401574089 / 20270403095563.
@@ -272,6 +281,66 @@ BEGIN
     v_tier := 'enterprise';
   ELSE
     RAISE EXCEPTION 'UNMAPPED_SKU_TIER: %', p_sku_code;
+  END IF;
+
+  -- ── A PURCHASE MUST COVER THE TIME YOU ALREADY HAVE ──────────────────────
+  -- Owner, 2026-08-27, verbatim: *"they cannot purchase a smaller timeline. if
+  -- they paid for a year. their purchase must cover the same timeline. this
+  -- means, they cannot purchase a months worth if what they have now is more
+  -- than a months worth of subscription."*
+  --
+  -- The test is TERM LENGTH against TIME REMAINING. Not the tier, not the price,
+  -- and it applies going up and going down alike. 300 days of Solo annual left
+  -- means the only Pro you can buy is Pro annual.
+  --
+  -- ⚖ THIS IS A DELIBERATE DIVERGENCE FROM THE INDUSTRY NORM AND IT WAS CHOSEN
+  -- KNOWINGLY. The standard behaviour is to allow the switch and turn the unused
+  -- annual time into carried credit; the owner was shown that and picked the
+  -- stricter rule. It is better HERE because it DELETES the large-credit case
+  -- instead of managing it: an upgrade must now buy a term at least as long as
+  -- the one it replaces, and at equal terms the dearer plan always costs more
+  -- than the unused value of the cheaper one — so the credit is fully absorbed
+  -- by the bill and PRORATION CAN NO LONGER LEAVE A STANDING BALANCE AT ALL.
+  -- A db test asserts that as a property rather than leaving it as a claim here.
+  -- ⛔ DO NOT "FIX" THIS TOWARD THE NORM. Relaxing it silently re-creates the
+  -- very balance the gate exists to prevent.
+  --
+  -- ⚠ IT DOES NOT MAKE EVERY BALANCE SMALL, AND SAYING SO WOULD BE FALSE. A
+  -- scheduled change that was paid for and then called off still returns a whole
+  -- term's price to the account (realistically 10,400 for Solo annual). That is
+  -- money the shop handed over and got no service for, so it has to go back to
+  -- them — but it means "what happens to credit when a shop lapses" is still an
+  -- open question with real money behind it, not a rounding detail.
+  --
+  -- 🔑 STRICTLY SHORTER, NEVER SHORTER-OR-EQUAL. A term exactly matching the
+  -- time left is legal — that is a straight renewal of the same length, which is
+  -- the commonest purchase there is, and refusing it would be absurd.
+  --
+  -- A LAPSED OR NEVER-SUBSCRIBED SHOP HAS NO REMAINING TIME, so every term is
+  -- legal for them. That falls out of the condition rather than needing a case
+  -- of its own.
+  --
+  -- ⚖ `v_expires_at > now()` IS DELIBERATELY REDUNDANT AND IS KEPT ANYWAY.
+  -- Measured, not assumed: a mutation deleting it stayed GREEN, because a lapsed
+  -- expiry makes `(v_expires_at - now())` NEGATIVE and no positive term is ever
+  -- shorter than a negative interval — the comparison below already refuses to
+  -- fire. It stays because it states the lapsed case to a reader at a glance and
+  -- keeps the guard correct if that comparison is ever rewritten.
+  -- 🔑 IT IS WRITTEN DOWN HERE SO NOBODY LATER "DISCOVERS" IT AS DEAD CODE and
+  -- deletes it believing it was an oversight. No test covers it in isolation and
+  -- none can, which is exactly why the reason is recorded instead of asserted.
+  SELECT tier_expires_at INTO v_expires_at
+    FROM public.vendor_profiles WHERE vendor_profile_id = v_vendor_id;
+
+  IF v_expires_at IS NOT NULL
+     AND v_expires_at > now()
+     AND make_interval(days => v_period) < (v_expires_at - now())
+  THEN
+    -- The date rides in the message so the screen can say it back without
+    -- re-querying. The app turns this into a sentence naming the day; nobody is
+    -- ever shown this string.
+    RAISE EXCEPTION 'TERM_TOO_SHORT: paid up until %',
+      to_char(v_expires_at AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD');
   END IF;
 
   -- ── THE PLAN CHANGE ──────────────────────────────────────────────────────

@@ -6,6 +6,24 @@ Nothing existed for this before. Verified, not assumed: `vendor_profiles` carrie
 
 **UPGRADE** — the unused value of the plan being replaced comes off the price, the new plan is live as soon as the payment is confirmed, and a **fresh term** starts then. **DOWNGRADE** — nothing changes on the day. The current plan runs to the end of its paid term and the cheaper one begins when it ends.
 
+### And a purchase may never be shorter than the time you already hold
+
+Second owner ruling, same day: *"they cannot purchase a smaller timeline. if they paid for a year. their purchase must cover the same timeline. this means, they cannot purchase a months worth if what they have now is more than a months worth of subscription."*
+
+A purchase whose **term** is shorter than the time remaining is refused. Holding 300 days of Solo annual, the only Pro you can buy is Pro annual; holding 10 days, a 28-day plan is fine. The test is term length against time remaining — not tier, not price — and it applies going up and going down alike.
+
+**Refused at the SERVER**, inside `create_vendor_subscription`, because a hidden option is not a rule; the picker also shows the sentence where the too-short card's button would be, so nobody meets the refusal only after choosing. The refusal names the day — *"You're paid up until 14 June. That plan is shorter than the time you already have, so choose the yearly plan, or come back nearer that date."* — and a person never reads the raw code. **Strictly shorter, never shorter-or-equal:** an exact match is an ordinary same-length renewal and is allowed, pinned in both suites (and one hour past the term is correctly refused).
+
+A lapsed or never-subscribed shop has no remaining time, so every term is legal for them. That **falls out of the condition** rather than needing a case of its own — confirmed by test, not by reading.
+
+⚖ **And one clause in that guard is deliberately redundant, which is recorded rather than hidden.** A mutation deleting `v_expires_at > now()` stayed **green**, correctly: a lapsed expiry makes the remaining interval negative, and no positive term is ever shorter than a negative interval, so the comparison beside it already refuses to fire. The clause stays — it states the lapsed case at a glance and keeps the guard correct if that comparison is ever rewritten — and the migration says so explicitly, **so nobody later "discovers" it as dead code and deletes it believing it was an oversight**. No test covers it in isolation and none can; that is exactly why the reason is written down instead of asserted.
+
+⚖ **A deliberate divergence from the industry norm, chosen knowingly.** The standard behaviour is to allow the switch and turn the unused annual time into carried credit. The owner was shown that and picked the stricter rule, and it is better here because it **deletes** the large-credit case instead of managing it. ⛔ Do not "fix" this toward the norm — relaxing it silently re-creates the standing balance the gate exists to prevent.
+
+**The two rules compose.** A downgrade keeping the same term still defers exactly as before. A downgrade that *also* shortens the term is refused outright, before anything is scheduled — so what a person reads is the refusal, not the "starts when your current plan ends" deferral. Pinned in both directions.
+
+🔑 **And it measurably did what it was chosen to do.** Adding the rule broke the carry-forward test, because that test held a year of Solo and bought a 28-day Pro — the exact purchase now refused. A new test states the property directly: under the term rule an upgrade must buy a term at least as long as the one it replaces, and at equal terms the dearer plan always costs more than the unused value of the cheaper one, so **proration can no longer leave a standing balance at all**. See the note at the bottom on what the realistic maximum credit now is.
+
 **Direction is by PLAN, never by the amount on the order.** It reads the existing `vendor_tier_rank` ladder (free 1 · verified 2 · solo 3 · pro 4 · enterprise 5 · custom 6); no second ranking was invented. An annual Solo at ₱10,400 costs four times a 28-day Pro at ₱2,500, and moving to Pro is still an upgrade — anything keying on price gets that backwards, and a test pins it.
 
 ### The applier is the load-bearing half
@@ -46,13 +64,22 @@ Three plain sentences, each shown only when true: what plan they are on, what it
 
 ### Measurement
 
-21 db tests + 10 unit tests. **9 mutations, every one landed and every one RED**, with occurrence counts printed before → after and the file restored from an explicit `cp` backup. One mutation reported DID-NOT-LAND twice before it could be measured — first because `grep -c` is line-based and the pattern spanned lines, then because the count anchor survived its own replacement — and both times the honest answer was that the result proved nothing, not that the guard held.
+31 db tests + 17 unit tests. **13 mutations, every one landed and every one RED**, with occurrence counts printed before → after and the file restored from an explicit `cp` backup, run with the tree to itself.
+
+🪤 **Three separate mutations reported DID-NOT-LAND before they could be measured, all the same mistake in different clothes:** `grep -c` is line-based and one pattern spanned lines; one count anchor survived its own replacement (1 → 1); and one counted a line the edit never touches. Every time the honest answer was *this result proves nothing*, not *the guard held*. **Count the thing the edit moves.**
+
+🪤 **And the boundary test could not detect the mistake it existed to catch.** Setting `tier_expires_at = now() + 28 days` in one statement and calling the checkout in the next leaves the expiry microseconds *short* of 28 days, because `now()` advanced in between — so `<` and `<=` give the same answer and the flipped comparison sailed through green. Both statements now run inside **one transaction**, where `now()` is frozen, which is the only arrangement in which the boundary is actually on the boundary. Caught by the mutation run, not by review.
 
 Also fixed: the RA 10173 subject-access export projection, which went red on all seven new `vendor_profiles` columns. They are exported, not withheld — a response omitting a **balance we hold** would be incomplete in exactly the way that matters.
 
 ### Open, and flagged rather than decided
 
 🔴 **What happens to carried credit if a shop lapses entirely.** The owner has not ruled. It **persists** — it is money they already paid, and persisting is the reversible choice — and the sweep deliberately does not clear it, with a test pinning that so any future change has to be deliberate.
+
+⚖ **How much money that question is now worth, measured rather than assumed.** The term rule was expected to shrink the maximum credit "from months to weeks". Half of that is right and half is not, so both halves are recorded here:
+
+- **From proration: zero.** Not "smaller" — gone. An upgrade must now buy a term at least as long as the one it replaces, and at equal terms the dearer plan always costs more than the unused value of the cheaper one, so the credit is fully absorbed by the bill and nothing is left over. A test asserts this as a property; if it ever fails, either the term rule was relaxed or a price was moved so a lower tier costs more than a higher one, and both deserve a hard look.
+- **From a cancelled scheduled change: one plan term's price, and that is not weeks.** A shop can pay for a same-length downgrade, then call it off, and what they paid becomes credit — realistically ₱10,400 (Solo annual), up to ₱104,000 in the Enterprise-annual edge. That is money they genuinely handed over and have had no service for, so it has to go somewhere; returning it as credit is right. But it means a balance can still be large, and the open question above still has real money behind it.
 
 ⚠ Two corrections to the brief this was built from, both measured against production: there are **2 paid subscriptions**, not zero (₱1,000 Solo × 2, stacked, on one shop), and `sweep_vendor_tier_expiry` does not list `solo` among its sweepable tiers, so a lapsed Solo plan never drops today. That gap is pre-existing and untouched here; the applier deliberately does not depend on that list, so a scheduled change lands whatever tier the shop is standing on.
 

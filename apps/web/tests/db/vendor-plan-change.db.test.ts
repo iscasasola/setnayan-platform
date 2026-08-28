@@ -633,10 +633,27 @@ test('the CHECKOUT prices an upgrade as list minus the unused value, server-side
 test('the CHECKOUT carries the excess forward when the credit is bigger than the bill', async () => {
   // 🚨 THE TEST MUTATION 3 PROVED WAS MISSING. `v_carry := 0` in the checkout
   // used to survive the whole suite.
-  const { vendorId } = await shopWithSignedInOwner('solo', "NOW() + INTERVAL '360 days'");
+  //
+  // ⚠ THIS SCENARIO HAD TO BE REBUILT WHEN THE TERM-LENGTH RULE LANDED, AND THE
+  // REASON IS THE POINT OF THAT RULE. It used to hold 360 days of Solo annual
+  // and buy a 28-day Pro — which is now REFUSED outright, because a purchase may
+  // never be shorter than the time you already hold. That single rule removes
+  // proration as a source of carried credit altogether: an upgrade must now buy
+  // a term at least as long as the one it replaces, and at equal terms the
+  // dearer plan always costs more than the unused value of the cheaper one, so
+  // the credit is always fully absorbed by the bill.
+  //
+  // What CAN still leave money on an account is a scheduled change that was
+  // paid for and then called off, and a balance that outlives the plan it was
+  // meant for. That is what this now builds: a shop holding money from an
+  // earlier cancelled change, whose plan has since lapsed, buying a small plan.
+  const { vendorId } = await shopWithSignedInOwner('verified', "NOW() - INTERVAL '1 day'");
   await asSuperuser();
-  // An annual Solo, barely touched: far more unused value than a 28-day Pro costs.
-  await paidPurchase(vendorId, 'solo', 10400, 365, "NOW() + INTERVAL '360 days'");
+  await db.query(
+    `UPDATE public.vendor_profiles SET subscription_credit_php = 9400
+      WHERE vendor_profile_id = $1`,
+    [vendorId],
+  );
   const owner = await db.query<{ user_id: string }>(
     `SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
     [vendorId],
@@ -661,8 +678,9 @@ test('the CHECKOUT carries the excess forward when the credit is bigger than the
   const row = r.rows[0]!;
   assert.equal(Number(row.amount_php), 0, 'a fully covered bill costs nothing');
   assert.equal(Number(row.credit_applied_php), pro.price, 'the credit is capped at the bill');
-  assert.ok(
-    Number(row.credit_carry_forward_php) > 0,
+  assert.equal(
+    Number(row.credit_carry_forward_php),
+    9400 - pro.price,
     'the money above the bill was thrown away instead of carried forward',
   );
 
@@ -731,6 +749,217 @@ test('a second unpaid DOWNGRADE is refused too, not just a credit-bearing change
   );
   await asSuperuser();
   assert.equal((await profile(vendorId)).tier_state, 'enterprise');
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 8. A PURCHASE MUST COVER THE TIME YOU ALREADY HAVE — refused at the SERVER.
+//
+// Owner 2026-08-27: *"they cannot purchase a smaller timeline. if they paid for
+// a year. their purchase must cover the same timeline. this means, they cannot
+// purchase a months worth if what they have now is more than a months worth of
+// subscription."*
+//
+// 🔑 THE PICKER DISABLING THE OPTION IS NOT THE RULE. These tests call the RPC
+// directly, which is what a stale page or a hand-posted form does. If the only
+// enforcement lived in the browser, every one of these would pass while the
+// product had no rule at all.
+// ───────────────────────────────────────────────────────────────────────────
+
+test('holding a YEAR, a 28-day purchase is refused by the database', async () => {
+  const { vendorId } = await shopWithSignedInOwner('solo', "NOW() + INTERVAL '300 days'");
+  const proMonthly = await activeSku('pro\\_vendor\\_monthly');
+  await assert.rejects(
+    () => db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [proMonthly.sku]),
+    /TERM_TOO_SHORT/,
+    'a 28-day plan was sold to a shop holding 300 days',
+  );
+  await asSuperuser();
+  const n = await db.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM public.vendor_subscriptions WHERE vendor_id = $1`,
+    [vendorId],
+  );
+  assert.equal(n.rows[0]!.c, '0', 'a refused purchase must leave no row behind');
+});
+
+test('the refusal carries the DAY, so the screen can say it back', async () => {
+  // The app turns this into "You're paid up until 14 June." — it needs the date
+  // to do that, and reading it off the message beats a second round trip.
+  await shopWithSignedInOwner('solo', "NOW() + INTERVAL '300 days'");
+  const proMonthly = await activeSku('pro\\_vendor\\_monthly');
+  await assert.rejects(
+    () => db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [proMonthly.sku]),
+    (err: Error) => {
+      assert.match(err.message, /TERM_TOO_SHORT/);
+      assert.match(err.message, /\d{4}-\d{2}-\d{2}/, 'the refusal must name the day');
+      return true;
+    },
+  );
+  await asSuperuser();
+});
+
+test('the same shop CAN buy the yearly plan — the rule blocks the TERM, not the move', async () => {
+  // ⚖ The counterweight. A gate that also blocked the legitimate way forward
+  // would leave the shop no route at all, which is worse than no gate.
+  const { vendorId } = await shopWithSignedInOwner('solo', "NOW() + INTERVAL '300 days'");
+  const proAnnual = await activeSku('pro\\_vendor\\_annual');
+  await db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [proAnnual.sku]);
+  await asSuperuser();
+  const r = await db.query<{ plan_change_kind: string; period_days: number }>(
+    `SELECT plan_change_kind, period_days FROM public.vendor_subscriptions
+      WHERE vendor_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [vendorId],
+  );
+  assert.equal(r.rows[0]!.plan_change_kind, 'upgrade', 'and it still prorates');
+  assert.equal(r.rows[0]!.period_days, 365);
+});
+
+test('BOUNDARY: a term EXACTLY matching the time left is ALLOWED', async () => {
+  // 🔑 "Shorter than", never "shorter than or equal". Writing `<=` here would
+  // refuse an ordinary same-length renewal — the commonest purchase there is.
+  //
+  // 🪤 THE OBVIOUS VERSION OF THIS TEST CANNOT DETECT THAT MISTAKE, AND MY FIRST
+  // ONE DID NOT. Setting `tier_expires_at = now() + 28 days` in one statement
+  // and calling the RPC in the next leaves the expiry a few microseconds SHORT
+  // of 28 days, because `now()` advanced in between — so `<=` and `<` give the
+  // same answer and a flipped comparison sails through. The mutation run caught
+  // it staying green.
+  //
+  // Both statements run inside ONE transaction here. `now()` is the transaction
+  // timestamp and is frozen for its whole life, so the expiry is exactly 28 days
+  // out at the moment the gate compares them — the only arrangement in which the
+  // boundary is actually on the boundary.
+  const equal = await shopWithSignedInOwner('solo', "NOW() + INTERVAL '28 days'");
+  const soloMonthly = await activeSku('solo\\_vendor\\_monthly');
+
+  await db.exec('BEGIN');
+  await db.query(
+    `UPDATE public.vendor_profiles SET tier_expires_at = now() + INTERVAL '28 days'
+      WHERE vendor_profile_id = $1`,
+    [equal.vendorId],
+  );
+  // Must NOT throw: the term is exactly as long as the time remaining.
+  await db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [soloMonthly.sku]);
+  await db.exec('COMMIT');
+  await asSuperuser();
+
+  const n = await db.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM public.vendor_subscriptions WHERE vendor_id = $1`,
+    [equal.vendorId],
+  );
+  assert.equal(n.rows[0]!.c, '1', 'an exactly-equal term was refused — the rule reads <= not <');
+});
+
+test('BOUNDARY: one hour past the term IS refused', async () => {
+  // The other side of the same line, so the pair brackets it. Without this a
+  // gate that simply never fires would pass the equality test above.
+  const soloMonthly = await activeSku('solo\\_vendor\\_monthly');
+  await shopWithSignedInOwner('solo', "NOW() + INTERVAL '28 days 1 hour'");
+  await assert.rejects(
+    () => db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [soloMonthly.sku]),
+    /TERM_TOO_SHORT/,
+    'the boundary is off by an hour in the wrong direction',
+  );
+  await asSuperuser();
+});
+
+test('a LAPSED shop can buy any term — no special case needed', async () => {
+  // Both arms of the guard are false for an expired plan, so this falls out of
+  // the condition rather than being handled separately.
+  const lapsed = await shopWithSignedInOwner('pro', "NOW() - INTERVAL '1 day'");
+  const soloMonthly = await activeSku('solo\\_vendor\\_monthly');
+  await db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [soloMonthly.sku]);
+  await asSuperuser();
+  const r = await db.query<{ plan_change_kind: string }>(
+    `SELECT plan_change_kind FROM public.vendor_subscriptions
+      WHERE vendor_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [lapsed.vendorId],
+  );
+  assert.equal(r.rows[0]!.plan_change_kind, 'new', 'a lapsed shop is making a fresh purchase');
+});
+
+test('a shop that never subscribed can buy any term', async () => {
+  const fresh = await shopWithSignedInOwner('verified', 'NULL');
+  const soloMonthly = await activeSku('solo\\_vendor\\_monthly');
+  await db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [soloMonthly.sku]);
+  await asSuperuser();
+  const n = await db.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM public.vendor_subscriptions WHERE vendor_id = $1`,
+    [fresh.vendorId],
+  );
+  assert.equal(n.rows[0]!.c, '1');
+});
+
+test('the two rules COMPOSE: a shortening downgrade is refused, not deferred', async () => {
+  // ⚠ THE INTERACTION THE OWNER ASKED ABOUT. A downgrade keeping the same term
+  // still defers as before. A downgrade that ALSO shortens the term is refused
+  // outright — and what a person reads must be the refusal, not the "starts
+  // when your current plan ends" deferral, because nothing is scheduled at all.
+  const { vendorId } = await shopWithSignedInOwner('pro', "NOW() + INTERVAL '300 days'");
+  const soloMonthly = await activeSku('solo\\_vendor\\_monthly');
+  await assert.rejects(
+    () => db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [soloMonthly.sku]),
+    /TERM_TOO_SHORT/,
+    'a shortening downgrade should be refused before anything is scheduled',
+  );
+  await asSuperuser();
+  const after = await profile(vendorId);
+  assert.equal(after.pending_tier, null, 'nothing may be scheduled by a refused purchase');
+  assert.equal(after.tier_state, 'pro');
+
+  // The SAME-length downgrade still works and still defers.
+  const same = await shopWithSignedInOwner('pro', "NOW() + INTERVAL '300 days'");
+  const soloAnnual = await activeSku('solo\\_vendor\\_annual');
+  await db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [soloAnnual.sku]);
+  await asSuperuser();
+  const r = await db.query<{ plan_change_kind: string }>(
+    `SELECT plan_change_kind FROM public.vendor_subscriptions
+      WHERE vendor_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [same.vendorId],
+  );
+  assert.equal(r.rows[0]!.plan_change_kind, 'downgrade', 'a same-term downgrade is unaffected');
+});
+
+test('the term rule DELETES proration as a source of carried credit', async () => {
+  // ⚖ THIS IS WHY THE OWNER CHOSE THE STRICTER RULE, stated as a property
+  // rather than as prose. The industry norm would allow a shop holding a year
+  // of Solo to buy a 28-day Pro and would hand back the difference as several
+  // thousand pesos of standing credit. Under this rule the purchase must be at
+  // least as long as the time it replaces, and at equal terms the dearer plan
+  // always costs more than the unused value of the cheaper one — so the credit
+  // is fully absorbed by the bill and NOTHING is left over.
+  //
+  // If this ever fails, somebody has relaxed the term rule or moved a price so
+  // that a lower tier costs more than a higher one. Both deserve a hard look.
+  const { vendorId } = await shopWithSignedInOwner('solo', "NOW() + INTERVAL '300 days'");
+  await asSuperuser();
+  await paidPurchase(vendorId, 'solo', 10400, 365, "NOW() + INTERVAL '300 days'");
+  const owner = await db.query<{ user_id: string }>(
+    `SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorId],
+  );
+  await setAuthUid(db, owner.rows[0]!.user_id);
+  await db.query(`SELECT set_config('request.jwt.claim.role','authenticated',false)`);
+
+  // The only Pro they are allowed to buy is the annual one.
+  const proAnnual = await activeSku('pro\\_vendor\\_annual');
+  await db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [proAnnual.sku]);
+  await asSuperuser();
+
+  const r = await db.query<{ credit_carry_forward_php: string; credit_applied_php: string }>(
+    `SELECT credit_carry_forward_php, credit_applied_php
+       FROM public.vendor_subscriptions WHERE vendor_id = $1
+      ORDER BY created_at DESC LIMIT 1`,
+    [vendorId],
+  );
+  assert.ok(
+    Number(r.rows[0]!.credit_applied_php) > 0,
+    'the unused year should still come off the price — the rule blocks the term, not proration',
+  );
+  assert.equal(
+    Number(r.rows[0]!.credit_carry_forward_php),
+    0,
+    'proration left a standing balance behind, which the term rule exists to prevent',
+  );
 });
 
 test('a shop cannot write itself credit or a pending plan', async () => {

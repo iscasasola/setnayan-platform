@@ -31,6 +31,7 @@ import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor } from '@/lib/order-mint-identity';
 import { vendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import { notifyAdminsSubscriptionPending } from '@/lib/subscription-purchase-notify';
+import { termTooShortMessage } from '@/lib/vendor-plan-change-words';
 
 const ERR = (msg: string) =>
   redirect('/vendor-dashboard/subscription?error=' + encodeURIComponent(msg));
@@ -85,6 +86,19 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
     }
     if (m.includes('INVALID_SKU') || m.includes('UNMAPPED_SKU_TIER')) {
       ERR('That plan is no longer available. Refresh and try again.');
+    }
+    // A purchase may never be shorter than the time the shop already holds
+    // (owner 2026-08-27). The picker disables the too-short option, so this is
+    // the backstop for a stale page or a hand-posted form — but it is the SERVER
+    // that decides, and a shop that gets here still reads a sentence naming the
+    // day they are paid up to, never a raw code.
+    //
+    // ⚠ The date is read off the ORIGINAL message, not the upper-cased copy: the
+    // `m` above is `.toUpperCase()`, which is fine for matching a code and wrong
+    // for extracting anything.
+    if (m.includes('TERM_TOO_SHORT')) {
+      const day = /(\d{4}-\d{2}-\d{2})/.exec(error.message ?? '')?.[1] ?? null;
+      ERR(termTooShortMessage(day));
     }
     // Only one plan change may be waiting to be paid at a time. Two open changes
     // could each be quoted against the same money the shop is holding, and each

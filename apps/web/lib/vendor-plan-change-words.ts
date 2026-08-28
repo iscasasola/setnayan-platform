@@ -115,6 +115,60 @@ export function planLines(s: PlanSituation): PlanLines {
 }
 
 /**
+ * Days left on the current plan, rounded UP to whole days.
+ *
+ * Rounded up because it feeds a question a person is asked: telling somebody
+ * they have "0 days left" while their plan is still running would be false.
+ * Returns 0 for a lapsed or absent expiry.
+ */
+export function daysRemaining(tierExpiresAt: string | null, nowMs: number): number {
+  if (!tierExpiresAt) return 0;
+  const end = new Date(tierExpiresAt).getTime();
+  if (!Number.isFinite(end) || end <= nowMs) return 0;
+  return Math.ceil((end - nowMs) / 86_400_000);
+}
+
+/**
+ * Is a plan of `termDays` too short to be bought right now?
+ *
+ * Owner 2026-08-27: *"they cannot purchase a smaller timeline… they cannot
+ * purchase a months worth if what they have now is more than a months worth of
+ * subscription."*
+ *
+ * 🔑 STRICTLY SHORTER. A term equal to the time remaining is allowed — that is
+ * an ordinary same-length renewal, the commonest purchase there is. The
+ * comparison is `<`, never `<=`.
+ *
+ * ⚠ THIS IS THE PICKER'S COPY OF THE RULE, NOT THE RULE. The database refuses
+ * the purchase inside `create_vendor_subscription`; this only decides whether to
+ * disable a button, so nobody meets the refusal after choosing. A hidden option
+ * is not a rule — if the two ever disagree, the server is right.
+ */
+export function termIsTooShort(
+  termDays: number,
+  tierExpiresAt: string | null,
+  nowMs: number,
+): boolean {
+  const remaining = daysRemaining(tierExpiresAt, nowMs);
+  if (remaining <= 0) return false; // lapsed or never subscribed — anything goes
+  return termDays < remaining;
+}
+
+/**
+ * The sentence a shop reads when their choice is too short. Names the DAY and
+ * says what to do instead — a refusal that does not give you a way out is just
+ * a wall.
+ */
+export function termTooShortMessage(tierExpiresAt: string | null): string {
+  const day = tierExpiresAt ? dayWords(tierExpiresAt) : null;
+  return day
+    ? `You're paid up until ${day}. That plan is shorter than the time you ` +
+        `already have, so choose the yearly plan, or come back nearer that date.`
+    : `That plan is shorter than the time you already have. Choose the yearly ` +
+        `plan, or come back nearer the end of your current plan.`;
+}
+
+/**
  * What the buy button should promise for a given move, before any money changes
  * hands. Mirrors the two rules exactly: up is today and prorated, down waits.
  */

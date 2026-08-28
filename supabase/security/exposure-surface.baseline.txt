@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6320
+# facts: 6322
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     572
-#   col       4654
+#   col       4656
 #   policy    863
 #   view      8
 #   func      219
@@ -1948,6 +1948,7 @@ col	public.events.concierge_unlock_source	anon=SIU authenticated=SIU
 col	public.events.concierge_unlock_via_vendor_profile_id	anon=SIU authenticated=SIU
 col	public.events.created_at	anon=S authenticated=S
 col	public.events.date_candidates	anon=SIU authenticated=SIU
+col	public.events.date_forced_by_lock_of	anon=- authenticated=S
 col	public.events.date_mode	anon=SIU authenticated=SIU
 col	public.events.date_status	anon=SIU authenticated=SIU
 col	public.events.date_window_end	anon=SIU authenticated=SIU
@@ -2024,6 +2025,7 @@ col	public.events.panood_watch_url	anon=SIU authenticated=SIU
 col	public.events.panood_watch_url_facebook	anon=S authenticated=SIU
 col	public.events.papic_cost_cap_php	anon=S authenticated=S
 col	public.events.papic_face_mode	anon=S authenticated=S
+col	public.events.papic_guest_capture_early	anon=- authenticated=S
 col	public.events.papic_ltd_cap_php	anon=S authenticated=S
 col	public.events.papic_mini_cap_php	anon=S authenticated=S
 col	public.events.papic_quality_tier	anon=SIU authenticated=SIU

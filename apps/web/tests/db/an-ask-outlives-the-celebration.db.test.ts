@@ -143,6 +143,35 @@ test('a LIVE ask is still gated on the booking — the orphan arm widened nothin
   assert.equal(r.rows[0]!.n, 0, 'a shop that was never booked can read a live ask');
 });
 
+test('the LIVE gate still bites the OWNER when the booking is no longer live', async () => {
+  /*
+    ⚠ ADDED AFTER A MUTATION CAME BACK GREEN. Replacing the booked-event clause
+    with `OR TRUE` left the whole suite passing, because every other test here
+    measures the gate through a RIVAL — and a rival is already stopped by the
+    ownership half. The only thing the event clause adds is on the OWNER: while
+    the celebration still exists, a shop whose booking is no longer live loses
+    sight of the ask.
+
+    This asserts what the shipped policy DOES. It is deliberately narrow: the
+    ORPHAN arm is what carries a shop's record through a DELETION, and it is
+    unaffected here because the celebration is still there.
+  */
+  const w = await seed('live-gate-owner');
+  await reset();
+  await db.query(
+    `UPDATE public.event_vendors SET status = 'considering' WHERE vendor_id = $1`,
+    [w.eventVendorId]);
+
+  await asUser(w.shopOwner);
+  const r = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.vendor_payment_asks WHERE ask_id = $1`, [w.askId]);
+  await reset();
+  assert.equal(
+    r.rows[0]!.n, 0,
+    'the booked-event gate stopped applying — a shop reads asks on celebrations it is not booked for',
+  );
+});
+
 test('a rival shop cannot read somebody else’s ORPHAN either', async () => {
   /*
     ⚠ THE FIRST VERSION OF THIS CHECK, RUN AGAINST PRODUCTION, REPORTED A LEAK

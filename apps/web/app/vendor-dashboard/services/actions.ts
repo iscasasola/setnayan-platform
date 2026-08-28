@@ -23,6 +23,7 @@ import {
 import { parentsOfKind, coverageParents } from '@/lib/vendor-category-parents';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { maybeDraftCategoryProposal } from '@/lib/category-proposal-draft-server';
+import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
 import {
   buildLeafIndex,
   isCoverageLeafKind,
@@ -1747,6 +1748,32 @@ export async function commitVendorService(formData: FormData) {
     p_publish: publish,
   });
   if (error) return back(error.message);
+
+  // ---- C3 — remember a search miss the supplier resolved themselves ----
+  //
+  // "When we do not have data yet, do not recommend. collect first." (owner,
+  // 2026-08-28). The card is already saved by this line, and `category` is
+  // already the ONE key that survived every validation above — CREATE ran
+  // it through `parseCategory`/`isCoverageLeafKind` against the live
+  // taxonomy, EDIT read it back off the existing row. `collected_kind_phrase`
+  // is the ONE piece of this the browser is trusted to have supplied
+  // honestly, and it is not trusted: re-derive whether `category` is a live
+  // coverage TRADE (not Miscellaneous, not a legacy department pill) fresh,
+  // server-side, from the same taxonomy the save just enforced — a tampered
+  // hidden field cannot queue a pairing for a category that was never a real
+  // trade. `recordCollectedTradePhrase` lands the row `reviewed_at IS NULL`
+  // regardless — collecting is never the same act as serving.
+  //
+  // Fire-and-forget, after the response is on its way, same shape as the
+  // repost-watch hash below: a supplier's save must never wait on, or fail
+  // because of, this best-effort memory write.
+  const collectedPhraseRaw = formData.get('collected_kind_phrase');
+  if (typeof collectedPhraseRaw === 'string' && collectedPhraseRaw.trim().length > 0) {
+    const collectLeaves = await currentLeafIndex();
+    if (isCoverageLeafKind(category, collectLeaves)) {
+      after(() => recordCollectedTradePhrase(collectedPhraseRaw, category));
+    }
+  }
 
   // ---- ★ Customization → the one-service package (write LATE) ----
   //

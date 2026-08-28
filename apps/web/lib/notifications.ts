@@ -188,6 +188,14 @@ export type NotificationType =
   // which announces the plan the COUPLE themselves authored at lock — this one
   // is the supplier's own sentence about an amount, and it names the figure.
   | 'vendor_payment_asked'
+  // Added 2026-08-29 alongside migration 20271178787548_picking_someone_tells_them.sql.
+  // COUPLE-recipient: a shop picked THEM off its booked-out waitlist and is
+  // holding the date. Distinct from the three "a slot opened" paths, which
+  // email EVERY couple waiting on a date and say only that it might free up —
+  // this one says a specific person has been chosen, and it is the half that is
+  // time-critical, because `max_waitlist_acceptances` lets the shop pick
+  // somebody else.
+  | 'waitlist_picked'
   // Added 2026-06-20 (Vendor lifecycle Phase 3→4 spine) alongside migration
   // 20270205806123_add_completion_accepted_notification_type.sql. Fired
   // (vendor-recipient) from vendors/[vendorId]/review/actions.ts →
@@ -369,6 +377,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_confirmed: 'Payment confirmed',
   payment_cleared: 'Payment plan settled',
   vendor_payment_asked: 'Payment requested',
+  waitlist_picked: 'Your date is being held',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
   completion_accepted: 'Service confirmed',
   // Admin reconciliation signal (2026-06-24) — couple orders + vendor
@@ -497,6 +506,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // same action-needed register as payment_logged on the other side of the
   // same conversation.
   vendor_payment_asked: 'bg-warn-100 text-warn-900',
+  // Being chosen is good news the couple must ACT on before somebody else is
+  // picked — amber, the action-needed register, not the celebratory one.
+  waitlist_picked: 'bg-warn-100 text-warn-900',
   // A logged payment awaiting the vendor's confirm = action-needed → amber.
   payment_logged: 'bg-warn-100 text-warn-900',
   // A confirmed payment = a positive money-in confirmation → emerald

@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6241
+# facts: 6246
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     572
-#   col       4594
+#   col       4598
 #   policy    848
 #   view      8
-#   func      215
+#   func      216
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -1835,6 +1835,10 @@ col	public.event_vendors.deposit_acknowledged_at	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_decline_reason	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_declined_at	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_declined_by_user_id	anon=SIU authenticated=SIU
+col	public.event_vendors.deposit_dispute_note	anon=SIU authenticated=SIU
+col	public.event_vendors.deposit_dispute_outcome	anon=SIU authenticated=SIU
+col	public.event_vendors.deposit_dispute_settled_at	anon=SIU authenticated=SIU
+col	public.event_vendors.deposit_dispute_settled_by_user_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_label	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_paid_php	anon=SIU authenticated=SIU
@@ -6202,6 +6206,7 @@ func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authentic
 func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.swap_table_assignments(p_event_id uuid, p_table_a uuid, p_table_b uuid)	secdef=no exec=anon,authenticated search_path=public

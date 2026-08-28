@@ -37,6 +37,8 @@ type Props = {
   depositDeclinedAt: string | null;
   /** Their own words, if they gave any. */
   depositDeclineReason: string | null;
+  /** Setnayan's own finding, once the team has checked it by hand. */
+  depositDisputeNote: string | null;
 };
 
 function fmtDate(iso: string | null): string {
@@ -61,6 +63,7 @@ export function DepositReservation({
   depositProofUrl,
   depositDeclinedAt,
   depositDeclineReason,
+  depositDisputeNote,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -140,6 +143,17 @@ export function DepositReservation({
       {declined && depositDeclineReason ? (
         <p className="rounded-md border border-danger-200 bg-danger-50 px-2.5 py-1.5 text-[11px] text-ink/75">
           {vendorName}&rsquo;s words: &ldquo;{depositDeclineReason}&rdquo;
+        </p>
+      ) : null}
+
+      {/* Setnayan checked it by hand (owner 2026-08-28: "we will confirm it
+          manually"). Only ever rendered beside a refusal that still stands —
+          when the team finds the payment DID arrive the refusal is lifted and
+          this card reads as confirmed, which says it better than a sentence. */}
+      {declined && depositDisputeNote ? (
+        <p className="rounded-md border border-ink/15 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/75">
+          Setnayan checked this: &ldquo;{depositDisputeNote}&rdquo; Your record is still on
+          file — send it to {vendorName} again below.
         </p>
       ) : null}
 

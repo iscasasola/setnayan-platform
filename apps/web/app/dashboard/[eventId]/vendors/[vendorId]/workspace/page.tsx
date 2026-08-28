@@ -324,14 +324,22 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const depositRefusal = await (async () => {
     const { data, error } = await supabase
       .from('event_vendors')
-      .select('deposit_declined_at, deposit_decline_reason')
+      .select('deposit_declined_at, deposit_decline_reason, deposit_dispute_note')
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .maybeSingle();
     if (error || !data) return null;
-    const row = data as { deposit_declined_at: string | null; deposit_decline_reason: string | null };
+    const row = data as {
+      deposit_declined_at: string | null;
+      deposit_decline_reason: string | null;
+      deposit_dispute_note: string | null;
+    };
     if (!row.deposit_declined_at) return null;
-    return { declinedAt: row.deposit_declined_at, reason: row.deposit_decline_reason };
+    return {
+      declinedAt: row.deposit_declined_at,
+      reason: row.deposit_decline_reason,
+      settlementNote: row.deposit_dispute_note,
+    };
   })();
 
   // ── PR-H · IS THIS BOOKED, OR MERELY ASKED? ─────────────────────────────
@@ -1528,6 +1536,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             depositProofUrl={ev.deposit_proof_url}
             depositDeclinedAt={depositRefusal?.declinedAt ?? null}
             depositDeclineReason={depositRefusal?.reason ?? null}
+            depositDisputeNote={depositRefusal?.settlementNote ?? null}
           />
 
           {/*

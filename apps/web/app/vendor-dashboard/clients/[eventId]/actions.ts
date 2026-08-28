@@ -220,10 +220,18 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
 /**
  * vendorRejectDeposit — VENDOR "I never received this downpayment".
  *
- * Calls the single-winner reject_vendor_deposit RPC (clears the couple-recorded
- * deposit markers so they must re-submit; never un-locks the booking; can't touch
- * a confirmed deposit). Then notifies the couple to re-submit. Ownership is
- * enforced inside the SECURITY DEFINER RPC, so this wrapper just forwards.
+ * Calls the single-winner reject_vendor_deposit RPC. Ownership is enforced
+ * inside the SECURITY DEFINER RPC, so this wrapper just forwards.
+ *
+ * 🛑 THIS DOCBLOCK USED TO SAY THE RPC "clears the couple-recorded deposit
+ * markers so they must re-submit". THAT HAS BEEN FALSE SINCE PR #4927
+ * (2026-08-27) and it is the sentence that made a whole session believe live
+ * data was still being destroyed. The refusal is a MARK, not a deletion: the
+ * couple keeps their amount, receipt, method and ledger row, and their card
+ * quotes the supplier's words and offers "Send it again".
+ * What the RPC does now: stamp the refusal, never un-lock the booking, refuse
+ * to touch a confirmed deposit, and (2026-08-28) retire any earlier Setnayan
+ * settlement so a fresh refusal is a fresh question for the admin queue.
  *
  * 2026-08-27 — REACHABLE FROM THE ANSWERS DESK (owner: "yes. they can declare
  * it."). The desk asked this money question and offered only YES; the NO lived

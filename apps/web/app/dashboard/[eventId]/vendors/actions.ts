@@ -4231,6 +4231,18 @@ export async function recordDeposit(
         deposit_declined_at: null,
         deposit_decline_reason: null,
         deposit_declined_by_user_id: null,
+        // …and with it any Setnayan settlement OF that refusal (2026-08-28).
+        // The settlement describes the refusal on the row; once the couple has
+        // sent it again there is no refusal for it to describe, and leaving it
+        // would let the NEXT refusal look already-settled and never reach the
+        // admin queue. The permanent history is in admin_audit_log.
+        // 🔒 Legal for the couple's own session for the same reason the three
+        // lines above are: guard_event_vendor_deposit_ack refuses SETTING these
+        // and allows CLEARING them.
+        deposit_dispute_settled_at: null,
+        deposit_dispute_outcome: null,
+        deposit_dispute_note: null,
+        deposit_dispute_settled_by_user_id: null,
       })
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId);

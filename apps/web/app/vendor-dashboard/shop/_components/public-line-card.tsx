@@ -133,6 +133,11 @@ export function PublicLineCard({
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
             Your own site, not your Setnayan page. Leave blank if you don&rsquo;t have one.
           </p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
+            The first time you add this, Setnayan reads it once, for free, to
+            suggest coverage you might be missing — you always confirm before
+            anything is added.
+          </p>
         </div>
       </div>
 

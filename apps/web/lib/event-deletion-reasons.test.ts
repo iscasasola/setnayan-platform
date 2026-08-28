@@ -250,12 +250,30 @@ test('the new table is not born wide open', () => {
         `granted back.`,
     );
   }
+  /*
+    🚨 PER-COLUMN, BECAUSE THE ROW IS YOURS AND THE FIELD IS NOT. A table-level
+    GRANT UPDATE plus the cancel policy is NOT "they may cancel": that policy's
+    WITH CHECK constrains user_id and status and says nothing about the other
+    nine columns, so one update satisfying it could also rewrite `admin_note` —
+    our answer to them — or `reason_code`, or `event_name`. RLS is ROW-level and
+    can never protect a column.
+  */
+  assert.match(
+    sql,
+    /GRANT UPDATE \(status\) ON public\.event_deletion_requests TO authenticated;/,
+    'UPDATE must be granted on `status` alone. Anything wider lets the person ' +
+      'who filed a request rewrite the answer they were given.',
+  );
   assert.ok(
-    sql.includes(
-      'GRANT SELECT, INSERT, UPDATE ON public.event_deletion_requests TO authenticated;',
-    ),
-    'Exactly the three verbs the policies name — enumerated from the policies, ' +
-      'never from remembered paths.',
+    !/GRANT INSERT[^;]*\bstatus\b/i.test(sql),
+    'INSERT must not name `status` — a filed request can then only take the ' +
+      'column default `pending`, so nobody posts one already approved.',
+  );
+  assert.ok(
+    !/GRANT SELECT \([^)]*reviewed_by/i.test(sql),
+    '`reviewed_by` is the user id of the member of staff who answered. It is ' +
+      'somebody else’s identity and of no use to the person asking — the ' +
+      'answer itself reaches them in `admin_note`.',
   );
   assert.ok(
     !/GRANT[^;]*DELETE[^;]*TO authenticated/i.test(sql),

@@ -165,10 +165,37 @@ ALTER TABLE public.event_deletion_requests ENABLE ROW LEVEL SECURITY;
 --    rolled-back transaction: `anon` was correctly at 0, and `authenticated`
 --    came back holding all seven. **A GRANT is not a narrowing; only a REVOKE
 --    is.**
+--
+-- 🚨 AND THE GRANTS ARE PER-COLUMN, BECAUSE **THE ROW IS YOURS, THE FIELD IS
+--    NOT** — this schema's eighth-recorded defect shape, and the first cut of
+--    this table walked straight into it. A table-level
+--    `GRANT UPDATE` plus the cancel policy below is NOT "they may cancel": the
+--    policy's WITH CHECK constrains `user_id` and `status` and says nothing
+--    about the other nine columns, so ONE update that satisfies it could also
+--    rewrite `admin_note` (our answer to them), `reviewed_by`, `reason_code`
+--    and `event_name`. RLS is ROW-level and can never hide or protect a column.
+--    UPDATE is therefore granted on `status` ALONE.
+--
+-- 🔒 `reviewed_by` IS NOT SELECTABLE BY THE COUPLE. It is the user id of the
+--    member of staff who answered — somebody else's identity, of no use to the
+--    person asking, and the answer itself reaches them in `admin_note` and as a
+--    notification. The admin console reads this table with the service role.
+--
+-- ⚠ INSERT NAMES ONLY WHAT A PERSON LEGITIMATELY WRITES. `status` is absent, so
+--    a filed request can only take the column DEFAULT `'pending'` — a couple
+--    cannot post one already `approved`. The `self_removed` rows are written by
+--    the service role on the way out of a removal and need no grant here.
 REVOKE ALL ON public.event_deletion_requests FROM PUBLIC;
 REVOKE ALL ON public.event_deletion_requests FROM anon;
 REVOKE ALL ON public.event_deletion_requests FROM authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.event_deletion_requests TO authenticated;
+GRANT SELECT (
+  id, event_id, event_name, user_id, reason_code, reason, status,
+  created_at, reviewed_at, admin_note
+) ON public.event_deletion_requests TO authenticated;
+GRANT INSERT (
+  event_id, event_name, user_id, reason_code, reason
+) ON public.event_deletion_requests TO authenticated;
+GRANT UPDATE (status) ON public.event_deletion_requests TO authenticated;
 GRANT ALL ON public.event_deletion_requests TO service_role;
 
 -- ── RLS · Pattern A (self-row) + admin override ─────────────────────────────

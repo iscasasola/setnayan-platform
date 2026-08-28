@@ -182,6 +182,12 @@ export type NotificationType =
   | 'payment_logged'
   | 'payment_confirmed'
   | 'payment_cleared'
+  // Added 2026-08-28 alongside migration 20271177403026_a_shop_can_ask_for_a_payment.sql
+  // (S4, shop redesign). COUPLE-recipient: a booked supplier asked them for a
+  // payment from the shop's own customer card. Distinct from payment_info_sent,
+  // which announces the plan the COUPLE themselves authored at lock — this one
+  // is the supplier's own sentence about an amount, and it names the figure.
+  | 'vendor_payment_asked'
   // Added 2026-06-20 (Vendor lifecycle Phase 3→4 spine) alongside migration
   // 20270205806123_add_completion_accepted_notification_type.sql. Fired
   // (vendor-recipient) from vendors/[vendorId]/review/actions.ts →
@@ -362,6 +368,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_logged: 'Payment logged',
   payment_confirmed: 'Payment confirmed',
   payment_cleared: 'Payment plan settled',
+  vendor_payment_asked: 'Payment requested',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
   completion_accepted: 'Service confirmed',
   // Admin reconciliation signal (2026-06-24) — couple orders + vendor
@@ -486,6 +493,10 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // "Your payment plan is ready" = an informational, positive next-step → sky
   // (matches chat_message / the informational register).
   payment_info_sent: 'bg-sky-100 text-sky-800',
+  // A supplier asking for money = something the couple has to DO → amber, the
+  // same action-needed register as payment_logged on the other side of the
+  // same conversation.
+  vendor_payment_asked: 'bg-warn-100 text-warn-900',
   // A logged payment awaiting the vendor's confirm = action-needed → amber.
   payment_logged: 'bg-warn-100 text-warn-900',
   // A confirmed payment = a positive money-in confirmation → emerald

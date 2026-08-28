@@ -472,6 +472,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'acknowledged_by_user_id',
     why: '⚠ NO FK AT ALL, same table, the counter-signature side. Nulled on the same pass.',
   },
+  {
+    table: 'vendor_payment_asks',
+    column: 'asked_by_user_id',
+    why: 'Which member of the shop typed "please send ₱X" (S4, 2026-08-28). An ACTOR STAMP by the schema\'s own test — SET NULL + nullable — and no reader selects it: the couple sees the SHOP asking, never a named person. The ask itself is the counterparty\'s record of what they were asked for and stays. Same call as vendor_change_orders.proposed_by_user_id, whose table this one is modelled on.',
+  },
 
   // ── batch 2, settled 2026-08-02 ──────────────────────────────────────────
   // 🔑 THE SCHEMA ITSELF SORTS THESE. Where a column is CASCADE + NOT NULL the

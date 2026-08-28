@@ -2155,12 +2155,36 @@ export async function deleteVendorService(formData: FormData) {
   // deleted. It vanishes from the vendor's public page exactly as before, and
   // the couple keeps the record of what they bought. Only a service nobody has
   // touched is deleted outright.
-  const { count: pickedCount } = await supabase
+  /*
+    🔴 THIS COUNT RAN ON THE SHOP'S OWN SESSION AND COULD ONLY EVER ANSWER ZERO.
+    Measured against production 2026-08-28 as the shop's authenticated role, in a
+    rolled-back transaction: `event_vendors` carries four policies — couple read,
+    couple write, moderator read, moderator write — and NOT ONE admits a vendor,
+    so a shop reads zero rows of a table holding 45. The guard the comment above
+    describes therefore could not fire: every delete took the "nobody has touched
+    it" branch, hard-deleted the service, and SET NULL'd `event_vendors.service_id`
+    on any booking that pointed at it — erasing which service a couple bought,
+    including on a `contracted` row.
+
+    🔢 NOBODY HAS BEEN HARMED, and the arithmetic is why: production holds 45
+    bookings and ZERO of them carry a `service_id` at all, so the true count is
+    also zero today. The guard was inert, not wrong-answered — which is exactly
+    the window in which to fix it.
+
+    The admin client answers "has anyone picked this?", a yes/no about a service
+    id the caller is proved to own on the very next statement. It reads one
+    count and no rows.
+  */
+  const { count: pickedCount, error: pickedError } = await createAdminClient()
     .from('event_vendors')
     .select('vendor_id', { count: 'exact', head: true })
     .eq('service_id', idRaw);
 
-  if ((pickedCount ?? 0) > 0) {
+  // ⚠ AND AN UNREADABLE COUNT MUST NOT MEAN ZERO. `count` comes back null on an
+  // error, and `?? 0` would send an unmeasured service straight down the DELETE
+  // branch — the same silence, one layer up. Fail toward RETIRING it: the shop
+  // sees the card leave their public page either way, and nobody loses a record.
+  if (pickedError || (pickedCount ?? 0) > 0) {
     const { error: retireErr } = await supabase
       .from('vendor_services')
       .update({ is_active: false, updated_at: new Date().toISOString() })

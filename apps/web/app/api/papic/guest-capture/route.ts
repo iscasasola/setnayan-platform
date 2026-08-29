@@ -581,18 +581,30 @@ export async function POST(req: Request) {
     total?: number;
     used?: number;
     remaining?: number;
-    /** Which limit refused, when `status` is `quota_exhausted`:
-     *  `guest_spend_ceiling` — the COUPLE's per-guest ceiling (migration
-     *  20271184624871); `per_guest_credits` — the platform's own 150.
-     *  🔑 THE STATUS IS DELIBERATELY NOT NEW. The route already unwinds both
-     *  ledgers on any non-ok status and the offline drain already classifies
-     *  this one as retryable-not-terminal; a new string would have had to be
-     *  taught to both. What the guest's SCREEN says is the thing that has to
-     *  split, and this is what lets it — "your own allowance is spent" is not
-     *  "the celebration's credits are spent", and a refusal that reuses another
-     *  refusal's status inherits its copy. Undefined before the migration. */
+    // ⚠ LINE COMMENTS ONLY IN THIS FILE — NEVER A JSDOC BLOCK. NOT A STYLE
+    // CHOICE, AND IT COST AN HOUR TO FIND. A comment further up ends with the
+    // MIME wildcard for video, which puts a block-comment OPENER inside a line
+    // comment. Several source-level guards over this file strip block comments
+    // with a naive non-greedy pattern that never looks at line comments first:
+    // today it finds no closing delimiter anywhere in the file, so it leaves
+    // everything alone. Introduce the first real closing delimiter — a single
+    // JSDoc block, anywhere — and that stray opener suddenly closes at it,
+    // swallowing 27,000 characters of source. SIX guards over this file went
+    // red at once, on a change that touched none of what they check. Measured
+    // by comparing the stripped length before and after: 16,218 → 6,430.
+    //
+    // Which limit refused, when `status` is `quota_exhausted`:
+    // `guest_spend_ceiling` — the COUPLE's per-guest ceiling (migration
+    // 20271184624871); `per_guest_credits` — the platform's own 150.
+    // 🔑 THE STATUS IS DELIBERATELY NOT NEW. The route already unwinds both
+    // ledgers on any non-ok status and the offline drain already classifies
+    // this one as retryable-not-terminal; a new string would have had to be
+    // taught to both. What the guest's SCREEN says is the thing that has to
+    // split, and this is what lets it — "your own allowance is spent" is not
+    // "the celebration's credits are spent", and a refusal that reuses another
+    // refusal's status inherits its copy. Undefined before the migration.
     reason?: string;
-    /** The couple's ceiling on this guest in credits, or null when none binds. */
+    // The couple's ceiling on this guest in credits, or null when none binds.
     ceiling?: number | null;
   };
 

@@ -29,9 +29,19 @@ test('band: null / undefined / unknown fall to the entry band (fail-safe: never 
 
 // ── resolveVendorAddonPricePhp: the owner-locked 2026-07-25 matrix ───────────
 
-test('price: Papic Challenge — ₱500 entry, ₱400 growth', () => {
-  assert.equal(resolveVendorAddonPricePhp('papic_challenge', 'solo'), 500);
-  assert.equal(resolveVendorAddonPricePhp('papic_challenge', 'pro'), 400);
+test('price: Papic Challenge — ₱2,500 for EVERY tier (owner 2026-08-28)', () => {
+  // ⚠ THIS ASSERTION WAS CHANGED, NOT WEAKENED. It read ₱500 entry / ₱400 growth,
+  // which were per-EVENT prices under the model the owner replaced on 2026-08-28:
+  // *"unlimited us 2500 for 4 weeks"* — one price, per 28 days, unlimited. He set
+  // a NUMBER, not a band pair, so the two bands are deliberately equal here
+  // rather than the SKU being deleted from the matrix: this matrix OVERRIDES the
+  // catalogue whenever NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING is on, so leaving
+  // the old bands would have charged ₱400 for a 28-day subscription the moment
+  // that flag flipped, with the catalogue price right and the charge wrong.
+  assert.equal(resolveVendorAddonPricePhp('papic_challenge', 'solo'), 2500);
+  assert.equal(resolveVendorAddonPricePhp('papic_challenge', 'pro'), 2500);
+  assert.equal(resolveVendorAddonPricePhp('papic_challenge', 'free'), 2500);
+  assert.equal(resolveVendorAddonPricePhp('papic_challenge', 'enterprise'), 2500);
 });
 
 test('price: 3D Plan Ads — ₱2,000 entry, ₱1,500 growth', () => {

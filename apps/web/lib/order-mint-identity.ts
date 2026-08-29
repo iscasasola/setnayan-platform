@@ -186,7 +186,7 @@ export function orderRowFor<T extends Record<string, unknown> & OrderStatusField
  *
  *   • `subscription/ai-addon-actions.ts`      — Vendor AI, first cycle free
  *   • `subscription/booth-addon-actions.ts`   — 3D Booth, first cycle / first 5
- *   • `clients/[eventId]/photo-challenge-actions.ts` — Papic Challenges, first 5
+ *   • `subscription/photo-challenge-actions.ts`      — Papic Challenges, first 5
  *
  * All three were ALREADY on `createAdminClient()` before SEC-4b, so they were
  * always taking `orders_insert_status_guard`'s `service_role` branch and never

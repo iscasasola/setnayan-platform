@@ -42,7 +42,7 @@ const PAID_PATHS = [
   // list, so it kept the exact panel every other button here shed: the amount
   // and the reference, and "pay to our BDO or GCash account" — naming NEITHER
   // account, with no QR carrying the amount and nowhere to send a screenshot.
-  'app/vendor-dashboard/clients/[eventId]/photo-challenge-actions.ts',
+  'app/vendor-dashboard/subscription/photo-challenge-actions.ts',
 ] as const;
 
 /**

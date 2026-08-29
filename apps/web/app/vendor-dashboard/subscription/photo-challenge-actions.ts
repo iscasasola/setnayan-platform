@@ -13,44 +13,56 @@ import { appendLedger } from '@/lib/ledger';
 import { payPath } from '@/lib/pay-path';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
 import {
-  COMMITTED_BOOKING_STATUSES,
   addonIsFreeUnderFirst5,
   fetchVendorCommittedBookingCount,
   first5BookingsRemaining,
 } from '@/lib/vendor-addon-first5-free';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
-import { eventPapicActive } from '@/lib/papic-seats';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+  VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS,
   resolveVendorPhotoChallengePricePhp,
-  photoChallengeEligibility,
-  fetchPhotoChallengeSponsored,
+  photoChallengePurchaseEligibility,
+  isPhotoChallengeSubscriptionActive,
+  nextPhotoChallengeExpiry,
+  fetchPhotoChallengeExpiry,
   PHOTO_CHALLENGE_DENY_MESSAGE,
 } from '@/lib/vendor-photo-challenge';
 
 /**
- * Photo Challenge add-on — a booked Pro/Enterprise vendor SPONSORS guest photo
- * challenges (the flag-dark Papic Games / missions feature) for one booked event
- * where Papic is active. Owner-locked 2026-07-22: FLAT ₱400 / EVENT (metered,
- * NOT a subscription → NO free first cycle; the owner set a trial only for the
- * AI + 3D add-ons). Guests + couple play free; the vendor pays ₱400.
+ * Papic Challenges — the vendor turns guest photo missions ON FOR THEIR SHOP.
+ *
+ * OWNER 2026-08-28, verbatim: **"unlimited us 2500 for 4 weeks."** ₱2,500 per
+ * 28 days, unlimited challenges, across EVERY celebration the shop is booked
+ * for. It replaces the ₱400-per-event sponsorship locked on 2026-07-22. Guests
+ * and the couple still play free; the shop pays.
+ *
+ * ── WHY THIS ACTION NO LONGER TAKES AN EVENT ID ─────────────────────────────
+ * It used to, and the event id came FROM THE FORM — which is why the old
+ * docblock spent a paragraph on the authorization binding that stopped a forged
+ * one (an admin-client `event_vendors` read filtered to the caller's own shop).
+ * A subscription is bought by the SHOP, so there is nothing to bind: the field
+ * is gone, `orders.event_id` is null, and the whole forged-event-id class goes
+ * with it. **A parameter you do not accept cannot be forged.**
+ *
+ * The per-event questions did not disappear, they moved to where they belong —
+ * `photoChallengeEventReady` decides whether a challenge can run at ONE
+ * celebration (booked + Papic active + entitled), and the database asks the
+ * entitlement half again itself in `vendor_papic_challenge_entitled`, called by
+ * both the authoring RPC and the photo-delivery RPC.
  *
  * ── WHY the gate + price re-check is HERE, server-side ──────────────────────
- * Nothing else gates a vendor add-on on the orders spine. This action is the
- * ONLY gate: it rejects — BEFORE pricing — any of tier < Pro, unverified,
- * not-booked-on-the-event, Papic-not-active, or already-sponsored, then re-reads
- * the ₱400 authoritative price + the SKU's is_active flag from the admin-managed
- * vendor_billing_catalog (mirrors the AI-addon action). The client sends only
- * the event id + pay channel — never a price.
+ * Nothing else gates a vendor add-on on the orders spine. This action rejects —
+ * BEFORE pricing — tier < Pro (unless the tiered model is on), unverified, and
+ * already-subscribed, then re-reads the authoritative price + the SKU's
+ * is_active flag from the admin-managed vendor_billing_catalog. The client
+ * sends only the pay channel — never a price, and no longer an event.
  *
- * Apply-then-pay: a 'submitted' order (event_id + vendor_profile_id set,
+ * Apply-then-pay: a 'submitted' order (vendor_profile_id set,
  * service_key='vendor_photo_challenge') + a pending 'payments' row that lands in
- * /admin/payments. On admin approval, the sku-activation hook
- * (lib/sku-activation.ts · 'vendor_photo_challenge') writes the
- * papic_photo_challenge_sponsorships entitlement, which the
- * papic_create_vendor_challenge RPC requires before a vendor may author a
- * challenge.
+ * /admin/payments. On admin approval the sku-activation hook stamps
+ * vendor_profiles.papic_challenge_expires_at 28 days out.
  */
 
 export type PhotoChallengeActionState =
@@ -80,20 +92,21 @@ function parseChannel(raw: FormDataEntryValue | null): 'bdo' | 'gcash' {
   return String(raw ?? '').trim() === 'gcash' ? 'gcash' : 'bdo';
 }
 
-/** Booked = a contracted-or-further event_vendors row (mirrors the challenge RPC).
- *  Shared with the first-5-free counter so the two can never drift — a pinned
- *  drift test in vendor-addon-first5-free.test.ts guards the list. */
-const BOOKED_STATUSES = COMMITTED_BOOKING_STATUSES;
+/**
+ * Where to send the caller back to after a ₱0 activation. Taken from the form
+ * only to REVALIDATE a path the vendor is already looking at — it never reaches
+ * a query, a policy or the order, so an unexpected value costs a stale cache and
+ * nothing else. Bounded to our own dashboard for that reason.
+ */
+function parseReturnPath(raw: FormDataEntryValue | null): string {
+  const s = String(raw ?? '').trim();
+  return s.startsWith('/vendor-dashboard/') ? s : '/vendor-dashboard/subscription';
+}
 
 export async function sponsorPhotoChallenge(
   _prev: PhotoChallengeActionState,
   formData: FormData,
 ): Promise<PhotoChallengeActionState> {
-  const eventId = formData.get('event_id');
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    return err('Missing event.');
-  }
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -105,18 +118,18 @@ export async function sponsorPhotoChallenge(
   const vendorProfileId = profile.vendor_profile_id;
 
   // Scope the role check to THIS vendor profile (not the user's global-highest
-  // role) so an agent/viewer on this shop can't sponsor a paid Photo Challenge via
-  // a role they hold on some other vendor.
+  // role) so an agent/viewer on this shop can't buy a paid add-on via a role
+  // they hold on some other vendor.
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
-    return err('Only the owner or an admin can sponsor Papic Challenges.');
+    return err('Only the owner or an admin can turn on Papic Challenges.');
   }
 
   // ── Feature-availability gate (defence in depth) ───────────────────────────
-  // Photo Challenge rides the flag-dark Papic Games engine. The buy surface
-  // (VendorChallengeSection) already renders null when NEXT_PUBLIC_PAPIC_GAMES_V1
-  // is off, but the flag can flip between render and submit — never take money
-  // for a challenge that can't run.
+  // Papic Challenges rides the flag-dark Papic Games engine. The buy surface
+  // already renders null when NEXT_PUBLIC_PAPIC_GAMES_V1 is off, but the flag
+  // can flip between render and submit — never take money for a product that
+  // cannot run.
   if (!papicGamesEnabled()) {
     return err('Papic Challenges isn’t available yet — it’s launching shortly. You won’t be charged.');
   }
@@ -135,35 +148,19 @@ export async function sponsorPhotoChallenge(
   const verification =
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  // Booked on THIS event (admin-read: event_vendors is couple-scoped; we filter
-  // by our own marketplace_vendor_id so this only ever matches our own booking).
-  const { data: bookedRow } = await admin
-    .from('event_vendors')
-    .select('vendor_id')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .in('status', BOOKED_STATUSES as unknown as string[])
-    .limit(1)
-    .maybeSingle();
-  const booked = bookedRow != null;
+  // Already subscribed? Read with the ADMIN client for authority — the window is
+  // the thing being sold, and a read the vendor's own session could refuse would
+  // degrade to "not subscribed", i.e. toward charging them twice.
+  const currentExpiry = await fetchPhotoChallengeExpiry(admin, vendorProfileId);
+  const subscriptionActive = isPhotoChallengeSubscriptionActive(currentExpiry);
 
-  // Papic active on the event (admin-read: paparazzi_seats + couple orders are
-  // couple-RLS — the vendor can't see them under their own session).
-  const papicActive = booked ? await eventPapicActive(admin, eventId) : false;
-
-  // Already sponsored? (admin-read for authority.)
-  const alreadySponsored = await fetchPhotoChallengeSponsored(admin, eventId, vendorProfileId);
-
-  // 2026-07-25 tiered add-on model: when enabled, Papic Challenge opens to every
-  // tier (Free/Solo pay the entry price) and the tier-based price applies. Mirrors
-  // the SQL gate (papic_create_vendor_challenge reads the DB twin of this flag).
+  // 2026-07-25 tiered add-on model: when enabled, every tier may subscribe.
+  // Mirrors the SQL gate (both challenge RPCs read the DB twin of this flag).
   const tieredPricing = isVendorAddonTieredPricingEnabled();
-  const eligibility = photoChallengeEligibility({
+  const eligibility = photoChallengePurchaseEligibility({
     tier,
     verification,
-    booked,
-    papicActive,
-    alreadySponsored,
+    subscriptionActive,
     allTiersAllowed: tieredPricing,
   });
   if (!eligibility.ok) {
@@ -171,15 +168,16 @@ export async function sponsorPhotoChallenge(
   }
 
   // ── Pending-order guard (double-charge prevention) ─────────────────────────
-  // The entitlement dedupes only on APPROVAL (alreadySponsored, above), so two
-  // quick submits before an admin approves would mint TWO ₱400 orders for one
-  // event. Reject a second submit while a 'submitted' order for this
-  // (event, vendor, SKU) is still in review — mirrors the couple-3D buy's
-  // owned-includes-submitted guard.
+  // The window is stamped only on APPROVAL, so two quick submits before an admin
+  // approves would mint TWO orders for one cycle. Reject a second submit while a
+  // 'submitted' order for this (vendor, SKU) is still in review.
+  // ⚠ SCOPED BY VENDOR, NOT BY EVENT. Under the per-event model this filtered on
+  // event_id as well — which under a subscription would let the same shop mint a
+  // second pending order from a different celebration's screen and be charged
+  // twice for one 28-day window.
   const { data: pendingOrder } = await admin
     .from('orders')
     .select('order_id')
-    .eq('event_id', eventId)
     .eq('vendor_profile_id', vendorProfileId)
     .eq('service_key', VENDOR_PHOTO_CHALLENGE_SKU_CODE)
     .eq('status', 'submitted')
@@ -187,13 +185,13 @@ export async function sponsorPhotoChallenge(
     .maybeSingle();
   if (pendingOrder) {
     return err(
-      'You already have a Papic Challenges order in review for this event — it unlocks once our team confirms your payment.',
+      'You already have a Papic Challenges order in review — it turns on once our team confirms your payment.',
     );
   }
 
-  // ── Re-read the authoritative ₱400 price + is_active from the catalog ───────
-  // (mirrors the AI-addon is_active guard.) A retired SKU (row exists,
-  // is_active=false) blocks the sale; a missing row falls back to ₱400.
+  // ── Re-read the authoritative price + is_active from the catalog ───────────
+  // A retired SKU (row exists, is_active=false) blocks the sale; a missing row
+  // falls back to the code figure.
   const { data: skuRow } = await supabase
     .from('vendor_billing_catalog')
     .select('price_php, is_active')
@@ -212,11 +210,15 @@ export async function sponsorPhotoChallenge(
 
   // ── "Free until your 6th booking" (owner 2026-07-25, flag-dark) ────────────
   // While the vendor is inside their first 5 bookings — the same window in which
-  // Setnayan charges them no booking fee — sponsoring costs ₱0. The count comes
+  // Setnayan charges them no booking fee — the cycle costs ₱0. The count comes
   // from event_vendors (NOT booking_fee_ledger, which is empty while the
   // booking-fee flag is off) and fails CLOSED, so a bad read charges rather than
   // gives away. Flag off → `first5Free` is false and everything below is
-  // byte-identical to today.
+  // byte-identical to a paid cycle.
+  // ⚠ Under the subscription this grants a whole free 28-DAY CYCLE rather than a
+  // single event. That follows the owner's 2026-07-25 rule as written; it is
+  // named here rather than quietly narrowed, because narrowing an owner ruling
+  // is his call and the flag is off in production either way.
   const first5Enabled = isVendorAddonFirst5FreeEnabled();
   const committedBookings = first5Enabled
     ? await fetchVendorCommittedBookingCount(supabase, vendorProfileId)
@@ -227,14 +229,15 @@ export async function sponsorPhotoChallenge(
     enabled: first5Enabled,
   });
   const pricePhp = first5Free ? 0 : listPricePhp;
+  const returnPath = parseReturnPath(formData.get('return_to'));
 
-  // ── FREE sponsorship → direct activation (no payment, no admin step) ────────
+  // ── FREE cycle → direct activation (no payment, no admin step) ─────────────
   // Mirrors the 3D booth's free path: an audit-only ₱0 'paid' order (no payments
-  // row — payments.amount_php has a > 0 CHECK) plus the entitlement written HERE
+  // row — payments.amount_php has a > 0 CHECK) plus the window written HERE
   // rather than by the sku-activation hook, which only ever runs on admin
-  // approval of a real payment. `alreadySponsored` (checked above) is the dedupe;
-  // the upsert's (event_id, vendor_profile_id) UNIQUE is the backstop, so a
-  // double-click can never mint two sponsorships.
+  // approval of a real payment. `subscriptionActive` (checked above) is the
+  // dedupe; `nextPhotoChallengeExpiry` stacks from the later of now / the
+  // current expiry, so even a race can only ever extend, never double-count.
   if (pricePhp <= 0) {
     const referenceCode = generateReferenceCode();
     const { data: freeOrder, error: foErr } = await createMoneyWriterClient()
@@ -245,10 +248,10 @@ export async function sponsorPhotoChallenge(
         // cannot become a non-zero charge. `orderRowFor` deliberately rejects
         // 'paid' (it is the status that skips /admin/payments reconciliation).
         compOrderRowFor(
-          { userId: user.id, eventId: eventId, vendorProfileId },
+          { userId: user.id, eventId: null, vendorProfileId },
           {
             service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-            description: 'Papic Challenges (per event · free · first 5 bookings)',
+            description: `Papic Challenges (unlimited · ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days · free · first 5 bookings)`,
             reference_code: referenceCode,
           },
         ),
@@ -260,13 +263,14 @@ export async function sponsorPhotoChallenge(
     }
     const freeOrderId = (freeOrder as { order_id: string }).order_id;
 
-    const { error: grantErr } = await admin.from('papic_photo_challenge_sponsorships').upsert(
-      { event_id: eventId, vendor_profile_id: vendorProfileId, order_id: freeOrderId },
-      { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
-    );
+    const newExpiry = nextPhotoChallengeExpiry(currentExpiry, Date.now());
+    const { error: grantErr } = await admin
+      .from('vendor_profiles')
+      .update({ papic_challenge_expires_at: newExpiry })
+      .eq('vendor_profile_id', vendorProfileId);
     if (grantErr) {
       // Roll the audit order back so a retry re-mints cleanly and no 'paid' order
-      // is left claiming an entitlement that was never written.
+      // is left claiming a window that was never written.
       await createMoneyWriterClient().from('orders').delete().eq('order_id', freeOrderId);
       return err('Could not turn on Papic Challenges right now. Please try again.');
     }
@@ -280,20 +284,21 @@ export async function sponsorPhotoChallenge(
       metadata: {
         service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
         vendor_profile_id: vendorProfileId,
-        event_id: eventId,
         kind: 'papic_challenge_free_first5_bookings',
         committed_bookings: committedBookings,
+        expires_at: newExpiry,
       },
     });
 
-    revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+    revalidatePath(returnPath);
+    revalidatePath('/vendor-dashboard/subscription');
     const remaining = first5BookingsRemaining(committedBookings);
     return {
       status: 'activated',
       message:
-        `Papic Challenges is on for this event — free while you're on your first ${FREE_BOOKING_LIMIT} bookings` +
+        `Papic Challenges is on for every celebration you're booked for — free while you're on your first ${FREE_BOOKING_LIMIT} bookings` +
         (remaining > 0 ? ` (${remaining} to go)` : '') +
-        `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} per event.`,
+        `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} every ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days.`,
     };
   }
 
@@ -307,26 +312,22 @@ export async function sponsorPhotoChallenge(
   // `WITH CHECK (user_id = auth.uid())`, which was RLS's only contribution — it
   // checked neither event_id nor vendor_profile_id.
   //
-  // AUTHORIZATION IS UNCHANGED and already adequate — and this is the one
-  // converted vendor site whose event_id ORIGINATES IN THE FORM, so the binding
-  // check matters most here. It is the admin-client `event_vendors` read above,
-  // filtered `.eq('event_id', eventId).eq('marketplace_vendor_id',
-  // vendorProfileId).in('status', COMMITTED_BOOKING_STATUSES)`: the caller's own
-  // vendor must hold a committed booking on exactly this event, so a forged
-  // eventId matches nothing and `photoChallengeEligibility` denies. Around it:
+  // AUTHORIZATION IS UNCHANGED AND IS NOW SIMPLER than it was: this used to be
+  // the one converted vendor site whose event_id ORIGINATED IN THE FORM, and the
+  // booked-on-this-event read was what bound it. The subscription takes no event
+  // at all, so every identity on the order comes from the session:
   // authenticated → `fetchOwnVendorProfile` → `resolveVendorRoleForProfile` +
-  // canManageVendor (PROFILE-scoped) → `papicGamesEnabled()` → eventPapicActive
-  // → the sponsored dedupe → the pending-order double-charge guard → the SKU
-  // is_active reject. Every gate stays BEFORE pricing, as the file header
-  // requires. Reuses the `admin` client created above.
+  // canManageVendor (PROFILE-scoped) → `papicGamesEnabled()` → the
+  // already-subscribed dedupe → the pending-order double-charge guard → the SKU
+  // is_active reject. Every gate stays BEFORE pricing.
   const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
     .insert(
       orderRowFor(
-        { userId: user.id, eventId, vendorProfileId },
+        { userId: user.id, eventId: null, vendorProfileId },
         {
           service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-          description: 'Papic Challenges (per event)',
+          description: `Papic Challenges (unlimited · ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days)`,
           requested_total_php: pricePhp,
           status: 'submitted',
           reference_code: referenceCode,
@@ -359,19 +360,14 @@ export async function sponsorPhotoChallenge(
     return err('Could not start the Papic Challenges payment. Please try again.');
   }
 
-  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  revalidatePath(returnPath);
+  revalidatePath('/vendor-dashboard/subscription');
 
   // ── THE BUYER GOES WHERE THEY CAN ACTUALLY PAY ─────────────────────────
   // Owner, 2026-08-21: "this can apply to all purchasable buttons." This path
-  // was missed by the conversion and kept the panel every other buy button
+  // was missed by the conversion once and kept the panel every other buy button
   // shed: it printed the amount and the reference and told the vendor to "pay
   // to our BDO or GCash account" — WITHOUT NAMING EITHER ACCOUNT, with no QR
-  // carrying the amount, and with nowhere to send the screenshot. A person
-  // reading it had been charged ₱400 and could not pay it.
-  //
-  // 🔑 IT WAS MISSED BECAUSE THE GUARD'S LIST IS HAND-WRITTEN. This file mints
-  // an order exactly like the seven in PAID_PATHS and was not among them, so
-  // the check that exists to catch precisely this passed. The guard now derives
-  // its list from the mint instead of trusting the list.
+  // carrying the amount, and with nowhere to send the screenshot.
   redirect(payPath(referenceCode));
 }

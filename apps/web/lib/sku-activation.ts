@@ -40,7 +40,11 @@ import {
   VENDOR_3D_BOOTH_SKU_CODE,
   nextVendor3dBoothExpiry,
 } from '@/lib/vendor-3d-booth-pricing';
-import { VENDOR_PHOTO_CHALLENGE_SKU_CODE } from '@/lib/vendor-photo-challenge';
+import {
+  VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+  VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS,
+  nextPhotoChallengeExpiry,
+} from '@/lib/vendor-photo-challenge';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
@@ -581,25 +585,29 @@ async function activateVendor3dBoothOrder(ctx: ActivationContext): Promise<void>
 }
 
 /**
- * Photo Challenge add-on — write the per-(vendor,event) sponsorship entitlement
- * on approval (owner 2026-07-22). ₱400 / event, no free cycle (unlike the AI
- * add-on): every approved order is a paid sponsorship. The row is what the
- * papic_create_vendor_challenge RPC requires before a booked Pro/Enterprise
- * vendor may author a challenge for the event.
+ * Papic Challenges — stamp the shop's 28-day entitlement window on approval.
  *
- * Reads the paying vendor + event off the order and upserts one
- * papic_photo_challenge_sponsorships row. IDEMPOTENT two ways: a prior
- * 'service_activated' ledger row for this order short-circuits, and the
- * (event_id, vendor_profile_id) UNIQUE + ignoreDuplicates upsert means a
- * re-approval (or a second order that slipped past the buy-action guard) never
- * duplicates or errors. Throws only on the write so activateOrderSku's outer
- * catch logs it + the order stays 'paid' (recoverable). (Function declaration →
- * hoisted, so the frozen EXACT_HOOKS map below can reference it.)
+ * OWNER 2026-08-28, verbatim: **"unlimited us 2500 for 4 weeks."** ₱2,500 per 28
+ * days, unlimited challenges across EVERY celebration the shop is booked for.
+ * There is no free cycle (the owner set a trial for the AI + 3D add-ons only).
+ *
+ * ⚠ IT NO LONGER READS `ctx.eventId`, AND THAT MATTERS FOR EVERY OLD ORDER. The
+ * per-event version opened `if (!ctx.eventId) return;` — a silent no-op that
+ * would take a subscription payment and grant NOTHING, because a subscription
+ * order carries no event. Prod holds zero orders on this key, so nothing
+ * historical changes; the guard is gone because it is now exactly wrong.
+ *
+ * Reads the paying vendor off the order and extends
+ * vendor_profiles.papic_challenge_expires_at by one cycle, stacking from the
+ * LATER of now / the current expiry so an early renewal keeps the time already
+ * paid for. IDEMPOTENT: a prior 'service_activated' ledger row for this order
+ * short-circuits before anything is written — which matters more here than it
+ * did for a row upsert, because extending a window twice is 56 free days rather
+ * than a no-op. Throws only on the write so activateOrderSku's outer catch logs
+ * it + the order stays 'paid' (recoverable). (Function declaration → hoisted, so
+ * the frozen EXACT_HOOKS map below can reference it.)
  */
 async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promise<void> {
-  if (!ctx.eventId) return; // a sponsorship is per-event; no event → nothing to grant
-  const eventId = ctx.eventId;
-
   // (1) Idempotency — already activated this order?
   const { data: prior } = await ctx.admin
     .from('order_ledger')
@@ -623,8 +631,8 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
   // (2b) S2 — re-assert Pro+ & verified on the paying vendor (defence in depth).
   // The tier floor LIFTS in lock-step with the buy gate (#3692/#3697 sell Papic
   // Challenges to every tier when the tiered add-on model is on) — otherwise a
-  // Free/Solo vendor pays ₱500 and this throws on approval, taking their money
-  // without granting the sponsorship. Verified is still required either way.
+  // Free/Solo vendor pays and this throws on approval, taking their money
+  // without turning the add-on on. Verified is still required either way.
   await assertVendorAddonActivationEligible(
     ctx,
     vendorProfileId,
@@ -632,20 +640,37 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
     isVendorAddonTieredPricingEnabled(),
   );
 
-  // (3) Upsert the entitlement. ignoreDuplicates → INSERT … ON CONFLICT
-  //     (event_id, vendor_profile_id) DO NOTHING: a vendor holds at most one
-  //     sponsorship per event, so a re-approval / duplicate order is a no-op.
-  const { error } = await ctx.admin.from('papic_photo_challenge_sponsorships').upsert(
-    {
-      event_id: eventId,
-      vendor_profile_id: vendorProfileId,
-      order_id: ctx.orderId,
-    },
-    { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
-  );
+  // (3) Extend the window. Read-then-write is safe here because the ONLY writer
+  //     of this column is this hook and the ₱0 first-5 path, both service-role
+  //     and both stacking from the later of now / the current expiry — so the
+  //     worst a race can do is extend once, never double-count.
+  const { data: vp } = await ctx.admin
+    .from('vendor_profiles')
+    .select('papic_challenge_expires_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const currentExpiry =
+    (vp as { papic_challenge_expires_at?: string | null } | null)
+      ?.papic_challenge_expires_at ?? null;
+  const newExpiry = nextPhotoChallengeExpiry(currentExpiry, Date.now());
+
+  const { error } = await ctx.admin
+    .from('vendor_profiles')
+    .update({ papic_challenge_expires_at: newExpiry })
+    .eq('vendor_profile_id', vendorProfileId);
   if (error) {
     throw new Error(`vendor_photo_challenge activation write failed: ${error.message}`);
   }
+
+  // Stamp the order's own billing window so the renewal-reminder job
+  // (subscriptions_due_for_renewal_reminder reads orders.expires_at) mails this
+  // shop before the add-on lapses — mirrors the AI / branch / subdomain hooks.
+  // Best-effort: the window on vendor_profiles is the load-bearing one, and a
+  // missed stamp only skips a reminder, never the feature.
+  await ctx.admin
+    .from('orders')
+    .update({ expires_at: newExpiry, updated_at: new Date().toISOString() })
+    .eq('order_id', ctx.orderId);
 
   await appendLedger(ctx.admin, {
     order_id: ctx.orderId,
@@ -655,7 +680,7 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
     metadata: {
       service_key: ctx.serviceKey,
       vendor_profile_id: vendorProfileId,
-      event_id: eventId,
+      expires_at: newExpiry,
     },
   });
 }
@@ -1817,15 +1842,26 @@ async function rederiveVendorAiLevelOnReversal(ctx: ActivationContext): Promise<
 }
 
 /**
- * Reverse a Photo Challenge sponsorship when its ₱400 order is rejected/refunded
- * — delete the papic_photo_challenge_sponsorships row for THIS (event, vendor) so
- * a refunded vendor can no longer author a sponsored challenge. Scoped to the
- * order's own vendor + event (never another sponsor's row). Deleting by
- * (event_id, vendor_profile_id) is naturally idempotent (a second reversal is a
- * no-op). Throws only on the write so the outer catch logs + reports it.
+ * Reverse a Papic Challenges cycle when its order is rejected/refunded — wind
+ * the shop's window BACK by the 28 days this order bought, so a refunded shop
+ * stops being able to author challenges.
+ *
+ * ⚠ IT WINDS BACK, IT DOES NOT CLEAR. Clearing the column would delete a second,
+ * still-paid cycle bought alongside this one; a shop that renewed twice and had
+ * ONE order refunded must keep the other one's time. Under the per-event model
+ * this was a row DELETE, which had no equivalent problem — the change of shape
+ * from a row to a window brings this obligation with it.
+ *
+ * Never winds back past NOW: an expiry in the past and an expiry far in the past
+ * mean the same thing to every reader, and a negative-looking timestamp is the
+ * kind of value somebody later reads as "never subscribed".
+ *
+ * Scoped to the order's own vendor. Idempotent in effect: a second reversal of
+ * the same order winds back again, so it is called EXACTLY once per reversal by
+ * reverseOrderSku's own dispatch. Throws only on the write so the outer catch
+ * logs + reports it.
  */
 async function deactivatePhotoChallengeSponsorship(ctx: ActivationContext): Promise<void> {
-  if (!ctx.eventId) return;
   const { data: order } = await ctx.admin
     .from('orders')
     .select('vendor_profile_id')
@@ -1835,13 +1871,31 @@ async function deactivatePhotoChallengeSponsorship(ctx: ActivationContext): Prom
     (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
   if (!vendorProfileId) return;
 
+  const { data: vp } = await ctx.admin
+    .from('vendor_profiles')
+    .select('papic_challenge_expires_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const currentExpiry =
+    (vp as { papic_challenge_expires_at?: string | null } | null)
+      ?.papic_challenge_expires_at ?? null;
+  if (!currentExpiry) return; // nothing to wind back
+
+  const cur = Date.parse(currentExpiry);
+  if (!Number.isFinite(cur)) return;
+  const now = Date.now();
+  const wound = cur - VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
+  // max(wound, now) — never leave a timestamp in the far past, which reads to a
+  // later human as "never subscribed" rather than "refunded".
+  // min(…, cur)     — a reversal must never EXTEND a window.
+  const next = new Date(Math.min(Math.max(wound, now), cur)).toISOString();
+
   const { error } = await ctx.admin
-    .from('papic_photo_challenge_sponsorships')
-    .delete()
-    .eq('event_id', ctx.eventId)
+    .from('vendor_profiles')
+    .update({ papic_challenge_expires_at: next })
     .eq('vendor_profile_id', vendorProfileId);
   if (error) {
-    throw new Error(`vendor_photo_challenge deactivation delete failed: ${error.message}`);
+    throw new Error(`vendor_photo_challenge deactivation write failed: ${error.message}`);
   }
 }
 

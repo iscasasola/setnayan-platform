@@ -19,10 +19,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { resolveSetnayanAiOrderPricePhp } from './setnayan-ai-pricing';
 import {
-  setnayanAiTierSkuForEventType,
+  AI_TIER_ONBOARDING_FALLBACK_PHP,
+  AI_TIER_FALLBACK_PHP,
+  AI_TIER_SKU,
   setnayanAiTierFallbackPhp,
   type AiPriceContext,
 } from './setnayan-ai-type-pricing';
+import { resolveAiBandForEventType } from './setnayan-ai-band-source';
 
 /** The intro catalog SKU (₱499 first cycle) — the live per-event AI row. */
 export const SETNAYAN_AI_SKU = 'SETNAYAN_AI';
@@ -73,9 +76,25 @@ export async function resolveSetnayanAiTypePriceResolution(
   eventType: string | null | undefined,
   context: AiPriceContext = 'regular',
 ): Promise<AiPriceResolution> {
-  const sku = setnayanAiTierSkuForEventType(eventType);
-  // Tier E - Setnayan AI is not present for this type. A product fact, decided
-  // before any read happens, so there is nothing that can fail.
+  /*
+    THE BAND COMES FROM THE OWNER'S SCREEN, NOT FROM A MAP IN THIS REPO.
+    Until 2026-08-29 this line read a hardcoded TypeScript map, so the tick-box
+    on /admin/pricing?tab=setnayan-ai wrote a column that NOTHING charging ever
+    read. Moving a kind of celebration into another band changed the admin
+    screen and not one peso. See lib/setnayan-ai-band-source.ts.
+
+    ⚠ A FAILED READ REFUSES, exactly as the catalog read below does. Letting it
+    fall through to the map would re-create the collapse SEC-7 removed: an
+    unanswerable question quietly answered with a number nobody chose.
+  */
+  const bandRes = await resolveAiBandForEventType(client, eventType);
+  if (bandRes.status === 'read_error') {
+    return { status: 'read_error', message: bandRes.message };
+  }
+  const band = bandRes.band;
+  const sku = AI_TIER_SKU[band];
+  // Tier E - Setnayan AI is not present for this type. A product fact, so there
+  // is nothing to charge and nothing further that can fail.
   if (sku === null) return { status: 'resolved', php: 0 };
 
   const { data, error } = await client
@@ -113,7 +132,16 @@ export async function resolveSetnayanAiTypePriceResolution(
     // An onboarding read with no discount on the row pays the regular price.
     return { status: 'resolved', php: row!.retail_price_php as number };
   }
-  return { status: 'resolved', php: setnayanAiTierFallbackPhp(eventType, context) };
+  // The locked ladder, for the band we actually resolved — NOT re-derived from
+  // the map, which would discard the owner's choice at the last step and quote
+  // a different band's price than the one this function just used to pick the SKU.
+  return {
+    status: 'resolved',
+    php:
+      context === 'onboarding'
+        ? AI_TIER_ONBOARDING_FALLBACK_PHP[band]
+        : AI_TIER_FALLBACK_PHP[band],
+  };
 }
 
 /**

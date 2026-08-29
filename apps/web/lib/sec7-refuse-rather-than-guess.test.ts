@@ -49,6 +49,18 @@ type FakeOpts = {
   eventsError?: { message: string } | null;
   /** An error object for the catalog read, or null for a clean read. */
   catalogError?: { message: string } | null;
+  /**
+   * An error object for the BAND read, or null for a clean read.
+   *
+   * Added 2026-08-29 with the band source. The charge now asks the database
+   * which band a kind of celebration is in — the owner's own answer, from
+   * /admin/pricing — before it asks what that band costs. That is a SECOND read
+   * on the money path, so it gets the same refusal treatment and the same test
+   * coverage as the first.
+   */
+  vocabError?: { message: string } | null;
+  /** The owner's stored band, or null when nobody has chosen one. */
+  storedBand?: string | null;
   /** null → the event row is genuinely absent. */
   eventType?: string | null;
   introUsed?: boolean | null;
@@ -74,6 +86,18 @@ function fakeAdmin(o: FakeOpts): SupabaseClient {
                     ? null
                     : { event_type: o.eventType ?? null, setnayan_ai_intro_used: o.introUsed ?? false },
                 error: o.eventsError ?? null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'event_type_vocab') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: o.vocabError ? null : { ai_price_tier: o.storedBand ?? null },
+                error: o.vocabError ?? null,
               }),
             }),
           }),
@@ -246,4 +270,58 @@ test('the caller maps read_error to a refusal, not to a different price', () => 
     !/if\s*\(\s*perType\s*!=\s*null\s*\)/.test(authority),
     'the old null-check is back — a failed read would fall through to the flat retail price',
   );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE SECOND READ ON THE MONEY PATH — the band (added 2026-08-29)
+//
+// The charge now asks WHICH BAND a kind of celebration is in before it asks
+// what that band costs. Two reads means two ways to fail, and the new one gets
+// the identical treatment: refuse, never guess.
+// ═══════════════════════════════════════════════════════════════════════════
+
+test('a failed BAND read refuses, exactly as a failed catalog read does', async () => {
+  const r = await resolveSetnayanAiTypePriceResolution(
+    fakeAdmin({ vocabError: { message: 'connection reset' }, eventType: 'wedding' }),
+    'wedding',
+  );
+
+  assert.equal(
+    r.status,
+    'read_error',
+    'an unanswerable band is not "no band chosen" — that would charge the middle price',
+  );
+});
+
+test('a failed BAND read refuses the charge too, through the resolver', async () => {
+  const r = await resolveSetnayanAiTypeChargeCentavos(
+    fakeAdmin({ vocabError: { message: 'timeout' }, eventType: 'wedding' }),
+    'evt-1',
+  );
+
+  assert.equal(r.status, 'read_error', 'the money path must not price off a guessed band');
+});
+
+test("the owner's band decides the price, not the map in this repo", async () => {
+  // `wedding` is band A in the hardcoded map. With the owner having moved it to
+  // D, the catalog row fetched must be D's — proven by the price coming back as
+  // the one this fake serves for whatever SKU was asked for, with the band
+  // resolution being the only thing that changed.
+  const moved = await resolveSetnayanAiTypePriceResolution(
+    fakeAdmin({ storedBand: 'D', eventType: 'wedding', catalogRow: { retail_price_php: 199 } }),
+    'wedding',
+  );
+  assert.equal(moved.status, 'resolved');
+  if (moved.status !== 'resolved') return;
+  assert.equal(moved.php, 199, "the charge must follow the owner's screen");
+});
+
+test('an unbanded kind still prices off the locked ladder — nothing regressed', async () => {
+  const r = await resolveSetnayanAiTypePriceResolution(
+    fakeAdmin({ storedBand: null, eventType: 'wedding', catalogRow: { retail_price_php: 2499 } }),
+    'wedding',
+  );
+  assert.equal(r.status, 'resolved');
+  if (r.status !== 'resolved') return;
+  assert.equal(r.php, 2499);
 });

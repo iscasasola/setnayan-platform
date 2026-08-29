@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
+import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { countUnread } from '@/lib/notifications';
@@ -277,6 +278,14 @@ export default async function VendorDashboardLayout({
   // an unanswered discount offer past its window RELEASES the vendor's held reach
   // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.
   after(() => maybeSweepExpiredCreatorOffers().catch(() => {}));
+  // "Your credit is about to expire" (owner 2026-08-28: tell them, before the
+  // money goes) — CRON-FREE, fleet-wide, and deliberately NOT scoped to the
+  // visiting shop. The shops that lose credit are the ones NOT opening this
+  // page, so a per-visitor sweep would warn exactly the shops in no danger.
+  // Claimed by a conditional UPDATE inside the helper, so one instance sweeps.
+  // It cannot live in sweep_vendor_tier_expiry: that runs on the first visit
+  // AFTER a term ends, which is the same page load that takes the money.
+  after(() => maybeSweepVendorCreditWarnings().catch(() => {}));
   // PR-H · nudge at 24 hours, close at 48 (owner 2026-08-28). Mounted in BOTH layouts on purpose:
   // the DB compare-and-swap picks exactly one winner per gap window, and an
   // admin-only mount would wait for an admin page view — production is

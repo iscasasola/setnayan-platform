@@ -46,6 +46,7 @@ export function AiBandsEditor({
   discountPct,
   setBandAction,
   saveDiscountAction,
+  savePriceAction,
 }: {
   bands: AiBandView[];
   unassigned: EventKindView[];
@@ -53,6 +54,8 @@ export function AiBandsEditor({
   discountPct: number;
   setBandAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
   saveDiscountAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
+  /** Sets ONE band's regular price. The sign-up price follows the family discount. */
+  savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
 }) {
   const router = useRouter();
   const [bandState, bandFormAction] = useActionState<RowActionState, FormData>(setBandAction, {
@@ -119,6 +122,7 @@ export function AiBandsEditor({
             allKinds={allKinds}
             discountPct={discountPct}
             formAction={bandFormAction}
+              savePriceAction={savePriceAction}
             onSaved={() => router.refresh()}
           />
         ))}
@@ -330,12 +334,14 @@ function BandCard({
   allKinds,
   discountPct,
   formAction,
+  savePriceAction,
   onSaved,
 }: {
   band: AiBandView;
   allKinds: EventKindView[];
   discountPct: number;
   formAction: (fd: FormData) => void;
+  savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
   onSaved: () => void;
 }) {
   const notOffered = band.regularPhp == null;
@@ -366,12 +372,12 @@ function BandCard({
           </div>
         ) : (
           <>
-            <div className="w-32">
-              <span className="mb-1 block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
-                Regular price
-              </span>
-              <p className="font-mono text-[15px] font-bold tabular-nums">{peso(band.regularPhp!)}</p>
-            </div>
+            <BandPriceField
+              band={band.band}
+              regularPhp={band.regularPhp!}
+              action={savePriceAction}
+              onSaved={onSaved}
+            />
             <div className="w-40">
               <span className="mb-1 block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
                 At set-up
@@ -480,5 +486,91 @@ function BandCard({
         </form>
       </div>
     </section>
+  );
+}
+
+
+/**
+ * ONE BAND'S REGULAR PRICE, EDITABLE IN PLACE.
+ *
+ * ⚖ Owner 2026-08-29: *"i need to be able to edit the prices here as well (the
+ * regular price)"*. Three of the four AI prices previously had no editor at all
+ * — bands B, C and D are `is_active = false` price SOURCES, so on the main
+ * catalog screen they sit in the retired shelf, which is the last place anybody
+ * would look for a live price.
+ *
+ * 🔑 THERE IS NO SIGN-UP FIELD HERE, ON PURPOSE. Setnayan AI carries ONE
+ * discount for the whole family (owner 2026-08-28); a per-band sign-up box would
+ * rebuild the four drifted discounts that ruling removed. The sign-up price is
+ * shown beside this, computed, and it follows whatever is typed here.
+ *
+ * ⚠ Its own <form>, and it MUST stay out of the "move a kind here" form below —
+ * HTML has no nested forms, so a price input inside that one would post with a
+ * band assignment and neither save would mean what it says.
+ */
+function BandPriceField({
+  band,
+  regularPhp,
+  action,
+  onSaved,
+}: {
+  band: string;
+  regularPhp: number;
+  action: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
+  onSaved: () => void;
+}) {
+  const [state, formAction] = useActionState<RowActionState, FormData>(action, {
+    ok: false,
+    message: null,
+  });
+
+  return (
+    <form
+      action={(fd) => {
+        formAction(fd);
+        onSaved();
+      }}
+      className="w-40"
+    >
+      <input type="hidden" name="band" value={band} />
+      <label
+        className="mb-1 block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55"
+        htmlFor={`ai-band-price-${band}`}
+      >
+        Regular price
+      </label>
+      <div className="flex items-center gap-1.5">
+        <div className="relative">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[12px] text-ink/45">
+            ₱
+          </span>
+          <input
+            id={`ai-band-price-${band}`}
+            name="regular_price_php"
+            type="number"
+            min="1"
+            step="1"
+            defaultValue={String(regularPhp)}
+            className="input-field h-9 w-28 pl-5 text-right font-mono text-[14px] tabular-nums"
+            aria-label={`Regular price for band ${band}`}
+          />
+        </div>
+        <button
+          type="submit"
+          className="rounded-md border border-ink/15 px-2.5 py-1.5 text-[12px] font-semibold transition hover:bg-ink/[0.05]"
+        >
+          Save
+        </button>
+      </div>
+      {state.message && (
+        <span
+          className={`mt-1 block text-[11px] font-semibold ${
+            state.ok ? 'text-success-800' : 'text-danger-700'
+          }`}
+        >
+          {state.message}
+        </span>
+      )}
+    </form>
   );
 }

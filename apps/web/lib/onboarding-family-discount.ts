@@ -35,12 +35,29 @@ export type DiscountFamily = 'papic' | 'ai';
  * created for Papic Service Only instead of both"*). Setnayan AI's bands answer
  * to no floor — they carry their own, deeper discount.
  *
- * ⚠ Nothing in the codebase ENFORCES this floor at write time; it has only ever
- * been a data fact, set once by migration 20271176315255. The screen warns; it
- * does not refuse. Making it refuse is a behaviour change and is deliberately
- * not built here.
+ * ⚖ OWNER RULED 2026-08-29: the server REFUSES a Papic sign-up price below this
+ * floor. Until then it was a browser warning and a data fact set once by
+ * migration 20271176315255 — every server path accepted a value under it.
+ *
+ * 🔑 THE FLOOR IS ENFORCED IN TWO PLACES BECAUSE THERE ARE TWO WRITERS, AND
+ * THEY MUST NOT DRIFT. `saveFamilyDiscount` sets it as a PERCENTAGE for a whole
+ * family; the per-row card in `pricing-row-diff.ts` sets one row's sign-up PESO
+ * amount directly. Both resolve to a percentage and compare it against this one
+ * constant — never against a re-typed 10.
  */
 export const PAPIC_DISCOUNT_FLOOR_PCT = 10;
+
+/**
+ * Percentages that came from dividing pesos are never exactly equal to a whole
+ * number. A sign-up price computed to land ON the floor must not be refused by
+ * a rounding tail, so comparisons allow this much slack.
+ */
+export const DISCOUNT_FLOOR_EPSILON_PCT = 0.005;
+
+/** True when a discount clears the Papic floor, ties included. */
+export function meetsPapicFloor(discountPct: number): boolean {
+  return discountPct >= PAPIC_DISCOUNT_FLOOR_PCT - DISCOUNT_FLOOR_EPSILON_PCT;
+}
 
 /** Defaults — the values live in prod today. Fallbacks when settings are unreadable. */
 export const FAMILY_DISCOUNT_DEFAULT_PCT: Readonly<Record<DiscountFamily, number>> = {
@@ -103,11 +120,15 @@ export type DiscountComplaint = {
 /**
  * THE GUARDS, and which family each one applies to.
  *
- *   • out_of_range   — BOTH families. Negative, or 100%+, is nonsense.
- *   • not_a_discount — BOTH families. A sign-up price at or above the regular
- *     price punishes the customer for buying early, which is the opposite of
- *     what the control is for. This is NOT the floor and does not narrow with it.
- *   • below_floor    — PAPIC ONLY, per the owner's scoping ruling.
+ *   • out_of_range   — BOTH families, REFUSES. Negative, or 100%+, is nonsense.
+ *   • not_a_discount — BOTH families, WARNS. At 0% there is no reason to buy
+ *     early. It is legal — a family may run without a sign-up saving — so it is
+ *     reported, not blocked. This is NOT the floor and does not narrow with it.
+ *   • below_floor    — PAPIC ONLY, REFUSES (owner 2026-08-29).
+ *
+ * 🔑 WHICH ONES BLOCK IS NOT DECIDED HERE. This function reports; the two
+ * callers decide. `BLOCKING_COMPLAINTS` below is the single list they both read,
+ * so a rule can never block on one writer and pass on the other.
  *
  * ⚠ NOTHING HERE CLAMPS. Each returns a complaint for the screen to show; the
  * typed value is never quietly rewritten. A screen that corrects your input
@@ -136,17 +157,36 @@ export function discountComplaints(
     });
   }
 
-  if (family === 'papic' && discountPct < PAPIC_DISCOUNT_FLOOR_PCT) {
+  if (family === 'papic' && !meetsPapicFloor(discountPct)) {
     out.push({
       kind: 'below_floor',
       message:
-        `Papic sign-up prices are meant to be at least ${PAPIC_DISCOUNT_FLOOR_PCT}% off. ` +
-        `At ${discountPct}% they would be less. Nothing will stop you saving it — ` +
-        `this is a reminder, not a refusal.`,
+        `Papic sign-up prices have to be at least ${PAPIC_DISCOUNT_FLOOR_PCT}% off the regular price. ` +
+        `${discountPct}% is less than that, so this was not saved.`,
     });
   }
 
   return out;
+}
+
+/**
+ * THE COMPLAINTS THAT REFUSE A SAVE, as opposed to the ones that only speak up.
+ *
+ * 🔑 ONE LIST, READ BY EVERY WRITER. A money rule written twice drifts — this
+ * repo has paid for that more than once — so neither the family-wide save nor
+ * the per-row card carries its own opinion about which complaints are fatal.
+ * Adding a kind here makes it block everywhere at once.
+ */
+export const BLOCKING_COMPLAINTS: ReadonlySet<DiscountComplaint['kind']> = new Set([
+  'out_of_range',
+  'below_floor',
+]);
+
+/** The first complaint that must stop a save, or null when none does. */
+export function blockingComplaint(
+  complaints: readonly DiscountComplaint[],
+): DiscountComplaint | null {
+  return complaints.find((c) => BLOCKING_COMPLAINTS.has(c.kind)) ?? null;
 }
 
 /** One row as the screen shows it after a discount is applied. */

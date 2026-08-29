@@ -87,6 +87,7 @@ export async function saveRetailRow(
   const paxIncrementPrice = String(formData.get('pax_increment_price') ?? '');
 
   const validated = validateRetailRowFields({
+    serviceCode: code,
     title,
     desc,
     price,

@@ -97,6 +97,20 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     Transactional, so deliberately NOT in MARKETING_GATED_EMAIL_TYPES.
   */
   'waitlist_picked',
+  /*
+    THE SHOP IS ABOUT TO LOSE MONEY IT ALREADY PAID FOR, AND THE WHOLE POINT IS
+    TO REACH SOMEBODY WHO IS NOT IN THE APP. A shop drifting toward a lapse is
+    by definition one that is not opening its dashboard, so an in-app-only
+    notice would land for exactly the suppliers who do not need it.
+
+    ⚠ Transactional — their own balance, their own money — so deliberately NOT
+    in MARKETING_GATED_EMAIL_TYPES. That set suppresses unless
+    `users.marketing_opt_in = TRUE`, which is NOT NULL DEFAULT FALSE, and
+    putting a transactional type in it silenced all six lock_request_* types for
+    every user (see the note on that set). `credit-warning-emails.test.ts`
+    asserts NON-membership for exactly that reason.
+  */
+  'vendor_credit_expiring',
   // Payment lifecycle (Phase 2 PR-B, 2026-06-20). The transactional money
   // signals the couple should get an email for: their payment plan is ready
   // (info_sent), a payment was confirmed by the vendor, and the plan cleared.

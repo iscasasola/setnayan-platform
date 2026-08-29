@@ -77,7 +77,20 @@ const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 // sentence by construction — `studio-apps.test.ts` fails the build if this page
 // grows a literal of its own, which is the exact drift it exists to prevent.
 const PAGE_DESCRIPTION = studioDescription('papic');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+/*
+ * ⚠ ITS OWN SHARE CARD, AND THE REASON IS THE CHANNEL. This page used the house
+ * card `brand/og-card.webp` — a typographic "Set na 'yan." panel with NO
+ * PHOTOGRAPH ON IT — so every share of a page selling PHOTOGRAPHY rendered our
+ * weakest possible image in the place it matters most. Messenger and Facebook
+ * are the dominant channel here; the card is what most people see of this page
+ * before they ever visit it.
+ *
+ * `og-papic.webp` is the hero frame, cropped to 1200×630: a real Filipino
+ * reception shot from a guest's own seat. No baked-in text — the title and
+ * description already render beside the card, and a font we cannot control at
+ * generation time is a font that renders wrong.
+ */
+const OG_IMAGE = `${SITE_URL}/brand/og-papic.webp`;
 
 export const metadata = {
   title: DOC_TITLE,
@@ -98,7 +111,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/papic',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Papic — guest photo gallery for weddings' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'A toast at a Filipino reception, photographed from a guest’s own seat' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -169,6 +182,18 @@ const FAQ = [
   {
     q: 'Can someone opt out of face matching?',
     a: 'Yes. A guest who never adds a selfie is never matched at all, and anyone can ask not to be shown — we blur the picture itself rather than hiding it behind a filter, and if the blurring fails the photo does not go up at all. Face data is deleted on request, and automatically three months after the celebration.',
+  },
+  {
+    /* The objection the supplier channel hears most, and the page argued it
+       everywhere EXCEPT where a worried couple would look. Our own meta
+       description already makes the case — "the moments one photographer can
+       never be everywhere for" — so the page was making the argument to search
+       engines and not to the person about to spend ₱80,000 on a photographer.
+       ⚠ It must not be phrased as a comparison. Papic is not better than a
+       photographer at anything a photographer does; it covers the room while
+       they work. */
+    q: 'Will this upset our photographer?',
+    a: 'It shouldn’t — Papic is not pointed at the work they do. Your photographer is composing the shots that matter, and Papic covers the rest of the room while they do it: the table your uncle was at, the dance floor at eleven, the cousins outside. Nobody is being replaced, and you still receive one set of everything.',
   },
   {
     q: 'How long can we shoot for?',
@@ -339,6 +364,15 @@ export default async function PapicLandingPage() {
         <div className="mt-5">
           <PapicScan />
         </div>
+        {/* The demo has its own address so it can be pasted into a group chat.
+            A demo nobody can link to is a demo that cannot spread. */}
+        <p className="mt-3 text-sm text-[var(--m-slate-2)]">
+          Sending this to someone?{' '}
+          <Link href="/papic/try" className="font-medium text-[var(--m-mulberry)] hover:opacity-80">
+            setnayan.com/papic/try
+          </Link>{' '}
+          opens straight to the codes.
+        </p>
       </section>
 
       {/* ── THE APP, RUNNING ────────────────────────────────────────────────

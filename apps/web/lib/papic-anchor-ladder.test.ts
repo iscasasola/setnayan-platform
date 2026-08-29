@@ -27,7 +27,7 @@ import { PAPIC_LADDER_EXPECTED } from '../tests/db/papic-ladder.expected';
 
 const ALL_SHOTS = PAPIC_LADDER_EXPECTED.map(([shots]) => shots);
 
-test('the five anchors reproduce ALL SIXTEEN live prices, to the peso', () => {
+test('the six anchors reproduce ALL SEVENTEEN live prices, to the peso', () => {
   for (const [shots, expectedPhp] of PAPIC_LADDER_EXPECTED) {
     assert.equal(
       papicPriceAt(shots),
@@ -38,12 +38,12 @@ test('the five anchors reproduce ALL SIXTEEN live prices, to the peso', () => {
   }
 });
 
-test('exactly five rungs are typed; the other eleven are computed', () => {
+test('exactly six rungs are typed; the other eleven are computed', () => {
   const ladder = buildPapicLadder(ALL_SHOTS);
   const anchors = ladder.filter((r) => r.isAnchor);
   const computed = ladder.filter((r) => !r.isAnchor);
 
-  assert.equal(anchors.length, 5, 'the owner types five prices');
+  assert.equal(anchors.length, 6, 'the owner types six prices');
   assert.equal(computed.length, 11, 'eleven rungs must compute');
   assert.equal(
     anchors.length + computed.length,
@@ -56,15 +56,16 @@ test('exactly five rungs are typed; the other eleven are computed', () => {
   );
 });
 
-test('the per-credit rate steps down through the five bands the owner set', () => {
+test('the per-credit rate steps down through the six bands the owner set', () => {
   // The rate is what an anchor actually controls, so it is asserted directly
   // rather than inferred from the totals.
   const expectedBands: [number, number][] = [
-    [100, 0.5], [2_000, 0.5],
-    [3_000, 0.4], [7_000, 0.4],
-    [10_000, 0.32],
-    [20_000, 0.25], [30_000, 0.25],
-    [50_000, 0.224],
+    [100, 0.7], [2_000, 0.7],
+    [3_000, 0.56], [7_000, 0.56],
+    [10_000, 0.45],
+    [20_000, 0.36], [30_000, 0.36],
+    [50_000, 0.3],
+    [100_000, 0.24],
   ];
   for (const [shots, rate] of expectedBands) {
     assert.ok(
@@ -79,15 +80,15 @@ test('THE FIFTH ANCHOR IS LOAD-BEARING — dropping it moves two real prices', (
   // the fifth, kept as a test so nobody "simplifies" it back.
   const withoutFifth = PAPIC_ANCHORS_DEFAULT.filter(([s]) => s !== 20_000);
 
-  assert.equal(papicPriceAt(20_000, withoutFifth), 6_400, '20,000 would inherit 0.32');
-  assert.equal(papicPriceAt(30_000, withoutFifth), 9_600, '30,000 would inherit 0.32');
-  assert.equal(papicPriceAt(20_000), 5_000, 'with the fifth anchor it stays ₱5,000');
-  assert.equal(papicPriceAt(30_000), 7_500, 'with the fifth anchor it stays ₱7,500');
+  assert.equal(papicPriceAt(20_000, withoutFifth), 9_000, '20,000 would inherit 0.45');
+  assert.equal(papicPriceAt(30_000, withoutFifth), 13_500, '30,000 would inherit 0.45');
+  assert.equal(papicPriceAt(20_000), 7_200, 'with the fifth anchor it stays ₱7,200');
+  assert.equal(papicPriceAt(30_000), 10_800, 'with the fifth anchor it stays ₱10,800');
 
   // And the reason he accepted it: without the fifth anchor, 20,000 costs
   // exactly what two 10,000s cost, so the bigger rung buys nothing.
   const twoTens = papicPriceAt(10_000)! * 2;
-  assert.equal(twoTens, 6_400);
+  assert.equal(twoTens, 9_000);
   assert.equal(
     papicPriceAt(20_000, withoutFifth),
     twoTens,
@@ -107,8 +108,15 @@ test('a bad anchor that keeps totals rising is still caught by the RATE rule', (
   // ⚠ THE ONE THAT MATTERS. Raising a middle anchor can leave every total
   // rising while inverting the price per credit — a ladder a check on totals
   // alone reports as clean.
+  //
+  // 🪤 THIS MUTATION SILENTLY BECAME A NO-OP AND THE TEST CAUGHT IT. It used to
+  // bump 10,000 to ₱4,500 — which is 10,000's REAL price since the seed was
+  // un-drifted, so the "bad anchor" was the good one and no inversion existed
+  // to report. A sabotage that equals the truth proves nothing; ₱6,000 puts
+  // 10,000 at ₱0.60 a credit, above 3,000's ₱0.56, while every total still
+  // rises (₱3,920 → ₱6,000 → ₱7,200). That is the trap, restored.
   const bumped = PAPIC_ANCHORS_DEFAULT.map(([s, p]) =>
-    s === 10_000 ? ([s, 4_500] as const) : ([s, p] as const),
+    s === 10_000 ? ([s, 6_000] as const) : ([s, p] as const),
   );
   const rungs = buildPapicLadder(ALL_SHOTS, bumped);
 

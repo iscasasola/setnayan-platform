@@ -35,6 +35,12 @@ export type PapicRung = {
   peso: number;
   /** Credits the money buys, from `papic_pass_tiers`. The free grant is added on top. */
   bought: number;
+  /**
+   * What it costs while the celebration is being set up, or null when there is
+   * no real saving. Resolved by the SAME function the charge uses — never
+   * computed here, so this card cannot quote a price checkout will not honour.
+   */
+  setupPeso: number | null;
 };
 
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
@@ -134,13 +140,48 @@ export function PapicDial({
         </button>
       </div>
 
-      {/* THE PAY ROW — the only currency on this card. */}
-      <p className="mt-4 flex items-baseline justify-center gap-2 text-sm">
-        <span className="text-[var(--m-slate-2)]">You pay</span>
-        <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-ink)]">
-          {bought === 0 ? 'nothing' : peso(rung.peso)}
-        </span>
-      </p>
+      {/*
+        THE PAY ROW — the only currency on this card.
+
+        Owner, 2026-08-29: *"we show them the Regular price crossed out and the
+        discounted on boarding price to be available."*
+
+        ⚠ THE SAVING IS CONDITIONAL AND THE PAGE SAYS SO. It is the set-up
+        price — his own rule, 2026-08-28: *"we give them a 10% discount if they
+        purchase now. They can order later, but they will lose the 10%
+        discount."* A struck-through price with no condition attached reads as a
+        permanent sale, which would be false the moment somebody tops up later.
+      */}
+      {bought === 0 ? (
+        <p className="mt-4 flex items-baseline justify-center gap-2 text-sm">
+          <span className="text-[var(--m-slate-2)]">You pay</span>
+          <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-ink)]">
+            nothing
+          </span>
+        </p>
+      ) : rung.setupPeso !== null ? (
+        <>
+          <p className="mt-4 flex flex-wrap items-baseline justify-center gap-x-2.5 gap-y-1 text-sm">
+            <span className="text-[var(--m-slate-2)]">You pay</span>
+            <s className="font-mono tabular-nums text-[var(--m-slate-2)] decoration-[var(--m-slate-2)]">
+              {peso(rung.peso)}
+            </s>
+            <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-mulberry)]">
+              {peso(rung.setupPeso)}
+            </span>
+          </p>
+          <p className="mt-1 text-xs text-[var(--m-slate-2)]">
+            while you are setting your celebration up
+          </p>
+        </>
+      ) : (
+        <p className="mt-4 flex items-baseline justify-center gap-2 text-sm">
+          <span className="text-[var(--m-slate-2)]">You pay</span>
+          <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-ink)]">
+            {peso(rung.peso)}
+          </span>
+        </p>
+      )}
 
       {/* The stacking, said out loud. This is the line the owner corrected. */}
       <p className="mt-2 font-mono text-xs tabular-nums text-[var(--m-slate-2)]">
@@ -185,7 +226,17 @@ export function PapicDial({
             <b className="font-mono font-semibold tabular-nums text-[var(--m-ink)]">
               {count(papicCreditsHeld(ideal.bought, freeCredits))} credits
             </b>
-            {ideal.peso === 0 ? ' — free' : <> — <span className="font-mono tabular-nums">{peso(ideal.peso)}</span></>}. That
+            {ideal.peso === 0 ? (
+              ' — free'
+            ) : (
+              <>
+                {' — '}
+                <span className="font-mono tabular-nums">
+                  {peso(ideal.setupPeso ?? ideal.peso)}
+                </span>
+                {ideal.setupPeso !== null ? ' while you set up' : ''}
+              </>
+            )}. That
             is about {idealPerGuest} photographs from every guest.
           </>
         )}

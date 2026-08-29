@@ -1319,6 +1319,54 @@ export function EditorialEditor({
         </p>
       </div>
 
+      {/*
+        🔴 "EVERYONE" IS A PROMISE THE PAGE UNDERNEATH CAN BREAK, AND NOTHING
+        SAID SO. Two different doors decide whether a stranger reads this
+        story: the audience chosen above, and who may open the celebration's
+        page at all. Choosing "Everyone" on a page set to Private saved
+        cleanly, reported "anyone with your link can read it", and showed that
+        link to nobody — the owner hit exactly this on a published story and
+        asked why it never went anywhere.
+
+        🔴 AND THE ONE HINT THAT USED TO EXIST SAID "MAKE IT PUBLIC OR
+        UNLISTED". Unlisted stopped qualifying on 2026-08-15, when the Stories
+        read was tightened from `!= 'private'` to `= 'public'` precisely
+        because unlisted is what the privacy screen sells as LINK ONLY. A
+        caveat that names the wrong remedy is worse than none: it gets
+        followed, and it fails silently.
+
+        🔑 IT LIVED INSIDE THE STORIES PANEL, which renders only for a SHARED
+        story and (until today) only on weddings — so the two groups who most
+        needed it, the person still deciding and every non-wedding host, were
+        the two who could never see it. It belongs beside the choice it
+        qualifies, not beside the switch it also happens to block.
+      */}
+      {landingVisibility !== 'public' ? (
+        <p className="flex items-start gap-1.5 text-xs text-amber-700">
+          <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
+          <span>
+            Your page is set to{' '}
+            <strong>
+              {landingVisibility === 'unlisted'
+                ? 'Link only'
+                : landingVisibility === 'invited_accounts'
+                  ? 'Only guests with a Setnayan account'
+                  : 'Private'}
+            </strong>
+            , so whoever you choose here, people outside your celebration
+            can&rsquo;t open it — and it can&rsquo;t be featured in Stories. Change
+            that under{' '}
+            <Link
+              href={`/dashboard/${eventId}/website/privacy`}
+              className="underline underline-offset-2 hover:text-burgundy"
+            >
+              Who can view
+            </Link>
+            .
+          </span>
+        </p>
+      ) : null}
+
       {/* Share your story — shown once published. Co-locates sharing + the Real
           Stories opt-in so the couple never has to hunt for them on the privacy
           page. The published page's OG card shows the story, so a shared link
@@ -1394,43 +1442,6 @@ export function EditorialEditor({
               </span>
             </button>
 
-            {/*
-              🔴 THIS SAID "MAKE IT PUBLIC OR UNLISTED" AND UNLISTED HAS NOT
-              QUALIFIED SINCE 2026-08-15. The gallery's read was tightened that
-              day from `!= 'private'` to `= 'public'`, precisely because
-              "unlisted" is the setting the privacy screen sells as LINK ONLY —
-              so this hint sent people to a choice that leaves them invisible,
-              and they would have had no way to tell.
-              🔑 A caveat that names the wrong remedy is worse than none: it is
-              followed, and it fails silently.
-              It also only rendered while the switch was ON, so anyone who had
-              not yet opted in saw no reason at all — the two facts that decide
-              whether this ever appears are stated together now.
-            */}
-            {landingVisibility !== 'public' ? (
-              <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
-                <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
-                <span>
-                  Your Event Hub is{' '}
-                  <strong>
-                    {landingVisibility === 'unlisted'
-                      ? 'Link only'
-                      : landingVisibility === 'invited_accounts'
-                        ? 'Invited accounts only'
-                        : 'Private'}
-                  </strong>
-                  , so it won&rsquo;t appear in Stories even with this on. Set it to
-                  Public in{' '}
-                  <Link
-                    href={`/dashboard/${eventId}/website/privacy`}
-                    className="underline underline-offset-2 hover:text-burgundy"
-                  >
-                    Privacy settings
-                  </Link>
-                  .
-                </span>
-              </p>
-            ) : null}
           </div>
           ) : null}
         </section>

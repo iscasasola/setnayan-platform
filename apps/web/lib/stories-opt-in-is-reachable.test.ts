@@ -156,15 +156,38 @@ test('no screen offers "Unlisted" as a way into Stories', () => {
   }
 });
 
-test('the editor states the visibility caveat whether or not the switch is on', () => {
+test('the visibility caveat sits beside the audience choice, not inside the Stories panel', () => {
   const code = read(EDITOR);
-  // The caveat used to require `featured &&`, so the person who had not yet
-  // opted in — the one deciding — was told nothing at all.
+
+  // It must depend on the page's visibility alone — it used to require
+  // `featured &&`, so the person still deciding was told nothing at all.
   assert.match(
     code,
     /\{landingVisibility !== 'public' \?/,
     'the caveat must depend on the page visibility alone, not on the switch',
   );
+
+  /*
+    🔑 AND IT MUST RENDER BEFORE THE SHARED-ONLY SECTION. Nested inside the
+    "Share your story" panel it reached neither of the two groups who needed
+    it: the person choosing an audience for the first time, and (until
+    2026-08-29) every non-wedding host, for whom that panel's switch did not
+    exist at all. "Everyone" on a Private page is a promise the page breaks;
+    the correction belongs next to the promise.
+  */
+  const caveatAt = code.indexOf("{landingVisibility !== 'public' ?");
+  const sharedPanelAt = code.indexOf('storyIsShared(form.audience)');
+  assert.ok(caveatAt > 0 && sharedPanelAt > 0, 'expected both regions in the editor');
+  assert.ok(
+    caveatAt < sharedPanelAt,
+    'the visibility caveat is nested inside the shared-only Stories panel — ' +
+      'exactly where the two people who need it cannot reach it',
+  );
+
+  // Exactly one copy: two amber lines saying the same thing on one screen is
+  // how a caveat starts being skimmed.
+  const copies = code.match(/\{landingVisibility !== 'public' \?/g) ?? [];
+  assert.equal(copies.length, 1, `expected one visibility caveat, found ${copies.length}`);
 });
 
 test('the privacy page never calls a blocked celebration "eligible"', () => {

@@ -1,0 +1,57 @@
+-- the_credit_warns_before_it_goes
+-- ============================================================================
+-- A SHOP IS TOLD BEFORE ITS CREDIT DISAPPEARS, NOT AFTER.
+--
+-- Owner ruling, 2026-08-28: tell them, and *"before the money goes"*.
+--
+-- ── WHAT ALREADY SHIPS, MEASURED BEFORE ANYTHING WAS WRITTEN ───────────────
+-- 20271178284709 made carried credit EXPIRE when a shop lapses, and it is
+-- careful: every movement lands in `vendor_credit_ledger` through a trigger on
+-- the column, so nothing vanishes without a record. What it does NOT do is warn
+-- anybody. The shop learns the balance is gone by finding it gone.
+--
+-- ── WHY THE WARNING CANNOT LIVE WHERE THE EXPIRY LIVES ─────────────────────
+-- 🔑 THE MOST IMPORTANT SENTENCE HERE. Expiry happens inside
+-- `sweep_vendor_tier_expiry`, which is LOGIN-DRIVEN — it runs when that shop's
+-- own dashboard loads. So the visit that takes the money is the FIRST visit
+-- after the term ends. A warning emitted from that function would arrive in the
+-- same breath as the loss: "your credit is expiring" and "your credit expired"
+-- on one page load. That is not a warning, it is a caption.
+--
+-- The warning therefore fires from a SEPARATE, FLEET-WIDE sweep while
+-- `tier_expires_at` is still in the FUTURE — copying the shape
+-- `maybeSweepExpiredCreatorOffers` already uses: any vendor's dashboard visit
+-- sweeps every shop, so a shop that is not signing in is still reached. That
+-- matters precisely because the shops most likely to lapse are the ones not
+-- visiting.
+--
+-- ⚠ AND THE HONEST LIMIT, STATED RATHER THAN HIDDEN: this project is CRON-FREE.
+-- If NOBODY loads a vendor dashboard during a shop's final week, no warning is
+-- sent. The money is still safe in that case — expiry is login-driven too, so a
+-- shop nobody visits does not lose anything either. The two are attached to the
+-- same trigger on purpose: the warning cannot be skipped on a term that
+-- actually expires, because the same absence of traffic freezes both.
+--
+-- ── WHY A NEW LABEL AND NOT AN EXISTING ONE ────────────────────────────────
+-- The tray groups by type, and the type decides the copy, the colour and
+-- whether an email is sent. The nearest existing labels are
+-- `subscription_activated` (the opposite event) and `vendor_status_change`
+-- (profile moderation) — filing "you are about to lose ₱2,500" under either
+-- means no allowlist entry could email one without emailing the other.
+--
+-- 🪤 A LABEL THE ENUM HAS NEVER HEARD OF IS REFUSED, NOT THROWN.
+-- `emitNotification` logs and returns; the caller completes. Three types once
+-- shipped that way and reached nobody with CI green. The TypeScript union alone
+-- is NOT the registration — this file is the other half, and
+-- `every-notice-type-exists-in-the-database.test.ts` fails without it.
+--
+-- 🔢 SAFE BY ARITHMETIC. Production holds 2 paid subscriptions, both Solo, and
+-- ZERO shops carrying any `subscription_credit_php` — measured 2026-08-29. So
+-- this sends nothing to anybody today and starts working on the first shop that
+-- carries credit into a final week.
+--
+-- BARE migration (no BEGIN/COMMIT): `ALTER TYPE … ADD VALUE` cannot run inside
+-- an explicit transaction block. Idempotent + re-run safe.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'vendor_credit_expiring';

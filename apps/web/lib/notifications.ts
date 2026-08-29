@@ -200,6 +200,22 @@ export type NotificationType =
   // time-critical, because `max_waitlist_acceptances` lets the shop pick
   // somebody else.
   | 'waitlist_picked'
+  /*
+    A SHOP IS TOLD ITS CARRIED CREDIT IS ABOUT TO EXPIRE (owner 2026-08-28:
+    tell them, "before the money goes").
+
+    🔑 IT CANNOT BE EMITTED BY THE THING THAT TAKES THE MONEY. Expiry lives in
+    `sweep_vendor_tier_expiry`, which is login-driven, so the visit that expires
+    the credit is the first visit after the term ended — a notice from there
+    would arrive in the same page load as the loss. This type is emitted by a
+    separate fleet-wide sweep while the term is still running.
+
+    Its own label rather than `subscription_activated` (the opposite event) or
+    `vendor_status_change` (profile moderation): the type decides the copy, the
+    colour and whether an email goes, and neither of those could carry an email
+    for this without carrying one for themselves.
+  */
+  | 'vendor_credit_expiring'
   // Added 2026-06-20 (Vendor lifecycle Phase 3→4 spine) alongside migration
   // 20270205806123_add_completion_accepted_notification_type.sql. Fired
   // (vendor-recipient) from vendors/[vendorId]/review/actions.ts →
@@ -383,6 +399,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_cleared: 'Payment plan settled',
   vendor_payment_asked: 'Payment requested',
   waitlist_picked: 'Your date is being held',
+  vendor_credit_expiring: 'Your credit is about to expire',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
   completion_accepted: 'Service confirmed',
   // Admin reconciliation signal (2026-06-24) — couple orders + vendor
@@ -516,6 +533,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // Being chosen is good news the couple must ACT on before somebody else is
   // picked — amber, the action-needed register, not the celebratory one.
   waitlist_picked: 'bg-warn-100 text-warn-900',
+  // Amber, not red: the money is still there. Red is for something already lost.
+  vendor_credit_expiring: 'bg-warn-100 text-warn-900',
   // A logged payment awaiting the vendor's confirm = action-needed → amber.
   payment_logged: 'bg-warn-100 text-warn-900',
   // A confirmed payment = a positive money-in confirmation → emerald

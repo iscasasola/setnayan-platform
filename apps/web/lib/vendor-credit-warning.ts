@@ -59,8 +59,17 @@ export function shouldWarnAboutCredit(
   if (!candidate.tierExpiresAt) return false;
 
   const expiresMs = Date.parse(candidate.tierExpiresAt);
-  // An unparseable date must never be read as "expires now". Fail toward saying
-  // nothing: a false alarm about somebody's money is its own harm.
+  /*
+    An unparseable date must never be read as "expires now" — a false alarm
+    about somebody's money is its own harm.
+
+    ⚠ HONEST NOTE: this line is DOCUMENTATION, not the mechanism. `Date.parse`
+    yields NaN and every comparison with NaN is false, so the window arithmetic
+    below already refuses a malformed date; a mutation run gutting this line
+    stayed green. It is kept so the intent survives an edit to that arithmetic —
+    but do not mistake it for the thing doing the work, and do not write a test
+    that claims to guard it.
+  */
   if (!Number.isFinite(expiresMs)) return false;
 
   const windowMs = CREDIT_WARNING_WINDOW_DAYS * 24 * 60 * 60 * 1000;

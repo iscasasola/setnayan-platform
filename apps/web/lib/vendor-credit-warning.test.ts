@@ -62,10 +62,27 @@ test('a shop with no expiry date is not warned', () => {
   assert.equal(shouldWarnAboutCredit(shop({ tierExpiresAt: null }), NOW), false);
 });
 
-test('an unreadable date says nothing rather than warning about now', () => {
-  // Failing toward silence: a false alarm about somebody's money is its own
-  // harm, and a NaN compared against a window is not obviously false.
-  assert.equal(shouldWarnAboutCredit(shop({ tierExpiresAt: 'not a date' }), NOW), false);
+test('a malformed date says nothing rather than warning about now', () => {
+  /*
+    ⚠ THIS PINS THE OUTCOME, NOT THE LINE — said plainly because the first
+    version of this test claimed otherwise and could not fail.
+
+    `Date.parse` returns NaN, and EVERY comparison with NaN is false, so the
+    window arithmetic alone already refuses these. Deleting the explicit
+    `Number.isFinite` guard in the source does NOT change any result here — a
+    mutation run proved it, staying green with the guard gutted.
+
+    The explicit guard stays because it states the intent for whoever edits the
+    comparison next; this test stays because the OUTCOME is what matters to a
+    shop. Neither is pretending to be the other.
+  */
+  for (const bad of ['not a date', '', '   ', 'null', '2026-13-45T00:00:00Z']) {
+    assert.equal(
+      shouldWarnAboutCredit(shop({ tierExpiresAt: bad }), NOW),
+      false,
+      `a malformed expiry (${JSON.stringify(bad)}) must never produce a warning`,
+    );
+  }
 });
 
 test('a shop with no owner account has nobody to tell', () => {

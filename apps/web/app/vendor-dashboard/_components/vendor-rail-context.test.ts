@@ -386,7 +386,7 @@ test('the shop content still stands on the warm ground, and not on the slide', (
   );
 });
 
-test('all four cron-free sweeps still ride on this layout', () => {
+test('all five cron-free sweeps still ride on this layout', () => {
   const src = code(read(LAYOUT));
   // There is NO scheduler behind these. Drop one in a rewrite and the vendor
   // ghosting nudge, the creator-offer refund or the booking-fee notice simply
@@ -402,6 +402,18 @@ test('all four cron-free sweeps still ride on this layout', () => {
     // production is pre-launch-quiet: an admin-only mount would hang a
     // supplier's deadline on somebody opening /admin.
     'maybeRunLockRequestExpiry',
+    /*
+      "Your credit is about to expire" (owner 2026-08-28). Registered here the
+      moment it was added, because this list is the only thing standing between
+      a cron-free sweep and silent removal.
+
+      🔑 IT IS FLEET-WIDE, WHICH IS WHY LOSING IT IS WORSE THAN LOSING A
+      PER-VISITOR SWEEP: it is the only thing that reaches a shop that is NOT
+      opening this page, and those are precisely the shops that lapse. Dropping
+      it takes the warning away from everybody it was built for while every
+      screen still looks correct.
+    */
+    'maybeSweepVendorCreditWarnings',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -410,7 +422,7 @@ test('all four cron-free sweeps still ride on this layout', () => {
   }
   assert.equal(
     (src.match(/\bafter\(/g) ?? []).length,
-    5,
+    6,
     'the count of post-response jobs changed',
   );
 });

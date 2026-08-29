@@ -12,6 +12,7 @@ import {
 } from '@/lib/papic-anchor-ladder';
 import {
   type DiscountFamily,
+  blockingComplaint,
   discountComplaints,
   signupPriceFor,
 } from '@/lib/onboarding-family-discount';
@@ -308,10 +309,9 @@ const FAMILY_LABEL: Record<DiscountFamily, string> = {
  * BEFORE the save; this action then reports how many actually moved, so the
  * count is confirmed by the write rather than only promised by the preview.
  *
- * 🔒 The Papic FLOOR warns, it does not refuse (owner scoped the floor to Papic;
- * nothing has ever enforced it at write time, and making a save refuse would be
- * a behaviour change). The NONSENSE guards — negative, 100%+ — DO refuse, for
- * both families.
+ * 🔒 The Papic FLOOR REFUSES (owner 2026-08-29) and is scoped to Papic — Setnayan
+ * AI answers to no floor. The NONSENSE guards — negative, 100%+ — refuse for both
+ * families. A 0% discount still only WARNS: it is legal, just pointless.
  */
 export async function saveFamilyDiscount(
   _prev: RowActionState,
@@ -327,8 +327,11 @@ export async function saveFamilyDiscount(
   const pct = parsePct(formData.get('discount_pct'));
   if (pct == null) return { ok: false, message: 'That is not a number.' };
 
+  // ⚠ WHICH COMPLAINTS ARE FATAL IS NOT DECIDED HERE. `BLOCKING_COMPLAINTS`
+  // lives beside the rule itself and is read by the per-row card too, so the
+  // floor cannot refuse on one writer and wave through on the other.
   const complaints = discountComplaints(family, pct);
-  const blocking = complaints.find((c) => c.kind === 'out_of_range');
+  const blocking = blockingComplaint(complaints);
   if (blocking) return { ok: false, message: `Not saved — ${blocking.message}` };
 
   const column = FAMILY_COLUMN[family];

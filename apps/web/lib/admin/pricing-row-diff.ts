@@ -23,7 +23,20 @@
  * field whose value happened to be blank.
  */
 
+import {
+  PAPIC_DISCOUNT_FLOOR_PCT,
+  effectiveDiscountPct,
+  familyForServiceCode,
+  meetsPapicFloor,
+} from '@/lib/onboarding-family-discount';
+
 export type RawRetailRowFields = {
+  /**
+   * The row being saved. Needed because one rule is family-scoped: only Papic
+   * sign-up prices answer to a discount floor (owner 2026-08-28). Every other
+   * field here is judged on its own value; this one decides which rules apply.
+   */
+  serviceCode: string;
   title: string;
   desc: string;
   price: string;
@@ -105,6 +118,42 @@ export function validateRetailRowFields(raw: RawRetailRowFields): ValidatedRetai
       return { ok: false, message: 'Sign-up price must be blank or ₱0 or more.' };
     }
     onboardingPrice = round2(n);
+
+    // ── THE TWO RULES THIS CARD USED TO ACCEPT ANYTHING PAST ──────────────
+    // Until 2026-08-29 the check above was the ONLY one, so this card would
+    // save a sign-up price ABOVE the regular price — charging a customer more
+    // for buying during set-up, which is the opposite of what the field is for
+    // — and would put a Papic row under its floor. The family-wide discount box
+    // could never do either (it takes a percentage, range-checked), so this was
+    // the one writer with no opinion about the number it stored.
+    const regular = round2(price);
+
+    // 1 · NONSENSE — EVERY ROW, not just the two discount families. A sign-up
+    //     price above the regular price is wrong for any product that has one.
+    if (regular > 0 && onboardingPrice > regular) {
+      return {
+        ok: false,
+        message:
+          `The sign-up price (₱${onboardingPrice.toLocaleString('en-PH')}) can't be more than the regular price ` +
+          `(₱${regular.toLocaleString('en-PH')}) — that would charge more for buying during set-up.`,
+      };
+    }
+
+    // 2 · THE PAPIC FLOOR — that family only, per the owner's scoping ruling.
+    //     Judged as a PERCENTAGE against the shared constant, so this and the
+    //     family-wide box can never disagree about where the floor is.
+    if (regular > 0 && familyForServiceCode(raw.serviceCode) === 'papic') {
+      const pct = effectiveDiscountPct(regular, onboardingPrice);
+      if (pct != null && !meetsPapicFloor(pct)) {
+        return {
+          ok: false,
+          message:
+            `Papic sign-up prices have to be at least ${PAPIC_DISCOUNT_FLOOR_PCT}% off. ` +
+            `₱${onboardingPrice.toLocaleString('en-PH')} is only ${pct.toFixed(1)}% off ₱${regular.toLocaleString('en-PH')} — ` +
+            `₱${Math.floor(regular * (1 - PAPIC_DISCOUNT_FLOOR_PCT / 100)).toLocaleString('en-PH')} or less would clear it.`,
+        };
+      }
+    }
   }
 
   if (!BILLING_PERIODS.has(raw.billingPeriod)) {

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   FAMILY_DISCOUNT_DEFAULT_PCT,
   PAPIC_DISCOUNT_FLOOR_PCT,
+  blockingComplaint,
   discountComplaints,
   effectiveDiscountPct,
   familyForServiceCode,
@@ -150,4 +151,72 @@ test('family membership — and SETNAYAN_AI_RENEW belongs to neither', () => {
 test('the seeded defaults are the values live in production', () => {
   assert.equal(FAMILY_DISCOUNT_DEFAULT_PCT.papic, 10);
   assert.equal(FAMILY_DISCOUNT_DEFAULT_PCT.ai, 40);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WHICH COMPLAINTS REFUSE A SAVE — owner ruled 2026-08-29
+//
+// The floor used to warn and save anyway; its own message said so out loud.
+// These pin the split so a future edit cannot quietly turn a refusal back into
+// a reminder, which is exactly the state this replaced.
+// ═══════════════════════════════════════════════════════════════════════════
+
+test('the Papic floor REFUSES a save; a pointless 0% only warns', () => {
+  const under = discountComplaints('papic', PAPIC_DISCOUNT_FLOOR_PCT - 5);
+  assert.ok(blockingComplaint(under), 'below the floor must block');
+  assert.equal(blockingComplaint(under)!.kind, 'below_floor');
+
+  // 0% on an AI row: no floor applies, so the only complaint is the advisory.
+  const zero = discountComplaints('ai', 0);
+  assert.ok(
+    zero.some((c) => c.kind === 'not_a_discount'),
+    'a 0% discount must still be reported',
+  );
+  assert.equal(
+    blockingComplaint(zero),
+    null,
+    'running a family without a sign-up saving is legal — it must not be blocked',
+  );
+});
+
+test('nonsense refuses for BOTH families, floor or no floor', () => {
+  for (const family of ['papic', 'ai'] as const) {
+    assert.equal(
+      blockingComplaint(discountComplaints(family, -1))?.kind,
+      'out_of_range',
+      `a negative discount must block for ${family}`,
+    );
+    assert.equal(
+      blockingComplaint(discountComplaints(family, 100))?.kind,
+      'out_of_range',
+      `a 100% discount must block for ${family}`,
+    );
+  }
+});
+
+test('the floor tolerates a rounding tail, so a price computed ONTO it still saves', () => {
+  assert.equal(
+    blockingComplaint(discountComplaints('papic', PAPIC_DISCOUNT_FLOOR_PCT)),
+    null,
+    'exactly at the floor must save',
+  );
+  assert.equal(
+    blockingComplaint(discountComplaints('papic', PAPIC_DISCOUNT_FLOOR_PCT - 0.001)),
+    null,
+    'a hair under, from dividing pesos, must not be refused',
+  );
+  assert.ok(
+    blockingComplaint(discountComplaints('papic', PAPIC_DISCOUNT_FLOOR_PCT - 0.5)),
+    'a real half-point under the floor must still be refused',
+  );
+});
+
+test("the refusal message no longer promises it will not refuse", () => {
+  const [complaint] = discountComplaints('papic', 1).filter((c) => c.kind === 'below_floor');
+  assert.ok(complaint, 'a 1% Papic discount must complain');
+  assert.doesNotMatch(
+    complaint!.message,
+    /reminder, not a refusal|nothing will stop you/i,
+    'the message described the old warn-only behaviour and would now be a lie',
+  );
 });

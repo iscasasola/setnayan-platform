@@ -51,6 +51,10 @@ const PRIOR: RetailRowPrior = {
  */
 function fieldsFor(prior: RetailRowPrior, overrides: Partial<RawRetailRowFields> = {}): RawRetailRowFields {
   return {
+    // A real Papic rung, so the family-scoped floor is genuinely exercised
+    // rather than skipped by a code that belongs to no family. Every existing
+    // case leaves the sign-up price blank, which the floor never judges.
+    serviceCode: 'PAPIC_GUEST_10K',
     title: prior.title,
     desc: prior.description ?? '',
     price: String(prior.retail_price_php),
@@ -158,4 +162,94 @@ test('a bad per-head config is refused in plain English, not with a raw DB error
   assert.equal(validated.ok, false);
   if (validated.ok) return;
   assert.match(validated.message, /per-head pricing needs/i);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE SIGN-UP PRICE ANSWERS TO THE REGULAR PRICE (owner ruled 2026-08-29)
+//
+// Until this shipped, the ONLY rule on this field was "blank, or ₱0 or more".
+// The family-wide discount box could never write a bad sign-up price — it takes
+// a percentage and range-checks it — so this card was the one writer with no
+// opinion about the number it stored. Both cases below SAVED before.
+// ═══════════════════════════════════════════════════════════════════════════
+
+test('a sign-up price ABOVE the regular price is refused', () => {
+  const validated = validateRetailRowFields(
+    fieldsFor(PRIOR, { price: '2999', onboardingPrice: '3500' }),
+  );
+
+  assert.equal(validated.ok, false, 'charging more during set-up must not save');
+  if (validated.ok) return;
+  assert.match(
+    validated.message,
+    /can't be more than the regular price/,
+    'the refusal must name the rule, not print a database error',
+  );
+});
+
+test('the nonsense rule is NOT family-scoped — it holds for a row in neither family', () => {
+  const validated = validateRetailRowFields(
+    fieldsFor(PRIOR, { serviceCode: 'LIVE_STUDIO', price: '2500', onboardingPrice: '2600' }),
+  );
+
+  assert.equal(
+    validated.ok,
+    false,
+    'a sign-up price above the regular price is wrong for ANY product that has one',
+  );
+});
+
+test('a Papic sign-up price under the floor is refused, and the message says what would clear it', () => {
+  // ₱2,900 off ₱2,999 is 3.3% — a real discount, and under the 10% floor.
+  const validated = validateRetailRowFields(
+    fieldsFor(PRIOR, { price: '2999', onboardingPrice: '2900' }),
+  );
+
+  assert.equal(validated.ok, false, 'below the Papic floor must not save');
+  if (validated.ok) return;
+  assert.match(validated.message, /at least 10% off/, 'the floor must be named');
+  assert.match(
+    validated.message,
+    /2,699/,
+    'the refusal must name a price that WOULD clear the floor, not just say no',
+  );
+});
+
+test('the Papic floor is family-scoped — Setnayan AI sets its own discount freely', () => {
+  // The same 3.3% discount, on an AI row. The owner scoped the floor to Papic.
+  const validated = validateRetailRowFields(
+    fieldsFor(PRIOR, { serviceCode: 'SETNAYAN_AI', price: '2999', onboardingPrice: '2900' }),
+  );
+
+  assert.equal(validated.ok, true, 'no floor applies outside Papic');
+});
+
+test('a sign-up price exactly ON the floor saves — a rounding tail must not refuse it', () => {
+  // 10% off ₱2,999 is ₱2,699.10; the ladder stores whole pesos, so ₱2,699 is
+  // 10.003% off and ₱2,700 is 9.97%. The nearer side of the tie must still save.
+  const at = validateRetailRowFields(fieldsFor(PRIOR, { price: '2999', onboardingPrice: '2699' }));
+  assert.equal(at.ok, true, 'a whole-peso price landing on the floor must save');
+
+  const justUnder = validateRetailRowFields(
+    fieldsFor(PRIOR, { price: '2999', onboardingPrice: '2700' }),
+  );
+  assert.equal(justUnder.ok, false, '9.97% is under the floor and must not save');
+});
+
+test('a free row is never judged against a floor it cannot have', () => {
+  const validated = validateRetailRowFields(
+    fieldsFor(PRIOR, { price: '0', onboardingPrice: '0' }),
+  );
+
+  assert.equal(validated.ok, true, 'a ₱0 product with a ₱0 sign-up price is legal');
+});
+
+test('a blank sign-up price is still legal — most rows have none', () => {
+  const validated = validateRetailRowFields(
+    fieldsFor(PRIOR, { price: '2999', onboardingPrice: '' }),
+  );
+
+  assert.equal(validated.ok, true, 'the field is optional and must stay optional');
+  if (!validated.ok) return;
+  assert.equal(validated.next.onboarding_price_php, null, 'blank means no sign-up price');
 });

@@ -111,7 +111,7 @@ export async function PricingSurface(_props: Props) {
 
   const admin = createAdminClient();
 
-  const [retailRes, bundleRes, vendorRes, settingsRes] = await Promise.all([
+  const [retailRes, bundleRes, vendorRes, settingsRes, poolRes] = await Promise.all([
     admin
       .from('platform_retail_catalog_v2')
       .select(
@@ -140,9 +140,24 @@ export async function PricingSurface(_props: Props) {
       )
       .eq('id', 1)
       .maybeSingle(),
+    /*
+      WHAT EVERY CELEBRATION IS GIVEN BEFORE ANYBODY BUYS ANYTHING.
+      Owner 2026-08-29 asked for a cell showing it. It is a real, live figure —
+      50 in production, and five events carry a grant of exactly that — and until
+      now NOTHING under `app/` read this column, so no screen could show it and
+      only a migration could move it.
+    */
+    admin
+      .from('papic_event_pool_config')
+      .select('free_grant_points')
+      .eq('config_key', 'default')
+      .maybeSingle(),
   ]);
 
   if (retailRes.error) logQueryError('AdminPricingPage (retail)', retailRes.error);
+  // ⚠ Supabase RESOLVES with `{ error }`. Unchecked, a refused read would render
+  // as a confident number that is not what the product actually gives away.
+  if (poolRes.error) logQueryError('AdminPricingPage (papic pool config)', poolRes.error);
   if (bundleRes.error) logQueryError('AdminPricingPage (bundle)', bundleRes.error);
   if (vendorRes.error) logQueryError('AdminPricingPage (vendor)', vendorRes.error);
   if (settingsRes.error) logQueryError('AdminPricingPage (settings)', settingsRes.error);
@@ -245,6 +260,7 @@ export async function PricingSurface(_props: Props) {
         description: r.description,
         price: Number(r.price_php),
         offeringLabel: VENDOR_OFFERING_LABEL[r.offering_type],
+        offeringType: r.offering_type,
         isActive: r.is_active,
         retiredAt: r.retired_at,
         retirementReason: r.retirement_reason,
@@ -258,6 +274,16 @@ export async function PricingSurface(_props: Props) {
   const retailTitlesForReplacement: [string, string][] = retailRows
     .filter((r) => r.is_active)
     .map((r) => [r.service_code, r.title]);
+
+  // Null on a read error OR a nonsense value — the cell then says it could not
+  // be read rather than printing a figure nobody can stand behind.
+  const rawFreeCredits = poolRes.error
+    ? null
+    : (poolRes.data as { free_grant_points?: number | string | null } | null)?.free_grant_points;
+  const freeCreditsPerEvent =
+    rawFreeCredits != null && Number.isFinite(Number(rawFreeCredits))
+      ? Number(rawFreeCredits)
+      : null;
 
   return (
     <div>
@@ -290,7 +316,11 @@ export async function PricingSurface(_props: Props) {
         </div>
       )}
 
-      <PriceCatalogBrowser rows={rows} retailTitlesForReplacement={retailTitlesForReplacement} />
+      <PriceCatalogBrowser
+        rows={rows}
+        retailTitlesForReplacement={retailTitlesForReplacement}
+        freeCreditsPerEvent={freeCreditsPerEvent}
+      />
 
       <section className="mt-10">
         <h2 className="mb-1 text-base font-semibold tracking-tight">Set-up discount</h2>

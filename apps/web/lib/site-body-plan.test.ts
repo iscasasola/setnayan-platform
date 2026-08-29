@@ -122,8 +122,27 @@ test('golden matrix — chrome gates (full-bleed, beacon, reveal, music) per pha
         false,
         `beacon suppressed for sample ${identity}/${phase}`,
       );
-      // Reveal overlay is enabled only over the STD phase.
-      assert.equal(plan.revealEnabled, std, `reveal ${identity}/${phase}`);
+      // The reveal covers the STD phase AND the invitation (owner 2026-08-29:
+      // "event hub should also have the cinematic reveal"). NOT the day itself
+      // — a veil between a guest and their table number at the venue — and not
+      // the story afterwards, which has its own cover.
+      const revealPhase = phase === 'save_the_date' || phase === 'rsvp';
+      assert.equal(plan.revealEnabled, revealPhase, `reveal ${identity}/${phase}`);
+      // An event type that may not have the film may not have its openings
+      // either — the two are ONE part. This is the whole fence for a wake,
+      // which (unlike the STD phase) really does reach the invitation.
+      assert.equal(
+        planFor(identity, phase, {
+          weddingOnlyParts: {
+            save_the_date_film: false,
+            monogram_letters: false,
+            love_story: false,
+            side_labels: false,
+          },
+        }).revealEnabled,
+        false,
+        `reveal withheld from a type with no film ${identity}/${phase}`,
+      );
       // Background music mounts in every phase EXCEPT STD (the film owns audio).
       assert.equal(plan.backgroundMusic, !std, `music ${identity}/${phase}`);
       assert.equal(

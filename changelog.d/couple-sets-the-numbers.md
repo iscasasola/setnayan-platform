@@ -59,12 +59,41 @@ SPEC IMPACT: The build order's "Nothing acts on it" claim for `lib/event-sponsor
 is being corrected by the session that owns that document. The shots→credits vocabulary shift needs
 applying to both `WHATS_NEXT_Shots_Per_Guest_*` files, whose copy examples still read "shots".
 
-### Next concrete step, if this session ends here
+### The sheet
 
-The sheet itself: a `SettingRow` in "Set once, change any time" wrapping the switch, the number for
-everyone else, the guest picker, the live summary line and the "open the rest to everyone" button.
-Copy `uploads-open-choice.tsx` exactly — including its absence rule (`eventPapicGuestActive` → the
-row does not render on a celebration where guests cannot shoot). Outcome params must be
-`allotment_set` / `allotment_error` — **`shots_set`/`shots_error` are taken by `setCameraShots`** —
-and wired THREE ways or `outcomes-are-shown.test.ts` fails: the searchParams type, the render, and
-the banner bail-out. Raise that guard's `KEYS.length >= 19` floor to 21 deliberately.
+A `SettingRow` in "Set once, change any time", beside the three choices it is a sibling of: the
+switch, the number for everyone else, the guest picker with a per-guest amount, the live summary
+line, and the "open the rest to everyone" button. No picker is redrawn — a row is another door to
+the same control.
+
+**The row is absent when there is nothing to decide, two ways.** No guest cameras on the event →
+null, exactly as `GuestCamerasChoice` does. And until the ceiling migration is applied its columns
+do not exist, PostgREST refuses the SELECT, and no row is drawn — the merge gate enforced by the
+code rather than by a promise. If this reached production early a couple would see **nothing**,
+rather than a control saving a number the database ignores.
+
+**Outcomes:** `allotment_set` / `allotment_error` — `shots_set`/`shots_error` are taken by
+`setCameraShots`, and sharing them would show one control's confirmation after another control's
+save. Wired three ways; `outcomes-are-shown.test.ts`'s floor raised **19 → 21** deliberately.
+
+### Proof, second pass
+
+- **TESTS:** 1077 passed, 1077 total (`app/dashboard/**/*.test.ts` + `lib/papic*.test.ts`), and
+  `outcomes-are-shown.test.ts` 7/7 on its own. All non-zero.
+- **TSC_EXIT=0 · ERROR_LINES=0**, taken under a shared typecheck mutex because the ceiling session
+  builds in parallel — two concurrent `tsc` runs abort at 144 with an empty log, which is
+  byte-identical to a clean pass.
+- **MUTATION (the wiring):** each of the three ways sabotaged independently, all RED —
+  searchParams type 1→0 · page render 1→0 · banner bail-out 1→0.
+- ⚠ One trap hit and worth recording: `npx tsx --test` on the bracketed path
+  `app/dashboard/[eventId]/...` matched **nothing** and reported `# tests 0 / # fail 0`, which
+  exits 0 and reads exactly like a pass. Caught by requiring a non-zero test count. Use the repo's
+  own glob form.
+
+### Still open
+
+- **The automatic late release.** The button half ships here; the automatic stamp late in the
+  celebration belongs with the ceiling migration's own release path, since it must fire from the
+  database rather than from a page nobody has open.
+- **Column names are provisional** — `ALLOTMENT_STORAGE` adopts the ceiling migration's real names
+  in one edit.

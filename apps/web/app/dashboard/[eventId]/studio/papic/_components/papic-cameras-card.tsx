@@ -11,7 +11,7 @@ import { setCameraShots } from '../actions';
  * arrived with its own shots baked in at its own price. The owner collapsed
  * Papic to one product on 2026-08-11 — *"the host can dedicated a specific
  * number of shots for a specific QR code. and the rest can be distributed to
- * the rest"* — so a dedicated camera is no longer a purchase. You buy shots
+ * the rest"* — so a dedicated camera is no longer a purchase. You buy credits
  * once, and this is where you decide which of them belong to one camera alone.
  *
  * Cameras themselves are now free and unlimited. That costs us nothing: a
@@ -29,7 +29,7 @@ import { setCameraShots } from '../actions';
  * ── THE NUMBER IN THE BOX IS A TARGET ──────────────────────────────────────
  * It shows what the camera holds and you type what it should hold. Lowering it
  * is how shots come back. Framing it as "add N more" would have needed a second
- * control to undo it, and a hand-out with no way back strands the shots on the
+ * control to undo it, and a hand-out with no way back strands the credits on the
  * wrong QR permanently.
  *
  * Display only — every rule about whether a move is allowed is enforced inside

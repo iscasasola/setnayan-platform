@@ -34,7 +34,7 @@ import {
 
 // ── the currency ───────────────────────────────────────────────────────────
 
-test('point currency: 1 photo = 1 pt · one 10-second clip = 8 pts', () => {
+test('point currency: 1 photo = 1 credit · a Snippet = 8 credits', () => {
   // ONE currency for BOTH balances (owner-locked 2026-07-29). A clip costs the
   // same 8 whether it is spent from the shared Papic Pool or from a Papic One
   // camera's dedicated bucket — two weights would mean the same 10 seconds of
@@ -189,15 +189,15 @@ test('shared-pool reserve fails CLOSED, except on function-not-found', () => {
 test('rung copy takes its numbers as arguments and names what makes One different', () => {
   assert.equal(
     papicOneRungPhrase(50, 50),
-    "₱50 — 50 shots, that camera's own",
+    "₱50 — 50 credits, that camera's own",
   );
   assert.equal(
     papicPoolRungPhrase(3000, 1200),
-    '₱1,200 — adds 3,000 shots to your shared pool · 60% off ₱3,000',
+    '₱1,200 — adds 3,000 credits to your shared pool · 60% off ₱3,000',
   );
   // Reprice either side and the sentence follows — nothing is spelled.
-  assert.match(papicOneRungPhrase(100, 100), /₱100 — 100 shots/);
-  assert.match(papicPoolRungPhrase(10000, 3200), /₱3,200 — adds 10,000 shots/);
+  assert.match(papicOneRungPhrase(100, 100), /₱100 — 100 credits/);
+  assert.match(papicPoolRungPhrase(10000, 3200), /₱3,200 — adds 10,000 credits/);
 
   // ⚠ THE SAVING IS ONLY SHOWN WHEN IT IS REAL. A rung at or above ₱1 a shot
   // must say nothing rather than print "0% off" or a negative one — the ladder
@@ -205,7 +205,7 @@ test('rung copy takes its numbers as arguments and names what makes One differen
   // pricing mistake, not a badge.
   assert.equal(
     papicPoolRungPhrase(100, 100),
-    '₱100 — adds 100 shots to your shared pool',
+    '₱100 — adds 100 credits to your shared pool',
     'a rung priced at exactly ₱1 a shot advertised a discount',
   );
   assert.equal(papicRungDiscountPercent(100, 100), null);
@@ -216,12 +216,12 @@ test('rung copy takes its numbers as arguments and names what makes One differen
 
 test('a bucket never promises an exact photo+clip split, and discloses the clip cost', () => {
   const phrase = papicBucketPhrase(5); // the free One camera
-  assert.match(phrase, /about 5 photos/);
-  assert.match(phrase, new RegExp(`clip counts as ${PAPIC_POINTS_PER_CLIP}`));
+  assert.match(phrase, /about 5 photographs/);
+  assert.match(phrase, new RegExp(`Snippet counts as ${PAPIC_POINTS_PER_CLIP}`));
   // "N photos + M clips" is unkeepable — one purse, and clips eat the photos.
   assert.equal(/\d+\s*photos?\s*\+\s*\d+\s*clips?/i.test(phrase), false);
-  assert.match(papicBucketPhrase(1), /about 1 photo\b/);
-  assert.match(papicBucketPhrase(3000), /about 3,000 photos/);
+  assert.match(papicBucketPhrase(1), /about 1 photograph\b/);
+  assert.match(papicBucketPhrase(3000), /about 3,000 photographs/);
 });
 
 test('🚨 an EMPTY rung table means nothing is on sale — it must not re-arm the seed', async () => {

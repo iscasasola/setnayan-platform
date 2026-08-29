@@ -12,7 +12,7 @@
  *
  * — four categories, and the app itself listed none of them. On 2026-07-29 a
  * FIFTH category shipped: `papic_guest_orders` lets a person with NO Setnayan
- * account buy shots at the party. That person types a name, is handed a bearer
+ * account buy credits at the party. That person types a name, is handed a bearer
  * token, and uploads a screenshot of their bank or GCash confirmation. A row
  * declaring them was drafted the next day (`ROPA_Drafted_Rows_2026-07-30.md`
  * § 1, "Row 21a") and was never folded into any register — so the written
@@ -139,7 +139,7 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
    *     is issued to the placeholder `unknown@setnayan.com` and the typed name.
    */
   guest_buyer: {
-    label: 'Guests who buy shots without a Setnayan account',
+    label: 'Guests who buy credits without a Setnayan account',
     holdsAccount: false,
     identityAnchors: [
       'papic_guest_orders.payer_name',

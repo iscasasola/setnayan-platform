@@ -5,7 +5,7 @@
  * (owner picked A + B on 2026-07-30 from
  * `06_Prototypes/Papic_Home_Presence_2026-07-30.html`).
  *
- * Every event is armed at creation with a free shared pool of shots AND one free
+ * Every event is armed at creation with a free shared pool of credits AND one free
  * dedicated camera, and the couple was never told so anywhere on their home. This
  * is the one-time telling. It is deliberately a SIBLING of `SetDateNudge` — same
  * band geometry, same terracotta hairline, same eyebrow / title / one-line body /

@@ -671,7 +671,7 @@ export function PapicSeatCapture({
         // Absent on every non-pass event, so this stays null for them.
         if (result.eventPool?.soft) {
           setPoolNotice(
-            `Running low — about ${result.eventPool.remaining.toLocaleString()} shots left for this event.`,
+            `Running low — about ${result.eventPool.remaining.toLocaleString()} credits left for this event.`,
           );
         } else if (result.eventPool) {
           setPoolNotice(null);
@@ -1338,7 +1338,7 @@ export function PapicSeatCapture({
         <div className="px-4 pt-3">
           <div className="mb-1.5 flex items-center justify-between">
             <p className="text-[11px] font-medium uppercase tracking-wider text-cream/55">
-              Your shots
+              Your credits
             </p>
             {uploadingCount > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] text-cream/55">

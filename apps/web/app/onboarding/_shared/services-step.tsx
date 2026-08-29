@@ -101,13 +101,13 @@ const TYPE_COPY: Record<
 > = {
   pool: {
     title: 'Papic',
-    kind: 'Unlimited cameras · shared shots',
+    kind: 'Unlimited cameras · shared credits',
     desc:
       // ⚠ Same false promise as the studio Pool card (see its comment): there
       // is no single couple-owned QR anyone can scan. Cameras come from each
       // guest's own invite QR, plus the claim links the host hands out.
       'One shared pot for the whole event — every camera draws from it, from ' +
-      'each guest’s own QR to the links you hand out. Add shots any time; ' +
+      'each guest’s own QR to the links you hand out. Add credits any time; ' +
       'they never expire before your day.',
     Icon: Users,
   },
@@ -120,8 +120,8 @@ const TYPE_COPY: Record<
     title: 'Papic',
     kind: 'Dedicated camera · its own QR',
     desc:
-      'A named camera with its own QR and its own shots — for your best friend, ' +
-      'your ninang, the one person you trust to catch everything. Their shots ' +
+      'A named camera with its own QR and its own credits — for your best friend, ' +
+      'your ninang, the one person you trust to catch everything. Their credits ' +
       'never draw from the shared pool.',
     // ⚠ "the same rungs" (plural) was true of the retired two-rung ladder.
     // Papic One has had ONE price since 2026-08-11, and a reload buys exactly
@@ -276,10 +276,10 @@ function PoolPicker({
   //
   // 🔴 WITHOUT THIS LINE THE CARD HAS NO PRICE ON IT UNTIL YOU PRESS SOMETHING.
   // The owner reported "no way to add shots for papic" (2026-08-20) on a card
-  // whose control was present and working: at rest it read "50 shots · Yours
+  // whose control was present and working: at rest it read "50 credits · Yours
   // already", "Included — Free", "Papic — Free", and every other word said the
   // thing was already his. The only purchase affordance was a bare `+` whose
-  // sole "add shots" wording was its aria-label, which a sighted person never
+  // sole "add credits" wording was its aria-label, which a sighted person never
   // sees. Reading that as "there is no way to buy here" was CORRECT — the
   // control was not hidden, it was contradicted.
   const nextShots = step < last ? poolShotsAt(type, step + 1) - poolShotsAt(type, step) : 0;
@@ -287,7 +287,7 @@ function PoolPicker({
   return (
     <div className="mx-3 mb-3">
       <p className="mb-2 text-sm font-medium text-ink">
-        How many shots do you want for this {eventWord}?
+        How many credits do you want for this {eventWord}?
       </p>
       <Stepper
         decLabel="Fewer shots"
@@ -583,7 +583,7 @@ export function ServicesStep({
           however long it is.
         </p>
         <p className="mt-2 text-xs leading-relaxed text-ink/45">
-          Guests shoot with any phone — nothing to install. Add shots here now, or top
+          Guests shoot with any phone — nothing to install. Add credits here now, or top
           up later from your Papic studio.
         </p>
       </article>

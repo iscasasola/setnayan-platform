@@ -486,7 +486,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // shared pool must not bound it — the RPC returns MAXINT for a dedicated
         // seat. Without this, a One camera would be refused a presigned URL the
         // moment the event's free 50-pt pool ran dry, despite having its own
-        // shots left, and the two budgets would be co-enforced instead of
+        // credits left, and the two budgets would be co-enforced instead of
         // separate.
         let eventGate: PointsGateVerdict;
         try {

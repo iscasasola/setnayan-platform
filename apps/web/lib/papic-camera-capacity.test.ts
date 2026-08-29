@@ -13,7 +13,7 @@
  *
  * — a **50-point bucket** on prod, after which the fail-closed reserve stops the
  * shutter. So the couple paid ₱50 for "unlimited" and got 50 shots, on the SAME
- * screen where the Papic One card correctly said "50 shots, that camera's own".
+ * screen where the Papic One card correctly said "50 credits, that camera's own".
  *
  * The cause was reading `papic_tier_config.points_per_day`: the RETIRED
  * per-camera-per-DAY meter, whose `mini` row is NULL on prod — and NULL means
@@ -86,10 +86,10 @@ test('the page resolves the bucket from papic_one_tiers, keyed by the rung SKU',
 
 test('papicBucketPhrase discloses the one-purse trade-off, derived', () => {
   const phrase = papicBucketPhrase(50);
-  assert.match(phrase, /about 50 photos/);
+  assert.match(phrase, /about 50 photographs/);
   assert.match(
     phrase,
-    new RegExp(`counts as ${PAPIC_POINTS_PER_CLIP}`),
+    new RegExp(`Snippet counts as ${PAPIC_POINTS_PER_CLIP}`),
     'the clip weight must interpolate the constant so a reprice moves the copy',
   );
   // Never an exact split promise — photos and clips share ONE bucket.

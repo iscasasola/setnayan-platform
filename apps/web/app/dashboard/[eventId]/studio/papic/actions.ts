@@ -1424,7 +1424,7 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
       event_id: eventId,
       user_id: user.id,
       service_key: rawSku,
-      description: `Papic — adds ${points} shots to this event`,
+      description: `Papic — adds ${points} credits to this event`,
       requested_total_php: pricePhp,
       reference_code: referenceCode,
       status: 'submitted',

@@ -9,7 +9,7 @@ import { isSameDayInManila, buyWaitCopy } from '@/lib/papic-buy-urgency';
 import { PapicBuyShell } from './papic-buy-shell';
 
 /**
- * The server half of the guest's "Add shots" doorway.
+ * The server half of the guest's "Add credits" doorway.
  *
  * Does the reading; the client shell does the painting. Everything on screen is
  * DERIVED — points from the admin-editable rung tables, the peso figure from
@@ -49,7 +49,7 @@ export async function PapicGuestBuyPanel({
    *
    * ⚠ This used to mean "a camera that ALREADY has dedicated points", which was
    * circular: nobody could buy their first private shots. Widened 2026-08-02 —
-   * any camera its holder claimed may buy shots for itself.
+   * any camera its holder claimed may buy credits for itself.
    */
   canReloadOwnCamera?: boolean;
   /** Drives the wait the guest is promised. Omitted → the ordinary 24-hour line. */

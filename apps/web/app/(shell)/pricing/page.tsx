@@ -347,7 +347,7 @@ export default async function PricingPage() {
           saas_overhead_cost_php: 0,
           is_token_able: false,
           description:
-            `A camera of its own for someone you trust — its own QR, and shots ` +
+            `A camera of its own for someone you trust — its own QR, and credits ` +
             `nobody else can spend. ` +
             (papicFreeOneCameras > 0
               ? `Your ${papicFreeOneCameras === 1 ? 'first camera is' : `first ${papicFreeOneCameras} cameras are`} ` +
@@ -383,12 +383,12 @@ export default async function PricingPage() {
     .filter((s) => /^PAPIC_GUEST(_|$)/.test(s.service_code)) // gitleaks:allow — catalog service_codes, not secrets
     .map((s) => ({
       key: s.service_code,
-      // Short bucket label from the catalog title ("Papic — add 3,000 shots" →
-      // "add 3,000 shots"); never a hardcoded shot count.
+      // Short bucket label from the catalog title ("Papic — add 3,000 credits" →
+      // "add 3,000 credits"); never a hardcoded shot count.
       //
       // ⚠ The old strip was /^Papic Pool\s*[—-]\s*/ and the titles were renamed
       // to "Papic — add N shots" when the two products became one. It stopped
-      // matching, so the page rendered "₱1,000 to Papic — add 3,000 shots".
+      // matching, so the page rendered "₱1,000 to Papic — add 3,000 credits".
       // Matching the product word alone survives that rename and the last one.
       label: s.title
         .replace(/^Papic(\s+Pool)?\s*[—-]\s*/i, '')

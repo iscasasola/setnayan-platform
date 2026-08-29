@@ -31,7 +31,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { skuAnchorId } from './sku-anchor';
 
 export type AdminRow = {
-  /** What the row is called, e.g. `Papic — add 3,000 shots`. */
+  /** What the row is called, e.g. `Papic — add 3,000 credits`. */
   label: string;
   /** Where it lives, anchor included. */
   href: string;

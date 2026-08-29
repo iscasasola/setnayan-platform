@@ -46,16 +46,16 @@ const ERROR_COPY: Record<string, string> = {
   not_here: "We couldn't tell which camera you're holding. Reopen your QR link and try again.",
   too_fast: 'One moment — try that again in a few seconds.',
   unknown_rung: 'That option is no longer available. Pick another one.',
-  no_camera: 'Adding shots to one camera needs a camera of your own.',
-  not_your_camera: 'You can only add shots to the camera you are holding.',
+  no_camera: 'Adding credits to one camera needs a camera of your own.',
+  not_your_camera: 'You can only add credits to the camera you are holding.',
   not_reloadable:
-    'This camera shoots from the shared pool, so top up the pool instead — those shots work everywhere.',
+    'This camera shoots from the shared pool, so top up the pool instead — those credits work everywhere.',
   already_pending: 'You already have one of these waiting for payment. Finish that one first.',
   order_failed: "We couldn't start that order, so nothing was charged. Please try again.",
   // Owner 2026-08-21: buying needs an account. Without one there is nowhere to
   // put the receipt and nowhere for the buyer to come back to.
   needs_account:
-    'Sign in to buy shots — that way your purchase and your receipt stay with you.',
+    'Sign in to buy credits — that way your purchase and your receipt stay with you.',
 };
 
 export function PapicBuyShell({
@@ -112,7 +112,7 @@ export function PapicBuyShell({
         className="fixed bottom-4 right-4 z-40 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-xs font-medium text-white backdrop-blur hover:bg-black/75"
       >
         <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Add shots
+        Add credits
       </button>
 
       {open ? (
@@ -120,15 +120,15 @@ export function PapicBuyShell({
           ref={dialogRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Add shots"
+          aria-label="Add credits"
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 focus:outline-none sm:items-center sm:p-4"
         >
           <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-5 text-ink shadow-xl sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
-                <h2 className="text-lg font-semibold tracking-tight">Add shots</h2>
+                <h2 className="text-lg font-semibold tracking-tight">Add credits</h2>
                 <p className="text-sm text-ink/70">
-                  Keep the cameras going. Sign in first — your shots and your receipt
+                  Keep the cameras going. Sign in first — your credits and your receipt
                   stay with your account, and the code you scan already has the
                   amount in it.
                 </p>

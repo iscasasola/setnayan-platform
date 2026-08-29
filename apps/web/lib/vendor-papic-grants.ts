@@ -190,7 +190,7 @@ export async function fetchVendorPapicPointsSpent(
  *
  * ⚠ IT MUST READ THE SAME THREE THINGS THE CAPTURE ROUTE READS. This is what a
  * supplier SEES; the route is what a supplier GETS. When this was wired to the
- * booking fee, missing it here would have shown a supplier "50 shots" on their
+ * booking fee, missing it here would have shown a supplier "50 credits" on their
  * own screen while the route happily accepted their 125th — a screen
  * contradicting the screen beside it, with no error anywhere. Pinned by
  * `the-fee-reaches-the-allowance.test.ts`.

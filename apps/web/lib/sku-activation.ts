@@ -276,7 +276,7 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
  * three One service_keys:
  *   • a papic_one_orders row → grant its snapshotted points to ITS camera. Same
  *     path for a NEW camera and for a RELOAD of one that already exists, which
- *     is what lets a couple add shots mid-event without reissuing a QR.
+ *     is what lets a couple add credits mid-event without reissuing a QR.
  *   • no such row → a legacy multi-camera PAPIC_CAMERAS order: the ₱50 rung's
  *     points to each mini seat of that order.
  * Every shape writes seat-scoped grants, and papic_event_pool_status counts only

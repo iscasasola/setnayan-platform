@@ -132,7 +132,7 @@ export default async function PapicGuestOrderPage({
             ? `Confirmed — ${points.toLocaleString('en-PH')} shots are live.`
             : cancelled
               ? 'This order was cancelled. Nothing was charged.'
-              : 'Send the amount below, then log it here. The shots go live once the ' +
+              : 'Send the amount below, then log it here. The credits go live once the ' +
                 'Setnayan team confirms your payment — usually within a day.'}
         </p>
         <p className="text-xs text-ink/50">

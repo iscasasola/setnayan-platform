@@ -69,7 +69,7 @@ test('the other door removes the extras — and says what that costs', () => {
     /at the normal price, without the set-up discount/,
     'and the cost of leaving must be stated — hiding it makes the discount a trap',
   );
-  assert.match(PAGE, /free shots stay live/, 'and the celebration must be said to survive');
+  assert.match(PAGE, /free credits stay live/, 'and the celebration must be said to survive');
 });
 
 test('after the proof is in, the last step is FINISHED, not repeated', () => {

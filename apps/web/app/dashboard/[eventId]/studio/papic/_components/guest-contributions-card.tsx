@@ -51,7 +51,7 @@ export async function GuestContributionsCard({ eventId }: { eventId: string }) {
         </p>
         <p className="text-sm text-ink/70">
           People at your event bought extra shots. Nothing here needs anything from
-          you — the shots land the moment we confirm their payment.
+          you — the credits land the moment we confirm their payment.
         </p>
       </div>
       <ul className="space-y-1.5 text-sm">

@@ -89,14 +89,23 @@ test('a composition predating the axis reads as NOT granted, not as undefined', 
   assert.equal(vendorEffectiveCaps('custom', legacy).whitelistPerDate, 10);
 });
 
-test('the axis NEVER lifts the booked-out waitlist — a different list', () => {
-  // Owner was asked about the 10 customers chased per date and answered about
-  // the 10. Widening the waitlist would also mean widening a CHECK constraint on
-  // vendor_profiles.max_waitlist_acceptances. If this goes red, somebody
-  // widened a second thing on the back of one ruling.
+test('the axis lifts the booked-out waitlist TOO — one axis, both ceilings', () => {
+  // ⚠ INVERTED HOURS AFTER IT WAS WRITTEN, BY THE OWNER. It read "the axis NEVER
+  // lifts the booked-out waitlist — a different list", which was the correct and
+  // deliberate scope: he had been asked about the 10 customers chased per date
+  // and had answered about the 10, so the waitlist was named to him as a
+  // separate list rather than assumed into the same purchase. He then ruled:
+  // **"yes wait list add them"**. Inverted rather than deleted — it is still
+  // what proves the scope is what he said, now in the other direction.
   const caps = vendorEffectiveCaps('custom', { ...COMP, pipelineUnlimited: true });
-  assert.equal(caps.waitlistAcceptances, tierCaps('custom').waitlistAcceptances);
-  assert.equal(caps.waitlistAcceptances, 5);
+  assert.equal(caps.waitlistAcceptances, Infinity);
+});
+
+test('WITHOUT the axis the waitlist ceiling is untouched', () => {
+  // The control: the test above must pass because of the AXIS, not because the
+  // overlay returns Infinity for everybody.
+  assert.equal(vendorEffectiveCaps('custom', COMP).waitlistAcceptances, 5);
+  assert.equal(vendorEffectiveCaps('custom', null).waitlistAcceptances, 5);
 });
 
 test('a NON-custom tier cannot get it, even if the flag is somehow stored', () => {
@@ -106,6 +115,10 @@ test('a NON-custom tier cannot get it, even if the flag is somehow stored', () =
     assert.equal(
       vendorEffectiveCaps(t, { ...COMP, pipelineUnlimited: true }).whitelistPerDate,
       tierCaps(t).whitelistPerDate,
+    );
+    assert.equal(
+      vendorEffectiveCaps(t, { ...COMP, pipelineUnlimited: true }).waitlistAcceptances,
+      tierCaps(t).waitlistAcceptances,
     );
   }
 });

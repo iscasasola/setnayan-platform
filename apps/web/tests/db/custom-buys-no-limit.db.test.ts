@@ -192,13 +192,39 @@ test('a plan that is NOT active does not grant it', async () => {
   assert.match(String(err), /WHITELIST_DATE_LIMIT/);
 });
 
-test('THE WAITLIST IS NOT LIFTED — it is a different list and a different decision', async () => {
-  // Owner was asked about the 10 (customers CHASED per date) and answered about
-  // the 10. The BOOKED-OUT WAITLIST (couples queued on a date already sold)
-  // stays at its tier ceiling; widening it would also mean widening a CHECK
-  // constraint. If this ever goes green, somebody widened it silently.
+test('THE WAITLIST IS LIFTED TOO — one axis, both ceilings', async () => {
+  // ⚠ THIS ASSERTION WAS INVERTED HOURS AFTER IT WAS WRITTEN, BY THE OWNER. It
+  // read "THE WAITLIST IS NOT LIFTED — it is a different list and a different
+  // decision", which was the correct and deliberate scope of 20271182153977: he
+  // had been asked about the 10 customers CHASED per date and had answered about
+  // the 10, so the BOOKED-OUT WAITLIST was named to him as a separate list
+  // needing its own ruling rather than assumed into the same purchase.
+  //
+  // He made the ruling: **"yes wait list add them"**. One axis now removes both
+  // per-date ceilings. The test is inverted rather than deleted, because it is
+  // still the thing that proves the scope is what the owner said it is — in the
+  // other direction.
   const shop = await newVendor('waitlist', 'custom');
   await activePlan(shop.vendorProfileId, true);
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET waitlist_enabled = TRUE, max_waitlist_acceptances = 9
+      WHERE vendor_profile_id = $1`,
+    [shop.vendorProfileId],
+  );
+  const r = await db.query<{ n: number; on: boolean }>(
+    `SELECT max_waitlist_acceptances AS n, waitlist_enabled AS on
+       FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [shop.vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.n, 9, 'not clamped to Custom’s 5 — the shop paid for no ceiling');
+  assert.equal(r.rows[0]!.on, true);
+});
+
+test('CONTROL: a Custom shop WITHOUT the axis is still clamped to 5', async () => {
+  // Without this control the test above passes whether or not the axis is read.
+  const shop = await newVendor('waitlist-capped', 'custom');
+  await activePlan(shop.vendorProfileId, false);
   await db.query(
     `UPDATE public.vendor_profiles
         SET waitlist_enabled = TRUE, max_waitlist_acceptances = 9
@@ -210,7 +236,34 @@ test('THE WAITLIST IS NOT LIFTED — it is a different list and a different deci
       WHERE vendor_profile_id = $1`,
     [shop.vendorProfileId],
   );
-  assert.equal(r.rows[0]!.n, 5, 'Custom holds 5 on a waiting list, bought axis or not');
+  assert.equal(r.rows[0]!.n, 5, 'Custom holds 5 without the axis');
+});
+
+test('the axis raises a ceiling — it never conjures a waiting list from nothing', async () => {
+  // A plan whose allowance is ZERO has no waiting list as a FEATURE, not as a
+  // number. The zero arm is checked BEFORE the no-limit arm for exactly this
+  // reason. Custom's base is 5, so this is belt and braces today — which is
+  // precisely when an ordering gets written down wrong.
+  const shop = await newVendor('freeplan', 'free'); // free: waitlist allowance 0
+  await db.query(
+    `INSERT INTO public.vendor_custom_plans
+       (vendor_profile_id, composition, quoted_28d_php, status)
+     VALUES ($1, '{"pipelineUnlimited":true}'::jsonb, 13500, 'active')`,
+    [shop.vendorProfileId],
+  );
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET waitlist_enabled = TRUE, max_waitlist_acceptances = 3
+      WHERE vendor_profile_id = $1`,
+    [shop.vendorProfileId],
+  );
+  const r = await db.query<{ n: number; on: boolean }>(
+    `SELECT max_waitlist_acceptances AS n, waitlist_enabled AS on
+       FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [shop.vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.n, 0, 'a plan with no waiting list still has none');
+  assert.equal(r.rows[0]!.on, false);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

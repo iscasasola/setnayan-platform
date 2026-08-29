@@ -61,16 +61,18 @@ export function vendorEffectiveCaps(
   const composedPhotos = Number.isFinite(c.photos) ? Math.floor(c.photos) : base.portfolioPhotos;
   const portfolioPhotos = Math.max(base.portfolioPhotos, composedPhotos);
 
-  // Customers chased per date: the flat "no limit" add-on (owner 2026-08-29 —
-  // "2500 for no limit") removes the ceiling entirely. `=== true` so a
+  // The flat "no limit" add-on (owner 2026-08-29 — "2500 for no limit") removes
+  // BOTH per-date ceilings: who you may be CHASING for a date, and how many you
+  // may PICK off the waitlist for a date already taken. `=== true` so a
   // composition row written before this axis existed reads as NOT granted.
   //
-  // ⛔ The BOOKED-OUT WAITLIST is deliberately untouched. Two different lists
-  // share the word "limit": this one is who you are pursuing for a date, the
-  // other is who is queued on a date already taken. The owner was asked about
-  // the 10 and answered about the 10.
-  const whitelistPerDate =
-    c.pipelineUnlimited === true ? Infinity : base.whitelistPerDate;
+  // ⚖ EXTENDED 2026-08-29, SAME DAY, BY THE OWNER: **"yes wait list add them"**.
+  // It was built for the chasing ceiling alone and he was told so — the waitlist
+  // was named as a separate list and a separate decision. He made it. One flag,
+  // both ceilings, so a shop that pays for "no limit" is not told it has one.
+  const unlimited = c.pipelineUnlimited === true;
+  const whitelistPerDate = unlimited ? Infinity : base.whitelistPerDate;
+  const waitlistAcceptances = unlimited ? Infinity : base.waitlistAcceptances;
 
   return {
     ...base,
@@ -79,6 +81,7 @@ export function vendorEffectiveCaps(
     slotsPerDay,
     portfolioPhotos,
     whitelistPerDate,
+    waitlistAcceptances,
   };
 }
 

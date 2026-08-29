@@ -1610,7 +1610,7 @@ export async function EventDashboard({
             ? 'shots ready · 1 camera out'
             : `shots ready · ${papicHome.cameras} cameras out`
           : papicHome.shotsLeft > 0
-            ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} shots left`
+            ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
             : 'photos gathered'}
       </span>
       {miniFoot('Open Papic')}

@@ -205,7 +205,7 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-ink/50">
-        Papic is one pot of shots for the whole celebration. Cameras are free and
+        Papic is one pot of credits for the whole celebration. Cameras are free and
         unlimited; add-ons are charged separately.{' '}
         Estimate only — no charge is made here.
       </p>

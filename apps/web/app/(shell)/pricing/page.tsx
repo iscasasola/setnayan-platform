@@ -419,7 +419,7 @@ export default async function PricingPage() {
           saas_overhead_cost_php: 0,
           is_token_able: false,
           description:
-            `One shared pool of shots that every guest's phone can spend from — ` +
+            `One shared pool of credits that every guest's phone can spend from — ` +
             `no per-camera math, no seat limit. ` +
             papicPoolBuckets
               .map(({ label, pricePhp }) => `₱${formatPeso(pricePhp)} to ${label}`)

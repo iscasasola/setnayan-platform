@@ -84,7 +84,7 @@ export function PapicReadyNudge({ eventId }: Props) {
         </p>
         <p className="text-base font-semibold text-ink">Your free camera is ready</p>
         <p className="text-sm text-ink/65">
-          Every celebration starts with a shared pool of shots and one camera of its
+          Every celebration starts with a shared pool of credits and one camera of its
           own — nothing to buy. Hand it to someone you trust and the candids start
           landing in your gallery.
         </p>

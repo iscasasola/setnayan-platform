@@ -116,9 +116,9 @@ export function PapicDial({
             }`}
           >
             <span className="text-2xl sm:text-3xl">{count(total)}</span>
-            <span className="text-sm font-normal text-[var(--m-ink)]/55 sm:text-base">credits</span>
+            <span className="text-sm font-normal text-[var(--m-slate-2)] sm:text-base">credits</span>
           </span>
-          <span className="mt-1 block text-xs text-[var(--m-ink)]/55">
+          <span className="mt-1 block text-xs text-[var(--m-slate-2)]">
             {bought === 0 ? 'in every celebration' : 'in your celebration'}
           </span>
         </div>
@@ -136,14 +136,14 @@ export function PapicDial({
 
       {/* THE PAY ROW — the only currency on this card. */}
       <p className="mt-4 flex items-baseline justify-center gap-2 text-sm">
-        <span className="text-[var(--m-ink)]/55">You pay</span>
+        <span className="text-[var(--m-slate-2)]">You pay</span>
         <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-ink)]">
           {bought === 0 ? 'nothing' : peso(rung.peso)}
         </span>
       </p>
 
       {/* The stacking, said out loud. This is the line the owner corrected. */}
-      <p className="mt-2 font-mono text-xs tabular-nums text-[var(--m-ink)]/60">
+      <p className="mt-2 font-mono text-xs tabular-nums text-[var(--m-slate-2)]">
         {bought === 0 ? (
           <>
             <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free on
@@ -170,7 +170,7 @@ export function PapicDial({
         />
       </div>
 
-      <p className="mt-3 rounded-xl bg-[var(--m-ink)]/[0.035] px-3 py-2.5 text-left text-sm text-[var(--m-ink)]/70">
+      <p className="mt-3 rounded-xl bg-[rgb(44_42_41/0.04)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
         {onIdeal ? (
           <>
             <b className="font-semibold text-[var(--m-ink)]">
@@ -191,6 +191,25 @@ export function PapicDial({
         )}
       </p>
 
+      {/*
+        THE FEAR THIS ANSWERS, and why it sits INSIDE the dial rather than under
+        it. Owner, 2026-08-29: "not enough, you can always upgrade anytime
+        during the event if you feel you need to increase more credits for this
+        event." Choosing an amount is the one moment on this page where somebody
+        can be wrong and know it — so the answer has to be where the choosing
+        happens, not in a footnote below the card.
+
+        Every clause is true of the shipped product: a top-up is its own
+        purchase, it STACKS on whatever the celebration already holds (the same
+        `papicCreditsHeld` rule this card runs on), and it lands during the
+        party rather than at the next renewal, because there is no renewal.
+      */}
+      <p className="mt-3.5 rounded-xl border border-[rgb(138_107_57/0.30)] bg-[rgb(138_107_57/0.07)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
+        <b className="font-semibold text-[var(--m-ink)]">Not enough? Add more any time.</b>{' '}
+        You are never locked into what you pick now — top up in the middle of the party if the
+        night is going well, and the new credits land in seconds on top of what you already have.
+      </p>
+
       <div className="mt-4 border-t border-[var(--m-line)] pt-3.5 text-left">
         <ul className="m-0 list-none p-0">
           <Row k="Photographs" v={count(total)} />
@@ -201,7 +220,7 @@ export function PapicDial({
           <Row k="The live wall" v="included" />
         </ul>
 
-        <div className="mt-3.5 border-t border-[var(--m-line)] pt-3 text-sm text-[var(--m-ink)]/70">
+        <div className="mt-3.5 border-t border-[var(--m-line)] pt-3 text-sm text-[var(--m-slate-2)]">
           <p className="m-0">
             {bought === 0
               ? 'Enough to see exactly how it works, on the day or long before it.'
@@ -217,7 +236,7 @@ export function PapicDial({
             >
               −
             </Mini>
-            <span className="flex-1 font-mono text-sm tabular-nums text-[var(--m-ink)]/70">
+            <span className="flex-1 font-mono text-sm tabular-nums text-[var(--m-slate-2)]">
               {count(guests)} guests
             </span>
             <Mini
@@ -237,7 +256,7 @@ export function PapicDial({
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <li className="flex items-baseline gap-3 py-1.5 text-sm">
-      <span className="flex-1 text-[var(--m-ink)]/70">{k}</span>
+      <span className="flex-1 text-[var(--m-slate-2)]">{k}</span>
       <span className="whitespace-nowrap font-mono text-sm tabular-nums text-[var(--m-ink)]">
         {v}
       </span>

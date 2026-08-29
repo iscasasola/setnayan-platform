@@ -25,6 +25,7 @@ export const CUSTOM_SKU_CODES = Object.freeze({
   seat: SEAT_SKU_CODE, // vendor_extra_seat
   slot: 'vendor_custom_event_slot',
   domain: 'vendor_custom_domain',
+  pipelineUnlimited: 'vendor_custom_pipeline_unlimited',
 });
 
 /*
@@ -87,6 +88,10 @@ export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
   seat: SEAT_FEE_PHP, // 250
   slot: 500,
   domain: 500,
+  // Owner 2026-08-29, asked what going past the 10-customers-per-date ceiling
+  // should cost: "2500 for no limit." A whole number, like the two he rounded
+  // on 2026-08-27.
+  pipelineUnlimited: 2500,
 });
 
 function positivePrice(raw: unknown, fallback: number): number {
@@ -134,6 +139,7 @@ export async function fetchCustomUnitPrices(
     seat: read(c.seat, f.seat),
     slot: read(c.slot, f.slot),
     domain: read(c.domain, f.domain),
+    pipelineUnlimited: read(c.pipelineUnlimited, f.pipelineUnlimited),
   };
 }
 

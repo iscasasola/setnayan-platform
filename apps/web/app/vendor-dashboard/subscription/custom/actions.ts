@@ -89,6 +89,12 @@ function parseComposition(formData: FormData): CustomComposition {
   // posted `photos` would be an unpriced capability upgrade. Pinned to base.
   const photos = CUSTOM_BASE.photos;
   const domain = boolField(formData.get('domain'));
+  // No limit on customers chased per date (owner 2026-08-29: "2500 for no
+  // limit"). SAFE to read from the form — unlike `reachKm` and `photos` above,
+  // this axis IS priced, so a crafted POST that turns it on also turns on its
+  // ₱2,500 line. The server re-prices the whole composition from the catalog,
+  // so the flag cannot arrive granted-but-unbilled.
+  const pipelineUnlimited = boolField(formData.get('pipelineUnlimited'));
 
   return {
     branches,
@@ -98,6 +104,7 @@ function parseComposition(formData: FormData): CustomComposition {
     slotsPerCategory,
     photos,
     domain,
+    pipelineUnlimited,
   };
 }
 

@@ -65,3 +65,47 @@ test('custom overlay leaves feature/boolean axes identical to the clone', () => 
   assert.equal(caps.customWebsiteName, base.customWebsiteName);
   assert.equal(caps.parentCategories, base.parentCategories);
 });
+
+// ── "2500 for no limit" (owner 2026-08-29) ───────────────────────────────────
+
+test('the no-limit axis removes the customers-per-date ceiling', () => {
+  const caps = vendorEffectiveCaps('custom', { ...COMP, pipelineUnlimited: true });
+  assert.equal(caps.whitelistPerDate, Infinity);
+});
+
+test('WITHOUT it, a Custom shop keeps the Enterprise ceiling of 10', () => {
+  // The control. Without this the test above passes whether or not the axis is
+  // read — `whitelistPerDate` would be 10 either way if the overlay were wrong
+  // in the other direction.
+  assert.equal(vendorEffectiveCaps('custom', COMP).whitelistPerDate, 10);
+  assert.equal(vendorEffectiveCaps('custom', null).whitelistPerDate, 10);
+});
+
+test('a composition predating the axis reads as NOT granted, not as undefined', () => {
+  // `pipelineUnlimited` is optional, so an older stored composition simply has
+  // no key. It must fail CLOSED — the overlay tests `=== true`, never truthiness.
+  const legacy = { ...COMP } as CustomComposition;
+  assert.equal('pipelineUnlimited' in legacy, false, 'the fixture must really lack the key');
+  assert.equal(vendorEffectiveCaps('custom', legacy).whitelistPerDate, 10);
+});
+
+test('the axis NEVER lifts the booked-out waitlist — a different list', () => {
+  // Owner was asked about the 10 customers chased per date and answered about
+  // the 10. Widening the waitlist would also mean widening a CHECK constraint on
+  // vendor_profiles.max_waitlist_acceptances. If this goes red, somebody
+  // widened a second thing on the back of one ruling.
+  const caps = vendorEffectiveCaps('custom', { ...COMP, pipelineUnlimited: true });
+  assert.equal(caps.waitlistAcceptances, tierCaps('custom').waitlistAcceptances);
+  assert.equal(caps.waitlistAcceptances, 5);
+});
+
+test('a NON-custom tier cannot get it, even if the flag is somehow stored', () => {
+  // Only the custom tier reads a composition at all; this pins that a stray
+  // flag on a Pro shop's row can never widen anything.
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
+    assert.equal(
+      vendorEffectiveCaps(t, { ...COMP, pipelineUnlimited: true }).whitelistPerDate,
+      tierCaps(t).whitelistPerDate,
+    );
+  }
+});

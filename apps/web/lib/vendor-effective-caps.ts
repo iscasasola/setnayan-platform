@@ -61,12 +61,24 @@ export function vendorEffectiveCaps(
   const composedPhotos = Number.isFinite(c.photos) ? Math.floor(c.photos) : base.portfolioPhotos;
   const portfolioPhotos = Math.max(base.portfolioPhotos, composedPhotos);
 
+  // Customers chased per date: the flat "no limit" add-on (owner 2026-08-29 —
+  // "2500 for no limit") removes the ceiling entirely. `=== true` so a
+  // composition row written before this axis existed reads as NOT granted.
+  //
+  // ⛔ The BOOKED-OUT WAITLIST is deliberately untouched. Two different lists
+  // share the word "limit": this one is who you are pursuing for a date, the
+  // other is who is queued on a date already taken. The owner was asked about
+  // the 10 and answered about the 10.
+  const whitelistPerDate =
+    c.pipelineUnlimited === true ? Infinity : base.whitelistPerDate;
+
   return {
     ...base,
     agentAccounts,
     serviceRadiusKm,
     slotsPerDay,
     portfolioPhotos,
+    whitelistPerDate,
   };
 }
 

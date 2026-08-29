@@ -772,9 +772,11 @@ async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<vo
 
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
-  // 'vendor_photo_challenge' → Photo Challenge per-event sponsorship (owner
-  // 2026-07-22). Writes the papic_photo_challenge_sponsorships entitlement for
-  // the paying (vendor, event). See activatePhotoChallengeSponsorship.
+  // 'vendor_photo_challenge' → Papic Challenges, a ₱2,500 / 28-day SHOP
+  // subscription (owner 2026-08-28: "unlimited us 2500 for 4 weeks"). Stamps
+  // vendor_profiles.papic_challenge_expires_at for the paying vendor — NOT a
+  // per-(vendor, event) row; that model is retired and its table is empty. See
+  // activatePhotoChallengeSponsorship.
   [VENDOR_PHOTO_CHALLENGE_SKU_CODE]: activatePhotoChallengeSponsorship,
 
   // 'vendor_deep_search' → paid (₱500) vendor Deep Search. Runs the research on

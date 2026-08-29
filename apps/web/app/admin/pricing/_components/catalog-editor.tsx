@@ -24,6 +24,14 @@
 import { useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, Search, Trash2, CircleCheck } from 'lucide-react';
+import {
+  CLUSTER_ORDER,
+  type PriceCluster,
+  clusterForRetail,
+  clusterForVendor,
+  isCreditLadderRung,
+  summariseLadder,
+} from '@/lib/admin/pricing-clusters';
 import { skuAnchorId } from '@/lib/admin-map/sku-anchor';
 import {
   saveRetailRow,
@@ -93,6 +101,9 @@ export type VendorRowProp = {
   description: string | null;
   price: number;
   offeringLabel: string;
+  /** The raw catalog value — what the row IS, used to shelve it. The label
+      beside it is for reading; grouping must not key on a display string. */
+  offeringType: string;
   isActive: boolean;
   retiredAt: string | null;
   retirementReason: string | null;
@@ -104,7 +115,18 @@ export type VendorRowProp = {
 export type PriceRowProp = RetailRowProp | BundleRowProp | VendorRowProp;
 
 type Family = 'Customer' | 'Bundles' | 'Vendor';
-type ViewState = 'sale' | 'draft' | 'ret';
+/**
+ * ⚖ TWO STATES, NOT THREE (owner 2026-08-29 — "remove the old prices").
+ *
+ * 🔴 "RETIRED 0" COULD NEVER HAVE SAID ANYTHING ELSE. `viewOf` filed a row as
+ * retired only when it carried a `retired_at` stamp, and MEASURED AGAINST
+ * PRODUCTION: not one row in either catalog has ever been stamped. So all 20
+ * switched-off prices landed under "Drafts" — reading as things somebody is
+ * still preparing — while the tab that means DEAD sat permanently empty.
+ *
+ * Off is off. The reason, where there is one, lives on the row's own card.
+ */
+type ViewState = 'sale' | 'off';
 
 function familyOf(row: PriceRowProp): Family {
   if (row.kind === 'retail') return 'Customer';
@@ -112,9 +134,21 @@ function familyOf(row: PriceRowProp): Family {
   return 'Vendor';
 }
 
+/**
+ * Which shelf a row lives on.
+ *
+ * ⚠ The shipped `familyOf` (Customer / Bundles / Vendor) is KEPT and still backs
+ * the scope chips — it answers "whose price is this?", which is a different
+ * question from "what is it?". This one groups the list.
+ */
+function clusterOf(row: PriceRowProp): PriceCluster {
+  if (row.kind === 'bundle') return 'Bundles';
+  if (row.kind === 'vendor') return clusterForVendor(row.offeringType);
+  return clusterForRetail(row.code);
+}
+
 function viewOf(row: PriceRowProp): ViewState {
-  if (row.isActive) return 'sale';
-  return row.retiredAt ? 'ret' : 'draft';
+  return row.isActive ? 'sale' : 'off';
 }
 
 function pesoShort(n: number): string {
@@ -152,8 +186,11 @@ function timeAgo(iso: string): string {
 export function PriceCatalogBrowser({
   rows,
   retailTitlesForReplacement,
+  freeCreditsPerEvent,
 }: {
   rows: PriceRowProp[];
+  /** Read from `papic_event_pool_config`; null when the read failed. */
+  freeCreditsPerEvent: number | null;
   /** [code, title][] of active retail rows, for the "Replaced by" picker. */
   retailTitlesForReplacement: [string, string][];
 }) {
@@ -187,7 +224,7 @@ export function PriceCatalogBrowser({
   }, []);
 
   const counts = useMemo(() => {
-    const c = { sale: 0, draft: 0, ret: 0 };
+    const c = { sale: 0, off: 0 };
     for (const r of rows) c[viewOf(r)] += 1;
     return c;
   }, [rows]);
@@ -229,8 +266,7 @@ export function PriceCatalogBrowser({
         {(
           [
             ['sale', 'On sale'],
-            ['draft', 'Drafts'],
-            ['ret', 'Retired'],
+            ['off', 'Switched off'],
           ] as [ViewState, string][]
         ).map(([key, label]) => (
           <button
@@ -271,16 +307,17 @@ export function PriceCatalogBrowser({
         ))}
       </div>
 
-      {view === 'draft' && filtered.length === 0 ? (
+      {view === 'off' && filtered.length === 0 && !q.trim() ? (
         <EmptyState
-          title="No drafts."
-          body="A price you're still preparing lives here — named, priced and invisible to everybody — until you put it on sale."
+          title="Nothing is switched off."
+          body="A price you take off sale lands here, with what is still holding it in place and how far it is from being gone for good."
         />
       ) : filtered.length === 0 ? (
         <EmptyState title={`Nothing matches "${q}".`} body="Try part of the name, or the product code." />
-      ) : view === 'ret' ? (
+      ) : view === 'off' ? (
         <RetiredShelves
           rows={filtered}
+          freeCreditsPerEvent={freeCreditsPerEvent}
           openCode={openCode}
           setOpenCode={setOpenCode}
           retailTitlesForReplacement={retailTitlesForReplacement}
@@ -289,6 +326,7 @@ export function PriceCatalogBrowser({
       ) : (
         <SaleOrDraftShelves
           rows={filtered}
+          freeCreditsPerEvent={freeCreditsPerEvent}
           openCode={openCode}
           setOpenCode={setOpenCode}
           retailTitlesForReplacement={retailTitlesForReplacement}
@@ -319,17 +357,46 @@ function Shelf({ title, count, tone, note }: { title: string; count: number; ton
   );
 }
 
+/**
+ * The sell sheet, CLUSTERED BY WHAT A THING IS.
+ *
+ * ⚖ Owner 2026-08-29: *"fix the clustering of the prices since there are only a
+ * few and we can organize them neatly."*
+ *
+ * 🔑 THE OLD LIST WAS NOT LONG — IT WAS INTERLEAVED. It sorted by price
+ * ascending across three coarse families, and 17 of the 26 customer rows are one
+ * product (the Papic credit ladder) in 17 sizes. Sorted by price those 17 thread
+ * straight through the owner's nine actual products, so nine things read as
+ * twenty-six. Nothing was stale; it was shuffled.
+ */
 function SaleOrDraftShelves(props: ShelfListProps) {
-  const families: Family[] = ['Customer', 'Bundles', 'Vendor'];
   return (
     <div className="overflow-hidden rounded-2xl border border-ink/10">
-      {families.map((f) => {
-        const group = props.rows.filter((r) => familyOf(r) === f);
+      {CLUSTER_ORDER.map((cluster) => {
+        const group = props.rows.filter((r) => clusterOf(r) === cluster);
         if (group.length === 0) return null;
+
+        // The credit ladder collapses to ONE line. Every rung is still here,
+        // still searchable and still openable — it just stops taking 17 of the
+        // list's slots for a product that is edited on its own tab anyway.
+        const rungs = group.filter((r) => r.kind === 'retail' && isCreditLadderRung(r.code));
+        const rest = group.filter((r) => !(r.kind === 'retail' && isCreditLadderRung(r.code)));
+        const ladder = summariseLadder(rungs.map((r) => ({ pricePhp: r.price })));
+
         return (
-          <div key={f} className="px-4">
-            <Shelf title={f} count={group.length} />
-            {group.map((r) => (
+          <div key={cluster} className="px-4">
+            <Shelf title={cluster} count={group.length} />
+            {cluster === 'Papic' && (
+              <FreeCreditsRow credits={props.freeCreditsPerEvent} />
+            )}
+            {ladder && (
+              <CreditLadderRow
+                summary={ladder}
+                rungs={rungs}
+                {...props}
+              />
+            )}
+            {rest.map((r) => (
               <RowCard key={r.code} row={r} {...props} />
             ))}
           </div>
@@ -339,8 +406,132 @@ function SaleOrDraftShelves(props: ShelfListProps) {
   );
 }
 
+/**
+ * WHAT EVERY CELEBRATION STARTS WITH, BEFORE ANYBODY BUYS ANYTHING.
+ *
+ * ⚖ Owner 2026-08-29: *"assign a cell to indicate how many free Papic Credits
+ * per event everybody has."*
+ *
+ * 🔑 THE NUMBER IS REAL AND HAS NO EDITOR. Measured against production:
+ * `papic_event_pool_config.free_grant_points` is 50, five events carry a
+ * `free_grant` of exactly that — and NOTHING under `app/` reads or writes the
+ * column. Same shape as the Setnayan AI band prices: a live figure only a
+ * migration could move. This surfaces it; giving it a save is its own change.
+ *
+ * ⚠ DELIBERATELY NOT A PRICE ROW. It is given, not sold — no SKU, no charge.
+ * Drawing it among the products would make it look like something to buy.
+ */
+function FreeCreditsRow({ credits }: { credits: number | null }) {
+  return (
+    <div className="border-b border-ink/5 py-3 last:border-b-0">
+      <div className="flex w-full items-start gap-3 text-left">
+        <span
+          className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-success-800"
+          aria-hidden
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-semibold leading-snug text-ink">
+            Free credits on every event
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full border border-success-800/25 bg-success-800/[0.08] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-success-800">
+              Given, never sold
+            </span>
+          </span>
+          <span className="mt-1 block text-[13px] text-ink/60">
+            What every celebration starts with before anybody buys anything. Top-ups add on
+            top of it.
+          </span>
+        </span>
+        <span className="shrink-0 text-right">
+          <span
+            className={`block font-mono text-base font-bold tabular-nums ${
+              credits == null ? 'text-ink/45' : 'text-success-800'
+            }`}
+          >
+            {credits == null ? '—' : credits.toLocaleString('en-PH')}
+          </span>
+          <span className="block text-[11px] text-ink/50">
+            {credits == null ? "couldn't be read" : 'credits per event'}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The whole credit ladder as ONE line that opens.
+ *
+ * ⚠ IT REMOVES NO CAPABILITY. Open it and every rung is a full row card with the
+ * same controls it had when it sat in the list. `lint-port-no-lost-controls`
+ * would fail this port otherwise, and it should.
+ */
+function CreditLadderRow({
+  summary,
+  rungs,
+  ...props
+}: ShelfListProps & {
+  summary: NonNullable<ReturnType<typeof summariseLadder>>;
+  rungs: PriceRowProp[];
+}) {
+  const [open, setOpen] = useState(false);
+  // A search that matches a rung must OPEN the ladder — otherwise the rung is
+  // filtered in, invisible, and the box looks broken.
+  const forcedOpen = open || rungs.some((r) => r.code === props.openCode);
+
+  return (
+    <div className="border-b border-ink/5 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={forcedOpen}
+        className="flex w-full items-start gap-3 py-3 text-left"
+      >
+        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-mulberry-600" aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-semibold leading-snug text-ink">
+            Papic credits — the top-up ladder
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            <code className="font-mono text-[10px] uppercase tracking-[0.13em] text-ink/50">
+              PAPIC_GUEST_*
+            </code>
+            <span className="rounded-full border border-ink/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-ink/55">
+              One product · {summary.rungs} sizes
+            </span>
+          </span>
+          <span className="mt-1 block text-[13px] text-ink/60">
+            Every size tops up the celebration&apos;s shared pot. Edited as a ladder on its
+            own tab; opened here so nothing is hidden.
+          </span>
+        </span>
+        <span className="shrink-0 text-right">
+          <span className="block font-mono text-base font-bold tabular-nums text-ink">
+            {pesoShort(summary.lowestPhp)} – {pesoShort(summary.highestPhp)}
+          </span>
+          <span className="block text-[11px] text-ink/50">{summary.rungs} rungs</span>
+        </span>
+      </button>
+      {forcedOpen && (
+        <div className="border-t border-ink/5 bg-ink/[0.015] pl-4">
+          {rungs.map((r) => (
+            <RowCard key={r.code} row={r} {...props} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type ShelfListProps = {
   rows: PriceRowProp[];
+  /**
+   * `papic_event_pool_config.free_grant_points`, READ FROM THE DATABASE.
+   * Null when it could not be read — the cell then says so rather than printing
+   * a confident 50 that might not be what the product is actually giving away.
+   */
+  freeCreditsPerEvent: number | null;
   openCode: string | null;
   setOpenCode: (c: string | null) => void;
   retailTitlesForReplacement: [string, string][];
@@ -461,7 +652,15 @@ function RowCard(props: {
   const removability = row.kind === 'retail' ? row.removability : null;
   let dotCls = 'bg-mulberry-600';
   let tag: ReactNode = null;
-  if (view === 'ret') {
+  /*
+    🔴 THIS BRANCH USED TO BE UNREACHABLE IN PRODUCTION, AND THAT IS WHY THE
+    STATES WERE MERGED. It keyed on the old 'ret' state, which `viewOf` only
+    returned for a row carrying a `retired_at` stamp — and MEASURED: not one row
+    in either catalog has ever been stamped. So every switched-off price fell to
+    the 'draft' arm below, got a grey dot, and was never told whether anything
+    still held it in place. The removability work existed and nobody could see it.
+  */
+  if (view === 'off') {
     if (row.kind !== 'retail') {
       dotCls = 'bg-ink/25';
       tag = <Tag>Not checked yet</Tag>;
@@ -472,8 +671,6 @@ function RowCard(props: {
       dotCls = 'bg-warn-500';
       tag = <Tag tone="gold">Still wired</Tag>;
     }
-  } else if (view === 'draft') {
-    dotCls = 'bg-ink/25';
   }
 
   return (
@@ -546,7 +743,7 @@ function CardBody(props: {
 
   return (
     <div>
-      {view === 'ret' && row.kind === 'retail' && row.removability && (
+      {view === 'off' && row.kind === 'retail' && row.removability && (
         <HeldByPanel removability={row.removability} />
       )}
       <SaveSection row={row} afterMutate={afterMutate} />
@@ -875,7 +1072,15 @@ function CardFooter({
   );
   const [removing, setRemoving] = useState(false);
 
-  const canOfferRemove = row.kind === 'retail' && view === 'ret' && row.removability?.safeToRemove;
+  /*
+    🚨 "REMOVE FOR GOOD" HAS NEVER BEEN OFFERABLE ON ANY ROW IN PRODUCTION.
+    It required `view === 'ret'`, which required a `retired_at` stamp, and
+    nothing has ever written one — so the condition was false for all 20
+    switched-off prices, always. The 35 rows deleted on 2026-08-28 went by
+    migration because the button on this screen could not appear.
+    🔑 A control gated on a state nothing produces is a gate with no handle.
+  */
+  const canOfferRemove = row.kind === 'retail' && view === 'off' && row.removability?.safeToRemove;
 
   return (
     <div className="p-4">

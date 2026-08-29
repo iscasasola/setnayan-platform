@@ -94,15 +94,42 @@
  */
 export const ALLOTMENT_STORAGE = {
   /** `events` — is a per-guest ceiling in force at all? */
-  enabled: 'papic_guest_ceiling_enabled',
-  /** `events` — the number of points each un-named guest gets, when the couple
-   *  sets one explicitly rather than letting the remainder divide itself. */
-  everyoneElse: 'papic_guest_ceiling_points',
-  /** `events` — stamped when the rest is opened to everyone, by the button or
-   *  by the automatic late release. Null means still held back. */
-  releasedAt: 'papic_guest_ceiling_released_at',
-  /** The per-guest allotments, one row per named guest. */
-  table: 'papic_guest_allotments',
+  enabled: 'papic_guest_spend_ceiling_on',
+  /** `events` — the points each un-named guest gets when the couple sets one
+   *  explicitly. NULL means "derive the equal share". */
+  everyoneElse: 'papic_guest_spend_ceiling_points',
+  /** `events` — stamped when the rest is opened to everyone. NULL = held back. */
+  releasedAt: 'papic_guest_spend_ceiling_released_at',
+  /** One row per NAMED guest. ⛔ RLS-on and REVOKEd from anon and authenticated
+   *  — never reachable from a browser. Server-side reads go through the admin
+   *  client, which service_role still holds. */
+  table: 'papic_guest_spend_ceilings',
+} as const;
+
+/**
+ * ⚠ READ THE THREE `events` COLUMNS ON THEIR OWN ROUND TRIP. `events` revokes
+ * table-level SELECT and re-grants a per-column allowlist, so folding these
+ * into the page's main event select makes PostgREST refuse the WHOLE query —
+ * and the page then answers notFound() on a live celebration.
+ *
+ * 🔑 THE WRITES ARE RPCs, NOT TABLE WRITES. All three are service_role-only and
+ * hold the rules under a row lock; re-implementing any of them in TypeScript
+ * would be the second copy of a money rule this file exists to prevent.
+ */
+export const ALLOTMENT_RPC = {
+  /** (p_event_id, p_guest_id, p_points, p_actor) → INTEGER. A TARGET, not a
+   *  delta — p_points NULL un-names her, so naming and un-naming are the SAME
+   *  call rather than two code paths that can disagree. */
+  setOne: 'papic_set_guest_spend_ceiling',
+  /** (p_event_id, p_released, p_actor) → TIMESTAMPTZ. TRUE is IDEMPOTENT and
+   *  returns the ORIGINAL stamp, so the button cannot lie about when it opened.
+   *  Never touches a named guest's allotment (owner ruling 7c). */
+  release: 'papic_set_guest_spend_ceiling_release',
+  /** (p_guest_id) → INTEGER. The ONE resolver. NULL = no ceiling binds. */
+  resolve: 'papic_guest_spend_ceiling',
+  /** (p_event_id) → INTEGER. The head count BOTH sides divide by.
+   *  🪤 NOT `papic_event_pool_status.guest_count` — see `splitTheRest`. */
+  headcount: 'papic_event_guest_headcount',
 } as const;
 
 /** The sponsor roles that earn a bigger default. Mirrors `SponsorTier`. */
@@ -196,8 +223,19 @@ export function splitTheRest(i: SplitInputs): Split {
   const unnamedCount = Math.max(0, i.guestCount - i.named.length);
   const remaining = i.pot - namedTotal;
 
+  // ⚠ OVER-COMMITTED STILL YIELDS 1, BECAUSE THE DATABASE DOES. S2 clamps with
+  // GREATEST(total - named, 0) before dividing, then floors at 1 — so an
+  // un-named guest at an over-committed celebration is still given their first
+  // photograph. The flag is reported so the SHEET can say so; it does not
+  // change the number, because the number is not ours to change.
   if (remaining < 0) {
-    return { perHead: 0, spare: 0, unnamedCount, namedTotal, overCommitted: true };
+    return {
+      perHead: unnamedCount === 0 ? 0 : 1,
+      spare: 0,
+      unnamedCount,
+      namedTotal,
+      overCommitted: true,
+    };
   }
 
   // No un-named guests left to divide among: the whole remainder is spare.
@@ -205,9 +243,16 @@ export function splitTheRest(i: SplitInputs): Split {
     return { perHead: 0, spare: remaining, unnamedCount, namedTotal, overCommitted: false };
   }
 
-  // The couple's own number wins over the derived one — but it cannot promise
-  // more than the celebration holds, so it is capped by what is actually there.
-  const derived = Math.floor(remaining / unnamedCount);
+  // 🔑 THIS MIRRORS THE DATABASE EXACTLY — `papic_guest_spend_ceiling` ends
+  // with GREATEST(1, FLOOR(GREATEST(total - named, 0) / heads)). If the two ever
+  // disagree the couple is shown one number and their guests are given another,
+  // and the screen is the one people believe.
+  //
+  // ⚠ THE FLOOR OF 1 IS DELIBERATE, NOT DEFENSIVE. A 200-guest celebration
+  // holding only the free grant divides to 0, and a ceiling of 0 would refuse
+  // every guest their FIRST photograph. The pot is the money gate; this is a
+  // fairness rule. Nothing here may ever render "0 credits each".
+  const derived = Math.max(1, Math.floor(remaining / unnamedCount));
   const perHead =
     i.everyoneElse === null ? derived : Math.max(0, Math.min(i.everyoneElse, derived));
 

@@ -7,7 +7,7 @@ import { eventIsOver } from '@/lib/event-is-over.server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
-import { ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
+import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { coupleSlots } from '@/lib/papic-missions';
@@ -1648,11 +1648,18 @@ export async function setGuestAllotments(formData: FormData) {
   // guests shoots" and is obeyed. Reading blank as zero would silently mute
   // every un-named guest because somebody cleared the field to retype it —
   // the defect `setCameraShots` carries the same warning for.
+  // ⚠ AND ZERO IS NOT AVAILABLE HERE AT ALL. The column's CHECK is
+  // `IS NULL OR > 0`, so a 0 would be refused by the database, not stored. The
+  // asymmetry is deliberate and worth knowing: a NAMED guest may be given 0
+  // (`papic_guest_spend_ceilings.ceiling_points >= 0`) because muting one
+  // person is a choice somebody made about her; muting EVERY un-named guest at
+  // once is not offered. Refuse it here with words rather than letting a
+  // constraint violation come back as "save failed".
   const rawEveryone = String(formData.get('everyone_else') ?? '').trim();
   let everyoneElse: number | null = null;
   if (rawEveryone !== '') {
     const n = Number(rawEveryone);
-    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) fail('bad_number');
+    if (!Number.isFinite(n) || n < 1 || !Number.isInteger(n)) fail('bad_everyone');
     everyoneElse = n;
   }
 
@@ -1698,54 +1705,55 @@ export async function setGuestAllotment(formData: FormData) {
   const guestId = String(formData.get('guest_id') ?? '').trim();
   if (!guestId) fail('unknown_guest');
 
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // 🔑 A TARGET, NOT A DELTA — and NULL un-names her. Naming and un-naming are
+  // therefore the SAME call rather than two code paths that can disagree about
+  // what "no ceiling" means. `papic_dedicate_shots` established this shape; the
+  // ceiling RPC follows it.
+  //
+  // ⚠ A blank box clears the naming; it does NOT store a zero. Giving a guest
+  // zero and not naming her at all are different acts, and both are honoured.
   const raw = String(formData.get('allotment') ?? '').trim();
-  const admin = createAdminClient();
-
-  // Blank clears the naming outright rather than storing a zero.
-  if (raw === '') {
-    const { error } = await admin
-      .from(ALLOTMENT_STORAGE.table)
-      .delete()
-      .eq('event_id', eventId)
-      .eq('guest_id', guestId);
-    if (error) {
-      logQueryError('setGuestAllotment.clear', error, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
-      fail('save_failed');
-    }
-    revalidatePath(back);
-    redirect(`${back}?allotment_set=cleared`);
+  let points: number | null = null;
+  if (raw !== '') {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) fail('bad_number');
+    points = n;
   }
 
-  const points = Number(raw);
-  if (!Number.isFinite(points) || points < 0 || !Number.isInteger(points)) fail('bad_number');
-
-  // ⚠ THE GUEST MUST BE ON THIS EVENT'S LIST. A guest id is not a capability,
-  // so naming one event's guest while writing against another is refused here
-  // the same way `setCameraShots` refuses a seat from another event.
-  const { data: guest, error: guestError } = await admin
-    .from('guests')
-    .select('guest_id')
-    .eq('guest_id', guestId)
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (guestError) {
-    logQueryError('setGuestAllotment.guest', guestError, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
-    fail('save_failed');
-  }
-  if (!guest) fail('unknown_guest');
-
-  const { error } = await admin
-    .from(ALLOTMENT_STORAGE.table)
-    .upsert({ event_id: eventId, guest_id: guestId, points }, { onConflict: 'event_id,guest_id' });
+  // ⛔ EVERY RULE LIVES IN THE FUNCTION, UNDER A ROW LOCK — that the guest is on
+  // this event, that the figure is sane, that a named allotment is protected
+  // from the release. None of it is re-implemented here. Deriving the same
+  // arithmetic twice is how a screen and a ledger come to disagree.
+  const { error } = await createAdminClient().rpc(ALLOTMENT_RPC.setOne, {
+    p_event_id: eventId,
+    p_guest_id: guestId,
+    p_points: points,
+    p_actor: user!.id,
+  });
 
   if (error) {
-    logQueryError('setGuestAllotment', error, { event_id: eventId, guest_id: guestId, points }, 'graceful_degrade');
+    // The refusal has to reach the screen. 42501 is "that guest is not on this
+    // event" — a guest id is not a capability — and 22023 is a negative figure.
+    const code = String((error as { code?: string }).code ?? '');
+    if (code === '42501') fail('unknown_guest');
+    if (code === '22023') fail('bad_number');
+    logQueryError(
+      'setGuestAllotment',
+      error,
+      { event_id: eventId, guest_id: guestId, points },
+      'graceful_degrade',
+    );
     fail('save_failed');
   }
 
   revalidatePath(back);
-  redirect(`${back}?allotment_set=${points}`);
+  redirect(`${back}?allotment_set=${points === null ? 'cleared' : points}`);
 }
 
 /**
@@ -1767,10 +1775,21 @@ export async function releaseTheRest(formData: FormData) {
   const { eventId } = result;
   const back = `/dashboard/${eventId}/studio/papic`;
 
-  const { error } = await createAdminClient()
-    .from('events')
-    .update({ [ALLOTMENT_STORAGE.releasedAt]: new Date().toISOString() })
-    .eq('event_id', eventId);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // ⚠ TRUE IS IDEMPOTENT AND RETURNS THE ORIGINAL STAMP — pressing this twice
+  // cannot move the moment the celebration opened, so the button is incapable
+  // of lying about when it happened. The stamp is NOT written here for the same
+  // reason: a clock in the browser is not the clock the database will believe.
+  const { error } = await createAdminClient().rpc(ALLOTMENT_RPC.release, {
+    p_event_id: eventId,
+    p_released: true,
+    p_actor: user!.id,
+  });
 
   if (error) {
     logQueryError('releaseTheRest', error, { event_id: eventId }, 'graceful_degrade');

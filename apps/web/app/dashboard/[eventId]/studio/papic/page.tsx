@@ -1767,7 +1767,9 @@ function StatusBanners({
       {allotmentError ? (
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          {allotmentError === 'bad_number'
+          {allotmentError === 'bad_everyone'
+            ? 'Everyone who comes gets at least one photograph, so that number starts at 1. Leave it empty to share what is left, or name a guest to give her nothing.'
+            : allotmentError === 'bad_number'
             ? 'That needs to be a whole number of credits, or empty to let it work itself out.'
             : allotmentError === 'unknown_guest'
               ? 'We could not find that guest on your list.'

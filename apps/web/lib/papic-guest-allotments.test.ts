@@ -13,6 +13,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  ALLOTMENT_RPC,
   ALLOTMENT_STORAGE,
   ROLE_MULTIPLIER,
   splitTheRest,
@@ -40,18 +41,32 @@ test('the worked example divides exactly as the line claims', () => {
   assert.equal(split.perHead * split.unnamedCount + split.namedTotal + split.spare, WORKED.pot);
 });
 
-test('🚨 a blank box is not zero', () => {
-  // NULL means "work it out for me" and derives 14. ZERO means "nobody but my
-  // named guests shoots" and must be obeyed. Collapsing them would mute every
-  // un-named guest because somebody cleared the field to retype it.
+test('🚨 a blank box is not a number', () => {
+  // NULL means "work it out for me" and derives 14. An explicit figure is
+  // obeyed. Collapsing them would silently re-divide the whole celebration
+  // because somebody cleared the field to retype it.
   const derived = splitTheRest({ ...WORKED, everyoneElse: null });
-  const explicitZero = splitTheRest({ ...WORKED, everyoneElse: 0 });
+  const explicit = splitTheRest({ ...WORKED, everyoneElse: 5 });
 
   assert.equal(derived.perHead, 14);
-  assert.equal(explicitZero.perHead, 0);
-  assert.notEqual(derived.perHead, explicitZero.perHead);
-  // And the credits a muted room does not spend are still there, as spare.
-  assert.equal(explicitZero.spare, 1600);
+  assert.equal(explicit.perHead, 5);
+  assert.notEqual(derived.perHead, explicit.perHead);
+  // And the credits a smaller share does not spend are still there, as spare.
+  assert.equal(explicit.spare, 1600 - 5 * 112);
+});
+
+test('🚨 nobody is ever shown "0 credits each"', () => {
+  // A 200-guest celebration holding only the free grant divides to 0, and a
+  // ceiling of 0 would refuse every guest their FIRST photograph. The database
+  // ends with GREATEST(1, …) for exactly this; the sheet must not disagree.
+  const thin = splitTheRest({ pot: 50, guestCount: 200, named: [], everyoneElse: null });
+  assert.equal(thin.perHead, 1, 'the floor of 1 is a fairness rule, not a rounding artefact');
+  assert.ok(!/ 0 credits each/.test(summariseAllotments({ pot: 50, guestCount: 200, named: [], everyoneElse: null })));
+  // Over-committed still yields 1, because the database clamps to 0 before
+  // dividing and then floors at 1. The flag warns; it does not change the number.
+  const over = splitTheRest({ pot: 100, guestCount: 10, named: [80, 80], everyoneElse: null });
+  assert.equal(over.overCommitted, true);
+  assert.equal(over.perHead, 1);
 });
 
 test('🚨 over-commitment is REPORTED, never clamped', () => {
@@ -133,4 +148,21 @@ test('the storage contract is collected in ONE object, in schema vocabulary', ()
     !names.includes('points_per_guest' as (typeof names)[number]),
     'points_per_guest is the POOL MULTIPLIER — a spend ceiling must not borrow it',
   );
+});
+
+test('the contract matches the ceiling migration exactly', () => {
+  // 🔑 THESE ARE NOT NAMES THIS SESSION CHOSE. They are the ceiling migration's
+  // own, adopted verbatim (20271184624871). If a rename lands there, it lands
+  // here in the same edit or the sheet writes into columns that do not exist.
+  assert.equal(ALLOTMENT_STORAGE.enabled, 'papic_guest_spend_ceiling_on');
+  assert.equal(ALLOTMENT_STORAGE.everyoneElse, 'papic_guest_spend_ceiling_points');
+  assert.equal(ALLOTMENT_STORAGE.releasedAt, 'papic_guest_spend_ceiling_released_at');
+  assert.equal(ALLOTMENT_STORAGE.table, 'papic_guest_spend_ceilings');
+  assert.equal(ALLOTMENT_RPC.setOne, 'papic_set_guest_spend_ceiling');
+  assert.equal(ALLOTMENT_RPC.release, 'papic_set_guest_spend_ceiling_release');
+  assert.equal(ALLOTMENT_RPC.resolve, 'papic_guest_spend_ceiling');
+  // 🪤 The head count comes from its OWN function. papic_event_pool_status's
+  // guest_count is a literal 0 on every non-flat-pass event — i.e. on every
+  // celebration this row is drawn on — so dividing by it is nonsense.
+  assert.equal(ALLOTMENT_RPC.headcount, 'papic_event_guest_headcount');
 });

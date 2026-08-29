@@ -7,6 +7,7 @@ import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
+  ALLOTMENT_RPC,
   ALLOTMENT_STORAGE,
   suggestedAllotment,
   splitTheRest,
@@ -85,14 +86,28 @@ export async function GuestAllotmentsChoice({
       : null;
 
   // The pot, the head count, and the allotments already chosen.
-  const [pool, guestsResult, allotmentsResult, sponsorsResult] = await Promise.all([
+  //
+  // 🪤 THE HEAD COUNT COMES FROM `papic_event_guest_headcount`, NOT FROM
+  // `papic_event_pool_status.guest_count`. That field is set to a literal 0 on
+  // every event that is NOT flat-pass — `v_guests := 0` in the ELSE branch — and
+  // the free grant is armed on render, so in practice that is every celebration
+  // we will ever draw this row on. Dividing by it gives a nonsense share, and
+  // the couple would be shown one number while their guests were given another.
+  // The database divides by this function; so do we.
+  const [pool, headcountResult, guestsResult, allotmentsResult, sponsorsResult] = await Promise.all([
     readEventPoolStatus(admin, eventId).catch(() => null),
+    admin.rpc(ALLOTMENT_RPC.headcount, { p_event_id: eventId }),
     admin
       .from('guests')
       .select('guest_id, first_name, last_name, display_name')
       .eq('event_id', eventId)
       .is('deleted_at', null)
       .order('first_name', { ascending: true }),
+    // ⛔ RLS-on and REVOKEd from anon and authenticated — unreachable from a
+    // browser. This is the server-side admin client, which service_role still
+    // holds, and it is the only way to show WHICH guests are named and with
+    // what number. The resolver answers "what does this guest get", not "did
+    // somebody choose it", so it cannot drive this list on its own.
     admin.from(ALLOTMENT_STORAGE.table).select('guest_id, points').eq('event_id', eventId),
     admin
       .from('event_sponsors')
@@ -129,7 +144,10 @@ export async function GuestAllotmentsChoice({
   // sizes the pot (guest_count × points_per_guest, clamped) and is a different
   // number wearing a similar phrase — see `papic-guest-allotments.ts`.
   const pot = pool?.status.totalPoints ?? 0;
-  const guestCount = pool?.status.guestCount || guests.length;
+  const guestCount =
+    typeof headcountResult.data === 'number' && headcountResult.data > 0
+      ? headcountResult.data
+      : guests.length;
   const named = [...allotments.values()];
   const inputs = { pot, guestCount, named, everyoneElse };
   const split = splitTheRest(inputs);
@@ -183,7 +201,7 @@ export async function GuestAllotmentsChoice({
               <input
                 type="number"
                 name="everyone_else"
-                min={0}
+                min={1}
                 step={1}
                 defaultValue={everyoneElse ?? ''}
                 placeholder={String(split.perHead)}
@@ -193,7 +211,8 @@ export async function GuestAllotmentsChoice({
             </div>
             <p className="text-xs text-ink/55">
               Leave this empty and they simply share what is left — {split.perHead} credits each
-              right now. Set it to 0 and only the guests you name can shoot.
+              right now. The smallest you can set is 1: everyone who comes gets at least one
+              photograph. To give one person nothing, name them below and set them to 0.
             </p>
           </form>
 

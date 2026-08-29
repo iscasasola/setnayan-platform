@@ -7,6 +7,7 @@ import { eventIsOver } from '@/lib/event-is-over.server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
+import { ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { coupleSlots } from '@/lib/papic-missions';
@@ -1608,4 +1609,174 @@ export async function setCameraShots(formData: FormData) {
 
   revalidatePath(back);
   redirect(`${back}?shots_set=${shots}`);
+}
+
+/**
+ * THE COUPLE'S NUMBERS — the switch, the number for everyone else, one named
+ * guest's allotment, and the button that opens the rest to everyone.
+ *
+ * ⛔ THIS WRITES STORAGE THAT THE CEILING MIGRATION OWNS. Until that migration
+ * is applied these columns do not exist and every call here fails at runtime —
+ * which is exactly why this work must not merge ahead of it. Gate the write,
+ * not the button: a control that saves a number nothing enforces is the
+ * `papic_uploads_open` defect this tree has already paid for once.
+ *
+ * ⚠ THE OUTCOME PARAMS ARE `allotment_*`, NOT `shots_*`. `shots_set` and
+ * `shots_error` are TAKEN — `setCameraShots` above redirects with both, and
+ * reusing them would make one control's confirmation appear after another
+ * control's save. `outcomes-are-shown.test.ts` derives the list from these
+ * redirects, so both names must be wired three ways or it fails.
+ *
+ * ⚠ EVERY NUMBER IS POSTED, NEVER FLIPPED. Same rule as `setPapicUploadsOpen`:
+ * a form that toggles whatever it last read lands on the opposite of what
+ * somebody pressed if the page was stale or they double-tapped.
+ */
+export async function setGuestAllotments(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) redirect(result.redirectTo);
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const fail = (code: string): never =>
+    redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
+
+  // The form posts the value it wants, not a flip of what it read.
+  const enabled = String(formData.get('enabled') ?? '') === '1';
+
+  // 🔑 A BLANK BOX IS NOT ZERO. Blank means "work it out for me" and stores
+  // NULL, so the remainder divides itself; zero means "nobody but my named
+  // guests shoots" and is obeyed. Reading blank as zero would silently mute
+  // every un-named guest because somebody cleared the field to retype it —
+  // the defect `setCameraShots` carries the same warning for.
+  const rawEveryone = String(formData.get('everyone_else') ?? '').trim();
+  let everyoneElse: number | null = null;
+  if (rawEveryone !== '') {
+    const n = Number(rawEveryone);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) fail('bad_number');
+    everyoneElse = n;
+  }
+
+  const { error } = await createAdminClient()
+    .from('events')
+    .update({
+      [ALLOTMENT_STORAGE.enabled]: enabled,
+      [ALLOTMENT_STORAGE.everyoneElse]: everyoneElse,
+    })
+    .eq('event_id', eventId);
+
+  if (error) {
+    logQueryError(
+      'setGuestAllotments',
+      error,
+      { event_id: eventId, enabled, everyone_else: everyoneElse },
+      'graceful_degrade',
+    );
+    fail('save_failed');
+  }
+
+  revalidatePath(back);
+  redirect(`${back}?allotment_set=${enabled ? '1' : '0'}`);
+}
+
+/**
+ * One named guest's number.
+ *
+ * ⚠ A guest is named by SAVING AN AMOUNT and un-named by clearing it — there is
+ * no separate "remove" verb, because two verbs for one state is how a list and
+ * its total come to disagree. A blank box here means "stop naming this guest",
+ * which is a different act from giving her zero, and both are honoured.
+ */
+export async function setGuestAllotment(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) redirect(result.redirectTo);
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const fail = (code: string): never =>
+    redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
+
+  const guestId = String(formData.get('guest_id') ?? '').trim();
+  if (!guestId) fail('unknown_guest');
+
+  const raw = String(formData.get('allotment') ?? '').trim();
+  const admin = createAdminClient();
+
+  // Blank clears the naming outright rather than storing a zero.
+  if (raw === '') {
+    const { error } = await admin
+      .from(ALLOTMENT_STORAGE.table)
+      .delete()
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId);
+    if (error) {
+      logQueryError('setGuestAllotment.clear', error, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+      fail('save_failed');
+    }
+    revalidatePath(back);
+    redirect(`${back}?allotment_set=cleared`);
+  }
+
+  const points = Number(raw);
+  if (!Number.isFinite(points) || points < 0 || !Number.isInteger(points)) fail('bad_number');
+
+  // ⚠ THE GUEST MUST BE ON THIS EVENT'S LIST. A guest id is not a capability,
+  // so naming one event's guest while writing against another is refused here
+  // the same way `setCameraShots` refuses a seat from another event.
+  const { data: guest, error: guestError } = await admin
+    .from('guests')
+    .select('guest_id')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (guestError) {
+    logQueryError('setGuestAllotment.guest', guestError, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+    fail('save_failed');
+  }
+  if (!guest) fail('unknown_guest');
+
+  const { error } = await admin
+    .from(ALLOTMENT_STORAGE.table)
+    .upsert({ event_id: eventId, guest_id: guestId, points }, { onConflict: 'event_id,guest_id' });
+
+  if (error) {
+    logQueryError('setGuestAllotment', error, { event_id: eventId, guest_id: guestId, points }, 'graceful_degrade');
+    fail('save_failed');
+  }
+
+  revalidatePath(back);
+  redirect(`${back}?allotment_set=${points}`);
+}
+
+/**
+ * OPEN THE REST TO EVERYONE — the button half of the release.
+ *
+ * ⚠ OWNER-RULED, AND THE RULING IS NARROW. This opens the un-named tiers only.
+ * A NAMED GUEST'S UNUSED CREDITS STAY HERS — that is the whole reason naming
+ * somebody means anything, and it is why the release is a stamp on the event
+ * rather than a redistribution of the allotment rows.
+ *
+ * ⚠ Sharing only among guests who have already started shooting was OFFERED AND
+ * REJECTED: a number that shrinks as more people join is a broken promise, and
+ * a guest who arrives late would watch their allowance fall while they queued.
+ * Do not re-propose it.
+ */
+export async function releaseTheRest(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) redirect(result.redirectTo);
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const { error } = await createAdminClient()
+    .from('events')
+    .update({ [ALLOTMENT_STORAGE.releasedAt]: new Date().toISOString() })
+    .eq('event_id', eventId);
+
+  if (error) {
+    logQueryError('releaseTheRest', error, { event_id: eventId }, 'graceful_degrade');
+    redirect(`${back}?allotment_error=save_failed`);
+  }
+
+  revalidatePath(back);
+  redirect(`${back}?allotment_set=released`);
 }

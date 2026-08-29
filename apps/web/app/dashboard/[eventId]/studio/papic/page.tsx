@@ -105,6 +105,7 @@ import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
+import { GuestAllotmentsChoice } from './_components/guest-allotments-choice';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { groupIntoChapters } from '@/lib/alaala-chapters';
@@ -162,6 +163,11 @@ type Props = {
     papic_pool_error?: string;
     shots_error?: string;
     shots_set?: string;
+    /** The couple's per-guest numbers. ⚠ NOT `shots_*` — those are taken by
+     *  setCameraShots, and sharing them would show one control's
+     *  confirmation after another control's save. */
+    allotment_set?: string;
+    allotment_error?: string;
     papic_unlock_provisioned?: string;
     limited_synced?: string;
     limited_error?: string;
@@ -231,6 +237,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_pool_error: papicPoolError,
     shots_error: shotsError,
     shots_set: shotsSet,
+    allotment_set: allotmentSet,
+    allotment_error: allotmentError,
     papic_unlock_provisioned: papicUnlockProvisioned,
     limited_synced: limitedSynced,
     limited_error: limitedError,
@@ -707,6 +715,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         vendorMedia={vendorMedia}
         guestCameras={guestCameras}
         preserveSet={preserveSet}
+        allotmentSet={allotmentSet}
+        allotmentError={allotmentError}
         preserveError={preserveError}
       />
 
@@ -1104,6 +1114,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <FaceTaggingChoice eventId={eventId} variant="row" />
           <GuestCamerasChoice eventId={eventId} variant="row" />
           <UploadsOpenChoice eventId={eventId} open={uploadsOpen} variant="row" />
+          <GuestAllotmentsChoice eventId={eventId} variant="row" />
         </div>
       </section>
 
@@ -1393,6 +1404,8 @@ function StatusBanners({
   uploadsReady,
   uploadsError,
   uploadsOpenSet,
+  allotmentSet,
+  allotmentError,
   connectedAccount,
   papicPurchased,
   papicOrder,
@@ -1422,6 +1435,8 @@ function StatusBanners({
   uploadsReady: string | undefined;
   uploadsError: string | undefined;
   uploadsOpenSet: string | undefined;
+  allotmentSet: string | undefined;
+  allotmentError: string | undefined;
   connectedAccount: string | null;
   papicPurchased: string | undefined;
   papicOrder: string | undefined;
@@ -1477,7 +1492,9 @@ function StatusBanners({
     vendorMedia ||
     guestCameras ||
     preserveSet ||
-    preserveError;
+    preserveError ||
+    allotmentSet ||
+    allotmentError;
   if (!hasAny) return null;
 
   return (
@@ -1731,6 +1748,30 @@ function StatusBanners({
             <span className="font-mono text-xs">{driveError}</span>). Try again, or
             contact support.
           </span>
+        </p>
+      ) : null}
+
+      {allotmentSet ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {allotmentSet === 'released'
+            ? 'The spare credits are open to everyone now. Credits you gave a named guest stay hers.'
+            : allotmentSet === 'cleared'
+              ? 'That guest is no longer named — they share what is left with everyone else.'
+              : allotmentSet === '0'
+                ? 'Every guest draws from the same pot again, until it runs out.'
+                : 'Saved. Your guests can see their own number on their camera.'}
+        </p>
+      ) : null}
+
+      {allotmentError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          {allotmentError === 'bad_number'
+            ? 'That needs to be a whole number of credits, or empty to let it work itself out.'
+            : allotmentError === 'unknown_guest'
+              ? 'We could not find that guest on your list.'
+              : 'We could not save that. Nothing changed — please try again.'}
         </p>
       ) : null}
 

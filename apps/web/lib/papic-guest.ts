@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitlements';
-import { readEventPoolStatus } from '@/lib/papic-event-pool';
+import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
+import { papicGuestCapLifts } from '@/lib/papic-guest-cap';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -169,9 +170,26 @@ export type GuestQuota = {
   /** total − used, floored at 0. When `unlimited`, a large sentinel so the
    *  remaining-based gate (route pre-check + client `exhausted`) never trips. */
   remaining: number;
-  /** True when "Unlock all of Papic" lifts the per-guest cap — every guest shoots
-   *  unlimited; the UI shows "Unlimited" instead of a number. */
+  /**
+   * Mirrors `v_unlimited` in papic_record_guest_capture — the OR of BOTH its
+   * disjuncts (an active PAPIC_UNLOCK **or** a shared pot), not just the first.
+   */
   unlimited: boolean;
+  /**
+   * The inverse, and the field every screen gate must read: true only when the
+   * per-guest ceiling can actually refuse a shot. On a pool celebration — which
+   * is every celebration today, because the free 50-shot grant arms on render —
+   * this is FALSE, so no countdown is drawn and no shutter is hidden.
+   */
+  capApplies: boolean;
+  /**
+   * Shots left in the SHARED pot, or null when this celebration has no pot.
+   * Present so a screen can say what is true about the celebration without
+   * inventing a per-guest number.
+   */
+  poolRemaining: number | null;
+  /** True once the pot crosses its own soft-stop line — "running low". */
+  poolLow: boolean;
 };
 
 /** Sentinel `remaining` for an unlimited (Unlock) guest — large enough that the
@@ -191,16 +209,31 @@ export async function fetchGuestQuota(
   eventId: string,
   guestId: string,
 ): Promise<GuestQuota> {
-  // "Unlock all of Papic" lifts the per-guest 150-credit cap entirely. The
-  // authoritative cap-skip is in the papic_record_guest_capture RPC; this read
-  // mirrors it so the display shows "Unlimited" and the route's remaining-based
-  // pre-check passes. Graceful: any read error → false (the normal cap applies).
-  let unlimited = false;
-  try {
-    unlimited = await eventHasPapicUnlock(supabase, eventId);
-  } catch {
-    unlimited = false;
-  }
+  // ── BOTH DISJUNCTS, because the RPC has two ────────────────────────────
+  //
+  // `papic_record_guest_capture` lifts the per-guest ceiling for an active
+  // PAPIC_UNLOCK *and* for any celebration whose shared pot applies. This read
+  // used to mirror only the first, so the browser enforced a 150 the database
+  // was not applying anywhere. The rule itself lives in ONE place now —
+  // lib/papic-guest-cap.ts — with one entry per write to `v_unlimited`.
+  const [hasUnlock, poolRead] = await Promise.all([
+    eventHasPapicUnlock(supabase, eventId).catch(() => false),
+    readEventPoolStatus(supabase, eventId).catch(() => ({
+      ok: false,
+      status: EVENT_POOL_ABSENT,
+    })),
+  ]);
+  const poolApplies = poolRead.status.applies === true;
+  const unlimited = papicGuestCapLifts({
+    hasUnlock,
+    poolApplies,
+    // A read failure is an outage, not a decision — and it fails OPEN. See the
+    // reasoning on GuestCapInputs.poolUnknown.
+    poolUnknown: !poolRead.ok,
+  }).some(Boolean);
+  const capApplies = !unlimited;
+  const poolRemaining = poolApplies ? poolRead.status.remainingPoints : null;
+  const poolLow = poolApplies && poolRead.status.soft;
 
   const { count, error } = await supabase
     .from('papic_guest_captures')
@@ -216,6 +249,9 @@ export async function fetchGuestQuota(
       used: 0,
       remaining: unlimited ? UNLIMITED_REMAINING : GUEST_CAPTURE_CREDITS,
       unlimited,
+      capApplies,
+      poolRemaining,
+      poolLow,
     };
   }
 
@@ -227,6 +263,9 @@ export async function fetchGuestQuota(
       ? UNLIMITED_REMAINING
       : Math.max(0, GUEST_CAPTURE_CREDITS - used),
     unlimited,
+    capApplies,
+    poolRemaining,
+    poolLow,
   };
 }
 

@@ -284,11 +284,24 @@ export type LiveLayerData = {
 };
 
 /** Inline Papic guest camera mount data (mirrors the /papic/guest route). */
+/**
+ * The inline guest camera's props, resolved by `loadGuestContext`.
+ *
+ * 🔑 THE ONLY DECLARATION OF THIS SHAPE. `loaders.ts` used to re-declare it
+ * inline — two copies of one shape, which is the same disease as the bug that
+ * brought this file's `capApplies` field into existence: one rule written twice
+ * drifts, and the copy that drifts is the one nobody re-read.
+ */
 export type GuestPapicCamera = {
   initialRemaining: number;
   total: number;
   termsAccepted: boolean;
-  guestUnlimited: boolean;
+  /** Does the per-guest ceiling actually bind here? Mirrors BOTH disjuncts of
+   *  `v_unlimited` in papic_record_guest_capture. */
+  capApplies: boolean;
+  /** Shots left in the shared pot, or null when this celebration has no pot. */
+  poolRemaining: number | null;
+  poolLow: boolean;
   eventStyle: PapicStyle;
   faceMode: PapicFaceMode;
 };

@@ -156,10 +156,26 @@ type Props = {
    *  403s feature_not_owned for unowned events, so showing the prompt would
    *  only let the guest type a message that silently fails. */
   canKwento?: boolean;
-  /** True when the event owns "Unlock all of Papic" — the per-guest 150-credit
-   *  cap is lifted, so the counter reads "Unlimited" and the camera never
-   *  exhausts. */
-  guestUnlimited?: boolean;
+  /**
+   * Does the per-guest ceiling actually bind on this celebration?
+   *
+   * 🔴 REQUIRED, and it replaces the old `guestUnlimited`. The database lifts
+   * that ceiling for an active "Unlock all of Papic" **or** for any celebration
+   * with a shared pot — and every celebration arms the free 50-shot pot on
+   * render, so this is false almost everywhere. It used to mirror only the
+   * Unlock half, so this camera counted down from a hardcoded 150 and hid its
+   * own shutter while the server was applying no per-guest limit at all.
+   *
+   * A personal countdown is drawn, and the shutter may be hidden, ONLY when
+   * this is true. Resolved server-side by `fetchGuestQuota`.
+   */
+  capApplies: boolean;
+  /** Shots left in the SHARED pot (null when this celebration has no pot). Used
+   *  only to say something true when the pot is running low — never as a
+   *  personal allowance. */
+  poolRemaining?: number | null;
+  /** True once the pot crosses its own soft-stop line. */
+  poolLow?: boolean;
   /** The event-wide look (set once by the couple at Papic setup). LOCKED — the
    *  guest can't change it; it's baked into every photo they capture. */
   eventStyle: PapicStyle;
@@ -203,7 +219,9 @@ export function PapicGuestCapture({
   termsAccepted,
   needsFaceEnroll = false,
   canKwento = false,
-  guestUnlimited = false,
+  capApplies,
+  poolRemaining = null,
+  poolLow = false,
   eventStyle,
   faceMode,
   storyToken = null,
@@ -318,7 +336,26 @@ export function PapicGuestCapture({
     switching,
   } = usePapicCamera({ enabled: accepted && !blocked && !enrolling });
 
-  const exhausted = !guestUnlimited && remaining <= 0;
+  /*
+    TWO REFUSALS, TWO SENTENCES.
+
+    `capReached` is the guest's own ceiling — the RPC's `quota_exhausted`, or a
+    countdown that has run out on a celebration where the ceiling genuinely
+    binds. `poolEmpty` is the CELEBRATION running out, which arrives as a bare
+    409 and used to be read as the first one: a guest three photos in was
+    congratulated with "That's all 150 photos" for a shot that was thrown away,
+    while the buy panel opened to sell shots that also could not be taken.
+
+    🔑 A REFUSAL THAT REUSES ANOTHER REFUSAL'S STATUS CODE INHERITS ITS COPY.
+
+    `exhausted` keeps its name and its job — every shutter/panel guard below
+    reads it — but it is now the OR of two named causes rather than a countdown
+    from a number nobody chose.
+  */
+  const [capReached, setCapReached] = useState(false);
+  const [poolEmpty, setPoolEmpty] = useState(false);
+  const capExhausted = capReached || (capApplies && remaining <= 0);
+  const exhausted = capExhausted || poolEmpty;
 
   const acceptTerms = useCallback(async () => {
     if (acceptBusy || !agreeChecked) return;
@@ -457,8 +494,19 @@ export function PapicGuestCapture({
         setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
         return;
       }
-      if (res.status === 409 || json.status === 'quota_exhausted') {
+      if (json.status === 'quota_exhausted') {
         setRemaining(0);
+        setCapReached(true);
+        setSaveError(null);
+        announceOutOfShots();
+        return;
+      }
+      // Every OTHER 409 on this route is the shared pot refusing
+      // (camera_points_exhausted). It is the CELEBRATION that is out, not this
+      // guest — so it gets its own latch and its own sentence. Offering more
+      // shots stays right here: that is exactly what an empty pot is for.
+      if (res.status === 409 || json.status === 'camera_points_exhausted') {
+        setPoolEmpty(true);
         setSaveError(null);
         announceOutOfShots();
         return;
@@ -722,8 +770,17 @@ export function PapicGuestCapture({
           setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
           return;
         }
-        if (res.status === 409 || json.status === 'quota_exhausted') {
+        if (json.status === 'quota_exhausted') {
           setRemaining(0);
+          setCapReached(true);
+          setSaveError(null);
+          announceOutOfShots();
+          return;
+        }
+        // The pot, not this guest — see the photo handler. Two copies of one
+        // rule, and a fix applied to one of them is not a fix.
+        if (res.status === 409 || json.status === 'camera_points_exhausted') {
+          setPoolEmpty(true);
           setSaveError(null);
           announceOutOfShots();
           return;
@@ -1314,10 +1371,25 @@ export function PapicGuestCapture({
   return (
     <main className="flex min-h-screen flex-col bg-ink text-cream">
       <header className="flex items-center justify-end px-4 py-3">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
-          <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          {guestUnlimited ? 'Unlimited' : `${remaining} left`}
-        </span>
+        {/* A PERSONAL COUNTDOWN ONLY WHERE ONE IS REAL.
+            It used to be unconditional, so every guest on every celebration was
+            shown a number counting down to a ceiling the database does not
+            apply. Where the pot is the ceiling there is no personal allowance to
+            print — so we print nothing, until the POT itself is running low, and
+            then we name the celebration's own number rather than invent a
+            per-guest one. "Unlimited" is gone with the same reasoning: a pot is
+            finite, and saying otherwise would be a promise we cannot keep. */}
+        {capApplies ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
+            <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            {`${remaining} left`}
+          </span>
+        ) : poolLow && poolRemaining != null ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
+            <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            {`${poolRemaining} left for everyone`}
+          </span>
+        ) : null}
       </header>
 
       {/* In-camera "add your face" fallback — catches the guest who jumped
@@ -1409,11 +1481,29 @@ export function PapicGuestCapture({
         )}
         {exhausted && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/85 px-6 text-center">
-            <Check aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
-            <p className="text-base font-semibold">That&rsquo;s all {total} photos, {guestName}!</p>
-            <p className="text-sm text-cream/70">
-              Thank you for helping capture {eventName}. They’ll treasure these.
-            </p>
+            {poolEmpty ? (
+              /* THE CELEBRATION ran out, not this guest. No tick and no thank-you
+                 — nothing was finished here, and congratulating somebody for a
+                 shot that was thrown away is the exact defect this splits. */
+              <>
+                <ImageIcon aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
+                <p className="text-base font-semibold">
+                  {eventName} has run out of shots.
+                </p>
+                <p className="text-sm text-cream/70">
+                  Everybody here is sharing one set of shots and they&rsquo;re all
+                  spent. The host can add more at any time.
+                </p>
+              </>
+            ) : (
+              <>
+                <Check aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
+                <p className="text-base font-semibold">That&rsquo;s all {total} photos, {guestName}!</p>
+                <p className="text-sm text-cream/70">
+                  Thank you for helping capture {eventName}. They’ll treasure these.
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1497,7 +1587,9 @@ export function PapicGuestCapture({
         ) : null}
         <p className="text-center text-xs text-cream/60">
           {exhausted
-            ? 'Your camera is all used up — enjoy the celebration.'
+            ? poolEmpty
+              ? 'This celebration is out of shots for now.'
+              : 'Your camera is all used up — enjoy the celebration.'
             : recording
               ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
               : 'Tap for a photo · press and hold to record (up to 10s).'}

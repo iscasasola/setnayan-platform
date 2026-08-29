@@ -11,6 +11,9 @@ import {
   Minus,
   Plus,
   Pencil,
+  // Aliased, following the repo's existing idiom (account-inline.tsx): a bare
+  // `Infinity` import shadows the JS global inside this module.
+  Infinity as InfinityIcon,
 } from 'lucide-react';
 import {
   computeCustomQuote,
@@ -61,6 +64,7 @@ const BASE_COMPOSITION: CustomComposition = {
   slotsPerCategory: CUSTOM_BASE.slotsPerCategory,
   photos: CUSTOM_BASE.photos,
   domain: false,
+  pipelineUnlimited: false,
 };
 
 export function CustomConfigurator({
@@ -125,6 +129,11 @@ export function CustomConfigurator({
     });
   if (comp.domain)
     lines.push({ label: 'Custom domain', amount: unitPrices.domain });
+  if (comp.pipelineUnlimited)
+    lines.push({
+      label: 'No limit on customers per date',
+      amount: unitPrices.pipelineUnlimited,
+    });
 
   return (
     <form
@@ -138,6 +147,11 @@ export function CustomConfigurator({
       <input type="hidden" name="seats" value={comp.seats} />
       <input type="hidden" name="slotsPerCategory" value={comp.slotsPerCategory} />
       <input type="hidden" name="domain" value={comp.domain ? 'true' : 'false'} />
+      <input
+        type="hidden"
+        name="pipelineUnlimited"
+        value={comp.pipelineUnlimited ? 'true' : 'false'}
+      />
       <input type="hidden" name="term" value={term} />
       <input type="hidden" name="channel" value={channel} />
 
@@ -179,6 +193,18 @@ export function CustomConfigurator({
           checked={comp.nationwide}
           disabled={!editable}
           onChange={(v) => set('nationwide', v)}
+        />
+
+        {/* Owner 2026-08-29 — "2500 for no limit". The hint names the number it
+            removes rather than saying "unlimited", because a supplier who does
+            not know their ceiling is 10 cannot tell what they are buying. */}
+        <ToggleControl
+          icon={<InfinityIcon className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+          label="No limit on customers per date"
+          hint="Every plan lets you chase 10 customers at a time for one date. This removes that ceiling."
+          checked={comp.pipelineUnlimited === true}
+          disabled={!editable}
+          onChange={(v) => set('pipelineUnlimited', v)}
         />
 
         <StepperControl

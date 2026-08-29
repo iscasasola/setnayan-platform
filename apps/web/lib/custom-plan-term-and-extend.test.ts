@@ -64,6 +64,7 @@ const PRICES: CustomUnitPrices = {
   seat: 250,
   slot: 500,
   domain: 500,
+  pipelineUnlimited: 2500,
 };
 const BASE: CustomComposition = {
   branches: 1,

@@ -86,6 +86,10 @@ function parseComposition(formData: FormData): CustomComposition {
     // Pinned to the included base — the +100-photo pack was dropped 2026-08-27.
     photos: CUSTOM_BASE.photos,
     domain: bool(formData.get('domain')),
+    // No limit on customers chased per date (owner 2026-08-29: "2500 for no
+    // limit"). Read from the form, unlike the two pinned axes above, because
+    // this one IS priced — turning it on adds its ₱2,500 line to the same quote.
+    pipelineUnlimited: bool(formData.get('pipelineUnlimited')),
     api_access: bool(formData.get('api_access')),
   };
 }
@@ -117,6 +121,7 @@ async function parseUnitPrices(
     seat: over('unit_seat', catalog.seat),
     slot: over('unit_slot', catalog.slot),
     domain: over('unit_domain', catalog.domain),
+    pipelineUnlimited: over('unit_pipelineUnlimited', catalog.pipelineUnlimited),
   };
 }
 

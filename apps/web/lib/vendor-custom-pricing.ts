@@ -49,6 +49,26 @@ export interface CustomComposition {
   reachKm: number;
   /** Nationwide reach — a flat add-on that replaces the per-step reach ladder. */
   nationwide: boolean;
+  /**
+   * NO LIMIT on how many customers this shop may be chasing for ONE date —
+   * a flat add-on that removes the per-tier pipeline ceiling entirely.
+   *
+   * Owner 2026-08-29, asked what "past 10" should cost: **"2500 for no limit."**
+   * Enterprise and Custom both cap at 10 live candidates per date
+   * (`vendor_tier_limit`); a shop that buys this has no cap at all.
+   *
+   * ⛔ SCOPE, deliberately narrow: this is the CHASING ceiling — accepted-but-
+   * not-yet-locked customers on one date. It does NOT touch the BOOKED-OUT
+   * WAITLIST (queued couples on a date already taken, capped at 5 for
+   * Enterprise/Custom). Two different lists that share the word "limit"; the
+   * owner was asked about the 10, answered about the 10, and widening the other
+   * one would also mean widening a CHECK constraint on
+   * vendor_profiles.max_waitlist_acceptances. Named, not assumed.
+   *
+   * Optional so pre-existing composition rows read as "not granted"
+   * (fail-closed), exactly like `api_access`.
+   */
+  pipelineUnlimited?: boolean;
   /** TOTAL team seats (base 10 included). */
   seats: number;
   /** TOTAL event slots per category (base 8 included). */
@@ -82,6 +102,8 @@ export interface CustomUnitPrices {
   branch: number;
   /** Flat nationwide-reach add-on — the ONLY reach upgrade (owner 2026-08-27). */
   reachNationwide: number;
+  /** Flat "no limit on customers chased per date" add-on (owner 2026-08-29). */
+  pipelineUnlimited: number;
   /** Per extra team seat (beyond base 10). */
   seat: number;
   /** Per +1 event slot / category (beyond base 8). */
@@ -252,7 +274,12 @@ export function computeCustomQuote(
     reach +
     extraSeats * p.seat +
     extraSlots * p.slot +
-    (c.domain ? p.domain : 0);
+    (c.domain ? p.domain : 0) +
+    // No limit on customers chased per date (owner 2026-08-29: "2500 for no
+    // limit"). Flat, like nationwide reach — `=== true` rather than truthy so a
+    // composition row predating the axis reads as NOT granted rather than as
+    // undefined-and-therefore-free.
+    (c.pipelineUnlimited === true ? p.pipelineUnlimited : 0);
 
   // List price: exactly what the dials add up to, floored at base.
   //

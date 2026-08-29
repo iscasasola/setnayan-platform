@@ -16,6 +16,8 @@ import {
   Send,
   CheckCircle2,
   Terminal,
+  // Aliased — a bare `Infinity` import shadows the JS global in this module.
+  Infinity as InfinityIcon,
 } from 'lucide-react';
 import {
   computeCustomQuote,
@@ -59,6 +61,7 @@ const DEFAULT_COMPOSITION: CustomComposition = {
   slotsPerCategory: CUSTOM_BASE.slotsPerCategory,
   photos: CUSTOM_BASE.photos,
   domain: false,
+  pipelineUnlimited: false,
   api_access: false,
 };
 
@@ -204,6 +207,29 @@ export function CustomComposer({
                     className="h-4 w-4 rounded border-ink/30 accent-ink"
                   />
                   Nationwide reach
+                </label>
+              </Knob>
+
+              {/* Owner 2026-08-29 — "2500 for no limit". The label names the
+                  ceiling it removes; "unlimited" alone tells an operator
+                  nothing about what the shop is buying out of. */}
+              <Knob
+                icon={<InfinityIcon className="h-4 w-4" strokeWidth={2} />}
+                label={
+                  comp.pipelineUnlimited
+                    ? 'Customers per date · No limit'
+                    : 'Customers per date · 10'
+                }
+                hint="10 live customers per date included. This removes the ceiling."
+              >
+                <label className="mt-1.5 flex items-center gap-2 text-xs text-ink/70">
+                  <input
+                    type="checkbox"
+                    checked={comp.pipelineUnlimited === true}
+                    onChange={(e) => setK('pipelineUnlimited', e.target.checked)}
+                    className="h-4 w-4 rounded border-ink/30 accent-ink"
+                  />
+                  No limit on customers chased per date
                 </label>
               </Knob>
 
@@ -417,6 +443,12 @@ export function CustomComposer({
                 {comp.nationwide ? 'Nationwide reach' : `${CUSTOM_BASE.reachKm} km service reach`}
               </li>
               <li className="flex items-center gap-2">
+                <InfinityIcon className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
+                {comp.pipelineUnlimited
+                  ? 'No limit on customers per date'
+                  : '10 customers per date'}
+              </li>
+              <li className="flex items-center gap-2">
                 <Users className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
                 {comp.seats} team seats{extraSeats > 0 ? ` (+${extraSeats} extra)` : ''}
               </li>
@@ -481,6 +513,11 @@ export function CustomComposer({
               <input type="hidden" name="seats" value={comp.seats} />
               <input type="hidden" name="slotsPerCategory" value={comp.slotsPerCategory} />
               <input type="hidden" name="domain" value={String(comp.domain)} />
+              <input
+                type="hidden"
+                name="pipelineUnlimited"
+                value={String(comp.pipelineUnlimited ?? false)}
+              />
               <input type="hidden" name="api_access" value={String(comp.api_access ?? false)} />
               <input type="hidden" name="unit_base" value={prices.base} />
               <input type="hidden" name="unit_branch" value={prices.branch} />
@@ -488,6 +525,11 @@ export function CustomComposer({
               <input type="hidden" name="unit_seat" value={prices.seat} />
               <input type="hidden" name="unit_slot" value={prices.slot} />
               <input type="hidden" name="unit_domain" value={prices.domain} />
+              <input
+                type="hidden"
+                name="unit_pipelineUnlimited"
+                value={prices.pipelineUnlimited}
+              />
               <input type="hidden" name="discount_type" value={discountType} />
               <input type="hidden" name="discount_value" value={discountValue} />
 

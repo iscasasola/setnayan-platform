@@ -22,6 +22,7 @@ const PRICES: CustomUnitPrices = {
   seat: 250,
   slot: 500,
   domain: 500,
+  pipelineUnlimited: 2500,
 };
 
 /** Base composition = exactly the included tier (no add-ons). */
@@ -229,4 +230,27 @@ test('discountValue is exactly list28 − final28', () => {
     { type: 'amount', value: 1500 },
   );
   assert.equal(q.discountValue, q.list28 - q.final28);
+});
+
+// ── "2500 for no limit" (owner 2026-08-29) ───────────────────────────────────
+
+test('the no-limit axis adds its flat price to the quote, once', () => {
+  const withOut = computeCustomQuote(BASE, PRICES);
+  const withIt = computeCustomQuote({ ...BASE, pipelineUnlimited: true }, PRICES);
+  assert.equal(
+    withIt.raw - withOut.raw,
+    PRICES.pipelineUnlimited,
+    'exactly one flat line, like nationwide reach',
+  );
+});
+
+test('a composition predating the axis is not charged for it', () => {
+  // Optional field ⇒ an older stored composition has no key. `=== true` in the
+  // maths, so undefined costs nothing rather than being read as truthy.
+  const legacy = { ...BASE };
+  assert.equal('pipelineUnlimited' in legacy, false, 'the fixture must really lack the key');
+  assert.equal(
+    computeCustomQuote(legacy, PRICES).raw,
+    computeCustomQuote({ ...BASE, pipelineUnlimited: false }, PRICES).raw,
+  );
 });

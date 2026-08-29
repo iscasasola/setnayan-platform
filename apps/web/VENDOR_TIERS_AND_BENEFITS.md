@@ -26,6 +26,29 @@
 > - **Vendor revenue = subscriptions + apply-then-pay PHP add-ons**, NOT tokens.
 >   The four vendor add-ons — Vendor AI, 3D Booth, Deep Search, Papic Challenges —
 >   are all apply-then-pay PHP (prices are DB-driven; never hardcode them).
+>   - 🔒 **PAPIC CHALLENGES IS PAID-PLANS-ONLY — Solo · Pro · Enterprise · Custom,
+>     never a free plan** (owner 2026-08-29: *"they can only but if they are
+>     solo,pro,enterprise,custom. but not when they are free"*). ⚠ **That floor is
+>     UNCONDITIONAL and must NOT be re-gated on
+>     `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING`.** It was, until 2026-08-29 — so
+>     that ONE switch decided both the price band and WHO MAY BUY, and turning it
+>     on (the owner did, that day) admitted free shops. **A price switch must
+>     never decide access.** ⚠ `verified` is refused as a FREE plan; the owner
+>     named it neither way. One line: `PHOTO_CHALLENGE_MIN_TIER`.
+>   - 🔒 **THE 3D BOOTH IS PAID-PLANS-ONLY TOO — same floor, same day** (owner
+>     2026-08-29: *"3D Plan and papic Challenge is only for paid vendors Solo,
+>     Pro, Enterprise, and Custom. not for free"*). It was flagged to him as
+>     *"also open to free shops now"* rather than assumed, and he ruled it.
+>     ⚖ **This supersedes the 2026-07-04 "branding is a Pro/Enterprise perk"
+>     lock** — the owner's own third move on that gate (perk → any buyer → any
+>     PAID buyer), not a reversal by engineering. The ENTITLEMENT half is
+>     untouched: a paid plan without a live add-on window still renders a generic
+>     booth. 🔴 **And it fixed a latent defect: `boothCanBrand` listed two tier
+>     NAMES, so `custom` — the most expensive plan — could not brand its booth.**
+>     ⚠ **"3D Plan" in his sentence is the VENDOR add-on (`vendor_3d_booth`).**
+>     The COUPLE's own 3D Plan (`SEATING_3D`, ₱1,500/wedding) is a different
+>     product on a different axis — a couple has no vendor tier — and is
+>     untouched.
 > - **Tokens are now "receive-only":** they can still be GRANTED (subscription
 >   bundles + admin grants) and show as a read-only balance, but nothing buys or
 >   spends them. The token wallet / bundle-grant / burn DB plumbing is left

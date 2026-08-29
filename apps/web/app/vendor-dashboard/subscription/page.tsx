@@ -28,6 +28,7 @@ import {
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
+  PHOTO_CHALLENGE_MIN_TIER,
   VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS,
   fetchPhotoChallengeExpiry,
   fetchVendorPhotoChallengePricePhp,
@@ -53,6 +54,7 @@ import { PapicChallengeCard } from './_components/papic-challenge-card';
 import { PlanChangeNotice } from './_components/plan-change-notice';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 
 /**
  * /vendor-dashboard/subscription — the vendor Plan hub. Self-serve Pro /
@@ -249,7 +251,10 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   // verified-only rule stays. Mirrors the buy action's gate exactly, so the card
   // never offers what the server would reject (or vice versa).
   const tieredAddonPricing = isVendorAddonTieredPricingEnabled();
-  const isProTierForBooth = tieredAddonPricing || isTierAtLeast(currentTier, 'pro');
+  // ⚠ NOT `tieredAddonPricing || …` any more. Owner 2026-08-29 ruled the 3D
+  // Booth floor the same way as Papic Challenges: paid plans only, Solo and up.
+  // The flag keeps its PRICE job; it no longer decides access.
+  const isPaidTierForBooth = isTierAtLeast(currentTier, BOOTH_BRANDING_MIN_TIER);
   const [boothAddonState, boothAddonCatalogPricePhp] = await Promise.all([
     fetchVendor3dBoothState(supabase, profile.vendor_profile_id),
     fetchVendor3dBoothPricePhp(supabase),
@@ -265,7 +270,11 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   // the SHOP, which is why it is on this hub and not on a celebration's page.
   // Same tier/verified shape as the 3D booth; NO free first cycle (the owner set
   // a trial for the AI + 3D add-ons only, and that has not changed).
-  const isProTierForChallenge = tieredAddonPricing || isTierAtLeast(currentTier, 'pro');
+  // ⚠ NOT `tieredAddonPricing || …` like the booth below it. Owner 2026-08-29
+  // ruled the Papic Challenges floor separately from the tiered-pricing flag:
+  // *"not when they are free"*. Solo and up, always — so the card offers exactly
+  // what the server would accept.
+  const isPaidTierForChallenge = isTierAtLeast(currentTier, PHOTO_CHALLENGE_MIN_TIER);
   const [papicChallengeExpiry, papicChallengeCatalogPricePhp] = await Promise.all([
     fetchPhotoChallengeExpiry(supabase, profile.vendor_profile_id),
     fetchVendorPhotoChallengePricePhp(supabase),
@@ -558,8 +567,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           (Free/Solo) or ₱1,500 (Pro/Ent). */}
       <BoothAddonCard
         available={seating3dEnabled()}
-        eligible={isProTierForBooth && isVerifiedVendor}
-        paidButUnverified={isProTierForBooth && !isVerifiedVendor}
+        eligible={isPaidTierForBooth && isVerifiedVendor}
+        paidButUnverified={isPaidTierForBooth && !isVerifiedVendor}
         trialAvailable={boothAddonState.trialUsedAt == null}
         active={boothAddonActive}
         expiresAt={boothAddonState.expiresAt}
@@ -574,8 +583,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           longer on a celebration's page. */}
       <PapicChallengeCard
         available={papicGamesEnabled()}
-        eligible={isProTierForChallenge && isVerifiedVendor}
-        paidButUnverified={isProTierForChallenge && !isVerifiedVendor}
+        eligible={isPaidTierForChallenge && isVerifiedVendor}
+        paidButUnverified={isPaidTierForChallenge && !isVerifiedVendor}
         active={papicChallengeActive}
         expiresAt={papicChallengeExpiry}
         pricePhp={papicChallengePricePhp}

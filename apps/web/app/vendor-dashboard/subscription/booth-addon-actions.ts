@@ -26,6 +26,7 @@ import {
   nonStackingFreeExpiry,
 } from '@/lib/vendor-addon-first5-free';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 
 /**
  * 3D Booth add-on — buy/activate a 28-day cycle.
@@ -144,11 +145,19 @@ export async function activateVendor3dBooth(
   const verification =
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  // Tiered add-on model ON → every tier may buy (at its own band's price); OFF →
-  // today's Pro+ gate, verbatim.
+  // PAID-PLAN FLOOR, UNCONDITIONAL. Owner 2026-08-29: *"3D Plan and papic
+  // Challenge is only for paid vendors Solo, Pro, Enterprise, and Custom. not
+  // for free"*.
+  //
+  // ⚠ This used to read `!tieredPricing && !isTierAtLeast(tier,'pro')`, so the
+  // tiered-PRICING switch decided who may buy. The owner turned that switch on
+  // the same day, which opened the 3D Booth to free shops as a side effect of a
+  // price change. A floor a pricing flag can lift is not a floor.
   const tieredPricing = isVendorAddonTieredPricingEnabled();
-  if (!tieredPricing && !isTierAtLeast(tier, 'pro')) {
-    return err('3D Booth is available on the Pro, Enterprise, and Custom plans. Upgrade to add it.');
+  if (!isTierAtLeast(tier, BOOTH_BRANDING_MIN_TIER)) {
+    return err(
+      '3D Booth comes with a paid plan — Solo, Pro, Enterprise or Custom. Move up to add it.',
+    );
   }
   if (verification !== 'verified') {
     return err('Get your shop verified first — 3D Booth unlocks once you’re verified.');

@@ -8,6 +8,7 @@ import {
   nextPhotoChallengeExpiry,
   photoChallengeEventReady,
   photoChallengePurchaseEligibility,
+  PHOTO_CHALLENGE_MIN_TIER,
   resolveVendorPhotoChallengePricePhp,
   PHOTO_CHALLENGE_DENY_MESSAGE,
 } from './vendor-photo-challenge';
@@ -91,7 +92,7 @@ const BUY_OK = {
   subscriptionActive: false,
 } as const;
 
-test('a verified Pro shop may turn it on', () => {
+test('a verified paid shop may turn it on', () => {
   assert.deepEqual(photoChallengePurchaseEligibility(BUY_OK), { ok: true });
   assert.equal(
     photoChallengePurchaseEligibility({ ...BUY_OK, tier: 'enterprise' }).ok,
@@ -100,34 +101,74 @@ test('a verified Pro shop may turn it on', () => {
   assert.equal(photoChallengePurchaseEligibility({ ...BUY_OK, tier: 'custom' }).ok, true);
 });
 
-test('below Pro is refused — unless the 2026-07-25 tiered model is on', () => {
-  for (const tier of ['free', 'verified', 'solo']) {
+test('THE PAID PLANS BUY IT, THE FREE ONES DO NOT — owner 2026-08-29', () => {
+  // ⚠ THIS ASSERTION WAS REWRITTEN, NOT WEAKENED. It read "below Pro is refused —
+  // unless the 2026-07-25 tiered model is on", which is the shape the owner
+  // struck: one switch decided both the PRICE BAND and WHO MAY BUY, so flipping
+  // it on (he did, the same day) admitted free shops, and flipping it off
+  // refused Solo. He wants Solo in and free out — a combination the old shape
+  // could not express at any setting.
+  //
+  // Verbatim: *"they can only but if they are solo,pro,enterprise,custom. but
+  // not when they are free"*.
+  for (const tier of ['solo', 'pro', 'enterprise', 'custom']) {
+    assert.equal(
+      photoChallengePurchaseEligibility({ ...BUY_OK, tier }).ok,
+      true,
+      `${tier} is a paid plan and must be admitted`,
+    );
+  }
+  for (const tier of ['free', 'verified']) {
     assert.deepEqual(
       photoChallengePurchaseEligibility({ ...BUY_OK, tier }),
       { ok: false, reason: 'tier_too_low' },
-      `${tier} is below the Pro gate`,
-    );
-    assert.equal(
-      photoChallengePurchaseEligibility({ ...BUY_OK, tier, allTiersAllowed: true }).ok,
-      true,
-      `${tier} may subscribe once every tier is admitted`,
+      // `verified` is the LEGACY FREE tier — a real business on the ₱0 plan. The
+      // owner named neither it nor `free` explicitly on the refusing side; he
+      // said "not when they are free", and both of these are free.
+      `${tier} costs nothing and must be refused`,
     );
   }
 });
 
-test('VERIFIED IS NEVER LIFTED, not even by the all-tiers model', () => {
+test('THE FLOOR IS UNCONDITIONAL — no price switch can lift it', () => {
+  // The whole point of the rewrite. `photoChallengePurchaseEligibility` no
+  // longer HAS a lever that admits a free shop; if one is reintroduced, this
+  // stops compiling or stops passing.
+  const keys = Object.keys(BUY_OK);
+  assert.ok(
+    !keys.includes('allTiersAllowed'),
+    'the purchase gate must not take an all-tiers lever again',
+  );
+  assert.equal(PHOTO_CHALLENGE_MIN_TIER, 'solo');
+  assert.equal(photoChallengePurchaseEligibility({ ...BUY_OK, tier: 'free' }).ok, false);
+});
+
+test('VERIFIED-THE-STATE is still required on every paid plan', () => {
+  // Not to be confused with `verified`-the-TIER refused above: this is
+  // verification_state, and it gates every plan including Custom.
+  for (const tier of ['solo', 'pro', 'enterprise', 'custom']) {
+    assert.deepEqual(
+      photoChallengePurchaseEligibility({ ...BUY_OK, tier, verification: 'pending' }),
+      { ok: false, reason: 'unverified' },
+    );
+  }
+  assert.deepEqual(
+    photoChallengePurchaseEligibility({ ...BUY_OK, verification: null }),
+    { ok: false, reason: 'unverified' },
+  );
+});
+
+test('the tier is checked BEFORE verification, so a free shop is told the true reason', () => {
+  // A free unverified shop hears "you need a paid plan", not "get verified" —
+  // getting verified would not admit them, and sending somebody to do work that
+  // cannot help is worse than saying no.
   assert.deepEqual(
     photoChallengePurchaseEligibility({
       ...BUY_OK,
       tier: 'free',
-      allTiersAllowed: true,
       verification: 'pending',
     }),
-    { ok: false, reason: 'unverified' },
-  );
-  assert.deepEqual(
-    photoChallengePurchaseEligibility({ ...BUY_OK, verification: null }),
-    { ok: false, reason: 'unverified' },
+    { ok: false, reason: 'tier_too_low' },
   );
 });
 

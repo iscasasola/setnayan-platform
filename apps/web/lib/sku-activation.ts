@@ -41,6 +41,7 @@ import {
   nextVendor3dBoothExpiry,
 } from '@/lib/vendor-3d-booth-pricing';
 import {
+  PHOTO_CHALLENGE_MIN_TIER,
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
   VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS,
   nextPhotoChallengeExpiry,
@@ -64,6 +65,7 @@ import {
   runAndRecordVendorDeepSearch,
   buildVendorDeepSearchInputs,
 } from '@/lib/vendor-deep-search-run';
+import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -533,12 +535,10 @@ async function activateVendor3dBoothOrder(ctx: ActivationContext): Promise<void>
   // LIFTS in lock-step with the buy gate (#3699 sells 3D Plan Ads to every tier
   // when the tiered add-on model is on) — otherwise a Free/Solo vendor pays and
   // this throws on approval. Verified is still required either way.
-  await assertVendorAddonActivationEligible(
-    ctx,
-    vendorProfileId,
-    'pro',
-    isVendorAddonTieredPricingEnabled(),
-  );
+  // ⚠ NO LONGER LIFTED BY THE TIERED-PRICING FLAG. Owner 2026-08-29: the 3D
+  // Booth is for paid plans, Solo and up. It must match the BUY gate exactly or
+  // a shop pays and this throws on approval — money taken, add-on not turned on.
+  await assertVendorAddonActivationEligible(ctx, vendorProfileId, BOOTH_BRANDING_MIN_TIER);
 
   // (3) Current window + trial marker → the new (stacked) expiry.
   const { data: vp } = await ctx.admin
@@ -628,16 +628,17 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
     (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
   if (!vendorProfileId) return;
 
-  // (2b) S2 — re-assert Pro+ & verified on the paying vendor (defence in depth).
-  // The tier floor LIFTS in lock-step with the buy gate (#3692/#3697 sell Papic
-  // Challenges to every tier when the tiered add-on model is on) — otherwise a
-  // Free/Solo vendor pays and this throws on approval, taking their money
-  // without turning the add-on on. Verified is still required either way.
+  // (2b) S2 — re-assert the floor & verified on the paying vendor (defence in
+  // depth). It must match the BUY gate exactly or a shop pays and this throws on
+  // approval, taking their money without turning the add-on on.
+  //
+  // ⚠ NO LONGER LIFTED BY THE TIERED-PRICING FLAG. Owner 2026-08-29: *"they can
+  // only buy if they are solo, pro, enterprise, custom. but not when they are
+  // free"*. The floor is Solo, unconditionally, on both sides.
   await assertVendorAddonActivationEligible(
     ctx,
     vendorProfileId,
-    'pro',
-    isVendorAddonTieredPricingEnabled(),
+    PHOTO_CHALLENGE_MIN_TIER,
   );
 
   // (3) Extend the window. Read-then-write is safe here because the ONLY writer

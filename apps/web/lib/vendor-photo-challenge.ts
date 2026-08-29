@@ -121,6 +121,22 @@ export type PhotoChallengeEligibility =
   | { ok: true }
   | { ok: false; reason: PhotoChallengeDenyReason };
 
+/**
+ * The plans that may turn Papic Challenges on. OWNER 2026-08-29, verbatim:
+ * *"Solo and Pro can buy Papic Challenges. they can only but if they are
+ * solo,pro,enterprise,custom. but not when they are free"*.
+ *
+ * `isTierAtLeast(tier, 'solo')` is exactly that list: the ladder is
+ * free → verified → solo → pro → enterprise → custom, so it admits the four he
+ * named and refuses the two that cost nothing.
+ *
+ * ⚠ IT ALSO REFUSES `verified`, WHICH HE DID NOT NAME EITHER WAY. `verified` is
+ * the LEGACY FREE tier — a real, checked business on the ₱0 plan — so it falls
+ * under *"not when they are free"*. Written down rather than buried: if he meant
+ * a verified free shop may buy, this constant is the one line to change.
+ */
+export const PHOTO_CHALLENGE_MIN_TIER = 'solo' as const;
+
 export type PhotoChallengePurchaseInput = {
   /** vendor_profiles.tier_state. */
   tier: string | null | undefined;
@@ -128,20 +144,6 @@ export type PhotoChallengePurchaseInput = {
   verification: string | null | undefined;
   /** Is a 28-day window already live for this shop? */
   subscriptionActive: boolean;
-  /**
-   * 2026-07-25 tiered add-on model: when true the Pro+ gate is LIFTED and every
-   * tier may subscribe at the same price. The caller sets this from
-   * `isVendorAddonTieredPricingEnabled()`; keeping it a plain input keeps this
-   * module pure. Mirrors the SQL side (both RPCs read the DB twin,
-   * platform_settings.vendor_addon_tiered_pricing_enabled).
-   *
-   * ⚠ MEASURED 2026-08-29: those two switches are OUT OF STEP in production —
-   * the DB column is TRUE and the env flag is off. The database therefore lets
-   * every tier author, while this gate refuses below Pro. Named here rather
-   * than silently reconciled: which one the owner meant is a pricing question,
-   * and the strict side is the safe one to be on.
-   */
-  allTiersAllowed?: boolean;
 };
 
 /**
@@ -158,7 +160,19 @@ export type PhotoChallengePurchaseInput = {
 export function photoChallengePurchaseEligibility(
   input: PhotoChallengePurchaseInput,
 ): PhotoChallengeEligibility {
-  if (!input.allTiersAllowed && !isTierAtLeast(input.tier, 'pro'))
+  // ⚠ THE FLOOR IS UNCONDITIONAL — it is NOT lifted by the 2026-07-25 tiered
+  // add-on flag, and that is the owner's 2026-08-29 ruling, not an oversight.
+  //
+  // Until today this read `!allTiersAllowed && !isTierAtLeast(tier, 'pro')`, so
+  // one switch decided TWO different things: which PRICE band a shop pays, and
+  // WHETHER IT MAY BUY AT ALL. The owner turned that switch on the same day and
+  // ruled the floor separately — *"not when they are free"* — which the old
+  // shape could not express: with the flag on it admitted everybody, with the
+  // flag off it refused Solo, and he wants Solo in and free out.
+  //
+  // 🔑 One switch answering two questions is how a price change silently becomes
+  // an access change. The flag keeps its PRICE job; the floor is its own rule.
+  if (!isTierAtLeast(input.tier, PHOTO_CHALLENGE_MIN_TIER))
     return { ok: false, reason: 'tier_too_low' };
   if (input.verification !== 'verified') return { ok: false, reason: 'unverified' };
   if (input.subscriptionActive) return { ok: false, reason: 'already_subscribed' };
@@ -194,7 +208,7 @@ export function photoChallengeEventReady(
 /** Human copy for each deny reason (surfaced in the vendor UI). */
 export const PHOTO_CHALLENGE_DENY_MESSAGE: Record<PhotoChallengeDenyReason, string> = {
   tier_too_low:
-    'Papic Challenges is a Pro / Enterprise add-on. Upgrade your plan to turn it on.',
+    'Papic Challenges comes with a paid plan. Move up to Solo or above to turn it on.',
   unverified: 'Get your shop verified first — Papic Challenges unlocks once you’re verified.',
   already_subscribed: 'Papic Challenges is already on for your shop.',
   not_booked: 'You can only run Papic Challenges at a celebration you’re booked for.',

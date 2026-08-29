@@ -44,7 +44,7 @@ import { setCameraShots } from '../actions';
 const ERROR_COPY: Record<string, string> = {
   unknown_camera: "That camera isn't part of this event any more. Pick another one.",
   not_enough_left:
-    "You don't have that many shots left to share out. Take some back from another camera, or add more shots.",
+    "You don't have that many credits left to share out. Take some back from another camera, or add more shots.",
   already_shot:
     "That camera has already taken more shots than that. You can only take back the ones it hasn't used.",
   bad_number: 'Enter a whole number of shots — 0 or more.',

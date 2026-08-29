@@ -55,6 +55,8 @@ import type {
   Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { editorialAllowsEventType } from '@/lib/editorial-event-types';
+import { eventNoun } from '@/lib/event-noun';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
 
@@ -71,7 +73,16 @@ const EDITORIAL_IMAGE_TYPES = [
   'image/avif',
 ];
 
-type LandingVisibility = 'public' | 'unlisted' | 'private';
+/**
+ * How the celebration's own page is published.
+ *
+ * ⚠ `invited_accounts` is a REAL fourth state (the privacy screen's "tagged
+ * accounts only", owner 2026-08-15) and this union omitted it, so the page cast
+ * it to one of the three and the Stories caveat named the wrong setting back at
+ * the person. Only 'public' reaches Stories either way — but a caveat has to
+ * name the choice they actually made or it reads as a bug.
+ */
+type LandingVisibility = 'public' | 'unlisted' | 'invited_accounts' | 'private';
 
 // Upgrade destination for the PRO authorship perks → the Editorial PRO buy
 // surface (studio/editorial-pro), which fetches the live catalog price + mounts
@@ -230,7 +241,7 @@ export function EditorialEditor({
   shareUrl = null,
   showcaseOptedIn = false,
   landingVisibility = 'public',
-  isWedding = true,
+  eventType = 'wedding',
   guestColumnsOn = false,
 }: {
   eventId: string;
@@ -259,10 +270,12 @@ export function EditorialEditor({
   showcaseOptedIn?: boolean;
   /** Landing-page visibility — a private page can't be featured publicly. */
   landingVisibility?: LandingVisibility;
-  /** Real Stories only aggregates weddings (loadPublishedShowcases filters
-   *  event_type='wedding'), so the opt-in toggle is wedding-only — a non-wedding
-   *  couple toggling it would set consent that never surfaces. */
-  isWedding?: boolean;
+  /** This celebration's kind. Decides whether Stories can carry it at all
+   *  (`editorialAllowsEventType` — the one home of that question) and which
+   *  noun the panel speaks in. It was a wedding-only boolean until 2026-08-29,
+   *  which hid this switch from the other fifteen kinds long after the gallery
+   *  started accepting them. */
+  eventType?: string | null;
   /** Guest Columns (GUEST_COLUMNS_ENABLED, server env — default OFF). When off,
    *  the "Letters to the Editor" toggle + order row are hidden so the editor
    *  never surfaces a section that can't render (no fake doors). */
@@ -559,6 +572,12 @@ export function EditorialEditor({
       toast.error('Could not copy — long-press the link to copy it.');
     }
   };
+
+  // Which kind of day this is — asked once, in the module that owns the
+  // question, so a new celebration type inherits the answer instead of waiting
+  // for somebody to remember this file.
+  const showcaseKindAllowed = editorialAllowsEventType(eventType ?? 'wedding');
+  const noun = eventNoun(eventType);
 
   const card = 'rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6';
   const linkCard =
@@ -1334,10 +1353,20 @@ export function EditorialEditor({
             </p>
           )}
 
-          {/* Real Stories opt-in (RA 10173 explicit consent). Wedding-only —
-              the public gallery aggregates weddings, so a non-wedding couple
-              toggling it would set consent that never surfaces. */}
-          {isWedding ? (
+          {/* Real Stories opt-in (RA 10173 explicit consent).
+
+              🔴 THIS SWITCH WAS WEDDING-ONLY AND THE GALLERY HAD NOT BEEN FOR
+              TWO WEEKS. The owner ruled on 2026-08-15 that every kind of day
+              may be written up — `date` and `hangout` named out loud — and the
+              five `event_type='wedding'` filters came out of the gallery, the
+              sitemap and the privacy-page panel. This one stayed, so the
+              fifteen non-wedding kinds could WRITE and PUBLISH a story here
+              and were never shown the one control that lets it be seen. Found
+              on a real celebration: a published `date` story whose owner asked
+              why it never reached the home page.
+              🔑 The kind question is asked in exactly one place now, and it is
+              not a boolean written at a call site. */}
+          {showcaseKindAllowed ? (
           <div className="mt-5 border-t border-ink/10 pt-5">
             <button
               type="button"
@@ -1351,7 +1380,7 @@ export function EditorialEditor({
                   Feature our story in Stories
                 </span>
                 <span className="block text-xs text-ink/55">
-                  Add our wedding to the public Stories gallery, 30 days after
+                  Add our {noun} to the public Stories gallery, 30 days after
                   the day. You can turn this off anytime.
                 </span>
               </span>
@@ -1365,12 +1394,33 @@ export function EditorialEditor({
               </span>
             </button>
 
-            {featured && landingVisibility === 'private' ? (
+            {/*
+              🔴 THIS SAID "MAKE IT PUBLIC OR UNLISTED" AND UNLISTED HAS NOT
+              QUALIFIED SINCE 2026-08-15. The gallery's read was tightened that
+              day from `!= 'private'` to `= 'public'`, precisely because
+              "unlisted" is the setting the privacy screen sells as LINK ONLY —
+              so this hint sent people to a choice that leaves them invisible,
+              and they would have had no way to tell.
+              🔑 A caveat that names the wrong remedy is worse than none: it is
+              followed, and it fails silently.
+              It also only rendered while the switch was ON, so anyone who had
+              not yet opted in saw no reason at all — the two facts that decide
+              whether this ever appears are stated together now.
+            */}
+            {landingVisibility !== 'public' ? (
               <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
                 <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
                 <span>
-                  Your Event Hub is <strong>Private</strong>, so it won&rsquo;t appear in Real
-                  Stories yet. Make it Public or Unlisted in{' '}
+                  Your Event Hub is{' '}
+                  <strong>
+                    {landingVisibility === 'unlisted'
+                      ? 'Link only'
+                      : landingVisibility === 'invited_accounts'
+                        ? 'Invited accounts only'
+                        : 'Private'}
+                  </strong>
+                  , so it won&rsquo;t appear in Stories even with this on. Set it to
+                  Public in{' '}
                   <Link
                     href={`/dashboard/${eventId}/website/privacy`}
                     className="underline underline-offset-2 hover:text-burgundy"

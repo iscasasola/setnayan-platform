@@ -332,16 +332,43 @@ export default async function PrivacyEditorPage({
           </p>
         </div>
 
+        {/*
+          🔴 "ON — ELIGIBLE TO BE FEATURED" WAS A CLAIM THIS PAGE COULD NOT
+          KEEP, AND IT CONTRADICTED THE CHOICE MADE HIGHER UP THE SAME SCREEN.
+          Saying yes here only records the person's CONSENT; the gallery also
+          requires the page itself to be Public and to have an address. Someone
+          who picked Private above and switched this on got a green tick and
+          waited — which is exactly how a real published story sat invisible
+          while its owner asked why. Consent is not eligibility; the badge now
+          says which of the two is missing, in the words of the control that
+          fixes it.
+        */}
+        {(() => {
+          const showcaseBlocker =
+            currentVisibility !== 'public'
+              ? currentVisibility === 'unlisted'
+                ? 'your page is Link only'
+                : currentVisibility === 'invited_accounts'
+                  ? 'your page is for invited accounts only'
+                  : 'your page is Private'
+              : !event.slug
+                ? 'your page has no address yet'
+                : null;
+          return (
         <div className="flex flex-wrap items-center gap-3">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
               showcaseOptedIn
-                ? 'bg-success-50 text-success-800'
+                ? showcaseBlocker
+                  ? 'bg-amber-50 text-amber-800'
+                  : 'bg-success-50 text-success-800'
                 : 'bg-ink/5 text-ink/60'
             }`}
           >
             {showcaseOptedIn
-              ? 'On — eligible to be featured'
+              ? showcaseBlocker
+                ? `On — but ${showcaseBlocker}, so it won’t appear`
+                : 'On — eligible to be featured'
               : `Off — your ${eventNoun(event.event_type)} stays private`}
           </span>
           <form action={setShowcaseConsent}>
@@ -352,6 +379,8 @@ export default async function PrivacyEditorPage({
             </SubmitButton>
           </form>
         </div>
+          );
+        })()}
 
         <p className="text-xs text-ink/50">
           Your {eventNoun(event.event_type)} only ever appears after the day itself (a 30-day grace

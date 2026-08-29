@@ -542,10 +542,19 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  SELECT COALESCE(SUM(ceiling_points), 0)::INTEGER, COUNT(*)::INTEGER
+  -- ⚠ ONLY THE NAMED GUESTS WHO ARE STILL COMING. A row survives a guest being
+  -- removed from the list or declining, and the headcount above counts neither
+  -- — so counting them here would subtract an absent person's credits from the
+  -- pot AND shrink the divisor, quietly making everybody else's share smaller
+  -- than the arithmetic the couple was shown. The predicate is the same one
+  -- papic_event_guest_headcount uses, on purpose.
+  SELECT COALESCE(SUM(c.ceiling_points), 0)::INTEGER, COUNT(*)::INTEGER
     INTO v_named_sum, v_named_cnt
-    FROM public.papic_guest_spend_ceilings
-   WHERE event_id = v_event_id;
+    FROM public.papic_guest_spend_ceilings c
+    JOIN public.guests g ON g.guest_id = c.guest_id
+   WHERE c.event_id = v_event_id
+     AND g.deleted_at IS NULL
+     AND g.rsvp_status::text <> 'declined';
 
   v_heads := COALESCE(public.papic_event_guest_headcount(v_event_id), 0) - v_named_cnt;
 

@@ -535,3 +535,29 @@ test('a celebration with no window falls back to the end of the event day, and n
   await db.query(`UPDATE public.events SET event_date = NULL WHERE event_id = $1`, [eventId]);
   assert.equal(await ceilingOf(guestId), 5, 'no date, no automatic release');
 });
+
+test('a named guest who is removed or declines stops shrinking everybody else’s share', async () => {
+  const eventId = await seedPoolEvent(5000, 10);
+  const named = await seedGuest(eventId, 'Named');
+  const other = await seedGuest(eventId, 'Other');
+  await db.query(`UPDATE public.events SET papic_guest_spend_ceiling_on = TRUE WHERE event_id = $1`, [eventId]);
+  // 🪤 1,000 AND NOT 500. The first draft of this test named her 500, and at
+  // that figure both the right answer and the wrong one round to 505 — the
+  // assertion would have passed whether or not the fix existed. Numbers that
+  // agree prove nothing; these disagree by 55.
+  await one(`SELECT public.papic_set_guest_spend_ceiling($1, $2, 1000)`, [eventId, named]);
+  assert.equal(await ceilingOf(other), 450, '(5050 − 1000) ÷ (10 − 1) = 450 while she is coming');
+
+  // ⚠ Her ROW survives her leaving the guest list. If it kept counting, her
+  // 1,000 would still be subtracted from the pot AND she would still be taken
+  // out of the divisor — everyone else quietly getting 450 where they were
+  // promised 505.
+  await db.query(`UPDATE public.guests SET rsvp_status = 'declined' WHERE guest_id = $1`, [named]);
+  assert.equal(await ceilingOf(other), 505, '(5050 − 0) ÷ 10 = 505 once she has declined');
+
+  await db.query(`UPDATE public.guests SET rsvp_status = 'attending' WHERE guest_id = $1`, [named]);
+  assert.equal(await ceilingOf(other), 450, 'and back to 450 when she is coming again');
+
+  await db.query(`UPDATE public.guests SET deleted_at = NOW() WHERE guest_id = $1`, [named]);
+  assert.equal(await ceilingOf(other), 505, 'same for a guest removed from the list entirely');
+});

@@ -1716,7 +1716,13 @@ export async function renderVendorBySlug({
       addressCountry: 'PH',
       ...(vendor.location_city ? { addressLocality: vendor.location_city } : {}),
     },
-    areaServed: { '@type': 'Country', name: 'Philippines' },
+    // C6 (2026-08-30): a shop with a declared city serves that city, not the
+    // whole country — otherwise local search ("photographer in Cebu") can't
+    // tell a Cebu shop from a Manila shop. Falls back to country-wide only
+    // when the vendor hasn't set location_city.
+    areaServed: vendor.location_city
+      ? { '@type': 'City', name: vendor.location_city }
+      : { '@type': 'Country', name: 'Philippines' },
     isPartOf: {
       '@type': 'WebSite',
       '@id': `${SITE_URL}/#website`,

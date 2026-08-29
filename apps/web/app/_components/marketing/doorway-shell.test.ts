@@ -297,9 +297,9 @@ test('the shell is mounted exactly once for the whole public group', () => {
   assert.match(
     layout,
     /variant="doorway"/,
-    'The group layout must mount the DOORWAY variant. The app variant has no ' +
-      'hamburger and its rail is display:none below 1024 — a phone would get a ' +
-      'public page with no navigation at all.',
+    'The group layout must mount the DOORWAY variant. The app variant points ' +
+      'the wordmark at /dashboard, which 307s a signed-out visitor to /login — ' +
+      'a login trap for a stranger arriving from Google.',
   );
 
   const doorway = code(read(join(HERE, '_doorway.tsx')));
@@ -487,14 +487,55 @@ test('the doorway wordmark is not a login trap', () => {
   );
 });
 
-test('the doorway keeps a way to open the rail on a phone', () => {
+test('EVERY variant keeps a way to open the rail on a phone', () => {
+  /*
+    🔴 THIS TEST USED TO PIN `const hasRailDrawer = variant !== 'app'` — it
+    guarded the doorway and, by naming the exact line that EXCLUDED the app,
+    froze the hole the owner then found. On 2026-08-29, measured live at 375px:
+    `/papic` rendered the menu button, `/dashboard` rendered none and its rail
+    computed `display: none`, so four signed-in trees had the bottom bar's five
+    destinations as the whole of navigation. Owner: *"hamburger menu
+    disappeared on other parts of the shell. keep it visible across."*
+
+    🔑 THE GUARD IS NOW ABOUT THE ABSENCE OF A GATE, which is the only shape
+    that cannot freeze the next hole: the button must not be conditional on the
+    variant at all. Width is still a condition, and it is CSS
+    (`fd-only-narrow`) — a real mount condition, not a style.
+  */
   const shell = code(read(join(APP, '_components', 'frontdoor', 'front-door-shell.tsx')));
+
+  const button = /<button\b[\s\S]*?aria-label="Menu"[\s\S]*?<\/button>/.exec(shell);
+  assert.ok(button, 'the shell renders no Menu button at all — no variant can open the rail.');
   assert.match(
-    shell,
-    /const hasRailDrawer = variant !== 'app'/,
-    'The hamburger is gated on something other than the variant. The rail is ' +
-      'display:none below 1024, so without the drawer a phone gets a product ' +
-      'page with no navigation at all.',
+    button![0],
+    /className="fd-iconbtn fd-only-narrow"/,
+    'the Menu button lost `fd-only-narrow`. At >=1024 the rail is already on ' +
+      'screen and pressing it mounts the scrim, whose styles live only inside ' +
+      'the <1024 media query — unstyled it collapses the page grid.',
+  );
+  assert.match(
+    button![0],
+    /aria-controls=\{railId\}/,
+    'the Menu button no longer names the rail it opens.',
+  );
+
+  /*
+    …and nothing between the bar's left cluster and the button may re-introduce
+    a variant test. `fd-topleft` is where the gate lived.
+  */
+  const topleft = shell.slice(
+    shell.indexOf('<div className="fd-topleft">'),
+    shell.indexOf('aria-label="Menu"'),
+  );
+  assert.ok(
+    topleft.length > 0 && !/\b(inApp|variant)\b/.test(topleft),
+    'the Menu button is gated on the variant again. Every variant\'s rail is ' +
+      'off-canvas below 1024, so every variant needs the control that opens it.',
+  );
+  assert.ok(
+    !/hasRailDrawer/.test(shell),
+    'the `hasRailDrawer` variant gate is back. It is what left /dashboard, an ' +
+      'event, a shop and the admin with no way to open the rail on a phone.',
   );
 });
 

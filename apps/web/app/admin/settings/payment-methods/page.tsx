@@ -309,6 +309,19 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             it to a 512×512 square before saving so it renders clean on every
             couple&rsquo;s order detail page.
           </p>
+          <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
+            <span className="font-semibold">
+              Upload the plain receiving QR &mdash; the one with NO amount on
+              it.
+            </span>{' '}
+            Setnayan writes each order&rsquo;s exact amount into the code
+            itself, down to the centavo, so the payer never types a figure. If
+            you use the QR your wallet app generates <em>with</em> an amount
+            baked in, that app applies its own minimum (GCash asks for
+            &#8369;100) and every order would be charged that one frozen
+            amount. Our own smallest item sells for &#8369;70, so an
+            amount-baked QR would break it.
+          </p>
         </header>
 
         <QrUploadBlock

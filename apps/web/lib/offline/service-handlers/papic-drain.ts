@@ -265,7 +265,35 @@ const GUEST_RESOLVED_STATES: ReadonlySet<string> = new Set([
  *  (its `last_error` surfaces in the admin diagnostic / per-event "waiting to
  *  upload" surfaces). A pool CAN refill (a couple top-up), so a later drain can
  *  still land the shot; if it never refills, the sync daemon's 7-day TTL /
- *  retry cap evicts it rather than looping forever. */
+ *  retry cap evicts it rather than looping forever.
+ *
+ *  ── 🚨 `quota_exhausted` NOW ALSO CARRIES THE COUPLE'S PER-GUEST CEILING ────
+ *  (migration 20271184624871, `reason: 'guest_spend_ceiling'`.) CLASSIFYING IT
+ *  WAS A REQUIRED DECISION, NOT AN OVERSIGHT — the build spec's own words: a
+ *  ceiling refusal "must never be a terminal drain error, and must never be
+ *  unregistered either."
+ *
+ *    • Unregistered ⇒ it falls to the generic branch, the daemon retries ~50
+ *      times, and the 7-day TTL evicts it in silence. That is the 2026-08-18
+ *      defect quoted below: *"they finish the night believing they captured
+ *      dozens of photos that do not exist."*
+ *    • Terminal ⇒ the shot is thrown away. The guest WATCHED THEMSELVES take
+ *      that photograph.
+ *
+ *  ⚖ SO IT SITS HERE, WITH THE POOL, FOR THE SAME REASON: A CEILING CAN BE
+ *  LIFTED EXACTLY AS A POT CAN BE TOPPED UP. The couple raises the number,
+ *  names that guest, or presses "open the rest to everyone", and the next drain
+ *  lands the shot that was waiting. Until then the item stays queued and
+ *  VISIBLE — neither destroyed nor reported as saved.
+ *
+ *  ⚠ WHAT WAS DELIBERATELY NOT BUILT, and it is the owner's call to reverse:
+ *  the spec also asks that a drained capture be ADMITTED above the ceiling,
+ *  since the shot already exists. Nothing on this side of the wire can prove a
+ *  POST is a replay rather than a live capture — the only signal would be a
+ *  field this client sets — and `papic_record_guest_capture` is callable by
+ *  `anon`. Honouring such a field would put a "skip the ceiling" switch on the
+ *  public surface, so the limit could be got around by sending one more form
+ *  field. Waiting, visibly, is the failure this end chose. */
 const GUEST_POOL_EXHAUSTED_STATES: ReadonlySet<string> = new Set([
   'camera_points_exhausted',
   'quota_exhausted',

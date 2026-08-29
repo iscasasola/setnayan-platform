@@ -178,7 +178,7 @@ export function PapicFeatures() {
       <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
         Everything it does
       </h2>
-      <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+      <p className="mt-2 text-sm text-[var(--m-slate-2)]">
         Credits are the only thing you ever pay for. All of this comes with them.
       </p>
 
@@ -194,12 +194,12 @@ export function PapicFeatures() {
                   <dt className="flex flex-wrap items-baseline gap-x-2 text-[0.98rem] font-semibold text-[var(--m-ink)]">
                     {f.t}
                     {f.paid ? (
-                      <span className="rounded-full border border-[var(--m-line)] px-1.5 py-0.5 font-mono text-[0.55rem] uppercase tracking-[0.08em] text-[var(--m-ink)]/55">
+                      <span className="rounded-full border border-[var(--m-line)] px-1.5 py-0.5 font-mono text-[0.55rem] uppercase tracking-[0.08em] text-[var(--m-slate-2)]">
                         Paid add-on
                       </span>
                     ) : null}
                   </dt>
-                  <dd className="mt-1 text-sm text-[var(--m-ink)]/65">{f.d}</dd>
+                  <dd className="mt-1 text-sm text-[var(--m-slate-2)]">{f.d}</dd>
                 </div>
               ))}
             </dl>
@@ -248,7 +248,7 @@ export function PapicHub() {
       <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
         On your own page, not on ours
       </h2>
-      <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+      <p className="mt-2 text-sm text-[var(--m-slate-2)]">
         Papic is a part of the celebration page you already have — the same page holding your
         details and your RSVP. There is no second website, and nothing to send anyone twice.
       </p>

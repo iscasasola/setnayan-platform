@@ -245,7 +245,22 @@ export async function maybeAutoAccept(
       .eq('thread_id', ctx.threadId)
       .eq('inquiry_status', 'pending')
       .select('thread_id');
-    if (flipError || !flipped || flipped.length === 0) return;
+    if (flipError || !flipped || flipped.length === 0) {
+      // Two different silences used to look identical here. A RACE (a human
+      // accepted first) is nothing to report; a REFUSAL by the per-date pipeline
+      // ceiling (WHITELIST_DATE_LIMIT, enforce_vendor_whitelist_per_date) means
+      // the shop's assistant quietly stopped accepting on a date and nobody —
+      // supplier or operator — has any way to learn that from the outside.
+      // Named in the log rather than repaired: the manual path stays open, and
+      // that is the correct fallback for an assistant that cannot proceed.
+      if (flipError?.message?.includes('WHITELIST_DATE_LIMIT')) {
+        console.warn(
+          '[vendor-autoreply] auto-accept refused by the per-date pipeline ceiling:',
+          flipError.message,
+        );
+      }
+      return;
+    }
 
     // ── Welcome message (AI-labelled) + the auto_accept log row ───────────
     const { data: welcome, error: welcomeError } = await admin

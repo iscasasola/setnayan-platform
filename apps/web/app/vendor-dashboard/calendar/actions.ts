@@ -308,19 +308,43 @@ export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
  * Clamped here for a truthful form, and clamped AGAIN in the database
  * (`clamp_vendor_waitlist_to_tier`, migration 20271121655918) — that trigger is
  * the real gate, since this action is not the only writer of the column.
+ *
+ * GRANDFATHERED 2026-08-29 (owner). A supplier already sitting ABOVE their
+ * plan's number keeps it until they change it, and this action has to mirror
+ * that rule or it defeats it: the form posts every field, so somebody merely
+ * flicking the on/off switch would re-post their grandfathered number, this
+ * clamp would lower it, and the value would then differ from the stored one —
+ * which makes the database clamp bind too. Two clamps, and the supplier loses a
+ * number they never touched by pressing Save on a different control.
+ *
+ * So the posted number is compared to the STORED one first. Unchanged ⇒ passed
+ * through exactly. Changed ⇒ the ceiling binds, which is the owner's rule
+ * ("the cap binds anyone who lowers it") applied at both layers identically.
  */
 export async function updateWaitlistSettings(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
-  const tierCap = await vendorWaitlistCapForProfile(supabase, profile.vendor_profile_id);
+  const { data: current } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state, max_waitlist_acceptances')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const currentRow = current as
+    | { tier_state?: string | null; max_waitlist_acceptances?: number | null }
+    | null;
+  const tierCap = vendorWaitlistAcceptances(currentRow?.tier_state);
+  const stored = Number(currentRow?.max_waitlist_acceptances);
 
   const enabled = str(formData, 'waitlist_enabled') === 'on' && tierCap > 0;
   const capRaw = Number(str(formData, 'max_waitlist_acceptances'));
+  const posted =
+    Number.isFinite(capRaw) && capRaw >= 1 ? Math.round(capRaw) : 1;
+  // Untouched grandfathered value ⇒ write it back exactly. `stored` is only
+  // trusted when it is a real number ABOVE the ceiling; anything else falls
+  // through to the ordinary clamp.
+  const untouchedGrandfather =
+    tierCap > 0 && Number.isFinite(stored) && stored > tierCap && posted === stored;
   const cap =
-    tierCap === 0
-      ? 0
-      : Number.isFinite(capRaw) && capRaw >= 1
-        ? Math.min(Math.round(capRaw), tierCap)
-        : 1;
+    tierCap === 0 ? 0 : untouchedGrandfather ? stored : Math.min(posted, tierCap);
 
   const { error } = await supabase
     .from('vendor_profiles')
@@ -331,23 +355,10 @@ export async function updateWaitlistSettings(formData: FormData): Promise<void> 
   backToCalendar(formData, tierCap === 0 ? 'waitlist_not_in_plan' : 'waitlist_settings_saved');
 }
 
-/**
- * The vendor's plan ceiling for waitlist acceptances. Reads `tier_state` with a
- * targeted single-column query (it is deliberately outside the shared profile
- * select) and resolves through the tier matrix, so the number here and the
- * number the database enforces come from the same owner grid.
- */
-async function vendorWaitlistCapForProfile(
-  supabase: Awaited<ReturnType<typeof requireVendor>>['supabase'],
-  vendorProfileId: string,
-): Promise<number> {
-  const { data } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  return vendorWaitlistAcceptances((data as { tier_state?: string | null } | null)?.tier_state);
-}
+/* `vendorWaitlistCapForProfile` was removed 2026-08-29. It read `tier_state`
+ * alone; `updateWaitlistSettings` now needs the stored number in the SAME read
+ * to tell an untouched grandfathered value from a changed one, so the query
+ * moved inline rather than becoming two round trips that could disagree. */
 
 /**
  * The vendor's "pick this couple" for the waitlist (the owner's "whitelist"

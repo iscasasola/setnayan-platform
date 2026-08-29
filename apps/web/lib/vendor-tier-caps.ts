@@ -257,8 +257,14 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // strictly better (servicesPerLeaf 3 vs 2, inAppCustomersPerWeek ∞ vs 10).
   verified: {
     calls: false,
-    whitelistPerDate: 1,
-    waitlistAcceptances: 0, // legacy free tier takes the FREE numbers so free <= verified <= solo holds
+    // OWNER 2026-08-29 — verified gets its OWN pair, 2 / 1. It used to clone the
+    // FREE numbers (1 / 0) because the 2026-08-09 grid gave four numbers for five
+    // tiers and `verified` was the row the build had to invent. Asked directly, the
+    // owner answered *"we already had a table for this"* — so the table wins. Both
+    // moves WIDEN, and free <= verified <= solo still holds on both keys (solo's
+    // waitlist is also 1), which the ladder test asserts.
+    whitelistPerDate: 2,
+    waitlistAcceptances: 1,
     serviceRadiusKm: 20,
     servicesPerLeaf: 2,
     chat: 'chat',

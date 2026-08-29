@@ -17,6 +17,8 @@ import { inquiryHostNoun } from '@/lib/inquiry-mask.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
+import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
+import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
@@ -324,6 +326,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // accepting was/is token-free. Unlike the trust badge this is NOT flag-gated —
   // pre-migration the RPC gracefully degrades to false.
   const founderInquiry = await eventHostHoldsFounderSeat(supabase, thread.event_id);
+
+  // How full is this shop's pipeline for THIS couple's date — the number the
+  // per-tier ceiling refuses on, said out loud BEFORE the refusal. Pending-only
+  // (an accepted thread has already spent its slot) and read through the
+  // supplier's OWN session, because the RPC is caller-scoped and answering with
+  // the service role would answer for a thread they do not own. Returns null —
+  // and the component draws nothing — whenever the ceilings are switched off,
+  // the couple has no date yet, or the read fails.
+  const pipelinePressure =
+    thread.inquiry_status === 'pending'
+      ? await fetchPipelinePressure(supabase, threadId)
+      : null;
 
   const headerPax = livePax ?? thread.pax_current;
   // paxProposals depends on livePax, so it's the one query that follows the batch.
@@ -758,6 +772,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               {FOUNDER_INQUIRY_NOTE}
             </p>
           ) : null}
+          <PipelinePressureLine pressure={pipelinePressure} />
           <div className="flex flex-wrap gap-2">
             <form action={acceptInquiry}>
               <input type="hidden" name="thread_id" value={threadId} />

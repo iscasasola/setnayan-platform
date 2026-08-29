@@ -476,6 +476,18 @@ export function ServicesStep({
   );
   const savingPhp = Math.max(0, laterPhp - quote.totalPhp);
 
+  /**
+   * The same saving as a share of the regular price, for the discount line.
+   *
+   * 🔑 FLOORED, NEVER ROUNDED. Rounding 29.6% up to "30% off" claims a discount
+   * we did not give, on the one screen where somebody is about to hand over
+   * money. Flooring can only ever under-state our own offer, which is the safe
+   * direction — and it is the same reasoning as the banner's "at least 10%".
+   * Zero when there is nothing to show, and the label omits it rather than
+   * printing "0% off".
+   */
+  const savingPct = laterPhp > 0 ? Math.floor((savingPhp / laterPhp) * 100) : 0;
+
   return (
     <div className={['flex flex-col gap-4', className].filter(Boolean).join(' ')}>
       {/*
@@ -690,27 +702,53 @@ export function ServicesStep({
                 </dd>
               </div>
             ) : null}
+            {/*
+              ── THE SUBTRACTION IS SHOWN, NOT ASSERTED ─────────────────────
+              Owner, 2026-08-29: *"on the onboarding payment. show the regular
+              price. the total discount given. how much you saved."*
+
+              🔑 ALL THREE FIGURES WERE ALREADY COMPUTED AND TWO WERE HIDDEN:
+              the regular price was a sentence in the small print BELOW the
+              card, and the discount was only ever named as a saving, so the
+              total was a number you had to take on trust. The ladder now adds
+              up on screen — regular price, the discount taken off, the total —
+              in the order a receipt reads.
+
+              ⛔ AND IT STILL CANNOT INVENT A "WAS" PRICE. `laterPhp` collapses
+              onto the real total when no row carries a discount, so `savingPhp`
+              is 0 and this whole ladder disappears with it. There is no path
+              here that prints a regular price nobody would have been charged.
+            */}
+            {savingPhp > 0 && (
+              <>
+                <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-ink/10 pt-3">
+                  <dt className="text-sm text-ink/70">Regular price</dt>
+                  <dd className="font-mono text-sm tabular-nums text-ink/70">
+                    {peso(laterPhp)}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-sm text-terracotta-700">
+                    Set-up discount{savingPct > 0 ? ` · ${savingPct}% off` : ''}
+                  </dt>
+                  <dd className="font-mono text-sm font-semibold tabular-nums text-terracotta-700">
+                    &minus;{peso(savingPhp)}
+                  </dd>
+                </div>
+              </>
+            )}
             <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-ink/10 pt-3">
               <dt className="text-sm font-semibold text-ink">Your total today</dt>
               <dd className="font-sans text-2xl font-semibold tabular-nums text-ink">
                 {quote.totalPhp > 0 ? peso(quote.totalPhp) : 'Free'}
               </dd>
             </div>
-            {savingPhp > 0 && (
-              <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-sm text-terracotta-700">
-                  You save by setting up now
-                </dt>
-                <dd className="font-mono text-sm font-semibold tabular-nums text-terracotta-700">
-                  &minus;{peso(savingPhp)}
-                </dd>
-              </div>
-            )}
           </dl>
           {savingPhp > 0 && (
             <p className="mt-2 text-xs leading-relaxed text-ink/60">
-              The same things cost {peso(laterPhp)} if you add them later. This price
-              is only while you&rsquo;re setting up.
+              You save {peso(savingPhp)} by setting up now. The same things cost{' '}
+              {peso(laterPhp)} if you add them later &mdash; this price is only while
+              you&rsquo;re setting up.
             </p>
           )}
           <p className="mt-3 text-xs leading-relaxed text-ink/55">

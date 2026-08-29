@@ -28,6 +28,15 @@ const web = process.cwd();
 const read = (rel: string) => readFileSync(join(web, rel), 'utf8');
 const strip = (src: string) =>
   src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/**
+ * The same source with every run of whitespace collapsed to one space.
+ *
+ * 🪤 A SENTENCE THAT WRAPS IS THE SAME SENTENCE. The rendered copy below is
+ * broken across lines by the formatter, so a raw-source regex for it fails the
+ * moment somebody re-wraps a paragraph they did not change — a guard that goes
+ * red on formatting teaches you to edit the guard instead of reading it.
+ */
+const flat = (src: string) => strip(src).replace(/\s+/g, ' ');
 
 const TIERS = [
   { serviceCode: 'PAPIC_GUEST_1K', points: 1_000, isTopup: false },
@@ -195,12 +204,64 @@ test('🔴 the discount is stated before you choose, on the item, and on the tot
   assert.match(src, /off while you&rsquo;re setting up/, 'and so does the planner');
 
   // 3 · on the total, where they agree to it
-  assert.match(src, /You save by setting up now/, 'the total states the saving');
+  const one = flat(read('app/onboarding/_shared/services-step.tsx'));
   assert.match(
-    src,
-    /The same things cost \{peso\(laterPhp\)\} if you add them later/,
+    one,
+    /You save \{peso\(savingPhp\)\} by setting up now/,
+    'the total states the saving, as a figure',
+  );
+  assert.match(
+    one,
+    /The same things cost\{' '\} \{peso\(laterPhp\)\} if you add them later/,
     'and names the other number, so the deadline is a figure and not a feeling',
   );
+});
+
+/**
+ * ⚖ Owner, 2026-08-29: *"on the onboarding payment. show the regular price. the
+ * total discount given. how much you saved."*
+ *
+ * Three facts, and before this they were one: the total. The regular price was a
+ * sentence in the small print under the card and the discount was never named at
+ * all — so the figure somebody agrees to could not be checked against anything
+ * on screen. These three assertions are the owner's three nouns.
+ */
+test('🔴 the total block shows the regular price, the discount, and the saving', () => {
+  const one = flat(read('app/onboarding/_shared/services-step.tsx'));
+
+  // the regular price — the number the same picks cost after the create flow
+  assert.match(
+    one,
+    /<dt className="text-sm text-ink\/70">Regular price<\/dt> <dd[^>]*> \{peso\(laterPhp\)\}/,
+    'the regular price is a LINE, not small print',
+  );
+  // the discount given, as money off
+  assert.match(one, /Set-up discount\{savingPct > 0 \? ` · \$\{savingPct\}% off` : ''\}/,
+    'the discount is named, with its percentage when there is one');
+  assert.match(one, /&minus;\{peso\(savingPhp\)\}/, 'and shown as an amount taken off');
+  // and it has to add up: regular − discount = total, in that order
+  const order = ['Regular price', 'Set-up discount', 'Your total today']
+    .map((label) => one.indexOf(label));
+  assert.ok(order.every((i) => i >= 0), 'all three lines must exist');
+  assert.deepEqual([...order].sort((a, b) => a - b), order,
+    'a receipt reads regular → discount → total; any other order is arithmetic nobody can follow');
+});
+
+test('⛔ the percentage is FLOORED, so it can never over-claim the discount', () => {
+  // Rounding 29.6% up to "30% off" claims a discount we did not give, on the
+  // one screen where somebody is about to hand over money.
+  const src = strip(read('app/onboarding/_shared/services-step.tsx'));
+  assert.match(
+    src,
+    /const savingPct = laterPhp > 0 \? Math\.floor\(\(savingPhp \/ laterPhp\) \* 100\) : 0;/,
+    'floored, and guarded against dividing by zero',
+  );
+  assert.doesNotMatch(src, /Math\.round\(\(savingPhp/, 'never rounded');
+  // A worked example of the rule, so the intent survives a refactor of the line
+  // above: ₱70 regular, ₱49 today is exactly 30%, and ₱21 off ₱71 is 29%.
+  const pct = (later: number, saving: number) => Math.floor((saving / later) * 100);
+  assert.equal(pct(70, 21), 30);
+  assert.equal(pct(71, 21), 29);
 });
 
 test('⛔ every one of those lines disappears when there is nothing to save', () => {

@@ -143,6 +143,24 @@ export function EventCardMenu({
   const [asking, setAsking] = useState(false);
   /** TRUE once the request is in. */
   const [requested, setRequested] = useState(false);
+  /**
+   * WHICH HALF OF THE REMOVAL IS ON SCREEN — owner 2026-08-29: *"when they
+   * click on their reason, change the content of the popup to just show the
+   * type XXX to confirm so the popup stays fit."*
+   *
+   * The frame used to carry everything at once: what is lost, six reason
+   * chips, a notes box, the typed name and the buttons — about 590px, taller
+   * than the phone it opens on. Two short screens fit; one long one never can,
+   * and the part that falls off the bottom is always the button.
+   *
+   * ⚖ THE REASON IS STILL ASKED, NEVER DEMANDED. Advancing on a chip press
+   * would make the survey the toll gate on somebody's own celebration, so
+   * "I'd rather not say" moves them on with nothing recorded — the same
+   * standing this question has had since the owner set it on 2026-08-28.
+   */
+  const [step, setStep] = useState<'why' | 'confirm'>('why');
+  /** The note is one line until it is asked for — see `step`. */
+  const [noteOpen, setNoteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -157,6 +175,8 @@ export function EventCardMenu({
     setReasonText('');
     setAsking(false);
     setRequested(false);
+    setStep('why');
+    setNoteOpen(false);
   }
 
   function putAway() {
@@ -191,6 +211,8 @@ export function EventCardMenu({
 
   function openDelete() {
     setError(null);
+    setStep('why');
+    setNoteOpen(false);
     setConfirming(true);
     startTransition(async () => {
       try {
@@ -637,7 +659,12 @@ export function EventCardMenu({
                 </button>
               ) : null}
             </>
-          ) : (
+          ) : step === 'why' ? (
+            /*
+              SCREEN ONE — WHAT GOES, AND WHY. No typed name and no Remove
+              button: this half is a question, and a destructive control on a
+              screen whose job is to ask one is a control pressed by accident.
+            */
             <>
               <ImpactLines impact={impact} />
               {/*
@@ -646,16 +673,88 @@ export function EventCardMenu({
                 survey would be the product asking for a favour on the way
                 out. It is here because this is the ONLY moment anybody
                 will ever tell us why they left, and it costs one tap.
+
+                🔑 A PRESS IS THE ANSWER AND THE PAGE TURN, BOTH — owner
+                2026-08-29. Clearing the chosen one is NOT a page turn: it
+                leaves them here, where the chips are, which is the only place
+                clearing it means anything.
               */}
               <ReasonPicker
                 code={reasonCode}
-                onCode={setReasonCode}
+                onCode={(c) => {
+                  setReasonCode(c);
+                  if (c) setStep('confirm');
+                }}
                 text={reasonText}
                 onText={setReasonText}
                 textLabel="Anything you want to add?"
                 textRequired={false}
                 optional
+                hideText
               />
+              {/*
+                ⚖ THE WAY PAST THE QUESTION, AND IT IS NOT A SMALL PRINT LINK.
+                Without it, advancing-on-a-chip turns an optional survey into
+                the toll gate on somebody's own celebration — the exact thing
+                the note above says this question must never be.
+              */}
+              <button
+                type="button"
+                onClick={() => {
+                  setReasonCode('');
+                  setReasonText('');
+                  setStep('confirm');
+                }}
+                className="sn-press mt-2.5 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+              >
+                I’d rather not say
+              </button>
+            </>
+          ) : (
+            /*
+              SCREEN TWO — THE PRESS. The strongest warning moved here on
+              purpose: it belongs beside the button, not two scrolls above it.
+            */
+            <>
+              <PermanenceWarning />
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-[11.5px] leading-snug text-ink/55">
+                <span>
+                  {reasonCode
+                    ? `You said: ${deletionReasonLabel(reasonCode).toLowerCase()}`
+                    : 'No reason given'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStep('why')}
+                  className="sn-press font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+                >
+                  {reasonCode ? 'Change' : 'Say why'}
+                </button>
+              </div>
+              {/*
+                🔑 THE NOTE IS ONE LINE UNTIL IT IS ASKED FOR. Owner
+                2026-08-28: *"they can pick a reason for deleting. or they state
+                their reason."* — so the box has to stay reachable, and an
+                always-open box is 60px of the height this screen exists to save
+                spent on a field most people leave empty.
+              */}
+              {reasonCode && !noteOpen && !reasonText ? (
+                <button
+                  type="button"
+                  onClick={() => setNoteOpen(true)}
+                  className="sn-press mt-1.5 text-[11.5px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+                >
+                  Add a note
+                </button>
+              ) : null}
+              {reasonCode && (noteOpen || reasonText) ? (
+                <ReasonNote
+                  label="Anything you want to add?"
+                  required={false}
+                  text={reasonText}
+                  onText={setReasonText}
+                />
+              ) : null}
               <label className="mt-2.5 block text-[11.5px] font-semibold text-ink/70">
                 Type <span className="font-bold text-ink">{eventName}</span> to
                 confirm
@@ -741,7 +840,10 @@ export function EventCardMenu({
               >
                 {pending ? 'Sending…' : 'Send it'}
               </button>
-            ) : impact && !impact.blocked ? (
+            ) : impact && !impact.blocked && step === 'confirm' ? (
+              /* Not on the "why" screen — see the note there. The disabled
+                 condition itself is UNCHANGED: Remove still waits on the typed
+                 name and nothing else. */
               <button
                 type="button"
                 onClick={confirmDelete}
@@ -865,26 +967,34 @@ function ImpactLines({ impact }: { impact: DeletionImpact }) {
       {parts.length > 0 ? (
         <>
           <span className="font-semibold text-ink">{parts.join(' · ')}</span> go
-          with it, along with the page your guests use.{' '}
+          with it, along with the page your guests use.
         </>
       ) : (
-        <>Everything on it goes, including the page your guests use. </>
+        <>Everything on it goes, including the page your guests use.</>
       )}
-      {/*
-        ⚠ THE SENTENCE THE OWNER ASKED FOR, 2026-08-20: "give them the
-        information that you will also lose your photos and information of the
-        event permanently."
+    </p>
+  );
+}
 
-        It is separate from the counted line above on purpose. That line lists
-        WHAT — and a count reads as an inventory, something you could imagine
-        asking us to restore. This says the photographs are GONE, in the two
-        words people actually check for. Until today it was not even true that
-        the files went; now it is, so the warning has to say so before the press
-        rather than after.
-
-        "Deleted for good" and "can't be undone" are not the same promise. The
-        second one is about the button; the first is about the photographs.
-      */}
+/**
+ * ⚠ THE SENTENCE THE OWNER ASKED FOR, 2026-08-20: "give them the information
+ * that you will also lose your photos and information of the event
+ * permanently."
+ *
+ * It is separate from the counted line on purpose. That line lists WHAT — and a
+ * count reads as an inventory, something you could imagine asking us to
+ * restore. This says the photographs are GONE, in the two words people actually
+ * check for.
+ *
+ * 🔑 AND IT MOVED TO THE SCREEN WITH THE BUTTON ON IT (2026-08-29). The frame
+ * is two screens now, and a warning left behind on the first one is a warning
+ * somebody read before they were deciding anything. "Deleted for good" and
+ * "can't be undone" are not the same promise: the second is about the button,
+ * the first is about the photographs — so the first one belongs beside it.
+ */
+function PermanenceWarning() {
+  return (
+    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
       <strong className="font-semibold text-ink">
         Your photos and everything about this celebration are deleted for good
       </strong>{' '}
@@ -915,6 +1025,7 @@ function ReasonPicker({
   textLabel,
   textRequired,
   optional = false,
+  hideText = false,
 }: {
   code: string;
   onCode: (c: string) => void;
@@ -924,6 +1035,12 @@ function ReasonPicker({
   textRequired: boolean;
   /** Ordinary removals say so — the button never waits on this. */
   optional?: boolean;
+  /**
+   * TRUE where the box belongs on a later screen than the chips — the removal
+   * frame, whose whole point since 2026-08-29 is that no one screen is taller
+   * than the phone it opens on. The caller renders `<ReasonNote>` itself.
+   */
+  hideText?: boolean;
 }) {
   return (
     <div className="mt-2.5">
@@ -955,21 +1072,51 @@ function ReasonPicker({
           );
         })}
       </div>
-      {code ? (
-        <label className="mt-2 block text-[11.5px] font-semibold text-ink/70">
-          {textLabel}
-          {textRequired ? null : (
-            <span className="ml-1 font-normal text-ink/45">Optional</span>
-          )}
-          <textarea
-            value={text}
-            onChange={(e) => onText(e.target.value)}
-            rows={2}
-            maxLength={1000}
-            className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-[12px] font-normal leading-snug text-ink outline-none focus:border-mulberry"
-          />
-        </label>
+      {code && !hideText ? (
+        <ReasonNote
+          label={textLabel}
+          required={textRequired}
+          text={text}
+          onText={onText}
+        />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The box under the chips — ONE implementation, two places.
+ *
+ * 🔑 It is a component rather than markup repeated twice because the removal
+ * frame now shows it on a LATER screen than the chips (owner 2026-08-29), while
+ * the request path still shows it inline. Two copies of a field is two copies
+ * of its 1000-character cap, its rows, and its Optional/required label — and
+ * the copy somebody forgets to change is the one a person meets.
+ */
+function ReasonNote({
+  label,
+  required,
+  text,
+  onText,
+}: {
+  label: string;
+  required: boolean;
+  text: string;
+  onText: (t: string) => void;
+}) {
+  return (
+    <label className="mt-2 block text-[11.5px] font-semibold text-ink/70">
+      {label}
+      {required ? null : (
+        <span className="ml-1 font-normal text-ink/45">Optional</span>
+      )}
+      <textarea
+        value={text}
+        onChange={(e) => onText(e.target.value)}
+        rows={2}
+        maxLength={1000}
+        className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-[12px] font-normal leading-snug text-ink outline-none focus:border-mulberry"
+      />
+    </label>
   );
 }

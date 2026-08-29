@@ -21,3 +21,30 @@ Owner, on his phone, with the frame open: *"i cannot click on the delete this fr
 Verified: `tsc --noEmit` exit **0**, 0 errors (⚠ the first run aborted at **134** with an empty log — the known OOM that reads as clean; re-run with a larger heap). Full unit suite **11,363 pass · 0 fail**. `lint:port-controls`, `lint:radius`, `lint:contrast`, `lint:masthead`, `lint:botnav` all exit 0. The four existing guards that read this file — `counter-on-the-card`, `event-deletion-reasons`, `the-supplier-can-answer`, `event-media-sweep` — pass unchanged, which is the point: the confirm block moved, it was not rewritten.
 
 SPEC IMPACT: None — no SKU, price, schema, or product rule changes. The delete flow's rules, arms and copy are byte-identical; only where the frame is drawn, and one new keyboard shortcut for the control already on it.
+
+## 2026-08-29 · fix(launcher): the remove frame is two short screens — picking a reason turns the page
+
+Owner, on the same frame: *"this means, when they click on their reason, change the content of the popup to just show the type XXX to confirm so the popup stays fit."*
+
+Putting the frame in the top layer stopped anything covering it. It did not make it **short**: what goes, six reason chips, a notes box, the typed name and the buttons is ~590px on a ~780px phone, and the part that runs off the bottom of a frame is always the button.
+
+**It is two screens now.**
+
+1. **What goes, and why** — the counted line ("3 photos · 12 guests go with it…"), the six chips, and **"I'd rather not say"**. No typed name, no Remove button: this half asks a question, and a destructive control on a screen whose job is to ask one is a control pressed by accident.
+2. **The press** — the permanence warning, a one-line "You said: not happening any more · Change", an "Add a note" link, the typed name, and Cancel / Remove for good.
+
+A chip press is the answer **and** the page turn. Clearing the chosen chip is deliberately **not** a page turn — clearing only means anything on the screen the chips are on.
+
+⚖ **THE REASON IS STILL ASKED, NEVER DEMANDED — this is the load-bearing part.** Advancing on a chip press would quietly turn an optional survey into the toll gate on somebody's own celebration, which is exactly what the owner's 2026-08-28 standing forbids. **"I'd rather not say"** moves them on with nothing recorded, and it is a real control next to the chips, not small print. A guard asserts it exists and records nothing.
+
+🔑 **THE STRONGEST WARNING MOVED TO THE SCREEN WITH THE BUTTON ON IT.** *"Your photos and everything about this celebration are deleted for good"* used to sit in the same paragraph as the counts. In a two-screen frame that would leave it on the screen where nobody is deciding anything — read, then scrolled past. It now renders directly above the typed name, and a guard pins that ORDER, not merely its presence.
+
+🔑 **ONE NOTE FIELD, TWO PLACES.** The removal frame shows the box on a later screen than the chips while the request path still shows it inline — so the field is now a shared component rather than markup written twice. Two copies of a field is two copies of its 1000-character cap and its Optional label, and the copy nobody remembers to change is the one a person meets. Guarded by counting the cap: exactly one.
+
+**Unchanged, deliberately:** Remove still waits on the typed name **and nothing else** — the disabled condition was not touched, only which screen the button is drawn on. The blocked-event and ask-us-to-remove-it arms keep their existing shape.
+
+🛡 Six more assertions on the same guard file, **all mutation-checked by occurrence count, all RED**: collapse it back to one screen (1→0) · stop advancing on a chip press (1→0) · **remove the way past the question (2→1)** · put Remove back on the "why" screen (1→0) · leave the permanence warning on the first screen (1→0) · **hand-copy the note field a second time (1→2)**.
+
+Verified: `tsc --noEmit` exit **0**, 0 errors · full unit suite **11,364 pass · 0 fail** · `lint:port-controls`, `lint:radius`, `lint:contrast`, `lint:masthead`, `lint:botnav`, `lint:legibility` all exit 0 · the four existing guards over this file pass unchanged.
+
+SPEC IMPACT: None — no SKU, price, schema or rule change. Same words, same gates, same optional reason; two screens instead of one.

@@ -136,3 +136,82 @@ test('Enter in the typed-name box removes it, on exactly the button’s terms', 
       'dialog close can now ride along with the removal.',
   );
 });
+
+test('the frame is two short screens, and the reason is still optional', () => {
+  const src = read();
+
+  /*
+    Owner 2026-08-29: "when they click on their reason, change the content of
+    the popup to just show the type XXX to confirm so the popup stays fit."
+    Everything at once was ~590px on a ~780px phone — and the part that falls
+    off the bottom of a frame is always the button.
+  */
+  assert.match(
+    src,
+    /\) : step === 'why' \? \(/,
+    'The remove frame is one long screen again. It does not fit a phone, and ' +
+      'what runs off the bottom is the button.',
+  );
+
+  // 1 · A CHIP PRESS TURNS THE PAGE — and clearing one does NOT, because
+  //     clearing only means anything on the screen the chips are on.
+  assert.match(
+    src,
+    /setReasonCode\(c\);\s*if \(c\) setStep\('confirm'\);/,
+    'Picking a reason no longer moves them on — or worse, clearing one does.',
+  );
+
+  // 2 · 🔴 THE LOAD-BEARING ONE. Advancing on a chip press makes an optional
+  //     survey the toll gate on somebody's own celebration unless there is a
+  //     way past it that records nothing. The owner set that standing on
+  //     2026-08-28 and this screen must not quietly take it back.
+  assert.match(
+    src,
+    /setReasonCode\(''\);[\s\S]{0,80}?setStep\('confirm'\);/,
+    'There is no way past the reason question without answering it. The ' +
+      'reason is asked, never demanded — a celebration held hostage to a ' +
+      'survey is the product asking a favour on the way out.',
+  );
+
+  // 3 · THE BUTTON IS ONLY ON THE SCREEN THAT ASKS FOR IT. A destructive
+  //     control on a screen whose job is to ask a question is one pressed by
+  //     accident.
+  assert.match(
+    src,
+    /impact && !impact\.blocked && step === 'confirm' \?/,
+    'Remove is offered on the "why" screen again, where nothing has been ' +
+      'typed and nobody has been warned yet.',
+  );
+
+  // 4 · THE STRONGEST WARNING SITS WITH THE BUTTON, not two screens above it.
+  const warnAt = src.indexOf('<PermanenceWarning />');
+  const typedAt = src.indexOf('value={typed}');
+  assert.equal(
+    count(src, /<PermanenceWarning \/>/g),
+    1,
+    'The permanence warning must render exactly once — on the screen that ' +
+      'carries the press.',
+  );
+  assert.ok(
+    warnAt > 0 && warnAt < typedAt,
+    'The "your photos are deleted for good" line is no longer above the typed ' +
+      'name on the confirm screen. A warning left on the previous screen was ' +
+      'read before the person was deciding anything.',
+  );
+
+  // 5 · ONE NOTE FIELD, TWO PLACES. The removal frame shows the box on a later
+  //     screen than the chips while the request path keeps it inline — two
+  //     copies of a field is two copies of its cap and its label, and the copy
+  //     nobody remembers to change is the one a person meets.
+  assert.equal(
+    count(src, /maxLength=\{1000\}/g),
+    1,
+    'A second copy of the note field appeared. One implementation, two places.',
+  );
+  assert.equal(
+    count(src, /<ReasonNote\b/g),
+    2,
+    'The shared note field is no longer used in both places — the removal ' +
+      'frame’s later screen and the picker’s inline box.',
+  );
+});

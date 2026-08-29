@@ -82,6 +82,7 @@ import { pickNextScheduleBlock, type GuestHubData } from '../_components/guest-h
 import type {
   EventMedia,
   GuestContext,
+  GuestPapicCamera,
   LiveLayerData,
   LiveWallData,
   WatchLiveData,
@@ -1111,16 +1112,8 @@ export const loadGuestContext = cache(
     // If the guest is blocked, mirror the route and DON'T mount the camera (the
     // floating CTA / route remains as the QR-scan fallback). Admin reads, all
     // gated so the anonymous public path never touches this.
-    let papicGuest:
-      | {
-          initialRemaining: number;
-          total: number;
-          termsAccepted: boolean;
-          guestUnlimited: boolean;
-          eventStyle: PapicStyle;
-          faceMode: PapicFaceMode;
-        }
-      | null = null;
+    // ONE declaration of this shape, in ./types — see GuestPapicCamera.
+    let papicGuest: GuestPapicCamera | null = null;
     if (papicGuestActive) {
       const [quota, { data: ugcRow }, { data: blockRow }, { data: styleRow }] =
         await Promise.all([
@@ -1153,7 +1146,9 @@ export const loadGuestContext = cache(
             (ugcRow as { ugc_terms_accepted_at?: string | null } | null)
               ?.ugc_terms_accepted_at,
           ),
-          guestUnlimited: quota.unlimited,
+          capApplies: quota.capApplies,
+          poolRemaining: quota.poolRemaining,
+          poolLow: quota.poolLow,
           eventStyle: asPapicStyle(
             (styleRow as { papic_style?: string } | null)?.papic_style,
           ),

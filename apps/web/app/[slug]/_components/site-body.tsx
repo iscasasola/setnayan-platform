@@ -1393,7 +1393,9 @@ export async function SiteBody({
                   total={papicGuest.total}
                   termsAccepted={papicGuest.termsAccepted}
                   needsFaceEnroll={needsFaceEnroll}
-                  guestUnlimited={papicGuest.guestUnlimited}
+                  capApplies={papicGuest.capApplies}
+                  poolRemaining={papicGuest.poolRemaining}
+                  poolLow={papicGuest.poolLow}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
                 />

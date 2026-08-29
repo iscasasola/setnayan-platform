@@ -102,41 +102,36 @@ export async function PapicLadderSurface(_props: Props) {
     .sort((a, b) => a.shots - b.shots);
 
   /*
-    EVERYTHING PAPIC THAT IS NOT A RUNG — the Thank You video and the four camera
-    rates.
+    THE THANK YOU VIDEO — the one Papic product that is not a credit rung.
 
-    🔑 THE CAMERA RATES ARE SWITCHED OFF AND STILL CHARGE, WHICH IS WHY THEY ARE
-    HERE. `fetchCameraRates` reads all four PAST `is_active`, and two of them
-    price a purchase a couple can make today. A price that still charges belongs
-    where prices are set — filed on a "switched off" shelf it stops being looked
-    at, which is how a live number goes stale.
+    ⚖ OWNER 2026-08-29, NARROWING THIS TAB: *"papic is only the papic shot
+    prices and the thankyou. so the rest should be removed."* An earlier build
+    of this tab also drew the four PAPIC_CAMERA_* per-day rates here, reasoning
+    that two of them still price a live purchase despite being switched off. He
+    is right that that reasoning does not belong on THIS tab: it is a real
+    property of those rows, but this tab is Papic's SHOTS, not every Papic-
+    prefixed row in the catalog.
+
+    🔑 THE CAMERA ROWS ARE NOT DELETED AND NOT HIDDEN. They stay exactly where
+    every other switched-off price lives — the main Pricing tab's "Switched
+    off" shelf, tagged "Still wired" — and remain editable there through the
+    ordinary row card. Only their SECOND appearance, invented for this tab, is
+    removed.
   */
-  const STILL_CHARGES_WHILE_OFF = new Set([
-    'PAPIC_CAMERA_MINI_DAY',
-    'PAPIC_CAMERA_ROLL_DAY',
-    'PAPIC_CAMERA_LTD_DAY',
-    'PAPIC_CAMERA_UNLIMITED_DAY',
-  ]);
-
   const otherPapic: PapicProductRow[] = ((catRes.data ?? []) as {
     service_code: string;
     title: string | null;
     retail_price_php: number | string;
     is_active: boolean;
   }[])
-    .filter((r) => !shotsByCode.has(r.service_code))
+    .filter((r) => r.service_code === 'PAPIC_ADDON_THANK_YOU')
     .map((r) => ({
       serviceCode: r.service_code,
       title: r.title ?? r.service_code,
       regularPhp: Number(r.retail_price_php),
       isActive: r.is_active === true,
-      stillCharges: r.is_active !== true && STILL_CHARGES_WHILE_OFF.has(r.service_code),
-    }))
-    // On sale first, then the ones that still charge, then the rest.
-    .sort((a, b) => {
-      const rank = (x: PapicProductRow) => (x.isActive ? 0 : x.stillCharges ? 1 : 2);
-      return rank(a) - rank(b) || a.regularPhp - b.regularPhp;
-    });
+      stillCharges: false,
+    }));
 
   const rawFree = poolRes.error
     ? null

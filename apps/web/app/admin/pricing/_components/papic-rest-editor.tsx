@@ -8,23 +8,19 @@ export type PapicProductRow = {
   title: string;
   regularPhp: number;
   isActive: boolean;
-  /**
-   * True for a row that is switched OFF and yet still prices something a
-   * customer can buy — the camera rates, which `fetchCameraRates` reads past
-   * `is_active`. The screen has to say so, or the number looks retired.
-   */
-  stillCharges: boolean;
 };
 
 const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
 
 /**
- * WHAT EVERY CELEBRATION IS GIVEN, AND EVERYTHING PAPIC THAT IS NOT A RUNG.
+ * WHAT EVERY CELEBRATION IS GIVEN, AND THE THANK YOU VIDEO.
  *
  * ⚖ Owner 2026-08-29: *"free credits should be here. with the rest of papic
- * services and the thank you video."* The tab held the ladder alone, so the
- * whole Papic picture was never in one place — the free allowance had no screen
- * at all and the Thank You video sat among unrelated products on another tab.
+ * services and the thank you video."* Then, narrowing it: *"papic is only the
+ * papic shot prices and the thankyou. so the rest should be removed."* An
+ * earlier build also drew the four switched-off camera rates here; those are
+ * a different product line and stay on the main Pricing tab, where every other
+ * switched-off price lives.
  */
 export function PapicRestEditor({
   freeCreditsPerEvent,
@@ -36,16 +32,14 @@ export function PapicRestEditor({
   products: PapicProductRow[];
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
 }) {
-  const stillCharging = products.filter((p) => p.stillCharges);
-
   return (
     <section className="mt-10">
       <h2 className="mb-1 text-base font-semibold tracking-tight">
-        Free credits, and the rest of Papic
+        Free credits, and the Thank You video
       </h2>
       <p className="mb-4 max-w-prose text-sm leading-relaxed text-ink/60">
-        What every celebration starts with, and every Papic price that is not a rung of the
-        ladder above.
+        What every celebration starts with, and Papic&apos;s one product that is not a rung of
+        the ladder above.
       </p>
 
       {/*
@@ -81,19 +75,6 @@ export function PapicRestEditor({
           Not editable here yet — changing it still needs a migration
         </p>
       </div>
-
-      {stillCharging.length > 0 && (
-        <div className="mb-4 rounded-xl border border-warn-700/30 bg-warn-500/[0.07] px-4 py-3">
-          <p className="text-[13px] leading-relaxed text-ink/75">
-            <strong>
-              {stillCharging.length} price{stillCharging.length === 1 ? '' : 's'} below
-              {stillCharging.length === 1 ? ' is' : ' are'} switched off and still charging.
-            </strong>{' '}
-            The camera rates are read whether or not they are on sale, so they price real
-            purchases. They are here, and editable, for exactly that reason.
-          </p>
-        </div>
-      )}
 
       <div className="overflow-hidden rounded-2xl border border-ink/10">
         {products.map((p) => (
@@ -131,10 +112,6 @@ function ProductRow({
           {row.isActive ? (
             <span className="rounded-full border border-success-800/25 bg-success-800/[0.08] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-success-800">
               On sale
-            </span>
-          ) : row.stillCharges ? (
-            <span className="rounded-full border border-warn-700/30 bg-warn-500/[0.12] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-warn-700">
-              Off sale · still charges
             </span>
           ) : (
             <span className="rounded-full border border-ink/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-ink/55">

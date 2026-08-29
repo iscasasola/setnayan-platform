@@ -84,12 +84,31 @@ before(async () => {
   assert.ok(plan.rows[0], 'the replayed catalog has no active pro plan — the fixture would prove nothing');
   planSku = plan.rows[0]!.sku_code;
 
+  /*
+    🔴 THIS USED TO PICK A REAL PRODUCT ROW, AND THAT MADE THE GUARD FRAGILE.
+    It selected `WHERE offering_type = 'token_pack' ORDER BY sku_code LIMIT 1` —
+    whichever real SKU the replayed migrations happened to leave behind. On
+    2026-08-29 a catalogue cleanup deleted all six token-pack rows (never
+    subscribed, never referenced anywhere in app code, safe by every measure
+    that matters to a PRODUCT) and this SECURITY test went dark with them: no
+    row to select, `packSku` undefined, and the whole file either throws in
+    `before()` or silently proves nothing.
+
+    🔑 A SECURITY REGRESSION TEST MUST NOT DEPEND ON PRODUCT DATA SURVIVING.
+    What this file protects — `create_vendor_subscription` refusing to charge
+    for a token pack even when one is active — has nothing to do with which
+    SKUs exist. So the fixture now MINTS its own throwaway row with
+    `offering_type = 'token_pack'`, satisfying the exact WHERE clause the
+    function's authorization gate reads, independent of anything a catalogue
+    cleanup does. The guard survives every future deletion of real packs.
+  */
   const pack = await db.query<{ sku_code: string }>(
-    `UPDATE public.vendor_billing_catalog SET is_active = TRUE
-      WHERE sku_code = (SELECT sku_code FROM public.vendor_billing_catalog
-                         WHERE offering_type = 'token_pack' ORDER BY sku_code LIMIT 1)
-      RETURNING sku_code`);
-  assert.ok(pack.rows[0], 'no token_pack row to activate — this test needs one to be meaningful');
+    `INSERT INTO public.vendor_billing_catalog
+       (sku_code, title, price_php, offering_type, token_grant_count, is_active, display_order)
+     VALUES ('test_only_token_pack_fixture', 'TEST ONLY — token pack fixture',
+             500.00, 'token_pack', 10, TRUE, 9999)
+     RETURNING sku_code`);
+  assert.ok(pack.rows[0], 'the fixture insert failed — the test would prove nothing');
   packSku = pack.rows[0]!.sku_code;
 
   await setAuthUid(db, UID);

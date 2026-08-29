@@ -55,7 +55,7 @@ test('🪤 the deploy-window rung exists — the migration and Vercel race, and 
   const rungs = [...ROUTE.matchAll(/admin\.rpc\('papic_record_guest_capture', \{([^}]*)\}/gs)]
     // 🪤 `[a-z0-9_]`, not `[a-z_]` — `p_r2_object_key` and `p_poster_r2_key`
     // carry a DIGIT, so the obvious character class silently counted 5 and 4.
-    .map((m) => (m[1].match(/p_[a-z0-9_]+:/g) ?? []).length);
+    .map((m) => ((m[1] ?? '').match(/p_[a-z0-9_]+:/g) ?? []).length);
   assert.deepEqual(
     rungs,
     [7, 6, 3, 2],

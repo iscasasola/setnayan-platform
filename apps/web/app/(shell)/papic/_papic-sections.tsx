@@ -180,13 +180,49 @@ export function PapicFeatures() {
         ))}
       </div>
 
-      {/* The breadth, kept but quiet. A reader who wants the specification can
-          have it; a reader who wants the story has already had it above. */}
-      <div className="mt-16 border-t border-[var(--m-line)] pt-8">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
-          And everything else
-        </p>
-        <dl className="mt-4 space-y-3.5">
+      {/*
+        THE BREADTH, KEPT BUT FOLDED — owner, 2026-08-29, after reading the page
+        on a phone: *"cut it down"*.
+
+        Measured before the cut: this section ran **4,792px at 375px wide — 37%
+        of a 12,847px page, nearly six phone screens on its own** — and
+        everything a buyer needs (the comparison, the two ways to run it, the
+        price) sat behind it. The six spotlights above are the story; these
+        twenty are the specification, and a specification is something you go
+        and open, not something you scroll past to reach the price.
+
+        ⚠ NOT DELETED, AND THE DISTINCTION MATTERS. Every line here is a real
+        thing the product does and several are the strongest material we have
+        (the blur, the screening, the moderation). Folding keeps them findable
+        and indexed — `<details>` content is in the DOM, so search engines and a
+        reader who wants the list both still get all of it.
+
+        The count is DERIVED. A typed "20 more" is wrong the first time somebody
+        adds a row, and this page's whole discipline is that no number on it is
+        hand-written.
+      */}
+      <details className="group mt-16 border-t border-[var(--m-line)] pt-8">
+        <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 text-[0.98rem] font-semibold text-[var(--m-ink)] [&::-webkit-details-marker]:hidden">
+          <span>
+            And everything else
+            <span className="ml-2 font-mono text-[0.72rem] font-normal tabular-nums text-[var(--m-slate-2)]">
+              {EVERYTHING_ELSE.length} more
+            </span>
+          </span>
+          <span
+            aria-hidden
+            className="flex-none font-mono text-[var(--m-orange-2)] group-open:hidden"
+          >
+            +
+          </span>
+          <span
+            aria-hidden
+            className="hidden flex-none font-mono text-[var(--m-orange-2)] group-open:block"
+          >
+            −
+          </span>
+        </summary>
+        <dl className="mt-5 space-y-3.5">
           {EVERYTHING_ELSE.map((f) => (
             <div key={f.t} className="sm:flex sm:gap-4">
               <dt className="flex flex-wrap items-baseline gap-x-2 text-[0.94rem] font-semibold text-[var(--m-ink)] sm:w-[38%] sm:flex-none">
@@ -201,7 +237,7 @@ export function PapicFeatures() {
             </div>
           ))}
         </dl>
-      </div>
+      </details>
     </section>
   );
 }

@@ -267,6 +267,60 @@ test('the cost section has a heading, and the reader is told what before how muc
   );
 });
 
+test('the long feature list stays folded, and its count is derived', () => {
+  // Owner, 2026-08-29, reading the page on a phone: "cut it down". Measured at
+  // 375px before the cut, this list ran 4,792px of a 12,847px page — 37%, and
+  // nearly six phone screens on its own.
+  //
+  // Folded, NOT deleted: every line is a real thing the product does, and
+  // <details> keeps the content in the DOM, so it stays indexed and a reader
+  // who wants the specification can still open it.
+  const src = read('app/(shell)/papic/_papic-sections.tsx');
+
+  const list = src.indexOf('EVERYTHING_ELSE.map(');
+  assert.notEqual(list, -1, 'the long feature list is gone entirely');
+  const openTag = src.lastIndexOf('<details', list);
+  assert.notEqual(
+    openTag,
+    -1,
+    'The long feature list is no longer folded. It was six phone screens of ' +
+      'specification standing between the reader and the price.',
+  );
+  // and the fold must actually enclose the list
+  assert.ok(
+    src.indexOf('</details>', list) !== -1,
+    'the <details> does not close after the list',
+  );
+
+  assert.ok(
+    /\{EVERYTHING_ELSE\.length\}/.test(src),
+    'The "N more" count is typed rather than derived. It is wrong the first ' +
+      'time somebody adds a row, and no number on this page is hand-written.',
+  );
+});
+
+test('everything it does comes AFTER the price', () => {
+  // Owner, 2026-08-29: "yes after the price". Somebody deciding meets the
+  // comparison, the two ways to run it and the cost first; somebody who
+  // already wants it will read a long list.
+  const src = read('app/(shell)/papic/page.tsx');
+  const cost = src.indexOf('aria-label="What Papic costs"');
+  const feat = src.indexOf('<PapicFeatures />');
+  const faq = src.indexOf('aria-label="Questions about Papic"');
+  assert.notEqual(feat, -1, 'the feature section is no longer mounted');
+  assert.ok(
+    cost < feat && feat < faq,
+    'The feature list has moved back above the price. It was 37% of the page ' +
+      'and everything a buyer decides on sat behind it.',
+  );
+
+  // ⚠ AND IT MUST NOT BE MOUNTED INSIDE THE COST BLOCK'S CONDITIONAL. That
+  // block renders only when a price resolves and fails quiet by design, so a
+  // degraded price read would silently take a third of the page with it.
+  const costEnd = src.indexOf('</section>', cost);
+  assert.ok(feat > costEnd, 'the feature list is mounted inside the cost conditional');
+});
+
 test('the headline is followed by the product, not by an explaining line', () => {
   // Owner, 2026-08-19, on every page in the product: "we do not need these. it
   // just eats up space." The eyebrow and the sub-paragraph came off. They creep

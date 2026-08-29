@@ -3,8 +3,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { FAMILY_DISCOUNT_DEFAULT_PCT } from '@/lib/onboarding-family-discount';
-import { saveFamilyDiscount, savePapicLadder } from '@/app/admin/pricing/price-control-actions';
+import {
+  saveFamilyDiscount,
+  savePapicLadder,
+  savePapicProductPrice,
+} from '@/app/admin/pricing/price-control-actions';
 import { PapicLadderEditor, type PapicRungRow } from '@/app/admin/pricing/_components/papic-ladder-editor';
+import {
+  PapicRestEditor,
+  type PapicProductRow,
+} from '@/app/admin/pricing/_components/papic-rest-editor';
 
 /**
  * THE PAPIC LADDER — five prices the owner types, eleven that compute.
@@ -34,18 +42,37 @@ export async function PapicLadderSurface(_props: Props) {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const [tierRes, catRes, settingsRes] = await Promise.all([
+  const [tierRes, catRes, settingsRes, poolRes] = await Promise.all([
     admin.from('papic_pass_tiers').select('service_code, points, is_active').eq('is_active', true),
+    /*
+      ⚠ THE WHOLE PAPIC FAMILY, NOT JUST THE RUNGS. Owner 2026-08-29: *"free
+      credits should be here. with the rest of papic services and the thank you
+      video."* The rung filter below still decides what the LADDER draws; the
+      remainder becomes its own section rather than being dropped on the floor.
+    */
     admin
       .from('platform_retail_catalog_v2')
       .select('service_code, title, retail_price_php, onboarding_price_php, is_active')
-      .like('service_code', 'PAPIC_GUEST%'),
+      .like('service_code', 'PAPIC%'),
     admin.from('platform_settings').select('papic_signup_discount_pct').eq('id', 1).maybeSingle(),
+    /*
+      What every celebration is GIVEN. Until 2026-08-29 nothing under `app/` read
+      this column at all, so the number had no screen and only a migration could
+      move it.
+    */
+    admin
+      .from('papic_event_pool_config')
+      .select('free_grant_points')
+      .eq('config_key', 'default')
+      .maybeSingle(),
   ]);
 
   if (tierRes.error) logQueryError('AdminPapicLadder (tiers)', tierRes.error);
   if (catRes.error) logQueryError('AdminPapicLadder (catalog)', catRes.error);
   if (settingsRes.error) logQueryError('AdminPapicLadder (settings)', settingsRes.error);
+  // ⚠ Supabase RESOLVES with `{ error }`. Unchecked, a refused read renders as a
+  // confident number that is not what the product actually gives away.
+  if (poolRes.error) logQueryError('AdminPapicLadder (pool config)', poolRes.error);
 
   const unreadable = Boolean(tierRes.error || catRes.error);
 
@@ -74,6 +101,49 @@ export async function PapicLadderSurface(_props: Props) {
     }))
     .sort((a, b) => a.shots - b.shots);
 
+  /*
+    EVERYTHING PAPIC THAT IS NOT A RUNG — the Thank You video and the four camera
+    rates.
+
+    🔑 THE CAMERA RATES ARE SWITCHED OFF AND STILL CHARGE, WHICH IS WHY THEY ARE
+    HERE. `fetchCameraRates` reads all four PAST `is_active`, and two of them
+    price a purchase a couple can make today. A price that still charges belongs
+    where prices are set — filed on a "switched off" shelf it stops being looked
+    at, which is how a live number goes stale.
+  */
+  const STILL_CHARGES_WHILE_OFF = new Set([
+    'PAPIC_CAMERA_MINI_DAY',
+    'PAPIC_CAMERA_ROLL_DAY',
+    'PAPIC_CAMERA_LTD_DAY',
+    'PAPIC_CAMERA_UNLIMITED_DAY',
+  ]);
+
+  const otherPapic: PapicProductRow[] = ((catRes.data ?? []) as {
+    service_code: string;
+    title: string | null;
+    retail_price_php: number | string;
+    is_active: boolean;
+  }[])
+    .filter((r) => !shotsByCode.has(r.service_code))
+    .map((r) => ({
+      serviceCode: r.service_code,
+      title: r.title ?? r.service_code,
+      regularPhp: Number(r.retail_price_php),
+      isActive: r.is_active === true,
+      stillCharges: r.is_active !== true && STILL_CHARGES_WHILE_OFF.has(r.service_code),
+    }))
+    // On sale first, then the ones that still charge, then the rest.
+    .sort((a, b) => {
+      const rank = (x: PapicProductRow) => (x.isActive ? 0 : x.stillCharges ? 1 : 2);
+      return rank(a) - rank(b) || a.regularPhp - b.regularPhp;
+    });
+
+  const rawFree = poolRes.error
+    ? null
+    : (poolRes.data as { free_grant_points?: number | string | null } | null)?.free_grant_points;
+  const freeCreditsPerEvent =
+    rawFree != null && Number.isFinite(Number(rawFree)) ? Number(rawFree) : null;
+
   const discountPct =
     settingsRes.data?.papic_signup_discount_pct != null &&
     Number.isFinite(Number(settingsRes.data.papic_signup_discount_pct))
@@ -82,7 +152,7 @@ export async function PapicLadderSurface(_props: Props) {
 
   return (
     <div>
-      <PageMasthead title="Papic shot prices" />
+      <PageMasthead title="Papic credit prices" />
 
       {unreadable && (
         <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-5">
@@ -101,6 +171,12 @@ export async function PapicLadderSurface(_props: Props) {
         discountPct={discountPct}
         saveLadderAction={savePapicLadder}
         saveDiscountAction={saveFamilyDiscount}
+      />
+
+      <PapicRestEditor
+        freeCreditsPerEvent={freeCreditsPerEvent}
+        products={otherPapic}
+        savePriceAction={savePapicProductPrice}
       />
     </div>
   );

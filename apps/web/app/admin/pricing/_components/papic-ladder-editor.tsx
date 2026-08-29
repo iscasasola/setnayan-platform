@@ -61,9 +61,32 @@ export function PapicLadderEditor({
     return seed;
   });
 
-  const anchors = PAPIC_ANCHOR_SHOTS.map(
+  /*
+    🔴 CLEARING A BOX USED TO DELETE THE BOX. Owner 2026-08-29: *"when a number
+    box becomes 0, that row disappears. that should not happen."*
+
+    This filter is correct for the ARITHMETIC — a zero or blank anchor cannot
+    set a rate — but its result was also feeding `buildPapicLadder`, which marks
+    a rung `isAnchor` by asking whether the anchor set contains it. So emptying
+    a field dropped that rung out of the anchor set, the row re-rendered as a
+    locked "works itself out" line, and THE INPUT WAS GONE — with no way to type
+    the value back short of reloading the page. Every rung beneath it blanked at
+    the same time, because the rate that carried forward had vanished with it.
+
+    🔑 WHETHER A RUNG IS AN ANCHOR IS A PROPERTY OF THE LADDER, NOT OF WHAT IS
+    CURRENTLY TYPED. `PAPIC_ANCHOR_SHOTS` decides that, and it does not change
+    while somebody edits. Only the PRICE is unknown while a box is empty.
+  */
+  const usableAnchors = PAPIC_ANCHOR_SHOTS.map(
     (shots) => [shots, Number(anchorPhp[shots])] as [number, number],
   ).filter(([, php]) => Number.isFinite(php) && php > 0);
+  const anchors = usableAnchors;
+  /** The rungs that own an input, whatever is currently in it. */
+  const anchorShots = new Set<number>(PAPIC_ANCHOR_SHOTS);
+  /** Anchors whose box is empty or zero — named, so the screen can say so. */
+  const emptyAnchors = PAPIC_ANCHOR_SHOTS.filter(
+    (shots) => !usableAnchors.some(([s]) => s === shots),
+  );
 
   const allShots = rows.map((r) => r.shots);
   const ladder = buildPapicLadder(allShots, anchors);
@@ -107,18 +130,21 @@ export function PapicLadderEditor({
             const row = rows.find((r) => r.shots === rung.shots);
             const stored = row?.regularPhp ?? null;
             const willMove = rung.php != null && stored != null && rung.php !== stored;
+            // NOT `rung.isAnchor` — that follows what is typed, so an emptied
+            // box would take its own input away. See the note on `anchors`.
+            const ownsAnInput = anchorShots.has(rung.shots);
             const signup = rung.php != null ? signupPriceFor(rung.php, discountPct) : null;
 
             return (
               <div
                 key={rung.shots}
                 className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-ink/8 px-4 py-2.5 last:border-b-0 ${
-                  rung.isAnchor ? 'bg-cream' : 'bg-ink/[0.02]'
+                  ownsAnInput ? 'bg-cream' : 'bg-ink/[0.02]'
                 }`}
               >
                 <span className="flex items-center gap-2 text-[14px] font-semibold tabular-nums">
                   {rung.shots.toLocaleString('en-PH')}
-                  {rung.isAnchor ? (
+                  {ownsAnInput ? (
                     <span className="rounded-full border border-gold/40 bg-gold/[0.14] px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.11em] text-gold-deep">
                       you set this
                     </span>
@@ -131,7 +157,7 @@ export function PapicLadderEditor({
                 </span>
 
                 <span className="w-32 text-right">
-                  {rung.isAnchor ? (
+                  {ownsAnInput ? (
                     <span className="relative inline-block">
                       <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">
                         ₱
@@ -171,6 +197,28 @@ export function PapicLadderEditor({
             );
           })}
         </div>
+
+        {/*
+          An empty anchor is not a broken ladder — it is an unfinished edit, and
+          it must READ that way. Without this the rungs beneath simply go blank
+          and nothing on screen says why, which is the state the owner met.
+        */}
+        {emptyAnchors.length > 0 && (
+          <div className="mt-3 rounded-xl border border-warn-700/35 bg-warn-500/[0.08] p-3">
+            <p className="text-[13px] font-bold text-warn-700">
+              {emptyAnchors.length === 1
+                ? 'One price is empty'
+                : `${emptyAnchors.length} prices are empty`}
+            </p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-ink/75">
+              {emptyAnchors.map((s) => s.toLocaleString('en-PH')).join(', ')} —{' '}
+              {emptyAnchors.length === 1 ? 'this rung sets' : 'these rungs set'} the rate for
+              everything below, so those prices stay blank until{' '}
+              {emptyAnchors.length === 1 ? 'it has' : 'they have'} a number. Nothing is saved
+              until you press save.
+            </p>
+          </div>
+        )}
 
         {complaints.length > 0 && (
           <div className="mt-3 rounded-xl border border-danger-700/35 bg-danger-700/[0.06] p-3">

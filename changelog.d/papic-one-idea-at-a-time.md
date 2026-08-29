@@ -39,12 +39,24 @@ somebody tops up mid-party — which the panel directly above it invites them to
 `readOnboardingDiscountPct`, which fails to the module's default rather than to
 zero — a read error must not silently retract a saving the page is advertising.
 
-🔴 **AND A CORRECTION THE OWNER NEEDS:** he said the value *"changed to 30%"*.
-**In production that setting still reads 10.** The 30% a customer actually gets on
-Papic comes from the **per-row `onboarding_price_php` values**, which are exactly
-70% of retail — and the cheaper of the two wins. So the page is right, but raising
-the house rule to 30 would change nothing for Papic; only a deeper rule (or new
-per-row prices) would.
+✅ **THE PERCENTAGE IS THE OWNER'S, AND IT IS 30 — a correction to my own first
+reading of this.** I checked `platform_settings.onboarding_discount_pct` (10) and
+told him the value had not changed. That is the HOUSE/AI setting. Papic has its
+own, set on the very tab he pointed at: **`platform_settings.papic_signup_discount_pct`
+= 30.00**, and it is the one that produces each rung's stored
+`onboarding_price_php` on save (owner 2026-08-28: *"Papic will also have that 1
+discount savings instead of each row"*).
+
+So the chain is: **his 30% dial → each rung's stored sign-up price → the page.**
+Nothing is hardcoded and nothing is stale; I had simply read the wrong column and
+reported a stale value that was not stale.
+
+🔑 **The call itself was right for a different reason, and is left exactly as
+written:** `setupPricePhp(retail, onboarding_price_php, housePct)` is
+**byte-identical to the charge path** in `onboarding-services-orders.ts` — same
+function, same two inputs, same house percentage. That is the point. A page that
+reproduces the charge's own call cannot quote a figure the checkout will not
+honour, whichever layer moves next.
 
 ⏭ **NOT BUILT — the 100,000-credit rung.** It does not exist (the ladder stops at
 50,000) and adding one is three places, not a page edit: the catalog row, the tier

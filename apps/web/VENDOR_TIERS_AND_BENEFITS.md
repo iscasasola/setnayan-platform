@@ -89,14 +89,22 @@ Tier identities: **Solo = operate · Pro = grow · Enterprise = scale.**
 **+** all categories · **up to 10 team seats** (extra seats **+₱250/28d** each — seat price owner-decided 2026-07-04; PR #2623 builds it) + multi-admin governance ✅`vendor-team` · shareable bid links · quarterly business review · contract intelligence 🔭 · priority dispute handling + account management · **reach up to 100 km** (owner re-capped 2026-07-04 — nationwide is sold in Custom, §11) · **up to 300 portfolio photos** · **up to 8 events per category** · **10 live clients per date** · **waitlist up to 5 couples** per full date
 _⚠ Enterprise is NO LONGER ∞ on these axes. Cap numbers **owner-confirmed 2026-07-01: 10 seats / 300 photos / 8 events per category.** `agentAccounts` is now the finite **10** in code (`vendor-tier-caps.ts`); extra seats beyond 10 are a **+₱500/28d** paid add-on (owner 2026-07-02 · billing flow pending)._
 
-> ### 📋 Pipeline limits — the two numbers added 2026-08-09 (owner)
+> ### 📋 Pipeline limits — the two numbers added 2026-08-09, retuned 2026-08-29 (owner)
 >
 > | | live clients per date | waitlist per date |
 > |---|---|---|
-> | Free · Verified | 1 | — |
+> | Free | 1 | — |
+> | **Verified** | **2** | **1** |
 > | Solo | 3 | 1 |
 > | Pro | 5 | 3 |
 > | Enterprise · Custom | 10 | 5 |
+>
+> ⚠ **Verified changed 2026-08-29 from 1 / — to 2 / 1.** The 2026-08-09 grid gave four
+> numbers for five tiers, and `verified` was the row the build had to invent, so it
+> cloned Free. The owner's own table gives it a pair of its own; asked directly he
+> answered *"we already had a table for this"*. Both moves WIDEN — no shop loses a
+> slot — and a free **verified** shop now has a one-couple waiting list where it had
+> none.
 >
 > **"Live clients per date" is the WHITELIST** in the § T1.1 sense
 > (`Service_Schedule_and_Quotation_Flow_2026-06-02`): customers the vendor has
@@ -118,6 +126,24 @@ _⚠ Enterprise is NO LONGER ∞ on these axes. Cap numbers **owner-confirmed 20
 > 🛑 **SHIPPED SWITCHED OFF** (`platform_settings.vendor_tier_pipeline_caps_enabled`,
 > default FALSE) — every vendor in prod is `tier_state='free'` today, so turning it on
 > would cap the founder's own test shops. PR #4263 · migration `20271121655918`.
+>
+> ⏭ **OWNER ASKED FOR IT ON, 2026-08-29.** Both prod shops are now `solo` (not `free`),
+> holding 1 on the waiting list with it switched off, so the flip changes nothing for
+> either of them. The flip is a deliberate act AFTER the explaining screens are served
+> — never inside a migration, and never before a supplier can see the number that is
+> about to bind them.
+>
+> 📖 **THE NUMBER IS NOW SAID OUT LOUD** (2026-08-29). Until then the whitelist figure
+> had **zero readers in the whole app** — the only way to learn it was to be refused by
+> it. `vendor_whitelist_pressure()` is the caller-scoped reader the inquiry screens
+> call, and it shares its counting with the trigger that refuses
+> (`vendor_whitelist_used_for_date()`), so the sentence on the screen and the sentence
+> in the refusal can never drift apart.
+>
+> 👴 **GRANDFATHERED** (owner 2026-08-29): the waiting-list ceiling binds on a new shop
+> and on any save that actually CHANGES the number. A shop already above its ceiling
+> keeps what it chose until it touches it. It protects a **number**, never a
+> **feature** — a plan with no waiting list at all still has none.
 >
 > 🔑 **Do not re-type these numbers anywhere.** They live in `TIER_CAPS`
 > (`lib/vendor-tier-caps.ts`) and `vendor_tier_limit()` in SQL, and a db test derives

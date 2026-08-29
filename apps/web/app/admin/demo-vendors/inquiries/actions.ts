@@ -133,7 +133,22 @@ export async function adminAcceptInquiry(formData: FormData): Promise<void> {
       .from('chat_threads')
       .update({ inquiry_status: 'accepted', accepted_at: new Date().toISOString() })
       .eq('thread_id', threadId);
-    if (error) throw new Error(error.message);
+    if (error) {
+      // WHITELIST_DATE_LIMIT — the demo shop already holds its plan's number of
+      // accepted-but-not-yet-locked customers for this couple's date
+      // (enforce_vendor_whitelist_per_date). It arrives as a Postgres EXCEPTION,
+      // and the vendor-side path (lib/chat-actions.ts) has translated it since
+      // the day it shipped; this clone never did, so an admin got a raw database
+      // sentence on an error page for an ordinary "that shop is at its limit".
+      // 🔑 A clone inherits the bug its twin already fixed — the third accept
+      // path is lib/vendor-autoreply/auto-accept.ts, handled there too.
+      if (error.message.includes('WHITELIST_DATE_LIMIT')) {
+        throw new Error(
+          'This demo shop is already chasing as many customers as its plan allows for that date. Lock one in, or decline someone, to free a slot.',
+        );
+      }
+      throw new Error(error.message);
+    }
     // The reveal_vendor_name_on_accept trigger stamps name_revealed_at so the
     // couple now sees the demo vendor's real (seeded) name.
     // Notify the couple their inquiry was accepted — mirrors the real

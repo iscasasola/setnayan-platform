@@ -243,6 +243,13 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
   let waitlistEnabled = false;
   let waitlistCap = 1;
   let waitlistTierCap = 0;
+  // GRANDFATHERED (owner 2026-08-29): a supplier already holding MORE than their
+  // plan's number keeps it until they change it themselves — the database clamp
+  // now only binds on a write that actually moves the number. So the picker has
+  // to be able to show a number above the ceiling; offering only 1..tierCap
+  // would render a DIFFERENT figure than the one in force, which is the same
+  // silent substitution the grandfathering exists to prevent.
+  let waitlistGrandfathered = 0;
   // 🔑 THE SOFT PROBE IS RIGHT AND IS KEPT — degrading to "disabled" on a
   // pre-migration database is the correct trade. What was missing is that the
   // REASON never left this block: Supabase resolves with `{ error }` rather
@@ -281,10 +288,9 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
     // shown a number their plan would silently clamp away. 0 = no waitlist.
     waitlistTierCap = vendorWaitlistAcceptances(wsRow?.tier_state);
     waitlistEnabled = Boolean(wsRow?.waitlist_enabled) && waitlistTierCap > 0;
-    waitlistCap = Math.min(
-      Number(wsRow?.max_waitlist_acceptances) || 1,
-      Math.max(waitlistTierCap, 1),
-    );
+    const storedWaitlistCap = Number(wsRow?.max_waitlist_acceptances) || 1;
+    waitlistCap = Math.min(storedWaitlistCap, Math.max(waitlistTierCap, storedWaitlistCap));
+    waitlistGrandfathered = storedWaitlistCap > waitlistTierCap ? storedWaitlistCap : 0;
     const { data: picked, error: pickedError } = await supabase
       .from('vendor_date_waitlist')
       .select('requested_date')
@@ -520,7 +526,10 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
               defaultValue={String(waitlistCap)}
               className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm"
             >
-              {Array.from({ length: waitlistTierCap }, (_, i) => i + 1).map((n) => (
+              {Array.from(
+                { length: Math.max(waitlistTierCap, waitlistGrandfathered) },
+                (_, i) => i + 1,
+              ).map((n) => (
                 <option key={n} value={String(n)}>
                   {n}
                 </option>
@@ -534,6 +543,21 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
           >
             Save
           </SubmitButton>
+          {/* The grandfather line. It is only ever drawn to somebody who is
+              ABOVE their plan's number, and it says the two things they need:
+              nothing was taken away, and changing it is agreeing to the
+              ceiling. Without it the extra options in the picker above would
+              look like an allowance their plan does not have. */}
+          {waitlistGrandfathered > 0 ? (
+            <p className="basis-full rounded-lg border border-terracotta/30 bg-terracotta/10 px-2.5 py-1.5 text-[13px] text-terracotta-700">
+              <span className="font-semibold">
+                You keep {waitlistGrandfathered}.
+              </span>{' '}
+              Your plan includes {waitlistTierCap} — we&rsquo;re not taking away a number
+              you already set. If you change it, {waitlistTierCap} is the most you can
+              pick from then on.
+            </p>
+          ) : null}
         </form>
       )}
 

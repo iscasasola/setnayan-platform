@@ -141,6 +141,8 @@ import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-dete
 // The tree kit (W4-B): `Card` here IS ShopCard — the local definition this
 // file used to carry was byte-identical to the kit's dominant card recipe.
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
+import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
+import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -1460,6 +1462,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       const blockState = await getThreadBlockState(fullThread, user.id, 'vendor');
       const initialMessages = await fetchMessages(supabase, threadId);
       const declineReason = fullThread.decline_reason?.trim() || null;
+      // The per-date ceiling, said out loud before it refuses. Pending-only, read
+      // through the supplier's own session (the RPC is caller-scoped), null-safe:
+      // switched off, no date yet, or an unreadable answer all draw nothing.
+      const pipelinePressure =
+        fullThread.inquiry_status === 'pending'
+          ? await fetchPipelinePressure(supabase, threadId)
+          : null;
       // Voice/video calling is a paid-vendor capability (gate-dark by default) —
       // locked here shows the vendor an upgrade nudge instead of the call button.
       const callsEnabled = await resolveThreadCallsEnabled(profile.vendor_profile_id);
@@ -1514,6 +1523,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
                 <span className="font-semibold">New inquiry.</span> Accept to open the
                 chat and reply, or decline if you&rsquo;re not available for this date.
               </p>
+              <PipelinePressureLine pressure={pipelinePressure} />
               <div className="flex flex-wrap gap-2">
                 <form action={acceptInquiry}>
                   <input type="hidden" name="thread_id" value={threadId} />

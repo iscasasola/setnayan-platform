@@ -173,6 +173,9 @@ test('the owner grid reads exactly as given', async () => {
   const expect: Array<[string, number, number]> = [
     // tier, whitelist, waitlist
     ['free', 1, 0],
+    // Verified got its OWN pair on 2026-08-29 (owner). It used to clone free's
+    // 1 / 0 because the 2026-08-09 grid had four numbers for five tiers.
+    ['verified', 2, 1],
     ['solo', 3, 1],
     ['pro', 5, 3],
     ['enterprise', 10, 5],
@@ -478,11 +481,24 @@ test('PRO is clamped to 3, ENTERPRISE keeps 5', async () => {
 });
 
 test('a number ABOVE the plan clamps quietly instead of locking the vendor out of saving', async () => {
-  // This is the post-downgrade state: a stored 5 on a plan that allows 1.
-  // NOTE: we reach it by storing 5 while the switch is OFF rather than by
-  // moving tier_state down — a separate shipped guard (TIER_DOWNGRADE_BLOCKED)
-  // deliberately refuses a silent downgrade, so a test that moved the tier
-  // would be exercising that guard, not this clamp.
+  // ⚠ THIS ASSERTION WAS DELIBERATELY CHANGED ON 2026-08-29, AND THE CHANGE IS
+  // AN OWNER RULING, NOT A CONVENIENCE. As written on 2026-08-09 this test said
+  // *"ANY subsequent save clamps"* — and it proved it with an UNRELATED write
+  // (a `microsite_about` touch). That is precisely the behaviour the owner
+  // struck: *grandfather existing suppliers* (2026-08-28). Under it, a supplier
+  // sitting above their ceiling keeps their number until they change it
+  // themselves, so an unrelated save must now leave it alone — asserted in
+  // `the-plan-says-its-number.db.test.ts`.
+  //
+  // What this test is actually FOR survives untouched and is still worth
+  // pinning: when the ceiling DOES bind, it must CLAMP and never RAISE, so a
+  // downgraded supplier can still save their own settings page. The write below
+  // is now one that touches the number, which is the only case that binds.
+  //
+  // NOTE (unchanged): we reach the over-ceiling state by storing 5 while the
+  // switch is OFF rather than by moving tier_state down — a separate shipped
+  // guard (TIER_DOWNGRADE_BLOCKED) deliberately refuses a silent downgrade, so
+  // a test that moved the tier would be exercising that guard, not this clamp.
   await setCapsEnabled(false);
   const vendor = await newVendor('overcap', 'solo');
   await db.query(
@@ -493,10 +509,10 @@ test('a number ABOVE the plan clamps quietly instead of locking the vendor out o
   assert.equal((await waitlistSettings(vendor)).cap, 5, 'precondition: stored above the plan');
 
   await setCapsEnabled(true);
-  // Any subsequent save clamps. Must NOT raise — the vendor keeps their settings
-  // page usable and simply lands on their plan's number.
+  // A save that TOUCHES the number clamps. Must NOT raise — the vendor keeps
+  // their settings page usable and simply lands on their plan's number.
   await db.query(
-    `UPDATE public.vendor_profiles SET microsite_about = COALESCE(microsite_about, '')
+    `UPDATE public.vendor_profiles SET max_waitlist_acceptances = 4
       WHERE vendor_profile_id = $1`,
     [vendor],
   );

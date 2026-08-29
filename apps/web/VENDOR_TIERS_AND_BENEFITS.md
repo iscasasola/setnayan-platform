@@ -123,15 +123,22 @@ _⚠ Enterprise is NO LONGER ∞ on these axes. Cap numbers **owner-confirmed 20
 > one date**, not access. But note honestly: at Free = 1, the *second* couple asking
 > about the *same* date cannot be accepted until the first is locked in or declined.
 >
-> 🛑 **SHIPPED SWITCHED OFF** (`platform_settings.vendor_tier_pipeline_caps_enabled`,
-> default FALSE) — every vendor in prod is `tier_state='free'` today, so turning it on
-> would cap the founder's own test shops. PR #4263 · migration `20271121655918`.
+> 🛑 **SHIPPED SWITCHED OFF on 2026-08-09** (`platform_settings.vendor_tier_pipeline_caps_enabled`,
+> default FALSE) — every vendor in prod was `tier_state='free'` then, so turning it on
+> would have capped the founder's own test shops. PR #4263 · migration `20271121655918`.
 >
-> ⏭ **OWNER ASKED FOR IT ON, 2026-08-29.** Both prod shops are now `solo` (not `free`),
-> holding 1 on the waiting list with it switched off, so the flip changes nothing for
-> either of them. The flip is a deliberate act AFTER the explaining screens are served
-> — never inside a migration, and never before a supplier can see the number that is
-> about to bind them.
+> ✅ **IT IS ON IN PRODUCTION SINCE 2026-08-29.** Owner, asked directly: *"Turn it on now."*
+> Flipped only AFTER PR #4985 was **served** (its merge commit verified an ANCESTOR of the
+> commit production's `/api/health` self-reports — never by the version merely changing),
+> because a supplier refused by a number they cannot see reads it as the product being
+> broken.
+> 🔢 **Safe by arithmetic, measured at the flip:** 2 shops · both `solo` and `verified`
+> (⚠ NOT `free` — several notes in this corpus still say otherwise) · both holding **1**
+> on the waiting list with it **off** · **ZERO accepted chat threads in the entire
+> database**, so there was no pipeline anywhere for a ceiling to bind. Both rows are
+> byte-identical after the flip.
+> ↩ **Reversing it is one statement:**
+> `UPDATE public.platform_settings SET vendor_tier_pipeline_caps_enabled = FALSE WHERE id = 1;`
 >
 > 📖 **THE NUMBER IS NOW SAID OUT LOUD** (2026-08-29). Until then the whitelist figure
 > had **zero readers in the whole app** — the only way to learn it was to be refused by

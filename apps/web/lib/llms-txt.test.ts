@@ -121,7 +121,7 @@ const VENDOR = [
   { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 26000, is_active: true },
   { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 10000, is_active: true },
   { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 104000, is_active: true },
-  { sku_code: 'vendor_branch_28day', title: 'Branch', price_php: 999, is_active: true },
+  { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 1000, is_active: true },
 ];
 
 const INPUT: LlmsTxtInput = { retail: RETAIL, vendor: VENDOR, refreshedOn: '2026-07-31' };

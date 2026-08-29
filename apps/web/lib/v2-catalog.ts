@@ -21,6 +21,7 @@
  */
 
 import { cache } from 'react';
+import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   CatalogChargeResolution as CatalogChargeResolutionType,
@@ -303,7 +304,22 @@ export const getVendorPrices = cache(async () => {
   const proYr = price('pro_vendor_annual');
   const entMo = price('enterprise_vendor_monthly');
   const entYr = price('enterprise_vendor_annual');
-  const branch = price('vendor_branch_28day');
+  /*
+    🔴 THERE WERE TWO ACTIVE BRANCH ROWS AND THE PUBLIC READ THE WRONG ONE.
+    `vendor_branch_28day` and `vendor_additional_branch` are both active and both
+    ₱1,000 — but the PURCHASE has always used `vendor_additional_branch`
+    (`BRANCH_SKU_CODE`, and the `vendor_additional_branch__<id>` service key every
+    branch order carries), while this public price and llms.txt quoted the OTHER.
+
+    Nobody has been quoted wrongly, because the two happen to hold the same
+    number and no branch has ever been bought. It would have bitten the first
+    time somebody edited the branch price on /admin/pricing: the public page and
+    the actual charge would have moved apart, with nothing thrown.
+
+    ⇒ The public now reads the row that takes the money. Same rule as everywhere
+    else today — the price shown must be the price charged.
+  */
+  const branch = price(BRANCH_SKU_CODE);
   // The Custom tier's "from" floor. It WAS being typed into
   // app/_components/home/vendor-benefits.ts on the stated grounds that Custom
   // "is not a DB catalog SKU (Custom is composed per plan)" — untrue:
@@ -331,10 +347,13 @@ export const getVendorPrices = cache(async () => {
   // (₱2,600 · ₱6,500 · ₱26,000 — exactly 20% on each, because annual is now
   // 28d × 10.4 rather than × 10). Re-derive them whenever a price above moves;
   // they went stale once already, quoting the old ~23% ladder's savings.
-  // ⛔ `branch` deliberately still reads ₱999: it mirrors `vendor_branch_28day`,
-  // which the 2026-08-27 sheet did NOT reprice — its near-twin
-  // `vendor_additional_branch` (the row that actually CHARGES) went to ₱1,000.
-  // That ₱1 gap is a known, reported defect, not a typo here.
+  // ✅ THE ₱1 GAP THIS COMMENT USED TO RECORD IS CLOSED, and closed at the cause.
+  // It said `branch` "deliberately still reads ₱999" because it mirrored
+  // `vendor_branch_28day` while the row that actually CHARGES —
+  // `vendor_additional_branch` — had gone to ₱1,000. Two live rows for one
+  // product, the public quoting one and the checkout charging the other.
+  // This now reads BRANCH_SKU_CODE, the charging row, so the fallback tracks it.
+  // Measured 2026-08-29: both rows are ₱1,000 today, so nothing visible moves.
   return {
     soloMonthly: fmt(soloMo, '₱1,000'),
     soloAnnual: fmt(soloYr, '₱10,400'),
@@ -345,7 +364,7 @@ export const getVendorPrices = cache(async () => {
     enterpriseMonthly: fmt(entMo, '₱10,000'),
     enterpriseAnnual: fmt(entYr, '₱104,000'),
     enterpriseAnnualSave: save(entMo, entYr, '₱26,000'),
-    branch: fmt(branch, '₱999'),
+    branch: fmt(branch, '₱1,000'),
     /** `null` when unreadable — callers render the bare label, never a guess. */
     customFrom: customBase == null ? null : `₱${formatPeso(customBase)}`,
     tokenUnit: `₱${formatPeso(tokenUnit)}`,

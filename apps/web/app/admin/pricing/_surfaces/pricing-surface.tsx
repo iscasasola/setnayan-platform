@@ -4,8 +4,6 @@
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
-import { saveOnboardingDiscount, saveFeeSetting } from '@/app/admin/pricing/actions';
 import { computeRetailRemovabilityMap } from '@/lib/admin/pricing-removability';
 import { fetchPricingAuditHistory } from '@/lib/admin/pricing-audit-history';
 import {
@@ -15,12 +13,10 @@ import {
   type BundleRowProp,
   type VendorRowProp,
 } from '@/app/admin/pricing/_components/catalog-editor';
-import { FeeForm } from '@/app/admin/pricing/_components/fee-form';
 import { BookingFeeForm } from '@/app/admin/pricing/_components/booking-fee-form';
 import { saveBookingFeeSchedule } from '@/app/admin/pricing/price-control-actions';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
-import { SetupDiscountForm } from '@/app/admin/pricing/_components/setup-discount-form';
 import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { LegacyCatalogDisclosure } from '@/app/admin/pricing/_components/legacy-catalog';
 
@@ -167,13 +163,11 @@ export async function PricingSurface(_props: Props) {
   const vendorRows = (vendorRes.data ?? []) as VendorRow[];
 
   const settingsFee = settingsRes.data?.setnayan_pay_fee_pct;
-  const feeIsFromDb = settingsFee != null && Number.isFinite(Number(settingsFee));
-  const feePct = feeIsFromDb ? Number(settingsFee) : SETNAYAN_PAY_FEE_PCT;
+
   // The house set-up discount. Owner 2026-08-28 — editable at any moment, so it
   // is READ here every time rather than baked into any catalog row.
   const storedDiscount = settingsRes.data?.onboarding_discount_pct;
-  const discountIsFromDb = storedDiscount != null && Number.isFinite(Number(storedDiscount));
-  const discountPct = readOnboardingDiscountPct(storedDiscount);
+
 
   // The SUPPLIER-side booking fee. Falls back to the locked code schedule so an
   // unreadable settings row shows today's numbers rather than blanks or zeros.
@@ -322,29 +316,38 @@ export async function PricingSurface(_props: Props) {
         freeCreditsPerEvent={freeCreditsPerEvent}
       />
 
-      <section className="mt-10">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">Set-up discount</h2>
-        <p className="mb-3 text-sm text-ink/60">
-          How much off anything a customer buys while they are still setting up their
-          celebration. Order the same thing afterwards and they pay the normal price.
-          One number — every set-up price on the platform follows it.
-        </p>
-        <SetupDiscountForm
-          action={saveOnboardingDiscount}
-          discountPct={discountPct}
-          isFromDb={discountIsFromDb}
-        />
-      </section>
+      {/*
+        ── TWO CONTROLS REMOVED HERE, 2026-08-29 ────────────────────────────
+        Owner, of the Platform fee: *"vendor booking fee is our gateway
+        correct? so platform fee can be removed since we already assigned the
+        vendor booking fee."* And of the Set-up discount: *"this one doesn't
+        exist anymore. onboarding discounts are already placed for setnayan AI
+        and Papic which are the only services we sell on the onboarding."*
 
-      <section className="mt-10">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">Platform fee</h2>
-        <p className="mb-3 text-sm text-ink/60">
-          Setnayan Pay convenience fee added to a customer invoice when they pay a vendor booking
-          through Setnayan. The vendor still receives the full booking amount — the fee is the
-          customer&apos;s cost. Code constant {SETNAYAN_PAY_FEE_PCT}% is the fallback.
-        </p>
-        <FeeForm action={saveFeeSetting} feePct={feePct} feeIsFromDb={feeIsFromDb} />
-      </section>
+        ⚠ HIS PREMISE ON THE FIRST ONE WAS NOT RIGHT, AND THE BOX STILL WENT.
+        The booking fee is NOT a gateway: it is charged to the SUPPLIER for an
+        introduction, while the platform fee would be charged to the CUSTOMER
+        for paying a supplier THROUGH Setnayan. Different people, different
+        events. The real reason it goes is stronger: MEASURED, nothing charges
+        it. `getSetnayanFeePct` and `convenienceFeePhp` have ZERO callers
+        outside their own file, and the only readers of SETNAYAN_PAY_FEE_PCT
+        were this editor and its own description. The flow it belongs to does
+        not exist either — couples pay suppliers directly, off-platform, so
+        there is no invoice to add a surcharge to.
+
+        ⚠ AND THE SET-UP DISCOUNT WAS LIVE CODE, NOT DEAD CODE. It is read by
+        the onboarding services step and by the order mint. It only ever bit a
+        product with NO sign-up price of its own — and MEASURED: the set-up step
+        sells exactly two families, Papic rungs and Setnayan AI, and every one
+        of those rows carries its own `onboarding_price_php`. So the general
+        percentage governed nothing. The per-family discounts he set on
+        2026-08-28 are the mechanism now.
+
+        🔑 THE COLUMNS AND THE SAVE ACTIONS ARE DELIBERATELY LEFT IN PLACE.
+        Removing a control is not the same as removing a capability, and
+        `platform_settings.onboarding_discount_pct` still backs a live fallback.
+        What is gone is the pretence that these two boxes decide anything.
+      */}
 
       {/*
         ⚠ TWO DIFFERENT 5%s, ONE SCREEN APART. The block above is a CUSTOMER-side

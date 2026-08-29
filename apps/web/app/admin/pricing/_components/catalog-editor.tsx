@@ -23,7 +23,7 @@
 
 import { useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Search, Trash2, CircleCheck } from 'lucide-react';
+import { ChevronDown, Lock, Search, Trash2, CircleCheck } from 'lucide-react';
 import {
   CLUSTER_ORDER,
   type PriceCluster,
@@ -386,9 +386,6 @@ function SaleOrDraftShelves(props: ShelfListProps) {
         return (
           <div key={cluster} className="px-4">
             <Shelf title={cluster} count={group.length} />
-            {cluster === 'Papic' && (
-              <FreeCreditsRow credits={props.freeCreditsPerEvent} />
-            )}
             {ladder && (
               <CreditLadderRow
                 summary={ladder}
@@ -406,67 +403,14 @@ function SaleOrDraftShelves(props: ShelfListProps) {
   );
 }
 
-/**
- * WHAT EVERY CELEBRATION STARTS WITH, BEFORE ANYBODY BUYS ANYTHING.
- *
- * ⚖ Owner 2026-08-29: *"assign a cell to indicate how many free Papic Credits
- * per event everybody has."*
- *
- * 🔑 THE NUMBER IS REAL AND HAS NO EDITOR. Measured against production:
- * `papic_event_pool_config.free_grant_points` is 50, five events carry a
- * `free_grant` of exactly that — and NOTHING under `app/` reads or writes the
- * column. Same shape as the Setnayan AI band prices: a live figure only a
- * migration could move. This surfaces it; giving it a save is its own change.
- *
- * ⚠ DELIBERATELY NOT A PRICE ROW. It is given, not sold — no SKU, no charge.
- * Drawing it among the products would make it look like something to buy.
- */
-function FreeCreditsRow({ credits }: { credits: number | null }) {
-  return (
-    <div className="border-b border-ink/5 py-3 last:border-b-0">
-      <div className="flex w-full items-start gap-3 text-left">
-        <span
-          className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-success-800"
-          aria-hidden
-        />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold leading-snug text-ink">
-            Free credits on every event
-          </span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full border border-success-800/25 bg-success-800/[0.08] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-success-800">
-              Given, never sold
-            </span>
-          </span>
-          <span className="mt-1 block text-[13px] text-ink/60">
-            What every celebration starts with before anybody buys anything. Top-ups add on
-            top of it.
-          </span>
-        </span>
-        <span className="shrink-0 text-right">
-          <span
-            className={`block font-mono text-base font-bold tabular-nums ${
-              credits == null ? 'text-ink/45' : 'text-success-800'
-            }`}
-          >
-            {credits == null ? '—' : credits.toLocaleString('en-PH')}
-          </span>
-          <span className="block text-[11px] text-ink/50">
-            {credits == null ? "couldn't be read" : 'credits per event'}
-          </span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/**
- * The whole credit ladder as ONE line that opens.
- *
- * ⚠ IT REMOVES NO CAPABILITY. Open it and every rung is a full row card with the
- * same controls it had when it sat in the list. `lint-port-no-lost-controls`
- * would fail this port otherwise, and it should.
- */
+/*
+  ── THE FREE-CREDITS CELL MOVED TO THE PAPIC TAB, 2026-08-29 ────────────────
+  Owner: *"free credits should be here. with the rest of papic services and the
+  thank you video."* He is right that it belongs beside the ladder: it is not a
+  product, and the whole Papic picture — the free allowance, the ladder, the
+  Thank You video and the camera rates — now sits in one place instead of split
+  across two tabs. It lives in `_components/papic-rest-editor.tsx`.
+*/
 function CreditLadderRow({
   summary,
   rungs,
@@ -678,10 +622,23 @@ function RowCard(props: {
       id={skuAnchorId(row.code)}
       className="scroll-mt-24 border-b border-ink/5 py-3 last:border-b-0"
     >
+      {/*
+        🔴 THE ROW WAS ALWAYS CLICKABLE AND NOTHING SAID SO. Owner 2026-08-29,
+        on the live screen: *"why can't i edit the prices?"* — every price on
+        this tab opens its editor on click, and the row carried NO affordance
+        whatsoever: no chevron, no hover state, and a `<button>` takes the
+        default cursor unless told otherwise, so not even a pointer.
+
+        🔑 A CONTROL NOBODY CAN SEE IS A CONTROL NOBODY HAS. He edited the Papic
+        ladder and the family discount happily the same morning — those tabs draw
+        visible input boxes. This one drew a list that looked like a report.
+      */}
       <button
         type="button"
         onClick={() => props.setOpenCode(open ? null : row.code)}
-        className="flex w-full items-start gap-3 text-left"
+        aria-expanded={open}
+        title={open ? 'Close' : 'Edit this price'}
+        className="group flex w-full cursor-pointer items-start gap-3 rounded-lg px-1 py-1 text-left transition hover:bg-ink/[0.04]"
       >
         <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dotCls}`} aria-hidden />
         <span className="min-w-0 flex-1">
@@ -705,7 +662,17 @@ function RowCard(props: {
           {row.kind === 'retail' && row.onboardingPrice != null && (
             <span className="block text-[10.5px] text-gold-text">₱{row.onboardingPrice.toLocaleString('en-PH')} to sign up</span>
           )}
+          <span className="mt-0.5 flex items-center justify-end gap-1 text-[10.5px] font-semibold text-ink/0 transition group-hover:text-mulberry-600">
+            {open ? 'Close' : 'Edit'}
+          </span>
         </span>
+        <ChevronDown
+          aria-hidden
+          className={`mt-1.5 h-4 w-4 shrink-0 text-ink/35 transition group-hover:text-ink/70 ${
+            open ? 'rotate-180' : ''
+          }`}
+          strokeWidth={2}
+        />
       </button>
 
       {open && (

@@ -185,7 +185,7 @@ const REQUIRED_VENDOR = [
   'pro_vendor_annual',
   'enterprise_vendor_monthly',
   'enterprise_vendor_annual',
-  'vendor_branch_28day',
+  'vendor_additional_branch',
 ] as const;
 
 /**
@@ -445,7 +445,7 @@ The visual mood board — palette, location feel, dress codes — is included fr
 
 Verified vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee, no badge fee. Every verified vendor's real business name is shown to couples from day 1 on every tier, including the free Verified tier. A vendor's name and inbox are never gated: couples can always see who's there and message them for free. Paid tiers buy prominence and reach among already-qualified results — never the name or the listing itself.
 
-All three paid tiers are available as 28-day prepaid blocks (13 cycles per year, not calendar months) or annual prepaid blocks at a discount. No recurring auto-charge in V1 — manual renewal with a 7-day email + dashboard reminder before expiry. Pro and Enterprise vendors can add branches at ${V('vendor_branch_28day')} per 28-day block per branch.
+All three paid tiers are available as 28-day prepaid blocks (13 cycles per year, not calendar months) or annual prepaid blocks at a discount. No recurring auto-charge in V1 — manual renewal with a 7-day email + dashboard reminder before expiry. Pro and Enterprise vendors can add branches at ${V('vendor_additional_branch')} per 28-day block per branch.
 
 ## Answering couples (included free)
 

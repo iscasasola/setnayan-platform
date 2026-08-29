@@ -97,41 +97,77 @@ test('🪤 no stamped copy of the rule survives in the catalog', () => {
   assert.doesNotMatch(clearing, /SETNAYAN_AI/, 'the AI rows must never be cleared');
 });
 
-test('the admin stores the percentage — it does not sweep prices', () => {
-  const actions = strip(read('app/admin/pricing/actions.ts'));
-  const form = strip(read('app/admin/pricing/_components/setup-discount-form.tsx'));
+test('the set-up discount box is RETIRED, and its column is not', () => {
+  /*
+    ⚖ OWNER 2026-08-29: *"this one doesn't exist anymore. onboarding discounts
+    are already placed for setnayan AI and Papic which are the only services we
+    sell on the onboarding."* That REVERSES his 2026-08-28 *"I want to be able to
+    change 10% anytime"*, which is what this test used to pin.
+
+    🔑 THE ASSERTION FLIPS, AND THE REASON IS THE POINT. A test that keeps
+    asserting a superseded ruling is not a guard, it is a fossil that blocks the
+    decision it used to protect.
+  */
   const surface = strip(read('app/admin/pricing/_surfaces/pricing-surface.tsx'));
-  assert.match(actions, /formData\.get\('onboarding_discount_pct'\)/, 'the save must read it');
-  assert.match(
-    actions,
-    /\.update\(\{ onboarding_discount_pct: pctR, updated_at: new Date\(\)\.toISOString\(\) \}\)/,
-    'and STORE it, so it survives until he changes it again',
-  );
-  assert.match(form, /name="onboarding_discount_pct"/, 'the screen must offer the field');
-  assert.match(
-    form,
-    /defaultValue=\{discountPct\}/,
-    'and show the CURRENT value — a blank box cannot tell him what the discount is',
-  );
-  assert.match(surface, /<SetupDiscountForm/, 'and the form must actually be mounted');
-  // The one-shot sweep is gone: two ways to set one number is how they drift.
-  assert.doesNotMatch(actions, /setup_discount_pct/, 'the one-shot knob must not survive');
-  assert.doesNotMatch(actions, /bulkPct|bulkValid/, 'nor its sweep');
-});
-
-test('🪤 a blank box is REFUSED, never read as 0%', () => {
-  // `Number('')` is 0 and 0 is a legal discount, so a blank save would retract
-  // the discount from every product at once and report success.
   const actions = strip(read('app/admin/pricing/actions.ts'));
-  assert.match(
+
+  assert.doesNotMatch(
+    surface,
+    /<SetupDiscountForm/,
+    'the box is off the screen — the per-family discounts are the mechanism now',
+  );
+  assert.doesNotMatch(
     actions,
-    /if \(raw === '' \|\| !Number\.isFinite\(pct\)/,
-    'an empty field must be refused before it is read as a number',
+    /export async function saveOnboardingDiscount/,
+    'and its save goes with it: an action nothing can reach is the shape this repo keeps paying for',
   );
 });
 
-test('the change is audited, because it moves every price at once', () => {
-  const actions = strip(read('app/admin/pricing/actions.ts'));
-  assert.match(actions, /action: 'onboarding_discount_edit'/, 'the edit must be recorded');
-  assert.match(actions, /before: priorPct/, 'with what it was');
+test('⚠ the column and its READERS survive — do not "tidy up" the fallback', () => {
+  /*
+    🔑 THE HALF THAT MUST NOT FOLLOW THE BOX. Removing a CONTROL is not removing
+    a CAPABILITY. `platform_settings.onboarding_discount_pct` is still read live
+    as the fallback for a product with no sign-up price of its own.
+
+    It governs nothing TODAY — measured 2026-08-29, the set-up step sells exactly
+    two families and every row in both carries its own `onboarding_price_php` —
+    but "inert today" is not "safe to delete", and the next product added at
+    set-up may well arrive without one. Deleting it is its own change with its
+    own measurement, not a loose end of this one.
+  */
+  const orders = strip(read('lib/onboarding-services-orders.ts'));
+  const step = strip(read('lib/onboarding/services-step-server.ts'));
+
+  assert.match(orders, /onboarding_discount_pct/, 'the order mint still reads it');
+  assert.match(step, /onboarding_discount_pct/, 'and so does the set-up step');
+});
+
+test('🪤 A BLANK BOX IS STILL REFUSED — the guard moved with the control', () => {
+  /*
+    `Number('')` is 0, 0 is finite, and 0 is a LEGAL discount — so a blank save
+    reads as "0% off" and strips the sign-up saving from an entire family at
+    once, reporting success. Sixteen Papic prices on one slip.
+
+    🔑 THIS TEST USED TO POINT AT THE HOUSE SET-UP DISCOUNT, WHICH IS RETIRED.
+    Rather than delete it with its subject, it was aimed at the control that
+    REPLACED it — and that control did not have the guard. The bug was live when
+    this was written. That is the argument against deleting a guard just because
+    the thing it watched moved: the lesson outlives the code.
+  */
+  const control = strip(read('app/admin/pricing/price-control-actions.ts'));
+  assert.match(
+    control,
+    /if \(raw_str === ''\) return null;/,
+    'an empty percentage must be refused BEFORE it is read as a number',
+  );
+});
+
+test('a family-wide discount edit is audited — it moves every price at once', () => {
+  const control = strip(read('app/admin/pricing/price-control-actions.ts'));
+  assert.match(
+    control,
+    /action: 'family_signup_discount_edit'/,
+    'the edit must be recorded — one box moves sixteen prices',
+  );
+  assert.match(control, /rowsMoved/, 'with how many actually moved');
 });

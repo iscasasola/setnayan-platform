@@ -42,9 +42,26 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** A percent typed into a form, or null when it is not a usable number. */
+/**
+ * A percent typed into a form, or null when it is not a usable number.
+ *
+ * 🪤 A BLANK BOX IS REFUSED, NEVER READ AS 0%. `Number('')` is 0, 0 is finite,
+ * and 0 is a LEGAL discount — so without the emptiness test an empty field saved
+ * cleanly as "0% off" and stripped the sign-up saving from every row in the
+ * family at once, reporting success. Sixteen Papic prices on one accidental
+ * save.
+ *
+ * 🔑 THIS EXACT GUARD EXISTED ON THE CONTROL THIS ONE REPLACED. The retired
+ * house set-up discount refused a blank explicitly and had a test saying why;
+ * the per-family control that superseded it on 2026-08-28 did not inherit
+ * either. Found 2026-08-29 by asking what that retiring test had been protecting
+ * before deleting it — which is the whole reason not to delete a guard just
+ * because its subject moved.
+ */
 function parsePct(raw: FormDataEntryValue | null): number | null {
-  const n = Number(String(raw ?? '').trim());
+  const raw_str = String(raw ?? '').trim();
+  if (raw_str === '') return null;
+  const n = Number(raw_str);
   return Number.isFinite(n) ? round2(n) : null;
 }
 
@@ -591,4 +608,91 @@ export async function saveAiBandPrice(
         ? `Saved — band ${band} is ₱${price.toLocaleString('en-PH')}.`
         : `Saved — band ${band} is ₱${price.toLocaleString('en-PH')}, ₱${signup.toLocaleString('en-PH')} during set-up.`,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6 · THE REST OF PAPIC — the products that are not ladder rungs
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Sets ONE non-rung Papic product's regular price.
+ *
+ * ⚖ Owner 2026-08-29, of the Papic tab: *"free credits should be here. with the
+ * rest of papic services and the thank you video."* The tab held the credit
+ * ladder and nothing else, so the whole Papic picture was never in one place.
+ *
+ * ⛔ SCOPED TO PAPIC, AND THE SCOPE IS THE SECURITY. The code arrives from a
+ * browser; without this test the action would be a general "write any price"
+ * endpoint reachable from one admin screen. A rung is refused too — those are
+ * derived from the ladder's anchors and typing one here would be overwritten by
+ * the next ladder save, silently.
+ *
+ * 🔑 THE FOUR CAMERA RATES ARE EDITABLE HERE EVEN THOUGH THEY ARE SWITCHED OFF,
+ * and that is deliberate rather than an oversight. `fetchCameraRates` reads all
+ * four PAST `is_active`, and two of them price a charge a couple can make today.
+ * A price that still charges must be visible where prices are set — burying it
+ * on a "switched off" shelf is how a live number stops being looked at.
+ */
+export async function savePapicProductPrice(
+  _prev: RowActionState,
+  formData: FormData,
+): Promise<RowActionState> {
+  const { userId: adminUserId } = await requireAdminAction();
+  const admin = createAdminClient();
+
+  const code = String(formData.get('service_code') ?? '').trim().toUpperCase();
+  if (!code.startsWith('PAPIC')) {
+    return { ok: false, message: 'That is not a Papic price.' };
+  }
+  if (/^PAPIC_GUEST(_|$)/.test(code)) {
+    return {
+      ok: false,
+      message: 'Credit rungs are set by the ladder above — a price typed here would be overwritten.',
+    };
+  }
+
+  const raw = String(formData.get('regular_price_php') ?? '').trim();
+  if (raw === '') return { ok: false, message: 'A price is needed.' };
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return { ok: false, message: 'A price must be ₱0 or more.' };
+  const price = round2(n);
+
+  const { data: prior, error: readErr } = await admin
+    .from('platform_retail_catalog_v2')
+    .select('service_code, title, retail_price_php, is_active')
+    .eq('service_code', code)
+    .maybeSingle();
+  // ⚠ Supabase RESOLVES with `{ error }`. Unchecked, a refused read would write
+  // a price with no before-value and log a false audit row.
+  if (readErr) return { ok: false, message: `Couldn't read that price — ${readErr.message}` };
+  if (!prior) return { ok: false, message: 'That price no longer exists.' };
+
+  const before = Number(prior.retail_price_php);
+  if (before === price) return { ok: true, message: 'No changes to save.' };
+
+  const { error } = await admin
+    .from('platform_retail_catalog_v2')
+    .update({
+      retail_price_php: price,
+      updated_at: new Date().toISOString(),
+      updated_by_admin_id: adminUserId,
+    })
+    .eq('service_code', code);
+  if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
+
+  await admin.from('admin_audit_log').insert({
+    action: 'papic_product_price_edit',
+    target_id: code,
+    actor_user_id: adminUserId,
+    metadata: {
+      table: 'platform_retail_catalog_v2',
+      before: { regular: before },
+      after: { regular: price },
+      wasActive: prior.is_active === true,
+    },
+  });
+
+  revalidatePath('/admin/pricing');
+  revalidatePath('/pricing');
+  return { ok: true, message: `Saved — ₱${price.toLocaleString('en-PH')}.` };
 }

@@ -1,6 +1,14 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Archive, CalendarPlus, MoreVertical, Trash2 } from 'lucide-react';
 
@@ -135,6 +143,24 @@ export function EventCardMenu({
   const [asking, setAsking] = useState(false);
   /** TRUE once the request is in. */
   const [requested, setRequested] = useState(false);
+  /**
+   * WHICH HALF OF THE REMOVAL IS ON SCREEN — owner 2026-08-29: *"when they
+   * click on their reason, change the content of the popup to just show the
+   * type XXX to confirm so the popup stays fit."*
+   *
+   * The frame used to carry everything at once: what is lost, six reason
+   * chips, a notes box, the typed name and the buttons — about 590px, taller
+   * than the phone it opens on. Two short screens fit; one long one never can,
+   * and the part that falls off the bottom is always the button.
+   *
+   * ⚖ THE REASON IS STILL ASKED, NEVER DEMANDED. Advancing on a chip press
+   * would make the survey the toll gate on somebody's own celebration, so
+   * "I'd rather not say" moves them on with nothing recorded — the same
+   * standing this question has had since the owner set it on 2026-08-28.
+   */
+  const [step, setStep] = useState<'why' | 'confirm'>('why');
+  /** The note is one line until it is asked for — see `step`. */
+  const [noteOpen, setNoteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -149,6 +175,8 @@ export function EventCardMenu({
     setReasonText('');
     setAsking(false);
     setRequested(false);
+    setStep('why');
+    setNoteOpen(false);
   }
 
   function putAway() {
@@ -183,6 +211,8 @@ export function EventCardMenu({
 
   function openDelete() {
     setError(null);
+    setStep('why');
+    setNoteOpen(false);
     setConfirming(true);
     startTransition(async () => {
       try {
@@ -354,7 +384,7 @@ export function EventCardMenu({
         <MoreVertical aria-hidden className="h-[17px] w-[17px]" strokeWidth={2} />
       </button>
 
-      {open ? (
+      {open && !confirming ? (
         <>
           {/* Backdrop — closes on any outside press. `fixed` so it covers the
               whole board, not just this card. */}
@@ -371,332 +401,547 @@ export function EventCardMenu({
               align === 'left' ? 'left-0' : 'right-0'
             }`}
           >
-            {!confirming ? (
+            {icsHref ? (
               <>
-                {icsHref ? (
-                  <>
-                    <a
-                      href={icsHref}
-                      download={`${eventName}.ics`}
-                      role="menuitem"
-                      onClick={close}
-                      className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
-                    >
-                      <CalendarPlus
-                        aria-hidden
-                        className="mt-0.5 h-4 w-4 shrink-0 text-ink/60"
-                        strokeWidth={2}
-                      />
-                      <span>
-                        <span className="block font-semibold">
-                          Add to calendar
-                        </span>
-                        <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
-                          Just this celebration, on your phone.
-                        </span>
-                      </span>
-                    </a>
-                    <div className="my-1 h-px bg-ink/10" />
-                  </>
-                ) : null}
-
-                <button
-                  type="button"
+                <a
+                  href={icsHref}
+                  download={`${eventName}.ics`}
                   role="menuitem"
-                  onClick={putAway}
-                  disabled={pending}
-                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5 disabled:opacity-60"
+                  onClick={close}
+                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
                 >
-                  <Archive
+                  <CalendarPlus
                     aria-hidden
                     className="mt-0.5 h-4 w-4 shrink-0 text-ink/60"
                     strokeWidth={2}
                   />
                   <span>
                     <span className="block font-semibold">
-                      {archived ? 'Bring it back' : 'Put this away'}
+                      Add to calendar
                     </span>
                     <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
-                      {archived
-                        ? 'Back onto your active list.'
-                        : 'Off your list. Nothing is deleted.'}
+                      Just this celebration, on your phone.
                     </span>
                   </span>
-                </button>
-
+                </a>
                 <div className="my-1 h-px bg-ink/10" />
-
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={openDelete}
-                  disabled={pending}
-                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-[color:var(--sn-danger)] hover:bg-[color:var(--sn-danger-soft)] disabled:opacity-60"
-                >
-                  <Trash2
-                    aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0"
-                    strokeWidth={2}
-                  />
-                  <span>
-                    <span className="block font-semibold">Remove for good</span>
-                    <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
-                      Photos and everything else, gone for good.
-                    </span>
-                  </span>
-                </button>
-
-                {error ? (
-                  <p
-                    role="alert"
-                    className="px-3 pb-2 pt-1 text-[11.5px] font-semibold text-[color:var(--sn-danger)]"
-                  >
-                    {error}
-                  </p>
-                ) : null}
               </>
-            ) : (
-              <div className="px-3 py-2.5">
-                <p className="text-sm font-bold text-ink">
-                  Remove {eventName}?
-                </p>
+            ) : null}
 
-                {!impact ? (
-                  <p className="mt-1.5 text-[12px] text-ink/60">
-                    {error ? error : 'Checking what’s on this one…'}
-                  </p>
-                ) : requested || impact.pendingRequest ? (
-                  /*
-                    🔑 THE REQUEST IS SHOWN WHEREVER THEY LEFT IT, AND CAN BE
-                    TAKEN BACK. A person who asks and then sees no trace of it
-                    asks again — and the one-open-request-per-celebration rule
-                    would refuse the second press with an error about a
-                    duplicate, which reads as the product being broken.
-                  */
-                  <>
-                    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
-                      <strong className="font-semibold text-ink">
-                        We have your request
-                      </strong>{' '}
-                      — nothing is removed until we answer, and we’ll let you
-                      know when we do.
-                    </p>
-                    {impact.pendingRequest ? (
-                      <p className="mt-1 text-[11.5px] leading-snug text-ink/55">
-                        You said: {deletionReasonLabel(impact.pendingRequest.reasonCode).toLowerCase()}
-                        {impact.pendingRequest.reason
-                          ? ` — “${impact.pendingRequest.reason}”`
-                          : ''}
-                      </p>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={withdrawRequest}
-                      disabled={pending}
-                      className="sn-press mt-2 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink disabled:opacity-60"
-                    >
-                      {pending ? 'Withdrawing…' : 'Withdraw the request'}
-                    </button>
-                  </>
-                ) : asking ? (
-                  /*
-                    THE REASON STEP. The same six answers as an ordinary
-                    removal, so what we learn is comparable however somebody
-                    leaves; the box is where they say what they actually want
-                    done about the money.
-                  */
-                  <>
-                    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
-                      Tell us why and a person will answer you.
-                    </p>
-                    <ReasonPicker
-                      code={reasonCode}
-                      onCode={setReasonCode}
-                      text={reasonText}
-                      onText={setReasonText}
-                      textLabel="Anything we should know?"
-                      textRequired={reasonCode === 'other'}
-                    />
-                  </>
-                ) : impact.blocked ? (
-                  /* The refusal is stated BEFORE anything is typed. Asking
-                     somebody to type their wedding's name and then telling
-                     them no is a worse refusal than no button at all. */
-                  <>
-                    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
-                      {impact.blockedReason}
-                    </p>
-                    {/*
-                      🚨 AND NOW IT SAYS WHICH MONEY. Until 2026-08-28 a refusal
-                      about a bill we had confirmed, a screenshot nobody had
-                      opened, and a check that failed all wore ONE sentence, and
-                      the owner's verdict on it was "still failed to identify" —
-                      on a celebration where, measured in production, nothing
-                      had been confirmed at all.
+            <button
+              type="button"
+              role="menuitem"
+              onClick={putAway}
+              disabled={pending}
+              className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5 disabled:opacity-60"
+            >
+              <Archive
+                aria-hidden
+                className="mt-0.5 h-4 w-4 shrink-0 text-ink/60"
+                strokeWidth={2}
+              />
+              <span>
+                <span className="block font-semibold">
+                  {archived ? 'Bring it back' : 'Put this away'}
+                </span>
+                <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                  {archived
+                    ? 'Back onto your active list.'
+                    : 'Off your list. Nothing is deleted.'}
+                </span>
+              </span>
+            </button>
 
-                      The list is only drawn where there IS money of ours in the
-                      way. A supplier refusal already names who is holding it,
-                      and an unreadable one must name nothing, because the whole
-                      reason it refused is that it could not read.
-                    */}
-                    {(impact.blockKind === 'settled' ||
-                      impact.blockKind === 'awaiting_check') &&
-                    impact.paidItems.length > 0 ? (
-                      <ul className="mt-2 grid gap-1">
-                        {impact.paidItems.map((item, i) => (
-                          <li
-                            key={`${item.description}-${i}`}
-                            className="flex items-start justify-between gap-2 rounded-md bg-ink/5 px-2 py-1.5 text-[11.5px] leading-snug"
-                          >
-                            <span className="font-semibold text-ink">
-                              {item.description}
-                            </span>
-                            {item.amountPhp !== null ? (
-                              <span className="shrink-0 font-bold text-ink tabular-nums">
-                                ₱{item.amountPhp.toLocaleString('en-PH')}
-                              </span>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {/*
-                      🔑 A REFUSAL WITH A DOOR. Owner 2026-08-21: a paid supplier
-                      must ACCEPT the deletion — so where suppliers are what is
-                      holding it, the couple gets the ask rather than a dead end.
-                      Only offered when suppliers are the reason: it asks the
-                      suppliers directly, which is a better door than putting a
-                      person in the middle of somebody else's money.
-                    */}
-                    {impact.blockKind === 'suppliers' ? (
-                      <button
-                        type="button"
-                        onClick={askSuppliers}
-                        disabled={pending}
-                        className="sn-press mt-2.5 inline-flex items-center gap-2 rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
-                      >
-                        {pending ? 'Asking…' : 'Ask them to agree'}
-                      </button>
-                    ) : null}
-                    {/*
-                      ⛔ AND THE UNREADABLE ONE KEEPS ITS DEAD END, DELIBERATELY.
-                      `canAsk` is false there because there is nothing to
-                      request about — we do not yet know whether there is
-                      anything to request about. A button would be a door to a
-                      room we cannot describe.
-                    */}
-                    {impact.canAsk ? (
-                      <button
-                        type="button"
-                        onClick={() => setAsking(true)}
-                        disabled={pending}
-                        className="sn-press mt-2.5 inline-flex items-center gap-2 rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
-                      >
-                        Ask us to remove it
-                      </button>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <ImpactLines impact={impact} />
-                    {/*
-                      ⚖ ASKED, NEVER DEMANDED. The Remove button does not wait
-                      on this — holding somebody's own celebration hostage to a
-                      survey would be the product asking for a favour on the way
-                      out. It is here because this is the ONLY moment anybody
-                      will ever tell us why they left, and it costs one tap.
-                    */}
-                    <ReasonPicker
-                      code={reasonCode}
-                      onCode={setReasonCode}
-                      text={reasonText}
-                      onText={setReasonText}
-                      textLabel="Anything you want to add?"
-                      textRequired={false}
-                      optional
-                    />
-                    <label className="mt-2.5 block text-[11.5px] font-semibold text-ink/70">
-                      Type <span className="font-bold text-ink">{eventName}</span> to
-                      confirm
-                      <input
-                        type="text"
-                        value={typed}
-                        onChange={(e) => setTyped(e.target.value)}
-                        autoComplete="off"
-                        className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-sm font-normal text-ink outline-none focus:border-mulberry"
-                      />
-                    </label>
-                    {error ? (
-                      <p
-                        role="alert"
-                        className="mt-1.5 text-[11.5px] font-semibold text-[color:var(--sn-danger)]"
-                      >
-                        {error}
-                      </p>
-                    ) : null}
-                  </>
-                )}
+            <div className="my-1 h-px bg-ink/10" />
 
-                {asked !== null ? (
-                  <>
-                    <p className="mt-2 text-[12px] leading-snug text-[color:var(--sn-ink-500)]">
-                      {asked === 0
-                        ? 'Everyone has already been asked — we’re waiting on them.'
-                        : `Asked ${asked === 1 ? '1 supplier' : `${asked} suppliers`}. We’ll let you know as they answer; you can remove this once they agree.`}
-                    </p>
-                    {/*
-                      🔑 THE INVERSE, AND IT IS REACHABLE. `withdrawSupplierAsk`
-                      shipped with ZERO CALLERS while its own docblock cited
-                      `cancel_vendor_lock_request` — granted, tested, uncallable
-                      for its whole life — as the thing not to repeat. A couple
-                      who asks by mistake, or sorts it out by phone, must be able
-                      to take the question back.
-                    */}
-                    <button
-                      type="button"
-                      onClick={withdrawAsk}
-                      disabled={pending}
-                      className="sn-press mt-1.5 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink disabled:opacity-60"
-                    >
-                      {pending ? 'Withdrawing…' : 'Withdraw the request'}
-                    </button>
-                  </>
-                ) : null}
-                <div className="mt-3 flex items-center justify-end gap-1.5">
-                  <button
-                    type="button"
-                    onClick={asking ? () => setAsking(false) : close}
-                    disabled={pending}
-                    className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-ink/70 hover:text-ink disabled:opacity-60"
-                  >
-                    {asking ? 'Back' : 'Cancel'}
-                  </button>
-                  {asking ? (
-                    <button
-                      type="button"
-                      onClick={sendRequest}
-                      disabled={pending || !reasonIsComplete(reasonCode, reasonText)}
-                      className="rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream disabled:opacity-45"
-                    >
-                      {pending ? 'Sending…' : 'Send it'}
-                    </button>
-                  ) : impact && !impact.blocked ? (
-                    <button
-                      type="button"
-                      onClick={confirmDelete}
-                      disabled={pending || typed.trim().length === 0}
-                      className="rounded-full bg-[color:var(--sn-danger)] px-3 py-1.5 text-[12.5px] font-bold text-cream disabled:opacity-45"
-                    >
-                      {pending ? 'Removing…' : 'Remove for good'}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={openDelete}
+              disabled={pending}
+              className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-[color:var(--sn-danger)] hover:bg-[color:var(--sn-danger-soft)] disabled:opacity-60"
+            >
+              <Trash2
+                aria-hidden
+                className="mt-0.5 h-4 w-4 shrink-0"
+                strokeWidth={2}
+              />
+              <span>
+                <span className="block font-semibold">Remove for good</span>
+                <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                  Photos and everything else, gone for good.
+                </span>
+              </span>
+            </button>
+
+            {error ? (
+              <p
+                role="alert"
+                className="px-3 pb-2 pt-1 text-[11.5px] font-semibold text-[color:var(--sn-danger)]"
+              >
+                {error}
+              </p>
+            ) : null}
           </div>
         </>
       ) : null}
+
+      {/*
+        🚪 THE REMOVE FRAME IS A DIALOG IN THE BROWSER'S TOP LAYER — IT IS NOT
+        A PANEL HANGING OFF THE CARD, AND THAT IS THE WHOLE FIX.
+
+        Owner, 2026-08-29, on a phone: *"i cannot click on the delete this
+        frame should be on top and not under."* He was right, and the panel was
+        not broken — it was OUTRANKED. It rendered as `absolute z-50` inside the
+        card's wrapper, so the only thing keeping it above the shelves below was
+        a z-index, and a z-index is only worth anything INSIDE its own stacking
+        context. Anything on this board that opens one — an animated section, a
+        blurred card, a sticky bar — clamps the panel inside it, and then the
+        next shelf paints straight over the bottom of it: over Cancel, and over
+        the one button the whole frame exists to offer.
+
+        🔑 A TALLER PANEL IS ALSO A TRAPPED ONE. Six reason chips, a notes box
+        and a type-the-name field made this frame ~590px. Hung 44px below a card
+        on a 780px phone it runs out of screen with the buttons at the bottom,
+        and nothing about `absolute` lets a person scroll to them — the page
+        scrolls, the panel goes with the card.
+
+        `showModal()` answers both at once and answers them structurally, not by
+        out-bidding anybody: the top layer is above every stacking context by
+        construction, so no future z-index anywhere can get in front of it, and
+        the frame scrolls inside itself when the screen is short. It is the
+        idiom already shipping in `app/_components/confirm-dialog.tsx` —
+        reproduced, not invented, and the browser hands us the focus trap, ESC,
+        and the inert background with it.
+
+        ⛔ DO NOT "SIMPLIFY" THIS BACK INTO THE POPOVER. The panel above is
+        small, anchored, and correct where it is; this one is a decision about
+        somebody's photographs and belongs in front of the whole page.
+      */}
+      <RemoveDialog open={confirming} onDismiss={close} label={`Remove ${eventName}?`}>
+        <div className="p-4">
+          <p className="text-sm font-bold text-ink">
+            Remove {eventName}?
+          </p>
+
+          {!impact ? (
+            <p className="mt-1.5 text-[12px] text-ink/60">
+              {error ? error : 'Checking what’s on this one…'}
+            </p>
+          ) : requested || impact.pendingRequest ? (
+            /*
+              🔑 THE REQUEST IS SHOWN WHEREVER THEY LEFT IT, AND CAN BE
+              TAKEN BACK. A person who asks and then sees no trace of it
+              asks again — and the one-open-request-per-celebration rule
+              would refuse the second press with an error about a
+              duplicate, which reads as the product being broken.
+            */
+            <>
+              <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+                <strong className="font-semibold text-ink">
+                  We have your request
+                </strong>{' '}
+                — nothing is removed until we answer, and we’ll let you
+                know when we do.
+              </p>
+              {impact.pendingRequest ? (
+                <p className="mt-1 text-[11.5px] leading-snug text-ink/55">
+                  You said: {deletionReasonLabel(impact.pendingRequest.reasonCode).toLowerCase()}
+                  {impact.pendingRequest.reason
+                    ? ` — “${impact.pendingRequest.reason}”`
+                    : ''}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={withdrawRequest}
+                disabled={pending}
+                className="sn-press mt-2 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink disabled:opacity-60"
+              >
+                {pending ? 'Withdrawing…' : 'Withdraw the request'}
+              </button>
+            </>
+          ) : asking ? (
+            /*
+              THE REASON STEP. The same six answers as an ordinary
+              removal, so what we learn is comparable however somebody
+              leaves; the box is where they say what they actually want
+              done about the money.
+            */
+            <>
+              <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+                Tell us why and a person will answer you.
+              </p>
+              <ReasonPicker
+                code={reasonCode}
+                onCode={setReasonCode}
+                text={reasonText}
+                onText={setReasonText}
+                textLabel="Anything we should know?"
+                textRequired={reasonCode === 'other'}
+              />
+            </>
+          ) : impact.blocked ? (
+            /* The refusal is stated BEFORE anything is typed. Asking
+               somebody to type their wedding's name and then telling
+               them no is a worse refusal than no button at all. */
+            <>
+              <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+                {impact.blockedReason}
+              </p>
+              {/*
+                🚨 AND NOW IT SAYS WHICH MONEY. Until 2026-08-28 a refusal
+                about a bill we had confirmed, a screenshot nobody had
+                opened, and a check that failed all wore ONE sentence, and
+                the owner's verdict on it was "still failed to identify" —
+                on a celebration where, measured in production, nothing
+                had been confirmed at all.
+
+                The list is only drawn where there IS money of ours in the
+                way. A supplier refusal already names who is holding it,
+                and an unreadable one must name nothing, because the whole
+                reason it refused is that it could not read.
+              */}
+              {(impact.blockKind === 'settled' ||
+                impact.blockKind === 'awaiting_check') &&
+              impact.paidItems.length > 0 ? (
+                <ul className="mt-2 grid gap-1">
+                  {impact.paidItems.map((item, i) => (
+                    <li
+                      key={`${item.description}-${i}`}
+                      className="flex items-start justify-between gap-2 rounded-md bg-ink/5 px-2 py-1.5 text-[11.5px] leading-snug"
+                    >
+                      <span className="font-semibold text-ink">
+                        {item.description}
+                      </span>
+                      {item.amountPhp !== null ? (
+                        <span className="shrink-0 font-bold text-ink tabular-nums">
+                          ₱{item.amountPhp.toLocaleString('en-PH')}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {/*
+                🔑 A REFUSAL WITH A DOOR. Owner 2026-08-21: a paid supplier
+                must ACCEPT the deletion — so where suppliers are what is
+                holding it, the couple gets the ask rather than a dead end.
+                Only offered when suppliers are the reason: it asks the
+                suppliers directly, which is a better door than putting a
+                person in the middle of somebody else's money.
+              */}
+              {impact.blockKind === 'suppliers' ? (
+                <button
+                  type="button"
+                  onClick={askSuppliers}
+                  disabled={pending}
+                  className="sn-press mt-2.5 inline-flex items-center gap-2 rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
+                >
+                  {pending ? 'Asking…' : 'Ask them to agree'}
+                </button>
+              ) : null}
+              {/*
+                ⛔ AND THE UNREADABLE ONE KEEPS ITS DEAD END, DELIBERATELY.
+                `canAsk` is false there because there is nothing to
+                request about — we do not yet know whether there is
+                anything to request about. A button would be a door to a
+                room we cannot describe.
+              */}
+              {impact.canAsk ? (
+                <button
+                  type="button"
+                  onClick={() => setAsking(true)}
+                  disabled={pending}
+                  className="sn-press mt-2.5 inline-flex items-center gap-2 rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
+                >
+                  Ask us to remove it
+                </button>
+              ) : null}
+            </>
+          ) : step === 'why' ? (
+            /*
+              SCREEN ONE — WHAT GOES, AND WHY. No typed name and no Remove
+              button: this half is a question, and a destructive control on a
+              screen whose job is to ask one is a control pressed by accident.
+            */
+            <>
+              <ImpactLines impact={impact} />
+              {/*
+                ⚖ ASKED, NEVER DEMANDED. The Remove button does not wait
+                on this — holding somebody's own celebration hostage to a
+                survey would be the product asking for a favour on the way
+                out. It is here because this is the ONLY moment anybody
+                will ever tell us why they left, and it costs one tap.
+
+                🔑 A PRESS IS THE ANSWER AND THE PAGE TURN, BOTH — owner
+                2026-08-29. Clearing the chosen one is NOT a page turn: it
+                leaves them here, where the chips are, which is the only place
+                clearing it means anything.
+              */}
+              <ReasonPicker
+                code={reasonCode}
+                onCode={(c) => {
+                  setReasonCode(c);
+                  if (c) setStep('confirm');
+                }}
+                text={reasonText}
+                onText={setReasonText}
+                textLabel="Anything you want to add?"
+                textRequired={false}
+                optional
+                hideText
+              />
+              {/*
+                ⚖ THE WAY PAST THE QUESTION, AND IT IS NOT A SMALL PRINT LINK.
+                Without it, advancing-on-a-chip turns an optional survey into
+                the toll gate on somebody's own celebration — the exact thing
+                the note above says this question must never be.
+              */}
+              <button
+                type="button"
+                onClick={() => {
+                  setReasonCode('');
+                  setReasonText('');
+                  setStep('confirm');
+                }}
+                className="sn-press mt-2.5 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+              >
+                I’d rather not say
+              </button>
+            </>
+          ) : (
+            /*
+              SCREEN TWO — THE PRESS. The strongest warning moved here on
+              purpose: it belongs beside the button, not two scrolls above it.
+            */
+            <>
+              <PermanenceWarning />
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-[11.5px] leading-snug text-ink/55">
+                <span>
+                  {reasonCode
+                    ? `You said: ${deletionReasonLabel(reasonCode).toLowerCase()}`
+                    : 'No reason given'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStep('why')}
+                  className="sn-press font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+                >
+                  {reasonCode ? 'Change' : 'Say why'}
+                </button>
+              </div>
+              {/*
+                🔑 THE NOTE IS ONE LINE UNTIL IT IS ASKED FOR. Owner
+                2026-08-28: *"they can pick a reason for deleting. or they state
+                their reason."* — so the box has to stay reachable, and an
+                always-open box is 60px of the height this screen exists to save
+                spent on a field most people leave empty.
+              */}
+              {reasonCode && !noteOpen && !reasonText ? (
+                <button
+                  type="button"
+                  onClick={() => setNoteOpen(true)}
+                  className="sn-press mt-1.5 text-[11.5px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+                >
+                  Add a note
+                </button>
+              ) : null}
+              {reasonCode && (noteOpen || reasonText) ? (
+                <ReasonNote
+                  label="Anything you want to add?"
+                  required={false}
+                  text={reasonText}
+                  onText={setReasonText}
+                />
+              ) : null}
+              <label className="mt-2.5 block text-[11.5px] font-semibold text-ink/70">
+                Type <span className="font-bold text-ink">{eventName}</span> to
+                confirm
+                <input
+                  type="text"
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  /*
+                    ⌨ ENTER REMOVES IT — owner 2026-08-29: *"also pressing enter
+                    on that text box should also confirm"*. A lone `<input>`
+                    outside a `<form>` does nothing at all on Enter, so a person
+                    who has just typed their celebration's name in full presses
+                    the key every text box has taught them to press and the
+                    screen ignores them.
+
+                    🔑 THE SAME CONDITION AS THE BUTTON, WORD FOR WORD. A second
+                    way to fire something irreversible must never be the LOOSER
+                    way: if this test drifted from the button's, Enter would
+                    remove a celebration on a screen still showing the control
+                    greyed out. A guard pins the two spellings as identical.
+                  */
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    if (pending || typed.trim().length === 0) return;
+                    confirmDelete();
+                  }}
+                  autoComplete="off"
+                  className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-sm font-normal text-ink outline-none focus:border-mulberry"
+                />
+              </label>
+              {error ? (
+                <p
+                  role="alert"
+                  className="mt-1.5 text-[11.5px] font-semibold text-[color:var(--sn-danger)]"
+                >
+                  {error}
+                </p>
+              ) : null}
+            </>
+          )}
+
+          {asked !== null ? (
+            <>
+              <p className="mt-2 text-[12px] leading-snug text-[color:var(--sn-ink-500)]">
+                {asked === 0
+                  ? 'Everyone has already been asked — we’re waiting on them.'
+                  : `Asked ${asked === 1 ? '1 supplier' : `${asked} suppliers`}. We’ll let you know as they answer; you can remove this once they agree.`}
+              </p>
+              {/*
+                🔑 THE INVERSE, AND IT IS REACHABLE. `withdrawSupplierAsk`
+                shipped with ZERO CALLERS while its own docblock cited
+                `cancel_vendor_lock_request` — granted, tested, uncallable
+                for its whole life — as the thing not to repeat. A couple
+                who asks by mistake, or sorts it out by phone, must be able
+                to take the question back.
+              */}
+              <button
+                type="button"
+                onClick={withdrawAsk}
+                disabled={pending}
+                className="sn-press mt-1.5 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink disabled:opacity-60"
+              >
+                {pending ? 'Withdrawing…' : 'Withdraw the request'}
+              </button>
+            </>
+          ) : null}
+          <div className="mt-3 flex items-center justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={asking ? () => setAsking(false) : close}
+              disabled={pending}
+              className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-ink/70 hover:text-ink disabled:opacity-60"
+            >
+              {asking ? 'Back' : 'Cancel'}
+            </button>
+            {asking ? (
+              <button
+                type="button"
+                onClick={sendRequest}
+                disabled={pending || !reasonIsComplete(reasonCode, reasonText)}
+                className="rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream disabled:opacity-45"
+              >
+                {pending ? 'Sending…' : 'Send it'}
+              </button>
+            ) : impact && !impact.blocked && step === 'confirm' ? (
+              /* Not on the "why" screen — see the note there. The disabled
+                 condition itself is UNCHANGED: Remove still waits on the typed
+                 name and nothing else. */
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={pending || typed.trim().length === 0}
+                className="rounded-full bg-[color:var(--sn-danger)] px-3 py-1.5 text-[12.5px] font-bold text-cream disabled:opacity-45"
+              >
+                {pending ? 'Removing…' : 'Remove for good'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </RemoveDialog>
     </>
+  );
+}
+
+/**
+ * The remove frame's container: a native `<dialog>` opened with `showModal()`,
+ * portaled to `document.body`.
+ *
+ * ─── WHY A `<dialog>` AND NOT ANOTHER PANEL WITH A BIGGER NUMBER ───────────
+ * `showModal()` puts the element in the browser's TOP LAYER, which sits above
+ * every stacking context on the page by construction. That is a different kind
+ * of promise from `z-50`: a z-index only ranks you against your siblings inside
+ * whatever context an ancestor happens to have opened, so it can be beaten
+ * tomorrow by a shelf someone gives a transform, a blur or a sticky bar — which
+ * is exactly what happened to this frame. Nothing can be given a number that
+ * gets in front of the top layer.
+ *
+ * It also brings the parts a hand-rolled overlay has to remember and this one
+ * never had: focus is trapped inside the frame, ESC closes it, the page behind
+ * goes inert, and the backdrop is the browser's own.
+ *
+ * 🪤 PORTALED TO `document.body` FOR A SECOND REASON. This component renders as
+ * a SIBLING of a board card, inside a grid cell — and the `<dialog>` element in
+ * the tree, wherever it sits, inherits that ancestor's `overflow`. The top layer
+ * is unaffected by DOM position, but keeping the element out of a clipped,
+ * transformed grid cell is what stops the next well-meaning `overflow-hidden`
+ * from being a mystery.
+ *
+ * ⚠ THE ELEMENT IS ALWAYS RENDERED, THE CONTENT IS NOT. A `<dialog>` mounted
+ * only while open has no ref to call `showModal()` on at the moment it is
+ * needed; gating the CHILDREN keeps the impact read, the typed name and the
+ * reason chips from existing at all while the frame is shut.
+ */
+function RemoveDialog({
+  open,
+  onDismiss,
+  label,
+  children,
+}: {
+  open: boolean;
+  /** ESC, the backdrop, and a browser-initiated close all land here. */
+  onDismiss: () => void;
+  label: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (open && !el.open) el.showModal();
+    else if (!open && el.open) el.close();
+  }, [open]);
+
+  /*
+    A native dialog closes itself on ESC without telling React. Routing its
+    `close` event back through `onDismiss` is what keeps the two in step — the
+    alternative is a frame the browser has closed and a component that still
+    believes it is open, so the next press of "Remove for good" opens nothing.
+  */
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    function handleClose() {
+      if (open) onDismiss();
+    }
+    el.addEventListener('close', handleClose);
+    return () => el.removeEventListener('close', handleClose);
+  }, [open, onDismiss]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <dialog
+      ref={ref}
+      aria-label={label}
+      onClick={(e) => {
+        /* The backdrop IS the dialog element — a press only lands on it when it
+           missed the frame's own content. */
+        if (e.target === e.currentTarget) onDismiss();
+      }}
+      className="m-auto max-h-[min(85dvh,44rem)] w-[min(26rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-ink/10 bg-cream p-0 text-left text-ink shadow-2xl backdrop:bg-ink/45 backdrop:backdrop-blur-sm"
+    >
+      {open ? children : null}
+    </dialog>,
+    document.body,
   );
 }
 
@@ -722,26 +967,34 @@ function ImpactLines({ impact }: { impact: DeletionImpact }) {
       {parts.length > 0 ? (
         <>
           <span className="font-semibold text-ink">{parts.join(' · ')}</span> go
-          with it, along with the page your guests use.{' '}
+          with it, along with the page your guests use.
         </>
       ) : (
-        <>Everything on it goes, including the page your guests use. </>
+        <>Everything on it goes, including the page your guests use.</>
       )}
-      {/*
-        ⚠ THE SENTENCE THE OWNER ASKED FOR, 2026-08-20: "give them the
-        information that you will also lose your photos and information of the
-        event permanently."
+    </p>
+  );
+}
 
-        It is separate from the counted line above on purpose. That line lists
-        WHAT — and a count reads as an inventory, something you could imagine
-        asking us to restore. This says the photographs are GONE, in the two
-        words people actually check for. Until today it was not even true that
-        the files went; now it is, so the warning has to say so before the press
-        rather than after.
-
-        "Deleted for good" and "can't be undone" are not the same promise. The
-        second one is about the button; the first is about the photographs.
-      */}
+/**
+ * ⚠ THE SENTENCE THE OWNER ASKED FOR, 2026-08-20: "give them the information
+ * that you will also lose your photos and information of the event
+ * permanently."
+ *
+ * It is separate from the counted line on purpose. That line lists WHAT — and a
+ * count reads as an inventory, something you could imagine asking us to
+ * restore. This says the photographs are GONE, in the two words people actually
+ * check for.
+ *
+ * 🔑 AND IT MOVED TO THE SCREEN WITH THE BUTTON ON IT (2026-08-29). The frame
+ * is two screens now, and a warning left behind on the first one is a warning
+ * somebody read before they were deciding anything. "Deleted for good" and
+ * "can't be undone" are not the same promise: the second is about the button,
+ * the first is about the photographs — so the first one belongs beside it.
+ */
+function PermanenceWarning() {
+  return (
+    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
       <strong className="font-semibold text-ink">
         Your photos and everything about this celebration are deleted for good
       </strong>{' '}
@@ -772,6 +1025,7 @@ function ReasonPicker({
   textLabel,
   textRequired,
   optional = false,
+  hideText = false,
 }: {
   code: string;
   onCode: (c: string) => void;
@@ -781,6 +1035,12 @@ function ReasonPicker({
   textRequired: boolean;
   /** Ordinary removals say so — the button never waits on this. */
   optional?: boolean;
+  /**
+   * TRUE where the box belongs on a later screen than the chips — the removal
+   * frame, whose whole point since 2026-08-29 is that no one screen is taller
+   * than the phone it opens on. The caller renders `<ReasonNote>` itself.
+   */
+  hideText?: boolean;
 }) {
   return (
     <div className="mt-2.5">
@@ -812,21 +1072,51 @@ function ReasonPicker({
           );
         })}
       </div>
-      {code ? (
-        <label className="mt-2 block text-[11.5px] font-semibold text-ink/70">
-          {textLabel}
-          {textRequired ? null : (
-            <span className="ml-1 font-normal text-ink/45">Optional</span>
-          )}
-          <textarea
-            value={text}
-            onChange={(e) => onText(e.target.value)}
-            rows={2}
-            maxLength={1000}
-            className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-[12px] font-normal leading-snug text-ink outline-none focus:border-mulberry"
-          />
-        </label>
+      {code && !hideText ? (
+        <ReasonNote
+          label={textLabel}
+          required={textRequired}
+          text={text}
+          onText={onText}
+        />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The box under the chips — ONE implementation, two places.
+ *
+ * 🔑 It is a component rather than markup repeated twice because the removal
+ * frame now shows it on a LATER screen than the chips (owner 2026-08-29), while
+ * the request path still shows it inline. Two copies of a field is two copies
+ * of its 1000-character cap, its rows, and its Optional/required label — and
+ * the copy somebody forgets to change is the one a person meets.
+ */
+function ReasonNote({
+  label,
+  required,
+  text,
+  onText,
+}: {
+  label: string;
+  required: boolean;
+  text: string;
+  onText: (t: string) => void;
+}) {
+  return (
+    <label className="mt-2 block text-[11.5px] font-semibold text-ink/70">
+      {label}
+      {required ? null : (
+        <span className="ml-1 font-normal text-ink/45">Optional</span>
+      )}
+      <textarea
+        value={text}
+        onChange={(e) => onText(e.target.value)}
+        rows={2}
+        maxLength={1000}
+        className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-[12px] font-normal leading-snug text-ink outline-none focus:border-mulberry"
+      />
+    </label>
   );
 }

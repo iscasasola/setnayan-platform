@@ -374,14 +374,65 @@ test('the app variant lends its chrome and NOT its page styling', () => {
   );
 });
 
-test('below 1024 the app variant paints nothing', () => {
+test('below 1024 the app rail is a SHUT DRAWER, not an absence', () => {
+  /*
+    🔴 THIS TEST USED TO BE "below 1024 the app variant paints nothing" and it
+    asserted `.fd[data-chrome='app'] .fd-rail {display:none}` UNCONDITIONALLY.
+    Owner 2026-08-29: *"hamburger menu disappeared on other parts of the shell.
+    keep it visible across."* The menu button now renders on every variant, so
+    an unconditional hide would beat every drawer rule above it on specificity
+    and make that button a control that opens nothing — the failure this
+    project keeps paying for, where the fix is present and unreachable.
+
+    WHAT IS STILL GUARDED IS THE HALF THAT MATTERED: shut ⇒ `display:none`, so
+    a dozen rail links are never sitting focusable behind a closed drawer.
+  */
   const css = CSS_SRC.replace(/\/\*[\s\S]*?\*\//g, '');
   const narrow = css.match(/@media \(max-width: 1023\.98px\) \{[\s\S]*?\n\}/g) ?? [];
   const appNarrow = narrow.find((b) => b.includes("[data-chrome='app']"));
   assert.ok(appNarrow, 'no sub-1024 rule for the app variant — the rail would paint on phones');
   assert.ok(
-    /\.fd\[data-chrome='app'\] \.fd-rail\s*\{[^}]*display: none/.test(appNarrow),
-    'the app rail is not removed below 1024. The phone grammar is bottom-bar-only.',
+    /\.fd\[data-chrome='app'\] \.fd-rail\[data-open='false'\]\s*\{[^}]*display: none/.test(
+      appNarrow as string,
+    ),
+    'a SHUT app rail is not display:none below 1024 — its rows stay in the tab ' +
+      'order behind the scrim.',
+  );
+  /*
+    …and the other direction, which is the one the owner would feel: the hide
+    must not be unconditional again. Written as "no `.fd-rail {` without an
+    attribute selector", because that is exactly the line that was there.
+  */
+  assert.ok(
+    !/\.fd\[data-chrome='app'\] \.fd-rail\s*\{[^}]*display: none/.test(appNarrow as string),
+    'the app rail is hidden below 1024 whether it is open or shut. The ' +
+      'hamburger on /dashboard, an event, a shop and the admin then opens ' +
+      'nothing at all.',
+  );
+});
+
+test('the app drawer outranks the phone bottom bar', () => {
+  /*
+    Measured on the live app 2026-08-29, before this shipped: the bottom nav is
+    `fixed … z-40`, `.fd-rail` is `z-40`, `.fd-scrim` is `z-39`, and the nav
+    comes AFTER `.fd` in the document with NO stacking context between them —
+    so at equal z-index the nav paints last and wins. The drawer would open
+    underneath it, and the bottom bar would stay live on top of the scrim.
+  */
+  const css = CSS_SRC.replace(/\/\*[\s\S]*?\*\//g, '');
+  const narrow = css.match(/@media \(max-width: 1023\.98px\) \{[\s\S]*?\n\}/g) ?? [];
+  const appNarrow = narrow.find((b) => b.includes("[data-chrome='app']")) ?? '';
+  const railZ = /\.fd\[data-chrome='app'\] \.fd-rail\s*\{[^}]*z-index:\s*(\d+)/.exec(appNarrow);
+  const scrimZ = /\.fd\[data-chrome='app'\] \.fd-scrim\s*\{[^}]*z-index:\s*(\d+)/.exec(appNarrow);
+  assert.ok(railZ, 'the app drawer sets no z-index below 1024 — it ties with the bottom bar at 40 and loses.');
+  assert.ok(scrimZ, 'the app scrim sets no z-index below 1024 — the bottom bar stays live above it.');
+  assert.ok(
+    Number(railZ![1]) > 40 && Number(scrimZ![1]) > 40,
+    `the drawer (${railZ![1]}) and its scrim (${scrimZ![1]}) must both outrank the bottom bar's 40.`,
+  );
+  assert.ok(
+    Number(railZ![1]) > Number(scrimZ![1]),
+    'the scrim is not below the drawer it dims.',
   );
 });
 

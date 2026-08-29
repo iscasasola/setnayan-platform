@@ -171,13 +171,37 @@ const RAIL_DRAWER_MS = 200;
  * escape row (`command-escape.ts`), so choosing it loses nothing; the reverse
  * was impossible, because a GET form cannot reach your own wedding.
  *
- * ⚠ WHAT THE APP VARIANT STILL PAINTS NOTHING OF BELOW 1024: the rail, and
- * the "+ Create" button. The phone's bottom-bar grammar is locked and there is
- * no room on a 360px row beside identity, search and the account cluster —
- * creation is reached from the board's create grid and the bottom bar. There
- * is no hamburger in this variant, so `railOpen` can never become true, so the
- * shipped `.fd-rail[data-open='false'] {display:none}` takes every row out of
- * the tab order — a real mount condition, not a style that looks like one.
+ * ⚠ WHAT THE APP VARIANT STILL PAINTS NOTHING OF BELOW 1024: the "+ Create"
+ * button. The phone's bottom-bar grammar leaves no room on a 360px row beside
+ * identity, search and the account cluster — creation is reached from the
+ * board's create grid and the bottom bar.
+ *
+ * 🔴 THE RAIL IS NO LONGER ONE OF THEM — OWNER 2026-08-29: *"hamburger menu
+ * disappeared on other parts of the shell. keep it visible across."* Until
+ * that ruling the hamburger rendered on the two PUBLIC variants only, so the
+ * one bar the whole product shares carried a menu button on `/`, `/papic` and
+ * `/pricing` and NOT on `/dashboard`, an event, a shop or the admin — and the
+ * rail is off-canvas below 1024, so those four trees had no rail, no
+ * hamburger, and their bottom bar's five destinations as the whole of
+ * navigation. Measured live on 2026-08-29 before the change, at 375px:
+ * `/papic` rendered the button (`display: grid`), `/dashboard` rendered no
+ * button at all and its rail computed `display: none`.
+ *
+ * 🔑 THE DRAWER ITSELF NEVER NEEDED BUILDING — it is the same off-canvas
+ * `.fd-rail[data-open]` the public pages have always opened, and every rule
+ * that slides it is written bare (`.fd-rail`, `.fd-scrim`), not scoped to the
+ * front door. What kept it shut was ONE later, higher-specificity line —
+ * `.fd[data-chrome='app'] .fd-rail {display:none}` — which hid it whether it
+ * was open or not. That line is now `[data-open='false']`, so the tab-order
+ * guarantee below is untouched: shut, every row is still out of the tab order.
+ *
+ * ⚠ AND THE DRAWER HAS TO OUTRANK THE BOTTOM BAR. Measured on the live app
+ * before the change: the phone's bottom nav is `fixed … z-40`, the drawer is
+ * `z-40`, and the nav comes AFTER `.fd` in the document with no stacking
+ * context between them — so at equal z-index the nav wins. The drawer would
+ * have opened UNDER it, and the bottom bar would have stayed live above a
+ * scrim that is meant to be covering the page. Raised for the app chrome only;
+ * the front door's stacking is left exactly as it ships.
  *
  * ⚠ AND WHAT IT DOES ADD TO A PHONE, DELIBERATELY: the identity link and the
  * search box, on the four trees that had neither. That is a departure from
@@ -335,10 +359,14 @@ type Props = {
    *
    * 🔑 THE THIRD VARIANT EXISTS BECAUSE THE OTHER TWO ARE EACH WRONG HERE IN A
    * DIFFERENT WAY, and both wrongs are silent:
-   *   `app` would drop the hamburger — and the rail is `display:none` below
-   *         1024, so a phone would get a product page with NO navigation at
-   *         all — and would point the wordmark at /dashboard, which 307s to
-   *         /login: a login trap for a stranger arriving from Google.
+   *   `app` would point the wordmark at /dashboard, which 307s to /login: a
+   *         login trap for a stranger arriving from Google.
+   *         ⚠ IT USED TO DROP THE HAMBURGER TOO, and that was the louder half
+   *         of this note until 2026-08-29. It no longer does — every variant
+   *         renders the button now (owner: *"keep it visible across"*) — so
+   *         the wordmark is the whole of the difference on this axis. Do not
+   *         re-derive "the app variant has no menu button" from an older
+   *         comment; several still say it and applied comments are not edited.
    *   `front-door` would bring a second <main> and a second <h1> to a page
    *         that already has both (`_doorway.tsx` renders them, and
    *         `doorway-invariants.test.ts` pins exactly one of each).
@@ -623,9 +651,13 @@ export function FrontDoorShell({
   /** Does the HOST page already render the page's <main> and its <h1>? */
   const ownsMain = variant !== 'front-door';
   const ownsHeading = variant !== 'front-door';
-  /** Is there an off-canvas rail to open below 1024? The app variant has none;
-   *  a public page must, or a phone has no navigation. */
-  const hasRailDrawer = variant !== 'app';
+  /*
+    THE HAMBURGER IS NOT A VARIANT QUESTION ANY MORE (owner 2026-08-29 —
+    *"keep it visible across"*). Every variant's rail goes off-canvas below
+    1024, so every variant needs the one control that opens it. The width
+    condition still lives in CSS (`fd-only-narrow`), which is a real mount
+    condition — see the button below.
+  */
   /** Home means a different room depending on where you stand — but ONLY the
    *  signed-in app may point at /dashboard, which redirects a stranger to
    *  /login. */
@@ -819,8 +851,6 @@ export function FrontDoorShell({
   const topBarEl = (
       <header className="fd-topbar">
         <div className="fd-topleft">
-          {hasRailDrawer ? (
-          <>
           {/*
             ⚠ ONLY WHERE THE RAIL IS ACTUALLY OFF-CANVAS (below 1024).
             It used to render at every width — so on a desktop it announced
@@ -841,8 +871,6 @@ export function FrontDoorShell({
           >
             ☰
           </button>
-          </>
-          ) : null}
           {/*
             🔒 THE TEXT IS TITLE-CASE "Setnayan" AND THE CAPITALS COME FROM CSS.
             It looks identical to the approved prototype — `.fd-wordmark` carries

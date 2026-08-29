@@ -1847,17 +1847,48 @@ h2.fd-sechead,
 }
 
 @media (max-width: 1023.98px) {
-  /* Below the desktop breakpoint the app variant is inert: no grid, no rail,
-     no edge. The rail is already out of the tab order — this variant renders
-     no hamburger, so `data-open` is permanently "false" and the shipped
-     `.fd-rail[data-open='false']{display:none}` above applies. This block
-     only stops the rail's fixed-position and border rules from painting. */
+  /* Below the desktop breakpoint the app variant lays out as one column — the
+     rail is off-canvas here, exactly as it is on the front door.
+
+     🔴 THIS BLOCK USED TO HIDE THE RAIL OUTRIGHT (`.fd[data-chrome='app']
+     .fd-rail {display:none}`), on the stated ground that "this variant renders
+     no hamburger, so `data-open` is permanently false". That premise died on
+     2026-08-29: the owner asked for the menu button on every surface
+     (*"hamburger menu disappeared on other parts of the shell. keep it visible
+     across"*), so `data-open` can now be true here — and an unconditional
+     `display:none` at this specificity beat every drawer rule above and would
+     have made the new button a control that opens nothing.
+
+     🔑 THE CONDITION IS THE SAME ONE THE PUBLIC PAGES ALREADY USE, so there is
+     one rule about a shut drawer in this file, not two: shut ⇒ `display:none`,
+     which is what takes every row OUT OF THE TAB ORDER. Nothing about the
+     open state is written here — the bare `.fd-rail` drawer rules above cover
+     it, and they were never scoped to the front door. */
   .fd[data-chrome='app'] .fd-body {
     display: block;
   }
-  .fd[data-chrome='app'] .fd-rail {
+  .fd[data-chrome='app'] .fd-rail[data-open='false'] {
     display: none;
     border-right: 0;
+  }
+
+  /* ⚠ THE DRAWER MUST OUTRANK THE PHONE'S BOTTOM BAR, and by default it does
+     not. Measured on the live app 2026-08-29: the bottom nav is `fixed …
+     z-40`, `.fd-rail` is `z-40`, `.fd-scrim` is `z-39`, and the nav sits AFTER
+     `.fd` in the document with no stacking context between them — so at equal
+     z-index the nav paints last and wins. The drawer would have slid out
+     UNDERNEATH it and the bottom bar would have stayed fully live on top of a
+     scrim whose whole job is to cover the page.
+
+     🔑 SCOPED TO THE APP CHROME ON PURPOSE. The front door has no bottom bar
+     and its stacking works today; raising the bare `.fd-rail` would change a
+     surface that did not ask for it. 60/59 keeps the pair one apart and stays
+     below the z-100 toast layer, which is `pointer-events: none` anyway. */
+  .fd[data-chrome='app'] .fd-rail {
+    z-index: 60;
+  }
+  .fd[data-chrome='app'] .fd-scrim {
+    z-index: 59;
   }
 
   /* HIDE ON SCROLL, PHONE ONLY — the app's universal top-nav rule (owner
@@ -1866,9 +1897,12 @@ h2.fd-sechead,
 
      🔑 NOT ON DESKTOP, deliberately. The rail sticks at `top: 60px` to clear
      the bar; sliding the bar away on a wide screen would leave a 60px gap
-     above the rail with nothing in it. Below 1024 the rail does not render at
-     all, so there is nothing to misalign — and a phone is where reclaiming a
-     row of screen actually pays. */
+     above the rail with nothing in it. Below 1024 the rail is an off-canvas
+     drawer pinned to `top: 0` — it does not sit under the bar, so there is
+     nothing to misalign — and a phone is where reclaiming a row of screen
+     actually pays. (That last clause read "the rail does not render at all"
+     until 2026-08-29, which was true only while this variant had no
+     hamburger.) */
   .fd[data-chrome='app'] .fd-topwrap[data-hidden='true'] {
     transform: translateY(-100%);
   }

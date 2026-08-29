@@ -94,8 +94,15 @@ test('the peso sign is the real one, on the page and in the helper', () => {
   assert.equal(payAmount(49).codePointAt(0), 0x20b1);
 });
 
-/** How many places each file shows the figure today. Raise, never lower. */
-const FLOOR: Record<string, number> = { 'page.tsx': 1, 'pay-panel.tsx': 4 };
+/**
+ * How many places each file shows the figure today. Raise, never lower.
+ *
+ * `as const` rather than `Record<string, number>`, and the reason is the
+ * TYPECHECKER, not behaviour: a string-keyed record makes every lookup
+ * `number | undefined`, which is `error TS2532` here (the runtime was always
+ * fine — both keys exist). Literal keys make the lookup exact.
+ */
+const FLOOR = { 'page.tsx': 1, 'pay-panel.tsx': 4 } as const;
 
 test('neither file keeps a private copy of the rule', () => {
   const page = read('page.tsx');

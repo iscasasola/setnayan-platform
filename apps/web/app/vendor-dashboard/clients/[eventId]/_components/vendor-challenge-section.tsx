@@ -1,11 +1,20 @@
-// Papic Games — Phase 4b + Photo Challenge (owner 2026-07-22): the VENDOR panel
-// on a booked, Papic-active event. A booked Pro/Enterprise vendor pays ₱400 to
-// SPONSOR Photo Challenge for this event, then authors custom challenges that
-// land pending the couple's approval (§3.6). Async SERVER component —
-// self-fetches the vendor's own challenges + tier + verification + sponsorship +
-// Papic-active, so it adds nothing to the host page's big data-load. Self-gates
-// on papicGamesEnabled(); renders null when the flag is off. Mounted after
-// BoothPosterCard (booked-only) on the client-event card.
+// Papic Games — Phase 4b + Papic Challenges: the VENDOR panel on a booked,
+// Papic-active celebration. The shop authors custom challenges that land pending
+// the couple's approval (§3.6).
+//
+// ⚠ IT IS NO LONGER A BUY SURFACE. Owner 2026-08-28 — "unlimited us 2500 for 4
+// weeks" — replaced the ₱400-per-event sponsorship with a ₱2,500 / 28-day
+// SHOP subscription, so there is nothing here to buy for THIS celebration. This
+// panel now answers one question — can this shop run a challenge HERE? (booked +
+// Papic active + entitled) — and when the answer is "not subscribed" it links to
+// the one place the subscription is turned on. Keeping a buy button on a page
+// that requires an event would have kept the purchase behind a booking, which is
+// exactly what the repricing moves it off.
+//
+// Async SERVER component — self-fetches the vendor's own challenges + tier +
+// entitlement + Papic-active, so it adds nothing to the host page's big
+// data-load. Self-gates on papicGamesEnabled(); renders null when the flag is
+// off. Mounted after BoothPosterCard (booked-only) on the client-event card.
 
 import Link from 'next/link';
 import { Trophy, Check, ImageIcon } from 'lucide-react';
@@ -17,26 +26,15 @@ import {
   vendorChallengeStatus,
   type VendorChallengeStatus,
 } from '@/lib/papic-missions';
-import { asVendorTier } from '@/lib/vendor-tier-caps';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
-import {
-  addonIsFreeUnderFirst5,
-  fetchVendorCommittedBookingCount,
-  first5BookingsRemaining,
-} from '@/lib/vendor-addon-first5-free';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { eventPapicActive } from '@/lib/papic-seats';
 import {
-  fetchPhotoChallengeSponsored,
-  fetchVendorPhotoChallengePricePhp,
-  photoChallengeEligibility,
+  fetchPhotoChallengeEntitled,
+  photoChallengeEventReady,
   PHOTO_CHALLENGE_DENY_MESSAGE,
 } from '@/lib/vendor-photo-challenge';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createVendorChallengeAction } from '../actions';
-import { PhotoChallengeBuy } from './photo-challenge-buy';
 import { ShopCard } from '../../../_components/kit';
 
 const STATUS_BADGE: Record<VendorChallengeStatus, { label: string; cls: string }> = {
@@ -59,67 +57,34 @@ export async function VendorChallengeSection({
 
   // The section is mounted only when the vendor is BOOKED on the event (the host
   // page gates it behind isBooked), so booked = true here.
-  const [challenges, profRow, sponsored, papicActive, pricePhp] = await Promise.all([
+  const [challenges, entitled, papicActive] = await Promise.all([
     fetchVendorChallenges(supabase, eventId),
-    supabase
-      .from('vendor_profiles')
-      .select('tier_state, verification_state')
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle(),
-    fetchPhotoChallengeSponsored(supabase, eventId, vendorProfileId),
+    // The shop's live 28-day window, or a legacy per-event sponsorship. Read with
+    // the ADMIN client: papic_challenge_expires_at is a paid entitlement column
+    // and a read the session could refuse would degrade to "not entitled",
+    // hiding the composer from somebody who is paying for it.
+    fetchPhotoChallengeEntitled(admin, eventId, vendorProfileId),
     eventPapicActive(admin, eventId), // needs admin: paparazzi_seats + couple orders are couple-RLS
-    fetchVendorPhotoChallengePricePhp(supabase),
   ]);
 
-  const tier = asVendorTier((profRow.data as { tier_state?: string | null } | null)?.tier_state);
-  const verification =
-    (profRow.data as { verification_state?: string | null } | null)?.verification_state ?? null;
-
-  // 2026-07-25 tiered add-on model: when enabled, every tier may sponsor and the
-  // tier-based price applies (Free/Solo ₱500, Pro/Ent ₱400); else today's flat price.
-  const tieredPricing = isVendorAddonTieredPricingEnabled();
-  const effectivePricePhp = tieredPricing
-    ? resolveVendorAddonPricePhp('papic_challenge', tier)
-    : pricePhp;
-
-  // "Free until your 6th booking" (owner 2026-07-25, flag-dark). Same pure
-  // decision + same committed-booking count the buy action uses, so the price
-  // shown here and the price charged there can never disagree.
-  const first5Enabled = isVendorAddonFirst5FreeEnabled();
-  const committedBookings = first5Enabled
-    ? await fetchVendorCommittedBookingCount(supabase, vendorProfileId)
-    : Number.NaN;
-  const first5Free = addonIsFreeUnderFirst5({
-    sku: 'papic_challenge',
-    committedBookingCount: committedBookings,
-    enabled: first5Enabled,
-  });
-  const first5Remaining = first5Enabled ? first5BookingsRemaining(committedBookings) : 0;
-
-  // The same pure gate the buy action enforces (booked is implied by mount).
-  const eligibility = photoChallengeEligibility({
-    tier,
-    verification,
-    booked: true,
-    papicActive,
-    alreadySponsored: sponsored,
-    allTiersAllowed: tieredPricing,
-  });
+  // The same pure decision the database re-asks in vendor_papic_challenge_entitled
+  // (booked is implied by mount).
+  const ready = photoChallengeEventReady({ booked: true, papicActive, entitled });
 
   return (
     <ShopCard pad="roomy">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
         <Trophy aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Papic Challenges
-        {sponsored ? (
+        {entitled ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta-700">
             <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-            Sponsored
+            On
           </span>
         ) : null}
       </h3>
       <p className="mt-1 text-xs text-ink/55">
-        Sponsor a guest photo mission at this event — ask guests to photograph your
+        Set a guest photo mission at this celebration — ask guests to photograph your
         service (your signature dish, the booth, the pour). It&rsquo;s free and fun for
         every guest; each challenge needs the couple&rsquo;s okay before it goes live.
       </p>
@@ -150,13 +115,13 @@ export async function VendorChallengeSection({
             );
           })}
         </ul>
-      ) : sponsored ? (
+      ) : ready.ok ? (
         <p className="mt-4 text-sm text-ink/50">No challenges yet — write your first one below.</p>
       ) : null}
 
-      {sponsored ? (
-        // Paid → the vendor may author challenges (the RPC re-checks the paid
-        // sponsorship server-side) + collect the consented guest photos (Phase 5).
+      {ready.ok ? (
+        // Entitled → the vendor may author challenges (the RPC re-checks the paid
+        // entitlement server-side) + collect the consented guest photos (Phase 5).
         <>
           <form action={createVendorChallengeAction} className="mt-4 space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
@@ -183,27 +148,22 @@ export async function VendorChallengeSection({
             View shared photos
           </Link>
         </>
-      ) : eligibility.ok ? (
-        // Eligible to buy → the ₱400 sponsorship CTA (or the ₱0 grant).
-        <>
-          <p className="mt-4 text-sm font-medium text-ink">
-            {first5Free
-              ? `Sponsor Papic Challenges for this event — free while you're on your first 5 bookings` +
-                (first5Remaining > 0 ? ` (${first5Remaining} to go)` : '') +
-                `, then ₱${effectivePricePhp.toLocaleString('en-PH')}.`
-              : `Sponsor Papic Challenges for this event — ₱${effectivePricePhp.toLocaleString('en-PH')}.`}
-          </p>
-          <PhotoChallengeBuy
-            eventId={eventId}
-            pricePhp={effectivePricePhp}
-            free={first5Free}
-          />
-        </>
       ) : (
-        // Not eligible → the honest reason (below Pro, unverified, or Papic not active).
-        <p className="mt-4 rounded-lg border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5 text-xs text-ink/70">
-          {PHOTO_CHALLENGE_DENY_MESSAGE[eligibility.reason]}
-        </p>
+        // Not ready → the honest reason. "not_subscribed" is the only one the
+        // shop can act on, so it is the only one that carries a way forward —
+        // and that way forward leaves this page, because the subscription is
+        // bought by the shop and not for this celebration.
+        <div className="mt-4 rounded-lg border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5 text-xs text-ink/70">
+          <p>{PHOTO_CHALLENGE_DENY_MESSAGE[ready.reason]}</p>
+          {ready.reason === 'not_subscribed' ? (
+            <Link
+              href="/vendor-dashboard/subscription"
+              className="mt-2 inline-flex items-center gap-1.5 font-semibold text-link underline"
+            >
+              Turn on Papic Challenges
+            </Link>
+          ) : null}
+        </div>
       )}
     </ShopCard>
   );

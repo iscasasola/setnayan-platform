@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f1993d556",
-  "routeCount": 409,
-  "destinations": 882,
+  "generatedFromRef": "b481d3298",
+  "routeCount": 410,
+  "destinations": 885,
   "actions": 610,
-  "blocks": 4133,
+  "blocks": 4138,
   "routes": {
     "/": {
       "files": [
@@ -341,6 +341,7 @@
         "(shell)/papic/page.tsx"
       ],
       "destinations": [
+        "/papic/try",
         "/pricing"
       ],
       "actions": [],
@@ -362,6 +363,19 @@
         "PapicScan",
         "Reveal",
         "Row"
+      ]
+    },
+    "/(shell)/papic/try": {
+      "files": [
+        "(shell)/papic/try/page.tsx"
+      ],
+      "destinations": [
+        "/papic"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PapicScan"
       ]
     },
     "/(shell)/patiktok": {
@@ -8896,6 +8910,7 @@
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
         "vendor-dashboard/_components/overview-sections.tsx",
+        "vendor-dashboard/_components/pipeline-pressure-line.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
         "vendor-dashboard/_components/qr-card.tsx",
         "vendor-dashboard/_components/qr-section.tsx",
@@ -9004,6 +9019,7 @@
         "NotConnected",
         "OngoingTasks",
         "PageMasthead",
+        "Pips",
         "ProgressRing",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
@@ -9228,7 +9244,6 @@
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
-        "vendor-dashboard/clients/[eventId]/_components/photo-challenge-buy.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-3d-plan-unlock-button.tsx",
@@ -9236,7 +9251,6 @@
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/actions.ts",
         "vendor-dashboard/clients/[eventId]/page.tsx",
-        "vendor-dashboard/clients/[eventId]/photo-challenge-actions.ts",
         "vendor-dashboard/clients/[eventId]/script-actions.ts",
         "vendor-dashboard/clients/[eventId]/vendor-3d-plan-unlock-actions.ts"
       ],
@@ -9258,7 +9272,8 @@
         "/vendor-dashboard/lines",
         "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/proposals"
+        "/vendor-dashboard/proposals",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
         "acceptInquiry",
@@ -9302,8 +9317,7 @@
         "LockRow",
         "OverviewTab",
         "PaymentAsksPanel",
-        "PhotoChallengeActionState",
-        "PhotoChallengeBuy",
+        "PipelinePressureLine",
         "PipelineStrip",
         "QuoteTab",
         "RelationshipTabShell",
@@ -9769,6 +9783,7 @@
         "OfferServiceResult",
         "OutcomeState",
         "PaymentPlanStepper",
+        "PipelinePressureLine",
         "ProposalMaker",
         "QuoteSeed",
         "RailAction",
@@ -10619,6 +10634,7 @@
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
         "vendor-dashboard/subscription/_components/cycle-toggle.tsx",
+        "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
         "vendor-dashboard/subscription/_components/price-position-card.tsx",
         "vendor-dashboard/subscription/_components/subscription-cards.tsx",
@@ -10626,7 +10642,8 @@
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
         "vendor-dashboard/subscription/loading.tsx",
-        "vendor-dashboard/subscription/page.tsx"
+        "vendor-dashboard/subscription/page.tsx",
+        "vendor-dashboard/subscription/photo-challenge-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/deep-search",
@@ -10647,7 +10664,9 @@
         "GridPageSkeleton",
         "Link",
         "PageMasthead",
+        "PapicChallengeCard",
         "PayBox",
+        "PhotoChallengeActionState",
         "PlanChangeNotice",
         "PositionHeadline",
         "SubmitButton",

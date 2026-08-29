@@ -106,7 +106,7 @@ export function PapicScan() {
   // happened and leave the rest of the page intact.
   if (failed) {
     return (
-      <p className="rounded-2xl border border-[var(--m-line)] px-5 py-6 text-sm text-[var(--m-ink)]/60">
+      <p className="rounded-2xl border border-[var(--m-line)] px-5 py-6 text-sm text-[var(--m-slate-2)]">
         The live codes could not be created just now. Nothing is wrong with your celebration —
         this is only the demo on this page.
       </p>
@@ -114,7 +114,7 @@ export function PapicScan() {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--m-line)] bg-[var(--m-ink)]/[0.025] px-4 py-5 sm:px-5">
+    <div className="rounded-2xl border border-[var(--m-line)] bg-[rgb(44_42_41/0.025)] px-4 py-5 sm:px-5">
       <div className="grid grid-cols-2 gap-4 sm:gap-5">
         {(['a', 'b'] as const).map((role) => (
           <Code
@@ -139,14 +139,14 @@ export function PapicScan() {
             className={`flex-none rounded-full border px-3 py-1.5 font-mono text-[0.66rem] uppercase tracking-[0.06em] transition ${
               s.id === style
                 ? 'border-[var(--m-mulberry)] text-[var(--m-mulberry)]'
-                : 'border-[var(--m-line)] text-[var(--m-ink)]/60 hover:text-[var(--m-ink)]'
+                : 'border-[var(--m-line)] text-[var(--m-slate-2)] hover:text-[var(--m-ink)]'
             }`}
           >
             {s.label}
           </button>
         ))}
       </div>
-      <p className="mt-1.5 min-h-[1.2em] text-xs text-[var(--m-ink)]/60">{blurb}</p>
+      <p className="mt-1.5 min-h-[1.2em] text-xs text-[var(--m-slate-2)]">{blurb}</p>
 
       {photos.length > 0 ? (
         <>
@@ -172,21 +172,21 @@ export function PapicScan() {
               </figure>
             ))}
           </div>
-          <p className="mt-2.5 text-xs text-[var(--m-ink)]/55">
+          <p className="mt-2.5 text-xs text-[var(--m-slate-2)]">
             {remaining !== null && remaining > 0
               ? `${remaining} demo shot${remaining === 1 ? '' : 's'} left — the demo caps this, not Papic.`
               : 'That is the demo roll. A real celebration puts no limit on how many phones shoot.'}
           </p>
         </>
       ) : (
-        <p className="mt-3.5 text-xs text-[var(--m-ink)]/55">
+        <p className="mt-3.5 text-xs text-[var(--m-slate-2)]">
           {presence.a.joined && presence.b.joined
             ? 'You are both in. Shots from your phones appear here, live.'
             : 'These codes are new every time this page loads, and they expire in twenty minutes.'}
         </p>
       )}
 
-      <p className="mt-4 text-sm text-[var(--m-ink)]/65">
+      <p className="mt-4 text-sm text-[var(--m-slate-2)]">
         <b className="font-semibold text-[var(--m-ink)]">Nothing here is kept.</b> The photos exist
         only while this page is open, and your face is read on your own phone — the screen that
         asks for it is the same screen that deletes it.
@@ -224,13 +224,13 @@ function Code({
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         ) : (
-          <div className="h-full w-full animate-pulse rounded-lg bg-[var(--m-ink)]/[0.06]" />
+          <div className="h-full w-full animate-pulse rounded-lg bg-[rgb(44_42_41/0.06)]" />
         )}
       </div>
       <div className="mt-2 text-sm font-semibold text-[var(--m-ink)]">{label}</div>
       <div
         className={`mt-0.5 font-mono text-[0.58rem] uppercase tracking-[0.06em] ${
-          joined ? 'text-[var(--m-mulberry)]' : 'text-[var(--m-ink)]/50'
+          joined ? 'text-[var(--m-mulberry)]' : 'text-[var(--m-slate-2)]'
         }`}
       >
         {registered ? 'Face added' : joined ? 'Joined' : svg ? 'Ready to scan' : 'Making a code'}

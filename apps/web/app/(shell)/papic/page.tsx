@@ -77,7 +77,20 @@ const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 // sentence by construction — `studio-apps.test.ts` fails the build if this page
 // grows a literal of its own, which is the exact drift it exists to prevent.
 const PAGE_DESCRIPTION = studioDescription('papic');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+/*
+ * ⚠ ITS OWN SHARE CARD, AND THE REASON IS THE CHANNEL. This page used the house
+ * card `brand/og-card.webp` — a typographic "Set na 'yan." panel with NO
+ * PHOTOGRAPH ON IT — so every share of a page selling PHOTOGRAPHY rendered our
+ * weakest possible image in the place it matters most. Messenger and Facebook
+ * are the dominant channel here; the card is what most people see of this page
+ * before they ever visit it.
+ *
+ * `og-papic.webp` is the hero frame, cropped to 1200×630: a real Filipino
+ * reception shot from a guest's own seat. No baked-in text — the title and
+ * description already render beside the card, and a font we cannot control at
+ * generation time is a font that renders wrong.
+ */
+const OG_IMAGE = `${SITE_URL}/brand/og-papic.webp`;
 
 export const metadata = {
   title: DOC_TITLE,
@@ -98,7 +111,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/papic',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Papic — guest photo gallery for weddings' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'A toast at a Filipino reception, photographed from a guest’s own seat' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -126,8 +139,9 @@ const APP_LD = {
     'Anyone can ask not to be shown — the photo itself is blurred',
     'Every photo is screened before it can appear',
     'Photo challenges and video greetings',
+    'Snippets — ten-second candid videos, not just photographs',
     'A recap page, a keepsake magazine and a souvenir video',
-    'The live wall, included',
+    'The live wall, included — open it on any venue screen from a browser',
     'Lives on the couple’s own celebration page',
     'The couple receives every photo, tagged or not',
   ],
@@ -147,7 +161,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is a credit?',
-    a: `A credit is one photograph. A video costs by its length instead — the longer it runs, the more it takes, up to ${PAPIC_POINTS_PER_CLIP} credits for a ten-second video, which is the longest. Nothing else costs anything: the cameras and the live wall are free, however many you use.`,
+    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${PAPIC_POINTS_PER_CLIP} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, the galleries are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
   },
   {
     q: 'Do guests need an app?',
@@ -168,6 +182,18 @@ const FAQ = [
   {
     q: 'Can someone opt out of face matching?',
     a: 'Yes. A guest who never adds a selfie is never matched at all, and anyone can ask not to be shown — we blur the picture itself rather than hiding it behind a filter, and if the blurring fails the photo does not go up at all. Face data is deleted on request, and automatically three months after the celebration.',
+  },
+  {
+    /* The objection the supplier channel hears most, and the page argued it
+       everywhere EXCEPT where a worried couple would look. Our own meta
+       description already makes the case — "the moments one photographer can
+       never be everywhere for" — so the page was making the argument to search
+       engines and not to the person about to spend ₱80,000 on a photographer.
+       ⚠ It must not be phrased as a comparison. Papic is not better than a
+       photographer at anything a photographer does; it covers the room while
+       they work. */
+    q: 'Will this upset our photographer?',
+    a: 'It shouldn’t — Papic is not pointed at the work they do. Your photographer is composing the shots that matter, and Papic covers the rest of the room while they do it: the table your uncle was at, the dance floor at eleven, the cousins outside. Nobody is being replaced, and you still receive one set of everything.',
   },
   {
     q: 'How long can we shoot for?',
@@ -214,7 +240,7 @@ const STEPS = [
  *  for the privacy row, which is this page's entire privacy footprint in copy. */
 const VS: readonly (readonly [string, string])[] = [
   ['A shared link everyone digs through', 'Each guest’s own gallery, sorted as you shoot'],
-  ['Photos only', 'Photos and ten-second candid videos'],
+  ['Photos only', 'Photos and Snippets — ten-second candid videos'],
   ['You scroll to find yourself', 'Your photos find you'],
   ['A separate site that expires', 'Lives on your own celebration page'],
   ['Someone always ends up in a photo they hate', 'Anyone can ask to disappear'],
@@ -331,13 +357,22 @@ export default async function PapicLandingPage() {
         <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
           Two codes. Two phones. Right now.
         </h2>
-        <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           Scan one each, with someone next to you. Each phone reads its own face, and the photos you
           take of each other come back knowing who is in them.
         </p>
         <div className="mt-5">
           <PapicScan />
         </div>
+        {/* The demo has its own address so it can be pasted into a group chat.
+            A demo nobody can link to is a demo that cannot spread. */}
+        <p className="mt-3 text-sm text-[var(--m-slate-2)]">
+          Sending this to someone?{' '}
+          <Link href="/papic/try" className="font-medium text-[var(--m-mulberry)] hover:opacity-80">
+            setnayan.com/papic/try
+          </Link>{' '}
+          opens straight to the codes.
+        </p>
       </section>
 
       {/* ── THE APP, RUNNING ────────────────────────────────────────────────
@@ -353,7 +388,7 @@ export default async function PapicLandingPage() {
         </h2>
         <div className="mt-5 flex items-center gap-5">
           <PapicFilm />
-          <p className="text-sm text-[var(--m-ink)]/65">
+          <p className="text-sm text-[var(--m-slate-2)]">
             There is nothing to install and nothing to set up. A guest points their phone at a code
             and the camera is already open —{' '}
             <span className="font-medium text-[var(--m-ink)]">
@@ -381,7 +416,7 @@ export default async function PapicLandingPage() {
                 <div className="px-4 pb-5 pt-3.5">
                   <span className="font-mono text-xs text-[var(--m-orange-2)]">{s.n}</span>
                   <h3 className="mt-1 font-serif text-[1.02rem] text-[var(--m-ink)]">{s.t}</h3>
-                  {s.d ? <p className="mt-1.5 text-sm text-[var(--m-ink)]/65">{s.d}</p> : null}
+                  {s.d ? <p className="mt-1.5 text-sm text-[var(--m-slate-2)]">{s.d}</p> : null}
                 </div>
               </article>
             </Reveal>
@@ -390,7 +425,7 @@ export default async function PapicLandingPage() {
 
         {/* The payoff the page claims and never showed: not one album, but a
             folder per person. Real guests, from our own demo celebration. */}
-        <p className="mt-8 text-sm text-[var(--m-ink)]/65">
+        <p className="mt-8 text-sm text-[var(--m-slate-2)]">
           By the end of the night nobody has one album. Everybody has their own.
         </p>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -403,7 +438,7 @@ export default async function PapicLandingPage() {
                 height={66}
                 className="h-[66px] w-[66px] rounded-full border border-[var(--m-line)] object-cover"
               />
-              <div className="mt-1.5 font-mono text-[0.6rem] tabular-nums text-[var(--m-ink)]/55">
+              <div className="mt-1.5 font-mono text-[0.6rem] tabular-nums text-[var(--m-slate-2)]">
                 {f.n}
               </div>
             </div>
@@ -419,7 +454,7 @@ export default async function PapicLandingPage() {
         <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
           Not a shared photo dump
         </h2>
-        <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           A photo wall gives everyone one pile to scroll. Papic gives each guest their own night
           back.
         </p>
@@ -429,7 +464,7 @@ export default async function PapicLandingPage() {
               key={us}
               className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 border-b border-[var(--m-line)] py-3 text-[0.92rem]"
             >
-              <dt className="text-[var(--m-ink)]/55">{them}</dt>
+              <dt className="text-[var(--m-slate-2)]">{them}</dt>
               <span aria-hidden className="font-mono text-xs text-[var(--m-orange-2)]">
                 →
               </span>
@@ -448,7 +483,7 @@ export default async function PapicLandingPage() {
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <div className="rounded-2xl border border-[var(--m-line)] p-5">
             <h3 className="font-serif text-lg text-[var(--m-ink)]">Give a camera its own credits</h3>
-            <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+            <p className="mt-2 text-sm text-[var(--m-slate-2)]">
               Set aside some of your credits for the few friends or family you trust — theirs alone,
               all night, on their own code. Nobody else can spend them, and you can take back
               whatever they don’t use.
@@ -456,7 +491,7 @@ export default async function PapicLandingPage() {
           </div>
           <div className="rounded-2xl border border-[var(--m-line)] p-5">
             <h3 className="font-serif text-lg text-[var(--m-ink)]">Let the whole room shoot</h3>
-            <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+            <p className="mt-2 text-sm text-[var(--m-slate-2)]">
               Everything you haven’t set aside stays in one shared pot, and every guest shoots from
               their own phone — like handing each table a digital disposable camera.
             </p>
@@ -470,23 +505,44 @@ export default async function PapicLandingPage() {
           <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
             What it costs
           </h2>
-          <p className="mt-2 text-sm text-[var(--m-ink)]/65">
+          <p className="mt-2 text-sm text-[var(--m-slate-2)]">
             Start free. Move the dial only if you run out.
           </p>
 
-          {/* The credit, explained where the money is — not only in the FAQ.
-              Both figures are DERIVED; a literal here fails the copy guard. */}
-          <ul className="mt-4 list-none rounded-xl border border-[var(--m-line)] px-4 py-3">
-            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
-              <Cost n={PAPIC_POINTS_PER_PHOTO} /> one photograph
-            </li>
-            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
-              <Cost n={PAPIC_POINTS_PER_CLIP} /> a ten-second video, the longest there is
-            </li>
-            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
-              A shorter video costs less, by how long it runs
-            </li>
-          </ul>
+          {/* WHAT A CREDIT IS — owner, 2026-08-29: "Explain credits." It used to
+              be three bare rows that assumed the reader already knew. It now
+              says what a credit buys, and what it does NOT have to buy, which
+              is the half people get wrong: they assume the cameras and the wall
+              are metered too. Both figures are DERIVED; a literal fails the
+              copy guard. */}
+          <div className="mt-4 rounded-xl border border-[var(--m-line)] px-4 py-4">
+            <p className="text-[0.92rem] text-[var(--m-ink)]">
+              A credit is <span className="font-medium">one photograph</span>. That is the whole
+              meter — you spend a credit when someone takes a picture, and nothing else on Papic
+              costs anything at all.
+            </p>
+            <ul className="mt-3 list-none border-t border-[var(--m-line)] pt-3">
+              <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
+                <Cost n={PAPIC_POINTS_PER_PHOTO} /> a photograph
+              </li>
+              <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
+                <Cost n={PAPIC_POINTS_PER_CLIP} /> a{' '}
+                <span className="font-medium text-[var(--m-ink)]">Snippet</span> — our ten-second
+                video, the longest there is. A shorter one costs less.
+              </li>
+              <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
+                <span className="mr-2 inline-block min-w-[2.2em] font-mono font-medium text-[var(--m-orange-2)]">
+                  free
+                </span>
+                <span className="mr-1.5">·</span>
+                the cameras, the live wall, the galleries, and keeping it all
+              </li>
+            </ul>
+            <p className="mt-3 text-[0.82rem] text-[var(--m-slate-2)]">
+              Credits never expire, and they are not a subscription. You buy them once and what you
+              don’t spend simply stays.
+            </p>
+          </div>
 
           <div className="mt-4">
             <PapicDial
@@ -497,9 +553,8 @@ export default async function PapicLandingPage() {
             />
           </div>
 
-          <p className="mt-4 text-sm text-[var(--m-ink)]/65">
-            Every amount is repeatable and stacks on what the celebration already holds, credited in
-            seconds, mid-party.{' '}
+          <p className="mt-4 text-sm text-[var(--m-slate-2)]">
+            Every amount is repeatable, and nothing here renews or expires.{' '}
             <Link href="/pricing" className="font-medium text-[var(--m-mulberry)] hover:opacity-80">
               See every amount →
             </Link>
@@ -521,7 +576,7 @@ export default async function PapicLandingPage() {
                   +
                 </span>
               </summary>
-              <p className="pb-4 text-[0.93rem] text-[var(--m-ink)]/65">{f.a}</p>
+              <p className="pb-4 text-[0.93rem] text-[var(--m-slate-2)]">{f.a}</p>
             </details>
           ))}
         </div>
@@ -536,7 +591,7 @@ export default async function PapicLandingPage() {
             free, on every celebration.
           </p>
         ) : null}
-        <p className="mt-3 text-sm text-[var(--m-ink)]/65">
+        <p className="mt-3 text-sm text-[var(--m-slate-2)]">
           Papic lives on the celebration page you already have, beside the guest list, the RSVP and
           the seating. There is nothing separate to buy, and nothing that expires.
         </p>
@@ -563,7 +618,7 @@ function Fact({ children }: { children: React.ReactNode }) {
       <span aria-hidden className="translate-y-px text-[var(--m-orange-2)]">
         ✓
       </span>
-      <span className="text-[var(--m-ink)]/80">{children}</span>
+      <span className="text-[var(--m-slate-2)]">{children}</span>
     </li>
   );
 }

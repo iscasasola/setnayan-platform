@@ -88,27 +88,38 @@ export function PapicDial({
 
   return (
     <div className="rounded-2xl border border-[var(--m-line)] px-4 py-6 text-center sm:px-6">
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-2 sm:gap-4">
         <button
           type="button"
           aria-label="Fewer credits"
           disabled={at <= 0}
           onClick={() => setI((n) => Math.max(0, n - 1))}
-          className="flex h-12 w-12 flex-none items-center justify-center rounded-full border border-[var(--m-line)] font-mono text-xl leading-none text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
+          className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-[var(--m-line)] font-mono text-xl leading-none sm:h-12 sm:w-12 text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
         >
           −
         </button>
 
+        {/*
+          ⚠ THE UNIT IS BOUND TO THE NUMBER, ON ONE BASELINE, ON PURPOSE.
+          It used to be a bare "50,050" with "credits · ₱11,200" underneath, and
+          the owner read the big number as PESOS — reasonably, because on a
+          section headed "What it costs" a large lone numeral is a price. Two
+          rules come out of that and both must hold:
+            1. the count NEVER appears without the word "credits" beside it, and
+            2. the peso sign appears EXACTLY ONCE on this card, on the pay row
+               below — so the only thing shaped like money IS the money.
+        */}
         <div className="min-w-0 flex-1">
           <span
-            className={`block whitespace-nowrap font-mono text-3xl font-medium tracking-tight tabular-nums ${
+            className={`flex items-baseline justify-center gap-1.5 whitespace-nowrap font-mono font-medium tracking-tight tabular-nums ${
               bought === 0 ? 'text-[var(--m-mulberry)]' : 'text-[var(--m-ink)]'
             }`}
           >
-            {count(total)}
+            <span className="text-2xl sm:text-3xl">{count(total)}</span>
+            <span className="text-sm font-normal text-[var(--m-slate-2)] sm:text-base">credits</span>
           </span>
-          <span className="mt-0.5 block font-mono text-sm tabular-nums text-[var(--m-ink)]/60">
-            credits{bought === 0 ? '' : ` · ${peso(rung.peso)}`}
+          <span className="mt-1 block text-xs text-[var(--m-slate-2)]">
+            {bought === 0 ? 'in every celebration' : 'in your celebration'}
           </span>
         </div>
 
@@ -117,18 +128,26 @@ export function PapicDial({
           aria-label="More credits"
           disabled={at >= rungs.length - 1}
           onClick={() => setI((n) => Math.min(rungs.length - 1, n + 1))}
-          className="flex h-12 w-12 flex-none items-center justify-center rounded-full border border-[var(--m-line)] font-mono text-xl leading-none text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
+          className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-[var(--m-line)] font-mono text-xl leading-none sm:h-12 sm:w-12 text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
         >
           +
         </button>
       </div>
 
+      {/* THE PAY ROW — the only currency on this card. */}
+      <p className="mt-4 flex items-baseline justify-center gap-2 text-sm">
+        <span className="text-[var(--m-slate-2)]">You pay</span>
+        <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-ink)]">
+          {bought === 0 ? 'nothing' : peso(rung.peso)}
+        </span>
+      </p>
+
       {/* The stacking, said out loud. This is the line the owner corrected. */}
-      <p className="mt-3.5 font-mono text-xs tabular-nums text-[var(--m-ink)]/60">
+      <p className="mt-2 font-mono text-xs tabular-nums text-[var(--m-slate-2)]">
         {bought === 0 ? (
           <>
-            <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free · nothing
-            to pay
+            <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free on
+            every celebration
           </>
         ) : (
           <>
@@ -151,7 +170,7 @@ export function PapicDial({
         />
       </div>
 
-      <p className="mt-3 rounded-xl bg-[var(--m-ink)]/[0.035] px-3 py-2.5 text-left text-sm text-[var(--m-ink)]/70">
+      <p className="mt-3 rounded-xl bg-[rgb(44_42_41/0.04)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
         {onIdeal ? (
           <>
             <b className="font-semibold text-[var(--m-ink)]">
@@ -172,17 +191,36 @@ export function PapicDial({
         )}
       </p>
 
+      {/*
+        THE FEAR THIS ANSWERS, and why it sits INSIDE the dial rather than under
+        it. Owner, 2026-08-29: "not enough, you can always upgrade anytime
+        during the event if you feel you need to increase more credits for this
+        event." Choosing an amount is the one moment on this page where somebody
+        can be wrong and know it — so the answer has to be where the choosing
+        happens, not in a footnote below the card.
+
+        Every clause is true of the shipped product: a top-up is its own
+        purchase, it STACKS on whatever the celebration already holds (the same
+        `papicCreditsHeld` rule this card runs on), and it lands during the
+        party rather than at the next renewal, because there is no renewal.
+      */}
+      <p className="mt-3.5 rounded-xl border border-[rgb(138_107_57/0.30)] bg-[rgb(138_107_57/0.07)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
+        <b className="font-semibold text-[var(--m-ink)]">Not enough? Add more any time.</b>{' '}
+        You are never locked into what you pick now — top up in the middle of the party if the
+        night is going well, and the new credits land in seconds on top of what you already have.
+      </p>
+
       <div className="mt-4 border-t border-[var(--m-line)] pt-3.5 text-left">
         <ul className="m-0 list-none p-0">
           <Row k="Photographs" v={count(total)} />
           {/* Derived from clipCost — never `total / 8`. A hand-written divisor
               is what shipped a ~2.9× overstatement past a green suite once. */}
-          <Row k="Or ten-second videos" v={count(papicVideosAffordable(total, clipCost))} />
+          <Row k="Or Snippets" v={count(papicVideosAffordable(total, clipCost))} />
           <Row k="Cameras" v="unlimited" />
           <Row k="The live wall" v="included" />
         </ul>
 
-        <div className="mt-3.5 border-t border-[var(--m-line)] pt-3 text-sm text-[var(--m-ink)]/70">
+        <div className="mt-3.5 border-t border-[var(--m-line)] pt-3 text-sm text-[var(--m-slate-2)]">
           <p className="m-0">
             {bought === 0
               ? 'Enough to see exactly how it works, on the day or long before it.'
@@ -198,7 +236,7 @@ export function PapicDial({
             >
               −
             </Mini>
-            <span className="flex-1 font-mono text-sm tabular-nums text-[var(--m-ink)]/70">
+            <span className="flex-1 font-mono text-sm tabular-nums text-[var(--m-slate-2)]">
               {count(guests)} guests
             </span>
             <Mini
@@ -218,7 +256,7 @@ export function PapicDial({
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <li className="flex items-baseline gap-3 py-1.5 text-sm">
-      <span className="flex-1 text-[var(--m-ink)]/70">{k}</span>
+      <span className="flex-1 text-[var(--m-slate-2)]">{k}</span>
       <span className="whitespace-nowrap font-mono text-sm tabular-nums text-[var(--m-ink)]">
         {v}
       </span>

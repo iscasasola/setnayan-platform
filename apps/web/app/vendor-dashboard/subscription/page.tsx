@@ -26,6 +26,13 @@ import {
   isVendor3dBoothActive,
 } from '@/lib/vendor-3d-booth-pricing';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { papicGamesEnabled } from '@/lib/papic-games-flag';
+import {
+  VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS,
+  fetchPhotoChallengeExpiry,
+  fetchVendorPhotoChallengePricePhp,
+  isPhotoChallengeSubscriptionActive,
+} from '@/lib/vendor-photo-challenge';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
 import {
@@ -42,6 +49,7 @@ import {
 } from './_components/subscription-cards';
 import { AiAddonCard } from './_components/ai-addon-card';
 import { BoothAddonCard } from './_components/booth-addon-card';
+import { PapicChallengeCard } from './_components/papic-challenge-card';
 import { PlanChangeNotice } from './_components/plan-change-notice';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -251,6 +259,22 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     : boothAddonCatalogPricePhp;
   const boothAddonActive = isVendor3dBoothActive(boothAddonState.expiresAt);
 
+  // ── Papic Challenges (owner 2026-08-28: "unlimited us 2500 for 4 weeks") ───
+  // ₱2,500 / 28 days, unlimited, across every celebration the shop is booked
+  // for — the replacement for the ₱400-per-event sponsorship. It is bought by
+  // the SHOP, which is why it is on this hub and not on a celebration's page.
+  // Same tier/verified shape as the 3D booth; NO free first cycle (the owner set
+  // a trial for the AI + 3D add-ons only, and that has not changed).
+  const isProTierForChallenge = tieredAddonPricing || isTierAtLeast(currentTier, 'pro');
+  const [papicChallengeExpiry, papicChallengeCatalogPricePhp] = await Promise.all([
+    fetchPhotoChallengeExpiry(supabase, profile.vendor_profile_id),
+    fetchVendorPhotoChallengePricePhp(supabase),
+  ]);
+  const papicChallengePricePhp = tieredAddonPricing
+    ? resolveVendorAddonPricePhp('papic_challenge', currentTier)
+    : papicChallengeCatalogPricePhp;
+  const papicChallengeActive = isPhotoChallengeSubscriptionActive(papicChallengeExpiry);
+
   // "Free until your 6th booking" (owner 2026-07-25, flag-dark). Reads the SAME
   // pure decision the buy action does, off the SAME committed-booking count, so
   // the price on the card and the price charged can never disagree. The count
@@ -266,6 +290,14 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     enabled: first5FreeEnabled,
   });
   const first5Remaining = first5FreeEnabled ? first5BookingsRemaining(committedBookings) : 0;
+  // Same pure decision + same count as the booth, keyed on the challenge SKU —
+  // the perk is per-SKU, so reusing the booth's boolean would silently give a
+  // second add-on away (or withhold it) whenever the two SKUs' rules diverge.
+  const challengeFirst5Free = addonIsFreeUnderFirst5({
+    sku: 'papic_challenge',
+    committedBookingCount: committedBookings,
+    enabled: first5FreeEnabled,
+  });
 
   // DB prices for the chosen cycle, keyed by sku_code.
   const [vendorCatalog, settings] = await Promise.all([
@@ -533,6 +565,22 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         expiresAt={boothAddonState.expiresAt}
         pricePhp={boothAddonPricePhp}
         first5Free={boothFirst5Free}
+        first5Remaining={first5Remaining}
+      />
+
+      {/* Papic Challenges — ₱2,500 / 28 days, unlimited, across every
+          celebration the shop is booked for (owner 2026-08-28). Replaces the
+          ₱400-per-event sponsorship, which is why the buy surface is HERE and no
+          longer on a celebration's page. */}
+      <PapicChallengeCard
+        available={papicGamesEnabled()}
+        eligible={isProTierForChallenge && isVerifiedVendor}
+        paidButUnverified={isProTierForChallenge && !isVerifiedVendor}
+        active={papicChallengeActive}
+        expiresAt={papicChallengeExpiry}
+        pricePhp={papicChallengePricePhp}
+        periodDays={VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS}
+        first5Free={challengeFirst5Free}
         first5Remaining={first5Remaining}
       />
 

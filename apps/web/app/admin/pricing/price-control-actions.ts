@@ -12,10 +12,12 @@ import {
 } from '@/lib/papic-anchor-ladder';
 import {
   type DiscountFamily,
+  FAMILY_DISCOUNT_DEFAULT_PCT,
   blockingComplaint,
   discountComplaints,
   signupPriceFor,
 } from '@/lib/onboarding-family-discount';
+import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
 import type { RowActionState } from './actions';
 
 /**
@@ -471,5 +473,122 @@ export async function setEventTypeBand(
       band === null
         ? `${label} has no band now — it falls through to the middle price.`
         : `${label} moved to band ${band}.`,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5 · WHAT ONE BAND OF SETNAYAN AI COSTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Sets ONE Setnayan AI band's regular price, and re-derives its sign-up price
+ * from the AI family discount in the same save.
+ *
+ * ⚖ Owner 2026-08-29: *"i need to be able to edit the prices here as well (the
+ * regular price)"*. Until this existed, three of the four AI prices could only
+ * be changed by a migration: bands B, C and D are `is_active = false` price
+ * SOURCES, so they sat in the retired shelf of the main catalog screen rather
+ * than anywhere a person would look for a live price.
+ *
+ * 🔑 THE SIGN-UP PRICE IS NEVER TYPED HERE, and that is deliberate. He ruled on
+ * 2026-08-28 that Setnayan AI carries ONE discount for the whole family; typing
+ * a second number per band would recreate the four drifted per-band discounts
+ * that ruling removed. Change the price, the sign-up price follows.
+ *
+ * ⚠ TIER E HAS NO SKU AND THEREFORE NO PRICE. It means "not offered", not
+ * "free", so it is refused here rather than being allowed to store a ₱0 that
+ * would read as a free version somebody could switch on.
+ */
+export async function saveAiBandPrice(
+  _prev: RowActionState,
+  formData: FormData,
+): Promise<RowActionState> {
+  const { userId: adminUserId } = await requireAdminAction();
+  const admin = createAdminClient();
+
+  const band = String(formData.get('band') ?? '').trim();
+  if (!(AI_BANDS as readonly string[]).includes(band)) {
+    return { ok: false, message: 'Unrecognised price band.' };
+  }
+  const sku = AI_TIER_SKU[band as (typeof AI_BANDS)[number]];
+  if (!sku) {
+    return {
+      ok: false,
+      message: 'This band means Setnayan AI is not offered, so it has no price to set.',
+    };
+  }
+
+  const raw = String(formData.get('regular_price_php') ?? '').trim();
+  const priceNum = Number(raw);
+  if (raw === '' || !Number.isFinite(priceNum) || priceNum <= 0) {
+    return { ok: false, message: 'A band price has to be more than ₱0.' };
+  }
+  const price = round2(priceNum);
+
+  const { data: prior, error: readErr } = await admin
+    .from('platform_retail_catalog_v2')
+    .select('service_code, title, retail_price_php, onboarding_price_php')
+    .eq('service_code', sku)
+    .maybeSingle();
+  // ⚠ Supabase RESOLVES with `{ error }`. Unchecked, a refused read would write
+  // a price with no before-value and log a false audit row.
+  if (readErr) return { ok: false, message: `Couldn't read that price — ${readErr.message}` };
+  if (!prior) return { ok: false, message: 'That price row no longer exists.' };
+
+  const { data: settings } = await admin
+    .from('platform_settings')
+    .select('ai_signup_discount_pct')
+    .eq('id', 1)
+    .maybeSingle();
+  const discountPct =
+    settings?.ai_signup_discount_pct != null
+      ? Number(settings.ai_signup_discount_pct)
+      : FAMILY_DISCOUNT_DEFAULT_PCT.ai;
+
+  // The family discount decides the sign-up half — the same function the
+  // family-wide save uses, so one band edited here and the whole family edited
+  // there can never produce two different answers for the same inputs.
+  const signup = signupPriceFor(price, discountPct);
+
+  const before = {
+    regular: Number(prior.retail_price_php),
+    signup: prior.onboarding_price_php == null ? null : Number(prior.onboarding_price_php),
+  };
+  if (before.regular === price && before.signup === signup) {
+    return { ok: true, message: 'No changes to save.' };
+  }
+
+  const { error } = await admin
+    .from('platform_retail_catalog_v2')
+    .update({
+      retail_price_php: price,
+      onboarding_price_php: signup,
+      updated_at: new Date().toISOString(),
+      updated_by_admin_id: adminUserId,
+    })
+    .eq('service_code', sku);
+  if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
+
+  await admin.from('admin_audit_log').insert({
+    action: 'ai_band_price_edit',
+    target_id: sku,
+    actor_user_id: adminUserId,
+    metadata: {
+      table: 'platform_retail_catalog_v2',
+      band,
+      before,
+      after: { regular: price, signup },
+      discountPct,
+    },
+  });
+
+  revalidatePath('/admin/pricing');
+  revalidatePath('/pricing');
+  return {
+    ok: true,
+    message:
+      signup == null
+        ? `Saved — band ${band} is ₱${price.toLocaleString('en-PH')}.`
+        : `Saved — band ${band} is ₱${price.toLocaleString('en-PH')}, ₱${signup.toLocaleString('en-PH')} during set-up.`,
   };
 }

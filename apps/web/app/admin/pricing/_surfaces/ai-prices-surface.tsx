@@ -8,7 +8,11 @@ import {
   type AiPriceTier,
 } from '@/lib/setnayan-ai-type-pricing';
 import { FAMILY_DISCOUNT_DEFAULT_PCT } from '@/lib/onboarding-family-discount';
-import { saveFamilyDiscount, setEventTypeBand } from '@/app/admin/pricing/price-control-actions';
+import {
+  saveAiBandPrice,
+  saveFamilyDiscount,
+  setEventTypeBand,
+} from '@/app/admin/pricing/price-control-actions';
 import { AiBandsEditor, type AiBandView, type EventKindView } from '@/app/admin/pricing/_components/ai-bands-editor';
 
 /**
@@ -139,6 +143,7 @@ export async function AiPricesSurface(_props: Props) {
         discountPct={discountPct}
         setBandAction={setEventTypeBand}
         saveDiscountAction={saveFamilyDiscount}
+        savePriceAction={saveAiBandPrice}
       />
     </div>
   );

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6324
+# facts: 6325
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     572
-#   col       4657
+#   col       4658
 #   policy    863
 #   view      8
 #   func      220
@@ -3350,6 +3350,7 @@ col	public.platform_settings.tiktok_client_key	anon=- authenticated=S
 col	public.platform_settings.tiktok_oauth_redirect_uri	anon=- authenticated=S
 col	public.platform_settings.updated_at	anon=- authenticated=S
 col	public.platform_settings.vendor_addon_tiered_pricing_enabled	anon=- authenticated=S
+col	public.platform_settings.vendor_credit_warning_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.vendor_tier_pipeline_caps_enabled	anon=- authenticated=S
 col	public.platform_settings.vendor_validate_email	anon=- authenticated=S
 col	public.platform_settings.vendor_validate_phone	anon=- authenticated=S

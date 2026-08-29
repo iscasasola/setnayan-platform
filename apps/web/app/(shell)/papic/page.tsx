@@ -49,6 +49,8 @@ import {
   readPapicFreeGrantPoints,
 } from '@/lib/papic-tier-config-read';
 import { PAPIC_POINTS_PER_PHOTO, PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
+import { setupPricePhp, hasSetupSaving, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { PapicScan } from './_papic-scan';
 import { PapicFilm } from './_papic-film';
 import { PapicDial, type PapicRung } from './_papic-dial';
@@ -263,32 +265,79 @@ const IDEAL_PHOTOGRAPHS_PER_GUEST = 15;
 type PapicAnchor = { rungs: PapicRung[]; freeCredits: number };
 
 /**
+ * The house set-up discount, as a percentage.
+ *
+ * ⚠ FAILS TO THE DEFAULT, NEVER TO ZERO — `readOnboardingDiscountPct` owns that
+ * rule, and it matters here: a read error must not silently retract a saving
+ * this page is advertising. If the settings row cannot be read at all we still
+ * pass the raw value through that same function rather than inventing 0.
+ */
+async function readSetupDiscountPct(): Promise<number> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('onboarding_discount_pct')
+      .eq('id', 1)
+      .maybeSingle();
+    return readOnboardingDiscountPct(
+      (data as { onboarding_discount_pct?: number | string | null } | null)
+        ?.onboarding_discount_pct,
+    );
+  } catch {
+    return readOnboardingDiscountPct(undefined);
+  }
+}
+
+/**
  * Fails QUIET, never loud. Each read degrades on its own, a rung with no price
  * is dropped rather than shown at ₱0, and if nothing resolves the whole cost
  * section is omitted and the page renders without it.
  */
 async function resolvePapicAnchor(): Promise<PapicAnchor | null> {
-  const [catalog, poolTiers, freeCredits] = await Promise.all([
+  const [catalog, poolTiers, freeCredits, setupPct] = await Promise.all([
     fetchV2CustomerCatalog(),
     readPapicPassTiers(),
     readPapicFreeGrantPoints(),
+    readSetupDiscountPct(),
   ]);
   const priceOf = (code: string): number | null => {
     const row = catalog.find((c) => c.service_code === code);
     const php = row ? Number(row.retail_price_php) : NaN;
     return Number.isFinite(php) && php > 0 ? php : null;
   };
+  /**
+   * The set-up price — what this rung costs while the celebration is being
+   * created. Owner, 2026-08-28: *"we give them a 10% discount if they purchase
+   * now. They can order later, but they will lose the 10% discount."*
+   *
+   * 🔑 IT IS THE SAME FUNCTION THE CHARGE USES, not a second calculation. The
+   * house percentage and the per-row override are both inputs, the buyer pays
+   * the cheaper, and `setupPricePhp` is the ONE place that decides — so this
+   * page cannot quote a figure the checkout will not honour. Do not compute a
+   * percentage here.
+   */
+  const setupOf = (code: string, retail: number): number | null => {
+    const row = catalog.find((c) => c.service_code === code);
+    const php = setupPricePhp(retail, row?.onboarding_price_php ?? null, setupPct);
+    return hasSetupSaving(retail, php) ? php : null;
+  };
   // The repeatable top-up rung is excluded for the same reason /pricing
   // excludes it: it is a re-buy for an event that already holds a big pool.
   const priced = poolTiers
     .filter((t) => !t.isTopup)
-    .map((t) => ({ bought: t.points, peso: priceOf(t.serviceCode) }))
-    .filter((r): r is PapicRung => r.peso !== null && r.bought > 0)
+    .map((t) => {
+      const peso = priceOf(t.serviceCode);
+      return peso === null
+        ? null
+        : { bought: t.points, peso, setupPeso: setupOf(t.serviceCode, peso) };
+    })
+    .filter((r): r is PapicRung => r !== null && r.bought > 0)
     .sort((a, b) => a.peso - b.peso);
 
   if (priced.length === 0 && freeCredits <= 0) return null;
   // Rung zero is "buy nothing" — the free grant on its own. The dial opens here.
-  return { rungs: [{ peso: 0, bought: 0 }, ...priced], freeCredits };
+  return { rungs: [{ peso: 0, bought: 0, setupPeso: null }, ...priced], freeCredits };
 }
 
 export default async function PapicLandingPage() {

@@ -168,13 +168,13 @@ const REQUIRED_RETAIL = [
   // the adjacent PAPIC_GUEST* codes read as a keyword + high-entropy pair. Kept
   // on one line so the inline allow covers the whole match, per that precedent.
   // 🔑 THE WHOLE LADDER, and it is rendered from these codes rather than typed —
-  // see PAPIC_LADDER below. Sixteen rungs (owner 2026-08-26): naming them all
+  // see PAPIC_LADDER below. Seventeen rungs (owner 2026-08-29): naming them all
   // here is what makes a missing or renamed one throw MissingSkuError instead of
   // quietly going unquoted while it is on sale.
   'PAPIC_GUEST_100', 'PAPIC_GUEST_200', 'PAPIC_GUEST_300', 'PAPIC_GUEST_400', 'PAPIC_GUEST_500', // gitleaks:allow — catalog service_codes, not secrets
   'PAPIC_GUEST_1K', 'PAPIC_GUEST_2K', 'PAPIC_GUEST', 'PAPIC_GUEST_4K', 'PAPIC_GUEST_5K', // gitleaks:allow — catalog service_codes, not secrets
   'PAPIC_GUEST_6K', 'PAPIC_GUEST_7K', 'PAPIC_GUEST_10K', 'PAPIC_GUEST_20K', // gitleaks:allow — catalog service_codes, not secrets
-  'PAPIC_GUEST_30K', 'PAPIC_GUEST_50K', // gitleaks:allow — catalog service_codes, not secrets
+  'PAPIC_GUEST_30K', 'PAPIC_GUEST_50K', 'PAPIC_GUEST_100K', // gitleaks:allow — catalog service_codes, not secrets
   'CUSTOM_QR_GUEST',
 ] as const;
 
@@ -213,6 +213,7 @@ const PAPIC_LADDER: readonly (readonly [string, number])[] = [
   ['PAPIC_GUEST_20K', 20_000],
   ['PAPIC_GUEST_30K', 30_000],
   ['PAPIC_GUEST_50K', 50_000],
+  ['PAPIC_GUEST_100K', 100_000],
 ] as const;
 
 /** "₱50 for 100 · ₱100 for 200 · …" — every rung, priced from the catalog. */

@@ -36,16 +36,37 @@
 
 /** The credit counts of the five rungs the owner types a price into. */
 export const PAPIC_ANCHOR_SHOTS: readonly number[] = [
-  100, 3_000, 10_000, 20_000, 50_000,
+  // ⚖ 100,000 IS AN ANCHOR, NOT A COMPUTED RUNG (owner 2026-08-29: *"place an
+  //   editable row like 50,000 and make the value 24000 php"*). Computed, it
+  //   would have inherited the 50,000 rate and landed at exactly two lots of
+  //   50,000 — the same reason he removed 40,000. An anchor is the only shape
+  //   that lets it be worth buying.
+  100, 3_000, 10_000, 20_000, 50_000, 100_000,
 ] as const;
 
 /** `[shots, pesos]` — the anchor prices as they stand today (the seed, not a rule). */
 export const PAPIC_ANCHORS_DEFAULT: readonly (readonly [number, number])[] = [
-  [100, 50],
-  [3_000, 1_200],
-  [10_000, 3_200],
-  [20_000, 5_000],
-  [50_000, 11_200],
+  // ⚠ THESE ARE PRODUCTION'S ANCHOR PRICES, RE-READ 2026-08-29, and they had
+  // drifted badly from what used to be here. The admin pricing screen writes
+  // STRAIGHT to the catalog, so prod was repriced with no migration behind it
+  // while this seed still described the 2026-08-26 ladder (100 → ₱50,
+  // 50,000 → ₱11,200). Harmless while nothing new was added; the moment a
+  // 100,000 rung arrived, "₱24,000" was correct against prod's ₱0.30 a credit
+  // and a RISE against the stale seed's ₱0.224 — a right price that the
+  // never-rises guard would have refused.
+  //
+  // Migration 20271182141904 un-drifts the catalog seed and this list follows
+  // it, so the anchors reproduce the ladder that is actually charged. The
+  // catalog stays the source of truth; this is a fallback, never a price.
+  [100, 70],
+  [3_000, 1_680],
+  [10_000, 4_500],
+  [20_000, 7_200],
+  [50_000, 15_000],
+  // ⚖ Owner 2026-08-29: *"place an editable row like 50,000 and make the value
+  // 24000 php."* ₱0.24 a credit — a real saving on 50,000's ₱0.30, where a
+  // COMPUTED rung would have inherited ₱0.30 and cost exactly two 50,000s.
+  [100_000, 24_000],
 ] as const;
 
 /** True when this rung is one the owner types into rather than one that computes. */

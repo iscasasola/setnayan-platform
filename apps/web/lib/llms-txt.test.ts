@@ -53,6 +53,11 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PAPIC_GUEST_10K', title: 'Papic — add 10,000 shots', retail_price_php: 3200, is_active: true },
   { service_code: 'PAPIC_GUEST_30K', title: 'Papic — add 30,000 shots', retail_price_php: 7500, is_active: true },
   { service_code: 'PAPIC_GUEST_50K', title: 'Papic — add 50,000 shots', retail_price_php: 11200, is_active: true },
+  // The 100,000 anchor (owner 2026-08-29). Its price here is the FIXTURE's,
+  // not production's — this file only proves the ladder renders every rung it
+  // declares, and pinning a live figure in a fixture is how the last drift
+  // started. The real price lives in the catalog.
+  { service_code: 'PAPIC_GUEST_100K', title: 'Papic — add 100,000 shots', retail_price_php: 24000, is_active: true },
   { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 3000, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row

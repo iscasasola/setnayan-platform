@@ -976,6 +976,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   PAPIC_GUEST_5K: grantPapicPassPoints,
   PAPIC_GUEST_7K: grantPapicPassPoints,
   PAPIC_GUEST_50K: grantPapicPassPoints,
+  PAPIC_GUEST_100K: grantPapicPassPoints,
   // Retired 2026-07-29 (catalog + papic_pass_tiers row both deactivated) because
   // every rung is additive now, so a separate "+10,000 top-up" was a duplicate of
   // PAPIC_GUEST_10K. The hook stays wired: an order minted before the retirement

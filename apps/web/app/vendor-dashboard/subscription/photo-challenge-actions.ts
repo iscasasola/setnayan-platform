@@ -154,14 +154,16 @@ export async function sponsorPhotoChallenge(
   const currentExpiry = await fetchPhotoChallengeExpiry(admin, vendorProfileId);
   const subscriptionActive = isPhotoChallengeSubscriptionActive(currentExpiry);
 
-  // 2026-07-25 tiered add-on model: when enabled, every tier may subscribe.
-  // Mirrors the SQL gate (both challenge RPCs read the DB twin of this flag).
+  // ⚠ THE TIER FLOOR NO LONGER RIDES ON THIS FLAG. Owner 2026-08-29: *"they can
+  // only buy if they are solo, pro, enterprise, custom. but not when they are
+  // free"*. The flag still decides the PRICE BAND (below); who may buy is a
+  // rule of its own, enforced unconditionally inside
+  // `photoChallengePurchaseEligibility` and re-asserted by the SQL RPC.
   const tieredPricing = isVendorAddonTieredPricingEnabled();
   const eligibility = photoChallengePurchaseEligibility({
     tier,
     verification,
     subscriptionActive,
-    allTiersAllowed: tieredPricing,
   });
   if (!eligibility.ok) {
     return err(PHOTO_CHALLENGE_DENY_MESSAGE[eligibility.reason]);

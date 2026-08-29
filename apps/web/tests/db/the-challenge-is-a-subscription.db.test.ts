@@ -380,3 +380,58 @@ test('the catalogue row is a 28-day subscription at ₱2,500, not a per-event fe
   assert.equal(r.rows[0]!.type, 'vendor_addon_recurring');
   assert.equal(r.rows[0]!.active, true, 'a retired row would block the sale outright');
 });
+
+test('A FREE PLAN CANNOT AUTHOR, even holding a live subscription window', async () => {
+  // Owner 2026-08-29: *"they can only but if they are solo,pro,enterprise,custom.
+  // but not when they are free"* — said in the same message as "I turned
+  // NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING on". That flip is what had opened
+  // this door: the tier gate used to be skipped whenever the tiered-pricing
+  // switch was on, so ONE switch decided both the price band and who may buy.
+  //
+  // The window is granted here deliberately, so the refusal can only be the TIER
+  // floor — if it were the subscription check the message would differ.
+  await db.query(
+    `UPDATE public.platform_settings SET vendor_addon_tiered_pricing_enabled = TRUE WHERE id = 1`,
+  );
+  const shop = await newVendor('freeplan-author', 'free');
+  const eventId = await newBookedEvent('freeplan-ev', shop.vendorProfileId);
+  await setSubscription(shop.vendorProfileId, inDays(20));
+  const err = await tryAuthor(shop.userId, eventId);
+  assert.match(String(err), /paid plan/, `a free shop must be refused: ${err}`);
+  assert.doesNotMatch(
+    String(err),
+    /NOT_SUBSCRIBED/,
+    'and refused for the RIGHT reason — it holds a live window',
+  );
+});
+
+test('CONTROL: SOLO — the cheapest paid plan — CAN author', async () => {
+  // Without this the test above passes whether the floor is Solo or Enterprise.
+  // Solo is the plan the owner named first: "Solo and Pro can buy".
+  await db.query(
+    `UPDATE public.platform_settings SET vendor_addon_tiered_pricing_enabled = TRUE WHERE id = 1`,
+  );
+  const shop = await newVendor('solo-author', 'solo');
+  const eventId = await newBookedEvent('solo-ev', shop.vendorProfileId);
+  await setSubscription(shop.vendorProfileId, inDays(20));
+  assert.equal(await tryAuthor(shop.userId, eventId), null);
+});
+
+test('the price switch cannot open the door in EITHER position', async () => {
+  // The defect in one line: the floor used to be conditional on this switch, so
+  // moving a PRICE moved ACCESS. Both settings, same refusal.
+  for (const on of [true, false]) {
+    await db.query(
+      `UPDATE public.platform_settings SET vendor_addon_tiered_pricing_enabled = $1 WHERE id = 1`,
+      [on],
+    );
+    const shop = await newVendor(`bothways-${on}`, 'free');
+    const eventId = await newBookedEvent(`bothways-ev-${on}`, shop.vendorProfileId);
+    await setSubscription(shop.vendorProfileId, inDays(20));
+    assert.match(
+      String(await tryAuthor(shop.userId, eventId)),
+      /paid plan/,
+      `a free shop must be refused with the tiered switch ${on ? 'ON' : 'OFF'}`,
+    );
+  }
+});

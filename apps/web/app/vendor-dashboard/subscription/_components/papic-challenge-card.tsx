@@ -54,7 +54,7 @@ function fmtDate(s: string) {
 export type PapicChallengeCardProps = {
   /** papicGamesEnabled() — the Papic Games master switch. Off ⇒ "Coming soon". */
   available: boolean;
-  /** Tier gate (Pro+, or every tier under the 2026-07-25 model) AND verified. */
+  /** Tier gate (Solo and up — owner 2026-08-29) AND verified. */
   eligible: boolean;
   /** True while the shop clears the tier gate but is NOT yet verified. */
   paidButUnverified: boolean;
@@ -172,8 +172,8 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
             </span>
           ) : (
             <span>
-              Papic Challenges is available on the Pro, Enterprise, and Custom plans.
-              Upgrade above to add it.
+              Papic Challenges comes with a paid plan — Solo, Pro, Enterprise or
+              Custom. Move up above to add it.
             </span>
           )}
         </div>

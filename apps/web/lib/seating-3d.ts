@@ -13,6 +13,7 @@
  * world Z (depth). Up is +Y.
  */
 
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import type { MonogramConfig } from '@/lib/monogram';
 import type { RolePalette } from '@/lib/mood-board';
 // Shared projection API (contract v2 · Sync verdict 2026-07-16 · § 3). The
@@ -1222,29 +1223,38 @@ export type BoothVendor = {
  *  value chip; null/absent = no stated worth. */
 export type BoothCardItem = { label: string; worthPhp?: number | null };
 
-/** Booth branding is a PRO / ENTERPRISE perk (owner-locked 2026-07-04): those
- *  tiers CAN texture their logo onto the 3D booth; free / verified / solo stay
- *  generic. Tier-only predicate — the paid 3D Booth add-on entitlement is
- *  layered on top by {@link boothIsBranded}. Still used directly by the vendor's
- *  OWN booth showcase/preview (/v/[slug]/booth) — a Pro vendor previews the perk
- *  before buying the add-on — and by the shared gate below.
+/** The plans that may brand a 3D booth. OWNER 2026-08-29, verbatim: *"3D Plan
+ *  and papic Challenge is only for paid vendors Solo, Pro, Enterprise, and
+ *  Custom. not for free"*. */
+export const BOOTH_BRANDING_MIN_TIER = 'solo' as const;
+
+/** May a vendor on `tier` brand a 3D booth? Tier-only — the paid 3D Booth add-on
+ *  entitlement is layered on top by {@link boothIsBranded}. Used directly by the
+ *  vendor's OWN booth showcase/preview (/v/[slug]/booth), where a shop previews
+ *  what it can buy, and by the shared gate below.
  *
- *  `allTiersAllowed` (2026-07-25 tiered add-on model, owner-locked): when true
- *  the Pro/Enterprise TIER gate is LIFTED — EVERY tier may brand, because under
- *  that model 3D Plan Ads is a paid add-on any tier can buy (Free/Solo ₱2,000,
- *  Pro/Ent ₱1,500), so the entitlement — not the tier — is what earns branding.
- *  Default false → the pre-2026-07-25 Pro-and-up perk, byte-identical. Callers
- *  set it from `isVendorAddonTieredPricingEnabled()`; keeping it a plain
- *  parameter keeps this hot module PURE (no env read), exactly as
- *  `photoChallengeEligibility`'s `allTiersAllowed` does for Papic. Render + gate
- *  surfaces should call the flag-aware wrappers in `lib/booth-branding-tier-gate`
- *  rather than reading the flag at each of the seven call sites. */
-export function boothCanBrand(
-  tier: string | null | undefined,
-  allTiersAllowed = false,
-): boolean {
-  if (allTiersAllowed) return true;
-  return tier === 'pro' || tier === 'enterprise';
+ *  ── THE HISTORY, BECAUSE THIS GATE HAS MOVED THREE TIMES ───────────────────
+ *   · 2026-07-04 — a PRO / ENTERPRISE perk. Free, verified, solo AND **custom**
+ *     stayed generic.
+ *   · 2026-07-25 — the tiered add-on model made branding a paid ADD-ON any tier
+ *     could buy, lifted by an `allTiersAllowed` parameter fed from
+ *     `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING`.
+ *   · 2026-08-29 — the owner turned that switch on and, the same day, ruled the
+ *     floor: **paid plans only, Solo and up, never free.** So it is neither
+ *     "Pro+" nor "everybody": it is Solo · Pro · Enterprise · Custom.
+ *
+ *  🔑 THE PARAMETER IS GONE, AND ITS ABSENCE IS THE POINT. Fed from a PRICE
+ *  switch, it meant one setting decided both what an add-on costs and who may
+ *  have it — so flipping a price flipped access. A floor that can be lifted by a
+ *  pricing flag is not a floor.
+ *
+ *  🔴 AND IT FIXES A LATENT DEFECT NOBODY HAD HIT: the old predicate tested
+ *  `tier === 'pro' || tier === 'enterprise'`, so **`custom` — the most expensive
+ *  plan there is — could not brand its booth.** `isTierAtLeast` reads the ladder
+ *  instead of listing two names, so the tier above Enterprise is included by
+ *  construction, and the owner's ruling names Custom explicitly. */
+export function boothCanBrand(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, BOOTH_BRANDING_MIN_TIER);
 }
 
 /** THE single booth-branding decision boundary for a couple's rendered 3D Plan
@@ -1259,18 +1269,10 @@ export function boothCanBrand(
  *  `boothAddonActive: true` (illustrative/preview surfaces, not a couple's real
  *  published plan).
  *
- *  `allTiersAllowed` forwards to {@link boothCanBrand} — under the 2026-07-25
- *  tiered add-on model the paid entitlement ALONE decides, so a Free/Solo vendor
- *  that bought 3D Plan Ads brands too. Default false = today's Pro+ behaviour.
  *  The ACTIVE-add-on half of the gate never relaxes: no entitlement, no branding,
- *  on every tier. */
-export function boothIsBranded(
-  vendor: BoothVendor | null | undefined,
-  allTiersAllowed = false,
-): boolean {
-  return (
-    !!vendor && boothCanBrand(vendor.tier, allTiersAllowed) && vendor.boothAddonActive === true
-  );
+ *  on every tier — including the paid ones. Both halves are required. */
+export function boothIsBranded(vendor: BoothVendor | null | undefined): boolean {
+  return !!vendor && boothCanBrand(vendor.tier) && vendor.boothAddonActive === true;
 }
 
 /** A placed vendor booth (percent canvas). `kind` mirrors event_floor_booths.booth_type. */

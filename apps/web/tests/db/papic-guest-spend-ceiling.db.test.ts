@@ -152,10 +152,18 @@ test('🚨 the ceiling REFUSES a capture on an event whose pool applies — the 
 test('the ceiling binds even on an event that bought PAPIC_UNLOCK — that pass lifts OUR limit, not the couple’s', async () => {
   const eventId = await seedPoolEvent(5000);
   const guestId = await seedGuest(eventId);
+  n += 1;
+  // public.users.user_id FKs to auth.users(id); a trigger mirrors the row, so
+  // the auth insert alone is enough.
+  const userId = await one<string>(
+    `INSERT INTO auth.users (email) VALUES ($1) RETURNING id`,
+    [`ceiling-${n}@example.test`],
+  );
   await db.query(
-    `INSERT INTO public.orders (event_id, service_key, status, amount_centavos)
-     VALUES ($1, 'PAPIC_UNLOCK', 'paid', 100)`,
-    [eventId],
+    `INSERT INTO public.orders
+       (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
+     VALUES ($1, $2, 'PAPIC_UNLOCK', 'Unlock all of Papic', 1, 'paid', $3)`,
+    [eventId, userId, `CEIL-${n}`],
   );
   await setCeiling(eventId, 1);
 
@@ -279,15 +287,27 @@ test('one celebration cannot name another celebration’s guest', async () => {
 });
 
 test('with no number typed, the share is what the named guests left, divided among the rest', async () => {
-  // 5,000 credits · 10 heads · one guest named 500 ⇒ (5000-500)/(10-1) = 500
   const eventId = await seedPoolEvent(5000, 10);
   const named = await seedGuest(eventId, 'Named');
   const other = await seedGuest(eventId, 'Other');
   await db.query(`UPDATE public.events SET papic_guest_spend_ceiling_on = TRUE WHERE event_id = $1`, [eventId]);
   await one(`SELECT public.papic_set_guest_spend_ceiling($1, $2, 500)`, [eventId, named]);
 
-  assert.equal(await ceilingOf(other), 500);
-  assert.equal(await ceilingOf(named), 500);
+  // 🪤 5,050, NOT 5,000 — AND THE 50 IS NOT A ROUNDING ERROR. Every event is
+  // born holding a 50-credit free grant (trigger papic_seed_free_grant_trg, seeded
+  // by 20270902100836), which is exactly WHY the pool applies to every
+  // celebration in existence and why the per-guest 150 has been inert since the
+  // one-pool model landed. The first draft of this test expected 500 and was
+  // wrong about the world, not about the code.
+  assert.equal(
+    await one<number>(`SELECT total_points FROM public.papic_event_pool_status($1)`, [eventId]),
+    5050,
+    'PRECONDITION: 5,000 granted + the automatic 50-credit free grant every event is born with',
+  );
+
+  // (5050 − 500) ÷ (10 heads − 1 named) = 505.5 → 505
+  assert.equal(await ceilingOf(other), 505);
+  assert.equal(await ceilingOf(named), 500, 'and the named guest keeps HER figure, not the share');
 
   // 🔑 DERIVED AT SPEND TIME, NEVER STAMPED. Top the pot up and the share moves
   // with it — a stamped copy would still be reading the old number.
@@ -295,7 +315,8 @@ test('with no number typed, the share is what the named guests left, divided amo
     `INSERT INTO public.papic_event_point_grants (event_id, points, source, note)
      VALUES ($1, 4500, 'admin', 'top-up')`, [eventId],
   );
-  assert.equal(await ceilingOf(other), 1000, 'a top-up moves every share, with no re-stamp sweep');
+  // (9550 − 500) ÷ 9 = 1005.5 → 1005
+  assert.equal(await ceilingOf(other), 1005, 'a top-up moves every share, with no re-stamp sweep');
 });
 
 test('⚖ a share that rounds to zero is floored at 1 — a fairness rule must never refuse a guest their FIRST photograph', async () => {

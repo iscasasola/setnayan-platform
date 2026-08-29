@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "23674d968",
+  "generatedFromRef": "b481d3298",
   "routeCount": 410,
-  "destinations": 884,
+  "destinations": 885,
   "actions": 610,
   "blocks": 4138,
   "routes": {
@@ -9244,7 +9244,6 @@
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
-        "vendor-dashboard/clients/[eventId]/_components/photo-challenge-buy.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-3d-plan-unlock-button.tsx",
@@ -9252,7 +9251,6 @@
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/actions.ts",
         "vendor-dashboard/clients/[eventId]/page.tsx",
-        "vendor-dashboard/clients/[eventId]/photo-challenge-actions.ts",
         "vendor-dashboard/clients/[eventId]/script-actions.ts",
         "vendor-dashboard/clients/[eventId]/vendor-3d-plan-unlock-actions.ts"
       ],
@@ -9274,7 +9272,8 @@
         "/vendor-dashboard/lines",
         "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/proposals"
+        "/vendor-dashboard/proposals",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
         "acceptInquiry",
@@ -9318,8 +9317,6 @@
         "LockRow",
         "OverviewTab",
         "PaymentAsksPanel",
-        "PhotoChallengeActionState",
-        "PhotoChallengeBuy",
         "PipelinePressureLine",
         "PipelineStrip",
         "QuoteTab",
@@ -10637,6 +10634,7 @@
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
         "vendor-dashboard/subscription/_components/cycle-toggle.tsx",
+        "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
         "vendor-dashboard/subscription/_components/price-position-card.tsx",
         "vendor-dashboard/subscription/_components/subscription-cards.tsx",
@@ -10644,7 +10642,8 @@
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
         "vendor-dashboard/subscription/loading.tsx",
-        "vendor-dashboard/subscription/page.tsx"
+        "vendor-dashboard/subscription/page.tsx",
+        "vendor-dashboard/subscription/photo-challenge-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/deep-search",
@@ -10665,7 +10664,9 @@
         "GridPageSkeleton",
         "Link",
         "PageMasthead",
+        "PapicChallengeCard",
         "PayBox",
+        "PhotoChallengeActionState",
         "PlanChangeNotice",
         "PositionHeadline",
         "SubmitButton",

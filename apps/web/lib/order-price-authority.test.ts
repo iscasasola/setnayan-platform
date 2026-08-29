@@ -175,7 +175,7 @@ const ORDER_MINTERS: Record<string, string> = {
     'which is what stops an order being attached to a stranger’s event. A One reload additionally ' +
     'requires the requested seat to BE the held seat (resolveGuestReloadTarget) and to already hold ' +
     'a dedicated balance.',
-  'app/vendor-dashboard/clients/[eventId]/photo-challenge-actions.ts':
+  'app/vendor-dashboard/subscription/photo-challenge-actions.ts':
     'Vendor photo-challenge SKU. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch moved to the file’s existing `admin` client (the ₱0 branch was ' +
     'already there). The client-supplied event_id is bound by the admin event_vendors read ' +

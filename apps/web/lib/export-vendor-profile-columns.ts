@@ -103,7 +103,11 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   // what they are on, what it becomes, and what we still owe them. A
   // subject-access response that omitted a BALANCE WE HOLD would be incomplete
   // in exactly the way that matters.
-  'pending_tier, pending_tier_billing_cycle, pending_tier_period_days, ' +
+  // papic_challenge_expires_at — the Papic Challenges 28-day window (owner
+  // 2026-08-28). A paid entitlement the subject holds, so it belongs in their
+  // own export for the same reason the AI and booth windows above do.
+  'papic_challenge_expires_at, pending_tier, pending_tier_billing_cycle, ' +
+  'pending_tier_period_days, ' +
   'pending_tier_purchase_id, pending_tier_scheduled_at, pending_tier_sku_code, ' +
   'portfolio_r2_keys, presentation_pattern, public_id, public_visibility, ' +
   'real_name_unlocked_at, registered_address, registered_business_name, registered_zip, ' +

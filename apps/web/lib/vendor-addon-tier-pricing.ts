@@ -24,7 +24,7 @@ import { isTierAtLeast } from './vendor-tier-caps';
 
 /** The add-ons whose price varies by tier band under the 2026-07-25 model. */
 export type VendorAddonSku =
-  | 'papic_challenge' // per event
+  | 'papic_challenge' // per 28-day cycle (was per event until 2026-08-28)
   | 'ads_3d_plan' // per 28-day cycle
   | 'ai_chatbot_basic' // per 28-day cycle
   | 'ai_chatbot_advanced' // per 28-day cycle
@@ -58,7 +58,15 @@ export const VENDOR_ADDON_TIER_PRICES_PHP: Record<
   VendorAddonSku,
   Record<VendorAddonPriceBand, number>
 > = {
-  papic_challenge: { entry: 500, growth: 400 }, // per event
+  // OWNER 2026-08-28 — "unlimited us 2500 for 4 weeks". Papic Challenges stopped
+  // being a per-EVENT fee and became a ₱2,500 / 28-day SHOP subscription, so the
+  // two bands are now ONE number: he set a price, not a band pair.
+  // ⚠ Kept in the matrix rather than deleted from the union, and kept EQUAL
+  // rather than left at 500/400: this matrix OVERRIDES the catalogue whenever
+  // NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING is on, so a stale band here would
+  // charge ₱400 for a 28-day subscription the moment that flag flips — the
+  // catalogue price would be right and the charge would not.
+  papic_challenge: { entry: 2500, growth: 2500 }, // per 28 days, unlimited
   ads_3d_plan: { entry: 2000, growth: 1500 }, // per 28-day cycle
   ai_chatbot_basic: { entry: 2000, growth: 1500 }, // per 28-day cycle
   ai_chatbot_advanced: { entry: 3000, growth: 2500 }, // per 28-day cycle

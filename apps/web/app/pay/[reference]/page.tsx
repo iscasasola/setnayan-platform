@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { mintOrderQr } from '@/lib/emv-qr';
+import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
 
@@ -222,7 +223,7 @@ export default async function PayPage({ params, searchParams }: Props) {
         {payable.who && <p className="mt-1 text-sm text-ink/60">{payable.who}</p>}
 
         <p className="mt-4 font-mono text-[40px] font-bold leading-none tracking-tight text-ink">
-          {peso(payable.amountPhp)}
+          {payAmount(payable.amountPhp)}
         </p>
 
         {payable.rows.length > 0 && (
@@ -381,6 +382,3 @@ function Step({ n, children }: { n: number; children: React.ReactNode }) {
   );
 }
 
-function peso(n: number): string {
-  return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-}

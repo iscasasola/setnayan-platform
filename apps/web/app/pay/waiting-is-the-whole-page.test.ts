@@ -64,7 +64,9 @@ test('what survives is what a waiting person still needs', () => {
   // Not an empty page: the reference is the number they will quote if they have
   // to ask us about it, and the amount is what they will check it against.
   assert.match(SRC, /payable\.reference/, 'the reference must stay readable');
-  assert.match(SRC, /peso\(payable\.amountPhp\)/, 'and so must the amount');
+  // Renamed 2026-08-29 when the page's two private `peso()` copies became one
+  // shared `payAmount` — same rendered figure, same intent, new name.
+  assert.match(SRC, /payAmount\(payable\.amountPhp\)/, 'and so must the amount');
 });
 
 test('🪤 the panel is not merely told the proof is in — it is not rendered', () => {

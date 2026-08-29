@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
+import { payAmount } from '@/lib/pay-amount';
 
 /**
  * The paying half of /pay/[reference] — steps 2 and 3, plus the bar that keeps
@@ -255,7 +256,7 @@ function QrTile({
         src={src}
         alt={
           exact
-            ? `Payment QR code already set to ${peso(amountPhp)}`
+            ? `Payment QR code already set to ${payAmount(amountPhp)}`
             : 'Setnayan payment QR code'
         }
         width={260}
@@ -266,12 +267,12 @@ function QrTile({
       <p className="mt-3 text-sm text-ink/65">
         {exact ? (
           <>
-            This code is for <b className="text-ink">{peso(amountPhp)}</b> &mdash; {label} fills the
+            This code is for <b className="text-ink">{payAmount(amountPhp)}</b> &mdash; {label} fills the
             amount in for you. Nothing to type.
           </>
         ) : (
           <>
-            Scan this, then type <b className="text-ink">{peso(amountPhp)}</b> yourself &mdash; this
+            Scan this, then type <b className="text-ink">{payAmount(amountPhp)}</b> yourself &mdash; this
             code doesn&rsquo;t carry an amount.
           </>
         )}
@@ -484,7 +485,7 @@ function StickyBar({
           <span className="block font-sans text-[11px] font-normal text-ink/55">
             {proofSent ? 'Checking' : 'To pay'}
           </span>
-          {peso(amountPhp)}
+          {payAmount(amountPhp)}
         </span>
         <button type="button" className="button-primary flex-1" onClick={() => jump(target)}>
           {label}
@@ -495,6 +496,3 @@ function StickyBar({
   );
 }
 
-function peso(n: number): string {
-  return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-}

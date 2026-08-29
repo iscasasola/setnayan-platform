@@ -266,6 +266,38 @@ export function resolveSiteBodyPlan(input: {
   const mayShowStdFilm = weddingOnlyParts?.save_the_date_film ?? true;
   const showSaveTheDate =
     phasesEnabled && lifecyclePhase === 'save_the_date' && mayShowStdFilm;
+
+  /**
+   * THE CINEMATIC REVEAL ALSO PLAYS OVER THE INVITATION (owner 2026-08-29:
+   * *"event hub should also have the cinematic reveal"* — "also", so an
+   * addition, never a move).
+   *
+   * 🔴 WHAT IT WAS: `revealEnabled` was `showSaveTheDate`, so the veil lifted
+   * ONLY while the event was still far enough out to be in its save-the-date
+   * window. The moment the page became the invitation the reveal stopped
+   * forever — which is the moment most guests actually open the link. The
+   * couple had paid for an opening almost none of their guests would meet.
+   *
+   * ⛔ THE DAY ITSELF AND THE STORY AFTERWARDS ARE DELIBERATELY EXCLUDED, and
+   * that is an owner ruling, not an oversight: on the day a guest is opening
+   * this to find their table, and a veil between them and a table number at
+   * the venue is a toll gate, not a flourish. The editorial phase has its own
+   * cover.
+   *
+   * 🔒 `mayShowStdFilm` IS LOAD-BEARING HERE IN A WAY IT WAS NOT BEFORE.
+   * Previously a wake was excluded twice over — it never ENTERS the
+   * save_the_date phase (gated on the solemn register in app/[slug]/page.tsx)
+   * AND its profile has no `save_the_date` surface. A wake DOES reach the rsvp
+   * phase, so that first protection is gone here and this flag is the whole
+   * fence. `wedding-only-parts.ts` calls this part "The Save-the-Date cinematic
+   * film AND ITS FIVE REVEAL OPENINGS" — the openings are already inside its
+   * scope, so this is the existing rule applied, not a new one invented.
+   * ⚖ Measured against prod 2026-08-29: of the 17 event-type profiles, ONLY
+   * `wedding` carries the `save_the_date` surface. So this reaches weddings
+   * today and a wake can never see a cinematic veil over its invitation.
+   */
+  const showInvitationReveal =
+    phasesEnabled && lifecyclePhase === 'rsvp' && mayShowStdFilm;
   const body: SiteBodyKind = showEditorial
     ? 'editorial'
     : showSaveTheDate
@@ -362,7 +394,15 @@ export function resolveSiteBodyPlan(input: {
     body,
     fullBleed: showSaveTheDate && stdFilm,
     stdViewBeacon: showSaveTheDate && !isSample,
-    revealEnabled: showSaveTheDate,
+    revealEnabled: showSaveTheDate || showInvitationReveal,
+    // ⚠ DELIBERATELY STILL KEYED ON `showSaveTheDate` ALONE, not on the reveal.
+    // The 2026-06-19 ruling is that the STD FILM owns audio in its own phase;
+    // it is not a rule about the veil. Over the invitation the veil (z-60) sits
+    // ABOVE the floating speaker (z-50), so the control is simply hidden until
+    // the veil lifts — and background music never autoplays (it starts only on
+    // a tap), so there is no soundtrack playing underneath a closed veil.
+    // Widening this to the reveal would silence a paid Event Hub PRO feature
+    // for the whole invitation phase.
     backgroundMusic: hasBgMusic && !showSaveTheDate,
     stdShowTextHero: identity === 'anonymous' && !hasHeroMedia,
     anonymousHeroBanner:

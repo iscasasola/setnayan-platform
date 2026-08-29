@@ -1911,7 +1911,14 @@ export async function SiteBody({
       />
       {/* Couple's opt-in background-music player — NOT during the Save-the-Date
           phase: the STD film owns audio there, and this floating speaker control
-          would otherwise bleed through / over the veil reveal. (owner 2026-06-19) */}
+          would otherwise bleed through / over the veil reveal. (owner 2026-06-19)
+          ⚠ Since 2026-08-29 the reveal ALSO plays over the invitation, and this
+          is deliberately NOT widened to match. That ruling is about the FILM
+          owning audio in its own phase, not about the veil: over the invitation
+          the veil (z-60) sits above this control (z-50), so it is hidden until
+          the veil lifts, and the music never autoplays — it starts only on a
+          tap. Suppressing it here would silence a paid Event Hub PRO feature
+          for the whole invitation phase to solve a clash that cannot happen. */}
       {plan.backgroundMusic && bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* THE SUPPLIER DOORWAY. Rendered here, above the tier fork, because a
           booked supplier can arrive as EITHER tier — as a guest if the couple

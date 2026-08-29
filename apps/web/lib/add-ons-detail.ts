@@ -228,14 +228,14 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     highlights: [
       'The candids no hired lens catches',
       'Every photo reaches you — tagged or not',
-      'Each guest gets their own shots',
+      'Each guest gets their own credits',
       // Was "Try it free before you commit" — true but empty, and it was written
       // when the free taste was a trial. It isn't: every event is auto-armed with
-      // a shared pool of shots plus one dedicated camera, and neither expires or
+      // a shared pool of credits plus one dedicated camera, and neither expires or
       // asks for a card. Say what they already have. No number here on purpose —
       // the allowances are admin-editable (papic_event_pool_config) and the Papic
       // surface derives them; a literal would drift the day one is retuned.
-      'Your first shots are already free — no card',
+      'Your first credits are already free — no card',
     ],
     preview: [
       { context: 'They shoot', glyph: '◉', caption: 'Friends capture the night, freely.', aspect: '9/16' },

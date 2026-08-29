@@ -23,7 +23,7 @@
 /**
  * `papic_camera_points_remaining` returns INT_MAX when the seat's tier carries
  * no per-day budget at all — its "uncapped" answer, not a count. Printing it
- * would put "2,147,483,647 shots left" in front of a couple.
+ * would put "2,147,483,647 credits left" in front of a couple.
  */
 export const PAPIC_UNCAPPED_REMAINING = 2147483647;
 

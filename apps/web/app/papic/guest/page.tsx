@@ -273,7 +273,7 @@ export default async function PapicGuestPage({
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
     />
-    {/* Guest "Add shots" doorway (owner-locked 2026-07-29), flag-dark behind
+    {/* Guest "Add credits" doorway (owner-locked 2026-07-29), flag-dark behind
         NEXT_PUBLIC_PAPIC_GUEST_BUY — self-gates to null when off, so this page
         is byte-identical today. No seat token: this surface's identity is the
         signed setnayan_guest_session cookie, which the buy action re-reads. The

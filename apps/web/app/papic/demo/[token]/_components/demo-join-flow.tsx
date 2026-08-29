@@ -341,7 +341,7 @@ export function DemoJoinFlow({
           ) : (
             <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
           )}
-          {capped ? 'That’s the 3 demo shots' : shooting ? 'Saving the moment…' : 'Take the shot'}
+          {capped ? 'That’s the 3 demo credits' : shooting ? 'Saving the moment…' : 'Take the shot'}
         </button>
         {capped && (
           <p className="mt-2 text-xs text-[var(--m-grey,#8c8884)]">

@@ -180,7 +180,7 @@ type Props = {
  *
  * A window CustomEvent rather than a callback prop, so this ~1,400-line
  * component does not grow page-level state to move one boolean to a sibling.
- * The guest "Add shots" panel listens when NEXT_PUBLIC_PAPIC_GUEST_BUY is on;
+ * The guest "Add credits" panel listens when NEXT_PUBLIC_PAPIC_GUEST_BUY is on;
  * when it is off nothing is mounted and this dispatch is a no-op, so the camera
  * renders byte-identically either way. Fire-and-forget: it must never be able
  * to break a capture.

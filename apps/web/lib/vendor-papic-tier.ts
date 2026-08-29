@@ -97,7 +97,7 @@ export const VENDOR_PAPIC_BASE_GIFT_POINTS = 50;
  */
 export const VENDOR_PAPIC_PHP_PER_POINT = 5;
 
-/** The ceiling, so a ₱2M booking cannot mint twenty thousand free shots. */
+/** The ceiling, so a ₱2M booking cannot mint twenty thousand free credits. */
 export const VENDOR_PAPIC_MAX_POINTS = 2000;
 
 /** The fee at which the ceiling is reached — DERIVED, never re-typed. */
@@ -178,7 +178,7 @@ export function pointsSpent(
  *
  * Owner 2026-07-22: *"points in proportion to what they paid"* — 50 points at
  * ₱0, up to 200 at a ₱4,000 fee, proportional in between. Restated 2026-08-26:
- * *"photographer will buy shots or use their free shots from booking fee to
+ * *"photographer will buy credits or use their free credits from booking fee to
  * upload their photos."*
  *
  * 🚨 THAT RULING WAS WRITTEN, UNIT-TESTED, AND CALLED BY NOTHING.

@@ -122,7 +122,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // the server re-gates on write (recordSeatCapture). Fail-closed → OFF by default.
   const geoEnabled = await isDataPrivacyControlActive('papic_geo_metadata');
 
-  // Guest "Add shots" doorway (owner-locked 2026-07-29), flag-dark behind
+  // Guest "Add credits" doorway (owner-locked 2026-07-29), flag-dark behind
   // NEXT_PUBLIC_PAPIC_GUEST_BUY — the panel self-gates and renders null when the
   // flag is off, so this page is byte-identical today.
   //

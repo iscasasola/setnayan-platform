@@ -175,7 +175,7 @@ test('the shots card does not send the reader elsewhere to do what it does', () 
   );
   assert.match(
     src,
-    /Add shots here now/,
+    /Add credits here now/,
     'the card must say buying happens here',
   );
 });

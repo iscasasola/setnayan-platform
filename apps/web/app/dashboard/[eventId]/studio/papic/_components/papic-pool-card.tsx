@@ -7,7 +7,7 @@ import { CreditStepper } from './credit-stepper';
 import { purchasePapicPoolTopUp } from '../actions';
 
 /**
- * Papic POOL — add shots to the event's SHARED pool.
+ * Papic POOL — add credits to the event's SHARED pool.
  *
  * ── WHY THIS EXISTS (2026-07-31) ─────────────────────────────────────────────
  * Papic Pool was ADVERTISED in two live places and buyable in none.
@@ -94,7 +94,7 @@ export async function PapicPoolCard({
       <div className="space-y-1.5">
         <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
           <Users aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-          Add shots to your event
+          Add credits to your event
         </p>
         {/* ⚠ THIS SENTENCE WAS A PROMISE WITH NOTHING BEHIND IT. It read "Every
             guest who scans your QR shoots from it" — which reads as ONE QR the
@@ -110,7 +110,7 @@ export async function PapicPoolCard({
         <p className="text-sm text-ink/70">
           One shared pot for the whole event. Every camera draws from it — each
           guest&rsquo;s own invite QR, plus the claim links you hand out — on any
-          phone, with nothing to install. Add shots any time; they never expire
+          phone, with nothing to install. Add credits any time; they never expire
           before your day.
         </p>
       </div>
@@ -124,7 +124,7 @@ export async function PapicPoolCard({
 
       {remaining != null && (
         <p className="text-sm text-ink/70">
-          {remaining.toLocaleString('en-PH')} shots left in the pool —{' '}
+          {remaining.toLocaleString('en-PH')} credits left in the pool —{' '}
           {papicBucketPhrase(remaining)}.
         </p>
       )}

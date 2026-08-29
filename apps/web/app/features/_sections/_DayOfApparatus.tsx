@@ -63,7 +63,7 @@ const COPY: Record<
       },
       {
         tagline: 'Designated paparazzi',
-        body: 'One shared pot of shots, in the browser — no app to install. Any guest’s phone can spend from it after scanning the event QR, and the couple can set some aside for one camera’s QR so the person they trust never runs out; when those run out that camera carries on from the pot. Cameras are free and unlimited. QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery, guests can flip through tagged photos before the reception is over.',
+        body: 'One shared pot of credits, in the browser — no app to install. Any guest’s phone can spend from it after scanning the event QR, and the couple can set some aside for one camera’s QR so the person they trust never runs out; when those run out that camera carries on from the pot. Cameras are free and unlimited. QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery, guests can flip through tagged photos before the reception is over.',
       },
       {
         tagline: 'TikTok-format booth at the venue',

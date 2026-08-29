@@ -173,7 +173,7 @@ export default async function PayPage({ params, searchParams }: Props) {
           <span className="font-semibold">Last step.</span>{' '}
           {waiting
             ? 'Your celebration is set up and live. We just need to confirm this payment.'
-            : 'Your celebration is already set up and its free shots are live. Settle this and the extras you picked switch on too.'}
+            : 'Your celebration is already set up and its free credits are live. Settle this and the extras you picked switch on too.'}
         </p>
       ) : (
         payable.back && (
@@ -322,7 +322,7 @@ export default async function PayPage({ params, searchParams }: Props) {
             I don&rsquo;t want these after all — remove them
           </button>
           <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-ink/45">
-            Your celebration and its free shots stay live. You can add these any time
+            Your celebration and its free credits stay live. You can add these any time
             from your studio — at the normal price, without the set-up discount.
           </p>
         </form>

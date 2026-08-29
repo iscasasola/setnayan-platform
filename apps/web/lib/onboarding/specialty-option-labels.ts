@@ -78,7 +78,7 @@ export const SPECIALTY_OPTION_LABELS: Readonly<Record<string, string>> = {
 
   // ── Debut ────────────────────────────────────────────────────────────────
   classic_18_female: 'Classic 18s',
-  male_debut_18_shots: '18 shots',
+  male_debut_18_shots: '18 credits',
   intimate_9s: 'Intimate (9s)',
   coronation: 'Coronation',
   society_ball: 'Society ball',

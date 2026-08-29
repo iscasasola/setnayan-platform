@@ -146,7 +146,7 @@ export function PapicLadderEditor({
                           setAnchorPhp((p) => ({ ...p, [rung.shots]: e.target.value }))
                         }
                         className="input-field h-9 w-32 pl-6 text-right font-mono tabular-nums"
-                        aria-label={`Regular price for ${rung.shots} shots`}
+                        aria-label={`Regular price for ${rung.shots} credits`}
                       />
                     </span>
                   ) : (

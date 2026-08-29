@@ -102,7 +102,7 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
     // operator's word. This title can reach a public card (the synthetic
     // PAPIC_CAMERAS row on /pricing), and "legacy" is not a word to sell with.
     // It renders only while a rung is active; today none is.
-    displayTitle: 'A camera with its own shots',
+    displayTitle: 'A camera with its own credits',
     pointsPerDay: 20,
     rateServiceCode: 'PAPIC_CAMERA_MINI_DAY',
     seatsPerEvent: 0,
@@ -321,7 +321,7 @@ export function papicCapPhrase(weddingCapPhp: number | null): string {
 // Both phrases below take their numbers as ARGUMENTS: points from the rung
 // tables (papic_pass_tiers / papic_one_tiers), price from
 // platform_retail_catalog_v2. Neither is written here, for the reason this whole
-// module exists — the moment a surface hardcodes "₱100 = 250 shots" it starts
+// module exists — the moment a surface hardcodes "₱100 = 250 credits" it starts
 // drifting from what the meter actually hands out, and the couple is the one who
 // finds out.
 
@@ -345,7 +345,7 @@ export function papicRungDiscountPercent(points: number, pricePhp: number): numb
 }
 
 export function papicPoolRungPhrase(points: number, pricePhp: number): string {
-  const base = `${peso(pricePhp)} — adds ${points.toLocaleString('en-PH')} shots to your shared pool`;
+  const base = `${peso(pricePhp)} — adds ${points.toLocaleString('en-PH')} credits to your shared pool`;
   // ⚠ The saving is DERIVED and only shown when it is real. A rung priced at or
   // above ₱1 a shot says nothing rather than printing "0% off" or a negative.
   const off = papicRungDiscountPercent(points, pricePhp);
@@ -359,22 +359,22 @@ export function papicPoolRungPhrase(points: number, pricePhp: number): string {
  * product at different prices.
  */
 export function papicOneRungPhrase(points: number, pricePhp: number): string {
-  return `${peso(pricePhp)} — ${points.toLocaleString('en-PH')} shots, that camera's own`;
+  return `${peso(pricePhp)} — ${points.toLocaleString('en-PH')} credits, that camera's own`;
 }
 
 /**
  * The point CURRENCY, as two short terms a couple can read side by side.
  *
  * This is the one sentence that makes every other Papic number legible: without
- * it "50 shots" and "8" are unrelated figures. Both weights interpolate the
+ * it "50 credits" and "8" are unrelated figures. Both weights interpolate the
  * constants in lib/papic-cameras-pure.ts, so the 7 → 8 clip reprice (owner-locked
  * 2026-07-29) moved this line without anyone editing a surface — which is the
  * entire reason it lives here and not in the card.
  */
 export function papicPointCurrencyTerms(): readonly [string, string] {
   return [
-    `1 photo = ${PAPIC_POINTS_PER_PHOTO} pt`,
-    `10-second clip = ${PAPIC_POINTS_PER_CLIP} pts`,
+    `1 photo = ${PAPIC_POINTS_PER_PHOTO} credit`,
+    `a Snippet (10-second video) = ${PAPIC_POINTS_PER_CLIP} credits`,
   ];
 }
 
@@ -388,7 +388,7 @@ export function papicPointCurrencyTerms(): readonly [string, string] {
 export function papicBucketPhrase(points: number): string {
   const photos = Math.floor(points / PAPIC_POINTS_PER_PHOTO);
   return (
-    `about ${photos.toLocaleString('en-PH')} photo${photos === 1 ? '' : 's'} — fewer if ` +
-    `you shoot clips, since one 10-second clip counts as ${PAPIC_POINTS_PER_CLIP}`
+    `about ${photos.toLocaleString('en-PH')} photograph${photos === 1 ? '' : 's'} — fewer if ` +
+    `you shoot video, since a Snippet counts as ${PAPIC_POINTS_PER_CLIP}`
   );
 }

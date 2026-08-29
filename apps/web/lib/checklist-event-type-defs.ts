@@ -60,7 +60,7 @@ const DEBUT_TEMPLATE: ChecklistTemplateItem[] = [
   { key: 'debut_budget', title: 'Set your budget — Setnayan estimated one from your picks', category: 'foundations', dueOffsetDays: 235 },
   { key: 'debut_guest_list', title: 'Draft your guest list', category: 'guests', dueOffsetDays: 230 },
   { key: 'debut_venue', title: 'Research & book your venue (banquet hall or events place)', category: 'vendors', dueOffsetDays: 210 },
-  { key: 'debut_court', title: 'Pick your court — 18 roses, 18 candles, 18 treasures, 18 shots', category: 'foundations', dueOffsetDays: 180 },
+  { key: 'debut_court', title: 'Pick your court — 18 roses, 18 candles, 18 treasures, 18 credits', category: 'foundations', dueOffsetDays: 180 },
   { key: 'debut_catering', title: 'Book your caterer', category: 'vendors', dueOffsetDays: 170 },
   { key: 'debut_photo', title: 'Book your photo & video team', category: 'vendors', dueOffsetDays: 165 },
   { key: 'debut_hmua', title: 'Book your hair & makeup artist', category: 'vendors', dueOffsetDays: 150 },

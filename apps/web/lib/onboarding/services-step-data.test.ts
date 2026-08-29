@@ -145,8 +145,8 @@ test('the free allowances track their admin columns, they are not literals', () 
 
 test('the point currency is derived from the capture-path constants', () => {
   const [photo, clip] = build().papic.currencyTerms;
-  assert.match(photo, new RegExp(`= ${PAPIC_POINTS_PER_PHOTO} pt`));
-  assert.match(clip, new RegExp(`= ${PAPIC_POINTS_PER_CLIP} pts`));
+  assert.match(photo, new RegExp(`= ${PAPIC_POINTS_PER_PHOTO} credit`));
+  assert.match(clip, new RegExp(`= ${PAPIC_POINTS_PER_CLIP} credits`));
 });
 
 test('Setnayan AI renders only when the gate resolved a price', () => {

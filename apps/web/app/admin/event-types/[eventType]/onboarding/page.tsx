@@ -39,7 +39,7 @@ const SERVICE_KEY_LABELS: Record<string, string> = {
   // `papic_seats` is a STABLE IDENTIFIER in live saved drafts and must not be
   // renamed; only its label follows the one-product model (2026-08-11).
   papic_seats: 'Papic — a camera with its own shots',
-  papic_guest: 'Papic — add shots',
+  papic_guest: 'Papic — add credits',
 };
 
 /** key → human label (internal tool): advanced_website → "Advanced Website". */

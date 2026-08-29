@@ -292,7 +292,7 @@ test('the fallback tier table mirrors the migration seed exactly', () => {
   // title is product copy the owner may change; points, rate SKU, seats, cap
   // and sort order are economics and must never drift from the migration.
   if (seeded.mini) {
-    (seeded.mini as { displayTitle: string }).displayTitle = 'A camera with its own shots';
+    (seeded.mini as { displayTitle: string }).displayTitle = 'A camera with its own credits';
   }
   for (const code of Object.keys(seeded) as PapicTierCode[]) {
     const fb = PAPIC_TIER_CONFIG_FALLBACK[code];

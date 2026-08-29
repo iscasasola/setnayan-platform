@@ -486,7 +486,7 @@ export function PapicCaptureController({
                      supplier AND the wrong reason to everyone — a refusal that
                      misdescribes itself sends somebody to fix the wrong thing.
                      The number is DERIVED, never re-typed. */
-                  `Photos only — video unlocks at ${VENDOR_PAPIC_VIDEO_MIN_POINTS} shots`}
+                  `Photos only — video unlocks at ${VENDOR_PAPIC_VIDEO_MIN_POINTS} credits`}
           </span>
         </div>
       </div>

@@ -247,7 +247,7 @@ export async function CoupleChallengesManager({
   // Cost of the board a guest actually sees, per guest. Fail-soft: the pool read
   // degrades to "absent" on any error and we then say nothing about a balance
   // rather than printing a confident zero — a zero here reads as "you have no
-  // shots left", which would be a lie told at the worst moment.
+  // credits left", which would be a lie told at the worst moment.
   const boardCostPerGuest = onBoard
     .filter((m) => m.is_active)
     .reduce((sum, m) => sum + papicMissionCost(m.capture_kind), 0);

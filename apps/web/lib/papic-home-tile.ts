@@ -10,7 +10,7 @@
  * for one batch of reads, folded into the dashboard's existing `Promise.all`.
  *
  * ── WHY THE GAP EXISTED ──────────────────────────────────────────────────────
- * Every event is armed at creation with a free shared pool of shots AND one free
+ * Every event is armed at creation with a free shared pool of credits AND one free
  * dedicated camera (`ensureFreePapicPoolGrantAdmin` + `ensureFreePapicOneCameraAdmin`
  * in create-event/actions.ts). The couple was never told so from home: Papic had
  * zero presence on `dashboard/[eventId]`, which is the only home surface that
@@ -210,7 +210,7 @@ export async function resolvePapicHomeTile(
   // No pool, no cameras, no photos ⇒ this event has no Papic story to tell, so
   // neither surface renders. In practice the free grant means we never take this
   // branch, but a pre-arming event (or an unreadable ledger) must degrade to
-  // silence rather than to a tile reading "0 shots ready".
+  // silence rather than to a tile reading "0 credits ready".
   if (shotsTotal === 0 && cameras === 0 && photosGathered === 0) return null;
 
   return {

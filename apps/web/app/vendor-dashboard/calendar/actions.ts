@@ -29,8 +29,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   asVendorTier,
   tierCaps,
-  vendorWaitlistAcceptances,
 } from '@/lib/vendor-tier-caps';
+import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import {
   notifyWaitlistForDate,
   notifyWaitlistForFreedRange,
@@ -331,7 +331,14 @@ export async function updateWaitlistSettings(formData: FormData): Promise<void> 
   const currentRow = current as
     | { tier_state?: string | null; max_waitlist_acceptances?: number | null }
     | null;
-  const tierCap = vendorWaitlistAcceptances(currentRow?.tier_state);
+  // ⚠ THE EFFECTIVE CAP, NOT THE TIER-ONLY ONE — a Custom shop can BUY the
+  // ceiling away (owner 2026-08-29: "2500 for no limit" · "yes wait list add
+  // them"), and `vendorWaitlistAcceptances` answers from the tier alone. It
+  // reads Infinity for such a shop, so every clamp below no-ops by arithmetic
+  // rather than by a special case.
+  const tierCap = (
+    await fetchEffectiveCaps(supabase, profile.vendor_profile_id, currentRow?.tier_state)
+  ).waitlistAcceptances;
   const stored = Number(currentRow?.max_waitlist_acceptances);
 
   const enabled = str(formData, 'waitlist_enabled') === 'on' && tierCap > 0;
@@ -343,6 +350,11 @@ export async function updateWaitlistSettings(formData: FormData): Promise<void> 
   // through to the ordinary clamp.
   const untouchedGrandfather =
     tierCap > 0 && Number.isFinite(stored) && stored > tierCap && posted === stored;
+  // `Math.min(posted, Infinity)` is `posted` — an unlimited shop keeps whatever
+  // it sets, up to the column's own 0..10 CHECK. The CHECK is deliberately NOT
+  // widened: under "no limit" the stored number stops being a ceiling at all
+  // (pickWaitlistCouple ignores it), so making it bigger would change nothing
+  // except invite somebody to read it as one.
   const cap =
     tierCap === 0 ? 0 : untouchedGrandfather ? stored : Math.min(posted, tierCap);
 
@@ -374,11 +386,24 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
 
   const { data: prow } = await supabase
     .from('vendor_profiles')
-    .select('max_waitlist_acceptances')
+    .select('max_waitlist_acceptances, tier_state')
     .eq('vendor_profile_id', vp)
     .maybeSingle();
   const cap =
     Number((prow as { max_waitlist_acceptances?: number } | null)?.max_waitlist_acceptances) || 1;
+
+  // 🔑 THIS IS THE ENFORCEMENT — the setting above is only a number until this
+  // refuses on it. A Custom shop that bought "no limit" (owner 2026-08-29) must
+  // not be refused here, or the axis would be sold, quoted, stored, displayed
+  // and inert: the exact shape of a gate with no handle.
+  const planCap = (
+    await fetchEffectiveCaps(
+      supabase,
+      vp,
+      (prow as { tier_state?: string | null } | null)?.tier_state,
+    )
+  ).waitlistAcceptances;
+  const unlimited = !Number.isFinite(planCap);
 
   // Cap: how many already picked (accepted) for this date.
   const { count } = await supabase
@@ -387,7 +412,7 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
     .eq('vendor_profile_id', vp)
     .eq('requested_date', requestedDate)
     .not('accepted_at', 'is', null);
-  if ((count ?? 0) >= cap) backToCalendar(formData, 'waitlist_full');
+  if (!unlimited && (count ?? 0) >= cap) backToCalendar(formData, 'waitlist_full');
 
   // Pick the next couple in line (oldest interest) that isn't picked yet.
   // `user_id` comes back too — it is who the pick HAPPENED TO, and the reason

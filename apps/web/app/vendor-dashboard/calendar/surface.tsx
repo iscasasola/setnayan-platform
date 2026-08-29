@@ -4,7 +4,7 @@ import { CalendarDays, CalendarPlus, CheckCircle2, Lock, UserPlus, Users, X } fr
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { vendorWaitlistAcceptances } from '@/lib/vendor-tier-caps';
+import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import {
   fetchVendorBlocks,
   fetchVendorDayStates,
@@ -250,6 +250,11 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
   // would render a DIFFERENT figure than the one in force, which is the same
   // silent substitution the grandfathering exists to prevent.
   let waitlistGrandfathered = 0;
+  // Bought the ceiling away. Kept as its own boolean rather than testing
+  // `waitlistTierCap === Infinity` at four render sites — and it must be
+  // consulted BEFORE any `Array.from({ length: cap })`, which throws a
+  // RangeError on Infinity.
+  let waitlistUnlimited = false;
   // 🔑 THE SOFT PROBE IS RIGHT AND IS KEPT — degrading to "disabled" on a
   // pre-migration database is the correct trade. What was missing is that the
   // REASON never left this block: Supabase resolves with `{ error }` rather
@@ -286,11 +291,25 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
     // The PLAN ceiling (owner 2026-08-09: Free 0 · Solo 1 · Pro 3 · Enterprise
     // 5) — the picker offers exactly this many options, so a vendor is never
     // shown a number their plan would silently clamp away. 0 = no waitlist.
-    waitlistTierCap = vendorWaitlistAcceptances(wsRow?.tier_state);
+    // ⚠ THE EFFECTIVE CAP, NOT THE TIER-ONLY ONE. `vendorWaitlistAcceptances`
+    // answers from the tier alone, which is right for every plan except the one
+    // that can BUY the ceiling away. A Custom shop holding the "no limit" axis
+    // (owner 2026-08-29: "2500 for no limit" · "yes wait list add them") reads
+    // Infinity here. `fetchEffectiveCaps` is the shipped overlay and reads the
+    // shop's own active composed plan through their own session — a vendor may
+    // read their own vendor_custom_plans row, so no service-role client and no
+    // new RPC is needed.
+    waitlistTierCap = (
+      await fetchEffectiveCaps(supabase, profile.vendor_profile_id, wsRow?.tier_state)
+    ).waitlistAcceptances;
     waitlistEnabled = Boolean(wsRow?.waitlist_enabled) && waitlistTierCap > 0;
+    waitlistUnlimited = !Number.isFinite(waitlistTierCap);
     const storedWaitlistCap = Number(wsRow?.max_waitlist_acceptances) || 1;
     waitlistCap = Math.min(storedWaitlistCap, Math.max(waitlistTierCap, storedWaitlistCap));
-    waitlistGrandfathered = storedWaitlistCap > waitlistTierCap ? storedWaitlistCap : 0;
+    // A shop with no ceiling is never "above" one, so the grandfather line — which
+    // exists to say "we are not taking away a number you set" — must not appear.
+    waitlistGrandfathered =
+      !waitlistUnlimited && storedWaitlistCap > waitlistTierCap ? storedWaitlistCap : 0;
     const { data: picked, error: pickedError } = await supabase
       .from('vendor_date_waitlist')
       .select('requested_date')
@@ -519,24 +538,40 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
             />
             Accept a waitlist on booked dates
           </label>
-          <label className="flex items-center gap-2 text-sm text-ink/70">
-            Hold up to
-            <select
-              name="max_waitlist_acceptances"
-              defaultValue={String(waitlistCap)}
-              className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm"
-            >
-              {Array.from(
-                { length: Math.max(waitlistTierCap, waitlistGrandfathered) },
-                (_, i) => i + 1,
-              ).map((n) => (
-                <option key={n} value={String(n)}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            per date
-          </label>
+          {waitlistUnlimited ? (
+            /* No ceiling to choose from. A picker offering "1…10" to a shop that
+               paid to have no limit would be the product arguing with itself —
+               and `Array.from({ length: Infinity })` throws outright. The stored
+               number is still posted so an unrelated save cannot blank it. */
+            <span className="flex items-center gap-2 text-sm text-ink/70">
+              <input
+                type="hidden"
+                name="max_waitlist_acceptances"
+                value={String(waitlistCap)}
+              />
+              Hold <span className="font-semibold text-ink">as many as are waiting</span> per
+              date — no limit on your plan.
+            </span>
+          ) : (
+            <label className="flex items-center gap-2 text-sm text-ink/70">
+              Hold up to
+              <select
+                name="max_waitlist_acceptances"
+                defaultValue={String(waitlistCap)}
+                className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm"
+              >
+                {Array.from(
+                  { length: Math.max(waitlistTierCap, waitlistGrandfathered) },
+                  (_, i) => i + 1,
+                ).map((n) => (
+                  <option key={n} value={String(n)}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              per date
+            </label>
+          )}
           <SubmitButton
             pendingLabel="Saving…"
             className="rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-medium hover:bg-ink/5"
@@ -589,9 +624,11 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                     >
                       {/* "0/3" over an unread count would say they have picked
                           nobody. "—/3" says we do not know how many. */}
+                      {/* No ceiling ⇒ no denominator. "3/∞" is not a ratio, and
+                          "3/10" would name a limit this shop has paid to remove. */}
                       Pick for waitlist (
-                      {pickedMeasured ? pickedByDate.get(w.requestedDate) ?? 0 : '—'}/
-                      {waitlistCap})
+                      {pickedMeasured ? pickedByDate.get(w.requestedDate) ?? 0 : '—'}
+                      {waitlistUnlimited ? ' picked' : `/${waitlistCap}`})
                     </SubmitButton>
                   </form>
                 ) : null}

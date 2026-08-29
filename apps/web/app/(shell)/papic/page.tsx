@@ -495,7 +495,6 @@ export default async function PapicLandingPage() {
         </div>
       </section>
 
-      <PapicFeatures />
       <PapicHub />
 
       {/* ── NOT A SHARED PHOTO DUMP ─────────────────────────────────────── */}
@@ -610,6 +609,24 @@ export default async function PapicLandingPage() {
           </p>
         </section>
       ) : null}
+
+      {/*
+        EVERYTHING IT DOES — deliberately AFTER the price. Owner, 2026-08-29,
+        having read the page on a phone: *"cut it down"* and *"yes after the
+        price"*.
+
+        Measured at 375px wide before the move: this section was 4,792px of a
+        12,847px page — 37%, and nearly six phone screens — sitting between the
+        three steps and everything a buyer decides on. The comparison, the two
+        ways to run it and the price were all behind it.
+
+        🔑 IT IS OUTSIDE THE COST BLOCK'S CONDITIONAL ON PURPOSE. The cost
+        section renders only when a price resolves, and it fails quiet by
+        design; mounting this inside it would make the entire feature list
+        vanish on a degraded price read — a page that loses a third of itself
+        with nothing to say why.
+      */}
+      <PapicFeatures />
 
       {/* ── QUESTIONS — closed by default. ───────────────────────────────── */}
       <section className="mx-auto mt-16 max-w-2xl" aria-label="Questions about Papic">

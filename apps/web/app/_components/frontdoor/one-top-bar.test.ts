@@ -390,14 +390,30 @@ test('the `shell-topbar` hide hook survived the move', () => {
 
 /* ─── 3 · BELOW 1024 THE APP VARIANT ADDS NO NEW CHROME ─────────────────── */
 
-test('the rail still paints nothing below 1024', () => {
+test('the app rail below 1024 is off-canvas, and shut it is out of the tab order', () => {
+  /*
+    🔴 SUPERSEDED PREMISE, KEPT IN WRITING. This test asserted an
+    UNCONDITIONAL `.fd[data-chrome='app'] .fd-rail {display:none}` under the
+    heading "the rail still paints nothing below 1024", on the locked ground
+    that "a rail plus a bottom bar is the double render". Owner 2026-08-29:
+    *"hamburger menu disappeared on other parts of the shell. keep it visible
+    across."* The rail is now the same off-canvas drawer the public pages have
+    always had — it paints only while somebody has pressed the button, so it is
+    a drawer over the page, not a second permanent rail beside the bottom bar.
+
+    The half that survives is the accessibility one: SHUT, it must be gone.
+  */
   const css = readFileSync(join(HERE, 'front-door.css'), 'utf8');
-  const block = css.slice(css.indexOf("@media (max-width: 1023.98px)"));
+  const block = css.slice(css.indexOf('@media (max-width: 1023.98px)'));
   assert.ok(
-    /\.fd\[data-chrome='app'\] \.fd-rail \{[^}]*display: none/.test(block),
-    "The app variant's rail must be `display:none` below 1024 — the phone's " +
-      'bottom-bar grammar is locked, and a rail plus a bottom bar is the ' +
-      'double render.',
+    /\.fd\[data-chrome='app'\] \.fd-rail\[data-open='false'\] \{[^}]*display: none/.test(block),
+    "A shut app rail must be `display:none` below 1024 — otherwise its rows " +
+      'stay focusable behind a closed drawer.',
+  );
+  assert.ok(
+    !/\.fd\[data-chrome='app'\] \.fd-rail \{[^}]*display: none/.test(block),
+    'The app rail is hidden below 1024 regardless of `data-open`, so the ' +
+      'hamburger the owner asked for opens nothing.',
   );
 });
 

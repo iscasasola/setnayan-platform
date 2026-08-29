@@ -126,8 +126,9 @@ const APP_LD = {
     'Anyone can ask not to be shown — the photo itself is blurred',
     'Every photo is screened before it can appear',
     'Photo challenges and video greetings',
+    'Snippets — ten-second candid videos, not just photographs',
     'A recap page, a keepsake magazine and a souvenir video',
-    'The live wall, included',
+    'The live wall, included — open it on any venue screen from a browser',
     'Lives on the couple’s own celebration page',
     'The couple receives every photo, tagged or not',
   ],
@@ -147,7 +148,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is a credit?',
-    a: `A credit is one photograph. A video costs by its length instead — the longer it runs, the more it takes, up to ${PAPIC_POINTS_PER_CLIP} credits for a ten-second video, which is the longest. Nothing else costs anything: the cameras and the live wall are free, however many you use.`,
+    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${PAPIC_POINTS_PER_CLIP} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, the galleries are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
   },
   {
     q: 'Do guests need an app?',
@@ -214,7 +215,7 @@ const STEPS = [
  *  for the privacy row, which is this page's entire privacy footprint in copy. */
 const VS: readonly (readonly [string, string])[] = [
   ['A shared link everyone digs through', 'Each guest’s own gallery, sorted as you shoot'],
-  ['Photos only', 'Photos and ten-second candid videos'],
+  ['Photos only', 'Photos and Snippets — ten-second candid videos'],
   ['You scroll to find yourself', 'Your photos find you'],
   ['A separate site that expires', 'Lives on your own celebration page'],
   ['Someone always ends up in a photo they hate', 'Anyone can ask to disappear'],
@@ -474,19 +475,40 @@ export default async function PapicLandingPage() {
             Start free. Move the dial only if you run out.
           </p>
 
-          {/* The credit, explained where the money is — not only in the FAQ.
-              Both figures are DERIVED; a literal here fails the copy guard. */}
-          <ul className="mt-4 list-none rounded-xl border border-[var(--m-line)] px-4 py-3">
-            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
-              <Cost n={PAPIC_POINTS_PER_PHOTO} /> one photograph
-            </li>
-            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
-              <Cost n={PAPIC_POINTS_PER_CLIP} /> a ten-second video, the longest there is
-            </li>
-            <li className="py-0.5 text-[0.88rem] text-[var(--m-ink)]/65">
-              A shorter video costs less, by how long it runs
-            </li>
-          </ul>
+          {/* WHAT A CREDIT IS — owner, 2026-08-29: "Explain credits." It used to
+              be three bare rows that assumed the reader already knew. It now
+              says what a credit buys, and what it does NOT have to buy, which
+              is the half people get wrong: they assume the cameras and the wall
+              are metered too. Both figures are DERIVED; a literal fails the
+              copy guard. */}
+          <div className="mt-4 rounded-xl border border-[var(--m-line)] px-4 py-4">
+            <p className="text-[0.92rem] text-[var(--m-ink)]">
+              A credit is <span className="font-medium">one photograph</span>. That is the whole
+              meter — you spend a credit when someone takes a picture, and nothing else on Papic
+              costs anything at all.
+            </p>
+            <ul className="mt-3 list-none border-t border-[var(--m-line)] pt-3">
+              <li className="py-1 text-[0.88rem] text-[var(--m-ink)]/70">
+                <Cost n={PAPIC_POINTS_PER_PHOTO} /> a photograph
+              </li>
+              <li className="py-1 text-[0.88rem] text-[var(--m-ink)]/70">
+                <Cost n={PAPIC_POINTS_PER_CLIP} /> a{' '}
+                <span className="font-medium text-[var(--m-ink)]">Snippet</span> — our ten-second
+                video, the longest there is. A shorter one costs less.
+              </li>
+              <li className="py-1 text-[0.88rem] text-[var(--m-ink)]/70">
+                <span className="mr-2 inline-block min-w-[2.2em] font-mono font-medium text-[var(--m-orange-2)]">
+                  free
+                </span>
+                <span className="mr-1.5">·</span>
+                the cameras, the live wall, the galleries, and keeping it all
+              </li>
+            </ul>
+            <p className="mt-3 text-[0.82rem] text-[var(--m-ink)]/55">
+              Credits never expire, and they are not a subscription. You buy them once and what you
+              don’t spend simply stays.
+            </p>
+          </div>
 
           <div className="mt-4">
             <PapicDial

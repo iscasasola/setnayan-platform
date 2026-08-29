@@ -50,6 +50,10 @@ const GROUPS: readonly Group[] = [
         d: 'The codes come ready to put on the tables.',
       },
       {
+        t: 'Snippets, not just photographs',
+        d: 'Ten seconds of sound and movement — the toast, the laugh, the entrance. A Snippet is the one thing a photograph cannot keep.',
+      },
+      {
         t: 'It works with no signal',
         d: 'Photos wait on the phone and send themselves when the venue’s signal comes back.',
       },
@@ -96,8 +100,14 @@ const GROUPS: readonly Group[] = [
         d: 'Your photographer can propose one. Nothing appears until you approve it.',
       },
       {
-        t: 'The live wall, on the venue screen',
-        d: 'The night as it happens, up on the wall. Included — there is nothing to buy.',
+        /* Owner, 2026-08-29: "it has an address where you can place to a
+           monitor so it will show the live photo wall there via browser."
+           Verified against the shipped route: /wall/[eventId] is a full-screen,
+           no-chrome projection a venue screen reaches by opening the address
+           and typing a six-character code. LIVE_WALL is in FREE_FOR_ALL_SKUS,
+           so "included" is true for every celebration. */
+        t: 'The live wall, on any screen at the venue',
+        d: 'The wall has its own web address. Open it on whatever screen the venue has — a TV, a projector, a laptop — type the short code once, and the night plays there as it happens. No app, no cable, nothing to install. Included; there is nothing to buy.',
       },
     ],
   },

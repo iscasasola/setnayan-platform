@@ -257,32 +257,29 @@ export async function fetchPhotoChallengeExpiry(
 }
 
 /**
- * Is this shop entitled to run a challenge at THIS celebration — the live
- * subscription OR a legacy ₱400 per-event sponsorship row? Mirrors the SQL
+ * Is this shop entitled to run a challenge? Mirrors the SQL
  * `vendor_papic_challenge_entitled`, which is the actual gate.
  *
- * ⚠ The legacy arm is not dead code. Production holds zero sponsorship rows, but
- * a per-event row is what somebody's ₱400 bought, and a repricing must never
- * retroactively unsell it.
+ * ⚠ ONE WAY IN. Owner 2026-08-29: *"vendors only purchase papic challenges for a
+ * 4-week subscription."* This used to carry a second arm honouring a legacy ₱400
+ * per-event `papic_photo_challenge_sponsorships` row, on the reasoning that a
+ * repricing must never retroactively unsell what somebody had already bought.
+ * That reasoning was right and the arm was provably dead: zero rows in
+ * production ever, and — once the activation hook moved to stamping the 28-day
+ * window — zero writers anywhere. **A read arm whose only writer is gone can
+ * never be true**, and leaving it in made the gate say there were two ways to be
+ * entitled when there is one.
+ *
+ * `eventId` is accepted and IGNORED, matching the SQL signature: a subscription
+ * covers every celebration the shop is booked for, and the per-celebration
+ * questions (booked? Papic on?) are {@link photoChallengeEventReady}'s.
  */
 export async function fetchPhotoChallengeEntitled(
   supabase: SupabaseClient,
-  eventId: string,
+  _eventId: string,
   vendorProfileId: string,
   nowMs: number = Date.now(),
 ): Promise<boolean> {
   const expiry = await fetchPhotoChallengeExpiry(supabase, vendorProfileId);
-  if (isPhotoChallengeSubscriptionActive(expiry, nowMs)) return true;
-  try {
-    const { data, error } = await supabase
-      .from('papic_photo_challenge_sponsorships')
-      .select('sponsorship_id')
-      .eq('event_id', eventId)
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    if (error) return false;
-    return data != null;
-  } catch {
-    return false;
-  }
+  return isPhotoChallengeSubscriptionActive(expiry, nowMs);
 }

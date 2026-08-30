@@ -118,6 +118,10 @@ const FORBIDDEN: readonly Prohibition[] = [
     stillSayable: [
       'That is about 15 photographs from every guest.',
       'Enough for every one of 200 guests to take about 15 photographs.',
+      // A live near-miss, found by mutation: this sentence is on the page and
+      // is about GALLERIES, not credits. The pattern requires a shots/credits
+      // noun after the verb precisely so it cannot fire here.
+      'Each guest gets their own personal gallery',
       // The claim this guard used to forbid. Pinned so a reader acting on the
       // OLD wording cannot tidy a now-true sentence off the page.
       'You can decide how many credits one guest may spend — name the few who should have more, and the rest split what is left evenly.',

@@ -118,7 +118,7 @@ export async function GuestAllotmentsChoice({
     admin.rpc(ALLOTMENT_RPC.headcount, { p_event_id: eventId }),
     admin
       .from('guests')
-      .select('guest_id, first_name, last_name, display_name')
+      .select('guest_id, first_name, last_name, display_name, rsvp_status')
       .eq('event_id', eventId)
       .is('deleted_at', null)
       .order('first_name', { ascending: true }),
@@ -127,7 +127,10 @@ export async function GuestAllotmentsChoice({
     // holds, and it is the only way to show WHICH guests are named and with
     // what number. The resolver answers "what does this guest get", not "did
     // somebody choose it", so it cannot drive this list on its own.
-    admin.from(ALLOTMENT_STORAGE.table).select('guest_id, points').eq('event_id', eventId),
+    admin
+      .from(ALLOTMENT_STORAGE.table)
+      .select('guest_id, ceiling_points')
+      .eq('event_id', eventId),
     admin
       .from('event_sponsors')
       .select('sponsor_tier, linked_guest_id')
@@ -140,12 +143,31 @@ export async function GuestAllotmentsChoice({
     first_name: string | null;
     last_name: string | null;
     display_name: string | null;
+    rsvp_status: string | null;
   }>;
   const allotments = new Map<string, number>(
-    ((allotmentsResult.data ?? []) as Array<{ guest_id: string; points: number }>).map((a) => [
-      a.guest_id,
-      a.points,
-    ]),
+    (
+      (allotmentsResult.data ?? []) as Array<{ guest_id: string; ceiling_points: number }>
+    ).map((a) => [a.guest_id, a.ceiling_points]),
+  );
+
+  /**
+   * 🔑 ONLY THE NAMED GUESTS WHO ARE STILL COMING COUNT — the same predicate
+   * `papic_event_guest_headcount` uses, and the one the ceiling resolver gained
+   * in review (it JOINs `guests` and excludes `deleted_at IS NOT NULL` and
+   * `rsvp_status = 'declined'`).
+   *
+   * ⚠ A CEILING ROW SURVIVES ITS GUEST BEING REMOVED OR DECLINING. Counting it
+   * would subtract an absent person's credits from the pot AND shrink the
+   * divisor — quietly making everybody else's share smaller than the arithmetic
+   * the couple was shown. The sheet must exclude them exactly as the database
+   * does, or the two disagree the moment somebody declines.
+   *
+   * ⚠ THE PICKER STILL LISTS THEM. A guest who has declined can still be named
+   * — plans change — they simply do not count until they are coming.
+   */
+  const stillComing = new Set(
+    guests.filter((g) => (g.rsvp_status ?? '') !== 'declined').map((g) => g.guest_id),
   );
 
   // 🔑 SPONSORS ARE REAL, USER-AUTHORED DATA — `event_sponsors` is written by a
@@ -167,7 +189,9 @@ export async function GuestAllotmentsChoice({
     typeof headcountResult.data === 'number' && headcountResult.data > 0
       ? headcountResult.data
       : guests.length;
-  const named = [...allotments.values()];
+  const named = [...allotments.entries()]
+    .filter(([guestId]) => stillComing.has(guestId))
+    .map(([, points]) => points);
   const inputs = { pot, guestCount, named, everyoneElse };
   const split = splitTheRest(inputs);
   const summary = summariseAllotments(inputs);

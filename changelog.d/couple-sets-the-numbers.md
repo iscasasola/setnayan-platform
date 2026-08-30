@@ -162,6 +162,36 @@ modules.
   day in its own timezone) − 2 hours`. An event with no window and no date gets no automatic
   release rather than a guess. No longer this session's to track.
 
+### Rebased onto the merged ceiling — and the applied migration was NOT the branch
+
+⚠ **The migration changed between the branch I read and the commit that merged**, which is the
+entire reason for re-proving against the applied file rather than the proposal. `20271184624871`
+gained a JOIN: the named-ceiling sum and count now include **only guests who are still coming**
+(`deleted_at IS NULL AND rsvp_status <> 'declined'`), matching `papic_event_guest_headcount`.
+
+That exposed **two real defects in this sheet**, both silent:
+
+1. 🚨 **The sheet selected `points`. The column is `ceiling_points`.** PostgREST refuses the *whole*
+   query for one unknown column, so the result came back empty, every named guest read as un-named,
+   and the couple would have been shown the entire pot divided among everyone. No error anywhere.
+   Nothing in the local loop could see it — the admin client is untyped so `tsc` has no opinion, and
+   the unit tests exercise a pure function that never touches a table.
+2. 🚨 **The sheet counted named guests who had declined or been removed.** The database no longer
+   does. Counting them subtracts an absent person's credits from the pot *and* shrinks the divisor —
+   quietly making everybody else's share smaller than the arithmetic on screen.
+
+New guard `lib/papic-allotment-columns-exist.test.ts` derives the real columns from the migration's
+own `CREATE TABLE` and checks every `.select()` in the sheet against them, and pins the
+still-coming predicate. **MUTATION:** 3 sabotages — re-select `points` 1→0 RED · drop the
+still-coming filter 1→0 RED · drop `rsvp_status` from the select 1→0 **GREEN, SURVIVED**.
+
+⚠ **That third survivor was a weak guard, not a safe change.** The first cut asserted
+`/rsvp_status/` matched *anywhere in the file*, and the word still appeared in the type annotation
+and the filter — so removing it from the `.select()` passed. The real failure is total and silent:
+PostgREST omits the field, `g.rsvp_status` is `undefined`, `?? ''` makes it `!== 'declined'`, and
+every decliner counts as still coming. The assertion now checks the **guest select's own column
+list**, and the sabotage is RED.
+
 ### Still open
 
 - **The automatic late release.** The button half ships here; the automatic stamp late in the

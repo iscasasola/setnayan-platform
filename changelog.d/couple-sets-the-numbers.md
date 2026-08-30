@@ -192,6 +192,45 @@ PostgREST omits the field, `g.rsvp_status` is `undefined`, `?? ''` makes it `!==
 every decliner counts as still coming. The assertion now checks the **guest select's own column
 list**, and the sabotage is RED.
 
+### 🚨 The phantom-column scanner does NOT cover this sheet's ceilings read
+
+Verified by execution, not by reading: reintroducing `.select('guest_id, points')` leaves
+`lib/security/select-column-scan.test.ts` at **21 passed, 0 failed**. T1 is green on a live phantom
+column.
+
+The cause is `FROM_RE = /\.from\(\s*'([a-z0-9_]+)'\s*\)/gi` (`select-column-scan.ts:100`) — a
+**single-quoted literal only**. This sheet calls `.from(ALLOTMENT_STORAGE.table)`, so the site is not
+enumerated-then-skipped; **no site is ever created**. And `KNOWN_UNRESOLVED_TABLES` is for relations
+that *are* enumerated but unresolvable (views, matviews), so this cannot be baselined there either.
+The gap is invisible rather than recorded, and a ratchet cannot count what it never saw.
+
+🔑 **The contract-module pattern is what blinds the scanner.** Collecting table and column names in
+one object — adopted here so a rename lands in one file — is precisely what makes `.from()`
+unresolvable to T1. The rename-safe pattern is the phantom-unguarded pattern, and anyone adopting a
+`*_STORAGE` object inherits both halves. Sized honestly: 5,332 literal `.from('x')` sites against
+162 non-literal, most of which are `Array.from`/`Buffer.from`/storage buckets rather than table
+reads. Small hole — but a real database read sits in it.
+
+`FROM_RE` belongs to the guard's owner and is being fixed there; **this file's guard stays either
+way**, because it resolves `ALLOTMENT_STORAGE.table` by importing it, which a source-text scanner
+cannot do.
+
+### T0 — a positive control, because implausibility is not a detector
+
+Twice today a wrong answer was caught only because it was *absurd*: a probe reporting zero select
+sites in a file known to contain them (the arguments were swapped — `extractSelectSites` is
+`(source, file)`), and a sabotage reporting GREEN because it had never landed. That works only when
+the false answer is obviously false; a parser quietly dropping the last column of every list would
+return a plausible one.
+
+So the guard's parser is now asserted against a fixture with a written-down expected value — and
+**that control immediately found a bug in it**: filtering only `(` left the closing half of an
+embedded list, yielding a column literally named `c)`. Fixed to drop both brackets.
+
+**MUTATION (the control itself):** drop the last column of every list — anchor 1→1 (an *append*
+mutation, so the anchor cannot move; the proof it landed is the result going RED) · stop resolving
+aliases 1→0 RED · revert the bracket filter to one half 1→0 RED.
+
 ### Still open
 
 - **The automatic late release.** The button half ships here; the automatic stamp late in the

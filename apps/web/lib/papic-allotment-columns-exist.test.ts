@@ -53,18 +53,57 @@ function declaredColumns(table: string): Set<string> {
   return new Set();
 }
 
-/** Every `.select('…')` in the sheet, as { table, columns }. */
-function sheetSelects(): Array<{ near: string; columns: string[] }> {
-  const src = readFileSync(SHEET, 'utf8');
+/** Every `.select('…')` in a source, as { near, columns }. */
+function selectsIn(src: string): Array<{ near: string; columns: string[] }> {
   return [...src.matchAll(/\.select\(\s*'([^']+)'/g)].map((m) => ({
     near: m[1]!,
     // Strip PostgREST embedding and aliases — bare column names only.
     columns: m[1]!
       .split(',')
       .map((c) => c.trim().split(':').pop()!.trim())
-      .filter((c) => c && !c.includes('(') && !c.includes('*')),
+      // ⚠ BOTH BRACKETS. Dropping only `(` leaves the CLOSING half of an
+      // embedded list — `nested(b, c)` yielded a column literally named `c)`,
+      // which would accuse the sheet of selecting a column no table declares.
+      // The positive control below is what surfaced it.
+      .filter((c) => c && !c.includes('(') && !c.includes(')') && !c.includes('*')),
   }));
 }
+
+/** Every `.select('…')` in the sheet. */
+function sheetSelects(): Array<{ near: string; columns: string[] }> {
+  return selectsIn(readFileSync(SHEET, 'utf8'));
+}
+
+/**
+ * 🔑 A POSITIVE CONTROL WITH A KNOWN EXPECTED VALUE — asserted BEFORE anything
+ * trusts this parser.
+ *
+ * ⚠ THIS EXISTS BECAUSE IMPLAUSIBILITY IS NOT A DETECTOR. Twice today a wrong
+ * answer was caught only because it happened to be ABSURD — a probe that
+ * reported zero select sites in a file known to contain them, and a sabotage
+ * that reported GREEN because it had never landed. That works only when the
+ * false answer is obviously false. A parser that quietly dropped the LAST
+ * column of every list, or split on the wrong character, would return a
+ * plausible answer and every assertion below would pass on it.
+ *
+ * So the parser is checked against a fixture whose answer is written down.
+ */
+test('T0 · the select parser returns exactly what it should on a known input', () => {
+  const fixture = `
+    admin.from('guests').select('guest_id, first_name, rsvp_status')
+    admin.from(SOME.constant).select('guest_id, ceiling_points')
+    admin.from('x').select('a, nested(b, c), d:aliased')
+  `;
+  const got = selectsIn(fixture).map((s) => s.columns);
+  assert.deepEqual(got, [
+    ['guest_id', 'first_name', 'rsvp_status'],
+    ['guest_id', 'ceiling_points'],
+    // `nested(b, c)` is embedding and contributes NOTHING — neither half of it.
+    // `d:aliased` resolves to its target. Both rules are exercised, not assumed.
+    ['a', 'aliased'],
+  ]);
+  assert.equal(selectsIn('nothing here').length, 0, 'no selects must yield no sites, not a crash');
+});
 
 test('the ceilings table really has the columns the sheet asks for', () => {
   const declared = declaredColumns(ALLOTMENT_STORAGE.table);

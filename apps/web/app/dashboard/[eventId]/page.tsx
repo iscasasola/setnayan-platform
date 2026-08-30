@@ -110,9 +110,9 @@ export async function generateMetadata({
  *   • Tea-ceremony tile     — Chinese (Tsinoy) wedding track
  *   • PapicReadyNudge       — once, until the first photo is shot (PR-G option B)
  *
- * `<EventDashboard>` owns the AI gate (real entitlement OR `?suri=preview` for
+ * `<EventDashboard>` owns the AI gate (real entitlement OR `?sai=preview` for
  * internal accounts) + all its own data loading; this shell forwards the Home
- * URL's `?suri` param straight through, so the preview override now works on
+ * URL's `?sai` param straight through, so the preview override now works on
  * the Home URL.
  */
 
@@ -128,7 +128,7 @@ export default async function EventHomePage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ suri?: string; inspect?: string }>;
+  searchParams?: Promise<{ sai?: string; inspect?: string }>;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
@@ -615,7 +615,7 @@ export default async function EventHomePage({
             <div className="mt-4 space-y-6">
               <EventDashboard
                 eventId={eventId}
-                suriPreviewParam={search.suri}
+                saiPreviewParam={search.sai}
                 inspectId={search.inspect}
                 slotAfterBento={hasOverlays ? overlays : undefined}
                 dayOfActive={dayOfActive}
@@ -657,7 +657,7 @@ export default async function EventHomePage({
             <div className="mt-4 space-y-6">
               <EventDashboard
                 eventId={eventId}
-                suriPreviewParam={search.suri}
+                saiPreviewParam={search.sai}
                 inspectId={search.inspect}
                 slotAfterBento={hasOverlays ? overlays : undefined}
                 dayOfActive={dayOfActive}
@@ -669,12 +669,12 @@ export default async function EventHomePage({
         </>
       ) : (
         /* The dashboard — hero → at-a-glance bento → [overlays] → journey rail →
-         *  decisions → around-your-event, plus the AI extras (Suri briefing,
-         *  What's-next, Suri on watch) when Setnayan AI is active for the viewer
-         *  (or `?suri=preview` for internal accounts). */
+         *  decisions → around-your-event, plus the AI extras (Sai briefing,
+         *  What's-next, Sai on watch) when Setnayan AI is active for the viewer
+         *  (or `?sai=preview` for internal accounts). */
         <EventDashboard
           eventId={eventId}
-          suriPreviewParam={search.suri}
+          saiPreviewParam={search.sai}
           inspectId={search.inspect}
           slotAfterBento={hasOverlays ? overlays : undefined}
           dayOfActive={dayOfActive}

@@ -22,6 +22,7 @@ import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
+import { GuestPushPrompt } from './_components/guest-push-prompt';
 
 export const metadata = { title: 'Your seat pass' };
 
@@ -468,6 +469,8 @@ async function PersonalPass({
           hasPakanta={hasPakanta}
           arrived={arrived}
         />
+
+        <GuestPushPrompt />
 
         <header className="space-y-2 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">

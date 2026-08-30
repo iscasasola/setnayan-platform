@@ -65,3 +65,30 @@ export function papicGuestCapLifts(i: GuestCapInputs): boolean[] {
 export function papicGuestCapApplies(i: GuestCapInputs): boolean {
   return !papicGuestCapLifts(i).some(Boolean);
 }
+
+/**
+ * S2-AWARE (S4, migration 20271184624871). The couple's OWN per-guest ceiling
+ * — `papic_guest_spend_ceiling(guest_id)`, null when they have not set one —
+ * OVERRIDES the yield above:
+ *
+ *   v_unlimited := v_unlimited OR (COALESCE(v_pool_applies, FALSE) AND
+ *                                   v_ceiling IS NULL);
+ *
+ * and the RPC's own response reports `'unlimited', (v_unlimited AND v_ceiling
+ * IS NULL)`. So a bought "Unlock all of Papic" pass or a shared pot only lifts
+ * the cap while nobody has put a number on THIS guest — a ceiling always wins,
+ * because the couple buying their way past OUR limit is not permission to walk
+ * through a limit the couple themselves set on one guest.
+ *
+ * The pre-S2 rule (`papicGuestCapApplies`) is left untouched above — this is a
+ * SEPARATE function, not a rewrite of it, so a database that predates the
+ * ceiling migration keeps behaving exactly as it did (guestCeiling reads null
+ * everywhere on a pre-migration DB, which collapses this back to the same
+ * truth table papicGuestCapApplies already computes).
+ */
+export function papicGuestCapAppliesWithCeiling(
+  i: GuestCapInputs & { guestCeiling: number | null },
+): boolean {
+  if (i.guestCeiling !== null) return true;
+  return papicGuestCapApplies(i);
+}

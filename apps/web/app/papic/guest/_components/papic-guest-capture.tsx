@@ -1,6 +1,7 @@
 'use client';
 
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
+import { DEFAULT_EVENT_POOL_CONFIG } from '@/lib/papic-event-pool';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import {
   Camera,
@@ -157,14 +158,17 @@ type Props = {
    *  only let the guest type a message that silently fails. */
   canKwento?: boolean;
   /**
-   * Does the per-guest ceiling actually bind on this celebration?
+   * Does SOME per-guest number actually bind on this celebration — either the
+   * couple's own ceiling (S2, migration 20271184624871), or (absent one) the
+   * platform's flat 150?
    *
    * 🔴 REQUIRED, and it replaces the old `guestUnlimited`. The database lifts
-   * that ceiling for an active "Unlock all of Papic" **or** for any celebration
-   * with a shared pot — and every celebration arms the free 50-shot pot on
-   * render, so this is false almost everywhere. It used to mirror only the
-   * Unlock half, so this camera counted down from a hardcoded 150 and hid its
-   * own shutter while the server was applying no per-guest limit at all.
+   * the platform ceiling for an active "Unlock all of Papic" **or** for any
+   * celebration with a shared pot — every celebration arms the free 50-shot
+   * pot on render, so THAT half is false almost everywhere — but the couple's
+   * own ceiling, when set, overrides both: a bought Unlock pass is not
+   * permission to walk through a limit the couple put on one guest. `total`
+   * and `remaining` below are already whichever number is actually binding.
    *
    * A personal countdown is drawn, and the shutter may be hidden, ONLY when
    * this is true. Resolved server-side by `fetchGuestQuota`.
@@ -356,6 +360,24 @@ export function PapicGuestCapture({
   const [poolEmpty, setPoolEmpty] = useState(false);
   const capExhausted = capReached || (capApplies && remaining <= 0);
   const exhausted = capExhausted || poolEmpty;
+
+  // ── THE LOW STATE (S4, spec § 6b) ───────────────────────────────────────
+  // The guest camera had none: it went straight from a number to exhausted.
+  // Same soft-stop line the shared pool already warns at
+  // (DEFAULT_EVENT_POOL_CONFIG.softStopPct) — there is no separate per-guest
+  // threshold to invent, and `total` here is already whichever number binds
+  // (the couple's own ceiling, or the platform's flat 150; see fetchGuestQuota).
+  const low =
+    capApplies &&
+    !exhausted &&
+    total > 0 &&
+    remaining <= Math.floor((total * (100 - DEFAULT_EVENT_POOL_CONFIG.softStopPct)) / 100);
+
+  // ⚠ THE OFFLINE QUEUE RE-SPENDS LATER. A shot queued while offline
+  // (enqueuePapicGuestCapture, drained by lib/offline/service-handlers/
+  // papic-drain.ts) posts to this same route minutes after this counter last
+  // moved, and spends against whichever ceiling binds AT DRAIN TIME. This
+  // pill is advisory; papic_record_guest_capture is the truth.
 
   const acceptTerms = useCallback(async () => {
     if (acceptBusy || !agreeChecked) return;
@@ -1382,7 +1404,7 @@ export function PapicGuestCapture({
         {capApplies ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {`${remaining} left`}
+            {low ? `Running low — ${remaining} left` : `${remaining} left`}
           </span>
         ) : poolLow && poolRemaining != null ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">

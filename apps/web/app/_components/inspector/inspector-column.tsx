@@ -214,7 +214,7 @@ type InspectorTriggerProps = {
   inspectId: string | null;
   /** Fallback / deep-link destination — used below xl, on modified clicks, and
    *  when there is no surrounding InspectorLayout. Omit for a render-only row
-   *  that has no standalone destination (e.g. a Suri-on-watch alert): it renders
+   *  that has no standalone destination (e.g. a Sai-on-watch alert): it renders
    *  as a button that only inspects on desktop and is inert below xl. */
   href?: string;
   className?: string;

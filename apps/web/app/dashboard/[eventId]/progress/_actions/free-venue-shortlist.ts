@@ -4,10 +4,10 @@
  * buildFirstVenueShortlist — the FREE first-venue-shortlist action
  * (owner-locked 2026-07-09 · Pricing.md § 00 free-venue-assist carve-out).
  *
- * Suri assembles the couple's FIRST reception-venue shortlist, free, once:
+ * Sai assembles the couple's FIRST reception-venue shortlist, free, once:
  * up to FIRST_VENUE_SHORTLIST_CAP compatible reception venues from REAL
  * marketplace data. Deliberately NOT AI-gated — this is the free taste that
- * introduces the full Suri subscription; every other category keeps the
+ * introduces the full Sai subscription; every other category keeps the
  * normal gate.
  *
  * Reuse over reinvention (owner refinement 2026-07-09):
@@ -20,7 +20,7 @@
  *     `source='host_marketplace_search'` — no new enum value, no migration).
  *
  * "First" semantics — NO schema: the offer/action is live ONLY while the
- * event's venue-category shortlist is EMPTY. Any venue pick (Suri-built or
+ * event's venue-category shortlist is EMPTY. Any venue pick (Sai-built or
  * manual) consumes it, so re-invocation is a no-op ('already_has_shortlist').
  * Fail-soft throughout: candidate-level failures are logged and skipped; the
  * action never throws at the page.
@@ -31,8 +31,8 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   FIRST_VENUE_SHORTLIST_CAP,
-  SURI_FREE_ASSIST_CATEGORIES,
-  SURI_FREE_ASSIST_PLAN_GROUP_IDS,
+  SAI_FREE_ASSIST_CATEGORIES,
+  SAI_FREE_ASSIST_PLAN_GROUP_IDS,
   isFirstVenueShortlistOfferAvailable,
 } from '@/lib/setnayan-ai-free-assist';
 import { searchCategoryVendors } from '@/app/dashboard/[eventId]/vendors/_actions/category-search';
@@ -48,7 +48,7 @@ export type FirstVenueShortlistResult =
   | { status: 'error'; message: string };
 
 const FRIENDLY_ERROR =
-  'Suri could not build your shortlist just now — please try again in a moment.';
+  'Sai could not build your shortlist just now — please try again in a moment.';
 
 export async function buildFirstVenueShortlist(
   eventIdRaw: string,
@@ -79,7 +79,7 @@ export async function buildFirstVenueShortlist(
       .from('event_vendors')
       .select('vendor_id, category')
       .eq('event_id', eventId)
-      .in('category', [...SURI_FREE_ASSIST_CATEGORIES])
+      .in('category', [...SAI_FREE_ASSIST_CATEGORIES])
       .is('archived_at', null);
     if (venueErr) {
       logQueryError(
@@ -101,7 +101,7 @@ export async function buildFirstVenueShortlist(
     // Candidates — the shipped category-search machinery, hard-scoped to the
     // reception-venue plan group. Works with Setnayan AI OFF (it only drops
     // the compat pill + proximity sort), so free accounts get real results.
-    const groupId = SURI_FREE_ASSIST_PLAN_GROUP_IDS[0] ?? 'reception_venue';
+    const groupId = SAI_FREE_ASSIST_PLAN_GROUP_IDS[0] ?? 'reception_venue';
     const search = await searchCategoryVendors({ eventId, groupId });
     const candidates = search.results
       .filter((r) => !r.alreadyAdded)

@@ -204,6 +204,44 @@ test('the homepage metadata claims nothing that has not shipped', () => {
   }
 });
 
+/**
+ * The retired CURRENCY word. Owner ruling 2026-08-29 (commit 32df56e81):
+ * *"please make sure to change shots to credits."*
+ *
+ * ⚠ ONLY THE CURRENCY MEANING MOVED, so this pattern must not ban the word. A
+ * photograph is still "a shot"; "Take the shot" and the vendor's shot list are
+ * deliberately untouched. What is banned is `shots` used as the thing you BUY or
+ * HOLD — a quantity of them, or a top-up of them.
+ */
+const SHOTS_AS_CURRENCY = /\b\d[\d,]*\s+shots\b|\b(more|extra|remaining|unused|free)\s+shots\b|\bshots?\s+(left|remaining|balance)\b/i;
+
+test('the retired currency word never reaches public copy', () => {
+  /*
+    🪤 THIS GUARD EXISTS BECAUSE THE FIXTURE FAILED IT SILENTLY. Every one of the
+    seventeen Papic titles in llms-txt-guard-input.ts said "add N shots" while the
+    production catalogue said "add N credits", and no check anywhere noticed —
+    the titles are never rendered, so nothing could go red. The homepage JSON-LD
+    was selling "paid top-ups for more shots" at the same time, and that one IS
+    rendered, to every answer engine.
+  */
+  const homeHit = SHOTS_AS_CURRENCY.exec(homeSource);
+  assert.equal(homeHit, null, `the homepage sells "shots"; the currency is credits. Matched: ${JSON.stringify(homeHit?.[0])}`);
+  const bodyHit = SHOTS_AS_CURRENCY.exec(body);
+  assert.equal(bodyHit, null, `llms.txt sells "shots"; the currency is credits. Matched: ${JSON.stringify(bodyHit?.[0])}`);
+});
+
+test('the fixture describes the catalogue in the words the catalogue uses', () => {
+  // The fixture is the guards' reference reality. If IT is a vocabulary behind,
+  // a guard written against it can enforce the retired word.
+  for (const row of INPUT_FOR_GUARDS.retail.filter((r) => r.is_active)) {
+    assert.equal(
+      SHOTS_AS_CURRENCY.exec(row.title),
+      null,
+      `fixture row ${row.service_code} is titled ${JSON.stringify(row.title)} — production says "credits"`,
+    );
+  }
+});
+
 test('the booking fee is never called a commission', () => {
   // The word "commission" is load-bearing brand copy — "0% commission" appears
   // many times and must stay. What is forbidden is the word being attached to

@@ -95,14 +95,27 @@ test('RETIRED products never appear — the 2026-07-31 drift cases', () => {
 
 test('the Setnayan AI ladder renders all four priced tiers, despite B/C/D being inactive', () => {
   const body = renderLlmsTxt(INPUT);
-  for (const php of [1499, 899, 499, 99]) {
+  /*
+    ⚠ THESE FOUR NUMBERS WERE 1499/899/499/99 UNTIL 2026-08-31, AND THEY WERE A
+    WHOLE RUNG BEHIND PRODUCTION — which is 2499/1499/899/199, and which
+    `AI_TIER_FALLBACK_PHP` in setnayan-ai-type-pricing.ts has matched all along.
+    The assertion agreed with the fixture and the fixture agreed with nothing, so
+    it passed for weeks while testing a ladder nobody could buy.
+
+    🔑 IT IS STILL A TYPED LADDER, deliberately: this test's job is to prove the
+    renderer emits ALL FOUR RUNGS rather than flattening to one, so the expected
+    values must be independent of what `aiLadder()` returns. Reading them from
+    the thing under test is how a check stops being one. When the ladder reprices,
+    it changes HERE, in the fixture, and in the catalogue — same PR.
+  */
+  for (const php of [2499, 1499, 899, 199]) {
     assert.ok(body.includes(peso(php)), `AI tier price ${peso(php)} missing from llms.txt`);
   }
-  // The bug this replaces: filtering on is_active flattened the ladder to ₱1,499.
+  // The bug this replaces: filtering on is_active flattened the ladder to one rung.
   const ladder = aiLadder(buildPriceBook(INPUT));
   assert.deepEqual(
     ladder.map((t) => t.php),
-    [1499, 899, 499, 99],
+    [2499, 1499, 899, 199],
   );
 });
 

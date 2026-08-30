@@ -219,7 +219,13 @@ const softwareAppJsonLd = {
     'Budget tracker with payment-deadline calendar export (free)',
     'Pakulay mood board (free)',
     'Personal Event Hub with branded QR invitations',
-    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (free on every event; paid top-ups for more shots)',
+    // ⚠ "credits", NOT the retired currency word — owner ruling 2026-08-29
+    // (commit 32df56e81). ONLY the currency meaning moved; a photograph is still
+    // "a shot" and the vendor's shot list is untouched. A top-up is something you
+    // BUY, so it is the currency meaning, and the production catalogue's own
+    // titles read "add 100 credits". Guarded by
+    // lib/public-copy-is-not-wedding-only.test.ts.
+    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
     'Live Studio — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified vendors (paid add-on)',
     'Pakanta — a custom Filipino-style song produced for the couple (paid add-on)',

@@ -34,8 +34,15 @@
  * nothing stored, and is rendered by the guest's own gallery
  * (`app/papic/me/[token]/page.tsx`) and the pool grid. What is unbuilt is THE
  * YEAR — linking two celebrations, which nothing in the code does. So the
- * prohibition below is on the year, and `stillSayable` pins the chapters line
- * so a later reader cannot "tidy" a true claim off the page.
+ * prohibition below is on the year, and the chapters line is listed under
+ * `stillSayable`.
+ *
+ * ⚠ CORRECTED 2026-08-30 — that sentence used to end "so a later reader cannot
+ * tidy a true claim off the page", and `stillSayable` DOES NOT DO THAT. It
+ * asserts a pattern does not FIRE on a true sentence; nothing asserts the
+ * sentence exists. Measured by deleting one: every `stillSayable` test stayed
+ * green. Keeping a claim on the page takes its own assertion — see the last
+ * test in this file, which is the only one that pins anything.
  *
  * ── STRIPPED FIRST ──────────────────────────────────────────────────────────
  * Comments are removed with the repo's one string-aware stripper before any
@@ -79,7 +86,7 @@ type Prohibition = {
   stillSayable: readonly string[];
 };
 
-/** A ninth prohibition is one entry. Nothing else changes. */
+/** A tenth prohibition is one entry. Nothing else changes. */
 const FORBIDDEN: readonly Prohibition[] = [
   {
     id: 'a speed or latency figure',
@@ -95,17 +102,43 @@ const FORBIDDEN: readonly Prohibition[] = [
     ],
   },
   {
-    id: 'a per-guest shot limit',
+    id: 'a per-guest number the couple did not choose',
     why:
-      'Not built yet — it is being built now. The page may claim it only once ' +
-      'it ships. The dial’s "about N photographs from every guest" is ' +
-      'arithmetic about how far a shared pot goes, which is a different claim.',
+      'UNLOCKED 2026-08-30 — the ceiling SHIPPED and is SERVING (#5002 · ' +
+      '#5017 · #5014 · #5019, all ancestors of the deployed 0d0b265), so the ' +
+      'blanket ban on mentioning it is retired and the claim now lives in the ' +
+      '"Let the whole room shoot" card. What survives is narrower and outlives ' +
+      'the build: THE COUPLE PICKS THE NUMBER, so this page may never print ' +
+      'one. A figure here is a promise the product does not make — and the ' +
+      'sponsor default (principal ×3, cord/veil/coin/candle ×2) is a ' +
+      'PLACEHOLDER the couple overwrites, never an allowance anybody receives.',
     pattern:
-      /\bper[- ]guest\s+(?:limit|cap|allowance|allotment)\b|\beach guest (?:gets|has|holds)\s+\d+|\b\d+\s+(?:shots?|photos?|photographs?|credits?)\s+(?:each|apiece)\b|\bcamera that holds\s+\S+\s+shots?\b/i,
+      /\beach guest (?:gets|has|holds)\s+\S+\s+(?:shots?|photos?|photographs?|credits?)\b|\b\d+\s+(?:shots?|photos?|photographs?|credits?)\s+(?:each|apiece)\b|\bcamera that holds\s+\S+\s+shots?\b/i,
     sample: 'Hand every guest a camera that holds twelve shots',
     stillSayable: [
       'That is about 15 photographs from every guest.',
       'Enough for every one of 200 guests to take about 15 photographs.',
+      // The claim this guard used to forbid. Pinned so a reader acting on the
+      // OLD wording cannot tidy a now-true sentence off the page.
+      'You can decide how many credits one guest may spend — name the few who should have more, and the rest split what is left evenly.',
+      'Nothing is carved out, so whatever a guest doesn’t use is still there for everyone else.',
+    ],
+  },
+  {
+    id: 'having invented per-guest limits',
+    why:
+      'A rival (Lense) already ships per-guest limits — this is checkable ' +
+      'against their homepage in fifteen seconds, which is what makes it the ' +
+      'expensive kind of false claim. It becomes reachable only NOW, because ' +
+      'a page that never mentioned limits could not overclaim them. What is ' +
+      'ours is a limit PAIRED WITH A LIVE WALL, which nobody pairs. Claim the ' +
+      'narrow thing.',
+    pattern:
+      /\b(?:we|setnayan)\s+(?:invented|pioneered|were the first to (?:build|ship|invent))\b[^.]{0,60}\b(?:limits?|caps?|ceilings?|allowances?)\b/i,
+    sample: 'we invented per-guest shot limits',
+    stillSayable: [
+      'Nobody else pairs a limit like that with a live wall.',
+      'You can decide how many credits one guest may spend',
     ],
   },
   {
@@ -192,7 +225,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
  * anything — this is the test that notices.
  */
 test('every prohibition can still fire, and none of them cries wolf', () => {
-  assert.ok(FORBIDDEN.length >= 9, 'the prohibition list lost entries');
+  assert.ok(FORBIDDEN.length >= 10, 'the prohibition list lost entries');
   for (const p of FORBIDDEN) {
     assert.match(
       p.sample,
@@ -344,5 +377,44 @@ test('the headline is followed by the product, not by an explaining line', () =>
     false,
     'There is an explaining paragraph under the headline. Headline, then the ' +
       'product.',
+  );
+});
+
+/**
+ * ── THE CLAIM HAS TO REACH THE RENDER ───────────────────────────────────────
+ * 🚨 `stillSayable` DOES NOT KEEP A TRUE SENTENCE ON THE PAGE. It only stops a
+ * pattern crying wolf at one. This file's own docblock said it "pins the
+ * chapters line so a later reader cannot tidy a true claim off the page" —
+ * measured by execution on 2026-08-30, that is false: deleting the sentence
+ * leaves every `stillSayable` test green, because nothing ever asserts the
+ * sentence is there.
+ *
+ * It is the same defect this whole stream exists to cure — a measurement that
+ * never reaches the render changes nothing — so the per-guest claim gets a real
+ * assertion rather than an assumed one. The chapters line is still unpinned;
+ * that belongs to whoever owns that copy, and is recorded rather than silently
+ * adopted here.
+ *
+ * Matched on whitespace-normalised source so reflowing the JSX cannot break it.
+ */
+test('the per-guest claim is actually on the page', () => {
+  const src = read('app/(shell)/papic/page.tsx').replace(/\s+/g, ' ');
+
+  assert.match(
+    src,
+    /decide how many credits one guest may spend/i,
+    'The per-guest claim is gone from the page. It was unlocked on 2026-08-30 ' +
+      'by #5002 · #5017 · #5014 · #5019 — a shipped, serving feature the page ' +
+      'is now allowed to sell. Do not remove it to save height; the whole ' +
+      'point of the four builds was that a customer can read this.',
+  );
+
+  assert.match(
+    src,
+    /nothing is carved out, so whatever a guest doesn.t use is still there for everyone else/i,
+    'The second half of the claim is gone, and it is the differentiator. It ' +
+      'is true BY CONSTRUCTION — the ceiling carves nothing out of the pot ' +
+      '(see 20271184624871: "no guest holds a wallet; unspent credits stay ' +
+      'shared") — so it cannot rot unless the mechanism itself changes.',
   );
 });

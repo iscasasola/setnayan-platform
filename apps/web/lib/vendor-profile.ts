@@ -35,6 +35,11 @@ export type VendorProfileRow = {
    *  every vendor that is not a venue. Both or neither (DB CHECK). */
   venue_width_m: number | null;
   venue_length_m: number | null;
+  /** Fine reception-venue type (migration 20260810000000) — hotel ballroom vs.
+   *  events place vs. restaurant vs. garden vs. beach vs. heritage vs. resort.
+   *  NULL = "no venue-type constraint" (matches every couple's pick). See
+   *  lib/vendor-venue-type.ts for the vocabulary. */
+  venue_type: string | null;
   /** Smallest / largest party this venue seats. Existed for months with no
    *  writer anywhere; picked up by the same form. */
   capacity_min: number | null;
@@ -114,7 +119,7 @@ export type VendorProfileRow = {
 // callers see compatible_* as null in that mode, identical to a vendor
 // who hasn't picked any tags yet — "open to all" semantics.
 const FULL_VENDOR_PROFILE_SELECT =
-  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,gallery_video_links,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,venue_width_m,venue_length_m,capacity_min,capacity_max,created_at,updated_at';
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,gallery_video_links,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,venue_width_m,venue_length_m,venue_type,capacity_min,capacity_max,created_at,updated_at';
 
 // LEGACY select omits hq_address/lat/lng + 0043 compat cols so the page
 // can render against pre-0043 / pre-0521 schemas. Callers see hq_*

@@ -204,6 +204,161 @@ export function extractSelectSites(source: string, file: string): SelectSite[] {
   return sites;
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+ * `.from(REF)` — the OTHER half of the same defect.
+ *
+ * \U0001f6a8 #5020 TAUGHT `.select()` TO RESOLVE CONSTANTS AND LEFT `.from()` MATCHING A
+ * QUOTED LITERAL ONLY, ONE LINE ABOVE IT. Same class, adjacent regex, missed
+ * while writing three guards about literal-only matching. `FROM_RE` requires
+ * `.from('t')`, so `.from(ALLOTMENT_STORAGE.table)` produces NO SITE — the
+ * select is not checked-and-skipped, it is never enumerated. It cannot even
+ * reach `KNOWN_UNRESOLVED_TABLES`, which lists relations that WERE enumerated
+ * and could not be resolved. **An invisible gap is worse than an open one: a
+ * ratchet cannot count what was never seen.**
+ *
+ * \U0001f511 AND THE PATTERN THAT CREATES IT IS ONE WE RECOMMEND. Collecting a
+ * table name and its columns in one `*_STORAGE` object so a rename lands in a
+ * single file is good practice — and it is exactly what makes `.from()`
+ * unresolvable here. **The rename-safe pattern is the phantom-unguarded
+ * pattern.** Anyone adopting that shape inherits both halves; this closes the
+ * second one so they only get the good one.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** A `.from(REF).select(…)` whose table is named by an identifier, not a literal. */
+export type RefSelectSite = {
+  file: string;
+  line: number;
+  /** `ALLOTMENT_STORAGE.table` or `EVENT_TABLE` — as written. */
+  ref: string;
+  columns: string[];
+};
+
+/**
+ * `.from(` receivers whose call is NOT a table read. Without this the scan is
+ * mostly `Array.from(arr)` and `Buffer.from(bytes)` noise — harmless (an
+ * unknown table is skipped) but it would drown the unresolved ratchet and make
+ * it useless as a signal.
+ */
+const NOT_A_TABLE_RECEIVER = new Set([
+  'Array', 'Buffer', 'Object', 'Set', 'Map', 'Promise', 'String', 'Number',
+  'Date', 'Int8Array', 'Uint8Array', 'Float32Array', 'BigInt64Array',
+]);
+
+const FROM_REF_RE = /(?:([A-Za-z_$][\w$]*)\s*)?\.from\(\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\)/g;
+
+/**
+ * Module-level string constants a `.from()` could name — bare consts AND the
+ * string properties of object literals, since `{ table: 'x' } as const` is the
+ * shape the contract-module pattern produces.
+ */
+export type ScopedTableConstant = {
+  name: string;
+  file: string;
+  table: string;
+  exported: boolean;
+};
+
+export function extractTableConstants(sourceRaw: string, file: string): ScopedTableConstant[] {
+  const source = stripComments(sourceRaw);
+  const out: ScopedTableConstant[] = [];
+
+  // const EVENT_TABLE = 'events';
+  const bare = /(export\s+)?const\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*'([a-z0-9_]+)'\s*(?:as\s+const\s*)?;/g;
+  let m: RegExpExecArray | null;
+  while ((m = bare.exec(source))) {
+    if (m[2] && m[3]) out.push({ name: m[2], file, table: m[3], exported: Boolean(m[1]) });
+  }
+
+  // const ALLOTMENT_STORAGE = { table: 'papic_guest_spend_ceilings', … } as const;
+  const obj = /(export\s+)?const\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*\{([\s\S]*?)\}\s*(?:as\s+const\s*)?;/g;
+  while ((m = obj.exec(source))) {
+    const name = m[2];
+    const body = m[3];
+    if (!name || !body) continue;
+    const exported = Boolean(m[1]);
+    const prop = /([A-Za-z_$][\w$]*)\s*:\s*'([a-z0-9_]+)'/g;
+    let q: RegExpExecArray | null;
+    while ((q = prop.exec(body))) {
+      if (q[1] && q[2]) out.push({ name: `${name}.${q[1]}`, file, table: q[2], exported });
+    }
+  }
+  return out;
+}
+
+/** Every `.from(IDENTIFIER).select(…)` in one source string. */
+export function extractRefSelectSites(source: string, file: string): RefSelectSite[] {
+  const sites: RefSelectSite[] = [];
+  const re = new RegExp(FROM_REF_RE.source, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source))) {
+    const receiver = m[1];
+    const ref = m[2];
+    if (!ref) continue;
+    if (receiver && NOT_A_TABLE_RECEIVER.has(receiver)) continue;
+
+    const window = source.slice(re.lastIndex, re.lastIndex + SELECT_WINDOW);
+    const sel = SELECT_RE.exec(window);
+    if (!sel) continue;
+    // Same attribution guard as the literal scan: never reach past the next
+    // `.from()`, in EITHER form, or the select attaches to the wrong chain.
+    const nextLit = new RegExp(FROM_RE.source, 'i').exec(window);
+    const nextRef = new RegExp(FROM_REF_RE.source, '').exec(window);
+    const nextIdx = Math.min(nextLit ? nextLit.index : Infinity, nextRef ? nextRef.index : Infinity);
+    if (nextIdx < sel.index) continue;
+
+    const raw = sel[1] ?? sel[2] ?? sel[3] ?? '';
+    if (raw.includes('${')) continue;
+    const columns = parseSelectList(raw);
+    if (columns.length === 0) continue;
+
+    sites.push({ file, line: source.slice(0, m.index).split('\n').length, ref, columns });
+  }
+  return sites;
+}
+
+/**
+ * Resolve `.from(REF)` sites against the constants of their OWN file.
+ *
+ * \u26a0 SAME-FILE ONLY, DELIBERATELY. A `.from(opts.table)` naming a function
+ * PARAMETER is not statically knowable, and guessing it from a same-named
+ * constant elsewhere would invent a table this code may never read. Unresolved
+ * sites are RETURNED so the gap is on the books rather than invisible — the
+ * failure this whole function exists to end.
+ */
+export function resolveRefSelectSites(
+  refSites: readonly RefSelectSite[],
+  constants: readonly ScopedTableConstant[],
+): { resolved: SelectSite[]; unresolved: RefSelectSite[] } {
+  /*
+    ⚠ SCOPE, AND THE CASE THAT FORCED IT. My first cut resolved SAME-FILE ONLY —
+    and it would have missed the exact defect that prompted this work:
+    `ALLOTMENT_STORAGE` is declared in `lib/papic-guest-allotments.ts` and the
+    `.from(ALLOTMENT_STORAGE.table)` sits in a component two directories away.
+    A fix that does not cover its own motivating case is not a fix. Same-file
+    first (local or exported), then any EXPORTED constant — a file-local const
+    is genuinely invisible elsewhere, and resolving one across files would
+    invent a binding the compiler rejects.
+  */
+  const sameFile = new Map<string, ScopedTableConstant>();
+  const exported = new Map<string, ScopedTableConstant>();
+  for (const c of constants) {
+    sameFile.set(`${c.file}\u0000${c.name}`, c);
+    if (c.exported && !exported.has(c.name)) exported.set(c.name, c);
+  }
+  const resolved: SelectSite[] = [];
+  const unresolved: RefSelectSite[] = [];
+  for (const site of refSites) {
+    const hit =
+      sameFile.get(`${site.file}\u0000${site.ref}`) ?? exported.get(site.ref);
+    if (!hit) {
+      unresolved.push(site);
+      continue;
+    }
+    resolved.push({ file: site.file, line: site.line, table: hit.table, columns: site.columns });
+  }
+  return { resolved, unresolved };
+}
+
 /** Recursively collect .ts/.tsx files under `root`, skipping build output. */
 export function collectSourceFiles(root: string): string[] {
   const out: string[] = [];
@@ -402,12 +557,17 @@ export function scanAllSelectSites(root: string = APP_ROOT): {
   constants: ScopedSelectConstant[];
   resolved: SelectSite[];
   unresolved: ConstantSelectSite[];
-  /** literal + resolved — what `findPhantomColumns` must be given. */
+  refSites: RefSelectSite[];
+  refResolved: SelectSite[];
+  refUnresolved: RefSelectSite[];
+  /** literal + constant-resolved + from-ref-resolved — what `findPhantomColumns` must be given. */
   sites: SelectSite[];
 } {
   const literalSites: SelectSite[] = [];
   const constantSites: ConstantSelectSite[] = [];
   const constants: ScopedSelectConstant[] = [];
+  const refSites: RefSelectSite[] = [];
+  const tableConstants: ScopedTableConstant[] = [];
 
   for (const file of collectSourceFiles(root)) {
     let src: string;
@@ -419,20 +579,38 @@ export function scanAllSelectSites(root: string = APP_ROOT): {
     const rel = path.relative(root, file);
     // NOT `if (src.includes('export const'))` — file-local lists carry no
     // `export`, and they are half the declarations in this repo.
-    if (src.includes('const ')) constants.push(...extractAllSelectConstants(src, rel));
+    if (src.includes('const ')) {
+      constants.push(...extractAllSelectConstants(src, rel));
+      /*
+        \u26a0 COLLECTED BEFORE THE `.from(` EARLY-EXIT, DELIBERATELY. A file can
+        DECLARE the table constant and never read a table itself — which is
+        exactly the contract-module shape: `lib/papic-guest-allotments.ts`
+        exports ALLOTMENT_STORAGE and contains no `.from(` at all, while the
+        component two directories away does the reading. Collecting after the
+        early-exit skipped that file entirely and left the motivating case
+        unresolved. Found by checking the fix against the defect that prompted
+        it, not by reasoning about it.
+      */
+      tableConstants.push(...extractTableConstants(src, rel));
+    }
     if (!src.includes('.from(')) continue;
     literalSites.push(...extractSelectSites(src, rel));
     constantSites.push(...extractConstantSelectSites(src, rel));
+    refSites.push(...extractRefSelectSites(src, rel));
   }
 
   const { resolved, unresolved } = resolveConstantSelectSites(constantSites, constants);
+  const fromRefs = resolveRefSelectSites(refSites, tableConstants);
   return {
     literalSites,
     constantSites,
     constants,
     resolved,
     unresolved,
-    sites: [...literalSites, ...resolved],
+    refSites,
+    refResolved: fromRefs.resolved,
+    refUnresolved: fromRefs.unresolved,
+    sites: [...literalSites, ...resolved, ...fromRefs.resolved],
   };
 }
 

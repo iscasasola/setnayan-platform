@@ -49,6 +49,9 @@ import { readSchema } from './migration-schema';
 import { stripComments } from '../strip-comments';
 import {
   extractAllSelectConstants,
+  extractRefSelectSites,
+  extractTableConstants,
+  resolveRefSelectSites,
   extractConstantSelectSites,
   extractSelectConstants,
   extractSelectSites,
@@ -663,7 +666,8 @@ test('T19 · a phantom named through a CONSTANT is still reported', () => {
 const UNRESOLVED_CONSTANT_CEILING = 1;
 
 test('T20 · the unresolved-constant blind spot may only shrink', () => {
-  const { constantSites, resolved, unresolved, literalSites, sites } = scanAllSelectSites();
+  const { constantSites, resolved, unresolved, literalSites, sites, refResolved } =
+    scanAllSelectSites();
 
   /*
     `sites` must BE the union. Without this, dropping `...resolved` from it
@@ -673,9 +677,11 @@ test('T20 · the unresolved-constant blind spot may only shrink', () => {
   */
   assert.equal(
     sites.length,
-    literalSites.length + resolved.length,
-    'scanAllSelectSites().sites must be literal + resolved. If this fails, the ' +
-      'resolved constant sites are being computed and then thrown away.',
+    literalSites.length + resolved.length + refResolved.length,
+    'scanAllSelectSites().sites must be literal + select-constant-resolved + ' +
+      'from-ref-resolved. If this fails, resolution is being computed and then ' +
+      'thrown away. (This assertion CAUGHT the addition of the .from(REF) half — ' +
+      'it went red until the union learned about it, which is the point.)',
   );
 
   assert.ok(
@@ -725,5 +731,116 @@ test('T21 · T1 is wired to the constant-aware scan, and cannot be quietly rever
     t1,
     /[^l]scanSelectSites\(\)/,
     'T1 must NOT use the literals-only scanSelectSites() — that is the blind spot.',
+  );
+});
+
+// ── T22–T24 · the `.from(REF)` half ──────────────────────────────────────────
+
+/**
+ * \U0001f6a8 WHY THESE EXIST. #5020 taught `.select()` to resolve constants and
+ * left `.from()` matching a quoted literal only — one line above it, in the
+ * same file, while three guards about literal-only matching were being written.
+ * `.from(ALLOTMENT_STORAGE.table)` produced NO SITE: not checked-and-skipped,
+ * never enumerated, and therefore unable to appear in KNOWN_UNRESOLVED_TABLES
+ * either. **An invisible gap is worse than an open one — a ratchet cannot count
+ * what was never seen.**
+ *
+ * Proved by the S3 session, which reintroduced a real phantom
+ * (`.select('guest_id, points')` where the column is `ceiling_points`) and
+ * watched all 21 tests pass over it.
+ */
+test('T22 · a phantom behind .from(OBJ.prop) is caught, across files, with scope enforced', () => {
+  const lib = `
+    export const ALLOTMENT_STORAGE = {
+      enabled: 'papic_guest_spend_ceiling_on',
+      table: 'papic_guest_spend_ceilings',
+    } as const;
+  `;
+  // The component does the reading; the object lives two directories away, and
+  // the declaring file contains no `.from(` AT ALL. That combination is the
+  // motivating case and it defeated the first cut of this fix twice.
+  const component = `
+    import { ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
+    const rows = await admin.from(ALLOTMENT_STORAGE.table).select('guest_id, points');
+  `;
+  const consts = [
+    ...extractTableConstants(lib, 'lib/papic-guest-allotments.ts'),
+    ...extractTableConstants(component, 'app/x/choice.tsx'),
+  ];
+  const decl = consts.find((c) => c.name === 'ALLOTMENT_STORAGE.table');
+  assert.equal(decl?.table, 'papic_guest_spend_ceilings', 'the object property must resolve');
+  assert.equal(decl?.exported, true, 'and be tagged exported, which is what lets it cross files');
+
+  const refs = extractRefSelectSites(component, 'app/x/choice.tsx');
+  assert.deepEqual(refs.map((r) => r.ref), ['ALLOTMENT_STORAGE.table'], 'the site must be ENUMERATED');
+
+  const { resolved, unresolved } = resolveRefSelectSites(refs, consts);
+  assert.equal(unresolved.length, 0);
+  const schema = new Map([['papic_guest_spend_ceilings', { cols: new Set(['guest_id', 'ceiling_points']) } as never]]);
+  assert.deepEqual(
+    findPhantomColumns(resolved, schema as never).map((p) => p.key),
+    ['papic_guest_spend_ceilings.points'],
+    'THE WHOLE POINT: the real defect S3 proved invisible must now be caught.',
+  );
+
+  // A file-LOCAL constant must not resolve elsewhere — that binding does not
+  // exist at runtime either.
+  const localOnly = extractTableConstants(lib.replace('export const', 'const'), 'lib/other.ts');
+  const cross = resolveRefSelectSites(refs, localOnly);
+  assert.equal(cross.resolved.length, 0, 'a file-local table constant is invisible across files');
+  assert.equal(cross.unresolved.length, 1, 'and is surfaced, not dropped');
+
+  // Array.from / Buffer.from are not table reads.
+  assert.deepEqual(
+    extractRefSelectSites(`const x = Array.from(rows).select('a, b');`, 'f.ts'),
+    [],
+    'Array.from must not be mistaken for a table read',
+  );
+});
+
+/**
+ * `.from(REF)` sites that cannot be resolved. Each is a select the phantom
+ * check cannot examine, so the number may only SHRINK.
+ * Measured 2026-08-30: 8 ref sites, 3 resolved, 5 unresolved (function
+ * parameters and locals — `.from(opts.table)` is not statically knowable).
+ * RAISING THIS IS A DECISION, NOT A FIX.
+ */
+const UNRESOLVED_FROM_REF_CEILING = 5;
+
+test('T23 · the .from(REF) blind spot is on the books and may only shrink', () => {
+  const a = scanAllSelectSites();
+  assert.ok(a.refSites.length > 0, 'anti-vacuity: the ref scan must find something');
+  assert.equal(
+    a.sites.length,
+    a.literalSites.length + a.resolved.length + a.refResolved.length,
+    'sites must BE the union — otherwise resolution is computed and thrown away',
+  );
+  assert.ok(
+    a.refUnresolved.length <= UNRESOLVED_FROM_REF_CEILING,
+    `${a.refUnresolved.length} .from(REF) select(s) cannot be resolved, over the ceiling of ` +
+      `${UNRESOLVED_FROM_REF_CEILING}. Each is a select T1 CANNOT CHECK.\n` +
+      a.refUnresolved.map((u) => `  ${u.file}:${u.line}  .from(${u.ref})`).join('\n') +
+      '\n\nFix the resolver or the call site. Do NOT raise the ceiling to go green.',
+  );
+});
+
+/**
+ * \U0001f6a8 THE ORDERING BUG THAT BEHAVIOUR CANNOT CATCH. Table constants must be
+ * collected BEFORE `scanAllSelectSites` skips a file for having no `.from(` —
+ * because the contract-module shape puts the declaration in a file that reads
+ * no tables at all. My first cut collected them after that early-exit and left
+ * the motivating case unresolved while every test stayed green.
+ */
+test('T24 · table constants are collected before the no-.from() early exit', () => {
+  const src = stripComments(readFileSync(new URL('./select-column-scan.ts', import.meta.url), 'utf8'));
+  const body = src.slice(src.indexOf('export function scanAllSelectSites'));
+  const collect = body.indexOf('extractTableConstants(src, rel)');
+  const earlyExit = body.indexOf("if (!src.includes('.from(')) continue;");
+  assert.ok(collect > 0 && earlyExit > 0, 'anti-vacuity: both landmarks must be found');
+  assert.ok(
+    collect < earlyExit,
+    'extractTableConstants must run BEFORE the `.from(` early-exit.\n' +
+      'A file can DECLARE the table constant and read no tables itself — that is\n' +
+      'exactly the contract-module shape. Collecting after the exit skips it.',
   );
 });

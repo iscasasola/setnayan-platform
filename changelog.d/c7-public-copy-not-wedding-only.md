@@ -93,3 +93,65 @@ advertised on `main` today and **a copy edit cannot remove it**: `LIVE_STUDIO` i
 the file"* goes red the moment its prose line goes. Taking the claim down means taking the SKU
 off sale. That is an owner decision, and it is recorded in the guard rather than silently
 skipped.
+
+---
+
+## 2026-08-31 · fix(guards): the llms.txt fixture stops describing a product that does not exist
+
+**Flagged by a peer oversight session while this PR was armed; verified against the live
+catalogue before anything was changed. The substance held and was WIDER than reported.**
+
+`apps/web/lib/llms-txt-guard-input.ts` — the fixture this PR promotes into a shared, named
+module with a second consumer — was measured against `platform_retail_catalog_v2` (project
+`njrupjnvkjkitfctetvi`, read 2026-08-31):
+
+| | Fixture said | Production says |
+|---|---|---|
+| Papic ladder, all **17** rungs | ₱50 for 100 … ₱11,200 for 50,000 | ₱70 for 100 … ₱15,000 for 50,000 — **~40% higher** |
+| Papic titles, all 17 | "add N **shots**" | "add N **credits**" |
+| Setnayan AI ladder | 1499 / 899 / 499 / 99 | **2499 / 1499 / 899 / 199** — a whole rung out |
+
+`llms-txt.test.ts` hard-coded that same stale AI ladder, so **the assertion and the fixture
+agreed with each other and with nothing else** — the shape this repo spent the day clearing.
+
+🔑 **NOTHING SHIPPED WAS WRONG, AND THAT IS THE ENTIRE POINT.** Every figure in `llms-txt.ts`
+resolves from the catalogue at render, and `AI_TIER_FALLBACK_PHP` in
+`setnayan-ai-type-pricing.ts` matches production exactly. The defect was never a wrong price on
+the page — **it was a guard that could not detect one**, because its reference reality was a
+reprice behind and a vocabulary behind.
+
+⚠ **The vocabulary is an owner ruling, not a preference** (2026-08-29, commit `32df56e81`).
+**Only the CURRENCY meaning moved** — a photograph is still "a shot", and the vendor's shot list
+is deliberately untouched. A product you BUY is the currency meaning.
+
+**Two of the peer's claims did NOT hold, were checked, and are not acted on:**
+- *"new in your PR"* — **no.** The fixture is on `main` inside `llms-txt.test.ts`; this PR
+  **moved** it, and `git show origin/main:…llms-txt.test.ts | grep -c PAPIC_GUEST` is `17`
+  before and after. It was inherited, not authored.
+- *"your fixture has 8 rows; production has 17"* — **it has 17.**
+
+**Also fixed, in genuinely rendered copy:** the homepage JSON-LD `featureList` sold *"paid
+top-ups for more shots"*.
+
+**Added so this cannot rot silently again:** provenance on the fixture (date, project, the exact
+query); a guard rejecting the retired currency word in rendered copy **and in every active
+fixture title**; and an explicit note that the `is_active: false` rows are **NEGATIVE fixtures**
+— most no longer have a catalogue row at all, and "correcting" them to match production would
+gut the retired-SKU guards.
+
+**MUTATION (baseline `pass 14 / fail 0` + `pass 13 / fail 0`):**
+
+| Sabotage | Before → after | Result |
+|---|---|---|
+| retired currency word restored to the homepage JSON-LD | `more shots` in page.tsx **0 → 1** | ✅ RED |
+| one ACTIVE fixture title reverted to the retired word | active titles using it **0 → 1** | ✅ RED |
+| `SETNAYAN_AI` fixture price reverted to the stale ₱1,499 | **2499 → 1499** | ✅ RED |
+
+🪤 **A trap this session walked into, recorded because it cost real work.** The first mutation
+run used `git checkout -- <file>` to undo each sabotage on files that were **not yet committed**
+— so it silently reverted the fixture correction itself, and the "restored baseline" came back
+RED with two failures. The changelog table above was re-run **after** committing. The repo's own
+rule already says this (*"commit before you mutate"*); it applies to the mutation harness, not
+just to bulk rewrites. **`git checkout --` cannot tell your sabotage from your work.**
+
+SPEC IMPACT: None.

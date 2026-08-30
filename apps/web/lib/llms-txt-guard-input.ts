@@ -49,7 +49,24 @@
  * deliberately so the guards can prove the renderer never surfaces one. Deleting
  * them would silently gut "the retired subdomain is gone", "Camera Bridge",
  * "Papic Max" and "5 Seats". The ACTIVE rows mirror production; the inactive
- * ones are the test's own evidence, and they keep their historical titles.
+ * ones are the test's own evidence.
+ *
+ * ⛔ AND A RETIRED ROW'S TITLE READS `(retired — see service_code)`, NOT ITS OLD
+ * PRODUCT NAME. `papic-is-one-service.test.ts` bans the strings "Papic One" and
+ * "Papic Pool" from every non-`.test.ts` file under `app/` and `lib/`, and it
+ * caught this file within minutes of the fixture moving here — correctly.
+ *
+ * 🔑 THE GUARD IS RIGHT AND NOTHING WAS WEAKENED TO SATISFY IT. No exemption was
+ * added, no allow-list, and the file was NOT renamed back under the `.test.ts`
+ * blind spot to hide. The titles simply are not needed: `llms-txt.ts` renders
+ * `service_code`, `retail_price_php` and `is_active` and **never reads a title
+ * at all**, so a retired product's old name was decoration in non-test source —
+ * and deleting it is complying with the guard, not evading it. The retired-SKU
+ * assertions in `llms-txt.test.ts` carry their own literals, inside a test file,
+ * where naming a dead product is exactly right.
+ *
+ * ⚠ ACTIVE titles still mirror the catalogue exactly, and the db guard compares
+ * them. This applies ONLY to rows that are `is_active: false`.
  */
 import type { LlmsTxtInput, RetailRow } from './llms-txt';
 
@@ -121,8 +138,8 @@ export const RETAIL: RetailRow[] = [
   // database. Kept listed, inactive, so the change is legible here rather than
   // looking like an accidental deletion — same convention as the rows below.
   { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: false },
-  { service_code: 'PAPIC_ONE_100', title: 'Papic One — 100 shots', retail_price_php: 100, is_active: false },
-  { service_code: 'PAPIC_CAMERA_MINI_DAY', title: 'Papic One — 50 shots (one camera) (superseded 2026-08-11)', retail_price_php: 50, is_active: false },
+  { service_code: 'PAPIC_ONE_100', title: '(retired — see service_code)', retail_price_php: 100, is_active: false },
+  { service_code: 'PAPIC_CAMERA_MINI_DAY', title: '(retired — see service_code)', retail_price_php: 50, is_active: false },
   { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: true },
   // --- AI tier ladder: price-source rows, inactive BY DESIGN ---
   { service_code: 'SETNAYAN_AI_B', title: 'Setnayan AI (Tier B · major milestone)', retail_price_php: 1499, is_active: false },

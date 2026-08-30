@@ -48,7 +48,10 @@ ruled that on 2026-07-12. **One door missed an existing ruling; one line; do NOT
 decrease.
 
 🔎 **READY? Measured 2026-08-20: 9 accounts · 8 events · 2 shops (1 published) · 2 services ·
-0 packages · 0 ORDERS EVER.** Marketplace search WORKS (verified live) — it is **empty, not
+0 packages** · ~~**0 ORDERS EVER**~~ ⚠ **CORRECTED 2026-08-30 (C10/C10b): 6 orders as of
+2026-08-29** — four paid and receipted (₱2,499 GCash · ₱2,899 GCash · ₱147 GCash · ₱49 BDO), two
+cancelled; most recent completed 2026-08-29. Re-measure with `select count(*) from orders`, never
+trust this line as current. Marketplace search WORKS (verified live) — it is **empty, not
 broken**. **Packages WORK and are switched ON.**
 🛑 **THAT LAST ONE WAS REPORTED TO THE OWNER AS "SWITCHED OFF", FROM THE CODE DEFAULT, AND HE
 CAUGHT IT.** 🔑 **A FLAG'S DEFAULT IN CODE IS NOT ITS VALUE IN PRODUCTION — open the page; it takes
@@ -136,6 +139,13 @@ If you cannot name the existing component and the existing design, **you have no
    locked docs are the decision. Check both before asking the owner anything.
 5. **If it already exists, say where — do not build a demo to prove the point.**
 6. **Never ask the owner a question the corpus answers.** Grep first; cite what you checked.
+7. **An anchor is a string, never a number.** Never write a line number or an occurrence count into
+   a document as if it were a stable fact — both rot the moment the tree changes, and a "corrected"
+   line number can itself be the error (a citation moved from `:1719` to `:1533` and the second
+   number was the wrong one; an `emitNotification` call-site count was re-measured three times —
+   108/61, then 186/55, then 223/69 — across one week). Cite a **greppable symbol** or the exact
+   command that re-measures it (`grep -n <symbol> <path>`, `select count(*) from …`), never the
+   number itself.
 
 ## What this repo is
 
@@ -179,9 +189,12 @@ The specs at `~/Documents/Claude/Projects/Setnayan/` are the canonical product c
 ## ⛔ FALSE BELIEF ABOUT MIGRATION PREFIXES — kill it on sight
 
 **"A migration whose 14-digit prefix sits below prod's applied head merges green and creates
-NOTHING."** **THIS IS FALSE.** `.github/workflows/deploy-prod.yml:184` and
-`supabase-migrations.yml:203` both run `supabase db push --include-all --yes`, and `--include-all`
-exists precisely to apply migrations dated before the remote head.
+NOTHING."** **THIS IS FALSE.** Both `.github/workflows/deploy-prod.yml` and
+`.github/workflows/supabase-migrations.yml` run `supabase db push --include-all --yes` (confirm
+with `grep -n "db push --include-all" .github/workflows/*.yml` — do not cite a line number, it has
+already drifted once: `:184`/`:203` were the lines when this was first written and now read
+`:201`/`:220`, proof of exactly the rot rule 7 above warns about), and `--include-all` exists
+precisely to apply migrations dated before the remote head.
 
 **Measured 13 ways (2026-08-04):** 12 migrations were historically added out of order and **all 12
 are applied in prod**; and `20271102765509` applied while sitting **two prefixes below the head**.

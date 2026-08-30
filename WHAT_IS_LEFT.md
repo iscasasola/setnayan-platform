@@ -40,13 +40,13 @@ price, a sentence or a ruling. Building around those does not unblock them.
 
 ## 1. Armed to go wrong the first time a real customer arrives
 
-*Every one of these is harmless today only because production is still empty — no orders, no photos, no live events. Each one starts costing money, losing a record, or deleting something the moment the first paying customer shows up. They are grouped because they share the same deadline (before launch, not after) and each is a small, self-contained fix — they should be swept in one pass rather than found one at a time by a customer.*
+*Every one of these was written as harmless only because production was still empty — no orders, no photos, no live events.* ⚠ **CORRECTED 2026-08-30 (C10b): that premise is no longer true.** `select count(*) from orders` = 6 (four paid and receipted, most recent 2026-08-29) and photos exist (see the "measured, not remembered" section of `STATUS.md`). *Each item below starts costing money, losing a record, or deleting something the moment the first paying customer shows up — re-check each one against the live database before assuming it is still theoretical.* They are grouped because they share the same deadline (before launch, not after) and each is a small, self-contained fix — they should be swept in one pass rather than found one at a time by a customer.
 
 **7 items · 1 need the owner · 6 are engineering**
 
 - **Extra photo cameras can be switched on without paying** *(medium)*
-  - A couple who orders extra wedding cameras can turn the shooting credit on for themselves before they have paid a peso, and the payment screen will still show the order as unpaid. Nobody is alerted. No orders exist yet, so nothing has been lost — but it arms the moment the first person buys.
-  - <sub>evidence: The camera-credit grant has no caller check, no paid check, and never matches the order to the event; it is still callable by an unauthenticated key and is listed as exploitable in the security baseline. The order row that arms it is written at apply time, before payment. Prod: 0 orders.</sub>
+  - A couple who orders extra wedding cameras can turn the shooting credit on for themselves before they have paid a peso, and the payment screen will still show the order as unpaid. Nobody is alerted. ~~No orders exist yet, so nothing has been lost~~ ⚠ **CORRECTED 2026-08-30 (C10b): orders now exist** (`select count(*) from orders` = 6, four paid) — re-verify this specific exploit path against the live `orders` table rather than assuming it is still purely theoretical; it arms the moment a camera-credit order is placed, and camera-credit orders specifically may or may not be among the six.
+  - <sub>evidence: The camera-credit grant has no caller check, no paid check, and never matches the order to the event; it is still callable by an unauthenticated key and is listed as exploitable in the security baseline. The order row that arms it is written at apply time, before payment. Re-measure with `select count(*) from orders` — do not trust a hardcoded count here.</sub>
 - **A receipt attached to a vendor payment is silently thrown away** *(small)*
   - A couple logs a payment to their florist and attaches the bank-transfer screenshot. The payment saves, the screenshot does not — it vanishes with no error and no way to tell. It has been that way since the end of July.
   - <sub>evidence: The uploader was switched to the private bucket on 2026-07-30; the validator still only accepts the old public paths and drops a non-matching reference to NULL by design. The unit test that should have caught it uses a hand-typed prefix no uploader produces. Prod: 3 payment rows, 0 with a receipt.</sub>
@@ -177,7 +177,7 @@ price, a sentence or a ruling. Building around those does not unblock them.
 
 - **Nobody has ever streamed anything — the whole path is unproven** *(medium)*
   - Every part of livestreaming has been built but no wedding has ever actually gone out. Before the first paying couple, someone has to run a full fake event start to finish. Budget for the one-time 24-hour wait Google imposes before a brand-new channel's first stream.
-  - <sub>evidence: Live prod as superuser (so an empty read is genuinely empty): channel pool, channel grants, roam streams and broadcasts all 0 rows; 0 orders platform-wide. Setup HAS been exercised — 1 zone, 16 camera operators, one real connect-and-revoke round trip on 2026-07-25/26.</sub>
+  - <sub>evidence: Live prod as superuser (so an empty read is genuinely empty): channel pool, channel grants, roam streams and broadcasts all 0 rows. ~~0 orders platform-wide~~ ⚠ **CORRECTED 2026-08-30 (C10b): stale** — `select count(*) from orders` = 6 now (four paid), but none of the six is a livestreaming purchase, so the core claim (no wedding has streamed) still holds; re-verify with `select count(*) from orders where <livestream sku filter>` before trusting either way. Setup HAS been exercised — 1 zone, 16 camera operators, one real connect-and-revoke round trip on 2026-07-25/26.</sub>
 - **Two Live Studio cards sit side by side and one sells a product that was retired** *(medium)*
   - A couple opening their Studio sees live streaming offered twice — one card says it is free with a single camera, the other sells it for ₱2,999. Tapping the free one drops them into an older setup screen for the version of the product you stopped selling. They can go through that whole flow and never see what they actually bought.
   - <sub>evidence: The old entry is not removed when the new one is added, and the Studio filter never checks whether the SKU is active. Prod catalog: new SKU active at ₱2,999, old one inactive at ₱2,500. Confirmed on the live pricing page. The old card's button leads to a setup screen with no guard.</sub>
@@ -403,8 +403,10 @@ claim — a session acts on it before it reads anything else.*
   never drawn — an actual form.</sub>
 - **Its production numbers are stale.** It says 5 events · 2 vendors · 0 photos.
   Measured 2026-08-22: **5 events · 5 story pages (0 published) · 14 Papic photos
-  · 45 supplier bookings · 1 published chapter attached to no event.** Still true:
-  **0 orders ever** and nothing sold.
+  · 45 supplier bookings · 1 published chapter attached to no event.** ~~Still true:
+  0 orders ever and nothing sold.~~ ⚠ **CORRECTED 2026-08-30 (C10b): no longer true.**
+  `select count(*) from orders` = 6 as of 2026-08-29 (four paid and receipted). Re-measure rather
+  than trust either number as current.
 
 ⚠ **The owner also could not have this written for him automatically** — see the
 access note in group 10: the corpus was unreadable from that session, so

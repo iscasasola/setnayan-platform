@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { fetchEventPapicWindow } from '@/lib/papic-limited';
 import { resolvePointsGate, type PointsGateVerdict } from '@/lib/papic-cameras';
+import { dedicatedShotsStanding, type DedicatedShotsStanding } from '@/lib/papic-guest-buy';
 
 /**
  * apps/web/lib/papic-guest-own-camera.ts
@@ -87,6 +88,45 @@ export async function resolveGuestOwnCamera(
     if (dedErr) return null;
     const n = Number(ded);
     return { seatId, dedicated: Number.isFinite(n) && n > 0 ? n : 0 };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What one camera holds and has spent — the read behind spec § 7b's "give the
+ * unused ones to the room". Same two reads `resolveGuestOwnCamera` already
+ * makes for `dedicated` (papic_seat_dedicated_points — grants + hand-outs,
+ * already GRANTed to service_role since 20271019231590), plus
+ * `papic_seat_point_usage.points_used` for what is gone for good.
+ *
+ * DISPLAY ONLY. The release action re-derives the target itself at the moment
+ * it writes, under papic_dedicate_shots' own row lock — this read is what a
+ * guest sees on the button before she taps it, not what the RPC trusts.
+ *
+ * Returns null on anything unexpected, same degrade-to-nothing posture as
+ * resolveGuestOwnCamera: a guest who cannot be shown her standing sees no
+ * release offer, never a broken one.
+ */
+export async function resolveSeatDedicatedStanding(
+  admin: SupabaseClient,
+  seatId: string,
+): Promise<DedicatedShotsStanding | null> {
+  if (!seatId) return null;
+  try {
+    const [dedRes, spentRes] = await Promise.all([
+      admin.rpc('papic_seat_dedicated_points', { p_seat_id: seatId }),
+      admin
+        .from('papic_seat_point_usage')
+        .select('points_used')
+        .eq('seat_id', seatId)
+        .maybeSingle(),
+    ]);
+    if (dedRes.error) return null;
+    return dedicatedShotsStanding(
+      Number(dedRes.data ?? 0),
+      Number((spentRes.data as { points_used?: number } | null)?.points_used ?? 0),
+    );
   } catch {
     return null;
   }

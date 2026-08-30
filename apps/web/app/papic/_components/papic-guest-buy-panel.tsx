@@ -6,6 +6,7 @@ import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { eventIsOver } from '@/lib/event-is-over.server';
 import { guestOneRungs, guestPoolRungs, type PapicGuestOffer } from '@/lib/papic-guest-buy';
 import { isSameDayInManila, buyWaitCopy } from '@/lib/papic-buy-urgency';
+import { resolveSeatDedicatedStanding } from '@/lib/papic-guest-own-camera';
 import { PapicBuyShell } from './papic-buy-shell';
 
 /**
@@ -38,6 +39,8 @@ export async function PapicGuestBuyPanel({
   error,
   canReloadOwnCamera = false,
   eventId = null,
+  ownSeatId = null,
+  released = null,
 }: {
   /** The claim token when this renders on a seat camera; null on the guest camera. */
   seatToken?: string | null;
@@ -54,14 +57,24 @@ export async function PapicGuestBuyPanel({
   canReloadOwnCamera?: boolean;
   /** Drives the wait the guest is promised. Omitted → the ordinary 24-hour line. */
   eventId?: string | null;
+  /**
+   * The caller's OWN camera, if the page already resolved one — spec § 7b's
+   * "change your mind later" half. DISPLAY ONLY: this is never trusted for the
+   * release itself, which re-resolves the same seat from the credential in
+   * app/papic/buy/actions.ts. Omitted → no release offer, same as today.
+   */
+  ownSeatId?: string | null;
+  /** `?papic_release=N` from a just-completed release, for the confirmation line. */
+  released?: string | null;
 }) {
   if (!papicGuestBuyEnabled()) return null;
 
   const admin = createAdminClient();
-  const [poolTiers, oneTiers, eventDate, isOver] = await Promise.all([
+  const [poolTiers, oneTiers, eventDate, standing, isOver] = await Promise.all([
     fetchPapicPassTiers(admin),
     fetchPapicOneTiers(admin),
     fetchEventDate(admin, eventId),
+    ownSeatId ? resolveSeatDedicatedStanding(admin, ownSeatId) : Promise.resolve(null),
     /*
       ── THE CELEBRATION IS OVER: STOP OFFERING ────────────────────────────
       Owner, 2026-08-21: **"no. it needs to be in a new event."** Papic credits
@@ -84,11 +97,16 @@ export async function PapicGuestBuyPanel({
   // line, because over-promising a wait we might not beat is the worse failure.
   const wait = buyWaitCopy(isSameDayInManila(eventDate));
 
+  // A releasable balance can survive every rung going off sale (a host may
+  // dedicate credits via the studio independent of what a guest can currently
+  // buy), so an empty catalog must not also hide a "give it to the room" a
+  // guest is otherwise entitled to see.
+  const hasReleaseOffer = Boolean(standing && standing.releasable > 0);
   const rungs = [
     ...(canReloadOwnCamera ? guestOneRungs(oneTiers) : []),
     ...guestPoolRungs(poolTiers),
   ];
-  if (rungs.length === 0) return null;
+  if (rungs.length === 0 && !hasReleaseOffer) return null;
 
   const prices = await fetchRungPrices(
     admin,
@@ -111,7 +129,7 @@ export async function PapicGuestBuyPanel({
       } satisfies PapicGuestOffer;
     })
     .filter((o): o is PapicGuestOffer => o !== null);
-  if (offers.length === 0) return null;
+  if (offers.length === 0 && !hasReleaseOffer) return null;
 
   return (
     <PapicBuyShell
@@ -120,6 +138,8 @@ export async function PapicGuestBuyPanel({
       returnTo={returnTo}
       error={error ?? null}
       wait={wait}
+      standing={standing}
+      released={released}
     />
   );
 }

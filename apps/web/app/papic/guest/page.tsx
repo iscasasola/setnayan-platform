@@ -10,6 +10,8 @@ import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
+import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
+import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 
 // Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid camera").
 // This is the shared "Papic Pool" pass: unlimited guest phones draw from one
@@ -34,10 +36,11 @@ export const dynamic = 'force-dynamic';
 export default async function PapicGuestPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ papic_buy_error?: string; from?: string }>;
+  searchParams?: Promise<{ papic_buy_error?: string; papic_release?: string; from?: string }>;
 }) {
   const sp = await searchParams;
   const buyError = sp?.papic_buy_error ?? null;
+  const released = sp?.papic_release ?? null;
   /**
    * The event this camera was opened FROM, so a refusal can hand the visitor
    * back their invitation instead of ejecting them to the marketing homepage.
@@ -97,13 +100,19 @@ export default async function PapicGuestPage({
   // "this event" is the only fallback. Read in parallel with the ownership
   // check (same query count as before) so the not-yet-on branch can name the
   // event too.
-  const [owns, { data: ev }] = await Promise.all([
+  const [owns, { data: ev }, ownCamera] = await Promise.all([
     eventPapicGuestActive(admin, session.event_id),
     admin
       .from('events')
       .select(`display_name, papic_face_mode, event_type, ${GUEST_CAPTURE_GATE_COLUMNS}`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
+    // Own only for spec § 7b's "change your mind" offer — the buy panel
+    // self-gates on the flag too, but skipping this read when it is off saves
+    // a query nobody will see the result of.
+    papicGuestBuyEnabled()
+      ? resolveGuestOwnCamera(admin, session.event_id, session.guest_id)
+      : Promise.resolve(null),
   ]);
   const eventName = (ev?.display_name as string | null) || 'this event';
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
@@ -278,9 +287,7 @@ export default async function PapicGuestPage({
     {/* Guest "Add credits" doorway (owner-locked 2026-07-29), flag-dark behind
         NEXT_PUBLIC_PAPIC_GUEST_BUY — self-gates to null when off, so this page
         is byte-identical today. No seat token: this surface's identity is the
-        signed setnayan_guest_session cookie, which the buy action re-reads. The
-        guest camera shoots from the SHARED pool by definition, so only the pool
-        rungs are on offer (canReloadOwnCamera stays false). */}
+        signed setnayan_guest_session cookie, which the buy action re-reads. */}
     {/* canReloadOwnCamera TRUE here since 2026-08-02: this surface has no seat,
         but the buy action mints the guest a camera of their own at purchase
         (paparazzi_seats.guest_id — the shape host-bought Limited cameras already
@@ -292,6 +299,8 @@ export default async function PapicGuestPage({
       error={buyError}
       eventId={session.event_id}
       canReloadOwnCamera
+      ownSeatId={ownCamera?.seatId ?? null}
+      released={released}
     />
     </>
   );

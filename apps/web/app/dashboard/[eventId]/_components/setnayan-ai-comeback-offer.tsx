@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * "20% off Setnayan AI — today only" — the comeback offer for a couple who
+ * "Setnayan AI, N% off — today only" — the comeback offer for a couple who
  * didn't buy AI when they set up their event. Sibling of `PapicReadyNudge`:
  * same band geometry, same one-eyebrow/title/body/link shape, mounted in the
  * same `overlays` slot in `page.tsx` (never inside the bento's blur budget).
@@ -70,6 +70,22 @@ export function SetnayanAiComebackOffer({
   const target = new Date(expiresAtIso).getTime();
   const [remaining, setRemaining] = useState<Remaining>(() => compute(target));
 
+  /**
+   * THE HEADLINE PERCENTAGE IS DERIVED FROM THE TWO PRICES ON SCREEN, NOT TYPED.
+   *
+   * 🔑 This is the ONLY place a percentage is allowed to exist in this feature,
+   * and only because it is a rounding of numbers the money path never reads —
+   * the charge is the midpoint in pesos (lib/setnayan-ai-comeback-offer.ts),
+   * and `lib/order-charge-authority.ts` re-derives it server-side.
+   *
+   * It was three hard-coded "20% off" strings. That is subtly false TODAY: the
+   * live rows imply 20.01–20.10% because the prices carry charm endings, so a
+   * card promising a flat 20 already misstates the offer it is selling — and it
+   * would misstate it badly the first time anybody reprices a tier. Deriving it
+   * means the copy can never drift from the amount beside it.
+   */
+  const pctOff = Math.round((1 - comebackPhp / regularPhp) * 100);
+
   useEffect(() => {
     const id = window.setInterval(() => setRemaining(compute(target)), 1000);
     return () => window.clearInterval(id);
@@ -91,10 +107,10 @@ export function SetnayanAiComebackOffer({
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-mulberry">
-            20% off · today only
+            {pctOff}% off · today only
           </p>
           <p className="mt-0.5 text-base font-semibold text-ink">
-            Setnayan AI, 20% off for the next{' '}
+            Setnayan AI, {pctOff}% off for the next{' '}
             <span className="font-mono tabular-nums">
               {remaining.hours > 0 ? `${pad(remaining.hours)}:` : ''}
               {pad(remaining.minutes)}:{pad(remaining.seconds)}
@@ -124,7 +140,7 @@ export function SetnayanAiComebackOffer({
           displayName={`Setnayan AI${displayName ? ` · ${displayName}` : ''}`}
           originalPriceCentavos={String(Math.round(comebackPhp * 100))}
           settings={settings}
-          triggerLabel="Unlock Setnayan AI · 20% off"
+          triggerLabel={`Unlock Setnayan AI · ${pctOff}% off`}
           triggerClassName="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-6 py-2.5 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
         />
       </div>

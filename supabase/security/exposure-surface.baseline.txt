@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6327
+# facts: 6339
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     572
-#   col       4662
-#   policy    863
+#   tpriv     573
+#   col       4670
+#   policy    866
 #   view      8
 #   func      218
 #
@@ -226,6 +226,7 @@ tpriv	public.guest_group_memberships|authenticated	SIUD
 tpriv	public.guest_groups|anon	SIUD
 tpriv	public.guest_groups|authenticated	SIUD
 tpriv	public.guest_message_blocks|authenticated	SIUD
+tpriv	public.guest_push_subscriptions|authenticated	SIUD
 tpriv	public.guest_qr_rotations|authenticated	SIUD
 tpriv	public.guest_saved_vendors|anon	SIUD
 tpriv	public.guest_saved_vendors|authenticated	SIUD
@@ -2267,6 +2268,14 @@ col	public.guest_message_blocks.guest_id	anon=- authenticated=SIU
 col	public.guest_message_blocks.id	anon=- authenticated=SIU
 col	public.guest_message_blocks.reason	anon=- authenticated=SIU
 col	public.guest_message_blocks.revoked_at	anon=- authenticated=SIU
+col	public.guest_push_subscriptions.auth	anon=- authenticated=SIU
+col	public.guest_push_subscriptions.created_at	anon=- authenticated=SIU
+col	public.guest_push_subscriptions.endpoint	anon=- authenticated=SIU
+col	public.guest_push_subscriptions.event_id	anon=- authenticated=SIU
+col	public.guest_push_subscriptions.guest_id	anon=- authenticated=SIU
+col	public.guest_push_subscriptions.id	anon=- authenticated=SIU
+col	public.guest_push_subscriptions.last_seen_at	anon=- authenticated=SIU
+col	public.guest_push_subscriptions.p256dh	anon=- authenticated=SIU
 col	public.guest_qr_rotations.actor_kind	anon=- authenticated=SIU
 col	public.guest_qr_rotations.actor_user_id	anon=- authenticated=SIU
 col	public.guest_qr_rotations.created_at	anon=- authenticated=SIU
@@ -5604,6 +5613,9 @@ policy	public.guest_group_memberships|event_member_can_read_membership	mode=PERM
 policy	public.guest_groups|couple_writes_guest_group	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
 policy	public.guest_groups|event_member_can_read_guest_group	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_event_ids() AS current_event_ids)) check=NULL
 policy	public.guest_message_blocks|guest_message_blocks_manage	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = guest_message_blocks.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = guest_message_blocks.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))))
+policy	public.guest_push_subscriptions|admin_writes_guest_push_subscriptions	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
+policy	public.guest_push_subscriptions|couple_reads_guest_push_subscriptions	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
+policy	public.guest_push_subscriptions|guest_reads_own_push_subscriptions	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((guest_id IN ( SELECT current_user_guest_ids() AS current_user_guest_ids)) OR is_admin()) check=NULL
 policy	public.guest_qr_rotations|guest_qr_rotations_host_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
 policy	public.guest_saved_vendors|guest_saved_vendors_owner_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(user_id = auth.uid()) check=NULL
 policy	public.guest_saved_vendors|guest_saved_vendors_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(user_id = auth.uid())

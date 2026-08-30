@@ -39,6 +39,32 @@ Scope: this is the ASK, not new push plumbing — no service-worker or send-path
 changes. Sending an actual notification to a subscribed guest is future work;
 this closes the gap where nobody could ever say yes.
 
+Security: this migration's first CI run tripped `exposure-freeze.db.test.ts`
+(correctly — a new table inherits `ALTER DEFAULT PRIVILEGES` grants to `anon`
+and `authenticated` unless revoked). Fixed by adding
+`REVOKE ALL ON TABLE public.guest_push_subscriptions FROM PUBLIC, anon,
+authenticated;` followed by `GRANT SELECT, INSERT, UPDATE, DELETE ... TO
+authenticated` — the minimum the three RLS policies above actually need.
+`anon` gains nothing. The exposure baseline
+(`supabase/security/exposure-surface.baseline.txt`) was regenerated in this
+same PR; the diff is exactly the new table's own privileges/columns/policies,
+nothing else:
+
+```
++tpriv  public.guest_push_subscriptions|authenticated  SIUD
++col    public.guest_push_subscriptions.*  anon=- authenticated=SIU   (×8 columns)
++policy admin_writes_guest_push_subscriptions   cmd=ALL    using=is_admin()
++policy couple_reads_guest_push_subscriptions   cmd=SELECT using=(event_id IN current_couple_event_ids() OR is_admin())
++policy guest_reads_own_push_subscriptions      cmd=SELECT using=(guest_id IN current_user_guest_ids() OR is_admin())
+```
+
+Also fixed: the guest-push-prompt "Turn on alerts" button initially used
+`bg-terracotta text-cream` (3.48:1, fails WCAG AA) and tripped
+`lint-label-on-fill-contrast.mjs`. `terracotta` is this repo's selected/active-
+state accent, not a primary-action fill (`globals.css` `.button-primary` docs)
+— swapped to `bg-mulberry text-cream` (the house primary-CTA color), which
+also clears contrast.
+
 SPEC IMPACT: None — this behavior is not yet documented in the specific
 notifications iteration doc as a distinct guest-consent surface. Flagging for
 owner awareness: it should probably become the canonical "where guest push

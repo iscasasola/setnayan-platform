@@ -66,3 +66,14 @@ CREATE POLICY admin_writes_guest_push_subscriptions ON public.guest_push_subscri
   FOR ALL TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+-- ALTER DEFAULT PRIVILEGES grants arwdDxtm to anon AND authenticated on every
+-- new relation in `public` — the root cause of this project's exposure-surface
+-- freeze. Revoke first, grant back only what the policies above actually use:
+-- authenticated needs SELECT (both read policies) and
+-- INSERT/UPDATE/DELETE (the admin ALL policy, gated by is_admin() in the
+-- predicate — the grant alone lets nothing through). anon gets nothing; the
+-- guest write path never runs as anon or authenticated, it runs as
+-- service_role via the admin client, which bypasses grants entirely.
+REVOKE ALL ON TABLE public.guest_push_subscriptions FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.guest_push_subscriptions TO authenticated;

@@ -152,7 +152,7 @@ export function GuestPushPrompt() {
             type="button"
             onClick={handleEnable}
             disabled={busy}
-            className="rounded-md bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream transition-opacity disabled:opacity-60"
+            className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition-opacity hover:bg-mulberry-600 disabled:opacity-60"
           >
             {busy ? 'Turning on…' : 'Turn on alerts'}
           </button>

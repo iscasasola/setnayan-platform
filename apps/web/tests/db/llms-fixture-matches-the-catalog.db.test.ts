@@ -54,10 +54,27 @@ after(async () => {
  * arrival (which is how a guard gets deleted).
  *
  *   row                    migrations        production
- *   CUSTOM_QR_GUEST        ₱999              ₱0        (the QR is free)
- *   SEATING_3D             NO ROW            ₱1,500 active
  *   pro_vendor_monthly     ₱2,499            ₱2,500
  *   pro_vendor_annual      ₱24,999           ₱26,000
+ *
+ * ✅ TWO ENTRIES REMOVED 2026-08-31, reconciled by migration
+ *   `20271184674948_migrations_match_production_prices.sql`: CUSTOM_QR_GUEST
+ *   (₱999 → ₱0) and SEATING_3D (absent → ₱1,500). They are now COMPARED by this
+ *   guard instead of exempted from it — the ratchet working as designed.
+ *
+ * 🚨 THE REMAINING TWO CANNOT BE FIXED BY ANY MIGRATION — measured, not assumed.
+ *   A canary inside that migration reads `pro_vendor_annual` = ₱26,000 AT THE END
+ *   OF THE FILE, and ₱24,999 after the whole replay finishes.
+ *   `replay-migrations.ts` DEFERS a migration that fails on first pass and
+ *   RETRIES IT LAST — seven files take that path on a normal run — and
+ *   `20260530010000_iteration_0006_v2_1_amendment_2.sql` re-seeds the
+ *   pre-price-sheet Pro Vendor figures after every later file.
+ *   ⇒ THE OLDEST FILE WINS, NOT THE NEWEST. That is an ordering production never
+ *     had: prod applied each migration once, when authored, and never re-ran a
+ *     2026-05-30 seed after a 2026-08-27 reprice.
+ *   ⛔ So do NOT try another migration with a later prefix — it loses the same
+ *     way. The fix belongs in the replay's retry ordering, which 1,919 db tests
+ *     depend on, and is booked as its own change.
  *
  * 🔑 THIS IS A REAL FINDING AND IT IS NOT THIS PR'S TO FIX. It means a database
  * seeded only from `supabase/migrations/` comes up charging Pro ₱2,499/₱24,999
@@ -70,8 +87,6 @@ after(async () => {
  * price. If a fifth appears, that is the finding, not the paperwork.
  */
 const MIGRATIONS_DISAGREE_WITH_PRODUCTION: Record<string, string> = {
-  CUSTOM_QR_GUEST: 'migrations ₱999, production ₱0 — the per-guest QR is free',
-  SEATING_3D: 'no migration row; production sells it at ₱1,500',
   pro_vendor_monthly: 'migrations ₱2,499, production ₱2,500',
   pro_vendor_annual: 'migrations ₱24,999, production ₱26,000',
 };

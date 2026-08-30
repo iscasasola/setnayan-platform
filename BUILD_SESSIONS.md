@@ -434,7 +434,7 @@ AUTONOMY RULES — how this session finishes rather than stalls:
 | Session | Model · Effort | Branch | PR | State | Verified by overseer |
 |---|---|---|---|---|---|
 | ~~C10b~~ | — | `claude/c10-docs…` | **5021** | ✅ **MERGED** — `CLAUDE.md` line 51 corrected | ✅ verified on main |
-| ~~C10~~ | — | — | **5015** | ⚠ merged at 1-of-11 → superseded by C10b | ✅ |
+| ~~C10~~ | Sonnet 5 · high | `claude/c10-docs-stop-being-wrong` | **5015** | ⚠️ **MERGED, INCOMPLETE** — 1 of 11 items; `CLAUDE.md` untouched → superseded by C10b | ✅ |
 | ~~C6~~ | — | `…-v2` | **5016** | ✅ **MERGED** — fail-open intact | ✅ verified 2026-08-30 |
 | C7 | Opus 5 · medium | — | — | after C6 | — |
 | C2 | Sonnet 5 · medium | — | — | ready | — |

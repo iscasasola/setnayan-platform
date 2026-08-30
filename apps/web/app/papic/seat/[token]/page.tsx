@@ -27,12 +27,12 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ bridge?: string; papic_buy_error?: string }>;
+  searchParams: Promise<{ bridge?: string; papic_buy_error?: string; papic_release?: string }>;
 };
 
 export default async function PapicSeatPage({ params, searchParams }: Props) {
   const { token } = await params;
-  const { bridge, papic_buy_error: buyError } = await searchParams;
+  const { bridge, papic_buy_error: buyError, papic_release: released } = await searchParams;
   // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
   // visible only via ?bridge=demo or the env flag, never by default.
   const bridgeEnabled =
@@ -174,6 +174,8 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         error={buyError ?? null}
         canReloadOwnCamera={canReloadOwnCamera}
         eventId={(seat.event_id as string) ?? null}
+        ownSeatId={(seat.seat_id as string) ?? null}
+        released={released ?? null}
       />
     </>
   );

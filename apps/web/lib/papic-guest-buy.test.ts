@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   PAPIC_GUEST_ACCESS_TOKEN_MIN_LENGTH,
   PAPIC_GUEST_PAYER_NAME_MAX,
+  dedicatedShotsStanding,
   guestOneRungs,
   guestOrderDescription,
   guestPoolRungs,
@@ -11,6 +12,7 @@ import {
   mintPapicGuestAccessToken,
   normalisePayerName,
   papicGuestOrderRow,
+  resolveGuestRelease,
   resolveGuestReloadTarget,
   resolveGuestRung,
 } from './papic-guest-buy';
@@ -129,6 +131,46 @@ test('holding no camera at all cannot resolve to one', () => {
   assert.deepEqual(resolveGuestReloadTarget('seat-b', ''), { ok: false, reason: 'no_camera' });
   assert.deepEqual(resolveGuestReloadTarget('seat-b', null), { ok: false, reason: 'no_camera' });
   assert.deepEqual(resolveGuestReloadTarget(null, null), { ok: false, reason: 'no_camera' });
+});
+
+/* ── "keep them, or give them to the room" (spec § 7b) ──────────────────── */
+
+test('standing splits what is spent from what could still move', () => {
+  assert.deepEqual(dedicatedShotsStanding(150, 40), { dedicated: 150, spent: 40, releasable: 110 });
+});
+
+test('everything spent leaves nothing releasable', () => {
+  assert.deepEqual(dedicatedShotsStanding(150, 150), { dedicated: 150, spent: 150, releasable: 0 });
+});
+
+test('⭐ spent can never exceed dedicated in the standing, even from bad inputs', () => {
+  // A camera cannot have shot more than it was ever given — but if a caller
+  // somehow reads a spent figure ahead of a stale dedicated one, releasable
+  // must floor at 0, never go negative and imply the pool owes HER credits.
+  assert.deepEqual(dedicatedShotsStanding(50, 90), { dedicated: 50, spent: 90, releasable: 0 });
+});
+
+test('non-finite or non-positive inputs read as zero, not NaN or negative', () => {
+  assert.deepEqual(dedicatedShotsStanding(NaN, NaN), { dedicated: 0, spent: 0, releasable: 0 });
+  assert.deepEqual(dedicatedShotsStanding(-5, -5), { dedicated: 0, spent: 0, releasable: 0 });
+});
+
+test('a release targets exactly what has been spent — never a chosen amount', () => {
+  const r = resolveGuestRelease(dedicatedShotsStanding(150, 40));
+  assert.deepEqual(r, { ok: true, target: 40 });
+});
+
+test('⭐ nothing releasable refuses rather than issuing a no-op target', () => {
+  // The UI must not offer, and the action must not fire, a call that could
+  // only leave the target exactly where it already is.
+  assert.deepEqual(resolveGuestRelease(dedicatedShotsStanding(150, 150)), {
+    ok: false,
+    reason: 'nothing_to_release',
+  });
+  assert.deepEqual(resolveGuestRelease(dedicatedShotsStanding(0, 0)), {
+    ok: false,
+    reason: 'nothing_to_release',
+  });
 });
 
 /* ── one open order per (buyer, rung) ───────────────────────────────────── */

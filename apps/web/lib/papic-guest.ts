@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { logQueryError } from '@/lib/supabase/error-detect';
+import { logQueryError, isMissingRelationError } from '@/lib/supabase/error-detect';
 import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitlements';
 import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
-import { papicGuestCapLifts } from '@/lib/papic-guest-cap';
+import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic-guest-cap';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -163,23 +163,38 @@ export const PAPIC_PASS_SERVICE_KEYS: readonly string[] = Object.freeze([
 // ─────────────────────────────────────────────────────────────────────────
 
 export type GuestQuota = {
-  /** How many credits the guest started with (150). */
+  /**
+   * How many credits actually bind on this guest — the couple's own ceiling
+   * (migration 20271184624871, S2) when they have set one, else the platform's
+   * flat 150. `COALESCE(v_ceiling, v_credits)` in papic_record_guest_capture,
+   * mirrored exactly: this is never a second number invented for display, it
+   * is the same total the RPC would refuse against.
+   */
   total: number;
-  /** How many captures the guest has already recorded. */
+  /** Credits the guest has already spent against `total` above (1 photo = 1,
+   *  a ten-second clip = up to 8) — a row count only on a pre-migration DB
+   *  where every capture cost exactly 1. */
   used: number;
   /** total − used, floored at 0. When `unlimited`, a large sentinel so the
    *  remaining-based gate (route pre-check + client `exhausted`) never trips. */
   remaining: number;
   /**
-   * Mirrors `v_unlimited` in papic_record_guest_capture — the OR of BOTH its
-   * disjuncts (an active PAPIC_UNLOCK **or** a shared pot), not just the first.
+   * Mirrors `v_unlimited AND v_ceiling IS NULL` — the exact shape
+   * papic_record_guest_capture reports back on an `ok` capture (migration
+   * 20271184624871). An active PAPIC_UNLOCK or a shared pot report unlimited
+   * ONLY while the couple has not put a ceiling on this one guest; the couple's
+   * own number always overrides both, because "the couple bought their way
+   * past OUR limit" is not permission to walk through a limit the couple
+   * themselves set (see the RPC's own comment on the ceiling gate).
    */
   unlimited: boolean;
   /**
-   * The inverse, and the field every screen gate must read: true only when the
-   * per-guest ceiling can actually refuse a shot. On a pool celebration — which
-   * is every celebration today, because the free 50-shot grant arms on render —
-   * this is FALSE, so no countdown is drawn and no shutter is hidden.
+   * The inverse, and the field every screen gate must read: true whenever
+   * SOME per-guest number can actually refuse a shot — the couple's own
+   * ceiling, or (absent one) the platform's flat 150 on a non-pool, non-Unlock
+   * celebration. On a pool celebration with no couple ceiling set — every
+   * celebration today, because the free 50-shot grant arms on render — this is
+   * FALSE, so no countdown is drawn and no shutter is hidden.
    */
   capApplies: boolean;
   /**
@@ -198,11 +213,51 @@ export type GuestQuota = {
 const UNLIMITED_REMAINING = Number.MAX_SAFE_INTEGER;
 
 /**
+ * Read-only mirror of the couple's per-guest ceiling — `papic_guest_spend_
+ * ceiling(guest_id)` (migration 20271184624871, S2), `service_role`-only, so
+ * `supabase` here MUST be the admin client. Returns null on ANY failure,
+ * including 42883 function-not-found on a database that predates S2 — the
+ * display side degrades exactly like eventHasPapicUnlock/readEventPoolStatus
+ * above; the RPC's own gate (not this read) is the real enforcement.
+ */
+async function readGuestSpendCeiling(
+  supabase: SupabaseClient,
+  guestId: string,
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('papic_guest_spend_ceiling', {
+      p_guest_id: guestId,
+    });
+    if (error) {
+      // 42883 function-not-found (pre-S2) is the EXPECTED shape this branch
+      // is built to degrade through — quiet. Anything else is a genuine
+      // outage, and staying silent about it would understate the couple's
+      // ceiling on the guest's screen without a trace of why.
+      if (!isMissingRelationError(error)) {
+        logQueryError('readGuestSpendCeiling', error, { guest_id: guestId }, 'graceful_degrade');
+      }
+      return null;
+    }
+    return typeof data === 'number' ? data : null;
+  } catch (err) {
+    logQueryError('readGuestSpendCeiling', err, { guest_id: guestId }, 'graceful_degrade');
+    return null;
+  }
+}
+
+/**
  * Resolve a single guest's quota from papic_guest_captures. `supabase` here is
  * an admin client (the guest camera route is a public surface with no RLS
  * session) constrained to this event_id + guest_id. Graceful-degrade to a
  * full-quota shape (used=0) on a missing/legacy table so the first capture can
  * still be attempted — the RPC is the real gate.
+ *
+ * THE ONE PLACE — both the Event Hub inline camera (app/[slug]/_lib/loaders.ts)
+ * and the standalone guest-camera page (app/papic/guest/page.tsx) call this and
+ * only this. They drifted once already (the browser mirrored only half of
+ * `v_unlimited`) precisely because the allowance was resolved twice; keeping
+ * one function is what stops that happening again — see
+ * lib/papic-guest-quota-mirrors-sql.test.ts.
  */
 export async function fetchGuestQuota(
   supabase: SupabaseClient,
@@ -216,52 +271,110 @@ export async function fetchGuestQuota(
   // used to mirror only the first, so the browser enforced a 150 the database
   // was not applying anywhere. The rule itself lives in ONE place now —
   // lib/papic-guest-cap.ts — with one entry per write to `v_unlimited`.
-  const [hasUnlock, poolRead] = await Promise.all([
+  const [hasUnlock, poolRead, guestCeiling] = await Promise.all([
     eventHasPapicUnlock(supabase, eventId).catch(() => false),
     readEventPoolStatus(supabase, eventId).catch(() => ({
       ok: false,
       status: EVENT_POOL_ABSENT,
     })),
+    readGuestSpendCeiling(supabase, guestId),
   ]);
   const poolApplies = poolRead.status.applies === true;
-  const unlimited = papicGuestCapLifts({
+  const unlimitedBase = papicGuestCapLifts({
     hasUnlock,
     poolApplies,
     // A read failure is an outage, not a decision — and it fails OPEN. See the
     // reasoning on GuestCapInputs.poolUnknown.
     poolUnknown: !poolRead.ok,
   }).some(Boolean);
+  // ── THE COUPLE'S CEILING OVERRIDES THE YIELD ────────────────────────────
+  // Mirrors `v_unlimited := v_unlimited OR (pool_applies AND v_ceiling IS
+  // NULL)` and the response's own `'unlimited', (v_unlimited AND v_ceiling IS
+  // NULL)` in papic_record_guest_capture: an Unlock pass or a shared pot only
+  // reports unlimited while nobody has put a number on THIS guest.
+  const unlimited = unlimitedBase && guestCeiling === null;
   const capApplies = !unlimited;
   const poolRemaining = poolApplies ? poolRead.status.remainingPoints : null;
   const poolLow = poolApplies && poolRead.status.soft;
 
-  const { count, error } = await supabase
-    .from('papic_guest_captures')
-    .select('id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId);
-
-  if (error) {
-    // Pre-migration table or read error → assume nothing used yet. The RPC
-    // enforces the real cap; this read only drives the display.
-    return {
-      total: GUEST_CAPTURE_CREDITS,
-      used: 0,
-      remaining: unlimited ? UNLIMITED_REMAINING : GUEST_CAPTURE_CREDITS,
-      unlimited,
-      capApplies,
-      poolRemaining,
-      poolLow,
-    };
+  // ⚠ CREDITS, NOT ROWS — same reasoning as the RPC's own SUM(points_cost):
+  // a ten-second clip costs up to 8. `used` (row count) only equals credits
+  // spent when points_cost is absent (pre-S2) or every row cost exactly 1.
+  //
+  // 🚨 THE LITERAL BELOW IS DELIBERATE — DO NOT HIDE IT BEHIND A CONSTANT.
+  // `points_cost` was added to `papic_guest_captures` by S2's ceiling
+  // migration (20271184624871, merged as #5017) — this select is simply
+  // correct against the schema on `main`. Before that merge, a named-constant
+  // indirection was tried here to dodge `lib/security/select-column-scan.
+  // test.ts`'s T1 phantom-column guard going (then-correctly) red, and
+  // reverted: `scanSelectSites()` matches STRING LITERALS only, so hiding the
+  // name behind an identifier made the guard blind to the site rather than
+  // passing a real check — worse than red, not a fix for it. Kept as a
+  // literal, and enforced by `papic-guest-ceiling-display.test.ts`, so the
+  // next indirection reflex on a genuinely-missing column gets caught too.
+  let used = 0;
+  let usedCredits = 0;
+  {
+    const { data: rows, error: rowsError } = await supabase
+      .from('papic_guest_captures')
+      .select('points_cost')
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId);
+    if (!rowsError && rows) {
+      used = rows.length;
+      usedCredits = rows.reduce((sum, r) => {
+        const cost = (r as Record<string, unknown>).points_cost;
+        return sum + (typeof cost === 'number' ? cost : 1);
+      }, 0);
+    } else {
+      // ⚠ A READ ERROR AND AN EMPTY RESULT MUST NOT LOOK THE SAME. The
+      // EXPECTED case — points_cost absent on a pre-migration DB (42703, or
+      // its PostgREST/message-substring equivalents) — degrades quietly: that
+      // is the whole point of building this branch ahead of S2. Anything else
+      // is a genuine outage and gets logged, so a guest never sees "0 used,
+      // full total left" that is actually a read failure wearing a zero.
+      if (rowsError && !isMissingRelationError(rowsError)) {
+        logQueryError(
+          'fetchGuestQuota.points_cost',
+          rowsError,
+          { event_id: eventId, guest_id: guestId },
+          'graceful_degrade',
+        );
+      }
+      // Fall back to a bare count, the exact pre-S2 shape (every capture cost
+      // 1). The RPC enforces the real cap; this read only drives the display.
+      const { count, error: countError } = await supabase
+        .from('papic_guest_captures')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId);
+      if (!countError) {
+        used = count ?? 0;
+        usedCredits = used;
+      } else {
+        // Both reads failed — the last-resort fallback itself broke. Always
+        // log this one: there is no more-expected explanation to filter out.
+        logQueryError(
+          'fetchGuestQuota.count',
+          countError,
+          { event_id: eventId, guest_id: guestId },
+          'graceful_degrade',
+        );
+      }
+    }
   }
 
-  const used = count ?? 0;
+  const total = guestCeiling ?? GUEST_CAPTURE_CREDITS;
+  const remaining = unlimited
+    ? UNLIMITED_REMAINING
+    : guestCeiling !== null
+      ? Math.max(0, guestCeiling - usedCredits)
+      : Math.max(0, GUEST_CAPTURE_CREDITS - used);
+
   return {
-    total: GUEST_CAPTURE_CREDITS,
-    used,
-    remaining: unlimited
-      ? UNLIMITED_REMAINING
-      : Math.max(0, GUEST_CAPTURE_CREDITS - used),
+    total,
+    used: guestCeiling !== null ? usedCredits : used,
+    remaining,
     unlimited,
     capApplies,
     poolRemaining,

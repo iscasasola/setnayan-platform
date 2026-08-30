@@ -5,13 +5,16 @@ import type { AiPriceContext } from './setnayan-ai-type-pricing';
 import {
   SETNAYAN_AI_SKU,
   resolveSetnayanAiTypePricePhp,
+  resolveSetnayanAiTierPricesResolution,
+  type AiTierPricesResolution,
 } from './setnayan-ai-event-pricing';
 import { setnayanAiTierSkuForEventType } from './setnayan-ai-type-pricing';
 import {
-  isComebackOfferEligible,
+  comebackEligibleEventIds,
   comebackPricePhp,
-  resolveComebackWindow,
+  resolveUserComebackWindow,
 } from './setnayan-ai-comeback-offer';
+import { resolveComebackScopeForEvent } from './setnayan-ai-comeback-scope.server';
 
 /**
  * setnayan-ai-server.ts — server-only resolution for Setnayan AI pricing.
@@ -98,6 +101,35 @@ export async function resolveSetnayanAiDisplayPricePhp(
   return usable(row?.retail_price_php) ? (row!.retail_price_php as number) : 0;
 }
 
+/**
+ * Both of an event's tier prices, resolved through the SAME per-event-pricing
+ * switch the charge path uses.
+ *
+ * 🔑 THE FLAG CHOOSES THE ROW, NOT THE RULE. With the switch ON an event is
+ * priced from its own tier's row; with it OFF everything falls back to the flat
+ * `SETNAYAN_AI` row. Either way the comeback price is the MIDPOINT of whichever
+ * row applies, so the discount cannot disagree with the price it discounts —
+ * the same reason `resolveSetnayanAiDisplayPricePhp` above exists.
+ *
+ * Tier A's SKU *is* `SETNAYAN_AI`, so passing a wedding type resolves the flat
+ * row either way; the branch only matters for B/C/D types.
+ */
+export async function resolveSetnayanAiTierPricesForEvent(
+  client: SupabaseClient,
+  eventType: string | null | undefined,
+): Promise<AiTierPricesResolution> {
+  if (await resolveSetnayanAiPerEventPricingEnabled()) {
+    return resolveSetnayanAiTierPricesResolution(client, eventType);
+  }
+  // Flag off — checkout charges the flat row, so the offer must be derived from
+  // the flat row. Tier E still has no product, and `resolveSetnayanAiTierPrices
+  // Resolution('wedding')` is exactly the flat-row read.
+  if (setnayanAiTierSkuForEventType(eventType) === null) {
+    return { status: 'resolved', prices: { band: 'E', retailPhp: 0, onboardingPhp: null } };
+  }
+  return resolveSetnayanAiTierPricesResolution(client, 'wedding');
+}
+
 export type SetnayanAiComebackDisplay = {
   regularPhp: number;
   comebackPhp: number;
@@ -118,19 +150,26 @@ export type SetnayanAiComebackDisplay = {
  */
 export async function resolveSetnayanAiComebackDisplayPhp(
   client: SupabaseClient,
+  eventId: string,
   eventType: string | null | undefined,
-  event:
-    | { setnayan_ai_active?: boolean | null; created_at?: string | Date | null }
-    | null
-    | undefined,
   now: Date = new Date(),
 ): Promise<SetnayanAiComebackDisplay | null> {
-  if (!isComebackOfferEligible(event, now)) return null;
-  const window = resolveComebackWindow(event?.created_at, now);
+  // The window is the USER's, so eligibility is decided across every event
+  // their hosts own — not from the one event this page happens to be showing.
+  const scope = await resolveComebackScopeForEvent(client, eventId);
+  if (scope.status === 'read_error') return null; // a screen shows nothing; the
+  // charge path REFUSES on the same read — see lib/order-charge-authority.ts.
+  if (!comebackEligibleEventIds(scope.events, now).includes(eventId)) return null;
+  const window = resolveUserComebackWindow(scope.events, now);
   if (!window?.active) return null;
-  const regularPhp = await resolveSetnayanAiDisplayPricePhp(client, eventType);
-  if (regularPhp <= 0) return null;
-  const comebackPhp = comebackPricePhp(regularPhp);
+
+  const priced = await resolveSetnayanAiTierPricesForEvent(client, eventType);
+  if (priced.status === 'read_error') return null;
+  // THE DERIVATION, not a percentage: half this row's own sign-up saving.
+  const comebackPhp = comebackPricePhp({
+    retailPhp: priced.prices.retailPhp,
+    onboardingPhp: priced.prices.onboardingPhp,
+  });
   if (comebackPhp == null) return null;
-  return { regularPhp, comebackPhp, expiresAt: window.expiresAt };
+  return { regularPhp: priced.prices.retailPhp, comebackPhp, expiresAt: window.expiresAt };
 }

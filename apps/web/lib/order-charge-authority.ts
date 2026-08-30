@@ -57,6 +57,8 @@ import {
   isComebackOfferEligible,
   comebackPriceCentavos,
 } from '@/lib/setnayan-ai-comeback-offer';
+import { resolveComebackScopeForEvent } from '@/lib/setnayan-ai-comeback-scope.server';
+import { resolveSetnayanAiTierPricesForEvent } from '@/lib/setnayan-ai-server';
 import {
   sealServerResolvedTotal,
   type OrderChargeAuthority,
@@ -108,9 +110,11 @@ export type ChargeAuthorityInput = {
  *   1. `SETNAYAN_AI_SUB`              — catalog UNIT price × validated cycles
  *   2. `platform_retail_catalog_v2`   — the retail SKUs (flat + the pax curve)
  *   3. Setnayan AI per-EVENT-TYPE ladder — overrides (2) when the flag is on
- *   3.5 Setnayan AI comeback offer    — discounts whichever of (2)/(3)
- *       resolved, for an event within 24h of `created_at` that has never
- *       owned AI (lib/setnayan-ai-comeback-offer.ts). Server-derived only.
+ *   3.5 Setnayan AI comeback offer    — the MIDPOINT of the event's tier row's
+ *       own regular/sign-up pair (= half its sign-up saving), for an event whose
+ *       hosts are inside their one comeback window and which has never owned AI
+ *       (lib/setnayan-ai-comeback-offer.ts). Derived, never a percentage.
+ *       Server-derived only.
  *   4. `platform_package_catalog`     — bundles (GUIDED_PACK / MEDIA_PACK / PAPIC_UNLOCK*)
  *   5. …nothing else. REFUSE.
  *
@@ -184,31 +188,45 @@ export async function resolveOrderChargeCentavos(
       }
 
       // ── Comeback offer (owner-locked 2026-08-30) ──────────────────────────
-      // One-time 20% off, within 24h of `events.created_at`, for an event that
-      // has never bought AI — applies on TOP of whichever regular price just
-      // resolved above (flat retail or the per-type ladder), never in place of
-      // a separate price list. SERVER-DERIVED ONLY: eligibility is read straight
-      // off the stored event row, exactly like the per-type branch above — a
-      // tampered client cannot claim the window or the discount.
-      const { data: aiEv, error: aiEvErr } = await admin
-        .from('events')
-        .select('created_at, setnayan_ai_active')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      if (aiEvErr) {
-        return {
-          ok: false,
-          refusal: 'read_error',
-          detail: `events(${eventId}): ${aiEvErr.message}`,
-        };
+      // HALF THE SIGN-UP SAVING, DERIVED — never a percentage. The price is the
+      // MIDPOINT between this event's tier row's own regular and sign-up prices
+      // (lib/setnayan-ai-comeback-offer.ts), so it follows a reprice instead of
+      // going quietly wrong at one. A literal `20` here would be the same defect
+      // class as the booking-fee `(5%)` literal: right at today's numbers, wrong
+      // at the next edit.
+      //
+      // SCOPED TO THE USER, PRICED PER EVENT. The window is one per host —
+      // anchored on their earliest event — and inside it every event they own
+      // and have not already bought AI for is offered, each at its OWN tier.
+      // Buying on one event still unlocks only that event.
+      //
+      // SERVER-DERIVED ONLY: the offer set, the window and both prices come from
+      // stored state. Nothing client-supplied reaches this branch, and a discount
+      // is a price.
+      const scope = await resolveComebackScopeForEvent(admin, eventId);
+      if (scope.status === 'read_error') {
+        // SEC-7: a half-read offer set cannot justify a discount, and it must
+        // not silently fall through to full price either — that would charge a
+        // customer the undiscounted amount on a database blip.
+        return { ok: false, refusal: 'read_error', detail: scope.message };
       }
-      if (
-        aiEv &&
-        isComebackOfferEligible(
-          aiEv as { setnayan_ai_active?: boolean | null; created_at?: string | null },
-        )
-      ) {
-        const discounted = comebackPriceCentavos(aiCentavos ?? retail.centavos);
+      if (isComebackOfferEligible(scope.events, eventId)) {
+        const thisEvent = scope.events.find((e) => e.eventId === eventId);
+        const priced = await resolveSetnayanAiTierPricesForEvent(
+          admin,
+          thisEvent?.eventType ?? null,
+        );
+        if (priced.status === 'read_error') {
+          return { ok: false, refusal: 'read_error', detail: priced.message };
+        }
+        const discounted = comebackPriceCentavos({
+          retailPhp: priced.prices.retailPhp,
+          onboardingPhp: priced.prices.onboardingPhp,
+        });
+        // `null` ⇒ this row has no implied sign-up discount to halve
+        // (`SETNAYAN_AI_RENEW`'s NULL, tier E's ₱0, an inverted pair). FAIL
+        // CLOSED: no offer, and the ordinary price below stands. Never 0% off
+        // dressed as an offer, and never a midpoint against zero.
         if (discounted != null) {
           return sealServerResolvedTotal(discounted, 'setnayan_ai_comeback');
         }

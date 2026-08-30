@@ -440,22 +440,21 @@ export default async function EventHomePage({
       ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
       : false;
 
-  // Setnayan AI comeback offer (owner-locked 2026-08-30): a one-time 24h
-  // 20%-off window for an event that never bought AI at set-up. Dormant
-  // whenever the paywall is off (`resolveSetnayanAiPaywallEnabled`) — same
-  // gate `/studio/setnayan-ai` uses — so this costs nothing while the paywall
-  // stays off. `resolveSetnayanAiComebackDisplayPhp` is the single resolver
-  // both this card and the checkout charge path agree with; see
-  // lib/order-charge-authority.ts for the server-side charge-time mirror.
+  // Setnayan AI comeback offer (owner-locked 2026-08-30): one 24h window per
+  // HOST, inside which every event they own that never bought AI is offered at
+  // HALF ITS OWN SIGN-UP SAVING — the midpoint of that event's tier row, never
+  // a hard-coded percentage. Dormant whenever the paywall is off
+  // (`resolveSetnayanAiPaywallEnabled`) — the same gate `/studio/setnayan-ai`
+  // uses — so this costs nothing while the paywall stays off.
+  // `resolveSetnayanAiComebackDisplayPhp` is the single resolver both this card
+  // and the checkout charge path agree with; see lib/order-charge-authority.ts
+  // for the server-side charge-time mirror.
   const paywallOn = await resolveSetnayanAiPaywallEnabled();
   const aiComeback = paywallOn
     ? await resolveSetnayanAiComebackDisplayPhp(
         supabase,
+        eventId,
         (event.event_type as string | null) ?? null,
-        {
-          setnayan_ai_active: (event as { setnayan_ai_active?: boolean | null }).setnayan_ai_active,
-          created_at: (event as { created_at?: string | null }).created_at,
-        },
       ).catch(() => null)
     : null;
   // Only the BUY-card branch needs the BDO/GCash settings — fetch lazily,
@@ -511,8 +510,9 @@ export default async function EventHomePage({
         <PapicReadyNudge eventId={eventId} />
       ) : null}
 
-      {/* Setnayan AI comeback offer — a genuine one-time 24h 20%-off window
-       *  for a couple who didn't buy AI at set-up (owner-locked 2026-08-30).
+      {/* Setnayan AI comeback offer — one 24h window per host, at half this
+       *  event's own sign-up saving, for a couple who didn't buy AI at set-up
+       *  (owner-locked 2026-08-30).
        *  Last in the sequence: the higher-priority nudges above it (set-date,
        *  Papic) ask for one thing at a time, and this is a purchase pitch, not
        *  a setup step. Dormant (aiComeback is null) whenever the paywall is

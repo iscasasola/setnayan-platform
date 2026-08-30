@@ -109,8 +109,22 @@ test('fetchGuestQuota reads the ceiling RPC and folds it through the shared rule
   // never throw — this surface renders on every guest page load.
   assert.match(
     src,
-    /catch\s*\{[\s\S]{0,80}?return null/,
+    /function readGuestSpendCeiling[\s\S]{0,600}?return null/,
     'readGuestSpendCeiling lost its graceful-degrade to null',
+  );
+  // A READ ERROR AND AN EMPTY RESULT MUST NOT LOOK THE SAME (the guard's own
+  // rule, lib/security/select-column-scan.test.ts). The EXPECTED pre-S2 shape
+  // (isMissingRelationError) degrades quietly; anything else must be logged,
+  // or a genuine outage is indistinguishable from "no ceiling set".
+  assert.match(
+    src,
+    /isMissingRelationError/,
+    'the ceiling/points_cost reads stopped telling an expected pre-S2 miss apart from a real outage',
+  );
+  assert.match(
+    src,
+    /logQueryError\(\s*['"]readGuestSpendCeiling['"]/,
+    'an unexpected ceiling-read failure is no longer logged — it would look identical to "no ceiling set"',
   );
 });
 
@@ -142,6 +156,68 @@ test('the low threshold reuses the pool’s own soft-stop constant, not an inven
     /DEFAULT_EVENT_POOL_CONFIG\.softStopPct/,
     'a new arbitrary threshold was invented instead of reusing DEFAULT_EVENT_POOL_CONFIG.softStopPct',
   );
+});
+
+test('points_cost stays a LITERAL .select() argument — not hidden behind a constant', () => {
+  // 🚨 points_cost genuinely does not exist until S2's migration
+  // (20271184624871) merges, so lib/security/select-column-scan.test.ts's T1
+  // phantom-column guard is CORRECT to fail red on this exact site today —
+  // and it can only do that if the argument is a literal it can parse.
+  // `scanSelectSites()` calls `extractSelectSites()` alone, which matches
+  // STRING LITERALS only; an identifier/constant argument produces no site at
+  // all, so indirection doesn't pass the check, it makes the guard blind to
+  // it — silently, which is worse than red. Verified against T1 itself
+  // failing on this exact site before S2 merges is left to CI; this test only
+  // guards against the indirection creeping back in.
+  const src = code(web('lib', 'papic-guest.ts'));
+  assert.match(
+    src,
+    /\.select\(\s*['"]points_cost['"]/,
+    "the literal .select('points_cost') is gone — T1 needs to be able to SEE this site, not be blinded to it",
+  );
+  assert.doesNotMatch(
+    src,
+    /GUEST_CAPTURE_POINTS_COST_COLUMN/,
+    'the reverted named-constant indirection is back — it defeats T1 rather than satisfying it',
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// 4 · THE HONEST "NO" — a ceiling refusal names its remedy, the flat 150 does not
+// ─────────────────────────────────────────────────────────────────────────
+
+test('capReason is read from the server, wired in BOTH handlers, never inferred client-side', () => {
+  const src = code(web(...CAMERA));
+  assert.match(src, /\bconst \[capReason, setCapReason\] = useState/, 'capReason state is gone');
+  const wired = src.match(/setCapReason\(json\.reason \?\? null\)/g) ?? [];
+  assert.equal(
+    wired.length,
+    2,
+    'capReason is no longer set from json.reason in both the photo and clip handlers',
+  );
+});
+
+test('the remedy sentence is scoped to guest_spend_ceiling only, and stays honest', () => {
+  const src = web(...CAMERA); // rendered copy
+  assert.match(
+    src,
+    /capReason === 'guest_spend_ceiling'/,
+    'the remedy sentence is no longer gated on the server-reported reason',
+  );
+  // Isolate just the RENDERED sentence (not the whole file, whose comments —
+  // including the one directly above it — legitimately use words like "lost"
+  // to describe this very rule).
+  const match = src.match(
+    /<p className="text-sm text-cream\/70">\s*([\s\S]{0,200}?)<\/p>\s*\) : null}/,
+  );
+  assert.ok(match?.[1], 'could not isolate the rendered remedy sentence');
+  const sentence: string = match[1] as string;
+  assert.match(sentence, /they can open\s+up more at any time/, 'the one-sentence remedy copy is gone');
+  // Must NOT promise the remedy happens, imply the shot is lost, or send her
+  // to go ask the host directly.
+  assert.doesNotMatch(sentence, /will (raise|open|add)/i, 'copy promises the remedy will happen');
+  assert.doesNotMatch(sentence, /\blost\b|\bgone\b|\bdiscarded\b/i, 'copy implies a shot was lost');
+  assert.doesNotMatch(sentence, /\bask (the )?(host|couple)\b/i, 'copy sends the guest to go ask the host');
 });
 
 test('the exhausted congratulation still reads the dynamic total, not a hardcoded 150', () => {

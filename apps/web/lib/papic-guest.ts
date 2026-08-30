@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { logQueryError } from '@/lib/supabase/error-detect';
+import { logQueryError, isMissingRelationError } from '@/lib/supabase/error-detect';
 import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitlements';
 import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
 import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic-guest-cap';
@@ -228,9 +228,19 @@ async function readGuestSpendCeiling(
     const { data, error } = await supabase.rpc('papic_guest_spend_ceiling', {
       p_guest_id: guestId,
     });
-    if (error) return null;
+    if (error) {
+      // 42883 function-not-found (pre-S2) is the EXPECTED shape this branch
+      // is built to degrade through — quiet. Anything else is a genuine
+      // outage, and staying silent about it would understate the couple's
+      // ceiling on the guest's screen without a trace of why.
+      if (!isMissingRelationError(error)) {
+        logQueryError('readGuestSpendCeiling', error, { guest_id: guestId }, 'graceful_degrade');
+      }
+      return null;
+    }
     return typeof data === 'number' ? data : null;
-  } catch {
+  } catch (err) {
+    logQueryError('readGuestSpendCeiling', err, { guest_id: guestId }, 'graceful_degrade');
     return null;
   }
 }
@@ -290,6 +300,18 @@ export async function fetchGuestQuota(
   // ⚠ CREDITS, NOT ROWS — same reasoning as the RPC's own SUM(points_cost):
   // a ten-second clip costs up to 8. `used` (row count) only equals credits
   // spent when points_cost is absent (pre-S2) or every row cost exactly 1.
+  //
+  // 🚨 THE LITERAL BELOW IS DELIBERATE — DO NOT HIDE IT BEHIND A CONSTANT.
+  // `points_cost` does not exist on `papic_guest_captures` until S2's ceiling
+  // migration (20271184624871) merges, so `lib/security/select-column-scan.
+  // test.ts`'s phantom-column guard (T1) is CORRECT to fail red on this exact
+  // line today — that failure is the ordering (S4 after S2) enforced by a
+  // guard instead of a document. A named-constant indirection was tried and
+  // reverted: `scanSelectSites()` only calls `extractSelectSites()`, which
+  // matches STRING LITERALS only (SELECT_RE) — an identifier argument produces
+  // no site at all, so the guard goes SILENTLY BLIND rather than passing a
+  // real check. That is worse than red, not a fix for it. Leave this red until
+  // #5017 merges; it clears on its own once the column exists.
   let used = 0;
   let usedCredits = 0;
   {
@@ -300,18 +322,27 @@ export async function fetchGuestQuota(
       .eq('guest_id', guestId);
     if (!rowsError && rows) {
       used = rows.length;
-      usedCredits = rows.reduce(
-        (sum, r) =>
-          sum + (typeof (r as { points_cost?: unknown }).points_cost === 'number'
-            ? (r as { points_cost: number }).points_cost
-            : 1),
-        0,
-      );
+      usedCredits = rows.reduce((sum, r) => {
+        const cost = (r as Record<string, unknown>).points_cost;
+        return sum + (typeof cost === 'number' ? cost : 1);
+      }, 0);
     } else {
-      // Pre-migration DB (points_cost column absent, 42703) or any other read
-      // error → fall back to a bare count, the exact pre-S2 shape (every
-      // capture cost 1). The RPC enforces the real cap; this read only drives
-      // the display.
+      // ⚠ A READ ERROR AND AN EMPTY RESULT MUST NOT LOOK THE SAME. The
+      // EXPECTED case — points_cost absent on a pre-migration DB (42703, or
+      // its PostgREST/message-substring equivalents) — degrades quietly: that
+      // is the whole point of building this branch ahead of S2. Anything else
+      // is a genuine outage and gets logged, so a guest never sees "0 used,
+      // full total left" that is actually a read failure wearing a zero.
+      if (rowsError && !isMissingRelationError(rowsError)) {
+        logQueryError(
+          'fetchGuestQuota.points_cost',
+          rowsError,
+          { event_id: eventId, guest_id: guestId },
+          'graceful_degrade',
+        );
+      }
+      // Fall back to a bare count, the exact pre-S2 shape (every capture cost
+      // 1). The RPC enforces the real cap; this read only drives the display.
       const { count, error: countError } = await supabase
         .from('papic_guest_captures')
         .select('id', { count: 'exact', head: true })
@@ -320,6 +351,15 @@ export async function fetchGuestQuota(
       if (!countError) {
         used = count ?? 0;
         usedCredits = used;
+      } else {
+        // Both reads failed — the last-resort fallback itself broke. Always
+        // log this one: there is no more-expected explanation to filter out.
+        logQueryError(
+          'fetchGuestQuota.count',
+          countError,
+          { event_id: eventId, guest_id: guestId },
+          'graceful_degrade',
+        );
       }
     }
   }

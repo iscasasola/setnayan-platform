@@ -357,6 +357,11 @@ export function PapicGuestCapture({
     from a number nobody chose.
   */
   const [capReached, setCapReached] = useState(false);
+  // Which per-guest limit actually bound (S4): the couple's own ceiling, or
+  // the platform's flat 150. Server-authoritative (json.reason), never
+  // guessed — only capReason === 'guest_spend_ceiling' gets the one extra
+  // sentence naming a remedy the flat 150 does not have.
+  const [capReason, setCapReason] = useState<string | null>(null);
   const [poolEmpty, setPoolEmpty] = useState(false);
   const capExhausted = capReached || (capApplies && remaining <= 0);
   const exhausted = capExhausted || poolEmpty;
@@ -497,6 +502,14 @@ export function PapicGuestCapture({
         captureId?: string | null;
         /** Set on a capture-window refusal, so the copy can name the date. */
         eventDay?: string | null;
+        /**
+         * Set on `quota_exhausted` (S2, migration 20271184624871):
+         * `'guest_spend_ceiling'` when the COUPLE's own ceiling refused this
+         * shot, `'per_guest_credits'` for the platform's flat 150, undefined
+         * pre-migration. Server-authoritative — only the RPC knows which limit
+         * actually bound; this is never inferred client-side.
+         */
+        reason?: string;
       };
 
       /*
@@ -519,6 +532,7 @@ export function PapicGuestCapture({
       if (json.status === 'quota_exhausted') {
         setRemaining(0);
         setCapReached(true);
+        setCapReason(json.reason ?? null);
         setSaveError(null);
         announceOutOfShots();
         return;
@@ -773,6 +787,8 @@ export function PapicGuestCapture({
           captureId?: string | null;
           /** Set on a capture-window refusal, so the copy can name the date. */
           eventDay?: string | null;
+          /** Set on `quota_exhausted` — see the photo handler's copy of this type. */
+          reason?: string;
         };
 
         /*
@@ -795,6 +811,7 @@ export function PapicGuestCapture({
         if (json.status === 'quota_exhausted') {
           setRemaining(0);
           setCapReached(true);
+          setCapReason(json.reason ?? null);
           setSaveError(null);
           announceOutOfShots();
           return;
@@ -1524,6 +1541,19 @@ export function PapicGuestCapture({
                 <p className="text-sm text-cream/70">
                   Thank you for helping capture {eventName}. They’ll treasure these.
                 </p>
+                {/* THE ONE SENTENCE OF DIFFERENCE (S4, per owner ruling relayed
+                    2026-08-30): a ceiling the COUPLE set has a remedy the
+                    platform's flat 150 does not. Scoped tight — names that a
+                    remedy exists without promising it happens, without
+                    implying anything just taken was lost, and without sending
+                    her to go ask them mid-celebration. Server-authoritative:
+                    only fires when the RPC itself says `guest_spend_ceiling`. */}
+                {capReason === 'guest_spend_ceiling' ? (
+                  <p className="text-sm text-cream/70">
+                    This is the number the host set aside for you — they can open
+                    up more at any time.
+                  </p>
+                ) : null}
               </>
             )}
           </div>

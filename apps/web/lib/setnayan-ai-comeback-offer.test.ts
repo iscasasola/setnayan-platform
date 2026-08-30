@@ -28,6 +28,7 @@ import {
   type ComebackScopeEvent,
 } from './setnayan-ai-comeback-offer';
 import { roundPesoTiesDown } from './onboarding-family-discount';
+import { stripComments } from './strip-comments';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -230,9 +231,21 @@ test('an unparseable created_at does not become the anchor for its siblings', ()
  */
 test('GUARD: the comeback price path contains no percentage', () => {
   const src = readFileSync(new URL('./setnayan-ai-comeback-offer.ts', import.meta.url), 'utf8');
-  // Strip block/line comments — the docblock legitimately DISCUSSES percentages
-  // (40.02, 20, 10) and must not trip the guard it is explaining.
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  /**
+   * Comments come out via the SHARED lexer, never a hand-rolled regex — the
+   * module's docblock legitimately DISCUSSES percentages (40.02 · 20 · 10) and
+   * must not trip the guard it is explaining.
+   *
+   * 🪤 THIS WAS A TWO-REPLACE REGEX AND CI CAUGHT IT
+   * (`scripts/lint-one-comment-stripper.mjs`). That form is not a stripper: a
+   * `/*` inside a STRING opens a comment that runs to the next real `*` + `/`,
+   * blanking real code — and a guard that then asserts `doesNotMatch` against a
+   * blank PASSES. A check that cannot fail is not a check.
+   */
+  const code = stripComments(src);
+  // The stripper must not have eaten the file — the failure mode above, pinned
+  // so this guard cannot go quietly vacuous.
+  assert.ok(code.includes('comebackPricePhp'), 'stripComments must leave the code intact');
 
   assert.doesNotMatch(
     code,

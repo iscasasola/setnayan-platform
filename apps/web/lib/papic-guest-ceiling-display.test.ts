@@ -30,10 +30,14 @@ import {
   papicGuestCapApplies,
   papicGuestCapAppliesWithCeiling,
 } from './papic-guest-cap';
+import { stripComments } from './strip-comments';
 
 const web = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
-const code = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+// ONE comment stripper in this repo (lib/strip-comments.ts) — a hand-rolled
+// regex here is exactly the defect class scripts/lint-one-comment-stripper.mjs
+// exists to stop (a `/*` inside a string like `video/*` opens a comment that
+// blanks real code to the next `*/`, and a guard then asserts against nothing).
+const code = (s: string) => stripComments(s);
 
 // ─────────────────────────────────────────────────────────────────────────
 // 1 · THE RULE — a ceiling always overrides, in every combination
@@ -109,7 +113,7 @@ test('fetchGuestQuota reads the ceiling RPC and folds it through the shared rule
   // never throw — this surface renders on every guest page load.
   assert.match(
     src,
-    /function readGuestSpendCeiling[\s\S]{0,600}?return null/,
+    /function readGuestSpendCeiling\s*\([\s\S]{0,1200}?return null/,
     'readGuestSpendCeiling lost its graceful-degrade to null',
   );
   // A READ ERROR AND AN EMPTY RESULT MUST NOT LOOK THE SAME (the guard's own

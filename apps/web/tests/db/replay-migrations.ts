@@ -24,9 +24,14 @@
  *     (20260518500000) declares two embedding columns as extensions.vector(384);
  *     they are shimmed to text (inert storage, not used by any tested path)
  *
- * Replay order: filename order, with failures retried until fixpoint — the
- * corpus is not strictly linear (a few files are back-numbered relative to
- * objects they touch; prod converged via repeated `db push` over time).
+ * Replay order: filename order, with a failure retried EAGERLY — after every
+ * later file that succeeds, before advancing — so a back-numbered file lands
+ * at the earliest index at which it can apply and never after the whole
+ * corpus. That distinction is not cosmetic: retrying to a fixpoint at the END
+ * let a 2026-05-30 seed overwrite the 2026-08-27 owner price sheet in every
+ * database built from migrations. See `replayInFilenameOrder` for the
+ * measurement and for the two designs that were rejected. Every out-of-order
+ * landing is reported in `ReplayResult.outOfOrder`.
  * Two files are unapplyable on a FRESH database by construction and are
  * skipped with reasons (see ALLOWED_SKIP).
  *
@@ -275,12 +280,156 @@ function preprocess(sql: string): string {
   return sql;
 }
 
+/**
+ * A migration that could NOT apply at its own position in filename order, and
+ * the point at which it finally did. `landedAfterIndex` is the EARLIEST index
+ * at which the file succeeded, so every migration numbered above
+ * `landedAfter` still runs AFTER it — which is the whole property that keeps
+ * an old seed from overwriting a newer reprice. See `replayInFilenameOrder`.
+ */
+export type OutOfOrderApplication = {
+  /** The back-numbered migration. */
+  file: string;
+  /** Its own index in filename order (0-based). */
+  index: number;
+  /** The file after whose successful apply it finally went in. */
+  landedAfter: string;
+  /** That file's index. */
+  landedAfterIndex: number;
+  /** First line of the error it raised at its own position. */
+  reason: string;
+};
+
 export type ReplayResult = {
   db: PGlite;
   applied: number;
   total: number;
   skipped: Array<{ file: string; reason: string }>;
+  /**
+   * Every file that had to be applied away from its filename position, with
+   * where it landed. EMPTY is the ideal; a growing list is a real finding, not
+   * paperwork. `replay-order-is-honest.db.test.ts` pins this.
+   */
+  outOfOrder: OutOfOrderApplication[];
 };
+
+/**
+ * The seam the ordering engine writes through. Split out from PGlite so the
+ * ordering rule can be tested with a fake corpus in milliseconds — the real
+ * corpus takes ~8 s and cannot express "an old file that overwrites a new one"
+ * as a controlled experiment.
+ */
+export type ApplyPort = {
+  apply(file: string): Promise<void>;
+  /** Discard the transaction an aborted apply left open. */
+  rollback(): Promise<void>;
+};
+
+export type ReplayOrder = {
+  applied: number;
+  /** Files that never applied at all, → the last error each raised. */
+  deferred: Map<string, string>;
+  outOfOrder: OutOfOrderApplication[];
+};
+
+/**
+ * ⚠ THE ORDERING RULE, AND THE DEFECT IT REPLACED — measured 2026-08-31.
+ *
+ * This corpus is not strictly linear: a handful of files are back-numbered
+ * relative to objects they touch (prod converged via repeated `db push` over
+ * time, applying each file ONCE when it was authored). A replay from an empty
+ * database therefore has to do something when a file fails on its own turn.
+ *
+ * 🚨 WHAT IT USED TO DO: collect every failure, then retry the collection to a
+ * fixpoint AFTER the whole corpus had run. That put the back-numbered files
+ * LAST — so the OLDEST file won. Seven files took that path on a normal run,
+ * all cascading from ONE root: `20260530010000` (index 116) needs
+ * `vendor_billing_catalog`, which `20260631000000` (index 187) creates. It was
+ * therefore replayed after index 1269 — and it carries
+ *
+ *     UPDATE vendor_billing_catalog SET price_php = 2499 WHERE sku_code = 'pro_vendor_monthly';
+ *     UPDATE vendor_billing_catalog SET price_php = 24999 WHERE sku_code = 'pro_vendor_annual';
+ *
+ * which overwrote the 2026-08-27 owner price sheet (`20271171000513`, index
+ * 1212) in EVERY database built from migrations. Both of the rows that file
+ * writes, and only those two, disagreed with the price sheet's own
+ * postcondition — re-running the price sheet against the finished replay
+ * raised its own guard, `a rung the owner left alone has moved`. Production
+ * never had this: it applied each migration once, in authored order, and never
+ * re-ran a 2026-05-30 seed after a 2026-08-27 reprice.
+ *
+ * ✅ WHAT IT DOES NOW: drain the deferred set EAGERLY — after every successful
+ * apply, retry the deferred files to a local fixpoint before advancing. A
+ * back-numbered file therefore lands at the earliest index at which it can
+ * succeed (`20260530010000` now goes in right after `20260631000000`), so
+ * every higher-numbered migration still runs after it and the LAST writer to a
+ * row is the highest-numbered one — the same last-writer-wins prod has.
+ *
+ * 🔑 WHY NOT THE OTHER TWO OPTIONS.
+ *   · "After the fixpoint, re-apply the later files a deferred file could have
+ *     clobbered" — migrations are not idempotent. Re-running `20271171000513`
+ *     against the finished replay does not repair it, it RAISES; and "could
+ *     have clobbered" is not knowable without executing the file.
+ *   · "Fail loudly instead of reordering at all" — that reds 1,924 db tests on
+ *     arrival for a corpus that genuinely is back-numbered, and a guard that
+ *     is red on arrival gets deleted. Loudness is kept where it is affordable:
+ *     every out-of-order landing is REPORTED in `ReplayResult.outOfOrder` and
+ *     pinned by a test, so the next one is seen instead of absorbed.
+ *
+ * ⛔ A FAILED APPLY ROLLS BACK AND CHANGES NOTHING, so the drain only runs
+ * after a SUCCESS, and there is no final fixpoint pass — a file that fails on
+ * the last index cannot succeed on a re-attempt against an unchanged database.
+ */
+export async function replayInFilenameOrder(
+  files: readonly string[],
+  port: ApplyPort,
+): Promise<ReplayOrder> {
+  const ordered = [...files].sort();
+  const indexOf = new Map(ordered.map((f, i) => [f, i] as const));
+  const deferred = new Map<string, string>();
+  const firstFailure = new Map<string, string>();
+  const outOfOrder: OutOfOrderApplication[] = [];
+  let applied = 0;
+
+  async function attempt(f: string): Promise<boolean> {
+    try {
+      await port.apply(f);
+      applied++;
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!firstFailure.has(f)) firstFailure.set(f, msg.split('\n')[0] ?? msg);
+      deferred.set(f, msg);
+      await port.rollback();
+      return false;
+    }
+  }
+
+  for (let i = 0; i < ordered.length; i++) {
+    const f = ordered[i]!;
+    const ok = await attempt(f);
+    if (!ok || deferred.size === 0) continue;
+    // Drain to a LOCAL fixpoint before advancing to i + 1.
+    for (;;) {
+      let progressed = false;
+      for (const d of [...deferred.keys()].sort()) {
+        if (!(await attempt(d))) continue;
+        deferred.delete(d);
+        outOfOrder.push({
+          file: d,
+          index: indexOf.get(d) ?? -1,
+          landedAfter: f,
+          landedAfterIndex: i,
+          reason: firstFailure.get(d) ?? '',
+        });
+        progressed = true;
+      }
+      if (!progressed) break;
+    }
+  }
+
+  return { applied, deferred, outOfOrder };
+}
 
 export type ReplayOptions = {
   /**
@@ -332,36 +481,14 @@ export async function createReplayedDb(opts: ReplayOptions = {}): Promise<Replay
     );
   }
 
-  const deferred = new Map<string, string>();
-  let applied = 0;
-  for (const f of files) {
-    try {
-      await applyOne(f);
-      applied++;
-    } catch (e) {
+  // Ordering lives in replayInFilenameOrder — see its docblock for why a
+  // deferred file is retried EAGERLY and not after the whole corpus.
+  const { applied, deferred, outOfOrder } = await replayInFilenameOrder(files, {
+    apply: applyOne,
+    rollback: async () => {
       await db.exec('ROLLBACK').catch(() => {});
-      deferred.set(f, e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  // Retry to fixpoint — resolves the back-numbered files.
-  let pass = 0;
-  while (deferred.size > 0 && pass < 10) {
-    pass++;
-    let progressed = false;
-    for (const f of [...deferred.keys()]) {
-      try {
-        await applyOne(f);
-        deferred.delete(f);
-        applied++;
-        progressed = true;
-      } catch (e) {
-        await db.exec('ROLLBACK').catch(() => {});
-        deferred.set(f, e instanceof Error ? e.message : String(e));
-      }
-    }
-    if (!progressed) break;
-  }
+    },
+  });
 
   const skipped: Array<{ file: string; reason: string }> = [];
   for (const [f, reason] of ALLOWED_SKIP) {
@@ -384,7 +511,7 @@ export async function createReplayedDb(opts: ReplayOptions = {}): Promise<Replay
   // freeze (exposure-freeze.db.test.ts) blind to exactly the class of bug it
   // exists to catch.
 
-  return { db, applied: applied + skipped.length, total: files.length, skipped };
+  return { db, applied: applied + skipped.length, total: files.length, skipped, outOfOrder };
 }
 
 /** Impersonate a user for auth.uid()-gated RPCs (NULL uuid = anonymous). */

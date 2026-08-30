@@ -523,7 +523,31 @@ export default async function PapicLandingPage() {
       </section>
 
       {/* ── TWO WAYS TO RUN IT — before the cost, so people know what they
-             would be buying before they are told a number. ───────────────── */}
+             would be buying before they are told a number.
+
+             ⚠ THE SECOND CARD CARRIES THE ONE CLAIM THIS PAGE WAS NOT ALLOWED
+             TO MAKE UNTIL 2026-08-30. A per-guest ceiling shipped and SERVES
+             (#5002 · #5017 · #5014 · #5019, all ancestors of the deployed
+             0d0b265) — before that the page was forbidden from mentioning it,
+             and `papic-page-says-only-what-is-true.test.ts` held the line.
+
+             It is one SENTENCE in an existing card, deliberately, not a
+             section: this page measured 12,847px at 375px on 2026-08-29 and
+             two PRs were spent cutting it. A claim is not a feature tour.
+
+             🔑 WHY THE CLAIM MAY SAY "still there for everyone else" — the
+             ceiling is a CEILING, NOT A RESERVATION. The migration's own
+             header states it: "Nothing is carved out of the pot; no guest
+             holds a wallet; unspent credits stay shared." So the second half
+             of this sentence is true BY CONSTRUCTION rather than by a feature
+             that returns anything — there is no release to wait for and no
+             way for it to drift out of true.
+
+             ⛔ NEVER PRINT A NUMBER HERE. The couple chooses it; a figure on
+             this page would be a promise the product does not make. The
+             sponsor default (principal ×3, cord/veil/coin/candle ×2) is a
+             PLACEHOLDER the couple overwrites and must not be claimed as an
+             allowance anybody receives. ───────────────────────────────────── */}
       <section className="mx-auto mt-16 max-w-3xl" aria-label="Two ways to use Papic">
         <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
           Two ways to run it
@@ -541,7 +565,10 @@ export default async function PapicLandingPage() {
             <h3 className="font-serif text-lg text-[var(--m-ink)]">Let the whole room shoot</h3>
             <p className="mt-2 text-sm text-[var(--m-slate-2)]">
               Everything you haven’t set aside stays in one shared pot, and every guest shoots from
-              their own phone — like handing each table a digital disposable camera.
+              their own phone — like handing each table a digital disposable camera. You can decide
+              how many credits one guest may spend — name the few who should have more, and the rest
+              split what is left evenly. Nothing is carved out, so whatever a guest doesn’t use is
+              still there for everyone else.
             </p>
           </div>
         </div>

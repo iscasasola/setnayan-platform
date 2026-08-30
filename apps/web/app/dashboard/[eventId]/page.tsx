@@ -43,11 +43,15 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
+import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
 import { EventDashboard } from './_components/event-dashboard';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
 import { papicNudgeShouldShow } from '@/lib/papic-home-tile';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
+import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import { resolveSetnayanAiComebackDisplayPhp } from '@/lib/setnayan-ai-server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -149,7 +153,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug';
+      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -436,6 +440,28 @@ export default async function EventHomePage({
       ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
       : false;
 
+  // Setnayan AI comeback offer (owner-locked 2026-08-30): a one-time 24h
+  // 20%-off window for an event that never bought AI at set-up. Dormant
+  // whenever the paywall is off (`resolveSetnayanAiPaywallEnabled`) — same
+  // gate `/studio/setnayan-ai` uses — so this costs nothing while the paywall
+  // stays off. `resolveSetnayanAiComebackDisplayPhp` is the single resolver
+  // both this card and the checkout charge path agree with; see
+  // lib/order-charge-authority.ts for the server-side charge-time mirror.
+  const paywallOn = await resolveSetnayanAiPaywallEnabled();
+  const aiComeback = paywallOn
+    ? await resolveSetnayanAiComebackDisplayPhp(
+        supabase,
+        (event.event_type as string | null) ?? null,
+        {
+          setnayan_ai_active: (event as { setnayan_ai_active?: boolean | null }).setnayan_ai_active,
+          created_at: (event as { created_at?: string | null }).created_at,
+        },
+      ).catch(() => null)
+    : null;
+  // Only the BUY-card branch needs the BDO/GCash settings — fetch lazily,
+  // same pattern as the studio buy page.
+  const aiComebackSettings = aiComeback ? await fetchPlatformSettings(supabase) : null;
+
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
   // between the At-a-glance bento and the journey rail.
@@ -483,6 +509,23 @@ export default async function EventHomePage({
        *  that is settled. */}
       {event.event_date && papicNudgeVisible ? (
         <PapicReadyNudge eventId={eventId} />
+      ) : null}
+
+      {/* Setnayan AI comeback offer — a genuine one-time 24h 20%-off window
+       *  for a couple who didn't buy AI at set-up (owner-locked 2026-08-30).
+       *  Last in the sequence: the higher-priority nudges above it (set-date,
+       *  Papic) ask for one thing at a time, and this is a purchase pitch, not
+       *  a setup step. Dormant (aiComeback is null) whenever the paywall is
+       *  off, the event already owns AI, or the 24h window has lapsed. */}
+      {aiComeback && aiComebackSettings ? (
+        <SetnayanAiComebackOffer
+          eventId={eventId}
+          displayName={(event as { display_name?: string | null }).display_name ?? null}
+          regularPhp={aiComeback.regularPhp}
+          comebackPhp={aiComeback.comebackPhp}
+          expiresAtIso={aiComeback.expiresAt.toISOString()}
+          settings={aiComebackSettings}
+        />
       ) : null}
 
       {/* Chinese (Tsinoy) tea-ceremony helper — a FREE, ceremony-gated tile.
@@ -551,7 +594,7 @@ export default async function EventHomePage({
   );
 
   const hasOverlays =
-    isNikahEvent || !event.event_date || isChineseEvent || canRecur;
+    isNikahEvent || !event.event_date || isChineseEvent || canRecur || Boolean(aiComeback);
 
   return (
     <>

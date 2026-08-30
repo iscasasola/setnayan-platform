@@ -7,6 +7,11 @@ import {
   resolveSetnayanAiTypePricePhp,
 } from './setnayan-ai-event-pricing';
 import { setnayanAiTierSkuForEventType } from './setnayan-ai-type-pricing';
+import {
+  isComebackOfferEligible,
+  comebackPricePhp,
+  resolveComebackWindow,
+} from './setnayan-ai-comeback-offer';
 
 /**
  * setnayan-ai-server.ts — server-only resolution for Setnayan AI pricing.
@@ -91,4 +96,41 @@ export async function resolveSetnayanAiDisplayPricePhp(
     return row!.onboarding_price_php as number;
   }
   return usable(row?.retail_price_php) ? (row!.retail_price_php as number) : 0;
+}
+
+export type SetnayanAiComebackDisplay = {
+  regularPhp: number;
+  comebackPhp: number;
+  expiresAt: Date;
+};
+
+/**
+ * The comeback-offer price to SHOW, or `null` when the event isn't eligible
+ * (already owns AI, window lapsed, or no usable regular price to discount).
+ *
+ * DISPLAY ONLY — DO NOT CHARGE FROM THIS, same rule as
+ * {@link resolveSetnayanAiDisplayPricePhp} above. The charge path re-derives
+ * eligibility and the discounted centavos itself, straight from the stored
+ * event row, in lib/order-charge-authority.ts — this function exists only so
+ * the Home card can show a number, and it calls the SAME regular-price
+ * resolver + the SAME discount math (`comebackPricePhp`) so the two can never
+ * quote different figures.
+ */
+export async function resolveSetnayanAiComebackDisplayPhp(
+  client: SupabaseClient,
+  eventType: string | null | undefined,
+  event:
+    | { setnayan_ai_active?: boolean | null; created_at?: string | Date | null }
+    | null
+    | undefined,
+  now: Date = new Date(),
+): Promise<SetnayanAiComebackDisplay | null> {
+  if (!isComebackOfferEligible(event, now)) return null;
+  const window = resolveComebackWindow(event?.created_at, now);
+  if (!window?.active) return null;
+  const regularPhp = await resolveSetnayanAiDisplayPricePhp(client, eventType);
+  if (regularPhp <= 0) return null;
+  const comebackPhp = comebackPricePhp(regularPhp);
+  if (comebackPhp == null) return null;
+  return { regularPhp, comebackPhp, expiresAt: window.expiresAt };
 }

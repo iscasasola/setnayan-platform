@@ -54,6 +54,10 @@ import {
   resolveSetnayanAiTypeChargeCentavos,
 } from '@/lib/setnayan-ai-event-pricing';
 import {
+  isComebackOfferEligible,
+  comebackPriceCentavos,
+} from '@/lib/setnayan-ai-comeback-offer';
+import {
   sealServerResolvedTotal,
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
@@ -104,6 +108,9 @@ export type ChargeAuthorityInput = {
  *   1. `SETNAYAN_AI_SUB`              — catalog UNIT price × validated cycles
  *   2. `platform_retail_catalog_v2`   — the retail SKUs (flat + the pax curve)
  *   3. Setnayan AI per-EVENT-TYPE ladder — overrides (2) when the flag is on
+ *   3.5 Setnayan AI comeback offer    — discounts whichever of (2)/(3)
+ *       resolved, for an event within 24h of `created_at` that has never
+ *       owned AI (lib/setnayan-ai-comeback-offer.ts). Server-derived only.
  *   4. `platform_package_catalog`     — bundles (GUIDED_PACK / MEDIA_PACK / PAPIC_UNLOCK*)
  *   5. …nothing else. REFUSE.
  *
@@ -151,6 +158,7 @@ export async function resolveOrderChargeCentavos(
     // event's STORED type so a tampered client can't force a cheaper tier.
     // Inert while the flag is off — the helper is never called and the flat
     // catalog charge stands, byte-identical to before.
+    let aiCentavos: number | null = null;
     if (serviceKey === SETNAYAN_AI_SKU && eventId) {
       if (await resolveSetnayanAiPerEventPricingEnabled()) {
         const perType = await resolveSetnayanAiTypeChargeCentavos(
@@ -166,13 +174,48 @@ export async function resolveOrderChargeCentavos(
         //     than the one this branch exists to charge, silently.
         //   absent -> fall through, exactly as the old `null` did. The event row
         //     is genuinely not there; the ordinary catalog charge stands.
-        //   resolved -> seal it.
+        //   resolved -> keep it, so the comeback check below can still discount it.
         if (perType.status === 'read_error') {
           return { ok: false, refusal: 'read_error', detail: perType.message };
         }
         if (perType.status === 'resolved') {
-          return sealServerResolvedTotal(perType.centavos, 'setnayan_ai_event_type');
+          aiCentavos = perType.centavos;
         }
+      }
+
+      // ── Comeback offer (owner-locked 2026-08-30) ──────────────────────────
+      // One-time 20% off, within 24h of `events.created_at`, for an event that
+      // has never bought AI — applies on TOP of whichever regular price just
+      // resolved above (flat retail or the per-type ladder), never in place of
+      // a separate price list. SERVER-DERIVED ONLY: eligibility is read straight
+      // off the stored event row, exactly like the per-type branch above — a
+      // tampered client cannot claim the window or the discount.
+      const { data: aiEv, error: aiEvErr } = await admin
+        .from('events')
+        .select('created_at, setnayan_ai_active')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (aiEvErr) {
+        return {
+          ok: false,
+          refusal: 'read_error',
+          detail: `events(${eventId}): ${aiEvErr.message}`,
+        };
+      }
+      if (
+        aiEv &&
+        isComebackOfferEligible(
+          aiEv as { setnayan_ai_active?: boolean | null; created_at?: string | null },
+        )
+      ) {
+        const discounted = comebackPriceCentavos(aiCentavos ?? retail.centavos);
+        if (discounted != null) {
+          return sealServerResolvedTotal(discounted, 'setnayan_ai_comeback');
+        }
+      }
+
+      if (aiCentavos != null) {
+        return sealServerResolvedTotal(aiCentavos, 'setnayan_ai_event_type');
       }
     }
     return sealServerResolvedTotal(retail.centavos, 'retail_catalog', {

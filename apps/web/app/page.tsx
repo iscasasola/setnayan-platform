@@ -50,9 +50,27 @@ import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward so AI answer engines + SERP cards keep extracting the same
 // brand + price + 0% commission signals.
-const HOME_TITLE = 'Setnayan · Plan your Filipino wedding free — and never lose a photo';
+//
+// 🔑 WIDENED 2026-08-31 — THE FRONT DOOR SOLD ONE EVENT TYPE OUT OF SEVENTEEN.
+// `event_type_vocab` in production carries seventeen rows and every one of them
+// is `status = 'active'` AND `enabled = TRUE` — wedding, debut, gender reveal,
+// birthday, celebration, travel, corporate, tournament, christening,
+// anniversary, graduation, reunion, gala night, simple event, date, hangout,
+// wake. The homepage title and description still said "your Filipino wedding",
+// so the one page an answer engine grounds the whole brand on described a
+// seventeenth of the product. Measured against the live table, not a doc.
+//
+// ⚠ "EVENT", NOT "CELEBRATION", AND THE REASON IS `wake`. A wake is a live,
+// enabled event type and it is not a celebration. The house word elsewhere in
+// the corpus is "celebration"; on the two strings that must cover ALL seventeen
+// it would be false, so these two say "event". Do not "fix" this back.
+//
+// ⚠ WEDDING IS STILL NAMED FIRST in the description and still leads
+// `keywords`. Widening the claim is not the same as dropping the strongest
+// query the brand ranks for — weddings remain the deepest surface.
+const HOME_TITLE = 'Setnayan · Plan any Filipino event free — and never lose a photo';
 const HOME_DESCRIPTION =
-  'Plan your whole Filipino wedding free — then keep every photo, video, and memory in one place. Verified vendor marketplace at 0% commission. Your wedding is just where your life-events collection starts.';
+  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — then keep every photo, video, and memory in one place. Verified vendor marketplace at 0% commission.';
 
 export const metadata = {
   title: HOME_TITLE,
@@ -65,6 +83,10 @@ export const metadata = {
   // remove it from THIS url. Guarded by app/home-brand-name.test.ts.
   applicationName: 'Setnayan',
   alternates: { canonical: '/' },
+  // ⚠ WEDDING TERMS STAY AND STAY FIRST — they are the queries the brand
+  // actually ranks for. The event-type terms below are ADDED, never swapped in:
+  // every one of them is a live `event_type_vocab` row (active + enabled in
+  // production), so none of these sends a searcher to something we cannot run.
   keywords: [
     'Filipino wedding planning',
     'Philippines wedding vendors',
@@ -77,6 +99,12 @@ export const metadata = {
     'wedding photo gallery app',
     'keep wedding photos safe',
     'Filipino life events app',
+    'Filipino debut planning',
+    'christening planner Philippines',
+    'birthday party planner Philippines',
+    'graduation and reunion planning Philippines',
+    'corporate event planner Philippines',
+    'Filipino event planning app',
   ],
   // 🚨 `openGraph` and `twitter` are REPLACED wholesale by the child segment,
   // not deep-merged — next/dist/lib/metadata/resolve-metadata.js does
@@ -177,8 +205,12 @@ const softwareAppJsonLd = {
   inLanguage: 'en-PH',
   publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
   isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
+  // 🔑 SAME WIDENING AS HOME_DESCRIPTION, and this string matters more than it
+  // looks: it is the machine-readable one-paragraph answer an LLM quotes when
+  // asked "what is Setnayan". It said "wedding platform" while sixteen other
+  // event types were live and enabled.
   description:
-    "The Philippines-first wedding platform — plan your wedding free, then keep it all in one place. Couples plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Alaala) the couple keeps, and the wedding becomes its own recurring anniversary — so Setnayan grows from a wedding into the home for every celebration that follows. 0% commission on verified vendor bookings.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Alaala) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified vendor bookings.",
   featureList: [
     // 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP is a paid SKU —
     // the "Free" prefix stays only on tools the ₱0 tier actually includes.
@@ -187,14 +219,25 @@ const softwareAppJsonLd = {
     'Budget tracker with payment-deadline calendar export (free)',
     'Pakulay mood board (free)',
     'Personal Event Hub with branded QR invitations',
-    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (free on every event; paid top-ups for more shots)',
+    // ⚠ "credits", NOT the retired currency word — owner ruling 2026-08-29
+    // (commit 32df56e81). ONLY the currency meaning moved; a photograph is still
+    // "a shot" and the vendor's shot list is untouched. A top-up is something you
+    // BUY, so it is the currency meaning, and the production catalogue's own
+    // titles read "add 100 credits". Guarded by
+    // lib/public-copy-is-not-wedding-only.test.ts.
+    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
     'Live Studio — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified vendors (paid add-on)',
-    'Pakanta — a custom Filipino-style wedding song produced for the couple (paid add-on)',
+    'Pakanta — a custom Filipino-style song produced for the couple (paid add-on)',
     'Animated Monogram — a bespoke monogram + animation across invites, website, and signage (paid add-on)',
-    'Alaala living memory — every photo, video, and milestone from the day gathered into one place the couple keeps',
-    'Grows beyond the wedding — your event becomes its own recurring anniversary with a yearly reminder, and the same tools carry across debuts, birthdays, christenings, and anniversaries as those event types unlock',
-    'Verified Filipino wedding vendor marketplace with 0% commission on every booking',
+    'Alaala living memory — every photo, video, and milestone from the day gathered into one place the host keeps',
+    // ⚠ NO COUNT, DELIBERATELY. "as those event types unlock" was false when
+    // this line was fixed — every row in `event_type_vocab` is already enabled —
+    // and a literal "seventeen" would go false the day the eighteenth ships,
+    // silently, in a machine-readable field. Named examples plus "and more"
+    // stays true in both directions.
+    'The same planning, capture, and memory tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more — and your event becomes its own recurring anniversary with a yearly reminder',
+    'Verified Filipino event vendor marketplace with 0% commission on every booking',
   ],
   offers: {
     '@type': 'Offer',

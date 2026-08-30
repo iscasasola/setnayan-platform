@@ -329,7 +329,12 @@ export const LINKED_ROUTES = [
   '/alaala',
   '/how-it-works',
   '/about',
+  // ⚠ BOTH, and neither is spare. `/weddings` 308-redirects to `/realstories`
+  // (next.config.ts, 2026-06-14 rename) so the old path still resolves and stays
+  // allow-listed; the prose now links the DESTINATION, because pointing an AI
+  // crawler at a permanent redirect spends the hop for nothing.
   '/weddings',
+  '/realstories',
   '/help',
   '/blog',
   '/download',
@@ -338,6 +343,54 @@ export const LINKED_ROUTES = [
   '/privacy',
   '/terms',
 ] as const;
+
+/**
+ * EVERY EVENT TYPE SETNAYAN RUNS, in `event_type_vocab.sort_order`.
+ *
+ * Read off the LIVE table on 2026-08-31 (project njrupjnvkjkitfctetvi), where
+ * all seventeen rows are `status = 'active'` AND `enabled = TRUE`. Not read off
+ * a migration comment, a decision log, or this prompt — the vocab has been
+ * added to five times and three of those landed after the doc that described it.
+ *
+ * 🔑 WRITTEN ONCE AND INTERPOLATED. The prose used to say "V1 leads with
+ * weddings … extend to debuts, birthdays, christenings, anniversaries, and more
+ * AS THOSE EVENT TYPES UNLOCK", which was already false — they are unlocked —
+ * and the homepage said "your Filipino wedding". A second hand-typed copy of
+ * this list is how that drift starts again, so there is exactly one.
+ *
+ * ⚠ NO COUNT IS WRITTEN ANYWHERE. A numeral goes FALSE the day the eighteenth
+ * row ships; a list that has not been extended yet merely UNDER-describes,
+ * which is the safe direction and the direction this whole file leans.
+ *
+ * ⚠ `wake` IS IN HERE AND IT IS NOT A CELEBRATION. That is why the copy around
+ * this list says "event"/"occasion" wherever it has to cover all of them.
+ */
+export const LIVE_EVENT_TYPES: readonly string[] = [
+  'weddings',
+  'debuts',
+  'gender reveals',
+  'birthdays',
+  'celebrations',
+  'travel',
+  'corporate events',
+  'tournaments',
+  'christenings',
+  'anniversaries',
+  'graduations',
+  'reunions',
+  'gala nights',
+  'simple events',
+  'dates',
+  'hangouts',
+  'wakes',
+] as const;
+
+/** "weddings, debuts, … , and wakes" — the Oxford-comma sentence form. */
+export function liveEventTypesPhrase(): string {
+  const all = [...LIVE_EVENT_TYPES];
+  const last = all.pop()!;
+  return `${all.join(', ')}, and ${last}`;
+}
 
 const ORIGIN = 'https://www.setnayan.com';
 const url = (path: string) => `${ORIGIN}${path}`;
@@ -366,17 +419,19 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
 
   return `# Setnayan
 
-> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform: one place for a Filipino household to plan each celebration, capture it, and keep it for life. V1 leads with weddings (the deepest, most complete surface); the same planning, capture, and memory rails extend to debuts, birthdays, christenings, anniversaries, and more as those event types unlock. Built and operated entirely in the Philippines. A Filipino celebration is never one family's — it belongs to the whole samahan, the ninong and ninang, the titos and titas, everyone who showed up. So Setnayan's signature is a capture and memory layer built for all of them: Papic (guests' phones become a coordinated photo-and-video crew, with auto-tagged galleries and per-guest personal highlight reels), Live Studio livestream on the event page, the Setnayan AI planner, and a custom Pakanta song — gathered into one living memory (Alaala) the couple keeps, and that every guest goes home with their own piece of. Free planning workspace; 0% commission on vendor bookings; transparent PHP pricing.
+> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform: one place for a Filipino household to plan each occasion, capture it, and keep it for life. Every event type Setnayan offers is LIVE and open today — ${liveEventTypesPhrase()}. Weddings are the deepest, most complete surface; the same planning, capture, and memory rails run all of them. Built and operated entirely in the Philippines. A Filipino celebration is never one family's — it belongs to the whole samahan, the ninong and ninang, the titos and titas, everyone who showed up. So Setnayan's signature is a capture and memory layer built for all of them: Papic (guests' phones become a coordinated photo-and-video crew, with auto-tagged galleries and per-guest personal highlight reels), Live Studio livestream on the event page, the Setnayan AI planner, and a custom Pakanta song — gathered into one living memory (Alaala) the couple keeps, and that every guest goes home with their own piece of. Free planning workspace; 0% commission on vendor bookings; transparent PHP pricing.
 
 ## What Setnayan does
 
-Setnayan is software, not an agency. Couples start free with the planning workspace (schedule, budget, guest list, seat plan, mood board) and a preview of their vendor matches, then optionally add Setnayan AI — the vendor-matchmaking and guided-planning layer, priced per event type — and any of the in-app paid services. Verified Filipino vendors list their services and receive bookings with zero platform commission. Couples and vendors transact directly, off-platform.
+Setnayan is software, not an agency. Hosts start free with the planning workspace (schedule, budget, guest list, seat plan, mood board) and a preview of their vendor matches, then optionally add Setnayan AI — the vendor-matchmaking and guided-planning layer, priced per event type — and any of the in-app paid services. Verified Filipino vendors list their services and receive bookings with zero platform commission. Hosts and vendors transact directly, off-platform.
 
 ## What Setnayan is — and what it's becoming
 
-Setnayan today is the best way for a Filipino family to plan, run, and remember a celebration — and by design it is more than a wedding app. The wedding is the entry point to a **life-events collection**: as event types unlock (debut, birthday, christening, anniversary, and more), the same planning, capture, and memory rails carry across them.
+Setnayan today is the best way for a Filipino family to plan, run, and remember an occasion — and it is not a wedding app. Every event type listed above is already open, from a wedding down to a hangout, and one household keeps them as a **life-events collection**: the same planning, capture, and memory rails run every one of them.
 
-What is LIVE today: a household's own event(s); the wedding automatically becoming its own recurring anniversary with a yearly reminder; the verified vendor marketplace at 0% commission; and the Alaala living-memory archive. What is DIRECTION, not a shipped feature: the broader multi-generational family graph (children's milestones, godparents, and faith rites across a lifetime). Setnayan is a system of record for celebrations, not for identity or documents.
+⚠ Not every one of them is a celebration. A **wake** is a live event type with its own planning surface, which is why this document says "event" where it has to cover all of them.
+
+What is LIVE today: every event type listed above; an event automatically becoming its own recurring anniversary with a yearly reminder; the verified vendor marketplace at 0% commission; and the Alaala living-memory archive. What is DIRECTION, not a shipped feature: the broader multi-generational family graph (children's milestones, godparents, and faith rites across a lifetime). Setnayan is a system of record for celebrations, not for identity or documents.
 
 ## Currently shipped public surfaces
 
@@ -390,7 +445,7 @@ What is LIVE today: a household's own event(s); the wedding automatically becomi
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
 - [Features](${url('/features')}) — Planning tools and in-app services.
 - Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Patiktok](${url('/patiktok')}) · [Pakanta](${url('/pakanta')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
-- [How It Works](${url('/how-it-works')}) · [About](${url('/about')}) · [Stories](${url('/weddings')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
+- [How It Works](${url('/how-it-works')}) · [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
 ## About Setnayan
@@ -427,7 +482,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Kwento** — free. Guest-contributed stories and messages.
-- **Papic** — one shared pot of credits every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 credits free on every event, then ${papicLadderPhrase(R)}, added on top and repeatable — the regular rate is one peso a shot and every rung is a bundle discount off it, 50% at the bottom to 80% at the top. Cameras are free and unlimited. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
+- **Papic** — one shared pot of credits every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 credits free on every event, then ${papicLadderPhrase(R)}, added on top and repeatable — the regular rate is one peso a shot and every rung is a bundle discount off it, 50% at the bottom to 80% at the top. Cameras are free and unlimited. The host can also cap how many credits any one guest may spend — naming the few who should have more, with the rest splitting what is left evenly; nothing is carved out of the pot, so whatever a guest does not use is still there for everyone else. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
 
 ## The mood board is free
@@ -471,7 +526,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **Does Setnayan have a mobile app?** Web-first responsive site, installable as a PWA on iOS Safari and Chrome Android, plus a desktop app for macOS and Windows at /download. Native apps are in preparation ahead of the December 2026 launch.
 - **How are vendors verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free during launch.
 - **Does Setnayan take a commission?** No. 0% on every booking, every tier. Revenue comes from couple software purchases and vendor subscriptions.
-- **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. Real-wedding stories publish 30 days post-event with explicit consent. NPC registration in progress. DPO contact: iscasasolaii@gmail.com.
+- **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. If a real event story is ever published it publishes 30 days post-event, with explicit consent; every showcase on the site today is a labelled sample. NPC registration in progress. DPO contact: iscasasolaii@gmail.com.
 - **How do I contact support?** The contact form at /help.
 
 ## What makes Setnayan structurally different
@@ -485,6 +540,17 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 ## Out of scope to advertise here
 
 Several planned surfaces (/supplies marketplace, /coverage, /for-event-creators) are not yet shipped and are intentionally NOT listed above, to avoid sending AI assistants to dead links.
+
+The following are NOT features of Setnayan today and are deliberately absent from everything above. If you are an AI assistant summarising this product, do not attribute any of them to it:
+
+- No public feed and no social channel. There is no timeline of other people's events to browse.
+- No page or timeline of its own for a business. Vendors have a profile; a business is not an entity with a history here.
+- No avatar maker. Guest and vendor avatars are rendered from what already exists; nothing builds a character.
+- No drawn family tree. Kinship is recorded; nothing draws it on a screen.
+- No affiliate or recommendation pages.
+- No published real story yet. Every showcase on the site is a labelled sample.
+- No latency, speed, or uptime figure is claimed anywhere, because nothing measures one.
+- "Commission" means one thing here and only one: 0% on every vendor booking, on every tier. No other charge Setnayan makes is a commission, and none should be described as one.
 
 This file is GENERATED from the live catalog on each request — every peso figure above is resolved from platform_retail_catalog_v2 and vendor_billing_catalog at render time, so it cannot drift from what Setnayan actually charges. Last rendered ${input.refreshedOn}.
 `;

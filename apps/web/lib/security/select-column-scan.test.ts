@@ -650,10 +650,17 @@ test('T19 · a phantom named through a CONSTANT is still reported', () => {
  * Constant select sites this scanner still cannot resolve. Each one is a select
  * T1 cannot check, so the number may only SHRINK.
  *
- * Measured 2026-08-30: 74 constant sites, 71 resolved, 3 unresolved.
+ * Measured 2026-08-30: 74 constant sites, 73 resolved, 1 unresolved.
+ *
+ * The one that remains is `FULL_SELECT` in lib/vendor-services.ts, a template
+ * literal built from OTHER constants (`${BASE_COLS}`, `${PRICING_COLS}`).
+ * Resolving it needs cross-variable folding, and `extractSelectSites` already
+ * skips interpolated literals for the same reason — so this is a known,
+ * consistent limit rather than an oversight.
+ *
  * RAISING THIS IS A DECISION, NOT A FIX.
  */
-const UNRESOLVED_CONSTANT_CEILING = 3;
+const UNRESOLVED_CONSTANT_CEILING = 1;
 
 test('T20 · the unresolved-constant blind spot may only shrink', () => {
   const { constantSites, resolved, unresolved, literalSites, sites } = scanAllSelectSites();

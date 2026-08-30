@@ -23,8 +23,8 @@ stays deliberately red until its migration lands.
 | | before | after |
 |---|---|---|
 | literal select sites checked | 3,558 | 3,558 |
-| constant select sites checked | **0 of 74** | **71 of 74** |
-| still unresolved (surfaced, not dropped) | 74 | **3** |
+| constant select sites checked | **0 of 74** | **73 of 74** |
+| still unresolved (surfaced, not dropped) | 74 | **1** |
 | phantom findings | 8 | 8 |
 | **new defects revealed** | — | **0** |
 
@@ -36,6 +36,14 @@ exposure was not. Reporting a scary number would have been easy and false.
 `extractSelectConstants` in only reached 25 of 74, because it matches
 `export const` — and **38 of this repo's 75 canonical declarations are
 file-local.** New `extractAllSelectConstants` reads both and tags which.
+
+⚠ **`as const` was the last 2 of 3.** `GUEST_CAPTURE_GATE_COLUMNS` is exported and
+a plain string, but its declaration ends `… ' as const;` — which made the whole
+declaration fail to match, leaving two live selects (the guest-capture route and
+the guest page) unchecked. Accepting that tail took unresolved from 3 to 1.
+The survivor is `FULL_SELECT`, a template literal built from other constants;
+`extractSelectSites` already skips interpolated literals for the same reason, so
+that limit is consistent rather than an oversight.
 `extractSelectConstants` is deliberately left alone: the omitted-column guard
 compares against a SHARED constant, where a file-local list correctly does not
 count. Widening it there would have changed a different guard's meaning.
@@ -48,7 +56,7 @@ for a site in `lib/b.ts` would invent a binding the compiler itself rejects.
 regressing while the repo hides zero constant phantoms:
 - **T19** — a phantom named through a constant is still reported; plus the
   cross-file scoping rule.
-- **T20** — ratchet: unresolved constant sites may only shrink (ceiling 3), with
+- **T20** — ratchet: unresolved constant sites may only shrink (ceiling **1**), with
   an anti-vacuity floor, and `sites` must BE the union of literal + resolved.
 - **T21** — reads T1's own wiring, because reverting T1 to the literals-only
   scan would change **no test result today** and silently restore the blind spot.

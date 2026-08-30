@@ -293,8 +293,15 @@ export function findPhantomColumns(
  */
 export type ScopedSelectConstant = SelectConstant & { exported: boolean };
 
+/*
+  \u26a0 `as const` IS NOT DECORATION HERE. Two of this repo's three unresolvable
+  constant selects were unresolvable ONLY because the declaration ends
+  `… ' as const;` — `GUEST_CAPTURE_GATE_COLUMNS` in lib/papic-guest-window.ts,
+  read by the guest-capture route and the guest page. Without the optional tail
+  the whole declaration failed to match and two live selects stayed unchecked.
+*/
 const ANY_STRING_CONST_RE =
-  /(export\s+)?const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*((?:'[^']*'|"[^"]*"|`[^`$]*`)(?:\s*\+\s*(?:'[^']*'|"[^"]*"|`[^`$]*`))*)\s*;/g;
+  /(export\s+)?const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*((?:'[^']*'|"[^"]*"|`[^`$]*`)(?:\s*\+\s*(?:'[^']*'|"[^"]*"|`[^`$]*`))*)\s*(?:as\s+const\s*)?;/g;
 const ANY_ARRAY_CONST_RE =
   /(export\s+)?const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*\[([^\]]*)\]/g;
 

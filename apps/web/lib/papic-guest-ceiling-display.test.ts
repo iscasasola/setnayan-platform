@@ -159,26 +159,30 @@ test('the low threshold reuses the pool’s own soft-stop constant, not an inven
 });
 
 test('points_cost stays a LITERAL .select() argument — not hidden behind a constant', () => {
-  // 🚨 points_cost genuinely does not exist until S2's migration
-  // (20271184624871) merges, so lib/security/select-column-scan.test.ts's T1
-  // phantom-column guard is CORRECT to fail red on this exact site today —
-  // and it can only do that if the argument is a literal it can parse.
-  // `scanSelectSites()` calls `extractSelectSites()` alone, which matches
-  // STRING LITERALS only; an identifier/constant argument produces no site at
-  // all, so indirection doesn't pass the check, it makes the guard blind to
-  // it — silently, which is worse than red. Verified against T1 itself
-  // failing on this exact site before S2 merges is left to CI; this test only
-  // guards against the indirection creeping back in.
+  // points_cost was added to papic_guest_captures by S2's migration
+  // (20271184624871, merged as #5017) — this select is now simply correct
+  // against `main`'s own schema, and T1 passes on its own with no change here.
+  //
+  // A named-constant indirection was tried during the hold before S2 merged,
+  // to dodge T1's then-correct red, and reverted: `lib/papic-guest-allotments.
+  // ts` (S3) was mistaken for precedent because it uses the same NAMING
+  // pattern, but it never hands its constants to a `.from().select()` at all —
+  // this site does, and that is the difference that matters. Even after
+  // #5020 (which wired `extractSelectConstants` into the phantom path so a
+  // `.select(CONST)` is now resolved and checked, not skipped) this guard
+  // stays: it is what stops the NEXT session reaching for the same
+  // indirection reflexively, on a column that might genuinely be missing next
+  // time.
   const src = code(web('lib', 'papic-guest.ts'));
   assert.match(
     src,
     /\.select\(\s*['"]points_cost['"]/,
-    "the literal .select('points_cost') is gone — T1 needs to be able to SEE this site, not be blinded to it",
+    "the literal .select('points_cost') is gone",
   );
   assert.doesNotMatch(
     src,
     /GUEST_CAPTURE_POINTS_COST_COLUMN/,
-    'the reverted named-constant indirection is back — it defeats T1 rather than satisfying it',
+    'the reverted named-constant indirection is back',
   );
 });
 

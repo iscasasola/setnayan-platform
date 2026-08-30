@@ -302,16 +302,16 @@ export async function fetchGuestQuota(
   // spent when points_cost is absent (pre-S2) or every row cost exactly 1.
   //
   // 🚨 THE LITERAL BELOW IS DELIBERATE — DO NOT HIDE IT BEHIND A CONSTANT.
-  // `points_cost` does not exist on `papic_guest_captures` until S2's ceiling
-  // migration (20271184624871) merges, so `lib/security/select-column-scan.
-  // test.ts`'s phantom-column guard (T1) is CORRECT to fail red on this exact
-  // line today — that failure is the ordering (S4 after S2) enforced by a
-  // guard instead of a document. A named-constant indirection was tried and
-  // reverted: `scanSelectSites()` only calls `extractSelectSites()`, which
-  // matches STRING LITERALS only (SELECT_RE) — an identifier argument produces
-  // no site at all, so the guard goes SILENTLY BLIND rather than passing a
-  // real check. That is worse than red, not a fix for it. Leave this red until
-  // #5017 merges; it clears on its own once the column exists.
+  // `points_cost` was added to `papic_guest_captures` by S2's ceiling
+  // migration (20271184624871, merged as #5017) — this select is simply
+  // correct against the schema on `main`. Before that merge, a named-constant
+  // indirection was tried here to dodge `lib/security/select-column-scan.
+  // test.ts`'s T1 phantom-column guard going (then-correctly) red, and
+  // reverted: `scanSelectSites()` matches STRING LITERALS only, so hiding the
+  // name behind an identifier made the guard blind to the site rather than
+  // passing a real check — worse than red, not a fix for it. Kept as a
+  // literal, and enforced by `papic-guest-ceiling-display.test.ts`, so the
+  // next indirection reflex on a genuinely-missing column gets caught too.
   let used = 0;
   let usedCredits = 0;
   {

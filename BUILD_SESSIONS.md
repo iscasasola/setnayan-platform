@@ -178,6 +178,25 @@ it. Landing anything new at the root requires its `!/path` line in the same comm
 
 ---
 
+### 🔧 Finding the session that owns a worktree
+
+Learned the hard way on 2026-08-30: a live money defect sat in an unidentifiable `/tmp` worktree
+while it was being actively written, and routing it took a peer who knew the tool.
+
+- **`ListAgents`** gives *messageable names*. **`list_sessions`** gives *sidebar titles*.
+  **They do not match**, so neither alone identifies who owns a branch.
+- 🔑 **`mcp__ccd_session_mgmt__search_session_transcripts` is what bridges them** — full-text across
+  other sessions' transcripts *including tool output*. Searching the filename found the owning
+  session in about a second.
+- ⚠ **`list_sessions` PR numbers can be WRONG.** It labelled one session with #5013 (CLOSED) when
+  that session's PR was #5014 (MERGED) — #5013 was an unrelated PR. **Use it to FIND a session,
+  never to conclude what state its work is in.** Read the PR itself.
+- ⚠ **Undrafting a PR ARMS auto-merge; it does not complete it.** "Undrafted, no failing checks,
+  polling to MERGED" is not merged. Two sessions reported a merge from that state today, both
+  wrong. Check `mergedAt` — not `state`, not the check roll-up.
+
+---
+
 ## 1 · THE RULES OF THIS PROGRAM
 
 1. **Never more than TWO build sessions at once.** Ten parallel builds once shipped 44 defects.
@@ -260,9 +279,18 @@ reads as a live constraint, and it held an owner decision that could no longer b
 session to open this register would have waited on it, or burned ten minutes discovering the subject
 was gone. **Stale instructions are not clutter — they are false constraints.**
 
-✅ **The main checkout is CURRENT.** It was 2237 commits behind and parked on a feature branch; it is
-now on `main` and tracking. The staleness that produced this register's first four false findings is
-resolved.
+⚠ **The main checkout is ON `main` AND TRACKING — which is NOT the same as current.** It was 2237
+commits behind and parked on a feature branch; that specific staleness, the one that produced this
+register's first four false findings, is resolved. But "current" is not a property a document can
+hold: measured **29 behind `origin/main`** at the moment this paragraph was committed, and it went
+stale again the same day — a session read `CLAUDE.md` from it and reported the `0 ORDERS EVER` line
+as live a full day after C10b (PR #5021) had already corrected it upstream.
+
+🔑 **Never assert a checkout's freshness in a file the checkout carries.** Measure it:
+
+```bash
+git fetch origin && git rev-list --left-right --count origin/main...HEAD   # left = behind
+```
 
 ---
 
@@ -400,7 +428,8 @@ AUTONOMY RULES — how this session finishes rather than stalls:
 
 | Session | Model · Effort | Branch | PR | State | Verified by overseer |
 |---|---|---|---|---|---|
-| C10 | Sonnet 5 · high | `claude/c10-docs-stop-being-wrong` | **5015** | ⚠️ **MERGED, INCOMPLETE** — 1 of 11 items; CLAUDE.md untouched | ⚠️ needs follow-up |
+| ~~C10b~~ | — | `claude/c10-docs…` | **5021** | ✅ **MERGED** — `CLAUDE.md` line 51 corrected | ✅ verified on main |
+| ~~C10~~ | — | — | **5015** | ⚠ merged at 1-of-11 → superseded by C10b | ✅ |
 | ~~C6~~ | — | `…-v2` | **5016** | ✅ **MERGED** — fail-open intact | ✅ verified 2026-08-30 |
 | C7 | Opus 5 · medium | — | — | after C6 | — |
 | C2 | Sonnet 5 · medium | — | — | ready | — |

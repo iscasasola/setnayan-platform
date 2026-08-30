@@ -73,11 +73,44 @@ import { join, relative, sep } from 'node:path';
  * text tracking quotes, template literals and escapes, which is why it is a
  * small lexer and not a regex.
  */
+/**
+ * ⚠ THIS IS THE JS TWIN OF apps/web/lib/strip-comments.ts AND MUST STAY
+ * CHARACTER-IDENTICAL IN BEHAVIOUR. `tsconfig.json` sets `allowJs: false` and
+ * the lint scripts run under plain node with no TS loader, so neither can
+ * import the other. `strip-comments.test.ts` now PROVES the two agree over the
+ * whole corpus rather than asking you to remember — before that parity check
+ * existed, this copy was free to drift and nothing would have said so.
+ */
+/**
+ * Characters that can precede a REGEX LITERAL. After any of these a `/` opens a
+ * pattern; after an identifier, a number, `)` or `]` it is division.
+ *
+ * 🪤 `>` IS LOAD-BEARING AND `<` IS DELIBERATELY ABSENT. `=> /re/.test(x)` is
+ * everywhere in this codebase, so dropping `>` re-broke three files. `<` was
+ * tried and removed: it buys almost nothing (`a < /re/.test(b)` is not a thing
+ * anyone writes) and in TSX it makes every closing tag `</p>` look like the
+ * start of a pattern.
+ */
+const REGEX_MAY_FOLLOW_CHAR = new Set([
+  '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';',
+  '+', '-', '*', '%', '~', '^', '>', '\n', '',
+]);
+
+/** Keywords after which a `/` opens a regex rather than dividing. */
+const REGEX_MAY_FOLLOW_WORD = new Set([
+  'return', 'typeof', 'instanceof', 'case', 'in', 'of', 'new',
+  'delete', 'void', 'throw', 'do', 'else', 'yield', 'await',
+]);
+
 export function stripComments(source) {
   const out = source.split('');
   let i = 0;
   const n = source.length;
   let quote = null; // "'" | '"' | '`'
+  // The last non-whitespace character, and the identifier ending at it. Together
+  // they decide whether a `/` opens a pattern or divides.
+  let prevChar = '';
+  let prevWord = '';
   while (i < n) {
     const c = source[i];
     const next = source[i + 1];
@@ -92,21 +125,78 @@ export function stripComments(source) {
     }
     if (c === "'" || c === '"' || c === '`') {
       quote = c;
+      prevChar = c;
+      prevWord = '';
       i += 1;
       continue;
     }
     if (c === '/' && next === '/') {
       while (i < n && source[i] !== '\n') out[i++] = ' ';
+      prevChar = '\n';
+      prevWord = '';
       continue;
     }
     if (c === '/' && next === '*') {
       const end = source.indexOf('*/', i + 2);
-      const stop = end === -1 ? n : end + 2;
+      // NEVER CLOSED ⇒ NOT A COMMENT. See the docblock: in a file that compiles
+      // this is `video/*`, `image/*` or JSX prose, and blanking to EOF here is
+      // how a guard loses two thirds of its subject without a sound.
+      if (end === -1) {
+        prevChar = '/';
+        prevWord = '';
+        i += 1;
+        continue;
+      }
+      const stop = end + 2;
       while (i < stop) {
         if (source[i] !== '\n') out[i] = ' ';
         i += 1;
       }
       continue;
+    }
+    if (
+      c === '/' &&
+      (REGEX_MAY_FOLLOW_CHAR.has(prevChar) || REGEX_MAY_FOLLOW_WORD.has(prevWord))
+    ) {
+      // Scan the literal to its unescaped closing `/`. A `/` inside a character
+      // class does not close it: `/[/]/` is one pattern, not two.
+      let k = i + 1;
+      let inClass = false;
+      let closed = false;
+      for (; k < n; k += 1) {
+        const d = source[k];
+        if (d === '\\') {
+          k += 1;
+          continue;
+        }
+        if (d === '\n') break; // a pattern cannot span a line — this was division
+        if (inClass) {
+          if (d === ']') inClass = false;
+          continue;
+        }
+        if (d === '[') {
+          inClass = true;
+          continue;
+        }
+        if (d === '/') {
+          closed = true;
+          break;
+        }
+      }
+      if (closed) {
+        i = k + 1;
+        while (i < n && /[a-z]/.test(source[i])) i += 1; // flags
+        prevChar = '/';
+        prevWord = '';
+        continue;
+      }
+    }
+    if (!/\s/.test(c)) {
+      prevChar = c;
+      prevWord = /[A-Za-z0-9_$]/.test(c) ? prevWord + c : '';
+    } else if (c === '\n') {
+      prevChar = '\n';
+      prevWord = '';
     }
     i += 1;
   }

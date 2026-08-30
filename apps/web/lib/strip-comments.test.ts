@@ -55,10 +55,50 @@ test('template literals and escaped quotes do not desynchronise the lexer', () =
   assert.match(out, /const after = 3;/);
 });
 
-test('an unterminated block comment eats to EOF and nothing throws', () => {
+test('⚖ REVERSED 2026-08-30 — an unterminated block opener strips NOTHING', () => {
+  // This test used to assert the opposite: that `/*` with no `*/` ate to EOF.
+  // That rule cost more than it bought, and the argument against it is the
+  // compiler's. A file that COMPILES cannot contain a real unterminated block
+  // comment — so every one this codebase actually holds is text or data:
+  // `content-type video/*`, `accept="image/*"`, and JSX prose such as
+  // `(/api/v1/vendor/*)`. Eating to EOF on those blanked two thirds of a file
+  // out of the guard's sight, silently.
   const out = stripComments('const a = 1;\n/* opened and never closed\nconst b = 2;');
   assert.match(out, /const a = 1;/);
-  assert.doesNotMatch(out, /const b = 2;/);
+  assert.match(out, /const b = 2;/, 'code after a never-closed opener must survive');
+  assert.equal(out.length, 'const a = 1;\n/* opened and never closed\nconst b = 2;'.length);
+});
+
+test('🪤 a regex literal with an escaped slash does not eat the rest of the line', () => {
+  // `/foo\//g` ends `\`, `/`, `/`. The lexer read the last two as a line
+  // comment. Judged by TypeScript's own parser this broke 330 files — fifteen
+  // times worse than the naive regex this module was written to replace, and in
+  // the silent direction.
+  const out = stripComments(String.raw`const RE = /foo\//g; const survives = 1;`);
+  assert.match(out, /const survives = 1;/);
+  assert.match(out, /RE = /);
+});
+
+test('🪤 the naive stripper, written as source, survives being read', () => {
+  // The guards most likely to contain a pattern like this are the ones that
+  // scan for banned constructs — so this is the population that was worst hit.
+  const out = stripComments(
+    String.raw`const n = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' '); const survives = 2;`,
+  );
+  assert.match(out, /const survives = 2;/);
+});
+
+test('a real trailing comment after a regex literal is still stripped', () => {
+  // The other direction: fixing the false negative must not create a false one.
+  const out = stripComments(String.raw`const RE = /a\//g; // a genuine note` + '\n');
+  assert.match(out, /const RE = /);
+  assert.doesNotMatch(out, /genuine note/);
+});
+
+test('division is not mistaken for a pattern', () => {
+  const out = stripComments('const half = total / 2; const third = total / 3; const keep = 1;');
+  assert.match(out, /const keep = 1;/);
+  assert.match(out, /total \/ 3/);
 });
 
 test('offsets are preserved — line numbers stay true', () => {

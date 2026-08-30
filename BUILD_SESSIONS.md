@@ -266,8 +266,8 @@ public search surface). *C3+C5 is no longer a constraint — C3 shipped, so C5's
 | | **C2** a venue says what kind of venue it is | Sonnet 5 · medium | none |
 | **3** | **C5** people in the 3D room look like themselves | Opus 5 · high | **unblocked** (C3 shipped) |
 | | **C8** notifications finally have a subscriber | Sonnet 5 · medium | **owner confirms VAPID keys** |
-| **4** | **C1** your family tree, drawn | Opus 5 · high | **after P0-b** |
-| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | **after P0-b · after C1** |
+| **4** | **C1** your family tree, drawn | Opus 5 · high | ✅ **unblocked** — P0-b done |
+| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | **after C1** — P0-b done |
 
 **Why C10 is `high` and not `medium`:** it spans the repo, the corpus and two auto-loaded
 `CLAUDE.md` files, and its failure mode — a correction that lands in one file and not the rest —
@@ -276,15 +276,28 @@ is the thing it exists to prevent. This file proved that failure mode twice in o
 ### The owner track — runs in parallel
 | | What | Cost | Blocks |
 |---|---|---|---|
-| **P0-b** | Write down which switches are ON in production | 1 hour | **C1 and C4 — the critical path** |
+| ~~**P0-b**~~ | ~~Write down which switches are ON in production~~ | — | ✅ **DONE 2026-08-30** → [`build-sessions/P0-b-SWITCHES.md`](build-sessions/P0-b-SWITCHES.md) |
 | **P0-a** | Re-authorise YouTube, stream 5 real minutes | half a day | selling Live Studio |
 | **P3** | Run one real celebration end to end | a real event | nothing — it *is* the point |
 | **P4** | Four decisions only you can make | a sitting | public copy wording |
 
-P0-b minimum to write down: `NEXT_PUBLIC_DEPENDENT_PEOPLE` · `NEXT_PUBLIC_PEOPLE_CONNECTIONS` ·
-`NEXT_PUBLIC_LIFE_STORY` · `NEXT_PUBLIC_PANOOD_STREAMING_ENABLED` ·
-`NEXT_PUBLIC_SMART_SORT_ENABLED` · `NEXT_PUBLIC_BOOKING_FEE_ENABLED` ·
-`SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED`.
+**P0-b is done — all 101 boolean switches are recorded in
+[`build-sessions/P0-b-SWITCHES.md`](build-sessions/P0-b-SWITCHES.md)**, measured against the Vercel
+Production environment and `origin/main @ 0d0b265ba` on 2026-08-30, not against any document.
+
+🔴 **The headline, because it contradicts four code comments and both session prompts:
+`NEXT_PUBLIC_DEPENDENT_PEOPLE` and `NEXT_PUBLIC_PEOPLE_CONNECTIONS` are BOTH ON in production.**
+The counsel-gated dependants surface (a child's birthdate / sex / religion) and the whole
+suggest→confirm connections flow are LIVE — `dependents` and `person_connections` each held 0 rows
+the same hour, which is nobody having used them, not a closed gate. Anything C1 or C4 ships behind
+those flags **reaches real users on merge.** 🔑 Whether the G1 DPO/counsel review was cleared before
+they were flipped is an OWNER question the register flags and does not answer.
+
+Also recorded there: `NEXT_PUBLIC_LIFE_STORY` exists in the dashboard **set to an empty string**, so
+it reads as OFF while looking set · **eleven `!== 'false'` kill switches are ON precisely because
+nobody set them** (including the full-res photo DELETION job) · 47 values are Vercel-`sensitive` and
+**cannot be read back by anyone**, so the register records presence only (this is C8's VAPID answer:
+all three keys exist) · ten variables are set in production and read by **nothing**.
 
 ---
 
@@ -379,11 +392,11 @@ AUTONOMY RULES — how this session finishes rather than stalls:
 | C2 | Sonnet 5 · medium | — | — | ready | — |
 | C5 | Opus 5 · high | — | — | ready | — |
 | C8 | Sonnet 5 · medium | — | — | needs VAPID check · **re-scope, reuse vendor registrar** | premise holds |
-| C1 | Opus 5 · high | — | — | **blocked on P0-b** | — |
-| C4 | Opus 5 · high | — | — | **blocked on P0-b, C1** | — |
+| C1 | Opus 5 · high | — | — | ✅ **ready** — flag is ON in prod | — |
+| C4 | Opus 5 · high | — | — | **after C1** — flag is ON in prod | — |
 | ~~C3~~ | — | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
 | ~~C9~~ | — | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
-| P0-b | owner | — | — | **blocks C1, C4** | — |
+| ~~P0-b~~ | — | `claude/p0b-switch-register` | — | ✅ **DONE** — register landed | ✅ measured 2026-08-30 |
 | P0-a | owner | — | — | not started | — |
 | P3 | owner | — | — | after wave 4 | — |
 | P4 | owner | — | — | not started | — |

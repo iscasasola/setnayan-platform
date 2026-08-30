@@ -7,6 +7,7 @@ import { eventIsOver } from '@/lib/event-is-over.server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
+import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { coupleSlots } from '@/lib/papic-missions';
@@ -1608,4 +1609,193 @@ export async function setCameraShots(formData: FormData) {
 
   revalidatePath(back);
   redirect(`${back}?shots_set=${shots}`);
+}
+
+/**
+ * THE COUPLE'S NUMBERS — the switch, the number for everyone else, one named
+ * guest's allotment, and the button that opens the rest to everyone.
+ *
+ * ⛔ THIS WRITES STORAGE THAT THE CEILING MIGRATION OWNS. Until that migration
+ * is applied these columns do not exist and every call here fails at runtime —
+ * which is exactly why this work must not merge ahead of it. Gate the write,
+ * not the button: a control that saves a number nothing enforces is the
+ * `papic_uploads_open` defect this tree has already paid for once.
+ *
+ * ⚠ THE OUTCOME PARAMS ARE `allotment_*`, NOT `shots_*`. `shots_set` and
+ * `shots_error` are TAKEN — `setCameraShots` above redirects with both, and
+ * reusing them would make one control's confirmation appear after another
+ * control's save. `outcomes-are-shown.test.ts` derives the list from these
+ * redirects, so both names must be wired three ways or it fails.
+ *
+ * ⚠ EVERY NUMBER IS POSTED, NEVER FLIPPED. Same rule as `setPapicUploadsOpen`:
+ * a form that toggles whatever it last read lands on the opposite of what
+ * somebody pressed if the page was stale or they double-tapped.
+ */
+export async function setGuestAllotments(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) redirect(result.redirectTo);
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const fail = (code: string): never =>
+    redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
+
+  // The form posts the value it wants, not a flip of what it read.
+  const enabled = String(formData.get('enabled') ?? '') === '1';
+
+  // 🔑 A BLANK BOX IS NOT ZERO. Blank means "work it out for me" and stores
+  // NULL, so the remainder divides itself; zero means "nobody but my named
+  // guests shoots" and is obeyed. Reading blank as zero would silently mute
+  // every un-named guest because somebody cleared the field to retype it —
+  // the defect `setCameraShots` carries the same warning for.
+  // ⚠ AND ZERO IS NOT AVAILABLE HERE AT ALL. The column's CHECK is
+  // `IS NULL OR > 0`, so a 0 would be refused by the database, not stored. The
+  // asymmetry is deliberate and worth knowing: a NAMED guest may be given 0
+  // (`papic_guest_spend_ceilings.ceiling_points >= 0`) because muting one
+  // person is a choice somebody made about her; muting EVERY un-named guest at
+  // once is not offered. Refuse it here with words rather than letting a
+  // constraint violation come back as "save failed".
+  const rawEveryone = String(formData.get('everyone_else') ?? '').trim();
+  let everyoneElse: number | null = null;
+  if (rawEveryone !== '') {
+    const n = Number(rawEveryone);
+    if (!Number.isFinite(n) || n < 1 || !Number.isInteger(n)) fail('bad_everyone');
+    everyoneElse = n;
+  }
+
+  const { error } = await createAdminClient()
+    .from('events')
+    .update({
+      [ALLOTMENT_STORAGE.enabled]: enabled,
+      [ALLOTMENT_STORAGE.everyoneElse]: everyoneElse,
+    })
+    .eq('event_id', eventId);
+
+  if (error) {
+    logQueryError(
+      'setGuestAllotments',
+      error,
+      { event_id: eventId, enabled, everyone_else: everyoneElse },
+      'graceful_degrade',
+    );
+    fail('save_failed');
+  }
+
+  revalidatePath(back);
+  redirect(`${back}?allotment_set=${enabled ? '1' : '0'}`);
+}
+
+/**
+ * One named guest's number.
+ *
+ * ⚠ A guest is named by SAVING AN AMOUNT and un-named by clearing it — there is
+ * no separate "remove" verb, because two verbs for one state is how a list and
+ * its total come to disagree. A blank box here means "stop naming this guest",
+ * which is a different act from giving her zero, and both are honoured.
+ */
+export async function setGuestAllotment(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) redirect(result.redirectTo);
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const fail = (code: string): never =>
+    redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
+
+  const guestId = String(formData.get('guest_id') ?? '').trim();
+  if (!guestId) fail('unknown_guest');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // 🔑 A TARGET, NOT A DELTA — and NULL un-names her. Naming and un-naming are
+  // therefore the SAME call rather than two code paths that can disagree about
+  // what "no ceiling" means. `papic_dedicate_shots` established this shape; the
+  // ceiling RPC follows it.
+  //
+  // ⚠ A blank box clears the naming; it does NOT store a zero. Giving a guest
+  // zero and not naming her at all are different acts, and both are honoured.
+  const raw = String(formData.get('allotment') ?? '').trim();
+  let points: number | null = null;
+  if (raw !== '') {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) fail('bad_number');
+    points = n;
+  }
+
+  // ⛔ EVERY RULE LIVES IN THE FUNCTION, UNDER A ROW LOCK — that the guest is on
+  // this event, that the figure is sane, that a named allotment is protected
+  // from the release. None of it is re-implemented here. Deriving the same
+  // arithmetic twice is how a screen and a ledger come to disagree.
+  const { error } = await createAdminClient().rpc(ALLOTMENT_RPC.setOne, {
+    p_event_id: eventId,
+    p_guest_id: guestId,
+    p_points: points,
+    p_actor: user!.id,
+  });
+
+  if (error) {
+    // The refusal has to reach the screen. 42501 is "that guest is not on this
+    // event" — a guest id is not a capability — and 22023 is a negative figure.
+    const code = String((error as { code?: string }).code ?? '');
+    if (code === '42501') fail('unknown_guest');
+    if (code === '22023') fail('bad_number');
+    logQueryError(
+      'setGuestAllotment',
+      error,
+      { event_id: eventId, guest_id: guestId, points },
+      'graceful_degrade',
+    );
+    fail('save_failed');
+  }
+
+  revalidatePath(back);
+  redirect(`${back}?allotment_set=${points === null ? 'cleared' : points}`);
+}
+
+/**
+ * OPEN THE REST TO EVERYONE — the button half of the release.
+ *
+ * ⚠ OWNER-RULED, AND THE RULING IS NARROW. This opens the un-named tiers only.
+ * A NAMED GUEST'S UNUSED CREDITS STAY HERS — that is the whole reason naming
+ * somebody means anything, and it is why the release is a stamp on the event
+ * rather than a redistribution of the allotment rows.
+ *
+ * ⚠ Sharing only among guests who have already started shooting was OFFERED AND
+ * REJECTED: a number that shrinks as more people join is a broken promise, and
+ * a guest who arrives late would watch their allowance fall while they queued.
+ * Do not re-propose it.
+ */
+export async function releaseTheRest(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) redirect(result.redirectTo);
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // ⚠ TRUE IS IDEMPOTENT AND RETURNS THE ORIGINAL STAMP — pressing this twice
+  // cannot move the moment the celebration opened, so the button is incapable
+  // of lying about when it happened. The stamp is NOT written here for the same
+  // reason: a clock in the browser is not the clock the database will believe.
+  const { error } = await createAdminClient().rpc(ALLOTMENT_RPC.release, {
+    p_event_id: eventId,
+    p_released: true,
+    p_actor: user!.id,
+  });
+
+  if (error) {
+    logQueryError('releaseTheRest', error, { event_id: eventId }, 'graceful_degrade');
+    redirect(`${back}?allotment_error=save_failed`);
+  }
+
+  revalidatePath(back);
+  redirect(`${back}?allotment_set=released`);
 }

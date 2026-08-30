@@ -148,8 +148,13 @@ test('the scan finds the outcomes (a guard reading nothing passes everything)', 
   //
   // Raise this deliberately when a redirect adds an outcome; NEVER lower it to
   // make a failing run green — a drop means the scan stopped seeing something.
+  //
+  // 19 → 21 on 2026-08-30: `allotment_set` / `allotment_error`, the couple's
+  // per-guest numbers. They could NOT reuse `shots_set` / `shots_error` — those
+  // belong to setCameraShots, and sharing them would show one control's
+  // confirmation after another control's save.
   assert.ok(
-    KEYS.length >= 19,
+    KEYS.length >= 21,
     `expected this route's redirect outcomes, found ${KEYS.length}: ${KEYS.join(', ')}`,
   );
   for (const spanning of ['papic_ref', 'papic_amount', 'papic_order']) {

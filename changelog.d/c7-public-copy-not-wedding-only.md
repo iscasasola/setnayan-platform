@@ -155,3 +155,78 @@ rule already says this (*"commit before you mutate"*); it applies to the mutatio
 just to bulk rewrites. **`git checkout --` cannot tell your sabotage from your work.**
 
 SPEC IMPACT: None.
+
+---
+
+## 2026-08-31 · follow-up: production is the authority, and two guards were reused rather than reinvented
+
+**Owner ruling, relayed and applied: the PRODUCTION prices are the correct prices.** The fixture
+follows production; the catalogue is never bent toward the fixture.
+
+**The full 41-row diff, not a sample.** The first pass corrected only the rows that had been
+pointed at. The exhaustive comparison against `platform_retail_catalog_v2` and
+`vendor_billing_catalog` now reports **0 price differences and 0 `is_active` differences**. It
+also closed three things sampling had missed:
+- two inactive rows carried **truncated titles** (`'Papic Max'` → `'Papic Max (per camera, per
+  day)'`);
+- three rows production has were **absent from the fixture entirely** — `SETNAYAN_AI_RENEW`,
+  `PAPIC_CAMERA_LTD_DAY`, `PAPIC_CAMERA_ROLL_DAY`. `SETNAYAN_AI_RENEW` matters most: it is a
+  **fifth** Setnayan AI price (₱799) sitting beside the four-rung ladder, which is the shape that
+  flattened that ladder once before;
+- the **vendor** rows had never been checked against production at all. All seven prices match.
+
+### 🔴 A REAL FINDING THIS TURNED UP, AND IT IS NOT THIS PR'S TO FIX
+
+`llms-fixture-matches-the-catalog.db.test.ts` compares the fixture to the **replayed migrations**
+— which a unit test structurally cannot do, because there the fixture *is* the thing that is
+wrong. It immediately found **four rows where the migrations and production genuinely disagree**:
+
+| row | migrations | production |
+|---|---|---|
+| `CUSTOM_QR_GUEST` | ₱999 | **₱0** — the per-guest QR is free |
+| `SEATING_3D` | **no row** | sold at ₱1,500 |
+| `pro_vendor_monthly` | ₱2,499 | ₱2,500 |
+| `pro_vendor_annual` | ₱24,999 | ₱26,000 |
+
+**A database seeded only from `supabase/migrations/` comes up charging Pro a different price and
+selling a QR that is free in production, with the 3D Plan missing altogether.** The 2026-08-27
+owner price sheet (`20271171000513`) records `pro_vendor_annual` at ₱26,000 **in its own header**,
+so something later puts it back.
+
+⚠ **The Papic ladder and the Setnayan AI tiers are NOT among them** — migrations carry the uplift
+correctly (₱70 · ₱15,000 · ₱1,680 · ₱2,499), which is why this is four rows and not a systemic
+claim. Each is named in the test with its reason, never silently skipped, **and the exemption list
+is itself guarded**: an entry that stops diverging must be deleted or it hides that row from every
+comparison forever.
+
+### Two guards reused rather than reinvented
+
+- **RULE 0 caught me.** I hand-rolled a comment stripper when `lib/strip-comments.ts` already
+  existed — and mine was the exact broken shape that file was written to retire. A block-comment
+  opener inside a *string* (`accept="image/*"`) starts a comment that never existed and blanks
+  real code to the next closer; measured on this codebase at **5,104 lines across 1,031 files**.
+  **A guard scanning blanked source reports clean because it cannot see anything** — the failure
+  mode this whole session is about. Now imports the shared lexer.
+- ⚠ `home-brand-name.test.ts` still carries its own regex copy. **Pre-existing, flagged, not
+  fixed here** — a separate sweep.
+
+### Flagged, deliberately NOT absorbed
+
+**23 stale `"add N shots"` strings remain in four test files on `main`** (`llms-txt.test.ts` ×17,
+`admin-rows-in-search.test.ts` ×4, `the-desk-says-what-it-approves.test.ts` ×1,
+`pricing-row-diff.test.ts` ×1). **Zero in non-test code** — every shipped page resolves from the
+catalogue, so nothing customer-facing is wrong. Absorbing them would turn a copy change into a
+test-data migration.
+
+🔑 **Why that rot survived on `main` at all, which is the interesting part:** the retired-product
+guard **exempts `.test.ts` files**. `llms-txt-guard-input.ts` is not a test file by name, so
+moving the fixture there put it **under a guard it had been hiding from**, and it fired within
+minutes. The extraction was done to avoid a third copy of the catalogue; **that it also dragged
+the data into the light was accidental, and it is the most useful thing in this PR.**
+
+🪤 **The `git checkout --` trap bit a SECOND time, on the same day it was written down.** The
+mutation harness reverted the shared-lexer change because that change was not yet committed. The
+rule is not "commit before a bulk rewrite" — it is **commit before you run any sabotage at all**,
+because `git checkout --` cannot tell your sabotage from your work.
+
+SPEC IMPACT: None.

@@ -319,7 +319,7 @@ function ReleaseSection({
               {seatToken ? <input type="hidden" name="seat_token" value={seatToken} /> : null}
               <button
                 type="submit"
-                className="rounded-lg bg-terracotta px-3 py-2 text-xs font-medium text-white hover:bg-terracotta/90"
+                className="rounded-lg bg-mulberry px-3 py-2 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600"
               >
                 Give {standing.releasable.toLocaleString('en-PH')} to the celebration
               </button>

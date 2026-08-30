@@ -26,14 +26,21 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
-/** Strip comments — a note explaining a rule must not satisfy its own test. */
-const noComments = (src: string) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+/** Strip comments — a note explaining a rule must not satisfy its own test.
+ *
+ *  🪤 THIS USED TO BE TWO `.replace()` CALLS AND IT WAS BLIND. Block comments
+ *  first, so a `//` line holding `video/*` — which the route this file scans
+ *  contains — opened a comment that closed at the next real docblock. On
+ *  2026-08-30 adding ONE JSDoc to that route cut what these tests could see from
+ *  16,218 characters to 6,430 and turned four of them red at once, on a change
+ *  that touched nothing they assert. */
+const noComments = stripComments;
 
 // ── the purchase now reaches the cookie-only guest ─────────────────────────
 

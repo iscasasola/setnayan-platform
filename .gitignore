@@ -32,6 +32,14 @@
 # anything added to it later disappears from `git status` with no error.
 !/internal-decks/
 
+# Added 2026-08-30 with BUILD_SESSIONS.md, which links to every file in here.
+# Caught before landing: `build-sessions/` had no allowlist line, so `git add -A`
+# would have staged the top-level BUILD_SESSIONS.md (already covered by `!/*.md`
+# below) while silently dropping the 9 per-session prompt files it points to —
+# same swallowing pattern as the `internal-decks/` incident above, one new
+# top-level directory later.
+!/build-sessions/
+
 # --- build + tooling config at the root ---
 !/package.json
 !/pnpm-lock.yaml

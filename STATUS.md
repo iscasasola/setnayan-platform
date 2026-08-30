@@ -20,7 +20,9 @@
 
 Measured against the live database and the live site, not remembered.
 
-**8 events · 39 guests** (largest roster 32) · **2 shops** · **0 orders, ever** · **14 Papic
+**8 events · 39 guests** (largest roster 32) · **2 shops** · ~~**0 orders, ever**~~ ⚠ **CORRECTED
+2026-08-30 (C10): 6 orders as of 2026-08-29** — four paid and receipted (₱2,499 GCash · ₱2,899
+GCash · ₱147 GCash · ₱49 BDO), two cancelled; most recent completed 2026-08-29 — · **14 Papic
 photos** (13 stills + 1 clip, one event, none hidden).
 ⚠ This line said **"0 photos"** when first written *today*, in the section headed "measured, not
 remembered". It was not measured. **Do not treat the gallery as empty** when reasoning about

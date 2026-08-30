@@ -22,6 +22,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
 
@@ -45,7 +46,7 @@ test('🪤 the ceiling does NOT live in a "use server" file', () => {
   // 'use server' file". It cost a red CI run. tsc cannot catch it.
   const actions = read('app', 'papic', 'actions.ts');
   assert.doesNotMatch(
-    actions.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, ''),
+    stripComments(actions),
     /export const PAPIC_SEAT_BURST/,
     'A constant is exported from a server-action file again — green typecheck, ' +
       'broken build.',
@@ -53,9 +54,10 @@ test('🪤 the ceiling does NOT live in a "use server" file', () => {
 });
 const PAPIC_SEAT_BURST = num('PAPIC_SEAT_BURST');
 const PAPIC_SEAT_BURST_WINDOW_S = num('PAPIC_SEAT_BURST_WINDOW_S');
-/** A guard must read the code, not the comment that explains the trap. */
-const code = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** A guard must read the code, not the comment that explains the trap.
+ *  ⚠ One shared lexer, never a pair of `.replace()` calls — see
+ *  lib/strip-comments.ts for what the regex version was hiding. */
+const code = stripComments;
 
 test('the ceiling is far above a human and far below a loop', () => {
   const perSecond = PAPIC_SEAT_BURST / PAPIC_SEAT_BURST_WINDOW_S;

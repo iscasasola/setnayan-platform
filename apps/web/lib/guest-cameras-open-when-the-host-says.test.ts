@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { guestCaptureGate } from './papic-guest-window';
+import { stripComments } from './strip-comments';
 
 /**
  * GUESTS SHOOT ON THE EVENT DAY — UNLESS THE HOST OPENS THE CAMERAS EARLY.
@@ -29,12 +30,11 @@ import { guestCaptureGate } from './papic-guest-window';
 
 const WEB = process.cwd();
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
-/** Comment-stripped: assertions must hold on CODE, not on notes about it. */
-const code = (p: string) =>
-  read(p)
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+/** Comment-stripped: assertions must hold on CODE, not on notes about it.
+ *  ⚠ One shared lexer. The three-`replace` version here was blind to anything
+ *  after a `video/*` in a line comment — including the upload route this file
+ *  exists to check. */
+const code = (p: string) => stripComments(read(p));
 
 const DAY = '2026-12-20';
 const ms = (iso: string) => Date.parse(iso);

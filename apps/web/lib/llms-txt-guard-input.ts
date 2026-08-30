@@ -122,12 +122,21 @@ export const RETAIL: RetailRow[] = [
   // looking like an accidental deletion — same convention as the rows below.
   { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: false },
   { service_code: 'PAPIC_ONE_100', title: 'Papic One — 100 shots', retail_price_php: 100, is_active: false },
-  { service_code: 'PAPIC_CAMERA_MINI_DAY', title: 'Papic One — 50 shots', retail_price_php: 50, is_active: false },
+  { service_code: 'PAPIC_CAMERA_MINI_DAY', title: 'Papic One — 50 shots (one camera) (superseded 2026-08-11)', retail_price_php: 50, is_active: false },
   { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: true },
   // --- AI tier ladder: price-source rows, inactive BY DESIGN ---
   { service_code: 'SETNAYAN_AI_B', title: 'Setnayan AI (Tier B · major milestone)', retail_price_php: 1499, is_active: false },
   { service_code: 'SETNAYAN_AI_C', title: 'Setnayan AI (Tier C · standard event)', retail_price_php: 899, is_active: false },
   { service_code: 'SETNAYAN_AI_D', title: 'Setnayan AI (Tier D · light)', retail_price_php: 199, is_active: false },
+  // --- present in production, inactive, and NEVER named in the prose ---
+  // ⚠ ADDED 2026-08-31 by the full fixture-vs-catalogue diff. The fixture had
+  // never carried them, so nothing proved the renderer keeps them out — and
+  // `activeRetail` is the only thing that does. SETNAYAN_AI_RENEW matters most:
+  // it is a FIFTH Setnayan AI price (₱799) sitting beside the four-rung ladder,
+  // exactly the shape that flattened the ladder before.
+  { service_code: 'SETNAYAN_AI_RENEW', title: 'Setnayan AI (renewal)', retail_price_php: 799, is_active: false },
+  { service_code: 'PAPIC_CAMERA_LTD_DAY', title: 'Papic Ltd (per camera, per day)', retail_price_php: 50, is_active: false },
+  { service_code: 'PAPIC_CAMERA_ROLL_DAY', title: 'Papic Mini (legacy roll · per camera, per day)', retail_price_php: 100, is_active: false },
   // --- genuinely retired: must never surface ---
   { service_code: 'EVENT_SUBDOMAIN', title: 'Custom Subdomain', retail_price_php: 999, is_active: false },
   { service_code: 'CAMERA_BRIDGE', title: 'Camera Bridge', retail_price_php: 500, is_active: false },
@@ -135,7 +144,7 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'PANOOD_SYSTEM', title: 'Live Studio', retail_price_php: 2500, is_active: false },
   { service_code: 'LIVE_STUDIO_ROAM', title: 'Live Studio Roam', retail_price_php: 3500, is_active: false },
   { service_code: 'PAPIC_SEATS', title: 'Papic (5 Seats)', retail_price_php: 2999, is_active: false },
-  { service_code: 'PAPIC_CAMERA_UNLIMITED_DAY', title: 'Papic Max', retail_price_php: 200, is_active: false },
+  { service_code: 'PAPIC_CAMERA_UNLIMITED_DAY', title: 'Papic Max (per camera, per day)', retail_price_php: 200, is_active: false },
 ];
 
 export const VENDOR = [

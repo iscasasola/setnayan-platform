@@ -491,6 +491,154 @@ test('⚖ somebody ELSE’s purchase on her camera exempts nothing', async () =>
   assert.equal((await shootOwnCamera(eventId, her, herSeat)).status, 'quota_exhausted');
 });
 
+// ══ 5b · 🛡 THE THREE PREDICATES, EACH MADE LOAD-BEARING ══════════════════
+//
+// 🚨 THESE THREE TESTS EXIST BECAUSE A MUTATION RUN FOUND THEIR GUARDS GREEN.
+// Deleting `purchase_kind = 'one_reload'`, deleting `g.seat_id = v_seat` and
+// deleting the negative clamp all left every test above passing — each one was
+// covered only by ANOTHER predicate in the same query, so the suite was
+// asserting the conjunction and not the parts. A predicate no test can kill is
+// a comment with a WHERE in front of it.
+
+test('🛡 a seat-scoped grant from a POOL purchase exempts nothing — the kind filter is load-bearing', async () => {
+  const eventId = await seedPoolEvent(5000);
+  const guestId = await seedGuest(eventId, 'KindFilter');
+  const seatId = await seedOwnCamera(eventId, guestId);
+  await nameGuestAt(eventId, guestId, 20);
+
+  // ⚠ THIS STATE IS NOT PRODUCIBLE TODAY, AND THAT IS THE POINT. A pool top-up
+  // is granted by `grantPapicPassPoints`, which writes seat_id NULL; only a One
+  // reload goes through `papic_grant_camera_points`. So `seat_id = v_seat`
+  // already excludes pool money — TODAY. The kind filter is the second fence,
+  // and it is here for the day somebody teaches the pool path to name a seat
+  // (the buyer's own camera is already on the order row, so it is one line
+  // away). Constructed by hand precisely because the product cannot yet make it.
+  const orderId = await one<string>(
+    `INSERT INTO public.orders (event_id, description, requested_total_php, reference_code)
+     VALUES ($1, 'pool topup with a seat', 50, $2) RETURNING order_id`,
+    [eventId, `KIND${Math.random().toString(36).slice(2, 10).toUpperCase()}`],
+  );
+  await db.query(
+    `INSERT INTO public.papic_guest_orders
+       (order_id, event_id, seat_id, guest_id, purchase_kind, service_code, points, access_token)
+     VALUES ($1, $2, $3, $4, 'pool_topup', 'PAPIC_GUEST', 50, $5)`,
+    [orderId, eventId, seatId, guestId, token() + token()],
+  );
+  await db.query(
+    `INSERT INTO public.papic_event_point_grants
+       (event_id, points, source, order_id, seat_id, note)
+     VALUES ($1, 50, 'topup_order', $2, $3, 'pool money that landed on a seat')`,
+    [eventId, orderId, seatId],
+  );
+
+  assert.equal(
+    await one<number>(`SELECT public.papic_seat_dedicated_points($1)`, [seatId]),
+    50,
+    'PRECONDITION: the credits must be on her camera, or the kind filter is not what is being tested',
+  );
+  assert.equal(
+    await selfFunded(guestId),
+    0,
+    'she chose "add them to the celebration" — that money is the room’s, wherever the grant row landed',
+  );
+
+  for (let i = 1; i <= 20; i += 1) {
+    assert.equal((await shootOwnCamera(eventId, guestId, seatId)).status, 'ok', `capture ${i} refused`);
+  }
+  assert.equal(
+    (await shootOwnCamera(eventId, guestId, seatId)).status,
+    'quota_exhausted',
+    'the ceiling must still bind — the buyer’s own choice decides, not where the ledger row landed',
+  );
+});
+
+test('🛡 her purchase on a DIFFERENT camera exempts nothing — the seat filter is load-bearing', async () => {
+  const eventId = await seedPoolEvent(5000);
+  const guestId = await seedGuest(eventId, 'OldCamera');
+
+  // Camera A: she bought 50 on it, and it was later revoked (a re-issued QR, a
+  // lost phone). `resolveGuestOwnCamera` only ever finds a live camera, and
+  // `paparazzi_seats_one_active_camera_per_guest` allows exactly this pair.
+  const seatA = await seedOwnCamera(eventId, guestId);
+  await guestBuysForHerself(eventId, guestId, seatA, 50);
+  await db.query(`UPDATE public.paparazzi_seats SET revoked_at = NOW() WHERE seat_id = $1`, [seatA]);
+
+  // Camera B: her live camera, holding 200 the HOST handed it — the couple's
+  // own pot money, which is deliberately NOT exempt.
+  const seatB = await seedOwnCamera(eventId, guestId);
+  await db.query(`SELECT public.papic_dedicate_shots($1, $2, 200)`, [eventId, seatB]);
+  await nameGuestAt(eventId, guestId, 20);
+
+  assert.equal(
+    await selfFunded(guestId),
+    0,
+    'the 50 she paid for sit on a camera she is not holding — a dead camera’s receipt must not ' +
+      'launder the host’s hand-out on the live one',
+  );
+
+  for (let i = 1; i <= 20; i += 1) {
+    assert.equal((await shootOwnCamera(eventId, guestId, seatB)).status, 'ok', `capture ${i} refused`);
+  }
+  assert.equal(
+    (await shootOwnCamera(eventId, guestId, seatB)).status,
+    'quota_exhausted',
+    'without `g.seat_id = v_seat` the old purchase would exempt up to 50 credits of the host’s own money',
+  );
+});
+
+test('🛡 dedicated credits spent through the OTHER door cannot become CREDIT — and the over-draw is bounded by what she paid for', async () => {
+  const eventId = await seedPoolEvent(5000);
+  const guestId = await seedGuest(eventId, 'OtherDoor');
+  const seatId = await seedOwnCamera(eventId, guestId);
+  await guestBuysForHerself(eventId, guestId, seatId, 50);
+  await nameGuestAt(eventId, guestId, 20);
+
+  // ⚠ THE BOUND THE MIGRATION HEADER STATES, EXERCISED RATHER THAN ASSERTED IN
+  // PROSE. Her camera can in principle also shoot through the SEAT door
+  // (papic_record_seat_capture → papic_photos), which spends the same dedicated
+  // balance and lands NO row in papic_guest_captures. Reserving without
+  // recording is exactly what that does to these two ledgers.
+  //
+  // 🔎 REACHABLE? Only barely, and not today. papic_record_seat_capture refuses
+  // unless `claimer_user_id = auth.uid()`, and a guest's own camera is minted
+  // with that column NULL; `claim_paparazzi_seat` would claim it for whoever
+  // presents its `claim_qr_token`, but nothing renders that token for a
+  // guest-linked camera. Defended anyway — "unreachable today" is not a
+  // guarantee, and this is money.
+  for (let i = 1; i <= 50; i += 1) {
+    await db.query(`SELECT public.papic_reserve_capture_split($1, $2, 1)`, [seatId, eventId]);
+  }
+  assert.equal(await selfFunded(guestId), 50, 'PRECONDITION: her balance is spent, on the other door');
+  assert.equal(
+    await one<number>(`SELECT COUNT(*)::int FROM public.papic_guest_captures WHERE guest_id = $1`, [guestId]),
+    0,
+    'PRECONDITION: and not one row landed here',
+  );
+
+  // ── 1 · THE METER FLOORS AT ZERO. Unclamped it reads −50, and a negative
+  // meter is not merely a wrong number — `remaining` is `ceiling − metered`, so
+  // it would tell her she has SEVENTY of the couple's credits when the couple
+  // gave her twenty.
+  assert.equal(await meteredSpend(guestId), 0, 'the meter must floor at zero, never go negative');
+
+  // ── 2 · AND THE OVER-DRAW IS BOUNDED BY WHAT SHE PAID FOR — never by what a
+  // second door happened to spend. She gets her ceiling of 20 plus, at worst,
+  // the 50 credits she personally bought; the 71st is refused. That is the
+  // honest ceiling of this design, and stating it as a number is the only way a
+  // future reader can tell a bounded consequence from an unbounded one.
+  for (let i = 1; i <= 70; i += 1) {
+    assert.equal((await shootFromPot(guestId)).status, 'ok', `capture ${i} of 70 refused`);
+  }
+  const refused = await shootFromPot(guestId);
+  assert.equal(
+    refused.status,
+    'quota_exhausted',
+    'the exemption must be bounded by her purchase — an unbounded one is a ceiling that never binds',
+  );
+  assert.equal(refused.reason, 'guest_spend_ceiling');
+  assert.equal(refused.used, 20, 'and 20 is the couple’s number, which is what she was over');
+});
+
 // ══ 6 · 🪤 THE HOSTILE CALLER ══════════════════════════════════════════════
 
 test('🪤 skipping the reserve makes the gate STRICTER, never looser', async () => {

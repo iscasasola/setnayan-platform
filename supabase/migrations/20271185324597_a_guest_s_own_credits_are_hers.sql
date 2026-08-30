@@ -120,15 +120,26 @@
 -- (`papic_record_seat_capture` → `papic_photos`), which spends the same
 -- dedicated balance but lands in a different table and has no ceiling of its
 -- own. Those credits would raise `points_used` without raising the sum over
--- `papic_guest_captures`. The `LEAST` above bounds the resulting exemption by
--- what she PAID FOR and no more, so the couple's pot can never be over-drawn by
--- more than one guest's own purchase.
+-- `papic_guest_captures`, and she would then reach her ceiling PLUS the credits
+-- she bought — having spent the bought ones elsewhere.
+--
+-- 📏 THE OVER-DRAW IS BOUNDED, AND THE BOUND IS A NUMBER RATHER THAN A HOPE:
+-- her ceiling plus what she personally paid for, and NOT ONE CREDIT MORE. The
+-- `LEAST` above is what bounds it — the exemption can never exceed her own
+-- purchase, whatever a second door spent. Pinned by a test that shoots exactly
+-- 70 against a ceiling of 20 and a purchase of 50 and asserts the 71st is
+-- refused, so an unbounded exemption cannot be introduced later while every
+-- other test stays green.
 -- ⚖ In practice that door is shut for exactly this population:
 -- `papic_record_seat_capture` refuses unless `claimer_user_id = p_claimer_user_id`
 -- and a guest's own camera is minted with `claimer_user_id` NULL
 -- (`ensureGuestOwnCameraAdmin`), because a roll camera is credentialed by the
--- guest's personal QR rather than by an auth uid (20270305788856). Bounded
--- anyway, because "unreachable today" is not a guarantee.
+-- guest's personal QR rather than by an auth uid (20270305788856).
+-- ⏭ `claim_paparazzi_seat` WOULD claim a guest-linked camera for whoever
+-- presents its `claim_qr_token` — it does not exclude `guest_id IS NOT NULL` —
+-- but nothing renders that token for such a camera. FLAGGED, NOT FIXED HERE:
+-- narrowing that claim path is its own change with its own blast radius.
+-- Defended anyway, because "unreachable today" is not a guarantee.
 
 BEGIN;
 

@@ -2,7 +2,8 @@
 
 Session **S4** of the shots-per-guest program (spec § 6b,
 `WHATS_NEXT_Shots_Per_Guest_2026-08-28.md`; session register
-`WHATS_NEXT_Shots_Per_Guest_SESSIONS_2026-08-28.md`). S1 merged as #5002.
+`WHATS_NEXT_Shots_Per_Guest_SESSIONS_2026-08-28.md`). S1 merged as #5002, S2
+as #5017, S3 as #5014.
 
 - `fetchGuestQuota` (the ONE place both the Event Hub inline camera and the
   standalone guest-camera page resolve their allowance) now folds in the
@@ -39,29 +40,27 @@ Session **S4** of the shots-per-guest program (spec § 6b,
   — quiet) from a genuine outage (now `logQueryError`'d), so a real read
   failure can never look like "no ceiling set" or "0 used".
 
-Graceful-degrade, same pattern S3 (#5014) already established: this branches
-off `main`, not off S2's unmerged branch. `papic_guest_spend_ceiling` doesn't
-exist there yet, so every read degrades to `guestCeiling: null` and the whole
-feature collapses back to byte-identical S1 behavior until S2 merges.
+Graceful-degrade, same pattern S3 (#5014) established: this was built ahead
+of S2 merging, off `main` rather than S2's own branch — before #5017 merged,
+every read degraded to `guestCeiling: null` and the whole feature collapsed
+back to byte-identical S1 behavior.
 
-🔴 **`points_cost` IS A DELIBERATE LITERAL, AND T1 IS EXPECTED RED UNTIL S2
-MERGES.** `lib/security/select-column-scan.test.ts`'s phantom-column guard
-correctly fails on `.select('points_cost')` in `lib/papic-guest.ts` today —
-that column does not exist until S2's migration (20271184624871) lands. A
+`points_cost` (`lib/papic-guest.ts`) stays a LITERAL `.select()` argument, not
+hidden behind a constant. Before #5017 merged, this was a deliberate red on
+`lib/security/select-column-scan.test.ts`'s phantom-column guard (T1) — the
+column genuinely didn't exist yet on this branch's own schema. A
 named-constant indirection (mirroring S3's `ALLOTMENT_STORAGE`) was tried and
-reverted: it isn't real precedent, because S3's constants are never handed to
-a `.from().select()` at all (verified — that file has none), while this one
-is. `scanSelectSites()` only matches STRING LITERALS, so hiding the name
-behind an identifier doesn't pass the check, it makes the guard blind to the
-site — silently, which is worse than red. **Do not "fix" this red with a
-`KNOWN_PHANTOMS` entry or a constant — it clears on its own the moment #5017
-merges and this branch is rebased onto the applied migration.**
+reverted: it isn't real precedent, because S3's constants were never handed to
+a `.from().select()` at all (verified directly), while this one is. Now that
+`points_cost` exists on `main`, the literal is simply correct and T1 passes
+with no change to the select — the guard's own test still asserts the literal
+stays present, because that part (stop the next indirection reflex on a
+genuinely-missing column) isn't tied to the merge timing.
 
 ⛔ **DRAFT ON PURPOSE, auto-merge NOT armed.** Per spec § 8 PR-3: "Must land
 before anything is said publicly — a limit a guest cannot see is the defect in
 § 1 wearing a new number." This must not reach guests before S2 (#5017) is
-actually live in production, even though this branch itself has nothing to
-merge-conflict with S2.
+confirmed SERVED in production, not merely merged.
 
 SPEC IMPACT: None — implements the already-locked § 6b design; no decision
 changed.

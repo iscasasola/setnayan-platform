@@ -239,16 +239,39 @@ it. Landing anything new at the root requires its `!/path` line in the same comm
   documents at all** — three of this program's own corrections were caused by exactly that.
 
 ### Housekeeping — not a session
-🛑 **Do not prune `wt-editable-prices`.** PR #4952 is MERGED and nothing is unpushed, but the
-working tree holds two uncommitted files. One is a **regression**: `booking-fee-lock.server.ts`
-swaps the derived `bookingFeeScheduleSummary(liveSchedule)` for a hard-coded `(5%)` — wrong for
-every booking above ₱100,000, and the exact bug its own guard exists to catch. The paired test edit
-(widen the guard to accept a variable, still reject an inline literal) is good work. **Owner
-decision: salvage or discard.**
+✅ **`wt-editable-prices` — CLOSED. No action, and the owner decision is retired.** This entry used
+to carry a 🛑 DO-NOT-PRUNE and an open "salvage or discard" question. Both are overtaken by events.
+Verified against `origin/main` on 2026-08-30:
 
-⚠ **The main checkout is 2237 commits behind and 1 divergent.** The divergent commit's content is
-already upstream, so `git fetch && git reset --hard origin/main` is safe — but that is the owner's
-call on the owner's checkout, not the overseer's.
+- **The worktree is gone from disk** and from `git worktree list`. The branch
+  `claude/admin-editable-prices-2026-08-28` still exists locally; only the uncommitted working tree
+  went with the directory.
+- **The 5% regression never landed — losing that half is the CORRECT outcome.**
+  `booking-fee-lock.server.ts` on main still interpolates the derived
+  `bookingFeeScheduleSummary(liveSchedule)` into the order description. The only `(5%)` in the file
+  is a comment warning that reading it as a fixed rate is "only true at or below ₱100,000".
+- **The good half was NOT lost.** An equivalent — slightly STRONGER — widened guard is already on
+  main in `booking-fee-schedule-summary.test.ts`: it accepts no argument or one identifier/dotted
+  path, and separately rejects inline objects **and numeric literals**, which the lost draft did not.
+  **Nothing to re-create.**
+
+🔑 **Why this correction mattered more than the tidy-up:** a 🛑 on a directory that no longer exists
+reads as a live constraint, and it held an owner decision that could no longer be made. The next
+session to open this register would have waited on it, or burned ten minutes discovering the subject
+was gone. **Stale instructions are not clutter — they are false constraints.**
+
+⚠ **The main checkout is ON `main` AND TRACKING — which is NOT the same as current.** It was 2237
+commits behind and parked on a feature branch; that specific staleness, the one that produced this
+register's first four false findings, is resolved. But "current" is not a property a document can
+hold: measured **29 behind `origin/main`** at the moment this paragraph was committed, and it went
+stale again the same day — a session read `CLAUDE.md` from it and reported the `0 ORDERS EVER` line
+as live a full day after C10b (PR #5021) had already corrected it upstream.
+
+🔑 **Never assert a checkout's freshness in a file the checkout carries.** Measure it:
+
+```bash
+git fetch origin && git rev-list --left-right --count origin/main...HEAD   # left = behind
+```
 
 ---
 
@@ -326,6 +349,19 @@ reported as missing and ALL already ship.
    swallowing a README once already. If you create ANY new top-level path, add its `!/path` line in
    the SAME commit and verify with `git check-ignore -v <path>` before believing it is staged.
    Nested paths (under apps/, supabase/, changelog.d/ …) are unaffected.
+
+0c. A CHECK THAT CANNOT FAIL IS NOT A CHECK. Twice in one day a verification command returned a
+   confident FALSE answer because of its own shape, not the repo's state:
+     · `for f in $list; do git cat-file -e "ref:$f"; done < <(...)` — a command inside the loop
+       consumed the loop's stdin, so every probe failed and reported "97 files absent upstream".
+       All 97 were present.
+     · `git check-ignore -v X | head -2 || echo "not ignored"` — `||` binds to the PIPELINE, whose
+       status is `head`'s zero, so the fallback branch can never run and BOTH outcomes print nothing.
+   Before believing a verification, ask what output the FAILING case would produce and confirm the
+   command can produce it. Prefer an explicit `if cmd; then … else … fi` over `&&`/`||` after a pipe,
+   and prefer set arithmetic (`comm`, `sort -u`) over per-item loops that shell out. If a result is
+   implausible — everything present, everything absent, silence from both branches — suspect the
+   check before the repo.
 
 WORKING RULES — every one has cost this project real work before:
 

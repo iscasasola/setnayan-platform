@@ -52,16 +52,24 @@ written into either surface. Home-page assertions run against **comment-stripped
 `home-brand-name.test.ts` — this file's own comments quote the strings a naive grep would look
 for.
 
-**MUTATION (before → after occurrences):**
+**MUTATION — every assertion sabotaged, occurrences printed before → after.** Baseline
+`# pass 12 # fail 0`; every row below reports `# pass 11 # fail 1`, and the baseline was
+re-run green with a clean tree afterwards.
 
 | Sabotage | Occurrences before → after | Result |
 |---|---|---|
-| `HOME_TITLE` restored to the wedding-only string | 0 → 1 `wedding` in title | ✅ RED |
-| `'Setnayan AI · avatar maker'` added to llms.txt prose | 0 → 1 `avatar maker` | ✅ RED |
-| `'browse other couples'` added to llms.txt prose | 0 → 1 | ✅ RED |
-| `₱2,500` typed into the Pakanta line in place of `${R('PAKANTA')}` | 1 → 1 (anchored) | ✅ RED |
-| `'Seventeen event types are live'` re-added | 0 → 1 | ✅ RED |
-| the out-of-scope `- No avatar maker.` bullet deleted | 1 → 0 | ✅ RED |
+| `HOME_TITLE` restored to the wedding-only string | `/wedding/i` in the title **0 → 1** | ✅ RED |
+| an "Avatar Maker" product line added to the prose | `avatar (maker\|builder\|creator)` outside the denial lines **0 → 1** | ✅ RED |
+| a "browse other couples" feed section added | `browse other couples` **0 → 1** | ✅ RED |
+| `₱2,500` typed in place of `${R('PAKANTA')}` on the Pakanta line | literal `2,500` in the source **0 → 1** | ✅ RED |
+| a literal count re-added ("Seventeen event types are already open") | `[Ss]eventeen event types` **0 → 1** | ✅ RED |
+| the `- No avatar maker.` denial bullet deleted | that bullet **1 → 0** | ✅ RED |
+| the interpolated list replaced by a typed second copy | `liveEventTypesPhrase()` call sites **2 → 1** | ✅ RED |
+
+⚠ **The second row was re-measured before it was written down.** A whole-file `grep -c
+"avatar maker"` reported **1 → 1** — because the *denial* bullet contains the phrase — which
+would have recorded a sabotage as unmeasured while the test was in fact going red for the right
+reason. The count above is taken in the same region the guard scans.
 
 🪤 **Two guards failed honestly on their first cut and both fixes are in the file.** The
 do-not-claim scan matched **its own denial** — "No public feed and no social channel" contains

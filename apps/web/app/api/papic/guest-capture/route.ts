@@ -593,6 +593,13 @@ export async function POST(req: Request) {
     // red at once, on a change that touched none of what they check. Measured
     // by comparing the stripped length before and after: 16,218 → 6,430.
     //
+    // ⏭ NO LONGER LOAD-BEARING, KEPT ANYWAY (2026-08-30, after PR #5018). The
+    // shared stripper was fixed — an unterminated opener no longer eats to EOF —
+    // and re-adding a JSDoc block here now leaves all 30 of those tests green.
+    // This is belt-and-braces, not a requirement. The paragraph above stays
+    // because it is what happened, and because a future reader deciding whether
+    // to reach for a JSDoc here deserves the history rather than the conclusion.
+    //
     // Which limit refused, when `status` is `quota_exhausted`:
     // `guest_spend_ceiling` — the COUPLE's per-guest ceiling (migration
     // 20271184624871); `per_guest_credits` — the platform's own 150.

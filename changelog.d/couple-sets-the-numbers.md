@@ -127,6 +127,41 @@ the REVOKE. The resolver answers *"what does this guest get"*, not *"did somebod
 cannot tell the sheet which guests are named. If that read is unwanted, the alternative is an
 event-scoped read RPC.
 
+### The server-side read, pinned — and a claim of mine that was wrong
+
+Oversight upheld the server-side admin read of `papic_guest_spend_ceilings` (the REVOKE targets
+browser reachability, which `service_role` access does not breach; and the resolver answers *what a
+guest gets*, not *who was named*, so it cannot drive the picker) on one condition: pin it so a
+refactor cannot drag it into a client component.
+
+⚠ **In doing so I claimed `lib/supabase/admin.ts` was unprotected — 672 importers held together by
+a comment. That was wrong.** `lint-server-only-boundary.mjs` already names it in
+`EXTRA_BOUNDARY_MODULES`, and that script's own comment says the entry *"is what makes that a
+mechanism instead of a sentence"*. Measured both ways: a `'use client'` file importing this sheet
+fails the guard **with or without** my new line. The property was already enforced; I had read the
+absence of an `import 'server-only'` line as the absence of enforcement.
+
+The `import 'server-only'` stays anyway, for a narrower and honest reason: the guard's chain runs
+through the *admin import*. If this component ever stops importing the admin client directly — a
+helper, a split, a refactor — that edge disappears and the boundary goes with it. The line is local
+and survives that, and does not depend on another file's allowlist staying correct.
+
+**MUTATION:** a `'use client'` file value-importing the sheet fails the guard — with the pin, named
+on the pin (`← import 'server-only'`); without it, named on `lib/supabase/admin.ts ← declared a
+boundary`. Both `GUARD_EXIT=1`; restored, `GUARD_EXIT=0` across 670 client files and 222 server-only
+modules.
+
+### Settled by Oversight — do not re-open
+
+- **The constraint asymmetry is deliberate.** The CHECK does not change; the copy stands. The
+  decisive argument is the `GREATEST(1, …)` floor: the *derived* share is never allowed to reach 0,
+  so permitting an explicit 0 would contradict the same fairness rule from the other side.
+- **The automatic late release is BUILT**, in the ceiling PR, and is better than either spec: no
+  scheduler at all. It is **lazy** — derived inside the resolver when the question is asked — so
+  there is nothing that can fail to run. `release_at = COALESCE(papic window end, end of the event
+  day in its own timezone) − 2 hours`. An event with no window and no date gets no automatic
+  release rather than a guess. No longer this session's to track.
+
 ### Still open
 
 - **The automatic late release.** The button half ships here; the automatic stamp late in the

@@ -1,3 +1,22 @@
+// 🔒 THE READ BELOW IS SERVER-SIDE ONLY, AND IT IS ALREADY ENFORCED — this line
+// is defence in depth, not the thing that creates the property.
+//
+// `papic_guest_spend_ceilings` is RLS-on and REVOKEd from PUBLIC, anon and
+// authenticated; service_role reaches it, and service_role only exists on the
+// server. `lint-server-only-boundary.mjs` already treats `lib/supabase/admin.ts`
+// as a boundary — not because that file declares `server-only` (it does not),
+// but because it is named in that script's EXTRA_BOUNDARY_MODULES, whose own
+// comment says the entry "is what makes that a mechanism instead of a sentence".
+// Measured: a 'use client' file importing this component fails the guard with or
+// without the line below.
+//
+// ⚠ SO WHY KEEP IT. The guard's chain runs through the admin import. If this
+// component ever stops importing the admin client directly — a helper, a
+// refactor, a split — that edge disappears and the boundary goes with it. This
+// line is local and survives that. It costs nothing and it does not depend on
+// another file's allowlist staying correct.
+import 'server-only';
+
 import { Coins } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';

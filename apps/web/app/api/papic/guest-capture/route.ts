@@ -497,10 +497,24 @@ export async function POST(req: Request) {
   }
 
   // Record the capture, carrying the guest's public-share consent + (for clips)
-  // media_type + duration + poster on the row. Graceful-degrade: if the extended
-  // RPC isn't deployed yet, retry the 3-arg then the 2-arg signature so the
-  // capture still records — clip extras just can't persist until the migration
-  // lands (a degraded clip records as a photo-typed row, never silently shared).
+  // media_type + duration + poster on the row, and what it cost.
+  //
+  // ── `p_points_cost` — THE COST IS PASSED IN, THE CEILING IS NOT ────────────
+  // The RPC stores this on the row and meters the couple's per-guest ceiling by
+  // SUMming it, so the meter is in CREDITS rather than rows (a ten-second clip
+  // costs 8 of them). It is the SAME `cost` the pool reserve above already
+  // booked — one number, computed once, spent against both ledgers, so the two
+  // can never disagree about what this capture was worth. The RPC does NOT take
+  // its LIMIT from us; it reads the couple's own table. Migration
+  // 20271184624871.
+  //
+  // Graceful-degrade: if a newer signature isn't deployed yet, retry the 6-arg,
+  // then the 3-arg, then the 2-arg so the capture still records.
+  // ⚠ THE 6-ARG RUNG IS THE DEPLOY-WINDOW RUNG AND IT IS NOT DECORATION. Vercel
+  // and the migration workflow both fire on a push to main and race; for the
+  // minutes where this code is live and 20271184624871 is not, the 7-arg call
+  // 42883s. Without this rung it would fall straight to shapes that cannot
+  // carry media_type — recording every clip of that window as a photo.
   let { data, error } = await admin.rpc('papic_record_guest_capture', {
     p_guest_id: session.guest_id,
     p_r2_object_key: r2Ref,
@@ -508,7 +522,18 @@ export async function POST(req: Request) {
     p_media_type: mediaType,
     p_duration_ms: durationMs,
     p_poster_r2_key: posterRef,
+    p_points_cost: cost,
   });
+  if (error && /p_points_cost|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
+    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
+      p_guest_id: session.guest_id,
+      p_r2_object_key: r2Ref,
+      p_consent_to_public: sharePublicly,
+      p_media_type: mediaType,
+      p_duration_ms: durationMs,
+      p_poster_r2_key: posterRef,
+    }));
+  }
   if (error && /p_media_type|p_duration_ms|p_poster_r2_key|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
     ({ data, error } = await admin.rpc('papic_record_guest_capture', {
       p_guest_id: session.guest_id,
@@ -556,6 +581,38 @@ export async function POST(req: Request) {
     total?: number;
     used?: number;
     remaining?: number;
+    // ⚠ LINE COMMENTS ONLY IN THIS FILE — NEVER A JSDOC BLOCK. NOT A STYLE
+    // CHOICE, AND IT COST AN HOUR TO FIND. A comment further up ends with the
+    // MIME wildcard for video, which puts a block-comment OPENER inside a line
+    // comment. Several source-level guards over this file strip block comments
+    // with a naive non-greedy pattern that never looks at line comments first:
+    // today it finds no closing delimiter anywhere in the file, so it leaves
+    // everything alone. Introduce the first real closing delimiter — a single
+    // JSDoc block, anywhere — and that stray opener suddenly closes at it,
+    // swallowing 27,000 characters of source. SIX guards over this file went
+    // red at once, on a change that touched none of what they check. Measured
+    // by comparing the stripped length before and after: 16,218 → 6,430.
+    //
+    // ⏭ NO LONGER LOAD-BEARING, KEPT ANYWAY (2026-08-30, after PR #5018). The
+    // shared stripper was fixed — an unterminated opener no longer eats to EOF —
+    // and re-adding a JSDoc block here now leaves all 30 of those tests green.
+    // This is belt-and-braces, not a requirement. The paragraph above stays
+    // because it is what happened, and because a future reader deciding whether
+    // to reach for a JSDoc here deserves the history rather than the conclusion.
+    //
+    // Which limit refused, when `status` is `quota_exhausted`:
+    // `guest_spend_ceiling` — the COUPLE's per-guest ceiling (migration
+    // 20271184624871); `per_guest_credits` — the platform's own 150.
+    // 🔑 THE STATUS IS DELIBERATELY NOT NEW. The route already unwinds both
+    // ledgers on any non-ok status and the offline drain already classifies
+    // this one as retryable-not-terminal; a new string would have had to be
+    // taught to both. What the guest's SCREEN says is the thing that has to
+    // split, and this is what lets it — "your own allowance is spent" is not
+    // "the celebration's credits are spent", and a refusal that reuses another
+    // refusal's status inherits its copy. Undefined before the migration.
+    reason?: string;
+    // The couple's ceiling on this guest in credits, or null when none binds.
+    ceiling?: number | null;
   };
 
   let captureId: string | null = null;

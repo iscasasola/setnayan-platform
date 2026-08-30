@@ -176,6 +176,7 @@ type UnexpectedChargeSource = Exclude<
   | 'retail_catalog'
   | 'package_catalog'
   | 'setnayan_ai_event_type'
+  | 'setnayan_ai_comeback'
 >;
 const _noBookedDealChargeSource: [UnexpectedChargeSource] extends [never] ? true : false = true;
 void _noBookedDealChargeSource;

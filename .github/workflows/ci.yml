@@ -153,6 +153,20 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-events-column-grants.mjs
 
+      # THERE IS ONE COMMENT STRIPPER. Half the guards in this repo read source
+      # text and match a pattern, so each needs comments removed first — and the
+      # obvious two-replace regex strips BLOCK comments FIRST, so a line comment
+      # holding `video/*` opens a comment that closes at the next real docblock
+      # and blanks everything between. Measured 2026-08-30: one JSDoc added to
+      # app/api/papic/guest-capture/route.ts cut what six guards could see from
+      # 16,218 characters to 6,430, and they all went red on a change that
+      # touched none of what they assert. That was the LOUD direction; the same
+      # mechanism makes a guard pass while checking a blank.
+      - name: Lint one comment stripper
+        id: guard_one_stripper
+        continue-on-error: true
+        run: node apps/web/scripts/lint-one-comment-stripper.mjs
+
       # Fails when TODO / FIXME / HACK / WIP survives in RENDERED UI text under
       # apps/web/app (comments are stripped first, so a marker where it belongs
       # is always fine). The copy rule — "no TODO, no skeleton, no placeholder
@@ -405,6 +419,7 @@ jobs:
           RADIUS: ${{ steps.guard_radius.outcome }}
           COLOUR_EXISTS: ${{ steps.guard_colour_exists.outcome }}
           EVENTS_GRANTS: ${{ steps.guard_events_grants.outcome }}
+          ONE_STRIPPER: ${{ steps.guard_one_stripper.outcome }}
           UI_NOTES: ${{ steps.guard_ui_notes.outcome }}
           PINNED_BARS: ${{ steps.guard_pinned_bars.outcome }}
           BOOTH_POSTER: ${{ steps.guard_booth_poster.outcome }}
@@ -437,6 +452,7 @@ jobs:
           check 'lint radius tokens'          "$RADIUS"
           check 'lint colour names resolve'   "$COLOUR_EXISTS"
           check 'lint events column grants'  "$EVENTS_GRANTS"
+          check 'lint one comment stripper'   "$ONE_STRIPPER"
           check 'lint engineering notes in ui' "$UI_NOTES"
           check 'lint stacked pinned bars'   "$PINNED_BARS"
           check 'lint booth poster placement' "$BOOTH_POSTER"

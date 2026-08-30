@@ -49,13 +49,32 @@ import {
   type LlmsTxtInput,
 } from './llms-txt';
 import { INPUT_FOR_GUARDS } from './llms-txt-guard-input';
+import { stripComments } from './strip-comments';
 
 const HOME_PAGE = path.join(import.meta.dirname, '..', 'app', 'page.tsx');
 
-/** Same stripper as `home-brand-name.test.ts`, and for the same reason. */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-}
+// 🪤 THIS FILE ROLLED ITS OWN REGEX STRIPPER FOR ONE COMMIT, and it was the
+// exact broken shape `lib/strip-comments.ts` was written to retire: a pair of
+// `.replace()` calls, one deleting block comments non-greedily, one deleting
+// line comments.
+//
+// A block-comment OPENER appearing inside a STRING — `accept="image/*"` — starts
+// a comment that never existed and blanks real code until the next closer. On
+// this codebase that was measured at 5,104 lines across 1,031 files. A guard
+// scanning blanked source reports clean because it cannot see anything, which is
+// the failure mode this entire session is about.
+//
+// Deciding whether a slash begins a comment requires knowing whether you are
+// inside a string or a template literal — that is lexing, not matching. Use the
+// shared lexer.
+//
+// ⚠ `home-brand-name.test.ts` still carries its own regex copy. Pre-existing,
+// flagged in this PR, deliberately NOT fixed here — it is a separate sweep.
+//
+// 🔑 AND NOTE THE COMMENT STYLE: these are line comments because the paragraph
+// above discusses comment delimiters, and writing the closer inside a block
+// comment ends it early. That is not a style preference; it broke this file's
+// parse once already.
 
 const homeSource = stripComments(readFileSync(HOME_PAGE, 'utf8'));
 const body = renderLlmsTxt(INPUT_FOR_GUARDS);

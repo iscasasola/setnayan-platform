@@ -178,6 +178,35 @@ it. Landing anything new at the root requires its `!/path` line in the same comm
 
 ---
 
+### 🔧 Finding the session that owns a worktree
+
+Learned on 2026-08-30, when a live money defect sat in an unidentifiable `/tmp` worktree while it
+was being actively written, and routing it took a peer who knew the tool.
+
+- **`ListAgents`** gives *messageable names*; **`list_sessions`** gives *sidebar titles*.
+  **They do not match**, so neither alone identifies who owns a branch.
+- 🔑 **`mcp__ccd_session_mgmt__search_session_transcripts` bridges them** — full-text across other
+  sessions' transcripts *including tool output*. Searching a filename found the owner in a second.
+- ⚠ **`list_sessions` PR numbers can be WRONG.** It labelled a session with a CLOSED PR that
+  belonged to something else entirely. **Use it to FIND a session, never to conclude what state its
+  work is in.** Read the PR.
+- ⚠ **Undrafting a PR ARMS auto-merge; it does not complete it.** "Undrafted, checks green, polling
+  to MERGED" is not merged. Two sessions reported a merge from that state in one day. Check
+  `mergedAt`.
+
+### ⚠ TWO OPEN PRs ON ONE FILE RESOLVE IN CI ORDER, NOT AN ORDER ANYBODY CHOSE
+
+On 2026-08-30 this register was edited by two PRs from divergent bases. Both were non-draft and both
+armed, so the race was decided by whichever CI finished first — and the one carrying the SUPERSEDED
+content won. The corrections were then stranded behind an eleven-file conflict.
+
+🔑 **The fix was a three-line PR off current `main`, not a resolution.** A small PR cannot conflict;
+an eleven-file hand-resolution can only lose. When you are behind on a shared file, **re-apply the
+substance forward onto `main` rather than merging your branch backward** — and check what the other
+PR legitimately landed before restoring anything wholesale, because a wholesale restore reverts it.
+
+---
+
 ## 1 · THE RULES OF THIS PROGRAM
 
 1. **Never more than TWO build sessions at once.** Ten parallel builds once shipped 44 defects.
@@ -357,6 +386,11 @@ reported as missing and ALL already ship.
        All 97 were present.
      · `git check-ignore -v X | head -2 || echo "not ignored"` — `||` binds to the PIPELINE, whose
        status is `head`'s zero, so the fallback branch can never run and BOTH outcomes print nothing.
+     · `timeout 60 <cmd>` printed `DB_EXIT=127 elapsed=0s` — **`timeout` does not exist on macOS**,
+       so the command never ran. 127-in-zero-seconds reads as a fast decisive result if only the exit
+       code is printed. 🔑 **PRINT ELAPSED TIME BESIDE EXIT STATUS.** Duration is a cheap, general
+       detector for "the command did not run", which no exit code alone can distinguish from "the
+       command ran and failed".
    Before believing a verification, ask what output the FAILING case would produce and confirm the
    command can produce it. Prefer an explicit `if cmd; then … else … fi` over `&&`/`||` after a pipe,
    and prefer set arithmetic (`comm`, `sort -u`) over per-item loops that shell out. If a result is

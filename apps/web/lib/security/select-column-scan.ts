@@ -266,15 +266,180 @@ export function findPhantomColumns(
   return out;
 }
 
+/**
+ * Resolve `.from('t').select(SOME_SELECT)` sites to the columns their constant
+ * names, so the phantom check can see them.
+ *
+ * \u26a0 WHY THIS EXISTS — THE GUARD USED TO GO BLIND HERE, SILENTLY.
+ * `extractSelectSites` only matches a QUOTED select argument (`SELECT_RE`
+ * requires `'`, `"` or a backtick). Rewriting `.select('some_col')` as
+ * `.select(SOME_COLUMNS)` produced NO SITE AT ALL — so the call was not
+ * checked and not reported. It did not resolve the constant and pass; it
+ * stopped looking. On 2026-08-30 a session made a legitimate T1 failure green
+ * by exactly that move, with the runtime behaviour byte-identical: PostgREST
+ * still received the same column name and still answered 42703. Only the
+ * guard's vision changed.
+ *
+ * \U0001f511 A PROOF TOOL THAT FAILS OPEN IS WORSE THAN NO PROOF TOOL, because
+ * its green is read as evidence. This is the same defect class as the
+ * comment-stripper repaired in PR #5018 on the same day.
+ *
+ * UNRESOLVED constants are RETURNED, NOT DROPPED. A constant this module cannot
+ * find a definition for (declared in a file the walk skips, or named outside
+ * the `*_SELECT` / `*_COLUMNS` convention `extractSelectConstants` recognises)
+ * is still a select this guard cannot check. Silently discarding it would
+ * rebuild the very hole this function closes, one level up — so it is surfaced
+ * and counted instead.
+ */
+export type ScopedSelectConstant = SelectConstant & { exported: boolean };
+
+const ANY_STRING_CONST_RE =
+  /(export\s+)?const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*((?:'[^']*'|"[^"]*"|`[^`$]*`)(?:\s*\+\s*(?:'[^']*'|"[^"]*"|`[^`$]*`))*)\s*;/g;
+const ANY_ARRAY_CONST_RE =
+  /(export\s+)?const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*\[([^\]]*)\]/g;
+
+/**
+ * Every canonical column list in one file — EXPORTED OR NOT — tagged with which.
+ *
+ * \u26a0 WHY THIS IS NOT `extractSelectConstants`. That one deliberately matches
+ * only `export const`, because the omitted-column half of this file compares a
+ * hand-typed list against a SHARED canonical constant, and a file-local list is
+ * not shared. Widening it there would change what THAT guard reports. For the
+ * phantom check the distinction is irrelevant: a file-local constant hides a
+ * column name from the check exactly as well as an exported one does.
+ *
+ * \U0001f511 MEASURED 2026-08-30: 38 of the 75 canonical declarations in this
+ * repo are file-local. Resolving only the exported half left 49 of 74
+ * constant-referenced select sites unchecked — most of the hole.
+ */
+export function extractAllSelectConstants(sourceRaw: string, file: string): ScopedSelectConstant[] {
+  const source = stripComments(sourceRaw);
+  const out: ScopedSelectConstant[] = [];
+  const seen = new Set<string>();
+
+  const strRe = new RegExp(ANY_STRING_CONST_RE.source, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = strRe.exec(source))) {
+    const name = m[2];
+    const body = m[3];
+    if (!name || !body) continue;
+    const joined = [...body.matchAll(/'([^']*)'|"([^"]*)"|`([^`$]*)`/g)]
+      .map((q) => q[1] ?? q[2] ?? q[3] ?? '')
+      .join('');
+    const columns = parseSelectList(joined);
+    if (columns.length === 0) continue;
+    seen.add(name);
+    out.push({ name, file, columns, exported: Boolean(m[1]) });
+  }
+
+  const arrRe = new RegExp(ANY_ARRAY_CONST_RE.source, 'g');
+  while ((m = arrRe.exec(source))) {
+    const name = m[2];
+    if (!name || seen.has(name)) continue;
+    const columns = [...(m[3] ?? '').matchAll(/'([a-z0-9_]+)'|"([a-z0-9_]+)"/g)].map(
+      (q) => q[1] ?? q[2] ?? '',
+    );
+    if (columns.length === 0) continue;
+    seen.add(name);
+    out.push({ name, file, columns, exported: Boolean(m[1]) });
+  }
+
+  return out;
+}
+
+export function resolveConstantSelectSites(
+  constantSites: readonly ConstantSelectSite[],
+  constants: readonly ScopedSelectConstant[],
+): { resolved: SelectSite[]; unresolved: ConstantSelectSite[] } {
+  /*
+    SCOPE MATTERS AND IS NOT COSMETIC. A file-local `const X_SELECT` is visible
+    ONLY in its own file, so resolving a site in file B against a local constant
+    in file A would invent a binding the compiler itself would reject. Same-file
+    first (local or exported); otherwise an EXPORTED constant from anywhere.
+  */
+  const sameFile = new Map<string, ScopedSelectConstant>();
+  const exported = new Map<string, ScopedSelectConstant>();
+  for (const c of constants) {
+    sameFile.set(`${c.file}\u0000${c.name}`, c);
+    if (c.exported && !exported.has(c.name)) exported.set(c.name, c);
+  }
+  const resolved: SelectSite[] = [];
+  const unresolved: ConstantSelectSite[] = [];
+  for (const site of constantSites) {
+    const constant =
+      sameFile.get(`${site.file}\u0000${site.constant}`) ?? exported.get(site.constant);
+    if (!constant) {
+      unresolved.push(site);
+      continue;
+    }
+    resolved.push({
+      file: site.file,
+      line: site.line,
+      table: site.table,
+      columns: constant.columns,
+    });
+  }
+  return { resolved, unresolved };
+}
+
+/**
+ * Every select the phantom check must examine: the LITERAL ones and the
+ * CONSTANT-referenced ones resolved to their columns.
+ *
+ * One walk, because two walks drift — the same reasoning the omitted-column
+ * half of this file already records about rival scanners.
+ */
+export function scanAllSelectSites(root: string = APP_ROOT): {
+  literalSites: SelectSite[];
+  constantSites: ConstantSelectSite[];
+  constants: ScopedSelectConstant[];
+  resolved: SelectSite[];
+  unresolved: ConstantSelectSite[];
+  /** literal + resolved — what `findPhantomColumns` must be given. */
+  sites: SelectSite[];
+} {
+  const literalSites: SelectSite[] = [];
+  const constantSites: ConstantSelectSite[] = [];
+  const constants: ScopedSelectConstant[] = [];
+
+  for (const file of collectSourceFiles(root)) {
+    let src: string;
+    try {
+      src = fs.readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    const rel = path.relative(root, file);
+    // NOT `if (src.includes('export const'))` — file-local lists carry no
+    // `export`, and they are half the declarations in this repo.
+    if (src.includes('const ')) constants.push(...extractAllSelectConstants(src, rel));
+    if (!src.includes('.from(')) continue;
+    literalSites.push(...extractSelectSites(src, rel));
+    constantSites.push(...extractConstantSelectSites(src, rel));
+  }
+
+  const { resolved, unresolved } = resolveConstantSelectSites(constantSites, constants);
+  return {
+    literalSites,
+    constantSites,
+    constants,
+    resolved,
+    unresolved,
+    sites: [...literalSites, ...resolved],
+  };
+}
+
 /** Convenience: scan the app and diff it against the migrations in one call. */
 export function scanForPhantomColumns(root: string = APP_ROOT): {
   sites: SelectSite[];
   phantoms: PhantomColumn[];
   schema: Map<string, TableSchema>;
+  resolved: SelectSite[];
+  unresolved: ConstantSelectSite[];
 } {
   const schema = readSchema();
-  const sites = scanSelectSites(root);
-  return { sites, phantoms: findPhantomColumns(sites, schema), schema };
+  const { sites, resolved, unresolved } = scanAllSelectSites(root);
+  return { sites, phantoms: findPhantomColumns(sites, schema), schema, resolved, unresolved };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

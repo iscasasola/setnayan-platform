@@ -44,8 +44,11 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readSchema } from './migration-schema';
+import { stripComments } from '../strip-comments';
 import {
+  extractAllSelectConstants,
   extractConstantSelectSites,
   extractSelectConstants,
   extractSelectSites,
@@ -53,6 +56,8 @@ import {
   findPhantomColumns,
   isNearCopy,
   parseSelectList,
+  resolveConstantSelectSites,
+  scanAllSelectSites,
   scanForOmittedColumns,
   scanSelectSites,
   type PhantomColumn,
@@ -158,7 +163,15 @@ function describe(p: PhantomColumn): string {
 
 test('T1 · no .from().select() names a column the migrations never declared', () => {
   const schema = readSchema();
-  const sites = scanSelectSites();
+  /*
+    \u26a0 `scanAllSelectSites`, NOT `scanSelectSites`. The latter returns ONLY
+    literal `.select('…')` calls. Until 2026-08-30 this test used it, so
+    `.select(SOME_COLUMNS)` produced no site and was never checked — the guard
+    did not resolve the constant and pass, it stopped looking. 74 select sites
+    in this repo were unchecked. See T19/T20, which exist to stop that
+    returning.
+  */
+  const sites = scanAllSelectSites().sites;
   const unexpected = findPhantomColumns(sites, schema).filter(
     (p) => !(p.key in KNOWN_PHANTOMS),
   );
@@ -578,4 +591,132 @@ test('T18 · anti-vacuity — the omission scan really has something to compare'
     assert.match(o.key, /^[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+$/, 'key is file⇥table⇥constant⇥column');
     assert.ok(o.line > 0);
   }
+});
+
+// ── T19–T20 · the guard on the guard ─────────────────────────────────────────
+
+/**
+ * \U0001f6a8 WHY THESE EXIST. On 2026-08-30 a session made a legitimate T1
+ * failure disappear by rewriting `.select('points_cost')` as
+ * `.select(SOME_CONSTANT)`. The runtime behaviour was byte-identical —
+ * PostgREST still received the same name and still answered 42703 — but the
+ * scanner matched only QUOTED select arguments, so the site vanished from its
+ * view entirely and T1 went green. A proof tool that fails OPEN is worse than
+ * none, because its green is read as evidence.
+ *
+ * T19 is the positive control: it fails if the phantom path ever stops
+ * resolving constants. T20 is the ratchet on what resolution still cannot see.
+ */
+test('T19 · a phantom named through a CONSTANT is still reported', () => {
+  const source = `
+    const WIDGET_COLUMNS = 'widget_id, colour_that_does_not_exist';
+    export async function read(db: any) {
+      return db.from('widgets').select(WIDGET_COLUMNS);
+    }
+  `;
+  const constants = extractAllSelectConstants(source, 'lib/widgets.ts');
+  assert.equal(constants.length, 1, 'the file-local constant must be found (it has no `export`)');
+  assert.deepEqual(constants[0]?.columns, ['widget_id', 'colour_that_does_not_exist']);
+  assert.equal(constants[0]?.exported, false, 'and it must be tagged as file-local');
+
+  const { resolved, unresolved } = resolveConstantSelectSites(
+    extractConstantSelectSites(source, 'lib/widgets.ts'),
+    constants,
+  );
+  assert.equal(unresolved.length, 0, 'a same-file constant must resolve');
+  assert.deepEqual(resolved.map((r) => r.table), ['widgets']);
+
+  const schema = new Map([['widgets', { cols: new Set(['widget_id']) } as never]]);
+  const phantoms = findPhantomColumns(resolved, schema as never);
+  assert.deepEqual(
+    phantoms.map((p) => p.key),
+    ['widgets.colour_that_does_not_exist'],
+    'THE WHOLE POINT: a column hidden behind a constant must still be caught.\n' +
+      'If this fails, the phantom path has stopped consuming resolved constants and\n' +
+      '`.select(ANY_CONSTANT)` is once again invisible to T1.',
+  );
+
+  // A file-local constant must NOT resolve a site in a DIFFERENT file — that
+  // binding does not exist at runtime either.
+  const cross = resolveConstantSelectSites(
+    [{ file: 'lib/other.ts', line: 1, table: 'widgets', constant: 'WIDGET_COLUMNS' }],
+    constants,
+  );
+  assert.equal(cross.resolved.length, 0, 'a file-local constant is not visible elsewhere');
+  assert.equal(cross.unresolved.length, 1, 'and it is surfaced as unresolved, not dropped');
+});
+
+/**
+ * Constant select sites this scanner still cannot resolve. Each one is a select
+ * T1 cannot check, so the number may only SHRINK.
+ *
+ * Measured 2026-08-30: 74 constant sites, 71 resolved, 3 unresolved.
+ * RAISING THIS IS A DECISION, NOT A FIX.
+ */
+const UNRESOLVED_CONSTANT_CEILING = 3;
+
+test('T20 · the unresolved-constant blind spot may only shrink', () => {
+  const { constantSites, resolved, unresolved, literalSites, sites } = scanAllSelectSites();
+
+  /*
+    `sites` must BE the union. Without this, dropping `...resolved` from it
+    restores the blind spot while `resolved.length > 0` below still passes —
+    a mutation nothing else here would catch, since the repo currently hides
+    zero phantoms behind constants.
+  */
+  assert.equal(
+    sites.length,
+    literalSites.length + resolved.length,
+    'scanAllSelectSites().sites must be literal + resolved. If this fails, the ' +
+      'resolved constant sites are being computed and then thrown away.',
+  );
+
+  assert.ok(
+    constantSites.length > 50,
+    `anti-vacuity: expected many .select(CONST) sites, saw ${constantSites.length}. ` +
+      'If this collapsed to ~0 the resolution path has broken and T19 alone would not notice.',
+  );
+  assert.ok(resolved.length > 0, 'resolution must actually resolve something');
+
+  assert.ok(
+    unresolved.length <= UNRESOLVED_CONSTANT_CEILING,
+    `${unresolved.length} constant-referenced select(s) cannot be resolved, over the ceiling of ` +
+      `${UNRESOLVED_CONSTANT_CEILING}. Each is a select T1 CANNOT CHECK.\n` +
+      unresolved.map((u) => `  ${u.file}:${u.line}  .from('${u.table}').select(${u.constant})`).join('\n') +
+      '\n\nFix the resolver (preferred) or the call site. Do NOT raise the ceiling to go green.',
+  );
+});
+
+/**
+ * \U0001f6a8 THE MUTATION THAT NOTHING ELSE CATCHES. Today the repo has ZERO
+ * phantoms hiding behind constants (74 sites, 71 resolved, 0 new findings), so
+ * reverting T1 from `scanAllSelectSites()` to the literals-only
+ * `scanSelectSites()` would change NO test result — it would silently restore
+ * the exact blind spot this work closed, and every suite would stay green.
+ *
+ * Behaviour cannot catch that, so this reads the wiring itself. It is the same
+ * reasoning as the repo's other source-level guards: when the defect is an
+ * ABSENCE, assert the presence.
+ *
+ * Comments are stripped with the SHARED stripper — the one repaired in PR #5018
+ * — because the docblock above names `scanSelectSites` while explaining why T1
+ * must not use it. A raw match would find the disease and call it the cure.
+ */
+test('T21 · T1 is wired to the constant-aware scan, and cannot be quietly reverted', () => {
+  const src = stripComments(readFileSync(new URL(import.meta.url), 'utf8'));
+  const t1 = src.slice(src.indexOf("test('T1 ·"), src.indexOf("test('T2 ·"));
+  assert.ok(t1.length > 200, 'anti-vacuity: T1 body must actually be located');
+
+  assert.match(
+    t1,
+    /scanAllSelectSites\(\)/,
+    'T1 must call scanAllSelectSites() — the constant-aware scan.\n' +
+      'If this fails, someone reverted T1 to the literals-only path and every\n' +
+      '.select(SOME_CONSTANT) in the app is invisible to the guard again.',
+  );
+  assert.doesNotMatch(
+    t1,
+    /[^l]scanSelectSites\(\)/,
+    'T1 must NOT use the literals-only scanSelectSites() — that is the blind spot.',
+  );
 });

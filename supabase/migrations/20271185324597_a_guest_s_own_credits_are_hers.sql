@@ -484,6 +484,7 @@ BEGIN
         'used', GREATEST(0, v_metered - v_cost),
         'remaining', GREATEST(0, v_ceiling - GREATEST(0, v_metered - v_cost)),
         'self_funded', public.papic_guest_self_funded_spend(p_guest_id)
+        -- (asked once, on a path that ends here — no reuse to hoist it out of)
       );
     END IF;
   END IF;
@@ -510,7 +511,15 @@ BEGIN
 
   -- Re-asked AFTER the insert so the reply describes the world the guest is now
   -- in, with no `+ v_cost` arithmetic repeated at the call site.
+  --
+  -- ⚠ ONCE EACH, INTO A VARIABLE. Both figures below need the metered spend and
+  -- both branches of the reply need the self-funded one; asking the functions
+  -- again per field would put four extra aggregates on a path that runs at the
+  -- product's stated peak of 250 captures a second.
   v_self := public.papic_guest_self_funded_spend(p_guest_id);
+  IF v_ceiling IS NOT NULL THEN
+    v_metered := public.papic_guest_ceiling_spend(p_guest_id);
+  END IF;
 
   RETURN jsonb_build_object(
     'status', 'ok',
@@ -519,15 +528,14 @@ BEGIN
     -- from anywhere but her own purchase. Everywhere else it is what it always
     -- was, so a celebration with no ceiling reports byte-identically.
     'used', CASE
-      WHEN v_ceiling IS NOT NULL THEN public.papic_guest_ceiling_spend(p_guest_id)
+      WHEN v_ceiling IS NOT NULL THEN v_metered
       ELSE v_used + v_cost
     END,
     -- Unlimited guests report a non-zero remaining so no numeric consumer ever
     -- reads "exhausted"; the client shows "Unlimited" off the server-rendered
     -- flag regardless. A guest under a ceiling is never one of them.
     'remaining', CASE
-      WHEN v_ceiling IS NOT NULL
-        THEN GREATEST(0, v_ceiling - public.papic_guest_ceiling_spend(p_guest_id))
+      WHEN v_ceiling IS NOT NULL THEN GREATEST(0, v_ceiling - v_metered)
       WHEN v_unlimited THEN v_credits
       ELSE GREATEST(0, v_credits - (v_used + v_cost))
     END,

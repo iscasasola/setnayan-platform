@@ -75,6 +75,8 @@ import type { EventDatePrecision } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
+import { papicCreditVerdict } from '@/lib/papic-credit-estimate';
+import { PAPIC_POINTS_PER_CLIP, PAPIC_POINTS_PER_PHOTO } from '@/lib/papic-cameras-pure';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
   InspectorLayout,
@@ -1034,6 +1036,36 @@ export async function EventDashboard({
     };
   });
 
+  /*
+    ── IS THAT ENOUGH? (owner 2026-08-30) ──────────────────────────────────
+    "1,240 credits left" says nothing to anyone who does not already know what
+    a credit buys. The verdict turns the balance into the answer the number was
+    standing in for, and it recommends a top-up ONLY when the event is actually
+    short — the owner's words: "if their count is good, then do not recommend."
+
+    Costs no query: `guests` and `papicHome` are both already resolved in the
+    batch above. Every credit weight is READ from its one home rather than
+    retyped here (lib/papic-copy-guardrails.test.ts fails CI on a literal).
+
+    ⚠ IT REPORTS THE GAP, NOT A RUNG. Naming a purchasable figure needs the live
+    16-rung `PAPIC_GUEST*` pool ladder, which is admin-editable catalog data and
+    is NOT loaded on this surface. The board's row therefore states the shortfall
+    and links to /studio/papic, where `PapicPoolCard` already reads that ladder
+    and its stepper picks the rung. An earlier cut rounded to a fixed 150 — the
+    Papic ONE *camera* rung — which would have quoted numbers the pool checkout
+    cannot sell.
+
+    Resolved HERE, above the decisions board, because both the board's top-up
+    row and the mini-tile's verdict line below read it — one computation, so
+    the two can never disagree about whether the event is short.
+  */
+  const papicVerdict = papicHome
+    ? papicCreditVerdict(papicHome.shotsLeft, guests.length, {
+        pointsPerPhoto: PAPIC_POINTS_PER_PHOTO,
+        pointsPerClip: PAPIC_POINTS_PER_CLIP,
+      })
+    : null;
+
   const groupsUnordered: DecisionGroupView[] = ([
     {
       id: 'book',
@@ -1109,6 +1141,40 @@ export async function EventDashboard({
         }
       : null;
   if (deadlineGroup) groupsUnordered.push(deadlineGroup);
+
+  /*
+    ── TOP UP PAPIC — A DECISION, AND ONLY WHEN THERE IS ONE ────────────────
+    Joins the 'pay' group because it is money the couple chooses to spend, and
+    it appears ONLY on a 'short' verdict: a covered event contributes no row at
+    all (owner: "if their count is good, then do not recommend"), and an
+    'unknown' one — a brand-new event with no guest count — contributes nothing
+    either, so nobody is asked to fix a shortfall we cannot yet measure.
+
+    Deep-links with the recommended figure so the Papic page can open on the
+    right rung instead of making them work it out again.
+  */
+  if (papicVerdict?.status === 'short') {
+    const payGroup = groupsUnordered.find((g) => g.id === 'pay');
+    const papicRow: DecisionItemView = {
+      id: 'papic:topup',
+      label: 'Top up Papic credits',
+      sub: `About ${papicVerdict.shortfall.toLocaleString('en-PH')} more covers your guest list`,
+      // The row's own sub-line already carries the figure, so a chip would say
+      // the same thing twice — the D-5 rule this board already follows.
+      chip: null,
+      chipTone: 'calm',
+      ctaLabel: 'Top up',
+      href: `${base}/studio/papic?topup=${papicVerdict.shortfall}`,
+    };
+    if (payGroup) payGroup.items.push(papicRow);
+    else
+      groupsUnordered.push({
+        id: 'pay',
+        title: 'Settle a payment',
+        sub: 'Money waiting on you',
+        items: [papicRow],
+      });
+  }
 
   // 'deadline' is listed in BOTH orders on purpose: `order.indexOf` returns -1
   // for an unlisted id, which would sort it ABOVE everything else. Leaving it
@@ -1588,6 +1654,18 @@ export async function EventDashboard({
   // (owner default, PR-G question 2). Both figures derive from
   // lib/papic-home-tile.ts — the pool figure is the same `papic_event_pool_status`
   // the capture path meters against, so the tile and the fence cannot disagree.
+  /*
+    ── IS THAT ENOUGH? (owner 2026-08-30) ──────────────────────────────────
+    "1,240 credits left" says nothing to anyone who does not already know what
+    a credit buys. The verdict turns the balance into the answer the number was
+    standing in for, and it recommends a top-up ONLY when the event is actually
+    short — the owner's words: "if their count is good, then do not recommend."
+
+    Costs no query: `guests` and `papicHome` are both already resolved in the
+    batch above. Every credit weight is READ from its one home rather than
+    retyped here (lib/papic-copy-guardrails.test.ts fails CI on a literal), and
+    the top-up rung comes from the Papic ONE tier table, not a hand-typed 150.
+  */
   const papicMini = papicHome ? (
     <Link
       key="papic"
@@ -1613,6 +1691,21 @@ export async function EventDashboard({
             ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
             : 'photos gathered'}
       </span>
+      {/* The verdict rides UNDER the existing line rather than replacing it —
+       *  the balance is still the fact; this is what it means. Silent on
+       *  'unknown' (no guest count yet), so a brand-new event is never told it
+       *  is short of anything. */}
+      {papicVerdict && papicVerdict.status !== 'unknown' ? (
+        <span
+          className={`mt-0.5 block text-[11.5px] font-medium ${
+            papicVerdict.status === 'covered' ? 'text-ink/55' : 'text-terracotta-700'
+          }`}
+        >
+          {papicVerdict.status === 'covered'
+            ? 'enough for your event'
+            : `short ~${papicVerdict.shortfall.toLocaleString('en-PH')} credits`}
+        </span>
+      ) : null}
       {miniFoot('Open Papic')}
     </Link>
   ) : null;

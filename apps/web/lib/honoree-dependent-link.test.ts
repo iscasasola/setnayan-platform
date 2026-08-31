@@ -14,10 +14,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  BUSINESS_HONOREE_TYPES,
+  eventTypeAcceptsHonoreeLink,
   honoreeLabelMatchesDependent,
   isDependentId,
   resolveHonoreeDependentId,
 } from './honoree-dependent-link';
+import { LIFE_GATE_BY_TYPE, isGatedLifeType } from './life-event-gate';
 
 const OWNER = 'user-1';
 const DEP = '11111111-2222-4333-8444-555555555555';
@@ -185,4 +188,62 @@ test('no caller identity, no link — and no round-trip spent looking', async ()
     null,
   );
   assert.equal(client.calls.length, 0, 'a malformed id must be rejected before the DB');
+});
+
+// ── WHICH TYPES MAY NAME A SUBJECT (widened 2026-08-31) ─────────────────────
+//
+// `isGatedLifeType` used to answer this question as well as the cap's, so
+// `corporate` and `gala_night` — both live and enabled in production — had no
+// way to name the business they belong to. These tests pin the widening AND the
+// two things it must not disturb.
+
+test('a corporate event and a gala night may name a business', () => {
+  for (const type of BUSINESS_HONOREE_TYPES) {
+    assert.equal(
+      eventTypeAcceptsHonoreeLink(type),
+      true,
+      `${type} is thrown BY a business and must be able to name one`,
+    );
+  }
+});
+
+/**
+ * 🔴 THE ONE THAT MUST NOT MOVE. A wedding has its own guard (wedding-guard.ts)
+ * and its own honoree model (the couple), and has never written this column.
+ * Letting it in here would put a wedding under a cap it was deliberately kept
+ * out of. Asserted against BOTH lists, so neither can quietly admit it.
+ */
+test('a wedding still cannot name a dependent', () => {
+  assert.equal(eventTypeAcceptsHonoreeLink('wedding'), false);
+  assert.equal(isGatedLifeType('wedding'), false);
+  assert.equal((BUSINESS_HONOREE_TYPES as readonly string[]).includes('wedding'), false);
+});
+
+test('every gated life type still accepts the link, unchanged', () => {
+  const gated = Object.keys(LIFE_GATE_BY_TYPE);
+  assert.ok(gated.length >= 5, 'the five life types must still be in the gate map');
+  for (const type of gated) {
+    assert.equal(eventTypeAcceptsHonoreeLink(type), true, `${type} regressed`);
+  }
+});
+
+/**
+ * WIDENING THE PERMISSION MUST NOT WIDEN THE CAP. `blocksLifeEventCreation`
+ * keys on `isGatedLifeType`, so a company may hold as many gala nights in
+ * planning as it likes — the two lists have to stay disjoint for that to be
+ * true, and this is what says so.
+ */
+test('the business types are outside the cap map, so they contend for nothing', () => {
+  for (const type of BUSINESS_HONOREE_TYPES) {
+    assert.equal(isGatedLifeType(type), false, `${type} must not enter the one-in-planning cap`);
+    assert.equal(type in LIFE_GATE_BY_TYPE, false);
+  }
+});
+
+test('an unknown or missing type names nobody', () => {
+  assert.equal(eventTypeAcceptsHonoreeLink(null), false);
+  assert.equal(eventTypeAcceptsHonoreeLink(undefined), false);
+  assert.equal(eventTypeAcceptsHonoreeLink(''), false);
+  assert.equal(eventTypeAcceptsHonoreeLink('reunion'), false);
+  assert.equal(eventTypeAcceptsHonoreeLink('anniversary'), false);
 });

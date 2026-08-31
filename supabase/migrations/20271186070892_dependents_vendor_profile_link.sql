@@ -40,9 +40,25 @@
 --
 -- ⚠ NO NEW TABLE, VIEW OR FUNCTION ⇒ no new object carrying the default ACL, so
 --   there is nothing here to REVOKE from anon. No policy, USING or WITH CHECK
---   clause is touched ⇒ the exposure baseline is unchanged; the column is
---   reachable only through `dependents_owner_all` (RLS Pattern A, owner-only),
---   exactly like every other column on this table.
+--   clause is touched; the column is reachable only through
+--   `dependents_owner_all` (RLS Pattern A, owner-only), exactly like every other
+--   column on this table.
+--
+-- 📋 THE EXPOSURE BASELINE GAINS EXACTLY ONE LINE, DELIBERATELY:
+--     col  public.dependents.vendor_profile_id  anon=- authenticated=SIU
+--   — byte-identical to all 21 sibling columns, and `anon=-`: the public
+--   internet reaches none of it. It is not narrowed to SELECT-only because
+--   Postgres subsumes a column-level REVOKE under a table-level grant, so
+--   "tightening" this one column would mean revoking INSERT/UPDATE on the TABLE
+--   and re-granting all 22 columns individually — a far larger change to the
+--   grant shape of a table holding a child's birthdate, to close a much smaller
+--   door. What that door is: an authenticated user could UPDATE their OWN row
+--   to point at a shop they do not own. The FK means it must be a REAL shop, the
+--   partial unique index means one per pair, the page then reads
+--   `vendor_profiles` under the USER's client (so RLS still decides what they
+--   see), and the result is visible on nobody's screen but their own. No
+--   cross-account read, no denial, and open-shop's idempotency read keys on
+--   their own shop id so a forged row cannot block their real record.
 --
 -- ⚠ THIS COLUMN IS NOT SENSITIVE PI. It names a business, which is a public
 --   commercial entity — the person-only rules (age fence, birth_date_consent_at,

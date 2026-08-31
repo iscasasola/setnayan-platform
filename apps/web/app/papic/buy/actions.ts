@@ -23,16 +23,11 @@ import {
   normalisePayerName,
   normaliseShortEntry,
   papicGuestOrderRow,
-  resolveGuestRelease,
   resolveGuestReloadTarget,
   resolveGuestRung,
   type PapicGuestBuyer,
 } from '@/lib/papic-guest-buy';
-import {
-  ensureGuestOwnCameraAdmin,
-  resolveGuestOwnCamera,
-  resolveSeatDedicatedStanding,
-} from '@/lib/papic-guest-own-camera';
+import { ensureGuestOwnCameraAdmin } from '@/lib/papic-guest-own-camera';
 
 /**
  * GUESTS CAN BUY PAPIC — the I/O half (owner-locked 2026-07-29).
@@ -572,79 +567,4 @@ export async function submitPapicGuestPayment(formData: FormData) {
 
   revalidatePath('/admin/payments');
   redirect(`/papic/order/${encodeURIComponent(token)}?logged=1`);
-}
-
-/**
- * Spec § 7b, the reversal half — "add them to the celebration" for credits she
- * already chose to keep. Give the UNUSED part of a camera's dedicated balance
- * back to the shared pool.
- *
- * ── THE TARGET IS NEVER READ FROM THE FORM ─────────────────────────────────
- * There is nothing to submit but a button press: the amount that moves is
- * always "everything not yet shot", re-derived here from the DATABASE at the
- * moment of the call, under papic_dedicate_shots' own row lock — never from
- * whatever the page showed her a moment earlier. A guest who fires the shutter
- * between page-load and this submit gives back correspondingly less, which is
- * correct: what she shot in that gap is hers, same as everything before it.
- *
- * ── THE CREDENTIAL, NOT A CAMERA ID FROM THE FORM ──────────────────────────
- * Same resolveGuestBuyer this file's purchase actions use — a seat token or
- * the signed guest cookie. "Whichever camera is mine" is the only camera this
- * can ever act on; there is deliberately no seat_id input.
- *
- * ✅ BUILT ON A SHIPPED PRIMITIVE. papic_dedicate_shots already refuses to
- * drop a camera's target below what it has spent (23514) — the floor 7b's own
- * "what can never come back" line describes is enforced there, not here. This
- * action only ever aims at that floor, so the refusal should not fire in the
- * ordinary case; it is handled anyway for the race above.
- */
-export async function releaseGuestDedicatedShots(formData: FormData) {
-  const returnTo = safeReturnTo(formData.get('return_to'));
-  if (!papicGuestBuyEnabled()) backTo(returnTo, 'unavailable');
-
-  const buyer = await resolveGuestBuyer(String(formData.get('seat_token') ?? '').trim());
-  if (!buyer) backTo(returnTo, 'not_here');
-
-  const admin = createAdminClient();
-
-  const seatId =
-    buyer.kind === 'seat'
-      ? buyer.seatId
-      : (await resolveGuestOwnCamera(admin, buyer.eventId, buyer.guestId))?.seatId ?? null;
-  if (!seatId) backTo(returnTo, 'no_camera');
-
-  const standing = await resolveSeatDedicatedStanding(admin, seatId);
-  if (!standing) backTo(returnTo, 'failed');
-
-  const resolution = resolveGuestRelease(standing);
-  if (!resolution.ok) backTo(returnTo, 'nothing_to_release');
-
-  // Best-effort attribution only — a cookie guest often has no real account,
-  // and the RPC accepts NULL (see papic_set_guest_spend_ceiling's own p_actor
-  // for the same shape). Never blocks the release.
-  const actorId = await resolveRealAccountId();
-
-  const { error } = await admin.rpc('papic_dedicate_shots', {
-    p_event_id: buyer.eventId,
-    p_seat_id: seatId,
-    p_points: resolution.target,
-    p_actor: actorId,
-  });
-
-  if (error) {
-    // The floor firing here means she shot between the read above and this
-    // call — the RPC is right and the earlier read is simply stale.
-    if (/already taken/.test(String(error.message ?? ''))) {
-      backTo(returnTo, 'nothing_to_release');
-    }
-    console.error('[papic] releaseGuestDedicatedShots failed:', {
-      event_id: buyer.eventId,
-      seat_id: seatId,
-      error: String(error.message ?? ''),
-    });
-    backTo(returnTo, 'failed');
-  }
-
-  revalidatePath(`/dashboard/${buyer.eventId}/studio/papic`);
-  redirect(`${safeReturnTo(returnTo)}?papic_release=${standing.releasable}`);
 }

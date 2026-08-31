@@ -50,7 +50,7 @@ function label(id: string): string {
 function Row({ children, title }: { children: React.ReactNode; title: string }) {
   return (
     <div className="border-t border-white/10 px-3 py-3 first:border-t-0">
-      <p className="mb-2 text-[11px] uppercase tracking-wide text-white/45">{title}</p>
+      <p className="mb-2 text-xs uppercase tracking-wide text-white/55">{title}</p>
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
   );

@@ -94,6 +94,74 @@ async function seed({
   return { eventId, seatId };
 }
 
+
+/**
+ * A camera belonging to a NAMED guest who bought her own credits AND was handed
+ * some of the couple's. The `papic_guest_orders` row is what makes the grant
+ * traceable to HER purchase — `papic_guest_self_funded_spend` joins through it,
+ * so a grant without an order is invisible to the ceiling.
+ */
+async function seedNamedBuyerWithHandout({
+  bought,
+  allocated,
+  shot,
+}: {
+  bought: number;
+  allocated: number;
+  shot: number;
+}) {
+  seatCounter += 1;
+  const tag = `ceil-${seatCounter}`;
+  const eventId = await one<string>(
+    `INSERT INTO public.events (display_name, event_type)
+     VALUES ('Ceiling interaction', 'birthday') RETURNING event_id`,
+  );
+  await db.query(
+    `INSERT INTO public.papic_event_point_grants (event_id, points, source, note)
+     VALUES ($1, 3000, 'admin', 'the couple''s pot')`,
+    [eventId],
+  );
+  const guestId = await one<string>(
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category,
+                                ugc_terms_accepted_at)
+     VALUES ($1, 'Ana', 'Cruz', 'both', 'friends', NOW()) RETURNING guest_id`,
+    [eventId],
+  );
+  const seatId = await one<string>(
+    `INSERT INTO public.paparazzi_seats (event_id, seat_index, sku_code, claim_qr_token,
+                                         tier, guest_id)
+     VALUES ($1, 951, 'PAPIC_CAMERA_FREE', $2, 'unlimited', $3) RETURNING seat_id`,
+    [eventId, `${tag}-seat`, guestId],
+  );
+  const orderId = await one<string>(
+    `INSERT INTO public.orders (event_id, description, requested_total_php, reference_code)
+     VALUES ($1, 'guest one reload', $2, $3) RETURNING order_id`,
+    [eventId, bought, tag.toUpperCase().replace('-', '')],
+  );
+  await db.query(
+    `INSERT INTO public.papic_guest_orders
+       (order_id, event_id, seat_id, guest_id, purchase_kind, service_code, points, access_token)
+     VALUES ($1, $2, $3, $4, 'one_reload', 'PAPIC_CAMERA_MINI_DAY', $5, $6)`,
+    [orderId, eventId, seatId, guestId, bought, `${tag}-token-abcdefghijklmnopqrst`],
+  );
+  await db.query(
+    `INSERT INTO public.papic_event_point_grants
+       (event_id, points, source, order_id, seat_id, note)
+     VALUES ($1, $2, 'topup_order', $3, $4, 'keep them for me')`,
+    [eventId, bought, orderId, seatId],
+  );
+  if (allocated > 0) {
+    await one(`SELECT public.papic_dedicate_shots($1, $2, $3, NULL)`, [eventId, seatId, allocated]);
+  }
+  if (shot > 0) {
+    await db.query(
+      `INSERT INTO public.papic_seat_point_usage (seat_id, points_used) VALUES ($1, $2)`,
+      [seatId, shot],
+    );
+  }
+  return { eventId, seatId, guestId };
+}
+
 const dedicated = (seatId: string) =>
   one<number>(`SELECT public.papic_seat_dedicated_points($1)`, [seatId]);
 const pot = (eventId: string) =>
@@ -166,19 +234,22 @@ test('what she already SHOT can never come back', async () => {
   assert.equal(Number(await pot(eventId)), potBefore, 'and the pot is untouched');
 });
 
-test('a camera that has shot MORE than it bought cannot push the pot negative', async () => {
+test('a camera that has shot MORE than it bought has nothing of its own left to give', async () => {
   // Host handed 200 on top of her 137; she has shot 300 — more than she bought.
   const { eventId, seatId } = await seed({ bought: 137, allocated: 200, shot: 300 });
   const potBefore = Number(await pot(eventId));
+  const dedBefore = Number(await dedicated(seatId));
   const moved = Number(await release(eventId, seatId));
   assert.equal(
     moved,
-    37,
-    'dedicated 337 - shot 300 = 37 is all that may move, even though her own ' +
-      'un-released grants are 137',
+    0,
+    'her own 137 are entirely consumed by a 300-shot spend, so she has nothing ' +
+      'left to give. The 37 still unspent on this camera belong to the COUPLE — ' +
+      "they are the tail of the host's 200 hand-out, and giving them back would " +
+      'return the couple their own money as though it were a gift.',
   );
-  assert.equal(Number(await dedicated(seatId)), 300, 'floored exactly at her spend');
-  assert.equal(Number(await pot(eventId)) - potBefore, +37);
+  assert.equal(Number(await dedicated(seatId)), dedBefore, 'nothing moves');
+  assert.equal(Number(await pot(eventId)), potBefore);
 });
 
 // ── whose money is it ──────────────────────────────────────────────────────
@@ -207,16 +278,21 @@ test('with BOTH a hand-out and a purchase, only her own share moves', async () =
   const moved = Number(await release(eventId, seatId));
   assert.equal(
     moved,
-    137,
-    'her un-released grants are 137 and dedicated-minus-spend is 296, so the ' +
-      'FIRST ceiling binds — she gives back exactly what she bought',
+    96,
+    'her own UNSPENT credits are 137 - 41 = 96, and dedicated-minus-spend is ' +
+      '296, so the FIRST ceiling binds.\n' +
+      '⚠ NOT 137. Her 41 shots are attributed to her own purchase first — the ' +
+      'same attribution papic_guest_self_funded_spend makes with LEAST(spent, ' +
+      'paid). Letting her give back all 137 would make the couple\'s hand-out ' +
+      'silently pay for shots she took with her own money, and leave her a ' +
+      'ceiling exemption for credits she no longer owns. Measured, not reasoned.',
   );
   assert.equal(
     Number(await dedicated(seatId)),
-    200,
-    "the host's 200 is still on her camera",
+    337 - 96,
+    "the host's 200 and her own already-shot 41 are still on her camera",
   );
-  assert.equal(Number(await pot(eventId)) - potBefore, +137);
+  assert.equal(Number(await pot(eventId)) - potBefore, +96);
 });
 
 // ── pressing it twice ──────────────────────────────────────────────────────
@@ -321,8 +397,8 @@ test('the number shown and the number moved are always the same number', async (
     { bought: 137, shot: 0, allocated: 0, expect: 137 }, // shot nothing
     { bought: 137, shot: 137, allocated: 0, expect: 0 }, // shot everything
     { bought: 0, shot: 20, allocated: 200, expect: 0 }, // host's money only
-    { bought: 137, shot: 41, allocated: 200, expect: 137 }, // both, her share binds
-    { bought: 137, shot: 300, allocated: 200, expect: 37 }, // both, the floor binds
+    { bought: 137, shot: 41, allocated: 200, expect: 96 }, // both: her UNSPENT own share
+    { bought: 137, shot: 300, allocated: 200, expect: 0 }, // both: her own is all gone
     { bought: 1, shot: 0, allocated: 0, expect: 1 }, // the smallest real gift
   ];
 
@@ -349,4 +425,51 @@ test('the number shown and the number moved are always the same number', async (
       'nothing is releasable once it has been released',
     );
   }
+});
+
+/**
+ * ── GIVING CREDITS BACK MUST NOT LEAVE HER A CEILING EXEMPTION FOR THEM ────
+ *
+ * The interaction between this feature and the per-guest ceiling
+ * (`papic_guest_self_funded_spend`, 20271185324597). It was found by rebasing
+ * onto main and PROBING the two together — not by reading either one, and not
+ * by any test of either feature alone, because neither feature is wrong by
+ * itself. Both were green.
+ *
+ * The rule the owner locked is "her money, outside the couple's limit". Credits
+ * she has HANDED TO THE CELEBRATION are not her money any more. Measured before
+ * the fix: after donating everything, her exemption still climbed to the full
+ * 137 as she kept shooting on the COUPLE'S hand-out — the couple's own money
+ * buying her a walk through the couple's own limit.
+ */
+test('credits she gave back stop earning her an exemption from the couple’s ceiling', async () => {
+  const { eventId, seatId, guestId } = await seedNamedBuyerWithHandout({
+    bought: 137,
+    allocated: 200,
+    shot: 41,
+  });
+  const selfFunded = () =>
+    one<number>(`SELECT public.papic_guest_self_funded_spend($1)`, [guestId]);
+
+  assert.equal(Number(await selfFunded()), 41, 'she shot 41 with her own money');
+  assert.equal(
+    Number(await one<number>(`SELECT public.papic_seat_releasable_grants($1)`, [seatId])),
+    96,
+    'only her UNSPENT own credits may go — 137 would donate the 41 she already shot',
+  );
+
+  assert.equal(Number(await release(eventId, seatId)), 96);
+  assert.equal(Number(await selfFunded()), 41, 'the 41 she really did self-fund survive');
+
+  // She keeps shooting — now entirely on the COUPLE'S hand-out.
+  await db.query(`UPDATE public.papic_seat_point_usage SET points_used = 137 WHERE seat_id = $1`, [
+    seatId,
+  ]);
+  assert.equal(
+    Number(await selfFunded()),
+    41,
+    'and it STAYS 41. Before the fix this read 137: she was exempted from the ' +
+      "couple's ceiling for credits she had given away, while spending the " +
+      "couple's own hand-out.",
+  );
 });

@@ -257,14 +257,25 @@ REVOKE ALL ON FUNCTION public.papic_event_pool_status(UUID)
 -- forced them to agree. So the number is defined once, here, and BOTH the
 -- display and the mover below read it.
 --
---   LEAST( her own un-released grants , dedicated - already shot )
+--   LEAST( her own UNSPENT credits , dedicated - already shot )
 --
 -- Two ceilings, both necessary:
---   • FIRST — she may only give back HER OWN bought credits. Credits the HOST
---     handed her camera (`papic_seat_allocations`) are the couple's money; the
---     host takes those back with `papic_dedicate_shots`, and a guest handing
---     the couple's own money "back" to the couple would double-count it into
---     the pot.
+--   • FIRST — she may only give back HER OWN bought credits, and only the part
+--     she has not already SHOT. Credits the HOST handed her camera
+--     (`papic_seat_allocations`) are the couple's money; the host takes those
+--     back with `papic_dedicate_shots`, and a guest handing the couple's own
+--     money "back" to the couple would double-count it into the pot.
+--
+--     ⚠ `- s.spent` HERE IS NOT REDUNDANT WITH THE SECOND CEILING, and leaving
+--     it out was a measured defect. Her spend is attributed to her own purchase
+--     FIRST — that is not a new rule, it is the attribution
+--     `papic_guest_self_funded_spend` (20271185324597) already makes with
+--     `LEAST(spent, paid)`. Without it, a camera holding her 137 AND a 200
+--     hand-out from the couple could give back all 137 while 41 of them were
+--     already gone: the second ceiling stays slack because the couple's 200
+--     absorbs it, so the hand-out silently pays for her shots and she keeps a
+--     ceiling exemption for credits she no longer owns. Probed on the replayed
+--     schema; see § 4c.
 --   • SECOND — what a camera has already SHOT can never come back. Spend is
 --     charged against the combined dedicated balance and the ledger does not
 --     split it by funding source, so the honest floor is the same one
@@ -290,7 +301,7 @@ AS $$
                  WHERE seat_id = p_seat_id), 0)::INTEGER AS spent
   )
   SELECT LEAST(
-           GREATEST(0, s.grants - s.released),
+           GREATEST(0, s.grants - s.released - s.spent),
            GREATEST(0, (s.grants + s.alloc - s.released) - s.spent)
          )::INTEGER
     FROM s;
@@ -405,6 +416,100 @@ REVOKE ALL ON FUNCTION public.papic_release_seat_grants(UUID, UUID, UUID)
 GRANT EXECUTE ON FUNCTION public.papic_release_seat_grants(UUID, UUID, UUID)
   TO service_role;
 
+-- ── 4c · credits she gave back stop being "her money" ──────────────────────
+--
+-- ⚠ THIS REPLACES A FUNCTION ANOTHER MIGRATION OWNS (20271185324597, merged
+-- this morning). The body below is that migration's CURRENT body with THREE
+-- lines changed — a declaration, a read, and the final expression. It was
+-- copied from the applied definition, not from memory, because
+-- `CREATE OR REPLACE` in a later migration silently reinstates whatever body
+-- its author copied and git shows no conflict: the two migrations are different
+-- files. An earlier draft of THIS migration did exactly that to
+-- `papic_event_pool_status` and reverted a fix that had merged hours before.
+-- Diff against the latest definer before replacing anything.
+
+CREATE OR REPLACE FUNCTION public.papic_guest_self_funded_spend(
+  p_guest_id UUID
+) RETURNS INTEGER
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_seat  UUID;
+  v_paid     INTEGER;
+  v_spent    INTEGER;
+  v_released INTEGER;
+BEGIN
+  IF p_guest_id IS NULL THEN RETURN 0; END IF;
+
+  -- Her camera. `paparazzi_seats_one_active_camera_per_guest` is a UNIQUE index
+  -- over (event_id, guest_id) WHERE guest_id IS NOT NULL AND revoked_at IS NULL,
+  -- and a guest row belongs to exactly one event, so this is at most one row.
+  SELECT s.seat_id INTO v_seat
+    FROM public.paparazzi_seats s
+   WHERE s.guest_id = p_guest_id
+     AND s.revoked_at IS NULL
+   LIMIT 1;
+
+  -- No camera of her own ⇒ she has never chosen "keep them for me", because
+  -- that purchase cannot be made without one (`no_camera` in the buy action,
+  -- and papic_guest_orders_reload_needs_seat_chk in the schema).
+  IF v_seat IS NULL THEN RETURN 0; END IF;
+
+  -- ── WHAT SHE BOUGHT ──────────────────────────────────────────────────────
+  -- Grants sitting on HER camera whose order is one of HER OWN guest purchases
+  -- of the "keep them for me" kind. The join through papic_guest_orders is what
+  -- makes this HER money rather than merely money on her camera: a Papic One
+  -- camera the COUPLE bought and pointed at her has a seat grant too, and that
+  -- is not what the owner ruled about.
+  --
+  -- ⚠ NO ORDER-STATUS FILTER, ON PURPOSE. The grant row does not exist until
+  -- `papic_grant_camera_points` runs on activation, so the grant's EXISTENCE is
+  -- the proof of payment. Re-deriving "is it paid?" here would be a second copy
+  -- of a money rule beside the first, and two copies always drift.
+  SELECT COALESCE(SUM(g.points), 0)::INTEGER
+    INTO v_paid
+    FROM public.papic_event_point_grants g
+    JOIN public.papic_guest_orders o ON o.order_id = g.order_id
+   WHERE g.seat_id = v_seat
+     AND o.guest_id = p_guest_id
+     AND o.purchase_kind = 'one_reload';
+
+  IF COALESCE(v_paid, 0) <= 0 THEN RETURN 0; END IF;
+
+  -- ── WHAT HER CAMERA HAS ACTUALLY SPENT FROM ITS DEDICATED BALANCE ────────
+  SELECT COALESCE(u.points_used, 0)::INTEGER
+    INTO v_spent
+    FROM public.papic_seat_point_usage u
+   WHERE u.seat_id = v_seat;
+
+  -- ── MINUS WHAT SHE GAVE BACK ─────────────────────────────────────────────
+  -- Added 2026-08-31 with the give-back feature (20271185813837). Credits she
+  -- HANDED TO THE CELEBRATION are not her money any more, and must stop earning
+  -- her an exemption from the couple's ceiling.
+  --
+  -- 🔑 MEASURED, NOT REASONED. Probed on the replayed schema: a camera holding
+  -- her 137 plus a 200 hand-out from the couple, 41 already shot. She gives her
+  -- credits back, then keeps shooting on the HAND-OUT — and this function
+  -- climbed to 137, granting her exemption for credits she had donated. The
+  -- couple's own money was buying her a walk through the couple's own limit.
+  --
+  -- ⚠ NOT a fix to papic_seat_grant_releases; that half is fixed too (its first
+  -- ceiling now nets off her spend). BOTH are needed: the ceiling stops her
+  -- giving back credits she already shot, and this stops the ones she DID give
+  -- back from still counting as hers.
+  SELECT COALESCE(r.points, 0)::INTEGER
+    INTO v_released
+    FROM public.papic_seat_grant_releases r
+   WHERE r.seat_id = v_seat;
+
+  -- Never more than she still owns; never more than was spent.
+  RETURN LEAST(COALESCE(v_spent, 0), GREATEST(0, v_paid - COALESCE(v_released, 0)));
+END;
+$$;
+
 -- ── 5 · assertions ─────────────────────────────────────────────────────────
 DO $$
 DECLARE
@@ -491,6 +596,16 @@ BEGIN
   IF (SELECT v_pool_body) NOT LIKE '%papic_event_guest_headcount%' THEN
     RAISE EXCEPTION
       'papic_event_pool_status stopped calling papic_event_guest_headcount — a replacement reverted 20271184624871';
+  END IF;
+
+  -- THE EXEMPTION MUST NET OFF WHAT SHE GAVE BACK. § 4c replaces another
+  -- migration's function; if a later replacement copies the pre-give-back body
+  -- forward, donated credits silently start earning a ceiling exemption again.
+  IF (SELECT regexp_replace(pg_get_functiondef(
+        'public.papic_guest_self_funded_spend(uuid)'::regprocedure), '--[^\n]*', '', 'g'))
+     NOT LIKE '%papic_seat_grant_releases%' THEN
+    RAISE EXCEPTION
+      'papic_guest_self_funded_spend no longer subtracts papic_seat_grant_releases — a replacement reverted 20271185813837';
   END IF;
 
   -- anon must not be able to call the mover. It is reachable only through the

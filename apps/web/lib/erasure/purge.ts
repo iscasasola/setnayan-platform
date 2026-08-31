@@ -1133,6 +1133,26 @@ export async function purgeUserGuestBiometrics(
     .in('guest_id', guestIds)
     .eq('photo_source', 'selfie');
   if (pErr) await auditFail('biometrics-guest-photo-null', pErr.message);
+
+  // The subject's AVATAR (C5, `guests.avatar_config`). NOT biometric — a set of
+  // whitelisted catalog ids from lib/chibi-config.ts, never derived from a face
+  // — so it is not part of the enrolment erasure above. It is still the
+  // subject's own authored likeness-by-proxy on their own guest rows, and an
+  // erasure that left a chosen face, hair and outfit standing in a 3D room
+  // would plainly not be an erasure.
+  //
+  // NULL is the same value the guest's own "Remove my avatar" writes and the
+  // same value the column has always defaulted to, so this restores the exact
+  // pre-avatar render rather than leaving a tombstone.
+  //
+  // Unconditional on the subject's guest rows (no `.eq` filter): unlike
+  // photo_url there is no third-party-sourced variant of this column to spare.
+  const { error: acErr } = await admin
+    .from('guests')
+    .update({ avatar_config: null })
+    .in('guest_id', guestIds)
+    .not('avatar_config', 'is', null);
+  if (acErr) await auditFail('guest-avatar-config-null', acErr.message);
 }
 
 /** What the caller needs after erasure to invalidate cached public pages. */

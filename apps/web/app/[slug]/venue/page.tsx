@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchBooths } from '@/lib/seating';
 import { GuestVenueLoader } from './_components/guest-venue-loader';
+import { guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveBoothStudioContent } from '@/lib/booth-studio';
@@ -301,9 +302,25 @@ export default async function VenuePage({
       <div className="mx-auto max-w-5xl">
         <div className="mb-3 flex items-center justify-between px-1">
           <h1 className="text-lg font-medium text-white">Explore the venue</h1>
-          <Link href={`/${slug}`} className="text-sm text-white/60 hover:text-white">
-            ← Back
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* THE MAKER'S ONLY DOOR. Without it the avatar maker is a route
+                nobody can find, which is the same as not shipping it — and
+                this is the one screen where the reason for it is visible.
+                Flag-gated to match the route itself, which 404s when
+                NEXT_PUBLIC_FIGURE_CHIBI is unset (production today), so this
+                never offers a link to a dead end. */}
+            {guestAvatarsEnabled() ? (
+              <Link
+                href={`/${slug}/avatar`}
+                className="text-sm text-white/60 hover:text-white"
+              >
+                Make your avatar
+              </Link>
+            ) : null}
+            <Link href={`/${slug}`} className="text-sm text-white/60 hover:text-white">
+              ← Back
+            </Link>
+          </div>
         </div>
         <GuestVenueLoader scene={scene} eventId={eventId} />
       </div>

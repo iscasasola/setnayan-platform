@@ -69,3 +69,46 @@ test('the page constructs no admin client', () => {
   const src = readFileSync(ROUTE, 'utf8');
   assert.equal(/createAdminClient/.test(src), false);
 });
+
+/**
+ * 🔴 THE READ THAT WOULD HAVE FAILED FOREVER AND LOOKED FINE.
+ *
+ * `authenticated` holds INSERT and UPDATE on `events.honoree_dependent_id` and
+ * NO SELECT (20271025120000 denied it on purpose — the column says "this account
+ * plans events for that dependent" and is kept off the guest surface). Postgres
+ * needs SELECT on every column named in a WHERE, so a bare
+ * `.from('events').eq('honoree_dependent_id', …)` under the user's client errors
+ * for every user, forever.
+ *
+ * 🔑 AND THE HONEST-READ PLUMBING WOULD HAVE HIDDEN IT. That error becomes "we
+ * couldn't load the events" — true, permanent, and indistinguishable from a
+ * transient hiccup. The first draft of the page shipped exactly that query.
+ *
+ * `events_host` is the couple/moderator-scoped view that still projects the
+ * honoree columns, and it carries its own caller-scoping WHERE. It is the door
+ * `life-event-guard.ts` already uses, for this exact reason.
+ */
+test('the events read goes through events_host, never through events', () => {
+  const src = readFileSync(ROUTE, 'utf8');
+  // ⚠ AGAINST CODE, NOT PROSE. The comment above that read spells out the very
+  // query it forbids, in order to explain why. A guard reading the raw file
+  // reports a violation written by the guard's own subject — this file failed
+  // exactly that way once, and so did the open-shop guard.
+  const code = src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+  assert.ok(
+    code.includes("from('events_host')"),
+    'comment-stripping ate the code it was asked to check',
+  );
+  assert.match(
+    src,
+    /\.from\('events_host'\)\s*\n\s*\.select\([^)]*\)\s*\n\s*\.eq\('honoree_dependent_id'/,
+    'the honoree read must use events_host — authenticated has no SELECT on events.honoree_dependent_id',
+  );
+  assert.equal(
+    /\.from\('events'\)/.test(code),
+    false,
+    'a bare events read here is a query that can never succeed',
+  );
+});

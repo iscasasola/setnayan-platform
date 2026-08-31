@@ -99,10 +99,28 @@ export default async function DependentPage({
   };
   const isPerson = isPersonDependent(dependent.dependent_kind);
 
-  // The events that NAME this alaga. RLS scopes `events` to the ones this
-  // account is a member of, which is the same set the dashboard already shows.
+  // ── THE EVENTS THAT NAME THIS ALAGA — READ THROUGH `events_host`, NEVER
+  //    THROUGH `events` ──────────────────────────────────────────────────────
+  //
+  // 🔴 `authenticated` HOLDS INSERT AND UPDATE ON `events.honoree_dependent_id`
+  // AND NO SELECT (migration 20271025120000 denied it, deliberately: the column
+  // says "this account plans events for that dependent", which is kept off the
+  // guest surface). Postgres needs SELECT on every column named in a WHERE, so
+  // a bare `.from('events').eq('honoree_dependent_id', …)` under the user's
+  // client ERRORS — for everyone, forever.
+  //
+  // 🔑 AND IT WOULD HAVE LOOKED FINE. The honest-read plumbing below turns that
+  // error into "we couldn't load the events", which is true, permanent, and
+  // reads like a transient hiccup rather than a feature that never worked. The
+  // first draft of this page shipped that query; the grants were what caught it.
+  //
+  // `events_host` is the couple/moderator-scoped view that still projects the
+  // honoree columns — the same door `life-event-guard.ts` uses, and for the same
+  // reason. It carries its own WHERE (`current_couple_event_ids()` OR
+  // `current_moderator_event_ids()` OR service_role), so it is caller-scoped in
+  // the database rather than here.
   const { data: eventRows, error: eventsError } = await supabase
-    .from('events')
+    .from('events_host')
     .select('event_id, display_name, event_type, event_date, created_at, archived')
     .eq('honoree_dependent_id', dependent.dependent_id)
     .order('created_at', { ascending: true });

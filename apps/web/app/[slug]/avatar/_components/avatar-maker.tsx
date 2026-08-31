@@ -289,8 +289,8 @@ export function AvatarMaker({
       ) : null}
       <p className="px-1 text-xs text-white/40">
         Only guests with a personal link to this seating plan can see your
-        avatar, and only where the couple already shows guest photos. It is used
-        for this event only, and you can remove it at any time.
+        avatar, and only where guest photos are already shown. It is used for
+        this event only, and you can remove it at any time.
       </p>
     </div>
   );

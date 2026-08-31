@@ -39,6 +39,10 @@ no second flag.
   replayed: it arrives, it reaches nobody else, it is never invented for a guest
   who has none, and it survives all three photo-visibility values.
 
+- **`app/[slug]/venue/page.tsx`** — the maker's only door, flag-gated to match
+  the route (which 404s when the flag is unset), so it never links to a dead
+  end. A route nobody can reach is the same as not shipping it.
+
 ⚠ **DO NOT FLIP `NEXT_PUBLIC_FIGURE_CHIBI` YET.** Two gaps are real and are NOT
 faked in code:
   1. **No gait.** The chibi rig is jointless below the neck (chibi-geometry

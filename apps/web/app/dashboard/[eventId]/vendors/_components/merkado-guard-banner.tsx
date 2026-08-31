@@ -34,7 +34,7 @@ export function MerkadoGuardBanner({
           <p className={`text-sm font-medium ${hasIssues ? 'text-warn-900' : 'text-success-800'}`}>
             {hasIssues
               ? `${guard.issues.length} thing${guard.issues.length > 1 ? 's' : ''} to review`
-              : 'Suri’s watching — your team fits'}
+              : 'Sai’s watching — your team fits'}
           </p>
           {hasIssues ? (
             <ul className="mt-2 space-y-1.5">

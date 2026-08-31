@@ -158,6 +158,10 @@ type Props = {
     papic_order?: string;
     papic_ref?: string;
     papic_amount?: string;
+    /** Credits the Home decision row recommended topping up by, so this page
+     *  can open on the right rung instead of making the couple work it out
+     *  again. Advisory only — nothing is priced or purchased from it. */
+    topup?: string;
     papic_error?: string;
     papic_one_error?: string;
     papic_pool_error?: string;

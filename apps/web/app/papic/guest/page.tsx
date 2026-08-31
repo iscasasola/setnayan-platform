@@ -278,9 +278,7 @@ export default async function PapicGuestPage({
     {/* Guest "Add credits" doorway (owner-locked 2026-07-29), flag-dark behind
         NEXT_PUBLIC_PAPIC_GUEST_BUY — self-gates to null when off, so this page
         is byte-identical today. No seat token: this surface's identity is the
-        signed setnayan_guest_session cookie, which the buy action re-reads. The
-        guest camera shoots from the SHARED pool by definition, so only the pool
-        rungs are on offer (canReloadOwnCamera stays false). */}
+        signed setnayan_guest_session cookie, which the buy action re-reads. */}
     {/* canReloadOwnCamera TRUE here since 2026-08-02: this surface has no seat,
         but the buy action mints the guest a camera of their own at purchase
         (paparazzi_seats.guest_id — the shape host-bought Limited cameras already

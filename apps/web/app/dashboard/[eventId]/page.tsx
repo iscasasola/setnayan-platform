@@ -43,11 +43,15 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
+import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
 import { EventDashboard } from './_components/event-dashboard';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
 import { papicNudgeShouldShow } from '@/lib/papic-home-tile';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
+import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import { resolveSetnayanAiOfferForEvent } from '@/lib/setnayan-ai-server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,9 +114,9 @@ export async function generateMetadata({
  *   • Tea-ceremony tile     — Chinese (Tsinoy) wedding track
  *   • PapicReadyNudge       — once, until the first photo is shot (PR-G option B)
  *
- * `<EventDashboard>` owns the AI gate (real entitlement OR `?suri=preview` for
+ * `<EventDashboard>` owns the AI gate (real entitlement OR `?sai=preview` for
  * internal accounts) + all its own data loading; this shell forwards the Home
- * URL's `?suri` param straight through, so the preview override now works on
+ * URL's `?sai` param straight through, so the preview override now works on
  * the Home URL.
  */
 
@@ -128,7 +132,7 @@ export default async function EventHomePage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ suri?: string; inspect?: string }>;
+  searchParams?: Promise<{ sai?: string; inspect?: string }>;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
@@ -149,7 +153,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug';
+      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -436,6 +440,34 @@ export default async function EventHomePage({
       ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
       : false;
 
+  // Setnayan AI comeback offer (owner-locked 2026-08-30): one 24h window per
+  // HOST, inside which every event they own that never bought AI is offered at
+  // HALF ITS OWN SIGN-UP SAVING — the midpoint of that event's tier row, never
+  // a hard-coded percentage. Dormant whenever the paywall is off
+  // (`resolveSetnayanAiPaywallEnabled`) — the same gate `/studio/setnayan-ai`
+  // uses — so this costs nothing while the paywall stays off.
+  // `resolveSetnayanAiOfferForEvent` is the single resolver both this card
+  // and the checkout charge path agree with; see lib/order-charge-authority.ts
+  // for the server-side charge-time mirror.
+  //
+  // ⏭ ONCE THE WINDOW LAPSES THE CARD KEEPS SELLING, AT LIST PRICE (owner
+  // 2026-08-31: *"sai expired. should show a cta button to purchase still"*).
+  // The resolver returns a `kind` — 'comeback' inside the window, 'full' after
+  // it — and `null` only when there is genuinely nothing to sell (the event
+  // already owns AI, or no usable price). The DISCOUNT expires here, not the
+  // product.
+  const paywallOn = await resolveSetnayanAiPaywallEnabled();
+  const aiOffer = paywallOn
+    ? await resolveSetnayanAiOfferForEvent(
+        supabase,
+        eventId,
+        (event.event_type as string | null) ?? null,
+      ).catch(() => null)
+    : null;
+  // Only the BUY-card branch needs the BDO/GCash settings — fetch lazily,
+  // same pattern as the studio buy page.
+  const aiOfferSettings = aiOffer ? await fetchPlatformSettings(supabase) : null;
+
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
   // between the At-a-glance bento and the journey rail.
@@ -483,6 +515,28 @@ export default async function EventHomePage({
        *  that is settled. */}
       {event.event_date && papicNudgeVisible ? (
         <PapicReadyNudge eventId={eventId} />
+      ) : null}
+
+      {/* Setnayan AI — the purchase pitch, in one of two states.
+       *  • 'comeback': inside the host's one 24h window, at half this event's
+       *    own sign-up saving (owner-locked 2026-08-30).
+       *  • 'full': the window never opened or has lapsed — same card, list
+       *    price, no countdown and no strike-through (owner 2026-08-31).
+       *  Last in the sequence: the higher-priority nudges above it (set-date,
+       *  Papic) ask for one thing at a time, and this is a purchase pitch, not
+       *  a setup step. Absent entirely when the paywall is off or the event
+       *  already owns AI. */}
+      {aiOffer && aiOfferSettings ? (
+        <SetnayanAiComebackOffer
+          eventId={eventId}
+          displayName={(event as { display_name?: string | null }).display_name ?? null}
+          regularPhp={aiOffer.regularPhp}
+          comebackPhp={aiOffer.kind === 'comeback' ? aiOffer.comebackPhp : undefined}
+          expiresAtIso={
+            aiOffer.kind === 'comeback' ? aiOffer.expiresAt.toISOString() : undefined
+          }
+          settings={aiOfferSettings}
+        />
       ) : null}
 
       {/* Chinese (Tsinoy) tea-ceremony helper — a FREE, ceremony-gated tile.
@@ -551,7 +605,7 @@ export default async function EventHomePage({
   );
 
   const hasOverlays =
-    isNikahEvent || !event.event_date || isChineseEvent || canRecur;
+    isNikahEvent || !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer);
 
   return (
     <>
@@ -615,7 +669,7 @@ export default async function EventHomePage({
             <div className="mt-4 space-y-6">
               <EventDashboard
                 eventId={eventId}
-                suriPreviewParam={search.suri}
+                saiPreviewParam={search.sai}
                 inspectId={search.inspect}
                 slotAfterBento={hasOverlays ? overlays : undefined}
                 dayOfActive={dayOfActive}
@@ -657,7 +711,7 @@ export default async function EventHomePage({
             <div className="mt-4 space-y-6">
               <EventDashboard
                 eventId={eventId}
-                suriPreviewParam={search.suri}
+                saiPreviewParam={search.sai}
                 inspectId={search.inspect}
                 slotAfterBento={hasOverlays ? overlays : undefined}
                 dayOfActive={dayOfActive}
@@ -669,12 +723,12 @@ export default async function EventHomePage({
         </>
       ) : (
         /* The dashboard — hero → at-a-glance bento → [overlays] → journey rail →
-         *  decisions → around-your-event, plus the AI extras (Suri briefing,
-         *  What's-next, Suri on watch) when Setnayan AI is active for the viewer
-         *  (or `?suri=preview` for internal accounts). */
+         *  decisions → around-your-event, plus the AI extras (Sai briefing,
+         *  What's-next, Sai on watch) when Setnayan AI is active for the viewer
+         *  (or `?sai=preview` for internal accounts). */
         <EventDashboard
           eventId={eventId}
-          suriPreviewParam={search.suri}
+          saiPreviewParam={search.sai}
           inspectId={search.inspect}
           slotAfterBento={hasOverlays ? overlays : undefined}
           dayOfActive={dayOfActive}

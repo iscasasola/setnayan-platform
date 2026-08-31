@@ -42,39 +42,43 @@ after(async () => {
 });
 
 /**
- * ⚠ FOUR ROWS WHERE THE MIGRATIONS AND PRODUCTION GENUINELY DISAGREE — measured
- * 2026-08-31, and NOT a fixture bug.
+ * ✅ THE LIST IS EMPTY — every row the migrations and production disagreed on has
+ * been reconciled, and the guard now compares ALL 41. Kept as an empty constant
+ * with its history, because the next person to reach for it should read what it
+ * cost before adding the first entry back.
  *
  * The fixture follows PRODUCTION, on the owner's instruction, because production
  * is what a customer is actually charged. This replay follows the MIGRATIONS,
- * which is what a fresh environment would come up with. For 37 of the 41 rows
- * those are the same thing and this guard compares them. For these four they are
- * not, and pretending otherwise would either make the fixture follow migrations
- * (wrong — it would re-introduce prices nobody pays) or turn this guard red on
- * arrival (which is how a guard gets deleted).
+ * which is what a fresh environment would come up with. On 2026-08-31 those
+ * disagreed on four rows. They no longer disagree on any.
  *
- *   row                    migrations        production
- *   CUSTOM_QR_GUEST        ₱999              ₱0        (the QR is free)
- *   SEATING_3D             NO ROW            ₱1,500 active
- *   pro_vendor_monthly     ₱2,499            ₱2,500
- *   pro_vendor_annual      ₱24,999           ₱26,000
+ *   row                 was                   closed by
+ *   CUSTOM_QR_GUEST     ₱999 vs ₱0            migration 20271184674948
+ *   SEATING_3D          no row vs ₱1,500      migration 20271184674948
+ *   pro_vendor_monthly  ₱2,499 vs ₱2,500      the replay's ORDERING — no migration
+ *   pro_vendor_annual   ₱24,999 vs ₱26,000    the replay's ORDERING — no migration
  *
- * 🔑 THIS IS A REAL FINDING AND IT IS NOT THIS PR'S TO FIX. It means a database
- * seeded only from `supabase/migrations/` comes up charging Pro ₱2,499/₱24,999
- * and selling a QR that is free in production, with the 3D Plan missing
- * altogether. The 2026-08-27 owner price sheet migration
- * (20271171000513) records pro_vendor_annual at ₱26,000 in its own header, so
- * something later puts it back — worth an owner's eye, separately.
+ * 🚨 THE LAST TWO WERE NEVER A DISAGREEMENT BETWEEN THE MIGRATIONS AND PRODUCTION
+ * AT ALL, and this block already said so in the strongest terms: "THE REMAINING
+ * TWO CANNOT BE FIXED BY ANY MIGRATION" — true — and "the fix belongs in the
+ * replay's retry ordering" — also true, and it is what happened.
+ * `replay-migrations.ts` was retrying a deferred migration to a fixpoint AFTER
+ * the whole corpus, so the back-numbered 2026-05-30 seed `20260530010000`
+ * re-applied its pre-price-sheet Pro Vendor figures on top of the 2026-08-27
+ * owner price sheet. THE OLDEST FILE WON. The replay now drains a deferred file
+ * eagerly, at the earliest index that works, and both rows come out at
+ * production's numbers on their own — no migration was written for them. See
+ * `replay-order-is-honest.db.test.ts`.
+ *
+ * 🔑 THE ENTRIES WERE NOT WRONG WHEN THEY WERE WRITTEN. Every figure in them was
+ * measured. What was wrong was the inference — "the replay says ₱24,999,
+ * therefore the migrations say ₱24,999" — when the replay was the thing at fault.
+ * An exemption list records a measurement, never a diagnosis.
  *
  * ⛔ DO NOT ADD A ROW HERE TO GO GREEN. Every entry costs coverage of a real
- * price. If a fifth appears, that is the finding, not the paperwork.
+ * price. A first entry is now a finding on its own, not paperwork.
  */
-const MIGRATIONS_DISAGREE_WITH_PRODUCTION: Record<string, string> = {
-  CUSTOM_QR_GUEST: 'migrations ₱999, production ₱0 — the per-guest QR is free',
-  SEATING_3D: 'no migration row; production sells it at ₱1,500',
-  pro_vendor_monthly: 'migrations ₱2,499, production ₱2,500',
-  pro_vendor_annual: 'migrations ₱24,999, production ₱26,000',
-};
+const MIGRATIONS_DISAGREE_WITH_PRODUCTION: Record<string, string> = {};
 
 type Row = { title: string; php: string; is_active: boolean };
 

@@ -46,6 +46,7 @@ import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
 import { ServiceRadiusFields } from './_components/service-radius-fields';
 import { VenueMatchCard } from './_components/venue-match-card';
+import { VenueTypeCard } from './_components/venue-type-card';
 import { PublicLineCard } from './_components/public-line-card';
 import { SuggestedCoverageCard } from './_components/suggested-coverage-card';
 import {
@@ -198,6 +199,8 @@ type ShopData = {
   compatibleVenueSettings: string[] | null;
   /** Shop-DECLARED ceremonies. NULL = undeclared = open to every ceremony. */
   compatibleCeremonyTypes: string[] | null;
+  /** Shop-DECLARED fine venue type. NULL = undeclared = matches every pick. */
+  venueType: string | null;
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -733,6 +736,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     businessStartDate,
     compatibleVenueSettings: profile.compatible_venue_settings ?? null,
     compatibleCeremonyTypes: profile.compatible_ceremony_types ?? null,
+    venueType: profile.venue_type ?? null,
     tagline: profile.tagline,
     website: profile.website,
     sameDayAvailable,
@@ -977,6 +981,11 @@ async function ShopHome({
               initialVenueSettings={data.compatibleVenueSettings}
               initialCeremonyTypes={data.compatibleCeremonyTypes}
             />
+            {/* What kind of venue this shop is (C2, 2026-08-31) — the writer
+                `vendor_profiles.venue_type` shipped without. Read publicly by
+                the v1 vendor profile API and by Explore since migration
+                20260810000000; every shop was stuck on the seed default. */}
+            <VenueTypeCard initialVenueType={data.venueType} />
             {/* The public one-liner + the shop's own website. Not checklist
                 items, for the same reason as the card above — and not inline
                 identity fields either: the verified lock would put a rebrand

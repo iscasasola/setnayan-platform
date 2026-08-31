@@ -35,6 +35,7 @@ import {
 } from '@/lib/papic-guest-allotments';
 import { setGuestAllotment, setGuestAllotments, releaseTheRest } from '../actions';
 import { SettingRow } from './setting-row';
+import { GuestAllotmentPicker } from './guest-allotment-picker';
 
 /**
  * "HOW MANY CREDITS EACH GUEST GETS" — the couple's own numbers, one row.
@@ -267,44 +268,31 @@ export async function GuestAllotmentsChoice({
                 Your guest list is empty. Add guests and you can name them here.
               </p>
             ) : (
-              <ul className="max-h-72 space-y-1 overflow-y-auto pr-1">
-                {guests.map((g) => {
+              /*
+                THE ROWS MOVED INTO A CLIENT COMPONENT so the couple can SEARCH
+                them (owner 2026-08-31 — "there might be over 200 guests, and we
+                should not list them all"). Every row is still its own <form>
+                posting this same server action, so naming a guest works exactly
+                as before, JavaScript or not; the client only decides which rows
+                are visible and puts already-named guests first.
+
+                The suggested opening number is still computed HERE, from
+                `split.perHead`, so the client never re-derives a figure.
+              */
+              <GuestAllotmentPicker
+                eventId={eventId}
+                action={setGuestAllotment}
+                guests={guests.map((g) => {
                   const role = roleOf.get(g.guest_id) ?? 'guest';
-                  const saved = allotments.get(g.guest_id);
-                  return (
-                    <li key={g.guest_id}>
-                      <form
-                        action={setGuestAllotment}
-                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-ink/[0.03]"
-                      >
-                        <input type="hidden" name="event_id" value={eventId} />
-                        <input type="hidden" name="guest_id" value={g.guest_id} />
-                        <span className="flex-1 truncate text-sm text-ink">
-                          {nameOf(g)}
-                          {role !== 'guest' ? (
-                            <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-                              {role}
-                            </span>
-                          ) : null}
-                        </span>
-                        <input
-                          type="number"
-                          name="allotment"
-                          min={0}
-                          step={1}
-                          defaultValue={saved ?? ''}
-                          placeholder={String(suggestedAllotment(role, split.perHead))}
-                          aria-label={`Credits for ${nameOf(g)}`}
-                          className="w-20 rounded-lg border border-ink/15 px-2 py-1 text-sm"
-                        />
-                        <SubmitButton className="rounded-lg bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10">
-                          Save
-                        </SubmitButton>
-                      </form>
-                    </li>
-                  );
+                  return {
+                    guestId: g.guest_id,
+                    name: nameOf(g),
+                    role,
+                    saved: allotments.get(g.guest_id) ?? null,
+                    suggested: suggestedAllotment(role, split.perHead),
+                  };
                 })}
-              </ul>
+              />
             )}
             <p className="text-xs text-ink/55">
               Sponsors open with a bigger suggested number — clear a box to stop naming that guest.

@@ -88,9 +88,24 @@ export function familyForServiceCode(code: string): DiscountFamily | null {
 export function signupPriceFor(regularPhp: number, discountPct: number): number | null {
   if (!Number.isFinite(regularPhp) || regularPhp < 0) return null;
   if (!Number.isFinite(discountPct) || discountPct < 0 || discountPct >= 100) return null;
-  // Nearest peso, ties DOWN — see the docblock. `Math.round` rounds .5 up, so
-  // the tie case is handled explicitly rather than inherited.
-  const exact = regularPhp * (1 - discountPct / 100);
+  return roundPesoTiesDown(regularPhp * (1 - discountPct / 100));
+}
+
+/**
+ * THE HOUSE ROUNDING RULE, in one place: nearest peso, ties DOWN.
+ *
+ * `Math.round` rounds .5 UP, so the tie case is handled explicitly rather than
+ * inherited. Down is the safe direction — the customer is never charged more
+ * than the advertised discount implies, so the EFFECTIVE discount is always ≥
+ * the nominal one.
+ *
+ * 🔑 EXTRACTED 2026-08-31 SO THE SECOND DISCOUNT MECHANIC SHARES IT. The
+ * comeback offer (lib/setnayan-ai-comeback-offer.ts) rounds a MIDPOINT rather
+ * than a percentage, so it cannot call `signupPriceFor` — but it must round the
+ * same way, or two prices for the same product could land a peso apart. A money
+ * rule written twice drifts; this repo has paid for that more than once.
+ */
+export function roundPesoTiesDown(exact: number): number {
   const floor = Math.floor(exact);
   return exact - floor === 0.5 ? floor : Math.round(exact);
 }

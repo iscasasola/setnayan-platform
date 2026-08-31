@@ -75,6 +75,8 @@ import type { EventDatePrecision } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
+import { papicCreditVerdict } from '@/lib/papic-credit-estimate';
+import { PAPIC_POINTS_PER_CLIP, PAPIC_POINTS_PER_PHOTO } from '@/lib/papic-cameras-pure';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
   InspectorLayout,
@@ -86,7 +88,7 @@ import {
 } from './overview-inspector-body';
 import {
   isFirstVenueShortlistOfferAvailable,
-  isSuriAssistFreeDecisionId,
+  isSaiAssistFreeDecisionId,
 } from '@/lib/setnayan-ai-free-assist';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
@@ -107,14 +109,14 @@ import { FreeVenueShortlistOffer } from '../progress/_components/free-venue-shor
  * is fixture-driven.
  *
  * Dual state: when Setnayan AI is active for the viewer (per-event flag +
- * per-user subscription fan-out), the Suri briefing sentence + chips render
+ * per-user subscription fan-out), the Sai briefing sentence + chips render
  * INSIDE the "Big Day" obsidian focal (Glass PR-2 — this retired both the
  * mulberry-gradient briefing strip and the separate premium veil; the tile IS
  * the premium presence), plus Today's one thing, priority-ranked decisions,
- * the What's-next deadline rail, and the render-only "Suri on watch" section.
- * Internal accounts can preview the AI state on any event via `?suri=preview`
+ * the What's-next deadline rail, and the render-only "Sai on watch" section.
+ * Internal accounts can preview the AI state on any event via `?sai=preview`
  * (render-only override — it flips no flags and charges nothing); the Home page
- * forwards its own `?suri` param through `suriPreviewParam`.
+ * forwards its own `?sai` param through `saiPreviewParam`.
  *
  * `slotAfterBento` renders immediately AFTER the At-a-glance bento and BEFORE
  * the Event-progress journey rail — the Home injects its cultural / set-date
@@ -219,7 +221,7 @@ type HostAccountView = {
 
 export async function EventDashboard({
   eventId,
-  suriPreviewParam,
+  saiPreviewParam,
   inspectId,
   slotAfterBento,
   dayOfActive = false,
@@ -227,9 +229,9 @@ export async function EventDashboard({
   canViewPapicCounts = false,
 }: {
   eventId: string;
-  suriPreviewParam?: string;
+  saiPreviewParam?: string;
   /** `?inspect=` value forwarded from the Home URL — selects a decision
-   *  (`d:<id>`) or a Suri-on-watch (`w:<key>`) row into the inspector column. */
+   *  (`d:<id>`) or a Sai-on-watch (`w:<key>`) row into the inspector column. */
   inspectId?: string;
   slotAfterBento?: ReactNode;
   /**
@@ -323,7 +325,7 @@ export async function EventDashboard({
       }
       return leanRes;
     })(),
-    // Viewer row — is_internal gates the `?suri=preview` override;
+    // Viewer row — is_internal gates the `?sai=preview` override;
     // reminders_enabled feeds fetchUpcomingItems. Fail-soft to nulls.
     (async () => {
       try {
@@ -907,7 +909,7 @@ export async function EventDashboard({
   const seatedGuests = seatAssignmentsRes.count ?? 0;
 
   // ---- Setnayan AI gating — the Overview's exact resolution, plus the
-  // internal-only `?suri=preview` render override. -------------------------
+  // internal-only `?sai=preview` render override. -------------------------
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
   const aiEntitled = isSetnayanAiActiveForEvent(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
@@ -915,7 +917,7 @@ export async function EventDashboard({
   );
   const viewerIsInternal =
     (viewerRes.data as { is_internal?: boolean | null } | null)?.is_internal === true;
-  const suriPreview = suriPreviewParam === 'preview' && viewerIsInternal;
+  const saiPreview = saiPreviewParam === 'preview' && viewerIsInternal;
   // cockpitEnabled() is the owner's kill switch for this whole surface. It had
   // ZERO importers until 2026-08-06 — its own docblock claimed "the cockpit
   // renders ONLY when this returns true" while nothing consulted it, so the
@@ -923,7 +925,7 @@ export async function EventDashboard({
   // ever remove the surface, never grant it: entitlement still decides who is
   // allowed, this decides whether it may render at all. Defaults ON, so this
   // line changes nothing until someone sets the variable to '0'.
-  const aiActive = (aiEntitled || suriPreview) && cockpitEnabled();
+  const aiActive = (aiEntitled || saiPreview) && cockpitEnabled();
 
   // ---- Upcoming items — the Schedule card + the AI What's-next rail. ------
   const remindersEnabled =
@@ -965,7 +967,7 @@ export async function EventDashboard({
 
   // ---- Cockpit model — pure derivation over data this surface already loaded
   // (same lib the Overview's dormant cockpit uses). Feeds the decisions board
-  // + the Suri briefing. --------------------------------------------------
+  // + the Sai briefing. --------------------------------------------------
   const cockpitModel = buildCockpitModel(
     {
       eventId,
@@ -1034,6 +1036,36 @@ export async function EventDashboard({
     };
   });
 
+  /*
+    ── IS THAT ENOUGH? (owner 2026-08-30) ──────────────────────────────────
+    "1,240 credits left" says nothing to anyone who does not already know what
+    a credit buys. The verdict turns the balance into the answer the number was
+    standing in for, and it recommends a top-up ONLY when the event is actually
+    short — the owner's words: "if their count is good, then do not recommend."
+
+    Costs no query: `guests` and `papicHome` are both already resolved in the
+    batch above. Every credit weight is READ from its one home rather than
+    retyped here (lib/papic-copy-guardrails.test.ts fails CI on a literal).
+
+    ⚠ IT REPORTS THE GAP, NOT A RUNG. Naming a purchasable figure needs the live
+    16-rung `PAPIC_GUEST*` pool ladder, which is admin-editable catalog data and
+    is NOT loaded on this surface. The board's row therefore states the shortfall
+    and links to /studio/papic, where `PapicPoolCard` already reads that ladder
+    and its stepper picks the rung. An earlier cut rounded to a fixed 150 — the
+    Papic ONE *camera* rung — which would have quoted numbers the pool checkout
+    cannot sell.
+
+    Resolved HERE, above the decisions board, because both the board's top-up
+    row and the mini-tile's verdict line below read it — one computation, so
+    the two can never disagree about whether the event is short.
+  */
+  const papicVerdict = papicHome
+    ? papicCreditVerdict(papicHome.shotsLeft, guests.length, {
+        pointsPerPhoto: PAPIC_POINTS_PER_PHOTO,
+        pointsPerClip: PAPIC_POINTS_PER_CLIP,
+      })
+    : null;
+
   const groupsUnordered: DecisionGroupView[] = ([
     {
       id: 'book',
@@ -1076,7 +1108,7 @@ export async function EventDashboard({
   // AI re-rank: payments + the urgent booking first; free state keeps the
   // natural book → pick → pay → role order. Both deterministic.
   // ---- Fold the AI "What's next" rail INTO the board (council verdict § 3:
-  // "Suri-ranked; What's next folds in"). It used to be a separate horizontal
+  // "Sai-ranked; What's next folds in"). It used to be a separate horizontal
   // scroller below the board, which made the doorstep ask the couple to read
   // two ranked lists and work out for themselves which one was the real one.
   // Dated items are decisions with a clock on them, so they become a group.
@@ -1089,7 +1121,7 @@ export async function EventDashboard({
       ? {
           id: 'deadline',
           title: 'Dates coming up',
-          sub: 'In the order Suri would take them',
+          sub: 'In the order Sai would take them',
           items: upcoming.items.slice(0, 6).map((item: UpcomingItem) => ({
             id: `u:${item.id}`,
             label: item.title,
@@ -1110,6 +1142,40 @@ export async function EventDashboard({
       : null;
   if (deadlineGroup) groupsUnordered.push(deadlineGroup);
 
+  /*
+    ── TOP UP PAPIC — A DECISION, AND ONLY WHEN THERE IS ONE ────────────────
+    Joins the 'pay' group because it is money the couple chooses to spend, and
+    it appears ONLY on a 'short' verdict: a covered event contributes no row at
+    all (owner: "if their count is good, then do not recommend"), and an
+    'unknown' one — a brand-new event with no guest count — contributes nothing
+    either, so nobody is asked to fix a shortfall we cannot yet measure.
+
+    Deep-links with the recommended figure so the Papic page can open on the
+    right rung instead of making them work it out again.
+  */
+  if (papicVerdict?.status === 'short') {
+    const payGroup = groupsUnordered.find((g) => g.id === 'pay');
+    const papicRow: DecisionItemView = {
+      id: 'papic:topup',
+      label: 'Top up Papic credits',
+      sub: `About ${papicVerdict.shortfall.toLocaleString('en-PH')} more covers your guest list`,
+      // The row's own sub-line already carries the figure, so a chip would say
+      // the same thing twice — the D-5 rule this board already follows.
+      chip: null,
+      chipTone: 'calm',
+      ctaLabel: 'Top up',
+      href: `${base}/studio/papic?topup=${papicVerdict.shortfall}`,
+    };
+    if (payGroup) payGroup.items.push(papicRow);
+    else
+      groupsUnordered.push({
+        id: 'pay',
+        title: 'Settle a payment',
+        sub: 'Money waiting on you',
+        items: [papicRow],
+      });
+  }
+
   // 'deadline' is listed in BOTH orders on purpose: `order.indexOf` returns -1
   // for an unlisted id, which would sort it ABOVE everything else. Leaving it
   // out of the free order would make a stray group jump to the top of the board.
@@ -1127,13 +1193,13 @@ export async function EventDashboard({
 
   // ---- FREE first-venue-shortlist offer (owner-locked 2026-07-09 ·
   // Pricing.md § 00 carve-out). Free (non-AI) state only, and ONLY while the
-  // venue shortlist is EMPTY — any venue pick (Suri-built or manual) consumes
+  // venue shortlist is EMPTY — any venue pick (Sai-built or manual) consumes
   // it; the shortlist state itself records consumption. When the venue
   // decision item renders (the resolver's 'start'/'pick' on reception_venue),
   // the offer embeds under it; otherwise it stands alone atop the board. ----
   //
   // ⚠ `marketplaceEnabled` FIRST. This offer is Setnayan AI's free introduction
-  // ("let Suri build your first venue shortlist"), and the owner's 2026-07-27
+  // ("let Sai build your first venue shortlist"), and the owner's 2026-07-27
   // lock is explicit that Setnayan AI is *not offered at all* on a vendor-free
   // type — not free, not paid — because all nine of its capabilities are
   // vendor-centric, which makes the card a fake door. The onboarding services
@@ -1145,7 +1211,7 @@ export async function EventDashboard({
     marketplaceEnabled && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
   const venueOfferInline =
     venueOfferAvailable &&
-    decisionGroups.some((g) => g.items.some((i) => isSuriAssistFreeDecisionId(i.id)));
+    decisionGroups.some((g) => g.items.some((i) => isSaiAssistFreeDecisionId(i.id)));
 
   // ---- Journey stages (pure lib — see lib/progress-stages.ts). ------------
   const stageModel = buildProgressStages({
@@ -1169,7 +1235,7 @@ export async function EventDashboard({
     pendingPaymentCount: pendingOrders.length,
     activeServiceCount: paidOrders.length,
   });
-  // ---- "Suri on watch" — render-only pass through the pure trigger engine,
+  // ---- "Sai on watch" — render-only pass through the pure trigger engine,
   // fed ONLY what this surface already loaded (payments due + budget). -------
   let watchItems: Array<{ intervention: Intervention; copy: string }> = [];
   if (aiActive) {
@@ -1366,7 +1432,7 @@ export async function EventDashboard({
   const focalSubColor = focalDark ? 'rgba(253,251,247,.65)' : 'var(--sn-ink-500)';
 
   // ── Inspector column selection (desktop, ≥xl) ───────────────────────────
-  // Resolve `?inspect=` to a decision (`d:<id>`) or a Suri-on-watch (`w:<key>`)
+  // Resolve `?inspect=` to a decision (`d:<id>`) or a Sai-on-watch (`w:<key>`)
   // row already on this page. An unknown/stale id resolves to nothing → the
   // inspector renders closed (hasSelection=false). The body is a new
   // presentation of the SAME facts + the SAME action (a decision's own CTA);
@@ -1588,6 +1654,18 @@ export async function EventDashboard({
   // (owner default, PR-G question 2). Both figures derive from
   // lib/papic-home-tile.ts — the pool figure is the same `papic_event_pool_status`
   // the capture path meters against, so the tile and the fence cannot disagree.
+  /*
+    ── IS THAT ENOUGH? (owner 2026-08-30) ──────────────────────────────────
+    "1,240 credits left" says nothing to anyone who does not already know what
+    a credit buys. The verdict turns the balance into the answer the number was
+    standing in for, and it recommends a top-up ONLY when the event is actually
+    short — the owner's words: "if their count is good, then do not recommend."
+
+    Costs no query: `guests` and `papicHome` are both already resolved in the
+    batch above. Every credit weight is READ from its one home rather than
+    retyped here (lib/papic-copy-guardrails.test.ts fails CI on a literal), and
+    the top-up rung comes from the Papic ONE tier table, not a hand-typed 150.
+  */
   const papicMini = papicHome ? (
     <Link
       key="papic"
@@ -1613,6 +1691,21 @@ export async function EventDashboard({
             ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
             : 'photos gathered'}
       </span>
+      {/* The verdict rides UNDER the existing line rather than replacing it —
+       *  the balance is still the fact; this is what it means. Silent on
+       *  'unknown' (no guest count yet), so a brand-new event is never told it
+       *  is short of anything. */}
+      {papicVerdict && papicVerdict.status !== 'unknown' ? (
+        <span
+          className={`mt-0.5 block text-[11.5px] font-medium ${
+            papicVerdict.status === 'covered' ? 'text-ink/55' : 'text-terracotta-700'
+          }`}
+        >
+          {papicVerdict.status === 'covered'
+            ? 'enough for your event'
+            : `short ~${papicVerdict.shortfall.toLocaleString('en-PH')} credits`}
+        </span>
+      ) : null}
       {miniFoot('Open Papic')}
     </Link>
   ) : null;
@@ -1697,11 +1790,11 @@ export async function EventDashboard({
         {/* ── Top grid — the proto's 2-column grammar (rollout plan § 3.1).
          *  LEFT: the obsidian "Big Day" focal (STATUS) as a tall column — date ·
          *  locked line · the countdown numeral · % planned gold bar · and, when
-         *  Setnayan AI is active, the Suri briefing + "The Watch" attention rows
+         *  Setnayan AI is active, the Sai briefing + "The Watch" attention rows
          *  INSIDE it (what fills the tall tile). RIGHT (ACT → NAVIGATE): the
          *  decisions digest panel + a 2×2 of live minis (Guests · Budget ·
          *  Schedule · Messages). The old separate 4-ring bento AND the
-         *  standalone "Suri on watch" section dissolve into this grid — the
+         *  standalone "Sai on watch" section dissolve into this grid — the
          *  countdown now lives ONLY in the focal, which killed the duplicate that
          *  let the focal and the tile disagree on whether a date is set. One
          *  obsidian per view (§ 1.3): glass on the day itself. Focal blooms last.
@@ -1853,7 +1946,7 @@ export async function EventDashboard({
                 </>
               )}
 
-              {/* AI: the Suri briefing sentence + chips, inside the focal. */}
+              {/* AI: the Sai briefing sentence + chips, inside the focal. */}
               {aiActive ? (
                 <>
                   <div
@@ -1864,7 +1957,7 @@ export async function EventDashboard({
                   />
                   <p className="sn-eye">
                     <Sparkles aria-hidden strokeWidth={1.75} />
-                    Suri · your briefing
+                    Sai · your briefing
                   </p>
                   <p
                     className="mt-2 max-w-[60ch] text-[15px] font-semibold leading-snug"
@@ -1978,7 +2071,7 @@ export async function EventDashboard({
                     className="mt-3 text-[10.5px]"
                     style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
                   >
-                    Suri fires a few alerts a week at most — deduped, most-urgent first.
+                    Sai fires a few alerts a week at most — deduped, most-urgent first.
                   </p>
                   </details>
 
@@ -2029,7 +2122,7 @@ export async function EventDashboard({
                     className="mt-3 text-[10.5px]"
                     style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
                   >
-                    Suri fires a few alerts a week at most — deduped, most-urgent first.
+                    Sai fires a few alerts a week at most — deduped, most-urgent first.
                   </p>
                   </div>
                 </>
@@ -2360,7 +2453,7 @@ export async function EventDashboard({
                               {item.ctaLabel}
                             </span>
                           </InspectorTrigger>
-                          {venueOfferInline && isSuriAssistFreeDecisionId(item.id) ? (
+                          {venueOfferInline && isSaiAssistFreeDecisionId(item.id) ? (
                             <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
                           ) : null}
                         </div>
@@ -2796,7 +2889,7 @@ export async function EventDashboard({
             aiActive={aiActive}
           />
         </section>
-        {/* The "Suri on watch" section moved INTO the Big-Day focal's lower half
+        {/* The "Sai on watch" section moved INTO the Big-Day focal's lower half
          *  (top grid, above) so the tall focal is filled and the watch lives in
          *  one place. Its #3265 inspector triggers travelled with it. */}
       </div>

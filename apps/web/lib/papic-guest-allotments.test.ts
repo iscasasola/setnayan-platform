@@ -19,6 +19,7 @@ import {
   splitTheRest,
   suggestedAllotment,
   summariseAllotments,
+  orderAllotmentPickerRows,
 } from './papic-guest-allotments';
 
 /** The worked example the couple actually reads, end to end. */
@@ -165,4 +166,105 @@ test('the contract matches the ceiling migration exactly', () => {
   // guest_count is a literal 0 on every non-flat-pass event — i.e. on every
   // celebration this row is drawn on — so dividing by it is nonsense.
   assert.equal(ALLOTMENT_RPC.headcount, 'papic_event_guest_headcount');
+});
+
+/* ── The picker: finding one guest among two hundred ────────────────────────
+ *
+ * Owner, 2026-08-31: *"there might be over 200 guests, and we should not list
+ * them all. or let the user search a guest from the list and show what they
+ * have?"*
+ */
+
+test('an empty query returns EVERYBODY — search is a filter, never a gate', () => {
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: null },
+    { guestId: 'b', name: 'Ben', saved: 40 },
+  ];
+  assert.equal(orderAllotmentPickerRows(guests, '').length, 2);
+  assert.equal(orderAllotmentPickerRows(guests, '   ').length, 2, 'whitespace is not a query');
+});
+
+test('NAMED GUESTS COME FIRST — the couple’s own choices are never buried', () => {
+  // Alphabetically Ana/Cara/Zeny come before/around Ben; by NAMED they must not.
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: null },
+    { guestId: 'b', name: 'Ben', saved: 40 },
+    { guestId: 'c', name: 'Cara', saved: null },
+    { guestId: 'z', name: 'Zeny', saved: 12 },
+  ];
+  assert.deepEqual(
+    orderAllotmentPickerRows(guests, '').map((g) => g.guestId),
+    ['b', 'z', 'a', 'c'],
+  );
+});
+
+test('ZERO IS A NAMED GUEST — "may not spend" is a choice, not an absence', () => {
+  // The documented way to exclude somebody. A truthiness test would sort her
+  // in with the un-named and hide the couple's most surprising decision at the
+  // bottom of a 200-row list.
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: null },
+    { guestId: 'lola', name: 'Lola Remy', saved: 0 },
+  ];
+  assert.deepEqual(
+    orderAllotmentPickerRows(guests, '').map((g) => g.guestId),
+    ['lola', 'a'],
+    'a guest set to 0 must sort with the named',
+  );
+});
+
+test('within each group the incoming (alphabetical) order is kept', () => {
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: 5 },
+    { guestId: 'b', name: 'Ben', saved: 5 },
+    { guestId: 'c', name: 'Cara', saved: null },
+    { guestId: 'd', name: 'Dina', saved: null },
+  ];
+  assert.deepEqual(
+    orderAllotmentPickerRows(guests, '').map((g) => g.guestId),
+    ['a', 'b', 'c', 'd'],
+    'the partition must be stable, not a re-sort',
+  );
+});
+
+test('matching is case-insensitive substring — what somebody typing "lola" expects', () => {
+  const guests = [
+    { guestId: 'lola', name: 'Lola Remy', saved: null },
+    { guestId: 'tito', name: 'Tito Gener', saved: null },
+  ];
+  for (const q of ['lola', 'LOLA', 'Lola', 'remy', 'la re']) {
+    assert.deepEqual(
+      orderAllotmentPickerRows(guests, q).map((g) => g.guestId),
+      ['lola'],
+      `"${q}" must find Lola Remy`,
+    );
+  }
+});
+
+test('a query that matches nobody returns nothing — never the whole list', () => {
+  const guests = [{ guestId: 'a', name: 'Ana', saved: null }];
+  assert.deepEqual(orderAllotmentPickerRows(guests, 'zzz'), []);
+});
+
+test('named-first still holds WHILE searching', () => {
+  const guests = [
+    { guestId: 'm1', name: 'Maria Cruz', saved: null },
+    { guestId: 'm2', name: 'Maria Santos', saved: 60 },
+    { guestId: 'x', name: 'Pedro', saved: 99 },
+  ];
+  assert.deepEqual(
+    orderAllotmentPickerRows(guests, 'maria').map((g) => g.guestId),
+    ['m2', 'm1'],
+    'the named Maria first, and Pedro excluded despite being named',
+  );
+});
+
+test('the source list is never mutated', () => {
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: null },
+    { guestId: 'b', name: 'Ben', saved: 40 },
+  ];
+  const before = guests.map((g) => g.guestId);
+  orderAllotmentPickerRows(guests, '');
+  assert.deepEqual(guests.map((g) => g.guestId), before, 'ordering must not reorder the input');
 });

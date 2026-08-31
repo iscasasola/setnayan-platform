@@ -1,5 +1,5 @@
 /**
- * Setnayan-AI Decision Cockpit switch — the couple Overview's "Suri briefing"
+ * Setnayan-AI Decision Cockpit switch — the couple Overview's "Sai briefing"
  * hero + Decisions rail + What's-next rail.
  *
  * ⚠ REWRITTEN 2026-08-06. This file used to say:
@@ -12,7 +12,7 @@
  * anywhere in the repo, so it gated nothing: it neither held the surface back
  * nor could it take the surface down. The cockpit's real and only gate is the
  * AI entitlement — `isSetnayanAiActiveForEvent()` in `event-dashboard.tsx`
- * (`aiActive = aiEntitled || suriPreview`) — which shipped without ever
+ * (`aiActive = aiEntitled || saiPreview`) — which shipped without ever
  * consulting this module. The owner believed they held a lever that was not
  * connected at either end.
  *

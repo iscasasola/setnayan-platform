@@ -57,7 +57,7 @@ import {
 import { isLensKey, visibleLenses } from '@/lib/ranking-lenses';
 import {
   FREE_VENUE_ASSIST_CHIP,
-  isSuriAssistFreeForCategory,
+  isSaiAssistFreeForCategory,
 } from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
@@ -1738,7 +1738,7 @@ export function ShortlistCategories({
                                 2026-07-09 · Pricing.md § 00): presentational
                                 chip, live only while the venue shortlist is
                                 empty (the offer's "first" gate). */}
-                            {isSuriAssistFreeForCategory(t.category) &&
+                            {isSaiAssistFreeForCategory(t.category) &&
                             t.vendors.length === 0 ? (
                               <span className="cat-free">{FREE_VENUE_ASSIST_CHIP}</span>
                             ) : null}

@@ -78,7 +78,8 @@ export type BundleChargeResolution =
 export type ChargeSource =
   | 'retail_catalog'
   | 'package_catalog'
-  | 'setnayan_ai_event_type';
+  | 'setnayan_ai_event_type'
+  | 'setnayan_ai_comeback';
 
 export type ChargeRefusal =
   /** No resolver owns this service_key. A NEW key must fail the sale, never fall

@@ -40,12 +40,21 @@ has a shop** to *"Create your shop"*. Full list with file:line in the corpus han
 ⚠ `actions.ts` files are OUT OF SCOPE — there an absence DENIES, and failing closed is correct.
 
 ✅ **THE 11-ITEM BUILD LIST FROM THAT SWEEP IS COMPLETE** (#4583 → #4594). Nothing is open on it.
-⏭ **What is left is small and listed in the handoff §5**, chiefly: the wedding-onboarding account
-gate posts `public_summary_consent=yes` as a **hidden field**, silently opting a couple into public
-publication, while `/signup` has the same field as an **unticked box** — because the owner already
-ruled that on 2026-07-12. **One door missed an existing ruling; one line; do NOT re-ask him.** Also
-`guests.invitation_sent_at` has **zero writers**, so the guest list's "N to send" can never
-decrease.
+✅ **AND THE TWO ITEMS THIS FILE LISTED AS "WHAT IS LEFT" ARE DONE TOO — re-measured against
+`origin/main` on 2026-08-31.** Both are now fenced by a guard, so they stay done:
+
+- the wedding-onboarding gate no longer posts `public_summary_consent` as a hidden field —
+  `onboarding-shell.tsx` carries a `🔒 NO HIDDEN CONSENT` marker, held by
+  `apps/web/app/signup/consent-is-affirmative.test.ts`;
+- `guests.invitation_sent_at` now HAS a writer (`apps/web/app/dashboard/[eventId]/sponsors/actions.ts`),
+  held by `apps/web/lib/the-invite-step-counts-what-is-true.test.ts` — so the guest list's
+  "N to send" can decrease.
+
+🔑 **THIS PARAGRAPH IS ITSELF THE LESSON.** For an unknown stretch of sessions, this file's own
+"what is left" — the passage at the TOP, which every session reads first — pointed at two jobs that
+were already finished and fenced. **A handoff decays fastest exactly where it is read most.**
+Re-measure with the greppable anchors above before acting on any line in this block, including this
+one.
 
 🔎 **READY? Measured 2026-08-20: 9 accounts · 8 events · 2 shops (1 published) · 2 services ·
 0 packages** · ~~**0 ORDERS EVER**~~ ⚠ **CORRECTED 2026-08-30 (C10/C10b): 6 orders as of

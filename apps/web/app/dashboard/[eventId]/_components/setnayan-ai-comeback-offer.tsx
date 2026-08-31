@@ -54,9 +54,14 @@ type Props = {
   eventId: string;
   displayName: string | null;
   regularPhp: number;
-  comebackPhp: number;
-  expiresAtIso: string;
   settings: InlineCheckoutDrawerProps['settings'];
+  /**
+   * The discount arm. BOTH are present or BOTH are absent — absent means the
+   * couple's 24h window never opened or has lapsed, and the card sells at list
+   * price instead of disappearing (owner 2026-08-31).
+   */
+  comebackPhp?: number;
+  expiresAtIso?: string;
 };
 
 export function SetnayanAiComebackOffer({
@@ -67,8 +72,10 @@ export function SetnayanAiComebackOffer({
   expiresAtIso,
   settings,
 }: Props) {
-  const target = new Date(expiresAtIso).getTime();
-  const [remaining, setRemaining] = useState<Remaining>(() => compute(target));
+  const target = expiresAtIso ? new Date(expiresAtIso).getTime() : null;
+  const [remaining, setRemaining] = useState<Remaining>(() =>
+    target == null ? { hours: 0, minutes: 0, seconds: 0, isPast: true } : compute(target),
+  );
 
   /**
    * THE HEADLINE PERCENTAGE IS DERIVED FROM THE TWO PRICES ON SCREEN, NOT TYPED.
@@ -84,17 +91,36 @@ export function SetnayanAiComebackOffer({
    * would misstate it badly the first time anybody reprices a tier. Deriving it
    * means the copy can never drift from the amount beside it.
    */
-  const pctOff = Math.round((1 - comebackPhp / regularPhp) * 100);
+  const pctOff =
+    comebackPhp != null && regularPhp > 0
+      ? Math.round((1 - comebackPhp / regularPhp) * 100)
+      : null;
 
   useEffect(() => {
+    if (target == null) return;
     const id = window.setInterval(() => setRemaining(compute(target)), 1000);
     return () => window.clearInterval(id);
   }, [target]);
 
-  // The window lapsed while this tab sat open — stop offering it rather than
-  // showing an expired countdown. A refresh re-resolves eligibility server-side
-  // and simply drops this card.
-  if (remaining.isPast) return null;
+  /*
+    ── THE DISCOUNT EXPIRING IS NOT THE PRODUCT EXPIRING ────────────────────
+
+    This used to `return null` the moment the countdown hit zero, so a couple
+    watching the last minute run out saw the whole card — and with it the only
+    route to Setnayan AI on this page — blink out of existence. Owner,
+    2026-08-31: *"sai expired. should show a cta button to purchase still."*
+
+    Now the discount arm simply drops away and the same card keeps selling at
+    list price. `discounted` is the ONE switch both halves read, so the price
+    shown, the strike-through, the eyebrow and the button label can never
+    disagree about which offer is on screen.
+
+    🔒 The price it falls back to is not asserted here — it is `regularPhp`,
+    resolved server-side, and the charge path independently stops applying the
+    discount on the same lapse. A stale tab therefore cannot buy at yesterday's
+    price, and cannot be overcharged either.
+  */
+  const discounted = comebackPhp != null && pctOff != null && !remaining.isPast;
 
   return (
     <div className="mt-4 rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] px-4 py-4 sm:px-5">
@@ -107,14 +133,20 @@ export function SetnayanAiComebackOffer({
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-mulberry">
-            {pctOff}% off · today only
+            {discounted ? `${pctOff}% off · today only` : 'Setnayan AI'}
           </p>
           <p className="mt-0.5 text-base font-semibold text-ink">
-            Setnayan AI, {pctOff}% off for the next{' '}
-            <span className="font-mono tabular-nums">
-              {remaining.hours > 0 ? `${pad(remaining.hours)}:` : ''}
-              {pad(remaining.minutes)}:{pad(remaining.seconds)}
-            </span>
+            {discounted ? (
+              <>
+                Setnayan AI, {pctOff}% off for the next{' '}
+                <span className="font-mono tabular-nums">
+                  {remaining.hours > 0 ? `${pad(remaining.hours)}:` : ''}
+                  {pad(remaining.minutes)}:{pad(remaining.seconds)}
+                </span>
+              </>
+            ) : (
+              'Plan with Setnayan AI'
+            )}
           </p>
           <ul className="mt-2 space-y-1">
             {BENEFIT_LINES.map((line) => (
@@ -127,20 +159,29 @@ export function SetnayanAiComebackOffer({
       </div>
       <div className="mt-3.5 flex flex-wrap items-center gap-3">
         <p className="text-sm text-ink/70">
-          <span className="mr-1.5 text-ink/40 line-through">
-            ₱{Math.round(regularPhp).toLocaleString('en-PH')}
-          </span>
+          {/* The strike-through is the DISCOUNT's, so it goes with it. Showing
+              a struck price beside an identical live one reads as a fake
+              markdown, which is the one thing a lapsed offer must not do. */}
+          {discounted ? (
+            <span className="mr-1.5 text-ink/40 line-through">
+              ₱{Math.round(regularPhp).toLocaleString('en-PH')}
+            </span>
+          ) : null}
           <span className="font-mono text-lg font-bold text-ink">
-            ₱{Math.round(comebackPhp).toLocaleString('en-PH')}
+            ₱{Math.round(discounted ? comebackPhp! : regularPhp).toLocaleString('en-PH')}
           </span>
         </p>
         <InlineCheckoutDrawer
           eventId={eventId}
           serviceKey={SKU_CODE}
           displayName={`Setnayan AI${displayName ? ` · ${displayName}` : ''}`}
-          originalPriceCentavos={String(Math.round(comebackPhp * 100))}
+          originalPriceCentavos={String(
+            Math.round((discounted ? comebackPhp! : regularPhp) * 100),
+          )}
           settings={settings}
-          triggerLabel={`Unlock Setnayan AI · ${pctOff}% off`}
+          triggerLabel={
+            discounted ? `Unlock Setnayan AI · ${pctOff}% off` : 'Unlock Setnayan AI'
+          }
           triggerClassName="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-6 py-2.5 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
         />
       </div>

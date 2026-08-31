@@ -10,9 +10,8 @@ import {
 } from './setnayan-ai-event-pricing';
 import { setnayanAiTierSkuForEventType } from './setnayan-ai-type-pricing';
 import {
-  comebackEligibleEventIds,
-  comebackPricePhp,
-  resolveUserComebackWindow,
+  decideSetnayanAiOffer,
+  type SetnayanAiOffer,
 } from './setnayan-ai-comeback-offer';
 import { resolveComebackScopeForEvent } from './setnayan-ai-comeback-scope.server';
 
@@ -130,46 +129,63 @@ export async function resolveSetnayanAiTierPricesForEvent(
   return resolveSetnayanAiTierPricesResolution(client, 'wedding');
 }
 
-export type SetnayanAiComebackDisplay = {
-  regularPhp: number;
-  comebackPhp: number;
-  expiresAt: Date;
-};
+/**
+ * What the Home card should offer this event — a discriminated union, because
+ * "no discount any more" and "nothing to sell here" are DIFFERENT ANSWERS and
+ * the previous `| null` collapsed them into one.
+ *
+ * ⚠ THE LAPSED WINDOW USED TO SILENTLY STOP SELLING (owner, 2026-08-31: *"sai
+ * expired. should show a cta button to purchase still"*). A couple who did not
+ * buy inside their 24 hours had the card disappear from Home altogether,
+ * leaving the only route to Setnayan AI a Studio page they would have to go
+ * looking for. **The discount expiring is not the product expiring.**
+ */
+export type { SetnayanAiOffer };
 
 /**
- * The comeback-offer price to SHOW, or `null` when the event isn't eligible
- * (already owns AI, window lapsed, or no usable regular price to discount).
+ * The Setnayan AI offer to SHOW for this event, or `null` when there is nothing
+ * to sell at all — the event already owns AI, or no usable price resolved.
  *
  * DISPLAY ONLY — DO NOT CHARGE FROM THIS, same rule as
  * {@link resolveSetnayanAiDisplayPricePhp} above. The charge path re-derives
- * eligibility and the discounted centavos itself, straight from the stored
- * event row, in lib/order-charge-authority.ts — this function exists only so
- * the Home card can show a number, and it calls the SAME regular-price
- * resolver + the SAME discount math (`comebackPricePhp`) so the two can never
- * quote different figures.
+ * eligibility and the centavos itself, straight from the stored event row, in
+ * lib/order-charge-authority.ts — this function exists only so the Home card
+ * can show a number, and it calls the SAME regular-price resolver + the SAME
+ * discount math (`comebackPricePhp`) so the two can never quote different
+ * figures.
+ *
+ * 🔒 THE `full` ARM NEEDS NO NEW MONEY RULE. The charge path's comeback branch
+ * already falls through to the ordinary tier price the instant
+ * `isComebackOfferEligible` goes false, so a card showing list price after the
+ * window lapses charges exactly that. Nothing in the money path changes here.
+ *
+ * ⚖ Fails closed in both directions: a refused scope read shows NOTHING rather
+ * than defaulting to a full-price pitch (the same read makes the charge path
+ * REFUSE), and an event that owns AI is excluded before either arm is built.
  */
-export async function resolveSetnayanAiComebackDisplayPhp(
+export async function resolveSetnayanAiOfferForEvent(
   client: SupabaseClient,
   eventId: string,
   eventType: string | null | undefined,
   now: Date = new Date(),
-): Promise<SetnayanAiComebackDisplay | null> {
+): Promise<SetnayanAiOffer | null> {
   // The window is the USER's, so eligibility is decided across every event
   // their hosts own — not from the one event this page happens to be showing.
   const scope = await resolveComebackScopeForEvent(client, eventId);
   if (scope.status === 'read_error') return null; // a screen shows nothing; the
   // charge path REFUSES on the same read — see lib/order-charge-authority.ts.
-  if (!comebackEligibleEventIds(scope.events, now).includes(eventId)) return null;
-  const window = resolveUserComebackWindow(scope.events, now);
-  if (!window?.active) return null;
 
   const priced = await resolveSetnayanAiTierPricesForEvent(client, eventType);
   if (priced.status === 'read_error') return null;
-  // THE DERIVATION, not a percentage: half this row's own sign-up saving.
-  const comebackPhp = comebackPricePhp({
+
+  // Every arm-vs-arm rule lives in the PURE decider so it can be unit-tested —
+  // this module imports `server-only`, so nothing in it can be. All this
+  // function contributes is the three reads above.
+  return decideSetnayanAiOffer({
+    events: scope.events,
+    eventId,
     retailPhp: priced.prices.retailPhp,
     onboardingPhp: priced.prices.onboardingPhp,
+    now,
   });
-  if (comebackPhp == null) return null;
-  return { regularPhp: priced.prices.retailPhp, comebackPhp, expiresAt: window.expiresAt };
 }

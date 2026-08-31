@@ -9,37 +9,37 @@
 -- ⚠ THIS IS A `CREATE OR REPLACE` OF A LIVE, SECURITY DEFINER FUNCTION. The
 -- body below is the PRODUCTION definition read out of the live catalog with
 -- `pg_get_functiondef` (not from a migration file, which would only tell us
--- what somebody once intended), with exactly ONE addition: the `v_avatars`
--- variable, the two SELECTs that fill it, and its key in the returned object.
--- Nothing else — not a whitespace-only reflow, not a "while we're here" fix —
--- is changed, so a diff of this against prod shows only the feature.
+-- what somebody once intended), with exactly ONE addition: the `avatarConfig`
+-- key inside the existing `you` object. Nothing else — not a whitespace-only
+-- reflow, not a "while we're here" fix — is changed, so a diff of this against
+-- prod shows only the feature.
 --
--- 🛡 PRIVACY — THE GATE IS REUSED, NOT INVENTED.
---   `avatars` sits INSIDE the same `IF v_guest_id IS NOT NULL` branch the
---   `photos` block lives in, and branches on the same `v_photo_vis`
---   (`event_floor_plan.venue_photo_visibility`, the couple's own control):
---     · no personal token, or a token that matches no seated guest → NULL
---     · 'none'  → NULL
---     · 'table' → the token holder's OWN table only
---     · 'all'   → every seated guest
---   So an avatar is visible to EXACTLY the people who can already see that
---   guest's face at that seat, and to nobody else. There is no third consent
---   surface and no new host setting to forget to check.
+-- 🛡 SCOPE: THE VIEWER'S OWN AVATAR, AND NOTHING ELSE.
+--   `avatarConfig` rides the `you` block, which already exists and is already
+--   the strictest thing in this function: it is populated ONLY inside
+--   `IF v_guest_id IS NOT NULL`, i.e. only when a personal token matched a
+--   live seated guest of THIS event. No token, or a token that matches
+--   nobody → `you` is NULL and this key does not exist.
+--
+--   It is deliberately NOT gated on `venue_photo_visibility`. That setting is
+--   the couple's control over showing guests to EACH OTHER; it was never a
+--   control over whether you may see yourself, and a guest hidden from their
+--   own avatar by the host's photo-sharing choice would be a nonsense.
+--
+--   OTHER guests' avatars are NOT carried by this migration. The guest walk
+--   renders seated occupants through a chibi rig that has no seated geometry
+--   (legs and shoes are merged, jointless buffers — see lib/chibi-geometry.ts),
+--   so there is nothing that could draw them yet. Shipping the payload ahead of
+--   a reader would just recreate the inert-column problem this change exists to
+--   fix. When the seated rig lands, that block belongs here, on the same
+--   `venue_photo_visibility` gate the `photos` block directly above uses.
 --
 --   An avatar config is NOT biometric and NOT a photo — it is a set of
---   whitelisted catalog ids (lib/chibi-config.ts). It is nonetheless
---   guest-authored data that names a person at a seat, which is why it takes
---   the stricter of the two available gates rather than riding along with the
---   anonymous occupancy block.
---
---   Rows with `avatar_config IS NULL` are OMITTED, never emitted as null
---   entries: the client's index skips absent configs, and shipping a row per
---   seat would be a payload that says "everyone has an avatar" to any future
---   reader that forgets to check.
+--   whitelisted catalog ids (lib/chibi-config.ts), never derived from a face.
 --
 -- 🚩 The CLIENT still gates on NEXT_PUBLIC_FIGURE_CHIBI (default OFF), so this
 --   payload key is inert until that flag flips — a room reading a payload that
---   carries `avatars` while unflagged renders exactly as it does today
+--   carries `avatarConfig` while unflagged renders exactly as it does today
 --   (pinned by apps/web/lib/venue-avatars.test.ts).
 --
 -- Idempotent: CREATE OR REPLACE FUNCTION.
@@ -67,7 +67,6 @@ DECLARE
   v_reception JSONB;
   v_venue_set TEXT;
   v_photos    JSONB := NULL;
-  v_avatars   JSONB := NULL;
   v_you       JSONB := NULL;
 BEGIN
   SELECT e.event_id INTO v_event_id
@@ -226,6 +225,16 @@ BEGIN
       SELECT jsonb_build_object(
         'table', (SELECT t.public_id FROM public.event_tables t WHERE t.table_id = v_table_id),
         'seatNumber', v_seat,
+        -- ─── NEW (C5): the viewer's OWN avatar config ────────────────
+        -- UNGATED BY `venue_photo_visibility` ON PURPOSE. That setting is the
+        -- couple's control over showing guests to EACH OTHER; it was never a
+        -- control over whether you may see yourself. This value is read from
+        -- the row the token already authenticated, is the guest's own authored
+        -- data, and reaches nobody else — so gating it behind the host's
+        -- photo-sharing choice would hide a guest's avatar from the one person
+        -- who is unambiguously entitled to it.
+        'avatarConfig', (SELECT g5.avatar_config FROM public.guests g5
+                          WHERE g5.guest_id = v_guest_id),
         'tablemates', COALESCE((
           SELECT jsonb_agg(jsonb_build_object(
             'name', COALESCE(NULLIF(btrim(g2.display_name), ''), btrim(g2.first_name || ' ' || g2.last_name)),
@@ -259,34 +268,6 @@ BEGIN
         WHERE a3.event_id = v_event_id
           AND NULLIF(btrim(g3.photo_url), '') IS NOT NULL;
       END IF;
-
-      -- ─── NEW (C5): guest-authored avatar configs ──────────────────────────
-      -- Same branch, same `v_photo_vis` gate, same (table, seatNumber) key
-      -- shape as `photos` directly above. `avatar_config IS NOT NULL` is the
-      -- only extra predicate: a guest who never made one contributes NO ROW,
-      -- which is what keeps the client's index empty and the room unchanged.
-      IF v_photo_vis = 'table' THEN
-        SELECT COALESCE(jsonb_agg(jsonb_build_object(
-          'table', (SELECT t.public_id FROM public.event_tables t WHERE t.table_id = v_table_id),
-          'seatNumber', a4.seat_number,
-          'config', g4.avatar_config
-        ) ORDER BY a4.seat_number), '[]'::jsonb) INTO v_avatars
-        FROM public.event_seat_assignments a4
-        JOIN public.guests g4 ON g4.guest_id = a4.guest_id AND g4.deleted_at IS NULL
-        WHERE a4.event_id = v_event_id AND a4.table_id = v_table_id
-          AND g4.avatar_config IS NOT NULL;
-      ELSIF v_photo_vis = 'all' THEN
-        SELECT COALESCE(jsonb_agg(jsonb_build_object(
-          'table', t4.public_id,
-          'seatNumber', a4.seat_number,
-          'config', g4.avatar_config
-        ) ORDER BY t4.public_id, a4.seat_number), '[]'::jsonb) INTO v_avatars
-        FROM public.event_seat_assignments a4
-        JOIN public.event_tables t4 ON t4.table_id = a4.table_id AND t4.event_id = v_event_id
-        JOIN public.guests g4 ON g4.guest_id = a4.guest_id AND g4.deleted_at IS NULL
-        WHERE a4.event_id = v_event_id
-          AND g4.avatar_config IS NOT NULL;
-      END IF;
     END IF;
   END IF;
 
@@ -303,7 +284,6 @@ BEGIN
     'venueSetting', v_venue_set,
     'photoVisibility', v_photo_vis,
     'photos', v_photos,
-    'avatars', v_avatars,
     'you', v_you
   );
 END;

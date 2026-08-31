@@ -1,50 +1,58 @@
 /**
- * venue-avatars — the ONE seat-routing rule for the guest 3D walk, and the
- * read side of `guests.avatar_config` (C5, "people in the 3D room look like
- * themselves").
+ * venue-avatars — the READ side of `guests.avatar_config` for the guest 3D
+ * walk (C5, "people in the 3D room look like themselves").
  *
- * Pure — NO three.js, NO React — so the routing rule that decides which seats
- * render individually and which collapse into the instanced anonymous crowd
- * can be asserted under `tsx --test` without a GPU (the `lib/figure-rig.ts`
- * discipline). `app/[slug]/venue/_components/guest-venue-3d.tsx` consumes it
- * from BOTH of its seat loops, so the two can never disagree about a seat.
+ * Pure — NO three.js, NO React — so the fallback rule can be asserted under
+ * `tsx --test` without a GPU (the `lib/figure-rig.ts` discipline).
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * 🔒 THE GUARANTEE THIS MODULE EXISTS TO KEEP
  *
  * A guest who never made an avatar must render EXACTLY as they did before this
- * feature — same figure, same batch, same draw. The failure mode being guarded
- * against is not "the avatar looks wrong"; it is silently changing the room for
- * every guest who never opted in. So `seatRenderKind` is written so that with
- * `avatarConfig` absent it reduces, term for term, to the rule the file already
- * had, and `venue-avatars.test.ts` pins that against a verbatim copy of the old
- * rule over the whole seat matrix. If you change the order of the branches
- * below, that test is the one that should stop you.
+ * feature. The failure mode being guarded is not "the avatar looks wrong"; it
+ * is silently changing the room for everyone who never opted in — and every
+ * guest in production today has `avatar_config IS NULL`. So `selfFigureAvatar`
+ * returns `null` for every one of them, the caller keeps its existing
+ * `selfSpec` blob figure untouched, and `venue-avatars.test.ts` pins that
+ * against the shipped spec over the whole input matrix.
  *
- * Two independent switches both collapse the feature to the old behaviour:
+ * Two independent switches both collapse this to the old behaviour:
  *   1. `NEXT_PUBLIC_FIGURE_CHIBI` unset (the DEFAULT, and the only state
- *      production has ever been in) — `avatarsBySeat` returns an EMPTY map
- *      whatever the payload carries, so no seat can ever resolve an avatar.
- *   2. No stored `avatar_config` for that seat — every guest today.
+ *      production has ever been in) — nothing resolves, whatever the payload
+ *      carries.
+ *   2. No stored `avatar_config` — every guest today.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * 🛡 PRIVACY POSTURE (reused, NOT invented — the C5 brief's standing rule)
+ * 🚧 SCOPE: THE VIEWER'S OWN FIGURE ONLY — and why
  *
- * `avatar_config` is a guest-authored CARTOON: a whitelisted set of catalog ids
- * (body/hair/eyes/outfit/colour) from `lib/chibi-config.ts`. It is NOT a
- * photograph, NOT a face vector, and it is NEVER derived from one — the privacy
- * fence in chibi-config's header (bodyType may not be read from `users.sex`)
- * carries straight through here, and nothing in this module touches
+ * The walk draws the viewer as a STANDING figure that runs, stands and dances
+ * (it never sits: arriving at a seat parks the figure beside the chair and
+ * marks the chair with a gold ring). A standing chibi is therefore exactly what
+ * the rig already renders, and swapping it in is honest.
+ *
+ * SEATED occupants are a different matter and are deliberately NOT handled
+ * here. `lib/chibi-geometry.ts` bakes legs, shoes and the outfit into MERGED,
+ * JOINTLESS buffers — a chibi cannot bend at the hip, so "seated" is new
+ * geometry, not a pose, and it belongs in that module behind its
+ * `chibiJunctionAudit` merge gate (rig spec § 11 / the declared PR-2). Until
+ * that lands there is nothing that could draw a seated guest's avatar, so the
+ * RPC does not ship their configs either — shipping a payload ahead of its
+ * reader is exactly the inert-column problem this change exists to fix.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 🛡 PRIVACY POSTURE (reused, NOT invented)
+ *
+ * `avatar_config` is a guest-authored CARTOON: whitelisted catalog ids from
+ * `lib/chibi-config.ts`. It is NOT a photograph, NOT a face vector, and NEVER
+ * derived from one — chibi-config's privacy fence (`bodyType` may not be read
+ * from `users.sex`) carries straight through, and nothing here touches
  * `guest_face_enrollments` / `user_face_profiles`.
  *
- * Even so it names a person at a seat, so it rides EXACTLY the gate the seat
- * PHOTOS already ride — `public_venue_scene`'s personal-token requirement plus
- * the host's own `venue_photo_visibility` ('none' | 'table' | 'all'). No third
- * consent surface: a guest who can see a tablemate's face can see their avatar,
- * and nobody else ever can. Per-event scope (the column is on `guests`, which
- * is per-event), no cross-event reuse (there is no account-level avatar column
- * to reuse from), revocable (the maker's Reset writes NULL), and never required
- * (NULL is the default and renders the anonymous mannequin).
+ * What this module reads is the viewer's OWN config, which the RPC puts on the
+ * `you` block — populated only when a personal token matched a live seated
+ * guest of that event. Per-event scope (the column is on `guests`), no
+ * cross-event reuse (there is no account-level avatar column), revocable (the
+ * maker's Reset writes NULL), never required (NULL is the default).
  */
 
 import {
@@ -52,15 +60,6 @@ import {
   resolveChibiConfig,
   type ChibiAvatarConfig,
 } from '@/lib/chibi-config';
-
-/** One row of the RPC's `avatars` block — the same (table, seatNumber) key
- *  shape `photos` uses, so the client indexes both the same way. `config` is
- *  the RAW stored JSONB (or junk): it is sanitized here, never trusted. */
-export type VenueAvatarRow = {
-  table: string;
-  seatNumber: number;
-  config?: unknown;
-};
 
 /**
  * Is the guest-avatar read path live? Reuses the EXISTING chibi flag
@@ -72,98 +71,45 @@ export function guestAvatarsEnabled(): boolean {
   return FIGURE_CHIBI_ENABLED;
 }
 
+/** The shape the walk needs off the RPC's `you` block. Everything is optional
+ *  because an older cached payload has none of it. */
+export type VenueSelfAvatar = {
+  /** RAW stored `guests.avatar_config` (or junk, or absent). */
+  avatarConfig?: unknown;
+};
+
 /**
- * Index the RPC's `avatars` rows as table → (seat number → resolved config),
- * mirroring `photoByTable` in the walk.
+ * Resolve the viewer's own chibi, or `null` to leave the shipped blob figure
+ * exactly as it is.
  *
- * Returns an EMPTY map when the feature is off, when the payload has no
- * `avatars` block (every cached payload predating this change), or when a row
- * carries no config — so the caller's lookup misses and the seat takes the old
- * path. `enabled` is a parameter rather than a direct flag read so the test can
- * drive both states without touching `process.env`.
+ * `null` — the fallback — is returned for ALL of:
+ *   · the flag off (whatever the payload says)
+ *   · no `you` block at all (a tokenless visitor, who has no own figure config
+ *     to speak of)
+ *   · `avatarConfig` absent (an older cached payload predating this change)
+ *   · `avatarConfig` null (every guest today)
  *
- * Each surviving row is run through `resolveChibiConfig`, which NEVER throws:
- * a stale or hand-edited stored value repairs field-by-field to that seat's
- * hash defaults rather than crashing the room. The hash id is the seat key —
- * stable per seat, and opaque (a table public_id + a seat index carries no
- * personal data into the hash).
+ * ⚠ THE TRAP THIS SIGNATURE AVOIDS: `resolveChibiConfig(id, null)` happily
+ * returns a complete hash-default config. Calling it unconditionally would give
+ * EVERY guest an avatar the moment the flag flipped — the exact silent change
+ * this module exists to prevent. So the null check comes FIRST and the resolver
+ * is only reached once there is something stored to resolve.
+ *
+ * When there IS something stored, `resolveChibiConfig` never throws: a value
+ * from an older `v`, or junk, repairs field-by-field to the figure's hash
+ * defaults rather than crashing the room.
+ *
+ * `figureId` is the walk's own stable, opaque self id (`'guest-self'`) — no
+ * personal data enters the hash.
  */
-export function avatarsBySeat(
-  rows: readonly VenueAvatarRow[] | null | undefined,
+export function selfFigureAvatar(
+  you: VenueSelfAvatar | null | undefined,
+  figureId: string,
   enabled: boolean,
-): Map<string, Map<number, ChibiAvatarConfig>> {
-  const out = new Map<string, Map<number, ChibiAvatarConfig>>();
-  if (!enabled || !rows) return out;
-  for (const r of rows) {
-    // An absent config is the whole point of the fallback — skip it rather
-    // than resolving hash defaults, or EVERY seat would sprout an avatar.
-    if (r.config == null) continue;
-    if (typeof r.table !== 'string' || !Number.isInteger(r.seatNumber)) continue;
-    let seats = out.get(r.table);
-    if (!seats) {
-      seats = new Map<number, ChibiAvatarConfig>();
-      out.set(r.table, seats);
-    }
-    seats.set(r.seatNumber, resolveChibiConfig(`${r.table}:${r.seatNumber}`, r.config));
-  }
-  return out;
-}
-
-/** How one seat renders in the guest walk.
- *  · 'empty'  — nothing drawn (unoccupied, and not the viewer's own seat)
- *  · 'self'   — the viewer's own seat: individual, accent-tinted, gold ring
- *  · 'photo'  — host-opt-in selfie: individual, GuestPhotoAvatar billboard head
- *  · 'avatar' — NEW: the guest's own chibi, individual
- *  · 'crowd'  — the anonymous neutral mannequin, batched into ONE
- *               InstancedSeatedCrowd for the whole room */
-export type SeatRenderKind = 'empty' | 'self' | 'photo' | 'avatar' | 'crowd';
-
-/**
- * THE routing rule. Both seat loops in the walk call this and switch on the
- * result, so an individually-drawn seat can never also be pushed into the
- * instanced batch (drawing the guest twice) and an occupied seat can never fall
- * out of both (a hole where a person is sitting).
- *
- * BRANCH ORDER IS LOAD-BEARING and reproduces the shipped rule exactly:
- *   · `mine` wins first — the old code tested `mine` before anything else and
- *     drew the own seat individually whether or not it was in `occupied`. The
- *     caller still builds the spec itself, so an own seat that ALSO has a photo
- *     keeps its photo head and its accent tint, exactly as today.
- *   · then occupancy — the old `if (!taken && !mine) return null`.
- *   · then photo — the old `if (!mine && !photoUrl) return null` (i.e. a photo
- *     seat is individual, everything else batches).
- *   · then avatar — the ONLY new branch, and the last one before the default.
- *     It can only fire on a seat that the old rule sent to 'crowd', which is
- *     why an absent avatar leaves every other seat's answer untouched.
- *   · then 'crowd' — the default, and where every guest without an avatar still
- *     lands.
- *
- * ⚠ A photo BEATS an avatar deliberately. A guest who gave the couple a real
- * selfie already renders as themselves; swapping that for a cartoon because
- * they also made one would be a downgrade nobody asked for.
- */
-export function seatRenderKind(seat: {
-  occupied: boolean;
-  mine: boolean;
-  photoUrl?: string | null;
-  avatarConfig?: ChibiAvatarConfig | null;
-}): SeatRenderKind {
-  if (seat.mine) return 'self';
-  if (!seat.occupied) return 'empty';
-  if (seat.photoUrl) return 'photo';
-  if (seat.avatarConfig) return 'avatar';
-  return 'crowd';
-}
-
-/** Does this seat draw its own meshes (rather than joining the instanced
- *  batch)? The GuestTable loop's early-out. */
-export function seatIsIndividual(kind: SeatRenderKind): boolean {
-  return kind === 'self' || kind === 'photo' || kind === 'avatar';
-}
-
-/** Does this seat belong to the room-level InstancedSeatedCrowd? The crowd
- *  loop's `continue` condition, expressed as the complement of the above so
- *  the two loops cannot drift apart. */
-export function seatJoinsCrowd(kind: SeatRenderKind): boolean {
-  return kind === 'crowd';
+): ChibiAvatarConfig | null {
+  if (!enabled) return null;
+  if (!you) return null;
+  const stored = you.avatarConfig;
+  if (stored == null) return null;
+  return resolveChibiConfig(figureId, stored);
 }

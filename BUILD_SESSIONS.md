@@ -306,20 +306,26 @@ git fetch origin && git rev-list --left-right --count origin/main...HEAD   # lef
 
 ## 3 · THE WAVES
 
-**Eight build sessions in five waves.** Two at a time, never more. Ordering honours the conflict
-pairs: ⛔ never C1 with C4 (both rewrite the People area) · ⛔ never C6 with C7 (both edit the
-public search surface). *C3+C5 is no longer a constraint — C3 shipped, so C5's gate is satisfied.*
+**Two at a time, never more.** Ordering honours the conflict pairs: ⛔ never C1 with C4 (both
+rewrite the People area) · ⛔ never C6 with C7 (both edit the public search surface).
 
-| Wave | Sessions | Model · Effort | Gate |
+⚠ **Only the C1/C4 pair still binds anything.** Every other row below has merged, so the waves are
+now a record of what happened, not a plan. C11 was added mid-programme and never had a wave.
+
+🔑 **The one live constraint is the LAST one**, which is exactly when a rule stops being obeyed
+because everything before it went fine. C4 does not start until C1 reads MERGED.
+
+| Wave | Sessions | Model · Effort | State — 2026-08-31 |
 |---|---|---|---|
-| **1** | **C10** our own notes stop being wrong | Sonnet 5 · high | none — start now |
-| | **C6** a Cebu shop stops looking like a Manila shop | Sonnet 5 · medium | none |
-| **2** | **C7** the public copy stops being wedding-only | Opus 5 · medium | **after C6 merges** |
-| | **C2** a venue says what kind of venue it is | Sonnet 5 · medium | none |
-| **3** | **C5** people in the 3D room look like themselves | Opus 5 · high | **unblocked** (C3 shipped) |
-| | **C8** notifications finally have a subscriber | Sonnet 5 · medium | **owner confirms VAPID keys** |
-| **4** | **C1** your family tree, drawn | Opus 5 · high | ✅ **unblocked** — P0-b done |
-| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | **after C1** — P0-b done |
+| **1** | ~~C10~~ our own notes stop being wrong | Sonnet 5 · high | ✅ merged #5015, finished by ~~C10b~~ #5021 |
+| | ~~C6~~ a Cebu shop stops looking like a Manila shop | Sonnet 5 · medium | ✅ merged #5016 |
+| **2** | ~~C7~~ the public copy stops being wedding-only | Opus 5 · medium | ✅ merged #5029 |
+| | ~~C2~~ a venue says what kind of venue it is | Sonnet 5 · medium | ✅ merged #5031 |
+| **3** | ~~C5~~ people in the 3D room look like themselves | Opus 5 · high | ✅ merged #5042 |
+| | ~~C8~~ notifications finally have a subscriber | Sonnet 5 · medium | ✅ merged #5036 |
+| **—** | ~~C11~~ Setnayan AI on every event, comeback derives its rate | Opus 5 · high | ✅ merged #5032 |
+| **4** | **C1** your family tree, drawn | Opus 5 · high | 🔵 **IN FLIGHT** — spawned 2026-08-31 |
+| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | **last one** — after C1 merges |
 
 **Why C10 is `high` and not `medium`:** it spans the repo, the corpus and two auto-loaded
 `CLAUDE.md` files, and its failure mode — a correction that lands in one file and not the rest —
@@ -454,23 +460,38 @@ AUTONOMY RULES — how this session finishes rather than stalls:
 
 ## 5 · TRACKING BOARD
 
-| Session | Model · Effort | Branch | PR | State | Verified by overseer |
-|---|---|---|---|---|---|
-| C10 | Sonnet 5 · high | `claude/c10-docs-stop-being-wrong` | **5015** | ⚠️ **MERGED, INCOMPLETE** — 1 of 11 items; CLAUDE.md untouched | ⚠️ needs follow-up |
-| ~~C6~~ | — | `…-v2` | **5016** | ✅ **MERGED** — fail-open intact | ✅ verified 2026-08-30 |
-| C7 | Opus 5 · medium | — | — | after C6 | — |
-| C2 | Sonnet 5 · medium | — | — | ready | — |
-| C5 | Opus 5 · high | — | — | ready | — |
-| C8 | Sonnet 5 · medium | — | — | needs VAPID check · **re-scope, reuse vendor registrar** | premise holds |
-| C1 | Opus 5 · high | — | — | ✅ **ready** — flag is ON in prod | — |
-| C4 | Opus 5 · high | — | — | **after C1** — flag is ON in prod | — |
-| ~~C3~~ | — | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
-| ~~C9~~ | — | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
-| ~~P0-b~~ | — | `claude/p0b-switch-register` | — | ✅ **DONE** — register landed | ✅ measured 2026-08-30 |
-| P0-a | owner | — | — | not started | — |
-| P3 | owner | — | — | after wave 4 | — |
-| P4 | owner | — | — | not started | — |
+**Refreshed 2026-08-31 against `origin/main` @ `86efe2917`.** Every ✅ below was verified by the
+overseer against a code anchor, not against the session's own report — the anchor is in the last
+column so the next reader can re-run it instead of trusting this row.
 
+| Session | Model · Effort | PR | State | Overseer's anchor |
+|---|---|---|---|---|
+| ~~C10~~ | Sonnet 5 · high | **5015** | ⚠️ **MERGED, 1 of 11** — superseded by C10b | — |
+| ~~C10b~~ | Sonnet 5 · high | **5021** | ✅ **MERGED** — finished the correction C10 left | `CLAUDE.md` line 51 now strikes `0 ORDERS EVER` and states 6 |
+| ~~C6~~ | Sonnet 5 · medium | **5016** | ✅ **MERGED** — fail-open intact | `areaServed` `City`-when-set in `app/v/[slug]/page.tsx` |
+| ~~C7~~ | Opus 5 · medium | **5029** | ✅ **MERGED** 2026-08-30 | `HOME_TITLE` = `'…Plan any Filipino event free…'` — no longer wedding-only |
+| ~~C2~~ | Sonnet 5 · medium | **5031** | ✅ **MERGED** 2026-08-30 | `app/vendor-dashboard/shop/venue-type-actions.ts` exists |
+| ~~C5~~ | Opus 5 · high | **5042** | ✅ **MERGED** 2026-08-31 | `app/[slug]/avatar/_components/avatar-maker.tsx` exists |
+| ~~C8~~ | Sonnet 5 · medium | **5036** | ✅ **MERGED** 2026-08-30 | `Notification.requestPermission()` in `app/[slug]/seat/_components/guest-push-prompt.tsx` — on the guest path, which was the whole point |
+| ~~C11~~ | Opus 5 · high | **5032** | ✅ **MERGED** 2026-08-30 | `comebackPricePhp` in `lib/setnayan-ai-comeback-offer.ts`; NULL fails closed, tested |
+| **C1** | Opus 5 · high | — | 🔵 **IN FLIGHT** — spawned 2026-08-31 | premise re-verified same day: `git grep -l kinship-derive origin/main -- 'apps/web/**'` returns the module and its own test, nothing else |
+| C4 | Opus 5 · high | — | **ready — after C1 merges** (⛔ never concurrent) | flag `NEXT_PUBLIC_DEPENDENT_PEOPLE` = `1`, ON in prod |
+| ~~C3~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
+| ~~C9~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
+| ~~P0-b~~ | owner | **5025** | ✅ **DONE** — `build-sessions/P0-b-SWITCHES.md` | 101 switches measured against Vercel Production |
+| P0-a | owner | — | not started | — |
+| P3 | owner | — | after C4 | — |
+| P4 | owner | — | not started | — |
+
+### Where the program actually stands, 2026-08-31
+
+**Nine of the ten build sessions are MERGED. C1 is running. C4 is the last one**, and it is gated
+on C1 only — both rewrite the People area and must never be in flight together.
+
+⚠️ **This board was five sessions stale when it was refreshed.** C7, C2, C8, C11 and C5 had all
+merged while it still listed them as `ready` or `after C6`. 🔑 **A tracking board is the one
+document that cannot be checked by reading it** — it agrees with itself no matter how wrong it is.
+Re-derive it from `gh pr list --state merged`, never from its own last row.
 ---
 
 ## 6 · HOW WE KNOW THE PROGRAM IS FINISHED

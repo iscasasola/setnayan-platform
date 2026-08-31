@@ -30,6 +30,9 @@ import * as THREE from 'three';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
 import { colorFromId } from '@/lib/plan3d-room';
+import { selfFigureAvatar, guestAvatarsEnabled } from '@/lib/venue-avatars';
+import { ChibiFigure } from '@/app/_components/plan3d/kit/chibi-figure';
+import type { ChibiAvatarConfig } from '@/lib/chibi-config';
 import {
   roomSize,
   pctToWorld,
@@ -156,7 +159,16 @@ export type VenueScene = {
   /** Cocktail / waiting room (v2 payload) — null/absent when the couple didn't enable one. */
   cocktail?: { xPct: number; yPct: number; wPct: number; hPct: number; label: string | null } | null;
   occupancy: { table: string; seats: number[] }[];
-  you: { table: string; seatNumber: number; tablemates: { name: string; seatNumber: number }[] } | null;
+  /** `avatarConfig` (v12 payload) is the VIEWER'S OWN stored
+   *  `guests.avatar_config` — their chibi, resolved through
+   *  `selfFigureAvatar`. Absent on any older cached payload, and null for
+   *  every guest who never made one, both of which keep the blob figure. */
+  you: {
+    table: string;
+    seatNumber: number;
+    tablemates: { name: string; seatNumber: number }[];
+    avatarConfig?: unknown;
+  } | null;
   /**
    * Host's guest-photo visibility choice (venue_photo_visibility): 'none' | 'table'
    * | 'all'. Echoed from the RPC so the client knows the couple's intent even
@@ -313,6 +325,7 @@ function GuestAvatar({
   palette,
   posRef,
   waveUntil = 0,
+  avatar = null,
 }: {
   entrance: Vec2;
   target: Vec2;
@@ -339,6 +352,10 @@ function GuestAvatar({
   /** Local-clock ms until the viewer's OWN figure should wave (optimistic "say
    *  hi"). 0 = not waving. */
   waveUntil?: number;
+  /** The viewer's own chibi, or null to keep the shipped blob figure. Resolved
+   *  by `selfFigureAvatar`, which returns null for the flag-off path and for
+   *  every guest with no stored config — i.e. everyone, today. */
+  avatar?: ChibiAvatarConfig | null;
 }) {
   const ref = useRef<THREE.Group>(null);
   const path = useRef<Vec2[]>([]);
@@ -443,13 +460,30 @@ function GuestAvatar({
           2.2 m/s and the scurry cycle matches; ChameleonMovement port
           2026-07-09). Always quality 'high': this is the single viewer figure
           that owns the camera, not the 'low'-tier crowd. */}
-      <Figure
-        spec={selfSpec}
-        pose={waving ? 'stand' : atRest ? (dance ? 'dance' : 'stand') : 'run'}
-        idleClip={waving ? 'wave' : undefined}
-        phase={phaseRef}
-        quality="high"
-      />
+      {/* THE PAYOFF: when this guest made an avatar, the figure walking their
+          room is THEM — the same <ChibiFigure> the maker previewed, so what
+          they built is what they get.
+
+          ⚠ NO GAIT ON THE CHIBI PATH. The chibi rig is jointless below the
+          neck (lib/chibi-geometry.ts merges legs, shoes and outfit into single
+          buffers), so `pose` / `phase` have nothing to drive: an avatar figure
+          GLIDES where the blob runs. That is a real regression in motion, and
+          it is why NEXT_PUBLIC_FIGURE_CHIBI must NOT be flipped on until the
+          rig spec's § 11 pose PR lands. It is deliberately not faked here.
+
+          Every guest without an avatar keeps the blob below, byte-identical —
+          pinned by lib/venue-avatars.test.ts. */}
+      {avatar ? (
+        <ChibiFigure id={selfSpec.id} config={avatar} castShadow />
+      ) : (
+        <Figure
+          spec={selfSpec}
+          pose={waving ? 'stand' : atRest ? (dance ? 'dance' : 'stand') : 'run'}
+          idleClip={waving ? 'wave' : undefined}
+          phase={phaseRef}
+          quality="high"
+        />
+      )}
       {/* Keep the soft accent glow that has always marked "you". */}
       <pointLight position={[0, 1.2, 0]} intensity={0.5} distance={3.5} color={palette.accent} />
     </group>
@@ -646,6 +680,15 @@ export default function GuestVenue3D({
     }
     return m;
   }, [scene.you]);
+  // The viewer's OWN chibi, or null to keep the shipped blob figure. Null for
+  // the whole flag-off path and for every guest who never made one — which is
+  // everyone in production today, and is exactly what keeps this room
+  // unchanged for them (lib/venue-avatars.test.ts pins it).
+  const selfAvatar = useMemo(
+    () => selfFigureAvatar(scene.you, 'guest-self', guestAvatarsEnabled()),
+    [scene.you],
+  );
+
   // Warm the texture cache once so the first frame paints faces, not tokens.
   useEffect(() => {
     preloadGuestPhotos((scene.photos ?? []).map((p) => p.photoUrl));
@@ -1066,6 +1109,7 @@ export default function GuestVenue3D({
             palette={palette}
             posRef={walkerPosRef}
             waveUntil={sharedRoom.selfGreetUntil}
+            avatar={selfAvatar}
           />
         ) : null}
 

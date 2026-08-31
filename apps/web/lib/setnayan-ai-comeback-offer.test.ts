@@ -17,11 +17,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   COMEBACK_OFFER_WINDOW_HOURS,
   comebackEligibleEventIds,
   comebackPriceCentavos,
   comebackPricePhp,
+  decideSetnayanAiOffer,
   isComebackOfferEligible,
   resolveUserComebackWindow,
   userComebackAnchor,
@@ -277,4 +280,152 @@ test('GUARD: the comeback price path contains no percentage', () => {
   // prices — a guard that only forbids is one deletion away from vacuous.
   assert.match(code, /retailPhp/, 'the regular price must be read');
   assert.match(code, /onboardingPhp/, 'the sign-up price must be read — it IS the rate');
+});
+
+/* ── (4) The two arms: the discount expires, the product does not ───────────
+ *
+ * Owner, 2026-08-31: *"sai expired. should show a cta button to purchase
+ * still."* Before this, a lapsed window removed the card from Home entirely,
+ * so the couple who most needed a route to Setnayan AI — the one who did not
+ * buy in time — was the one left without one.
+ */
+
+const NOW = new Date('2026-03-10T12:00:00.000Z');
+/** 25h before NOW: the window is anchored here and has lapsed. */
+const LAPSED = '2026-03-09T11:00:00.000Z';
+/** 1h before NOW: inside the 24h window. */
+const OPEN = '2026-03-10T11:00:00.000Z';
+
+const WEDDING = { retailPhp: 2499, onboardingPhp: 1499 };
+
+function scope(createdAt: string, owns = false, eventId = 'evt-1') {
+  return [{ eventId, createdAt, setnayanAiActive: owns }];
+}
+
+test('INSIDE the window: the comeback arm, undercutting list, with an expiry', () => {
+  const offer = decideSetnayanAiOffer({
+    events: scope(OPEN),
+    eventId: 'evt-1',
+    ...WEDDING,
+    now: NOW,
+  });
+  assert.equal(offer?.kind, 'comeback');
+  if (offer?.kind !== 'comeback') return;
+  assert.ok(offer.comebackPhp < offer.regularPhp);
+  assert.ok(offer.expiresAt instanceof Date);
+});
+
+test('AFTER the window: the full arm — STILL SELLING, at list price', () => {
+  // THE REGRESSION THESE EXIST FOR. This resolved to "no card" before 2026-08-31.
+  const offer = decideSetnayanAiOffer({
+    events: scope(LAPSED),
+    eventId: 'evt-1',
+    ...WEDDING,
+    now: NOW,
+  });
+  assert.notEqual(offer, null, 'a lapsed discount must not stop the page selling the product');
+  assert.equal(offer?.kind, 'full');
+  if (offer?.kind !== 'full') return;
+  assert.equal(offer.regularPhp, 2499, 'it falls back to list, not to the old discount');
+  assert.ok(!('comebackPhp' in offer), 'the full arm carries no discounted figure');
+  assert.ok(!('expiresAt' in offer), 'the full arm carries no countdown');
+});
+
+test('OWNS IT ALREADY: no card at all — in the window and out of it', () => {
+  for (const created of [OPEN, LAPSED]) {
+    assert.equal(
+      decideSetnayanAiOffer({
+        events: scope(created, true),
+        eventId: 'evt-1',
+        ...WEDDING,
+        now: NOW,
+      }),
+      null,
+      'a couple who bought Setnayan AI must never be pitched it again',
+    );
+  }
+});
+
+test('an event ABSENT from its own scope is unknown, never "safe to sell"', () => {
+  assert.equal(
+    decideSetnayanAiOffer({ events: [], eventId: 'evt-1', ...WEDDING, now: NOW }),
+    null,
+  );
+  assert.equal(
+    decideSetnayanAiOffer({ events: null, eventId: 'evt-1', ...WEDDING, now: NOW }),
+    null,
+  );
+});
+
+test('a ₱0 / unusable tier has no product to sell at EITHER price', () => {
+  for (const retailPhp of [0, -1, Number.NaN]) {
+    assert.equal(
+      decideSetnayanAiOffer({
+        events: scope(LAPSED),
+        eventId: 'evt-1',
+        retailPhp,
+        onboardingPhp: null,
+        now: NOW,
+      }),
+      null,
+    );
+  }
+});
+
+test('no implied sign-up saving ⇒ full price, never a phantom markdown', () => {
+  // SETNAYAN_AI_RENEW's NULL onboarding price: inside the window, but there is
+  // no saving to halve. It must fall through to list — not quote a discount
+  // that does not exist, and not vanish either.
+  const offer = decideSetnayanAiOffer({
+    events: scope(OPEN),
+    eventId: 'evt-1',
+    retailPhp: 2499,
+    onboardingPhp: null,
+    now: NOW,
+  });
+  assert.equal(offer?.kind, 'full');
+  if (offer?.kind !== 'full') return;
+  assert.equal(offer.regularPhp, 2499);
+});
+
+test("the window is the HOST's: a sibling event's age decides both arms", () => {
+  // Two events, anchored on the older one. The younger event is still inside
+  // the host's ONE window because the anchor is the earliest event.
+  const events = [
+    { eventId: 'old', createdAt: OPEN, setnayanAiActive: false },
+    { eventId: 'new', createdAt: '2026-03-10T11:59:00.000Z', setnayanAiActive: false },
+  ];
+  assert.equal(decideSetnayanAiOffer({ events, eventId: 'new', ...WEDDING, now: NOW })?.kind, 'comeback');
+
+  // Once that anchor lapses, BOTH events fall to the full arm together — a
+  // newer event cannot mint itself a second window.
+  const lapsed = [
+    { eventId: 'old', createdAt: LAPSED, setnayanAiActive: false },
+    { eventId: 'new', createdAt: '2026-03-10T11:59:00.000Z', setnayanAiActive: false },
+  ];
+  assert.equal(decideSetnayanAiOffer({ events: lapsed, eventId: 'new', ...WEDDING, now: NOW })?.kind, 'full');
+});
+
+test('GUARD: the card no longer unmounts itself when the clock hits zero', () => {
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'dashboard', '[eventId]', '_components', 'setnayan-ai-comeback-offer.tsx'),
+    'utf8',
+  );
+  // The SHARED stripper, never a hand-rolled pair of replaces. A two-replace
+  // regex strips BLOCK comments first, so a line comment containing `video/*`
+  // opens a comment that closes at the next real `*/`, blanks everything
+  // between, and leaves this guard asserting against an empty string — passing
+  // vacuously. `lint-one-comment-stripper` enforces this, and caught it here.
+  const code = stripComments(src);
+  // The stripper must not have eaten the file, or both assertions below are
+  // vacuous in exactly the way the guard warns about.
+  assert.ok(code.includes('SetnayanAiComebackOffer'), 'stripComments left the component intact');
+  assert.ok(
+    !/isPast\s*\)\s*return null/.test(code),
+    'the countdown reaching zero must drop the DISCOUNT, not the whole card',
+  );
+  assert.ok(
+    /InlineCheckoutDrawer/.test(code),
+    'the card must always mount a way to actually buy — "still show a CTA" in fact, not in shape',
+  );
 });

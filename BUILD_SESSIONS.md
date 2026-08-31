@@ -156,6 +156,65 @@ still reads `0 packages · 0 ORDERS EVER` — **the auto-loaded file, the one ev
 first**, and the exact "a correction that lands in one file has not landed" failure its own prompt
 opens by warning about. **C10 needs a follow-up session covering items 1–11 with `CLAUDE.md` first.**
 
+### C5 merged — and shipped DARK. Do not flip its flag.
+
+**PR [#5042](https://github.com/iscasasola/setnayan-platform/pull/5042), MERGED 2026-08-31**
+(merge `86efe2917`, verified an ancestor of `origin/main`). Premise **HELD**:
+`git grep avatar_config origin/main -- apps/web` returned **only docblocks** — the column shipped in
+migration `20270918210897` with **zero readers and zero writers**.
+
+🔑 **RULE 0 PAID AN EIGHTH TIME, and this was the largest one yet.** Nearly the entire avatar system
+already existed, inert, behind the EXISTING `NEXT_PUBLIC_FIGURE_CHIBI`: the catalog + sanitizer
+(`lib/chibi-config.ts`), the geometry (`lib/chibi-geometry.ts`), the renderer
+(`kit/chibi-figure.tsx`), and the column. That module's own header names three future consumers —
+the maker client, the server sanitizer, the venue reader — and the PR is exactly those three. No new
+catalog, no new sanitizer, no new hash, **no second flag**.
+
+⛔ **THE OWNER QUESTION — `NEXT_PUBLIC_FIGURE_CHIBI` MUST STAY OFF.** The feature is complete and
+merged, and it is **not ready to switch on**.
+
+📍 **Its production value is OFF — and that is a MEASURED value, not a code default.**
+`build-sessions/P0-b-SWITCHES.md` line 268 carries it, measured 2026-08-30 against the Vercel
+**Production** environment (not read off `lib/chibi-config.ts`'s `defaults OFF` docblock, which is
+exactly the mistake `CLAUDE.md` records the owner catching). ⚠ P0-b rots on any dashboard flip —
+re-measure before acting. The PR did not change it.
+
+Two gaps are real and were deliberately NOT faked in code:
+
+1. **No gait.** The chibi rig is **jointless below the neck** — `lib/chibi-geometry.ts` merges legs,
+   shoes and outfit into single buffers — so `pose`/`phase` have nothing to drive. An avatar figure
+   **glides where the blob runs.**
+2. **No seated avatars.** Same cause: "seated" is **new geometry, not a pose** (rig spec § 11 / the
+   declared PR-2, gated by `chibiJunctionAudit`). Seated guests still render as anonymous
+   mannequins.
+
+⚠️ **THE SESSION'S SCOPE MOVED MID-BUILD, on purpose.** The brief asked for seated guests to look
+like themselves; the rig cannot draw that. The viewer's OWN figure never sits (it stands, runs and
+dances beside the chair), so a standing chibi is correct there and that is what shipped. The RPC was
+retargeted to carry **only the viewer's own config** rather than a per-seat payload nothing could
+read — which would have recreated the very inert-column problem the PR exists to fix.
+
+**LEFT UNDONE, and why:** seated avatars + the gait (both blocked on § 11 rig work); and **"on the
+invitation"**, which the brief's PROVE IT asked for — `app/[slug]/invite` turned out to be the
+**join flow**, not a personal invitation card, and no per-guest invitation surface renders a figure.
+Nothing was invented to cover the gap. **Which surface was meant is an open owner question.**
+
+🔧 **ONE TECHNIQUE WORTH STEALING — how to verify a `CREATE OR REPLACE` of a live function.** The
+migration replaces `public_venue_scene`, a live SECURITY DEFINER RPC. The body was transcribed from
+the **live catalog** (`pg_get_functiondef`), never from a migration file — then proved by replaying
+every migration into PGlite **twice**, with and without the new one, and diffing **Postgres's own
+rendering** of both:
+
+```
+applied WITHOUT mine: 1272   WITH mine: 1273
+before def bytes=9981   ← byte-for-byte the length prod reported
+diff → exactly the one added key, nothing else
+```
+
+🔑 **The baseline matching prod's byte count is what makes the diff trustworthy** — it proves the
+repo's migrations converge on the live object, so "only my addition changed" is a claim about
+production and not just about the repo.
+
 ### C8 must be re-scoped before it runs
 
 `Notification.requestPermission` now appears in six files — but the registrar is mounted only in
@@ -163,6 +222,78 @@ opens by warning about. **C10 needs a follow-up session covering items 1–11 wi
 so C8's actual job is intact. What changed is that `push-notification-registrar.tsx` is now a
 **working model to reuse rather than a thing to invent** — the session should adapt it, not
 re-derive it, and must not re-plumb push that already works.
+
+---
+
+## 0c · OVERSEER PASS — 2026-08-31 · what tracking caught that building would not
+
+Not a build session. One pass over the programme's own state, run because C1 was about to be
+spawned and the register had not been re-derived since it was written. **Three defects, none of
+them in the product, all of them in the machinery that decides what the product's next session
+does.** Landed as PR #5043.
+
+### 1 · The board was five sessions stale — and a board cannot be checked by reading it
+
+C7 (#5029) · C2 (#5031) · C8 (#5036) · C11 (#5032) · C5 (#5042) had **all merged** while §5 still
+listed them as `ready` / `after C6` / `needs VAPID check`. C10 was still marked "needs follow-up"
+after C10b (#5021) had done the follow-up.
+
+🔑 **A tracking board agrees with itself no matter how wrong it is.** Five stale rows read exactly
+like five accurate ones — there is no internal inconsistency to notice, no test that goes red, no
+reader who can spot it from the document alone. It is the same class as the register's own § 0
+failure (measuring against a stale checkout) and as C10's (a correction landing in one file), and
+it is the third time this programme has produced it.
+✅ **Fix:** every merged row now carries **the code anchor the overseer ran**, not the session's
+report — so the next reader re-runs the check instead of trusting the row. Re-derive from
+`gh pr list --state merged`, never from the board's own last state.
+
+### 2 · 🛑 THE PROMPT FILE YOU PASTE IS A FILE, AND FILES GO STALE
+
+**The single most expensive near-miss of this pass.** The programme's own spawn instruction is
+`cat build-sessions/C1.md | pbcopy`. Run against the shared checkout — which was **20 commits
+behind `origin/main`** — that pastes a version of C1 whose GATES block reads:
+
+    peopleConnectionsEnabled() defaults OFF and is COUNSEL-GATED … apply autonomy rule 12:
+    build behind the EXISTING flag, defaulted off
+
+**That text is the exact inversion of the truth**, and #5025 had already merged to delete it.
+`NEXT_PUBLIC_PEOPLE_CONNECTIONS` is `1` in production. A C1 session pasted from the stale file
+would have built ship-dark onto a surface real users can already reach, and every check it ran
+would have passed.
+
+🔑 **A prompt is not privileged. It rots at the same rate as the code it describes, and it is read
+exactly once — at the moment nobody is yet checking anything.** The stale copy also still carried
+`Wave 4 · after P0-b` in its header while the corrected GATES block inside the same file said the
+gate had cleared: **one file, disagreeing with itself, in the two places a reader looks first.**
+
+✅ **RULE: spawn from `origin/main`, never the working tree.**
+
+    git fetch -q origin && git show origin/main:build-sessions/<C>.md | pbcopy
+
+### 3 · The shared-checkout collision recurred — inside this very pass
+
+While PR #5043 was in CI, commit `d9cf2dea8` ("record C5's outcome — merged, and shipped DARK")
+appeared **on the overseer's own branch, authored by a different session** that was working in the
+shared checkout. It was local-only and unpushed.
+
+This is working rule 1, and it is the same failure that put C6's two-file fix inside a 99-file PR
+(§ 00). **A session that builds in the shared checkout writes into whichever branch that checkout
+happens to be on** — it does not choose the branch, and it is not told which one it got.
+✅ Pushed rather than left dangling — § 00 records this programme nearly losing a correct fix
+exactly that way — and its load-bearing claim verified before pushing:
+`P0-b-SWITCHES.md:268` says `NEXT_PUBLIC_FIGURE_CHIBI` is **OFF** in production, and
+`guest-venue-3d.tsx:471` says it *"must NOT be flipped on"*. Both hold.
+⛔ **The owner question it carries is real and now lives on the board:** the chibi rig is jointless
+below the neck, so an avatar figure **glides** where the blob walks, and **seated guests cannot be
+drawn at all** — seated is new geometry, not a pose. C5 shipped dark for that reason.
+
+### What this pass did NOT do
+
+⚠️ It did not verify the *quality* of the nine merged sessions — only that each one's premise is
+now false, which is the weakest possible check and exactly the check this register keeps warning
+about. **A merged PR whose anchor now exists is evidence the thing was built, not evidence it
+works.** P3 — one real celebration, end to end — remains the only test that answers that, and it
+is still not scheduled.
 
 ---
 
@@ -306,20 +437,26 @@ git fetch origin && git rev-list --left-right --count origin/main...HEAD   # lef
 
 ## 3 · THE WAVES
 
-**Eight build sessions in five waves.** Two at a time, never more. Ordering honours the conflict
-pairs: ⛔ never C1 with C4 (both rewrite the People area) · ⛔ never C6 with C7 (both edit the
-public search surface). *C3+C5 is no longer a constraint — C3 shipped, so C5's gate is satisfied.*
+**Two at a time, never more.** Ordering honours the conflict pairs: ⛔ never C1 with C4 (both
+rewrite the People area) · ⛔ never C6 with C7 (both edit the public search surface).
 
-| Wave | Sessions | Model · Effort | Gate |
+⚠ **Only the C1/C4 pair still binds anything.** Every other row below has merged, so the waves are
+now a record of what happened, not a plan. C11 was added mid-programme and never had a wave.
+
+🔑 **The one live constraint is the LAST one**, which is exactly when a rule stops being obeyed
+because everything before it went fine. C4 does not start until C1 reads MERGED.
+
+| Wave | Sessions | Model · Effort | State — 2026-08-31 |
 |---|---|---|---|
-| **1** | **C10** our own notes stop being wrong | Sonnet 5 · high | none — start now |
-| | **C6** a Cebu shop stops looking like a Manila shop | Sonnet 5 · medium | none |
-| **2** | **C7** the public copy stops being wedding-only | Opus 5 · medium | **after C6 merges** |
-| | **C2** a venue says what kind of venue it is | Sonnet 5 · medium | none |
-| **3** | **C5** people in the 3D room look like themselves | Opus 5 · high | **unblocked** (C3 shipped) |
-| | **C8** notifications finally have a subscriber | Sonnet 5 · medium | **owner confirms VAPID keys** |
-| **4** | **C1** your family tree, drawn | Opus 5 · high | ✅ **unblocked** — P0-b done |
-| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | **after C1** — P0-b done |
+| **1** | ~~C10~~ our own notes stop being wrong | Sonnet 5 · high | ✅ merged #5015, finished by ~~C10b~~ #5021 |
+| | ~~C6~~ a Cebu shop stops looking like a Manila shop | Sonnet 5 · medium | ✅ merged #5016 |
+| **2** | ~~C7~~ the public copy stops being wedding-only | Opus 5 · medium | ✅ merged #5029 |
+| | ~~C2~~ a venue says what kind of venue it is | Sonnet 5 · medium | ✅ merged #5031 |
+| **3** | ~~C5~~ people in the 3D room look like themselves | Opus 5 · high | ✅ merged #5042 — **dark; flag stays off** |
+| | ~~C8~~ notifications finally have a subscriber | Sonnet 5 · medium | ✅ merged #5036 |
+| **—** | ~~C11~~ Setnayan AI on every event, comeback derives its rate | Opus 5 · high | ✅ merged #5032 |
+| **4** | **C1** your family tree, drawn | Opus 5 · high | 🔵 **IN FLIGHT** — spawned 2026-08-31 |
+| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | **last one** — after C1 merges |
 
 **Why C10 is `high` and not `medium`:** it spans the repo, the corpus and two auto-loaded
 `CLAUDE.md` files, and its failure mode — a correction that lands in one file and not the rest —
@@ -364,6 +501,14 @@ now paid SEVEN times — "invite an off-platform supplier", "a supplier can only
 messages", "the camera screen says 3 cameras free to test with", the host stranger-copy defect, the
 NPC residency rows, the camera-claimer name, and the ENTIRE captured-by-person build were all
 reported as missing and ALL already ship.
+
+0a. SPAWN FROM origin/main. The prompt that created you was `cat`-ed from a file, and that file
+   rots like any other. On 2026-08-31 the shared checkout was 20 commits behind and its copy of a
+   session prompt still carried a GATE THAT HAD BEEN DELETED — the inverse of the truth, in the
+   block a session acts on first. Paste with
+   `git fetch -q origin && git show origin/main:build-sessions/<C>.md | pbcopy`.
+   If your prompt's header and its body disagree, the body was corrected and the header was not —
+   but STOP and re-read from origin/main rather than guessing which half is stale.
 
 0. MEASURE AGAINST origin/main, NEVER A LOCAL CHECKOUT. `git fetch` first, then read with
    `git grep <pattern> origin/main -- <path>`. The main checkout on this machine was 2237 commits
@@ -454,23 +599,38 @@ AUTONOMY RULES — how this session finishes rather than stalls:
 
 ## 5 · TRACKING BOARD
 
-| Session | Model · Effort | Branch | PR | State | Verified by overseer |
-|---|---|---|---|---|---|
-| C10 | Sonnet 5 · high | `claude/c10-docs-stop-being-wrong` | **5015** | ⚠️ **MERGED, INCOMPLETE** — 1 of 11 items; CLAUDE.md untouched | ⚠️ needs follow-up |
-| ~~C6~~ | — | `…-v2` | **5016** | ✅ **MERGED** — fail-open intact | ✅ verified 2026-08-30 |
-| C7 | Opus 5 · medium | — | — | after C6 | — |
-| C2 | Sonnet 5 · medium | — | — | ready | — |
-| C5 | Opus 5 · high | — | — | ready | — |
-| C8 | Sonnet 5 · medium | — | — | needs VAPID check · **re-scope, reuse vendor registrar** | premise holds |
-| C1 | Opus 5 · high | — | — | ✅ **ready** — flag is ON in prod | — |
-| C4 | Opus 5 · high | — | — | **after C1** — flag is ON in prod | — |
-| ~~C3~~ | — | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
-| ~~C9~~ | — | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
-| ~~P0-b~~ | — | `claude/p0b-switch-register` | — | ✅ **DONE** — register landed | ✅ measured 2026-08-30 |
-| P0-a | owner | — | — | not started | — |
-| P3 | owner | — | — | after wave 4 | — |
-| P4 | owner | — | — | not started | — |
+**Refreshed 2026-08-31 against `origin/main` @ `86efe2917`.** Every ✅ below was verified by the
+overseer against a code anchor, not against the session's own report — the anchor is in the last
+column so the next reader can re-run it instead of trusting this row.
 
+| Session | Model · Effort | PR | State | Overseer's anchor |
+|---|---|---|---|---|
+| ~~C10~~ | Sonnet 5 · high | **5015** | ⚠️ **MERGED, 1 of 11** — superseded by C10b | — |
+| ~~C10b~~ | Sonnet 5 · high | **5021** | ✅ **MERGED** — finished the correction C10 left | `CLAUDE.md` line 51 now strikes `0 ORDERS EVER` and states 6 |
+| ~~C6~~ | Sonnet 5 · medium | **5016** | ✅ **MERGED** — fail-open intact | `areaServed` `City`-when-set in `app/v/[slug]/page.tsx` |
+| ~~C7~~ | Opus 5 · medium | **5029** | ✅ **MERGED** 2026-08-30 | `HOME_TITLE` = `'…Plan any Filipino event free…'` — no longer wedding-only |
+| ~~C2~~ | Sonnet 5 · medium | **5031** | ✅ **MERGED** 2026-08-30 | `app/vendor-dashboard/shop/venue-type-actions.ts` exists |
+| ~~C5~~ | Opus 5 · high | **5042** | ✅ **MERGED** 2026-08-31 — ⛔ **SHIPPED DARK, do not flip `NEXT_PUBLIC_FIGURE_CHIBI`** (no gait, no seated avatars — § 0b) | `app/[slug]/avatar/_components/avatar-maker.tsx` exists |
+| ~~C8~~ | Sonnet 5 · medium | **5036** | ✅ **MERGED** 2026-08-30 | `Notification.requestPermission()` in `app/[slug]/seat/_components/guest-push-prompt.tsx` — on the guest path, which was the whole point |
+| ~~C11~~ | Opus 5 · high | **5032** | ✅ **MERGED** 2026-08-30 | `comebackPricePhp` in `lib/setnayan-ai-comeback-offer.ts`; NULL fails closed, tested |
+| **C1** | Opus 5 · high | — | 🔵 **IN FLIGHT** — spawned 2026-08-31 | premise re-verified same day: `git grep -l kinship-derive origin/main -- 'apps/web/**'` returns the module and its own test, nothing else |
+| C4 | Opus 5 · high | — | **ready — after C1 merges** (⛔ never concurrent) | flag `NEXT_PUBLIC_DEPENDENT_PEOPLE` = `1`, ON in prod |
+| ~~C3~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
+| ~~C9~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
+| ~~P0-b~~ | owner | **5025** | ✅ **DONE** — `build-sessions/P0-b-SWITCHES.md` | 101 switches measured against Vercel Production |
+| P0-a | owner | — | not started | — |
+| P3 | owner | — | after C4 | — |
+| P4 | owner | — | not started | — |
+
+### Where the program actually stands, 2026-08-31
+
+**Nine of the ten build sessions are MERGED. C1 is running. C4 is the last one**, and it is gated
+on C1 only — both rewrite the People area and must never be in flight together.
+
+⚠️ **This board was five sessions stale when it was refreshed.** C7, C2, C8, C11 and C5 had all
+merged while it still listed them as `ready` or `after C6`. 🔑 **A tracking board is the one
+document that cannot be checked by reading it** — it agrees with itself no matter how wrong it is.
+Re-derive it from `gh pr list --state merged`, never from its own last row.
 ---
 
 ## 6 · HOW WE KNOW THE PROGRAM IS FINISHED

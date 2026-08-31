@@ -230,3 +230,70 @@ export function isComebackOfferEligible(
 ): boolean {
   return comebackEligibleEventIds(events, now).includes(eventId);
 }
+
+/* ── (4) Which offer does the Home card show? ───────────────────────────────
+ *
+ * ⚠ THE DISCOUNT EXPIRING IS NOT THE PRODUCT EXPIRING (owner 2026-08-31: *"sai
+ * expired. should show a cta button to purchase still"*). Until now the lapse
+ * of the 24h window removed the card from Home altogether, so the couple who
+ * most needed a route to Setnayan AI — the one who did not buy in time — was
+ * the one left without one.
+ *
+ * Kept PURE and here, beside the window and price rules it composes, rather
+ * than inside the server resolver: the arms are a decision, not a read, and
+ * `lib/setnayan-ai-server.ts` imports `server-only` so nothing in it can be
+ * unit-tested. The resolver now does the three reads and calls this.
+ */
+
+export type SetnayanAiOffer =
+  /** Inside the one 24h window: the discounted price, and when it lapses. */
+  | { kind: 'comeback'; regularPhp: number; comebackPhp: number; expiresAt: Date }
+  /** No discount (never had a window, or it lapsed) — still buyable at list. */
+  | { kind: 'full'; regularPhp: number };
+
+export type SetnayanAiOfferInput = {
+  /** Every event this event's hosts own, as the comeback offer sees them. */
+  events: readonly ComebackScopeEvent[] | null | undefined;
+  /** The event whose Home page is being rendered. */
+  eventId: string;
+  /** This event's tier list price. */
+  retailPhp: number;
+  /** This event's tier sign-up price — `null` where the row has none. */
+  onboardingPhp: number | null;
+  now?: Date;
+};
+
+/**
+ * The offer to show, or `null` for "show no card at all".
+ *
+ * `null` is reserved for the two cases where there is genuinely nothing to
+ * sell: the event ALREADY OWNS Setnayan AI, or its tier has no product (a ₱0 /
+ * unusable list price). A lapsed window is NOT one of them — it downgrades the
+ * comeback arm to the full arm and keeps selling.
+ *
+ * ⚖ Fails closed on ABSENCE: an `eventId` missing from its own scope resolves
+ * to `null` rather than being treated as unowned, because absent is unknown,
+ * not "safe to pitch". The caller maps a refused READ to `null` for the same
+ * reason — and the charge path REFUSES outright on that same read, so a blip
+ * can never quietly charge list price for a discounted card.
+ */
+export function decideSetnayanAiOffer(input: SetnayanAiOfferInput): SetnayanAiOffer | null {
+  const { events, eventId, retailPhp, onboardingPhp, now = new Date() } = input;
+
+  const thisEvent = (events ?? []).find((ev) => ev.eventId === eventId);
+  if (!thisEvent || thisEvent.setnayanAiActive === true) return null;
+  if (!(Number.isFinite(retailPhp) && retailPhp > 0)) return null;
+
+  if (isComebackOfferEligible(events, eventId, now)) {
+    const comebackPhp = comebackPricePhp({ retailPhp, onboardingPhp });
+    const expiresAt = resolveUserComebackWindow(events, now)?.expiresAt;
+    // `comebackPhp === null` ⇒ this row has no implied sign-up saving to halve
+    // (a NULL onboarding price, tier E, an inverted pair). Fall through to the
+    // full arm rather than quoting a markdown that does not exist.
+    if (comebackPhp != null && expiresAt) {
+      return { kind: 'comeback', regularPhp: retailPhp, comebackPhp, expiresAt };
+    }
+  }
+
+  return { kind: 'full', regularPhp: retailPhp };
+}

@@ -133,25 +133,47 @@ export function toStoredEdges(rows: readonly EdgeRow[]): StoredEdge[] {
   return edges;
 }
 
+/**
+ * How many ids go into one `in.(…)` list.
+ *
+ * The filter is a URL QUERY STRING, so a large ring is not a slow request — it
+ * is a 414 and therefore an UNMEASURED tree. A well-connected person's second
+ * ring runs to thousands of ids (courtesy kin are unbounded by design), so the
+ * un-chunked version would fail for exactly the people with the most family to
+ * draw. 100 × 36-char UUIDs ≈ 7 KB per leg, comfortably inside every proxy.
+ */
+export const ID_CHUNK = 100;
+
+export function chunk<T>(items: readonly T[], size: number = ID_CHUNK): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 async function edgesIncidentTo(
   admin: SupabaseClient,
   ids: readonly string[],
 ): Promise<{ rows: EdgeRow[]; ok: boolean }> {
   const list = ids.filter(isPersonId);
   if (list.length === 0) return { rows: [], ok: true };
-  const csv = list.join(',');
-  const { data, error } = await admin
-    .from('person_connections')
-    .select('from_person_id, to_person_id, relation, status')
-    // Confirmed-only at the QUERY, so an unconfirmed edge cannot widen the walk.
-    .eq('status', 'confirmed')
-    .is('deleted_at', null)
-    .or(`from_person_id.in.(${csv}),to_person_id.in.(${csv})`);
-  if (error) {
-    logQueryError('kinshipNeighbourhood.edges', error, {}, 'graceful_degrade');
-    return { rows: [], ok: false };
+  const rows: EdgeRow[] = [];
+  for (const part of chunk(list)) {
+    const csv = part.join(',');
+    const { data, error } = await admin
+      .from('person_connections')
+      .select('from_person_id, to_person_id, relation, status')
+      // Confirmed-only at the QUERY, so an unconfirmed edge cannot widen the walk.
+      .eq('status', 'confirmed')
+      .is('deleted_at', null)
+      .or(`from_person_id.in.(${csv}),to_person_id.in.(${csv})`);
+    if (error) {
+      logQueryError('kinshipNeighbourhood.edges', error, {}, 'graceful_degrade');
+      // A partial ring is a silently amputated tree — fail the whole hop.
+      return { rows: [], ok: false };
+    }
+    rows.push(...((data ?? []) as EdgeRow[]));
   }
-  return { rows: (data ?? []) as EdgeRow[], ok: true };
+  return { rows, ok: true };
 }
 
 /**

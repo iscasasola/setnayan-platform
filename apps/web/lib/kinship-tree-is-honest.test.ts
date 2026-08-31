@@ -20,7 +20,14 @@ import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { deriveKin, type StoredEdge } from '@/lib/kinship-derive';
 import { buildKinTree, viaPhrase, COURTESY_PREVIEW, LAYER_ORDER } from '@/lib/kinship-tree';
-import { getKinFor, toStoredEdges, isPersonId, EMPTY_KIN } from '@/lib/kinship-read-core';
+import {
+  getKinFor,
+  toStoredEdges,
+  isPersonId,
+  chunk,
+  ID_CHUNK,
+  EMPTY_KIN,
+} from '@/lib/kinship-read-core';
 
 // ── a family, in ids that read ────────────────────────────────────────────
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -298,4 +305,32 @@ test('viaPhrase reads as a possessive walk outwards from you', () => {
   assert.equal(viaPhrase(['friend', 'parent']), 'your friend’s parent');
   assert.equal(viaPhrase(['parent', 'sibling', 'child']), 'your parent’s sibling’s child');
   assert.equal(viaPhrase([]), 'you');
+});
+
+// ── 6 · a big family must not 414 its way to "unknown" ───────────────────
+test('the ring is chunked, so a large family does not blow the URL length', () => {
+  const ids = Array.from({ length: 250 }, (_, i) => id(1000 + i));
+  const parts = chunk(ids);
+  assert.equal(parts.length, 3, '250 ids over a 100 cap is three requests');
+  assert.deepEqual(parts.flat(), ids, 'chunking must not drop or reorder anybody');
+  assert.ok(parts.every((p) => p.length <= ID_CHUNK));
+  assert.equal(chunk([]).length, 0);
+});
+
+test('a family larger than one chunk still derives every tita', async () => {
+  // 150 friends — over the 100-id chunk — each contributing a courtesy tita.
+  const edges: StoredEdge[] = [e(ME, MOM, 'parent'), e(MOM, MOMS_SISTER, 'sibling')];
+  for (let i = 0; i < 150; i++) {
+    const friend = id(2000 + i);
+    edges.push(e(ME, friend, 'friend'), e(friend, id(5000 + i), 'parent'));
+  }
+  const client = stubClient({ edges: rows(edges) });
+  const out = await getKinFor(client, () => client, 'user-1');
+
+  assert.equal(out.measured, true, 'a big family must not degrade to "unknown"');
+  const titas = out.kin.filter((k) => k.kind === 'parent-sibling');
+  // 150 courtesy + 1 blood. If chunking dropped a request this comes up short.
+  assert.equal(titas.length, 151);
+  assert.equal(titas.filter((t) => t.basis === 'blood').length, 1);
+  assert.equal(titas.filter((t) => t.basis === 'courtesy').length, 150);
 });

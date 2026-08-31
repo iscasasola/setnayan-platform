@@ -60,11 +60,18 @@ expanding). A person with both a blood tita and a courtesy tita sees both, in
 different layers, with different `via` text. A draft edge and a pending edge
 appear nowhere — asserted through the read as well as the derivation.
 
-Seven mutations, each with the occurrence count printed before → after:
+The ring is CHUNKED at 100 ids per request. The `in.(…)` filter is a URL query
+string, so an unchunked second ring — thousands of ids, because courtesy kin are
+unbounded by design — is not a slow request but a 414, and therefore an UNMEASURED
+tree. Unchunked, the read would have failed for exactly the people with the most
+family to draw.
+
+Nine mutations, each with the occurrence count printed before → after:
 blood made collapsible 1→0 (2 fail) · layer order reversed 1→0 (1 fail) ·
 name rule bypassed to the person id (1 fail) · confirmed-only guard removed 1→0
 (1 fail) · `UNKNOWN_KIN` → `EMPTY_KIN` 3→0 (3 fail) · walk shortened to 2 hops
-1→0 (1 fail) · courtesy derivation deleted 1→0 (4 fail).
+1→0 (1 fail) · courtesy derivation deleted 1→0 (4 fail) · chunk loop truncated
+to its first request 1→0 (1 fail) · `ID_CHUNK` raised past the URL cap (1 fail).
 
 ⚠ **THIS IS LIVE ON MERGE.** `NEXT_PUBLIC_PEOPLE_CONNECTIONS=1` in production
 (measured, P0-b 2026-08-30), so this is not ship-dark. Production held zero

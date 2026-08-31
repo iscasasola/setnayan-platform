@@ -76,7 +76,6 @@ import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
 import { papicCreditVerdict } from '@/lib/papic-credit-estimate';
-import { PAPIC_POINTS_PER_CLIP, PAPIC_POINTS_PER_PHOTO } from '@/lib/papic-cameras-pure';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
   InspectorLayout,
@@ -1044,26 +1043,28 @@ export async function EventDashboard({
     short — the owner's words: "if their count is good, then do not recommend."
 
     Costs no query: `guests` and `papicHome` are both already resolved in the
-    batch above. Every credit weight is READ from its one home rather than
-    retyped here (lib/papic-copy-guardrails.test.ts fails CI on a literal).
+    batch above.
+
+    🔑 NOTHING HERE INVENTS A NUMBER (owner 2026-08-31: "don't guess"). What an
+    event needs is the OWNER-CONFIGURED pool formula — clamp(guests ×
+    points_per_guest, floor, ceiling) from `papic_event_pool_config`, every
+    field admin-editable without a deploy — and the verdict just compares the
+    balance against it. An earlier cut of this carried its own "6 photos + 1
+    clip per guest" assumption; that was a guess on a surface that tells couples
+    to spend money, and it is gone.
 
     ⚠ IT REPORTS THE GAP, NOT A RUNG. Naming a purchasable figure needs the live
     16-rung `PAPIC_GUEST*` pool ladder, which is admin-editable catalog data and
     is NOT loaded on this surface. The board's row therefore states the shortfall
     and links to /studio/papic, where `PapicPoolCard` already reads that ladder
-    and its stepper picks the rung. An earlier cut rounded to a fixed 150 — the
-    Papic ONE *camera* rung — which would have quoted numbers the pool checkout
-    cannot sell.
+    and its stepper picks the rung.
 
     Resolved HERE, above the decisions board, because both the board's top-up
     row and the mini-tile's verdict line below read it — one computation, so
     the two can never disagree about whether the event is short.
   */
   const papicVerdict = papicHome
-    ? papicCreditVerdict(papicHome.shotsLeft, guests.length, {
-        pointsPerPhoto: PAPIC_POINTS_PER_PHOTO,
-        pointsPerClip: PAPIC_POINTS_PER_CLIP,
-      })
+    ? papicCreditVerdict(papicHome.shotsLeft, guests.length)
     : null;
 
   const groupsUnordered: DecisionGroupView[] = ([

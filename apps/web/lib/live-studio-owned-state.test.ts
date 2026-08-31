@@ -1,9 +1,9 @@
 /**
- * ⭐ A COUPLE WHO PAYS ₱2,999 MUST BE TREATED AS HAVING PAID.
+ * ⭐ A COUPLE WHO PAYS ₱3,000 MUST BE TREATED AS HAVING PAID.
  *
  * `ADD_ON_SKU_MAP` (lib/add-on-stats.ts) keys the two Live Studio generations
  * separately — `panood` → the RETIRED Cast SKUs, `live-studio-roam` → the live
- * `LIVE_STUDIO` ₱2,999 — and `SKU_OWNERSHIP_ALIASES` does **not** expand at this
+ * `LIVE_STUDIO` ₱3,000 — and `SKU_OWNERSHIP_ALIASES` does **not** expand at this
  * layer (it applies inside `eventSkuActive`). So a surface that asks for `panood`
  * resolves a LIVE_STUDIO buyer to NOT-OWNED.
  *

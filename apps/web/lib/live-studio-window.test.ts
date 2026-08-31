@@ -176,7 +176,7 @@ test('an extension bought at the 1-hour warning keeps the couple broadcasting th
 });
 
 test('a day bought long AFTER the window lapsed starts then — never retro-expired', () => {
-  // The trap a plain `anchor + days × 24h` walks into: ₱2,999 for a day that
+  // The trap a plain `anchor + days × 24h` walks into: ₱3,000 for a day that
   // expired weeks ago.
   const boughtAt = at(720).toISOString(); // a month later
   const d = decideBroadcastWindow(
@@ -238,7 +238,7 @@ test('fail-closed: an entitlement that resolved to false gets the free tier, not
 
    The expensive failure is not "a founder gets metered" — it is the reverse: an
    `is_internal` staff account, of which there can be many, silently holding an
-   unlimited ₱2,999 multi-cam broadcast entitlement forever.                        */
+   unlimited ₱3,000 multi-cam broadcast entitlement forever.                        */
 
 const ALL_KINDS: GrantKind[] = ['founder', 'comp', 'internal', 'promo', 'unknown'];
 

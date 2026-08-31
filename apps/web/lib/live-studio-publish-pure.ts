@@ -102,7 +102,7 @@ export function limitPublishedManifest(manifest: RoamManifest, owned: boolean): 
    eight cameras on their controller; if those cuts also reached the pop-out, the host
    could point OBS at it and broadcast a full multi-camera wedding to their own
    channel without ever touching a Setnayan-hosted surface. REHEARSE-FREE WOULD MEAN
-   BROADCAST-FREE VIA OBS, and the ₱2,999 product would be gone.
+   BROADCAST-FREE VIA OBS, and the ₱3,000 product would be gone.
 
    THE FIX, and why it is the source and not the pixels. We cannot watermark our way
    out of this (branding is a separate, currently-contradicted owner decision — see

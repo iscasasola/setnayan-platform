@@ -57,7 +57,7 @@ export const metadata = {
 // and streams it to the host's own YouTube. Wave 3's paywall (lib/live-studio-publish.ts) reduces
 // the SETNAYAN-HOSTED guest view — a manifest we write, on a page we render — and has no reach
 // here at all. So without a second gate, "rehearse free" would mean "broadcast free via OBS": a
-// free host cuts between eight cameras, OBS captures the result, and the ₱2,999 multi-cam product
+// free host cuts between eight cameras, OBS captures the result, and the ₱3,000 multi-cam product
 // goes out for nothing.
 //
 // So the SOURCE is reduced instead of the manifest. `decideProgramAir` resolves, SERVER-SIDE and

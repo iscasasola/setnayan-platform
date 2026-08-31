@@ -26,7 +26,7 @@
  *   6. ANONYMOUS / MALFORMED — no session is denied; a malformed topic denies rather
  *      than throwing, because an RLS predicate that throws takes the page with it.
  *
- * ⚠ WHAT THIS FILE DELIBERATELY DOES NOT TEST: the ₱2,999 entitlement. That is
+ * ⚠ WHAT THIS FILE DELIBERATELY DOES NOT TEST: the ₱3,000 entitlement. That is
  * `canPublishMultiCam` in TypeScript, re-asked on every render of the public page and
  * again in `startGuestPickSession`. Restating it in SQL would be a SECOND copy of a
  * money rule — see the migration header.

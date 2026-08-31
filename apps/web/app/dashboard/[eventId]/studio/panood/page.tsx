@@ -10,7 +10,7 @@ import { liveStudioDetailPath } from '@/lib/live-studio-control';
  * has never had a single order — checkout refuses a retired SKU, so the page's own
  * guard had already hidden its buy button and its price table. What was left was a
  * SECOND "Live Studio" page in the couple's Studio, sitting beside the real one
- * (₱2,999 · /studio/live-studio-control · listed on the public pricing page), whose
+ * (₱3,000 · /studio/live-studio-control · listed on the public pricing page), whose
  * only working control dropped the couple into the legacy Cast setup tree.
  *
  * Two tiles for one product is the whole defect. The catalog tile that points here

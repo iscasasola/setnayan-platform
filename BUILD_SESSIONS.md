@@ -156,6 +156,65 @@ still reads `0 packages · 0 ORDERS EVER` — **the auto-loaded file, the one ev
 first**, and the exact "a correction that lands in one file has not landed" failure its own prompt
 opens by warning about. **C10 needs a follow-up session covering items 1–11 with `CLAUDE.md` first.**
 
+### C5 merged — and shipped DARK. Do not flip its flag.
+
+**PR [#5042](https://github.com/iscasasola/setnayan-platform/pull/5042), MERGED 2026-08-31**
+(merge `86efe2917`, verified an ancestor of `origin/main`). Premise **HELD**:
+`git grep avatar_config origin/main -- apps/web` returned **only docblocks** — the column shipped in
+migration `20270918210897` with **zero readers and zero writers**.
+
+🔑 **RULE 0 PAID AN EIGHTH TIME, and this was the largest one yet.** Nearly the entire avatar system
+already existed, inert, behind the EXISTING `NEXT_PUBLIC_FIGURE_CHIBI`: the catalog + sanitizer
+(`lib/chibi-config.ts`), the geometry (`lib/chibi-geometry.ts`), the renderer
+(`kit/chibi-figure.tsx`), and the column. That module's own header names three future consumers —
+the maker client, the server sanitizer, the venue reader — and the PR is exactly those three. No new
+catalog, no new sanitizer, no new hash, **no second flag**.
+
+⛔ **THE OWNER QUESTION — `NEXT_PUBLIC_FIGURE_CHIBI` MUST STAY OFF.** The feature is complete and
+merged, and it is **not ready to switch on**.
+
+📍 **Its production value is OFF — and that is a MEASURED value, not a code default.**
+`build-sessions/P0-b-SWITCHES.md` line 268 carries it, measured 2026-08-30 against the Vercel
+**Production** environment (not read off `lib/chibi-config.ts`'s `defaults OFF` docblock, which is
+exactly the mistake `CLAUDE.md` records the owner catching). ⚠ P0-b rots on any dashboard flip —
+re-measure before acting. The PR did not change it.
+
+Two gaps are real and were deliberately NOT faked in code:
+
+1. **No gait.** The chibi rig is **jointless below the neck** — `lib/chibi-geometry.ts` merges legs,
+   shoes and outfit into single buffers — so `pose`/`phase` have nothing to drive. An avatar figure
+   **glides where the blob runs.**
+2. **No seated avatars.** Same cause: "seated" is **new geometry, not a pose** (rig spec § 11 / the
+   declared PR-2, gated by `chibiJunctionAudit`). Seated guests still render as anonymous
+   mannequins.
+
+⚠️ **THE SESSION'S SCOPE MOVED MID-BUILD, on purpose.** The brief asked for seated guests to look
+like themselves; the rig cannot draw that. The viewer's OWN figure never sits (it stands, runs and
+dances beside the chair), so a standing chibi is correct there and that is what shipped. The RPC was
+retargeted to carry **only the viewer's own config** rather than a per-seat payload nothing could
+read — which would have recreated the very inert-column problem the PR exists to fix.
+
+**LEFT UNDONE, and why:** seated avatars + the gait (both blocked on § 11 rig work); and **"on the
+invitation"**, which the brief's PROVE IT asked for — `app/[slug]/invite` turned out to be the
+**join flow**, not a personal invitation card, and no per-guest invitation surface renders a figure.
+Nothing was invented to cover the gap. **Which surface was meant is an open owner question.**
+
+🔧 **ONE TECHNIQUE WORTH STEALING — how to verify a `CREATE OR REPLACE` of a live function.** The
+migration replaces `public_venue_scene`, a live SECURITY DEFINER RPC. The body was transcribed from
+the **live catalog** (`pg_get_functiondef`), never from a migration file — then proved by replaying
+every migration into PGlite **twice**, with and without the new one, and diffing **Postgres's own
+rendering** of both:
+
+```
+applied WITHOUT mine: 1272   WITH mine: 1273
+before def bytes=9981   ← byte-for-byte the length prod reported
+diff → exactly the one added key, nothing else
+```
+
+🔑 **The baseline matching prod's byte count is what makes the diff trustworthy** — it proves the
+repo's migrations converge on the live object, so "only my addition changed" is a claim about
+production and not just about the repo.
+
 ### C8 must be re-scoped before it runs
 
 `Notification.requestPermission` now appears in six files — but the registrar is mounted only in
@@ -321,7 +380,7 @@ because everything before it went fine. C4 does not start until C1 reads MERGED.
 | | ~~C6~~ a Cebu shop stops looking like a Manila shop | Sonnet 5 · medium | ✅ merged #5016 |
 | **2** | ~~C7~~ the public copy stops being wedding-only | Opus 5 · medium | ✅ merged #5029 |
 | | ~~C2~~ a venue says what kind of venue it is | Sonnet 5 · medium | ✅ merged #5031 |
-| **3** | ~~C5~~ people in the 3D room look like themselves | Opus 5 · high | ✅ merged #5042 |
+| **3** | ~~C5~~ people in the 3D room look like themselves | Opus 5 · high | ✅ merged #5042 — **dark; flag stays off** |
 | | ~~C8~~ notifications finally have a subscriber | Sonnet 5 · medium | ✅ merged #5036 |
 | **—** | ~~C11~~ Setnayan AI on every event, comeback derives its rate | Opus 5 · high | ✅ merged #5032 |
 | **4** | **C1** your family tree, drawn | Opus 5 · high | 🔵 **IN FLIGHT** — spawned 2026-08-31 |
@@ -471,7 +530,7 @@ column so the next reader can re-run it instead of trusting this row.
 | ~~C6~~ | Sonnet 5 · medium | **5016** | ✅ **MERGED** — fail-open intact | `areaServed` `City`-when-set in `app/v/[slug]/page.tsx` |
 | ~~C7~~ | Opus 5 · medium | **5029** | ✅ **MERGED** 2026-08-30 | `HOME_TITLE` = `'…Plan any Filipino event free…'` — no longer wedding-only |
 | ~~C2~~ | Sonnet 5 · medium | **5031** | ✅ **MERGED** 2026-08-30 | `app/vendor-dashboard/shop/venue-type-actions.ts` exists |
-| ~~C5~~ | Opus 5 · high | **5042** | ✅ **MERGED** 2026-08-31 | `app/[slug]/avatar/_components/avatar-maker.tsx` exists |
+| ~~C5~~ | Opus 5 · high | **5042** | ✅ **MERGED** 2026-08-31 — ⛔ **SHIPPED DARK, do not flip `NEXT_PUBLIC_FIGURE_CHIBI`** (no gait, no seated avatars — § 0b) | `app/[slug]/avatar/_components/avatar-maker.tsx` exists |
 | ~~C8~~ | Sonnet 5 · medium | **5036** | ✅ **MERGED** 2026-08-30 | `Notification.requestPermission()` in `app/[slug]/seat/_components/guest-push-prompt.tsx` — on the guest path, which was the whole point |
 | ~~C11~~ | Opus 5 · high | **5032** | ✅ **MERGED** 2026-08-30 | `comebackPricePhp` in `lib/setnayan-ai-comeback-offer.ts`; NULL fails closed, tested |
 | **C1** | Opus 5 · high | — | 🔵 **IN FLIGHT** — spawned 2026-08-31 | premise re-verified same day: `git grep -l kinship-derive origin/main -- 'apps/web/**'` returns the module and its own test, nothing else |

@@ -146,6 +146,33 @@ If you cannot name the existing component and the existing design, **you have no
    108/61, then 186/55, then 223/69 — across one week). Cite a **greppable symbol** or the exact
    command that re-measures it (`grep -n <symbol> <path>`, `select count(*) from …`), never the
    number itself.
+8. **RULE 0 APPLIES TO THE WORK IN FLIGHT, NOT ONLY TO `main`.** Grepping `origin/main` answers
+   "does this ship"; it does not answer "is somebody building this right now". Before starting a
+   feature, also run:
+
+   ```bash
+   gh pr list --state open --limit 40 --json number,title,headRefName   # who is mid-flight
+   git worktree list                                                    # what this machine is building
+   git log origin/main --oneline -15                                    # what landed in the last hours
+   ```
+
+   Measured 2026-08-31, one session, twice in a row: a comeback-offer feature was rebuilt from
+   scratch while another session had **already opened a better version as a PR** (theirs had caught
+   a hard-coded rate the rebuild reproduced); and a `guests.papic_excluded` migration was one step
+   from being written when `papic_guest_spend_ceilings` — shipped the day before — already expressed
+   exactly that, with `ceiling_points = 0` as the documented "may not spend". That column would have
+   become a **second, competing source of truth for one fact.**
+
+   🔑 **THE NEAR-MISS IS THE POINT: both were caught by looking, and neither would have been caught
+   by a test.** Two mechanisms that disagree about the same fact each pass their own suite.
+
+9. **"I flagged it" does not make a guessed number safe.** Owner, 2026-08-31, on a
+   `DEFAULT_CAPTURE_MIX` shipped as an owner-tunable default: **"don't guess."** It was labelled a
+   guess in the code, the changelog and the PR body, and shipping it was still wrong — it sized a
+   **top-up recommendation**, i.e. it told couples how much money to spend, and nobody had measured
+   it. The real answer was already in the tree: `papic_event_pool_config`, admin-editable, live
+   since migration `20270826385580`. If a number governs money and you cannot cite where it came
+   from, find its existing home or stop — do not annotate the invention and ship it.
 
 ## What this repo is
 

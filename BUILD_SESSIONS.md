@@ -462,6 +462,31 @@ because everything before it went fine. C4 does not start until C1 reads MERGED.
 `CLAUDE.md` files, and its failure mode — a correction that lands in one file and not the rest —
 is the thing it exists to prevent. This file proved that failure mode twice in one day.
 
+### P0-a · measured 2026-08-31 — the channel IS connected, and nobody knew
+
+A parallel session was waiting to be **told** whether clicking through the OAuth "Advanced" warning
+worked. **The database already knew.**
+
+    select count(*) from live_studio_roam_channel_pool;   -- 1   ← connected
+    select count(*) from live_studio_roam_streams;        -- 0   ← never streamed
+
+🔑 **The row is the proof, and the row was already there.** A question addressed to the owner sat
+open while the answer was one query away — the same shape as this programme's other findings, with
+the roles reversed: not a document claiming something untrue, but a *person* being asked for
+something already recorded. **Ask the database before you ask the owner** is Rule 0's sixth clause
+("never ask the owner a question the corpus answers"), and a live table is corpus.
+
+⏭ **What is actually left on P0-a is step 5: run one real five-minute stream.**
+`live_studio_roam_streams` **has never held a row**, so no part of the streaming path has run end to
+end in production. Connecting is not streaming.
+
+⛔ **OPEN OWNER DECISION — money, not engineering.** `LIVE_STUDIO` is **`is_active = true` at
+₱3,000** in `platform_retail_catalog_v2`, measured today. The project is in Google's *External +
+Testing* consent mode, where refresh tokens expire after **7 days** — so the product is on sale
+with an auth grant that dies weekly, and no cron can save it (Google invalidates the token itself).
+Whether to deactivate it while the durable fix lands is the owner's call and nobody else's; it is
+recorded here so it stops living only in one session's scrollback.
+
 ### The owner track — runs in parallel
 | | What | Cost | Blocks |
 |---|---|---|---|
@@ -618,7 +643,7 @@ column so the next reader can re-run it instead of trusting this row.
 | ~~C3~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
 | ~~C9~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
 | ~~P0-b~~ | owner | **5025** | ✅ **DONE** — `build-sessions/P0-b-SWITCHES.md` | 101 switches measured against Vercel Production |
-| P0-a | owner | — | not started | — |
+| **P0-a** | owner | — | 🔵 **IN FLIGHT — step 5 of 5 outstanding** | `live_studio_roam_channel_pool` = **1 row** (connected) · `live_studio_roam_streams` = **0** (never streamed) |
 | P3 | owner | — | after C4 | — |
 | P4 | owner | — | not started | — |
 

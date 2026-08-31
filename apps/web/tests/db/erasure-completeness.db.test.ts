@@ -166,6 +166,9 @@ const VENDOR_PROFILE = '2c000000-0000-4000-8000-000000000001';
 const THREAD = '2d000000-0000-4000-8000-000000000001';
 const SUBJECT_GUEST = '2e000000-0000-4000-8000-000000000001';
 const OUTSIDER_VENDOR_PROFILE = '2c000000-0000-4000-8000-000000000002';
+/** The business alaga a shop becomes (dependents.vendor_profile_id, 2026-08-31). */
+const SUBJECT_BUSINESS_ALAGA = '2f000000-0000-4000-8000-000000000001';
+const OUTSIDER_BUSINESS_ALAGA = '2f000000-0000-4000-8000-000000000002';
 
 const SUBJECT_EMAIL = 'leaving.person@example.com';
 const CENOMAR_REF = 'PSA-CENOMAR-2026-0099887';
@@ -363,9 +366,19 @@ before(async () => {
     INSERT INTO public.vendor_push_tokens (vendor_profile_id, token, platform)
     VALUES ('${VENDOR_PROFILE}', 'push-token-xyz', 'web');
 
+    -- the BUSINESS ALAGA that shop became (2026-08-31). Opening a shop now also
+    -- writes a dependents row of kind 'business', linked by vendor_profile_id.
+    -- It is the erased person's own private record, so it must go with them.
+    INSERT INTO public.dependents (dependent_id, owner_user_id, name, dependent_kind, vendor_profile_id)
+    VALUES ('${SUBJECT_BUSINESS_ALAGA}', '${SUBJECT}', 'Leaving Person Studio', 'business', '${VENDOR_PROFILE}');
+
     -- ── an UNRELATED vendor's shop, so over-deletion has something to hit ───
     INSERT INTO public.vendor_profiles (vendor_profile_id, user_id, business_name, is_published)
     VALUES ('${OUTSIDER_VENDOR_PROFILE}', '${OUTSIDER}', 'Someone Else Studio', TRUE);
+
+    -- …and THEIR business alaga, so over-deletion has something to hit here too.
+    INSERT INTO public.dependents (dependent_id, owner_user_id, name, dependent_kind, vendor_profile_id)
+    VALUES ('${OUTSIDER_BUSINESS_ALAGA}', '${OUTSIDER}', 'Someone Else Studio', 'business', '${OUTSIDER_VENDOR_PROFILE}');
 
     -- ── vendor verification: government ID / DTI / portfolio, private bucket ─
     -- Keyed by vendor_profile_id. Its only *_user_id column is admin_user_id
@@ -1151,4 +1164,66 @@ test('4 · a FAILING purge step still deletes the account, and still audits the 
   );
 
   await db.exec(`ALTER TABLE public.notifications RENAME COLUMN user_id_renamed TO user_id`);
+});
+
+/**
+ * 2026-08-31 · A BUSINESS ALAGA IS THE OWNER'S PRIVATE RECORD, SO ERASURE TAKES
+ * IT — AND ONLY THEIRS.
+ *
+ * `dependents.vendor_profile_id` was added the same day opening a shop started
+ * writing one of these rows. Purge already deletes `dependents` by
+ * `owner_user_id`, so a NEW COLUMN on that table needs no new step — but "needs
+ * no new step" is a claim, and this is the run that checks it against the real
+ * purge and the real schema rather than against a reading of the code.
+ *
+ * The second half is the one nobody writes: over-deletion is a real harm too.
+ * The FK is ON DELETE SET NULL precisely so a shop's fate can never reach into
+ * somebody's alaga list, and the outsider's row proves the blast radius stopped.
+ */
+test('2h · the business alaga a shop became is erased with its owner — and only theirs', async () => {
+  assert.equal(
+    await count(`SELECT count(*) FROM public.dependents WHERE dependent_id = $1`, [
+      SUBJECT_BUSINESS_ALAGA,
+    ]),
+    0,
+    'the erased person’s business alaga survived — a new column slipped past the dependents step',
+  );
+  assert.equal(
+    await count(`SELECT count(*) FROM public.dependents WHERE owner_user_id = $1`, [SUBJECT]),
+    0,
+  );
+  // …and the outsider, whose shop was never touched, keeps theirs intact.
+  assert.equal(
+    await count(
+      `SELECT count(*) FROM public.dependents WHERE dependent_id = $1 AND vendor_profile_id = $2`,
+      [OUTSIDER_BUSINESS_ALAGA, OUTSIDER_VENDOR_PROFILE],
+    ),
+    1,
+    'over-deletion: another account’s business alaga was taken by someone else’s erasure',
+  );
+});
+
+/**
+ * 2026-08-31 · AND THE FK MAY NEVER REACH BACK. `dependents.vendor_profile_id`
+ * is ON DELETE SET NULL, not CASCADE — an alaga belongs to its OWNER, so
+ * deleting a SHOP must never delete somebody's record of caring about it, and an
+ * FK that can block is an FK that can break an erasure run.
+ *
+ * The migration's header says this. A migration comment is not evidence, so the
+ * live catalog is asked instead: `confdeltype` is 'n' for SET NULL, 'c' for
+ * CASCADE, 'a' for NO ACTION.
+ */
+test('2i · the shop link is SET NULL, so a deleted shop can never take an alaga with it', async () => {
+  const rule = await one<string | undefined>(
+    `SELECT confdeltype::text AS rule
+       FROM pg_constraint
+      WHERE conrelid = 'public.dependents'::regclass
+        AND conname  = 'dependents_vendor_profile_id_fkey'`,
+  );
+  assert.ok(rule, 'the shop-link FK is missing entirely');
+  assert.equal(
+    rule,
+    'n',
+    `dependents.vendor_profile_id must be ON DELETE SET NULL (got confdeltype='${rule}')`,
+  );
 });

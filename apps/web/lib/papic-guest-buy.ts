@@ -245,56 +245,6 @@ export function resolveGuestReloadTarget(
     : { ok: false, reason: 'not_your_camera' };
 }
 
-// ── "keep them, or give them to the room" (spec § 7b) ──────────────────────
-
-/** What one camera currently holds, and what could still move. */
-export type DedicatedShotsStanding = {
-  /** Total credits dedicated to this camera (bought + handed out), ever. */
-  dedicated: number;
-  /** Of those, how many this camera has already shot. Can never come back. */
-  spent: number;
-  /** dedicated − spent, floored at 0. The only part a release can move. */
-  releasable: number;
-};
-
-/** PURE. Derive the standing from the two raw numbers a caller reads. */
-export function dedicatedShotsStanding(
-  dedicated: number,
-  spent: number,
-): DedicatedShotsStanding {
-  const d = Number.isFinite(dedicated) && dedicated > 0 ? Math.floor(dedicated) : 0;
-  const s = Number.isFinite(spent) && spent > 0 ? Math.floor(spent) : 0;
-  return { dedicated: d, spent: s, releasable: Math.max(0, d - s) };
-}
-
-export type GuestReleaseResolution =
-  | { ok: true; target: number }
-  | { ok: false; reason: 'nothing_to_release' };
-
-/**
- * PURE. Turn "give the unused ones to the room" into the TARGET
- * `papic_dedicate_shots` is called with.
- *
- * There is no amount to type: the whole point of 7b is that what she has
- * already shot stays hers and everything else moves, so the only honest
- * target is her own spend — never a number she chose, which could either
- * strand credits above her spend or (worse) ask the RPC to take back shots
- * that are already gone, which it refuses anyway.
- *
- * `nothing_to_release` when releasable is 0: a camera that is not dedicated,
- * or one that has already spent everything it was ever given, has nothing
- * left to hand over. The caller must not call the RPC in that case — setting
- * an unchanged target is a wasted round trip, not a refusal, but the UI must
- * not offer a button that can only do nothing.
- */
-export function resolveGuestRelease(
-  standing: DedicatedShotsStanding,
-): GuestReleaseResolution {
-  return standing.releasable > 0
-    ? { ok: true, target: standing.spent }
-    : { ok: false, reason: 'nothing_to_release' };
-}
-
 // ── one pending order at a time ────────────────────────────────────────────
 
 /**

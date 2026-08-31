@@ -142,7 +142,7 @@ had already shipped and the question "how do we know the rest haven't?" deserved
 |---|---|---|
 | **C6** | areaServed hardcoded to country | ✅ **SHIPPED** — PR #5016, fail-open intact. Dropped. |
 | **C10** | our notes are wrong | ⚠️ **MERGED BUT INCOMPLETE** — see below |
-| **C1** | `kinship-derive` imported by nothing but its test | 🔴 HOLDS |
+| ~~C1~~ | `kinship-derive` imported by nothing but its test | ✅ **FALSE as of 2026-08-31 13:27Z** — shipped, PR #5046 |
 | **C2** | no vendor-side `venue_type` write | 🔴 HOLDS |
 | **C4** | no dependent page route | 🔴 HOLDS |
 | **C5** | no avatar maker | 🔴 HOLDS |
@@ -369,7 +369,7 @@ PR legitimately landed before restoring anything wholesale, because a wholesale 
 ### Premises re-confirmed on `origin/main` — build as scoped
 | | Greppable anchor | State |
 |---|---|---|
-| **C1** | `lib/kinship-derive.ts` | imported by **`kinship-derive.test.ts` and nothing else** |
+| ~~C1~~ | `lib/kinship-derive.ts` | ✅ **now imported by `app/dashboard/(account)/people/page.tsx`** — the defect is gone |
 | **C2** | `venue_type` under `app/vendor-dashboard/` | **zero** vendor-side write paths |
 | **C4** | any route under `app/**/dependent*` | **no page route exists** |
 | **C5** | any avatar *maker* | none — `guest-avatar.tsx` / `vendor-avatar.tsx` are renderers |
@@ -455,8 +455,8 @@ because everything before it went fine. C4 does not start until C1 reads MERGED.
 | **3** | ~~C5~~ people in the 3D room look like themselves | Opus 5 · high | ✅ merged #5042 — **dark; flag stays off** |
 | | ~~C8~~ notifications finally have a subscriber | Sonnet 5 · medium | ✅ merged #5036 |
 | **—** | ~~C11~~ Setnayan AI on every event, comeback derives its rate | Opus 5 · high | ✅ merged #5032 |
-| **4** | **C1** your family tree, drawn | Opus 5 · high | 🔵 **IN FLIGHT** — spawned 2026-08-31 |
-| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | **last one** — after C1 merges |
+| **4** | ~~C1~~ your family tree, drawn | Opus 5 · high | ✅ merged #5046 |
+| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | 🟢 **UNBLOCKED — the last session in the programme** |
 
 **Why C10 is `high` and not `medium`:** it spans the repo, the corpus and two auto-loaded
 `CLAUDE.md` files, and its failure mode — a correction that lands in one file and not the rest —
@@ -638,8 +638,8 @@ column so the next reader can re-run it instead of trusting this row.
 | ~~C5~~ | Opus 5 · high | **5042** | ✅ **MERGED** 2026-08-31 — ⛔ **SHIPPED DARK, do not flip `NEXT_PUBLIC_FIGURE_CHIBI`** (no gait, no seated avatars — § 0b) | `app/[slug]/avatar/_components/avatar-maker.tsx` exists |
 | ~~C8~~ | Sonnet 5 · medium | **5036** | ✅ **MERGED** 2026-08-30 | `Notification.requestPermission()` in `app/[slug]/seat/_components/guest-push-prompt.tsx` — on the guest path, which was the whole point |
 | ~~C11~~ | Opus 5 · high | **5032** | ✅ **MERGED** 2026-08-30 | `comebackPricePhp` in `lib/setnayan-ai-comeback-offer.ts`; NULL fails closed, tested |
-| **C1** | Opus 5 · high | — | 🔵 **IN FLIGHT** — spawned 2026-08-31 | premise re-verified same day: `git grep -l kinship-derive origin/main -- 'apps/web/**'` returns the module and its own test, nothing else |
-| C4 | Opus 5 · high | — | **ready — after C1 merges** (⛔ never concurrent) | flag `NEXT_PUBLIC_DEPENDENT_PEOPLE` = `1`, ON in prod |
+| ~~C1~~ | Opus 5 · high | **5046** | ✅ **MERGED** 2026-08-31 13:27Z | `people/page.tsx` renders `connection-tree-section.tsx`; `basis` switch splits blood from courtesy; `.eq('status','confirmed')` at the query; `kinship-derive.ts` **untouched** (no hop cap added to the module, as scoped). 16 tests, 16 pass. |
+| **C4** | Opus 5 · high | — | 🟢 **THE LAST ONE — gate open** | premise re-verified 2026-08-31: no route under `app/**/dependent*`; only `people/_components/dependents-section.tsx` and `dependent-actions.ts`, which are a section, not a page. Flag `NEXT_PUBLIC_DEPENDENT_PEOPLE` = `1`, ON in prod |
 | ~~C3~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
 | ~~C9~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
 | ~~P0-b~~ | owner | **5025** | ✅ **DONE** — `build-sessions/P0-b-SWITCHES.md` | 101 switches measured against Vercel Production |
@@ -649,8 +649,16 @@ column so the next reader can re-run it instead of trusting this row.
 
 ### Where the program actually stands, 2026-08-31
 
-**Nine of the ten build sessions are MERGED. C1 is running. C4 is the last one**, and it is gated
-on C1 only — both rewrite the People area and must never be in flight together.
+**ALL TEN BUILD SESSIONS ARE MERGED.** C1 shipped as #5046 at 13:27Z on 2026-08-31 — while the
+overseer session was being told to build it. **C4 is the only session left in the programme**, and
+its gate is now open.
+
+🔑 **C1 ended the way two of this programme's ten sessions ended: premise FALSE, nothing built.**
+That is autonomy rule 14 working, not a wasted session — but note *how* it was caught. The register
+was refreshed at 11:25Z and said C1 was unbuilt; C1 merged at 13:27Z; the check that caught it was
+`git fetch` at the top of RULE 0, **two hours after a board that was correct when written**. A
+tracking document is accurate only at the instant of measurement, and this programme now has three
+separate incidents of that exact shape.
 
 ⚠️ **This board was five sessions stale when it was refreshed.** C7, C2, C8, C11 and C5 had all
 merged while it still listed them as `ready` or `after C6`. 🔑 **A tracking board is the one

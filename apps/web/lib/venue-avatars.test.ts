@@ -69,8 +69,20 @@ test('FLAG OFF → a real stored config still resolves to nothing', () => {
   assert.notEqual(selfFigureAvatar({ avatarConfig: real }, SELF_ID, true), null);
 });
 
-test('the flag defaults OFF, so production is on the fallback path', () => {
-  // NEXT_PUBLIC_FIGURE_CHIBI is unset in this process, as it is in prod.
+test('an UNSET flag reads false — the fallback path is the default', () => {
+  /**
+   * ⚠ THIS TEST ASSERTS A DEFAULT, NOT A PRODUCTION FACT. It used to be named
+   * "…so production is on the fallback path", with a comment reading "unset in
+   * this process, AS IT IS IN PROD". That second clause went false the moment
+   * NEXT_PUBLIC_FIGURE_CHIBI was set to true in Vercel Production (2026-08-31)
+   * — and it would have failed here as an *avatar* bug rather than as a stale
+   * claim about the world, which is the expensive kind of red.
+   *
+   * The assertion itself is unchanged and still correct: with the env var unset
+   * in THIS process, the gate must read false. Where the flag stands in any
+   * deployment is not a thing a unit test can know — see
+   * build-sessions/P0-b-SWITCHES.md, which measures it.
+   */
   assert.equal(guestAvatarsEnabled(), false);
 });
 

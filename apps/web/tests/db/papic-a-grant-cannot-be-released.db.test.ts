@@ -143,7 +143,10 @@ test('THE #5028 DEFECT: releasing a grant-funded camera moved credits the WRONG 
   const dedBefore = Number(await dedicated(seatId));
   const potBefore = Number(await pot(eventId));
 
-  // The UI's own arithmetic: dedicatedShotsStanding(dedicated, spent).
+  // The UI's own arithmetic at the time: `dedicated - spent`, computed in
+  // TypeScript. That helper is gone; the figure is now read from
+  // `papic_seat_releasable_grants` instead. Restated here as a literal so this
+  // autopsy keeps measuring what #5028 actually did.
   assert.equal(dedBefore - SHOT, RELEASABLE, 'the button read "Give 96 to the celebration"');
 
   // EXACTLY the call app/papic/buy/actions.ts made: target = her own spend.
@@ -199,27 +202,18 @@ test('and the obvious repair — "just pass a negative" — is refused outright'
 });
 
 /**
- * ⏭ THE CONTRACT A REAL RELEASE PRIMITIVE MUST MEET — written now, unused
- * today, so that the day somebody builds it the test is not designed by the
- * same session that designs the function.
+ * ⏭ THE CONTRACT A REAL RELEASE PRIMITIVE MUST MEET now lives in
+ * `./papic-release-contract.ts`, and is satisfied as of 2026-08-31 by
+ * `papic_release_seat_grants` (migration `20271185813837`), which the owner
+ * asked for after being shown what the feature was.
  *
- * Releasing must reduce what the camera holds and return exactly that much to
- * the shared pot, atomically, refusing to drop below what she has already SHOT.
- * On the figures above: dedicated 137 -> 41 (down 96) and pot up 96.
+ * It moved out of this file for two mechanical reasons, neither of which
+ * changed a single assertion: importing a `.test.ts` re-runs its tests inside
+ * the importing suite, and the contract has to seed into the CALLER'S replayed
+ * database rather than this file's.
  *
- * It cannot be `papic_dedicate_shots` (proved above) and it must not simply
- * mutate `papic_event_point_grants`, which is an append-only money record an
- * admin reconciles orders against — the reason the allocation layer was made
- * separate in the first place (20271131476413's own header).
+ * ⚠ THIS FILE STAYS EXACTLY AS IT IS. `papic_dedicate_shots` is still the
+ * wrong tool for that job and still misbehaves on a grant-funded camera in
+ * precisely the way measured above; the new primitive does not repair it and
+ * was never meant to. These four tests are what stops it being re-proposed.
  */
-export async function releasesContract(
-  release: (eventId: string, seatId: string) => Promise<unknown>,
-) {
-  const { eventId, seatId } = await seedGrantFundedCamera();
-  const dedBefore = Number(await dedicated(seatId));
-  const potBefore = Number(await pot(eventId));
-  await release(eventId, seatId);
-  assert.equal(Number(await dedicated(seatId)) - dedBefore, -RELEASABLE, 'her balance goes DOWN');
-  assert.equal(Number(await pot(eventId)) - potBefore, +RELEASABLE, 'the pot goes UP by the same');
-  assert.equal(Number(await dedicated(seatId)), SHOT, 'what she already shot stays hers');
-}

@@ -23,11 +23,16 @@ import {
   normalisePayerName,
   normaliseShortEntry,
   papicGuestOrderRow,
+  resolveGuestRelease,
   resolveGuestReloadTarget,
   resolveGuestRung,
   type PapicGuestBuyer,
 } from '@/lib/papic-guest-buy';
-import { ensureGuestOwnCameraAdmin } from '@/lib/papic-guest-own-camera';
+import {
+  ensureGuestOwnCameraAdmin,
+  resolveGuestOwnCamera,
+  resolveSeatDedicatedStanding,
+} from '@/lib/papic-guest-own-camera';
 
 /**
  * GUESTS CAN BUY PAPIC — the I/O half (owner-locked 2026-07-29).
@@ -567,4 +572,82 @@ export async function submitPapicGuestPayment(formData: FormData) {
 
   revalidatePath('/admin/payments');
   redirect(`/papic/order/${encodeURIComponent(token)}?logged=1`);
+}
+
+/**
+ * Spec § 7b, the reversal half — "add them to the celebration" for credits she
+ * already chose to keep. Owner asked for this on 2026-08-31.
+ *
+ * ── THIS IS THE SECOND ATTEMPT; READ WHY BEFORE CHANGING IT ───────────────
+ * 🔑 PR #5028 shipped this on `papic_dedicate_shots` and it went LIVE moving
+ * credits the wrong way on both sides of the ledger — her balance UP by her own
+ * spend, the couple's shared pot DOWN by the same. That function owns
+ * `papic_seat_allocations` (the HOST's hand-out layer) and cannot reach a
+ * guest's GRANT. Removed by #5038; rebuilt here on
+ * `papic_release_seat_grants` (migration 20271185813837), which can.
+ *
+ * ── THERE IS NO AMOUNT, ANYWHERE ──────────────────────────────────────────
+ * Not in the form, not in this function, not in the RPC's signature. The
+ * figure is derived inside the RPC under its own row lock and RETURNED, so:
+ *   • a stale page cannot move a stale number;
+ *   • a double-submit moves 0 the second time, by construction;
+ *   • the confirmation below reports what ACTUALLY moved, not what the page
+ *     predicted a moment earlier. #5028 redirected with its own pre-read
+ *     figure, which is how a screen says "96 credits given" on a call that
+ *     did something else entirely.
+ *
+ * ── THE CREDENTIAL, NOT A CAMERA ID FROM THE FORM ─────────────────────────
+ * Same `resolveGuestBuyer` this file's purchase actions use — a seat token or
+ * the signed guest cookie. "Whichever camera is mine" is the only camera this
+ * can act on; there is deliberately no seat_id input. The RPC carries its own
+ * cross-event guard underneath as well.
+ */
+export async function releaseGuestDedicatedShots(formData: FormData) {
+  const returnTo = safeReturnTo(formData.get('return_to'));
+  if (!papicGuestBuyEnabled()) backTo(returnTo, 'unavailable');
+
+  const buyer = await resolveGuestBuyer(String(formData.get('seat_token') ?? '').trim());
+  if (!buyer) backTo(returnTo, 'not_here');
+
+  const admin = createAdminClient();
+
+  const seatId =
+    buyer.kind === 'seat'
+      ? buyer.seatId
+      : (await resolveGuestOwnCamera(admin, buyer.eventId, buyer.guestId))?.seatId ?? null;
+  if (!seatId) backTo(returnTo, 'no_camera');
+
+  // An early, honest refusal so a guest with nothing to give is told so rather
+  // than being redirected to a "0 credits given" banner. NOT the safety
+  // mechanism — the RPC returns 0 in that case anyway; this is the message.
+  const standing = await resolveSeatDedicatedStanding(admin, seatId);
+  if (!standing) backTo(returnTo, 'failed');
+  if (!resolveGuestRelease(standing).ok) backTo(returnTo, 'nothing_to_release');
+
+  // Best-effort attribution only — a cookie guest often has no real account,
+  // and the RPC accepts NULL. Never blocks the release.
+  const actorId = await resolveRealAccountId();
+
+  const { data, error } = await admin.rpc('papic_release_seat_grants', {
+    p_event_id: buyer.eventId,
+    p_seat_id: seatId,
+    p_actor: actorId,
+  });
+
+  if (error) {
+    console.error('[papic] releaseGuestDedicatedShots failed:', {
+      event_id: buyer.eventId,
+      seat_id: seatId,
+      error: String(error.message ?? ''),
+    });
+    backTo(returnTo, 'failed');
+  }
+
+  // What the DATABASE says moved. If she shot the rest between the read above
+  // and this call, this is 0 and she is told nothing moved — which is true.
+  const moved = Number(data ?? 0);
+  if (!(moved > 0)) backTo(returnTo, 'nothing_to_release');
+
+  revalidatePath(`/dashboard/${buyer.eventId}/studio/papic`);
+  redirect(`${safeReturnTo(returnTo)}?papic_release=${moved}`);
 }

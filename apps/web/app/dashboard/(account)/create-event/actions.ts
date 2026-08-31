@@ -20,7 +20,11 @@ import {
   type SourceEventForClone,
 } from '@/lib/event-recurrence';
 import { isGatedLifeType } from '@/lib/life-event-gate';
-import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
+import {
+  eventTypeAcceptsHonoreeLink,
+  isDependentId,
+  resolveHonoreeDependentId,
+} from '@/lib/honoree-dependent-link';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
@@ -251,8 +255,16 @@ export async function createWeddingEvent(formData: FormData) {
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 80);
+  // WIDENED 2026-08-31: also the two BUSINESS-subject types (corporate ·
+  // gala_night). `isGatedLifeType` was doing double duty here — it is the CAP's
+  // vocabulary, and it was also, by accident, the gate on whether an event could
+  // say who it is for at all. So a corporate event thrown BY a company had no
+  // way to name that company. `eventTypeAcceptsHonoreeLink` separates the two;
+  // the cap itself (`blocksLifeEventCreation`) still keys on `isGatedLifeType`
+  // and is untouched, so a company may still hold twelve gala nights in
+  // planning. A WEDDING is in neither list and still cannot name a subject.
   const honoree_label =
-    isGatedLifeType(event_type) && honoree_label_raw ? honoree_label_raw : null;
+    eventTypeAcceptsHonoreeLink(event_type) && honoree_label_raw ? honoree_label_raw : null;
   // …and WHICH alaga that name belongs to, when the who step named one. This is
   // the STRONGER half of the cardinality key (lib/life-event-gate.ts): a link to
   // a record survives renaming the alaga, and two alaga with the same first name
@@ -266,7 +278,7 @@ export async function createWeddingEvent(formData: FormData) {
   // extra round-trip, and no new place for this action to throw.
   const honoree_dependent_id_raw = formData.get('honoree_dependent_id');
   const honoree_dependent_id =
-    isGatedLifeType(event_type) && isDependentId(honoree_dependent_id_raw)
+    eventTypeAcceptsHonoreeLink(event_type) && isDependentId(honoree_dependent_id_raw)
       ? await resolveHonoreeDependentId(createAdminClient(), {
           userId: user.id,
           dependentId: honoree_dependent_id_raw,

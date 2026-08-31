@@ -23,7 +23,11 @@ import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
-import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
+import {
+  eventTypeAcceptsHonoreeLink,
+  isDependentId,
+  resolveHonoreeDependentId,
+} from '@/lib/honoree-dependent-link';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
 import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 
@@ -98,8 +102,15 @@ export async function commitOnboardingEvent(
   // it must never become a new way to fail: a missing service key is already
   // fatal further down (server_config_error) and is swallowed here rather than
   // moved earlier.
+  //
+  // ⚠ THE TYPE GATE IS ON THE SERVER, NOT ONLY IN THE WIZARD. Until 2026-08-31
+  // this branch ran for ANY type, because the client was the only thing deciding
+  // which types collect an honoree — and a server action is reachable by direct
+  // POST. `eventTypeAcceptsHonoreeLink` is the same predicate the create-event
+  // action and the picker read, so a WEDDING (in neither list, and holding its
+  // own guard) cannot name a dependent through this door either.
   let honoreeDependentId: string | null = null;
-  if (isDependentId(payload.honoreeDependentId)) {
+  if (eventTypeAcceptsHonoreeLink(payload.eventType) && isDependentId(payload.honoreeDependentId)) {
     try {
       honoreeDependentId = await resolveHonoreeDependentId(createAdminClient(), {
         userId: user.id,

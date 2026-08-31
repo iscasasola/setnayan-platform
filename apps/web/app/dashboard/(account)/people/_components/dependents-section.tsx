@@ -163,7 +163,16 @@ export async function DependentsSection() {
               >
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-ink">{d.name}</p>
+                    {/* THE NAME IS THE DOOR. Until 2026-08-31 there was no route
+                        to an alaga at all — a business had no timeline, and
+                        neither did a child. The page exists now; this is how
+                        anyone reaches it. */}
+                    <Link
+                      href={`/dashboard/people/${d.dependent_id}`}
+                      className="font-medium text-ink underline-offset-2 hover:underline"
+                    >
+                      {d.name}
+                    </Link>
                     <p className="truncate text-xs text-ink/55">
                       {claimedByMe
                         ? 'You'

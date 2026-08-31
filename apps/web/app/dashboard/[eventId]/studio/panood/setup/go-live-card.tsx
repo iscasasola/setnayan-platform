@@ -301,6 +301,22 @@ function ObsConnectionCard({
         live to the same broadcast — no copy-paste needed.
       </p>
 
+      {/* ⭐ THE COUPLE'S OWN COPY. YouTube auto-archives every broadcast and the
+          recordings card resolves a permanent watch link to it — but a watch link is
+          not a file, and on a SETNAYAN-supplied channel the couple is not the channel
+          owner, so YouTube Studio will not hand them one (lib/live-studio-recordings.ts
+          says so in its own docblock; spec § 4k is the open question). OBS writes a
+          full-quality local file from the encoder that is ALREADY RUNNING, for free.
+          That makes this sentence the difference between a couple who ends the day
+          holding their wedding and one who does not — so it is stated HERE, where the
+          encoder is set up, not only in help text read afterwards. */}
+      <p className="max-w-prose rounded-lg border border-terracotta/25 bg-terracotta/5 p-3 text-xs text-ink/75">
+        <strong className="font-semibold text-ink/85">Press &ldquo;Start Recording&rdquo; too.</strong>{' '}
+        OBS saves a full-quality copy to your own computer while it streams — one extra click,
+        right next to Start Streaming. You keep that file even if the broadcast drops, and if
+        Setnayan supplied the channel it is the only copy you can download.
+      </p>
+
       {/* RTMP server URL */}
       <div className="rounded-lg border border-ink/10 bg-cream/70 p-3">
         <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">

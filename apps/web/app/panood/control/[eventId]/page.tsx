@@ -1537,6 +1537,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               Streaming” — or open the YouTube app and go live to the same broadcast. Setnayan
               never touches your video.
             </p>
+            {/* ⭐ Deliberately the same sentence as the setup card's encoder block: an
+                operator who only ever opens the controller must not be the one couple who
+                never hears it. A watch link is not a file — lib/live-studio-recordings.ts. */}
+            <p className="max-w-prose rounded-lg border border-terracotta/25 bg-terracotta/5 p-3 text-xs text-ink/75">
+              <strong className="font-semibold text-ink/85">Press “Start Recording” too.</strong>{' '}
+              OBS saves a full-quality copy to your own computer while it streams. You keep that
+              file even if the broadcast drops, and if Setnayan supplied the channel it is the
+              only copy you can download.
+            </p>
           </div>
 
           <div className="sn-row space-y-1 p-3">

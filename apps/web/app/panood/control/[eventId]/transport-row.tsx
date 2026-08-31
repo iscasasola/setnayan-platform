@@ -24,10 +24,16 @@ import {
  * only re-laid-out. The encoder details (RTMP server + stream key) stay in the
  * secondary setup region below — they're setup, not the operating loop.
  *
- * HONEST GATING (no dead button): going live needs Setnayan's YouTube app review to
- * have cleared AND the host's channel connected. When either is missing this renders
+ * HONEST GATING (no dead button): going live needs Setnayan's Google OAuth client
+ * configured AND a route to air for this event. When either is missing this renders
  * the plain-English reason with a jump to the connect step instead of a button that
  * cannot work.
+ *
+ * ⚠ A ROUTE TO AIR IS EITHER CHANNEL. `connected` used to mean "this event has a BYO
+ * `oauth_grants` row", which hid the button from every host served by a SETNAYAN POOL
+ * channel — the model Wave 9 shipped and `goLivePanood` has preferred ever since. It
+ * now means "BYO grant OR a healthy pool channel" (lib/live-studio-readiness.ts →
+ * poolRouteToAir), which is the question the action itself asks.
  *
  * Going live is FREE for every host (owner model 2026-06-26) — the LIVE_STUDIO SKU
  * gates broadcasting MORE THAN ONE camera, never this button. So there is still no
@@ -51,9 +57,12 @@ export function TransportRow({
   connectHref,
 }: {
   eventId: string;
-  /** Setnayan's YouTube app review has cleared (platform-level, not per host). */
+  /**
+   * Setnayan's Google OAuth client is configured — i.e. the YOUTUBE_OAUTH_* env vars
+   * resolve. ⚠ NOT a Google app-review verdict, whatever the old copy claimed.
+   */
   oauthReady: boolean;
-  /** This event has a live YouTube OAuth grant. */
+  /** This event has a route to air: a live BYO grant OR a healthy pool channel. */
   connected: boolean;
   /** There is an active broadcast right now. */
   isLive: boolean;
@@ -93,8 +102,8 @@ export function TransportRow({
   const blocked = automaticGoLiveAvailable({ oauthReady, connected })
     ? null
     : !oauthReady
-      ? 'One-tap go-live turns on once Setnayan’s YouTube app review clears with Google. Until then, start the stream yourself and use the “We’re on air” switch below — your control room lights up the same way.'
-      : 'Connect your YouTube channel first — then this button goes live in one tap.';
+      ? 'One-tap go-live is not configured on Setnayan’s side yet. That is on us, not on you — start the stream yourself and use the “We’re on air” switch below, and your control room lights up the same way.'
+      : 'No broadcast channel is ready for this event yet. Connect your own YouTube channel below, or wait for Setnayan to free one up — then this button goes live in one tap.';
 
   return (
     <div className="space-y-2">

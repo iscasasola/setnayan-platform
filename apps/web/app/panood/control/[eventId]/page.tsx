@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchReadinessFacts } from '@/lib/live-studio-readiness-server';
+import { poolRouteToAir } from '@/lib/live-studio-readiness';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
@@ -491,6 +493,25 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     .maybeSingle();
   if (grantError) console.error('[panood/control] youtube grant read refused', grantError);
   const youtubeGrant = (grantRaw ?? null) as YoutubeGrant;
+
+  // ⭐ A ROUTE TO AIR IS NOT ONLY A BYO GRANT. The read above asks `oauth_grants`,
+  // which is the COUPLE'S OWN channel and nothing else — but `goLivePanood` has
+  // preferred a SETNAYAN POOL channel since Wave 9. Gating the button on the BYO
+  // table alone told every pool-served host to "Connect your YouTube channel
+  // first", the one instruction Wave 9 exists to abolish, while a healthy Setnayan
+  // channel sat available and the hidden button would have worked.
+  // See lib/live-studio-readiness.ts → poolRouteToAir for the measurement.
+  // Fail-honest: a refused read leaves this false, so the by-hand switch is offered
+  // rather than a one-tap button nobody can prove will work.
+  // No flag guard here on purpose: this page already `notFound()`s above when
+  // liveStudioRoamEnabled() is false, so a second check would be dead code.
+  let pooledRoute = false;
+  try {
+    pooledRoute = poolRouteToAir(await fetchReadinessFacts(admin, eventId));
+  } catch (e) {
+    console.error('[panood/control] pool readiness read refused', e);
+  }
+  const hasRouteToAir = !!youtubeGrant || pooledRoute;
 
   let youtubeWatchUrl: string | null = null;
   // DUAL-STREAM (2026-07-26): the couple's simultaneous Facebook Live link.
@@ -1039,7 +1060,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             <TransportRow
               eventId={eventId}
               oauthReady={oauthReady}
-              connected={!!youtubeGrant}
+              connected={hasRouteToAir}
               isLive={isLive}
               connectHref="#connect"
             />

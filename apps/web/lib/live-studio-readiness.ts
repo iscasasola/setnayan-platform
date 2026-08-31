@@ -115,6 +115,44 @@ export const READY_HEADLINE = 'Ready to broadcast — start your encoder';
 export const BLOCKED_HEADLINE = 'Not ready to broadcast yet';
 
 /**
+ * ⭐ DOES THIS EVENT HAVE A ROUTE TO AIR ON A SETNAYAN-SUPPLIED CHANNEL?
+ *
+ * ── THE DEFECT THIS EXISTS TO KILL (measured in production 2026-08-31) ──────
+ * `goLivePanood` has preferred a POOL channel since Wave 9 — it calls
+ * `resolveEventBroadcastToken` and broadcasts on Setnayan's own channel, with BYO
+ * kept only as a fallback. But the BUTTON that calls it was gated on
+ * `oauth_grants` filtered by `event_id` — the BYO table, and ONLY that table.
+ *
+ * So on the day the pool finally held a healthy grant, production read:
+ *
+ *   oauth_grants (BYO, per event)      1 row, 0 live   ← a revoked July grant
+ *   live_studio_channel_grants (pool)  1 row, healthy  ← never consulted
+ *
+ * …and every host was told **"Connect your YouTube channel first"** — the exact
+ * instruction Wave 9 exists to abolish — while a verified Setnayan channel sat
+ * available to them and the hidden button would have worked.
+ *
+ * 🔑 THE MEASUREMENT NEVER REACHED THE RENDER. The pool row, the grant, the
+ * verified flag and the enabled entitlement were all true and all invisible to the
+ * one predicate that decides whether a host can go on air.
+ *
+ * ⚠ `channelNeedsReauth` is a HARD NO, not a warning: Google rejecting the refresh
+ * token means there is no token to broadcast with, so offering one-tap would be a
+ * button that cannot work — which is the thing `automaticGoLiveAvailable` was
+ * written to prevent.
+ *
+ * PURE, and deliberately in this module rather than at either call site: the
+ * transport button and the by-hand switch must never disagree about whether a host
+ * has any way to be on air, and two copies of this boolean is exactly how they
+ * would drift.
+ */
+export function poolRouteToAir(
+  facts: Pick<ReadinessFacts, 'channelAvailable' | 'channelConnected' | 'channelNeedsReauth'>,
+): boolean {
+  return facts.channelAvailable && facts.channelConnected && !facts.channelNeedsReauth;
+}
+
+/**
  * Resolve the readiness state. Pure and total: every branch names a real thing,
  * and no branch returns a bare boolean a caller could render as a green tick.
  *

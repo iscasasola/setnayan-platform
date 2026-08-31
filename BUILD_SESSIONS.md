@@ -225,6 +225,78 @@ re-derive it, and must not re-plumb push that already works.
 
 ---
 
+## 0c · OVERSEER PASS — 2026-08-31 · what tracking caught that building would not
+
+Not a build session. One pass over the programme's own state, run because C1 was about to be
+spawned and the register had not been re-derived since it was written. **Three defects, none of
+them in the product, all of them in the machinery that decides what the product's next session
+does.** Landed as PR #5043.
+
+### 1 · The board was five sessions stale — and a board cannot be checked by reading it
+
+C7 (#5029) · C2 (#5031) · C8 (#5036) · C11 (#5032) · C5 (#5042) had **all merged** while §5 still
+listed them as `ready` / `after C6` / `needs VAPID check`. C10 was still marked "needs follow-up"
+after C10b (#5021) had done the follow-up.
+
+🔑 **A tracking board agrees with itself no matter how wrong it is.** Five stale rows read exactly
+like five accurate ones — there is no internal inconsistency to notice, no test that goes red, no
+reader who can spot it from the document alone. It is the same class as the register's own § 0
+failure (measuring against a stale checkout) and as C10's (a correction landing in one file), and
+it is the third time this programme has produced it.
+✅ **Fix:** every merged row now carries **the code anchor the overseer ran**, not the session's
+report — so the next reader re-runs the check instead of trusting the row. Re-derive from
+`gh pr list --state merged`, never from the board's own last state.
+
+### 2 · 🛑 THE PROMPT FILE YOU PASTE IS A FILE, AND FILES GO STALE
+
+**The single most expensive near-miss of this pass.** The programme's own spawn instruction is
+`cat build-sessions/C1.md | pbcopy`. Run against the shared checkout — which was **20 commits
+behind `origin/main`** — that pastes a version of C1 whose GATES block reads:
+
+    peopleConnectionsEnabled() defaults OFF and is COUNSEL-GATED … apply autonomy rule 12:
+    build behind the EXISTING flag, defaulted off
+
+**That text is the exact inversion of the truth**, and #5025 had already merged to delete it.
+`NEXT_PUBLIC_PEOPLE_CONNECTIONS` is `1` in production. A C1 session pasted from the stale file
+would have built ship-dark onto a surface real users can already reach, and every check it ran
+would have passed.
+
+🔑 **A prompt is not privileged. It rots at the same rate as the code it describes, and it is read
+exactly once — at the moment nobody is yet checking anything.** The stale copy also still carried
+`Wave 4 · after P0-b` in its header while the corrected GATES block inside the same file said the
+gate had cleared: **one file, disagreeing with itself, in the two places a reader looks first.**
+
+✅ **RULE: spawn from `origin/main`, never the working tree.**
+
+    git fetch -q origin && git show origin/main:build-sessions/<C>.md | pbcopy
+
+### 3 · The shared-checkout collision recurred — inside this very pass
+
+While PR #5043 was in CI, commit `d9cf2dea8` ("record C5's outcome — merged, and shipped DARK")
+appeared **on the overseer's own branch, authored by a different session** that was working in the
+shared checkout. It was local-only and unpushed.
+
+This is working rule 1, and it is the same failure that put C6's two-file fix inside a 99-file PR
+(§ 00). **A session that builds in the shared checkout writes into whichever branch that checkout
+happens to be on** — it does not choose the branch, and it is not told which one it got.
+✅ Pushed rather than left dangling — § 00 records this programme nearly losing a correct fix
+exactly that way — and its load-bearing claim verified before pushing:
+`P0-b-SWITCHES.md:268` says `NEXT_PUBLIC_FIGURE_CHIBI` is **OFF** in production, and
+`guest-venue-3d.tsx:471` says it *"must NOT be flipped on"*. Both hold.
+⛔ **The owner question it carries is real and now lives on the board:** the chibi rig is jointless
+below the neck, so an avatar figure **glides** where the blob walks, and **seated guests cannot be
+drawn at all** — seated is new geometry, not a pose. C5 shipped dark for that reason.
+
+### What this pass did NOT do
+
+⚠️ It did not verify the *quality* of the nine merged sessions — only that each one's premise is
+now false, which is the weakest possible check and exactly the check this register keeps warning
+about. **A merged PR whose anchor now exists is evidence the thing was built, not evidence it
+works.** P3 — one real celebration, end to end — remains the only test that answers that, and it
+is still not scheduled.
+
+---
+
 ### ⚠ STANDING TRAP — a silent `git add` (found 2026-08-30)
 
 `build-sessions/` was invisible to git for its whole first day: the root `/*` allowlist ignores every
@@ -429,6 +501,14 @@ now paid SEVEN times — "invite an off-platform supplier", "a supplier can only
 messages", "the camera screen says 3 cameras free to test with", the host stranger-copy defect, the
 NPC residency rows, the camera-claimer name, and the ENTIRE captured-by-person build were all
 reported as missing and ALL already ship.
+
+0a. SPAWN FROM origin/main. The prompt that created you was `cat`-ed from a file, and that file
+   rots like any other. On 2026-08-31 the shared checkout was 20 commits behind and its copy of a
+   session prompt still carried a GATE THAT HAD BEEN DELETED — the inverse of the truth, in the
+   block a session acts on first. Paste with
+   `git fetch -q origin && git show origin/main:build-sessions/<C>.md | pbcopy`.
+   If your prompt's header and its body disagree, the body was corrected and the header was not —
+   but STOP and re-read from origin/main rather than guessing which half is stale.
 
 0. MEASURE AGAINST origin/main, NEVER A LOCAL CHECKOUT. `git fetch` first, then read with
    `git grep <pattern> origin/main -- <path>`. The main checkout on this machine was 2237 commits

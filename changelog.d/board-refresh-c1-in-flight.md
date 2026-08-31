@@ -35,3 +35,32 @@ itself no matter how wrong it is — five stale rows read exactly like five accu
 re-derived from `gh pr list --state merged`, never from its own last state. Noted in the board.
 
 SPEC IMPACT: None — repo-local programme tracking, no product decision changes.
+
+---
+
+## 2026-08-31 · docs(build-sessions): the overseer pass, and the rule it produced
+
+Added § 0c to the register — the 2026-08-31 overseer pass, three defects, none in the product and
+all in the machinery that decides what the next session builds.
+
+**The one worth carrying forward is rule 0a: SPAWN FROM `origin/main`.** The programme's own spawn
+instruction is `cat build-sessions/<C>.md | pbcopy`. Run against the shared checkout — 20 commits
+behind — that pasted a C1 whose GATES block still read *"defaults OFF … apply autonomy rule 12:
+build behind the EXISTING flag, defaulted off"*. **That is the inverse of the truth.** #5025 had
+already merged to delete it; `NEXT_PUBLIC_PEOPLE_CONNECTIONS` is `1` in production. A session
+pasted from that file would have built ship-dark onto a surface real users can already reach, and
+every check it ran would have passed.
+
+🔑 **A prompt is not privileged. It rots at the same rate as the code it describes, and it is read
+exactly once — at the moment nobody is yet checking anything.**
+
+The rule is written into `BUILD_SESSIONS.md` **and into both unrun prompts (`C1.md`, `C4.md`)** —
+because "found it, wrote it in exactly one file" is the defect this programme keeps diagnosing, and
+each prompt carries its own copy of the contract.
+
+Also records, in § 0c: the shared-checkout collision recurring **during this pass** (another
+session's commit landed on the overseer's own branch — working rule 1, same failure as #5013), and
+an explicit statement of what the pass did NOT establish — that a merged PR whose anchor now exists
+is evidence the thing was **built**, not evidence it **works**. P3 remains the only test for that.
+
+SPEC IMPACT: None — repo-local programme tracking.

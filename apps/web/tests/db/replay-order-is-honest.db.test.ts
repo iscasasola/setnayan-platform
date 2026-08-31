@@ -39,8 +39,11 @@ import path from 'node:path';
 import {
   createReplayedDb,
   replayInFilenameOrder,
+  parseMissingObject,
+  settleOrder,
   MIGRATIONS_DIR,
   type ApplyPort,
+  type ReplayOrder,
   type ReplayResult,
 } from './replay-migrations';
 
@@ -145,6 +148,221 @@ test('a file that can never apply is left deferred, not silently dropped', async
 });
 
 /* ========================================================================== *
+ * 1b — THE FAST PATH, and the two things that keep it honest.
+ *
+ * The drain used to re-attempt every deferred file after every successful
+ * apply. 1,685 of those attempts were wasted on two files that can NEVER
+ * apply — 18.4% of the whole replay, and ~12 minutes of CI. The drain now
+ * SKIPS a retry it can prove is pointless. "Prove" is the load-bearing word,
+ * so it is tested from both ends: what the gate reads, and what happens when
+ * it cannot read anything.
+ * ========================================================================== */
+
+test('the error reader parses what it should and REFUSES what it should not', () => {
+  assert.deepEqual(parseMissingObject('relation "public.vendor_billing_catalog" does not exist'), {
+    kind: 'relation',
+    name: 'public.vendor_billing_catalog',
+  });
+  assert.deepEqual(
+    parseMissingObject('column "name_revealed_at" of relation "vendor_profiles" does not exist'),
+    { kind: 'column', relation: 'vendor_profiles', name: 'name_revealed_at' },
+  );
+
+  /*
+    🚨 THE ONE THAT MATTERS. This message also contains `of relation "…"`, and a
+    searched-for-anywhere pattern would read `invitation_widgets` out of it and
+    then skip that file's retries forever on the grounds that a table which
+    EXISTS is missing. The relation is present; its ROWS violate the CHECK. Both
+    patterns are anchored to the whole line for exactly this.
+  */
+  assert.equal(
+    parseMissingObject(
+      'check constraint "invitation_widgets_widget_type_check" of relation "invitation_widgets" is violated by some row',
+    ),
+    null,
+    'a CHECK violation names a relation that EXISTS — it must not be read as a missing object',
+  );
+  assert.equal(
+    parseMissingObject('Founder vendor 646c9457 not found — aborting demo seed'),
+    null,
+    'a RAISE names nothing probeable',
+  );
+
+  /*
+    🚨 THE OPPOSITE ERROR, AND IT IS THE DANGEROUS ONE. `ALTER TABLE ADD COLUMN`
+    without IF NOT EXISTS raises this when the column is ALREADY THERE. Read as
+    "column missing", the gate would probe, find it present, and attempt —
+    harmless. But read by a pattern that merely SEARCHES for `column "…" … of
+    relation "…"`, any message mentioning both is treated as a missing-object
+    report. The two patterns are whole-line anchored so a message can only ever
+    mean what it says.
+  */
+  assert.equal(
+    parseMissingObject('column "photo_url" of relation "guests" already exists'),
+    null,
+    'ALREADY exists is not DOES NOT exist — the anchoring is what keeps these apart',
+  );
+  assert.equal(parseMissingObject('relation "x" does not exist yet, probably'), null);
+});
+
+test('a skipped retry does not move where the file lands', async () => {
+  /*
+    The four-file corpus above cannot express this: `003` creates the table on
+    the very next index, so there is never a drain at which the table is still
+    missing and there is nothing to skip. Three filler files in between give the
+    gate something to skip — which is the whole saving on the real corpus, where
+    71 indexes separate `20260530010000` from the file that unblocks it.
+  */
+  const world = { catalog: false, price: null as number | null };
+  const order: string[] = [];
+  const files = [
+    '001_unrelated.sql',
+    '002_old_seed.sql',
+    '003_filler.sql',
+    '004_filler.sql',
+    '005_create_catalog.sql',
+    '006_the_owner_reprice.sql',
+  ];
+  const port: ApplyPort = {
+    async apply(f) {
+      if (f === '002_old_seed.sql') {
+        if (!world.catalog) throw new Error('relation "catalog" does not exist');
+        world.price = 2499;
+      }
+      if (f === '005_create_catalog.sql') world.catalog = true;
+      if (f === '006_the_owner_reprice.sql') {
+        if (!world.catalog) throw new Error('relation "catalog" does not exist');
+        world.price = 26000;
+      }
+      order.push(f);
+    },
+    async rollback() {},
+    async isStillMissing(obj) {
+      return obj.kind === 'relation' && obj.name === 'catalog' ? !world.catalog : false;
+    },
+  };
+  const res = await replayInFilenameOrder(files, port);
+
+  assert.ok(
+    res.probeSkips > 0,
+    `the gate skipped ${res.probeSkips} retries — 0 means it is inert and this test proves nothing`,
+  );
+  assert.equal(res.deferred.size, 0);
+  assert.equal(world.price, 26000, 'the LAST writer in filename order must still win');
+  assert.deepEqual(
+    order,
+    [
+      '001_unrelated.sql',
+      '003_filler.sql',
+      '004_filler.sql',
+      '005_create_catalog.sql',
+      '002_old_seed.sql',
+      '006_the_owner_reprice.sql',
+    ],
+    'skipping provably-doomed retries must not change WHERE the file finally lands',
+  );
+  assert.equal(res.outOfOrder[0]?.viaFinalPass, false, 'it went in during the corpus, not after it');
+});
+
+test('a failure the gate cannot read is NOT quietly dropped — it lands, and says so', async () => {
+  /*
+    The concession, made visible. `002` fails with a message naming no object
+    (a CHECK violation is the real-world shape), so the drain cannot prove a
+    retry is pointless and does not spend one. It becomes applyable at `003`
+    anyway — and therefore goes in only in the FINAL PASS, after `004` has
+    already written the price. That is the 2026-08-31 defect, reproduced
+    deliberately, and `viaFinalPass` is how anything downstream can see it.
+  */
+  const world = { open: false, price: null as number | null };
+  const files = ['001_a.sql', '002_blind.sql', '003_opens_it.sql', '004_reprice.sql'];
+  const port: ApplyPort = {
+    async apply(f) {
+      if (f === '002_blind.sql') {
+        if (!world.open) throw new Error('check constraint "c" of relation "t" is violated by some row');
+        world.price = 2499;
+      }
+      if (f === '003_opens_it.sql') world.open = true;
+      if (f === '004_reprice.sql') world.price = 26000;
+    },
+    async rollback() {},
+    async isStillMissing() {
+      return false;
+    },
+  };
+  const res = await replayInFilenameOrder(files, port);
+
+  assert.equal(res.blindSkips > 0, true, 'the unreadable failure must have been skipped, not retried');
+  assert.deepEqual(
+    res.outOfOrder.map((o) => `${o.file}:${o.viaFinalPass}`),
+    ['002_blind.sql:true'],
+    'a file that lands after the whole corpus must be flagged viaFinalPass',
+  );
+  assert.equal(world.price, 2499, 'and this is the damage — the old file won, which is why settleOrder exists');
+});
+
+test('settleOrder throws away a database that landed a file late, and rebuilds', async () => {
+  /*
+    The undo for the test above. On the real corpus this never fires, so
+    without a fake it would be an unreachable branch wearing a comment.
+  */
+  const built: Array<{ forceEager: string[]; id: number }> = [];
+  const discarded: number[] = [];
+  let id = 0;
+  const late = (viaFinalPass: boolean): ReplayOrder => ({
+    applied: 4,
+    deferred: new Map(),
+    outOfOrder: [
+      {
+        file: '002_blind.sql',
+        index: 1,
+        landedAfter: '004_reprice.sql',
+        landedAfterIndex: 3,
+        reason: 'check constraint',
+        viaFinalPass,
+      },
+    ],
+    probeSkips: 0,
+    blindSkips: 1,
+    auditedSkips: 0,
+  });
+
+  const settled = await settleOrder<number>({
+    async build(forceEager) {
+      const handle = ++id;
+      built.push({ forceEager: [...forceEager], id: handle });
+      // First build lands it late; once forced eager, it lands in order.
+      return { order: late(!forceEager.has('002_blind.sql')), handle };
+    },
+    async discard(handle) {
+      discarded.push(handle);
+    },
+  });
+
+  assert.equal(settled.rebuilds, 1, 'exactly one rebuild was needed');
+  assert.deepEqual(built.map((b) => b.forceEager), [[], ['002_blind.sql']]);
+  assert.deepEqual(discarded, [1], 'the badly-ordered database must be DISCARDED, not returned');
+  assert.equal(settled.handle, 2, 'the returned database is the rebuilt one');
+  assert.equal(settled.order.outOfOrder[0]?.viaFinalPass, false);
+});
+
+test('settleOrder refuses to return a database it could not settle', async () => {
+  await assert.rejects(
+    settleOrder<number>({
+      async build() {
+        return { order: {
+          applied: 0, deferred: new Map(), probeSkips: 0, blindSkips: 0, auditedSkips: 0,
+          outOfOrder: [{ file: 'x.sql', index: 0, landedAfter: 'z.sql', landedAfterIndex: 9,
+                         reason: 'r', viaFinalPass: true }],
+        }, handle: 1 };
+      },
+      async discard() {},
+    }, 2),
+    /could not settle an order/,
+    'a replay that never settles must THROW, never return a reordered database',
+  );
+});
+
+/* ========================================================================== *
  * 2 — THE REAL CORPUS.
  * ========================================================================== */
 
@@ -177,6 +395,61 @@ const EXPECTED_OUT_OF_ORDER: Record<string, string> = {
   '20260530030000_iteration_0006_v2_1_amendment_2_titles.sql':
     '20260631000000_v2_pricing_table_alignment.sql',
 };
+
+test('nothing landed after the whole corpus, and the fast path is not inert', () => {
+  const late = replay.outOfOrder.filter((o) => o.viaFinalPass);
+  assert.deepEqual(
+    late.map((o) => o.file),
+    [],
+    'a file landed after the ENTIRE corpus. createReplayedDb is supposed to throw that ' +
+      'database away and rebuild with the file forced eager, so seeing one here means the ' +
+      'rebuild in settleOrder stopped running.',
+  );
+
+  /*
+    🔑 ANTI-VACUITY, and it is the whole reason this change is safe to keep. The
+    drain skips retries it can PROVE are pointless. If the gate ever stopped
+    firing — a reworded Postgres error, a broken probe — everything above would
+    still pass, because the slow path is also correct. It would just quietly
+    cost ~12 minutes of CI again. So the saving itself is asserted.
+  */
+  assert.ok(
+    replay.probeSkips > 100,
+    `the drain skipped only ${replay.probeSkips} provably-doomed retries — it used to skip ~140. ` +
+      `The gate has stopped reading Postgres' error text, and the replay is back on the slow path.`,
+  );
+  assert.ok(
+    replay.blindSkips > 1000,
+    `only ${replay.blindSkips} unreadable-failure retries skipped — expected ~1,545, which is ` +
+      `where the CI time actually went.`,
+  );
+});
+
+test('every skip the drain took would really have failed — audited against the real corpus', async () => {
+  /*
+    ⚠ THIS IS THE TEST THAT LICENSES THE SHORTCUT, and it is worth its ~8 s.
+    `auditSkips` re-attempts every retry the gate skipped and throws if any of
+    them APPLIES. The gate's soundness argument — "the statements before the
+    failing one already succeeded, and the failing one still has nothing to bind
+    to" — assumes no earlier statement in the file conditionally creates the very
+    object the error named. That is an assumption about 1,271 hand-written
+    files, not a theorem, so it is checked rather than asserted in prose.
+  */
+  const audited = await createReplayedDb({ auditSkips: true });
+  try {
+    assert.ok(
+      audited.probeSkips + audited.blindSkips > 1000,
+      `the audit re-attempted only ${audited.probeSkips + audited.blindSkips} skips — too few to prove anything`,
+    );
+    assert.deepEqual(
+      audited.outOfOrder.map((o) => `${o.file} -> ${o.landedAfter}`),
+      replay.outOfOrder.map((o) => `${o.file} -> ${o.landedAfter}`),
+      'auditing must not change where anything lands — it only re-attempts what was skipped',
+    );
+  } finally {
+    await audited.db.close();
+  }
+});
 
 test('every migration that lands out of order is one we have looked at', () => {
   const got: Record<string, string> = {};

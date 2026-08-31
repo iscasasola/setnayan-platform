@@ -298,6 +298,14 @@ export type OutOfOrderApplication = {
   landedAfterIndex: number;
   /** First line of the error it raised at its own position. */
   reason: string;
+  /**
+   * 🚨 TRUE means it landed after the WHOLE corpus, not at the earliest index
+   * that works — the 2026-08-31 defect. Reachable only for a file whose
+   * failure named no object the drain could probe. `createReplayedDb` does not
+   * return such a database: it rebuilds from scratch with that file forced
+   * eager. A `true` here in a returned `ReplayResult` would be a bug.
+   */
+  viaFinalPass: boolean;
 };
 
 export type ReplayResult = {
@@ -311,6 +319,11 @@ export type ReplayResult = {
    * paperwork. `replay-order-is-honest.db.test.ts` pins this.
    */
   outOfOrder: OutOfOrderApplication[];
+  /** Retries the drain PROVED were pointless and skipped. Zero means the fast
+   *  path is inert — a silent regression to the slow drain, so a test pins it. */
+  probeSkips: number;
+  /** Retries skipped because the failure named nothing probeable. */
+  blindSkips: number;
 };
 
 /**
@@ -323,13 +336,74 @@ export type ApplyPort = {
   apply(file: string): Promise<void>;
   /** Discard the transaction an aborted apply left open. */
   rollback(): Promise<void>;
+  /**
+   * Is `obj` STILL absent from the database?
+   *
+   * OPTIONAL, and its absence is the safe default: a port that cannot answer
+   * gets the unconditional drain — every deferred file retried after every
+   * successful apply. Supplying it only ever lets the drain SKIP a retry it
+   * can prove is pointless.
+   */
+  isStillMissing?(obj: MissingObject): Promise<boolean>;
 };
+
+/** A database object a failed migration named as missing. */
+export type MissingObject =
+  | { kind: 'relation'; name: string }
+  | { kind: 'column'; relation: string; name: string };
+
+/**
+ * The object a Postgres error names as missing, or `null` when it names none.
+ *
+ * ⛔ ONLY THE TWO SHAPES THIS CORPUS ACTUALLY PRODUCES are parsed, and that is
+ * deliberate. A shape this cannot read returns `null`, which costs speed and
+ * never costs ordering (see `replayInFilenameOrder`). Widening it to guess at
+ * a shape would trade the other way.
+ *
+ * ⚠ `check constraint "…" of relation "invitation_widgets" is violated by some
+ * row` also contains `of relation "…"`, and must NOT parse — the relation is
+ * present, the ROWS are the problem. Both patterns are therefore anchored to
+ * the whole line, not searched inside it.
+ */
+export function parseMissingObject(errorFirstLine: string): MissingObject | null {
+  const line = errorFirstLine.trim();
+  const rel = /^relation "([^"]+)" does not exist$/.exec(line);
+  if (rel) return { kind: 'relation', name: rel[1]! };
+  const col = /^column "([^"]+)" of relation "([^"]+)" does not exist$/.exec(line);
+  if (col) return { kind: 'column', relation: col[2]!, name: col[1]! };
+  return null;
+}
 
 export type ReplayOrder = {
   applied: number;
   /** Files that never applied at all, → the last error each raised. */
   deferred: Map<string, string>;
   outOfOrder: OutOfOrderApplication[];
+  /**
+   * Retries the drain skipped because it PROVED the named object was still
+   * absent. Zero means the probe gate did nothing — which is a silent
+   * regression to the slow path, so a test pins it above zero.
+   */
+  probeSkips: number;
+  /** Retries skipped because the failure named nothing probeable. */
+  blindSkips: number;
+  /** Skips that `auditSkips` re-attempted and confirmed would have failed. */
+  auditedSkips: number;
+};
+
+export type ReplayOrderOptions = {
+  /**
+   * Files to retry eagerly whatever their error shape. `createReplayedDb`
+   * fills this in on a rebuild, after a file surprised it by applying in the
+   * final pass.
+   */
+  forceEager?: ReadonlySet<string>;
+  /**
+   * Re-attempt every skipped retry and PROVE it fails. Restores the full cost
+   * of the unconditional drain, so it is for the guard that checks the gate is
+   * sound, not for ordinary runs.
+   */
+  auditSkips?: boolean;
 };
 
 /**
@@ -383,13 +457,18 @@ export type ReplayOrder = {
 export async function replayInFilenameOrder(
   files: readonly string[],
   port: ApplyPort,
+  opts: ReplayOrderOptions = {},
 ): Promise<ReplayOrder> {
   const ordered = [...files].sort();
   const indexOf = new Map(ordered.map((f, i) => [f, i] as const));
   const deferred = new Map<string, string>();
   const firstFailure = new Map<string, string>();
   const outOfOrder: OutOfOrderApplication[] = [];
+  const forceEager = opts.forceEager ?? new Set<string>();
   let applied = 0;
+  let probeSkips = 0;
+  let blindSkips = 0;
+  let auditedSkips = 0;
 
   async function attempt(f: string): Promise<boolean> {
     try {
@@ -405,6 +484,41 @@ export async function replayInFilenameOrder(
     }
   }
 
+  function land(f: string, after: string, afterIndex: number, viaFinalPass: boolean): void {
+    deferred.delete(f);
+    outOfOrder.push({
+      file: f,
+      index: indexOf.get(f) ?? -1,
+      landedAfter: after,
+      landedAfterIndex: afterIndex,
+      reason: firstFailure.get(f) ?? '',
+      viaFinalPass,
+    });
+  }
+
+  /**
+   * May this retry be skipped, and on what grounds?
+   *
+   * `'probe'` — the file's LAST error named an object that is still absent, so
+   * the attempt would fail at the same statement. Not a guess: the statements
+   * before it already succeeded, and the one that failed still has nothing to
+   * bind to. `auditSkips` re-attempts every one of these and proves it.
+   * `'blind'` — the failure named nothing probeable; deferred to the final
+   * pass, which is the ONLY place ordering is traded, and the trade is undone
+   * by the rebuild in `createReplayedDb`.
+   * `null` — attempt it.
+   *
+   * ⛔ A PROBE THAT THROWS RETURNS false, i.e. "attempt it". Every uncertainty
+   * resolves toward doing the work, never toward skipping it.
+   */
+  async function skipGrounds(f: string): Promise<'probe' | 'blind' | null> {
+    if (!port.isStillMissing || forceEager.has(f)) return null;
+    const obj = parseMissingObject((deferred.get(f) ?? '').split('\n')[0] ?? '');
+    if (!obj) return 'blind';
+    const missing = await port.isStillMissing(obj).catch(() => false);
+    return missing ? 'probe' : null;
+  }
+
   for (let i = 0; i < ordered.length; i++) {
     const f = ordered[i]!;
     const ok = await attempt(f);
@@ -413,22 +527,122 @@ export async function replayInFilenameOrder(
     for (;;) {
       let progressed = false;
       for (const d of [...deferred.keys()].sort()) {
+        const grounds = await skipGrounds(d);
+        if (grounds) {
+          if (grounds === 'probe') probeSkips++;
+          else blindSkips++;
+          if (!opts.auditSkips) continue;
+          auditedSkips++;
+          if (await attempt(d)) {
+            throw new Error(
+              `replay skip-gate is UNSOUND: ${d} was skipped as still-blocked and then APPLIED ` +
+                `on the very next attempt (grounds: ${grounds}). Its last error was ` +
+                `${JSON.stringify(firstFailure.get(d) ?? '')}. A skip must never hide a file ` +
+                `that could have gone in here — that is the reordering this harness exists to stop.`,
+            );
+          }
+          continue;
+        }
         if (!(await attempt(d))) continue;
-        deferred.delete(d);
-        outOfOrder.push({
-          file: d,
-          index: indexOf.get(d) ?? -1,
-          landedAfter: f,
-          landedAfterIndex: i,
-          reason: firstFailure.get(d) ?? '',
-        });
+        land(d, f, i, false);
         progressed = true;
       }
       if (!progressed) break;
     }
   }
 
-  return { applied, deferred, outOfOrder };
+  // ── THE FINAL PASS — the one place ordering is traded, and it is undone ──
+  // Only files whose failure named nothing probeable reach here unattempted.
+  // If one APPLIES, it landed after the whole corpus: the 2026-08-31 defect.
+  // It is recorded with viaFinalPass so createReplayedDb rebuilds with that
+  // file forced eager rather than returning a database it silently reordered.
+  if (deferred.size > 0) {
+    const lastIndex = ordered.length - 1;
+    const lastFile = ordered[lastIndex] ?? '';
+    for (;;) {
+      let progressed = false;
+      for (const d of [...deferred.keys()].sort()) {
+        if (!(await attempt(d))) continue;
+        land(d, lastFile, lastIndex, true);
+        progressed = true;
+      }
+      if (!progressed) break;
+    }
+  }
+
+  return { applied, deferred, outOfOrder, probeSkips, blindSkips, auditedSkips };
+}
+
+/**
+ * Build, and REBUILD until nothing landed after the whole corpus.
+ *
+ * Split out from `createReplayedDb` for one reason: it is the undo for the only
+ * concession the fast path makes, and an undo nobody can exercise is an undo
+ * nobody can trust. On the real corpus it never fires — both files that could
+ * trigger it never apply at all — so without this seam its only test would be
+ * "it did not happen", which is what an unreachable branch looks like too.
+ *
+ * `discard` throws away a database built in the wrong order; nothing that
+ * reordered is ever returned.
+ */
+export type SettleBuild<T> = {
+  build(forceEager: ReadonlySet<string>): Promise<{ order: ReplayOrder; handle: T }>;
+  discard(handle: T): Promise<void>;
+};
+
+export async function settleOrder<T>(
+  b: SettleBuild<T>,
+  maxRebuilds = 3,
+): Promise<{ order: ReplayOrder; handle: T; rebuilds: number }> {
+  let forceEager = new Set<string>();
+  let built = await b.build(forceEager);
+  for (let rebuilds = 0; ; rebuilds++) {
+    // ⛔ EVERY late landing counts, INCLUDING one already forced eager. Filtering
+    // those out first would have made "we forced it and it landed late anyway"
+    // look like "nothing landed late" — returning the reordered database this
+    // function exists to prevent.
+    const late = built.order.outOfOrder.filter((o) => o.viaFinalPass);
+    if (late.length === 0) return { ...built, rebuilds };
+
+    const fixable = late.filter((o) => !forceEager.has(o.file));
+    await b.discard(built.handle);
+    if (fixable.length === 0 || rebuilds >= maxRebuilds) {
+      throw new Error(
+        `migration replay could not settle an order: ${late
+          .map((o) => o.file)
+          .join(', ')} still land after the whole corpus after ${rebuilds + 1} ` +
+          `build(s)${fixable.length === 0 ? ', already forced eager' : ''}`,
+      );
+    }
+    forceEager = new Set([...forceEager, ...fixable.map((o) => o.file)]);
+    built = await b.build(forceEager);
+  }
+}
+
+/** Ask the live database whether a named object is still absent. */
+async function isStillMissingIn(db: PGlite, obj: MissingObject): Promise<boolean> {
+  try {
+    if (obj.kind === 'relation') {
+      const r = await db.query<{ gone: boolean }>(`SELECT to_regclass($1) IS NULL AS gone`, [
+        obj.name,
+      ]);
+      return r.rows[0]?.gone ?? false;
+    }
+    // A missing RELATION also means a missing column, and to_regclass(NULL-ish)
+    // simply makes the EXISTS false — no special case needed.
+    const r = await db.query<{ gone: boolean }>(
+      `SELECT NOT EXISTS (
+         SELECT 1 FROM pg_attribute
+          WHERE attrelid = to_regclass($1) AND attname = $2
+            AND NOT attisdropped AND attnum > 0
+       ) AS gone`,
+      [obj.relation, obj.name],
+    );
+    return r.rows[0]?.gone ?? false;
+  } catch {
+    // Unreadable name, aborted session, anything: do the work.
+    return false;
+  }
 }
 
 export type ReplayOptions = {
@@ -444,6 +658,13 @@ export type ReplayOptions = {
    * is a guard that gets deleted.
    */
   only?: ReadonlySet<string>;
+  /**
+   * Re-attempt every retry the drain's probe gate skipped, and fail loudly if
+   * one of them applies. Roughly restores the pre-gate cost, so it is for
+   * `replay-order-is-honest.db.test.ts` to prove the gate sound — not for
+   * ordinary runs.
+   */
+  auditSkips?: boolean;
 };
 
 /** The leading numeric field of a migration filename, e.g. `20271011120000`. */
@@ -453,42 +674,80 @@ export function versionOf(filename: string): string {
 
 /** Replay every migration into a fresh in-memory PGlite. ~6 s on a laptop. */
 export async function createReplayedDb(opts: ReplayOptions = {}): Promise<ReplayResult> {
-  const db = await PGlite.create({ extensions: { pgcrypto } });
-  await db.exec(`CREATE SCHEMA IF NOT EXISTS extensions;`);
-  await db.exec(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;`);
-  await db.exec(BOOTSTRAP);
-
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
     .filter((f) => !opts.only || opts.only.has(versionOf(f)))
     .sort();
 
-  async function applyOne(f: string): Promise<void> {
-    const sql = preprocess(fs.readFileSync(path.join(MIGRATIONS_DIR, f), 'utf8'));
-    if (f === '20260705000000_provision_owner_vendor_and_remove_prefilled.sql') {
-      // Re-insert the owner AFTER on_auth_user_created exists so the REAL
-      // trigger provisions the public.users profile row, exactly like prod.
-      await db.exec(`
-        DELETE FROM auth.users WHERE email = 'iscasasolaii@gmail.com';
-        INSERT INTO auth.users (id, email) VALUES ('${OWNER_UUID}', 'iscasasolaii@gmail.com');
-      `);
+  async function buildOnce(
+    forceEager: ReadonlySet<string>,
+  ): Promise<{ db: PGlite; order: ReplayOrder }> {
+    const db = await PGlite.create({ extensions: { pgcrypto } });
+    await db.exec(`CREATE SCHEMA IF NOT EXISTS extensions;`);
+    await db.exec(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;`);
+    await db.exec(BOOTSTRAP);
+
+    async function applyOne(f: string): Promise<void> {
+      const sql = preprocess(fs.readFileSync(path.join(MIGRATIONS_DIR, f), 'utf8'));
+      if (f === '20260705000000_provision_owner_vendor_and_remove_prefilled.sql') {
+        // Re-insert the owner AFTER on_auth_user_created exists so the REAL
+        // trigger provisions the public.users profile row, exactly like prod.
+        await db.exec(`
+          DELETE FROM auth.users WHERE email = 'iscasasolaii@gmail.com';
+          INSERT INTO auth.users (id, email) VALUES ('${OWNER_UUID}', 'iscasasolaii@gmail.com');
+        `);
+      }
+      await db.exec(sql);
+      await db.query(
+        'INSERT INTO public._replay_migrations (fname) VALUES ($1) ON CONFLICT DO NOTHING',
+        [f],
+      );
     }
-    await db.exec(sql);
-    await db.query(
-      'INSERT INTO public._replay_migrations (fname) VALUES ($1) ON CONFLICT DO NOTHING',
-      [f],
+
+    // Ordering lives in replayInFilenameOrder — see its docblock for why a
+    // deferred file is retried EAGERLY and not after the whole corpus.
+    const order = await replayInFilenameOrder(
+      files,
+      {
+        apply: applyOne,
+        rollback: async () => {
+          await db.exec('ROLLBACK').catch(() => {});
+        },
+        isStillMissing: (obj) => isStillMissingIn(db, obj),
+      },
+      { forceEager, auditSkips: opts.auditSkips },
     );
+    return { db, order };
   }
 
-  // Ordering lives in replayInFilenameOrder — see its docblock for why a
-  // deferred file is retried EAGERLY and not after the whole corpus.
-  const { applied, deferred, outOfOrder } = await replayInFilenameOrder(files, {
-    apply: applyOne,
-    rollback: async () => {
-      await db.exec('ROLLBACK').catch(() => {});
+  /*
+    ⚠ THE ONE PLACE THE FAST PATH COULD COST ORDERING, AND THE UNDO FOR IT.
+
+    The drain skips a retry outright when the file's failure named nothing it
+    could probe — a CHECK violation, a RAISE. Both files that do this today
+    NEVER apply at all (they are in ALLOWED_SKIP), so they cannot overwrite
+    anything, and skipping them is what buys back the whole cost. But "today"
+    is not a guarantee: a future migration could fail that way and then become
+    applyable mid-corpus, and the final pass would put it in LAST — the exact
+    2026-08-31 defect.
+
+    🔑 SO IT IS NOT LEFT TO A TEST TO NOTICE. If any file lands via the final
+    pass, this THROWS THE DATABASE AWAY and replays from scratch with that file
+    forced eager, so what is returned was built in the corrected order. A
+    report would have been read after the fact, by someone, maybe; every other
+    db test in the same run would already have used the reordered database.
+  */
+  const settled = await settleOrder<PGlite>({
+    build: async (forceEager) => {
+      const { db: h, order } = await buildOnce(forceEager);
+      return { order, handle: h };
     },
+    discard: (h) => h.close(),
   });
+
+  const db = settled.handle;
+  const { applied, deferred, outOfOrder } = settled.order;
 
   const skipped: Array<{ file: string; reason: string }> = [];
   for (const [f, reason] of ALLOWED_SKIP) {
@@ -511,7 +770,15 @@ export async function createReplayedDb(opts: ReplayOptions = {}): Promise<Replay
   // freeze (exposure-freeze.db.test.ts) blind to exactly the class of bug it
   // exists to catch.
 
-  return { db, applied: applied + skipped.length, total: files.length, skipped, outOfOrder };
+  return {
+    db,
+    applied: applied + skipped.length,
+    total: files.length,
+    skipped,
+    outOfOrder,
+    probeSkips: settled.order.probeSkips,
+    blindSkips: settled.order.blindSkips,
+  };
 }
 
 /** Impersonate a user for auth.uid()-gated RPCs (NULL uuid = anonymous). */

@@ -411,7 +411,15 @@ test('GUARD: the card no longer unmounts itself when the clock hits zero', () =>
     join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'dashboard', '[eventId]', '_components', 'setnayan-ai-comeback-offer.tsx'),
     'utf8',
   );
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  // The SHARED stripper, never a hand-rolled pair of replaces. A two-replace
+  // regex strips BLOCK comments first, so a line comment containing `video/*`
+  // opens a comment that closes at the next real `*/`, blanks everything
+  // between, and leaves this guard asserting against an empty string — passing
+  // vacuously. `lint-one-comment-stripper` enforces this, and caught it here.
+  const code = stripComments(src);
+  // The stripper must not have eaten the file, or both assertions below are
+  // vacuous in exactly the way the guard warns about.
+  assert.ok(code.includes('SetnayanAiComebackOffer'), 'stripComments left the component intact');
   assert.ok(
     !/isPast\s*\)\s*return null/.test(code),
     'the countdown reaching zero must drop the DISCOUNT, not the whole card',

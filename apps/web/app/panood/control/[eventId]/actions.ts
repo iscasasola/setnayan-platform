@@ -65,7 +65,7 @@ import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
  * These actions are now HOST-GATED ONLY. Adding a camera, naming it, cutting
  * between channels on CH 1, placing the monogram / lower third and setting
  * guest-pick are all REHEARSAL: they write control-plane rows that no guest can
- * see, on the host's own phones, at their own rehearsal. Charging ₱2,999 before
+ * see, on the host's own phones, at their own rehearsal. Charging ₱3,000 before
  * they have ever felt that was the defect § 4d exists to fix.
  *
  * The paywall now sits at PUBLICATION — lib/live-studio-publish.ts, enforced in
@@ -258,7 +258,7 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
    cameras and rehearsing with them is FREE (§ 4d "rehearse free, pay to
    broadcast"); the paywall is PUBLICATION and lives in lib/live-studio-publish.ts.
    Gating the join here would recreate the exact defect Wave 3 removed: asking
-   ₱2,999 for an experience the couple has never felt.
+   ₱3,000 for an experience the couple has never felt.
 
    ADMIN CLIENT, AFTER requireHostMembership: `panood_camera_operators` RLS is
    `event_members.member_type IN ('couple','coordinator')`, which does not cover a

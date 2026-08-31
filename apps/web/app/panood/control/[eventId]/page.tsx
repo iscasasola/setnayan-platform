@@ -206,7 +206,7 @@ export const metadata = { title: 'Live Studio controller' };
 //   1. NO PADLOCKS OVER THE TILES. Every configured camera renders at FULL
 //      brightness with its real state, for every host. Seeing the cameras actually
 //      working IS the conversion mechanism; dimming them recreates the exact defect
-//      Wave 3 fixes — asking ₱2,999 for an experience the couple never felt, for a
+//      Wave 3 fixes — asking ₱3,000 for an experience the couple never felt, for a
 //      day that cannot be redone.
 //   2. THE PAYWALL IS STATED AT THE GO-LIVE MOMENT — "Rehearse free · Unlock <price>
 //      to broadcast all your cameras", right under the monitor where going live
@@ -573,8 +573,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // ── ⭐ WAVE 7 · THE BROADCAST WINDOW ─────────────────────────────────────────
   // (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
   //
-  // ₱2,999 buys ONE EVENT-DAY of MULTI-CAM broadcasting, anchored on first go-live,
-  // extendable by another ₱2,999, and never interrupted mid-broadcast. This is the
+  // ₱3,000 buys ONE EVENT-DAY of MULTI-CAM broadcasting, anchored on first go-live,
+  // extendable by another ₱3,000, and never interrupted mid-broadcast. This is the
   // SAME resolver `canPublishMultiCam` delegates to, so the controller, the program
   // pop-out, the manifest mirror and the public page cannot disagree about whether
   // this host may put more than one camera on air.
@@ -599,7 +599,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   //     what actually goes out.
   //   • `entitled` — have they bought Live Studio at all? Feeds only the WORDS. A
   //     host whose event-day lapsed still owns the product, so showing them
-  //     "Unlock · ₱2,999" would ask them to buy something they already have; what
+  //     "Unlock · ₱3,000" would ask them to buy something they already have; what
   //     they need is "Add another day", which the window strip offers.
   const owned = broadcastWindow.multiCam;
   const entitled = broadcastWindow.reason !== 'not-owned';
@@ -1436,7 +1436,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       </CameraFeedsProvider>
 
       {/* ═══ UNLOCK BAR — the pitch, price from the catalog ════════════════════
-          Wave 3 wording: what the ₱2,999 buys is BROADCASTING the cameras, because
+          Wave 3 wording: what the ₱3,000 buys is BROADCASTING the cameras, because
           using them is already free. This is the sales surface, not a gate.
 
           ⭐ WAVE 8: the prototype's fixed bottom `.unlock` bar. `shrink-0`, so it is

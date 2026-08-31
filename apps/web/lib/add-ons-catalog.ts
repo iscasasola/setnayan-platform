@@ -984,7 +984,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
 /**
  * Live Studio — the UNIFIED customer-facing SKU (owner 2026-07-25) that merges
  * Cast (directed single feed) + Roam (guests pick their view) into ONE switching
- * product: a directed Main Stage plus switchable guest cameras. Paid ₱2,999 per
+ * product: a directed Main Stage plus switchable guest cameras. Paid ₱3,000 per
  * event (serviceKey LIVE_STUDIO; price is admin-managed via the catalog, never
  * hardcoded here). Built on the Roam substrate — the tile keeps the internal key
  * `live-studio-roam` (like "Live Studio Cast" keeps the internal `panood` name),

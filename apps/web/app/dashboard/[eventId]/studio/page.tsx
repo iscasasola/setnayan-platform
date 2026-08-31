@@ -203,7 +203,7 @@ export default async function StudioPage({ params, searchParams }: Props) {
     if (a.key === 'papic-guest') return papicPassAllowed;
     // ⚠ ONE LIVESTREAM TILE, NOT TWO. With the unified Live Studio live, the
     // couple's Studio showed BOTH it and the retired "Live Studio Cast" tile —
-    // the second one chipped "Free", and both landed on the same ₱2,999 page,
+    // the second one chipped "Free", and both landed on the same ₱3,000 page,
     // because /studio/panood is now a redirect. That page's own header names
     // this exact defect and stops short of it: "Two tiles for one product is the
     // whole defect. The catalog tile that points here is not ours to delete, so

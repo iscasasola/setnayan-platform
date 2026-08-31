@@ -249,7 +249,14 @@ says **"NOT A RULE — ORDERING."**
 Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. If any of these is at risk, **stop and surface the question** rather than silently changing direction.
 
 - **Web-first V1, single Next.js codebase.** Distributed to web (Vercel) · desktop (Tauri macOS + Windows) · installable PWA (iPhone / Android / iPad). Native iOS/Android Papic + DSLR pairing are Phase 2.
-- **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct charm pricing (-1 endings).
+- **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct pricing.
+  ⚠ **CHARM ENDINGS ARE NO LONGER THE RULE.** This line said "charm pricing (-1 endings)" for months,
+  but the owner's 2026-08-27 price sheet (`DECISION_LOG.md`) rounded three SKUs OFF their -1 endings in
+  one day — `LIVE_STUDIO` ₱2,999 → **₱3,000**, `PAPIC_ADDON_THANK_YOU` ₱2,499 → ₱2,500, and the custom
+  catalogue's `reachNationwide` — owner, verbatim: *"make the whole number 500, 2500"*. Some SKUs still
+  end in -1 and that is fine; there is no convention to enforce either way.
+  🔑 **NEVER derive a price from this file or from a code comment — read
+  `platform_retail_catalog_v2`, which is admin-managed and is the only price a customer is charged.**
 - **Canonical entity IDs:** `S89<TYPE>-<10-char Crockford>` random body. Generator function: `public.generate_public_id(type_letter)`. Internal joins use hidden `bigserial`.
 - **RLS canonical patterns.** 8 patterns + 4 helper functions (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). No invented patterns. RLS enabled at `CREATE TABLE` time.
 - **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com`. ⚠ **WE DO NOT OWN

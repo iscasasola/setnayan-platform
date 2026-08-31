@@ -38,7 +38,7 @@ import { LEAD_TIME_NOTICE } from '@/lib/live-studio-readiness';
 //     serviceKey LIVE_STUDIO, priced LIVE from the admin catalog via formatV2Sku —
 //     never hardcoded. The buy reuses AddOnStateCta / InlineCheckoutDrawer; the
 //     checkout's serviceKey is LIVE_STUDIO so submitOrderAction re-resolves the price
-//     from platform_retail_catalog_v2 (₱2,999 · per event · one_time) and rides the
+//     from platform_retail_catalog_v2 (₱3,000 · per event · one_time) and rides the
 //     QR rail → /admin/payments.
 //   • Once OWNED, the CTA flips to "Open controller" → ./setup (the unified switching
 //     controller: name cameras, cut them onto the Main Stage, set the default view).

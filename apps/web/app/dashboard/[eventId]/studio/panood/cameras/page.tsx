@@ -65,10 +65,10 @@ export default async function PanoodCamerasPage({ params }: Props) {
 
   // ⭐ ASK BOTH QUESTIONS (2026-08-06). `resolvePanoodTier` answers only "did this
   // event buy Cast?" — and both Cast SKUs are retired (is_active=false, zero orders
-  // ever). The SKU that replaced them is LIVE_STUDIO (₱2,999), and the ownership
+  // ever). The SKU that replaced them is LIVE_STUDIO (₱3,000), and the ownership
   // alias in lib/entitlements.ts is deliberately ONE-DIRECTIONAL: a Cast buyer owns
   // Live Studio, a Live Studio buyer does NOT own Cast. So a couple who had just paid
-  // ₱2,999 resolved to 'free' here and read "you have 3 cameras free to test with…
+  // ₱3,000 resolved to 'free' here and read "you have 3 cameras free to test with…
   // until you unlock Live Studio" — about the thing they had already unlocked.
   //
   // ADMIN CLIENT for the ownership read: `orders` RLS is PURCHASER-scoped, so a

@@ -289,3 +289,48 @@ export function summariseAllotments(i: SplitInputs): string {
     `${split.spare} spare`,
   ].join(' · ');
 }
+
+/* ── Finding one guest among two hundred ────────────────────────────────────
+ *
+ * Owner, 2026-08-31: *"there might be over 200 guests, and we should not list
+ * them all. or let the user search a guest from the list and show what they
+ * have?"* The picker rendered every guest in first-name order inside a ~288px
+ * scroll box — fine for a dozen, a haystack for a real Filipino guest list.
+ *
+ * Pure, and here rather than inside the client component, for the same reason
+ * the offer decider sits beside its window rules: it is a DECISION about what
+ * the couple sees, and a decision that cannot be unit-tested is a decision
+ * nobody can defend later.
+ */
+
+export type AllotmentPickerRow = {
+  guestId: string;
+  name: string;
+  /** The saved allotment, or null when this guest has never been named. */
+  saved: number | null;
+};
+
+/**
+ * The rows to show, in order: guests the couple has ALREADY NAMED first, then
+ * everyone else, each group keeping the caller's incoming order (the server
+ * sorts by first name).
+ *
+ * 🔑 `saved === 0` IS A NAMED GUEST. Zero is a real, deliberate choice — "this
+ * guest may not spend", the documented way to exclude somebody — so the test is
+ * `!= null`, never truthiness. Sorting a zero in with the un-named would hide
+ * the couple's most surprising decision at the bottom of a 200-row list.
+ *
+ * An empty query returns everybody. Matching is case-insensitive substring on
+ * the displayed name, which is what somebody typing "lola" expects.
+ */
+export function orderAllotmentPickerRows<T extends AllotmentPickerRow>(
+  guests: readonly T[],
+  query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  const matches = q ? guests.filter((g) => g.name.toLowerCase().includes(q)) : [...guests];
+  // A STABLE partition, not a comparator sort: `Array.prototype.sort` is stable
+  // in every engine we ship to, but expressing it as two filters says the intent
+  // outright and cannot be broken by somebody "simplifying" the comparator.
+  return [...matches.filter((g) => g.saved != null), ...matches.filter((g) => g.saved == null)];
+}

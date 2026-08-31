@@ -138,6 +138,14 @@ REVOKE ALL ON FUNCTION public.papic_seat_dedicated_points(UUID)
 -- Replaces 20271184624871's definition. ONE arithmetic change: v_released is
 -- added to the total.
 --
+-- ⚠ REPLACING THIS FUNCTION MEANS INHERITING ITS CURRENT BODY, NOT AN OLDER
+-- ONE. An earlier draft of this migration copied the body from 20271131476413
+-- and silently reverted 20271184624871's extraction of the guest headcount into
+-- `papic_event_guest_headcount()` — a fix that exists so this function and the
+-- per-guest share cannot drift. CI caught it (`papic-guest-spend-ceiling`'s
+-- "the headcount is asked once"). Diff against the LATEST definer before you
+-- replace a function; there are six of them for this one.
+--
 -- ⚠ ADDED TO total_points, NEVER TO granted_points — the mirror image of the
 -- warning 20271131476413 left here about v_alloc, and load-bearing for the same
 -- reason. `granted_points <= 0` is this function's test for "this event has no
@@ -210,20 +218,7 @@ BEGIN
    WHERE config_key = 'default';
 
   IF v_has_flat THEN
-    SELECT GREATEST(
-             COALESCE(e.final_pax, 0),
-             COALESCE(e.estimated_pax, 0),
-             COALESCE((
-               SELECT COUNT(*) FROM public.guests g
-                WHERE g.event_id = p_event_id
-                  AND g.deleted_at IS NULL
-                  AND g.rsvp_status::text <> 'declined'
-             ), 0)
-           )::INTEGER
-      INTO v_guests
-      FROM public.events e
-     WHERE e.event_id = p_event_id;
-    v_guests := COALESCE(v_guests, 0);
+    v_guests := COALESCE(public.papic_event_guest_headcount(p_event_id), 0);
     v_base := LEAST(v_ceiling, GREATEST(v_floor, v_guests * v_per_guest));
   ELSE
     v_guests := 0;
@@ -414,7 +409,30 @@ GRANT EXECUTE ON FUNCTION public.papic_release_seat_grants(UUID, UUID, UUID)
 DO $$
 DECLARE
   v_relrowsecurity BOOLEAN;
+  v_dedicated_body TEXT;
+  v_pool_body      TEXT;
+  v_mover_body     TEXT;
 BEGIN
+  -- ⚠ COMMENTS ARE STRIPPED BEFORE ANY MATCH BELOW, AND THAT IS NOT COSMETIC.
+  -- `pg_get_functiondef` returns a body INCLUDING its comments, so a docblock
+  -- that NAMES the thing a check looks for SATISFIES that check. Measured
+  -- during this migration's own mutation testing: deleting the real
+  -- `papic_event_guest_headcount(...)` call left its assertion GREEN, because a
+  -- comment two lines above the call still said the words. The guard was inert
+  -- and looked identical to a working one — the exact failure mode this feature
+  -- has already shipped once. Same rule the TypeScript guards follow via
+  -- lib/strip-comments.ts. Line comments only; no block comments live inside
+  -- these bodies.
+  SELECT regexp_replace(pg_get_functiondef(
+           'public.papic_seat_dedicated_points(uuid)'::regprocedure), '--[^\n]*', '', 'g')
+    INTO v_dedicated_body;
+  SELECT regexp_replace(pg_get_functiondef(
+           'public.papic_event_pool_status(uuid)'::regprocedure), '--[^\n]*', '', 'g')
+    INTO v_pool_body;
+  SELECT regexp_replace(pg_get_functiondef(
+           'public.papic_release_seat_grants(uuid,uuid,uuid)'::regprocedure), '--[^\n]*', '', 'g')
+    INTO v_mover_body;
+
   SELECT relrowsecurity INTO v_relrowsecurity
     FROM pg_class WHERE oid = 'public.papic_seat_grant_releases'::regclass;
   IF NOT COALESCE(v_relrowsecurity, FALSE) THEN
@@ -430,24 +448,20 @@ BEGIN
   -- Both composing reads must actually compose. A read that ignored the new
   -- table would leave every give-back invisible on one side of the ledger —
   -- which is the exact shape of the defect this migration exists to repair.
-  IF (SELECT pg_get_functiondef('public.papic_seat_dedicated_points(uuid)'::regprocedure))
-     NOT LIKE '%papic_seat_grant_releases%' THEN
+  IF (SELECT v_dedicated_body) NOT LIKE '%papic_seat_grant_releases%' THEN
     RAISE EXCEPTION 'papic_seat_dedicated_points does not subtract papic_seat_grant_releases';
   END IF;
-  IF (SELECT pg_get_functiondef('public.papic_event_pool_status(uuid)'::regprocedure))
-     NOT LIKE '%papic_seat_grant_releases%' THEN
+  IF (SELECT v_pool_body) NOT LIKE '%papic_seat_grant_releases%' THEN
     RAISE EXCEPTION 'papic_event_pool_status does not add papic_seat_grant_releases';
   END IF;
 
   -- The layers this one is defined against must still be there. If a future
   -- migration drops the allocation layer, the arithmetic above is wrong in a
   -- way no test of THIS feature would notice.
-  IF (SELECT pg_get_functiondef('public.papic_seat_dedicated_points(uuid)'::regprocedure))
-     NOT LIKE '%papic_seat_allocations%' THEN
+  IF (SELECT v_dedicated_body) NOT LIKE '%papic_seat_allocations%' THEN
     RAISE EXCEPTION 'papic_seat_dedicated_points no longer reads papic_seat_allocations';
   END IF;
-  IF (SELECT pg_get_functiondef('public.papic_event_pool_status(uuid)'::regprocedure))
-     NOT LIKE '%papic_seat_allocations%' THEN
+  IF (SELECT v_pool_body) NOT LIKE '%papic_seat_allocations%' THEN
     RAISE EXCEPTION 'papic_event_pool_status no longer subtracts papic_seat_allocations';
   END IF;
 
@@ -455,8 +469,7 @@ BEGIN
   -- papic_seat_releasable_grants it has started doing its own arithmetic, and
   -- the number on the button and the number that moves can drift — which is
   -- the exact defect (#5028) this whole migration exists to repair.
-  IF (SELECT pg_get_functiondef('public.papic_release_seat_grants(uuid,uuid,uuid)'::regprocedure))
-     NOT LIKE '%papic_seat_releasable_grants%' THEN
+  IF (SELECT v_mover_body) NOT LIKE '%papic_seat_releasable_grants%' THEN
     RAISE EXCEPTION
       'papic_release_seat_grants no longer derives its amount from papic_seat_releasable_grants';
   END IF;
@@ -469,6 +482,15 @@ BEGIN
        AND pronargs <> 3
   ) THEN
     RAISE EXCEPTION 'papic_release_seat_grants signature changed — it must take no amount';
+  END IF;
+
+  -- THE HEADCOUNT STAYS EXTRACTED. This migration REPLACES
+  -- papic_event_pool_status, so it can silently undo anything an earlier
+  -- migration did to that body — and an earlier draft of this one did exactly
+  -- that. Asserted so the next replacement is told, not trusted.
+  IF (SELECT v_pool_body) NOT LIKE '%papic_event_guest_headcount%' THEN
+    RAISE EXCEPTION
+      'papic_event_pool_status stopped calling papic_event_guest_headcount — a replacement reverted 20271184624871';
   END IF;
 
   -- anon must not be able to call the mover. It is reachable only through the

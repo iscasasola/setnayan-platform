@@ -145,6 +145,20 @@ async function armAsCouple(
   }
 }
 
+/** Stop as the couple, through RLS, the way the studio action does. */
+async function stopAsCouple(uid: string, missionId: string): Promise<string | null> {
+  await asUser(uid);
+  try {
+    const r = await db.query<{ stopped_at: string | null }>(
+      `SELECT public.papic_stop_challenge($1::uuid) AS stopped_at`,
+      [missionId],
+    );
+    return r.rows[0]!.stopped_at;
+  } finally {
+    await reset();
+  }
+}
+
 /** When this challenge stops being the one being asked. */
 async function endsAt(missionId: string): Promise<Date | null> {
   const r = await db.query<{ ends: string | null }>(
@@ -490,6 +504,230 @@ test('arming — and expiring — takes NOTHING off a guest’s board', async ()
     [f.guestId, missions[0]!],
   );
   assert.ok(done.rows[0]!.completion_id, 'an expired challenge can still be answered');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STOPPING ONE EARLY — the prompt ends, the challenge stays.
+// ═══════════════════════════════════════════════════════════════════════════
+// Owner 2026-09-01. Before this the only way to end a challenge early was to
+// HIDE it, which is a different act: hiding takes it off every guest's board so
+// nobody can answer it any more. Stopping must end the PROMPT and leave the
+// challenge exactly where it was.
+test('stopping ends the prompt and leaves the challenge on every board', async () => {
+  const f = await seedEvent('stop', new Date(Date.now() + 2 * DAY));
+  const a = await seedMission(f.eventId, 'The bouquet toss');
+  const b = await seedMission(f.eventId, 'The last song');
+
+  const boardFor = async (): Promise<string[]> => {
+    const r = await db.query<{ mission_id: string }>(
+      `SELECT mission_id FROM public.papic_guest_missions($1::uuid) ORDER BY mission_id`,
+      [f.guestId],
+    );
+    return r.rows.map((x) => x.mission_id);
+  };
+  const before = await boardFor();
+  assert.equal(before.length, 2, 'fixture: the guest sees both');
+
+  await armAsCouple(f.coupleUid, a);
+  assert.equal(await isOpen(a), true);
+
+  const stoppedAt = await stopAsCouple(f.coupleUid, a);
+  assert.ok(stoppedAt, 'stopping reports the moment it stopped');
+  assert.equal(await isOpen(a), false, 'the prompt is over');
+  assert.deepEqual(await armedFor(f.eventId), [], 'and the celebration has nothing armed');
+
+  // 🔑 THE ASSERTION THAT SEPARATES STOPPING FROM HIDING. The cheapest possible
+  // implementation of "stop" is `is_active = false`, and it would satisfy every
+  // line above. This is the one it fails.
+  const row = await db.query<{ is_active: boolean }>(
+    `SELECT is_active FROM public.papic_missions WHERE mission_id = $1`,
+    [a],
+  );
+  assert.equal(row.rows[0]!.is_active, true, 'stopping must NOT hide the challenge');
+  assert.deepEqual(await boardFor(), before, 'the guest still has both challenges');
+
+  // And it is still answerable — the shutter was never the thing that closed.
+  const done = await db.query<{ completion_id: string }>(
+    `SELECT public.papic_complete_mission($1::uuid, $2::uuid) AS completion_id`,
+    [f.guestId, a],
+  );
+  assert.ok(done.rows[0]!.completion_id, 'a stopped challenge can still be answered');
+
+  // Nothing was armed by stopping — the next challenge is still a choice.
+  assert.equal(await isOpen(b), false);
+});
+
+test('a stale Stop cannot kill a challenge somebody else has since started', async () => {
+  // ⚠ TWO PEOPLE RUN A RECEPTION. The coordinator opens the screen while one
+  // challenge is live; the host starts a different one; the coordinator taps
+  // Stop on a page that is now stale. An event-scoped stop would kill the
+  // host's brand-new prompt, and would look completely correct in a test that
+  // only ever had one challenge.
+  const f = await seedEvent('stale-stop', new Date(Date.now() + 2 * DAY));
+  const first = await seedMission(f.eventId, 'The grand entrance');
+  const second = await seedMission(f.eventId, 'The first dance');
+
+  await armAsCouple(f.coupleUid, first);
+  await armAsCouple(f.coupleUid, second); // the host moves on
+  assert.equal(await isOpen(second), true);
+
+  const stopped = await stopAsCouple(f.coupleUid, first); // the stale tap
+  assert.equal(stopped, null, 'stopping an already-superseded challenge reports nothing');
+  assert.equal(await isOpen(second), true, 'and the live challenge is untouched');
+  assert.equal((await armedFor(f.eventId))[0]?.mission_id, second);
+});
+
+test('the closer can only ever close the challenge it is pointed at', async () => {
+  // 🔴 THE ASSERTION THE "STALE STOP" CASE ABOVE CANNOT MAKE, and the reason
+  // this one exists. That case is sequential: by the time the stale tap lands,
+  // the superseded challenge already has a closed_at, so papic_stop_challenge
+  // returns on its fast path and never reaches the close at all. Mutating the
+  // scope out therefore left every other test green.
+  //
+  // The failure it was written for is CONCURRENT — A reads the live challenge,
+  // B arms a different one, A's close then matches B's brand-new challenge —
+  // and a single PGlite connection cannot stage that. So this drops to the
+  // primitive and asserts the property the race depends on directly: pointed at
+  // a mission that is not the open one, the closer must close NOTHING. Checking
+  // afterwards would be too late; the row would already be closed.
+  const f = await seedEvent('scoped-close', new Date(Date.now() + 2 * DAY));
+  const live = await seedMission(f.eventId, 'The live one');
+  const other = await seedMission(f.eventId, 'Not the live one');
+  await armAsCouple(f.coupleUid, live);
+
+  await asUser(f.coupleUid);
+  const r = await db.query<{ closed: string | null }>(
+    `SELECT public.papic_close_open_challenge($1::uuid, NOW(), $2::uuid) AS closed`,
+    [f.eventId, other],
+  );
+  await reset();
+
+  assert.equal(r.rows[0]!.closed, null, 'pointed at the wrong mission, it closes nothing');
+  assert.equal(await isOpen(live), true, 'and the live challenge is untouched');
+});
+
+test('stopping when nothing is armed changes nothing and says so', async () => {
+  const f = await seedEvent('stop-nothing', new Date(Date.now() + 2 * DAY));
+  const m = await seedMission(f.eventId, 'The toast');
+  assert.equal(await stopAsCouple(f.coupleUid, m), null, 'nothing to stop is not an error');
+  assert.equal(await isOpen(m), false);
+
+  // A double-tap is harmless for the same reason.
+  await armAsCouple(f.coupleUid, m);
+  assert.ok(await stopAsCouple(f.coupleUid, m));
+  assert.equal(await stopAsCouple(f.coupleUid, m), null, 'the second tap does nothing');
+});
+
+test('a GUEST cannot stop the challenge either', async () => {
+  const f = await seedEvent('stop-guest', new Date(Date.now() + 2 * DAY));
+  const m = await seedMission(f.eventId, 'The cake');
+  const guest = await createUser('stop-guest-member@audit.test');
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'guest')`,
+    [f.eventId, guest],
+  );
+  await armAsCouple(f.coupleUid, m);
+
+  assert.equal(await stopAsCouple(guest, m), null, 'a guest may not end the room’s prompt');
+  assert.equal(await isOpen(m), true, 'and it is still running');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WHO MAY START ONE — the host and the coordinator, and NOT the guests.
+// ═══════════════════════════════════════════════════════════════════════════
+// Owner, 2026-09-01: *"the timed challenge will be set by the host of the event
+// and the coordinator"* … *"not the guests."*
+//
+// 🔎 MEASURED FIRST, AND NOTHING NEEDED BUILDING: `papic_missions_member_all`
+// (Pattern B) already admits exactly `member_type IN ('couple','coordinator')`
+// plus admin. What was missing is any test that says so — the rule was true by
+// accident of a policy written for a different reason, and one widened policy
+// would have handed a guest the room's prompt with nothing going red.
+//
+// 🔑 "HOST" IS `member_type = 'couple'`, AT EVERY EVENT TYPE. There is no
+// 'host' member type — the enum is ('couple','guest','vendor','coordinator')
+// and 'couple' is the organiser's row at a birthday and a wake alike. What
+// changes per event type is the WORD on screen (`event_type_profiles`
+// terminology, and `the-couple-is-not-every-host.test.ts`), never the role.
+//
+// 🔑 AND A COORDINATOR IS A CO-HOST WHO ACCEPTED AN INVITE. `/host/accept/
+// [token]` does not write the membership itself: the trigger
+// `sync_delegate_membership` mints it from the accepted `event_moderators` row
+// (owner 2026-08-24, "an accepted delegate is a member"). These cases seed the
+// membership the way that trigger leaves it, so they test the state a real
+// coordinator is actually in.
+
+/** Try to arm as `uid`, and report whether anything actually moved. */
+async function canArm(uid: string, missionId: string): Promise<boolean> {
+  const before = await isOpen(missionId);
+  assert.equal(before, false, 'fixture: nothing is armed before the attempt');
+  const armedAt = await armAsCouple(uid, missionId);
+  const after = await isOpen(missionId);
+  if (armedAt === null) {
+    assert.equal(after, false, 'a refused arming must not have moved the row either');
+    return false;
+  }
+  return after;
+}
+
+/** Put `uid` on the celebration with the given member type. */
+async function addMember(eventId: string, uid: string, type: string): Promise<void> {
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,$3::member_type)`,
+    [eventId, uid, type],
+  );
+}
+
+test('the HOST of the celebration may start a timed challenge', async () => {
+  const f = await seedEvent('who-host', new Date(Date.now() + 2 * DAY));
+  const m = await seedMission(f.eventId, 'The first look');
+  // seedEvent's couple member IS the host — 'couple' is the organiser's row at
+  // every event type, not a wedding-only value.
+  assert.equal(await canArm(f.coupleUid, m), true);
+});
+
+test('the COORDINATOR may start one too', async () => {
+  const f = await seedEvent('who-coord', new Date(Date.now() + 2 * DAY));
+  const m = await seedMission(f.eventId, 'The money dance');
+  const coord = await createUser('who-coordinator@audit.test');
+  await addMember(f.eventId, coord, 'coordinator');
+
+  assert.equal(
+    await canArm(coord, m),
+    true,
+    'a co-host who accepted an invite runs the night; refusing them here would leave the couple as the only person who can change the prompt',
+  );
+});
+
+test('a GUEST of the celebration may NOT — even a real, invited one', async () => {
+  // ⛔ THE OWNER'S OWN EXCLUSION, and the case most likely to break silently.
+  // This guest is not an intruder: they hold a genuine event_members row, the
+  // same shape the couple's own does. Membership is not authority, and the
+  // difference between the two is the member_type this asserts on.
+  const f = await seedEvent('who-guest', new Date(Date.now() + 2 * DAY));
+  const m = await seedMission(f.eventId, 'The cake');
+  const guest = await createUser('who-guest@audit.test');
+  await addMember(f.eventId, guest, 'guest');
+
+  assert.equal(
+    await canArm(guest, m),
+    false,
+    'a guest must never be able to change what the whole room is being asked',
+  );
+});
+
+test('a booked VENDOR may not either', async () => {
+  // Not named in the ruling, and refused for the same reason: the enum has four
+  // values and only two of them run the celebration. A supplier authors their
+  // OWN challenge through papic_create_vendor_challenge, which the couple then
+  // approves — that is a different door with a different gate, and it is not
+  // this one.
+  const f = await seedEvent('who-vendor', new Date(Date.now() + 2 * DAY));
+  const m = await seedMission(f.eventId, 'The bouquet');
+  const vendor = await createUser('who-vendor@audit.test');
+  await addMember(f.eventId, vendor, 'vendor');
+
+  assert.equal(await canArm(vendor, m), false);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

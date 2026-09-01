@@ -183,7 +183,7 @@ export async function fetchActiveBroadcast(
  * through the SAME helpers, so "is it owned?" and "how is it owned?" cannot disagree.
  * Each helper graceful-degrades to `false` on any RPC error (pre-migration PGRST202
  * included), so a degraded read lands on 'unknown' → METERED. The failure mode is
- * "a grant holder is asked to add a day", never "a ₱2,999 product is given away
+ * "a grant holder is asked to add a day", never "a ₱3,000 product is given away
  * because an RPC blipped".
  *
  * ── COST ───────────────────────────────────────────────────────────────────────
@@ -311,7 +311,7 @@ export async function resolveBroadcastWindow(
  * ⇒ Stream free on Monday. Buy on Thursday — which the apply-then-pay **24-hour
  * MANUAL reconciliation SLA forces**, buy-ahead being the advice we give. The window
  * becomes `max(Mon, Thu) + 24h` = **Friday**. The wedding is **Saturday**: expired,
- * one camera, ₱2,999 paid. That inverted § 4f ②'s own promise — *"anchor the window
+ * one camera, ₱3,000 paid. That inverted § 4f ②'s own promise — *"anchor the window
  * on first go-live … buying early costs the couple nothing"* — into "your day starts
  * when you pay", on the one event that cannot be re-run.
  *

@@ -6,7 +6,7 @@
  * (owner-locked 2026-07-25 · Live_Studio_Unified_Spec_2026-07-25.md § 4f ②.)
  *
  * ── WHAT THIS IS ───────────────────────────────────────────────────────────────
- * ₱2,999 buys ONE EVENT-DAY of MULTI-CAMERA broadcasting. This module is the one
+ * ₱3,000 buys ONE EVENT-DAY of MULTI-CAMERA broadcasting. This module is the one
  * place that decides whether an event-day is currently running, when it ends, and
  * what happens when it lapses. It restores the per-day shape Cast (₱2,500/day) and
  * Roam (₱3,500/day) always had, which § 4d shipped by omission — more generous than
@@ -38,7 +38,7 @@
  * (migration 20270829098323, immutable by DB trigger) — reused, not re-invented, so
  * there is exactly one "when did this event first go live" fact in the database.
  *
- * ── EXTENSION = ANOTHER ₱2,999, ON THE EXISTING RAIL ───────────────────────────
+ * ── EXTENSION = ANOTHER ₱3,000, ON THE EXISTING RAIL ───────────────────────────
  * One price, no discount ladder (owner: "I just want 1 price"). An extra day is an
  * extra `orders` row for the SAME `LIVE_STUDIO` SKU, bought through the SAME inline
  * checkout drawer → GCash/BDO QR → /admin/payments. No new payment path, no new
@@ -54,7 +54,7 @@
  *
  * ── FAIL DIRECTIONS, CHOSEN DELIBERATELY ───────────────────────────────────────
  *   • Entitlement unknown → NOT owned → single camera. Fail CLOSED: a database
- *     blip must never give away a ₱2,999 multi-cam broadcast.
+ *     blip must never give away a ₱3,000 multi-cam broadcast.
  *   • Owned but the anchor is unreadable → treat as `awaiting-go-live` → multi-cam
  *     ON. Fail OPEN, on purpose and only here: this branch is reachable only by a
  *     host who has ALREADY PAID, and punishing them for a data glitch on a day that
@@ -121,7 +121,7 @@ const MS_PER_MINUTE = 60_000;
        and staff accounts are numerous and self-assignable in a way founder seats are
        not. Staff get the same one-event-day clock a paying customer gets.  → METERED
      • PROMO — a marketing free-window giveaway of the SKU. The giveaway is ONE
-       event-day, exactly what ₱2,999 buys; a promo that quietly conferred unlimited
+       event-day, exactly what ₱3,000 buys; a promo that quietly conferred unlimited
        days would be a different, much larger offer than the one advertised. → METERED
 
    ⚠ ORDER MATTERS AND IT IS NOT ALPHABETICAL. A founder account is very likely ALSO
@@ -134,7 +134,7 @@ const MS_PER_MINUTE = 60_000;
    everything else — 'unknown', a route nobody has named yet, a resolver that errored,
    an omitted field — is METERED. A new grant route added later is metered until
    someone deliberately adds it here, which is the safe direction: the failure mode is
-   "a grant holder is asked to add a day", not "a ₱2,999 product is given away". */
+   "a grant holder is asked to add a day", not "a ₱3,000 product is given away". */
 
 /** How a zero-day-order event came to own Live Studio. Resolved server-side. */
 export type GrantKind =
@@ -317,7 +317,7 @@ function toDate(v: string | Date | null | undefined): Date | null {
  *     contiguously and buying early costs the couple nothing. ✓
  *   • Bought long AFTER the window lapsed (a second celebration on the same event
  *     record): plain arithmetic would hand them a day that expired weeks ago — they
- *     would pay ₱2,999 for nothing. max() starts it at the purchase instead. ✓
+ *     would pay ₱3,000 for nothing. max() starts it at the purchase instead. ✓
  *
  * `boughtAt` is `orders.created_at`, not the approval time: it is stable, it never
  * moves, and it is EARLIER — which can only make a day stack contiguously rather
@@ -352,7 +352,7 @@ export function decideBroadcastWindow(input: WindowInput): WindowDecision {
   const days = input.dayStarts.filter((d) => toDate(d) !== null).length;
 
   // A METERED grant (internal / promo / unknown) is worth exactly ONE event-day —
-  // the same thing ₱2,999 buys. `days` keeps meaning "days actually purchased"; this
+  // the same thing ₱3,000 buys. `days` keeps meaning "days actually purchased"; this
   // is what the clock runs on.
   const grantedDay = days === 0;
   const meteredDays = grantedDay ? 1 : days;

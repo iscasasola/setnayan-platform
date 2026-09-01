@@ -23,7 +23,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  *    our own distribution. It is the one overlay a free host gets.
  *
  * 2. "POWERED BY SETNAYAN" IS PERMANENT ON THE FREE TIER. Every free stream
- *    carries it as its lower third; the ₱2,999 unlock REPLACES it with the couple's
+ *    carries it as its lower third; the ₱3,000 unlock REPLACES it with the couple's
  *    own. It is therefore **derived from the entitlement, never stored as a row** —
  *    if it were a row a free host could switch it off, and `resolveOverlays` would
  *    have to trust their setting. Here the free branch simply never consults

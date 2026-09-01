@@ -352,7 +352,7 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   // (g) ⭐ WAVE 7 · STAMP THE BROADCAST-WINDOW ANCHOR
   //     (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
   //
-  // ₱2,999 buys ONE EVENT-DAY of multi-cam broadcasting, anchored on the first ENTITLED GO-LIVE
+  // ₱3,000 buys ONE EVENT-DAY of multi-cam broadcasting, anchored on the first ENTITLED GO-LIVE
   // rather than a calendar day — no timezone ambiguity, and buying early costs the couple nothing
   // because the clock does not start until this line runs. Wave 5 noted that the unified go-live
   // path never wrote `first_live_at`; this is that gap closed.

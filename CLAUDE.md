@@ -40,12 +40,21 @@ has a shop** to *"Create your shop"*. Full list with file:line in the corpus han
 ⚠ `actions.ts` files are OUT OF SCOPE — there an absence DENIES, and failing closed is correct.
 
 ✅ **THE 11-ITEM BUILD LIST FROM THAT SWEEP IS COMPLETE** (#4583 → #4594). Nothing is open on it.
-⏭ **What is left is small and listed in the handoff §5**, chiefly: the wedding-onboarding account
-gate posts `public_summary_consent=yes` as a **hidden field**, silently opting a couple into public
-publication, while `/signup` has the same field as an **unticked box** — because the owner already
-ruled that on 2026-07-12. **One door missed an existing ruling; one line; do NOT re-ask him.** Also
-`guests.invitation_sent_at` has **zero writers**, so the guest list's "N to send" can never
-decrease.
+✅ **AND THE TWO ITEMS THIS FILE LISTED AS "WHAT IS LEFT" ARE DONE TOO — re-measured against
+`origin/main` on 2026-08-31.** Both are now fenced by a guard, so they stay done:
+
+- the wedding-onboarding gate no longer posts `public_summary_consent` as a hidden field —
+  `onboarding-shell.tsx` carries a `🔒 NO HIDDEN CONSENT` marker, held by
+  `apps/web/app/signup/consent-is-affirmative.test.ts`;
+- `guests.invitation_sent_at` now HAS a writer (`apps/web/app/dashboard/[eventId]/sponsors/actions.ts`),
+  held by `apps/web/lib/the-invite-step-counts-what-is-true.test.ts` — so the guest list's
+  "N to send" can decrease.
+
+🔑 **THIS PARAGRAPH IS ITSELF THE LESSON.** For an unknown stretch of sessions, this file's own
+"what is left" — the passage at the TOP, which every session reads first — pointed at two jobs that
+were already finished and fenced. **A handoff decays fastest exactly where it is read most.**
+Re-measure with the greppable anchors above before acting on any line in this block, including this
+one.
 
 🔎 **READY? Measured 2026-08-20: 9 accounts · 8 events · 2 shops (1 published) · 2 services ·
 0 packages** · ~~**0 ORDERS EVER**~~ ⚠ **CORRECTED 2026-08-30 (C10/C10b): 6 orders as of
@@ -249,7 +258,14 @@ says **"NOT A RULE — ORDERING."**
 Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. If any of these is at risk, **stop and surface the question** rather than silently changing direction.
 
 - **Web-first V1, single Next.js codebase.** Distributed to web (Vercel) · desktop (Tauri macOS + Windows) · installable PWA (iPhone / Android / iPad). Native iOS/Android Papic + DSLR pairing are Phase 2.
-- **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct charm pricing (-1 endings).
+- **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct pricing.
+  ⚠ **CHARM ENDINGS ARE NO LONGER THE RULE.** This line said "charm pricing (-1 endings)" for months,
+  but the owner's 2026-08-27 price sheet (`DECISION_LOG.md`) rounded three SKUs OFF their -1 endings in
+  one day — `LIVE_STUDIO` ₱2,999 → **₱3,000**, `PAPIC_ADDON_THANK_YOU` ₱2,499 → ₱2,500, and the custom
+  catalogue's `reachNationwide` — owner, verbatim: *"make the whole number 500, 2500"*. Some SKUs still
+  end in -1 and that is fine; there is no convention to enforce either way.
+  🔑 **NEVER derive a price from this file or from a code comment — read
+  `platform_retail_catalog_v2`, which is admin-managed and is the only price a customer is charged.**
 - **Canonical entity IDs:** `S89<TYPE>-<10-char Crockford>` random body. Generator function: `public.generate_public_id(type_letter)`. Internal joins use hidden `bigserial`.
 - **RLS canonical patterns.** 8 patterns + 4 helper functions (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). No invented patterns. RLS enabled at `CREATE TABLE` time.
 - **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com`. ⚠ **WE DO NOT OWN

@@ -6,7 +6,7 @@
  * PANOOD_SYSTEM_MOBILE]` so an existing Cast buyer keeps what they bought when the
  * unified controller lands. That alias is a READ rule — it does not care whether the
  * order that trips it is historical or placed thirty seconds ago. So while
- * PANOOD_SYSTEM stayed sellable at ₱2,500, ANY new buyer collected the ₱2,999 unified
+ * PANOOD_SYSTEM stayed sellable at ₱2,500, ANY new buyer collected the ₱3,000 unified
  * Live Studio entitlement through it. ₱500 off, available to everyone, with no code
  * path anywhere that noticed.
  *
@@ -96,7 +96,7 @@ test('checkout REFUSES a retired SKU, and does so before any charge resolver', (
  *
  * It didn't. The row has been is_active=false since 2026-07-26, it has never had a
  * single order, and the couple's Studio was left showing TWO live-streaming tiles —
- * the retired Cast one and the live ₱2,999 one — for the same product. So
+ * the retired Cast one and the live ₱3,000 one — for the same product. So
  * /studio/panood is retired outright and forwards to the Live Studio that exists.
  *
  * The property these tests hold is unchanged and now stronger: no fake door. A page

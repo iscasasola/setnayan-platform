@@ -56,7 +56,7 @@ export const V2_SKU_CODES = [
   // 20271001110000) — kept here so historical order rows still resolve a price.
   'LIVE_STUDIO_ROAM',
   // Live Studio — the UNIFIED customer-facing SKU that merges Cast (PANOOD_SYSTEM)
-  // + Roam (LIVE_STUDIO_ROAM) into one switching-based product (₱2,999 · per event ·
+  // + Roam (LIVE_STUDIO_ROAM) into one switching-based product (₱3,000 · per event ·
   // owner 2026-07-25). Seeded by migration 20271001110000. Listed here so
   // formatV2Sku('LIVE_STUDIO') resolves the live catalog price for the unified buy
   // page. Dark until launch behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED.

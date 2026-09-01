@@ -55,7 +55,7 @@ import { getPanoodIceServers } from '@/app/panood/actions';
  * PRIVATE Realtime channel whose RLS predicate (`panood_rtc_can_access`, migration
  * 20270829134804) admits only a control-room member or a claimed camera operator.
  * Nothing here writes `events.live_studio_roam_manifest`, which is the one column
- * that makes video guest-visible and where the ₱2,999 publication paywall sits
+ * that makes video guest-visible and where the ₱3,000 publication paywall sits
  * (lib/live-studio-publish.ts). Watching your own cameras is rehearsal, and
  * rehearsal is free (§ 4d).
  */
@@ -148,6 +148,12 @@ export function CameraFeedsProvider({
               track.onended = () => dropRef.current(slot);
               track.onmute = () => dropRef.current(slot);
             }
+          },
+          onSignalRefused: (status) => {
+            // The control room can reach no camera at all. Logged rather than
+            // rendered here: each tile already shows its honest placeholder, and a
+            // second banner over a rehearsal screen would be noise.
+            console.error(`[panood/control] signalling channel refused (${status})`);
           },
           onSlotState: (slot, state) => {
             if (state === 'failed') {

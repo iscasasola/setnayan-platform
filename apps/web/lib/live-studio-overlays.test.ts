@@ -129,7 +129,7 @@ test('the event-QR overlay is FREE — it renders for an un-purchased host', () 
   assert.deepEqual(
     r.eventQr,
     { position: 'bottom-right' },
-    'owner-locked: a scan-to-join code is not behind the ₱2,999',
+    'owner-locked: a scan-to-join code is not behind the ₱3,000',
   );
 });
 

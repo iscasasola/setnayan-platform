@@ -276,7 +276,7 @@ test('⭐ THE FIX — a FREE go-live does NOT stamp the paid clock', async () =>
   // is exactly what used to burn the couple's paid day before they had bought it.
   const { client, wrote } = stampStub({});
   await stampFirstLiveAt(client, EVENT);
-  assert.deepEqual(wrote, [], 'a free broadcast must never start the ₱2,999 clock');
+  assert.deepEqual(wrote, [], 'a free broadcast must never start the ₱3,000 clock');
 });
 
 test('⭐ ANTI-VACUITY — a PAID go-live with no anchor DOES stamp', async () => {

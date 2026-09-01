@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchReadinessFacts } from '@/lib/live-studio-readiness-server';
+import { poolRouteToAir } from '@/lib/live-studio-readiness';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
@@ -206,7 +208,7 @@ export const metadata = { title: 'Live Studio controller' };
 //   1. NO PADLOCKS OVER THE TILES. Every configured camera renders at FULL
 //      brightness with its real state, for every host. Seeing the cameras actually
 //      working IS the conversion mechanism; dimming them recreates the exact defect
-//      Wave 3 fixes — asking ₱2,999 for an experience the couple never felt, for a
+//      Wave 3 fixes — asking ₱3,000 for an experience the couple never felt, for a
 //      day that cannot be redone.
 //   2. THE PAYWALL IS STATED AT THE GO-LIVE MOMENT — "Rehearse free · Unlock <price>
 //      to broadcast all your cameras", right under the monitor where going live
@@ -492,6 +494,25 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   if (grantError) console.error('[panood/control] youtube grant read refused', grantError);
   const youtubeGrant = (grantRaw ?? null) as YoutubeGrant;
 
+  // ⭐ A ROUTE TO AIR IS NOT ONLY A BYO GRANT. The read above asks `oauth_grants`,
+  // which is the COUPLE'S OWN channel and nothing else — but `goLivePanood` has
+  // preferred a SETNAYAN POOL channel since Wave 9. Gating the button on the BYO
+  // table alone told every pool-served host to "Connect your YouTube channel
+  // first", the one instruction Wave 9 exists to abolish, while a healthy Setnayan
+  // channel sat available and the hidden button would have worked.
+  // See lib/live-studio-readiness.ts → poolRouteToAir for the measurement.
+  // Fail-honest: a refused read leaves this false, so the by-hand switch is offered
+  // rather than a one-tap button nobody can prove will work.
+  // No flag guard here on purpose: this page already `notFound()`s above when
+  // liveStudioRoamEnabled() is false, so a second check would be dead code.
+  let pooledRoute = false;
+  try {
+    pooledRoute = poolRouteToAir(await fetchReadinessFacts(admin, eventId));
+  } catch (e) {
+    console.error('[panood/control] pool readiness read refused', e);
+  }
+  const hasRouteToAir = !!youtubeGrant || pooledRoute;
+
   let youtubeWatchUrl: string | null = null;
   // DUAL-STREAM (2026-07-26): the couple's simultaneous Facebook Live link.
   let facebookWatchUrl: string | null = null;
@@ -573,8 +594,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // ── ⭐ WAVE 7 · THE BROADCAST WINDOW ─────────────────────────────────────────
   // (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
   //
-  // ₱2,999 buys ONE EVENT-DAY of MULTI-CAM broadcasting, anchored on first go-live,
-  // extendable by another ₱2,999, and never interrupted mid-broadcast. This is the
+  // ₱3,000 buys ONE EVENT-DAY of MULTI-CAM broadcasting, anchored on first go-live,
+  // extendable by another ₱3,000, and never interrupted mid-broadcast. This is the
   // SAME resolver `canPublishMultiCam` delegates to, so the controller, the program
   // pop-out, the manifest mirror and the public page cannot disagree about whether
   // this host may put more than one camera on air.
@@ -599,7 +620,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   //     what actually goes out.
   //   • `entitled` — have they bought Live Studio at all? Feeds only the WORDS. A
   //     host whose event-day lapsed still owns the product, so showing them
-  //     "Unlock · ₱2,999" would ask them to buy something they already have; what
+  //     "Unlock · ₱3,000" would ask them to buy something they already have; what
   //     they need is "Add another day", which the window strip offers.
   const owned = broadcastWindow.multiCam;
   const entitled = broadcastWindow.reason !== 'not-owned';
@@ -1039,7 +1060,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             <TransportRow
               eventId={eventId}
               oauthReady={oauthReady}
-              connected={!!youtubeGrant}
+              connected={hasRouteToAir}
               isLive={isLive}
               connectHref="#connect"
             />
@@ -1436,7 +1457,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       </CameraFeedsProvider>
 
       {/* ═══ UNLOCK BAR — the pitch, price from the catalog ════════════════════
-          Wave 3 wording: what the ₱2,999 buys is BROADCASTING the cameras, because
+          Wave 3 wording: what the ₱3,000 buys is BROADCASTING the cameras, because
           using them is already free. This is the sales surface, not a gate.
 
           ⭐ WAVE 8: the prototype's fixed bottom `.unlock` bar. `shrink-0`, so it is
@@ -1536,6 +1557,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               Point OBS (or any RTMP encoder) at the server + key below and press “Start
               Streaming” — or open the YouTube app and go live to the same broadcast. Setnayan
               never touches your video.
+            </p>
+            {/* ⭐ Deliberately the same sentence as the setup card's encoder block: an
+                operator who only ever opens the controller must not be the one couple who
+                never hears it. A watch link is not a file — lib/live-studio-recordings.ts. */}
+            <p className="max-w-prose rounded-lg border border-terracotta/25 bg-terracotta/5 p-3 text-xs text-ink/75">
+              <strong className="font-semibold text-ink/85">Press “Start Recording” too.</strong>{' '}
+              OBS saves a full-quality copy to your own computer while it streams. You keep that
+              file even if the broadcast drops, and if Setnayan supplied the channel it is the
+              only copy you can download.
             </p>
           </div>
 

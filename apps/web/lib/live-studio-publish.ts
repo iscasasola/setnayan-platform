@@ -25,7 +25,7 @@ export * from '@/lib/live-studio-publish-pure';
  * ── WHAT MOVED, AND WHY ────────────────────────────────────────────────────────
  * Waves 1–2 put the paywall on the MECHANIC: `requireLiveStudioOwned` sat on the
  * cut / channel-config / overlay-config actions, so a free host saw padlocked tiles
- * and was asked for ₱2,999 for an experience they had never felt — for a day that
+ * and was asked for ₱3,000 for an experience they had never felt — for a day that
  * cannot be redone. The owner moved it to where the value actually is:
  *
  *   FREE  · private rehearsal, unlimited — add cameras, name them, tap-cut between
@@ -80,14 +80,14 @@ export * from '@/lib/live-studio-publish-pure';
  *
  * FAIL-CLOSED. Every entitlement lookup here resolves to `false` on any error, and
  * `false` means "publish one channel, not many". A database blip must never be the
- * reason a ₱2,999 multi-cam broadcast goes out for free.
+ * reason a ₱3,000 multi-cam broadcast goes out for free.
  */
 
 /**
  * ⭐ THE ONE ANSWER to "may this host broadcast multi-cam right now?"
  *
  * WAVE 7 (owner-locked 2026-07-25 · § 4f ②): holding the SKU is no longer the whole
- * question. ₱2,999 buys ONE EVENT-DAY, so this delegates to
+ * question. ₱3,000 buys ONE EVENT-DAY, so this delegates to
  * `resolveBroadcastWindow` (lib/live-studio-window-server.ts), which answers ownership AND
  * whether the purchased day is currently running.
  *

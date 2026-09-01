@@ -165,7 +165,7 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Go live & interactive',
     items: [
-      // ⭐ THE UNIFIED LIVE STUDIO SKU — ₱2,999 PER EVENT (owner-locked 2026-07-25 ·
+      // ⭐ THE UNIFIED LIVE STUDIO SKU — ₱3,000 PER EVENT (owner-locked 2026-07-25 ·
       // Live_Studio_Unified_Spec § 3: Cast + Roam merged into one switching product).
       //
       // 🚨 IT MUST BE LISTED HERE OR IT CAN NEVER APPEAR. `resolvedGroups` maps over
@@ -181,10 +181,10 @@ const ADDON_GROUPS: CatalogGroup[] = [
       // while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, so this row is omitted today
       // and appears the moment the owner flips the flag — one launch switch, no second
       // code change. (Free single-camera livestream is unaffected and stays free.)
-      { code: 'LIVE_STUDIO' }, // Live Studio ₱2,999/event — the unified switching SKU
+      { code: 'LIVE_STUDIO' }, // Live Studio ₱3,000/event — the unified switching SKU
       // ~~PANOOD_SYSTEM~~ (Cast, ₱2,500/day) is **RETIRED** — is_active=false via
       // migration 20271005180040 (PR #3716), because Wave 6's ownership alias
-      // LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the ₱2,999 unified
+      // LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the ₱3,000 unified
       // controller (a ₱500 arbitrage on a live buy button). PANOOD_SYSTEM_MOBILE was
       // retired 2026-07-21 and was never purchasable anyway (no buy surface ever posted
       // it, zero orders). Both drop out of resolvedGroups automatically; the code stays

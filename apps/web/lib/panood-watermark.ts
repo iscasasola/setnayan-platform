@@ -37,7 +37,7 @@
  * ── WHAT REPLACED THE 24-HOUR WINDOW ───────────────────────────────────────────────────────
  * lib/live-studio-window.ts. Same best rule (never interrupt a running broadcast), same anchor
  * (`panood_control_state.first_live_at`, reused not re-invented), but it gates MULTI-CAM rather
- * than an overlay, it is EXTENDABLE (another ₱2,999 = another event-day), and it bounds the
+ * than an overlay, it is EXTENDABLE (another ₱3,000 = another event-day), and it bounds the
  * never-interrupt grace to the broadcast that was already running. `PANOOD_WINDOW_HOURS` below is
  * the retired 24h constant and is superseded by `LIVE_STUDIO_DAY_HOURS` there.
  *

@@ -49,8 +49,46 @@ const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
 ];
 
 /** Past this, a peer stuck mid-handshake is declared failed (STUN-only has no TURN fallback to keep waiting for). */
+import { isSignalFailureStatus, SIGNAL_REFUSED_NOTICE } from '@/lib/panood-signal-status';
+
+export { isSignalFailureStatus, SIGNAL_REFUSED_NOTICE };
+
 const CONNECT_TIMEOUT_MS = 15_000;
 const HELLO_RETRY_MS = 2_000;
+
+/**
+ * ⭐ THE JWT THE PRIVATE CHANNEL IS JUDGED ON — and why it must be set explicitly.
+ *
+ * `signalChannelConfig()` sets `private: true`, so Supabase evaluates RLS on
+ * `realtime.messages` for every subscribe. That predicate is
+ * `public.panood_rtc_can_access(topic)`, and its FIRST line is:
+ *
+ *     IF auth.uid() IS NULL THEN RETURN FALSE; END IF;
+ *
+ * `auth.uid()` there resolves from the token held by the REALTIME SOCKET, which is
+ * a different thing from the session the REST client uses. Until the socket is told
+ * the user's access token it carries the anon key, `auth.uid()` is NULL, and every
+ * subscribe on this topic is refused — for the camera AND the control room alike,
+ * on the same machine, with no network in between.
+ *
+ * 🔑 THAT IS INVISIBLE WITHOUT THE STATUS HANDLING BELOW: a refused subscribe and a
+ * slow one both leave the page reading "connecting to the controller…" forever.
+ * Measured 2026-09-01 — an hour of a wedding platform's only live transport spent
+ * guessing, because the one signal that answers it was being discarded.
+ *
+ * Re-primed on every call rather than once at client construction: a token refresh
+ * mid-ceremony must not silently downgrade the socket to anon on the next reconnect.
+ */
+async function primeRealtimeAuth(supabase: ReturnType<typeof createClient>): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) supabase.realtime.setAuth(token);
+  } catch {
+    // Deliberately swallowed: subscribe still runs, and its status is now REPORTED
+    // rather than dropped, so the refusal shows up as a refusal.
+  }
+}
 
 function signalChannelName(eventId: string): string {
   return `panood-rtc:${eventId}`;
@@ -126,12 +164,19 @@ export function publishPanoodCamera({
   slot,
   stream,
   onState,
+  onSignalRefused,
   iceServers = DEFAULT_ICE_SERVERS,
 }: {
   eventId: string;
   slot: string;
   stream: MediaStream;
   onState: (state: PeerConnectionState) => void;
+  /**
+   * The signalling channel refused outright (see isSignalFailureStatus). Distinct
+   * from `onState('failed')`, which also covers a peer that never connected: this
+   * one means the two ends never got to talk at all, and it is not the host's fault.
+   */
+  onSignalRefused?: (status: string) => void;
   /** STUN + (ideally) a minted TURN relay from `getPanoodIceServers`; STUN-only if omitted. */
   iceServers?: RTCIceServer[];
 }): CameraPublisher {
@@ -189,7 +234,12 @@ export function publishPanoodCamera({
       if (p.slot !== slot || p.side !== 'viewer' || !p.candidate || !pc) return;
       void pc.addIceCandidate(p.candidate).catch(() => {});
     })
-    .subscribe((status) => {
+    ;
+
+  // Prime the socket's JWT BEFORE subscribing — a private channel is judged on it.
+  void primeRealtimeAuth(supabase).then(() => {
+    if (closed) return;
+    channel.subscribe((status) => {
       if (status === 'SUBSCRIBED' && !closed) {
         // Announce until the viewer acks with viewer-hello (which triggers the
         // offer) — covers either side subscribing first.
@@ -198,8 +248,18 @@ export function publishPanoodCamera({
           if (pc && pc.connectionState === 'connected') stopHello();
           else send('cam-hello', { slot });
         }, HELLO_RETRY_MS);
+        return;
+      }
+      // ⭐ THE BRANCH THAT DID NOT EXIST. Silence here is what made a refused
+      // channel look identical to a slow one for as long as anyone cared to wait.
+      if (isSignalFailureStatus(status) && !closed) {
+        console.error(`[panood-rtc] publisher subscribe ${status} on ${signalChannelName(eventId)}`);
+        stopHello();
+        onSignalRefused?.(status);
+        onState('failed');
       }
     });
+  });
 
   return {
     close: () => {
@@ -226,11 +286,14 @@ export function watchPanoodCameras({
   eventId,
   onTrack,
   onSlotState,
+  onSignalRefused,
   iceServers = DEFAULT_ICE_SERVERS,
 }: {
   eventId: string;
   onTrack: (slot: string, stream: MediaStream) => void;
   onSlotState: (slot: string, state: PeerConnectionState) => void;
+  /** The signalling channel refused outright — no camera can reach this viewer. */
+  onSignalRefused?: (status: string) => void;
   /** STUN + (ideally) a minted TURN relay from `getPanoodIceServers`; STUN-only if omitted. */
   iceServers?: RTCIceServer[];
 }): ControlRoomViewer {
@@ -294,9 +357,21 @@ export function watchPanoodCameras({
       if (!isSlot(p.slot) || p.side !== 'cam' || !p.candidate) return;
       void pcs.get(p.slot)?.addIceCandidate(p.candidate).catch(() => {});
     })
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED' && !closed) send('viewer-hello', {});
+    ;
+
+  void primeRealtimeAuth(supabase).then(() => {
+    if (closed) return;
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED' && !closed) {
+        send('viewer-hello', {});
+        return;
+      }
+      if (isSignalFailureStatus(status) && !closed) {
+        console.error(`[panood-rtc] viewer subscribe ${status} on ${signalChannelName(eventId)}`);
+        onSignalRefused?.(status);
+      }
     });
+  });
 
   return {
     close: () => {

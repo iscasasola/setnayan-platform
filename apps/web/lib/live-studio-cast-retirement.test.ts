@@ -4,7 +4,7 @@
  * Two "live streaming" tiles reached the couple's Studio at once:
  *
  *   • "Live Studio"      → /studio/live-studio-control   · serviceKey LIVE_STUDIO
- *                          ₱2,999, is_active = TRUE, listed on the public /pricing page.
+ *                          ₱3,000, is_active = TRUE, listed on the public /pricing page.
  *   • "Live Studio Cast" → /studio/panood                · serviceKey PANOOD_SYSTEM
  *                          ₱2,500, is_active = FALSE in production since 2026-07-26,
  *                          zero orders EVER (checked against prod, 2026-08-06).
@@ -33,7 +33,7 @@
  * 3. A PAYING CUSTOMER WAS TOLD THEY HAD NOT PAID. resolvePanoodTier() resolves
  *    only PANOOD_SYSTEM / PANOOD_SYSTEM_MOBILE, and the LIVE_STUDIO → Cast ownership
  *    alias is deliberately ONE-DIRECTIONAL (lib/entitlements.ts). So a couple who
- *    had just paid ₱2,999 read "You have 3 cameras free to test with. Every feed
+ *    had just paid ₱3,000 read "You have 3 cameras free to test with. Every feed
  *    carries the Setnayan mark until you unlock Live Studio" on the legacy camera
  *    page — the SKU they own is not in the sentence's vocabulary.
  *

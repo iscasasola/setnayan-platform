@@ -82,6 +82,8 @@ export function LiveStudioRecordingsCard({
           YouTube keeps an unlisted recording of every broadcast, and it stays up
           indefinitely. These are watch links — if your broadcast went out on your
           own YouTube channel, you can also download the file from YouTube Studio.
+          If you pressed “Start Recording” in OBS, your own full-quality copy is
+          already saved on the computer you streamed from.
         </p>
       </div>
 

@@ -13,6 +13,7 @@ import { DependentsSection } from './_components/dependents-section';
 import { SamahanPeopleSection } from './_components/samahan-people-section';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { YourStorySection } from './_components/your-story-section';
+import { ConnectionTreeSection } from './_components/connection-tree-section';
 
 export const metadata = {
   title: 'People',
@@ -119,6 +120,13 @@ export default async function PeoplePage({
           spouseNote={spouseAbsenceNote(spouseCtx)}
         />
       ) : null}
+      {/* THE TREE. `kinship-derive.ts` shipped on 2026-07-31 and had NO CONSUMER
+          until now — the derivation ran for nobody. It renders under the roster
+          because the roster is where you ADD someone and this is what those
+          additions add up to (spec §6: "Do not build a new page — the People
+          surface exists"). Gated on `showConnections` alone: it derives from
+          person_connections only, so alaga-only accounts have nothing to draw. */}
+      {showConnections && user ? <ConnectionTreeSection userId={user.id} /> : null}
       {/* The alaga CARDS keep their own section: hand-over links, godparents and
           the sharing switch live per alaga, and the roster row is a summary of
           them, not a replacement. */}

@@ -1,5 +1,7 @@
 import { FeaturesHero } from './_sections/_Hero';
 import { FeaturesAnchorNav } from './_sections/_AnchorNav';
+import { WhySetnayan, WHY_FAQ } from './_sections/_WhySetnayan';
+import { HowItWorks } from './_sections/_HowItWorks';
 import { PlanningToolkit } from './_sections/_PlanningToolkit';
 import { Communications } from './_sections/_Communications';
 import { VendorsLedger } from './_sections/_VendorsLedger';
@@ -54,6 +56,23 @@ function featuresJsonLd(locale: MarketingLocale) {
         about: { '@id': `${SITE_URL}/#organization` },
         inLanguage: inLanguageTag(locale),
       },
+      /*
+        FAQPage — carried over from the retired /why-setnayan so its rich-result
+        eligibility MOVES with the content rather than being dropped on the
+        floor. Built from `WHY_FAQ`, the SAME constant the section renders: a
+        rich result quoting an answer the page no longer shows is worse than no
+        rich result at all, and two copies of an FAQ do not stay equal.
+      */
+      {
+        '@type': 'FAQPage',
+        '@id': `${url}#faq`,
+        inLanguage: inLanguageTag(locale),
+        mainEntity: WHY_FAQ[locale].map((item) => ({
+          '@type': 'Question',
+          name: item.q,
+          acceptedAnswer: { '@type': 'Answer', text: item.a },
+        })),
+      },
       {
         '@type': 'BreadcrumbList',
         '@id': `${url}#breadcrumb`,
@@ -76,6 +95,14 @@ export function FeaturesPageBody({ locale }: { locale: MarketingLocale }) {
       <main className="min-h-dvh">
         <FeaturesHero locale={locale} />
         <FeaturesAnchorNav locale={locale} />
+        {/* The two framing sections, folded in 2026-09-01 from the retired
+            /why-setnayan and /how-it-works. They come BEFORE the numbered
+            catalogue deliberately: a reader needs the frame and the cast before
+            the inventory. Section NUMBERING was left alone — these are
+            orientation, not catalogue entries, so Sections 1–6 keep their
+            labels and six files stayed shut. */}
+        <WhySetnayan locale={locale} />
+        <HowItWorks locale={locale} />
         <PlanningToolkit locale={locale} />
         <Communications locale={locale} />
         <VendorsLedger locale={locale} />

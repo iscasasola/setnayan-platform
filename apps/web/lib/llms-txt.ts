@@ -315,7 +315,6 @@ export const LINKED_ROUTES = [
   '/pricing',
   '/vendors',
   '/setnayan-ai',
-  '/why-setnayan',
   '/our-story',
   '/features',
   '/papic',
@@ -327,7 +326,6 @@ export const LINKED_ROUTES = [
   '/pakanta',
   '/monogram',
   '/alaala',
-  '/how-it-works',
   '/about',
   // ⚠ BOTH, and neither is spare. `/weddings` 308-redirects to `/realstories`
   // (next.config.ts, 2026-06-14 rename) so the old path still resolves and stays
@@ -441,11 +439,10 @@ What is LIVE today: every event type listed above; an event automatically becomi
 - [Pricing](${url('/pricing')}) — Planning tiers, customer software SKUs, and vendor subscriptions.
 - [List Your Business](${url('/vendors')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission.
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
-- [Why Setnayan](${url('/why-setnayan')}) — Setnayan versus a spreadsheet, a coordinator, and international platforms.
+- [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
-- [Features](${url('/features')}) — Planning tools and in-app services.
 - Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Patiktok](${url('/patiktok')}) · [Pakanta](${url('/pakanta')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
-- [How It Works](${url('/how-it-works')}) · [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
+- [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
 ## About Setnayan

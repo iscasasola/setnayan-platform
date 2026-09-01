@@ -222,7 +222,11 @@ export default function AboutPageTaglish() {
               habang lumalabas ang next iterations.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
-              <Link href="/how-it-works" className="button-primary h-11 px-5 text-sm">
+              {/* 2026-09-01 — /how-it-works folded into /features.
+                  🔴 THIS LINK ALSO LEAKED LOCALE: the Taglish About page sent
+                  its reader to the ENGLISH /how-it-works, not /tl/how-it-works.
+                  Repointed to the Taglish twin, deep-linked to the section. */}
+              <Link href="/tl/features#how-it-works" className="button-primary h-11 px-5 text-sm">
                 How it works
               </Link>
               <Link

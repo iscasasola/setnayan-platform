@@ -65,6 +65,15 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'venues',
 
   // --- real top-level product / marketing routes (must not be shadowed) -----
+  // ⚠ SOME OF THESE NO LONGER HAVE A ROUTE FOLDER, AND THAT IS FINE — THIS HALF
+  // IS THE REASON. `how-it-works` and `why-setnayan` became 308s to /features on
+  // 2026-09-01 (the three-explainers merge). They left the GENERATED half with
+  // their folders and stayed reserved HERE, where they already were.
+  //
+  // 🔑 A RETIRED URL THAT STILL RESOLVES MUST STAY RESERVED. A shop that minted
+  // setnayan.com/how-it-works would SHADOW the redirect, and a shop address is
+  // immutable once minted. That is what this section's "must not be shadowed"
+  // has always meant; the merge did not add the risk, it made it visible.
   'acceptable-use',
   'alaala',
   'blog',
@@ -124,6 +133,7 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // breaks its drift test. Already reserved in the database mint.
   'pabati',
 
+
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----
   '_next',
@@ -165,7 +175,6 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'health',
   'help',
   'host',
-  'how-it-works',
   'join',
   'login',
   'monogram',
@@ -203,7 +212,6 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'vendors',
   'waitlist',
   'wall',
-  'why-setnayan',
   // <<< END GENERATED ROUTE SLUGS
 ]);
 

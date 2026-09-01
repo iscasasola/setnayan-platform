@@ -22,6 +22,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { stripComments } from '@/lib/strip-comments';
 import { WHY_FAQ } from './_sections/_WhySetnayan';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -35,13 +36,21 @@ const WHY = readFileSync(join(HERE, '_sections', '_WhySetnayan.tsx'), 'utf8');
 const BODY = readFileSync(join(HERE, '_PageBody.tsx'), 'utf8');
 const NAV = readFileSync(join(HERE, '_sections', '_AnchorNav.tsx'), 'utf8');
 
-/** Strip comments — a rule EXPLAINED in prose must never satisfy a check. */
-function code(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
-}
+// Strip comments — a rule EXPLAINED in prose must never satisfy a check.
+//
+// 🔑 THE REPO'S ONE STRIPPER, NOT A LOCAL ONE. `lint-one-comment-stripper.mjs`
+// is a blocking CI guard, and it caught this file growing its own two-replace
+// regex. That shape strips BLOCK comments first, so a line comment containing a
+// slash-star sequence opens a comment that only closes at the next real
+// star-slash — blanking everything between, after which a guard asserts against
+// a blank and PASSES. Measured 2026-08-30: one added JSDoc cut what six guards
+// could see from 16,218 characters to 6,430.
+//
+// 🪤 AND THIS NOTE WAS ITSELF THE BUG, FIRST TIME AROUND. Written as a /* */
+// block, its own literal star-slash CLOSED the comment early and the file
+// stopped parsing — TS1005, TS1161, the lot. Line comments here, deliberately:
+// prose about comment delimiters must not be written inside a block comment.
+const code = stripComments;
 
 const HOW_CODE = code(HOW);
 const NEXT_CODE = code(NEXT_CONFIG);

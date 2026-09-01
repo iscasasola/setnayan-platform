@@ -88,3 +88,32 @@ locales' shape, and all four corrections.
 
 SPEC IMPACT: None. No pricing, no schema, no gate, no locked decision. Public
 copy corrected to match shipped behaviour.
+
+### 🪤 Two CI-only guards the local suite never runs
+
+`npm run test:unit` does not run the `lint-*.mjs` blocking guards, so both of
+these went green locally and red in CI:
+
+- **`lint-one-comment-stripper`** — this PR's guard had grown its **own**
+  two-replace comment stripper. That shape strips BLOCK comments first, so a
+  line comment containing a slash-star sequence opens a comment that closes only
+  at the next real star-slash, blanking everything between — after which a guard
+  asserts against a blank and *passes*. Now uses `lib/strip-comments.ts`, the
+  repo's one stripper. (Measured 2026-08-30: one added JSDoc cut what six guards
+  could see from 16,218 characters to 6,430.)
+- **`lint-port-no-lost-controls`** — `/about` and `/tl/about` stopped offering
+  `/how-it-works`. The removal is deliberate, so the baseline was regenerated in
+  this PR, exactly as the guard instructs; each removed control is now one
+  readable line in the diff. **The baseline was regenerated only AFTER merging
+  `origin/main`** — regenerating from a stale base would have silently dropped
+  routes other PRs had added. Every removal in that diff belongs to the three
+  retired routes; nothing else lost anything.
+
+🔑 **And the fix for the first one broke the file.** The note explaining the
+star-slash hazard was written *as a block comment*, so its own literal
+star-slash closed the comment early and the file stopped parsing. Rewritten as
+line comments. Prose about comment delimiters must not live inside a block
+comment — the guard's own failure mode, reproduced while documenting it.
+
+**Now verified the way CI verifies:** 11,696 unit tests, `tsc` clean, `next lint`
+clean, and all **22 blocking guards** run locally and passing.

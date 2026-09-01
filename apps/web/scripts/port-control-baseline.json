@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c216ac53d",
-  "routeCount": 410,
-  "destinations": 885,
-  "actions": 609,
-  "blocks": 4144,
+  "generatedFromRef": "e8a16c750",
+  "routeCount": 409,
+  "destinations": 881,
+  "actions": 612,
+  "blocks": 4151,
   "routes": {
     "/": {
       "files": [
@@ -62,8 +62,8 @@
       "destinations": [
         "/",
         "/explore",
+        "/features",
         "/help",
-        "/how-it-works",
         "/pricing",
         "/signup",
         "/tl/about"
@@ -647,6 +647,7 @@
         "[slug]/_lib/types.ts",
         "[slug]/actions.ts",
         "[slug]/announcement-actions.ts",
+        "[slug]/avatar-actions.ts",
         "[slug]/error.tsx",
         "[slug]/layout.tsx",
         "[slug]/not-found.tsx",
@@ -823,6 +824,7 @@
         "RsvpPill",
         "RsvpWidget",
         "RunOfShowHeader",
+        "SaveAvatarResult",
         "SavePhotoButton",
         "SaveStoryCardButton",
         "SaveTheDateFilm",
@@ -883,6 +885,31 @@
         "WhatToBringWidget",
         "YourPhotosWidget",
         "YourSeatBlock"
+      ]
+    },
+    "/[slug]/avatar": {
+      "files": [
+        "[slug]/avatar/_components/avatar-maker-loader.tsx",
+        "[slug]/avatar/_components/avatar-maker.tsx",
+        "[slug]/avatar/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]",
+        "/[seg]/venue"
+      ],
+      "actions": [],
+      "blocks": [
+        "AvatarMaker",
+        "AvatarMakerLoader",
+        "Canvas",
+        "ChibiAvatarConfig",
+        "ChibiFigure",
+        "Chip",
+        "K",
+        "Link",
+        "OrbitControls",
+        "Row",
+        "Swatch"
       ]
     },
     "/[slug]/find-my-table": {
@@ -1030,6 +1057,7 @@
     "/[slug]/seat": {
       "files": [
         "[slug]/seat/_components/arrival-bloom.tsx",
+        "[slug]/seat/_components/guest-push-prompt.tsx",
         "[slug]/seat/page.tsx"
       ],
       "destinations": [
@@ -1038,10 +1066,12 @@
       "actions": [],
       "blocks": [
         "AnimatedMonogramHero",
+        "ArrayBuffer",
         "ArrivalBloom",
         "BackLink",
         "EventMonogram",
         "EventMonogramBadge",
+        "GuestPushPrompt",
         "Link",
         "LiveRefresher",
         "Logo",
@@ -1062,12 +1092,14 @@
       ],
       "destinations": [
         "/[seg]",
+        "/[seg]/avatar",
         "/[seg]/venue"
       ],
       "actions": [],
       "blocks": [
         "BoothVendorCard",
         "Canvas",
+        "ChibiFigure",
         "DanceFloorMural",
         "EmoteBubbles",
         "Figure",
@@ -3628,9 +3660,13 @@
       "files": [
         "api/v1/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/api-keys"
+      ],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "Link"
+      ]
     },
     "/blog": {
       "files": [
@@ -3931,6 +3967,7 @@
       "files": [
         "dashboard/(account)/people/_components/add-alaga-button.tsx",
         "dashboard/(account)/people/_components/add-alaga-fields.tsx",
+        "dashboard/(account)/people/_components/connection-tree-section.tsx",
         "dashboard/(account)/people/_components/dependents-section.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/samahan-people-section.tsx",
@@ -3941,6 +3978,7 @@
         "dashboard/(account)/people/page.tsx"
       ],
       "destinations": [
+        "/dashboard/people/[seg]",
         "/dashboard/samahan/[seg]",
         "/dashboard/samahan/new",
         "/onboarding/debut"
@@ -3962,20 +4000,24 @@
         "AddAlagaFields",
         "Avatar",
         "ConfirmForm",
+        "ConnectionTreeSection",
         "CopyButton",
         "DependentKind",
         "DependentsSection",
         "Drawer",
         "Facet",
         "Fragment",
+        "Frame",
         "HTMLButtonElement",
         "HTMLInputElement",
         "LabelCell",
+        "Layer",
         "LifeStorySection",
         "Link",
         "PageMasthead",
         "PeoplePreview",
         "PeopleRosterView",
+        "Person",
         "Popover",
         "PreviewRow",
         "RowActions",
@@ -3984,6 +4026,20 @@
         "StateCell",
         "SubmitButton",
         "YourStorySection"
+      ]
+    },
+    "/dashboard/(account)/people/[dependentId]": {
+      "files": [
+        "dashboard/(account)/people/[dependentId]/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]",
+        "/dashboard/people"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/(account)/profile": {
@@ -4262,6 +4318,7 @@
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
         "dashboard/[eventId]/_components/reveal-preview.tsx",
         "dashboard/[eventId]/_components/set-date-nudge.tsx",
+        "dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx",
         "dashboard/[eventId]/_components/std-background-picker.tsx",
         "dashboard/[eventId]/_components/std-media-picker.tsx",
         "dashboard/[eventId]/_components/vendor-direct-pay.tsx",
@@ -4373,6 +4430,7 @@
         "Icon",
         "Image",
         "ImpactResult",
+        "InlineCheckoutDrawer",
         "InspectorColumn",
         "InspectorLayout",
         "InspectorTrigger",
@@ -4412,6 +4470,7 @@
         "PromoFreeWindowBanner",
         "QrBody",
         "ReadRefusedNotice",
+        "Remaining",
         "RequestResult",
         "RevealChoice",
         "ReviewAxis",
@@ -4428,6 +4487,7 @@
         "ServicesCard",
         "SetCeremonyResult",
         "SetDateNudge",
+        "SetnayanAiComebackOffer",
         "ShareArtifactType",
         "ShareCreditMode",
         "Sheet",
@@ -6288,6 +6348,8 @@
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
+        "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
+        "dashboard/[eventId]/studio/papic/_components/guest-allotments-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-cameras-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx",
@@ -6346,11 +6408,14 @@
         "deleteCoupleChallengeAction",
         "purchasePapicExtras",
         "purchasePapicPoolTopUp",
+        "releaseTheRest",
         "reviewVendorChallengeAction",
         "setCameraShots",
         "setCapturePreserved",
         "setCoupleChallengeActiveAction",
         "setCoupleFaceTaggingDeclined",
+        "setGuestAllotment",
+        "setGuestAllotments",
         "setPapicGuestCaptureEarly",
         "setPapicStyle",
         "setPapicUploadsOpen",
@@ -6383,6 +6448,8 @@
         "GalleryPhoto",
         "GalleryPreviewCard",
         "GridPageSkeleton",
+        "GuestAllotmentPicker",
+        "GuestAllotmentsChoice",
         "GuestCameraTierPicker",
         "GuestCamerasChoice",
         "GuestContributionsCard",
@@ -7639,10 +7706,12 @@
         "features/_sections/_DayOfApparatus.tsx",
         "features/_sections/_FinalCTA.tsx",
         "features/_sections/_Hero.tsx",
+        "features/_sections/_HowItWorks.tsx",
         "features/_sections/_OutsourcingPacing.tsx",
         "features/_sections/_PlanningToolkit.tsx",
         "features/_sections/_StickyMobileCTA.tsx",
         "features/_sections/_VendorsLedger.tsx",
+        "features/_sections/_WhySetnayan.tsx",
         "features/page.tsx"
       ],
       "destinations": [
@@ -7664,6 +7733,7 @@
         "GuestListMock",
         "HTMLAnchorElement",
         "HTMLElement",
+        "HowItWorks",
         "Icon",
         "Link",
         "LocaleSwitch",
@@ -7674,7 +7744,8 @@
         "ScheduleMock",
         "SeatingMock",
         "StickyMobileCTA",
-        "VendorsLedger"
+        "VendorsLedger",
+        "WhySetnayan"
       ]
     },
     "/forgot-password": {
@@ -7736,34 +7807,6 @@
         "Link",
         "SubmitButton",
         "TerminalCard"
-      ]
-    },
-    "/how-it-works": {
-      "files": [
-        "how-it-works/_how-it-works-motion.tsx",
-        "how-it-works/page.tsx"
-      ],
-      "destinations": [
-        "/signup",
-        "/signup?as=vendor",
-        "/tl/how-it-works",
-        "/vendors"
-      ],
-      "actions": [],
-      "blocks": [
-        "FinalCtaReveal",
-        "FlowPanel",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HTMLHeadingElement",
-        "HeroReveal",
-        "HowItWorksHero",
-        "Icon",
-        "Link",
-        "PanelThread",
-        "RevealBlock",
-        "RoleCard",
-        "RoleGridReveal"
       ]
     },
     "/join/[eventId]": {
@@ -8611,9 +8654,9 @@
         "/about",
         "/explore",
         "/help",
-        "/how-it-works",
         "/pricing",
-        "/signup"
+        "/signup",
+        "/tl/features"
       ],
       "actions": [],
       "blocks": [
@@ -8629,23 +8672,6 @@
       "actions": [],
       "blocks": [
         "FeaturesPageBody"
-      ]
-    },
-    "/tl/how-it-works": {
-      "files": [
-        "tl/how-it-works/page.tsx"
-      ],
-      "destinations": [
-        "/how-it-works",
-        "/signup",
-        "/signup?as=vendor",
-        "/vendors"
-      ],
-      "actions": [],
-      "blocks": [
-        "Icon",
-        "Link",
-        "RoleCard"
       ]
     },
     "/tour": {
@@ -10489,6 +10515,7 @@
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
         "vendor-dashboard/shop/_components/suggested-coverage-card.tsx",
         "vendor-dashboard/shop/_components/venue-match-card.tsx",
+        "vendor-dashboard/shop/_components/venue-type-card.tsx",
         "vendor-dashboard/shop/_components/verify-section.tsx",
         "vendor-dashboard/shop/_components/visibility-card.tsx",
         "vendor-dashboard/shop/_components/voice-match-card.tsx",
@@ -10501,6 +10528,7 @@
         "vendor-dashboard/shop/radius-actions.ts",
         "vendor-dashboard/shop/suggested-coverage-actions.ts",
         "vendor-dashboard/shop/venue-match-actions.ts",
+        "vendor-dashboard/shop/venue-type-actions.ts",
         "vendor-dashboard/shop/visibility-actions.ts"
       ],
       "destinations": [
@@ -10621,6 +10649,8 @@
         "VendorSlotInput",
         "VenueMatchCard",
         "VenueMatchSaveResult",
+        "VenueTypeCard",
+        "VenueTypeSaveResult",
         "VerifySection",
         "VideoLinksEditor",
         "VisibilityCard",
@@ -10998,28 +11028,6 @@
         "TileGrid",
         "WallClaim",
         "WallProjection"
-      ]
-    },
-    "/why-setnayan": {
-      "files": [
-        "why-setnayan/_why-motion.tsx",
-        "why-setnayan/page.tsx"
-      ],
-      "destinations": [
-        "/onboarding/wedding?from=why-setnayan",
-        "/papic",
-        "/setnayan-ai"
-      ],
-      "actions": [],
-      "blocks": [
-        "HTMLDListElement",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HTMLHeadingElement",
-        "LineRevealHeading",
-        "Link",
-        "RevealBand",
-        "SettleRow"
       ]
     }
   }

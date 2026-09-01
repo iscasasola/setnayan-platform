@@ -18,6 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isGatedLifeType } from '@/lib/life-event-gate';
+import { eventTypeAcceptsHonoreeLink } from '@/lib/honoree-dependent-link';
 import {
   ANCHOR_ORIGIN_LABELS,
   ANCHOR_ORIGINS,
@@ -229,6 +230,18 @@ export function GenericOnboarding(props: Props) {
   /** The age a tapped Year row handed over, if any. */
   const [carriedAge, setCarriedAge] = useState<number | null>(null);
   const gatedLifeType = isGatedLifeType(eventType);
+  /**
+   * May this type name a SUBJECT at all? Widened 2026-08-31 beyond the five
+   * gated life types to the two business ones (corporate · gala_night), which
+   * are routinely thrown BY a company and had no way to name it — the id was
+   * collected on the create step and dropped one line before it was verified.
+   *
+   * ⚠ `gatedLifeType` STILL DRIVES THE CAP. A business type contends for no
+   * singleton slot (`blocksLifeEventCreation` returns false outside
+   * LIFE_GATE_BY_TYPE), so the copy below must not promise it one.
+   */
+  const asksHonoree = eventTypeAcceptsHonoreeLink(eventType);
+  const businessHonoree = asksHonoree && !gatedLifeType;
   // The date this event COMMEMORATES, and why — asked only for anniversary,
   // whose whole nature is "the day we're marking". Never asked for
   // birthday/debut/christening: their anchor IS a person's birthdate, which
@@ -303,7 +316,7 @@ export function GenericOnboarding(props: Props) {
     () => [
       'welcome',
       'name',
-      ...(gatedLifeType ? ['honoree'] : []),
+      ...(asksHonoree ? ['honoree'] : []),
       ...(isAnniversary ? ['anchor'] : []),
       'date',
       ...(showRecurToggle ? ['recurs'] : []),
@@ -323,7 +336,7 @@ export function GenericOnboarding(props: Props) {
     ],
     [
       questions, axisIds, specialtyFields, prefillDetails, servicesStepView,
-      gatedLifeType, isAnniversary, showRecurToggle,
+      asksHonoree, isAnniversary, showRecurToggle,
     ],
   );
 
@@ -366,7 +379,7 @@ export function GenericOnboarding(props: Props) {
     // WHO step. Consume the carry (sessionStorage, single-read, 10-min TTL — the
     // name never touches the URL) so this flow CONFIRMS the celebrant instead of
     // asking the same question twice. Only for the types that actually ask.
-    if (gatedLifeType) {
+    if (asksHonoree) {
       const carried = takeHonoree();
       if (carried) {
         setHonoree(carried.name);
@@ -409,7 +422,7 @@ export function GenericOnboarding(props: Props) {
     setDetails(seededDetails);
     setSpecialtyValues(seededSpecialty);
     setHydrated(true);
-  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty, gatedLifeType]);
+  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty, asksHonoree]);
 
   // -- Persist the draft on every change (after hydration). --
   useEffect(() => {
@@ -795,8 +808,8 @@ export function GenericOnboarding(props: Props) {
     const payload: GenericOnboardingPayload = {
       eventType,
       displayName: displayName.trim() || `Our ${eventWord || 'Event'}`,
-      honoreeLabel: gatedLifeType ? honoree.trim() || null : null,
-      honoreeDependentId: gatedLifeType ? honoreeDependentId : null,
+      honoreeLabel: asksHonoree ? honoree.trim() || null : null,
+      honoreeDependentId: asksHonoree ? honoreeDependentId : null,
       anchorDate: isAnniversary ? anchorDate || null : null,
       anchorOrigin: isAnniversary ? anchorOrigin : null,
       // Anniversary and birthday return every year by nature; the toggle types
@@ -1039,11 +1052,15 @@ export function GenericOnboarding(props: Props) {
             </>
           ) : (
             <>
-              <Title>Who are we celebrating?</Title>
+              <Title>
+                {businessHonoree ? 'Which business is this for?' : 'Who are we celebrating?'}
+              </Title>
               <p className="mt-2 text-ink/55">
-                {momentForSelf
-                  ? `Put their first name below — leave it empty and this ${label.toLowerCase()} stays under your name.`
-                  : `Their first name is enough. It keeps each ${label.toLowerCase()} on its own plan, so you can have one for each person.`}
+                {businessHonoree
+                  ? `The business name files this ${label.toLowerCase()} on its own page and timeline. It sets no limit — plan as many as you like.`
+                  : momentForSelf
+                    ? `Put their first name below — leave it empty and this ${label.toLowerCase()} stays under your name.`
+                    : `Their first name is enough. It keeps each ${label.toLowerCase()} on its own plan, so you can have one for each person.`}
               </p>
               <input
                 // Focus the field only when it was OPENED on purpose or was
@@ -1059,7 +1076,7 @@ export function GenericOnboarding(props: Props) {
                   setHonoreeDependentId(null);
                   if (blockedBy) setBlockedBy(null);
                 }}
-                placeholder="e.g. Nina"
+                placeholder={businessHonoree ? 'e.g. Aling Nena’s Store' : 'e.g. Nina'}
                 className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
               />
             </>

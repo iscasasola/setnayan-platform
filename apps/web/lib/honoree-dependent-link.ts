@@ -33,7 +33,52 @@
  * (lib/onboarding/event-insert.ts) is untouched.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { normalizeHonoree } from './life-event-gate';
+import { normalizeHonoree, isGatedLifeType } from './life-event-gate';
+
+/**
+ * ── WHICH EVENT TYPES MAY NAME A SUBJECT ───────────────────────────────────
+ *
+ * Until 2026-08-31 the answer was "the five gated life types", because
+ * `isGatedLifeType()` was doing double duty: it is the CAP's vocabulary (one
+ * in-planning debut per celebrant) and it was also, by accident, the gate on
+ * whether an event could say WHO it is for at all. So `corporate` and
+ * `gala_night` — both live, both routinely thrown BY a business — had no way to
+ * name the business they belong to. The id was posted, and the server dropped it
+ * one line before it would have been verified.
+ *
+ * These two lists are deliberately separate concepts:
+ *   • `LIFE_GATE_BY_TYPE` — types that CONTEND for a singleton in-planning slot.
+ *   • `BUSINESS_HONOREE_TYPES` — types that may name a subject and contend for
+ *     NOTHING. `blocksLifeEventCreation` returns false for any type outside the
+ *     gate's own map, so widening here cannot cap anybody: a company may hold
+ *     twelve gala nights in planning, exactly as it can today.
+ *
+ * ⚠ WEDDING IS STILL ABSENT, AND THAT IS THE POINT. A wedding has its own guard
+ * (`wedding-guard.ts`) and its own honoree model (the couple), and it has never
+ * written this column. Adding it here would put a wedding under a cap it was
+ * deliberately kept out of. `eventTypeAcceptsHonoreeLink('wedding')` is FALSE
+ * and must stay false.
+ */
+export const BUSINESS_HONOREE_TYPES = ['corporate', 'gala_night'] as const;
+
+const BUSINESS_HONOREE_SET: ReadonlySet<string> = new Set(BUSINESS_HONOREE_TYPES);
+
+/**
+ * May an event of this type carry `honoree_label` + `honoree_dependent_id`?
+ *
+ * ⚠ THIS IS A PERMISSION TO NAME, NOT A CARDINALITY RULE. Nothing about the
+ * one-in-planning cap moves: that is still `isGatedLifeType` inside
+ * `blocksLifeEventCreation`, untouched.
+ *
+ * ⚠ AND IT ADDS NO NEW WAY TO FAIL. A type outside this list drops the link and
+ * creates the event, byte-identically to today; a type inside it still has the
+ * id re-read under `owner_user_id = you` below and still drops anything that
+ * does not come back. There is no branch here that refuses an event.
+ */
+export function eventTypeAcceptsHonoreeLink(eventType: string | null | undefined): boolean {
+  if (!eventType) return false;
+  return isGatedLifeType(eventType) || BUSINESS_HONOREE_SET.has(eventType);
+}
 
 /** A dependent_id is a uuid — reject anything else before spending a round-trip. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

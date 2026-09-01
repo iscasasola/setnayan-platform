@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6348
+# facts: 6351
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     573
-#   col       4674
+#   col       4677
 #   policy    866
 #   view      8
 #   func      223
@@ -2025,6 +2025,7 @@ col	public.events.pakanta_song_status	anon=S authenticated=S
 col	public.events.palette_finalized_at	anon=SIU authenticated=SIU
 col	public.events.panood_watch_url	anon=SIU authenticated=SIU
 col	public.events.panood_watch_url_facebook	anon=S authenticated=SIU
+col	public.events.papic_challenges_paused_at	anon=- authenticated=SU
 col	public.events.papic_cost_cap_php	anon=S authenticated=S
 col	public.events.papic_face_mode	anon=S authenticated=S
 col	public.events.papic_guest_capture_early	anon=- authenticated=S
@@ -2826,6 +2827,7 @@ col	public.papic_challenge_library.event_types	anon=- authenticated=S
 col	public.papic_challenge_library.is_active	anon=- authenticated=S
 col	public.papic_challenge_library.library_id	anon=- authenticated=S
 col	public.papic_challenge_library.mission_type	anon=- authenticated=S
+col	public.papic_challenge_library.moment_keys	anon=- authenticated=S
 col	public.papic_challenge_library.priority_rank	anon=- authenticated=S
 col	public.papic_challenge_library.prompt	anon=- authenticated=S
 col	public.papic_challenge_library.slug	anon=- authenticated=S
@@ -2907,6 +2909,7 @@ col	public.papic_missions.is_active	anon=- authenticated=SIU
 col	public.papic_missions.library_id	anon=- authenticated=SIU
 col	public.papic_missions.mission_id	anon=- authenticated=SIU
 col	public.papic_missions.mission_type	anon=- authenticated=SIU
+col	public.papic_missions.moment_key	anon=- authenticated=SIU
 col	public.papic_missions.prompt	anon=- authenticated=SIU
 col	public.papic_missions.source	anon=- authenticated=SIU
 col	public.papic_missions.target_guest_id	anon=- authenticated=SIU

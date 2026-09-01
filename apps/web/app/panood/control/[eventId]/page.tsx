@@ -99,6 +99,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
+import { ChannelFreshness } from './_components/channel-freshness';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
@@ -1396,6 +1397,16 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             streamingEnabled={streamingOn}
             mainStageSlot={programSlot}
           />
+
+          {/* ⭐ THE RESOLVED STATUS, KEPT CURRENT. `resolveChannelStatus` above runs
+              once per render and this page has no timer of its own, so without this
+              the honest status freezes at page load — which is how a card was seen
+              reading "Camera connected" over a heartbeat 140 seconds stale. Renders
+              nothing; installs no timer at all when no seat is bound. It sits here,
+              beside ProgramBridgeHost and OUTSIDE the setup sheet, for the same
+              reason that one does: a component the sheet can unmount is a component
+              that stops working the moment the host closes the sheet. */}
+          <ChannelFreshness channels={zones.map((z) => ({ hasSeat: Boolean(z.camera) }))} />
 
           {/* THE CUT THAT DID NOT REACH AIR — stated on the controller, in plain
               words, rather than left for the host to discover from their own

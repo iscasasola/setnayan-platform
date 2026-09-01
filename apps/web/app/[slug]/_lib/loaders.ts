@@ -761,7 +761,9 @@ export const loadLiveLayer = cache(
           //   • guestPickEnabled — the host's own switch (Wave 2)
           //   • multiCamOwned    — THE paywall, the same helper that reduced the
           //                        manifest one line above (§ 4d). Not a second rule.
-          //   • a live, claimed camera on the zone (inside fetchGuestPickCameras)
+          //   • a camera that is live, claimed AND still beating on the zone
+          //     (inside fetchGuestPickCameras, via the controller's own
+          //     resolveChannelStatus — a stored 'live' is not liveness)
           // Enforced by OMISSION, matching the manifest: a guest whose event fails any
           // gate is never told a side camera exists, so nothing on their page can open
           // a connection to one.

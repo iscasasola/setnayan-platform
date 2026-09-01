@@ -50,17 +50,32 @@ test('wedding-surface add-ons carry the right surface', () => {
     // admits all 16 live types, so `rsvp` is the last gate with teeth: a
     // DEGRADED profile read (SIMPLE_PROFILE has no rsvp) still hides the card.
     'papic-guest': 'rsvp',
+    // S1 (owner 2026-09-01): Live Studio / Pakanta / 3D Plan's Seat Plan are no
+    // longer universal — see studio-menu-adapts-to-event.test.ts.
+    // 'live-studio-roam' is NOT here: it is FLAG-GATED
+    // (NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED) and absent from ADD_ONS entirely
+    // until launch, so "should exist" would fail in this test environment. It
+    // is asserted separately below, tolerating its absence.
+    panood: 'livestream',
+    pakanta: 'song',
+    seating: 'seating',
   };
   for (const [key, surface] of Object.entries(expected)) {
     const entry = byKey.get(key);
     assert.ok(entry, `add-on "${key}" should exist`);
     assert.equal(entry!.surface, surface, `${key} surface`);
   }
+  const liveStudioRoam = byKey.get('live-studio-roam');
+  if (liveStudioRoam) {
+    assert.equal(liveStudioRoam.surface, 'livestream', 'live-studio-roam surface');
+  }
 });
 
 test('universal in-app services carry NO surface (shown for every event type)', () => {
   // A representative set of non-wedding-gated services — they must stay universal.
-  for (const key of ['setnayan-ai', 'papic', 'panood', 'pakanta', 'mood-board', 'seating']) {
+  // 'panood' / 'pakanta' / 'seating' moved OUT of this list (S1, owner
+  // 2026-09-01) — see the `expected` map above, which now pins their surfaces.
+  for (const key of ['setnayan-ai', 'papic', 'mood-board']) {
     const entry = byKey.get(key);
     if (!entry) continue; // tolerate catalog churn — only assert when present
     assert.equal(entry.surface, undefined, `${key} must stay universal (no surface)`);
@@ -112,7 +127,7 @@ test('the umbrella Papic card points at NO single SKU', () => {
 });
 
 test('every surface value is a known ProfileSurface', () => {
-  const valid = new Set(['website', 'save_the_date', 'rsvp', 'seating', 'budget', 'schedule', 'monogram', 'day_of', 'gallery']);
+  const valid = new Set(['website', 'save_the_date', 'rsvp', 'seating', 'budget', 'schedule', 'monogram', 'day_of', 'gallery', 'livestream', 'song']);
   for (const a of ADD_ONS) {
     if (a.surface !== undefined) {
       assert.ok(valid.has(a.surface), `${a.key}: "${a.surface}" is not a ProfileSurface`);

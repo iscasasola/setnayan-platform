@@ -325,6 +325,56 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
   redirect(`/dashboard/${eventId}/studio/papic/challenges`);
 }
 
+/**
+ * ARM one challenge for the whole celebration — the act that starts its clock.
+ *
+ * Owner ruling 2026-09-01: the window is RELATIVE, it opens HERE, one challenge
+ * is live at a time per celebration, and arming the next closes the previous.
+ * Both halves are done by `papic_arm_challenge` in one transaction, so no
+ * caller can do one and forget the other — this action only names the mission.
+ *
+ * 🔑 ARMING IS NOT THE GUEST'S "Start". `papic-challenge-panel.tsx` has its own
+ * arm/disarm ("the next shutter press on THIS phone attaches to THIS mission"),
+ * which is per-guest React state and is untouched by this. This is the
+ * celebration's: what the room is being asked right now.
+ *
+ * 🔴 AND IT CLOSES A PROMPT, NEVER A SHUTTER. Nothing here reaches a capture
+ * path; a guest whose challenge has closed still takes the photo.
+ *
+ * Authorisation is `papic_missions_member_all` (Pattern B) and nothing else —
+ * the RPC is SECURITY INVOKER, so a caller who is not on the event arms
+ * nothing. There is no `active` twin to this action: hiding a challenge (the
+ * eye control) already closes it through `papic_challenge_is_open`, and the
+ * capture window closes the last one by itself.
+ */
+export async function armChallengeAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  const missionId = formData.get('mission_id');
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  if (!papicGamesEnabled()) {
+    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  }
+  if (typeof missionId !== 'string' || missionId.length === 0) {
+    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('papic_arm_challenge', { p_mission_id: missionId });
+  if (error) {
+    // Graceful-degrade like its siblings: the couple is mid-reception and an
+    // error page helps nobody. The armed state is DERIVED, so the next render
+    // shows the truth either way — and shows "we could not check" rather than
+    // "nothing is running" if the read is refused too.
+    logQueryError('armChallengeAction', error, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+}
+
 /** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via
  *  the toggle, never deleted here (a deleted auto mission would just regenerate;
  *  a vendor's challenge is theirs) — so this is scoped source='couple'. */

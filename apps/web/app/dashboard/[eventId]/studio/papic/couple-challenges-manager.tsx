@@ -6,7 +6,7 @@
 // stay in the separate approval panel. Self-gates on papicGamesEnabled().
 
 import Link from 'next/link';
-import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X } from 'lucide-react';
+import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X, Radio, Play } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { papicMissionCost } from '@/lib/papic-cameras';
@@ -36,11 +36,13 @@ import {
   PICKER_PAGE_SIZE,
   type PickerFilters,
 } from '@/lib/papic-challenge-picker';
+import { fetchArmedChallenge, type ArmedChallengeReading } from '@/lib/papic-challenge-clock';
 import {
   createCoupleChallengeAction,
   addLibraryChallengeAction,
   setCoupleChallengeActiveAction,
   deleteCoupleChallengeAction,
+  armChallengeAction,
 } from './actions';
 
 type MissionRow = {
@@ -253,6 +255,19 @@ export async function CoupleChallengesManager({
     .reduce((sum, m) => sum + papicMissionCost(m.capture_kind), 0);
   const pool = await fetchEventPoolStatus(createAdminClient(), eventId);
   const poolRemaining = pool.applies ? pool.remainingPoints : null;
+
+  // ── ⏱ WHICH CHALLENGE IS BEING ASKED RIGHT NOW ────────────────────────────
+  // Owner ruling 2026-09-01: the window is RELATIVE — it opens when a challenge
+  // is ARMED, one at a time per celebration, and the last one closes when the
+  // capture window ends. Until this, a challenge had no concept of time at all:
+  // a prompt armed during the first dance was as live at 3am as it was then.
+  //
+  // 🔑 READ THROUGH THE RESOLVER, NOT FROM THE ROWS ABOVE. `armed_at` and
+  // `closed_at` are on the mission rows this component already selects, and
+  // deciding openness from them here would be a second answer to a question
+  // that has exactly one — the guest's phone and this screen could then name
+  // different live challenges. `papic_challenge_is_open` decides; this reads.
+  const armedReading = await fetchArmedChallenge(supabase, eventId);
 
   // ── The picker ────────────────────────────────────────────────────────────
   // Was: a list of the twenty story questions, and nothing else. The library is
@@ -660,10 +675,37 @@ export async function CoupleChallengesManager({
               What your guests see{onBoard.length > 0 ? ` · ${onBoard.length}` : ''}
             </h4>
             <p className="mt-0.5 text-xs text-ink/55">In this order, on their phone.</p>
+            {/* ⏱ The clock, stated once. Three different sentences for three
+                different states — an un-armed celebration and a read we could
+                not make are NOT the same thing, and collapsing them is how a
+                couple mid-reception gets told nothing is running when
+                something is. */}
+            {!armedReading.measured ? (
+              <p className="mt-2 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
+                We couldn&rsquo;t check which challenge is being asked just now.
+                Refresh in a moment &mdash; nothing has stopped, and your guests
+                can still take photos either way.
+              </p>
+            ) : armedReading.armed ? (
+              <p className="mt-2 flex items-start gap-1.5 text-sm text-ink/70">
+                <Radio aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} />
+                <span>
+                  Being asked now:{' '}
+                  <span className="font-medium text-ink">
+                    {displayChallengePrompt(armedReading.armed.prompt)}
+                  </span>
+                </span>
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-ink/45">
+                No challenge is being asked yet. Start one when the moment comes
+                &mdash; it runs until you start the next.
+              </p>
+            )}
             {onBoard.length > 0 ? (
               <ul className="mt-2 space-y-2">
                 {onBoard.map((m) => (
-                  <ChallengeRow key={m.mission_id} m={m} eventId={eventId} />
+                  <ChallengeRow key={m.mission_id} m={m} eventId={eventId} armed={armedReading} />
                 ))}
               </ul>
             ) : boardReadable ? (
@@ -709,7 +751,7 @@ export async function CoupleChallengesManager({
               </p>
               <ul className="mt-2 space-y-2">
                 {offBoard.map((m) => (
-                  <ChallengeRow key={m.mission_id} m={m} eventId={eventId} />
+                  <ChallengeRow key={m.mission_id} m={m} eventId={eventId} armed={armedReading} />
                 ))}
               </ul>
             </div>
@@ -723,7 +765,20 @@ export async function CoupleChallengesManager({
 /** One row of the couple's list. Extracted so the on-board and not-showing
  *  groups render identically — two copies of this markup is how the two groups
  *  would quietly drift apart. */
-function ChallengeRow({ m, eventId }: { m: MissionRow; eventId: string }) {
+function ChallengeRow({
+  m,
+  eventId,
+  armed,
+}: {
+  m: MissionRow;
+  eventId: string;
+  armed: ArmedChallengeReading;
+}) {
+  // ⚠ `armed.measured === false` is NOT "this one is not live". When the read
+  // was refused we know nothing about any row, so neither the badge nor its
+  // absence may be shown as a claim — the button stays, because a coordinator
+  // mid-reception must still be able to start the next challenge.
+  const isLiveNow = armed.measured && armed.armed?.missionId === m.mission_id;
   // The Record is exhaustive over PapicMissionSource, so this only fires on a
   // value the database allows and TypeScript has not heard of. It must NOT fall
   // back to another source's badge — defaulting to `vendor` is exactly how
@@ -768,9 +823,38 @@ function ChallengeRow({ m, eventId }: { m: MissionRow; eventId: string }) {
             {!m.is_active ? (
               <p className="mt-0.5 text-[11px] text-ink/45">Hidden from guests</p>
             ) : null}
+            {isLiveNow ? (
+              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[11px] font-medium text-mulberry">
+                <Radio aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+                Being asked now
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {/* ⏱ Start this one. The window opens HERE (owner 2026-09-01) and
+              closing the previous one is the same act, done in one transaction
+              by papic_arm_challenge — never two taps.
+
+              Not gated on board_slot: when no board has been materialized every
+              slot is NULL and the guest reader fail-softs to showing all active
+              challenges, so gating here would hide the control on exactly the
+              celebrations whose challenges ARE reaching guests. Gated on
+              is_active, which is what "a guest can see this" means. */}
+          {m.is_active && !isLiveNow ? (
+            <form action={armChallengeAction}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="mission_id" value={m.mission_id} />
+              <SubmitButton
+                title="Ask this one now"
+                aria-label="Ask this challenge now"
+                className="inline-flex items-center gap-1 rounded-md border border-mulberry/30 bg-cream px-2 py-1.5 text-[11px] font-medium text-mulberry transition-colors hover:bg-mulberry/10"
+              >
+                <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Ask now
+              </SubmitButton>
+            </form>
+          ) : null}
           {/* Hide / show — curation for every source. */}
           <form action={setCoupleChallengeActiveAction}>
             <input type="hidden" name="event_id" value={eventId} />

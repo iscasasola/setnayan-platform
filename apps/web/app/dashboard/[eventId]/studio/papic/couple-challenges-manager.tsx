@@ -6,7 +6,7 @@
 // stay in the separate approval panel. Self-gates on papicGamesEnabled().
 
 import Link from 'next/link';
-import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X, Radio, Play } from 'lucide-react';
+import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -50,6 +50,7 @@ import {
   setCoupleChallengeActiveAction,
   deleteCoupleChallengeAction,
   armChallengeAction,
+  stopChallengeAction,
 } from './actions';
 
 type MissionRow = {
@@ -955,6 +956,24 @@ function ChallengeRow({
               >
                 <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Ask now
+              </SubmitButton>
+            </form>
+          ) : null}
+          {/* ⏹ Stop — ends the prompt, keeps the challenge. Deliberately NOT
+              the eye below it: hiding takes the challenge off every guest's
+              board, which is a different and much bigger act. Only rendered on
+              the one that is actually running. */}
+          {isLiveNow ? (
+            <form action={stopChallengeAction}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="mission_id" value={m.mission_id} />
+              <SubmitButton
+                title="Stop asking this one"
+                aria-label="Stop asking this challenge"
+                className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-[11px] font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+              >
+                <Square aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Stop
               </SubmitButton>
             </form>
           ) : null}

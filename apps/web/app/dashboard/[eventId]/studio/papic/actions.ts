@@ -11,6 +11,7 @@ import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { coupleSlots } from '@/lib/papic-missions';
+import { isKwentoMomentKey } from '@/lib/papic-ceremony-sequence';
 import {
   CHALLENGE_DURATION_CHOICES,
   CHALLENGE_DURATION_DEFAULT,
@@ -198,20 +199,62 @@ export async function createCoupleChallengeAction(formData: FormData) {
  * nothing (the § 2.2 blocklist trigger still fires) but it would let any
  * posted string be stamped with a library_id and inherit its dedup identity.
  */
+/**
+ * WHERE A CHALLENGE ACTION SENDS THE COORDINATOR BACK TO.
+ *
+ * 🔒 AN ALLOW-LIST, NEVER A PATH OFF THE FORM. These are server actions
+ * reachable by POST from anywhere, and a `return_to` that redirected to
+ * whatever string arrived would be an open redirect wearing a convenience's
+ * clothes. Two screens drive the same challenges — the picker and the run of
+ * show — and each has to land back where the coordinator was standing.
+ *
+ * 🔒 THE RESULT IS NEVER STORED IN A VARIABLE CALLED `back` — CALL IT
+ * `returnTo`. In this file `back` is a RESERVED NAME: seven actions declare
+ * `const back = \`/dashboard/${eventId}/studio/papic\`` (the setup page), and
+ * `_lib/outcomes-are-shown.test.ts` keys on that declaration to decide that
+ * every `${back}?outcome=…` in the file redirects to the SETUP page — then
+ * asserts the outcome appears in THAT page's searchParams. A `back` holding a
+ * different destination silently mis-attributes its outcomes and turns the
+ * guard red for the wrong reason. It did, on the first push of this change:
+ * `?add=full` was reported as never arriving, on a page that reads it fine.
+ * 🔑 The guard was right that something was wrong; it was wrong about what.
+ */
+function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): string {
+  const base = `/dashboard/${eventId}/studio/papic`;
+  return raw === 'run-of-show' ? `${base}/run-of-show` : `${base}/challenges`;
+}
+
 export async function addLibraryChallengeAction(formData: FormData) {
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
     redirect('/dashboard');
   }
+  const returnTo = challengeReturnPath(eventId, formData.get('return_to'));
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(returnTo);
   }
 
   const rawLibraryId = formData.get('library_id');
   const libraryId = Number(typeof rawLibraryId === 'string' ? rawLibraryId : NaN);
   if (!Number.isInteger(libraryId)) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(returnTo);
+  }
+
+  // ── 🎼 PLACING IT AT A CEREMONY MOMENT (build order § 5) ──────────────────
+  // The run of show posts the SAME action with a moment attached, deliberately:
+  // adding a challenge to the board has a ceiling, an idempotency rule and an
+  // is_active re-check, and a second insert path for the sequence would have to
+  // reproduce all three. It would reproduce two of them, and the third would be
+  // the defect.
+  //
+  // ⚠ AN UNRECOGNISED KEY IS REFUSED, NOT STORED. The database's CHECK would
+  // refuse it too, but a rejected INSERT here reads to the coordinator as "the
+  // button did nothing" — so the request stops at the door instead.
+  const rawMoment = formData.get('moment_key');
+  const momentKey = isKwentoMomentKey(rawMoment) ? rawMoment : null;
+  if (rawMoment != null && rawMoment !== '' && momentKey === null) {
+    redirect(returnTo);
   }
 
   const supabase = await createClient();
@@ -230,7 +273,7 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // Falling through on that would insert a mission with an empty prompt, so the
   // two cases are handled together and neither one writes.
   if (error || !row) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(returnTo);
   }
 
   // Idempotent: tapping Add twice (or a double-submit) must not put the same
@@ -243,8 +286,23 @@ export async function addLibraryChallengeAction(formData: FormData) {
     .eq('library_id', libraryId)
     .limit(1);
   if (existing && existing.length > 0) {
-    revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    // 🔑 ALREADY ON THE BOARD IS NOT ALREADY IN THE RUN OF SHOW. A couple who
+    // picked "The Cake Cut" from the library last week and now places it at
+    // cake cutting must get it placed — a bare no-op here would leave the
+    // moment reading empty while its prompt sat on the board, and the
+    // coordinator would tap the same button forever.
+    if (momentKey) {
+      const { error: placeErr } = await supabase
+        .from('papic_missions')
+        .update({ moment_key: momentKey })
+        .eq('mission_id', existing[0]!.mission_id)
+        .eq('event_id', eventId);
+      if (placeErr) {
+        logQueryError('addLibraryChallengeAction.place', placeErr, { event_id: eventId }, 'graceful_degrade');
+      }
+    }
+    revalidatePath(returnTo);
+    redirect(returnTo);
   }
 
   // ── THE CEILING, ENFORCED HERE AND NOT ONLY ON THE SCREEN ──────────────────
@@ -273,13 +331,19 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // `{ error }` and null data — treating that as "zero picked so far" would
   // wave every request through at exactly the moment we cannot count.
   if (laneErr) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges?add=unavailable`);
+    redirect(`${returnTo}?add=unavailable`);
   }
   const live = (laneRows ?? []).filter((r) => r.is_active);
   const vendorUsed = live.filter((r) => r.source === 'vendor' || r.source === 'auto').length;
   const chosen = live.filter((r) => r.source === 'couple').length;
+  // ⚠ THE BOARD CEILING BINDS THE RUN OF SHOW TOO, AND IT HAS TO BE SAID OUT
+  // LOUD. There are ten moments and BOARD_SIZE is ten, so a celebration with a
+  // paid booth mission has FEWER couple slots than moments and a full sequence
+  // will not fit. Refusing here with `?add=full` is what makes that legible;
+  // silently dropping the last moments would be the same silent-drop this
+  // ceiling was added to stop, moved into a new screen.
   if (chosen >= coupleSlots(vendorUsed)) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges?add=full`);
+    redirect(`${returnTo}?add=full`);
   }
 
   await supabase.from('papic_missions').insert({
@@ -291,10 +355,14 @@ export async function addLibraryChallengeAction(formData: FormData) {
     capture_kind: row.capture_kind,
     approved: true,
     is_active: true,
+    // NULL for every add that did not come from the run of show — the column
+    // means "placed at this moment", and a default would claim a placement
+    // nobody made.
+    moment_key: momentKey,
   });
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  revalidatePath(returnTo);
+  redirect(returnTo);
 }
 
 /** Hide (is_active=false) or show any of the event's missions — auto booth,
@@ -371,10 +439,23 @@ export async function armChallengeAction(formData: FormData) {
     redirect(`/dashboard/${eventId}/studio/papic/challenges`);
   }
 
+  // 🔑 THE RUN OF SHOW ARMS THROUGH THIS ACTION, IT DOES NOT RE-IMPLEMENT IT.
+  // "Each moment arms its challenge via papic_arm_challenge" (§ 5) — a second
+  // call site doing its own close-then-open is how a celebration ends up with
+  // two armed challenges, or none. Item 5 adds a screen, not a mechanism.
+  const returnTo = challengeReturnPath(eventId, formData.get('return_to'));
+
   // The couple's pick: 30 (default), 60 or 120. An unrecognised value is NOT
   // rejected here — it is dropped, and the RPC applies the owner's default. A
   // coordinator mid-reception should get 30 minutes, never an error page, and
   // the CHECK constraint is the real gate against a fourth length.
+  //
+  // ⚠ THE RUN OF SHOW POSTS NO LENGTH, SO EVERY MOMENT GETS THE DEFAULT 30.
+  // That is deliberate for now and flagged to the owner rather than guessed at:
+  // a first dance is four minutes and a cocktail hour is sixty, but arming the
+  // NEXT moment already closes the previous one, so the duration is a backstop
+  // for the last challenge of the night rather than the thing driving the
+  // sequence. Whether a moment should carry its own length is an owner call.
   const rawMinutes = Number(formData.get('duration_minutes'));
   const minutes = (CHALLENGE_DURATION_CHOICES as readonly number[]).includes(rawMinutes)
     ? rawMinutes
@@ -393,8 +474,117 @@ export async function armChallengeAction(formData: FormData) {
     logQueryError('armChallengeAction', error, { event_id: eventId }, 'graceful_degrade');
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  revalidatePath(returnTo);
+  redirect(returnTo);
+}
+
+/**
+ * PAUSE (OR RESUME) EVERY CHALLENGE FOR THIS CELEBRATION.
+ *
+ * Owner, 2026-09-01: *"instead of just stop. let us also allow pause for the
+ * challenge. so challenges can all be not available on moments everybody must
+ * be watching."* The vows, the first kiss, a parent's speech — nobody should be
+ * hunting a stranger for a selfie during them.
+ *
+ * 🛑 THREE DIFFERENT ACTS, AND THIS IS THE THIRD. Hiding takes ONE challenge
+ * off every board for good (`setCoupleChallengeActiveAction`). Stopping ends
+ * the ONE armed prompt. Pausing quiets the WHOLE board, temporarily, and gives
+ * it back untouched — which is why neither of the others can express it.
+ *
+ * 🔴 IT CLOSES PROMPTS, NEVER THE SHUTTER. Nothing here reaches a capture path:
+ * a guest photographs the first kiss during a pause exactly as they would
+ * without one. That is the entire point — the challenges go quiet so the
+ * pictures can be taken.
+ *
+ * ⚠ AND IT DOES NOT EMPTY ANYBODY'S BOARD. `papic_guest_missions` is untouched;
+ * the guest's screen keeps its challenges and says they are paused. An empty
+ * board is indistinguishable from a celebration that set none up.
+ *
+ * MANUAL ONLY (owner): no duration, and nothing resumes on its own. `resume=1`
+ * on the form is the other half of the same button.
+ *
+ * Authorisation is the event's own RLS plus the column GRANT on
+ * `events.papic_challenges_paused_at` — a caller who is not on the event
+ * updates no rows.
+ */
+export async function setChallengesPausedAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  const returnTo = `/dashboard/${eventId}/studio/papic/run-of-show`;
+  if (!papicGamesEnabled()) {
+    redirect(returnTo);
+  }
+
+  // Explicit intent, never a toggle read off the current state. A toggle races
+  // with itself: two taps on a slow connection, or a stale render, and the
+  // coordinator resumes the pause they just started.
+  const resuming = formData.get('resume') === '1';
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('events')
+    .update({ papic_challenges_paused_at: resuming ? null : new Date().toISOString() })
+    .eq('event_id', eventId);
+  if (error) {
+    // Graceful-degrade like its siblings: the coordinator is mid-ceremony and
+    // an error page helps nobody. The state is re-read on the next render, and
+    // that render says "we couldn't check" rather than inventing an answer.
+    logQueryError('setChallengesPausedAction', error, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  revalidatePath(returnTo);
+  redirect(returnTo);
+}
+
+/**
+ * TAKE A CHALLENGE OUT OF THE RUN OF SHOW, WITHOUT DELETING IT.
+ *
+ * Clearing `moment_key` frees the moment's slot and leaves the challenge on the
+ * board, still pickable, still costed, still counted. Deleting is the couple's
+ * existing bin button and means something else entirely; a coordinator
+ * rearranging a sequence an hour before the march must not have to destroy a
+ * prompt to move it.
+ *
+ * 🔴 IT DOES NOT DISARM. If this challenge is the one being asked, it stays
+ * being asked until the next arming or the capture window — the clock is 4a's
+ * and openness is `papic_challenge_is_open()`'s alone. Taking a prompt off a
+ * plan is not the same act as stopping the room from answering it, and
+ * conflating them would close a prompt mid-answer.
+ */
+export async function clearMomentChallengeAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  const returnTo = `/dashboard/${eventId}/studio/papic/run-of-show`;
+  if (!papicGamesEnabled()) {
+    redirect(returnTo);
+  }
+
+  const missionId = formData.get('mission_id');
+  if (typeof missionId !== 'string' || missionId.length === 0) {
+    redirect(returnTo);
+  }
+
+  // Scoped by event_id as well as mission_id: RLS already refuses another
+  // celebration's rows, and a WHERE that says so too means a mistake here
+  // matches nothing rather than relying on one layer.
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('papic_missions')
+    .update({ moment_key: null })
+    .eq('mission_id', missionId)
+    .eq('event_id', eventId);
+  if (error) {
+    logQueryError('clearMomentChallengeAction', error, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  revalidatePath(returnTo);
+  redirect(returnTo);
 }
 
 /**

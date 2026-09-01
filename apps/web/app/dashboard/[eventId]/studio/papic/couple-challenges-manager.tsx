@@ -396,6 +396,21 @@ export async function CoupleChallengesManager({
         >
           {chosen > 0 ? 'Change your challenges' : 'Pick your challenges'} &rarr;
         </Link>
+        {/* 🎼 THE WAY IN TO THE SEQUENCE. A screen nobody can reach is nothing,
+            and this is the only door onto it from the setup page. Deliberately
+            the quieter of the two: picking the challenges is the couple's job
+            and comes first; ordering them against the ceremony is the
+            coordinator's, and often somebody else entirely. */}
+        <p className="mt-3 text-xs text-ink/55">
+          Running the day?{' '}
+          <Link
+            href={`/dashboard/${eventId}/studio/papic/run-of-show`}
+            className="text-link underline-offset-2 hover:underline"
+          >
+            Set a challenge for each moment
+          </Link>{' '}
+          &mdash; bridal march to money dance, in order.
+        </p>
       </section>
     );
   }

@@ -23,6 +23,11 @@
 //
 // ⚠ SO: NEVER ADD A COMPARISON AGAINST `armedAt` TO THIS FILE. If a screen
 // needs a countdown, it needs a number FROM the database, not a rule about one.
+// That is why `expiresAt` is carried through as an INSTANT: three things can
+// end a timed challenge — its own 30/60/120-minute timer, the next arming, and
+// the capture window — and `papic_challenge_ends_at()` takes the earliest. A
+// `armedAt + 30min` computed here would be wrong the moment any of the other
+// two bit first, and would look right in every test that only ever arms one.
 //
 // 🔑 AND "ARMED" HERE IS THE CELEBRATION'S, NOT THE GUEST'S. `ArmedChallenge`
 // in `papic-challenge-panel.tsx` is a different thing that shares the word:
@@ -31,6 +36,32 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+
+/**
+ * HOW LONG A TIMED CHALLENGE MAY RUN — the couple's three choices.
+ *
+ * Owner, 2026-09-01: *"timed challenges by default lasts for 30 mins. but they
+ * can pick whether, 30 mins, 1 hr, 2 hrs."*
+ *
+ * ⚠ MIRROR, NOT SOURCE. The authority is the CHECK constraint
+ * `papic_missions_armed_duration_choices` in migration 20271188710305; this
+ * list exists so the picker has labels and TypeScript can refuse a fourth
+ * value at compile time. `papic-challenge-clock-lengths.test.ts` reads that
+ * migration and fails if the two ever disagree — which is the only thing that
+ * makes a mirror safe to keep.
+ */
+export const CHALLENGE_DURATION_CHOICES = [30, 60, 120] as const;
+export type ChallengeDurationMinutes = (typeof CHALLENGE_DURATION_CHOICES)[number];
+
+/** The owner's default. Not a guess — see the migration header. */
+export const CHALLENGE_DURATION_DEFAULT: ChallengeDurationMinutes = 30;
+
+/** How the three lengths are written on a screen. */
+export const CHALLENGE_DURATION_LABELS: Record<ChallengeDurationMinutes, string> = {
+  30: '30 min',
+  60: '1 hour',
+  120: '2 hours',
+};
 
 /** The challenge the room is being asked, as the database answered. */
 export type ArmedChallenge = {
@@ -42,6 +73,18 @@ export type ArmedChallenge = {
   source: string;
   captureKind: string | null;
   boardSlot: number | null;
+  /** The length the couple picked for THIS arming. */
+  durationMinutes: number;
+  /**
+   * When it stops being the one being asked — the EARLIEST of its own timer,
+   * the next arming and the capture window, decided by
+   * `papic_challenge_ends_at()`.
+   *
+   * ⚠ AN INSTANT, NOT A REMAINING-MINUTES COUNT. A count computed server-side
+   * is already stale when it is painted; an instant stays true, and lets a
+   * client tick without ever owning the rule.
+   */
+  expiresAt: string | null;
 };
 
 /**
@@ -65,6 +108,8 @@ type Row = {
   source: string;
   capture_kind: string | null;
   board_slot: number | null;
+  duration_minutes: number;
+  expires_at: string | null;
 };
 
 export async function fetchArmedChallenge(
@@ -94,6 +139,8 @@ export async function fetchArmedChallenge(
       source: row.source,
       captureKind: row.capture_kind,
       boardSlot: row.board_slot,
+      durationMinutes: row.duration_minutes,
+      expiresAt: row.expires_at,
     },
   };
 }

@@ -12,6 +12,10 @@ import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { coupleSlots } from '@/lib/papic-missions';
 import {
+  CHALLENGE_DURATION_CHOICES,
+  CHALLENGE_DURATION_DEFAULT,
+} from '@/lib/papic-challenge-clock';
+import {
   PAPIC_CAMERAS_ORDER_KEY,
   PAPIC_FREE_CAMERA_INDEX_BASE,
   PAPIC_LTD_CAP_FALLBACK_PHP,
@@ -328,10 +332,16 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
 /**
  * ARM one challenge for the whole celebration — the act that starts its clock.
  *
- * Owner ruling 2026-09-01: the window is RELATIVE, it opens HERE, one challenge
- * is live at a time per celebration, and arming the next closes the previous.
- * Both halves are done by `papic_arm_challenge` in one transaction, so no
- * caller can do one and forget the other — this action only names the mission.
+ * Owner ruling 2026-09-01: the window is RELATIVE, it opens HERE, one TIMED
+ * challenge is live at a time per celebration, and arming the next closes the
+ * previous. Both halves are done by `papic_arm_challenge` in one transaction,
+ * so no caller can do one and forget the other — this action names the mission
+ * and the length the couple picked (30 · 60 · 120 minutes, default 30).
+ *
+ * ⛔ ARMING TAKES NOTHING OFF A GUEST'S BOARD. Owner, same day: "one challenge,
+ * but the other challenges may still be there." Starting one does not hide the
+ * rest, and neither does it expiring — a guest keeps all of them, and may still
+ * answer the expired one.
  *
  * 🔑 ARMING IS NOT THE GUEST'S "Start". `papic-challenge-panel.tsx` has its own
  * arm/disarm ("the next shutter press on THIS phone attaches to THIS mission"),
@@ -361,8 +371,20 @@ export async function armChallengeAction(formData: FormData) {
     redirect(`/dashboard/${eventId}/studio/papic/challenges`);
   }
 
+  // The couple's pick: 30 (default), 60 or 120. An unrecognised value is NOT
+  // rejected here — it is dropped, and the RPC applies the owner's default. A
+  // coordinator mid-reception should get 30 minutes, never an error page, and
+  // the CHECK constraint is the real gate against a fourth length.
+  const rawMinutes = Number(formData.get('duration_minutes'));
+  const minutes = (CHALLENGE_DURATION_CHOICES as readonly number[]).includes(rawMinutes)
+    ? rawMinutes
+    : CHALLENGE_DURATION_DEFAULT;
+
   const supabase = await createClient();
-  const { error } = await supabase.rpc('papic_arm_challenge', { p_mission_id: missionId });
+  const { error } = await supabase.rpc('papic_arm_challenge', {
+    p_mission_id: missionId,
+    p_duration_minutes: minutes,
+  });
   if (error) {
     // Graceful-degrade like its siblings: the couple is mid-reception and an
     // error page helps nobody. The armed state is DERIVED, so the next render

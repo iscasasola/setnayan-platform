@@ -49,27 +49,62 @@ function challengeReaderFn(): string {
 test('the flag gate is checked before any query, and is itself a measured fact', () => {
   const fn = challengeReaderFn();
   const flagAt = fn.indexOf('if (!papicGamesEnabled())');
-  const firstQueryAt = fn.indexOf(".from('papic_missions')");
+  // The first query is now the resolver RPC, not a table read.
+  const firstQueryAt = fn.indexOf("rpc('papic_armed_challenge'");
   assert.notEqual(flagAt, -1, 'must gate on papicGamesEnabled, like every other papic-games.ts wrapper');
   assert.ok(flagAt < firstQueryAt, 'the flag must short-circuit before the DB is ever asked');
   const gateLine = fn.slice(flagAt, fn.indexOf('\n', flagAt));
   assert.match(gateLine, /measured:\s*true,\s*challenge:\s*null/, 'off is a KNOWN fact, not a refusal');
 });
 
-test('the missions query is scoped to this event\'s LIVE board top', () => {
+/**
+ * ⚠ THIS TEST REPLACED "the missions query is scoped to this event's LIVE board
+ * top" ON 2026-09-01, AND IS DELIBERATELY STRICTER THAN THE ONE IT REPLACED.
+ *
+ * The old guard pinned a hand-built query — event scope, approved, is_active,
+ * board_slot ordering, limit 1 — because no challenge clock existed and the
+ * board's first slot was the honest stand-in. Every one of those predicates is
+ * now the DATABASE's job (`papic_armed_challenge` → `papic_challenge_is_open` →
+ * `papic_challenge_ends_at`), so pinning them here would pin a SECOND copy of
+ * the rule: exactly the drift that made the wall and the couple's screen able
+ * to name different live challenges.
+ *
+ * 🔑 SO THE ASSERTION INVERTED. It used to require the rule to be present in
+ * this file. It now requires it to be ABSENT — the reader must delegate, and
+ * must not reconstruct any part of the decision on the way past.
+ */
+test('the wall asks the ONE resolver, and rebuilds no part of the rule itself', () => {
   const fn = challengeReaderFn();
-  const q = fn.slice(fn.indexOf("from('papic_missions')"), fn.indexOf('.limit(1)') + 10);
-  assert.match(q, /\.eq\('event_id', eventId\)/, 'must not leak another event\'s challenges');
-  assert.match(q, /\.eq\('approved', true\)/, 'a pending vendor challenge must never reach the wall');
-  assert.match(q, /\.eq\('is_active', true\)/, 'a retired challenge must never reach the wall');
-  assert.match(q, /board_slot.*ascending:\s*true,\s*nullsFirst:\s*false/, 'lowest slot first, unslotted last');
-  assert.match(q, /created_at.*ascending:\s*true/, 'tie-break by oldest, mirroring the v4 board reader');
-  assert.match(q, /\.limit\(1\)/, 'exactly one — "the" currently-armed challenge, not a list');
+
+  assert.match(
+    fn,
+    /rpc\('papic_armed_challenge',\s*\{\s*\n?\s*p_event_id: eventId,?\s*\n?\s*\}\)/,
+    'the armed challenge must come from the resolver, scoped to THIS event',
+  );
+
+  // None of these may come back. Each is a way the old stand-in decided for
+  // itself which challenge was live.
+  assert.equal(
+    /from\('papic_missions'\)/.test(fn),
+    false,
+    'no direct read of papic_missions — the resolver already applies event scope, approved and is_active',
+  );
+  assert.equal(/board_slot/.test(fn), false, 'the board\'s first slot is not the armed challenge');
+  assert.equal(
+    /Date\.now\(\)|new Date\(/.test(fn),
+    false,
+    'no wall-clock arithmetic — expiry is papic_challenge_ends_at\'s decision',
+  );
+  assert.equal(
+    /armed_at\s*[<>]|expires_at\s*[<>]/.test(fn),
+    false,
+    'no comparison against the arming or the expiry — the resolver already refused a closed challenge',
+  );
 });
 
 test('a refused MISSIONS read returns measured:false, never an empty-looking challenge', () => {
   const fn = challengeReaderFn();
-  const missionsBlock = fn.slice(fn.indexOf("from('papic_missions')"), fn.indexOf('const mission ='));
+  const missionsBlock = fn.slice(fn.indexOf("rpc('papic_armed_challenge'"), fn.indexOf('const mission ='));
   assert.match(missionsBlock, /if \(mErr\) return \{ measured: false, challenge: null \};/);
   // The genuinely-empty branch must be a SEPARATE, later check — not folded
   // into the same condition as the error, or a refusal and an empty board

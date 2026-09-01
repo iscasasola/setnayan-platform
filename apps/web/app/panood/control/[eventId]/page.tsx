@@ -49,6 +49,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { ADD_A_DAY_LABEL } from '@/lib/live-studio-window';
 import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { turnConfigured } from '@/lib/turn';
 import {
   liveStudioPoolOnly,
   POOL_ONLY_CONNECT_NOTICE,
@@ -478,6 +479,10 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // couple's-unrepeatable-day gate). OFF → no peer connection, no picture, and the
   // placeholder says so rather than a black rectangle pretending to be a feed.
   const streamingOn = panoodStreamingEnabled();
+
+  // Read once, server-side: the two CLOUDFLARE_TURN_* vars are server-only secrets
+  // and must never reach the client — only this boolean does.
+  const relayConfigured = turnConfigured();
 
   // ── FREE single-camera livestream state (reuses the live panood reads verbatim).
   const oauthReady = (await getYoutubeOAuthConfig()).ready;
@@ -1298,6 +1303,23 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </h2>
             <span className="ml-auto text-[11px] text-ink/45">tap = put on Channel 1</span>
           </div>
+
+          {/* ⭐ NO RELAY = A NETWORK RULE THE HOST HAS TO KNOW BEFORE THE DAY.
+              turnConfigured() has existed since TURN landed and was read by nothing,
+              so a host whose cameras all failed with "couldn't reach the controller
+              on this network" had no way to learn whether a relay even existed.
+              Stated here, beside the cameras it governs, rather than in a log.
+              ⚠ A NOTICE, NOT A BLOCKER: without a relay cameras still connect on a
+              network that permits peer traffic, so refusing to show the grid would
+              take away something that works. */}
+          {!relayConfigured ? (
+            <p className="shrink-0 rounded-lg border border-terracotta/25 bg-terracotta/5 px-3 py-2 text-[11.5px] leading-snug text-ink/75">
+              <strong className="font-semibold text-ink/85">No camera relay is set up.</strong>{' '}
+              Every camera phone must be on the same Wi-Fi as this controller — and on a
+              network that lets devices talk to each other, which guest Wi-Fi usually does
+              not. If a camera says it can&rsquo;t reach the controller, this is why.
+            </p>
+          ) : null}
 
           <div
             data-testid="lsc-channel-scroller"

@@ -30,7 +30,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Radio, Play, X } from 'lucide-react';
+import { ArrowLeft, Radio, Play, X, Pause } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
@@ -38,12 +38,18 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { displayChallengePrompt } from '@/lib/papic-missions';
 import { KWENTO_MOMENTS } from '@/lib/kwento-moments';
 import { fetchArmedChallenge } from '@/lib/papic-challenge-clock';
+import { fetchPauseState, isPaused } from '@/lib/papic-challenge-pause';
 import {
   fetchRunOfShow,
   fetchSequenceSuggestions,
   type MomentSuggestions,
 } from '@/lib/papic-ceremony-sequence';
-import { addLibraryChallengeAction, armChallengeAction, clearMomentChallengeAction } from '../actions';
+import {
+  addLibraryChallengeAction,
+  armChallengeAction,
+  clearMomentChallengeAction,
+  setChallengesPausedAction,
+} from '../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,10 +89,12 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
   const profile = await resolveProfileByEvent(eventId);
   const words = { organizer: profile.terminology.organizerNoun };
 
-  const [runOfShow, armedReading] = await Promise.all([
+  const [runOfShow, armedReading, pauseReading] = await Promise.all([
     fetchRunOfShow(supabase, eventId),
     fetchArmedChallenge(supabase, eventId),
+    fetchPauseState(supabase, eventId),
   ]);
+  const paused = isPaused(pauseReading);
 
   // Placed prompts are not offered again — a prompt can sit at only one moment
   // and the database refuses the second, so offering it would be a button that
@@ -159,6 +167,66 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
           No challenge is being asked yet. Start one when the moment comes.
         </p>
       )}
+
+      {/* ⏸ QUIET THE ROOM. Owner 2026-09-01: "challenges can all be not
+          available on moments everybody must be watching." Three states again,
+          because "we could not check" is not "running" — a coordinator told
+          challenges are running when they may be paused will not press the
+          button they need to.
+          🔴 The camera is untouched either way, and that is worth saying ON the
+          control: a coordinator who thinks Pause stops the photos will never
+          use it during the one moment it is for. */}
+      <div className="mt-4 rounded-xl border border-ink/10 bg-white/60 p-3">
+        {!pauseReading.measured ? (
+          <p className="text-sm text-terracotta-700">
+            We couldn&rsquo;t check whether challenges are paused. Refresh in a
+            moment &mdash; nothing has changed either way.
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-ink/75">
+              {paused ? (
+                <>
+                  <span className="font-medium text-ink">Challenges are paused.</span>{' '}
+                  Guests still see them, with a note that everyone&rsquo;s watching.
+                  Photos are unaffected.
+                </>
+              ) : (
+                <>
+                  Challenges are running. Pause them for the vows, the kiss, a
+                  speech &mdash; <span className="font-medium text-ink">photos keep working</span>.
+                </>
+              )}
+            </p>
+            <form action={setChallengesPausedAction}>
+              <input type="hidden" name="event_id" value={eventId} />
+              {/* Explicit intent, never a toggle: two taps on a slow connection
+                  must not resume the pause they just started. */}
+              <input type="hidden" name="resume" value={paused ? '1' : '0'} />
+              <button
+                type="submit"
+                className={
+                  paused
+                    ? 'inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white'
+                    : 'inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1 text-xs font-medium text-ink hover:bg-ink/5'
+                }
+              >
+                {paused ? (
+                  <>
+                    <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    Resume challenges
+                  </>
+                ) : (
+                  <>
+                    <Pause aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    Pause challenges
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
 
       {!runOfShow.measured ? (
         <p className="mt-4 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">

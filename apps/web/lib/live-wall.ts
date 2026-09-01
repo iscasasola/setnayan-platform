@@ -435,12 +435,33 @@ export type WallChallengeRead = {
 };
 
 /**
- * THE CURRENTLY-ARMED CHALLENGE. No per-event "current challenge" clock exists
- * yet (a parallel session owns adding one) — until it does, the wall shows the
- * challenge at the top of the guest board: the live (approved + active)
- * mission with the lowest `board_slot`, NULLS LAST then oldest `created_at`
- * first, the SAME ordering `papic_guest_missions` v4 already uses (mirrored in
- * `sortGuestMissions`/board readers — never a third, competing order).
+ * THE CURRENTLY-ARMED CHALLENGE — now the real one.
+ *
+ * ── WHAT THIS USED TO DO, AND WHY IT HAD TO ────────────────────────────────
+ * Until 2026-09-01 no per-event challenge clock existed, so this showed the
+ * TOP OF THE GUEST BOARD — the live mission with the lowest `board_slot` — and
+ * called it "armed". It was the honest stand-in available at the time and it
+ * said so. It is now wrong in a way that matters: the board's first slot has
+ * nothing to do with what the room is being asked, so the wall could project
+ * one challenge while the couple's own screen named another, each passing its
+ * own tests. Two mechanisms disagreeing about one fact is precisely the drift
+ * the clock was built to remove.
+ *
+ * 🔑 SO THE ORDERING IS GONE, NOT PORTED. `papic_armed_challenge` is the single
+ * resolver (it delegates the verdict to `papic_challenge_is_open` and the
+ * expiry instant to `papic_challenge_ends_at`), and reproducing ANY part of
+ * that rule here — a board_slot order, a `Date.now()` against `armed_at` — puts
+ * the second answer straight back.
+ *
+ * ⚠ THE WALL NOW GOES QUIET BETWEEN CHALLENGES, AND THAT IS THE POINT. Before,
+ * something was always displayed, whether or not anybody had started it. Now a
+ * challenge appears while it is genuinely running and stops when it expires —
+ * `challenge: null` on a `measured: true` read means "nothing is being asked
+ * right now", which is a true statement the wall was previously unable to make.
+ *
+ * ⛔ AND IT SAYS NOTHING ABOUT THE GUEST'S BOARD. Owner 2026-09-01: "one
+ * challenge, but the other challenges may still be there." A guest keeps every
+ * challenge they had, including this one after it expires.
  */
 export async function fetchWallArmedChallenge(
   admin: SupabaseClient,
@@ -448,15 +469,9 @@ export async function fetchWallArmedChallenge(
 ): Promise<WallChallengeRead> {
   if (!papicGamesEnabled()) return { measured: true, challenge: null };
 
-  const { data: missions, error: mErr } = await admin
-    .from('papic_missions')
-    .select('mission_id, prompt, board_slot, created_at')
-    .eq('event_id', eventId)
-    .eq('approved', true)
-    .eq('is_active', true)
-    .order('board_slot', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: true })
-    .limit(1);
+  const { data: missions, error: mErr } = await admin.rpc('papic_armed_challenge', {
+    p_event_id: eventId,
+  });
 
   // Supabase resolves with { error }, it does not throw — treating a refused
   // read as "no challenges" is exactly how a wall ends up telling a party of

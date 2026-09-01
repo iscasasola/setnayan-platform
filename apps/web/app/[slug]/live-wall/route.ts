@@ -56,5 +56,7 @@ export async function GET(
     caption: snapshot.caption
       ? { text: snapshot.caption.text, author: snapshot.caption.author }
       : null,
+    challenge: snapshot.challenge,
+    challengeMeasured: snapshot.challengeMeasured,
   });
 }

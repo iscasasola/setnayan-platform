@@ -960,6 +960,8 @@ export async function SiteBody({
                   initialTiles={liveWall.tiles}
                   initialCount={liveWall.count}
                   initialCaption={liveWall.caption}
+                  initialChallenge={liveWall.challenge}
+                  initialChallengeMeasured={liveWall.challengeMeasured}
                   timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                 />
               </section>

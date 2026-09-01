@@ -58,7 +58,7 @@ import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
-import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
+import { getWallSnapshot, guestWallMirrorActive, type WallArmedChallenge } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import {
   readEventWatchUrls,
@@ -416,8 +416,15 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // agreeing to put it on every guest's phone are two different questions, and
   // this surface only ever asked the first. The poll route above enforces the
   // same gate, so a closed mirror closes the data too, not just the block. ───
-  let liveWall: { tiles: WallTile[]; count: number; caption: LiveWallCaption } | null =
-    null;
+  let liveWall:
+    | {
+        tiles: WallTile[];
+        count: number;
+        caption: LiveWallCaption;
+        challenge: WallArmedChallenge | null;
+        challengeMeasured: boolean;
+      }
+    | null = null;
   if (isLive) {
     try {
       if (await guestWallMirrorActive(admin, event.event_id)) {
@@ -428,6 +435,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           caption: snap.caption
             ? { text: snap.caption.text, author: snap.caption.author }
             : null,
+          challenge: snap.challenge,
+          challengeMeasured: snap.challengeMeasured,
         };
       }
     } catch {
@@ -845,6 +854,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           initialTiles={liveWall.tiles}
           initialCount={liveWall.count}
           initialCaption={liveWall.caption}
+          initialChallenge={liveWall.challenge}
+          initialChallengeMeasured={liveWall.challengeMeasured}
           timeZone={eventTz}
         />
       ) : null}

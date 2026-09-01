@@ -50,17 +50,29 @@ const POLL_MS = 25_000;
 
 export type LiveWallCaption = { text: string; author: string } | null;
 
+/** The currently-armed Papic Challenge + how many guests have answered it. */
+export type LiveWallChallenge = { missionId: string; prompt: string; answeredCount: number } | null;
+
 export function LiveWallBlock({
   slug,
   initialTiles,
   initialCount,
   initialCaption,
+  initialChallenge = null,
+  initialChallengeMeasured = true,
   timeZone,
 }: {
   slug: string;
   initialTiles: WallTile[];
   initialCount: number;
   initialCaption: LiveWallCaption;
+  /** The event's currently-armed Papic Challenge, or null when none is armed. */
+  initialChallenge?: LiveWallChallenge;
+  /** False when the FIRST read of the challenge was refused — unknown, never
+   *  "none". See WallChallengeRead in lib/live-wall.ts. Defaults to true so
+   *  every existing caller (no challenge system to report) keeps rendering
+   *  exactly as before. */
+  initialChallengeMeasured?: boolean;
   /** The VENUE's zone, for the "· 4:12 PM" half of a tile's credit. Absent ⇒
    *  the name shows alone; the reader's own clock is never printed as the
    *  venue's. */
@@ -73,6 +85,11 @@ export function LiveWallBlock({
   const [tiles, setTiles] = useState<WallTile[]>(initialTiles);
   const [count, setCount] = useState(initialCount);
   const [caption, setCaption] = useState<LiveWallCaption>(initialCaption);
+  const [challenge, setChallenge] = useState<LiveWallChallenge>(initialChallenge);
+  // False = the most recent read of the challenge was refused. Distinct from
+  // `challenge === null`, which is a genuinely un-armed wall — the two must
+  // never render the same way (guests-read-is-honest.test.ts precedent).
+  const [challengeMeasured, setChallengeMeasured] = useState(initialChallengeMeasured);
   // Two consecutive fetch failures — see the poll loop. Only ever set from
   // there, so a first-load-with-no-tiles (the ordinary quiet moment) never
   // shows an error that is not true.
@@ -120,6 +137,8 @@ export function LiveWallBlock({
           setTiles([]);
           setCaption(null);
           setCount(0);
+          setChallenge(null);
+          setChallengeMeasured(true);
           stop();
           return;
         }
@@ -134,12 +153,21 @@ export function LiveWallBlock({
           tiles?: WallTile[];
           count?: number;
           caption?: LiveWallCaption;
+          challenge?: LiveWallChallenge;
+          challengeMeasured?: boolean;
         };
         if (Array.isArray(data.tiles)) {
           setTiles((prev) => mergeTiles(prev, data.tiles ?? []));
         }
         if (typeof data.count === 'number') setCount(data.count);
         if (data.caption !== undefined) setCaption(data.caption);
+        // The challenge read is honest — only overwrite when THIS poll
+        // actually measured it. A route that predates this field (or one that
+        // omitted it) must never be read as "challenge cleared".
+        if (data.challenge !== undefined) setChallenge(data.challenge);
+        if (typeof data.challengeMeasured === 'boolean') {
+          setChallengeMeasured(data.challengeMeasured);
+        }
       } catch {
         // Transient venue-wifi failure — the next tick covers it, and after two
         // in a row we stop promising photos that are not coming.
@@ -206,6 +234,7 @@ export function LiveWallBlock({
               ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
               : 'The wall is warming up — photos appear here the moment they’re taken.'}
         </p>
+        {closed ? null : <ChallengeBanner challenge={challenge} measured={challengeMeasured} />}
       </section>
     );
   }
@@ -216,6 +245,7 @@ export function LiveWallBlock({
       className="sn-gal p-5 sm:p-6"
     >
       <LiveWallHeader count={count} occasion={w.occasion} />
+      <ChallengeBanner challenge={challenge} measured={challengeMeasured} />
       <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
         {display.map((tile) => (
           <figure
@@ -317,6 +347,47 @@ function LiveWallHeader({ count, occasion }: { count: number; occasion: string }
           <span className="text-xs">moment{count === 1 ? '' : 's'} and counting</span>
         </p>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The currently-armed Papic Challenge + who has answered it (Papic Build
+ * Order §4). THE READ IS HONEST, and this must stay legible on the render:
+ *
+ *   measured=true,  challenge=null     → genuinely nothing armed → renders nothing.
+ *   measured=false, challenge=null|set → the read was refused → says so, never
+ *                                          silently drops to the row above.
+ *   measured=true,  challenge=set      → the prompt + a live answered count.
+ *
+ * A count nobody can see is the disease this whole build exists to kill — a
+ * log line never changed a pixel (guests-read-is-honest.test.ts precedent).
+ */
+function ChallengeBanner({
+  challenge,
+  measured,
+}: {
+  challenge: LiveWallChallenge;
+  measured: boolean;
+}) {
+  if (!measured) {
+    return (
+      <p className="sn-gal-soft mt-3 text-center text-xs italic" role="status">
+        Challenge status unavailable right now.
+      </p>
+    );
+  }
+  if (!challenge) return null;
+  return (
+    <div className="mt-3 rounded-lg border border-[rgb(251_250_247/0.14)] bg-[rgb(251_250_247/0.06)] px-3.5 py-2.5 text-center">
+      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--sn-ob-gold)]">
+        Papic Challenge
+      </p>
+      <p className="sn-gal-text mt-1 text-sm">{challenge.prompt}</p>
+      <p className="sn-gal-soft mt-1 text-xs tabular-nums">
+        {challenge.answeredCount.toLocaleString()}{' '}
+        {challenge.answeredCount === 1 ? 'guest has' : 'guests have'} answered
+      </p>
     </div>
   );
 }

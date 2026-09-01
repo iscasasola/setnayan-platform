@@ -52,6 +52,11 @@ export type LiveWallData = {
   tiles: WallTile[];
   count: number;
   caption: { text: string; author: string } | null;
+  /** The currently-armed Papic Challenge + answer count, or null when none is
+   *  armed. `challengeMeasured: false` means the read was refused — unknown,
+   *  never "none" (see WallChallengeRead in lib/live-wall.ts). */
+  challenge: { missionId: string; prompt: string; answeredCount: number } | null;
+  challengeMeasured: boolean;
 };
 
 export type EventRow = {

@@ -859,3 +859,33 @@ export async function clearControlManualAir(formData: FormData): Promise<void> {
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?on_air=0`);
 }
+
+/**
+ * Clear the by-hand on-air flag from the TRANSPORT row's "End" button — same write
+ * as `clearControlManualAir` above, but called directly (no `<form>`/`FormData`,
+ * no redirect) because `TransportRow` drives it through the same JS transition it
+ * uses for `endPanoodBroadcast`.
+ *
+ * ⚠ DEFECT this exists to fix: `TransportRow` shows one red button whenever
+ * `isLive` is true, whatever route put the event on air, and it used to always call
+ * `endPanoodBroadcast` — which closes a `panood_broadcasts` row that a manual-only
+ * host never has, and along the way clears `events.panood_watch_url`, the watch
+ * link that host pasted themselves. `panood_manual_on_air_at` — the thing actually
+ * making them read as live — was never touched, so the button's own claim of
+ * "ended" was false: the control stayed on air. See `endOnAirTarget` in
+ * lib/live-studio-manual-air.ts for which route a given `isLive` source must use.
+ */
+export async function endManualOnAir(eventId: string): Promise<{ ok: true } | { error: string }> {
+  if (!liveStudioRoamEnabled()) return { error: 'Live Studio is not available for this event.' };
+
+  await requireHostMembership(eventId);
+
+  const admin = createAdminClient();
+  await admin
+    .from('events')
+    .update({ panood_manual_on_air_at: null })
+    .eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  return { ok: true };
+}

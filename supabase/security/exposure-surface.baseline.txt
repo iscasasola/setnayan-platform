@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6351
+# facts: 6353
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4677
 #   policy    866
 #   view      8
-#   func      223
+#   func      225
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6262,6 +6262,7 @@ func	public.papic_challenge_ends_at(p_mission_id uuid)	secdef=no exec=authentica
 func	public.papic_challenge_is_open(p_mission_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_challenge_pick_counts()	secdef=yes exec=authenticated search_path=public
 func	public.papic_claim_seat(p_token text)	secdef=yes exec=anon,authenticated search_path=public
+func	public.papic_close_open_challenge(p_event_id uuid, p_at timestamp with time zone, p_only_mission uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_complete_mission(p_guest_id uuid, p_mission_id uuid, p_capture_id uuid, p_consent_to_share boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_event_has_flat_pass(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6270,6 +6271,7 @@ func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenti
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean, p_media_type text, p_duration_ms integer, p_poster_r2_key text, p_points_cost integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_review_vendor_challenge(p_mission_id uuid, p_approve boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_set_completion_consent(p_guest_id uuid, p_mission_id uuid, p_consent boolean)	secdef=yes exec=anon,authenticated search_path=public
+func	public.papic_stop_challenge(p_mission_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_tag_capture(p_token text, p_photo_id uuid, p_guest_token text, p_table_ref text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_tag_guest_capture(p_guest_id uuid, p_capture_id uuid, p_guest_token text, p_table_ref text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_vendor_challenge_photos(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public

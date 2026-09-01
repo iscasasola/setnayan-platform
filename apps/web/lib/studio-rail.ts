@@ -11,7 +11,8 @@
  */
 import { addOnHref } from './add-ons-catalog';
 import { STUDIO_HUB_ALL_LABEL, studioHubHref } from './studio-hub';
-import { surfaceEnabled, type EventTypeProfile } from './event-type-profile';
+import type { EventTypeProfile } from './event-type-profile';
+import { addOnOfferedForEvent } from './add-on-event-scope';
 import { STUDIO_APPS } from './studio-apps';
 
 import type { RailTool } from '@/app/_components/frontdoor/front-door-shell';
@@ -53,9 +54,25 @@ export function railToolsSignedOut(): ReadonlyArray<RailTool> {
  * 🔴 AND A ROW IS DROPPED WHEN ITS SURFACE IS OFF FOR THAT EVENT TYPE. `monogram`
  * is WEDDING-ONLY and `/dashboard/[id]/monogram` `redirect()`s away with no
  * message — so a birthday organiser pressing "Logo Maker" would be silently dumped
- * on their event page, strictly worse than the marketing page it replaced. The
- * couple's own Studio hub filters on exactly this field; this is the same
- * predicate, not a second one.
+ * on their event page, strictly worse than the marketing page it replaced.
+ *
+ * 🔴 THROUGH `addOnOfferedForEvent`, NOT A RE-DERIVED CHECK (S1, owner
+ * 2026-09-01). This used to call `surfaceEnabled(profile, a.surface)` directly
+ * — the SAME rule the Suite grid's `surfaceOk` applies via
+ * `addOnOfferedForEvent`, but a second hand-written copy of it, which is
+ * exactly the shape that let the sidebar drift from the Suite grid before (see
+ * `add-on-event-scope.ts`'s own docblock — Suite ran the gate, the About route
+ * ran nothing, and the sidebar ran nothing either). Calling the one function
+ * both surfaces call means a future second layer on that predicate (like the
+ * papic-guest phase ladder, or the panood/live-studio-roam de-dupe) reaches the
+ * sidebar automatically instead of needing a matching edit here.
+ *
+ * `communityId` is passed as `null`: it only changes the answer for
+ * `entry.key === 'papic-guest'`, and no `StudioApp.addOnKey` is that key today
+ * (the sidebar's Papic row opens `papic`, the couple's own setup page — the
+ * Papic Pool GUEST PASS predicate lives on a different catalogue entry this
+ * rail never renders). If that ever changes, thread the event's real
+ * `community_id` through here the way `suite/page.tsx` does.
  */
 export function railToolsSignedIn(
   studio: { eventId: string | null; count: number; profile: EventTypeProfile | null },
@@ -65,7 +82,7 @@ export function railToolsSignedIn(
     // Nothing is gated until we know WHICH event — the surface list is a
     // property of the event type, and without one there is nothing to ask.
     if (!eventId || !profile) return true;
-    return !a.surface || surfaceEnabled(profile, a.surface);
+    return addOnOfferedForEvent({ key: a.key, surface: a.surface }, profile, null);
   }).map((a) => {
     /*
       THE THREE CASES, EXPLICIT. An earlier cut collapsed the last two into

@@ -587,6 +587,51 @@ export async function clearMomentChallengeAction(formData: FormData) {
   redirect(returnTo);
 }
 
+/**
+ * STOP the timed challenge early — the prompt ends, the challenge stays.
+ *
+ * Owner 2026-09-01. Before this, the only way to end one early was to HIDE it,
+ * and those are different acts: hiding takes the challenge off every guest's
+ * board so nobody can answer it any more. Stopping ends what the ROOM is being
+ * asked and leaves the challenge exactly where it was — still on the board,
+ * still answerable, like the others ("one challenge, but the other challenges
+ * may still be there").
+ *
+ * ⛔ SO THIS MUST NEVER TOUCH `is_active`. A db test asserts the guest's board
+ * is unchanged across a stop, because `is_active = false` is the cheapest
+ * possible implementation of "stop" and would satisfy every other assertion.
+ *
+ * The mission id is submitted and honoured: `papic_stop_challenge` closes only
+ * the challenge this button was rendered for, so a coordinator tapping Stop on
+ * a page that went stale cannot kill the one the host has just started.
+ */
+export async function stopChallengeAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  const missionId = formData.get('mission_id');
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  if (!papicGamesEnabled()) {
+    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  }
+  if (typeof missionId !== 'string' || missionId.length === 0) {
+    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('papic_stop_challenge', { p_mission_id: missionId });
+  if (error) {
+    // Graceful-degrade like its siblings: the armed state is DERIVED, so the
+    // next render shows the truth either way — and shows "we could not check"
+    // rather than "nothing is running" if that read is refused too.
+    logQueryError('stopChallengeAction', error, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+}
+
 /** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via
  *  the toggle, never deleted here (a deleted auto mission would just regenerate;
  *  a vendor's challenge is theirs) — so this is scoped source='couple'. */

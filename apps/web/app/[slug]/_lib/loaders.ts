@@ -694,6 +694,8 @@ export const loadLiveLayer = cache(
             caption: snap.caption
               ? { text: snap.caption.text, author: snap.caption.author }
               : null,
+            challenge: snap.challenge,
+            challengeMeasured: snap.challengeMeasured,
           };
         }
         // DUAL-STREAM (owner-approved 2026-07-26). resolveWatchLinks re-validates

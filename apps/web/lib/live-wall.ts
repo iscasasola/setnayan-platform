@@ -27,6 +27,7 @@ import { resolveCapturerNames } from '@/lib/capture-credit';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventPapicActive } from '@/lib/papic-seats';
+import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
   displayCodeFrom,
   resolveWallMode,
@@ -406,6 +407,86 @@ export async function guestWallMirrorActive(
   return wallGuestMirrorOn(row.live_photo_wall_visibility);
 }
 
+/** The event's currently-armed Papic Challenge, for the wall. */
+export type WallArmedChallenge = {
+  missionId: string;
+  prompt: string;
+  /** Guests who have answered THIS challenge — from papic_mission_completions. */
+  answeredCount: number;
+};
+
+/**
+ * THE CHALLENGE READ IS HONEST — mirrors `fetchGuestsByEventMeasured`
+ * (lib/guests.ts) and `fetchVendorSponsoredShots` (lib/vendor-sponsored-shots.ts):
+ * a refused read and a genuinely un-armed wall are NOT the same fact, and a
+ * caller that cannot tell them apart ends up rendering one as the other — the
+ * exact defect `guests-read-is-honest.test.ts` exists to keep out.
+ *
+ * `measured: false` means "we do not know whether a challenge is armed", not
+ * "there is none". Only a `measured: true` read may say "no challenge right
+ * now".
+ *
+ * Flag-gated: with Papic Games off, there is genuinely no challenge system to
+ * read — that IS a measured fact, not a refusal.
+ */
+export type WallChallengeRead = {
+  measured: boolean;
+  challenge: WallArmedChallenge | null;
+};
+
+/**
+ * THE CURRENTLY-ARMED CHALLENGE. No per-event "current challenge" clock exists
+ * yet (a parallel session owns adding one) — until it does, the wall shows the
+ * challenge at the top of the guest board: the live (approved + active)
+ * mission with the lowest `board_slot`, NULLS LAST then oldest `created_at`
+ * first, the SAME ordering `papic_guest_missions` v4 already uses (mirrored in
+ * `sortGuestMissions`/board readers — never a third, competing order).
+ */
+export async function fetchWallArmedChallenge(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<WallChallengeRead> {
+  if (!papicGamesEnabled()) return { measured: true, challenge: null };
+
+  const { data: missions, error: mErr } = await admin
+    .from('papic_missions')
+    .select('mission_id, prompt, board_slot, created_at')
+    .eq('event_id', eventId)
+    .eq('approved', true)
+    .eq('is_active', true)
+    .order('board_slot', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+    .limit(1);
+
+  // Supabase resolves with { error }, it does not throw — treating a refused
+  // read as "no challenges" is exactly how a wall ends up telling a party of
+  // 180 there is nothing to answer.
+  if (mErr) return { measured: false, challenge: null };
+  if (!Array.isArray(missions) || missions.length === 0) {
+    return { measured: true, challenge: null };
+  }
+
+  const mission = missions[0] as { mission_id: string; prompt: string };
+
+  const { count, error: cErr } = await admin
+    .from('papic_mission_completions')
+    .select('completion_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .eq('mission_id', mission.mission_id)
+    .not('capture_id', 'is', null);
+
+  if (cErr) return { measured: false, challenge: null };
+
+  return {
+    measured: true,
+    challenge: {
+      missionId: mission.mission_id,
+      prompt: mission.prompt,
+      answeredCount: count ?? 0,
+    },
+  };
+}
+
 export interface WallSnapshot {
   tiles: WallTile[];
   count: number;
@@ -414,6 +495,10 @@ export interface WallSnapshot {
   eventDate: string | null;
   /** The latest one-tap-approved Kwento for the lower-third (P1: newest wins). */
   caption: { text: string; author: string; atIso: string } | null;
+  /** The currently-armed Papic Challenge + answer count. See WallChallengeRead
+   *  above — `challengeMeasured: false` means unknown, never "none". */
+  challenge: WallArmedChallenge | null;
+  challengeMeasured: boolean;
 }
 
 /** The projection read: visible tiles since a cursor + count + mode. */
@@ -432,7 +517,7 @@ export async function getWallSnapshot(
 ): Promise<WallSnapshot> {
   const admin = createAdminClient();
 
-  const [{ data: feedData }, { data: event }] = await Promise.all([
+  const [{ data: feedData }, { data: event }, challengeRead] = await Promise.all([
     admin.rpc('wall_visible_photos', {
       p_event_id: eventId,
       p_since: sinceIso ?? '-infinity',
@@ -442,6 +527,7 @@ export async function getWallSnapshot(
       .select('display_name, event_date, live_mode_override')
       .eq('event_id', eventId)
       .maybeSingle(),
+    fetchWallArmedChallenge(admin, eventId),
   ]);
 
   let rows = (Array.isArray(feedData) ? feedData : []) as WallFeedRow[];
@@ -516,5 +602,7 @@ export async function getWallSnapshot(
     mode,
     displayName: (event?.display_name as string) ?? null,
     eventDate: (event?.event_date as string) ?? null,
+    challenge: challengeRead.challenge,
+    challengeMeasured: challengeRead.measured,
   };
 }

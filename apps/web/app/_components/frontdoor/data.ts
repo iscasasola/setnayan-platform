@@ -45,6 +45,7 @@ import {
 import { loadFeaturedChaptersResult } from '@/lib/storytellers';
 import { loadYourPeople } from '@/lib/your-people';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
+import { editorialsToStories } from '@/lib/front-door-editorials';
 // The SAME tokenizer the reading search uses, so one typed query is split one
 // way for both halves of the answer. A local split here is how "St. Mary's"
 // finds a guide and misses the shop, with nothing reporting it.
@@ -82,6 +83,21 @@ export type FrontDoorStory = {
   title: string;
   ownerName: string;
   /**
+   * WHICH KIND OF STORY THIS IS — the discriminant the ONE shelf runs on.
+   *
+   * `'chapter'`  — a storyteller's published piece (`lib/storytellers.ts`),
+   *                living at `/u/{ownerSlug}/c/{publicId}`.
+   * `'editorial'` — a REAL celebration's published editorial, consent-gated by
+   *                `lib/showcase-db.ts` and living at the couple's own
+   *                `/[slug]`. This is the thing `/realstories` surfaces.
+   *
+   * 🔑 THE SHELF DOES NOT SPLIT ON THIS — THE CARD DOES. The one-shelf rule
+   * (owner 2026-08-12) is that articles and stories share a shelf and the CARD
+   * says which kind it is. This field is what lets the card say it without a
+   * second shelf appearing the day the first editorial publishes.
+   */
+  kind: 'chapter' | 'editorial';
+  /**
    * The storyteller's handle — what makes the byline a DOOR to their page at
    * `/u/{ownerSlug}` rather than printed text.
    *
@@ -92,13 +108,28 @@ export type FrontDoorStory = {
    * (`StorytellerTileItem.ownerSlug`); a card must not re-derive what the
    * loader knows.
    *
-   * 🔑 NON-NULL BY CONSTRUCTION, and that is what makes the door safe:
+   * 🔑 NON-NULL FOR A CHAPTER, and that is what makes the door safe:
    * `fetchPublicOwners` refuses any owner without `public_profile_enabled`,
-   * without a slug, or soft-deleted — so a story only reaches this shelf when
+   * without a slug, or soft-deleted — so a chapter only reaches this shelf when
    * `/u/{ownerSlug}` is a page that renders. The card and its byline pass the
    * same gate, evaluated once, by the same function.
+   *
+   * 🔴 NULL FOR AN EDITORIAL, AND THAT IS THE WHOLE REASON THIS FIELD IS
+   * NULLABLE. A showcase passes a DIFFERENT gate —
+   * `users.public_summary_consent_at` (RA 10173 consent to be written up) —
+   * which is NOT `public_profile_enabled`. That column is `DEFAULT FALSE` and
+   * `/u/{slug}` 404s while it is, so a couple can consent to their editorial
+   * being public while having no public profile page at all. Forcing an
+   * `ownerSlug` on an editorial would therefore print a byline that links to a
+   * 404, and it would do so on the FRONT PAGE, for the first real couple who
+   * ever consents. Measured 2026-09-01 in production: 7 accounts, 1 with
+   * `public_profile_enabled`, 0 consenters — so this has not bitten yet and
+   * would have bitten the first time it could.
+   *
+   * ⚠ A NULL HERE MEANS "PRINT THE NAME, DO NOT LINK IT" — never "no author".
+   * `ownerName` is still required and still rendered.
    */
-  ownerSlug: string;
+  ownerSlug: string | null;
   kindLabel: string;
   /** A written chapter legitimately has no video. Never a reason to drop it. */
   hasVideo: boolean;
@@ -412,10 +443,11 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
       readingMinutes: readingMinutes(a.blocks),
     }));
 
-  const stories: FrontDoorStory[] = storiesRaw.items.map((s) => ({
+  const chapters: FrontDoorStory[] = storiesRaw.items.map((s) => ({
     href: s.href,
     title: s.title,
     ownerName: s.ownerName,
+    kind: 'chapter' as const,
     // The handle, carried so the byline can be a door. See the field's note on
     // the type: never sliced back out of `href`.
     ownerSlug: s.ownerSlug,
@@ -463,7 +495,51 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
   // the front door's threshold is a claim about how many real couples have
   // shared their day, and counting a sample toward it would make the page
   // lie about the one thing it promises ("nothing is staged").
-  const realWeddingCount = (showcasesRaw ?? []).filter((s) => !s.isSample).length;
+  const realShowcases = (showcasesRaw ?? []).filter((s) => !s.isSample);
+  const realWeddingCount = realShowcases.length;
+
+  /*
+    ─── THE EDITORIALS REACH THE SHELF ──────────────────────────────────────
+    THE DEFECT THIS CLOSES: `loadPublishedShowcases(24)` has been called on
+    this page since the front door shipped, and every row it returned was
+    thrown away — reduced to `realWeddingCount`, a number the type above marks
+    "Only ever feeds the SHAPE composer, never the screen". So the home page
+    LOADED the published editorials and rendered none of them. A published
+    editorial reached `/realstories` and nowhere else, while the front page's
+    "Stories" chip showed only storyteller CHAPTERS, a different object.
+
+    🔑 THIS IS A MAPPING, NOT A SECOND SOURCE. No new query, no new gate, no
+    new table. The consent gate (RA 10173: eligible kind + public slug + T+30d
+    grace + `public_summary_consent_at`) is `showcase-db.ts`'s and stays there;
+    this only stops discarding what it already returned. `selectShelf` and
+    `splitShelfRows` are untouched — they are generic over `hasVideo` /
+    `fromYourPeople`, so a correctly-shaped editorial flows through the
+    existing machinery with no change to either.
+
+    ⚠ THE SHAPE RULES LIVE IN `lib/front-door-editorials.ts`, NOT HERE — it is
+    pure and has no I/O, so the sample exclusion, the null byline and the
+    fail-closed `fromYourPeople` are held by real assertions instead of a regex
+    over this file. This module is `server-only` and DB-bound; nothing in it
+    can be called from a test, which is exactly why the decision does not live
+    in it. The assignment below is what proves the shapes still match.
+  */
+  const editorials: FrontDoorStory[] = editorialsToStories(realShowcases);
+
+  /*
+    EDITORIALS FIRST, THEN CHAPTERS. `loadPublishedShowcases` already returns
+    featured-first (an editor pinned it), and a real celebration is what this
+    page is for; the lead grid takes `stories.slice(0, 4)`, so this line decides
+    what a visitor sees before scrolling.
+
+    ⚠ NOT RE-SORTED ACROSS THE TWO. Both sources keep their own internal order,
+    because their dates mean different things — an event date versus a publish
+    date — and one comparator over both would silently rank them by a fact they
+    do not share.
+
+    🔑 An owner-movable ordering decision, not a law. It is one line, and it is
+    this one.
+  */
+  const stories: FrontDoorStory[] = [...editorials, ...chapters];
 
   return {
     articles,

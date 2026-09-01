@@ -42,6 +42,28 @@ import { type FrontDoorData } from './data';
 export { isChip, type ChipKey } from '@/lib/front-door-composition';
 import { type ChipKey } from '@/lib/front-door-composition';
 
+/**
+ * The card's terminal blurb when a story has no excerpt of its own.
+ *
+ * ⚠ ONE DEFINITION, TWO CALL SITES. The lead grid and the trailing row both
+ * render this, and this file's own `ChannelLink` note records what happens when
+ * a rule is hand-written twice here. Rendered in two places, defined in one.
+ *
+ * 🪤 THE BUG THIS EXISTS TO PREVENT, caught before it shipped: the rule used to
+ * be `A ${kindLabel.toLowerCase()} story` everywhere, which is right for a
+ * CHAPTER — whose `kindLabel` is a celebration type, so "Wedding" reads "A
+ * wedding story" — and wrong for an EDITORIAL, whose `kindLabel` is already the
+ * noun. "Real story" through that template renders **"A real story story"**, on
+ * the front page, in the fallback state nobody looks at because it only appears
+ * for a card with no hero image.
+ */
+function cardBlurb(s: { excerpt: string | null; kindLabel: string; kind: 'chapter' | 'editorial' }): string {
+  if (s.excerpt) return s.excerpt;
+  return s.kind === 'editorial'
+    ? `A ${s.kindLabel.toLowerCase()}`
+    : `A ${s.kindLabel.toLowerCase()} story`;
+}
+
 function initialsOf(name: string): string {
   return (
     name
@@ -133,10 +155,30 @@ function ChannelLink({
   name,
   className,
 }: {
-  slug: string;
+  slug: string | null;
   name: string;
   className: string;
 }) {
+  /*
+    🔴 A NULL SLUG PRINTS THE NAME AND OPENS NO DOOR — it never hides the
+    byline, and it never guesses a URL.
+
+    An EDITORIAL (a real celebration's published story) reaches this shelf
+    through `users.public_summary_consent_at` — consent to be written up. That
+    is NOT `public_profile_enabled`, which is what makes `/u/{slug}` render and
+    which is `DEFAULT FALSE`. So a couple can consent to their editorial being
+    public while having no public profile page, and linking their name would
+    put a 404 on the FRONT PAGE for the first real couple who ever consents.
+    `data.ts` sets `ownerSlug: null` for exactly that case; this is the other
+    half of the same rule, and the two must be read together.
+
+    ⚠ THE SPAN IS NOT COSMETIC. Returning a bare string here would drop the
+    `className`, and the byline would lose its type treatment in the one state
+    nobody looks at yet — silently, because a missing class throws nothing.
+  */
+  if (slug === null) {
+    return <span className={className}>{name}</span>;
+  }
   // ONE definition of where a byline goes. Two hand-written `/u/${...}` links
   // in one file do not stay equal — this file already carries a scar from
   // exactly that (the reading-time rule it deliberately imports rather than
@@ -181,7 +223,7 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
                 poster nor an excerpt (a very short story, or one whose first
                 paragraph is whitespace) — the kind is the floor, never an
                 empty box. Same fallback the shipped tile uses. */}
-            {s.excerpt ?? `A ${s.kindLabel.toLowerCase()} story`}
+            {cardBlurb(s)}
           </p>
         )}
         {/* A written chapter legitimately has no video. The card leads with
@@ -518,7 +560,7 @@ export function FrontDoorFeed({
                     <img src={s.thumbUrl} alt="" loading="lazy" decoding="async" />
                   ) : (
                     <p className="fd-sread">
-                      {s.excerpt ?? `A ${s.kindLabel.toLowerCase()} story`}
+                      {cardBlurb(s)}
                     </p>
                   )}
                   {s.readingMinutes !== null ? (

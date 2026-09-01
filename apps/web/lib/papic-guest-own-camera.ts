@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { fetchEventPapicWindow } from '@/lib/papic-limited';
 import { resolvePointsGate, type PointsGateVerdict } from '@/lib/papic-cameras';
+import { papicGuestStanding, type DedicatedShotsStanding } from '@/lib/papic-guest-buy';
 
 /**
  * apps/web/lib/papic-guest-own-camera.ts
@@ -87,6 +88,53 @@ export async function resolveGuestOwnCamera(
     if (dedErr) return null;
     const n = Number(ded);
     return { seatId, dedicated: Number.isFinite(n) && n > 0 ? n : 0 };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What one camera holds, has spent, and could still give back — the read behind
+ * spec § 7b's "give the unused ones to the celebration".
+ *
+ * THREE reads, and the third one is the point. `releasable` comes from
+ * `papic_seat_releasable_grants`, the SAME function
+ * `papic_release_seat_grants` re-evaluates under its row lock when it writes.
+ * It is not derived here and must never be: PR #5028 derived it in TypeScript
+ * as `dedicated - spent`, the RPC did different arithmetic, and the button that
+ * offered 96 credits moved 41 in the wrong direction.
+ *
+ * DISPLAY ONLY. This is what a guest sees on the button before she taps it, not
+ * what the write trusts — she may shoot in between, and then she gives back
+ * correspondingly less, which is correct.
+ *
+ * Returns null on anything unexpected, the same degrade-to-nothing posture as
+ * `resolveGuestOwnCamera`: a guest whose standing cannot be read is shown no
+ * offer, never a broken one.
+ */
+export async function resolveSeatDedicatedStanding(
+  admin: SupabaseClient,
+  seatId: string,
+): Promise<DedicatedShotsStanding | null> {
+  if (!seatId) return null;
+  try {
+    const [dedRes, releasableRes, spentRes] = await Promise.all([
+      admin.rpc('papic_seat_dedicated_points', { p_seat_id: seatId }),
+      admin.rpc('papic_seat_releasable_grants', { p_seat_id: seatId }),
+      admin
+        .from('papic_seat_point_usage')
+        .select('points_used')
+        .eq('seat_id', seatId)
+        .maybeSingle(),
+    ]);
+    // A failed releasable read must not fall back to a computed number — that
+    // computed number is precisely the defect. No answer means no offer.
+    if (dedRes.error || releasableRes.error) return null;
+    return papicGuestStanding(
+      Number(dedRes.data ?? 0),
+      Number((spentRes.data as { points_used?: number } | null)?.points_used ?? 0),
+      Number(releasableRes.data ?? 0),
+    );
   } catch {
     return null;
   }

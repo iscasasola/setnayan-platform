@@ -380,10 +380,10 @@ function ChallengeBanner({
   if (!challenge) return null;
   return (
     <div className="mt-3 rounded-lg border border-[rgb(251_250_247/0.14)] bg-[rgb(251_250_247/0.06)] px-3.5 py-2.5 text-center">
-      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--sn-ob-gold)]">
+      <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[var(--sn-ob-gold)]">
         Papic Challenge
       </p>
-      <p className="sn-gal-text mt-1 text-sm">{challenge.prompt}</p>
+      <p className="sn-gal-text mt-1.5 text-lg font-medium leading-snug">{challenge.prompt}</p>
       <p className="sn-gal-soft mt-1 text-xs tabular-nums">
         {challenge.answeredCount.toLocaleString()}{' '}
         {challenge.answeredCount === 1 ? 'guest has' : 'guests have'} answered

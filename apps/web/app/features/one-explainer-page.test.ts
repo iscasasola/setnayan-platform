@@ -94,13 +94,24 @@ test('the TAGLISH twin lands on the TAGLISH page', () => {
 
 test('a retired slug stays reserved, so nobody can shadow the redirect', () => {
   /*
-    MUTATION: remove either word from DB_MIRRORED_RESERVED_SLUGS → this fails.
+    WHY THIS MATTERS: both words still RESOLVE (308s to /features). A shop that
+    minted setnayan.com/how-it-works would SHADOW the redirect, and every
+    indexed link to the old explainer would land on a stranger's shop. A shop
+    address is immutable once minted — not recoverable.
 
-    `lib/reserved-slugs.ts`'s route half is GENERATED FROM THE FOLDERS ON DISK,
-    so deleting these routes removed them automatically. A shop that then minted
-    setnayan.com/how-it-works would SHADOW the 308, and every indexed link to
-    the old explainer would land on a stranger's shop. A shop address is
-    immutable once minted — not recoverable.
+    🪤 A CORRECTION THIS TEST EARNED, RECORDED SO NOBODY RE-DERIVES THE WRONG
+    STORY. The first version of this PR claimed deleting the route folders had
+    un-reserved these two, and "restored" them to the hand-maintained half. That
+    was FALSE: `how-it-works` and `why-setnayan` were ALREADY in
+    `DB_MIRRORED_RESERVED_SLUGS` on origin/main, in its "must not be shadowed"
+    section. The addition was a duplicate and the claim was invented. It was
+    caught because mutating the duplicate away failed NOTHING — a vacuous
+    mutation whose real cause was a wrong premise, not a weak assertion.
+
+    The assertion below is kept, because what it states is true and load-bearing:
+    these words must be reserved. It simply is not this PR that made them so.
+    Mutation to prove it still bites: delete 'how-it-works' from
+    DB_MIRRORED_RESERVED_SLUGS (the real entry, not a duplicate) → this fails.
   */
   for (const slug of ['how-it-works', 'why-setnayan']) {
     assert.ok(

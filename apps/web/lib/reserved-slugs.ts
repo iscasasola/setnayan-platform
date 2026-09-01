@@ -65,6 +65,15 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'venues',
 
   // --- real top-level product / marketing routes (must not be shadowed) -----
+  // ⚠ SOME OF THESE NO LONGER HAVE A ROUTE FOLDER, AND THAT IS FINE — THIS HALF
+  // IS THE REASON. `how-it-works` and `why-setnayan` became 308s to /features on
+  // 2026-09-01 (the three-explainers merge). They left the GENERATED half with
+  // their folders and stayed reserved HERE, where they already were.
+  //
+  // 🔑 A RETIRED URL THAT STILL RESOLVES MUST STAY RESERVED. A shop that minted
+  // setnayan.com/how-it-works would SHADOW the redirect, and a shop address is
+  // immutable once minted. That is what this section's "must not be shadowed"
+  // has always meant; the merge did not add the risk, it made it visible.
   'acceptable-use',
   'alaala',
   'blog',
@@ -124,27 +133,6 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // breaks its drift test. Already reserved in the database mint.
   'pabati',
 
-  // --- ⬇ ADDED 2026-09-01 -------------------------------------------------
-  // `/how-it-works` and `/why-setnayan` were real top-level pages until the
-  // three explainers were merged into /features. Their route folders are
-  // deleted, so they left the GENERATED half below — and a retired word that
-  // stops being reserved is claimable. Same shape as `pabati` above, same
-  // reason it lives in THIS half.
-  //
-  // 🔒 THESE TWO ARE WORSE THAN AN ORDINARY RETIRED WORD, BECAUSE THEY STILL
-  // RESOLVE. Both are permanent 308s to /features (next.config.ts). A shop that
-  // minted setnayan.com/how-it-works would SHADOW the redirect, and every
-  // indexed link, bookmark and inbound citation to the old explainer would land
-  // on a stranger's shop instead of the merged page. A shop address is
-  // immutable once minted, so that is not recoverable.
-  //
-  // ✅ ALREADY TRUE IN THE DATABASE — verified against production 2026-09-01:
-  //   select public.business_slug_is_reserved('how-it-works');  -- t
-  //   select public.business_slug_is_reserved('why-setnayan');  -- t
-  // So this needs NO migration; it restores agreement between the two halves
-  // that deleting the folders would otherwise have broken in the code only.
-  'how-it-works',
-  'why-setnayan',
 
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----

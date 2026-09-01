@@ -54,20 +54,33 @@ approved positioning is not.
   About was also **leaking locale** — it linked to the ENGLISH `/how-it-works`.
   Fixed to `/tl/features#how-it-works`.
 
-### 🔒 The retired slugs stay reserved
+### 🔒 The retired slugs stay reserved — and already did
 
-`lib/reserved-slugs.ts`'s route half is **generated from the folders on disk**,
-so deleting the routes silently un-reserved `how-it-works` and `why-setnayan`.
-Both still RESOLVE (308s), so a shop that minted `setnayan.com/how-it-works`
-would shadow the redirect and every indexed link would land on a stranger's
-shop — and a shop address is immutable once minted. Moved to the hand-maintained
-half beside `pabati`, the existing precedent. **No migration needed:** both are
-already reserved in production (`business_slug_is_reserved` → `t` for both),
-so this restores agreement the deletion would have broken in the code only.
+Both words still RESOLVE (308s), so a shop that minted `setnayan.com/how-it-works`
+would shadow the redirect and every indexed link would land on a stranger's shop
+— and a shop address is immutable once minted. They are reserved, and a test now
+pins it.
+
+🪤 **A FALSE CLAIM THIS PR ALMOST SHIPPED, kept here because the correction is
+the useful part.** The first version of this changelog, the commit message, a
+source comment and the PR body all said that deleting the route folders had
+**un-reserved** these two slugs, and that this PR "restored" them. **That was
+invented.** `how-it-works` and `why-setnayan` were already in the
+hand-maintained `DB_MIRRORED_RESERVED_SLUGS` on `origin/main`, in its
+*"must not be shadowed"* section. The addition was a duplicate; the danger was
+never real. What actually happened is duller: the GENERATED half went stale when
+the folders were deleted, `reserved-slugs.test.ts` said so, and regenerating
+fixed it.
+
+🔑 **It was caught by the mutation run, not by the test suite.** Removing the
+duplicate failed **nothing** — a vacuous mutation whose cause was a wrong
+premise rather than a weak assertion. Had I only run the suite, all 11,677 tests
+would have passed over a changelog that told the next reader a story that never
+happened.
 
 ⚠ **Found in passing, NOT fixed here:** `weddings` is not reserved at all,
 despite `/weddings` → `/realstories` being a live permanent redirect — the same
-gap, pre-existing, and out of scope for this PR.
+shape of gap, pre-existing, and out of scope for this PR.
 
 **Guard:** `app/features/one-explainer-page.test.ts` — 13 tests covering the
 redirects, the Taglish destination, the reserved slugs, the sitemap, both

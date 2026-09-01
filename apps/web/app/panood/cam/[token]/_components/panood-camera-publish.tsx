@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SIGNAL_REFUSED_NOTICE } from '@/lib/panood-signal-status';
+import { cameraLinkNotice } from '@/lib/panood-signal-status';
 import { Video, VideoOff, CircleAlert, Wifi } from 'lucide-react';
 import {
   publishPanoodCamera,
@@ -332,15 +332,11 @@ export function PanoodCameraPublish({
           <Wifi aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-cream/55" strokeWidth={1.75} />
           <p className="text-xs leading-relaxed text-cream/70">
             You&rsquo;re <span className="font-medium text-cream">{camLabel}</span> ·{' '}
-            {streamingEnabled
-              ? link === 'connected'
-                ? "live to the controller — the operator picks when you're on screen."
-                : link === 'failed'
-                  ? "couldn't reach the controller on this network — try the same Wi-Fi as the operator."
-                  : signalRefused
-                    ? SIGNAL_REFUSED_NOTICE
-                    : 'connecting to the controller…'
-              : 'connected · the operator will bring you live from the controller.'}{' '}
+            {/* One selector, in `lib/panood-signal-status.ts`, so PRECEDENCE is a
+                tested property rather than the order somebody happened to nest the
+                ternaries in. A refusal used to lose to the `failed` that always
+                accompanies it, and the refusal sentence could not render at all. */}
+            {cameraLinkNotice({ streamingEnabled, link, signalRefused })}{' '}
             Keep this screen open and your camera pointed where you want.
           </p>
         </div>

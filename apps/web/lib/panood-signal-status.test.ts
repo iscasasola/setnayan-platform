@@ -23,7 +23,11 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { isSignalFailureStatus, SIGNAL_REFUSED_NOTICE } from './panood-signal-status';
+import {
+  cameraLinkNotice,
+  isSignalFailureStatus,
+  SIGNAL_REFUSED_NOTICE,
+} from './panood-signal-status';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');
@@ -75,10 +79,68 @@ test('⭐ neither side drops a non-SUBSCRIBED status on the floor', () => {
 test('⭐ the camera operator SEES the refusal — a log never changed a pixel', () => {
   const ui = repoFile('app/panood/cam/[token]/_components/panood-camera-publish.tsx');
   assert.match(ui, /onSignalRefused/, 'the page must subscribe to the refusal');
-  assert.match(ui, /SIGNAL_REFUSED_NOTICE/, 'and it must render it, not only log it');
   assert.match(
     ui,
-    /signalRefused[\s\S]{0,80}connecting to the controller/,
-    'the refusal must PRE-EMPT the forever-optimistic "connecting…" copy',
+    /cameraLinkNotice\(\{\s*streamingEnabled,\s*link,\s*signalRefused\s*\}\)/,
+    'the footer must choose its sentence through the tested selector, not inline ternaries',
   );
+});
+
+/* ── PRECEDENCE. The half the old guard could not see. ─────────────────────────
+ *
+ * The previous version of this file asserted that the identifier `signalRefused`
+ * appeared within 80 characters BEFORE the string "connecting to the controller".
+ * That was true — and the refusal branch was still unreachable on every possible
+ * input, because `link === 'failed'` was tested above both, and the transport sets
+ * `link` to 'failed' on the very same refusal that sets `signalRefused`.
+ *
+ * 🔑 A GUARD ON ADJACENCY CANNOT SEE PRECEDENCE. These assert the returned sentence.
+ */
+
+test('⭐ a refusal beats the "failed" that always accompanies it', () => {
+  // publishPanoodCamera calls onSignalRefused(status) AND onState('failed') together,
+  // so this input is not hypothetical — it is what a refused channel actually produces.
+  assert.equal(
+    cameraLinkNotice({ streamingEnabled: true, link: 'failed', signalRefused: true }),
+    SIGNAL_REFUSED_NOTICE,
+    'the refusal names the cause; "failed" alone does not',
+  );
+});
+
+test('⭐ no branch reports an authorization failure as a network fault', () => {
+  const everySentence = [true, false].flatMap((signalRefused) =>
+    ([null, 'waiting', 'connecting', 'connected', 'failed'] as const).flatMap((link) =>
+      [true, false].map((streamingEnabled) =>
+        cameraLinkNotice({ streamingEnabled, link, signalRefused }),
+      ),
+    ),
+  );
+  assert.equal(everySentence.length, 20, 'every combination must be exercised');
+  for (const sentence of everySentence) {
+    // The sentence that sent two sessions hunting AP isolation and TURN pricing while
+    // the real fault was authorization. Nothing may blame the operator's network or
+    // prescribe a Wi-Fi that TURN exists to make unnecessary.
+    assert.doesNotMatch(sentence, /on this network/i, `network blame: ${sentence}`);
+    assert.doesNotMatch(sentence, /same Wi-?Fi/i, `Wi-Fi prescription: ${sentence}`);
+  }
+});
+
+test('the honest states still read correctly', () => {
+  assert.match(
+    cameraLinkNotice({ streamingEnabled: true, link: 'connected', signalRefused: false }),
+    /live to the controller/,
+  );
+  assert.match(
+    cameraLinkNotice({ streamingEnabled: true, link: 'connecting', signalRefused: false }),
+    /connecting to the controller/,
+  );
+  assert.match(
+    cameraLinkNotice({ streamingEnabled: false, link: null, signalRefused: false }),
+    /the operator will bring you live/,
+    'streaming off must stay the honest local-preview sentence',
+  );
+  // A genuine peer failure, with no refusal: says what it measured and no more.
+  const failed = cameraLinkNotice({ streamingEnabled: true, link: 'failed', signalRefused: false });
+  assert.match(failed, /video path/i);
+  assert.match(failed, /reload/i, 'it must name the one thing to try');
 });

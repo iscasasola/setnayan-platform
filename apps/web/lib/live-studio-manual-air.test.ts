@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveLiveAir, shouldOfferManualAir } from './live-studio-manual-air';
+import { endOnAirTarget, resolveLiveAir, shouldOfferManualAir } from './live-studio-manual-air';
 
 describe('resolveLiveAir — the two routes on air', () => {
   test('off air when neither route says otherwise', () => {
@@ -115,5 +115,32 @@ describe('shouldOfferManualAir — withdrawn only by a REAL broadcast', () => {
       [true, false].map((b) => shouldOfferManualAir({ broadcastLive: b })),
     );
     assert.equal(outcomes.size, 2, 'a boolean that cannot say no is not a decision');
+  });
+});
+
+describe('endOnAirTarget — DEFECT 1: "End broadcast" must not end a broadcast that was never created', () => {
+  test('a real broadcast is ended via the broadcast route', () => {
+    assert.equal(endOnAirTarget('broadcast'), 'broadcast');
+  });
+
+  test('THE FIX: a by-hand host is ended via the manual route, never the broadcast one', () => {
+    // Before this fix, TransportRow always called endPanoodBroadcast — which, for a
+    // manual-only host, has no panood_broadcasts row to close and instead wipes the
+    // watch_url the host pasted themselves while leaving panood_manual_on_air_at
+    // (the thing actually making isLive true) untouched.
+    assert.equal(endOnAirTarget('manual'), 'manual');
+    assert.notEqual(endOnAirTarget('manual'), 'broadcast');
+  });
+
+  test('off air has no end target', () => {
+    assert.equal(endOnAirTarget(null), null);
+  });
+
+  test('every isLive source maps to a distinct, non-null target', () => {
+    // A guard that could route both sources to the same action would let the
+    // manual-air host's End button silently fall back to endPanoodBroadcast again.
+    const targets = (['broadcast', 'manual'] as const).map((s) => endOnAirTarget(s));
+    assert.ok(targets.every((t) => t !== null));
+    assert.equal(new Set(targets).size, 2, 'broadcast and manual must route differently');
   });
 });

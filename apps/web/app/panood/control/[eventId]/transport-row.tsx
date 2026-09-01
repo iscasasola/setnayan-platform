@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Radio, Square, AlertCircle, Link2 } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
-import { automaticGoLiveAvailable } from '@/lib/live-studio-manual-air';
+import { automaticGoLiveAvailable, endOnAirTarget } from '@/lib/live-studio-manual-air';
 import {
   goLivePanood,
   endPanoodBroadcast,
   type GoLiveResult,
 } from '@/app/dashboard/[eventId]/studio/panood/setup/actions';
+import { endManualOnAir } from './actions';
 
 /**
  * TRANSPORT — the approved single-screen controller's go-live control
@@ -17,12 +18,21 @@ import {
  * prototype's `.transport` row).
  *
  * One wide button, thumb-height, directly under the Channel 1 monitor: **Go live**
- * turns terracotta → signal red **End broadcast** while on air. It is the ONLY
- * go-live control on this screen — it drives the exact same, already-live server
- * actions the panood GoLiveCard uses (`goLivePanood` / `endPanoodBroadcast`, which
- * revalidate this route), so nothing about the broadcast path is re-implemented,
- * only re-laid-out. The encoder details (RTMP server + stream key) stay in the
- * secondary setup region below — they're setup, not the operating loop.
+ * turns terracotta → signal red **End** while on air. It is the ONLY go-live control
+ * on this screen — it drives the exact same, already-live server actions the panood
+ * GoLiveCard uses (`goLivePanood` / `endPanoodBroadcast`, which revalidate this
+ * route), so nothing about the broadcast path is re-implemented, only re-laid-out.
+ * The encoder details (RTMP server + stream key) stay in the secondary setup region
+ * below — they're setup, not the operating loop.
+ *
+ * ⚠ ENDING IS NOT ONE ACTION. `isLive` is true for TWO different routes (see
+ * `resolveLiveAir`) — a real `panood_broadcasts` row, or a host who started their
+ * own stream and flipped the by-hand switch. Only the first has anything for
+ * `endPanoodBroadcast` to close; calling it for the second wipes the watch link the
+ * host pasted and leaves the by-hand flag on, so the button lies about having ended
+ * anything. `liveSource` + `endOnAirTarget` route to `endManualOnAir` instead. The
+ * separate by-hand "We're on air" switch further down the page is untouched by this
+ * — this is only about what the red button in THIS row does.
  *
  * HONEST GATING (no dead button): going live needs Setnayan's Google OAuth client
  * configured AND a route to air for this event. When either is missing this renders
@@ -54,6 +64,7 @@ export function TransportRow({
   oauthReady,
   connected,
   isLive,
+  liveSource,
   connectHref,
 }: {
   eventId: string;
@@ -66,6 +77,14 @@ export function TransportRow({
   connected: boolean;
   /** There is an active broadcast right now. */
   isLive: boolean;
+  /**
+   * Which route put the event on air — `resolveLiveAir`'s `source`
+   * (lib/live-studio-manual-air.ts). Decides what "End" actually does: a real
+   * `panood_broadcasts` row is torn down via `endPanoodBroadcast`; a by-hand host
+   * (no such row) is turned off via `endManualOnAir` instead, so the button never
+   * claims to end a broadcast that was never created. See `endOnAirTarget`.
+   */
+  liveSource: 'broadcast' | 'manual' | null;
   /**
    * Anchor for the "Connect YouTube" step. ⭐ WAVE 8: the controller no longer
    * scrolls, so `#connect` does not jump — it OPENS THE SETUP SHEET at that
@@ -116,15 +135,36 @@ export function TransportRow({
           <span>{blocked}</span>
         </Link>
       ) : isLive ? (
-        <button
-          type="button"
-          onClick={() => run(() => endPanoodBroadcast(eventId), 'Ending the broadcast')}
-          disabled={pending}
-          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-danger-600 px-4 font-mono text-sm font-bold uppercase tracking-[0.08em] text-cream transition-colors hover:bg-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Square aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-          {pending ? 'Ending…' : 'End broadcast'}
-        </button>
+        (() => {
+          // DEFECT 1 fix — see endOnAirTarget's doc comment. A manual-only host has
+          // no panood_broadcasts row for endPanoodBroadcast to close; calling it
+          // anyway wiped their pasted watch_url and left panood_manual_on_air_at
+          // (what isLive actually reads) untouched, so "End broadcast" never ended
+          // anything the host could see change.
+          const manualOnly = endOnAirTarget(liveSource) === 'manual';
+          return (
+            <button
+              type="button"
+              onClick={() =>
+                run(
+                  () => (manualOnly ? endManualOnAir(eventId) : endPanoodBroadcast(eventId)),
+                  manualOnly ? 'Turning off the on-air light' : 'Ending the broadcast',
+                )
+              }
+              disabled={pending}
+              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-danger-600 px-4 font-mono text-sm font-bold uppercase tracking-[0.08em] text-cream transition-colors hover:bg-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Square aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+              {pending
+                ? manualOnly
+                  ? 'Turning off…'
+                  : 'Ending…'
+                : manualOnly
+                  ? 'End (on air by hand)'
+                  : 'End broadcast'}
+            </button>
+          );
+        })()
       ) : (
         <button
           type="button"

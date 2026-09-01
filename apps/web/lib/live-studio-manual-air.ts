@@ -159,3 +159,26 @@ export function shouldOfferManualAir(input: {
 }): boolean {
   return !input.broadcastLive;
 }
+
+/**
+ * When the transport's red "End" button is pressed, which route is actually on air?
+ *
+ * `TransportRow` renders a single "End broadcast" button whenever `isLive` is true,
+ * whatever put the event on air — and until now it always called
+ * `endPanoodBroadcast`, which transitions a YouTube `panood_broadcasts` row and, at
+ * the end, clears `events.panood_watch_url`. For the by-hand route there IS no
+ * `panood_broadcasts` row, so that action had nothing real to tear down; what it
+ * DID do was wipe the watch link the host had pasted themselves, run a pointless
+ * YouTube token lookup, and leave `panood_manual_on_air_at` untouched — so the
+ * button's own state (`isLive`) never changed and the control read "on air"
+ * forever after "ending" a broadcast that was never created.
+ *
+ * The fix is which action the button calls, not the label or the switch below it —
+ * the separate by-hand "We're on air" control (`setControlManualAir` /
+ * `clearControlManualAir`) stays exactly as it is.
+ */
+export function endOnAirTarget(source: LiveAirSource | null): 'broadcast' | 'manual' | null {
+  if (source === 'broadcast') return 'broadcast';
+  if (source === 'manual') return 'manual';
+  return null;
+}

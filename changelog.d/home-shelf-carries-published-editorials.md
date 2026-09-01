@@ -54,3 +54,10 @@ different things). One line, owner-movable.
 
 SPEC IMPACT: None. No pricing, no schema, no gate, no locked decision touched —
 this renders data the page already loaded.
+
+**🪤 A VACUOUS ASSERTION, CAUGHT BY TYPECHECK NOT BY THE TEST RUN.** One test read
+`out[0].coupleNames` — a field on the *input* type, not the output — so it
+evaluated to `undefined`, `undefined !== 'Maria & Jose'` was trivially true, and
+the assertion could never fail. It was green while testing nothing. `tsc` named
+it (`TS2339`); the test runner never would have. It now asserts on `title` /
+`ownerName` and has been mutation-proved to fail.

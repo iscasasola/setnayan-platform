@@ -1067,6 +1067,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               oauthReady={oauthReady}
               connected={hasRouteToAir}
               isLive={isLive}
+              liveSource={liveAir.source}
               connectHref="#connect"
             />
 

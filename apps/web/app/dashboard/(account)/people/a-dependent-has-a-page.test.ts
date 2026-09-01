@@ -20,6 +20,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const ROUTE = join(process.cwd(), 'app/dashboard/(account)/people/[dependentId]/page.tsx');
 const LIST = join(
@@ -94,9 +95,12 @@ test('the events read goes through events_host, never through events', () => {
   // query it forbids, in order to explain why. A guard reading the raw file
   // reports a violation written by the guard's own subject — this file failed
   // exactly that way once, and so did the open-shop guard.
-  const code = src
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+  //
+  // ⚠ AND THROUGH THE REPO'S ONE STRIPPER. A hand-rolled two-liner is a blocking
+  // guard for a reason: stripping block comments first lets a `//` line holding
+  // a block opener swallow everything to the next real close, which makes a
+  // guard pass while checking a blank.
+  const code = stripComments(src);
   assert.ok(
     code.includes("from('events_host')"),
     'comment-stripping ate the code it was asked to check',

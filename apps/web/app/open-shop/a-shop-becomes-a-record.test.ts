@@ -28,6 +28,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const SOURCE = readFileSync(join(process.cwd(), 'app/open-shop/actions.ts'), 'utf8');
 
@@ -40,11 +41,19 @@ function alagaBlock(): string {
   return SOURCE.slice(start, end);
 }
 
-/** The same slice with every comment removed — what actually EXECUTES. */
+/**
+ * The same slice with every comment removed — what actually EXECUTES.
+ *
+ * ⚠ `stripComments` IS THE REPO'S ONE STRIPPER, and hand-rolling a second is a
+ * blocking guard (`scripts/lint-one-comment-stripper.mjs`). The obvious two-line
+ * version strips BLOCK comments first, so a `//` line holding a block opener
+ * ("content-type video/*") opens a comment that never existed and swallows every
+ * line to the next real close — silently, in the direction that makes a guard
+ * pass while asserting against a blank. This file's first draft did exactly that
+ * and CI refused it.
+ */
 function alagaCode(): string {
-  return alagaBlock()
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+  return stripComments(alagaBlock());
 }
 
 test('opening a shop writes the business its own dependents row', () => {

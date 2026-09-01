@@ -482,6 +482,33 @@ const nextConfig: NextConfig = {
         destination: '/help/papic-giving-a-camera-its-own-shots',
         permanent: true,
       },
+      /*
+        2026-09-01 — THREE EXPLAINERS BECAME ONE. `/why-setnayan`,
+        `/how-it-works` and `/features` each answered part of "what is this and
+        what does it do", and only `/features` had the bilingual dictionary
+        architecture. The other two folded into it as sections, so these carry
+        their ranking, bookmarks, and any indexed link to the merged page
+        instead of a 404.
+
+        🔑 THE TAGLISH TWIN GOES TO THE TAGLISH PAGE. `/tl/how-it-works` must
+        land on `/tl/features`, NOT `/features` — sending a Taglish reader to
+        the English page is a locale regression that reads as a bug, and it
+        would break the EN↔TL hreflang reciprocity the pair depends on.
+
+        Permanent (308) so the ranking transfers. EXACT sources only: none of
+        these had subpaths, and a `:path*` catch-all would swallow future
+        routes nested under them.
+      */
+      { source: '/how-it-works', destination: '/features', permanent: true },
+      { source: '/tl/how-it-works', destination: '/tl/features', permanent: true },
+      /*
+        ⚠ `/why-setnayan` HAD NO TAGLISH TWIN — it was English-only, which is
+        part of why it was merged: the frame now HAS a Taglish edition it never
+        had. There is deliberately no `/tl/why-setnayan` rule below, because
+        that URL never existed and inventing a redirect for it would advertise
+        a page nobody can have linked to.
+      */
+      { source: '/why-setnayan', destination: '/features', permanent: true },
       { source: '/weddings', destination: '/realstories', permanent: true },
       { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
       // 2026-07-05 — vendor BENEFITS page renamed `/for-vendors` → `/vendors`

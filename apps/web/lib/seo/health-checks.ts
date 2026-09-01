@@ -89,8 +89,10 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/',
   '/about',
   '/our-story',
-  '/why-setnayan',
-  '/how-it-works',
+  // 2026-09-01 — /features ABSORBED /why-setnayan, /how-it-works and
+  // /tl/how-it-works. Those three are gone from this set because they are no
+  // longer PAGES; they are 308s (next.config.ts). A redirect left in this list
+  // makes the daily drift check assert a page exists where none does.
   '/features',
   '/pricing',
   '/explore',
@@ -125,7 +127,6 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/tl',
   '/tl/about',
   '/tl/features',
-  '/tl/how-it-works',
 ]);
 
 /** Peso figure from a PHP amount, e.g. 1299 → "₱1,299" (matches the copy's format). */

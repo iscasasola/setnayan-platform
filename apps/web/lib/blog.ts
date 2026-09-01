@@ -488,7 +488,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'Setnayan adapts your plan to your ceremony type — Catholic, civil, INC, Christian, Muslim, cultural, or mixed.',
-        href: '/how-it-works',
+        href: '/features',
         label: 'See how planning adapts',
       },
     ],
@@ -675,7 +675,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'Setnayan tracks the statutory deadlines for your date — licence window included — so nothing lapses.',
-        href: '/how-it-works',
+        href: '/features',
         label: 'See how planning adapts',
       },
     ],
@@ -782,7 +782,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'Setnayan adapts your plan to your ceremony — Catholic, civil, INC, Christian, Muslim, cultural, or mixed — with the right deadlines for each.',
-        href: '/how-it-works',
+        href: '/features',
         label: 'See how planning adapts',
       },
     ],

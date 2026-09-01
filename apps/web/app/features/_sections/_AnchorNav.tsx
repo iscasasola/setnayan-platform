@@ -17,6 +17,11 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 type NavItem = { id: string; label: string };
 
 const NAV_ITEMS: NavItem[] = [
+  // The two framing sections, added 2026-09-01 with the /why-setnayan and
+  // /how-it-works merge. They lead because they lead on the page — an anchor
+  // nav whose order disagrees with the document scrolls the reader backwards.
+  { id: 'why-setnayan', label: 'Why Setnayan' },
+  { id: 'how-it-works', label: 'How it works' },
   { id: 'planning-toolkit', label: 'Planning toolkit' },
   { id: 'communications', label: 'Communications' },
   { id: 'vendors-ledger', label: 'Vendors & ledger' },

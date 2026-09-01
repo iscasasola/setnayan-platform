@@ -69,6 +69,27 @@ between them):**
   TURN exists to make unnecessary; two sessions went into AP isolation and TURN pricing,
   and the fault was authorization both times.
 
+**THE EXPOSURE BASELINE MOVES BY ONE LINE, DELIBERATELY.** `exposure-freeze.db.test.ts`
+caught this fix re-widening the anon/authenticated surface and refused to go green — which is
+the guard working. The regenerated baseline adds exactly one fact and nothing else:
+
+```
+func  public.live_studio_guest_rtc_can_access(p_topic text)  secdef=yes exec=authenticated search_path=public, pg_temp
+```
+
+That is the whole trade, in the file built so a human can see it: Realtime evaluates policies
+as `authenticated`, so the predicate must be EXECUTE-able by that role, and PostgREST then also
+publishes it at `/rest/v1/rpc/`. What an authenticated caller gains there is **one boolean** —
+whether guest-pick is live for an event id they already hold. The capability to watch comes
+from the RLS policy, which exists either way. `anon` stays revoked, and this is the same
+posture the sibling `panood_rtc_can_access` has had in the baseline all along.
+
+**RECOMMENDED FOLLOW-UP (its own PR, needs owner sign-off):** if that boolean should not be
+REST-callable, the fix is to move these predicates into a schema PostgREST does not publish and
+repoint the policies at them — RLS can still call them, `curl` cannot. That is a change to the
+security model for all three private-channel predicates, not a bug fix, so it is not bundled
+here.
+
 **OWNER QUESTION (surfaced, not decided):** `20271031571953`'s *other* concern is real and
 is not resolved by a grant — `live_studio_guest_rtc_can_access` returns TRUE for any
 signed-in session (native-anonymous included) while a roam zone is live and guest-pick is

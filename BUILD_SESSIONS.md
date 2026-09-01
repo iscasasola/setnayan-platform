@@ -144,7 +144,7 @@ had already shipped and the question "how do we know the rest haven't?" deserved
 | **C10** | our notes are wrong | ⚠️ **MERGED BUT INCOMPLETE** — see below |
 | ~~C1~~ | `kinship-derive` imported by nothing but its test | ✅ **FALSE as of 2026-08-31 13:27Z** — shipped, PR #5046 |
 | **C2** | no vendor-side `venue_type` write | 🔴 HOLDS |
-| **C4** | no dependent page route | 🔴 HOLDS |
+| ~~C4~~ | no dependent page route | ✅ **FALSE as of 2026-09-01** — `people/[dependentId]/page.tsx` shipped, PR #5054 |
 | **C5** | no avatar maker | 🔴 HOLDS |
 | **C7** | `HOME_TITLE` still wedding-only | 🔴 HOLDS |
 | **C8** | nothing asks for notification permission | 🟡 HOLDS, **but re-scope** |
@@ -371,7 +371,7 @@ PR legitimately landed before restoring anything wholesale, because a wholesale 
 |---|---|---|
 | ~~C1~~ | `lib/kinship-derive.ts` | ✅ **now imported by `app/dashboard/(account)/people/page.tsx`** — the defect is gone |
 | **C2** | `venue_type` under `app/vendor-dashboard/` | **zero** vendor-side write paths |
-| **C4** | any route under `app/**/dependent*` | **no page route exists** |
+| ~~C4~~ | any route under `app/**/dependent*` | ✅ **`app/dashboard/(account)/people/[dependentId]/page.tsx`** — the defect is gone |
 | **C5** | any avatar *maker* | none — `guest-avatar.tsx` / `vendor-avatar.tsx` are renderers |
 | **C6** | `areaServed: { '@type': 'Country', name: 'Philippines' }` | present in `app/v/[slug]/page.tsx` |
 | **C7** | `const HOME_TITLE = ` in `app/page.tsx` | `'Setnayan · Plan your Filipino wedding free — and never lose a photo'` — still wedding-only |
@@ -456,7 +456,7 @@ because everything before it went fine. C4 does not start until C1 reads MERGED.
 | | ~~C8~~ notifications finally have a subscriber | Sonnet 5 · medium | ✅ merged #5036 |
 | **—** | ~~C11~~ Setnayan AI on every event, comeback derives its rate | Opus 5 · high | ✅ merged #5032 |
 | **4** | ~~C1~~ your family tree, drawn | Opus 5 · high | ✅ merged #5046 |
-| **5** | **C4** a business has a record, a page and a timeline | Opus 5 · high | 🟢 **UNBLOCKED — the last session in the programme** |
+| **5** | ~~C4~~ a business has a record, a page and a timeline | Opus 5 · high | ✅ merged #5054 |
 
 **Why C10 is `high` and not `medium`:** it spans the repo, the corpus and two auto-loaded
 `CLAUDE.md` files, and its failure mode — a correction that lands in one file and not the rest —
@@ -639,7 +639,7 @@ column so the next reader can re-run it instead of trusting this row.
 | ~~C8~~ | Sonnet 5 · medium | **5036** | ✅ **MERGED** 2026-08-30 | `Notification.requestPermission()` in `app/[slug]/seat/_components/guest-push-prompt.tsx` — on the guest path, which was the whole point |
 | ~~C11~~ | Opus 5 · high | **5032** | ✅ **MERGED** 2026-08-30 | `comebackPricePhp` in `lib/setnayan-ai-comeback-offer.ts`; NULL fails closed, tested |
 | ~~C1~~ | Opus 5 · high | **5046** | ✅ **MERGED** 2026-08-31 13:27Z | `people/page.tsx` renders `connection-tree-section.tsx`; `basis` switch splits blood from courtesy; `.eq('status','confirmed')` at the query; `kinship-derive.ts` **untouched** (no hop cap added to the module, as scoped). 16 tests, 16 pass. |
-| **C4** | Opus 5 · high | — | 🟢 **THE LAST ONE — gate open** | premise re-verified 2026-08-31: no route under `app/**/dependent*`; only `people/_components/dependents-section.tsx` and `dependent-actions.ts`, which are a section, not a page. Flag `NEXT_PUBLIC_DEPENDENT_PEOPLE` = `1`, ON in prod |
+| ~~C4~~ | Opus 5 · high | **5054** | ✅ **MERGED** 2026-09-01 00:47Z | `people/[dependentId]/page.tsx` exists — the route the premise said was absent. `business-alaga.ts` · `dependent-timeline.ts` · `honoree-dependent-link.ts` all present. 35 tests across four files, 35 pass. |
 | ~~C3~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
 | ~~C9~~ | — | — | **SHIPPED — dropped** | ✅ 2026-08-30 |
 | ~~P0-b~~ | owner | **5025** | ✅ **DONE** — `build-sessions/P0-b-SWITCHES.md` | 101 switches measured against Vercel Production |
@@ -649,9 +649,20 @@ column so the next reader can re-run it instead of trusting this row.
 
 ### Where the program actually stands, 2026-08-31
 
-**ALL TEN BUILD SESSIONS ARE MERGED.** C1 shipped as #5046 at 13:27Z on 2026-08-31 — while the
-overseer session was being told to build it. **C4 is the only session left in the programme**, and
-its gate is now open.
+# ✅ **THE BUILD PROGRAMME IS COMPLETE — ALL ELEVEN SESSIONS MERGED.**
+
+C4 landed as #5054 at 00:47Z on 2026-09-01, and with it every C-session on this register is
+shipped. C1 (#5046) and C4 (#5054) were the last two, and **both were already building or built
+while the board still called them unstarted.**
+
+⚠️ **WHAT "COMPLETE" DOES AND DOES NOT MEAN.** Eleven premises are now false. **That is evidence
+these things were BUILT. It is not evidence that any of them WORK.** Not one of the eleven has been
+exercised by a person against production. The programme's own § 6 says so, and § 6 item 1 —
+*a stranger completes the whole journey* — has never been attempted.
+
+🔑 **This is the last moment the distinction is cheap to make.** A finished build list reads exactly
+like a finished product, and everything in this document has been written to stop that particular
+sentence from being believed.
 
 🔑 **C1 ended the way two of this programme's ten sessions ended: premise FALSE, nothing built.**
 That is autonomy rule 14 working, not a wasted session — but note *how* it was caught. The register

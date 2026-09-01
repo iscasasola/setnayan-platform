@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ensurePapicBoard, fetchGuestMissions } from '@/lib/papic-games';
+import { fetchPauseState, isPaused } from '@/lib/papic-challenge-pause';
 
 // GET /api/papic/guest-missions
 //
@@ -60,5 +61,27 @@ export async function GET() {
   await ensurePapicBoard(admin, session.event_id).catch(() => undefined);
 
   const missions = await fetchGuestMissions(admin, session.guest_id).catch(() => []);
-  return NextResponse.json({ missions });
+
+  // ── ⏸ ARE THE CHALLENGES QUIET RIGHT NOW? ────────────────────────────────
+  // Owner 2026-09-01: the coordinator can pause every challenge for the moments
+  // everybody must be watching.
+  //
+  // 🔑 THE BOARD IS NOT EMPTIED, AND THAT IS THE RULING, NOT AN OMISSION. The
+  // missions above are returned in full whether or not the celebration is
+  // paused; the flag rides ALONGSIDE them so the panel can say so. Returning []
+  // instead would be byte-identical to a celebration that never set any
+  // challenges up — shipping "not available" as an ABSENCE is the exact defect
+  // this route's neighbours were rewritten to stop telling.
+  //
+  // Read here on the service-role client against the guest's OWN cookie-derived
+  // event, so `papic_challenges_paused_at` needs no `anon` grant and the guest
+  // surface does not grow by a column.
+  //
+  // ⚠ FAILS TO "RUNNING". `isPaused` resolves an unreadable state to not-paused
+  // on purpose: silencing every guest's board on a network blip, at a party,
+  // for a reason nobody can see, is far worse than a few guests playing through
+  // a moment. Same direction as "closes the prompt, never the shutter".
+  const paused = isPaused(await fetchPauseState(admin, session.event_id));
+
+  return NextResponse.json({ missions, paused });
 }

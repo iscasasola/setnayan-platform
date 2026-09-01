@@ -479,6 +479,67 @@ export async function armChallengeAction(formData: FormData) {
 }
 
 /**
+ * PAUSE (OR RESUME) EVERY CHALLENGE FOR THIS CELEBRATION.
+ *
+ * Owner, 2026-09-01: *"instead of just stop. let us also allow pause for the
+ * challenge. so challenges can all be not available on moments everybody must
+ * be watching."* The vows, the first kiss, a parent's speech — nobody should be
+ * hunting a stranger for a selfie during them.
+ *
+ * 🛑 THREE DIFFERENT ACTS, AND THIS IS THE THIRD. Hiding takes ONE challenge
+ * off every board for good (`setCoupleChallengeActiveAction`). Stopping ends
+ * the ONE armed prompt. Pausing quiets the WHOLE board, temporarily, and gives
+ * it back untouched — which is why neither of the others can express it.
+ *
+ * 🔴 IT CLOSES PROMPTS, NEVER THE SHUTTER. Nothing here reaches a capture path:
+ * a guest photographs the first kiss during a pause exactly as they would
+ * without one. That is the entire point — the challenges go quiet so the
+ * pictures can be taken.
+ *
+ * ⚠ AND IT DOES NOT EMPTY ANYBODY'S BOARD. `papic_guest_missions` is untouched;
+ * the guest's screen keeps its challenges and says they are paused. An empty
+ * board is indistinguishable from a celebration that set none up.
+ *
+ * MANUAL ONLY (owner): no duration, and nothing resumes on its own. `resume=1`
+ * on the form is the other half of the same button.
+ *
+ * Authorisation is the event's own RLS plus the column GRANT on
+ * `events.papic_challenges_paused_at` — a caller who is not on the event
+ * updates no rows.
+ */
+export async function setChallengesPausedAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  const returnTo = `/dashboard/${eventId}/studio/papic/run-of-show`;
+  if (!papicGamesEnabled()) {
+    redirect(returnTo);
+  }
+
+  // Explicit intent, never a toggle read off the current state. A toggle races
+  // with itself: two taps on a slow connection, or a stale render, and the
+  // coordinator resumes the pause they just started.
+  const resuming = formData.get('resume') === '1';
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('events')
+    .update({ papic_challenges_paused_at: resuming ? null : new Date().toISOString() })
+    .eq('event_id', eventId);
+  if (error) {
+    // Graceful-degrade like its siblings: the coordinator is mid-ceremony and
+    // an error page helps nobody. The state is re-read on the next render, and
+    // that render says "we couldn't check" rather than inventing an answer.
+    logQueryError('setChallengesPausedAction', error, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  revalidatePath(returnTo);
+  redirect(returnTo);
+}
+
+/**
  * TAKE A CHALLENGE OUT OF THE RUN OF SHOW, WITHOUT DELETING IT.
  *
  * Clearing `moment_key` frees the moment's slot and leaves the challenge on the

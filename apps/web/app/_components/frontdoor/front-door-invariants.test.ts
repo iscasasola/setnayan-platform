@@ -698,12 +698,54 @@ test('a story card leads with its poster or its opening line, never a placeholde
       /s\.thumbUrl \?/.test(src),
       `${label} must branch on the chapter's poster`,
     );
+    /*
+      ⚠ THE ANCHOR FOLLOWS THE INDIRECTION — IT IS NOT LOOSENED.
+      This used to require the literal `s.excerpt ??` inside each rendering.
+      The excerpt-then-terminal-fallback rule now lives in ONE place
+      (`cardBlurb`), because the old inline template appended the word "story"
+      to `kindLabel` and an EDITORIAL's label is already a noun — "Real story"
+      rendered "A real story story". So each rendering may satisfy this either
+      by branching inline (the original grammar) or by calling the one helper,
+      and the helper is then held to the SAME rule below. Accepting the call
+      without checking the callee is what would have made this vacuous.
+    */
     assert.ok(
-      /s\.excerpt \?\?/.test(src),
+      /s\.excerpt \?\?/.test(src) || /cardBlurb\(s\)/.test(src),
       `${label} must fall back to the opening line, with a terminal fallback ` +
         'under it — a chapter can legitimately have neither poster nor excerpt',
     );
   }
+
+  /*
+    THE CALLEE, HELD TO THE RULE THE CALL SITES DELEGATED.
+    A card that calls `cardBlurb` is only honest if `cardBlurb` itself prefers
+    the real excerpt and still returns something when there is none. Without
+    this, emptying the helper's body would turn every card back into a blank —
+    and the loop above would stay green, because the CALL is still there.
+  */
+  const blurb = FEED_CODE.slice(
+    FEED_CODE.indexOf('function cardBlurb'),
+    FEED_CODE.indexOf('function initialsOf'),
+  );
+  assert.ok(blurb.length > 0, 'cardBlurb not found');
+  assert.ok(
+    /s\.excerpt/.test(blurb),
+    'cardBlurb must prefer the story’s own opening line before any fallback',
+  );
+  assert.ok(
+    /kindLabel/.test(blurb),
+    'cardBlurb must still have a terminal fallback built from the kind',
+  );
+  /*
+    🪤 THE EXACT BUG THIS FILE CAUGHT BEFORE IT SHIPPED, pinned so it cannot
+    return: an editorial must NOT go through the chapter's `… story` template.
+    "Real story" + " story" = "A real story story", on the front page.
+  */
+  assert.ok(
+    /kind === 'editorial'/.test(blurb),
+    'cardBlurb must branch on kind — an editorial’s label is already a noun ' +
+      'and must not have the word "story" appended to it',
+  );
 
   // THE OTHER END OF THE CHAIN. The loader has always had both fields; the
   // front door simply never carried them, which is the whole reason the card

@@ -82,7 +82,16 @@ async function canHostAccess(uid: string | null, topic: string): Promise<boolean
 const guestTopic = (eventId: string) => `panood-guest:${eventId}`;
 const hostTopic = (eventId: string) => `panood-rtc:${eventId}`;
 
-/** Put the event back into "guest-pick is live" shape between mutating tests. */
+/**
+ * Put the event back into "guest-pick is live" shape between mutating tests.
+ *
+ * ⚠ THE HEARTBEAT IS PART OF "LIVE" — migration 20271188365061. Arm (c) no longer
+ * accepts a zone row that merely SAYS 'live': the bound seat must have beaten
+ * inside the 60s staleness window, because `panood_camera_heartbeat`'s demotion
+ * sweep is cron-free and therefore never demotes the LAST camera to leave. Without
+ * this stamp the fixture models a camera that went dark, not one that is running,
+ * and every arm-(c) assertion below would be vacuously false.
+ */
 async function resetToLive(): Promise<void> {
   await setAuthUid(db, null);
   await db.query(
@@ -96,6 +105,9 @@ async function resetToLive(): Promise<void> {
     `UPDATE public.live_studio_roam_zones SET camera_operator_id = $2 WHERE id = $1`,
     [F.zoneId, F.cameraId],
   );
+  await db.query(`UPDATE public.panood_camera_operators SET last_seen_at = now() WHERE id = $1`, [
+    F.cameraId,
+  ]);
 }
 
 before(async () => {
@@ -137,8 +149,8 @@ before(async () => {
 
   const cam = await db.query<{ id: number }>(
     `INSERT INTO public.panood_camera_operators
-       (event_id, camera_index, claim_qr_token, claimer_user_id, claimed_at, status)
-     VALUES ($1, 1, 'tok-guest-pick-1', $2, now(), 'live') RETURNING id`,
+       (event_id, camera_index, claim_qr_token, claimer_user_id, claimed_at, status, last_seen_at)
+     VALUES ($1, 1, 'tok-guest-pick-1', $2, now(), 'live', now()) RETURNING id`,
     [F.event, F.operator],
   );
   F.cameraId = cam.rows[0]!.id;

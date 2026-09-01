@@ -203,6 +203,17 @@ export async function createCoupleChallengeAction(formData: FormData) {
  * whatever string arrived would be an open redirect wearing a convenience's
  * clothes. Two screens drive the same challenges — the picker and the run of
  * show — and each has to land back where the coordinator was standing.
+ *
+ * 🔒 THE RESULT IS NEVER STORED IN A VARIABLE CALLED `back` — CALL IT
+ * `returnTo`. In this file `back` is a RESERVED NAME: seven actions declare
+ * `const back = \`/dashboard/${eventId}/studio/papic\`` (the setup page), and
+ * `_lib/outcomes-are-shown.test.ts` keys on that declaration to decide that
+ * every `${back}?outcome=…` in the file redirects to the SETUP page — then
+ * asserts the outcome appears in THAT page's searchParams. A `back` holding a
+ * different destination silently mis-attributes its outcomes and turns the
+ * guard red for the wrong reason. It did, on the first push of this change:
+ * `?add=full` was reported as never arriving, on a page that reads it fine.
+ * 🔑 The guard was right that something was wrong; it was wrong about what.
  */
 function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): string {
   const base = `/dashboard/${eventId}/studio/papic`;
@@ -215,15 +226,15 @@ export async function addLibraryChallengeAction(formData: FormData) {
   if (!eventId) {
     redirect('/dashboard');
   }
-  const back = challengeReturnPath(eventId, formData.get('return_to'));
+  const returnTo = challengeReturnPath(eventId, formData.get('return_to'));
   if (!papicGamesEnabled()) {
-    redirect(back);
+    redirect(returnTo);
   }
 
   const rawLibraryId = formData.get('library_id');
   const libraryId = Number(typeof rawLibraryId === 'string' ? rawLibraryId : NaN);
   if (!Number.isInteger(libraryId)) {
-    redirect(back);
+    redirect(returnTo);
   }
 
   // ── 🎼 PLACING IT AT A CEREMONY MOMENT (build order § 5) ──────────────────
@@ -239,7 +250,7 @@ export async function addLibraryChallengeAction(formData: FormData) {
   const rawMoment = formData.get('moment_key');
   const momentKey = isKwentoMomentKey(rawMoment) ? rawMoment : null;
   if (rawMoment != null && rawMoment !== '' && momentKey === null) {
-    redirect(back);
+    redirect(returnTo);
   }
 
   const supabase = await createClient();
@@ -258,7 +269,7 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // Falling through on that would insert a mission with an empty prompt, so the
   // two cases are handled together and neither one writes.
   if (error || !row) {
-    redirect(back);
+    redirect(returnTo);
   }
 
   // Idempotent: tapping Add twice (or a double-submit) must not put the same
@@ -286,8 +297,8 @@ export async function addLibraryChallengeAction(formData: FormData) {
         logQueryError('addLibraryChallengeAction.place', placeErr, { event_id: eventId }, 'graceful_degrade');
       }
     }
-    revalidatePath(back);
-    redirect(back);
+    revalidatePath(returnTo);
+    redirect(returnTo);
   }
 
   // ── THE CEILING, ENFORCED HERE AND NOT ONLY ON THE SCREEN ──────────────────
@@ -316,7 +327,7 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // `{ error }` and null data — treating that as "zero picked so far" would
   // wave every request through at exactly the moment we cannot count.
   if (laneErr) {
-    redirect(`${back}?add=unavailable`);
+    redirect(`${returnTo}?add=unavailable`);
   }
   const live = (laneRows ?? []).filter((r) => r.is_active);
   const vendorUsed = live.filter((r) => r.source === 'vendor' || r.source === 'auto').length;
@@ -328,7 +339,7 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // silently dropping the last moments would be the same silent-drop this
   // ceiling was added to stop, moved into a new screen.
   if (chosen >= coupleSlots(vendorUsed)) {
-    redirect(`${back}?add=full`);
+    redirect(`${returnTo}?add=full`);
   }
 
   await supabase.from('papic_missions').insert({
@@ -346,8 +357,8 @@ export async function addLibraryChallengeAction(formData: FormData) {
     moment_key: momentKey,
   });
 
-  revalidatePath(back);
-  redirect(back);
+  revalidatePath(returnTo);
+  redirect(returnTo);
 }
 
 /** Hide (is_active=false) or show any of the event's missions — auto booth,
@@ -422,7 +433,7 @@ export async function armChallengeAction(formData: FormData) {
   // "Each moment arms its challenge via papic_arm_challenge" (§ 5) — a second
   // call site doing its own close-then-open is how a celebration ends up with
   // two armed challenges, or none. Item 5 adds a screen, not a mechanism.
-  const back = challengeReturnPath(eventId, formData.get('return_to'));
+  const returnTo = challengeReturnPath(eventId, formData.get('return_to'));
 
   const supabase = await createClient();
   const { error } = await supabase.rpc('papic_arm_challenge', { p_mission_id: missionId });
@@ -434,8 +445,8 @@ export async function armChallengeAction(formData: FormData) {
     logQueryError('armChallengeAction', error, { event_id: eventId }, 'graceful_degrade');
   }
 
-  revalidatePath(back);
-  redirect(back);
+  revalidatePath(returnTo);
+  redirect(returnTo);
 }
 
 /**
@@ -459,14 +470,14 @@ export async function clearMomentChallengeAction(formData: FormData) {
   if (!eventId) {
     redirect('/dashboard');
   }
-  const back = `/dashboard/${eventId}/studio/papic/run-of-show`;
+  const returnTo = `/dashboard/${eventId}/studio/papic/run-of-show`;
   if (!papicGamesEnabled()) {
-    redirect(back);
+    redirect(returnTo);
   }
 
   const missionId = formData.get('mission_id');
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(back);
+    redirect(returnTo);
   }
 
   // Scoped by event_id as well as mission_id: RLS already refuses another
@@ -482,8 +493,8 @@ export async function clearMomentChallengeAction(formData: FormData) {
     logQueryError('clearMomentChallengeAction', error, { event_id: eventId }, 'graceful_degrade');
   }
 
-  revalidatePath(back);
-  redirect(back);
+  revalidatePath(returnTo);
+  redirect(returnTo);
 }
 
 /** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via

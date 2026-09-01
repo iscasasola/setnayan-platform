@@ -51,6 +51,17 @@ looks wedding-only and is not (`the-reaction-shot` and `the-applause` fit any
 celebration), so it has two in scope at a birthday and the test failed. The
 degraded moment was measured, not assumed.
 
+🪤 **`back` IS A RESERVED VARIABLE NAME IN `studio/papic/actions.ts`.** The first
+push went red on `_lib/outcomes-are-shown.test.ts`: it reported `?add=` as an
+outcome that "never arrives", on two pages that both read it fine. The guard
+decides that every `${back}?outcome=…` in the file targets the SETUP page,
+because seven actions declare ``const back = `/dashboard/${eventId}/studio/papic` ``
+— so a `back` holding a different destination mis-attributes its outcomes. The
+helper's result is now `returnTo`, and the naming contract is written where the
+next person will rename it back. 🔑 The guard was right that something was wrong
+and wrong about what — and I only saw it because CI runs the WHOLE unit glob
+while I had run only the files I touched.
+
 Tests: 15 unit cases over the pure decider (`papic-ceremony-sequence.test.ts`),
 16 against a replayed database (`the-sequence-is-the-clock.db.test.ts`), and
 `moment_keys` folded into the existing field-by-field DB-equals-pool guard in

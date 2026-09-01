@@ -149,6 +149,12 @@ export function CameraFeedsProvider({
               track.onmute = () => dropRef.current(slot);
             }
           },
+          onSignalRefused: (status) => {
+            // The control room can reach no camera at all. Logged rather than
+            // rendered here: each tile already shows its honest placeholder, and a
+            // second banner over a rehearsal screen would be noise.
+            console.error(`[panood/control] signalling channel refused (${status})`);
+          },
           onSlotState: (slot, state) => {
             if (state === 'failed') {
               dropRef.current(slot);

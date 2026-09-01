@@ -120,17 +120,58 @@ async function armedFor(eventId: string): Promise<{ mission_id: string; prompt: 
 }
 
 /** Arm as the couple, through RLS, the way the studio action does. */
-async function armAsCouple(uid: string, missionId: string): Promise<string | null> {
+async function armAsCouple(
+  uid: string,
+  missionId: string,
+  minutes?: 30 | 60 | 120,
+): Promise<string | null> {
   await asUser(uid);
   try {
-    const r = await db.query<{ armed_at: string | null }>(
-      `SELECT public.papic_arm_challenge($1::uuid) AS armed_at`,
-      [missionId],
-    );
+    const r =
+      minutes === undefined
+        ? await db.query<{ armed_at: string | null }>(
+            // One argument on purpose: the DEFAULT is part of the contract, and
+            // this is the call the shipped server action makes.
+            `SELECT public.papic_arm_challenge($1::uuid) AS armed_at`,
+            [missionId],
+          )
+        : await db.query<{ armed_at: string | null }>(
+            `SELECT public.papic_arm_challenge($1::uuid, $2::smallint) AS armed_at`,
+            [missionId, minutes],
+          );
     return r.rows[0]!.armed_at;
   } finally {
     await reset();
   }
+}
+
+/** When this challenge stops being the one being asked. */
+async function endsAt(missionId: string): Promise<Date | null> {
+  const r = await db.query<{ ends: string | null }>(
+    `SELECT public.papic_challenge_ends_at($1::uuid) AS ends`,
+    [missionId],
+  );
+  const v = r.rows[0]!.ends;
+  return v ? new Date(v) : null;
+}
+
+/**
+ * Move a challenge's arming N minutes into the past — i.e. let its own timer
+ * run, without waiting.
+ *
+ * 🔑 THE ARMING MOVES, NOT `NOW()`. Winding the clock forward globally would
+ * also move the capture window and the event day, so a pass could come from any
+ * of the three end terms and the test would not be about the timer at all.
+ * Every case that uses this leaves the window days away, so the timer is the
+ * only term that can close the challenge.
+ */
+async function rewindArming(missionId: string, minutes: number): Promise<void> {
+  await db.query(
+    `UPDATE public.papic_missions
+        SET armed_at = NOW() - make_interval(mins => $2::int)
+      WHERE mission_id = $1`,
+    [missionId, minutes],
+  );
 }
 
 before(async () => {
@@ -290,10 +331,15 @@ test('with no window set, the end of the event day closes it', async () => {
   assert.equal(await isOpen(m), false, 'the event day is over, so the prompt is closed');
 });
 
-test('a celebration with no date yet keeps its armed challenge open', async () => {
-  // events.event_date is nullable — a real, shipped state (an undecided date).
-  // There is no end that could have passed, and inventing one from an absence is
-  // the exact failure this build order exists to remove.
+test('a celebration with no date yet is closed by its own timer, not left open forever', async () => {
+  // ⚠ THIS CASE INVERTED ON 2026-09-01, AND THE REASON MATTERS.
+  // events.event_date is nullable (an undecided date is a real, shipped state),
+  // so the original clock had NO end term for such an event and deliberately
+  // left the challenge open — inventing an expiry from an absence is the
+  // failure this build order exists to remove.
+  //
+  // The owner then supplied the number, so there IS an end now: the challenge's
+  // own timer. Not a guess that crept in — a decision that arrived.
   const coupleUid = await createUser('clock-undated@audit.test');
   const ev = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type) VALUES ('Clock undated','birthday')
@@ -307,7 +353,143 @@ test('a celebration with no date yet keeps its armed challenge open', async () =
   const m = await seedMission(eventId, 'A photo with the celebrant');
   await armAsCouple(coupleUid, m);
 
-  assert.equal(await isOpen(m), true, 'no date means no end has passed');
+  assert.equal(await isOpen(m), true, 'it is open the moment it is armed');
+  const ends = await endsAt(m);
+  assert.ok(ends, 'and it HAS an end, even with no date on the celebration');
+  assert.equal(
+    Math.round((ends.getTime() - Date.now()) / 60000),
+    30,
+    'the end is its own 30-minute timer',
+  );
+
+  await rewindArming(m, 31);
+  assert.equal(await isOpen(m), false, 'and the timer closes it');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE TIMER ITSELF — 30 by default, 60 and 120 on request.
+// ═══════════════════════════════════════════════════════════════════════════
+test('a timed challenge runs out on its own, with nothing else moving', async () => {
+  const f = await seedEvent('timer', new Date(Date.now() + 2 * DAY));
+  const m = await seedMission(f.eventId, 'The bridal march');
+  await armAsCouple(f.coupleUid, m);
+  assert.equal(await isOpen(m), true);
+
+  // Nothing is superseded, nothing is hidden, the capture window is two days
+  // out. The ONLY thing that closes this is its own 30 minutes — so if the
+  // timer term were dropped, this case is the one that would notice.
+  await rewindArming(m, 29);
+  assert.equal(await isOpen(m), true, 'still running at 29 minutes');
+
+  await rewindArming(m, 31);
+  assert.equal(await isOpen(m), false, 'closed at 31 minutes');
+  assert.deepEqual(await armedFor(f.eventId), [], 'and the celebration has nothing armed');
+
+  const row = await db.query<{ closed_at: string | null }>(
+    `SELECT closed_at FROM public.papic_missions WHERE mission_id = $1`,
+    [m],
+  );
+  assert.equal(
+    row.rows[0]!.closed_at,
+    null,
+    'the row never moved — expiry is derived at read time, never a stamp somebody has to write',
+  );
+});
+
+test('the couple picks 30, 60 or 120 — and the pick is what runs', async () => {
+  const f = await seedEvent('lengths', new Date(Date.now() + 2 * DAY));
+
+  for (const minutes of [30, 60, 120] as const) {
+    const m = await seedMission(f.eventId, `A ${minutes}-minute challenge`);
+    await armAsCouple(f.coupleUid, m, minutes);
+
+    const ends = await endsAt(m);
+    assert.ok(ends);
+    assert.equal(
+      Math.round((ends.getTime() - Date.now()) / 60000),
+      minutes,
+      `a ${minutes}-minute pick must run for ${minutes} minutes`,
+    );
+
+    // Just inside and just outside its own length — the assertion that fails if
+    // every pick quietly collapses to the 30-minute default.
+    await rewindArming(m, minutes - 1);
+    assert.equal(await isOpen(m), true, `still running at ${minutes - 1} minutes`);
+    await rewindArming(m, minutes + 1);
+    assert.equal(await isOpen(m), false, `closed at ${minutes + 1} minutes`);
+  }
+});
+
+test('the database refuses a length nobody chose', async () => {
+  const f = await seedEvent('badlength', new Date(Date.now() + 2 * DAY));
+  const m = await seedMission(f.eventId, 'The vows');
+
+  // 45 minutes is not one of the three. A fourth length is a DECISION, and it
+  // must fail here rather than appear quietly on a wall.
+  await assert.rejects(
+    () =>
+      db.query(
+        `UPDATE public.papic_missions SET armed_duration_minutes = 45 WHERE mission_id = $1`,
+        [m],
+      ),
+    /papic_missions_armed_duration_choices|violates check constraint/i,
+    'only 30, 60 and 120 are lengths the owner chose',
+  );
+
+  // Through the RPC, an unrecognised length falls back to the default rather
+  // than erroring — a coordinator mid-reception gets 30 minutes, not a crash.
+  await armAsCouple(f.coupleUid, m, 45 as 30);
+  const row = await db.query<{ armed_duration_minutes: number }>(
+    `SELECT armed_duration_minutes FROM public.papic_missions WHERE mission_id = $1`,
+    [m],
+  );
+  assert.equal(row.rows[0]!.armed_duration_minutes, 30, 'falls back to the owner’s default');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔ THE RULING MOST LIKELY TO BE MIS-IMPLEMENTED.
+// ═══════════════════════════════════════════════════════════════════════════
+test('arming — and expiring — takes NOTHING off a guest’s board', async () => {
+  // Owner, 2026-09-01: "one challenge, but the other challenges may still be
+  // there." The timed challenge is what the ROOM is being asked; the board is
+  // what a GUEST may do. A future reader that filters the board by
+  // papic_challenge_is_open would delete nine of a guest's ten challenges the
+  // moment a coordinator started the tenth, and every test above would stay
+  // green. This is the one that would not.
+  const f = await seedEvent('board-untouched', new Date(Date.now() + 2 * DAY));
+  const missions: string[] = [];
+  for (let i = 1; i <= 4; i += 1) {
+    missions.push(await seedMission(f.eventId, `Board challenge ${i}`));
+  }
+
+  const boardFor = async (): Promise<string[]> => {
+    const r = await db.query<{ mission_id: string }>(
+      `SELECT mission_id FROM public.papic_guest_missions($1::uuid) ORDER BY mission_id`,
+      [f.guestId],
+    );
+    return r.rows.map((x) => x.mission_id);
+  };
+
+  const before = await boardFor();
+  assert.equal(before.length, 4, 'precondition: the guest can see all four');
+
+  await armAsCouple(f.coupleUid, missions[0]!);
+  assert.deepEqual(await boardFor(), before, 'arming one changes the board not at all');
+
+  await rewindArming(missions[0]!, 31);
+  assert.equal(await isOpen(missions[0]!), false, 'the timed one has run out…');
+  assert.deepEqual(
+    await boardFor(),
+    before,
+    '…and the guest still has every challenge, the expired one included',
+  );
+
+  // And the expired prompt is still answerable — the shutter is never closed.
+  const done = await db.query<{ completion_id: string }>(
+    `SELECT public.papic_complete_mission($1::uuid, $2::uuid) AS completion_id`,
+    [f.guestId, missions[0]!],
+  );
+  assert.ok(done.rows[0]!.completion_id, 'an expired challenge can still be answered');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

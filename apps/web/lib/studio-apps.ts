@@ -175,6 +175,10 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       sublabel: 'Both phones scan one code and become cameras. You cut between them.',
     },
     addOnKey: 'panood',
+    // S1 (owner 2026-09-01): hidden on date · hangout · travel — same surface
+    // the 'panood' add-on entry carries, so the sidebar and the Suite grid
+    // agree. See the `surface` doc above.
+    surface: 'livestream',
   },
   {
     key: 'patiktok',
@@ -198,6 +202,11 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       sublabel: 'Seat a guest, then scan to see the room as them — no sign-up.',
     },
     addOnKey: 'seating',
+    // S1 (owner 2026-09-01): hidden on date · hangout · travel — the EXISTING
+    // `seating` surface those three rows already exclude (pre-2026-08-28, see
+    // TRAVEL_PROFILE's note). No migration needed for this row; it was only
+    // ever missing from the sidebar's OWN gate, which is why it always showed.
+    surface: 'seating',
   },
   {
     /*
@@ -210,12 +219,16 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       commit, and that guard is inverted rather than deleted — it now fails if
       the page disappears while the row stays.
 
-      🔑 NO `surface`. Pakanta is not wedding-only: `add-ons-catalog.ts` tags it
-      with none either, so a debut or an anniversary can buy a song. Adding one
-      here would silently drop the row for every non-wedding organiser.
       🔑 NO `demo`. Nothing renders a Pakanta overlay — see the `demo` note
       above; a "try it" marker on a page with no demo button is the fake door
       this file forbids.
+
+      🔄 UPDATED 2026-09-01 (S1). Pakanta IS still not wedding-only — a debut or
+      an anniversary can buy a song, same as before — but it is no longer
+      offered on EVERY event type either: owner ruling hides it on
+      date · hangout · travel · simple_event, the same four the seeded rows
+      exclude via migration 20271188752170. `surface: 'song'` below carries
+      that, matching the `add-ons-catalog.ts` entry it opens.
     */
     key: 'pakanta',
     name: 'Pakanta',
@@ -225,6 +238,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     railLine:
       'An original song from your love story — and the music behind your videos.',
     addOnKey: 'pakanta',
+    surface: 'song',
   },
   {
     key: 'palogo',

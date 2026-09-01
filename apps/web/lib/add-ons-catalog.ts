@@ -544,6 +544,10 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // from the onboarding love story (lib/pakanta-brief.ts); the page only
     // collects the music top-up. Couple surface: /studio/pakanta.
     key: 'pakanta',
+    // S1 (owner 2026-09-01): hidden on date · hangout · travel · simple_event —
+    // migration 20271188752170. Rides `addOnOfferedForEvent`, the same gate the
+    // Studio sidebar's Pakanta row now uses (lib/studio-rail.ts).
+    surface: 'song',
     tags: ['Music', 'Keepsake'],
     label: 'Pakanta',
     Icon: Music,
@@ -748,6 +752,10 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     key: 'panood',
     // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
     dayOfOnly: true,
+    // S1 (owner 2026-09-01): hidden on date · hangout · travel — migration
+    // 20271188752170. Rides `addOnOfferedForEvent`, the same gate the Studio
+    // sidebar's Live Studio row now uses (lib/studio-rail.ts).
+    surface: 'livestream',
     tags: ['Live', 'Video', 'Day-of', 'Free'],
     opensDirect: true,
     // "Live Studio Cast" = the directed single-feed variant (owner 2026-07-23: Live
@@ -959,6 +967,10 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // labels + count are still untouched. Its href is flag-aware — see
     // addOnHref (2D editor vs the 3D lab).
     key: 'seating',
+    // S1 (owner 2026-09-01): hidden on date · hangout · travel — the EXISTING
+    // `seating` surface those rows already exclude. Matches the sidebar's 3D
+    // Plan row, which opens this same entry (lib/studio-apps.ts).
+    surface: 'seating',
     tags: ['Planning', 'Guests', 'Free'],
     opensDirect: true,
     label: 'Seat Plan',
@@ -1003,6 +1015,9 @@ const LIVE_STUDIO_ENTRY: AddOnEntry = {
   key: 'live-studio-roam',
   // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
   dayOfOnly: true,
+  // S1 (owner 2026-09-01): same event-type gate as the 'panood' entry it
+  // replaces once NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is on.
+  surface: 'livestream',
   tags: ['Live', 'Video', 'Multi-cam', 'Day-of'],
   opensDirect: true,
   label: 'Live Studio',

@@ -1,18 +1,28 @@
 /**
- * event-type-profile.ts — iteration 0053, Phase 0 (the profile spine).
+ * event-type-profile.ts — iteration 0053, the profile spine.
  *
  * The Event-Type Profile is the single config object that describes WHAT an
  * event type is: its terminology, which couple-facing surfaces apply, and which
- * content pack drives each surface. Surfaces will read this via resolveProfile()
+ * content pack drives each surface. Surfaces read this via resolveProfile()
  * instead of hard-coding "wedding" (see spec 0053_event_type_engine).
  *
- * PHASE 0 CONTRACT: nothing consumes this yet. Only the wedding row is seeded
- * (migration 20270220834284), mirroring today's hard-coded values, so the app is
- * byte-identical. Every read falls back to a hard-coded profile on error or a
- * missing row — the same degrade-to-yesterday contract as lib/event-types-db.ts
- * and lib/taxonomy-db.ts: wedding → WEDDING_PROFILE, anything else →
- * GENERIC_PROFILE. So a DB hiccup (or a not-yet-migrated prod) degrades to
- * today's behaviour instead of throwing.
+ * ⚠ STALE CLAIM, CORRECTED 2026-09-01 (S1): this docblock said "PHASE 0
+ * CONTRACT: nothing consumes this yet. Only the wedding row is seeded." for
+ * long enough to mislead a session measuring against it. Measured live
+ * 2026-09-01: `public.event_type_profiles` carries SEVENTEEN seeded rows with
+ * genuinely different surface sets (only `wedding` has `save_the_date` +
+ * `monogram`; `date`/`hangout`/`travel` have no `seating`; `simple_event` has
+ * no `budget` and `marketplace_enabled = false`). It is consumed in several
+ * places, including `lib/add-on-event-scope.ts` (the Suite grid + the
+ * `/studio/about/<key>` page) and `lib/studio-rail.ts` (the Studio sidebar) —
+ * `grep -rn resolveProfile apps/web` finds the rest.
+ *
+ * Every read still falls back to a hard-coded profile on error or a missing
+ * row — the same degrade-to-yesterday contract as lib/event-types-db.ts and
+ * lib/taxonomy-db.ts: wedding → WEDDING_PROFILE, simple_event → SIMPLE_PROFILE,
+ * travel → TRAVEL_PROFILE, wake → WAKE_PROFILE, anything else → GENERIC_PROFILE.
+ * So a DB hiccup (or a not-yet-migrated prod) degrades to a known-good profile
+ * instead of throwing.
  *
  * Cached per request + per event_type via React `cache()`. Server-only (reads
  * cookies via the Supabase server client).
@@ -32,7 +42,13 @@ export type ProfileSurface =
   | 'schedule'
   | 'monogram'
   | 'day_of'
-  | 'gallery';
+  | 'gallery'
+  /** Live Studio's Studio-sidebar row (S1, owner 2026-09-01). Hidden on
+   *  date · hangout · travel — migration 20271188752170. */
+  | 'livestream'
+  /** Pakanta's Studio-sidebar row (S1, owner 2026-09-01). Hidden on
+   *  date · hangout · travel · simple_event — migration 20271188752170. */
+  | 'song';
 
 /**
  * HOW MANY PEOPLE THE CELEBRANT IS (owner ruling 2026-08-27).
@@ -241,6 +257,8 @@ const ALL_SURFACES: ProfileSurface[] = [
   'monogram',
   'day_of',
   'gallery',
+  'livestream',
+  'song',
 ];
 
 /** Wedding — mirrors today's hard-coded behaviour exactly. */
@@ -300,6 +318,14 @@ export const GENERIC_PROFILE: EventTypeProfile = {
     celebrantNoun: 'host',
     celebrantShape: 'single',
   },
+  // 'livestream' and 'song' (S1, owner 2026-09-01) match every ceremonial/party
+  // seeded row (birthday, christening, debut, …, wake) — the majority shape.
+  // ⚠ SAME ACCEPTED ASYMMETRY AS 'seating' ABOVE: `date` and `hangout` have no
+  // dedicated fallback constant either and their DB rows exclude BOTH new
+  // surfaces, so a read error would show them Live Studio/Pakanta they should
+  // not have. That gap already existed for 'seating' pre-2026-08-28 (see
+  // TRAVEL_PROFILE's note) and is the SAME deliberate direction: degrading to
+  // "show a couple of extra rows" beats inventing two more one-off constants.
   enabledSurfaces: [
     'website',
     'rsvp',
@@ -308,6 +334,8 @@ export const GENERIC_PROFILE: EventTypeProfile = {
     'schedule',
     'day_of',
     'gallery',
+    'livestream',
+    'song',
   ],
   marketplaceEnabled: true,
   eventClass: 'personal', // conservative default: unknown types stay personal-only
@@ -361,7 +389,10 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
   // camera, the QR and the gallery with it. Enabling the day-of experience while
   // disabling the only switch that turns it on is a contradiction, not a scope
   // choice. Pinned by the 'day_of implies website' guard in the test file.
-  enabledSurfaces: ['website', 'seating', 'schedule', 'day_of', 'gallery'],
+  // 'livestream' (S1, owner 2026-09-01): the ruling keeps Live Studio on a
+  // simple event — only Pakanta ('song') is hidden here, alongside date /
+  // hangout / travel.
+  enabledSurfaces: ['website', 'seating', 'schedule', 'day_of', 'gallery', 'livestream'],
   marketplaceEnabled: false,
   eventClass: 'community_eligible', // a Samahan may host a simple event
   layerMode: 'anchored',
@@ -410,7 +441,12 @@ export const TRAVEL_PROFILE: EventTypeProfile = {
   // on a DB error they degrade to GENERIC_PROFILE and keep the seat rooms. That
   // asymmetry is deliberate and is the safe direction — inventing two more
   // constants to mirror two more rows is how the fallbacks and the table drift.
-  enabledSurfaces: GENERIC_PROFILE.enabledSurfaces.filter((s) => s !== 'seating'),
+  // 'livestream' and 'song' (S1, owner 2026-09-01) are also withdrawn here —
+  // travel is one of the three types the ruling hides both Live Studio and
+  // Pakanta on, same as its seeded row.
+  enabledSurfaces: GENERIC_PROFILE.enabledSurfaces.filter(
+    (s) => s !== 'seating' && s !== 'livestream' && s !== 'song',
+  ),
   layerMode: 'roaming',
   multiDay: true,
   onboardingFlowKey: 'travel',

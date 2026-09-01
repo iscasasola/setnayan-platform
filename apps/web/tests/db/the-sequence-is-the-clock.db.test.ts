@@ -416,15 +416,47 @@ test('no capture function consults the ceremony sequence', async () => {
   );
 });
 
-test('the sequence added no new time of its own', async () => {
-  // No duration column, no default duration number (owner, 2026-09-01). If one
-  // appears on papic_missions, the ruling has been reopened without being
-  // re-decided.
+test('the sequence added no time of its own — there is exactly ONE duration, and it is the owner\'s', async () => {
+  // ⚠ THIS ASSERTION USED TO BE "papic_missions HAS NO DURATION AT ALL", and it
+  // was right when it was written and wrong within the day. The brief item 5 was
+  // built from said *"No duration column, no default duration number"*; the
+  // owner then chose 30 · 60 · 120 (default 30), and `armed_duration_minutes`
+  // landed on main in 20271188710305. The old form failed the moment those two
+  // branches met — correctly, because it was guarding a ruling that no longer
+  // existed.
+  //
+  // 🔑 SO IT NOW GUARDS WHAT IS STILL TRUE, AND IT IS THE MORE USEFUL PROPERTY
+  // ANYWAY: there is exactly ONE duration on this table, and the ceremony
+  // sequence is not the thing that put it there. Two sessions were building on
+  // this table on the same day; a SECOND duration — one for the arming and one
+  // for the moment — is precisely the "two mechanisms that disagree about one
+  // fact" this project has paid for repeatedly, and each would pass its own
+  // suite.
   const r = await db.query<{ column_name: string }>(
     `SELECT column_name FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = 'papic_missions'
         AND (column_name ILIKE '%duration%' OR column_name ILIKE '%expires%'
-          OR column_name ILIKE '%ends_at%')`,
+          OR column_name ILIKE '%ends_at%' OR column_name ILIKE '%minutes%')
+      ORDER BY column_name`,
   );
-  assert.deepEqual(r.rows, [], `papic_missions grew a duration: ${JSON.stringify(r.rows)}`);
+  assert.deepEqual(
+    r.rows.map((x) => x.column_name),
+    ['armed_duration_minutes'],
+    'papic_missions carries a duration the owner did not choose, or a second one beside it',
+  );
+
+  // And the sequence's own columns carry no time whatsoever. A `moment_*`
+  // column with a length on it would be the second duration, wearing item 5's
+  // name.
+  const mine = await db.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'papic_missions'
+        AND column_name ILIKE 'moment%'
+      ORDER BY column_name`,
+  );
+  assert.deepEqual(
+    mine.rows.map((x) => x.column_name),
+    ['moment_key'],
+    'the ceremony sequence grew a column beyond moment_key — if it holds time, the sequence has become a second clock',
+  );
 });

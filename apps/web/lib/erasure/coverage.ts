@@ -806,6 +806,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     column: 'steward_user_id',
     why: 'CASCADE + NOT NULL — the row records that THIS person stewards someone. The ward’s own record lives on people.claimed_by_user_id and is untouched; the transfer audit survives via ON DELETE SET NULL.',
   },
+  {
+    table: 'event_clusters',
+    column: 'owner_user_id',
+    why: 'CASCADE + NOT NULL — the schema’s own verdict that the row dies with the account. A cluster (item 7 “the year”, migration 20271189765490) is a PERSONAL ORGANISING DEVICE: a name the subject gave to a group of their own celebrations, readable by nobody else. ⚠ THE CELEBRATIONS THEMSELVES ARE NOT TOUCHED — deleting the year deletes the grouping, and each event keeps its own erasure treatment; event_cluster_members rows go with the cluster by CASCADE, so a co-host’s wedding survives losing the label somebody else filed it under. ⚠ Only this column: event_cluster_members.linked_by is an actor stamp and is ON DELETE SET NULL, so who did the filing is forgotten while the grouping stands.',
+  },
 
   // ── batch 3 · every one of these is CASCADE + NOT NULL, or has no FK at all ──
   {

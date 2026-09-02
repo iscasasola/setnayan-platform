@@ -43,6 +43,24 @@ re-fetched immediately before each); the full `money-wears-the-ledger-face`,
 `flag-chokepoint-scan` (13 tests), all green; `next lint` on every touched
 file, clean.
 
+### Why three controls left the port baseline
+
+`lint-port-no-lost-controls` flagged `/dashboard/[eventId]/budget` as having lost
+`<BudgetSummaryStrip>`, `<Stat>` and `<UnlocksHint>`. All three removals are
+deliberate and are the point of this change:
+
+- **`BudgetSummaryStrip` + `Stat`** — the page carried TWO money summaries with four
+  overlapping words for different quantities ("Committed"/"Budget left" above,
+  "total to pay"/"balance" below). They are now one `BudgetTopSummary`, so the reader
+  is no longer asked to work out which pair means what.
+- **`UnlocksHint`** — a card that explained a feature instead of showing one, sitting
+  between the couple and their numbers above the fold.
+
+The baseline was regenerated with `pnpm --filter @setnayan/web port:baseline` in this
+same PR, which is the guard's own sanctioned route for a deliberate removal: it puts
+each lost control in the diff as one readable line rather than preventing the change.
+The guard was NOT weakened, allow-listed or thresholded.
+
 SPEC IMPACT: None — presentation-only restructuring of an existing surface;
 no schema, no new decision, no change to what money means or how it is
 computed.

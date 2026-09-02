@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7cb70db31",
+  "generatedFromRef": "813591314",
   "routeCount": 413,
   "destinations": 881,
   "actions": 619,
-  "blocks": 4194,
+  "blocks": 4195,
   "routes": {
     "/": {
       "files": [
@@ -4697,7 +4697,7 @@
         "BudgetLiveSummary",
         "BudgetLiveSummaryCard",
         "BudgetSetter",
-        "BudgetSummaryStrip",
+        "BudgetTopSummary",
         "Cell",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
@@ -4716,18 +4716,17 @@
         "NoFinalizedVendors",
         "OverspendBanner",
         "PageMasthead",
+        "PinnedStat",
         "SaveSnapshotResult",
         "SaveState",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
-        "Stat",
         "SuggestMilestonesResult",
         "SummaryStat",
         "TiltButton",
         "TiltEditor",
         "TotalCell",
-        "UnlocksHint",
         "UpcomingRow",
         "VendorItemizationCard"
       ]
@@ -6218,6 +6217,8 @@
       "blocks": [
         "AddOnStateCta",
         "AppStoreLayout",
+        "ChoosePlanSheet",
+        "HostedChannelUpsell",
         "Link",
         "SubmitButton",
         "YoutubeChannelPanel"

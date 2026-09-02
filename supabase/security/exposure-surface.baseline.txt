@@ -17,7 +17,7 @@
 #   col       4693
 #   policy    874
 #   view      8
-#   func      225
+#   func      226
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6204,6 +6204,7 @@ func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds
 func	public.claim_manpower_gig(p_gig_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.clear_vendor_payment_plan(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cluster_guest_roster(p_event_cluster_id uuid)	secdef=no exec=authenticated search_path=public
+func	public.cluster_timeline(p_event_cluster_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.compute_attribute_completeness(payload jsonb, schema jsonb)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.confirm_guest_delivery(p_event_vendor_id uuid, p_qr_token text, p_method text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.confirm_service_slot_reservation(p_reservation_id uuid)	secdef=yes exec=authenticated search_path=public

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a289d384c",
+  "generatedFromRef": "f3922f56f",
   "routeCount": 413,
-  "destinations": 890,
+  "destinations": 888,
   "actions": 619,
-  "blocks": 4180,
+  "blocks": 4184,
   "routes": {
     "/": {
       "files": [
@@ -276,24 +276,27 @@
     },
     "/(shell)/pa3d": {
       "files": [
+        "(shell)/pa3d/_pa3d-motion.tsx",
         "(shell)/pa3d/_pa3d-room.tsx",
         "(shell)/pa3d/loading.tsx",
         "(shell)/pa3d/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=pa3d",
-        "/pa3d/try",
-        "/pricing"
+        "/pa3d/try"
       ],
       "actions": [],
       "blocks": [
-        "AddToEventCta",
+        "Blob",
+        "Image",
+        "KenBurns",
         "Link",
         "Pa3dRoom",
         "Phase",
+        "PhotoRail",
         "Plan3DGuestQr",
         "Plan3DScene",
         "Plan3DSceneLoader",
+        "RailPhoto",
         "Reveal"
       ]
     },

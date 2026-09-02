@@ -69,3 +69,45 @@ preview before release.
 
 SPEC IMPACT: None. Copy is unchanged in substance; `studio-apps.ts` still owns
 the description, and no price is authored here.
+
+## 2026-09-02 · feat(pa3d): image-led, in motion, and with no buttons
+
+Same page, two further owner passes.
+
+**"More photos and imagery. Less text. Important to use animations and effect
+to make this attractive to the users browsing."**
+
+- The hero is now a real photograph of the sample reception under a slow Ken
+  Burns push, captioned *"This is the night. You get to stand in it first."*
+- A drifting rail of eight real frames from that wedding — the day the room
+  becomes — carrying one line of copy, because the pictures are the argument.
+- The three steps became a picture and a single line each, in a lifting card.
+- The guest section became a photograph with a caption.
+
+Motion lives in `_pa3d-motion.tsx` + `_pa3d.css`: **CSS keyframes and one
+IntersectionObserver, zero dependencies.** `framer-motion` is not in this app
+and a landing page is not the reason to add it. Every effect — drift, zoom,
+auto-scroll — is disabled under `prefers-reduced-motion`, which is not
+politeness: those are exactly the motions that make vestibular-sensitive people
+ill. The page reads correctly with all of it off.
+
+⚠ **A caption over a photograph is a contrast problem no guard can see.**
+`lint-label-on-fill-contrast.mjs` skips non-opaque pairings by its own
+documented limit, and the candlelit toast frame blew straight through a single
+80%-ink gradient. Fixed with a taller two-stop scrim plus a text shadow, checked
+against the brightest frame in the set rather than guessed.
+
+**"I don't think we need this"** — the closing CTA block. Removed, which lands
+this page on Papic's shape exactly: **no buttons at all.** The room is the door;
+`/pa3d/try` is the link you can paste.
+
+🔑 **One consequence recorded rather than absorbed.** With no primary CTA there
+is nothing for `studioKey` to swap, so `AddToEventCta` went with it and a
+signed-in couple loses the *Add to an event* shortcut **from this page**. The
+capability is unchanged — 3D Plan is added from the Studio inside the
+celebration. `add-to-event-is-the-only-difference.test.ts` now carries a second
+documented removal beside Papic's, and `port-control-baseline.json` records the
+three lost controls as three readable lines, which is that guard's whole point.
+
+Verified: typecheck ✅ · lint ✅ · 11,882 unit tests ✅ · all 29 CI guards ✅ ·
+rendered and inspected on a local dev server.

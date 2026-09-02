@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e8a16c750",
-  "routeCount": 409,
-  "destinations": 881,
-  "actions": 612,
-  "blocks": 4151,
+  "generatedFromRef": "a289d384c",
+  "routeCount": 413,
+  "destinations": 890,
+  "actions": 619,
+  "blocks": 4180,
   "routes": {
     "/": {
       "files": [
@@ -276,16 +276,39 @@
     },
     "/(shell)/pa3d": {
       "files": [
+        "(shell)/pa3d/_pa3d-room.tsx",
         "(shell)/pa3d/loading.tsx",
         "(shell)/pa3d/page.tsx"
       ],
       "destinations": [
         "/onboarding/wedding?from=pa3d",
+        "/pa3d/try",
         "/pricing"
       ],
       "actions": [],
       "blocks": [
-        "DoorwayPage"
+        "AddToEventCta",
+        "Link",
+        "Pa3dRoom",
+        "Phase",
+        "Plan3DGuestQr",
+        "Plan3DScene",
+        "Plan3DSceneLoader",
+        "Reveal"
+      ]
+    },
+    "/(shell)/pa3d/try": {
+      "files": [
+        "(shell)/pa3d/try/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=pa3d-try",
+        "/pa3d"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Pa3dRoom"
       ]
     },
     "/(shell)/pakanta": {
@@ -317,6 +340,7 @@
     },
     "/(shell)/panood": {
       "files": [
+        "(shell)/panood/_panood-film.tsx",
         "(shell)/panood/loading.tsx",
         "(shell)/panood/page.tsx"
       ],
@@ -328,7 +352,9 @@
       "actions": [],
       "blocks": [
         "DoorwayPage",
-        "Link"
+        "HTMLVideoElement",
+        "Link",
+        "PanoodFilm"
       ]
     },
     "/(shell)/papic": {
@@ -611,6 +637,7 @@
         "[slug]/_components/rsvp-widget.tsx",
         "[slug]/_components/save-the-date-film.tsx",
         "[slug]/_components/save-the-date.tsx",
+        "[slug]/_components/scan-trail-notice.tsx",
         "[slug]/_components/schedule-widget.tsx",
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/site-body.tsx",
@@ -679,6 +706,7 @@
       "actions": [
         "action",
         "submit",
+        "toggle",
         "toggleBlur",
         "withdraw"
       ],
@@ -689,6 +717,7 @@
         "Blob",
         "ByTheNumbers",
         "ChallengeAnswerColumn",
+        "ChallengeBanner",
         "Chapter",
         "ChapterWriteUp",
         "ClientEventWords",
@@ -774,6 +803,7 @@
         "LivePhotoWall",
         "LiveWallBlock",
         "LiveWallCaption",
+        "LiveWallChallenge",
         "LiveWallHeader",
         "LivingMoments",
         "LockedAnswer",
@@ -829,6 +859,7 @@
         "SaveStoryCardButton",
         "SaveTheDateFilm",
         "SaveTheDateView",
+        "ScanTrailNotice",
         "ScheduleWidget",
         "SectionEmptyPlate",
         "SectionRule",
@@ -877,6 +908,9 @@
         "VendorRow",
         "VendorsWeLoved",
         "VenueWidget",
+        "WallBadge",
+        "WallControl",
+        "WallPullResult",
         "WatchLiveBlock",
         "WatchTheFilm",
         "WaxSeal",
@@ -3791,6 +3825,41 @@
         "SubmitButton"
       ]
     },
+    "/dashboard/(account)/clusters": {
+      "files": [
+        "dashboard/(account)/clusters/_components/create-cluster-form.tsx",
+        "dashboard/(account)/clusters/actions.ts",
+        "dashboard/(account)/clusters/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/clusters/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionResult",
+        "CreateClusterForm",
+        "Link",
+        "PageMasthead",
+        "QuietStart"
+      ]
+    },
+    "/dashboard/(account)/clusters/[clusterId]": {
+      "files": [
+        "dashboard/(account)/clusters/[clusterId]/_components/cluster-tools.tsx",
+        "dashboard/(account)/clusters/[clusterId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard/clusters"
+      ],
+      "actions": [],
+      "blocks": [
+        "ClusterTools",
+        "Link",
+        "PageMasthead",
+        "Result"
+      ]
+    },
     "/dashboard/(account)/create-event": {
       "files": [
         "dashboard/(account)/create-event/_components/create-date-picker.tsx",
@@ -6116,6 +6185,7 @@
     },
     "/dashboard/[eventId]/studio/live-studio-control": {
       "files": [
+        "dashboard/[eventId]/studio/live-studio-control/actions.ts",
         "dashboard/[eventId]/studio/live-studio-control/page.tsx"
       ],
       "destinations": [
@@ -6397,12 +6467,14 @@
         "/dashboard/[seg]/studio/papic/magazine",
         "/dashboard/[seg]/studio/papic/moderation",
         "/dashboard/[seg]/studio/papic/recap",
+        "/dashboard/[seg]/studio/papic/run-of-show",
         "/dashboard/life-flash?scope=e[seg]"
       ],
       "actions": [
         "action",
         "activatePapicLimited",
         "addLibraryChallengeAction",
+        "armChallengeAction",
         "claimUploadsCamera",
         "createCoupleChallengeAction",
         "deleteCoupleChallengeAction",
@@ -6420,7 +6492,8 @@
         "setPapicStyle",
         "setPapicUploadsOpen",
         "setPapicWindow",
-        "setVendorCapturesHidden"
+        "setVendorCapturesHidden",
+        "stopChallengeAction"
       ],
       "blocks": [
         "ActionResult",
@@ -6600,6 +6673,25 @@
         "ShareButtons",
         "Stat",
         "SubmitButton"
+      ]
+    },
+    "/dashboard/[eventId]/studio/papic/run-of-show": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/run-of-show/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/papic",
+        "/dashboard/[seg]/studio/papic/challenges"
+      ],
+      "actions": [
+        "addLibraryChallengeAction",
+        "armChallengeAction",
+        "clearMomentChallengeAction",
+        "setChallengesPausedAction"
+      ],
+      "blocks": [
+        "Link",
+        "MomentShelf"
       ]
     },
     "/dashboard/[eventId]/studio/patiktok": {
@@ -8134,6 +8226,7 @@
       "files": [
         "panood/control/[eventId]/_components/broadcast-window-strip.tsx",
         "panood/control/[eventId]/_components/camera-feeds.tsx",
+        "panood/control/[eventId]/_components/channel-freshness.tsx",
         "panood/control/[eventId]/_components/program-bridge.tsx",
         "panood/control/[eventId]/_components/setup-sheet.tsx",
         "panood/control/[eventId]/_components/toast-layer.tsx",
@@ -8173,6 +8266,7 @@
         "BroadcastWindowStrip",
         "CameraFeedsContext.Provider",
         "CameraFeedsProvider",
+        "ChannelFreshness",
         "ChannelJoinRow",
         "ChannelTileCard",
         "ChannelVideo",

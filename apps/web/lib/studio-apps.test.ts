@@ -192,7 +192,25 @@ test('a "try it" marker is backed by a real demo button on that page', () => {
         door this test was written to catch.
       */
       const passesToKit = new RegExp(`demo=\\{studioApp\\('${a.key}'\\)\\?\\.demo\\}`).test(src);
-      const mountsInline = a.key === 'papic' && /<PapicScan\s*\/>/.test(src);
+      /*
+        THE INLINE ALLOW-LIST, keyed by page — a map rather than a chain of
+        `key === …` so adding one is a deliberate row, not a widening condition.
+
+        `/pa3d` joined it 2026-09-02 (owner: *"follow the concept of papic"*).
+        The reason is Papic's, and stronger: 3D Plan's premise IS the
+        interaction. A page that argues "you should see the room" above a
+        button that opens the room argues against itself, so the room is
+        mounted on the page and stepping into it IS the demo.
+
+        The rule is unchanged — the marker must be backed by something real,
+        and a doorway that renders NEITHER still fails, which is the fake door
+        this test exists to catch.
+      */
+      const INLINE_DEMO: Record<string, RegExp> = {
+        papic: /<PapicScan\s*\/>/,
+        pa3d: /<Pa3dRoom\s*\/>/,
+      };
+      const mountsInline = INLINE_DEMO[a.key]?.test(src) ?? false;
       assert.ok(
         passesToKit || mountsInline,
         `/${a.key} carries a "try it" marker in the rail but its page neither ` +

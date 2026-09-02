@@ -260,7 +260,22 @@ test('the editor and the editorial maker are still reachable', () => {
      ENDED THE COMMENT ON ITSELF — esbuild refused to parse the file. The
      hazard is not hypothetical even in prose about the hazard. */
   const src = stripComments(readFileSync(HUB_PAGE, 'utf8'));
-  assert.ok(src.length > 2000, 'the Event Hub controller source shrank to a stub — re-anchor this guard');
+
+  /* 🪤 VACUITY CHECK — AND IT MUST COUNT NON-WHITESPACE, NOT `src.length`.
+     `stripComments` blanks comments IN PLACE: the returned string is the same
+     LENGTH as the file, always. So `src.length > 2000` is true even if every
+     character were blanked, and this test would then assert `includes()`
+     against whitespace and fail loudly rather than pass — but a future edit
+     that made the doors optional would go vacuous with nothing to notice it.
+     Counting real characters is the measurement that can actually fall.
+     Measured 2026-09-02: ~12,000 non-whitespace characters survive. */
+  const substance = src.replace(/\s/g, '').length;
+  assert.ok(
+    substance > 4000,
+    `only ${substance} non-whitespace characters survived stripping — the Event ` +
+      'Hub controller shrank to a stub, or the stripper blanked what this test ' +
+      'reads. Either way the assertions below would be checking nothing.',
+  );
   for (const room of ['website/editor', 'website/editorial']) {
     assert.ok(
       src.includes(`/${room}\``),

@@ -14,6 +14,7 @@ import {
 } from '@/lib/guest-claim';
 import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
+import { recordScan } from '@/lib/scan-trail';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import type { GuestRole } from '@/lib/guests';
@@ -91,6 +92,11 @@ async function seedClaimedByOther(
  * Extracted so BOTH accountless outcomes record one — the seed-bind branch used
  * to return without any trail at all. Never throws into the caller: a triage
  * record must not be able to block a guest from getting in.
+ *
+ * Now a header-reading wrapper over `recordScan`, the ONE door that writes
+ * `scan_events` — so a guest who set `scan_tracking_opt_out` gets no row from
+ * either join outcome. `lib/every-scan-goes-through-one-door.test.ts` fails if
+ * this file ever inserts directly again.
  */
 async function recordJoinScan(
   admin: ReturnType<typeof createAdminClient>,
@@ -100,16 +106,12 @@ async function recordJoinScan(
 ) {
   try {
     const h = await headers();
-    const xff = h.get('x-forwarded-for') ?? '';
-    const ipFull = xff.split(',')[0]?.trim() ?? '';
-    const ipAnon = ipFull ? ipFull.split('.').slice(0, 3).join('.') + '.0' : null;
-    await admin.from('scan_events').insert({
-      event_id: eventId,
-      guest_id: guestId,
-      source: 'browser',
-      user_agent: h.get('user-agent') ?? null,
-      ip_anon: ipAnon,
-      context: { entry },
+    await recordScan(admin, {
+      eventId,
+      guestId,
+      entry,
+      userAgent: h.get('user-agent'),
+      forwardedFor: h.get('x-forwarded-for'),
     });
   } catch {
     // swallow — triage only

@@ -1259,6 +1259,14 @@ export const loadGuestContext = cache(
     //
     // ↩ FAILS TOWARD TODAY'S COPY: a door that mints a session without writing
     // a scan leaves no evidence, and no evidence means "Hi again".
+    //
+    // 🔒 AND ONE GUEST NOW CHOOSES THAT ON PURPOSE. A guest who sets
+    // `scan_tracking_opt_out` gets no `scan_events` row from any door
+    // (lib/scan-trail.ts), so this read finds nothing and they are greeted with
+    // "Hi again" every time — including their first. That is the price of the
+    // switch, it is stated to the guest in the control itself
+    // (_components/scan-trail-notice.tsx), and it is the correct direction: we
+    // cannot know it is their first visit without the record they declined.
     const ARRIVAL_WINDOW_MS = 5 * 60 * 1000;
     let guestFirstVisit = false;
     try {

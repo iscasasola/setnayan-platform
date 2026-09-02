@@ -880,6 +880,61 @@ export async function setGuestFaceBlock(
 }
 
 /**
+ * THE GUEST'S OWN SCAN-TRAIL SWITCH — "don't keep a record of my scans".
+ *
+ * `guests.scan_tracking_opt_out` was added on 2026-05-13 citing RA 10173, in the
+ * same migration as `scan_events` itself, and until now had NO WRITER AND NO
+ * READER anywhere in the application. It sat in
+ * `tests/db/gates-have-handles.baseline.txt` as `NOT INVESTIGATED` — a gate with
+ * no handle. This is the handle; `lib/scan-trail.ts` is the gate.
+ *
+ * ⚖ NARROWER THAN THE FACE CONTROLS, DELIBERATELY. FaceBlock is about the
+ * guest's likeness on a screen; this is about the behavioural trail — which
+ * door, at what time, from what device — that `scan_events` keeps. Neither
+ * substitutes for the other, and both are reversible.
+ *
+ * 🔒 GUEST-ONLY, unlike faceblock (owner ruling 3 of 2026-08-17 lets EITHER side
+ * move that one). No host-side writer is added here: a host un-setting a data
+ * subject's own RA 10173 objection is not a defensible flip, and no host screen
+ * has ever shown this flag. If the owner wants the couple to see or move it,
+ * that is a decision to take, not a default to inherit.
+ *
+ * Same trust model as `setGuestFaceBlock`: the guest-session cookie must match
+ * BOTH the event and the guest, so a guest can only ever move their own switch.
+ */
+export async function setGuestScanTracking(
+  eventId: string,
+  guestId: string,
+  optOut: boolean,
+): Promise<void> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
+    return;
+  }
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from('guests')
+    .update({ scan_tracking_opt_out: optOut })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+  if (error) {
+    console.warn('[setGuestScanTracking] update failed', { eventId, error: error.message });
+    return;
+  }
+
+  // No `revalidatePath` for the couple: this flag appears on no host screen.
+  // The control itself re-reads the stored value at render, so the sentence and
+  // the button the guest lands back on ARE the confirmation.
+  const { data: ev } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (ev?.slug) redirect(`/${ev.slug}?scan_trail=${optOut ? 'off' : 'on'}`);
+}
+
+/**
  * Guest removes a single incorrect auto_face tag of THEMSELVES ("Not me" on one
  * candid). Narrower than withdrawFaceConsent: the guest stays enrolled and keeps
  * auto-finding their other photos; only this one shot is dropped.

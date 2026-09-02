@@ -124,7 +124,6 @@ budget_allocation_decisions.auto_reduced_for_pin | NOT INVESTIGATED (never menti
 editorial_vendor_media.hidden_by_couple | NOT INVESTIGATED (read-only).
 events.papic_vendor_challenges_enabled | NOT INVESTIGATED (never mentioned in app code).
 guest_claims.requested_role | NOT INVESTIGATED (never mentioned in app code).
-guests.scan_tracking_opt_out | NOT INVESTIGATED (never mentioned). Reads like a guest privacy opt-out — worth checking before the others.
 onboarding_refinements.is_dynamic_ceremony | NOT INVESTIGATED (read-only).
 orders.vendor_absorbed_fee | NOT INVESTIGATED (never mentioned in app code).
 photo_messages.baked_into_render | NOT INVESTIGATED (never mentioned in app code).

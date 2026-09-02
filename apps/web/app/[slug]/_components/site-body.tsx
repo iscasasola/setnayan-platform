@@ -114,6 +114,7 @@ import type {
 } from '../_lib/types';
 import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
+import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
@@ -1702,6 +1703,12 @@ export async function SiteBody({
               {guest.photo_source === 'selfie' ? (
                 <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
               ) : null}
+
+              {/* The scan-trail switch — UNGATED on purpose. Every recognised
+                  guest leaves a scan trail whether or not they ever gave a
+                  selfie, so this cannot hide behind the selfie test above.
+                  See scan-trail-notice.tsx. */}
+              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} />
 
               {/* Hideable widgets render here in display_order. The host
                   controls visibility + order via the widget editor at

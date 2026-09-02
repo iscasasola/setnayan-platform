@@ -25,3 +25,22 @@ and nothing under it is tracked, so that fallback cannot work in a CI checkout.
 Set `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`.
 
 SPEC IMPACT: None — CI only.
+
+### The name was the whole bug (added after dispatching it)
+
+Running the monitor manually proved it was still dormant — the doctor step
+`skipped`, the run green. The cause: it asks for `VERCEL_TOKEN`, a secret this
+repo has **never held**. What exists is `VERCEL_API_TOKEN` (since 2026-07-01,
+consumed by no workflow) and `VERCEL_PROJECT_ID`.
+
+Two further gaps found at the same time:
+
+- `VERCEL_PROJECT_ID` and `VERCEL_ORG_ID` were **never passed to the job at all**,
+  though the doctor reads both. Its header says they fall back to a checked-in
+  `.vercel/project.json`, but `.vercel` is gitignored and untracked — that file
+  does not exist in a CI checkout.
+- So even a correctly-named token would have left the monitor unable to identify
+  the project.
+
+The workflow now accepts either token name and passes all three values.
+`VERCEL_ORG_ID` is the only secret still to add.

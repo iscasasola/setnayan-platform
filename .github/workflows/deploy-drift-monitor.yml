@@ -64,7 +64,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # 🪤 THE NAME WAS THE WHOLE BUG. This workflow shipped asking for `VERCEL_TOKEN`,
+      # a secret this repo has NEVER held — so the gate fell through to "dormant" and
+      # the run went GREEN having checked nothing, from the moment it merged. What the
+      # repo actually holds is `VERCEL_API_TOKEN` (since 2026-07-01) and
+      # `VERCEL_PROJECT_ID`. Accept either name so an existing token arms it.
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || secrets.VERCEL_API_TOKEN }}
+      # ⚠ AND THESE WERE NEVER PASSED AT ALL. `deploy-drift-doctor.mjs` reads
+      # VERCEL_PROJECT_ID / VERCEL_ORG_ID, and its header says they "default to the
+      # checked-in .vercel/project.json" — but `.vercel` is GITIGNORED and untracked,
+      # so in a CI checkout that file does not exist. Without these the doctor cannot
+      # identify the project even with a valid token.
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
     steps:
       - name: Gate — is Vercel API access configured?
         id: gate

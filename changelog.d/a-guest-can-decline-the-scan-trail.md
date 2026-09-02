@@ -13,7 +13,13 @@ A privacy switch nobody can flip violates nobody's consent today. The risk ran t
 - `app/[slug]/welcome/actions.ts` — `plus_one_onboarded`
 - `app/join/[eventId]/actions.ts` — `self_join` · `self_join_bound_seed` · `account_join` (its `recordJoinScan` is now a header-reading wrapper)
 
-**And a guard makes the fifth door impossible to add quietly.** `lib/every-scan-goes-through-one-door.test.ts` fails if any other file pairs `from('scan_events')` with a row-creating verb, **if** any file outside a named, reasoned allowlist mentions the table at all, **and if any migration inserts the trail from SQL** — a SECURITY DEFINER function is the likeliest fifth door in this codebase (it is how every guest-side write happens) and it is exactly where `recordScan` cannot reach — the second net catching the shapes `lib/gate-writers.ts` documents a single regex missing (helper wrappers, assembled payload variables, 600-character windows). It also asserts the door still inserts and still reads the flag, because "nobody writes the table" is equally satisfied by deleting the trail.
+**And a guard makes the fifth door impossible to add quietly.** `lib/every-scan-goes-through-one-door.test.ts` casts three nets:
+
+1. no file outside the door may pair `from('scan_events')` with a **row-creating** verb;
+2. no file outside a named, reasoned allowlist may **mention the table at all** — this catches the shapes `lib/gate-writers.ts` documents a single regex missing (helper wrappers, assembled payload variables, 600-character windows);
+3. **no migration may insert the trail from SQL.** `gates-have-handles` records that every guest-side write in this codebase goes through a SECURITY DEFINER function, since a guest has no `auth.uid()` — so the likeliest fifth door is not TypeScript at all, and it is exactly where `recordScan` cannot reach and nets 1–2 are blind. There is no such function today; the assertion is where one gets argued rather than discovered.
+
+It also asserts the door still inserts and still reads the flag, because "nobody writes the table" is equally satisfied by deleting the trail.
 
 **The fail direction is "do not record".** A row is written only on a **positive `false`**. An unreadable flag, a missing guest row, or a thrown client all return without inserting — `?? false` would have turned a failed read into consent, the exact shape already corrected once on the couple-side faceblock notice. The cost of the safe direction is bounded and stated: the trail's **only** reader in the product is the first-arrival greeting in `app/[slug]/_lib/loaders.ts`, whose own comment already records that no evidence means "Hi again".
 

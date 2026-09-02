@@ -33,6 +33,11 @@ in good faith six months later.
   2026-08-21 ruling and its guard, and says plainly: do not widen it, do not relax it to day-only,
   do not add a second gate.
 - `apps/web/app/dashboard/[eventId]/launch/page.tsx` — the same correction at the call site.
+- `changelog.d/eh4-one-unlock-offered-where-missed.md` — **the merged fragment carried the wrong
+  phrasing too, and it was the copy headed for the permanent log.** Corrected in place, and caught
+  before `scripts/changelog-collect.mjs` folded it into `CHANGELOG.md`, so the framing never reached
+  the collected history. 🔑 A retraction that fixes the source files and leaves the changelog is
+  half a retraction: the changelog is the half that outlives the code.
 - `apps/web/app/dashboard/[eventId]/launch/_components/hub-pro-offer-renders.test.ts` — **the third
   observation, which was missing.** #5106 proved the offer renders nothing on the day and after it;
   it did not prove the same for an **unmeasured** phase at the render. It does now, on both arms

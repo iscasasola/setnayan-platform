@@ -66,3 +66,41 @@ guest surface, and its correctness is visual, not testable.
 Verified: typecheck ✅ · lint ✅ · 11,886 unit tests ✅ · all 29 CI guards ✅
 
 SPEC IMPACT: None.
+
+## 2026-09-03 · fix(plan3d): one lerpAngle, not three — and the tie-break they disagreed on
+
+Exporting `lerpAngle` from `lib/figure-rig.ts` (above) made two pre-existing
+private copies visible to `lint:dup-rule`, which failed CI on this branch and
+was right to:
+
+    app/_components/plan3d/kit/sit-controller.tsx:123    function lerpAngle
+    app/_components/plan3d/plan3d-remote-players.tsx:30  function lerpAngle
+
+Both files already imported `damp` from that same module, which is exactly the
+shape the guard looks for — a local declaration shadowing a helper the file
+already imports the module of. Both now import `lerpAngle` instead.
+
+### ⚠ The two copies were NOT the same function
+
+`sit-controller`'s body was byte-identical, so deleting it changes nothing.
+`plan3d-remote-players` used a **different implementation** — modulo-and-correct
+rather than `atan2(sin, cos)` — and swapping it is a real substitution, so it
+was measured rather than assumed:
+
+| | |
+|---|---|
+| (a, b, k) triples compared | **396,344** |
+| agree on the resulting heading | **396,112** |
+| genuinely differ | **232** — all of them the exact half-turn (b − a = π) |
+
+At exactly π the shortest arc is ambiguous: the old local copy spun one way
+through the tie, the shared one spins the other. They land on the same heading
+at k = 1 and differ only mid-interpolation.
+
+🔑 **That is a tie-break, not a correctness property** — and there is no reason
+a remote player should turn the opposite way from every other figure in the
+room, which is the entire point of there being one of these. The difference is
+recorded in a comment at the call site rather than quietly absorbed.
+
+Verified: typecheck ✅ · lint ✅ · 11,886 unit tests ✅ · all 29 CI guards ✅
+(including `lint:dup-rule`, the one that failed).

@@ -344,6 +344,34 @@ test('the ledger is absent — not zeroed — when the resolver gives nothing', 
   );
 });
 
+test('the wedding-shaped suggestion never reaches a non-wedding event', () => {
+  /**
+   * `budget_leaf_benchmarks` IS the wedding budget taxonomy, and it is read
+   * unconditionally by `resolveAllocationInputs`. Every other event type that
+   * enables this surface — birthday, debut, christening, wake — carries
+   * `budgetTaxonomyKey: null`, which is why the "Suggested budget split" above
+   * renders for weddings only. Ungated, the ledger would print a ₱450,000
+   * catering plan on a debut, out of a table that does not describe it.
+   */
+  const src = pageSrc();
+  const detector = (s: string) =>
+    /\bsuggestedPlanPhp\b[\s\S]{0,200}?\bif\s*\(\s*isWeddingBudget\s*&&/.test(s);
+  assert.ok(
+    detector('const suggestedPlanPhp = new Map();\n  if (isWeddingBudget && allocInputs.budgetPhp != null) {'),
+    'the wedding-gate detector cannot see the gate it exists to require',
+  );
+  assert.ok(
+    !detector('const suggestedPlanPhp = new Map();\n  if (allocInputs.budgetPhp != null) {'),
+    'the wedding-gate detector passes an UNGATED build — it proves nothing',
+  );
+  assert.ok(
+    detector(src),
+    `${PAGE} fills the suggested plan without checking isWeddingBudget. Those ` +
+      `benchmarks are the wedding taxonomy; a debut would be shown a plan it ` +
+      `never made. Leave Planned as "—" instead — that is the truth.`,
+  );
+});
+
 // ── 5 · NO QUOTES, STILL (BA2 is not undone by a new table) ─────────────────
 
 test('the ledger prints no estimate — BA2 holds', () => {

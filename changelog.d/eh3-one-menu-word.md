@@ -53,6 +53,15 @@ across all three phases on both rosters; the retired words absent; the registry 
 the two absorbed destinations still reachable. Five sabotages applied, occurrence counts printed
 before → after, each observed RED, then restored.
 
+🪤 **A GUARD CAUGHT THE GUARD.** The new test first read the controller's source through its own
+two-replace comment stripper and CI's `lint one comment stripper` refused it — correctly: a
+hand-rolled stripper removes BLOCK comments first, so a LINE comment containing a block-comment
+opener runs to the next real closer and blanks everything between, after which the assertion checks
+a blank and passes. It now calls `stripComments` from `lib/strip-comments.ts`. And the first draft
+of the comment EXPLAINING that hazard spelled the closer out literally and ended itself — esbuild
+refused to parse the file. 🔑 **`pnpm lint` does not run the ~27 blocking guards; they are separate
+CI steps.** All 22 were run locally afterwards (22 ran, 0 failed).
+
 ⚠ **OPEN — OWNER'S CALL, NOT RESOLVED HERE: two rows on one desktop rail now read "Event Hub".**
 Measured with `railToolsSignedIn({ eventId, count: 1 })`: the Studio group that renders below the
 event menu (`front-door-shell.tsx` § 4, "IT DOES NOT COLLAPSE") carries `pawebsite` — the App Store

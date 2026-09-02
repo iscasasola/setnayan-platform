@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildCustomerMenuTree, type CustomerMenu } from './customer-menu';
 import { NAV_SLOT_DEFAULTS } from './nav-registry-defaults';
+import { stripComments } from './strip-comments';
 import { buildCustomerNavGroups } from '@/app/dashboard/[eventId]/_components/customer-nav-config';
 import { SIDEBAR_SLOT_KEYS } from '@/app/dashboard/[eventId]/_components/customer-nav-slot-keys';
 
@@ -245,12 +246,20 @@ test('the editor and the editorial maker are still reachable', () => {
   /* The controller is the door for both — its S5 "set once" rows. Read from
      the page's real source, with comments stripped: this change QUOTES both
      addresses in its own prose, and a raw-source grep would find its needle
-     inside the sentence explaining the needle and pass forever. */
-  const src = readFileSync(HUB_PAGE, 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .split('\n')
-    .filter((l) => !l.trimStart().startsWith('//') && !l.trimStart().startsWith('*'))
-    .join('\n');
+     inside the sentence explaining the needle and pass forever.
+
+     🔒 `stripComments` FROM `lib/strip-comments.ts` — THE ONE STRIPPER, not a
+     two-replace regex of this file's own. A hand-rolled one strips BLOCK
+     comments first, so a LINE comment that happens to contain a block-comment
+     OPENER opens a comment which then runs to the next real CLOSER, blanking
+     everything between; the guard afterwards asserts against a blank and
+     passes. CI's `lint one comment stripper` blocks a second implementation,
+     and it caught exactly this file on its first run.
+
+     🪤 AND THE FIRST DRAFT OF THIS VERY PARAGRAPH SPELLED THE CLOSER OUT AND
+     ENDED THE COMMENT ON ITSELF — esbuild refused to parse the file. The
+     hazard is not hypothetical even in prose about the hazard. */
+  const src = stripComments(readFileSync(HUB_PAGE, 'utf8'));
   assert.ok(src.length > 2000, 'the Event Hub controller source shrank to a stub — re-anchor this guard');
   for (const room of ['website/editor', 'website/editorial']) {
     assert.ok(

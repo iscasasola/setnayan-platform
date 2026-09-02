@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Anchor, CalendarRange } from 'lucide-react';
+import { Anchor, CalendarRange, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -12,6 +12,8 @@ import {
   isApproximate,
   timelineDateLabel,
 } from '@/lib/clusters';
+import { budgetStateNote, fetchClusterBudgets } from '@/lib/cluster-budgets';
+import { formatPhp } from '@/lib/budget';
 import { ClusterTools } from './_components/cluster-tools';
 
 /**
@@ -30,10 +32,50 @@ import { ClusterTools } from './_components/cluster-tools';
  * so a year-precision celebration reads "Sometime in 2027" rather than
  * "January 1, 2027" — a date its host never chose. `sort_key` is never drawn.
  *
- * ⛔ NO MONEY ON THIS SCREEN. Deliberate, and it is the owner's 2026-09-02
- *    ruling, not an omission: "a cluster is presentation and planning, NEVER
- *    accounting." Every celebration keeps its own pot. Budgets are 7d.
+ * ─── 7d · THE BUDGETS, AND THE ONE MONEY THAT MAY BE ADDED UP ─────────────
+ * The owner's 2026-09-02 ruling is that a cluster is "presentation and
+ * planning; it is NOT accounting", and the year is explicitly "dates AND
+ * BUDGETS months ahead". So this screen shows each celebration's budget TARGET
+ * — the number its host typed, which is planning — and a total derived from
+ * them on every read.
+ *
+ * ⛔ IT SHOWS NO PAPIC POT, AND IT NEVER WILL. Credits are bought per
+ *    celebration and rolling them up would reprice what customers already
+ *    own. Budget pesos and capture credits are two different monies; only the
+ *    first is summed here. `tests/db/a-pot-belongs-to-one-celebration.db.test.ts`
+ *    and `lib/a-year-adds-up-its-budgets.test.ts` both fail if that blurs.
+ * ⛔ AND IT STORES NOTHING. No cluster-level money column exists or may exist —
+ *    7a's guard already treats `budget` as a value-bearing name.
  */
+
+/**
+ * What the celebrations OUTSIDE the total are — in words, and each kind named
+ * separately.
+ *
+ * 🔑 "Could not read it" and "not yours to see" are a failure and a rule
+ * working correctly. Collapsing them into one "not counted" reads as a glitch
+ * over a deliberate refusal, and as a refusal over a glitch the couple could
+ * fix by refreshing.
+ */
+function makeUpOfLine(b: {
+  noTarget: number;
+  unknownCount: number;
+  withheldCount: number;
+}): string {
+  const parts: string[] = [];
+  if (b.noTarget > 0) parts.push(`${b.noTarget} with no budget set`);
+  if (b.withheldCount > 0) {
+    parts.push(
+      `${b.withheldCount} you do not host`,
+    );
+  }
+  if (b.unknownCount > 0) {
+    parts.push(
+      `${b.unknownCount} we could not read — refresh to try again`,
+    );
+  }
+  return parts.join(' · ');
+}
 
 type Props = { params: Promise<{ clusterId: string }> };
 
@@ -63,6 +105,21 @@ export default async function ClusterTimelinePage({ params }: Props) {
 
   const span = clusterSpan(timeline.rows);
 
+  /*
+   * 7d. Sequential on purpose: the budgets are read for the members the
+   * timeline actually returned, so there is ONE answer to "what is in this
+   * group" rather than two reads that can disagree.
+   *
+   * 🛑 A REFUSED TIMELINE READS NO BUDGETS AT ALL. With `measured: false` the
+   * member list is unknown, so any total built from it would be a total of an
+   * unknown set — a number that looks complete and is not. The section says so
+   * instead.
+   */
+  const budgets = timeline.measured
+    ? await fetchClusterBudgets(supabase, user.id, timeline.rows.map((r) => r.event_id))
+    : null;
+  const budgetByEvent = new Map(budgets?.rows.map((r) => [r.event_id, r]) ?? []);
+
   return (
     <div className="sn-col space-y-6">
       <PageMasthead
@@ -88,6 +145,67 @@ export default async function ClusterTimelinePage({ params }: Props) {
             : 'We could not load this group just now'}
           {' · '}
           Each one keeps its own guests, its own shots and its own money.
+        </p>
+      </section>
+
+      {/*
+        7d · THE BUDGETS. Derived on every read from the members' own targets
+        and stored nowhere.
+
+        🛑 EVERY BRANCH BELOW EXISTS BECAUSE ₱0 IS A CLAIM. "We could not read
+        them", "nobody has set one yet" and "the total is ₱1.2M" are three
+        different facts, and the first two must never be printed as money.
+      */}
+      <section className="sn-tile">
+        <p className="sn-eye flex items-center gap-2">
+          <Wallet size={14} strokeWidth={1.75} aria-hidden />
+          Planned across the group
+        </p>
+
+        {!budgets ? (
+          <p className="mt-2 text-sm text-ink-soft" role="status">
+            We could not read the celebrations in this group, so there is no total to show.
+          </p>
+        ) : budgets.totalPhp === null ? (
+          <>
+            <p className="mt-2 text-2xl font-medium text-ink">
+              {/*
+                🛑 "No budgets set yet" IS A CLAIM ABOUT ALL OF THEM, so it may
+                be said only when all of them were actually read. One refusal or
+                one withheld celebration and the honest headline is that we do
+                not have the number.
+              */}
+              {budgets.notCounted === 0 ? 'No budgets set yet' : 'Not available'}
+            </p>
+            <p className="mt-1 text-sm text-ink-soft">
+              {budgets.notCounted === 0
+                ? 'Set a budget on a celebration and it is added here.'
+                : makeUpOfLine(budgets)}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-2xl font-medium text-ink">{formatPhp(budgets.totalPhp)}</p>
+            <p className="mt-1 text-sm text-ink-soft">
+              {/*
+                ⚠ SAY WHAT THE TOTAL IS MADE OF WHENEVER IT IS NOT ALL OF THEM.
+                A partial sum drawn as if it were the whole is the same
+                confident-wrong-number defect, one level up.
+              */}
+              {budgets.countedIn === budgets.rows.length
+                ? `Across all ${budgets.countedIn} ${
+                    budgets.countedIn === 1 ? 'celebration' : 'celebrations'
+                  }`
+                : `Across ${budgets.countedIn} of ${budgets.rows.length} celebrations · ${makeUpOfLine(
+                    budgets,
+                  )}`}
+            </p>
+          </>
+        )}
+
+        <p className="mt-2 text-xs text-ink-soft/80">
+          Budgets only. Papic shots stay with the celebration that bought them and are never
+          pooled.
         </p>
       </section>
 
@@ -136,6 +254,25 @@ export default async function ClusterTimelinePage({ params }: Props) {
                     ) : null}
                   </p>
                 </div>
+
+                {/*
+                  This celebration's own budget. A figure ONLY when we read one;
+                  otherwise the words for which of the three absences it is.
+                */}
+                {(() => {
+                  const b = budgetByEvent.get(row.event_id);
+                  if (!b) return null;
+                  const note = budgetStateNote(b.state);
+                  return note === null ? (
+                    <p className="shrink-0 text-right text-sm font-medium text-ink">
+                      {formatPhp(b.targetPhp)}
+                    </p>
+                  ) : (
+                    <p className="max-w-[9rem] shrink-0 text-right text-xs text-ink-soft">
+                      {note}
+                    </p>
+                  );
+                })()}
               </div>
             </li>
           ))}

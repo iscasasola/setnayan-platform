@@ -58,6 +58,89 @@
 
 ---
 
+## 2026-09-02 · ⏳ PUBLISH THE GOOGLE OAUTH APP — deadline 2026-09-07 🔴 console only, no code
+
+**Deadline is real and measured, not estimated.** The pool channel's Google refresh token
+was issued **2026-08-31 10:37 UTC**. Google's own docs: *"a publishing status of 'Testing'
+is issued a refresh token expiring in 7 days"* — so it dies **2026-09-07 10:37 UTC**.
+Refreshing does **not** reset that clock; it runs from issuance. Re-measure any time with:
+
+```sql
+select external_account_display, granted_at, last_refreshed_at, connection_health,
+       (granted_at + interval '7 days') - now() as time_left
+  from live_studio_channel_grants;
+```
+
+**What breaks when it expires:** `goLivePanood` has preferred a POOL channel since Wave 9
+(BYO is only its fallback), so when that token dies the **Go live button stops working for
+every event — including the free single-camera tier**, not just Live Studio purchases.
+
+🔑 **AND IT WILL NOT LOOK LIKE AN EXPIRY.** `connection_health` reads `ok` right up to the
+moment it doesn't, because nothing checks the refresh token's age — only whether the last
+refresh succeeded. Expect it to present as "YouTube could not create the broadcast", which
+is the same sentence a dozen unrelated faults produce.
+
+### Steps
+
+1. Open **https://console.cloud.google.com/auth/audience** and make sure the project
+   selector (top bar) is on the project that owns `YOUTUBE_OAUTH_CLIENT_ID`.
+   (This page used to be *APIs & Services → OAuth consent screen*; Google renamed it
+   **Google Auth Platform → Audience**. Same thing.)
+2. Find **Publishing status**.
+   - If it reads **Testing** → click **PUBLISH APP** and confirm.
+   - If it already reads **In production** → nothing to do here; go straight to step 4.
+3. Confirm it now reads **In production** (a **Back to testing** button appears beside it —
+   that button's presence IS the confirmation, and it is not one to press).
+4. **Reconnect the pool channel.** Do not skip this — see the warning below.
+   Admin → Live Studio channels → disconnect and reconnect the `Setnayan` channel, which
+   issues a fresh refresh token under the new publishing status.
+
+⚠ **STEP 4 IS THE ONLY STEP THAT CHANGES ANYTHING ONCE THE APP IS ALREADY PUBLISHED.**
+Publishing governs which tokens are ISSUED FROM NOW ON. It does nothing to a token already
+in the database — and the pool's token was issued **2026-08-31 10:37 UTC**, before anyone
+looked at this page. If the app was in Testing at that moment the token carries a 7-day
+fuse; if it was already published it does not. **Nothing recorded anywhere distinguishes
+those two cases**, which is exactly why reconnecting is written as required rather than
+conditional: two minutes settles a question no amount of reading can.
+
+⚠ **AND GOOGLE DOES NOT DOCUMENT THE OTHER HALF.** Google documents that a
+Testing-status app *is issued* 7-day refresh tokens; it does **not** document what happens
+to a token already issued that way once you publish. The safe reading is that the existing
+token keeps the fuse it was born with. Reconnecting costs two minutes and removes the
+question entirely — verify with the SQL below rather than assuming either way.
+
+### Check it worked
+
+- The Audience page reads **In production**, not Testing.
+- `granted_at` in the query above has moved to today (proof the token was re-issued, not
+  merely re-refreshed — `last_refreshed_at` moving is **not** sufficient, it moves hourly
+  on its own and tells you nothing about the fuse).
+- Press **Go live** on a test event and get a broadcast, not "YouTube could not create the
+  broadcast".
+
+### What publishing does NOT do — and what it costs
+
+- **It does not verify the app.** Verification is a separate, longer review. Unverified in
+  production still shows the *"Google hasn't verified this app"* interstitial, and still
+  caps at **100 users**. The Audience page currently reads **3 users / 100 user cap**.
+- 🔒 **THAT CAP IS LIFETIME-OF-PROJECT AND CANNOT BE RESET.** Google's own wording on that
+  page: *"The user cap applies over the entire lifetime of the project, and it cannot be
+  reset or changed."* So the 3 already spent are spent permanently, and every consent any
+  couple ever gives burns one forever — there is no undo, no annual reset, and disconnecting
+  a channel does not give the slot back. **This is the strongest argument for the BYO path**
+  (#5093), where the couple never sees a consent screen at all: not because 100 is a small
+  number, but because it is a number that only ever goes down.
+- **Neither of those binds the pool**, which authenticates a handful of Setnayan-owned
+  accounts, not one per couple. The 100-user cap only ever binds if couples connect
+  **their own** channels through our OAuth app — and the BYO path shipped 2026-09-02
+  (PR #5093) deliberately avoids that: the couple creates the broadcast on YouTube
+  themselves and pastes a watch link, so no consent screen is ever shown and no user slot
+  is spent.
+- So the cost of publishing is: the unverified warning stays until verification. Nothing
+  else changes.
+
+---
+
 ## 2026-07-13 · Date-anchor family graph — ✅ ALL GATES CLEARED, LIVE
 
 The whole **family graph** (dependents, their milestones, faith rites, godparents,

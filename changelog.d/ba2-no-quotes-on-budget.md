@@ -36,7 +36,27 @@ New **`lib/no-quotes-on-the-budget-page.test.ts`** asserts the narrowing three w
 
 `lib/budget-one-core.test.ts` and `lib/flag-chokepoint-scan.test.ts` both gain `budget/actions.ts`, so the Realtime writer cannot silently go dark either.
 
-**Sabotage-tested, all four red:** re-widening `vendorsToItemize` → 5 failures · growing `estimatedPhp` back → 2 · replacing the call with an inline filter in `page.tsx` → 1 · reverting the refetch to the raw legacy summary → 2.
+### "Only locked services can show here" — and "locked" had three names
+
+Owner, refining the ruling: *"only locked services can show here"* · *"that is my point, not quotations created on the shortlist."*
+
+Measured: the filter this PR ships **already admits exactly the locked set** — no behaviour change was needed. But the app had **three names for that one four-value list**, in three files, with nothing holding them together:
+
+| Constant | File | Used by |
+|---|---|---|
+| `CONFIRMED_VENDOR_STATUSES` | `lib/events.ts` | what `/budget` filters on |
+| `LOCKED_VENDOR_STATUSES` | `lib/shortlist-taxonomy.ts` | what the Merkado calls the same fact |
+| a private `CONFIRMED` set | `lib/lock-request-state.ts` | THE one place lock state is derived |
+
+They agree today, and **nothing made them** — no test named two of them together. A fifth status added to one list would leave `/budget` and the Merkado disagreeing about which suppliers are booked, each passing its own suite. That is the two-mechanisms-one-fact defect sitting directly under the owner's sentence, so it is closed rather than noted.
+
+Three assertions added to the guard: the two exported lists must be equal; **a supplier gets a `/budget` card if and only if `lockRequestStateOf` calls it `locked`** (both handshake-flag states — the owner's sentence, executable); and a shortlist quotation is never locked however it was agreed.
+
+⚠ **There is no second lock axis.** `lockRequestStateOf` returns `locked` for any confirmed status unconditionally — *"a real booking outranks any marker it happens to carry"* — and a `lock_request_state` of `agreed` WITHOUT a confirmed status resolves to `cancelled`, never `locked`. So "locked" and "contracted+" are one set, not two, and no row can be contracted-but-not-locked.
+
+**Sabotage:** a fifth status added to the Merkado list only → **1 fail** · `shortlisted` admitted to `/budget`'s own filter → **4 fails**.
+
+**Sabotage-tested, all six red, with distinct counts so the checks discriminate:** re-widening `vendorsToItemize` → 5 failures · growing `estimatedPhp` back → 2 · replacing the call with an inline filter in `page.tsx` → 1 · reverting the refetch to the raw legacy summary → 2 · drifting the Merkado's locked list → 1 · admitting `shortlisted` to `/budget`'s filter → 4.
 
 **Effect on the prod fixture** (event `044f7e64…`, measured 2026-09-02: 0 confirmed vendors, 1 `considering` carrying ₱80,000): `/budget` now shows ₱0 committed with the existing *"You're still choosing vendors — the moment you contract one, its itemized costs and payments show up here"* empty state and its **Open vendors** doorway. The ₱80,000 appears nowhere on the page; it is in the Merkado, where the couple is comparing.
 

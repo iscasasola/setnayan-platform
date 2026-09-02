@@ -36,6 +36,9 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { budgetStripMoney, vendorsToItemize } from './budget-page-money';
+import { CONFIRMED_VENDOR_STATUSES } from './events';
+import { LOCKED_VENDOR_STATUSES } from './shortlist-taxonomy';
+import { lockRequestStateOf } from './lock-request-state';
 import type { EventMoney } from './budget-truth';
 import type { VendorBudgetSummary } from './budget';
 
@@ -179,4 +182,83 @@ test('the /budget page never reads the resolver’s estimate', () => {
       `${PAGE} reads ${re.source} — /budget prints finalized money only (BA2).`,
     );
   }
+});
+
+// ── 4 · "ONLY LOCKED SERVICES CAN SHOW HERE" ────────────────────────────────
+/**
+ * Owner, 2026-09-02, refining the ruling above: *"only locked services can show
+ * here"* — *"that is my point, not quotations created on the shortlist."*
+ *
+ * MEASURED, and the answer is that the app already had THREE names for this one
+ * four-value list, in three files, with nothing holding them together:
+ *
+ *   · `CONFIRMED_VENDOR_STATUSES` (`lib/events.ts`) — what `/budget` filters on
+ *   · `LOCKED_VENDOR_STATUSES` (`lib/shortlist-taxonomy.ts`) — what the Merkado
+ *     calls the same fact
+ *   · a private `CONFIRMED` set inside `lib/lock-request-state.ts`, THE one place
+ *     the lock state is derived
+ *
+ * They agree today. Nothing made them: no test named two of them together, so a
+ * fifth status added to one list would leave `/budget` and the Merkado
+ * disagreeing about which suppliers are locked — each passing its own suite.
+ * That is the two-mechanisms-one-fact defect, and it sits directly under the
+ * owner's sentence, so it is closed here rather than noted.
+ *
+ * ⚠ THERE IS NO SECOND LOCK AXIS. `lockRequestStateOf` returns `locked` for any
+ * confirmed status unconditionally — *"a real booking outranks any marker it
+ * happens to carry"* — so a row cannot be contracted-but-not-locked, and a
+ * `lock_request_state` of `agreed` WITHOUT a confirmed status is `cancelled`,
+ * never `locked`. "Locked" and "contracted+" are one set, not two.
+ */
+
+const isConfirmedStatus = (s: string) =>
+  (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(s);
+
+test('“locked” is ONE list — /budget’s filter and the Merkado’s cannot drift apart', () => {
+  assert.deepEqual(
+    [...CONFIRMED_VENDOR_STATUSES].sort(),
+    [...LOCKED_VENDOR_STATUSES].sort(),
+    `/budget admits CONFIRMED_VENDOR_STATUSES and the Merkado calls LOCKED_VENDOR_STATUSES ` +
+      `the same fact. They have diverged. Until they agree, the two surfaces disagree about ` +
+      `which suppliers are booked — and each still passes its own suite.`,
+  );
+});
+
+for (const handshake of [true, false]) {
+  test(`a supplier gets a /budget card IFF the lock resolver calls it locked (handshake ${handshake ? 'ON' : 'OFF'})`, () => {
+    // The owner's sentence, executable. Not "contracted-ish" — locked, as the
+    // ONE place that derives lock state defines it.
+    const statuses = [...UNCONFIRMED, ...CONFIRMED_VENDOR_STATUSES];
+    for (const status of statuses) {
+      const carded =
+        vendorsToItemize({
+          vendors: [richVendor(status)],
+          isConfirmed: isConfirmedStatus,
+        }).length === 1;
+      const locked =
+        lockRequestStateOf({ status, lock_request_state: null }, handshake) === 'locked';
+      assert.equal(
+        carded,
+        locked,
+        `"${status}": /budget ${carded ? 'shows' : 'hides'} it but the lock resolver says ` +
+          `${locked ? 'locked' : 'not locked'}. Owner 2026-09-02: "only locked services can ` +
+          `show here" — the budget page and the lock state must name the same bookings.`,
+      );
+    }
+  });
+}
+
+test('a shortlist quotation is never locked, however it was agreed', () => {
+  // `lock_request_state: 'agreed'` WITHOUT a confirmed status is a supplier who
+  // said yes to an ask the booking never completed. It is not money the couple
+  // owes, and it does not belong on this page.
+  assert.notEqual(
+    lockRequestStateOf({ status: 'shortlisted', lock_request_state: 'agreed' }, true),
+    'locked',
+  );
+  assert.equal(
+    vendorsToItemize({ vendors: [richVendor('shortlisted')], isConfirmed: isConfirmedStatus })
+      .length,
+    0,
+  );
 });

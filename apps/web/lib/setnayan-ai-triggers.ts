@@ -120,21 +120,87 @@ export type PlanningSnapshot = {
 // ---- Tunable thresholds (the restraint dials; kept in one place) ------------
 
 export const TRIGGER_THRESHOLDS = {
+  /**
+   * "Due soon" — the urgent window GRD-01 fires in, counted FORWARD from today.
+   *
+   * ⚠ This number is also the money resolver's. `lib/budget-truth.ts` imports
+   * it (and `paymentHorizonDays`) rather than declaring its own, so the page
+   * and the email cannot disagree about what "due soon" means. If you change
+   * it, you change both surfaces — which is the point.
+   */
   paymentDueWindowDays: 7,
+  /**
+   * The roll-up horizon — how far ahead a milestone still counts as something
+   * the couple is looking at (the 30 days `lib/budget.ts` has always used for
+   * `upcomingDueAmount`). Beyond it a payment is `later`, not `upcoming`.
+   */
+  paymentHorizonDays: 30,
   contractWindowDays: 7,
   vendorQuietDays: 4,
   stuckWeeks: 4,
   dateConvergeMin: 3,
 } as const;
 
+/**
+ * Where one dated milestone sits relative to today. ONE definition, shared by
+ * the guard (which alerts) and the money resolver (which counts) — see the
+ * threshold docs above.
+ *
+ * The boundaries, spelled out because a wrong one emails a real couple about a
+ * payment they do not owe:
+ *
+ * | days until due | state      |
+ * |----------------|------------|
+ * | -1 and below   | `overdue`  |  the date has passed
+ * | 0              | `due_soon` |  DUE TODAY IS NOT LATE
+ * | 1 … 7          | `due_soon` |  ≤ paymentDueWindowDays
+ * | 8 … 30         | `upcoming` |  ≤ paymentHorizonDays
+ * | 31 and above   | `later`    |
+ *
+ * `overdue` and `due_soon` are what GRD-01 alerts on. `upcoming` and `later`
+ * are counted, never interrupted for.
+ */
+export type PaymentDueState = 'overdue' | 'due_soon' | 'upcoming' | 'later';
+
+export function paymentDueState(days: number): PaymentDueState {
+  if (days < 0) return 'overdue';
+  if (days <= TRIGGER_THRESHOLDS.paymentDueWindowDays) return 'due_soon';
+  if (days <= TRIGGER_THRESHOLDS.paymentHorizonDays) return 'upcoming';
+  return 'later';
+}
+
 // ---- helpers ----------------------------------------------------------------
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-function daysUntil(dateStr: string, now: Date): number {
+/**
+ * The platform's calendar. Every `due_date` / `deadline` is a bare PH date, and
+ * `planPaymentDueReminder` already schedules its sends at 09:00 +08:00.
+ */
+const PH_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** Which Manila calendar day an instant falls on, as a whole-day index. */
+function phDayIndex(t: number): number {
+  return Math.floor((t + PH_UTC_OFFSET_MS) / MS_PER_DAY);
+}
+
+/**
+ * Whole days from today to `dateStr` — negative once the date has passed.
+ * `+Infinity` for an unparseable date, so a bad row is never called overdue.
+ *
+ * ⚠ CALENDAR DAYS, NOT ELAPSED HOURS. This used to be
+ * `floor((due − now) / MS_PER_DAY)` against the raw instants, which drifts
+ * with the time of day: a milestone due TODAY returned −1 from 00:00 UTC
+ * onward. That was harmless only because the old filter threw every negative
+ * away. Once the window opens backwards it stops being harmless — it would
+ * email a couple that a payment due this afternoon was already "1 day" late.
+ * Both endpoints are now floored to their Manila day first, so the answer is
+ * the same at 09:00 and at 23:00.
+ */
+export function daysUntilDue(dateStr: string, now: Date): number {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return Number.POSITIVE_INFINITY;
-  return Math.floor((d.getTime() - now.getTime()) / MS_PER_DAY);
+  return phDayIndex(d.getTime()) - phDayIndex(now.getTime());
 }
 
 /** Group a PHP integer with thousands separators (deterministic, no locale). */
@@ -146,24 +212,76 @@ function php(n: number): string {
 
 // ---- the triggers (each pure: snapshot + now -> Interventions) --------------
 
+/** "1 day" / "12 days" — pre-worded, because renderTemplate is pure substitution. */
+function dayCount(n: number): string {
+  return `${n} ${n === 1 ? 'day' : 'days'}`;
+}
+
+/**
+ * How far above the due-soon band an overdue alert may climb. Bounded on
+ * purpose: `100 − d` is unbounded for a date years in the past, and one
+ * forgotten milestone from 2024 would otherwise outrank every other guard
+ * forever and eat the whole per-sweep cap (GUARD_NOTIFY_MAX_PER_SWEEP = 3).
+ */
+const OVERDUE_PRIORITY_CEILING = 10;
+
+/**
+ * GRD-01 — a vendor payment milestone needs attention.
+ *
+ * ⚠ THE DEFECT THIS FILTER USED TO HAVE. It read
+ * `d >= 0 && d <= paymentDueWindowDays`, and that `d >= 0` dropped every
+ * payment the couple had ALREADY MISSED. A missed payment therefore produced
+ * no alert, no email, and no tray badge — it did not render as a warning, it
+ * rendered as NOTHING, which is indistinguishable from having no payments due
+ * at all. The window now opens backwards: overdue fires, and it fires LOUDER
+ * than a heads-up, under its own copy variant and its own dedupe key so the
+ * earlier "due in 3 days" note cannot cool it down.
+ *
+ * `paymentDueState` is imported by `lib/budget-truth.ts` too — the number the
+ * page counts and the number the email names are the same number.
+ */
 export function paymentDueTrigger(snap: PlanningSnapshot, now: Date): Intervention[] {
   return snap.payments
     .filter((p) => !p.paid)
-    .map((p) => ({ p, d: daysUntil(p.dueDate, now) }))
-    .filter(({ d }) => d >= 0 && d <= TRIGGER_THRESHOLDS.paymentDueWindowDays)
-    .map(({ p, d }) => ({
-      templateId: 'GRD-01',
-      category: 'guard' as const,
-      slots: { vendor: p.vendor, amount: php(p.amountPhp), due_date: p.dueDate, days_left: d },
-      priority: 100 - d, // sooner = higher
-      dedupeKey: `GRD-01:${p.vendor}:${p.dueDate}`,
-    }));
+    .map((p) => {
+      const d = daysUntilDue(p.dueDate, now);
+      return { p, d, state: paymentDueState(d) };
+    })
+    .filter(({ state }) => state === 'overdue' || state === 'due_soon')
+    .map(({ p, d, state }) => {
+      const overdue = state === 'overdue';
+      // The two variants take DIFFERENT slots — `overdue_for` reads backwards,
+      // `days_left` forwards — so neither copy can print the other's number.
+      const slots: Record<string, string | number> = {
+        vendor: p.vendor,
+        amount: php(p.amountPhp),
+        due_date: p.dueDate,
+      };
+      if (overdue) slots.overdue_for = dayCount(-d);
+      else slots.days_left = d;
+      return {
+        templateId: 'GRD-01',
+        category: 'guard' as const,
+        variant: overdue ? 'overdue' : 'default',
+        slots,
+        // Sooner = higher; already-missed outranks not-yet-missed, bounded.
+        priority: overdue
+          ? 100 + Math.min(-d, OVERDUE_PRIORITY_CEILING)
+          : 100 - d,
+        // A DISTINCT key: the heads-up that fired while this was still upcoming
+        // is inside the 7-day guard cooldown, and reusing its key would swallow
+        // the first alert that the money is actually late.
+        dedupeKey: overdue
+          ? `GRD-01:overdue:${p.vendor}:${p.dueDate}`
+          : `GRD-01:${p.vendor}:${p.dueDate}`,
+      };
+    });
 }
 
 export function statutoryDeadlineTrigger(snap: PlanningSnapshot, now: Date): Intervention[] {
   if (snap.eventType !== 'wedding') return []; // GRD-02 is wedding-only
   return snap.statutory
-    .map((s) => ({ s, d: daysUntil(s.deadline, now) }))
+    .map((s) => ({ s, d: daysUntilDue(s.deadline, now) }))
     .filter(({ d }) => d >= 0 && d <= 60)
     .map(({ s, d }) => ({
       templateId: 'GRD-02',
@@ -366,7 +484,9 @@ function nextTaskLabel(iv: Intervention | undefined): string {
   if (!iv) return 'nothing urgent — you’re in good shape';
   switch (iv.templateId) {
     case 'GRD-01':
-      return `settle the ${iv.slots.vendor} payment`;
+      return iv.variant === 'overdue'
+        ? `settle the overdue ${iv.slots.vendor} payment`
+        : `settle the ${iv.slots.vendor} payment`;
     case 'GRD-02':
       return `sort out your ${iv.slots.document}`;
     case 'GRD-05':
@@ -395,10 +515,10 @@ function nextTaskLabel(iv: Intervention | undefined): string {
 function soonestHorizonItem(snap: PlanningSnapshot, now: Date): string {
   const candidates: { label: string; d: number }[] = [];
   for (const p of snap.payments) {
-    if (!p.paid) candidates.push({ label: `your ${p.vendor} payment on ${p.dueDate}`, d: daysUntil(p.dueDate, now) });
+    if (!p.paid) candidates.push({ label: `your ${p.vendor} payment on ${p.dueDate}`, d: daysUntilDue(p.dueDate, now) });
   }
   for (const s of snap.statutory) {
-    if (snap.eventType === 'wedding') candidates.push({ label: `your ${s.document} (${s.deadline})`, d: daysUntil(s.deadline, now) });
+    if (snap.eventType === 'wedding') candidates.push({ label: `your ${s.document} (${s.deadline})`, d: daysUntilDue(s.deadline, now) });
   }
   for (const c of snap.contracts) {
     candidates.push({ label: `the ${c.windowType} window with ${c.vendor}`, d: c.daysLeft });

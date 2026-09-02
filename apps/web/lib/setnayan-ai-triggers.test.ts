@@ -10,6 +10,9 @@ import assert from 'node:assert/strict';
 
 import {
   paymentDueTrigger,
+  paymentDueState,
+  daysUntilDue,
+  TRIGGER_THRESHOLDS,
   statutoryDeadlineTrigger,
   priceRiseTrigger,
   overBudgetTrigger,
@@ -47,20 +50,137 @@ function emptySnap(over: Partial<PlanningSnapshot> = {}): PlanningSnapshot {
 
 // ---- individual triggers ----------------------------------------------------
 
-test('paymentDue: fires within 7 days, not paid/overdue/far', () => {
+test('paymentDue: fires within 7 days and for anything already missed; never for paid/far', () => {
   const snap = emptySnap({
     payments: [
       { vendor: 'Bloom', amountPhp: 5000, dueDate: '2026-01-04', paid: false }, // 3d → fire
       { vendor: 'Paid Co', amountPhp: 1000, dueDate: '2026-01-03', paid: true }, // paid → no
       { vendor: 'Far Co', amountPhp: 1000, dueDate: '2026-03-01', paid: false }, // far → no
-      { vendor: 'Late Co', amountPhp: 1000, dueDate: '2025-12-30', paid: false }, // overdue → no
+      { vendor: 'Late Co', amountPhp: 1000, dueDate: '2025-12-30', paid: false }, // 2d late → FIRE
     ],
   });
   const out = paymentDueTrigger(snap, NOW);
-  assert.equal(out.length, 1);
-  assert.equal(out[0]!.templateId, 'GRD-01');
-  assert.equal(out[0]!.slots.days_left, 3);
-  assert.equal(out[0]!.slots.amount, '5,000');
+  assert.deepEqual(
+    out.map((iv) => iv.slots.vendor).sort(),
+    ['Bloom', 'Late Co'],
+    'a payment the couple has already missed must not be silently dropped',
+  );
+  const bloom = out.find((iv) => iv.slots.vendor === 'Bloom')!;
+  assert.equal(bloom.templateId, 'GRD-01');
+  assert.equal(bloom.variant, 'default');
+  assert.equal(bloom.slots.days_left, 3);
+  assert.equal(bloom.slots.amount, '5,000');
+});
+
+// ---- the overdue half of GRD-01 (the defect: `d >= 0` dropped every miss) ----
+
+test('paymentDue · overdue: its own variant, its own dedupe key, ranked above a heads-up', () => {
+  const out = paymentDueTrigger(
+    emptySnap({
+      payments: [
+        { vendor: 'Late Co', amountPhp: 12000, dueDate: '2025-12-30', paid: false },
+        { vendor: 'Soon Co', amountPhp: 3000, dueDate: '2026-01-02', paid: false },
+      ],
+    }),
+    NOW,
+  );
+  const late = out.find((iv) => iv.slots.vendor === 'Late Co')!;
+  const soon = out.find((iv) => iv.slots.vendor === 'Soon Co')!;
+
+  assert.equal(late.variant, 'overdue');
+  assert.equal(late.slots.overdue_for, '2 days');
+  assert.equal(late.slots.days_left, undefined, 'overdue copy must not claim days LEFT');
+  assert.ok(late.priority > soon.priority, 'already missed outranks not yet missed');
+  // A distinct key: the "due in 3 days" note fired days ago is still inside the
+  // 7-day guard cooldown, and reusing its key would swallow the first alert
+  // that the money is actually late.
+  assert.equal(late.dedupeKey, 'GRD-01:overdue:Late Co:2025-12-30');
+  assert.equal(soon.dedupeKey, 'GRD-01:Soon Co:2026-01-02');
+});
+
+test('paymentDue · overdue: one day late reads "1 day", not "1 days"', () => {
+  const out = paymentDueTrigger(
+    emptySnap({ payments: [{ vendor: 'A', amountPhp: 100, dueDate: '2025-12-31', paid: false }] }),
+    NOW,
+  );
+  assert.equal(out[0]!.slots.overdue_for, '1 day');
+});
+
+test('paymentDue · overdue: a settled milestone is never late, however old', () => {
+  const out = paymentDueTrigger(
+    emptySnap({ payments: [{ vendor: 'A', amountPhp: 100, dueDate: '2020-01-01', paid: true }] }),
+    NOW,
+  );
+  assert.equal(out.length, 0);
+});
+
+test('paymentDue · overdue priority is BOUNDED — one ancient miss cannot eat the cap', () => {
+  const out = paymentDueTrigger(
+    emptySnap({
+      payments: [
+        { vendor: 'Ancient', amountPhp: 100, dueDate: '2019-01-01', paid: false },
+        { vendor: 'Yesterday', amountPhp: 100, dueDate: '2025-12-31', paid: false },
+      ],
+    }),
+    NOW,
+  );
+  const ancient = out.find((iv) => iv.slots.vendor === 'Ancient')!;
+  const yesterday = out.find((iv) => iv.slots.vendor === 'Yesterday')!;
+  assert.ok(ancient.priority <= 110, `unbounded overdue priority: ${ancient.priority}`);
+  assert.ok(ancient.priority > yesterday.priority);
+});
+
+test('paymentDue: THE BOUNDARY DAYS — a wrong one emails a couple about money they do not owe', () => {
+  // -1 · 0 · +1 · +7 · +8 · +30 · +31, measured from 2026-01-01.
+  const cases: Array<[string, number, 'overdue' | 'default' | null]> = [
+    ['2025-12-31', -1, 'overdue'],
+    ['2026-01-01', 0, 'default'], // DUE TODAY IS NOT LATE
+    ['2026-01-02', 1, 'default'],
+    ['2026-01-08', 7, 'default'], // the window is inclusive
+    ['2026-01-09', 8, null], // one day past it → silent
+    ['2026-01-31', 30, null],
+    ['2026-02-01', 31, null],
+  ];
+  for (const [dueDate, days, expected] of cases) {
+    assert.equal(daysUntilDue(dueDate, NOW), days, `${dueDate} is ${days} days out`);
+    const out = paymentDueTrigger(
+      emptySnap({ payments: [{ vendor: 'V', amountPhp: 1, dueDate, paid: false }] }),
+      NOW,
+    );
+    if (expected === null) {
+      assert.equal(out.length, 0, `${dueDate} (${days}d) must not fire`);
+    } else {
+      assert.equal(out.length, 1, `${dueDate} (${days}d) must fire`);
+      assert.equal(out[0]!.variant, expected, `${dueDate} (${days}d) variant`);
+    }
+  }
+});
+
+test('paymentDue: the answer does not change with the time of day', () => {
+  // The old day math floored the raw instant difference, so a milestone due
+  // TODAY returned −1 from 00:00 UTC onward — it would have been emailed as
+  // "1 day" late on the very afternoon it was due.
+  for (const hour of ['00:00', '06:00', '13:00', '15:59', '23:59']) {
+    const now = new Date(`2026-01-01T${hour}:00.000+08:00`);
+    assert.equal(daysUntilDue('2026-01-01', now), 0, `due today at ${hour} PH`);
+    assert.equal(daysUntilDue('2025-12-31', now), -1, `due yesterday at ${hour} PH`);
+    const out = paymentDueTrigger(
+      emptySnap({ payments: [{ vendor: 'V', amountPhp: 1, dueDate: '2026-01-01', paid: false }] }),
+      now,
+    );
+    assert.equal(out[0]!.variant, 'default', `due today at ${hour} PH is not overdue`);
+  }
+});
+
+test('paymentDueState bands read off ONE set of thresholds', () => {
+  assert.equal(paymentDueState(-1), 'overdue');
+  assert.equal(paymentDueState(0), 'due_soon');
+  assert.equal(paymentDueState(TRIGGER_THRESHOLDS.paymentDueWindowDays), 'due_soon');
+  assert.equal(paymentDueState(TRIGGER_THRESHOLDS.paymentDueWindowDays + 1), 'upcoming');
+  assert.equal(paymentDueState(TRIGGER_THRESHOLDS.paymentHorizonDays), 'upcoming');
+  assert.equal(paymentDueState(TRIGGER_THRESHOLDS.paymentHorizonDays + 1), 'later');
+  // An unparseable date must never be called late.
+  assert.equal(paymentDueState(daysUntilDue('not-a-date', NOW)), 'later');
 });
 
 test('statutory: wedding-only', () => {

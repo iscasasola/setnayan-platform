@@ -269,8 +269,12 @@ export type NotificationType =
   // cron-free lazy sweep mounted in the event dashboard layout), gated on
   // isSetnayanAiActiveForUser — no active Setnayan AI, no guard notifications.
   //   ai_payment_due → GRD-01: a vendor payment milestone is due within 7 days
-  //                    (event_vendor_line_items due dates). ON the email
-  //                    allowlist per spec § 4.1 ("payment due soon → email").
+  //                    — OR is already overdue (2026-09-02; the trigger's old
+  //                    `d >= 0` filter dropped every missed payment, so the
+  //                    highest-stakes thing the Guard watches alerted nobody).
+  //                    Both from event_vendor_line_items due dates. ON the
+  //                    email allowlist per spec § 4.1 ("payment due soon →
+  //                    email").
   //   ai_guard_alert → the other honestly-sourced guard templates: GRD-02
   //                    (statutory deadline), GRD-03 (a shortlisted vendor's price
   //                    rose), GRD-05 (over budget), GRD-06 (run-of-show clash),

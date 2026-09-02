@@ -121,7 +121,12 @@ export type FigureLook = {
  * yields the same bits on every device, every session, forever. Different
  * look fields read different bit windows so they vary independently.
  */
-function hashId(id: string): number {
+/** FNV-1a over a stable id — THE hash behind every "same id → same look,
+ *  forever" decision in the figure system. Exported so callers that colour a
+ *  figure from outside this module (e.g. `guestAttireColor` in `seating-3d`)
+ *  key off the SAME function rather than growing a second, silently divergent
+ *  hash for the same job. */
+export function hashId(id: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < id.length; i++) {
     h ^= id.charCodeAt(i);

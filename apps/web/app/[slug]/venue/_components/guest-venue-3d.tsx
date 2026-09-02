@@ -15,9 +15,12 @@
  * figure kit (`plan3d/kit` <Figure>/<SeatedFigure>) — the same one-piece blob
  * figure the couple lab and homepage demo use — instead of its old
  * self-contained cylinder+sphere tokens + capsule avatar. Seated occupants are
- * NEUTRAL untinted mannequins (anonymised strangers; privacy lock 2026-06-26 —
- * no per-guest attire/hair, no names beyond the RPC contract); the viewer's own
- * figure is accent-tinted (self semantics). Cinematic Tier A (palette-warm grade
+ * anonymised strangers wearing the couple's guest DRESS-CODE palette, keyed by
+ * seat (owner 2026-09-02 — this half of the 2026-06-26 privacy lock is
+ * superseded; `guestAttireColor` in lib/seating-3d carries the reasoning). The
+ * REST of that lock still holds: no per-guest hair, no role/side/RSVP tinting,
+ * no names beyond the RPC contract. The viewer's own figure stays accent-tinted
+ * (self semantics). Cinematic Tier A (palette-warm grade
  * + string lights) runs at quality 'low' to match the phone demo walk — Tier A
  * only (no Tier B postprocessing, no dust motes on the public surface). The RPC
  * payload is UNCHANGED — this is pure consolidation onto the shared kit.
@@ -54,6 +57,7 @@ import {
   VENUE_OBJECT_CATALOG,
   resolvePalette,
   resolvePaletteFromRoles,
+  guestAttireColor,
   type Lab3DFloor,
   type Lab3DTable,
   type Lab3DPalette,
@@ -195,9 +199,10 @@ export type VenueScene = {
 };
 
 /** One table: a top + chairs, occupied seats get the shared kit figure, the
- *  guest's own seat glows. Anonymous occupants are NEUTRAL untinted mannequins
- *  (the anonymised-stranger default, privacy lock 2026-06-26); the viewer's own
- *  seat is accent-tinted (self semantics). When the host enabled photos AND this
+ *  guest's own seat glows. Anonymous occupants wear the couple's guest
+ *  dress-code palette keyed by seat (owner 2026-09-02; see `guestAttireColor`),
+ *  and stay otherwise anonymised; the viewer's own seat is accent-tinted (self
+ *  semantics). When the host enabled photos AND this
  *  viewer is a token holder, a seat with a resolved photo wears the shared
  *  `GuestPhotoAvatar` disc as the figure's head (routed through the ONE figure
  *  kit — same billboard the pre-kit token used). `photoBySeat` maps a seat number
@@ -272,8 +277,10 @@ function GuestTable({
         // mannequin for anonymous strangers; the viewer's own seat is
         // accent-tinted (self semantics). A floor status ring shows only under a
         // photo seat (mirrors the old disc ringColor); the own seat's gold ring
-        // is drawn separately below. NO per-guest attire/hair variety here —
-        // strangers stay neutral (privacy lock; Q5 unanswered).
+        // is drawn separately below. Still NO per-guest attire/hair variety on
+        // THIS path: the dress-code tint added 2026-09-02 is seat-keyed and is
+        // applied to the instanced crowd batch below, never derived from the
+        // guest behind a photo seat.
         const photoUrl = taken ? photoBySeat?.get(i) ?? null : null;
         // Neutral, ringless strangers render through the room-level
         // <InstancedSeatedCrowd> (one batch for the whole walk). Only the
@@ -697,8 +704,12 @@ export default function GuestVenue3D({
   // The anonymous seated crowd — every occupied seat that ISN'T the viewer's own
   // (accent + gold ring) and ISN'T a photo seat (billboard head) — collapsed to
   // ONE <InstancedSeatedCrowd> for the whole room (~22 draws + zero per-figure
-  // useFrame, vs. 14×N meshes + N no-op subscribers). Strangers are neutral +
-  // ringless (statusColor was always '' here), so no ring batch is drawn. Each
+  // useFrame, vs. 14×N meshes + N no-op subscribers). Strangers are still
+  // ringless (statusColor was always '' here), so no ring batch is drawn — but
+  // since 2026-09-02 they are no longer untinted: each wears a colour from the
+  // couple's guest dress-code palette, chosen by SEAT (see `guestAttireColor`,
+  // which carries the owner decision and why it leaves the privacy lock's
+  // purpose intact). No guest palette → null → the old white mannequin. Each
   // world matrix reproduces the exact table→seat→nudge nesting the individual
   // <SeatedFigure> used (proven in figure-sit-bake.test.ts).
   const crowdSeats = useMemo<SeatedInstance[]>(() => {
@@ -723,12 +734,13 @@ export default function GuestVenue3D({
             seatZ: c.z,
             seatFaceY: c.faceY,
           }),
-          color: null, // neutral stranger — white mannequin
+          // Seat-keyed, NEVER guest-keyed — the whole reason this is allowed.
+          color: guestAttireColor(scene.rolePalette, `${t.id}:${i}`),
         });
       }
     }
     return out;
-  }, [tables, occByTable, photoByTable, room, scene.you]);
+  }, [tables, occByTable, photoByTable, room, scene.you, scene.rolePalette]);
 
   // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
   // venue-object discs slot in once the object render lands):

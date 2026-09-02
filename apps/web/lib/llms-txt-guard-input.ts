@@ -105,6 +105,11 @@ export const RETAIL: RetailRow[] = [
   // only. It moved in the same PR as the real one, which is the rule the neighbouring
   // fixtures already state.
   { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 1500, is_active: true },
+  // Optional "Setnayan supplies the channel" upsell (owner ruling 2026-09-02),
+  // seeded by migration 20271192528988. STACKS on LIVE_STUDIO — this file is a
+  // SECOND hand-typed copy of the catalog and must move in the same PR as the
+  // real one, same rule as every neighbouring fixture row here.
+  { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Studio — hosted channel', retail_price_php: 1500, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on

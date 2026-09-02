@@ -234,5 +234,8 @@ test('the new connect door respects pool-only, exactly as the old ones do', () =
   // Connect button here without that check would be a third fake door.
   const page = repoFile(LIVE_STUDIO_PAGE);
   assert.match(page, /liveStudioPoolOnly\(\)/, 'the new Connect button ignores pool-only');
-  assert.match(page, /POOL_ONLY_CONNECT_NOTICE/, 'pool-only renders without the shared wording');
+  // 2026-09-02: the wording now depends on hosted-channel ownership (see
+  // the-hosted-channel-is-an-add-on.test.ts) — every surface routes through the
+  // one resolver rather than a hardcoded shared sentence.
+  assert.match(page, /poolOnlyConnectNotice\(/, 'pool-only renders without the shared resolver');
 });

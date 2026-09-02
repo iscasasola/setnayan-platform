@@ -56,11 +56,13 @@ import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { turnConfigured } from '@/lib/turn';
 import {
   liveStudioPoolOnly,
-  POOL_ONLY_CONNECT_NOTICE,
+  poolOnlyConnectNotice,
 } from '@/lib/live-studio-pool-only';
+import { eventSkuActive } from '@/lib/entitlements';
 import { fetchEventRecordings } from '@/lib/live-studio-recordings';
 import {
   LIVE_STUDIO_SKU,
+  LIVE_STUDIO_HOSTED_CHANNEL_SKU,
   PROGRAM_CHANNEL_LABEL,
   FIRST_CAMERA_CHANNEL,
   FREE_CAMERA_NAME,
@@ -391,6 +393,13 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const sku = await formatV2Sku(LIVE_STUDIO_SKU).catch(() => null);
   const priceLabel = sku ? formatPhp(sku.price_php) : null;
   const detailHref = liveStudioDetailPath(eventId);
+
+  // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
+  // 2026-09-02)? Decides which pool-only connect notice renders in the "Connect"
+  // section below — NOT multicam entitlement, which stays keyed on LIVE_STUDIO_SKU
+  // alone (resolved further down via `entitled`/`lock`). See the SKU's own
+  // docblock in lib/live-studio-control.ts.
+  const ownsHostedChannel = await eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU);
 
   // ── Camera channels (control-plane; RLS scopes to the host's own event).
   // Refused, the operator sees NO camera zones — identical to an event that has
@@ -1602,10 +1611,12 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             Connected{youtubeGrant.external_account_display ? ` — ${youtubeGrant.external_account_display}` : ''}. Your broadcast goes live on this channel.
           </p>
         ) : liveStudioPoolOnly() ? (
-          /* ⭐ POOL-ONLY: nothing to connect — Setnayan supplies the channel. The
-             server refuses this door too (409), so a button here would dead-end. */
+          /* ⭐ POOL-ONLY: the server refuses this door too (409), so a button here
+             would dead-end either way. Only an event that bought the hosted-channel
+             add-on has "nothing to connect" as the whole truth — everyone else
+             still has their own route to air (the "Watch link" section below). */
           <p className="inline-flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2.5 text-sm text-ink/70">
-            {POOL_ONLY_CONNECT_NOTICE}
+            {poolOnlyConnectNotice(ownsHostedChannel)}
           </p>
         ) : (
           <Link

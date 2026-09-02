@@ -79,13 +79,15 @@ export type HubProOffer = {
  * with a default, so adding a fifth public page is a TYPE ERROR here instead of
  * a silent fall-through to whatever the default happened to be.
  *
- * ⚠ TWO OF THE FOUR ARE UNREACHABLE TODAY, AND THAT IS INHERITED, NOT CHOSEN.
+ * ⚠ TWO OF THE FOUR ARE UNREACHABLE TODAY, AND THAT IS SETTLED, NOT ACCIDENTAL.
  * `hubOffersAllowed` (EH1) is `phase === 'plan'`, and the stage resolver only
  * reaches `event` / `editorial` once the celebration is happening or has
- * happened — which is `dayof` / `after`. So in practice only the Save-the-Date
- * and RSVP channels can ever carry an offer. The two entries below are kept
- * because the mapping must be total and because the free-for-all ruling on
- * `EDITORIAL_PRO` is reversible; they are not dead code pretending to be live.
+ * happened — which is `dayof` / `after`, both of which that predicate refuses on
+ * purpose (see its call site below). So in practice only the Save-the-Date and
+ * RSVP channels can ever carry an offer, and that is the owner's ruling working,
+ * not a gap. The two entries below are kept because the mapping must be total
+ * and because the free-for-all ruling on `EDITORIAL_PRO` is reversible; they are
+ * not dead code pretending to be live.
  */
 const LEAD_BY_CHANNEL: Record<LifecyclePhase, WebsiteProItem> = {
   // The reveal is the thing the couple watches and cannot have yet.
@@ -159,9 +161,23 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
  *   2. THE READ DID NOT HAPPEN. An unmeasured stage is not a stage. Selling a
  *      couple the reveal because a refused query resolved to 'save_the_date' is
  *      the same defect as telling them they have no guests — it just costs money.
- *   3. IT IS THE DAY, OR IT IS OVER. `hubOffersAllowed` is EH1's, is already
- *      tested there, and is called — never re-derived. An offer never outranks
- *      the day, and a finished celebration is not a sales opportunity.
+ *   3. `hubOffersAllowed` SAYS NO. EH1's predicate, already tested there, called
+ *      and never re-derived. ⚠ ITS ONE LINE DOES THREE JOBS, and its own docblock
+ *      names all three — read it before touching anything near it:
+ *        · ON THE DAY — an offer never outranks the day (design § 5.1 rule 3).
+ *        · AFTER THE DAY — the row closes rather than sells. This is the OWNER'S
+ *          RULING of 2026-08-21 ("stop selling the day itself once the day is
+ *          over"), shipped three weeks before this stream and guarded by
+ *          `lib/stop-selling-the-day-after-the-day.test.ts`.
+ *        · UNMEASURED (`null`) — we do not know whether it is their wedding day,
+ *          and an unread state must never become a sale. This is a THIRD case,
+ *          not a corollary of the other two, and it is proved at the render in
+ *          `hub-pro-offer-renders.test.ts`.
+ *      🛑 DO NOT WIDEN IT, do not relax it to day-only, and do not write a second
+ *      gate beside it. `phase === 'plan'` is correct as shipped and is settled.
+ *      When the design document said only "never on the day", the DOCUMENT was
+ *      the stale half — it has since been corrected in the corpus to state all
+ *      three. The code was right the whole time.
  *   4. THE ONLY THING TO SELL IS ALREADY FREE. `NOT_SOLD_ON` — see below.
  *
  * ⚠ `ownsPro` must be the ACTIVE gate (`eventCoupleWebsiteProActive`), not the

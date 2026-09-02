@@ -18,6 +18,14 @@
  *      and "not at all" must render a legible offer rather than a broken one.
  *   3. An owning couple must see nothing — not a dimmed something.
  *
+ * ⚠ AND THE SILENCE IS THREE OBSERVATIONS, NOT TWO. `hubOffersAllowed` is one
+ * line doing three jobs — the day, the days after (the owner's 2026-08-21
+ * ruling), AND an UNMEASURED phase. The third is the one that reads as a
+ * corollary of the other two and is not: a refused read has no date to be
+ * before or after, and a page that sells into that state is selling on a guess.
+ * All three are asserted below at the RENDER, because a resolver returning null
+ * changes nothing until something paints differently.
+ *
  * 🪤 `globalThis.React` IS SET BEFORE THE DYNAMIC IMPORTS AND IS NOT A HACK TO BE
  * TIDIED AWAY. tsconfig sets `"jsx": "preserve"` for Next, so `tsx` compiles
  * these components to the CLASSIC runtime — bare `React.createElement` with no
@@ -76,6 +84,35 @@ test('⛔ THE DAY AND THE DAYS AFTER RENDER NOTHING AT ALL', async () => {
   assert.equal(await paint({ channel: 'save_the_date', phase: 'dayof', ownsPro: false }), '');
   assert.equal(await paint({ channel: 'rsvp', phase: 'dayof', ownsPro: false }), '');
   assert.equal(await paint({ channel: 'editorial', phase: 'after', ownsPro: false }), '');
+});
+
+test('⛔ AN UNMEASURED PHASE RENDERS NOTHING — an unread state is not a sale', async () => {
+  /*
+    The third job of the one-line gate, and the one most easily mistaken for a
+    corollary of the other two. A refused `events` read yields a null date, and
+    BOTH phase resolvers answer a null date honestly — so without this the
+    controller would sell the reveal to a couple whose wedding was last month,
+    on the strength of a query that never came back.
+
+    Both arms are asserted: a null CHANNEL (nothing to attach an offer to) and a
+    null PHASE with a channel present — which is the arm the gate itself owns,
+    and the one that goes red when `hubOffersAllowed` is forced true.
+  */
+  assert.equal(
+    await paint({ channel: null, phase: null, ownsPro: false }),
+    '',
+    'a refused read painted an offer',
+  );
+  assert.equal(
+    await paint({ channel: 'save_the_date', phase: null, ownsPro: false }),
+    '',
+    'an unmeasured phase cannot tell us it is not their wedding day — it must not sell',
+  );
+  assert.equal(
+    await paint({ channel: 'rsvp', phase: null, ownsPro: false }),
+    '',
+    'and that holds on every channel, not just the first',
+  );
 });
 
 test('the couple who has not bought it sees the offer, and the whole of it', async () => {

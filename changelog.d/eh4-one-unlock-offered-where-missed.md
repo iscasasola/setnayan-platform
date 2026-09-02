@@ -35,10 +35,24 @@ badge, no overlay.
 every channel — the launch branch — because a gate that can only answer one way renders identically
 to a gate that works.
 
-**⚠ THE DAY GATE IS INHERITED, NOT CHOSEN.** `hubOffersAllowed` (EH1) is `phase === 'plan'`, which is
-STRICTER than the design text: it silences the offer AFTER the day as well as on it. That reads as
-intended — it is the owner's 2026-08-21 *"stop offering them"* — but it has a consequence worth
-naming: the Day-of and Editorial channels can never carry an offer, because the stage only reaches
-them once the phase is `dayof`/`after`. Not widened here.
+**⚠ THE GATE IS SETTLED AND OWNER-RULED — reused exactly, not widened.** `hubOffersAllowed` (EH1) is
+`phase === 'plan'`, and that ONE LINE DOES THREE JOBS, all three named in its own docblock in
+`lib/event-hub-control.ts`: **(a)** on the day — an offer never outranks the day; **(b)** after the
+day — the row closes rather than sells, the **owner ruling of 2026-08-21** (*"stop selling the day
+itself once the day is over"*, `4b41640b0`), guarded by
+`apps/web/lib/stop-selling-the-day-after-the-day.test.ts`; **(c)** when the phase is **unmeasured** —
+we do not know whether it is their wedding day, and an unread state must never become a sale.
+🛑 Do not widen it, do not relax it to day-only, do not add a second gate beside it. A consequence
+worth naming rather than discovering: the Day-of and Editorial channels therefore never carry an
+offer, because the stage only reaches them once the phase is `dayof`/`after` — that is the ruling
+working, not a gap.
+
+🔑 **THIS PARAGRAPH SAID THE OPPOSITE WHEN IT MERGED, AND THE CORRECTION IS THE POINT.** It read
+*"THE DAY GATE IS INHERITED, NOT CHOSEN … STRICTER than the design text"* — framing correct,
+owner-ruled code as a deviation, which is how a settled ruling gets relaxed six months later by
+somebody acting in good faith. The predicate was right; the DESIGN DOCUMENT was the stale half
+(§ 5.1 rule 3 read "never on the day" alone and has since been corrected in the corpus to state all
+three cases). Fixed here before `scripts/changelog-collect.mjs` folded this fragment into
+`CHANGELOG.md` — the phrasing never reached the collected log.
 
 SPEC IMPACT: None. Implements `EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md` § 5.3 as written.

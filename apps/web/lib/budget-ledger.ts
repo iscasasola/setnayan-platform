@@ -74,11 +74,95 @@
  * leans on that have not been booked, so the copy can say so instead of
  * promising cover that does not exist.
  *
+ * ── What is due, and when (BA6) ──────────────────────────────────────────────
+ * `MoneyBucket.due` already banded each category's unpaid, dated lines
+ * (`overduePhp` / `dueSoonPhp` / `upcomingPhp` / `laterPhp`, BA5) — this file
+ * carries those bands onto the row and totals unchanged. What BA5 did NOT do
+ * is name which SUPPLIER a row's money is due to: that lives one level down,
+ * on `EventMoney.lines[].dueState`, which every row already had access to via
+ * `money` and never read. `pickNextDue` picks the single most urgent unpaid
+ * line in a bucket — the row's next-payment chip — so the couple sees a
+ * vendor and a day count, not just a banded total.
+ *
+ * ⚠ ONE CLOCK, NOT A SECOND ONE. Every day count here is `line.daysUntilDue`
+ * and every band is `line.dueState`, both computed once by
+ * `setnayan-ai-triggers.ts`'s `paymentDueState` / `daysUntilDue` and carried
+ * through `budget-truth.ts`. This file compares NOTHING against a day-count
+ * literal of its own — `the-ledger-reads-one-clock.test.ts` fails CI if it
+ * ever does, because a second threshold here is exactly how the page and
+ * GRD-01's email would start disagreeing about what "due soon" means.
+ *
  * Pure: no Supabase, no React, no clock. All amounts whole PHP.
  */
 
 import { computeBudgetOverspend, type OverspendResult } from './budget-overspend';
-import type { EventMoney, MoneyBucket } from './budget-truth';
+import type { EventMoney, MoneyBucket, MoneyLine } from './budget-truth';
+
+/**
+ * The three tiers a row's next-payment chip renders in. Deliberately NOT the
+ * full `MoneyDueState` — `'settled'` and `'none'` have nothing urgent to
+ * show, and `'later'` is outside the 30-day horizon this surface cares about
+ * (BA6 scope). Values and their meaning come from `PaymentDueState` in
+ * `setnayan-ai-triggers.ts`; this is a subtype, not a second definition.
+ */
+export type LedgerDueTier = 'overdue' | 'due_soon' | 'upcoming';
+
+/** The row's most urgent unpaid milestone — one supplier, one day count. */
+export type RowNextDue = {
+  vendorName: string | null;
+  label: string;
+  /** Still owed on this specific line — what is actually due, not the total. */
+  amountPhp: number;
+  daysUntilDue: number;
+  state: LedgerDueTier;
+};
+
+/**
+ * "5 days overdue" / "due today" / "due in 6 days" — spells out whatever
+ * `daysUntilDue` already is. Formatting only: it introduces no threshold of
+ * its own, so it is exempt from (and does not weaken) the day-count guard.
+ */
+export function daysUntilDueLabel(daysUntilDue: number): string {
+  if (daysUntilDue < 0) {
+    const n = -daysUntilDue;
+    return `${n} ${n === 1 ? 'day' : 'days'} overdue`;
+  }
+  if (daysUntilDue === 0) return 'due today';
+  return `due in ${daysUntilDue} ${daysUntilDue === 1 ? 'day' : 'days'}`;
+}
+
+const LEDGER_DUE_TIERS = new Set<string>(['overdue', 'due_soon', 'upcoming']);
+
+/**
+ * The most urgent unpaid line in `bucketId`, or null when nothing in this
+ * category is overdue, due soon, or upcoming. "Most urgent" = soonest
+ * `daysUntilDue`; ties break on the larger amount, then the label, so the
+ * pick is deterministic.
+ */
+function pickNextDue(lines: readonly MoneyLine[], bucketId: string): RowNextDue | null {
+  const candidates = lines.filter(
+    (l) => l.bucket === bucketId && LEDGER_DUE_TIERS.has(l.dueState),
+  );
+  if (candidates.length === 0) return null;
+
+  let best = candidates[0]!;
+  for (const c of candidates.slice(1)) {
+    const bd = best.daysUntilDue ?? Number.POSITIVE_INFINITY;
+    const cd = c.daysUntilDue ?? Number.POSITIVE_INFINITY;
+    if (cd < bd) best = c;
+    else if (cd === bd && c.stillOwedPhp > best.stillOwedPhp) best = c;
+    else if (cd === bd && c.stillOwedPhp === best.stillOwedPhp && c.label < best.label) best = c;
+  }
+
+  return {
+    vendorName: best.vendorName,
+    label: best.label,
+    amountPhp: wholePhp(best.stillOwedPhp),
+    daysUntilDue: best.daysUntilDue ?? 0,
+    // Narrowed by the `LEDGER_DUE_TIERS` filter above.
+    state: best.dueState as LedgerDueTier,
+  };
+}
 
 /**
  * The four column headings, in order. OWNER-LOCKED — see the docblock.
@@ -119,6 +203,14 @@ export type BudgetLedgerRow = {
   /** Owed on milestones whose date has PASSED (BA5's `MoneyDue.overduePhp`). */
   overduePhp: number;
   overdueCount: number;
+  /** Owed within `TRIGGER_THRESHOLDS.paymentDueWindowDays` (BA5's `MoneyDue.dueSoonPhp`). */
+  dueSoonPhp: number;
+  dueSoonCount: number;
+  /** Owed inside the 30-day horizon, past the due-soon window. */
+  upcomingPhp: number;
+  upcomingCount: number;
+  /** This row's most urgent unpaid milestone, or null — see `pickNextDue`. */
+  nextDue: RowNextDue | null;
   /** agreed − planned when positive. 0 when under or unplanned. */
   overByPhp: number;
   /** planned − agreed when positive. 0 when over or unplanned. */
@@ -142,6 +234,11 @@ export type BudgetLedger = {
     paidPhp: number;
     owedPhp: number;
     overduePhp: number;
+    overdueCount: number;
+    dueSoonPhp: number;
+    dueSoonCount: number;
+    upcomingPhp: number;
+    upcomingCount: number;
   };
   /**
    * Agreed-vs-planned overspend + the greedy absorption plan, from the shared
@@ -243,6 +340,11 @@ export function buildBudgetLedger(args: {
       overpaidPhp: wholePhp(b?.overpaidPhp),
       overduePhp: wholePhp(b?.due?.overduePhp),
       overdueCount: b?.due?.overdueCount ?? 0,
+      dueSoonPhp: wholePhp(b?.due?.dueSoonPhp),
+      dueSoonCount: b?.due?.dueSoonCount ?? 0,
+      upcomingPhp: wholePhp(b?.due?.upcomingPhp),
+      upcomingCount: b?.due?.upcomingCount ?? 0,
+      nextDue: pickNextDue(money.lines, bucketId),
       overByPhp: delta > 0 ? delta : 0,
       headroomPhp: delta < 0 ? -delta : 0,
       nothingAgreedYet: agreedPhp === 0,
@@ -298,6 +400,11 @@ export function buildBudgetLedger(args: {
       paidPhp: rows.reduce((s, r) => s + r.paidPhp, 0),
       owedPhp: rows.reduce((s, r) => s + r.owedPhp, 0),
       overduePhp: rows.reduce((s, r) => s + r.overduePhp, 0),
+      overdueCount: rows.reduce((s, r) => s + r.overdueCount, 0),
+      dueSoonPhp: rows.reduce((s, r) => s + r.dueSoonPhp, 0),
+      dueSoonCount: rows.reduce((s, r) => s + r.dueSoonCount, 0),
+      upcomingPhp: rows.reduce((s, r) => s + r.upcomingPhp, 0),
+      upcomingCount: rows.reduce((s, r) => s + r.upcomingCount, 0),
     },
     absorption,
     unplannedWithMoney: rows.filter((r) => r.unplanned && r.agreedPhp > 0),

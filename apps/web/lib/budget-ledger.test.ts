@@ -10,10 +10,11 @@ import assert from 'node:assert/strict';
 
 import {
   buildBudgetLedger,
+  daysUntilDueLabel,
   BUDGET_LEDGER_COLUMNS,
   type BudgetLedgerRow,
 } from './budget-ledger';
-import type { EventMoney, MoneyBucket, MoneyDue } from './budget-truth';
+import type { EventMoney, MoneyBucket, MoneyDue, MoneyLine } from './budget-truth';
 
 const NO_DUE: MoneyDue = {
   overduePhp: 0,
@@ -42,7 +43,7 @@ function bucket(p: Partial<MoneyBucket> & { bucketId: string }): MoneyBucket {
 }
 
 /** `due` became REQUIRED on EventMoney in PR #5105 — carried, not omitted. */
-function money(byBucket: MoneyBucket[]): EventMoney {
+function money(byBucket: MoneyBucket[], lines: MoneyLine[] = []): EventMoney {
   return {
     targetPhp: 930_000,
     estimated: 0,
@@ -54,9 +55,29 @@ function money(byBucket: MoneyBucket[]): EventMoney {
     overBudgetByPhp: 0,
     due: NO_DUE,
     byBucket,
-    lines: [],
+    lines,
     sources: [],
     warnings: [],
+  };
+}
+
+function line(p: Partial<MoneyLine> & { bucket: string }): MoneyLine {
+  return {
+    costKey: p.costKey ?? `${p.bucket}:${p.label ?? 'line'}`,
+    label: 'Deposit',
+    amountPhp: 0,
+    kind: 'committed',
+    paidPhp: 0,
+    stillOwedPhp: 0,
+    source: 'vendor_line_item',
+    sourceRef: 'x',
+    vendorId: null,
+    vendorName: null,
+    readOnly: false,
+    dueDate: null,
+    daysUntilDue: null,
+    dueState: 'none',
+    ...p,
   };
 }
 
@@ -308,4 +329,106 @@ test('row order is deterministic — largest agreed first, ties by label', () =>
     }).rows.map((r) => r.bucketId);
   assert.deepEqual(build(), ['c', 'a', 'b']);
   assert.deepEqual(build(), build());
+});
+
+// ── BA6 · what is due, and when ─────────────────────────────────────────────
+
+test('"5 days overdue" / "due today" / "due in 6 days" — spelled out, not a bare date', () => {
+  assert.equal(daysUntilDueLabel(-5), '5 days overdue');
+  assert.equal(daysUntilDueLabel(-1), '1 day overdue');
+  assert.equal(daysUntilDueLabel(0), 'due today');
+  assert.equal(daysUntilDueLabel(1), 'due in 1 day');
+  assert.equal(daysUntilDueLabel(6), 'due in 6 days');
+});
+
+test("a row's chip is its most urgent unpaid milestone — soonest wins", () => {
+  const { rows } = buildBudgetLedger({
+    money: money(
+      [bucket({ bucketId: 'catering', committedPhp: 480_000, stillOwedPhp: 240_000 })],
+      [
+        line({
+          bucket: 'catering',
+          label: 'Final balance',
+          vendorName: 'Cook & Co.',
+          stillOwedPhp: 200_000,
+          daysUntilDue: 12,
+          dueState: 'upcoming',
+        }),
+        line({
+          bucket: 'catering',
+          label: 'Deposit top-up',
+          vendorName: 'Cook & Co.',
+          stillOwedPhp: 40_000,
+          daysUntilDue: -3,
+          dueState: 'overdue',
+        }),
+      ],
+    ),
+    suggestedPhp: new Map([['catering', 450_000]]),
+  });
+
+  const nextDue = rowFor(rows, 'catering').nextDue;
+  assert.ok(nextDue);
+  assert.equal(nextDue.label, 'Deposit top-up');
+  assert.equal(nextDue.vendorName, 'Cook & Co.');
+  assert.equal(nextDue.amountPhp, 40_000);
+  assert.equal(nextDue.daysUntilDue, -3);
+  assert.equal(nextDue.state, 'overdue');
+});
+
+test('a settled or undated line never becomes the chip — nothing to chase', () => {
+  const { rows } = buildBudgetLedger({
+    money: money(
+      [bucket({ bucketId: 'catering', committedPhp: 480_000 })],
+      [
+        line({ bucket: 'catering', dueState: 'settled', daysUntilDue: -3, stillOwedPhp: 0 }),
+        line({ bucket: 'catering', dueState: 'none', daysUntilDue: null, stillOwedPhp: 0 }),
+        line({ bucket: 'catering', dueState: 'later', daysUntilDue: 60, stillOwedPhp: 10_000 }),
+      ],
+    ),
+    suggestedPhp: new Map(),
+  });
+  assert.equal(rowFor(rows, 'catering').nextDue, null, 'later is outside the 30-day chip horizon');
+});
+
+test('a line in another bucket never becomes this row’s chip', () => {
+  const { rows } = buildBudgetLedger({
+    money: money(
+      [
+        bucket({ bucketId: 'catering', committedPhp: 480_000 }),
+        bucket({ bucketId: 'florals_decor', committedPhp: 70_000 }),
+      ],
+      [line({ bucket: 'florals_decor', daysUntilDue: 1, dueState: 'due_soon', stillOwedPhp: 5_000 })],
+    ),
+    suggestedPhp: new Map(),
+  });
+  assert.equal(rowFor(rows, 'catering').nextDue, null);
+  assert.equal(rowFor(rows, 'florals_decor').nextDue?.daysUntilDue, 1);
+});
+
+test('due-soon and upcoming reach the row and roll up into the totals', () => {
+  const { rows, totals } = buildBudgetLedger({
+    money: money([
+      bucket({
+        bucketId: 'catering',
+        committedPhp: 480_000,
+        due: { ...NO_DUE, dueSoonPhp: 30_000, dueSoonCount: 1, upcomingPhp: 20_000, upcomingCount: 1 },
+      }),
+      bucket({
+        bucketId: 'florals_decor',
+        committedPhp: 70_000,
+        due: { ...NO_DUE, overduePhp: 5_000, overdueCount: 1 },
+      }),
+    ]),
+    suggestedPhp: new Map([['catering', 450_000]]),
+  });
+  const catering = rowFor(rows, 'catering');
+  assert.equal(catering.dueSoonPhp, 30_000);
+  assert.equal(catering.dueSoonCount, 1);
+  assert.equal(catering.upcomingPhp, 20_000);
+  assert.equal(catering.upcomingCount, 1);
+  assert.equal(totals.dueSoonPhp, 30_000);
+  assert.equal(totals.upcomingPhp, 20_000);
+  assert.equal(totals.overduePhp, 5_000);
+  assert.equal(totals.overdueCount, 1);
 });

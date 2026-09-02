@@ -53,9 +53,12 @@ import {
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 
-// ⚠ Was a static title; the page has two names now, so it needs the dynamic
-// form. `checklist/page.tsx` is the shipped pattern for a per-event title.
-export const metadata = { title: 'Your Event Hub' };
+// ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
+// "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
+// while doing the same job; it is a redirect stub now, and this page carries
+// the name alone. `one-event-hub-door.test.ts` fails if a second surface ever
+// re-claims it.
+export const metadata = { title: 'Event Hub' };
 
 type Props = { params: Promise<{ eventId: string }> };
 

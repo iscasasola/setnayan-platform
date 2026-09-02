@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { activeRailKey, railMatchRows } from './rail-active';
 import type { RailMatchRow } from './rail-active';
 import { railToolsSignedIn } from '@/lib/studio-rail';
+import { addOnHref } from '@/lib/add-ons-catalog';
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 
 /**
@@ -140,12 +141,76 @@ test('the three measured overlaps resolve the way a person would read them', () 
     below were REPOINTED rather than deleted. `exact` is still the first key —
     `/website` still resolves by it — and deleting the pair would leave that
     rule with nothing measuring it.
+
+    ⭐ RE-MEASURED AGAIN 2026-09-02 (EH6), AND THE PAIR IS NOW A SINGLE ROW.
+    The owner's one-door ruling pointed the Studio row at the controller the
+    menu row already opened — same word, same page — so the two would have TIED
+    on `/launch`, and a tie is broken by list position. Rather than let
+    composition order decide, the Studio group's duplicate is dropped inside an
+    event and the menu row inherits the `/website` family through `matchPrefix`.
+
+    🔑 SO THE WEBSITE FAMILY IS STILL LIT — by 'launch' now, not 'pawebsite'.
+    That is the whole visible change: one row, one word, every page still
+    claimed. The three lines below were REPOINTED rather than deleted for the
+    same reason as last time — `exact` is still the first key and deleting them
+    would leave that rule with nothing measuring it.
   */
-  assert.equal(activeRailKey(rail, `${BASE}/website`), 'pawebsite');
-  assert.equal(activeRailKey(rail, `${BASE}/website/editor`), 'pawebsite');
-  assert.equal(activeRailKey(rail, `${BASE}/website/anything-else`), 'pawebsite');
-  // And the Event Hub row lights on the controller, which is now its own page.
+  assert.equal(activeRailKey(rail, `${BASE}/website`), 'launch');
+  assert.equal(activeRailKey(rail, `${BASE}/website/editor`), 'launch');
+  assert.equal(activeRailKey(rail, `${BASE}/website/anything-else`), 'launch');
+  // And the same row lights on the controller, which is its href.
   assert.equal(activeRailKey(rail, `${BASE}/launch`), 'launch');
+
+  /*
+    ⛔ AND NO SECOND ROW CLAIMS THE CONTROLLER. This is the assertion that
+    fails if somebody restores the Studio duplicate: the tie would return, and
+    with it a rail that answers "you are here" by accident of list order.
+  */
+  const claimants = rail.filter((r) => activeRailKey([r], `${BASE}/launch`) !== null);
+  assert.deepEqual(
+    claimants.map((r) => r.key),
+    ['launch'],
+    'more than one rail row opens the Event Hub — one door means one row',
+  );
+});
+
+test('ONE DOOR: the Studio row and the event-menu row open the same page', () => {
+  /*
+    Owner ruling 2026-09-02, verbatim: *"i look at the roles of each. if it is
+    the same then adjust. Like in papic. when they enter an event, the menu of
+    papic description page becomes the control center of papic. i think that
+    should be the same for events hub."*
+
+    Both rows wear the word "Event Hub". Before this they went to two pages —
+    `/website` and `/launch` — which is one word offered twice, flagged for the
+    owner in EH3 rather than guessed at. This asserts the ruling: same word,
+    same destination.
+
+    🔑 ASKED OF THE REAL BUILDERS. The Studio row's href comes from
+    `addOnHref('landing-page')` through `railToolsSignedIn`, and the menu row's
+    from `buildCustomerNavGroups` — so repointing either one alone fails here.
+  */
+  const menuHub = eventRows().find((r) => r.key === 'launch');
+  assert.ok(menuHub, 'the event menu lost its Event Hub row entirely');
+  assert.equal(
+    addOnHref('landing-page', EVENT_ID),
+    menuHub!.href,
+    'the product card and the menu slot are two doors again — the ruling was one',
+  );
+  assert.equal(menuHub!.href, `${BASE}/launch`, 'and the one door is the controller');
+
+  // The rail's Studio group must not carry the duplicate back. Outside an event
+  // it SHOULD still be there — there is no menu row to duplicate, and it is the
+  // product's only door.
+  assert.equal(
+    studioRows().find((r) => r.key === 'pawebsite'),
+    undefined,
+    'the Studio rail carries the website row again, beside a menu row for the same page',
+  );
+  assert.ok(
+    railToolsSignedIn({ eventId: null, count: 0, profile: null }).some((t) => t.key === 'pawebsite'),
+    'the website row vanished with NO event too — that drops the product from the rail entirely',
+  );
 });
 
 test('exactly one row is lit anywhere on the rail — never two, never none by accident', () => {

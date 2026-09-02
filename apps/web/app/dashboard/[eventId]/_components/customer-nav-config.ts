@@ -198,21 +198,43 @@ export function buildCustomerNavGroups(
      **"Event Hub"** and pointing at the website hub `${base}/website`. This row
      is the controller; that row is the product card for the same thing.
 
-     🔑 NOT SILENTLY RESOLVED HERE, AND THAT IS DELIBERATE. Repointing or
-     renaming `landing-page` changes a PRODUCT's name and destination across the
-     Studio hub, the App Store and the `/pawebsite` marketing page — a product
-     decision, not a nav one, and `EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md`
-     does not rule on it (§ 7 lists eight owner decisions; this is not among
-     them). The two rows go to two REAL pages, so nothing dead-ends; what a
-     person meets is one word offered twice. Flagged for the owner in the EH3
-     handback + changelog fragment rather than guessed at. */
+     ✅ THE OWNER RULED, AND IT IS RESOLVED (2026-09-02, EH6). EH3 flagged this
+     rather than guessing, because repointing `landing-page` changes a PRODUCT's
+     destination across the Studio hub, the App Store and the `/pawebsite`
+     marketing page. The ruling, verbatim: *"i look at the roles of each. if it
+     is the same then adjust. Like in papic. when they enter an event, the menu
+     of papic description page becomes the control center of papic. i think that
+     should be the same for events hub."*
+
+     So `addOnHref('landing-page')` now resolves HERE, to `${base}/launch`. The
+     product card and this row are two entrances to one page — the `papic`
+     shape — and the old `/website` hub is a redirect stub to the same place.
+     One word, offered twice, now opens one door.
+
+     ⚠ ONE DOOR MEANS ONE RAIL ROW, and that was settled rather than left to
+     chance. Two rows with the identical href TIE, and `activeRailKey` breaks a
+     tie by list position — so which one lit would have been an accident of how
+     the shell composes the rail. The Studio group's duplicate is dropped inside
+     an event (`lib/studio-rail.ts`), on the shipped reasoning that already
+     drops the event menu's `studio` row: "the same destination under a second
+     name". This row survives because EH3 ruled it wears the word in all three
+     phases.
+
+     🔑 SO THIS ROW INHERITS THE WEBSITE FAMILY, which is why `matchPrefix`
+     points at `/website` and not at the href. `matchesPath` is
+     `hrefMatch || prefixMatch`, so the href still lights the controller
+     exactly; the prefix adds the fifteen `/website/*` pages the dropped row
+     used to light. Without it the editor and Editorial — the controller's own
+     doors — would leave the rail dark, which is the debt
+     `studio-rows-are-lit.test.ts` exists to prevent. Pinned there and in
+     `one-event-hub-door.test.ts`. */
   const launchItem: NavItem | null = opts?.websiteEnabled
     ? {
         key: 'launch',
         label: 'Event Hub',
         href: `${base}/launch`,
         icon: Globe,
-        matchPrefix: `${base}/launch`,
+        matchPrefix: `${base}/website`,
       }
     : null;
 

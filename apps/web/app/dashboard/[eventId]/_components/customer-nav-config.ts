@@ -223,7 +223,7 @@ export function buildCustomerNavGroups(
      🔑 SO THIS ROW INHERITS THE WEBSITE FAMILY, which is why `matchPrefix`
      points at `/website` and not at the href. `matchesPath` is
      `hrefMatch || prefixMatch`, so the href still lights the controller
-     exactly; the prefix adds the fifteen `/website/*` pages the dropped row
+     exactly; the prefix adds the fifteen `/website/<child>` pages the dropped row
      used to light. Without it the editor and Editorial — the controller's own
      doors — would leave the rail dark, which is the debt
      `studio-rows-are-lit.test.ts` exists to prevent. Pinned there and in

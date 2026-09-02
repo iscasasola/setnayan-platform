@@ -512,7 +512,14 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // resolves to `/launch` — the Event Hub controller — which the event menu's
     // "Event Hub" row also opens. The card and the menu slot are two entrances
     // to one page, which is what `papic` has always done. The old `/website`
-    // hub is a redirect stub to the same place; every `/website/*` child (the
+    // ⚠ WRITE THAT PATH FAMILY AS `/website/<child>`, NEVER WITH A STAR.
+    // `seat-rooms-need-seating.test.ts` strips comments from THIS FILE with
+    // `/\/\*[\s\S]*?\*\//g`, so a star-slash inside prose opens a block comment
+    // that swallows the rest of the file — the `custom-qr-guest` entry vanished
+    // and that guard failed with "entry not found — renamed?", pointing at a
+    // key nothing had touched. Cost one CI round trip on 2026-09-02.
+    //
+    // hub is a redirect stub to the same place; every `/website/<child>` (the
     // editor, Our Story, the invitation, privacy, Editorial and the rest) keeps
     // its route and is reached from the controller's own "set once" strip.
     label: 'Event Hub',

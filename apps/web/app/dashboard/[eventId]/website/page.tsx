@@ -24,7 +24,7 @@ import { redirect } from 'next/navigation';
  * shape is `website/launch/page.tsx`, the 2026-07-25 retirement stub — same
  * move, same honesty about why the route is kept.
  *
- * ⛔ EVERY `/website/*` CHILD KEEPS ITS ROUTE. editor · editorial · our-story ·
+ * ⛔ EVERY `/website/<child>` KEEPS ITS ROUTE. editor · editorial · our-story ·
  * privacy · hero-photo · colors · dress-code · what-to-bring · widgets ·
  * site-chrome · living-hero · photo-moments · our-photos · special-message ·
  * stories. They are the controller's doors, not casualties of this merge.

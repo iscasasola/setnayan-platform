@@ -27,7 +27,8 @@ import {
   liveStudioPoolOnly,
   POOL_ONLY_CONNECT_NOTICE,
 } from '@/lib/live-studio-pool-only';
-import { LEAD_TIME_NOTICE } from '@/lib/live-studio-readiness';
+import { LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE } from '@/lib/live-studio-readiness';
+import { setYoutubeLiveReadyAck } from './actions';
 
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
 // single feed) + Roam (guests pick their view) into a directed Main Stage plus
@@ -93,6 +94,26 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
+
+  // ✅ HAS THIS PERSON ALREADY CONFIRMED THEIR YOUTUBE CHANNEL IS LIVE-READY?
+  //
+  // Per-USER, deliberately — a channel belongs to the person, not to one celebration
+  // (owner ruling 2026-09-02: "if they have accepted at least once, then the next
+  // time they purchase, no more tick box"). Read here rather than inside the sheet so
+  // the sheet stays a dumb client component with no data access of its own.
+  //
+  // A REFUSED READ MUST NOT SILENTLY DROP THE GATE. `.select()` returning an error
+  // leaves `data` null, which is indistinguishable from "never acknowledged" — and
+  // that is the SAFE direction here: the buyer is asked once more. The opposite
+  // default (assume acknowledged) would remove the warning from someone who had never
+  // seen it, on the one screen where seeing it matters.
+  const { data: ackRow, error: ackError } = await supabase
+    .from('users')
+    .select('youtube_live_ready_ack_at')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (ackError) console.error('[live-studio] youtube ack read refused', ackError);
+  const youtubeLiveReadyAcked = !!ackRow?.youtube_live_ready_ack_at;
 
   // ⭐ THE REVOKE CONTROL'S NEW HOME (2026-08-06).
   //
@@ -232,7 +253,23 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         // second sentence ("your day starts when you first go live, not when you pay")
         // is true only because of the 2026-07-27 anchor fix — the pair is what makes
         // "buy earlier" safe advice rather than advice to burn the day sooner.
-        notice: LEAD_TIME_NOTICE,
+        // TWO CLOCKS, TWO PARAGRAPHS, BOTH ABOVE THE PRICE. Ours is manual payment
+        // reconciliation; theirs is Google's ~24-hour first-time live activation on
+        // their OWN channel. They run in PARALLEL — a couple can activate YouTube
+        // while payment is pending — so these are two sentences, not 24 hours added
+        // to one. Merging them into a single paragraph would read as a 3-day wait
+        // and talk buyers out of a purchase that only ever needed 2 days.
+        notice: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE],
+        // Shown ONLY until they have ticked it once, ever. Omitting the prop is how
+        // "already accepted" is expressed — the sheet has no way to pre-tick a box,
+        // which is what keeps this affirmative (see consent-is-affirmative.test.ts).
+        acknowledgement: youtubeLiveReadyAcked
+          ? undefined
+          : {
+              label:
+                'I understand, and I already have a YouTube account that is ready for live streaming.',
+              onChange: setYoutubeLiveReadyAck,
+            },
         footnote:
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
         }}

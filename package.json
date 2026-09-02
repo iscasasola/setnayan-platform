@@ -21,6 +21,7 @@
     "migration:new": "node scripts/new-migration.mjs",
     "migration:check": "node scripts/check-migration-timestamps.mjs",
     "migration:doctor": "node scripts/migration-doctor.mjs",
+    "deploy:drift-doctor": "node scripts/deploy-drift-doctor.mjs",
     "db:push": "node scripts/db-push-guard.mjs",
     "prepare": "node scripts/setup-git-hooks.mjs"
   },

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6355
+# facts: 6378
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     573
-#   col       4679
-#   policy    866
+#   tpriv     575
+#   col       4692
+#   policy    874
 #   view      8
 #   func      225
 #
@@ -120,6 +120,8 @@ tpriv	public.event_category_build_state|authenticated	SIUD
 tpriv	public.event_category_decisions|authenticated	SIUD
 tpriv	public.event_checklist_items|anon	SIUD
 tpriv	public.event_checklist_items|authenticated	SIUD
+tpriv	public.event_cluster_members|authenticated	D
+tpriv	public.event_clusters|authenticated	D
 tpriv	public.event_day_requests|authenticated	SIU
 tpriv	public.event_delegates|anon	SIUD
 tpriv	public.event_delegates|authenticated	SIUD
@@ -1313,6 +1315,19 @@ col	public.event_checklist_items.sort_order	anon=SIU authenticated=SIU
 col	public.event_checklist_items.status	anon=SIU authenticated=SIU
 col	public.event_checklist_items.template_key	anon=SIU authenticated=SIU
 col	public.event_checklist_items.title	anon=SIU authenticated=SIU
+col	public.event_cluster_members.event_cluster_id	anon=- authenticated=SI
+col	public.event_cluster_members.event_id	anon=- authenticated=SI
+col	public.event_cluster_members.id	anon=- authenticated=S
+col	public.event_cluster_members.is_anchor	anon=- authenticated=SIU
+col	public.event_cluster_members.linked_at	anon=- authenticated=S
+col	public.event_cluster_members.linked_by	anon=- authenticated=SI
+col	public.event_clusters.created_at	anon=- authenticated=S
+col	public.event_clusters.display_name	anon=- authenticated=SIU
+col	public.event_clusters.event_cluster_id	anon=- authenticated=S
+col	public.event_clusters.id	anon=- authenticated=S
+col	public.event_clusters.owner_user_id	anon=- authenticated=SI
+col	public.event_clusters.public_id	anon=- authenticated=S
+col	public.event_clusters.updated_at	anon=- authenticated=SU
 col	public.event_day_requests.author_user_id	anon=- authenticated=SIU
 col	public.event_day_requests.author_vendor_profile_id	anon=- authenticated=SIU
 col	public.event_day_requests.body	anon=- authenticated=SIU
@@ -5437,6 +5452,14 @@ policy	public.event_category_decisions|couples manage category decisions	mode=PE
 policy	public.event_category_decisions|members read own event category decisions	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(event_id IN ( SELECT current_event_ids() AS current_event_ids)) check=NULL
 policy	public.event_checklist_items|couple_writes_checklist	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
 policy	public.event_checklist_items|event_member_can_read_checklist	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_event_ids() AS current_event_ids)) check=NULL
+policy	public.event_cluster_members|event_cluster_members_link	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_cluster_id IN ( SELECT event_clusters.event_cluster_id FROM event_clusters WHERE (event_clusters.owner_user_id = auth.uid()))) AND (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))))
+policy	public.event_cluster_members|event_cluster_members_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_cluster_id IN ( SELECT event_clusters.event_cluster_id FROM event_clusters WHERE (event_clusters.owner_user_id = auth.uid()))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=NULL
+policy	public.event_cluster_members|event_cluster_members_set_anchor	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_cluster_id IN ( SELECT event_clusters.event_cluster_id FROM event_clusters WHERE (event_clusters.owner_user_id = auth.uid()))) OR is_admin()) check=((event_cluster_id IN ( SELECT event_clusters.event_cluster_id FROM event_clusters WHERE (event_clusters.owner_user_id = auth.uid()))) OR is_admin())
+policy	public.event_cluster_members|event_cluster_members_unlink	mode=PERMISSIVE cmd=DELETE roles=authenticated using=((event_cluster_id IN ( SELECT event_clusters.event_cluster_id FROM event_clusters WHERE (event_clusters.owner_user_id = auth.uid()))) OR is_admin()) check=NULL
+policy	public.event_clusters|event_clusters_owner_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=((owner_user_id = auth.uid()) OR is_admin()) check=NULL
+policy	public.event_clusters|event_clusters_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(owner_user_id = auth.uid())
+policy	public.event_clusters|event_clusters_owner_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((owner_user_id = auth.uid()) OR is_admin()) check=NULL
+policy	public.event_clusters|event_clusters_owner_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((owner_user_id = auth.uid()) OR is_admin()) check=((owner_user_id = auth.uid()) OR is_admin())
 policy	public.event_day_requests|event_day_requests_coordinator_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((author_user_id = auth.uid()) AND (origin = 'coordinator'::day_request_origin) AND (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)))
 policy	public.event_day_requests|event_day_requests_event_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((author_user_id = auth.uid()) AND (origin = ANY (ARRAY['couple'::day_request_origin, 'host'::day_request_origin, 'coordinator'::day_request_origin])) AND ((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) = 'edit'::text)))
 policy	public.event_day_requests|event_day_requests_event_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) IS NOT NULL) OR is_admin()) check=NULL
@@ -6254,7 +6277,7 @@ func	public.moderator_can_see_row(p_event_id uuid, p_user_id uuid, p_private_to_
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.panood_camera_heartbeat(p_token text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.panood_claim_camera(p_token text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.panood_rtc_can_access(p_topic text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
+func	public.panood_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.papic_accept_ugc_terms(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_arm_challenge(p_mission_id uuid, p_duration_minutes smallint)	secdef=no exec=authenticated search_path=public
 func	public.papic_armed_challenge(p_event_id uuid)	secdef=no exec=authenticated search_path=public

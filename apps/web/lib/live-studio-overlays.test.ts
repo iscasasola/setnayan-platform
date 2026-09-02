@@ -77,7 +77,7 @@ const ALL_ON: OverlaySettings = {
 test('a PAID host gets their own monogram + lower third at the chosen positions', () => {
   const r = resolveOverlays({ owned: true, settings: ALL_ON, monogramText: 'M ✕ J' });
 
-  assert.deepEqual(r.monogram, { text: 'M ✕ J', position: 'top-right' });
+  assert.deepEqual(r.monogram, { text: 'M ✕ J', position: 'top-right', markDataUri: null });
   assert.equal(r.lowerThird?.title, 'MARIA ✕ JOSEF');
   assert.equal(r.lowerThird?.subtitle, 'Dinner is served — Grand Ballroom · 7:00 PM');
   assert.equal(r.lowerThird?.forced, false, 'a paid host owns their bar — not forced');
@@ -106,6 +106,61 @@ test('an all-off settings row draws nothing for a paid host', () => {
   assert.equal(r.monogram, null);
   assert.equal(r.lowerThird, null, 'a paid host who wants no bar gets no bar');
   assert.equal(r.eventQr, null);
+});
+
+/* ── 1b · CUSTOM MARK (L11) ────────────────────────────────────────────────── */
+// The couple's real Monogram Studio / Bespoke AI / uploaded mark must reach the
+// broadcast bug instead of always drawing derived initials — the whole point of
+// this fix. `monogramMarkSvg` mirrors resolveEventMonogramSvg's output shape:
+// already-sanitized SVG, or null when the couple never made one.
+
+const VALID_MARK_SVG = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>';
+
+test('a paid host with a custom mark gets it as a data URI alongside the text', () => {
+  const r = resolveOverlays({
+    owned: true,
+    settings: ALL_ON,
+    monogramText: 'C ✕ I',
+    monogramMarkSvg: VALID_MARK_SVG,
+  });
+  assert.equal(r.monogram?.text, 'C ✕ I', 'the text stays available as the fallback');
+  assert.equal(
+    r.monogram?.markDataUri,
+    `data:image/svg+xml;utf8,${encodeURIComponent(VALID_MARK_SVG)}`,
+  );
+});
+
+test('omitting the mark falls back to the derived-initials bug that shipped before it', () => {
+  const withoutArg = resolveOverlays({ owned: true, settings: ALL_ON, monogramText: 'C ✕ I' });
+  assert.equal(withoutArg.monogram?.markDataUri, null);
+  const withNull = resolveOverlays({
+    owned: true,
+    settings: ALL_ON,
+    monogramText: 'C ✕ I',
+    monogramMarkSvg: null,
+  });
+  assert.equal(withNull.monogram?.markDataUri, null);
+});
+
+test('a hostile mark payload fails closed to the text bug, never to nothing', () => {
+  const r = resolveOverlays({
+    owned: true,
+    settings: ALL_ON,
+    monogramText: 'C ✕ I',
+    monogramMarkSvg: '<svg viewBox="0 0 24 24"><script>alert(1)</script></svg>',
+  });
+  assert.equal(r.monogram?.markDataUri, null, 'the hostile SVG is rejected at this read site too');
+  assert.equal(r.monogram?.text, 'C ✕ I', 'the broadcast still carries the safe fallback');
+});
+
+test('a custom mark on a FREE / lapsed host still draws nothing — the paid gate wins first', () => {
+  const r = resolveOverlays({
+    owned: false,
+    settings: ALL_ON,
+    monogramText: 'C ✕ I',
+    monogramMarkSvg: VALID_MARK_SVG,
+  });
+  assert.equal(r.monogram, null, 'a mark does not bypass the LIVE_STUDIO entitlement');
 });
 
 /* ── 2 · LAPSE ─────────────────────────────────────────────────────────────── */

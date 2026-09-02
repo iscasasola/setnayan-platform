@@ -93,6 +93,8 @@ import {
   type ResolvedOverlays,
 } from '@/lib/live-studio-overlays';
 import { deriveMonogram } from '@/lib/monogram';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
   getActivePanoodBroadcast,
@@ -353,7 +355,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // not exist. The two are distinguishable; they are now distinguished.
   const { data: event, error: eventError } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, monogram_text')
+    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventError) {
@@ -686,8 +688,16 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const overlaySettings = await fetchOverlaySettings(supabase, eventId);
   const monogramText =
     (event.monogram_text as string | null)?.trim() || deriveMonogram(event.display_name);
-  const rehearsalOverlays = resolveOverlays({ owned: true, settings: overlaySettings, monogramText });
-  const airOverlays = resolveOverlays({ owned, settings: overlaySettings, monogramText });
+  // L11: the couple's real mark, same precedence the public hero resolves
+  // (uploaded ?? custom) — the bug drew derived initials even when this existed.
+  const monogramMarkSvg = resolveEventMonogramSvg(event);
+  const rehearsalOverlays = resolveOverlays({
+    owned: true,
+    settings: overlaySettings,
+    monogramText,
+    monogramMarkSvg,
+  });
+  const airOverlays = resolveOverlays({ owned, settings: overlaySettings, monogramText, monogramMarkSvg });
 
   // What the MONITOR draws. Rehearsal for the things the host is placing, but the
   // lower-third slot falls back to what will actually air — otherwise a free host
@@ -2226,12 +2236,20 @@ function MonitorOverlays({
   return (
     <>
       {overlays.monogram ? (
-        <span
-          className={`absolute ${overlayPositionClass(
-            overlays.monogram.position,
-          )} rounded-full border border-cream/35 bg-ink/40 px-3 py-1 font-serif text-[13px] italic text-cream backdrop-blur-sm`}
-        >
-          {overlays.monogram.text}
+        <span className={`absolute ${overlayPositionClass(overlays.monogram.position)}`}>
+          {overlays.monogram.markDataUri ? (
+            // Inert data URI, already sanitized by safeMonogramSvg (SEC-3) — no optimizer benefit.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={overlays.monogram.markDataUri}
+              alt=""
+              className="h-9 w-9 object-contain drop-shadow"
+            />
+          ) : (
+            <span className="rounded-full border border-cream/35 bg-ink/40 px-3 py-1 font-serif text-[13px] italic text-cream backdrop-blur-sm">
+              {overlays.monogram.text}
+            </span>
+          )}
         </span>
       ) : null}
 

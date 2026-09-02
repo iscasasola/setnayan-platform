@@ -242,12 +242,20 @@ function BroadcastOverlays({
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-20">
       {overlays.monogram ? (
-        <span
-          className={`absolute ${positionClass(
-            overlays.monogram.position,
-          )} rounded-full border border-white/35 bg-black/35 px-5 py-2 font-serif text-2xl italic text-white`}
-        >
-          {overlays.monogram.text}
+        <span className={`absolute ${positionClass(overlays.monogram.position)}`}>
+          {overlays.monogram.markDataUri ? (
+            // Inert data URI, already sanitized by safeMonogramSvg (SEC-3) — no optimizer benefit.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={overlays.monogram.markDataUri}
+              alt=""
+              className="h-16 w-16 object-contain drop-shadow-lg"
+            />
+          ) : (
+            <span className="rounded-full border border-white/35 bg-black/35 px-5 py-2 font-serif text-2xl italic text-white">
+              {overlays.monogram.text}
+            </span>
+          )}
         </span>
       ) : null}
 

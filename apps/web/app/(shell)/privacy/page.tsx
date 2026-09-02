@@ -152,7 +152,14 @@ export default function PrivacyPage() {
             </li>
             <li>Anonymized product analytics — page views, button clicks, funnel events (via PostHog · no personal identifiers)</li>
             <li>Error reports — uncaught exceptions + their stack traces sent to Sentry so we can fix bugs; no message bodies, payment details, or guest data are included</li>
-            <li>Automatic — IP address (truncated to first 3 octets for QR scan events), browser user-agent, timestamps</li>
+            <li>
+              Automatic — IP address (truncated to first 3 octets for QR scan
+              events), browser user-agent, timestamps.{' '}
+              <strong>
+                Guests can switch the QR-scan record off for themselves
+              </strong>{' '}
+              from their own invitation page, at any time.
+            </li>
           </ul>
         </Section>
 

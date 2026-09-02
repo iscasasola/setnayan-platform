@@ -130,6 +130,20 @@ const MONEY_80K_ESTIMATED: EventMoney = {
   overpaid: 0,
   isOverBudget: false,
   overBudgetByPhp: 0,
+  // Nothing is contracted, so there is no dated milestone to be late on.
+  // Mirrors the sibling fixture in `budget-page-money.test.ts` verbatim —
+  // `due` became REQUIRED on `EventMoney` while this branch was in flight
+  // (PR #5105, "a missed payment stops being invisible").
+  due: {
+    overduePhp: 0,
+    overdueCount: 0,
+    dueSoonPhp: 0,
+    dueSoonCount: 0,
+    upcomingPhp: 0,
+    upcomingCount: 0,
+    laterPhp: 0,
+    laterCount: 0,
+  },
   byBucket: [],
   lines: [],
   sources: [],

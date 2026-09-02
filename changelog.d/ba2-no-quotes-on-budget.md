@@ -60,6 +60,21 @@ Three assertions added to the guard: the two exported lists must be equal; **a s
 
 **Effect on the prod fixture** (event `044f7e64…`, measured 2026-09-02: 0 confirmed vendors, 1 `considering` carrying ₱80,000): `/budget` now shows ₱0 committed with the existing *"You're still choosing vendors — the moment you contract one, its itemized costs and payments show up here"* empty state and its **Open vendors** doorway. The ₱80,000 appears nowhere on the page; it is in the Merkado, where the couple is comparing.
 
+### ⚠ FOR THE NEXT SESSION IN THIS AREA — `pnpm typecheck` IN `apps/web` IS NOT THE TYPECHECK CI RUNS
+
+This cost two CI cycles on this PR, and it will cost the next one too unless it is written down.
+
+| Where | Command | What it covers |
+|---|---|---|
+| `apps/web` | `pnpm typecheck` → `tsc --noEmit` | **`@setnayan/web` only** |
+| **repo root** | `pnpm typecheck` → `turbo run typecheck` | **`@setnayan/web` AND `@setnayan/shared`** |
+
+**CI runs the root one.** A green in `apps/web` is not the claim CI is about to test, and the failure it hides arrives ~36 minutes later. Verify with the ROOT command before pushing.
+
+The second half of the same trap: **`origin/main` moves under a long-running branch.** `EventMoney` gained a REQUIRED `due: MoneyDue` field mid-flight (PR #5105, `5efc47f28` — "a missed payment stops being invisible"), so a fixture written against an older base stops compiling *against main* while still compiling locally. CI typechecks the MERGE with current main; your worktree does not, until you merge. **Re-fetch and merge `origin/main`, then re-run the root typecheck, as the last step before pushing** — main moved twice under this branch in a single session.
+
+Both are process, not code, and both are cheap: `git fetch && git merge origin/main` then `pnpm typecheck` **from the repo root**.
+
 ### SPEC IMPACT
 
 **Not "None".** This reverses a documented display rule. Applied directly in the corpus at `~/Documents/Claude/Projects/Setnayan/` per the 2026-06-04 direct-edit authorization:

@@ -117,6 +117,7 @@ import { ProgramBridgeHost } from './_components/program-bridge';
 import { SetupSheet } from './_components/setup-sheet';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
+import { IngestHealthStrip } from './_components/ingest-health-strip';
 import {
   addRoamZone,
   deleteRoamZone,
@@ -1137,6 +1138,22 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               </SubmitButton>
             </form>
           </div>
+
+          {/* ── INGEST HEALTH — is the encoder actually sending video? ──────────
+              lib/live-studio-ingest-health.ts § the defect: `getYoutubeStreamStatus`
+              cost 1 quota unit and had zero callers, so a dead encoder mid-ceremony
+              rendered identically to a healthy one. Only mounted when a Setnayan-
+              managed broadcast exists to poll — the by-hand route (below) has no
+              stream_id for YouTube to report on. PERSISTENT, beside the tally —
+              never a toast, never console-only. */}
+          {liveAir.source === 'broadcast' ? (
+            <IngestHealthStrip
+              eventId={eventId}
+              initialLive
+              initialStreamStatus={null}
+              initialHealthStatus={null}
+            />
+          ) : null}
 
           {/* ── BY-HAND ON AIR ────────────────────────────────────────────────
               The host who starts their own stream and pastes the watch link — the

@@ -327,8 +327,21 @@ async function youtubeApi(
  * liveBroadcasts.insert — create the broadcast container on the user's channel.
  * enableAutoStart/Stop = YouTube flips it to live/complete automatically when
  * the encoder connects/disconnects (so manual transitions are a fallback).
- * enableEmbed = required for the event-page iframe. Returns broadcastId (==
- * the public videoId for the watch URL).
+ *
+ * ⚠ `enableEmbed` is deliberately OMITTED, not set. Sending `enableEmbed: true`
+ * made every liveBroadcasts.insert call fail with 400 `invalidEmbedSetting`
+ * against the Setnayan pool channel (observed live 2026-09-02, 04:52:26Z —
+ * see changelog.d/youtube-embed-setting.md). YouTube's own error means the
+ * CHANNEL is not eligible to have embedding explicitly enabled on its live
+ * streams (plausibly: a new channel with 0 subscribers), not that anything
+ * here was malformed. Omitting the field lets YouTube apply its own default
+ * instead of asserting a value the channel cannot currently satisfy. Unlisted
+ * videos are ordinarily embeddable without this flag — re-verify the
+ * youtube-nocookie iframe on the event page after the first real broadcast
+ * and restore an explicit `enableEmbed: true` only if that playback is
+ * observed to fail.
+ *
+ * Returns broadcastId (== the public videoId for the watch URL).
  */
 export async function createYoutubeBroadcast(
   accessToken: string,
@@ -352,7 +365,6 @@ export async function createYoutubeBroadcast(
           enableAutoStart: true,
           enableAutoStop: true,
           enableDvr: true,
-          enableEmbed: true,
           monitorStream: { enableMonitorStream: false },
         },
         status: {

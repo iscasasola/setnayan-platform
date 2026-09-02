@@ -225,7 +225,15 @@ export function HubStage({
 
           Server-rendered links, not a client switch: the armed read is resolved
           by the same pure function the tests call, so what a person SEES is the
-          thing under test — and it works with no JavaScript at all. */}
+          thing under test — and it works with no JavaScript at all.
+
+          📐 THE IDIOM IS ALREADY IN THIS REPO — `LensChip` in
+          `schedule/_components/ros-p2.tsx`, whose own row is captioned "View
+          as": chips, an href carrying the lens, one active. Same shape, painted
+          from `OB` rather than reused, and NOT out of preference — that
+          component is `bg-white text-ink/60`, and `text-ink` measures 1.27:1 on
+          this obsidian ground. A light-ground token fails here silently, which
+          is the whole reason `OB` exists. */}
       {armed ? (
         <div style={{ borderTop: `1px solid ${OB.hairline}`, backgroundColor: 'rgba(255,255,255,0.03)' }}>
           <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">

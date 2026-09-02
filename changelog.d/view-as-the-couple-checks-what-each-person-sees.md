@@ -44,8 +44,19 @@ data can flow down this path at all. **Rendering an actual named person is delib
 states, never two — the sentence "No guests yet" to a couple with 180 names is what this rule is
 made of. Mutation-tested by making a withheld list render its zero.
 
-**RULE 0 paid twice:** the `?phase=` host-gated preview and the `?as=replied` simulated seat-holder
-both already ship and are reused rather than rebuilt. Neither was written for this.
+**RULE 0 paid four times.** The `?phase=` host-gated preview and the `?as=replied` simulated
+seat-holder both already ship and are reused rather than rebuilt. The chip idiom already ships too —
+`LensChip` in `schedule/_components/ros-p2.tsx`, under a row captioned "View as" — so this matches
+it rather than inventing one (painted from `OB`, not reused: that component is `bg-white
+text-ink/60`, and `text-ink` measures 1.27:1 on obsidian).
+
+⚠ **AND THE FOURTH CHANGES THE OWNER'S QUESTION.** A preview of a REAL, NAMED guest **already ships
+in production**: `app/dashboard/[eventId]/website/widgets/page.tsx` selects one real guest's
+`first_name` · `last_name` · `display_name` · `qr_token` and offers the host *"Preview as \<that
+person's name\>"*, opening `/{slug}?invite=<their real token>`. So the design's § 7.5 question is
+not "may we build this" — it is **"that already happens one page over; is it intended, and should
+the Hub match it?"** The flag stays OFF regardless: a neighbouring page doing it is not authority to
+widen it here.
 
 Tests: `lib/event-hub-roles.test.ts` (16) · `lib/hub-named-guest-flag.test.ts` (3) ·
 `app/dashboard/[eventId]/launch/_components/view-as-reaches-the-render.test.ts` (13, six

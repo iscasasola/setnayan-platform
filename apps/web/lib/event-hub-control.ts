@@ -710,5 +710,9 @@ export function resolveArmedHubRole(input: {
     const match = offered.find((r) => r === param);
     if (match) return match;
   }
-  return offered[0];
+  /* `?? null` is not defensive noise: `noUncheckedIndexedAccess` types this as
+     `HubRole | undefined`, and TypeScript cannot narrow it from the length
+     guard above. An `undefined` armed role would render as "no switcher" —
+     which is the safe direction, and it is why the type says `null`. */
+  return offered[0] ?? null;
 }

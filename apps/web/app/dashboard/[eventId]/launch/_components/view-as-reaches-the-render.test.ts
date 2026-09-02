@@ -78,14 +78,15 @@ async function paint(opts: {
   );
 
   const idx = PUBLIC_SITE_PAGES.findIndex((p) => p.phaseParam === standing.stage);
+  const channel = idx >= 0 ? PUBLIC_SITE_PAGES[idx] : null;
   return renderToStaticMarkup(
     React.createElement(HubStage, {
       slug: read.slug,
       standing,
       facts,
-      channelName: idx >= 0 ? PUBLIC_SITE_PAGES[idx].name : null,
-      channelBlurb: idx >= 0 ? PUBLIC_SITE_PAGES[idx].blurb : null,
-      channelIndex: idx >= 0 ? idx + 1 : null,
+      channelName: channel?.name ?? null,
+      channelBlurb: channel?.blurb ?? null,
+      channelIndex: channel ? idx + 1 : null,
       channelCount: PUBLIC_SITE_PAGES.length,
       editHref: '/dashboard/E1/website/editor',
       roles,

@@ -116,6 +116,15 @@ const APP_LD = {
 
 const FAQ = [
   {
+    // 💻 FIRST, not buried. This is the only requirement on this page a couple cannot
+    // recover from: no laptop on the morning means no broadcast, and no amount of
+    // money, support or waiting fixes it on a date that cannot move. It was mentioned
+    // only inside the YouTube answer further down, which is not where somebody deciding
+    // whether this product fits them will look.
+    q: 'What do I need on the day?',
+    a: 'Your guests’ phones are the cameras — they join by scanning your QR, with nothing to install. You will also need one Windows or Mac laptop at the celebration, running free streaming software (OBS) next to the Live Studio control room: that laptop is what actually sends the picture to YouTube. A phone or tablet on its own cannot do it, and neither can a web browser. Most couples hand the laptop to a friend or a coordinator, not a paid crew.',
+  },
+  {
     q: 'How do my guests watch?',
     a: 'They open your Event Hub and press play — that’s it. No app to download, no account to make, no link to lose. It works on any phone, tablet, or laptop, anywhere in the world.',
   },

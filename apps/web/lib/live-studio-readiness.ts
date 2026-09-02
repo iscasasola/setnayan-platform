@@ -139,6 +139,33 @@ export const ENCODER_NOTICE =
 export const YOUTUBE_READY_NOTICE =
   'Before you buy, check that your own YouTube channel can already go live — YouTube takes about 24 hours to switch this on the first time, and it cannot be rushed on the day. Open youtube.com/features and look for Live streaming: Enabled. If you read that you need 50 subscribers, that rule is only for going live from the phone app — streaming from a computer, which is what Live Studio does, has no subscriber requirement.';
 
+/**
+ * 💻 WHAT THE BUYER MUST OWN — a laptop — SAID BEFORE THE MONEY MOVES.
+ *
+ * `ENCODER_NOTICE` below has always been honest about this, and it is returned on EVERY
+ * readiness branch including the green one. But readiness is a POST-PURCHASE surface. The
+ * buy sheet carried the payment lead time and YouTube's activation wait and said nothing
+ * about needing a computer at all.
+ *
+ * 🔑 AND THIS IS THE ONE THAT CANNOT BE RECOVERED FROM. A couple who meets the YouTube
+ * 24-hour wait too late can still wait; a couple who meets the payment SLA too late can
+ * still be approved early next time. A couple with no laptop on the wedding morning has NO
+ * BROADCAST, and nothing fixes it — not money, not support, not a later date.
+ *
+ * Deliberately NOT the same string as ENCODER_NOTICE, and the difference is the question
+ * each answers. Before paying: "what do I need to own?" After paying: "what do I do with
+ * it?" Collapsing them would make one of the two surfaces answer a question nobody asked
+ * there. ⚠ THEY MUST STILL AGREE ON THE FACT — if the encoder ever stops being required
+ * (a native Setnayan encoder, a server relay), BOTH move in the same commit or the product
+ * tells two stories.
+ *
+ * Names OBS because that is what is true today. If the desktop app ever encodes
+ * (`Live_Studio_Encoder_Scope_2026-09-03.md` Path A), this sentence changes with it —
+ * the laptop stays required either way; only the software named changes.
+ */
+export const ENCODER_BUY_NOTICE =
+  'You will need a Windows or Mac laptop at your celebration, running free streaming software (OBS) alongside the control room — a phone or tablet on its own cannot send the broadcast to YouTube, and neither can a web browser. Your phones are the cameras; the laptop is what sends the picture out.';
+
 export const LEAD_TIME_NOTICE =
   'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: your broadcast day starts when you first go live, not when you pay.';
 

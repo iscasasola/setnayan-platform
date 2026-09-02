@@ -29,7 +29,11 @@ import {
   liveStudioPoolOnly,
   poolOnlyConnectNotice,
 } from '@/lib/live-studio-pool-only';
-import { LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE } from '@/lib/live-studio-readiness';
+import {
+  ENCODER_BUY_NOTICE,
+  LEAD_TIME_NOTICE,
+  YOUTUBE_READY_NOTICE,
+} from '@/lib/live-studio-readiness';
 import { setYoutubeLiveReadyAck } from './actions';
 
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
@@ -269,7 +273,12 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         // while payment is pending — so these are two sentences, not 24 hours added
         // to one. Merging them into a single paragraph would read as a 3-day wait
         // and talk buyers out of a purchase that only ever needed 2 days.
-        notice: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE],
+        // THREE FACTS THE BUYER CANNOT DISCOVER LATE, in the order they bite:
+        // our payment SLA, YouTube's activation wait, and the laptop. The last is
+        // the only one with NO recovery — a couple who meets the other two too late
+        // can still wait or be approved early; a couple with no laptop on the
+        // morning has no broadcast, and nothing fixes it.
+        notice: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE],
         // Shown ONLY until they have ticked it once, ever. Omitting the prop is how
         // "already accepted" is expressed — the sheet has no way to pre-tick a box,
         // which is what keeps this affirmative (see consent-is-affirmative.test.ts).

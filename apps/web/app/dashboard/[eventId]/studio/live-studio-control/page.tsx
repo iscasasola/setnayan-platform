@@ -195,7 +195,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       {stateCtx.state !== 'launch' ? (
         <Link
           href={controllerHref}
-          className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta transition-colors hover:bg-terracotta/10"
+          className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10"
         >
           Open the controller — go live free with one camera
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f7f3fa3b7",
-  "routeCount": 412,
-  "destinations": 880,
+  "generatedFromRef": "7cb70db31",
+  "routeCount": 413,
+  "destinations": 881,
   "actions": 619,
-  "blocks": 4170,
+  "blocks": 4194,
   "routes": {
     "/": {
       "files": [
@@ -276,16 +276,45 @@
     },
     "/(shell)/pa3d": {
       "files": [
+        "(shell)/pa3d/_pa3d-motion.tsx",
+        "(shell)/pa3d/_pa3d-parts.tsx",
+        "(shell)/pa3d/_pa3d-room.tsx",
         "(shell)/pa3d/loading.tsx",
         "(shell)/pa3d/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=pa3d",
-        "/pricing"
+        "/pa3d/try"
       ],
       "actions": [],
       "blocks": [
-        "DoorwayPage"
+        "Blob",
+        "HTMLVideoElement",
+        "Image",
+        "KenBurns",
+        "Link",
+        "Pa3dRoom",
+        "Part",
+        "PartFilm",
+        "PartsFilms",
+        "Phase",
+        "Plan3DGuestQr",
+        "Plan3DScene",
+        "Plan3DSceneLoader",
+        "Reveal"
+      ]
+    },
+    "/(shell)/pa3d/try": {
+      "files": [
+        "(shell)/pa3d/try/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=pa3d-try",
+        "/pa3d"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Pa3dRoom"
       ]
     },
     "/(shell)/pakanta": {
@@ -1135,6 +1164,7 @@
         "SceneLighting",
         "SeatDestinationMarker",
         "SeatedFigure",
+        "SitController",
         "StringLights",
         "THREE.Group",
         "THREE.Mesh",
@@ -4641,6 +4671,7 @@
     "/dashboard/[eventId]/budget": {
       "files": [
         "dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx",
+        "dashboard/[eventId]/budget/_components/budget-ledger-table.tsx",
         "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
         "dashboard/[eventId]/budget/_components/budget-setter.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
@@ -4659,21 +4690,26 @@
         "formAction"
       ],
       "blocks": [
+        "AbsorptionDisclosure",
         "AllocationConfig",
         "BudgetAllocationPlanner",
+        "BudgetLedgerTable",
         "BudgetLiveSummary",
         "BudgetLiveSummaryCard",
         "BudgetSetter",
         "BudgetSummaryStrip",
+        "Cell",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
         "DeniedState",
+        "DueRollup",
         "EmptyBudget",
         "EventMoney",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLFormElement",
         "LeafRow",
+        "LedgerRow",
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
@@ -4690,6 +4726,7 @@
         "SummaryStat",
         "TiltButton",
         "TiltEditor",
+        "TotalCell",
         "UnlocksHint",
         "UpcomingRow",
         "VendorItemizationCard"
@@ -8197,6 +8234,7 @@
         "panood/control/[eventId]/_components/broadcast-window-strip.tsx",
         "panood/control/[eventId]/_components/camera-feeds.tsx",
         "panood/control/[eventId]/_components/channel-freshness.tsx",
+        "panood/control/[eventId]/_components/ingest-health-strip.tsx",
         "panood/control/[eventId]/_components/program-bridge.tsx",
         "panood/control/[eventId]/_components/setup-sheet.tsx",
         "panood/control/[eventId]/_components/toast-layer.tsx",
@@ -8234,6 +8272,7 @@
       "blocks": [
         "Banner",
         "BroadcastWindowStrip",
+        "CachedRead",
         "CameraFeedsContext.Provider",
         "CameraFeedsProvider",
         "ChannelFreshness",
@@ -8249,6 +8288,7 @@
         "HTMLElement",
         "HTMLVideoElement",
         "Icon",
+        "IngestHealthStrip",
         "InlineCheckoutDrawer",
         "Link",
         "LiveStudioRecordingsCard",

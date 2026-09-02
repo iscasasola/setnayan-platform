@@ -28,13 +28,20 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..', '..', '..', '..', '..');
 
-/** Every file this session added to the money path, by name. */
-const SHIPPED: Record<string, string> = {
+/**
+ * Every file this session added to the money path, by name.
+ *
+ * Declared as a literal object rather than a `Record<string, string>` so each
+ * key resolves to a `string` and not `string | undefined` — under this repo's
+ * `noUncheckedIndexedAccess` a typo'd key would otherwise read as `undefined`,
+ * and a guard that reads an absent file is a guard that cannot fail.
+ */
+const SHIPPED = {
   'launch/page.tsx': resolve(HERE, '..', 'page.tsx'),
   'launch/_components/hub-pro-offer.tsx': resolve(HERE, 'hub-pro-offer.tsx'),
   'lib/event-hub-pro.ts': resolve(WEB, 'lib', 'event-hub-pro.ts'),
   'lib/website-pro-items.ts': resolve(WEB, 'lib', 'website-pro-items.ts'),
-};
+} as const;
 
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 
@@ -110,10 +117,24 @@ test('the seven names have ONE home — the editor and the controller read the s
     resolve(WEB, 'app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'pro-panels.tsx'),
     'utf8',
   );
+  const panelSrc = stripComments(panels);
   assert.match(
-    stripComments(panels),
+    panelSrc,
     /from '@\/lib\/website-pro-items'/,
     'pro-panels must import the seven, not carry a second copy of them',
+  );
+  /*
+    🪤 THE ASSERTION ABOVE, ALONE, SURVIVED ITS OWN SABOTAGE. Re-typing the array
+    inside pro-panels while leaving the (now unused) import line in place kept
+    that `match` green — the guard was reading the import, not the absence of a
+    copy. So the claim is stated the way it is meant: THE SEVEN NAMES APPEAR IN
+    EXACTLY ONE FILE, and a name typed anywhere else is the second source of
+    truth this is here to prevent.
+  */
+  assert.doesNotMatch(
+    panelSrc,
+    /'Cinematic Reveal'/,
+    'the seven names are re-typed here — one fact, two lists, each passing its own suite',
   );
   const resolver = read(SHIPPED['lib/event-hub-pro.ts']);
   assert.match(resolver, /WEBSITE_PRO_ITEMS/, 'and the controller builds its chips from that list');

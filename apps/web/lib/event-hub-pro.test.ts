@@ -75,7 +75,7 @@ test('SEVEN chips, in catalog order, with exactly ONE lit', () => {
   );
   const lit = offer.chips.filter((c) => c.here);
   assert.equal(lit.length, 1, 'one price seven times, not seven prices — exactly one chip is lit');
-  assert.equal(lit[0].name, offer.lead, 'and the lit one is where the couple is standing');
+  assert.equal(lit[0]?.name, offer.lead, 'and the lit one is where the couple is standing');
 });
 
 test('⛔ NO OFFER ON THE DAY, AND NONE AFTER IT — the ruling is EH1’s, not a second copy', () => {

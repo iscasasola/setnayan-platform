@@ -288,14 +288,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     not: when the couple owns it, when the read did not happen, on the day, and
     after it.
 
-    ⚠ THE DAY GATE IS EH1'S AND IS CALLED, NEVER RE-DERIVED. `hubOffersAllowed`
-    is `phase === 'plan'` — STRICTER than the design text ("no offers on the
-    event day"), because it also silences the offer AFTER the day. That reads as
-    intended: it is the owner's 2026-08-21 ruling on the day-of services,
-    "stop offering them", and the shipped "Event over" chip beside it does the
-    same thing. A consequence worth naming rather than discovering: the Day-of
-    and Editorial channels can therefore never carry an offer, because the stage
-    only reaches them once the phase is 'dayof' or 'after'.
+    ⚠ THE GATE IS EH1'S, IS CALLED, AND IS NEVER RE-DERIVED. `hubOffersAllowed`
+    is `phase === 'plan'`, and that ONE LINE DOES THREE JOBS — its own docblock
+    in `lib/event-hub-control.ts` names all three: on the day (an offer never
+    outranks the day), after the day (the owner's 2026-08-21 ruling, "stop
+    selling the day itself once the day is over", guarded by
+    `lib/stop-selling-the-day-after-the-day.test.ts`), and UNMEASURED, where we
+    do not know whether it is their wedding day and an unread state must never
+    become a sale. 🛑 Settled and owner-ruled: do not widen it, do not relax it to
+    day-only, and do not add a second gate here. A consequence worth naming
+    rather than discovering: the Day-of and Editorial channels therefore never
+    carry an offer, because the stage only reaches them once the phase is
+    'dayof' or 'after' — that is the ruling working, not a gap.
   */
   const proOffer = resolveHubProOffer({
     channel: standing.stage,

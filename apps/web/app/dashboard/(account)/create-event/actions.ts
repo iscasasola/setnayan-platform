@@ -67,6 +67,10 @@ type ConciergeChoice = (typeof ALLOWED_CONCIERGE_CHOICES)[number];
 // 20261120000000) accepts the same set. muslim/cultural tradition sub-type
 // is collected + validated by this form already.
 const ALLOWED_CEREMONIES = ALLOWED_CEREMONY_VALUES;
+// RECEPTION venues only. `civil_registrar` left this list on 2026-09-03 when it
+// moved to the ceremony side (migration 20271197508087) — the DB CHECK no longer
+// accepts it here, so leaving it would let this form accept a value the write
+// then rejects.
 const ALLOWED_VENUES = [
   'banquet_hall',
   'restaurant',
@@ -75,7 +79,6 @@ const ALLOWED_VENUES = [
   'destination',
   'heritage',
   'outdoor_tent',
-  'civil_registrar',
 ] as const;
 // Secondary (mixed-wedding) pick — derived from lib/faith-registry like the
 // primary list above: any registry faith or civil, never 'mixed'. Without this

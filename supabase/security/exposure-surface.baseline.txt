@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6370
+# facts: 6386
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     573
-#   col       4687
-#   policy    872
+#   tpriv     575
+#   col       4699
+#   policy    874
 #   view      8
 #   func      226
 #
@@ -272,6 +272,8 @@ tpriv	public.moodboard_asset_color_ranges|anon	SIUD
 tpriv	public.moodboard_asset_color_ranges|authenticated	SIUD
 tpriv	public.moodboard_library_assets|anon	SIUD
 tpriv	public.moodboard_library_assets|authenticated	SIUD
+tpriv	public.moodboard_theme_templates|anon	SIUD
+tpriv	public.moodboard_theme_templates|authenticated	SIUD
 tpriv	public.nav_slot_override|anon	SIUD
 tpriv	public.nav_slot_override|authenticated	SIUD
 tpriv	public.notifications|anon	SIUD
@@ -1941,6 +1943,7 @@ col	public.events.ceremony_sub_type	anon=SIU authenticated=SIU
 col	public.events.ceremony_type	anon=SIU authenticated=SIU
 col	public.events.ceremony_type_locked_at	anon=SIU authenticated=SIU
 col	public.events.ceremony_type_locked_by	anon=SIU authenticated=SIU
+col	public.events.ceremony_venue_setting	anon=- authenticated=SU
 col	public.events.cleared_at	anon=S authenticated=S
 col	public.events.cleared_by_user_id	anon=S authenticated=S
 col	public.events.community_id	anon=S authenticated=S
@@ -2020,6 +2023,7 @@ col	public.events.monogram_updated_at	anon=SIU authenticated=SIU
 col	public.events.monogram_uploaded_svg	anon=SIU authenticated=SIU
 col	public.events.mood_board_updated_at	anon=SIU authenticated=SIU
 col	public.events.mood_feel_key	anon=SIU authenticated=SIU
+col	public.events.moodboard_style_family	anon=- authenticated=SU
 col	public.events.moodboard_theme_description	anon=- authenticated=SU
 col	public.events.moodboard_theme_name	anon=- authenticated=SU
 col	public.events.music_playlist_seed	anon=SIU authenticated=SIU
@@ -2623,6 +2627,16 @@ col	public.moodboard_library_assets.source	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.storage_path	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.style_theme	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.uploaded_by	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.created_at	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.description	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.mood_tag	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.name	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.reception_design	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.role_palette	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.sort_order	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.style_family	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.template_id	anon=SIU authenticated=SIU
+col	public.moodboard_theme_templates.updated_at	anon=SIU authenticated=SIU
 col	public.nav_slot_override.custom_url	anon=SIU authenticated=SIU
 col	public.nav_slot_override.icon_kind	anon=SIU authenticated=SIU
 col	public.nav_slot_override.is_hidden	anon=SIU authenticated=SIU
@@ -5697,6 +5711,8 @@ policy	public.moodboard_library_assets|moodboard_library_assets_vendor_delete_ow
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((uploaded_by = auth.uid()) AND (source = 'stylist_upload'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))))
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_select_own	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((uploaded_by = auth.uid()) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type))))) check=NULL
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_update_own	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=((uploaded_by = auth.uid()) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type))))) check=(uploaded_by = auth.uid())
+policy	public.moodboard_theme_templates|moodboard_theme_templates_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type)))))
+policy	public.moodboard_theme_templates|moodboard_theme_templates_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.nav_slot_override|nav_slot_override_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.nav_slot_override|nav_slot_override_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
 policy	public.notifications|notifications_recipient_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = auth.uid()) check=NULL

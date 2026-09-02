@@ -13,6 +13,7 @@ import {
   buildPrompt,
   type PartId,
 } from './reception-scene';
+import { VENUE_SETTINGS, AMBIGUOUS_VENUE_SETTING } from './venue-settings';
 
 test('sanitizeReceptionDesign: keeps only known part → attr → valid option ids', () => {
   const out = sanitizeReceptionDesign({
@@ -100,6 +101,67 @@ test('buildPrompt folds in the new zones’ prompt phrases', () => {
   assert.match(prompt, /floral garlands along the side walls/);
   assert.match(prompt, /step-and-repeat photo wall/);
   assert.match(prompt, /easel welcome sign/);
+});
+
+// ── THE RECEPTION VENUE (owner 2026-09-03: "venue is 2. ceremony and
+// reception"). buildPrompt referenced the venue ZERO times, so a garden wedding
+// and a ballroom wedding produced a byte-identical brief and the couple paid
+// for whichever room the model felt like. ───────────────────────────────────
+
+test('buildPrompt names the reception venue the couple chose', () => {
+  const prompt = buildPrompt({}, [], undefined, { setting: 'garden' });
+  assert.match(
+    prompt,
+    /elegant Filipino wedding reception in an outdoor garden\./,
+    'The brief does not name the garden, so a paid render can come back a ballroom.',
+  );
+});
+
+test('buildPrompt distinguishes every reception venue from every other', () => {
+  // Not "each one produces something" — each one must produce something
+  // DIFFERENT. A phrase map that returned the same string twice would satisfy a
+  // per-value match test while making two venues indistinguishable to the model.
+  const prompts = VENUE_SETTINGS.filter((s) => s !== AMBIGUOUS_VENUE_SETTING).map((setting) =>
+    buildPrompt({}, [], undefined, { setting }),
+  );
+  assert.equal(new Set(prompts).size, prompts.length, 'two reception venues brief identically');
+});
+
+test('buildPrompt will NOT assert a ballroom it cannot prove', () => {
+  // `banquet_hall` is what both writers stamp when the couple never answered,
+  // so reading it is not evidence. The brief falls back to the generic opening —
+  // less specific, never wrong.
+  const unproven = buildPrompt({}, [], undefined, { setting: AMBIGUOUS_VENUE_SETTING });
+  assert.doesNotMatch(unproven, /hotel ballroom/);
+  assert.match(unproven, /elegant Filipino wedding reception\. /);
+  // With real evidence it says so.
+  const proven = buildPrompt({}, [], undefined, {
+    setting: AMBIGUOUS_VENUE_SETTING,
+    chosen: true,
+  });
+  assert.match(proven, /elegant Filipino wedding reception in a hotel ballroom\./);
+});
+
+test('a ceremony-only venue is never briefed as a reception room', () => {
+  // civil_registrar left the reception vocabulary on 2026-09-03. Even if a stale
+  // row or caller hands it over, the brief must not depict a banquet inside a
+  // registrar's office.
+  const prompt = buildPrompt({}, [], undefined, { setting: 'civil_registrar', chosen: true });
+  assert.doesNotMatch(prompt, /registrar/i);
+  assert.match(prompt, /elegant Filipino wedding reception\. /);
+});
+
+test('omitting the venue reproduces the pre-2026-09-03 brief exactly', () => {
+  // The additive guarantee: every existing call site keeps its output, so this
+  // change cannot alter a render nobody asked it to alter.
+  const design = { ceiling: { treatment: 'chandeliers' } };
+  const palette = ['#C9A059'];
+  assert.equal(buildPrompt(design, palette), buildPrompt(design, palette, undefined, undefined));
+  assert.equal(
+    buildPrompt(design, palette),
+    buildPrompt(design, palette, undefined, { setting: null }),
+  );
+  assert.match(buildPrompt(design, palette), /^Photorealistic editorial photograph of an elegant Filipino wedding reception\. /);
 });
 
 // ── multi-select (owner 2026-09-03: "on reception design, needs to be able to

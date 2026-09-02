@@ -25,6 +25,8 @@
  * returns the whole list for the callers that can show all of them.
  */
 
+import { receptionVenuePhrase } from './venue-settings';
+
 export type PartId =
   | 'ceiling'
   | 'backdrop'
@@ -1440,10 +1442,43 @@ export function renderVenueSvg(
 }
 
 /** Assemble a stylist-brief prompt from the design — drives the AI render. */
+/**
+ * What the caller knows about the couple's RECEPTION venue.
+ *
+ * ── WHY THIS IS NOT JUST A STRING ───────────────────────────────────────────
+ * `buildPrompt` drives a PAID photoreal render, and `events.venue_setting` is a
+ * column where "the couple chose a ballroom" and "the couple never answered"
+ * are the SAME BYTES. Not because of a column default — that was dropped in
+ * 20260521080000 — but because both writers stamp `banquet_hall` when nothing
+ * was picked (`create-event/actions.ts`'s `?? 'banquet_hall'`, and
+ * `onboarding/wedding/actions.ts`'s `DEFAULT_VENUE`, whose comment says "the
+ * couple refines it later"). Meanwhile `events_wedding_fields_consistency`
+ * forbids NULL on a wedding row, so there is nowhere for "unknown" to live.
+ *
+ * So a caller that has only read the column cannot honestly claim a ballroom.
+ * `receptionVenuePhrase` refuses that one value unless `chosen` is passed, and
+ * `chosen` is a claim about EVIDENCE — a submission in this same request, or a
+ * surface that showed the couple the venue and had it confirmed — never just
+ * "I read the row."
+ */
+export type ReceptionVenue = {
+  /** `events.venue_setting` as stored. */
+  setting: string | null | undefined;
+  /** True only with positive evidence the couple actually picked it. */
+  chosen?: boolean;
+};
+
+/**
+ * @param venue The reception venue, when the caller has one. OMITTING IT keeps
+ *   the exact brief this function produced before venues existed here, so every
+ *   existing call site is unchanged — and so is the output for any venue that
+ *   cannot be honestly asserted.
+ */
 export function buildPrompt(
   design: ReceptionDesign,
   palette: string[],
   roleColors?: RoleColors,
+  venue?: ReceptionVenue,
 ): string {
   const phrases: string[] = [];
   for (const part of RECEPTION_PARTS) {
@@ -1487,8 +1522,16 @@ export function buildPrompt(
   // couple can see in their own swatch strip.
   const colors = palette.filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 5);
   const colorClause = colors.length ? ` Venue color palette: ${colors.join(', ')}.` : '';
+  // THE RECEPTION VENUE — this function referenced it zero times until
+  // 2026-09-03, so a garden wedding and a ballroom wedding produced a
+  // byte-identical brief and the couple paid for whichever room the model felt
+  // like. `receptionVenuePhrase` returns null rather than guess (see
+  // ReceptionVenue above), and a null simply restores the generic opening this
+  // line has always had — the render is less specific, never wrong.
+  const venuePhrase = receptionVenuePhrase(venue?.setting, { chosen: venue?.chosen });
+  const venueClause = venuePhrase ? ` ${venuePhrase}` : '';
   return (
-    `Photorealistic editorial photograph of an elegant Filipino wedding reception. ` +
+    `Photorealistic editorial photograph of an elegant Filipino wedding reception${venueClause}. ` +
     `Recreate the exact layout and structure of the reference image as a real photo, featuring ` +
     phrases.join(', ') +
     `.${colorClause} Soft warm lighting, refined, high detail.`

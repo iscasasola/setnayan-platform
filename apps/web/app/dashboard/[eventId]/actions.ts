@@ -894,10 +894,13 @@ type GovernedFieldResult =
   | { ok: true }
   | { ok: false; code: 'invalid_input' | 'unauthorized' | 'db_error'; message: string };
 
-// events.venue_setting CHECK (migration 20260521000000) — the only 7 values
-// the DB accepts for a wedding. The editor offers exactly these; the richer
-// VENUE_LABEL keys (hotel_ballroom, etc.) are display-only legacy and would
-// violate the CHECK on write.
+// events.venue_setting CHECK (latest: migration 20271197508087) — the only
+// RECEPTION values the DB accepts for a wedding. The editor offers exactly
+// these; the richer VENUE_LABEL keys (hotel_ballroom, etc.) are display-only
+// legacy and would violate the CHECK on write.
+//
+// `civil_registrar` was removed 2026-09-03: it is a CEREMONY venue and now
+// lives in ALLOWED_CEREMONY_VENUE_SETTINGS below.
 const ALLOWED_VENUE_SETTINGS = [
   'banquet_hall',
   'restaurant',
@@ -906,9 +909,27 @@ const ALLOWED_VENUE_SETTINGS = [
   'destination',
   'heritage',
   'outdoor_tent',
-  'civil_registrar',
 ] as const;
 type AllowedVenueSetting = (typeof ALLOWED_VENUE_SETTINGS)[number];
+
+// events.ceremony_venue_setting CHECK (migration 20271197508087) — where the
+// couple MARRIES, complementing events.ceremony_type (the RITE).
+//
+// The empty string is accepted by the action below and stored as NULL: unlike
+// venue_setting, this column is nullable on purpose, so "I haven't decided"
+// is a state a couple can actually return to.
+const ALLOWED_CEREMONY_VENUE_SETTINGS = [
+  'church',
+  'chapel',
+  'mosque',
+  'temple',
+  'civil_registrar',
+  'garden',
+  'beach',
+  'ancestral_house',
+  'hotel_venue',
+] as const;
+type AllowedCeremonyVenueSetting = (typeof ALLOWED_CEREMONY_VENUE_SETTINGS)[number];
 
 export async function updateVenueSetting(formData: FormData): Promise<GovernedFieldResult> {
   const eventId = formData.get('event_id');
@@ -951,6 +972,79 @@ export async function updateVenueSetting(formData: FormData): Promise<GovernedFi
     target_id: eventId,
     before_json: before ?? null,
     after_json: { venue_setting },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/details`, 'layout');
+  return { ok: true };
+}
+
+/**
+ * The CEREMONY venue — where the couple marries.
+ *
+ * Copied from `updateVenueSetting` above, deliberately and almost line for
+ * line: same host gate, same admin write, same audit row, same revalidations.
+ * The two fields sit side by side on the same card and behave identically, and
+ * a second idiom for the same interaction is how they drift apart.
+ *
+ * THE ONE REAL DIFFERENCE: an empty submission is VALID and clears the field to
+ * NULL. `venue_setting` cannot do that (events_wedding_fields_consistency
+ * requires it on every wedding row), which is exactly why "banquet_hall" and
+ * "never said" became the same bytes over there. Here a couple who has not
+ * decided — or who wants to un-decide — has a state to be in.
+ *
+ * No vendor-confirmed hard gate, matching venue + guest count: the conflict
+ * preview is the soft warning and this editor only renders when no vendor is
+ * confirmed.
+ */
+export async function updateCeremonyVenueSetting(
+  formData: FormData,
+): Promise<GovernedFieldResult> {
+  const eventId = formData.get('event_id');
+  const venueRaw = formData.get('ceremony_venue_setting');
+  if (typeof eventId !== 'string' || !eventId) {
+    return { ok: false, code: 'invalid_input', message: 'event_id required' };
+  }
+  if (typeof venueRaw !== 'string') {
+    return { ok: false, code: 'invalid_input', message: 'Invalid ceremony venue' };
+  }
+  const trimmed = venueRaw.trim();
+  if (
+    trimmed !== '' &&
+    !ALLOWED_CEREMONY_VENUE_SETTINGS.includes(trimmed as AllowedCeremonyVenueSetting)
+  ) {
+    return { ok: false, code: 'invalid_input', message: 'Invalid ceremony venue' };
+  }
+  const ceremony_venue_setting: string | null = trimmed === '' ? null : trimmed;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, code: 'unauthorized', message: 'Sign in required' };
+  if (!(await isEventHost(supabase, eventId, user.id))) {
+    return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };
+  }
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('events')
+    .select('ceremony_venue_setting')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const { error } = await admin
+    .from('events')
+    .update({ ceremony_venue_setting })
+    .eq('event_id', eventId);
+  if (error) return { ok: false, code: 'db_error', message: error.message };
+
+  await admin.from('admin_audit_log').insert({
+    action: 'ceremony_venue_setting_updated',
+    target_table: 'events',
+    target_id: eventId,
+    before_json: before ?? null,
+    after_json: { ceremony_venue_setting },
     actor_user_id: user.id,
   });
 

@@ -33,31 +33,6 @@
   }
 }
 
-/* ── The photo rail: the day this room becomes, drifting past. Paused on
-      hover and focus-within so nobody has to chase a moving target. ─────── */
-.pa3d-rail-track {
-  width: max-content;
-  animation: pa3d-drift 46s linear infinite;
-  will-change: transform;
-}
-
-.pa3d-rail:hover .pa3d-rail-track,
-.pa3d-rail:focus-within .pa3d-rail-track {
-  animation-play-state: paused;
-}
-
-/* Exactly -50%: the track holds the photo list twice, so half a loop lands on
-   the duplicate in the same position and the seam is invisible. Change the
-   duplication and this number changes with it. */
-@keyframes pa3d-drift {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
 /* ── Cards lift toward the reader on hover. Transform only — no layout
       property animates, so this cannot reflow the page mid-scroll. ──────── */
 .pa3d-lift {
@@ -82,20 +57,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pa3d-kb img,
-  .pa3d-rail-track {
+  .pa3d-kb img {
     animation: none !important;
   }
 
   /* The Ken Burns end-state is a crop, not a pose — hold the plain frame. */
   .pa3d-kb img {
     transform: none;
-  }
-
-  /* Without the drift the rail is a normal, swipeable row of photographs. */
-  .pa3d-rail-track {
-    width: auto;
-    overflow-x: auto;
   }
 
   .pa3d-lift,

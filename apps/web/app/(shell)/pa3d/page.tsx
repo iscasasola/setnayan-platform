@@ -45,7 +45,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Reveal, Blob } from '@/app/_components/marketing/_motion';
-import { KenBurns, PhotoRail } from './_pa3d-motion';
+import { KenBurns } from './_pa3d-motion';
+import { PartsFilms } from './_pa3d-parts';
 import { studioDescription } from '@/lib/studio-apps';
 import { Pa3dRoom } from './_pa3d-room';
 
@@ -188,23 +189,43 @@ const STEPS = [
   },
 ];
 
-/** Real photographs from the sample wedding — the day the room becomes. */
-const RAIL = [
-  { src: '/demo/maria-jose/ceremony.webp', alt: 'The ceremony' },
-  { src: '/demo/maria-jose/reception.webp', alt: 'The reception, set' },
-  { src: '/demo/maria-jose/toast.webp', alt: 'A toast at the table' },
-  { src: '/demo/maria-jose/firstdance.webp', alt: 'The first dance' },
-  { src: '/demo/maria-jose/details.webp', alt: 'Place settings and details' },
-  { src: '/demo/maria-jose/wall-2.webp', alt: 'Guests together on the floor' },
-  { src: '/demo/maria-jose/wall-5.webp', alt: 'A candid from a guest’s seat' },
-  { src: '/demo/maria-jose/wall-8.webp', alt: 'Late in the night' },
+/**
+ * The parts the room is standing up FROM. Each film is a recording of the real
+ * app (public/add-ons/demo — see that folder's README), so it cannot drift.
+ * The seat plan is deliberately not one of them: it is not another part, it is
+ * the floor everything else lands on, which is what the lede says.
+ */
+const PARTS = [
+  {
+    slug: 'mood-board',
+    title: 'Your mood board',
+    line: 'The palette you chose dresses the whole room — linens, florals, the light.',
+  },
+  {
+    slug: 'indoor-blueprint',
+    title: 'Your venue',
+    line: 'The real shape of the space, doors and all — not a generic box.',
+  },
+  {
+    slug: 'custom-qr-guest',
+    title: 'Your guest list',
+    line: 'Everyone gets a seat, and their own code to walk in through.',
+  },
 ] as const;
 
+/**
+ * What 3D Plan gives that a PRINTED seat plan cannot (owner 2026-09-02:
+ * *"the vendors, the interactive guide where to seat, the mood of the place,
+ * the over all look"*). Named concretely rather than abstractly — "a room you
+ * can stand inside" is true and tells a couple nothing they can picture.
+ * Left column is the printed chart, right is the room.
+ */
 const VS = [
-  ['A flat chart from above', 'A room you can stand inside'],
-  ['Guess what each guest sees', 'See it from any seat'],
-  ['Surprises on the day', 'Fixes while there’s still time'],
-  ['Picture it in your head', 'Show everyone the same room'],
+  ['A name in a list', 'Walks each guest to their own chair'],
+  ['Your suppliers, nowhere on it', 'Their booths, standing in the room'],
+  ['Colours you have to describe', 'Your mood board, on the linens and the light'],
+  ['A layout', 'The whole look of the night, before it is built'],
+  ['Printed once, then wrong', 'Changes the moment you move a table'],
 ] as const;
 
 export default function ThreeDPlanLandingPage() {
@@ -254,24 +275,37 @@ export default function ThreeDPlanLandingPage() {
         </p>
       </section>
 
-      {/* ── THE DAY IT BECOMES ────────────────────────────────────────────
-          Photographs, drifting. One line of copy, because the pictures are
-          the argument here and text would only get in their way. */}
-      <section className="mt-16" aria-label="The day the room becomes">
-        <p className="mx-auto max-w-2xl font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
-          The room, hours later
+      {/* ── THE PARTS, ARRIVING ───────────────────────────────────────────
+          Owner 2026-09-02: a rail of real wedding photographs "is like a photo
+          gallery", and it sold the wrong product. 3D Plan is the INTEGRATIVE
+          surface — this section shows the parts it stands the room up from,
+          each as a recording of the real app. */}
+      <section className="mx-auto mt-16 max-w-2xl" aria-label="What the room is built from">
+        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+          Nothing new to build
         </p>
-        <div className="mt-4">
-          <PhotoRail photos={RAIL} />
-        </div>
+        <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+          Your reception, standing up from what you already made.
+        </h2>
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
+          Your seat plan is the floor. Everything else you have already filled in walks in with it.
+        </p>
+        <PartsFilms parts={PARTS} />
+        <p className="mt-4 text-sm text-[var(--m-slate-2)]">
+          Turn <span className="font-medium text-[var(--m-ink)]">their colours</span> off and on in
+          the room above — that is the mood board, live, re-dressing the space.
+        </p>
       </section>
 
       {/* ── THE ARGUMENT ──────────────────────────────────────────────────
           Below the room on purpose: having just stood in it, the contrast is
           something they felt rather than something we claimed. */}
-      <section className="mx-auto mt-16 max-w-2xl" aria-label="Why a room beats a chart">
-        <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
-          A plan tells you who sits where. A room tells you how it feels.
+      <section className="mx-auto mt-16 max-w-2xl" aria-label="What 3D Plan gives beyond a printed seat plan">
+        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+          Beyond a printed seat plan
+        </p>
+        <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+          A chart says who sits where. A room shows them the night.
         </h2>
         <dl className="mt-5 border-t border-[var(--m-line)]">
           {VS.map(([flat, room]) => (

@@ -111,3 +111,45 @@ three lost controls as three readable lines, which is that guard's whole point.
 
 Verified: typecheck ✅ · lint ✅ · 11,882 unit tests ✅ · all 29 CI guards ✅ ·
 rendered and inspected on a local dev server.
+
+## 2026-09-02 · fix(pa3d): the parts, not a photo gallery — and what a printed plan cannot do
+
+Two owner corrections, both about what the page is actually claiming.
+
+**"The room, hours later is like a photo gallery. The goal of 3D Plan is to
+create the interactive environment for the different parts it is integrated to.
+Letting them see their virtual reception."**
+
+The drifting rail of eight real wedding photographs was attractive and sold the
+wrong product — **a gallery of somebody's wedding day argues for photography.**
+3D Plan is the integrative surface: the seat plan, the venue shape, the mood
+board and the guest list stop being four screens and become one room you walk.
+
+So the section now shows the **parts arriving**, each as a looping recording of
+the real app already in `public/add-ons/demo/` — mood board, indoor blueprint,
+custom QR per guest. Those are recordings of the same live scenes the Studio
+cards render (see that folder's README), so they cannot drift from the product;
+no mock-ups were made. The seat plan is deliberately not one of the three: it is
+not another part, it is the floor the others land on, and the lede says so. The
+section closes by pointing at the live toggle in the room above — the mood board
+re-dressing the space is the integration, demonstrable in one tap.
+
+`PhotoRail` and its CSS were deleted rather than left dead.
+
+**"Share what the 3D Plan offers beyond what is found on normal printed seat
+plans? Like the vendors, the interactive guide where to seat, the mood of the
+place, the overall look."**
+
+The comparison rows were abstractly true and concretely useless — *"a room you
+can stand inside"* tells a couple nothing they can picture. Rewritten against a
+printed chart, naming the four things asked for:
+
+| A printed seat plan | 3D Plan |
+|---|---|
+| A name in a list | Walks each guest to their own chair |
+| Your suppliers, nowhere on it | Their booths, standing in the room |
+| Colours you have to describe | Your mood board, on the linens and the light |
+| A layout | The whole look of the night, before it is built |
+| Printed once, then wrong | Changes the moment you move a table |
+
+Verified: typecheck ✅ · lint ✅ · 11,882 unit tests ✅ · all 29 CI guards ✅

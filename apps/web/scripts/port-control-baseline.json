@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f3922f56f",
+  "generatedFromRef": "1463d2584",
   "routeCount": 413,
   "destinations": 888,
   "actions": 619,
-  "blocks": 4184,
+  "blocks": 4186,
   "routes": {
     "/": {
       "files": [
@@ -277,6 +277,7 @@
     "/(shell)/pa3d": {
       "files": [
         "(shell)/pa3d/_pa3d-motion.tsx",
+        "(shell)/pa3d/_pa3d-parts.tsx",
         "(shell)/pa3d/_pa3d-room.tsx",
         "(shell)/pa3d/loading.tsx",
         "(shell)/pa3d/page.tsx"
@@ -287,16 +288,18 @@
       "actions": [],
       "blocks": [
         "Blob",
+        "HTMLVideoElement",
         "Image",
         "KenBurns",
         "Link",
         "Pa3dRoom",
+        "Part",
+        "PartFilm",
+        "PartsFilms",
         "Phase",
-        "PhotoRail",
         "Plan3DGuestQr",
         "Plan3DScene",
         "Plan3DSceneLoader",
-        "RailPhoto",
         "Reveal"
       ]
     },

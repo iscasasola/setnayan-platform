@@ -39,11 +39,13 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { loadSources, type Source } from './gate-writers';
 
 const WEB = path.join(__dirname, '..');
+const MIGRATIONS = path.join(__dirname, '..', '..', '..', 'supabase', 'migrations');
 const DOOR = 'lib/scan-trail.ts';
 
 /**
@@ -145,6 +147,30 @@ test('the declared readers are still real — a stale allowlist hides the next w
     [],
     `These allowlist lines no longer match a file that mentions scan_events and ` +
       `should be deleted:\n  ${stale.join('\n  ')}`,
+  );
+});
+
+test('NO DATABASE FUNCTION WRITES THE TRAIL — the most plausible fifth door', () => {
+  // `tests/db/gates-have-handles.db.test.ts` records that in this codebase
+  // "every guest-side write goes through a SECURITY DEFINER function, since a
+  // guest has no auth.uid()". So the likeliest way a scan gets recorded behind
+  // a guest's back is not TypeScript at all — it is SQL, where `recordScan`
+  // cannot reach and where the two nets above are blind.
+  //
+  // There is no such function today (measured 2026-09-02). If one is ever
+  // wanted, the opt-out has to be checked INSIDE it, and this assertion is
+  // where that gets argued rather than discovered.
+  const files = fs.readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql'));
+  assert.ok(files.length > 100, `only ${files.length} migrations found — the path is wrong`);
+
+  const writers = files.filter((f) =>
+    /insert\s+into\s+(public\.)?scan_events/i.test(fs.readFileSync(path.join(MIGRATIONS, f), 'utf8')),
+  );
+  assert.deepEqual(
+    writers,
+    [],
+    'These migrations write scan_events from SQL, where the guest opt-out is not ' +
+      `checked. Read guests.scan_tracking_opt_out inside the function:\n  ${writers.join('\n  ')}`,
   );
 });
 

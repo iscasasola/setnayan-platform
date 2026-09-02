@@ -81,22 +81,20 @@ function PartFilm({ slug, title }: { slug: string; title: string }) {
     };
   }, []);
 
-  /* ⚠ THESE CLIPS ARE HALF EMPTY, AND IT IS NOT A CSS PROBLEM.
-     Measured by drawing a frame to a canvas and scanning it: content ends at
-     x=229 of 460 — EXACTLY half — on every clip tested (papic, mood-board,
-     indoor-blueprint, custom-qr-guest, save-the-date). The deployed
-     `papic.mp4` is byte-identical to the repo's, so `/papic` has been showing
-     a half-grey film in its "this is all of it" section too. That is a bug in
-     the capture pipeline (`scripts/capture-demo-videos.mjs`), reported
-     separately — fixing it here would be fixing it in the wrong place.
-     
-     Until the assets are recaptured, this frame CROPS to the live half: the
-     element is rendered at double the window's width and pinned left, so the
-     grey never enters the box. Recapturing the clips full-width makes this
-     crop harmless (it would simply show the left half of a full frame), so
-     this does not have to be unwound in lock-step. */
+  /* The clip is a 9:19 phone recording (460×972), so the frame is its own
+     ratio — nothing is cropped or letterboxed and it reads as what it is: the
+     app, running on a phone.
+
+     🔑 THIS USED TO CROP TO THE LEFT HALF, and the reason is worth keeping:
+     every clip under public/add-ons/demo shipped three quarters empty, because
+     the recorder composited a 230×486 page into a 460×972 canvas and padded
+     the rest (Playwright only ever scales a page DOWN). Fixed at the source in
+     #5109 and the clips recaptured in #5119 — measured here before the crop
+     was removed: the right half of a frame went from 3,403 bytes of flat grey
+     to 29,773 bytes of real UI. `lint-demo-capture-geometry` guards the cause,
+     so this can go back to being a plain frame. */
   return (
-    <div className="relative h-[240px] w-[124px] flex-none overflow-hidden rounded-xl border border-[var(--m-line)] sm:h-[260px] sm:w-[136px]">
+    <div className="aspect-[460/972] w-[124px] flex-none overflow-hidden rounded-xl border border-[var(--m-line)] sm:w-[136px]">
       <video
         ref={ref}
         src={`/add-ons/demo/${slug}.mp4`}
@@ -108,7 +106,7 @@ function PartFilm({ slug, title }: { slug: string; title: string }) {
         preload="metadata"
         controls={needsControls}
         aria-label={`${title}, running in the app`}
-        className="absolute left-0 top-0 h-auto w-[248px] max-w-none sm:w-[272px]"
+        className="h-full w-full object-cover"
       />
     </div>
   );

@@ -175,3 +175,28 @@ Until they are recaptured this page CROPS to the live half: the video renders
 at double the window width, pinned left, so the grey never enters the box.
 Recapturing full-width leaves the crop harmless — it would simply show the left
 half of a full frame — so the two changes do not have to land in lock-step.
+
+## 2026-09-03 · chore(pa3d): the part films drop their crop — the clips are whole now
+
+`_pa3d-parts.tsx` rendered each film at double the window width, pinned left, so
+the grey right half never entered the box. That was a workaround for an asset
+bug, documented as such and explicitly marked harmless-once-fixed.
+
+It is fixed. #5109 corrected the recorder geometry and #5119 recaptured all 13
+clips. Measured on this branch after merging main, before removing anything:
+the right half of a `mood-board` frame is **29,773 bytes** of real UI where it
+was **3,403 bytes** of flat grey.
+
+So the frame goes back to being a plain 9:19 box with `object-cover` — nothing
+cropped, nothing letterboxed. The reason it ever cropped is kept in the
+docblock, because the number is the only thing that makes "this can be removed"
+checkable rather than assumed.
+
+Also merges 34 commits of `main`. One conflict, `port-control-baseline.json` —
+generated, so resolved the only correct way: take main's, then REGENERATE for
+the merged tree (413 routes / 881 destinations / 4,194 blocks). Both `/pa3d` and
+`/pa3d/try` are present in the regenerated baseline, and the port guard confirms
+no route lost a control.
+
+Verified on the MERGED tree: typecheck ✅ · lint ✅ · 12,109 unit tests ✅ ·
+guards ✅

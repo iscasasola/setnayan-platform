@@ -182,6 +182,22 @@ export type Lab3DPalette = {
   table: string;
   accent: string;
   wall: string;
+  /**
+   * The couple's EXPLICIT room-dressing overrides, and only those. Both are
+   * OPTIONAL on purpose: absent means "they did not set one", and every
+   * consumer falls back to exactly what it rendered before these existed. That
+   * makes "no override changes nothing" structural rather than a promise
+   * somebody has to keep — `DEMO_PALETTES` and `resolvePalette` never set them.
+   *
+   * ⚠ DO NOT FILL THESE FROM `resolveRoomDressing`'s DERIVED VALUES. That
+   * helper also derives a colour when the couple set none, and it derives
+   * DIFFERENT slots than the scene renders: chairs from reception[2] where the
+   * room uses `wall` (reception[3]), and florals from raw reception[0] where
+   * the room uses a lightened mix of the accent. Filling these with derived
+   * values would silently restyle every existing room. Overrides only.
+   */
+  chairs?: string;
+  florals?: string;
 };
 
 export type Vec2 = { x: number; z: number };
@@ -2084,6 +2100,13 @@ export function resolvePaletteFromRoles(rp: RolePalette): Lab3DPalette {
     ...base,
     table:   rd.linens ?? base.table,
     ambient: rd.lighting_warmth ?? base.ambient,
+    // The other two halves of the same editor. `linens` and `lighting_warmth`
+    // have always landed here; `chairs` and `florals` were saved by the palette
+    // editor, preserved by `sanitizeRolePalette`, and then read by NOTHING — a
+    // couple set a chair colour and a floral colour and the room never changed.
+    // Passed through only when the couple actually set one (see the type note).
+    ...(rd.chairs ? { chairs: rd.chairs } : {}),
+    ...(rd.florals ? { florals: rd.florals } : {}),
   };
 }
 

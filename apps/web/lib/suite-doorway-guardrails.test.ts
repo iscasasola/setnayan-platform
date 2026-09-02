@@ -324,40 +324,49 @@ test('a retired part-card keeps its entry, its label and a working doorway', () 
   }
 });
 
-test('the Your Website card MOUNTS both chips, and they are two different places', () => {
-  // Mounted, not merely defined: the chips must reach the card. A guard that
-  // only proves the array exists passes while the prop is unwired.
-  const chipBlock = suiteSource.match(/const websiteChips[\s\S]*?\n  \];/);
-  assert.ok(chipBlock, 'suite/page.tsx must define websiteChips');
-  assert.match(
+test('the Your Website card carries NO chips, because its landing already does', () => {
+  /*
+    ⭐ THE CHIPS WERE RETIRED 2026-09-02 (owner ruling — "if it is the same then
+    adjust"). Until then the card opened the `/website` hub and carried two
+    deep-link chips, "Event page" and "Editorial"; the hub was the map and the
+    chips were the shortcuts. The card now opens the Event Hub CONTROLLER, whose
+    own "set once" strip carries both of those destinations by name — so a chip
+    would be a second control for a door already visible one tap in, the exact
+    "distinction a couple can see is fake" the 2026-08-14 verdict removed.
+
+    🔑 THE CHIPS WERE ONLY EVER ABOUT REACHABILITY, so that is what is pinned
+    now — not their absence alone. An assertion that merely counted zero chips
+    would still pass on the day somebody strips the controller's strip and
+    leaves both editors reachable from nowhere.
+  */
+  assert.doesNotMatch(
     suiteSource,
-    /links=\{a\.key === 'landing-page' \? websiteChips : undefined\}/,
-    'websiteChips is defined but never passed to the card — the chips would not render',
+    /const websiteChips/,
+    'the website chips came back — the card opens a controller that already shows both doors',
   );
-  const hrefs = (chipBlock![0].match(/href: `[^`]+`/g) ?? []).map((h) =>
-    h.slice(7, -1).replace('${eventId}', EVT),
+  assert.doesNotMatch(
+    suiteSource,
+    /links=\{a\.key === 'landing-page'/,
+    'a chip list is being mounted on the Your Website card again',
   );
-  assert.equal(hrefs.length, 2, 'the verdict specifies exactly two chips');
-  assert.equal(
-    new Set(hrefs).size,
-    2,
-    'both chips point at the SAME url — that is a distinction a couple can see is fake',
-  );
-  for (const h of hrefs) {
-    assert.ok(routeExists(h), `chip href has no page: ${h}`);
-  }
-  // …and none may collide with the CARD's own destination. Checking the chips
-  // only against EACH OTHER misses the likelier mistake: the card opens the
-  // editor and the first chip is labelled "Event page" pointing at the same
-  // editor. (That is exactly what this card did before 2026-08-14, when
-  // appStoreDetailHref carried a landing-page special case.)
+
+  // The card's own destination is the controller…
   const cardHref = appStoreDetailHref('landing-page', EVT);
-  for (const h of hrefs) {
-    assert.notEqual(
-      h,
-      cardHref,
-      `a chip points at the card's own destination (${cardHref}) — the chip adds nothing`,
+  assert.equal(cardHref, `/dashboard/${EVT}/launch`, 'the card no longer opens the controller');
+  assert.ok(routeExists(cardHref), 'the card opens a route that does not exist');
+
+  // …and the controller still carries what the two chips used to reach. If it
+  // stops, this fails and the chips (or something better) have to come back.
+  const controller = fs.readFileSync(
+    path.join(APP_DIR, 'dashboard', '[eventId]', 'launch', 'page.tsx'),
+    'utf8',
+  );
+  for (const door of ['/website/editor', '/website/editorial']) {
+    assert.ok(
+      controller.includes(`\${base}${door}`),
+      `the controller no longer links ${door} — the retired chip was that page's last shortcut`,
     );
+    assert.ok(routeExists(`/dashboard/${EVT}${door}`), `${door} lost its route`);
   }
 });
 

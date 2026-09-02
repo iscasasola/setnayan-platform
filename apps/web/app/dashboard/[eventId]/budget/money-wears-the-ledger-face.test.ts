@@ -102,6 +102,18 @@ const PROSE_BILL: ReadonlyArray<{
       'figures and its Next-payments column are both in the ledger face.',
   },
   {
+    file: 'budget/_components/budget-ledger-table.tsx',
+    count: 5,
+    reason:
+      'BA3. Five sentences, and only sentences: the overpaid warning ("₱5,000 has been handed ' +
+      'over beyond what was agreed"), and the absorption disclosure\'s four in-sentence amounts ' +
+      '("Catering is ₱30,000 more than you planned", the two "₱X is not covered anywhere" ' +
+      'branches, and "₱17,940 of that cover comes from Reception venue"). The COLUMN this screen ' +
+      'is about — Planned · Agreed · Paid · Owed, per category, plus the totals row and the ' +
+      'per-row over/under figure that scans down the right edge — is in the ledger face with ' +
+      '`tabular-nums`, which is what the archetype governs.',
+  },
+  {
     file: '_components/vendor-itemization-card.tsx',
     count: 3,
     reason:

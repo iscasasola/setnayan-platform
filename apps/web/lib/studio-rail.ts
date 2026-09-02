@@ -79,6 +79,16 @@ export function railToolsSignedIn(
 ): ReadonlyArray<RailTool> {
   const { eventId, count, profile } = studio;
   const rows: RailTool[] = STUDIO_APPS.filter((a) => {
+    /*
+      ⛔ DO NOT DROP A PRODUCT ROW HERE TO DE-DUPE THE RAIL. Tried 2026-09-02
+      and reverted: `studio-menu-adapts-to-event.test.ts` reads THIS function as
+      the sidebar's half of an owner-ruled parity — "sidebar and Suite agree",
+      with exact row counts (wedding 9 · ceremonial 8 · simple_event 7 ·
+      date/hangout/travel 5). Removing a row here breaks that ruling for a
+      problem that does not live here: two rows opening ONE page is a MATCHING
+      question, and it is settled where the match list is built
+      (`front-door-shell.tsx`), leaving every rendered row intact.
+    */
     // Nothing is gated until we know WHICH event — the surface list is a
     // property of the event type, and without one there is nothing to ask.
     if (!eventId || !profile) return true;

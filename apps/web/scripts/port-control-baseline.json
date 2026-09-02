@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7bcacdeee",
+  "generatedFromRef": "7cb70db31",
   "routeCount": 413,
-  "destinations": 889,
+  "destinations": 881,
   "actions": 619,
-  "blocks": 4189,
+  "blocks": 4194,
   "routes": {
     "/": {
       "files": [
@@ -1164,6 +1164,7 @@
         "SceneLighting",
         "SeatDestinationMarker",
         "SeatedFigure",
+        "SitController",
         "StringLights",
         "THREE.Group",
         "THREE.Mesh",
@@ -4670,6 +4671,7 @@
     "/dashboard/[eventId]/budget": {
       "files": [
         "dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx",
+        "dashboard/[eventId]/budget/_components/budget-ledger-table.tsx",
         "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
         "dashboard/[eventId]/budget/_components/budget-setter.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
@@ -4688,21 +4690,26 @@
         "formAction"
       ],
       "blocks": [
+        "AbsorptionDisclosure",
         "AllocationConfig",
         "BudgetAllocationPlanner",
+        "BudgetLedgerTable",
         "BudgetLiveSummary",
         "BudgetLiveSummaryCard",
         "BudgetSetter",
         "BudgetSummaryStrip",
+        "Cell",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
         "DeniedState",
+        "DueRollup",
         "EmptyBudget",
         "EventMoney",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLFormElement",
         "LeafRow",
+        "LedgerRow",
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
@@ -4719,6 +4726,7 @@
         "SummaryStat",
         "TiltButton",
         "TiltEditor",
+        "TotalCell",
         "UnlocksHint",
         "UpcomingRow",
         "VendorItemizationCard"
@@ -7021,10 +7029,7 @@
         "dashboard/[eventId]/suite/loading.tsx",
         "dashboard/[eventId]/suite/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/website/editor",
-        "/dashboard/[seg]/website/editorial"
-      ],
+      "destinations": [],
       "actions": [
         "routes.dashboard.budget",
         "routes.dashboard.checklist",
@@ -7391,21 +7396,10 @@
         "dashboard/[eventId]/website/loading.tsx",
         "dashboard/[eventId]/website/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/invitation",
-        "/dashboard/[seg]/studio/guest-columns",
-        "/dashboard/[seg]/website/editor",
-        "/dashboard/[seg]/website/editorial",
-        "/dashboard/[seg]/website/our-story",
-        "/dashboard/[seg]/website/privacy"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "PageMasthead",
-        "PhasePart",
-        "QuickLink",
-        "RevealList"
+        "Link"
       ]
     },
     "/dashboard/[eventId]/website/colors": {
@@ -8240,6 +8234,7 @@
         "panood/control/[eventId]/_components/broadcast-window-strip.tsx",
         "panood/control/[eventId]/_components/camera-feeds.tsx",
         "panood/control/[eventId]/_components/channel-freshness.tsx",
+        "panood/control/[eventId]/_components/ingest-health-strip.tsx",
         "panood/control/[eventId]/_components/program-bridge.tsx",
         "panood/control/[eventId]/_components/setup-sheet.tsx",
         "panood/control/[eventId]/_components/toast-layer.tsx",
@@ -8277,6 +8272,7 @@
       "blocks": [
         "Banner",
         "BroadcastWindowStrip",
+        "CachedRead",
         "CameraFeedsContext.Provider",
         "CameraFeedsProvider",
         "ChannelFreshness",
@@ -8292,6 +8288,7 @@
         "HTMLElement",
         "HTMLVideoElement",
         "Icon",
+        "IngestHealthStrip",
         "InlineCheckoutDrawer",
         "Link",
         "LiveStudioRecordingsCard",

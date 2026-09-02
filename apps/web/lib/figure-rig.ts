@@ -872,3 +872,21 @@ export function dancePose(id: string, t: number, out?: Partial<Pose>): Partial<P
 export function damp(base: number, delta: number): number {
   return 1 - Math.pow(base, delta);
 }
+
+/**
+ * Shortest-arc angle lerp, so a heading never spins the long way round: a
+ * figure told to turn 190° turns -170° instead of whipping through 190°.
+ *
+ * Pairs with {@link damp} — `lerpAngle(current, target, damp(0.015, delta))`
+ * is the frame-rate-independent smooth-turn idiom the demo Walker and the
+ * remote-player renderer both use. Lives here for the same reason `damp` does:
+ * one definition, rather than each surface re-deriving it.
+ *
+ * ⚠ `plan3d-scene.tsx` still carries private copies of BOTH this and `damp`,
+ * predating this module. They are identical; consolidating them is a separate
+ * change (that file is large and its correctness is visual).
+ */
+export function lerpAngle(a: number, b: number, k: number): number {
+  const d = Math.atan2(Math.sin(b - a), Math.cos(b - a));
+  return a + d * k;
+}

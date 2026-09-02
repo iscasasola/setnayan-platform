@@ -96,6 +96,33 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
   // (cookie-only) joiners, who have no event_members row.
   await admin.from('event_members').delete().eq('event_id', eventId).eq('guest_id', guestId);
 
+  // ── RELEASE THE SEAT BEFORE THE SOFT-DELETE ──────────────────────────────
+  // `event_seat_assignments` has an ON DELETE CASCADE FK to `guests`, but we
+  // SOFT-delete here (set `deleted_at`), so the cascade never fires. Every other
+  // delete path in this app deletes the assignment explicitly for exactly this
+  // reason (see the note above `bulkSoftDeleteGuests` in ../groups-actions.ts);
+  // these two claims paths did not, and the row was left behind.
+  //
+  // 🔑 AN ORPHANED ASSIGNMENT IS INVISIBLE AND STILL COUNTS. Both seat editors
+  // join seats to LIVING guests, so the chair renders empty — but `computeAutoSeat`
+  // and `reconcileProvisionalSeats` read `event_seat_assignments` directly, so
+  // they still see it as occupied. That chair is never auto-filled again, and
+  // nothing on screen says why. The unique constraint is only
+  // (event_id, guest_id), so a manual drop onto it double-books the seat.
+  //
+  // Unlisted joiners DO get seats: `applyReconcileForEvent` gap-fills every
+  // unseated non-declined guest regardless of `entry_source`, and it runs from
+  // the public RSVP path — so this is reached in normal use, not an edge case.
+  //
+  // Best-effort and ordered first, matching the bulk path: a DELETE that affects
+  // 0 rows is fine, and a guest row outliving a failed seat-DELETE is recoverable
+  // (manual unassign) where the reverse is not.
+  await admin
+    .from('event_seat_assignments')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+
   // Soft-delete the guest row (the list + reconcile queue both filter deleted_at).
   await admin
     .from('guests')
@@ -190,6 +217,15 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
       .update({ guest_id: targetId, role: (target.role as string) ?? 'guest' })
       .eq('id', sourceMember.id);
   }
+
+  // Release the merged-away row's seat before soft-deleting it — same reason as
+  // removeGuestAction above. A merge is MORE likely to strand one: the joiner was
+  // gap-filled into a chair, and after the merge nobody is sitting in it.
+  await admin
+    .from('event_seat_assignments')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('guest_id', sourceId);
 
   // Soft-delete the merged-away unlisted row.
   await admin

@@ -43,6 +43,15 @@ on:
   workflow_run:
     workflows: ['deploy-prod']
     types: [completed]
+  # ⏰ AND ON A CLOCK. Triggering only on `deploy-prod` leaves a blind window: drift
+  # beginning after the last merge of the day goes unreported until the next one. On
+  # 2026-09-02 the outage ran 2.5 hours WITH merges flowing every few minutes; had the
+  # orphaned migration landed as the night's last merge, production would have served a
+  # stale build until somebody noticed by eye. The doctor's --grace-min (default 20)
+  # means a scheduled run cannot false-alarm on a deploy still in flight. :17 rather
+  # than :00 — the top of the hour is when every scheduled workflow queues at once.
+  schedule:
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -66,6 +75,30 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "::notice title=Deploy drift monitor dormant::Set the VERCEL_TOKEN repo secret to enable (a token scoped to this project is enough — see the workflow header). This is a NEW secret this repo does not yet hold; the project/org id already come from the committed .vercel/project.json."
           fi
+
+      # 🔊 DORMANCY IS A FAILURE, NOT A PASS. Owner ruled 2026-09-02: "loud".
+      #
+      # This step exists because the workflow contradicted the principle its own script
+      # states — deploy-drift-doctor.mjs: "A check that can't verify must not say
+      # 'fine'." The doctor honours that internally (INCONCLUSIVE = exit 2, never
+      # reported healthy); the gate around it did the opposite, exiting 0 with only a
+      # ::notice:: when VERCEL_TOKEN was absent.
+      #
+      # The cost was real and measured: this monitor was merged on 2026-09-02 to catch
+      # a 2.5-hour SILENT production outage, and then reported `completed/success` on
+      # every run while checking NOTHING. A monitor nobody has armed is indistinguishable
+      # from a monitor finding nothing wrong — the exact disease it was built for. It was
+      # cited as evidence production was healthy while it was verifying nothing.
+      #
+      # ⚠ ARMING IT NEEDS THREE SECRETS, NOT ONE. The doctor's header says project/org id
+      # "default to the checked-in .vercel/project.json" — but `.vercel` is GITIGNORED
+      # (.gitignore) and nothing under it is tracked, so that fallback cannot work in a
+      # CI checkout. Set VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID.
+      - name: Dormant monitor is a failure
+        if: steps.gate.outputs.enabled != 'true'
+        run: |
+          echo "::error title=Deploy drift monitor is DORMANT::VERCEL_TOKEN is not set, so this workflow verified NOTHING — it has been reporting success without checking whether production matches origin/main. Set VERCEL_TOKEN (plus VERCEL_ORG_ID and VERCEL_PROJECT_ID, since .vercel is gitignored) to arm it."
+          exit 1
 
       # Full history so the deployed commit (whatever it turns out to be, even
       # several merges back) is guaranteed present to diff against.

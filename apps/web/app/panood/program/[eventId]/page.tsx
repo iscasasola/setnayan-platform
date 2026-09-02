@@ -23,6 +23,7 @@ import {
   type ResolvedOverlays,
 } from '@/lib/live-studio-overlays';
 import { deriveMonogram } from '@/lib/monogram';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PanoodProgramSurface } from './program-surface';
 
 export const metadata = {
@@ -85,7 +86,7 @@ export default async function PanoodProgramOutputPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, monogram_text')
+    .select('event_id, display_name, slug, monogram_text, monogram_uploaded_svg, monogram_custom_svg')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -114,6 +115,9 @@ export default async function PanoodProgramOutputPage({ params }: Props) {
   let qrSrc: string | null = null;
   let air: ProgramAirDecision | null = null;
   const monogramText = event.monogram_text?.trim() || deriveMonogram(event.display_name);
+  // L11: same real-mark resolution as the controller and the public hero — this
+  // route is what OBS actually captures, so it must never fall behind the monitor.
+  const monogramMarkSvg = resolveEventMonogramSvg(event);
   if (liveStudioRoamEnabled()) {
     // ONE entitlement resolution, feeding BOTH the branding and the paywall, so the
     // two can never disagree about whether this event is paid.
@@ -130,7 +134,7 @@ export default async function PanoodProgramOutputPage({ params }: Props) {
     // "POWERED BY SETNAYAN" lower third, a paid one gets the couple's own. Derived,
     // never stored — there is no setting a free host can flip.
     const settings = await fetchOverlaySettings(supabase, eventId);
-    overlays = resolveOverlays({ owned, settings, monogramText });
+    overlays = resolveOverlays({ owned, settings, monogramText, monogramMarkSvg });
     qrSrc = event.slug ? `/api/website/qr/${encodeURIComponent(event.slug)}` : null;
 
     // ── THE PROGRAM-OUTPUT PAYWALL. Channels + their bound cameras, read with the

@@ -350,7 +350,3 @@ CREATE POLICY event_cluster_members_unlink ON public.event_cluster_members
   );
 
 COMMIT;
-
--- SABOTAGE: give a Papic money table a cluster meaning
-ALTER TABLE public.papic_event_point_grants
-  ADD COLUMN IF NOT EXISTS event_cluster_id UUID;

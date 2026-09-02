@@ -31,6 +31,7 @@ import { liveStudioControllerHref } from '@/lib/live-studio-control';
    swapped (`event-hub-control.test.ts`) instead of by a comment asking you not
    to. Do not reintroduce a direct call here; add it to that module. */
 import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
+import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
 import { HubProOffer } from './_components/hub-pro-offer';
@@ -178,6 +179,7 @@ export default async function LaunchHubPage({ params }: Props) {
     proActive,
     proOwned,
     proSku,
+    guestColumnsOn,
   ] = await Promise.all([
     eventSkuActive(supabase, eventId, 'LIVE_WALL'),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
@@ -193,7 +195,10 @@ export default async function LaunchHubPage({ params }: Props) {
     // day out.
     supabase
       .from('events')
-      .select('slug, event_date, event_end_date, cleared_at, timezone')
+      // `event_type` added 2026-09-02 (EH6): the retired /website hub showed its
+      // "Our story" door to weddings only, and that door moved here. One more
+      // column on a query already running — not a second read.
+      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page
@@ -226,6 +231,17 @@ export default async function LaunchHubPage({ params }: Props) {
       panel then renders with no number rather than a remembered one.
     */
     formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+    /*
+      The Guest Columns door's gate, carried over with the door from the retired
+      /website hub — the env flag AND the `guest_columns` DPO control, asked
+      through the one shipped resolver rather than re-derived here.
+
+      ⚠ FALSE ON FAILURE, which is the opposite default from the Pro offer above
+      and deliberately so: a refused read there can only over-OFFER, while here
+      it would show a door into a feature that is switched off. The hub's own
+      words for this were "no dead door".
+    */
+    guestColumnsActive().catch(() => false),
   ]);
 
   if (eventRes.error) {
@@ -242,6 +258,7 @@ export default async function LaunchHubPage({ params }: Props) {
     event_end_date?: string | null;
     cleared_at?: string | null;
     timezone?: string | null;
+    event_type?: string | null;
   } | null;
 
   /*
@@ -377,9 +394,37 @@ export default async function LaunchHubPage({ params }: Props) {
     every one of these screens keeps its own page and its own route (prototype
     § 5, the port contract). Recreating a working screen is a defect.
   */
+  /*
+    ⭐ TWO DOORS MOVED HERE FROM THE RETIRED /website HUB (2026-09-02, EH6).
+
+    The hub carried six QuickLinks. Four of its destinations are reached from
+    elsewhere and were left alone — `/invitation` from the checklist, guest
+    detail and the QR page; `/website/privacy` from the editorial editor;
+    `/website/editor` and `/website/editorial` already sit above. TWO were
+    reachable from the hub and NOWHERE else, and folding the hub without them
+    would have orphaned a shipped page each:
+
+      · `/website/our-story`      — no other link in the tree
+      · `/studio/guest-columns`   — not in the catalog, no other link
+
+    `lint-port-no-lost-controls` is what caught this, which is the whole reason
+    that guard exists: the merge looked complete and typechecked clean, and two
+    pages had quietly become unreachable.
+
+    🔒 BOTH GATES ARE THE HUB'S OWN, REPRODUCED, NOT RE-DECIDED. Our story was
+    wedding-only there; Guest columns was behind `guestColumnsActive()` — the
+    env flag AND the DPO control — under the hub's own comment "no dead door".
+    A door shown for a feature that is off is worse than no door.
+  */
   const setOnce: Array<{ key: string; label: string; hint: string; href: string }> = [
     { key: 'editor', label: 'The page itself', hint: 'Copy, photos, colours, music', href: `${base}/website/editor` },
     { key: 'story', label: 'The story', hint: 'Chapters, guest columns, the album', href: `${base}/website/editorial` },
+    ...(eventRow?.event_type === 'wedding'
+      ? [{ key: 'ourstory', label: 'Our story', hint: 'How you met, the spark, the yes', href: `${base}/website/our-story` }]
+      : []),
+    ...(guestColumnsOn
+      ? [{ key: 'columns', label: 'Guest columns', hint: 'Approve or return what your guests wrote', href: `${base}/studio/guest-columns` }]
+      : []),
     { key: 'guests', label: 'Guests and replies', hint: 'Names, invites, who is coming', href: `${base}/guests` },
     { key: 'schedule', label: 'The running order', hint: 'What happens, and when', href: `${base}/schedule` },
   ];

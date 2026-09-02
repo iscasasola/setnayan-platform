@@ -99,7 +99,12 @@ export const RETAIL: RetailRow[] = [
   // declares, and pinning a live figure in a fixture is how the last drift
   // started. The real price lives in the catalog.
   { service_code: 'PAPIC_GUEST_100K', title: 'Papic — add 100,000 credits', retail_price_php: 24000, is_active: true },
-  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 3000, is_active: true },
+  // ₱1,500 since 2026-09-02 (migration 20271192082215). This row is the SECOND
+  // hand-typed copy of the catalog — `llms-fixture-matches-the-catalog.db.test.ts`
+  // pins it to the replayed catalog precisely so a reprice cannot land in one place
+  // only. It moved in the same PR as the real one, which is the rule the neighbouring
+  // fixtures already state.
+  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 1500, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on

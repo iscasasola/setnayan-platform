@@ -31,10 +31,22 @@ import {
   type VendorMoneyRow,
 } from './budget-truth';
 import type { VendorPricingLookup } from './budget';
+import { TRIGGER_THRESHOLDS } from './setnayan-ai-triggers';
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────
 
+/**
+ * The clock every fixture is measured against. Fixed, so the due-date
+ * boundaries below mean the same thing on every machine and on every day the
+ * suite runs — `computeEventMoney` takes `now` as an input for exactly this.
+ */
+const NOW = new Date('2026-01-01T00:00:00.000Z');
+/** `n` days after NOW, as the bare `YYYY-MM-DD` a due_date column holds. */
+const dueIn = (n: number): string =>
+  new Date(NOW.getTime() + n * 86_400_000).toISOString().slice(0, 10);
+
 const base = (over: Partial<MoneyInputs> = {}): MoneyInputs => ({
+  now: NOW,
   targetCentavos: null,
   vendors: [],
   lineItems: [],
@@ -656,4 +668,220 @@ test('PROD prod-B · the live "Total to pay ₱80,000 / Committed ₱0" contradi
   assert.equal(m.isOverBudget, false);
   assert.ok(m.lines.every((l) => l.kind === 'estimated'));
   invariantHolds(m, 'prod-B');
+});
+
+// ── The dated ledger — overdue is a first-class state (BA5) ──────────────────
+//
+// THE DEFECT: before this, a payment the couple had ALREADY MISSED appeared in
+// no roll-up and fired no alert. It did not render as a warning; it rendered as
+// nothing — byte-identical to an event with no payments due at all.
+
+/** One contracted vendor whose whole price is dated manual line items. */
+const dated = (items: Array<{ id: string; amount: number; day: number }>): MoneyInputs =>
+  base({
+    vendors: [vendor({ vendor_id: 'a', total_cost_php: null })],
+    lineItems: items.map((it) => ({
+      line_item_id: it.id,
+      vendor_id: 'a',
+      label: it.id,
+      amount_php: it.amount,
+      due_date: dueIn(it.day),
+    })),
+  });
+
+test('BA5 · THE BOUNDARY DAYS — -1 · 0 · +1 · +7 · +8 · +30 · +31', () => {
+  const cases: Array<[number, 'overdue' | 'due_soon' | 'upcoming' | 'later']> = [
+    [-1, 'overdue'],
+    [0, 'due_soon'], // DUE TODAY IS NOT LATE
+    [1, 'due_soon'],
+    [TRIGGER_THRESHOLDS.paymentDueWindowDays, 'due_soon'], // 7, inclusive
+    [TRIGGER_THRESHOLDS.paymentDueWindowDays + 1, 'upcoming'], // 8
+    [TRIGGER_THRESHOLDS.paymentHorizonDays, 'upcoming'], // 30, inclusive
+    [TRIGGER_THRESHOLDS.paymentHorizonDays + 1, 'later'], // 31
+  ];
+  for (const [day, expected] of cases) {
+    const m = computeEventMoney(dated([{ id: 'li', amount: 1000, day }]));
+    const line = m.lines.find((l) => l.costKey === 'line:li')!;
+    assert.equal(line.dueState, expected, `day ${day}`);
+    assert.equal(line.daysUntilDue, day, `day ${day} count`);
+
+    const band = {
+      overdue: [m.due.overduePhp, m.due.overdueCount],
+      due_soon: [m.due.dueSoonPhp, m.due.dueSoonCount],
+      upcoming: [m.due.upcomingPhp, m.due.upcomingCount],
+      later: [m.due.laterPhp, m.due.laterCount],
+    }[expected];
+    assert.deepEqual(band, [1000, 1], `day ${day} rolls up into ${expected}`);
+    // …and into nothing else. The bands are DISJOINT.
+    const total =
+      m.due.overduePhp + m.due.dueSoonPhp + m.due.upcomingPhp + m.due.laterPhp;
+    assert.equal(total, 1000, `day ${day} is counted exactly once`);
+  }
+});
+
+test('BA5 · an overdue milestone is counted, named, and lands in its bucket', () => {
+  const m = computeEventMoney(
+    dated([
+      { id: 'late1', amount: 30000, day: -5 },
+      { id: 'late2', amount: 12000, day: -1 },
+      { id: 'soon', amount: 5000, day: 3 },
+    ]),
+  );
+  assert.equal(m.due.overduePhp, 42000);
+  assert.equal(m.due.overdueCount, 2);
+  assert.equal(m.due.dueSoonPhp, 5000);
+
+  const w = m.warnings.find((x) => x.code === 'payment_overdue')!;
+  assert.ok(w, 'overdue must be NAMED, not only counted — a figure can go unread');
+  assert.equal(w.amountPhp, 42000);
+  assert.match(w.message, /2 payments are past their due date/);
+
+  // Rolled up per bucket, not only at the top.
+  const b = m.byBucket.find((x) => x.bucketId === 'photography')!;
+  assert.equal(b.due.overduePhp, 42000);
+  assert.equal(b.due.overdueCount, 2);
+  assert.equal(b.due.dueSoonPhp, 5000);
+  assert.equal(
+    m.byBucket.reduce((acc, x) => acc + x.due.overduePhp, 0),
+    m.due.overduePhp,
+    'the buckets add up to the headline',
+  );
+});
+
+test('BA5 · a milestone that was PAID is settled, not overdue, however old', () => {
+  const m = computeEventMoney({
+    ...dated([{ id: 'li', amount: 20000, day: -400 }]),
+    payments: [
+      { payment_id: 'p1', vendor_id: 'a', line_item_id: 'li', amount_php: 20000, paid_at: '2025-01-01' },
+    ],
+  });
+  const line = m.lines.find((l) => l.costKey === 'line:li')!;
+  assert.equal(line.dueState, 'settled');
+  assert.equal(m.due.overduePhp, 0);
+  assert.equal(m.due.overdueCount, 0);
+  assert.equal(
+    m.warnings.some((w) => w.code === 'payment_overdue'),
+    false,
+    'never alert a couple about money they have already handed over',
+  );
+});
+
+test('BA5 · a PARTLY paid overdue milestone carries only what is still owed', () => {
+  const m = computeEventMoney({
+    ...dated([{ id: 'li', amount: 20000, day: -3 }]),
+    payments: [
+      { payment_id: 'p1', vendor_id: 'a', line_item_id: 'li', amount_php: 8000, paid_at: '2025-12-20' },
+    ],
+  });
+  const line = m.lines.find((l) => l.costKey === 'line:li')!;
+  assert.equal(line.dueState, 'overdue');
+  assert.equal(line.stillOwedPhp, 12000);
+  assert.equal(m.due.overduePhp, 12000, 'the overdue figure is the REMAINDER, not the milestone');
+});
+
+test('BA5 · an ESTIMATE is never late — nobody agreed to pay it', () => {
+  const m = computeEventMoney(
+    base({
+      // `considering` → every line is an estimate (§18.5 rule 3).
+      vendors: [vendor({ vendor_id: 'a', status: 'considering', total_cost_php: null })],
+      lineItems: [
+        { line_item_id: 'li', vendor_id: 'a', label: 'deposit', amount_php: 50000, due_date: dueIn(-90) },
+      ],
+    }),
+  );
+  const line = m.lines.find((l) => l.costKey === 'line:li')!;
+  assert.equal(line.kind, 'estimated');
+  assert.equal(line.dueState, 'none');
+  assert.equal(m.due.overduePhp, 0);
+  assert.equal(m.estimated, 50000);
+});
+
+test('BA5 · undated money is `none`, never silently swept into a band', () => {
+  const m = computeEventMoney(
+    base({
+      vendors: [
+        vendor({ vendor_id: 'a', total_cost_php: 100000, transport_php: 3000, food_allowance_php: 1500 }),
+      ],
+      orders: [
+        { order_id: 'o1', description: 'Papic', service_key: null, requested_total_php: 2999, confirmed_total_php: null, status: 'awaiting_payment' },
+      ],
+    }),
+  );
+  assert.ok(m.lines.length >= 4);
+  for (const l of m.lines) {
+    assert.equal(l.dueState, 'none', `${l.costKey} has no due date`);
+    assert.equal(l.daysUntilDue, null);
+  }
+  assert.deepEqual(
+    [m.due.overduePhp, m.due.dueSoonPhp, m.due.upcomingPhp, m.due.laterPhp],
+    [0, 0, 0, 0],
+  );
+  assert.ok(m.stillOwed > 0, 'the money is still owed — it simply has no date');
+});
+
+test('BA5 · an unparseable due date is never called late', () => {
+  const m = computeEventMoney(
+    base({
+      vendors: [vendor({ vendor_id: 'a', total_cost_php: null })],
+      lineItems: [
+        { line_item_id: 'li', vendor_id: 'a', label: 'x', amount_php: 1000, due_date: 'not-a-date' },
+      ],
+    }),
+  );
+  const line = m.lines.find((l) => l.costKey === 'line:li')!;
+  assert.equal(line.dueState, 'none');
+  assert.equal(line.daysUntilDue, null);
+  assert.equal(m.due.overduePhp, 0);
+});
+
+test('BA5 · the dated bands never exceed what is actually still owed', () => {
+  const check = (m: EventMoney, label: string) => {
+    const banded =
+      m.due.overduePhp + m.due.dueSoonPhp + m.due.upcomingPhp + m.due.laterPhp;
+    assert.ok(
+      Math.round(banded * 100) <= Math.round(m.stillOwed * 100),
+      `${label}: dated bands ₱${banded} exceed still owed ₱${m.stillOwed}`,
+    );
+  };
+  check(
+    computeEventMoney(
+      dated([
+        { id: 'a1', amount: 10000, day: -2 },
+        { id: 'a2', amount: 10000, day: 5 },
+        { id: 'a3', amount: 10000, day: 40 },
+      ]),
+    ),
+    'mixed bands',
+  );
+  // Overpaid: money already handed over cannot still be owed on any date.
+  check(
+    computeEventMoney({
+      ...dated([{ id: 'li', amount: 10000, day: -10 }]),
+      payments: [
+        { payment_id: 'p1', vendor_id: 'a', line_item_id: null, amount_php: 25000, paid_at: '2025-12-01' },
+      ],
+    }),
+    'overpaid vendor',
+  );
+  for (const e of capture.events) check(resolveFixture(e.slug), `prod ${e.slug}`);
+});
+
+test('BA5 · the page and the email read ONE definition of "due soon"', () => {
+  // Not a restatement of the boundary test: this asserts the resolver's band
+  // edge IS `TRIGGER_THRESHOLDS.paymentDueWindowDays`, so moving that constant
+  // moves both surfaces. Two mechanisms that disagree about "due soon" is the
+  // defect this project keeps finding.
+  const w = TRIGGER_THRESHOLDS.paymentDueWindowDays;
+  assert.equal(
+    computeEventMoney(dated([{ id: 'li', amount: 1, day: w }])).lines.find(
+      (l) => l.costKey === 'line:li',
+    )!.dueState,
+    'due_soon',
+  );
+  assert.equal(
+    computeEventMoney(dated([{ id: 'li', amount: 1, day: w + 1 }])).lines.find(
+      (l) => l.costKey === 'line:li',
+    )!.dueState,
+    'upcoming',
+  );
 });

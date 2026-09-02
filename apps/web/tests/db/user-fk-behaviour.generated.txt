@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 221 single-column FKs onto auth.users / public.users
-# CASCADE=62  RESTRICT=3  SET NULL=156
+# 223 single-column FKs onto auth.users / public.users
+# CASCADE=63  RESTRICT=3  SET NULL=157
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -66,6 +66,8 @@ event_action_log.performed_by_user_id               SET NULL     nullable  -> us
 event_blocked_users.blocked_by_user_id              SET NULL     nullable  -> users
 event_build_picks.picked_by                         SET NULL     nullable  -> auth.users
 event_category_build_state.set_by                   SET NULL     nullable  -> auth.users
+event_cluster_members.linked_by                     SET NULL     nullable  -> auth.users
+event_clusters.owner_user_id                        CASCADE      NOT NULL  -> auth.users
 event_day_requests.author_user_id                   SET NULL     nullable  -> auth.users
 event_day_requests.resolved_by_user_id              SET NULL     nullable  -> auth.users
 event_delegates.delegate_user_id                    CASCADE      NOT NULL  -> users

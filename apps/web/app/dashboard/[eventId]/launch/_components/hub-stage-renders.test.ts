@@ -81,6 +81,14 @@ async function paint(opts: {
       channelIndex: channel ? idx + 1 : null,
       channelCount: PUBLIC_SITE_PAGES.length,
       editHref: '/dashboard/E1/website/editor',
+      /* VIEW AS is OFF in this harness on purpose. These observations are about
+         the STAGE — the four channels and the four facts — and an empty offer
+         list is exactly what a viewer the gate refused gets, so the stage is
+         proved to stand on its own with no switcher under it. The switcher's
+         own six reads are `view-as-reaches-the-render.test.ts` beside this. */
+      roles: [],
+      armedRole: null,
+      roleHrefBase: '/dashboard/E1/launch',
     }),
   );
 }

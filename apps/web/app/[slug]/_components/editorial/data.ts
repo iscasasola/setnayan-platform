@@ -2725,7 +2725,12 @@ function readSectionOrder(draftJson: Record<string, unknown>): string[] | null {
 // Each entry needs a non-empty string leadId to target a chapter; malformed
 // entries are dropped. The ARRAY ORDER is load-bearing — it drives the couple's
 // chosen chapter order in loadEditorialData. Anything non-array → [].
-function readChapterOverrides(draftJson: Record<string, unknown>): ChapterOverride[] {
+//
+// EXPORTED (2026-09-03, EH5) so the Event Hub controller can count chapters
+// the couple actually WROTE a line for, from the one `draft_json` column it
+// already reads — without pulling in the photo/consent-veto engine below that
+// the full editor needs and the controller's fact strip does not.
+export function readChapterOverrides(draftJson: Record<string, unknown>): ChapterOverride[] {
   const raw = (draftJson as Record<string, unknown>).chapterOverrides;
   if (!Array.isArray(raw)) return [];
   const out: ChapterOverride[] = [];

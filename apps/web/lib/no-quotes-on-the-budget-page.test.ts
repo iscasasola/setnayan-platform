@@ -35,6 +35,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from './strip-comments';
 import { budgetStripMoney, vendorsToItemize } from './budget-page-money';
 import { CONFIRMED_VENDOR_STATUSES } from './events';
 import { LOCKED_VENDOR_STATUSES } from './shortlist-taxonomy';
@@ -45,9 +46,18 @@ import type { VendorBudgetSummary } from './budget';
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE = 'app/dashboard/[eventId]/budget/page.tsx';
 
-/** Strip comments — a docblock naming a helper must not read as calling it. */
+/**
+ * Strip comments — a docblock naming a helper must not read as calling it.
+ *
+ * ⚠ `stripComments` (`lib/strip-comments.ts`) is a LEXER, and this file must not
+ * grow its own. The two-replace regex these guards used to copy deletes real
+ * code: a `/*` inside a string opens a comment window that runs to the next real
+ * `*​/`, so a scan can assert against BLANKED SOURCE and pass. A source guard
+ * that cannot see the code it is guarding is worse than no guard.
+ * `scripts/lint-one-comment-stripper.mjs` is what makes that non-negotiable.
+ */
 function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  return stripComments(src);
 }
 
 function count(haystack: string, re: RegExp): number {

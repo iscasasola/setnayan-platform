@@ -31,7 +31,7 @@ import {
 } from '@/lib/public-media-visibility';
 import { eventSkuActive } from '@/lib/entitlements';
 import { loadConsentVetoedPapicIds, publicKeyForCapture } from './consent-veto';
-import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import { parseYouTubeVideoId, youTubeEmbedUrl, isYouTubeVideoId } from '@/lib/panood-watch';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { bylineFor } from '@/lib/guest-columns';
@@ -523,9 +523,10 @@ export type EditorialData = {
     role: string | null;
   }>;
   // Live Studio replay — "Watch the Film". The youtube-nocookie EMBED URL for
-  // the couple's Panood broadcast replay, gated on: a valid events.panood_watch_url
-  // (normalize-or-rejected) AND an ACTIVE Panood/Live Studio SKU. Null → the
-  // section is hidden (fail-closed on all three).
+  // the couple's Live Studio broadcast, gated on an ACTIVE LIVE_STUDIO
+  // entitlement (via SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, so a grandfathered Cast
+  // buyer still qualifies) AND a video id from either source below. Null →
+  // the section is hidden (fail-closed).
   watchFilmEmbedUrl: string | null;
   // Section visibility from the editorial editor. Optional → a block shows
   // unless its key is explicitly false (samples omit it = everything on).
@@ -2335,27 +2336,67 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     }
   }
 
-  // ── "Watch the Film" — Live Studio (Panood) replay ───────────────────────────
-  // The couple's broadcast replay, embedded via youtube-nocookie. Gated on ALL
-  // THREE, fail-closed: (1) events.panood_watch_url present + (2) it normalizes to
-  // a real YouTube video id via the panood-watch injection barrier + (3) the couple
-  // holds an ACTIVE Panood/Live Studio SKU (eventSkuActive('PANOOD_SYSTEM')). Any
-  // gate failing → null → section hidden. Mirrors the recap's panood replay
-  // (lib/auto-recap.ts) — never embeds a raw URL. Best-effort: 42703/parse error →
-  // null, never throws.
+  // ── "Watch the Film" — Live Studio replay ────────────────────────────────────
+  // The couple's broadcast, embedded via youtube-nocookie. Fail-closed: any gate
+  // failing → null → section hidden.
+  //
+  //   1. ENTITLEMENT — gated on 'LIVE_STUDIO', not the retired 'PANOOD_SYSTEM'
+  //      SKU (no row in platform_retail_catalog_v2 can ever carry it, so that
+  //      gate was false for every event that has ever existed). LIVE_STUDIO's
+  //      SKU_OWNERSHIP_ALIASES entry is exactly PANOOD_PAID_SKUS, so a
+  //      grandfathered Cast buyer still qualifies through the alias.
+  //   2. VIDEO ID — TWO sources, tried in order:
+  //        a. events.panood_watch_url — the LIVE embed, so an in-progress
+  //           broadcast still shows here.
+  //        b. the most recent panood_broadcasts row with status='complete' —
+  //           the DURABLE source. Ending a broadcast deliberately CLEARS
+  //           panood_watch_url (so the event page stops advertising a finished
+  //           broadcast as live — see the note in
+  //           studio/panood/setup/actions.ts), which wipes the LIVE source
+  //           at exactly the moment a couple goes looking for their replay.
+  //           `panood_broadcasts.broadcast_id` IS the YouTube video id
+  //           (lib/live-studio-recordings.ts reads it the same way).
+  //      🔒 Source (a) gets one free normalize from parseYouTubeVideoId; source
+  //      (b) reads a raw column on its way to an iframe src and is NOT free —
+  //      it MUST clear the same isYouTubeVideoId injection barrier before
+  //      reaching youTubeEmbedUrl.
+  //   🚫 panood_watch_url is never read back after End clears it, and is never
+  //      re-set here — that column drives the separate LIVE "Watch Live" block;
+  //      writing it from the replay path would tell guests a finished broadcast
+  //      is still on air.
+  // Mirrors the recap's panood replay (lib/auto-recap.ts) — never embeds a raw
+  // URL. Best-effort: 42703/parse error → null, never throws.
   let watchFilmEmbedUrl: string | null = null;
   try {
-    if (await eventSkuActive(admin, eventId, 'PANOOD_SYSTEM')) {
-      const { data, error } = await admin
+    if (await eventSkuActive(admin, eventId, 'LIVE_STUDIO')) {
+      let videoId: string | null = null;
+
+      const { data: eventRow, error: eventErr } = await admin
         .from('events')
         .select('panood_watch_url')
         .eq('event_id', eventId)
         .maybeSingle();
-      if (!error && data) {
-        const watchUrl = asString((data as Record<string, unknown>).panood_watch_url);
-        const videoId = watchUrl ? parseYouTubeVideoId(watchUrl) : null;
-        if (videoId) watchFilmEmbedUrl = youTubeEmbedUrl(videoId);
+      if (!eventErr && eventRow) {
+        const watchUrl = asString((eventRow as Record<string, unknown>).panood_watch_url);
+        videoId = watchUrl ? parseYouTubeVideoId(watchUrl) : null;
       }
+
+      if (!videoId) {
+        const { data: broadcastRow, error: broadcastErr } = await admin
+          .from('panood_broadcasts')
+          .select('broadcast_id')
+          .eq('event_id', eventId)
+          .eq('status', 'complete')
+          .order('ended_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!broadcastErr && broadcastRow) {
+          const rawId = (broadcastRow as Record<string, unknown>).broadcast_id;
+          if (isYouTubeVideoId(rawId)) videoId = rawId;
+        }
+      }
+
+      if (videoId) watchFilmEmbedUrl = youTubeEmbedUrl(videoId);
     }
   } catch {
     watchFilmEmbedUrl = null;

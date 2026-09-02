@@ -6,7 +6,12 @@ import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchBudgetSnapshot, buildBudgetLiveSummary, formatPhp } from '@/lib/budget';
+import {
+  fetchBudgetSnapshot,
+  buildBudgetLiveSummary,
+  formatPhp,
+  type BudgetLiveSummary,
+} from '@/lib/budget';
 import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import {
@@ -26,7 +31,10 @@ import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
-import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
+import {
+  BudgetLiveSummaryCard,
+  BUDGET_TOP_SUMMARY_HEADER_ID,
+} from './_components/budget-live-summary';
 import { BudgetLedgerTable } from './_components/budget-ledger-table';
 import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
@@ -261,6 +269,16 @@ export default async function BudgetPage({ params }: Props) {
     targetCentavos: initialBudgetCentavos,
   });
 
+  // BA4 · ONE payment-progress computation, read by both the top summary's
+  // Paid/Owed tiles and the live card below it (which also feeds the pinned
+  // bar) — so the two can never print different Paid/Owed for one screen the
+  // way the strip and the live card used to.
+  const liveSummaryMoney: BudgetLiveSummary = budgetLiveSummaryMoney({
+    enabled: budgetTruth,
+    money,
+    legacy: buildBudgetLiveSummary(snapshot),
+  });
+
   // Which vendors get a card. CONFIRMED ONLY, in both flag states (BA2, owner
   // ruling 2026-09-02: "no quotes here. we only add the finalized budgets").
   // A shortlisted supplier's quote belongs in the Merkado, where the couple is
@@ -400,15 +418,13 @@ export default async function BudgetPage({ params }: Props) {
         <BudgetSetter eventId={eventId} initialBudgetCentavos={initialBudgetCentavos} />
       ) : null}
 
-      <BudgetSummaryStrip money={stripMoney} />
+      <BudgetTopSummary eventId={eventId} money={stripMoney} initialLive={liveSummaryMoney} />
 
       {isMuslimCeremony ? (
         <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} />
       ) : null}
 
       {isChineseCeremony ? <ChineseTraditionInfoCard pax={chineseGuestCount} /> : null}
-
-      <UnlocksHint />
 
       {/* Suggested budget split — the median-anchored allocation planner.
        *  RECOMMENDS what each service should cost (a ₱ target + shopping
@@ -478,15 +494,6 @@ export default async function BudgetPage({ params }: Props) {
           </p>
         </div>
 
-        <BudgetLiveSummaryCard
-          eventId={eventId}
-          initial={budgetLiveSummaryMoney({
-            enabled: budgetTruth,
-            money,
-            legacy: buildBudgetLiveSummary(snapshot),
-          })}
-        />
-
         {!hasAnyVendors ? (
           <EmptyBudget eventId={eventId} />
         ) : !hasFinalizedVendors ? (
@@ -512,61 +519,71 @@ export default async function BudgetPage({ params }: Props) {
 }
 
 /**
- * Quiet summary of where the host stands right now — target vs
- * committed + the remaining headroom (or amount over). Sits between
- * the setter form + the per-vendor itemization. Renders even when no
- * vendors are confirmed yet so the host sees their target reflected
- * back to them as soon as they save.
+ * BA4 · ONE money summary, not two. Used to be "Current commitments" (Target
+ * / Committed / Budget left) sitting above "Payment progress" (Total to pay /
+ * Paid so far / Balance) — four overlapping words for different quantities on
+ * one screen. Now a single card: Target · Agreed · Paid · Owed (the same
+ * vocabulary BA3's ledger locked), the live progress bar, and the
+ * upcoming-payments list, with a condensed version that pins once this header
+ * scrolls away (`BudgetLiveSummaryCard`).
+ *
+ * Renders even when no vendors are confirmed yet, so the host sees their
+ * target reflected back to them as soon as they save.
  */
-function BudgetSummaryStrip({ money }: { money: BudgetStripMoney }) {
-  const { targetPhp, committedPhp, remainingPhp } = money;
+function BudgetTopSummary({
+  eventId,
+  money,
+  initialLive,
+}: {
+  eventId: string;
+  money: BudgetStripMoney;
+  initialLive: BudgetLiveSummary;
+}) {
+  const { targetPhp, committedPhp: agreedPhp, isOverBudget } = money;
+  const { paid: paidPhp, remaining: owedPhp } = initialLive;
 
   return (
-    <section aria-labelledby="budget-summary-heading" className="sn-tile">
-      <header className="flex items-baseline gap-2">
+    <section aria-labelledby="budget-summary-heading" className="sn-tile space-y-4">
+      {/* No border of its own — the pinned bar in BudgetLiveSummaryCard
+       *  measures THIS element's box, not the outer .sn-tile card's (which
+       *  carries a 1px border and would drift the pin a pixel off). */}
+      <header id={BUDGET_TOP_SUMMARY_HEADER_ID} className="flex items-baseline gap-2">
         <h2 id="budget-summary-heading" className="sn-eye">
           <TrendingUp aria-hidden strokeWidth={1.75} />
-          Current commitments
+          Your budget
         </h2>
       </header>
-      <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryStat
           label="Target"
           value={targetPhp !== null ? formatPhp(targetPhp) : '—'}
           hint={targetPhp !== null ? 'Your stated budget' : 'No target set yet'}
         />
         <SummaryStat
-          label="Committed"
-          value={formatPhp(committedPhp)}
+          label="Agreed"
+          value={formatPhp(agreedPhp)}
+          tone={isOverBudget ? 'warn' : 'default'}
           hint={
-            // BA2. No estimate is named here any more. §18.5 rule 3 required
-            // one because an un-booked vendor SAT IN THIS LIST, so ₱0 committed
-            // beside its ₱80,000 was a contradiction the page had to explain.
-            // The vendor is gone from the list, so the contradiction is gone
-            // with it — the quote is shown in the Merkado, where the couple is
-            // still choosing.
-            committedPhp > 0 ? 'Paid + signed vendors' : 'Nothing committed yet'
+            targetPhp === null
+              ? agreedPhp > 0
+                ? 'What you signed for'
+                : 'Nothing signed yet'
+              : isOverBudget
+                ? `${formatPhp(agreedPhp - targetPhp)} over your target`
+                : `${formatPhp(targetPhp - agreedPhp)} left of target`
           }
         />
+        <SummaryStat label="Paid" value={formatPhp(paidPhp)} tone="good" hint="Handed over so far" />
         <SummaryStat
-          label={remainingPhp !== null && remainingPhp < 0 ? 'Over target' : 'Budget left'}
-          value={remainingPhp !== null ? formatPhp(Math.abs(remainingPhp)) : '—'}
-          tone={
-            remainingPhp === null
-              ? 'default'
-              : remainingPhp < 0
-                ? 'warn'
-                : 'good'
-          }
-          hint={
-            remainingPhp === null
-              ? 'Set a target to see headroom'
-              : remainingPhp < 0
-                ? 'Time to review'
-                : 'Room to grow'
-          }
+          label="Owed"
+          value={formatPhp(owedPhp)}
+          tone={owedPhp > 0 ? 'warn' : 'default'}
+          hint={owedPhp > 0 ? 'Agreed minus paid' : 'Nothing outstanding'}
         />
       </ul>
+
+      <BudgetLiveSummaryCard eventId={eventId} initial={initialLive} targetPhp={targetPhp} />
     </section>
   );
 }
@@ -601,12 +618,6 @@ function SummaryStat({
   );
 }
 
-/**
- * What-this-unlocks helper card — explains why setting a budget is
- * worth the host's time. Polite brand voice per
- * [[feedback_setnayan_no_dev_text_post_launch]]: outcome-first copy,
- * no engineering jargon, no exclamation marks.
- */
 // The Mahr — a Muslim wedding's groom-to-bride gift. Deliberately rendered as a
 // distinct, NON-billable card (emerald, "gift" framing) so it never reads as a
 // Setnayan/vendor charge and is never folded into the committed/overspend math.
@@ -709,26 +720,6 @@ function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
           Set your guest count to see an estimated table count.
         </p>
       )}
-    </section>
-  );
-}
-
-function UnlocksHint() {
-  return (
-    <section
-      aria-labelledby="budget-unlocks-heading"
-      className="rounded-xl border border-terracotta/20 bg-terracotta/[0.04] p-4 sm:p-5"
-    >
-      <h2
-        id="budget-unlocks-heading"
-        className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
-      >
-        What this unlocks
-      </h2>
-      <p className="mt-2 text-sm text-ink/75">
-        We&rsquo;ll show your budget vs committed pacing on Home so you always know
-        where you stand. Update it anytime as your plans evolve.
-      </p>
     </section>
   );
 }

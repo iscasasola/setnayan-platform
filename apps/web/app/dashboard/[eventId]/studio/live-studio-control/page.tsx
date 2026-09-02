@@ -15,17 +15,19 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
 import { AppStoreLayout, type PlanRow, type StatTile } from '@/app/_components/app-store/layout';
 import { AddOnStateCta, statusPillForState } from '@/app/_components/app-store/state-cta';
+import { ChoosePlanSheet, type ChoosePlanSheetProps } from '@/app/_components/app-store/choose-plan-sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
-import { liveStudioControlPath } from '@/lib/live-studio-control';
+import { liveStudioControlPath, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
+import { eventSkuActive } from '@/lib/entitlements';
 import {
   liveStudioPoolOnly,
-  POOL_ONLY_CONNECT_NOTICE,
+  poolOnlyConnectNotice,
 } from '@/lib/live-studio-pool-only';
 import { LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE } from '@/lib/live-studio-readiness';
 import { setYoutubeLiveReadyAck } from './actions';
@@ -148,17 +150,25 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // it through the shared helper so this doorway can never point at the old URL.
   const controllerHref = liveStudioControlPath(eventId);
 
-  const [stats, stateCtx, settings, sku] = await Promise.all([
+  const [stats, stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel] = await Promise.all([
     fetchAddOnStats(supabase, FEATURE_KEY),
     resolveAddOnState(supabase, eventId, FEATURE_KEY, 'couple', controllerHref),
     fetchPlatformSettings(supabase),
     formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
+    formatV2Sku(LIVE_STUDIO_HOSTED_CHANNEL_SKU).catch(() => null),
+    // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
+    // 2026-09-02)? Read directly via eventSkuActive — NOT via ADD_ON_SKU_MAP /
+    // resolveAddOnState, which drive whether the MULTICAM controller unlocks.
+    // This entitlement decides WHICH CHANNEL NOTICE renders below, nothing else.
+    eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
   ]);
 
   // Live catalog price (display only; the charge is re-resolved server-side from
   // LIVE_STUDIO_SKU_CODE in submitOrderAction, so a catalog miss only blanks the label).
   const centavos = sku?.price_centavos ?? 0;
   const priceLabel = sku ? formatPhp(sku.price_php) : '—';
+  const hostedChannelCentavos = hostedChannelSku?.price_centavos ?? 0;
+  const hostedChannelPriceLabel = hostedChannelSku ? formatPhp(hostedChannelSku.price_php) : '—';
 
   const planRow: PlanRow = {
     name: 'Live Studio',
@@ -316,7 +326,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           className="inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
         >
           <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          <span>{POOL_ONLY_CONNECT_NOTICE}</span>
+          <span>{poolOnlyConnectNotice(ownsHostedChannel)}</span>
         </p>
       ) : youtubeError ? (
         <p
@@ -377,8 +387,95 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         eventId={eventId}
         oauthReady={oauthReady}
         grant={youtubeGrant}
+        ownsHostedChannel={ownsHostedChannel}
+      />
+
+      <HostedChannelUpsell
+        eventId={eventId}
+        owns={ownsHostedChannel}
+        priceLabel={hostedChannelPriceLabel}
+        priceCentavos={hostedChannelCentavos}
+        settings={settings}
       />
     </div>
+  );
+}
+
+/**
+ * "Rather have Setnayan run the channel?" — the OPTIONAL upsell (owner ruling
+ * 2026-09-02). Deliberately its OWN <ChoosePlanSheet>, not folded into the
+ * LIVE_STUDIO plan above: `AddOnStateCta` only renders a plan sheet in the
+ * 'add' state (state-cta.tsx) — once an event owns Live Studio the hero CTA
+ * becomes a bare "Open controller" link with no sheet at all, which would
+ * strand a couple who bought Live Studio FIRST and only decides later that
+ * they'd rather not run their own channel. This section is independent of
+ * `stateCtx` entirely, so it is reachable before OR after Live Studio itself
+ * is bought — matching "STACKS on LIVE_STUDIO, does not replace it".
+ */
+function HostedChannelUpsell({
+  eventId,
+  owns,
+  priceLabel,
+  priceCentavos,
+  settings,
+}: {
+  eventId: string;
+  owns: boolean;
+  priceLabel: string;
+  priceCentavos: number;
+  settings: ChoosePlanSheetProps['settings'];
+}) {
+  return (
+    <section
+      aria-labelledby="hosted-channel-heading"
+      className="sn-tile space-y-3 p-5 sm:p-6"
+    >
+      <div className="space-y-1">
+        <p className="sn-eye">Optional</p>
+        <h2
+          id="hosted-channel-heading"
+          className="flex items-center gap-2 text-lg font-semibold tracking-tight"
+        >
+          <Tv aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+          Have Setnayan run the channel
+        </h2>
+        <p className="max-w-prose text-sm text-ink/65">
+          By default your broadcast goes out on your own YouTube — paste your watch
+          link, or start your own broadcast, right in the controller. If you don&rsquo;t
+          have live-stream access, or would rather not set it up yourself, add this and
+          Setnayan supplies and runs the channel for you instead. It only changes which
+          channel your broadcast goes to — everything else about Live Studio (cameras,
+          cutting, guest-pick) is unaffected either way.
+        </p>
+      </div>
+
+      {owns ? (
+        <p className="inline-flex items-center gap-2 rounded-lg border border-success-200/80 bg-success-50/60 px-3 py-2.5 text-sm text-ink">
+          <CheckCircle2 aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2} />
+          Setnayan is providing your channel for this event.
+        </p>
+      ) : (
+        <ChoosePlanSheet
+          eventId={eventId}
+          triggerLabel="Add hosted channel"
+          priceFromLabel={priceLabel === '—' ? undefined : `${priceLabel} / day`}
+          plans={[
+            {
+              sku_code: LIVE_STUDIO_HOSTED_CHANNEL_SKU,
+              name: 'Live Studio — hosted channel',
+              scope:
+                'Setnayan supplies and operates the YouTube channel your broadcast streams to. Buy alongside Live Studio, any time before or after — this does not include the multi-camera controller itself.',
+              price: priceLabel,
+              unit: ' / day',
+              priceCentavos: String(priceCentavos),
+            },
+          ]}
+          settings={settings}
+          introCopy="For couples without live-stream access, or who'd rather not set one up themselves — Setnayan runs the channel so you don't have to."
+          footnote="Apply-then-pay flow · we confirm price before payment. Stacks on Live Studio — buy this any time, before or after."
+        />
+      )}
+    </section>
   );
 }
 
@@ -399,10 +496,12 @@ function YoutubeChannelPanel({
   eventId,
   oauthReady,
   grant,
+  ownsHostedChannel,
 }: {
   eventId: string;
   oauthReady: boolean;
   grant: YoutubeGrant | null;
+  ownsHostedChannel: boolean;
 }) {
   const poolOnly = liveStudioPoolOnly();
   const grantedDate = grant
@@ -437,7 +536,7 @@ function YoutubeChannelPanel({
 
       {poolOnly ? (
         <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
-          {POOL_ONLY_CONNECT_NOTICE}
+          {poolOnlyConnectNotice(ownsHostedChannel)}
         </p>
       ) : !oauthReady ? (
         <div className="sn-row p-5">

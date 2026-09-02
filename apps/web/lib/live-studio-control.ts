@@ -33,6 +33,19 @@ import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 export const LIVE_STUDIO_SKU = 'LIVE_STUDIO';
 
 /**
+ * The optional "Setnayan supplies the channel" upsell (owner ruling 2026-09-02).
+ * STACKS on LIVE_STUDIO_SKU — it does not replace it, and owning it grants NO
+ * entitlement of its own. It decides WHICH CHANNEL a broadcast goes out on,
+ * nothing else: multicam entitlement, the watermark decision and the publish
+ * gate all stay keyed on LIVE_STUDIO_SKU alone.
+ *
+ * ⚠ NEVER add this to lib/add-on-stats.ts's ADD_ON_SKU_MAP — that map also
+ * drives lib/add-on-state.ts's 'launch' resolution, so doing so would let
+ * buying the channel alone unlock the multicam controller.
+ */
+export const LIVE_STUDIO_HOSTED_CHANNEL_SKU = 'LIVE_STUDIO_HOSTED_CHANNEL';
+
+/**
  * Internal catalog/data key for the Live Studio tile. UNCHANGED by the route
  * rename — reviews/stats/state (add-on-stats.ts, add-ons-detail.ts,
  * studio-recommendations.ts) all key off this string, so it stays stable exactly

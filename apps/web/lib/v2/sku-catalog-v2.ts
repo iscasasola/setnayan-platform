@@ -61,6 +61,13 @@ export const V2_SKU_CODES = [
   // formatV2Sku('LIVE_STUDIO') resolves the live catalog price for the unified buy
   // page. Dark until launch behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED.
   'LIVE_STUDIO',
+  // The optional "Setnayan supplies the channel" upsell (owner ruling 2026-09-02),
+  // ₱1,500/day, STACKS on LIVE_STUDIO. Seeded by migration
+  // 20271192528988_live_studio_hosted_channel_addon. Listed here so
+  // formatV2Sku('LIVE_STUDIO_HOSTED_CHANNEL') resolves the live catalog price for
+  // the buy page's independent upsell (see live-studio-control/page.tsx). Grants
+  // no entitlement of its own — see lib/live-studio-control.ts's docblock.
+  'LIVE_STUDIO_HOSTED_CHANNEL',
   'PAPIC_ADDON_THANK_YOU',
   'PAPIC_GUEST',
   'PAPIC_SEATS',

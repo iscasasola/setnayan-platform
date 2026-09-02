@@ -70,6 +70,7 @@ import {
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { damp, lerpAngle } from '@/lib/figure-rig';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
@@ -369,6 +370,10 @@ function GuestAvatar({
   const idx = useRef(0);
   const pos = useRef<Vec2>({ x: entrance.x, z: entrance.z });
   const arrivedRef = useRef(false);
+  // Read here, not passed down: this is the component that actually MOVES, and
+  // the walk is the only thing on this surface a reduced-motion viewer needs
+  // spared. See the short-circuit in useFrame below.
+  const reduced = usePrefersReducedMotion();
   // Gait phase clock for the kit figure — advances at the RUN cadence (this
   // avatar translates at 2.2 m/s, a jog; the run cycle's quicker steps are
   // what keep the feet from sliding — ChameleonMovement port 2026-07-09)
@@ -418,6 +423,21 @@ function GuestAvatar({
     if (!g) return;
     const p = path.current;
     if (idx.current < p.length - 1) {
+      // REDUCED MOTION — complete without animating, the contract every other
+      // surface already keeps (the demo teleports, the lab skips the walk, the
+      // kit holds STAND_BASE). This surface was the exception: the hook only
+      // stopped the beacon pulse, so a viewer who asked for reduced motion
+      // still got a FROZEN mannequin gliding 2.2 m/s across the room on load —
+      // motion without the gait that explains it, which is the worse half.
+      // Jump to the destination; the arrival branch below fires next frame and
+      // the walk's completion callbacks run exactly as they always do.
+      if (reduced) {
+        const end = p[p.length - 1]!;
+        g.position.x = end.x;
+        g.position.z = end.z;
+        idx.current = p.length - 1;
+        return;
+      }
       const next = p[idx.current + 1]!;
       const dx = next.x - g.position.x;
       const dz = next.z - g.position.z;
@@ -430,7 +450,11 @@ function GuestAvatar({
       } else {
         g.position.x += (dx / dist) * step;
         g.position.z += (dz / dist) * step;
-        g.rotation.y = Math.atan2(dx, dz);
+        // Shortest-arc smoothing, NOT a snap. `rotation.y = atan2(...)` turned
+        // the figure in a single frame, so a tap behind them flipped the body
+        // 180° instantly. Same idiom the demo Walker and the remote-player
+        // renderer use; damp() keeps it identical at 30fps and 120fps.
+        g.rotation.y = lerpAngle(g.rotation.y, Math.atan2(dx, dz), damp(0.015, delta));
       }
       // Advance the gait while translating; the rig's own pelvis bob keeps the
       // group grounded (no whole-body hop).

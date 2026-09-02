@@ -51,6 +51,7 @@ import {
   Sparkles,
   MessageCircle,
   PencilLine,
+  ArrowUpRight,
 } from 'lucide-react';
 import {
   describeSupplierBalance,
@@ -61,7 +62,12 @@ import {
   type VendorControlledLineItem,
   type VendorPriceSource,
 } from '@/lib/budget';
-import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE } from '@/lib/vendors';
+import {
+  VENDOR_CATEGORY_LABEL,
+  VENDOR_STATUS_LABEL,
+  VENDOR_STATUS_TONE,
+  type EventVendorRow,
+} from '@/lib/vendors';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -213,7 +219,7 @@ export function VendorItemizationCard({
           lineItems={lineItems}
           eventId={eventId}
           vendorId={vendor.vendor_id}
-          vendorMarketplaceId={vendor.marketplace_vendor_id}
+          vendorContactEmail={vendor.contact_email}
           suggestTotalPhp={itemizedTotal}
         />
         <PaymentSection
@@ -229,12 +235,19 @@ export function VendorItemizationCard({
     </div>
   );
 
+  // 🔗 REACHABLE ON EVERY LINE, regardless of pricing state. Rendered OUTSIDE
+  // `<details>`/`<summary>` — a nested `<a>` inside a `<summary>` fights the
+  // disclosure's own click-to-toggle behavior, so this row sits above the
+  // fold and stays visible whether the ledger row is collapsed or open.
+  const reachLinks = <SupplierReachLinks eventId={eventId} vendor={vendor} />;
+
   // 'embed' variant — no outer <article>, no header, no status pill. The
   // workspace page wraps this in its own Payments <section>.
   if (variant === 'embed') {
     return (
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
         {refusedReadNotice}
+        {reachLinks}
         {ledgerRow}
         {workingSections}
       </div>
@@ -288,6 +301,7 @@ export function VendorItemizationCard({
       className="overflow-hidden rounded-xl border border-ink/10 bg-cream scroll-mt-24"
     >
       {refusedReadNotice}
+      {reachLinks}
       <details className="group/ledger">
         <summary className="cursor-pointer list-none pb-1 pt-4 transition-colors hover:bg-ink/[0.02] [&::-webkit-details-marker]:hidden">
           <div className="flex flex-wrap items-start justify-between gap-3 px-5">
@@ -346,6 +360,51 @@ export function VendorItemizationCard({
 // Internal sub-components — pulled directly from the prior budget/page.tsx
 // inline definitions. Behavior preserved 1:1; only the location changes.
 // ----------------------------------------------------------------------------
+
+/**
+ * Two ways to reach this supplier, rendered unconditionally — never gated on
+ * `priceSource`. Before this, the ONLY outbound link in this file lived
+ * inside `LineItemSection` and rendered exclusively while
+ * `priceSource === 'pending' && !hasVendorControlled` — once a vendor HAD
+ * pricing, "message the vendor in chat" was plain text with no link, and an
+ * off-platform supplier (`marketplace_vendor_id` is NULL) built a bare
+ * `?vendor=` with nothing after it, which the messages page never even reads
+ * (it reads `prefill_vendor_email`, not `vendor`).
+ *
+ * Both links key off `event_vendors.contact_email` / `.vendor_id`, which
+ * every supplier row carries regardless of marketplace status — so an
+ * off-platform supplier is reachable exactly like a catalogued one.
+ */
+function SupplierReachLinks({
+  eventId,
+  vendor,
+}: {
+  eventId: string;
+  vendor: EventVendorRow;
+}) {
+  const messagesHref = vendor.contact_email
+    ? `/dashboard/${eventId}/messages?prefill_vendor_email=${encodeURIComponent(vendor.contact_email)}`
+    : `/dashboard/${eventId}/messages`;
+  const workspaceHref = `/dashboard/${eventId}/vendors/${vendor.vendor_id}/workspace`;
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 px-5 py-2">
+      <Link
+        href={messagesHref}
+        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"
+      >
+        <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+        Message
+      </Link>
+      <Link
+        href={workspaceHref}
+        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"
+      >
+        <ArrowUpRight aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+        Open workspace
+      </Link>
+    </div>
+  );
+}
 
 function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
   if (priceSource === 'manual') return null;
@@ -417,7 +476,7 @@ function LineItemSection({
   lineItems,
   eventId,
   vendorId,
-  vendorMarketplaceId,
+  vendorContactEmail,
   suggestTotalPhp,
 }: {
   priceSource: VendorPriceSource;
@@ -425,7 +484,7 @@ function LineItemSection({
   lineItems: LineItemRow[];
   eventId: string;
   vendorId: string;
-  vendorMarketplaceId: string | null;
+  vendorContactEmail: string | null;
   suggestTotalPhp: number;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
@@ -478,7 +537,11 @@ function LineItemSection({
             here once they publish it.
           </p>
           <Link
-            href={`/dashboard/${eventId}/messages?vendor=${vendorMarketplaceId ?? ''}`}
+            href={
+              vendorContactEmail
+                ? `/dashboard/${eventId}/messages?prefill_vendor_email=${encodeURIComponent(vendorContactEmail)}`
+                : `/dashboard/${eventId}/messages`
+            }
             className="inline-flex items-center gap-1.5 rounded-md border border-warn-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-warn-900 hover:border-warn-500 hover:text-warn-950"
           >
             <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />

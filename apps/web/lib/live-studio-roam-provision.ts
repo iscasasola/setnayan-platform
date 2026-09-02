@@ -411,9 +411,17 @@ export async function reclaimStaleCheckouts(admin: SupabaseClient): Promise<numb
 
    ⚠⚠ THE HONEST LIMIT, and it is not a detail. Provisioning creates the
    broadcast CONTAINER and its RTMP ingestion endpoint. It does NOT put video into
-   it. Browsers cannot push RTMP and the native capture app was scoped but never
-   built (§ 4c), so something must still ENCODE the program output — today that is
-   the couple's own OBS window-capturing `/panood/program/[eventId]`. Wave 9
+   it. Browsers cannot push RTMP and no capture app has been built, so something
+   must still ENCODE the program output — today that is the couple's own OBS window-capturing `/panood/program/[eventId]`.
+   ⚠ THE CITATION THIS COMMENT USED TO CARRY WAS WRONG TWICE OVER. It said the app
+   was "scoped but never built (§ 4c)". § 4c of the unified spec is "WAVE 1 + 2
+   SHIPPED" and scopes no capture app; the real scope is B4 in
+   `Live_Studio_Cast_and_Roam_2026-07-23.md`. And B4 is a PHONE app — one RTMP
+   stream per kit-phone camera, for ROAM — while the gap described here needs a
+   DESKTOP encoder pushing ONE composited stream for CAST. Building either leaves
+   the other unbuilt, so a plan that treats them as one item under-scopes Roam.
+
+   Wave 9
    removes the requirement that the couple own or authorise a YOUTUBE ACCOUNT. It
    does not remove the encoder. A provisioned broadcast with nothing pushing to it
    shows as `ready`, never `live`, and the readiness copy

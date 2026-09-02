@@ -8,6 +8,7 @@ import {
 } from '@/lib/guests';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
   buildSeatingPdf,
   type SeatingPdfGuest,
@@ -36,7 +37,7 @@ export async function GET(
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, role_palette',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -44,16 +45,11 @@ export async function GET(
     return new NextResponse('Event not found', { status: 404 });
   }
 
-  const [tables, assignments, guests, floorPlan, moodboard] = await Promise.all([
+  const [tables, assignments, guests, floorPlan] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
-    supabase
-      .from('event_moodboard_saves')
-      .select('palette_snapshot')
-      .eq('event_id', eventId)
-      .maybeSingle(),
   ]);
 
   const pdfGuests: SeatingPdfGuest[] = guests.map((g) => ({
@@ -62,11 +58,22 @@ export async function GET(
     role: ROLE_LABELS[g.role] ?? 'Guest',
   }));
 
-  // Mood-board palette → flat list of hex colours (drop non-hex).
-  const snapshot = (moodboard.data?.palette_snapshot ?? {}) as Record<string, unknown>;
-  const palette = Object.values(snapshot)
-    .filter((v): v is string => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test(v))
-    .map((v) => (v.startsWith('#') ? v : `#${v}`));
+  // Mood-board palette → flat list of hex colours. Redirected 2026-09-02 from
+  // the never-populated event_moodboard_saves.palette_snapshot (its only
+  // writer, moodboard-chapters.tsx, was dead code with zero real callers — so
+  // this PDF's "moodboard" mode silently rendered an empty palette for every
+  // real couple) to events.role_palette, the live source every other
+  // mood-board surface (palette-editor, the 3D Plan, the vendor mood-board
+  // view) already reads. Flattens every role's colors into one deduped list —
+  // this export has no per-role layout, so it only needs "the couple's colors".
+  const palette = sanitizeRolePalette(event.role_palette ?? {});
+  const flatHexPalette = Array.from(
+    new Set(
+      Object.entries(palette)
+        .filter(([key]) => key !== 'room_dressing')
+        .flatMap(([, colors]) => (Array.isArray(colors) ? colors : [])),
+    ),
+  );
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
@@ -90,7 +97,7 @@ export async function GET(
     assignments,
     guests: pdfGuests,
     floorPlan,
-    palette,
+    palette: flatHexPalette,
     logoPng,
   });
 

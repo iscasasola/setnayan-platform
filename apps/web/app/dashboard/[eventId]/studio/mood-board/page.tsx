@@ -16,7 +16,7 @@ import {
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
 import type { ReceptionDesign } from '@/lib/reception-scene';
-import { saveRolePalette } from './actions';
+import { saveRolePalette, saveMoodboardTheme } from './actions';
 import { PaletteEditor } from './_components/palette-editor';
 import {
   MoodboardBoard,
@@ -31,6 +31,7 @@ import {
 import { ConceptPdfButton } from './_components/concept-pdf-button';
 import { PrintablePdfButton } from './_components/printable-pdf-button';
 import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
+import { ThemeCard } from './_components/theme-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Mood Board' };
@@ -92,7 +93,7 @@ export default async function MoodBoardPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type',
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -303,119 +304,171 @@ export default async function MoodBoardPage({ params }: Props) {
     },
   ];
 
-  return (
-    <div className="space-y-6">
-      <Link
-        href={`/dashboard/${eventId}/studio`}
-        className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
-      >
-        ‹ Back to add-ons
-      </Link>
+  // ── redesign (2026-09-02): one scrollable canvas instead of separated
+  // tabs/sections. Every existing data-fetching contract above is unchanged;
+  // this only restructures how the same data is composed into the page.
+  const jumpLinks: ReadonlyArray<{ href: string; label: string }> = [
+    { href: '#theme', label: 'Theme' },
+    { href: '#inspiration', label: 'Inspiration' },
+    { href: '#palette', label: 'Palette' },
+    { href: '#colors', label: 'In your colors' },
+    { href: '#reception', label: 'Reception' },
+    { href: '#share', label: 'Share & export' },
+  ];
 
-      <PageMasthead
-        title="Mood Board"
-      />
-      <div className="mt-3 space-y-3">
+  return (
+    <div className="pb-24">
+      <PageMasthead title="Mood Board" />
+
+      <div className="space-y-6">
+        <Link
+          href={`/dashboard/${eventId}/studio`}
+          className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+        >
+          ‹ Back to add-ons
+        </Link>
+
         {event.mood_board_updated_at ? (
-          <p className="text-xs text-ink/55">
+          <p className="-mt-3 text-xs text-ink/55">
             Last saved {new Date(event.mood_board_updated_at).toLocaleString()}
           </p>
         ) : null}
+
+        {/* Sticky mini-nav — the page is now long, so a quick jump beats a
+            scroll from a single-tab layout. */}
+        <nav
+          aria-label="Jump to a section"
+          className="sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto border-b border-ink/10 bg-cream/95 px-4 py-2 backdrop-blur sm:mx-0 sm:rounded-full sm:border sm:px-2"
+        >
+          {jumpLinks.map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              className="whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium text-ink/60 transition hover:bg-ink/5 hover:text-ink"
+            >
+              {l.label}
+            </a>
+          ))}
+        </nav>
+
+        {/* Overall Theme — the card that opens the canvas. */}
+        <ThemeCard
+          eventId={eventId}
+          initialName={
+            (event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null
+          }
+          initialDescription={
+            (event as { moodboard_theme_description?: string | null })
+              .moodboard_theme_description ?? null
+          }
+          palette={palette}
+          receptionDesign={receptionDesign}
+          saveAction={saveMoodboardTheme}
+        />
+
+        {showChineseDefaultNote ? (
+          <p className="rounded-lg border border-[#7A1F2B]/25 bg-[#7A1F2B]/[0.05] px-3 py-2 text-sm text-ink/75">
+            We&rsquo;ve suggested a red &amp; gold palette — the auspicious colours of a
+            Chinese wedding. Tweak it to your taste, then{' '}
+            <span className="font-medium">Save palette</span> to keep it. Nothing is saved
+            until you do.
+          </p>
+        ) : null}
+
+        {/* Inspiration + inline palette — presented side by side in the canvas
+            flow (was a separate tab). Reuses InspirationBoard/PaletteEditor's
+            logic/props unchanged; only the surrounding layout changed. */}
+        <div className="grid gap-6 lg:grid-cols-5">
+          <section id="inspiration" className="scroll-mt-24 space-y-4 lg:col-span-3">
+            <header>
+              <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
+              <p className="max-w-prose text-sm text-ink/65">
+                Drop the looks you love — a venue, a backdrop, a bouquet, an outfit. Drag a
+                photo onto another slot to reorder. We pull a palette from each, and these
+                references will make your photo-real render match your taste, not a generic
+                wedding.
+              </p>
+            </header>
+            <InspirationBoard eventId={eventId} initial={inspirations} />
+          </section>
+
+          <section id="palette" className="scroll-mt-24 space-y-4 lg:col-span-2">
+            <header>
+              <h2 className="text-2xl font-semibold text-ink">Palette</h2>
+              <p className="text-sm text-ink/65">
+                Set each role&rsquo;s colors — the rest of the board follows.
+              </p>
+            </header>
+            {/* For the Chinese default we surface our own accurate red & gold
+                note above, so we suppress the editor's generic "from your
+                wedding feel" hint (seeded -> false) to avoid a duplicate,
+                inaccurate message. Non-Chinese events keep seeded={isSeeded}
+                exactly as before — byte-identical. */}
+            <PaletteEditor
+              eventId={eventId}
+              initial={initialPalette}
+              seeded={isSeeded && !showChineseDefaultNote}
+              visibleKeys={Array.from(visibleKeys)}
+              saveAction={saveRolePalette}
+            />
+          </section>
+        </div>
+
+        <section id="colors" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+          <header>
+            <h2 className="text-2xl font-semibold text-ink">In your colors</h2>
+            <p className="text-sm text-ink/65">
+              One picture per thing that needs a color decision — your attire, ceremony, and
+              flowers. Ceremony and flowers preview your palette automatically.
+            </p>
+          </header>
+          <MoodboardBoard sections={sections} />
+        </section>
+
+        <section id="reception" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+          <header>
+            <h2 className="text-2xl font-semibold text-ink">Design your reception</h2>
+            <p className="text-sm text-ink/65">
+              Tap a part of the room — ceiling, backdrop, stage, tables, or the entrance
+              tunnel — and choose its treatment. The venue updates live in your colors.
+            </p>
+          </header>
+          <ReceptionDesigner
+            eventId={eventId}
+            initialDesign={receptionDesign}
+            palette={palette.reception ?? []}
+            roleColors={{
+              bride: palette.bride?.[0],
+              groom: palette.groom?.[0],
+              party: palette.wedding_party?.[0],
+              guest: palette.guest?.[0],
+              // the guest dress-code palette (multiple approved colors)
+              guestPalette: palette.guest ?? [],
+            }}
+          />
+        </section>
+
+        <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+          <header className="space-y-1">
+            <h2 className="text-2xl font-semibold text-ink">Share with your vendors</h2>
+            <p className="max-w-prose text-sm text-ink/65">
+              Send your booked vendors a heads-up that your mood board is ready, so they can
+              match their styling, decor, and booth to your palette and reception design. They
+              see a read-only view — your palette, design, and inspirations, no guest details.
+            </p>
+          </header>
+          <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />
+        </section>
       </div>
 
-      {showChineseDefaultNote ? (
-        <p className="rounded-lg border border-[#7A1F2B]/25 bg-[#7A1F2B]/[0.05] px-3 py-2 text-sm text-ink/75">
-          We&rsquo;ve suggested a red &amp; gold palette — the auspicious colours of a
-          Chinese wedding. Tweak it to your taste, then{' '}
-          <span className="font-medium">Save palette</span> to keep it. Nothing is saved
-          until you do.
-        </p>
-      ) : null}
-
-      {/* For the Chinese default we surface our own accurate red & gold note
-          above, so we suppress the editor's generic "from your wedding feel" hint
-          (seeded -> false) to avoid a duplicate, inaccurate message. Non-Chinese
-          events keep seeded={isSeeded} exactly as before — byte-identical. */}
-      <PaletteEditor
-        eventId={eventId}
-        initial={initialPalette}
-        seeded={isSeeded && !showChineseDefaultNote}
-        visibleKeys={Array.from(visibleKeys)}
-        saveAction={saveRolePalette}
-      />
-
-      <section className="space-y-4 border-t border-ink/10 pt-6">
-        <header>
-          <h2 className="text-2xl font-semibold text-ink">In your colors</h2>
-          <p className="text-sm text-ink/65">
-            One picture per thing that needs a color decision — your attire, ceremony, and
-            flowers. Ceremony and flowers preview your palette automatically.
-          </p>
-        </header>
-        <MoodboardBoard sections={sections} />
-      </section>
-
-      <section className="space-y-4 border-t border-ink/10 pt-6">
-        <header>
-          <h2 className="text-2xl font-semibold text-ink">Design your reception</h2>
-          <p className="text-sm text-ink/65">
-            Tap a part of the room — ceiling, backdrop, stage, tables, or the entrance
-            tunnel — and choose its treatment. The venue updates live in your colors.
-          </p>
-        </header>
-        <ReceptionDesigner
-          eventId={eventId}
-          initialDesign={receptionDesign}
-          palette={palette.reception ?? []}
-          roleColors={{
-            bride: palette.bride?.[0],
-            groom: palette.groom?.[0],
-            party: palette.wedding_party?.[0],
-            guest: palette.guest?.[0],
-            // the guest dress-code palette (multiple approved colors)
-            guestPalette: palette.guest ?? [],
-          }}
-        />
-      </section>
-
-      <section className="space-y-4 border-t border-ink/10 pt-6">
-        <header>
-          <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            Drop the looks you love — a venue, a backdrop, a bouquet, an outfit. We pull a
-            palette from each, and these references will make your photo-real render match
-            your taste, not a generic wedding.
-          </p>
-        </header>
-        <InspirationBoard eventId={eventId} initial={inspirations} />
-      </section>
-
-      <section className="space-y-4 border-t border-ink/10 pt-6">
-        <header className="space-y-1">
-          <h2 className="text-2xl font-semibold text-ink">Share with your vendors</h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            Send your booked vendors a heads-up that your mood board is ready, so they can
-            match their styling, decor, and booth to your palette and reception design. They
-            see a read-only view — your palette, design, and inspirations, no guest details.
-          </p>
-        </header>
-        <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />
-      </section>
-
-      <section className="sn-tile space-y-4 p-5">
-        <header className="space-y-1">
-          <h2 className="text-2xl font-semibold text-ink">Keep a copy</h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            Download a one-page printable of your palette and reception design — pin it to a
-            board or hand it to a vendor. Or grab your full concept book: palette, reception
-            design, custom template, and inspirations gathered into one PDF.
-          </p>
-        </header>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+      {/* Persistent action bar — Share + both PDF exports stay reachable
+          regardless of scroll position now that the page is one long canvas. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-3">
           <PrintablePdfButton eventId={eventId} eventName={event.display_name} />
           <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
         </div>
-      </section>
+      </div>
     </div>
   );
 }

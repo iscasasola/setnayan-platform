@@ -14,9 +14,10 @@
  * matches the couple's actual taste.
  */
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, type DragEvent } from 'react';
 import { extractPaletteFromFile } from '@/lib/extract-palette';
 import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
+import { reorderMoodboardSlot } from '../actions';
 
 export type InspirationItem = {
   slot_key: string;
@@ -100,6 +101,32 @@ export function InspirationBoard({ eventId, initial }: Props) {
     });
   }
 
+  // Drag-reorder — native HTML5 DnD (no new dependency; the repo has no
+  // existing drag-and-drop library to reuse). Swaps whatever occupies the
+  // dragged-from and dropped-on cells, within a slot or across slots.
+  function onDropTile(
+    fromSlot: string,
+    fromPos: number,
+    toSlot: string,
+    toPos: number,
+  ) {
+    if (fromSlot === toSlot && fromPos === toPos) return;
+    const fromKey = key(fromSlot, fromPos);
+    const toKey = key(toSlot, toPos);
+    setTiles((t) => ({ ...t, [fromKey]: t[toKey], [toKey]: t[fromKey] }));
+    startTransition(async () => {
+      try {
+        await reorderMoodboardSlot(
+          eventId,
+          { slotKey: fromSlot, slotPosition: fromPos as 1 | 2 },
+          { slotKey: toSlot, slotPosition: toPos as 1 | 2 },
+        );
+      } catch {
+        setError('Could not reorder — please try again.');
+      }
+    });
+  }
+
   return (
     <div className="space-y-5">
       {error ? (
@@ -126,6 +153,9 @@ export function InspirationBoard({ eventId, initial }: Props) {
                       tile={tiles[key(slot.k, pos)]}
                       onPick={(f) => onFile(slot.k, pos, f)}
                       onRemove={() => onRemove(slot.k, pos)}
+                      slotKey={slot.k}
+                      slotPosition={pos}
+                      onDropTile={onDropTile}
                     />
                   ))}
                 </div>
@@ -138,15 +168,50 @@ export function InspirationBoard({ eventId, initial }: Props) {
   );
 }
 
+const DND_MIME = 'application/x-moodboard-slot';
+
 function SlotTile({
   tile,
   onPick,
   onRemove,
+  slotKey,
+  slotPosition,
+  onDropTile,
 }: {
   tile: Tile;
   onPick: (f: File | undefined) => void;
   onRemove: () => void;
+  slotKey: string;
+  slotPosition: number;
+  onDropTile: (fromSlot: string, fromPos: number, toSlot: string, toPos: number) => void;
 }) {
+  const [dragOver, setDragOver] = useState(false);
+
+  function handleDragStart(e: DragEvent) {
+    e.dataTransfer.setData(DND_MIME, JSON.stringify({ slotKey, slotPosition }));
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function handleDragOver(e: DragEvent) {
+    if (e.dataTransfer.types.includes(DND_MIME)) {
+      e.preventDefault();
+      setDragOver(true);
+    }
+  }
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const raw = e.dataTransfer.getData(DND_MIME);
+    if (!raw) return;
+    try {
+      const from = JSON.parse(raw) as { slotKey: string; slotPosition: number };
+      onDropTile(from.slotKey, from.slotPosition, slotKey, slotPosition);
+    } catch {
+      /* ignore malformed payload */
+    }
+  }
+
+  const dropZoneClass = dragOver ? 'ring-2 ring-terracotta ring-offset-1' : '';
+
   if (tile === 'uploading') {
     return (
       <div className="flex aspect-square flex-1 items-center justify-center rounded-lg border border-ink/15 bg-white text-[10px] text-ink/50">
@@ -156,9 +221,20 @@ function SlotTile({
   }
   if (tile) {
     return (
-      <div className="group relative aspect-square flex-1 overflow-hidden rounded-lg border border-ink/15">
+      <div
+        className={`group relative aspect-square flex-1 overflow-hidden rounded-lg border border-ink/15 ${dropZoneClass}`}
+        draggable
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={tile.url} alt="Mood board inspiration image" className="h-full w-full object-cover" />
+        <img
+          src={tile.url}
+          alt="Mood board inspiration image"
+          className="h-full w-full cursor-grab object-cover active:cursor-grabbing"
+        />
         <button
           type="button"
           onClick={onRemove}
@@ -171,7 +247,12 @@ function SlotTile({
     );
   }
   return (
-    <label className="flex aspect-square flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-ink/25 bg-white text-lg text-ink/40 transition hover:border-terracotta hover:text-terracotta">
+    <label
+      onDragOver={handleDragOver}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+      className={`flex aspect-square flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-ink/25 bg-white text-lg text-ink/40 transition hover:border-terracotta hover:text-terracotta ${dropZoneClass}`}
+    >
       +
       <input
         type="file"

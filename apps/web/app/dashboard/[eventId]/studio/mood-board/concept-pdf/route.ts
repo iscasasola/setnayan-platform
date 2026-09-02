@@ -36,7 +36,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, role_palette, reception_design',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, role_palette, reception_design, moodboard_theme_name, moodboard_theme_description',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -180,6 +180,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     inspirations,
     logoPng,
     qrPng,
+    theme: {
+      name: (event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null,
+      description:
+        (event as { moodboard_theme_description?: string | null }).moodboard_theme_description ??
+        null,
+    },
   });
 
   const safeName = (event.display_name || 'Wedding')

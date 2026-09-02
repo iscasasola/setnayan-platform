@@ -24,6 +24,8 @@ type MoodBoardData = {
   role_palette: Record<string, string[]>;
   reception_design: ReceptionDesign;
   mood_board_updated_at: string | null;
+  theme_name: string | null;
+  theme_description: string | null;
   inspirations: Array<{ slot_key: string; slot_position: number; image_url: string }>;
 };
 
@@ -93,6 +95,14 @@ export default async function VendorMoodBoardPage({ params }: Props) {
         </h1>
         {board.display_name ? (
           <p className="text-base text-ink/60">{board.display_name}</p>
+        ) : null}
+        {board.theme_name ? (
+          <div className="pt-1">
+            <p className="text-xl font-semibold text-ink">{board.theme_name}</p>
+            {board.theme_description ? (
+              <p className="max-w-prose text-sm text-ink/60">{board.theme_description}</p>
+            ) : null}
+          </div>
         ) : null}
         {board.mood_board_updated_at ? (
           <p className="text-xs text-ink/40">

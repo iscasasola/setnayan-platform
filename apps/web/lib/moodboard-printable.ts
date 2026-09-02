@@ -28,7 +28,7 @@ import {
   type PaletteKey,
   type RolePalette,
 } from '@/lib/mood-board';
-import { RECEPTION_PARTS, sel, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
+import { RECEPTION_PARTS, selAll, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
 
 export type PrintableEvent = {
   display_name: string | null;
@@ -117,9 +117,17 @@ function paletteRows(palette: RolePalette): Array<{ label: string; colors: strin
 function designChoices(design: ReceptionDesign): Array<{ label: string; value: string }> {
   return PART_ORDER.map((pid) => {
     const part = RECEPTION_PARTS.find((p) => p.id === pid)!;
+    // selAll, not sel: a printed board that showed only the FIRST of a
+    // couple's two ceiling treatments would look exactly like a board that
+    // was right.
     const vals = part.attributes
-      .map((a) => a.options.find((o) => o.id === sel(design, pid, a.id))?.label)
-      .filter(Boolean) as string[];
+      .map((a) =>
+        selAll(design, pid, a.id)
+          .map((id) => a.options.find((o) => o.id === id)?.label)
+          .filter((l): l is string => Boolean(l))
+          .join(' + '),
+      )
+      .filter((v) => v.length > 0);
     return { label: part.label, value: vals.join(' · ') };
   }).filter((r) => r.value.length > 0);
 }

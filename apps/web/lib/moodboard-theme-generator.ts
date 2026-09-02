@@ -9,7 +9,7 @@ import {
 } from './moodboard-templates';
 import { nearestColorName } from './color-names';
 import { sanitizeRolePalette } from './mood-board';
-import { sanitizeReceptionDesign, type ReceptionDesign } from './reception-scene';
+import { optionIds, sanitizeReceptionDesign, type ReceptionDesign } from './reception-scene';
 
 /**
  * Theme-template PROCEDURAL GENERATOR — 10 style families × 10 moods ×
@@ -559,7 +559,10 @@ function generateDescription(
   }
   const styleLabel = STYLE_FAMILY_LABELS[style].toLowerCase();
   const moodLabel = MOOD_LABELS[mood].toLowerCase();
-  const backdropStyle = reception.backdrop?.style;
+  // The generator only ever authors single ids (see `generateTemplate` below),
+  // but the stored shape allows several — read through `optionIds` so this
+  // stays correct if a future template is ever authored with a combination.
+  const backdropStyle = optionIds(reception.backdrop?.style)[0];
   const highlight = backdropStyle ? ` behind a ${backdropStyle.replace(/_/g, ' ')} backdrop` : '';
   const colorPhrase = accentName ? `${leadName} and ${accentName}` : `${leadName} tones throughout`;
   const article = /^[aeiou]/i.test(moodLabel) ? 'an' : 'a';
@@ -676,9 +679,14 @@ export function validateGeneratedTemplate(
   const sanitizedDesign = sanitizeReceptionDesign(row.reception_design);
   for (const [partId, attrs] of Object.entries(row.reception_design)) {
     for (const [attrId, value] of Object.entries(attrs ?? {})) {
-      const kept = (sanitizedDesign as Record<string, Record<string, string>>)[partId]?.[attrId];
-      if (kept !== value) {
-        problems.push(`reception_design.${partId}.${attrId}="${value}" was dropped by sanitizeReceptionDesign`);
+      const kept = (sanitizedDesign as ReceptionDesign)[partId as keyof ReceptionDesign]?.[attrId];
+      // Compare the RESOLVED id lists, not the raw values: the sanitizer
+      // normalizes a one-entry array back to a bare string, which is the same
+      // selection and must not be reported as a loss.
+      if (optionIds(kept).join('|') !== optionIds(value).join('|')) {
+        problems.push(
+          `reception_design.${partId}.${attrId}="${JSON.stringify(value)}" was dropped by sanitizeReceptionDesign`,
+        );
       }
     }
   }

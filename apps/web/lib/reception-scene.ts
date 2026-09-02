@@ -13,6 +13,16 @@
  * Layout: a gentle aisle→stage view — ceiling overhead, entrance/tunnel arches
  * over the aisle, the couple's stage + backdrop at the far end, guest tables
  * flanking. Treatments swap the shapes; the shared Reception palette colors it.
+ *
+ * MULTI-SELECT (owner, 2026-09-03: "on reception design, needs to be able to
+ * pick multiple as well"). Real receptions combine treatments — a ceiling is
+ * draped fabric AND fairy lights — so an attribute marked `multi` may hold an
+ * ARRAY of option ids instead of one. The widening is deliberately one-way:
+ * a bare string still means exactly what it always meant, so every stored
+ * `events.reception_design` and all 2,600 seeded `moodboard_theme_templates`
+ * rows stayed valid with no migration and no backfill. `sel()` still returns
+ * ONE id (the primary) for every caller that draws one thing; `selAll()`
+ * returns the whole list for the callers that can show all of them.
  */
 
 export type PartId =
@@ -37,14 +47,64 @@ export type RoleColors = {
   guestPalette?: string[];
 };
 
-export type Option = { id: string; label: string; prompt: string };
-export type Attribute = { id: string; label: string; options: Option[] };
+export type Option = {
+  id: string;
+  label: string;
+  prompt: string;
+  /** "Nothing here" (None / Bare / Minimal). On a `multi` attribute it can
+   *  never sit alongside a real treatment — "no entrance tunnel" AND "a
+   *  tunnel of floral arches" is a contradiction the AI prompt would
+   *  faithfully repeat. `sanitizeReceptionDesign` drops it whenever a real
+   *  option is also selected. Meaningless (and unset) on single attributes,
+   *  where exclusivity is automatic. */
+  exclusive?: true;
+};
+export type Attribute = {
+  id: string;
+  label: string;
+  options: Option[];
+  /** Opt-in multi-select (owner, 2026-09-03: "on reception design, needs to be
+   *  able to pick multiple as well"). Set ONLY where combining treatments is
+   *  what a real reception does — a ceiling really is draped fabric AND fairy
+   *  lights. Left unset wherever multiple is nonsense (one table shape, one
+   *  stage setup, one guest list in the room). */
+  multi?: true;
+};
 export type Part = { id: PartId; label: string; blurb: string; attributes: Attribute[] };
 
-/** Nested design: part → attribute → chosen option id. */
-export type ReceptionDesign = Partial<Record<PartId, Record<string, string>>>;
+/** One attribute's stored value. A bare string is the single-selection form —
+ *  what every row written before 2026-09-03 holds, and what all 2,600 seeded
+ *  `moodboard_theme_templates` rows hold — and it still means exactly what it
+ *  always meant, so nothing needed migrating or backfilling. An array is the
+ *  new multi-selection form, valid only on a `multi` attribute. */
+export type AttributeValue = string | string[];
+
+/** Nested design: part → attribute → chosen option id(s). */
+export type ReceptionDesign = Partial<Record<PartId, Record<string, AttributeValue>>>;
+
+/**
+ * How many treatments one `multi` attribute may hold at once.
+ *
+ * THREE, not two: two covers the owner's own examples (draped fabric + fairy
+ * lights; a floral wall + greenery), but the welcome table genuinely carries
+ * three real things at once — an easel welcome sign, a framed seating chart
+ * AND a floral guestbook table — and capping that at two would force a couple
+ * to leave one out of a room that has all three. Three is also still short of
+ * "everything": the smallest multi attribute (`backdrop.florals`,
+ * `stage.florals`) has four options, so no cap-filling selection can ever
+ * collapse into "all of them", and `buildPrompt`'s brief and the SVG's layered
+ * glyphs both stay readable at three.
+ */
+export const MAX_SELECTIONS_PER_ATTRIBUTE = 3;
 
 const O = (id: string, label: string, prompt: string): Option => ({ id, label, prompt });
+/** An option meaning "nothing here" — see `Option.exclusive`. */
+const ONone = (id: string, label: string, prompt: string): Option => ({
+  id,
+  label,
+  prompt,
+  exclusive: true,
+});
 
 export const RECEPTION_PARTS: Part[] = [
   {
@@ -55,6 +115,10 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'treatment',
         label: 'Treatment',
+        // The owner's own example of a real combination: draped fabric AND
+        // fairy lights. Ceiling treatments are hung fixtures — they share the
+        // overhead band without contradicting each other.
+        multi: true,
         options: [
           O('chandeliers', 'Crystal chandeliers', 'rows of crystal chandeliers overhead'),
           O('draped', 'Draped canopy', 'a draped fabric canopy across the ceiling'),
@@ -64,7 +128,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('lanterns', 'Paper lanterns', 'clusters of hanging paper lanterns'),
           O('geometric', 'Geometric', 'modern geometric hanging installations'),
           O('banana_leaf', 'Banana leaf & monstera', 'a hanging canopy of banana leaf and monstera fronds'),
-          O('bare', 'Open / bare', 'a clean open ceiling'),
+          ONone('bare', 'Open / bare', 'a clean open ceiling'),
         ],
       },
     ],
@@ -77,6 +141,10 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'style',
         label: 'Style',
+        // The owner's second example: a floral wall AND greenery. Backdrop
+        // styles LAYER — each selected style is drawn in turn, so a later pick
+        // dresses the one under it (which is what a real combined backdrop is).
+        multi: true,
         options: [
           O('draped', 'Draped fabric', 'a draped fabric backdrop'),
           O('floral_wall', 'Floral wall', 'a full floral wall backdrop'),
@@ -93,8 +161,10 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'florals',
         label: 'Backdrop florals',
+        // Corner sprays AND a cascade down one side is a common florist build.
+        multi: true,
         options: [
-          O('none', 'None', ''),
+          ONone('none', 'None', ''),
           O('corner', 'Corner sprays', 'with corner floral sprays'),
           O('full', 'Full frame', 'framed all around in flowers'),
           O('cascading', 'Cascading', 'with cascading florals down one side'),
@@ -121,11 +191,14 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'florals',
         label: 'Stage florals',
+        // An arch behind the couple, pedestals flanking them and a runner on
+        // their table are three separate florist pieces, not three choices.
+        multi: true,
         options: [
           O('arch', 'Arch', 'an arch of flowers behind the couple'),
           O('pedestals', 'Pedestals', 'tall floral pedestals flanking the couple'),
           O('table_runner', 'Table runner', 'a floral runner along the couple’s table'),
-          O('none', 'None', ''),
+          ONone('none', 'None', ''),
         ],
       },
     ],
@@ -136,6 +209,10 @@ export const RECEPTION_PARTS: Part[] = [
     blurb: 'Where guests sit',
     attributes: [
       {
+        // SINGLE on purpose: a guest table is round or long or square. (The
+        // catalogue has no "Mixed" option today — if the owner wants mixed
+        // shapes across the room, that is a new OPTION here, not a second
+        // simultaneous selection: the renderer draws one shape per table spot.)
         id: 'shape',
         label: 'Shape',
         options: [
@@ -199,6 +276,10 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'style',
         label: 'Tunnel',
+        // One walk-through can be dressed twice — floral arches strung with
+        // fairy lights, lanterns hung along a greenery tunnel. Each selected
+        // style draws its own pass over the same three arch depths.
+        multi: true,
         options: [
           O('floral', 'Floral arches', 'a grand-entrance tunnel of floral arches'),
           O('draped', 'Draped arches', 'a grand-entrance tunnel of draped fabric arches'),
@@ -211,7 +292,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('cherry_blossom', 'Cherry blossom', 'a cherry-blossom entrance tunnel'),
           O('cold_spark', 'Cold spark walk', 'a walkway of cold-spark fountains firing as the couple enters'),
           O('bamboo', 'Bamboo & rattan', 'an entrance tunnel of bamboo and rattan arches'),
-          O('none', 'No tunnel', 'no entrance tunnel'),
+          ONone('none', 'No tunnel', 'no entrance tunnel'),
         ],
       },
     ],
@@ -224,13 +305,16 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'runner',
         label: 'Aisle runner',
+        // A fabric runner scattered with petals and lined with candles is one
+        // aisle, dressed three ways — each is a separate rental line item.
+        multi: true,
         options: [
           O('fabric', 'Fabric runner', 'a fabric aisle runner'),
           O('petals', 'Petals', 'an aisle scattered with petals'),
           O('mirror', 'Mirror', 'a mirrored aisle'),
           O('candle', 'Candle-lined', 'an aisle lined with candles'),
           O('floral_lined', 'Floral-lined', 'an aisle lined with florals'),
-          O('none', 'Bare', 'a bare aisle'),
+          ONone('none', 'Bare', 'a bare aisle'),
         ],
       },
     ],
@@ -248,12 +332,16 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'treatment',
         label: 'Treatment',
+        // Draped walls with floral garlands over them is the standard hotel
+        // ballroom build. "Uplighting only" and "Bare" are exclusive: both
+        // say, in words, that there is no wall dressing.
+        multi: true,
         options: [
           O('fabric_drape', 'Fabric drape', 'fabric-draped side walls'),
           O('floral_garland', 'Floral garland', 'floral garlands along the side walls and pillars'),
           O('greenery_wall', 'Greenery wall', 'greenery-clad side walls'),
-          O('uplighting_only', 'Uplighting only', 'uplit bare walls, no wall dressing'),
-          O('bare', 'Bare / undressed', 'bare undressed walls'),
+          ONone('uplighting_only', 'Uplighting only', 'uplit bare walls, no wall dressing'),
+          ONone('bare', 'Bare / undressed', 'bare undressed walls'),
         ],
       },
     ],
@@ -266,13 +354,16 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'style',
         label: 'Style',
+        // A greenery wall with a neon sign on it, a balloon garland over a
+        // step-and-repeat — the photo op is usually two things at once.
+        multi: true,
         options: [
           O('floral_wall', 'Floral wall', 'a floral photo-wall backdrop'),
           O('step_repeat', 'Step & repeat', 'a step-and-repeat photo wall with the couple’s monogram'),
           O('greenery_wall', 'Greenery wall', 'a greenery photo-wall backdrop'),
           O('balloon_garland', 'Balloon garland', 'a balloon-garland photo wall'),
           O('neon_backdrop', 'Neon sign', 'a neon-sign photo wall'),
-          O('none', 'None', ''),
+          ONone('none', 'None', ''),
         ],
       },
     ],
@@ -285,11 +376,15 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'style',
         label: 'Style',
+        // The welcome area is a SET of things, not a choice between them — the
+        // sign, the seating chart and the guestbook table stand side by side.
+        // This is the attribute that sets the cap at three rather than two.
+        multi: true,
         options: [
           O('easel_sign', 'Easel welcome sign', 'an easel welcome sign at the entrance'),
           O('framed_seating_chart', 'Framed seating chart', 'a framed seating chart display near the entrance'),
           O('floral_guestbook', 'Floral guestbook table', 'a floral-framed guestbook table near the entrance'),
-          O('minimal', 'Minimal / no signage', 'a minimal welcome table, no signage'),
+          ONone('minimal', 'Minimal / no signage', 'a minimal welcome table, no signage'),
         ],
       },
     ],
@@ -328,23 +423,64 @@ export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
   people: { who: 'couple' },
 };
 
-/** Selected option id for a part+attribute, falling back to the default. */
-export function sel(design: ReceptionDesign, part: PartId, attr: string): string {
-  return design[part]?.[attr] ?? DEFAULT_DESIGN[part][attr]!;
+/**
+ * Normalize ONE stored attribute value to a list of option ids, applying no
+ * default: a bare string → `[string]`, an array → its string entries, anything
+ * else (including `undefined` and an empty array) → `[]`. Use this when the
+ * ABSENCE of a choice has to stay visible; use `selAll()` when you want the
+ * default filled in.
+ */
+export function optionIds(value: AttributeValue | undefined): string[] {
+  if (typeof value === 'string') return value.length > 0 ? [value] : [];
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string' && v.length > 0);
+  return [];
 }
 
-/** Fast lookup of every VALID option id per part → attribute, built once from
- *  RECEPTION_PARTS. Used by `sanitizeReceptionDesign` to reject unknown ids. */
-const VALID_OPTIONS: Record<string, Record<string, Set<string>>> = (() => {
-  const out: Record<string, Record<string, Set<string>>> = {};
+/**
+ * The PRIMARY selected option id for a part+attribute, falling back to the
+ * default. Unchanged in meaning and return type since before multi-select — a
+ * bare string resolves to itself, an array resolves to its first entry — so
+ * every caller that renders or reads ONE treatment keeps working untouched.
+ */
+export function sel(design: ReceptionDesign, part: PartId, attr: string): string {
+  return optionIds(design[part]?.[attr])[0] ?? DEFAULT_DESIGN[part][attr]!;
+}
+
+/**
+ * EVERY selected option id for a part+attribute, always at least one (the
+ * default). `selAll(...)[0] === sel(...)` always holds, so moving a call site
+ * from `sel` to `selAll` can only ADD treatments, never change the one that
+ * was already being drawn.
+ */
+export function selAll(design: ReceptionDesign, part: PartId, attr: string): string[] {
+  const ids = optionIds(design[part]?.[attr]);
+  return ids.length > 0 ? ids : [DEFAULT_DESIGN[part][attr]!];
+}
+
+/** Fast lookup of the rules per part → attribute, built once from
+ *  RECEPTION_PARTS. Used by `sanitizeReceptionDesign` to reject unknown ids,
+ *  reject arrays on single-select attributes, and hold the per-attribute cap. */
+type AttrRule = { allowed: Set<string>; multi: boolean; exclusive: Set<string> };
+const VALID_OPTIONS: Record<string, Record<string, AttrRule>> = (() => {
+  const out: Record<string, Record<string, AttrRule>> = {};
   for (const part of RECEPTION_PARTS) {
     out[part.id] = {};
     for (const attr of part.attributes) {
-      out[part.id]![attr.id] = new Set(attr.options.map((o) => o.id));
+      out[part.id]![attr.id] = {
+        allowed: new Set(attr.options.map((o) => o.id)),
+        multi: attr.multi === true,
+        exclusive: new Set(attr.options.filter((o) => o.exclusive).map((o) => o.id)),
+      };
     }
   }
   return out;
 })();
+
+/** Is this attribute opt-in multi-select? (Reads the same table the sanitizer
+ *  enforces, so the editor and the trust boundary can never disagree.) */
+export function isMultiAttribute(part: PartId, attr: string): boolean {
+  return VALID_OPTIONS[part]?.[attr]?.multi === true;
+}
 
 /**
  * Coerce an arbitrary JSONB blob (e.g. `events.reception_design`) into a clean
@@ -353,6 +489,21 @@ const VALID_OPTIONS: Record<string, Record<string, Set<string>>> = (() => {
  * so an empty result is safe (renders DEFAULT_DESIGN). Pure + total: never throws
  * on a malformed value, always returns a usable object. This is the single
  * trust boundary every 3D/SVG consumer of the stored design should pass through.
+ *
+ * Multi-select rules, enforced HERE so no writer can bypass them:
+ *   • a bare string is passed through exactly as before — which is why all
+ *     2,600 seeded `moodboard_theme_templates` rows and every stored
+ *     `events.reception_design` survived the widening with no migration;
+ *   • an array on a NON-`multi` attribute is REJECTED as an array and
+ *     collapsed to its first valid entry (a table is not round AND square);
+ *   • unknown option ids are dropped, inside an array exactly as outside it;
+ *   • duplicates are dropped, and no more than MAX_SELECTIONS_PER_ATTRIBUTE
+ *     survive, so a couple cannot select the whole catalogue;
+ *   • an `exclusive` "nothing here" option is dropped when a real treatment is
+ *     also selected, and kept when it is the only thing selected;
+ *   • a surviving single id is written back as a BARE STRING, so one pick
+ *     always stores in the legacy shape — arrays appear only where a couple
+ *     genuinely chose more than one.
  */
 export function sanitizeReceptionDesign(raw: unknown): ReceptionDesign {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -362,10 +513,28 @@ export function sanitizeReceptionDesign(raw: unknown): ReceptionDesign {
     const partVal = src[partId];
     if (!partVal || typeof partVal !== 'object' || Array.isArray(partVal)) continue;
     const partSrc = partVal as Record<string, unknown>;
-    const kept: Record<string, string> = {};
-    for (const [attrId, allowed] of Object.entries(attrs)) {
+    const kept: Record<string, AttributeValue> = {};
+    for (const [attrId, rule] of Object.entries(attrs)) {
       const v = partSrc[attrId];
-      if (typeof v === 'string' && allowed.has(v)) kept[attrId] = v;
+      if (typeof v === 'string') {
+        if (rule.allowed.has(v)) kept[attrId] = v;
+        continue;
+      }
+      if (!Array.isArray(v)) continue;
+      const ids = Array.from(
+        new Set(v.filter((x): x is string => typeof x === 'string' && rule.allowed.has(x))),
+      );
+      if (ids.length === 0) continue;
+      if (!rule.multi) {
+        kept[attrId] = ids[0]!;
+        continue;
+      }
+      const real = ids.filter((id) => !rule.exclusive.has(id));
+      const chosen = (real.length > 0 ? real : ids.slice(0, 1)).slice(
+        0,
+        MAX_SELECTIONS_PER_ATTRIBUTE,
+      );
+      kept[attrId] = chosen.length === 1 ? chosen[0]! : chosen;
     }
     if (Object.keys(kept).length > 0) out[partId as PartId] = kept;
   }
@@ -454,7 +623,13 @@ function qpoint(p0: [number, number], c: [number, number], p2: [number, number],
 }
 
 // ---- ceiling ----
-function ceiling(t: string, P: (i: number) => string): string {
+/** Every selected ceiling treatment, drawn one over the other — hung fixtures
+ *  share the overhead band (draped canopy + fairy lights is the owner's own
+ *  example), so layering is what a combined ceiling actually looks like. */
+function ceiling(treatments: string[], P: (i: number) => string): string {
+  return treatments.map((t) => ceilingLayer(t, P)).join('');
+}
+function ceilingLayer(t: string, P: (i: number) => string): string {
   const fab = P(0);
   if (t === 'bare') return '';
   if (t === 'draped') {
@@ -561,11 +736,21 @@ function ceiling(t: string, P: (i: number) => string): string {
 }
 
 // ---- backdrop ----
-function backdrop(style: string, florals: string, P: (i: number) => string): string {
-  const x = 330,
-    y = 150,
-    w = 300,
-    h = 210;
+/** Backdrop geometry — shared by the style layers and the florals overlays. */
+const BD = { x: 330, y: 150, w: 300, h: 210 };
+
+/** Every selected backdrop style, then every selected florals overlay on top.
+ *  Styles LAYER in selection order (a later pick dresses the one under it),
+ *  which is what "a floral wall AND greenery" is in a real room. */
+function backdrop(styles: string[], florals: string[], P: (i: number) => string): string {
+  return (
+    styles.map((style) => backdropStyleLayer(style, P)).join('') +
+    florals.map((f) => backdropFloralsLayer(f, P)).join('')
+  );
+}
+
+function backdropStyleLayer(style: string, P: (i: number) => string): string {
+  const { x, y, w, h } = BD;
   let s = '';
   const panel = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${shade(WALL, 6)}"/>`;
   if (style === 'floral_wall') {
@@ -633,7 +818,13 @@ function backdrop(style: string, florals: string, P: (i: number) => string): str
     }
     s += `<path d="M ${x + 8} ${y + 30} Q ${x + w / 2} ${y + 70} ${x + w - 8} ${y + 30}" fill="none" stroke="${shade(fab, -30)}" stroke-width="3" opacity="0.6"/>`;
   }
-  // florals accent overlay
+  return s;
+}
+
+/** One florals accent overlay on the backdrop (drawn over every style layer). */
+function backdropFloralsLayer(florals: string, P: (i: number) => string): string {
+  const { x, y, w, h } = BD;
+  let s = '';
   if (florals === 'corner') {
     for (const [bx, by] of [[x, y], [x + w, y]] as [number, number][])
       for (let i = 0; i < 6; i++) s += flower(bx + (bx === x ? 18 : -18) + (i % 2 ? 14 : -2), by + 16 + i * 16, 10, P(2));
@@ -661,7 +852,13 @@ function perimeterPoint(x: number, y: number, w: number, h: number, t: number): 
 }
 
 // ---- stage ----
-function stage(setup: string, florals: string, P: (i: number) => string): string {
+/** `florals` is every selected stage-floral piece: an arch behind the couple,
+ *  pedestals flanking them and a runner on their table are three separate
+ *  florist builds that routinely appear together, so each draws its own pass. */
+function stage(setup: string, florals: string[], P: (i: number) => string): string {
+  const hasArch = florals.includes('arch');
+  const hasPedestals = florals.includes('pedestals');
+  const hasRunner = florals.includes('table_runner');
   const cx = 480;
   const platform = `<ellipse cx="${cx}" cy="392" rx="150" ry="26" fill="${shade(FLOOR, -14)}"/><rect x="${cx - 150}" y="372" width="300" height="22" fill="${shade(FLOOR, -8)}"/><ellipse cx="${cx}" cy="372" rx="150" ry="22" fill="${shade(FLOOR, 4)}"/>`;
   const chair = (px: number, py: number, ornate = false) =>
@@ -671,13 +868,14 @@ function stage(setup: string, florals: string, P: (i: number) => string): string
 
   // stage florals (drawn behind setup where relevant)
   let pre = '';
-  if (florals === 'arch') {
+  if (hasArch) {
     pre += `<path d="M ${cx - 90} 372 Q ${cx - 90} 250 ${cx} 250 Q ${cx + 90} 250 ${cx + 90} 372" fill="none" stroke="${P(0)}" stroke-width="14"/>`;
     for (let i = 0; i <= 10; i++) {
       const a = Math.PI * (i / 10);
       pre += flower(cx - Math.cos(a) * 90, 372 - Math.sin(a) * 122, 9, P(2));
     }
-  } else if (florals === 'pedestals') {
+  }
+  if (hasPedestals) {
     for (const px of [cx - 120, cx + 120]) {
       pre += `<rect x="${px - 6}" y="300" width="12" height="76" fill="${shade(FLOOR, -20)}"/>`;
       pre += flower(px, 292, 18, P(2)) + leaf(px - 16, 296, 12, -30) + leaf(px + 16, 300, 12, 30);
@@ -695,7 +893,7 @@ function stage(setup: string, florals: string, P: (i: number) => string): string
     body += chair(cx - 30, 350, true) + chair(cx + 30, 350, true);
     body += `<ellipse cx="${cx}" cy="362" rx="34" ry="12" fill="${LINEN}"/>`;
   } else if (setup === 'riser_arch') {
-    if (florals !== 'arch')
+    if (!hasArch)
       body += `<path d="M ${cx - 80} 372 Q ${cx - 80} 262 ${cx} 262 Q ${cx + 80} 262 ${cx + 80} 372" fill="none" stroke="${P(0)}" stroke-width="12"/>`;
     body += `<rect x="${cx - 70}" y="346" width="140" height="30" rx="6" fill="${LINEN}"/><rect x="${cx - 70}" y="362" width="140" height="14" fill="${P(0)}"/>`;
     body += chair(cx - 26, 348) + chair(cx + 26, 348);
@@ -703,10 +901,10 @@ function stage(setup: string, florals: string, P: (i: number) => string): string
     // sweetheart (default)
     body += chair(cx - 26, 348) + chair(cx + 26, 348);
     body += `<ellipse cx="${cx}" cy="356" rx="40" ry="16" fill="${LINEN}"/><path d="M ${cx - 40} 356 a 40 16 0 0 0 80 0 l 0 6 a 40 16 0 0 1 -80 0 Z" fill="${P(0)}"/>`;
-    if (florals !== 'arch' && florals !== 'pedestals') body += flower(cx, 342, 11, P(2));
+    if (!hasArch && !hasPedestals) body += flower(cx, 342, 11, P(2));
   }
   let post = '';
-  if (florals === 'table_runner') post += flower(cx - 26, 350, 7, P(2)) + flower(cx, 348, 8, P(2)) + flower(cx + 26, 350, 7, P(2));
+  if (hasRunner) post += flower(cx - 26, 350, 7, P(2)) + flower(cx, 348, 8, P(2)) + flower(cx + 26, 350, 7, P(2));
   return pre + platform + body + post;
 }
 
@@ -819,7 +1017,13 @@ function tables(
 }
 
 // ---- entrance ----
-function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): string {
+/** `tunnels` and `runners` are every selected treatment for each: one aisle
+ *  can carry a fabric runner scattered with petals AND lined with candles, and
+ *  one walk-through can be floral arches strung with fairy lights. Each
+ *  selection draws its own pass over the same aisle / the same three arch
+ *  depths — the exclusive "Bare"/"No tunnel" ids contribute nothing, and the
+ *  sanitizer has already refused to store them beside a real treatment. */
+function entrance(tunnels: string[], runners: string[], P: (i: number) => string): string {
   const cx = 480;
   const depths = [
     { top: 470, half: 178, y0: 636 },
@@ -827,22 +1031,36 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
     { top: 404, half: 86, y0: 548 },
   ];
   let s = '';
-  // aisle runner first (under the arches)
-  if (runnerT === 'petals') for (let i = 0; i < 26; i++) s += `<circle cx="${(cx - 70 + ((i * 53) % 140)).toFixed(1)}" cy="${(420 + ((i * 37) % 210)).toFixed(1)}" r="4" fill="${P(2)}" opacity="0.8"/>`;
-  else if (runnerT === 'mirror') s += `<polygon points="420,378 540,378 660,636 300,636" fill="${shade(GLASS, 18)}" opacity="0.7"/>`;
-  else if (runnerT === 'candle')
-    for (let i = 0; i < 5; i++) {
-      const yy = 430 + i * 42;
-      const sp = 40 + i * 16;
-      s += candle(cx - sp, yy, 12) + candle(cx + sp, yy, 12);
-    }
-  else if (runnerT === 'floral_lined')
-    for (let i = 0; i < 5; i++) {
-      const yy = 430 + i * 42;
-      const sp = 46 + i * 16;
-      s += flower(cx - sp, yy, 8, P(2)) + flower(cx + sp, yy, 8, P(2));
-    }
+  // aisle runners first (under the arches)
+  for (const runnerT of runners) {
+    if (runnerT === 'petals') for (let i = 0; i < 26; i++) s += `<circle cx="${(cx - 70 + ((i * 53) % 140)).toFixed(1)}" cy="${(420 + ((i * 37) % 210)).toFixed(1)}" r="4" fill="${P(2)}" opacity="0.8"/>`;
+    else if (runnerT === 'mirror') s += `<polygon points="420,378 540,378 660,636 300,636" fill="${shade(GLASS, 18)}" opacity="0.7"/>`;
+    else if (runnerT === 'candle')
+      for (let i = 0; i < 5; i++) {
+        const yy = 430 + i * 42;
+        const sp = 40 + i * 16;
+        s += candle(cx - sp, yy, 12) + candle(cx + sp, yy, 12);
+      }
+    else if (runnerT === 'floral_lined')
+      for (let i = 0; i < 5; i++) {
+        const yy = 430 + i * 42;
+        const sp = 46 + i * 16;
+        s += flower(cx - sp, yy, 8, P(2)) + flower(cx + sp, yy, 8, P(2));
+      }
+  }
 
+  for (const tunnelT of tunnels) s += tunnelLayer(tunnelT, cx, depths, P);
+  return s;
+}
+
+/** One entrance-tunnel treatment, drawn across the three receding arch depths. */
+function tunnelLayer(
+  tunnelT: string,
+  cx: number,
+  depths: ReadonlyArray<{ top: number; half: number; y0: number }>,
+  P: (i: number) => string,
+): string {
+  let s = '';
   if (tunnelT === 'none') return s;
   if (tunnelT === 'cold_spark') {
     // Cold-spark fountain walk — no arches: dark machine boxes flank the aisle
@@ -979,7 +1197,10 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
 // defined above) — a simplified side-margin treatment, not full stylist-grade
 // intricacy like the 7 original parts, since the couple already sees the
 // backdrop/ceiling carry most of the room's character.
-function wallsDecor(t: string, P: (i: number) => string): string {
+function wallsDecor(treatments: string[], P: (i: number) => string): string {
+  return treatments.map((t) => wallsDecorLayer(t, P)).join('');
+}
+function wallsDecorLayer(t: string, P: (i: number) => string): string {
   if (t === 'bare') return '';
   const bandW = 56;
   const bands = [0, 960 - bandW];
@@ -1018,7 +1239,10 @@ function wallsDecor(t: string, P: (i: number) => string): string {
 // Reuses the same glyph vocabulary as `backdrop()`, scaled into a small
 // corner panel (a lounge/entrance-corner photo op is smaller than the couple's
 // own stage backdrop) — a reasonable fallback, not bespoke geometry.
-function photoWallDecor(style: string, P: (i: number) => string): string {
+function photoWallDecor(styles: string[], P: (i: number) => string): string {
+  return styles.map((style) => photoWallDecorLayer(style, P)).join('');
+}
+function photoWallDecorLayer(style: string, P: (i: number) => string): string {
   if (style === 'none') return '';
   const x = 786,
     y = 92,
@@ -1058,33 +1282,48 @@ function photoWallDecor(style: string, P: (i: number) => string): string {
 }
 
 // ---- welcome & signage — the welcome table near the entrance ----
-function welcomeSignageDecor(style: string, P: (i: number) => string): string {
+/** The table is drawn ONCE; every selected item then stands on it, nudged
+ *  sideways so a sign, a seating chart and a guestbook read as three things
+ *  side by side rather than one glyph stacked on another. This is the zone
+ *  that argues the cap up to three — a real welcome area carries all three. */
+function welcomeSignageDecor(styles: string[], P: (i: number) => string): string {
   const x = 26,
     y = 588,
     w = 92,
     h = 46;
   const table = `<rect x="${x}" y="${y + h - 12}" width="${w}" height="12" rx="2" fill="${LINEN}"/>`;
-  if (style === 'minimal') return table;
+  const n = styles.length;
+  return (
+    table +
+    styles
+      .map((style, i) => welcomeSignageItem(style, x + w / 2 + (i - (n - 1) / 2) * 30, y, h, P))
+      .join('')
+  );
+}
+function welcomeSignageItem(
+  style: string,
+  mid: number,
+  y: number,
+  h: number,
+  P: (i: number) => string,
+): string {
+  if (style === 'minimal') return '';
   if (style === 'easel_sign') {
     return (
-      table +
-      `<rect x="${x + w / 2 - 3}" y="${y}" width="6" height="${h - 12}" fill="${shade('#A9824E', -10)}"/>` +
-      `<rect x="${x + w / 2 - 20}" y="${y}" width="40" height="26" rx="2" fill="${shade(WALL, 10)}" stroke="${P(0)}" stroke-width="1.4"/>`
+      `<rect x="${mid - 3}" y="${y}" width="6" height="${h - 12}" fill="${shade('#A9824E', -10)}"/>` +
+      `<rect x="${mid - 20}" y="${y}" width="40" height="26" rx="2" fill="${shade(WALL, 10)}" stroke="${P(0)}" stroke-width="1.4"/>`
     );
   }
   if (style === 'framed_seating_chart') {
-    let s =
-      table +
-      `<rect x="${x + w / 2 - 22}" y="${y - 2}" width="44" height="30" rx="2" fill="#FFFFFF" stroke="${GOLD}" stroke-width="2"/>`;
+    let s = `<rect x="${mid - 22}" y="${y - 2}" width="44" height="30" rx="2" fill="#FFFFFF" stroke="${GOLD}" stroke-width="2"/>`;
     for (let i = 0; i < 4; i++)
-      s += `<line x1="${x + w / 2 - 16}" y1="${y + 4 + i * 6}" x2="${x + w / 2 + 16}" y2="${y + 4 + i * 6}" stroke="${shade(WALL, -30)}" stroke-width="1"/>`;
+      s += `<line x1="${mid - 16}" y1="${y + 4 + i * 6}" x2="${mid + 16}" y2="${y + 4 + i * 6}" stroke="${shade(WALL, -30)}" stroke-width="1"/>`;
     return s;
   }
   // floral_guestbook (default)
   return (
-    table +
-    flower(x + w / 2, y + 4, 10, P(2)) +
-    `<rect x="${x + w / 2 - 12}" y="${y + h - 24}" width="24" height="16" rx="1" fill="#FFFFFF" stroke="${shade(WALL, -25)}" stroke-width="1"/>`
+    flower(mid, y + 4, 10, P(2)) +
+    `<rect x="${mid - 12}" y="${y + h - 24}" width="24" height="16" rx="1" fill="#FFFFFF" stroke="${shade(WALL, -25)}" stroke-width="1"/>`
   );
 }
 
@@ -1167,7 +1406,7 @@ export function renderVenueSvg(
   );
   const W = 960,
     H = 640;
-  const aisleTint = sel(design, 'entrance', 'runner') === 'fabric' ? P(1) : shade(P(1), 70);
+  const aisleTint = selAll(design, 'entrance', 'runner').includes('fabric') ? P(1) : shade(P(1), 70);
   const bg = `
     <defs>
       <linearGradient id="rwall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(WALL, 10)}"/><stop offset="1" stop-color="${WALL}"/></linearGradient>
@@ -1179,9 +1418,9 @@ export function renderVenueSvg(
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`,
     bg,
-    backdrop(sel(design, 'backdrop', 'style'), sel(design, 'backdrop', 'florals'), P),
-    stage(sel(design, 'stage', 'setup'), sel(design, 'stage', 'florals'), P),
-    ceiling(sel(design, 'ceiling', 'treatment'), P),
+    backdrop(selAll(design, 'backdrop', 'style'), selAll(design, 'backdrop', 'florals'), P),
+    stage(sel(design, 'stage', 'setup'), selAll(design, 'stage', 'florals'), P),
+    ceiling(selAll(design, 'ceiling', 'treatment'), P),
     tables(
       sel(design, 'tables', 'shape'),
       sel(design, 'tables', 'chairs'),
@@ -1190,12 +1429,12 @@ export function renderVenueSvg(
       sel(design, 'tables', 'place'),
       P,
     ),
-    wallsDecor(sel(design, 'walls', 'treatment'), P),
+    wallsDecor(selAll(design, 'walls', 'treatment'), P),
     people(sel(design, 'people', 'who'), rc, guestPalette),
-    entrance(sel(design, 'tunnel', 'style'), sel(design, 'entrance', 'runner'), P),
+    entrance(selAll(design, 'tunnel', 'style'), selAll(design, 'entrance', 'runner'), P),
     `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
-    photoWallDecor(sel(design, 'photo_wall', 'style'), P),
-    welcomeSignageDecor(sel(design, 'welcome_signage', 'style'), P),
+    photoWallDecor(selAll(design, 'photo_wall', 'style'), P),
+    welcomeSignageDecor(selAll(design, 'welcome_signage', 'style'), P),
     `</svg>`,
   ].join('');
 }
@@ -1209,9 +1448,13 @@ export function buildPrompt(
   const phrases: string[] = [];
   for (const part of RECEPTION_PARTS) {
     for (const attr of part.attributes) {
-      const id = sel(design, part.id, attr.id);
-      const opt = attr.options.find((o) => o.id === id);
-      if (opt?.prompt) phrases.push(opt.prompt);
+      // EVERY selection, not just the primary — a brief that describes one of
+      // the couple's two ceiling treatments would render a room they didn't
+      // design, and would read as a success while doing it.
+      for (const id of selAll(design, part.id, attr.id)) {
+        const opt = attr.options.find((o) => o.id === id);
+        if (opt?.prompt) phrases.push(opt.prompt);
+      }
     }
   }
   // People clause — injected with the actual role attire colors so one render

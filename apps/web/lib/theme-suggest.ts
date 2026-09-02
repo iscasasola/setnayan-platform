@@ -1,5 +1,10 @@
 import type { RolePalette } from './mood-board';
-import { RECEPTION_PARTS, type ReceptionDesign } from './reception-scene';
+import {
+  RECEPTION_PARTS,
+  optionIds,
+  type AttributeValue,
+  type ReceptionDesign,
+} from './reception-scene';
 
 /**
  * Deterministic "suggest a theme" helper for the Mood Board's Overall Theme
@@ -51,20 +56,33 @@ const MOTIF_WORDS: Record<string, string> = {
   geometric: 'Modern',
 };
 
+/** Reads the RAW stored value (via `optionIds`, not `sel`) on purpose: an
+ *  attribute the couple never set must stay unset here, so an untouched design
+ *  suggests nothing rather than describing DEFAULT_DESIGN back at them. With
+ *  multi-select it walks every selection and takes the first that HAS a motif
+ *  word — so a couple who picked "draped + floral wall" gets "Garden", not a
+ *  null from the first id alone. */
 function motifWord(design: ReceptionDesign): string | null {
-  const backdropStyle = design.backdrop?.style;
-  if (backdropStyle && MOTIF_WORDS[backdropStyle]) return MOTIF_WORDS[backdropStyle];
-  const ceilingTreatment = design.ceiling?.treatment;
-  if (ceilingTreatment && MOTIF_WORDS[ceilingTreatment]) return MOTIF_WORDS[ceilingTreatment];
+  for (const id of optionIds(design.backdrop?.style)) {
+    if (MOTIF_WORDS[id]) return MOTIF_WORDS[id]!;
+  }
+  for (const id of optionIds(design.ceiling?.treatment)) {
+    if (MOTIF_WORDS[id]) return MOTIF_WORDS[id]!;
+  }
   return null;
 }
 
-function optionLabel(partId: string, attrId: string, optionId: string | undefined): string | null {
-  if (!optionId) return null;
+/** Every chosen option's label for one attribute, joined for prose ("Draped
+ *  fabric and Fairy lights"). Empty when the couple never set the attribute. */
+function optionLabels(partId: string, attrId: string, value: AttributeValue | undefined): string | null {
+  const ids = optionIds(value);
+  if (ids.length === 0) return null;
   const part = RECEPTION_PARTS.find((p) => p.id === partId);
   const attr = part?.attributes.find((a) => a.id === attrId);
-  const option = attr?.options.find((o) => o.id === optionId);
-  return option?.label ?? null;
+  const labels = ids
+    .map((id) => attr?.options.find((o) => o.id === id)?.label)
+    .filter((l): l is string => Boolean(l));
+  return labels.length > 0 ? labels.join(' and ') : null;
 }
 
 // ---- the suggestion --------------------------------------------------------
@@ -100,9 +118,9 @@ export function suggestMoodboardTheme(
   const name = `${colorPhrase} ${motif} Reception`.slice(0, 80);
 
   const detailLabels = [
-    optionLabel('ceiling', 'treatment', design.ceiling?.treatment),
-    optionLabel('backdrop', 'style', design.backdrop?.style),
-    optionLabel('tables', 'centerpiece', design.tables?.centerpiece),
+    optionLabels('ceiling', 'treatment', design.ceiling?.treatment),
+    optionLabels('backdrop', 'style', design.backdrop?.style),
+    optionLabels('tables', 'centerpiece', design.tables?.centerpiece),
   ].filter((l): l is string => Boolean(l));
 
   const detailPhrase =

@@ -15,7 +15,12 @@ import {
 } from '@/lib/feel-palettes';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
-import { RECEPTION_PARTS, sel, type ReceptionDesign } from '@/lib/reception-scene';
+import {
+  RECEPTION_PARTS,
+  sanitizeReceptionDesign,
+  selAll,
+  type ReceptionDesign,
+} from '@/lib/reception-scene';
 import {
   saveRolePalette,
   saveMoodboardTheme,
@@ -169,10 +174,11 @@ export default async function MoodBoardPage({ params }: Props) {
   }));
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
-  const receptionDesign: ReceptionDesign =
-    event.reception_design && typeof event.reception_design === 'object'
-      ? (event.reception_design as ReceptionDesign)
-      : {};
+  // Through the sanitizer, not a bare cast: it is the one place the
+  // per-attribute multi-select cap and the "no unknown option ids" rule are
+  // enforced, so a hand-edited JSONB blob can't print nine ceiling treatments
+  // into the summary below.
+  const receptionDesign: ReceptionDesign = sanitizeReceptionDesign(event.reception_design);
 
   // ── read-only reception summary (Task: editor relocated to Seat Plan,
   // 2026-09-03) — "Ceiling: Fairy lights · Backdrop: Floral wall · ..." for
@@ -180,15 +186,22 @@ export default async function MoodBoardPage({ params }: Props) {
   // RECEPTION_PARTS so the 3 new Filipino-relevant zones (walls, photo wall,
   // welcome & signage) show up here for free the moment a couple sets them —
   // nothing to update when a new zone is added.
+  // Multi-select (2026-09-03): an attribute can hold more than one treatment,
+  // so its labels join with " + " ("Ceiling: Draped canopy + Fairy lights")
+  // while separate attributes keep joining with ", " as before. selAll, not
+  // sel — showing only the first of two would read exactly like a couple who
+  // only chose one.
   const receptionSummary = RECEPTION_PARTS.filter((p) => p.id !== 'people').map((p) => ({
     id: p.id,
     label: p.label,
     value: p.attributes
-      .map((a) => {
-        const id = sel(receptionDesign, p.id, a.id);
-        return a.options.find((o) => o.id === id)?.label;
-      })
-      .filter((v): v is string => Boolean(v))
+      .map((a) =>
+        selAll(receptionDesign, p.id, a.id)
+          .map((id) => a.options.find((o) => o.id === id)?.label)
+          .filter((l): l is string => Boolean(l))
+          .join(' + '),
+      )
+      .filter((v) => v.length > 0)
       .join(', '),
   }));
 

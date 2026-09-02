@@ -3,10 +3,15 @@ import assert from 'node:assert/strict';
 import {
   sanitizeReceptionDesign,
   sel,
+  selAll,
+  optionIds,
+  isMultiAttribute,
+  MAX_SELECTIONS_PER_ATTRIBUTE,
   DEFAULT_DESIGN,
   RECEPTION_PARTS,
   renderVenueSvg,
   buildPrompt,
+  type PartId,
 } from './reception-scene';
 
 test('sanitizeReceptionDesign: keeps only known part → attr → valid option ids', () => {
@@ -95,4 +100,209 @@ test('buildPrompt folds in the new zones’ prompt phrases', () => {
   assert.match(prompt, /floral garlands along the side walls/);
   assert.match(prompt, /step-and-repeat photo wall/);
   assert.match(prompt, /easel welcome sign/);
+});
+
+// ── multi-select (owner 2026-09-03: "on reception design, needs to be able to
+// pick multiple as well"). The widening rule is: a bare string keeps meaning
+// exactly what it meant, so nothing stored had to move. ──────────────────────
+
+test('a bare string still resolves through sel() AND selAll()', () => {
+  const design = { ceiling: { treatment: 'fairy_lights' } };
+  assert.equal(sel(design, 'ceiling', 'treatment'), 'fairy_lights');
+  assert.deepEqual(selAll(design, 'ceiling', 'treatment'), ['fairy_lights']);
+});
+
+test('an array resolves: sel() gives the FIRST, selAll() gives all of them', () => {
+  const design = { ceiling: { treatment: ['draped', 'fairy_lights'] } };
+  assert.equal(sel(design, 'ceiling', 'treatment'), 'draped');
+  assert.deepEqual(selAll(design, 'ceiling', 'treatment'), ['draped', 'fairy_lights']);
+});
+
+test('selAll()[0] === sel() for EVERY part+attribute — moving a call site can only add', () => {
+  const designs: Array<Record<string, Record<string, string | string[]>>> = [
+    {},
+    { ceiling: { treatment: ['draped', 'fairy_lights', 'lanterns'] } },
+    { backdrop: { style: ['greenery', 'floral_wall'], florals: ['corner', 'cascading'] } },
+    { entrance: { runner: ['fabric', 'petals'] }, tunnel: { style: ['floral', 'fairy_light'] } },
+  ];
+  for (const raw of designs) {
+    const design = sanitizeReceptionDesign(raw);
+    for (const part of RECEPTION_PARTS) {
+      for (const attr of part.attributes) {
+        assert.equal(
+          selAll(design, part.id, attr.id)[0],
+          sel(design, part.id, attr.id),
+          `${part.id}.${attr.id}`,
+        );
+      }
+    }
+  }
+});
+
+test('optionIds normalizes without inventing a default', () => {
+  assert.deepEqual(optionIds('draped'), ['draped']);
+  assert.deepEqual(optionIds(['draped', 'fairy_lights']), ['draped', 'fairy_lights']);
+  assert.deepEqual(optionIds(undefined), []);
+  assert.deepEqual(optionIds([]), []);
+  assert.deepEqual(optionIds(''), []);
+  // …while selAll DOES fall back, so a renderer always has something to draw.
+  assert.deepEqual(selAll({}, 'ceiling', 'treatment'), [DEFAULT_DESIGN.ceiling.treatment]);
+});
+
+test('sanitize: an array on a MULTI attribute is kept', () => {
+  const out = sanitizeReceptionDesign({ ceiling: { treatment: ['draped', 'fairy_lights'] } });
+  assert.deepEqual(out.ceiling, { treatment: ['draped', 'fairy_lights'] });
+});
+
+test('sanitize: an array on a NON-multi attribute is collapsed to its first valid entry', () => {
+  assert.equal(isMultiAttribute('tables', 'shape'), false);
+  assert.equal(isMultiAttribute('people', 'who'), false);
+  assert.equal(isMultiAttribute('stage', 'setup'), false);
+  const out = sanitizeReceptionDesign({
+    tables: { shape: ['square', 'round'] },
+    people: { who: ['couple', 'everyone'] },
+    stage: { setup: ['lounge', 'sweetheart'] },
+  });
+  // Collapsed to a bare STRING — not a one-element array.
+  assert.deepEqual(out.tables, { shape: 'square' });
+  assert.deepEqual(out.people, { who: 'couple' });
+  assert.deepEqual(out.stage, { setup: 'lounge' });
+});
+
+test('sanitize: unknown option ids are dropped inside an array, exactly as outside one', () => {
+  const out = sanitizeReceptionDesign({
+    ceiling: { treatment: ['not_a_treatment', 'fairy_lights', 42, null, 'also_bogus'] },
+    backdrop: { style: ['nope_1', 'nope_2'] }, // nothing valid left → attribute dropped
+  });
+  assert.deepEqual(out.ceiling, { treatment: 'fairy_lights' });
+  assert.equal(out.backdrop, undefined);
+});
+
+test('sanitize: duplicates collapse, and a single surviving id stores as a bare string', () => {
+  const out = sanitizeReceptionDesign({ ceiling: { treatment: ['draped', 'draped'] } });
+  assert.deepEqual(out.ceiling, { treatment: 'draped' });
+});
+
+test('sanitize: the per-attribute cap is enforced', () => {
+  const over = ['chandeliers', 'draped', 'fairy_lights', 'lanterns', 'geometric'];
+  assert.ok(over.length > MAX_SELECTIONS_PER_ATTRIBUTE);
+  const out = sanitizeReceptionDesign({ ceiling: { treatment: over } });
+  const kept = out.ceiling!.treatment as string[];
+  assert.equal(kept.length, MAX_SELECTIONS_PER_ATTRIBUTE);
+  assert.deepEqual(kept, over.slice(0, MAX_SELECTIONS_PER_ATTRIBUTE));
+});
+
+test('sanitize: a "nothing here" option is dropped beside a real one, and kept alone', () => {
+  // "no entrance tunnel" AND "a tunnel of floral arches" is a contradiction the
+  // AI brief would repeat verbatim — so the real treatment wins.
+  const mixed = sanitizeReceptionDesign({ tunnel: { style: ['none', 'floral'] } });
+  assert.deepEqual(mixed.tunnel, { style: 'floral' });
+  const alone = sanitizeReceptionDesign({ tunnel: { style: ['none'] } });
+  assert.deepEqual(alone.tunnel, { style: 'none' });
+  // Same rule on the walls zone, whose "Uplighting only" says, in words, that
+  // there is no wall dressing.
+  const walls = sanitizeReceptionDesign({
+    walls: { treatment: ['uplighting_only', 'floral_garland'] },
+  });
+  assert.deepEqual(walls.walls, { treatment: 'floral_garland' });
+});
+
+test('every multi attribute has at least two combinable options (the flag means something)', () => {
+  let multiCount = 0;
+  for (const part of RECEPTION_PARTS) {
+    for (const attr of part.attributes) {
+      if (attr.multi !== true) continue;
+      multiCount += 1;
+      const combinable = attr.options.filter((o) => o.exclusive !== true);
+      assert.ok(
+        combinable.length >= 2,
+        `${part.id}.${attr.id} is multi but has ${combinable.length} combinable option(s)`,
+      );
+    }
+  }
+  assert.ok(multiCount >= 9, `expected the 9 combinable attributes, saw ${multiCount}`);
+});
+
+test('renderVenueSvg produces valid SVG for BOTH shapes, on every multi attribute', () => {
+  const palette = ['#C9A059', '#8C6BA6', '#D98BA6'];
+  for (const part of RECEPTION_PARTS) {
+    for (const attr of part.attributes) {
+      if (attr.multi !== true) continue;
+      const ids = attr.options.filter((o) => o.exclusive !== true).map((o) => o.id);
+      for (const id of ids) {
+        // the single/legacy shape
+        const one = renderVenueSvg({ [part.id as PartId]: { [attr.id]: id } }, palette);
+        assert.match(one, /^<svg/);
+        assert.match(one, /<\/svg>$/);
+      }
+      // the multi shape, at the cap
+      const many = sanitizeReceptionDesign({
+        [part.id]: { [attr.id]: ids.slice(0, MAX_SELECTIONS_PER_ATTRIBUTE) },
+      });
+      const svg = renderVenueSvg(many, palette);
+      assert.match(svg, /^<svg/);
+      assert.match(svg, /<\/svg>$/);
+    }
+  }
+});
+
+test('renderVenueSvg DRAWS both selections, not just the primary', () => {
+  const palette = ['#C9A059', '#8C6BA6', '#D98BA6'];
+  const drapedOnly = renderVenueSvg({ ceiling: { treatment: 'draped' } }, palette);
+  const bothCeilings = renderVenueSvg({ ceiling: { treatment: ['draped', 'chandeliers'] } }, palette);
+  // The chandelier glyph adds markup the drape-only scene doesn't have, and the
+  // combined scene is strictly longer than either half.
+  assert.ok(bothCeilings.length > drapedOnly.length);
+  const chandeliersOnly = renderVenueSvg({ ceiling: { treatment: 'chandeliers' } }, palette);
+  assert.ok(bothCeilings.length > chandeliersOnly.length);
+});
+
+test('buildPrompt reads sensibly with multiple selections', () => {
+  const prompt = buildPrompt(
+    sanitizeReceptionDesign({
+      ceiling: { treatment: ['draped', 'fairy_lights'] },
+      welcome_signage: {
+        style: ['easel_sign', 'framed_seating_chart', 'floral_guestbook'],
+      },
+      tunnel: { style: ['none', 'floral'] }, // the contradiction, pre-sanitizer
+    }),
+    ['#C9A059'],
+  );
+  assert.match(prompt, /a draped fabric canopy across the ceiling/);
+  assert.match(prompt, /a warm canopy of fairy string lights/);
+  assert.match(prompt, /an easel welcome sign at the entrance/);
+  assert.match(prompt, /a framed seating chart display near the entrance/);
+  assert.match(prompt, /a floral-framed guestbook table near the entrance/);
+  // …and never both halves of a contradiction.
+  assert.match(prompt, /a grand-entrance tunnel of floral arches/);
+  assert.doesNotMatch(prompt, /no entrance tunnel/);
+});
+
+test('the legacy single-string shape renders BYTE-IDENTICALLY to before the widening', () => {
+  // The whole safety argument for not migrating 2,600 seeded rows: a design
+  // written entirely in bare strings must produce the same scene it always did.
+  const palette = ['#C9A059', '#8C6BA6', '#D98BA6'];
+  const legacy = {
+    ceiling: { treatment: 'chandeliers' },
+    backdrop: { style: 'draped', florals: 'corner' },
+    stage: { setup: 'sweetheart', florals: 'arch' },
+    tables: { shape: 'round', chairs: 'chiavari', linen: 'plain', centerpiece: 'tall', place: 'gold' },
+    tunnel: { style: 'floral' },
+    entrance: { runner: 'fabric' },
+    walls: { treatment: 'bare' },
+    photo_wall: { style: 'none' },
+    welcome_signage: { style: 'minimal' },
+    people: { who: 'couple' },
+  };
+  // Same design expressed with one-element arrays → identical output.
+  const asArrays = Object.fromEntries(
+    Object.entries(legacy).map(([partId, attrs]) => [
+      partId,
+      Object.fromEntries(Object.entries(attrs).map(([a, v]) => [a, [v]])),
+    ]),
+  );
+  assert.equal(renderVenueSvg(legacy, palette), renderVenueSvg(asArrays, palette));
+  assert.equal(buildPrompt(legacy, palette), buildPrompt(asArrays, palette));
+  // And the sanitizer hands the array form back in the legacy string shape.
+  assert.deepEqual(sanitizeReceptionDesign(asArrays), sanitizeReceptionDesign(legacy));
 });

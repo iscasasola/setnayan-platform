@@ -4,7 +4,12 @@ import { ArrowLeft, Palette } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { PALETTE_LIMITS, PALETTE_ORDER, type PaletteKey, type RolePalette } from '@/lib/mood-board';
-import { renderVenueSvg, type ReceptionDesign, type RoleColors } from '@/lib/reception-scene';
+import {
+  renderVenueSvg,
+  sanitizeReceptionDesign,
+  type ReceptionDesign,
+  type RoleColors,
+} from '@/lib/reception-scene';
 import { fetchDecorLayerCatalog, renderDecorLayerDataUrl } from '@/lib/reception-decor-layers-server';
 import { PILOT_DECOR_ZONES } from '@/lib/reception-decor-layers';
 import { isMoodboardStyleFamily } from '@/lib/moodboard-templates';
@@ -83,11 +88,11 @@ export default async function VendorMoodBoardPage({ params }: Props) {
     guest: palette.guest?.[0],
     guestPalette: palette.guest ?? [],
   };
-  const receptionSvg = renderVenueSvg(
-    board.reception_design ?? {},
-    palette.reception ?? [],
-    roleColors,
-  );
+  // Through the sanitizer, like every other reader: it enforces the
+  // multi-select cap and the valid-option-id rule, so a hand-edited JSONB blob
+  // can't draw nine ceiling treatments onto a supplier's screen.
+  const receptionDesign = sanitizeReceptionDesign(board.reception_design);
+  const receptionSvg = renderVenueSvg(receptionDesign, palette.reception ?? [], roleColors);
 
   // AI decor-image layer PILOT (backdrop + ceiling — see
   // @/lib/reception-decor-layers).

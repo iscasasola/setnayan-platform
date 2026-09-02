@@ -6,7 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { renderVenueSvg, type ReceptionDesign } from '@/lib/reception-scene';
+import { renderVenueSvg, sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
 import { buildConceptPdf } from '@/lib/concept-pdf';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 
@@ -70,10 +70,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       ...(palette.guest ?? []),
     ]),
   ).slice(0, 6);
-  const design: ReceptionDesign =
-    event.reception_design && typeof event.reception_design === 'object'
-      ? (event.reception_design as ReceptionDesign)
-      : {};
+  // Through the sanitizer (not a bare cast) so the multi-select cap and the
+  // valid-option-id rule hold on the way into the PDF too.
+  const design: ReceptionDesign = sanitizeReceptionDesign(event.reception_design);
   const roleColors = {
     bride: palette.bride?.[0],
     groom: palette.groom?.[0],

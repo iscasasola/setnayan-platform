@@ -1,5 +1,5 @@
 import type { PaletteKey, RolePalette } from './mood-board';
-import type { PartId, ReceptionDesign } from './reception-scene';
+import { optionIds, type AttributeValue, type PartId, type ReceptionDesign } from './reception-scene';
 
 /**
  * Theme TEMPLATE gallery — "pick a look, seed your board" (Mood Board
@@ -235,10 +235,14 @@ export function mergeReceptionDesign(
   for (const partId of partIds) {
     const currentAttrs = current[partId as PartId] ?? {};
     const templateAttrs = template[partId as PartId] ?? {};
-    const mergedAttrs: Record<string, string> = { ...currentAttrs };
+    // `AttributeValue`, not `string`: an attribute may hold one id or several
+    // (multi-select, 2026-09-03). "Has the couple set this zone?" is
+    // `optionIds(...).length > 0` — an empty array is truthy, so a bare truthy
+    // check would read "already chosen" for a zone holding nothing.
+    const mergedAttrs: Record<string, AttributeValue> = { ...currentAttrs };
     for (const [attrId, optionId] of Object.entries(templateAttrs)) {
-      if (!optionId) continue;
-      if (!currentAttrs[attrId]) {
+      if (optionIds(optionId).length === 0) continue;
+      if (optionIds(currentAttrs[attrId]).length === 0) {
         mergedAttrs[attrId] = optionId;
         filledZones.push(`${partId}.${attrId}`);
       }
@@ -301,9 +305,9 @@ export function replaceReceptionDesign(
   const changedZones: string[] = [];
   for (const [partId, templateAttrs] of Object.entries(template)) {
     const currentAttrs = current[partId as PartId] ?? {};
-    const mergedAttrs: Record<string, string> = { ...currentAttrs };
+    const mergedAttrs: Record<string, AttributeValue> = { ...currentAttrs };
     for (const [attrId, optionId] of Object.entries(templateAttrs ?? {})) {
-      if (!optionId) continue;
+      if (optionIds(optionId).length === 0) continue;
       mergedAttrs[attrId] = optionId;
       changedZones.push(`${partId}.${attrId}`);
     }

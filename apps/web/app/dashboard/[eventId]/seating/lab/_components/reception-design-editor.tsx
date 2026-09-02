@@ -28,8 +28,12 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   RECEPTION_PARTS,
   DEFAULT_DESIGN,
+  MAX_SELECTIONS_PER_ATTRIBUTE,
   renderVenueSvg,
   sel,
+  selAll,
+  type Attribute,
+  type AttributeValue,
   type PartId,
   type ReceptionDesign,
   type RoleColors,
@@ -225,22 +229,25 @@ export function ReceptionDesignEditor({
     };
   }, [catalog, styleFamily, targetHex]);
 
-  function choose(part: PartId, attr: string, optionId: string) {
+  /** Write one attribute's value (a bare string for one pick, an array for
+   *  several) and persist. The server re-sanitizes, so this is the optimistic
+   *  half only — it never has the last word on what is valid. */
+  function commit(part: PartId, attr: string, value: AttributeValue) {
     const cur =
       design[part] && typeof design[part] === 'object'
-        ? (design[part] as Record<string, string>)
+        ? (design[part] as Record<string, AttributeValue>)
         : {};
     const next: ReceptionDesign = {
       ...design,
-      [part]: { ...DEFAULT_DESIGN[part], ...cur, [attr]: optionId },
+      [part]: { ...DEFAULT_DESIGN[part], ...cur, [attr]: value },
     };
     onChange(next);
     startTransition(async () => {
       try {
-        await save.run(
-          () => saveReceptionDesign(eventId, next as Record<string, Record<string, string>>),
-          { steps: ['Saving your design'], hint: 'Saving' },
-        );
+        await save.run(() => saveReceptionDesign(eventId, next), {
+          steps: ['Saving your design'],
+          hint: 'Saving',
+        });
         setError(null);
       } catch (err) {
         setError('Could not save — try again.');
@@ -249,16 +256,52 @@ export function ReceptionDesignEditor({
           elementName: 'Save reception design',
           filePath: 'app/dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx',
           error: err,
-          payload: { part, attr, optionId },
+          payload: { part, attr, value },
         });
       }
     });
   }
 
+  /**
+   * A tap on one option chip.
+   *
+   * • single attribute (the default) — replaces the choice, exactly as before;
+   * • `multi` attribute — toggles like a checkbox, with three refusals that
+   *   keep the room describable: an `exclusive` "nothing here" option clears
+   *   the rest (and is cleared BY the rest), the last remaining selection
+   *   cannot be turned off (an empty attribute silently falls back to
+   *   DEFAULT_DESIGN, so the room would change to something the couple never
+   *   picked), and nothing is added past MAX_SELECTIONS_PER_ATTRIBUTE.
+   */
+  function choose(part: PartId, attrDef: Attribute, optionId: string) {
+    if (attrDef.multi !== true) {
+      commit(part, attrDef.id, optionId);
+      return;
+    }
+    const isExclusive = (id: string) =>
+      attrDef.options.find((o) => o.id === id)?.exclusive === true;
+    const current = selAll(design, part, attrDef.id);
+    let next: string[];
+    if (isExclusive(optionId)) {
+      next = [optionId];
+    } else if (current.includes(optionId)) {
+      next = current.filter((id) => id !== optionId);
+      if (next.length === 0) return; // never leave an attribute with nothing
+    } else {
+      const kept = current.filter((id) => !isExclusive(id));
+      if (kept.length >= MAX_SELECTIONS_PER_ATTRIBUTE) return; // at the cap
+      next = [...kept, optionId];
+    }
+    commit(part, attrDef.id, next.length === 1 ? next[0]! : next);
+  }
+
+  /** The part-chip's trailing summary: the primary option's label, plus how
+   *  many more are selected alongside it ("Draped canopy +1"). */
   function primaryLabel(part: (typeof RECEPTION_PARTS)[number]): string {
     const a = part.attributes[0]!;
-    const id = sel(design, part.id, a.id);
-    return a.options.find((o) => o.id === id)?.label ?? '';
+    const chosen = selAll(design, part.id, a.id);
+    const label = a.options.find((o) => o.id === sel(design, part.id, a.id))?.label ?? '';
+    return chosen.length > 1 ? `${label} +${chosen.length - 1}` : label;
   }
 
   if (!canEdit) return null;
@@ -351,30 +394,51 @@ export function ReceptionDesignEditor({
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
               {activeDef.label} · {activeDef.blurb}
             </p>
-            {activeDef.attributes.map((attr) => (
-              <div key={attr.id} className="space-y-1.5">
-                <p className="text-[11px] font-medium text-ink/60">{attr.label}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {attr.options.map((opt) => {
-                    const selected = sel(design, activePart, attr.id) === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => choose(activePart, attr.id, opt.id)}
-                        className={`rounded-lg border px-2.5 py-1.5 text-xs transition ${
-                          selected
-                            ? 'border-terracotta bg-terracotta/10 text-ink ring-1 ring-terracotta/40'
-                            : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+            {activeDef.attributes.map((attr) => {
+              // A `multi` attribute's chips behave like checkboxes — several
+              // can be pressed at once, up to the cap. Same chip styling as
+              // every other option; only the pressed COUNT differs.
+              const chosen = selAll(design, activePart, attr.id);
+              const atCap = attr.multi === true && chosen.length >= MAX_SELECTIONS_PER_ATTRIBUTE;
+              return (
+                <div key={attr.id} className="space-y-1.5">
+                  <p className="text-[11px] font-medium text-ink/60">
+                    {attr.label}
+                    {attr.multi === true ? (
+                      <span className="ml-1 font-normal text-ink/40">
+                        · pick up to {MAX_SELECTIONS_PER_ATTRIBUTE}
+                      </span>
+                    ) : null}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {attr.options.map((opt) => {
+                      const selected = chosen.includes(opt.id);
+                      // At the cap, an unselected chip can't be added — say so
+                      // by dimming it rather than swallowing the tap silently.
+                      const blocked = atCap && !selected && opt.exclusive !== true;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          aria-pressed={selected}
+                          disabled={blocked}
+                          onClick={() => choose(activePart, attr, opt.id)}
+                          className={`rounded-lg border px-2.5 py-1.5 text-xs transition ${
+                            selected
+                              ? 'border-terracotta bg-terracotta/10 text-ink ring-1 ring-terracotta/40'
+                              : blocked
+                                ? 'cursor-not-allowed border-ink/10 bg-cream text-ink/30'
+                                : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <p className="text-[11px] text-white/50">

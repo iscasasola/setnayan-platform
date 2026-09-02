@@ -25,7 +25,7 @@ import {
   type PDFPage,
   type RGB,
 } from 'pdf-lib';
-import { RECEPTION_PARTS, sel, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
+import { RECEPTION_PARTS, selAll, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
 import { lockupForEvent, drawLockupBadge } from '@/lib/lockup-pdf';
 import { deriveMonogram } from '@/lib/monogram';
 
@@ -116,9 +116,16 @@ function formatDate(iso: string | null): string {
 function designChoices(design: ReceptionDesign): Array<{ label: string; value: string }> {
   return PART_ORDER.map((pid) => {
     const part = RECEPTION_PARTS.find((p) => p.id === pid)!;
+    // selAll, not sel: the concept PDF is what the couple hands a supplier —
+    // dropping their second ceiling treatment here would quote the wrong room.
     const vals = part.attributes
-      .map((a) => part && a.options.find((o) => o.id === sel(design, pid, a.id))?.label)
-      .filter(Boolean) as string[];
+      .map((a) =>
+        selAll(design, pid, a.id)
+          .map((id) => a.options.find((o) => o.id === id)?.label)
+          .filter((l): l is string => Boolean(l))
+          .join(' + '),
+      )
+      .filter((v) => v.length > 0);
     return { label: part.label, value: vals.join(' · ') };
   });
 }

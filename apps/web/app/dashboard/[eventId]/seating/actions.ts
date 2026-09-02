@@ -8,7 +8,7 @@ import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
-import { RECEPTION_PARTS } from '@/lib/reception-scene';
+import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
 import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
 import { SeatingLockError } from './seating-lock-error';
@@ -2205,12 +2205,19 @@ export async function buildSeatingDraft(
  * Seat Plan's own venue-decor settings ("what does the room look like"), so
  * the ONE editor for it now lives in the seating lab; Mood Board keeps only a
  * read-only summary + a link here. Nested shape { part: { attribute:
- * optionId } }. Sanitizes against the known parts/attributes/options (see
- * RECEPTION_PARTS in lib/reception-scene.ts) so only valid choices land.
+ * optionId | [optionId, …] } }.
+ *
+ * Sanitizes through `sanitizeReceptionDesign` — the SAME function every reader
+ * passes the stored blob through. It used to re-implement the rules inline
+ * here, which was survivable while there was one rule ("is this a known option
+ * id"); it stopped being survivable when multi-select added four more (arrays
+ * only on `multi` attributes, the per-attribute cap, no duplicates, no
+ * "nothing here" option beside a real one). Two mechanisms that disagree about
+ * one fact each pass their own tests — so there is now one.
  */
 export async function saveReceptionDesign(
   eventId: string,
-  design: Record<string, Record<string, string>>,
+  design: ReceptionDesign,
 ): Promise<void> {
   const supabase = await createClient();
   const {
@@ -2218,17 +2225,7 @@ export async function saveReceptionDesign(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const clean: Record<string, Record<string, string>> = {};
-  for (const part of RECEPTION_PARTS) {
-    const pd = design[part.id];
-    if (!pd || typeof pd !== 'object') continue;
-    const cp: Record<string, string> = {};
-    for (const attr of part.attributes) {
-      const v = pd[attr.id];
-      if (v && attr.options.some((o) => o.id === v)) cp[attr.id] = v;
-    }
-    if (Object.keys(cp).length > 0) clean[part.id] = cp;
-  }
+  const clean = sanitizeReceptionDesign(design);
 
   // RLS enforces host-only writes on their own events via event_members.
   const { error } = await supabase

@@ -555,6 +555,54 @@ export function decideArchiveGuard(input: {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   THE UNANCHORED DAY (owner-ruled 2026-09-02) — "your broadcast day starts when
+   you first go live" was told to a couple deciding whether to spend ₱3,000, weeks
+   before they pay, and never again to the person about to press the button that
+   actually starts the clock. This closes that gap on the controller itself.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Is the event's calendar day the SAME UTC day as `now`? Crude date-only
+ * comparison, same shape as `app/[slug]/_lib/site-nav.ts`'s `eventDayIsBehindUs`
+ * — good enough to tell "the wedding day itself" from every other day, which is
+ * all this needs.
+ */
+function isEventDayNow(eventDate: string | Date | null | undefined, now: Date): boolean {
+  const raw = eventDate instanceof Date ? eventDate.toISOString() : (eventDate ?? '').toString();
+  const day = raw.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  return day === now.toISOString().slice(0, 10);
+}
+
+/**
+ * Should the controller warn that this event OWNS Live Studio but has never
+ * anchored its broadcast day?
+ *
+ * `reason === 'awaiting-go-live'` is exactly that state: paid (or granted a
+ * metered day), `firstLiveAt` never set, so `decideBroadcastWindow` has already
+ * confirmed multi-cam is live-able but the clock has not started. Every other
+ * reason either has no anchor to warn about (`not-owned`, `unmetered` — no clock
+ * ever runs) or has already anchored (`open`/`ending-soon`/`expired*`).
+ *
+ * SILENT ON THE EVENT DAY ITSELF (owner ruling): the warning is for a press
+ * weeks early, when spending the day on a rehearsal is the mistake to prevent.
+ * On the day, the host is about to anchor the day ON PURPOSE, and the warning
+ * would be noise at the worst possible moment.
+ *
+ * PURE, takes `now` — same shape as `decideArchiveGuard` right above it, so the
+ * client strip that ticks through a show can hold this to the same one testable
+ * answer whether a test hands in a mock clock or the real render does.
+ */
+export function shouldWarnWindowNotStarted(input: {
+  reason: WindowReason;
+  eventDate: string | Date | null | undefined;
+  now: Date;
+}): boolean {
+  if (input.reason !== 'awaiting-go-live') return false;
+  return !isEventDayNow(input.eventDate, input.now);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
    HOST-FACING COPY
    ══════════════════════════════════════════════════════════════════════════════ */
 

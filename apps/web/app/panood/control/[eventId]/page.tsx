@@ -944,9 +944,14 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                RIGID 56.25% of the width, so on a short phone (360×640) the monitor
                would claim ~190px it cannot give back and the grid below would
                collapse to nothing. Capping it in dvh lets the monitor give way
-               first — the picture is object-cover and every overlay is positioned
-               against this box, so a slightly-off ratio costs nothing, while a
-               clipped transport row costs the operator their go-live. */
+               first, and every overlay is positioned against this box, so a
+               slightly-off ratio costs nothing, while a clipped transport row
+               costs the operator their go-live.
+               ⭐ WAVE 9 · the picture is `object-contain`, matching the program
+               output (program-surface.tsx) exactly. This is the ONE monitor an
+               operator composes a shot against — it has to show what actually
+               goes out, portrait letterboxing included, or a frame that looks
+               fine here airs pillarboxed with no way to see it happening. */
             className={`relative aspect-video max-h-[34dvh] w-full shrink-0 overflow-hidden rounded-2xl border-2 bg-ink/90 lg:max-h-[46dvh] ${
               isLive ? 'border-danger-500 ring-2 ring-danger-500/25' : 'border-ink/15'
             }`}
@@ -977,7 +982,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 transport the legacy control room uses). Sits UNDER the overlay
                 layers below so the monogram / lower third / QR composite over the
                 video exactly as they do on the encode surface. */}
-            <ChannelVideo slot={programSlot} />
+            <ChannelVideo slot={programSlot} className="absolute inset-0 h-full w-full object-contain" />
 
             {/* CH 1 is the controlled screen — the fixed label from the design. */}
             <span className="absolute left-2.5 top-2.5 rounded-md bg-ink/60 px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-cream/85">

@@ -80,24 +80,15 @@ export function railToolsSignedIn(
   const { eventId, count, profile } = studio;
   const rows: RailTool[] = STUDIO_APPS.filter((a) => {
     /*
-      🔒 THE WEBSITE ROW IS DROPPED INSIDE AN EVENT (2026-09-02, owner ruling
-      "if it is the same then adjust"). It opens the Event Hub controller now,
-      and so does the event menu's own row a few rows below — SAME word, "Event
-      Hub", and since this change the same page. That is the shipped reasoning
-      in `event-rail-match-rows.ts`, which drops the event menu's `studio` row
-      for exactly this: "the same destination under a second name".
-
-      Which of the two survives is not arbitrary — EH3 (#5108) ruled the event
-      menu wears "Event Hub" in all THREE lifecycle phases, so the menu row is
-      the one with a decision behind it, and it claims the `/website` family
-      too (see `customer-nav-config.ts`) so no website page goes dark.
-
-      ⚠ ONLY INSIDE AN EVENT, and only the RAIL. With no event there is no menu
-      row to duplicate and this row is the product's only door, so it stays. The
-      Suite grid, the Studio hub and the App Store all read `ADD_ONS`, not this
-      list — the product keeps its card everywhere it had one.
+      ⛔ DO NOT DROP A PRODUCT ROW HERE TO DE-DUPE THE RAIL. Tried 2026-09-02
+      and reverted: `studio-menu-adapts-to-event.test.ts` reads THIS function as
+      the sidebar's half of an owner-ruled parity — "sidebar and Suite agree",
+      with exact row counts (wedding 9 · ceremonial 8 · simple_event 7 ·
+      date/hangout/travel 5). Removing a row here breaks that ruling for a
+      problem that does not live here: two rows opening ONE page is a MATCHING
+      question, and it is settled where the match list is built
+      (`front-door-shell.tsx`), leaving every rendered row intact.
     */
-    if (eventId && a.addOnKey === 'landing-page') return false;
     // Nothing is gated until we know WHICH event — the surface list is a
     // property of the event type, and without one there is nothing to ask.
     if (!eventId || !profile) return true;

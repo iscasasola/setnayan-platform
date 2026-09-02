@@ -66,13 +66,27 @@ function eventRows(): RailMatchRow[] {
   });
 }
 
-/** The WHOLE rail, exactly as `FrontDoorShell` composes it inside an event. */
+/**
+ * The WHOLE rail, exactly as `FrontDoorShell` composes it inside an event —
+ * INCLUDING the de-dupe: a Studio row whose href an event row already claims is
+ * not matched twice. Since 2026-09-02 one row is in that position (the website
+ * product and the event menu both open the Event Hub controller), so a helper
+ * that skipped the de-dupe would be testing a rail the shell never builds.
+ */
 function wholeRail(): RailMatchRow[] {
+  const events = eventRows();
+  const claimedByEvent = new Set(events.map((r) => r.href));
   return [
     ...railMatchRows({ signedIn: true, hasShop: false, isAdmin: false }),
-    ...studioRows(),
-    ...eventRows(),
+    ...studioRows().filter((r) => !claimedByEvent.has(r.href)),
+    ...events,
   ];
+}
+
+/** The Studio rows that actually take part in matching (the de-dupe applied). */
+function matchedStudioRows(): RailMatchRow[] {
+  const claimedByEvent = new Set(eventRows().map((r) => r.href));
+  return studioRows().filter((r) => !claimedByEvent.has(r.href));
 }
 
 test('the two halves really do overlap — the premise, measured, not assumed', () => {
@@ -99,7 +113,7 @@ test('the two halves really do overlap — the premise, measured, not assumed', 
 
 test('every Studio row lights ITSELF on its own page, and nothing else does', () => {
   const rail = wholeRail();
-  for (const row of studioRows()) {
+  for (const row of matchedStudioRows()) {
     assert.equal(
       activeRailKey(rail, row.href),
       row.key,
@@ -199,17 +213,23 @@ test('ONE DOOR: the Studio row and the event-menu row open the same page', () =>
   );
   assert.equal(menuHub!.href, `${BASE}/launch`, 'and the one door is the controller');
 
-  // The rail's Studio group must not carry the duplicate back. Outside an event
-  // it SHOULD still be there — there is no menu row to duplicate, and it is the
-  // product's only door.
-  assert.equal(
-    studioRows().find((r) => r.key === 'pawebsite'),
-    undefined,
-    'the Studio rail carries the website row again, beside a menu row for the same page',
-  );
+  /*
+    ⛔ BOTH ROWS STILL RENDER — the fix is de-duplicated MATCHING, not a deleted
+    row. `studio-menu-adapts-to-event.test.ts` pins the Studio set against the
+    Suite grid with owner-ruled counts, so removing the product from the rail to
+    tidy the tie breaks a ruling to fix a matching bug. That was tried and
+    reverted; this asserts it stays reverted.
+  */
   assert.ok(
-    railToolsSignedIn({ eventId: null, count: 0, profile: null }).some((t) => t.key === 'pawebsite'),
-    'the website row vanished with NO event too — that drops the product from the rail entirely',
+    studioRows().some((r) => r.key === 'pawebsite'),
+    'the website row was dropped from the rail — that breaks the sidebar/Suite parity ruling',
+  );
+
+  // …and exactly one of the two takes part in matching, so nothing ties.
+  assert.equal(
+    matchedStudioRows().find((r) => r.key === 'pawebsite'),
+    undefined,
+    'both rows are matchable again — the tie is back, and list order decides what lights',
   );
 });
 

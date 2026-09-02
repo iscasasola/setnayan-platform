@@ -17,14 +17,21 @@
  *      configured, a verified Setnayan channel is connected and healthy, and the
  *      event has camera channels. Knowable, checkable, and what `state` reports.
  *   2. THE ENCODER — NOT knowable by us and NOT ours to provide. Browsers cannot
- *      push RTMP, and the native capture app was scoped but never built (§ 4c).
+ *      push RTMP, and no capture app has been built. ⚠ THE SCOPE IS **B4** in
+ *      `Live_Studio_Cast_and_Roam_2026-07-23.md`, NOT § 4c — § 4c of the unified
+ *      spec is "WAVE 1 + 2 SHIPPED" and scopes no capture app at all. And B4 is a
+ *      PHONE app (one RTMP stream per kit-phone camera, for ROAM); the desktop
+ *      encoder that would close THIS gap pushes one composited stream for CAST.
+ *      Different products — building either leaves the other unbuilt.
  *      Something must window-capture the program pop-out and send it to YouTube;
  *      today that is the couple's own OBS.
  *
  * `encoderNotice` is therefore returned on EVERY branch, including the green one,
  * and there is no input that removes it. It is not a warning that clears — it is
  * a standing property of the product until a native capture app or a
- * WebRTC→RTMP relay exists (and the relay breaks the ₱0 marginal-cost lock, so it
+ * WebRTC→RTMP relay exists (a TRANSCODING relay breaks the ₱0 marginal-cost lock —
+ * a remux-only one is far cheaper, so the categorical version of that claim is too
+ * strong; see `Live_Studio_Encoder_Scope_2026-09-03.md` § 4B — either way it
  * is a separate owner decision — do NOT assume Wave 9 delivered it).
  *
  * 🚫 NOTHING HERE MAY SUGGEST A PHONE CAN STREAM TO YOUTUBE. The phones join over

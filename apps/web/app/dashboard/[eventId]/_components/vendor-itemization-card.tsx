@@ -371,9 +371,16 @@ export function VendorItemizationCard({
  * `?vendor=` with nothing after it, which the messages page never even reads
  * (it reads `prefill_vendor_email`, not `vendor`).
  *
- * Both links key off `event_vendors.contact_email` / `.vendor_id`, which
- * every supplier row carries regardless of marketplace status — so an
- * off-platform supplier is reachable exactly like a catalogued one.
+ * The message link prefills from `event_vendors.contact_email` when the
+ * supplier has one, and degrades to the plain messages index when they don't
+ * — `contact_email` is nullable with no default (see
+ * `20260513100000_iteration_0006_vendors.sql`), and measured live on
+ * 2026-09-02 every one of the 45 `event_vendors` rows in production has it
+ * NULL or blank. So today this link reaches nobody via prefill; the fallback
+ * is deliberate, not a bug, and the workspace link (keyed on `vendor_id`,
+ * which every row has) reaches the supplier's own page regardless. Suppliers
+ * shipping with no contact_email is a separate, upstream defect — not fixed
+ * here.
  */
 function SupplierReachLinks({
   eventId,

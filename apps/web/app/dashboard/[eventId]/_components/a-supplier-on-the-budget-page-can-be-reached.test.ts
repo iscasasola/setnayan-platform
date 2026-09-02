@@ -16,10 +16,28 @@
  * 'embed' variants, and repoints the contextual pending-pricing link at the
  * param the messages page actually consumes.
  *
- * This is a source-shape guard, not a render test — the component is a
- * server component with server-action props that a render harness in this
- * repo does not stand up. It censuses the FILE, so a regression back to one
- * link, or back to the dead `?vendor=` param, fails without needing a DOM.
+ * Most of this file is a source-shape guard, not a render test — the parent
+ * component is a server component with server-action props that a render
+ * harness in this repo does not stand up. It censuses the FILE, so a
+ * regression back to one link, or back to the dead `?vendor=` param, fails
+ * without needing a DOM.
+ *
+ * ── ⚠ THE PREFILL REACHES NOBODY TODAY, AND THAT IS NOT THIS FIX'S BUG ─────
+ * `event_vendors.contact_email` is `TEXT` with no `NOT NULL` and no default
+ * (`20260513100000_iteration_0006_vendors.sql`), and measured live on
+ * 2026-09-02: all 45 `event_vendors` rows in production have it NULL or
+ * blank. So the "prefill from contact_email" behaviour below degrades to the
+ * bare messages index for every current row — that is the fallback working
+ * as designed, not a defect this PR introduces or should paper over.
+ * Suppliers shipping with no `contact_email` is a separate, upstream defect
+ * with its own owner.
+ *
+ * `SupplierReachLinks` cannot be imported directly to test it: the file it
+ * lives in transitively pulls in `budget/actions.ts` → `notification-emit.ts`
+ * → the `server-only` package, which throws outside a Next.js server render.
+ * So the null-case test below extracts the REAL `messagesHref`/`workspaceHref`
+ * expressions out of the source text and evaluates them — the exact code that
+ * ships, not a hand-copied re-implementation that could silently drift from it.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -107,4 +125,69 @@ test('the workspace link addresses the real per-vendor route', () => {
       'exists (apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx) — not the near-identical ' +
       '[eventVendorId] path segment, which holds only a loading.tsx and no page.',
   );
+});
+
+// ---------------------------------------------------------------------------
+// BEHAVIORAL — extract the REAL `messagesHref`/`workspaceHref` statements
+// from `SupplierReachLinks` and evaluate them, so the null-contact_email
+// case (which is EVERY event_vendors row in production today, measured live
+// 2026-09-02) is checked against what the shipped expression actually
+// computes, not against a string pattern.
+// ---------------------------------------------------------------------------
+
+function extractReachLinksExpr(): string {
+  const src = source();
+  const start = src.indexOf('function SupplierReachLinks');
+  assert.ok(start >= 0, 'SupplierReachLinks not found — see the earlier "exists" test for the real message.');
+  const bodyStart = src.indexOf('{', src.indexOf(')', start));
+  const returnIdx = src.indexOf('return (', bodyStart);
+  assert.ok(returnIdx > bodyStart, 'SupplierReachLinks body shape changed — could not find its `return (`.');
+  return src.slice(bodyStart + 1, returnIdx);
+}
+
+function hrefsFor(vendor: { contact_email: string | null; vendor_id: string }, eventId: string) {
+  const body = extractReachLinksExpr();
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- deliberately
+  // evaluating the real extracted source, not a hand-copied reimplementation.
+  const fn = new Function(
+    'vendor',
+    'eventId',
+    'encodeURIComponent',
+    `${body}\nreturn { messagesHref, workspaceHref };`,
+  );
+  return fn(vendor, eventId, encodeURIComponent) as { messagesHref: string; workspaceHref: string };
+}
+
+test('a supplier with NO contact_email links to the bare messages index — no query string at all', () => {
+  const { messagesHref } = hrefsFor(
+    { contact_email: null, vendor_id: 'S89VEN-0000000001' },
+    'S89EVT-0000000001',
+  );
+  assert.equal(
+    messagesHref,
+    '/dashboard/S89EVT-0000000001/messages',
+    'a supplier with no contact_email must fall back to the plain messages index, with no query string at all. ' +
+      'This is the case that actually ships today — measured live 2026-09-02, all 45 event_vendors rows have ' +
+      'contact_email NULL or blank.',
+  );
+});
+
+test('a supplier WITH contact_email prefills the messages form', () => {
+  const { messagesHref } = hrefsFor(
+    { contact_email: 'vendor@example.com', vendor_id: 'S89VEN-0000000001' },
+    'S89EVT-0000000001',
+  );
+  assert.equal(
+    messagesHref,
+    '/dashboard/S89EVT-0000000001/messages?prefill_vendor_email=vendor%40example.com',
+    'once a supplier has a contact_email, the link should prefill the messages compose form with it.',
+  );
+});
+
+test('the workspace link always resolves, independent of contact_email', () => {
+  const { workspaceHref } = hrefsFor(
+    { contact_email: null, vendor_id: 'S89VEN-0000000001' },
+    'S89EVT-0000000001',
+  );
+  assert.equal(workspaceHref, '/dashboard/S89EVT-0000000001/vendors/S89VEN-0000000001/workspace');
 });

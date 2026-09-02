@@ -295,8 +295,11 @@ test('a lost checkout race retries onto ANOTHER channel instead of reporting "no
   );
   assert.match(checkout, /for \(let attempt = 0; attempt < 4; attempt \+= 1\)/, 'bounded retry, not a spin');
   assert.match(checkout, /if \(claimed\) return claimed as RoamChannelRow;/);
-  // An empty pool exits immediately — the retry is for CONTENTION, not for hope.
-  assert.match(checkout, /if \(freeErr \|\| !free\) return null; \/\/ pool genuinely empty/);
+  // An empty pool exits after at most one stale-checkout reclaim sweep (2026-09-02)
+  // — see live-studio-roam-reclaim-guard.test.ts for the sweep's own safety pins —
+  // the retry loop itself is still for CONTENTION, not for hope.
+  assert.match(checkout, /if \(freeErr \|\| !free\) \{/);
+  assert.match(checkout, /return null; \/\/ pool genuinely empty/);
 });
 
 test('an ORPHANED checkout (event deleted) is still releasable by an admin', () => {

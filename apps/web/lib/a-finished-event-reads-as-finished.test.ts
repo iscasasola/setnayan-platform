@@ -9,6 +9,7 @@ import { isFinishedEvent } from './event-board';
 import { BOOKED_VENDOR_STATUSES } from './vendors';
 import { timelineStatusOf } from './vendors-plan-budget';
 import { roadmapLedeStage } from './wedding-roadmap';
+import { stripComments } from '@/lib/strip-comments';
 
 /**
  * a-finished-event-reads-as-finished.test.ts
@@ -175,12 +176,25 @@ test('no call site asks a UTC server what time it is at the venue', () => {
     'app/[slug]/page.tsx',
     'app/[slug]/print/page.tsx',
     'app/[slug]/_components/guest-column-card.tsx',
-    'app/dashboard/[eventId]/launch/page.tsx',
+    // The Event Hub controller stopped calling this by hand on 2026-09-02: the
+    // page asks `resolveHubStage`, and THAT is the call site now. Following the
+    // symbol keeps the guard pointed at the code that could forget the zone —
+    // dropping the line would have been the silent way to go green.
+    'lib/event-hub-control.ts',
     'app/dashboard/[eventId]/website/editor/page.tsx',
     'app/api/std/view/route.ts',
   ];
   for (const f of CALLERS) {
-    const body = src(f);
+    /*
+      🪤 COMMENTS STRIPPED FIRST. This read the raw file until 2026-09-02, so the
+      FIRST `getLifecyclePhase(` it found could be PROSE ABOUT the call — a
+      docblock saying `getLifecyclePhase(null)` returns 'save_the_date' pinned
+      the window 400 characters of English away from the real call site, and the
+      guard failed a file that passes zone correctly. Same class of defect the
+      repo's one stripper exists for; use it rather than wording comments around
+      a guard.
+    */
+    const body = stripComments(src(f));
     const i = body.indexOf('getLifecyclePhase(');
     assert.ok(i >= 0, `${f} no longer calls getLifecyclePhase — update this list`);
     const call = body.slice(i, i + 400);

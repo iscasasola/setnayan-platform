@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1463d2584",
+  "generatedFromRef": "7bcacdeee",
   "routeCount": 413,
-  "destinations": 888,
+  "destinations": 889,
   "actions": 619,
-  "blocks": 4186,
+  "blocks": 4189,
   "routes": {
     "/": {
       "files": [
@@ -4421,7 +4421,6 @@
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/messages",
-        "/dashboard/[seg]/messages?vendor=[seg]",
         "/dashboard/[seg]/more",
         "/dashboard/[seg]/orders/[seg]",
         "/dashboard/[seg]/schedule",
@@ -4578,6 +4577,7 @@
         "SubmitSuccess",
         "SuggestMilestonesButton",
         "SuggestionRow",
+        "SupplierReachLinks",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
@@ -5394,13 +5394,20 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
+        "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/[seg]",
+        "/marketplace"
+      ],
       "actions": [],
       "blocks": [
         "GridPageSkeleton",
+        "HubProOffer",
+        "HubStage",
         "Icon",
         "Link",
         "PageMasthead"

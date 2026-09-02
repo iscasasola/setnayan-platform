@@ -121,15 +121,31 @@ test('the three measured overlaps resolve the way a person would read them', () 
   // Seat plan still owns the family it claims.
   assert.equal(activeRailKey(rail, `${BASE}/seating`), 'seat');
   /*
-    THE PAIR THAT FORCED "EXACT BEATS PREFIX". Event Hub's own destination is
-    `/website`; Launch claims that whole family by prefix from a LONGER href.
-    On length alone Launch lit both, leaving Event Hub dark on the page it
-    opens. Each row now lights on its own page and Launch still owns the rest
-    of the family.
+    THE PAIR THAT FORCED "EXACT BEATS PREFIX" — RE-MEASURED 2026-09-02 (EH3).
+
+    It used to be `pawebsite` (href `/website`) against the event menu's
+    "Launch" row, which claimed that whole family by prefix from the LONGER href
+    `/website/editor`. On length alone Launch lit both, leaving the Studio row
+    dark on the page it opens, and "exact beats prefix" is what settled it.
+
+    🔤 THE EVENT-MENU ROW HAS LEFT THE FAMILY. It is now "Event Hub" → `/launch`
+    with `matchPrefix` narrowed to match, because the three names one place wore
+    (Launch · Services · Editorial) collapsed into one word pointed at the
+    controller. So `/website/*` is no longer contested at all: the Studio row
+    owns the website family outright, which is the answer a person reads — on
+    the editor you are inside the website, and the row that opens the website is
+    the one that should be lit.
+
+    ⚠ THE SPECIFICITY RULE IS NOT WHAT CHANGED, and this is why the two lines
+    below were REPOINTED rather than deleted. `exact` is still the first key —
+    `/website` still resolves by it — and deleting the pair would leave that
+    rule with nothing measuring it.
   */
   assert.equal(activeRailKey(rail, `${BASE}/website`), 'pawebsite');
-  assert.equal(activeRailKey(rail, `${BASE}/website/editor`), 'launch');
-  assert.equal(activeRailKey(rail, `${BASE}/website/anything-else`), 'launch');
+  assert.equal(activeRailKey(rail, `${BASE}/website/editor`), 'pawebsite');
+  assert.equal(activeRailKey(rail, `${BASE}/website/anything-else`), 'pawebsite');
+  // And the Event Hub row lights on the controller, which is now its own page.
+  assert.equal(activeRailKey(rail, `${BASE}/launch`), 'launch');
 });
 
 test('exactly one row is lit anywhere on the rail — never two, never none by accident', () => {

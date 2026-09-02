@@ -71,6 +71,18 @@ import {
   type VendorPriceSource,
 } from './budget';
 import { CONFIRMED_VENDOR_STATUSES } from './events';
+// The one definition of "due soon" / "overdue". It lives with the guard that
+// ALERTS on it (`TRIGGER_THRESHOLDS` is that file's documented home for the
+// restraint dials) and is read here by the calculator that COUNTS it, so the
+// page and the email cannot drift apart. The edge only points this way:
+// setnayan-ai-triggers is pure and clock-free, while this file reaches a
+// database — importing this one there would drag Supabase into the digest.
+import {
+  TRIGGER_THRESHOLDS,
+  daysUntilDue,
+  paymentDueState,
+  type PaymentDueState,
+} from './setnayan-ai-triggers';
 import { PLAN_GROUPS } from './wedding-plan-groups';
 import type { EventVendorRow, VendorCategory } from './vendors';
 
@@ -122,6 +134,47 @@ export type MoneyLine = {
   /** True when the couple cannot edit it here (Setnayan orders, vendor catalogue). */
   readOnly: boolean;
   dueDate: string | null;
+  /**
+   * Whole days from `now` to `dueDate` — negative once the date has passed.
+   * `null` when the line carries no due date at all.
+   */
+  daysUntilDue: number | null;
+  /**
+   * Where this line stands against its own due date. `'none'` covers the two
+   * cases with no milestone to miss: an undated line, and an ESTIMATE (nobody
+   * has agreed to pay it, so it cannot be late). `'settled'` is a dated
+   * commitment with nothing still owed — the date passing does not make a paid
+   * milestone overdue.
+   */
+  dueState: MoneyDueState;
+};
+
+/** @see MoneyLine.dueState */
+export type MoneyDueState = PaymentDueState | 'settled' | 'none';
+
+/**
+ * Still-owed money split by how its due date stands to today. DISJOINT — one
+ * line lands in exactly one band, so `overduePhp + dueSoonPhp + upcomingPhp +
+ * laterPhp` is the whole dated, unpaid ledger and nothing is counted twice.
+ *
+ * ⚠ `overduePhp` is the number this whole type exists for. Before it, a
+ * payment the couple had already missed was absent from every roll-up on the
+ * page and from every alert — it did not render as a warning, it rendered as
+ * nothing, exactly like an event with no payments due at all.
+ */
+export type MoneyDue = {
+  /** Still owed on milestones whose due date has PASSED. */
+  overduePhp: number;
+  overdueCount: number;
+  /** Still owed within `TRIGGER_THRESHOLDS.paymentDueWindowDays` (due today counts). */
+  dueSoonPhp: number;
+  dueSoonCount: number;
+  /** Still owed after that window but inside `paymentHorizonDays`. */
+  upcomingPhp: number;
+  upcomingCount: number;
+  /** Still owed beyond the horizon. */
+  laterPhp: number;
+  laterCount: number;
 };
 
 export type MoneyBucket = {
@@ -139,6 +192,8 @@ export type MoneyBucket = {
    */
   hasBenchmark: boolean;
   benchmarkPhp: number | null;
+  /** This bucket's share of the dated ledger — same bands as `EventMoney.due`. */
+  due: MoneyDue;
 };
 
 export type MoneyWarningCode =
@@ -164,6 +219,8 @@ export type MoneyWarningCode =
   | 'benchmark_unseeded'
   /** A Setnayan order sits in a status that is neither agreed nor cancelled. */
   | 'order_not_yet_agreed'
+  /** A payment milestone's due date has passed and money is still owed on it. */
+  | 'payment_overdue'
   /** A vendor-payer booking fee stamped with this event_id was kept out. */
   | 'vendor_payer_order_excluded'
   /** Should never fire. If it does, the totals stopped adding up. */
@@ -214,6 +271,8 @@ export type EventMoney = {
    */
   isOverBudget: boolean;
   overBudgetByPhp: number;
+  /** The dated ledger, banded. `due.overduePhp` is money already missed. */
+  due: MoneyDue;
   byBucket: MoneyBucket[];
   lines: MoneyLine[];
   sources: MoneySourceNote[];
@@ -307,6 +366,13 @@ export type MoneyInputs = {
   benchmarks: BenchmarkMoneyRow[];
   /** Plan-group ids in scope for this event, so unseeded leaves can be named. */
   scopePlanGroupIds?: string[];
+  /**
+   * The instant "overdue" is measured against. Injected, never read from the
+   * clock inside the core, so every due-date boundary (-1 · 0 · +1 · +7 · +8 ·
+   * +30 · +31) is testable and the parity harness stays deterministic.
+   * Omitted → `new Date()`, which is what `resolveEventMoney` passes anyway.
+   */
+  now?: Date;
 };
 
 // ── Small helpers ────────────────────────────────────────────────────────────
@@ -384,12 +450,46 @@ type WorkingLine = MoneyLine & {
   creditC: number;
 };
 
+type DueAcc = {
+  overdueC: number;
+  overdueCount: number;
+  dueSoonC: number;
+  dueSoonCount: number;
+  upcomingC: number;
+  upcomingCount: number;
+  laterC: number;
+  laterCount: number;
+};
+
+const emptyDueAcc = (): DueAcc => ({
+  overdueC: 0,
+  overdueCount: 0,
+  dueSoonC: 0,
+  dueSoonCount: 0,
+  upcomingC: 0,
+  upcomingCount: 0,
+  laterC: 0,
+  laterCount: 0,
+});
+
+const dueFromAcc = (a: DueAcc): MoneyDue => ({
+  overduePhp: toPhp(a.overdueC),
+  overdueCount: a.overdueCount,
+  dueSoonPhp: toPhp(a.dueSoonC),
+  dueSoonCount: a.dueSoonCount,
+  upcomingPhp: toPhp(a.upcomingC),
+  upcomingCount: a.upcomingCount,
+  laterPhp: toPhp(a.laterC),
+  laterCount: a.laterCount,
+});
+
 type BucketAcc = {
   committedC: number;
   paidC: number;
   owedC: number;
   overpaidC: number;
   estimatedC: number;
+  due: DueAcc;
 };
 
 /**
@@ -411,18 +511,33 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
   const bucket = (id: string): BucketAcc => {
     let b = buckets.get(id);
     if (!b) {
-      b = { committedC: 0, paidC: 0, owedC: 0, overpaidC: 0, estimatedC: 0 };
+      b = {
+        committedC: 0,
+        paidC: 0,
+        owedC: 0,
+        overpaidC: 0,
+        estimatedC: 0,
+        due: emptyDueAcc(),
+      };
       buckets.set(id, b);
     }
     return b;
   };
 
-  const pushLine = (l: Omit<WorkingLine, 'amountPhp' | 'paidPhp' | 'stillOwedPhp'>) => {
+  const pushLine = (
+    l: Omit<WorkingLine, 'amountPhp' | 'paidPhp' | 'stillOwedPhp' | 'daysUntilDue' | 'dueState'>,
+  ) => {
     const line: WorkingLine = {
       ...l,
       amountPhp: toPhp(l.amountC),
       paidPhp: toPhp(l.paidC),
       stillOwedPhp: toPhp(l.owedC),
+      // Placeholders. The real values are stamped in section 3b, AFTER the
+      // per-vendor settlement below has decided what is still owed on each
+      // line — a milestone whose date passed but whose money was handed over
+      // is settled, not overdue.
+      daysUntilDue: null,
+      dueState: 'none',
     };
     lines.push(line);
     return line;
@@ -953,6 +1068,83 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     }
   }
 
+  // ── 3b · The dated ledger — what is late, and what is about to be ────────
+  //
+  // Runs AFTER every vendor's settlement above, because "overdue" is a claim
+  // about money STILL OWED, not about a date. A milestone that came and went
+  // and was paid is `settled`; only a date that passed with money outstanding
+  // is `overdue`.
+  //
+  // The bands come from `paymentDueState` in lib/setnayan-ai-triggers.ts —
+  // the same function GRD-01 filters on. That is the whole point: the number
+  // this page prints and the number that email names are computed by one
+  // definition, so they cannot drift.
+  const now = inputs.now ?? new Date();
+  const dueTotal = emptyDueAcc();
+  let overdueLines = 0;
+  for (const l of lines) {
+    // An estimate has no milestone to miss — nobody has agreed to pay it, so
+    // it can never be late (§18.5 rule 3, applied to dates instead of pesos).
+    if (l.kind === 'estimated' || !l.dueDate) continue;
+    const d = daysUntilDue(l.dueDate, now);
+    l.daysUntilDue = Number.isFinite(d) ? d : null;
+    if (l.owedC <= 0) {
+      l.dueState = 'settled';
+      continue;
+    }
+    if (!Number.isFinite(d)) continue; // unparseable date → 'none', never late
+    const state = paymentDueState(d);
+    l.dueState = state;
+    const b = bucket(l.bucket).due;
+    switch (state) {
+      case 'overdue':
+        dueTotal.overdueC += l.owedC;
+        dueTotal.overdueCount += 1;
+        b.overdueC += l.owedC;
+        b.overdueCount += 1;
+        overdueLines += 1;
+        break;
+      case 'due_soon':
+        dueTotal.dueSoonC += l.owedC;
+        dueTotal.dueSoonCount += 1;
+        b.dueSoonC += l.owedC;
+        b.dueSoonCount += 1;
+        break;
+      case 'upcoming':
+        dueTotal.upcomingC += l.owedC;
+        dueTotal.upcomingCount += 1;
+        b.upcomingC += l.owedC;
+        b.upcomingCount += 1;
+        break;
+      case 'later':
+        dueTotal.laterC += l.owedC;
+        dueTotal.laterCount += 1;
+        b.laterC += l.owedC;
+        b.laterCount += 1;
+        break;
+    }
+  }
+  if (overdueLines > 0) {
+    // NAMED, not merely counted — a bare figure is one a caller can forget to
+    // read, which is the same silence this file exists to end.
+    //
+    // ⚠ BE HONEST ABOUT WHAT THIS REACHES TODAY. Measured 2026-09-02 against
+    // origin/main: `EventMoney.warnings` has NO renderer on any surface —
+    // `grep -rn '\.warnings' app lib` finds one hit and it belongs to the
+    // vendor canvas, not to this type. So this sentence is not yet in front of
+    // a couple; the thing that actually reaches a human today is GRD-01, which
+    // now fires on overdue. The warning is emitted so the surface that wires
+    // `due` up gets the wording with it, rather than re-inventing it.
+    warnings.push({
+      code: 'payment_overdue',
+      message:
+        `${overdueLines} payment${overdueLines === 1 ? '' : 's'} ` +
+        `${overdueLines === 1 ? 'is' : 'are'} past ${overdueLines === 1 ? 'its' : 'their'} ` +
+        `due date and still showing as unpaid.`,
+      amountPhp: toPhp(dueTotal.overdueC),
+    });
+  }
+
   // ── 4 · Buckets ──────────────────────────────────────────────────────────
   const benchmarkByGroup = new Map<string, number | null>();
   for (const bm of inputs.benchmarks) benchmarkByGroup.set(bm.plan_group_id, bm.benchmark_php);
@@ -971,6 +1163,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
         // §18.5 rule 5 — a leaf with a NULL benchmark is UNKNOWN, not ₱0.
         hasBenchmark: bm !== null && bm !== undefined,
         benchmarkPhp: bm ?? null,
+        due: dueFromAcc(x.due),
       };
     })
     .sort((a, b2) => {
@@ -1041,6 +1234,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     // §18.5 rule 4 — the ONE meaning, said in exactly one place.
     isOverBudget: targetPhp !== null && overBudgetBy > 0,
     overBudgetByPhp: Math.max(0, Math.round(overBudgetBy * 100) / 100),
+    due: dueFromAcc(dueTotal),
     byBucket,
     lines: lines.map(stripWorking),
     sources,
@@ -1267,5 +1461,7 @@ export async function resolveEventMoney(
     pricing,
     packageLockedCentavos,
     benchmarks,
+    // The clock enters here and nowhere else — the core stays deterministic.
+    now: new Date(),
   });
 }

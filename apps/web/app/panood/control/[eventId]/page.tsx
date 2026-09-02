@@ -94,6 +94,7 @@ import {
 } from '@/lib/live-studio-overlays';
 import { deriveMonogram } from '@/lib/monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
   getActivePanoodBroadcast,
@@ -354,7 +355,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // not exist. The two are distinguishable; they are now distinguished.
   const { data: event, error: eventError } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, monogram_text, monogram_uploaded_svg, monogram_custom_svg')
+    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventError) {

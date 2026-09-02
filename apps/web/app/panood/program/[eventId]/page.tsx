@@ -24,6 +24,7 @@ import {
 } from '@/lib/live-studio-overlays';
 import { deriveMonogram } from '@/lib/monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { PanoodProgramSurface } from './program-surface';
 
 export const metadata = {
@@ -86,7 +87,7 @@ export default async function PanoodProgramOutputPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, monogram_text, monogram_uploaded_svg, monogram_custom_svg')
+    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();

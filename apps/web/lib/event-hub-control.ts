@@ -198,6 +198,63 @@ export type HubFact = {
 /** What a fact says when the host simply has not shared that part. */
 export const NOT_SHARED = 'Not shared with you';
 
+/**
+ * EH5 · THE WORKROOM'S OWN FACTS — read when `event_editorial` was asked.
+ * `measured` false means the row read was refused, not that the story is
+ * empty; a genuinely absent row (the couple has not opened the workroom yet)
+ * IS a measured absence (`maybeSingle` returns `data: null` with no error —
+ * see `HubEventRead.measured`'s own doc for the same distinction).
+ */
+export type HubEditorialRead = {
+  measured: boolean;
+  /** `status` column — 'draft' | 'published'. Null only when unmeasured. */
+  status: 'draft' | 'published' | null;
+  /** Chapters the couple actually WROTE a line for — not the auto-built count. */
+  chaptersWritten: number | null;
+  /** Photos placed into the piece (`essay_photo_ids.length`). */
+  photosIn: number | null;
+  /** Whether Guest Columns is switched on at all (`guestColumnsActive()`). If
+   *  off, `pending` was never asked and must not render as zero. */
+  columnsOn: boolean;
+  /** False ⇒ the pending count was refused, not that nobody has written. */
+  columnsMeasured: boolean;
+  columnsPending: number;
+};
+
+/** S2, when the live channel is the story: chapters · columns · photos · status. */
+function resolveWorkroomFacts(editorial: HubEditorialRead): [HubFact, HubFact, HubFact, HubFact] {
+  return [
+    {
+      label: 'Chapters',
+      value: editorial.measured ? `${editorial.chaptersWritten ?? 0} written` : null,
+      known: editorial.measured,
+    },
+    {
+      label: 'Guest columns',
+      value: !editorial.columnsOn
+        ? 'Switched off'
+        : editorial.columnsMeasured
+          ? `${editorial.columnsPending} waiting on you`
+          : null,
+      known: !editorial.columnsOn || editorial.columnsMeasured,
+    },
+    {
+      label: 'Photos in',
+      value: editorial.measured ? `${editorial.photosIn ?? 0}` : null,
+      known: editorial.measured,
+    },
+    {
+      label: 'Status',
+      value: editorial.measured
+        ? editorial.status === 'published'
+          ? 'Published'
+          : 'Draft'
+        : null,
+      known: editorial.measured,
+    },
+  ];
+}
+
 const STAGE_FACT: Record<LifecyclePhase, string> = {
   save_the_date: 'Save-the-Date live',
   rsvp: 'Invitation live',
@@ -232,8 +289,21 @@ export function resolveHubFacts(
   event: HubEventRead,
   guests: HubGuestRead,
   nowMs?: number,
+  /**
+   * EH5 — appended, never inserted before `nowMs`: every existing 3-arg call
+   * site treats that slot as `nowMs`, and this keeps them all still doing
+   * that rather than silently reinterpreting a timestamp as a read.
+   */
+  editorial?: HubEditorialRead | null,
 ): [HubFact, HubFact, HubFact, HubFact] {
   const stage = resolveHubStage(event, nowMs);
+  /* THE WORKROOM'S OWN FACTS. On the story channel, the couple is not asking
+     "did my guests reply" any more — replies belong to the channel that just
+     closed. So the strip switches to what THIS channel is missing, through
+     the same `HubFact[]` and the same render, never a second fact mechanism. */
+  if (stage === 'editorial' && editorial) {
+    return resolveWorkroomFacts(editorial);
+  }
   const pending = Math.max(0, guests.invited - guests.replied);
   return [
     {
@@ -291,6 +361,10 @@ export function resolveHubNextStep(
   standing: HubStanding,
   event: HubEventRead,
   guests: HubGuestRead,
+  /** EH5 — appended for the same reason as `resolveHubFacts`'s: every 3-arg
+   *  call site keeps working unchanged. Optional: the 'after' branch below
+   *  degrades to its prior generic copy when this was not asked for. */
+  editorial?: HubEditorialRead | null,
 ): HubNextStep {
   if (!standing.measured || standing.phase === null) {
     return {
@@ -315,6 +389,24 @@ export function resolveHubNextStep(
   }
 
   if (standing.phase === 'after') {
+    /*
+      NAME THE REAL NEXT STEP. Guest columns are written to the couple, not the
+      page — nothing a guest writes appears until the host says so, and that
+      decision belongs on THIS screen, where the host is standing, not buried
+      a click away. So when there is a real, measured pending count, it
+      outranks the generic "write your story" copy.
+    */
+    if (editorial?.columnsOn && editorial.columnsMeasured && editorial.columnsPending > 0) {
+      const n = editorial.columnsPending;
+      return {
+        key: 'story',
+        headline: `${n} ${n === 1 ? 'guest' : 'guests'} wrote you a column.`,
+        blurb:
+          'Nothing they wrote is on your page yet — you decide what to keep before it ever shows.',
+        ctaLabel: 'Review columns',
+        ctaPath: '/studio/guest-columns',
+      };
+    }
     return {
       key: 'story',
       headline: 'The day, as it will be told.',

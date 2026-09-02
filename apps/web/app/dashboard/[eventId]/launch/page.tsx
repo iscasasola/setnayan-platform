@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
@@ -48,7 +49,9 @@ import {
   resolveHubRoleView,
   type HubEventRead,
   type HubGuestRead,
+  type HubEditorialRead,
 } from '@/lib/event-hub-control';
+import { readChapterOverrides } from '@/app/[slug]/_components/editorial/data';
 import { resolveHubProOffer } from '@/lib/event-hub-pro';
 import {
   eventCoupleWebsiteProActive,
@@ -296,8 +299,84 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   };
 
   const standing = resolveHubStanding(eventRead);
-  const facts = resolveHubFacts(eventRead, guestFacts);
-  const nextStep = resolveHubNextStep(standing, eventRead, guestFacts);
+
+  /*
+    ══ EH5 · THE WORKROOM'S OWN READ ══
+    Asked ONLY when the live channel is the story — every couple still in
+    `plan`/`dayof` costs this page nothing extra for a channel they cannot
+    reach yet. `event_editorial` and `guest_columns` are both composer/guest
+    -owned and read via the admin client (design § 2.4's own words), beside
+    the event row read under RLS above — the same split `studio/guest-columns`
+    already uses.
+  */
+  let editorialRead: HubEditorialRead | null = null;
+  if (standing.stage === 'editorial') {
+    let admin: ReturnType<typeof createAdminClient> | null = null;
+    try {
+      admin = createAdminClient();
+    } catch {
+      admin = null;
+    }
+    const editorialRes = admin
+      ? await admin
+          .from('event_editorial')
+          .select('status, draft_json, essay_photo_ids')
+          .eq('event_id', eventId)
+          .maybeSingle()
+      : { data: null, error: new Error('admin client unavailable') };
+    if (editorialRes.error) {
+      logQueryError(
+        'LaunchPage.editorial',
+        editorialRes.error,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    const editorialRow = editorialRes.data as {
+      status?: string | null;
+      draft_json?: Record<string, unknown> | null;
+      essay_photo_ids?: string[] | null;
+    } | null;
+    const chaptersWritten = readChapterOverrides(editorialRow?.draft_json ?? {}).filter(
+      (o) => !o.hidden && !!o.writeUp,
+    ).length;
+
+    let columnsMeasured = false;
+    let columnsPending = 0;
+    if (guestColumnsOn && admin) {
+      const { count, error: colErr } = await admin
+        .from('guest_columns')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .eq('status', 'pending');
+      if (colErr) {
+        logQueryError(
+          'LaunchPage.guestColumnsPending',
+          colErr,
+          { event_id: eventId },
+          'graceful_degrade',
+        );
+      } else {
+        columnsMeasured = true;
+        columnsPending = count ?? 0;
+      }
+    }
+
+    editorialRead = {
+      measured: !editorialRes.error,
+      status: editorialRes.error
+        ? null
+        : ((editorialRow?.status as 'draft' | 'published' | null) ?? 'draft'),
+      chaptersWritten: editorialRes.error ? null : chaptersWritten,
+      photosIn: editorialRes.error ? null : (editorialRow?.essay_photo_ids?.length ?? 0),
+      columnsOn: guestColumnsOn,
+      columnsMeasured,
+      columnsPending,
+    };
+  }
+
+  const facts = resolveHubFacts(eventRead, guestFacts, undefined, editorialRead);
+  const nextStep = resolveHubNextStep(standing, eventRead, guestFacts, editorialRead);
   const offersAllowed = hubOffersAllowed(standing.phase);
 
   /*
@@ -586,19 +665,38 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                     <p className="mt-0.5 text-xs text-ink/55">{page.blurb}</p>
                   </div>
                 </div>
-                {previewHref ? (
-                  <Link
-                    href={previewHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
-                  >
-                    Preview
-                    <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  </Link>
-                ) : (
-                  <span className="text-xs text-ink/40">Preview available once your link is set.</span>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/*
+                    EH5 · CHANNEL 4 OPENS A WORKROOM, NOT A SETTINGS ROW
+                    (design § 2.4). The other three stages are things the
+                    couple SETS and Preview is enough. The story is a thing
+                    they WORK ON for weeks with two other authors, so its card
+                    carries its own same-tab door straight into the existing
+                    editor — full screen, same route, no new page.
+                  */}
+                  {page.phaseParam === 'editorial' && (
+                    <Link
+                      href={`${base}/website/editorial`}
+                      className="inline-flex w-fit items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
+                    >
+                      Open the workroom
+                      <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    </Link>
+                  )}
+                  {previewHref ? (
+                    <Link
+                      href={previewHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+                    >
+                      Preview
+                      <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-ink/40">Preview available once your link is set.</span>
+                  )}
+                </div>
               </article>
             );
           })}

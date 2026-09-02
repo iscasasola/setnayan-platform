@@ -288,8 +288,17 @@ export default async function BudgetPage({ params }: Props) {
   // flag is off or the resolver refused. There is no per-category truth to
   // print in that state, so this section is absent rather than a table of
   // confident ₱0s — the one failure mode a money page must never have.
+  //
+  // ⚠ THE SUGGESTION IS WEDDING-SHAPED, SO IT IS GATED ON `isWeddingBudget`.
+  // `budget_leaf_benchmarks` IS the wedding budget taxonomy, and every other
+  // event type that enables this surface (birthday, debut, christening, wake …)
+  // has `budgetTaxonomyKey: null` — which is exactly why the "Suggested budget
+  // split" above renders for weddings only. Feeding those benchmarks to a debut
+  // would print a ₱450,000 catering plan the couple never made, from a table
+  // that does not describe their event. Their rows still render; Planned reads
+  // "—", which is the truth: we publish no typical prices for that shape yet.
   const suggestedPlanPhp = new Map<string, number | null>();
-  if (allocInputs.budgetPhp != null) {
+  if (isWeddingBudget && allocInputs.budgetPhp != null) {
     for (const leaf of computeBudgetAllocation({
       budgetPhp: allocInputs.budgetPhp,
       leaves: allocInputs.leaves,

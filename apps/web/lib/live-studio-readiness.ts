@@ -107,6 +107,31 @@ export const ENCODER_NOTICE =
  * sooner — the two changes only work as a pair. If the anchor model is ever changed
  * back, THIS COPY BECOMES A LIE and must change with it.
  */
+/**
+ * ⏳ THE OTHER LEAD TIME — YOUTUBE'S, AND IT IS NOT OURS TO WAIVE.
+ *
+ * A couple streams to THEIR OWN channel (the BYO path: they create the broadcast,
+ * we composite the cameras and they paste the watch link back). That channel has to
+ * be live-enabled BEFORE the day, and YouTube's first-time activation takes about
+ * 24 hours — a wait no amount of Setnayan readiness can shorten. Discovered on the
+ * wedding morning it is unrecoverable, and the date does not move.
+ *
+ * So it belongs on the BUY surface, beside LEAD_TIME_NOTICE, not in a help page the
+ * buyer reaches afterwards. Two different clocks owned by two different parties:
+ * ours is manual payment reconciliation, theirs is Google's activation queue. They
+ * run in PARALLEL — a couple can activate YouTube while payment is pending — which
+ * is why this is a second sentence rather than 24 hours added to the first.
+ *
+ * ⚠ THE 50-SUBSCRIBER SENTENCE IS LEAD-BEARING, NOT TRIVIA. A couple who searches
+ * this will find "you need 50 subscribers to go live" everywhere, conclude they are
+ * ineligible, and not buy. That threshold is MOBILE-APP streaming only; encoder
+ * streaming from a computer — which is the only path Live Studio uses, since OBS
+ * window-captures the program output — carries no subscriber requirement at all.
+ * Pre-empting the wrong conclusion is the whole reason the clause is here.
+ */
+export const YOUTUBE_READY_NOTICE =
+  'Before you buy, check that your own YouTube channel can already go live — YouTube takes about 24 hours to switch this on the first time, and it cannot be rushed on the day. Open youtube.com/features and look for Live streaming: Enabled. If you read that you need 50 subscribers, that rule is only for going live from the phone app — streaming from a computer, which is what Live Studio does, has no subscriber requirement.';
+
 export const LEAD_TIME_NOTICE =
   'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: your broadcast day starts when you first go live, not when you pay.';
 

@@ -532,6 +532,62 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
     ],
   },
+  {
+    key: 'live-studio',
+    label: 'Live Studio — streaming your day',
+    roles: ['couple'],
+    articles: [
+      {
+        slug: 'is-my-youtube-ready-to-live-stream',
+        title: 'Is my YouTube channel ready to live stream? (check this first)',
+        body:
+          'Live Studio sends your celebration to YOUR OWN YouTube channel, so that channel has to be switched on for live streaming before the day. The first time you turn it on, YouTube takes about 24 hours to activate it. Nobody can speed that up — not us, not YouTube support — so do this now, even if your celebration is a year away. It costs nothing and it never expires.\n\n' +
+          'HOW TO CHECK, in under a minute:\n' +
+          '1. Sign in to YouTube on the account whose channel you want to stream on. If you have more than one channel, make sure you are on the right one — check the profile picture in the top corner.\n' +
+          '2. Go to https://www.youtube.com/features\n' +
+          '3. Find "Live streaming" in the list. If it says ENABLED, you are ready and there is nothing more to do.\n\n' +
+          'IF IT IS NOT ENABLED YET:\n' +
+          '1. On that same page, click to enable it. YouTube will ask you to verify your channel with a phone number — you get a code by text or voice call and type it in. This is free.\n' +
+          '2. After verifying, live streaming usually switches on within about 24 hours. Check the same page again the next day.\n' +
+          '3. You also need to have had no live-streaming restrictions on the channel in the last 90 days, and to be at least 16 years old.\n\n' +
+          'ABOUT THE "50 SUBSCRIBERS" RULE YOU MAY HAVE READ ABOUT: it is real, but it only applies to going live from the YouTube phone app. Live Studio streams from a computer, which has no subscriber requirement at all. A brand-new channel with zero subscribers can stream your celebration.',
+      },
+      {
+        slug: 'create-your-youtube-live-link',
+        title: 'How do I create the YouTube link for my live stream?',
+        body:
+          'You make the broadcast on YouTube, and Setnayan sends the pictures to it. Do this in the last week before your celebration — not months ahead, because a broadcast left sitting for a long time can go stale.\n\n' +
+          '1. Go to https://studio.youtube.com and click CREATE (the camera icon, top right), then GO LIVE.\n' +
+          '2. Choose STREAMING SOFTWARE — not "Built-in webcam". This is the option that gives you the connection details Setnayan needs.\n' +
+          '3. Give it a title (for example, your names), and set PRIVACY to UNLISTED. Unlisted means only people with the link can watch — it never appears in YouTube search or on your channel page.\n' +
+          '4. Set "Made for kids" to NO, or live chat and some other features get switched off.\n' +
+          '5. In the stream settings, choose ULTRA LOW LATENCY so people watching are only a few seconds behind the room, and switch ADS off so nothing interrupts.\n' +
+          '6. You now see two things you need to keep apart:\n' +
+          '   - The STREAM URL and STREAM KEY. These go into your streaming software. The stream key is a password for your channel — never share it, never paste it into Setnayan or anywhere else.\n' +
+          '   - The WATCH LINK, from the Share button. It looks like youtube.com/watch?v=... This is the one you paste into Setnayan.\n' +
+          '7. Open your dashboard, go to Studio, then Live Studio, and paste the watch link into the "How guests watch" box. Your celebration page will show a Watch Live player during the day.\n\n' +
+          'The short version: the stream key goes to your streaming software, and the watch link goes to Setnayan. Getting those two the wrong way round is the one mistake worth being careful about.',
+      },
+      {
+        slug: 'live-stream-dry-run',
+        title: 'How do I make sure it will all work on the day?',
+        body:
+          'Do a dry run, well before the day. It is the only way to be certain, because it tests everything at once: that your channel is really switched on for live streaming, that your streaming software can reach YouTube, and that Setnayan can show the result.\n\n' +
+          '1. Make a test broadcast on YouTube, exactly as you would for the real thing, and set it to Unlisted.\n' +
+          '2. Start your streaming software and send pictures to it.\n' +
+          '3. Paste the watch link into Setnayan and open your celebration page on your phone. If you can see yourself, everything in the chain works.\n' +
+          '4. When you are done, end the broadcast and delete the test video if you would rather not keep it.\n\n' +
+          'A dry run also proves the 24-hour activation has finished, which is the single thing most likely to go wrong on the day. Do it once, any time — a year ahead is fine — and you never have to wonder again.',
+      },
+      {
+        slug: 'who-owns-the-live-stream-recording',
+        title: 'What happens to the recording afterwards?',
+        body:
+          'The broadcast is on your own YouTube channel, so the recording is yours. YouTube keeps it automatically as an unlisted video on your channel after the stream ends, and you download it from YouTube Studio whenever you like — go to your Content list, find the video, and use the download option in its menu.\n\n' +
+          'Because it lives on your channel and not ours, nobody else can take it down, and it is not affected by anything that happens to another couple. Keep the watch link saved in Setnayan and your celebration page can keep showing it afterwards.',
+      },
+    ],
+  },
   // ─── Admin-role topics ──────────────────────────────────────────────
   {
     key: 'admin-console-basics',

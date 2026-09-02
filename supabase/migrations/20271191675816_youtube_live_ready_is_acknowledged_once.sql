@@ -47,3 +47,32 @@ COMMENT ON COLUMN public.users.youtube_live_ready_ack_at IS
   'fact — we cannot check a channel we hold no OAuth grant for. NULL = never asked or '
   'never ticked; the buy sheet shows the checkbox. Set once and reused across every '
   'later purchase and every later event (owner ruling 2026-09-02).';
+
+-- 🔒 A NOTE ON WHO CAN REACH THIS COLUMN — and why there is no REVOKE here.
+--
+-- `tests/db/exposure-freeze.db.test.ts` flags this column as new reach for `anon` and
+-- `authenticated`, and it is right to: a new column on `public.users` INHERITS the
+-- table's grants, Supabase publishes every `public` table as a REST endpoint, and the
+-- anon key ships in the page source. The baseline is updated in this same PR so the
+-- one-line diff is reviewable, which is the point of that file.
+--
+-- WHY NOT SIMPLY REVOKE IT FROM `anon`. It was tried and it is the wrong tool.
+-- `anon` and `authenticated` hold SELECT/UPDATE on `public.users` at the TABLE level,
+-- and PostgreSQL cannot subtract a column privilege from a table-level grant — the
+-- attempt silently dissolved the table grant into 53 per-column grants (the guard
+-- reported 54 narrowings) and left `anon`'s UPDATE standing anyway. Narrowing this for
+-- real means restructuring the whole table's grants, which does not belong in a
+-- feature migration.
+--
+-- WHAT ACTUALLY GATES IT TODAY: every policy on `public.users` is `{authenticated}` —
+-- `user_owns_row` (`user_id = auth.uid()`) and `admin_full_access_users` — and there is
+-- NO policy admitting `anon`, so an anonymous caller reaches zero rows of this table
+-- and therefore zero values of this column. `authenticated` genuinely needs both
+-- privileges: the buy page reads the column to decide whether to render the tick box,
+-- and `setYoutubeLiveReadyAck` writes it under `user_owns_row`.
+--
+-- ⚠ FLAGGED, NOT FIXED, AND IT PREDATES THIS COLUMN: `anon` holds table-level
+-- SELECT + UPDATE on all 53 pre-existing columns of `public.users`, held back by
+-- nothing but the absence of an anon policy. Add one anon-readable policy to this
+-- table some day and every column goes public in that one statement. Worth its own
+-- pass; deliberately out of scope here.

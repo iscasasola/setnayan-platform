@@ -110,7 +110,7 @@ function TotalCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-1">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</p>
-      <p className="font-mono text-lg font-bold text-ink">{value}</p>
+      <p className="font-mono text-lg font-bold tabular-nums text-ink">{value}</p>
     </div>
   );
 }
@@ -127,13 +127,13 @@ function LedgerRow({ row }: { row: BudgetLedgerRow }) {
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3 className="text-sm font-medium text-ink">{row.label}</h3>
         {over ? (
-          <p className="text-xs font-medium text-terracotta-700">
+          <p className="font-mono text-xs font-medium tabular-nums text-terracotta-700">
             {formatPhp(row.overByPhp)} over plan
           </p>
         ) : row.unplanned ? (
           <p className="text-xs text-ink/50">No typical price yet</p>
         ) : row.headroomPhp > 0 ? (
-          <p className="text-xs text-ink/55">
+          <p className="font-mono text-xs tabular-nums text-ink/55">
             {formatPhp(row.headroomPhp)} {row.nothingAgreedYet ? 'not spent yet' : 'under plan'}
           </p>
         ) : null}
@@ -216,7 +216,7 @@ function Cell({
     <div className="space-y-0.5">
       <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</dt>
       <dd
-        className={`font-mono text-base font-semibold ${
+        className={`font-mono text-base font-semibold tabular-nums ${
           tone === 'warn' ? 'text-terracotta-700' : 'text-ink'
         }`}
       >

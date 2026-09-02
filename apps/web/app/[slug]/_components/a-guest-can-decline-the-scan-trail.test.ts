@@ -17,18 +17,25 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from '@/lib/strip-comments';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const NOTICE = join(HERE, 'scan-trail-notice.tsx');
 const SITE_BODY = join(HERE, 'site-body.tsx');
 const GUEST_ACTIONS = join(HERE, '..', 'actions.ts');
 
-/** Comments stripped: every file here explains itself in prose that names the
- *  exact strings these assertions look for. */
+/**
+ * Comments stripped with THE repo's stripper — every file here explains itself
+ * in prose that names the exact strings these assertions look for.
+ *
+ * ⚠ NOT a two-replace regex. That shape strips BLOCK comments first, so a `//`
+ * line containing `video/*` opens a comment that closes at the next real `*\/`
+ * and blanks everything between — and the guard then asserts against a blank
+ * and passes. `scripts/lint-one-comment-stripper.mjs` is a blocking CI guard
+ * that stops a second stripper being written; it caught this file.
+ */
 function code(path: string): string {
-  return readFileSync(path, 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+  return stripComments(readFileSync(path, 'utf8'));
 }
 
 test('ANCHOR — the three files were read and stripping left code behind', () => {
@@ -37,7 +44,13 @@ test('ANCHOR — the three files were read and stripping left code behind', () =
     ['site-body.tsx', SITE_BODY],
     ['[slug]/actions.ts', GUEST_ACTIONS],
   ] as const) {
-    assert.ok(code(path).length > 400, `${name}: stripped to nothing — every assertion is vacuous`);
+    // NON-WHITESPACE length, deliberately. The repo's stripper replaces a
+    // comment's characters with SPACES so that offsets survive, which means a
+    // file blanked to nothing but whitespace still has its full `.length` — the
+    // exact reading that would make every assertion below vacuous while this
+    // anchor reported the file as read.
+    const solid = code(path).replace(/\s+/g, '').length;
+    assert.ok(solid > 400, `${name}: stripped to ${solid} non-space chars — the assertions are vacuous`);
   }
 });
 
@@ -61,7 +74,10 @@ test('the switch is NOT hidden behind ANY condition — it renders for every gue
   // element it gates, so the mutation run wrapped the switch in
   // `{guest.photo_source === 'selfie' ? …}` and this test stayed GREEN. A check
   // that cannot see the sabotage is not a check.
-  const src = code(SITE_BODY);
+  // The stripper blanks a comment's CONTENTS but keeps offsets, so a JSX
+  // comment leaves `{      }` behind. Those empties are dropped, or a gate
+  // written before the comment would hide behind one.
+  const src = code(SITE_BODY).replace(/\{\s*\}/g, ' ');
   const before = src.slice(0, src.indexOf('<ScanTrailNotice')).trimEnd();
   const last = before.slice(-1);
   assert.ok(

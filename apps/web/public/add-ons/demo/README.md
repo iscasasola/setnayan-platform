@@ -10,7 +10,15 @@ the live card renders (the four scenes, captions baked in), so the video can
 never drift from the live demo. They double as shareable clips (FB/IG).
 
 - **Format:** 9:19 vertical, H.264, 24fps, 460×972, ~12s phase-aligned loop,
-  ~40–70 KB each. Poster is scene 0 as JPEG, ~18–34 KB.
+  **~54–114 KB each** (avg ~80). Poster is scene 0 as JPEG, ~17–33 KB.
+
+  ⚠ **The old figure here was ~40–70 KB, and it was small because the clips were
+  BROKEN.** Until 2026-09-03 the recorder composited a 230×486 page into a
+  460×972 canvas and padded the rest flat grey — three quarters of every frame
+  was a solid fill, which is nearly free to encode. A full frame of real UI at
+  true 2× costs more, and that is the correct price. If this range ever drops
+  back toward 40–70 KB, suspect the geometry before congratulating anyone:
+  `scripts/lint-demo-capture-geometry.mjs` guards the cause.
 - **Swap in place:** keep the filename and the card updates with no code change.
 
 ## Regenerate

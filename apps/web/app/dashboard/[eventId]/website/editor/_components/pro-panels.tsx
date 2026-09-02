@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Lock } from 'lucide-react';
+import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
@@ -23,16 +24,16 @@ import { Lock } from 'lucide-react';
  * components only render the decision.
  */
 
-/** The seven Pro items, named the way the couple sees them. */
-export const WEBSITE_PRO_ITEMS = [
-  'Cinematic Reveal',
-  'Save-the-Date video',
-  'Photo gallery',
-  'Background music',
-  'Editorial editing',
-  'Background color',
-  'Button color',
-] as const;
+/**
+ * The seven Pro items, named the way the couple sees them.
+ *
+ * 🔑 THE LIST NOW LIVES IN `lib/website-pro-items.ts` AND IS RE-EXPORTED HERE
+ * UNDER ITS OWN NAME — the Event Hub controller offers the same one unlock on
+ * whichever channel the couple is standing on, and it needs these seven names on
+ * the server. Copying them would have made two lists of one fact, each passing
+ * its own suite. Nothing that imports `WEBSITE_PRO_ITEMS` from this file moves.
+ */
+export { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 
 export function ProLockPanel({
   featureName,

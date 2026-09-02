@@ -50,16 +50,24 @@ test('the switch is MOUNTED on the guest site, not merely imported', () => {
   );
 });
 
-test('the switch is NOT hidden behind the selfie test that gates the face notice', () => {
+test('the switch is NOT hidden behind ANY condition — it renders for every guest', () => {
   // FaceDataNotice renders only for `photo_source === 'selfie'`. Every guest
   // leaves a scan trail, so putting this control inside that branch would hide
   // it from most of the people it exists for.
+  //
+  // 🔑 THE WINDOW IS ON THE LEFT, AND THAT IS THE WHOLE LESSON. The first
+  // version of this check sliced FORWARD from `<ScanTrailNotice` and asked
+  // whether the mount named `photo_source`. A gate is written BEFORE the
+  // element it gates, so the mutation run wrapped the switch in
+  // `{guest.photo_source === 'selfie' ? …}` and this test stayed GREEN. A check
+  // that cannot see the sabotage is not a check.
   const src = code(SITE_BODY);
-  const mount = src.slice(src.indexOf('<ScanTrailNotice'));
-  const line = mount.slice(0, mount.indexOf('/>') + 2);
+  const before = src.slice(0, src.indexOf('<ScanTrailNotice')).trimEnd();
+  const last = before.slice(-1);
   assert.ok(
-    !/photo_source/.test(line),
-    'the scan-trail switch has been gated on the guest having a selfie',
+    last === '}' || last === '>',
+    'the scan-trail switch is inside a conditional — it must render for EVERY ' +
+      `recognised guest. It is preceded by: …${before.slice(-60)}`,
   );
   // The face notice keeps its own gate — this must be an addition, not a move.
   assert.match(src, /photo_source === 'selfie'/, 'the face notice lost its selfie gate');

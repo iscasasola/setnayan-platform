@@ -31,8 +31,10 @@ import { liveStudioControllerHref } from '@/lib/live-studio-control';
    swapped (`event-hub-control.test.ts`) instead of by a comment asking you not
    to. Do not reintroduce a direct call here; add it to that module. */
 import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
+import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
+import { HubProOffer } from './_components/hub-pro-offer';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -41,15 +43,35 @@ import {
   resolveHubFacts,
   resolveHubNextStep,
   hubOffersAllowed,
+  hubPreviewRoles,
+  resolveArmedHubRole,
+  resolveHubRoleView,
   type HubEventRead,
   type HubGuestRead,
 } from '@/lib/event-hub-control';
+import { resolveHubProOffer } from '@/lib/event-hub-pro';
+import {
+  eventCoupleWebsiteProActive,
+  eventOwnsCoupleWebsitePro,
+} from '@/lib/couple-website-pro';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
+import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 
-// ⚠ Was a static title; the page has two names now, so it needs the dynamic
-// form. `checklist/page.tsx` is the shipped pattern for a per-event title.
-export const metadata = { title: 'Your Event Hub' };
+// ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
+// "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
+// while doing the same job; it is a redirect stub now, and this page carries
+// the name alone. `one-event-hub-door.test.ts` fails if a second surface ever
+// re-claims it.
+export const metadata = { title: 'Event Hub' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  /** `?viewas=<role>` — VIEW AS. A string from the address bar and nothing
+   *  more: `resolveArmedHubRole` checks it against the list this viewer was
+   *  offered, so it can never arm a read they may not have. */
+  searchParams?: Promise<{ viewas?: string | string[] }>;
+};
 
 /**
  * THE EVENT HUB CONTROLLER — the couple's side of their one public address.
@@ -105,8 +127,9 @@ type Props = { params: Promise<{ eventId: string }> };
  * "host" is the whole lesson of `loadHostMembership`, which selected
  * `member_type` and then never compared it.
  */
-export default async function LaunchHubPage({ params }: Props) {
+export default async function LaunchHubPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const search = searchParams ? await searchParams : {};
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -158,7 +181,17 @@ export default async function LaunchHubPage({ params }: Props) {
     : Promise.resolve({ rows: [], measured: false });
 
   const base = `/dashboard/${eventId}`;
-  const [ownsLiveWall, panoodState, hasPapic, eventRes, guestRead] = await Promise.all([
+  const [
+    ownsLiveWall,
+    panoodState,
+    hasPapic,
+    eventRes,
+    guestRead,
+    proActive,
+    proOwned,
+    proSku,
+    guestColumnsOn,
+  ] = await Promise.all([
     eventSkuActive(supabase, eventId, 'LIVE_WALL'),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
     // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
@@ -173,7 +206,10 @@ export default async function LaunchHubPage({ params }: Props) {
     // day out.
     supabase
       .from('events')
-      .select('slug, event_date, event_end_date, cleared_at, timezone')
+      // `event_type` added 2026-09-02 (EH6): the retired /website hub showed its
+      // "Our story" door to weddings only, and that door moved here. One more
+      // column on a query already running — not a second read.
+      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page
@@ -181,6 +217,42 @@ export default async function LaunchHubPage({ params }: Props) {
     // says must not use the wrapper. Asked only when this viewer may have it —
     // see `mayReadGuestList` above.
     guestReadPromise,
+    /*
+      🔒 THE OFFER'S GATE, MEASURED — NOT INFERRED FROM A DEFAULT.
+
+      Papic's card could never light up for a year because it was gated on a
+      retired SKU, and a gate that can only answer one way renders identically to
+      a gate that works. So BOTH readers are asked, and both are the canonical
+      ones already used by the shipped buy surface (`studio/website-pro`):
+
+        · `eventCoupleWebsiteProActive` — admin-approved, the feature gate.
+        · `eventOwnsCoupleWebsitePro`   — counts a still-in-reconciliation
+          'submitted' order, so a couple mid-review is never asked to buy the
+          same unlock twice.
+
+      The offer is suppressed by EITHER. Both graceful-degrade to `false` — which
+      SHOWS the offer — so a refused entitlement read can at worst offer an
+      upgrade to somebody who has it, never hide a page behind a lock.
+    */
+    eventCoupleWebsiteProActive(supabase, eventId).catch(() => false),
+    eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false),
+    /*
+      ⛔ THE PRICE, READ LIVE. `platform_retail_catalog_v2` is admin-managed and
+      is the only figure a customer is ever charged. Null on failure, and the
+      panel then renders with no number rather than a remembered one.
+    */
+    formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+    /*
+      The Guest Columns door's gate, carried over with the door from the retired
+      /website hub — the env flag AND the `guest_columns` DPO control, asked
+      through the one shipped resolver rather than re-derived here.
+
+      ⚠ FALSE ON FAILURE, which is the opposite default from the Pro offer above
+      and deliberately so: a refused read there can only over-OFFER, while here
+      it would show a door into a feature that is switched off. The hub's own
+      words for this were "no dead door".
+    */
+    guestColumnsActive().catch(() => false),
   ]);
 
   if (eventRes.error) {
@@ -197,6 +269,7 @@ export default async function LaunchHubPage({ params }: Props) {
     event_end_date?: string | null;
     cleared_at?: string | null;
     timezone?: string | null;
+    event_type?: string | null;
   } | null;
 
   /*
@@ -226,6 +299,62 @@ export default async function LaunchHubPage({ params }: Props) {
   const facts = resolveHubFacts(eventRead, guestFacts);
   const nextStep = resolveHubNextStep(standing, eventRead, guestFacts);
   const offersAllowed = hubOffersAllowed(standing.phase);
+
+  /*
+    ══ THE ONE UNLOCK, RESOLVED FOR THE CHANNEL THE COUPLE IS STANDING ON ══
+    § 5.3: the seven Pro items are ONE purchase, so the controller does not grow
+    seven upgrade slots — it grows one, and moves it to whichever of the four
+    public pages is live. `resolveHubProOffer` returns null far more often than
+    not: when the couple owns it, when the read did not happen, on the day, and
+    after it.
+
+    ⚠ THE GATE IS EH1'S, IS CALLED, AND IS NEVER RE-DERIVED. `hubOffersAllowed`
+    is `phase === 'plan'`, and that ONE LINE DOES THREE JOBS — its own docblock
+    in `lib/event-hub-control.ts` names all three: on the day (an offer never
+    outranks the day), after the day (the owner's 2026-08-21 ruling, "stop
+    selling the day itself once the day is over", guarded by
+    `lib/stop-selling-the-day-after-the-day.test.ts`), and UNMEASURED, where we
+    do not know whether it is their wedding day and an unread state must never
+    become a sale. 🛑 Settled and owner-ruled: do not widen it, do not relax it to
+    day-only, and do not add a second gate here. A consequence worth naming
+    rather than discovering: the Day-of and Editorial channels therefore never
+    carry an offer, because the stage only reaches them once the phase is
+    'dayof' or 'after' — that is the ruling working, not a gap.
+  */
+  const proOffer = resolveHubProOffer({
+    channel: standing.stage,
+    phase: standing.phase,
+    ownsPro: proActive || proOwned,
+  });
+  const proPriceLabel = proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
+
+  /*
+    ─── VIEW AS ──────────────────────────────────────────────────────────────
+    Owner 2026-09-02: "make sure it also has view as (they pick what each role
+    sees)."
+
+    🔒 The offer list is computed from `membership.member_type` through
+    `hubPreviewRoles`, which asks `isHostMemberType` — the ONE definition of
+    "host" this repo keeps, and the comparison whose absence once let a
+    `guest`-typed `event_members` row open a private site and jump to phases the
+    couple had not launched. The gate above already redirected such a viewer;
+    this is the same fact asked a second time, at the place that hands out the
+    doors, so no future refactor of the redirect can silently open them.
+
+    The NAMED read — one real guest's personal page rendered to the host — is
+    the only privacy surface here and ships DARK behind
+    `hubNamedGuestPreviewEnabled()`. Nothing on this page reads a guest by name
+    either way: even with the flag on, the seat-holder door is the FABRICATED
+    sample that `lib/simulated-guest-preview.ts` already ships.
+  */
+  const offeredRoles = hubPreviewRoles({
+    memberType: (membership as { member_type?: string | null } | null)?.member_type,
+    namedGuestEnabled: hubNamedGuestPreviewEnabled(),
+  });
+  const armedRole = resolveArmedHubRole({ param: search.viewas, offered: offeredRoles });
+  const roleViews = offeredRoles.map((role) =>
+    resolveHubRoleView({ role, standing, slug: eventSlug, guests: guestFacts }),
+  );
 
   /*
     ─── HAS THIS CELEBRATION ALREADY HAPPENED? ──────────────────────────────
@@ -308,9 +437,37 @@ export default async function LaunchHubPage({ params }: Props) {
     every one of these screens keeps its own page and its own route (prototype
     § 5, the port contract). Recreating a working screen is a defect.
   */
+  /*
+    ⭐ TWO DOORS MOVED HERE FROM THE RETIRED /website HUB (2026-09-02, EH6).
+
+    The hub carried six QuickLinks. Four of its destinations are reached from
+    elsewhere and were left alone — `/invitation` from the checklist, guest
+    detail and the QR page; `/website/privacy` from the editorial editor;
+    `/website/editor` and `/website/editorial` already sit above. TWO were
+    reachable from the hub and NOWHERE else, and folding the hub without them
+    would have orphaned a shipped page each:
+
+      · `/website/our-story`      — no other link in the tree
+      · `/studio/guest-columns`   — not in the catalog, no other link
+
+    `lint-port-no-lost-controls` is what caught this, which is the whole reason
+    that guard exists: the merge looked complete and typechecked clean, and two
+    pages had quietly become unreachable.
+
+    🔒 BOTH GATES ARE THE HUB'S OWN, REPRODUCED, NOT RE-DECIDED. Our story was
+    wedding-only there; Guest columns was behind `guestColumnsActive()` — the
+    env flag AND the DPO control — under the hub's own comment "no dead door".
+    A door shown for a feature that is off is worse than no door.
+  */
   const setOnce: Array<{ key: string; label: string; hint: string; href: string }> = [
     { key: 'editor', label: 'The page itself', hint: 'Copy, photos, colours, music', href: `${base}/website/editor` },
     { key: 'story', label: 'The story', hint: 'Chapters, guest columns, the album', href: `${base}/website/editorial` },
+    ...(eventRow?.event_type === 'wedding'
+      ? [{ key: 'ourstory', label: 'Our story', hint: 'How you met, the spark, the yes', href: `${base}/website/our-story` }]
+      : []),
+    ...(guestColumnsOn
+      ? [{ key: 'columns', label: 'Guest columns', hint: 'Approve or return what your guests wrote', href: `${base}/studio/guest-columns` }]
+      : []),
     { key: 'guests', label: 'Guests and replies', hint: 'Names, invites, who is coming', href: `${base}/guests` },
     { key: 'schedule', label: 'The running order', hint: 'What happens, and when', href: `${base}/schedule` },
   ];
@@ -340,6 +497,9 @@ export default async function LaunchHubPage({ params }: Props) {
         channelIndex={activeChannel ? activeChannelIndex + 1 : null}
         channelCount={PUBLIC_SITE_PAGES.length}
         editHref={`${base}/website/editor`}
+        roles={roleViews}
+        armedRole={armedRole}
+        roleHrefBase={`${base}/launch`}
       />
 
       {/* ══ S3 · ONE NEXT STEP ══ */}
@@ -443,6 +603,21 @@ export default async function LaunchHubPage({ params }: Props) {
             );
           })}
         </div>
+
+        {/* ══ THE ONE UNLOCK, OFFERED AT THE POINT OF ABSENCE (§ 5.1 rule 1) ══
+            Attached to the channel above it, not parked in a rail at the foot of
+            the page: the controller sells only what the couple is currently
+            looking at and cannot have. Null — owned, unmeasured, or the day
+            itself — renders nothing at all, and the cards above are UNCHANGED in
+            either case. Nothing here dims, greys or locks them. */}
+        {proOffer && (
+          <HubProOffer
+            offer={proOffer}
+            channelName={activeChannel?.name ?? null}
+            priceLabel={proPriceLabel}
+            base={base}
+          />
+        )}
       </section>
 
       {/* ══ S4b · THE PARTS — then the three services that run on the day ══ */}

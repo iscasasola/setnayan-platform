@@ -319,6 +319,21 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-fonts-are-local.mjs
 
+      # Every looping demo clip under public/add-ons/demo shipped THREE QUARTERS
+      # EMPTY for an unknown length of time: the recorder had a 230x486 viewport
+      # and asked for a 460x972 video, and Playwright only ever scales a page
+      # DOWN to fit recordVideo.size — so each frame landed 1:1 in the top-left
+      # corner and the rest was padded flat grey. The files existed, played,
+      # looped, and weighed the documented ~50 KB, so nothing caught it; the
+      # deployed papic.mp4 was byte-identical to the repo's, meaning /papic's own
+      # "this is all of it" section had been showing mostly nothing. This guards
+      # the CAUSE — viewport, video size and the reel's zoom are one measurement.
+      # See apps/web/scripts/lint-demo-capture-geometry.mjs.
+      - name: Lint demo-capture geometry
+        id: guard_demo_capture
+        continue-on-error: true
+        run: node apps/web/scripts/lint-demo-capture-geometry.mjs
+
       # Fails when a migration declares a FUNCTION-LEVEL `SET` on a custom
       # `setnayan.*` parameter. Prod refuses to create such a function —
       # "permission denied to set parameter" (42501) — because that clause is
@@ -430,6 +445,7 @@ jobs:
           MIGRATIONS_DIR: ${{ steps.guard_migrations_dir.outcome }}
           MIGRATIONS_KEPT: ${{ steps.guard_migrations_kept.outcome }}
           FONTS_LOCAL: ${{ steps.guard_fonts_local.outcome }}
+          DEMO_CAPTURE: ${{ steps.guard_demo_capture.outcome }}
           FUNCTION_LEVEL_SET: ${{ steps.guard_function_level_set.outcome }}
           LABEL_CONTRAST: ${{ steps.guard_label_contrast.outcome }}
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
@@ -461,6 +477,7 @@ jobs:
           check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
           check 'lint server-only boundary'   "$SERVER_ONLY"
           check 'lint fonts are local'        "$FONTS_LOCAL"
+          check 'lint demo-capture geometry'  "$DEMO_CAPTURE"
           check 'lint migrations dir'         "$MIGRATIONS_DIR"
           check 'lint migrations kept'        "$MIGRATIONS_KEPT"
           check 'lint no function-level custom SET' "$FUNCTION_LEVEL_SET"

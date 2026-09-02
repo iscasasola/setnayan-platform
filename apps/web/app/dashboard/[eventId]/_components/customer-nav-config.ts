@@ -5,7 +5,7 @@
  * The desktop sidebar is organised into two labelled sections matching the
  * couple energy prototype:
  *   PLAN    → Overview · Guests · Marketplace · Studio
- *   GO LIVE → Launch (the couple's live personal website)
+ *   GO LIVE → Event Hub (the couple's one public address — the controller)
  * EVERY top-level item is a PLAIN LEAF (owner 2026-07-15: "solid menu with no
  * submenus" — extends the vendor 5-page IA + the 2026-07-10 Overview/Guests
  * plain-leaf decision to the whole couple rail). No item expands children in the
@@ -29,7 +29,9 @@
  *      Store catalog rows + the hub's "Set up & manage" doorway block, NOT the
  *      rail — owner 2026-07-15 "no submenus")
  * GO LIVE items:
- *   5. Launch   → /website/editor (the unified editor) — gated on websiteEnabled.
+ *   5. Event Hub → /launch (the Event Hub controller, EH1/PR #5102) — gated on
+ *      websiteEnabled. Was "Launch" → /website/editor until 2026-09-02; the
+ *      editor is now a door INSIDE the controller, not the controller's name.
  *
  * BUDGET removed 2026-07-10 (owner) — the standalone top-level Budget menu (and
  * its Activity + Disputes children) is GONE, matching the mobile SSOT
@@ -70,7 +72,7 @@ import {
   Users,
   Compass,
   Sparkles,
-  Rocket,
+  Globe,
   CalendarDays,
   Armchair,
   Wallet,
@@ -153,20 +155,85 @@ export function buildCustomerNavGroups(
   // not each derive it.
   const guestsBadge = customerGuestsBadge(opts?.guestCount);
 
-  // Launch = the couple's website control surface. It lives in its OWN "Go live"
-  // section (design: setnayan-overview-energy.html), not among the Plan items.
-  // OPENS THE UNIFIED WEBSITE EDITOR (`/website/editor`) — owner
-  // 2026-07-24 "when we open Launch, instead of the website, we start by the
-  // settings (free) and the settings when Website Pro is unlocked". (Supersedes
-  // the 2026-07-02 "open the live `/[slug]` directly" ruling; the live site is
-  // now one click away via "View my site" on that surface.) Gated on the
-  // 'website' surface (websiteEnabled). Design: Design_Launch_Settings_2026-07-24/.
+  /* THE EVENT HUB — the couple's one public address, in its own "Go live"
+     section (design: setnayan-overview-energy.html), not among the Plan items.
+
+     ── RENAMED AND REPOINTED 2026-09-02 (EH3) ────────────────────────────────
+     It read **"Launch"** and opened `/website/editor`. Two things were wrong
+     with that, and only one of them was the word:
+
+       · The WORD. The same slot is called "Services" on the phone in the day-of
+         phase and was called "Editorial" after it. Three names, three
+         destinations, one thing — and none of the three is the phrase the
+         couple's own guests taught them. The vocabulary is owner-locked
+         (2026-08-16): *Event Hub* = the one public address.
+       · The DESTINATION. `/website/editor` edits the page. The controller at
+         `/launch` — built by EH1 (PR #5102) and rendering in all three phases —
+         is where the page is SEEN, switched, armed and handed out; the editor
+         is one of its S5 doors ("The page itself"), not its front.
+
+     🔒 `key: 'launch'` IS UNCHANGED, and that is the half that would have
+     failed silently. The key is load-bearing in `SIDEBAR_SLOT_KEYS`
+     (`customer.sidebar.launch`), in `eventRailMatchRows`' hidden-row filter,
+     and in the localStorage section-open state — none of which throws when a
+     key stops matching; the row simply stops being renameable, matchable or
+     remembered, with nothing said.
+
+     ⚠ `matchPrefix` NARROWS to `${base}/launch` on purpose. Left at
+     `${base}/website` this row would keep claiming the whole website family
+     from a href no longer inside it, and `/website/editor` would light "Event
+     Hub" while standing on the editor. The Studio group's own "Event Hub" row
+     (`pawebsite` → `${base}/website`) is the honest winner there — see
+     `studio-rows-are-lit.test.ts`, which measures exactly that pair.
+
+     Still gated on the 'website' surface (websiteEnabled), matching the phone
+     tree's plan-phase gate in `lib/customer-menu.ts` — the two rosters must not
+     disagree about whether this event kind has a Hub at all.
+
+     ⚠ OPEN, OWNER'S CALL — TWO ROWS ON ONE RAIL NOW READ "Event Hub".
+     Measured 2026-09-02 with `railToolsSignedIn({eventId, count: 1})`: the
+     Studio group that renders a few rows below this one (front-door-shell.tsx
+     § 4, "IT DOES NOT COLLAPSE") carries `pawebsite` — the App Store product
+     card from `lib/add-ons-catalog.ts`, keyed `landing-page`, ALREADY labelled
+     **"Event Hub"** and pointing at the website hub `${base}/website`. This row
+     is the controller; that row is the product card for the same thing.
+
+     ✅ THE OWNER RULED, AND IT IS RESOLVED (2026-09-02, EH6). EH3 flagged this
+     rather than guessing, because repointing `landing-page` changes a PRODUCT's
+     destination across the Studio hub, the App Store and the `/pawebsite`
+     marketing page. The ruling, verbatim: *"i look at the roles of each. if it
+     is the same then adjust. Like in papic. when they enter an event, the menu
+     of papic description page becomes the control center of papic. i think that
+     should be the same for events hub."*
+
+     So `addOnHref('landing-page')` now resolves HERE, to `${base}/launch`. The
+     product card and this row are two entrances to one page — the `papic`
+     shape — and the old `/website` hub is a redirect stub to the same place.
+     One word, offered twice, now opens one door.
+
+     ⚠ ONE DOOR MEANS ONE RAIL ROW, and that was settled rather than left to
+     chance. Two rows with the identical href TIE, and `activeRailKey` breaks a
+     tie by list position — so which one lit would have been an accident of how
+     the shell composes the rail. The Studio group's duplicate is dropped inside
+     an event (`lib/studio-rail.ts`), on the shipped reasoning that already
+     drops the event menu's `studio` row: "the same destination under a second
+     name". This row survives because EH3 ruled it wears the word in all three
+     phases.
+
+     🔑 SO THIS ROW INHERITS THE WEBSITE FAMILY, which is why `matchPrefix`
+     points at `/website` and not at the href. `matchesPath` is
+     `hrefMatch || prefixMatch`, so the href still lights the controller
+     exactly; the prefix adds the fifteen `/website/<child>` pages the dropped row
+     used to light. Without it the editor and Editorial — the controller's own
+     doors — would leave the rail dark, which is the debt
+     `studio-rows-are-lit.test.ts` exists to prevent. Pinned there and in
+     `one-event-hub-door.test.ts`. */
   const launchItem: NavItem | null = opts?.websiteEnabled
     ? {
         key: 'launch',
-        label: 'Launch',
-        href: `${base}/website/editor`,
-        icon: Rocket,
+        label: 'Event Hub',
+        href: `${base}/launch`,
+        icon: Globe,
         matchPrefix: `${base}/website`,
       }
     : null;
@@ -257,7 +324,7 @@ export function buildCustomerNavGroups(
           icon: Sparkles,
           matchPrefix: studioHubHref(eventId),
         },
-        // (Launch moved OUT of the Plan items into its own "Go live" section —
+        // (The Event Hub row moved OUT of the Plan items into its own "Go live" section —
         // see `launchItem` above + the two-group composition below.)
         // Budget top-level item REMOVED 2026-07-10 (owner) to match the mobile
         // SSOT (lib/customer-menu.ts): the budget now lives inside the Merkado
@@ -414,7 +481,7 @@ export function buildCustomerNavGroups(
 
   // Two labelled sidebar sections (design: setnayan-overview-energy.html):
   //   PLAN    → Overview · Guests · Marketplace · Studio
-  //   GO LIVE → Launch (the couple's live personal website)
+  //   GO LIVE → Event Hub (the couple's one public address)
   //   ALSO IN THIS EVENT → Personalization · Hosts · Schedule · Seat plan · Budget
   const groups: NavGroup[] = [
     {

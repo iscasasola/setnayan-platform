@@ -2,6 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
 import { liveStudioRoamEnabled, type RoamManifest, type RoamZoneStatus } from '@/lib/live-studio-roam';
 import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
+// PANOOD_WINDOW_HOURS is the existing, import-free, pure owner of "how long one
+// broadcast day is" (lib/panood-watermark.ts) — reclaimStaleCheckouts below
+// reuses it rather than re-typing an hour count. The module carries no
+// `server-only` import, so this static edge does not repeat the trap the note
+// above documents for panood-youtube.ts / live-studio-channel-grants.ts.
+import { PANOOD_WINDOW_HOURS } from '@/lib/panood-watermark';
 // ⚠ `lib/panood-youtube.ts` and `lib/live-studio-channel-grants.ts` are imported
 // DYNAMICALLY inside provisionRoamBroadcasts, not here. Both carry
 // `import 'server-only'`, and a static edge to either would drag it into this
@@ -206,6 +212,7 @@ export async function checkoutPoolChannel(
     // the loser takes the next free channel instead of being turned away.
     // Bounded, not a spin: after 4 attempts the pool is genuinely contended and
     // "none available" is the honest answer.
+    let sweepAttempted = false;
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const { data: free, error: freeErr } = await admin
         .from('live_studio_roam_channel_pool')
@@ -215,7 +222,22 @@ export async function checkoutPoolChannel(
         .order('id', { ascending: true })
         .limit(1)
         .maybeSingle();
-      if (freeErr || !free) return null; // pool genuinely empty
+      if (freeErr || !free) {
+        // LAST RESORT, NEVER EAGER (2026-09-02 — a finished wedding returns its
+        // channel). This branch is reached ONLY when the availability read
+        // above came back empty — with a second channel connected this never
+        // fires. That ordering is the safety argument: a mistaken reclaim costs
+        // a host a channel they had stopped using; not reclaiming costs a
+        // wedding happening today its whole broadcast, on a date that cannot
+        // move. SWEEP AT MOST ONCE per checkout call, so a genuinely contended
+        // pool does not turn the existing bounded retry into a slow spin.
+        if (!freeErr && !sweepAttempted) {
+          sweepAttempted = true;
+          const reclaimed = await reclaimStaleCheckouts(admin);
+          if (reclaimed > 0) continue; // a channel just came back — look again
+        }
+        return null; // pool genuinely empty
+      }
 
       const { data: claimed, error: claimErr } = await admin
         .from('live_studio_roam_channel_pool')
@@ -291,6 +313,77 @@ export async function releasePoolChannelIfIdle(
     return await returnPoolChannel(admin, eventId);
   } catch {
     return false;
+  }
+}
+
+/**
+ * Reclaim pool channels whose checkout has outlived a broadcast day AND whose
+ * event has actually finished — so a wedding that ended does not sit on the
+ * pool's only channel forever (2026-09-02 · `NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY`
+ * closed the BYO fallback the same day, so one un-released checkout is now the
+ * entire product down for every other event).
+ *
+ * Called from EXACTLY ONE place: `checkoutPoolChannel`, on the branch where the
+ * availability read finds nothing. LAST RESORT, NEVER EAGER — with a second
+ * channel connected this never runs at all. That ordering is the safety
+ * argument, not an optimisation: a mistaken reclaim costs a host a channel they
+ * had already stopped using; not reclaiming costs a wedding happening today its
+ * whole broadcast, on a date that cannot move.
+ *
+ * TWO CONDITIONS, BOTH REQUIRED, per stale checkout:
+ *   1. `checked_out_at` older than `PANOOD_WINDOW_HOURS` — imported from
+ *      lib/panood-watermark.ts, which already owns "how long one broadcast day
+ *      is"; never re-typed here. This is the clause protecting a host who ends
+ *      and restarts (ceremony, then reception) — that gap is hours, well inside
+ *      the window.
+ *   2. `releasePoolChannelIfIdle` agrees. It is the ONE release path — this
+ *      function never writes the pool row itself — and it independently refuses
+ *      while any of that event's streams is outside complete/errored, and
+ *      refuses on an unreadable stream table, so a transient fault cannot look
+ *      like "the wedding is finished". Two mechanisms deciding "is this channel
+ *      free" would eventually disagree, and the way they disagree is a live
+ *      wedding losing its channel mid-vow.
+ *
+ * RECLAIM IS NOT A WIPE. It returns rows to 'available' and deletes nothing —
+ * § 6's promised indefinite archive retention is untouched. Manual release from
+ * /admin/live-studio-channels stays the deliberate default (see the note
+ * beginning "THE POOL CHANNEL IS DELIBERATELY *NOT* RELEASED HERE" in
+ * app/dashboard/[eventId]/studio/panood/setup/actions.ts); this is only the
+ * backstop for the checkout that nobody released.
+ *
+ * Every reclaim is logged — a channel changing hands with nobody asking is
+ * exactly what cannot be reconstructed later from an empty log.
+ *
+ * Returns the count actually released (the caller's once-only-sweep signal).
+ */
+export async function reclaimStaleCheckouts(admin: SupabaseClient): Promise<number> {
+  try {
+    const staleBefore = new Date(Date.now() - PANOOD_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+    const { data: stale, error } = await admin
+      .from('live_studio_roam_channel_pool')
+      .select('checked_out_event_id')
+      .eq('status', 'checked_out')
+      .lt('checked_out_at', staleBefore);
+    if (error?.code === UNDEFINED_TABLE) return 0;
+    if (error || !stale || stale.length === 0) return 0;
+
+    let released = 0;
+    for (const row of stale as { checked_out_event_id: string | null }[]) {
+      const eventId = row.checked_out_event_id;
+      if (!eventId) continue;
+      // eslint-disable-next-line no-await-in-loop -- bounded by the pool size, and each release must observe the last one's effect
+      const ok = await releasePoolChannelIfIdle(admin, eventId);
+      if (ok) {
+        released += 1;
+        // eslint-disable-next-line no-console -- deliberate: a reclaim is a channel changing hands with nobody asking
+        console.log(
+          `[live-studio-roam] reclaimed stale pool channel for event ${eventId} (checked out > ${PANOOD_WINDOW_HOURS}h, streams idle)`,
+        );
+      }
+    }
+    return released;
+  } catch {
+    return 0;
   }
 }
 

@@ -525,21 +525,26 @@ export default async function SuitePage({ params }: Props) {
     }))
     .filter((s) => s.items.length > 0);
 
-  // The two always-visible deep-link chips on the consolidated "Your Website"
-  // card (verdict §2 defect 1 · owner sign-off #2 2026-08-14). These are the
-  // two part-cards that RETIRED into it — Event and Editorial — so neither
-  // destination moved further than one tap.
-  //
-  // ⚠ They are DIFFERENT destinations on purpose. The verdict was written while
-  // each part had its own /site-editor/<phase> page; those pages are now retired
-  // redirects into the ONE unified editor (2026-07-25), so pointing both chips
-  // at addOnHref() would render two chips that go to the same URL — a
-  // distinction a couple can see is fake. Editorial keeps its own editor at
-  // /website/editorial, which the /website hub already links to.
-  const websiteChips: readonly { label: string; href: string }[] = [
-    { label: 'Event page', href: `/dashboard/${eventId}/website/editor` },
-    { label: 'Editorial', href: `/dashboard/${eventId}/website/editorial` },
-  ];
+  /*
+    ⭐ THE TWO WEBSITE CHIPS ARE GONE (owner ruling 2026-09-02 — "if it is the
+    same then adjust"). They were "Event page" → /website/editor and
+    "Editorial" → /website/editorial, added 2026-08-14 when this card opened
+    the `/website` hub: the hub was the map and the chips were the shortcuts.
+
+    The card now opens the Event Hub CONTROLLER (`/launch`), and the
+    controller's own "set once" strip already carries BOTH of those
+    destinations, by name and one tap in — "The page itself" → /website/editor
+    and "The story" → /website/editorial. A chip beside the card would be a
+    second control for a door the card's own landing already shows, which is
+    the distinction a couple can see is fake that the 2026-08-14 verdict
+    existed to remove. The alternative the ruling allowed — repointing the
+    chips at a channel the landing does NOT select — had nothing left to point
+    at: the controller carries all four public channels and both editors.
+
+    ⛔ Neither destination lost reachability, which is the only thing the chips
+    were ever for. `one-event-hub-door.test.ts` fails if the controller stops
+    carrying them.
+  */
 
   // A catalog service → a Suite grid tile (box). Owner 2026-07-23: the Suite
   // reads as an app-store grid of many features, not full-width rows.
@@ -553,7 +558,6 @@ export default async function SuitePage({ params }: Props) {
       gradient={a.poster.baseBackground}
       pill={pillFor(a)}
       tags={a.tags}
-      links={a.key === 'landing-page' ? websiteChips : undefined}
     />
   );
 

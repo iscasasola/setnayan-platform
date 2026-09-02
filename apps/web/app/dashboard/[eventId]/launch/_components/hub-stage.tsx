@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Eye, PencilLine } from 'lucide-react';
-import type { HubFact, HubStanding } from '@/lib/event-hub-control';
+import type { HubFact, HubRole, HubRoleView, HubStanding } from '@/lib/event-hub-control';
 
 /*
   ── THE OBSIDIAN STAGE, MEASURED ───────────────────────────────────────────
@@ -52,6 +52,14 @@ export const OB = {
  * apologising for being empty, and never a stranger's wedding as a sample. The
  * only thing that silences the miniature is a read that did not happen.
  */
+/**
+ * ● full · ◐ partial or read-only · ○ nothing, on purpose — the § 3.2 key.
+ * Paired with a WORD for screen readers: a glyph alone tells a person using one
+ * nothing at all, and "what each role sees" is the entire content here.
+ */
+const MARK_GLYPH = { full: '\u25CF', partial: '\u25D0', none: '\u25CB' } as const;
+const MARK_WORD = { full: 'Yes:', partial: 'Partly:', none: 'No:' } as const;
+
 export function HubStage({
   slug,
   standing,
@@ -61,6 +69,9 @@ export function HubStage({
   channelIndex,
   channelCount,
   editHref,
+  roles,
+  armedRole,
+  roleHrefBase,
 }: {
   slug: string | null;
   standing: HubStanding;
@@ -72,7 +83,20 @@ export function HubStage({
   channelIndex: number | null;
   channelCount: number;
   editHref: string;
+  /**
+   * VIEW AS — the reads this viewer may look through, already resolved and
+   * already gated. EMPTY means the switcher does not render: the offer list is
+   * produced by `hubPreviewRoles`, which returns nothing for a non-host.
+   */
+  roles: readonly HubRoleView[];
+  /** Which chip is armed. Null when there is nothing to arm. */
+  armedRole: HubRole | null;
+  /** `/dashboard/<eventId>/launch` — each chip is that plus `?viewas=<role>`. */
+  roleHrefBase: string;
 }) {
+  /* The armed VIEW, not just its key — looked up in the list this viewer was
+     actually offered, so a role that is not on it can never be rendered. */
+  const armed = roles.find((r) => r.role === armedRole) ?? null;
   return (
     <section
       aria-labelledby="hub-stage-address"
@@ -188,6 +212,116 @@ export function HubStage({
           </div>
         ))}
       </dl>
+
+      {/* ══ VIEW AS — the couple CHECKS the role matrix instead of trusting it ══
+          Owner 2026-09-02: "make sure it also has view as (they pick what each
+          role sees)." It rides the stage's LOWER EDGE, under the facts, because
+          it is a property of the stage and not a setting — it never moves into
+          a sheet (design § 3, prototype § 3).
+
+          🔒 It renders NOTHING for a viewer `hubPreviewRoles` refused. The list
+          arrives empty for a `guest`-typed `event_members` row, which is the
+          person `Boolean(memberRow)` once waved through into a private site.
+
+          Server-rendered links, not a client switch: the armed read is resolved
+          by the same pure function the tests call, so what a person SEES is the
+          thing under test — and it works with no JavaScript at all.
+
+          📐 THE IDIOM IS ALREADY IN THIS REPO — `LensChip` in
+          `schedule/_components/ros-p2.tsx`, whose own row is captioned "View
+          as": chips, an href carrying the lens, one active. Same shape, painted
+          from `OB` rather than reused, and NOT out of preference — that
+          component is `bg-white text-ink/60`, and `text-ink` measures 1.27:1 on
+          this obsidian ground. A light-ground token fails here silently, which
+          is the whole reason `OB` exists. */}
+      {armed ? (
+        <div style={{ borderTop: `1px solid ${OB.hairline}`, backgroundColor: 'rgba(255,255,255,0.03)' }}>
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
+            <span
+              className="font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
+              style={{ color: OB.soft }}
+            >
+              View as
+            </span>
+            {roles.map((r) => {
+              const on = r.role === armed.role;
+              return (
+                <Link
+                  key={r.role}
+                  href={`${roleHrefBase}?viewas=${r.role}`}
+                  aria-current={on ? 'true' : undefined}
+                  className="rounded-full px-2.5 py-1 text-[11.5px] font-medium"
+                  style={
+                    on
+                      ? { backgroundColor: OB.gold, color: OB.page, fontWeight: 700 }
+                      : { border: `1px solid ${OB.hairline}`, color: OB.soft }
+                  }
+                >
+                  {r.name}
+                </Link>
+              );
+            })}
+            <span className="ml-auto text-[10.5px]" style={{ color: OB.soft }}>
+              The stage above becomes their page
+            </span>
+          </div>
+
+          {/* The armed read. This is the whole point of the switch: not a label
+              saying "coordinator", but WHAT A COORDINATOR SEES. */}
+          <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+            <div className="rounded-xl p-4" style={{ backgroundColor: OB.card }}>
+              <p
+                className="font-mono text-[9.5px] font-bold uppercase tracking-[0.12em]"
+                style={{ color: OB.gold }}
+              >
+                {armed.who}
+              </p>
+              <p className="mt-2 text-[15px] font-semibold" style={{ color: OB.text }}>
+                {armed.headline}
+              </p>
+              <p className="mt-1 max-w-prose text-[13px] leading-snug" style={{ color: OB.soft }}>
+                {armed.blurb}
+              </p>
+              <ul className="mt-3 space-y-1.5">
+                {armed.cells.map((cell) => (
+                  <li key={cell.text} className="flex items-start gap-2 text-[12.5px]">
+                    <span
+                      aria-hidden
+                      className="mt-px font-mono text-[11px] leading-5"
+                      style={{ color: cell.mark === 'none' ? OB.soft : OB.gold }}
+                    >
+                      {MARK_GLYPH[cell.mark]}
+                    </span>
+                    {/* 🔑 An unknown line says it could not be read. It NEVER
+                        renders as a zero and never as a shape we guessed. */}
+                    <span style={{ color: cell.known ? OB.text : OB.soft }}>
+                      <span className="sr-only">{MARK_WORD[cell.mark]} </span>
+                      {cell.text}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {armed.previewHref ? (
+                  <a
+                    href={armed.previewHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium"
+                    style={{ backgroundColor: OB.cta, color: OB.page }}
+                  >
+                    <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    {armed.previewLabel}
+                  </a>
+                ) : null}
+                <p className="text-[11.5px]" style={{ color: OB.soft }}>
+                  {armed.footnote}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

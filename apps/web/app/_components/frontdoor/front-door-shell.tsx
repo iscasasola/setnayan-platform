@@ -720,6 +720,7 @@ export function FrontDoorShell({
     `RailActiveKeyProvider` for the child to read. There is exactly one match
     list and exactly one resolver in the rail now.
   */
+  const claimedByEvent = new Set((contextMatchRows ?? []).map((r) => r.href));
   const matchRows = [
     ...railMatchRows({
       signedIn: account.signedIn,
@@ -745,8 +746,29 @@ export function FrontDoorShell({
       row that cannot be right is better left unlit than guessed, which is the
       rule this file already states for the marketplace folders.
     */
+    /*
+      ⭐ AND A STUDIO ROW THAT OPENS A PAGE AN EVENT ROW ALREADY OPENS IS NOT
+      MATCHED TWICE (2026-09-02). The owner's one-door ruling pointed the
+      website product at the Event Hub controller, which the event menu's own
+      "Event Hub" row opens too — one product, one page, reached two ways, the
+      way `papic` has always worked. Both rows still RENDER: each is a real
+      entrance, and `studio-menu-adapts-to-event.test.ts` pins the Studio set
+      against the Suite grid, so dropping one from the rail itself would break
+      an owner-ruled parity.
+
+      But two rows claiming one URL TIE, and `activeRailKey` breaks a tie by
+      list position — so the lit row would be an accident of how this array is
+      composed. The event row wins by rule: it is the more specific claim, the
+      one the menu's own lifecycle phases are built around. This is the same
+      de-dupe `event-rail-match-rows.ts` already applies from the other side,
+      where the event menu's `studio` row is dropped because "the rail carries a
+      Studio GROUP a few rows below".
+
+      🔑 BY HREF, NOT BY KEY. A key list would go stale the next time a product
+      is repointed; identical destinations are the actual condition.
+    */
     ...tools
-      .filter((t) => t.href !== '/dashboard')
+      .filter((t) => t.href !== '/dashboard' && !claimedByEvent.has(t.href))
       .map((t) => ({ key: t.key, href: t.href })),
     ...(contextMatchRows ?? []),
   ];

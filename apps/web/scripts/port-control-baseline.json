@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "80c94e647",
+  "generatedFromRef": "b0c3a922e",
   "routeCount": 412,
-  "destinations": 889,
+  "destinations": 881,
   "actions": 619,
-  "blocks": 4175,
+  "blocks": 4178,
   "routes": {
     "/": {
       "files": [
@@ -1135,6 +1135,7 @@
         "SceneLighting",
         "SeatDestinationMarker",
         "SeatedFigure",
+        "SitController",
         "StringLights",
         "THREE.Group",
         "THREE.Mesh",
@@ -4641,6 +4642,7 @@
     "/dashboard/[eventId]/budget": {
       "files": [
         "dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx",
+        "dashboard/[eventId]/budget/_components/budget-ledger-table.tsx",
         "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
         "dashboard/[eventId]/budget/_components/budget-setter.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
@@ -4659,12 +4661,15 @@
         "formAction"
       ],
       "blocks": [
+        "AbsorptionDisclosure",
         "AllocationConfig",
         "BudgetAllocationPlanner",
+        "BudgetLedgerTable",
         "BudgetLiveSummary",
         "BudgetLiveSummaryCard",
         "BudgetSetter",
         "BudgetSummaryStrip",
+        "Cell",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
         "DeniedState",
@@ -4674,6 +4679,7 @@
         "HTMLDivElement",
         "HTMLFormElement",
         "LeafRow",
+        "LedgerRow",
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
@@ -4690,6 +4696,7 @@
         "SummaryStat",
         "TiltButton",
         "TiltEditor",
+        "TotalCell",
         "UnlocksHint",
         "UpcomingRow",
         "VendorItemizationCard"
@@ -5365,6 +5372,7 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
@@ -5376,6 +5384,7 @@
       "actions": [],
       "blocks": [
         "GridPageSkeleton",
+        "HubProOffer",
         "HubStage",
         "Icon",
         "Link",
@@ -6993,10 +7002,7 @@
         "dashboard/[eventId]/suite/loading.tsx",
         "dashboard/[eventId]/suite/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/website/editor",
-        "/dashboard/[seg]/website/editorial"
-      ],
+      "destinations": [],
       "actions": [
         "routes.dashboard.budget",
         "routes.dashboard.checklist",
@@ -7363,21 +7369,10 @@
         "dashboard/[eventId]/website/loading.tsx",
         "dashboard/[eventId]/website/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/invitation",
-        "/dashboard/[seg]/studio/guest-columns",
-        "/dashboard/[seg]/website/editor",
-        "/dashboard/[seg]/website/editorial",
-        "/dashboard/[seg]/website/our-story",
-        "/dashboard/[seg]/website/privacy"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "PageMasthead",
-        "PhasePart",
-        "QuickLink",
-        "RevealList"
+        "Link"
       ]
     },
     "/dashboard/[eventId]/website/colors": {

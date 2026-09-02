@@ -14,7 +14,9 @@ import {
   budgetLiveSummaryMoney,
   vendorsToItemize,
 } from '@/lib/budget-page-money';
-import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { buildBudgetLedger } from '@/lib/budget-ledger';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
@@ -25,6 +27,7 @@ import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
+import { BudgetLedgerTable } from './_components/budget-ledger-table';
 import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -97,7 +100,7 @@ export default async function BudgetPage({ params }: Props) {
   // extra query, so the page's cost profile is unchanged in production.
   const budgetTruth = isBudgetTruthEnabled();
 
-  const [eventRes, snapshot, paidOrdersRes, allocInputs, money] = await Promise.all([
+  const [eventRes, snapshot, paidOrdersRes, allocInputs, money, savedPlanPhp] = await Promise.all([
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
       // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -128,6 +131,9 @@ export default async function BudgetPage({ params }: Props) {
     budgetTruth
       ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
       : Promise.resolve<EventMoney | null>(null),
+    // BA3 · the couple's OWN saved plan, per category. Fails empty, never
+    // partial — the ledger then falls back to the suggestion and says so.
+    fetchSavedAllocationPlan(supabase, eventId),
   ]);
 
   // Migration-drift fallback (mirrors app/dashboard/[eventId]/page.tsx): the
@@ -247,7 +253,7 @@ export default async function BudgetPage({ params }: Props) {
 
   // BUD-2 · R1. Strip, live card and vendor list stop being three different
   // row sets. Flag OFF every value below collapses back to the legacy inputs
-  // computed above, so production renders byte-identically.
+  // computed above. Both states print FINALIZED money only (BA2).
   const stripMoney = budgetStripMoney({
     enabled: budgetTruth,
     money,
@@ -255,16 +261,61 @@ export default async function BudgetPage({ params }: Props) {
     targetCentavos: initialBudgetCentavos,
   });
 
-  // Which vendors get a card. Flag ON widens from "contracted+" to
-  // "contracted+ OR carrying money", so every peso in a headline above has a
-  // card the couple can actually open, edit and delete. Flag OFF: unchanged.
+  // Which vendors get a card. CONFIRMED ONLY, in both flag states (BA2, owner
+  // ruling 2026-09-02: "no quotes here. we only add the finalized budgets").
+  // A shortlisted supplier's quote belongs in the Merkado, where the couple is
+  // still adding and subtracting candidates — not on the page that says what
+  // they have signed for.
   const finalizedVendors = vendorsToItemize({
-    enabled: budgetTruth,
     vendors: snapshot.vendors,
     isConfirmed: (status) => CONFIRMED_STATUS_SET.has(status),
   });
   const hasAnyVendors = snapshot.vendors.length > 0;
   const hasFinalizedVendors = finalizedVendors.length > 0;
+
+  // ── BA3 · THE PLAN MEETS THE LEDGER ───────────────────────────────────────
+  // `EventMoney.byBucket` has computed per-category agreed/paid/owed on every
+  // load of this page since BUD-1 and had NO reader outside tests. It gets one
+  // here, measured against the couple's own plan.
+  //
+  // "Planned" is the couple's SAVED plan when they have one, and otherwise the
+  // allocation engine's recommendation — the SAME `computeBudgetAllocation`
+  // the "Suggested budget split" above runs, with no pins, so the two sections
+  // cannot print different suggestions for one leaf. The row names which of the
+  // two it is; nothing derived is presented as the couple's own figure.
+  //
+  // ⚠ NO LEDGER WITHOUT THE RESOLVER. `money` is null when the budget-truth
+  // flag is off or the resolver refused. There is no per-category truth to
+  // print in that state, so this section is absent rather than a table of
+  // confident ₱0s — the one failure mode a money page must never have.
+  //
+  // ⚠ THE SUGGESTION IS WEDDING-SHAPED, SO IT IS GATED ON `isWeddingBudget`.
+  // `budget_leaf_benchmarks` IS the wedding budget taxonomy, and every other
+  // event type that enables this surface (birthday, debut, christening, wake …)
+  // has `budgetTaxonomyKey: null` — which is exactly why the "Suggested budget
+  // split" above renders for weddings only. Feeding those benchmarks to a debut
+  // would print a ₱450,000 catering plan the couple never made, from a table
+  // that does not describe their event. Their rows still render; Planned reads
+  // "—", which is the truth: we publish no typical prices for that shape yet.
+  const suggestedPlanPhp = new Map<string, number | null>();
+  if (isWeddingBudget && allocInputs.budgetPhp != null) {
+    for (const leaf of computeBudgetAllocation({
+      budgetPhp: allocInputs.budgetPhp,
+      leaves: allocInputs.leaves,
+      config: allocInputs.config,
+    }).leaves) {
+      suggestedPlanPhp.set(leaf.canonicalService, leaf.amountPhp);
+    }
+  }
+  const allocLabels = new Map(allocInputs.leaves.map((l) => [l.canonicalService, l.label]));
+  const ledger = money
+    ? buildBudgetLedger({
+        money,
+        savedPlanPhp,
+        suggestedPhp: suggestedPlanPhp,
+        labelFor: (id) => allocLabels.get(id) ?? id,
+      })
+    : null;
 
   // Off-platform direct-pay: resolve each finalized vendor's PUBLISHED
   // payment destinations server-side via the secure helper. It proves the
@@ -404,6 +455,15 @@ export default async function BudgetPage({ params }: Props) {
         </div>
       ) : null}
 
+      {/* BA3 — one row per category: Planned · Agreed · Paid · Owed. Sits
+       *  between the plan above and the per-supplier detail below, because it
+       *  is the sentence that joins them. */}
+      {ledger ? (
+        <div className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+          <BudgetLedgerTable ledger={ledger} />
+        </div>
+      ) : null}
+
       {/* Existing per-vendor itemization + payment log — unchanged
        *  surface from before this PR. Heading added so the visual break
        *  from the setter form above is clear. */}
@@ -459,7 +519,7 @@ export default async function BudgetPage({ params }: Props) {
  * back to them as soon as they save.
  */
 function BudgetSummaryStrip({ money }: { money: BudgetStripMoney }) {
-  const { targetPhp, committedPhp, estimatedPhp, remainingPhp } = money;
+  const { targetPhp, committedPhp, remainingPhp } = money;
 
   return (
     <section aria-labelledby="budget-summary-heading" className="sn-tile">
@@ -479,15 +539,13 @@ function BudgetSummaryStrip({ money }: { money: BudgetStripMoney }) {
           label="Committed"
           value={formatPhp(committedPhp)}
           hint={
-            // BUD-2 · §18.5 rules 2/3. An estimate never enters "Committed",
-            // but it must not vanish either — a couple looking at ₱0 committed
-            // while a ₱80,000 vendor sits in their list is exactly the
-            // contradiction R1 is about. Name it here instead.
-            estimatedPhp !== null && estimatedPhp > 0
-              ? `${formatPhp(estimatedPhp)} more is still an estimate`
-              : committedPhp > 0
-                ? 'Paid + signed vendors'
-                : 'Nothing committed yet'
+            // BA2. No estimate is named here any more. §18.5 rule 3 required
+            // one because an un-booked vendor SAT IN THIS LIST, so ₱0 committed
+            // beside its ₱80,000 was a contradiction the page had to explain.
+            // The vendor is gone from the list, so the contradiction is gone
+            // with it — the quote is shown in the Merkado, where the couple is
+            // still choosing.
+            committedPhp > 0 ? 'Paid + signed vendors' : 'Nothing committed yet'
           }
         />
         <SummaryStat

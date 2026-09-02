@@ -562,14 +562,28 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 12,
   },
   {
-    key: "customer.bottom-nav.services",
+    // THE EVENT HUB — ONE slot for the one public address, in ALL THREE phases
+    // (2026-09-02, EH3 · design EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md § 1.2).
+    //
+    // ⛔ RETIRED IN THE SAME COMMIT: `customer.bottom-nav.services` (day-of,
+    // this position) and `customer.bottom-nav.editorial` (after, position 3).
+    // They were the same slot wearing two other names. Leaving them here would
+    // have kept /admin/menus offering a rename + an icon + a hide for two rows
+    // that no longer render anywhere — an admin edit that appears to save and
+    // reaches no screen, which is exactly the silent half of a key change.
+    //
+    // 🔒 The KEY is 'launch', matching the menu key that did NOT change in
+    // lib/customer-menu.ts and customer-nav-config.ts. `customer-bottom-nav.tsx`
+    // looks the slot up as `customer.bottom-nav.${m.key}`, so a slot named for
+    // the LABEL would overlay nothing and fail green.
+    key: "customer.bottom-nav.launch",
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/launch",
-    label: "Services",
+    label: "Event Hub",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Rocket",
+    lucideName: "Globe",
     customRef: null,
     sortOrder: 13,
   },
@@ -600,18 +614,13 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 15,
   },
-  {
-    key: "customer.bottom-nav.editorial",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/website/editorial",
-    label: "Editorial",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Newspaper",
-    customRef: null,
-    sortOrder: 16,
-  },
+  // ⛔ `customer.bottom-nav.editorial` RETIRED 2026-09-02 (EH3). The after-phase
+  // tab it governed is now the Event Hub (`customer.bottom-nav.launch` above) —
+  // the editorial maker is a door INSIDE the controller ("The story", S5), and
+  // the DESKTOP rail keeps its own /website/editorial row, which
+  // `a-finished-event-shows-its-summary.test.ts` holds open. That guard exists
+  // because the maker was orphaned once already: before the after-phase roster
+  // took a `phase` argument it "appeared in no menu at all."
   {
     key: "customer.bottom-nav.galleries",
     scope: "customer",
@@ -655,16 +664,19 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 9,
   },
   {
-    // "Launch" — preview every part + go live now or on a schedule (owner
-    // 2026-06-28). Sibling of Website; gated to website-enabled event types.
+    // THE EVENT HUB, on the desktop rail's GO LIVE section. Was "Launch" →
+    // /website/editor (owner 2026-06-28); renamed + repointed 2026-09-02 (EH3)
+    // at the controller EH1 shipped. KEY UNCHANGED — `SIDEBAR_SLOT_KEYS.launch`
+    // maps to this string, and a renamed key would silently stop governing the
+    // row rather than throw.
     key: "customer.sidebar.launch",
     scope: "customer",
     area: "customer-sidebar",
-    route: "/dashboard/[eventId]/website/editor",
-    label: "Launch",
+    route: "/dashboard/[eventId]/launch",
+    label: "Event Hub",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Rocket",
+    lucideName: "Globe",
     customRef: null,
     sortOrder: 9,
   },
@@ -1141,20 +1153,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 4,
   },
-  {
-    // "Launch" route child (owner 2026-06-28) — preview + go-live surface;
-    // re-pointed 2026-07-25 to the unified website editor.
-    key: "customer.studio-subnav.launch",
-    scope: "customer",
-    area: "studio-subnav",
-    route: "/dashboard/[eventId]/website/editor",
-    label: "Launch",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Rocket",
-    customRef: null,
-    sortOrder: 5,
-  },
+  // ⛔ `customer.studio-subnav.launch` RETIRED 2026-09-02 (EH3). Its Studio
+  // docked-sub-nav child was the THIRD name the phone gave the Event Hub, and
+  // the Hub is now a top-level menu in every phase (lib/customer-menu.ts), so
+  // the child was removed rather than relabelled — relabelling would have
+  // printed "Event Hub" twice on one screen. /website/editor keeps its doors:
+  // the controller's S5 "The page itself" row and `HubStage`'s `editHref`.
   // Budget docked sub-nav — the 3 on-page scroll sections of /budget.
   {
     key: "customer.budget-anchors.overview",

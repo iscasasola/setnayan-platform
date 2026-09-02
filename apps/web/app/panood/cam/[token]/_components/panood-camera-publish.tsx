@@ -337,7 +337,9 @@ export function PanoodCameraPublish({
                 ternaries in. A refusal used to lose to the `failed` that always
                 accompanies it, and the refusal sentence could not render at all. */}
             {cameraLinkNotice({ streamingEnabled, link, signalRefused })}{' '}
-            Keep this screen open and your camera pointed where you want.
+            Keep this screen open and your camera pointed where you want. Hold
+            your phone sideways (landscape) so your shot fills the screen —
+            upright shots go out with black bars on the sides.
           </p>
         </div>
 

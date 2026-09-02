@@ -193,6 +193,7 @@ export async function GET() {
     dayRequestsRes,
     accessRequestsRes,
     eventRemovalReasonsRes,
+    eventClustersRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -514,6 +515,27 @@ export async function GET() {
       .select('event_name, reason_code, reason, status, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    /*
+      RA 10173 (2026-09-02) — the "years" the subject grouped their own
+      celebrations into (item 7 phase 7a, migration 20271189765490). The name
+      is free text they typed and the grouping is their own organising work,
+      so it is personal data OF them and belongs in their export.
+
+      🔑 SCOPED TO `owner_user_id`, THE OWNER — never to the celebration. A
+      cluster is readable by nobody but the person who made it, and a
+      co-organiser's grouping of a shared wedding is THEIR record, not this
+      person's. Same line already drawn for `event_deletion_requests` above.
+
+      ⚠ The MEMBER rows are deliberately not a second lane. Which celebrations
+      sit in the year is already answerable from `event_memberships` above, and
+      a membership row's `event_id` would export a bare uuid the subject cannot
+      resolve — no added transparency, one more identifier on the page.
+    */
+    supabase
+      .from('event_clusters')
+      .select('public_id, display_name, created_at')
+      .eq('owner_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -560,6 +582,7 @@ export async function GET() {
     'event_removals_asked_for',
     eventRemovalReasonsRes,
   );
+  const eventClusters = listOutcome('years_you_grouped', eventClustersRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -711,6 +734,8 @@ export async function GET() {
     // the moderator record).
     event_access_requests_made: accessRequests.rows,
     event_removals_asked_for: eventRemovalReasons.rows,
+    // The years the subject grouped their own celebrations into, owner-scoped.
+    years_you_grouped: eventClusters.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/

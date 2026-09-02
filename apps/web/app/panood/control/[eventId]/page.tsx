@@ -355,7 +355,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // not exist. The two are distinguishable; they are now distinguished.
   const { data: event, error: eventError } = await supabase
     .from('events')
-    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
+    .select(`event_id, slug, event_date, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventError) {
@@ -1213,6 +1213,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             expiresAt={broadcastWindow.expiresAt}
             isLive={isLive}
             broadcastStartedAt={broadcastStartedAt}
+            reason={broadcastWindow.reason}
+            eventDate={(event.event_date as string | null) ?? null}
             addADay={
               paySettings ? (
                 <InlineCheckoutDrawer

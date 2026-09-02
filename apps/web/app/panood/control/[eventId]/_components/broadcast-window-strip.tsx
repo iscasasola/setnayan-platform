@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { AlertCircle, Clock3, Radio, Film } from 'lucide-react';
+import { AlertCircle, Clock3, Radio, Film, CalendarClock } from 'lucide-react';
 import {
   YOUTUBE_ARCHIVE_HOURS,
   decideArchiveGuard,
+  shouldWarnWindowNotStarted,
   windowPhaseAt,
+  type WindowReason,
 } from '@/lib/live-studio-window';
 
 /**
@@ -23,6 +25,13 @@ import {
  *   ② THE 12-HOUR ARCHIVE CAP — YouTube does not limit how long a stream runs, but
  *     it archives only the first 12 hours, so a longer stream can leave NO replay.
  *     For a wedding feeding the Alaala handover that is worse than any paywall.
+ *   ③ THE UNANCHORED DAY (owner-ruled 2026-09-02) — an OWNED event whose broadcast
+ *     day has never started. "Your day starts at first go-live" used to live only
+ *     on the buy surface, weeks before the person about to press the button ever
+ *     saw it again — so a host testing with two cameras in November could spend
+ *     their December wedding day without meaning to. Silent on the event day
+ *     itself: the warning is for a press weeks early, not for the day the host is
+ *     about to anchor on purpose.
  *
  * ⚠ THIS COMPONENT DECIDES NOTHING. It renders words and a link to a purchase; the
  * entitlement itself is resolved server-side (lib/live-studio-window-server.ts) on every
@@ -41,6 +50,8 @@ export function BroadcastWindowStrip({
   expiresAt,
   isLive,
   broadcastStartedAt,
+  reason,
+  eventDate,
   addADay,
   compact = false,
 }: {
@@ -50,6 +61,14 @@ export function BroadcastWindowStrip({
   isLive: boolean;
   /** ISO start of the CURRENT broadcast — the archive cap is per-stream. */
   broadcastStartedAt: string | null;
+  /**
+   * `decideBroadcastWindow`'s own reason — the ONLY way to tell "owned, never
+   * anchored" (`awaiting-go-live`) apart from "not owned" or "unmetered", both of
+   * which also carry a null `expiresAt`. Feeds `shouldWarnWindowNotStarted` only.
+   */
+  reason: WindowReason;
+  /** `events.event_date` — silences the unanchored-day warning on the day itself. */
+  eventDate: string | null;
   /** The "Add another day" purchase control (the shared inline checkout drawer). */
   addADay: ReactNode;
   /**
@@ -80,11 +99,24 @@ export function BroadcastWindowStrip({
 
   const phase = windowPhaseAt(expiresAt, now, isLive);
   const archive = decideArchiveGuard({ startedAt: broadcastStartedAt, isLive, now });
+  const notStarted = shouldWarnWindowNotStarted({ reason, eventDate, now });
 
-  if (phase === 'none' && !archive.warn) return null;
+  if (phase === 'none' && !archive.warn && !notStarted) return null;
 
   return (
     <div className="space-y-2">
+      {notStarted ? (
+        <Strip
+          compact={compact}
+          tone="calm"
+          Icon={CalendarClock}
+          title="Your broadcast day hasn't started."
+        >
+          Going live with more than one camera starts it, and it covers one day. One
+          camera stays free.
+        </Strip>
+      ) : null}
+
       {phase === 'ending-soon' ? (
         <Strip
           compact={compact}

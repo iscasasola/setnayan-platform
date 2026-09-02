@@ -581,14 +581,14 @@ export async function SiteBody({
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
     : { venueWalk: null, pabuya: null };
-  // Is the real player already on this page? Both trees mount it under the same
-  // three conditions (the guest tree's `liveMediaVisible` is always true by
-  // construction — see resolveSiteBodyPlan), so one expression covers both.
+  // Is the real player already on this page? The player follows the broadcast,
+  // not the calendar (owner-ruled 2026-09-02) — both trees mount it whenever the
+  // links resolve, regardless of dayOfPhase — so one expression covers both.
   const broadcastNotice = showBroadcastNotice({
     broadcastPlanned,
     liveMediaVisible: plan.liveMediaVisible,
     dayOfPhase,
-    playerOnPage: dayOfPhase === 'live' && plan.liveMediaVisible && Boolean(watchLive),
+    playerOnPage: plan.liveMediaVisible && Boolean(watchLive),
     // `inactive` is BOTH "months before" and "the week after" — see the note on
     // the field. Without the date this notice comes back after the wedding.
     eventDate: event.event_date,
@@ -941,8 +941,10 @@ export async function SiteBody({
 
             {/* Panood Watch-Live — anonymous path FIRST: the remote relatives
                 clicking the shared link from Messenger are exactly the cookie-less
-                viewers this exists for. */}
-            {dayOfPhase === 'live' && plan.liveMediaVisible && watchLive ? (
+                viewers this exists for. Follows the broadcast, not the calendar
+                (owner-ruled 2026-09-02): `watchLive` is only ever set when the
+                couple's links resolve, so no dayOfPhase gate is needed here. */}
+            {plan.liveMediaVisible && watchLive ? (
               <section className="mt-10">
                 <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} />
               </section>
@@ -1328,8 +1330,10 @@ export async function SiteBody({
                   in its default position below for non-live phases. */}
               {/* Panood Watch-Live — leads the live page: the loved ones who
                   couldn't fly home open the same link and watch the ceremony.
-                  Spec §7.5: remote guests first. */}
-              {isLive && watchLive ? <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} /> : null}
+                  Spec §7.5: remote guests first. Follows the broadcast, not the
+                  calendar (owner-ruled 2026-09-02) — `watchLive` is only ever set
+                  when the couple's links resolve, so no `isLive` gate here. */}
+              {watchLive ? <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} /> : null}
 
               {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
                   promotion used to wrap the whole widget in an app-green box.

@@ -654,23 +654,153 @@ export const loadLiveLayer = cache(
     // overlays upgrade (built at studio/panood/broadcast). (The LIVE_WALL gate
     // below is unchanged.)
     let watchLive: WatchLiveData | null = null;
-    // ── "WE'LL BE STREAMING", THE FACT NOBODY WAS READING BEFORE THE DAY. ───
+    // ⭐ THE PLAYER FOLLOWS THE BROADCAST, NOT THE CALENDAR (owner-ruled
+    // 2026-09-02). `dayOfPhase` is pure calendar arithmetic — event date,
+    // timezone, now — and knows nothing about whether a broadcast is actually
+    // running. A stream genuinely on air was hidden from guests whenever the
+    // date said it wasn't the day, which is exactly backwards for a couple
+    // testing their setup, or streaming an event on a date the record hasn't
+    // caught up to.
     //
-    // Everything above resolves the PLAYER, and the player is a live-window
-    // surface — correctly so. But the couple saves their broadcast link weeks
-    // ahead, and the person that link is FOR is deciding weeks ahead whether to
-    // take the day off. Reading nothing until the window opens meant the page
-    // could only announce the stream at the one moment the announcement was
-    // useless.
+    // SAFE WITHOUT NEW STATE: `endPanoodBroadcast` already clears
+    // `panood_watch_url` the moment the host stops. A set watch URL therefore
+    // already means "on air right now" and self-clears when the broadcast
+    // ends — no calendar gate is needed to keep this trustworthy. Resolved on
+    // EVERY render, regardless of phase.
     //
-    // One extra `events` read by primary key, and only where the notice can
-    // actually be drawn: never after the day (the recap carries the replay) and
-    // never during it (the player above is already saying it, louder). Reduced
-    // through `resolveWatchLinks` — the SAME reducer the player is built from —
-    // so a forged or malformed stored URL is "no broadcast" here exactly as it
-    // is there. Promising a stream the player would refuse is the failure this
-    // is meant to end, not a new form of it.
-    let broadcastPlanned = false;
+    // The Roam side-camera manifest follows the SAME rule and the same
+    // reasoning: `limitPublishedManifest` already reduces an un-entitled event
+    // to one camera, so a free single-cam host gets their stream and nothing
+    // more — the paywall below is unchanged, not a new gate added here.
+    //
+    // ⛔ NOTHING ELSE FOLLOWS. The Live Photo Wall mirror below keeps its
+    // original live-window rule — it is on-the-day chrome about BEING AT the
+    // event, not about being on air.
+    try {
+      const watchUrls = await readEventWatchUrls(admin, event.event_id);
+      // DUAL-STREAM (owner-approved 2026-07-26). resolveWatchLinks re-validates
+      // BOTH stored URLs on every render — `events` UPDATE RLS is ROW-level and
+      // the anon key is public, so a forged value must degrade to "no link"
+      // rather than reach an iframe src or an href. Returns null when neither
+      // side is usable, which is byte-for-byte the old behaviour.
+      watchLive = resolveWatchLinks(watchUrls);
+      // Live Studio ROAM (flag-dark, default OFF): when the couple owns a
+      // multi-camera Roam broadcast, the public manifest (events.live_studio_roam_manifest,
+      // mirrored non-secret) turns the single embed into a camera/zone picker. The
+      // featured zone becomes the fallback embedUrl so every existing `watchLive`
+      // gate keeps firing even for a Roam-only event (no CAST watch URL). When the
+      // flag is off (prod default), this whole block is skipped and CAST behavior
+      // is byte-for-byte unchanged. Graceful-degrades to [] pre-migration.
+      if (liveStudioRoamEnabled()) {
+        // GUEST-PICK (Wave 2, owner-locked): the host's switch is honored HERE, by
+        // omission. Off → applyGuestPick reduces the manifest to the single channel
+        // Channel 1 is carrying, so the other channels' video ids are never sent to
+        // the browser and the picker's `length > 1` guard hides itself. Hiding the
+        // buttons while shipping the ids would only look like enforcement.
+        const { manifest, guestPickEnabled } = await fetchRoamViewerState(admin, event.event_id);
+
+        // ⭐ THE PAYWALL, SECOND INDEPENDENT ENFORCEMENT (owner-locked 2026-07-25
+        // · § 4d "rehearse free, pay to broadcast"). The write gate lives in
+        // mirrorRoamManifest; this is the READ gate, and it exists because
+        // SETTINGS PERSIST WHILE PERMISSION DOES NOT. An entitlement that lapses,
+        // is refunded or is revoked after the mirror ran would otherwise leave a
+        // fully published multi-cam stream up until something happened to rewrite
+        // the column. Re-asking here means a free event is reduced to one channel
+        // on EVERY render — same posture as resolveOverlays re-asking on every
+        // frame of the program surface.
+        //
+        // ⚠ DO NOT DELETE THIS AS "REDUNDANT WITH THE WRITE GATE". `events` UPDATE
+        // RLS is ROW-level (couple_can_update_event), so a host can PATCH
+        // live_studio_roam_manifest straight through PostgREST with the public anon
+        // key, bypassing every server action. This read is what makes that
+        // pointless. See lib/live-studio-publish.ts for the full threat note.
+        //
+        // ADMIN client on purpose: `orders` RLS is purchaser-scoped, so the
+        // anon/session client would read "not owned" for a couple who genuinely
+        // paid and strip their multi-cam mid-wedding. Fail-closed inside
+        // canPublishMultiCam; the lookup is skipped entirely for a
+        // zero-or-one-channel (free single-cam) manifest, so the free path pays
+        // nothing for the gate.
+        // ⭐ ONE ANSWER, TWO CONSUMERS. Resolve the entitlement ONCE and let both the
+        // YouTube manifest and the Wave 10 side-camera roster read the same boolean.
+        // The zero-or-one-channel shortcut is preserved for the free single-cam path
+        // — but a free event with side cameras must still be asked, or guest-pick
+        // would be the one paid capability you could get without paying.
+        const needsEntitlement = manifest.length > 1 || guestPickEnabled;
+        const multiCamOwned = needsEntitlement
+          ? await canPublishMultiCam(admin, event.event_id)
+          : true;
+
+        const publishable = limitPublishedManifest(manifest, multiCamOwned);
+        const roam = applyGuestPick(publishable, guestPickEnabled);
+
+        // WAVE 10 · GUEST-PICK AT ₱0 — side cameras served peer-to-peer from the
+        // operator's phone. Deliberately NOT part of the manifest: they have no
+        // YouTube id (they are never broadcast), and parseRoamManifest drops
+        // idless entries by design.
+        //
+        // Three gates, all of which must pass, and all of which already exist:
+        //   • guestPickEnabled — the host's own switch (Wave 2)
+        //   • multiCamOwned    — THE paywall, the same helper that reduced the
+        //                        manifest one line above (§ 4d). Not a second rule.
+        //   • a camera that is live, claimed AND still beating on the zone
+        //     (inside fetchGuestPickCameras, via the controller's own
+        //     resolveChannelStatus — a stored 'live' is not liveness)
+        // Enforced by OMISSION, matching the manifest: a guest whose event fails any
+        // gate is never told a side camera exists, so nothing on their page can open
+        // a connection to one.
+        const guestCameras = shouldOfferGuestPick({
+          // Already inside `if (liveStudioRoamEnabled())`; passed explicitly so the
+          // gate reads as the complete rule rather than a partial one.
+          flagEnabled: true,
+          guestPickEnabled,
+          multiCamOwned,
+        })
+          ? await fetchGuestPickCameras(admin, event.event_id)
+          : [];
+
+        const featured = selectFeaturedZone(roam);
+        if (featured) {
+          try {
+            watchLive = {
+              embedUrl: youTubeEmbedUrl(featured.videoId),
+              watchUrl: `https://www.youtube.com/watch?v=${featured.videoId}`,
+              roam,
+              // Carried through deliberately: a couple who published a Facebook
+              // link AND owns Roam must not lose the Facebook door just because
+              // the picker replaced the single embed.
+              facebookUrl: watchLive?.facebookUrl ?? null,
+            };
+          } catch {
+            // invalid featured id — keep any CAST watchLive as-is
+          }
+        }
+
+        // Attach the side cameras to whatever director's cut we ended up with —
+        // the Roam featured zone above, or the plain CAST embed resolved earlier.
+        // ⚠ ONLY when one exists: guest-pick's entire failure story is "fall back to
+        // the director's cut", so offering side cameras with nothing to fall back to
+        // would build the one broken state this wave is meant to avoid.
+        if (watchLive && guestCameras.length > 0) {
+          watchLive = { ...watchLive, guestCameras, eventId: event.event_id };
+        }
+      }
+    } catch {
+      watchLive = null;
+    }
+    const broadcastPlanned = watchLive !== null;
+
+    // Live Photo Wall mirror (owner 2026-06-12: "photo wall live and the
+    // gallery must be on the on-the-day part"). Only during the live window
+    // (which the host phase-preview can force), only when the event owns
+    // LIVE_WALL — the same activation door as /wall/[eventId]. Reads the SAME
+    // screened feed the venue projector renders (wall-safe derivatives only),
+    // capped to the newest dozen so a busy wall doesn't presign hundreds per
+    // page view. Wall trouble must never break the wedding page → try/null.
+    //
+    // Kept on the calendar rule while the player above is not: this is
+    // on-the-day chrome about BEING AT the event, not about a broadcast being
+    // on air.
     if (dayOfPhase === 'live') {
       try {
         // LIVE_WALL ownership reads off orders.status via eventOwnsSku() (PR4
@@ -682,10 +812,7 @@ export const loadLiveLayer = cache(
         // own answer to "does the wall also play on my guests' phones?" — the
         // question this surface asked for nine months without ever reading the
         // setting that was built to answer it.
-        const [mirrorOn, watchUrls] = await Promise.all([
-          guestWallMirrorActive(admin, event.event_id),
-          readEventWatchUrls(admin, event.event_id),
-        ]);
+        const mirrorOn = await guestWallMirrorActive(admin, event.event_id);
         if (mirrorOn) {
           const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
           liveWall = {
@@ -698,123 +825,8 @@ export const loadLiveLayer = cache(
             challengeMeasured: snap.challengeMeasured,
           };
         }
-        // DUAL-STREAM (owner-approved 2026-07-26). resolveWatchLinks re-validates
-        // BOTH stored URLs on every render — `events` UPDATE RLS is ROW-level and
-        // the anon key is public, so a forged value must degrade to "no link"
-        // rather than reach an iframe src or an href. Returns null when neither
-        // side is usable, which is byte-for-byte the old behaviour.
-        watchLive = resolveWatchLinks(watchUrls);
-        // Live Studio ROAM (flag-dark, default OFF): when the couple owns a
-        // multi-camera Roam broadcast, the public manifest (events.live_studio_roam_manifest,
-        // mirrored non-secret) turns the single embed into a camera/zone picker. The
-        // featured zone becomes the fallback embedUrl so every existing `watchLive`
-        // gate keeps firing even for a Roam-only event (no CAST watch URL). When the
-        // flag is off (prod default), this whole block is skipped and CAST behavior
-        // is byte-for-byte unchanged. Graceful-degrades to [] pre-migration.
-        if (liveStudioRoamEnabled()) {
-          // GUEST-PICK (Wave 2, owner-locked): the host's switch is honored HERE, by
-          // omission. Off → applyGuestPick reduces the manifest to the single channel
-          // Channel 1 is carrying, so the other channels' video ids are never sent to
-          // the browser and the picker's `length > 1` guard hides itself. Hiding the
-          // buttons while shipping the ids would only look like enforcement.
-          const { manifest, guestPickEnabled } = await fetchRoamViewerState(admin, event.event_id);
-
-          // ⭐ THE PAYWALL, SECOND INDEPENDENT ENFORCEMENT (owner-locked 2026-07-25
-          // · § 4d "rehearse free, pay to broadcast"). The write gate lives in
-          // mirrorRoamManifest; this is the READ gate, and it exists because
-          // SETTINGS PERSIST WHILE PERMISSION DOES NOT. An entitlement that lapses,
-          // is refunded or is revoked after the mirror ran would otherwise leave a
-          // fully published multi-cam stream up until something happened to rewrite
-          // the column. Re-asking here means a free event is reduced to one channel
-          // on EVERY render — same posture as resolveOverlays re-asking on every
-          // frame of the program surface.
-          //
-          // ⚠ DO NOT DELETE THIS AS "REDUNDANT WITH THE WRITE GATE". `events` UPDATE
-          // RLS is ROW-level (couple_can_update_event), so a host can PATCH
-          // live_studio_roam_manifest straight through PostgREST with the public anon
-          // key, bypassing every server action. This read is what makes that
-          // pointless. See lib/live-studio-publish.ts for the full threat note.
-          //
-          // ADMIN client on purpose: `orders` RLS is purchaser-scoped, so the
-          // anon/session client would read "not owned" for a couple who genuinely
-          // paid and strip their multi-cam mid-wedding. Fail-closed inside
-          // canPublishMultiCam; the lookup is skipped entirely for a
-          // zero-or-one-channel (free single-cam) manifest, so the free path pays
-          // nothing for the gate.
-          // ⭐ ONE ANSWER, TWO CONSUMERS. Resolve the entitlement ONCE and let both the
-          // YouTube manifest and the Wave 10 side-camera roster read the same boolean.
-          // The zero-or-one-channel shortcut is preserved for the free single-cam path
-          // — but a free event with side cameras must still be asked, or guest-pick
-          // would be the one paid capability you could get without paying.
-          const needsEntitlement = manifest.length > 1 || guestPickEnabled;
-          const multiCamOwned = needsEntitlement
-            ? await canPublishMultiCam(admin, event.event_id)
-            : true;
-
-          const publishable = limitPublishedManifest(manifest, multiCamOwned);
-          const roam = applyGuestPick(publishable, guestPickEnabled);
-
-          // WAVE 10 · GUEST-PICK AT ₱0 — side cameras served peer-to-peer from the
-          // operator's phone. Deliberately NOT part of the manifest: they have no
-          // YouTube id (they are never broadcast), and parseRoamManifest drops
-          // idless entries by design.
-          //
-          // Three gates, all of which must pass, and all of which already exist:
-          //   • guestPickEnabled — the host's own switch (Wave 2)
-          //   • multiCamOwned    — THE paywall, the same helper that reduced the
-          //                        manifest one line above (§ 4d). Not a second rule.
-          //   • a camera that is live, claimed AND still beating on the zone
-          //     (inside fetchGuestPickCameras, via the controller's own
-          //     resolveChannelStatus — a stored 'live' is not liveness)
-          // Enforced by OMISSION, matching the manifest: a guest whose event fails any
-          // gate is never told a side camera exists, so nothing on their page can open
-          // a connection to one.
-          const guestCameras = shouldOfferGuestPick({
-            // Already inside `if (liveStudioRoamEnabled())`; passed explicitly so the
-            // gate reads as the complete rule rather than a partial one.
-            flagEnabled: true,
-            guestPickEnabled,
-            multiCamOwned,
-          })
-            ? await fetchGuestPickCameras(admin, event.event_id)
-            : [];
-
-          const featured = selectFeaturedZone(roam);
-          if (featured) {
-            try {
-              watchLive = {
-                embedUrl: youTubeEmbedUrl(featured.videoId),
-                watchUrl: `https://www.youtube.com/watch?v=${featured.videoId}`,
-                roam,
-                // Carried through deliberately: a couple who published a Facebook
-                // link AND owns Roam must not lose the Facebook door just because
-                // the picker replaced the single embed.
-                facebookUrl: watchLive?.facebookUrl ?? null,
-              };
-            } catch {
-              // invalid featured id — keep any CAST watchLive as-is
-            }
-          }
-
-          // Attach the side cameras to whatever director's cut we ended up with —
-          // the Roam featured zone above, or the plain CAST embed resolved earlier.
-          // ⚠ ONLY when one exists: guest-pick's entire failure story is "fall back to
-          // the director's cut", so offering side cameras with nothing to fall back to
-          // would build the one broken state this wave is meant to avoid.
-          if (watchLive && guestCameras.length > 0) {
-            watchLive = { ...watchLive, guestCameras, eventId: event.event_id };
-          }
-        }
       } catch {
         liveWall = null;
-        watchLive = null;
-      }
-    } else if (dayOfPhase !== 'post') {
-      try {
-        broadcastPlanned =
-          resolveWatchLinks(await readEventWatchUrls(admin, event.event_id)) !== null;
-      } catch {
-        broadcastPlanned = false;
       }
     }
 

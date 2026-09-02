@@ -26,6 +26,7 @@ import {
   decideBroadcastWindow,
   foldWindowEnd,
   grantIsUnmetered,
+  shouldWarnWindowNotStarted,
   windowPhaseAt,
   type GrantKind,
   type GrantSignals,
@@ -446,6 +447,51 @@ test('a start stamped in the future (clock skew) reads as just-started, not nega
 });
 
 /* ── THE WINDOW AND THE ARCHIVE GUARD ARE INDEPENDENT ───────────────────────── */
+
+/* ── THE UNANCHORED DAY (owner-ruled 2026-09-02) ─────────────────────────────── */
+
+test('the unanchored-day warning fires only when the day has never started', () => {
+  // Owned but never gone live, event date weeks out — the gap this closes.
+  assert.equal(
+    shouldWarnWindowNotStarted({ reason: 'awaiting-go-live', eventDate: '2026-12-18', now: t0 }),
+    true,
+  );
+  // Every other reason has already anchored, or never will — no warning applies.
+  for (const reason of ['not-owned', 'unmetered', 'open', 'expired-broadcasting', 'expired'] as const) {
+    assert.equal(
+      shouldWarnWindowNotStarted({ reason, eventDate: '2026-12-18', now: t0 }),
+      false,
+      `reason=${reason} must never warn`,
+    );
+  }
+});
+
+test('the unanchored-day warning is silent on the event day itself', () => {
+  assert.equal(
+    shouldWarnWindowNotStarted({ reason: 'awaiting-go-live', eventDate: '2026-08-01', now: t0 }),
+    false,
+  );
+  // One day either side of the wedding is not the wedding — still warns.
+  assert.equal(
+    shouldWarnWindowNotStarted({ reason: 'awaiting-go-live', eventDate: '2026-07-31', now: t0 }),
+    true,
+  );
+  assert.equal(
+    shouldWarnWindowNotStarted({ reason: 'awaiting-go-live', eventDate: '2026-08-02', now: t0 }),
+    true,
+  );
+});
+
+test('a missing or unparseable event date cannot be "the day", so it still warns', () => {
+  assert.equal(
+    shouldWarnWindowNotStarted({ reason: 'awaiting-go-live', eventDate: null, now: t0 }),
+    true,
+  );
+  assert.equal(
+    shouldWarnWindowNotStarted({ reason: 'awaiting-go-live', eventDate: 'not-a-date', now: t0 }),
+    true,
+  );
+});
 
 test('a paid window can lapse while the archive guard is still quiet, and vice versa', () => {
   // Hour 13 of one continuous broadcast: archive exceeded, window still open on a

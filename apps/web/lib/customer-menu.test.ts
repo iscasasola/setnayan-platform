@@ -101,15 +101,20 @@ test('flag ON leaves the OTHER docks intact (Studio anchors + Guests journey)', 
 });
 
 // --- phase takeovers are unaffected (they carry no explore/budget) ---------
+// 🔤 'services' (day-of) and 'editorial' (after) became 'launch' on 2026-09-02
+// (EH3): one key, one word — "Event Hub" — in all three phases. The KEY is what
+// is pinned here; the word itself is held by
+// `one-menu-word-in-all-three-phases.test.ts`, which is where a rename must go
+// red rather than being edited green in two places.
 test('Day-of / After phase rosters ignore hideKeys', () => {
   const dayof = buildCustomerMenuTree(EVENT_ID, {
     phase: 'dayof',
     hideKeys: ['explore', 'budget'],
   }).map((m) => m.key);
-  assert.deepEqual(dayof, ['now', 'checkin', 'seats', 'services', 'schedule']);
+  assert.deepEqual(dayof, ['now', 'checkin', 'seats', 'launch', 'schedule']);
   const after = buildCustomerMenuTree(EVENT_ID, {
     phase: 'after',
     hideKeys: ['explore', 'budget'],
   }).map((m) => m.key);
-  assert.deepEqual(after, ['home', 'review', 'editorial', 'galleries']);
+  assert.deepEqual(after, ['home', 'review', 'launch', 'galleries']);
 });

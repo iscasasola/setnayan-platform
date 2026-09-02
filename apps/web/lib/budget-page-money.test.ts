@@ -10,6 +10,17 @@
  * Flag OFF, the same fixture must still reproduce the CONTRADICTION verbatim —
  * that is the byte-identical promise, and a test that only checks the fixed
  * state would let a "fix" silently ship to production the day it merged.
+ *
+ * ─── BA2 (owner ruling 2026-09-02) ──────────────────────────────────────────
+ * BUD-2 closed R1 by WIDENING the page — the ₱80,000 got a card and the strip
+ * named it as an estimate. The owner chose the other resolution: `/budget`
+ * shows finalized money only. So the assertions below flipped where they must:
+ * the ₱80,000 vendor has NO card and the strip has NO estimate field, in BOTH
+ * flag states. The fixture is unchanged, and the flag-OFF leg still proves the
+ * legacy card and the strip disagree — that divergence is the resolver's job,
+ * not this display rule's.
+ *
+ * The narrowing itself is guarded in `no-quotes-on-the-budget-page.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,7 +28,6 @@ import assert from 'node:assert/strict';
 import {
   budgetStripMoney,
   budgetLiveSummaryMoney,
-  vendorCarriesMoney,
   vendorsToItemize,
 } from './budget-page-money';
 import type { EventMoney } from './budget-truth';
@@ -106,17 +116,12 @@ test('R1 · flag ON: the strip headline and the card headline are the SAME numbe
   assert.equal(strip.committedPhp, card.budget);
 });
 
-test('R1 · flag ON: the ₱80,000 vendor driving the headline HAS a card', () => {
-  const shown = vendorsToItemize({
-    enabled: true,
-    vendors: [CONSIDERING_80K],
-    isConfirmed,
-  });
-  assert.equal(shown.length, 1, 'a vendor carrying money must be reachable');
-  assert.equal(shown[0]!.vendor.vendor_id, 'v-80k');
+test('BA2 · the ₱80,000 considering vendor gets NO card — a quote is not finalized', () => {
+  const shown = vendorsToItemize({ vendors: [CONSIDERING_80K], isConfirmed });
+  assert.equal(shown.length, 0, 'shopping happens in the Merkado, not here');
 });
 
-test('R1 · flag ON: ₱80,000 is reported as an ESTIMATE, never as committed', () => {
+test('R1 · flag ON: ₱80,000 never becomes committed, and is not named here either', () => {
   const strip = budgetStripMoney({
     enabled: true,
     money: MONEY_80K_ESTIMATED,
@@ -124,7 +129,12 @@ test('R1 · flag ON: ₱80,000 is reported as an ESTIMATE, never as committed', 
     targetCentavos: 50_000_000,
   });
   assert.equal(strip.committedPhp, 0, 'a considering vendor is not a commitment');
-  assert.equal(strip.estimatedPhp, 80_000, 'but it must still be visible');
+  // BA2 · §18.5 rule 3 does not apply once the vendor leaves the list: there is
+  // no ₱0-beside-₱80,000 on this page left to explain.
+  assert.ok(
+    !Object.keys(strip).some((k) => /estimat/i.test(k)),
+    'the strip carries no estimate field to print',
+  );
 });
 
 test('R1 · flag OFF: the contradiction is reproduced EXACTLY (byte-identical promise)', () => {
@@ -139,19 +149,14 @@ test('R1 · flag OFF: the contradiction is reproduced EXACTLY (byte-identical pr
     money: MONEY_80K_ESTIMATED,
     legacy: LEGACY_CARD,
   });
-  const shown = vendorsToItemize({
-    enabled: false,
-    vendors: [CONSIDERING_80K],
-    isConfirmed,
-  });
+  const shown = vendorsToItemize({ vendors: [CONSIDERING_80K], isConfirmed });
 
-  // This IS the live prod defect. If this assertion ever flips, the flag stopped
-  // being a flag and BUD-2 shipped to production unflipped.
+  // This IS the pre-resolver prod defect. If this assertion ever flips, the flag
+  // stopped being a flag and BUD-2 shipped to production unflipped.
   assert.equal(strip.committedPhp, 0);
   assert.equal(card.budget, 80_000);
   assert.notEqual(strip.committedPhp, card.budget);
-  assert.equal(shown.length, 0, 'and the vendor behind ₱80,000 is unreachable');
-  assert.equal(strip.estimatedPhp, null, 'the legacy strip has no estimate to show');
+  assert.equal(shown.length, 0, 'and the vendor behind ₱80,000 has no card');
 });
 
 // ── Degradation ─────────────────────────────────────────────────────────────
@@ -186,42 +191,35 @@ test('R11 · remaining is stillOwed, not committed − paid, so an overpayment c
   assert.notEqual(card.remaining, money.committed - money.paid);
 });
 
-// ── R12 · a credit is money ─────────────────────────────────────────────────
+// ── BA2 · money does not earn a card; being contracted does ─────────────────
 
-test('R12 · a credit-only vendor carries money — the test is !== 0, not > 0', () => {
+test('BA2 · a credit-only shortlisted vendor still gets no card', () => {
+  // R12's insight (a change-order CREDIT is a negative line, so the test can
+  // never be `> 0`) lives on in `budget-truth.ts`, where the arithmetic is.
+  // What changed is that carrying money — in either direction — is no longer
+  // what puts a row on this page.
   const credit = vendor({ id: 'v-credit', status: 'considering', itemizedTotal: -15_000 });
-  assert.equal(vendorCarriesMoney(credit), true);
-  assert.equal(
-    vendorsToItemize({ enabled: true, vendors: [credit], isConfirmed }).length,
-    1,
-    'a vendor the couple is owed money by must be openable',
-  );
+  assert.equal(vendorsToItemize({ vendors: [credit], isConfirmed }).length, 0);
 });
 
-test('a genuinely empty shortlisted vendor stays out of the list', () => {
-  const empty = vendor({ id: 'v-empty', status: 'considering' });
-  assert.equal(vendorCarriesMoney(empty), false);
-  assert.equal(vendorsToItemize({ enabled: true, vendors: [empty], isConfirmed }).length, 0);
+test('an off-platform vendor at contracted DOES get a card — status decides, not platform', () => {
+  // "Off-platform is not the same as final." A manually-added supplier the
+  // couple has signed with is finalized money and belongs here.
+  const manual = vendor({ id: 'v-manual', status: 'contracted', totalCostPhp: 45_000 });
+  assert.equal(vendorsToItemize({ vendors: [manual], isConfirmed }).length, 1);
 });
 
-test('a contracted vendor renders under BOTH flag states, and order is preserved', () => {
+test('only the contracted rows survive, and snapshot order is preserved', () => {
   const rows = [
     vendor({ id: 'a', status: 'considering', totalCostPhp: 10_000 }),
     vendor({ id: 'b', status: 'contracted', totalCostPhp: 20_000 }),
     vendor({ id: 'c', status: 'considering' }),
+    vendor({ id: 'd', status: 'deposit_paid', totalCostPhp: 30_000 }),
   ];
   assert.deepEqual(
-    vendorsToItemize({ enabled: false, vendors: rows, isConfirmed }).map(
-      (s) => s.vendor.vendor_id,
-    ),
-    ['b'],
-  );
-  assert.deepEqual(
-    vendorsToItemize({ enabled: true, vendors: rows, isConfirmed }).map(
-      (s) => s.vendor.vendor_id,
-    ),
-    ['a', 'b'],
-    'snapshot order (created_at asc) must survive the flag flip',
+    vendorsToItemize({ vendors: rows, isConfirmed }).map((s) => s.vendor.vendor_id),
+    ['b', 'd'],
+    'snapshot order (created_at asc) must survive the filter',
   );
 });
 

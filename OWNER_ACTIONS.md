@@ -86,13 +86,24 @@ is the same sentence a dozen unrelated faults produce.
    selector (top bar) is on the project that owns `YOUTUBE_OAUTH_CLIENT_ID`.
    (This page used to be *APIs & Services → OAuth consent screen*; Google renamed it
    **Google Auth Platform → Audience**. Same thing.)
-2. Find **Publishing status**. It currently reads **Testing**.
-3. Click **PUBLISH APP**, and confirm. Status becomes **In production**.
+2. Find **Publishing status**.
+   - If it reads **Testing** → click **PUBLISH APP** and confirm.
+   - If it already reads **In production** → nothing to do here; go straight to step 4.
+3. Confirm it now reads **In production** (a **Back to testing** button appears beside it —
+   that button's presence IS the confirmation, and it is not one to press).
 4. **Reconnect the pool channel.** Do not skip this — see the warning below.
    Admin → Live Studio channels → disconnect and reconnect the `Setnayan` channel, which
    issues a fresh refresh token under the new publishing status.
 
-⚠ **STEP 4 IS NOT OPTIONAL AND STEP 3 ALONE MAY NOT SAVE YOU.** Google documents that a
+⚠ **STEP 4 IS THE ONLY STEP THAT CHANGES ANYTHING ONCE THE APP IS ALREADY PUBLISHED.**
+Publishing governs which tokens are ISSUED FROM NOW ON. It does nothing to a token already
+in the database — and the pool's token was issued **2026-08-31 10:37 UTC**, before anyone
+looked at this page. If the app was in Testing at that moment the token carries a 7-day
+fuse; if it was already published it does not. **Nothing recorded anywhere distinguishes
+those two cases**, which is exactly why reconnecting is written as required rather than
+conditional: two minutes settles a question no amount of reading can.
+
+⚠ **AND GOOGLE DOES NOT DOCUMENT THE OTHER HALF.** Google documents that a
 Testing-status app *is issued* 7-day refresh tokens; it does **not** document what happens
 to a token already issued that way once you publish. The safe reading is that the existing
 token keeps the fuse it was born with. Reconnecting costs two minutes and removes the
@@ -111,7 +122,14 @@ question entirely — verify with the SQL below rather than assuming either way.
 
 - **It does not verify the app.** Verification is a separate, longer review. Unverified in
   production still shows the *"Google hasn't verified this app"* interstitial, and still
-  caps at **100 users**.
+  caps at **100 users**. The Audience page currently reads **3 users / 100 user cap**.
+- 🔒 **THAT CAP IS LIFETIME-OF-PROJECT AND CANNOT BE RESET.** Google's own wording on that
+  page: *"The user cap applies over the entire lifetime of the project, and it cannot be
+  reset or changed."* So the 3 already spent are spent permanently, and every consent any
+  couple ever gives burns one forever — there is no undo, no annual reset, and disconnecting
+  a channel does not give the slot back. **This is the strongest argument for the BYO path**
+  (#5093), where the couple never sees a consent screen at all: not because 100 is a small
+  number, but because it is a number that only ever goes down.
 - **Neither of those binds the pool**, which authenticates a handful of Setnayan-owned
   accounts, not one per couple. The 100-user cap only ever binds if couples connect
   **their own** channels through our OAuth app — and the BYO path shipped 2026-09-02

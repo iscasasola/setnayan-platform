@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import type { GuestLiveGallery } from '@/lib/guest-live-gallery';
-import { askToTakeMyPhotoDown, removeMyTag } from '../actions';
+import { askToTakeMyPhotoDown, removeMyTag, takeMyPhotoOffTheWall, putMyPhotoBackOnTheWall } from '../actions';
+import type { WallTileState } from '@/lib/guest-wall-unpost';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
@@ -60,6 +61,15 @@ export function PhotosOfYouGallery({
   const photos = gallery?.photos ?? [];
   const [openedId, setOpenedId] = useState<string | null>(null);
   const opened = photos.find((p) => p.id === openedId) ?? null;
+  /*
+    The wall answer she just gave, held here until the server component comes
+    back with it. `revalidatePath` in the action does refresh this page — but
+    not before she has looked at the tile to see whether the thing she pressed
+    happened, and a control that takes a round trip to admit it worked is the
+    one people press twice.
+  */
+  const [wallSaid, setWallSaid] = useState<Record<string, WallTileState>>({});
+  const wallOf = (id: string, fallback: WallTileState): WallTileState => wallSaid[id] ?? fallback;
 
   return (
     <section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">
@@ -139,6 +149,21 @@ export function PhotosOfYouGallery({
 
               Both are real ≥44px labelled controls, legible over the photo.
             */}
+            {/*
+              IS IT ON THE SCREEN IN THIS ROOM RIGHT NOW? A one-word answer, on
+              the tile, because the wall is a thing happening in front of her —
+              and it is the state she needs BEFORE she decides to open anything.
+
+              ⚠ It is a BADGE, not a button, and `pointer-events-none` is
+              load-bearing for the same reason it is on the credit: the whole
+              tile opens the lightbox, and a control here would swallow the tap
+              on exactly the photographs that have one. The wall control itself
+              lives in the lightbox, where there is room for a ≥44px labelled
+              button and where she can see the photograph full size before
+              deciding. A third pill up there does not fit — two 44px pills
+              already fill a ~111px tile on a phone.
+            */}
+            <WallBadge state={wallOf(p.id, p.wall)} />
             <div className="absolute right-1.5 top-1.5 z-10 flex flex-col items-end gap-1.5">
               <form action={removeMyTag.bind(null, eventId, p.sourceTable, p.id)}>
                 <SubmitButton
@@ -164,7 +189,13 @@ export function PhotosOfYouGallery({
             ? `More arrive as the day unfolds — and every photo of you is yours to keep after the ${occasion}.`
             : 'Tap any photo to open it full size and save it.'}{' '}
           Tap <span className="sn-gal-text font-medium">Not me</span> on any photo that isn&rsquo;t
-          you.
+          you.{' '}
+          {photos.some((p) => wallOf(p.id, p.wall) !== 'off') ? (
+            <>
+              A photo marked <span className="sn-gal-text font-medium">On the wall</span> is on the
+              screens here now — open it to take it off.
+            </>
+          ) : null}
         </p>
       ) : null}
 
@@ -177,14 +208,23 @@ export function PhotosOfYouGallery({
           timeZone={timeZone}
           onClose={() => setOpenedId(null)}
           actions={
-            <a
-              href={opened.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-            >
-              Open full size to save
-            </a>
+            <>
+              <a
+                href={opened.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
+              >
+                Open full size to save
+              </a>
+              <WallControl
+                eventId={eventId}
+                sourceTable={opened.sourceTable}
+                sourceId={opened.id}
+                state={wallOf(opened.id, opened.wall)}
+                onChanged={(next) => setWallSaid((m) => ({ ...m, [opened.id]: next }))}
+              />
+            </>
           }
         />
       ) : null}
@@ -288,5 +328,119 @@ function TakeItDown({
         </SubmitButton>
       </div>
     </form>
+  );
+}
+
+/**
+ * "ON THE WALL" / "OFF THE WALL" — the state of this photograph on the screens
+ * in the room, said on the tile.
+ *
+ * 🔑 SAYING NOTHING IS THE COMMON CASE AND IS CORRECT. Most photographs were
+ * never projected — the wall is one add-on among many — and on an event with no
+ * wall at all this renders on nothing. A badge that appeared everywhere would
+ * teach people to stop reading it.
+ *
+ * `'unknown'` (the wall read failed) deliberately reads as ON. The control it
+ * points at is idempotent and safe either way, and the alternative — going
+ * quiet — is the failure-looks-like-emptiness defect that has cost this
+ * codebase a guest list, an upload and a camera label already.
+ */
+function WallBadge({ state }: { state: WallTileState }) {
+  if (state === 'off') return null;
+  const posted = state === 'posted' || state === 'unknown';
+  return (
+    <span className="pointer-events-none absolute left-1.5 top-1.5 z-10 inline-flex max-w-[calc(100%-0.75rem)] items-center gap-1 rounded-full bg-[rgb(23_22_15/0.72)] px-2 py-1 text-xs font-semibold text-[var(--sn-ob-text)] backdrop-blur-sm">
+      {posted ? (
+        <span className="h-1.5 w-1.5 flex-none animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
+      ) : null}
+      <span className="truncate">{posted ? 'On the wall' : 'Off the wall'}</span>
+    </span>
+  );
+}
+
+/**
+ * THE UN-POST — owner ruling 2026-09-02: *"On the wall, when her photo is
+ * posted she can un-post it."*
+ *
+ * ⚖ IT IS NOT "TAKE IT DOWN", AND THE DIFFERENCE IS THE WHOLE POINT. That one
+ * files a request a person reads, because deleting a photograph that may hold
+ * four other people is not one guest's call. This one stops a projector in a
+ * room she is standing in, it is wall-only, it is reversible, and it happens
+ * the moment she presses it — because the only useful latency for a picture on
+ * a screen at a party is none.
+ *
+ * 🔒 She may press it on photographs she SHOT and photographs she is TAGGED in.
+ * That scope is decided on the server from her session cookie
+ * (lib/guest-wall-unpost.ts); nothing here is trusted with it, and the refusal
+ * comes back as a sentence rather than a silence.
+ *
+ * ⛔ THE HOSTS' OWN MODERATION IS NOT HERS TO UNDO. When they took the
+ * photograph off the wall this says so and offers no button — reversing it is
+ * theirs, and pretending otherwise would be a control that refuses.
+ */
+function WallControl({
+  eventId,
+  sourceTable,
+  sourceId,
+  state,
+  onChanged,
+}: {
+  eventId: string;
+  sourceTable: 'papic_photos' | 'papic_guest_captures';
+  sourceId: string;
+  state: WallTileState;
+  onChanged: (next: WallTileState) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (state === 'off') return null;
+
+  if (state === 'pulled_by_host') {
+    return (
+      <p className="sn-gal-soft text-xs">
+        The hosts took this one off the wall.
+      </p>
+    );
+  }
+
+  const posted = state === 'posted' || state === 'unknown';
+
+  async function press() {
+    setBusy(true);
+    setError(null);
+    const res = posted
+      ? await takeMyPhotoOffTheWall(eventId, sourceTable, sourceId)
+      : await putMyPhotoBackOnTheWall(eventId, sourceTable, sourceId);
+    setBusy(false);
+    if (!res.ok) {
+      setError(res.message);
+      return;
+    }
+    onChanged(res.state === 'off_the_wall' ? 'pulled_by_me' : 'posted');
+  }
+
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      <button
+        type="button"
+        onClick={press}
+        disabled={busy}
+        className="sn-gal-btn inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+      >
+        {busy
+          ? posted
+            ? 'Taking it off…'
+            : 'Putting it back…'
+          : posted
+            ? 'Take it off the wall'
+            : 'Put it back on the wall'}
+      </button>
+      {error ? (
+        <span role="alert" className="text-xs font-semibold text-[var(--sn-ob-text)]">
+          {error}
+        </span>
+      ) : null}
+    </span>
   );
 }

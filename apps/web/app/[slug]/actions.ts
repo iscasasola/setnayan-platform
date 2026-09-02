@@ -19,6 +19,7 @@ import {
   faceVectorForMode,
 } from '@/lib/papic-face-mode';
 import { readGuestSession } from '@/lib/guest-session';
+import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
@@ -1074,6 +1075,112 @@ export async function askToTakeMyPhotoDown(
 
   await revalidateEventSlug(eventId);
   return { ok: true, alreadyAsked: false };
+}
+
+export type WallPullResult =
+  | { ok: true; state: 'off_the_wall' | 'on_the_wall' }
+  | { ok: false; message: string };
+
+/**
+ * A GUEST TAKES HER OWN PHOTOGRAPH OFF THE LIVE WALL — no request, no queue.
+ *
+ * Owner ruling 2026-09-02, settling item 6: *"On the wall, when her photo is
+ * posted she can un-post it."* She controls the photographs she SHOT and the
+ * ones she is TAGGED in, both, and nobody else's — per photo, not per audience.
+ *
+ * ⚖ THIS IS THE THIRD CONTROL ON THE TILE, AND THE THREE ARE NOT THE SAME WISH.
+ *
+ *   "Not me"          → that is somebody else. Drops the TAG. The photograph
+ *                       stays up, because it was never about her.
+ *   "Take it down"    → the photograph should not exist anywhere. It is not
+ *                       hers to delete — it may hold four other people — so it
+ *                       goes to a PERSON (`askToTakeMyPhotoDown`).
+ *   "Off the wall"    → it IS her, it is being PROJECTED IN THIS ROOM RIGHT
+ *                       NOW, and she wants it to stop. That one is hers alone
+ *                       and it happens immediately. This action.
+ *
+ * 🔑 THE MIDDLE ONE COULD NOT DO THIS JOB, AND THAT IS WHY THIS EXISTS. A
+ * request that a person reads is the right answer to "delete my likeness"; it
+ * is the wrong answer to a photograph on a wall at a party that is happening,
+ * where the only useful latency is none. The mechanism was already sitting
+ * there — `wall_hidden_at`, reversible and wall-only — with every writer but
+ * the person in the picture.
+ *
+ * 🔒 The session cookie is the gate and the identity. This page is PUBLIC, so
+ * the guest id is read from the signed cookie and NEVER from the arguments; the
+ * event must match it too. Which photographs that guest may touch is decided in
+ * lib/guest-wall-unpost.ts, which re-checks every predicate on the returned row
+ * rather than trusting the filters it sent.
+ */
+export async function takeMyPhotoOffTheWall(
+  eventId: string,
+  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  sourceId: string,
+): Promise<WallPullResult> {
+  return wallPull('off', eventId, sourceTable, sourceId);
+}
+
+/**
+ * SHE CHANGES HER MIND — and only about her OWN pull.
+ *
+ * Reversible by design: `wall_hidden_at` is documented in-schema as a transient
+ * wall-only switch, and a one-way privacy control is one people are afraid to
+ * press. If the couple or a coordinator took the photograph down, this refuses
+ * and says which — their moderation is not hers to undo.
+ */
+export async function putMyPhotoBackOnTheWall(
+  eventId: string,
+  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  sourceId: string,
+): Promise<WallPullResult> {
+  return wallPull('back', eventId, sourceTable, sourceId);
+}
+
+async function wallPull(
+  direction: 'off' | 'back',
+  eventId: string,
+  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  sourceId: string,
+): Promise<WallPullResult> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId) {
+    return { ok: false, message: 'Open this from your own invitation link and we can help.' };
+  }
+  if (!sourceId) return { ok: false, message: 'Which photo?' };
+
+  const admin = createAdminClient();
+  const target = {
+    eventId,
+    // 🔒 From the cookie. Never an argument — see the docblock above.
+    guestId: session.guest_id,
+    sourceTable,
+    sourceId,
+  };
+  const run = direction === 'off' ? takePhotoOffTheWall : putPhotoBackOnTheWall;
+  const res = await run(admin, target);
+
+  if (!res.ok) {
+    /*
+      Each refusal gets its OWN sentence. A single "something went wrong" would
+      make "that is not your photo" and "we could not reach the database" look
+      identical to the one person who most needs to know which it was — and one
+      of the two is worth pressing again.
+    */
+    const message =
+      res.reason === 'not_yours'
+        ? 'You can take down photos you took or are tagged in — this one is somebody else’s.'
+        : res.reason === 'not_your_pull'
+          ? 'The hosts took this one off the wall, so it’s theirs to put back.'
+          : 'We couldn’t reach the wall just now. Please try again.';
+    return { ok: false, message };
+  }
+
+  await revalidateEventSlug(eventId);
+  // The couple's control strip lists the same tiles; leaving it stale would
+  // show a photograph as "on the wall now" that a guest has just pulled.
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}/live`);
+  return { ok: true, state: res.state };
 }
 
 /** Refresh the celebration page after a guest-side change. */

@@ -44,6 +44,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveCapturerNames } from '@/lib/capture-credit';
+import { readGuestWallStates, wallTileKey, type WallTileState } from '@/lib/guest-wall-unpost';
 
 const URL_TTL_SECONDS = 60 * 60;
 
@@ -78,6 +79,17 @@ export type GuestLivePhoto = {
    * the same as "no credit" while meaning "nobody decided". Null is a decision.
    */
   capturedBy: string | null;
+  /**
+   * IS IT ON THE VENUE WALL RIGHT NOW — and if it is down, whose doing?
+   *
+   * Owner ruling 2026-09-02: a guest can un-post her own photograph. The tile
+   * is where she does it, so the tile has to know. `'off'` (the wall never held
+   * this one) is the commonest value and renders no control at all; `'unknown'`
+   * means the wall read FAILED and still offers the control, because a privacy
+   * button that disappears when a secondary read breaks is the same defect as
+   * one that does nothing. See lib/guest-wall-unpost.ts for the full table.
+   */
+  wall: WallTileState;
 };
 
 export type GuestLiveGallery = {
@@ -301,6 +313,17 @@ export async function getGuestLiveGallery(
       );
 
     const top = ordered.slice(0, limit);
+
+    // Wall state for the tiles actually being rendered — never for the whole
+    // feed. Best-effort: readGuestWallStates swallows its own failures into
+    // 'unknown' rather than throwing, so the gallery cannot be lost to it.
+    const wallStates = await readGuestWallStates(
+      admin,
+      eventId,
+      guestId,
+      top.map(({ id, sourceTable }) => ({ sourceTable, sourceId: id })),
+    );
+
     const photos = (
       await Promise.all(
         top.map(async ({ id, sourceTable, key }) => {
@@ -312,6 +335,7 @@ export async function getGuestLiveGallery(
                 url,
                 capturedAt: shotAtById.get(id) ?? null,
                 capturedBy: creditFor(id),
+                wall: wallStates.get(wallTileKey(sourceTable, id)) ?? 'unknown',
               }
             : null;
         }),

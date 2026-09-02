@@ -180,12 +180,27 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
 
   // One controller shared by free + paid (owner 2026-07-25): a host who hasn't
   // bought Live Studio can still OPEN the controller and go live free with a single
-  // camera — the multi-camera extras simply show locked there. So for any non-owned
-  // state we surface a secondary "Open the controller" link beside the buy CTA. When
-  // owned ('launch'), the primary CTA already opens the controller, so we don't
-  // duplicate it.
+  // camera — the multi-camera extras simply show locked there.
+  //
+  // L8 (2026-09-02): for a non-owned host this doorway used to lead with the
+  // ₱3,000 buy button and demote the free path to a plain text link beneath it —
+  // at odds with the Wave 3 lock (§ 4d) that "seeing the cameras actually working
+  // IS the conversion mechanism". So for any non-owned state the free controller
+  // link now renders FIRST and at the same button weight as the buy CTA — order
+  // and weight only; the price and the buy button are unchanged. When owned
+  // ('launch'), the primary CTA already opens the controller, so nothing else
+  // renders.
   const cta = (
     <div className="space-y-2">
+      {stateCtx.state !== 'launch' ? (
+        <Link
+          href={controllerHref}
+          className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10"
+        >
+          Open the controller — go live free with one camera
+          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        </Link>
+      ) : null}
       <AddOnStateCta
         context={stateCtx}
         launchLabel="Open controller"
@@ -222,15 +237,6 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
         }}
       />
-      {stateCtx.state !== 'launch' ? (
-        <Link
-          href={controllerHref}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          Open the controller — go live free with one camera
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </Link>
-      ) : null}
     </div>
   );
 

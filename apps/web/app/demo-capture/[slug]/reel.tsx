@@ -53,7 +53,16 @@ export function DemoCaptureReel({ slug }: { slug: string }) {
         nextjs-portal,[data-nextjs-toast],#__next-build-watcher{display:none!important;}
         .reel-root{position:fixed;inset:0;z-index:2147483647;background:#000;
           display:flex;align-items:center;justify-content:center;}
-        .reel{position:relative;width:230px;height:486px;overflow:hidden;background:#000;}
+        /* The stage is authored at the in-app 230x486 content box. The capture
+           viewport is 2x that (see capture-demo-videos.mjs), and CSS zoom --
+           not a transform -- makes it fill: zoom re-lays-out at the larger
+           size so text is rasterised at true 2x, where a transform would
+           upscale an already-rasterised bitmap. Without this the recorder
+           padded three quarters of every frame.
+           NO BACKTICKS IN HERE: this comment lives inside a template
+           literal, and one closes the string. */
+        .reel{position:relative;width:230px;height:486px;overflow:hidden;background:#000;
+          zoom:2;}
         .reel-scene{position:absolute;inset:0;animation:reelFade .32s ease;}
         .reel-caption{position:absolute;left:0;right:0;bottom:0;padding:16px 13px 14px;
           background:linear-gradient(to top, rgba(17,17,19,.9), rgba(17,17,19,.55) 58%, transparent);}

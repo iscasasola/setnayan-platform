@@ -115,6 +115,594 @@ function hslToHex({ h, s, l }: HSL): string {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+// ── the five-color reception contract ───────────────────────────────────
+//
+// OWNER DIRECTIVE 2026-09-03: "themes must be 5 colors". EVERY theme — the
+// 100 hand-authored rows AND the 2,500 generated ones — ships a reception
+// palette of exactly RECEPTION_PALETTE_SIZE colors, in these fixed slots
+// (mirrored by PALETTE_LIMITS.reception.slotLabels in lib/mood-board.ts):
+//
+//   0 Dominant · 1 Supporting · 2 Accent · 3 Neutral · 4 Accent 2
+//
+// `completeReceptionFive` is the ONE implementation of slots 3-4, shared by
+// both groups so the slot labels are truthful for all 2,600 rows. Both callers
+// pass the theme's colors AND its `mood_tag` — the mood is a required
+// parameter, see MOOD_COMPLETION below for what happened when it was not an
+// input at all:
+//   • the generator passes its (Dominant, Supporting, chroma-tamed Accent)
+//     plus the mood it is generating for;
+//   • scripts/lift-moodboard-hand-authored-reception-to-five.ts passes each
+//     hand-authored row's existing three — which it never reorders or edits —
+//     plus that row's own mood_tag, read out of the VALUES line.
+// Two mechanisms deriving the same five slots two different ways would each
+// pass their own tests and still disagree — so there is only one.
+
+/** Colors in every theme's `role_palette.reception`. Owner-locked at 5. */
+export const RECEPTION_PALETTE_SIZE = 5;
+
+/**
+ * How colorful a color actually is, 0-100 — the RGB max-min spread, expressed
+ * in HSL terms.
+ *
+ * 🛑 NEVER JUDGE "IS THIS A HUE OR A NEUTRAL" BY HSL SATURATION. Ivory
+ * `#FFFFF0` has saturation ONE HUNDRED (three points of yellow across a
+ * near-white), and it beat every real color in this palette set when the
+ * first cut of `hueCarrier` picked by `s` — which is how a blue-and-ivory
+ * theme was handed an olive fifth color. Its chroma is 6, which is the number
+ * that matches what anyone actually sees.
+ */
+function chromaOf(c: HSL): number {
+  return c.s * (1 - Math.abs(2 * (c.l / 100) - 1));
+}
+
+/** Build a color at a target CHROMA (not saturation) for a given hue and
+ *  lightness — the inverse of `chromaOf`, so "a barely-tinted cream" means the
+ *  same thing at l=91 as at l=18. */
+function withChroma(h: number, chroma: number, l: number): HSL {
+  const factor = 1 - Math.abs(2 * (l / 100) - 1);
+  return { h, s: factor <= 0.0001 ? 0 : clamp(chroma / factor, 0, 100), l };
+}
+
+/**
+ * Chroma at or above which a color reads as a competing HUE rather than a
+ * tinted neutral. Real wedding palettes are two hues plus neutrals — cream,
+ * ivory, charcoal, greige — so a completed palette never ADDS a third
+ * high-chroma member past this budget.
+ */
+const HIGH_CHROMA = 42;
+const MAX_HIGH_CHROMA = 2;
+
+/**
+ * Chroma below which a color's HUE carries no perceptual weight — it is a
+ * grey, and the number in its hue channel is an artifact of the conversion,
+ * not a color anyone sees. Blending against one is how silver's ~200° and
+ * gold's ~46° averaged into an olive nobody asked for.
+ */
+const HUE_BEARING_CHROMA = 12;
+
+// ── CIELAB, for the two questions HSL cannot answer ─────────────────────
+//
+// 🛑 (1) HSL `l` IS NOT LIGHTNESS. It is (max+min)/2 of the RGB channels. A
+// spring green `#19D393` sits at HSL l=46 and at L*=75 — five generated rows
+// were completed against the HSL number and still flipped from reading light
+// to reading mid, because the number the completion balanced was not the
+// number anyone sees. Every lightness decision below is made in L*.
+//
+// 🛑 (2) A DIFFERENT HEX IS NOT A DIFFERENT COLOR. `ensureDistinct` used to
+// settle for hex inequality, which a one-bit difference satisfies. Once the
+// completion (correctly) stopped jumping to the opposite lightness pole, added
+// members started landing on top of colors already in the set: measured in
+// ΔE2000 across all 2,600 rows, hex-inequality alone left 874 palettes with an
+// added chip nobody can tell from its neighbour — a five-swatch strip that
+// renders as four.
+//
+// The distance below is deliberately CIE76 (a plain Lab distance) and NOT
+// ΔE2000: the audit that finds this class of defect measures in ΔE2000, and a
+// guard sharing its formula with the audit agrees with it by construction.
+
+function labOfHex(hex: string): { L: number; a: number; b: number } {
+  const n = parseInt(hex.slice(1), 16);
+  const lin = (u: number) => (u <= 0.04045 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4);
+  const r = lin(((n >> 16) & 255) / 255);
+  const g = lin(((n >> 8) & 255) / 255);
+  const b = lin((n & 255) / 255);
+  const X = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
+  const Y = r * 0.2126729 + g * 0.7151522 + b * 0.072175;
+  const Z = (r * 0.0193339 + g * 0.119192 + b * 0.9503041) / 1.08883;
+  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+  const fx = f(X);
+  const fy = f(Y);
+  const fz = f(Z);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
+function labDistance(hex1: string, hex2: string): number {
+  const p = labOfHex(hex1);
+  const q = labOfHex(hex2);
+  return Math.hypot(p.L - q.L, p.a - q.a, p.b - q.b);
+}
+
+/** Perceptual lightness (CIELAB L*) of an HSL color. */
+function lightnessStar(c: HSL): number {
+  return labOfHex(hslToHex(c)).L;
+}
+
+/** Perceptual colorfulness (CIELAB C*ab) of a hex.
+ *
+ *  🔑 HSL CHROMA IS NOT THIS NUMBER: the same 3 points of HSL chroma render at
+ *  C*ab 5 on a near-white and at C*ab 2 in the midtones. Judging "is this still
+ *  a neutral" in HSL is how *Pure White Minimal Modern* — "All white, no accent
+ *  color at all" — received a fifth chip more colorful than anything already
+ *  in it. The ceiling below is applied in C*ab, where the audit and the eye
+ *  both live. */
+function starChromaOf(hex: string): number {
+  const { a, b } = labOfHex(hex);
+  return Math.hypot(a, b);
+}
+
+/** The HSL lightness that renders at a target L* for this hue and chroma.
+ *  L* rises monotonically with HSL `l` at fixed (hue, chroma), so a fixed-step
+ *  bisection is both exact enough and deterministic. */
+function hslLightnessForStar(h: number, chroma: number, targetStar: number): number {
+  let lo = 0;
+  let hi = 100;
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (lightnessStar(withChroma(h, chroma, mid)) < targetStar) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/** How far apart two chips in one strip must sit to read as two colors. */
+const MIN_PERCEPTUAL_GAP = 12;
+
+/** C*ab below which a chip carries no hue anyone would name — the point at
+ *  which "which hue is this grey" stops being a question about the design. */
+const INVISIBLE_HUE_CHROMA = 6;
+
+/**
+ * The widest hue gap whose MIDPOINT still reads as "between" its two ends.
+ * Past this the midpoint is a THIRD hue belonging to neither: amethyst at 328°
+ * and gold at 46° are 78° apart and their midpoint is 7° — the salmon
+ * `#D4857A` that shipped into *Amethyst & Gold Regal*, 45° off every hue that
+ * theme actually contains. Beyond this gap the added accent REUSES a hue the
+ * palette already has instead of inventing one between them.
+ */
+const ANALOGOUS_MAX_HUE_GAP = 40;
+
+// ── mood is an INPUT to the completion ──────────────────────────────────
+//
+// 🛑 THE DEFECT THIS TABLE EXISTS FOR — do not "simplify" it back out. The
+// first cut of this completion chose slots 3-4 with a `missingBand` helper:
+// "whichever lightness pole the set does not have yet, deep first". `mood_tag`
+// was never an input at all. But a dark palette ALWAYS already has deep, so it
+// always received light; a light palette always received deep. Measured in
+// CIELAB across all 2,600 seeded rows: dark_moody went from 2 swatches at
+// L*≥85 to 262, romantic_ethereal from 0 at L*≤25 to 235, 383 rows stopped
+// reading dark and 523 stopped reading light — 906 rows, 35%, had the exact
+// property their mood NAMES dragged out of them.
+//
+// ⚠ AND THE METRIC THAT PASS WAS PROUD OF — "rows with a lightness span under
+// 30: zero" — WAS THAT DEFECT STATED AS A VIRTUE. Every palette spanned both
+// poles precisely because the ones that deliberately did not were forced to.
+// A full lightness span is not a goal here.
+//
+// So the pair is placed against THE SET'S OWN lightness ladder — its darkest,
+// its lightest, its median — pushed the way the mood actually means:
+//
+//   deeper   dark_moody · nostalgic_vintage
+//   lighter  romantic_ethereal · whimsical_storybook · minimalist
+//   widen    bold_contrasting · maximalist_complex · glam_luxurious
+//   stay     simple_understated · organic_natural
+//
+// 🔑 AND THE PAIR STRADDLES THE SET'S MEDIAN: one addition at or below it, one
+// at or above. The median of the five is then EXACTLY the median of the three,
+// so completing a palette CANNOT change whether it reads dark or light. That
+// is arithmetic, not tuning — the profile below only decides how far each half
+// travels and how far outside the existing band it may reach.
+
+type MoodCompletion = {
+  /** Which side of the median the grounding NEUTRAL (slot 3) takes; the
+   *  ACCENT (slot 4) always takes the other. */
+  neutralSide: 'deep' | 'light';
+  /** How far BELOW the set's own darkest / ABOVE its own lightest the pair may
+   *  reach, in HSL lightness points. Small numbers keep a palette inside the
+   *  band it already occupies. */
+  reachDeep: number;
+  reachLight: number;
+  /** How far from the median toward each bound the pair actually travels,
+   *  0 (sit on the median) to 1 (all the way to the bound). */
+  towardDeep: number;
+  towardLight: number;
+};
+
+const MOOD_COMPLETION: Record<AllMoodTag, MoodCompletion> = {
+  // Deeper: the darkness IS the mood. A bone-white fifth erases the theme.
+  dark_moody: { neutralSide: 'deep', reachDeep: 14, reachLight: 0, towardDeep: 0.85, towardLight: 0.3 },
+  // Deeper: sepia and faded-photograph read as aged paper and old wood, and
+  // aged paper is never brighter than the print it carries.
+  nostalgic_vintage: { neutralSide: 'deep', reachDeep: 10, reachLight: 2, towardDeep: 0.7, towardLight: 0.35 },
+  // Lighter: "gossamer", "cloud-soft", "featherlight" — a charcoal fifth is
+  // the literal opposite of every word in the mood's own name bank.
+  romantic_ethereal: { neutralSide: 'light', reachDeep: 0, reachLight: 12, towardDeep: 0.3, towardLight: 0.85 },
+  // Lighter: storybook pastel; the airiness is the whole effect.
+  whimsical_storybook: { neutralSide: 'light', reachDeep: 2, reachLight: 10, towardDeep: 0.35, towardLight: 0.8 },
+  // Lighter: minimal means LESS ink on the page, not more contrast on it.
+  minimalist: { neutralSide: 'light', reachDeep: 2, reachLight: 10, towardDeep: 0.35, towardLight: 0.8 },
+  // Widen: contrast is the mood, so the pair reinforces BOTH poles — this is
+  // the one mood for which a bigger lightness span is genuinely the point.
+  bold_contrasting: { neutralSide: 'deep', reachDeep: 16, reachLight: 14, towardDeep: 0.9, towardLight: 0.9 },
+  // Widen: layered and abundant wants range at the top and the bottom.
+  maximalist_complex: { neutralSide: 'deep', reachDeep: 12, reachLight: 10, towardDeep: 0.75, towardLight: 0.75 },
+  // Widen: gilded needs a deep ground for the metal to catch light against.
+  glam_luxurious: { neutralSide: 'deep', reachDeep: 12, reachLight: 8, towardDeep: 0.8, towardLight: 0.7 },
+  // Stay: restraint. The completion adds TONE, not range.
+  simple_understated: { neutralSide: 'deep', reachDeep: 5, reachLight: 5, towardDeep: 0.45, towardLight: 0.45 },
+  // Stay: earth tones already sit in a mid band; keep them in it.
+  organic_natural: { neutralSide: 'deep', reachDeep: 6, reachLight: 6, towardDeep: 0.5, towardLight: 0.5 },
+};
+
+/** Bounds of the completion's working range, in L*. */
+const STAR_FLOOR = 4;
+const STAR_CEIL = 98;
+
+/**
+ * The narrowest lightness window (in L*) a completion will work in.
+ *
+ * A DELIBERATELY NARROW palette — all-black, all-white, dove-grey on
+ * dove-grey — completes with tonal variation INSIDE its own band, never a jump
+ * to the opposite pole, and it is detected from the colors' own spread rather
+ * than from the theme's name (a name is not evidence). The window below is
+ * built from the set's own min/median/max, so a set that occupies 8 points of
+ * L* gets a completion that occupies about 18 — and a set that spans 80 gets
+ * one that spans 80. This constant only stops a perfectly flat set from
+ * producing two colors it cannot tell apart.
+ */
+const MIN_COMPLETION_WINDOW = 18;
+
+function median(values: ReadonlyArray<number>): number {
+  const s = [...values].sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 === 1 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
+}
+
+type CompletionWindow = {
+  /** The set's own median L* — the pivot both additions straddle. */
+  pivot: number;
+  deepBound: number;
+  lightBound: number;
+  deepTarget: number;
+  lightTarget: number;
+};
+
+/**
+ * Where THIS set's two new members may sit: an L* window derived from the
+ * set's own darkest / lightest / median, opened in the direction its mood
+ * means. `deepTarget <= pivot <= lightTarget` always holds — and because both
+ * additions straddle the pivot, the median L* of the five is exactly the
+ * median L* of the three. That is what makes completing a palette unable to
+ * change whether it reads dark or light.
+ */
+function completionWindow(list: ReadonlyArray<HSL>, profile: MoodCompletion): CompletionWindow {
+  const stars = list.map(lightnessStar);
+  const lo = Math.min(...stars);
+  const hi = Math.max(...stars);
+  const pivot = median(stars);
+  let deepBound = clamp(lo - profile.reachDeep, STAR_FLOOR, pivot);
+  let lightBound = clamp(hi + profile.reachLight, pivot, STAR_CEIL);
+  if (lightBound - deepBound < MIN_COMPLETION_WINDOW) {
+    const half = MIN_COMPLETION_WINDOW / 2;
+    deepBound = clamp(Math.min(deepBound, pivot - half), STAR_FLOOR, pivot);
+    lightBound = clamp(Math.max(lightBound, pivot + half), pivot, STAR_CEIL);
+  }
+  return {
+    pivot,
+    deepBound,
+    lightBound,
+    deepTarget: pivot - profile.towardDeep * (pivot - deepBound),
+    lightTarget: pivot + profile.towardLight * (lightBound - pivot),
+  };
+}
+
+/** Signed shortest angular distance between two hues, in degrees. */
+function hueDelta(a: number, b: number): number {
+  let d = (((b - a) % 360) + 360) % 360;
+  if (d > 180) d -= 360;
+  return d;
+}
+
+/** The hue halfway between two hues, taking the short way round the wheel. */
+function hueMid(a: number, b: number): number {
+  return (((a + hueDelta(a, b) / 2) % 360) + 360) % 360;
+}
+
+/** The most CHROMATIC member — the color that gives the set its hue family. */
+function hueCarrier(list: ReadonlyArray<HSL>): HSL {
+  return list.reduce((best, c) => (chromaOf(c) > chromaOf(best) ? c : best), list[0]!);
+}
+
+/** The next-most-chromatic member, excluding the carrier. Falls back to the
+ *  carrier for a one-color list (then `deriveAccent` treats it as monochrome). */
+function secondHue(list: ReadonlyArray<HSL>): HSL {
+  const carrier = hueCarrier(list);
+  const rest = list.filter((c) => c !== carrier);
+  if (rest.length === 0) return carrier;
+  return rest.reduce((best, c) => (chromaOf(c) > chromaOf(best) ? c : best), rest[0]!);
+}
+
+/**
+ * How colorful this palette is AS A SET.
+ *
+ * 🔑 THE SECOND DEFECT THIS FIXES: the first cut derived both added colors
+ * from the hue CARRIER alone, so the addition was a function of one member,
+ * not of the theme. 99 distinct hand-authored triples collapsed into 68
+ * distinct added pairs — `#F5EFDB + #E7D186` was appended byte-identically to
+ * *Navy & Gold Ballroom Regal*, *Midnight Garden Regal*, *Moonlit Mangrove
+ * Heritage* AND *Full Black Modern Statement*, four themes whose only shared
+ * property is a gold. Every derivation below reads the WHOLE set.
+ */
+function meanChroma(list: ReadonlyArray<HSL>): number {
+  return list.reduce((sum, c) => sum + chromaOf(c), 0) / list.length;
+}
+
+/**
+ * The loudest an ADDED color is allowed to be: the set's SECOND-loudest
+ * member (with a floor at a third of the loudest, so a single-hue palette can
+ * still receive a muted tonal cousin). A palette that carries one hue does not
+ * gain a second — which is how *Blush Line Modern*, "nearly monochrome, one
+ * soft color kept to a minimum", stops receiving a second soft color, and how
+ * *Pure White Minimal Modern*, "no accent color at all", stops receiving a
+ * sage. Derived from the colors, not from the description.
+ */
+function chromaCeiling(list: ReadonlyArray<HSL>): number {
+  const sorted = list.map(chromaOf).sort((a, b) => b - a);
+  const loudest = sorted[0] ?? 0;
+  const second = sorted[1] ?? loudest;
+  return Math.max(second, loudest * 0.35);
+}
+
+/**
+ * A color stated the way this module reasons about one: a hue, how colorful it
+ * is, and where it sits in PERCEPTUAL lightness. `buildColor` turns it into the
+ * HSL the rest of the file speaks.
+ */
+type Recipe = {
+  h: number;
+  chroma: number;
+  star: number;
+  /** HSL-chroma ceiling this slot may search up to for distinctness. */
+  maxChroma: number;
+  /** 🔒 C*ab ceiling the finished color may not exceed — the set's own loudest
+   *  member. An ADDED color is never more colorful than anything the theme
+   *  already contains, which is the whole of "a palette that carries one hue
+   *  does not gain a second". */
+  maxStarChroma: number;
+};
+
+function buildColor(r: Recipe): HSL {
+  return withChroma(r.h, r.chroma, hslLightnessForStar(r.h, r.chroma, r.star));
+}
+
+/** Build a recipe's color, backing its chroma off until it renders at or below
+ *  the recipe's C*ab ceiling. Bisection, so deterministic. */
+function buildWithinChromaCeiling(r: Recipe): { hex: string; hsl: HSL } {
+  const direct = buildColor(r);
+  const directHex = hslToHex(direct);
+  if (starChromaOf(directHex) <= r.maxStarChroma) return { hex: directHex, hsl: direct };
+  let lo = 0;
+  let hi = r.chroma;
+  for (let i = 0; i < 14; i++) {
+    const mid = (lo + hi) / 2;
+    if (starChromaOf(hslToHex(buildColor({ ...r, chroma: mid }))) > r.maxStarChroma) hi = mid;
+    else lo = mid;
+  }
+  const hsl = buildColor({ ...r, chroma: lo });
+  return { hex: hslToHex(hsl), hsl };
+}
+
+/** The loudest member of a set, in C*ab. */
+function maxStarChromaOf(list: ReadonlyArray<HSL>): number {
+  return Math.max(...list.map((c) => starChromaOf(hslToHex(c))));
+}
+
+/**
+ * Slot 3 — the NEUTRAL that grounds the set: the hue carrier's own hue at a
+ * tint the WHOLE set's chroma decides, so it is a cream/greige/charcoal that
+ * belongs to THIS palette and not a generic grey dropped in from outside. Its
+ * lightness is chosen by `completionWindow` from the set's own ladder and the
+ * theme's mood — never a hard-coded 18 or 91.
+ */
+function deriveNeutral(list: ReadonlyArray<HSL>, star: number): Recipe {
+  const carrier = hueCarrier(list);
+  const loudest = chromaOf(carrier);
+  // Never more tinted than the palette itself is colorful: an all-white theme
+  // gets a white neutral, not a cream.
+  const ceiling = Math.min(11, loudest);
+  const tint = clamp(meanChroma(list) * 0.25, Math.min(3, loudest), ceiling);
+  return {
+    h: carrier.h,
+    chroma: tint,
+    star,
+    maxChroma: ceiling,
+    maxStarChroma: maxStarChromaOf(list),
+  };
+}
+
+/**
+ * Slot 4 — an ACCENT genuinely related to the colors already present. Its hue
+ * is the midpoint of the set's two hues ONLY when they are close enough for a
+ * midpoint to still read as between them; otherwise it reuses the set's second
+ * hue outright, so the accent is never a color the theme does not contain. Its
+ * chroma cannot exceed `chromaCeiling`, and its lightness comes from
+ * `completionWindow` — the opposite side of the median from the neutral.
+ */
+function deriveAccent(list: ReadonlyArray<HSL>, star: number): Recipe {
+  const carrier = hueCarrier(list);
+  const second = secondHue(list);
+  const carrierC = chromaOf(carrier);
+  const secondC = chromaOf(second);
+  const gap = Math.abs(hueDelta(carrier.h, second.h));
+  const secondBears = second !== carrier && secondC >= HUE_BEARING_CHROMA && gap >= 6;
+  const h = !secondBears
+    ? carrier.h
+    : gap <= ANALOGOUS_MAX_HUE_GAP
+      ? hueMid(carrier.h, second.h)
+      : second.h;
+  // Chroma budget: if two members already read as hues, this one lands as a
+  // tinted neutral rather than a third competing color — and either way it
+  // stays under the set's own second-loudest member.
+  const highs = list.filter((c) => chromaOf(c) >= HIGH_CHROMA).length;
+  const cap = Math.min(chromaCeiling(list), highs >= MAX_HIGH_CHROMA ? 26 : 48);
+  const base = secondBears ? (carrierC + secondC) / 2 : carrierC * 0.62;
+  return {
+    h,
+    chroma: clamp(base * 0.85, 0, cap),
+    star,
+    maxChroma: cap,
+    maxStarChroma: maxStarChromaOf(list),
+  };
+}
+
+/**
+ * Place a derived color so it is visibly its own chip — searching only INSIDE
+ * the L* half the mood window gave this slot, and never above the chroma
+ * ceiling that slot was given: lightness first (it keeps the hue relationship),
+ * then chroma, and hue only as a last resort. Returns the first candidate that
+ * clears `MIN_PERCEPTUAL_GAP` from every color already in the set, or — for a
+ * palette with genuinely no room, an all-white or an all-black one — the most
+ * separated position the window contains. Deterministic.
+ */
+function placeColor(
+  r: Recipe,
+  taken: ReadonlyArray<string>,
+  loStar: number,
+  hiStar: number,
+): { hex: string; hsl: HSL } {
+  const lo = Math.min(loStar, hiStar);
+  const hi = Math.max(loStar, hiStar);
+  const candidates: Recipe[] = [];
+  // 1) Lightness, but only INSIDE the half of the window this slot was given —
+  //    a nudge that crossed the pivot would break the median guarantee. The
+  //    intended L* is tried first, then progressively further from it.
+  for (const d of [0, 3, -3, 6, -6, 9, -9, 13, -13, 17, -17, 22, -22, 28, -28, 34, -34]) {
+    candidates.push({ ...r, star: clamp(r.star + d, lo, hi) });
+  }
+  // 2) Chroma at the SAME lightness — a tint step, invisible to the mood, and
+  //    the only move left when the window is a point wide (all-black,
+  //    all-white). CAPPED at the slot's own ceiling: an all-white theme whose
+  //    description says "no accent color at all" must not buy distinctness by
+  //    growing a color.
+  for (const dc of [5, -5, 10, -10, 16, -16, 24, -24]) {
+    candidates.push({ ...r, chroma: clamp(r.chroma + dc, 0, r.maxChroma) });
+  }
+  const measure = (cand: Recipe) => {
+    const { hex, hsl } = buildWithinChromaCeiling(cand);
+    const gap = taken.length === 0 ? Infinity : Math.min(...taken.map((t) => labDistance(hex, t)));
+    return { hex, hsl, gap };
+  };
+  let best: { hex: string; hsl: HSL; gap: number } | null = null;
+  for (const cand of candidates) {
+    const settled = measure(cand);
+    if (settled.gap >= MIN_PERCEPTUAL_GAP) return { hex: settled.hex, hsl: settled.hsl };
+    if (!best || settled.gap > best.gap) best = settled;
+  }
+  // 3) Hue — HELD BACK, and this is deliberate. Rotating the hue is the one
+  //    move that changes what the color IS, and a fifth chip in a hue the
+  //    theme does not contain is worse than a fifth chip that is quietly
+  //    tonal: an unbounded ±90° search here handed a grey-and-plum
+  //    moody-garden theme an OLIVE, 120° of Lab hue from anything present.
+  //
+  //    Two cases, and the difference between them is whether a person could
+  //    SEE the rotation. Below C*ab 6 nobody calls a chip a color — rotating
+  //    a barely-tinted grey is free, and it is the only room a near-neutral
+  //    palette has. Above it, a rotation is used only to break an EXACT
+  //    repeat, and only by a couple of dozen degrees.
+  const rotationIsInvisible = r.maxStarChroma <= INVISIBLE_HUE_CHROMA;
+  if (best && (rotationIsInvisible || best.gap < 1)) {
+    const sweep = rotationIsInvisible
+      ? [30, -30, 60, -60, 90, -90, 120, -120, 150, 180]
+      : [8, -8, 16, -16, 24, -24];
+    for (const dh of sweep) {
+      const settled = measure({ ...r, h: r.h + dh });
+      if (settled.gap > best.gap) best = settled;
+      if (best.gap >= MIN_PERCEPTUAL_GAP) break;
+    }
+  }
+  // Nothing in the window clears the margin — a genuinely flat palette, which
+  // is a real kind of theme and not an error. Take the most separated position
+  // available rather than pretending, and DO NOT escape the window to find
+  // room: leaving it is the inversion this whole module exists to prevent.
+  if (best) return { hex: best.hex, hsl: best.hsl };
+  return buildWithinChromaCeiling(r);
+}
+
+/**
+ * Complete a reception palette to exactly five colors, PRESERVING the input
+ * colors in their given order (Dominant/Supporting/Accent stay put) and
+ * deriving the rest from the colors actually present AND from the theme's
+ * `mood_tag` — never appending arbitrary filler, and never dragging a palette
+ * toward the middle. Pure + deterministic.
+ *
+ * 🛑 `mood` IS REQUIRED, ON PURPOSE. It used to be absent, and an absent mood
+ * is exactly how 906 of 2,600 themes ended up with the opposite of the
+ * character their tag names (see MOOD_COMPLETION above). A required parameter
+ * makes forgetting it a compile error instead of a silent inversion.
+ *
+ * Returns [] for an empty/invalid input, and the first five for an input that
+ * is already five or longer, so re-running it over already-lifted content is
+ * idempotent.
+ */
+export function completeReceptionFive(base: ReadonlyArray<string>, mood: AllMoodTag): string[] {
+  const valid = base
+    .filter((h) => typeof h === 'string' && /^#[0-9A-Fa-f]{6}$/.test(h))
+    .map((h) => h.toUpperCase());
+  if (valid.length === 0) return [];
+  if (valid.length >= RECEPTION_PALETTE_SIZE) return valid.slice(0, RECEPTION_PALETTE_SIZE);
+
+  const profile = MOOD_COMPLETION[mood];
+  const hexes = [...valid];
+  const hsl = valid.map(hexToHsl);
+
+  const push = (recipe: Recipe, loStar: number, hiStar: number) => {
+    const { hex, hsl: settled } = placeColor(recipe, hexes, loStar, hiStar);
+    hexes.push(hex);
+    hsl.push(settled);
+  };
+
+  // Slots 0-2 are hues. Neither shipped caller gets here (both pass three),
+  // but the function is exported: a caller that supplied fewer gets related
+  // accents inside its own window, not filler, so the hue family still holds.
+  while (hexes.length < 3) {
+    const w = completionWindow(hsl, profile);
+    push(deriveAccent(hsl, w.pivot), w.deepBound, w.lightBound);
+  }
+
+  // Both additions read THE THREE, never each other: slot 4 must be a function
+  // of the theme's own colors, not of the neutral that slot 3 just added (which
+  // would drag every accent toward whatever grey preceded it). One window,
+  // computed once, straddled by both.
+  const source = hsl.slice(0, 3);
+  const w = completionWindow(source, profile);
+  const neutralIsDeep = profile.neutralSide === 'deep';
+  const neutralStar = neutralIsDeep ? w.deepTarget : w.lightTarget;
+  const accentStar = neutralIsDeep ? w.lightTarget : w.deepTarget;
+  // Slot 3: the grounding neutral, on the mood's own side of the median.
+  push(
+    deriveNeutral(source, neutralStar),
+    neutralIsDeep ? w.deepBound : w.pivot,
+    neutralIsDeep ? w.pivot : w.lightBound,
+  );
+  // Slot 4: the related accent, on the other side — so the five keep the
+  // three's median exactly.
+  push(
+    deriveAccent(source, accentStar),
+    neutralIsDeep ? w.pivot : w.deepBound,
+    neutralIsDeep ? w.lightBound : w.pivot,
+  );
+  return hexes.slice(0, RECEPTION_PALETTE_SIZE);
+}
+
 // ── per-style anchor palettes + reception defaults ──────────────────────
 
 type StyleSpec = {
@@ -593,9 +1181,44 @@ export function generateTemplate(
   const transformed = moodTransform(mood, rotated, variant);
   const hexes = transformed.map(hslToHex);
 
+  // RECEPTION IS FIVE (owner directive 2026-09-03) — and it is built as one
+  // set, not three colors with two appended. Dominant + Supporting carry the
+  // hues; the third anchor becomes the Accent, chroma-tamed ONLY when the
+  // first two already spend the whole high-chroma budget (so bold_contrasting
+  // and maximalist_complex keep their character while never shipping five
+  // competing hues). `completeReceptionFive` then derives the grounding
+  // neutral and the related second accent from those three.
+  //
+  // NOTE the moods that deliberately narrow the hue set — `minimalist` and
+  // `simple_understated` trim `moodTransform` to 3 — still land on five here.
+  // Their fifth is not a fifth HUE: it is the neutral pair those moods are
+  // actually made of. Fewer hues, same five slots.
+  const dominant = transformed[0]!;
+  const supporting = transformed[1] ?? dominant;
+  const thirdAnchor = transformed[2] ?? supporting;
+  const spentBudget =
+    [dominant, supporting].filter((c) => chromaOf(c) >= HIGH_CHROMA).length >= MAX_HIGH_CHROMA;
+  // Taming the chroma must not also move the LIGHTNESS: holding HSL `l` while
+  // dropping chroma still darkens a saturated yellow by ~10 points of L*, and
+  // that alone was enough to flip four gold themes out of reading light. Hold
+  // the anchor's perceptual lightness and change only how loud it is.
+  const tamedChroma = Math.min(chromaOf(thirdAnchor), 30);
+  const accent: HSL = spentBudget
+    ? withChroma(
+        thirdAnchor.h,
+        tamedChroma,
+        hslLightnessForStar(thirdAnchor.h, tamedChroma, lightnessStar(thirdAnchor)),
+      )
+    : thirdAnchor;
+  // MOOD IS PASSED, not inferred: `completeReceptionFive` derives slots 3-4
+  // within THIS mood's lightness character (see MOOD_COMPLETION) instead of
+  // filling whichever pole is missing, which inverted every palette whose mood
+  // deliberately sat at one end.
+  const receptionFive = completeReceptionFive([dominant, supporting, accent].map(hslToHex), mood);
+
   const rolePalette: MoodboardThemeTemplate['role_palette'] = {
     ceremony: [hexes[0]!, hexes[Math.min(3, hexes.length - 1)]!],
-    reception: hexes.slice(0, 3),
+    reception: receptionFive,
     bride: [hexes[0]!],
     groom: [hexes[Math.min(2, hexes.length - 1)]!],
     wedding_party: hexes.slice(0, 3),
@@ -623,7 +1246,10 @@ export function generateTemplate(
   };
 
   const name = generateName(style, mood, variant, usedNames);
-  const description = generateDescription(style, mood, hexes, reception_design);
+  // Describe the RECEPTION FIVE, not the raw anchor list: the anchors past the
+  // third never reach the reception palette, so naming one produced a sentence
+  // about a color the couple could not see in their own swatch strip.
+  const description = generateDescription(style, mood, receptionFive, reception_design);
 
   return {
     style_family: style as MoodboardThemeTemplate['style_family'],

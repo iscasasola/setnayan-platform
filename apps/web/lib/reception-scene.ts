@@ -1481,7 +1481,11 @@ export function buildPrompt(
     }
     phrases.push(people);
   }
-  const colors = palette.filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 4);
+  // 5, not 4: the reception palette became a five-color set on 2026-09-03
+  // (PALETTE_LIMITS.reception), so a 4-cap silently dropped every theme's
+  // Accent 2 from the prompt — the render would come back missing a color the
+  // couple can see in their own swatch strip.
+  const colors = palette.filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 5);
   const colorClause = colors.length ? ` Venue color palette: ${colors.join(', ')}.` : '';
   return (
     `Photorealistic editorial photograph of an elegant Filipino wedding reception. ` +

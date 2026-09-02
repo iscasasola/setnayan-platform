@@ -88,14 +88,24 @@ type Props = {
  *  tap away rather than hidden. */
 const CHOICES_PER_SCREEN = 6;
 
-/** Every hex in a template's role_palette, deduped, for the swatch strip. */
+/** Every hex in a template's role_palette, deduped, for the swatch strip —
+ *  RECEPTION FIRST.
+ *
+ *  The reception palette IS the theme's color scheme, and since 2026-09-03 it
+ *  is exactly five colors (owner: "themes must be 5 colors"). The strip caps
+ *  at 6, and this used to walk the palette in key order — ceremony first — so
+ *  the two ceremony colors took the front of a 6-chip strip and the card could
+ *  cut off the theme's own Accent 2 to make room for them. Lead with the five
+ *  the theme is actually named for; the remaining slot picks up whatever
+ *  attire color is next and distinct. */
 function swatchesFor(template: MoodboardThemeTemplate): string[] {
   // Templates never author `custom_roles` (only the couple does — see
   // mood-board.ts), but the field is part of RolePalette's shape, so exclude
   // it alongside `room_dressing` for the type to hold.
-  const all = Object.entries(template.role_palette)
-    .filter(([key]) => key !== 'room_dressing' && key !== 'custom_roles')
+  const rest = Object.entries(template.role_palette)
+    .filter(([key]) => key !== 'room_dressing' && key !== 'custom_roles' && key !== 'reception')
     .flatMap(([, v]) => (Array.isArray(v) ? (v as string[]) : []));
+  const all = [...(template.role_palette.reception ?? []), ...rest];
   return Array.from(new Set(all)).slice(0, 6);
 }
 

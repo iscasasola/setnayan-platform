@@ -10,8 +10,8 @@ import type { GuestRole } from './guests';
  *     family, sponsors, bearers, officiants, muslim_principals (Nikah cast) and
  *     plain `guest` — each shown only when a guest actually holds that role.
  *
- * Reception palette has named slots (dominant, supporting, accents) for the
- * first four indexes; the 5th + 6th are extra accents without labels.
+ * Reception palette is FIVE colors, every slot named: Dominant · Supporting ·
+ * Accent · Neutral · Accent 2 (see PALETTE_LIMITS.reception below).
  */
 export type CouplePaletteKey = 'bride' | 'groom';
 
@@ -113,7 +113,8 @@ export type PaletteLimits = {
   max: number;
   label: string;
   hint: string;
-  /** Per-index labels (e.g. ["Dominant", "Supporting", "Accent", "Accent 2"]). */
+  /** Per-index labels — one per slot, e.g. reception's
+   *  ["Dominant", "Supporting", "Accent", "Neutral", "Accent 2"]. */
   slotLabels?: ReadonlyArray<string>;
   /** Grouping tag for UI sectioning. */
   family: 'venue' | 'couple' | 'role';
@@ -122,7 +123,7 @@ export type PaletteLimits = {
 /**
  * Per-key min/max color counts.
  *   • Ceremony: 1–3 (smaller, more reverent)
- *   • Reception: 3–4 (dominant + supporting + 1–2 accents)
+ *   • Reception: 3–5 (dominant + supporting + accent + neutral + accent 2)
  *   • Wedding Party: 3–6 (matching attire, more coordination)
  *   • Guests with a role: 1–3 (sponsors, bearers, officiants)
  *   • Plain guests: 3–6 (dress-code options guests pick from)
@@ -135,12 +136,26 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     hint: 'Overall ceremony venue setting — 1 to 3 colors',
     family: 'venue',
   },
+  // RECEPTION IS FIVE (owner directive 2026-09-03: "themes must be 5 colors").
+  // Every one of the 2,600 seeded themes now ships exactly five, in these
+  // slots — see RECEPTION_PALETTE_SIZE / completeReceptionFive in
+  // lib/moodboard-theme-generator.ts, which is the single implementation
+  // behind both the hand-authored and the generated rows.
+  //
+  // 🔑 `max` IS LOAD-BEARING, NOT COSMETIC. `sanitizeRolePalette` below slices
+  // every palette to `max`, and it is the ONLY writer path — so a `max` under
+  // 5 would silently CLAMP every five-color theme back down on its way into
+  // the event and the swatch strip would look exactly like a correct
+  // three-color board. Never lower this below RECEPTION_PALETTE_SIZE.
+  //
+  // `min` stays 3: a couple who wants to simplify their OWN palette may, and
+  // min is only a soft warning in palette-editor.tsx, never a save block.
   reception: {
     min: 3,
-    max: 6,
+    max: 5,
     label: 'Reception palette',
-    hint: 'Dominant + supporting + accents — 3 to 6 colors',
-    slotLabels: ['Dominant', 'Supporting', 'Accent', 'Accent 2'],
+    hint: 'Dominant + supporting + accent + two neutrals — 3 to 5 colors',
+    slotLabels: ['Dominant', 'Supporting', 'Accent', 'Neutral', 'Accent 2'],
     family: 'venue',
   },
   bride: {
@@ -407,7 +422,12 @@ export function getPrimaryColor(
 
 export const DEFAULT_PALETTE_SUGGESTIONS: Record<PaletteKey, string[]> = {
   ceremony: ['#FAF7F2', '#824A2A'],
-  reception: ['#C97B4B', '#824A2A', '#D08654'],
+  // Five, one per named slot — `addColor` in palette-editor.tsx picks
+  // `suggestions[arr.length % suggestions.length]`, so a three-entry list
+  // handed the couple a REPEAT of the Dominant color the moment they added a
+  // fourth. Slots 4-5 are the terracotta family's own neutral pair (warm
+  // cream, deep espresso), matching what completeReceptionFive derives.
+  reception: ['#C97B4B', '#824A2A', '#D08654', '#F5EDE4', '#2B1D14'],
   bride: ['#FAF7F2'],
   groom: ['#1A1A1A'],
   // Wedding-party fallback + its four split sub-keys share the terracotta trio so

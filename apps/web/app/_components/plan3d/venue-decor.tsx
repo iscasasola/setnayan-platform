@@ -59,7 +59,11 @@ function mix(a: string, b: string, t: number): string {
 }
 /** A soft "bloom" tint from the accent — warm floral/foliage read. */
 function bloomColor(palette: Lab3DPalette): string {
-  return mix(palette.accent, '#ffffff', 0.35);
+  // The couple's floral colour when they set one on the mood board. Otherwise
+  // the lightened accent this has always used — NOT `resolveRoomDressing`'s
+  // derived value, which is raw reception[0] and would deepen every existing
+  // room's blooms without anyone asking.
+  return palette.florals ?? mix(palette.accent, '#ffffff', 0.35);
 }
 function leafColor(palette: Lab3DPalette): string {
   // Bias toward green but keep a hint of the palette so a bold theme still shows.

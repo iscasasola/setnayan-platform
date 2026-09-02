@@ -268,7 +268,9 @@ function GuestTable({
         chairs={chairs}
         removedSeats={table.removedSeats}
         occupiedSeats={occupied}
-        color={palette.wall}
+        // The couple's chair colour when they set one (mood board →
+        // room_dressing.chairs); otherwise the wall tone this has always used.
+        color={palette.chairs ?? palette.wall}
         accent={palette.accent}
         // Registers this table in the chair detach registry so <SitController>
         // can pull THIS chair back for the sit clip. Without it detachChair()

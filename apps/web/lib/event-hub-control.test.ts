@@ -32,6 +32,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  NOT_SHARED,
   resolveHubStage,
   resolveHubPhase,
   resolveHubStanding,
@@ -59,6 +60,7 @@ const event = (over: Partial<HubEventRead> = {}): HubEventRead => ({
 });
 
 const guests = (over: Partial<HubGuestRead> = {}): HubGuestRead => ({
+  shared: true,
   measured: true,
   invited: 90,
   replied: 61,
@@ -260,5 +262,41 @@ test('every reply in is its own state, not a silent zero', () => {
   assert.equal(
     resolveHubNextStep(resolveHubStanding(read, NOW), read, guests({ invited: 90, replied: 90 })).key,
     'ready',
+  );
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NOT SHARED ≠ NOT READ — the third state
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('⭐ a delegate without the guest list is TOLD that, not shown an em-dash', () => {
+  // `event-viewer.ts`: "a stranger and a delegate-without-the-grant both read
+  // nothing and the screen must say different things to them."
+  const read = event();
+  const withheld = guests({ shared: false, measured: false, invited: 0, replied: 0 });
+  const [, replies, quiet] = resolveHubFacts(read, withheld, NOW);
+  assert.equal(replies.value, NOT_SHARED, 'a fact we know, and may state');
+  assert.equal(replies.known, true, 'an em-dash here would blame the system for a host decision');
+  assert.equal(quiet.value, NOT_SHARED);
+
+  const next = resolveHubNextStep(resolveHubStanding(read, NOW), read, withheld);
+  assert.equal(next.key, 'preview', 'they still get the page — only the replies are withheld');
+  assert.notEqual(next.key, 'guests', 'and never an instruction built on rows they were refused');
+  assert.notEqual(next.key, 'unreadable', 'nothing is broken; something was not shared');
+});
+
+test('⭐ the THREE absences are all distinguishable from one another', () => {
+  const read = event();
+  const withheld = resolveHubFacts(read, guests({ shared: false, measured: false, invited: 0, replied: 0 }), NOW)[1];
+  const refused = resolveHubFacts(read, guests({ measured: false, invited: 0, replied: 0 }), NOW)[1];
+  const genuine = resolveHubFacts(read, guests({ invited: 0, replied: 0 }), NOW)[1];
+
+  assert.equal(withheld.value, NOT_SHARED);
+  assert.equal(refused.value, null);
+  assert.equal(genuine.value, '0 of 0 in');
+  assert.equal(
+    new Set([withheld.value, refused.value, genuine.value]).size,
+    3,
+    'three different reasons for no number must render three different ways',
   );
 });

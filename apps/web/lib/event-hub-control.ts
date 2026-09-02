@@ -75,8 +75,26 @@ export type HubEventRead = {
   slug?: string | null;
 };
 
-/** The RSVP side of the guest list, with whether it was actually read. */
+/**
+ * The RSVP side of the guest list — and the TWO different reasons it can be
+ * absent, which the controller must never merge.
+ *
+ * 🔑 THREE STATES, NOT TWO. `event-viewer.ts` says it in its own header: a
+ * stranger and a delegate-without-the-grant both read nothing, and the screen
+ * has to say different things to them. So:
+ *
+ *   shared:false ....... the host never shared the guest list with this
+ *                        coordinator. A FACT, and we may state it.
+ *   measured:false ..... the read was refused or failed. We do NOT know, and
+ *                        must say only that.
+ *   both true .......... the counts are real, including a real zero.
+ *
+ * Collapsing the first two into one em-dash tells a coordinator the system is
+ * broken when the truth is that this part was not shared with them.
+ */
 export type HubGuestRead = {
+  /** False when the host has not shared the guest list with this viewer. */
+  shared: boolean;
   /** False when the guest read was refused — the counts are unknown, not zero. */
   measured: boolean;
   invited: number;
@@ -176,6 +194,9 @@ export type HubFact = {
   known: boolean;
 };
 
+/** What a fact says when the host simply has not shared that part. */
+export const NOT_SHARED = 'Not shared with you';
+
 const STAGE_FACT: Record<LifecyclePhase, string> = {
   save_the_date: 'Save-the-Date live',
   rsvp: 'Invitation live',
@@ -221,17 +242,23 @@ export function resolveHubFacts(
     },
     {
       label: 'Replies',
-      value: guests.measured ? `${guests.replied} of ${guests.invited} in` : null,
-      known: guests.measured,
+      value: !guests.shared
+        ? NOT_SHARED
+        : guests.measured
+          ? `${guests.replied} of ${guests.invited} in`
+          : null,
+      known: !guests.shared || guests.measured,
     },
     {
       label: 'Still quiet',
-      value: guests.measured
-        ? pending === 0
-          ? 'Everyone replied'
-          : `${pending} ${pending === 1 ? 'has' : 'have'} not replied`
-        : null,
-      known: guests.measured,
+      value: !guests.shared
+        ? NOT_SHARED
+        : guests.measured
+          ? pending === 0
+            ? 'Everyone replied'
+            : `${pending} ${pending === 1 ? 'has' : 'have'} not replied`
+          : null,
+      known: !guests.shared || guests.measured,
     },
     dayFact(event, nowMs),
   ];
@@ -240,7 +267,7 @@ export function resolveHubFacts(
 /** S3 — the single card naming the one thing to do now. */
 export type HubNextStep = {
   /** Stable key for tests and for the render's animation identity. */
-  key: 'unreadable' | 'link' | 'guests' | 'replies' | 'ready' | 'day' | 'story';
+  key: 'unreadable' | 'link' | 'guests' | 'replies' | 'ready' | 'day' | 'story' | 'preview';
   headline: string;
   blurb: string;
   ctaLabel: string;
@@ -305,6 +332,23 @@ export function resolveHubNextStep(
         'Everything your guests ever see lives at one address. Choose it once and it carries the save-the-date, the invitation, the day and the story.',
       ctaLabel: 'Set your link',
       ctaPath: '/website/editor',
+    };
+  }
+
+  if (!guests.shared) {
+    /*
+      A coordinator the host never gave the guest list to. Their replies are not
+      theirs to see — but the rest of this page IS, so they get a next step
+      about the part they do hold rather than a locked screen or, worse, an
+      instruction built on rows they were refused.
+    */
+    return {
+      key: 'preview',
+      headline: 'Look at the page the way a guest does.',
+      blurb:
+        'The guest list has not been shared with you, so the replies are not yours to see. Everything else on this page is.',
+      ctaLabel: 'Open as a guest',
+      ctaPath: '',
     };
   }
 

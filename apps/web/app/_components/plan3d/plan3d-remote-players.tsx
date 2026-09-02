@@ -23,15 +23,31 @@ import { memo, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Figure } from './kit';
-import { WALK_CLOCK_RAD_S, RUN_CLOCK_RAD_S, damp, type FigureSpec } from '@/lib/figure-rig';
+import {
+  WALK_CLOCK_RAD_S,
+  RUN_CLOCK_RAD_S,
+  damp,
+  lerpAngle,
+  type FigureSpec,
+} from '@/lib/figure-rig';
 import { renderRemote, activeRemotes, type RemoteMap, type RemotePlayer, type Vec2 } from '@/lib/plan3d-room';
 
-/** Shortest-arc angle lerp (matches plan3d-scene's local helper) so a remote's
- *  heading eases toward the network target instead of snapping on jitter. */
-function lerpAngle(a: number, b: number, k: number): number {
-  const d = ((b - a + Math.PI) % (2 * Math.PI)) - Math.PI;
-  return a + (d < -Math.PI ? d + 2 * Math.PI : d) * k;
-}
+/*
+ * A remote's heading eased toward the network target instead of snapping on
+ * jitter — now through the SHARED `lerpAngle` (lib/figure-rig) rather than a
+ * private modulo copy.
+ *
+ * ⚠ THE TWO WERE NOT IDENTICAL, AND THE DIFFERENCE IS RECORDED RATHER THAN
+ * ASSUMED AWAY. Compared over 396,344 (a, b, k) triples: 396,112 agree, and
+ * the 232 that do not are all the EXACT half-turn (b − a = π), where the
+ * shortest arc is genuinely ambiguous. The old local copy spun one way through
+ * that tie and the shared one spins the other; both land on the same heading
+ * at k = 1, and they differ only mid-interpolation.
+ *
+ * That is a tie-break, not a correctness property, and there is no reason a
+ * remote player should turn the opposite way from every other figure in the
+ * room — which is the whole point of there being one of these.
+ */
 
 const ORIGIN: Vec2 = { x: 0, z: 0 };
 

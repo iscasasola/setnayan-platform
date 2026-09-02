@@ -44,6 +44,8 @@ import {
   tableDims,
   shapeHintFor,
   seatWorld,
+  approachPoint,
+  type SeatPose,
   steerPath,
   seatApproachPath,
   floorObstacles,
@@ -70,6 +72,7 @@ import {
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { damp, lerpAngle } from '@/lib/figure-rig';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
@@ -83,6 +86,8 @@ import {
   InstancedSeatedCrowd,
   seatedFigureMatrix,
   RUN_CLOCK_RAD_S,
+  SitController,
+  SIT_TIMING,
   type EmoteEmitter,
   type FigureSpec,
   type SeatedInstance,
@@ -265,6 +270,11 @@ function GuestTable({
         occupiedSeats={occupied}
         color={palette.wall}
         accent={palette.accent}
+        // Registers this table in the chair detach registry so <SitController>
+        // can pull THIS chair back for the sit clip. Without it detachChair()
+        // no-ops and the guest would sit straight through a chair that never
+        // moves — the reason the sit needs it, added with the sit.
+        tableId={table.id}
       />
       {chairs.map((c, i) => {
         const ang = c.faceY;
@@ -281,19 +291,38 @@ function GuestTable({
         // THIS path: the dress-code tint added 2026-09-02 is seat-keyed and is
         // applied to the instanced crowd batch below, never derived from the
         // guest behind a photo seat.
+        // ── YOUR OWN SEAT DRAWS NO BODY (owner 2026-09-02) ──────────────────
+        // Your body is the WALKING avatar, which crosses the room and sits in
+        // this chair. Until now this branch also drew a SEATED copy of you the
+        // moment the page opened — so a token-holding guest saw TWO of
+        // themselves, and the walker finished by standing inside the seated
+        // one. The gold ring is the marker; the figure arrives on foot.
+        if (mine) {
+          return (
+            <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
+              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+                <ringGeometry args={[0.32, 0.42, 28]} />
+                <meshBasicMaterial
+                  color={palette.accent}
+                  side={THREE.DoubleSide}
+                  transparent
+                  opacity={0.95}
+                />
+              </mesh>
+            </group>
+          );
+        }
         const photoUrl = taken ? photoBySeat?.get(i) ?? null : null;
         // Neutral, ringless strangers render through the room-level
-        // <InstancedSeatedCrowd> (one batch for the whole walk). Only the
-        // viewer's own seat (accent + gold ring) and per-guest photo seats
-        // (billboard head) stay individual here.
-        if (!mine && !photoUrl) return null;
-        const ringColor = mine ? palette.accent : palette.table;
+        // <InstancedSeatedCrowd> (one batch for the whole walk). Only per-guest
+        // photo seats (billboard head) stay individual here.
+        if (!photoUrl) return null;
         const spec: FigureSpec = {
           id: `${table.id}:${i}`,
           outfit: 'neutral',
-          outfitColor: mine ? palette.accent : null,
+          outfitColor: null,
           photoUrl,
-          statusColor: photoUrl ? ringColor : '',
+          statusColor: palette.table,
         };
         return (
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
@@ -333,6 +362,7 @@ function GuestAvatar({
   posRef,
   waveUntil = 0,
   avatar = null,
+  bodyHidden = false,
 }: {
   entrance: Vec2;
   target: Vec2;
@@ -351,7 +381,10 @@ function GuestAvatar({
    *  for a dance target, the dance-floor disc skipped too — parent-swapped). */
   roamObstacles: { c: Vec2; r: number }[];
   /** Fired once when a walk-to-seat reaches the chair — hides the beacon. */
-  onArrive?: () => void;
+  /** Seat walks only: fired once when the figure reaches the approach point,
+   *  with the heading it stopped on and its frozen gait phase — both feed the
+   *  sit clip's arrival blend. */
+  onArrive?: (arriveHeading: number, arrivePhase: number) => void;
   palette: Lab3DPalette;
   /** Shared-room (slice 8): the scene writes this each frame so a broadcaster can
    *  read the viewer's live floor position without touching this walk loop. */
@@ -363,12 +396,21 @@ function GuestAvatar({
    *  by `selfFigureAvatar`, which returns null for the flag-off path and for
    *  every guest with no stored config — i.e. everyone, today. */
   avatar?: ChibiAvatarConfig | null;
+  /** True while <SitController> owns the body. The walker stays MOUNTED and
+   *  keeps tracking its position (so standing up again resumes from the seat
+   *  instead of teleporting to the entrance) but draws nothing — there must
+   *  only ever be one of you in the room. */
+  bodyHidden?: boolean;
 }) {
   const ref = useRef<THREE.Group>(null);
   const path = useRef<Vec2[]>([]);
   const idx = useRef(0);
   const pos = useRef<Vec2>({ x: entrance.x, z: entrance.z });
   const arrivedRef = useRef(false);
+  // Read here, not passed down: this is the component that actually MOVES, and
+  // the walk is the only thing on this surface a reduced-motion viewer needs
+  // spared. See the short-circuit in useFrame below.
+  const reduced = usePrefersReducedMotion();
   // Gait phase clock for the kit figure — advances at the RUN cadence (this
   // avatar translates at 2.2 m/s, a jog; the run cycle's quicker steps are
   // what keep the feet from sliding — ChameleonMovement port 2026-07-09)
@@ -403,10 +445,20 @@ function GuestAvatar({
     // Walking to my seat: route AROUND my own table and step in from outside.
     // Free-roam tap: steer straight to the tapped point (own table skipped so I
     // can stand right by my chair).
-    path.current =
-      isSeatTarget && seat
-        ? seatApproachPath(start, seat.table, seat.seatNumber, room, seatObstacles, 0.2)
-        : steerPath(start, target, roamObstacles, 0.2);
+    if (isSeatTarget && seat) {
+      const p = seatApproachPath(start, seat.table, seat.seatNumber, room, seatObstacles, 0.2);
+      // STOP BESIDE THE CHAIR, NOT ON IT. seatApproachPath's last waypoint is
+      // the chair itself (its own test pins "path ends exactly on the chair"),
+      // which is right for a walk that ends standing and wrong for one that
+      // ends SITTING — the walker used to finish inside the seat. The last
+      // 0.55 m belongs to <SitController>, which steps into the gap it leaves
+      // while pulling the chair back. Same retarget the demo scene does.
+      const sp = seatWorld(seat.table, seat.seatNumber, room);
+      if (p.length > 0) p[p.length - 1] = approachPoint(sp, SIT_TIMING.APPROACH_M);
+      path.current = p;
+    } else {
+      path.current = steerPath(start, target, roamObstacles, 0.2);
+    }
     idx.current = 0;
     arrivedRef.current = false; // a new destination → not there yet
     restedRef.current = false;
@@ -418,6 +470,21 @@ function GuestAvatar({
     if (!g) return;
     const p = path.current;
     if (idx.current < p.length - 1) {
+      // REDUCED MOTION — complete without animating, the contract every other
+      // surface already keeps (the demo teleports, the lab skips the walk, the
+      // kit holds STAND_BASE). This surface was the exception: the hook only
+      // stopped the beacon pulse, so a viewer who asked for reduced motion
+      // still got a FROZEN mannequin gliding 2.2 m/s across the room on load —
+      // motion without the gait that explains it, which is the worse half.
+      // Jump to the destination; the arrival branch below fires next frame and
+      // the walk's completion callbacks run exactly as they always do.
+      if (reduced) {
+        const end = p[p.length - 1]!;
+        g.position.x = end.x;
+        g.position.z = end.z;
+        idx.current = p.length - 1;
+        return;
+      }
       const next = p[idx.current + 1]!;
       const dx = next.x - g.position.x;
       const dz = next.z - g.position.z;
@@ -430,7 +497,11 @@ function GuestAvatar({
       } else {
         g.position.x += (dx / dist) * step;
         g.position.z += (dz / dist) * step;
-        g.rotation.y = Math.atan2(dx, dz);
+        // Shortest-arc smoothing, NOT a snap. `rotation.y = atan2(...)` turned
+        // the figure in a single frame, so a tap behind them flipped the body
+        // 180° instantly. Same idiom the demo Walker and the remote-player
+        // renderer use; damp() keeps it identical at 30fps and 120fps.
+        g.rotation.y = lerpAngle(g.rotation.y, Math.atan2(dx, dz), damp(0.015, delta));
       }
       // Advance the gait while translating; the rig's own pelvis bob keeps the
       // group grounded (no whole-body hop).
@@ -444,7 +515,11 @@ function GuestAvatar({
       }
       if (isSeatTarget && !arrivedRef.current) {
         arrivedRef.current = true;
-        onArrive?.();
+        // Hand the body to the sit clip: its heading starts the shortest-arc
+        // turn, and its frozen gait phase lets the controller paint the first
+        // seated frame in the pose the walker stopped in (same pose + same
+        // phase ⇒ identical joints, no one-frame snap to neutral).
+        onArrive?.(g.rotation.y, phaseRef.current);
       }
     }
     pos.current = { x: g.position.x, z: g.position.z };
@@ -480,19 +555,23 @@ function GuestAvatar({
 
           Every guest without an avatar keeps the blob below, byte-identical —
           pinned by lib/venue-avatars.test.ts. */}
-      {avatar ? (
-        <ChibiFigure id={selfSpec.id} config={avatar} castShadow />
-      ) : (
-        <Figure
-          spec={selfSpec}
-          pose={waving ? 'stand' : atRest ? (dance ? 'dance' : 'stand') : 'run'}
-          idleClip={waving ? 'wave' : undefined}
-          phase={phaseRef}
-          quality="high"
-        />
+      {bodyHidden ? null : (
+        <>
+          {avatar ? (
+            <ChibiFigure id={selfSpec.id} config={avatar} castShadow />
+          ) : (
+            <Figure
+              spec={selfSpec}
+              pose={waving ? 'stand' : atRest ? (dance ? 'dance' : 'stand') : 'run'}
+              idleClip={waving ? 'wave' : undefined}
+              phase={phaseRef}
+              quality="high"
+            />
+          )}
+          {/* Keep the soft accent glow that has always marked "you". */}
+          <pointLight position={[0, 1.2, 0]} intensity={0.5} distance={3.5} color={palette.accent} />
+        </>
       )}
-      {/* Keep the soft accent glow that has always marked "you". */}
-      <pointLight position={[0, 1.2, 0]} intensity={0.5} distance={3.5} color={palette.accent} />
     </group>
   );
 }
@@ -807,6 +886,14 @@ export default function GuestVenue3D({
   // Whether the avatar has reached its seat — hides the destination beacon once
   // it's standing there. Reset whenever the seat walk (re)starts.
   const [seatReached, setSeatReached] = useState(false);
+  // The live sit clip. Set when the seat walk lands at the approach point; the
+  // controller then owns the body (pull the chair back → turn → sit → tuck).
+  // Null whenever the guest is walking, roaming or dancing.
+  const [sit, setSit] = useState<{
+    seat: SeatPose;
+    arriveHeading: number;
+    arrivePhase: number;
+  } | null>(null);
   // Whether the current target is ON the dance floor — the avatar dances on
   // arrival. Every non-dance destination (seat, booth, elsewhere) clears it, so
   // walking away stops the dance. State-scoped to the current target.
@@ -816,6 +903,12 @@ export default function GuestVenue3D({
     setSeatReached(false);
     setDanceTarget(false);
   }, [seatTarget]);
+  // ANY new destination ends the sit and gives the body back to the walker —
+  // a roam tap, a booth, the dance floor. Without this the guest would stand
+  // up in two places at once, which is the defect this whole change removes.
+  useEffect(() => {
+    setSit(null);
+  }, [target]);
   const isSeatTarget = target === seatTarget;
 
   // The booth whose vendor card is open (tap a booth → card). Null = closed.
@@ -1117,12 +1210,66 @@ export default function GuestVenue3D({
             // A dance target steers with the dance-floor disc dropped so the
             // walk can reach the floor; every other roam tap keeps it (rounds it).
             roamObstacles={danceTarget ? danceObstacles : roamObstacles}
-            onArrive={() => setSeatReached(true)}
+            onArrive={(arriveHeading, arrivePhase) => {
+              setSeatReached(true);
+              // Hand the body to the sit clip. The walker STAYS MOUNTED (just
+              // bodyless) so its tracked position survives — unmounting it
+              // would reset `pos` to the entrance and teleport the guest
+              // across the room the moment they tapped to stand up again.
+              if (youSeat) {
+                setSit({
+                  seat: seatWorld(youSeat.table, youSeat.seatNumber, room),
+                  arriveHeading,
+                  arrivePhase,
+                });
+              }
+            }}
+            bodyHidden={sit !== null}
             palette={palette}
             posRef={walkerPosRef}
             waveUntil={sharedRoom.selfGreetUntil}
             avatar={selfAvatar}
           />
+        ) : null}
+
+        {/* THE SIT. The walk delivered the figure to the approach point 0.55 m
+            behind the chair and went bodyless; the controller now owns the
+            body + that one detached chair for pull-back → turn+sit → tuck, and
+            holds the flush seated pose until the guest walks off. Under
+            reduced motion it snaps straight to seated (never detaching a
+            chair) and still fires onSeated, so the flow always completes. */}
+        {sit && youSeat && isSeatTarget ? (
+          <SitController
+            key={`${youSeat.table.id}:${youSeat.seatNumber}`}
+            seat={sit.seat}
+            tableId={youSeat.table.id}
+            seatIndex={youSeat.seatNumber}
+            arriveHeading={sit.arriveHeading}
+            // 'run', not 'walk': this avatar jogs at 2.2 m/s and the walker
+            // renders the run cycle — the arrival blend must start from the
+            // pose it actually stopped in or the limbs snap for one frame.
+            arrivePose="run"
+            arrivePhase={sit.arrivePhase}
+            chairColor={palette.wall}
+          >
+            {(pose, phase) =>
+              selfAvatar ? (
+                <ChibiFigure id="guest-self" config={selfAvatar} castShadow />
+              ) : (
+                <Figure
+                  spec={{
+                    id: 'guest-self',
+                    outfit: 'neutral',
+                    outfitColor: palette.accent,
+                    statusColor: '',
+                  }}
+                  pose={pose}
+                  phase={phase}
+                  quality="high"
+                />
+              )
+            }
+          </SitController>
         ) : null}
 
         {/* Shared room (slice 8): broadcast my walk + render other online guests'

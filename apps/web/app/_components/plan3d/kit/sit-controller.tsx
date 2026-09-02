@@ -63,7 +63,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { damp } from '@/lib/figure-rig';
+import { damp, lerpAngle } from '@/lib/figure-rig';
 import type { SeatPose } from '@/lib/seating-3d';
 import {
   detachChair,
@@ -116,14 +116,6 @@ function smootherstep(x: number): number {
 function easeOutCubic(x: number): number {
   const c = Math.max(0, Math.min(1, x));
   return 1 - (1 - c) * (1 - c) * (1 - c);
-}
-
-/** Shortest-arc angle lerp so the turn-to-seat never spins the long way round
- *  (local copy of the plan3d-scene Walker's idiom — 3 lines, not worth a
- *  cross-module export of a private helper). */
-function lerpAngle(a: number, b: number, k: number): number {
-  const d = Math.atan2(Math.sin(b - a), Math.cos(b - a));
-  return a + d * k;
 }
 
 /** Normalize into atan2's (−π, π] range (seating-3d's private wrapAngle). */

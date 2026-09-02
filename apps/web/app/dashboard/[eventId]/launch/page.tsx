@@ -43,6 +43,9 @@ import {
   resolveHubFacts,
   resolveHubNextStep,
   hubOffersAllowed,
+  hubPreviewRoles,
+  resolveArmedHubRole,
+  resolveHubRoleView,
   type HubEventRead,
   type HubGuestRead,
 } from '@/lib/event-hub-control';
@@ -53,6 +56,7 @@ import {
 } from '@/lib/couple-website-pro';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
+import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 
 // ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
 // "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
@@ -61,7 +65,13 @@ import { formatPhp } from '@/lib/orders';
 // re-claims it.
 export const metadata = { title: 'Event Hub' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  /** `?viewas=<role>` — VIEW AS. A string from the address bar and nothing
+   *  more: `resolveArmedHubRole` checks it against the list this viewer was
+   *  offered, so it can never arm a read they may not have. */
+  searchParams?: Promise<{ viewas?: string | string[] }>;
+};
 
 /**
  * THE EVENT HUB CONTROLLER — the couple's side of their one public address.
@@ -117,8 +127,9 @@ type Props = { params: Promise<{ eventId: string }> };
  * "host" is the whole lesson of `loadHostMembership`, which selected
  * `member_type` and then never compared it.
  */
-export default async function LaunchHubPage({ params }: Props) {
+export default async function LaunchHubPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const search = searchParams ? await searchParams : {};
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -297,14 +308,18 @@ export default async function LaunchHubPage({ params }: Props) {
     not: when the couple owns it, when the read did not happen, on the day, and
     after it.
 
-    ⚠ THE DAY GATE IS EH1'S AND IS CALLED, NEVER RE-DERIVED. `hubOffersAllowed`
-    is `phase === 'plan'` — STRICTER than the design text ("no offers on the
-    event day"), because it also silences the offer AFTER the day. That reads as
-    intended: it is the owner's 2026-08-21 ruling on the day-of services,
-    "stop offering them", and the shipped "Event over" chip beside it does the
-    same thing. A consequence worth naming rather than discovering: the Day-of
-    and Editorial channels can therefore never carry an offer, because the stage
-    only reaches them once the phase is 'dayof' or 'after'.
+    ⚠ THE GATE IS EH1'S, IS CALLED, AND IS NEVER RE-DERIVED. `hubOffersAllowed`
+    is `phase === 'plan'`, and that ONE LINE DOES THREE JOBS — its own docblock
+    in `lib/event-hub-control.ts` names all three: on the day (an offer never
+    outranks the day), after the day (the owner's 2026-08-21 ruling, "stop
+    selling the day itself once the day is over", guarded by
+    `lib/stop-selling-the-day-after-the-day.test.ts`), and UNMEASURED, where we
+    do not know whether it is their wedding day and an unread state must never
+    become a sale. 🛑 Settled and owner-ruled: do not widen it, do not relax it to
+    day-only, and do not add a second gate here. A consequence worth naming
+    rather than discovering: the Day-of and Editorial channels therefore never
+    carry an offer, because the stage only reaches them once the phase is
+    'dayof' or 'after' — that is the ruling working, not a gap.
   */
   const proOffer = resolveHubProOffer({
     channel: standing.stage,
@@ -312,6 +327,34 @@ export default async function LaunchHubPage({ params }: Props) {
     ownsPro: proActive || proOwned,
   });
   const proPriceLabel = proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
+
+  /*
+    ─── VIEW AS ──────────────────────────────────────────────────────────────
+    Owner 2026-09-02: "make sure it also has view as (they pick what each role
+    sees)."
+
+    🔒 The offer list is computed from `membership.member_type` through
+    `hubPreviewRoles`, which asks `isHostMemberType` — the ONE definition of
+    "host" this repo keeps, and the comparison whose absence once let a
+    `guest`-typed `event_members` row open a private site and jump to phases the
+    couple had not launched. The gate above already redirected such a viewer;
+    this is the same fact asked a second time, at the place that hands out the
+    doors, so no future refactor of the redirect can silently open them.
+
+    The NAMED read — one real guest's personal page rendered to the host — is
+    the only privacy surface here and ships DARK behind
+    `hubNamedGuestPreviewEnabled()`. Nothing on this page reads a guest by name
+    either way: even with the flag on, the seat-holder door is the FABRICATED
+    sample that `lib/simulated-guest-preview.ts` already ships.
+  */
+  const offeredRoles = hubPreviewRoles({
+    memberType: (membership as { member_type?: string | null } | null)?.member_type,
+    namedGuestEnabled: hubNamedGuestPreviewEnabled(),
+  });
+  const armedRole = resolveArmedHubRole({ param: search.viewas, offered: offeredRoles });
+  const roleViews = offeredRoles.map((role) =>
+    resolveHubRoleView({ role, standing, slug: eventSlug, guests: guestFacts }),
+  );
 
   /*
     ─── HAS THIS CELEBRATION ALREADY HAPPENED? ──────────────────────────────
@@ -454,6 +497,9 @@ export default async function LaunchHubPage({ params }: Props) {
         channelIndex={activeChannel ? activeChannelIndex + 1 : null}
         channelCount={PUBLIC_SITE_PAGES.length}
         editHref={`${base}/website/editor`}
+        roles={roleViews}
+        armedRole={armedRole}
+        roleHrefBase={`${base}/launch`}
       />
 
       {/* ══ S3 · ONE NEXT STEP ══ */}

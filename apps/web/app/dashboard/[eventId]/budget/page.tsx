@@ -247,7 +247,7 @@ export default async function BudgetPage({ params }: Props) {
 
   // BUD-2 · R1. Strip, live card and vendor list stop being three different
   // row sets. Flag OFF every value below collapses back to the legacy inputs
-  // computed above, so production renders byte-identically.
+  // computed above. Both states print FINALIZED money only (BA2).
   const stripMoney = budgetStripMoney({
     enabled: budgetTruth,
     money,
@@ -255,11 +255,12 @@ export default async function BudgetPage({ params }: Props) {
     targetCentavos: initialBudgetCentavos,
   });
 
-  // Which vendors get a card. Flag ON widens from "contracted+" to
-  // "contracted+ OR carrying money", so every peso in a headline above has a
-  // card the couple can actually open, edit and delete. Flag OFF: unchanged.
+  // Which vendors get a card. CONFIRMED ONLY, in both flag states (BA2, owner
+  // ruling 2026-09-02: "no quotes here. we only add the finalized budgets").
+  // A shortlisted supplier's quote belongs in the Merkado, where the couple is
+  // still adding and subtracting candidates — not on the page that says what
+  // they have signed for.
   const finalizedVendors = vendorsToItemize({
-    enabled: budgetTruth,
     vendors: snapshot.vendors,
     isConfirmed: (status) => CONFIRMED_STATUS_SET.has(status),
   });
@@ -459,7 +460,7 @@ export default async function BudgetPage({ params }: Props) {
  * back to them as soon as they save.
  */
 function BudgetSummaryStrip({ money }: { money: BudgetStripMoney }) {
-  const { targetPhp, committedPhp, estimatedPhp, remainingPhp } = money;
+  const { targetPhp, committedPhp, remainingPhp } = money;
 
   return (
     <section aria-labelledby="budget-summary-heading" className="sn-tile">
@@ -479,15 +480,13 @@ function BudgetSummaryStrip({ money }: { money: BudgetStripMoney }) {
           label="Committed"
           value={formatPhp(committedPhp)}
           hint={
-            // BUD-2 · §18.5 rules 2/3. An estimate never enters "Committed",
-            // but it must not vanish either — a couple looking at ₱0 committed
-            // while a ₱80,000 vendor sits in their list is exactly the
-            // contradiction R1 is about. Name it here instead.
-            estimatedPhp !== null && estimatedPhp > 0
-              ? `${formatPhp(estimatedPhp)} more is still an estimate`
-              : committedPhp > 0
-                ? 'Paid + signed vendors'
-                : 'Nothing committed yet'
+            // BA2. No estimate is named here any more. §18.5 rule 3 required
+            // one because an un-booked vendor SAT IN THIS LIST, so ₱0 committed
+            // beside its ₱80,000 was a contradiction the page had to explain.
+            // The vendor is gone from the list, so the contradiction is gone
+            // with it — the quote is shown in the Merkado, where the couple is
+            // still choosing.
+            committedPhp > 0 ? 'Paid + signed vendors' : 'Nothing committed yet'
           }
         />
         <SummaryStat

@@ -82,3 +82,73 @@ test('membership asks the ONE definition of host', () => {
     'a second, re-typed definition of "host" is how a guest row counted as one',
   );
 });
+
+/*
+  ── VIEW AS — the wiring claim, which the other two files cannot see ────────
+  The resolver refuses a `guest` row and the stage paints no switcher for an
+  empty list. Both stay true while the PAGE hands `hubPreviewRoles` something
+  other than this viewer's own `member_type` — a literal 'couple', a `Boolean`,
+  or an `offered` list built by hand — and neither file would notice, because
+  neither reads the page. That substitution IS the defect that shipped once.
+*/
+test('the offer list is built from THIS viewer\'s member_type, through the one gate', () => {
+  const src = page();
+  assert.match(src, /hubPreviewRoles\(\{/, 'the page must ask the gate, not assemble a list');
+  assert.match(
+    src,
+    /memberType:\s*\(membership as[\s\S]{0,120}?\)\?\.member_type/,
+    'the gate must be fed the viewer\'s OWN row, never a literal',
+  );
+  assert.doesNotMatch(
+    src,
+    /hubPreviewRoles\(\{[\s\S]{0,160}?memberType:\s*'(couple|coordinator)'/,
+    'a typed-in member_type would hand every viewer the host reads',
+  );
+  assert.doesNotMatch(
+    src,
+    /const offeredRoles\s*=\s*(HUB_ROLES|HUB_GENERIC_ROLES|\[)/,
+    'the offer list may never be assembled beside the gate instead of by it',
+  );
+});
+
+test('the armed role is resolved against the offer list, never taken from the URL', () => {
+  const src = page();
+  assert.match(
+    src,
+    /resolveArmedHubRole\(\{\s*param:\s*search\.viewas,\s*offered:\s*offeredRoles\s*\}\)/,
+    'the param is checked against what this viewer was offered — it is not the authority',
+  );
+  assert.doesNotMatch(
+    src,
+    /armedRole\s*=\s*search\.viewas/,
+    'reading the role straight off the address bar is the whole bug, wearing a param',
+  );
+});
+
+test('the named-guest read reaches the gate as a FLAG, and the page reads no guest by name', () => {
+  const src = page();
+  assert.match(
+    src,
+    /namedGuestEnabled:\s*hubNamedGuestPreviewEnabled\(\)/,
+    'the privacy surface must be gated by the flag, not by a literal',
+  );
+  assert.doesNotMatch(
+    src,
+    /namedGuestEnabled:\s*true/,
+    'a hardcoded true ships the one read the owner has not ruled on',
+  );
+  // Flag ON or OFF, this page performs no per-guest name read. The absence is
+  // provable rather than promised — there is no such select to audit.
+  assert.doesNotMatch(src, /first_name|display_name/, 'no guest is read by name here');
+});
+
+test('the stage is HANDED the resolved reads — it resolves no role of its own', () => {
+  const src = page();
+  assert.match(src, /roles=\{roleViews\}/);
+  assert.match(src, /armedRole=\{armedRole\}/);
+  assert.match(
+    src,
+    /resolveHubRoleView\(\{\s*role,\s*standing,\s*slug:\s*eventSlug,\s*guests:\s*guestFacts\s*\}\)/,
+    'the role reads are built from the SAME standing and guest facts the stage shows',
+  );
+});

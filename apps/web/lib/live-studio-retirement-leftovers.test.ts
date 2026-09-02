@@ -218,7 +218,7 @@ test('no activation hook is registered for a retired Live Studio Cast SKU', () =
   assert.ok(keys.length > 10, `expected the hook registry, parsed ${keys.length} key(s)`);
 
   // PANOOD_SYSTEM (Cast, ₱2,500) and PANOOD_SYSTEM_MOBILE (₱1,500) are both
-  // is_active=false with zero orders; LIVE_STUDIO ₱3,000 replaced them.
+  // is_active=false with zero orders; LIVE_STUDIO replaced them.
   const retired = keys.filter((k) => k.startsWith('PANOOD_'));
   assert.deepEqual(
     retired,

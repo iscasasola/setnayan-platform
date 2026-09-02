@@ -53,6 +53,71 @@ test('a palette of only INVALID hexes is the same as no palette', () => {
   assert.equal(guestAttireColor(rp(junk), 'T1:0'), null);
 });
 
+// A 3-digit hex would pass this module's shared `HEX` but is rejected by
+// `MANNEQUIN_TINT_RE` downstream, so it would be "chosen" here and painted
+// WHITE on the figure — a colour the couple picked disappearing with no error.
+// Reject it here instead, so the failure is a neutral mannequin by DECISION
+// rather than by accident.
+test('a 3-digit hex is rejected, not chosen-then-silently-painted-white', () => {
+  assert.equal(guestAttireColor(rp(['#abc']), 'T1:0'), null);
+  // and it must not be counted as an option alongside valid ones
+  const only6 = new Set<string>();
+  for (let s = 0; s < 60; s++) only6.add(guestAttireColor(rp(['#abc', '#8e3b5b']), `T1:${s}`)!);
+  assert.deepEqual([...only6], ['#8e3b5b'], 'only the 6-digit colour may be worn');
+});
+
+// THE ROTATION BUG. `hashId` is FNV-1a; its final Math.imul does not mix high
+// bits downward, so `% n` for a power-of-two n reads only the low log2(n) bits
+// — which barely change between consecutive seat keys. Before the avalanche
+// fold, a 4-colour dress code walked a table as 3 0 1 2 3 0 1 2 3 0: a round
+// table read as a mechanical ABCD rotation, not a crowd. 4 is the most common
+// palette size, so this was the common case, not the edge case.
+test('a power-of-two dress code does NOT walk a table as a repeating cycle', () => {
+  // ⚠ THE FIRST VERSION OF THIS TEST WAS VACUOUS. It asked only whether ONE
+  // seat in twelve broke the cycle, and the raw-FNV sequence happens to break
+  // once — so it passed against the very bug it was written to catch (proven
+  // by sabotage). The honest measure is a RATE over many tables:
+  // "how often does seat s wear the same colour as seat s+size?"
+  //
+  // Measured: raw FNV modulo = 100.0% (a perfect, mechanical rotation).
+  // Fibonacci-mixed = 0.0% at size 4, 26.6% at size 2 (random ≈ 25% / 50%).
+  // The threshold sits far from both, so this catches the regression without
+  // being brittle about which mixing function is used.
+  for (const size of [2, 4]) {
+    const palette = DRESS_CODE.slice(0, size);
+    let same = 0;
+    let total = 0;
+    for (let t = 0; t < 40; t++) {
+      const seq = Array.from({ length: 10 }, (_, s) => guestAttireColor(rp(palette), `S89T-TBL${t}:${s}`)!);
+      for (let s = 0; s + size < seq.length; s++) {
+        total++;
+        if (seq[s] === seq[s + size]) same++;
+      }
+    }
+    const rate = (100 * same) / total;
+    assert.ok(
+      rate < 60,
+      `a ${size}-colour dress code repeats every ${size} seats ${rate.toFixed(1)}% of the time ` +
+        `— the crowd reads as a mechanical rotation, not a mixed room`,
+    );
+  }
+});
+
+test('the whole dress code still appears, and roughly evenly, across a room', () => {
+  const counts = new Map<string, number>();
+  for (let t = 0; t < 25; t++) {
+    for (let s = 0; s < 10; s++) {
+      const c = guestAttireColor(rp(DRESS_CODE), `S89T-TBL${t}:${s}`)!;
+      counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
+  }
+  assert.equal(counts.size, DRESS_CODE.length, 'every approved colour should be worn somewhere');
+  // 250 seats over 4 colours = 62.5 each. Allow generous spread; catch collapse.
+  for (const [c, n] of counts) {
+    assert.ok(n > 30 && n < 100, `${c} worn ${n}/250 times — distribution has collapsed`);
+  }
+});
+
 // ── 1 · THE PRIVACY PROPERTY. Same seat → same colour, whoever is in it.
 test('the colour depends ONLY on the seat key — it cannot encode a person', () => {
   // The signature admits no guest at all, so identity cannot reach it. Pin the

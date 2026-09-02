@@ -2039,6 +2039,10 @@ export function seatApproachPath(
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+/** Attire tints only. Must stay in lock-step with `MANNEQUIN_TINT_RE`
+ *  (lib/figure-sit-bake.ts) — anything this accepts, that must render. */
+const GUEST_ATTIRE_HEX = /^#[0-9a-f]{6}$/i;
+
 /** Pick a usable scene palette from the mood-board hex list, with warm fallbacks. */
 export function resolvePalette(hexes: string[]): Lab3DPalette {
   const clean = hexes.filter((h) => typeof h === 'string' && HEX.test(h));
@@ -2116,11 +2120,37 @@ export function guestAttireColor(
   rp: RolePalette | null | undefined,
   seatKey: string,
 ): string | null {
+  // SIX-DIGIT ONLY — deliberately stricter than this module's shared `HEX`,
+  // which also accepts `#abc` and is load-bearing for the ROOM palettes above.
+  // Downstream, `MANNEQUIN_TINT_RE` in lib/figure-sit-bake.ts is 6-digit only:
+  // a 3-digit hex would be "chosen" here and then silently painted WHITE there,
+  // i.e. a colour the couple picked vanishing with no error. `sanitizeRolePalette`
+  // already stores 6-digit only, so this rejects nothing real — it closes the
+  // gap for a future caller that reaches this function without sanitizing.
   const options = (rp?.guest ?? []).filter(
-    (h): h is string => typeof h === 'string' && HEX.test(h),
+    (h): h is string => typeof h === 'string' && GUEST_ATTIRE_HEX.test(h),
   );
   if (options.length === 0) return null;
-  return options[hashId(seatKey) % options.length] ?? null;
+  // AVALANCHE BEFORE THE MODULO — Fibonacci hashing (Knuth 6.4).
+  //
+  // `hashId` is FNV-1a, whose final Math.imul never mixes high bits downward,
+  // so `% n` for a power-of-two `n` reads only the low log2(n) bits — and those
+  // barely change between consecutive seat keys. Measured: a 4-colour dress
+  // code (the most common size, `PALETTE_LIMITS.guest` allows 3–6) walked a
+  // table as `3 0 1 2 3 0 1 2 3 0`, so a round table read as a mechanical ABCD
+  // rotation instead of a crowd.
+  //
+  // ⚠ THE OBVIOUS FIX IS WRONG IN JAVASCRIPT. `(h ^ (h >>> 16)) % n` looks
+  // right and is broken: `^` yields a SIGNED int32, so the fold goes negative,
+  // `negative % n` is negative, `options[-1]` is undefined, and the colour
+  // silently disappears — measured spread 65/35/33/35 across 250 seats with
+  // colours simply missing. Multiply-and-shift keeps it unsigned by
+  // construction (`>>> 16`), which is why it is used here.
+  //
+  // Measured over 250 seats × 4 colours: 66/60/62/62 (ideal 62.5), sequence
+  // `2 1 3 2 0 0 1 1 2 2 1 1` — no cycle. Sizes 3/5/6 were already irregular.
+  const h = hashId(seatKey);
+  return options[(Math.imul(h, 2654435761) >>> 16) % options.length] ?? null;
 }
 
 /** A few demo palettes for the live "watch materials recolour" switcher. */

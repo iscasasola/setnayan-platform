@@ -197,25 +197,46 @@ test('the Planned cell renders "—" for an unplanned row, never a defaulted ₱
    * number for its geometry and never prints one. Only a PRINTED zero is the
    * lie, so the window is the printed cell and nothing else.
    */
-  const plannedCell = (s: string): string => {
-    const i = s.indexOf('BUDGET_LEDGER_COLUMNS[0]');
-    return i === -1 ? '' : s.slice(i, i + 320);
+  /**
+   * ⚠ EVERY window, not the first one. Written with `indexOf` this guard faced
+   * the TOTALS cell (source line ~82) while the sabotage lands in the ROW cell
+   * (~144) — it passed its own mutation test green and would have shipped
+   * inert. Both cells print a Planned figure, so both are scanned.
+   */
+  const plannedCells = (s: string): string[] => {
+    const out: string[] = [];
+    const needle = 'BUDGET_LEDGER_COLUMNS[0]';
+    for (let i = s.indexOf(needle); i !== -1; i = s.indexOf(needle, i + 1)) {
+      out.push(s.slice(i, i + 320));
+    }
+    return out;
   };
-  const detector = (s: string) => {
-    const w = plannedCell(s);
-    return /plannedPhp\s*(\?\?|\|\|)\s*0\b/.test(w) || /formatPhp\(\s*0\s*\)/.test(w);
-  };
+  const detector = (s: string) =>
+    plannedCells(s).some(
+      (w) => /plannedPhp\s*(\?\?|\|\|)\s*0\b/.test(w) || /formatPhp\(\s*0\s*\)/.test(w),
+    );
 
   const SABOTAGE = [
     "label={BUDGET_LEDGER_COLUMNS[0]}\n value={formatPhp(row.plannedPhp ?? 0)}\n note={x}",
     "label={BUDGET_LEDGER_COLUMNS[0]}\n value={formatPhp(row.plannedPhp || 0)}\n note={x}",
     "label={BUDGET_LEDGER_COLUMNS[0]}\n value={row.plannedPhp === null ? formatPhp(0) : formatPhp(row.plannedPhp)}",
+    // The one that got past the first version of this guard: a clean totals
+    // cell FIRST, the sabotage in the second cell.
+    "label={BUDGET_LEDGER_COLUMNS[0]}\n value={formatPhp(totals.plannedPhp)}\n" +
+      'x'.repeat(400) +
+      "\nlabel={BUDGET_LEDGER_COLUMNS[0]}\n value={formatPhp(row.plannedPhp ?? 0)}",
   ];
   for (const bad of SABOTAGE) {
     assert.ok(detector(bad), `the ₱0 detector cannot see: ${bad.slice(0, 70)}…`);
   }
-  // …and it is looking at the right place: the window must be non-empty.
-  assert.ok(plannedCell(src).length > 0, `${TABLE} no longer labels a cell with BUDGET_LEDGER_COLUMNS[0]`);
+  // …and it is looking at BOTH places a Planned figure is printed: the per-row
+  // cell and the totals cell. One window means the other stopped being scanned.
+  assert.equal(
+    plannedCells(src).length,
+    2,
+    `${TABLE} labels ${plannedCells(src).length} cell(s) with BUDGET_LEDGER_COLUMNS[0]; ` +
+      `this guard scans every one, and expects the row cell and the totals cell.`,
+  );
 
   assert.ok(
     !detector(src),
@@ -224,10 +245,12 @@ test('the Planned cell renders "—" for an unplanned row, never a defaulted ₱
       `claim than "we have not published a typical cake price".`,
   );
   // And the em-dash branch is really there.
-  assert.ok(
-    /plannedPhp\s*===\s*null\s*\?\s*'—'/.test(src),
-    `${TABLE} must print "—" when there is no plan.`,
-  );
+  for (const w of plannedCells(src)) {
+    assert.ok(
+      /plannedPhp\s*===\s*null\s*\?\s*'—'/.test(w),
+      `${TABLE} has a Planned cell with no "—" branch:\n${w.slice(0, 160)}`,
+    );
+  }
 });
 
 // ── 3 · THE FOUR NAMES ──────────────────────────────────────────────────────

@@ -253,6 +253,39 @@ fails every `*.db.test.ts` while prod is fine. Allocate forward with `pnpm migra
 `scripts/check-migration-timestamps.mjs` enforces UNIQUE + not-hand-typed-round; its own docblock
 says **"NOT A RULE — ORDERING."**
 
+## ⛔ NEVER APPLY A MIGRATION DIRECTLY TO PRODUCTION — let the pipeline push the committed file
+
+**On 2026-09-02, a migration applied straight to prod outside the pipeline stranded SEVEN merged
+PRs (#5078 → #5084) for over three hours.** `.github/workflows/deploy-prod.yml` runs
+`supabase db push --include-all --yes` **before** it triggers the Vercel deploy hook, fail-closed —
+when `db push` refuses, the hook never fires and no build is created. A direct apply (a local
+`db push` from a feature worktree, an MCP `apply_migration` call, a raw `db query`) stamps the prod
+ledger with a version that has **no corresponding file on `main`** — the ORPHAN class
+`scripts/migration-doctor.mjs` diagnoses — which then makes `supabase db push` refuse for
+**every subsequent merge**, not just the one that caused it.
+
+**Measured:** the orphaned version was `20260902023553`. Every `deploy-prod` run from
+`03:16:09Z` to `05:31:46Z` failed with `Remote migration versions not found in local migrations` —
+5 failed runs in a row, each one green-looking from the PR side (CI never runs the deploy step) and
+each auto-merging normally. Production kept serving an old commit while `origin/main` moved SEVEN
+merges ahead of it, undetected, because **nothing compared what Vercel was actually serving against
+`origin/main`** — the only place the truth existed was the Actions tab for `deploy-prod`, which
+nobody reads when every PR says green. Fixed by an owner-run
+`supabase migration repair --status reverted 20260902023553` (the fix itself is deliberately an
+OWNER action — see `.github/workflows/deploy-drift-monitor.yml` and
+`scripts/deploy-drift-doctor.mjs`, which now catch this class going forward by diffing the Vercel
+production deployment's commit against `origin/main`, independent of whether `deploy-prod` even
+ran).
+
+🔑 **The repair command REWRITES the production migration ledger. A session must never run it, and
+must never hand-delete the row via SQL as a shortcut either** — a hand-edited ledger is what caused
+this in the first place. Surface it to the owner and stop.
+
+🔑 **Same shape as the migration-prefix belief above, different direction.** That section is about a
+migration that reaches the ledger via the pipeline being safe regardless of its number. This one is
+about a migration that reaches the ledger WITHOUT the pipeline at all — the number was never the
+risk; bypassing `db push --include-all`'s single, ordered application path is.
+
 ## Locked decisions you must respect
 
 Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. If any of these is at risk, **stop and surface the question** rather than silently changing direction.

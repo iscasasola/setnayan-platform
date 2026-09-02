@@ -1,0 +1,88 @@
+name: deploy-drift-monitor
+
+# Watches for the failure class that hit prod on 2026-09-02: `deploy-prod`
+# (.github/workflows/deploy-prod.yml) runs `supabase db push --include-all`
+# BEFORE it triggers the Vercel deploy hook, fail-closed — if `db push` fails,
+# the hook never fires and NO build is created. That day it failed on every
+# run for seven straight merges (#5078 → #5084) because a migration had been
+# applied directly to prod outside the pipeline, orphaning the ledger. All
+# seven PRs were green — CI never runs the deploy step — and production kept
+# silently serving PR #5072's merge while `origin/main` stood seven merges
+# ahead. The only place the truth existed was the Actions tab for
+# `deploy-prod`, which nobody reads when every PR says green.
+#
+# ⚠ This check CANNOT live as a step inside `deploy-prod` — the failure mode
+# is exactly "deploy-prod ran and never reached the deploy step", so a check
+# that only runs during a deploy cannot detect a deploy that never ran. It has
+# to compare what Vercel is ACTUALLY serving in production against
+# origin/main, independent of whether deploy-prod even fired.
+#
+# It runs `scripts/deploy-drift-doctor.mjs`, which asks the Vercel API which
+# commit production is really running and diffs it against origin/main. It
+# FAILS (red workflow → GitHub e-mails the owner, same mechanism
+# migration-drift-monitor.yml already relies on) when production is behind by
+# more than a small grace window — long enough to cover normal deploy
+# latency, short enough that "time passes and nobody notices" (the actual
+# 2026-09-02 failure mode) can't recur silently.
+#
+# Trigger: workflow_run on deploy-prod's completion — NOT a schedule. Setnayan
+# is cron-free (owner 2026-07-12, after stuck Vercel crons; the sibling
+# migration-drift-monitor.yml removed its own 2-hourly GitHub Actions schedule
+# for the same reason). deploy-prod fires on every push to main, so this still
+# re-checks on every merge — including every merge that follows a failure,
+# which is exactly when repeated silent drift would otherwise build up.
+#
+# Same three pieces of state as supabase-migrations.yml / deploy-prod.yml
+# don't apply here — this needs VERCEL_TOKEN instead, which this repo does NOT
+# yet hold as a secret. GREEN no-ops (an explicit ::notice::, never a false
+# "healthy") until it is set. See the deploy-drift-doctor.mjs header for what
+# it does when it can't verify — it never reports drift-free just because it
+# couldn't ask.
+
+on:
+  workflow_run:
+    workflows: ['deploy-prod']
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-drift-monitor
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check production vs origin/main
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Gate — is Vercel API access configured?
+        id: gate
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy drift monitor dormant::Set the VERCEL_TOKEN repo secret to enable (a token scoped to this project is enough — see the workflow header). This is a NEW secret this repo does not yet hold; the project/org id already come from the committed .vercel/project.json."
+          fi
+
+      # Full history so the deployed commit (whatever it turns out to be, even
+      # several merges back) is guaranteed present to diff against.
+      - name: Checkout (full history)
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run deploy drift doctor (fails on real drift)
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          set -o pipefail
+          node scripts/deploy-drift-doctor.mjs | tee "$GITHUB_STEP_SUMMARY"

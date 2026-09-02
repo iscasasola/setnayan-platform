@@ -686,6 +686,9 @@ jobs:
       - name: Unit-test the migration doctor classifier
         run: node --test scripts/migration-doctor.test.mjs
 
+      - name: Unit-test the deploy drift doctor classifier
+        run: node --test scripts/deploy-drift-doctor.test.mjs
+
   lint-exposure-baseline:
     name: lint exposure baseline
     runs-on: ubuntu-latest

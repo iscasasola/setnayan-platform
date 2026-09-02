@@ -228,10 +228,18 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     category: 'guard',
     enabledFor: 'all',
     autonomy: 'ask',
-    slots: ['vendor', 'amount', 'due_date', 'days_left'],
+    // `days_left` belongs to `default`; `overdue_for` to `overdue`. The trigger
+    // passes one set or the other — never both.
+    slots: ['vendor', 'amount', 'due_date', 'days_left', 'overdue_for'],
     copy: {
       default:
         'Heads up — your {vendor} payment (₱{amount}) is due {due_date}, {days_left} days away.',
+      // The date has already passed. Said plainly and once, with the same
+      // honesty rail the day-before reminder carries (a payment logged late
+      // does not un-send an email), and with no scolding — the couple may well
+      // have paid and simply not written it down.
+      overdue:
+        'Your {vendor} payment (₱{amount}) was due {due_date} — {overdue_for} ago — and still shows as unpaid. If you’ve already settled it, log the payment here and this clears.',
     },
   },
   'GRD-02': {

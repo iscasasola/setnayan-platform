@@ -72,6 +72,17 @@ const MONEY_80K_ESTIMATED: EventMoney = {
   overpaid: 0,
   isOverBudget: false,
   overBudgetByPhp: 0,
+  // Nothing is contracted, so there is no dated milestone to be late on.
+  due: {
+    overduePhp: 0,
+    overdueCount: 0,
+    dueSoonPhp: 0,
+    dueSoonCount: 0,
+    upcomingPhp: 0,
+    upcomingCount: 0,
+    laterPhp: 0,
+    laterCount: 0,
+  },
   byBucket: [],
   lines: [],
   sources: [],

@@ -33,6 +33,7 @@ import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
+import { HubProOffer } from './_components/hub-pro-offer';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -44,6 +45,13 @@ import {
   type HubEventRead,
   type HubGuestRead,
 } from '@/lib/event-hub-control';
+import { resolveHubProOffer } from '@/lib/event-hub-pro';
+import {
+  eventCoupleWebsiteProActive,
+  eventOwnsCoupleWebsitePro,
+} from '@/lib/couple-website-pro';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
 
 // ⚠ Was a static title; the page has two names now, so it needs the dynamic
 // form. `checklist/page.tsx` is the shipped pattern for a per-event title.
@@ -158,7 +166,16 @@ export default async function LaunchHubPage({ params }: Props) {
     : Promise.resolve({ rows: [], measured: false });
 
   const base = `/dashboard/${eventId}`;
-  const [ownsLiveWall, panoodState, hasPapic, eventRes, guestRead] = await Promise.all([
+  const [
+    ownsLiveWall,
+    panoodState,
+    hasPapic,
+    eventRes,
+    guestRead,
+    proActive,
+    proOwned,
+    proSku,
+  ] = await Promise.all([
     eventSkuActive(supabase, eventId, 'LIVE_WALL'),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
     // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
@@ -181,6 +198,31 @@ export default async function LaunchHubPage({ params }: Props) {
     // says must not use the wrapper. Asked only when this viewer may have it —
     // see `mayReadGuestList` above.
     guestReadPromise,
+    /*
+      🔒 THE OFFER'S GATE, MEASURED — NOT INFERRED FROM A DEFAULT.
+
+      Papic's card could never light up for a year because it was gated on a
+      retired SKU, and a gate that can only answer one way renders identically to
+      a gate that works. So BOTH readers are asked, and both are the canonical
+      ones already used by the shipped buy surface (`studio/website-pro`):
+
+        · `eventCoupleWebsiteProActive` — admin-approved, the feature gate.
+        · `eventOwnsCoupleWebsitePro`   — counts a still-in-reconciliation
+          'submitted' order, so a couple mid-review is never asked to buy the
+          same unlock twice.
+
+      The offer is suppressed by EITHER. Both graceful-degrade to `false` — which
+      SHOWS the offer — so a refused entitlement read can at worst offer an
+      upgrade to somebody who has it, never hide a page behind a lock.
+    */
+    eventCoupleWebsiteProActive(supabase, eventId).catch(() => false),
+    eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false),
+    /*
+      ⛔ THE PRICE, READ LIVE. `platform_retail_catalog_v2` is admin-managed and
+      is the only figure a customer is ever charged. Null on failure, and the
+      panel then renders with no number rather than a remembered one.
+    */
+    formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
   ]);
 
   if (eventRes.error) {
@@ -226,6 +268,30 @@ export default async function LaunchHubPage({ params }: Props) {
   const facts = resolveHubFacts(eventRead, guestFacts);
   const nextStep = resolveHubNextStep(standing, eventRead, guestFacts);
   const offersAllowed = hubOffersAllowed(standing.phase);
+
+  /*
+    ══ THE ONE UNLOCK, RESOLVED FOR THE CHANNEL THE COUPLE IS STANDING ON ══
+    § 5.3: the seven Pro items are ONE purchase, so the controller does not grow
+    seven upgrade slots — it grows one, and moves it to whichever of the four
+    public pages is live. `resolveHubProOffer` returns null far more often than
+    not: when the couple owns it, when the read did not happen, on the day, and
+    after it.
+
+    ⚠ THE DAY GATE IS EH1'S AND IS CALLED, NEVER RE-DERIVED. `hubOffersAllowed`
+    is `phase === 'plan'` — STRICTER than the design text ("no offers on the
+    event day"), because it also silences the offer AFTER the day. That reads as
+    intended: it is the owner's 2026-08-21 ruling on the day-of services,
+    "stop offering them", and the shipped "Event over" chip beside it does the
+    same thing. A consequence worth naming rather than discovering: the Day-of
+    and Editorial channels can therefore never carry an offer, because the stage
+    only reaches them once the phase is 'dayof' or 'after'.
+  */
+  const proOffer = resolveHubProOffer({
+    channel: standing.stage,
+    phase: standing.phase,
+    ownsPro: proActive || proOwned,
+  });
+  const proPriceLabel = proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
 
   /*
     ─── HAS THIS CELEBRATION ALREADY HAPPENED? ──────────────────────────────
@@ -443,6 +509,21 @@ export default async function LaunchHubPage({ params }: Props) {
             );
           })}
         </div>
+
+        {/* ══ THE ONE UNLOCK, OFFERED AT THE POINT OF ABSENCE (§ 5.1 rule 1) ══
+            Attached to the channel above it, not parked in a rail at the foot of
+            the page: the controller sells only what the couple is currently
+            looking at and cannot have. Null — owned, unmeasured, or the day
+            itself — renders nothing at all, and the cards above are UNCHANGED in
+            either case. Nothing here dims, greys or locks them. */}
+        {proOffer && (
+          <HubProOffer
+            offer={proOffer}
+            channelName={activeChannel?.name ?? null}
+            priceLabel={proPriceLabel}
+            base={base}
+          />
+        )}
       </section>
 
       {/* ══ S4b · THE PARTS — then the three services that run on the day ══ */}

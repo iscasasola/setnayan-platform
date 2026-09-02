@@ -40,9 +40,9 @@ import {
   // Studio children:
   Gem, Globe, Camera, Eye,
   // Day-of phase icons:
-  QrCode, LayoutGrid, Rocket, CalendarClock,
+  QrCode, LayoutGrid, CalendarClock,
   // After phase icons:
-  Star, Newspaper, Images,
+  Star, Images,
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -64,9 +64,20 @@ export type CustomerMenuKey =
   // Plan phase
   | 'home' | 'guests' | 'explore' | 'studio' | 'design' | 'budget'
   // Day-of phase
-  | 'now' | 'checkin' | 'seats' | 'services' | 'schedule'
+  | 'now' | 'checkin' | 'seats' | 'schedule'
   // After phase
-  | 'review' | 'editorial' | 'galleries';
+  | 'review' | 'galleries'
+  /* THE EVENT HUB — one key, one word, in ALL THREE phases (owner-locked
+     vocabulary 2026-08-16: *Event Hub* = the one public address; design
+     `EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md` § 1.2).
+     🔒 THE KEY IS 'launch' AND IT DID NOT CHANGE. It is load-bearing in four
+     places and three of them fail SILENTLY — the registry slot
+     `customer.bottom-nav.launch`, the localStorage section-open state and the
+     badge map. The retired 'services' (day-of) and 'editorial' (after) keys
+     were the SAME slot wearing two other names; their registry defaults retire
+     in this same commit, or /admin/menus keeps offering a rename for a row that
+     no longer renders. */
+  | 'launch';
 
 export type MenuChildKind = 'route' | 'tab' | 'anchor';
 
@@ -168,8 +179,8 @@ export function buildCustomerMenuTree(
   // These menus carry no children (no sectionMatch) so the docked sub-nav
   // returns null for them — only the bottom nav reads this path. The bottom nav
   // overlays the admin nav-registry slot `customer.bottom-nav.<key>` on each tab
-  // below (day-of: now/checkin/seats/services/schedule · after:
-  // home/review/editorial/galleries — all present in NAV_SLOT_DEFAULTS), so
+  // below (day-of: now/checkin/seats/launch/schedule · after:
+  // home/review/launch/galleries — all present in NAV_SLOT_DEFAULTS), so
   // /admin/menus renames/re-icons reach these rosters just like the plan tabs.
   if (ctx.phase === 'dayof') {
     const base = `/dashboard/${eventId}`;
@@ -182,7 +193,9 @@ export function buildCustomerMenuTree(
       ...(ctx.seatingEnabled !== false
         ? [{ key: 'seats' as const, label: 'Seats', icon: LayoutGrid, href: `${base}/seating`, activeMatch: `${base}/seating` }]
         : []),
-      { key: 'services', label: 'Services',  icon: Rocket,        href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
+      // Position 4 — the slot this roster ALREADY spent on the Event Hub, under
+      // the name "Services". Same route, same position; only the word changes.
+      { key: 'launch',   label: 'Event Hub', icon: Globe,         href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
       { key: 'schedule', label: 'Schedule',  icon: CalendarClock, href: `${base}/schedule`,                activeMatch: `${base}/schedule`                                        },
     ];
   }
@@ -198,7 +211,12 @@ export function buildCustomerMenuTree(
       // its review chip. Plain /vendors landed on the browsing bench: a word
       // meaning "tell us how they did" opening a shop directory.
       { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors?tab=build`,       activeMatch: `${base}/vendors`                                         },
-      { key: 'editorial', label: 'Editorial', icon: Newspaper, href: `${base}/website/editorial`,       activeMatch: `${base}/website/editorial`                               },
+      // Position 3 — was "Editorial" pointing straight at the maker. The maker
+      // is a DOOR INSIDE the controller (its S5 "The story" row), and the
+      // desktop rail keeps its own /website/editorial row, so nothing is
+      // orphaned: `a-finished-event-shows-its-summary.test.ts` still holds that
+      // door open, which is the 2026-08-21 lesson this must not undo.
+      { key: 'launch',    label: 'Event Hub', icon: Globe,     href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
       { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },
     ];
   }
@@ -347,29 +365,46 @@ export function buildCustomerMenuTree(
         ...(ctx.websiteEnabled
           ? [{ key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' }]
           : []),
-        // "Launch" (owner 2026-06-28; repointed 2026-07-02 → live site; repointed
-        // AGAIN 2026-07-25 → the UNIFIED WEBSITE EDITOR). Owner: opening Launch
-        // should start at the settings, editing the site while SEEING it — not
-        // jump into the page (or the retired /site-editor). The editor carries
-        // go-live + "View live" itself, so the live page is one tap away. This is
-        // the mobile twin of the sidebar item in customer-nav-config.ts — the two
-        // must stay pointed at the same place. Only when the event type enables
-        // the 'website' surface.
-        ...(ctx.websiteEnabled
-          ? [
-              {
-                key: 'launch',
-                label: 'Launch',
-                icon: Rocket,
-                kind: 'route' as const,
-                href: `${base}/website/editor`,
-                match: `${base}/website/editor`,
-                slotKey: 'customer.studio-subnav.launch',
-              },
-            ]
-          : []),
+        /* ⛔ THE "Launch" CHILD IS RETIRED (2026-09-02, EH3).
+           It was the THIRD name the phone gave the Event Hub — "Launch" here,
+           "Services" in day-of, "Editorial" after — and the couple's own guests
+           taught them none of the three. The Hub is now a TOP-LEVEL menu below,
+           present in every phase, so relabelling this child would have printed
+           "Event Hub" twice on one screen instead of once.
+           🚪 THE EDITOR STILL HAS DOORS, which is the half that fails silently:
+           the controller's S5 row "The page itself" (`launch/page.tsx`) opens
+           `/website/editor`, and `HubStage`'s `editHref` is the same address.
+           Its `customer.studio-subnav.launch` registry default retires in this
+           same commit. */
       ],
     },
+    /* 5 · THE EVENT HUB — position 5, the plan phase's half of the one slot.
+       Design § 1.2 Placement: *"position 4 in day-of, position 3 in after, and a
+       new position 5 in plan (where GO LIVE is the desktop section's only
+       member)"*. The desktop rail has carried this row in every phase since
+       2026-06-28; the phone carried it only as a Studio sub-nav child called
+       "Launch", so on a phone in the months BEFORE the day — when the
+       save-the-date and the invitation ARE the product — the Hub was two taps
+       deep behind a word for something else.
+
+       🔒 Same key, same label, same href as the day-of and after rosters above.
+       That is the whole point, and `one-menu-word-in-all-three-phases.test.ts`
+       fails if any one of the three drifts.
+
+       Gated on `websiteEnabled` exactly like the desktop rail's `launchItem` —
+       an event kind with no 'website' surface gets no Hub row on either
+       surface, and the two must not disagree about that. */
+    ...(ctx.websiteEnabled
+      ? [
+          {
+            key: 'launch' as const,
+            label: 'Event Hub',
+            icon: Globe,
+            href: `${base}/launch`,
+            activeMatch: `${base}/launch`,
+          },
+        ]
+      : []),
     // Budget top-menu REMOVED 2026-07-10 (owner): the budget now lives inside the
     // Merkado (Explore → Vendors takeover, Build · Budget · Compare), so a
     // standalone menu item was redundant. The full budget surface

@@ -6202,6 +6202,7 @@ func	public.cancel_vendor_plan_change()	secdef=yes exec=authenticated search_pat
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
 func	public.claim_manpower_gig(p_gig_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.clear_vendor_payment_plan(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.cluster_guest_roster(p_event_cluster_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.compute_attribute_completeness(payload jsonb, schema jsonb)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.confirm_guest_delivery(p_event_vendor_id uuid, p_qr_token text, p_method text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.confirm_service_slot_reservation(p_reservation_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -6322,7 +6323,6 @@ func	public.reserve_service_slot_seats(p_event_id uuid, p_slot_id uuid, p_reserv
 func	public.resolve_custom_domain(p_host text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_subdomain(p_label text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_vendor_for_contract(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.resolve_or_claim_person(p_email text, p_display_name text, p_first_name text, p_last_name text, p_phone text, p_photo_url text, p_birth_date date, p_claimer uuid, p_creator uuid)	secdef=yes exec=authenticated search_path=public
 func	public.resolve_schedule_pool(p_vendor_profile_id uuid, p_category_key text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_supplies_pricing(p_sku_code text, p_service_area_code text, p_quantity integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverable_chapter_id uuid)	secdef=yes exec=authenticated search_path=public

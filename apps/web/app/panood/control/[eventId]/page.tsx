@@ -37,7 +37,11 @@ import { fetchReadinessFacts } from '@/lib/live-studio-readiness-server';
 import { poolRouteToAir } from '@/lib/live-studio-readiness';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
-import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
+import {
+  panoodStreamingEnabled,
+  panoodCameraAnonEnabled,
+  cameraJoinCaption,
+} from '@/lib/panood-camera-seats';
 import {
   fetchChannelCameras,
   resolveChannelStatus,
@@ -480,6 +484,10 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // couple's-unrepeatable-day gate). OFF → no peer connection, no picture, and the
   // placeholder says so rather than a black rectangle pretending to be a feed.
   const streamingOn = panoodStreamingEnabled();
+
+  // The Add-camera tile's caption must not promise a login-free join when the
+  // flag is off — /panood/cam/[token] shows a sign-in wall in that case.
+  const addCameraCaption = cameraJoinCaption(panoodCameraAnonEnabled());
 
   // Read once, server-side: the two CLOUDFLARE_TURN_* vars are server-only secrets
   // and must never reach the client — only this boolean does.
@@ -1348,7 +1356,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               >
                 <Plus aria-hidden className="h-5 w-5" strokeWidth={2} />
                 Add camera
-                <span className="text-[10px] font-normal text-ink/40">scan QR · no login</span>
+                <span className="text-[10px] font-normal text-ink/40">{addCameraCaption}</span>
               </a>
             ) : null}
           </div>

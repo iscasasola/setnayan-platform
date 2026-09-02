@@ -17,6 +17,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { stripComments } from './strip-comments';
 import {
   clusterSpan,
   isApproximate,
@@ -150,7 +151,13 @@ test('no surface renders sort_key', () => {
       const src = readFileSync(full, 'utf8');
       // Strip block and line comments — this file's own warnings name the
       // field, and so do the surfaces'. Only real code counts.
-      const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      //
+      // ⚠ THE REPO'S ONE STRIPPER, not a two-replace regex of our own. Doing
+      // blocks first lets a LINE comment containing `/*` open a comment that
+      // closes at the next real `*/`, blanking everything between — and the
+      // guard then asserts against a blank and passes. `lint-one-comment-stripper`
+      // is a required check precisely because that failure is invisible.
+      const code = stripComments(src);
       if (/\bsort_key\b/.test(code)) offenders.push(path.relative(process.cwd(), full));
     }
   };

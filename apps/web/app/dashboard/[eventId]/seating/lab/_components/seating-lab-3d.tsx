@@ -3830,7 +3830,9 @@ function TableMesh({
         chairs={chairs}
         removedSeats={table.removedSeats}
         occupiedSeats={occupiedSeats}
-        color={palette.wall}
+        // The couple's chair colour when they set one (mood board →
+        // room_dressing.chairs); otherwise the wall tone this has always used.
+        color={palette.chairs ?? palette.wall}
         accent={palette.accent}
         onSeatDown={
           removable

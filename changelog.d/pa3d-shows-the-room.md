@@ -153,3 +153,25 @@ printed chart, naming the four things asked for:
 | Printed once, then wrong | Changes the moment you move a table |
 
 Verified: typecheck ✅ · lint ✅ · 11,882 unit tests ✅ · all 29 CI guards ✅
+
+### ⚠ Found while wiring the films: every Studio demo clip is half empty
+
+The three films rendered with a grey right half. It is not this page's CSS.
+Measured by drawing a frame to a canvas and scanning a row: **content ends at
+x=229 of 460 — exactly half — on every clip tested** (`papic`, `mood-board`,
+`indoor-blueprint`, `custom-qr-guest`, `save-the-date`).
+
+🚨 **The deployed `papic.mp4` is byte-identical to the repo's** (sha256
+`70d86eff63cd93bb…`, 50,863 bytes, both), so `/papic` has been showing a
+half-grey film in its own *"this is all of it"* section — the one place that
+page claims to show the whole product.
+
+The cause is upstream in `scripts/capture-demo-videos.mjs` (or the
+`/demo-capture/[slug]` route it drives) and is **not fixed here** — fixing an
+asset pipeline inside a landing-page PR would be fixing it in the wrong place,
+and regenerating needs a dev server plus a libx264 ffmpeg.
+
+Until they are recaptured this page CROPS to the live half: the video renders
+at double the window width, pinned left, so the grey never enters the box.
+Recapturing full-width leaves the crop harmless — it would simply show the left
+half of a full frame — so the two changes do not have to land in lock-step.

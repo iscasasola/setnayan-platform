@@ -45,7 +45,9 @@ export function PartsFilms({ parts }: { parts: ReadonlyArray<Part> }) {
     <ul className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
       {parts.map((p) => (
         <li key={p.slug} className="pa3d-lift overflow-hidden rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper)]">
-          <PartFilm slug={p.slug} title={p.title} />
+          <div className="flex justify-center bg-[var(--m-paper-2)] px-4 pt-4">
+            <PartFilm slug={p.slug} title={p.title} />
+          </div>
           <div className="px-4 pb-4 pt-3">
             <h3 className="font-serif text-[1.02rem] text-[var(--m-ink)]">{p.title}</h3>
             <p className="mt-1 text-[0.9rem] text-[var(--m-slate-2)]">{p.line}</p>
@@ -79,8 +81,22 @@ function PartFilm({ slug, title }: { slug: string; title: string }) {
     };
   }, []);
 
+  /* ⚠ THESE CLIPS ARE HALF EMPTY, AND IT IS NOT A CSS PROBLEM.
+     Measured by drawing a frame to a canvas and scanning it: content ends at
+     x=229 of 460 — EXACTLY half — on every clip tested (papic, mood-board,
+     indoor-blueprint, custom-qr-guest, save-the-date). The deployed
+     `papic.mp4` is byte-identical to the repo's, so `/papic` has been showing
+     a half-grey film in its "this is all of it" section too. That is a bug in
+     the capture pipeline (`scripts/capture-demo-videos.mjs`), reported
+     separately — fixing it here would be fixing it in the wrong place.
+     
+     Until the assets are recaptured, this frame CROPS to the live half: the
+     element is rendered at double the window's width and pinned left, so the
+     grey never enters the box. Recapturing the clips full-width makes this
+     crop harmless (it would simply show the left half of a full frame), so
+     this does not have to be unwound in lock-step. */
   return (
-    <div className="relative aspect-[460/972] max-h-[280px] w-full overflow-hidden bg-[var(--m-paper-2)]">
+    <div className="relative h-[240px] w-[124px] flex-none overflow-hidden rounded-xl border border-[var(--m-line)] sm:h-[260px] sm:w-[136px]">
       <video
         ref={ref}
         src={`/add-ons/demo/${slug}.mp4`}
@@ -92,7 +108,7 @@ function PartFilm({ slug, title }: { slug: string; title: string }) {
         preload="metadata"
         controls={needsControls}
         aria-label={`${title}, running in the app`}
-        className="h-full w-full object-cover"
+        className="absolute left-0 top-0 h-auto w-[248px] max-w-none sm:w-[272px]"
       />
     </div>
   );

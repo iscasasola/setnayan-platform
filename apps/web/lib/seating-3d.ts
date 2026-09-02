@@ -16,6 +16,7 @@
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import type { MonogramConfig } from '@/lib/monogram';
 import type { RolePalette } from '@/lib/mood-board';
+import { hashId } from '@/lib/figure-rig';
 // Shared projection API (contract v2 · Sync verdict 2026-07-16 · § 3). The
 // geometry authority is lib/seating.ts; this module holds thin 3D adapters and
 // RE-EXPORTS so plan3d/stage/dance/booth consumers keep compiling untouched.
@@ -2080,6 +2081,46 @@ export function resolvePaletteFromRoles(rp: RolePalette): Lab3DPalette {
     table:   rd.linens ?? base.table,
     ambient: rd.lighting_warmth ?? base.ambient,
   };
+}
+
+/**
+ * The dress-code colour a seated stranger wears on the PUBLIC guest walk.
+ *
+ * ── OWNER 2026-09-02 ────────────────────────────────────────────────────────
+ * Supersedes the "NEUTRAL untinted mannequins" half of the 2026-06-26 venue
+ * privacy lock. That lock's PURPOSE — anonymised strangers — is untouched, and
+ * this function is why:
+ *
+ *   · the colour comes from the COUPLE's approved guest dress-code palette
+ *     (`role_palette.guest`, the 3–6 options PALETTE_LIMITS lets guests pick
+ *     from), never from anything about the person sitting there;
+ *   · it is keyed off the SEAT. Two different people in the same chair at two
+ *     events get the same colour; one person moved between chairs gets two.
+ *     Nothing about an individual is encoded or recoverable;
+ *   · the walk still never learns who anyone is — `public_venue_scene` sends
+ *     occupancy as `{table, seats}` with no identity, and that is unchanged.
+ *
+ * The lock's remaining half — no names beyond the RPC contract, no per-guest
+ * hair, no role or side tinting — STILL HOLDS. Do not key this off a guest id,
+ * a role, a side, or an RSVP status; that would re-open exactly what the lock
+ * was written to close.
+ *
+ * Mirrors what the 2D reception scene has always done with this same palette
+ * (`reception-scene.ts` → `guestPalette`, "guests render in a mix of them"), so
+ * the 3D walk stops being the one surface that ignores the couple's dress code.
+ *
+ * NO guest palette → `null` → the neutral white mannequin, byte-identical to
+ * the pre-2026-09-02 render. An event whose couple never set one is unchanged.
+ */
+export function guestAttireColor(
+  rp: RolePalette | null | undefined,
+  seatKey: string,
+): string | null {
+  const options = (rp?.guest ?? []).filter(
+    (h): h is string => typeof h === 'string' && HEX.test(h),
+  );
+  if (options.length === 0) return null;
+  return options[hashId(seatKey) % options.length] ?? null;
 }
 
 /** A few demo palettes for the live "watch materials recolour" switcher. */

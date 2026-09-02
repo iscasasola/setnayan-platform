@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8097aaf9a",
+  "generatedFromRef": "f7f3fa3b7",
   "routeCount": 412,
-  "destinations": 888,
+  "destinations": 880,
   "actions": 619,
-  "blocks": 4173,
+  "blocks": 4170,
   "routes": {
     "/": {
       "files": [
@@ -5365,6 +5365,7 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
@@ -5376,6 +5377,7 @@
       "actions": [],
       "blocks": [
         "GridPageSkeleton",
+        "HubProOffer",
         "HubStage",
         "Icon",
         "Link",
@@ -6990,10 +6992,7 @@
         "dashboard/[eventId]/suite/loading.tsx",
         "dashboard/[eventId]/suite/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/website/editor",
-        "/dashboard/[seg]/website/editorial"
-      ],
+      "destinations": [],
       "actions": [
         "routes.dashboard.budget",
         "routes.dashboard.checklist",
@@ -7360,21 +7359,10 @@
         "dashboard/[eventId]/website/loading.tsx",
         "dashboard/[eventId]/website/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/invitation",
-        "/dashboard/[seg]/studio/guest-columns",
-        "/dashboard/[seg]/website/editor",
-        "/dashboard/[seg]/website/editorial",
-        "/dashboard/[seg]/website/our-story",
-        "/dashboard/[seg]/website/privacy"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "PageMasthead",
-        "PhasePart",
-        "QuickLink",
-        "RevealList"
+        "Link"
       ]
     },
     "/dashboard/[eventId]/website/colors": {

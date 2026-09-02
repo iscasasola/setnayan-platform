@@ -1643,8 +1643,16 @@ export async function completeDraftGuestListTask(
 // Owner directive 2026-05-25 (verbatim): "Make the upload. you keep deferring
 // this. We want upload photo. no url. just upload up to photos 2 for each."
 //
-// 13 named slots × 2 photos each = 26 upload slots total:
-//   Location feel (6): venue · tunnel · stage · table · ceiling · overall
+// 17 named slots × 2 photos each = 34 upload slots total (widened 2026-09-02/03,
+// Mood Board redesign, to close 4 real gaps: no wall/backdrop slot existed
+// despite reception_design having a backdrop zone, no flowers slot existed at
+// all, no cocktail-hour slot existed, and — the asymmetry that made the list
+// read wrong — the ONE venue slot (`venue`, labelled "Ceremony venue") had no
+// reception counterpart, though six of its siblings are reception elements:
+//   Location feel (10): venue · reception_venue · backdrop · tunnel · stage ·
+//                       table · ceiling · flowers · cocktail · overall
+// ⚠ `venue` is NOT renamed to `ceremony_venue` — real rows carry that key from
+// onboarding Card 15 (20260627000000) and a rename orphans every one.
 //   Palette       (1): palette
 //   Dress codes   (6): groom · bride · principal_sponsor · entourage ·
 //                       parents · guests
@@ -1668,10 +1676,14 @@ const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 const MOODBOARD_SLOT_KEYS = [
   'venue',
+  'reception_venue',
+  'backdrop',
   'tunnel',
   'stage',
   'table',
   'ceiling',
+  'flowers',
+  'cocktail',
   'overall',
   'palette',
   'groom',
@@ -1683,6 +1695,34 @@ const MOODBOARD_SLOT_KEYS = [
 ] as const;
 
 type MoodboardSlotKey = (typeof MOODBOARD_SLOT_KEYS)[number];
+
+/**
+ * How many photos one slot holds. Owner, 2026-09-03, on how couples actually
+ * use this: *"most of the time, they upload more that 1 design … it usually is
+ * 1-3 designs"* — so the original 2-photo cap (20260627000000) cut off the top
+ * of the real range and is widened to 3 here.
+ *
+ * ⚠ ONE SOURCE OF TRUTH, ON PURPOSE. This cap was previously spelled SIX times
+ * — the DB CHECK, two server-action validators, two copies of a `1 | 2` return
+ * type, and a `[1, 2]` in the tile grid — with nothing tying them together.
+ * Five of the six FAIL LOUDLY when they disagree; the sixth does not, and that
+ * is the one that matters: `listMoodboardSlots`'s row filter SILENTLY DROPS any
+ * position outside its list, so a widened DB + a stale filter would store the
+ * couple's third photo and then never render it — an upload that reports
+ * success and shows nothing, the exact shape of failure this repo has shipped
+ * before. Widen HERE and every gate moves together.
+ */
+export const MOODBOARD_SLOT_POSITIONS = [1, 2, 3] as const;
+export type MoodboardSlotPosition = (typeof MOODBOARD_SLOT_POSITIONS)[number];
+export const MOODBOARD_MAX_PHOTOS_PER_SLOT = MOODBOARD_SLOT_POSITIONS.length;
+
+function isMoodboardSlotPosition(value: unknown): value is MoodboardSlotPosition {
+  return (MOODBOARD_SLOT_POSITIONS as readonly number[]).includes(Number(value));
+}
+
+/** Human-readable list for error copy — "1, 2 or 3", derived, never typed out. */
+const SLOT_POSITION_HINT = MOODBOARD_SLOT_POSITIONS.slice(0, -1).join(', ') +
+  ` or ${MOODBOARD_SLOT_POSITIONS[MOODBOARD_SLOT_POSITIONS.length - 1]}`;
 
 function isMoodboardSlotKey(value: unknown): value is MoodboardSlotKey {
   return (
@@ -1735,8 +1775,8 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
     return { status: 'error', message: 'slot_key invalid' };
   }
   const slotPosition = Number(slotPositionRaw);
-  if (slotPosition !== 1 && slotPosition !== 2) {
-    return { status: 'error', message: 'slot_position must be 1 or 2' };
+  if (!isMoodboardSlotPosition(slotPosition)) {
+    return { status: 'error', message: `slot_position must be ${SLOT_POSITION_HINT}` };
   }
   if (!(fileEntry instanceof File) || fileEntry.size === 0) {
     return { status: 'error', message: 'Drop a photo or click to choose.' };
@@ -1911,8 +1951,8 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
     return { status: 'error', message: 'slot_key invalid' };
   }
   const slotPosition = Number(slotPositionRaw);
-  if (slotPosition !== 1 && slotPosition !== 2) {
-    return { status: 'error', message: 'slot_position must be 1 or 2' };
+  if (!isMoodboardSlotPosition(slotPosition)) {
+    return { status: 'error', message: `slot_position must be ${SLOT_POSITION_HINT}` };
   }
 
   const supabase = await createClient();
@@ -2015,7 +2055,7 @@ export async function listMoodboardSlots(eventId: string): Promise<
   Array<{
     inspiration_id: string;
     slot_key: MoodboardSlotKey;
-    slot_position: 1 | 2;
+    slot_position: MoodboardSlotPosition;
     image_url: string;
     sampled_hex_1: string;
     sampled_hex_2: string;
@@ -2042,7 +2082,7 @@ export async function listMoodboardSlots(eventId: string): Promise<
     (row): row is {
       inspiration_id: string;
       slot_key: MoodboardSlotKey;
-      slot_position: 1 | 2;
+      slot_position: MoodboardSlotPosition;
       image_url: string;
       sampled_hex_1: string;
       sampled_hex_2: string;
@@ -2050,7 +2090,7 @@ export async function listMoodboardSlots(eventId: string): Promise<
       sampled_hex_4: string;
       sampled_hex_5: string;
       sampled_hex_6: string;
-    } => isMoodboardSlotKey(row.slot_key) && (row.slot_position === 1 || row.slot_position === 2),
+    } => isMoodboardSlotKey(row.slot_key) && isMoodboardSlotPosition(row.slot_position),
   );
 }
 

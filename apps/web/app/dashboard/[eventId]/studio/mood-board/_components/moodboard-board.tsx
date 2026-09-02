@@ -56,19 +56,48 @@ function autoEdits(regions: ColorRangeSlot[], palette: string[]): RegionEditMap 
   return out;
 }
 
-export function MoodboardBoard({ sections }: { sections: BoardSection[] }) {
+export function MoodboardBoard({
+  sections,
+  /**
+   * Smaller/quieter rendering (Mood Board redesign follow-up, 2026-09-03):
+   * "In your colors" moved further down the page and is now a secondary
+   * "here's a taste" gut-check rather than a primary section, per owner
+   * direction — this only shrinks the container (denser grid, quieter
+   * headings, tighter spacing); the cards themselves (including the
+   * interactive RecolorStudio) are untouched, so the underlying
+   * functionality is byte-identical.
+   */
+  compact = false,
+}: {
+  sections: BoardSection[];
+  compact?: boolean;
+}) {
   return (
-    <div className="space-y-8">
+    <div className={compact ? 'space-y-4' : 'space-y-8'}>
       {sections.map((section) =>
         section.cards.length === 0 ? null : (
-          <section key={section.title} className="space-y-3">
+          <section key={section.title} className={compact ? 'space-y-2' : 'space-y-3'}>
             <header>
-              <h2 className="text-xl font-semibold text-ink">{section.title}</h2>
-              {section.blurb ? (
+              <h2
+                className={
+                  compact
+                    ? 'text-sm font-medium uppercase tracking-wide text-ink/60'
+                    : 'text-xl font-semibold text-ink'
+                }
+              >
+                {section.title}
+              </h2>
+              {section.blurb && !compact ? (
                 <p className="text-sm text-ink/65">{section.blurb}</p>
               ) : null}
             </header>
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <ul
+              className={
+                compact
+                  ? 'grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-5'
+                  : 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3'
+              }
+            >
               {section.cards.map((card) => (
                 <BoardCardView key={card.key} card={card} />
               ))}

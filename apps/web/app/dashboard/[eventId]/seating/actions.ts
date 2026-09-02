@@ -8,6 +8,9 @@ import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
+import { RECEPTION_PARTS } from '@/lib/reception-scene';
+import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
+import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
 import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
@@ -2193,4 +2196,124 @@ export async function buildSeatingDraft(
     .eq('event_id', eventId);
   revalidatePath(`/dashboard/${eventId}/seating`);
   return { tables: tables.length, seated: rows.length };
+}
+
+/**
+ * Persist the couple's reception design (per-part, per-attribute material
+ * choices) to events.reception_design (migration 20261002000000). Relocated
+ * from studio/mood-board/actions.ts (2026-09-03) — reception_design is the
+ * Seat Plan's own venue-decor settings ("what does the room look like"), so
+ * the ONE editor for it now lives in the seating lab; Mood Board keeps only a
+ * read-only summary + a link here. Nested shape { part: { attribute:
+ * optionId } }. Sanitizes against the known parts/attributes/options (see
+ * RECEPTION_PARTS in lib/reception-scene.ts) so only valid choices land.
+ */
+export async function saveReceptionDesign(
+  eventId: string,
+  design: Record<string, Record<string, string>>,
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const clean: Record<string, Record<string, string>> = {};
+  for (const part of RECEPTION_PARTS) {
+    const pd = design[part.id];
+    if (!pd || typeof pd !== 'object') continue;
+    const cp: Record<string, string> = {};
+    for (const attr of part.attributes) {
+      const v = pd[attr.id];
+      if (v && attr.options.some((o) => o.id === v)) cp[attr.id] = v;
+    }
+    if (Object.keys(cp).length > 0) clean[part.id] = cp;
+  }
+
+  // RLS enforces host-only writes on their own events via event_members.
+  const { error } = await supabase
+    .from('events')
+    .update({
+      reception_design: clean,
+      mood_board_updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  // Both surfaces read reception_design: the lab renders it live in 3D, and
+  // the Mood Board shows the compact read-only summary — revalidate both.
+  revalidatePath(`/dashboard/${eventId}/seating/lab`);
+  revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+}
+
+/**
+ * Reception decor AI-image layers — PILOT. Relocated from
+ * studio/mood-board/actions.ts alongside saveReceptionDesign and the
+ * ReceptionDesignEditor component that calls it (2026-09-03 relocation).
+ * Reads the moodboard_library_assets (+ moodboard_asset_color_ranges) rows
+ * for the pilot zones (backdrop, ceiling — see PILOT_DECOR_ZONES) into the
+ * shape lib/reception-decor-layers.ts's pure `resolveDecorLayer` expects.
+ *
+ * Public (no auth check needed beyond what the table's own RLS already
+ * enforces): moodboard_library_assets_public_read requires approved_at IS
+ * NOT NULL — the pilot rows are inserted with approved_at = NULL on purpose
+ * (generation happened, but the files were never uploaded to R2), so this
+ * query returns an EMPTY catalog in production until a human uploads +
+ * approves them. `resolveDecorLayer` already treats an empty catalog as
+ * "fall back to the flat SVG" — no separate feature flag needed, the
+ * existing draft/published gate IS the rollout mechanism.
+ */
+export async function getReceptionDecorLayerCatalog(): Promise<DecorLayerCatalog> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('moodboard_library_assets')
+    .select(
+      `asset_id, asset_subtype, storage_path, style_theme,
+       moodboard_asset_color_ranges ( slot_id, sampled_hex, tolerance_de, region_label )`,
+    )
+    .eq('asset_type', 'venue_scene')
+    .in('asset_subtype', PILOT_DECOR_ZONES as string[])
+    .not('approved_at', 'is', null)
+    .is('retired_at', null);
+  if (error) throw new Error(error.message);
+
+  const catalog: DecorLayerCatalog = {};
+  for (const row of (data ?? []) as Array<{
+    asset_id: string;
+    asset_subtype: string;
+    storage_path: string;
+    style_theme: string | null;
+    moodboard_asset_color_ranges:
+      | { slot_id: number; sampled_hex: string; tolerance_de: number; region_label: string | null }[]
+      | { slot_id: number; sampled_hex: string; tolerance_de: number; region_label: string | null }
+      | null;
+  }>) {
+    if (!row.style_theme || !(MOODBOARD_STYLE_FAMILIES as readonly string[]).includes(row.style_theme)) {
+      continue; // no style_family, or not one of the 5 known ones — skip rather than guess
+    }
+    const ranges = Array.isArray(row.moodboard_asset_color_ranges)
+      ? row.moodboard_asset_color_ranges
+      : row.moodboard_asset_color_ranges
+        ? [row.moodboard_asset_color_ranges]
+        : [];
+    const slot1 = ranges.find((r) => r.slot_id === 1);
+    if (!slot1) continue; // no tagged region — nothing to retint, skip rather than composite untinted
+
+    const zone = row.asset_subtype as (typeof PILOT_DECOR_ZONES)[number];
+    const style = row.style_theme as MoodboardStyleFamily;
+    catalog[zone] = {
+      ...catalog[zone],
+      [style]: {
+        assetId: row.asset_id,
+        storagePath: row.storage_path,
+        colorRange: {
+          slotId: slot1.slot_id,
+          sampledHex: slot1.sampled_hex,
+          toleranceDe: slot1.tolerance_de,
+          regionLabel: slot1.region_label ?? undefined,
+        },
+      },
+    };
+  }
+  return catalog;
 }

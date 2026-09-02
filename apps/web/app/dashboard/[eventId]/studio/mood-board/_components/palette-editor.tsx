@@ -6,7 +6,12 @@ import {
   PALETTE_LIMITS,
   PALETTE_ORDER,
   DEFAULT_PALETTE_SUGGESTIONS,
+  MAX_CUSTOM_ROLES,
+  MAX_CUSTOM_ROLE_COLORS,
+  MAX_CUSTOM_ROLE_LABEL_LENGTH,
   resolveRoomDressing,
+  slugifyCustomRoleKey,
+  type CustomPaletteRole,
   type PaletteKey,
   type RolePalette,
   type RoomDressing,
@@ -49,6 +54,12 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
   // fields are stored; the rest stay derived from the reception palette.
   const [roomDressing, setRoomDressing] = useState<RoomDressing>(
     () => initial.room_dressing ?? {},
+  );
+  // Couple-authored roles beyond the fixed taxonomy (e.g. "Ring bearer's
+  // dog"). The `key` re-derives from the label on save (sanitizeRolePalette),
+  // so what's kept here client-side is only a display/edit convenience.
+  const [customRoles, setCustomRoles] = useState<CustomPaletteRole[]>(
+    () => initial.custom_roles ?? [],
   );
   const [pending, startTransition] = useTransition();
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -96,6 +107,53 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
     }));
   };
 
+  const addCustomRole = () => {
+    setCustomRoles((rs) => {
+      if (rs.length >= MAX_CUSTOM_ROLES) return rs;
+      return [...rs, { key: '', label: '', colors: ['#C97B4B'] }];
+    });
+  };
+
+  const removeCustomRole = (index: number) => {
+    setCustomRoles((rs) => rs.filter((_, i) => i !== index));
+  };
+
+  const updateCustomRoleLabel = (index: number, label: string) => {
+    setCustomRoles((rs) =>
+      rs.map((r, i) =>
+        i === index ? { ...r, label: label.slice(0, MAX_CUSTOM_ROLE_LABEL_LENGTH) } : r,
+      ),
+    );
+  };
+
+  const addCustomRoleColor = (index: number) => {
+    setCustomRoles((rs) =>
+      rs.map((r, i) => {
+        if (i !== index || r.colors.length >= MAX_CUSTOM_ROLE_COLORS) return r;
+        return { ...r, colors: [...r.colors, '#C97B4B'] };
+      }),
+    );
+  };
+
+  const updateCustomRoleColor = (index: number, colorIndex: number, color: string) => {
+    setCustomRoles((rs) =>
+      rs.map((r, i) => {
+        if (i !== index) return r;
+        const colors = [...r.colors];
+        colors[colorIndex] = color.toUpperCase();
+        return { ...r, colors };
+      }),
+    );
+  };
+
+  const removeCustomRoleColor = (index: number, colorIndex: number) => {
+    setCustomRoles((rs) =>
+      rs.map((r, i) =>
+        i === index ? { ...r, colors: r.colors.filter((_, ci) => ci !== colorIndex) } : r,
+      ),
+    );
+  };
+
   const totals = useMemo(() => {
     let belowMin = 0;
     let configured = 0;
@@ -113,6 +171,7 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
     // sanitize drops it and the room stays fully reception-derived).
     const payload: RolePalette = { ...palette };
     if (Object.keys(roomDressing).length > 0) payload.room_dressing = roomDressing;
+    if (customRoles.length > 0) payload.custom_roles = customRoles;
     formData.set('palette_json', JSON.stringify(payload));
     startTransition(async () => {
       await saveAction(formData);
@@ -165,6 +224,102 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
         onAdd={addColor}
         onRemove={removeColor}
       />
+
+      <div className="space-y-3">
+        <div>
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Custom roles
+          </h2>
+          <p className="text-xs text-ink/55">
+            Anyone or anything the fixed list above doesn&rsquo;t cover — a ring bearer&rsquo;s
+            dog, a family pet, a specific relative. Give it a name and its own colors.
+          </p>
+        </div>
+
+        {customRoles.length > 0 ? (
+          <div className="space-y-4">
+            {customRoles.map((role, index) => (
+              <section
+                key={index}
+                className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-2">
+                  <input
+                    type="text"
+                    value={role.label}
+                    onChange={(e) => updateCustomRoleLabel(index, e.target.value)}
+                    placeholder="e.g. Ring bearer's dog"
+                    maxLength={MAX_CUSTOM_ROLE_LABEL_LENGTH}
+                    className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-sm font-medium text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
+                  />
+                  {role.label.trim() ? (
+                    <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-ink/35 sm:inline">
+                      {slugifyCustomRoleKey(role.label)}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => removeCustomRole(index)}
+                    aria-label={`Remove custom role ${role.label || index + 1}`}
+                    className="shrink-0 rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-danger-700"
+                  >
+                    <X className="h-3.5 w-3.5" strokeWidth={2} />
+                  </button>
+                </header>
+
+                <ul className="flex flex-wrap items-end gap-2">
+                  {role.colors.map((c, ci) => (
+                    <li
+                      key={ci}
+                      className="group relative flex flex-col items-stretch gap-1"
+                    >
+                      <div className="flex items-center gap-1.5 rounded-lg border border-ink/10 bg-cream p-1.5 pr-1.5">
+                        <input
+                          type="color"
+                          aria-label={`${role.label || 'Custom role'} color ${ci + 1} — ${c}`}
+                          title={c}
+                          value={c}
+                          onChange={(e) => updateCustomRoleColor(index, ci, e.target.value)}
+                          className="h-9 w-9 cursor-pointer rounded-md border border-ink/10 bg-cream p-0.5"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCustomRoleColor(index, ci)}
+                          aria-label={`Remove color ${c}`}
+                          className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-danger-700"
+                        >
+                          <X className="h-3.5 w-3.5" strokeWidth={2} />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => addCustomRoleColor(index)}
+                      disabled={role.colors.length >= MAX_CUSTOM_ROLE_COLORS}
+                      className="inline-flex h-12 items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 text-xs font-medium text-ink/65 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                      Add color
+                    </button>
+                  </li>
+                </ul>
+              </section>
+            ))}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={addCustomRole}
+          disabled={customRoles.length >= MAX_CUSTOM_ROLES}
+          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 py-2 text-xs font-medium text-ink/65 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+          Add a custom role
+        </button>
+      </div>
 
       <details className="group rounded-xl border border-ink/10 bg-cream">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4">

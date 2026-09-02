@@ -16,63 +16,15 @@ import { RECEPTION_PARTS, type ReceptionDesign } from './reception-scene';
  */
 
 // ---- nearest named color -------------------------------------------------
-
-type NamedColor = { name: string; hex: string };
-
-// A curated wedding-relevant color-name table (not exhaustive — general
-// aesthetic families a couple would recognize). Nearest match by Euclidean
-// distance in RGB space, which is crude but stable and fast, and good enough
-// for a "starter suggestion, editable by the couple" affordance.
-const NAMED_COLORS: NamedColor[] = [
-  { name: 'Ivory', hex: '#FFFFF0' },
-  { name: 'Cream', hex: '#FAF7F2' },
-  { name: 'Blush', hex: '#F4C2C2' },
-  { name: 'Dusty Rose', hex: '#C9A0A0' },
-  { name: 'Rose', hex: '#BE185D' },
-  { name: 'Burgundy', hex: '#7A1F2B' },
-  { name: 'Terracotta', hex: '#C97B4B' },
-  { name: 'Rust', hex: '#824A2A' },
-  { name: 'Champagne Gold', hex: '#C5A059' },
-  { name: 'Gold', hex: '#D4AF37' },
-  { name: 'Mustard', hex: '#D97706' },
-  { name: 'Sage', hex: '#8A9A6B' },
-  { name: 'Emerald', hex: '#059669' },
-  { name: 'Forest Green', hex: '#3A5746' },
-  { name: 'Sky Blue', hex: '#7DB8D9' },
-  { name: 'Navy', hex: '#1E2540' },
-  { name: 'Slate', hex: '#3A5766' },
-  { name: 'Lavender', hex: '#C9B8D9' },
-  { name: 'Plum', hex: '#5C2542' },
-  { name: 'Charcoal', hex: '#1E2229' },
-  { name: 'Black', hex: '#000000' },
-  { name: 'White', hex: '#FFFFFF' },
-  { name: 'Silver', hex: '#CFD3D6' },
-  { name: 'Peach', hex: '#F0B27A' },
-  { name: 'Coral', hex: '#E8735A' },
-];
-
-function hexToRgb(hex: string): [number, number, number] | null {
-  const m = /^#([0-9a-fA-F]{6})$/.exec(hex);
-  const hex6 = m?.[1];
-  if (!hex6) return null;
-  const n = parseInt(hex6, 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-/** Nearest named color for a hex, by RGB Euclidean distance. Pure. */
-export function nearestColorName(hex: string): string | null {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return null;
-  let best: { name: string; d: number } | null = null;
-  for (const nc of NAMED_COLORS) {
-    const ncRgb = hexToRgb(nc.hex);
-    if (!ncRgb) continue;
-    const d =
-      (rgb[0] - ncRgb[0]) ** 2 + (rgb[1] - ncRgb[1]) ** 2 + (rgb[2] - ncRgb[2]) ** 2;
-    if (!best || d < best.d) best = { name: nc.name, d };
-  }
-  return best?.name ?? null;
-}
+//
+// Moved to lib/color-names.ts (2026-09-02) — now a complete two-layer naming
+// library (curated wedding names + the full 140 standard CSS names as a
+// fallback so ANY hex resolves to a real name), shared with the palette
+// editor and every other place a swatch is shown, not just this suggestion
+// helper. Re-exported here so existing callers of `nearestColorName` from
+// this module don't need to change their import.
+export { nearestColorName } from './color-names';
+import { nearestColorName } from './color-names';
 
 // ---- reception-design motif word -----------------------------------------
 

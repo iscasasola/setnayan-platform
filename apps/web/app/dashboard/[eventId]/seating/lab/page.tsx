@@ -2,6 +2,10 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import {
+  isMoodboardStyleFamily,
+  type MoodboardStyleFamily,
+} from '@/lib/moodboard-templates';
 import { getCurrentUser } from '@/lib/auth';
 import {
   fetchGuestsByEvent,
@@ -91,7 +95,7 @@ export default async function SeatingLabPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting',
+        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting, moodboard_style_family',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -145,6 +149,17 @@ export default async function SeatingLabPage({ params }: Props) {
   const receptionDesign = sanitizeReceptionDesign((eventRow.data as Record<string, unknown> | null)?.reception_design);
   const venueSettingRaw = (eventRow.data as Record<string, unknown> | null)?.venue_setting;
   const venueSetting = typeof venueSettingRaw === 'string' && venueSettingRaw ? venueSettingRaw : 'banquet_hall';
+  // WHICH theme family produced this board (events.moodboard_style_family,
+  // migration 20271197327520) — written by applyMoodboardTemplate in both apply
+  // modes. The reception decor AI-image layer pilot needs it: resolveDecorLayer
+  // returns the flat SVG for a null family, which is what EVERY event got before
+  // this column existed. Re-validated here against the shipped vocabulary rather
+  // than trusted from the row, so a taxonomy the app no longer knows degrades to
+  // "no family" (flat SVG) instead of reaching the lookup as an unknown key.
+  const styleFamilyRaw = (eventRow.data as Record<string, unknown> | null)?.moodboard_style_family;
+  const styleFamily: MoodboardStyleFamily | null = isMoodboardStyleFamily(styleFamilyRaw)
+    ? styleFamilyRaw
+    : null;
 
   const guests: Lab3DGuest[] = guestsRaw.map((g) => {
     const seat = seatByGuest.get(g.guest_id);
@@ -367,6 +382,7 @@ export default async function SeatingLabPage({ params }: Props) {
         guests={guests}
         rolePalette={rolePalette}
         receptionDesign={receptionDesign}
+        styleFamily={styleFamily}
         venueSetting={venueSetting}
         monogram={monogram}
         animatedMonogram={ownsAnimatedMonogram}

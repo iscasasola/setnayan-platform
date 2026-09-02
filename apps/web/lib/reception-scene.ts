@@ -15,7 +15,17 @@
  * flanking. Treatments swap the shapes; the shared Reception palette colors it.
  */
 
-export type PartId = 'ceiling' | 'backdrop' | 'stage' | 'tables' | 'tunnel' | 'entrance' | 'people';
+export type PartId =
+  | 'ceiling'
+  | 'backdrop'
+  | 'stage'
+  | 'tables'
+  | 'tunnel'
+  | 'entrance'
+  | 'walls'
+  | 'photo_wall'
+  | 'welcome_signage'
+  | 'people';
 
 /** Per-role attire colors for the people layer. `guestPalette` is the guest
  *  dress-code palette (multiple approved colors) — guests render in a mix of them. */
@@ -53,6 +63,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('hanging_greenery', 'Hanging greenery', 'hanging greenery and vines from the ceiling'),
           O('lanterns', 'Paper lanterns', 'clusters of hanging paper lanterns'),
           O('geometric', 'Geometric', 'modern geometric hanging installations'),
+          O('banana_leaf', 'Banana leaf & monstera', 'a hanging canopy of banana leaf and monstera fronds'),
           O('bare', 'Open / bare', 'a clean open ceiling'),
         ],
       },
@@ -76,6 +87,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('balloon', 'Balloon wall', 'an organic balloon wall'),
           O('fringe', 'Fringe panels', 'a fringe and tassel panel backdrop'),
           O('led', 'LED wall', 'a large LED video wall backdrop'),
+          O('capiz', 'Capiz shell', 'a backdrop of iridescent capiz shell panels'),
         ],
       },
       {
@@ -151,6 +163,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('runner', 'With runner', 'linens with a table runner'),
           O('full_drape', 'Full drape', 'lush full-drape table linens'),
           O('sequin', 'Sequin', 'shimmering sequin linens'),
+          O('banig', 'Banig weave', 'banig-weave table runners'),
         ],
       },
       {
@@ -163,6 +176,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('candles', 'Candle cluster', 'clusters of pillar candles'),
           O('greenery_runner', 'Greenery runner', 'a greenery garland runner'),
           O('lanterns', 'Lanterns', 'lantern centerpieces'),
+          O('sampaguita', 'Sampaguita garland', 'clusters of sampaguita garlands'),
         ],
       },
       {
@@ -196,6 +210,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('butterfly', 'Butterfly tunnel', 'a whimsical butterfly entrance tunnel'),
           O('cherry_blossom', 'Cherry blossom', 'a cherry-blossom entrance tunnel'),
           O('cold_spark', 'Cold spark walk', 'a walkway of cold-spark fountains firing as the couple enters'),
+          O('bamboo', 'Bamboo & rattan', 'an entrance tunnel of bamboo and rattan arches'),
           O('none', 'No tunnel', 'no entrance tunnel'),
         ],
       },
@@ -216,6 +231,65 @@ export const RECEPTION_PARTS: Part[] = [
           O('candle', 'Candle-lined', 'an aisle lined with candles'),
           O('floral_lined', 'Floral-lined', 'an aisle lined with florals'),
           O('none', 'Bare', 'a bare aisle'),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'walls',
+    label: 'Walls & surroundings',
+    // Philippine venues — hotels especially — commonly restrict what can be
+    // hung, drilled, or taped to their walls/pillars; a couple should confirm
+    // with their venue before booking a wall treatment (informational only,
+    // not a blocking validation — same spirit as the tunnel catalog's
+    // realism notes above).
+    blurb: 'Side walls & pillars — check with your venue before booking',
+    attributes: [
+      {
+        id: 'treatment',
+        label: 'Treatment',
+        options: [
+          O('fabric_drape', 'Fabric drape', 'fabric-draped side walls'),
+          O('floral_garland', 'Floral garland', 'floral garlands along the side walls and pillars'),
+          O('greenery_wall', 'Greenery wall', 'greenery-clad side walls'),
+          O('uplighting_only', 'Uplighting only', 'uplit bare walls, no wall dressing'),
+          O('bare', 'Bare / undressed', 'bare undressed walls'),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'photo_wall',
+    label: 'Photo wall',
+    blurb: 'The step-and-repeat / photo-op backdrop — separate from your stage backdrop',
+    attributes: [
+      {
+        id: 'style',
+        label: 'Style',
+        options: [
+          O('floral_wall', 'Floral wall', 'a floral photo-wall backdrop'),
+          O('step_repeat', 'Step & repeat', 'a step-and-repeat photo wall with the couple’s monogram'),
+          O('greenery_wall', 'Greenery wall', 'a greenery photo-wall backdrop'),
+          O('balloon_garland', 'Balloon garland', 'a balloon-garland photo wall'),
+          O('neon_backdrop', 'Neon sign', 'a neon-sign photo wall'),
+          O('none', 'None', ''),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'welcome_signage',
+    label: 'Welcome & signage',
+    blurb: 'The welcome table near the entrance — sign, seating chart, guestbook',
+    attributes: [
+      {
+        id: 'style',
+        label: 'Style',
+        options: [
+          O('easel_sign', 'Easel welcome sign', 'an easel welcome sign at the entrance'),
+          O('framed_seating_chart', 'Framed seating chart', 'a framed seating chart display near the entrance'),
+          O('floral_guestbook', 'Floral guestbook table', 'a floral-framed guestbook table near the entrance'),
+          O('minimal', 'Minimal / no signage', 'a minimal welcome table, no signage'),
         ],
       },
     ],
@@ -248,6 +322,9 @@ export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
   tables: { shape: 'round', chairs: 'chiavari', linen: 'plain', centerpiece: 'tall', place: 'gold' },
   tunnel: { style: 'floral' },
   entrance: { runner: 'fabric' },
+  walls: { treatment: 'bare' },
+  photo_wall: { style: 'none' },
+  welcome_signage: { style: 'minimal' },
   people: { who: 'couple' },
 };
 
@@ -427,6 +504,22 @@ function ceiling(t: string, P: (i: number) => string): string {
     }
     return s;
   }
+  if (t === 'banana_leaf') {
+    let s = '';
+    for (let i = 0; i < 6; i++) {
+      const cx = 100 + i * 150,
+        cy = 10 + (i % 2) * 18;
+      s += `<line x1="${cx}" y1="0" x2="${cx}" y2="${cy}" stroke="${LEAF}" stroke-width="1.2"/>`;
+      // Large drooping banana-leaf/monstera fronds — bigger than the
+      // generic `leaf()` glyph used by hanging_greenery, and split down
+      // the middle to read as a distinct broad-leaf silhouette.
+      for (const [dx, rot] of [[-30, -55], [0, 0], [30, 55]] as [number, number][]) {
+        s += `<ellipse cx="${(cx + dx).toFixed(1)}" cy="${(cy + 26).toFixed(1)}" rx="30" ry="12" fill="${shade(LEAF, dx === 0 ? 8 : -6)}" transform="rotate(${rot} ${(cx + dx).toFixed(1)} ${(cy + 26).toFixed(1)})"/>`;
+        s += `<line x1="${(cx + dx - 26).toFixed(1)}" y1="${(cy + 26).toFixed(1)}" x2="${(cx + dx + 26).toFixed(1)}" y2="${(cy + 26).toFixed(1)}" stroke="${shade(LEAF, -30)}" stroke-width="1" opacity="0.6" transform="rotate(${rot} ${(cx + dx).toFixed(1)} ${(cy + 26).toFixed(1)})"/>`;
+      }
+    }
+    return s;
+  }
   if (t === 'lanterns') {
     let s = '';
     for (let i = 0; i < 6; i++) {
@@ -510,6 +603,21 @@ function backdrop(style: string, florals: string, P: (i: number) => string): str
       const fx = x + 8 + i * ((w - 16) / 24);
       s += `<path d="M ${fx} ${y + 8} q 3 ${h / 2} 0 ${h - 16}" fill="none" stroke="${i % 2 ? shade(P(0), 18) : P(0)}" stroke-width="${(w - 16) / 24 - 1}" opacity="0.85"/>`;
     }
+  } else if (style === 'capiz') {
+    // Iridescent capiz shell panels — a grid of pale, translucent
+    // quatrefoil-ish shell pieces with a soft pearly overlay, distinct
+    // from the flat floral_wall / led grids above.
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${shade(WALL, 4)}"/>`;
+    const shellFills = ['#F7F3EA', '#EFEAE0', '#F2EEE6'];
+    for (let r = 0; r < 6; r++) {
+      for (let c = 0; c < 8; c++) {
+        const sx = x + 10 + c * ((w - 20) / 7);
+        const sy = y + 10 + r * ((h - 20) / 5);
+        const fill = shellFills[(r + c) % shellFills.length]!;
+        s += `<rect x="${(sx - 14).toFixed(1)}" y="${(sy - 14).toFixed(1)}" width="28" height="28" rx="6" fill="${fill}" stroke="${shade(fill, -18)}" stroke-width="0.8" opacity="0.92"/>`;
+      }
+    }
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="url(#rwall)" opacity="0.12"/>`;
   } else if (style === 'led') {
     s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${shade(P(1), -60)}"/>`;
     for (let r = 0; r < 4; r++)
@@ -636,6 +744,16 @@ function tables(
         candle(ccx, ccy - r * 1.2, r * 0.5) + candle(ccx - r * 0.5, ccy - r * 0.7, r * 0.4) + candle(ccx + r * 0.5, ccy - r * 0.7, r * 0.4);
     if (centerT === 'candles') return candle(ccx, ccy, r * 0.7) + candle(ccx - r * 0.5, ccy + 2, r * 0.5) + candle(ccx + r * 0.5, ccy + 2, r * 0.5);
     if (centerT === 'lanterns') return lantern(ccx, ccy + 2, r * 0.9, GOLD);
+    if (centerT === 'sampaguita') {
+      // A short garland of small white sampaguita blossoms strung along
+      // the table's axis — always white/cream (a real sampaguita's own
+      // color), not palette-tinted, so it reads as the flower it is.
+      let g = '';
+      for (let k = -2; k <= 2; k++) {
+        g += flower(ccx + k * (r * 0.32), ccy - (Math.abs(k) % 2 === 0 ? 2 : 6), r * 0.22, '#FFFFFF', '#F7E9A0');
+      }
+      return g;
+    }
     if (centerT === 'greenery_runner')
       return [0, 1, 2, 3].map((k) => leaf(ccx - r + (k * r * 2) / 3, ccy, r * 0.5, k % 2 ? 25 : -25)).join('');
     if (centerT === 'low') return flower(ccx, ccy, r * 0.46, P(2)) + leaf(ccx - r * 0.5, ccy, r * 0.4, -20) + leaf(ccx + r * 0.5, ccy, r * 0.4, 20);
@@ -666,7 +784,18 @@ function tables(
       s += `<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${(r * 0.42).toFixed(1)}" fill="${cloth}" stroke="${shade(cloth, -16)}" stroke-width="1"/>`;
     }
     // linen accent
-    if (linenT === 'runner') s += `<ellipse cx="${cx}" cy="${cy}" rx="${(r * 0.34).toFixed(1)}" ry="${(r * 0.42).toFixed(1)}" fill="${accent}" opacity="0.6"/>`;
+    if (linenT === 'banig') {
+      // Woven banig runner — a crosshatch weave pattern down the table's
+      // long axis, distinct from the plain color washes below.
+      const bw = r * 0.4;
+      s += `<ellipse cx="${cx}" cy="${cy}" rx="${(bw).toFixed(1)}" ry="${(r * 0.4).toFixed(1)}" fill="#E8D4A8"/>`;
+      for (let k = -3; k <= 3; k++) {
+        s += `<line x1="${(cx - bw).toFixed(1)}" y1="${(cy + k * (r * 0.09)).toFixed(1)}" x2="${(cx + bw).toFixed(1)}" y2="${(cy + k * (r * 0.09)).toFixed(1)}" stroke="#B98B4A" stroke-width="0.8" opacity="0.55"/>`;
+      }
+      for (let k = -2; k <= 2; k++) {
+        s += `<line x1="${(cx + k * (bw / 3)).toFixed(1)}" y1="${(cy - r * 0.36).toFixed(1)}" x2="${(cx + k * (bw / 3)).toFixed(1)}" y2="${(cy + r * 0.36).toFixed(1)}" stroke="#B98B4A" stroke-width="0.8" opacity="0.4"/>`;
+      }
+    } else if (linenT === 'runner') s += `<ellipse cx="${cx}" cy="${cy}" rx="${(r * 0.34).toFixed(1)}" ry="${(r * 0.42).toFixed(1)}" fill="${accent}" opacity="0.6"/>`;
     else if (linenT === 'full_drape') s += `<path d="M ${(cx - r).toFixed(1)} ${cy} a ${r} ${(r * 0.42).toFixed(1)} 0 0 0 ${(r * 2).toFixed(1)} 0 l 0 ${(r * 0.3).toFixed(1)} a ${r} ${(r * 0.42).toFixed(1)} 0 0 1 ${(-r * 2).toFixed(1)} 0 Z" fill="${shade(cloth, -10)}"/>`;
     else if (linenT === 'sequin') s += `<ellipse cx="${cx}" cy="${cy}" rx="${(r * 0.86).toFixed(1)}" ry="${(r * 0.34).toFixed(1)}" fill="${shade(accent, 50)}" opacity="0.5"/>`;
     else s += `<ellipse cx="${cx}" cy="${cy}" rx="${(r * 0.6).toFixed(1)}" ry="${(r * 0.24).toFixed(1)}" fill="${accent}" opacity="0.35"/>`;
@@ -751,7 +880,26 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
     const top = `M ${p0[0]} ${p0[1]} Q ${ctl[0]} ${ctl[1]} ${p2[0]} ${p2[1]}`;
     const stroke = (col: string, sw: number) =>
       `<path d="${legL}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/><path d="${legR}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/><path d="${top}" fill="none" stroke="${col}" stroke-width="${sw}"/>`;
-    if (tunnelT === 'draped') {
+    if (tunnelT === 'bamboo') {
+      // Segmented bamboo poles (banded rects, not a smooth stroke) forming
+      // the arch legs + a rattan-woven top rail, so it reads as jointed
+      // bamboo rather than a generic wooden arch.
+      const BAMBOO = '#B9A15A';
+      const bw = 9 - idx * 2;
+      const segments = (x0: number, y0: number, y1: number) => {
+        const n = 5;
+        let out = '';
+        for (let i = 0; i < n; i++) {
+          const sy0 = y0 + ((y1 - y0) * i) / n;
+          const sy1 = y0 + ((y1 - y0) * (i + 1)) / n - 2;
+          out += `<rect x="${(x0 - bw / 2).toFixed(1)}" y="${Math.min(sy0, sy1).toFixed(1)}" width="${bw}" height="${Math.abs(sy1 - sy0).toFixed(1)}" rx="2" fill="${BAMBOO}" stroke="${shade(BAMBOO, -30)}" stroke-width="0.6"/>`;
+        }
+        return out;
+      };
+      s += segments(left, springY, d.y0);
+      s += segments(right, springY, d.y0);
+      s += `<path d="${top}" fill="none" stroke="${shade('#8A9A6B', 6)}" stroke-width="${bw}" stroke-dasharray="3 3" opacity="0.85"/>`;
+    } else if (tunnelT === 'draped') {
       const sw = 13 - idx * 3;
       s += stroke(P(0), sw);
       s += `<path d="M ${p0[0]} ${p0[1]} Q ${cx} ${d.top + 4} ${p2[0]} ${p2[1]}" fill="none" stroke="${shade(P(0), 20)}" stroke-width="${sw - 3}" opacity="0.85"/>`;
@@ -824,6 +972,120 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
     }
   });
   return s;
+}
+
+// ---- walls / surroundings (new Filipino-relevant zone, 2026-09-03) ----
+// Fallback-grade rendering (reuses the drape/floral/greenery glyphs already
+// defined above) — a simplified side-margin treatment, not full stylist-grade
+// intricacy like the 7 original parts, since the couple already sees the
+// backdrop/ceiling carry most of the room's character.
+function wallsDecor(t: string, P: (i: number) => string): string {
+  if (t === 'bare') return '';
+  const bandW = 56;
+  const bands = [0, 960 - bandW];
+  const h = 372;
+  if (t === 'uplighting_only') {
+    let s = '';
+    for (const x of bands) {
+      for (let i = 0; i < 4; i++) {
+        s += `<ellipse cx="${(x + bandW / 2).toFixed(1)}" cy="${60 + i * 80}" rx="30" ry="60" fill="${P(0)}" opacity="0.16"/>`;
+      }
+    }
+    return s;
+  }
+  if (t === 'floral_garland') {
+    let s = '';
+    for (const x of bands) for (let i = 0; i < 6; i++) s += flower(x + bandW / 2, 20 + i * 60, 12, P(2));
+    return s;
+  }
+  if (t === 'greenery_wall') {
+    let s = '';
+    for (const x of bands) {
+      s += `<rect x="${x}" y="0" width="${bandW}" height="${h}" fill="${shade(LEAF, 40)}" opacity="0.3"/>`;
+      for (let i = 0; i < 24; i++) s += leaf(x + 10 + ((i * 17) % (bandW - 20)), 14 + ((i * 29) % (h - 28)), 9, (i * 53) % 180);
+    }
+    return s;
+  }
+  // fabric_drape (default)
+  let s = '';
+  for (const x of bands) {
+    s += `<path d="M ${x} 4 Q ${x + bandW / 2} ${h * 0.5} ${x} ${h - 4} L ${x + bandW - 2} ${h - 4} Q ${x + bandW / 2} ${h * 0.5} ${x + bandW - 2} 4 Z" fill="${P(0)}" opacity="0.5"/>`;
+  }
+  return s;
+}
+
+// ---- photo wall — the step-and-repeat, separate from the stage backdrop ----
+// Reuses the same glyph vocabulary as `backdrop()`, scaled into a small
+// corner panel (a lounge/entrance-corner photo op is smaller than the couple's
+// own stage backdrop) — a reasonable fallback, not bespoke geometry.
+function photoWallDecor(style: string, P: (i: number) => string): string {
+  if (style === 'none') return '';
+  const x = 786,
+    y = 92,
+    w = 130,
+    h = 108;
+  const panel = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${shade(WALL, 4)}" stroke="${shade(WALL, -20)}" stroke-width="1"/>`;
+  if (style === 'floral_wall') {
+    let s = panel;
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) s += flower(x + 16 + c * 32, y + 16 + r * 32, 10, P(2), P(0));
+    return s;
+  }
+  if (style === 'greenery_wall') {
+    let s = panel + `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${shade(LEAF, 50)}" opacity="0.35"/>`;
+    for (let i = 0; i < 20; i++) s += leaf(x + 10 + ((i * 23) % (w - 20)), y + 10 + ((i * 17) % (h - 20)), 8, (i * 41) % 180);
+    return s;
+  }
+  if (style === 'balloon_garland') {
+    let s = panel;
+    for (let i = 0; i < 12; i++) {
+      const bx = x + 10 + ((i * 31) % (w - 20));
+      const by = y + 10 + ((i * 19) % (h - 20));
+      s += `<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${6 + (i % 3) * 2}" fill="${[P(0), P(1), P(2)][i % 3]}" opacity="0.9"/>`;
+    }
+    return s;
+  }
+  if (style === 'neon_backdrop') {
+    let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${shade(P(0), -70)}"/>`;
+    s += `<path d="M ${x + 16} ${y + h - 22} q 16 -38 32 0 q 16 38 32 0" fill="none" stroke="${shade(P(2), 60)}" stroke-width="4" stroke-linecap="round" opacity="0.95"/>`;
+    return s;
+  }
+  // step_repeat (default) — a dotted grid standing in for a logo/monogram tile
+  let s = panel;
+  for (let r = 0; r < 5; r++)
+    for (let c = 0; c < 6; c++)
+      s += `<circle cx="${(x + 12 + c * 20).toFixed(1)}" cy="${(y + 12 + r * 20).toFixed(1)}" r="5" fill="${shade(P(1), 10)}" opacity="0.5"/>`;
+  return s;
+}
+
+// ---- welcome & signage — the welcome table near the entrance ----
+function welcomeSignageDecor(style: string, P: (i: number) => string): string {
+  const x = 26,
+    y = 588,
+    w = 92,
+    h = 46;
+  const table = `<rect x="${x}" y="${y + h - 12}" width="${w}" height="12" rx="2" fill="${LINEN}"/>`;
+  if (style === 'minimal') return table;
+  if (style === 'easel_sign') {
+    return (
+      table +
+      `<rect x="${x + w / 2 - 3}" y="${y}" width="6" height="${h - 12}" fill="${shade('#A9824E', -10)}"/>` +
+      `<rect x="${x + w / 2 - 20}" y="${y}" width="40" height="26" rx="2" fill="${shade(WALL, 10)}" stroke="${P(0)}" stroke-width="1.4"/>`
+    );
+  }
+  if (style === 'framed_seating_chart') {
+    let s =
+      table +
+      `<rect x="${x + w / 2 - 22}" y="${y - 2}" width="44" height="30" rx="2" fill="#FFFFFF" stroke="${GOLD}" stroke-width="2"/>`;
+    for (let i = 0; i < 4; i++)
+      s += `<line x1="${x + w / 2 - 16}" y1="${y + 4 + i * 6}" x2="${x + w / 2 + 16}" y2="${y + 4 + i * 6}" stroke="${shade(WALL, -30)}" stroke-width="1"/>`;
+    return s;
+  }
+  // floral_guestbook (default)
+  return (
+    table +
+    flower(x + w / 2, y + 4, 10, P(2)) +
+    `<rect x="${x + w / 2 - 12}" y="${y + h - 24}" width="24" height="16" rx="1" fill="#FFFFFF" stroke="${shade(WALL, -25)}" stroke-width="1"/>`
+  );
 }
 
 // ---- people ----
@@ -928,9 +1190,12 @@ export function renderVenueSvg(
       sel(design, 'tables', 'place'),
       P,
     ),
+    wallsDecor(sel(design, 'walls', 'treatment'), P),
     people(sel(design, 'people', 'who'), rc, guestPalette),
     entrance(sel(design, 'tunnel', 'style'), sel(design, 'entrance', 'runner'), P),
     `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
+    photoWallDecor(sel(design, 'photo_wall', 'style'), P),
+    welcomeSignageDecor(sel(design, 'welcome_signage', 'style'), P),
     `</svg>`,
   ].join('');
 }

@@ -6,7 +6,8 @@
  * enhance the photo output to be more accurate").
  *
  * Surfaces the same per-event inspiration intake that onboarding's Card 15
- * uses — 13 named slots × 2 photos, stored in event_inspiration_assets, with
+ * uses — 16 named slots × 2 photos (widened 2026-09-02 to add backdrop/
+ * flowers/cocktail), stored in event_inspiration_assets, with
  * a 6-color palette auto-extracted from each upload. Reuses the proven
  * `uploadMoodboardSlot` / `removeMoodboardSlot` server actions + the Canvas
  * extractor (lib/extract-palette). These references will feed the paid
@@ -16,7 +17,11 @@
 
 import { useState, useTransition, type DragEvent } from 'react';
 import { extractPaletteFromFile } from '@/lib/extract-palette';
-import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
+import {
+  uploadMoodboardSlot,
+  removeMoodboardSlot,
+  MOODBOARD_SLOT_POSITIONS,
+} from '../../../wizard-actions';
 import { reorderMoodboardSlot } from '../actions';
 
 export type InspirationItem = {
@@ -32,11 +37,15 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
     title: 'Venue & feel',
     slots: [
       { k: 'overall', label: 'Overall vibe' },
+      { k: 'venue', label: 'Ceremony venue' },
+      { k: 'reception_venue', label: 'Reception venue' },
+      { k: 'backdrop', label: 'Wall design' },
       { k: 'ceiling', label: 'Ceiling' },
       { k: 'stage', label: 'Stage' },
       { k: 'table', label: 'Tables' },
+      { k: 'flowers', label: 'Flowers' },
       { k: 'tunnel', label: 'Tunnel' },
-      { k: 'venue', label: 'Venue' },
+      { k: 'cocktail', label: 'Cocktail hour' },
     ],
   },
   { title: 'Palette', slots: [{ k: 'palette', label: 'Palette source' }] },
@@ -147,7 +156,7 @@ export function InspirationBoard({ eventId, initial }: Props) {
               >
                 <p className="px-0.5 text-[11px] font-medium text-ink/70">{slot.label}</p>
                 <div className="flex gap-1.5">
-                  {[1, 2].map((pos) => (
+                  {MOODBOARD_SLOT_POSITIONS.map((pos) => (
                     <SlotTile
                       key={pos}
                       tile={tiles[key(slot.k, pos)]}

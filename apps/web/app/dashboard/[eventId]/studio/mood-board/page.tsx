@@ -15,15 +15,19 @@ import {
 } from '@/lib/feel-palettes';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
-import type { ReceptionDesign } from '@/lib/reception-scene';
-import { saveRolePalette, saveMoodboardTheme } from './actions';
+import { RECEPTION_PARTS, sel, type ReceptionDesign } from '@/lib/reception-scene';
+import {
+  saveRolePalette,
+  saveMoodboardTheme,
+  applyMoodboardTemplate,
+  fetchThemeTemplates,
+} from './actions';
 import { PaletteEditor } from './_components/palette-editor';
 import {
   MoodboardBoard,
   type BoardSection,
   type BoardCard,
 } from './_components/moodboard-board';
-import { ReceptionDesigner } from './_components/reception-designer';
 import {
   InspirationBoard,
   type InspirationItem,
@@ -32,6 +36,7 @@ import { ConceptPdfButton } from './_components/concept-pdf-button';
 import { PrintablePdfButton } from './_components/printable-pdf-button';
 import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
 import { ThemeCard } from './_components/theme-card';
+import { TemplateGallery } from './_components/template-gallery';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Mood Board' };
@@ -82,6 +87,17 @@ export default async function MoodBoardPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // ⚠ NO `moodboard_theme_templates` READ HERE — ON PURPOSE (2026-09-03).
+  // This list used to carry an unfiltered, unlimited select of that table,
+  // handed to <TemplateGallery> as a `templates` prop. At 2,600 rows (100
+  // hand-authored + 2,500 generated) that shipped the whole table, including
+  // two JSONB blobs per row, into every couple's RSC payload on every load of
+  // this page — and the gallery then filtered it client-side. The gallery now
+  // fetches ~6 rows on demand through `fetchThemeTemplates`, AFTER the couple
+  // has narrowed to one (feeling, style) pair, and the facet vocabulary it
+  // needs to draw its first screen is STATIC (MOODBOARD_MOOD_TAGS /
+  // MOODBOARD_STYLE_FAMILIES + their label maps in lib/moodboard-templates.ts),
+  // so no query is needed here at all — not even a `select distinct`.
   const [
     eventRes,
     guests,
@@ -157,6 +173,24 @@ export default async function MoodBoardPage({ params }: Props) {
     event.reception_design && typeof event.reception_design === 'object'
       ? (event.reception_design as ReceptionDesign)
       : {};
+
+  // ── read-only reception summary (Task: editor relocated to Seat Plan,
+  // 2026-09-03) — "Ceiling: Fairy lights · Backdrop: Floral wall · ..." for
+  // every part except People (not a materials choice). Generic over
+  // RECEPTION_PARTS so the 3 new Filipino-relevant zones (walls, photo wall,
+  // welcome & signage) show up here for free the moment a couple sets them —
+  // nothing to update when a new zone is added.
+  const receptionSummary = RECEPTION_PARTS.filter((p) => p.id !== 'people').map((p) => ({
+    id: p.id,
+    label: p.label,
+    value: p.attributes
+      .map((a) => {
+        const id = sel(receptionDesign, p.id, a.id);
+        return a.options.find((o) => o.id === id)?.label;
+      })
+      .filter((v): v is string => Boolean(v))
+      .join(', '),
+  }));
 
   // ── present roles drive which palette sections show (taxonomy v2) ────────
   // A role's palette section appears ONLY when the guest list actually contains
@@ -311,8 +345,8 @@ export default async function MoodBoardPage({ params }: Props) {
     { href: '#theme', label: 'Theme' },
     { href: '#inspiration', label: 'Inspiration' },
     { href: '#palette', label: 'Palette' },
-    { href: '#colors', label: 'In your colors' },
     { href: '#reception', label: 'Reception' },
+    { href: '#colors', label: 'In your colors' },
     { href: '#share', label: 'Share & export' },
   ];
 
@@ -366,6 +400,15 @@ export default async function MoodBoardPage({ params }: Props) {
           saveAction={saveMoodboardTheme}
         />
 
+        {/* No `templates` prop — the gallery asks for its own rows, ~6 at a
+            time, only once the couple has answered both narrowing questions.
+            See the comment on the Promise.all above for why. */}
+        <TemplateGallery
+          eventId={eventId}
+          fetchAction={fetchThemeTemplates}
+          applyAction={applyMoodboardTemplate}
+        />
+
         {showChineseDefaultNote ? (
           <p className="rounded-lg border border-[#7A1F2B]/25 bg-[#7A1F2B]/[0.05] px-3 py-2 text-sm text-ink/75">
             We&rsquo;ve suggested a red &amp; gold palette — the auspicious colours of a
@@ -414,38 +457,45 @@ export default async function MoodBoardPage({ params }: Props) {
           </section>
         </div>
 
-        <section id="colors" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
-          <header>
-            <h2 className="text-2xl font-semibold text-ink">In your colors</h2>
-            <p className="text-sm text-ink/65">
-              One picture per thing that needs a color decision — your attire, ceremony, and
-              flowers. Ceremony and flowers preview your palette automatically.
-            </p>
-          </header>
-          <MoodboardBoard sections={sections} />
-        </section>
-
         <section id="reception" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
           <header>
-            <h2 className="text-2xl font-semibold text-ink">Design your reception</h2>
+            <h2 className="text-2xl font-semibold text-ink">Your reception design</h2>
             <p className="text-sm text-ink/65">
-              Tap a part of the room — ceiling, backdrop, stage, tables, or the entrance
-              tunnel — and choose its treatment. The venue updates live in your colors.
+              Ceiling, backdrop, stage, tables, walls, and more — designed together with your
+              Seat Plan now, since it&rsquo;s really the same room.
             </p>
           </header>
-          <ReceptionDesigner
-            eventId={eventId}
-            initialDesign={receptionDesign}
-            palette={palette.reception ?? []}
-            roleColors={{
-              bride: palette.bride?.[0],
-              groom: palette.groom?.[0],
-              party: palette.wedding_party?.[0],
-              guest: palette.guest?.[0],
-              // the guest dress-code palette (multiple approved colors)
-              guestPalette: palette.guest ?? [],
-            }}
-          />
+          <div className="rounded-xl border border-ink/10 bg-white p-4">
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink/75">
+              {receptionSummary.map((p) => (
+                <span key={p.id}>
+                  <span className="font-medium text-ink">{p.label}:</span>{' '}
+                  {p.value || <span className="text-ink/45">Not set</span>}
+                </span>
+              ))}
+            </div>
+            <Link
+              href={`/dashboard/${eventId}/seating/lab`}
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+            >
+              Edit in Seat Plan →
+            </Link>
+          </div>
+        </section>
+
+        {/* "In your colors" — moved down + shrunk (2026-09-03): kept as a
+            secondary "here's a taste" gut-check (still reads from
+            moodboard_library_assets + the couple's palette and still feeds
+            the vendor RPC / concept PDF exactly as before), no longer a
+            primary section couples are steered to. */}
+        <section id="colors" className="scroll-mt-24 space-y-3 border-t border-ink/10 pt-6">
+          <header>
+            <h3 className="text-base font-medium text-ink/80">In your colors</h3>
+            <p className="text-xs text-ink/55">
+              A quick preview of your attire, ceremony, and flowers in your chosen palette.
+            </p>
+          </header>
+          <MoodboardBoard sections={sections} compact />
         </section>
 
         <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">

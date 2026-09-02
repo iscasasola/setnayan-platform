@@ -5,6 +5,10 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { PALETTE_LIMITS, PALETTE_ORDER, type PaletteKey, type RolePalette } from '@/lib/mood-board';
 import { renderVenueSvg, type ReceptionDesign, type RoleColors } from '@/lib/reception-scene';
+import { fetchDecorLayerCatalog, renderDecorLayerDataUrl } from '@/lib/reception-decor-layers-server';
+import { PILOT_DECOR_ZONES } from '@/lib/reception-decor-layers';
+import { isMoodboardStyleFamily } from '@/lib/moodboard-templates';
+import type { PartId } from '@/lib/reception-scene';
 
 export const metadata = { title: 'Mood Board · Vendor' };
 
@@ -26,6 +30,10 @@ type MoodBoardData = {
   mood_board_updated_at: string | null;
   theme_name: string | null;
   theme_description: string | null;
+  /** `events.moodboard_style_family` — added to the RPC by 20271197327520.
+   *  Typed `string | null` (not the narrow union) because it arrives from
+   *  jsonb: it is re-validated against the shipped vocabulary before use. */
+  style_family: string | null;
   inspirations: Array<{ slot_key: string; slot_position: number; image_url: string }>;
 };
 
@@ -51,12 +59,21 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   const board = data as MoodBoardData;
   const palette = (board.role_palette ?? {}) as RolePalette;
 
-  // Build palette rows — only keys that have at least one color saved
-  const paletteRows = PALETTE_ORDER.map((key) => ({
-    key,
-    label: PALETTE_LIMITS[key as PaletteKey]?.label ?? key,
-    colors: palette[key as PaletteKey] ?? [],
-  })).filter((r) => r.colors.length > 0);
+  // Build palette rows — only keys that have at least one color saved.
+  // Couple-authored `custom_roles` beyond the fixed taxonomy are appended
+  // after the fixed rows, never replacing any of them.
+  const paletteRows = [
+    ...PALETTE_ORDER.map((key) => ({
+      key: key as string,
+      label: PALETTE_LIMITS[key as PaletteKey]?.label ?? key,
+      colors: palette[key as PaletteKey] ?? [],
+    })),
+    ...(palette.custom_roles ?? []).map((r) => ({
+      key: r.key,
+      label: r.label,
+      colors: r.colors,
+    })),
+  ].filter((r) => r.colors.length > 0);
 
   // Reception scene SVG — server-rendered, palette-tinted, read-only
   const roleColors: RoleColors = {
@@ -71,6 +88,47 @@ export default async function VendorMoodBoardPage({ params }: Props) {
     palette.reception ?? [],
     roleColors,
   );
+
+  // AI decor-image layer PILOT (backdrop + ceiling — see
+  // @/lib/reception-decor-layers).
+  //
+  // ✅ `styleFamily` IS NO LONGER HARD-CODED NULL (2026-09-03). It used to be,
+  // and this comment used to explain why: nothing anywhere persisted a style
+  // family for an event, because applyMoodboardTemplate merged a template's
+  // palette + reception_design in and discarded which family produced them.
+  // `events.moodboard_style_family` (migration 20271197327520) is now that
+  // record, and `get_vendor_mood_board` returns it as `style_family`.
+  //
+  // ⚠ ONE OF THE TWO PRECONDITIONS IS STILL OPEN, SO NOTHING RENDERS YET. The
+  // 10 pilot asset rows migration 20271194970382 seeded carry approved_at =
+  // NULL (the generated files were never uploaded to R2) and the catalog read
+  // requires approved, so `fetchDecorLayerCatalog` still returns EMPTY here
+  // and every zone still falls back to the flat SVG — now for the one
+  // remaining reason (no approved images) rather than two.
+  const decorCatalog = await fetchDecorLayerCatalog(supabase);
+  const styleFamily = isMoodboardStyleFamily(board.style_family) ? board.style_family : null;
+  const decorLayerEntries = await Promise.all(
+    PILOT_DECOR_ZONES.map(async (zone) => {
+      const dataUrl = await renderDecorLayerDataUrl(
+        zone,
+        styleFamily,
+        decorCatalog,
+        palette.reception ?? [],
+      );
+      return [zone, dataUrl] as const;
+    }),
+  );
+  const decorImages = Object.fromEntries(
+    decorLayerEntries.filter((e): e is [PartId, string] => e[1] !== null),
+  );
+  // Same zone bounding boxes the couple-facing Reception Designer's HOTSPOTS
+  // uses (app/dashboard/[eventId]/studio/mood-board/_components/reception-
+  // designer.tsx) — reused, not redefined, so an image layer lands exactly
+  // where the flat SVG drew that zone.
+  const DECOR_ZONE_BOUNDS: Partial<Record<PartId, { l: number; t: number; w: number; h: number }>> = {
+    ceiling: { l: 4, t: 0, w: 92, h: 20 },
+    backdrop: { l: 33, t: 22, w: 34, h: 26 },
+  };
 
   const hasInspiration = board.inspirations.length > 0;
   const hasPalette = paletteRows.length > 0;
@@ -155,10 +213,34 @@ export default async function VendorMoodBoardPage({ params }: Props) {
                 The couple&rsquo;s chosen materials and treatments — ceiling, backdrop, stage,
                 tables, entrance — rendered in their palette.
               </p>
-              <div
-                className="overflow-hidden rounded-xl"
-                dangerouslySetInnerHTML={{ __html: receptionSvg }}
-              />
+              <div className="relative overflow-hidden rounded-xl">
+                <div dangerouslySetInnerHTML={{ __html: receptionSvg }} />
+                {/* AI decor-image layer pilot — composited on top of the flat
+                    SVG at the exact zone bounds, only for zones that resolved
+                    to a retinted image server-side this render. */}
+                {(Object.entries(decorImages) as Array<[PartId, string]>).map(
+                  ([zone, dataUrl]) => {
+                    const bounds = DECOR_ZONE_BOUNDS[zone];
+                    if (!bounds) return null;
+                    return (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={zone}
+                        src={dataUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none absolute rounded-sm object-cover"
+                        style={{
+                          left: `${bounds.l}%`,
+                          top: `${bounds.t}%`,
+                          width: `${bounds.w}%`,
+                          height: `${bounds.h}%`,
+                        }}
+                      />
+                    );
+                  },
+                )}
+              </div>
             </section>
           ) : null}
 

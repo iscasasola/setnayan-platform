@@ -61,6 +61,10 @@ const PART_ORDER: PartId[] = [
   'tables',
   'tunnel',
   'entrance',
+  // 3 Filipino-relevant zones added 2026-09-03 — see reception-scene.ts.
+  'walls',
+  'photo_wall',
+  'welcome_signage',
   'people',
 ];
 
@@ -89,12 +93,24 @@ function ascii(s: string): string {
     .replace(/[^\x00-\xFF]/g, ' ');
 }
 
-/** Palette grouped per role — only rows the couple actually saved a color for. */
+/**
+ * Palette grouped per role — only rows the couple actually saved a color for.
+ * Couple-authored `custom_roles` (beyond the fixed taxonomy — e.g. "Ring
+ * bearer's dog") are appended AFTER the fixed rows, never replacing any of
+ * them, so a printed board never silently drops a role the couple named.
+ */
 function paletteRows(palette: RolePalette): Array<{ label: string; colors: string[] }> {
-  return PALETTE_ORDER.map((key) => ({
+  const fixed = PALETTE_ORDER.map((key) => ({
     label: PALETTE_LIMITS[key as PaletteKey]?.label ?? String(key),
     colors: (palette[key as PaletteKey] ?? []).filter((c) => /^#?[0-9a-f]{6}$/i.test(c)),
   })).filter((r) => r.colors.length > 0);
+  const custom = (palette.custom_roles ?? [])
+    .map((r) => ({
+      label: r.label,
+      colors: r.colors.filter((c) => /^#?[0-9a-f]{6}$/i.test(c)),
+    }))
+    .filter((r) => r.colors.length > 0);
+  return [...fixed, ...custom];
 }
 
 /** The per-part material choices, derived from the live taxonomy. */

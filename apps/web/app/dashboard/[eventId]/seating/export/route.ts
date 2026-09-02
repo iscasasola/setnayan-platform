@@ -68,11 +68,15 @@ export async function GET(
   // this export has no per-role layout, so it only needs "the couple's colors".
   const palette = sanitizeRolePalette(event.role_palette ?? {});
   const flatHexPalette = Array.from(
-    new Set(
-      Object.entries(palette)
-        .filter(([key]) => key !== 'room_dressing')
-        .flatMap(([, colors]) => (Array.isArray(colors) ? colors : [])),
-    ),
+    new Set([
+      ...Object.entries(palette)
+        .filter(([key]) => key !== 'room_dressing' && key !== 'custom_roles')
+        .flatMap(([, colors]) => (Array.isArray(colors) ? (colors as string[]) : [])),
+      // Couple-authored custom roles (e.g. "Ring bearer's dog") contribute
+      // their colors too — this export has no per-role layout, so any saved
+      // color belongs in the flat list.
+      ...(palette.custom_roles ?? []).flatMap((r) => r.colors),
+    ]),
   );
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';

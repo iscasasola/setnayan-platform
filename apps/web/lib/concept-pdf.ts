@@ -83,6 +83,10 @@ const PART_ORDER: PartId[] = [
   'tables',
   'tunnel',
   'entrance',
+  // 3 Filipino-relevant zones added 2026-09-03 — see reception-scene.ts.
+  'walls',
+  'photo_wall',
+  'welcome_signage',
   'people',
 ];
 

@@ -59,11 +59,54 @@ export type RoomDressing = {
   lighting_warmth?: string;
 };
 
+/**
+ * A couple-authored palette role beyond the fixed taxonomy above (owner
+ * directive: "Ring bearer's dog," but really anything). `key` is a stable
+ * slug derived from `label` at save time so re-saving the same name is
+ * idempotent — it never creates a duplicate row. Not validated against
+ * `PaletteKey`: a custom role's name is free text, not a fixed vocabulary.
+ */
+export type CustomPaletteRole = {
+  key: string;
+  label: string;
+  colors: string[];
+};
+
 export type RolePalette = Partial<Record<PaletteKey, string[]>> & {
   room_dressing?: RoomDressing;
+  custom_roles?: CustomPaletteRole[];
 };
 
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
+
+// Caps for couple-authored custom roles — mirrors the fixed taxonomy's own
+// bounds rather than inventing new ones: 6 is the highest per-key `max` any
+// fixed role uses (bridesmaids/groomsmen/wedding_party/guest), and 60 chars
+// is a generous single-line label length for a UI chip.
+export const MAX_CUSTOM_ROLES = 10;
+export const MAX_CUSTOM_ROLE_COLORS = 6;
+export const MAX_CUSTOM_ROLE_LABEL_LENGTH = 60;
+
+/**
+ * Derive a stable slug key from a couple-typed custom role label — lowercase,
+ * non-alphanumeric runs collapsed to a single dash, trimmed. Mirrors the
+ * house `slugify` pattern in `lib/slugs.ts`, reimplemented locally (rather
+ * than imported) so this pure, isomorphic module doesn't pull the slug
+ * module's Supabase-client typed imports into the `palette-editor.tsx`
+ * client bundle. Empty/entirely-punctuation labels fall back to a stable
+ * `custom-role` placeholder so a role is never silently unaddressable.
+ */
+export function slugifyCustomRoleKey(label: string): string {
+  const slug = label
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '') // strip diacritics
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+  return slug || 'custom-role';
+}
 
 export type PaletteLimits = {
   min: number;
@@ -284,7 +327,52 @@ export function sanitizeRolePalette(raw: unknown): RolePalette {
   // are kept; the block is omitted entirely when nothing survives.
   const rd = sanitizeRoomDressing((raw as Record<string, unknown>).room_dressing);
   if (rd) out.room_dressing = rd;
+  const custom = sanitizeCustomRoles((raw as Record<string, unknown>).custom_roles);
+  if (custom) out.custom_roles = custom;
   return out;
+}
+
+/**
+ * Validate raw `custom_roles` input the same way fixed keys are validated —
+ * drop invalid hexes, clamp colors to `MAX_CUSTOM_ROLE_COLORS`, clamp the
+ * label length, re-slug the key from the (possibly re-typed) label so a
+ * renamed role never carries a stale key, drop entries with no valid colors
+ * or an empty label, de-dupe by key (first occurrence wins), and clamp the
+ * whole array to `MAX_CUSTOM_ROLES`. Returns undefined when nothing survives
+ * so callers can omit the field entirely, matching `sanitizeRoomDressing`.
+ */
+function sanitizeCustomRoles(raw: unknown): CustomPaletteRole[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const out: CustomPaletteRole[] = [];
+  for (const entry of raw) {
+    if (out.length >= MAX_CUSTOM_ROLES) break;
+    if (typeof entry !== 'object' || entry === null) continue;
+    const e = entry as Record<string, unknown>;
+    const rawLabel = typeof e.label === 'string' ? e.label.trim() : '';
+    if (!rawLabel) continue;
+    const label = rawLabel.slice(0, MAX_CUSTOM_ROLE_LABEL_LENGTH);
+    const colorsIn = Array.isArray(e.colors) ? e.colors : [];
+    const colors = colorsIn
+      .filter((c): c is string => typeof c === 'string' && HEX_RE.test(c))
+      .map((c) => c.toUpperCase())
+      .slice(0, MAX_CUSTOM_ROLE_COLORS);
+    if (colors.length === 0) continue;
+    // Re-derive the key from the label rather than trusting a stale/forged
+    // one, so a renamed role re-saves idempotently instead of accumulating
+    // duplicates under its old slug.
+    let key = slugifyCustomRoleKey(label);
+    if (seen.has(key)) {
+      // Rare: two custom roles slug to the same key (e.g. "Ring Bearer's Dog"
+      // vs "ring bearer dog"). Suffix rather than silently drop the second.
+      let n = 2;
+      while (seen.has(`${key}-${n}`)) n += 1;
+      key = `${key}-${n}`;
+    }
+    seen.add(key);
+    out.push({ key, label, colors });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 /** Validate a raw room-dressing object → keep only the #RRGGBB fields. Returns

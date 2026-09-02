@@ -522,3 +522,72 @@ export async function fetchAllocationAggregates(
     return UNMEASURED;
   }
 }
+
+// ── The couple's own saved plan (BA3) ────────────────────────────────────────
+
+/**
+ * The couple's most recent saved plan, as `plan_group_id → final_amount_php`.
+ *
+ * `budget_allocation_decisions` has been WRITE-ONLY from the couple's side since
+ * it shipped: `saveAllocationSnapshot` inserts a snapshot and nothing ever read
+ * one back for the couple who made it (the admin aggregate above reads every
+ * couple's, de-identified, through the service role). BA3's Planned column is
+ * the first reader — so the number a couple saved can finally be the number
+ * their ledger is measured against, instead of the suggestion being re-derived
+ * over the top of it.
+ *
+ * ⚠ `canonical_service` on this table IS the plan-group id — the save action
+ * writes `leaf.canonicalService`, and `resolveAllocationInputs` sets that from
+ * `b.plan_group_id`. Same namespace as `MoneyBucket.bucketId`; no join table,
+ * and none should be invented.
+ *
+ * Latest-snapshot-wins, exactly as the customer-card RPC's `latest` CTE does it
+ * (migration 20270508637171) — one ordering, not two.
+ *
+ * Fails EMPTY, never partial: any refusal returns an empty map, which the
+ * ledger reads as "no saved plan" and falls back to the suggestion (naming it
+ * as a suggestion). A half-read snapshot would be worse than none — it would
+ * silently plan ₱0 for the leaves that failed to arrive.
+ */
+export async function fetchSavedAllocationPlan(
+  client: SupabaseClient,
+  eventId: string,
+): Promise<Map<string, number | null>> {
+  const out = new Map<string, number | null>();
+  try {
+    const { data: latest, error: latestErr } = await client
+      .from('budget_allocation_decisions')
+      .select('snapshot_id')
+      .eq('event_id', eventId)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestErr) {
+      logQueryError('budget-allocation:latestSnapshot', latestErr, { eventId });
+      return out;
+    }
+    const snapshotId = (latest as { snapshot_id?: string | null } | null)?.snapshot_id;
+    if (!snapshotId) return out;
+
+    const { data, error } = await client
+      .from('budget_allocation_decisions')
+      .select('canonical_service, final_amount_php')
+      .eq('event_id', eventId)
+      .eq('snapshot_id', snapshotId);
+    if (error || !data) {
+      if (error) logQueryError('budget-allocation:savedPlan', error, { eventId });
+      return out;
+    }
+    for (const row of data as Array<{
+      canonical_service: string | null;
+      final_amount_php: number | null;
+    }>) {
+      if (!row.canonical_service) continue;
+      const php = row.final_amount_php;
+      out.set(row.canonical_service, php == null ? null : Number(php));
+    }
+  } catch {
+    return new Map<string, number | null>();
+  }
+  return out;
+}

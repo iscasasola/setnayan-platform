@@ -14,7 +14,9 @@ import {
   budgetLiveSummaryMoney,
   vendorsToItemize,
 } from '@/lib/budget-page-money';
-import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { buildBudgetLedger } from '@/lib/budget-ledger';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
@@ -25,6 +27,7 @@ import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
+import { BudgetLedgerTable } from './_components/budget-ledger-table';
 import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -97,7 +100,7 @@ export default async function BudgetPage({ params }: Props) {
   // extra query, so the page's cost profile is unchanged in production.
   const budgetTruth = isBudgetTruthEnabled();
 
-  const [eventRes, snapshot, paidOrdersRes, allocInputs, money] = await Promise.all([
+  const [eventRes, snapshot, paidOrdersRes, allocInputs, money, savedPlanPhp] = await Promise.all([
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
       // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -128,6 +131,9 @@ export default async function BudgetPage({ params }: Props) {
     budgetTruth
       ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
       : Promise.resolve<EventMoney | null>(null),
+    // BA3 · the couple's OWN saved plan, per category. Fails empty, never
+    // partial — the ledger then falls back to the suggestion and says so.
+    fetchSavedAllocationPlan(supabase, eventId),
   ]);
 
   // Migration-drift fallback (mirrors app/dashboard/[eventId]/page.tsx): the
@@ -267,6 +273,41 @@ export default async function BudgetPage({ params }: Props) {
   const hasAnyVendors = snapshot.vendors.length > 0;
   const hasFinalizedVendors = finalizedVendors.length > 0;
 
+  // ── BA3 · THE PLAN MEETS THE LEDGER ───────────────────────────────────────
+  // `EventMoney.byBucket` has computed per-category agreed/paid/owed on every
+  // load of this page since BUD-1 and had NO reader outside tests. It gets one
+  // here, measured against the couple's own plan.
+  //
+  // "Planned" is the couple's SAVED plan when they have one, and otherwise the
+  // allocation engine's recommendation — the SAME `computeBudgetAllocation`
+  // the "Suggested budget split" above runs, with no pins, so the two sections
+  // cannot print different suggestions for one leaf. The row names which of the
+  // two it is; nothing derived is presented as the couple's own figure.
+  //
+  // ⚠ NO LEDGER WITHOUT THE RESOLVER. `money` is null when the budget-truth
+  // flag is off or the resolver refused. There is no per-category truth to
+  // print in that state, so this section is absent rather than a table of
+  // confident ₱0s — the one failure mode a money page must never have.
+  const suggestedPlanPhp = new Map<string, number | null>();
+  if (allocInputs.budgetPhp != null) {
+    for (const leaf of computeBudgetAllocation({
+      budgetPhp: allocInputs.budgetPhp,
+      leaves: allocInputs.leaves,
+      config: allocInputs.config,
+    }).leaves) {
+      suggestedPlanPhp.set(leaf.canonicalService, leaf.amountPhp);
+    }
+  }
+  const allocLabels = new Map(allocInputs.leaves.map((l) => [l.canonicalService, l.label]));
+  const ledger = money
+    ? buildBudgetLedger({
+        money,
+        savedPlanPhp,
+        suggestedPhp: suggestedPlanPhp,
+        labelFor: (id) => allocLabels.get(id) ?? id,
+      })
+    : null;
+
   // Off-platform direct-pay: resolve each finalized vendor's PUBLISHED
   // payment destinations server-side via the secure helper. It proves the
   // couple owns the event_vendor row (RLS client) before reading the
@@ -402,6 +443,15 @@ export default async function BudgetPage({ params }: Props) {
               initialShare={initialShareBudgetBand}
             />
           ) : null}
+        </div>
+      ) : null}
+
+      {/* BA3 — one row per category: Planned · Agreed · Paid · Owed. Sits
+       *  between the plan above and the per-supplier detail below, because it
+       *  is the sentence that joins them. */}
+      {ledger ? (
+        <div className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+          <BudgetLedgerTable ledger={ledger} />
         </div>
       ) : null}
 

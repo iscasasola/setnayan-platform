@@ -43,14 +43,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const FILE = join(__dirname, 'vendor-itemization-card.tsx');
-
-function stripComments(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-}
 
 function source(): string {
   return stripComments(readFileSync(FILE, 'utf8'));
@@ -147,8 +142,8 @@ function extractReachLinksExpr(): string {
 
 function hrefsFor(vendor: { contact_email: string | null; vendor_id: string }, eventId: string) {
   const body = extractReachLinksExpr();
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- deliberately
-  // evaluating the real extracted source, not a hand-copied reimplementation.
+  // Deliberately evaluating the real extracted source, not a hand-copied
+  // reimplementation that could silently drift from it.
   const fn = new Function(
     'vendor',
     'eventId',

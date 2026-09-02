@@ -304,6 +304,23 @@ test('a host row with a NULL target is "none" — the one honest zero-ish state'
   assert.equal(roll.noTarget, 1);
 });
 
+test('an UNPARSEABLE target is unknown — not "no budget set yet"', async () => {
+  /*
+   * The distinction the whole module exists for, in its least likely branch.
+   * `estimated_budget_centavos` is BIGINT and PostgREST may return it as a
+   * string; if that parse ever fails, saying "No budget set yet" would print a
+   * confident sentence over a figure the host really typed.
+   */
+  const { client } = stubClient({
+    event_members: { data: [{ event_id: 'a' }], error: null },
+    events_host: { data: [{ event_id: 'a', estimated_budget_centavos: 'not-a-number' }], error: null },
+  });
+  const roll = await fetchClusterBudgets(client, 'me', ['a']);
+  assert.deepEqual(roll.rows.map((r) => r.state), ['unknown']);
+  assert.equal(roll.noTarget, 0, 'an unreadable figure was reported as a host who set none');
+  assert.equal(roll.unknownCount, 1);
+});
+
 test('an empty group reads nothing at all', async () => {
   const { client, seen } = stubClient({});
   const roll = await fetchClusterBudgets(client, 'me', []);

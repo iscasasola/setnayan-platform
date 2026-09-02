@@ -252,9 +252,17 @@ export async function fetchClusterBudgets(
     if (!targets.has(event_id)) return { event_id, state: 'unknown', targetPhp: null };
 
     const centavos = targets.get(event_id) ?? null;
-    if (centavos === null || !Number.isFinite(centavos)) {
-      return { event_id, state: 'none', targetPhp: null };
-    }
+
+    // A NULL column is the host's own answer: no target yet.
+    if (centavos === null) return { event_id, state: 'none', targetPhp: null };
+
+    // 🛑 A VALUE WE CANNOT READ IS NOT AN UNSET ONE. `estimated_budget_centavos`
+    // is BIGINT and PostgREST may hand it back as a string, so this parse is
+    // defensive — but folding its failure into `none` would print "No budget
+    // set yet" over a figure the host really typed, which is this whole
+    // module's defect in miniature. Unparseable falls to `unknown`.
+    if (!Number.isFinite(centavos)) return { event_id, state: 'unknown', targetPhp: null };
+
     return { event_id, state: 'set', targetPhp: centavos / 100 };
   });
 

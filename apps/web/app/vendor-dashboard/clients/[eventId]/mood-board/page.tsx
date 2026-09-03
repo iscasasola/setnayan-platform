@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Palette } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { PALETTE_LIMITS, PALETTE_ORDER, type PaletteKey, type RolePalette } from '@/lib/mood-board';
+import { PALETTE_LIMITS, PALETTE_ORDER, sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
 import {
   renderVenueSvg,
   sanitizeReceptionDesign,
@@ -62,7 +62,19 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   if (error || !data) redirect(`/vendor-dashboard/clients/${eventId}`);
 
   const board = data as MoodBoardData;
-  const palette = (board.role_palette ?? {}) as RolePalette;
+  // SANITIZE, never cast. `as RolePalette` asserted a shape nobody had checked:
+  // the RPC hands back raw jsonb, and its hex strings land directly in a
+  // `style={{ backgroundColor: hex }}` swatch below. Every other surface that
+  // reads role_palette — the couple's own board, the venue walk, the QR and
+  // PDF routes — runs it through sanitizeRolePalette first, so this mirror was
+  // the one place a vendor could be shown a palette the couple's own board
+  // would not draw. Two surfaces disagreeing about one fact is the exact
+  // disease this repo keeps getting bitten by.
+  //
+  // Safe for couple-authored extras: sanitizeRolePalette preserves custom_roles
+  // and room_dressing explicitly rather than letting the PALETTE_ORDER rebuild
+  // drop them, and the rows below read palette.custom_roles.
+  const palette = sanitizeRolePalette(board.role_palette ?? {});
 
   // Build palette rows — only keys that have at least one color saved.
   // Couple-authored `custom_roles` beyond the fixed taxonomy are appended

@@ -68,10 +68,13 @@ test('⭐ the Live Studio buy surface actually passes the notice', () => {
   // Shape changed 2026-09-02 when YouTube's own lead time joined ours: the prop now
   // takes an array. Same fact pinned, matched through the new shape rather than
   // loosened — the constant must still reach the sheet by name.
+  // Shape changed again 2026-09-02 when the LAPTOP requirement joined the two clocks —
+  // the one pre-purchase fact with no recovery at all. Same facts still pinned by name;
+  // matched through the new shape rather than loosened to a substring.
   assert.match(
     page,
-    /notice: \[LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE\]/,
-    'the buy sheet never receives BOTH lead-time notices',
+    /notice: \[LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE\]/,
+    'the buy sheet never receives all THREE pre-purchase facts',
   );
   assert.match(page, /from '@\/lib\/live-studio-readiness'/, 'not imported from the shared module');
 });

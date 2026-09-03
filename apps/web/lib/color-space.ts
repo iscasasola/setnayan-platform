@@ -1,23 +1,65 @@
 /**
- * CIELAB — the one perceptual color space in this codebase.
+ * The two perceptual color spaces in this codebase — CIELAB and OKLCH — and
+ * NOTHING ELSE. This file is their one shared home so a reader can compare
+ * every threshold in both without hunting across files for a third.
  *
- * 🛑 DO NOT ADD A SECOND ONE. This file exists because `labOfHex` was private
- * to `moodboard-theme-generator.ts` while `color-names.ts` needed the exact
- * same conversion to stop naming colors out of their hue family. Copying it
- * would have produced two implementations that can drift apart silently — the
+ * 🛑 DO NOT ADD A THIRD ONE. `color-space-has-exactly-two-perceptual-spaces
+ * .test.ts` pins this by fingerprinting each conversion matrix and failing if
+ * either appears anywhere in `apps/web/lib` outside this file (test files that
+ * deliberately duplicate one for guard independence are the sole exception —
+ * see below). That test is the enforcement; this comment is the reasoning.
+ *
+ * ── THE BOUNDARY, STATED EXPLICITLY ──────────────────────────────────────
+ *
+ *   CIELAB  — colour NAMING (`color-names.ts`) and ΔE audits. Unchanged.
+ *   OKLCH   — the palette-style engine (`palette-styles.ts`) ONLY.
+ *
+ * ONE IMPORTER EACH. `color-names.ts` imports the CIELAB section below;
+ * `palette-styles.ts` imports the OKLCH section further down. Neither
+ * reimplements the other's math, and neither reimplements its own — see the
+ * guard test.
+ *
+ * ── WHY TWO SPACES INSTEAD OF ONE ────────────────────────────────────────
+ *
+ * This looks exactly like the two-thresholds-nobody-can-compare risk the
+ * original one-space rule existed to prevent. It was allowed only after
+ * measuring, not assuming, that CIELAB could not do the palette engine's job:
+ *
+ *   · The six-rank VISIBILITY ORDERING does NOT need OKLCH — CIELAB carries
+ *     it identically (0 inversions / 97 ordered pairs, fuzzed too). This is
+ *     not the justification for OKLCH; if it were the only difference, this
+ *     file would still say one space.
+ *   · The HUE AND CHROMA GATES do, and the reason is structural, not a
+ *     re-tune. Every one of `palette-styles.ts`'s ~14 hue/chroma constants
+ *     (`NEON_C_MAX`, `RANK_CHROMA_CAP`, `WARM_HUE_MAX`, …) is a SINGLE number
+ *     applied at every hue and every lightness. In OKLCH that number is right
+ *     everywhere. In CIELAB the right number MOVES: a full CIELAB port,
+ *     re-tuned against the same fixtures, measured the achievable chroma
+ *     scale spanning 3.21–4.35 across hue sectors inside the engine's own
+ *     operating window (36% spread), and the warm-arc hue boundary swinging
+ *     107.5°→112.75° across its lightness sweep. A single CIELAB threshold
+ *     cannot be correct across that range.
+ *   · MEASURED CONSEQUENCE: the re-tuned CIELAB engine emitted 7 cool
+ *     colours on all-warm palettes where the OKLCH engine emits 0 — dark
+ *     olive-greens on burgundy-and-gold weddings. That is verbatim the
+ *     defect `palette-styles.ts`'s warm-arc guard exists to prevent, so a
+ *     CIELAB engine would have shipped inert against its own stated purpose.
+ *
+ * This file exists because `labOfHex` was private to
+ * `moodboard-theme-generator.ts` while `color-names.ts` needed the exact same
+ * conversion to stop naming colors out of their hue family. Copying it would
+ * have produced two implementations that can drift apart silently — the
  * generator writes the seeded theme descriptions, `color-names` writes the
  * words in them, and a disagreement between the two is invisible until a
- * couple reads "Charcoal" under a pine green. One home, two importers.
+ * couple reads "Charcoal" under a pine green. One home per space, one
+ * importer per space.
  *
- * Why CIELAB and not OKLab/OKLCH: CIELAB is what already ships here (the
- * mood-board completion, its two guard tests, and the ΔE2000 audit that found
- * the 874 indistinguishable palettes all speak it). A second space would mean
- * two sets of thresholds nobody can compare.
- *
- * ⚠ The guard tests `moodboard-theme-generator.test.ts` and
- * `the-completion-cannot-invert-a-theme-s-mood.test.ts` deliberately write
- * CIELAB out again rather than importing it — that is on purpose, so a broken
- * conversion here cannot make its own tests pass. Leave them duplicated.
+ * ⚠ The guard tests `moodboard-theme-generator.test.ts`,
+ * `the-completion-cannot-invert-a-theme-s-mood.test.ts` and
+ * `color-names.test.ts` deliberately write CIELAB out again rather than
+ * importing it — that is on purpose, so a broken conversion here cannot make
+ * its own tests pass. Leave them duplicated; the third-space guard test
+ * allows exactly this file plus test files to hold either fingerprint.
  */
 
 export type Lab = { L: number; a: number; b: number };
@@ -119,4 +161,123 @@ export function deltaHStar(p: Lab, q: Lab): number {
   const c2 = chromaStar(q);
   const dh = (hueDeltaDeg(hueStar(p), hueStar(q)) * Math.PI) / 180;
   return 2 * Math.sqrt(c1 * c2) * Math.sin(dh / 2);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// OKLCH — the palette-style engine's perceptual space. See the file-level
+// docblock above for the boundary this section observes: ONLY
+// `palette-styles.ts` may import from here, and only for palette-style
+// derivation, never for naming.
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * OKLCH measurement of a colour, carrying its OKLab Cartesian coordinates
+ * (`a`, `b`) alongside the polar form (`C`, `H`) derived from them, plus the
+ * normalized hex it was measured from. The polar and Cartesian forms are
+ * kept side by side — rather than one recomputed from the other on every
+ * read — because the palette engine reads both: `visibility()` measures
+ * separation in the Cartesian plane, while the hue/chroma gates read the
+ * polar form directly.
+ */
+export type Oklch = { L: number; a: number; b: number; C: number; H: number; hex: string };
+
+function clampUnit(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+function hexToRgb01(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+function rgb01ToHex(r: number, g: number, b: number): string {
+  const f = (c: number) =>
+    Math.round(clampUnit(c) * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return ('#' + f(r) + f(g) + f(b)).toUpperCase();
+}
+function oklchToLinearSrgb(c: number): number {
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+function oklchToGammaSrgb(c: number): number {
+  return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+}
+/** sRGB (0–1) → OKLab `[L, a, b]`. Bradford-free, D65 — the reference OKLab matrices. */
+function rgb01ToOklab([r, g, b]: [number, number, number]): [number, number, number] {
+  const R = oklchToLinearSrgb(r);
+  const G = oklchToLinearSrgb(g);
+  const B = oklchToLinearSrgb(b);
+  const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
+  const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
+  const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+/** OKLab `[L, a, b]` → sRGB (0–1, NOT gamut-clamped — callers clamp via `maxOklchChroma`). */
+function oklabToRgb01([L, a, b]: [number, number, number]): [number, number, number] {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [
+    oklchToGammaSrgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    oklchToGammaSrgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    oklchToGammaSrgb(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+  ];
+}
+
+const OKLCH_DEG = 180 / Math.PI;
+
+/** sRGB hex (`#RRGGBB`) → OKLCH. */
+export function oklchOfHex(hex: string): Oklch {
+  const [L, a, b] = rgb01ToOklab(hexToRgb01(hex));
+  const C = Math.hypot(a, b);
+  let H = (Math.atan2(b, a) * OKLCH_DEG) % 360;
+  if (H < 0) H += 360;
+  return { L, a, b, C, H, hex: hex.toUpperCase() };
+}
+
+function oklchToRgb01(L: number, C: number, H: number): [number, number, number] {
+  return oklabToRgb01([L, C * Math.cos(H / OKLCH_DEG), C * Math.sin(H / OKLCH_DEG)]);
+}
+function inOklchGamut(L: number, C: number, H: number): boolean {
+  const [r, g, b] = oklchToRgb01(L, C, H);
+  const e = 1e-4;
+  return r >= -e && r <= 1 + e && g >= -e && g <= 1 + e && b >= -e && b <= 1 + e;
+}
+
+/**
+ * Largest chroma reachable at this lightness/hue while staying inside the
+ * sRGB gamut — a binary search on the gamut boundary, 24 iterations (better
+ * than 1e-7 precision on the [0, 0.5] chroma range this engine operates in).
+ */
+export function maxOklchChroma(L: number, H: number): number {
+  if (!inOklchGamut(L, 0, H)) return 0;
+  let lo = 0;
+  let hi = 0.5;
+  for (let i = 0; i < 24; i++) {
+    const m = (lo + hi) / 2;
+    if (inOklchGamut(L, m, H)) lo = m;
+    else hi = m;
+  }
+  return lo;
+}
+
+/** OKLCH `(L, C, H)` → sRGB hex, gamut-clamping `C` via `maxOklchChroma` first. */
+export function hexOfOklch(L: number, C: number, H: number): string {
+  const Lc = clampUnit(L);
+  const Hn = ((H % 360) + 360) % 360;
+  const Cc = Math.min(Math.max(C, 0), maxOklchChroma(Lc, Hn));
+  const [r, g, b] = oklchToRgb01(Lc, Cc, Hn);
+  return rgb01ToHex(r, g, b);
+}
+
+/** Euclidean distance in the OKLab Cartesian plane — ΔEok. */
+export function oklchDistance(p: Oklch, q: Oklch): number {
+  return Math.hypot(
+    p.L - q.L,
+    p.C * Math.cos(p.H / OKLCH_DEG) - q.C * Math.cos(q.H / OKLCH_DEG),
+    p.C * Math.sin(p.H / OKLCH_DEG) - q.C * Math.sin(q.H / OKLCH_DEG),
+  );
 }

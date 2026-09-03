@@ -270,32 +270,15 @@ export async function setGuestRole(
   return res.ok ? { ok: true } : { ok: false, error: res.error };
 }
 
-/**
- * Set whether a guest may bring a plus-one. Ported from `updateGuest`'s
- * `plus_one_allowed` toggle — the real schema models plus-ones as a boolean
- * permission (+ a separate name/RSVP the +1 fills on the public widget), not a
- * count, so the capture bar's parsed `plusOnes` maps to `allowed = n > 0`.
- * Toggling OFF is non-destructive (an already-linked +1 row is left intact,
- * matching `updateGuest`).
- */
-export async function setGuestPlusOnes(
-  eventId: string,
-  guestId: string,
-  plusOnes: number,
-): Promise<InlineResult> {
-  const allowed = Number.isFinite(plusOnes) && plusOnes > 0;
+/*
+  ─── `setGuestPlusOnes` DELETED (2026-09-03) ─────────────────────────────
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from('guests')
-    .update({ plus_one_allowed: allowed, updated_at: new Date().toISOString() })
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId);
-  if (error) return { ok: false, error: error.message };
-
-  revalidatePath(guestsPath(eventId));
-  return { ok: true };
-}
+  Superseded, and by three separate live writers of `plus_one_allowed`: the
+  guest-detail form's own toggle further down this file, the seat-map path in
+  `./map-actions.ts`, and CSV import / `addSingleGuest`. This capture-bar
+  variant — which mapped a parsed COUNT onto the boolean the schema actually
+  models — had no caller.
+*/
 
 /**
  * Add a guest to an existing custom group. Ported from `quickAddGuest`'s

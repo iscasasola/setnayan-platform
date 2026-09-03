@@ -9,6 +9,17 @@
  * `app/site-editor/[eventId]/actions.ts`, with the gate swapped to the canonical
  * `lib/host-gate` helper (PR #3642) and revalidation to `lib/revalidate-site`.
  *
+ * 🔑 THE PORT SAVED THE ACTIONS AND LOST THE CONTROL (fixed 2026-09-03). For the
+ * whole of that window the public site kept RENDERING `rsvp_backdrop`
+ * (`app/[slug]/_lib/loaders.ts` → `invitation-shell.tsx` → `_components/spatial-backdrop.tsx`)
+ * while nothing anywhere could write it: the legacy `/site-editor` routes are
+ * bare redirects now, and no panel was ever mounted here. A couple could not
+ * turn their backdrop on, change it, or turn it off. `SPATIAL_THEME_KEYS` had
+ * exactly two entries and neither was reachable.
+ *
+ * Both actions now also honour `return_to`, which they did not when ported —
+ * saving used to drop the couple out of the row they were editing.
+ *
  * Everything ELSE the editor writes stays where it already lives — the rail's
  * panels call the existing per-feature actions under `website/*//*actions.ts`.
  * This file exists for the orphan settings only; do not grow it into a second
@@ -42,6 +53,7 @@ export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   revalidatePath('/[slug]', 'page');
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=backdrop`));
 }
 
 /** Turn the spatial backdrop off (null the column). */
@@ -57,6 +69,7 @@ export async function clearRsvpBackdrop(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   revalidatePath('/[slug]', 'page');
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=backdrop`));
 }
 
 /**

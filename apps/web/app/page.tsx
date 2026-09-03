@@ -254,16 +254,18 @@ export default async function HomePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   /*
-    ⚠ AWAITING `searchParams` IS A DYNAMIC OPT-OUT. It is read because the
-    front door's chip row is a real filter carried in the URL, so this page is
-    request-rendered rather than static. That was already true the moment the
-    front door went live — the flag was compile-time TRUE and this await was
-    already on the executed path — so retiring the old page changes nothing
-    about how `/` renders.
+    ⚠ AWAITING `searchParams` IS A DYNAMIC OPT-OUT. It is read because `?q=`
+    (below) is a real filter carried in the URL, so this page is
+    request-rendered rather than static.
+
+    ⚠ 2026-09-03: the `?c=` chip row (`All`/`Your people`/`Stories`/`Articles`)
+    that used to be the OTHER reason for this await is retired along with the
+    chip bar itself — New uploads/Trending/Shops are never filtered now, so
+    there is no `?c=` param to read any more. `?q=` alone still makes this
+    page dynamic; removing the chip param changes nothing about how `/`
+    renders.
   */
   const params = await searchParams;
-  const chipParam = params.c;
-  const chip = Array.isArray(chipParam) ? chipParam[0] : chipParam;
   /*
     `?q=` — the top bar's search now answers HERE, in this page's own body,
     rather than handing every typed word to the supplier marketplace (owner
@@ -271,8 +273,7 @@ export default async function HomePage({
 
     🔒 NOTHING ABOUT INDEXING CHANGES: `metadata.alternates.canonical` above is
     the bare '/', so every `?q=` url canonicalizes to the front page and no
-    thin results page competes with it in search. That was already true of the
-    `?c=` chips.
+    thin results page competes with it in search.
   */
   const qParam = params.q;
   const q = Array.isArray(qParam) ? qParam[0] : qParam;
@@ -304,7 +305,7 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      <FrontDoor chip={chip} q={q} />
+      <FrontDoor q={q} />
     </>
   );
 }

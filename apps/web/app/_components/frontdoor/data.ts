@@ -171,6 +171,23 @@ export type FrontDoorStory = {
    * broken read would tell a person a stranger is their friend.
    */
   fromYourPeople: boolean;
+  /**
+   * Real aggregate view count for a CHAPTER; always `null` for an EDITORIAL.
+   *
+   * 🔴 NOT A NEW METRIC — the loader (`StorytellerTileItem.viewCount`) has
+   * always had this; the front door simply never carried it through. Feeds
+   * the Trending shelf (`selectTrendingChapters` in
+   * `lib/front-door-composition.ts`), which ranks by this number among
+   * chapters that are ALREADY admin-featured (that's what makes a chapter
+   * reach `stories` at all — see the loader note above) — so Trending needs
+   * no new "earned" threshold of its own; view count only decides the order.
+   *
+   * ⚠ NULL FOR AN EDITORIAL, DELIBERATELY. A couple's own wedding write-up
+   * never carries a public view counter — the same privacy line the design
+   * brief drew and `front-door-editorials.ts` already encodes for every other
+   * editorial-only field.
+   */
+  viewCount: number | null;
 };
 
 export type FrontDoorShop = {
@@ -488,6 +505,8 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     // corrected for in #4400, on the card beside it.
     thumbUrl: s.thumbUrl,
     excerpt: s.excerpt,
+    // The loader's own real count — see the field's note on the type.
+    viewCount: s.viewCount,
   }));
 
   // ⚠ SAMPLES ARE NOT REAL WEDDINGS. `loadPublishedShowcases` deliberately

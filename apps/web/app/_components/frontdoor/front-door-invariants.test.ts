@@ -553,45 +553,42 @@ test('chapter reading time is computed from the body, never the excerpt', () => 
   );
 });
 
-/* ── 14 · THE ONE SHELF ACTUALLY USES THE SHARED CHIP RULE ────────────────
-   `lib/front-door-composition.test.ts` proves `selectShelf` is right. That
-   proves NOTHING about this page: extracting a pure core and testing it while
-   the call site quietly keeps its own copy is a guard watching the wrong
-   thing. So this asserts the ACT (the feed calls it) AND THE CONSEQUENCE (the
-   page renders what it returned, and holds no second copy of the rule). */
-test('the shelf contents come from the shared chip rule, not a local copy', () => {
+/*
+ * ── 2026-09-03 — TEST 14 IS RETIRED ───────────────────────────────────────
+ * `selectShelf` (the chip rule) no longer exists — the front door dropped
+ * its chip bar; New uploads/Trending/Shops are sectioned, never filtered.
+ * See `front-door-composition.ts`'s own retirement note for the fuller
+ * reasoning. The successor guards are below: #14b holds the ACT (the feed
+ * still asks the shared composer for the lead/trailing split) and #15 is
+ * rewritten for the new structure.
+ */
+test('New uploads still comes from the shared composer, not a local copy', () => {
   assert.ok(
-    /selectShelf\(chip,/.test(FEED_CODE),
-    'the feed must ask the shared composer what the chip admits',
+    /splitShelfRows\(\s*stories,\s*articles\s*,?\s*\)/.test(FEED_CODE),
+    'the feed must ask the shared composer for the full stories+articles split ' +
+      '— there is no chip-filtered subset to pass it any more',
   );
-
-  // THE CONSEQUENCE — the returned lists are what reach the screen. Without
-  // this, the feed could call selectShelf, discard it, and still pass.
-  for (const rendered of ['shownStories', 'shownArticles', 'nothingUnderChip']) {
-    assert.ok(
-      new RegExp(`\\b${rendered}\\b`).test(FEED_CODE),
-      `${rendered} is destructured but never used — the call would be decoration`,
-    );
-  }
   assert.ok(
     /leadStories\.map/.test(FEED_CODE) && /leadArticles\.map/.test(FEED_CODE),
-    'both kinds must render into the one shelf',
-  );
-
-  // NO SECOND COPY. A re-implemented ternary chain beside the call is how the
-  // page and the tested rule start disagreeing.
-  assert.ok(
-    !/chip === 'With video'\s*\?/.test(FEED_CODE),
-    'the chip rule must live in one place — this is a second copy of it',
+    'both kinds must render into New uploads',
   );
 });
 
 /* ── 15 · THE KIND LIVES ON THE CARD ──────────────────────────────────────
-   The merge only works because each card says which kind it is. Lose the tag
-   and the shelf becomes an undifferentiated pile in which our own writing is
-   indistinguishable from a couple's story — which is the one thing the owner
-   asked the card, not the shelf, to carry. */
-test('every card in the one shelf declares its kind', () => {
+   New uploads still merges articles and storyteller pieces into one grid —
+   that only works because each card says which kind it is. Lose the tag and
+   the section becomes an undifferentiated pile in which our own writing is
+   indistinguishable from a couple's story, which is the one thing the owner
+   asked the card, not the section, to carry.
+
+   ⚠ 2026-09-03 — the literal visitor-facing sentence "one shelf — the card
+   says which kind it is" is retired along with the chip bar: the page is
+   genuinely three sections now (Shops / New uploads / Trending), not one
+   undifferentiated shelf, so that sentence would be stating a rule the page
+   no longer follows. The KIND TAGS themselves are the rule that survives,
+   and are checked directly — a rewrite that quietly drops "Article" or
+   "Their story" from the cards is exactly what this still catches. */
+test('every card in New uploads and Trending declares its kind', () => {
   assert.ok(
     /fd-kindtag[^]*?>\s*Article\s*</.test(FEED_CODE),
     'the article card must carry the word Article',
@@ -599,25 +596,6 @@ test('every card in the one shelf declares its kind', () => {
   assert.ok(
     /fd-kindtag[^]*?>\s*Their story\s*</.test(FEED_CODE),
     'the story card must carry the words Their story',
-  );
-  /* …and the shelf itself must NOT be split back into two headed rows.
-
-     ⚠ FIXED 2026-08-21 — THIS ASSERTION COULD NOT FAIL. It read the RAW
-     `FEED`, and the phrase "one shelf" also appears in an ordinary source
-     COMMENT in that file. Deleting the sentence the VISITOR reads left the
-     comment behind, so the guard stayed green while the rule it exists to
-     keep had stopped being stated at all.
-
-     🔑 The file already ships `code()` for exactly this — its own docblock
-     says "Strip comments so a rule mentioned in prose can never satisfy a
-     check" — and every sibling assertion in this test already uses the
-     stripped source. This one did not, so the stripper's whole purpose was
-     defeated in the single place a prose string was being matched, which is
-     the only place it mattered. Swept the other front-door guards: no second
-     instance. */
-  assert.ok(
-    /one shelf/.test(FEED_CODE),
-    'the shelf still states the rule it exists to keep, where a visitor can read it',
   );
 });
 
@@ -670,10 +648,11 @@ test('the shelf rows are split by the composer, not by a hard-coded index', () =
    THAT SHELF — this is the same lesson as the soft-404 that was fixed on one
    route and left on its twin.
 
-   Both story renderings are covered: the 16:9 card AND the 9:16 one in the
-   story row, which rendered an empty gradient box beside article cards that
-   all carry a cover — an image that failed to load, rather than a story told
-   in writing. */
+   ⚠ 2026-09-03 — was TWO renderings (a 16:9 card and a duplicate 9:16 "story
+   row"); the 2026-09-03 rewrite dropped the second rendering entirely —
+   `StoryCard` is now reused as-is everywhere a story appears (New uploads AND
+   Trending), so there is exactly one grammar to check, not two kept in sync
+   by hand. */
 test('a story card leads with its poster or its opening line, never a placeholder word', () => {
   const storyCard = FEED_CODE.slice(
     FEED_CODE.indexOf('function StoryCard'),
@@ -689,32 +668,27 @@ test('a story card leads with its poster or its opening line, never a placeholde
       "couple's piece rendered as a placeholder is the defect this replaced",
   );
 
-  // THE REPLACEMENT: both grammars, in both renderings.
-  for (const [label, src] of [
-    ['the 16:9 card', storyCard],
-    ['the story row', FEED_CODE.slice(FEED_CODE.indexOf('fd-storyrow'))],
-  ] as const) {
-    assert.ok(
-      /s\.thumbUrl \?/.test(src),
-      `${label} must branch on the chapter's poster`,
-    );
-    /*
-      ⚠ THE ANCHOR FOLLOWS THE INDIRECTION — IT IS NOT LOOSENED.
-      This used to require the literal `s.excerpt ??` inside each rendering.
-      The excerpt-then-terminal-fallback rule now lives in ONE place
-      (`cardBlurb`), because the old inline template appended the word "story"
-      to `kindLabel` and an EDITORIAL's label is already a noun — "Real story"
-      rendered "A real story story". So each rendering may satisfy this either
-      by branching inline (the original grammar) or by calling the one helper,
-      and the helper is then held to the SAME rule below. Accepting the call
-      without checking the callee is what would have made this vacuous.
-    */
-    assert.ok(
-      /s\.excerpt \?\?/.test(src) || /cardBlurb\(s\)/.test(src),
-      `${label} must fall back to the opening line, with a terminal fallback ` +
-        'under it — a chapter can legitimately have neither poster nor excerpt',
-    );
-  }
+  assert.ok(
+    /s\.thumbUrl \?/.test(storyCard),
+    "the story card must branch on the chapter's poster",
+  );
+  /*
+    ⚠ THE ANCHOR FOLLOWS THE INDIRECTION — IT IS NOT LOOSENED.
+    This used to require the literal `s.excerpt ??` inline. The excerpt-then-
+    terminal-fallback rule now lives in ONE place (`cardBlurb`), because the
+    old inline template appended the word "story" to `kindLabel` and an
+    EDITORIAL's label is already a noun — "Real story" rendered "A real story
+    story". The card may satisfy this either by branching inline (the
+    original grammar) or by calling the one helper, and the helper is then
+    held to the SAME rule below. Accepting the call without checking the
+    callee is what would have made this vacuous.
+  */
+  assert.ok(
+    /s\.excerpt \?\?/.test(storyCard) || /cardBlurb\(s\)/.test(storyCard),
+    'the story card must fall back to the opening line, with a terminal ' +
+      'fallback under it — a chapter can legitimately have neither poster ' +
+      'nor excerpt',
+  );
 
   /*
     THE CALLEE, HELD TO THE RULE THE CALL SITES DELEGATED.
@@ -773,36 +747,31 @@ test('a story card leads with its poster or its opening line, never a placeholde
    directions: reach for next/image without adding the host, or add the host
    and forget one of the two lists. */
 test('the story poster is not routed through the image optimizer', () => {
+  // 2026-09-03: was checked in TWO renderings (a 16:9 card and a duplicate
+  // "story row"); the rewrite dropped the second rendering — `StoryCard` is
+  // now the only place a chapter's poster is drawn, reused as-is in both New
+  // uploads and Trending. One grammar, checked once.
   const storyCard = FEED_CODE.slice(
     FEED_CODE.indexOf('function StoryCard'),
     FEED_CODE.indexOf('function ShopCard'),
   );
-  const rowStories = FEED_CODE.slice(
-    FEED_CODE.indexOf('fd-storyrow'),
-    FEED_CODE.indexOf('fd-sechead', FEED_CODE.indexOf('fd-storyrow')) + 1 ||
-      undefined,
-  );
+  assert.ok(storyCard.length > 0, 'StoryCard not found');
 
   const config = readFileSync(join(APP, '..', 'next.config.ts'), 'utf8');
   const optimizerAllows = /hostname:\s*'i\.ytimg\.com'/.test(config);
 
-  for (const [label, src] of [
-    ['the 16:9 card', storyCard],
-    ['the story row', rowStories],
-  ] as const) {
-    // `<Image` (capital I) is the next/image component; `<img` is the plain tag.
-    const usesOptimizer = /<Image[\s>][\s\S]*?s\.thumbUrl/.test(src);
-    assert.ok(
-      !usesOptimizer || optimizerAllows,
-      `${label}: the poster is rendered with next/image, but i.ytimg.com is ` +
-        'not in remoteImagePatterns — the optimizer answers 400 and the ' +
-        'picture never appears, with nothing thrown and nothing logged',
-    );
-    assert.ok(
-      /<img\s[\s\S]*?src=\{s\.thumbUrl\}/.test(src) || usesOptimizer,
-      `${label}: the poster must actually be rendered from s.thumbUrl`,
-    );
-  }
+  // `<Image` (capital I) is the next/image component; `<img` is the plain tag.
+  const usesOptimizer = /<Image[\s>][\s\S]*?s\.thumbUrl/.test(storyCard);
+  assert.ok(
+    !usesOptimizer || optimizerAllows,
+    'the poster is rendered with next/image, but i.ytimg.com is not in ' +
+      'remoteImagePatterns — the optimizer answers 400 and the picture ' +
+      'never appears, with nothing thrown and nothing logged',
+  );
+  assert.ok(
+    /<img\s[\s\S]*?src=\{s\.thumbUrl\}/.test(storyCard) || usesOptimizer,
+    'the poster must actually be rendered from s.thumbUrl',
+  );
 });
 
 /* ── THE STORIES HUB MUST NEVER BE ORPHANED ──────────────────────────────
@@ -911,65 +880,85 @@ test('an empty query still yields no row — the palette is not an advert', () =
   });
 });
 
-/* ── AN EMPTY CHIP EXPLAINS ITSELF; IT DOES NOT DEAD-END ─────────────────
-   Two of the four chips are empty for everybody today (prod holds ZERO
-   published stories and ZERO people-connections), so the empty state is not
-   an edge case — it is what most people who press them will meet.
+/*
+ * ── 2026-09-03 — THE CHIP-EMPTY-STATE TEST IS RETIRED ────────────────────
+ * There are no chips left to be empty. Its replacement, below, holds the
+ * SAME underlying rule ("an empty shelf reads as BROKEN, not young — say
+ * what it is FOR") against the one section that is honestly empty in
+ * production today: Trending.
+ */
 
-   The generic "Nothing under X yet — try another chip" is right for a filter
-   that happens to be bare. It is WRONG for the two chips that name what this
-   product is for: it reads as a filter that broke rather than a shelf waiting
-   to fill, which is the same defect the front door's own composition module
-   forbids ("an empty shelf reads as BROKEN, not young"). */
-test('the two chips that are empty for everyone say what they are FOR', () => {
-  /*
-    🪤 THE FIRST CUT OF THIS GUARD WAS DECORATION, TWICE OVER, and both
-    mutations reported GREEN:
-
-      1 · It matched the invitation's TEXT anywhere in the file. Renaming the
-          branch condition to `chip === 'NEVER'` made the whole invitation
-          UNREACHABLE while leaving every searched string in place — a guard
-          that matches a string, not the act.
-      2 · It counted `fd-go` links across the WHOLE FILE with a `>= 4`
-          threshold. Deleting the Stories invitation's own link took 7 → 6 and
-          sailed through — a file-level count cannot say WHICH branch lost its
-          way onward.
-
-    Both are fixed by bounding each branch STRUCTURALLY: split on the
-    condition itself, so a segment only exists while its `chip === '<X>'` test
-    does, and judge the heading and the link INSIDE that segment.
-  */
-  const segments = FEED_CODE.split(/chip === '/).slice(1);
+/* ── TRENDING EXPLAINS ITSELF; IT DOES NOT DEAD-END ───────────────────────
+   Prod holds zero chapters with a real view count today, so the empty state
+   is not an edge case — it is what every visitor currently meets. The
+   generic "nothing here yet" would read as a filter that broke; this section
+   exists specifically to say why it is empty (earned, never sold) and how it
+   fills, or it repeats the exact defect the old "Stories" chip's empty state
+   was corrected for. */
+test('Trending explains itself when it is honestly empty, and never fakes a ranking', () => {
   assert.ok(
-    segments.length >= 2,
-    `Found ${segments.length} chip branches in the feed; expected at least 2. ` +
-      'If the empty states were restructured, re-aim this guard rather than ' +
-      'deleting it.',
+    /selectTrendingChapters\(/.test(FEED_CODE),
+    'the feed must ask the shared composer which chapters have earned a ' +
+      'Trending spot, not decide inline',
   );
 
-  for (const [chip, heading] of [
-    ['Stories', /The first real stories are still to come/],
-    ['Your people', /Nobody you know has shared a story yet/],
-  ] as const) {
-    const seg = segments.find((x) => x.startsWith(`${chip}'`));
-    assert.ok(
-      seg,
-      `No branch is conditioned on chip === '${chip}'. Its invitation may still ` +
-        'be in the file and simply unreachable — which is how the first ' +
-        'version of this guard passed while the defect was live.',
-    );
-    assert.match(
-      seg,
-      heading,
-      `The "${chip}" branch no longer carries its own written invitation and ` +
-        'falls through to the generic "try another chip" dead end. Prod has ' +
-        'zero of these, so that is what most people pressing it would read.',
-    );
-    assert.match(
-      seg,
-      /className="fd-go"/,
-      `The "${chip}" invitation has no way onward — an apology with no door. ` +
-        'Checked inside this branch, never as a file-level count.',
-    );
-  }
+  const heading = FEED_CODE.indexOf('>Trending<');
+  assert.ok(heading > -1, 'the Trending heading is missing');
+  const section = FEED_CODE.slice(heading);
+
+  assert.match(
+    section,
+    /No story has earned a spot yet/,
+    'the empty state must say what Trending is FOR, not a generic ' +
+      '"nothing here" — prod holds zero chapters with a real view count, so ' +
+      'this is the state most visitors actually meet',
+  );
+  assert.match(
+    section,
+    /className="fd-go"/,
+    'the empty Trending state has no way onward — an apology with no door',
+  );
+  assert.match(
+    section,
+    /never seeded, padded, or sold/,
+    'Trending must state its own "earned, never sold" rule where a visitor ' +
+      'reads it, not only in a code comment',
+  );
+});
+
+test('Trending never admits an editorial, even structurally', () => {
+  // A couple's own wedding write-up must never carry a public view counter —
+  // checked at the SOURCE (data.ts always sets viewCount: null for an
+  // editorial), not just trusted from the composer's own filter.
+  const DATA_CODE = code(readFileSync(join(HERE, 'data.ts'), 'utf8'));
+  assert.ok(
+    /viewCount:\s*s\.viewCount/.test(DATA_CODE),
+    "the front door must carry the loader's real view count through for chapters",
+  );
+  const EDITORIALS_CODE = code(
+    readFileSync(join(APP, '..', 'lib', 'front-door-editorials.ts'), 'utf8'),
+  );
+  assert.ok(
+    /viewCount:\s*null/.test(EDITORIALS_CODE),
+    'an editorial must never carry a real view count — Trending would ' +
+      'otherwise be able to rank a couple\'s own wedding write-up',
+  );
+});
+
+/* ── SHOPS SIT NEAR THE TOP, NOT THE TAIL ──────────────────────────────────
+   Researched this session: at this stage, a stranger seeing real supply
+   (liquidity) matters more than being shown content first — moved from the
+   page's tail to directly under the anchor. This just checks the ORDER
+   didn't quietly drift back: Shops before New uploads, New uploads before
+   Trending. */
+test('the sections render in claim-then-proof order: Shops, New uploads, Trending', () => {
+  const shops = FEED_CODE.indexOf('Open your shop');
+  const uploads = FEED_CODE.indexOf('New uploads');
+  const trending = FEED_CODE.indexOf('>Trending<');
+  assert.ok(shops > -1 && uploads > -1 && trending > -1, 'a section heading is missing');
+  assert.ok(
+    shops < uploads && uploads < trending,
+    'the sections are out of order — Shops must render before New uploads, ' +
+      'which must render before Trending',
+  );
 });

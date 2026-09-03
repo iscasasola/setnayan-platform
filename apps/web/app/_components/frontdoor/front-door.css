@@ -1268,6 +1268,22 @@ h2.fd-sechead,
 .fd-invite .fd-go:hover {
   text-decoration: underline;
 }
+/* 2026-09-03 — `.fd-go` outside an invite card (the "see all N articles"
+   link under New uploads). Same treatment as `.fd-invite .fd-go` above;
+   `.fd-more` just gives it a standalone home instead of duplicating the
+   rule under a different selector. */
+.fd-more {
+  margin: 4px 0 8px;
+}
+.fd-more .fd-go {
+  font-size: 13.5px;
+  color: var(--fd-link);
+  font-weight: 650;
+  text-decoration: none;
+}
+.fd-more .fd-go:hover {
+  text-decoration: underline;
+}
 .fd-invite-wide {
   grid-column: span 2;
 }
@@ -1970,6 +1986,31 @@ h2.fd-sechead,
 .fd-opening-lede b {
   color: var(--fd-ink);
   font-weight: 700;
+}
+/* 2026-09-03 — the anchor's three short claims, replacing the retired
+   opening's one-paragraph lede. Same contrast rule as `.fd-opening-lede`
+   above (--fd-m1, never --fd-m2, for body-weight text). */
+.fd-opening-claims {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  font-size: 14.5px;
+  color: var(--fd-m1);
+}
+.fd-opening-claims li {
+  white-space: nowrap;
+}
+@media (max-width: 620px) {
+  .fd-opening-claims {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .fd-opening-claims li {
+    white-space: normal;
+  }
 }
 .fd-opening-acts {
   display: flex;

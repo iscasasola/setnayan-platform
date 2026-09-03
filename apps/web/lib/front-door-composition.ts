@@ -40,150 +40,18 @@
  */
 export const TRENDING_MIN_LIVE_SHOPS = 12;
 
-// ---------------------------------------------------------------------------
-// ONE SHELF, TWO AUTHORS — which KINDS a chip admits.
-// ---------------------------------------------------------------------------
-
-/**
- * The chips over the one shelf. Real links, so filtering works with no
- * JavaScript at all.
- *
- * ⚠ THE CHIP CHANGES WHAT THE SHELF CONTAINS, NEVER THE PAGE'S STRUCTURE.
- * There is one shelf and the CARD says which kind each piece is — that is the
- * whole point of the merge (owner 2026-08-12). A chip that hid or added a
- * SHELF would put us back where we started: a row that is permanently empty
- * and therefore reads as broken rather than young.
- */
-export const FRONT_DOOR_CHIPS = [
-  'All',
-  /**
-   * 🔑 "YOUR PEOPLE", NOT "CONNECTED" (owner 2026-08-20). He described it as
-   * *"all events around the people you are with"* and rejected his own word in
-   * the same breath — "Connected" reads as a wifi state, not as a person.
-   * "Your people" is the word the rail already uses for the same set (family ·
-   * godparents · friends · samahan), and one word meaning one thing is the
-   * lesson the Marketplace/"Find a supplier" collision already cost.
-   *
-   * ⚠ THE CHIP IS SIGNED-IN ONLY. A stranger has no people, so offering them
-   * the button is offering a door onto a permanently empty room. The renderer
-   * gates it; `selectShelf` still answers for it, because a hand-typed `?c=`
-   * must behave.
-   */
-  'Your people',
-  /**
-   * 🏷 "STORIES", NOT "THEIR STORIES" (owner 2026-08-20, who wrote the row back
-   * to us as *"Stories, Articles and Marketplace"* — his own word, his own
-   * order). The possessive only ever earned its place as a contrast to "Your
-   * people" sitting beside it; read alone it is distancing, and NN/g's tab
-   * guidance is 1–2 words because shorter labels scan. It also matches the
-   * hub's own address and the menu row this chip replaced.
-   */
-  'Stories',
-  'Articles',
-] as const;
-
 /*
- * ─── WHAT CAME OFF, AND WHAT MUST NOT GO ON ─────────────────────────────
- *
- * ⛔ "With video" — RETIRED 2026-08-20. It is a MODIFIER on a story, not a
- * KIND of thing on the shelf, so it was the one chip that was not parallel
- * with its neighbours (NN/g: a tab row must hold parallel content — same
- * layout, different data). Nothing is lost: every card still carries its own
- * "▶ with video" badge, so a person can still SEE which have video — they
- * simply cannot filter to them, on a shelf where zero do today.
- *
- * ⛔ "Marketplace" — CONSIDERED AND REFUSED, twice over, and this note exists
- * so it is not proposed a third time.
- *   1 · It is not a KIND OF READING, it is a different room — and it already
- *       has THREE doors: the shops rail below this shelf, the rail
- *       destination, and the search box's "find suppliers" row. NN/g on
- *       duplicate links: indiscriminate extra doors deplete attention rather
- *       than aid findability.
- *   2 · It would be the only chip that NAVIGATES instead of FILTERING, which
- *       breaks this row's whole contract (see the note above).
- *   Precedent is unusually clean: Instagram removed the Shop tab from its
- *   content home in 2023 for want of engagement, and TikTok's push of shop
- *   content INTO the feed produced measurable backlash.
- *   📉 And the local arithmetic agrees. Measured 2026-08-20: two shops exist;
- *   the one with services is HIDDEN, and the one a stranger can reach has
- *   ZERO services. A chip pointing at that is a fourth door to an empty room.
+ * ─── 2026-09-03 — THE CHIP MECHANISM IS RETIRED ─────────────────────────
+ * `FRONT_DOOR_CHIPS`, `ChipKey`, `isChip` and `selectShelf` lived here (the
+ * "All / Your people / Stories / Articles" filter row). The front door
+ * dropped its chip bar along with the group-chat hero — the shelf is no
+ * longer filtered, it is SECTIONED (New uploads / Trending / Shops), and
+ * every section always shows everything of its kind. "Your people" (a
+ * signed-in narrowing to stories from people you know) is retired with it;
+ * `fromYourPeople` stays on `FrontDoorStory` unused rather than ripping out
+ * `lib/your-people.ts`, which is a separate, working read this change did not
+ * touch. See `front-door-feed.tsx` for what replaced the chip bar.
  */
-
-export type ChipKey = (typeof FRONT_DOOR_CHIPS)[number];
-
-export function isChip(v: string | undefined): v is ChipKey {
-  return !!v && (FRONT_DOOR_CHIPS as ReadonlyArray<string>).includes(v);
-}
-
-/** What one chip admits into the shelf. */
-export type ShelfSelection<A, S> = {
-  articles: A[];
-  stories: S[];
-  /** Nothing at all under this chip — the page says so in a sentence. */
-  empty: boolean;
-};
-
-/**
- * Decide what the one shelf holds under a chip.
- *
- * WHY THIS IS A FUNCTION AND NOT THREE TERNARIES INSIDE THE JSX — the same
- * reason `composeFrontDoor` exists, written one screen above: a rule buried in
- * an async server component's JSX is unreachable from any test, so its only
- * symptom when it breaks is a customer finding nothing. "With video" showing an
- * empty shelf on a day with three video chapters would look exactly like a
- * quiet week.
- *
- * 🔑 "With video" MEANS A VIDEO, NOT A PICTURE OF ONE. A story's `hasVideo`
- * must be the real signal from the loader. Deriving it from a thumbnail answers
- * NO for every chapter whose video is not on YouTube — a chapter that is
- * entirely video, dropped from the one chip that exists to find it.
- *
- * Articles carry no video of their own, so "With video" is stories-only. That
- * is the ported prototype's rule, not an accident: `reads = (kind==='w' ||
- * kind==='v') ? [] : arts`.
- */
-export function selectShelf<
-  A,
-  S extends { hasVideo: boolean; fromYourPeople?: boolean },
->(
-  chip: ChipKey,
-  articles: readonly A[],
-  stories: readonly S[],
-): ShelfSelection<A, S> {
-  const wantsArticles = chip === 'All' || chip === 'Articles';
-  const wantsStories =
-    chip === 'All' || chip === 'Stories' || chip === 'Your people';
-
-  /*
-    🔑 "YOUR PEOPLE" IS A NARROWING OF THIS SHELF, NEVER A SECOND SOURCE.
-    It filters pieces the caller has ALREADY loaded and that every stranger can
-    already see, down to the ones whose author the viewer already knows. It
-    cannot surface anything private, because nothing here loads a story — see
-    `lib/your-people.ts`, which carries the same rule at the other end.
-
-    `fromYourPeople` is OPTIONAL on the type and `!== true` is deliberate: a
-    caller that has not computed it yet (or whose read FAILED) yields an empty
-    shelf and the written invitation, never somebody else's stories mislabelled
-    as a friend's. Absence must fail closed here — it is a claim about who a
-    person knows.
-
-    Articles are OURS, so this chip takes none — the same rule "With video"
-    already follows, and for the same reason: a Setnayan guide has no author
-    the viewer could know.
-  */
-  const pickedStories = wantsStories
-    ? chip === 'Your people'
-      ? stories.filter((s) => s.fromYourPeople === true)
-      : [...stories]
-    : [];
-  const pickedArticles = wantsArticles ? [...articles] : [];
-
-  return {
-    articles: pickedArticles,
-    stories: pickedStories,
-    empty: pickedArticles.length === 0 && pickedStories.length === 0,
-  };
-}
 
 /** How the one shelf's pieces divide between the lead grid and the rest. */
 export type ShelfRows<A, S> = {
@@ -231,6 +99,46 @@ export function splitShelfRows<A, S>(
     leadArticles: [...leadArticles],
     trailingArticles: [...trailingArticles],
   };
+}
+
+// ---------------------------------------------------------------------------
+// TRENDING — chapters ranked by real views, never a new "earned" threshold.
+// ---------------------------------------------------------------------------
+
+/**
+ * Trending, for stories. Deliberately NOT a `TRENDING_MIN_*` constant like
+ * the shops one above — a chapter only reaches `stories` at all once an
+ * admin has featured it (`showcase_featured_at IS NOT NULL`, see
+ * `data.ts`'s loader note), so the "earned, never sold" gate is already
+ * applied before this function ever sees the array. View count here decides
+ * the ORDER among what was already earned, not whether it is shown.
+ *
+ * Editorials never enter — they carry no view count by design (a couple's
+ * own wedding write-up gets no public counter, see `front-door-editorials.ts`).
+ *
+ * 2026-09-03 SESSION NOTE: the original brief for this section asked for a
+ * genuine view-count THRESHOLD before a chapter counts as trending, mirroring
+ * `TRENDING_MIN_LIVE_SHOPS` above — that number needs the owner, the same way
+ * 12 did ("owner's number, owner's to move"), and was deliberately not
+ * guessed. This ships without one: today's real population is chapters that
+ * already passed the stricter admin-Feature gate, so a raw view-count
+ * threshold on top of that would be gating an already-small, already-curated
+ * set a second time. If that changes — chapters get featured in volume and a
+ * view floor starts to matter — add `TRENDING_MIN_CHAPTER_VIEWS` here,
+ * exactly where `TRENDING_MIN_LIVE_SHOPS` already lives, once a real number
+ * exists to put in it.
+ */
+export function selectTrendingChapters<
+  S extends { kind: 'chapter' | 'editorial'; viewCount: number | null },
+>(stories: readonly S[], limit = 6): S[] {
+  return stories
+    .filter(
+      (s): s is S & { viewCount: number } =>
+        s.kind === 'chapter' && typeof s.viewCount === 'number',
+    )
+    .slice()
+    .sort((a, b) => b.viewCount - a.viewCount)
+    .slice(0, limit);
 }
 
 /**

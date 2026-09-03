@@ -1,7 +1,7 @@
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
-import { r2SignedGet } from '@/lib/r2';
-import { RENDER_BUCKET } from '@/app/dashboard/[eventId]/studio/mood-board/render-actions';
+import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
+import { RENDER_BUCKET_KEY } from '@/lib/bucket-routing';
 import { readAllRendersForAdmin, failureCodeOf } from '@/lib/moodboard-render-gallery';
 import { renderFailureCopy } from '@/lib/moodboard-render-failure';
 import { renderPartById, WHOLE_LOOK_PART_ID } from '@/lib/moodboard-render-parts';
@@ -68,7 +68,7 @@ export default async function AdminMoodboardRendersPage() {
           ? 'The whole look'
           : (renderPartById(r.part_id)?.label ?? r.part_id),
       imageUrl: r.image_key
-        ? await r2SignedGet({ bucket: RENDER_BUCKET, key: r.image_key, expiresIn: 60 * 60 }).catch(
+        ? await r2SignedGet({ bucket: R2_BUCKETS[RENDER_BUCKET_KEY], key: r.image_key, expiresIn: 60 * 60 }).catch(
             () => null,
           )
         : null,

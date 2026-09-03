@@ -49,7 +49,8 @@ import {
 } from '@/lib/moodboard-render-parts';
 import { readEventRenders } from '@/lib/moodboard-render-gallery';
 import { r2SignedGet } from '@/lib/r2';
-import { RENDER_BUCKET } from './render-actions';
+import { R2_BUCKETS } from '@/lib/r2';
+import { RENDER_BUCKET_KEY } from '@/lib/bucket-routing';
 import {
   MOODBOARD_RENDER_PACK_SKU,
   readMoodboardRenderConfig,
@@ -344,7 +345,7 @@ export default async function MoodBoardPage({ params }: Props) {
                 : (renderPartById(r.part_id)?.label ?? r.part_id),
             imageUrl: r.image_key
               ? await r2SignedGet({
-                  bucket: RENDER_BUCKET,
+                  bucket: R2_BUCKETS[RENDER_BUCKET_KEY],
                   key: r.image_key,
                   expiresIn: 60 * 60,
                 }).catch(() => null)

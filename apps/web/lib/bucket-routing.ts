@@ -30,6 +30,22 @@ import { type R2BucketKey } from '@/lib/r2';
  * plural mapping is the one that actually fires. The singular `payment-screenshot/`
  * is retained purely so any legacy caller can't regress into the public bucket.
  */
+/**
+ * The bucket Mood Board renders live in (MB8).
+ *
+ * Here rather than in `render-actions.ts` for two reasons, one mechanical and
+ * one that matters more:
+ *   · a `'use server'` file may export ONLY async functions — Next fails the
+ *     production build on anything else, and neither `tsc` nor the unit suites
+ *     can see it (caught by `use-server-exports-only-functions.test.ts`);
+ *   · it belongs NEXT TO the `renders/` prefix rule below. The constant and
+ *     the routing rule are two statements of one fact, and a fact stated twice
+ *     in two files is a fact that can disagree with itself.
+ *
+ * 🔒 `threadFiles` is the PRIVATE bucket. See the `renders/` rule below.
+ */
+export const RENDER_BUCKET_KEY: R2BucketKey = 'threadFiles';
+
 export function bucketForPrefix(pathPrefix: string): R2BucketKey {
   const normalized = pathPrefix.replace(/^\/+/, '');
   if (normalized.startsWith('merchant-qr/')) return 'media';

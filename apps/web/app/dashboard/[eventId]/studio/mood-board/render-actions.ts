@@ -36,6 +36,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { r2Upload, r2SignedGet, R2_BUCKETS, isR2Configured } from '@/lib/r2';
+import { RENDER_BUCKET_KEY } from '@/lib/bucket-routing';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { sanitizeReceptionDesign, renderVenueSvg } from '@/lib/reception-scene';
@@ -89,8 +90,10 @@ function renderObjectKey(eventId: string, renderId: string, mimeType: string): s
   return `renders/${eventId}/${renderId}.${ext}`;
 }
 
-/** The private bucket every render is written to and read back from. */
-export const RENDER_BUCKET = R2_BUCKETS.threadFiles;
+// The private bucket every render is written to and read back from. NOT
+// exported: a 'use server' file may export only async functions. The key
+// itself lives in lib/bucket-routing.ts, beside the `renders/` prefix rule.
+const RENDER_BUCKET = R2_BUCKETS[RENDER_BUCKET_KEY];
 
 /**
  * Make one render.

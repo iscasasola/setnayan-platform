@@ -102,7 +102,7 @@ test('isMoveStale: a moving peer gone silent past the window is stale', () => {
 
 test('renderRemote: a stale mover renders standing (frozen), fresh mover walks', () => {
   const base: RemotePlayer = {
-    id: 'a', name: 'A', color: '#fff', x: 0, z: 0, vx: 1, vz: 0, h: 1.2, moving: true, recvAt: 0, present: true, greetUntil: 0,
+    id: 'a', name: 'A', color: '#fff', x: 0, z: 0, vx: 1, vz: 0, h: 1.2, moving: true, recvAt: 0, present: true, placed: true, greetUntil: 0,
   };
   const fresh = renderRemote(base, 100);
   assert.equal(fresh.pose, 'walk');
@@ -115,7 +115,7 @@ test('renderRemote: a stale mover renders standing (frozen), fresh mover walks',
 
 test('renderRemote: waving flag reflects greetUntil vs now', () => {
   const p: RemotePlayer = {
-    id: 'a', name: 'A', color: '#fff', x: 0, z: 0, vx: 0, vz: 0, h: 0, moving: false, recvAt: 0, present: true, greetUntil: 5000,
+    id: 'a', name: 'A', color: '#fff', x: 0, z: 0, vx: 0, vz: 0, h: 0, moving: false, recvAt: 0, present: true, placed: true, greetUntil: 5000,
   };
   assert.equal(renderRemote(p, 4999).waving, true);
   assert.equal(renderRemote(p, 5000).waving, false);

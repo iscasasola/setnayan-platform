@@ -112,3 +112,34 @@ export const POOL_ONLY_DEFAULT_NOTICE =
 export function poolOnlyConnectNotice(ownsHostedChannel: boolean): string {
   return ownsHostedChannel ? POOL_ONLY_CONNECT_NOTICE : POOL_ONLY_DEFAULT_NOTICE;
 }
+
+/**
+ * 🚨 THE POOL CHANNEL'S RISK IS NOT THE BUYER'S — IT IS EVERY OTHER COUPLE'S.
+ *
+ * `live-studio-roam-provision.ts` has stated since Wave 9 that one channel per event
+ * "isolates concurrency + copyright-strike blast radius". That sentence has only ever
+ * existed in a DOCBLOCK — a fact the code knew and no human being on either side of
+ * the decision was ever told.
+ *
+ * The consequence is not shared bandwidth, it is shared jeopardy. A Setnayan pool
+ * channel also holds OTHER couples' archived weddings, and YouTube counts copyright
+ * strikes against the CHANNEL. Its stated penalty at three strikes is termination,
+ * with "all your videos will be taken down" — so one couple's processional can delete
+ * another couple's wedding film. Neither couple did anything to the other, and neither
+ * would ever find out why.
+ *
+ * TWO SURFACES NEED THIS, and they are different people making different decisions:
+ *   · the couple deciding to BUY the hosted channel (they pick the music), and
+ *   · the ADMIN at /admin/live-studio-channels deciding which event goes on which
+ *     channel — the person who actually creates the exposure, and who needs it most.
+ * One constant so those two can never drift into telling different stories. Same
+ * reason ENCODER_NOTICE and poolOnlyConnectNotice() are constants rather than inline
+ * strings.
+ *
+ * 🔑 OPEN OWNER QUESTION, DELIBERATELY NOT ANSWERED HERE: whether a pool channel
+ * should be one-couple-per-channel-FOREVER (retired after the wedding, never reused)
+ * rather than checked back in. That is a cost-and-operations ruling, not an
+ * engineering one. This constant states the risk; it does not resolve it.
+ */
+export const POOL_CHANNEL_SHARED_STRIKE_NOTICE =
+  'A Setnayan channel is shared — other couples’ broadcasts and their saved wedding videos live on it too. YouTube counts copyright strikes against the whole channel, and at three strikes it terminates the channel and takes down every video on it. So music played aloud on one wedding can cost another couple their film: for anything the stream carries, use live musicians or royalty-free tracks.';

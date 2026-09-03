@@ -71,10 +71,14 @@ test('⭐ the Live Studio buy surface actually passes the notice', () => {
   // Shape changed again 2026-09-02 when the LAPTOP requirement joined the two clocks —
   // the one pre-purchase fact with no recovery at all. Same facts still pinned by name;
   // matched through the new shape rather than loosened to a substring.
+  // Shape changed a THIRD time 2026-09-03 (LS7) when MUSIC_RIGHTS_NOTICE joined them —
+  // the only one of the four that fails DURING the ceremony rather than before it.
+  // Still matched through the full array shape: loosening this to a substring is what
+  // would let a future edit silently drop one of the other three.
   assert.match(
     page,
-    /notice: \[LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE\]/,
-    'the buy sheet never receives all THREE pre-purchase facts',
+    /notice: \[LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE\]/,
+    'the buy sheet never receives all FOUR pre-purchase facts',
   );
   assert.match(page, /from '@\/lib\/live-studio-readiness'/, 'not imported from the shared module');
 });

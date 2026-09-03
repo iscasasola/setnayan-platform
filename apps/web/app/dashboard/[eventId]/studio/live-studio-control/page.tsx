@@ -28,10 +28,12 @@ import { eventSkuActive } from '@/lib/entitlements';
 import {
   liveStudioPoolOnly,
   poolOnlyConnectNotice,
+  POOL_CHANNEL_SHARED_STRIKE_NOTICE,
 } from '@/lib/live-studio-pool-only';
 import {
   ENCODER_BUY_NOTICE,
   LEAD_TIME_NOTICE,
+  MUSIC_RIGHTS_NOTICE,
   YOUTUBE_READY_NOTICE,
 } from '@/lib/live-studio-readiness';
 import { setYoutubeLiveReadyAck } from './actions';
@@ -278,7 +280,15 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         // the only one with NO recovery — a couple who meets the other two too late
         // can still wait or be approved early; a couple with no laptop on the
         // morning has no broadcast, and nothing fixes it.
-        notice: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE],
+        // 🎵 THE FOURTH, AND THE ONLY ONE THAT FAILS DURING THE CEREMONY. The three
+        // above all bite BEFORE the day — late, but survivable. YouTube scans the
+        // live stream in real time and a music match replaces it with a placeholder
+        // or cuts it off at the processional, in front of everyone watching from
+        // abroad. It applies to music the couple PAID to license, and it is the
+        // default path for a Filipino wedding, not an edge case. LAST in the array
+        // on purpose: the first three decide whether they can broadcast at all,
+        // this one decides what they play once they can.
+        notice: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE],
         // Shown ONLY until they have ticked it once, ever. Omitting the prop is how
         // "already accepted" is expressed — the sheet has no way to pre-tick a box,
         // which is what keeps this affirmative (see consent-is-affirmative.test.ts).
@@ -456,6 +466,16 @@ function HostedChannelUpsell({
           channel your broadcast goes to — everything else about Live Studio (cameras,
           cutting, guest-pick) is unaffected either way.
         </p>
+        {/* 🚨 THE ONE THING A BUYER CANNOT WORK OUT FOR THEMSELVES, and the reason it
+            sits INSIDE the add-on section rather than in the footnote: the risk this
+            option carries is not the buyer's, it is every OTHER couple's. A Setnayan
+            channel holds other weddings and their archives; YouTube counts strikes
+            against the channel and terminates it at three, removing every video on
+            it. Someone choosing to put their day on a shared channel is entitled to
+            know their music choice reaches strangers' films.
+            One constant, shared with /admin/live-studio-channels, so the buyer and
+            the admin who places the event can never be told different stories. */}
+        <p className="max-w-prose text-sm text-ink/65">{POOL_CHANNEL_SHARED_STRIKE_NOTICE}</p>
       </div>
 
       {owns ? (

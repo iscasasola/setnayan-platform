@@ -47,10 +47,25 @@ const PRIVATE = 'setnayan-thread-files';
 const appDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const read = (p: string) => readFileSync(join(appDir, p), 'utf8');
 
+/**
+ * Every lane that accepts a payment screenshot.
+ *
+ * ⚖ `vendor-dashboard/booking-fees/actions.ts` LEFT THIS LIST ON 2026-09-03 —
+ * replaced, not dropped, by `pay/[reference]/actions.ts`. That action
+ * (`logBookingFeePayment`) was deleted as superseded: the owner moved sending
+ * the money to the one payment page on 2026-08-21, and it had had zero callers
+ * ever since. So the lane this guard was watching had ALREADY stopped being a
+ * lane, and the vendor's real proof upload — which is the one an attacker would
+ * aim at — was never in the list at all.
+ *
+ * 🔑 THE LIST GREW BY LOSING AN ENTRY. Coverage went from two live lanes plus
+ * one dead one to three live ones. If you remove a lane here, check it is dead
+ * rather than merely renamed, and put its successor in the same commit.
+ */
 const CALL_SITES = [
   'dashboard/[eventId]/checkout/actions.ts',
   'dashboard/[eventId]/orders/actions.ts',
-  'vendor-dashboard/booking-fees/actions.ts',
+  'pay/[reference]/actions.ts',
 ] as const;
 
 /* ── the order-keyed policy ─────────────────────────────────────────────── */
@@ -222,8 +237,14 @@ test('no call site still accepts a ref on startsWith(r2://) alone', () => {
 test('the ref is only stored on the branch the parser approved', () => {
   for (const rel of CALL_SITES) {
     const src = read(rel);
-    const assign = src.indexOf('screenshotUrl = screenshotRefRaw.trim()');
-    assert.ok(assign > 0, `${rel} should still assign the approved ref`);
+    // The identifier holding the raw ref differs per lane (`screenshotRefRaw`
+    // on the dashboard lanes, `refRaw` on /pay) and the SPELLING is not the
+    // rule — the shape is: screenshotUrl is assigned a trimmed ref, and the
+    // parser call gates it. Matching the name would have made this guard refuse
+    // a correct third lane, which is how a guard teaches people to delete it.
+    const assignMatch = /screenshotUrl\s*=\s*[A-Za-z_$][\w$]*\.trim\(\)/.exec(src);
+    assert.ok(assignMatch, `${rel} should still assign the approved ref`);
+    const assign = assignMatch.index;
     // The nearest preceding parseClientRef must be within the same guard —
     // a few lines, not somewhere else in the 600-line module.
     const gate = src.lastIndexOf('parseClientRef(', assign);

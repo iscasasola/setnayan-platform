@@ -399,6 +399,28 @@ export function ReceptionDesignEditor({
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
               {activeDef.label} · {activeDef.blurb}
             </p>
+            {/* ── WHO IS IN THE ROOM IS THE GUEST LIST'S ANSWER ──────────────
+                This control sits beside the 3D room and reads like a room
+                control. It is not one: it feeds `renderVenueSvg` — the flat
+                concept illustration, the printed concept PDF and the supplier's
+                mood-board mirror — where there is no seating to draw from, so
+                somebody has to say who to sketch.
+
+                The ROOM populates from `occByTable`: the guests who actually
+                hold a seat. That is the right source and it must stay the
+                source — a picker that could empty a room the guest list says is
+                full would be a second mechanism owning one fact, and the two
+                would disagree forever while each passed its own tests.
+
+                So the honest fix is to say which surface this governs, not to
+                wire it to the room. */}
+            {activePart === 'people' ? (
+              <p className="text-[11px] leading-snug text-ink/45">
+                This sets who appears in your <span className="font-medium text-ink/70">concept
+                image</span> and printed concept. The room itself seats whoever is on your guest
+                list.
+              </p>
+            ) : null}
             {/* ── THE PHOTO THEY PICKED THIS ZONE FOR ────────────────────────
                 The couple uploads inspiration during onboarding and on the mood
                 board, and no 3D surface has ever read it — so they chose a

@@ -87,8 +87,8 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PANOOD_SYSTEM:       'live',     // = Live Studio — the ONE SKU, ₱2,500/day, unlocks everything (owner 2026-07-21) · marked live 2026-07-10 (owner "all features active") · YouTube verified-app is an external gate tracked separately
   PANOOD_SYSTEM_MOBILE: 'live',    // RETIRED 2026-07-21 — never purchasable (no buy surface, zero orders); catalog row deactivated. Kept here so any historical holder still resolves. (owner-locked 2026-07-08 · migration 20270526326110) · marked live 2026-07-10
   LIVE_STUDIO_ROAM:    'partial',  // = Live Studio Roam ₱3,500/day (owner 2026-07-23). RETIRED into LIVE_STUDIO 2026-07-25 (is_active=false, migration 20271001110000). Kept for historical order rows.
-  LIVE_STUDIO:         'partial',  // = UNIFIED Live Studio ₱3,000/event (owner 2026-07-25) — merges Cast (PANOOD_SYSTEM) + Roam (LIVE_STUDIO_ROAM) into one switching controller. Built on the Roam substrate; controller (Main Stage cut) + unified viewer shipped flag-dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED. Excluded from /pricing by name until launch. YouTube broadcast orchestration still pending G1. Bump to 'live' at launch. · migration 20271001110000
-  LIVE_STUDIO_HOSTED_CHANNEL: 'partial', // = optional "Setnayan supplies the channel" upsell, ₱1,500/day (owner ruling 2026-09-02). STACKS on LIVE_STUDIO — grants no entitlement of its own. Sold on the same flag-gated buy page; excluded from /pricing by name until launch, same idiom as LIVE_STUDIO. Bump to 'live' at launch. · migration 20271192528988
+  LIVE_STUDIO:         'partial',  // = UNIFIED Live Studio, once per event (owner 2026-07-25; repriced to a one-time unlock by LS6 2026-09-02, migration 20271194920190 — never quote a figure here, read the catalog) — merges Cast (PANOOD_SYSTEM) + Roam (LIVE_STUDIO_ROAM) into one switching controller. Built on the Roam substrate; controller (Main Stage cut) + unified viewer shipped flag-dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED. Excluded from /pricing by name until launch. YouTube broadcast orchestration still pending G1. Bump to 'live' at launch. · migration 20271001110000
+  LIVE_STUDIO_HOSTED_CHANNEL: 'partial', // = optional "Setnayan supplies the channel" upsell (owner ruling 2026-09-02). STACKS on LIVE_STUDIO — grants no entitlement of its own. DEACTIVATED by LS6 (2026-09-02, migration 20271194920190) when its price pairing with LIVE_STUDIO broke and no replacement figure was given. Sold on the same flag-gated buy page when reactivated; excluded from /pricing by name until launch, same idiom as LIVE_STUDIO. Bump to 'live' at launch. · migration 20271192528988
   PATIKTOK_COMPILER:   'live',     // ₱1,499/day booth · marked live 2026-07-10 (owner "all features active") · TikTok app review tracked separately
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
@@ -195,7 +195,8 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   if (!liveStudioRoamEnabled()) {
     query = query
       .neq('service_code', 'LIVE_STUDIO_ROAM')
-      // The unified Live Studio SKU (₱3,000 · owner 2026-07-25) is is_active=TRUE so
+      // The unified Live Studio SKU (owner 2026-07-25; a one-time unlock since LS6,
+      // 2026-09-02) is is_active=TRUE so
       // its flag-gated buy path resolves a price, but must stay OFF /pricing until
       // launch — same idiom. When the owner flips the flag, Live Studio appears on
       // /pricing AND the Studio tile lights up together — one launch switch.

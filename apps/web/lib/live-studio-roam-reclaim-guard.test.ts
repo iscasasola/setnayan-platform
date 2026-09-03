@@ -18,8 +18,8 @@
  *   1. reclaim runs AFTER the availability read in checkoutPoolChannel —
  *      LAST RESORT, NEVER EAGER. With a second channel connected it must
  *      never fire at all.
- *   2. the grace period is the IMPORTED PANOOD_WINDOW_HOURS constant, never a
- *      re-typed literal hour count.
+ *   2. the grace period is the file's OWN named POOL_CHANNEL_RECLAIM_GRACE_HOURS
+ *      constant, never a re-typed literal hour count.
  *   3. reclaimStaleCheckouts DELEGATES to releasePoolChannelIfIdle — it must
  *      never `.update(` the pool row itself. Two mechanisms deciding "is this
  *      channel free" would eventually disagree, and the way they disagree is
@@ -79,17 +79,30 @@ test('reclaim runs AFTER the availability read, never eagerly', () => {
    2 · THE GRACE PERIOD IS THE IMPORTED CONSTANT
    ══════════════════════════════════════════════════════════════════════════════ */
 
-test('the grace period is the imported PANOOD_WINDOW_HOURS constant, never a re-typed literal', () => {
+test('the grace period is the file\'s own named POOL_CHANNEL_RECLAIM_GRACE_HOURS constant, never a re-typed literal', () => {
+  // LS6 (2026-09-02) retired the broadcast-DAY concept this constant used to borrow
+  // from lib/panood-watermark.ts's PANOOD_WINDOW_HOURS — that import is gone, on
+  // purpose, and must not come back: reusing a constant whose meaning was retired
+  // would be a second, disagreeing source of truth wearing the first one's name.
+  assert.doesNotMatch(
+    SRC,
+    /from '@\/lib\/panood-watermark'/,
+    'reclaim must not import the retired broadcast-day constant — it now owns its own',
+  );
   assert.match(
     stripComments(SRC.slice(0, SRC.indexOf('export type RoamZoneRow'))),
-    /import \{ PANOOD_WINDOW_HOURS \} from '@\/lib\/panood-watermark';/,
-    'must import the existing, pure, import-free window constant rather than re-typing an hour count',
+    /export const POOL_CHANNEL_RECLAIM_GRACE_HOURS = 24;/,
+    'the grace period must be the file\'s own named, documented constant',
   );
   const fn = stripComments(sliceFn('reclaimStaleCheckouts'));
-  assert.match(fn, /PANOOD_WINDOW_HOURS \* 60 \* 60 \* 1000/, 'the staleness cutoff must be derived from the constant');
+  assert.match(
+    fn,
+    /POOL_CHANNEL_RECLAIM_GRACE_HOURS \* 60 \* 60 \* 1000/,
+    'the staleness cutoff must be derived from the named constant',
+  );
   assert.ok(
     !/\b24\s*\*\s*60\s*\*\s*60\b/.test(fn),
-    'no hardcoded 24-hour literal may sit alongside (or replace) the imported constant',
+    'no hardcoded 24-hour literal may sit alongside (or replace) the named constant',
   );
 });
 

@@ -1,8 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-// WAVE 7 · the entitlement resolution moved here: `resolveBroadcastWindow` answers
-// ownership AND whether the purchased event-day is running, from one place. This
-// file no longer reads `eventSkuActive` / `LIVE_STUDIO_SKU` directly — going through
-// the window is what stops a second, time-blind rule existing beside the first.
+// WAVE 7 (owner-locked 2026-07-25) · the entitlement resolution moved here so
+// there is exactly one place it can be computed. LS6 (2026-09-02) simplified WHAT
+// `resolveBroadcastWindow` answers — ownership, permanently, with no clock — but
+// this file still goes through it rather than reading `eventSkuActive` /
+// `LIVE_STUDIO_SKU` directly, for the same reason: a second, independent copy of
+// the same question is how the two eventually disagree.
 import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 
 /**
@@ -86,24 +88,23 @@ export * from '@/lib/live-studio-publish-pure';
 /**
  * ⭐ THE ONE ANSWER to "may this host broadcast multi-cam right now?"
  *
- * WAVE 7 (owner-locked 2026-07-25 · § 4f ②): holding the SKU is no longer the whole
- * question. ₱3,000 buys ONE EVENT-DAY, so this delegates to
- * `resolveBroadcastWindow` (lib/live-studio-window-server.ts), which answers ownership AND
- * whether the purchased day is currently running.
+ * LS6 (owner-ruled 2026-09-02): holding the SKU IS the whole question again —
+ * ownership, once bought, is permanent for the life of the event. This still
+ * delegates to `resolveBroadcastWindow` (lib/live-studio-window-server.ts) rather
+ * than reading `eventSkuActive` directly, so there is exactly one place this
+ * answer can be computed, even though the computation itself is now simple.
  *
  * DELIBERATELY DELEGATED RATHER THAN DUPLICATED. Every publication path already
  * funnels through this function — the manifest write gate (mirrorRoamManifest), the
  * public read gate (app/[slug]/_lib/loaders.ts), and Wave 5's program output — so
- * putting the window HERE gives the whole product one rule. A second time check
- * bolted onto one of those call sites would be a rule that can disagree with this
- * one, and the way it would disagree is a paying couple losing cameras mid-ceremony
- * on one surface while keeping them on another.
+ * putting the resolution HERE gives the whole product one rule. A second,
+ * independent ownership check bolted onto one of those call sites would be a rule
+ * that can disagree with this one.
  *
- * ⚠ THE WINDOW NEVER INTERRUPTS. `resolveBroadcastWindow` reads whether a broadcast
- * is on air and keeps multi-cam ON for one that started inside the window, so a
- * lapse cannot strip the public manifest out from under watching guests mid-wedding.
- * It bites at the NEXT go-live. That is why the never-interrupt rule lives in the
- * shared resolver and not in a caller.
+ * 🚫 RETIRED (LS6): the never-interrupt rule that used to live in this paragraph —
+ * `resolveBroadcastWindow` keeping multi-cam on for a broadcast that started inside
+ * a now-lapsing window — no longer applies, because nothing lapses. There is
+ * nothing left to interrupt.
  *
  * FAIL-CLOSED, unchanged: any throw, transport error or missing table resolves to
  * `false`, and `false` means "publish one channel, not many".

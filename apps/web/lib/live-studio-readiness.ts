@@ -166,8 +166,17 @@ export const YOUTUBE_READY_NOTICE =
 export const ENCODER_BUY_NOTICE =
   'You will need a Windows or Mac laptop at your celebration, running free streaming software (OBS) alongside the control room — a phone or tablet on its own cannot send the broadcast to YouTube, and neither can a web browser. Your phones are the cameras; the laptop is what sends the picture out.';
 
+/**
+ * ⚠ THE SECOND SENTENCE CHANGED SHAPE UNDER LS6 (2026-09-02). It used to name the
+ * per-event-DAY anchor ("your broadcast day starts when you first go live, not
+ * when you pay") — a promise that made sense only while multi-cam expired on a
+ * clock. LS6 retired that clock entirely (lib/live-studio-window.ts: ownership is
+ * now the whole test, forever), so "buying earlier costs you nothing" is true for
+ * a simpler reason: there is no day to burn by buying ahead, because there is no
+ * day at all. See live-studio-lead-time.test.ts for what is pinned here now.
+ */
 export const LEAD_TIME_NOTICE =
-  'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: your broadcast day starts when you first go live, not when you pay.';
+  'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: once approved, your unlock covers the whole event — no day to start, no clock to burn.';
 
 /** Headline used when Setnayan's side is done. Names the remaining human step. */
 export const READY_HEADLINE = 'Ready to broadcast — start your encoder';

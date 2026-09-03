@@ -203,12 +203,20 @@ test('nothing anywhere costs as much or MORE at sign-up', async () => {
   assert.equal(Number(rows[0]!.n), 0, 'buying early must never cost more');
 });
 
-test('Live Studio is charged per event-day, like the rest of its family', async () => {
+test('Live Studio is a one-time, once-per-event unlock; its retired predecessors stay frozen at per_day', async () => {
+  // LS6 (2026-09-02, migration 20271194920190) repriced LIVE_STUDIO to a one-time
+  // unlock — "unlock once per event, unlimited streams" (owner, verbatim) — and
+  // retired the per-event-day model this test used to hold the whole family to.
+  // PANOOD_SYSTEM / PANOOD_SYSTEM_MOBILE / LIVE_STUDIO_ROAM are long-retired
+  // (is_active=false) rows kept only so historical order rows still resolve a
+  // price — they are NEVER touched again, so they correctly stay at the
+  // billing_period they were retired under.
   const { rows } = await db.query<{ service_code: string; billing_period: string }>(
     `SELECT service_code, billing_period FROM public.platform_retail_catalog_v2
       WHERE service_code IN ('LIVE_STUDIO','PANOOD_SYSTEM','PANOOD_SYSTEM_MOBILE','LIVE_STUDIO_ROAM')`,
   );
   for (const r of rows) {
-    assert.equal(r.billing_period, 'per_day', `${r.service_code} must be per_day`);
+    const want = r.service_code === 'LIVE_STUDIO' ? 'one_time' : 'per_day';
+    assert.equal(r.billing_period, want, `${r.service_code} must be ${want}`);
   }
 });

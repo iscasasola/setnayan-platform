@@ -21,6 +21,7 @@ import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
@@ -45,8 +46,9 @@ import { setYoutubeLiveReadyAck } from './actions';
 //     serviceKey LIVE_STUDIO, priced LIVE from the admin catalog via formatV2Sku —
 //     never hardcoded. The buy reuses AddOnStateCta / InlineCheckoutDrawer; the
 //     checkout's serviceKey is LIVE_STUDIO so submitOrderAction re-resolves the price
-//     from platform_retail_catalog_v2 (₱3,000 · per event · one_time) and rides the
-//     QR rail → /admin/payments.
+//     from platform_retail_catalog_v2 (billing_period='one_time' — LS6, 2026-09-02:
+//     one unlock, unlimited streams, for the life of the event, never quote the
+//     figure here — read the table) and rides the QR rail → /admin/payments.
 //   • Once OWNED, the CTA flips to "Open controller" → ./setup (the unified switching
 //     controller: name cameras, cut them onto the Main Stage, set the default view).
 //
@@ -154,18 +156,31 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // it through the shared helper so this doorway can never point at the old URL.
   const controllerHref = liveStudioControlPath(eventId);
 
-  const [stats, stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel] = await Promise.all([
-    fetchAddOnStats(supabase, FEATURE_KEY),
-    resolveAddOnState(supabase, eventId, FEATURE_KEY, 'couple', controllerHref),
-    fetchPlatformSettings(supabase),
-    formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
-    formatV2Sku(LIVE_STUDIO_HOSTED_CHANNEL_SKU).catch(() => null),
-    // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
-    // 2026-09-02)? Read directly via eventSkuActive — NOT via ADD_ON_SKU_MAP /
-    // resolveAddOnState, which drive whether the MULTICAM controller unlocks.
-    // This entitlement decides WHICH CHANNEL NOTICE renders below, nothing else.
-    eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
-  ]);
+  const [stats, stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale] =
+    await Promise.all([
+      fetchAddOnStats(supabase, FEATURE_KEY),
+      resolveAddOnState(supabase, eventId, FEATURE_KEY, 'couple', controllerHref),
+      fetchPlatformSettings(supabase),
+      formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
+      formatV2Sku(LIVE_STUDIO_HOSTED_CHANNEL_SKU).catch(() => null),
+      // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
+      // 2026-09-02)? Read directly via eventSkuActive — NOT via ADD_ON_SKU_MAP /
+      // resolveAddOnState, which drive whether the MULTICAM controller unlocks.
+      // This entitlement decides WHICH CHANNEL NOTICE renders below, nothing else.
+      eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
+      // ⭐ LS6 (2026-09-02): is the add-on itself still ON SALE? `formatV2Sku` above
+      // does NOT filter on is_active (it exists so an already-owning couple's
+      // catalog miss only blanks a label, never their access), so it alone cannot
+      // tell a retired row from a live one. `getCustomerSkuPriceLabel` DOES filter
+      // on is_active (its own docblock: "Returns null when the row is unreadable /
+      // inactive") — reused here purely as that boolean, not for its formatted
+      // string. Without this, a couple could open the "Add hosted channel" sheet on
+      // a SKU the admin turned off and be refused only at checkout (the generic
+      // retirement guard in checkout/actions.ts) — a buy button that renders as if
+      // it works and quietly does not, the exact pattern this codebase has shipped
+      // and fixed before.
+      getCustomerSkuPriceLabel(LIVE_STUDIO_HOSTED_CHANNEL_SKU).then((label) => label !== null),
+    ]);
 
   // Live catalog price (display only; the charge is re-resolved server-side from
   // LIVE_STUDIO_SKU_CODE in submitOrderAction, so a catalog miss only blanks the label).
@@ -264,9 +279,10 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         // below it. Manual payment reconciliation runs to a 24-hour SLA, and a wedding
         // cannot wait for it: an unlock bought the night before may still be
         // unapproved when the ceremony starts, which is one camera on the day. Its
-        // second sentence ("your day starts when you first go live, not when you pay")
-        // is true only because of the 2026-07-27 anchor fix — the pair is what makes
-        // "buy earlier" safe advice rather than advice to burn the day sooner.
+        // second sentence ("your unlock covers the whole event — no day to start, no
+        // clock to burn") is what makes "buy earlier" safe advice: LS6 (2026-09-02)
+        // retired the per-event-day clock, so there is no longer even a window to
+        // mis-anchor by buying ahead — see lib/live-studio-window.ts.
         // TWO CLOCKS, TWO PARAGRAPHS, BOTH ABOVE THE PRICE. Ours is manual payment
         // reconciliation; theirs is Google's ~24-hour first-time live activation on
         // their OWN channel. They run in PARALLEL — a couple can activate YouTube
@@ -402,6 +418,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       <HostedChannelUpsell
         eventId={eventId}
         owns={ownsHostedChannel}
+        onSale={hostedChannelOnSale}
         priceLabel={hostedChannelPriceLabel}
         priceCentavos={hostedChannelCentavos}
         settings={settings}
@@ -420,20 +437,34 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
  * they'd rather not run their own channel. This section is independent of
  * `stateCtx` entirely, so it is reachable before OR after Live Studio itself
  * is bought — matching "STACKS on LIVE_STUDIO, does not replace it".
+ *
+ * ⚠ HIDDEN ENTIRELY WHEN OFF SALE AND NOT OWNED (LS6, 2026-09-02). The SKU was
+ * deactivated when LIVE_STUDIO's reprice broke the "the two SUM to ₱3,000" pairing
+ * they were priced under, with no replacement figure given — see the LS6 migration.
+ * `formatV2Sku` does not filter on `is_active`, so without this gate the section
+ * would keep rendering a working-looking "Add hosted channel" button that the
+ * generic retirement guard (checkout/actions.ts) only refuses at submit time — a
+ * buy button that renders as if it works and silently does not. An event that
+ * ALREADY owns it (none do, as of LS6 — zero orders) keeps seeing its confirmation
+ * regardless of `onSale`, same as every other retired-but-still-owned SKU in this
+ * codebase (LIVE_WALL, COUPLE_WEBSITE_PRO).
  */
 function HostedChannelUpsell({
   eventId,
   owns,
+  onSale,
   priceLabel,
   priceCentavos,
   settings,
 }: {
   eventId: string;
   owns: boolean;
+  onSale: boolean;
   priceLabel: string;
   priceCentavos: number;
   settings: ChoosePlanSheetProps['settings'];
 }) {
+  if (!owns && !onSale) return null;
   return (
     <section
       aria-labelledby="hosted-channel-heading"

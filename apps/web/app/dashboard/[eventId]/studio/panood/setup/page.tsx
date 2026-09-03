@@ -647,8 +647,8 @@ function SetupStatus({ eventId }: { eventId: string }) {
       </div>
 
       <p className="text-sm text-ink/70">
-        Single-camera live broadcast &middot; one event-day, embedded on your event
-        page, YouTube delivery + auto-archive on your own channel &middot;{' '}
+        Single-camera live broadcast &middot; embedded on your event page, YouTube
+        delivery + auto-archive on your own channel &middot;{' '}
         <span className="font-medium text-success-700">free for every couple</span>
       </p>
 
@@ -661,8 +661,8 @@ function SetupStatus({ eventId }: { eventId: string }) {
         />
         <Stat
           label="Coverage"
-          value="One event-day"
-          sub="Add a day per event-day"
+          value="No day limit"
+          sub="Free, always available"
           Icon={Clock3}
         />
         <Stat

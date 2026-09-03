@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6380
+# facts: 6395
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     575
-#   col       4693
-#   policy    874
+#   tpriv     576
+#   col       4704
+#   policy    877
 #   view      8
 #   func      226
 #
@@ -122,6 +122,7 @@ tpriv	public.event_checklist_items|anon	SIUD
 tpriv	public.event_checklist_items|authenticated	SIUD
 tpriv	public.event_cluster_members|authenticated	D
 tpriv	public.event_clusters|authenticated	D
+tpriv	public.event_costs|authenticated	SIUD
 tpriv	public.event_day_requests|authenticated	SIU
 tpriv	public.event_delegates|anon	SIUD
 tpriv	public.event_delegates|authenticated	SIUD
@@ -426,7 +427,7 @@ tpriv	public.user_follows|anon	SIUD
 tpriv	public.user_follows|authenticated	SIUD
 tpriv	public.user_reports|anon	SIUD
 tpriv	public.user_reports|authenticated	SIUD
-tpriv	public.users|anon	SU
+tpriv	public.users|anon	S
 tpriv	public.users|authenticated	SU
 tpriv	public.vendor_2307_filings|authenticated	SIUD
 tpriv	public.vendor_activities|authenticated	SIUD
@@ -1328,6 +1329,17 @@ col	public.event_clusters.id	anon=- authenticated=S
 col	public.event_clusters.owner_user_id	anon=- authenticated=SI
 col	public.event_clusters.public_id	anon=- authenticated=S
 col	public.event_clusters.updated_at	anon=- authenticated=SU
+col	public.event_costs.amount_php	anon=- authenticated=SIU
+col	public.event_costs.cost_id	anon=- authenticated=SIU
+col	public.event_costs.created_at	anon=- authenticated=SIU
+col	public.event_costs.created_by_user_id	anon=- authenticated=SIU
+col	public.event_costs.due_date	anon=- authenticated=SIU
+col	public.event_costs.event_id	anon=- authenticated=SIU
+col	public.event_costs.label	anon=- authenticated=SIU
+col	public.event_costs.note	anon=- authenticated=SIU
+col	public.event_costs.paid_php	anon=- authenticated=SIU
+col	public.event_costs.plan_group_id	anon=- authenticated=SIU
+col	public.event_costs.updated_at	anon=- authenticated=SIU
 col	public.event_day_requests.author_user_id	anon=- authenticated=SIU
 col	public.event_day_requests.author_vendor_profile_id	anon=- authenticated=SIU
 col	public.event_day_requests.body	anon=- authenticated=SIU
@@ -3889,60 +3901,60 @@ col	public.user_reports.reviewed_by	anon=SIU authenticated=SIU
 col	public.user_reports.status	anon=SIU authenticated=SIU
 col	public.user_reports.target_id	anon=SIU authenticated=SIU
 col	public.user_reports.target_type	anon=SIU authenticated=SIU
-col	public.users.account_type	anon=SU authenticated=SU
-col	public.users.address_normalized	anon=SU authenticated=SU
-col	public.users.anon_sweep_skipped_at	anon=SU authenticated=SU
-col	public.users.birth_date	anon=SU authenticated=SU
-col	public.users.civil_status	anon=SU authenticated=SU
-col	public.users.civil_status_consent_at	anon=SU authenticated=SU
-col	public.users.concierge_abuse_strike_count	anon=SU authenticated=SU
-col	public.users.concierge_banned	anon=SU authenticated=SU
-col	public.users.concierge_banned_at	anon=SU authenticated=SU
-col	public.users.concierge_banned_by	anon=SU authenticated=SU
-col	public.users.concierge_banned_reason	anon=SU authenticated=SU
-col	public.users.concierge_enforcement_at	anon=SU authenticated=SU
-col	public.users.concierge_enforcement_by	anon=SU authenticated=SU
-col	public.users.concierge_enforcement_level	anon=SU authenticated=SU
-col	public.users.concierge_enforcement_reason	anon=SU authenticated=SU
-col	public.users.concierge_trial_used_at	anon=SU authenticated=SU
-col	public.users.created_at	anon=SU authenticated=SU
-col	public.users.creator_accepts_offers	anon=SU authenticated=SU
-col	public.users.deleted_at	anon=SU authenticated=SU
-col	public.users.dietary_restrictions	anon=SU authenticated=SU
-col	public.users.dietary_restrictions_consent_at	anon=SU authenticated=SU
-col	public.users.discoverable_by_name	anon=SU authenticated=SU
-col	public.users.display_name	anon=SU authenticated=SU
-col	public.users.email	anon=SU authenticated=SU
-col	public.users.followers_count	anon=SU authenticated=SU
-col	public.users.id	anon=SU authenticated=SU
-col	public.users.is_internal	anon=SU authenticated=SU
-col	public.users.is_team_member	anon=SU authenticated=SU
-col	public.users.last_ghost_check_at	anon=SU authenticated=SU
-col	public.users.last_login_at	anon=SU authenticated=SU
-col	public.users.locale	anon=SU authenticated=SU
-col	public.users.marketing_consent_at	anon=SU authenticated=SU
-col	public.users.marketing_opt_in	anon=SU authenticated=SU
-col	public.users.meal_preference	anon=SU authenticated=SU
-col	public.users.phone	anon=SU authenticated=SU
-col	public.users.planner_mode	anon=SU authenticated=SU
-col	public.users.profile_photo_url	anon=SU authenticated=SU
-col	public.users.profile_view_count	anon=SU authenticated=SU
-col	public.users.public_greeting_opt_in	anon=SU authenticated=SU
-col	public.users.public_id	anon=SU authenticated=SU
-col	public.users.public_profile_enabled	anon=SU authenticated=SU
-col	public.users.public_summary_consent_at	anon=SU authenticated=SU
-col	public.users.religion	anon=SU authenticated=SU
-col	public.users.religion_consent_at	anon=SU authenticated=SU
-col	public.users.reminders_enabled	anon=SU authenticated=SU
-col	public.users.sex	anon=SU authenticated=SU
-col	public.users.sex_consent_at	anon=SU authenticated=SU
-col	public.users.slug	anon=SU authenticated=SU
-col	public.users.theme_preference	anon=SU authenticated=SU
-col	public.users.tour_completed_at	anon=SU authenticated=SU
-col	public.users.tour_seen_keys	anon=SU authenticated=SU
-col	public.users.updated_at	anon=SU authenticated=SU
-col	public.users.user_id	anon=SU authenticated=SU
-col	public.users.youtube_live_ready_ack_at	anon=SU authenticated=SU
+col	public.users.account_type	anon=S authenticated=SU
+col	public.users.address_normalized	anon=S authenticated=SU
+col	public.users.anon_sweep_skipped_at	anon=S authenticated=SU
+col	public.users.birth_date	anon=S authenticated=SU
+col	public.users.civil_status	anon=S authenticated=SU
+col	public.users.civil_status_consent_at	anon=S authenticated=SU
+col	public.users.concierge_abuse_strike_count	anon=S authenticated=SU
+col	public.users.concierge_banned	anon=S authenticated=SU
+col	public.users.concierge_banned_at	anon=S authenticated=SU
+col	public.users.concierge_banned_by	anon=S authenticated=SU
+col	public.users.concierge_banned_reason	anon=S authenticated=SU
+col	public.users.concierge_enforcement_at	anon=S authenticated=SU
+col	public.users.concierge_enforcement_by	anon=S authenticated=SU
+col	public.users.concierge_enforcement_level	anon=S authenticated=SU
+col	public.users.concierge_enforcement_reason	anon=S authenticated=SU
+col	public.users.concierge_trial_used_at	anon=S authenticated=SU
+col	public.users.created_at	anon=S authenticated=SU
+col	public.users.creator_accepts_offers	anon=S authenticated=SU
+col	public.users.deleted_at	anon=S authenticated=SU
+col	public.users.dietary_restrictions	anon=S authenticated=SU
+col	public.users.dietary_restrictions_consent_at	anon=S authenticated=SU
+col	public.users.discoverable_by_name	anon=S authenticated=SU
+col	public.users.display_name	anon=S authenticated=SU
+col	public.users.email	anon=S authenticated=SU
+col	public.users.followers_count	anon=S authenticated=SU
+col	public.users.id	anon=S authenticated=SU
+col	public.users.is_internal	anon=S authenticated=SU
+col	public.users.is_team_member	anon=S authenticated=SU
+col	public.users.last_ghost_check_at	anon=S authenticated=SU
+col	public.users.last_login_at	anon=S authenticated=SU
+col	public.users.locale	anon=S authenticated=SU
+col	public.users.marketing_consent_at	anon=S authenticated=SU
+col	public.users.marketing_opt_in	anon=S authenticated=SU
+col	public.users.meal_preference	anon=S authenticated=SU
+col	public.users.phone	anon=S authenticated=SU
+col	public.users.planner_mode	anon=S authenticated=SU
+col	public.users.profile_photo_url	anon=S authenticated=SU
+col	public.users.profile_view_count	anon=S authenticated=SU
+col	public.users.public_greeting_opt_in	anon=S authenticated=SU
+col	public.users.public_id	anon=S authenticated=SU
+col	public.users.public_profile_enabled	anon=S authenticated=SU
+col	public.users.public_summary_consent_at	anon=S authenticated=SU
+col	public.users.religion	anon=S authenticated=SU
+col	public.users.religion_consent_at	anon=S authenticated=SU
+col	public.users.reminders_enabled	anon=S authenticated=SU
+col	public.users.sex	anon=S authenticated=SU
+col	public.users.sex_consent_at	anon=S authenticated=SU
+col	public.users.slug	anon=S authenticated=SU
+col	public.users.theme_preference	anon=S authenticated=SU
+col	public.users.tour_completed_at	anon=S authenticated=SU
+col	public.users.tour_seen_keys	anon=S authenticated=SU
+col	public.users.updated_at	anon=S authenticated=SU
+col	public.users.user_id	anon=S authenticated=SU
+col	public.users.youtube_live_ready_ack_at	anon=S authenticated=SU
 col	public.vendor_2307_filings.audit_log	anon=- authenticated=SIU
 col	public.vendor_2307_filings.created_at	anon=- authenticated=SIU
 col	public.vendor_2307_filings.downloaded_by_vendor_at	anon=- authenticated=SIU
@@ -5461,6 +5473,9 @@ policy	public.event_clusters|event_clusters_owner_delete	mode=PERMISSIVE cmd=DEL
 policy	public.event_clusters|event_clusters_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(owner_user_id = auth.uid())
 policy	public.event_clusters|event_clusters_owner_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((owner_user_id = auth.uid()) OR is_admin()) check=NULL
 policy	public.event_clusters|event_clusters_owner_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((owner_user_id = auth.uid()) OR is_admin()) check=((owner_user_id = auth.uid()) OR is_admin())
+policy	public.event_costs|event_costs_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.event_costs|event_costs_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
+policy	public.event_costs|event_costs_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'budget'::text) = ANY (ARRAY['view'::text, 'edit'::text])) check=NULL
 policy	public.event_day_requests|event_day_requests_coordinator_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((author_user_id = auth.uid()) AND (origin = 'coordinator'::day_request_origin) AND (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)))
 policy	public.event_day_requests|event_day_requests_event_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((author_user_id = auth.uid()) AND (origin = ANY (ARRAY['couple'::day_request_origin, 'host'::day_request_origin, 'coordinator'::day_request_origin])) AND ((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) = 'edit'::text)))
 policy	public.event_day_requests|event_day_requests_event_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) IS NOT NULL) OR is_admin()) check=NULL

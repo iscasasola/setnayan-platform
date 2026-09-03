@@ -40,6 +40,17 @@ import { ShareWithVendorsButton } from './_components/share-with-vendors-button'
 import { ThemeStudio } from './_components/theme-studio';
 import { InfoButton } from './_components/info-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { MakeItReal } from './_components/make-it-real';
+import { RENDER_PARTS, type RenderPart } from '@/lib/moodboard-render-parts';
+import {
+  MOODBOARD_RENDER_PACK_SKU,
+  readMoodboardRenderConfig,
+  readMoodboardRenderBalance,
+} from '@/lib/moodboard-render-credits';
+import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -123,11 +134,15 @@ export default async function MoodBoardPage({ params }: Props) {
     venueFlowerRes,
     inspirationRes,
     bookedVendorRes,
+    moodboardRenderConfig,
+    moodboardRenderBalance,
+    moodboardRenderPackSku,
+    platformSettings,
   ] = await Promise.all([
     supabase
       .from('events')
       .select(
-        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description',
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description, venue_setting',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -170,6 +185,14 @@ export default async function MoodBoardPage({ params }: Props) {
       .select('marketplace_vendor_id')
       .eq('event_id', eventId)
       .not('marketplace_vendor_id', 'is', null),
+    // MB7 — "Make it real": the admin-editable render parameters (Pattern H,
+    // world-readable) and this event's real credit balance
+    // (moodboard_render_balance — ZERO ROWS means "not permitted", not a
+    // fabricated zero; see readMoodboardRenderBalance's own docblock).
+    readMoodboardRenderConfig(supabase),
+    readMoodboardRenderBalance(supabase, eventId),
+    formatV2Sku(MOODBOARD_RENDER_PACK_SKU).catch(() => null),
+    fetchPlatformSettings(supabase),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
@@ -253,6 +276,41 @@ export default async function MoodBoardPage({ params }: Props) {
   ) {
     visibleKeys.add('wedding_party');
   }
+
+  // ── MB7: "Make it real" — which RENDER_PARTS this event may offer ───────
+  // RENDER_PARTS is derived (lib/moodboard-render-parts.ts) from
+  // RECEPTION_PARTS / PALETTE_ORDER / MOODBOARD_SLOT_KEYS, so it offers every
+  // attire role the taxonomy knows — including ones this event's guest list
+  // has nobody in (e.g. Nikah Principals on a non-Muslim wedding). Room and
+  // place parts have no such presence question; attire roles are filtered to
+  // the SAME `visibleKeys` the Palette editor above already gates its own
+  // sections on, so the two surfaces can never disagree about who is in this
+  // wedding.
+  const eligibleRenderParts: RenderPart[] = RENDER_PARTS.filter(
+    (p) => p.group !== 'people' || visibleKeys.has(p.sourceKey as PaletteKey),
+  );
+
+  // Every inspiration slot that holds at least one photo — the same
+  // `inspirations` rows InspirationBoard renders, read once here rather than
+  // re-fetched, so section 04's render gate can never see a different photo
+  // set than the couple does.
+  const inspirationPresence = Array.from(new Set(inspirations.map((i) => i.slot_key)));
+
+  const venueSetting = (event as { venue_setting?: string | null }).venue_setting ?? null;
+  const venueLabel = isVenueSetting(venueSetting)
+    ? VENUE_SETTING_LABEL[venueSetting]
+    : 'Not set yet';
+
+  const moodboardRenderPackPlan = moodboardRenderPackSku
+    ? {
+        sku_code: MOODBOARD_RENDER_PACK_SKU,
+        name: moodboardRenderPackSku.display_name,
+        scope: 'One pack of Mood Board render credits, used across every part or the whole look.',
+        price: formatPhp(moodboardRenderPackSku.price_php),
+        unit: '',
+        priceCentavos: String(moodboardRenderPackSku.price_centavos),
+      }
+    : null;
 
   // ── the blank-start fork (MB3, 2026-09-03) ──────────────────────────────
   // ⚠ CORRECTED: this page used to pre-fill the editor with a starter palette
@@ -378,6 +436,7 @@ export default async function MoodBoardPage({ params }: Props) {
     { href: '#palette', label: 'Palette' },
     { href: '#reception', label: 'Reception' },
     { href: '#colors', label: 'In your colors' },
+    { href: '#make-it-real', label: 'Make it real' },
     { href: '#share', label: 'Share & export' },
   ];
 
@@ -523,6 +582,20 @@ export default async function MoodBoardPage({ params }: Props) {
           </header>
           <MoodboardBoard sections={sections} compact />
         </section>
+
+        <MakeItReal
+          eventId={eventId}
+          eligibleParts={eligibleRenderParts}
+          palette={palette}
+          receptionDesign={receptionDesign}
+          inspirationPresence={inspirationPresence}
+          venueSetting={venueSetting}
+          venueLabel={venueLabel}
+          config={moodboardRenderConfig}
+          balance={moodboardRenderBalance}
+          packPlan={moodboardRenderPackPlan}
+          checkoutSettings={platformSettings}
+        />
 
         <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
           <header className="space-y-1">

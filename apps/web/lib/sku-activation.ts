@@ -66,6 +66,10 @@ import {
   buildVendorDeepSearchInputs,
 } from '@/lib/vendor-deep-search-run';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
+import {
+  MOODBOARD_RENDER_PACK_SKU,
+  readMoodboardRenderConfig,
+} from '@/lib/moodboard-render-credits';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -212,6 +216,75 @@ async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<vo
  * NON-FATAL per the dispatcher contract: a failure here leaves a paid order with
  * no points, which an admin can re-run — it must never roll back the approval.
  */
+/**
+ * MOODBOARD_RENDER_PACK → the Mood Board "Make it real" render-credit pack
+ * (MB2's ledger, MB7's Buy button). 50 credits per pack (moodboard_render_-
+ * config.credits_per_pack — admin-editable, never hardcoded here) into
+ * `event_render_credit_grants`, source `pack_order`.
+ *
+ * IDEMPOTENT BY order_id — same shape as grantPapicPassPoints, but here the
+ * table's own `event_render_credit_grants_order_unique` partial UNIQUE index
+ * (WHERE order_id IS NOT NULL) enforces it too, so a race between a re-
+ * approval and this pre-read still can't double-grant; the insert's unique-
+ * violation is treated as "already granted", not an error.
+ *
+ * NON-FATAL per the dispatcher contract: a failure here leaves a paid order
+ * with no credits, which an admin can re-run — it must never roll back the
+ * approval that already happened.
+ */
+async function grantMoodboardRenderPackCredits(ctx: ActivationContext): Promise<void> {
+  if (!ctx.eventId) return;
+  const eventId = ctx.eventId;
+  try {
+    const { data: existing } = await ctx.admin
+      .from('event_render_credit_grants')
+      .select('grant_id')
+      .eq('order_id', ctx.orderId)
+      .limit(1);
+    if (Array.isArray(existing) && existing.length > 0) return;
+
+    const config = await readMoodboardRenderConfig(ctx.admin);
+    if (!config) {
+      console.error(
+        '[sku-activation] MOODBOARD_RENDER_PACK activation could not read moodboard_render_config (non-fatal):',
+        { order_id: ctx.orderId },
+      );
+      reportActivationFault('activate:moodboard_render_pack_config', ctx, new Error('config unreadable'));
+      return;
+    }
+
+    const { error } = await ctx.admin.from('event_render_credit_grants').insert({
+      event_id: eventId,
+      credits: config.creditsPerPack,
+      source: 'pack_order',
+      order_id: ctx.orderId,
+    });
+    if (error) {
+      // A UNIQUE violation on order_id means a concurrent approval already
+      // granted this order's credits — not a failure to report.
+      if (error.code !== '23505') {
+        console.error('[sku-activation] MOODBOARD_RENDER_PACK grant insert failed (non-fatal):', {
+          order_id: ctx.orderId,
+          error: error.message,
+        });
+        reportActivationFault('activate:moodboard_render_pack_insert', ctx, error);
+      }
+      return;
+    }
+
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, event_id: eventId, credits_granted: config.creditsPerPack },
+    });
+  } catch (e) {
+    console.error('[sku-activation] MOODBOARD_RENDER_PACK grant threw (non-fatal):', e);
+    reportActivationFault('activate:moodboard_render_pack', ctx, e);
+  }
+}
+
 async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   const eventId = ctx.eventId;
@@ -784,6 +857,11 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // approval + records was_free=false (pay-then-run). See
   // activateVendorDeepSearchOrder.
   [VENDOR_DEEP_SEARCH_SKU_CODE]: activateVendorDeepSearchOrder,
+
+  // 'MOODBOARD_RENDER_PACK' → the Mood Board "Make it real" render-credit pack
+  // (MB2 ledger, MB7 surface). Grants credits_per_pack into
+  // event_render_credit_grants on approval. See grantMoodboardRenderPackCredits.
+  [MOODBOARD_RENDER_PACK_SKU]: grantMoodboardRenderPackCredits,
 
   // 'vendor_ai_addon' → paid Vendor AI ("AI Chatbot") 28-day renewal. Stamps
   // the entitlement window on the paying vendor (the free first cycle is

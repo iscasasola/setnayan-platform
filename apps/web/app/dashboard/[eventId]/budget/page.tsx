@@ -12,7 +12,7 @@ import {
   formatPhp,
   type BudgetLiveSummary,
 } from '@/lib/budget';
-import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
+import { resolveEventMoney, bucketLabel, type EventMoney } from '@/lib/budget-truth';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import {
   budgetStripMoney,
@@ -36,6 +36,11 @@ import {
   BUDGET_TOP_SUMMARY_HEADER_ID,
 } from './_components/budget-live-summary';
 import { BudgetLedgerTable } from './_components/budget-ledger-table';
+import {
+  CostsWithNoSupplier,
+  type RecordedCost,
+} from './_components/costs-with-no-supplier';
+import { costCategoryOptions } from '@/lib/event-costs';
 import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -335,6 +340,33 @@ export default async function BudgetPage({ params }: Props) {
       })
     : null;
 
+  // ── BA7 · THE COSTS WITH NO SUPPLIER ──────────────────────────────────────
+  // Derived from `money.lines`, NOT from a second read of `event_costs`. The
+  // resolver already fetched every row to compute the totals above; a second
+  // query here would be a second mechanism that can disagree with the first
+  // about one fact, which is the defect this whole stream is named after.
+  //
+  // ⚠ AND WHEN THE RESOLVER GAVE US NOTHING, SAY SO — do not print an empty
+  // list. `money` is null when the budget-truth flag is off or the resolver
+  // refused, and a couple with six recorded costs reading "nothing here yet"
+  // is a failure rendering identically to emptiness. `costsUnavailable`
+  // carries that distinction to the render.
+  const costsUnavailable = money === null;
+  const recordedCosts: RecordedCost[] = (money?.lines ?? [])
+    .filter((l) => l.source === 'event_cost')
+    .map((l) => ({
+      costId: l.sourceRef,
+      label: l.label,
+      categoryLabel: bucketLabel(l.bucket),
+      amountPhp: l.amountPhp,
+      paidPhp: l.paidPhp,
+      dueDate: l.dueDate,
+    }));
+  // Every plan group this event type actually shows, plus "Other". The ids are
+  // `plan_group_id`, the same namespace `MoneyBucket.bucketId` uses, so a cost
+  // filed here lands on the ledger row above rather than opening a new one.
+  const costCategories = costCategoryOptions(event?.event_type ?? null);
+
   // Off-platform direct-pay: resolve each finalized vendor's PUBLISHED
   // payment destinations server-side via the secure helper. It proves the
   // couple owns the event_vendor row (RLS client) before reading the
@@ -479,6 +511,24 @@ export default async function BudgetPage({ params }: Props) {
           <BudgetLedgerTable ledger={ledger} />
         </div>
       ) : null}
+
+      {/* BA7 — money with nobody on the other side of it. Sits between the
+       *  category table and the per-supplier detail because that is what it
+       *  is: a category's money that has no supplier card to live on. */}
+      <div className="space-y-4 border-t border-ink/10 pt-6">
+        {costsUnavailable ? (
+          <p className="text-sm text-ink/65">
+            We could not load your own recorded costs just now. Nothing is lost
+            — reload the page, and if it keeps happening reach out from /help.
+          </p>
+        ) : null}
+        <CostsWithNoSupplier
+          eventId={eventId}
+          categories={costCategories}
+          costs={recordedCosts}
+          canEdit={budgetAccess.mayEdit}
+        />
+      </div>
 
       {/* Existing per-vendor itemization + payment log — unchanged
        *  surface from before this PR. Heading added so the visual break
@@ -724,15 +774,31 @@ function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
   );
 }
 
+/**
+ * BA7 · WHAT THIS USED TO SAY, AND WHY IT CHANGED.
+ *
+ * In full: *"No vendors yet. Add a vendor first, then come back here to
+ * itemize costs."* It was accurate about the schema — `event_vendor_line_items
+ * .vendor_id` was NOT NULL, so there was genuinely nowhere to put a peso — and
+ * it was the defect, said out loud: a couple who had bought their rings was
+ * told to invent a supplier before their own budget would take the number.
+ *
+ * `event_costs` removed the reason, so the sentence had to go with it. This
+ * frame now points at the section directly above, which accepts a cost with or
+ * without a supplier, and keeps the suppliers link as the other door rather
+ * than the only one.
+ */
 function EmptyBudget({ eventId }: { eventId: string }) {
   return (
     <div className="sn-row border-dashed p-8 text-center">
-      <p className="text-sm text-ink/65">
-        No vendors yet. Add a vendor first, then come back here to itemize costs.
+      <p className="mx-auto max-w-prose text-sm text-ink/65">
+        Nothing itemized against a supplier yet. Costs you pay yourself — the
+        rings, the licence, tips — go in the section above; book a supplier and
+        their line items and payments appear here.
       </p>
       <div className="mt-4">
         <Link href={`/dashboard/${eventId}/vendors`} className="button-primary">
-          Open vendors
+          Find suppliers
         </Link>
       </div>
     </div>

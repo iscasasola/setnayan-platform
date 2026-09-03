@@ -171,16 +171,30 @@ export async function requestRender(args: {
   // matching the gate MB7 already shows the couple.
   const wantedSlots = inspirationSlotsForPart(partId);
   const slotFilter = wantedSlots.length > 0 ? wantedSlots : ['overall'];
-  const { data: inspirationRows } = await supabase
+  // `inspiration_id`, NOT `asset_id` — the PK of event_inspiration_assets
+  // (migration 20260625000000). Selecting a column that does not exist returns
+  // a PostgREST error and `data: null`, which would have degraded every render
+  // to "no reference photos" SILENTLY: the couple's uploads would stop
+  // conditioning the image, `inspiration_asset_ids` would store an empty array,
+  // and the render would still arrive looking like a success. Caught by
+  // reading the migration rather than by any test — the fallback `?? []` is
+  // exactly what would have hidden it.
+  const { data: inspirationRows, error: inspirationError } = await supabase
     .from('event_inspiration_assets')
-    .select('asset_id, image_url')
+    .select('inspiration_id, image_url')
     .eq('event_id', eventId)
     .in('slot_key', partId === 'whole_look' ? ['overall'] : slotFilter)
     .is('removed_at', null)
     .limit(MAX_REFERENCE_IMAGES);
 
+  // A FAILED read of the couple's references is not the same as their having
+  // none, and it must not quietly produce a weaker render they still pay for.
+  // Nothing has been debited at this point, so refusing costs them nothing.
+  if (inspirationError) {
+    return { status: 'failed', code: 'unavailable', renderId: null };
+  }
   const inspirationAssetIds = (inspirationRows ?? [])
-    .map((r) => (r as { asset_id: string }).asset_id)
+    .map((r) => (r as { inspiration_id: string }).inspiration_id)
     .filter(Boolean);
 
   // ---- 2. THE WELD: debit and row, together or not at all ------------------

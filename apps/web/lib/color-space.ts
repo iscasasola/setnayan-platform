@@ -67,6 +67,42 @@ export function hueDeltaDeg(h1: number, h2: number): number {
 }
 
 /**
+ * sRGB hue angle, degrees in [0, 360) — the polar form of the RGB triple
+ * itself (the H of HSV/HSL). Zero on any pure grey.
+ *
+ * 🛑 THIS IS NOT A SECOND PERCEPTUAL COLOR SPACE and the rule at the top of
+ * this file still stands — there is no OKLab here, no second set of ΔE
+ * thresholds, nothing to drift out of step with CIELAB. This is arithmetic on
+ * the same three sRGB bytes `labOfHex` already reads, and it exists for ONE
+ * measured reason: CIELAB hue cannot see the blue/purple boundary at all.
+ *
+ * Measured on the sRGB primaries and the CSS table, in Lab hue vs sRGB hue:
+ *
+ *   sRGB blue #0000FF        lab 306.3°   srgb 240.0°
+ *   Medium Purple #9370DB    lab 306.3°   srgb 259.6°   ← IDENTICAL Lab hue
+ *   Violet #EE82EE           lab 326.8°   srgb 300.0°
+ *
+ * Pure blue and a medium purple have the SAME CIELAB hue angle to one decimal
+ * place. The whole blue→violet arc is 21° wide in Lab and 60° in sRGB, while
+ * cyan→blue is 110° in Lab and the same 60° in sRGB — so Lab compresses the
+ * one boundary a person is most confident about by 3x and expands a boundary
+ * they barely see by 2x. No threshold on `deltaHStar` or `hueDeltaDeg` can
+ * separate a blue from a purple, at any value, which is why the hue guard in
+ * `color-names.ts` reads both angles and not just the perceptual one.
+ */
+export function srgbHueDeg(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (d === 0) return 0;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+/**
  * CIE ΔH*ab — the hue difference expressed in the SAME Lab units as ΔE, so it
  * can carry a threshold that means one thing everywhere.
  *

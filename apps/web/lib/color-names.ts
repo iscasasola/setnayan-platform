@@ -26,8 +26,11 @@
  *      say that, and it was true only because the old matcher accepted ANY
  *      distance across ANY hue boundary — the guarantee and the defect were
  *      the same sentence. Coverage now comes from a name that is true rather
- *      than from a name that is merely present; ~0.2% of the hue circle lands
- *      here (measured over a 6,480-hex sweep).
+ *      than from a name that is merely present; 0.56% of the hue circle lands
+ *      here (re-measured 2026-09-03 over the same 6,480-hex sweep the test
+ *      walks — it read 0.2% before the sRGB hue term was added to the guard,
+ *      and that rise is the PRICE of the term, paid where a name would have
+ *      been confidently wrong).
  *
  * Pure, deterministic, no AI call — same architecture as the rest of the
  * Setnayan-AI derivation layer (see apps/web/lib/setnayan-ai-cockpit.ts).
@@ -40,6 +43,7 @@ import {
   hueStar,
   labDistance,
   labOfHex,
+  srgbHueDeg,
   type Lab,
 } from './color-space';
 
@@ -98,6 +102,7 @@ export const WEDDING_NAMES: NamedColor[] = [
   { name: 'Bamboo Tan', hex: '#C7A76C' }, // PH
   { name: 'Banana Leaf Green', hex: '#4C6B3F' }, // PH
   { name: 'Black', hex: '#000000' },
+  { name: 'Blackberry', hex: '#32024E' }, // L*11 srgb_h278 — nearest Aubergine ΔE28.7
   { name: 'Blush', hex: '#F4C2C2' },
   { name: 'Brass', hex: '#B5A642' },
   { name: 'Burgundy', hex: '#7A1F2B' },
@@ -110,7 +115,28 @@ export const WEDDING_NAMES: NamedColor[] = [
   { name: 'Coral', hex: '#E8735A' },
   { name: 'Cream', hex: '#FAF7F2' },
   { name: 'Denim', hex: '#4A6D8C' },
+  // ── the seven added 2026-09-03 (Blackberry above; Dusty Plum, Iris, Mint,
+  // Nude, Pistachio, Sapphire below), EVERY ONE placed by measurement, not by
+  // picking a word first. Each sits in a slab where the 62-name table had no
+  // admissible candidate at all, and each clears every shipped entry by more
+  // than MIN_PERCEPTUAL_GAP — nearest neighbour ΔE in the comment on its line.
+  // The hexes were SEARCHED for maximum clearance inside the failing slab
+  // rather than copied from an attested swatch, because every attested value
+  // for these words measured inside 12 ΔE of a name that already ships (Old
+  // Gold 5.3 from Gold, Wisteria 2.5 from Lilac, Rose Quartz 3.2 from Blush) —
+  // that is the Sage-on-moss collision, and it is what makes a second word for
+  // one colour. ⚠ A real fabric/florist card still outranks these seven.
+  //
+  // 🔑 BLACKBERRY IS THE ONE TO READ IF YOU ARE ADDING AN EIGHTH. A previous
+  // analysis costed this same dark-violet slab, placed the candidate from its
+  // CIELAB coordinates, landed on #1E2741 — ΔE 1.4 from shipped Navy — and
+  // correctly rejected itself as "one colour with two words". The slab was
+  // never the problem: Lab hue ALIASES violet onto blue (see
+  // `MAX_SRGB_HUE_DRIFT_DEG`), so a Lab-placed "violet" is a navy. Placed by
+  // sRGB hue instead, the same slab yields #32024E at ΔE 28.7 clear of every
+  // shipped name. Place by the axis that can see the boundary you are filling.
   { name: 'Dusty Blue', hex: '#7A9AB8' },
+  { name: 'Dusty Plum', hex: '#7A6084' }, // L*44 h318 — nearest Mauve ΔE21.6
   { name: 'Dusty Rose', hex: '#C9A0A0' },
   { name: 'Emerald', hex: '#059669' },
   { name: 'Espresso', hex: '#3C2415' },
@@ -119,10 +145,12 @@ export const WEDDING_NAMES: NamedColor[] = [
   { name: 'Gold', hex: '#D4AF37' },
   { name: 'Greige', hex: '#BFB5A8' },
   { name: 'Gumamela Red', hex: '#C8102E' }, // PH
+  { name: 'Iris', hex: '#8694EC' }, // L*64 srgb_h232 — a BLUE; nearest Amethyst ΔE25.6
   { name: 'Ivory', hex: '#FFFFF0' },
   { name: 'Lavender', hex: '#C9B8D9' },
   { name: 'Lilac', hex: '#C79BD4' },
   { name: 'Mauve', hex: '#B08D9E' },
+  { name: 'Mint', hex: '#BCFABA' }, // L*93 h142 — nearest Celadon ΔE24.8
   { name: 'Mocha', hex: '#7B5E51' },
   { name: 'Moss', hex: '#8A9A5B' },
   { name: 'Mulberry', hex: '#C54B8C' },
@@ -135,6 +163,7 @@ export const WEDDING_NAMES: NamedColor[] = [
   // stop, spelled into the name instead of into the match. Plain "Olive" was
   // the other option and collides with the CSS word. The hex was NOT tuned to
   // make a name work; that is gaming the matcher.
+  { name: 'Nude', hex: '#E0B094' }, // L*76 h57 — nearest Dusty Rose ΔE16.4
   { name: 'Olive Grove', hex: '#6E7145' },
   { name: 'Oxblood', hex: '#4A0F1E' },
   { name: 'Palawan Teal', hex: '#1FA5A8' }, // PH — h 199°, which this module calls Teal, not Blue
@@ -143,6 +172,7 @@ export const WEDDING_NAMES: NamedColor[] = [
   { name: 'Peacock', hex: '#1F6F78' },
   { name: 'Periwinkle', hex: '#CCCCFF' },
   { name: 'Piña Cream', hex: '#F2E8D5' }, // PH
+  { name: 'Pistachio', hex: '#C0E684' }, // L*87 h123 — nearest Mint ΔE20.3
   { name: 'Plum', hex: '#5C2542' },
   { name: 'Raspberry', hex: '#E30B5C' },
   { name: 'Rose', hex: '#BE185D' },
@@ -158,6 +188,7 @@ export const WEDDING_NAMES: NamedColor[] = [
   // now."
   { name: 'Sage', hex: '#9CAF88' },
   { name: 'Sampaguita White', hex: '#FBFBF3' }, // PH
+  { name: 'Sapphire', hex: '#1C40A2' }, // L*31 C*62 — nearest Ube ΔE20.1
   { name: 'Silver', hex: '#CFD3D6' },
   { name: 'Sky Blue', hex: '#7DB8D9' },
   { name: 'Slate', hex: '#3A5766' },
@@ -232,6 +263,34 @@ const MAX_HUE_DRIFT = 12;
 const MAX_HUE_DRIFT_DEG = 40;
 
 /**
+ * The SAME ceiling, restated in sRGB hue — and the term that actually stops a
+ * blue being called a purple.
+ *
+ * 🛑 THE TWO TERMS ABOVE CANNOT SEE THAT BOUNDARY, AT ANY VALUE. `srgbHueDeg`
+ * carries the measurement: sRGB blue #0000FF and CSS Medium Purple #9370DB
+ * have the SAME CIELAB hue, 306.3°, so ΔH*ab and `hueDeltaDeg` both read ~0
+ * between them however tightly they are set. Measured on a 1,746-hex corpus,
+ * blue-named-purple (and purple-named-blue) was the single largest wrong-family
+ * group — 91 of 227 failures, 40% — and the median Lab hue gap inside it was
+ * 12°, with the smallest at 2°. Tightening `MAX_HUE_DRIFT` instead just starves
+ * the honest greens and browns: at drift 10 the descriptive fallback doubles
+ * and 159 failures survive anyway.
+ *
+ * 30° is half an sRGB hue sextant. The six sextants are the regions where the
+ * RGB channel ORDERING is constant (which channel is highest, which lowest),
+ * and a family boundary is exactly where that ordering flips — the reported
+ * bug is #B9CA4A (green-highest) answered with Gold (red-highest). A candidate
+ * more than half a sextant away has crossed into a neighbouring ordering
+ * regime, which is the same "one neighbourhood, not two" idea as the 40° above,
+ * restated in the space where the blue arc is not compressed 3x.
+ *
+ * ⚠ DO NOT TIGHTEN IT TO CHASE THE LAST FEW PERCENT. Each step costs honest
+ * names: measured on the same corpus, 30° leaves the descriptive fallback at
+ * 1.55%, 26° at 2.06%, 22° at 2.75% — and the sweep test caps it at 5%.
+ */
+const MAX_SRGB_HUE_DRIFT_DEG = 30;
+
+/**
  * ΔE (CIE76) within which a curated WEDDING_NAMES match wins over the CSS
  * fallback, so a couple's blush reads as "Blush" and not the generic "Pink".
  *
@@ -275,6 +334,10 @@ const WEDDING_NAME_RADIUS_DE = 16;
  */
 const MAX_NAMEABLE_DE = 40;
 
+/** A colour measured both ways: the perceptual hue, and the sRGB one. */
+type Measured = { hex: string; lab: Lab };
+const measure = (hex: string): Measured => ({ hex, lab: labOfHex(hex) });
+
 /**
  * May `candidate` supply a name for `input`?
  *
@@ -282,18 +345,24 @@ const MAX_NAMEABLE_DE = 40;
  *   · achromatic input (C* < 6)      → achromatic candidates only
  *   · tinted neutral  (6 ≤ C* < 12)  → achromatic candidates, or hue-matching ones
  *   · chromatic input (C* ≥ 12)      → hue-matching candidates only
+ *
+ * "Hue-matching" is THREE tests, not two — ΔH*ab, the Lab angle, and the sRGB
+ * angle. See `MAX_SRGB_HUE_DRIFT_DEG`: the first two are blind to the
+ * blue/purple boundary because Lab gives pure blue and Medium Purple the same
+ * hue angle, and that boundary was 40% of the measured wrong-family names.
  */
-function hueCompatible(input: Lab, candidate: Lab): boolean {
-  const inputChroma = chromaStar(input);
-  const candidateChroma = chromaStar(candidate);
+function hueCompatible(input: Measured, candidate: Measured): boolean {
+  const inputChroma = chromaStar(input.lab);
+  const candidateChroma = chromaStar(candidate.lab);
   const candidateIsAchromatic = candidateChroma < ACHROMATIC_CHROMA;
 
   if (inputChroma < ACHROMATIC_CHROMA) return candidateIsAchromatic;
 
   const hueMatches =
     !candidateIsAchromatic &&
-    deltaHStar(input, candidate) <= MAX_HUE_DRIFT &&
-    hueDeltaDeg(hueStar(input), hueStar(candidate)) <= MAX_HUE_DRIFT_DEG;
+    deltaHStar(input.lab, candidate.lab) <= MAX_HUE_DRIFT &&
+    hueDeltaDeg(hueStar(input.lab), hueStar(candidate.lab)) <= MAX_HUE_DRIFT_DEG &&
+    hueDeltaDeg(srgbHueDeg(input.hex), srgbHueDeg(candidate.hex)) <= MAX_SRGB_HUE_DRIFT_DEG;
 
   if (inputChroma < TINTED_NEUTRAL_CHROMA) return candidateIsAchromatic || hueMatches;
   return hueMatches;
@@ -301,14 +370,14 @@ function hueCompatible(input: Lab, candidate: Lab): boolean {
 
 /** Nearest HUE-COMPATIBLE match in a candidate table, by ΔE (CIE76). */
 function nearestIn(
-  input: Lab,
+  input: Measured,
   table: NamedColor[],
 ): { name: string; hex: string; d: number } | null {
   let best: { name: string; hex: string; d: number } | null = null;
   for (const nc of table) {
-    const candidate = labOfHex(nc.hex);
+    const candidate = measure(nc.hex);
     if (!hueCompatible(input, candidate)) continue;
-    const d = labDistance(input, candidate);
+    const d = labDistance(input.lab, candidate.lab);
     if (!best || d < best.d) best = { name: nc.name, hex: nc.hex, d };
   }
   return best;
@@ -412,16 +481,16 @@ export function resolveColorName(
   const exactCss = CSS_NAMES.find((n) => normalizeHex(n.hex) === normalized);
   if (exactCss) return { name: exactCss.name, source: 'css', hex: exactCss.hex };
 
-  const lab = labOfHex(normalized);
-  const weddingMatch = nearestIn(lab, WEDDING_NAMES);
+  const input = measure(normalized);
+  const weddingMatch = nearestIn(input, WEDDING_NAMES);
   if (weddingMatch && weddingMatch.d <= WEDDING_NAME_RADIUS_DE) {
     return { name: weddingMatch.name, source: 'wedding', hex: weddingMatch.hex };
   }
-  const cssMatch = nearestIn(lab, CSS_NAMES);
+  const cssMatch = nearestIn(input, CSS_NAMES);
   if (cssMatch && cssMatch.d <= MAX_NAMEABLE_DE) {
     return { name: cssMatch.name, source: 'css', hex: cssMatch.hex };
   }
-  return { name: descriptiveColorName(lab), source: 'descriptive', hex: null };
+  return { name: descriptiveColorName(input.lab), source: 'descriptive', hex: null };
 }
 
 // ── the OTHER direction: a name back to its hex ──────────────────────────

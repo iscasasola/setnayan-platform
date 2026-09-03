@@ -61,6 +61,20 @@ const ACHROMATIC = 6;
 const TINTED_NEUTRAL = 12;
 const MAX_DRIFT = 12;
 const MAX_DRIFT_DEG = 40;
+const MAX_SRGB_DRIFT_DEG = 30;
+
+/** sRGB hue, written out here for the same reason `lab` is. */
+function srgbHue(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (d === 0) return 0;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
 
 /** Is `name`'s own color in the same hue family as `input`? */
 function hueHonest(input: string, source: string): boolean {
@@ -235,6 +249,64 @@ test('a sweep of the hue circle never returns a name from another family', () =>
     descriptive / total < 0.05,
     `descriptive fallback fired for ${((descriptive / total) * 100).toFixed(1)}% of the sweep`,
   );
+});
+
+// ── the boundary CIELAB CANNOT SEE ──────────────────────────────────────
+//
+// 🛑 EVERY ASSERTION ABOVE IS BLIND TO THIS ONE, AND WOULD STAY GREEN IF THE
+// FIX WERE DELETED. `hueHonest` is built from ΔH*ab and the Lab hue angle, and
+// CIELAB gives sRGB blue #0000FF and CSS Medium Purple #9370DB the SAME hue
+// angle — 306.3° both. So a guard made only of those two terms admits a purple
+// name for a blue at Δh 0°, the sweep above calls it honest, and a couple is
+// told their cornflower table runner is "Ube". Measured on a 1,746-hex corpus,
+// that one boundary was 91 of 227 wrong-family names — the largest group, and
+// the only one no threshold could reach. The module answers it with a THIRD
+// term in sRGB hue; these two tests are what stop that term shipping inert.
+
+test('a blue is never given a purple name, and a purple never a blue one', () => {
+  const pinned: ReadonlyArray<readonly [string, string]> = [
+    ['#383E8C', 'a deep indigo BLUE'],
+    ['#3940A0', 'a royal BLUE'],
+    ['#303A8E', 'a dark indigo BLUE'],
+    ['#666DCC', 'a cornflower BLUE'],
+    ['#B7C7E4', 'a powder BLUE'],
+    ['#3B105E', 'a deep VIOLET'],
+    ['#370F4F', 'an aubergine VIOLET'],
+    ['#2E2436', 'a near-black EGGPLANT'],
+  ];
+  for (const [hex, what] of pinned) {
+    const got = resolveColorName(hex)!;
+    if (!got.hex) continue; // an honest descriptive answer is allowed
+    const gap = hueDeg(srgbHue(hex), srgbHue(got.hex));
+    assert.ok(
+      gap <= MAX_SRGB_DRIFT_DEG,
+      `${hex} is ${what} and was named "${got.name}" ${got.hex} — ` +
+        `${gap.toFixed(0)}° away in sRGB hue (ceiling ${MAX_SRGB_DRIFT_DEG}°), ` +
+        `though only ${hueDeg(hue(hex), hue(got.hex)).toFixed(0)}° away in CIELAB, ` +
+        `which is why CIELAB alone cannot catch it`,
+    );
+  }
+});
+
+test('the sRGB hue ceiling holds across the whole cube, not just the blues', () => {
+  const violations: string[] = [];
+  let checked = 0;
+  const h2 = (v: number) => v.toString(16).padStart(2, '0').toUpperCase();
+  for (let r = 0; r < 256; r += 16) {
+    for (let g = 0; g < 256; g += 16) {
+      for (let b = 0; b < 256; b += 16) {
+        const hex = `#${h2(r)}${h2(g)}${h2(b)}`;
+        if (chroma(hex) < TINTED_NEUTRAL) continue; // the tinted-neutral regime may take a grey
+        const got = resolveColorName(hex)!;
+        if (!got.hex || chroma(got.hex) < ACHROMATIC) continue;
+        checked++;
+        const gap = hueDeg(srgbHue(hex), srgbHue(got.hex));
+        if (gap > MAX_SRGB_DRIFT_DEG) violations.push(`${hex} → "${got.name}" ${got.hex}, ${gap.toFixed(0)}°`);
+      }
+    }
+  }
+  assert.ok(checked > 1500, `expected a real sample, checked ${checked}`);
+  assert.deepEqual(violations.slice(0, 10), [], `${violations.length} answers exceed the sRGB hue ceiling`);
 });
 
 // ── the honest fallback ──────────────────────────────────────────────────

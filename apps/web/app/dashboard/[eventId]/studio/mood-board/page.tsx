@@ -23,7 +23,14 @@ import {
   fetchThemeTemplates,
   readMoodboardThemeDescription,
   applyThemeIntent,
+  fetchGalleryAssets,
+  applyGalleryPick,
 } from './actions';
+import {
+  GALLERY_SLOT_KEYS,
+  creditLine,
+  tradeLabelForCredit,
+} from '@/lib/moodboard-gallery';
 import { PaletteEditor } from './_components/palette-editor';
 import {
   MoodboardBoard,
@@ -182,9 +189,20 @@ export default async function MoodBoardPage({ params }: Props) {
     // The couple's uploaded inspiration photos (per-event, from onboarding's
     // intake) — surfaced here so they can add/manage them, and so they can feed
     // the future "Make it real" render as extra references.
+    // MB10 — the credit rides along. `library_asset_id` is only set on a
+    // gallery pick, so a couple's own upload embeds nothing and costs nothing.
+    // If RLS refuses the shop (unverified, hidden) the embed comes back null
+    // and the tile renders WITHOUT a credit rather than with a guess — the
+    // photo is already on their board either way.
     supabase
       .from('event_inspiration_assets')
-      .select('slot_key, slot_position, image_url')
+      .select(
+        `slot_key, slot_position, image_url, library_asset_id,
+         asset:moodboard_library_assets (
+           asset_subtype,
+           shop:vendor_profiles ( business_name, services )
+         )`,
+      )
       .eq('event_id', eventId)
       .is('removed_at', null),
     // Booked marketplace vendors for the "Share with vendors" affordance. Mirrors
@@ -224,11 +242,39 @@ export default async function MoodBoardPage({ params }: Props) {
       .filter((id): id is string => Boolean(id)),
   ).size;
 
-  const inspirations: InspirationItem[] = (inspirationRes.data ?? []).map((r) => ({
-    slot_key: r.slot_key,
-    slot_position: r.slot_position,
-    image_url: r.image_url,
-  }));
+  type InspirationRow = {
+    slot_key: string;
+    slot_position: number;
+    image_url: string;
+    library_asset_id: string | null;
+    asset: {
+      asset_subtype: string | null;
+      shop: { business_name: string | null; services: string[] | null } | null;
+    } | null;
+  };
+  const inspirations: InspirationItem[] = (
+    (inspirationRes.data ?? []) as unknown as InspirationRow[]
+  ).map((r) => {
+    // The trade is resolved against the SLOT THE PHOTO WAS FILED UNDER
+    // (`asset.asset_subtype`), falling back to the board slot it sits in.
+    // Those are the same key in every honest row; keeping the asset's own
+    // value first means a photo dragged into a neighbouring cell is still
+    // credited to the trade it actually came from.
+    const shopName = r.asset?.shop?.business_name?.trim() ?? '';
+    const slotForTrade = r.asset?.asset_subtype ?? r.slot_key;
+    return {
+      slot_key: r.slot_key,
+      slot_position: r.slot_position,
+      image_url: r.image_url,
+      credit:
+        r.library_asset_id && shopName
+          ? creditLine(
+              shopName,
+              tradeLabelForCredit(slotForTrade, r.asset?.shop?.services ?? null),
+            )
+          : null,
+    };
+  });
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
   // Through the sanitizer, not a bare cast: it is the one place the
@@ -585,7 +631,13 @@ export default async function MoodBoardPage({ params }: Props) {
                 Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.
               </p>
             </header>
-            <InspirationBoard eventId={eventId} initial={inspirations} />
+            <InspirationBoard
+              eventId={eventId}
+              initial={inspirations}
+              gallerySlots={GALLERY_SLOT_KEYS}
+              fetchGalleryAction={fetchGalleryAssets}
+              applyGalleryAction={applyGalleryPick}
+            />
           </section>
 
           <section id="palette" className="scroll-mt-24 space-y-4 lg:col-span-2">

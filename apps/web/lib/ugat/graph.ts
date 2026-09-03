@@ -49,7 +49,8 @@ export type UgatEntityType =
   | 'seatplan'
   | 'runofshow'
   | 'livestudio'
-  | 'render';
+  | 'render'
+  | 'gallery';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -785,6 +786,68 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'paid for by', to: 'TYPE-ORDERS' },
     ],
   },
+  {
+    /**
+     * THE MOOD BOARD LIBRARY — and, since MB10, the SUPPLIER GALLERY inside it.
+     *
+     * The table is old (2026-05-25): admin placeholders, then Recraft-generated
+     * attire figures, then florals. What is new is that one of its asset types
+     * belongs to somebody outside Setnayan. `asset_type = 'supplier_gallery'`
+     * rows are a shop's OWN portfolio photographs, and the chain they start
+     * runs library → board → vendor list:
+     *
+     *   moodboard_library_assets  the photo, tagged with its slot and its shop
+     *            ↓  the couple picks it
+     *   event_inspiration_assets  library_asset_id + source_kind='gallery_pick'
+     *            ↓  tallied per shop
+     *   the vendor list           "You saved 2 of their photos"
+     *
+     * ⚠ THE COUNT IS THE WHOLE LIBRARY, NOT THE GALLERY. Every asset type
+     * shares this table, so the node's number includes admin placeholders and
+     * generated attire figures. Re-measure the gallery slice specifically with
+     * `select count(*) from moodboard_library_assets where asset_type =
+     * 'supplier_gallery'` — do not read this node's figure as "supplier photos
+     * uploaded".
+     *
+     * ⚠ THE SLOT LIVES IN `asset_subtype`, NOT IN A `slot_key` COLUMN, and J44
+     * claims that absence. `idx_moodboard_library_assets_published` is already
+     * `(asset_type, asset_subtype) WHERE approved_at IS NOT NULL AND retired_at
+     * IS NULL` — the picker's query verbatim — and a second column naming what
+     * a photo depicts is a second thing to keep in step. Every reader pins
+     * asset_type before touching asset_subtype; one that does not would read a
+     * cake photo as a gown.
+     *
+     * ⚠ THE PUBLIC-READ POLICY AND THE WARRANTY CHECK OPEN THE SAME DOOR.
+     * Public read is `approved_at IS NOT NULL AND retired_at IS NULL`, and
+     * `moodboard_library_assets_supplier_gallery_shape` refuses an APPROVED
+     * gallery row with no `rights_warranted_at`. So a supplier photo cannot
+     * become publicly readable without a rights warranty — deliberately keyed
+     * on the same predicate rather than on insertion, so a draft may exist
+     * un-warranted and can never be published that way.
+     */
+    id: 'TYPE-GALLERY',
+    type: 'gallery',
+    name: 'Mood Board library',
+    blurb: 'the photo pool behind the board — and suppliers\u2019 own credited work',
+    countKey: 'gallery',
+    icon: 'image',
+    color: 'var(--ug-e-gallery)',
+    colorBg: 'var(--ug-e-gallery-bg)',
+    table: 'moodboard_library_assets',
+    href: '/admin/moodboard-library',
+    x: 860,
+    y: 140,
+    fields: [
+      { key: 'pk', name: 'asset_id', note: 'uuid \u2014 what event_inspiration_assets.library_asset_id points at' },
+      { key: '', name: 'vendor_profile_id', note: 'the SHOP credited on the photo \u2014 not uploaded_by, which is a user account' },
+      { key: '', name: 'asset_subtype', note: 'for supplier_gallery rows this is the INSPIRATION SLOT, CHECK-constrained to the same 18 keys' },
+      { key: '', name: 'rights_warranted_at', note: 'required before an approved gallery row may be publicly read; MB11 captures it at upload' },
+    ],
+    edges: [
+      { verb: 'credited to', to: 'TYPE-VENDORS' },
+      { verb: 'picked onto the boards of', to: 'TYPE-EVENTS' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -805,6 +868,12 @@ export const UGAT_TYPE_VOCAB: Record<
   thread: { label: 'Thread', icon: 'chat', color: 'var(--ug-e-thread)', colorBg: 'var(--ug-e-thread-bg)' },
   billing: { label: 'Billing', icon: 'wallet', color: 'var(--ug-e-billing)', colorBg: 'var(--ug-e-billing-bg)' },
   taxonomy: { label: 'Taxonomy', icon: 'layers', color: 'var(--ug-e-tax)', colorBg: 'var(--ug-e-tax-bg)' },
+  gallery: {
+    label: 'Library photo',
+    icon: 'image',
+    color: 'var(--ug-e-gallery)',
+    colorBg: 'var(--ug-e-gallery-bg)',
+  },
   community: {
     label: 'Samahan',
     icon: 'group',
@@ -914,6 +983,12 @@ export const UGAT_ICON_PATHS: Record<string, string> = {
     '<circle cx="12" cy="7" r="3"/><circle cx="5" cy="10" r="2.2"/><circle cx="19" cy="10" r="2.2"/><path d="M6.5 20a5.5 5.5 0 0 1 11 0"/><path d="M1.5 18a4 4 0 0 1 4-3.5"/><path d="M22.5 18a4 4 0 0 0-4-3.5"/>',
   camera:
     '<path d="M3 8.5A2 2 0 0 1 5 6.5h2l1.2-2h7.6l1.2 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/>',
+  // Mood Board library (MB10) — a framed photograph, distinct from `camera`
+  // (Papic, which is an act of shooting) and from `sparkles` (a paid render).
+  // ⚠ AN UNKNOWN ICON KEY DOES NOT FAIL, IT FALLS BACK TO `tag` — so a node
+  // added without its path here draws a price label and nobody notices.
+  image:
+    '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 17 5-5 3.5 3.5L16 12l4 4"/>',
 };
 
 export function ugatIcon(name: string, cls?: string): string {
@@ -2544,6 +2619,181 @@ export const UGAT_JOINTS: UgatJoint[] = [
       "RLS Pattern B read half (members + admin read; no write policy) \u00b7 the partial UNIQUE index makes a second bonus unrepresentable \u00b7 moodboard_set_render_featured refuses on a non-consented event, so the featured set is consent-clean at the write",
     traps:
       "The partial UNIQUE that makes the bonus once-per-event is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify it with \\d event_render_credit_grants. And do NOT filter the admin all-creations read by consent: that is a locked owner decision, not an oversight (see the docblock). Withdrawing consent does not remove the bonus grant, so SUM(grants) can exceed what a currently-consenting event would have earned \u2014 that is correct, not drift.",
+  },
+  {
+     * WHOSE PHOTO IS THIS \u2014 the half of the chain that makes the other half
+     * worth building (MB10).
+     *
+     * \u26a0 `uploaded_by` IS NOT THE CREDIT. It is the user account that pushed
+     * the bytes; a couple reads a SHOP ("Bloom & Vine"), and one user may hold
+     * more than one shop. Deriving the shop from the uploader at read time
+     * would be a guess that renders identically to a fact, so
+     * `vendor_profile_id` is its own column and the CHECK below refuses a
+     * gallery row without it.
+     *
+     * \u26a0 THE SLOT IS IN `asset_subtype` AND THERE IS DELIBERATELY NO
+     * `slot_key` COLUMN \u2014 claimed as a no_column, so a later "let us just add
+     * slot_key" turns this joint red rather than quietly creating a second
+     * source of truth for what a photo depicts.
+     *
+     * \u26a0 THE WARRANTY GATE IS KEYED ON `approved_at`, NOT ON INSERT. Public
+     * read is `approved_at IS NOT NULL AND retired_at IS NULL`, so the CHECK
+     * and the policy open the same door: an un-warranted draft may exist and
+     * can never become publicly readable. MB11 captures the warranty at
+     * upload; the columns landed here so MB11 is not a second migration.
+     */
+    id: 'J45',
+    claims: [
+      { kind: 'table', table: 'moodboard_library_assets' },
+      { kind: 'table', table: 'moodboard_asset_color_ranges' },
+      {
+        kind: 'fk',
+        table: 'moodboard_library_assets',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      {
+        kind: 'fk',
+        table: 'moodboard_library_assets',
+        column: 'uploaded_by',
+        references: 'users',
+      },
+      {
+        kind: 'fk',
+        table: 'moodboard_asset_color_ranges',
+        column: 'asset_id',
+        references: 'moodboard_library_assets',
+      },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'asset_type' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'asset_subtype' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'approved_at' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'retired_at' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'rights_warranted_at' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'rights_warranty_version' },
+      // The slot lives in asset_subtype. Claiming the ABSENCE is what stops a
+      // second column for one fact from arriving unnoticed.
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'slot_key' },
+      {
+        kind: 'check',
+        table: 'moodboard_library_assets',
+        name: 'moodboard_library_assets_asset_type_check_v3',
+        mentions: 'asset_type',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_library_assets',
+        name: 'moodboard_library_assets_supplier_gallery_shape',
+        mentions: 'rights_warranted_at',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_library_assets',
+        name: 'moodboard_library_assets_rights_warranty_paired',
+        mentions: 'rights_warranty_version',
+      },
+    ],
+    chain: 20,
+    pair: ['TYPE-GALLERY', 'TYPE-VENDORS'],
+    title: 'Library photo \u2194 Vendor (the credit a couple reads)',
+    joint: 'moodboard_library_assets',
+    cardinality:
+      'Many photos per shop \u00b7 exactly one shop per supplier-gallery photo (the CHECK requires it); NULL shop on every other asset type, which is Setnayan\u2019s own imagery',
+    implementedBy:
+      'moodboard_library_assets.vendor_profile_id \u2192 vendor_profiles, with asset_type = \'supplier_gallery\' marking the creditable slice and asset_subtype carrying the inspiration slot',
+    writtenBy:
+      'the vendor upload page (app/vendor-dashboard/moodboard-library) \u2014 still gated to reception_decor as of this row; MB11 widens it to the supplying trades and captures the warranty',
+    guardedBy:
+      'RLS Pattern D \u2014 public read of approved-and-not-retired rows, vendor insert/update of their own (uploaded_by = auth.uid(), source = \'stylist_upload\'), admin all; plus moodboard_library_assets_supplier_gallery_shape, which refuses an approved gallery row with no shop, no real slot, or no rights warranty',
+    traps:
+      'asset_subtype means something DIFFERENT per asset_type (\'church\' for a venue_scene, \'bride\' for a figure_attire, an inspiration slot key for supplier_gallery), so every reader must pin asset_type first \u2014 grep `asset_type` under apps/web before adding one that does not. ON DELETE CASCADE on vendor_profile_id means deleting a shop deletes its gallery rows \u2014 SET NULL would fail the shape CHECK and, because users \u2192 vendor_profiles already cascades, would BLOCK account deletion. The storage objects are NOT swept by that cascade. The admin library page lists every asset_type and casts to its own three-value union; a fourth value reaching it renders the raw key.',
+  },
+  {
+    /**
+     * THE PICK \u2014 a library photo becomes a tile on one couple\u2019s board, and
+     * the credit survives the copy (MB10).
+     *
+     * \u26a0 THIS ROW USED TO LIE, AND THE LIE WAS INVISIBLE. `applyMoodboardTemplate`
+     * has copied library photos into inspiration slots since the theme gallery
+     * shipped, writing them as `source_kind = 'url_paste'` \u2014 a Setnayan library
+     * asset permanently recorded as something the couple pasted off the
+     * internet \u2014 because \'url_paste\' was the closer of the only two modes that
+     * existed. Nothing rendered differently, which is why it lasted.
+     *
+     * \u26a0 THE BICONDITIONAL IS THE WIRING GUARD.
+     * `event_inspiration_assets_gallery_pick_has_provenance` asserts
+     * `(source_kind = 'gallery_pick') = (library_asset_id IS NOT NULL)`. A
+     * future edit that drops the id cannot merely lose the credit quietly \u2014 the
+     * INSERT fails. A correct query and a correct component can each pass their
+     * own tests while the line between them is cut; this is that line, held in
+     * the database.
+     *
+     * \u26a0 THE BOARD ROW DOES NOT COPY THE SHOP. There is no
+     * `vendor_profile_id` here and J46 claims that absence: the credit is
+     * resolved THROUGH library_asset_id every time it is rendered, so a shop
+     * that renames itself renames itself on every board at once.
+     */
+    id: 'J46',
+    claims: [
+      { kind: 'table', table: 'event_inspiration_assets' },
+      {
+        kind: 'fk',
+        table: 'event_inspiration_assets',
+        column: 'library_asset_id',
+        references: 'moodboard_library_assets',
+      },
+      {
+        kind: 'fk',
+        table: 'event_inspiration_assets',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'event_inspiration_assets',
+        column: 'added_by_user_id',
+        references: 'users',
+      },
+      { kind: 'column', table: 'event_inspiration_assets', column: 'source_kind' },
+      { kind: 'column', table: 'event_inspiration_assets', column: 'slot_key' },
+      { kind: 'column', table: 'event_inspiration_assets', column: 'slot_position' },
+      { kind: 'column', table: 'event_inspiration_assets', column: 'removed_at' },
+      // The credit is resolved through the library asset, never denormalised
+      // onto the board row \u2014 claimed so a "just copy the shop name" shortcut
+      // fails here first.
+      { kind: 'no_column', table: 'event_inspiration_assets', column: 'vendor_profile_id' },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_source_kind_check_v2',
+        mentions: 'source_kind',
+      },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_gallery_pick_has_provenance',
+        mentions: 'library_asset_id',
+      },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_slot_key_check_v3',
+        mentions: 'slot_key',
+      },
+    ],
+    chain: 20,
+    pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
+    title: 'Library photo \u2194 Event (the pick, and the credit that survives it)',
+    joint: 'event_inspiration_assets',
+    cardinality:
+      'One row per (event, slot_key, slot_position) among ACTIVE rows \u2014 18 slots \u00d7 3 photos; removed rows do not count toward it, so a slot can be re-filled',
+    implementedBy:
+      'event_inspiration_assets.library_asset_id \u2192 moodboard_library_assets, paired with source_kind = \'gallery_pick\' by a CHECK biconditional',
+    writtenBy:
+      'applyGalleryPick (the couple\u2019s picker) and applyMoodboardTemplate (theme seeding) \u2014 both in studio/mood-board/actions.ts; uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
+    guardedBy:
+      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 18-key slot CHECK',
+    traps:
+      'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
   },
 ];
 

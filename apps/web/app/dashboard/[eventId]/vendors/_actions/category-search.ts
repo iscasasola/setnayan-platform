@@ -40,6 +40,7 @@ import {
   passesFaithFilter,
 } from '@/lib/taxonomy-filters';
 import { computeCompatScore } from '@/lib/compat-score';
+import { tallySavedGalleryPhotos } from '@/lib/moodboard-gallery';
 import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
@@ -158,10 +159,28 @@ export type CategoryVendorResult = {
    *  no locked date, the vendor has no blocks, or the calendar read returns
    *  nothing (fail-open — never wrongly flag a vendor unavailable). */
   serviceDateAvailable: boolean;
+  /**
+   * MB10 — how many of this event's inspiration-board photos came out of THIS
+   * shop's gallery. Drives the "You saved 2 of their photos" marker, which is
+   * what turns inspiration into discovery.
+   *
+   * ⚠ `null` MEANS UNKNOWN, NOT ZERO. The tally read failed, and the list says
+   * so once in its header instead of quietly telling every couple that none of
+   * their saves belong to anybody. 0 is a measured, real answer.
+   */
+  savedGalleryPhotoCount: number | null;
 };
 
 export type CategorySearchResult = {
   results: CategoryVendorResult[];
+  /**
+   * MB10 — TRUE when the saved-gallery-photo tally could not be read, so every
+   * row's `savedGalleryPhotoCount` is null. The overlay says this ONCE in its
+   * header rather than printing "we couldn't check" beside twenty shops — but
+   * it does say it. Optional + absent on the happy path, so the off-path
+   * result shape is unchanged.
+   */
+  savedPhotoTallyFailed?: boolean;
   total: number;
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
@@ -685,6 +704,42 @@ export async function searchCategoryVendors(input: {
     });
   }
 
+  // ── MB10 · "You saved N of their photos" ─────────────────────────────────
+  // The whole reason a supplier uploads to the inspiration gallery: the couple
+  // who saved their bouquet can find them HERE, in the list where they pick
+  // who to hire. Board row → library asset → shop, tallied per shop.
+  //
+  // 🔑 `null` IS NOT ZERO. A failed read must not render as "none of your saves
+  // are theirs" — that is the exact shape of failure this repo keeps finding
+  // (a refused guest read told a couple with 180 names their wedding was
+  // empty). The map stays null and the overlay says so once, in its header.
+  //
+  // Read through `admin`, not the session client, deliberately: membership is
+  // already proven above (`ev === null` bails), and the couple's own count must
+  // not shrink because a shop later went unverified or the supplier retired the
+  // photo. They saved it; it is still on their board; it still counts.
+  let savedPhotosByVendor: Map<string, number> | null = null;
+  try {
+    const { data: savedRows, error: savedErr } = await admin
+      .from('event_inspiration_assets')
+      .select('library_asset_id, asset:moodboard_library_assets ( vendor_profile_id )')
+      .eq('event_id', eventId)
+      .is('removed_at', null)
+      .not('library_asset_id', 'is', null);
+    if (savedErr) throw new Error(savedErr.message);
+    savedPhotosByVendor = tallySavedGalleryPhotos(
+      ((savedRows ?? []) as unknown as Array<{
+        library_asset_id: string | null;
+        asset: { vendor_profile_id: string | null } | null;
+      }>).map((r) => ({
+        library_asset_id: r.library_asset_id,
+        vendor_profile_id: r.asset?.vendor_profile_id ?? null,
+      })),
+    );
+  } catch {
+    savedPhotosByVendor = null; // unknown, and said out loud — never a fake 0
+  }
+
   // ── First-Look Window (Wave 2) ───────────────────────────────────────────
   // Read the admin-managed config defensively (lib/firstlook — the two columns
   // may still be mid-apply in prod, so this is a dedicated try/catch reader that
@@ -1039,6 +1094,13 @@ export async function searchCategoryVendors(input: {
       facetMatchCount,
       facetSelectedCount,
       serviceDateAvailable,
+      // MB10 — measured per shop, or null when the tally read failed. NEVER a
+      // literal 0 here: `savedPhotosByVendor?.get(...) ?? 0` would turn a dead
+      // read into a confident "you saved none of theirs".
+      savedGalleryPhotoCount:
+        savedPhotosByVendor === null
+          ? null
+          : (savedPhotosByVendor.get(r.vendor_profile_id) ?? 0),
       _adRank: adRank,
       _reviews: r.review_count ?? 0,
       _rating: r.avg_rating_overall ?? 0,
@@ -1203,6 +1265,7 @@ export async function searchCategoryVendors(input: {
     facetMatchCount: s.facetMatchCount,
     facetSelectedCount: s.facetSelectedCount,
     serviceDateAvailable: s.serviceDateAvailable,
+    savedGalleryPhotoCount: s.savedGalleryPhotoCount,
   }));
 
   return {
@@ -1211,6 +1274,9 @@ export async function searchCategoryVendors(input: {
     hasReceptionCoords: hasCoords,
     facets: facetCatalog,
     facetDefaults,
+    // Only present when the tally actually failed → the happy-path shape is
+    // byte-identical to before MB10.
+    ...(savedPhotosByVendor === null ? { savedPhotoTallyFailed: true } : {}),
     // Only present when the flag is on → off-path result shape is unchanged.
     ...(smartSort ? { budgetPressure: budgetRaisePressure } : {}),
     // NOT flag-gated: the band-derived budget is not either, so a couple ranked

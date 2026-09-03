@@ -26,14 +26,42 @@ import {
   type MoodboardSlotPosition,
 } from '../../../wizard-actions';
 import { reorderMoodboardSlot } from '../actions';
+import { GalleryPicker } from './gallery-picker';
+import type { GalleryPage } from '@/lib/moodboard-gallery';
 
 export type InspirationItem = {
   slot_key: string;
   slot_position: number;
   image_url: string;
+  /**
+   * "Bloom & Vine · Florist" for a photo the couple picked out of a supplier's
+   * gallery (MB10) — resolved on the SERVER in page.tsx, so this component
+   * never pulls lib/taxonomy into the browser bundle. `null` for the couple's
+   * own uploads, which have nobody to credit, and also when the shop's row was
+   * refused at read time: the photo is already theirs either way, so the tile
+   * keeps rendering and simply names nobody rather than guessing.
+   */
+  credit?: string | null;
 };
 
-type Props = { eventId: string; initial: InspirationItem[] };
+type Props = {
+  eventId: string;
+  initial: InspirationItem[];
+  /**
+   * The slots a supplier gallery exists for — GALLERY_SLOT_KEYS, derived from
+   * MOODBOARD_SLOT_TRADES and passed in from the server. A slot with no
+   * supplying trade (`palette`) gets NO button at all rather than an empty
+   * shelf, which is the same refusal-to-guess the slot→part bridge makes.
+   */
+  gallerySlots?: readonly string[];
+  fetchGalleryAction?: (input: { slotKey: string; offset?: number }) => Promise<GalleryPage>;
+  applyGalleryAction?: (input: {
+    eventId: string;
+    slotKey: string;
+    slotPosition: number;
+    assetId: string;
+  }) => Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }>;
+};
 
 const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }[] }> = [
   {
@@ -67,16 +95,40 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
 ];
 
 const key = (slot: string, pos: number) => `${slot}:${pos}`;
-type Tile = { url: string } | 'uploading' | undefined;
+type Tile = { url: string; credit?: string | null } | 'uploading' | undefined;
 
-export function InspirationBoard({ eventId, initial }: Props) {
+export function InspirationBoard({
+  eventId,
+  initial,
+  gallerySlots,
+  fetchGalleryAction,
+  applyGalleryAction,
+}: Props) {
   const [tiles, setTiles] = useState<Record<string, Tile>>(() => {
     const m: Record<string, Tile> = {};
-    for (const it of initial) m[key(it.slot_key, it.slot_position)] = { url: it.image_url };
+    for (const it of initial) {
+      m[key(it.slot_key, it.slot_position)] = {
+        url: it.image_url,
+        credit: it.credit ?? null,
+      };
+    }
     return m;
   });
   const [error, setError] = useState<string | null>(null);
+  const [openGallerySlot, setOpenGallerySlot] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  /**
+   * Which of a slot's three cells are free. Read off the SAME `tiles` state the
+   * grid paints from, so the picker can never offer to fill a cell the couple
+   * is looking at a photo in.
+   */
+  function emptyPositionsFor(slot: string): number[] {
+    return MOODBOARD_SLOT_POSITIONS.filter((pos) => !tiles[key(slot, pos)]);
+  }
+
+  const galleryWired = Boolean(fetchGalleryAction && applyGalleryAction);
+  const gallerySlotSet = new Set(gallerySlots ?? []);
 
   async function onFile(slot: string, pos: number, file: File | undefined) {
     if (!file) return;
@@ -92,7 +144,9 @@ export function InspirationBoard({ eventId, initial }: Props) {
       fd.set('palette_json', JSON.stringify(palette));
       const res = await uploadMoodboardSlot(fd);
       if (res.status === 'ok' && res.image_url) {
-        setTiles((t) => ({ ...t, [key(slot, pos)]: { url: res.image_url! } }));
+        // The couple's own photo — nobody to credit, and `null` says so
+        // rather than inheriting whatever the cell held before.
+        setTiles((t) => ({ ...t, [key(slot, pos)]: { url: res.image_url!, credit: null } }));
       } else {
         setTiles((t) => ({ ...t, [key(slot, pos)]: undefined }));
         setError(res.message ?? 'Upload failed — try again.');
@@ -172,9 +226,52 @@ export function InspirationBoard({ eventId, initial }: Props) {
                     />
                   ))}
                 </div>
+                {/* The door into the supplier gallery. Only for slots a trade
+                    actually supplies, and only once the actions are wired —
+                    a button that cannot fetch is worse than no button. */}
+                {galleryWired && gallerySlotSet.has(slot.k) ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenGallerySlot((prior) => (prior === slot.k ? null : slot.k))
+                    }
+                    aria-expanded={openGallerySlot === slot.k}
+                    className="sn-press px-0.5 text-left text-[10px] font-bold text-ink/55 underline underline-offset-2 hover:text-ink"
+                  >
+                    {openGallerySlot === slot.k
+                      ? 'Hide supplier photos'
+                      : 'Browse supplier photos'}
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
+          {/* Rendered under the GROUP, not inside the grid cell: the picker is
+              a six-photo grid of its own and a 2-column tile cannot hold it. */}
+          {galleryWired &&
+          openGallerySlot !== null &&
+          group.slots.some((s) => s.k === openGallerySlot) ? (
+            <GalleryPicker
+              eventId={eventId}
+              slotKey={openGallerySlot}
+              slotLabel={
+                group.slots.find((s) => s.k === openGallerySlot)?.label ?? openGallerySlot
+              }
+              emptyPositions={emptyPositionsFor(openGallerySlot)}
+              fetchAction={fetchGalleryAction!}
+              applyAction={applyGalleryAction!}
+              onSaved={(pos, url, credit) => {
+                // The credit the picker just showed is the credit the tile now
+                // carries — the same string handed across, not a second
+                // derivation. The board reflects the save without a reload,
+                // and a reload re-resolves the identical line in page.tsx.
+                const saved = openGallerySlot;
+                if (!saved) return;
+                setTiles((t) => ({ ...t, [key(saved, pos)]: { url, credit } }));
+              }}
+              onClose={() => setOpenGallerySlot(null)}
+            />
+          ) : null}
         </div>
       ))}
     </div>
@@ -263,6 +360,16 @@ function SlotTile({
         >
           ×
         </button>
+        {/* 🔑 THE END OF THE CHAIN. A supplier's photo carries its shop on the
+            BOARD, not only in the picker it was chosen from — otherwise the
+            credit lasts exactly as long as the modal and the couple can never
+            answer "whose bouquet was that?" a week later. Absent for the
+            couple's own uploads, which have nobody to credit. */}
+        {tile.credit ? (
+          <span className="absolute inset-x-0 bottom-0 truncate bg-ink/65 px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-cream">
+            {tile.credit}
+          </span>
+        ) : null}
       </div>
     );
   }

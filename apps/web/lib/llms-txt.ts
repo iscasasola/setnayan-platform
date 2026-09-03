@@ -475,7 +475,7 @@ Pricing in PHP. All sales final on digital deliverables.
 
 - **Setnayan AI** — from ${peso(ladder[3]!.php)} to ${aiA} one-time depending on event type (see ladder above). Vendor matchmaking plus the guided planning workspace.
 - **Live Studio** — ${R('LIVE_STUDIO')} once per event, unlimited streams. Multi-camera control room, livestream embedded on the event page. A single-camera stream is free; rehearsal with up to 12 cameras is free, broadcasting one is the paid step.
-- **Live Studio — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Studio. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Priced per day because a Setnayan channel is a scarce resource, unlike the software unlock. Your own channel is the default and costs nothing extra.
+- **Live Studio — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Studio. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Charged for each day it is used, because a Setnayan channel is a scarce resource — unlike the software unlock, which costs nothing to run twice. Your own channel is the default and costs nothing extra.
 - **Pakanta** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
 - **3D Plan** — ${R('SEATING_3D')}. Walk the reception in 3D before it is real — every table and detail in place.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.

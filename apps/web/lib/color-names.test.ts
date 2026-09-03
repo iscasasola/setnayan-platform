@@ -5,6 +5,8 @@ import {
   WEDDING_NAMES,
   descriptiveColorName,
   foldColorName,
+  hexForColorName,
+  namedColor,
   nearestColorName,
   resolveColorName,
 } from './color-names';
@@ -361,8 +363,11 @@ test('lowercase and uppercase hex resolve identically', () => {
  * separation rule is therefore impossible. They are grandfathered EXPLICITLY,
  * BY NAME, so the rule cannot be quietly dropped for the whole table instead.
  */
+// MB5 (2026-09-03): 'Burgundy' removed from this set — the entry itself was
+// retired from WEDDING_NAMES (it sat ΔE 4.1 from the new 'Garnet', i.e. one
+// colour with two names), so there is no longer a pair for it to grandfather.
 const GRANDFATHERED = new Set([
-  'Bamboo Tan', 'Banana Leaf Green', 'Black', 'Blush', 'Burgundy', 'Capiz Pearl',
+  'Bamboo Tan', 'Banana Leaf Green', 'Black', 'Blush', 'Capiz Pearl',
   'Champagne Gold', 'Charcoal', 'Coral', 'Cream', 'Dusty Rose', 'Emerald',
   'Forest Green', 'Gold', 'Ivory', 'Lavender', 'Mustard', 'Narra Brown', 'Navy',
   'Peach', 'Piña Cream', 'Plum', 'Rose', 'Rust', 'Sage', 'Sampaguita White',
@@ -512,5 +517,120 @@ test('the vocabulary the owner asked for actually answers', () => {
   ];
   for (const [hex, want] of trade) {
     assert.equal(nearestColorName(hex), want, `${hex} should read as ${want}`);
+  }
+});
+
+// ── MB5 — the owner's colour system merges in, without the regressions ───
+//
+// A full swap of WEDDING_NAMES for the generated `color-vocabulary
+// .generated.ts` system was measured and refused (see the MB5 note atop the
+// table): it re-pointed 38 already-shipped words, converged dozens of
+// near-white/near-black swatches into indistinguishable names, and dropped
+// "Moss" and "Burgundy" the owner had already corrected. These tests hold
+// the MERGE to the same bar the swap failed.
+
+test('MB5 regression anchors — the merge did not move a single already-shipped colour', () => {
+  // Every one of these was already correct before MB5 landed. If any of
+  // these six move, something IMPORTED from the generated table won on
+  // proximity over a colour the owner already fixed — exactly the class of
+  // defect the whole merge (not swap) decision exists to prevent.
+  const anchors: ReadonlyArray<readonly [string, string]> = [
+    ['#8A9A5B', 'Moss'], // the owner's founding complaint, 2026-09-02/03
+    ['#9DB2A6', 'Eucalyptus'],
+    ['#4A0F1E', 'Oxblood'],
+    ['#DC143C', 'Crimson'], // hex → name is UNCHANGED by the crimson alias
+    ['#20452F', 'Forest Green'], // the original wrong-family bug regression
+    ['#808080', 'Gray'],
+  ];
+  for (const [hex, want] of anchors) {
+    assert.equal(nearestColorName(hex), want, `${hex} should still read as ${want}`);
+  }
+});
+
+test('MB5 — Moss survives the merge specifically (sabotage-tested)', () => {
+  // This is the ONE anchor CLAUDE.md's task called out by name: "#8A9A5B must
+  // still return Moss." Isolated into its own test (duplicating the anchor
+  // above) so a future edit that breaks Moss cannot hide inside a longer
+  // list's failure output. Manually sabotage-verified during MB5 development:
+  // changing WEDDING_NAMES' Moss entry to the generated table's own "Moss"
+  // (#3B7304, a much darker/more saturated green) turned this assertion red;
+  // reverting it turned this green again.
+  assert.equal(nearestColorName('#8A9A5B'), 'Moss');
+});
+
+test('MB5 — Emerald repoints to the real gem colour, not the wrong one', () => {
+  // Was #059669 (ΔE 24.5 from real emerald #50C878 — arguably not "emerald"
+  // at all). Now #5AC275 (the generated system's "Leaf Green", ΔE 4.5 from
+  // the real gem colour — within a just-noticeable difference).
+  assert.equal(nearestColorName('#5AC275'), 'Emerald');
+  assert.equal(hexForColorName('Emerald'), '#5AC275');
+  // and the exact real-gem hex reads as Emerald too, hue-compatible and well
+  // inside the curated radius
+  assert.equal(nearestColorName('#50C878'), 'Emerald');
+});
+
+test('MB5 — Burgundy is retired, not silently dropped: "burgundy" finds Garnet', () => {
+  // hex → name: the OLD Burgundy hex, on its own, now reads as its closest
+  // hue-compatible curated neighbour — Garnet, ΔE 4.1 away — rather than
+  // vanishing to a CSS or descriptive fallback.
+  assert.equal(nearestColorName('#7A1F2B'), 'Garnet');
+  // name → hex, the direction the task actually asked for: typing the WORD
+  // "burgundy" (any case) finds a swatch — Garnet's.
+  assert.equal(hexForColorName('burgundy'), '#842334');
+  assert.equal(hexForColorName('Burgundy'), '#842334');
+  assert.equal(namedColor('BURGUNDY')?.name, 'Garnet');
+});
+
+test('MB5 — crimson resolves to Carmine in the name→hex direction, CSS Crimson is untouched in hex→name', () => {
+  assert.equal(hexForColorName('crimson'), '#C84559');
+  assert.equal(hexForColorName('Crimson'), '#C84559'); // case-insensitive, same alias
+  assert.equal(namedColor('CRIMSON')?.name, 'Carmine');
+  // The CSS table's own "Crimson" #DC143C is untouched — the alias only
+  // moves where the WORD points, never renames or removes a hex→name answer.
+  assert.equal(nearestColorName('#DC143C'), 'Crimson');
+  assert.equal(CSS_NAMES.some((n) => n.name === 'Crimson' && n.hex === '#DC143C'), true);
+});
+
+test('MB5 — no import converged on an indistinguishable near-white or near-black', () => {
+  // Every curated entry at the pale/dark extremes must be perceptually
+  // separated from every OTHER curated entry near it — the defect that sank
+  // the wholesale swap (56 near-white swatches under ΔE76 1.5 of each other,
+  // Blue Mist ↔ Indigo Mist at 0.35). MB5 imported nothing with L* ≥ 95 or
+  // L* < 15 at all; this test pins that no future addition reintroduces it.
+  function labOfHex(hex: string) {
+    const n = parseInt(hex.slice(1), 16);
+    const lin = (u: number) => (u <= 0.04045 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4);
+    const r = lin(((n >> 16) & 255) / 255);
+    const g = lin(((n >> 8) & 255) / 255);
+    const b = lin((n & 255) / 255);
+    const X = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
+    const Y = r * 0.2126729 + g * 0.7151522 + b * 0.072175;
+    const Z = (r * 0.0193339 + g * 0.119192 + b * 0.9503041) / 1.08883;
+    const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+    return { L: 116 * f(Y) - 16 };
+  }
+  const extremes = WEDDING_NAMES.filter((n) => {
+    const L = labOfHex(n.hex).L;
+    return L >= 95 || L < 15;
+  }).map((n) => n.name);
+  assert.deepEqual(
+    extremes.sort(),
+    ['Black', 'Blackberry', 'Charcoal', 'Cream', 'Ivory', 'Oxblood', 'Sampaguita White', 'White'].sort(),
+    `unexpected pale/dark extreme curated entries: ${extremes.join(', ')} — ` +
+      `these are the pre-MB5 shipped ones; a new one at this band needs its own convergence check`,
+  );
+});
+
+test('MB5 — the Abo/Ash and Ulap/Cloud grey-family collapse holds: no duplicate near-neutral names', () => {
+  // The generated system's `abo`/`ulap` neutral families are the same grey
+  // ladder under two names (ΔE76 0.6–5.9 at every step) — collapsed to
+  // NEITHER being imported, since the shipped neutrals already span the
+  // axis. This guards against a future addition reintroducing the pair.
+  for (const name of ['Ash', 'Abo', 'Ulap', 'Cloud', 'Graphite', 'Onyx', 'Storm', 'Gunmetal']) {
+    assert.equal(
+      WEDDING_NAMES.some((n) => n.name === name),
+      false,
+      `"${name}" is a generated abo/ulap-family word and should not be curated (collapse decision)`,
+    );
   }
 });

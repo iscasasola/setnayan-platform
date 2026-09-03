@@ -59,11 +59,18 @@ test('the owner’s sentence reads as festive first, classy elegance second', ()
   assert.deepEqual(r.families, ['elegant · simple · classic']);
   assert.deepEqual(
     r.colours.map((c) => c.name),
-    ['Crimson', 'Forest Green', 'Gold'],
+    // MB5: was ['Crimson', 'Forest Green', 'Gold'] — the dictionary now
+    // spells the Christmas red as "Carmine" (lib/color-names.ts retired
+    // "Burgundy" and pointed the `crimson` alias at Carmine instead; see the
+    // note on this ENTRIES row in theme-text-intent.ts).
+    ['Carmine', 'Forest Green', 'Gold'],
   );
   // Hue-honest names, from the namer fixed the same day — a "Rose"/"Charcoal"
   // Christmas would be the old bug wearing a new coat.
-  assert.equal(hexForColorName('Crimson'), '#DC143C');
+  // MB5: 'Crimson' now redirects to Carmine via COLOR_NAME_ALIASES (the CSS
+  // "Crimson" itself is untouched — nearestColorName('#DC143C') still says
+  // "Crimson"; only the NAME → HEX direction moved).
+  assert.equal(hexForColorName('Crimson'), '#C84559');
   assert.equal(hexForColorName('Forest Green'), '#3A5746');
 
   // Nothing in that sentence is left unexplained, and nothing is left over.
@@ -274,7 +281,11 @@ test('validateThemeSelection drops everything that is not a shipped value', () =
   });
   assert.deepEqual(dirty.moods, ['festive_celebratory']);
   assert.deepEqual(dirty.families, ['elegant · simple · classic']);
-  assert.deepEqual(dirty.colours.map((c) => c.name), ['Gold', 'Crimson']);
+  // MB5: the input literally says "Crimson", but `namedColor` now redirects
+  // that word to Carmine (COLOR_NAME_ALIASES in lib/color-names.ts) — this
+  // assertion proves the alias reaches this call site too, not just a direct
+  // `namedColor('crimson')` call.
+  assert.deepEqual(dirty.colours.map((c) => c.name), ['Gold', 'Carmine']);
   assert.deepEqual(dirty.motifs.map(motifId), ['backdrop.style=capiz']);
 });
 

@@ -37,6 +37,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildTileViewModel, EMPTY_PART_STATE } from './moodboard-make-it-real';
 import { RENDER_FAILURE_COPY, renderFailureCopy, isStalledRender, RENDER_STALL_AFTER_MS } from './moodboard-render-failure';
+import { stripComments } from './strip-comments';
 
 const WEB_DIR = process.cwd();
 const MAKE_IT_REAL_COMPONENT = join(
@@ -55,15 +56,21 @@ const PROVIDER = join(WEB_DIR, 'lib/gemini-image.ts');
  * 🪤 EARNED TWICE IN ONE SESSION. The "no empty catch" assertion below first
  * went red against the phrase `catch {}` written in `render-actions.ts`'s own
  * docblock — explaining that it has no empty catch. And the refused-read guard
- * above first aimed at a docblock rather than the `if`. A source guard that
+ * below first aimed at a docblock rather than the `if`. A source guard that
  * reads prose is measuring the wrong thing in both directions: it can fail on
  * correct code, and it can PASS on broken code whose comments still describe
  * the behaviour that was deleted. Comments are the one part of a file that
  * keeps claiming the thing after the thing is gone.
+ *
+ * 🔑 AND IT USES THE SHIPPED `stripComments`, NOT A LOCAL REGEX PAIR. This
+ * file first hand-rolled a two-replace version, which
+ * `lint-one-comment-stripper.mjs` refuses — for a reason worth repeating: a
+ * regex that strips BLOCK comments first turns a LINE comment containing
+ * `video/*` into an opening comment that closes at the next real `*​/`,
+ * blanking everything between. The guard then asserts against a blank and
+ * PASSES. A comment stripper that quietly eats the code is the same disease
+ * this whole file is about, one level up.
  */
-function codeOnly(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-}
 
 const GATE = { ok: true, needColor: false, needPhoto: false };
 const baseTile = {
@@ -205,7 +212,7 @@ test('a render with no viewing URL is not reported as a failure', () => {
 /* ── 3 + 4. it reaches the RENDER, on every surface ──────────────────────── */
 
 test('SABOTAGE-PROVED GUARD: make-it-real.tsx PRINTS the failure, not merely reads it', () => {
-  const src = codeOnly(readFileSync(MAKE_IT_REAL_COMPONENT, 'utf8'));
+  const src = stripComments(readFileSync(MAKE_IT_REAL_COMPONENT, 'utf8'));
 
   // Interpolated into JSX. A destructure-and-drop would satisfy a bare-name
   // match, which is why the bare-name match is not what is asserted.
@@ -224,7 +231,7 @@ test('SABOTAGE-PROVED GUARD: make-it-real.tsx PRINTS the failure, not merely rea
 test('SABOTAGE-PROVED GUARD: the failure overlay is mounted on BOTH surfaces, and the count says so', () => {
   // Comments stripped: a docblock naming the attribute would inflate the count
   // and keep this green through the deletion of a real overlay.
-  const src = codeOnly(readFileSync(MAKE_IT_REAL_COMPONENT, 'utf8'));
+  const src = stripComments(readFileSync(MAKE_IT_REAL_COMPONENT, 'utf8'));
   const mounts = [...src.matchAll(/data-render-failure/g)].length;
 
   // 🔑 THE COUNT IS THE ASSERTION. A bare `assert.match(src, /data-render-
@@ -249,7 +256,7 @@ test('SABOTAGE-PROVED GUARD: the failure overlay is mounted on BOTH surfaces, an
 });
 
 test('SABOTAGE-PROVED GUARD: the gallery distinguishes a REFUSED read from an empty one', () => {
-  const src = codeOnly(readFileSync(MAKE_IT_REAL_COMPONENT, 'utf8'));
+  const src = stripComments(readFileSync(MAKE_IT_REAL_COMPONENT, 'utf8'));
 
   // 🪤 ANCHORED ON THE `if`, NOT ON THE BARE PHRASE. The first occurrence of
   // `renders === null` in this file is inside RenderGallery's own docblock
@@ -275,7 +282,7 @@ test('SABOTAGE-PROVED GUARD: the gallery distinguishes a REFUSED read from an em
 /* ── 5. the action can never exit without one of three outcomes ──────────── */
 
 test('SABOTAGE-PROVED GUARD: every exit from requestRender is rendered, and the failure path refunds', () => {
-  const src = codeOnly(readFileSync(RENDER_ACTIONS, 'utf8'));
+  const src = stripComments(readFileSync(RENDER_ACTIONS, 'utf8'));
 
   // The refund is the same call that records the failure — that is what makes
   // "your credit is back" a true sentence rather than a hope.

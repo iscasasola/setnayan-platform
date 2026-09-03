@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6401
+# facts: 6412
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     576
-#   col       4710
-#   policy    877
+#   tpriv     577
+#   col       4719
+#   policy    878
 #   view      8
 #   func      226
 #
@@ -131,6 +131,7 @@ tpriv	public.event_egift_methods|anon	SIUD
 tpriv	public.event_egift_methods|authenticated	SIUD
 tpriv	public.event_feature_policy_override|anon	SIUD
 tpriv	public.event_feature_policy_override|authenticated	SIUD
+tpriv	public.event_films|authenticated	SIUD
 tpriv	public.event_floor_booths|anon	SIUD
 tpriv	public.event_floor_booths|authenticated	SIUD
 tpriv	public.event_floor_plan|authenticated	SIUD
@@ -1411,6 +1412,15 @@ col	public.event_feature_policy_override.feature_key	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.reason	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.set_at	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.set_by_admin_id	anon=SIU authenticated=SIU
+col	public.event_films.added_by	anon=- authenticated=SIU
+col	public.event_films.created_at	anon=- authenticated=SIU
+col	public.event_films.event_id	anon=- authenticated=SIU
+col	public.event_films.id	anon=- authenticated=SIU
+col	public.event_films.label	anon=- authenticated=SIU
+col	public.event_films.provider	anon=- authenticated=SIU
+col	public.event_films.sort_key	anon=- authenticated=SIU
+col	public.event_films.video_hash	anon=- authenticated=SIU
+col	public.event_films.video_id	anon=- authenticated=SIU
 col	public.event_floor_booths.booth_id	anon=SIU authenticated=SIU
 col	public.event_floor_booths.booth_type	anon=SIU authenticated=SIU
 col	public.event_floor_booths.created_at	anon=SIU authenticated=SIU
@@ -5501,6 +5511,7 @@ policy	public.event_editorial|event_editorial_moderator_rw	mode=PERMISSIVE cmd=A
 policy	public.event_egift_methods|event_egift_methods_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
 policy	public.event_feature_policy_override|event_feature_policy_override_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.event_feature_policy_override|event_feature_policy_override_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (event_id IN ( SELECT current_event_ids() AS current_event_ids))) check=NULL
+policy	public.event_films|event_films_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin())
 policy	public.event_floor_booths|event_floor_booths_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_floor_booths|event_floor_booths_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_floor_booths|event_floor_booths_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL

@@ -543,10 +543,40 @@ export async function EditorialContent({
             // existed: the destination was on the same page the whole time and
             // simply had nothing to anchor to.
             watchFilm:
-              watchFilmShown && data.watchFilmEmbedUrl ? (
+              watchFilmShown || (data.films?.length ?? 0) > 0 ? (
                 <div key="watchFilm" id={WATCH_FILM_ANCHOR_ID}>
                   <SectionRule title="Watch the Film" />
-                  <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+                  {watchFilmShown && data.watchFilmEmbedUrl ? (
+                    <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+                  ) : null}
+                  {/* 🎞 The couple's OWN films — same-day edit, prenup, the
+                      videographer's cut. Deliberately in the same section as the
+                      live replay rather than a new one: to a guest these are all
+                      "the video of the day", and splitting them would ask the
+                      reader to know which was broadcast and which was edited.
+                      Ungated on purpose (owner 2026-09-02) — these are the
+                      couple's own links and must not depend on an unlock. */}
+                  {data.films?.length ? (
+                    <div className="mt-6 grid gap-6 sm:grid-cols-2">
+                      {data.films.map((film) => (
+                        <figure key={`${film.provider}-${film.videoId}`} className="m-0">
+                          <div className="relative aspect-video overflow-hidden rounded-lg bg-black/5">
+                            <iframe
+                              src={film.embedUrl}
+                              title={film.label ?? 'Wedding film'}
+                              loading="lazy"
+                              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                              allowFullScreen
+                              className="absolute inset-0 h-full w-full border-0"
+                            />
+                          </div>
+                          {film.label ? (
+                            <figcaption className="mt-2 text-sm text-ink/70">{film.label}</figcaption>
+                          ) : null}
+                        </figure>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null,
             // What they said (reviews). Renders even when empty (empty state).

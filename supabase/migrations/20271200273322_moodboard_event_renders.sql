@@ -204,7 +204,7 @@ ALTER TABLE public.event_renders ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS event_renders_member_read ON public.event_renders;
 CREATE POLICY event_renders_member_read
   ON public.event_renders
-  FOR SELECT
+  FOR SELECT TO authenticated
   USING (
     event_id IN (SELECT public.current_event_ids())
     OR public.is_admin()
@@ -213,7 +213,7 @@ CREATE POLICY event_renders_member_read
 DROP POLICY IF EXISTS event_renders_couple_insert ON public.event_renders;
 CREATE POLICY event_renders_couple_insert
   ON public.event_renders
-  FOR INSERT
+  FOR INSERT TO authenticated
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.event_members em
@@ -227,7 +227,7 @@ CREATE POLICY event_renders_couple_insert
 DROP POLICY IF EXISTS event_renders_couple_update ON public.event_renders;
 CREATE POLICY event_renders_couple_update
   ON public.event_renders
-  FOR UPDATE
+  FOR UPDATE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.event_members em
@@ -250,7 +250,7 @@ CREATE POLICY event_renders_couple_update
 DROP POLICY IF EXISTS event_renders_couple_delete ON public.event_renders;
 CREATE POLICY event_renders_couple_delete
   ON public.event_renders
-  FOR DELETE
+  FOR DELETE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.event_members em
@@ -268,6 +268,12 @@ CREATE POLICY event_renders_couple_delete
 -- RLS is ROW-level and can never hide a COLUMN, so the capability has to be
 -- taken away rather than merely policed. A logged-out visitor is not an event
 -- member and has no reason to reach this table at all.
+--
+-- ⚠ EVERY POLICY ABOVE SAYS `TO authenticated` FOR THE SAME REASON. A policy
+-- with no TO clause is written for PUBLIC, which includes `anon` — so this
+-- REVOKE would otherwise strand four rules that anonymous visitors can never
+-- reach and that nothing would ever fire again. The grant and the policy's
+-- audience have to move together (tests/db/anon-table-grants-closed.db.test.ts).
 REVOKE ALL ON TABLE public.event_renders FROM anon;
 
 COMMIT;

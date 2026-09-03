@@ -168,7 +168,7 @@ DROP POLICY IF EXISTS event_render_credit_grants_member_read
   ON public.event_render_credit_grants;
 CREATE POLICY event_render_credit_grants_member_read
   ON public.event_render_credit_grants
-  FOR SELECT
+  FOR SELECT TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.event_members em
@@ -202,7 +202,7 @@ DROP POLICY IF EXISTS event_render_credit_usage_member_read
   ON public.event_render_credit_usage;
 CREATE POLICY event_render_credit_usage_member_read
   ON public.event_render_credit_usage
-  FOR SELECT
+  FOR SELECT TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.event_members em
@@ -408,6 +408,13 @@ GRANT EXECUTE ON FUNCTION public.moodboard_release_render_credits(UUID, INTEGER)
 -- instead of relying on the policy to keep saying no.
 --
 -- A logged-out visitor has no business anywhere near an event's credit ledger.
+--
+-- ⚠ AND THE POLICIES ABOVE SAY `TO authenticated` FOR THE SAME REASON. A
+-- policy with no TO clause is written for PUBLIC, which includes `anon` — so
+-- revoking anon's grant would leave a rule in the catalog that anonymous
+-- visitors can never reach and that nothing would ever fire again. Caught by
+-- tests/db/anon-table-grants-closed.db.test.ts; the two halves have to move
+-- together.
 REVOKE ALL ON TABLE public.event_render_credit_grants FROM anon;
 REVOKE ALL ON TABLE public.event_render_credit_usage  FROM anon;
 -- Members READ their own ledger (that is how the balance is visible at all);

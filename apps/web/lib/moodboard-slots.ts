@@ -49,6 +49,37 @@ export const MOODBOARD_SLOT_KEYS = [
 
 export type MoodboardSlotKey = (typeof MOODBOARD_SLOT_KEYS)[number];
 
+/**
+ * The inspiration slot that belongs to each reception-design part — the bridge
+ * that lets the couple see the photo they uploaded beside the zone they are
+ * dressing.
+ *
+ * ⚠ FIVE OF TEN PARTS, NOT ALL OF THEM. The two vocabularies were written for
+ * different jobs and only partly overlap: `walls`, `photo_wall`,
+ * `welcome_signage`, `entrance` and `people` have no inspiration slot, and
+ * `venue`, `reception_venue`, `flowers`, `cocktail`, `cake`, `overall`,
+ * `palette` and the six attire slots have no design part. An absent entry is
+ * the honest answer for those — the alternative is guessing a couple's cake
+ * photo describes their ceiling.
+ *
+ * ⚠ `table` IS SINGULAR AND THE PART IS PLURAL. That mismatch is the entire
+ * reason this map is explicit rather than `slot === part`. Renaming either side
+ * to make them match would orphan live rows (`MOODBOARD_SLOT_KEYS` above says
+ * why `venue` was never renamed) — so the bridge absorbs it instead.
+ */
+export const INSPIRATION_SLOT_FOR_PART: Readonly<Record<string, MoodboardSlotKey>> = {
+  ceiling: 'ceiling',
+  backdrop: 'backdrop',
+  stage: 'stage',
+  tunnel: 'tunnel',
+  tables: 'table',
+};
+
+/** The inspiration slot for a design part, or null when the part has none. */
+export function inspirationSlotForPart(partId: string): MoodboardSlotKey | null {
+  return INSPIRATION_SLOT_FOR_PART[partId] ?? null;
+}
+
 export function isMoodboardSlotKey(value: unknown): value is MoodboardSlotKey {
   return (
     typeof value === 'string' && (MOODBOARD_SLOT_KEYS as readonly string[]).includes(value)

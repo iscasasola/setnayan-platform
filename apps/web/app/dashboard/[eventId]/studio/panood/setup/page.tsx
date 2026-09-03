@@ -21,7 +21,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   liveStudioPoolOnly,
+  mayBroadcastOnSharedChannel,
   poolOnlyConnectNotice,
+  POOL_CHANNEL_SHARED_STRIKE_NOTICE,
 } from '@/lib/live-studio-pool-only';
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
@@ -536,11 +538,23 @@ function ConnectCTA({
   // door. Which NOTICE renders depends on ownsHostedChannel: only an event that
   // bought the hosted-channel add-on has "nothing to connect" as the whole truth —
   // everyone else still has their own route to air (the paste-link box below).
+  const sharedChannelWarning = mayBroadcastOnSharedChannel() ? (
+    // 🚨 Same fact, same predicate as the action (see live-studio-pool-only.ts).
+    // This panel EARLY-RETURNS on pool-only, so the warning is bound once here and
+    // rendered on BOTH exits — a second inline copy is how one exit loses it.
+    <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
+      {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
+    </p>
+  ) : null;
+
   if (liveStudioPoolOnly()) {
     return (
-      <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
-        {poolOnlyConnectNotice(ownsHostedChannel)}
-      </p>
+      <>
+        <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
+          {poolOnlyConnectNotice(ownsHostedChannel)}
+        </p>
+        {sharedChannelWarning}
+      </>
     );
   }
 
@@ -557,6 +571,7 @@ function ConnectCTA({
         You&rsquo;ll be redirected to Google to grant access, then bounced back here.
         Takes about 20 seconds.
       </p>
+      {sharedChannelWarning}
     </div>
   );
 }

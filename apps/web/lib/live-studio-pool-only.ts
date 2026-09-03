@@ -59,6 +59,7 @@
  */
 
 import { envFlagEnabled } from '@/lib/env-flag';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 /**
  * Is Live Studio restricted to Setnayan-owned channels — i.e. may a couple still
@@ -143,3 +144,45 @@ export function poolOnlyConnectNotice(ownsHostedChannel: boolean): string {
  */
 export const POOL_CHANNEL_SHARED_STRIKE_NOTICE =
   'A Setnayan channel is shared — other couples’ broadcasts and their saved wedding videos live on it too. YouTube counts copyright strikes against the whole channel, and at three strikes it terminates the channel and takes down every video on it. So music played aloud on one wedding can cost another couple their film: for anything the stream carries, use live musicians or royalty-free tracks.';
+
+/**
+ * ⭐ MAY THIS EVENT'S BROADCAST LAND ON A SHARED SETNAYAN CHANNEL?
+ *
+ * ── THE DEFECT THIS EXISTS TO KILL (measured on origin/main 2026-09-03) ─────
+ * LS7 put `POOL_CHANNEL_SHARED_STRIKE_NOTICE` on the hosted-channel add-on copy,
+ * on the premise that BUYING the add-on is what puts a couple on a Setnayan
+ * channel. **That premise is false, and the code has never agreed with it.**
+ * `panood/setup/actions.ts` claims a pool channel like this:
+ *
+ *     if (liveStudioRoamEnabled()) {
+ *       const pooled = await resolveEventBroadcastToken(createAdminClient(), eventId);
+ *       ...
+ *     }
+ *
+ * — no entitlement check of any kind. ANY Live Studio host is routed onto a shared
+ * channel whenever the roam flag is on and a channel is free.
+ *
+ * 🔑 AND THE WARNING WAS RENDERING TO NOBODY. LS6 deactivated
+ * `LIVE_STUDIO_HOSTED_CHANNEL` the same day (its price pairing broke, migration
+ * `20271194920190`), and `HostedChannelUpsell` opens with
+ * `if (!owns && !onSale) return null` — so the entire section, and the strike
+ * warning inside it, returned null for every host. **The guard stayed green the
+ * whole time, because a source-scanning guard reads the text, not the pixel.**
+ * Exactly the failure `guests-read-is-honest` and the LS7 notice itself were
+ * written against: the measurement never reached the render.
+ *
+ * ⚠ THIS IS THE SAME PREDICATE THE ACTION USES, ON PURPOSE — the copy and the
+ * behaviour must not be able to disagree about whether a couple is on a shared
+ * channel. Same reason `poolRouteToAir` is one function rather than a boolean
+ * copied into the transport button and the by-hand switch. If the action ever
+ * starts gating pool checkout on an entitlement, THIS MOVES WITH IT or the
+ * product goes back to warning the wrong people.
+ *
+ * Deliberately broader than "is on a pool channel RIGHT NOW": a couple picks
+ * their processional music weeks before a channel is checked out, so the honest
+ * question at planning time is *may* this happen, not *has* it. Over-warning
+ * costs a paragraph; under-warning costs somebody else's wedding film.
+ */
+export function mayBroadcastOnSharedChannel(): boolean {
+  return liveStudioRoamEnabled();
+}

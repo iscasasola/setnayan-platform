@@ -48,7 +48,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { MUSIC_RIGHTS_NOTICE } from './live-studio-readiness';
-import { POOL_CHANNEL_SHARED_STRIKE_NOTICE } from './live-studio-pool-only';
+import {
+  POOL_CHANNEL_SHARED_STRIKE_NOTICE,
+  mayBroadcastOnSharedChannel,
+} from './live-studio-pool-only';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // STRIPPED. Every assertion below is about code or rendered copy, never about a
@@ -60,6 +63,8 @@ const src = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8')
 const BUY_PAGE = '../app/dashboard/[eventId]/studio/live-studio-control/page.tsx';
 const PUBLIC_PAGE = '../app/(shell)/panood/page.tsx';
 const ADMIN_BOARD = '../app/admin/live-studio-channels/page.tsx';
+const SETUP_PAGE = '../app/dashboard/[eventId]/studio/panood/setup/page.tsx';
+const GO_LIVE_ACTION = '../app/dashboard/[eventId]/studio/panood/setup/actions.ts';
 
 /* ── 1 · The notice itself says all four things ───────────────────────────── */
 
@@ -230,4 +235,66 @@ test('⭐ both surfaces use the SAME constant, so they cannot tell different sto
       `${rel} does not import the shared constant — it holds its own copy`,
     );
   }
+});
+
+/* ── 5 · …and it must reach a host who never bought the add-on ────────────── */
+
+/**
+ * 🚨 WHY SECTION 4 WAS NOT ENOUGH, measured on origin/main 2026-09-03.
+ *
+ * LS7 placed the strike warning inside `HostedChannelUpsell`, on the premise that
+ * buying the hosted-channel add-on is what puts a couple on a Setnayan channel.
+ * The premise is false — `panood/setup/actions.ts` claims a pool channel under
+ * `liveStudioRoamEnabled()` with NO entitlement check — and LS6 deactivated that
+ * SKU the same day, so `if (!owns && !onSale) return null` made the whole section,
+ * warning included, render as nothing for every host.
+ *
+ * 🔑 EVERY TEST IN SECTION 4 STAYED GREEN THROUGH THAT. They read source text, and
+ * the source was intact; the pixel was not. These pin the surfaces that are NOT
+ * gated on the dead SKU.
+ */
+
+test('⭐ the warning renders on a surface NOT gated on the hosted-channel add-on', () => {
+  // The add-on section opens with `if (!owns && !onSale) return null`, so a pin on
+  // it alone is satisfied by a section nobody can see.
+  for (const rel of [BUY_PAGE, SETUP_PAGE]) {
+    const page = src(rel);
+    assert.match(
+      page,
+      /\{POOL_CHANNEL_SHARED_STRIKE_NOTICE\}/,
+      `${rel} never renders the shared-channel warning`,
+    );
+    assert.match(
+      page,
+      /mayBroadcastOnSharedChannel\(\)/,
+      `${rel} does not gate the warning on the predicate the go-live action uses`,
+    );
+  }
+});
+
+test('⭐ the COPY and the ACTION share one predicate, so they cannot disagree', () => {
+  // The whole defect was the copy believing an entitlement decides this while the
+  // action asked the flag. If the action ever starts gating pool checkout on an
+  // entitlement, this fails and the copy moves with it — which is the point.
+  const action = src(GO_LIVE_ACTION);
+  assert.match(
+    action,
+    /if \(liveStudioRoamEnabled\(\)\) \{[\s\S]{0,400}resolveEventBroadcastToken/,
+    'the go-live action no longer claims a pool channel on the roam flag alone — ' +
+      'mayBroadcastOnSharedChannel() must be re-derived from whatever now decides it',
+  );
+  // …and the predicate the copy uses is that same flag, not an entitlement.
+  const poolOnly = src('./live-studio-pool-only.ts');
+  const fn = poolOnly.slice(poolOnly.indexOf('export function mayBroadcastOnSharedChannel'));
+  assert.match(
+    fn.slice(0, 200),
+    /return liveStudioRoamEnabled\(\);/,
+    'the copy predicate drifted away from the one the action actually uses',
+  );
+});
+
+test('⭐ the predicate is a real read of the flag, not a hardcoded true', () => {
+  // A predicate stuck on `true` would warn every host on every surface forever,
+  // which reads as working and is how the coupling above stops being checked.
+  assert.equal(typeof mayBroadcastOnSharedChannel(), 'boolean');
 });

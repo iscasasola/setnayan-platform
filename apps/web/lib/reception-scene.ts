@@ -459,6 +459,93 @@ export function selAll(design: ReceptionDesign, part: PartId, attr: string): str
   return ids.length > 0 ? ids : [DEFAULT_DESIGN[part][attr]!];
 }
 
+/**
+ * One part+attribute a surface actually draws. The caller supplies the list,
+ * because it is the only thing that knows — see `DrawnAttributes` below.
+ */
+export type DrawnAttribute = readonly [PartId, string];
+
+/**
+ * WHAT A PRIMARY-ONLY SURFACE IS DRAWING, AND WHAT IT IS LEAVING OUT.
+ *
+ * The 3D room draws ONE treatment per attribute on purpose: there is one
+ * physical ceiling band, one backdrop panel, one welcome table. That is a
+ * legitimate limit; a couple silently believing their whole combination is on
+ * screen is not. A room that quietly drops two of three welcome-table pieces
+ * looks EXACTLY like a room that was given one — the same shape as the guest
+ * list that said "No guests yet" to a couple with 180 names.
+ *
+ * 🔑 `drawn` IS REQUIRED, AND IT IS THE WHOLE POINT OF THE SIGNATURE. The
+ * catalogue has ten parts; the 3D room reads SEVEN part+attributes and renders
+ * nothing at all for `stage.florals`, `entrance.runner` or `backdrop.florals`.
+ * A version of this function that walked every part told a couple
+ * *"Stage (showing Arch)"* about a stage the room does not draw — a brand-new
+ * false claim inside the fix for false claims. Caught in review before it
+ * shipped, and closed by construction: a surface can only disclose about what
+ * it passed in, and the room's list is pinned to its own `sel()` calls by
+ * `the-room-draws-what-the-couple-saved.test.ts`.
+ *
+ * Labels, not ids — this is read by a person.
+ */
+export type HiddenTreatment = {
+  part: PartId;
+  partLabel: string;
+  attrLabel: string;
+  /** The one the surface IS drawing. */
+  primaryLabel: string;
+  /** The ones it is not, in the order the couple picked them. */
+  hiddenLabels: string[];
+};
+
+export function hiddenTreatments(
+  design: ReceptionDesign,
+  drawn: ReadonlyArray<DrawnAttribute>,
+): HiddenTreatment[] {
+  const out: HiddenTreatment[] = [];
+  for (const [partId, attrId] of drawn) {
+    const part = RECEPTION_PARTS.find((p) => p.id === partId);
+    const attr = part?.attributes.find((a) => a.id === attrId);
+    if (!part || !attr) continue;
+    const chosen = selAll(design, part.id, attr.id);
+    if (chosen.length < 2) continue;
+    const labelOf = (id: string) => attr.options.find((o) => o.id === id)?.label ?? id;
+    out.push({
+      part: part.id,
+      partLabel: part.label,
+      attrLabel: attr.label,
+      primaryLabel: labelOf(chosen[0]!),
+      hiddenLabels: chosen.slice(1).map(labelOf),
+    });
+  }
+  return out;
+}
+
+/**
+ * One sentence for a primary-only surface's legend, or `null` when there is
+ * nothing to disclose. Returning `null` rather than an empty string is the
+ * point: a room with no multi-selection must render byte-identically to one
+ * built before this existed, and `null` makes that structural.
+ */
+export function primaryOnlyNotice(
+  design: ReceptionDesign,
+  drawn: ReadonlyArray<DrawnAttribute>,
+): string | null {
+  const hidden = hiddenTreatments(design, drawn);
+  if (hidden.length === 0) return null;
+  const parts = hidden.map((h) => `${h.partLabel} (showing ${h.primaryLabel})`);
+  const list =
+    parts.length === 1
+      ? parts[0]!
+      : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]!}`;
+  const n = hidden.reduce((sum, h) => sum + h.hiddenLabels.length, 0);
+  // The second sentence is a CHECKABLE claim, not reassurance: both
+  // `lib/concept-pdf.ts` and `lib/moodboard-printable.ts` build their part
+  // lists from `selAll`, so every pick really is on the sheet the couple hands
+  // a supplier. If either ever moves to `sel`, this sentence becomes a lie —
+  // `the-room-draws-what-the-couple-saved.test.ts` pins both.
+  return `The room draws one treatment per part, so ${n} of your picks ${n === 1 ? 'is' : 'are'} not on screen — ${list}. All of them are saved, and your concept PDF lists every one for your suppliers.`;
+}
+
 /** Fast lookup of the rules per part → attribute, built once from
  *  RECEPTION_PARTS. Used by `sanitizeReceptionDesign` to reject unknown ids,
  *  reject arrays on single-select attributes, and hold the per-attribute cap. */

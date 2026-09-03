@@ -83,8 +83,9 @@ import {
   archetypeFloorColor,
   archetypeBackground,
   ceilingDecorOccupied,
+  ROOM_DRAWN_ATTRIBUTES,
 } from '@/app/_components/plan3d/venue-decor';
-import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { sel, primaryOnlyNotice, type ReceptionDesign } from '@/lib/reception-scene';
 import { ReceptionDesignEditor } from './reception-design-editor';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
@@ -5396,10 +5397,28 @@ function Hud({
 
       {/* RSVP seat legend (hidden while a walker toast is showing) */}
       {!walker ? (
-        <div className={`pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-3 px-3 py-2 text-[11px] text-white/85 ${glass}`}>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SIDE_COLOR.both }} />Confirmed</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TENTATIVE_COLOR }} />Pending / maybe</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: PLUS_ONE_COLOR, opacity: 0.5 }} />+1 held</span>
+        <div className="pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+          {/* WHAT THE ROOM IS NOT SHOWING.
+              The reception catalogue lets a couple combine treatments — a
+              draped ceiling AND fairy lights, three things on one welcome
+              table. The room draws the PRIMARY one, because there is one
+              physical ceiling band and one welcome table; that limit is fine.
+              A couple believing their whole combination is on screen when it
+              is not is NOT fine, and a room silently drawing one of three
+              looks exactly like a room that was given one. So it says so.
+              `primaryOnlyNotice` returns null when there is nothing to
+              disclose, which is why a single-selection board renders this
+              node not at all. */}
+          {primaryOnlyNotice(receptionDesign, ROOM_DRAWN_ATTRIBUTES) ? (
+            <p className={`max-w-md px-3 py-2 text-[11px] leading-relaxed text-amber-100 ${glass}`}>
+              {primaryOnlyNotice(receptionDesign, ROOM_DRAWN_ATTRIBUTES)}
+            </p>
+          ) : null}
+          <div className={`flex gap-3 px-3 py-2 text-[11px] text-white/85 ${glass}`}>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SIDE_COLOR.both }} />Confirmed</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TENTATIVE_COLOR }} />Pending / maybe</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: PLUS_ONE_COLOR, opacity: 0.5 }} />+1 held</span>
+          </div>
         </div>
       ) : null}
 

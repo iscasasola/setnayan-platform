@@ -27,6 +27,17 @@
  *   · reads the AGREED package total, never Σ replacement values       (R4)
  *   · counts transport + crew meals, which `/budget` cannot see today  (R5)
  *   · reconciles paid vs owed explicitly instead of clamping silently  (R11)
+ *   · counts `event_costs` — money with no supplier at all             (BA7)
+ *
+ * ─── Money that has nobody on the other side of it (BA7) ──────────────────
+ * `event_vendor_line_items.vendor_id` is NOT NULL, so until BA7 every peso had
+ * to hang off an `event_vendors` row and a couple could not record their first
+ * ₱ without first inventing a supplier. `event_costs` is the other half:
+ * rings, the marriage licence fee, tips, ang pao, the honeymoon. It is a
+ * SEPARATE table rather than a nullable `vendor_id` precisely so the counting
+ * law stays structural — a cost WITH a supplier is still an `event_vendors` +
+ * `event_vendor_line_items` pair, a cost WITHOUT one is an `event_costs` row,
+ * and one peso can never be in both. See that migration's docblock.
  *
  * ─── The honesty rules (§18.5) this file enforces ─────────────────────────
  *  2/3. Estimates NEVER enter `committed` or `stillOwed`. They live in
@@ -103,6 +114,13 @@ export type MoneySource =
   | 'vendor_line_item'
   /** `event_vendors.total_cost_php` — the legacy headline. */
   | 'vendor_headline'
+  /**
+   * `event_costs` — a cost with NOBODY on the other side of it (BA7). Rings,
+   * the marriage licence fee, tips, ang pao, the honeymoon. Not an estimate:
+   * the couple is recording money they have committed or already handed over,
+   * which is why it is a `committed` line like any other.
+   */
+  | 'event_cost'
   /** `event_vendors.transport_php`. */
   | 'vendor_transport'
   /** `event_vendors.food_allowance_php`. */
@@ -199,6 +217,12 @@ export type MoneyBucket = {
 export type MoneyWarningCode =
   /** A vendor has been handed more money than was ever agreed. §18.5 rule 6. */
   | 'overpaid_vendor'
+  /**
+   * A supplier-less cost records more paid than it cost. Its own code rather
+   * than `overpaid_vendor` because every field of that warning — and its
+   * wording — names a vendor, and there is none here to name.
+   */
+  | 'overpaid_cost'
   /** `deposit_paid_php` disagrees with the itemized payment log. R6. */
   | 'unreconciled_deposit'
   /** Money paid to a vendor still at `considering` / `shortlisted`. */
@@ -312,6 +336,23 @@ export type PaymentMoneyRow = {
   paid_at: string;
 };
 
+/**
+ * `event_costs` — money the couple spends with NOBODY on the other side of it
+ * (BA7). Two figures, because those are exactly the two the owner-locked
+ * ledger columns need: what it cost (Agreed) and what has been handed over
+ * (Paid); Owed is the difference. There is no payment log because there is no
+ * counterparty to reconcile one with.
+ */
+export type EventCostMoneyRow = {
+  cost_id: string;
+  /** A `PLAN_GROUPS` id, or anything else — an unknown value buckets to `other`. */
+  plan_group_id: string | null;
+  label: string;
+  amount_php: number | string | null;
+  paid_php: number | string | null;
+  due_date: string | null;
+};
+
 export type OrderMoneyRow = {
   order_id: string;
   description: string | null;
@@ -355,6 +396,13 @@ export type MoneyInputs = {
   lineItems: LineItemMoneyRow[];
   payments: PaymentMoneyRow[];
   orders: OrderMoneyRow[];
+  /**
+   * BA7 · costs with no supplier. REQUIRED, not optional-defaulting-to-`[]`,
+   * on purpose: a money source you can forget to pass is a money source that
+   * silently reads ₱0, and this whole file exists because a budget page told a
+   * couple ₱0 about money that was really there.
+   */
+  costs: EventCostMoneyRow[];
   /** From `buildVendorPricingLookup` — the vendor-authored catalogue half. */
   pricing: VendorPricingLookup;
   /**
@@ -430,6 +478,28 @@ export function bucketForVendor(
   const primary = groups.find((g) => typeof g === 'string' && g.length > 0);
   if (primary) return primary;
   return BUCKET_BY_CATEGORY.get(v.category as VendorCategory) ?? OTHER_BUCKET;
+}
+
+/** Every id a `MoneyBucket` may legitimately carry, so an unknown one is visible. */
+const KNOWN_BUCKETS = new Set<string>([
+  ...PLAN_GROUPS.map((g) => g.id as string),
+  OTHER_BUCKET,
+  SETNAYAN_BUCKET,
+]);
+
+/**
+ * Which bucket a supplier-less cost lands in (BA7).
+ *
+ * `event_costs.plan_group_id` is TEXT — the taxonomy's home is
+ * `wedding-plan-groups.ts` and a database enum would be a second copy of it
+ * that can disagree. So an unrecognised id is possible, and it falls to
+ * `'other'` rather than being dropped: the same rule `bucketForVendor` follows
+ * one function below, and for the same reason — an unmappable category must
+ * never make a peso disappear.
+ */
+export function bucketForCost(planGroupId: string | null | undefined): string {
+  const id = typeof planGroupId === 'string' ? planGroupId.trim() : '';
+  return id.length > 0 && KNOWN_BUCKETS.has(id) ? id : OTHER_BUCKET;
 }
 
 const toCentavos = (v: number | string | null | undefined): number => {
@@ -705,6 +775,69 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
       amountPhp: toPhp(vendorPayerC),
       bucket: SETNAYAN_BUCKET,
     });
+  }
+
+  // ── 2b · Money with NO supplier (BA7) ────────────────────────────────────
+  // Rings, the marriage licence fee, tips, ang pao, the honeymoon. Before
+  // `event_costs` these could not be recorded at all — every peso had to hang
+  // off an `event_vendors` row — so a couple was recommended a rings budget by
+  // this very page and given nowhere to write down buying the rings.
+  //
+  // Settled NET, exactly as a vendor is below, which is what keeps THE
+  // INVARIANT exact for every sign of every input:
+  //     max(0, c−p) + c ≡ max(0, p−c) + p
+  // The couple's own money, so `readOnly: false` — they can edit and delete
+  // it here, unlike a Setnayan order or a vendor's catalogue price.
+  for (const c of inputs.costs) {
+    const amountC = toCentavos(c.amount_php);
+    const costPaidC = toCentavos(c.paid_php);
+    if (amountC === 0 && costPaidC === 0) continue;
+
+    const bucketId = bucketForCost(c.plan_group_id);
+    const b = bucket(bucketId);
+    const costOwedC = Math.max(0, amountC - costPaidC);
+    const costOverpaidC = Math.max(0, costPaidC - amountC);
+    const label = c.label?.trim() ? c.label.trim() : 'Cost';
+
+    pushLine({
+      costKey: `cost:${c.cost_id}`,
+      label,
+      bucket: bucketId,
+      amountC,
+      kind: 'committed',
+      paidC: costPaidC,
+      owedC: costOwedC,
+      creditC: 0,
+      source: 'event_cost',
+      sourceRef: c.cost_id,
+      // The two nulls ARE the fact this source exists to carry. A caller that
+      // prints a supplier name per line prints nothing here, which is right:
+      // nobody supplied it.
+      vendorId: null,
+      vendorName: null,
+      readOnly: false,
+      dueDate: c.due_date,
+    });
+
+    committedC += amountC;
+    paidC += costPaidC;
+    owedC += costOwedC;
+    overpaidC += costOverpaidC;
+    b.committedC += amountC;
+    b.paidC += costPaidC;
+    b.owedC += costOwedC;
+    b.overpaidC += costOverpaidC;
+
+    if (costOverpaidC > 0) {
+      warnings.push({
+        code: 'overpaid_cost',
+        message:
+          `You have recorded paying more for "${label}" than it cost — ` +
+          `check the amount or raise the total.`,
+        amountPhp: toPhp(costOverpaidC),
+        bucket: bucketId,
+      });
+    }
   }
 
   // ── 3 · Vendor spend ─────────────────────────────────────────────────────
@@ -1290,6 +1423,11 @@ const SOURCE_META: Record<
     table: 'event_vendor_payments',
     isEstimate: false,
   },
+  event_cost: {
+    label: 'Costs with no supplier',
+    table: 'event_costs',
+    isEstimate: false,
+  },
 };
 
 function stripWorking(l: WorkingLine): MoneyLine {
@@ -1352,7 +1490,7 @@ export async function resolveEventMoney(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<EventMoney> {
-  const [eventRes, vendorsRes, lineItemsRes, paymentsRes, ordersRes, benchmarksRes] =
+  const [eventRes, vendorsRes, lineItemsRes, paymentsRes, ordersRes, benchmarksRes, costsRes] =
     await Promise.all([
       // SEC-2b: events_host, not events — estimated_budget_centavos is
       // SELECT-denied to `authenticated` on the base table by 20271008731642.
@@ -1389,6 +1527,12 @@ export async function resolveEventMoney(
         .from('budget_leaf_benchmarks')
         .select('plan_group_id, benchmark_php')
         .eq('is_active', true),
+      // BA7 — the couple's own costs, the half with no supplier to hang on.
+      supabase
+        .from('event_costs')
+        .select('cost_id,plan_group_id,label,amount_php,paid_php,due_date')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: true }),
     ]);
 
   // Migration-drift fallback: the vendor SELECT names columns added late
@@ -1414,6 +1558,13 @@ export async function resolveEventMoney(
     benchmarksRes.error && isMissingRelation(benchmarksRes.error)
       ? []
       : ((benchmarksRes.data ?? []) as unknown as BenchmarkMoneyRow[]);
+  // Same graceful-degrade as `orders` above: on an environment where BA7's
+  // migration has not landed PostgREST answers 42P01, and a budget page that
+  // renders without this source is strictly better than one that 500s.
+  const costs =
+    costsRes.error && isMissingRelation(costsRes.error)
+      ? []
+      : ((costsRes.data ?? []) as unknown as EventCostMoneyRow[]);
 
   // The vendor-authored catalogue half — reuse the shipped resolver rather
   // than re-deriving package / service pricing (Rule 0: extend, never re-draw).
@@ -1458,6 +1609,7 @@ export async function resolveEventMoney(
     lineItems,
     payments,
     orders,
+    costs,
     pricing,
     packageLockedCentavos,
     benchmarks,

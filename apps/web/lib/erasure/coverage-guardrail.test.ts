@@ -156,6 +156,26 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-09-03 with the table itself (BA7) ──
+  // The ONLY subject-identifying column is `created_by_user_id`, declared
+  // nullable + ON DELETE SET NULL in the migration that creates it
+  // (20271193967957) — so account deletion strips the attribution on its own
+  // and what survives is "Wedding rings · ₱40,000", the COUPLE's shared budget
+  // on an event that outlives either partner's account. It is an ACTOR stamp,
+  // not a subject: per the project rule stated in the event_stage_notes entry
+  // below, CASCADE + NOT NULL means the row is ABOUT them, SET NULL means it
+  // records that they acted. A purge rule here would delete the other
+  // partner's record of what their wedding cost.
+  //
+  // ⚠ Deliberately NOT the same answer the EXPORT guardrail gives this table —
+  // there it is referenced by app/api/profile/export/route.ts, author-scoped.
+  // The two questions differ, exactly as they do for event_playlist_slot_vibes:
+  // erasure asks "must this be destroyed" (no, it self-clears), export asks
+  // "must we hand the subject a copy" (yes, of the rows they typed). Same row,
+  // two honest answers.
+  event_costs:
+    'Only subject column is created_by_user_id, ON DELETE SET NULL — account deletion de-identifies the row; the remainder is the couple\'s shared budget for an event that outlives either account. Nothing in it is PII about a third party either: it is a category, a label, and two amounts.',
+
   // ── added 2026-08-05 with the table itself ──
   event_stage_notes:
     'De-identifies itself on account deletion. The ONLY subject-identifying column is ' +

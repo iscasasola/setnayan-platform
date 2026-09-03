@@ -72,12 +72,74 @@ export function liveStudioPoolOnly(): boolean {
 }
 
 /**
- * What a couple is told when they reach the BYO connect door after it closed.
+ * What a couple who OWNS the hosted-channel add-on (LIVE_STUDIO_HOSTED_CHANNEL —
+ * owner ruling 2026-09-02) is told when they reach the BYO connect door after it
+ * closed.
  *
  * Deliberately NOT an error. Nothing has gone wrong and there is nothing for them
  * to fix or retry — Setnayan supplies the channel now, which is less work for them,
  * not more. It also never says "contact support", because there is no support
  * action either; the capability is simply on our side.
+ *
+ * ⚠ ONLY TRUE FOR ADD-ON OWNERS. Pool-only closes the BYO door for every host —
+ * the couple's own YouTube link is the DEFAULT, and Setnayan supplying the
+ * channel is an optional extra — so this exact sentence rendered for a host who
+ * never bought the add-on both lies about who holds the channel and talks them
+ * out of the paste-link box that is their actual route to air. See
+ * POOL_ONLY_DEFAULT_NOTICE and poolOnlyConnectNotice() below.
  */
 export const POOL_ONLY_CONNECT_NOTICE =
   'Setnayan now provides the YouTube channel for your live broadcast, so there is nothing for you to connect. Set up your cameras and press Go live when you are ready.';
+
+/**
+ * What every OTHER host is told at the same door — the default tier, which is
+ * most hosts. Pool-only still closes OAuth for them (no couple may ever reach
+ * Google's consent screen — see the module docblock above), but nobody supplies
+ * their channel for them, so "nothing to connect" cannot be the whole sentence:
+ * it has to point at the paste-link box sitting on the same screen, which is
+ * where their broadcast actually reaches guests.
+ */
+export const POOL_ONLY_DEFAULT_NOTICE =
+  'There is nothing to connect here — start your own broadcast on YouTube (or OBS), then paste the watch link below so guests can watch. Rather have Setnayan run the channel for you? Add the hosted channel option.';
+
+/**
+ * THE ONE PLACE that decides which of the two notices a host sees, given
+ * whether their event owns the hosted-channel add-on. Every pool-only connect
+ * surface must call this rather than branching on the entitlement itself and
+ * picking a notice inline — that is exactly how the two copies would drift, or
+ * how a surface could end up showing the add-on sentence to a default host.
+ */
+export function poolOnlyConnectNotice(ownsHostedChannel: boolean): string {
+  return ownsHostedChannel ? POOL_ONLY_CONNECT_NOTICE : POOL_ONLY_DEFAULT_NOTICE;
+}
+
+/**
+ * 🚨 THE POOL CHANNEL'S RISK IS NOT THE BUYER'S — IT IS EVERY OTHER COUPLE'S.
+ *
+ * `live-studio-roam-provision.ts` has stated since Wave 9 that one channel per event
+ * "isolates concurrency + copyright-strike blast radius". That sentence has only ever
+ * existed in a DOCBLOCK — a fact the code knew and no human being on either side of
+ * the decision was ever told.
+ *
+ * The consequence is not shared bandwidth, it is shared jeopardy. A Setnayan pool
+ * channel also holds OTHER couples' archived weddings, and YouTube counts copyright
+ * strikes against the CHANNEL. Its stated penalty at three strikes is termination,
+ * with "all your videos will be taken down" — so one couple's processional can delete
+ * another couple's wedding film. Neither couple did anything to the other, and neither
+ * would ever find out why.
+ *
+ * TWO SURFACES NEED THIS, and they are different people making different decisions:
+ *   · the couple deciding to BUY the hosted channel (they pick the music), and
+ *   · the ADMIN at /admin/live-studio-channels deciding which event goes on which
+ *     channel — the person who actually creates the exposure, and who needs it most.
+ * One constant so those two can never drift into telling different stories. Same
+ * reason ENCODER_NOTICE and poolOnlyConnectNotice() are constants rather than inline
+ * strings.
+ *
+ * 🔑 OPEN OWNER QUESTION, DELIBERATELY NOT ANSWERED HERE: whether a pool channel
+ * should be one-couple-per-channel-FOREVER (retired after the wedding, never reused)
+ * rather than checked back in. That is a cost-and-operations ruling, not an
+ * engineering one. This constant states the risk; it does not resolve it.
+ */
+export const POOL_CHANNEL_SHARED_STRIKE_NOTICE =
+  'A Setnayan channel is shared — other couples’ broadcasts and their saved wedding videos live on it too. YouTube counts copyright strikes against the whole channel, and at three strikes it terminates the channel and takes down every video on it. So music played aloud on one wedding can cost another couple their film: for anything the stream carries, use live musicians or royalty-free tracks.';

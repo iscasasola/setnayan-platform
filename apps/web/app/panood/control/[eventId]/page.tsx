@@ -49,18 +49,18 @@ import {
 } from '@/lib/live-studio-channel-cameras';
 import { printableCardCount } from '@/lib/live-studio-camera-cards';
 import { formatPhp } from '@/lib/orders';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { ADD_A_DAY_LABEL } from '@/lib/live-studio-window';
 import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { turnConfigured } from '@/lib/turn';
 import {
   liveStudioPoolOnly,
-  POOL_ONLY_CONNECT_NOTICE,
+  poolOnlyConnectNotice,
 } from '@/lib/live-studio-pool-only';
+import { eventSkuActive } from '@/lib/entitlements';
 import { fetchEventRecordings } from '@/lib/live-studio-recordings';
 import {
   LIVE_STUDIO_SKU,
+  LIVE_STUDIO_HOSTED_CHANNEL_SKU,
   PROGRAM_CHANNEL_LABEL,
   FIRST_CAMERA_CHANNEL,
   FREE_CAMERA_NAME,
@@ -103,7 +103,6 @@ import {
 import { resolveLiveAir, shouldOfferManualAir } from '@/lib/live-studio-manual-air';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { ChannelFreshness } from './_components/channel-freshness';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -117,6 +116,7 @@ import { ProgramBridgeHost } from './_components/program-bridge';
 import { SetupSheet } from './_components/setup-sheet';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
+import { IngestHealthStrip } from './_components/ingest-health-strip';
 import {
   addRoamZone,
   deleteRoamZone,
@@ -391,6 +391,13 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const priceLabel = sku ? formatPhp(sku.price_php) : null;
   const detailHref = liveStudioDetailPath(eventId);
 
+  // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
+  // 2026-09-02)? Decides which pool-only connect notice renders in the "Connect"
+  // section below — NOT multicam entitlement, which stays keyed on LIVE_STUDIO_SKU
+  // alone (resolved further down via `entitled`/`lock`). See the SKU's own
+  // docblock in lib/live-studio-control.ts.
+  const ownsHostedChannel = await eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU);
+
   // ── Camera channels (control-plane; RLS scopes to the host's own event).
   // Refused, the operator sees NO camera zones — identical to an event that has
   // none set up, on the screen they use to run a live broadcast.
@@ -601,43 +608,36 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const offerManualAir = shouldOfferManualAir({
     broadcastLive: liveAir.source === 'broadcast',
   });
-  // When the CURRENT run started. This BOUNDS the never-interrupt rule: a broadcast
-  // that began inside the paid window finishes clean, one that began after it lapsed
-  // is a NEXT go-live and gets no protection. A by-hand start is stamped by the
-  // database, never by the caller, so it cannot be backdated into that protection.
+  // When the CURRENT run started. No longer bounds a never-interrupt rule (LS6
+  // retired the clock that rule protected against) — kept because the 12-hour
+  // YouTube archive-cap warning (BroadcastWindowStrip, below) is still per-stream
+  // and still needs it.
   const broadcastStartedAt = liveAir.startedAt;
 
-  // ── ⭐ WAVE 7 · THE BROADCAST WINDOW ─────────────────────────────────────────
-  // (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
+  // ── ⭐ THE BROADCAST UNLOCK ───────────────────────────────────────────────────
+  // (LS6 · owner-ruled 2026-09-02 · lib/live-studio-window.ts)
   //
-  // ₱3,000 buys ONE EVENT-DAY of MULTI-CAM broadcasting, anchored on first go-live,
-  // extendable by another ₱3,000, and never interrupted mid-broadcast. This is the
-  // SAME resolver `canPublishMultiCam` delegates to, so the controller, the program
-  // pop-out, the manifest mirror and the public page cannot disagree about whether
-  // this host may put more than one camera on air.
+  // ₱2,500 buys MULTI-CAM broadcasting for the event, once, forever — unlimited
+  // streams, no clock, never expiring. This is the SAME resolver
+  // `canPublishMultiCam` delegates to, so the controller, the program pop-out, the
+  // manifest mirror and the public page cannot disagree about whether this host
+  // may put more than one camera on air.
   //
   // ⚠ ADMIN CLIENT, and this is a correctness fix, not a shortcut. `orders` RLS is
   // purchaser-scoped (orders_owner_read: user_id = auth.uid()), so a coordinator
-  // running the controller for a couple who paid would read "not owned" AND zero
-  // broadcast-days under their own session — silently downgraded to one camera,
-  // mid-wedding, on a day that cannot be re-run. Membership was verified above by
-  // isLiveStudioSetupHost, which is the authorization boundary; the same posture the
-  // Wave 5 program pop-out already documents for the identical read. `isLive` and the
-  // start time are handed in rather than re-queried — this page already read them.
-  const broadcastWindow = await resolveBroadcastWindow(admin, eventId, {
-    isLive,
-    broadcastStartedAt,
-  });
+  // running the controller for a couple who paid would read "not owned" under
+  // their own session — silently downgraded to one camera, mid-wedding.
+  // Membership was verified above by isLiveStudioSetupHost, which is the
+  // authorization boundary; the same posture the Wave 5 program pop-out already
+  // documents for the identical read.
+  const broadcastWindow = await resolveBroadcastWindow(admin, eventId);
 
-  // TWO FACTS, and conflating them would produce dishonest copy.
-  //
-  //   • `owned` — may they broadcast multi-cam RIGHT NOW? The capability. Feeds the
-  //     program-output gate, the on-air overlay resolution, everything that decides
-  //     what actually goes out.
-  //   • `entitled` — have they bought Live Studio at all? Feeds only the WORDS. A
-  //     host whose event-day lapsed still owns the product, so showing them
-  //     "Unlock · ₱3,000" would ask them to buy something they already have; what
-  //     they need is "Add another day", which the window strip offers.
+  // `owned`/`entitled` used to differ (a lapsed event-day was entitled but not
+  // currently owned; LS6 retired that gap). They are the SAME boolean now — kept
+  // as two names because `owned` feeds the program-output gate below and
+  // `entitled` feeds only the WORDS (`liveStudioControlLock`'s "Unlock · price" vs
+  // "Open controller" copy), and a future change to one must not silently change
+  // the other's meaning.
   const owned = broadcastWindow.multiCam;
   const entitled = broadcastWindow.reason !== 'not-owned';
   const lock = liveStudioControlLock(entitled, priceLabel);
@@ -727,12 +727,6 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     owned: entitled,
     configuredChannels: zones.length,
   });
-
-  // BDO + GCash details for the in-context "Add another day" purchase. Same rail as
-  // every other SKU — the shared inline checkout drawer → submitOrderAction → QR →
-  // /admin/payments. Null (a pre-bootstrap settings row) simply hides the CTA rather
-  // than offering a purchase with nowhere to pay.
-  const paySettings = await fetchPlatformSettings(supabase).catch(() => null);
 
   // Guest-pick — the real switch (Wave 2). Guarded read: a pre-migration database
   // must not break the controller, and "unknown" defaults to ON (the owner default).
@@ -1138,6 +1132,22 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </form>
           </div>
 
+          {/* ── INGEST HEALTH — is the encoder actually sending video? ──────────
+              lib/live-studio-ingest-health.ts § the defect: `getYoutubeStreamStatus`
+              cost 1 quota unit and had zero callers, so a dead encoder mid-ceremony
+              rendered identically to a healthy one. Only mounted when a Setnayan-
+              managed broadcast exists to poll — the by-hand route (below) has no
+              stream_id for YouTube to report on. PERSISTENT, beside the tally —
+              never a toast, never console-only. */}
+          {liveAir.source === 'broadcast' ? (
+            <IngestHealthStrip
+              eventId={eventId}
+              initialLive
+              initialStreamStatus={null}
+              initialHealthStatus={null}
+            />
+          ) : null}
+
           {/* ── BY-HAND ON AIR ────────────────────────────────────────────────
               The host who starts their own stream and pastes the watch link — the
               route the Watch-link card below sends them down, and until Setnayan's
@@ -1176,62 +1186,41 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </form>
           ) : null}
 
-          {/* ── ⭐ WAVE 7 · THE BROADCAST DAY + THE 12-HOUR ARCHIVE CAP ───────
-              (owner-locked 2026-07-25 · § 4f ②/③.)
+          {/* ── ⭐ THE 12-HOUR ARCHIVE CAP (§ 4f ③) ──────────────────────────
+              🚫 LS6 (2026-09-02) retired the OTHER two warnings that used to live in
+              this slot — the broadcast-day countdown ("ends in 43 minutes", "add
+              another day") and the unanchored-day notice — because multi-cam no
+              longer expires on a clock (lib/live-studio-window.ts). Only the
+              archive cap survives: it is YouTube's own per-stream recording limit,
+              unrelated to how Live Studio is billed.
 
-              Sits directly under the transport because both warnings are about a
-              broadcast that is already running, and both are TIME CROSSINGS mid-show
-              — which is why they live in a client component that ticks rather than in
-              this server render nobody is going to refresh.
-
-              ① at ~1 hour left: say so and offer another day, right here.
-              ② past the end: if on air, promise plainly that nothing is interrupted;
-                 if off air, say the next go-live is the free single camera.
-              ③ approaching 12 hours: YouTube archives only the first 12 hours, so a
-                 longer stream can leave no replay — the sharp edge for a wedding
-                 feeding the Alaala handover.
+              Sits directly under the transport because it is about a broadcast that
+              is already running, and it is a TIME CROSSING mid-show — which is why
+              it lives in a client component that ticks rather than in this server
+              render nobody is going to refresh: approaching 12 hours, YouTube
+              archives only the first 12 hours, so a longer stream can leave no
+              replay — the sharp edge for a wedding feeding the Alaala handover.
 
               It DECIDES nothing: the entitlement is `broadcastWindow` above, resolved
               server-side on every render of this page, the pop-out and the public
               page. Nothing here disables a control or ends a broadcast.
 
               ⭐ WAVE 8: `compact` + a hard `max-h` bound. This block appears WITHOUT
-              WARNING (a time crossing) directly above the transport, and two strips
-              can be up at once. Unbounded, that is the one thing capable of pushing
-              Go live out of a viewport nobody can scroll — the exact failure § 4g
-              exists to prevent. It stays in the FIXED region because a money/archive
-              deadline is not something to bury in a scroller; it is simply not
-              allowed to grow without limit. `overflow-y-auto` is the last-resort
-              valve for the double-warning case, not the steady state (both strips
-              return null in normal operation). */}
+              WARNING (a time crossing) directly above the transport. Unbounded, that
+              is the one thing capable of pushing Go live out of a viewport nobody
+              can scroll — the exact failure § 4g exists to prevent. It stays in the
+              FIXED region because an archive deadline is not something to bury in a
+              scroller; it is simply not allowed to grow without limit.
+              `overflow-y-auto` is the last-resort valve, not the steady state (the
+              strip returns null in normal operation). */}
           <div
             data-lsc-window
             className="max-h-[18dvh] shrink-0 overflow-y-auto overscroll-contain empty:hidden"
           >
           <BroadcastWindowStrip
             compact
-            expiresAt={broadcastWindow.expiresAt}
             isLive={isLive}
             broadcastStartedAt={broadcastStartedAt}
-            reason={broadcastWindow.reason}
-            eventDate={(event.event_date as string | null) ?? null}
-            addADay={
-              paySettings ? (
-                <InlineCheckoutDrawer
-                  eventId={eventId}
-                  serviceKey={LIVE_STUDIO_SKU}
-                  displayName={ADD_A_DAY_LABEL}
-                  // Catalog price, threaded for the drawer's voucher math only — the
-                  // CHARGE is re-resolved server-side from the SKU in
-                  // submitOrderAction, so a tampered value cannot change what is
-                  // billed. One price, no ladder (owner: "I just want 1 price").
-                  originalPriceCentavos={String(sku?.price_centavos ?? 0)}
-                  settings={paySettings}
-                  triggerLabel={priceLabel ? `${ADD_A_DAY_LABEL} · ${priceLabel}` : ADD_A_DAY_LABEL}
-                  triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-mulberry px-3 py-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.04em] text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-70"
-                />
-              ) : null
-            }
           />
           </div>
 
@@ -1585,10 +1574,12 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             Connected{youtubeGrant.external_account_display ? ` — ${youtubeGrant.external_account_display}` : ''}. Your broadcast goes live on this channel.
           </p>
         ) : liveStudioPoolOnly() ? (
-          /* ⭐ POOL-ONLY: nothing to connect — Setnayan supplies the channel. The
-             server refuses this door too (409), so a button here would dead-end. */
+          /* ⭐ POOL-ONLY: the server refuses this door too (409), so a button here
+             would dead-end either way. Only an event that bought the hosted-channel
+             add-on has "nothing to connect" as the whole truth — everyone else
+             still has their own route to air (the "Watch link" section below). */
           <p className="inline-flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2.5 text-sm text-ink/70">
-            {POOL_ONLY_CONNECT_NOTICE}
+            {poolOnlyConnectNotice(ownsHostedChannel)}
           </p>
         ) : (
           <Link

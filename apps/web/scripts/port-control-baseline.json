@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b0c3a922e",
-  "routeCount": 412,
-  "destinations": 881,
-  "actions": 619,
-  "blocks": 4178,
+  "generatedFromRef": "750a6691d",
+  "routeCount": 413,
+  "destinations": 882,
+  "actions": 621,
+  "blocks": 4211,
   "routes": {
     "/": {
       "files": [
@@ -276,16 +276,45 @@
     },
     "/(shell)/pa3d": {
       "files": [
+        "(shell)/pa3d/_pa3d-motion.tsx",
+        "(shell)/pa3d/_pa3d-parts.tsx",
+        "(shell)/pa3d/_pa3d-room.tsx",
         "(shell)/pa3d/loading.tsx",
         "(shell)/pa3d/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=pa3d",
-        "/pricing"
+        "/pa3d/try"
       ],
       "actions": [],
       "blocks": [
-        "DoorwayPage"
+        "Blob",
+        "HTMLVideoElement",
+        "Image",
+        "KenBurns",
+        "Link",
+        "Pa3dRoom",
+        "Part",
+        "PartFilm",
+        "PartsFilms",
+        "Phase",
+        "Plan3DGuestQr",
+        "Plan3DScene",
+        "Plan3DSceneLoader",
+        "Reveal"
+      ]
+    },
+    "/(shell)/pa3d/try": {
+      "files": [
+        "(shell)/pa3d/try/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=pa3d-try",
+        "/pa3d"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Pa3dRoom"
       ]
     },
     "/(shell)/pakanta": {
@@ -1108,6 +1137,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AgentVel",
         "BoothVendorCard",
         "Canvas",
         "ChibiFigure",
@@ -1130,6 +1160,7 @@
         "MouseEvent",
         "OrbitControls",
         "OwnSeatTapTarget",
+        "RemoteMap",
         "RemotePlayers",
         "RoomFooter",
         "SceneLighting",
@@ -4568,6 +4599,7 @@
     },
     "/dashboard/[eventId]/access-requests": {
       "files": [
+        "dashboard/[eventId]/access-requests/_components/granted-now.tsx",
         "dashboard/[eventId]/access-requests/_components/request-card.tsx",
         "dashboard/[eventId]/access-requests/actions.ts",
         "dashboard/[eventId]/access-requests/loading.tsx",
@@ -4577,6 +4609,8 @@
       "actions": [],
       "blocks": [
         "AnswerResult",
+        "GrantRow",
+        "GrantedNow",
         "ListPageSkeleton",
         "PageMasthead",
         "RequestCard"
@@ -4645,10 +4679,12 @@
         "dashboard/[eventId]/budget/_components/budget-ledger-table.tsx",
         "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
         "dashboard/[eventId]/budget/_components/budget-setter.tsx",
+        "dashboard/[eventId]/budget/_components/costs-with-no-supplier.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
         "dashboard/[eventId]/budget/actions.ts",
         "dashboard/[eventId]/budget/allocation-actions.ts",
+        "dashboard/[eventId]/budget/cost-actions.ts",
         "dashboard/[eventId]/budget/loading.tsx",
         "dashboard/[eventId]/budget/page.tsx"
       ],
@@ -4668,13 +4704,17 @@
         "BudgetLiveSummary",
         "BudgetLiveSummaryCard",
         "BudgetSetter",
-        "BudgetSummaryStrip",
+        "BudgetTopSummary",
         "Cell",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
+        "CostsWithNoSupplier",
+        "DeleteCostResult",
         "DeniedState",
+        "DueRollup",
         "EmptyBudget",
         "EventMoney",
+        "Field",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLFormElement",
@@ -4686,18 +4726,20 @@
         "NoFinalizedVendors",
         "OverspendBanner",
         "PageMasthead",
+        "PinnedStat",
+        "RecordCostResult",
+        "RecordedCostRow",
         "SaveSnapshotResult",
         "SaveState",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
-        "Stat",
         "SuggestMilestonesResult",
         "SummaryStat",
+        "SupplierInvite",
         "TiltButton",
         "TiltEditor",
         "TotalCell",
-        "UnlocksHint",
         "UpcomingRow",
         "VendorItemizationCard"
       ]
@@ -4825,9 +4867,9 @@
       ],
       "actions": [],
       "blocks": [
-        "ConflictField",
         "DetailsForm",
         "DocRow",
+        "EditableField",
         "EditableRow",
         "ErrorNote",
         "GovernedFields",
@@ -5973,6 +6015,7 @@
     "/dashboard/[eventId]/sponsors": {
       "files": [
         "dashboard/[eventId]/sponsors/_components/add-sponsor-modal.tsx",
+        "dashboard/[eventId]/sponsors/_components/edit-sponsor-modal.tsx",
         "dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx",
         "dashboard/[eventId]/sponsors/_components/pair-target-picker.tsx",
         "dashboard/[eventId]/sponsors/actions.ts",
@@ -5989,11 +6032,13 @@
         "formAction",
         "markResponse",
         "removeSponsor",
-        "sendInvitation"
+        "sendInvitation",
+        "updateSponsor"
       ],
       "blocks": [
         "AddSponsorModal",
         "Banner",
+        "EditSponsorModal",
         "HTMLDivElement",
         "HTMLInputElement",
         "HTMLTextAreaElement",
@@ -6193,6 +6238,8 @@
       "blocks": [
         "AddOnStateCta",
         "AppStoreLayout",
+        "ChoosePlanSheet",
+        "HostedChannelUpsell",
         "Link",
         "SubmitButton",
         "YoutubeChannelPanel"
@@ -6257,7 +6304,9 @@
         "SlotTile",
         "TemplateGallery",
         "ThemeCard",
-        "ThemeTemplatePage"
+        "ThemeIntentApplySummary",
+        "ThemeTemplatePage",
+        "ThemeTextReading"
       ]
     },
     "/dashboard/[eventId]/studio/pakanta": {
@@ -7428,8 +7477,10 @@
       ],
       "actions": [
         "action",
+        "clearAction",
         "moveDownAction",
         "moveUpAction",
+        "saveAction",
         "setModeAction",
         "setOpenBrowse",
         "toggleAction",
@@ -7457,6 +7508,7 @@
         "PreviewTabKey",
         "ProLockPanel",
         "ReturnTo",
+        "RsvpBackdropPanel",
         "SaveButton",
         "SchedulePeekPanel",
         "SectionsPanel",
@@ -8207,6 +8259,7 @@
         "panood/control/[eventId]/_components/broadcast-window-strip.tsx",
         "panood/control/[eventId]/_components/camera-feeds.tsx",
         "panood/control/[eventId]/_components/channel-freshness.tsx",
+        "panood/control/[eventId]/_components/ingest-health-strip.tsx",
         "panood/control/[eventId]/_components/program-bridge.tsx",
         "panood/control/[eventId]/_components/setup-sheet.tsx",
         "panood/control/[eventId]/_components/toast-layer.tsx",
@@ -8221,7 +8274,6 @@
       ],
       "actions": [
         "action",
-        "addADay",
         "addRoamZone",
         "clearControlManualAir",
         "clearControlWatchUrl",
@@ -8244,6 +8296,7 @@
       "blocks": [
         "Banner",
         "BroadcastWindowStrip",
+        "CachedRead",
         "CameraFeedsContext.Provider",
         "CameraFeedsProvider",
         "ChannelFreshness",
@@ -8259,7 +8312,7 @@
         "HTMLElement",
         "HTMLVideoElement",
         "Icon",
-        "InlineCheckoutDrawer",
+        "IngestHealthStrip",
         "Link",
         "LiveStudioRecordingsCard",
         "MonitorOverlays",
@@ -9200,7 +9253,6 @@
     },
     "/vendor-dashboard/booking-fees": {
       "files": [
-        "vendor-dashboard/booking-fees/actions.ts",
         "vendor-dashboard/booking-fees/loading.tsx",
         "vendor-dashboard/booking-fees/page.tsx"
       ],
@@ -10091,6 +10143,7 @@
         "SeatScanOutcome",
         "SeatScanner",
         "SetCard",
+        "SetHeaderEditor",
         "SetsPanel",
         "SongRow",
         "Spare",

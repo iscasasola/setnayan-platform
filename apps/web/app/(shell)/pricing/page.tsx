@@ -181,7 +181,7 @@ const ADDON_GROUPS: CatalogGroup[] = [
       // while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, so this row is omitted today
       // and appears the moment the owner flips the flag — one launch switch, no second
       // code change. (Free single-camera livestream is unaffected and stays free.)
-      { code: 'LIVE_STUDIO' }, // Live Studio ₱3,000/event — the unified switching SKU
+      { code: 'LIVE_STUDIO' }, // Live Studio — once per event, unlimited streams (LS6, 2026-09-02) — the unified switching SKU
       // ~~PANOOD_SYSTEM~~ (Cast, ₱2,500/day) is **RETIRED** — is_active=false via
       // migration 20271005180040 (PR #3716), because Wave 6's ownership alias
       // LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the ₱3,000 unified

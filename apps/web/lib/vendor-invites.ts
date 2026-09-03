@@ -287,10 +287,10 @@ export async function fetchClaimLandingByToken(
 // Auto-share-link invites (2026-05-22) — idempotent ensure + fetch helpers
 //
 // Called from finalizeVendor (apps/web/app/dashboard/[eventId]/vendors/actions.ts)
-// when a host locks a manual vendor that has no Setnayan account. Returns
-// an existing pending token if one exists for this event_vendors row, or
-// creates a fresh row + token. Workspace page calls fetchActiveAutoShareInvite
-// to render the claim-URL CTA.
+// when a host locks an off-platform supplier that has no Setnayan account.
+// Returns an existing pending token if one exists for this event_vendors row,
+// or creates a fresh row + token. Workspace page calls
+// fetchActiveAutoShareInvite to render the claim-URL CTA.
 // ---------------------------------------------------------------------------
 
 const AUTO_SHARE_INVITE_TTL_DAYS = 90;
@@ -306,12 +306,21 @@ function computeAutoShareExpiresAt(): string {
  * `vendor_invites_auto_share_live_unique` guarantees at most one pending
  * row per event_vendors id, so this is safe to call repeatedly.
  *
- * Schema gating: caller MUST verify the parent event_vendors row has
- * `manual_vendor_id IS NOT NULL` AND `marketplace_vendor_id IS NULL`
- * before calling. The DB doesn't enforce that linkage — `vendor_id` on
- * vendor_invites is just an FK to event_vendors.vendor_id, and a
- * marketplace-linked row already has chat unlocked + a vendor_profile
- * for the vendor to log into, so an invite would be a no-op.
+ * Schema gating: caller MUST verify the parent event_vendors row with
+ * `canInviteSupplier()` (lib/supplier-invite-eligibility.ts) before calling. The DB doesn't enforce that linkage —
+ * `vendor_id` on vendor_invites is just an FK to event_vendors.vendor_id, and
+ * a marketplace-linked row already has chat unlocked + a vendor_profile for
+ * the vendor to log into, so an invite would be a no-op.
+ *
+ * ⚠ THIS PARAGRAPH IS WHERE THE DEFECT CAME FROM, so the correction is written
+ * where the copies were read. Until 2026-09-03 it said the caller must verify
+ * "`manual_vendor_id IS NOT NULL` AND `marketplace_vendor_id IS NULL`", and two
+ * callers dutifully did — refusing 12 of 12 eligible off-platform suppliers in
+ * production with a message saying they were already on Setnayan. Only the
+ * second half was ever justified, by the very next clause of this sentence; the
+ * first half described how manual vendors were created in 2026-06 and was never
+ * a property of the question. See `lib/supplier-invite-eligibility.ts` for the
+ * full measurement and for the one definition every gate now calls.
  *
  * Failure mode: if the insert fails (RLS denial, network), returns null
  * and lets the caller decide whether to surface the error. The lock

@@ -87,7 +87,6 @@ const BELOW_AA_AS_TEXT: ReadonlyArray<{
 /** Remaining sanctioned bare `text-terracotta` uses — icons, checkbox accents,
  * decorative arrows. This list only ever gets SHORTER. */
 const BILL: ReadonlyArray<readonly [string, number]> = [
-  ['budget/_components/budget-live-summary.tsx', 1],
   ['budget/_components/share-budget-band-toggle.tsx', 1],
   ['guests/[guestId]/page.tsx', 4],
   ['guests/_components/guest-list-multiselect.tsx', 4],

@@ -52,15 +52,31 @@ type Props = { params: Promise<{ eventId: string }> };
 // gallery). `key` is the SHARED palette that colors the role (per the
 // 2026-06-09 "shared palettes" lock); a card only appears when that palette is
 // visible/present, keeping the board in lock-step with the Palette editor.
+//
+// ── `specific` — TAXONOMY v2, AND WHY THE CARD WAS SHOWING THE WRONG SWATCHES
+// The 2026-07-08 v2 lock SPLIT the wedding party into real per-role keys
+// (`bridesmaids` / `groomsmen`), and `resolveAttirePaletteColor` — which is what
+// actually dresses a figure in the 3D room — resolves the SPECIFIC key first and
+// only then falls back to `wedding_party`. These cards were never updated, so a
+// couple who filled the Bridesmaids palette saw the room dress bridesmaids in
+// their colour while this card showed the wedding-party swatches, or NOTHING at
+// all when `wedding_party` was empty. The board and the room disagreed about the
+// same fact.
+//
+// `specific` restores the same precedence here. It is the resolver's order, not
+// a second opinion about it — if `resolveAttirePaletteColor` ever changes, this
+// follows.
 const ATTIRE_DEFS: ReadonlyArray<{
   subtype: string;
   label: string;
   key: PaletteKey;
+  /** v2 split key that takes precedence over `key`, mirroring the 3D resolver. */
+  specific?: PaletteKey;
 }> = [
   { subtype: 'bride', label: 'Bride', key: 'bride' },
   { subtype: 'groom', label: 'Groom', key: 'groom' },
-  { subtype: 'bridesmaids', label: 'Bridesmaids', key: 'wedding_party' },
-  { subtype: 'groomsmen', label: 'Groomsmen', key: 'wedding_party' },
+  { subtype: 'bridesmaids', label: 'Bridesmaids', key: 'wedding_party', specific: 'bridesmaids' },
+  { subtype: 'groomsmen', label: 'Groomsmen', key: 'wedding_party', specific: 'groomsmen' },
   { subtype: 'female_ps', label: 'Ninang attire', key: 'principal_sponsors' },
   { subtype: 'male_ps', label: 'Ninong attire', key: 'principal_sponsors' },
   { subtype: 'guests', label: 'Lady guests', key: 'guest' },
@@ -301,12 +317,19 @@ export default async function MoodBoardPage({ params }: Props) {
 
   // ── build the board sections ────────────────────────────────────────────
   const attireCards: BoardCard[] = ATTIRE_DEFS.filter(
-    (d) => visibleKeys.has(d.key) && figureBySubtype[d.subtype],
+    // Visible on EITHER key. The split key alone must be enough — a couple with
+    // bridesmaids and an empty `wedding_party` still has a Bridesmaids palette.
+    (d) =>
+      (visibleKeys.has(d.key) || (d.specific ? visibleKeys.has(d.specific) : false)) &&
+      figureBySubtype[d.subtype],
   ).map((d) => ({
     key: `attire-${d.subtype}`,
     label: d.label,
     imageUrl: figureBySubtype[d.subtype]!.url,
-    paletteColors: palette[d.key] ?? [],
+    // Specific key first, then the shared fallback — the exact precedence
+    // `resolveAttirePaletteColor` uses to dress the figure in the 3D room.
+    paletteColors:
+      (d.specific && palette[d.specific]?.length ? palette[d.specific] : palette[d.key]) ?? [],
     portrait: true,
   }));
 

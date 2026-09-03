@@ -141,7 +141,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-panood',
         title: 'What is Live Studio?',
-        body: 'Live streaming for your wedding, embedded directly on your Event Hub — priced per day (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        body: 'Live streaming for your wedding, embedded directly on your Event Hub — one unlock covers the whole event, unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',

@@ -2,6 +2,12 @@
 
 import { useFormStatus } from 'react-dom';
 import { FileUpload } from '@/app/_components/file-upload';
+import {
+  SPATIAL_THEMES,
+  type RsvpBackdropConfig,
+  type SpatialIntensity,
+  type SpatialThemeKey,
+} from '@/lib/spatial-backdrop';
 
 /**
  * Media + choice panels for the unified editor (PR-6) — the WYSIWYG push.
@@ -252,5 +258,128 @@ export function OpenBrowsePanel({
       </p>
       <SaveButton label={on ? 'Turn off open browsing' : 'Turn on open browsing'} />
     </form>
+  );
+}
+
+
+const INTENSITY_COPY: Record<SpatialIntensity, string> = {
+  subtle: 'Barely there — a hint of depth behind the words.',
+  standard: 'The intended look.',
+  lavish: 'Full depth and motion.',
+};
+
+/**
+ * The RSVP spatial backdrop — the moving scene behind the invitation page.
+ *
+ * 🔑 THIS PANEL IS THE ONLY WAY TO SET IT. `events.rsvp_backdrop` has been read
+ * and rendered by the public site all along; its only editor died with the
+ * legacy `/site-editor` route, whose four pages are bare redirects now. The two
+ * server actions survived that port; the control did not, so between then and
+ * 2026-09-03 the setting could be read by every guest and changed by nobody.
+ *
+ * Two forms, on purpose. Choosing a scene POSTs theme + intensity together
+ * (they are one JSONB value and a partial write would mean inventing the half
+ * the couple did not send). "Turn it off" is its own form because it nulls the
+ * column rather than writing a value — a radio for "none" would have to encode
+ * absence as a theme key, and `isSpatialThemeKey` correctly rejects that.
+ */
+export function RsvpBackdropPanel({
+  saveAction,
+  clearAction,
+  eventId,
+  current,
+}: {
+  saveAction: (formData: FormData) => void | Promise<void>;
+  clearAction: (formData: FormData) => void | Promise<void>;
+  eventId: string;
+  current: RsvpBackdropConfig | null;
+}) {
+  const keys = Object.keys(SPATIAL_THEMES) as SpatialThemeKey[];
+  const activeTheme = current?.theme ?? keys[0];
+  const activeIntensity: SpatialIntensity = current?.intensity ?? 'standard';
+
+  return (
+    <div className={PANEL}>
+      <p className="text-xs text-ink/60">
+        {current
+          ? 'Guests see this scene move behind your invitation as they scroll.'
+          : 'Your invitation currently has a plain background. Pick a scene to add depth behind it.'}
+      </p>
+
+      <form action={saveAction} className="mt-1">
+        <input type="hidden" name="event_id" value={eventId} />
+        <ReturnTo eventId={eventId} rowKey="backdrop" />
+
+        <fieldset>
+          <legend className="sr-only">Scene</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {keys.map((key) => {
+              const theme = SPATIAL_THEMES[key];
+              const checked = key === activeTheme;
+              return (
+                <label
+                  key={key}
+                  className={`flex cursor-pointer gap-3 rounded-xl border p-2.5 transition ${
+                    checked
+                      ? 'border-ink/40 bg-ink/[0.03]'
+                      : 'border-ink/10 hover:border-ink/25'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    value={key}
+                    defaultChecked={checked}
+                    className="mt-1 h-3.5 w-3.5 shrink-0 accent-ink"
+                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={theme.thumb}
+                    alt=""
+                    className="h-12 w-16 shrink-0 rounded-lg object-cover"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-ink">{theme.label}</span>
+                    <span className="mt-0.5 block text-[11px] leading-snug text-ink/55">
+                      {theme.description}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <label className="mt-3 block">
+          <span className="block text-xs font-medium text-ink/70">How strong</span>
+          <select
+            name="intensity"
+            defaultValue={activeIntensity}
+            className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink"
+          >
+            {(['subtle', 'standard', 'lavish'] as const).map((i) => (
+              <option key={i} value={i}>
+                {i[0]!.toUpperCase() + i.slice(1)} — {INTENSITY_COPY[i]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <SaveButton label={current ? 'Save scene' : 'Turn on backdrop'} />
+      </form>
+
+      {current ? (
+        <form action={clearAction} className="mt-3 border-t border-ink/10 pt-3">
+          <input type="hidden" name="event_id" value={eventId} />
+          <ReturnTo eventId={eventId} rowKey="backdrop" />
+          <button
+            type="submit"
+            className="text-xs font-medium text-ink/55 underline underline-offset-2 transition-colors hover:text-ink"
+          >
+            Turn the backdrop off
+          </button>
+        </form>
+      ) : null}
+    </div>
   );
 }

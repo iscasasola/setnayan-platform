@@ -8,6 +8,10 @@ import { sendVendorInviteEmail } from '@/lib/email';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { generateClaimToken, lookupExistingVendorByEmail } from '@/lib/vendor-invites';
+import {
+  SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE,
+  canInviteSupplier,
+} from '@/lib/supplier-invite-eligibility';
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -62,10 +66,19 @@ function computeExpiresAt(): string {
 // shares themselves — the right shape for PH couples, who send these over
 // Messenger and Viber, not email.
 //
-// These two are KEPT rather than deleted because emailing the invite directly
-// is a capability nothing else provides — createManualVendorInvite does not
-// send mail. If email invites are ever wanted again, mount these; do not
-// rebuild them.
+// These THREE — sendVendorInvite, revokeVendorInvite and
+// connectExistingVendorProfile — are KEPT rather than deleted because emailing
+// the invite directly is a capability nothing else provides;
+// createManualVendorInvite does not send mail. If email invites are ever wanted
+// again, mount them; do not rebuild them.
+//
+// 🔑 THIS SAID "these two" UNTIL 2026-09-03, WHILE GUARDING THREE. A dead-code
+// sweep reached revokeVendorInvite, found a preservation note that named a
+// count instead of the symbols, and could not tell whether it was covered. Name
+// what you are protecting: a sweep that trusts the count deletes the odd one
+// out — and a sender you cannot take back is worse than neither half.
+// (Revoking is not orphaned meanwhile: admins keep their own revoke at
+// app/admin/vendors/actions.ts.)
 //
 // ⚠ They have NO test coverage either (checked 2026-08-06), so nothing will
 // tell you if they rot. Anyone re-mounting them should exercise them first.
@@ -115,11 +128,16 @@ export async function sendVendorInvite(formData: FormData): Promise<SendInviteRe
       message: 'Vendor not found or not accessible.',
     };
   }
-  if (parent.marketplace_vendor_id) {
+  // The fifth gate on "may this supplier be invited?", and the one that was
+  // ALREADY RIGHT — it asks only about the account. It now asks through the
+  // shared predicate so there is one definition rather than one correct copy
+  // and three that drifted. Its message was also the only TRUE use of that
+  // sentence: here it fires precisely when the supplier does have an account.
+  if (!canInviteSupplier(parent)) {
     return {
       ok: false,
       code: 'ALREADY_LINKED',
-      message: 'This vendor is already on Setnayan.',
+      message: SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE,
     };
   }
 

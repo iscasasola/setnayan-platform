@@ -17,14 +17,21 @@
  *      configured, a verified Setnayan channel is connected and healthy, and the
  *      event has camera channels. Knowable, checkable, and what `state` reports.
  *   2. THE ENCODER — NOT knowable by us and NOT ours to provide. Browsers cannot
- *      push RTMP, and the native capture app was scoped but never built (§ 4c).
+ *      push RTMP, and no capture app has been built. ⚠ THE SCOPE IS **B4** in
+ *      `Live_Studio_Cast_and_Roam_2026-07-23.md`, NOT § 4c — § 4c of the unified
+ *      spec is "WAVE 1 + 2 SHIPPED" and scopes no capture app at all. And B4 is a
+ *      PHONE app (one RTMP stream per kit-phone camera, for ROAM); the desktop
+ *      encoder that would close THIS gap pushes one composited stream for CAST.
+ *      Different products — building either leaves the other unbuilt.
  *      Something must window-capture the program pop-out and send it to YouTube;
  *      today that is the couple's own OBS.
  *
  * `encoderNotice` is therefore returned on EVERY branch, including the green one,
  * and there is no input that removes it. It is not a warning that clears — it is
  * a standing property of the product until a native capture app or a
- * WebRTC→RTMP relay exists (and the relay breaks the ₱0 marginal-cost lock, so it
+ * WebRTC→RTMP relay exists (a TRANSCODING relay breaks the ₱0 marginal-cost lock —
+ * a remux-only one is far cheaper, so the categorical version of that claim is too
+ * strong; see `Live_Studio_Encoder_Scope_2026-09-03.md` § 4B — either way it
  * is a separate owner decision — do NOT assume Wave 9 delivered it).
  *
  * 🚫 NOTHING HERE MAY SUGGEST A PHONE CAN STREAM TO YOUTUBE. The phones join over
@@ -132,8 +139,82 @@ export const ENCODER_NOTICE =
 export const YOUTUBE_READY_NOTICE =
   'Before you buy, check that your own YouTube channel can already go live — YouTube takes about 24 hours to switch this on the first time, and it cannot be rushed on the day. Open youtube.com/features and look for Live streaming: Enabled. If you read that you need 50 subscribers, that rule is only for going live from the phone app — streaming from a computer, which is what Live Studio does, has no subscriber requirement.';
 
+/**
+ * 💻 WHAT THE BUYER MUST OWN — a laptop — SAID BEFORE THE MONEY MOVES.
+ *
+ * `ENCODER_NOTICE` below has always been honest about this, and it is returned on EVERY
+ * readiness branch including the green one. But readiness is a POST-PURCHASE surface. The
+ * buy sheet carried the payment lead time and YouTube's activation wait and said nothing
+ * about needing a computer at all.
+ *
+ * 🔑 AND THIS IS THE ONE THAT CANNOT BE RECOVERED FROM. A couple who meets the YouTube
+ * 24-hour wait too late can still wait; a couple who meets the payment SLA too late can
+ * still be approved early next time. A couple with no laptop on the wedding morning has NO
+ * BROADCAST, and nothing fixes it — not money, not support, not a later date.
+ *
+ * Deliberately NOT the same string as ENCODER_NOTICE, and the difference is the question
+ * each answers. Before paying: "what do I need to own?" After paying: "what do I do with
+ * it?" Collapsing them would make one of the two surfaces answer a question nobody asked
+ * there. ⚠ THEY MUST STILL AGREE ON THE FACT — if the encoder ever stops being required
+ * (a native Setnayan encoder, a server relay), BOTH move in the same commit or the product
+ * tells two stories.
+ *
+ * Names OBS because that is what is true today. If the desktop app ever encodes
+ * (`Live_Studio_Encoder_Scope_2026-09-03.md` Path A), this sentence changes with it —
+ * the laptop stays required either way; only the software named changes.
+ */
+export const ENCODER_BUY_NOTICE =
+  'You will need a Windows or Mac laptop at your celebration, running free streaming software (OBS) alongside the control room — a phone or tablet on its own cannot send the broadcast to YouTube, and neither can a web browser. Your phones are the cameras; the laptop is what sends the picture out.';
+
+/**
+ * ⚠ THE SECOND SENTENCE CHANGED SHAPE UNDER LS6 (2026-09-02). It used to name the
+ * per-event-DAY anchor ("your broadcast day starts when you first go live, not
+ * when you pay") — a promise that made sense only while multi-cam expired on a
+ * clock. LS6 retired that clock entirely (lib/live-studio-window.ts: ownership is
+ * now the whole test, forever), so "buying earlier costs you nothing" is true for
+ * a simpler reason: there is no day to burn by buying ahead, because there is no
+ * day at all. See live-studio-lead-time.test.ts for what is pinned here now.
+ */
 export const LEAD_TIME_NOTICE =
-  'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: your broadcast day starts when you first go live, not when you pay.';
+  'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: once approved, your unlock covers the whole event — no day to start, no clock to burn.';
+
+/**
+ * 🎵 THE FOURTH PRE-PURCHASE FACT — and the only one that fails DURING the ceremony.
+ *
+ * VERIFIED AGAINST YOUTUBE'S OWN DOCUMENTATION 2026-09-02
+ * (support.google.com/youtube/answer/3367684). YouTube runs Content ID against a
+ * LIVE stream in real time. On a match it replaces the broadcast with a placeholder
+ * image and warns the host to stop; if the content keeps playing the stream is
+ * "temporarily interrupted or terminated".
+ *
+ * 🔑 WHY THIS IS NOT A FOURTH COPY OF THE OTHER THREE. Payment lead time, YouTube's
+ * 24-hour activation and the laptop all fail BEFORE the day — late, but survivable,
+ * and a couple who meets them late can still act. This one fails at the processional
+ * or the first dance, in front of everyone watching from abroad, and there is no
+ * recovering the moment. A Filipino wedding plays licensed music continuously, so
+ * this is the DEFAULT path, not an edge case.
+ *
+ * ⚠ THE LICENSED-MUSIC CLAUSE IS THE LOAD-BEARING HALF, and it is the half every
+ * other product's copy omits. YouTube's own wording: unless the rights holder has
+ * added that channel to their Content ID allowlist, "your live stream can be
+ * interrupted even if you've licensed the third-party content". No couple will be on
+ * a rights holder's allowlist. A notice that only says "don't use copyrighted music"
+ * is the version a couple who paid for a licence reads and correctly ignores — and
+ * they are exactly the couple this exists to protect.
+ *
+ * ⚠ WRITTEN AS A PRECAUTION, NOT A DISCLAIMER. The couple CAN act on this: they
+ * choose the processional music. Copy that reads as legal cover teaches nobody
+ * anything, so this names the alternative (live musicians, royalty-free tracks) in
+ * the same breath as the risk. It also scopes the advice to what the BROADCAST
+ * carries — the reception playlist after the stream ends is nobody's problem.
+ *
+ * The last sentence is a SEPARATE failure with a separate timing: Content ID also
+ * runs over the archived video, so a stream that survived the day can still have its
+ * recording claimed or muted afterwards — which matters because "keep the recording"
+ * is a promise the /panood page makes.
+ */
+export const MUSIC_RIGHTS_NOTICE =
+  'YouTube listens to your broadcast as it goes out, and a match on commercial music can put a still image over your stream or cut it off mid-ceremony — during the processional or the first dance, with no way to rewind the moment. This happens even with music you have PAID to license, because the only exemption is an allowlist the rights holder controls and no couple is on one. So choose the sound the stream will carry with that in mind: live musicians, or royalty-free tracks, for the processional, the first dance and anything else that airs. Your reception playlist after the broadcast ends is unaffected. And even when a stream survives the day, the saved recording can still be claimed or muted afterwards.';
 
 /** Headline used when Setnayan's side is done. Names the remaining human step. */
 export const READY_HEADLINE = 'Ready to broadcast — start your encoder';

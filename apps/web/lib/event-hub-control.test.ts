@@ -41,6 +41,7 @@ import {
   hubOffersAllowed,
   type HubEventRead,
   type HubGuestRead,
+  type HubEditorialRead,
 } from '@/lib/event-hub-control';
 
 const MNL = 'Asia/Manila';
@@ -124,6 +125,115 @@ test('⭐ LAST MONTH — the story is the live page, and the offers have closed'
   assert.equal(next.ctaPath, '/website/editorial', 'channel 4 opens the existing workroom');
 
   assert.equal(hubOffersAllowed(standing.phase), false, 'the day-of rows close rather than sell');
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EH5 — CHANNEL 4 OPENS A WORKROOM: the story channel's own facts and step
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const editorial = (over: Partial<HubEditorialRead> = {}): HubEditorialRead => ({
+  measured: true,
+  status: 'draft',
+  chaptersWritten: 3,
+  photosIn: 12,
+  columnsOn: true,
+  columnsMeasured: true,
+  columnsPending: 0,
+  ...over,
+});
+
+test('⭐ ON THE STORY CHANNEL, the four facts become the workroom\'s own', () => {
+  const read = event({ eventDate: '2026-08-02' }); // last month → editorial/after
+  const [chapters, columns, photos, status] = resolveHubFacts(
+    read,
+    guests(),
+    NOW,
+    editorial({ chaptersWritten: 4, photosIn: 9, columnsPending: 2, status: 'draft' }),
+  );
+  assert.equal(chapters.label, 'Chapters');
+  assert.equal(chapters.value, '4 written');
+  assert.equal(columns.label, 'Guest columns');
+  assert.equal(columns.value, '2 waiting on you');
+  assert.equal(photos.label, 'Photos in');
+  assert.equal(photos.value, '9');
+  assert.equal(status.label, 'Status');
+  assert.equal(status.value, 'Draft');
+});
+
+test('a refused editorial read renders an em-dash, never a fabricated zero', () => {
+  const read = event({ eventDate: '2026-08-02' });
+  const [chapters, , photos, status] = resolveHubFacts(
+    read,
+    guests(),
+    NOW,
+    editorial({ measured: false, chaptersWritten: null, photosIn: null, status: null }),
+  );
+  assert.equal(chapters.known, false, 'a refused read is unknown, not zero chapters');
+  assert.equal(chapters.value, null);
+  assert.equal(photos.known, false);
+  assert.equal(status.known, false);
+});
+
+test('guest columns OFF reads "Switched off", never "0 waiting" — a feature gate is not a queue', () => {
+  const read = event({ eventDate: '2026-08-02' });
+  const [, columns] = resolveHubFacts(read, guests(), NOW, editorial({ columnsOn: false }));
+  assert.equal(columns.known, true, 'off is a known, statable fact');
+  assert.equal(columns.value, 'Switched off');
+});
+
+test('guest columns ON but the pending count was refused renders unknown, never "0 waiting"', () => {
+  const read = event({ eventDate: '2026-08-02' });
+  const [, columns] = resolveHubFacts(
+    read,
+    guests(),
+    NOW,
+    editorial({ columnsOn: true, columnsMeasured: false, columnsPending: 0 }),
+  );
+  assert.equal(columns.known, false, 'a refused read and a genuinely empty queue must not read the same');
+  assert.equal(columns.value, null);
+});
+
+test('with NO editorial read at all, resolveHubFacts falls back to its prior 3-arg behaviour', () => {
+  const read = event({ eventDate: '2026-08-02' });
+  const [stage] = resolveHubFacts(read, guests(), NOW);
+  assert.equal(stage.value, 'The story', 'unchanged for every caller that never asked for the workroom');
+});
+
+test('⭐ N GUESTS WROTE A COLUMN outranks the generic story step — the host decides, on this screen', () => {
+  const read = event({ eventDate: '2026-08-02' });
+  const standing = resolveHubStanding(read, NOW);
+  const next = resolveHubNextStep(
+    standing,
+    read,
+    guests(),
+    editorial({ columnsOn: true, columnsMeasured: true, columnsPending: 3 }),
+  );
+  assert.match(next.headline, /3 guests wrote you a column/);
+  assert.equal(next.ctaPath, '/studio/guest-columns');
+  assert.doesNotMatch(
+    next.blurb,
+    /published|shown|visible/i,
+    'nothing a guest writes may read as already on the page',
+  );
+});
+
+test('zero pending columns keeps the generic "write your story" step', () => {
+  const read = event({ eventDate: '2026-08-02' });
+  const standing = resolveHubStanding(read, NOW);
+  const next = resolveHubNextStep(
+    standing,
+    read,
+    guests(),
+    editorial({ columnsOn: true, columnsMeasured: true, columnsPending: 0 }),
+  );
+  assert.equal(next.ctaPath, '/website/editorial');
+});
+
+test('columns switched off never fabricates a "wrote you a column" step', () => {
+  const read = event({ eventDate: '2026-08-02' });
+  const standing = resolveHubStanding(read, NOW);
+  const next = resolveHubNextStep(standing, read, guests(), editorial({ columnsOn: false }));
+  assert.equal(next.ctaPath, '/website/editorial');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

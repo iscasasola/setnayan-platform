@@ -116,6 +116,26 @@ const APP_LD = {
 
 const FAQ = [
   {
+    // 💻 FIRST, not buried. This is the only requirement on this page a couple cannot
+    // recover from: no laptop on the morning means no broadcast, and no amount of
+    // money, support or waiting fixes it on a date that cannot move. It was mentioned
+    // only inside the YouTube answer further down, which is not where somebody deciding
+    // whether this product fits them will look.
+    q: 'What do I need on the day?',
+    a: 'Your guests’ phones are the cameras — they join by scanning your QR, with nothing to install. You will also need one Windows or Mac laptop at the celebration, running free streaming software (OBS) next to the Live Studio control room: that laptop is what actually sends the picture to YouTube. A phone or tablet on its own cannot do it, and neither can a web browser. Most couples hand the laptop to a friend or a coordinator, not a paid crew.',
+  },
+  {
+    // 🎵 SECOND, immediately after the laptop, because it is the same KIND of fact —
+    // something a couple must decide BEFORE the day — and the only one on this page
+    // that fails while the ceremony is happening. YouTube runs Content ID against the
+    // LIVE stream; a match replaces it with a placeholder or cuts it. The licensed-
+    // music clause is the load-bearing half: a couple who paid for a licence will
+    // otherwise read a generic "don't use copyrighted music" line and correctly
+    // conclude it is not about them.
+    q: 'What about the music?',
+    a: 'Plan it before the day — this is the one thing that can go wrong while the ceremony is happening. YouTube listens to the stream as it goes out, and a match on commercial music can put a still image over your broadcast or stop it altogether, right in the middle of the processional or the first dance. It happens even with music you have paid to license, because the only exemption is an allowlist the rights holder controls. So for anything the broadcast carries — the processional, the first dance, the video montage — use live musicians or royalty-free tracks. Your reception playlist after the stream ends is unaffected. And even if the stream survives, the saved recording can still be claimed or muted afterwards.',
+  },
+  {
     q: 'How do my guests watch?',
     a: 'They open your Event Hub and press play — that’s it. No app to download, no account to make, no link to lose. It works on any phone, tablet, or laptop, anywhere in the world.',
   },

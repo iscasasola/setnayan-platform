@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web",
+      "name": "pa3d-preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "apps/web", "dev", "--port", "3457"],
-      "port": 3457
+      "runtimeArgs": ["--dir", "apps/web", "dev", "--port", "3462"],
+      "port": 3462
     }
   ]
 }

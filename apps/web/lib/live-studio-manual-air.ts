@@ -17,15 +17,15 @@
  * `guestWallMirrorActive()` records: asking the same question on three surfaces is
  * three chances to forget, and the next surface makes four.
  *
- * ⚠ THE START INSTANT IS NOT DECORATION. `isLive` feeds the paid multi-cam window's
- * never-interrupt rule, which is BOUNDED by when the broadcast started — a broadcast
- * already running when a purchased day lapsed finishes clean; one begun afterwards
- * does not. `decideBroadcastWindow` treats `isLive` WITHOUT a start as protected (a
- * deliberate fail-open so an unreadable clock never cuts a live ceremony to one
- * camera), which is right for a real broadcast row and wrong for a self-set flag.
- * So this resolver never returns `isLive` without also returning `startedAt`, and
- * callers hand BOTH to the window. Returning them as one value is what keeps the
- * pair from drifting apart at a call site.
+ * ⚠ THE START INSTANT IS NOT DECORATION. `startedAt` still feeds the 12-hour
+ * YouTube archive-cap warning (lib/live-studio-window.ts's `decideArchiveGuard`,
+ * unrelated to how Live Studio is billed) — that cap is per-STREAM, so knowing
+ * when THIS run began still matters even though LS6 (2026-09-02) retired the
+ * multi-cam never-interrupt rule this comment used to describe (multi-cam no
+ * longer expires at all, so there is nothing left to interrupt or protect). This
+ * resolver still never returns `isLive` without also returning `startedAt`, and
+ * callers still hand both to the archive-cap check together — returning them as
+ * one value is what keeps the pair from drifting apart at a call site.
  */
 
 /** Which route put this event on air. `null` when it is off air. */
@@ -83,12 +83,16 @@ export function resolveLiveAir(input: {
  * An unparseable stored instant is treated as OFF AIR, not as "on air with an
  * unknown start".
  *
- * This is the one place the fail-open direction is deliberately reversed, and the
- * reason is money: "on air with no start" is exactly the state
- * `decideBroadcastWindow` protects, so letting a junk value reach it would convert a
- * corrupt string into free multi-cam. Losing a red light on a garbled value is a
- * cosmetic failure; the other direction is a billing one. The automatic route keeps
- * its existing fail-open because a broadcast row means real video is flowing.
+ * This is the one place the fail-open direction is deliberately reversed. Before
+ * LS6 (2026-09-02) the reason was money — "on air with no start" was exactly the
+ * state the old never-interrupt rule protected, so a corrupt string could have
+ * been read as free multi-cam. LS6 retired that rule (multi-cam no longer
+ * expires, so there is nothing left to protect), but this direction stays
+ * unchanged on its own remaining merit: a garbled manual timestamp reading as
+ * OFF AIR is a cosmetic miss (a red light that should be on), which is still
+ * strictly safer than treating unparseable input as a real broadcast. The
+ * automatic route keeps its existing fail-open because a broadcast row means
+ * real video is flowing.
  */
 function normalizeInstant(raw: string | null | undefined): string | null {
   if (!raw) return null;

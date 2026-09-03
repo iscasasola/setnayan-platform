@@ -1,10 +1,12 @@
-import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Info } from 'lucide-react';
 import { formatPhp } from '@/lib/budget';
 import {
   BUDGET_LEDGER_COLUMNS,
   BUDGET_LEDGER_COLUMN_HINTS,
+  daysUntilDueLabel,
   type BudgetLedger,
   type BudgetLedgerRow,
+  type LedgerDueTier,
 } from '@/lib/budget-ledger';
 
 /**
@@ -22,6 +24,15 @@ import {
  *
  * ⚠ NO ESTIMATES (BA2, owner-locked). `BudgetLedgerRow.estimatedPhp` exists and
  * is deliberately NOT rendered here: quotes and shortlists live in the Merkado.
+ *
+ * ── What is due, and when (BA6) ──────────────────────────────────────────────
+ * A roll-up under this section's own header — never the top-line meter, which
+ * BA4 owns — says what is overdue and what falls in the next 30 days across
+ * every row. Each row then carries its own most-urgent unpaid milestone as a
+ * chip: a supplier, an amount, and the days spelled out ("5 days overdue",
+ * "due in 6 days") rather than a bare date. Both read `row.nextDue` /
+ * `ledger.totals`, which are themselves built from `MoneyLine.dueState` and
+ * `MoneyBucket.due` (BA5) — this file never compares a day count itself.
  */
 
 /** Comma-list with an Oxford "and" — mirrors the planner's `joinLabels`. */
@@ -53,6 +64,8 @@ export function BudgetLedgerTable({ ledger }: { ledger: BudgetLedger }) {
           between stay in the Merkado.
         </p>
       </div>
+
+      <DueRollup totals={totals} />
 
       {/* Column key. The four names are read from BUDGET_LEDGER_COLUMNS, never
           spelled here — one place to change them, and a guard that can check it. */}
@@ -106,6 +119,52 @@ export function BudgetLedgerTable({ ledger }: { ledger: BudgetLedger }) {
   );
 }
 
+/**
+ * What is overdue, and what falls in the next 30 days — across every row.
+ * Lives in the ledger's own header, not the top-line meter (BA4's file, out
+ * of scope here): this section summarises exactly the rows below it, so that
+ * is its right home.
+ */
+function DueRollup({ totals }: { totals: BudgetLedger['totals'] }) {
+  const next30Php = totals.dueSoonPhp + totals.upcomingPhp;
+  const next30Count = totals.dueSoonCount + totals.upcomingCount;
+  if (totals.overdueCount === 0 && next30Count === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-ink/10 bg-white/45 px-3 py-2.5 text-sm">
+      {totals.overdueCount > 0 ? (
+        <p className="flex items-center gap-1.5 text-terracotta-700">
+          <AlertTriangle aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span>
+            <span className="font-mono font-semibold tabular-nums">
+              {formatPhp(totals.overduePhp)}
+            </span>{' '}
+            overdue across {totals.overdueCount}{' '}
+            {totals.overdueCount === 1 ? 'payment' : 'payments'}
+          </span>
+        </p>
+      ) : null}
+      {next30Count > 0 ? (
+        <p className="flex items-center gap-1.5 text-ink/70">
+          <Clock aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+          <span>
+            <span className="font-mono font-semibold tabular-nums">{formatPhp(next30Php)}</span>{' '}
+            due in the next 30 days across {next30Count}{' '}
+            {next30Count === 1 ? 'payment' : 'payments'}
+          </span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Text color per tier — overdue reads loudest, upcoming barely raises its voice. */
+function tierToneClass(state: LedgerDueTier): string {
+  if (state === 'overdue') return 'text-terracotta-700';
+  if (state === 'due_soon') return 'text-amber-700';
+  return 'text-ink/60';
+}
+
 function TotalCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-1">
@@ -138,6 +197,18 @@ function LedgerRow({ row }: { row: BudgetLedgerRow }) {
           </p>
         ) : null}
       </header>
+
+      {row.nextDue ? (
+        <p className={`flex items-center gap-1.5 text-xs ${tierToneClass(row.nextDue.state)}`}>
+          <span className="font-mono font-medium tabular-nums">
+            {formatPhp(row.nextDue.amountPhp)}
+          </span>
+          <span>
+            {row.nextDue.vendorName ? `to ${row.nextDue.vendorName} — ` : ''}
+            {daysUntilDueLabel(row.nextDue.daysUntilDue)}
+          </span>
+        </p>
+      ) : null}
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
         <Cell

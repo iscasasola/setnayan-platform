@@ -194,6 +194,7 @@ export async function GET() {
     accessRequestsRes,
     eventRemovalReasonsRes,
     eventClustersRes,
+    ownCostsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -536,6 +537,26 @@ export async function GET() {
       .select('public_id, display_name, created_at')
       .eq('owner_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-03) — costs the subject RECORDED THEMSELVES (BA7,
+    // migration 20271193967957). `event_costs` is the couple's own spending
+    // with no supplier on the other side of it: the rings, the marriage
+    // licence, tips, ang pao.
+    //
+    // AUTHOR-scoped, not event-scoped, for the same reason
+    // `event_vendor_working_notes` is. A wedding budget is jointly authored:
+    // an event-scoped read would drop the OTHER partner's entries into this
+    // subject's access file, which is a third-party disclosure — precisely
+    // what this endpoint must never commit. `created_by_user_id` is the one
+    // column that says who typed a row, so it is the one the export follows.
+    //
+    // Read through the AUTHED client: `event_costs_couple_read` already scopes
+    // the table to the caller's own events, so the eq() narrows an already-safe
+    // set rather than bypassing anything. No service-role read is warranted.
+    supabase
+      .from('event_costs')
+      .select('cost_id, event_id, plan_group_id, label, amount_php, paid_php, due_date, note, created_at')
+      .eq('created_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -583,6 +604,7 @@ export async function GET() {
     eventRemovalReasonsRes,
   );
   const eventClusters = listOutcome('years_you_grouped', eventClustersRes);
+  const ownCosts = listOutcome('own_costs_recorded', ownCostsRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -651,6 +673,7 @@ export async function GET() {
     broadcastsSent,
     dayRequests,
     accessRequests,
+    ownCosts,
   ]);
 
   const exported = {
@@ -734,6 +757,9 @@ export async function GET() {
     // the moderator record).
     event_access_requests_made: accessRequests.rows,
     event_removals_asked_for: eventRemovalReasons.rows,
+    // The costs the subject recorded themselves — author-scoped, so a shared
+    // wedding budget never hands one partner the other's entries.
+    own_costs_recorded: ownCosts.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     not_included: [

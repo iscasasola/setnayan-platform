@@ -467,7 +467,7 @@ What is LIVE today: every event type listed above; an event automatically becomi
 Pricing in PHP. All sales final on digital deliverables.
 
 - **Setnayan AI** — from ${peso(ladder[3]!.php)} to ${aiA} one-time depending on event type (see ladder above). Vendor matchmaking plus the guided planning workspace.
-- **Live Studio** — ${R('LIVE_STUDIO')} per event-day. Multi-camera control room, livestream embedded on the event page. A single-camera stream is free; rehearsal with up to 12 cameras is free, broadcasting one is the paid step.
+- **Live Studio** — ${R('LIVE_STUDIO')} once per event, unlimited streams. Multi-camera control room, livestream embedded on the event page. A single-camera stream is free; rehearsal with up to 12 cameras is free, broadcasting one is the paid step.
 - **Pakanta** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
 - **3D Plan** — ${R('SEATING_3D')}. Walk the reception in 3D before it is real — every table and detail in place.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
@@ -515,7 +515,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 Event Hub with unlimited RSVP is free; premium touches come with Event Hub PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free on every event, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has credits nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
-- **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} per event-day; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
+- **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
 - **What is Pakanta?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos, refunds, or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. 20 Filipino role tiers. Multi-faith vendor compatibility tagging.

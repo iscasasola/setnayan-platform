@@ -2,12 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
 import { liveStudioRoamEnabled, type RoamManifest, type RoamZoneStatus } from '@/lib/live-studio-roam';
 import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
-// PANOOD_WINDOW_HOURS is the existing, import-free, pure owner of "how long one
-// broadcast day is" (lib/panood-watermark.ts) — reclaimStaleCheckouts below
-// reuses it rather than re-typing an hour count. The module carries no
-// `server-only` import, so this static edge does not repeat the trap the note
-// above documents for panood-youtube.ts / live-studio-channel-grants.ts.
-import { PANOOD_WINDOW_HOURS } from '@/lib/panood-watermark';
 // ⚠ `lib/panood-youtube.ts` and `lib/live-studio-channel-grants.ts` are imported
 // DYNAMICALLY inside provisionRoamBroadcasts, not here. Both carry
 // `import 'server-only'`, and a static edge to either would drag it into this
@@ -49,6 +43,26 @@ import { PANOOD_WINDOW_HOURS } from '@/lib/panood-watermark';
 
 const UNDEFINED_TABLE = '42P01';
 const UNDEFINED_COLUMN = '42703';
+
+/**
+ * How long a pool-channel checkout may sit idle before `reclaimStaleCheckouts`
+ * (below) is willing to take it back.
+ *
+ * OWN CONSTANT, ON PURPOSE (LS6, 2026-09-02). This used to import
+ * `PANOOD_WINDOW_HOURS` from lib/panood-watermark.ts on the reasoning that it
+ * "already owns how long one broadcast day is" — but LS6 retired the broadcast-DAY
+ * concept entirely (lib/live-studio-window.ts no longer computes an expiry at
+ * all), so there is no more shared "one day" fact to borrow. Reusing that
+ * constant's NAME after its MEANING was retired would have been a second,
+ * disagreeing source of truth wearing the first one's name.
+ *
+ * The NUMBER is unchanged (24h) — it is still the right grace period for the
+ * reason it always was: long enough to cover the gap between a ceremony and a
+ * reception on the same event (hours, well inside this window) without leaving a
+ * channel some other wedding needs sitting idle indefinitely under a host who
+ * simply stopped without releasing it.
+ */
+export const POOL_CHANNEL_RECLAIM_GRACE_HOURS = 24;
 
 // ── Row shapes (the fields these helpers read) ──────────────────────────────
 
@@ -331,11 +345,10 @@ export async function releasePoolChannelIfIdle(
  * whole broadcast, on a date that cannot move.
  *
  * TWO CONDITIONS, BOTH REQUIRED, per stale checkout:
- *   1. `checked_out_at` older than `PANOOD_WINDOW_HOURS` — imported from
- *      lib/panood-watermark.ts, which already owns "how long one broadcast day
- *      is"; never re-typed here. This is the clause protecting a host who ends
- *      and restarts (ceremony, then reception) — that gap is hours, well inside
- *      the window.
+ *   1. `checked_out_at` older than `POOL_CHANNEL_RECLAIM_GRACE_HOURS` (this file,
+ *      above) — its own named constant, not a re-typed literal hour count. This is
+ *      the clause protecting a host who ends and restarts (ceremony, then
+ *      reception) — that gap is hours, well inside the grace period.
  *   2. `releasePoolChannelIfIdle` agrees. It is the ONE release path — this
  *      function never writes the pool row itself — and it independently refuses
  *      while any of that event's streams is outside complete/errored, and
@@ -358,7 +371,7 @@ export async function releasePoolChannelIfIdle(
  */
 export async function reclaimStaleCheckouts(admin: SupabaseClient): Promise<number> {
   try {
-    const staleBefore = new Date(Date.now() - PANOOD_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+    const staleBefore = new Date(Date.now() - POOL_CHANNEL_RECLAIM_GRACE_HOURS * 60 * 60 * 1000).toISOString();
     const { data: stale, error } = await admin
       .from('live_studio_roam_channel_pool')
       .select('checked_out_event_id')
@@ -377,7 +390,7 @@ export async function reclaimStaleCheckouts(admin: SupabaseClient): Promise<numb
         released += 1;
         // eslint-disable-next-line no-console -- deliberate: a reclaim is a channel changing hands with nobody asking
         console.log(
-          `[live-studio-roam] reclaimed stale pool channel for event ${eventId} (checked out > ${PANOOD_WINDOW_HOURS}h, streams idle)`,
+          `[live-studio-roam] reclaimed stale pool channel for event ${eventId} (checked out > ${POOL_CHANNEL_RECLAIM_GRACE_HOURS}h, streams idle)`,
         );
       }
     }
@@ -411,9 +424,17 @@ export async function reclaimStaleCheckouts(admin: SupabaseClient): Promise<numb
 
    ⚠⚠ THE HONEST LIMIT, and it is not a detail. Provisioning creates the
    broadcast CONTAINER and its RTMP ingestion endpoint. It does NOT put video into
-   it. Browsers cannot push RTMP and the native capture app was scoped but never
-   built (§ 4c), so something must still ENCODE the program output — today that is
-   the couple's own OBS window-capturing `/panood/program/[eventId]`. Wave 9
+   it. Browsers cannot push RTMP and no capture app has been built, so something
+   must still ENCODE the program output — today that is the couple's own OBS window-capturing `/panood/program/[eventId]`.
+   ⚠ THE CITATION THIS COMMENT USED TO CARRY WAS WRONG TWICE OVER. It said the app
+   was "scoped but never built (§ 4c)". § 4c of the unified spec is "WAVE 1 + 2
+   SHIPPED" and scopes no capture app; the real scope is B4 in
+   `Live_Studio_Cast_and_Roam_2026-07-23.md`. And B4 is a PHONE app — one RTMP
+   stream per kit-phone camera, for ROAM — while the gap described here needs a
+   DESKTOP encoder pushing ONE composited stream for CAST. Building either leaves
+   the other unbuilt, so a plan that treats them as one item under-scopes Roam.
+
+   Wave 9
    removes the requirement that the couple own or authorise a YOUTUBE ACCOUNT. It
    does not remove the encoder. A provisioned broadcast with nothing pushing to it
    shows as `ready`, never `live`, and the readiness copy

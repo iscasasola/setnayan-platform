@@ -48,9 +48,11 @@ describe('resolveLiveAir — the two routes on air', () => {
     assert.equal(s.startedAt, null);
   });
 
-  test('MONEY: a manual value that is on air NEVER lacks a start', () => {
-    // "on air + no start" is precisely the state decideBroadcastWindow protects.
-    // The manual branch must never be able to produce it.
+  test('a manual value that is on air NEVER lacks a start', () => {
+    // Kept on its own merit post-LS6: `startedAt` still feeds the 12-hour YouTube
+    // archive-cap warning (decideArchiveGuard), which needs a real instant to
+    // measure from. The manual branch must never be able to produce "on air, no
+    // start" — see the fail-open note in live-studio-manual-air.ts.
     for (const raw of [
       '2026-12-12T06:30:00.000Z',
       '2026-01-01T00:00:00+08:00',

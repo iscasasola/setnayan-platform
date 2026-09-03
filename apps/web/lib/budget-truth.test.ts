@@ -22,10 +22,12 @@ import path from 'node:path';
 import {
   computeEventMoney,
   checkMoneyInvariant,
+  bucketForCost,
   bucketForVendor,
   isVendorPayerOrder,
   OTHER_BUCKET,
   SETNAYAN_BUCKET,
+  type EventCostMoneyRow,
   type EventMoney,
   type MoneyInputs,
   type VendorMoneyRow,
@@ -52,6 +54,7 @@ const base = (over: Partial<MoneyInputs> = {}): MoneyInputs => ({
   lineItems: [],
   payments: [],
   orders: [],
+  costs: [],
   pricing: new Map() as VendorPricingLookup,
   packageLockedCentavos: new Map(),
   benchmarks: [],
@@ -884,4 +887,166 @@ test('BA5 · the page and the email read ONE definition of "due soon"', () => {
     )!.dueState,
     'upcoming',
   );
+});
+
+// ── BA7 · MONEY WITH NO SUPPLIER ─────────────────────────────────────────────
+//
+// The whole point of this source is that it adds a peso to `committed` from a
+// row that has no `vendor_id`. THE INVARIANT is what proves that addition did
+// not quietly break the reconciliation, so every case below asserts it —
+// including the ones where the new source is the ONLY money on the event.
+
+const cost = (
+  over: Partial<EventCostMoneyRow> & { cost_id: string },
+): EventCostMoneyRow => ({
+  plan_group_id: 'rings',
+  label: `Cost ${over.cost_id}`,
+  amount_php: 0,
+  paid_php: 0,
+  due_date: null,
+  ...over,
+});
+
+test('BA7 · a cost with NO supplier is committed money, and the invariant holds', () => {
+  const m = computeEventMoney(
+    base({ costs: [cost({ cost_id: 'c1', amount_php: 40000, paid_php: 15000 })] }),
+  );
+  assert.equal(m.committed, 40000);
+  assert.equal(m.paid, 15000);
+  assert.equal(m.stillOwed, 25000);
+  assert.equal(m.overpaid, 0);
+  invariantHolds(m, 'cost only');
+
+  // It is a LINE, reachable and attributable — not a number added to a total
+  // with nothing behind it. That is what makes it editable on the page.
+  const line = m.lines.find((l) => l.costKey === 'cost:c1');
+  assert.ok(line, 'the cost produced no line');
+  assert.equal(line!.source, 'event_cost');
+  assert.equal(line!.vendorId, null);
+  assert.equal(line!.vendorName, null);
+  assert.equal(line!.readOnly, false, "the couple's own cost must stay editable");
+  assert.equal(line!.kind, 'committed');
+});
+
+test('BA7 · rings can be recorded with NO vendor row in existence', () => {
+  // The defect, stated as a test. Before `event_costs` this event could not
+  // hold a single peso: every line item needed an event_vendors row.
+  const m = computeEventMoney(
+    base({
+      vendors: [],
+      costs: [
+        cost({ cost_id: 'rings', plan_group_id: 'rings', label: 'Wedding rings', amount_php: 40000, paid_php: 40000 }),
+        cost({ cost_id: 'lic', plan_group_id: 'wedding_paperwork', label: 'Marriage licence', amount_php: 600, paid_php: 600 }),
+        cost({ cost_id: 'pao', plan_group_id: 'other', label: 'Ang pao', amount_php: 12000, paid_php: 0 }),
+      ],
+    }),
+  );
+  assert.equal(m.committed, 52600);
+  assert.equal(m.paid, 40600);
+  assert.equal(m.stillOwed, 12000);
+  invariantHolds(m, 'three supplier-less costs');
+
+  // Each lands in ITS OWN bucket, which is what makes BA3's ledger show them
+  // on the row the couple picked.
+  const by = new Map(m.byBucket.map((b) => [b.bucketId, b]));
+  assert.equal(by.get('rings')!.committedPhp, 40000);
+  assert.equal(by.get('wedding_paperwork')!.committedPhp, 600);
+  assert.equal(by.get(OTHER_BUCKET)!.committedPhp, 12000);
+});
+
+test('BA7 · an overpaid cost is NAMED, not clamped, and the totals still add up', () => {
+  const m = computeEventMoney(
+    base({ costs: [cost({ cost_id: 'c1', label: 'Rings', amount_php: 40000, paid_php: 45000 })] }),
+  );
+  assert.equal(m.committed, 40000);
+  assert.equal(m.paid, 45000);
+  assert.equal(m.stillOwed, 0);
+  assert.equal(m.overpaid, 5000);
+  invariantHolds(m, 'overpaid cost');
+  const w = m.warnings.find((x) => x.code === 'overpaid_cost');
+  assert.ok(w, 'an overpaid cost was silently clamped');
+  assert.equal(w!.amountPhp, 5000);
+  // NOT the vendor warning: every field of that one names a supplier, and
+  // there is none here to name.
+  assert.equal(m.warnings.some((x) => x.code === 'overpaid_vendor'), false);
+});
+
+test('BA7 · the invariant survives costs mixed with every other source', () => {
+  const m = computeEventMoney(
+    base({
+      targetCentavos: 50_000_00,
+      vendors: [vendor({ vendor_id: 'a', total_cost_php: 100000, transport_php: 2500 })],
+      payments: [
+        { payment_id: 'p1', vendor_id: 'a', line_item_id: null, amount_php: 30000, paid_at: '2026-01-01' },
+      ],
+      orders: [
+        {
+          order_id: 'o1',
+          description: 'Setnayan AI',
+          service_key: 'SETNAYAN_AI',
+          requested_total_php: 2999,
+          confirmed_total_php: 2999,
+          status: 'paid',
+        },
+      ],
+      costs: [
+        cost({ cost_id: 'c1', amount_php: 40000, paid_php: 40000 }),
+        cost({ cost_id: 'c2', plan_group_id: 'attire', amount_php: 18000, paid_php: 25000 }),
+        cost({ cost_id: 'c3', plan_group_id: 'officiant', amount_php: 15000, paid_php: 0 }),
+      ],
+    }),
+  );
+  invariantHolds(m, 'costs beside vendors and orders');
+  // The new source appears in provenance, so a caller can say where the money
+  // came from instead of printing an unattributable total.
+  const note = m.sources.find((s) => s.source === 'event_cost');
+  assert.ok(note, 'event_cost produced no provenance note');
+  assert.equal(note!.table, 'event_costs');
+  assert.equal(note!.isEstimate, false);
+  assert.equal(note!.rowCount, 3);
+});
+
+test('BA7 · a dated, unpaid cost is banded like any other commitment', () => {
+  const m = computeEventMoney(
+    base({
+      costs: [
+        cost({ cost_id: 'late', amount_php: 5000, paid_php: 0, due_date: dueIn(-3) }),
+        cost({ cost_id: 'settled', amount_php: 5000, paid_php: 5000, due_date: dueIn(-3) }),
+      ],
+    }),
+  );
+  // BA5's rule, applied to the new source without a second copy of it: a date
+  // that passed with money still owed is overdue; a date that passed on money
+  // already handed over is settled.
+  assert.equal(m.due.overduePhp, 5000);
+  assert.equal(m.due.overdueCount, 1);
+  assert.equal(m.lines.find((l) => l.costKey === 'cost:late')!.dueState, 'overdue');
+  assert.equal(m.lines.find((l) => l.costKey === 'cost:settled')!.dueState, 'settled');
+  invariantHolds(m, 'dated costs');
+});
+
+test('BA7 · an unknown category buckets to `other` and never loses the money', () => {
+  // `event_costs.plan_group_id` is TEXT, so an id the taxonomy has never heard
+  // of is reachable. It must not make a peso disappear — the same rule
+  // `bucketForVendor` follows for an unmappable vendor category.
+  assert.equal(bucketForCost('rings'), 'rings');
+  assert.equal(bucketForCost('not_a_real_group'), OTHER_BUCKET);
+  assert.equal(bucketForCost(null), OTHER_BUCKET);
+  assert.equal(bucketForCost('   '), OTHER_BUCKET);
+  assert.equal(bucketForCost(SETNAYAN_BUCKET), SETNAYAN_BUCKET);
+
+  const m = computeEventMoney(
+    base({ costs: [cost({ cost_id: 'c1', plan_group_id: 'not_a_real_group', amount_php: 7000 })] }),
+  );
+  assert.equal(m.committed, 7000);
+  assert.equal(m.byBucket.find((b) => b.bucketId === OTHER_BUCKET)!.committedPhp, 7000);
+  invariantHolds(m, 'unknown category');
+});
+
+test('BA7 · a zero-everything cost contributes nothing and produces no line', () => {
+  const m = computeEventMoney(base({ costs: [cost({ cost_id: 'c1' })] }));
+  assert.equal(m.committed, 0);
+  assert.equal(m.lines.some((l) => l.source === 'event_cost'), false);
+  assert.equal(m.byBucket.length, 0, 'an empty cost opened a bucket with nothing in it');
+  invariantHolds(m, 'zero cost');
 });

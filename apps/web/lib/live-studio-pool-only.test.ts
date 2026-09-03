@@ -88,9 +88,12 @@ test('neither setup surface offers a Connect button the server would refuse', ()
       /liveStudioPoolOnly\(\)/,
       `${surface} still renders the Connect CTA unconditionally — a fake door`,
     );
-    // The notice must come from the shared constant, so the copy cannot drift
-    // between the two surfaces or from what the route returns.
-    assert.match(src, /POOL_ONLY_CONNECT_NOTICE/, `${surface} hardcodes its own wording`);
+    // 2026-09-02: the notice is no longer ONE shared sentence — an add-on owner
+    // and a default-tier host see different wording (see
+    // the-hosted-channel-is-an-add-on.test.ts). What must not drift is which
+    // FUNCTION decides it: every surface routes through poolOnlyConnectNotice(),
+    // so the two copies cannot diverge independently per-surface.
+    assert.match(src, /poolOnlyConnectNotice\(/, `${surface} hardcodes its own wording`);
   }
 });
 
@@ -185,6 +188,7 @@ test('the couple sees a STATUS, not a failure — and not "contact support"', ()
   const poolAt = page.indexOf("youtubeError === 'pool_only'");
   const genericAt = page.indexOf('YouTube connection failed (');
   assert.ok(poolAt < genericAt, 'the pool_only branch must be checked BEFORE the generic error');
-  // Same shared constant as the closed door and the controller — one wording.
-  assert.match(page, /\{POOL_ONLY_CONNECT_NOTICE\}/);
+  // Same resolver as the closed door and the controller — one decision, not a
+  // hardcoded sentence (see the-hosted-channel-is-an-add-on.test.ts).
+  assert.match(page, /\{poolOnlyConnectNotice\(/);
 });

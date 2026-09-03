@@ -465,6 +465,20 @@ function YoutubeConnect({
         <ConnectCTA eventId={eventId} ownsHostedChannel={ownsHostedChannel} />
       )}
 
+      {/* 🚨 OUTSIDE the four-way branch above, on purpose. This first went inside
+          ConnectCTA — one arm of four — so a host who had ALREADY connected their own
+          channel (the ConnectedPanel arm) never saw it. That host is not safe: the
+          go-live action resolves a POOL token FIRST and only falls back to their BYO
+          grant, so a connected host lands on a shared Setnayan channel just as easily.
+          Whether this event may be pooled has nothing to do with which connect state
+          the panel is showing, so the warning must not live in one of its arms.
+          Predicate is the action's own — see mayBroadcastOnSharedChannel(). */}
+      {mayBroadcastOnSharedChannel() ? (
+        <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
+          {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
+        </p>
+      ) : null}
+
       {/* ⚠ This chip must keep byte-matching YOUTUBE_OAUTH_SCOPES in
           lib/panood-youtube.ts AND the OAuth consent screen. It said "YouTube
           manage + upload" until 2026-07-27 — the upload scope was removed
@@ -538,23 +552,11 @@ function ConnectCTA({
   // door. Which NOTICE renders depends on ownsHostedChannel: only an event that
   // bought the hosted-channel add-on has "nothing to connect" as the whole truth —
   // everyone else still has their own route to air (the paste-link box below).
-  const sharedChannelWarning = mayBroadcastOnSharedChannel() ? (
-    // 🚨 Same fact, same predicate as the action (see live-studio-pool-only.ts).
-    // This panel EARLY-RETURNS on pool-only, so the warning is bound once here and
-    // rendered on BOTH exits — a second inline copy is how one exit loses it.
-    <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
-      {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
-    </p>
-  ) : null;
-
   if (liveStudioPoolOnly()) {
     return (
-      <>
-        <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
-          {poolOnlyConnectNotice(ownsHostedChannel)}
-        </p>
-        {sharedChannelWarning}
-      </>
+      <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
+        {poolOnlyConnectNotice(ownsHostedChannel)}
+      </p>
     );
   }
 
@@ -571,7 +573,6 @@ function ConnectCTA({
         You&rsquo;ll be redirected to Google to grant access, then bounced back here.
         Takes about 20 seconds.
       </p>
-      {sharedChannelWarning}
     </div>
   );
 }

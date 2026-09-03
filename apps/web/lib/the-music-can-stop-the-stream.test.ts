@@ -285,15 +285,39 @@ test('⭐ the warning renders on a surface NOT gated on the hosted-channel add-o
     /mayBroadcastOnSharedChannel\(\)/,
     'the setup page does not gate on the predicate the go-live action uses',
   );
-  // The connect panel EARLY-RETURNS on pool-only, so there are two exits and the
-  // warning has to be on BOTH. A count, not a presence check: an anchor on the first
-  // match cannot tell one mount from two.
-  const mounts = setup.match(/\{sharedChannelWarning\}/g) ?? [];
-  assert.equal(
-    mounts.length,
-    2,
-    `the connect panel has two exits and mounts the warning on ${mounts.length} of them`,
+  assert.match(
+    setup,
+    /\{POOL_CHANNEL_SHARED_STRIKE_NOTICE\}/,
+    'the setup page never renders the shared-channel warning',
   );
+});
+
+test('⭐ the warning is OUTSIDE the connect-state branch, not in one arm of it', () => {
+  // 🔑 THE SECOND HALF OF THE SAME DEFECT, and it survived the first fix. The setup
+  // page picks between FOUR connect states (not-ready / connected / unmeasured /
+  // ConnectCTA). The warning first went inside ConnectCTA — one arm — so a host who
+  // had ALREADY connected their own channel rendered `ConnectedPanel` and saw
+  // nothing. That host is not safe: the go-live action resolves a POOL token FIRST
+  // and only then falls back to their BYO grant, so a connected host lands on a
+  // shared channel just as easily.
+  //
+  // Whether an event may be pooled is independent of which connect state is showing,
+  // so the warning must not sit in any arm. Pinned by ABSENCE from the arms — a
+  // presence check on the page cannot tell "rendered once for everyone" from
+  // "rendered for one quarter of hosts".
+  const setup = src(SETUP_PAGE);
+  for (const arm of ['function ConnectCTA', 'function ConnectedPanel']) {
+    const i = setup.indexOf(arm);
+    assert.notEqual(i, -1, `${arm} is gone — re-derive where the warning must sit`);
+    // Slice to the next top-level `function ` so the window is that component only.
+    const rest = setup.slice(i + arm.length);
+    const end = rest.indexOf('\nfunction ');
+    const body = end === -1 ? rest : rest.slice(0, end);
+    assert.ok(
+      !body.includes('POOL_CHANNEL_SHARED_STRIKE_NOTICE'),
+      `the warning moved back inside ${arm} — hosts in the other connect states lose it`,
+    );
+  }
 });
 
 test('⭐ the COPY and the ACTION share one predicate, so they cannot disagree', () => {

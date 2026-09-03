@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d500dba9c",
+  "generatedFromRef": "84d32510d",
   "routeCount": 414,
   "destinations": 884,
   "actions": 620,
-  "blocks": 4230,
+  "blocks": 4236,
   "routes": {
     "/": {
       "files": [
@@ -6274,6 +6274,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/info-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/majors-editor.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/moodboard-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-board-context.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx",
@@ -6300,6 +6301,7 @@
         "BoardCardView",
         "Chip",
         "ChoiceButton",
+        "ChoosePlanSheet",
         "ClipboardEntry",
         "ConceptPdfButton",
         "CustomRolesEditor",
@@ -6312,6 +6314,7 @@
         "InspirationBoard",
         "Link",
         "MajorsEditor",
+        "MakeItReal",
         "MoodboardBoard",
         "MoodboardMoodTag",
         "MoodboardStyleFamily",
@@ -6323,6 +6326,8 @@
         "PaletteKey",
         "PaletteSection",
         "PaletteStrip",
+        "PartRenderState",
+        "PartTile",
         "PrintablePdfButton",
         "ReceptionMirror",
         "RecolorStudio",
@@ -6342,7 +6347,9 @@
         "ThemeIntentJump",
         "ThemeStudio",
         "ThemeTemplatePage",
-        "ThemeTextReading"
+        "ThemeTextReading",
+        "TileChrome",
+        "WholeLookTile"
       ]
     },
     "/dashboard/[eventId]/studio/pakanta": {

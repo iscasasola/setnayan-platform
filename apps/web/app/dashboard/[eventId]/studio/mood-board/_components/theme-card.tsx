@@ -42,6 +42,7 @@ import {
   type MoodboardStyleFamily,
 } from '@/lib/moodboard-templates';
 import { motifId, type ThemeTextReading } from '@/lib/theme-text-intent';
+import { MajorsEditor } from './majors-editor';
 
 export type ThemeIntentJump = {
   mood: MoodboardMoodTag | null;
@@ -278,6 +279,11 @@ export function ThemeCard({
         rows={3}
         className="w-full resize-none border-0 bg-transparent p-0 text-sm text-ink/70 placeholder:text-ink/30 focus:outline-none"
       />
+
+      {/* The majors — MB5. Renders nothing when there's no
+          <PaletteBoardProvider> above (this card's own standalone tests),
+          so those tests are unaffected. See majors-editor.tsx. */}
+      <MajorsEditor />
 
       <div className="flex flex-wrap items-center gap-3">
         <button

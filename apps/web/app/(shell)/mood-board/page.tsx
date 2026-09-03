@@ -45,7 +45,7 @@
  *
  * ⚠ AND NO CLAIM THE BOARD DOES NOT KEEP. Everything asserted below is shipped
  * and was read before it was written: the palette families and starter themes
- * (`_components/palette-editor`, `_components/theme-studio`), the inspiration
+ * (`_components/palette-section`, `_components/theme-studio`), the inspiration
  * board, the reception design (`lib/reception-scene`), the one-page printable
  * (`lib/moodboard-printable.ts`), "Share with vendors" (`actions.ts` →
  * `shareMoodBoardWithVendors`, which notifies every BOOKED marketplace vendor),

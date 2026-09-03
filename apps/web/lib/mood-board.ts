@@ -1,5 +1,6 @@
 import type { RoleGroup } from './role-groups';
 import type { GuestRole } from './guests';
+import type { PaletteStyle } from './palette-styles';
 
 /**
  * Palette keys split into three families:
@@ -75,6 +76,24 @@ export type CustomPaletteRole = {
 export type RolePalette = Partial<Record<PaletteKey, string[]>> & {
   room_dressing?: RoomDressing;
   custom_roles?: CustomPaletteRole[];
+  /**
+   * Role keys the couple has edited directly in the Palette section (02) —
+   * MB5's `touchedRoles`. A touched role's own colors are never overwritten
+   * by a change to the majors or the palette style; only releasing it (the
+   * "Match my main colours again" control) removes a key from this set.
+   * Lives inside this same JSONB column, a sibling of `room_dressing` and
+   * `custom_roles`, so no migration is needed — see `DERIVABLE_PALETTE_KEYS`.
+   * `reception` (the majors themselves) and `officiants` (never derived) are
+   * never valid members; `sanitizeRolePalette` enforces this.
+   */
+  touched_roles?: PaletteKey[];
+  /**
+   * The palette-style engine's mode ('simple' | 'depth' | 'complex') for
+   * this board — a sibling of `room_dressing`, same JSONB column. Unknown or
+   * absent values normalize to 'depth' via `sanitizePaletteStyle`, never to
+   * a render-time guess.
+   */
+  palette_style?: PaletteStyle;
 };
 
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
@@ -294,6 +313,28 @@ export const PALETTE_ORDER: ReadonlyArray<PaletteKey> = [
 ];
 
 /**
+ * Every `PaletteKey` the palette-style engine (`lib/palette-styles.ts`) can
+ * derive, and therefore every valid member of `RolePalette.touched_roles`.
+ * `reception` is excluded — the majors are never "derived", they ARE the
+ * source (see the one-directional rule, MB5). `officiants` is excluded too
+ * — vestment color follows the church's own calendar and is never derived,
+ * so there is nothing to release it back to.
+ */
+export const DERIVABLE_PALETTE_KEYS: ReadonlyArray<PaletteKey> = PALETTE_ORDER.filter(
+  (k) => k !== 'reception' && k !== 'officiants',
+);
+
+const PALETTE_STYLE_KEYS: ReadonlyArray<PaletteStyle> = ['simple', 'depth', 'complex'];
+
+/**
+ * Unknown or absent values normalize to 'depth' — never to a render-time
+ * guess. Matches the prototype's `sanitizePaletteStyle` / init default.
+ */
+export function sanitizePaletteStyle(raw: unknown): PaletteStyle {
+  return PALETTE_STYLE_KEYS.includes(raw as PaletteStyle) ? (raw as PaletteStyle) : 'depth';
+}
+
+/**
  * Family membership lookup — drives conditional rendering. Venue and couple
  * palettes always show. Role-family palettes only show when the event has at
  * least one guest with a role mapping to that key, so the Mood Board doesn't
@@ -344,7 +385,27 @@ export function sanitizeRolePalette(raw: unknown): RolePalette {
   if (rd) out.room_dressing = rd;
   const custom = sanitizeCustomRoles((raw as Record<string, unknown>).custom_roles);
   if (custom) out.custom_roles = custom;
+  const touchedRoles = sanitizeTouchedRoles((raw as Record<string, unknown>).touched_roles);
+  if (touchedRoles) out.touched_roles = touchedRoles;
+  const paletteStyleRaw = (raw as Record<string, unknown>).palette_style;
+  if (paletteStyleRaw != null) out.palette_style = sanitizePaletteStyle(paletteStyleRaw);
   return out;
+}
+
+/** Drop anything not in `DERIVABLE_PALETTE_KEYS`, de-dupe, drop the block
+ *  entirely when nothing valid remains — same contract as
+ *  `sanitizeCustomRoles`/`sanitizeRoomDressing`. */
+function sanitizeTouchedRoles(raw: unknown): PaletteKey[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const valid = new Set(DERIVABLE_PALETTE_KEYS);
+  const out: PaletteKey[] = [];
+  const seen = new Set<PaletteKey>();
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || !valid.has(entry as PaletteKey) || seen.has(entry as PaletteKey)) continue;
+    seen.add(entry as PaletteKey);
+    out.push(entry as PaletteKey);
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 /**

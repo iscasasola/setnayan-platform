@@ -5,15 +5,10 @@ import { fetchGuestsByEvent } from '@/lib/guests';
 import {
   sanitizeRolePalette,
   paletteKeyForRole,
+  hasChosenMajors,
   ROLE_FAMILY_KEYS,
   type PaletteKey,
 } from '@/lib/mood-board';
-import {
-  seedPaletteFromColors,
-  seedPaletteFromFeel,
-  RED_GOLD_PALETTE,
-} from '@/lib/feel-palettes';
-import { isChineseWedding } from '@/lib/chinese-wedding';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
 import {
   RECEPTION_PARTS,
@@ -43,6 +38,7 @@ import { ConceptPdfButton } from './_components/concept-pdf-button';
 import { PrintablePdfButton } from './_components/printable-pdf-button';
 import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
 import { ThemeStudio } from './_components/theme-studio';
+import { InfoButton } from './_components/info-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Mood Board' };
@@ -258,33 +254,31 @@ export default async function MoodBoardPage({ params }: Props) {
     visibleKeys.add('wedding_party');
   }
 
-  // Draft, don't blank: when the couple has NO saved palette yet, pre-fill the
-  // editor with a starter palette. For a Chinese (Tsinoy) wedding we suggest the
-  // auspicious red & gold default; otherwise we derive a starter from the wedding
-  // "feel" picked in onboarding. Display-only — the existing Save action remains
-  // the ONLY path that writes role_palette; seeded values aren't persisted until
-  // the couple explicitly saves, so this is a suggestion, never a forced override.
-  const hasSavedPalette = Object.keys(palette).length > 0;
-  const isChineseCeremony = isChineseWedding({
-    ceremony_type: (event as { ceremony_type?: string | null }).ceremony_type ?? null,
-    secondary_ceremony_type:
-      (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null,
-  });
-  const seededPalette = hasSavedPalette
-    ? {}
-    : isChineseCeremony
-      ? seedPaletteFromColors(RED_GOLD_PALETTE, Array.from(visibleKeys))
-      : seedPaletteFromFeel(
-          (event as { mood_feel_key?: string | null }).mood_feel_key,
-          Array.from(visibleKeys),
-        );
-  const isSeeded = Object.keys(seededPalette).length > 0;
-  const initialPalette = isSeeded ? seededPalette : palette;
-  // True only when the editor is currently pre-filled with the Chinese red & gold
-  // default (Chinese event + nothing saved yet) — gates the small Chinese-default
-  // note above the editor. Non-Chinese events never set this, so their render is
-  // byte-identical.
-  const showChineseDefaultNote = isChineseCeremony && isSeeded;
+  // ── the blank-start fork (MB3, 2026-09-03) ──────────────────────────────
+  // ⚠ CORRECTED: this page used to pre-fill the editor with a starter palette
+  // (a Chinese-wedding red & gold default, or one derived from the
+  // onboarding "feel") whenever the couple had NOTHING saved yet — real hex
+  // colors, shown as if chosen, before the couple had made any decision at
+  // all. That directly contradicted the redesigned board's own on-screen
+  // promise: <TemplateGallery>'s "Start with a blank board" step says "Your
+  // board stays blank" while this page quietly filled it anyway. The owner's
+  // correction is explicit: "why can't i delete the first 3 colors. it is a
+  // requirement to have at least 3. but start with blank" — three SLOTS are
+  // structural (PALETTE_LIMITS.reception.min), three pre-chosen COLORS are
+  // not. `hasChosenMajors` (lib/mood-board.ts) is the one predicate for
+  // "has the couple chosen their majors" — every surface reads it, so none
+  // can disagree with the fork about whether the board is still blank.
+  //
+  // The two paths that actually fill `reception` now are: (1) applying a
+  // designed theme (writes five real colors via applyMoodboardTemplate /
+  // applyThemeIntent), or (2) the couple adding their own in the palette
+  // editor below. Neither is a silent page-load side effect.
+  //
+  // Retired, not replaced in place: a proper "Setnayan AI suggests a
+  // starting palette, dismissible" affordance (the prototype's AI starter
+  // row) belongs with the palette-style engine landing in MB4/MB5, not as a
+  // half-built suggestion here.
+  const initialPalette = palette;
 
   // ── one representative figure per attire subtype (first wins) ───────────
   const figureBySubtype: Record<string, { url: string; label: string }> = {};
@@ -441,6 +435,7 @@ export default async function MoodBoardPage({ params }: Props) {
             (event as { moodboard_theme_description?: string | null })
               .moodboard_theme_description ?? null
           }
+          alreadyChosenMajors={hasChosenMajors(palette)}
           palette={palette}
           receptionDesign={receptionDesign}
           saveThemeAction={saveMoodboardTheme}
@@ -450,27 +445,23 @@ export default async function MoodBoardPage({ params }: Props) {
           applyTemplateAction={applyMoodboardTemplate}
         />
 
-        {showChineseDefaultNote ? (
-          <p className="rounded-lg border border-[#7A1F2B]/25 bg-[#7A1F2B]/[0.05] px-3 py-2 text-sm text-ink/75">
-            We&rsquo;ve suggested a red &amp; gold palette — the auspicious colours of a
-            Chinese wedding. Tweak it to your taste, then{' '}
-            <span className="font-medium">Save palette</span> to keep it. Nothing is saved
-            until you do.
-          </p>
-        ) : null}
-
         {/* Inspiration + inline palette — presented side by side in the canvas
             flow (was a separate tab). Reuses InspirationBoard/PaletteEditor's
             logic/props unchanged; only the surrounding layout changed. */}
         <div className="grid gap-6 lg:grid-cols-5">
           <section id="inspiration" className="scroll-mt-24 space-y-4 lg:col-span-3">
-            <header>
-              <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
+            <header className="space-y-1">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
+                <InfoButton label="About inspiration">
+                  Upload up to 3 photos per category — drag one onto another slot to reorder.
+                  We pull a matching palette colour from each upload automatically, and these
+                  references will make your photo-real render match your taste, not a generic
+                  wedding.
+                </InfoButton>
+              </div>
               <p className="max-w-prose text-sm text-ink/65">
-                Drop the looks you love — a venue, a backdrop, a bouquet, an outfit. Drag a
-                photo onto another slot to reorder. We pull a palette from each, and these
-                references will make your photo-real render match your taste, not a generic
-                wedding.
+                Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.
               </p>
             </header>
             <InspirationBoard eventId={eventId} initial={inspirations} />
@@ -483,15 +474,9 @@ export default async function MoodBoardPage({ params }: Props) {
                 Set each role&rsquo;s colors — the rest of the board follows.
               </p>
             </header>
-            {/* For the Chinese default we surface our own accurate red & gold
-                note above, so we suppress the editor's generic "from your
-                wedding feel" hint (seeded -> false) to avoid a duplicate,
-                inaccurate message. Non-Chinese events keep seeded={isSeeded}
-                exactly as before — byte-identical. */}
             <PaletteEditor
               eventId={eventId}
               initial={initialPalette}
-              seeded={isSeeded && !showChineseDefaultNote}
               visibleKeys={Array.from(visibleKeys)}
               saveAction={saveRolePalette}
             />

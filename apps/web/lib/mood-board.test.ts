@@ -15,6 +15,7 @@ import {
   resolveRoomDressing,
   sideAttireColor,
   slugifyCustomRoleKey,
+  hasChosenMajors,
   PALETTE_ORDER,
   PALETTE_LIMITS,
   MAX_CUSTOM_ROLES,
@@ -259,6 +260,31 @@ test('room dressing falls back to warm-neutral defaults with no reception palett
   assert.equal(rd.chairs, '#E7E1D8');
   assert.equal(rd.florals, '#C89B6C');
   assert.equal(rd.lighting_warmth, '#FBE9D8');
+});
+
+// ── hasChosenMajors: the ONE predicate (MB3, 2026-09-03) ─────────────────────
+
+test('hasChosenMajors is false on a genuinely blank board', () => {
+  assert.equal(hasChosenMajors({}), false);
+});
+
+test('hasChosenMajors is false when every OTHER key is set but reception is not', () => {
+  // The exact defect this predicate replaces: `hasSavedPalette` (any key at
+  // all) would have called this "chosen" and suppressed a starter-slot
+  // affordance the couple still needs.
+  assert.equal(hasChosenMajors({ bride: ['#C98A94'], groom: ['#2E4433'] }), false);
+});
+
+test('hasChosenMajors is true the moment reception has even one color', () => {
+  assert.equal(hasChosenMajors({ reception: ['#C97B4B'] }), true);
+});
+
+test('hasChosenMajors reads the same whether reception came from an applied theme or the couple\'s own edit', () => {
+  // The prototype tracked these as two different ephemeral signals
+  // (touchedRoles vs majorsSetByTheme); the persisted app has only one fact.
+  const fromTheme: RolePalette = { reception: ['#C97B4B', '#824A2A', '#D08654'] };
+  const fromCouple: RolePalette = { reception: ['#111111'] };
+  assert.equal(hasChosenMajors(fromTheme), hasChosenMajors(fromCouple));
 });
 
 // ── ordering ────────────────────────────────────────────────────────────────

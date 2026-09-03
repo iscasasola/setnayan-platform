@@ -1,16 +1,19 @@
 /**
- * ⭐ THE GRANT-KIND METERING SPLIT, END TO END (owner-locked 2026-07-26).
+ * ⭐ THE BROADCAST UNLOCK, END TO END (LS6 · owner-ruled 2026-09-02).
  *
- * lib/live-studio-window.test.ts proves the RULE (`classifyGrant` + `grantIsUnmetered`
- * + `decideBroadcastWindow`) against a pure input. This file proves the WIRING: that
- * `resolveBroadcastWindow` actually reads the four grant signals out of the database
- * and hands the right one to the decision — because a correct rule fed the wrong fact
- * is exactly as expensive as a wrong rule.
+ * lib/live-studio-window.test.ts proves the RULE (`decideBroadcastWindow`) against
+ * a pure input. This file proves the WIRING: that `resolveBroadcastWindow` reads
+ * ownership out of the database (via `eventSkuActive` — any route: order, bundle,
+ * grant, promo) and hands it straight to the decision, and that `stampFirstLiveAt`
+ * still records the informational "first go-live" fact correctly now that nothing
+ * about entitlement depends on it.
  *
- * THE ONE THAT COSTS MONEY: an `is_internal` staff account, of which there can be many
- * and which Wave 7 (#3713) made `unmetered`, must resolve to a METERED one-event-day
- * window. A founder seat — owner-granted, capped at 10, "all services free
- * permanently" — must stay unmetered even though that same account is also internal.
+ * 🚫 RETIRED HERE: everything this file used to prove about the grant-kind
+ * metering split (founder/comp/internal/promo, `resolveLiveStudioGrantKind`,
+ * `classifyGrant` wiring) and the per-event-day anchor math (`foldWindowEnd`,
+ * "buy Thu, wedding Sat" regression) — LS6 deleted the code these tests pinned,
+ * so pinning it here would just be testing that deleted code stays deleted, which
+ * `git grep` already proves better than a test can.
  *
  * Run: `pnpm test:unit`.
  */
@@ -21,204 +24,23 @@ import { dirname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  resolveBroadcastWindow,
-  resolveLiveStudioGrantKind,
-  stampFirstLiveAt,
-} from './live-studio-window-server';
-import { LIVE_STUDIO_DAY_HOURS } from './live-studio-window';
+import { resolveBroadcastWindow, stampFirstLiveAt } from './live-studio-window-server';
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => readFileSync(resolvePath(HERE, rel), 'utf8');
 
 const EVENT = 'S89E-TESTEVENT1';
-const T0 = '2026-08-01T10:00:00.000Z';
-const t0 = new Date(T0);
-const at = (hours: number) => new Date(t0.getTime() + hours * 3_600_000);
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   A TABLE-AWARE Supabase stub. Deliberately not reusing entitlements.test.ts's
-   `makeOwnedSupabase`: that one ignores which table is queried, and the whole
-   question here is that `orders` (day count) and the grant RPCs disagree.
+   A TABLE-AWARE Supabase stub. `eventSkuActive` fans out across several tables and
+   RPCs (orders, bundle components, baskets, promo windows, comp grants, internal)
+   — this models ONLY the `orders` route (paid/fulfilled rows), which is enough to
+   drive `owned` true or false, and gracefully no-ops everything else so the other
+   routes never accidentally contribute a spurious `true`.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-type Facts = {
-  /** paid/fulfilled LIVE_STUDIO-family orders, by created_at. [] = a pure grant. */
-  dayOrders?: string[];
-  founder?: boolean;
-  comp?: boolean;
-  internal?: boolean;
-  /** RPCs that should error, to prove the fail-closed direction. */
-  rpcErrors?: boolean;
-  firstLiveAt?: string | null;
-};
-
-function stub(facts: Facts): SupabaseClient {
-  const dayOrders = facts.dayOrders ?? [];
-  const rows = dayOrders.map((created_at) => ({ created_at, status: 'paid' }));
-
-  const table = (name: string) => {
-    const q: Record<string, unknown> = {
-      select: () => q,
-      eq: () => q,
-      neq: () => q,
-      not: () => q,
-      in: () => q,
-      order: () => q,
-      limit: () => q,
-      maybeSingle: () => {
-        if (name === 'panood_control_state') {
-          return Promise.resolve({
-            data: { first_live_at: facts.firstLiveAt === undefined ? T0 : facts.firstLiveAt },
-            error: null,
-          });
-        }
-        // No broadcast on air — keeps the never-interrupt rule out of these cases.
-        return Promise.resolve({ data: null, error: null });
-      },
-      then(onOk: (v: unknown) => unknown) {
-        // `orders` serves BOTH checkOrderActive (status rows) and
-        // fetchBroadcastDayStarts (created_at rows); one row shape satisfies both.
-        const data = name === 'orders' ? rows : [];
-        return Promise.resolve({ data, error: null }).then(onOk);
-      },
-    };
-    return q;
-  };
-
-  return {
-    from: (name: string) => table(name),
-    rpc: (fn: string) => {
-      if (facts.rpcErrors) {
-        return Promise.resolve({ data: null, error: { message: 'rpc down' } });
-      }
-      if (fn === 'event_host_holds_founder_seat')
-        return Promise.resolve({ data: Boolean(facts.founder), error: null });
-      if (fn === 'event_has_comp_for_sku')
-        return Promise.resolve({ data: Boolean(facts.comp), error: null });
-      if (fn === 'event_host_is_internal')
-        return Promise.resolve({ data: Boolean(facts.internal), error: null });
-      return Promise.resolve({ data: null, error: null });
-    },
-  } as unknown as SupabaseClient;
-}
-
-/* ── resolveLiveStudioGrantKind — the read ──────────────────────────────────── */
-
-test('the resolver reads founder / comp / internal out of the database', async () => {
-  assert.equal(await resolveLiveStudioGrantKind(stub({ founder: true }), EVENT), 'founder');
-  assert.equal(await resolveLiveStudioGrantKind(stub({ comp: true }), EVENT), 'comp');
-  assert.equal(await resolveLiveStudioGrantKind(stub({ internal: true }), EVENT), 'internal');
-  assert.equal(await resolveLiveStudioGrantKind(stub({}), EVENT), 'unknown');
-});
-
-test('⭐ founder BEATS internal on the real read (the owner account is both)', async () => {
-  assert.equal(
-    await resolveLiveStudioGrantKind(stub({ founder: true, internal: true }), EVENT),
-    'founder',
-  );
-});
-
-test('FAIL-CLOSED — every grant RPC erroring resolves to unknown (= metered)', async () => {
-  assert.equal(await resolveLiveStudioGrantKind(stub({ rpcErrors: true }), EVENT), 'unknown');
-  // A blank event id can never be a grant either.
-  assert.equal(await resolveLiveStudioGrantKind(stub({ founder: true }), ''), 'unknown');
-});
-
-/* ── resolveBroadcastWindow — the whole chain ───────────────────────────────── */
-
-test('⭐ THE CORRECTION — an INTERNAL-hosted event with zero orders is METERED', async () => {
-  const supabase = stub({ internal: true });
-
-  const inside = await resolveBroadcastWindow(supabase, EVENT, { now: at(1) });
-  assert.equal(inside.multiCam, true, 'inside its one event-day it broadcasts normally');
-  assert.equal(inside.reason, 'open', 'NOT "unmetered" — Wave 7 (#3713) returned that here');
-  assert.equal(inside.meteredDays, 1);
-  assert.equal(inside.expiresAt, at(LIVE_STUDIO_DAY_HOURS).toISOString());
-
-  const after = await resolveBroadcastWindow(supabase, EVENT, { now: at(30) });
-  assert.equal(after.multiCam, false, 'the day lapses, exactly like a paying customer');
-  assert.equal(after.reason, 'expired');
-});
-
-test('FOUNDER — a founder-seat event with zero orders stays unmetered forever', async () => {
-  const d = await resolveBroadcastWindow(stub({ founder: true }), EVENT, { now: at(9000) });
-  assert.equal(d.multiCam, true);
-  assert.equal(d.reason, 'unmetered');
-  assert.equal(d.expiresAt, null);
-});
-
-test('FOUNDER + INTERNAL — the overlap resolves unmetered, not metered', async () => {
-  const d = await resolveBroadcastWindow(stub({ founder: true, internal: true }), EVENT, {
-    now: at(9000),
-  });
-  assert.equal(d.reason, 'unmetered', 'the owner account must not be metered');
-});
-
-test('COMP — an admin gift with zero orders stays unmetered', async () => {
-  const d = await resolveBroadcastWindow(stub({ comp: true }), EVENT, { now: at(9000) });
-  assert.equal(d.reason, 'unmetered');
-});
-
-test('a PURCHASED day is metered no matter who the buyer is (internal included)', async () => {
-  const d = await resolveBroadcastWindow(
-    stub({ internal: true, dayOrders: ['2026-07-20T00:00:00.000Z'] }),
-    EVENT,
-    { now: at(1) },
-  );
-  assert.equal(d.days, 1);
-  assert.equal(d.reason, 'open');
-  assert.equal(d.expiresAt, at(LIVE_STUDIO_DAY_HOURS).toISOString());
-});
-
-test('an UNOWNED event never reaches the grant resolver — it is just the free tier', async () => {
-  // No orders, no grants: eventSkuActive resolves false and the window short-circuits.
-  const d = await resolveBroadcastWindow(stub({}), EVENT, { now: at(1) });
-  assert.equal(d.multiCam, false);
-  assert.equal(d.reason, 'not-owned');
-});
-
-/* ── WIRING GUARDS — the call site is the thing that regresses ──────────────── */
-
-test('resolveBroadcastWindow resolves the grant kind ONLY on the zero-day branch', () => {
-  const src = read('./live-studio-window-server.ts');
-  assert.match(
-    src,
-    /dayStarts\.length === 0\s*\?\s*await resolveLiveStudioGrantKind/,
-    'the grant read must stay behind the zero-day guard — a paying customer must not pay for four RPCs',
-  );
-  assert.match(src, /grantKind,/, 'the resolved kind must actually be passed to the decision');
-});
-
-test('the precedence ruling lives in the PURE layer, not inline in the reader', () => {
-  const src = read('./live-studio-window-server.ts');
-  assert.ok(
-    src.includes('classifyGrant('),
-    'the reader must delegate precedence so all 16 overlaps stay unit-testable',
-  );
-  assert.ok(
-    !/if \(internal\) return 'internal'/.test(src),
-    'a second, inline copy of the precedence order is how the two would drift',
-  );
-});
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   🚨 THE ENTITLEMENT GATE ON THE WINDOW ANCHOR (owner-approved 2026-07-27)
-
-   The defect this closes, in one line: the FREE single-camera livestream ran
-   through the same go-live action and stamped the PAID clock, so
-   `max(firstLiveAt, boughtAt) + 24h` could expire BEFORE the wedding the couple
-   had paid for. See stampFirstLiveAt's header.
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-/**
- * The `stub()` above models reads only. This one adds the two WRITES the stamp
- * performs and records whether the anchor was actually written — which is the
- * whole property under test.
- */
-function stampStub(facts: Facts) {
-  const dayOrders = facts.dayOrders ?? [];
-  const rows = dayOrders.map((created_at) => ({ created_at, status: 'paid' }));
+function stub(opts: { owned?: boolean; ordersError?: boolean; firstLiveAt?: string | null }) {
   const wrote: Array<Record<string, unknown>> = [];
 
   const table = (name: string) => {
@@ -239,135 +61,131 @@ function stampStub(facts: Facts) {
       maybeSingle: () => {
         if (name === 'panood_control_state') {
           return Promise.resolve({
-            data: { first_live_at: facts.firstLiveAt === undefined ? null : facts.firstLiveAt },
+            data: { first_live_at: opts.firstLiveAt === undefined ? null : opts.firstLiveAt },
             error: null,
           });
         }
         return Promise.resolve({ data: null, error: null });
       },
       then(onOk: (v: unknown) => unknown) {
-        const data = name === 'orders' ? rows : [];
-        return Promise.resolve({ data, error: null }).then(onOk);
+        if (name === 'orders') {
+          if (opts.ordersError) return Promise.resolve({ data: null, error: { code: 'XXXXX', message: 'boom' } }).then(onOk);
+          const data = opts.owned ? [{ status: 'paid' }] : [];
+          return Promise.resolve({ data, error: null }).then(onOk);
+        }
+        // Every other table (bundle components, baskets, ...) — empty, never grants.
+        return Promise.resolve({ data: [], error: null }).then(onOk);
       },
     };
     return q;
   };
 
-  return {
-    client: {
-      from: (name: string) => table(name),
-      rpc: (fn: string) => {
-        if (facts.rpcErrors) return Promise.resolve({ data: null, error: { message: 'rpc down' } });
-        if (fn === 'event_host_holds_founder_seat')
-          return Promise.resolve({ data: Boolean(facts.founder), error: null });
-        if (fn === 'event_has_comp_for_sku')
-          return Promise.resolve({ data: Boolean(facts.comp), error: null });
-        if (fn === 'event_host_is_internal')
-          return Promise.resolve({ data: Boolean(facts.internal), error: null });
-        return Promise.resolve({ data: null, error: null });
-      },
-    } as unknown as SupabaseClient,
-    wrote,
-  };
+  const client = {
+    from: (name: string) => table(name),
+    // Comp grant / internal-account RPCs — always "no" so only `orders` drives `owned`.
+    rpc: () => Promise.resolve({ data: false, error: null }),
+  } as unknown as SupabaseClient;
+
+  return { client, wrote };
 }
 
-test('⭐ THE FIX — a FREE go-live does NOT stamp the paid clock', async () => {
-  // No orders, no grants → not-owned → the free single-camera livestream. This press
-  // is exactly what used to burn the couple's paid day before they had bought it.
-  const { client, wrote } = stampStub({});
-  await stampFirstLiveAt(client, EVENT);
-  assert.deepEqual(wrote, [], 'a free broadcast must never start the ₱3,000 clock');
+/* ── resolveBroadcastWindow — ownership is the whole test ────────────────────── */
+
+test('owned via a paid order ⇒ multiCam forever, no expiry', async () => {
+  const { client } = stub({ owned: true });
+  const d = await resolveBroadcastWindow(client, EVENT);
+  assert.equal(d.multiCam, true);
+  assert.equal(d.reason, 'owned');
 });
 
-test('⭐ ANTI-VACUITY — a PAID go-live with no anchor DOES stamp', async () => {
-  // If this failed the same way, the test above would be worthless: the gate has to
-  // refuse the free press and admit the paid one.
-  const { client, wrote } = stampStub({ dayOrders: ['2026-07-20T00:00:00.000Z'] });
+test('not owned ⇒ the free tier', async () => {
+  const { client } = stub({ owned: false });
+  const d = await resolveBroadcastWindow(client, EVENT);
+  assert.equal(d.multiCam, false);
+  assert.equal(d.reason, 'not-owned');
+});
+
+test('FAIL-CLOSED — an erroring ownership read resolves to not-owned, never a free ₱2,500 unlock', async () => {
+  const { client } = stub({ owned: true, ordersError: true });
+  const d = await resolveBroadcastWindow(client, EVENT);
+  assert.equal(d.multiCam, false, 'a database blip must never give away multi-cam');
+  assert.equal(d.reason, 'not-owned');
+});
+
+test('a blank event id short-circuits to not-owned without querying', async () => {
+  const { client } = stub({ owned: true }); // would resolve owned=true if it were queried
+  const d = await resolveBroadcastWindow(client, '');
+  assert.equal(d.multiCam, false);
+  assert.equal(d.reason, 'not-owned');
+});
+
+/* ── stampFirstLiveAt — still an informational stamp, still gated on ownership ── */
+
+test('a FREE go-live does not stamp — the informational fact stays about a REAL broadcast', async () => {
+  const { client, wrote } = stub({ owned: false });
   await stampFirstLiveAt(client, EVENT);
-  assert.equal(wrote.length, 1, 'a paid host pressing live must start their day');
+  assert.deepEqual(wrote, []);
+});
+
+test('an OWNED go-live with no prior anchor DOES stamp', async () => {
+  const { client, wrote } = stub({ owned: true });
+  await stampFirstLiveAt(client, EVENT);
+  assert.equal(wrote.length, 1);
   assert.ok(typeof wrote[0]?.first_live_at === 'string');
 });
 
-test('an already-anchored event is not re-stamped (write-once, and idempotent here)', async () => {
-  const { client, wrote } = stampStub({
-    dayOrders: ['2026-07-20T00:00:00.000Z'],
-    firstLiveAt: T0,
-  });
+test('an already-anchored event is not re-stamped (write-once)', async () => {
+  const { client, wrote } = stub({ owned: true, firstLiveAt: '2026-08-01T10:00:00.000Z' });
   await stampFirstLiveAt(client, EVENT);
   assert.deepEqual(wrote, [], 'the anchor may never move, restart or extend');
 });
 
-test('a METERED grant (internal) still stamps — the 2026-07-26 metering ruling holds', async () => {
-  // The gate must not accidentally un-meter internal accounts by refusing to start
-  // their clock: §4i ② made internal METERED on purpose.
-  const { client, wrote } = stampStub({ internal: true });
-  await stampFirstLiveAt(client, EVENT);
-  assert.equal(wrote.length, 1, 'an internal host gets one metered event-day, so it must anchor');
-});
-
-test('FAIL-CLOSED on the write, which is fail-OPEN for the couple', async () => {
-  // Grant RPCs down + zero orders → not-owned → no stamp. The paid couple that lands
-  // here keeps multiCam via `awaiting-go-live` (no clock), so a transient error costs
-  // them nothing and can never shorten a window.
-  const { client, wrote } = stampStub({ rpcErrors: true });
+test('FAIL-CLOSED on the write too — an unresolvable entitlement never stamps', async () => {
+  const { client, wrote } = stub({ owned: true, ordersError: true });
   await stampFirstLiveAt(client, EVENT);
   assert.deepEqual(wrote, []);
-  const d = await resolveBroadcastWindow(stub({ dayOrders: ['2026-07-20T00:00:00.000Z'], firstLiveAt: null }), EVENT, { now: at(1) });
-  assert.equal(d.multiCam, true, 'an unstamped PAID event must still be able to broadcast');
-  assert.equal(d.reason, 'awaiting-go-live');
-  assert.equal(d.expiresAt, null, 'and it must carry no expiry to run out of');
 });
 
-test('🚨 THE REGRESSION, proven both ways — the wedding-day expiry the gate prevents', async () => {
-  // The real calendar from the audit: free stream Mon, buy Thu (the 24-hour manual
-  // reconciliation SLA forces buying ahead), wedding Sat.
-  const mon = '2026-08-03T10:00:00.000Z';
-  const thu = '2026-08-06T10:00:00.000Z';
-  const sat = new Date('2026-08-08T15:00:00.000Z');
-
-  // BEFORE: the free Monday press had stamped the anchor →
-  // max(Mon, Thu) + 24h = Friday → EXPIRED at a Saturday ceremony, on one camera.
-  const before = await resolveBroadcastWindow(stub({ dayOrders: [thu], firstLiveAt: mon }), EVENT, {
-    now: sat,
-  });
-  assert.equal(before.multiCam, false, 'this is the defect: paid, and cut to one camera');
-  assert.equal(before.reason, 'expired');
-
-  // AFTER: the free press no longer stamps, so the anchor is still null on Saturday;
-  // the first ENTITLED go-live is the ceremony itself and the day starts there.
-  const atCeremony = await resolveBroadcastWindow(
-    stub({ dayOrders: [thu], firstLiveAt: null }),
-    EVENT,
-    { now: sat },
-  );
-  assert.equal(atCeremony.multiCam, true, 'they paid; they broadcast');
-  assert.equal(atCeremony.reason, 'awaiting-go-live');
-
-  // And once it stamps AT the ceremony, the full event-day runs from there.
-  const running = await resolveBroadcastWindow(
-    stub({ dayOrders: [thu], firstLiveAt: sat.toISOString() }),
-    EVENT,
-    { now: new Date(sat.getTime() + 3 * 3_600_000) },
-  );
-  assert.equal(running.multiCam, true);
-  assert.equal(running.reason, 'open');
-  assert.equal(
-    running.expiresAt,
-    new Date(sat.getTime() + LIVE_STUDIO_DAY_HOURS * 3_600_000).toISOString(),
-    'buying early must cost the couple nothing — §4f②',
-  );
+test('a blank event id is a no-op, not a throw', async () => {
+  const { client, wrote } = stub({ owned: true });
+  await stampFirstLiveAt(client, '');
+  assert.deepEqual(wrote, []);
 });
 
-test('the gate is STRUCTURAL — the stamp asks before it writes', () => {
-  // A caller-side check would be one forgotten call site away from the defect
-  // returning, and the column is write-once with no admin reset, so a wrong stamp is
-  // unfixable. Pin that the refusal lives inside the stamp.
+/* ── STRUCTURAL GUARDS — what the LS6 rewrite must have actually deleted ─────── */
+
+test('the retired grant-kind and day-order machinery is gone from this module', () => {
+  // stripComments FIRST — the module's own retirement docblock names these
+  // symbols in prose ("🚫 RETIRED HERE (LS6): ... `resolveLiveStudioGrantKind` ...
+  // are all gone"), and that explanatory mention must not itself trip the guard.
+  const src = stripComments(read('./live-studio-window-server.ts'));
+  for (const gone of [
+    'resolveLiveStudioGrantKind',
+    'fetchBroadcastDayStarts',
+    'broadcastDaySkus',
+    'fetchActiveBroadcast',
+    'classifyGrant',
+  ]) {
+    assert.ok(!src.includes(gone), `${gone} should have been removed by LS6, but is still referenced`);
+  }
+});
+
+test('resolveBroadcastWindow takes no isLive/broadcastStartedAt opts any more — nothing time-based left to feed it', () => {
+  const src = read('./live-studio-window-server.ts');
+  const fn = src.slice(
+    src.indexOf('export async function resolveBroadcastWindow'),
+    src.indexOf(') {', src.indexOf('export async function resolveBroadcastWindow')),
+  );
+  assert.doesNotMatch(fn, /isLive/, 'the signature must not still accept a liveness hint the decision no longer uses');
+});
+
+test('the stamp still asks before it writes, and the ask is `!entitled.multiCam`', () => {
   const src = read('live-studio-window-server.ts');
   const fn = src.slice(src.indexOf('export async function stampFirstLiveAt'));
   const askAt = fn.indexOf('resolveBroadcastWindow(supabase, eventId)');
-  const writeAt = fn.indexOf("update({ first_live_at");
-  assert.ok(askAt > -1, 'the stamp must resolve the window before writing');
+  const writeAt = fn.indexOf('update({ first_live_at');
+  assert.ok(askAt > -1, 'the stamp must resolve ownership before writing');
   assert.ok(writeAt > -1);
-  assert.ok(askAt < writeAt, 'the entitlement must be asked BEFORE the write, not after');
+  assert.ok(askAt < writeAt, 'ownership must be asked BEFORE the write, not after');
   assert.match(fn, /if \(!entitled\.multiCam\) return;/);
 });

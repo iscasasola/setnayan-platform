@@ -39,26 +39,25 @@ test('the notice states the LEAD TIME, the REASON, and that buying early is free
   assert.match(
     LEAD_TIME_NOTICE,
     /costs you nothing/i,
-    'without this, "buy earlier" reads as "burn your day earlier"',
+    'without this, "buy earlier" reads as "burn something by buying earlier"',
   );
   assert.match(
     LEAD_TIME_NOTICE,
-    /when you first go live, not when you pay/i,
-    'the anchor promise is the whole reason buying early is safe',
+    /covers the whole event/i,
+    'LS6 (2026-09-02) retired the per-event-day clock — the notice must promise the permanent unlock, not the old anchor',
   );
 });
 
-test('⭐ the notice is only TRUE while the anchor is gated on entitlement', () => {
-  // "your broadcast day starts when you first go live, not when you pay" is a claim
-  // about `stampFirstLiveAt`. It became true on 2026-07-27 when the stamp started
-  // refusing an un-entitled press. If that gate is ever removed, this copy is a LIE —
-  // so the copy and the gate are pinned together, here, on purpose.
-  const stamp = repoFile('lib/live-studio-window-server.ts');
-  const fn = stamp.slice(stamp.indexOf('export async function stampFirstLiveAt'));
-  assert.match(
-    fn,
-    /if \(!entitled\.multiCam\) return;/,
-    'the entitlement gate is gone — LEAD_TIME_NOTICE now promises something false',
+test('🚫 the retired per-event-day anchor promise does not come back', () => {
+  // LS6 (2026-09-02) retired the broadcast-day model this notice used to describe
+  // ("your broadcast day starts when you first go live, not when you pay"). That
+  // sentence is false today — ownership is permanent, unconditional on WHEN the
+  // event first goes live (lib/live-studio-window.ts) — so it must never resurface
+  // here even if a future edit reintroduces day-based language elsewhere by mistake.
+  assert.doesNotMatch(
+    LEAD_TIME_NOTICE,
+    /when you first go live, not when you pay/i,
+    'the retired per-event-day anchor promise is back — LS6 removed the clock it described',
   );
 });
 

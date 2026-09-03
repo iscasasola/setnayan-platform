@@ -99,17 +99,14 @@ export const RETAIL: RetailRow[] = [
   // declares, and pinning a live figure in a fixture is how the last drift
   // started. The real price lives in the catalog.
   { service_code: 'PAPIC_GUEST_100K', title: 'Papic — add 100,000 credits', retail_price_php: 24000, is_active: true },
-  // ₱1,500 since 2026-09-02 (migration 20271192082215). This row is the SECOND
-  // hand-typed copy of the catalog — `llms-fixture-matches-the-catalog.db.test.ts`
-  // pins it to the replayed catalog precisely so a reprice cannot land in one place
-  // only. It moved in the same PR as the real one, which is the rule the neighbouring
+  // ₱2,500, ONE-TIME (once per event) since 2026-09-02 (LS6, migration
+  // 20271194920190) — supersedes the ₱1,500/day row from earlier the same day
+  // (migration 20271192082215). This row is the SECOND hand-typed copy of the
+  // catalog — `llms-fixture-matches-the-catalog.db.test.ts` pins it to the
+  // replayed catalog precisely so a reprice cannot land in one place only. It
+  // moved in the same PR as the real one, which is the rule the neighbouring
   // fixtures already state.
-  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 1500, is_active: true },
-  // Optional "Setnayan supplies the channel" upsell (owner ruling 2026-09-02),
-  // seeded by migration 20271192528988. STACKS on LIVE_STUDIO — this file is a
-  // SECOND hand-typed copy of the catalog and must move in the same PR as the
-  // real one, same rule as every neighbouring fixture row here.
-  { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Studio — hosted channel', retail_price_php: 1500, is_active: true },
+  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 2500, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on
@@ -170,6 +167,15 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'PANOOD_SYSTEM_MOBILE', title: 'Live Studio — Mobile', retail_price_php: 1500, is_active: false },
   { service_code: 'PANOOD_SYSTEM', title: 'Live Studio', retail_price_php: 2500, is_active: false },
   { service_code: 'LIVE_STUDIO_ROAM', title: 'Live Studio Roam', retail_price_php: 3500, is_active: false },
+  // Deactivated by LS6 (migration 20271194920190, 2026-09-02): it was priced to
+  // SUM with LIVE_STUDIO into the owner's stated "₱3,000 TOTAL for the hosted
+  // option" (migration 20271192528988); that relationship broke when LIVE_STUDIO
+  // repriced to ₱2,500 one-time, and no replacement figure has been given — see
+  // the LS6 migration for the full reasoning. Zero orders existed on this SKU at
+  // deactivation, so nothing is stranded. Never in REQUIRED_RETAIL / llms.txt
+  // prose, so this row only needs to satisfy the "retired rows stay retired"
+  // check below, not a prose-removal pairing.
+  { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Studio — hosted channel', retail_price_php: 1500, is_active: false },
   { service_code: 'PAPIC_SEATS', title: 'Papic (5 Seats)', retail_price_php: 2999, is_active: false },
   { service_code: 'PAPIC_CAMERA_UNLIMITED_DAY', title: 'Papic Max (per camera, per day)', retail_price_php: 200, is_active: false },
 ];

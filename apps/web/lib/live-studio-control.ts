@@ -173,7 +173,7 @@ export function liveStudioControllerHref(eventId: string): string {
  *   • multiCamUnlocked — WAVE 3: this no longer decides whether the controls
  *     RENDER (they always do — rehearsal is free). It decides whether the host may
  *     BROADCAST more than one camera, i.e. whether the unlock affordances show.
- *   • unlockCtaLabel   — the inline CTA text ("Unlock · ₱3,000"); falls back to a
+ *   • unlockCtaLabel   — the inline CTA text ("Unlock · " plus the live catalog price); falls back to a
  *     bare "Unlock" when the catalog price is unavailable (never a hardcoded
  *     number — the owner rule is prices come from the admin catalog).
  */
@@ -254,7 +254,7 @@ export function showRehearsalUnlockNotice(input: {
 
    The dimmed/greyscale tile with a 🔒 "Unlock to use" badge over it is likewise
    GONE. Seeing the cameras actually working IS the conversion mechanism; hiding or
-   dimming them recreates the exact defect Wave 3 exists to fix — asking ₱3,000 for
+   dimming them recreates the exact defect Wave 3 exists to fix — asking real money for
    an experience the couple has never felt, for a day that cannot be redone.
    ══════════════════════════════════════════════════════════════════════════════ */
 

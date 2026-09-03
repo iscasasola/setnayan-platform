@@ -352,30 +352,33 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   // (g) ⭐ WAVE 7 · STAMP THE BROADCAST-WINDOW ANCHOR
   //     (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
   //
-  // ₱3,000 buys ONE EVENT-DAY of multi-cam broadcasting, anchored on the first ENTITLED GO-LIVE
-  // rather than a calendar day — no timezone ambiguity, and buying early costs the couple nothing
-  // because the clock does not start until this line runs. Wave 5 noted that the unified go-live
-  // path never wrote `first_live_at`; this is that gap closed.
+  // `first_live_at` records the first ENTITLED go-live — an informational fact
+  // (rendered on the broadcast page) rather than a billing anchor since LS6
+  // (2026-09-02): multi-cam entitlement no longer expires or depends on WHEN this
+  // is stamped, `resolveBroadcastWindow` reads ownership alone. Wave 5 noted that
+  // the unified go-live path never wrote `first_live_at` at all; this is that gap
+  // closed.
   //
-  // ⚠ "ENTITLED" IS LOAD-BEARING (owner-approved 2026-07-27). This call is reached by the FREE
-  // single-camera livestream too — it is the same action — and until now that stamped the PAID
-  // clock, so a couple who streamed free once and then bought (as the 24-hour manual
-  // reconciliation SLA makes them do, days ahead) arrived at their ceremony EXPIRED, on one
-  // camera. `stampFirstLiveAt` now asks `resolveBroadcastWindow` first and refuses an
-  // un-entitled press; see its header for the full failure it closes. Nothing is gated HERE —
-  // the rule is structural, inside the stamp, so no future caller can forget it.
+  // ⚠ "ENTITLED" IS STILL LOAD-BEARING, for a narrower reason than it used to be
+  // (owner-approved 2026-07-27, narrowed by LS6). This call is reached by the FREE
+  // single-camera livestream too — it is the same action — and a free press should
+  // not be recorded as this event's "first broadcast" fact ahead of a later PAID
+  // one. `stampFirstLiveAt` asks `resolveBroadcastWindow` first and refuses an
+  // un-entitled press; see its header. Nothing is gated HERE — the rule is
+  // structural, inside the stamp, so no future caller can forget it.
   //
-  // AFTER the broadcast is persisted, deliberately: every failure above returns early, so a
-  // go-live that never reached YouTube cannot burn a day the couple paid for. Write-once by DB
-  // trigger (trg_panood_first_live_at_immutable), so pressing live again can never move, restart
-  // or extend the window. Admin client because `panood_control_state` is couple-RLS and a
-  // coordinator running the controller must still be able to start the show.
+  // AFTER the broadcast is persisted, deliberately: every failure above returns
+  // early, so a go-live that never reached YouTube is never recorded as one.
+  // Write-once by DB trigger (trg_panood_first_live_at_immutable), so pressing
+  // live again can never move or restart it. Admin client because
+  // `panood_control_state` is couple-RLS and a coordinator running the controller
+  // must still be able to start the show.
   //
   // FLAG-GATED. `first_live_at` is ALSO read by the legacy 24-hour watermark model
   // (lib/panood-watermark.ts), which is untouched while the flag is off — stamping it there would
   // start that clock for a host pressing go-live on the setup page, which is a live behaviour
   // change on a selling product. Flag on, the legacy model is retired (§ 4f ①) and this anchor is
-  // the only thing reading the column.
+  // purely informational, the only thing reading the column.
   if (liveStudioRoamEnabled()) {
     const admin = createAdminClient();
     await stampFirstLiveAt(admin, eventId);

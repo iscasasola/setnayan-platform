@@ -35,11 +35,11 @@
  * code being deleted piecemeal, or a future publisher re-wiring `watermark.overlay`.
  *
  * ── WHAT REPLACED THE 24-HOUR WINDOW ───────────────────────────────────────────────────────
- * lib/live-studio-window.ts. Same best rule (never interrupt a running broadcast), same anchor
- * (`panood_control_state.first_live_at`, reused not re-invented), but it gates MULTI-CAM rather
- * than an overlay, it is EXTENDABLE (another ₱3,000 = another event-day), and it bounds the
- * never-interrupt grace to the broadcast that was already running. `PANOOD_WINDOW_HOURS` below is
- * the retired 24h constant and is superseded by `LIVE_STUDIO_DAY_HOURS` there.
+ * lib/live-studio-window.ts. Wave 7 (2026-07-25) first replaced it with an EXTENDABLE
+ * per-event-day clock gating MULTI-CAM rather than an overlay; LS6 (2026-09-02) then retired
+ * that clock too — ownership is now permanent for the life of the event, no expiry at all. Either
+ * way, `PANOOD_WINDOW_HOURS` below is scoped to THIS module's own retired 24-hour overlay window
+ * and to nothing in lib/live-studio-window.ts any more.
  *
  * ═══ Everything below this line is the ORIGINAL 2026-07-21 model, kept because the flag-off path
  *     still runs it verbatim. ═══

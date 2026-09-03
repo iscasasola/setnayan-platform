@@ -72,3 +72,22 @@ recording that the 2026-08-21 rail structure (free parts on the services hub) an
 the 2026-07-17/18 free-doorway lock were in direct conflict, and that the owner
 resolved it in favour of the older lock for the mood board specifically, without
 disturbing "All services" or the other free parts.
+
+## 2026-09-03 · fix(slug-mint): `mood-board` is our page, not a shop's
+
+The new public `/mood-board` doorway made `mood-board` a word the shop-address
+mint could still hand out. `lib/reserved-slugs.ts` (generated from route
+folders) picked it up automatically; `public.business_slug_is_reserved` does
+not regenerate itself, and it is the half that decides at shop registration.
+`tests/db/vendor-business-slug-mint.db.test.ts` caught it — the only failing
+check on PR #5141.
+
+A shop address is immutable once minted, so a business named "Mood Board"
+would have held setnayan.com/mood-board forever. Verified in production
+before writing the migration: `business_slug_is_reserved('mood-board')` was
+false and zero shops hold it, so this takes nothing from anybody. The function
+body was reproduced from `pg_get_functiondef` read out of production, not from
+the newest migration file — `CREATE OR REPLACE` silently reverts anything a
+reader forgot was in there.
+
+SPEC IMPACT: None — reserving a route word the platform already owns.

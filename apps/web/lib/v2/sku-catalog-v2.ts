@@ -96,6 +96,12 @@ export const V2_SKU_CODES = [
   // 2 bundles (platform_package_catalog, not retail)
   'GUIDED_PACK',
   'MEDIA_PACK',
+  // Mood Board "Make it real" render-credit pack — 50 credits / ₱1,000
+  // (MB2, migration 20271199871696). Listed here so
+  // formatV2Sku('MOODBOARD_RENDER_PACK') resolves the live catalog price for
+  // MB7's Buy button, the same way every other one-SKU add-on's price label
+  // is resolved.
+  'MOODBOARD_RENDER_PACK',
 ] as const;
 
 export type V2SkuCode = (typeof V2_SKU_CODES)[number];

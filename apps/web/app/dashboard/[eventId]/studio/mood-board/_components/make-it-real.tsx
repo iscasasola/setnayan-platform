@@ -37,6 +37,7 @@ import {
   colorsForPart,
   colorsForWholeLook,
   designRevisionKey,
+  eligiblePartsForVenue,
   EMPTY_PART_STATE,
   gridParts,
   briefColorLine,
@@ -105,9 +106,16 @@ export function MakeItReal({
     () => new Set(inspirationPresence),
     [inspirationPresence],
   );
+  // A room part the venue does not have (a beach's ceiling, a garden's
+  // walls) is dropped BEFORE it can become a tile, a suggestion, or a
+  // chooser entry — "excluded from the render brief, not just hidden".
+  const venueEligibleParts = useMemo(
+    () => eligiblePartsForVenue(eligibleParts, venueSetting),
+    [eligibleParts, venueSetting],
+  );
   const ctx = useMemo(
-    () => ({ palette, receptionDesign, inspirationPresence: inspirationPresenceSet }),
-    [palette, receptionDesign, inspirationPresenceSet],
+    () => ({ palette, receptionDesign, inspirationPresence: inspirationPresenceSet, venueSetting }),
+    [palette, receptionDesign, inspirationPresenceSet, venueSetting],
   );
   const currentRevisionKey = useMemo(
     () => designRevisionKey(palette, receptionDesign, venueSetting),
@@ -143,12 +151,12 @@ export function MakeItReal({
     return m;
   }, [partStates, addedParts]);
 
-  const { own, suggested } = gridParts(eligibleParts, ctx, work, dismissedSuggestions);
+  const { own, suggested } = gridParts(venueEligibleParts, ctx, work, dismissedSuggestions);
   const shown = [...own, ...suggested];
   const shownIds = new Set(shown.map((p) => p.id));
   const chooserGroups = PART_GROUPS.map((g) => ({
     ...g,
-    parts: eligibleParts.filter((p) => p.group === g.key && !shownIds.has(p.id)),
+    parts: venueEligibleParts.filter((p) => p.group === g.key && !shownIds.has(p.id)),
   })).filter((g) => g.parts.length > 0);
 
   const configUnavailable = !config;
@@ -160,7 +168,7 @@ export function MakeItReal({
     const lines = [
       briefColorLine(hexes, nearestColorName),
       ...(part.group === 'room'
-        ? briefZoneLines(part.sourceKey as PartId, receptionDesign)
+        ? briefZoneLines(part.sourceKey as PartId, receptionDesign, venueSetting)
         : []),
       `Reference photos — ${referencePhotoCount(part, inspirationPresenceSet)} uploaded`,
     ];
@@ -181,7 +189,10 @@ export function MakeItReal({
     const cost = configUnavailable ? 0 : config!.creditsWholeLook;
     const hexes = colorsForWholeLook(palette);
     const gate = renderGateForWholeLook(ctx);
-    const lines = [briefColorLine(hexes, nearestColorName), ...briefWholeLookZoneLines(receptionDesign)];
+    const lines = [
+      briefColorLine(hexes, nearestColorName),
+      ...briefWholeLookZoneLines(receptionDesign, venueSetting),
+    ];
     return buildTileViewModel({
       id: WHOLE_LOOK_ID,
       label: 'The whole look',
@@ -335,7 +346,7 @@ export function MakeItReal({
             {shown.length === 0 ? (
               <p className="text-sm text-ink/55">Parts you design above appear here.</p>
             ) : null}
-            {shown.length < eligibleParts.length ? (
+            {shown.length < venueEligibleParts.length ? (
               <button
                 type="button"
                 onClick={() => setChooserOpen(true)}

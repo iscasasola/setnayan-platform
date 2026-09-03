@@ -198,6 +198,28 @@ export type Lab3DPalette = {
    */
   chairs?: string;
   florals?: string;
+  /**
+   * THE FIFTH MAJOR COLOUR — `role_palette.reception[4]`, the slot
+   * `PALETTE_LIMITS.reception.slotLabels` calls **"Accent 2"**.
+   *
+   * Owner-locked 2026-09-03 ("themes must be 5 colors"), so all 2,600 seeded
+   * `moodboard_theme_templates` rows ship five. The room drew four of them —
+   * accent/table/floor/wall from reception[0..3] — and reception[4] reached
+   * NOTHING. A couple picked a fifth colour, saw it persist in the swatch
+   * strip, and the room never showed it. Same shape as the chairs/florals
+   * knobs above: saved, preserved, read by nobody.
+   *
+   * OPTIONAL for the same structural reason as those two: `PALETTE_LIMITS`
+   * still allows a 3-colour reception palette, and absent must keep meaning
+   * "they have no fifth colour", so every consumer falls back to exactly what
+   * it rendered before this existed. `resolvePalette([])` and `DEMO_PALETTES`
+   * never set it.
+   *
+   * ⚠ The same warning as `chairs`/`florals` applies, for the same reason: do
+   * NOT fill this from `resolveRoomDressing`. It is `reception[4]` verbatim or
+   * it is absent.
+   */
+  accent2?: string;
 };
 
 export type Vec2 = { x: number; z: number };
@@ -2069,13 +2091,19 @@ export function resolvePalette(hexes: string[]): Lab3DPalette {
     floor: at(2, '#e7e1d8'),
     wall: at(3, '#d8cfc2'),
     ambient: at(0, '#fbe9d8'),
+    // Fifth slot only when the list actually holds one — a 3/4-colour list
+    // must return exactly the object it always did. Every in-tree caller
+    // passes `[]`, so this changes nothing today; it is here so the two
+    // reception→materials paths cannot disagree about slot 4.
+    ...(clean[4] ? { accent2: clean[4] } : {}),
   };
 }
 
 /**
  * Map `events.role_palette` (the couple's mood-board palette) to scene materials.
  * Reception colors drive venue surfaces: [0]=accent/stage, [1]=table linen,
- * [2]=floor, [3]=backdrop wall. Falls back to resolvePalette([]) when unset.
+ * [2]=floor, [3]=backdrop wall, [4]=`accent2` (the fifth major, "Accent 2" —
+ * see the field doc). Falls back to resolvePalette([]) when unset.
  *
  * TAXONOMY v2: the couple's optional room-dressing OVERRIDES (linens/lighting)
  * are applied on top of the reception-derived surfaces — linen → the table
@@ -2093,6 +2121,10 @@ export function resolvePaletteFromRoles(rp: RolePalette): Lab3DPalette {
           floor:   r[2] ?? '#e7e1d8',
           wall:    r[3] ?? '#d8cfc2',
           ambient: r[0] ?? '#fbe9d8',
+          // The FIFTH major (see `Lab3DPalette.accent2`). Spread-conditional,
+          // never `r[4] ?? something`: a board with three or four colours must
+          // return the exact object it returned before slot 4 was read at all.
+          ...(r[4] ? { accent2: r[4] } : {}),
         };
   const rd = rp.room_dressing;
   if (!rd) return base;

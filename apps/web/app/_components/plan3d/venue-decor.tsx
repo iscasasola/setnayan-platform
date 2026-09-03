@@ -10,6 +10,15 @@
  *      3D consumer. The vocabulary + `sel()` fall-through live in that module —
  *      this file NEVER hardcodes an option id it can't read back from `sel()`.
  *
+ *      MB1 (2026-09-03) closed three silent gaps in exactly that data: the
+ *      `walls` · `photo_wall` · `welcome_signage` zones were stored, offered in
+ *      the editor and printed in the concept PDF while reaching no geometry at
+ *      all; and `role_palette.reception[4]` — the owner-locked FIFTH major
+ *      colour — was drawn nowhere. All four now render. `sel()` still draws ONE
+ *      treatment per attribute; what a multi-selection therefore leaves off
+ *      screen is disclosed to the couple by `primaryOnlyNotice()` in the room's
+ *      legend, so an unseen pick is never mistaken for an unmade one.
+ *
  *   2. `events.venue_setting` (TEXT, default 'banquet_hall') — the room ARCHETYPE.
  *      `VenueShell` swaps the room's walls / background / floor tone per setting
  *      (garden loses its walls for perimeter greenery, chapel goes tall + narrow
@@ -41,7 +50,7 @@ import {
   type Lab3DTable,
   type Lab3DFloor,
 } from '@/lib/seating-3d';
-import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { sel, type DrawnAttribute, type ReceptionDesign } from '@/lib/reception-scene';
 import { ColdSparkTunnel } from '@/app/_components/plan3d/kit/entrance-tunnel';
 
 type Room = { w: number; d: number };
@@ -68,6 +77,28 @@ function bloomColor(palette: Lab3DPalette): string {
 function leafColor(palette: Lab3DPalette): string {
   // Bias toward green but keep a hint of the palette so a bold theme still shows.
   return mix('#6f9b6a', palette.accent, 0.18);
+}
+/**
+ * THE SECOND TONE OF A TWO-TONE FLORAL — and the first place the couple's
+ * FIFTH major colour has ever reached a pixel.
+ *
+ * `BlossomInstances` has always painted alternating instances two tones: the
+ * bloom, and the bloom mixed toward the linen. When the couple's reception
+ * palette carries a fifth colour ("Accent 2", `reception[4]`), that IS the
+ * second tone — it is what the slot is for, and it is why a five-colour theme
+ * used to look identical to the same theme with four.
+ *
+ * The fallback is the EXACT expression each call site used before, `t` and
+ * all, so a board with three or four colours renders byte-for-byte as it did.
+ * That is the whole safety argument, and it is structural: `accent2` is
+ * `undefined` unless `reception[4]` exists.
+ *
+ * ⚠ NOT `resolveRoomDressing`. That helper derives a floral colour when the
+ * couple set none, from a different slot; wiring it here would restyle every
+ * room already sold. See `Lab3DPalette.florals`/`.accent2`.
+ */
+function bloomSecondary(palette: Lab3DPalette, bloom: string, t: number): string {
+  return palette.accent2 ?? mix(bloom, palette.table, t);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -266,7 +297,7 @@ function FloralWall({ center, width, palette, quality }: { center: THREE.Vector3
         <boxGeometry args={[width, height, 0.1]} />
         <meshStandardMaterial color={leaf} roughness={0.95} />
       </mesh>
-      <BlossomInstances points={blossoms} colorA={bloom} colorB={mix(bloom, palette.table, 0.4)} radius={0.16} />
+      <BlossomInstances points={blossoms} colorA={bloom} colorB={bloomSecondary(palette, bloom, 0.4)} radius={0.16} />
     </group>
   );
 }
@@ -315,7 +346,346 @@ function EntranceArch({
         <meshStandardMaterial color={variant === 'draped' ? postColor : archBloom} roughness={0.6} />
       </mesh>
       {ringPts.length > 0 ? (
-        <BlossomInstances points={ringPts} colorA={archBloom} colorB={mix(archBloom, palette.table, 0.4)} radius={0.13} />
+        <BlossomInstances points={ringPts} colorA={archBloom} colorB={bloomSecondary(palette, archBloom, 0.4)} radius={0.13} />
+      ) : null}
+    </group>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// THE THREE ZONES THE ROOM USED TO IGNORE
+//
+// `walls` · `photo_wall` · `welcome_signage` are stored in
+// `events.reception_design` exactly like ceiling/backdrop/tunnel, are offered
+// in the reception-design editor, are printed in the concept PDF, and reached
+// NO 3D geometry at all. A couple dressed their side walls and put a
+// step-and-repeat by the door, and the room looked byte-identical to a room
+// where they had chosen nothing — a silent absence rendering as a confident
+// answer.
+//
+// 🔑 EVERY ONE OF THE THREE DEFAULTS TO "NOTHING HERE" (`DEFAULT_DESIGN`:
+// walls → 'bare', photo_wall → 'none', welcome_signage → 'minimal'), so a
+// board that never touched them mounts none of this and renders exactly as it
+// did. The non-regression proof leans on that and nothing else.
+//
+// Every group carries a `name` — three.js `Object3D.name`, which is also what
+// makes "did this reach the RENDER?" answerable by something other than
+// trusting the resolver. See `the-room-draws-what-the-couple-saved.test.ts`.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Where the room's two long side walls are, and how tall the dressing runs. */
+const WALL_DRESS_Y = 1.5;
+const WALL_DRESS_H = 2.6;
+
+/**
+ * Side walls & pillars. Suppressed on open-air archetypes for the same reason
+ * ceiling decor is: a garden has no side wall to drape (the couple's choice is
+ * kept and simply has nothing to hang on — `VenueShell` already replaces those
+ * walls with perimeter greenery).
+ */
+function WallTreatment({
+  room,
+  palette,
+  quality,
+  treatment,
+}: {
+  room: Room;
+  palette: Lab3DPalette;
+  quality: DecorQuality;
+  treatment: string;
+}) {
+  const halfW = room.w / 2;
+  const bloom = useMemo(() => bloomColor(palette), [palette]);
+  const leaf = useMemo(() => leafColor(palette), [palette]);
+  const runs = useMemo<Array<{ x: number; ry: number }>>(
+    () => [
+      { x: -halfW + 0.12, ry: Math.PI / 2 },
+      { x: halfW - 0.12, ry: -Math.PI / 2 },
+    ],
+    [halfW],
+  );
+
+  // Points along one wall, in that wall's local frame (x runs along the room's
+  // depth once the group is rotated), used by the garland + greenery passes.
+  const along = useMemo(() => {
+    const n = quality === 'low' ? 14 : 24;
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      const z = -room.d / 2 + t * room.d;
+      pts.push(new THREE.Vector3(z, 0, 0));
+    }
+    return pts;
+  }, [room.d, quality]);
+
+  const drapeGeo = useMemo(() => curvedPanelGeo(0.62, WALL_DRESS_H, 0.1), []);
+  useLayoutEffect(() => () => drapeGeo.dispose(), [drapeGeo]);
+  const drapePanels = Math.max(6, Math.round(room.d / 0.72));
+
+  return (
+    <group name={`decor-walls-${treatment}`}>
+      {runs.map((run, ri) => (
+        <group key={ri} position={[run.x, 0, 0]} rotation={[0, run.ry, 0]}>
+          {treatment === 'fabric_drape'
+            ? Array.from({ length: drapePanels }).map((_, i) => {
+                const z = -room.d / 2 + (room.d / drapePanels) * (i + 0.5);
+                return (
+                  <mesh key={i} geometry={drapeGeo} position={[z, WALL_DRESS_Y, 0]}>
+                    <meshStandardMaterial
+                      color={mix(palette.wall, '#ffffff', 0.18)}
+                      roughness={0.62}
+                      metalness={0.06}
+                      side={THREE.DoubleSide}
+                    />
+                  </mesh>
+                );
+              })
+            : null}
+
+          {treatment === 'greenery_wall' ? (
+            <>
+              <mesh position={[0, WALL_DRESS_Y, 0.06]}>
+                <boxGeometry args={[room.d, WALL_DRESS_H, 0.1]} />
+                <meshStandardMaterial color={leaf} roughness={0.95} />
+              </mesh>
+              <BlossomInstances
+                points={along.map((p) => new THREE.Vector3(p.x, WALL_DRESS_Y + (((p.x * 7) % 5) / 5 - 0.5) * 1.6, 0.16))}
+                colorA={leaf}
+                colorB={bloomSecondary(palette, leaf, 0.3)}
+                radius={0.17}
+              />
+            </>
+          ) : null}
+
+          {treatment === 'floral_garland' ? (
+            <BlossomInstances
+              points={along.map((p) => new THREE.Vector3(p.x, WALL_DRESS_Y + 0.75, 0.14))}
+              colorA={bloom}
+              colorB={bloomSecondary(palette, bloom, 0.4)}
+              radius={0.15}
+            />
+          ) : null}
+
+          {/* "Uplighting only" is a real choice, not an empty one — the couple
+              said the walls stay bare AND lit. A slim emissive wash at the
+              skirting is what that looks like, and it is why it must not
+              render the same as 'bare'. */}
+          {treatment === 'uplighting_only'
+            ? Array.from({ length: quality === 'low' ? 5 : 8 }).map((_, i, arr) => {
+                const z = -room.d / 2 + (room.d / arr.length) * (i + 0.5);
+                return (
+                  <mesh key={i} position={[z, 0.28, 0.1]}>
+                    <boxGeometry args={[0.34, 0.5, 0.06]} />
+                    <meshStandardMaterial
+                      color={mix(palette.ambient, '#ffffff', 0.3)}
+                      emissive={palette.ambient}
+                      emissiveIntensity={quality === 'high' ? 1.4 : 0.8}
+                      toneMapped={false}
+                    />
+                  </mesh>
+                );
+              })
+            : null}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * The step-and-repeat / photo-op backdrop. Deliberately NOT the stage
+ * backdrop — the catalogue blurb says so in words ("separate from your stage
+ * backdrop"), so it stands against a side wall on the entrance half of the
+ * room, facing in.
+ */
+function PhotoWall({
+  room,
+  palette,
+  quality,
+  style,
+}: {
+  room: Room;
+  palette: Lab3DPalette;
+  quality: DecorQuality;
+  style: string;
+}) {
+  const w = Math.min(3.2, Math.max(2.0, room.w * 0.2));
+  const h = 2.6;
+  const x = -room.w / 2 + 0.5;
+  const z = room.d * 0.16;
+  const bloom = useMemo(() => bloomColor(palette), [palette]);
+  const leaf = useMemo(() => leafColor(palette), [palette]);
+  const grid = useMemo(
+    () => blossomGrid(w, h, quality === 'low' ? 6 : 9, quality === 'low' ? 5 : 8),
+    [w, h, quality],
+  );
+
+  return (
+    <group name={`decor-photo-wall-${style}`} position={[x, h / 2, z]} rotation={[0, Math.PI / 2, 0]}>
+      {/* Every style stands on the same panel — one physical wall. */}
+      <mesh position={[0, 0, 0]} castShadow>
+        <boxGeometry args={[w, h, 0.12]} />
+        <meshStandardMaterial
+          color={
+            style === 'neon_backdrop'
+              ? '#14161f'
+              : style === 'greenery_wall'
+                ? leaf
+                : mix(palette.wall, '#ffffff', 0.2)
+          }
+          roughness={style === 'neon_backdrop' ? 0.3 : 0.8}
+          metalness={style === 'neon_backdrop' ? 0.5 : 0.05}
+          emissive={style === 'neon_backdrop' ? palette.accent : '#000000'}
+          emissiveIntensity={style === 'neon_backdrop' ? 0.45 : 0}
+        />
+      </mesh>
+
+      {style === 'floral_wall' || style === 'greenery_wall' ? (
+        <BlossomInstances
+          points={grid.map((p) => new THREE.Vector3(p.x, p.y, 0.08))}
+          colorA={style === 'greenery_wall' ? leaf : bloom}
+          colorB={bloomSecondary(palette, style === 'greenery_wall' ? leaf : bloom, 0.4)}
+          radius={0.15}
+        />
+      ) : null}
+
+      {/* Step & repeat — the couple's monogram tiled across the panel. Small
+          plates rather than text: no fonts are loaded in the 3D room. */}
+      {style === 'step_repeat'
+        ? Array.from({ length: 5 }).map((_, r) =>
+            Array.from({ length: 4 }).map((__, c) => (
+              <mesh key={`${r}-${c}`} position={[-w / 2 + (w / 4) * (c + 0.5), -h / 2 + (h / 5) * (r + 0.5), 0.07]}>
+                <boxGeometry args={[w * 0.12, w * 0.12, 0.02]} />
+                <meshStandardMaterial color={palette.accent2 ?? palette.accent} roughness={0.45} metalness={0.4} />
+              </mesh>
+            )),
+          )
+        : null}
+
+      {style === 'balloon_garland'
+        ? Array.from({ length: quality === 'low' ? 14 : 22 }).map((_, i, arr) => {
+            const t = i / (arr.length - 1);
+            const bx = -w / 2 + t * w;
+            const by = h / 2 - 0.25 - Math.sin(t * Math.PI) * 0.5 + (((i * 13) % 5) / 5 - 0.5) * 0.3;
+            const tone = [palette.accent, palette.accent2 ?? palette.table, bloom][i % 3]!;
+            return (
+              <mesh key={i} position={[bx, by, 0.16]}>
+                <sphereGeometry args={[0.13 + ((i * 7) % 3) * 0.03, 8, 7]} />
+                <meshStandardMaterial color={tone} roughness={0.35} />
+              </mesh>
+            );
+          })
+        : null}
+
+      {style === 'neon_backdrop' ? (
+        <mesh position={[0, 0.1, 0.09]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[w * 0.26, 0.035, 6, 26]} />
+          <meshStandardMaterial
+            color={palette.accent2 ?? palette.accent}
+            emissive={palette.accent2 ?? palette.accent}
+            emissiveIntensity={2.4}
+            toneMapped={false}
+          />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
+/**
+ * The welcome table by the door — easel sign, framed seating chart, floral
+ * guestbook. Sits beside the entrance mark, offset along the wall so it never
+ * stands in the doorway the walkers use.
+ */
+function WelcomeSignage({
+  entrance,
+  room,
+  palette,
+  style,
+}: {
+  entrance: THREE.Vector3;
+  room: Room;
+  palette: Lab3DPalette;
+  style: string;
+}) {
+  // Push inward off the wall, then step sideways along it.
+  const inward = useMemo(() => {
+    const v = new THREE.Vector3(-entrance.x, 0, -entrance.z);
+    return v.lengthSq() < 1e-6 ? new THREE.Vector3(0, 0, -1) : v.normalize();
+  }, [entrance.x, entrance.z]);
+  const side = useMemo(() => new THREE.Vector3(-inward.z, 0, inward.x), [inward]);
+  const pos = useMemo(() => {
+    const p = new THREE.Vector3(entrance.x, 0, entrance.z)
+      .addScaledVector(inward, 0.9)
+      .addScaledVector(side, 1.7);
+    // Never outside the room.
+    p.x = Math.max(-room.w / 2 + 0.5, Math.min(room.w / 2 - 0.5, p.x));
+    p.z = Math.max(-room.d / 2 + 0.5, Math.min(room.d / 2 - 0.5, p.z));
+    return p;
+  }, [entrance.x, entrance.z, inward, side, room.w, room.d]);
+  const yaw = useMemo(() => Math.atan2(inward.x, inward.z), [inward]);
+  const bloom = useMemo(() => bloomColor(palette), [palette]);
+  const wood = useMemo(() => mix(palette.accent, '#2a1c12', 0.45), [palette.accent]);
+
+  return (
+    <group name={`decor-welcome-${style}`} position={[pos.x, 0, pos.z]} rotation={[0, yaw, 0]}>
+      {style === 'easel_sign' ? (
+        <>
+          {[-0.34, 0.34].map((dx) => (
+            <mesh key={dx} position={[dx, 0.62, -0.12]} rotation={[0.16, 0, dx > 0 ? -0.1 : 0.1]}>
+              <cylinderGeometry args={[0.025, 0.03, 1.3, 6]} />
+              <meshStandardMaterial color={wood} roughness={0.85} />
+            </mesh>
+          ))}
+          <mesh position={[0, 0.62, 0.62]} rotation={[0.14, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.025, 0.03, 1.3, 6]} />
+            <meshStandardMaterial color={wood} roughness={0.85} />
+          </mesh>
+          <mesh position={[0, 0.95, 0]} rotation={[0.1, 0, 0]} castShadow>
+            <boxGeometry args={[0.86, 1.18, 0.04]} />
+            <meshStandardMaterial color={mix(palette.table, '#ffffff', 0.35)} roughness={0.7} />
+          </mesh>
+        </>
+      ) : null}
+
+      {style === 'framed_seating_chart' ? (
+        <>
+          <mesh position={[0, 0.5, 0]}>
+            <boxGeometry args={[0.5, 1.0, 0.5]} />
+            <meshStandardMaterial color={mix(palette.table, '#ffffff', 0.25)} roughness={0.8} />
+          </mesh>
+          <mesh position={[0, 1.62, 0]} castShadow>
+            <boxGeometry args={[1.24, 1.16, 0.07]} />
+            <meshStandardMaterial color={palette.accent2 ?? wood} roughness={0.5} metalness={0.3} />
+          </mesh>
+          <mesh position={[0, 1.62, 0.05]}>
+            <boxGeometry args={[1.06, 0.98, 0.02]} />
+            <meshStandardMaterial color={mix(palette.table, '#ffffff', 0.5)} roughness={0.75} />
+          </mesh>
+        </>
+      ) : null}
+
+      {style === 'floral_guestbook' ? (
+        <>
+          <mesh position={[0, 0.37, 0]}>
+            <cylinderGeometry args={[0.52, 0.52, 0.74, 16]} />
+            <meshStandardMaterial color={palette.chairs ?? mix(palette.table, '#ffffff', 0.3)} roughness={0.8} />
+          </mesh>
+          <mesh position={[0, 0.76, 0]}>
+            <cylinderGeometry args={[0.56, 0.56, 0.04, 16]} />
+            <meshStandardMaterial color={mix(palette.table, '#ffffff', 0.45)} roughness={0.6} />
+          </mesh>
+          <BlossomInstances
+            points={Array.from({ length: 16 }).map((_, i) => {
+              const a = (i / 16) * Math.PI * 2;
+              const r = 0.3 + ((i * 5) % 4) * 0.06;
+              return new THREE.Vector3(Math.cos(a) * r, 0.9 + ((i * 3) % 4) * 0.05, Math.sin(a) * r);
+            })}
+            colorA={bloom}
+            colorB={bloomSecondary(palette, bloom, 0.4)}
+            radius={0.11}
+          />
+        </>
       ) : null}
     </group>
   );
@@ -423,7 +793,7 @@ function Centerpieces({
       ))}
 
       {blossomPoints.length > 0 ? (
-        <BlossomInstances points={blossomPoints} colorA={bloom} colorB={mix(bloom, palette.table, 0.4)} radius={0.11} />
+        <BlossomInstances points={blossomPoints} colorA={bloom} colorB={bloomSecondary(palette, bloom, 0.4)} radius={0.11} />
       ) : null}
       {/* Emissive flames drop on 'low' — candles keep their wax bodies, no glow draw. */}
       {flamePoints.length > 0 && quality === 'high' ? (
@@ -648,6 +1018,32 @@ export function ceilingDecorOccupied(
   );
 }
 
+/**
+ * EXACTLY the part+attributes `VenueDecor` draws — nothing more.
+ *
+ * The reception catalogue has ten parts and sixteen attributes; this room
+ * renders SEVEN of them. It draws no stage florals, no aisle runner and no
+ * backdrop-floral overlay — those live only in the 2D scene today.
+ *
+ * 🔑 THIS LIST EXISTS SO THE ROOM'S LEGEND CANNOT LIE ABOUT WHAT IS ON SCREEN.
+ * `primaryOnlyNotice` says "showing X" about a couple's multi-selection, and a
+ * first cut of it walked every part — which told a couple *"Stage (showing
+ * Arch)"* about a stage this room does not draw at all. The disclosure may only
+ * speak about what is actually rendered, so it is handed this list, and
+ * `the-room-draws-what-the-couple-saved.test.ts` pins the list to the `sel()`
+ * calls in this file. Add a `sel(design, …)` below without adding it here and
+ * that test goes red.
+ */
+export const ROOM_DRAWN_ATTRIBUTES: ReadonlyArray<DrawnAttribute> = [
+  ['ceiling', 'treatment'],
+  ['backdrop', 'style'],
+  ['tables', 'centerpiece'],
+  ['tunnel', 'style'],
+  ['walls', 'treatment'],
+  ['photo_wall', 'style'],
+  ['welcome_signage', 'style'],
+] as const;
+
 // ═════════════════════════════════════════════════════════════════════════════
 // PUBLIC: VenueDecor — one call renders every reception_design treatment.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -685,6 +1081,13 @@ export function VenueDecor({
   const backdrop = sel(design, 'backdrop', 'style');
   const centerpiece = sel(design, 'tables', 'centerpiece');
   const tunnel = sel(design, 'tunnel', 'style');
+  // The three zones the room used to ignore entirely. `sel()` — the PRIMARY
+  // treatment only, deliberately, because there is one physical wall / panel /
+  // welcome table. What the room is therefore NOT drawing is disclosed to the
+  // couple by `primaryOnlyNotice()` in the room's legend; see that function.
+  const walls = sel(design, 'walls', 'treatment');
+  const photoWall = sel(design, 'photo_wall', 'style');
+  const welcome = sel(design, 'welcome_signage', 'style');
 
   const stageCenter = useMemo(() => {
     const s = pctToWorld(floor.stage.xPct, floor.stage.yPct, room);
@@ -753,6 +1156,25 @@ export function VenueDecor({
         <EntranceArch position={entranceWorld} palette={palette} variant={entranceVariant} />
       ) : null}
 
+      {/* Walls & surroundings. 'bare' is the DEFAULT and draws nothing, which
+          is why a board that never touched this zone is unchanged. Open-air
+          archetypes have no side wall to dress (VenueShell replaces them with
+          perimeter greenery), so the choice is kept and simply has nothing to
+          hang on — same rule as the ceiling above. */}
+      {!openAir && walls !== 'bare' && (
+        <WallTreatment room={room} palette={palette} quality={quality} treatment={walls} />
+      )}
+
+      {/* Photo wall — the step-and-repeat, explicitly NOT the stage backdrop. */}
+      {photoWall !== 'none' && (
+        <PhotoWall room={room} palette={palette} quality={quality} style={photoWall} />
+      )}
+
+      {/* Welcome table by the door. */}
+      {welcome !== 'minimal' && (
+        <WelcomeSignage entrance={entranceWorld} room={room} palette={palette} style={welcome} />
+      )}
+
       {/* Table centrepieces (instanced across all tables) */}
       {tables.length > 0 && (
         <Centerpieces tables={tables} room={room} palette={palette} quality={quality} variant={centerpiece} />
@@ -777,7 +1199,7 @@ function HangingFlorals({ room, palette, quality, greenery }: { room: Room; pale
     return pts;
   }, [anchors, quality]);
   const bloom = greenery ? leafColor(palette) : bloomColor(palette);
-  return <BlossomInstances points={points} colorA={bloom} colorB={mix(bloom, palette.table, 0.35)} radius={0.14} />;
+  return <BlossomInstances points={points} colorA={bloom} colorB={bloomSecondary(palette, bloom, 0.35)} radius={0.14} />;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

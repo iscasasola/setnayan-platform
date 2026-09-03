@@ -60,6 +60,10 @@ type Props = {
   palette: string[];
   /** Per-role attire colors for the People layer (bride/groom/party/guest). */
   roleColors?: RoleColors;
+  /** The couple's own inspiration photos, keyed by design part. Only the five
+   *  parts with a matching slot appear; a part with none is simply absent, and
+   *  shows no reference rather than an unrelated photo. */
+  inspirationByPart?: Record<string, string[]>;
   /**
    * The couple's reception style family — drives the AI decor-image layer
    * pilot (see @/lib/reception-decor-layers).
@@ -148,6 +152,7 @@ export function ReceptionDesignEditor({
   roleColors,
   styleFamily = null,
   canEdit,
+  inspirationByPart,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activePart, setActivePart] = useState<PartId>('ceiling');
@@ -394,6 +399,33 @@ export function ReceptionDesignEditor({
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
               {activeDef.label} · {activeDef.blurb}
             </p>
+            {/* ── THE PHOTO THEY PICKED THIS ZONE FOR ────────────────────────
+                The couple uploads inspiration during onboarding and on the mood
+                board, and no 3D surface has ever read it — so they chose a
+                ceiling they loved, then picked a ceiling treatment on another
+                screen with the photo nowhere in sight.
+
+                Reference, NEVER composited into the render: this sits beside
+                the choice, so the room stays what the room actually draws.
+                Only five parts have a matching slot, so most zones show
+                nothing here — absent is the honest answer, not a placeholder. */}
+            {(inspirationByPart?.[activePart]?.length ?? 0) > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[11px] font-medium text-ink/60">Your inspiration</p>
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                  {inspirationByPart![activePart]!.map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt=""
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="h-16 w-16 shrink-0 rounded-lg border border-ink/10 object-cover"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {activeDef.attributes.map((attr) => {
               // A `multi` attribute's chips behave like checkboxes — several
               // can be pressed at once, up to the cap. Same chip styling as

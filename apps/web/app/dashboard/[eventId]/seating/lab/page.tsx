@@ -51,6 +51,7 @@ import {
   resolveAttirePaletteColor,
   sideAttireColor,
 } from '@/lib/mood-board';
+import { INSPIRATION_SLOT_FOR_PART } from '@/lib/moodboard-slots';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 import { Couple3dPlanUnlockNotice } from './_components/couple-3d-plan-unlock-notice';
@@ -147,6 +148,28 @@ export default async function SeatingLabPage({ params }: Props) {
   // Wave 2b: the couple's saved reception treatments + room archetype reach the
   // 3D lab (sanitized against the RECEPTION_PARTS vocabulary; default banquet_hall).
   const receptionDesign = sanitizeReceptionDesign((eventRow.data as Record<string, unknown> | null)?.reception_design);
+
+  // The couple's own inspiration photos, keyed by the design part they belong
+  // to. Uploaded during onboarding and on the mood board, and until now read by
+  // no 3D surface at all: they picked a ceiling they loved, then chose a
+  // ceiling treatment on another screen with the photo nowhere in sight.
+  //
+  // Only the FIVE parts that have a slot appear here (see
+  // INSPIRATION_SLOT_FOR_PART) — a part with no slot gets no entry rather than
+  // an unrelated photo. RLS scopes the read to this event.
+  const inspirationRows = await supabase
+    .from('event_inspiration_assets')
+    .select('slot_key, slot_position, image_url')
+    .eq('event_id', eventId)
+    .order('slot_position', { ascending: true });
+  const inspirationByPart: Record<string, string[]> = {};
+  for (const [partId, slotKey] of Object.entries(INSPIRATION_SLOT_FOR_PART)) {
+    const urls = (inspirationRows.data ?? [])
+      .filter((r) => (r as { slot_key?: string }).slot_key === slotKey)
+      .map((r) => (r as { image_url?: string }).image_url)
+      .filter((u): u is string => typeof u === 'string' && u.length > 0);
+    if (urls.length > 0) inspirationByPart[partId] = urls;
+  }
   const venueSettingRaw = (eventRow.data as Record<string, unknown> | null)?.venue_setting;
   const venueSetting = typeof venueSettingRaw === 'string' && venueSettingRaw ? venueSettingRaw : 'banquet_hall';
   // WHICH theme family produced this board (events.moodboard_style_family,
@@ -382,6 +405,7 @@ export default async function SeatingLabPage({ params }: Props) {
         guests={guests}
         rolePalette={rolePalette}
         receptionDesign={receptionDesign}
+        inspirationByPart={inspirationByPart}
         styleFamily={styleFamily}
         venueSetting={venueSetting}
         monogram={monogram}

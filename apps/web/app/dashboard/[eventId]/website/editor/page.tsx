@@ -34,8 +34,9 @@ import {
   StdPanel,
   EditorialPanel,
 } from './_components/authoring-panels';
-import { OpenBrowsePanel } from './_components/media-panels';
-import { setOpenBrowse } from './actions';
+import { OpenBrowsePanel, RsvpBackdropPanel } from './_components/media-panels';
+import { clearRsvpBackdrop, saveRsvpBackdrop, setOpenBrowse } from './actions';
+import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop';
 import { updateOurStory } from '../our-story/actions';
 import type { LoveStoryBlob } from '../our-story/_components/story-fields';
 import { paletteSwatches } from '@/lib/site-palette';
@@ -99,7 +100,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -256,6 +257,13 @@ export default async function WebsiteEditorPage({
     (event as { photo_moments_config?: unknown }).photo_moments_config,
   );
 
+  // The backdrop the public invitation already renders. Parsed through the same
+  // guard the site uses, so a malformed row shows as "off" here exactly as it
+  // shows as no backdrop there — the editor and the page cannot disagree.
+  const rsvpBackdrop = parseRsvpBackdropConfig(
+    (event as { rsvp_backdrop?: unknown }).rsvp_backdrop,
+  );
+
   const colorsLocked = lockedIf(Boolean(event.site_bg_color || event.site_button_color));
   const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key));
   const galleryLocked = lockedIf(ourPhotos.length > 0);
@@ -297,6 +305,21 @@ export default async function WebsiteEditorPage({
               action={setOpenBrowse}
               eventId={eventId}
               on={event.website_open_browse === true}
+            />
+          ),
+        },
+        {
+          key: 'backdrop',
+          label: 'Invitation backdrop',
+          blurb: 'A scene that moves behind your invitation as guests scroll.',
+          href: `${w}/widgets`,
+          status: rsvpBackdrop ? SPATIAL_THEMES[rsvpBackdrop.theme].label : 'Off',
+          panel: (
+            <RsvpBackdropPanel
+              saveAction={saveRsvpBackdrop}
+              clearAction={clearRsvpBackdrop}
+              eventId={eventId}
+              current={rsvpBackdrop}
             />
           ),
         },

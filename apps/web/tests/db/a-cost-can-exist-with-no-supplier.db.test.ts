@@ -382,3 +382,120 @@ test('the CHECKs refuse a negative amount and a blank label', () => {
     assert.equal(over.landed, 1, `an overpayment was refused: ${over.error ?? ''}`);
   })();
 });
+
+// ── 4 · THE OTHER DOOR ───────────────────────────────────────────────────────
+//
+// Naming a supplier does NOT write `event_costs` — it writes the shipped
+// `event_vendors` + `event_vendor_line_items` pair, LOCKED. The source guard
+// (`lib/a-cost-needs-no-supplier.test.ts`) proves the action spells that
+// sequence; this proves the DATABASE PERMITS IT when a couple performs it.
+//
+// 🔑 THOSE ARE DIFFERENT CLAIMS, and only the second one is about production. A
+// server action can be word-perfect and still be refused by a policy, a trigger
+// or a CHECK nobody read — in which case the couple names a supplier, is told
+// it was saved, and finds nothing on their Merkado.
+
+test('a couple can lock a supplier at `contracted` and hang the cost off it', () => {
+  return (async () => {
+    const w = await seed('supplierfork');
+
+    await asUser(w.couple);
+    const inserted = await db
+      .query<{ vendor_id: string }>(
+        `INSERT INTO public.event_vendors
+           (event_id, category, vendor_name, status, covers_plan_groups, source)
+         VALUES ($1,'rings','Ilaya Jewellers','contracted',ARRAY['rings']::text[],'host_manual')
+         RETURNING vendor_id`,
+        [w.eventId],
+      )
+      .then((r) => r.rows[0]!.vendor_id)
+      .catch((e: Error) => e.message);
+    await reset();
+    assert.equal(
+      typeof inserted === 'string' && !inserted.includes(' '),
+      true,
+      `the couple could not lock their own supplier: ${inserted}`,
+    );
+    const eventVendorId = inserted as string;
+
+    // LOCKED means at-or-past `contracted` — the first rung of
+    // CONFIRMED_VENDOR_STATUSES, which is what makes the resolver count this
+    // money as AGREED rather than as a quote.
+    await reset();
+    const row = await db.query<{ status: string; marketplace_vendor_id: string | null }>(
+      `SELECT status, marketplace_vendor_id FROM public.event_vendors WHERE vendor_id = $1`,
+      [eventVendorId],
+    );
+    assert.equal(row.rows[0]!.status, 'contracted');
+    // OFF-PLATFORM AND FINALIZED ARE INDEPENDENT AXES (owner, 2026-09-02:
+    // "Adding them to their shortlist does not mean it is final, it just means
+    // they are not on the app."). This row is both, and it is the
+    // `marketplace_vendor_id IS NULL` half — not the status — that the shipped
+    // workspace page reads to decide an invite is warranted.
+    assert.equal(row.rows[0]!.marketplace_vendor_id, null);
+
+    // The cost hangs off it through the existing tables, and the payment too.
+    await asUser(w.couple);
+    const line = await db
+      .query(
+        `INSERT INTO public.event_vendor_line_items (event_id, vendor_id, label, amount_php, due_date)
+         VALUES ($1,$2,'Wedding rings',40000,NULL)`,
+        [w.eventId, eventVendorId],
+      )
+      .then(() => 'ok')
+      .catch((e: Error) => e.message);
+    const pay = await db
+      .query(
+        `INSERT INTO public.event_vendor_payments (event_id, vendor_id, amount_php, method)
+         VALUES ($1,$2,15000,'Recorded on the budget page')`,
+        [w.eventId, eventVendorId],
+      )
+      .then(() => 'ok')
+      .catch((e: Error) => e.message);
+    await reset();
+    assert.equal(line, 'ok', `the cost could not be hung off the supplier: ${line}`);
+    assert.equal(pay, 'ok', `the paid amount could not be recorded: ${pay}`);
+
+    // ⚖ AND IT WENT DOWN THE OTHER DOOR, NOT THIS ONE. `event_costs` is still
+    // empty for this event — which is the counting law holding: one peso, one
+    // home. If both doors ever wrote, the couple's total would double.
+    assert.equal(
+      await visibleTo(w.couple, w.eventId),
+      0,
+      'the supplier fork also wrote an event_costs row — the money is counted twice',
+    );
+  })();
+});
+
+test('the invite this fork needs is possible: a pending auto_share_link row lands', () => {
+  return (async () => {
+    const w = await seed('inviterow');
+    await asUser(w.couple);
+    const vendorId = (
+      await db.query<{ vendor_id: string }>(
+        `INSERT INTO public.event_vendors (event_id, category, vendor_name, status)
+         VALUES ($1,'rings','Ilaya Jewellers','contracted') RETURNING vendor_id`,
+        [w.eventId],
+      )
+    ).rows[0]!.vendor_id;
+
+    // Exactly what `ensureAutoShareInvite` inserts. `manual_vendor_id` is NULL
+    // on this row — the shape 43 of 45 production event_vendors rows have
+    // (measured 2026-09-03) — and nothing in the schema objects, which is why
+    // BA7's action gates on `marketplace_vendor_id IS NULL` alone, the same
+    // condition the shipped workspace page uses.
+    const invited = await db
+      .query(
+        `INSERT INTO public.vendor_invites
+           (vendor_id, invited_by_user_id, email, business_name, service_category,
+            claim_token, status, source, expires_at)
+         VALUES ($1,$2,NULL,'Ilaya Jewellers','rings',$3,'pending','auto_share_link',
+                 NOW() + INTERVAL '90 days')`,
+        [vendorId, w.couple, `ba7-token-${w.eventId.slice(0, 8)}`],
+      )
+      .then(() => 'ok')
+      .catch((e: Error) => e.message);
+    await reset();
+    assert.equal(invited, 'ok', `the claim invite could not be created: ${invited}`);
+  })();
+});

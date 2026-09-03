@@ -25,7 +25,7 @@
  * returns the whole list for the callers that can show all of them.
  */
 
-import { receptionVenuePhrase } from './venue-settings';
+import { receptionVenuePhrase, isVenueSetting, type VenueSetting } from './venue-settings';
 
 export type PartId =
   | 'ceiling'
@@ -411,6 +411,66 @@ export const RECEPTION_PARTS: Part[] = [
     ],
   },
 ];
+
+/**
+ * Which family of room the SVG draws. Only a coarser grouping than
+ * `VenueSetting` (venue-settings.ts) matters for the DRAWING — `restaurant`
+ * draws exactly like `banquet_hall` (an interior room), and `destination` is
+ * drawn as `beach`, its nearest neighbour, since the destination weddings
+ * this market books are overwhelmingly coastal — rather than inventing a
+ * seventh scene for one enum value that already looks like another.
+ */
+export type VenueSceneFamily = 'hall' | 'heritage' | 'garden' | 'beach' | 'tent';
+
+const VENUE_SCENE: Record<VenueSetting, VenueSceneFamily> = {
+  banquet_hall: 'hall',
+  restaurant: 'hall',
+  heritage: 'heritage',
+  garden: 'garden',
+  beach: 'beach',
+  destination: 'beach',
+  outdoor_tent: 'tent',
+};
+
+/** The scene family for a stored (possibly absent/unrecognised)
+ *  `events.venue_setting`. An unknown value draws as `hall` — the same room
+ *  `AMBIGUOUS_VENUE_SETTING` ('banquet_hall', venue-settings.ts) already
+ *  means when nothing was chosen, and `hall` gates nothing, so an unset
+ *  venue never loses a zone it hasn't actually been told it lacks. */
+export function venueSceneFamily(venueSetting: string | null | undefined): VenueSceneFamily {
+  return isVenueSetting(venueSetting) ? VENUE_SCENE[venueSetting] : 'hall';
+}
+
+/**
+ * Zones a venue type genuinely LACKS — gated (disabled, labeled "not at
+ * this venue", excluded from the drawing and from every render brief) only
+ * where the absence is PHYSICAL, never where the couple might simply choose
+ * to build it:
+ *   · beach / destination — no ceiling to dress, no walls: open shore.
+ *   · garden — no walls (the boundary is planting). Ceiling stays available:
+ *     string lights and hanging installations between trees are a real
+ *     garden treatment.
+ *   · tent — nothing gated: the canopy IS a ceiling, the sides drape.
+ *   · hall / restaurant / heritage — nothing gated.
+ * (Ported from the agreed prototype, atelier-board.html's `VENUE_ZONE_NA`.)
+ */
+const VENUE_ZONE_NA: Partial<Record<VenueSetting, ReadonlySet<PartId>>> = {
+  beach: new Set<PartId>(['ceiling', 'walls']),
+  destination: new Set<PartId>(['ceiling', 'walls']),
+  garden: new Set<PartId>(['walls']),
+};
+
+/**
+ * Does this reception zone exist at the couple's venue? The one predicate
+ * every gate in this module (the drawing, the zone rail, `buildPrompt`, and
+ * every downstream render brief) must share — see `venueZoneApplies.test.ts`
+ * -style coverage in `reception-scene.test.ts`. An unrecognised or absent
+ * venue never gates anything (same reasoning as `venueSceneFamily`).
+ */
+export function venueZoneApplies(venueSetting: string | null | undefined, part: PartId): boolean {
+  if (!isVenueSetting(venueSetting)) return true;
+  return !VENUE_ZONE_NA[venueSetting]?.has(part);
+}
 
 export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
   ceiling: { treatment: 'chandeliers' },
@@ -1478,10 +1538,62 @@ function people(who: string, rc: RC, guestPalette: string[]): string {
 }
 
 /** Compose the full venue SVG for a given design + palette + role attire colors. */
+const SKY = '#DCEEF2';
+const SAND = '#E9D9B8';
+const SEA = '#9FC3C4';
+
+/** The scenery behind everything else — an interior room (hall/heritage/tent
+ *  share one wall+floor treatment; the canopy/drape that makes a tent a tent
+ *  is drawn by `wallsDecor`/`ceiling` on top of it, same as always) or open
+ *  air (beach: sky + shoreline; garden: hedge + lawn). Only the BACKGROUND
+ *  changes by scene — every dressable part still draws over it exactly as
+ *  before, gated only where `venueZoneApplies` says so. */
+function sceneBackground(scene: VenueSceneFamily, W: number, H: number, aisleTint: string): string {
+  if (scene === 'beach') {
+    return `
+      <rect width="${W}" height="372" fill="${SKY}"/>
+      <rect y="330" width="${W}" height="42" fill="${SEA}"/>
+      <line x1="0" y1="330" x2="${W}" y2="330" stroke="${shade(SEA, -20)}" stroke-width="1" opacity="0.6"/>
+      <rect y="372" width="${W}" height="${H - 372}" fill="${SAND}"/>
+      <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.45"/>`;
+  }
+  if (scene === 'garden') {
+    const hedge = shade(LEAF, 30);
+    let bumps = '';
+    for (let x = 20; x <= W - 20; x += 60) bumps += `<circle cx="${x}" cy="30" r="34" fill="${hedge}"/>`;
+    return `
+      <rect width="${W}" height="372" fill="${shade(hedge, 55)}"/>
+      <g aria-hidden="true">${bumps}</g>
+      <rect y="372" width="${W}" height="${H - 372}" fill="${shade(LEAF, 62)}"/>
+      <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.5"/>`;
+  }
+  // hall / heritage / tent — one shared interior treatment
+  return `
+    <defs>
+      <linearGradient id="rwall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(WALL, 10)}"/><stop offset="1" stop-color="${WALL}"/></linearGradient>
+      <linearGradient id="rfloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(FLOOR, 10)}"/><stop offset="1" stop-color="${shade(FLOOR, -8)}"/></linearGradient>
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#rwall)"/>
+    <rect y="372" width="${W}" height="${H - 372}" fill="url(#rfloor)"/>
+    <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.55"/>`;
+}
+
+/**
+ * Compose the full venue SVG for a given design + palette + role attire
+ * colors — the couple's own room, re-drawn live in their own colours.
+ *
+ * @param venueSetting `events.venue_setting`, when the caller has one.
+ *   Reshapes the scenery (`sceneBackground`) and GATES ceiling/walls per
+ *   `venueZoneApplies` — a beach or garden reception is drawn honestly,
+ *   never with a ceiling or walls it does not have. OMITTING IT draws the
+ *   original hall-shaped room with nothing gated, so every pre-venue-aware
+ *   caller (a stale server render, a test) is unchanged.
+ */
 export function renderVenueSvg(
   design: ReceptionDesign,
   palette: string[],
   roleColors?: RoleColors,
+  venueSetting?: string | null,
 ): string {
   const P = paletteFn(palette);
   const rc: RC = {
@@ -1495,21 +1607,15 @@ export function renderVenueSvg(
   );
   const W = 960,
     H = 640;
+  const scene = venueSceneFamily(venueSetting);
   const aisleTint = selAll(design, 'entrance', 'runner').includes('fabric') ? P(1) : shade(P(1), 70);
-  const bg = `
-    <defs>
-      <linearGradient id="rwall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(WALL, 10)}"/><stop offset="1" stop-color="${WALL}"/></linearGradient>
-      <linearGradient id="rfloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(FLOOR, 10)}"/><stop offset="1" stop-color="${shade(FLOOR, -8)}"/></linearGradient>
-    </defs>
-    <rect width="${W}" height="${H}" fill="url(#rwall)"/>
-    <rect y="372" width="${W}" height="${H - 372}" fill="url(#rfloor)"/>
-    <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.55"/>`;
+  const bg = sceneBackground(scene, W, H, aisleTint);
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`,
     bg,
     backdrop(selAll(design, 'backdrop', 'style'), selAll(design, 'backdrop', 'florals'), P),
     stage(sel(design, 'stage', 'setup'), selAll(design, 'stage', 'florals'), P),
-    ceiling(selAll(design, 'ceiling', 'treatment'), P),
+    venueZoneApplies(venueSetting, 'ceiling') ? ceiling(selAll(design, 'ceiling', 'treatment'), P) : '',
     tables(
       sel(design, 'tables', 'shape'),
       sel(design, 'tables', 'chairs'),
@@ -1518,10 +1624,12 @@ export function renderVenueSvg(
       sel(design, 'tables', 'place'),
       P,
     ),
-    wallsDecor(selAll(design, 'walls', 'treatment'), P),
+    venueZoneApplies(venueSetting, 'walls') ? wallsDecor(selAll(design, 'walls', 'treatment'), P) : '',
     people(sel(design, 'people', 'who'), rc, guestPalette),
     entrance(selAll(design, 'tunnel', 'style'), selAll(design, 'entrance', 'runner'), P),
-    `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
+    scene === 'beach' || scene === 'garden'
+      ? ''
+      : `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
     photoWallDecor(selAll(design, 'photo_wall', 'style'), P),
     welcomeSignageDecor(selAll(design, 'welcome_signage', 'style'), P),
     `</svg>`,
@@ -1569,6 +1677,10 @@ export function buildPrompt(
 ): string {
   const phrases: string[] = [];
   for (const part of RECEPTION_PARTS) {
+    // A zone the venue does not have (a beach's ceiling, a garden's walls)
+    // is excluded here too — never described to the renderer just because a
+    // stale choice from before the venue changed is still sitting in storage.
+    if (!venueZoneApplies(venue?.setting, part.id)) continue;
     for (const attr of part.attributes) {
       // EVERY selection, not just the primary — a brief that describes one of
       // the couple's two ceiling treatments would render a room they didn't

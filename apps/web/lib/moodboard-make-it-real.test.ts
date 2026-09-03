@@ -29,6 +29,7 @@ import {
   colorsForPart,
   colorsForWholeLook,
   designRevisionKey,
+  eligiblePartsForVenue,
   gridParts,
   isPartDesigned,
   MIN_PART_TILES,
@@ -164,6 +165,54 @@ test('the whole-look brief covers every reception zone except People', () => {
   const lines = briefWholeLookZoneLines({} as ReceptionDesign);
   assert.ok(lines.length > 0);
   assert.ok(!lines.some((l) => l.startsWith('Who')), 'People is a modifier on the room, not a treatment line');
+});
+
+/* ── MB6: honest gating — a venue-gated zone is EXCLUDED, not merely hidden ── */
+
+test('a venue-gated room part is excluded from the render brief, even with a real selection stored', () => {
+  const receptionDesign = {
+    ceiling: { treatment: ['fairy_lights'] },
+    walls: { treatment: ['fabric_drape'] },
+  } as ReceptionDesign;
+  // No venue passed (or a hall) — both zones' lines are present, as before.
+  const ungated = briefWholeLookZoneLines(receptionDesign);
+  assert.ok(ungated.some((l) => l.includes('Fairy lights')));
+  assert.ok(ungated.some((l) => l.includes('Fabric drape')));
+  // A beach reception's brief drops ceiling AND walls entirely — a stale
+  // choice from before the venue changed must never reach the brief.
+  const beach = briefWholeLookZoneLines(receptionDesign, 'beach');
+  assert.ok(!beach.some((l) => l.includes('Fairy lights')), 'ceiling must not appear at all for a beach reception');
+  assert.ok(!beach.some((l) => l.includes('Fabric drape')), 'walls must not appear at all for a beach reception');
+  // A hall reception keeps both.
+  const hall = briefWholeLookZoneLines(receptionDesign, 'banquet_hall');
+  assert.ok(hall.some((l) => l.includes('Fairy lights')));
+});
+
+test('eligiblePartsForVenue drops room:ceiling and room:walls at a beach venue; people/place parts are never touched', () => {
+  const beach = eligiblePartsForVenue(RENDER_PARTS, 'beach');
+  assert.ok(!beach.some((p) => p.id === 'room:ceiling'), 'room:ceiling must be gone, not just unselected');
+  assert.ok(!beach.some((p) => p.id === 'room:walls'), 'room:walls must be gone, not just unselected');
+  assert.ok(beach.some((p) => p.id === 'room:backdrop'), 'an ungated room part must survive');
+  assert.equal(
+    beach.filter((p) => p.group !== 'room').length,
+    RENDER_PARTS.filter((p) => p.group !== 'room').length,
+    'people/place parts are never venue-gated',
+  );
+  const garden = eligiblePartsForVenue(RENDER_PARTS, 'garden');
+  assert.ok(garden.some((p) => p.id === 'room:ceiling'), "a garden's ceiling is still real (string lights, installs)");
+  assert.ok(!garden.some((p) => p.id === 'room:walls'));
+  const hall = eligiblePartsForVenue(RENDER_PARTS, 'banquet_hall');
+  assert.equal(hall.length, RENDER_PARTS.length, 'nothing is gated at a hall');
+});
+
+test('isPartDesigned refuses a venue-gated room part even with a stored selection (defense in depth)', () => {
+  const part = RENDER_PARTS.find((p) => p.id === 'room:ceiling')!;
+  const ctx = {
+    ...EMPTY_CTX,
+    receptionDesign: { ceiling: { treatment: ['fairy_lights'] } } as ReceptionDesign,
+    venueSetting: 'beach',
+  };
+  assert.equal(isPartDesigned(part, ctx), false);
 });
 
 test('referencePhotoCount is derived from the same slot list the gate reads', () => {
@@ -338,6 +387,20 @@ test('SABOTAGE-PROVED GUARD: make-it-real.tsx actually renders staleBannerText, 
     src,
     /\{[a-zA-Z]+\.staleBannerText\}/,
     'staleBannerText must be interpolated into the rendered output, not just read',
+  );
+});
+
+test('SABOTAGE-PROVED GUARD: make-it-real.tsx feeds gridParts the VENUE-FILTERED parts, not the raw prop', () => {
+  const src = readFileSync(MAKE_IT_REAL_COMPONENT, 'utf8');
+  assert.match(
+    src,
+    /eligiblePartsForVenue\(/,
+    'the component must call eligiblePartsForVenue, not merely import it — a beach reception must never be offered a ceiling render',
+  );
+  assert.match(
+    src,
+    /gridParts\(\s*venueEligibleParts/,
+    'gridParts must read the venue-filtered parts — feeding it the raw eligibleParts prop would let a stale ceiling choice back onto the grid',
   );
 });
 

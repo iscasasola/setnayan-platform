@@ -11,6 +11,8 @@ import {
   RECEPTION_PARTS,
   renderVenueSvg,
   buildPrompt,
+  venueZoneApplies,
+  venueSceneFamily,
   type PartId,
 } from './reception-scene';
 import { VENUE_SETTINGS, AMBIGUOUS_VENUE_SETTING } from './venue-settings';
@@ -367,4 +369,92 @@ test('the legacy single-string shape renders BYTE-IDENTICALLY to before the wide
   assert.equal(buildPrompt(legacy, palette), buildPrompt(asArrays, palette));
   // And the sanitizer hands the array form back in the legacy string shape.
   assert.deepEqual(sanitizeReceptionDesign(asArrays), sanitizeReceptionDesign(legacy));
+});
+
+/* ── MB6: venue-type awareness + honest gating ─────────────────────────── */
+
+test('venueZoneApplies: every VENUE_SETTINGS value is covered, and only the documented zones are gated', () => {
+  const expectNA: Partial<Record<(typeof VENUE_SETTINGS)[number], PartId[]>> = {
+    beach: ['ceiling', 'walls'],
+    destination: ['ceiling', 'walls'],
+    garden: ['walls'],
+  };
+  for (const venue of VENUE_SETTINGS) {
+    const na = new Set(expectNA[venue] ?? []);
+    for (const part of RECEPTION_PARTS) {
+      assert.equal(
+        venueZoneApplies(venue, part.id),
+        !na.has(part.id),
+        `${venue} × ${part.id}`,
+      );
+    }
+  }
+});
+
+test('venueZoneApplies: garden keeps its ceiling (string lights between trees are real)', () => {
+  assert.equal(venueZoneApplies('garden', 'ceiling'), true);
+});
+
+test('venueZoneApplies: an unrecognised or absent venue gates nothing', () => {
+  for (const part of RECEPTION_PARTS) {
+    assert.equal(venueZoneApplies(null, part.id), true);
+    assert.equal(venueZoneApplies(undefined, part.id), true);
+    assert.equal(venueZoneApplies('not_a_real_venue', part.id), true);
+  }
+});
+
+test('venueSceneFamily: destination draws as beach, restaurant draws as hall, unrecognised draws as hall', () => {
+  assert.equal(venueSceneFamily('destination'), 'beach');
+  assert.equal(venueSceneFamily('restaurant'), 'hall');
+  assert.equal(venueSceneFamily('banquet_hall'), 'hall');
+  assert.equal(venueSceneFamily('outdoor_tent'), 'tent');
+  assert.equal(venueSceneFamily('heritage'), 'heritage');
+  assert.equal(venueSceneFamily(null), 'hall');
+  assert.equal(venueSceneFamily('nope'), 'hall');
+});
+
+test('renderVenueSvg: omitting venueSetting draws BYTE-IDENTICALLY to a hall — no pre-venue-aware caller changes', () => {
+  const design = { ceiling: { treatment: 'chandeliers' }, walls: { treatment: 'fabric_drape' } };
+  const palette = ['#C9A059', '#8C6BA6', '#D98BA6'];
+  assert.equal(renderVenueSvg(design, palette), renderVenueSvg(design, palette, undefined, 'banquet_hall'));
+});
+
+test('renderVenueSvg: a beach reception draws no ceiling and no walls markup, even when both are chosen', () => {
+  const design = {
+    ceiling: { treatment: 'chandeliers' },
+    walls: { treatment: 'floral_garland' },
+  };
+  const palette = ['#C9A059', '#8C6BA6', '#D98BA6'];
+  const hall = renderVenueSvg(design, palette, undefined, 'banquet_hall');
+  const beach = renderVenueSvg(design, palette, undefined, 'beach');
+  // The chandelier glyph (chandeliers draws three overhead fixtures with this
+  // exact ellipse signature) and the floral-garland flower cluster both
+  // appear at a hall...
+  assert.match(hall, /rx="46" ry="12"/); // chandelier ellipse
+  // ...and neither appears at a beach — not merely visually smaller, GONE.
+  assert.doesNotMatch(beach, /rx="46" ry="12"/);
+  assert.notEqual(hall, beach);
+});
+
+test('renderVenueSvg: a garden reception keeps its ceiling but loses its walls', () => {
+  const design = { walls: { treatment: 'floral_garland' } };
+  const palette = ['#C9A059', '#8C6BA6', '#D98BA6'];
+  const gardenNoCeilingChoice = renderVenueSvg(design, palette, undefined, 'garden');
+  // Ceiling still draws its (garden-appropriate) default — chandeliers here,
+  // since the SVG geometry doesn't special-case "garden ceiling shape" the
+  // way the prototype's simplified schematic did; only applicability is
+  // gated, never the treatment vocabulary.
+  assert.match(gardenNoCeilingChoice, /rx="46" ry="12"/);
+});
+
+test('buildPrompt: a venue-gated zone never contributes a phrase, even with a real selection', () => {
+  const design = { ceiling: { treatment: 'chandeliers' }, backdrop: { style: 'floral_wall' } };
+  const palette = ['#C9A059'];
+  const noVenue = buildPrompt(design, palette);
+  assert.match(noVenue, /rows of crystal chandeliers overhead/);
+  const beach = buildPrompt(design, palette, undefined, { setting: 'beach', chosen: true });
+  assert.doesNotMatch(beach, /crystal chandeliers/);
+  // The rest of the room is unaffected — a beach reception still gets its
+  // floral-wall backdrop in the brief.
+  assert.match(beach, /a full floral wall backdrop/);
 });

@@ -37,6 +37,13 @@ type Props = {
   initial: RolePalette;
   visibleKeys: PaletteKey[];
   saveAction: (formData: FormData) => Promise<void>;
+  /** The reception venue's display label ("Beach", "Garden Estate", …),
+   *  already resolved by the caller (`VENUE_SETTING_LABEL`). Shown READ-ONLY
+   *  in the Venue group — this is the same fact the Reception designer (Seat
+   *  Plan lab) and 04's "Make it real" already read; 02 only REFLECTS it,
+   *  never re-asks it. Undefined when the value can't be honestly asserted
+   *  (unrecognised or never-chosen `venue_setting`). */
+  venueLabel?: string;
   /** True when `initial` is a draft seeded from the couple's onboarding feel
    *  (not their saved palette) — surfaces a "suggested, not yet saved" hint.
    *  ⚠ DORMANT since MB3 (2026-09-03): the page-level auto-seed this hint
@@ -48,7 +55,7 @@ type Props = {
   seeded?: boolean;
 };
 
-export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seeded }: Props) {
+export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seeded, venueLabel }: Props) {
   const visibleSet = new Set(visibleKeys);
   const inView = (key: PaletteKey) => visibleSet.has(key);
 
@@ -209,6 +216,11 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
 
       <PaletteFamily
         title="Venue"
+        note={
+          venueLabel
+            ? `Reception venue — ${venueLabel} · from your event, correct it on Details if it's wrong`
+            : undefined
+        }
         keys={PALETTE_ORDER.filter(
           (k) => PALETTE_LIMITS[k].family === 'venue' && inView(k),
         )}
@@ -438,6 +450,7 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
 
 function PaletteFamily({
   title,
+  note,
   keys,
   palette,
   emptyHint,
@@ -447,6 +460,10 @@ function PaletteFamily({
   onRemove,
 }: {
   title: string;
+  /** A read-only line shown right under the title, above the family's cards
+   *  — e.g. the couple's own reception venue, reflected here (never a
+   *  second place to change it). Absent = nothing renders. */
+  note?: string;
   keys: PaletteKey[];
   palette: RolePalette;
   emptyHint?: string;
@@ -466,6 +483,7 @@ function PaletteFamily({
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           {title}
         </h2>
+        {note ? <p className="text-xs text-ink/55">{note}</p> : null}
         <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-xs text-ink/55">
           {emptyHint}
         </p>
@@ -477,6 +495,7 @@ function PaletteFamily({
       <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
         {title}
       </h2>
+      {note ? <p className="text-xs text-ink/55">{note}</p> : null}
       <div className="space-y-4">
         {keys.map((key) => {
           const limits = PALETTE_LIMITS[key];

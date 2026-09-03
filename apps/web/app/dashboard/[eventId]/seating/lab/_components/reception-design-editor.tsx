@@ -30,8 +30,8 @@ import {
   DEFAULT_DESIGN,
   MAX_SELECTIONS_PER_ATTRIBUTE,
   renderVenueSvg,
-  sel,
   selAll,
+  venueZoneApplies,
   type Attribute,
   type AttributeValue,
   type PartId,
@@ -85,6 +85,16 @@ type Props = {
    * guess one.
    */
   styleFamily?: MoodboardStyleFamily | null;
+  /** `events.venue_setting` — READ, never re-asked (the couple already said
+   *  it during onboarding / on the Details page). Re-shapes the drawing
+   *  (`renderVenueSvg`) and gates a zone the venue genuinely lacks (a
+   *  beach's ceiling, a garden's walls) — see `venueZoneApplies`. Omitting
+   *  it draws the original hall-shaped room with nothing gated. */
+  venueSetting?: string | null;
+  /** The venue's display label ("Beach", "Garden Estate", …), already
+   *  resolved by the caller (`VENUE_SETTING_LABEL`) — this component never
+   *  guesses a label from the raw enum value. */
+  venueLabel?: string;
   /** Gated on the same seating-editor lock as the rest of the Build sidebar
    *  (judgment call: reception_design writes don't actually touch the
    *  seating lock, but showing edit controls only when the couple "owns" the
@@ -151,20 +161,35 @@ export function ReceptionDesignEditor({
   palette,
   roleColors,
   styleFamily = null,
+  venueSetting = null,
+  venueLabel,
   canEdit,
   inspirationByPart,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [activePart, setActivePart] = useState<PartId>('ceiling');
+  const [activePart, setActivePart] = useState<PartId>(
+    () => RECEPTION_PARTS.find((p) => venueZoneApplies(venueSetting, p.id))?.id ?? 'ceiling',
+  );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const save = useSaveLoader();
 
   const svg = useMemo(
-    () => renderVenueSvg(design, palette, roleColors),
-    [design, palette, roleColors],
+    () => renderVenueSvg(design, palette, roleColors, venueSetting),
+    [design, palette, roleColors, venueSetting],
   );
   const activeDef = RECEPTION_PARTS.find((p) => p.id === activePart)!;
+
+  // A venue switch (or the initial `ceiling` default landing on a venue that
+  // never had one) can strand `activePart` on a zone this venue lacks — fall
+  // back to the first zone the venue actually has, same guard the prototype
+  // this ports carries (`renderReceptionDetail`'s "a venue switch can strand
+  // the selection" comment).
+  useEffect(() => {
+    if (venueZoneApplies(venueSetting, activePart)) return;
+    const next = RECEPTION_PARTS.find((p) => venueZoneApplies(venueSetting, p.id));
+    if (next) setActivePart(next.id);
+  }, [venueSetting, activePart]);
 
   // ---- AI decor-image layer pilot (backdrop + ceiling only) ----
   // Fetch the catalog once — it's tiny (at most 2 zones × 5 styles) and reads
@@ -300,14 +325,19 @@ export function ReceptionDesignEditor({
     commit(part, attrDef.id, next.length === 1 ? next[0]! : next);
   }
 
-  /** The part-chip's trailing summary: the primary option's label, plus how
-   *  many more are selected alongside it ("Draped canopy +1"). */
-  function primaryLabel(part: (typeof RECEPTION_PARTS)[number]): string {
+  /** The zone rail's per-zone treatment text — every selected option of the
+   *  part's first (defining) attribute, not just the primary one, so the
+   *  rail reads the same way `moodboard-make-it-real.ts`'s `briefZoneLines`
+   *  does ("Draped canopy + Fairy lights"), not a bare "+1" count. */
+  function zoneRailText(part: (typeof RECEPTION_PARTS)[number]): string {
     const a = part.attributes[0]!;
-    const chosen = selAll(design, part.id, a.id);
-    const label = a.options.find((o) => o.id === sel(design, part.id, a.id))?.label ?? '';
-    return chosen.length > 1 ? `${label} +${chosen.length - 1}` : label;
+    const labels = selAll(design, part.id, a.id)
+      .map((id) => a.options.find((o) => o.id === id)?.label)
+      .filter((l): l is string => Boolean(l));
+    return labels.length ? labels.join(' + ') : 'not chosen yet';
   }
+
+  const venueZoneHotspots = HOTSPOTS.filter((z) => venueZoneApplies(venueSetting, z.part));
 
   if (!canEdit) return null;
 
@@ -324,7 +354,21 @@ export function ReceptionDesignEditor({
       </button>
       {open ? (
         <div className="mt-2 space-y-3">
-          {/* viewzone — the live venue */}
+          {/* The venue is a KNOWN FACT (events.venue_setting, set during
+              onboarding / the Details page) — READ here, never re-asked. A
+              full picker lives at Details; this is a pointer to it, not a
+              second place to change it (one-directional, same rule as the
+              majors mirror in 02's Venue group). */}
+          {venueLabel ? (
+            <p className="flex flex-wrap items-baseline gap-x-1.5 text-[11px] text-white/60">
+              <span className="font-medium text-white/85">Reception venue</span>
+              <span>· {venueLabel}</span>
+              <span className="text-white/40">— from your event, correct it on Details if it&rsquo;s wrong</span>
+            </p>
+          ) : null}
+          {/* viewzone — the live venue, drawn IN the couple's colours and
+              re-shaped by the venue type — repaints on every palette or
+              venue change via the `svg` useMemo above. */}
           <div className="relative overflow-hidden rounded-2xl border border-ink/15 bg-cream">
             <div
               className="block w-full [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
@@ -352,7 +396,7 @@ export function ReceptionDesignEditor({
                 />
               );
             })}
-            {HOTSPOTS.map((z, i) => (
+            {venueZoneHotspots.map((z, i) => (
               <button
                 key={`${z.part}-${i}`}
                 type="button"
@@ -375,23 +419,35 @@ export function ReceptionDesignEditor({
             </p>
           ) : null}
 
-          {/* part selector */}
-          <div className="flex flex-wrap gap-1.5">
-            {RECEPTION_PARTS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setActivePart(p.id)}
-                className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
-                  activePart === p.id
-                    ? 'border-terracotta bg-terracotta/10 text-ink'
-                    : 'border-ink/15 bg-cream text-ink/70 hover:border-ink/30'
-                }`}
-              >
-                {p.label}
-                <span className="ml-1 text-ink/40">· {primaryLabel(p)}</span>
-              </button>
-            ))}
+          {/* zone rail — every zone, name + current treatment at a glance.
+              A zone the venue lacks is SHOWN, disabled, and SAYS so — never
+              silently offered, never silently gone. */}
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="All reception zones">
+            {RECEPTION_PARTS.map((p) => {
+              const na = !venueZoneApplies(venueSetting, p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={na}
+                  aria-pressed={activePart === p.id}
+                  onClick={() => setActivePart(p.id)}
+                  title={na ? `Not at a ${(venueLabel ?? 'this venue').toLowerCase()}` : undefined}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+                    na
+                      ? 'cursor-not-allowed border-ink/10 bg-cream text-ink/30'
+                      : activePart === p.id
+                        ? 'border-terracotta bg-terracotta/10 text-ink'
+                        : 'border-ink/15 bg-cream text-ink/70 hover:border-ink/30'
+                  }`}
+                >
+                  {p.label}
+                  <span className={na ? 'ml-1' : 'ml-1 text-ink/40'}>
+                    · {na ? `not at a ${(venueLabel ?? 'this venue').toLowerCase()}` : zoneRailText(p)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* tapzone — every material for the active part */}

@@ -86,6 +86,7 @@ import {
   ROOM_DRAWN_ATTRIBUTES,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, primaryOnlyNotice, type ReceptionDesign } from '@/lib/reception-scene';
+import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
 import { ReceptionDesignEditor } from './reception-design-editor';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
@@ -496,6 +497,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // it toward their sky so the open-air shells don't float in black).
   const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);
   const archFloorColor = useMemo(() => archetypeFloorColor(archetype, palette), [archetype, palette]);
+  // Same venue-label resolution as the Mood Board page (`isVenueSetting` +
+  // `VENUE_SETTING_LABEL`) — this component never invents a label from the
+  // raw enum value, and never asserts one it cannot back with the vocabulary.
+  const venueLabel = isVenueSetting(venueSetting) ? VENUE_SETTING_LABEL[venueSetting] : undefined;
   // Cinematic Tier A (Fable §3.5) — the dust motes hover in the key light's
   // shaft over the dance floor; a disabled dance floor falls back to the room
   // centre (the Play camera's focal point either way).
@@ -2980,6 +2985,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         inspirationByPart={inspirationByPart}
         onReceptionDesignChange={setDesign}
         styleFamily={styleFamily}
+        venueSetting={venueSetting}
+        venueLabel={venueLabel}
         rolePalette={rolePalette}
         viewSegment={
           <SeatingViewSegment
@@ -5186,6 +5193,8 @@ function Hud({
   inspirationByPart,
   onReceptionDesignChange,
   styleFamily,
+  venueSetting,
+  venueLabel,
   rolePalette,
   viewSegment,
   mode,
@@ -5266,6 +5275,10 @@ function Hud({
   inspirationByPart?: Record<string, string[]>;
   onReceptionDesignChange: (next: ReceptionDesign) => void;
   styleFamily: MoodboardStyleFamily | null;
+  /** `events.venue_setting`, read-only here — see `ReceptionDesignEditor`'s
+   *  own docblock for why it is never re-asked. */
+  venueSetting: string | null;
+  venueLabel: string | undefined;
   rolePalette: RolePalette;
   viewSegment: ReactNode;
   mode: 'build' | 'play';
@@ -5646,6 +5659,8 @@ function Hud({
               inspirationByPart={inspirationByPart}
               onChange={onReceptionDesignChange}
               styleFamily={styleFamily}
+              venueSetting={venueSetting}
+              venueLabel={venueLabel}
               palette={rolePalette.reception ?? []}
               roleColors={{
                 bride: rolePalette.bride?.[0],

@@ -27,6 +27,7 @@
 import {
   RECEPTION_PARTS,
   optionIds,
+  venueZoneApplies,
   type PartId,
   type ReceptionDesign,
 } from './reception-scene';
@@ -53,7 +54,29 @@ export type DesignContext = {
   palette: RolePalette;
   receptionDesign: ReceptionDesign;
   inspirationPresence: InspirationPresence;
+  /** `events.venue_setting`. A room zone the venue does not have (a beach's
+   *  ceiling, a garden's walls) is never "designed" and never eligible here —
+   *  see `venueZoneApplies` (reception-scene.ts), the single predicate every
+   *  gate in this module and the SVG drawing share. */
+  venueSetting?: string | null;
 };
+
+/**
+ * `eligibleParts`, with any ROOM part the venue does not have removed.
+ * Apply this to the caller-supplied `RENDER_PARTS` subset BEFORE it reaches
+ * `gridParts` — a part filtered out here can never be shown, suggested, or
+ * offered in the chooser, and never contributes a brief line, which is what
+ * "excluded from the render brief, not just hidden" means in practice.
+ * People/place parts are untouched — only a `room` part can be venue-gated.
+ */
+export function eligiblePartsForVenue(
+  parts: readonly RenderPart[],
+  venueSetting: string | null | undefined,
+): RenderPart[] {
+  return parts.filter(
+    (p) => p.group !== 'room' || venueZoneApplies(venueSetting, p.sourceKey as PartId),
+  );
+}
 
 // ── colour source ────────────────────────────────────────────────────────
 //
@@ -84,14 +107,27 @@ export function colorsForWholeLook(palette: RolePalette): string[] {
 // attire role with any colour set, or an inspiration photo tagged to one of
 // this part's own slots.
 
-function roomZoneDesigned(partId: PartId, design: ReceptionDesign): boolean {
+function roomZoneDesigned(
+  partId: PartId,
+  design: ReceptionDesign,
+  venueSetting: string | null | undefined,
+): boolean {
+  // A zone the venue does not have is never "designed" — even if a choice
+  // from before the couple switched venues is still sitting in storage. The
+  // second (belt-and-suspenders) enforcement of the same rule
+  // `eligiblePartsForVenue` applies upstream; a caller that forgot to
+  // pre-filter still cannot show a stale beach ceiling as a live tile.
+  if (!venueZoneApplies(venueSetting, partId)) return false;
   const attrs = design[partId];
   if (!attrs) return false;
   return Object.values(attrs).some((v) => optionIds(v).length > 0);
 }
 
 export function isPartDesigned(part: RenderPart, ctx: DesignContext): boolean {
-  if (part.group === 'room' && roomZoneDesigned(part.sourceKey as PartId, ctx.receptionDesign)) {
+  if (
+    part.group === 'room' &&
+    roomZoneDesigned(part.sourceKey as PartId, ctx.receptionDesign, ctx.venueSetting)
+  ) {
     return true;
   }
   if (part.group === 'people' && (ctx.palette[part.sourceKey as PaletteKey]?.length ?? 0) > 0) {
@@ -142,8 +178,18 @@ export function briefColorLine(
   return names.length ? `Your colours — ${names.join(' · ')}` : 'Your colours — none picked yet';
 }
 
-/** One line per attribute of a reception zone — "Ceiling — Draped canopy + Fairy lights". */
-export function briefZoneLines(partId: PartId, design: ReceptionDesign): string[] {
+/**
+ * One line per attribute of a reception zone — "Ceiling — Draped canopy +
+ * Fairy lights". Returns `[]` for a zone the venue does not have — a beach
+ * reception's brief never lines up a ceiling treatment, even one still
+ * sitting in storage from before the venue changed.
+ */
+export function briefZoneLines(
+  partId: PartId,
+  design: ReceptionDesign,
+  venueSetting?: string | null,
+): string[] {
+  if (!venueZoneApplies(venueSetting, partId)) return [];
   const part = RECEPTION_PARTS.find((p) => p.id === partId);
   if (!part) return [];
   return part.attributes.map((a) => {
@@ -155,9 +201,12 @@ export function briefZoneLines(partId: PartId, design: ReceptionDesign): string[
 }
 
 /** Every reception zone's lines, room only (People is a modifier, not a treatment). */
-export function briefWholeLookZoneLines(design: ReceptionDesign): string[] {
+export function briefWholeLookZoneLines(
+  design: ReceptionDesign,
+  venueSetting?: string | null,
+): string[] {
   return RECEPTION_PARTS.filter((p) => p.id !== 'people').flatMap((p) =>
-    briefZoneLines(p.id, design),
+    briefZoneLines(p.id, design, venueSetting),
   );
 }
 

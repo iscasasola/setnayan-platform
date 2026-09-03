@@ -13,6 +13,7 @@ import {
   RECEPTION_PARTS,
   sanitizeReceptionDesign,
   selAll,
+  venueZoneApplies,
   type ReceptionDesign,
 } from '@/lib/reception-scene';
 import {
@@ -226,7 +227,13 @@ export default async function MoodBoardPage({ params }: Props) {
   // while separate attributes keep joining with ", " as before. selAll, not
   // sel — showing only the first of two would read exactly like a couple who
   // only chose one.
-  const receptionSummary = RECEPTION_PARTS.filter((p) => p.id !== 'people').map((p) => ({
+  // A zone the venue genuinely lacks (a beach's ceiling, a garden's walls)
+  // is dropped from the summary entirely — never printed as "Not set" next
+  // to zones the couple could actually design. Same predicate the Seat
+  // Plan's drawing and 04's render brief gate on (`venueZoneApplies`).
+  const receptionSummary = RECEPTION_PARTS.filter(
+    (p) => p.id !== 'people' && venueZoneApplies(event.venue_setting, p.id),
+  ).map((p) => ({
     id: p.id,
     label: p.label,
     value: p.attributes
@@ -541,6 +548,7 @@ export default async function MoodBoardPage({ params }: Props) {
               initial={initialPalette}
               visibleKeys={Array.from(visibleKeys)}
               saveAction={saveRolePalette}
+              venueLabel={venueLabel}
             />
           </section>
         </div>

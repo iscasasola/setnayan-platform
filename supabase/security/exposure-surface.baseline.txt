@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6453
+# facts: 6447
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     581
-#   col       4746
+#   tpriv     579
+#   col       4742
 #   policy    884
 #   view      8
 #   func      230
@@ -355,8 +355,6 @@ tpriv	public.platform_expenses|authenticated	SIUD
 tpriv	public.platform_integration_secrets|authenticated	IUD
 tpriv	public.platform_package_catalog|anon	SIUD
 tpriv	public.platform_package_catalog|authenticated	SIUD
-tpriv	public.platform_retail_catalog_v2|anon	SIUD
-tpriv	public.platform_retail_catalog_v2|authenticated	SIUD
 tpriv	public.platform_secret_rotations|authenticated	SIUD
 tpriv	public.platform_settings|authenticated	S
 tpriv	public.promo_free_windows|authenticated	SIUD
@@ -3345,27 +3343,23 @@ col	public.platform_package_catalog.retirement_reason	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.title	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.updated_at	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.updated_by_admin_id	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.billing_period	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.created_at	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.description	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.is_active	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.is_pax_priced	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.is_token_able	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.onboarding_price_php	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.pax_floor	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.pax_floor_price_php	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.pax_increment_price_php	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.pax_increment_size	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.replaced_by_service_code	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.retail_price_php	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.retired_at	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.retired_by_admin_id	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.retirement_reason	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.saas_overhead_cost_php	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.service_code	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.title	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.updated_at	anon=SIU authenticated=SIU
-col	public.platform_retail_catalog_v2.updated_by_admin_id	anon=SIU authenticated=SIU
+col	public.platform_retail_catalog_v2.billing_period	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.created_at	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.description	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.is_active	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.is_pax_priced	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.is_token_able	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.onboarding_price_php	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.pax_floor	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.pax_floor_price_php	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.pax_increment_price_php	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.pax_increment_size	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.replaced_by_service_code	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.retail_price_php	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.retired_at	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.service_code	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.title	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.updated_at	anon=S authenticated=S
 col	public.platform_secret_rotations.last_rotated_at	anon=- authenticated=SIU
 col	public.platform_secret_rotations.note	anon=- authenticated=SIU
 col	public.platform_secret_rotations.rotated_by	anon=- authenticated=SIU

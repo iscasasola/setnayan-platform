@@ -52,26 +52,36 @@ of a write policy stopping it. That is one mechanism deep, and SEC-4b
 
 ### Why nothing breaks
 
-Every `.from('platform_retail_catalog_v2')` call site (**31 files**) was extracted
-and its client resolved to service-role vs session:
+Every `.from('platform_retail_catalog_v2')` call site was extracted and the
+client each query is **chained off** was resolved — not merely which clients the
+file imports, which is a different and misleading question (several import both).
+Re-measure with:
 
-- **30 of 31 use `createAdminClient()`** — service-role, which bypasses grants
-  entirely. That includes the **only** reader of the cost column
-  (`lib/v2-catalog.ts` `fetchV2CustomerCatalog`) and **both** `select('*')` calls
-  (`app/admin/pricing/actions.ts`).
-- **1 of 31** reads through the caller's own session —
-  `app/vendor-dashboard/recommendations/page.tsx`. It names ten columns
-  explicitly and none is denied; a post-condition and a test assert all ten.
+```bash
+grep -rn -B1 "\.from('platform_retail_catalog_v2')" apps/web/app apps/web/lib | grep -vE '\.test\.' | grep -oE '(await )?[a-zA-Z_]+$' | sort | uniq -c
+```
+
+The overwhelming majority chain off `admin` (`createAdminClient()`) — service-role,
+which bypasses grants entirely. That includes the **only** reader of the cost
+column (`lib/v2-catalog.ts` `fetchV2CustomerCatalog`) and **both** `select('*')`
+calls (`app/admin/pricing/actions.ts`).
+
+**Seven** queries chain off a session client. Every one names its columns
+explicitly and **none names a denied column** — the couple's Studio and Suite
+pages, the supplier recommendations picker, `lib/papic-cameras.ts`,
+`lib/payable-by-reference.ts`, and the two `setnayan-ai` pricing libs. A
+post-condition and a test assert all of those columns survive, `onboarding_price_php`
+included, so an over-eager future edit to the deny-set fails there rather than
+blanking a signed-in couple's Suite grid.
 
 SQL callers were checked separately, because **a TS grep cannot see one**: exactly
 one function in `public` reads this table in its body — `event_comp_active_skus`
 — and it is `SECURITY DEFINER`, so no session-role grant reaches it. There are no
 views over the table and no `'use client'` file reads it.
 
-🔑 **The honest finding is that `anon` has no reader at all today** — public price
-reads happen server-side through the service-role client, so `/pricing` renders
-from `fetchV2CustomerCatalog()`, not from the browser's key. `anon` is kept on the
-allow-list anyway: the catalogue is a **deliberately world-readable price list**
+🔑 **No reader at all resolves to `anon`** — every session-path reader is behind a
+sign-in or takes an injected server client. `anon` is kept on the allow-list
+anyway: the catalogue is a **deliberately world-readable price list**
 (`20271139128584` says so in as many words) and retiring that is an owner call,
 not a side effect of a margin fix. **Open question for the owner:** revoking
 `anon` outright is a one-line follow-up and strictly safer — worth doing?

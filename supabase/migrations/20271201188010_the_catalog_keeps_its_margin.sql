@@ -37,34 +37,51 @@
 -- rewritten, and there are 31 of them.
 --
 -- ── HOW THE DENY-SET WAS DERIVED ────────────────────────────────────────────
--- Every `.from('platform_retail_catalog_v2')` call site in apps/web (31 files)
--- was extracted and its Supabase client resolved to service-role vs session:
+-- Every `.from('platform_retail_catalog_v2')` call site in apps/web was
+-- extracted and the client each query is CHAINED OFF was resolved — not merely
+-- which clients the file imports, which is a different and misleading question
+-- (several files import both). Re-measure with:
 --
---   • 30 of 31 use `createAdminClient()` — service-role, which bypasses RLS and
---     grants entirely and is UNAFFECTED by this migration. That includes the
---     ONLY reader of the cost column, lib/v2-catalog.ts fetchV2CustomerCatalog,
---     and both `select('*')` calls (app/admin/pricing/actions.ts).
---   • 1 of 31 reads through the caller's own session — the signed-in supplier
---     page app/vendor-dashboard/recommendations/page.tsx. It names ten columns
---     explicitly (service_code, title, retail_price_php, billing_period,
---     is_active, is_pax_priced, pax_floor, pax_floor_price_php,
---     pax_increment_size, pax_increment_price_php) and none of them is denied
---     here. Post-condition (c) asserts all ten survive.
+--   grep -rn -B1 "\.from('platform_retail_catalog_v2')" apps/web/app apps/web/lib \
+--     | grep -vE '\.test\.' | grep -oE '(await )?[a-zA-Z_]+$' | sort | uniq -c
 --
--- SQL callers were checked too, because a TS grep cannot see one: exactly one
--- function in `public` reads this table in its body — `event_comp_active_skus`
+-- The overwhelming majority chain off `admin` (`createAdminClient()`) — the
+-- service-role client, which bypasses RLS and grants entirely and is UNAFFECTED
+-- by this migration. That includes the ONLY reader of the cost column,
+-- `lib/v2-catalog.ts` fetchV2CustomerCatalog, and BOTH `select('*')` calls
+-- (app/admin/pricing/actions.ts).
+--
+-- Seven queries chain off a SESSION client (`supabase` / an injected `client`).
+-- Every one names its columns explicitly and NONE names a denied column:
+--
+--   app/dashboard/[eventId]/studio/page.tsx           service_code, retail_price_php
+--   app/dashboard/[eventId]/suite/page.tsx            service_code, retail_price_php
+--   app/vendor-dashboard/recommendations/page.tsx     service_code, title,
+--       retail_price_php, billing_period, is_active, is_pax_priced, pax_floor,
+--       pax_floor_price_php, pax_increment_size, pax_increment_price_php
+--   lib/papic-cameras.ts                              service_code, retail_price_php
+--   lib/payable-by-reference.ts                       service_code, title
+--   lib/setnayan-ai-event-pricing.ts                  retail_price_php, onboarding_price_php
+--   lib/setnayan-ai-server.ts                         retail_price_php, onboarding_price_php
+--
+-- Post-condition (c) asserts every one of those columns survives, so an
+-- over-eager future edit to the deny-set fails HERE rather than blanking a
+-- signed-in couple's Suite grid or a supplier's picker.
+--
+-- SQL callers were checked separately, because a TS grep cannot see one: exactly
+-- one function in `public` reads this table in its body — `event_comp_active_skus`
 -- (20270322869207) — and it is SECURITY DEFINER, so it runs as its owner and no
 -- session-role grant reaches it. There are NO views over this table and no
 -- `'use client'` file reads it.
 --
--- 🔑 SO THE HONEST FINDING IS THAT `anon` HAS NO READER AT ALL TODAY. Public
--- price reads happen SERVER-SIDE through the service-role client, not through
--- the browser's key — `/pricing` renders from fetchV2CustomerCatalog(). anon is
--- nevertheless kept on the allow-list rather than revoked outright, because the
--- catalogue is a DELIBERATELY world-readable price list (20271139128584 says so
--- in as many words) and retiring that is an owner's call, not a side effect of
--- a margin fix. Revoking `anon` entirely is a one-line follow-up if the owner
--- wants it; this migration is the strictly-safer half.
+-- 🔑 AND NO READER AT ALL RESOLVES TO `anon`. Every session-path reader above is
+-- behind a sign-in (a couple's dashboard, a supplier's dashboard) or takes an
+-- injected server client. anon is nevertheless kept on the allow-list rather
+-- than revoked outright, because the catalogue is a DELIBERATELY world-readable
+-- price list (20271139128584 says so in as many words) and retiring that is an
+-- owner's call, not a side effect of a margin fix. Revoking `anon` entirely is a
+-- one-line follow-up if the owner wants it; this migration is the strictly-safer
+-- half.
 --
 -- ── THE FOUR DENIED COLUMNS ─────────────────────────────────────────────────
 --   saas_overhead_cost_php  our cost per SKU · the margin leak this fixes
@@ -214,7 +231,8 @@ BEGIN
   FOREACH c IN ARRAY ARRAY[
     'service_code', 'title', 'retail_price_php', 'billing_period', 'is_active',
     'is_pax_priced', 'pax_floor', 'pax_floor_price_php', 'pax_increment_size',
-    'pax_increment_price_php', 'is_token_able', 'description'
+    'pax_increment_price_php', 'is_token_able', 'description',
+    'onboarding_price_php'
   ] LOOP
     IF NOT has_column_privilege('authenticated', 'public.platform_retail_catalog_v2', c, 'SELECT')
        OR NOT has_column_privilege('anon', 'public.platform_retail_catalog_v2', c, 'SELECT') THEN

@@ -85,6 +85,9 @@ const PUBLIC_COLUMNS = [
   'pax_increment_price_php',
   'is_token_able',
   'description',
+  // read by lib/setnayan-ai-event-pricing.ts + lib/setnayan-ai-server.ts through
+  // an injected client that may be the caller's own session.
+  'onboarding_price_php',
 ] as const;
 
 let replay: ReplayResult;

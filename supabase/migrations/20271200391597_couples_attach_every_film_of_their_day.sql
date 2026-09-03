@@ -54,10 +54,15 @@ CREATE INDEX IF NOT EXISTS event_films_event_idx
 
 ALTER TABLE public.event_films ENABLE ROW LEVEL SECURITY;
 
+-- ⚠ `current_couple_event_ids()`, NOT `current_event_ids()`. The latter returns events
+-- for ANY member_type, so a policy named `_host_` that used it would let an ordinary
+-- GUEST attach films to the couple's story — the name would be lying about its own
+-- scope. `tests/db/couple-host-policy-scope.db.test.ts` catches exactly this and caught
+-- it here: the first version of this migration shipped `current_event_ids()`.
 CREATE POLICY event_films_host_all ON public.event_films
   FOR ALL TO authenticated
-  USING (event_id IN (SELECT public.current_event_ids()) OR public.is_admin())
-  WITH CHECK (event_id IN (SELECT public.current_event_ids()) OR public.is_admin());
+  USING (event_id IN (SELECT public.current_couple_event_ids()) OR public.is_admin())
+  WITH CHECK (event_id IN (SELECT public.current_couple_event_ids()) OR public.is_admin());
 
 COMMENT ON TABLE public.event_films IS
   'Films the couple attaches to their event — same-day edit, prenup, the videographer''s '

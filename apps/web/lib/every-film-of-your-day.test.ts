@@ -92,7 +92,22 @@ test('🔴 the films table carries RLS, and grants anon nothing', () => {
   // no policy — and giving it one would widen the public surface for a read that already
   // happens as service_role.
   const mig = src('../../supabase/migrations/20271200391597_couples_attach_every_film_of_their_day.sql');
+  // 🪤 ASSERT ON THE POLICY, NOT THE FILE. `stripComments` strips JS `//` and `/* */`;
+  // SQL uses `--`, so a .sql file reaches these assertions WITH ITS PROSE INTACT. The
+  // first version of this test matched `current_event_ids()` anywhere in the file and
+  // passed on three occurrences that were all inside comments explaining which helper
+  // NOT to use — green while asserting nothing. Slice the CREATE POLICY statement.
+  const policy = mig.slice(mig.indexOf('CREATE POLICY event_films_host_all'));
+  assert.ok(policy.length > 0, 'the host policy is gone');
+
   assert.match(mig, /ENABLE ROW LEVEL SECURITY/, 'RLS is not enabled on event_films');
-  assert.match(mig, /current_event_ids\(\)/, 'host access does not use the canonical helper');
+  // current_COUPLE_event_ids, not current_event_ids: the latter returns events for ANY
+  // member_type, so a policy named `_host_` using it would let a GUEST attach films to
+  // the couple's story. `couple-host-policy-scope.db.test.ts` caught exactly that here.
+  assert.match(policy, /current_couple_event_ids\(\)/, 'the host policy is not couple-scoped');
+  assert.ok(
+    !/[^_]current_event_ids\(\)/.test(policy),
+    'the host policy resolves through the member-wide helper — a guest would get couple access',
+  );
   assert.ok(!/TO anon/i.test(mig), 'event_films grants anon a policy it does not need');
 });

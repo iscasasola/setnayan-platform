@@ -25,7 +25,8 @@
  * + a genuine apply-then-pay order for MOODBOARD_RENDER_PACK).
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { nearestColorName } from '@/lib/color-names';
 import { type RolePalette } from '@/lib/mood-board';
 import { type PartId, type ReceptionDesign } from '@/lib/reception-scene';
@@ -122,6 +123,8 @@ export function MakeItReal({
     balance?.creditsLeft ?? null,
   );
   const [chooserOpen, setChooserOpen] = useState(false);
+  const chooserRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: chooserOpen, onClose: () => setChooserOpen(false), containerRef: chooserRef });
 
   const stateFor = (id: string): PartRenderState => partStates[id] ?? EMPTY_PART_STATE;
   const patchState = (id: string, patch: Partial<PartRenderState>) =>
@@ -346,13 +349,20 @@ export function MakeItReal({
       )}
 
       {chooserOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="part-chooser-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm"
-        >
-          <div className="max-h-[80dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="Close part chooser"
+            onClick={() => setChooserOpen(false)}
+            className="absolute inset-0"
+          />
+          <div
+            ref={chooserRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="part-chooser-title"
+            className="relative max-h-[80dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl"
+          >
             <h3 id="part-chooser-title" className="text-lg font-semibold text-ink">
               Render another part
             </h3>

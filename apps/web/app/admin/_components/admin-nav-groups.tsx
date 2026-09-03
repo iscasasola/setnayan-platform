@@ -492,6 +492,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/moodboard-library',
       },
       {
+        // MB8 — every Mood Board render on the platform, consented or not.
+        // 🔒 Deliberately NOT filtered by consent: this feed is how Setnayan
+        // compiles its own content database (owner lock 2026-06-09). Consent
+        // gates whether a creation may be FEATURED, which is refused at the
+        // write, not hidden at the read.
+        key: 'moodboard-renders',
+        label: 'All creations',
+        href: '/admin/moodboard-renders',
+        icon: Images,
+      },
+      {
         // Repointed to the Studio Studio Social queue tab (slice 4 · final).
         // matchPrefix keeps this item lit on the legacy /admin/social-queue
         // path (which now redirects in). Its live count badge follows the item

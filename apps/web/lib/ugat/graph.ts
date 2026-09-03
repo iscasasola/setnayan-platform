@@ -2366,6 +2366,13 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // The inspirations that conditioned a render are an ARRAY, not a child
       // table \u2014 so there is deliberately no FK here to go looking for.
       { kind: 'no_fk', table: 'event_renders', column: 'inspiration_asset_ids' },
+      // MB8's admin curation. featured_at is set ONLY by
+      // moodboard_set_render_featured, which refuses a render whose event has
+      // not given share consent \u2014 so the featured set is consent-clean by
+      // construction and no read path has to remember to filter.
+      { kind: 'column', table: 'event_renders', column: 'featured_at' },
+      { kind: 'column', table: 'event_renders', column: 'failed_at' },
+      { kind: 'column', table: 'event_renders', column: 'failure_reason' },
     ],
     chain: 19,
     pair: ['TYPE-RENDERS', 'TYPE-EVENTS'],
@@ -2375,7 +2382,8 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'Many per event \u00b7 one row per render, including regenerations of the same part \u2014 a couple may re-render a part as often as they hold credits',
     implementedBy:
       'event_renders.event_id \u2192 events, with part_id naming WHICH part (room:/people:/place:/whole_look) and config_digest keying the cross-event reuse pool',
-    writtenBy: 'the "Make it real" render path (MB8) \u2014 UNBUILT as of this row; the table ships inert',
+    writtenBy:
+      'moodboard_begin_render inserts the row (in flight, image_key NULL) \u00b7 moodboard_finish_render attaches the R2 key \u00b7 moodboard_fail_render marks it failed AND refunds \u00b7 moodboard_set_render_featured curates \u2014 SHIPPED in MB8',
     guardedBy:
       'RLS Pattern B (members read \u00b7 couples/coordinators + admin write); the reuse pool is guarded by the GENERATED `reusable` column and the PARTIAL index that only indexes it',
     traps:
@@ -2464,11 +2472,78 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'event_render_credit_grants.order_id \u2192 orders for the purchase; balance = SUM(grants.credits) \u2212 usage.credits_used, computed only by moodboard_render_balance',
     writtenBy:
-      'moodboard_reserve_render_credits / moodboard_release_render_credits (spend) \u00b7 the pack-fulfilment path (grant) \u2014 UNBUILT as of this row',
+      'moodboard_begin_render (spend \u2014 it calls reserve INSIDE the same transaction as the event_renders INSERT, so a debit without a render row is unrepresentable) \u00b7 moodboard_fail_render (refund) \u00b7 the pack-fulfilment path and moodboard_set_share_consent (grant) \u2014 SHIPPED in MB8',
     guardedBy:
       'no write policy on either table (service-role / SECURITY DEFINER only); moodboard_render_caller_may_act gates every function; `anon` is granted EXECUTE on none of them',
     traps:
       'The partial UNIQUE on order_id is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify it with \\d event_render_credit_grants, not by trusting this list. moodboard_render_balance returns ZERO ROWS (not a zero balance) to a caller who may not ask: a reader that coalesces the two together tells a couple who bought a pack that they hold nothing.',
+  },
+  {
+    /**
+     * Share consent \u2014 the +1 bonus render, and the ONE thing consent gates.
+     *
+     * \ud83d\udd12 CONSENT GATES SHOWCASE ELIGIBILITY ONLY. It does NOT gate whether
+     * the admin can see or keep a render. Owner lock 2026-06-09, re-affirmed
+     * 2026-09-03: admin visibility of every render exists so Setnayan can
+     * compile its own content database, and a non-consented render is still
+     * retained and still admin-visible. Anyone reading
+     * moodboard_admin_all_renders and reaching for a `WHERE consented` clause
+     * would be undoing an owner decision while believing they were closing a
+     * leak \u2014 the leak they are imagining is closed at the WRITE, in
+     * moodboard_set_render_featured.
+     *
+     * \u26a0 THE CONSENT AND THE BONUS MOVE TOGETHER. moodboard_set_share_consent
+     * sets the flag AND grants the +1, so a couple can never end up consenting
+     * without the render they were promised. Once-per-event is enforced by a
+     * PARTIAL UNIQUE INDEX on (event_id) WHERE source = 'consent_bonus' \u2014 not
+     * by a check-then-insert, which two concurrent toggles both pass.
+     *
+     * \u26a0 THE BONUS IS PRICED FROM CONFIG (credits_per_part), NOT WRITTEN AS 1.
+     * The lock's "6 total" was arithmetic against the retired 5-render pack;
+     * the surviving pack is 50, so the RATIO was never the decision \u2014 "one
+     * extra render" was.
+     *
+     * \u26a0 WITHDRAWAL IS NOT A DELETE. `consented` flips to FALSE and
+     * withdrawn_at is stamped, so the fact that permission once existed
+     * survives \u2014 a render featured while consent stood is a thing that
+     * happened. Withdrawal un-features every render of the event and
+     * deliberately does NOT claw back the bonus: withdrawal must not cost money.
+     */
+    id: 'J44',
+    claims: [
+      { kind: 'table', table: 'event_render_share_consent' },
+      {
+        kind: 'fk',
+        table: 'event_render_share_consent',
+        column: 'event_id',
+        references: 'events',
+      },
+      // ONE row per event \u2014 the primary key, not a convention.
+      { kind: 'unique', table: 'event_render_share_consent', columns: ['event_id'] },
+      { kind: 'column', table: 'event_render_share_consent', column: 'consented' },
+      { kind: 'column', table: 'event_render_share_consent', column: 'consented_at' },
+      { kind: 'column', table: 'event_render_share_consent', column: 'withdrawn_at' },
+      {
+        kind: 'check',
+        table: 'event_render_share_consent',
+        name: 'event_render_share_consent_timestamped',
+        mentions: 'consented',
+      },
+    ],
+    chain: 19,
+    pair: ['TYPE-RENDERS', 'TYPE-EVENTS'],
+    title: 'Share consent \u2194 Event (the +1 bonus render, and what it does NOT gate)',
+    joint: 'event_render_share_consent',
+    cardinality:
+      'Exactly one row per event, created on the first toggle either way \u00b7 at most ONE consent_bonus grant per event, ever',
+    implementedBy:
+      "event_render_share_consent.event_id \u2192 events (PK); the bonus is an event_render_credit_grants row with source='consent_bonus', made unique per event by a partial index",
+    writtenBy:
+      'moodboard_set_share_consent ONLY \u2014 there is no write policy on the table, because writing consent also GRANTS CREDITS and the two must not be separable by a client that can issue an UPDATE',
+    guardedBy:
+      "RLS Pattern B read half (members + admin read; no write policy) \u00b7 the partial UNIQUE index makes a second bonus unrepresentable \u00b7 moodboard_set_render_featured refuses on a non-consented event, so the featured set is consent-clean at the write",
+    traps:
+      "The partial UNIQUE that makes the bonus once-per-event is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify it with \\d event_render_credit_grants. And do NOT filter the admin all-creations read by consent: that is a locked owner decision, not an oversight (see the docblock). Withdrawing consent does not remove the bonus grant, so SUM(grants) can exceed what a currently-consenting event would have earned \u2014 that is correct, not drift.",
   },
 ];
 

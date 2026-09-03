@@ -37,7 +37,13 @@ type Props = {
   visibleKeys: PaletteKey[];
   saveAction: (formData: FormData) => Promise<void>;
   /** True when `initial` is a draft seeded from the couple's onboarding feel
-   *  (not their saved palette) — surfaces a "suggested, not yet saved" hint. */
+   *  (not their saved palette) — surfaces a "suggested, not yet saved" hint.
+   *  ⚠ DORMANT since MB3 (2026-09-03): the page-level auto-seed this hint
+   *  described was retired (see page.tsx's blank-start fork comment) because
+   *  it silently pre-filled colors nobody had chosen. No caller currently
+   *  passes `true`. Left in place — not deleted — for a future explicit,
+   *  dismissible "Setnayan AI suggests a starting palette" affordance
+   *  (MB4/MB5), which is a legitimate, different use of the same hint. */
   seeded?: boolean;
 };
 
@@ -197,6 +203,17 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
           (k) => PALETTE_LIMITS[k].family === 'venue' && inView(k),
         )}
         palette={palette}
+        // Reception is the couple's five "majors" — the whole board's source
+        // of truth (see hasChosenMajors, lib/mood-board.ts). MB3 (2026-09-03)
+        // retired the page-level auto-seed that used to pre-fill this with
+        // real colors from the couple's onboarding "feel" before they'd
+        // chosen anything — the owner's correction: "it is a requirement to
+        // have at least 3. but start with blank." STARTER_SLOTS renders that
+        // structural minimum as genuinely EMPTY placeholders (nothing to
+        // remove, nothing pre-chosen) rather than three colors that look
+        // decided. Scoped to `reception` only — every other family renders
+        // exactly as before.
+        starterSlots={{ reception: PALETTE_LIMITS.reception.min }}
         onUpdate={updateColor}
         onAdd={addColor}
         onRemove={removeColor}
@@ -414,6 +431,7 @@ function PaletteFamily({
   keys,
   palette,
   emptyHint,
+  starterSlots,
   onUpdate,
   onAdd,
   onRemove,
@@ -422,6 +440,11 @@ function PaletteFamily({
   keys: PaletteKey[];
   palette: RolePalette;
   emptyHint?: string;
+  /** Per-key structural minimum rendered as EMPTY placeholder slots when the
+   *  couple hasn't filled them yet — see the "reception" caller above. Keys
+   *  with no entry here behave exactly as before (a single trailing "+ Add
+   *  color" once any colors exist). */
+  starterSlots?: Partial<Record<PaletteKey, number>>;
   onUpdate: (key: PaletteKey, index: number, color: string) => void;
   onAdd: (key: PaletteKey) => void;
   onRemove: (key: PaletteKey, index: number) => void;
@@ -450,6 +473,13 @@ function PaletteFamily({
           const colors = palette[key] ?? [];
           const atMax = colors.length >= limits.max;
           const belowMin = colors.length > 0 && colors.length < limits.min;
+          // Empty starter slots: rendered ONLY up to the structural minimum,
+          // and ONLY while the couple hasn't filled that many yet. Once
+          // colors.length reaches the starter count, these disappear for
+          // good in favor of the normal trailing "+ Add color" — there is no
+          // going back to a placeholder once a real slot has been added.
+          const starterCount = starterSlots?.[key] ?? 0;
+          const emptyStarterSlots = Math.max(0, starterCount - colors.length);
 
           return (
             <section
@@ -506,17 +536,46 @@ function PaletteFamily({
                   </li>
                 ))}
 
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onAdd(key)}
-                    disabled={atMax}
-                    className="inline-flex h-12 items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 text-xs font-medium text-ink/65 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-                    Add color
-                  </button>
-                </li>
+                {/* Empty starter slots — a colour nobody has chosen yet.
+                    Nothing to remove, so no × at all: "an empty slot ...
+                    carries no × at all — no control that cannot act." */}
+                {emptyStarterSlots > 0
+                  ? Array.from({ length: emptyStarterSlots }).map((_, i) => {
+                      const slotIndex = colors.length + i;
+                      return (
+                        <li
+                          key={`${key}-empty-${slotIndex}`}
+                          className="flex flex-col items-stretch gap-1"
+                        >
+                          {limits.slotLabels?.[slotIndex] ? (
+                            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/40">
+                              {limits.slotLabels[slotIndex]}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => onAdd(key)}
+                            aria-label={`Add ${limits.label} color ${slotIndex + 1} — not yet chosen`}
+                            className="flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-ink/25 text-ink/35 transition hover:border-terracotta hover:text-terracotta"
+                          >
+                            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                          </button>
+                        </li>
+                      );
+                    })
+                  : (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => onAdd(key)}
+                          disabled={atMax}
+                          className="inline-flex h-12 items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 text-xs font-medium text-ink/65 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                          Add color
+                        </button>
+                      </li>
+                    )}
               </ul>
 
               {belowMin ? (

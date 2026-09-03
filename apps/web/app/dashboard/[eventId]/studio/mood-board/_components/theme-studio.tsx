@@ -41,6 +41,8 @@ type Props = {
   eventId: string;
   initialName: string | null;
   initialDescription: string | null;
+  /** hasChosenMajors(palette) — see template-gallery.tsx's `alreadyChosen`. */
+  alreadyChosenMajors: boolean;
   palette: RolePalette;
   receptionDesign: ReceptionDesign;
   saveThemeAction: (eventId: string, theme: { name: string; description: string }) => Promise<void>;
@@ -71,6 +73,7 @@ export function ThemeStudio({
   eventId,
   initialName,
   initialDescription,
+  alreadyChosenMajors,
   palette,
   receptionDesign,
   saveThemeAction,
@@ -99,6 +102,7 @@ export function ThemeStudio({
         fetchAction={fetchTemplatesAction}
         applyAction={applyTemplateAction}
         jumpTo={jumpTo}
+        alreadyChosen={alreadyChosenMajors}
       />
     </>
   );

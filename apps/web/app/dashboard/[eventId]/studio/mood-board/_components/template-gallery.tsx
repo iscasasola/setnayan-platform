@@ -89,6 +89,16 @@ type Props = {
    * step already knowing the feeling.
    */
   jumpTo?: { mood: MoodboardMoodTag | null; family: MoodboardStyleFamily | null } | null;
+  /**
+   * `hasChosenMajors(palette)` (lib/mood-board.ts) — true once the couple's
+   * reception colours are non-empty, however they got there (an applied
+   * theme, or their own edits below). The gallery used to open on "How would
+   * you like to begin?" on EVERY load, including a return visit from a
+   * couple who had already begun — re-asking a question they'd already
+   * answered, the same class of dishonesty the whole redesign exists to
+   * close. When true, skip straight past the intent/blank fork.
+   */
+  alreadyChosen?: boolean;
 };
 
 /** How many choices to show before "show the rest" — the design's "about 6
@@ -169,14 +179,25 @@ function ChoiceButton({
   );
 }
 
-export function TemplateGallery({ eventId, fetchAction, applyAction, jumpTo }: Props) {
+export function TemplateGallery({
+  eventId,
+  fetchAction,
+  applyAction,
+  jumpTo,
+  alreadyChosen,
+}: Props) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
 
   // ── the narrowing conversation ────────────────────────────────────────
-  const [step, setStep] = useState<'intent' | 'mood' | 'family' | 'results' | 'blank'>('intent');
+  // `alreadyChosen` only sets the STARTING step — never re-derived on a later
+  // render, so a couple already on the gallery isn't kicked back to 'chosen'
+  // the moment their first Apply changes `palette.reception` mid-visit.
+  const [step, setStep] = useState<'intent' | 'mood' | 'family' | 'results' | 'blank' | 'chosen'>(
+    () => (alreadyChosen ? 'chosen' : 'intent'),
+  );
   const [mood, setMood] = useState<MoodboardMoodTag | null>(null);
   const [family, setFamily] = useState<MoodboardStyleFamily | null>(null);
   const [showAllMoods, setShowAllMoods] = useState(false);
@@ -323,6 +344,25 @@ export function TemplateGallery({ eventId, fetchAction, applyAction, jumpTo }: P
             />
             <ChoiceButton label="Start with a blank board" onClick={() => setStep('blank')} />
           </div>
+        </div>
+      ) : null}
+
+      {/* The pristine "already began" state — a returning couple who has
+          already chosen their majors (an applied theme or their own colors)
+          never sees "How would you like to begin?" again. One quiet line,
+          plus a way back in if they'd like to compare designed themes. */}
+      {step === 'chosen' ? (
+        <div className="space-y-2">
+          <p className="text-sm text-ink/70">
+            You&rsquo;ve set your main colours — your board is yours to keep building.
+          </p>
+          <button
+            type="button"
+            onClick={() => setStep('mood')}
+            className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+          >
+            Browse designed themes anyway
+          </button>
         </div>
       ) : null}
 

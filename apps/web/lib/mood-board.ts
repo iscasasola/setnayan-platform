@@ -348,6 +348,32 @@ export function sanitizeRolePalette(raw: unknown): RolePalette {
 }
 
 /**
+ * The couple's five "majors" — the reception palette — are the whole board's
+ * source of truth: every other surface (attire cards, the 3D room, renders)
+ * ultimately follows them or a role the couple set directly. This is the ONE
+ * predicate for "have the majors been chosen by the couple" (ported from the
+ * mood-board prototype's `majorsChosen`, 2026-09-03):
+ *
+ *   const majorsChosen = () => touchedRoles.has('reception') || majorsSetByTheme;
+ *
+ * The prototype tracked two separate ephemeral signals — a direct edit vs an
+ * applied theme's fill — because it never persisted anything; the moment
+ * EITHER happens, `role_palette.reception` stops being empty, and it's the
+ * only thing that ever reaches the database. So in the real app the two
+ * collapse into one durable check: reception has a color. Six separate
+ * defects came from different parts of the prototype's board asking this
+ * question a different way (`hasSavedPalette`-style "any key at all" checks,
+ * `moodboard_theme_name` presence, `isSeeded` flags) and disagreeing with
+ * each other. Every surface that needs to know "has the couple chosen their
+ * theme colours" — the blank-start fork, the eventual Setnayan AI advisory
+ * panel (MB4/MB5), the palette-style engine — MUST read THIS, not invent its
+ * own signal.
+ */
+export function hasChosenMajors(palette: RolePalette): boolean {
+  return (palette.reception ?? []).length > 0;
+}
+
+/**
  * Validate raw `custom_roles` input the same way fixed keys are validated —
  * drop invalid hexes, clamp colors to `MAX_CUSTOM_ROLE_COLORS`, clamp the
  * label length, re-slug the key from the (possibly re-typed) label so a

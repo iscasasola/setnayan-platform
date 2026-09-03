@@ -338,7 +338,10 @@ test('a render generated under the CURRENT revision is not stale', () => {
   });
   assert.equal(vm.isStale, false);
   assert.equal(vm.staleBannerText, null);
-  assert.equal(vm.tag, '✦ Photoreal — simulated');
+  // MB8 dropped the "— simulated" suffix when the render became real: the
+  // provider is called, a credit is really spent, and the tag would now be
+  // understating what happened rather than being honest about it.
+  assert.equal(vm.tag, '✦ Photoreal');
 });
 
 test('a render generated under an OLDER revision is stale, and staleBannerText carries the fact', () => {

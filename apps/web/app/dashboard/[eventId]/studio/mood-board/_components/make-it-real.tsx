@@ -8,21 +8,36 @@
  * FREE, FOREVER, ON EVERY TILE: a colour-swatch preview built from the
  * couple's OWN resolved colours (never a stock photo, never a credit).
  *
- * PAID (simulated in this session — see below): a "Make it real" / "The
- * whole look" tier, gated on having BOTH a deliberately-chosen colour and a
- * reference photo (owner, 2026-09-03). Costs are stated in CREDITS ONLY —
- * see `moodboard-make-it-real.test.ts`'s peso guard.
+ * PAID: a "Make it real" / "The whole look" tier, gated on having BOTH a
+ * deliberately-chosen colour and a reference photo (owner, 2026-09-03). Costs
+ * are stated in CREDITS ONLY — see `moodboard-make-it-real.test.ts`'s peso
+ * guard.
  *
- * 🔒 WHAT IS SIMULATED, AND WHY. MB7 is the free-tier render SURFACE — the
- * provider call, the real debit (`moodboard_reserve_render_credits`) and the
- * render cache are MB8/MB9, not built yet. Clicking "Generate" here does NOT
- * call the provider and does NOT spend a real credit: it only updates this
- * component's own React state (Lock / Keep / stale marking are explicitly
- * UI STATE ONLY per MB7.md) and decrements a LOCAL, session-only copy of the
- * credit count. Nothing here is persisted, and the tile is honestly tagged
- * "✦ Photoreal — simulated" — never claimed as a real image. The credit
- * BALANCE shown at rest and the BUY button are real (moodboard_render_balance
- * + a genuine apply-then-pay order for MOODBOARD_RENDER_PACK).
+ * ── MB8 MADE THIS REAL. NOTHING HERE IS SIMULATED ANY MORE ────────────────
+ * `Generate` calls `requestRender` (render-actions.ts), which debits a real
+ * credit and calls a real image model. MB7's session-only decrement is gone:
+ * the counter now moves because the ledger moved, and every outcome is read
+ * back from the server rather than assumed.
+ *
+ * 🔑 THE ONE RULE THIS COMPONENT EXISTS TO HOLD: **A FAILED RENDER LOOKS
+ * NOTHING LIKE A SUCCESS AND NOTHING LIKE AN IDLE TILE.**
+ *
+ * The three outcomes of `requestRender` land in three distinct pieces of tile
+ * state and three distinct pieces of markup:
+ *   · `rendered`     → the photograph, tagged "✦ Photoreal"
+ *   · `insufficient` → "you have N credits" + the pack. NOT an error.
+ *   · `failed`       → `vm.failure`, printed ON THE BOX: a headline, the
+ *                      sentence, and the fact that the credit came back.
+ *
+ * ⚠ AND `pending` IS NOT OPTIONAL POLISH. A tile that looks idle while a
+ * render is in flight invites a second click and a second credit; a tile that
+ * looks busy forever after the request died is the stuck upload chip. So
+ * `pending` disables the button AND is cleared on every exit path — there is
+ * no `return` in `generate()` that leaves it set.
+ *
+ * The failure text comes from `RENDER_FAILURE_COPY`, which is exhaustive over
+ * the provider's failure union by TYPE, so a new failure mode cannot reach a
+ * couple as a blank tile — it cannot compile without a sentence.
  */
 
 import { useMemo, useRef, useState } from 'react';
@@ -51,6 +66,19 @@ import {
   type TileViewModel,
 } from '@/lib/moodboard-make-it-real';
 import { InfoButton } from './info-button';
+import {
+  requestRender,
+  readRenderBalance,
+  abandonStalledRender,
+  setShareConsent,
+  type RenderActionResult,
+} from '../render-actions';
+import {
+  classifyRender,
+  failureCodeOf,
+  type EventRenderRow,
+} from '@/lib/moodboard-render-gallery';
+import { renderFailureCopy } from '@/lib/moodboard-render-failure';
 import {
   ChoosePlanSheet,
   type ChoosePlanSheetProps,
@@ -87,6 +115,26 @@ export type MakeItRealProps = {
   balance: MoodboardRenderBalance | null;
   packPlan: ChoosePlanSku | null;
   checkoutSettings: ChoosePlanSheetProps['settings'];
+  /**
+   * MB8 — this event's own renders, newest first, each with a short-lived
+   * viewing URL minted server-side.
+   *
+   * 🔑 `null` MEANS THE READ WAS REFUSED, NOT THAT THERE ARE NONE. The two
+   * render as different sentences below. This is the guest-list failure's
+   * shape exactly — a couple with forty photographs must never be shown "no
+   * renders yet".
+   */
+  renders: RenderGalleryItem[] | null;
+  /** MB8 — has this event agreed to be featured (and taken the +1 render)? */
+  shareConsented: boolean;
+};
+
+/** One row of the couple's gallery, with its viewing URL resolved. */
+export type RenderGalleryItem = EventRenderRow & {
+  /** Presigned GET, or `null` when one could not be minted for this row. */
+  imageUrl: string | null;
+  /** The part's human label, resolved server-side from the derived registry. */
+  partLabel: string;
 };
 
 export function MakeItReal({
@@ -101,6 +149,8 @@ export function MakeItReal({
   balance,
   packPlan,
   checkoutSettings,
+  renders,
+  shareConsented,
 }: MakeItRealProps) {
   const inspirationPresenceSet = useMemo(
     () => new Set(inspirationPresence),
@@ -125,11 +175,18 @@ export function MakeItReal({
   const [partStates, setPartStates] = useState<Record<string, PartRenderState>>({});
   const [addedParts, setAddedParts] = useState<Set<string>>(new Set());
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
-  // Session-only, optimistic. Starts from the REAL balance; never written back
-  // to it. `null` mirrors "not permitted to know" through the whole surface.
+  // MB8: no longer optimistic. Starts from the REAL balance and is only ever
+  // replaced by a number the SERVER returned — after a debit, after a refund,
+  // after a bonus grant. MB7 decremented this locally because nothing was
+  // really spent; now something is, and a locally-guessed balance would drift
+  // from the ledger the moment any call failed.
+  // `null` mirrors "not permitted to know" through the whole surface and is
+  // never replaced by a fabricated zero.
   const [localCreditsLeft, setLocalCreditsLeft] = useState<number | null>(
     balance?.creditsLeft ?? null,
   );
+  const [consented, setConsented] = useState(shareConsented);
+  const [consentPending, setConsentPending] = useState(false);
   const [chooserOpen, setChooserOpen] = useState(false);
   const chooserRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open: chooserOpen, onClose: () => setChooserOpen(false), containerRef: chooserRef });
@@ -205,14 +262,100 @@ export function MakeItReal({
     });
   }
 
-  function generate(id: string, vm: TileViewModel) {
-    if (localCreditsLeft === null || localCreditsLeft < vm.cost) return;
-    setLocalCreditsLeft(localCreditsLeft - vm.cost);
+  /**
+   * Spend a credit and get a photograph — the real thing (MB8).
+   *
+   * Every exit path clears `pending` and sets exactly one of `generated`,
+   * `failure` or `insufficient`. There is deliberately no `finally`-less
+   * branch and no early `return` after the request starts: a tile left
+   * `pending` is the stuck chip, and a tile left blank after a failure is the
+   * silent nothing.
+   */
+  async function generate(id: string, vm: TileViewModel) {
+    if (stateFor(id).pending) return; // never two credits for one click
+    patchState(id, { pending: true, failure: null, insufficient: false, briefOpen: false });
+
+    const revisionKeyAtRequest = currentRevisionKey;
+    let result: RenderActionResult;
+    try {
+      result = await requestRender({
+        eventId,
+        partId: id,
+        note: stateFor(id).note.trim() || null,
+      });
+    } catch {
+      // The action threw where it promised not to (a network drop between the
+      // browser and us, a deploy mid-flight). The couple must still be told,
+      // and told the truth: we do not know whether the credit moved, so this
+      // says so rather than claiming a refund we cannot vouch for.
+      patchState(id, { pending: false, failure: { code: 'network' } });
+      return;
+    }
+
+    if (result.status === 'insufficient') {
+      patchState(id, { pending: false, insufficient: true });
+      setLocalCreditsLeft(result.creditsLeft);
+      return;
+    }
+    if (result.status === 'failed') {
+      patchState(id, { pending: false, failure: { code: result.code } });
+      // The balance is re-read even on a failure, because the refund has
+      // already landed server-side and the counter must show it. A decremented
+      // balance sitting next to "your credit is back" is the contradiction
+      // that makes a couple distrust both numbers.
+      void refreshBalance();
+      return;
+    }
+
     patchState(id, {
-      generated: { revisionKey: currentRevisionKey, hexes: vm.hexes, note: stateFor(id).note.trim() },
+      pending: false,
+      failure: null,
+      insufficient: false,
+      generated: {
+        revisionKey: revisionKeyAtRequest,
+        hexes: vm.hexes,
+        note: stateFor(id).note.trim(),
+        renderId: result.renderId,
+        imageUrl: result.imageUrl,
+      },
       kept: false,
-      briefOpen: false,
     });
+    setLocalCreditsLeft(result.creditsLeft);
+  }
+
+  /** Re-read the balance from the ledger. `null` stays `null` — see the counter. */
+  async function refreshBalance() {
+    try {
+      const r = await readRenderBalance({ eventId });
+      setLocalCreditsLeft(r.creditsLeft);
+    } catch {
+      // A failed balance re-read must not overwrite a good number with a
+      // fabricated zero. Leaving it stale is the lesser lie, and the next
+      // page load fixes it.
+    }
+  }
+
+  /**
+   * Hand back the credit for a render that stopped without ever reporting.
+   *
+   * The action revalidates the page, so the gallery row re-reads as `failed`
+   * from the database rather than being patched optimistically here — the
+   * refund is a server fact and the surface should show the server's version
+   * of it, not a hopeful local copy.
+   */
+  async function abandon(renderId: string) {
+    await abandonStalledRender({ eventId, renderId }).catch(() => undefined);
+    void refreshBalance();
+  }
+
+  async function toggleConsent(next: boolean) {
+    setConsentPending(true);
+    const r = await setShareConsent({ eventId, consented: next }).catch(() => null);
+    setConsentPending(false);
+    if (r?.ok) {
+      setConsented(next);
+      setLocalCreditsLeft(r.creditsLeft);
+    }
   }
 
   const scrollTo = (id: string) => {
@@ -342,6 +485,41 @@ export function MakeItReal({
             ))}
           </div>
 
+          {/* ── the +1 consent bonus (owner design lock 2026-06-09) ────────
+              The offer is one extra render for letting Setnayan feature the
+              creation. Two things this copy must be honest about, because the
+              lock is specific and a vague version would overclaim:
+                · consent decides only whether a creation may be SHOWN
+                  publicly — Setnayan keeps and reviews every render either
+                  way, and saying otherwise here would be false;
+                · the bonus is granted once, and withdrawing consent does not
+                  take it back.
+              The grant happens inside the RPC, so a couple can never end up
+              consenting without receiving the render they were promised. */}
+          <div className="rounded-xl border border-terracotta/25 bg-terracotta/5 p-3.5">
+            <label className="flex items-start gap-2.5 text-sm">
+              <input
+                type="checkbox"
+                checked={consented}
+                disabled={consentPending}
+                onChange={(e) => void toggleConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-terracotta"
+              />
+              <span className="space-y-1">
+                <span className="block font-semibold text-ink">
+                  Let Setnayan feature your creation — get 1 extra render
+                  {consented ? ' ✓' : ''}
+                </span>
+                <span className="block text-xs text-ink/60">
+                  We may show your renders in our own galleries and marketing. You can turn this
+                  off any time, which un-features anything already shown — the bonus render stays
+                  yours. Setnayan can always see and keep your renders for quality and to build
+                  our own design library; this choice is only about showing them publicly.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="flex flex-wrap items-center gap-3">
             {shown.length === 0 ? (
               <p className="text-sm text-ink/55">Parts you design above appear here.</p>
@@ -356,6 +534,8 @@ export function MakeItReal({
               </button>
             ) : null}
           </div>
+
+          <RenderGallery renders={renders} onAbandon={(id) => void abandon(id)} />
         </>
       )}
 
@@ -421,6 +601,139 @@ export function MakeItReal({
   );
 }
 
+/* ── the couple's own gallery ─────────────────────────────────────────────── */
+
+/**
+ * Every render this event has made, newest first.
+ *
+ * 🔑 THREE STATES, THREE SENTENCES, AND THE FIRST ONE IS WHY THIS COMPONENT
+ * IS WRITTEN THIS WAY:
+ *   · `renders === null` — the read FAILED. Say that. A couple who has bought
+ *     a pack and made forty photographs must never be shown "no renders yet"
+ *     because a gate said no. That exact substitution told a couple with 180
+ *     guests that their wedding was empty. (Written without a peso figure on
+ *     purpose — MB7's guard forbids the symbol anywhere in this file, comments
+ *     included, and keeping it that blunt is worth more than the example.)
+ *   · `renders.length === 0` — answered, and genuinely none. The invitation
+ *     to start is CORRECT here and only here.
+ *   · rows — the gallery, with failed and stalled rows shown AS failures
+ *     rather than hidden, so a couple can see what happened to every credit.
+ */
+function RenderGallery({
+  renders,
+  onAbandon,
+}: {
+  renders: RenderGalleryItem[] | null;
+  onAbandon: (renderId: string) => void;
+}) {
+  if (renders === null) {
+    return (
+      <div className="rounded-xl border border-ink/10 bg-white p-4">
+        <p className="text-sm font-semibold text-ink/75">We couldn&rsquo;t load your renders</p>
+        <p className="mt-0.5 text-xs text-ink/55">
+          Your photos are safe — we just couldn&rsquo;t read them right now. Please reload the
+          page. This is not the same as having none.
+        </p>
+      </div>
+    );
+  }
+  if (renders.length === 0) return null;
+
+  return (
+    <section className="space-y-2.5 border-t border-dashed border-ink/10 pt-4">
+      <header className="flex items-baseline justify-between gap-3">
+        <h3 className="text-base font-medium text-ink/80">Your renders</h3>
+        <p className="text-xs text-ink/50">
+          {renders.length} {renders.length === 1 ? 'photo' : 'photos'} · only you and Setnayan can
+          see these
+        </p>
+      </header>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {renders.map((r) => {
+          const state = classifyRender(r);
+          const copy =
+            state.kind === 'failed'
+              ? renderFailureCopy(failureCodeOf(r.failure_reason))
+              : null;
+          return (
+            <figure
+              key={r.render_id}
+              className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm"
+            >
+              <div className="relative aspect-[4/3] bg-ink/5">
+                {state.kind === 'ready' && r.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- presigned, short-lived
+                  <img
+                    src={r.imageUrl}
+                    alt={`${r.partLabel} — your render`}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : null}
+                {state.kind === 'ready' && !r.imageUrl ? (
+                  <div className="absolute inset-0 flex items-center justify-center px-2 text-center text-[10px] font-semibold text-ink/55">
+                    Saved — reload to see it
+                  </div>
+                ) : null}
+                {state.kind === 'working' ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-ink/70 px-2 text-center text-[10px] font-semibold text-white">
+                    Making your photo…
+                  </div>
+                ) : null}
+                {/* A render that stopped with nobody left to report it. Shown
+                    as a FAILURE with the credit named, never as a tile that
+                    keeps spinning — that is the stuck upload chip, and it sat
+                    at 0% forever because nothing ever said the attempt ended. */}
+                {state.kind === 'stalled' ? (
+                  <div
+                    data-render-failure
+                    className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-700/90 px-2 text-center text-white"
+                  >
+                    <p className="text-[11px] font-bold">This one stopped</p>
+                    <p className="text-[10px] leading-snug text-white/90">
+                      It never finished. Your {r.credits_debited}{' '}
+                      {r.credits_debited === 1 ? 'credit' : 'credits'} {' '}
+                      {r.credits_debited === 1 ? 'is' : 'are'} still held.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onAbandon(r.render_id)}
+                      className="mt-0.5 rounded-md bg-white/20 px-2 py-0.5 text-[10px] font-semibold hover:bg-white/30"
+                    >
+                      Get the credit back
+                    </button>
+                  </div>
+                ) : null}
+                {copy ? (
+                  <div
+                    data-render-failure
+                    className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-700/90 px-2 text-center text-white"
+                  >
+                    <p className="text-[11px] font-bold">{copy.headline}</p>
+                    <p className="text-[10px] leading-snug text-white/90">{copy.detail}</p>
+                  </div>
+                ) : null}
+                {r.featured_at ? (
+                  <span className="absolute right-1.5 top-1.5 rounded-full bg-mulberry px-2 py-0.5 text-[10px] font-bold text-cream">
+                    ★ Featured
+                  </span>
+                ) : null}
+              </div>
+              <figcaption className="px-2.5 py-2 text-xs">
+                <span className="font-semibold text-ink">{r.partLabel}</span>
+                {r.note ? (
+                  <span className="mt-0.5 block truncate text-ink/50" title={r.note}>
+                    “{r.note}”
+                  </span>
+                ) : null}
+              </figcaption>
+            </figure>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 /* ── shared tile chrome ──────────────────────────────────────────────────── */
 
 type TileChromeProps = {
@@ -471,6 +784,53 @@ function TileChrome({
         }`}
         style={{ background: swatchBackground(vm.hexes) }}
       >
+        {/* The photograph, once there is one. The free colour preview stays
+            underneath as the background, so a slow or expired image URL
+            degrades to the free swatch rather than to a broken-image icon. */}
+        {vm.imageUrl ? (
+          // A presigned R2 GET is signed and short-lived; routing it through
+          // next/image would need the host allowlisted and would cache a URL
+          // that expires out from under the cache.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={vm.imageUrl}
+            alt={`${vm.label} — your render`}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : null}
+
+        {/* 🔑 THE FAILURE, ON THE BOX. Not a toast, not a console line, not a
+            silently-unchanged tile. It covers the preview so it cannot be
+            mistaken for the render having happened, and it is the FIELD
+            `vm.failure` — which is what `moodboard-render-failure-reaches-the-
+            box.test.ts` pins, so this cannot be quietly deleted. */}
+        {vm.failure ? (
+          <div
+            data-render-failure
+            className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-700/90 px-3 text-center text-white"
+          >
+            <p className="text-xs font-bold">{vm.failure.headline}</p>
+            <p className="text-[10px] leading-snug text-white/90">{vm.failure.detail}</p>
+          </div>
+        ) : null}
+
+        {/* In flight. A tile that looks idle here invites a second credit. */}
+        {vm.pending ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-ink/70 text-center text-white">
+            <p className="text-xs font-semibold">Making your photo…</p>
+            <p className="text-[10px] text-white/80">This takes up to a minute.</p>
+          </div>
+        ) : null}
+
+        {/* The render exists but no viewing link could be minted. Saying
+            "reload to see it" is true; saying nothing would read as a failure
+            for a photograph the couple already owns. */}
+        {!vm.imageUrl && !vm.pending && !vm.failure && state.generated ? (
+          <div className="absolute inset-x-0 bottom-0 bg-ink/70 px-2 py-1 text-[10px] font-semibold text-white">
+            Saved — reload the page to see it
+          </div>
+        ) : null}
+
         <span className="absolute left-1.5 top-1.5 rounded-full bg-ink/55 px-2 py-0.5 text-[10px] font-bold text-white">
           {vm.tag}
         </span>
@@ -494,6 +854,45 @@ function TileChrome({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 text-xs">
+        {/* ── MB8: the two outcomes that are neither "idle" nor "done" ──────
+            Both sit ABOVE the normal controls, because the freshest fact
+            about this tile is what just happened to it. */}
+        {vm.insufficient ? (
+          <>
+            <span className="basis-full font-semibold text-danger-700">
+              You don&rsquo;t have {vm.costLabel} left — nothing was made and nothing was
+              charged.
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                document.getElementById('make-it-real-credits')?.scrollIntoView({ behavior: 'smooth' })
+              }
+              className="rounded-md border border-ink/15 px-2.5 py-1.5 font-medium text-ink/75 hover:border-terracotta hover:text-terracotta"
+            >
+              Get more credits
+            </button>
+          </>
+        ) : null}
+        {vm.failure ? (
+          <>
+            <span className="basis-full font-semibold text-danger-700">
+              {vm.failure.headline} — your credit was returned.
+            </span>
+            {/* A retry button on a failure a retry cannot fix would be
+                theatre, so `retryable` decides whether it appears at all. */}
+            {vm.failure.retryable && vm.gate.ok ? (
+              <button
+                type="button"
+                disabled={vm.pending}
+                onClick={() => onGenerate(vm)}
+                className="rounded-md border border-ink/15 px-2.5 py-1.5 font-medium text-ink/75 hover:border-terracotta hover:text-terracotta disabled:opacity-50"
+              >
+                Try again · {vm.costLabel}
+              </button>
+            ) : null}
+          </>
+        ) : null}
         {!state.generated ? (
           !vm.gate.ok ? (
             <>
@@ -610,10 +1009,15 @@ function TileChrome({
             {canAfford ? (
               <button
                 type="button"
+                // Disabled while a render is in flight: a second click here is
+                // a second credit for one photograph.
+                disabled={vm.pending}
                 onClick={() => onGenerate(vm)}
-                className="rounded-full bg-mulberry px-3.5 py-1.5 font-semibold text-cream hover:bg-mulberry-600"
+                className="rounded-full bg-mulberry px-3.5 py-1.5 font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-60"
               >
-                {hero ? 'Generate the whole look' : 'Generate'} · {vm.costLabel}
+                {vm.pending
+                  ? 'Making your photo…'
+                  : `${hero ? 'Generate the whole look' : 'Generate'} · ${vm.costLabel}`}
               </button>
             ) : (
               <>

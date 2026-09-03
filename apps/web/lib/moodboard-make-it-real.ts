@@ -37,6 +37,7 @@ import {
   type RenderPart,
 } from './moodboard-render-parts';
 import { type MoodboardSlotKey } from './moodboard-slots';
+import { renderFailureCopy, type RenderFailureCopy } from './moodboard-render-failure';
 
 /**
  * The inspiration slot keys that currently hold at least one photo.
@@ -321,9 +322,13 @@ export function gridParts(
 // ── the tile view-model ─────────────────────────────────────────────────
 //
 // Lock / Keep / stale marking are UI STATE ONLY (MB7.md) — nothing here is
-// persisted, and NO credit reserve is ever called (that is MB8's job, once a
-// provider call exists to spend one on). `PartRenderState` is exactly what a
-// caller keeps in React state per tile.
+// persisted. This module stays PURE: it never reserves a credit and never
+// calls a provider. MB8 added the paid path, and deliberately added it as
+// three more FIELDS on `PartRenderState` (`pending`, `failure`,
+// `insufficient`) read by `buildTileViewModel`, rather than as logic in the
+// component — so the outcome of a real render is as unit-testable as the free
+// preview always was. `PartRenderState` is exactly what a caller keeps in
+// React state per tile; the server action lives in `render-actions.ts`.
 //
 // `buildTileViewModel` exists so "does the stale marker reach the RENDER" is
 // something a plain unit test can prove without a render harness (this repo
@@ -339,6 +344,17 @@ export type GeneratedRender = {
   hexes: string[];
   note?: string;
   whole?: boolean;
+  /** MB8: the real `event_renders.render_id`. Absent only on MB7-era state. */
+  renderId?: string;
+  /**
+   * MB8: a short-lived presigned GET for the photograph.
+   *
+   * `null` is MEANINGFUL and is not a failure: the render exists and is
+   * stored, but the viewing link could not be minted (or has aged out). The
+   * tile says "saved — reload to see it". Conflating that with "no render"
+   * would tell a couple their photograph does not exist while it sits in R2.
+   */
+  imageUrl?: string | null;
 };
 
 export type PartRenderState = {
@@ -347,6 +363,23 @@ export type PartRenderState = {
   kept: boolean;
   note: string;
   briefOpen: boolean;
+  /**
+   * MB8: a render is in flight RIGHT NOW (this component is awaiting the
+   * server action). Distinct from the DB's in-flight row, which the gallery
+   * classifies against the clock.
+   */
+  pending?: boolean;
+  /**
+   * MB8: the last attempt FAILED, and this is the code.
+   *
+   * 🔑 IT LIVES IN STATE RATHER THAN IN A TOAST. A toast is dismissed, missed
+   * or never rendered on a slow device, and then the tile is back to looking
+   * untouched — which is how "it silently did nothing" happens with error
+   * handling technically present. This field is what the tile PRINTS.
+   */
+  failure?: { code: string } | null;
+  /** MB8: the couple had too few credits for the last attempt. */
+  insufficient?: boolean;
 };
 
 export const EMPTY_PART_STATE: PartRenderState = {
@@ -355,6 +388,9 @@ export const EMPTY_PART_STATE: PartRenderState = {
   kept: false,
   note: '',
   briefOpen: false,
+  pending: false,
+  failure: null,
+  insufficient: false,
 };
 
 export type TileViewModel = {
@@ -364,13 +400,34 @@ export type TileViewModel = {
   costLabel: string;
   hexes: string[];
   hasColor: boolean;
-  /** "Free preview" · "No colours yet" · "✦ Photoreal — simulated" (never a real image — MB8). */
+  /** "Free preview" · "No colours yet" · "✦ Photoreal" · "Rendering…" · "⚠ Not rendered". */
   tag: string;
   isStale: boolean;
   /** Non-null exactly when `isStale` — the one thing the tile must show for a stale render. */
   staleBannerText: string | null;
   gate: RenderGate;
   briefLines: string[];
+  /**
+   * MB8 — THE FAILURE, AS A FIELD.
+   *
+   * 🔑 Non-null exactly when the last attempt failed, and it carries the
+   * finished sentence the couple reads. It is a field on the view model for
+   * the same reason `staleBannerText` is: it makes "does the failure reach the
+   * RENDER" provable by a plain unit test plus a source guard pinning that the
+   * component prints THIS, in a repo that has no render harness. A failure
+   * expressed only as a conditional deep inside JSX cannot be asserted, and
+   * this product has repeatedly shipped exactly that.
+   */
+  failure: RenderFailureCopy | null;
+  /** MB8: a render is in flight. The tile must not look idle while it is. */
+  pending: boolean;
+  /** MB8: the couple cannot afford the last attempt — offer the pack, not an error. */
+  insufficient: boolean;
+  /**
+   * MB8: the photograph, when there is one and a link could be minted.
+   * `null` with a non-null `generated` means "saved, reload to see it".
+   */
+  imageUrl: string | null;
 };
 
 export function buildTileViewModel(args: {
@@ -387,7 +444,23 @@ export function buildTileViewModel(args: {
   const hasColor = hexes.length > 0;
   const gen = state.generated;
   const isStale = !!gen && gen.revisionKey !== currentRevisionKey;
-  const tag = gen ? '✦ Photoreal — simulated' : hasColor ? 'Free preview' : 'No colours yet';
+  const pending = !!state.pending;
+  const insufficient = !!state.insufficient;
+  // A failure is only a failure until the next success replaces it. Ordered
+  // ahead of `generated` in the tag below because the freshest fact about this
+  // tile is that the last attempt did not produce a photograph.
+  const failure = state.failure ? renderFailureCopy(state.failure.code) : null;
+
+  const tag = pending
+    ? 'Rendering…'
+    : failure
+      ? '⚠ Not rendered'
+      : gen
+        ? '✦ Photoreal'
+        : hasColor
+          ? 'Free preview'
+          : 'No colours yet';
+
   return {
     id,
     label,
@@ -400,5 +473,9 @@ export function buildTileViewModel(args: {
     staleBannerText: isStale ? '⟳ Generated before your latest changes' : null,
     gate,
     briefLines,
+    failure,
+    pending,
+    insufficient,
+    imageUrl: gen?.imageUrl ?? null,
   };
 }

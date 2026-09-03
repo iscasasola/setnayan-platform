@@ -45,5 +45,17 @@ export function bucketForPrefix(pathPrefix: string): R2BucketKey {
   // a future server-side writer that routes by prefix cannot land these in the
   // public bucket by omission. That omission is exactly how they got there.
   if (normalized.startsWith('payment-proof/')) return 'threadFiles';
+  // Mood Board "Make it real" renders (MB8). PRIVATE: a render is the couple's
+  // own creation and is theirs alone until an admin FEATURES it, which is
+  // itself gated on their explicit share consent. The public `media` bucket
+  // would make every render readable by URL to anyone who guessed one, which
+  // would hand the consent decision to whoever found the link first.
+  //
+  // This rule is defence-in-depth exactly as `payment-proof/` above is: MB8's
+  // writer names the bucket explicitly, so what this line really does is make
+  // the PREFIX alone sufficient — a later prefix-routing writer cannot land a
+  // couple's render in the public bucket by omission. That omission is how the
+  // payment proofs got there.
+  if (normalized.startsWith('renders/')) return 'threadFiles';
   return 'media';
 }

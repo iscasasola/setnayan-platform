@@ -41,7 +41,15 @@ import { ThemeStudio } from './_components/theme-studio';
 import { InfoButton } from './_components/info-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { MakeItReal } from './_components/make-it-real';
-import { RENDER_PARTS, type RenderPart } from '@/lib/moodboard-render-parts';
+import {
+  RENDER_PARTS,
+  renderPartById,
+  WHOLE_LOOK_PART_ID,
+  type RenderPart,
+} from '@/lib/moodboard-render-parts';
+import { readEventRenders } from '@/lib/moodboard-render-gallery';
+import { r2SignedGet } from '@/lib/r2';
+import { RENDER_BUCKET } from './render-actions';
 import {
   MOODBOARD_RENDER_PACK_SKU,
   readMoodboardRenderConfig,
@@ -138,6 +146,8 @@ export default async function MoodBoardPage({ params }: Props) {
     moodboardRenderBalance,
     moodboardRenderPackSku,
     platformSettings,
+    moodboardRenderRows,
+    shareConsentRes,
   ] = await Promise.all([
     supabase
       .from('events')
@@ -193,6 +203,16 @@ export default async function MoodBoardPage({ params }: Props) {
     readMoodboardRenderBalance(supabase, eventId),
     formatV2Sku(MOODBOARD_RENDER_PACK_SKU).catch(() => null),
     fetchPlatformSettings(supabase),
+    // MB8 — the couple's own renders. `null` means the read was REFUSED, and
+    // the gallery says so; it must never render as "no renders yet" (see
+    // readEventRenders' own docblock — this is the guest-list failure's shape).
+    readEventRenders(supabase, eventId),
+    // MB8 — the event-level "let Setnayan feature your creation" consent.
+    supabase
+      .from('event_render_share_consent')
+      .select('consented')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
@@ -301,6 +321,37 @@ export default async function MoodBoardPage({ params }: Props) {
   // re-fetched, so section 04's render gate can never see a different photo
   // set than the couple does.
   const inspirationPresence = Array.from(new Set(inspirations.map((i) => i.slot_key)));
+
+  // ── MB8: resolve each render's viewing URL, server-side ──────────────────
+  //
+  // Renders live in the PRIVATE bucket, so they are readable only through a
+  // short-lived presigned GET minted here. A row whose URL cannot be minted
+  // keeps `imageUrl: null`, and the gallery says "saved — reload to see it"
+  // rather than showing a broken image or, worse, treating a photograph the
+  // couple owns as if it did not exist.
+  //
+  // `partLabel` comes from the DERIVED registry, so a render of a zone added
+  // later is still labelled properly instead of showing its raw `room:foo` id.
+  const moodboardRenders =
+    moodboardRenderRows === null
+      ? null
+      : await Promise.all(
+          moodboardRenderRows.map(async (r) => ({
+            ...r,
+            partLabel:
+              r.part_id === WHOLE_LOOK_PART_ID
+                ? 'The whole look'
+                : (renderPartById(r.part_id)?.label ?? r.part_id),
+            imageUrl: r.image_key
+              ? await r2SignedGet({
+                  bucket: RENDER_BUCKET,
+                  key: r.image_key,
+                  expiresIn: 60 * 60,
+                }).catch(() => null)
+              : null,
+          })),
+        );
+  const shareConsented = shareConsentRes.data?.consented === true;
 
   const venueSetting = (event as { venue_setting?: string | null }).venue_setting ?? null;
   const venueLabel = isVenueSetting(venueSetting)
@@ -606,6 +657,8 @@ export default async function MoodBoardPage({ params }: Props) {
           balance={moodboardRenderBalance}
           packPlan={moodboardRenderPackPlan}
           checkoutSettings={platformSettings}
+          renders={moodboardRenders}
+          shareConsented={shareConsented}
         />
 
         <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">

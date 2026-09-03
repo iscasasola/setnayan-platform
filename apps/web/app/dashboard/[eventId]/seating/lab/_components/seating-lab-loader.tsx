@@ -47,6 +47,10 @@ type Props = {
   rolePalette: RolePalette;
   /** Couple's saved reception treatments (Wave 2b) — drives the 3D decor. */
   receptionDesign: ReceptionDesign;
+  /** The couple's own inspiration photos, keyed by design part. Only the five
+   *  parts with a matching slot appear; a part with none is simply absent, and
+   *  shows no reference rather than an unrelated photo. */
+  inspirationByPart?: Record<string, string[]>;
   /** `events.moodboard_style_family` — which theme family produced this board,
    *  or null when the couple hasn't applied a template. Drives the reception
    *  decor AI-image layer pilot's asset lookup (@/lib/reception-decor-layers). */

@@ -43,14 +43,27 @@ function pageSource(key: string): string {
   return readFileSync(join(SHELLED, key, 'page.tsx'), 'utf8');
 }
 
-test('the anchor: there are eight Studio apps and each names a page', () => {
+test('the anchor: there are nine Studio apps and each names a page', () => {
   /*
     🔄 SEVEN → EIGHT, 2026-08-21. Owner: *"pakanta is paid. so add this to the
     studio."* The count is deliberately still pinned rather than derived: a
     product appearing in this list is a decision to put a row in front of every
     stranger, and it must be made on purpose, not by an import.
+
+    🔄 EIGHT → NINE, 2026-09-03. Owner, looking at the Studio group: *"i do not
+    see it"* — the Mood Board. It reverses half of the 2026-08-21 rail structure
+    (named products in the group, free parts on the services hub) in favour of
+    the older 2026-07-17/18 lock that names the mood board a first-class free
+    doorway which must not be buried. "All services" is untouched: this is an
+    addition, not a move.
+
+    🔑 AND IT IS THE FIRST ROW IN THIS LIST THAT IS NOT SOLD. Nothing about the
+    record or about `RailTool` carries a price, a tier or a lock, so a free row
+    renders exactly like a paid one — see `studio-apps.ts`'s own note. If a
+    future change makes "free" visible here, that is a new decision, not a
+    detail.
   */
-  assert.equal(STUDIO_APPS.length, 8, 'the Studio group is eight rows');
+  assert.equal(STUDIO_APPS.length, 9, 'the Studio group is nine rows');
   for (const a of STUDIO_APPS) {
     assert.ok(a.href.startsWith('/'), `${a.key}: href is not a path`);
     assert.ok(a.description.length > 80, `${a.key}: description is a stub`);
@@ -309,5 +322,52 @@ test('a row whose surface the event type does not enable is DROPPED', () => {
   assert.ok(
     generic.length < wedding.length,
     'nothing was filtered for a generic event type; the surface gate is inert',
+  );
+});
+
+/* ── 4 · THE FREE ROW IS A ROW, NOT AN UPSELL ──────────────────────────── */
+
+test('the Mood Board is in the group, and its door is real', () => {
+  /*
+    Named on its own for the reason Pakanta is: it is the one that was
+    deliberately held OUT — the 2026-08-21 structure put the free parts on the
+    "All services" hub — and the check that every row leads to a real page goes
+    quiet the moment somebody removes the row. An empty promise is caught by
+    that guard; a missing product is not.
+  */
+  const row = railToolsSignedOut().find((r) => r.key === 'mood-board');
+  assert.ok(row, 'the Mood Board has no Studio row (owner 2026-09-03: "i do not see it")');
+  assert.equal(row?.href, '/mood-board');
+  assert.equal(
+    row?.demo,
+    undefined,
+    'the Mood Board row offers a demo. HomeOverlays mounts no mood-board ' +
+      'overlay, so the marker would be a fake door.',
+  );
+});
+
+test('promoting a FREE tool renders no price, tier or lock in the rail', () => {
+  /*
+    🔴 THE RISK THIS CLOSES. Every other Studio row is a paid product, and the
+    catalogue entry each one opens carries `tier` and (mostly) a `serviceKey`.
+    The mood board's carries `tier: 'free'` and NO serviceKey. If the rail ever
+    starts reading either field, the free row is the one that changes — and it
+    would change into the one thing this page must never show, on the one
+    product that has no price.
+
+    So assert the SHAPE, not the absence of a string: a rail row for the free
+    product must carry exactly the same fields as a rail row for a paid one.
+    A price would have to arrive as a new field, and that fails here.
+  */
+  const rows = railToolsSignedOut();
+  const free = rows.find((r) => r.key === 'mood-board');
+  const paid = rows.find((r) => r.key === 'pakanta');
+  assert.ok(free && paid, 'the two rows this compares are not both rendered');
+  assert.deepEqual(
+    Object.keys(free!).sort(),
+    Object.keys(paid!).sort(),
+    'the free Studio row and a paid one no longer have the same shape. The ' +
+      'rail has never shown a price, a tier or a lock; the mood board is the ' +
+      'row that would grow one first.',
   );
 });

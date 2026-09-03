@@ -119,6 +119,9 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: '/patiktok', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
   // The song. Sold since 2026-05-14, public page added 2026-08-21.
   { path: '/pakanta', lastmod: '2026-08-21', changefreq: 'monthly', priority: '0.7' },
+  // The mood board. FREE with every account (the only free tool in this block),
+  // public page added 2026-09-03 when it joined the Studio rail.
+  { path: '/mood-board', lastmod: '2026-09-03', changefreq: 'monthly', priority: '0.7' },
 
 
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "750a6691d",
-  "routeCount": 413,
-  "destinations": 882,
+  "generatedFromRef": "1817dd92e",
+  "routeCount": 414,
+  "destinations": 884,
   "actions": 621,
-  "blocks": 4211,
+  "blocks": 4216,
   "routes": {
     "/": {
       "files": [
@@ -274,6 +274,20 @@
         "SubmitButton"
       ]
     },
+    "/(shell)/mood-board": {
+      "files": [
+        "(shell)/mood-board/loading.tsx",
+        "(shell)/mood-board/page.tsx"
+      ],
+      "destinations": [
+        "/features",
+        "/onboarding/wedding?from=mood-board"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
+    },
     "/(shell)/pa3d": {
       "files": [
         "(shell)/pa3d/_pa3d-motion.tsx",
@@ -319,6 +333,7 @@
     },
     "/(shell)/pakanta": {
       "files": [
+        "(shell)/pakanta/loading.tsx",
         "(shell)/pakanta/page.tsx"
       ],
       "destinations": [
@@ -6264,6 +6279,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/share-with-vendors-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/theme-studio.tsx",
         "dashboard/[eventId]/studio/mood-board/actions.ts",
         "dashboard/[eventId]/studio/mood-board/loading.tsx",
         "dashboard/[eventId]/studio/mood-board/page.tsx"
@@ -6277,8 +6293,10 @@
       ],
       "blocks": [
         "ApplyResult",
+        "ApplySummary",
         "ApplyTemplateSummary",
         "BoardCardView",
+        "Chip",
         "ChoiceButton",
         "ConceptPdfButton",
         "HTMLCanvasElement",
@@ -6305,6 +6323,8 @@
         "TemplateGallery",
         "ThemeCard",
         "ThemeIntentApplySummary",
+        "ThemeIntentJump",
+        "ThemeStudio",
         "ThemeTemplatePage",
         "ThemeTextReading"
       ]

@@ -27,6 +27,26 @@ test('applyAddMajorSlot respects PALETTE_LIMITS.reception.max (5)', () => {
   assert.equal(next, full, 'already at max — identity, no mutation');
 });
 
+test('applyAddMajorSlot on a blank board falls through to the static default (nothing chosen yet to be progressive from)', () => {
+  const next = applyAddMajorSlot({});
+  assert.equal(next.reception?.length, 1);
+  assert.match(next.reception![0]!, /^#[0-9A-F]{6}$/);
+});
+
+test('🔌 MB13 WIRING · once a major is chosen, applyAddMajorSlot advises via progressiveReceptionSuggestion, not the static modulo-cycle', () => {
+  // The exact defect MB13 fixed in the old PaletteEditor: a static
+  // suggestions[length % length] cycle repeats after a few adds. The real
+  // recommender (lib/palette-recommender.ts) never repeats an already-chosen
+  // colour BY NAME — this proves the wiring survived MB5's port to
+  // mood-board-board-ops.ts, not just that the lib function exists.
+  let p: RolePalette = applyAddMajorSlot({ reception: ['#7A1F2B'] });
+  for (let i = 0; i < 3 && (p.reception?.length ?? 0) < 5; i++) {
+    p = applyAddMajorSlot(p);
+  }
+  const names = new Set((p.reception ?? []).map((h) => h.toUpperCase()));
+  assert.equal(names.size, p.reception!.length, 'every advised major is a distinct colour — no repeat from a modulo cycle');
+});
+
 test('applyRemoveMajorSlot splices without an unremovable floor (the couple can clear back to zero)', () => {
   const p: RolePalette = { reception: ['#111111', '#222222', '#333333'] };
   const next = applyRemoveMajorSlot(p, 0);

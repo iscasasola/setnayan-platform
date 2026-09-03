@@ -14,6 +14,7 @@
  */
 
 import { DEFAULT_PALETTE_SUGGESTIONS, DERIVABLE_PALETTE_KEYS, PALETTE_LIMITS, type PaletteKey, type RolePalette } from './mood-board';
+import { progressiveReceptionSuggestion } from './palette-recommender';
 
 function nextSuggestion(key: PaletteKey, currentLength: number): string {
   const suggestions = DEFAULT_PALETTE_SUGGESTIONS[key];
@@ -47,7 +48,12 @@ export function applySetMajorColor(p: RolePalette, index: number, hex: string): 
 export function applyAddMajorSlot(p: RolePalette): RolePalette {
   const arr = p.reception ?? [];
   if (arr.length >= PALETTE_LIMITS.reception.max) return p;
-  return { ...p, reception: [...arr, nextSuggestion('reception', arr.length)] };
+  // MB13: Setnayan AI takes over the majors suggestion once the couple has
+  // actually started choosing colours (`progressiveReceptionSuggestion`
+  // returns `undefined` — advise nothing — until `hasChosenMajors`, so the
+  // very first colour still falls through to the static default below).
+  const next = progressiveReceptionSuggestion(arr) ?? nextSuggestion('reception', arr.length);
+  return { ...p, reception: [...arr, next] };
 }
 
 export function applyRemoveMajorSlot(p: RolePalette, index: number): RolePalette {

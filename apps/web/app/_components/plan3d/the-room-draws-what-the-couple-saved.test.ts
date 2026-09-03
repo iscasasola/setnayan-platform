@@ -374,7 +374,29 @@ test('the disclosure list is exactly what the room actually draws', () => {
       'something is on screen that never renders; missing entries silence a disclosure the ' +
       'couple is owed.',
   );
-  assert.ok(called.size >= 7, `only ${called.size} attributes read — has VenueDecor been gutted?`);
+
+  /*
+    A zone drawn in FULL (`selAll`) is not primary-only, so it must NOT appear
+    in the disclosure list — the notice would otherwise tell a couple the room
+    is showing one of several for a zone showing all of them. This is the same
+    drift the list exists to prevent, pointed the other way.
+  */
+  const drawnInFull = new Set(
+    [...src.matchAll(/\bselAll\(design,\s*'([a-z_]+)',\s*'([a-z_]+)'\)/g)].map((m) => `${m[1]}.${m[2]}`),
+  );
+  for (const full of drawnInFull) {
+    assert.ok(
+      !declared.has(full),
+      `${full} is drawn in full but still listed as primary-only — the legend would ` +
+        'claim the room is hiding a choice it is actually showing.',
+    );
+  }
+
+  // The canary asks whether the room still draws enough of the catalogue. A
+  // zone drawn in FULL is still drawn, so it counts: the threshold stays 7 and
+  // is NOT relaxed to accommodate the move.
+  const totalDrawn = called.size + drawnInFull.size;
+  assert.ok(totalDrawn >= 7, `only ${totalDrawn} attributes drawn — has VenueDecor been gutted?`);
 });
 
 test('the legend never speaks about a part the room does not draw', () => {
@@ -406,20 +428,34 @@ test('a multi-selection names the primary AND every pick left off screen', () =>
   const design = sanitizeReceptionDesign({
     ...DEFAULT_DESIGN,
     ceiling: { treatment: ['draped', 'fairy_lights'] },
-    welcome_signage: { style: ['easel_sign', 'framed_seating_chart', 'floral_guestbook'] },
+    // Was `welcome_signage` — that zone now draws every piece the couple chose,
+    // so it has nothing hidden to disclose. `photo_wall` is still primary-only
+    // and keeps this test asserting the behaviour rather than the zone.
+    photo_wall: { style: ['neon_backdrop', 'floral_wall', 'balloon_garland'] },
   });
   const hidden = hiddenTreatments(design, ROOM_DRAWN_ATTRIBUTES);
   assert.equal(hidden.length, 2);
   const ceiling = hidden.find((h) => h.part === 'ceiling')!;
   assert.equal(ceiling.primaryLabel, 'Draped canopy');
   assert.deepEqual(ceiling.hiddenLabels, ['Fairy lights']);
-  const welcome = hidden.find((h) => h.part === 'welcome_signage')!;
-  assert.deepEqual(welcome.hiddenLabels, ['Framed seating chart', 'Floral guestbook table']);
+  const photo = hidden.find((h) => h.part === 'photo_wall')!;
+  assert.deepEqual(photo.hiddenLabels, ['Floral wall', 'Balloon garland']);
+
+  // And the zone that now draws in full must be ABSENT from the notice.
+  const full = sanitizeReceptionDesign({
+    ...DEFAULT_DESIGN,
+    welcome_signage: { style: ['easel_sign', 'framed_seating_chart'] },
+  });
+  assert.equal(
+    hiddenTreatments(full, ROOM_DRAWN_ATTRIBUTES).some((h) => h.part === 'welcome_signage'),
+    false,
+    'the welcome table draws every piece now — claiming otherwise is a false disclosure',
+  );
 
   const notice = primaryOnlyNotice(design, ROOM_DRAWN_ATTRIBUTES)!;
   assert.match(notice, /3 of your picks are not on screen/);
   assert.match(notice, /Ceiling \(showing Draped canopy\)/);
-  assert.match(notice, /Welcome & signage \(showing Easel welcome sign\)/);
+  assert.match(notice, /Photo wall \(showing Neon sign\)/);
 });
 
 test('the label the legend prints is the option the room actually drew', async () => {

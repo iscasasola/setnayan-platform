@@ -1070,7 +1070,12 @@ export const ROOM_DRAWN_ATTRIBUTES: ReadonlyArray<DrawnAttribute> = [
   ['tunnel', 'style'],
   ['walls', 'treatment'],
   ['photo_wall', 'style'],
-  ['welcome_signage', 'style'],
+  // ⚠ `welcome_signage` IS DELIBERATELY ABSENT. This list is what the legend
+  // discloses as PRIMARY-ONLY, and the welcome table now draws every piece the
+  // couple chose (selAll). Leaving it here would make the notice say "showing
+  // Easel welcome sign" about a table already showing all three — a false claim
+  // inside the mechanism built to end false claims. A zone leaves this list the
+  // moment it starts drawing in full.
 ] as const;
 
 // ═════════════════════════════════════════════════════════════════════════════

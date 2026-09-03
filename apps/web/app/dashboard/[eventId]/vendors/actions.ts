@@ -45,6 +45,10 @@ import {
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
+import {
+  SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE,
+  canInviteSupplier,
+} from '@/lib/supplier-invite-eligibility';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {
   fetchSlotsForCoupleBooking,
@@ -1652,19 +1656,14 @@ export async function finalizeVendor(
   // to login and lock this schedule for them. they will have access to the
   // free account for vendors.")
   //
-  // Triggers ONLY when:
-  //   - targetVendor.manual_vendor_id IS NOT NULL  → host attached a manual
-  //     vendor (one of the event_manual_vendors entries — has photo +
-  //     business_name + contact_person + contact_number per
-  //     20260604080000), AND
-  //   - targetVendor.marketplace_vendor_id IS NULL → vendor doesn't yet have
-  //     a Setnayan vendor_profiles row (no Setnayan account).
+  // Triggers when `canInviteSupplier` says so — i.e. when
+  // `marketplace_vendor_id IS NULL`, the supplier has no Setnayan account.
   //
-  // Both conditions are independent of the vendor_name being "manual-y" —
-  // a marketplace-linked row with manual_vendor_id incidentally set (rare
-  // edge case from a future UI that wraps a marketplace pick as a manual
-  // contact) shouldn't get an invite, because the vendor already has an
-  // account.
+  // ⚠ IT USED TO ALSO DEMAND `manual_vendor_id IS NOT NULL`, and that half was
+  // wrong: 43 of 45 production event_vendors rows carry BOTH ids NULL
+  // (measured 2026-09-03), so locking one of them minted no invite at all and
+  // the couple was never offered a QR. The condition now lives in ONE place —
+  // `canInviteSupplier` in lib/vendor-invites.ts — with the measurement.
   //
   // Idempotent — ensureAutoShareInvite re-uses any existing pending row
   // (partial unique index vendor_invites_auto_share_live_unique enforces
@@ -1677,7 +1676,7 @@ export async function finalizeVendor(
   // re-attempts ensure on render (via the same helper), so a transient
   // failure here self-heals next time the host opens the workspace.
   // ----------------------------------------------------------------------
-  if (targetVendor.manual_vendor_id && !targetVendor.marketplace_vendor_id) {
+  if (canInviteSupplier(targetVendor)) {
     try {
       await ensureAutoShareInvite(supabase, {
         eventVendorId: vendorId,
@@ -3239,17 +3238,22 @@ export async function createManualVendorInvite(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
 
-  // RLS scopes the read to the host's own events. Only manual (off-platform)
-  // vendors get a claim link — marketplace vendors already have an account.
+  // RLS scopes the read to the host's own events. Only off-platform suppliers
+  // get a claim link — one with a Setnayan account already has somewhere to
+  // log in.
   const { data: row } = await supabase
     .from('event_vendors')
-    .select('vendor_id, vendor_name, category, manual_vendor_id, marketplace_vendor_id')
+    .select('vendor_id, vendor_name, category, marketplace_vendor_id')
     .eq('event_id', input.eventId)
     .eq('vendor_id', input.vendorId)
     .maybeSingle();
   if (!row) return { ok: false, error: 'Vendor not found.' };
-  if (!row.manual_vendor_id || row.marketplace_vendor_id) {
-    return { ok: false, error: 'This vendor is already on Setnayan.' };
+  // 🔑 ONE PREDICATE, in lib/vendor-invites.ts, not a fourth copy. This gate
+  // used to ALSO demand `manual_vendor_id IS NOT NULL` and refused 12 of 12
+  // eligible off-platform suppliers in production — with a sentence saying they
+  // were already on Setnayan, which was false for every one of them.
+  if (!canInviteSupplier(row)) {
+    return { ok: false, error: SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE };
   }
 
   const invite = await ensureAutoShareInvite(supabase, {

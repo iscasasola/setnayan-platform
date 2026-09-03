@@ -119,6 +119,10 @@ import { ReservationTermsAck } from './_components/reservation-terms-ack';
 // now only ever a THIRD-PARTY vendor relationship: a deal the couple records and
 // settles off-platform.
 import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
+import {
+  canInviteSupplier,
+  isOffPlatformSupplier,
+} from '@/lib/supplier-invite-eligibility';
 import { ClaimLinkShare } from './_components/claim-link-share';
 import { VendorProposalsCard } from './_components/vendor-proposals-card';
 // Working folder — private-vs-shared per-vendor notes (Coordinator P4).
@@ -572,7 +576,13 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // finalize time; if a locked manual vendor still has none, the claim section
   // renders an explicit "Create link" action (createAutoShareInviteAction).
   // ----------------------------------------------------------------------
-  const needsInvite = ev.marketplace_vendor_id === null;
+  // 🔑 THE SHARED PREDICATE, not a fourth spelling of it. This page has always
+  // had the RIGHT rule — its comment above says so — while two vendor actions
+  // ANDed an extra `manual_vendor_id IS NOT NULL` and refused 12 of 12 eligible
+  // off-platform suppliers in production. Calling the one definition is what
+  // stops them drifting apart again; `canInviteSupplier` carries the
+  // measurement and the reasoning.
+  const needsInvite = canInviteSupplier(ev);
   const autoShareInvite = needsInvite
     ? await fetchActiveAutoShareInvite(supabase, ev.vendor_id)
     : null;
@@ -1350,11 +1360,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             ))}
           </ul>
         </section>
-      ) : !hasPackageLines && ev.manual_vendor_id && !ev.marketplace_vendor_id ? (
-        /* DIY parity (owner doctrine 2026-06-11): a manual vendor has no
-           vendor-authored package, so the HOST describes the order — what's
+      ) : !hasPackageLines && isOffPlatformSupplier(ev) ? (
+        /* DIY parity (owner doctrine 2026-06-11): an off-platform supplier has
+           no vendor-authored package, so the HOST describes the order — what's
            included + which other plan categories it covers. The covers links
-           flow to the Shortlist card chips + Compare inclusions. */
+           flow to the Shortlist card chips + Compare inclusions.
+
+           ⚠ THIS ALSO DEMANDED `manual_vendor_id IS NOT NULL` until 2026-09-03,
+           the same wrong half that broke the invite gate — so for the 43 of 45
+           production suppliers carrying both ids NULL this editor was NEVER
+           RENDERED, and the couple had no way to describe a supplier only they
+           can describe. A different question from the invite ("may the host
+           author this?"), the same fact underneath it. */
         <HostServiceDetails
           eventId={eventId}
           vendorId={ev.vendor_id}

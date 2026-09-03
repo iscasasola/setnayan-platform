@@ -117,6 +117,7 @@ import { SetupSheet } from './_components/setup-sheet';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
 import { IngestHealthStrip } from './_components/ingest-health-strip';
+import { filmFromRow, type EventFilmRow } from '@/lib/event-films';
 import {
   addRoamZone,
   deleteRoamZone,
@@ -126,6 +127,8 @@ import {
   clearMainStage,
   createChannelJoinLink,
   reissueChannelJoinLink,
+  addEventFilm,
+  removeEventFilm,
   saveControlWatchUrl,
   clearControlWatchUrl,
   saveControlFacebookUrl,
@@ -304,6 +307,8 @@ type Props = {
     zone_error?: string;
     watch_url_saved?: string;
     watch_url_error?: string;
+    film_saved?: string;
+    film_error?: string;
     facebook_url_saved?: string;
     facebook_url_error?: string;
     overlay_saved?: string;
@@ -332,6 +337,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     zone_error,
     watch_url_saved,
     watch_url_error,
+    film_saved,
+    film_error,
     facebook_url_saved,
     facebook_url_error,
     overlay_saved,
@@ -535,6 +542,33 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     console.error('[panood/control] pool readiness read refused', e);
   }
   const hasRouteToAir = !!youtubeGrant || pooledRoute;
+
+  // 🎞 The films the couple has attached — free, host-gated, and the thing the ₱2,500
+  // description already promises ("unlimited video-link uploads"). Fail-soft: a refused
+  // or pre-migration read yields [] and the section shows its empty state, never an
+  // error over a control room.
+  //
+  // ⚠ Each row is converted ON ITS OWN and keeps its own id. `filmsFromRows` DROPS rows
+  // it cannot validate, so mapping ids back by index would silently attach the wrong id
+  // to the wrong film the moment one row is bad — and the id is what Remove deletes.
+  type ControlFilm = NonNullable<ReturnType<typeof filmFromRow>> & { id: number };
+  let films: ControlFilm[] = [];
+  try {
+    const { data: filmRows } = await supabase
+      .from('event_films')
+      .select('id, provider, video_id, video_hash, label')
+      .eq('event_id', eventId)
+      .order('sort_key', { ascending: true })
+      .order('id', { ascending: true });
+    films = ((filmRows ?? []) as Array<EventFilmRow & { id: number }>)
+      .map((row) => {
+        const film = filmFromRow(row);
+        return film ? { ...film, id: row.id } : null;
+      })
+      .filter((f): f is ControlFilm => f !== null);
+  } catch {
+    films = [];
+  }
 
   let youtubeWatchUrl: string | null = null;
   // DUAL-STREAM (2026-07-26): the couple's simultaneous Facebook Live link.
@@ -2156,6 +2190,85 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </SubmitButton>
           </form>
         )}
+
+        {/* 🎞 EVERY FILM OF THEIR DAY — free, and the promise the ₱2,500 description
+            already makes. Sits under the watch link because it is the same gesture
+            (paste a link) for the same reason (so guests find it in one place), and
+            because a couple thinking about their live stream is exactly who is also
+            holding their videographer's link. */}
+        <div className="mt-6 border-t border-ink/10 pt-5">
+          <p className="sn-eye">Films of your day</p>
+          <h3 className="mt-1 flex items-center gap-2 text-base font-semibold tracking-tight">
+            <MonitorPlay aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            Add your other videos
+          </h3>
+          <p className="mt-1 max-w-prose text-sm text-ink/65">
+            Your same-day edit, prenup, or your videographer&rsquo;s finished film — paste a
+            YouTube or Vimeo link and it joins your story, beside the photos, for good. Free,
+            and there is no limit.
+          </p>
+
+          {film_error ? (
+            <p role="alert" className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/10 px-2.5 py-1 text-xs text-terracotta-700">
+              <AlertCircle aria-hidden className="h-3.5 w-3.5" /> That link isn&rsquo;t a YouTube
+              or Vimeo video. Those are the two we can play.
+            </p>
+          ) : null}
+          {film_saved ? (
+            <p role="status" className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-success-300/70 bg-success-50 px-2.5 py-1 text-xs font-medium text-success-800">
+              <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Added to your story.
+            </p>
+          ) : null}
+
+          {films.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {films.map((film) => (
+                <li key={film.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white/60 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-ink">
+                      {film.label ?? (film.provider === 'youtube' ? 'YouTube video' : 'Vimeo video')}
+                    </span>
+                    <span className="font-mono text-[11px] text-ink/50">{film.provider}</span>
+                  </span>
+                  <form action={removeEventFilm}>
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="film_id" value={String(film.id)} />
+                    <SubmitButton
+                      pendingLabel="Removing…"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+                    >
+                      <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      Remove
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <form action={addEventFilm} className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input
+              type="text"
+              name="film_label"
+              placeholder="What is it? e.g. Same-Day Edit"
+              className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none sm:w-56"
+            />
+            <input
+              type="text"
+              name="film_url"
+              required
+              placeholder="Paste a YouTube or Vimeo link"
+              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+            />
+            <SubmitButton
+              pendingLabel="Adding…"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-burgundy/20 bg-burgundy px-4 text-sm font-semibold text-cream transition-colors hover:bg-burgundy/90"
+            >
+              Add film
+            </SubmitButton>
+          </form>
+        </div>
 
         {/* DUAL-STREAM (owner-approved 2026-07-26) — the optional second door.
             Same section as the YouTube link because it is the same question

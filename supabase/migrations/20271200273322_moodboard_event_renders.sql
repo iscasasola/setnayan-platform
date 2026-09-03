@@ -51,12 +51,14 @@
 -- migration to invalidate a cache.
 --
 -- ── RLS: PATTERN B (§ 5 mapping table) ─────────────────────────────────────
--- Event-scoped collaborative data — the same pattern `led_background_renders`
--- (0005) and `ai_highlight_renders` (0011) already carry, which are the closest
--- shipped analogues. Any event member reads; couples/coordinators and admin
--- write. Cross-event cache reads are NOT granted here: MB9 must read the pool
--- through a SECURITY DEFINER function that filters `WHERE reusable`, never by
--- widening this policy.
+-- Event-scoped collaborative data. The § 5 mapping table puts two render
+-- tables on Pattern B — `led_background_renders` (0005) and
+-- `ai_highlight_renders` (0011); only the first was ever built (verify with
+-- `grep -rn "CREATE TABLE.*_renders" supabase/migrations`), so it is the one
+-- shipped analogue this follows. Any event member reads; couples/coordinators
+-- and admin write. Cross-event cache reads are NOT granted here: MB9 must read
+-- the pool through a SECURITY DEFINER function that filters `WHERE reusable`,
+-- never by widening this policy.
 --
 -- ADDITIVE + IDEMPOTENT. Inert on apply — no writer exists until MB8.
 --

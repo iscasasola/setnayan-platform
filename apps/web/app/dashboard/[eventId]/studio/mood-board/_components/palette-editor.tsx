@@ -16,6 +16,7 @@ import {
   type RolePalette,
   type RoomDressing,
 } from '@/lib/mood-board';
+import { progressiveReceptionSuggestion } from '@/lib/palette-recommender';
 
 // The four advanced room-dressing surfaces + their copy. Each is DERIVED from
 // the reception palette by default; a field becomes a stored override only when
@@ -101,7 +102,16 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
       const max = PALETTE_LIMITS[key].max;
       if (arr.length >= max) return p;
       const suggestions = DEFAULT_PALETTE_SUGGESTIONS[key];
-      const next = suggestions[arr.length % suggestions.length] ?? '#C97B4B';
+      // Setnayan AI takes over the reception ("majors") suggestion the
+      // moment the couple has actually started choosing colours —
+      // progressiveReceptionSuggestion returns undefined (falls through to
+      // the static default below) until then, per hasChosenMajors. Every
+      // other palette key is unchanged — this session's scope is the
+      // majors, where the "create-your-own" fork actually lives.
+      const next =
+        (key === 'reception' ? progressiveReceptionSuggestion(arr) : undefined) ??
+        suggestions[arr.length % suggestions.length] ??
+        '#C97B4B';
       return { ...p, [key]: [...arr, next.toUpperCase()] };
     });
   };

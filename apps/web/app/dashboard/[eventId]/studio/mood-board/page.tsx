@@ -5,7 +5,6 @@ import { fetchGuestsByEvent } from '@/lib/guests';
 import {
   sanitizeRolePalette,
   paletteKeyForRole,
-  hasChosenMajors,
   ROLE_FAMILY_KEYS,
   type PaletteKey,
 } from '@/lib/mood-board';
@@ -268,6 +267,11 @@ export default async function MoodBoardPage({ params }: Props) {
   // not. `hasChosenMajors` (lib/mood-board.ts) is the one predicate for
   // "has the couple chosen their majors" — every surface reads it, so none
   // can disagree with the fork about whether the board is still blank.
+  // ⚠ This page does NOT call `hasChosenMajors` itself and pass the result
+  // down as a separate boolean — a peer session's sabotage pass found that
+  // exact shape unguarded (hard-code the boolean, every test stays green).
+  // `<ThemeStudio>` receives `palette` below and derives the predicate
+  // itself, right where it's consumed — see its own comment.
   //
   // The two paths that actually fill `reception` now are: (1) applying a
   // designed theme (writes five real colors via applyMoodboardTemplate /
@@ -435,7 +439,6 @@ export default async function MoodBoardPage({ params }: Props) {
             (event as { moodboard_theme_description?: string | null })
               .moodboard_theme_description ?? null
           }
-          alreadyChosenMajors={hasChosenMajors(palette)}
           palette={palette}
           receptionDesign={receptionDesign}
           saveThemeAction={saveMoodboardTheme}

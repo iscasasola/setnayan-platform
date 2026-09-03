@@ -8,6 +8,7 @@ import {
   type MoodboardThemeTemplate,
 } from './moodboard-templates';
 import { nearestColorName } from './color-names';
+import { labOfHex } from './color-space';
 import { sanitizeRolePalette } from './mood-board';
 import { optionIds, sanitizeReceptionDesign, type ReceptionDesign } from './reception-scene';
 
@@ -200,21 +201,10 @@ const HUE_BEARING_CHROMA = 12;
 // ΔE2000: the audit that finds this class of defect measures in ΔE2000, and a
 // guard sharing its formula with the audit agrees with it by construction.
 
-function labOfHex(hex: string): { L: number; a: number; b: number } {
-  const n = parseInt(hex.slice(1), 16);
-  const lin = (u: number) => (u <= 0.04045 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4);
-  const r = lin(((n >> 16) & 255) / 255);
-  const g = lin(((n >> 8) & 255) / 255);
-  const b = lin((n & 255) / 255);
-  const X = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
-  const Y = r * 0.2126729 + g * 0.7151522 + b * 0.072175;
-  const Z = (r * 0.0193339 + g * 0.119192 + b * 0.9503041) / 1.08883;
-  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
-  const fx = f(X);
-  const fy = f(Y);
-  const fz = f(Z);
-  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
-}
+// 📦 `labOfHex` MOVED to `./color-space` (2026-09-03) — `color-names.ts` needed
+// the identical conversion to stop naming colors out of their hue family, and
+// two copies of a color space drift apart silently. Imported at the top of this
+// file; the two guard tests still write CIELAB out themselves on purpose.
 
 function labDistance(hex1: string, hex2: string): number {
   const p = labOfHex(hex1);

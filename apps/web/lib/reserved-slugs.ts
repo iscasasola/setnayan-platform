@@ -178,6 +178,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'join',
   'login',
   'monogram',
+  'mood-board',
   'onboarding',
   'open-shop',
   'our-story',

@@ -114,14 +114,36 @@ for (const [label, profile] of [
   });
 }
 
-test('row counts match the ruling: wedding 9 · ceremonial 8 · simple_event 7 · date/hangout/travel 5', () => {
+test('row counts match the ruling: wedding 10 · ceremonial 9 · simple_event 8 · date/hangout/travel 6', () => {
+  /*
+    🔄 EACH COUNT ROSE BY EXACTLY ONE, 2026-09-03, and "exactly one" is the
+    assertion that matters. The Mood Board joined the Studio group (owner: *"i
+    do not see it"*) and it carries NO `surface`, so it is offered on every
+    event type — the only shape that moves all four numbers together. A promotion
+    that lifted some and not others would mean a surface crept in.
+  */
   const countWithShelf = (profile: EventTypeProfile) =>
     railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile }).length; // includes "All services"
 
-  assert.equal(countWithShelf(WEDDING), 9, 'wedding');
-  assert.equal(countWithShelf(CEREMONIAL), 8, 'ceremonial & party');
-  assert.equal(countWithShelf(SIMPLE_EVENT), 7, 'simple_event');
-  assert.equal(countWithShelf(DATE), 5, 'date/hangout/travel');
+  assert.equal(countWithShelf(WEDDING), 10, 'wedding');
+  assert.equal(countWithShelf(CEREMONIAL), 9, 'ceremonial & party');
+  assert.equal(countWithShelf(SIMPLE_EVENT), 8, 'simple_event');
+  assert.equal(countWithShelf(DATE), 6, 'date/hangout/travel');
+
+  // …and the free row is in every one of them, which is what "no surface"
+  // MEANS. Counts alone would also be satisfied by four different rows.
+  for (const [label, profile] of [
+    ['wedding', WEDDING],
+    ['ceremonial', CEREMONIAL],
+    ['simple_event', SIMPLE_EVENT],
+    ['date/hangout/travel', DATE],
+  ] as const) {
+    assert.ok(
+      sidebarKeys(profile).includes('mood-board'),
+      `${label} lost the Mood Board row. It is free and unscoped — every event ` +
+        'type has one.',
+    );
+  }
 });
 
 test('Logo Maker is wedding-only; 3D Plan, Live Studio and Pakanta each ride their own surface', () => {

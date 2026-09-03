@@ -114,12 +114,17 @@ export type StudioApp = {
 };
 
 /**
- * The eight, in the order the rail shows them.
+ * The nine, in the order the rail shows them.
  *
- * ⚠ ALAALA IS NOT HERE. It is the eighth public doorway but it lives in the
- * rail's ACCOUNT slot ("What is Alaala?" signed out, "Alaala" signed in), not
- * in Studio — exactly as the binding prototype has it. Adding it here would put
- * it in the list twice.
+ * ⚠ ALAALA IS NOT HERE. It is a public doorway too, but it lives in the rail's
+ * ACCOUNT slot ("What is Alaala?" signed out, "Alaala" signed in), not in
+ * Studio — exactly as the binding prototype has it. Adding it here would put it
+ * in the list twice.
+ *
+ * ⚠ AND NOT EVERY ROW HERE IS SOLD. `mood-board` is free (see its entry). The
+ * group is "the products a stranger should meet", not "the products with a
+ * price" — and nothing in this file or in `RailTool` carries a price, a tier or
+ * a lock, so a free row and a paid row render identically by construction.
  */
 export const STUDIO_APPS: readonly StudioApp[] = [
   {
@@ -207,6 +212,59 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     // TRAVEL_PROFILE's note). No migration needed for this row; it was only
     // ever missing from the sidebar's OWN gate, which is why it always showed.
     surface: 'seating',
+  },
+  {
+    /*
+      ─── THE NINTH, ADDED 2026-09-03, AND THE FIRST FREE ONE ───────────────
+      Owner, looking at the Studio group in the rail: *"i do not see it."*
+
+      🔑 THIS REVERSES HALF OF THE 2026-08-21 STRUCTURE, DELIBERATELY. That
+      ruling put the NAMED PRODUCTS in this group and left *"the free parts (the
+      seat plan, the mood board, the day-of page)"* on the services hub — the
+      "All services" row `studio-rail.ts` appends. So the mood board WAS
+      reachable: Studio → All services → Mood Board. Two taps, behind a generic
+      word.
+
+      It collided with the older lock (2026-07-17/18) that names the mood board
+      one of six "always free" FIRST-CLASS doorways, which must stay *directly*
+      reachable rather than buried — and the collision got worse when the board
+      became the thing 3D Plan reads from. The paid product sits one tap away in
+      this very list; the free tool that makes it worth buying sat two taps back.
+      The owner resolved it in favour of the older lock: promote it, and leave
+      "All services" exactly where it is. This is an ADDITION, not a move.
+
+      🔑 FREE CHANGES NOTHING ABOUT THIS RECORD, AND THAT IS THE POINT. `tier:
+      'free'` and the absent `serviceKey` live on the `add-ons-catalog.ts` entry
+      this row opens, which is where the Suite grid reads a price and paints a
+      "Free" pill. The rail reads NEITHER — a `RailTool` is a name, a line, an
+      href and an optional demo marker — so promoting a free tool cannot render
+      an upsell or a lock here. Do not add one: a price on this row would be the
+      first price the rail has ever shown, on the one product that has none.
+
+      🔑 NO `surface`, MEASURED NOT ASSUMED. The `mood-board` catalogue entry
+      carries none either, so every event type offers it and the sidebar and the
+      Suite grid agree — which is exactly what `studio-menu-adapts-to-event.test.ts`
+      asserts, key by key, for all four profile shapes.
+
+      🔑 NO `demo`. `HomeOverlays` mounts no mood-board overlay, and a "try it"
+      marker on a page that cannot be tried is the fake door this file forbids.
+
+      ⚠ THE PUBLIC PAGE LANDS IN THE SAME COMMIT, and it has to:
+      `front-door-invariants.test.ts` requires every signed-out Studio row to
+      resolve to `app/(shell)/<href>/page.tsx`, and a signed-out stranger is
+      shown `href` verbatim. Pointing this row at the in-event route
+      `/dashboard/[eventId]/studio/mood-board` was the other candidate and it is
+      not available: there is no eventId to substitute for a stranger, so the
+      row would 404 for exactly the people the rail exists to introduce the
+      product to.
+    */
+    key: 'mood-board',
+    name: 'Mood Board',
+    href: '/mood-board',
+    description:
+      'The Mood Board is where your wedding decides how it looks. Pick your palette, gather the rooms and details you love, and set the dress code for every role — then your save-the-date, your Event Hub, your monogram, your QR codes and your 3D Plan all dress to match, and your booked suppliers work from the same board. Free with every Setnayan account.',
+    railLine: 'Pick your colors once — every piece dresses to match.',
+    addOnKey: 'mood-board',
   },
   {
     /*

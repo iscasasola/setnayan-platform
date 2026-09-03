@@ -135,6 +135,19 @@ test('every doorway that sells an addable service passes its key', () => {
     'panood', 'pawebsite', 'palogo', 'setnayan-ai', 'patiktok',
     // The song — public page added 2026-08-21 so it could join the Studio rail.
     'pakanta',
+    /*
+      The mood board — public page added 2026-09-03 so it could join the Studio
+      rail (owner: *"i do not see it"*).
+
+      🔑 IT CARRIES A KEY EVEN THOUGH IT IS FREE, and the reason is in
+      `add-to-event-data.ts`'s own docblock: *"NOTHING IS WRITTEN … the button
+      is navigation."* The picker resolves `addOnHref`, so for a signed-in
+      couple it is the shortest route from this page to their own board. Without
+      the key the page's only button is "Start planning · free", which points a
+      person who ALREADY has a wedding at the onboarding flow — the exact
+      dead-end the 2026-08-21 ruling existed to remove.
+    */
+    'mood-board',
   ].sort();
   const found: string[] = [];
   for (const dir of readdirSync(SHELL, { withFileTypes: true })) {

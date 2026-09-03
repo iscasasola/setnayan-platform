@@ -58,13 +58,26 @@ const SHELLED = join(APP, '(shell)');
 
 
 /**
- * The seven rail Studio rows.
+ * The rail's Studio rows — every one of them.
  *
  * ⚠ THIS COMMENT SAID "`/alaala` is NOT one — it keeps force-static", which
  * stopped being true on 2026-08-15. /alaala, /explore and /help now satisfy the
  * SAME shell contract without being Studio rows, so they live in
- * `SHELLED_PUBLIC` below rather than being folded in here. Widening DOORWAYS
- * would make its count of 7 a lie about what a Studio row is.
+ * `SHELLED_PUBLIC` below rather than being folded in here. Widening this list
+ * beyond the Studio rows would make it a lie about what a Studio row is.
+ *
+ * 🔴 IT WENT STALE, SILENTLY, AND THAT IS WHY IT IS NO LONGER DESCRIBED BY A
+ * NUMBER. `/pakanta` joined the Studio group on 2026-08-21 and was never added
+ * here, so for two weeks the one guard that checks a doorway is out of
+ * NAV_ROUTES and free of a stray `force-static` simply did not look at it. The
+ * list said "seven" while the group held eight, and nothing failed — a list that
+ * stops matching reality is this repo's most-paid-for shape. Both missing
+ * entries are added together: `pakanta` (2026-08-21) and `mood-board`
+ * (2026-09-03, the first FREE doorway).
+ *
+ * 🔑 KEEP IT EQUAL TO `STUDIO_APPS` in `lib/studio-apps.ts`. It is written out
+ * rather than imported so this file stays a filesystem guard with no app
+ * imports — but adding a Studio row means adding it here in the same commit.
  */
 const DOORWAYS = [
   'setnayan-ai',
@@ -73,6 +86,8 @@ const DOORWAYS = [
   'panood',
   'patiktok',
   'pa3d',
+  'mood-board',
+  'pakanta',
   'palogo',
 ] as const;
 
@@ -125,7 +140,7 @@ function code(src: string): string {
     .join('\n');
 }
 
-test('the anchor: all seven doorway pages exist', () => {
+test('the anchor: every doorway page exists', () => {
   for (const d of DOORWAYS) {
     const p = join(SHELLED, d, 'page.tsx');
     assert.ok(existsSync(p) && read(p).length > 500, `${p} is missing or a stub`);
@@ -433,12 +448,22 @@ test('every doorway has a loading boundary', () => {
     if (existsSync(p)) found++;
     assert.ok(
       existsSync(p),
-      `app/${d}/loading.tsx is missing. This route is force-dynamic, so ` +
-        'without a loading boundary its prefetch is an empty tree and the ' +
+      `app/(shell)/${d}/loading.tsx is missing. This route is force-dynamic, ` +
+        'so without a loading boundary its prefetch is an empty tree and the ' +
         'press waits on a blank frame.',
     );
   }
-  assert.equal(found, 7);
+  /*
+    🔄 THE FLOOR IS DERIVED, NOT TYPED (2026-09-03). It was the literal `7`,
+    which is a number about the SIZE of DOORWAYS written down somewhere the
+    list cannot reach — so it went wrong the moment the list grew, and it went
+    wrong in the direction that says "too many boundaries", which is not a
+    thing. Its job is only non-vacuity: prove the loop above really ran over
+    every doorway rather than over an empty array. `DOORWAYS.length` says that
+    and cannot rot.
+  */
+  assert.equal(found, DOORWAYS.length);
+  assert.ok(DOORWAYS.length > 0, 'DOORWAYS is empty — this guard checked nothing');
 });
 
 /* ── 6 · THE SHELL BRINGS NO SECOND LANDMARK OR HEADING ────────────────── */

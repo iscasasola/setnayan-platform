@@ -195,7 +195,7 @@ export function buildCustomerMenuTree(
         : []),
       // Position 4 — the slot this roster ALREADY spent on the Event Hub, under
       // the name "Services". Same route, same position; only the word changes.
-      { key: 'launch',   label: 'Event Hub', icon: Globe,         href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
+      { key: 'launch',   label: 'Event Hub Controller', icon: Globe,         href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
       { key: 'schedule', label: 'Schedule',  icon: CalendarClock, href: `${base}/schedule`,                activeMatch: `${base}/schedule`                                        },
     ];
   }
@@ -216,7 +216,7 @@ export function buildCustomerMenuTree(
       // desktop rail keeps its own /website/editorial row, so nothing is
       // orphaned: `a-finished-event-shows-its-summary.test.ts` still holds that
       // door open, which is the 2026-08-21 lesson this must not undo.
-      { key: 'launch',    label: 'Event Hub', icon: Globe,     href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
+      { key: 'launch',    label: 'Event Hub Controller', icon: Globe,     href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
       { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },
     ];
   }
@@ -398,7 +398,7 @@ export function buildCustomerMenuTree(
       ? [
           {
             key: 'launch' as const,
-            label: 'Event Hub',
+            label: 'Event Hub Controller',
             icon: Globe,
             href: `${base}/launch`,
             activeMatch: `${base}/launch`,

@@ -66,7 +66,15 @@ import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 // while doing the same job; it is a redirect stub now, and this page carries
 // the name alone. `one-event-hub-door.test.ts` fails if a second surface ever
 // re-claims it.
-export const metadata = { title: 'Event Hub' };
+//
+// ✏️ THE NAME ITSELF CHANGED 2026-09-03 (LS8): "Event Hub" is the GUEST-FACING
+// SITE, and this page is the dashboard that governs it — the "Event Hub
+// CONTROLLER". The distinction is not cosmetic: the couple stands HERE looking
+// at a preview of a page their guests open SOMEWHERE ELSE, and one word for
+// both screens is what the ruling closed. The masthead below carries the same
+// name in all three phases. Route, metadata KEY and every href are unchanged —
+// this is display copy only.
+export const metadata = { title: 'Event Hub Controller' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -553,10 +561,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   const phaseTitle =
     standing.phase === 'dayof'
-      ? 'Your Event Hub — today'
+      ? 'Your Event Hub Controller — today'
       : standing.phase === 'after'
-        ? 'Your Event Hub'
-        : 'Your Event Hub';
+        ? 'Your Event Hub Controller'
+        : 'Your Event Hub Controller';
 
   return (
     /* THE STAGE MEASURE (`app/[slug]/_lib/measures.ts` STAGE = max-w-5xl): the

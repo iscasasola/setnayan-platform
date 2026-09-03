@@ -50,7 +50,7 @@ import {
   type Lab3DTable,
   type Lab3DFloor,
 } from '@/lib/seating-3d';
-import { sel, type DrawnAttribute, type ReceptionDesign } from '@/lib/reception-scene';
+import { sel, selAll, type DrawnAttribute, type ReceptionDesign } from '@/lib/reception-scene';
 import { ColdSparkTunnel } from '@/app/_components/plan3d/kit/entrance-tunnel';
 
 type Room = { w: number; d: number };
@@ -597,16 +597,35 @@ function PhotoWall({
  * guestbook. Sits beside the entrance mark, offset along the wall so it never
  * stands in the doorway the walkers use.
  */
+/** Gap between pieces on the welcome table when the couple chose more than one. */
+const WELCOME_ITEM_SPACING_M = 1.15;
+/** Keep a piece inside the room on either axis (the single-item version clamped
+ *  its one position; every stepped item needs the same guard). */
+function clampToRoom(v: number, extent: number): number {
+  return Math.max(-extent / 2 + 0.5, Math.min(extent / 2 - 0.5, v));
+}
+
 function WelcomeSignage({
   entrance,
   room,
   palette,
-  style,
+  styles,
 }: {
   entrance: THREE.Vector3;
   room: Room;
   palette: Lab3DPalette;
-  style: string;
+  /** EVERY style the couple put on the welcome table, in their chosen order.
+   *
+   *  This zone is multi-select and a real welcome table carries several things
+   *  at once — an easel sign, the seating chart, the guestbook. The room used to
+   *  draw the primary and silently drop the rest.
+   *
+   *  ⚠ INDEX 0 MUST LAND WHERE THE SINGLE-STYLE VERSION LANDED. `selAll(…)[0]`
+   *  is `sel(…)` by construction, so a board that chose one thing renders that
+   *  thing in the same spot as before and this change is additive by
+   *  construction rather than by promise — the rule that existing rooms, which
+   *  couples have shown suppliers and booked against, must not restyle. */
+  styles: readonly string[];
 }) {
   // Push inward off the wall, then step sideways along it.
   const inward = useMemo(() => {
@@ -628,7 +647,14 @@ function WelcomeSignage({
   const wood = useMemo(() => mix(palette.accent, '#2a1c12', 0.45), [palette.accent]);
 
   return (
-    <group name={`decor-welcome-${style}`} position={[pos.x, 0, pos.z]} rotation={[0, yaw, 0]}>
+    <>
+      {styles.map((style, i) => {
+        // Step each additional piece along the wall the table stands against.
+        // i === 0 adds nothing, so the first piece keeps its exact position.
+        const ix = clampToRoom(pos.x + side.x * (i * WELCOME_ITEM_SPACING_M), room.w);
+        const iz = clampToRoom(pos.z + side.z * (i * WELCOME_ITEM_SPACING_M), room.d);
+        return (
+    <group key={style} name={`decor-welcome-${style}`} position={[ix, 0, iz]} rotation={[0, yaw, 0]}>
       {style === 'easel_sign' ? (
         <>
           {[-0.34, 0.34].map((dx) => (
@@ -688,6 +714,9 @@ function WelcomeSignage({
         </>
       ) : null}
     </group>
+        );
+      })}
+    </>
   );
 }
 
@@ -1087,7 +1116,15 @@ export function VenueDecor({
   // couple by `primaryOnlyNotice()` in the room's legend; see that function.
   const walls = sel(design, 'walls', 'treatment');
   const photoWall = sel(design, 'photo_wall', 'style');
-  const welcome = sel(design, 'welcome_signage', 'style');
+  // The welcome table is MULTI-SELECT and holds several things at once. selAll
+  // rather than sel, so the couple's whole table reaches the room; selAll(…)[0]
+  // is sel(…) by construction, so this can only ever ADD pieces and never move
+  // or replace the one already drawn. 'minimal' is the explicit "nothing here"
+  // choice and is dropped from the list rather than rendered as an object.
+  const welcomeStyles = useMemo(
+    () => selAll(design, 'welcome_signage', 'style').filter((v) => v !== 'minimal'),
+    [design],
+  );
 
   const stageCenter = useMemo(() => {
     const s = pctToWorld(floor.stage.xPct, floor.stage.yPct, room);
@@ -1171,8 +1208,8 @@ export function VenueDecor({
       )}
 
       {/* Welcome table by the door. */}
-      {welcome !== 'minimal' && (
-        <WelcomeSignage entrance={entranceWorld} room={room} palette={palette} style={welcome} />
+      {welcomeStyles.length > 0 && (
+        <WelcomeSignage entrance={entranceWorld} room={room} palette={palette} styles={welcomeStyles} />
       )}
 
       {/* Table centrepieces (instanced across all tables) */}

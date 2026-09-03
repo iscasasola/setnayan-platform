@@ -48,7 +48,8 @@ export type UgatEntityType =
   | 'geography'
   | 'seatplan'
   | 'runofshow'
-  | 'livestudio';
+  | 'livestudio'
+  | 'render';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -744,6 +745,46 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'cued by', to: 'TYPE-RUNOFSHOW' },
     ],
   },
+  {
+    /**
+     * "Make it real" — the first surface where a couple spends money INSIDE a
+     * planning tool rather than on a service, and therefore the first place a
+     * balance can silently disagree with what was paid for.
+     *
+     * ⚠ THE CREDIT IS THE UNIT, NOT THE PESO. Everything a couple is shown is
+     * counted in credits (1 a part · 5 the whole look); the only peso figure in
+     * the subsystem is the pack price in platform_retail_catalog_v2. A second
+     * peso figure anywhere is a defect by construction.
+     *
+     * ⚠ `reusable` IS GENERATED, AND THAT IS THE PRIVACY BOUNDARY. A render
+     * made with the couple's free-text note is stored but never offered to
+     * another couple. If that were a settable flag it would eventually drift
+     * from the note, and the symptom would be invisible — somebody else's
+     * personal render served as a library match with nothing rendering
+     * differently. It is computed from note/image/failure/quarantine instead,
+     * so it cannot be got wrong by forgetting.
+     */
+    id: 'TYPE-RENDERS',
+    type: 'render',
+    name: 'Mood Board renders',
+    blurb: 'the paid photoreal image — a part, a digest, and the credit it cost',
+    countKey: 'render',
+    icon: 'sparkles',
+    color: 'var(--ug-e-render)',
+    colorBg: 'var(--ug-e-render-bg)',
+    table: 'event_renders',
+    x: 60,
+    y: 60,
+    fields: [
+      { key: 'pk', name: 'part_id', note: 'room:/people:/place:/whole_look — shape-checked, never an enum, because the vocabulary is DERIVED in lib/moodboard-render-parts.ts' },
+      { key: '', name: 'config_digest', note: 'v<n>:<digest> — MB9’s COARSE cache key; the free-text note is deliberately excluded from it' },
+      { key: '', name: 'reusable', note: 'GENERATED — a note-bearing, imageless, failed or quarantined render can never enter the shared pool' },
+    ],
+    edges: [
+      { verb: 'rendered for', to: 'TYPE-EVENTS' },
+      { verb: 'paid for by', to: 'TYPE-ORDERS' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -829,6 +870,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'camera',
     color: 'var(--ug-e-studio)',
     colorBg: 'var(--ug-e-studio-bg)',
+  },
+  render: {
+    label: 'Mood Board render',
+    icon: 'sparkles',
+    color: 'var(--ug-e-render)',
+    colorBg: 'var(--ug-e-render-bg)',
   },
 };
 
@@ -2266,6 +2313,162 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'INSERT policy demands user_id = auth.uid() AND membership (nobody posts in another member\u2019s voice); UPDATE policy scopes take-down to the author; samahan_messages_author_field_guard freezes every field except deleted_at.',
     traps:
       'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old.',
+  },
+  {
+    /**
+     * The render itself \u2014 one row per "Make it real" image.
+     *
+     * \u26a0 THE ONE THING TO UNDERSTAND HERE IS THAT `reusable` IS GENERATED.
+     * Every other flag on the platform is a boolean somebody sets. This one
+     * cannot be: it is the admission test for a POOL SHARED ACROSS COUPLES, and
+     * a flag that can be set can be set wrong, with no visible symptom on
+     * either side of the mistake. It reads note IS NULL AND image_key IS NOT
+     * NULL AND failed_at IS NULL AND NOT reuse_blocked, and the cache index is
+     * PARTIAL on it \u2014 so a note-bearing render is not merely filtered out of a
+     * library match, it is not in the index the match reads.
+     *
+     * \u26a0 part_id IS SHAPE-CHECKED, NOT ENUMERATED, ON PURPOSE. The vocabulary
+     * is DERIVED at runtime from RECEPTION_PARTS + the PaletteKey attire roles
+     * + the inspiration slot keys (lib/moodboard-render-parts.ts). An IN-list
+     * in the CHECK would have to be migrated every time a zone is added, and
+     * the failure of forgetting is silent: the couple designs the zone and
+     * section 04 never offers to render it.
+     */
+    id: 'J42',
+    claims: [
+      { kind: 'table', table: 'event_renders' },
+      { kind: 'fk', table: 'event_renders', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'event_renders', column: 'part_id' },
+      { kind: 'column', table: 'event_renders', column: 'config_digest' },
+      { kind: 'column', table: 'event_renders', column: 'note' },
+      { kind: 'column', table: 'event_renders', column: 'reusable' },
+      { kind: 'column', table: 'event_renders', column: 'reuse_blocked' },
+      { kind: 'column', table: 'event_renders', column: 'credits_debited' },
+      { kind: 'column', table: 'event_renders', column: 'inspiration_asset_ids' },
+      {
+        kind: 'check',
+        table: 'event_renders',
+        name: 'event_renders_part_id_shape',
+        mentions: 'part_id',
+      },
+      {
+        kind: 'check',
+        table: 'event_renders',
+        name: 'event_renders_config_digest_versioned',
+        mentions: 'config_digest',
+      },
+      {
+        kind: 'check',
+        table: 'event_renders',
+        name: 'event_renders_note_shape',
+        mentions: 'note',
+      },
+      // The inspirations that conditioned a render are an ARRAY, not a child
+      // table \u2014 so there is deliberately no FK here to go looking for.
+      { kind: 'no_fk', table: 'event_renders', column: 'inspiration_asset_ids' },
+    ],
+    chain: 19,
+    pair: ['TYPE-RENDERS', 'TYPE-EVENTS'],
+    title: 'Mood Board render \u2194 Event (the paid photoreal image)',
+    joint: 'event_renders',
+    cardinality:
+      'Many per event \u00b7 one row per render, including regenerations of the same part \u2014 a couple may re-render a part as often as they hold credits',
+    implementedBy:
+      'event_renders.event_id \u2192 events, with part_id naming WHICH part (room:/people:/place:/whole_look) and config_digest keying the cross-event reuse pool',
+    writtenBy: 'the "Make it real" render path (MB8) \u2014 UNBUILT as of this row; the table ships inert',
+    guardedBy:
+      'RLS Pattern B (members read \u00b7 couples/coordinators + admin write); the reuse pool is guarded by the GENERATED `reusable` column and the PARTIAL index that only indexes it',
+    traps:
+      'design_snapshot is a HISTORICAL copy, not a live join \u2014 a render must stay explicable after the couple redesigns, so reading the event\u2019s current design to explain an old render is wrong. inspiration_asset_ids is a UUID[] with NO foreign key: inspirations are soft-deleted (removed_at), so the ids keep resolving, but nothing at the database level stops an id from a different event landing there.',
+  },
+  {
+    /**
+     * The money. Two tables, and the split between them is the whole design.
+     *
+     * \u26a0 GRANTS ARE APPEND-ONLY AND ALWAYS POSITIVE; SPEND IS A COUNTER.
+     * A spend is NOT a negative grant row. The balance has to be checked and
+     * decremented atomically, and there is nothing to lock in an append-only
+     * ledger \u2014 two concurrent renders would both read "one credit left" and
+     * both take it. event_render_credit_usage is one row per event precisely so
+     * SELECT \u2026 FOR UPDATE has something to hold.
+     *
+     * \u26a0 RESERVE-THEN-RELEASE, NOT DEBIT-ON-SUCCESS. moodboard_reserve_render_
+     * credits runs BEFORE the model call and moodboard_release_render_credits
+     * unwinds it when no image arrives. A credit spent on nothing is this
+     * repo\u2019s signature failure \u2014 an outcome that looks identical whether it
+     * worked or not.
+     *
+     * \u26a0 NEITHER TABLE HAS A WRITE POLICY. A couple that could INSERT a grant
+     * could grant itself the pack. Writes are service-role / SECURITY DEFINER
+     * only; the READ policies exist so the balance is visible, because a
+     * balance nobody can see is the invisible-state failure the whole arc is
+     * about.
+     */
+    id: 'J43',
+    claims: [
+      { kind: 'table', table: 'event_render_credit_grants' },
+      { kind: 'table', table: 'event_render_credit_usage' },
+      { kind: 'table', table: 'moodboard_render_config' },
+      {
+        kind: 'fk',
+        table: 'event_render_credit_grants',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'event_render_credit_grants',
+        column: 'order_id',
+        references: 'orders',
+      },
+      {
+        kind: 'fk',
+        table: 'event_render_credit_usage',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'moodboard_render_config',
+        column: 'pack_service_code',
+        references: 'platform_retail_catalog_v2',
+      },
+      // ONE row per event on the spend side \u2014 this is what makes the counter
+      // lockable, and it is the primary key, not a convention.
+      { kind: 'unique', table: 'event_render_credit_usage', columns: ['event_id'] },
+      { kind: 'column', table: 'event_render_credit_usage', column: 'credits_used' },
+      { kind: 'column', table: 'moodboard_render_config', column: 'credits_per_part' },
+      { kind: 'column', table: 'moodboard_render_config', column: 'credits_whole_look' },
+      { kind: 'column', table: 'moodboard_render_config', column: 'credits_per_pack' },
+      // The peso price is NOT here \u2014 the config points at the catalog instead.
+      { kind: 'no_column', table: 'moodboard_render_config', column: 'price_php' },
+      {
+        kind: 'check',
+        table: 'event_render_credit_grants',
+        name: 'event_render_credit_grants_credits_positive',
+        mentions: 'credits',
+      },
+      {
+        kind: 'check',
+        table: 'event_render_credit_usage',
+        name: 'event_render_credit_usage_nonneg',
+        mentions: 'credits_used',
+      },
+    ],
+    chain: 19,
+    pair: ['TYPE-RENDERS', 'TYPE-ORDERS'],
+    title: 'Render credits \u2194 Order (one pack, 50 credits)',
+    joint: 'event_render_credit_grants',
+    cardinality:
+      'One grant row per paid pack (partial UNIQUE on order_id, so re-running fulfilment cannot double-grant) \u00b7 exactly one usage row per event',
+    implementedBy:
+      'event_render_credit_grants.order_id \u2192 orders for the purchase; balance = SUM(grants.credits) \u2212 usage.credits_used, computed only by moodboard_render_balance',
+    writtenBy:
+      'moodboard_reserve_render_credits / moodboard_release_render_credits (spend) \u00b7 the pack-fulfilment path (grant) \u2014 UNBUILT as of this row',
+    guardedBy:
+      'no write policy on either table (service-role / SECURITY DEFINER only); moodboard_render_caller_may_act gates every function; `anon` is granted EXECUTE on none of them',
+    traps:
+      'The partial UNIQUE on order_id is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify it with \\d event_render_credit_grants, not by trusting this list. moodboard_render_balance returns ZERO ROWS (not a zero balance) to a caller who may not ask: a reader that coalesces the two together tells a couple who bought a pack that they hold nothing.',
   },
 ];
 

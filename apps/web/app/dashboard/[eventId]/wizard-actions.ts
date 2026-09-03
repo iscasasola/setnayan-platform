@@ -69,6 +69,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { isMoodboardSlotKey, type MoodboardSlotKey } from '@/lib/moodboard-slots';
 import {
   parseWizardState,
   WIZARD_TASKS,
@@ -1674,28 +1675,9 @@ export async function completeDraftGuestListTask(
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-const MOODBOARD_SLOT_KEYS = [
-  'venue',
-  'reception_venue',
-  'backdrop',
-  'tunnel',
-  'stage',
-  'table',
-  'ceiling',
-  'flowers',
-  'cocktail',
-  'cake',
-  'overall',
-  'palette',
-  'groom',
-  'bride',
-  'principal_sponsor',
-  'entourage',
-  'parents',
-  'guests',
-] as const;
-
-type MoodboardSlotKey = (typeof MOODBOARD_SLOT_KEYS)[number];
+// The 18-slot vocabulary moved to `lib/moodboard-slots.ts` (MB2) so the derived
+// render-part registry can read it without importing a 'use server' module.
+// Still ONE list — this file consumes it rather than restating it.
 
 /**
  * How many photos one slot holds. Owner, 2026-09-03, on how couples actually
@@ -1725,12 +1707,6 @@ function isMoodboardSlotPosition(value: unknown): value is MoodboardSlotPosition
 const SLOT_POSITION_HINT = MOODBOARD_SLOT_POSITIONS.slice(0, -1).join(', ') +
   ` or ${MOODBOARD_SLOT_POSITIONS[MOODBOARD_SLOT_POSITIONS.length - 1]}`;
 
-function isMoodboardSlotKey(value: unknown): value is MoodboardSlotKey {
-  return (
-    typeof value === 'string' &&
-    (MOODBOARD_SLOT_KEYS as readonly string[]).includes(value)
-  );
-}
 
 function validatePalette6(raw: unknown): string[] {
   if (!Array.isArray(raw) || raw.length !== 6) {

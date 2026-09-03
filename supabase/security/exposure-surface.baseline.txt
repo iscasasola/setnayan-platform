@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6401
+# facts: 6453
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     576
-#   col       4710
-#   policy    877
+#   tpriv     581
+#   col       4746
+#   policy    884
 #   view      8
-#   func      226
+#   func      230
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -155,6 +155,9 @@ tpriv	public.event_playlist_slot_vibes|authenticated	SIUD
 tpriv	public.event_preparation_items|anon	SIUD
 tpriv	public.event_preparation_items|authenticated	SIUD
 tpriv	public.event_recaps|authenticated	SIUD
+tpriv	public.event_render_credit_grants|authenticated	S
+tpriv	public.event_render_credit_usage|authenticated	S
+tpriv	public.event_renders|authenticated	SIUD
 tpriv	public.event_scene_objects|anon	SIUD
 tpriv	public.event_scene_objects|authenticated	SIUD
 tpriv	public.event_schedule_blocks|anon	SIUD
@@ -273,6 +276,8 @@ tpriv	public.moodboard_asset_color_ranges|anon	SIUD
 tpriv	public.moodboard_asset_color_ranges|authenticated	SIUD
 tpriv	public.moodboard_library_assets|anon	SIUD
 tpriv	public.moodboard_library_assets|authenticated	SIUD
+tpriv	public.moodboard_render_config|anon	S
+tpriv	public.moodboard_render_config|authenticated	S
 tpriv	public.moodboard_theme_templates|anon	SIUD
 tpriv	public.moodboard_theme_templates|authenticated	SIUD
 tpriv	public.nav_slot_override|anon	SIUD
@@ -1594,6 +1599,34 @@ col	public.event_recaps.settings	anon=- authenticated=SIU
 col	public.event_recaps.status	anon=- authenticated=SIU
 col	public.event_recaps.unpublished_by	anon=- authenticated=SIU
 col	public.event_recaps.updated_at	anon=- authenticated=SIU
+col	public.event_render_credit_grants.created_at	anon=- authenticated=S
+col	public.event_render_credit_grants.credits	anon=- authenticated=S
+col	public.event_render_credit_grants.event_id	anon=- authenticated=S
+col	public.event_render_credit_grants.grant_id	anon=- authenticated=S
+col	public.event_render_credit_grants.note	anon=- authenticated=S
+col	public.event_render_credit_grants.order_id	anon=- authenticated=S
+col	public.event_render_credit_grants.source	anon=- authenticated=S
+col	public.event_render_credit_usage.created_at	anon=- authenticated=S
+col	public.event_render_credit_usage.credits_used	anon=- authenticated=S
+col	public.event_render_credit_usage.event_id	anon=- authenticated=S
+col	public.event_render_credit_usage.updated_at	anon=- authenticated=S
+col	public.event_renders.completed_at	anon=- authenticated=SIU
+col	public.event_renders.config_digest	anon=- authenticated=SIU
+col	public.event_renders.created_at	anon=- authenticated=SIU
+col	public.event_renders.created_by_user_id	anon=- authenticated=SIU
+col	public.event_renders.credits_debited	anon=- authenticated=SIU
+col	public.event_renders.design_snapshot	anon=- authenticated=SIU
+col	public.event_renders.event_id	anon=- authenticated=SIU
+col	public.event_renders.failed_at	anon=- authenticated=SIU
+col	public.event_renders.failure_reason	anon=- authenticated=SIU
+col	public.event_renders.image_key	anon=- authenticated=SIU
+col	public.event_renders.inspiration_asset_ids	anon=- authenticated=SIU
+col	public.event_renders.note	anon=- authenticated=SIU
+col	public.event_renders.part_id	anon=- authenticated=SIU
+col	public.event_renders.prompt	anon=- authenticated=SIU
+col	public.event_renders.render_id	anon=- authenticated=SIU
+col	public.event_renders.reusable	anon=- authenticated=SIU
+col	public.event_renders.reuse_blocked	anon=- authenticated=SIU
 col	public.event_scene_objects.created_at	anon=SIU authenticated=SIU
 col	public.event_scene_objects.event_id	anon=SIU authenticated=SIU
 col	public.event_scene_objects.kind	anon=SIU authenticated=SIU
@@ -2639,6 +2672,14 @@ col	public.moodboard_library_assets.source	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.storage_path	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.style_theme	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.uploaded_by	anon=SIU authenticated=SIU
+col	public.moodboard_render_config.config_key	anon=S authenticated=S
+col	public.moodboard_render_config.credits_per_pack	anon=S authenticated=S
+col	public.moodboard_render_config.credits_per_part	anon=S authenticated=S
+col	public.moodboard_render_config.credits_whole_look	anon=S authenticated=S
+col	public.moodboard_render_config.is_active	anon=S authenticated=S
+col	public.moodboard_render_config.max_note_chars	anon=S authenticated=S
+col	public.moodboard_render_config.pack_service_code	anon=S authenticated=S
+col	public.moodboard_render_config.updated_at	anon=S authenticated=S
 col	public.moodboard_theme_templates.created_at	anon=SIU authenticated=SIU
 col	public.moodboard_theme_templates.description	anon=SIU authenticated=SIU
 col	public.moodboard_theme_templates.mood_tag	anon=SIU authenticated=SIU
@@ -5547,6 +5588,12 @@ policy	public.event_preparation_items|event_prep_items_vendor_read	mode=PERMISSI
 policy	public.event_preparation_items|event_prep_items_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))
 policy	public.event_recaps|event_recaps_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members m WHERE ((m.event_id = event_recaps.event_id) AND (m.user_id = auth.uid()) AND (m.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.event_recaps|event_recaps_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members m WHERE ((m.event_id = event_recaps.event_id) AND (m.user_id = auth.uid()) AND (m.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members m WHERE ((m.event_id = event_recaps.event_id) AND (m.user_id = auth.uid()) AND (m.member_type = 'couple'::member_type)))))
+policy	public.event_render_credit_grants|event_render_credit_grants_member_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_render_credit_grants.event_id) AND (em.user_id = auth.uid())))) OR is_admin()) check=NULL
+policy	public.event_render_credit_usage|event_render_credit_usage_member_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_render_credit_usage.event_id) AND (em.user_id = auth.uid())))) OR is_admin()) check=NULL
+policy	public.event_renders|event_renders_couple_delete	mode=PERMISSIVE cmd=DELETE roles=PUBLIC using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_renders.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) OR is_admin()) check=NULL
+policy	public.event_renders|event_renders_couple_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_renders.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) OR is_admin())
+policy	public.event_renders|event_renders_couple_update	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_renders.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) OR is_admin()) check=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_renders.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) OR is_admin())
+policy	public.event_renders|event_renders_member_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
 policy	public.event_scene_objects|event_scene_objects_couple_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_scene_objects|event_scene_objects_couple_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_schedule_blocks|event_schedule_blocks_booked_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (visibility <> 'coordinator_only'::text)) check=NULL
@@ -5726,6 +5773,7 @@ policy	public.moodboard_library_assets|moodboard_library_assets_vendor_delete_ow
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((uploaded_by = auth.uid()) AND (source = 'stylist_upload'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))))
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_select_own	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((uploaded_by = auth.uid()) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type))))) check=NULL
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_update_own	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=((uploaded_by = auth.uid()) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type))))) check=(uploaded_by = auth.uid())
+policy	public.moodboard_render_config|moodboard_render_config_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.moodboard_theme_templates|moodboard_theme_templates_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type)))))
 policy	public.moodboard_theme_templates|moodboard_theme_templates_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.nav_slot_override|nav_slot_override_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
@@ -6298,6 +6346,10 @@ func	public.mark_vendor_contact_confirmed(p_application_id uuid, p_channel text)
 func	public.min_n_ok(p_count integer, p_floor integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.moderator_area_level(p_event_id uuid, p_area text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.moderator_can_see_row(p_event_id uuid, p_user_id uuid, p_private_to_role text[], p_hidden_from_role text[], p_surprise_for_role text)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.moodboard_release_render_credits(p_event_id uuid, p_credits integer)	secdef=yes exec=authenticated search_path=public
+func	public.moodboard_render_balance(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.moodboard_render_caller_may_act(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.moodboard_reserve_render_credits(p_event_id uuid, p_credits integer)	secdef=yes exec=authenticated search_path=public
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.panood_camera_heartbeat(p_token text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.panood_claim_camera(p_token text)	secdef=yes exec=anon,authenticated search_path=public

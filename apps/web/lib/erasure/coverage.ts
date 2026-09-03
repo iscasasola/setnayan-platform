@@ -764,6 +764,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which staff member acknowledged an internal ops alert. The alert is about the PLATFORM, not a person.',
   },
   {
+    table: 'event_renders',
+    column: 'created_by_user_id',
+    why: 'A Mood Board “Make it real” render (MB2). The row is read BY EVENT — it is the couple’s render, and deleting rows keyed on the author would strip the co-partner’s images because the person who pressed the button left. The uuid is the stamp of who spent the credit and is selected by no reader, carries no label and is consulted by no RLS policy, so nulling de-identifies it at zero cost. Nullable with ON DELETE SET NULL from the day it shipped. What the subject typed themselves — `note` — is exported to them by /api/profile/export before erasure; the prompt and design snapshot belong to the shared board, not to them.',
+  },
+  {
     table: 'event_egift_methods',
     column: 'created_by_user_id',
     why: '⚠ This stamp records WHO FIRST PRESSED ADD, not whose account it is — the update path rewrites the handle and account name but never this column. So a row now holding the OTHER partner’s GCash number still carries the leaver’s uuid. Nulling is the only safe move; see PARTIALLY_PURGED for what is deliberately retained.',

@@ -1474,7 +1474,48 @@ export function FrontDoorShell({
                 </Link>
               ) : null}
             </>
-          ) : null}
+          ) : (
+            /*
+              THE RAIL'S OWN SIGN-IN PROMPT — restored 2026-09-03. This is the
+              SECOND of the seam's two Sign-in controls (see the "SIGNING IN
+              DOES NOT LEAVE THIS PAGE" docblock above and
+              `seam-invariants.test.ts`'s "the front door signs you in without
+              leaving" — it counts `href="/login"` and requires exactly 2). It
+              went missing from an earlier pass of this redesign and nothing
+              caught it locally, only CI did.
+
+              🔑 `href="/alaala"` DID NOT COME BACK. That route does not exist
+              (confirmed: no `app/alaala/`, no other reference to it anywhere
+              in the codebase) — it was already dead in the version this block
+              was restored from. `front-door-anchor.tsx` made the same call for
+              the page's own secondary link, for the same reason: `/our-story`
+              is the real manifesto page. This is that same, already-made
+              decision applied to the second place the same stale link lived,
+              not a new one.
+            */
+            <>
+              <div className="fd-signin-prompt">
+                <p>
+                  Sign in to save suppliers, plan your event, and keep your
+                  photos.
+                </p>
+                <Link
+                  href="/login"
+                  prefetch={false}
+                  className="fd-btn-gold"
+                  aria-haspopup="dialog"
+                  onClick={onSignInPress}
+                >
+                  Sign in
+                </Link>
+              </div>
+              <Link href="/our-story" className="fd-row">
+                <RailIcon as={Sparkles} />
+                <span className="fd-label-text">How it works</span>
+                <span className="fd-icon-caption">How it works</span>
+              </Link>
+            </>
+          )}
 
           {/*
             2b · THE CONTEXT GROUP — it PUSHES, it does not swap.

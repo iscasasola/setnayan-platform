@@ -64,6 +64,26 @@ export const MOODBOARD_MOOD_TAGS = [
   'nostalgic_vintage',
   'glam_luxurious',
   'organic_natural',
+  // ── the 11th, 2026-09-03 ──────────────────────────────────────────────
+  // 🔑 THE AXIS WAS MISSING A DIMENSION, not a synonym. All ten above are
+  // aesthetic REGISTER (how polished, how dark, how ornate); not one of them
+  // expresses OCCASION ENERGY — whether the day is a party. The owner typed
+  // "i want to feel christmas vibe with a hint of classy elegance" into the
+  // theme description and there was no mood for the first half of that
+  // sentence to land in. Measured across all 2,600 seeded rows before adding
+  // it: `christmas` 0 · `parol` 0 · `pasko` 0 · `evergreen` 0 · `poinsettia`
+  // 0 (against `capiz` 1,125 and `gold` 1,299) — the corpus is calendar-blind,
+  // so a celebratory sentence could not match a theme at all.
+  //
+  // ⚠ IT SHIPS WITH ZERO THEMES, ON PURPOSE. Regenerating the 2,500 seeded
+  // rows to populate it is a SEPARATE owner decision (it would change the
+  // committed seed migration and every count that tests assert against), so
+  // the generator's own mood list is deliberately NOT this one — see
+  // GENERATED_MOOD_TAGS in lib/moodboard-theme-generator.ts. Everything that
+  // reads this vocabulary must therefore survive a mood with no rows behind
+  // it; template-gallery.tsx says "no themes carry this feeling yet" rather
+  // than drawing an empty grid.
+  'festive_celebratory',
 ] as const;
 
 export type MoodboardMoodTag = (typeof MOODBOARD_MOOD_TAGS)[number];
@@ -98,6 +118,7 @@ export const MOOD_LABELS: Record<MoodboardMoodTag, string> = {
   nostalgic_vintage: 'Nostalgic & Vintage',
   glam_luxurious: 'Glamorous & Opulent',
   organic_natural: 'Earthy & Grounded',
+  festive_celebratory: 'Festive & Celebratory',
 };
 
 export type MoodboardThemeTemplate = {
@@ -185,6 +206,23 @@ export type ThemeTemplatePage = {
   templates: MoodboardThemeTemplate[];
   /** Total rows matching this (family, mood) — drives "show more". */
   total: number;
+  /**
+   * Total rows carrying this MOOD across every style family.
+   *
+   * 🔑 IT SEPARATES TWO DIFFERENT ZEROES, and the gallery says something
+   * different for each. `total === 0, moodTotal > 0` means "not in this
+   * setting — try another". `total === 0, moodTotal === 0` means the library
+   * holds no theme with this feeling AT ALL, which is the live state of
+   * `festive_celebratory` (added 2026-09-03 with zero rows behind it, on
+   * purpose — regenerating the seed is a separate owner decision). Without
+   * this number the eleventh mood would send couples through the whole
+   * narrowing conversation to reach an empty grid, once per setting, with no
+   * way to learn that no setting would have worked.
+   *
+   * MEASURED, never hard-coded: nothing in the code names which moods are
+   * empty, so the copy stops being true the moment the seed is regenerated.
+   */
+  moodTotal: number;
   offset: number;
   limit: number;
 };

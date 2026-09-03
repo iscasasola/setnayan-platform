@@ -4,6 +4,7 @@ import {
   CSS_NAMES,
   WEDDING_NAMES,
   descriptiveColorName,
+  foldColorName,
   nearestColorName,
   resolveColorName,
 } from './color-names';
@@ -47,6 +48,12 @@ function hueDeg(h1: number, h2: number) {
 function deltaH(p: string, q: string) {
   const dh = (hueDeg(hue(p), hue(q)) * Math.PI) / 180;
   return 2 * Math.sqrt(chroma(p) * chroma(q)) * Math.sin(dh / 2);
+}
+/** ΔE (CIE76), written out here for the same reason `lab` is. */
+function dE(p: string, q: string) {
+  const a = lab(p);
+  const b = lab(q);
+  return Math.hypot(a.L - b.L, a.a - b.a, a.b - b.b);
 }
 
 // The shipped thresholds, restated. If the module loosens one, these fail.
@@ -260,5 +267,178 @@ test('the fallback describes what was measured, and never returns null for a val
 test('lowercase and uppercase hex resolve identically', () => {
   for (const hex of ['#20452f', '#cdd590', '#dc143c', '#f4c2c2']) {
     assert.equal(nearestColorName(hex), nearestColorName(hex.toUpperCase()));
+  }
+});
+
+// ── the table's own coherence ────────────────────────────────────────────
+//
+// 🛑 THE ASSERTIONS ABOVE WENT GREEN, UNCHANGED, ON A CHANGE THAT REWROTE 28%
+// OF THE COLOUR CUBE. On 2026-09-03 `WEDDING_NAMES` went 32 → 62 entries and
+// `Sage` moved to a different hex; every test above passed before AND after,
+// because they all ask "is this name from the right hue family" and nothing
+// asks whether the TABLE is coherent. It was not: the shipped `Sage #8A9A6B`
+// was sitting on moss's coordinates, so the owner's "where is the moss green?"
+// was answered, at full confidence, with "Sage".
+//
+// A wrong-family name is what the guards above catch. A right-family name from
+// the WRONG COLOUR is what these five catch — the defect that actually shipped.
+
+/**
+ * The 32 entries as shipped before 2026-09-03. Several of them sit on top of
+ * each other (Cream / Sampaguita White are ΔE 2.16 apart) and a retroactive
+ * separation rule is therefore impossible. They are grandfathered EXPLICITLY,
+ * BY NAME, so the rule cannot be quietly dropped for the whole table instead.
+ */
+const GRANDFATHERED = new Set([
+  'Bamboo Tan', 'Banana Leaf Green', 'Black', 'Blush', 'Burgundy', 'Capiz Pearl',
+  'Champagne Gold', 'Charcoal', 'Coral', 'Cream', 'Dusty Rose', 'Emerald',
+  'Forest Green', 'Gold', 'Ivory', 'Lavender', 'Mustard', 'Narra Brown', 'Navy',
+  'Peach', 'Piña Cream', 'Plum', 'Rose', 'Rust', 'Sage', 'Sampaguita White',
+  'Silver', 'Sky Blue', 'Slate', 'Terracotta', 'Waling-Waling Purple', 'White',
+]);
+
+/** The mood board's own `MIN_PERCEPTUAL_GAP` — where two chips in one strip
+ *  stop reading as one colour. Two curated NAMES closer than this are one
+ *  colour with two words, and which word a couple gets is a coin flip. */
+const MIN_PERCEPTUAL_GAP = 12;
+
+test('every curated pair is at least MIN_PERCEPTUAL_GAP apart, except the shipped 32', () => {
+  const tooClose: string[] = [];
+  let grandfatheredDebt = 0;
+  for (let i = 0; i < WEDDING_NAMES.length; i++) {
+    for (let j = i + 1; j < WEDDING_NAMES.length; j++) {
+      const a = WEDDING_NAMES[i]!;
+      const b = WEDDING_NAMES[j]!;
+      const d = dE(a.hex, b.hex);
+      if (d >= MIN_PERCEPTUAL_GAP) continue;
+      if (GRANDFATHERED.has(a.name) && GRANDFATHERED.has(b.name)) {
+        grandfatheredDebt++;
+        continue;
+      }
+      tooClose.push(`${a.name} ${a.hex} / ${b.name} ${b.hex} — ΔE ${d.toFixed(2)}`);
+    }
+  }
+  assert.deepEqual(
+    tooClose,
+    [],
+    `${tooClose.length} curated pair(s) are one colour with two names:\n${tooClose.join('\n')}`,
+  );
+  // The grandfathered debt may SHRINK, never grow — 17 pairs, every one of them
+  // in the near-white cluster (Cream / Ivory / Capiz Pearl / Piña Cream /
+  // Sampaguita White / White) plus Bamboo Tan-Champagne Gold and Narra
+  // Brown-Rust. Moving a shipped hex ON TOP of another shipped one would keep
+  // both names grandfathered and would otherwise slip past the check above.
+  assert.ok(
+    grandfatheredDebt <= 17,
+    `the pre-2026-09-03 tight-pair debt grew to ${grandfatheredDebt} — it may only shrink`,
+  );
+});
+
+test('no NEW curated name silently redefines a CSS name', () => {
+  // `hexForColorName` builds its index CSS-first, curated-second, and the
+  // second write wins — so a curated entry sharing a CSS word REDEFINES that
+  // word for the whole app, in the name → hex direction. These eleven do it
+  // deliberately and are documented in the module; a twelfth would do it by
+  // accident, and nothing at the call site would look different.
+  const DELIBERATE = new Set([
+    'Black', 'Coral', 'Forest Green', 'Gold', 'Ivory', 'Lavender', 'Navy',
+    'Plum', 'Silver', 'Sky Blue', 'White',
+  ]);
+  const css = new Set(CSS_NAMES.map((n) => foldColorName(n.name)));
+  const accidents = WEDDING_NAMES.filter(
+    (n) => css.has(foldColorName(n.name)) && !DELIBERATE.has(n.name),
+  ).map((n) => `curated "${n.name}" shadows the CSS name of the same word`);
+  assert.deepEqual(accidents, [], accidents.join('\n'));
+  // and the documented list is EXHAUSTIVE, not a lower bound — a deliberate
+  // collision that gets deleted should be removed from the module docblock too
+  for (const name of DELIBERATE) {
+    assert.ok(
+      WEDDING_NAMES.some((n) => n.name === name),
+      `"${name}" is documented as a deliberate CSS collision but is no longer curated`,
+    );
+  }
+});
+
+test('a curated name never wins on lightness alone', () => {
+  // The defect the radius exists to prevent, asserted instead of commented:
+  // #CDD590, a PALE yellow-green, used to be captured by Sage at ΔE 24.5 —
+  // right family, 22 points of L* away, two whole lightness bands. Same family
+  // is the floor, not the goal.
+  const lies: string[] = [];
+  let curated = 0;
+  const h2 = (v: number) => v.toString(16).padStart(2, '0').toUpperCase();
+  for (let r = 0; r < 256; r += 8) {
+    for (let g = 0; g < 256; g += 8) {
+      for (let b = 0; b < 256; b += 8) {
+        const hex = `#${h2(r)}${h2(g)}${h2(b)}`;
+        const got = resolveColorName(hex)!;
+        if (got.source !== 'wedding' || !got.hex) continue;
+        curated++;
+        const dL = Math.abs(lab(hex).L - lab(got.hex).L);
+        if (dL > 15) lies.push(`${hex} → "${got.name}" — right family, ΔL* ${dL.toFixed(1)}`);
+      }
+    }
+  }
+  assert.ok(curated > 8000, `expected a real curated sample, got ${curated}`);
+  // 47 of 13,173 at 62 names / radius 16 — measured, and the number the radius
+  // was CHOSEN by (5.1% at radius 20 → 0.4% at 16). It may only shrink.
+  assert.ok(
+    lies.length <= 60,
+    `${lies.length} curated wins are the right family at the wrong lightness:\n${lies.slice(0, 10).join('\n')}`,
+  );
+});
+
+test('the achromatic census is deliberate', () => {
+  // Below C* 6 the hue gate STOPS FILTERING — an achromatic entry is compatible
+  // with every grey in reach, so these six compete for the entire neutral axis
+  // and each new one takes territory from all the others. A seventh must be a
+  // decision, not a side effect of adding a word that happened to be greyish.
+  assert.deepEqual(
+    WEDDING_NAMES.filter((n) => chroma(n.hex) < ACHROMATIC)
+      .map((n) => n.name)
+      .sort(),
+    ['Black', 'Charcoal', 'Cream', 'Sampaguita White', 'Silver', 'White'],
+  );
+});
+
+test('a name that claims a hue family belongs to it', () => {
+  // A hue lie can be spelled into the NAME instead of into the match, and no
+  // guard above would see it. "Olive Green" at #6E7145 was the live candidate:
+  // it measures h 110°, which this module's own `descriptiveColorName` calls
+  // Yellow. It shipped as "Olive Grove" — no family claim — rather than having
+  // its hex tuned until the word came true.
+  for (const n of WEDDING_NAMES) {
+    const claim = /Green|Red|Blue|Teal|Purple|Violet|Pink|Yellow|Orange/.exec(n.name);
+    if (!claim) continue;
+    const measured = descriptiveColorName(lab(n.hex));
+    assert.ok(
+      measured.includes(claim[0]),
+      `"${n.name}" ${n.hex} claims ${claim[0]} but this module measures it as "${measured}"`,
+    );
+  }
+});
+
+test('the vocabulary the owner asked for actually answers', () => {
+  // "provide a wider color naming. where is the moss green?" — 2026-09-02.
+  // Eleven of these were answered by a CONFIDENT CURATED NAME FROM THE WRONG
+  // COLOUR before the table doubled, which is why the assertion is on the word
+  // and not merely on the layer.
+  const trade: ReadonlyArray<readonly [string, string]> = [
+    ['#8A9A5B', 'Moss'], // was "Sage" — the owner's actual question
+    ['#9DB2A6', 'Eucalyptus'], // was "Silver"
+    ['#BFB5A8', 'Greige'], // was "Silver"
+    ['#B08D9E', 'Mauve'], // was "Dusty Rose"
+    ['#4A0F1E', 'Oxblood'], // was "Burgundy"
+    ['#7B5E51', 'Mocha'], // was "Narra Brown"
+    ['#3C2415', 'Espresso'], // was "Narra Brown"
+    ['#1F6F78', 'Peacock'], // was "Slate"
+    ['#CCCCFF', 'Periwinkle'], // was "Lavender"
+    ['#6E4B9E', 'Ube'], // was the CSS "Dark Slate Blue"
+    ['#9CAF4A', 'Calamansi'], // was the CSS "Olive Drab"
+    ['#8B7E74', 'Taupe'], // was the CSS "Gray"
+    ['#9CAF88', 'Sage'], // and Sage still answers, at its attested value
+  ];
+  for (const [hex, want] of trade) {
+    assert.equal(nearestColorName(hex), want, `${hex} should read as ${want}`);
   }
 });

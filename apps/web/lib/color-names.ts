@@ -45,41 +45,128 @@ import {
 
 export type NamedColor = { name: string; hex: string };
 
-// Curated, wedding/décor-relevant names — checked first, tighter match radius.
+/**
+ * Curated, wedding/décor-relevant names — checked FIRST, tighter radius than
+ * the CSS fallback below, so a couple's blush reads as "Blush" and a stylist's
+ * moss reads as "Moss" rather than the generic web word nearest to it.
+ *
+ * TWO LAYERS, ONE JOB. This table is the vocabulary a Filipino couple, florist
+ * or stylist actually says out loud; `CSS_NAMES` (below) is the complete
+ * fallback that guarantees an answer for the rest of the cube. A name only
+ * lands here if it is a word someone would use to BRIEF A SUPPLIER — that is
+ * the entrance test, not "is it a colour".
+ *
+ * 🛑 THE DEFECT THAT DOUBLED THIS TABLE (2026-09-03) WAS NOT A MISSING NAME —
+ * IT WAS A CONFIDENT WRONG ONE. The owner asked "where is the moss green?" and
+ * the answer was that `#8A9A5B`, the moss every reference agrees on, resolved
+ * to `{ name: 'Sage', source: 'wedding' }`. Not a CSS fallback anyone could
+ * spot as generic — a curated name, delivered at full confidence, from the
+ * wrong colour. Of 16 trade colours probed, ELEVEN were answered that way:
+ * eucalyptus and greige both said "Silver", oxblood said "Burgundy", espresso
+ * and mocha both said "Narra Brown", peacock said "Slate". A short table does
+ * not fail loudly; it fails by making its nearest neighbour answer for five
+ * colours at once.
+ *
+ * 🛑 EVERY ENTRY IS HUE-GATED BEFORE DISTANCE (see the hue-honesty guard).
+ * Adding a name changes which name WINS for its whole neighbourhood, so an
+ * addition is never local. Five invariants in `color-names.test.ts` hold the
+ * table coherent — min-separation, CSS name-string collisions, lightness
+ * honesty, the achromatic census, and "a name that claims a hue family belongs
+ * to it". Read them before adding a row.
+ *
+ * THE FILIPINO ENTRIES ARE NOT A BLOCK AT THE BOTTOM — they are interleaved
+ * alphabetically, because they are ordinary vocabulary here, not an appendix.
+ * Marked `// PH`: Bamboo Tan, Banana Leaf Green, Calamansi, Capiz Pearl,
+ * Gumamela Red, Narra Brown, Palawan Teal, Pandan Green, Piña Cream,
+ * Sampaguita White, Ube, Waling-Waling Purple. The first seven are the owner's
+ * 2026-09-02 directive; the last five were added 2026-09-03 to fill bands the
+ * table had NO word for at all (violet, true red, yellow-green, turquoise).
+ *
+ * ⚠ HALF THESE HEXES ARE JUDGEMENT, NOT CITATION — they are placed for the
+ * TRADE meaning, because the generic colour web disagrees (web "Eucalyptus" is
+ * a bright green-cyan; the trade means grey-green foliage). Per CLAUDE.md rule
+ * 9, flagging a guess does not make it safe: a bridesmaid-dress swatch card, a
+ * florist's stock list or a printed fabric card OUTRANKS every hex here and
+ * should replace it. These names do not price anything, which is the only
+ * reason they ship ahead of that card.
+ */
 export const WEDDING_NAMES: NamedColor[] = [
-  { name: 'Ivory', hex: '#FFFFF0' },
-  { name: 'Cream', hex: '#FAF7F2' },
-  { name: 'Blush', hex: '#F4C2C2' },
-  { name: 'Dusty Rose', hex: '#C9A0A0' },
-  { name: 'Rose', hex: '#BE185D' },
-  { name: 'Burgundy', hex: '#7A1F2B' },
-  { name: 'Terracotta', hex: '#C97B4B' },
-  { name: 'Rust', hex: '#824A2A' },
-  { name: 'Champagne Gold', hex: '#C5A059' },
-  { name: 'Gold', hex: '#D4AF37' },
-  { name: 'Mustard', hex: '#D97706' },
-  { name: 'Sage', hex: '#8A9A6B' },
-  { name: 'Emerald', hex: '#059669' },
-  { name: 'Forest Green', hex: '#3A5746' },
-  { name: 'Sky Blue', hex: '#7DB8D9' },
-  { name: 'Navy', hex: '#1E2540' },
-  { name: 'Slate', hex: '#3A5766' },
-  { name: 'Lavender', hex: '#C9B8D9' },
-  { name: 'Plum', hex: '#5C2542' },
-  { name: 'Charcoal', hex: '#1E2229' },
+  { name: 'Amber', hex: '#D99A2B' },
+  { name: 'Amethyst', hex: '#9966CC' },
+  { name: 'Apricot', hex: '#ED9A6E' },
+  { name: 'Aubergine', hex: '#472C4C' },
+  { name: 'Bamboo Tan', hex: '#C7A76C' }, // PH
+  { name: 'Banana Leaf Green', hex: '#4C6B3F' }, // PH
   { name: 'Black', hex: '#000000' },
-  { name: 'White', hex: '#FFFFFF' },
-  { name: 'Silver', hex: '#CFD3D6' },
-  { name: 'Peach', hex: '#F0B27A' },
+  { name: 'Blush', hex: '#F4C2C2' },
+  { name: 'Brass', hex: '#B5A642' },
+  { name: 'Burgundy', hex: '#7A1F2B' },
+  { name: 'Calamansi', hex: '#9CAF4A' }, // PH
+  { name: 'Capiz Pearl', hex: '#EAE6DA' }, // PH
+  { name: 'Celadon', hex: '#B8D8C0' },
+  { name: 'Champagne Gold', hex: '#C5A059' },
+  { name: 'Charcoal', hex: '#1E2229' },
+  { name: 'Clay', hex: '#B66A50' },
   { name: 'Coral', hex: '#E8735A' },
-  // Filipino-relevant additions (owner directive 2026-09-02).
-  { name: 'Piña Cream', hex: '#F2E8D5' },
-  { name: 'Capiz Pearl', hex: '#EAE6DA' },
-  { name: 'Sampaguita White', hex: '#FBFBF3' },
-  { name: 'Narra Brown', hex: '#6B4226' },
-  { name: 'Banana Leaf Green', hex: '#4C6B3F' },
-  { name: 'Waling-Waling Purple', hex: '#8E4B8C' },
-  { name: 'Bamboo Tan', hex: '#C7A76C' },
+  { name: 'Cream', hex: '#FAF7F2' },
+  { name: 'Denim', hex: '#4A6D8C' },
+  { name: 'Dusty Blue', hex: '#7A9AB8' },
+  { name: 'Dusty Rose', hex: '#C9A0A0' },
+  { name: 'Emerald', hex: '#059669' },
+  { name: 'Espresso', hex: '#3C2415' },
+  { name: 'Eucalyptus', hex: '#9DB2A6' },
+  { name: 'Forest Green', hex: '#3A5746' },
+  { name: 'Gold', hex: '#D4AF37' },
+  { name: 'Greige', hex: '#BFB5A8' },
+  { name: 'Gumamela Red', hex: '#C8102E' }, // PH
+  { name: 'Ivory', hex: '#FFFFF0' },
+  { name: 'Lavender', hex: '#C9B8D9' },
+  { name: 'Lilac', hex: '#C79BD4' },
+  { name: 'Mauve', hex: '#B08D9E' },
+  { name: 'Mocha', hex: '#7B5E51' },
+  { name: 'Moss', hex: '#8A9A5B' },
+  { name: 'Mulberry', hex: '#C54B8C' },
+  { name: 'Mustard', hex: '#D97706' },
+  { name: 'Narra Brown', hex: '#6B4226' }, // PH
+  { name: 'Navy', hex: '#1E2540' },
+  // "Olive Grove", not "Olive Green": #6E7145 measures h 110°, which is the
+  // YELLOW band, so a name ending in "Green" would be contradicted by this
+  // module's own `descriptiveColorName` — the hue lie the guard exists to
+  // stop, spelled into the name instead of into the match. Plain "Olive" was
+  // the other option and collides with the CSS word. The hex was NOT tuned to
+  // make a name work; that is gaming the matcher.
+  { name: 'Olive Grove', hex: '#6E7145' },
+  { name: 'Oxblood', hex: '#4A0F1E' },
+  { name: 'Palawan Teal', hex: '#1FA5A8' }, // PH — h 199°, which this module calls Teal, not Blue
+  { name: 'Pandan Green', hex: '#6F9B45' }, // PH
+  { name: 'Peach', hex: '#F0B27A' },
+  { name: 'Peacock', hex: '#1F6F78' },
+  { name: 'Periwinkle', hex: '#CCCCFF' },
+  { name: 'Piña Cream', hex: '#F2E8D5' }, // PH
+  { name: 'Plum', hex: '#5C2542' },
+  { name: 'Raspberry', hex: '#E30B5C' },
+  { name: 'Rose', hex: '#BE185D' },
+  { name: 'Rosewood', hex: '#65000B' },
+  { name: 'Rust', hex: '#824A2A' },
+  // ⚠ MOVED 2026-09-03 from #8A9A6B, with the owner's explicit approval.
+  // The shipped value was sitting on MOSS's coordinates — L* 61.3 h 122 against
+  // moss's L* 61.0 h 118, differing only in chroma and marginally CLOSER to
+  // moss (ΔE 8.6) than to attested sage (ΔE 9.3). That is why "moss green"
+  // came back as "Sage" and why moss had nowhere to go. Attested sage #9CAF88
+  // sits ΔE 15.8 from moss, above `MIN_PERCEPTUAL_GAP`; both names gained
+  // territory in the move. Owner, verbatim: "your colors are more correct than
+  // now."
+  { name: 'Sage', hex: '#9CAF88' },
+  { name: 'Sampaguita White', hex: '#FBFBF3' }, // PH
+  { name: 'Silver', hex: '#CFD3D6' },
+  { name: 'Sky Blue', hex: '#7DB8D9' },
+  { name: 'Slate', hex: '#3A5766' },
+  { name: 'Taupe', hex: '#8B7E74' },
+  { name: 'Terracotta', hex: '#C97B4B' },
+  { name: 'Toffee', hex: '#9C6B3C' },
+  { name: 'Ube', hex: '#6E4B9E' }, // PH
+  { name: 'Waling-Waling Purple', hex: '#8E4B8C' }, // PH
+  { name: 'White', hex: '#FFFFFF' },
 ];
 
 function normalizeHex(hex: string): string | null {
@@ -148,27 +235,36 @@ const MAX_HUE_DRIFT_DEG = 40;
  * ΔE (CIE76) within which a curated WEDDING_NAMES match wins over the CSS
  * fallback, so a couple's blush reads as "Blush" and not the generic "Pink".
  *
- * 20 is not a new judgement — it is the OLD `WEDDING_NAME_RADIUS_SQ = 2400`
- * re-expressed in Lab, and TWO independent measurements land on it:
+ * 🛑 THIS NUMBER IS A FUNCTION OF THE TABLE'S SIZE, AND THE TABLE JUST DOUBLED.
+ * It read 20 until 2026-09-03, justified by two measurements (a 51,741-hex
+ * ball sampling; a 6,480-hex agreement peak) that were BOTH taken at 32 curated
+ * entries. Neither transfers to 62 — a denser table needs a shorter reach for
+ * the same honesty — so the comment was rewritten rather than renumbered, which
+ * is the whole difference between a threshold and a leftover.
  *
- *   · sampling 51,741 hexes uniformly inside that RGB ball around every
- *     curated name gives ΔE p50 18.6 · p90 30.5 · max 50.3 — so 20 is the
- *     typical reach the curated layer already had (the p90 is inflated by the
- *     ball's corners, not by colors anyone picks);
- *   · sweeping 6,480 hexes across the hue circle, agreement with the old
- *     function ON THE ANSWERS IT GOT RIGHT peaks at exactly this radius
- *     (70.3%, against 68.7% at 30 and 62.9% at 14).
+ * 16 is where two independent lines meet at 62 entries:
  *
- * ⚠ DO NOT RAISE IT BACK. At 25 and above the curated layer starts winning on
- * lightness alone: #CDD590, a PALE yellow-green, is captured by Sage #8A9A6B
- * at ΔE 24.5 — same family, but 22 points of L* away, two whole lightness
- * bands. Same family is the floor, not the goal.
+ *   · THE DENSITY LAW. Radius scales as the cube root of the volume each name
+ *     has to cover: `20 × (32/N)^(1/3)`. At N=62 that is 16.04. (An earlier
+ *     analysis proposed 14 — correct for the 73–89-name table it costed and
+ *     never shipped. Don't inherit a constant from a table that doesn't exist.)
+ *   · THE MEASUREMENT. Sweeping the 32,768-hex cube at 62 entries, curated wins
+ *     landing more than |ΔL*| 15 from the name they were given — the "wins on
+ *     lightness alone" defect the old comment warned about — collapse from
+ *     5.1% at radius 20 to 0.4% at 16, while the descriptive fallback stays at
+ *     0.19%. Radius 14 buys the last 0.4% by TRIPLING the fallback to 0.60%.
+ *
+ * ⚠ DO NOT RAISE IT BACK. At 25 and above the curated layer wins on lightness
+ * alone: #CDD590, a PALE yellow-green, was captured by the OLD Sage #8A9A6B at
+ * ΔE 24.5 — same family, but 22 points of L* away, two whole lightness bands.
+ * Same family is the floor, not the goal, and the lightness-honesty invariant
+ * in `color-names.test.ts` now holds that floor rather than this comment.
  *
  * Nothing legitimate is lost: all 15 curated near-misses in the test
  * (a couple's blush at #F5C4C4, terracotta at #C87D4D, Piña Cream at #F3E9D6,
  * Waling-Waling Purple at #8F4C8D …) still resolve at a radius of 14.
  */
-const WEDDING_NAME_RADIUS_DE = 20;
+const WEDDING_NAME_RADIUS_DE = 16;
 
 /**
  * ΔE beyond which even the closest same-family CSS name is not a name for this
@@ -326,6 +422,63 @@ export function resolveColorName(
     return { name: cssMatch.name, source: 'css', hex: cssMatch.hex };
   }
   return { name: descriptiveColorName(lab), source: 'descriptive', hex: null };
+}
+
+// ── the OTHER direction: a name back to its hex ──────────────────────────
+
+/**
+ * `nearestColorName` answers hex → name. This answers name → hex, and it is
+ * the ONLY direction this module supports that way: there is no "nearest
+ * name" for an arbitrary word, so this is an EXACT lookup into the two tables
+ * above and nothing else. An unknown word returns null rather than a guess —
+ * a made-up hex for a word we don't stock is the same class of lie the hue
+ * guard above exists to prevent, just running the other way.
+ *
+ * WEDDING_NAMES wins every collision with CSS_NAMES — ELEVEN words are in both
+ * tables: Black, Coral, Forest Green, Gold, Ivory, Lavender, Navy, Plum,
+ * Silver, Sky Blue, White. On a wedding platform the curated value IS the
+ * intended one — curated Gold is #D4AF37, the CSS table's is the far brighter
+ * #FFD700. ⚠ That list is EXHAUSTIVE and a test holds it there: none of the 30
+ * names added on 2026-09-03 collides with a CSS word, and a future one must not
+ * either. Eleven deliberate redefinitions are documented; a twelfth accidental
+ * one would silently re-point a word this module also answers `name → hex` for.
+ *
+ * Matching is punctuation/space/case-insensitive, so 'forest green',
+ * 'Forest-Green' and 'FORESTGREEN' all resolve, and 'Piña Cream' resolves
+ * from 'pina cream' (the couple's keyboard may have no ñ).
+ */
+export function foldColorName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+/** Built on first use, NOT at module load: `CSS_NAMES` is declared below this
+ *  point, so an eager IIFE here would read it inside its own TDZ and throw at
+ *  import time. */
+let nameToHex: Map<string, NamedColor> | null = null;
+function nameIndex(): Map<string, NamedColor> {
+  if (nameToHex) return nameToHex;
+  const map = new Map<string, NamedColor>();
+  // CSS first, curated second — the second write wins, which is how the
+  // curated table takes every collision.
+  for (const table of [CSS_NAMES, WEDDING_NAMES]) {
+    for (const nc of table) map.set(foldColorName(nc.name), nc);
+  }
+  nameToHex = map;
+  return map;
+}
+
+/** The canonical `{ name, hex }` for an exact colour name, or null. */
+export function namedColor(name: string): NamedColor | null {
+  return nameIndex().get(foldColorName(name)) ?? null;
+}
+
+/** The hex for an exact colour name, or null when we don't stock that name. */
+export function hexForColorName(name: string): string | null {
+  return namedColor(name)?.hex ?? null;
 }
 
 // The 140 standard CSS Color Module named colors — the complete fallback.

@@ -8,7 +8,7 @@ import {
   type MoodboardThemeTemplate,
 } from './moodboard-templates';
 import { nearestColorName } from './color-names';
-import { labOfHex } from './color-space';
+import { labDistance, labOfHex } from './color-space';
 import { sanitizeRolePalette } from './mood-board';
 import { optionIds, sanitizeReceptionDesign, type ReceptionDesign } from './reception-scene';
 
@@ -53,8 +53,48 @@ import { optionIds, sanitizeReceptionDesign, type ReceptionDesign } from './rece
 // the seed script already reference.
 export const ALL_STYLE_FAMILIES = MOODBOARD_STYLE_FAMILIES;
 export type AllStyleFamily = MoodboardStyleFamily;
-export const ALL_MOOD_TAGS = MOODBOARD_MOOD_TAGS;
-export type AllMoodTag = MoodboardMoodTag;
+
+/**
+ * 🛑 THE MOODS THIS GENERATOR GENERATES — a SUBSET of the app's vocabulary,
+ * and it must stay one (2026-09-03).
+ *
+ * This was `= MOODBOARD_MOOD_TAGS` while the two lists happened to be equal.
+ * They are no longer: `festive_celebratory` was added to the app vocabulary
+ * as an eleventh mood, and populating it would mean regenerating the 2,500
+ * rows in the COMMITTED seed migration (20271196372720) — an owner decision
+ * that has not been made. Re-pointing this at the app list would silently
+ * change what `pnpm tsx scripts/generate-moodboard-theme-seed.ts` emits and
+ * put the generator out of step with the file already in production.
+ *
+ * So the rule is: this list describes WHAT WAS GENERATED. Add a mood here
+ * only in the same change that regenerates the seed. `every-theme-carries-
+ * five-reception-colors.test.ts` (2,600 rows) and
+ * `the-completion-cannot-invert-a-theme-s-mood.test.ts` (2,600 rows) both
+ * read the committed SQL, so they are the fence on that.
+ *
+ * The subset relationship is type-checked below and asserted in
+ * moodboard-theme-generator.test.ts.
+ */
+export const ALL_MOOD_TAGS = [
+  'whimsical_storybook',
+  'minimalist',
+  'dark_moody',
+  'bold_contrasting',
+  'simple_understated',
+  'maximalist_complex',
+  'romantic_ethereal',
+  'nostalgic_vintage',
+  'glam_luxurious',
+  'organic_natural',
+] as const satisfies readonly MoodboardMoodTag[];
+
+export type AllMoodTag = (typeof ALL_MOOD_TAGS)[number];
+
+/** Moods in the app's vocabulary that this generator produces NO rows for.
+ *  Empty is the normal state; a non-empty list is the open owner decision. */
+export const UNGENERATED_MOOD_TAGS: readonly MoodboardMoodTag[] =
+  MOODBOARD_MOOD_TAGS.filter((m) => !(ALL_MOOD_TAGS as readonly string[]).includes(m));
+
 export { STYLE_FAMILY_LABELS, MOOD_LABELS };
 
 // ── HSL utilities ────────────────────────────────────────────────────────
@@ -201,16 +241,18 @@ const HUE_BEARING_CHROMA = 12;
 // ΔE2000: the audit that finds this class of defect measures in ΔE2000, and a
 // guard sharing its formula with the audit agrees with it by construction.
 
-// 📦 `labOfHex` MOVED to `./color-space` (2026-09-03) — `color-names.ts` needed
-// the identical conversion to stop naming colors out of their hue family, and
-// two copies of a color space drift apart silently. Imported at the top of this
-// file; the two guard tests still write CIELAB out themselves on purpose.
-
-function labDistance(hex1: string, hex2: string): number {
-  const p = labOfHex(hex1);
-  const q = labOfHex(hex2);
-  return Math.hypot(p.L - q.L, p.a - q.a, p.b - q.b);
-}
+// 📦 `labOfHex` AND `labDistance` BOTH LIVE IN `./color-space` (2026-09-03) —
+// `color-names.ts` needed the identical conversion to stop naming colors out of
+// their hue family, and two copies of a color space drift apart silently.
+// Imported at the top of this file; the two guard tests still write CIELAB out
+// themselves on purpose.
+//
+// 🛑 THIS FILE BRIEFLY KEPT A SECOND `labDistance` — a hex-taking wrapper with
+// the same name as the exported Lab-taking one. Same name, same arithmetic
+// (verified equal to 0.0 across 48,737 hex pairs), different signature: exactly
+// the shape `scripts/lint-dup-rule.ts` exists to catch, and it turned that
+// guard red. The wrapper bought one `labOfHex` call per argument at the single
+// call site; converting at the call site costs nothing and leaves ONE rule.
 
 /** Perceptual lightness (CIELAB L*) of an HSL color. */
 function lightnessStar(c: HSL): number {
@@ -588,7 +630,9 @@ function placeColor(
   }
   const measure = (cand: Recipe) => {
     const { hex, hsl } = buildWithinChromaCeiling(cand);
-    const gap = taken.length === 0 ? Infinity : Math.min(...taken.map((t) => labDistance(hex, t)));
+    const lab = labOfHex(hex);
+    const gap =
+      taken.length === 0 ? Infinity : Math.min(...taken.map((t) => labDistance(lab, labOfHex(t))));
     return { hex, hsl, gap };
   };
   let best: { hex: string; hsl: HSL; gap: number } | null = null;

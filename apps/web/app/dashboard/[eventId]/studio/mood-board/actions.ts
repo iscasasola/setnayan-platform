@@ -25,6 +25,12 @@ import {
   type MoodboardThemeTemplate,
   type ThemeTemplatePage,
 } from '@/lib/moodboard-templates';
+import {
+  validateThemeSelection,
+  selectionIsEmpty,
+  type ThemeTextReading,
+} from '@/lib/theme-text-intent';
+import { readThemeTextWithModel } from '@/lib/theme-text-intent-model';
 
 export async function saveRolePalette(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -180,6 +186,161 @@ export async function saveMoodboardTheme(
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
 }
 
+// ── the theme description finally does something ─────────────────────────
+
+/**
+ * READ the couple's own sentence. Nothing is written; nothing on the board
+ * moves. The reading comes back for the couple to look at, edit and confirm —
+ * see the "Read my description" flow in _components/theme-card.tsx.
+ *
+ * 🔑 WHY THIS ACTION EXISTS AT ALL. `events.moodboard_theme_description` has
+ * been saved, displayed on the vendor board and printed on the concept-PDF
+ * cover since 20271193183599, and read by NOTHING. Its placeholder invited a
+ * sentence and then ignored it — the owner typed "i want to feel christmas
+ * vibe with a hint of classy elegance" and nothing happened. Their verdict:
+ * "if this will not help me generate a theme, remove it." This is the other
+ * choice.
+ *
+ * The deterministic dictionary answers first and for free
+ * (lib/theme-text-intent.ts); the model arm is reached only when it finds
+ * nothing at all, and degrades silently to the dictionary's answer when
+ * ANTHROPIC_API_KEY is unset (lib/theme-text-intent-model.ts).
+ *
+ * ⚠ The sentence is NOT read back out of the database here — the couple's
+ * unsaved edit is what they expect to be read. That is safe because the
+ * reading is a pure classification into closed vocabularies: the worst a
+ * forged sentence can produce is a set of chips the same signed-in user could
+ * already have tapped by hand, and `applyThemeIntent` below re-validates
+ * every one of them before anything reaches `events`.
+ */
+export async function readMoodboardThemeDescription(text: string): Promise<ThemeTextReading> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  return readThemeTextWithModel(typeof text === 'string' ? text : '');
+}
+
+export type ThemeIntentApplySummary = {
+  filledPaletteRoles: PaletteKey[];
+  filledReceptionZones: string[];
+  styleFamily: string | null;
+  nothingToFill: boolean;
+};
+
+/**
+ * APPLY the chips the couple KEPT. Fill-empty only, exactly like
+ * `applyMoodboardTemplate`'s default mode — a reading of their own sentence
+ * must never overwrite a colour or a zone they already chose by hand.
+ *
+ * 🛑 THE PAYLOAD IS NOT TRUSTED. It arrives from the browser after the couple
+ * removed chips, so it goes through `validateThemeSelection` — the same
+ * whitelist the model arm's reply passes through. A mood, family, colour name
+ * or motif id that is not a member of a shipped vocabulary is dropped, and a
+ * colour's hex is ALWAYS re-derived from the name we stock rather than taken
+ * from the caller.
+ *
+ * Moods are deliberately NOT written to the event: they steer the theme
+ * gallery client-side (which mood to open it on) and are not board content.
+ * The style family IS written, through `nextMoodboardStyleFamily` in
+ * fill-empty mode, because `events.moodboard_style_family` is the existing
+ * home for exactly that fact.
+ */
+export async function applyThemeIntent(
+  eventId: string,
+  selection: unknown,
+): Promise<ThemeIntentApplySummary> {
+  const kept = validateThemeSelection(selection);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  if (selectionIsEmpty(kept)) {
+    return {
+      filledPaletteRoles: [],
+      filledReceptionZones: [],
+      styleFamily: null,
+      nothingToFill: true,
+    };
+  }
+
+  const { data: eventRow, error: eventErr } = await supabase
+    .from('events')
+    .select('role_palette, reception_design, moodboard_style_family')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (eventErr) throw new Error(eventErr.message);
+  if (!eventRow) throw new Error('Event not found');
+
+  const currentPalette = sanitizeRolePalette(eventRow.role_palette ?? {});
+  const currentDesign = sanitizeReceptionDesign(eventRow.reception_design ?? {});
+
+  // The colours the couple's sentence named ARE the reception scheme — the
+  // same key the theme gallery's swatch strip leads with. `mergeRolePalette`
+  // then fills it only if they have not set it themselves.
+  const proposedPalette: RolePalette =
+    kept.colours.length > 0 ? { reception: kept.colours.map((c) => c.hex) } : {};
+  const { merged: mergedPalette, filledKeys } = mergeRolePalette(currentPalette, proposedPalette);
+
+  // A zone that ACCEPTS several treatments gets several — "paper lanterns AND
+  // fairy lights" is one real ceiling, and `sanitizeReceptionDesign` is what
+  // decides which attributes allow it. Collecting into arrays here and letting
+  // the sanitizer collapse the single-select ones keeps that rule in one place.
+  const proposedDesign: ReceptionDesign = {};
+  for (const m of kept.motifs) {
+    const part = (proposedDesign[m.part] ?? {}) as Record<string, string[]>;
+    part[m.attribute] = [...(part[m.attribute] ?? []), m.option];
+    proposedDesign[m.part] = part;
+  }
+  const { merged: mergedDesign, filledZones } = mergeReceptionDesign(
+    currentDesign,
+    sanitizeReceptionDesign(proposedDesign),
+  );
+
+  const styleFamilyToWrite = kept.families[0]
+    ? nextMoodboardStyleFamily(
+        'fill_empty',
+        (eventRow as { moodboard_style_family?: string | null }).moodboard_style_family ?? null,
+        kept.families[0],
+      )
+    : null;
+
+  const paletteChanged = filledKeys.length > 0;
+  const designChanged = filledZones.length > 0;
+
+  if (paletteChanged || designChanged || styleFamilyToWrite) {
+    const update: Record<string, unknown> = {};
+    // Same rule as applyMoodboardTemplate: the couple-visible "last saved"
+    // stamp moves only when something the couple can SEE changed. Recording
+    // the style family alone is provenance, not a save.
+    if (paletteChanged || designChanged) update.mood_board_updated_at = new Date().toISOString();
+    if (paletteChanged) update.role_palette = mergedPalette;
+    if (designChanged) update.reception_design = mergedDesign;
+    if (styleFamilyToWrite) update.moodboard_style_family = styleFamilyToWrite;
+
+    const { error: updateErr } = await supabase
+      .from('events')
+      .update(update)
+      .eq('event_id', eventId);
+    if (updateErr) throw new Error(updateErr.message);
+
+    revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+    revalidatePath(`/dashboard/${eventId}/seating/lab`);
+  }
+
+  return {
+    filledPaletteRoles: filledKeys,
+    filledReceptionZones: filledZones,
+    styleFamily: styleFamilyToWrite,
+    nothingToFill: !paletteChanged && !designChanged && !styleFamilyToWrite,
+  };
+}
+
 /** The columns the gallery actually renders. Deliberately spelled out rather
  *  than `*`: `role_palette` and `reception_design` are JSONB blobs and are the
  *  reason an unbounded read of this table was expensive. */
@@ -227,19 +388,33 @@ export async function fetchThemeTemplates(input: {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data, count, error } = await supabase
-    .from('moodboard_theme_templates')
-    .select(THEME_TEMPLATE_COLUMNS, { count: 'exact' })
-    .eq('style_family', query.styleFamily)
-    .eq('mood_tag', query.moodTag)
-    .order('sort_order', { ascending: true })
-    .order('template_id', { ascending: true })
-    .range(query.offset, query.offset + query.limit - 1);
+  const [{ data, count, error }, moodCount] = await Promise.all([
+    supabase
+      .from('moodboard_theme_templates')
+      .select(THEME_TEMPLATE_COLUMNS, { count: 'exact' })
+      .eq('style_family', query.styleFamily)
+      .eq('mood_tag', query.moodTag)
+      .order('sort_order', { ascending: true })
+      .order('template_id', { ascending: true })
+      .range(query.offset, query.offset + query.limit - 1),
+    // Rows carrying this MOOD in ANY setting. `head: true` fetches no rows —
+    // it is a COUNT, and it is what lets the gallery tell "not in this
+    // setting" apart from "this feeling has no themes at all", which is the
+    // live state of `festive_celebratory`. See ThemeTemplatePage.moodTotal.
+    supabase
+      .from('moodboard_theme_templates')
+      .select('template_id', { count: 'exact', head: true })
+      .eq('mood_tag', query.moodTag),
+  ]);
   if (error) throw new Error(error.message);
 
   return {
     templates: (data ?? []) as unknown as MoodboardThemeTemplate[],
     total: count ?? 0,
+    // A failed count degrades to 0, which reads as "no themes with this
+    // feeling" — the same message the couple gets from a genuine zero, and
+    // never a false claim that themes exist.
+    moodTotal: moodCount.error ? 0 : (moodCount.count ?? 0),
     offset: query.offset,
     limit: query.limit,
   };

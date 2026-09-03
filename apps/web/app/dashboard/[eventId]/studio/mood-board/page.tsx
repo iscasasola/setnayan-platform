@@ -26,6 +26,8 @@ import {
   saveMoodboardTheme,
   applyMoodboardTemplate,
   fetchThemeTemplates,
+  readMoodboardThemeDescription,
+  applyThemeIntent,
 } from './actions';
 import { PaletteEditor } from './_components/palette-editor';
 import {
@@ -40,8 +42,7 @@ import {
 import { ConceptPdfButton } from './_components/concept-pdf-button';
 import { PrintablePdfButton } from './_components/printable-pdf-button';
 import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
-import { ThemeCard } from './_components/theme-card';
-import { TemplateGallery } from './_components/template-gallery';
+import { ThemeStudio } from './_components/theme-studio';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Mood Board' };
@@ -421,8 +422,17 @@ export default async function MoodBoardPage({ params }: Props) {
           ))}
         </nav>
 
-        {/* Overall Theme — the card that opens the canvas. */}
-        <ThemeCard
+        {/* Overall Theme — the card that opens the canvas — and the theme
+            gallery under it. They render exactly as before; the wrapper is a
+            client boundary so a feeling+setting READ OUT OF THE COUPLE'S OWN
+            DESCRIPTION can travel from the card to the gallery (page.tsx is a
+            server component and cannot hold that state itself).
+
+            No `templates` prop — the gallery asks for its own rows, ~6 at a
+            time, only once the couple has answered both narrowing questions
+            (or the reader has answered them from their sentence). See the
+            comment on the Promise.all above for why. */}
+        <ThemeStudio
           eventId={eventId}
           initialName={
             (event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null
@@ -433,16 +443,11 @@ export default async function MoodBoardPage({ params }: Props) {
           }
           palette={palette}
           receptionDesign={receptionDesign}
-          saveAction={saveMoodboardTheme}
-        />
-
-        {/* No `templates` prop — the gallery asks for its own rows, ~6 at a
-            time, only once the couple has answered both narrowing questions.
-            See the comment on the Promise.all above for why. */}
-        <TemplateGallery
-          eventId={eventId}
-          fetchAction={fetchThemeTemplates}
-          applyAction={applyMoodboardTemplate}
+          saveThemeAction={saveMoodboardTheme}
+          readAction={readMoodboardThemeDescription}
+          applyIntentAction={applyThemeIntent}
+          fetchTemplatesAction={fetchThemeTemplates}
+          applyTemplateAction={applyMoodboardTemplate}
         />
 
         {showChineseDefaultNote ? (

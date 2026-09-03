@@ -14,10 +14,12 @@ import {
   completeReceptionFive,
   ALL_STYLE_FAMILIES,
   ALL_MOOD_TAGS,
+  UNGENERATED_MOOD_TAGS,
   THEMES_PER_COMBINATION,
   RECEPTION_PALETTE_SIZE,
 } from './moodboard-theme-generator';
 import { PALETTE_LIMITS, sanitizeRolePalette } from './mood-board';
+import { MOODBOARD_MOOD_TAGS } from './moodboard-templates';
 
 // Full generation is done once and shared across tests — it's pure and
 // deterministic, and re-running it per test would be wasteful (2,500 rows).
@@ -54,6 +56,36 @@ const starChromaOf = (hex: string) => {
   const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
   return Math.hypot(500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z)));
 };
+
+// ── the generator's mood list vs. the app's ────────────────────────────
+//
+// 🛑 THESE TWO LISTS WERE ONE LIST, AND THEY ARE NOT ANY MORE (2026-09-03).
+// `festive_celebratory` was added to the APP vocabulary as an eleventh mood;
+// populating it would mean regenerating the 2,500 rows in the committed seed
+// migration (20271196372720), which is an owner decision nobody has made. So
+// the generator keeps its own list of the ten it actually generated, and the
+// relationship between the two is asserted rather than assumed.
+
+test('the generator’s moods are a SUBSET of the app’s vocabulary', () => {
+  for (const m of ALL_MOOD_TAGS) {
+    assert.ok(
+      (MOODBOARD_MOOD_TAGS as readonly string[]).includes(m),
+      `generator emits mood "${m}", which is not in MOODBOARD_MOOD_TAGS — the CHECK constraint would reject every row carrying it`,
+    );
+  }
+});
+
+test('a mood the app offers but the generator never made is NAMED, not silent', () => {
+  // Whatever this list holds, something in the product has to survive it: a
+  // mood with no rows must degrade to "no themes carry this feeling yet"
+  // (template-gallery.tsx, driven by ThemeTemplatePage.moodTotal), never to
+  // an empty grid. Empty is the healthy state once the seed is regenerated.
+  const missing = MOODBOARD_MOOD_TAGS.filter(
+    (m) => !(ALL_MOOD_TAGS as readonly string[]).includes(m),
+  );
+  assert.deepEqual([...UNGENERATED_MOOD_TAGS], missing);
+  assert.deepEqual(missing, ['festive_celebratory'], `ungenerated moods are now ${JSON.stringify(missing)} — if that is intended, update this line and check the gallery still explains the empty result`);
+});
 
 test('generates the full expected taxonomy size', () => {
   assert.equal(ALL_STYLE_FAMILIES.length, 10);

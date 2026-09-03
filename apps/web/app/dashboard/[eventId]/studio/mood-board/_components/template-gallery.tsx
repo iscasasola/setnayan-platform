@@ -44,7 +44,7 @@
  * independently unit-tested in lib/moodboard-templates.test.ts.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { nearestColorName } from '@/lib/color-names';
@@ -81,6 +81,14 @@ type Props = {
     offset?: number;
   }) => Promise<ThemeTemplatePage>;
   applyAction: (eventId: string, templateId: string, mode?: ApplyMode) => Promise<ApplyResult>;
+  /**
+   * A feeling + setting read out of the couple's own theme description
+   * (2026-09-03). When it changes, the gallery skips straight to the matching
+   * themes instead of re-asking two questions the couple has just answered in
+   * prose. Either half may be null — a mood with no setting opens the setting
+   * step already knowing the feeling.
+   */
+  jumpTo?: { mood: MoodboardMoodTag | null; family: MoodboardStyleFamily | null } | null;
 };
 
 /** How many choices to show before "show the rest" — the design's "about 6
@@ -161,7 +169,7 @@ function ChoiceButton({
   );
 }
 
-export function TemplateGallery({ eventId, fetchAction, applyAction }: Props) {
+export function TemplateGallery({ eventId, fetchAction, applyAction, jumpTo }: Props) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [applyingId, setApplyingId] = useState<string | null>(null);
@@ -177,6 +185,7 @@ export function TemplateGallery({ eventId, fetchAction, applyAction }: Props) {
   // ── the fetched page(s) ───────────────────────────────────────────────
   const [templates, setTemplates] = useState<MoodboardThemeTemplate[]>([]);
   const [total, setTotal] = useState(0);
+  const [moodTotal, setMoodTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
@@ -188,6 +197,7 @@ export function TemplateGallery({ eventId, fetchAction, applyAction }: Props) {
     setShowAllFamilies(false);
     setTemplates([]);
     setTotal(0);
+    setMoodTotal(0);
     setLoadError(false);
   }
 
@@ -212,6 +222,7 @@ export function TemplateGallery({ eventId, fetchAction, applyAction }: Props) {
         offset,
       });
       setTotal(page.total);
+      setMoodTotal(page.moodTotal);
       setTemplates((prev) => (offset === 0 ? page.templates : [...prev, ...page.templates]));
     } catch {
       setLoadError(true);
@@ -225,6 +236,36 @@ export function TemplateGallery({ eventId, fetchAction, applyAction }: Props) {
     setStep('results');
     if (mood) void loadPage(nextFamily, mood, 0);
   }
+
+  /**
+   * Land on what the couple's own sentence said (see the `jumpTo` prop). A
+   * ref on the last-applied jump, not on `jumpTo`'s identity, so a parent
+   * re-render that hands us an equal-but-new object cannot re-open the
+   * gallery over a couple who has since browsed somewhere else.
+   */
+  const lastJump = useRef<string | null>(null);
+  useEffect(() => {
+    if (!jumpTo) return;
+    const key = `${jumpTo.mood ?? ''}|${jumpTo.family ?? ''}`;
+    if (key === '|' || key === lastJump.current) return;
+    lastJump.current = key;
+    setMood(jumpTo.mood);
+    setFamily(jumpTo.family);
+    setTemplates([]);
+    setTotal(0);
+    setMoodTotal(0);
+    setLoadError(false);
+    if (jumpTo.mood && jumpTo.family) {
+      setStep('results');
+      void loadPage(jumpTo.family, jumpTo.mood, 0);
+    } else if (jumpTo.mood) {
+      // A feeling with no setting: skip the question already answered.
+      setStep('family');
+    } else {
+      setStep('mood');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpTo]);
 
   function apply(template: MoodboardThemeTemplate, mode: ApplyMode) {
     if (pending) return;
@@ -390,6 +431,13 @@ export function TemplateGallery({ eventId, fetchAction, applyAction }: Props) {
                 {mood && family ? ' · ' : ''}
                 {family ? (STYLE_FAMILY_LABELS[family] ?? family) : ''}
               </h2>
+              {/* 🔑 TWO DIFFERENT ZEROES, TWO DIFFERENT SENTENCES. A feeling
+                  the library holds NOTHING for — the live state of Festive &
+                  Celebratory, added as the eleventh mood with no themes
+                  behind it — must not render as "not in this setting", or the
+                  couple tries all ten settings to learn one fact. `moodTotal`
+                  is measured per fetch, so this copy corrects itself the day
+                  the seed is regenerated. */}
               <p className="text-sm text-ink/65">
                 {loading && templates.length === 0
                   ? 'Finding themes…'
@@ -397,7 +445,9 @@ export function TemplateGallery({ eventId, fetchAction, applyAction }: Props) {
                     ? 'We couldn’t load themes just now.'
                     : total > 0
                       ? `${total} ${total === 1 ? 'theme' : 'themes'} match.`
-                      : 'No themes match that pairing yet.'}
+                      : moodTotal > 0
+                        ? `No themes in this setting with that feeling — but ${moodTotal} carry it in other settings.`
+                        : `We haven’t designed any themes with that feeling yet. Nothing is wrong — it’s a new feeling on the board, and it’s coming.`}
               </p>
             </div>
             <button
@@ -418,6 +468,18 @@ export function TemplateGallery({ eventId, fetchAction, applyAction }: Props) {
               className="rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5"
             >
               Try again
+            </button>
+          ) : null}
+
+          {/* An empty result is a dead end unless it offers the next move.
+              Which move depends on WHICH zero it is. */}
+          {!loading && !loadError && total === 0 ? (
+            <button
+              type="button"
+              onClick={() => setStep(moodTotal > 0 ? 'family' : 'mood')}
+              className="rounded-full border border-ink/15 px-4 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5"
+            >
+              {moodTotal > 0 ? 'Try another setting' : 'Pick another feeling'}
             </button>
           ) : null}
 

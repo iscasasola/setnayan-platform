@@ -711,3 +711,67 @@ test('the stranded write policies are gone with the grant', async () => {
     'the READ policy must remain — it is the one that still has a grant behind it',
   );
 });
+
+/* ── the reuse pool's quarantine handle ──────────────────────────────────── */
+
+test('an admin can block a render from the reuse pool, and `reusable` follows', async () => {
+  // `event_renders.reusable` is GENERATED and refuses every direct write —
+  // deliberately, because a settable flag drifts from the note it encodes.
+  // `reuse_blocked` is its one handle, and MB2 recorded it in
+  // gates-have-handles.baseline.txt as a gate with NO CONTROL, naming MB8 as
+  // the change that owed one. A quarantine switch nobody can reach is the same
+  // as no quarantine.
+  const u = await newUser('mb8-quarantine@example.com');
+  const e = await newEvent('Quarantine wedding', u);
+  const admin = await newUser('mb8-admin4@example.com');
+  await makeAdmin(admin);
+
+  await setAuthUid(db, u);
+  await grant(e, 50);
+  const id = await begin(e, 'room:ceiling', 1); // no note → pool-eligible
+  await db.query(`SELECT public.moodboard_finish_render($1,'renders/q.png')`, [id]);
+
+  const before = await db.query<{ reusable: boolean }>(
+    `SELECT reusable FROM public.event_renders WHERE render_id=$1`, [id]);
+  assert.equal(before.rows[0]!.reusable, true, 'a note-free delivered render is in the pool');
+
+  // A couple must not be able to touch the pool.
+  assert.equal(
+    await boolRpc(`SELECT public.moodboard_set_render_reuse_blocked($1,TRUE) AS ok`, [id]),
+    false,
+    'quarantine is an admin act',
+  );
+
+  await setAuthUid(db, admin);
+  assert.equal(
+    await boolRpc(`SELECT public.moodboard_set_render_reuse_blocked($1,TRUE) AS ok`, [id]),
+    true,
+  );
+  const after = await db.query<{ reusable: boolean; reuse_blocked: boolean }>(
+    `SELECT reusable, reuse_blocked FROM public.event_renders WHERE render_id=$1`, [id]);
+  assert.equal(after.rows[0]!.reuse_blocked, true);
+  assert.equal(
+    after.rows[0]!.reusable,
+    false,
+    'reusable is GENERATED from reuse_blocked — there is one flag, so the two cannot disagree',
+  );
+
+  // And it is reversible without touching the couple's own copy.
+  assert.equal(
+    await boolRpc(`SELECT public.moodboard_set_render_reuse_blocked($1,FALSE) AS ok`, [id]),
+    true,
+  );
+  const back = await db.query<{ reusable: boolean; image_key: string }>(
+    `SELECT reusable, image_key FROM public.event_renders WHERE render_id=$1`, [id]);
+  assert.equal(back.rows[0]!.reusable, true);
+  assert.equal(back.rows[0]!.image_key, 'renders/q.png', 'the couple keeps their photograph');
+});
+
+test('anon holds no EXECUTE on the quarantine handle either', async () => {
+  const r = await db.query<{ ok: boolean }>(
+    `SELECT bool_or(has_function_privilege('anon', p.oid, 'EXECUTE')) AS ok
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname='public' AND p.proname='moodboard_set_render_reuse_blocked'`,
+  );
+  assert.equal(r.rows[0]?.ok, false);
+});

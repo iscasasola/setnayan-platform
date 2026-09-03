@@ -40,3 +40,29 @@ export async function setRenderFeatured(args: {
   revalidatePath('/admin/moodboard-renders');
   return { ok: true, reason: null };
 }
+
+/**
+ * Withdraw one render from the cross-couple reuse pool (MB8).
+ *
+ * The handle for `event_renders.reusable`, which is GENERATED and therefore
+ * refuses every direct write. `gates-have-handles.baseline.txt` recorded this
+ * column as a gate with no control and named MB8 as the change that owed one —
+ * a quarantine switch nobody can reach is the same as no quarantine.
+ *
+ * Blocking does NOT delete the couple's own copy: they keep the photograph
+ * they paid for, and only its availability to OTHER couples changes.
+ */
+export async function setRenderReuseBlocked(args: {
+  renderId: string;
+  blocked: boolean;
+}): Promise<FeatureToggleResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('moodboard_set_render_reuse_blocked', {
+    p_render_id: args.renderId,
+    p_blocked: args.blocked,
+  });
+  if (error) return { ok: false, reason: 'error' };
+  if (data !== true) return { ok: false, reason: 'refused' };
+  revalidatePath('/admin/moodboard-renders');
+  return { ok: true, reason: null };
+}

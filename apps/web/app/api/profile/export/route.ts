@@ -196,6 +196,7 @@ export async function GET() {
     eventClustersRes,
     ownCostsRes,
     ownRendersRes,
+    ownShareConsentsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -577,6 +578,22 @@ export async function GET() {
       .select('render_id, event_id, part_id, image_key, note, credits_debited, created_at, completed_at')
       .eq('created_by_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (MB8) — the share-consent decisions this subject PERSONALLY made.
+    //
+    // The consent belongs to the EVENT, but the ACT of giving it is this
+    // person's: they were offered a bonus render in exchange for allowing
+    // their creations to be featured, and they answered. That answer, and when
+    // they gave or withdrew it, is exactly the kind of thing a data subject is
+    // entitled to see — and it is the only reason the table carries a uuid at
+    // all.
+    //
+    // AUTHOR-scoped, like `event_renders` above and for the same reason: an
+    // event-scoped read would disclose a consent the OTHER partner gave.
+    supabase
+      .from('event_render_share_consent')
+      .select('event_id, consented, consented_at, withdrawn_at, updated_at')
+      .eq('consented_by_user_id', user.id)
+      .order('updated_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -626,6 +643,7 @@ export async function GET() {
   const eventClusters = listOutcome('years_you_grouped', eventClustersRes);
   const ownCosts = listOutcome('own_costs_recorded', ownCostsRes);
   const ownRenders = listOutcome('own_renders_requested', ownRendersRes);
+  const ownShareConsents = listOutcome('own_share_consents_given', ownShareConsentsRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -785,6 +803,9 @@ export async function GET() {
     // The mood-board renders the subject asked for, author-scoped. The prompt
     // and the design snapshot are the shared board's, not this person's.
     own_renders_requested: ownRenders.rows,
+    // The "let Setnayan feature your creation" answers this subject gave, with
+    // the dates they gave or withdrew them. See the read above.
+    own_share_consents_given: ownShareConsents.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     not_included: [

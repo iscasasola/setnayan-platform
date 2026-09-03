@@ -551,6 +551,52 @@ COMMENT ON FUNCTION public.moodboard_set_render_featured(UUID, BOOLEAN) IS
   'remember to filter. Admin visibility of renders is deliberately NOT gated '
   'by consent (owner lock): consent governs publication, not retention.';
 
+-- ---- 8b. the reuse-pool quarantine handle ---------------------------------
+--
+-- `event_renders.reusable` is GENERATED and the database refuses every write to
+-- it, on purpose. `reuse_blocked` is its one escape hatch: withdraw a single
+-- render from the cross-couple reuse pool WITHOUT deleting the couple's own
+-- copy of it. MB2 recorded it in tests/db/gates-have-handles.baseline.txt as a
+-- gate with no control, and named MB8 as the change that owes one — because
+-- MB8 is where the pool first holds anything, and a quarantine switch nobody
+-- can reach is the same as no quarantine at all.
+
+CREATE OR REPLACE FUNCTION public.moodboard_set_render_reuse_blocked(
+  p_render_id UUID,
+  p_blocked   BOOLEAN
+) RETURNS BOOLEAN
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_render_id IS NULL OR p_blocked IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  -- Admin only. A couple withdrawing its OWN render from a pool it cannot see
+  -- is meaningless, and a couple withdrawing anyone else's is the hole.
+  IF NOT public.is_admin() THEN
+    RETURN FALSE;
+  END IF;
+
+  UPDATE public.event_renders
+     SET reuse_blocked = p_blocked
+   WHERE render_id = p_render_id;
+
+  -- `reusable` recomputes itself from this: it is GENERATED on
+  -- `… AND NOT reuse_blocked`, so there is no second flag to keep in step and
+  -- no way for the two to disagree.
+  RETURN FOUND;
+END;
+$$;
+
+COMMENT ON FUNCTION public.moodboard_set_render_reuse_blocked(UUID, BOOLEAN) IS
+  'MB8. Admin quarantine for the cross-couple render reuse pool. Sets '
+  'event_renders.reuse_blocked; `reusable` is GENERATED from it and recomputes '
+  'itself, so there is no second flag that can drift. Withdraws a render from '
+  'reuse WITHOUT deleting the couple''s own copy.';
+
 -- ---- 9. the admin all-creations read --------------------------------------
 --
 -- `event_renders`'s member-read policy already lets `is_admin()` see every
@@ -641,6 +687,7 @@ REVOKE ALL ON FUNCTION public.moodboard_finish_render(UUID, TEXT) FROM PUBLIC, a
 REVOKE ALL ON FUNCTION public.moodboard_fail_render(UUID, TEXT) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.moodboard_set_share_consent(UUID, BOOLEAN) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.moodboard_set_render_featured(UUID, BOOLEAN) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.moodboard_set_render_reuse_blocked(UUID, BOOLEAN) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.moodboard_admin_all_renders(INTEGER, INTEGER) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.moodboard_begin_render(UUID, TEXT, TEXT, JSONB, TEXT, INTEGER, TEXT, UUID[])
@@ -652,6 +699,8 @@ GRANT EXECUTE ON FUNCTION public.moodboard_fail_render(UUID, TEXT)
 GRANT EXECUTE ON FUNCTION public.moodboard_set_share_consent(UUID, BOOLEAN)
   TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.moodboard_set_render_featured(UUID, BOOLEAN)
+  TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.moodboard_set_render_reuse_blocked(UUID, BOOLEAN)
   TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.moodboard_admin_all_renders(INTEGER, INTEGER)
   TO authenticated, service_role;

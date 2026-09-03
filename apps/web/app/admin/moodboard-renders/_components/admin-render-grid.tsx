@@ -15,7 +15,7 @@
  */
 
 import { useState } from 'react';
-import { setRenderFeatured } from '../actions';
+import { setRenderFeatured, setRenderReuseBlocked } from '../actions';
 import type { RenderFailureCopy } from '@/lib/moodboard-render-failure';
 import type { AdminRenderRow } from '@/lib/moodboard-render-gallery';
 
@@ -31,8 +31,29 @@ export function AdminRenderGrid({ items }: { items: AdminRenderItem[] }) {
   const [featured, setFeatured] = useState<Record<string, boolean>>({});
   const [refused, setRefused] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<Record<string, boolean>>({});
 
   const isFeatured = (r: AdminRenderItem) => featured[r.render_id] ?? Boolean(r.featured_at);
+  const isBlocked = (r: AdminRenderItem) => blocked[r.render_id] ?? r.reuse_blocked;
+
+  /**
+   * The quarantine handle for the reuse pool. `reusable` is GENERATED from
+   * `reuse_blocked`, so there is exactly one flag and it cannot drift.
+   */
+  async function toggleBlocked(r: AdminRenderItem) {
+    const next = !isBlocked(r);
+    setBusy(r.render_id);
+    const res = await setRenderReuseBlocked({ renderId: r.render_id, blocked: next }).catch(
+      () => ({ ok: false as const, reason: 'error' as const }),
+    );
+    setBusy(null);
+    if (res.ok) setBlocked((p) => ({ ...p, [r.render_id]: next }));
+    else
+      setRefused((p) => ({
+        ...p,
+        [r.render_id]: 'The reuse block did not change. Nothing happened.',
+      }));
+  }
 
   async function toggle(r: AdminRenderItem) {
     const next = !isFeatured(r);
@@ -124,6 +145,10 @@ export function AdminRenderGrid({ items }: { items: AdminRenderItem[] }) {
                   <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink/55">
                     has a note · not reusable
                   </span>
+                ) : isBlocked(r) ? (
+                  <span className="rounded-full bg-danger-700/10 px-1.5 py-0.5 text-[10px] font-semibold text-danger-700">
+                    blocked from reuse
+                  </span>
                 ) : r.reusable ? (
                   <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink/55">
                     in the reuse pool
@@ -146,6 +171,19 @@ export function AdminRenderGrid({ items }: { items: AdminRenderItem[] }) {
                 >
                   {busy === r.render_id ? 'Saving…' : on ? 'Unfeature' : 'Feature'}
                 </button>
+                {/* The quarantine handle. Only meaningful for a render that
+                    could otherwise be reused — a note-bearing one is already
+                    out of the pool by construction. */}
+                {!r.note && r.image_key && !r.failed_at ? (
+                  <button
+                    type="button"
+                    disabled={busy === r.render_id}
+                    onClick={() => void toggleBlocked(r)}
+                    className="rounded-md border border-ink/15 px-2 py-1 font-medium text-ink/75 hover:border-terracotta hover:text-terracotta disabled:opacity-40"
+                  >
+                    {isBlocked(r) ? 'Allow reuse' : 'Block reuse'}
+                  </button>
+                ) : null}
                 {note ? <span className="text-[10px] font-semibold text-danger-700">{note}</span> : null}
               </div>
             </div>

@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6460
+# facts: 6461
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4750
 #   policy    882
 #   view      8
-#   func      236
+#   func      237
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6356,6 +6356,7 @@ func	public.moodboard_render_balance(p_event_id uuid)	secdef=yes exec=authentica
 func	public.moodboard_render_caller_may_act(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.moodboard_reserve_render_credits(p_event_id uuid, p_credits integer)	secdef=yes exec=authenticated search_path=public
 func	public.moodboard_set_render_featured(p_render_id uuid, p_featured boolean)	secdef=yes exec=authenticated search_path=public
+func	public.moodboard_set_render_reuse_blocked(p_render_id uuid, p_blocked boolean)	secdef=yes exec=authenticated search_path=public
 func	public.moodboard_set_share_consent(p_event_id uuid, p_consented boolean)	secdef=yes exec=authenticated search_path=public
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.panood_camera_heartbeat(p_token text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp

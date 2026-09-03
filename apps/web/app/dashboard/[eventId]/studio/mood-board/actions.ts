@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import type { MoodboardSlotPosition } from '../../wizard-actions';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { sanitizeRolePalette, type PaletteKey, type RolePalette } from '@/lib/mood-board';
@@ -59,7 +60,11 @@ export async function saveRolePalette(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
 
-export type MoodboardSlotRef = { slotKey: string; slotPosition: 1 | 2 };
+/** ⚠ slotPosition is deliberately NOT re-spelled as `1 | 2` here. It was, and
+ *  the widening to three photos per slot missed it — the call site papered
+ *  over the mismatch with `as 1 | 2`, so a drag onto the third position type-
+ *  lied instead of failing to compile. One source of truth: the constant. */
+export type MoodboardSlotRef = { slotKey: string; slotPosition: MoodboardSlotPosition };
 
 /**
  * Swap the images occupying two inspiration-board cells — the drag-reorder

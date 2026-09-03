@@ -6,9 +6,11 @@
  * enhance the photo output to be more accurate").
  *
  * Surfaces the same per-event inspiration intake that onboarding's Card 15
- * uses — 16 named slots × 2 photos (widened 2026-09-02 to add backdrop/
- * flowers/cocktail), stored in event_inspiration_assets, with
- * a 6-color palette auto-extracted from each upload. Reuses the proven
+ * uses — 18 named slots × 3 photos, stored in event_inspiration_assets, with
+ * a 6-color palette auto-extracted from each upload. Widened through
+ * 2026-09-02/03: backdrop · flowers · cocktail, then reception_venue (the
+ * ceremony/reception asymmetry), then cake — and 2 photos per slot became 3,
+ * per the owner's "it usually is 1-3 designs". Reuses the proven
  * `uploadMoodboardSlot` / `removeMoodboardSlot` server actions + the Canvas
  * extractor (lib/extract-palette). These references will feed the paid
  * "Make it real" render as additional conditioning so the photoreal output
@@ -21,6 +23,7 @@ import {
   uploadMoodboardSlot,
   removeMoodboardSlot,
   MOODBOARD_SLOT_POSITIONS,
+  type MoodboardSlotPosition,
 } from '../../../wizard-actions';
 import { reorderMoodboardSlot } from '../actions';
 
@@ -46,6 +49,7 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
       { k: 'flowers', label: 'Flowers' },
       { k: 'tunnel', label: 'Tunnel' },
       { k: 'cocktail', label: 'Cocktail hour' },
+      { k: 'cake', label: 'Cake' },
     ],
   },
   { title: 'Palette', slots: [{ k: 'palette', label: 'Palette source' }] },
@@ -115,9 +119,9 @@ export function InspirationBoard({ eventId, initial }: Props) {
   // dragged-from and dropped-on cells, within a slot or across slots.
   function onDropTile(
     fromSlot: string,
-    fromPos: number,
+    fromPos: MoodboardSlotPosition,
     toSlot: string,
-    toPos: number,
+    toPos: MoodboardSlotPosition,
   ) {
     if (fromSlot === toSlot && fromPos === toPos) return;
     const fromKey = key(fromSlot, fromPos);
@@ -127,8 +131,8 @@ export function InspirationBoard({ eventId, initial }: Props) {
       try {
         await reorderMoodboardSlot(
           eventId,
-          { slotKey: fromSlot, slotPosition: fromPos as 1 | 2 },
-          { slotKey: toSlot, slotPosition: toPos as 1 | 2 },
+          { slotKey: fromSlot, slotPosition: fromPos },
+          { slotKey: toSlot, slotPosition: toPos },
         );
       } catch {
         setError('Could not reorder — please try again.');
@@ -191,8 +195,13 @@ function SlotTile({
   onPick: (f: File | undefined) => void;
   onRemove: () => void;
   slotKey: string;
-  slotPosition: number;
-  onDropTile: (fromSlot: string, fromPos: number, toSlot: string, toPos: number) => void;
+  slotPosition: MoodboardSlotPosition;
+  onDropTile: (
+    fromSlot: string,
+    fromPos: MoodboardSlotPosition,
+    toSlot: string,
+    toPos: MoodboardSlotPosition,
+  ) => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -212,7 +221,9 @@ function SlotTile({
     const raw = e.dataTransfer.getData(DND_MIME);
     if (!raw) return;
     try {
-      const from = JSON.parse(raw) as { slotKey: string; slotPosition: number };
+      // JSON from the drag payload is untrusted at this boundary; the server
+      // re-validates the position against MOODBOARD_SLOT_POSITIONS regardless.
+      const from = JSON.parse(raw) as { slotKey: string; slotPosition: MoodboardSlotPosition };
       onDropTile(from.slotKey, from.slotPosition, slotKey, slotPosition);
     } catch {
       /* ignore malformed payload */

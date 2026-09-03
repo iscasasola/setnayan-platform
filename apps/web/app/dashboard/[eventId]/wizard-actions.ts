@@ -1643,14 +1643,14 @@ export async function completeDraftGuestListTask(
 // Owner directive 2026-05-25 (verbatim): "Make the upload. you keep deferring
 // this. We want upload photo. no url. just upload up to photos 2 for each."
 //
-// 17 named slots × 2 photos each = 34 upload slots total (widened 2026-09-02/03,
+// 18 named slots × 2 photos each = 34 upload slots total (widened 2026-09-02/03,
 // Mood Board redesign, to close 4 real gaps: no wall/backdrop slot existed
 // despite reception_design having a backdrop zone, no flowers slot existed at
 // all, no cocktail-hour slot existed, and — the asymmetry that made the list
 // read wrong — the ONE venue slot (`venue`, labelled "Ceremony venue") had no
 // reception counterpart, though six of its siblings are reception elements:
-//   Location feel (10): venue · reception_venue · backdrop · tunnel · stage ·
-//                       table · ceiling · flowers · cocktail · overall
+//   Location feel (11): venue · reception_venue · backdrop · tunnel · stage ·
+//                       table · ceiling · flowers · cocktail · cake · overall
 // ⚠ `venue` is NOT renamed to `ceremony_venue` — real rows carry that key from
 // onboarding Card 15 (20260627000000) and a rename orphans every one.
 //   Palette       (1): palette
@@ -1684,6 +1684,7 @@ const MOODBOARD_SLOT_KEYS = [
   'ceiling',
   'flowers',
   'cocktail',
+  'cake',
   'overall',
   'palette',
   'groom',

@@ -187,10 +187,20 @@ test('the shots card does not send the reader elsewhere to do what it does', () 
 // a real enum member that almost nothing writes. Every mint in the app writes
 // `submitted`; prod's only order is `submitted`. So the prompt that exists to
 // say "settle this" could not see an ordinary unpaid bill.
+//
+// ⚠ `lib/setnayan-ai-snapshot.ts` USED TO BE ON THIS LIST and is deliberately
+// not any more (BA8). Its entry was GRD-05's `pending` bucket — a sum of
+// unpaid orders that the over-budget guard added ON TOP of committed money.
+// That bucket no longer exists: the guard's money now comes from
+// `resolveEventMoney`, which reads the couple's orders WITHOUT a status filter
+// and classifies each one by name — `awaiting_payment` is a commitment,
+// `submitted` is an estimate (§18.5 rule 4: "over budget" means what they have
+// AGREED exceeds their target). So neither unpaid state went blind; the read
+// moved, and the test below pins it where it went. The two surfaces that
+// actually tell a couple "settle this" are still listed, and still checked.
 const UNPAID_READERS: ReadonlyArray<readonly [string, string]> = [
   ['app/dashboard/[eventId]/_components/event-dashboard.tsx', 'the couple\'s "Settle a payment" group'],
   ['lib/event-decisions.ts', 'the event needs-you count'],
-  ['lib/setnayan-ai-snapshot.ts', 'the planner\'s pending-money bucket'],
 ];
 
 test('every couple-facing unpaid-order read asks for BOTH unpaid states', () => {
@@ -205,6 +215,44 @@ test('every couple-facing unpaid-order read asks for BOTH unpaid states', () => 
       src,
       /\.eq\(\s*'status',\s*'awaiting_payment'\s*\)/,
       `${what} (${rel}) still filters one unpaid state and will read empty for real bills`,
+    );
+  }
+});
+
+test('the planner delegates its orders read, and both unpaid states survive it', () => {
+  // Removing a file from UNPAID_READERS must not be a way to go quiet. Two
+  // halves, because either alone is satisfiable by a regression:
+  //   · the snapshot no longer reads `orders` at all, so there is no filter of
+  //     its own to get wrong;
+  //   · the resolver it delegates to reads them unfiltered and names BOTH
+  //     unpaid states, so an ordinary unpaid bill is still seen.
+  const snap = stripComments(read('lib/setnayan-ai-snapshot.ts'));
+  assert.doesNotMatch(
+    snap,
+    /\.from\(\s*'orders'\s*\)/,
+    'the planner reads `orders` directly again — that is a second status filter ' +
+      'to keep in step with the resolver, and it is how this defect started',
+  );
+  assert.match(
+    snap,
+    /resolveEventMoney\s*\(/,
+    'the planner must get its money from resolveEventMoney',
+  );
+
+  const truth = stripComments(read('lib/budget-truth.ts'));
+  const ordersRead = /\.from\(\s*'orders'\s*\)[\s\S]{0,400}?\.eq\(\s*'event_id'/.exec(truth);
+  assert.ok(ordersRead, 'the resolver must read the event’s orders');
+  assert.doesNotMatch(
+    ordersRead[0],
+    /\.(in|eq)\(\s*'status'/,
+    'the resolver filtered orders by status — it classifies them instead, and a ' +
+      'filter here silently drops a state from every surface at once',
+  );
+  for (const state of ['awaiting_payment', 'submitted']) {
+    assert.ok(
+      new RegExp(`'${state}'`).test(truth),
+      `the resolver does not name '${state}' — an unpaid bill in that state is ` +
+        `now invisible to every surface that asks it for money`,
     );
   }
 });

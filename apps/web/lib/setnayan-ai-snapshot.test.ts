@@ -10,9 +10,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import type { EventMoney, MoneyBucket } from './budget-truth';
 import {
   paymentsFromBudget,
-  budgetFromCommitted,
+  budgetFromEventMoney,
   statutoryFromPaperwork,
   inquiriesFromThreads,
   scheduleClashesFromBlocks,
@@ -64,36 +65,117 @@ test('paymentsFromBudget: partially-covered linked line stays unpaid', () => {
   assert.equal(out.find((p) => p.dueDate === '2026-03-01')!.paid, false);
 });
 
-// ---- budgetFromCommitted (the Overview committed-vs-target formula) ---------
+// ---- budgetFromEventMoney (GRD-05's feed — BA8's one set of books) ---------
+//
+// The mapper's own invariants live here; that it can never disagree with what
+// `/budget` prints is asserted separately, over real rows through
+// `computeEventMoney`, in `lib/one-set-of-books.test.ts`.
 
-const paidOrders = [
-  { confirmedTotalPhp: 2999, requestedTotalPhp: 3999 }, // confirmed wins
-  { confirmedTotalPhp: null, requestedTotalPhp: 1499 }, // falls back to requested
-];
-const vendors = [
-  { status: 'contracted', totalCostPhp: 80000, category: 'reception_venue', vendorName: 'Grand Venue' },
-  { status: 'deposit_paid', totalCostPhp: 30000, category: 'photography', vendorName: 'Studio A' },
-  { status: 'considering', totalCostPhp: 500000, category: 'catering', vendorName: 'Feast Co' }, // NOT locked → excluded
-];
+const emptyDue = {
+  overduePhp: 0,
+  overdueCount: 0,
+  dueSoonPhp: 0,
+  dueSoonCount: 0,
+  upcomingPhp: 0,
+  upcomingCount: 0,
+  laterPhp: 0,
+  laterCount: 0,
+};
 
-test('budgetFromCommitted: null target → no budget guard', () => {
+const bucket = (bucketId: string, committedPhp: number): MoneyBucket => ({
+  bucketId,
+  label: bucketId,
+  committedPhp,
+  paidPhp: 0,
+  stillOwedPhp: committedPhp,
+  overpaidPhp: 0,
+  estimatedPhp: 0,
+  hasBenchmark: false,
+  benchmarkPhp: null,
+  due: emptyDue,
+});
+
+const money = (over: Partial<EventMoney>): EventMoney => ({
+  targetPhp: 200000,
+  estimated: 0,
+  committed: 0,
+  paid: 0,
+  stillOwed: 0,
+  overpaid: 0,
+  isOverBudget: false,
+  overBudgetByPhp: 0,
+  due: emptyDue,
+  byBucket: [],
+  lines: [],
+  sources: [],
+  warnings: [],
+  ...over,
+});
+
+test('budgetFromEventMoney: null money → no budget guard', () => {
+  assert.equal(budgetFromEventMoney(null), null);
+});
+
+test('budgetFromEventMoney: null target → no budget guard (nothing to be over)', () => {
+  assert.equal(budgetFromEventMoney(money({ targetPhp: null, committed: 500000 })), null);
+});
+
+test('budgetFromEventMoney: committed and target come straight off the resolver', () => {
+  const b = budgetFromEventMoney(money({ targetPhp: 200000, committed: 114498 }))!;
+  assert.equal(b.totalPhp, 200000);
+  assert.equal(b.committedPhp, 114498);
+});
+
+test('budgetFromEventMoney: an ESTIMATE never reaches the guard', () => {
+  // A `submitted` order / an unconfirmed supplier's quote lands in
+  // `estimated`. §18.5 rule 3: it must not be folded into committed — here or
+  // on /budget. Before BA8 the guard added `pending` on top of committed,
+  // which is the same money counted under a different name.
+  const b = budgetFromEventMoney(money({ committed: 10000, estimated: 900000 }))!;
+  assert.equal(b.committedPhp, 10000);
   assert.equal(
-    budgetFromCommitted({ targetPhp: null, paidOrders, vendors, pendingOrdersPhp: 0 }),
-    null,
+    Object.keys(b).some((k) => /pending|estimat/i.test(k)),
+    false,
+    'SnapshotBudget grew a field the resolver does not have — that is the ' +
+      'second set of books coming back.',
   );
 });
 
-test('budgetFromCommitted: committed = paid orders (confirmed-else-requested) + locked vendors', () => {
-  const b = budgetFromCommitted({ targetPhp: 200000, paidOrders, vendors, pendingOrdersPhp: 2499 })!;
-  assert.equal(b.totalPhp, 200000);
-  assert.equal(b.committedPhp, 2999 + 1499 + 80000 + 30000); // considering excluded
-  assert.equal(b.pendingPhp, 2499);
-  assert.equal(b.topDriverCategory, 'reception_venue'); // costliest LOCKED vendor
+test('budgetFromEventMoney: the driver is the biggest COMMITTED bucket, by label', () => {
+  const b = budgetFromEventMoney(
+    money({
+      committed: 810000,
+      byBucket: [
+        bucket('photography', 175000),
+        bucket('catering', 225000),
+        bucket('coordinator', 80000),
+      ],
+    }),
+  )!;
+  assert.equal(b.topDriverCategory, 'Catering'); // bucketLabel(), the words /budget prints
 });
 
-test('budgetFromCommitted: over-budget shape (committed+pending exceeds target)', () => {
-  const b = budgetFromCommitted({ targetPhp: 100000, paidOrders, vendors, pendingOrdersPhp: 0 })!;
-  assert.ok(b.committedPhp + b.pendingPhp > b.totalPhp); // the GRD-05 trigger will fire
+test('budgetFromEventMoney: a bucket with only estimates never becomes the driver', () => {
+  const quoteOnly = { ...bucket('catering', 0), estimatedPhp: 900000 };
+  const b = budgetFromEventMoney(
+    money({ committed: 22000, byBucket: [quoteOnly, bucket('photobooth', 22000)] }),
+  )!;
+  assert.equal(b.topDriverCategory, 'Photobooth');
+});
+
+test('budgetFromEventMoney: nothing committed → no driver at all (never "undefined")', () => {
+  const b = budgetFromEventMoney(money({ committed: 0, byBucket: [bucket('catering', 0)] }))!;
+  assert.equal('topDriverCategory' in b, false);
+});
+
+test('budgetFromEventMoney: a tie breaks deterministically on bucket id', () => {
+  const a = budgetFromEventMoney(
+    money({ committed: 100000, byBucket: [bucket('catering', 50000), bucket('attire', 50000)] }),
+  )!;
+  const b = budgetFromEventMoney(
+    money({ committed: 100000, byBucket: [bucket('attire', 50000), bucket('catering', 50000)] }),
+  )!;
+  assert.equal(a.topDriverCategory, b.topDriverCategory);
 });
 
 // ---- statutoryFromPaperwork (GRD-02 feed) ------------------------------------

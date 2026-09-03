@@ -76,10 +76,36 @@ export type SnapshotInquiry = {
   sentDaysAgo: number;
   replied: boolean;
 };
+/**
+ * The money half of the snapshot — GRD-05's whole input.
+ *
+ * ⚠ EVERY FIELD IS A FIELD OF `EventMoney`, AND NOTHING ELSE MAY JOIN THEM
+ * (BA8). This type used to be assembled from raw rows by the guard's own
+ * formula, which is why the paid guard could not see a locked package's agreed
+ * total, a catalogue line item, a manual line on an off-platform supplier, a
+ * credit, crew meals, transport, or a supplier-less `event_costs` row — every
+ * one of which `/budget` has counted since BUD-2. Build it ONLY through
+ * `budgetFromEventMoney` (lib/setnayan-ai-snapshot.ts), which reads
+ * `resolveEventMoney` and nothing else.
+ *
+ * 🔑 THERE IS NO `pendingPhp`. It carried `submitted` Setnayan orders — money
+ * the couple has APPLIED for and an admin has not approved — and the resolver
+ * files those under `estimated`, never `committed` (see
+ * `ORDER_ESTIMATE_STATUSES`). §18.5 rule 4 gives "over budget" exactly one
+ * meaning: what the couple has AGREED exceeds their target. A field that only
+ * this guard counts is the two-books defect with a smaller blast radius, not a
+ * feature.
+ */
 export type SnapshotBudget = {
+  /** `EventMoney.targetPhp` — the couple's own target, in PHP. */
   totalPhp: number;
+  /** `EventMoney.committed` — what they have AGREED to pay. */
   committedPhp: number;
-  pendingPhp: number;
+  /**
+   * The biggest committed bucket's LABEL, from `EventMoney.byBucket` — the
+   * same words `/budget` prints for that category ("Catering", not
+   * "catering"). Absent when nothing is committed anywhere.
+   */
   topDriverCategory?: string;
 };
 export type SnapshotDateCluster = {
@@ -309,10 +335,19 @@ export function priceRiseTrigger(snap: PlanningSnapshot): Intervention[] {
     }));
 }
 
+/**
+ * GRD-05 — "Warns you before you go over budget", the sentence the
+ * `SETNAYAN_AI` buy page sells.
+ *
+ * `committedPhp − totalPhp` is `EventMoney.overBudgetByPhp` computed the same
+ * way the resolver computes it (`committed − targetPhp`, budget-truth.ts), so
+ * the amount this guard prints is the amount `/budget` prints. That equality
+ * is asserted, not assumed: `lib/one-set-of-books.test.ts`.
+ */
 export function overBudgetTrigger(snap: PlanningSnapshot): Intervention[] {
   const b = snap.budget;
   if (!b) return [];
-  const over = b.committedPhp + b.pendingPhp - b.totalPhp;
+  const over = b.committedPhp - b.totalPhp;
   if (over <= 0) return [];
   return [
     {

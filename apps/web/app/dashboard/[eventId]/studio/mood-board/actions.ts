@@ -3,95 +3,34 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import type { MoodboardSlotPosition } from '../../wizard-actions';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { sanitizeRolePalette } from '@/lib/mood-board';
-import { RECEPTION_PARTS } from '@/lib/reception-scene';
-
-/**
- * Persist the couple's reception design (per-part, per-attribute material
- * choices) to events.reception_design (migration 20261002000000). Mood Board
- * Phase 2/3. Nested shape { part: { attribute: optionId } }. Sanitizes against
- * the known parts/attributes/options so only valid choices land.
- */
-export async function saveReceptionDesign(
-  eventId: string,
-  design: Record<string, Record<string, string>>,
-): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const clean: Record<string, Record<string, string>> = {};
-  for (const part of RECEPTION_PARTS) {
-    const pd = design[part.id];
-    if (!pd || typeof pd !== 'object') continue;
-    const cp: Record<string, string> = {};
-    for (const attr of part.attributes) {
-      const v = pd[attr.id];
-      if (v && attr.options.some((o) => o.id === v)) cp[attr.id] = v;
-    }
-    if (Object.keys(cp).length > 0) clean[part.id] = cp;
-  }
-
-  // RLS enforces host-only writes on their own events via event_members.
-  const { error } = await supabase
-    .from('events')
-    .update({
-      reception_design: clean,
-      mood_board_updated_at: new Date().toISOString(),
-    })
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
-}
-
-export type MoodboardSelectionInput = {
-  eventId: string;
-  // 'florals' added 2026-06-08 (mood-board redesign — Flowers chapter).
-  pillar: 'location_feel' | 'dress_codes' | 'florals';
-  pillarSlot: string;
-  assetId: string;
-  // JSONB. Carries either the legacy { slot: "#hex" } shape OR the redesign's
-  // self-describing MoodboardSnapshot ({ slot: { def, edit } }) from the
-  // Recolor Studio. Stored verbatim; parsed back via parseSnapshot on read.
-  paletteSnapshot: Record<string, unknown>;
-};
-
-export async function saveMoodboardSelection(
-  input: MoodboardSelectionInput,
-): Promise<{ saveId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // RLS enforces host-only writes on their own events via event_members.
-  const { data, error } = await supabase
-    .from('event_moodboard_saves')
-    .upsert(
-      {
-        event_id: input.eventId,
-        pillar: input.pillar,
-        pillar_slot: input.pillarSlot,
-        asset_id: input.assetId,
-        palette_snapshot: input.paletteSnapshot,
-        saved_at: new Date().toISOString(),
-      },
-      { onConflict: 'event_id,pillar,pillar_slot' },
-    )
-    .select('save_id')
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/dashboard/${input.eventId}/studio/mood-board`);
-  return { saveId: data.save_id as string };
-}
+import { sanitizeRolePalette, type PaletteKey, type RolePalette } from '@/lib/mood-board';
+import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
+import {
+  mergeRolePalette,
+  mergeReceptionDesign,
+  mergeTheme,
+  replaceRolePalette,
+  replaceReceptionDesign,
+  replaceTheme,
+  emptyTemplateInspirationSlots,
+  nextMoodboardStyleFamily,
+  normalizeThemeTemplateQuery,
+  TEMPLATE_INSPIRATION_SLOT_ASSETS,
+  summaryIsEmpty,
+  type ApplyMode,
+  type ApplyTemplateSummary,
+  type MoodboardThemeTemplate,
+  type ThemeTemplatePage,
+} from '@/lib/moodboard-templates';
+import {
+  validateThemeSelection,
+  selectionIsEmpty,
+  type ThemeTextReading,
+} from '@/lib/theme-text-intent';
+import { readThemeTextWithModel } from '@/lib/theme-text-intent-model';
 
 export async function saveRolePalette(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -127,49 +66,34 @@ export async function saveRolePalette(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
 
-/**
- * Save a single role's attire color on the Wedding Attire Guide mockup.
- * Owner directive 2026-05-23 PM: "we want the capability to change the
- * color of the attires of each role." Per-role color picker on the
- * mockup fires this action on every color change so the host's pick
- * survives a page reload AND the V1.x Professional Mood Board engine
- * has the colors as Higgsfield prompt inputs.
- *
- * Schema column: events.attire_guide_palette JSONB (migration
- * 20260610010000). Stored as { [roleKey]: "#RRGGBB" }. This action
- * does a JSONB merge — preserves existing keys, sets only the one
- * the host just changed.
- *
- * Validation:
- *   - roleKey must be one of the 10 canonical keys from the mockup
- *   - hex must match #RRGGBB or #RGB (3-or-6 hex digits)
- * Failures throw — the client's optimistic UI rolls back on catch.
- */
-const ALLOWED_ROLE_KEYS = new Set([
-  'female_ps',
-  'male_ps',
-  'mothers',
-  'fathers',
-  'bridesmaids',
-  'bride',
-  'groom',
-  'groomsmen',
-  'guests',
-  'men_guests',
-]);
-const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+/** ⚠ slotPosition is deliberately NOT re-spelled as `1 | 2` here. It was, and
+ *  the widening to three photos per slot missed it — the call site papered
+ *  over the mismatch with `as 1 | 2`, so a drag onto the third position type-
+ *  lied instead of failing to compile. One source of truth: the constant. */
+export type MoodboardSlotRef = { slotKey: string; slotPosition: MoodboardSlotPosition };
 
-export async function saveAttireGuidePaletteColor(
+/**
+ * Swap the images occupying two inspiration-board cells — the drag-reorder
+ * affordance on the redesigned canvas (Mood Board redesign, 2026-09-02).
+ * Works within one slot (swap its two positions) or across slots (move an
+ * image from one named slot into another), since every slot has exactly two
+ * fixed positions and no new schema is needed to express "swap what's here".
+ *
+ * Implementation note: `event_inspiration_assets` enforces
+ * UNIQUE(event_id, slot_key, slot_position) WHERE removed_at IS NULL, so a
+ * straight two-row UPDATE swap can collide mid-flight. This does it in three
+ * steps via a temporary negative slot_position, which never collides with a
+ * real (positive) position — same "two round trips is fine for this" trade-off
+ * this file already makes elsewhere (see saveAttireGuidePaletteColor's old
+ * read-modify-write, now removed, and uploadMoodboardSlot's soft-delete step).
+ * Either or both cells may be empty; a no-op (same cell) returns immediately.
+ */
+export async function reorderMoodboardSlot(
   eventId: string,
-  roleKey: string,
-  hex: string,
+  from: MoodboardSlotRef,
+  to: MoodboardSlotRef,
 ): Promise<void> {
-  if (!ALLOWED_ROLE_KEYS.has(roleKey)) {
-    throw new Error(`Invalid attire role key: ${roleKey}`);
-  }
-  if (!HEX_RE.test(hex)) {
-    throw new Error(`Invalid hex color: ${hex}`);
-  }
+  if (from.slotKey === to.slotKey && from.slotPosition === to.slotPosition) return;
 
   const supabase = await createClient();
   const {
@@ -177,37 +101,583 @@ export async function saveAttireGuidePaletteColor(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Read-modify-write the JSONB column. Two round trips is fine for a
-  // single-color save; debounce on the client side keeps this cheap
-  // even when the host drags the color picker. RLS enforces host-only
-  // writes via event_members on the events table.
-  const { data: existing, error: readErr } = await supabase
-    .from('events')
-    .select('attire_guide_palette')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const findActive = (ref: MoodboardSlotRef) =>
+    supabase
+      .from('event_inspiration_assets')
+      .select('inspiration_id')
+      .eq('event_id', eventId)
+      .eq('slot_key', ref.slotKey)
+      .eq('slot_position', ref.slotPosition)
+      .is('removed_at', null)
+      .maybeSingle();
 
-  if (readErr) throw new Error(readErr.message);
+  const [{ data: fromRow, error: fromErr }, { data: toRow, error: toErr }] = await Promise.all([
+    findActive(from),
+    findActive(to),
+  ]);
+  if (fromErr) throw new Error(fromErr.message);
+  if (toErr) throw new Error(toErr.message);
+  if (!fromRow) return; // nothing to move
 
-  const current =
-    existing?.attire_guide_palette &&
-    typeof existing.attire_guide_palette === 'object'
-      ? (existing.attire_guide_palette as Record<string, string>)
-      : {};
+  // 1. Park `from` at a temp negative position so it can never collide with
+  //    the real (positive) position `to` is about to vacate.
+  const tempPosition = -1;
+  const { error: parkErr } = await supabase
+    .from('event_inspiration_assets')
+    .update({ slot_position: tempPosition })
+    .eq('inspiration_id', fromRow.inspiration_id);
+  if (parkErr) throw new Error(parkErr.message);
 
-  const next = { ...current, [roleKey]: hex.toUpperCase() };
+  // 2. If the destination was occupied, move that image into the vacated
+  //    `from` cell.
+  if (toRow) {
+    const { error: swapErr } = await supabase
+      .from('event_inspiration_assets')
+      .update({ slot_key: from.slotKey, slot_position: from.slotPosition })
+      .eq('inspiration_id', toRow.inspiration_id);
+    if (swapErr) throw new Error(swapErr.message);
+  }
 
-  const { error: updateErr } = await supabase
+  // 3. Land `from`'s image in the destination cell.
+  const { error: landErr } = await supabase
+    .from('event_inspiration_assets')
+    .update({ slot_key: to.slotKey, slot_position: to.slotPosition })
+    .eq('inspiration_id', fromRow.inspiration_id);
+  if (landErr) throw new Error(landErr.message);
+
+  revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+}
+
+const THEME_NAME_MAX = 80;
+const THEME_DESCRIPTION_MAX = 280;
+
+/**
+ * Save the couple's "Overall Theme" name + description (Mood Board redesign,
+ * 2026-09-02). Schema columns: events.moodboard_theme_name / _description
+ * (migration 20271193183599). Follows the exact validation/auth pattern of
+ * saveRolePalette above (saveReceptionDesign moved to seating/actions.ts,
+ * 2026-09-03 relocation) — RLS-gated via the user's own supabase client,
+ * never the admin client.
+ */
+export async function saveMoodboardTheme(
+  eventId: string,
+  theme: { name: string; description: string },
+): Promise<void> {
+  const name = theme.name.trim().slice(0, THEME_NAME_MAX);
+  const description = theme.description.trim().slice(0, THEME_DESCRIPTION_MAX);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS enforces host-only writes on their own events via event_members.
+  const { error } = await supabase
     .from('events')
     .update({
-      attire_guide_palette: next,
+      moodboard_theme_name: name || null,
+      moodboard_theme_description: description || null,
       mood_board_updated_at: new Date().toISOString(),
     })
     .eq('event_id', eventId);
-
-  if (updateErr) throw new Error(updateErr.message);
+  if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+}
+
+// ── the theme description finally does something ─────────────────────────
+
+/**
+ * READ the couple's own sentence. Nothing is written; nothing on the board
+ * moves. The reading comes back for the couple to look at, edit and confirm —
+ * see the "Read my description" flow in _components/theme-card.tsx.
+ *
+ * 🔑 WHY THIS ACTION EXISTS AT ALL. `events.moodboard_theme_description` has
+ * been saved, displayed on the vendor board and printed on the concept-PDF
+ * cover since 20271193183599, and read by NOTHING. Its placeholder invited a
+ * sentence and then ignored it — the owner typed "i want to feel christmas
+ * vibe with a hint of classy elegance" and nothing happened. Their verdict:
+ * "if this will not help me generate a theme, remove it." This is the other
+ * choice.
+ *
+ * The deterministic dictionary answers first and for free
+ * (lib/theme-text-intent.ts); the model arm is reached only when it finds
+ * nothing at all, and degrades silently to the dictionary's answer when
+ * ANTHROPIC_API_KEY is unset (lib/theme-text-intent-model.ts).
+ *
+ * ⚠ The sentence is NOT read back out of the database here — the couple's
+ * unsaved edit is what they expect to be read. That is safe because the
+ * reading is a pure classification into closed vocabularies: the worst a
+ * forged sentence can produce is a set of chips the same signed-in user could
+ * already have tapped by hand, and `applyThemeIntent` below re-validates
+ * every one of them before anything reaches `events`.
+ */
+export async function readMoodboardThemeDescription(text: string): Promise<ThemeTextReading> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  return readThemeTextWithModel(typeof text === 'string' ? text : '');
+}
+
+export type ThemeIntentApplySummary = {
+  filledPaletteRoles: PaletteKey[];
+  filledReceptionZones: string[];
+  styleFamily: string | null;
+  nothingToFill: boolean;
+};
+
+/**
+ * APPLY the chips the couple KEPT. Fill-empty only, exactly like
+ * `applyMoodboardTemplate`'s default mode — a reading of their own sentence
+ * must never overwrite a colour or a zone they already chose by hand.
+ *
+ * 🛑 THE PAYLOAD IS NOT TRUSTED. It arrives from the browser after the couple
+ * removed chips, so it goes through `validateThemeSelection` — the same
+ * whitelist the model arm's reply passes through. A mood, family, colour name
+ * or motif id that is not a member of a shipped vocabulary is dropped, and a
+ * colour's hex is ALWAYS re-derived from the name we stock rather than taken
+ * from the caller.
+ *
+ * Moods are deliberately NOT written to the event: they steer the theme
+ * gallery client-side (which mood to open it on) and are not board content.
+ * The style family IS written, through `nextMoodboardStyleFamily` in
+ * fill-empty mode, because `events.moodboard_style_family` is the existing
+ * home for exactly that fact.
+ */
+export async function applyThemeIntent(
+  eventId: string,
+  selection: unknown,
+): Promise<ThemeIntentApplySummary> {
+  const kept = validateThemeSelection(selection);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  if (selectionIsEmpty(kept)) {
+    return {
+      filledPaletteRoles: [],
+      filledReceptionZones: [],
+      styleFamily: null,
+      nothingToFill: true,
+    };
+  }
+
+  const { data: eventRow, error: eventErr } = await supabase
+    .from('events')
+    .select('role_palette, reception_design, moodboard_style_family')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (eventErr) throw new Error(eventErr.message);
+  if (!eventRow) throw new Error('Event not found');
+
+  const currentPalette = sanitizeRolePalette(eventRow.role_palette ?? {});
+  const currentDesign = sanitizeReceptionDesign(eventRow.reception_design ?? {});
+
+  // The colours the couple's sentence named ARE the reception scheme — the
+  // same key the theme gallery's swatch strip leads with. `mergeRolePalette`
+  // then fills it only if they have not set it themselves.
+  const proposedPalette: RolePalette =
+    kept.colours.length > 0 ? { reception: kept.colours.map((c) => c.hex) } : {};
+  const { merged: mergedPalette, filledKeys } = mergeRolePalette(currentPalette, proposedPalette);
+
+  // A zone that ACCEPTS several treatments gets several — "paper lanterns AND
+  // fairy lights" is one real ceiling, and `sanitizeReceptionDesign` is what
+  // decides which attributes allow it. Collecting into arrays here and letting
+  // the sanitizer collapse the single-select ones keeps that rule in one place.
+  const proposedDesign: ReceptionDesign = {};
+  for (const m of kept.motifs) {
+    const part = (proposedDesign[m.part] ?? {}) as Record<string, string[]>;
+    part[m.attribute] = [...(part[m.attribute] ?? []), m.option];
+    proposedDesign[m.part] = part;
+  }
+  const { merged: mergedDesign, filledZones } = mergeReceptionDesign(
+    currentDesign,
+    sanitizeReceptionDesign(proposedDesign),
+  );
+
+  const styleFamilyToWrite = kept.families[0]
+    ? nextMoodboardStyleFamily(
+        'fill_empty',
+        (eventRow as { moodboard_style_family?: string | null }).moodboard_style_family ?? null,
+        kept.families[0],
+      )
+    : null;
+
+  const paletteChanged = filledKeys.length > 0;
+  const designChanged = filledZones.length > 0;
+
+  if (paletteChanged || designChanged || styleFamilyToWrite) {
+    const update: Record<string, unknown> = {};
+    // Same rule as applyMoodboardTemplate: the couple-visible "last saved"
+    // stamp moves only when something the couple can SEE changed. Recording
+    // the style family alone is provenance, not a save.
+    if (paletteChanged || designChanged) update.mood_board_updated_at = new Date().toISOString();
+    if (paletteChanged) update.role_palette = mergedPalette;
+    if (designChanged) update.reception_design = mergedDesign;
+    if (styleFamilyToWrite) update.moodboard_style_family = styleFamilyToWrite;
+
+    const { error: updateErr } = await supabase
+      .from('events')
+      .update(update)
+      .eq('event_id', eventId);
+    if (updateErr) throw new Error(updateErr.message);
+
+    revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+    revalidatePath(`/dashboard/${eventId}/seating/lab`);
+  }
+
+  return {
+    filledPaletteRoles: filledKeys,
+    filledReceptionZones: filledZones,
+    styleFamily: styleFamilyToWrite,
+    nothingToFill: !paletteChanged && !designChanged && !styleFamilyToWrite,
+  };
+}
+
+/** The columns the gallery actually renders. Deliberately spelled out rather
+ *  than `*`: `role_palette` and `reception_design` are JSONB blobs and are the
+ *  reason an unbounded read of this table was expensive. */
+const THEME_TEMPLATE_COLUMNS =
+  'template_id, style_family, mood_tag, name, description, role_palette, reception_design, sort_order';
+
+/**
+ * ONE PAGE of theme templates for a single (style family, mood) pair.
+ *
+ * 🛑 WHY THIS ACTION EXISTS — a shipping regression, fixed 2026-09-03.
+ * `page.tsx` used to `select(...)` this table with NO filter and NO limit and
+ * hand the whole array to the gallery as a prop. That was tolerable at 100
+ * rows and became a real cost at 2,600 (migrations 20271194462267 +
+ * 20271196372720): every couple, on every mood-board load, downloaded 2,600
+ * rows — two JSONB blobs each — into the RSC payload, then re-filtered them
+ * in the browser. The page no longer reads this table AT ALL; the gallery
+ * fetches through here, only after the couple has answered both narrowing
+ * questions, and only ~6 rows at a time.
+ *
+ * Inputs are whitelisted, never interpolated: `normalizeThemeTemplateQuery`
+ * accepts a `styleFamily`/`moodTag` only when it is EXACTLY one of the
+ * shipped vocabulary strings (the same 10+10 the CHECK constraints in
+ * 20271195711446 enforce), and clamps `limit` to THEME_TEMPLATE_MAX_LIMIT
+ * (24) and `offset` to THEME_TEMPLATE_MAX_OFFSET — so no client can ask for
+ * thousands of rows, whatever it sends.
+ *
+ * Auth follows this file's house shape (the user's own RLS-scoped client,
+ * never the admin client). There is no ownership check to make:
+ * `moodboard_theme_templates` is admin-authored public-read reference
+ * content — the same rows for every couple — so the only gate that matters
+ * is "is somebody signed in".
+ */
+export async function fetchThemeTemplates(input: {
+  styleFamily: string;
+  moodTag: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ThemeTemplatePage> {
+  const query = normalizeThemeTemplateQuery(input);
+  if (!query) throw new Error('Unknown theme style or mood');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const [{ data, count, error }, moodCount] = await Promise.all([
+    supabase
+      .from('moodboard_theme_templates')
+      .select(THEME_TEMPLATE_COLUMNS, { count: 'exact' })
+      .eq('style_family', query.styleFamily)
+      .eq('mood_tag', query.moodTag)
+      .order('sort_order', { ascending: true })
+      .order('template_id', { ascending: true })
+      .range(query.offset, query.offset + query.limit - 1),
+    // Rows carrying this MOOD in ANY setting. `head: true` fetches no rows —
+    // it is a COUNT, and it is what lets the gallery tell "not in this
+    // setting" apart from "this feeling has no themes at all", which is the
+    // live state of `festive_celebratory`. See ThemeTemplatePage.moodTotal.
+    supabase
+      .from('moodboard_theme_templates')
+      .select('template_id', { count: 'exact', head: true })
+      .eq('mood_tag', query.moodTag),
+  ]);
+  if (error) throw new Error(error.message);
+
+  return {
+    templates: (data ?? []) as unknown as MoodboardThemeTemplate[],
+    total: count ?? 0,
+    // A failed count degrades to 0, which reads as "no themes with this
+    // feeling" — the same message the couple gets from a genuine zero, and
+    // never a false claim that themes exist.
+    moodTotal: moodCount.error ? 0 : (moodCount.count ?? 0),
+    offset: query.offset,
+    limit: query.limit,
+  };
+}
+
+/**
+ * Apply a curated theme TEMPLATE (public.moodboard_theme_templates) to the
+ * couple's board — "pick a look, seed your board" (Mood Board redesign
+ * follow-up, 2026-09-03).
+ *
+ * TWO MODES (owner directive, 2026-09-03 follow-up — the 2nd mode is new):
+ *   • `fill_empty` (default, and the ONLY mode before this follow-up) — NEVER
+ *     overwrites anything the couple already set. Every field it might touch
+ *     — role_palette keys, reception_design zones, moodboard_theme_name/
+ *     _description, event_inspiration_assets slots — is filled ONLY when
+ *     currently empty (mergeRolePalette / mergeReceptionDesign / mergeTheme).
+ *   • `replace_all` — REPLACES role_palette / reception_design / theme
+ *     name+description with the template's values (replaceRolePalette /
+ *     replaceReceptionDesign / replaceTheme), regardless of what the couple
+ *     had. Still scoped to exactly those fields: `room_dressing` /
+ *     `custom_roles` (couple-authored, templates never set either) and
+ *     inspiration photos are untouched in BOTH modes — see those functions'
+ *     own docblocks in lib/moodboard-templates.ts for why. The client
+ *     confirms with the couple before calling this mode (template-gallery.tsx)
+ *     since it's destructive; this action itself does not re-confirm.
+ *
+ * STYLE-FAMILY PROVENANCE (2026-09-03, second follow-up): both modes now also
+ * persist `events.moodboard_style_family` — the record of WHICH of the 10
+ * style families produced this board. It is not a cosmetic field: the AI
+ * decor-layer pilot's `resolveDecorLayer` returns the flat SVG for a null
+ * family and always did, so with nothing writing it the pilot was dormant for
+ * every event that ever existed. `nextMoodboardStyleFamily` honors each mode
+ * (fill_empty writes only into a NULL; replace_all always writes), and it is
+ * excluded from `summaryIsEmpty` on purpose — it is provenance, not board
+ * content, so recording it must not turn "already personalized — nothing to
+ * fill in" into a false claim that something was filled.
+ *
+ * A couple who's already fully customized their board and applies
+ * `fill_empty` gets a `summaryIsEmpty` result — the UI shows "already
+ * personalized — nothing to fill in" rather than silently doing nothing with
+ * no explanation. (`replace_all` essentially always changes something, so
+ * `nothingToFill` is only ever true for it if the template itself carries no
+ * palette/design/theme content at all.)
+ *
+ * Inspiration slots are the one part that needs a DB lookup mid-flight: for
+ * each currently-empty slot in TEMPLATE_INSPIRATION_SLOT_ASSETS (the
+ * attire-adjacent slots — venue/backdrop/ceiling/etc. have no style-tagged
+ * asset to offer, per that module's own comment), look up a
+ * moodboard_library_assets row matching the template's style_family via the
+ * SAME style_theme column + join pattern page.tsx already uses for the
+ * "In your colors" read path (approved, not retired), and use its own
+ * moodboard_asset_color_ranges as that slot's 6 sampled hexes — cycling if
+ * fewer than 6 exist, exactly like moodboard-board.tsx's `autoEdits` cycles a
+ * palette over regions. If an asset has literally zero tagged colors we skip
+ * that slot rather than inventing hex values.
+ */
+export async function applyMoodboardTemplate(
+  eventId: string,
+  templateId: string,
+  mode: ApplyMode = 'fill_empty',
+): Promise<ApplyTemplateSummary & { nothingToFill: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const [{ data: templateRow, error: templateErr }, { data: eventRow, error: eventErr }] =
+    await Promise.all([
+      supabase
+        .from('moodboard_theme_templates')
+        .select('template_id, style_family, mood_tag, name, description, role_palette, reception_design')
+        .eq('template_id', templateId)
+        .maybeSingle(),
+      supabase
+        .from('events')
+        .select(
+          'role_palette, reception_design, moodboard_theme_name, moodboard_theme_description, moodboard_style_family',
+        )
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+  if (templateErr) throw new Error(templateErr.message);
+  if (eventErr) throw new Error(eventErr.message);
+  if (!templateRow) throw new Error('Template not found');
+  if (!eventRow) throw new Error('Event not found');
+
+  const template = templateRow as unknown as MoodboardThemeTemplate;
+  const currentPalette = sanitizeRolePalette(eventRow.role_palette ?? {});
+  const currentDesign = sanitizeReceptionDesign(eventRow.reception_design ?? {});
+
+  let mergedPalette: RolePalette;
+  let filledPaletteRoles: PaletteKey[];
+  let mergedDesign: ReceptionDesign;
+  let filledReceptionZones: string[];
+  let mergedName: string | null;
+  let mergedDescription: string | null;
+  let filledThemeName: boolean;
+  let filledThemeDescription: boolean;
+
+  if (mode === 'replace_all') {
+    const paletteResult = replaceRolePalette(currentPalette, template.role_palette);
+    mergedPalette = paletteResult.merged;
+    filledPaletteRoles = paletteResult.changedKeys;
+    const designResult = replaceReceptionDesign(currentDesign, template.reception_design);
+    mergedDesign = designResult.merged;
+    filledReceptionZones = designResult.changedZones;
+    const themeResult = replaceTheme(template.name, template.description);
+    mergedName = themeResult.name;
+    mergedDescription = themeResult.description;
+    filledThemeName = true;
+    filledThemeDescription = true;
+  } else {
+    const paletteResult = mergeRolePalette(currentPalette, template.role_palette);
+    mergedPalette = paletteResult.merged;
+    filledPaletteRoles = paletteResult.filledKeys;
+    const designResult = mergeReceptionDesign(currentDesign, template.reception_design);
+    mergedDesign = designResult.merged;
+    filledReceptionZones = designResult.filledZones;
+    const themeResult = mergeTheme(
+      eventRow.moodboard_theme_name ?? null,
+      eventRow.moodboard_theme_description ?? null,
+      template.name,
+      template.description,
+    );
+    mergedName = themeResult.name;
+    mergedDescription = themeResult.description;
+    filledThemeName = themeResult.filledName;
+    filledThemeDescription = themeResult.filledDescription;
+  }
+
+  // ── inspiration slots — the one part needing a DB round trip ────────────
+  const { data: activeRows, error: activeErr } = await supabase
+    .from('event_inspiration_assets')
+    .select('slot_key')
+    .eq('event_id', eventId)
+    .is('removed_at', null);
+  if (activeErr) throw new Error(activeErr.message);
+  const occupiedSlotKeys = new Set((activeRows ?? []).map((r) => r.slot_key as string));
+  const candidateSlots = emptyTemplateInspirationSlots(occupiedSlotKeys);
+
+  const filledInspirationSlots: string[] = [];
+  if (candidateSlots.length > 0) {
+    for (const slotKey of candidateSlots) {
+      const assetDef = TEMPLATE_INSPIRATION_SLOT_ASSETS[slotKey];
+      if (!assetDef) continue;
+      const { data: assetRows } = await supabase
+        .from('moodboard_library_assets')
+        .select(
+          `asset_id, storage_path,
+           moodboard_asset_color_ranges ( slot_id, sampled_hex )`,
+        )
+        .eq('asset_type', assetDef.asset_type)
+        .eq('asset_subtype', assetDef.asset_subtype)
+        .eq('style_theme', template.style_family)
+        .not('approved_at', 'is', null)
+        .is('retired_at', null)
+        .limit(1);
+      const asset = (assetRows ?? [])[0] as
+        | {
+            storage_path: string;
+            moodboard_asset_color_ranges:
+              | { slot_id: number; sampled_hex: string }[]
+              | { slot_id: number; sampled_hex: string }
+              | null;
+          }
+        | undefined;
+      if (!asset) continue;
+      const ranges = Array.isArray(asset.moodboard_asset_color_ranges)
+        ? asset.moodboard_asset_color_ranges
+        : asset.moodboard_asset_color_ranges
+          ? [asset.moodboard_asset_color_ranges]
+          : [];
+      const rawHexes = ranges
+        .slice()
+        .sort((a, b) => a.slot_id - b.slot_id)
+        .map((r) => r.sampled_hex);
+      if (rawHexes.length === 0) continue; // no real color to write — skip, don't invent one
+      const hexes = Array.from({ length: 6 }, (_, i) => rawHexes[i % rawHexes.length]!);
+
+      const { error: insertErr } = await supabase.from('event_inspiration_assets').insert({
+        event_id: eventId,
+        added_by_user_id: user.id,
+        slot_key: slotKey,
+        slot_position: 1,
+        source_kind: 'url_paste',
+        image_url: asset.storage_path,
+        sampled_hex_1: hexes[0],
+        sampled_hex_2: hexes[1],
+        sampled_hex_3: hexes[2],
+        sampled_hex_4: hexes[3],
+        sampled_hex_5: hexes[4],
+        sampled_hex_6: hexes[5],
+      });
+      if (!insertErr) filledInspirationSlots.push(slotKey);
+    }
+  }
+
+  const summary: ApplyTemplateSummary = {
+    mode,
+    filledPaletteRoles,
+    filledReceptionZones,
+    filledInspirationSlots,
+    filledThemeName,
+    filledThemeDescription,
+  };
+  const nothingToFill = summaryIsEmpty(summary);
+
+  // Only write to `events` when something in it actually changed — an
+  // event-row UPDATE + mood_board_updated_at bump for a couple who has
+  // nothing left to fill would be a no-op write that still touches
+  // updated_at, misleadingly implying a save happened.
+  const paletteChanged = filledPaletteRoles.length > 0;
+  const designChanged = filledReceptionZones.length > 0;
+  const themeChanged = filledThemeName || filledThemeDescription;
+
+  // WHICH style family produced this board — the provenance the AI decor-layer
+  // pilot needs and nothing used to record (see nextMoodboardStyleFamily's
+  // docblock). `null` means "leave the stored value alone".
+  const styleFamilyToWrite = nextMoodboardStyleFamily(
+    mode,
+    (eventRow as { moodboard_style_family?: string | null }).moodboard_style_family ?? null,
+    template.style_family,
+  );
+
+  if (paletteChanged || designChanged || themeChanged || styleFamilyToWrite) {
+    const update: Record<string, unknown> = {};
+    // Bump the couple-visible "last saved" stamp ONLY when something the
+    // couple can SEE changed. Recording the style family is internal
+    // provenance — writing it alone must not tell a fully-personalized couple
+    // their board was just saved when nothing on it moved.
+    if (paletteChanged || designChanged || themeChanged) {
+      update.mood_board_updated_at = new Date().toISOString();
+    }
+    if (paletteChanged) update.role_palette = mergedPalette as RolePalette;
+    if (designChanged) update.reception_design = mergedDesign as ReceptionDesign;
+    if (filledThemeName) update.moodboard_theme_name = mergedName;
+    if (filledThemeDescription) update.moodboard_theme_description = mergedDescription;
+    if (styleFamilyToWrite) update.moodboard_style_family = styleFamilyToWrite;
+
+    const { error: updateErr } = await supabase
+      .from('events')
+      .update(update)
+      .eq('event_id', eventId);
+    if (updateErr) throw new Error(updateErr.message);
+  }
+
+  if (
+    paletteChanged ||
+    designChanged ||
+    themeChanged ||
+    styleFamilyToWrite ||
+    filledInspirationSlots.length > 0
+  ) {
+    revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+    // The Seat Plan lab reads role_palette / reception_design AND (new) the
+    // stored style family that drives its decor-layer resolution, so it has to
+    // be revalidated too — same reasoning saveReceptionDesign already applies
+    // in the other direction (seating/actions.ts revalidates the mood board).
+    revalidatePath(`/dashboard/${eventId}/seating/lab`);
+  }
+
+  return { ...summary, nothingToFill };
 }
 
 /**

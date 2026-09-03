@@ -342,7 +342,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'palette-tiers',
         title: 'Palette tiers',
-        body: 'Mood Board groups your palettes into three families: Venue (Ceremony 1-3 colors, Reception 3-6 with dominant/supporting/accent slots), Couple (Bride 1-3, Groom 1-3), and Roles (Wedding Party 3-6, Sponsors 1-3 each, Plain guests 3-6). Role palettes only show when you have guests in that role.',
+        body: 'Mood Board groups your palettes into three families: Venue (Ceremony 1-3 colors, Reception 3-5 in named slots — dominant, supporting, accent, neutral, accent 2), Couple (Bride 1-3, Groom 1-3), and Roles (Wedding Party 3-6, Sponsors 1-3 each, Plain guests 3-6). Every starter theme fills all five reception slots. Role palettes only show when you have guests in that role.',
       },
       {
         slug: 'palette-chip-dot',

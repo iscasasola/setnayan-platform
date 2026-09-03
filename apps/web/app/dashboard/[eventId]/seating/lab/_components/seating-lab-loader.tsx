@@ -23,6 +23,7 @@ import type {
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 import type { RolePalette } from '@/lib/mood-board';
 import type { ReceptionDesign } from '@/lib/reception-scene';
+import type { MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import type { GhostBooth3D } from '@/lib/ghost-booths';
 
 const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
@@ -46,6 +47,10 @@ type Props = {
   rolePalette: RolePalette;
   /** Couple's saved reception treatments (Wave 2b) — drives the 3D decor. */
   receptionDesign: ReceptionDesign;
+  /** `events.moodboard_style_family` — which theme family produced this board,
+   *  or null when the couple hasn't applied a template. Drives the reception
+   *  decor AI-image layer pilot's asset lookup (@/lib/reception-decor-layers). */
+  styleFamily: MoodboardStyleFamily | null;
   /** Room archetype (`events.venue_setting`) — swaps the 3D room shell. */
   venueSetting: string;
   monogram: Lab3DMonogram;

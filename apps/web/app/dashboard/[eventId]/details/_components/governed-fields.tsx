@@ -7,6 +7,7 @@ import { Check, Lock, Pencil, AlertTriangle, X } from 'lucide-react';
 import {
   setEventCeremonyType,
   updateVenueSetting,
+  updateCeremonyVenueSetting,
   updateGuestCount,
   updateEventDate,
   previewPersonalizationConflicts,
@@ -14,6 +15,11 @@ import {
 import { deleteVendor } from '../../vendors/actions';
 import { CEREMONY_LABEL, VENUE_LABEL, titleCase } from '@/lib/personalized-menu';
 import { ALLOWED_CEREMONY_VALUES, FAITH_LABELS } from '@/lib/faith-registry';
+import {
+  CEREMONY_VENUE_SETTINGS,
+  CEREMONY_VENUE_SETTING_LABEL,
+  CEREMONY_VENUE_SETTING_SHORT_LABEL,
+} from '@/lib/venue-settings';
 import type { ConflictField, ConflictService } from '@/lib/personalization-conflicts';
 
 /**
@@ -78,6 +84,10 @@ const CEREMONY_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
 // the overlay control only renders for the other primaries.
 const CHINESE_SECONDARY_KEY = 'chinese';
 
+// RECEPTION venue — where the guests dine. `civil_registrar` left this picker
+// on 2026-09-03: it is a CEREMONY venue and now appears in the row below
+// (migration 20271197508087 narrowed the CHECK to match, so offering it here
+// would be a valid-looking form with a save the database refuses).
 const VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'banquet_hall', label: 'Banquet hall' },
   { value: 'restaurant', label: 'Restaurant' },
@@ -86,8 +96,18 @@ const VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'destination', label: 'Destination' },
   { value: 'heritage', label: 'Heritage venue' },
   { value: 'outdoor_tent', label: 'Outdoor / tent' },
-  { value: 'civil_registrar', label: 'Civil registrar' },
 ];
+
+// CEREMONY venue — where the couple marries. DERIVED from the shared
+// vocabulary rather than re-typed, so a value added to the CHECK cannot become
+// a legal value nobody can pick (the exact failure `CEREMONY_OPTIONS` above was
+// rewritten to fix, when a hand-written list of eight faced a CHECK of
+// eighteen).
+const CEREMONY_VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
+  CEREMONY_VENUE_SETTINGS.map((value) => ({
+    value,
+    label: CEREMONY_VENUE_SETTING_LABEL[value],
+  }));
 
 type Props = {
   eventId: string;
@@ -95,14 +115,41 @@ type Props = {
   ceremony: string | null;
   secondaryCeremony: string | null;
   venue: string | null;
+  ceremonyVenue: string | null;
   pax: number | null;
   dateDisplay: string | null;
   dateValue: string | null;
 };
 
-const FIELD_LABEL: Record<ConflictField, string> = {
+/**
+ * The rows this card can open.
+ *
+ * `ceremony_venue` is NOT a `ConflictField` and that is deliberate, not an
+ * omission. The four governed fields are governed because changing them can
+ * invalidate a booked vendor — `previewPersonalizationConflicts` knows exactly
+ * those four. Nothing in the marketplace matches a vendor on the ceremony
+ * venue: migration 20260617000000 established the opposite rule outright, that
+ * ceremony venues and officiants are filtered on `ceremony_type` and faith and
+ * NEVER on a venue setting, after doing so emptied Card 03 for every couple
+ * whose reception was not `heritage`.
+ *
+ * So this row reuses the same shell, the same footer and the same save path as
+ * the other four, and skips only the conflict preview — which would otherwise
+ * have to invent a conflict rule nobody has specified. The precedent for a
+ * self-contained control on this card is the Chinese tea-ceremony overlay
+ * below.
+ */
+type EditableField = ConflictField | 'ceremony_venue';
+
+/** Does this field run the booked-vendor conflict preview before saving? */
+function hasConflictPreview(field: EditableField): field is ConflictField {
+  return field !== 'ceremony_venue';
+}
+
+const FIELD_LABEL: Record<EditableField, string> = {
   ceremony: 'Wedding type',
-  venue: 'Venue setting',
+  venue: 'Reception venue',
+  ceremony_venue: 'Ceremony venue',
   pax: 'Guest count',
   date: 'Wedding date',
 };
@@ -113,17 +160,18 @@ export function GovernedFields({
   ceremony,
   secondaryCeremony,
   venue,
+  ceremonyVenue,
   pax,
   dateDisplay,
   dateValue,
 }: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState<ConflictField | null>(null);
+  const [open, setOpen] = useState<EditableField | null>(null);
   const [proposed, setProposed] = useState('');
   const [phase, setPhase] = useState<'edit' | 'confirm'>('edit');
   const [conflicts, setConflicts] = useState<ConflictService[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [savedField, setSavedField] = useState<ConflictField | null>(null);
+  const [savedField, setSavedField] = useState<EditableField | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Chinese tea-ceremony overlay (secondary_ceremony_type). Self-contained:
@@ -162,14 +210,15 @@ export function GovernedFields({
     });
   }
 
-  function currentValueFor(field: ConflictField): string {
+  function currentValueFor(field: EditableField): string {
     if (field === 'ceremony') return ceremony ?? '';
     if (field === 'venue') return venue ?? '';
+    if (field === 'ceremony_venue') return ceremonyVenue ?? '';
     if (field === 'pax') return pax != null && pax > 0 ? String(pax) : '';
     return dateValue ?? '';
   }
 
-  function startEdit(field: ConflictField) {
+  function startEdit(field: EditableField) {
     setOpen(field);
     setProposed(currentValueFor(field));
     setPhase('edit');
@@ -185,7 +234,7 @@ export function GovernedFields({
     setError(null);
   }
 
-  async function applyField(field: ConflictField, value: string): Promise<string | null> {
+  async function applyField(field: EditableField, value: string): Promise<string | null> {
     // returns an error message, or null on success
     const fd = new FormData();
     fd.set('event_id', eventId);
@@ -197,6 +246,13 @@ export function GovernedFields({
     if (field === 'venue') {
       fd.set('venue_setting', value);
       const res = await updateVenueSetting(fd);
+      return res.ok ? null : res.message;
+    }
+    if (field === 'ceremony_venue') {
+      // An empty string is a real submission here — the column is nullable and
+      // the action stores '' as NULL, so a couple can go back to "Not set".
+      fd.set('ceremony_venue_setting', value);
+      const res = await updateCeremonyVenueSetting(fd);
       return res.ok ? null : res.message;
     }
     if (field === 'pax') {
@@ -215,7 +271,7 @@ export function GovernedFields({
     }
   }
 
-  function commit(field: ConflictField, value: string) {
+  function commit(field: EditableField, value: string) {
     startTransition(async () => {
       const msg = await applyField(field, value);
       if (msg) {
@@ -235,8 +291,28 @@ export function GovernedFields({
     setError(null);
 
     // Date needs a value; venue/ceremony need a value; pax may be blank? require it.
-    if (value === '') {
+    // The CEREMONY venue is the exception: its column is nullable, so clearing
+    // it is a legitimate save and not an empty form.
+    if (value === '' && field !== 'ceremony_venue') {
       setError('Pick a value first.');
+      return;
+    }
+
+    // No conflict engine behind the ceremony venue — see EditableField above.
+    // Apply straight through rather than asking the preview about a field it
+    // does not model, which would silently answer "no conflicts" for the wrong
+    // reason.
+    if (!hasConflictPreview(field)) {
+      startTransition(async () => {
+        const msg = await applyField(field, value);
+        if (msg) {
+          setError(msg);
+          return;
+        }
+        setSavedField(field);
+        close();
+        router.refresh();
+      });
       return;
     }
 
@@ -299,7 +375,7 @@ export function GovernedFields({
         <div className="flex items-start gap-2 rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5">
           <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
           <p className="text-xs text-ink/60">
-            You’ve booked vendors, so your wedding type, venue, guest count, and date are locked.{' '}
+            You’ve booked vendors, so your wedding type, venues, guest count, and date are locked.{' '}
             <Link href="/help" className="font-medium text-terracotta underline-offset-2 hover:underline">
               Contact support
             </Link>{' '}
@@ -312,7 +388,8 @@ export function GovernedFields({
             Also honoring a {ceremonyDisplay(secondaryCeremony).toLowerCase()}.
           </p>
         ) : null}
-        <LockedRow label="Venue setting" value={venueDisplay(venue)} />
+        <LockedRow label={FIELD_LABEL.ceremony_venue} value={ceremonyVenueDisplay(ceremonyVenue)} />
+        <LockedRow label={FIELD_LABEL.venue} value={venueDisplay(venue)} />
         <LockedRow label="Guest count" value={pax != null && pax > 0 ? `${pax} guests` : null} />
         <LockedRow label="Wedding date" value={dateDisplay} />
       </div>
@@ -387,6 +464,37 @@ export function GovernedFields({
         </div>
       ) : null}
 
+      {/* CEREMONY venue — where they marry. Sits directly above the reception
+          venue, in the order the day happens, so the two are read as a pair.
+          Until 2026-09-03 there was only one venue row and nothing said which
+          of the two it meant. */}
+      <EditableRow
+        field="ceremony_venue"
+        label={FIELD_LABEL.ceremony_venue}
+        value={ceremonyVenueDisplay(ceremonyVenue)}
+        open={open === 'ceremony_venue'}
+        saved={savedField === 'ceremony_venue'}
+        onEdit={() => startEdit('ceremony_venue')}
+      >
+        <select
+          value={proposed}
+          onChange={(e) => setProposed(e.target.value)}
+          className={SELECT_CLASS}
+        >
+          {/* Unlike the rows above, the blank option SAVES — the column is
+              nullable, so "haven't decided" is a state, not a missing answer. */}
+          <option value="">Haven’t decided yet</option>
+          {CEREMONY_VENUE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-[11px] text-ink/50">
+          Where you’ll marry. Your reception venue is set separately below.
+        </p>
+      </EditableRow>
+
       <EditableRow
         field="venue"
         label={FIELD_LABEL.venue}
@@ -407,6 +515,9 @@ export function GovernedFields({
             </option>
           ))}
         </select>
+        <p className="text-[11px] text-ink/50">
+          Where your guests will eat and celebrate.
+        </p>
       </EditableRow>
 
       <EditableRow
@@ -548,7 +659,17 @@ export function GovernedFields({
                   disabled={pending}
                   className="inline-flex items-center justify-center rounded-xl bg-mulberry px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
-                  {pending ? 'Checking…' : 'Check & save'}
+                  {/* "Check & save" names the booked-vendor conflict check. The
+                      ceremony venue does not run one, so it must not claim to —
+                      a button that says it checked something it never looked at
+                      is the same lie as a green test that asserts nothing. */}
+                  {pending
+                    ? hasConflictPreview(open)
+                      ? 'Checking…'
+                      : 'Saving…'
+                    : hasConflictPreview(open)
+                      ? 'Check & save'
+                      : 'Save'}
                 </button>
                 <button
                   type="button"
@@ -581,7 +702,7 @@ function EditableRow({
   onEdit,
   children,
 }: {
-  field: ConflictField;
+  field: EditableField;
   label: string;
   value: string | null;
   open: boolean;
@@ -646,6 +767,15 @@ function ceremonyDisplay(value: string | null): string {
 function venueDisplay(value: string | null): string | null {
   if (!value) return null;
   return VENUE_LABEL[value] ?? titleCase(value);
+}
+
+/** The ceremony venue's short label, or null so the row prints "Not set" —
+ *  which, unlike on the reception row, is a state the column can really hold. */
+function ceremonyVenueDisplay(value: string | null): string | null {
+  if (!value) return null;
+  return CEREMONY_VENUE_SETTING_SHORT_LABEL[
+    value as keyof typeof CEREMONY_VENUE_SETTING_SHORT_LABEL
+  ] ?? titleCase(value);
 }
 
 function initials(name: string): string {

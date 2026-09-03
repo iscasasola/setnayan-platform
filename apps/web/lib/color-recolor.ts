@@ -39,8 +39,10 @@ export type PalettePreview = Record<number, string>;
 
 /**
  * A single region's recolor instruction. `palette` snaps to a target color;
- * `adjust` applies free HSL deltas. Persisted per slot inside
- * event_moodboard_saves.palette_snapshot.
+ * `adjust` applies free HSL deltas. This shape (MoodboardSnapshot below) was
+ * designed for per-slot persistence in event_moodboard_saves.palette_snapshot,
+ * a table retired 2026-09-02 (its only writer was dead code, never populated
+ * for a real couple) — no runtime code path in this file writes it today.
  */
 export type RegionEdit =
   | { mode: 'palette'; hex: string }
@@ -274,7 +276,12 @@ export function palettePreviewToEdits(preview: PalettePreview): RegionEditMap {
   return out;
 }
 
-// ---- persistence (event_moodboard_saves.palette_snapshot) ----
+// ---- self-describing shape (designed for persistence, no live writer) ----
+// event_moodboard_saves — the table this shape was designed to be persisted
+// into — was retired 2026-09-02 (dead writer, never populated for a real
+// couple). MoodboardSnapshot/RegionDef/SavedRegion stay defined here because
+// parseSnapshot below still needs to read the shape for the legacy
+// backward-compat path; nothing in this file writes it anymore.
 
 /** A region's definition (sampled color + tolerance) stored alongside its edit. */
 export type RegionDef = { hex: string; tol: number };
@@ -283,9 +290,9 @@ export type RegionDef = { hex: string; tol: number };
 export type SavedRegion = { def: RegionDef; edit: RegionEdit };
 
 /**
- * The shape stored in event_moodboard_saves.palette_snapshot (JSONB), keyed by
- * slotId. Self-describing — carries each region's definition so a pinned look
- * re-renders identically even if the asset's library tags later change.
+ * The self-describing snapshot shape, keyed by slotId — carries each region's
+ * definition so a pinned look re-renders identically even if the asset's
+ * library tags later change.
  *
  * Backward-compatible read: a legacy value of plain `"#RRGGBB"` (the pre-redesign
  * slot→hex shape) is interpreted as a palette snap, with the region definition

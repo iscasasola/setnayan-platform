@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6c79e1b6f",
+  "generatedFromRef": "750a6691d",
   "routeCount": 413,
-  "destinations": 881,
-  "actions": 618,
-  "blocks": 4200,
+  "destinations": 882,
+  "actions": 621,
+  "blocks": 4211,
   "routes": {
     "/": {
       "files": [
@@ -1137,6 +1137,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AgentVel",
         "BoothVendorCard",
         "Canvas",
         "ChibiFigure",
@@ -1159,6 +1160,7 @@
         "MouseEvent",
         "OrbitControls",
         "OwnSeatTapTarget",
+        "RemoteMap",
         "RemotePlayers",
         "RoomFooter",
         "SceneLighting",
@@ -4597,6 +4599,7 @@
     },
     "/dashboard/[eventId]/access-requests": {
       "files": [
+        "dashboard/[eventId]/access-requests/_components/granted-now.tsx",
         "dashboard/[eventId]/access-requests/_components/request-card.tsx",
         "dashboard/[eventId]/access-requests/actions.ts",
         "dashboard/[eventId]/access-requests/loading.tsx",
@@ -4606,6 +4609,8 @@
       "actions": [],
       "blocks": [
         "AnswerResult",
+        "GrantRow",
+        "GrantedNow",
         "ListPageSkeleton",
         "PageMasthead",
         "RequestCard"
@@ -4862,9 +4867,9 @@
       ],
       "actions": [],
       "blocks": [
-        "ConflictField",
         "DetailsForm",
         "DocRow",
+        "EditableField",
         "EditableRow",
         "ErrorNote",
         "GovernedFields",
@@ -5870,6 +5875,7 @@
         "CommandBar",
         "ContextDock",
         "DayOfEditingBanner",
+        "DecorLayerCatalog",
         "DrawerSnap",
         "DropConfirmBubble",
         "DropConfirmState",
@@ -5907,6 +5913,7 @@
       "files": [
         "dashboard/[eventId]/seating/lab/_components/couple-3d-plan-buy.tsx",
         "dashboard/[eventId]/seating/lab/_components/couple-3d-plan-unlock-notice.tsx",
+        "dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-loader.tsx",
         "dashboard/[eventId]/seating/lab/page.tsx"
@@ -5927,6 +5934,7 @@
         "Crowd",
         "DanceFloorMural",
         "DancerToken",
+        "DecorLayerCatalog",
         "DropConfirmBubble",
         "DropConfirmState",
         "DustMotes",
@@ -5951,8 +5959,10 @@
         "MouseEvent",
         "MoverToken",
         "OrbitControls",
+        "PartId",
         "PointerEvent",
         "PriorityOrder",
+        "ReceptionDesignEditor",
         "RemotePlayers",
         "RoomShell",
         "RulesPanel",
@@ -6005,6 +6015,7 @@
     "/dashboard/[eventId]/sponsors": {
       "files": [
         "dashboard/[eventId]/sponsors/_components/add-sponsor-modal.tsx",
+        "dashboard/[eventId]/sponsors/_components/edit-sponsor-modal.tsx",
         "dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx",
         "dashboard/[eventId]/sponsors/_components/pair-target-picker.tsx",
         "dashboard/[eventId]/sponsors/actions.ts",
@@ -6021,11 +6032,13 @@
         "formAction",
         "markResponse",
         "removeSponsor",
-        "sendInvitation"
+        "sendInvitation",
+        "updateSponsor"
       ],
       "blocks": [
         "AddSponsorModal",
         "Banner",
+        "EditSponsorModal",
         "HTMLDivElement",
         "HTMLInputElement",
         "HTMLTextAreaElement",
@@ -6245,55 +6258,55 @@
         "dashboard/[eventId]/studio/mood-board/_components/concept-pdf-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/moodboard-board.tsx",
-        "dashboard/[eventId]/studio/mood-board/_components/moodboard-chapters.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-editor.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/printable-pdf-button.tsx",
-        "dashboard/[eventId]/studio/mood-board/_components/reception-designer.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/share-with-vendors-button.tsx",
-        "dashboard/[eventId]/studio/mood-board/_components/wedding-attire-guide.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx",
         "dashboard/[eventId]/studio/mood-board/actions.ts",
         "dashboard/[eventId]/studio/mood-board/loading.tsx",
         "dashboard/[eventId]/studio/mood-board/page.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/seating/lab",
         "/dashboard/[seg]/studio"
       ],
       "actions": [
         "handleSubmit"
       ],
       "blocks": [
+        "ApplyResult",
+        "ApplyTemplateSummary",
         "BoardCardView",
-        "CanvasArches",
+        "ChoiceButton",
         "ConceptPdfButton",
         "HTMLCanvasElement",
         "HTMLImageElement",
-        "Image",
         "ImageData",
         "InspirationBoard",
         "Link",
         "MoodboardBoard",
+        "MoodboardMoodTag",
+        "MoodboardStyleFamily",
         "PageMasthead",
         "PaletteEditor",
         "PaletteFamily",
         "PaletteKey",
         "PaletteStrip",
-        "PartId",
-        "PhotoFigure",
         "PrintablePdfButton",
-        "ReceptionDesign",
-        "ReceptionDesigner",
         "RecolorStudio",
         "RegionEditMap",
-        "RoleCluster",
-        "RoleConfig",
-        "RoleKey",
         "RolePalette",
         "RoomDressing",
         "ShareWithVendorsButton",
-        "Silhouette",
         "Slider",
-        "SlotTile"
+        "SlotTile",
+        "TemplateGallery",
+        "ThemeCard",
+        "ThemeIntentApplySummary",
+        "ThemeTemplatePage",
+        "ThemeTextReading"
       ]
     },
     "/dashboard/[eventId]/studio/pakanta": {
@@ -7464,8 +7477,10 @@
       ],
       "actions": [
         "action",
+        "clearAction",
         "moveDownAction",
         "moveUpAction",
+        "saveAction",
         "setModeAction",
         "setOpenBrowse",
         "toggleAction",
@@ -7493,6 +7508,7 @@
         "PreviewTabKey",
         "ProLockPanel",
         "ReturnTo",
+        "RsvpBackdropPanel",
         "SaveButton",
         "SchedulePeekPanel",
         "SectionsPanel",
@@ -9237,7 +9253,6 @@
     },
     "/vendor-dashboard/booking-fees": {
       "files": [
-        "vendor-dashboard/booking-fees/actions.ts",
         "vendor-dashboard/booking-fees/loading.tsx",
         "vendor-dashboard/booking-fees/page.tsx"
       ],
@@ -10128,6 +10143,7 @@
         "SeatScanOutcome",
         "SeatScanner",
         "SetCard",
+        "SetHeaderEditor",
         "SetsPanel",
         "SongRow",
         "Spare",

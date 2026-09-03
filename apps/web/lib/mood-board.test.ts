@@ -14,8 +14,12 @@ import {
   resolveAttirePaletteColor,
   resolveRoomDressing,
   sideAttireColor,
+  slugifyCustomRoleKey,
   PALETTE_ORDER,
   PALETTE_LIMITS,
+  MAX_CUSTOM_ROLES,
+  MAX_CUSTOM_ROLE_COLORS,
+  MAX_CUSTOM_ROLE_LABEL_LENGTH,
   type RolePalette,
 } from './mood-board';
 
@@ -70,6 +74,78 @@ test('sanitize preserves + validates room_dressing overrides', () => {
 test('sanitize omits room_dressing when no field is valid', () => {
   const out = sanitizeRolePalette({ room_dressing: { linens: 'nope' } });
   assert.equal(out.room_dressing, undefined);
+});
+
+// ── sanitize: couple-defined custom roles ───────────────────────────────────
+
+test('a custom role round-trips through sanitizeRolePalette', () => {
+  const out = sanitizeRolePalette({
+    wedding_party: ['#111111'],
+    custom_roles: [{ key: 'stale-key', label: "Ring bearer's dog", colors: ['#abcdef', '#123456'] }],
+  });
+  assert.deepEqual(out.wedding_party, ['#111111']);
+  assert.equal(out.custom_roles?.length, 1);
+  const role = out.custom_roles![0]!;
+  assert.equal(role.label, "Ring bearer's dog");
+  assert.deepEqual(role.colors, ['#ABCDEF', '#123456']);
+  // Key is RE-DERIVED from the label, not trusted from the input, so a
+  // renamed role never carries a stale slug.
+  assert.equal(role.key, slugifyCustomRoleKey("Ring bearer's dog"));
+  assert.equal(role.key, 'ring-bearer-s-dog');
+});
+
+test('sanitize caps an over-long custom role label', () => {
+  const longLabel = 'x'.repeat(MAX_CUSTOM_ROLE_LABEL_LENGTH + 20);
+  const out = sanitizeRolePalette({
+    custom_roles: [{ label: longLabel, colors: ['#111111'] }],
+  });
+  assert.equal(out.custom_roles?.[0]?.label.length, MAX_CUSTOM_ROLE_LABEL_LENGTH);
+});
+
+test('sanitize drops an invalid hex from a custom role, same as a fixed key', () => {
+  const out = sanitizeRolePalette({
+    custom_roles: [{ label: 'Dog', colors: ['not-a-hex', '#654321'] }],
+  });
+  assert.deepEqual(out.custom_roles?.[0]?.colors, ['#654321']);
+});
+
+test('sanitize drops a custom role whose colors are all invalid', () => {
+  const out = sanitizeRolePalette({
+    custom_roles: [{ label: 'Dog', colors: ['not-a-hex'] }],
+  });
+  assert.equal(out.custom_roles, undefined);
+});
+
+test('sanitize enforces the max custom role colors cap', () => {
+  const many = Array.from({ length: MAX_CUSTOM_ROLE_COLORS + 5 }, () => '#123456');
+  const out = sanitizeRolePalette({ custom_roles: [{ label: 'Dog', colors: many }] });
+  assert.equal(out.custom_roles?.[0]?.colors.length, MAX_CUSTOM_ROLE_COLORS);
+});
+
+test('sanitize enforces the max-10-custom-roles cap', () => {
+  const many = Array.from({ length: MAX_CUSTOM_ROLES + 5 }, (_, i) => ({
+    label: `Role ${i}`,
+    colors: ['#123456'],
+  }));
+  const out = sanitizeRolePalette({ custom_roles: many });
+  assert.equal(out.custom_roles?.length, MAX_CUSTOM_ROLES);
+});
+
+test('sanitize de-dupes custom roles that slug to the same key', () => {
+  const out = sanitizeRolePalette({
+    custom_roles: [
+      { label: 'Ring Bearer Dog', colors: ['#111111'] },
+      { label: 'ring bearer dog', colors: ['#222222'] },
+    ],
+  });
+  assert.equal(out.custom_roles?.length, 2);
+  assert.equal(out.custom_roles?.[0]?.key, 'ring-bearer-dog');
+  assert.equal(out.custom_roles?.[1]?.key, 'ring-bearer-dog-2');
+});
+
+test('sanitize drops custom roles with no label', () => {
+  const out = sanitizeRolePalette({ custom_roles: [{ label: '  ', colors: ['#111111'] }] });
+  assert.equal(out.custom_roles, undefined);
 });
 
 // ── getPrimaryColor: real keys + group normalization ────────────────────────

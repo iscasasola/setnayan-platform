@@ -85,6 +85,7 @@ import {
   ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { ReceptionDesignEditor } from './reception-design-editor';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
@@ -230,6 +231,7 @@ import {
   BOOTH_FOOTPRINT_M,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
+import type { MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { GhostBooths } from '@/app/_components/plan3d/ghost-booth';
@@ -249,6 +251,11 @@ type Props = {
    *  drives the 3D decor (ceiling / backdrop / centrepieces / entrance arch),
    *  palette-tinted so the material switcher recolours it. */
   receptionDesign: ReceptionDesign;
+  /** `events.moodboard_style_family` (migration 20271197327520) — which theme
+   *  family produced this board, or null when the couple hasn't applied a
+   *  template. Passed straight down to ReceptionDesignEditor, which is where
+   *  the decor AI-image layer pilot resolves it. */
+  styleFamily: MoodboardStyleFamily | null;
   /** Room archetype (events.venue_setting) — swaps the room shell + floor tone. */
   venueSetting: string;
   /** The couple's canonical mark — rendered as a medallion on the floor centre
@@ -447,7 +454,7 @@ type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target
 // figure for free. `faceY` is the heading it settles into while dancing.
 type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -457,6 +464,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // lost edit). The counter holds the resync until every in-flight save settles.
   const [floor, setFloor] = useState(floorProp);
   const floorInFlight = useRef(0);
+  // Reception design (Wave 2b decor treatments) is LOCAL state too — the
+  // relocated editor (ReceptionDesignEditor) writes here optimistically so
+  // VenueDecor re-renders the 3D room immediately, same pattern as `floor`
+  // above. Re-syncs from server truth when the prop changes (loader re-run).
+  const [design, setDesign] = useState(receptionDesign);
+  useEffect(() => setDesign(receptionDesign), [receptionDesign]);
   useEffect(() => {
     if (floorInFlight.current > 0) return;
     setFloor(floorProp);
@@ -867,7 +880,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // Avoidance discs for the placed venue fixtures (objects + booths + sign posts
   // + cocktail walls) — merged into every walk/crowd obstacle set so the roam
   // avatar rounds the buffet / photo booth / cocktail room just like a table.
-  const coldSpark = sel(receptionDesign, 'tunnel', 'style') === 'cold_spark';
+  const coldSpark = sel(design, 'tunnel', 'style') === 'cold_spark';
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
@@ -2669,7 +2682,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             reception treatments. Both recolour with the active palette. */}
         <VenueShell archetype={archetype} room={room} palette={palette} quality="high" />
         <VenueDecor
-          design={receptionDesign}
+          design={design}
           floor={floor}
           tables={tables}
           room={room}
@@ -2685,7 +2698,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             hanging florals — see ceilingDecorOccupied); the drifting motes
             honour the house law and simply don't mount when motion is
             reduced. */}
-        {mode === 'play' && !ceilingDecorOccupied(receptionDesign, archetype) ? (
+        {mode === 'play' && !ceilingDecorOccupied(design, archetype) ? (
           <StringLights room={room} palette={palette} quality="high" />
         ) : null}
         {mode === 'play' && !reduced ? (
@@ -2957,6 +2970,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       ) : null}
 
       <Hud
+        eventId={eventId}
+        receptionDesign={design}
+        onReceptionDesignChange={setDesign}
+        styleFamily={styleFamily}
+        rolePalette={rolePalette}
         viewSegment={
           <SeatingViewSegment
             active="3d"
@@ -5157,6 +5175,11 @@ function ZoneDragPreview({
 /* -------------------------------- HUD (2D) -------------------------------- */
 
 function Hud({
+  eventId,
+  receptionDesign,
+  onReceptionDesignChange,
+  styleFamily,
+  rolePalette,
   viewSegment,
   mode,
   setMode,
@@ -5228,6 +5251,11 @@ function Hud({
   printHref,
   tableCount,
 }: {
+  eventId: string;
+  receptionDesign: ReceptionDesign;
+  onReceptionDesignChange: (next: ReceptionDesign) => void;
+  styleFamily: MoodboardStyleFamily | null;
+  rolePalette: RolePalette;
   viewSegment: ReactNode;
   mode: 'build' | 'play';
   setMode: (m: 'build' | 'play') => void;
@@ -5575,6 +5603,28 @@ function Hud({
               onResizeZone={onResizeZone}
               onToggleDance={onToggleDance}
               onToggleEntrance={onToggleEntrance}
+            />
+            {/* Relocated from the Mood Board (2026-09-03): reception_design IS
+                this room's own decor settings, so its editor lives here now —
+                right beside Floor & stage. Editing a zone updates
+                `receptionDesign` (SeatingLab3D's `design` state, threaded
+                through as a Hud prop since Hud is its own component), which
+                VenueDecor — fed that same state up in SeatingLab3D's render —
+                shows live in the 3D room right behind this panel. */}
+            <ReceptionDesignEditor
+              eventId={eventId}
+              design={receptionDesign}
+              onChange={onReceptionDesignChange}
+              styleFamily={styleFamily}
+              palette={rolePalette.reception ?? []}
+              roleColors={{
+                bride: rolePalette.bride?.[0],
+                groom: rolePalette.groom?.[0],
+                party: rolePalette.wedding_party?.[0],
+                guest: rolePalette.guest?.[0],
+                guestPalette: rolePalette.guest ?? [],
+              }}
+              canEdit={canEdit}
             />
             <RulesPanel
               keepApart={keepApart}

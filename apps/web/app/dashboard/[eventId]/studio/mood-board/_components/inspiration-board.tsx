@@ -6,17 +6,26 @@
  * enhance the photo output to be more accurate").
  *
  * Surfaces the same per-event inspiration intake that onboarding's Card 15
- * uses — 13 named slots × 2 photos, stored in event_inspiration_assets, with
- * a 6-color palette auto-extracted from each upload. Reuses the proven
+ * uses — 18 named slots × 3 photos, stored in event_inspiration_assets, with
+ * a 6-color palette auto-extracted from each upload. Widened through
+ * 2026-09-02/03: backdrop · flowers · cocktail, then reception_venue (the
+ * ceremony/reception asymmetry), then cake — and 2 photos per slot became 3,
+ * per the owner's "it usually is 1-3 designs". Reuses the proven
  * `uploadMoodboardSlot` / `removeMoodboardSlot` server actions + the Canvas
  * extractor (lib/extract-palette). These references will feed the paid
  * "Make it real" render as additional conditioning so the photoreal output
  * matches the couple's actual taste.
  */
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, type DragEvent } from 'react';
 import { extractPaletteFromFile } from '@/lib/extract-palette';
-import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
+import {
+  uploadMoodboardSlot,
+  removeMoodboardSlot,
+  MOODBOARD_SLOT_POSITIONS,
+  type MoodboardSlotPosition,
+} from '../../../wizard-actions';
+import { reorderMoodboardSlot } from '../actions';
 
 export type InspirationItem = {
   slot_key: string;
@@ -31,11 +40,16 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
     title: 'Venue & feel',
     slots: [
       { k: 'overall', label: 'Overall vibe' },
+      { k: 'venue', label: 'Ceremony venue' },
+      { k: 'reception_venue', label: 'Reception venue' },
+      { k: 'backdrop', label: 'Wall design' },
       { k: 'ceiling', label: 'Ceiling' },
       { k: 'stage', label: 'Stage' },
       { k: 'table', label: 'Tables' },
+      { k: 'flowers', label: 'Flowers' },
       { k: 'tunnel', label: 'Tunnel' },
-      { k: 'venue', label: 'Venue' },
+      { k: 'cocktail', label: 'Cocktail hour' },
+      { k: 'cake', label: 'Cake' },
     ],
   },
   { title: 'Palette', slots: [{ k: 'palette', label: 'Palette source' }] },
@@ -100,6 +114,32 @@ export function InspirationBoard({ eventId, initial }: Props) {
     });
   }
 
+  // Drag-reorder — native HTML5 DnD (no new dependency; the repo has no
+  // existing drag-and-drop library to reuse). Swaps whatever occupies the
+  // dragged-from and dropped-on cells, within a slot or across slots.
+  function onDropTile(
+    fromSlot: string,
+    fromPos: MoodboardSlotPosition,
+    toSlot: string,
+    toPos: MoodboardSlotPosition,
+  ) {
+    if (fromSlot === toSlot && fromPos === toPos) return;
+    const fromKey = key(fromSlot, fromPos);
+    const toKey = key(toSlot, toPos);
+    setTiles((t) => ({ ...t, [fromKey]: t[toKey], [toKey]: t[fromKey] }));
+    startTransition(async () => {
+      try {
+        await reorderMoodboardSlot(
+          eventId,
+          { slotKey: fromSlot, slotPosition: fromPos },
+          { slotKey: toSlot, slotPosition: toPos },
+        );
+      } catch {
+        setError('Could not reorder — please try again.');
+      }
+    });
+  }
+
   return (
     <div className="space-y-5">
       {error ? (
@@ -120,12 +160,15 @@ export function InspirationBoard({ eventId, initial }: Props) {
               >
                 <p className="px-0.5 text-[11px] font-medium text-ink/70">{slot.label}</p>
                 <div className="flex gap-1.5">
-                  {[1, 2].map((pos) => (
+                  {MOODBOARD_SLOT_POSITIONS.map((pos) => (
                     <SlotTile
                       key={pos}
                       tile={tiles[key(slot.k, pos)]}
                       onPick={(f) => onFile(slot.k, pos, f)}
                       onRemove={() => onRemove(slot.k, pos)}
+                      slotKey={slot.k}
+                      slotPosition={pos}
+                      onDropTile={onDropTile}
                     />
                   ))}
                 </div>
@@ -138,15 +181,57 @@ export function InspirationBoard({ eventId, initial }: Props) {
   );
 }
 
+const DND_MIME = 'application/x-moodboard-slot';
+
 function SlotTile({
   tile,
   onPick,
   onRemove,
+  slotKey,
+  slotPosition,
+  onDropTile,
 }: {
   tile: Tile;
   onPick: (f: File | undefined) => void;
   onRemove: () => void;
+  slotKey: string;
+  slotPosition: MoodboardSlotPosition;
+  onDropTile: (
+    fromSlot: string,
+    fromPos: MoodboardSlotPosition,
+    toSlot: string,
+    toPos: MoodboardSlotPosition,
+  ) => void;
 }) {
+  const [dragOver, setDragOver] = useState(false);
+
+  function handleDragStart(e: DragEvent) {
+    e.dataTransfer.setData(DND_MIME, JSON.stringify({ slotKey, slotPosition }));
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function handleDragOver(e: DragEvent) {
+    if (e.dataTransfer.types.includes(DND_MIME)) {
+      e.preventDefault();
+      setDragOver(true);
+    }
+  }
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const raw = e.dataTransfer.getData(DND_MIME);
+    if (!raw) return;
+    try {
+      // JSON from the drag payload is untrusted at this boundary; the server
+      // re-validates the position against MOODBOARD_SLOT_POSITIONS regardless.
+      const from = JSON.parse(raw) as { slotKey: string; slotPosition: MoodboardSlotPosition };
+      onDropTile(from.slotKey, from.slotPosition, slotKey, slotPosition);
+    } catch {
+      /* ignore malformed payload */
+    }
+  }
+
+  const dropZoneClass = dragOver ? 'ring-2 ring-terracotta ring-offset-1' : '';
+
   if (tile === 'uploading') {
     return (
       <div className="flex aspect-square flex-1 items-center justify-center rounded-lg border border-ink/15 bg-white text-[10px] text-ink/50">
@@ -156,9 +241,20 @@ function SlotTile({
   }
   if (tile) {
     return (
-      <div className="group relative aspect-square flex-1 overflow-hidden rounded-lg border border-ink/15">
+      <div
+        className={`group relative aspect-square flex-1 overflow-hidden rounded-lg border border-ink/15 ${dropZoneClass}`}
+        draggable
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={tile.url} alt="Mood board inspiration image" className="h-full w-full object-cover" />
+        <img
+          src={tile.url}
+          alt="Mood board inspiration image"
+          className="h-full w-full cursor-grab object-cover active:cursor-grabbing"
+        />
         <button
           type="button"
           onClick={onRemove}
@@ -171,7 +267,12 @@ function SlotTile({
     );
   }
   return (
-    <label className="flex aspect-square flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-ink/25 bg-white text-lg text-ink/40 transition hover:border-terracotta hover:text-terracotta">
+    <label
+      onDragOver={handleDragOver}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+      className={`flex aspect-square flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-ink/25 bg-white text-lg text-ink/40 transition hover:border-terracotta hover:text-terracotta ${dropZoneClass}`}
+    >
       +
       <input
         type="file"

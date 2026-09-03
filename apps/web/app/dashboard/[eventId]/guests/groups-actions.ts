@@ -79,127 +79,18 @@ function backToList(eventId: string, params: Record<string, string>): string {
 }
 
 // -----------------------------------------------------------------------
-// Bulk role assign · updates `role` for N guests in a single statement.
-// Honors SINGLETON_GUEST_ROLES — bride + groom can only be ONE per event,
-// so bulk-assigning multiple guests to a singleton is rejected with a
-// polite error message redirect.
+// `bulkAssignGuestRole` + `bulkAddGuestsToGroup` DELETED (2026-09-03).
+//
+// Both were folded into `bulkApplyRoleAndGroup` below on the owner's directive
+// (2026-05-23 PM, verbatim): "apply and add button should be 1 only and at the
+// last, Apply". That one action reads `role`, `group_id` AND `side` off the same
+// FormData and no-ops on whichever is blank, so the two single-purpose halves
+// have been callerless ever since — the live toolbars
+// (`_components/guest-list-multiselect.tsx`, `_components/mobile-guest-carousel.tsx`)
+// bind only the combined one.
+//
+// Do not re-split them. One Apply button is the decision, not an accident.
 // -----------------------------------------------------------------------
-
-export async function bulkAssignGuestRole(
-  eventId: string,
-  formData: FormData,
-): Promise<void> {
-  const role = clean(formData.get('role')) as GuestRole;
-  const guestIds = parseGuestIds(formData);
-
-  const roleSet = await resolveRoleSetForEvent(eventId);
-  const allowedRoles =
-    roleSet.key === 'wedding' ? WEDDING_BULK_ROLE_VALUES : roleSet.offeredRoles;
-  if (!allowedRoles.includes(role)) {
-    redirect(backToList(eventId, { error: 'invalid_role' }));
-  }
-  if (guestIds.length === 0) {
-    redirect(backToList(eventId, { error: 'no_selection' }));
-  }
-  if (
-    SINGLETON_GUEST_ROLES.includes(role) &&
-    guestIds.length > 1
-  ) {
-    const label = role === 'bride' ? 'Bride' : 'Groom';
-    redirect(
-      backToList(eventId, {
-        error: encodeURIComponent(
-          `Only one ${label} per event — pick a single guest for this role.`,
-        ),
-      }),
-    );
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from('guests')
-    .update({ role, updated_at: new Date().toISOString() })
-    .eq('event_id', eventId)
-    .in('guest_id', guestIds);
-
-  if (error) {
-    // 23505 from the partial unique indexes — fires when someone tries to set a
-    // second singleton (bride/groom or Muslim wali/imam/wakil) even via the
-    // bulk path (e.g. via a race with another tab).
-    const dupRole =
-      (error as { code?: string }).code === '23505'
-        ? singletonRoleFromIndexError(error.message)
-        : null;
-    const friendly = dupRole
-      ? singletonRoleDuplicateMessage(dupRole)
-      : error.message;
-    redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
-  }
-
-  // Smart seat-plan Phase 5: role drives the seating tier — re-place the changed guests.
-  await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: guestIds });
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(
-    backToList(eventId, {
-      bulk_assigned: String(guestIds.length),
-    }),
-  );
-}
-
-// -----------------------------------------------------------------------
-// Bulk add to existing group · upserts memberships for N guests.
-// -----------------------------------------------------------------------
-
-export async function bulkAddGuestsToGroup(
-  eventId: string,
-  formData: FormData,
-): Promise<void> {
-  const groupId = clean(formData.get('group_id'));
-  const guestIds = parseGuestIds(formData);
-
-  if (!groupId) {
-    redirect(backToList(eventId, { error: 'invalid_group' }));
-  }
-  if (guestIds.length === 0) {
-    redirect(backToList(eventId, { error: 'no_selection' }));
-  }
-
-  const supabase = await createClient();
-
-  // Verify the group belongs to this event before inserting — RLS would
-  // catch a cross-event insert too, but an explicit check gives us a
-  // friendlier error path.
-  const { data: groupRow, error: groupErr } = await supabase
-    .from('guest_groups')
-    .select('event_id')
-    .eq('group_id', groupId)
-    .maybeSingle();
-
-  if (groupErr || !groupRow || groupRow.event_id !== eventId) {
-    redirect(backToList(eventId, { error: 'invalid_group' }));
-  }
-
-  // upsert ignores already-existing memberships (group_id, guest_id PK).
-  const rows = guestIds.map((guest_id) => ({ group_id: groupId, guest_id }));
-  const { error } = await supabase
-    .from('guest_group_memberships')
-    .upsert(rows, { onConflict: 'group_id,guest_id', ignoreDuplicates: true });
-
-  if (error) {
-    redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
-  }
-
-  // Smart seat-plan Phase 5: joining a group re-clusters these guests with it (#9).
-  await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: guestIds });
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(
-    backToList(eventId, {
-      bulk_grouped: String(guestIds.length),
-    }),
-  );
-}
 
 // -----------------------------------------------------------------------
 // Combined bulk apply — single Apply button on the toolbar (owner

@@ -43,38 +43,19 @@ function parseStringArray(v: FormDataEntryValue | null): string[] {
   }
 }
 
-/**
- * Advisory date-conflict check for the Locked-QR generator: does the vendor
- * already have a calendar block (manual OR booking-derived) on the chosen event
- * date? Returns up to a few block labels. Read-only, own-vendor scoped — never
- * blocks issuance, just warns.
- */
-export async function checkVendorDateConflict(
-  dateIso: string,
-): Promise<{ labels: string[] }> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return { labels: [] };
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { labels: [] };
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { labels: [] };
-  const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
+/*
+  ─── `checkVendorDateConflict` DELETED (2026-09-03) ──────────────────────
 
-  const { data } = await supabase
-    .from('vendor_calendar_blocks')
-    .select('block_label')
-    .eq('vendor_profile_id', vendorProfileId)
-    .lte('blocked_at', `${dateIso}T23:59:59Z`)
-    .gt('blocked_until', `${dateIso}T00:00:00Z`)
-    .limit(5);
+  Superseded by `resolveVendorDateStatus` in `./date-status-actions.ts` (owner
+  2026-07-02), which is what the Locked-QR date field actually calls. It answers
+  the same question and strictly more: this returned manual-block labels only,
+  that composes blocks + stored day states + live pool bookings + waitlist into
+  the 6-state calendar taxonomy from `lib/vendor-schedule.ts`.
 
-  const labels = (data ?? [])
-    .map((b) => (b as { block_label: string }).block_label)
-    .filter(Boolean);
-  return { labels };
-}
+  ⚠ Its "never blocks issuance, just warns" wording was stale as well — the
+  generator now HARD-BLOCKS a second lock on a booked date
+  (`_components/locked-qr-generator.tsx`, and the copy at `page.tsx`).
+*/
 
 export async function issueLockedQr(formData: FormData): Promise<void> {
   const supabase = await createClient();

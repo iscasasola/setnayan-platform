@@ -48,7 +48,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { MUSIC_RIGHTS_NOTICE } from './live-studio-readiness';
-import { POOL_CHANNEL_SHARED_STRIKE_NOTICE } from './live-studio-pool-only';
+import {
+  POOL_CHANNEL_SHARED_STRIKE_NOTICE,
+  mayBroadcastOnSharedChannel,
+} from './live-studio-pool-only';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // STRIPPED. Every assertion below is about code or rendered copy, never about a
@@ -60,6 +63,8 @@ const src = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8')
 const BUY_PAGE = '../app/dashboard/[eventId]/studio/live-studio-control/page.tsx';
 const PUBLIC_PAGE = '../app/(shell)/panood/page.tsx';
 const ADMIN_BOARD = '../app/admin/live-studio-channels/page.tsx';
+const SETUP_PAGE = '../app/dashboard/[eventId]/studio/panood/setup/page.tsx';
+const GO_LIVE_ACTION = '../app/dashboard/[eventId]/studio/panood/setup/actions.ts';
 
 /* ── 1 · The notice itself says all four things ───────────────────────────── */
 
@@ -230,4 +235,117 @@ test('⭐ both surfaces use the SAME constant, so they cannot tell different sto
       `${rel} does not import the shared constant — it holds its own copy`,
     );
   }
+});
+
+/* ── 5 · …and it must reach a host who never bought the add-on ────────────── */
+
+/**
+ * 🚨 WHY SECTION 4 WAS NOT ENOUGH, measured on origin/main 2026-09-03.
+ *
+ * LS7 placed the strike warning inside `HostedChannelUpsell`, on the premise that
+ * buying the hosted-channel add-on is what puts a couple on a Setnayan channel.
+ * The premise is false — `panood/setup/actions.ts` claims a pool channel under
+ * `liveStudioRoamEnabled()` with NO entitlement check — and LS6 deactivated that
+ * SKU the same day, so `if (!owns && !onSale) return null` made the whole section,
+ * warning included, render as nothing for every host.
+ *
+ * 🔑 EVERY TEST IN SECTION 4 STAYED GREEN THROUGH THAT. They read source text, and
+ * the source was intact; the pixel was not. These pin the surfaces that are NOT
+ * gated on the dead SKU.
+ */
+
+test('⭐ the warning renders on a surface NOT gated on the hosted-channel add-on', () => {
+  // The add-on section opens with `if (!owns && !onSale) return null`, so a pin on
+  // it alone is satisfied by a section nobody can see.
+  //
+  // ⚠ AND NEITHER PAGE CAN BE PINNED BY THE BARE RENDER `{NOTICE}`. Mutation-testing
+  // this very test found both holes:
+  //   · BUY_PAGE also renders the notice inside HostedChannelUpsell — the dead
+  //     section — so a page-wide match is satisfied by the copy that shows nobody.
+  //     Scoped to YoutubeChannelPanel, the surface that actually renders.
+  //   · SETUP_PAGE binds it to `const sharedChannelWarning`, so `{NOTICE}` matches
+  //     the BINDING even when the value is mounted nowhere. Deleting either mount
+  //     left this green. Counted instead — one mount per exit.
+  const ctrl = src(BUY_PAGE);
+  const panel = ctrl.slice(ctrl.indexOf('function YoutubeChannelPanel'));
+  assert.match(
+    panel,
+    /\{POOL_CHANNEL_SHARED_STRIKE_NOTICE\}/,
+    'the channel panel — the surface every host sees — never renders the warning',
+  );
+  assert.match(
+    panel,
+    /mayBroadcastOnSharedChannel\(\)/,
+    'the channel panel does not gate on the predicate the go-live action uses',
+  );
+
+  const setup = src(SETUP_PAGE);
+  assert.match(
+    setup,
+    /mayBroadcastOnSharedChannel\(\)/,
+    'the setup page does not gate on the predicate the go-live action uses',
+  );
+  assert.match(
+    setup,
+    /\{POOL_CHANNEL_SHARED_STRIKE_NOTICE\}/,
+    'the setup page never renders the shared-channel warning',
+  );
+});
+
+test('⭐ the warning is OUTSIDE the connect-state branch, not in one arm of it', () => {
+  // 🔑 THE SECOND HALF OF THE SAME DEFECT, and it survived the first fix. The setup
+  // page picks between FOUR connect states (not-ready / connected / unmeasured /
+  // ConnectCTA). The warning first went inside ConnectCTA — one arm — so a host who
+  // had ALREADY connected their own channel rendered `ConnectedPanel` and saw
+  // nothing. That host is not safe: the go-live action resolves a POOL token FIRST
+  // and only then falls back to their BYO grant, so a connected host lands on a
+  // shared channel just as easily.
+  //
+  // Whether an event may be pooled is independent of which connect state is showing,
+  // so the warning must not sit in any arm. Pinned by ABSENCE from the arms — a
+  // presence check on the page cannot tell "rendered once for everyone" from
+  // "rendered for one quarter of hosts".
+  const setup = src(SETUP_PAGE);
+  for (const arm of ['function ConnectCTA', 'function ConnectedPanel']) {
+    const i = setup.indexOf(arm);
+    assert.notEqual(i, -1, `${arm} is gone — re-derive where the warning must sit`);
+    // Slice to the next top-level `function ` so the window is that component only.
+    const rest = setup.slice(i + arm.length);
+    const end = rest.indexOf('\nfunction ');
+    const body = end === -1 ? rest : rest.slice(0, end);
+    assert.ok(
+      !body.includes('POOL_CHANNEL_SHARED_STRIKE_NOTICE'),
+      `the warning moved back inside ${arm} — hosts in the other connect states lose it`,
+    );
+  }
+});
+
+test('⭐ the COPY and the ACTION share one predicate, so they cannot disagree', () => {
+  // The whole defect was the copy believing an entitlement decides this while the
+  // action asked the flag. If the action ever starts gating pool checkout on an
+  // entitlement, this fails and the copy moves with it — which is the point.
+  const action = src(GO_LIVE_ACTION);
+  // ⚠ actions.ts has TWO `if (liveStudioRoamEnabled()) {` sites. Anchored on the one
+  // that resolves the pool TOKEN, and bounded tightly enough that the other cannot
+  // satisfy it — an unbounded [\s\S]* would let either site pass for the other.
+  assert.match(
+    action,
+    /if \(liveStudioRoamEnabled\(\)\) \{\s*const pooled = await resolveEventBroadcastToken\(/,
+    'the go-live action no longer claims a pool channel on the roam flag alone — ' +
+      'mayBroadcastOnSharedChannel() must be re-derived from whatever now decides it',
+  );
+  // …and the predicate the copy uses is that same flag, not an entitlement.
+  const poolOnly = src('./live-studio-pool-only.ts');
+  const fn = poolOnly.slice(poolOnly.indexOf('export function mayBroadcastOnSharedChannel'));
+  assert.match(
+    fn.slice(0, 200),
+    /return liveStudioRoamEnabled\(\);/,
+    'the copy predicate drifted away from the one the action actually uses',
+  );
+});
+
+test('⭐ the predicate is a real read of the flag, not a hardcoded true', () => {
+  // A predicate stuck on `true` would warn every host on every surface forever,
+  // which reads as working and is how the coupling above stops being checked.
+  assert.equal(typeof mayBroadcastOnSharedChannel(), 'boolean');
 });

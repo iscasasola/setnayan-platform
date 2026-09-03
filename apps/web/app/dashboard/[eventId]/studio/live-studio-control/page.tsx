@@ -28,6 +28,7 @@ import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import { eventSkuActive } from '@/lib/entitlements';
 import {
   liveStudioPoolOnly,
+  mayBroadcastOnSharedChannel,
   poolOnlyConnectNotice,
   POOL_CHANNEL_SHARED_STRIKE_NOTICE,
 } from '@/lib/live-studio-pool-only';
@@ -594,6 +595,21 @@ function YoutubeChannelPanel({
         </p>
       </div>
 
+
+      {/* 🚨 THE SHARED-CHANNEL RISK, ON THE SURFACE THAT ACTUALLY REACHES THE HOST.
+          LS7 put this inside the hosted-channel add-on section, on the premise that
+          buying the add-on is what puts a couple on a Setnayan channel. It is not:
+          panood/setup/actions.ts claims a pool channel under liveStudioRoamEnabled()
+          alone, with NO entitlement check — and LS6 deactivated that SKU the same
+          day, so the section returned null and the warning reached nobody at all.
+          Gated on the SAME predicate the action uses (mayBroadcastOnSharedChannel),
+          so the copy and the behaviour cannot drift apart. Above the branch, not
+          inside one: it is true whichever channel state this host is in. */}
+      {mayBroadcastOnSharedChannel() ? (
+        <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
+          {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
+        </p>
+      ) : null}
       {poolOnly ? (
         <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
           {poolOnlyConnectNotice(ownsHostedChannel)}

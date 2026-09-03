@@ -21,7 +21,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   liveStudioPoolOnly,
+  mayBroadcastOnSharedChannel,
   poolOnlyConnectNotice,
+  POOL_CHANNEL_SHARED_STRIKE_NOTICE,
 } from '@/lib/live-studio-pool-only';
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
@@ -462,6 +464,20 @@ function YoutubeConnect({
       ) : (
         <ConnectCTA eventId={eventId} ownsHostedChannel={ownsHostedChannel} />
       )}
+
+      {/* 🚨 OUTSIDE the four-way branch above, on purpose. This first went inside
+          ConnectCTA — one arm of four — so a host who had ALREADY connected their own
+          channel (the ConnectedPanel arm) never saw it. That host is not safe: the
+          go-live action resolves a POOL token FIRST and only falls back to their BYO
+          grant, so a connected host lands on a shared Setnayan channel just as easily.
+          Whether this event may be pooled has nothing to do with which connect state
+          the panel is showing, so the warning must not live in one of its arms.
+          Predicate is the action's own — see mayBroadcastOnSharedChannel(). */}
+      {mayBroadcastOnSharedChannel() ? (
+        <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
+          {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
+        </p>
+      ) : null}
 
       {/* ⚠ This chip must keep byte-matching YOUTUBE_OAUTH_SCOPES in
           lib/panood-youtube.ts AND the OAuth consent screen. It said "YouTube

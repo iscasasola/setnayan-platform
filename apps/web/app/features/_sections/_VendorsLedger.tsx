@@ -19,11 +19,14 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 // Google. The field is gone rather than merely unrendered so it cannot be
 // re-surfaced by a later edit.
 
-const META: { Icon: LucideIcon }[] = [
-  { Icon: Briefcase },
-  { Icon: ListChecks },
-  { Icon: CalendarPlus },
-  { Icon: FileText },
+// `slug` is a language-neutral per-item anchor, so a rail card (Vendor
+// ledger, Contracts) can deep-link to its own row instead of the shared
+// `#vendors-ledger` section top.
+const META: { Icon: LucideIcon; slug: string }[] = [
+  { Icon: Briefcase, slug: 'vendor-management' },
+  { Icon: ListChecks, slug: 'payment-milestones' },
+  { Icon: CalendarPlus, slug: 'calendar-export' },
+  { Icon: FileText, slug: 'contract-uploads' },
 ];
 
 const COPY: Record<
@@ -106,11 +109,12 @@ export function VendorsLedger({ locale }: { locale: MarketingLocale }) {
 
         <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {c.items.map((item, i) => {
-            const { Icon } = META[i]!;
+            const { Icon, slug } = META[i]!;
             return (
               <li
                 key={item.title}
-                className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5"
+                id={slug}
+                className="scroll-mt-24 flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5"
               >
                 {/* The internal spec code ("Iteration 0006") used to sit opposite
                     the icon, public to every visitor. Removed — the icon carries

@@ -17,6 +17,10 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 type FeatureMeta = {
   Icon: LucideIcon;
   visual: React.ReactNode;
+  /** Language-neutral per-item anchor, so a rail card (Guest List, Seat Plan,
+   *  Mood Board, Schedule, Budget) can deep-link to its own row instead of
+   *  the shared `#planning-toolkit` section top. */
+  slug: string;
 };
 
 type FeatureCopy = { title: string; oneLiner: string; body: string };
@@ -30,11 +34,11 @@ type FeatureCopy = { title: string; oneLiner: string; body: string };
 // features page, in both locales, to anonymous visitors and to Google. Removed
 // as a field, not merely unrendered, so it cannot be re-surfaced by a later edit.
 const FEATURE_META: FeatureMeta[] = [
-  { Icon: Users, visual: <GuestListMock /> },
-  { Icon: Armchair, visual: <SeatingMock /> },
-  { Icon: Wallet, visual: <BudgetMock /> },
-  { Icon: Palette, visual: <MoodBoardMock /> },
-  { Icon: CalendarDays, visual: <ScheduleMock /> },
+  { Icon: Users, visual: <GuestListMock />, slug: 'guest-list' },
+  { Icon: Armchair, visual: <SeatingMock />, slug: 'seating-chart' },
+  { Icon: Wallet, visual: <BudgetMock />, slug: 'budget' },
+  { Icon: Palette, visual: <MoodBoardMock />, slug: 'mood-board' },
+  { Icon: CalendarDays, visual: <ScheduleMock />, slug: 'schedule' },
 ];
 
 const COPY: Record<
@@ -167,7 +171,10 @@ function FeatureRow({
 }) {
   const { Icon } = meta;
   return (
-    <article className="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-12">
+    <article
+      id={meta.slug}
+      className="scroll-mt-24 grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-12"
+    >
       <div className={`space-y-4 ${flipped ? 'lg:order-2' : ''}`}>
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">

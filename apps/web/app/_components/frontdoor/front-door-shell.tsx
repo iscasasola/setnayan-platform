@@ -338,6 +338,19 @@ type Props = {
   visibleFolders: ReadonlyArray<RailFolder>;
   moreFolders: ReadonlyArray<RailFolder>;
   tools: ReadonlyArray<RailTool>;
+  /**
+   * Planner and Together sit above Studio, same row grammar. Planner and
+   * Builder are gated on `insideEvent` by the caller (empty arrays outside
+   * one) — see `lib/free-tools-rail.ts` for why each list is short: most of
+   * what a first draft would list here already exists as a row in
+   * `EventRailContext`. Defaulting to `[]` renders no group at all, so a
+   * caller that says nothing (every doorway page, `/`'s search-results
+   * branch) is unaffected.
+   */
+  plannerTools?: ReadonlyArray<RailTool>;
+  builderTools?: ReadonlyArray<RailTool>;
+  /** NOT gated on `insideEvent` — Samahan is account-level. */
+  togetherTools?: ReadonlyArray<RailTool>;
   children: React.ReactNode;
   /**
    * The page's ONE `<h1>`, when it has a real, visible one. Supplied ⇒ it is
@@ -580,6 +593,9 @@ export function FrontDoorShell({
   visibleFolders,
   moreFolders,
   tools,
+  plannerTools = [],
+  builderTools = [],
+  togetherTools = [],
   children,
   heading,
   variant = 'front-door',
@@ -770,6 +786,26 @@ export function FrontDoorShell({
     ...tools
       .filter((t) => t.href !== '/dashboard' && !claimedByEvent.has(t.href))
       .map((t) => ({ key: t.key, href: t.href })),
+    /*
+      PLANNER / BUILDER / TOGETHER JOIN THE SAME LIST (2026-09-03), for the
+      same reason the Studio rows did on 2026-08-23: `rowProps(t.key)` below
+      lights a row by comparing its key against `activeKey`, and `activeKey`
+      only ever comes from THIS array. Leaving these three out would not
+      break silently loud — the rows still render and still navigate — it
+      breaks silently QUIET: a row you are standing on just never looks like
+      it.
+
+      🪤 Two Together pairs share one destination on purpose (Samahan
+      groups/Stories both open `/dashboard/samahan`; Vendor/Event chat both
+      open the same thread board when neither carries its own view yet) — see
+      `free-tools-rail.ts`. `activeRailKey`'s tie-break is list position, so
+      the first of each pair lights and the second stays dark. That is an
+      honest gap in a shared destination, not a bug in the matcher — the
+      fix is a second href in `free-tools-rail.ts`, not here.
+    */
+    ...plannerTools.map((t) => ({ key: t.key, href: t.href })),
+    ...builderTools.map((t) => ({ key: t.key, href: t.href })),
+    ...togetherTools.map((t) => ({ key: t.key, href: t.href })),
     ...(contextMatchRows ?? []),
   ];
   const activeKey = activeRailKey(matchRows, pathname);
@@ -1439,6 +1475,24 @@ export function FrontDoorShell({
               ) : null}
             </>
           ) : (
+            /*
+              THE RAIL'S OWN SIGN-IN PROMPT — restored 2026-09-03. This is the
+              SECOND of the seam's two Sign-in controls (see the "SIGNING IN
+              DOES NOT LEAVE THIS PAGE" docblock above and
+              `seam-invariants.test.ts`'s "the front door signs you in without
+              leaving" — it counts `href="/login"` and requires exactly 2). It
+              went missing from an earlier pass of this redesign and nothing
+              caught it locally, only CI did.
+
+              🔑 `href="/alaala"` DID NOT COME BACK. That route does not exist
+              (confirmed: no `app/alaala/`, no other reference to it anywhere
+              in the codebase) — it was already dead in the version this block
+              was restored from. `front-door-anchor.tsx` made the same call for
+              the page's own secondary link, for the same reason: `/our-story`
+              is the real manifesto page. This is that same, already-made
+              decision applied to the second place the same stale link lived,
+              not a new one.
+            */
             <>
               <div className="fd-signin-prompt">
                 <p>
@@ -1455,10 +1509,10 @@ export function FrontDoorShell({
                   Sign in
                 </Link>
               </div>
-              <Link href="/alaala" className="fd-row">
+              <Link href="/our-story" className="fd-row">
                 <RailIcon as={Sparkles} />
-                <span className="fd-label-text">What is Alaala?</span>
-                <span className="fd-icon-caption">Alaala</span>
+                <span className="fd-label-text">How it works</span>
+                <span className="fd-icon-caption">How it works</span>
               </Link>
             </>
           )}
@@ -1548,6 +1602,85 @@ export function FrontDoorShell({
               </button>
             </div>
             ) : null
+          ) : null}
+
+          {/* 3b · PLANNER / BUILDER / TOGETHER — the free tools, above Studio.
+              Same row grammar Studio uses (icon + name + one line), so these
+              read as MORE rows in the same rail, not a second visual system.
+              A group with an empty list renders nothing — see the props note
+              on `Props` for why the lists are short: everything else a first
+              draft would have listed here already exists as a row in
+              `EventRailContext`, and duplicating it would be the exact
+              "same destination, two names" defect that file's own docblock
+              warns against. */}
+          {account.signedIn && insideEvent && plannerTools.length > 0 ? (
+            <div className="fd-rgroup">
+              <div className="fd-rdiv" />
+              <div className="fd-rlabel">
+                Planner <small>things you plan with</small>
+              </div>
+              {plannerTools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.href}
+                  {...rowProps(t.key)}
+                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
+                >
+                  <span className="fd-dot" aria-hidden="true" />
+                  <span className="fd-toolwrap">
+                    <span className="fd-label-text">{t.name}</span>
+                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                  </span>
+                  <span className="fd-icon-caption">{t.name}</span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
+          {account.signedIn && insideEvent && builderTools.length > 0 ? (
+            <div className="fd-rgroup">
+              <div className="fd-rdiv" />
+              <div className="fd-rlabel">
+                Builder <small>things you book &amp; pay with</small>
+              </div>
+              {builderTools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.href}
+                  {...rowProps(t.key)}
+                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
+                >
+                  <span className="fd-dot" aria-hidden="true" />
+                  <span className="fd-toolwrap">
+                    <span className="fd-label-text">{t.name}</span>
+                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                  </span>
+                  <span className="fd-icon-caption">{t.name}</span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
+          {account.signedIn && togetherTools.length > 0 ? (
+            <div className="fd-rgroup">
+              <div className="fd-rdiv" />
+              <div className="fd-rlabel">
+                Together <small>things you do with people</small>
+              </div>
+              {togetherTools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.href}
+                  {...rowProps(t.key)}
+                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
+                >
+                  <span className="fd-dot" aria-hidden="true" />
+                  <span className="fd-toolwrap">
+                    <span className="fd-label-text">{t.name}</span>
+                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                  </span>
+                  <span className="fd-icon-caption">{t.name}</span>
+                </Link>
+              ))}
+            </div>
           ) : null}
 
           {/* 4 · STUDIO — the things you make. IT DOES NOT COLLAPSE.

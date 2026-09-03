@@ -58,6 +58,11 @@ import {
   resolveRailAccount,
   toRailFolder,
 } from './rail-data';
+import {
+  plannerRailItems,
+  builderRailItems,
+  togetherRailItems,
+} from '@/lib/free-tools-rail';
 import { resolveCommandItems } from './command-data';
 import { SignedInCluster } from './signed-in-cluster';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
@@ -216,6 +221,34 @@ export async function AppRailShell({
       */
       tools={
         account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
+      }
+      /*
+        Planner and Builder — gated on the SAME verified event Studio itself
+        uses (`studioEvent.eventId`, matched against the person's own
+        organiser events by `resolveRailStudioEvent`, never the raw prop).
+        Empty outside a specific event, same as Marketplace/Browse-by-category
+        below. See `lib/free-tools-rail.ts` for why the list is this short —
+        everything else a first draft would have put here already exists as a
+        real row in `EventRailContext`.
+      */
+      plannerTools={
+        account.signedIn && studioEvent.eventId
+          ? plannerRailItems(studioEvent.eventId)
+          : []
+      }
+      builderTools={
+        account.signedIn && studioEvent.eventId
+          ? builderRailItems(studioEvent.eventId)
+          : []
+      }
+      /*
+        Together is NOT event-gated (Samahan is account-level) — every
+        signed-in surface gets it, same `studioEvent.eventId` feeding its two
+        event-scoped rows (Vendor chat, Event chat) a real thread when one is
+        known, `/dashboard` otherwise.
+      */
+      togetherTools={
+        account.signedIn ? togetherRailItems(studioEvent.eventId) : []
       }
       railContext={railContext}
       contextMatchRows={contextMatchRows}

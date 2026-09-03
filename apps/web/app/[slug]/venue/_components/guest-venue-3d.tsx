@@ -32,7 +32,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
-import { colorFromId } from '@/lib/plan3d-room';
+import { colorFromId, remoteMovers, type RemoteMap } from '@/lib/plan3d-room';
 import { selfFigureAvatar, guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { ChibiFigure } from '@/app/_components/plan3d/kit/chibi-figure';
 import type { ChibiAvatarConfig } from '@/lib/chibi-config';
@@ -69,6 +69,9 @@ import {
   type Lab3DCocktail,
   type VenueObjectKind,
   type Vec2,
+  separateAgents,
+  pushOutOfDiscs,
+  type AgentVel,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
@@ -349,6 +352,34 @@ function GuestTable({
   );
 }
 
+/* ── Yielding to the other people in the room ──────────────────────────────
+ * The walk used to pass THROUGH every peer it rendered: `remoteMovers()` (the
+ * producer) had no call site, and plan3d-scene's `REMOTE_MOVERS` consumer is a
+ * hard-coded empty array whose own comment reads "empty (today, always)". Both
+ * ends shipped; the wire between them did not. The couple's Lab has separated
+ * its crowd since 2026-07 — this brings the public walk to the same behaviour
+ * with the same constants, so a guest and a lab agent give each other the same
+ * berth.
+ *
+ * ⚠ TWO BOUNDARIES, both load-bearing:
+ *   1. Separation runs ONLY while translating. The walker stays MOUNTED but
+ *      bodyless while its owner is seated (`bodyHidden`), and `posRef` feeds
+ *      the shared-room broadcaster — so shoving a seated figure would slide a
+ *      guest off their own chair in every peer's window.
+ *   2. It runs ONLY when a peer is actually present. An empty room re-clamps
+ *      nothing and allocates nothing: a solo walk moves exactly as it did
+ *      before this change, which is the common case on a phone.
+ */
+/** Personal-space berth between movers — the couple lab crowd's exact value. */
+const MOVER_MIN_DIST = 0.5;
+/** O(n²) separation on a phone: yield to the 8 nearest, never grow the pass. */
+const MAX_ROOM_MOVERS = 8;
+/** The walker's own girth, so its EDGE clears a table it was pushed toward. */
+const WALKER_BODY_R = 0.24;
+/** Degenerate-escape heading for the re-clamp (a point exactly on a disc centre
+ *  has no radial to push along) — module-scoped so the frame never allocates. */
+const CLAMP_PERP: Vec2 = { x: 1, z: 0 };
+
 /** The guest's own avatar: auto-walks to `target`, re-paths whenever it changes. */
 function GuestAvatar({
   entrance,
@@ -362,6 +393,7 @@ function GuestAvatar({
   onArrive,
   palette,
   posRef,
+  remotesRef,
   waveUntil = 0,
   avatar = null,
   bodyHidden = false,
@@ -391,6 +423,9 @@ function GuestAvatar({
   /** Shared-room (slice 8): the scene writes this each frame so a broadcaster can
    *  read the viewer's live floor position without touching this walk loop. */
   posRef?: React.MutableRefObject<Vec2 | null>;
+  /** Live shared-room peers, as a REF so a peer moving never re-renders this
+   *  walk loop. Absent/empty → the separation pass is skipped entirely. */
+  remotesRef?: React.MutableRefObject<RemoteMap>;
   /** Local-clock ms until the viewer's OWN figure should wave (optimistic "say
    *  hi"). 0 = not waving. */
   waveUntil?: number;
@@ -409,6 +444,10 @@ function GuestAvatar({
   const idx = useRef(0);
   const pos = useRef<Vec2>({ x: entrance.x, z: entrance.z });
   const arrivedRef = useRef(false);
+  // Predictive-separation history: last committed position + the velocity it
+  // realised. Mutated per frame, never rendered.
+  const prevPosRef = useRef<Vec2 | null>(null);
+  const velRef = useRef<AgentVel | undefined>(undefined);
   // Read here, not passed down: this is the component that actually MOVES, and
   // the walk is the only thing on this surface a reduced-motion viewer needs
   // spared. See the short-circuit in useFrame below.
@@ -508,6 +547,36 @@ function GuestAvatar({
       // Advance the gait while translating; the rig's own pelvis bob keeps the
       // group grounded (no whole-body hop).
       phaseRef.current += delta * RUN_CLOCK_RAD_S;
+      // ── Weave around the people who are actually here ──────────────────
+      // Predictive: the walker enters carrying last frame's REALISED velocity,
+      // so an approaching peer is sidestepped early instead of shoved on
+      // contact. `delta` rides along so the push is a per-second rate (same
+      // sidestep at 30 Hz and 120 Hz), not a per-frame impulse.
+      const room3d = remotesRef?.current;
+      if (room3d && room3d.size > 0) {
+        const self = { x: g.position.x, z: g.position.z };
+        const movers = remoteMovers(room3d, self, Date.now(), MAX_ROOM_MOVERS);
+        if (movers.length > 0) {
+          const v = velRef.current;
+          const steered = separateAgents(
+            [v ? { ...self, vel: v } : self, ...movers],
+            MOVER_MIN_DIST,
+            delta,
+          )[0]!;
+          // LOAD-BEARING, and it runs LAST: a sidestep can push the figure into
+          // a table the pre-routed path had already cleared, so the frame ends
+          // by re-clamping out of the SAME obstacle set the path was built from.
+          // Without this, dodging a peer is how you walk through a table.
+          const clamped = pushOutOfDiscs(
+            steered,
+            isSeatTarget ? seatObstacles : roamObstacles,
+            CLAMP_PERP,
+            WALKER_BODY_R,
+          );
+          g.position.x = clamped.x;
+          g.position.z = clamped.z;
+        }
+      }
     } else {
       // Reached the path end — freeze the gait, ease run → stand, and (seat
       // walks only) retire the destination beacon.
@@ -525,6 +594,17 @@ function GuestAvatar({
       }
     }
     pos.current = { x: g.position.x, z: g.position.z };
+    // Realised velocity for the NEXT frame's predictive pass — delta-divided
+    // (m/s) so a 30 Hz and a 120 Hz frame project identically. undefined = no
+    // history yet, which separateAgents treats as reactive-only.
+    const dt = Math.max(delta, 1e-4);
+    velRef.current = prevPosRef.current
+      ? {
+          x: (pos.current.x - prevPosRef.current.x) / dt,
+          z: (pos.current.z - prevPosRef.current.z) / dt,
+        }
+      : undefined;
+    prevPosRef.current = pos.current;
     // Share the live position for the shared-room broadcaster (no-op when absent).
     if (posRef) posRef.current = pos.current;
     // Track the optimistic self-wave as React state (changes rarely, not per frame).
@@ -631,6 +711,11 @@ export default function GuestVenue3D({
   );
   const sharedRoom = usePlan3dRoom(eventId ?? null, me);
   const walkerPosRef = useRef<Vec2 | null>(null);
+  // Latest-value mirror of the live peer map. Written during render (idempotent,
+  // no subscription) so the walk loop reads the CURRENT peers without a peer's
+  // every move re-rendering the scene.
+  const remotesRef = useRef<RemoteMap>(sharedRoom.remotes);
+  remotesRef.current = sharedRoom.remotes;
 
   const floor: Lab3DFloor = useMemo(
     () => ({
@@ -1229,6 +1314,7 @@ export default function GuestVenue3D({
             bodyHidden={sit !== null}
             palette={palette}
             posRef={walkerPosRef}
+            remotesRef={remotesRef}
             waveUntil={sharedRoom.selfGreetUntil}
             avatar={selfAvatar}
           />

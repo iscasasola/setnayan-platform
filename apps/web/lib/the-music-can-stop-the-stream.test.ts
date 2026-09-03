@@ -191,10 +191,14 @@ test('⭐ the hosted-channel BUYER is told before they add it', () => {
   // Inside the add-on section, not the footnote: this is the one thing about the
   // option a buyer cannot work out for themselves.
   const page = src(BUY_PAGE);
+  // ⚠ MATCHED AS A JSX RENDER `{NAME}`, never as the bare symbol. The bare symbol is
+  // satisfied by the IMPORT LINE ALONE, so a version of this guard that matched it
+  // would stay green with the paragraph deleted — the constant present, imported,
+  // and reaching no human. Caught by mutation-testing this very assertion.
   assert.match(
     page,
-    /POOL_CHANNEL_SHARED_STRIKE_NOTICE/,
-    'the hosted-channel add-on never states the shared-strike risk',
+    /\{POOL_CHANNEL_SHARED_STRIKE_NOTICE\}/,
+    'the hosted-channel add-on never RENDERS the shared-strike risk',
   );
   const upsell = page.slice(page.indexOf('function HostedChannelUpsell'));
   assert.match(
@@ -207,10 +211,11 @@ test('⭐ the hosted-channel BUYER is told before they add it', () => {
 test('⭐ the ADMIN placing an event on a shared channel is told too', () => {
   // The admin creates the exposure — this is the person who needs it most, and
   // the person the Wave 9 docblock has been silently keeping it from.
+  // Same rule as above: the RENDER, not the import.
   assert.match(
     src(ADMIN_BOARD),
-    /POOL_CHANNEL_SHARED_STRIKE_NOTICE/,
-    'the channel-pool board never states what reuse costs',
+    /\{POOL_CHANNEL_SHARED_STRIKE_NOTICE\}/,
+    'the channel-pool board never RENDERS what reuse costs',
   );
 });
 

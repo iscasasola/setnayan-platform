@@ -107,6 +107,24 @@ export const RETAIL: RetailRow[] = [
   // moved in the same PR as the real one, which is the rule the neighbouring
   // fixtures already state.
   { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 2500, is_active: true },
+  // ♻️ BACK ON SALE 2026-09-03 (LS8, migration 20271200509567) at ₱3,000 / DAY.
+  // It was deactivated the day before by LS6 for one reason — its ₱1,500 was set to
+  // SUM with LIVE_STUDIO into a ₱3,000 hosted total, and that pairing broke when
+  // LIVE_STUDIO became a ₱2,500 one-time unlock — and the owner has now given the
+  // replacement figure. Zero orders existed at deactivation, so nothing was
+  // stranded either way.
+  // 🔑 PER-DAY BESIDE A ONE-TIME BASE IS THE RULING, NOT A TYPO: the base unlocks
+  // software that costs nothing to run twice, while a Setnayan-supplied CHANNEL is
+  // scarce — three channels exist, two claimable, one event-day consumes one.
+  // Do not "reconcile" this row's billing_period with LIVE_STUDIO's.
+  // 🪤 AND THE PROSE HAD TO COME BACK WITH IT — this row alone is not enough, and
+  // the first attempt at this change assumed it was. `llms-txt.test.ts`'s "every
+  // ACTIVE retail price is quoted somewhere in the file" failed immediately: while
+  // the SKU was OFF sale it was correctly absent from REQUIRED_RETAIL and from the
+  // prose, and flipping is_active without restoring both leaves llms.txt
+  // under-describing a live product. The retirement pairing documented in
+  // `llms-txt.ts` runs in BOTH directions; only the retiring half was written down.
+  { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Studio — hosted channel', retail_price_php: 3000, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on
@@ -167,15 +185,6 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'PANOOD_SYSTEM_MOBILE', title: 'Live Studio — Mobile', retail_price_php: 1500, is_active: false },
   { service_code: 'PANOOD_SYSTEM', title: 'Live Studio', retail_price_php: 2500, is_active: false },
   { service_code: 'LIVE_STUDIO_ROAM', title: 'Live Studio Roam', retail_price_php: 3500, is_active: false },
-  // Deactivated by LS6 (migration 20271194920190, 2026-09-02): it was priced to
-  // SUM with LIVE_STUDIO into the owner's stated "₱3,000 TOTAL for the hosted
-  // option" (migration 20271192528988); that relationship broke when LIVE_STUDIO
-  // repriced to ₱2,500 one-time, and no replacement figure has been given — see
-  // the LS6 migration for the full reasoning. Zero orders existed on this SKU at
-  // deactivation, so nothing is stranded. Never in REQUIRED_RETAIL / llms.txt
-  // prose, so this row only needs to satisfy the "retired rows stay retired"
-  // check below, not a prose-removal pairing.
-  { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Studio — hosted channel', retail_price_php: 1500, is_active: false },
   { service_code: 'PAPIC_SEATS', title: 'Papic (5 Seats)', retail_price_php: 2999, is_active: false },
   { service_code: 'PAPIC_CAMERA_UNLIMITED_DAY', title: 'Papic Max (per camera, per day)', retail_price_php: 200, is_active: false },
 ];

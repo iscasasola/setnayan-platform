@@ -104,6 +104,13 @@ function num(v: number | string | null): number | null {
 const REQUIRED_RETAIL = [
   'SETNAYAN_AI',
   'LIVE_STUDIO',
+  // ♻️ BACK 2026-09-03 (LS8) at ₱3,000/day, after one day off sale. It is here
+  // because `llms-txt.test.ts` requires every ACTIVE retail price to be quoted in
+  // this file, and LS6 had left the SKU active-less and prose-less together. The
+  // pairing runs BOTH WAYS and the comment above only spells one: retiring a SKU
+  // means deleting the entry AND the prose line together; putting one back on sale
+  // means restoring BOTH, or the active-price guard fails on the missing prose.
+  'LIVE_STUDIO_HOSTED_CHANNEL',
   'PAKANTA',
   'SEATING_3D',
   'PAPIC_ADDON_THANK_YOU',
@@ -468,6 +475,7 @@ Pricing in PHP. All sales final on digital deliverables.
 
 - **Setnayan AI** — from ${peso(ladder[3]!.php)} to ${aiA} one-time depending on event type (see ladder above). Vendor matchmaking plus the guided planning workspace.
 - **Live Studio** — ${R('LIVE_STUDIO')} once per event, unlimited streams. Multi-camera control room, livestream embedded on the event page. A single-camera stream is free; rehearsal with up to 12 cameras is free, broadcasting one is the paid step.
+- **Live Studio — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Studio. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Charged for each day it is used, because a Setnayan channel is a scarce resource — unlike the software unlock, which costs nothing to run twice. Your own channel is the default and costs nothing extra.
 - **Pakanta** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
 - **3D Plan** — ${R('SEATING_3D')}. Walk the reception in 3D before it is real — every table and detail in place.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.

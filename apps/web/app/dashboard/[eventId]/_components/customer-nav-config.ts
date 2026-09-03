@@ -190,7 +190,9 @@ export function buildCustomerNavGroups(
      tree's plan-phase gate in `lib/customer-menu.ts` — the two rosters must not
      disagree about whether this event kind has a Hub at all.
 
-     ⚠ OPEN, OWNER'S CALL — TWO ROWS ON ONE RAIL NOW READ "Event Hub".
+     ⚠ WAS OPEN, OWNER'S CALL — TWO ROWS ON ONE RAIL READ "Event Hub".
+     ✅ CLOSED TWICE OVER: EH6 dropped the duplicate row (below), and LS8
+     (2026-09-03) renamed the survivor to "Event Hub Controller".
      Measured 2026-09-02 with `railToolsSignedIn({eventId, count: 1})`: the
      Studio group that renders a few rows below this one (front-door-shell.tsx
      § 4, "IT DOES NOT COLLAPSE") carries `pawebsite` — the App Store product
@@ -227,11 +229,27 @@ export function buildCustomerNavGroups(
      used to light. Without it the editor and Editorial — the controller's own
      doors — would leave the rail dark, which is the debt
      `studio-rows-are-lit.test.ts` exists to prevent. Pinned there and in
-     `one-event-hub-door.test.ts`. */
+     `one-event-hub-door.test.ts`.
+
+     ✏️ AND THE WORD CHANGED AGAIN 2026-09-03 (LS8), FOR THE OTHER HALF OF THE
+     SAME COLLISION. EH6 above settled which ROW survives; it did not settle
+     what the surviving row is CALLED. The owner ruled that day:
+
+       · **Event Hub** = the GUEST-FACING SITE — what a guest opens.
+       · **Event Hub Controller** = THIS, the dashboard where the couple
+         controls what that site contains.
+
+     So this row reads "Event Hub Controller". The product card keyed
+     `landing-page` keeps the bare word: it names the guest site a couple is
+     buying, and landing in its control centre is the `papic` shape the
+     2026-09-02 ruling asked for — a product card and the room that governs it
+     are allowed to be two names, and under this ruling they MUST be. The key,
+     the href and the matchPrefix are untouched; only the label moved.
+     Pinned by `the-hub-and-its-controller-are-two-words.test.ts`. */
   const launchItem: NavItem | null = opts?.websiteEnabled
     ? {
         key: 'launch',
-        label: 'Event Hub',
+        label: 'Event Hub Controller',
         href: `${base}/launch`,
         icon: Globe,
         matchPrefix: `${base}/website`,

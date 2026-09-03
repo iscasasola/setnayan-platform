@@ -46,7 +46,7 @@ function everyPage(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-test('exactly ONE surface in the whole app declares the name "Event Hub"', () => {
+test('exactly ONE surface in the whole app declares the name "Event Hub Controller"', () => {
   const pages = everyPage(APP_DIR);
   /*
     The window is every page in the app, not the two files this change touched.
@@ -55,16 +55,27 @@ test('exactly ONE surface in the whole app declares the name "Event Hub"', () =>
   */
   assert.ok(pages.length > 100, `only ${pages.length} pages found — the walk is not reaching them`);
 
+  /* ✏️ THE NAME IT GUARDS CHANGED 2026-09-03 (LS8), THE GUARD DID NOT WEAKEN.
+     Owner ruling: "Event Hub" is the GUEST-FACING SITE, "Event Hub Controller"
+     is the dashboard that governs it. This page is the dashboard, so it now
+     declares the longer name — and the check below still says exactly one
+     surface may declare it.
+
+     🪤 THE OLD PATTERN WOULD HAVE MATCHED THE NEW TITLE. `title: 'Event Hub'`
+     is a prefix of `title: 'Event Hub Controller'` only up to the quote, so the
+     closing `'` is what keeps these two apart — without it this test would have
+     kept passing while measuring the wrong string, which is the failure mode it
+     was written against in the first place. */
   const claimants = pages.filter((p) =>
-    /export const metadata\s*=\s*\{[^}]*title:\s*'Event Hub'/.test(fs.readFileSync(p, 'utf8')),
+    /export const metadata\s*=\s*\{[^}]*title:\s*'Event Hub Controller'/.test(fs.readFileSync(p, 'utf8')),
   );
 
   assert.equal(
     claimants.length,
     1,
     claimants.length === 0
-      ? 'NO surface declares "Event Hub" — the controller lost its own name'
-      : `${claimants.length} surfaces declare "Event Hub": ` +
+      ? 'NO surface declares "Event Hub Controller" — the controller lost its own name'
+      : `${claimants.length} surfaces declare "Event Hub Controller": ` +
         `${claimants.map((c) => path.relative(APP_DIR, c)).join(' · ')}. ` +
         'One word, two doors, is the defect the 2026-09-02 ruling closed.',
   );

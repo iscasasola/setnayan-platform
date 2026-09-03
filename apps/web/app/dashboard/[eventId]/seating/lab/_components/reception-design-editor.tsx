@@ -436,6 +436,28 @@ export function ReceptionDesignEditor({
                       );
                     })}
                   </div>
+                  {/* ── SAY WHAT THE ROOM IS NOT SHOWING ─────────────────────
+                      A multi-select attribute is drawn by the 3D room as its
+                      PRIMARY only (`sel`), while the mood board, the printable
+                      and the concept PDF all render every chosen treatment
+                      (`selAll`). That asymmetry is intended — what is not
+                      allowed is leaving it unsaid, because the couple then
+                      believes their combination is on screen when it is not.
+
+                      Naming the treatment matters: a generic "showing one of
+                      several" still leaves them guessing WHICH, and the whole
+                      point is that they can tell what they are looking at. */}
+                  {attr.multi === true && chosen.length > 1 ? (
+                    <p className="text-[11px] leading-snug text-ink/45">
+                      The 3D room draws{' '}
+                      <span className="font-medium text-ink/70">
+                        {attr.options.find((o) => o.id === chosen[0])?.label ?? chosen[0]}
+                      </span>{' '}
+                      only. Your other {chosen.length - 1}{' '}
+                      {chosen.length - 1 === 1 ? 'choice shows' : 'choices show'} on the mood board
+                      and the printed concept.
+                    </p>
+                  ) : null}
                 </div>
               );
             })}

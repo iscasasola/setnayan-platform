@@ -106,3 +106,22 @@ with a new `supplier_gallery` asset_type whose `asset_subtype` is the inspiratio
 Iteration 0010's mood-board spec gains the supplier-gallery chain (library → board → vendor list)
 and the rule that a publicly-readable supplier photo must carry a rights warranty. Corpus edits
 applied under the 2026-06-04 direct-edit authorization.
+
+### Follow-up in the same PR — the per-slot photo cap moves out of `wizard-actions.ts`
+
+`MOODBOARD_SLOT_POSITIONS` / `MoodboardSlotPosition` / `MOODBOARD_MAX_PHOTOS_PER_SLOT` moved to
+`lib/moodboard-slots.ts`, beside the slot keys MB2 moved there for the same reason.
+
+🛑 **AND MB10 IS WHAT PROVED THE REASON IS REAL.** `wizard-actions.ts` is a `'use server'` module,
+and Next refuses to build when one server module imports a non-function VALUE out of another:
+
+    A "use server" file can only export async functions, found object.
+
+The const had sat exported from there for months without complaint, because its only
+value-importer was a CLIENT component — a direction Next permits. The moment
+`studio/mood-board/actions.ts` (also `'use server'`) needed it to validate a gallery pick's
+position, the whole `/dashboard/[eventId]/studio/mood-board` route failed to collect.
+
+🔑 **`tsc --noEmit`, 12,593 unit tests and a full 2,166-assertion db replay were ALL GREEN through
+it.** Only `next build` can see this class, which is why it reached CI. Now proven locally with
+`pnpm --filter @setnayan/web build` before the re-push.

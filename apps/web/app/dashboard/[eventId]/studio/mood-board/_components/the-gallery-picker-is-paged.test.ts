@@ -118,6 +118,11 @@ test('⭐ THE GUARD · applyGalleryPick writes gallery_pick AND the library_asse
   assert.match(body, /source_kind: 'gallery_pick'/);
   assert.match(
     body,
+    /isMoodboardSlotPosition\(input\.slotPosition\)/,
+    'the position vocabulary is ONE list in lib/moodboard-slots.ts, never restated here',
+  );
+  assert.match(
+    body,
     /library_asset_id: asset\.assetId/,
     'the id must come from the re-read asset — not from the client, and never null',
   );

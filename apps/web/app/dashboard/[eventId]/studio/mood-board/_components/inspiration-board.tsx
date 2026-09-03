@@ -19,12 +19,11 @@
 
 import { useState, useTransition, type DragEvent } from 'react';
 import { extractPaletteFromFile } from '@/lib/extract-palette';
+import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
 import {
-  uploadMoodboardSlot,
-  removeMoodboardSlot,
   MOODBOARD_SLOT_POSITIONS,
   type MoodboardSlotPosition,
-} from '../../../wizard-actions';
+} from '@/lib/moodboard-slots';
 import { reorderMoodboardSlot } from '../actions';
 import { GalleryPicker } from './gallery-picker';
 import type { GalleryPage } from '@/lib/moodboard-gallery';

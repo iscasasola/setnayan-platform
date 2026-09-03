@@ -3,8 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { MOODBOARD_SLOT_POSITIONS, type MoodboardSlotPosition } from '../../wizard-actions';
-import { isMoodboardSlotKey } from '@/lib/moodboard-slots';
+import {
+  isMoodboardSlotKey,
+  isMoodboardSlotPosition,
+  type MoodboardSlotPosition,
+} from '@/lib/moodboard-slots';
 import {
   SUPPLIER_GALLERY_ASSET_TYPE,
   normalizeGalleryQuery,
@@ -889,7 +892,7 @@ export async function applyGalleryPick(input: {
   if (!isMoodboardSlotKey(input.slotKey) || !slotHasSupplierTrade(input.slotKey)) {
     return { status: 'error', message: 'That slot has no supplier gallery.' };
   }
-  if (!(MOODBOARD_SLOT_POSITIONS as readonly number[]).includes(input.slotPosition)) {
+  if (!isMoodboardSlotPosition(input.slotPosition)) {
     return { status: 'error', message: 'That photo slot does not exist.' };
   }
   if (typeof input.assetId !== 'string' || input.assetId.length === 0) {

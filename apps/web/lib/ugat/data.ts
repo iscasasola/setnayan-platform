@@ -94,6 +94,8 @@ export interface UgatCounts {
   runofshow: number;
   /** Live Studio: claimed camera operators. */
   livestudio: number;
+  /** Mood Board renders: "Make it real" images produced. */
+  render: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -196,6 +198,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     tableRows,
     blockRows,
     cameraRows,
+    renderRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -257,6 +260,10 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     headCount(admin, 'event_tables'),
     headCount(admin, 'event_schedule_blocks'),
     headCount(admin, 'panood_camera_operators'),
+    // Mood Board renders: every render ever made, paid or free-from-library. The
+    // node counts the IMAGE, not the credit — credits are a balance, and a
+    // balance is per event, not a platform tally.
+    headCount(admin, 'event_renders'),
   ]);
 
   return {
@@ -281,6 +288,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     seatplan: tableRows,
     runofshow: blockRows,
     livestudio: cameraRows,
+    render: renderRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,

@@ -1573,6 +1573,7 @@ function TablesView({
     seatplan: 'TYPE-SEATPLAN',
     runofshow: 'TYPE-RUNOFSHOW',
     livestudio: 'TYPE-LIVESTUDIO',
+    render: 'TYPE-RENDERS',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

@@ -195,6 +195,7 @@ export async function GET() {
     eventRemovalReasonsRes,
     eventClustersRes,
     ownCostsRes,
+    ownRendersRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -557,6 +558,25 @@ export async function GET() {
       .select('cost_id, event_id, plan_group_id, label, amount_php, paid_php, due_date, note, created_at')
       .eq('created_by_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-03) — the "Make it real" renders the subject REQUESTED
+    // (MB2, migration 20271200273322). A render is an activity record about the
+    // person who asked for it and spent the credit, so it is theirs to see.
+    //
+    // AUTHOR-scoped for the same reason `event_costs` is: a mood board is
+    // jointly authored, and an event-scoped read would hand this subject the
+    // other partner's renders — a third-party disclosure this route must never
+    // commit.
+    //
+    // `prompt` and `design_snapshot` are DELIBERATELY OMITTED. Neither is
+    // personal data about the subject: one is the machine brief assembled from
+    // the shared board, the other is the board itself, and both belong to the
+    // event rather than to whoever pressed the button. `note` IS included —
+    // that is the subject's own words.
+    supabase
+      .from('event_renders')
+      .select('render_id, event_id, part_id, image_key, note, credits_debited, created_at, completed_at')
+      .eq('created_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -605,6 +625,7 @@ export async function GET() {
   );
   const eventClusters = listOutcome('years_you_grouped', eventClustersRes);
   const ownCosts = listOutcome('own_costs_recorded', ownCostsRes);
+  const ownRenders = listOutcome('own_renders_requested', ownRendersRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -674,6 +695,7 @@ export async function GET() {
     dayRequests,
     accessRequests,
     ownCosts,
+    ownRenders,
   ]);
 
   const exported = {
@@ -760,6 +782,9 @@ export async function GET() {
     // The costs the subject recorded themselves — author-scoped, so a shared
     // wedding budget never hands one partner the other's entries.
     own_costs_recorded: ownCosts.rows,
+    // The mood-board renders the subject asked for, author-scoped. The prompt
+    // and the design snapshot are the shared board's, not this person's.
+    own_renders_requested: ownRenders.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     not_included: [

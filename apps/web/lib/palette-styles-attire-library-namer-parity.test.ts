@@ -29,6 +29,14 @@ import { nearestColorName } from './color-names';
  */
 
 const KNOWN_MISSES = new Set([
+  // MB5 (2026-09-03): color-names.ts retired its curated "Burgundy" entry —
+  // #7A1F2B sat ΔE 4.1 from the newly-added "Garnet", i.e. the same colour
+  // under two names — and repointed the word "burgundy" to Garnet via an
+  // alias. ATTIRE_LIBRARY's own #7A1F2B is untouched (a wearability
+  // guarantee, not the naming vocabulary), so this hex now names itself
+  // differently in the two tables: a documented divergence, not a colour
+  // disagreement, same as "Olive" below.
+  'Burgundy',
   'Oyster',
   'Capiz Pearl',
   'Champagne',

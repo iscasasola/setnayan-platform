@@ -809,7 +809,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
      * 'supplier_gallery'` — do not read this node's figure as "supplier photos
      * uploaded".
      *
-     * ⚠ THE SLOT LIVES IN `asset_subtype`, NOT IN A `slot_key` COLUMN, and J44
+     * ⚠ THE SLOT LIVES IN `asset_subtype`, NOT IN A `slot_key` COLUMN, and J45
      * claims that absence. `idx_moodboard_library_assets_published` is already
      * `(asset_type, asset_subtype) WHERE approved_at IS NOT NULL AND retired_at
      * IS NULL` — the picker's query verbatim — and a second column naming what
@@ -2621,6 +2621,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
       "The partial UNIQUE that makes the bonus once-per-event is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify it with \\d event_render_credit_grants. And do NOT filter the admin all-creations read by consent: that is a locked owner decision, not an oversight (see the docblock). Withdrawing consent does not remove the bonus grant, so SUM(grants) can exceed what a currently-consenting event would have earned \u2014 that is correct, not drift.",
   },
   {
+    /**
      * WHOSE PHOTO IS THIS \u2014 the half of the chain that makes the other half
      * worth building (MB10).
      *

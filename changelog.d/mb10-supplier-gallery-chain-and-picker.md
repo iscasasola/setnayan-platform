@@ -90,7 +90,7 @@ every other library-sourced row.
   (copy, pluralisation, 0 and null paint nothing) plus the mount pinned to
   `count={r.savedGalleryPhotoCount}`.
 
-Ugat: `TYPE-GALLERY` on `moodboard_library_assets`, joints J44 and J45, 33 schema claims, no
+Ugat: `TYPE-GALLERY` on `moodboard_library_assets`, joints J45 and J46, 33 schema claims, no
 baseline line added. The node's count is the WHOLE library, not the gallery slice — stated on the
 node, because reading it as "supplier photos uploaded" would be wrong.
 

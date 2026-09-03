@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6461
+# facts: 6465
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     580
-#   col       4750
+#   col       4754
 #   policy    882
 #   view      8
 #   func      237
@@ -1481,6 +1481,7 @@ col	public.event_inspiration_assets.created_at	anon=SIU authenticated=SIU
 col	public.event_inspiration_assets.event_id	anon=SIU authenticated=SIU
 col	public.event_inspiration_assets.image_url	anon=SIU authenticated=SIU
 col	public.event_inspiration_assets.inspiration_id	anon=SIU authenticated=SIU
+col	public.event_inspiration_assets.library_asset_id	anon=SIU authenticated=SIU
 col	public.event_inspiration_assets.r2_key	anon=SIU authenticated=SIU
 col	public.event_inspiration_assets.removed_at	anon=SIU authenticated=SIU
 col	public.event_inspiration_assets.sampled_hex_1	anon=SIU authenticated=SIU
@@ -2675,10 +2676,13 @@ col	public.moodboard_library_assets.asset_type	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.created_at	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.label	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.retired_at	anon=SIU authenticated=SIU
+col	public.moodboard_library_assets.rights_warranted_at	anon=SIU authenticated=SIU
+col	public.moodboard_library_assets.rights_warranty_version	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.source	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.storage_path	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.style_theme	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.uploaded_by	anon=SIU authenticated=SIU
+col	public.moodboard_library_assets.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.moodboard_render_config.config_key	anon=S authenticated=S
 col	public.moodboard_render_config.credits_per_pack	anon=S authenticated=S
 col	public.moodboard_render_config.credits_per_part	anon=S authenticated=S

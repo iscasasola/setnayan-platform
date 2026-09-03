@@ -42,8 +42,8 @@ test('⭐ the buy sheet names the laptop BEFORE the money moves', () => {
   const page = src(BUY_PAGE);
   assert.match(
     page,
-    /notice: \[LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE\]/,
-    'the buy sheet no longer receives all three pre-purchase facts',
+    /notice: \[LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE\]/,
+    'the buy sheet no longer receives all four pre-purchase facts',
   );
 });
 

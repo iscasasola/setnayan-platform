@@ -178,6 +178,44 @@ export const ENCODER_BUY_NOTICE =
 export const LEAD_TIME_NOTICE =
   'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: once approved, your unlock covers the whole event — no day to start, no clock to burn.';
 
+/**
+ * 🎵 THE FOURTH PRE-PURCHASE FACT — and the only one that fails DURING the ceremony.
+ *
+ * VERIFIED AGAINST YOUTUBE'S OWN DOCUMENTATION 2026-09-02
+ * (support.google.com/youtube/answer/3367684). YouTube runs Content ID against a
+ * LIVE stream in real time. On a match it replaces the broadcast with a placeholder
+ * image and warns the host to stop; if the content keeps playing the stream is
+ * "temporarily interrupted or terminated".
+ *
+ * 🔑 WHY THIS IS NOT A FOURTH COPY OF THE OTHER THREE. Payment lead time, YouTube's
+ * 24-hour activation and the laptop all fail BEFORE the day — late, but survivable,
+ * and a couple who meets them late can still act. This one fails at the processional
+ * or the first dance, in front of everyone watching from abroad, and there is no
+ * recovering the moment. A Filipino wedding plays licensed music continuously, so
+ * this is the DEFAULT path, not an edge case.
+ *
+ * ⚠ THE LICENSED-MUSIC CLAUSE IS THE LOAD-BEARING HALF, and it is the half every
+ * other product's copy omits. YouTube's own wording: unless the rights holder has
+ * added that channel to their Content ID allowlist, "your live stream can be
+ * interrupted even if you've licensed the third-party content". No couple will be on
+ * a rights holder's allowlist. A notice that only says "don't use copyrighted music"
+ * is the version a couple who paid for a licence reads and correctly ignores — and
+ * they are exactly the couple this exists to protect.
+ *
+ * ⚠ WRITTEN AS A PRECAUTION, NOT A DISCLAIMER. The couple CAN act on this: they
+ * choose the processional music. Copy that reads as legal cover teaches nobody
+ * anything, so this names the alternative (live musicians, royalty-free tracks) in
+ * the same breath as the risk. It also scopes the advice to what the BROADCAST
+ * carries — the reception playlist after the stream ends is nobody's problem.
+ *
+ * The last sentence is a SEPARATE failure with a separate timing: Content ID also
+ * runs over the archived video, so a stream that survived the day can still have its
+ * recording claimed or muted afterwards — which matters because "keep the recording"
+ * is a promise the /panood page makes.
+ */
+export const MUSIC_RIGHTS_NOTICE =
+  'YouTube listens to your broadcast as it goes out, and a match on commercial music can put a still image over your stream or cut it off mid-ceremony — during the processional or the first dance, with no way to rewind the moment. This happens even with music you have PAID to license, because the only exemption is an allowlist the rights holder controls and no couple is on one. So choose the sound the stream will carry with that in mind: live musicians, or royalty-free tracks, for the processional, the first dance and anything else that airs. Your reception playlist after the broadcast ends is unaffected. And even when a stream survives the day, the saved recording can still be claimed or muted afterwards.';
+
 /** Headline used when Setnayan's side is done. Names the remaining human step. */
 export const READY_HEADLINE = 'Ready to broadcast — start your encoder';
 export const BLOCKED_HEADLINE = 'Not ready to broadcast yet';

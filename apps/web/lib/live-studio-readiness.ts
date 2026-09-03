@@ -166,6 +166,9 @@ export const YOUTUBE_READY_NOTICE =
 export const ENCODER_BUY_NOTICE =
   'You will need a Windows or Mac laptop at your celebration, running free streaming software (OBS) alongside the control room — a phone or tablet on its own cannot send the broadcast to YouTube, and neither can a web browser. Your phones are the cameras; the laptop is what sends the picture out.';
 
+export const LEAD_TIME_NOTICE =
+  'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: your broadcast day starts when you first go live, not when you pay.';
+
 /**
  * 🎵 THE FOURTH PRE-PURCHASE FACT — and the only one that fails DURING the ceremony.
  *
@@ -203,9 +206,6 @@ export const ENCODER_BUY_NOTICE =
  */
 export const MUSIC_RIGHTS_NOTICE =
   'YouTube listens to your broadcast as it goes out, and a match on commercial music can put a still image over your stream or cut it off mid-ceremony — during the processional or the first dance, with no way to rewind the moment. This happens even with music you have PAID to license, because the only exemption is an allowlist the rights holder controls and no couple is on one. So choose the sound the stream will carry with that in mind: live musicians, or royalty-free tracks, for the processional, the first dance and anything else that airs. Your reception playlist after the broadcast ends is unaffected. And even when a stream survives the day, the saved recording can still be claimed or muted afterwards.';
-
-export const LEAD_TIME_NOTICE =
-  'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: your broadcast day starts when you first go live, not when you pay.';
 
 /** Headline used when Setnayan's side is done. Names the remaining human step. */
 export const READY_HEADLINE = 'Ready to broadcast — start your encoder';

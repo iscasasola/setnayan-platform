@@ -226,9 +226,17 @@ test('no call site still accepts a ref on startsWith(r2://) alone', () => {
   for (const rel of CALL_SITES) {
     const src = read(rel);
     // The regression shape: a scheme test used AS the acceptance condition for
-    // screenshotRefRaw. Any reintroduction fails here.
+    // the raw ref. Any reintroduction fails here.
+    //
+    // 🪤 THIS WAS PINNED TO ONE VARIABLE NAME UNTIL 2026-09-03 and therefore
+    // could not see the regression on a lane that spells it differently.
+    // Sabotage proved it: reintroducing the bare scheme check on
+    // `pay/[reference]/actions.ts` — where the raw ref is `refRaw`, not
+    // `screenshotRefRaw` — left THIS test green while its two neighbours went
+    // red. A guard that only recognises the defect in the file it was written
+    // against is a guard with a blind spot per lane.
     assert.ok(
-      !/screenshotRefRaw\.trim\(\)\.startsWith\('r2:\/\/'\)/.test(src),
+      !/[A-Za-z_$][\w$]*\.trim\(\)\.startsWith\('r2:\/\//.test(src),
       `${rel} reintroduced the bare scheme check — that is not a tenancy check`,
     );
   }

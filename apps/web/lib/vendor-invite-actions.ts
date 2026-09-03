@@ -62,10 +62,19 @@ function computeExpiresAt(): string {
 // shares themselves — the right shape for PH couples, who send these over
 // Messenger and Viber, not email.
 //
-// These two are KEPT rather than deleted because emailing the invite directly
-// is a capability nothing else provides — createManualVendorInvite does not
-// send mail. If email invites are ever wanted again, mount these; do not
-// rebuild them.
+// These THREE — sendVendorInvite, revokeVendorInvite and
+// connectExistingVendorProfile — are KEPT rather than deleted because emailing
+// the invite directly is a capability nothing else provides;
+// createManualVendorInvite does not send mail. If email invites are ever wanted
+// again, mount them; do not rebuild them.
+//
+// 🔑 THIS SAID "these two" UNTIL 2026-09-03, WHILE GUARDING THREE. A dead-code
+// sweep reached revokeVendorInvite, found a preservation note that named a
+// count instead of the symbols, and could not tell whether it was covered. Name
+// what you are protecting: a sweep that trusts the count deletes the odd one
+// out — and a sender you cannot take back is worse than neither half.
+// (Revoking is not orphaned meanwhile: admins keep their own revoke at
+// app/admin/vendors/actions.ts.)
 //
 // ⚠ They have NO test coverage either (checked 2026-08-06), so nothing will
 // tell you if they rot. Anyone re-mounting them should exercise them first.

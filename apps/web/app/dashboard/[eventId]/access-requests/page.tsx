@@ -5,8 +5,14 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { FLOOR_AREA_LABEL, summarizeDecisions, type AreaVerdict, type RequestOutcome } from '@/lib/floor-command';
-import type { DelegateArea } from '@/lib/event-moderators';
+import {
+  DELEGATE_AREAS,
+  resolveAreaLevel,
+  type DelegateArea,
+  type ModeratorPermissions,
+} from '@/lib/event-moderators';
 import { RequestCard, type PendingRequest } from './_components/request-card';
+import { GrantedNow, type LiveGrant } from './_components/granted-now';
 
 export const metadata: Metadata = { title: 'Access requests' };
 
@@ -68,6 +74,7 @@ export default async function AccessRequestsPage({
 
   const rows = (data ?? []) as Array<{
     request_id: string;
+    requester_user_id: string;
     vendor_profile_id: string | null;
     requested_areas: string[];
     note: string | null;
@@ -105,6 +112,55 @@ export default async function AccessRequestsPage({
 
   const answered = rows.filter((r) => r.status === 'answered');
 
+  // ── WHAT THEY HOLD NOW, asked of the grant itself ────────────────────────
+  //
+  // 🔑 NOT DERIVED FROM `decisions`. That column records what the host SAID;
+  // `event_moderators.permissions_json` is what the coordinator can actually
+  // open, and the two part company the moment anything is taken back. Reading
+  // the answer would make a revoked area keep rendering as "shared" — the
+  // couple pressing Take back and seeing no change.
+  //
+  // One query for every requester who was ever answered here, then resolved
+  // per area through the same helper the server and the RLS mirror use.
+  const answeredUserIds = [...new Set(answered.map((r) => r.requester_user_id).filter(Boolean))];
+  const liveGrants: LiveGrant[] = [];
+  if (answeredUserIds.length > 0) {
+    const { data: mods, error: modsError } = await supabase
+      .from('event_moderators')
+      .select('user_id, permissions_json')
+      .eq('event_id', eventId)
+      .in('user_id', answeredUserIds)
+      .is('removed_at', null);
+    // ⚠ WHO CAN STILL OPEN THIS WEDDING. Refused, the section renders empty —
+    // which reads as "you have shared nothing", the opposite of the truth. Log
+    // loudly; never let it pass as a clean answer.
+    if (modsError) {
+      logQueryError('AccessRequestsPage.mods', modsError, { eventId }, 'graceful_degrade');
+    }
+    const nameFor = new Map<string, string>();
+    for (const r of answered) {
+      nameFor.set(
+        r.requester_user_id,
+        (r.vendor_profile_id && names.get(r.vendor_profile_id)) || 'Your coordinator',
+      );
+    }
+    for (const m of (mods ?? []) as Array<{
+      user_id: string;
+      permissions_json: ModeratorPermissions | null;
+    }>) {
+      const areas = DELEGATE_AREAS.map((area) => ({
+        area,
+        level: resolveAreaLevel(m.permissions_json, area),
+      })).filter((a) => a.level !== null);
+      if (areas.length === 0) continue;
+      liveGrants.push({
+        moderatorUserId: m.user_id,
+        holderName: nameFor.get(m.user_id) ?? 'Your coordinator',
+        areas,
+      });
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <PageMasthead
@@ -122,6 +178,8 @@ export default async function AccessRequestsPage({
           ))}
         </ul>
       )}
+
+      <GrantedNow eventId={eventId} grants={liveGrants} />
 
       {answered.length > 0 ? (
         <section className="mt-10">

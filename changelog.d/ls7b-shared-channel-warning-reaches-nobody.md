@@ -40,8 +40,20 @@ pins a constant into a file cannot see a `return null` above it.
   shows in every channel state rather than one. The add-on copy keeps its copy too, for
   when the SKU is reactivated.
 
-**Guard:** three tests added to `lib/the-music-can-stop-the-stream.test.ts` — the
-warning renders on a surface *not* gated on the add-on; the copy predicate and the
+### …and the same defect one level up, found by checking rather than assuming
+
+The setup page picks between **four** connect states, and the fix first went inside
+`ConnectCTA` — one of them. A host who had **already connected their own channel**
+rendered `ConnectedPanel` and saw nothing. That host is not safe: the go-live action
+resolves a **pool token first** and only then falls back to their BYO grant, so a
+connected host lands on a shared channel just as easily. The warning now sits outside
+the branch — one mount, every host — and is pinned **by absence from the arms**,
+because a presence check on the page cannot tell *"rendered for everyone"* from
+*"rendered for a quarter of hosts"*.
+
+**Guard:** four tests added to `lib/the-music-can-stop-the-stream.test.ts` — the
+warning renders on a surface *not* gated on the add-on; it sits outside the
+connect-state branch rather than in one arm; the copy predicate and the
 action predicate are the same flag (so if pool checkout ever *does* become
 entitlement-gated, the test fails and the copy moves with it); and the predicate is a
 real flag read, not a hardcoded `true`.

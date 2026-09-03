@@ -8,6 +8,10 @@ import { sendVendorInviteEmail } from '@/lib/email';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { generateClaimToken, lookupExistingVendorByEmail } from '@/lib/vendor-invites';
+import {
+  SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE,
+  canInviteSupplier,
+} from '@/lib/supplier-invite-eligibility';
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -124,11 +128,16 @@ export async function sendVendorInvite(formData: FormData): Promise<SendInviteRe
       message: 'Vendor not found or not accessible.',
     };
   }
-  if (parent.marketplace_vendor_id) {
+  // The fifth gate on "may this supplier be invited?", and the one that was
+  // ALREADY RIGHT — it asks only about the account. It now asks through the
+  // shared predicate so there is one definition rather than one correct copy
+  // and three that drifted. Its message was also the only TRUE use of that
+  // sentence: here it fires precisely when the supplier does have an account.
+  if (!canInviteSupplier(parent)) {
     return {
       ok: false,
       code: 'ALREADY_LINKED',
-      message: 'This vendor is already on Setnayan.',
+      message: SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE,
     };
   }
 

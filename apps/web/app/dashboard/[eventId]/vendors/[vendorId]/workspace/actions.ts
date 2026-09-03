@@ -25,6 +25,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ensureAutoShareInvite } from '@/lib/vendor-invites';
+import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   WORKING_NOTE_BODY_MAX,
@@ -36,15 +37,24 @@ import {
 
 /**
  * Idempotently create (or re-read) the auto-share claim link for a locked
- * manual vendor. Form-only — returns void and revalidates so the freshly
- * created link renders on the next paint. Silently no-ops on bad input; the
- * unique index in ensureAutoShareInvite makes repeat submits safe.
+ * off-platform supplier. Form-only — returns void and revalidates so the
+ * freshly created link renders on the next paint. Silently no-ops on bad
+ * input; the unique index in ensureAutoShareInvite makes repeat submits safe.
+ *
+ * ⚠ THIS WAS THE FOURTH ANSWER TO ONE QUESTION, AND IT WAS "NO CONDITION AT
+ * ALL" — it minted an invite for whatever vendor_id the form named, including a
+ * marketplace-linked supplier who already has an account and for whom the
+ * invite is a no-op. It now asks `canInviteSupplier`, the same predicate the
+ * page above it and both vendor actions ask.
+ *
+ * 🔑 AND THE INVITE'S IDENTITY NOW COMES FROM THE ROW, NOT THE FORM. The
+ * denormalized `business_name` on `vendor_invites` is what the public claim
+ * page shows the supplier; taking it from a hidden input let a caller stamp any
+ * name onto it. Reading it here costs one query that the gate needs anyway.
  */
 export async function createAutoShareInviteAction(formData: FormData): Promise<void> {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
-  const businessName = formData.get('business_name');
-  const category = formData.get('category');
 
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') return;
 
@@ -54,14 +64,26 @@ export async function createAutoShareInviteAction(formData: FormData): Promise<v
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // RLS scopes this to the caller's own events, so the read is the ownership
+  // check as well as the gate's input.
+  const { data: row } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, category, marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .maybeSingle();
+  if (!row || !canInviteSupplier(row)) return;
+
   await ensureAutoShareInvite(supabase, {
     eventVendorId: vendorId,
     invitedByUserId: user.id,
     businessName:
-      typeof businessName === 'string' && businessName.trim().length > 0
-        ? businessName.trim()
+      typeof row.vendor_name === 'string' && row.vendor_name.trim().length > 0
+        ? row.vendor_name.trim()
         : 'Vendor',
-    serviceCategory: typeof category === 'string' && category.length > 0 ? category : null,
+    serviceCategory: typeof row.category === 'string' && row.category.length > 0
+      ? row.category
+      : null,
   });
 
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
@@ -124,12 +146,20 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Off-platform only: a marketplace supplier authors their own package, and
+  // the host must not overwrite it.
+  //
+  // ⚠ THIS ALSO CARRIED `.not('manual_vendor_id', 'is', null)` until
+  // 2026-09-03 — the same wrong half as the invite gate. For the 43 of 45
+  // production suppliers with both ids NULL it matched no row, and an UPDATE
+  // that matches nothing returns NO ERROR: the host pressed save, nothing
+  // happened, and nothing said so. The render gate above hid the form from
+  // those suppliers too, so the two failures concealed each other.
   const { error } = await supabase
     .from('event_vendors')
     .update({ host_inclusions: inclusions, covers_plan_groups: covers })
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
-    .not('manual_vendor_id', 'is', null)
     .is('marketplace_vendor_id', null);
   if (error) throw new Error(error.message);
 

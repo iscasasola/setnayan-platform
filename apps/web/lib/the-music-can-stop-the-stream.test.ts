@@ -257,19 +257,43 @@ test('⭐ both surfaces use the SAME constant, so they cannot tell different sto
 test('⭐ the warning renders on a surface NOT gated on the hosted-channel add-on', () => {
   // The add-on section opens with `if (!owns && !onSale) return null`, so a pin on
   // it alone is satisfied by a section nobody can see.
-  for (const rel of [BUY_PAGE, SETUP_PAGE]) {
-    const page = src(rel);
-    assert.match(
-      page,
-      /\{POOL_CHANNEL_SHARED_STRIKE_NOTICE\}/,
-      `${rel} never renders the shared-channel warning`,
-    );
-    assert.match(
-      page,
-      /mayBroadcastOnSharedChannel\(\)/,
-      `${rel} does not gate the warning on the predicate the go-live action uses`,
-    );
-  }
+  //
+  // ⚠ AND NEITHER PAGE CAN BE PINNED BY THE BARE RENDER `{NOTICE}`. Mutation-testing
+  // this very test found both holes:
+  //   · BUY_PAGE also renders the notice inside HostedChannelUpsell — the dead
+  //     section — so a page-wide match is satisfied by the copy that shows nobody.
+  //     Scoped to YoutubeChannelPanel, the surface that actually renders.
+  //   · SETUP_PAGE binds it to `const sharedChannelWarning`, so `{NOTICE}` matches
+  //     the BINDING even when the value is mounted nowhere. Deleting either mount
+  //     left this green. Counted instead — one mount per exit.
+  const ctrl = src(BUY_PAGE);
+  const panel = ctrl.slice(ctrl.indexOf('function YoutubeChannelPanel'));
+  assert.match(
+    panel,
+    /\{POOL_CHANNEL_SHARED_STRIKE_NOTICE\}/,
+    'the channel panel — the surface every host sees — never renders the warning',
+  );
+  assert.match(
+    panel,
+    /mayBroadcastOnSharedChannel\(\)/,
+    'the channel panel does not gate on the predicate the go-live action uses',
+  );
+
+  const setup = src(SETUP_PAGE);
+  assert.match(
+    setup,
+    /mayBroadcastOnSharedChannel\(\)/,
+    'the setup page does not gate on the predicate the go-live action uses',
+  );
+  // The connect panel EARLY-RETURNS on pool-only, so there are two exits and the
+  // warning has to be on BOTH. A count, not a presence check: an anchor on the first
+  // match cannot tell one mount from two.
+  const mounts = setup.match(/\{sharedChannelWarning\}/g) ?? [];
+  assert.equal(
+    mounts.length,
+    2,
+    `the connect panel has two exits and mounts the warning on ${mounts.length} of them`,
+  );
 });
 
 test('⭐ the COPY and the ACTION share one predicate, so they cannot disagree', () => {
@@ -277,9 +301,12 @@ test('⭐ the COPY and the ACTION share one predicate, so they cannot disagree',
   // action asked the flag. If the action ever starts gating pool checkout on an
   // entitlement, this fails and the copy moves with it — which is the point.
   const action = src(GO_LIVE_ACTION);
+  // ⚠ actions.ts has TWO `if (liveStudioRoamEnabled()) {` sites. Anchored on the one
+  // that resolves the pool TOKEN, and bounded tightly enough that the other cannot
+  // satisfy it — an unbounded [\s\S]* would let either site pass for the other.
   assert.match(
     action,
-    /if \(liveStudioRoamEnabled\(\)\) \{[\s\S]{0,400}resolveEventBroadcastToken/,
+    /if \(liveStudioRoamEnabled\(\)\) \{\s*const pooled = await resolveEventBroadcastToken\(/,
     'the go-live action no longer claims a pool channel on the roam flag alone — ' +
       'mayBroadcastOnSharedChannel() must be re-derived from whatever now decides it',
   );

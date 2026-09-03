@@ -50,6 +50,42 @@ export const MOODBOARD_SLOT_KEYS = [
 export type MoodboardSlotKey = (typeof MOODBOARD_SLOT_KEYS)[number];
 
 /**
+ * How many photos one slot holds. Owner, 2026-09-03, on how couples actually
+ * use this: *"most of the time, they upload more that 1 design … it usually is
+ * 1-3 designs"* — so the original 2-photo cap (20260627000000) cut off the top
+ * of the real range and was widened to 3.
+ *
+ * ⚠ ONE SOURCE OF TRUTH, ON PURPOSE. This cap was once spelled SIX times — the
+ * DB CHECK, two server-action validators, two copies of a `1 | 2` return type,
+ * and a `[1, 2]` in the tile grid — with nothing tying them together. Five of
+ * the six FAIL LOUDLY when they disagree; the sixth does not, and that is the
+ * one that matters: `listMoodboardSlots`'s row filter SILENTLY DROPS a position
+ * outside its list, so a widened DB plus a stale filter would store the
+ * couple's third photo and never render it. Widen HERE and every gate moves.
+ *
+ * 🛑 IT LIVES IN THIS FILE, NOT IN `wizard-actions.ts`, FOR THE SAME REASON THE
+ * SLOT KEYS DO — and MB10 is what proved the reason is real, not tidiness.
+ * `wizard-actions.ts` is a `'use server'` module, and Next refuses to build
+ * when one server module imports a non-function VALUE out of another:
+ *
+ *     A "use server" file can only export async functions, found object.
+ *
+ * The const had sat exported from there for months without complaint, because
+ * its only value-importer was a CLIENT component — a direction Next permits.
+ * The moment `studio/mood-board/actions.ts` (also `'use server'`) needed it to
+ * validate a gallery pick's position, the whole `/dashboard/[eventId]/studio/
+ * mood-board` route failed to build. `tsc --noEmit`, 12,593 unit tests and the
+ * full db replay were all green through it: only `next build` can see this.
+ */
+export const MOODBOARD_SLOT_POSITIONS = [1, 2, 3] as const;
+export type MoodboardSlotPosition = (typeof MOODBOARD_SLOT_POSITIONS)[number];
+export const MOODBOARD_MAX_PHOTOS_PER_SLOT = MOODBOARD_SLOT_POSITIONS.length;
+
+export function isMoodboardSlotPosition(value: unknown): value is MoodboardSlotPosition {
+  return (MOODBOARD_SLOT_POSITIONS as readonly number[]).includes(Number(value));
+}
+
+/**
  * The inspiration slot that belongs to each reception-design part — the bridge
  * that lets the couple see the photo they uploaded beside the zone they are
  * dressing.

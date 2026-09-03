@@ -60,6 +60,9 @@
   --ug-e-studio: #4a6fa5; --ug-e-studio-bg: #e6edf6;
   /* Mood Board renders — the paid image and the credits behind it (2026-09-03). */
   --ug-e-render: #a0603f; --ug-e-render-bg: #f6ebe4;
+  /* Mood Board library — the photo pool, incl. suppliers' credited work (MB10).
+     A cooler sibling of the render hue: same subsystem, different substance. */
+  --ug-e-gallery: #4f7a6a; --ug-e-gallery-bg: #e6f0ec;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;

@@ -34,7 +34,14 @@ import { useSaveLoader } from '@/components/sd-loader';
 export type LibraryAsset = {
   asset_id: string;
   // 'florals' added 2026-06-09 (mood-board redesign — Flowers chapter).
-  asset_type: 'venue_scene' | 'figure_attire' | 'florals';
+  // 'supplier_gallery' added by MB10 (2026-09-03): a shop's own portfolio
+  // photograph, credited to `vendor_profile_id`, with the inspiration slot in
+  // `asset_subtype`. Listed here because THIS PAGE READS EVERY asset_type and
+  // casts the column to this union — a fourth DB value with a three-value type
+  // would be a cast that lies. Deliberately NOT added to the <select> below:
+  // gallery rows are authored by the supplier upload page (MB11), never
+  // hand-made here, and they carry a rights warranty this form cannot capture.
+  asset_type: 'venue_scene' | 'figure_attire' | 'florals' | 'supplier_gallery';
   asset_subtype: string | null;
   label: string;
   storage_path: string;

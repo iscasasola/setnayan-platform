@@ -110,6 +110,21 @@ export type RemotePlayer = {
   recvAt: number;
   /** In the presence roster right now. false = owner left → return to seat. */
   present: boolean;
+  /** Has a real position ever arrived for this peer?
+   *
+   *  Presence carries a NAME and a COLOUR — never a position. A peer therefore
+   *  joins the roster before anyone knows where they are, and `sendMove` only
+   *  transmits while moving (plus one settle frame), so nothing fills that gap
+   *  on its own. Seeding them at (0,0) put them at the exact CENTRE of the
+   *  room — `pctToWorldM` maps 50%/50% to the origin, which on most floors is
+   *  the dance floor — so every un-broadcast peer was drawn standing in the
+   *  middle of the party, stacked on each other.
+   *
+   *  false = "we have not been told", NOT "they are at the origin". Both the
+   *  renderer and the separation pass read this through `activeRemotes`, so an
+   *  unplaced peer is neither drawn in a made-up spot nor walked around in one.
+   *  It flips true on the first MOVE and never back. */
+  placed: boolean;
   /** Wave plays until this local-clock ms (0 = not waving). */
   greetUntil: number;
 };
@@ -228,6 +243,9 @@ export function reconcilePresence(prev: RemoteMap, roster: readonly RoomPeer[], 
         moving: false,
         recvAt: nowMs,
         present: true,
+        // Presence told us WHO, not WHERE. Until a MOVE lands, this peer has
+        // no position anyone may draw or dodge.
+        placed: false,
         greetUntil: 0,
       });
     }
@@ -256,6 +274,8 @@ export function applyMove(prev: RemoteMap, msg: MoveMsg, selfId: string, nowMs: 
     h: msg.h,
     moving: msg.m,
     recvAt: nowMs,
+    // First real coordinates for this peer — from here they are placeable.
+    placed: true,
   });
   return next;
 }
@@ -314,7 +334,10 @@ export function remoteMovers(map: RemoteMap, self: Vec2, nowMs: number, cap: num
  *  player, capped at MAX_REMOTES (phones). Absent peers still render while they
  *  walk home but never crowd out a live peer from the cap. */
 export function activeRemotes(map: RemoteMap, self: Vec2, nowMs: number, cap: number = MAX_REMOTES): RemotePlayer[] {
-  const all = Array.from(map.values());
+  // Unplaced peers are dropped HERE, at the one point both the renderer and
+  // remoteMovers read, so a peer whose position is unknown can never be drawn
+  // at a guessed spot NOR shove the local walker away from one.
+  const all = Array.from(map.values()).filter((p) => p.placed);
   all.sort((a, b) => {
     // present-first, then nearest to self (dead-reckoned)
     if (a.present !== b.present) return a.present ? -1 : 1;

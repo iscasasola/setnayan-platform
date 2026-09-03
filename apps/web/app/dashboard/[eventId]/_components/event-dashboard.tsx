@@ -68,7 +68,9 @@ import {
   clashBlocksFromScheduleRows,
   scheduleClashesFromBlocks,
   loadVendorChangeSignals,
+  budgetFromEventMoney,
 } from '@/lib/setnayan-ai-snapshot';
+import { resolveEventMoney } from '@/lib/budget-truth';
 import { renderTemplate, WEDDING_TERMINOLOGY } from '@/lib/setnayan-ai-templates';
 import { buildProgressStages } from '@/lib/progress-stages';
 import type { EventDatePrecision } from '@/lib/events';
@@ -1249,6 +1251,12 @@ export async function EventDashboard({
       event.event_date,
       now,
     ).catch(() => ({ priceChanges: [], availability: [] }));
+    // The couple's money, from THE resolver — see the `budget:` slot below.
+    // Fail-soft to null: no money → no GRD-05 here, which beats a guard firing
+    // on a figure `/budget` does not print.
+    const aiRailMoney = budgetVisibility.mayRead
+      ? await resolveEventMoney(supabase, eventId).catch(() => null)
+      : null;
     const snapshot: PlanningSnapshot = {
       eventType,
       payments: upcoming.paymentItemsNext30d.map((item) => ({
@@ -1262,17 +1270,20 @@ export async function EventDashboard({
       priceChanges: changeSignals.priceChanges,
       contracts: [],
       inquiries: [],
-      budget:
-        budgetTargetCentavos !== null && budgetTargetCentavos > 0
-          ? {
-              totalPhp: budgetTargetCentavos / 100,
-              committedPhp: committedCentavos / 100,
-              pendingPhp: pendingOrders.reduce((acc, o) => {
-                const n = o.requested_total_php !== null ? Number(o.requested_total_php) : 0;
-                return acc + (Number.isFinite(n) ? n : 0);
-              }, 0),
-            }
-          : null,
+      // GRD-05 · ONE SET OF BOOKS (BA8). This rail and the guard NOTIFICATION
+      // are two renders of the same trigger, so they must be fed the same
+      // arithmetic — and that arithmetic is `/budget`'s. It used to be the
+      // legacy `committedCentavos` above (paid orders + contracted headlines),
+      // which is exactly the narrower number the paid guard was warning on.
+      //
+      // ⚠ GATED ON `budgetVisibility.mayRead`, not merely on a target
+      // existing. `resolveEventMoney` reads `events_host`, which admits a
+      // MODERATOR as well as the couple — so resolving it unconditionally
+      // would print the couple's target and committed total, inside this rail's
+      // copy, to a delegate the couple never gave budget access to. The old
+      // code was safe only because `budgetTargetCentavos` was already gated;
+      // keep the gate where the read is.
+      budget: budgetFromEventMoney(aiRailMoney),
       dateClusters: [],
       // GRD-06 clash — the same pure detection the notify snapshot uses, over
       // the run-of-show blocks this surface already loaded.

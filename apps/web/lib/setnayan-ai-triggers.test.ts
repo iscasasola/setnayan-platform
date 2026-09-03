@@ -204,16 +204,44 @@ test('priceRise: fires on increase only', () => {
   assert.equal(down.length, 0);
 });
 
-test('overBudget: fires only when committed+pending exceeds total', () => {
+test('overBudget: fires only when COMMITTED exceeds total', () => {
+  // BA8 · committed alone, never committed+pending. A `submitted` Setnayan
+  // order is money the couple applied for and an admin has not approved — the
+  // resolver files it under `estimated`, and §18.5 rule 4 gives "over budget"
+  // exactly one meaning: what they have AGREED exceeds their target.
   assert.equal(
-    overBudgetTrigger(emptySnap({ budget: { totalPhp: 100, committedPhp: 80, pendingPhp: 40, topDriverCategory: 'catering' } })).length,
+    overBudgetTrigger(
+      emptySnap({ budget: { totalPhp: 100, committedPhp: 120, topDriverCategory: 'Catering' } }),
+    ).length,
     1,
   );
   assert.equal(
-    overBudgetTrigger(emptySnap({ budget: { totalPhp: 100, committedPhp: 50, pendingPhp: 20 } })).length,
+    overBudgetTrigger(emptySnap({ budget: { totalPhp: 100, committedPhp: 70 } })).length,
+    0,
+  );
+  // Exactly at the target is not over it.
+  assert.equal(
+    overBudgetTrigger(emptySnap({ budget: { totalPhp: 100, committedPhp: 100 } })).length,
     0,
   );
   assert.equal(overBudgetTrigger(emptySnap()).length, 0);
+});
+
+test('overBudget: the amount printed is committed − target, and names the driver', () => {
+  const [iv] = overBudgetTrigger(
+    emptySnap({ budget: { totalPhp: 930_000, committedPhp: 1_010_000, topDriverCategory: 'Catering' } }),
+  );
+  assert.ok(iv);
+  assert.equal(iv.slots.over_amount, '80,000');
+  assert.equal(iv.slots.top_driver_category, 'Catering');
+});
+
+test('overBudget: with nothing committed anywhere, the driver slot stays generic', () => {
+  // `budgetFromEventMoney` omits topDriverCategory when no bucket carries
+  // committed money — the copy must not print "mostly undefined".
+  const [iv] = overBudgetTrigger(emptySnap({ budget: { totalPhp: 0, committedPhp: 500 } }));
+  assert.ok(iv);
+  assert.equal(iv.slots.top_driver_category, 'a few categories');
 });
 
 test('contractWindow: fires within the window', () => {
@@ -340,7 +368,7 @@ test('digest: busy week → busy variant with bullets + a next step', () => {
 test('runTriggers: integrates across a mixed snapshot', () => {
   const snap = emptySnap({
     payments: [{ vendor: 'Bloom', amountPhp: 5000, dueDate: '2026-01-04', paid: false }],
-    budget: { totalPhp: 100, committedPhp: 90, pendingPhp: 30, topDriverCategory: 'catering' },
+    budget: { totalPhp: 100, committedPhp: 120, topDriverCategory: 'Catering' },
     inquiries: [{ vendor: 'Quiet', service: 'cake', sentDaysAgo: 6, replied: false }],
   });
   const out = runTriggers(snap, NOW);

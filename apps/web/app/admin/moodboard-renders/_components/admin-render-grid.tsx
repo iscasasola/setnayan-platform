@@ -132,7 +132,7 @@ export function AdminRenderGrid({ items }: { items: AdminRenderItem[] }) {
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                     r.share_consented
-                      ? 'bg-terracotta/15 text-terracotta'
+                      ? 'bg-mulberry/15 text-mulberry'
                       : 'bg-ink/10 text-ink/55'
                   }`}
                 >
@@ -167,7 +167,7 @@ export function AdminRenderGrid({ items }: { items: AdminRenderItem[] }) {
                   type="button"
                   disabled={busy === r.render_id || !r.image_key || Boolean(r.failed_at)}
                   onClick={() => void toggle(r)}
-                  className="rounded-md border border-ink/15 px-2 py-1 font-medium text-ink/75 hover:border-terracotta hover:text-terracotta disabled:opacity-40"
+                  className="rounded-md border border-ink/15 px-2 py-1 font-medium text-ink/75 hover:border-mulberry hover:text-mulberry disabled:opacity-40"
                 >
                   {busy === r.render_id ? 'Saving…' : on ? 'Unfeature' : 'Feature'}
                 </button>
@@ -179,7 +179,7 @@ export function AdminRenderGrid({ items }: { items: AdminRenderItem[] }) {
                     type="button"
                     disabled={busy === r.render_id}
                     onClick={() => void toggleBlocked(r)}
-                    className="rounded-md border border-ink/15 px-2 py-1 font-medium text-ink/75 hover:border-terracotta hover:text-terracotta disabled:opacity-40"
+                    className="rounded-md border border-ink/15 px-2 py-1 font-medium text-ink/75 hover:border-mulberry hover:text-mulberry disabled:opacity-40"
                   >
                     {isBlocked(r) ? 'Allow reuse' : 'Block reuse'}
                   </button>

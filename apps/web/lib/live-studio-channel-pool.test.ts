@@ -520,8 +520,16 @@ test('🚫 no copy anywhere implies a phone or a browser can stream to YouTube',
   ];
   for (const f of files) {
     const src = codeOf(repoFile(f));
+    // 🪤 THIS PATTERN COULD NOT READ A DENIAL, AND FIRED ON ONE (2026-09-02).
+    // `ENCODER_BUY_NOTICE` says "a phone or tablet on its own CANNOT send the
+    // broadcast to YouTube" — the exact fact this guard exists to protect — and the
+    // old `phone[^.]{0,80}…` matched it anyway, because it only looked for `phone`
+    // near `broadcast to YouTube` and never for the word between them. A guard that
+    // cannot distinguish the claim from its refutation punishes writing the truth.
+    // The tempered repeat below refuses to cross a negation, so a sentence SAYING a
+    // phone can still fails and a sentence saying it cannot does not.
     assert.ok(
-      !/phone[^.]{0,80}(stream|push|broadcast)s?\s+(straight\s+)?to\s+YouTube/i.test(src),
+      !/phone(?:(?!\b(?:cannot|can'?t|can not|never|nor|neither|without)\b)[^.]){0,80}?(stream|push|broadcast)s?\s+(straight\s+)?to\s+YouTube/i.test(src),
       `${f} must not suggest a phone→YouTube path — it does not exist`,
     );
     assert.ok(

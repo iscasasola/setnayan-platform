@@ -130,6 +130,41 @@ function base64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64');
 }
 
+/**
+ * The real media type of some bytes, from their magic number.
+ *
+ * 🪤 WHY THIS IS NOT "just default to image/jpeg". The couple's inspirations
+ * are fetched as raw bytes (`safeFetchImageBytes` returns no content-type) and
+ * a `mime_type` we DECLARE that disagrees with the bytes we SEND is the kind
+ * of mismatch a provider rejects — which would surface as a `refused` or
+ * `http_error` on every render for any couple whose uploads happen to be PNG
+ * or WebP. That failure would be visible (this file guarantees that much) but
+ * it would be visible and WRONG, blaming their brief for our header.
+ *
+ * Falls back to JPEG only when the bytes match nothing known, which is also
+ * the only case where we genuinely have no better information.
+ */
+export function sniffImageMime(bytes: Uint8Array): string {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    return 'image/png';
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+    return 'image/gif';
+  }
+  // RIFF....WEBP
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  return 'image/jpeg';
+}
+
 type InputPart =
   | { type: 'text'; text: string }
   | { type: 'image'; mime_type: string; data: string };

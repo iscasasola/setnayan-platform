@@ -48,6 +48,7 @@ import {
 import { buildRenderPrompt, renderConfigDigest } from '@/lib/moodboard-render-prompt';
 import {
   generateRenderImage,
+  sniffImageMime,
   MAX_REFERENCE_IMAGES,
   type ReferenceImage,
   type RenderFailureCode,
@@ -262,7 +263,11 @@ export async function requestRender(args: {
     const url = (row as { image_url?: string | null }).image_url;
     if (!url) continue;
     const bytes = await safeFetchImageBytes(url);
-    if (bytes) references.push({ bytes, mimeType: 'image/jpeg' });
+    // The type is SNIFFED from the bytes, not assumed: `safeFetchImageBytes`
+    // discards the content-type, and declaring image/jpeg over PNG bytes is a
+    // mismatch a provider can reject — which would fail every render for any
+    // couple whose uploads are PNG, visibly but for the wrong stated reason.
+    if (bytes) references.push({ bytes, mimeType: sniffImageMime(bytes) });
   }
 
   const image = await generateRenderImage({ prompt, sceneSvg, references });

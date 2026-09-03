@@ -638,3 +638,76 @@ test('anon holds no grant on the share-consent table', async () => {
     assert.equal(r.rows[0]!.ok, false, `authenticated must not hold ${priv} — the RPC writes it`);
   }
 });
+
+/* ── a session may READ a render and write NOTHING ───────────────────────── */
+
+test('authenticated holds no INSERT/UPDATE/DELETE on event_renders', async () => {
+  // 🛑 THIS WAS A REAL, REACHABLE HOLE, CAUGHT BY THE EXPOSURE FREEZE.
+  //
+  // MB2 revoked anon and stopped, leaving `authenticated` with Supabase's
+  // default write grants on every column, policed only by row policies. Inert
+  // while nothing used the table — and MB8 is the first reader AND writer, so
+  // MB8 is what made all three of these reachable with curl and a couple's own
+  // login:
+  //
+  //   · SET featured_at  → feature your own creation, no consent, no admin
+  //   · SET image_key    → point your row at any key in the PRIVATE bucket,
+  //                        which also holds payment screenshots, and have the
+  //                        gallery mint you a presigned URL for it
+  //   · SET credits_debited = 0, or INSERT a finished row → a free render
+  //
+  // 🔑 RLS IS ROW-LEVEL: it decides WHICH ROW, never WHICH VALUE. Only the
+  // grant can refuse this, which is why the capability is gone rather than
+  // policed.
+  for (const priv of ['INSERT', 'UPDATE', 'DELETE']) {
+    const r = await db.query<{ ok: boolean }>(
+      `SELECT has_table_privilege('authenticated','public.event_renders',$1) AS ok`,
+      [priv],
+    );
+    assert.equal(
+      r.rows[0]!.ok,
+      false,
+      `authenticated must not hold ${priv} on event_renders — every write goes through a ` +
+        `SECURITY DEFINER function`,
+    );
+  }
+
+  // Column-level too: a table-level revoke can be undone one column at a time,
+  // and featured_at is the column that matters most.
+  for (const col of ['featured_at', 'image_key', 'credits_debited']) {
+    const r = await db.query<{ ok: boolean }>(
+      `SELECT has_column_privilege('authenticated','public.event_renders',$1,'UPDATE') AS ok`,
+      [col],
+    );
+    assert.equal(r.rows[0]!.ok, false, `authenticated must not hold UPDATE on ${col}`);
+  }
+
+  // READ is still granted — that is how a couple sees their own gallery at all.
+  const read = await db.query<{ ok: boolean }>(
+    `SELECT has_table_privilege('authenticated','public.event_renders','SELECT') AS ok`,
+  );
+  assert.equal(read.rows[0]!.ok, true, 'members must still be able to READ their own renders');
+});
+
+test('the stranded write policies are gone with the grant', async () => {
+  // Leaving couple_insert/update/delete in the catalog after revoking the
+  // capability they govern would strand three rules that can never fire —
+  // and the next person to hit the resulting permission error would restore
+  // the grant and silently reopen all three holes above.
+  const r = await db.query<{ policyname: string }>(
+    `SELECT policyname FROM pg_policies
+      WHERE schemaname='public' AND tablename='event_renders'`,
+  );
+  const names = r.rows.map((x) => x.policyname);
+  for (const gone of [
+    'event_renders_couple_insert',
+    'event_renders_couple_update',
+    'event_renders_couple_delete',
+  ]) {
+    assert.ok(!names.includes(gone), `${gone} must be dropped alongside the grant, not stranded`);
+  }
+  assert.ok(
+    names.includes('event_renders_member_read'),
+    'the READ policy must remain — it is the one that still has a grant behind it',
+  );
+});

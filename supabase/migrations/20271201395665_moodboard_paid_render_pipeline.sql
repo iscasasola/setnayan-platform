@@ -667,6 +667,61 @@ GRANT EXECUTE ON FUNCTION public.moodboard_admin_all_renders(INTEGER, INTEGER)
 -- anon's grant would otherwise strand a rule nothing could ever fire again
 -- (tests/db/anon-table-grants-closed.db.test.ts). The two halves move together.
 REVOKE ALL ON TABLE public.event_render_share_consent FROM anon;
+
+-- ---- 12. event_renders: authenticated may READ, and write NOTHING ---------
+--
+-- 🛑 CAUGHT BY THE EXPOSURE FREEZE, AND IT WAS REAL. MB2 created event_renders
+-- with `REVOKE ALL … FROM anon` and stopped there, which left `authenticated`
+-- holding Supabase's default INSERT/UPDATE/DELETE on every column, policed only
+-- by the couple_insert / couple_update / couple_delete policies. That was inert
+-- while nothing read or wrote the table. MB8 is the first writer AND the first
+-- reader, so it is MB8 that makes all of the following reachable with nothing
+-- but curl, the publishable key and a couple's own login:
+--
+--   1. `UPDATE event_renders SET featured_at = now()` on their own render —
+--      featuring their creation without consent and without an admin, walking
+--      straight past moodboard_set_render_featured's whole reason to exist.
+--   2. `UPDATE … SET image_key = 'payment-proof/…'`. Renders live in the
+--      PRIVATE thread-files bucket, which also holds payment screenshots, and
+--      the couple's gallery mints a presigned GET from whatever image_key says.
+--      A couple could point their own row at somebody else's bank screenshot
+--      and be handed a signed URL for it. RLS restricts which ROW they can
+--      touch; it has nothing to say about what they put IN it.
+--   3. `UPDATE … SET credits_debited = 0`, or INSERT a finished render row
+--      outright — a free render the ledger agrees was free.
+--
+-- 🔑 RLS IS ROW-LEVEL. It answers "which rows" and never "which values", so a
+-- policy can admit a couple to their own row and still let them write a value
+-- that means something about somebody else's. The grant is the only thing that
+-- can say no here.
+--
+-- Every legitimate write already goes through a SECURITY DEFINER function
+-- (begin / finish / fail / set_featured), exactly as the credit ledger's writes
+-- do and for the same reason. So the capability is removed rather than policed.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES
+  ON TABLE public.event_renders FROM authenticated;
+
+-- ⚠ AND THE POLICIES GO WITH THE GRANT. Leaving couple_insert/update/delete in
+-- the catalog after revoking the capability they govern would strand three
+-- rules that can never fire again — a reader would take them as evidence that
+-- couples write this table, and the next person to "fix" the resulting
+-- permission error would restore the grant and silently reopen all three holes
+-- above. The repo's own rule: the grant and the policy's audience move
+-- together (tests/db/anon-table-grants-closed.db.test.ts makes the same
+-- argument for anon).
+DROP POLICY IF EXISTS event_renders_couple_insert ON public.event_renders;
+DROP POLICY IF EXISTS event_renders_couple_update ON public.event_renders;
+DROP POLICY IF EXISTS event_renders_couple_delete ON public.event_renders;
+
+COMMENT ON TABLE public.event_renders IS
+  'One row per Mood Board "Make it real" render (MB2 substrate, MB8 pipeline). '
+  'READ-ONLY to sessions: members SELECT their event''s rows, and every write '
+  'goes through a SECURITY DEFINER function (moodboard_begin_render / '
+  'finish_render / fail_render / set_render_featured). Sessions hold no '
+  'INSERT/UPDATE/DELETE, because RLS is row-level and cannot stop a couple '
+  'admitted to their own row from writing a value about someone else — '
+  'image_key in particular addresses the PRIVATE bucket that also holds '
+  'payment proofs.';
 -- Members READ their own consent state; nobody writes it from a session,
 -- because writing it also grants credits.
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES

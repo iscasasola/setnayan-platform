@@ -26,6 +26,7 @@ import {
   imageProviderConfigured,
   imageProviderModel,
   generateRenderImage,
+  sniffImageMime,
 } from './gemini-image';
 
 /** A base64 payload big enough to pass the "that is not a photograph" floor. */
@@ -203,4 +204,30 @@ test('SABOTAGE-PROVED GUARD: the endpoint, the key header and the pinned Api-Rev
     !/interactions\?[^']*key=/.test(src),
     'the API key must be a header, never a query parameter',
   );
+});
+
+/* ── the reference images we SEND must be labelled truthfully ────────────── */
+
+test('sniffImageMime reads the magic number, not a hopeful default', () => {
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]);
+  const gif = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+  const webp = new Uint8Array([
+    0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
+  ]);
+  assert.equal(sniffImageMime(png), 'image/png');
+  assert.equal(sniffImageMime(jpg), 'image/jpeg');
+  assert.equal(sniffImageMime(gif), 'image/gif');
+  assert.equal(sniffImageMime(webp), 'image/webp');
+
+  // The couple's inspirations arrive as raw bytes with the content-type
+  // discarded, so declaring image/jpeg over PNG bytes would be a mismatch a
+  // provider can reject — failing every render for anyone whose uploads are
+  // PNG, visibly but blaming the wrong thing.
+  assert.notEqual(sniffImageMime(png), 'image/jpeg');
+});
+
+test('unrecognised bytes fall back to jpeg rather than throwing', () => {
+  assert.equal(sniffImageMime(new Uint8Array([1, 2, 3])), 'image/jpeg');
+  assert.equal(sniffImageMime(new Uint8Array(0)), 'image/jpeg');
 });

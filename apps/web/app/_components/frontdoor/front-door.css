@@ -1342,6 +1342,25 @@ h2.fd-sechead,
   .fd-smallprint {
     display: none;
   }
+  /* THE PROSE HID; THE BUTTON DIDN'T SHRINK WITH IT (2026-09-04). The rule
+     above correctly drops `.fd-signin-prompt p` at this width — a Sign-in
+     button is a real control, so it stays, unlike the prose beside it — but
+     nothing ever gave the BUTTON a width to fit. Base `.fd-btn-gold` is
+     `white-space: nowrap` with 15px side padding, sized for its normal home
+     in the expanded rail; inside a 72px icon strip its own container is
+     barely 40px of content, so it rendered at full size and spilled past the
+     rail's right edge into the feed. Shrunk to fit its actual container,
+     wrapping allowed rather than clipped — the one exception to the
+     "44 stays on the base rule" note above `.fd-btn-gold` itself, which is
+     about HEIGHT, not this. */
+  .fd-signin-prompt .fd-btn-gold {
+    width: 100%;
+    white-space: normal;
+    padding: 4px 6px;
+    font-size: 11px;
+    justify-content: center;
+    text-align: center;
+  }
   .fd-row {
     flex-direction: column;
     gap: 4px;

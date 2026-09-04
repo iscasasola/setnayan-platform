@@ -52,8 +52,6 @@ apps/web/app/_components/frontdoor/search-answers-here.test.ts
 apps/web/app/_components/frontdoor/signed-in-can-see-it.test.ts
 apps/web/app/_components/frontdoor/studio-follows-you-in.test.ts
 apps/web/app/_components/frontdoor/studio-rows-are-lit.test.ts
-apps/web/app/_components/frontdoor/the-front-door-says-something.test.ts
-apps/web/app/_components/frontdoor/the-group-chat-went-quiet.test.ts
 apps/web/app/_components/frontdoor/the-rail-moves.test.ts
 apps/web/app/_components/home/setnayan-ai-two-prices.test.ts
 apps/web/app/_components/marketing/add-to-event-is-the-only-difference.test.ts

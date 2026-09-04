@@ -33,6 +33,7 @@ import * as THREE from 'three';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
 import { colorFromId, remoteMovers, type RemoteMap } from '@/lib/plan3d-room';
+import { chibiHop } from '@/lib/figure-rig';
 import { selfFigureAvatar, guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { ChibiFigure } from '@/app/_components/plan3d/kit/chibi-figure';
 import type { ChibiAvatarConfig } from '@/lib/chibi-config';
@@ -380,6 +381,53 @@ const WALKER_BODY_R = 0.24;
  *  has no radial to push along) — module-scoped so the frame never allocates. */
 const CLAMP_PERP: Vec2 = { x: 1, z: 0 };
 
+/**
+ * THE CHIBI BOUNCES — it does not glide.
+ *
+ * The chibi rig is jointless below the neck, so `pose`/`phase` have nothing to
+ * drive and an avatar SLID across the floor while the blob ran. A leg cycle
+ * needs joints; a hop does not — it is a whole-body translate and scale, so the
+ * merge that removed the walk leaves the bounce fully available.
+ *
+ * ⚠ IT LANDS RATHER THAN FREEZING. The gait clock stops the instant the walk
+ * ends, so reading it raw would park the figure mid-air at whatever height the
+ * last frame happened to catch. `amp` eases to 0 on arrival and `chibiHop`
+ * returns exact neutral there, so the hop settles onto the floor.
+ *
+ * Reduced motion gets no bounce at all — the whole point of that setting is not
+ * to be moved at, and this is decoration, not information.
+ */
+function ChibiBounce({
+  phaseRef,
+  moving,
+  children,
+}: {
+  phaseRef: React.MutableRefObject<number>;
+  moving: boolean;
+  children: React.ReactNode;
+}) {
+  const g = useRef<THREE.Group>(null);
+  const amp = useRef(0);
+  const reduced = usePrefersReducedMotion();
+  useFrame((_, delta) => {
+    const grp = g.current;
+    if (!grp) return;
+    if (reduced) {
+      grp.position.y = 0;
+      grp.scale.set(1, 1, 1);
+      return;
+    }
+    // damp() returns the blend factor for this frame, so the settle is
+    // frame-rate independent — the same landing at 30fps and 120fps.
+    const target = moving ? 1 : 0;
+    amp.current += (target - amp.current) * damp(0.06, delta);
+    const { lift, scaleY, scaleXZ } = chibiHop(phaseRef.current, amp.current);
+    grp.position.y = lift;
+    grp.scale.set(scaleXZ, scaleY, scaleXZ);
+  });
+  return <group ref={g}>{children}</group>;
+}
+
 /** The guest's own avatar: auto-walks to `target`, re-paths whenever it changes. */
 function GuestAvatar({
   entrance,
@@ -640,7 +688,9 @@ function GuestAvatar({
       {bodyHidden ? null : (
         <>
           {avatar ? (
-            <ChibiFigure id={selfSpec.id} config={avatar} castShadow />
+            <ChibiBounce phaseRef={phaseRef} moving={!atRest}>
+              <ChibiFigure id={selfSpec.id} config={avatar} castShadow />
+            </ChibiBounce>
           ) : (
             <Figure
               spec={selfSpec}

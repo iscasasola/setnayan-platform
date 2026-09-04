@@ -40,11 +40,10 @@ async function paint(initial: Record<string, string[]>): Promise<string> {
     React.createElement(
       ToastProvider,
       null,
-      React.createElement(PaletteBoardProvider, {
-        eventId: 'E1',
-        initial: initial as never,
-        saveAction: async () => {},
-        children: React.createElement(ThemeCard, {
+      React.createElement(
+        PaletteBoardProvider,
+        { eventId: 'E1', initial: initial as never, saveAction: async () => {} },
+        React.createElement(ThemeCard, {
           eventId: 'E1',
           initialName: null,
           initialDescription: null,
@@ -59,7 +58,7 @@ async function paint(initial: Record<string, string[]>): Promise<string> {
             nothingToFill: true,
           }),
         }),
-      }),
+      ),
     ),
   );
 }

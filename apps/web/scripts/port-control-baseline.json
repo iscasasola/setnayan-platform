@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "be5c1f151",
-  "routeCount": 414,
-  "destinations": 884,
+  "generatedFromRef": "363774aa8",
+  "routeCount": 415,
+  "destinations": 885,
   "actions": 620,
-  "blocks": 4236,
+  "blocks": 4245,
   "routes": {
     "/": {
       "files": [
@@ -1274,6 +1274,7 @@
         "/admin/live-studio-channels",
         "/admin/money",
         "/admin/moodboard-library",
+        "/admin/moodboard-renders",
         "/admin/more",
         "/admin/pakanta",
         "/admin/papic-storage",
@@ -2395,6 +2396,21 @@
         "Image",
         "PalettePreview",
         "RandomMoodboardPrompt"
+      ]
+    },
+    "/admin/moodboard-renders": {
+      "files": [
+        "admin/moodboard-renders/_components/admin-render-grid.tsx",
+        "admin/moodboard-renders/actions.ts",
+        "admin/moodboard-renders/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AdminRenderGrid",
+        "FeatureToggleResult",
+        "PageMasthead",
+        "Stat"
       ]
     },
     "/admin/more": {
@@ -6271,6 +6287,7 @@
     "/dashboard/[eventId]/studio/mood-board": {
       "files": [
         "dashboard/[eventId]/studio/mood-board/_components/concept-pdf-button.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/info-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/majors-editor.tsx",
@@ -6287,7 +6304,8 @@
         "dashboard/[eventId]/studio/mood-board/_components/theme-studio.tsx",
         "dashboard/[eventId]/studio/mood-board/actions.ts",
         "dashboard/[eventId]/studio/mood-board/loading.tsx",
-        "dashboard/[eventId]/studio/mood-board/page.tsx"
+        "dashboard/[eventId]/studio/mood-board/page.tsx",
+        "dashboard/[eventId]/studio/mood-board/render-actions.ts"
       ],
       "destinations": [
         "/dashboard/[seg]/seating/lab",
@@ -6305,6 +6323,8 @@
         "ClipboardEntry",
         "ConceptPdfButton",
         "CustomRolesEditor",
+        "GalleryPage",
+        "GalleryPicker",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "HTMLDivElement",
@@ -6332,6 +6352,8 @@
         "ReceptionMirror",
         "RecolorStudio",
         "RegionEditMap",
+        "RenderActionResult",
+        "RenderGallery",
         "RoleCard",
         "RolePalette",
         "RoomDressing",
@@ -7149,6 +7171,7 @@
         "dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx",
         "dashboard/[eventId]/vendors/_components/quote-fill.tsx",
         "dashboard/[eventId]/vendors/_components/reuse-bookings-panel.tsx",
+        "dashboard/[eventId]/vendors/_components/saved-photo-marker.tsx",
         "dashboard/[eventId]/vendors/_components/services-takeover.tsx",
         "dashboard/[eventId]/vendors/_components/shortlist-categories.tsx",
         "dashboard/[eventId]/vendors/_components/team-controls.tsx",
@@ -7268,6 +7291,7 @@
         "Row",
         "RunBuildResult",
         "SaveCategoryRequirementsResult",
+        "SavedPhotoMarker",
         "SearchMarketplaceVendorsResult",
         "SectionChips",
         "SectionStub",

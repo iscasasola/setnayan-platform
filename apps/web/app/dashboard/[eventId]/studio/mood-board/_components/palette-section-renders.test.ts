@@ -24,14 +24,13 @@ async function paint(initial: Record<string, unknown>): Promise<string> {
   const { PaletteSection }: SectionMod = await import('./palette-section');
 
   return renderToStaticMarkup(
-    React.createElement(PaletteBoardProvider, {
-      eventId: 'E1',
-      initial: initial as never,
-      saveAction: async () => {},
-      children: React.createElement(PaletteSection, {
+    React.createElement(
+      PaletteBoardProvider,
+      { eventId: 'E1', initial: initial as never, saveAction: async () => {} },
+      React.createElement(PaletteSection, {
         visibleKeys: ['ceremony', 'reception', 'bride', 'groom', 'guest'] as never,
       }),
-    }),
+    ),
   );
 }
 

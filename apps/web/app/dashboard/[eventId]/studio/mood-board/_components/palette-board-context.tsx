@@ -125,7 +125,14 @@ export function PaletteBoardProvider({
   eventId: string;
   initial: RolePalette;
   saveAction: (formData: FormData) => Promise<void>;
-  children: React.ReactNode;
+  // Optional only so `React.createElement(PaletteBoardProvider, props,
+  // child)` typechecks with `child` passed positionally — `page.tsx`'s real
+  // JSX usage always supplies children regardless. See the two `.test.ts`
+  // files that render this provider for why: `react/no-children-prop`
+  // forbids passing `children` inside the props object, and TS's
+  // `createElement` overloads only accept an incomplete props object when
+  // every field it omits (here, `children`) is itself optional.
+  children?: React.ReactNode;
 }) {
   const [palette, setPalette] = useState<RolePalette>(initial);
   const [clipboard, setClipboard] = useState<ClipboardEntry>(null);

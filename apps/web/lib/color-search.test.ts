@@ -3,9 +3,19 @@ import assert from 'node:assert/strict';
 import { searchColorNames } from './color-search';
 
 test('an exact curated name resolves to itself, curated over CSS', () => {
-  const r = searchColorNames('burgundy');
-  assert.equal(r.matches[0]?.name, 'Burgundy');
+  const r = searchColorNames('gold');
+  assert.equal(r.matches[0]?.name, 'Gold');
   assert.equal(r.matches[0]?.source, 'wedding');
+});
+
+test('a name RETIRED from the curated table still resolves, via color-names.ts\'s own canonical redirect', () => {
+  // "Burgundy" was retired from WEDDING_NAMES (too close to Garnet, ΔE 4.1)
+  // and color-names.ts's own COLOR_NAME_ALIASES redirects the word to
+  // Garnet. This file reuses that table rather than keeping its own,
+  // separately-maintained opinion about what "burgundy" means.
+  const r = searchColorNames('burgundy');
+  assert.equal(r.matches[0]?.name, 'Garnet');
+  assert.equal(r.matches[0]?.source, 'alias');
 });
 
 test('prefix matching: "dust" finds both Dusty Blue and Dusty Rose', () => {
@@ -45,7 +55,7 @@ test('a query nothing stocks returns no matches AND non-empty suggestions — ne
 test('a near-miss spelling gets suggestions close to what was typed', () => {
   const r = searchColorNames('borgundy'); // one letter off "burgundy"
   assert.equal(r.matches.length, 0);
-  assert.ok(r.suggestions.some((s) => s.name === 'Burgundy'));
+  assert.ok(r.suggestions.some((s) => s.name === 'Garnet'), 'the near-miss on the alias word still finds its target');
 });
 
 test('blank query returns neither matches nor suggestions', () => {

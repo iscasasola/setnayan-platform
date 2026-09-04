@@ -7,15 +7,24 @@
  * library answers "what is this hex called?"; this answers "where is the
  * colour I can already name?" — a couple types a word, gets a swatch.
  *
- * ── THREE LAYERS, SAME PRIORITY AS `resolveColorName` ───────────────────────
+ * ── FOUR LAYERS, SAME PRIORITY AS `resolveColorName` ────────────────────────
  *   1. the curated `WEDDING_NAMES` table (the wedding vocabulary, Filipino
  *      names included) — checked first, so "moss" finds Moss before any CSS
  *      neighbour.
  *   2. `CSS_NAMES`, the 140-name fallback.
- *   3. `COLOUR_ALIASES` — words couples actually type that name neither
- *      table exactly ("moss green", "dusty pink", "champagne") mapped to the
- *      curated entry they mean. Required, not optional: without it the field
- *      looks broken on exactly the words a couple is most likely to try.
+ *   3. `color-names.ts`'s own `COLOR_NAME_ALIASES` — canonical single-word
+ *      redirects for a name RETIRED from the curated table ("burgundy" →
+ *      Garnet, since the table used to carry its own near-duplicate
+ *      "Burgundy" and dropped it). Reused here, not re-derived: two
+ *      independently-maintained alias tables for the same word is exactly
+ *      the kind of disagreeing-mechanism defect CLAUDE.md warns about, and
+ *      `namedColor('burgundy')` already answers this — this file's job is
+ *      prefix/substring search, not a second opinion on what a word means.
+ *   4. `COLOR_ALIASES` (below, local to this file) — colloquial MULTI-WORD
+ *      phrases neither table nor `COLOR_NAME_ALIASES` names exactly ("moss
+ *      green", "dusty pink", "champagne") mapped to the curated entry they
+ *      mean. Required, not optional: without it the field looks broken on
+ *      exactly the words a couple is most likely to try.
  *
  * Matching is prefix-then-substring, diacritic-insensitive (via
  * `foldColorName`, so "pina" finds "Piña Cream"). A query that matches
@@ -31,7 +40,7 @@
  * is green.
  */
 
-import { WEDDING_NAMES, CSS_NAMES, foldColorName, type NamedColor } from './color-names';
+import { WEDDING_NAMES, CSS_NAMES, COLOR_NAME_ALIASES, foldColorName, type NamedColor } from './color-names';
 
 export type ColorSearchMatch = NamedColor & { source: 'wedding' | 'css' | 'alias' };
 
@@ -66,7 +75,7 @@ const COLOR_ALIASES: ReadonlyArray<readonly [string, string]> = [
   ['forest', 'Forest Green'],
   ['army green', 'Olive'],
   ['military green', 'Olive'],
-  ['wine red', 'Burgundy'],
+  ['wine red', 'Garnet'],
   ['mustard yellow', 'Mustard'],
   ['off white', 'Ivory'],
   ['eggshell', 'Ivory'],
@@ -80,7 +89,7 @@ const COLOR_ALIASES: ReadonlyArray<readonly [string, string]> = [
   ['pastel purple', 'Lavender'],
   ['nude pink', 'Nude'],
   ['rose gold', 'Champagne Gold'],
-  ['deep red', 'Burgundy'],
+  ['deep red', 'Garnet'],
   ['deep green', 'Forest Green'],
   ['deep blue', 'Navy'],
   ['deep purple', 'Plum'],
@@ -98,6 +107,22 @@ function index(): Entry[] {
   for (const n of CSS_NAMES) out.push({ ...n, folded: foldColorName(n.name), source: 'css' });
   const byName = new Map<string, Entry>();
   for (const e of out) if (!byName.has(e.folded)) byName.set(e.folded, e);
+
+  // `color-names.ts`'s own canonical redirects — these OVERRIDE an existing
+  // entry for the same folded key, exactly like that file's own `nameIndex`
+  // (a retired name's word still resolves, just to its replacement).
+  for (const [alias, targetName] of Object.entries(COLOR_NAME_ALIASES)) {
+    const targetEntry = byName.get(foldColorName(targetName));
+    if (!targetEntry) continue;
+    const folded = foldColorName(alias);
+    const entry: Entry = { name: targetEntry.name, hex: targetEntry.hex, folded, source: 'alias' };
+    byName.set(folded, entry);
+    out.push(entry);
+  }
+
+  // This file's own colloquial MULTI-WORD phrases — additive only, never
+  // shadowing a real exact name (unlike the canonical redirects above,
+  // these aren't authoritative about a word's one true meaning).
   for (const [alias, target] of COLOR_ALIASES) {
     const targetEntry = byName.get(foldColorName(target));
     if (!targetEntry) continue; // an alias whose target isn't stocked names nothing

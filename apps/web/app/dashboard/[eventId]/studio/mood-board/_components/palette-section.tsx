@@ -63,9 +63,18 @@ const ROOM_DRESSING_META: ReadonlyArray<{ field: keyof RoomDressing; label: stri
   { field: 'lighting_warmth', label: 'Lighting warmth', hint: 'Ambient wash' },
 ];
 
-type Props = { visibleKeys: PaletteKey[] };
+type Props = {
+  visibleKeys: PaletteKey[];
+  /** The reception venue's display label ("Beach", "Garden Estate", …),
+   *  already resolved by the caller (`VENUE_SETTING_LABEL`, MB6). Shown
+   *  READ-ONLY in the Venue group — the Reception designer (Seat Plan lab)
+   *  and 04's "Make it real" already read this same fact; 02 only reflects
+   *  it, never re-asks it. Undefined when it can't be honestly asserted
+   *  (unrecognised or never-chosen `venue_setting`). */
+  venueLabel?: string;
+};
 
-export function PaletteSection({ visibleKeys }: Props) {
+export function PaletteSection({ visibleKeys, venueLabel }: Props) {
   const board = usePaletteBoard();
   if (!board) return null;
 
@@ -109,7 +118,14 @@ export function PaletteSection({ visibleKeys }: Props) {
         </span>
       </div>
 
-      <PaletteGroup title="Venue">
+      <PaletteGroup
+        title="Venue"
+        note={
+          venueLabel
+            ? `Reception venue — ${venueLabel} · from your event, correct it on Details if it's wrong`
+            : undefined
+        }
+      >
         {hasCeremony ? <RoleCard paletteKey="ceremony" label={PALETTE_LIMITS.ceremony.label} /> : null}
         <ReceptionMirror />
       </PaletteGroup>
@@ -182,10 +198,15 @@ export function PaletteSection({ visibleKeys }: Props) {
 
 function PaletteGroup({
   title,
+  note,
   defaultOpen = true,
   children,
 }: {
   title: string;
+  /** A read-only line under the title, above the group's cards — e.g. the
+   *  couple's own reception venue (MB6), reflected here, never a second
+   *  place to change it. Absent = nothing renders. */
+  note?: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
@@ -194,7 +215,10 @@ function PaletteGroup({
       <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
         {title}
       </summary>
-      <div className="space-y-3 border-t border-ink/10 p-4">{children}</div>
+      <div className="space-y-3 border-t border-ink/10 p-4">
+        {note ? <p className="text-xs text-ink/55">{note}</p> : null}
+        {children}
+      </div>
     </details>
   );
 }

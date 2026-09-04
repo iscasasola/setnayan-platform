@@ -23,6 +23,19 @@
  * explicitly clears it. Persisted inside the same `role_palette` JSONB
  * column as `room_dressing` and `custom_roles` (`RolePalette.touched_roles`)
  * — no migration needed.
+ *
+ * ── MB12: a FINALIZED role is touched AND not the couple's to release ──────
+ * When a supplier agrees to a part, `vendor_agree_to_part` writes that part's
+ * colours into this same `touched_roles` set — an agreement makes the derived
+ * colour explicit, which is exactly what a couple's own edit does, so the
+ * derivation already stops with no new branch anywhere. What is different is
+ * that the couple may not release it: `frozen` below is the set of keys a
+ * supplier has agreed to, and it is passed into `applyRelease` /
+ * `applyResetRoomDressing`, which refuse. Re-opening goes through the
+ * counter-handshake (the supplier has to say yes), and the DATABASE re-asserts
+ * the freeze on every write to `role_palette` regardless of what any client
+ * sends — so this is about never SHOWING a change that would silently revert,
+ * not about holding the line.
  */
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, useTransition } from 'react';
@@ -37,12 +50,17 @@ import {
 } from '@/lib/mood-board';
 import { derivedBoardFor, displayColorsFor, effectiveMajors } from '@/lib/mood-board-derive';
 import {
+  frozenNow,
+  type PartFinalizationRecord,
+} from '@/lib/moodboard-finalization';
+import {
   applyAddMajorSlot,
   applyAddRoleColor,
   applyPasteInto,
   applyRelease,
   applyRemoveMajorSlot,
   applyRemoveRoleColor,
+  applyResetRoomDressing,
   applySetMajorColor,
   applySetRoleColor,
   applySwap,
@@ -62,6 +80,12 @@ type PaletteBoardValue = {
   majors: string[];
   style: PaletteStyle;
   touched: ReadonlySet<PaletteKey>;
+  /** Palette keys a supplier has AGREED to — touched, and not releasable by the
+   *  couple alone. A strict subset of `touched`. */
+  frozenKeys: ReadonlySet<string>;
+  /** `room_dressing` fields a supplier has agreed to. */
+  frozenDressingFields: ReadonlySet<string>;
+  isFrozen(key: PaletteKey): boolean;
   derived: Board | null;
   majorsChosen: boolean;
   saveStatus: SaveStatus;
@@ -119,11 +143,16 @@ export function usePaletteBoard(): PaletteBoardValue | null {
 export function PaletteBoardProvider({
   eventId,
   initial,
+  finalizations = [],
   saveAction,
   children,
 }: {
   eventId: string;
   initial: RolePalette;
+  /** Every finalization row on this board. Only the AGREED ones freeze
+   *  anything; the pending/closed ones travel so section 02 can say what is
+   *  waiting on whom. */
+  finalizations?: readonly PartFinalizationRecord[];
   saveAction: (formData: FormData) => Promise<void>;
   // Optional only so `React.createElement(PaletteBoardProvider, props,
   // child)` typechecks with `child` passed positionally — `page.tsx`'s real
@@ -182,6 +211,12 @@ export function PaletteBoardProvider({
   const majors = useMemo(() => effectiveMajors(palette), [palette.reception]);
   const style = sanitizePaletteStyle(palette.palette_style);
   const touched = useMemo(() => new Set(palette.touched_roles ?? []), [palette.touched_roles]);
+  // 🔑 READ FROM THE ROWS, NOT RE-DERIVED FROM THE PART → KEY MAP. The row
+  // records what the agreement ACTUALLY added; the map says what an agreement
+  // WOULD add today. They differ whenever the couple had already touched a role
+  // by hand before finalizing, and re-deriving would then claim their own edit
+  // as the supplier's and let a re-open release it. See `frozenNow`.
+  const frozen = useMemo(() => frozenNow(finalizations), [finalizations]);
   // `majors` is itself a memo above, so it's a stable reference whenever
   // `palette.reception` hasn't changed — safe to depend on directly.
   const derived = useMemo(() => derivedBoardFor(majors, style), [majors, style]);
@@ -195,6 +230,9 @@ export function PaletteBoardProvider({
     majors,
     style,
     touched,
+    frozenKeys: frozen.paletteKeys,
+    frozenDressingFields: frozen.dressingFields,
+    isFrozen: (key) => frozen.paletteKeys.has(key),
     derived,
     majorsChosen: hasChosenMajors(palette),
     saveStatus,
@@ -211,7 +249,7 @@ export function PaletteBoardProvider({
     setRoleColor: (key, index, hex) => mutate((p) => applySetRoleColor(p, key, index, hex)),
     addRoleColor: (key) => mutate((p) => applyAddRoleColor(p, key)),
     removeRoleColor: (key, index) => mutate((p) => applyRemoveRoleColor(p, key, index)),
-    releaseRole: (key) => mutate((p) => applyRelease(p, key)),
+    releaseRole: (key) => mutate((p) => applyRelease(p, key, frozen.paletteKeys)),
 
     roomDressing,
     roomDressingOverride,
@@ -219,11 +257,7 @@ export function PaletteBoardProvider({
       mutate((p) => ({ ...p, room_dressing: { ...p.room_dressing, [field]: hex.toUpperCase() } }));
     },
     resetRoomDressing(field) {
-      mutate((p) => {
-        const next = { ...p.room_dressing };
-        delete next[field];
-        return { ...p, room_dressing: next };
-      });
+      mutate((p) => applyResetRoomDressing(p, field, frozen.dressingFields));
     },
 
     customRoles: palette.custom_roles ?? [],

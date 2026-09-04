@@ -145,3 +145,91 @@ export function lockRequestFuseLabel(
   const days = Math.ceil(hours / 24);
   return `${days} day${days === 1 ? '' : 's'} left to answer`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MB12 · THE SAME MACHINE AT A SECOND SCOPE — (event, part, vendor)
+   ══════════════════════════════════════════════════════════════════════════
+
+   `moodboard_part_finalizations` (migration 20271202859312) is the per-part
+   design handshake: the couple asks a booked supplier to agree to one part of
+   the Mood Board, and a part the supplier agreed to stops re-deriving from the
+   couple's five majors.
+
+   🔑 IT LIVES IN THIS FILE BECAUSE IT IS NOT A SECOND MECHANISM. Same five
+   database values, same `LOCK_ANSWER_WINDOW_HOURS`, same
+   `lockRequestHoursLeft` / `lockRequestFuseLabel` reading a MATERIALIZED
+   deadline. Two mechanisms that disagree about one fact each pass their own
+   suite; one vocabulary with two scopes cannot.
+
+   🛑 AND ONE DELIBERATE DIFFERENCE, WHICH IS AN OWNER RULING (2026-09-04):
+   FINALIZATION DOES NOT INHERIT "A BOOKING OUTRANKS ANY MARKER."
+   `lockRequestStateOf` returns `locked` for any confirmed booking, and that is
+   right for BOOKINGS — a legacy or Locked-QR row really is booked. It is wrong
+   here. A confirmed booking means the supplier is hired; it does not mean they
+   reviewed and agreed to THIS design. Auto-finalizing a part from a booking
+   alone would fabricate the exact agreement the handshake exists to capture.
+
+   That ruling is enforced by this function's SIGNATURE, not by a comment: it
+   takes no status and no flag, so there is nothing for a booking to outrank.
+   Adding a `status` parameter here is the change that would break the ruling,
+   and `lib/part-finalization-does-not-inherit-the-booking.test.ts` fails if one
+   appears.
+*/
+
+/** One `moodboard_part_finalizations` row, as the state reader needs it. */
+export type PartFinalizationRow = {
+  /** The five values. NULL is impossible in the table (NOT NULL) but a missing
+   *  row is normal, so callers pass `null` for "never asked". */
+  state: string | null;
+};
+
+/**
+ * Where one part's finalization stands.
+ *
+ * `locked` is the vocabulary's terminal yes, and here it means what the whole
+ * session is for: the supplier agreed, so the part is FINALIZED and frozen.
+ * A missing row is `none` — the same answer the booking handshake gives when
+ * nobody ever asked.
+ */
+export function partFinalizationStateOf(
+  row: PartFinalizationRow | null | undefined,
+): LockRequestState {
+  switch (row?.state) {
+    case 'pending':
+      return 'requested';
+    case 'agreed':
+      return 'locked';
+    case 'declined':
+      return 'declined';
+    case 'cancelled':
+      return 'cancelled';
+    case 'expired':
+      return 'expired';
+    default:
+      return 'none';
+  }
+}
+
+/**
+ * THE ONE PREDICATE FOR "THIS PART IS FROZEN".
+ *
+ * Every surface that stops a part re-deriving, and every surface that explains
+ * to a person why it is not moving, must read THIS — never `state === 'agreed'`
+ * spelled out again, and never `agreed_at !== null` (a stale timestamp survives
+ * its own round: a re-opened row still carries the agreed-at of the round
+ * before, which is exactly the trap the booking handshake's docblock opens
+ * with).
+ */
+export function isPartFinalized(row: PartFinalizationRow | null | undefined): boolean {
+  return partFinalizationStateOf(row) === 'locked';
+}
+
+/** Where the COUNTER-handshake stands — the couple's request to un-freeze a
+ *  finalized part. Same five values, same reader, second column. */
+export function partReopenStateOf(
+  row: { reopen_state: string | null } | null | undefined,
+): LockRequestState {
+  return partFinalizationStateOf(
+    row ? { state: row.reopen_state } : null,
+  );
+}

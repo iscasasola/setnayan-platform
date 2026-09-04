@@ -32,9 +32,49 @@ export function applyTouch(p: RolePalette, key: PaletteKey): RolePalette {
   return { ...p, touched_roles: [...set] };
 }
 
-/** Remove a role key from `touched_roles` — "Match my main colours again". */
-export function applyRelease(p: RolePalette, key: PaletteKey): RolePalette {
+/**
+ * Remove a role key from `touched_roles` — "Match my main colours again".
+ *
+ * 🛑 A FINALIZED ROLE IS NOT RELEASABLE BY THE COUPLE ALONE (MB12).
+ * `frozen` is the set of keys a supplier has AGREED to
+ * (`moodboard_part_finalizations.frozen_palette_keys`). Releasing one here
+ * would un-freeze a design somebody is already building against — the exact
+ * thing the counter-handshake exists to prevent — so this refuses, and the
+ * control that calls it is disabled with a sentence saying why.
+ *
+ * ⚠ THE DATABASE HOLDS THE LINE REGARDLESS. `events_hold_part_finalization_freeze`
+ * puts a frozen key straight back on every write to `role_palette`, so even a
+ * client that skipped this check would find the release simply does not take.
+ * This guard exists so the couple never SEES a change that silently reverts —
+ * which reads as the app losing their edit.
+ */
+export function applyRelease(
+  p: RolePalette,
+  key: PaletteKey,
+  frozen: ReadonlySet<string> = new Set(),
+): RolePalette {
+  if (frozen.has(key)) return p;
   return { ...p, touched_roles: (p.touched_roles ?? []).filter((k) => k !== key) };
+}
+
+/**
+ * Drop one advanced room-dressing override, so the field follows the majors
+ * again — the "Reset" beside each room-dressing swatch.
+ *
+ * Lived inline in `palette-board-context.tsx` until MB12. Extracted for the
+ * same reason every other reducer here is: it now carries a REFUSAL (a field a
+ * supplier agreed to is not the couple's alone to reset), and a refusal inside
+ * a React closure is a refusal no `tsx --test` can reach.
+ */
+export function applyResetRoomDressing(
+  p: RolePalette,
+  field: keyof NonNullable<RolePalette['room_dressing']>,
+  frozen: ReadonlySet<string> = new Set(),
+): RolePalette {
+  if (frozen.has(field)) return p;
+  const next = { ...p.room_dressing };
+  delete next[field];
+  return { ...p, room_dressing: next };
 }
 
 // ── section 00 — the majors, the ONLY writers of `palette.reception` ───────

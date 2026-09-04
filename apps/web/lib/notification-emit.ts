@@ -200,6 +200,35 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     Deliberately NOT marketing-gated, same as the four above.
   */
   'event_deletion_answered',
+  /*
+    MB12 · the per-part design handshake (2026-09-04). All five are
+    transactional and all five must reach somebody who is not in the app:
+
+      · part_finalization_requested / part_reopen_requested → the SUPPLIER, who
+        has 48 hours to answer. A supplier who is not opening the dashboard is
+        exactly who these exist for, so an in-app-only badge reaches precisely
+        the people who do not need it.
+      · part_finalization_agreed / part_finalization_declined /
+        part_reopen_answered → the COUPLE, who asked a question about their own
+        design and cannot get the answer any other way. There is no SMS in V1.
+
+    🔑 THE NOTIFICATION AND THIS LINE ARE TWO HALVES OF ONE MECHANISM. Shipping
+    the emit without the allowlist entry is indistinguishable from shipping
+    neither — that is the lesson the six lock_request_* types cost, and
+    `part-finalization-notifications.test.ts` fails if any of these five drops
+    off this set or lands in MARKETING_GATED_EMAIL_TYPES below.
+
+    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: that list is four types, and a
+    48-hour fuse on a design detail is not a 2am buzz.
+    ⚠ Deliberately NOT in MARKETING_GATED_EMAIL_TYPES: that set suppresses
+    unless users.marketing_opt_in = TRUE, which is NOT NULL DEFAULT FALSE — the
+    mistake that silenced all six lock_request_* types for every user.
+  */
+  'part_finalization_requested',
+  'part_finalization_agreed',
+  'part_finalization_declined',
+  'part_reopen_requested',
+  'part_reopen_answered',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

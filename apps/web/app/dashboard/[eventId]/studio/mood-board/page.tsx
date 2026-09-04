@@ -14,6 +14,7 @@ import {
   sanitizeReceptionDesign,
   selAll,
   venueZoneApplies,
+  type PartId,
   type ReceptionDesign,
 } from '@/lib/reception-scene';
 import {
@@ -34,6 +35,18 @@ import {
   tradeLabelForCredit,
 } from '@/lib/moodboard-gallery';
 import { PaletteSection } from './_components/palette-section';
+import { PartFinalizationPanel } from './_components/part-finalization-panel';
+import {
+  cancelPartFinalization,
+  cancelPartReopen,
+  requestPartFinalization,
+  requestPartReopen,
+} from './finalization-actions';
+import type {
+  BookedSupplier,
+  PartFinalizationRecord,
+} from '@/lib/moodboard-finalization';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { PaletteBoardProvider } from './_components/palette-board-context';
 import {
   MoodboardBoard,
@@ -159,6 +172,8 @@ export default async function MoodBoardPage({ params }: Props) {
     platformSettings,
     moodboardRenderRows,
     shareConsentRes,
+    finalizationRes,
+    bookedSupplierRes,
   ] = await Promise.all([
     supabase
       .from('events')
@@ -235,6 +250,31 @@ export default async function MoodBoardPage({ params }: Props) {
       .select('consented')
       .eq('event_id', eventId)
       .maybeSingle(),
+    // MB12 — every finalization handshake on this board. Read UNFILTERED by
+    // state on purpose: the AGREED rows are what freeze the palette, and the
+    // closed ones (declined / expired) are what let a row say "turned down —
+    // 'we cannot source that in November'" instead of quietly offering the same
+    // supplier again as though nobody had ever answered.
+    supabase
+      .from('moodboard_part_finalizations')
+      .select(
+        `finalization_id, part_id, vendor_id, state, expires_at, agreed_at,
+         declined_at, decline_reason, reopen_state, reopen_expires_at,
+         reopen_decline_reason, frozen_palette_keys, frozen_dressing_fields`,
+      )
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true }),
+    // MB12 — the suppliers who could be ASKED. Filtered to the four CONFIRMED
+    // statuses (lib/events.ts) because only a booked supplier may be asked to
+    // agree to a design — the same rule `request_part_finalization` enforces in
+    // SQL. `services` comes from the shop, which is where the category match is
+    // decided; a booking with no shop behind it has none and is correctly
+    // ineligible rather than silently allowed.
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, shop:vendor_profiles ( services )')
+      .eq('event_id', eventId)
+      .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
@@ -365,6 +405,54 @@ export default async function MoodBoardPage({ params }: Props) {
   const eligibleRenderParts: RenderPart[] = RENDER_PARTS.filter(
     (p) => p.group !== 'people' || visibleKeys.has(p.sourceKey as PaletteKey),
   );
+
+  // ── MB12: the per-part finalization handshake ───────────────────────────
+  // A REFUSED read is not "nobody has asked anybody". `.data` is null on an
+  // error, and an empty list renders exactly like a board where no part has
+  // been signed off — the failure shape this repo has shipped twice (the guest
+  // list and the vendor workspace). So an error is logged and the panels are
+  // told, rather than silently drawing the blank state.
+  if (finalizationRes.error) {
+    console.error(
+      `[moodBoard] part finalizations unreadable for event_id=${eventId}:`,
+      finalizationRes.error.message,
+    );
+  }
+  const finalizationRecords: PartFinalizationRecord[] = (finalizationRes.data ??
+    []) as unknown as PartFinalizationRecord[];
+
+  // The shop's `services[]` is what decides the category match. Supabase types
+  // an embedded one-to-one as an object or an array depending on the inferred
+  // relationship; both are normalised here rather than cast, because a wrong
+  // guess produces an EMPTY services list — which reads as "this shop does not
+  // work in that trade" and silently hides every Ask button.
+  const bookedSuppliers: BookedSupplier[] = (bookedSupplierRes.data ?? []).map((r) => {
+    const raw = (r as { shop?: unknown }).shop;
+    const shop = Array.isArray(raw) ? raw[0] : raw;
+    return {
+      vendorId: (r as { vendor_id: string }).vendor_id,
+      name: ((r as { vendor_name: string | null }).vendor_name ?? '').trim() || 'your supplier',
+      services: ((shop as { services?: string[] } | null | undefined)?.services ?? []).filter(
+        Boolean,
+      ),
+    };
+  });
+
+  // People parts follow the SAME `visibleKeys` gate section 02 renders on, so
+  // the sign-off list and the palette editor can never disagree about who is in
+  // this wedding. Room parts follow `venueZoneApplies`, the same predicate the
+  // reception summary above already uses. Place parts ride with the room: a
+  // cake and a bar are things at the venue, not roles in the palette.
+  const peopleFinalizationParts = eligibleRenderParts
+    .filter((p) => p.group === 'people')
+    .map((p) => ({ id: p.id, label: p.label }));
+  const roomFinalizationParts = eligibleRenderParts
+    .filter(
+      (p) =>
+        (p.group === 'room' && venueZoneApplies(event.venue_setting, p.sourceKey as PartId)) ||
+        p.group === 'places',
+    )
+    .map((p) => ({ id: p.id, label: p.label }));
 
   // Every inspiration slot that holds at least one photo — the same
   // `inspirations` rows InspirationBoard renders, read once here rather than
@@ -596,7 +684,12 @@ export default async function MoodBoardPage({ params }: Props) {
             rule. Inspiration (01) sits between them, matching the
             atelier-board.html reference's linear 00→01→02 order — it doesn't
             read this state, so it's an ordinary (untouched) child. */}
-        <PaletteBoardProvider eventId={eventId} initial={initialPalette} saveAction={saveRolePalette}>
+        <PaletteBoardProvider
+          eventId={eventId}
+          initial={initialPalette}
+          finalizations={finalizationRecords}
+          saveAction={saveRolePalette}
+        >
           {/* Overall Theme — the card that opens the canvas — and the theme
               gallery under it. They render exactly as before; the wrapper is a
               client boundary so a feeling+setting READ OUT OF THE COUPLE'S OWN
@@ -659,6 +752,32 @@ export default async function MoodBoardPage({ params }: Props) {
               </p>
             </header>
             <PaletteSection visibleKeys={Array.from(visibleKeys)} venueLabel={venueLabel} />
+
+            {/* MB12 — sign-off, per attire role. Sits under the editor rather
+                than inside it: the palette is what the couple DESIGNS, and this
+                is what they AGREE with a supplier. A part that has been agreed
+                stops following the main colours above, which is why the two
+                have to be visible together. */}
+            <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
+              <header className="space-y-0.5">
+                <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
+                <p className="max-w-prose text-xs text-ink/60">
+                  Ask the supplier who will make it to sign off on a look. Once they agree, that
+                  part stops changing when you edit your main colours — and it takes both of you
+                  to re-open it.
+                </p>
+              </header>
+              <PartFinalizationPanel
+                parts={peopleFinalizationParts}
+                records={finalizationRecords}
+                booked={bookedSuppliers}
+                requestAction={requestPartFinalization.bind(null, eventId)}
+                cancelAction={cancelPartFinalization.bind(null, eventId)}
+                reopenAction={requestPartReopen.bind(null, eventId)}
+                cancelReopenAction={cancelPartReopen.bind(null, eventId)}
+                emptyHint="Add your entourage to the guest list and their looks will appear here."
+              />
+            </div>
           </section>
         </PaletteBoardProvider>
 
@@ -685,6 +804,27 @@ export default async function MoodBoardPage({ params }: Props) {
             >
               Edit in Seat Plan →
             </Link>
+          </div>
+
+          {/* MB12 — the same handshake, for the room and the things in it. */}
+          <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
+            <header className="space-y-0.5">
+              <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
+              <p className="max-w-prose text-xs text-ink/60">
+                Ask the stylist, florist or venue who will build it to sign off. Nothing is
+                settled until they say yes, and re-opening it takes both of you.
+              </p>
+            </header>
+            <PartFinalizationPanel
+              parts={roomFinalizationParts}
+              records={finalizationRecords}
+              booked={bookedSuppliers}
+              requestAction={requestPartFinalization.bind(null, eventId)}
+              cancelAction={cancelPartFinalization.bind(null, eventId)}
+              reopenAction={requestPartReopen.bind(null, eventId)}
+              cancelReopenAction={cancelPartReopen.bind(null, eventId)}
+              emptyHint="Design your reception in the Seat Plan and its parts will appear here."
+            />
           </div>
         </section>
 

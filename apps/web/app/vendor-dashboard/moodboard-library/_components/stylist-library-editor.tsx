@@ -91,10 +91,8 @@ export type StylistLibraryEditorProps = {
   initialAssets: StylistAsset[];
   /** Slots this shop may upload into — derived server-side from its trades. */
   gallerySlots: Array<{ key: string; label: string }>;
-  /** This tier's back-catalogue ceiling. 0 = event-linked photos only. */
+  /** This tier's back-catalogue ceiling, PER CATEGORY (MB19). 0 = event-linked photos only. */
   backCatalogueCap: number;
-  /** Back-catalogue photos already held. Event-linked rows are NOT in here. */
-  backCatalogueUsed: number;
   /** The shop's own day-of editorial photos, eligible to become gallery rows. */
   importableEditorial: ImportableEditorialPhoto[];
   /** TRUE when that read FAILED — which is not the same as "you have none". */
@@ -105,7 +103,6 @@ export function StylistLibraryEditor({
   initialAssets,
   gallerySlots,
   backCatalogueCap,
-  backCatalogueUsed,
   importableEditorial,
   importableEditorialFailed,
 }: StylistLibraryEditorProps) {
@@ -115,8 +112,11 @@ export function StylistLibraryEditor({
   );
   const [rightsWarranted, setRightsWarranted] = useState(false);
   const [importSlot, setImportSlot] = useState<string>(gallerySlots[0]?.key ?? '');
+  // The category this upload targets. MB19: the quota is PER CATEGORY, so the
+  // select must be controlled — the button-disable and the helper copy below
+  // both need to know which shelf's count to read.
+  const [uploadSlot, setUploadSlot] = useState<string>(gallerySlots[0]?.key ?? '');
   const [notice, setNotice] = useState<string | null>(null);
-  const [used, setUsed] = useState(backCatalogueUsed);
   const [selectedId, setSelectedId] = useState<string | null>(initialAssets[0]?.asset_id ?? null);
   const [isPending, startTransition] = useTransition();
   const [localMaps, setLocalMaps] = useState<Record<string, ColorRangeMap>>(() =>
@@ -136,10 +136,28 @@ export function StylistLibraryEditor({
   );
 
   const isGalleryUpload = assetType === SUPPLIER_GALLERY_ASSET_TYPE;
+
+  // MB19: back-catalogue USED is derived PER CATEGORY, live off `assets` —
+  // there is no separate counter to keep in sync. A shop holding 20 Flowers
+  // photos reads 20/20 here while Tables reads 0/cap, because this recomputes
+  // for whichever slot the vendor has selected.
+  const usedInSelectedSlot = useMemo(
+    () =>
+      assets.filter(
+        (a) =>
+          a.asset_type === SUPPLIER_GALLERY_ASSET_TYPE &&
+          a.asset_subtype === uploadSlot &&
+          a.source_event_id === null &&
+          a.retired_at === null,
+      ).length,
+    [assets, uploadSlot],
+  );
+  const uploadSlotLabel =
+    gallerySlots.find((s) => s.key === uploadSlot)?.label ?? 'that category';
   // The quota gates the BUTTON as well as the server, so a supplier who is out
   // of room is told before they pick a file rather than after they wait for an
   // upload. The server still decides — this is the same number, not a substitute.
-  const quotaExhausted = isGalleryUpload && used >= backCatalogueCap;
+  const quotaExhausted = isGalleryUpload && usedInSelectedSlot >= backCatalogueCap;
 
   function setMapForSelected(next: ColorRangeMap) {
     if (!selected) return;
@@ -178,7 +196,9 @@ export function StylistLibraryEditor({
         setAssets((prev) => [placeholder, ...prev]);
         setLocalMaps((prev) => ({ ...prev, [assetId]: {} }));
         setSelectedId(assetId);
-        if (uploadedType === SUPPLIER_GALLERY_ASSET_TYPE) setUsed((n) => n + 1);
+        // usedInSelectedSlot recomputes off `assets` itself (MB19) — the
+        // placeholder just pushed above already carries the right
+        // asset_subtype, so no separate counter to increment here.
         // 🔑 A CHECK THAT DID NOT RUN IS NOT A CHECK THAT PASSED, and the
         // supplier is the one person who can act on knowing. When the text
         // screen was unavailable we say so instead of implying the photo was
@@ -332,7 +352,8 @@ export function StylistLibraryEditor({
                 <select
                   name="assetSubtype"
                   required
-                  defaultValue={gallerySlots[0]?.key ?? ''}
+                  value={uploadSlot}
+                  onChange={(e) => setUploadSlot(e.target.value)}
                   aria-label="Which part of the mood board"
                   className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
                 >
@@ -380,8 +401,8 @@ export function StylistLibraryEditor({
             {isGalleryUpload ? (
               <p className="text-[11px] text-ink/55">
                 {backCatalogueCap === 0
-                  ? 'Your plan doesn’t include back-catalogue photos. You can still add photos from celebrations you were booked on — those never count.'
-                  : `Back-catalogue photos: ${used} of ${backCatalogueCap} used. Photos from celebrations you were booked on never count.`}
+                  ? `You can add ${uploadSlotLabel} photos from celebrations you were booked on, but not from your back catalogue. Those never count against any category.`
+                  : `${uploadSlotLabel} back-catalogue photos: ${usedInSelectedSlot} of ${backCatalogueCap} used. Photos from celebrations you were booked on never count, and this cap is per category — your other shelves have their own room.`}
               </p>
             ) : null}
 

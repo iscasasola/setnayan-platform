@@ -1,17 +1,24 @@
 /**
  * THE BACK-CATALOGUE QUOTA COUNTS THE RIGHT ROWS — against Postgres.
  *
- * MB11's quota is one predicate, and the whole gate turns on it:
+ * MB11 shipped this quota as three predicates; MB19 (2026-09-04) added the
+ * third, changing the UNIT from "per account" to "per category" per the
+ * owner's ruling — a shop holding 20 Flowers photos may still upload to
+ * Tables:
  *
  *     asset_type = 'supplier_gallery'
  *     AND source_event_id IS NULL      ← BACK-CATALOGUE
  *     AND retired_at IS NULL
+ *     AND asset_subtype = <the category>  ← MB19: PER CATEGORY, not account-wide
  *
- * Drop the middle line and the arithmetic stays perfect while the number
- * becomes wrong: a florist who imported six photos from weddings they were
- * booked on is told their archive allowance is used up. Nothing goes red
- * anywhere, because nothing else in the system cares which rows the count
- * covered.
+ * Drop any ONE of these three lines and the arithmetic stays perfect while
+ * the number becomes wrong. Dropping the middle line: a florist who imported
+ * six photos from weddings they were booked on is told their archive
+ * allowance is used up. Dropping the new third line: a shop with 20 Flowers
+ * photos is refused a Tables upload it should never have been rationed for.
+ * Nothing goes red anywhere else, because nothing else in the system cares
+ * which rows the count covered — see
+ * [[one-query-many-predicates-tests-the-conjunction]].
  *
  * 🔑 THE COUNT IS RUN AS SQL HERE, NOT MOCKED. The pure ladder is tested in
  * lib/moodboard-gallery-upload.test.ts and the call site is pinned in
@@ -79,13 +86,16 @@ async function addGalleryPhoto(opts: {
   sourceEventId?: string | null;
   source?: string;
   retired?: boolean;
+  /** The inspiration category. Defaults to 'flowers' so existing callers,
+   *  written before MB19 made this a real axis, keep meaning what they said. */
+  assetSubtype?: string;
 }): Promise<string> {
   const r = await db.query<{ asset_id: string }>(
     `INSERT INTO public.moodboard_library_assets
        (asset_type, asset_subtype, label, storage_path, source,
         vendor_profile_id, source_event_id, approved_at,
         rights_warranted_at, rights_warranty_version, retired_at)
-     VALUES ('supplier_gallery','flowers',$1,$2,$3,$4,$5,NOW(),NOW(),'v1',
+     VALUES ('supplier_gallery',$7,$1,$2,$3,$4,$5,NOW(),NOW(),'v1',
              CASE WHEN $6 THEN NOW() ELSE NULL END)
      RETURNING asset_id`,
     [
@@ -95,20 +105,30 @@ async function addGalleryPhoto(opts: {
       opts.vendorProfileId,
       opts.sourceEventId ?? null,
       opts.retired ?? false,
+      opts.assetSubtype ?? 'flowers',
     ],
   );
   return r.rows[0]!.asset_id;
 }
 
-/** The production count, run verbatim as SQL. */
-async function backCatalogueCount(vendorProfileId: string): Promise<number> {
+/**
+ * The production count, run verbatim as SQL — MB19's per-category query.
+ * `assetSubtype` is the third narrowing predicate; see the file docblock for
+ * why dropping it, alone, leaves every OTHER test in this file green while
+ * the quota silently reverts to account-wide.
+ */
+async function backCatalogueCount(
+  vendorProfileId: string,
+  assetSubtype: string,
+): Promise<number> {
   const r = await db.query<{ n: string }>(
     `SELECT count(*)::text AS n FROM public.moodboard_library_assets
       WHERE vendor_profile_id = $1
         AND asset_type = 'supplier_gallery'
+        AND asset_subtype = $2
         AND source_event_id IS NULL
         AND retired_at IS NULL`,
-    [vendorProfileId],
+    [vendorProfileId, assetSubtype],
   );
   return Number(r.rows[0]!.n);
 }
@@ -129,11 +149,11 @@ test('⭐ event-linked photos are NOT counted; back-catalogue ones are', async (
   const eventA = await newEvent();
   const eventB = await newEvent();
 
-  assert.equal(await backCatalogueCount(shop), 0);
+  assert.equal(await backCatalogueCount(shop, 'flowers'), 0);
 
   await addGalleryPhoto({ vendorProfileId: shop });
   await addGalleryPhoto({ vendorProfileId: shop });
-  assert.equal(await backCatalogueCount(shop), 2, 'two archive photos');
+  assert.equal(await backCatalogueCount(shop, 'flowers'), 2, 'two archive photos');
 
   await addGalleryPhoto({
     vendorProfileId: shop,
@@ -146,7 +166,7 @@ test('⭐ event-linked photos are NOT counted; back-catalogue ones are', async (
     source: 'editorial_import',
   });
   assert.equal(
-    await backCatalogueCount(shop),
+    await backCatalogueCount(shop, 'flowers'),
     2,
     'photos from celebrations they worked must not touch the allowance',
   );
@@ -155,12 +175,12 @@ test('⭐ event-linked photos are NOT counted; back-catalogue ones are', async (
 test('a retired photo frees its slot', async () => {
   const shop = await newShop();
   const id = await addGalleryPhoto({ vendorProfileId: shop });
-  assert.equal(await backCatalogueCount(shop), 1);
+  assert.equal(await backCatalogueCount(shop, 'flowers'), 1);
   await db.query(
     `UPDATE public.moodboard_library_assets SET retired_at = NOW() WHERE asset_id = $1`,
     [id],
   );
-  assert.equal(await backCatalogueCount(shop), 0);
+  assert.equal(await backCatalogueCount(shop, 'flowers'), 0);
 });
 
 test('one shop’s photos never count against another’s', async () => {
@@ -169,8 +189,67 @@ test('one shop’s photos never count against another’s', async () => {
   await addGalleryPhoto({ vendorProfileId: a });
   await addGalleryPhoto({ vendorProfileId: a });
   await addGalleryPhoto({ vendorProfileId: b });
-  assert.equal(await backCatalogueCount(a), 2);
-  assert.equal(await backCatalogueCount(b), 1);
+  assert.equal(await backCatalogueCount(a, 'flowers'), 2);
+  assert.equal(await backCatalogueCount(b, 'flowers'), 1);
+});
+
+test('⭐ MB19: a shop full on Flowers may still fill Tables — the quota is per category', async () => {
+  const shop = await newShop();
+  for (let i = 0; i < 3; i += 1) {
+    await addGalleryPhoto({ vendorProfileId: shop, assetSubtype: 'flowers' });
+  }
+  assert.equal(await backCatalogueCount(shop, 'flowers'), 3);
+  assert.equal(
+    await backCatalogueCount(shop, 'table'),
+    0,
+    'a different category starts at zero, not at the Flowers count',
+  );
+
+  await addGalleryPhoto({ vendorProfileId: shop, assetSubtype: 'table' });
+  assert.equal(await backCatalogueCount(shop, 'table'), 1);
+  assert.equal(
+    await backCatalogueCount(shop, 'flowers'),
+    3,
+    'filling Tables must not touch the Flowers count',
+  );
+});
+
+test('each of the three narrowing predicates rejects a row the other two would admit', async () => {
+  // Per [[one-query-many-predicates-tests-the-conjunction]]: a query with
+  // several AND'd predicates can lose any ONE of them and still pass every
+  // test built only from rows every predicate rejects together. Each row here
+  // is excluded by exactly ONE predicate, so dropping any single line from
+  // `backCatalogueCount` (asset_subtype, source_event_id, retired_at) turns
+  // this test red.
+  const shop = await newShop();
+  const event = await newEvent();
+
+  // Rejected ONLY by `source_event_id IS NULL` — right category, not retired.
+  await addGalleryPhoto({
+    vendorProfileId: shop,
+    assetSubtype: 'flowers',
+    sourceEventId: event,
+    source: 'editorial_import',
+  });
+
+  // Rejected ONLY by `retired_at IS NULL` — right category, back-catalogue.
+  const retiredId = await addGalleryPhoto({ vendorProfileId: shop, assetSubtype: 'flowers' });
+  await db.query(
+    `UPDATE public.moodboard_library_assets SET retired_at = NOW() WHERE asset_id = $1`,
+    [retiredId],
+  );
+
+  // Rejected ONLY by `asset_subtype = 'flowers'` — back-catalogue, not retired.
+  await addGalleryPhoto({ vendorProfileId: shop, assetSubtype: 'table' });
+
+  // Admitted by all three.
+  await addGalleryPhoto({ vendorProfileId: shop, assetSubtype: 'flowers' });
+
+  assert.equal(
+    await backCatalogueCount(shop, 'flowers'),
+    1,
+    'exactly the one row every predicate admits',
+  );
 });
 
 /* ── 2 · THE CONSTRAINTS THAT KEEP THE PREDICATE HONEST ────────────────── */
@@ -296,7 +375,7 @@ test('⭐ deleting a celebration does NOT fail, and demotes its photos', async (
     sourceEventId: eventId,
     source: 'editorial_import',
   });
-  assert.equal(await backCatalogueCount(shop), 0);
+  assert.equal(await backCatalogueCount(shop, 'flowers'), 0);
 
   await db.query(`DELETE FROM public.events WHERE event_id = $1`, [eventId]);
 
@@ -307,7 +386,7 @@ test('⭐ deleting a celebration does NOT fail, and demotes its photos', async (
   assert.equal(row.rows.length, 1, 'the shop keeps its own photograph');
   assert.equal(row.rows[0]!.source_event_id, null, 'demoted to back-catalogue');
   assert.equal(
-    await backCatalogueCount(shop),
+    await backCatalogueCount(shop, 'flowers'),
     1,
     'and it now counts — a demotion, never a takedown',
   );

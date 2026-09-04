@@ -184,10 +184,11 @@ export function uploadableSlotsForShop(
  * Where a gallery photo came from.
  *
  *   · `back_catalogue` — the shop's own archive, no celebration attached.
- *     COUNTED against `TierCaps.galleryBackCatalogPhotos`.
+ *     COUNTED against `TierCaps.galleryBackCatalogPhotosPerCategory`, PER
+ *     INSPIRATION CATEGORY (MB19).
  *   · `event_linked`   — delivered on a celebration this shop was booked on
  *     and is the couple's recommended pick for (an `editorial_vendor_media`
- *     promotion). NEVER counted, at any tier, including free.
+ *     promotion). NEVER counted, at any tier or category, including free.
  *
  * 🔑 THE DISTINCTION IS THE WHOLE POINT OF THE GATE. Rationing the work a shop
  * actually did for a real couple would charge them for the wedding they
@@ -199,9 +200,9 @@ export type GalleryUploadMode = 'back_catalogue' | 'event_linked';
 
 export type QuotaVerdict = {
   allowed: boolean;
-  /** The tier's ceiling. 0 means this tier may not back-catalogue at all. */
+  /** The per-category ceiling. 0 means this category may not back-catalogue at all. */
   cap: number;
-  /** Back-catalogue rows already held (event-linked rows are NOT in here). */
+  /** Back-catalogue rows already held IN THIS CATEGORY (event-linked rows are NOT in here). */
   used: number;
   /** Vendor-facing sentence when refused; empty when allowed. */
   message: string;
@@ -214,6 +215,14 @@ export type QuotaVerdict = {
  * shop may not show the work it delivered. `back_catalogue` is allowed while
  * `used < cap`.
  *
+ * ⚠ MB19: THE QUOTA IS PER CATEGORY, NOT PER ACCOUNT. `cap` and `used` are
+ * both scoped to the single inspiration category (`categoryLabel`) this
+ * upload targets — a shop holding 20 Flowers photos may still upload to
+ * Tables. `categoryLabel` names that category in the refusal message so the
+ * message reads as a fact about the shelf a vendor just tried to fill, not a
+ * tier statement (the earlier copy said "on your plan" — every tier now
+ * shares the same cap, so that phrase would be false).
+ *
  * ⚠ THIS IS A CHECK ON NEW INSERTS AND NOTHING ELSE. It never retires, hides
  * or deletes an existing row, so a shop that is over its cap (because it
  * uploaded under a looser ladder, or because an event was deleted and its
@@ -225,6 +234,7 @@ export function backCatalogueQuotaVerdict(input: {
   mode: GalleryUploadMode;
   cap: number;
   backCatalogueUsed: number;
+  categoryLabel: string;
 }): QuotaVerdict {
   const cap = Number.isFinite(input.cap) ? Math.max(0, Math.floor(input.cap)) : Infinity;
   const used = Math.max(0, Math.floor(input.backCatalogueUsed));
@@ -237,8 +247,7 @@ export function backCatalogueQuotaVerdict(input: {
       allowed: false,
       cap,
       used,
-      message:
-        'Your plan can add photos from celebrations you were booked on, but not from your back catalogue. Upgrade to Pro to add archive photos.',
+      message: `You can add ${input.categoryLabel} photos from celebrations you were booked on, but not from your back catalogue. Those never count against any category.`,
     };
   }
   if (used >= cap) {
@@ -246,7 +255,7 @@ export function backCatalogueQuotaVerdict(input: {
       allowed: false,
       cap,
       used,
-      message: `You’ve used all ${cap} back-catalogue photo${cap === 1 ? '' : 's'} on your plan. Retire one, or add photos from a celebration you were booked on — those never count.`,
+      message: `You’ve used all ${cap} ${input.categoryLabel} photo${cap === 1 ? '' : 's'}. Retire one, or add photos from a celebration you were booked on — those never count.`,
     };
   }
   return { allowed: true, cap, used, message: '' };

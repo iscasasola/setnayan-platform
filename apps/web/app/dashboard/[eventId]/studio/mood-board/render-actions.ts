@@ -344,8 +344,20 @@ export async function requestRender(args: {
         () => undefined,
         () => undefined,
       );
-  } catch {
-    // No gallery copy → not in the pool. The couple's render is unaffected.
+  } catch (err) {
+    // 🪤 NOT A BARE SWALLOW — `moodboard-render-failure-reaches-the-box.test.ts`
+    // forbids one in this file, and it is right to: a `catch {}` here is the
+    // literal mechanism of the disease this whole arc is about.
+    //
+    // The couple is unaffected and must stay so; what is lost is only pool
+    // eligibility, and that IS recorded — a row with an `image_key` and a NULL
+    // `gallery_image_key` is exactly the population of renders that never got
+    // marked, findable with one query. The line below names the reason the row
+    // alone cannot.
+    console.warn(
+      `[mb9] render ${renderId} has no gallery copy and will not enter the inspiration pool:`,
+      err instanceof Error ? err.message : err,
+    );
   }
 
   // A short-lived presigned GET, minted here so the tile can show the photo

@@ -116,14 +116,32 @@ test('the picker component offers no price, no credit and no Generate', () => {
   }
 });
 
-test('the pool picker is MOUNTED, and wired to the free actions', () => {
-  // 🔑 A SOURCE GUARD CANNOT SEE A COMPONENT NOBODY RENDERS. The constant being
-  // present in the file and the section drawing nothing look identical, so pin
-  // the mount and the props that make it work.
+test('the pool picker is MOUNTED exactly once, gated, and wired to the free actions', () => {
+  /**
+   * 🔑 A SOURCE GUARD CANNOT SEE A COMPONENT NOBODY RENDERS — the constant
+   * being present and the section drawing nothing look identical in the text.
+   * So this pins what text CAN establish, and the anchor is exact:
+   *
+   * ⚠ `includes('<RenderPoolPicker')` WAS NOT ENOUGH, AND THE SABOTAGE PROVED
+   * IT. Renaming the mount to `<RenderPoolPickerXX` leaves that substring
+   * intact and the check passed through a component that no longer existed.
+   * The token boundary is what makes the anchor mean the component.
+   */
   const board = read(BOARD);
-  assert.ok(board.includes('<RenderPoolPicker'), 'the pool picker is never mounted');
+  const mounts = board.match(/<RenderPoolPicker(?=[\s/>])/g) ?? [];
+  assert.equal(mounts.length, 1, `the pool picker is mounted ${mounts.length} times, expected 1`);
+  assert.ok(board.includes('<RenderPoolPicker\n              eventId={eventId}'));
+
+  // The gate around it, so the mount cannot be left behind by the props that
+  // make it work — a picker that cannot fetch is worse than no picker.
+  assert.ok(board.includes('poolWired &&'));
+  assert.ok(board.includes('openPoolSlot !== null'));
   assert.ok(board.includes('fetchAction={fetchRenderPoolAction!}'));
   assert.ok(board.includes('applyAction={applyRenderPickAction!}'));
+
+  // And the button that opens it, counted for the same reason.
+  const doors = board.match(/setOpenPoolSlot\(/g) ?? [];
+  assert.ok(doors.length >= 2, 'the open/close control for the pool picker is gone');
 
   const page = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
   assert.ok(page.includes('fetchRenderPoolAction={fetchRenderPool}'));

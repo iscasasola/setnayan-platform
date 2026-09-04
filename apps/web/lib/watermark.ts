@@ -7,9 +7,21 @@
  * photos MUST have watermarks (default-on for IP protection against scraping).
  *
  * V1 approach: client-side Canvas watermarking before upload. Simpler than
- * server-side (no sharp/node-canvas dependency), and fine for V1 since the
- * watermark is a deterrent, not anti-tamper security. Upgrade to server-side
- * sharp.js compositing in V1.x if takedown evasion becomes a real problem.
+ * server-side, and fine for V1 since the watermark is a deterrent, not
+ * anti-tamper security.
+ *
+ * ⚠ AMENDED 2026-09-04 (MB9), NOT REVERSED. This header used to say
+ * "no sharp/node-canvas dependency" and to file server-side compositing under
+ * "upgrade in V1.x". Both are now out of date: `sharp` IS a dependency
+ * (apps/web/package.json), and `lib/watermark-server.ts` is the sharp-based
+ * equivalent that marks BYTES.
+ *
+ * The two are deliberately NOT merged and this module is not deprecated. It
+ * takes a `File` in a browser and intercepts an upload; the other takes bytes
+ * in a lambda for an image no browser ever touched (a Mood Board render). One
+ * "universal" helper would have to drag the browser half into every server
+ * bundle. Pick by where the image is: `watermarkFile` here for anything a
+ * person uploads, `watermarkImageBytes` for anything we generate.
  */
 
 export type WatermarkOptions = {

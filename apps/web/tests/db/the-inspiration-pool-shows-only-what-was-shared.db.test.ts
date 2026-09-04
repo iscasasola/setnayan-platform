@@ -289,6 +289,62 @@ test('a caller who does not belong to the event gets zero rows, not the pool', a
   assert.equal(res.rows.length, 0);
 });
 
+test('total_count counts the whole pool, not the page — "Show more" must not stall short', async () => {
+  // 🪤 `COUNT(*) OVER ()` is computed before LIMIT, and the picker's paging
+  // denominator is that number. If it ever counted only the returned page,
+  // `hasMore` would go false after the first six and the rest of the pool would
+  // be unreachable with nothing on screen saying so.
+  const sharer = await newCouple();
+  const browser = await newCouple();
+  await consent(sharer.eventId);
+  const ids: string[] = [];
+  for (let i = 0; i < 5; i += 1) {
+    const id = await newRender(sharer.eventId);
+    await attachGalleryCopy(id, sharer.userId);
+    ids.push(id);
+  }
+
+  await setAuthUid(db, browser.userId);
+  const page = await db.query<{ render_id: string; total_count: string }>(
+    `SELECT * FROM public.moodboard_inspiration_pool($1, NULL, 2, 0, NULL)`,
+    [browser.eventId],
+  );
+  assert.equal(page.rows.length, 2, 'the LIMIT must be honoured');
+  assert.ok(
+    Number(page.rows[0]!.total_count) >= 5,
+    `total_count reported ${page.rows[0]!.total_count} for a pool of at least 5`,
+  );
+
+  // And the offset really walks: page 2 holds different renders.
+  const second = await db.query<{ render_id: string }>(
+    `SELECT * FROM public.moodboard_inspiration_pool($1, NULL, 2, 2, NULL)`,
+    [browser.eventId],
+  );
+  const overlap = second.rows.filter((r) => page.rows.some((p) => p.render_id === r.render_id));
+  assert.equal(overlap.length, 0, 'paging repeated rows it had already returned');
+});
+
+test('the part filter narrows to the slot, and always keeps the whole look', async () => {
+  const sharer = await newCouple();
+  const browser = await newCouple();
+  await consent(sharer.eventId);
+  const ceiling = await newRender(sharer.eventId); // part_id = room:ceiling
+  await attachGalleryCopy(ceiling, sharer.userId);
+
+  await setAuthUid(db, browser.userId);
+  const matching = await db.query<{ render_id: string }>(
+    `SELECT * FROM public.moodboard_inspiration_pool($1, ARRAY['room:ceiling','whole_look'], 24, 0, NULL)`,
+    [browser.eventId],
+  );
+  assert.ok(matching.rows.some((r) => r.render_id === ceiling));
+
+  const elsewhere = await db.query<{ render_id: string }>(
+    `SELECT * FROM public.moodboard_inspiration_pool($1, ARRAY['people:bride','whole_look'], 24, 0, NULL)`,
+    [browser.eventId],
+  );
+  assert.equal(elsewhere.rows.some((r) => r.render_id === ceiling), false);
+});
+
 /* ── a PICK is a reference, and the database says so ───────────────────────── */
 
 test("a picked render's provenance is unrepresentable-if-missing, in both directions", async () => {

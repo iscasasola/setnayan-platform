@@ -125,7 +125,7 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
           <div className="flex items-center gap-3">
             <span
               aria-hidden
-              className="flex h-11 w-11 flex-none items-center justify-center rounded-[10px] bg-terracotta/80 text-sm font-bold text-cream"
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-terracotta/80 text-sm font-bold text-cream"
             >
               {initials || '—'}
             </span>
@@ -206,7 +206,7 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
               {laneIsWide(lane) ? '' : ' Nothing else in your board.'}
             </p>
             {laneIsWide(lane) ? (
-              <div className="mt-2.5 flex items-start gap-2.5 rounded-[10px] bg-terracotta/10 px-3.5 py-3 text-xs leading-relaxed text-ink/70">
+              <div className="mt-2.5 flex items-start gap-2.5 rounded-lg bg-terracotta/10 px-3.5 py-3 text-xs leading-relaxed text-ink/70">
                 <span aria-hidden>🔑</span>
                 <span>
                   <b className="font-semibold text-ink">Wider than most vendors.</b> A change
@@ -289,7 +289,7 @@ export function ColourChangeRowView({
     <li className="flex items-center gap-3 py-2.5">
       <span
         aria-hidden
-        className="h-[26px] w-[26px] flex-none rounded-[7px] border border-ink/10"
+        className="h-[26px] w-[26px] flex-none rounded-md border border-ink/10"
         style={{ backgroundColor: reverted ? 'transparent' : said.to, opacity: reverted ? 0.4 : 1 }}
       />
       <div className="min-w-0 flex-1">
@@ -312,7 +312,7 @@ export function ColourChangeRowView({
           type="button"
           disabled={busy}
           onClick={onReject}
-          className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-[7px] bg-danger-100 px-2.5 py-1.5 text-xs font-semibold text-danger-700 transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md bg-danger-100 px-2.5 py-1.5 text-xs font-semibold text-danger-700 transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {busy ? 'Rejecting…' : 'Reject'}

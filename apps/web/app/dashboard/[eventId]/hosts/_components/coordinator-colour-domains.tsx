@@ -87,7 +87,12 @@ export function CoordinatorColourDomains({
       aria-labelledby="colour-domains-heading"
       className="sn-tile space-y-3 p-5"
     >
-      <header className="space-y-1">
+      {/* 🔑 A <div>, NOT A <header>. `.sn-eye`'s own spec in globals.css calls it
+          a "Tile eyebrow", and this IS a tile — one card inside the hosts page.
+          Wrapping it in <header> is the shape that drifted the card token onto
+          real page headers, which is what scripts/lint-page-masthead.mjs
+          watches for; the page's own masthead is <PageMasthead>, above. */}
+      <div className="space-y-1">
         <p id="colour-domains-heading" className="sn-eye">
           <Palette aria-hidden className="mr-1.5 inline h-3.5 w-3.5" strokeWidth={1.75} />
           Colour access
@@ -98,7 +103,7 @@ export function CoordinatorColourDomains({
           is its own switch. You’re told about every change, and you can undo any single one
           without touching their access.
         </p>
-      </header>
+      </div>
 
       <ul className="space-y-4">
         {people.map((p) => (

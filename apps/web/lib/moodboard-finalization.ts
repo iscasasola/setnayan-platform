@@ -341,62 +341,30 @@ export function buildDesignSnapshot(
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   READING THE ROWS
-   ══════════════════════════════════════════════════════════════════════════ */
+   READING THE ROWS — re-exported, NOT defined here
+   ══════════════════════════════════════════════════════════════════════════
 
-/** One `moodboard_part_finalizations` row, as every couple-facing surface reads
- *  it. Deliberately the DB column names: this shape is what the query returns,
- *  and renaming on the way in is how a field quietly stops being read. */
-export type PartFinalizationRecord = {
-  finalization_id: string;
-  part_id: string;
-  vendor_id: string;
-  state: string;
-  expires_at: string | null;
-  agreed_at: string | null;
-  declined_at: string | null;
-  decline_reason: string | null;
-  reopen_state: string | null;
-  reopen_expires_at: string | null;
-  reopen_decline_reason: string | null;
-  frozen_palette_keys: string[] | null;
-  frozen_dressing_fields: string[] | null;
-};
+   🛑 THEY LIVE IN `./moodboard-finalization-rows`, AND THE SPLIT IS THE WHOLE
+   POINT. This module composes MB10's slot → trade map, which reaches
+   `lib/vendor-counts.ts` → `lib/taxonomy-db.ts` → `lib/supabase/server.ts` →
+   `next/headers`. A `'use client'` file that imports a VALUE from here fails
+   the production build — and neither `tsc` nor `tsx --test` can see it, because
+   one is not a bundler and the other resolves everything happily in node.
 
-/** Index the live rows by part. At most one row per part can be pending or
- *  agreed — `moodboard_part_finalizations_one_live_uniq` enforces it — so this
- *  map is total, not a "last one wins". */
-export function liveByPart(
-  rows: readonly PartFinalizationRecord[],
-): Map<string, PartFinalizationRecord> {
-  const out = new Map<string, PartFinalizationRecord>();
-  for (const row of rows) {
-    if (row.state !== 'pending' && row.state !== 'agreed') continue;
-    out.set(row.part_id, row);
-  }
-  return out;
-}
+   MB12 shipped exactly that to CI: `palette-board-context.tsx` imported
+   `frozenNow` from here, and five checks went red on
+   *"You're importing a component that needs next/headers"*. The warning was
+   already written down in `moodboard-gallery.ts`'s own docblock.
 
-/**
- * What is CURRENTLY frozen on this board, read from the rows themselves.
- *
- * 🔑 FROM `frozen_palette_keys`, NOT FROM `paletteKeysFrozenBy`. The row records
- * what the agreement ACTUALLY added; the map above says what an agreement
- * WOULD add today. They differ whenever the couple had already touched a role
- * by hand before finalizing — and re-deriving the answer from the map would
- * then claim their own edit as ours and release it on re-open. The database
- * releases exactly `frozen_palette_keys` for the same reason.
- */
-export function frozenNow(rows: readonly PartFinalizationRecord[]): {
-  paletteKeys: Set<string>;
-  dressingFields: Set<string>;
-} {
-  const paletteKeys = new Set<string>();
-  const dressingFields = new Set<string>();
-  for (const row of rows) {
-    if (row.state !== 'agreed') continue;
-    for (const k of row.frozen_palette_keys ?? []) paletteKeys.add(k);
-    for (const f of row.frozen_dressing_fields ?? []) dressingFields.add(f);
-  }
-  return { paletteKeys, dressingFields };
-}
+   ⚠ SO A CLIENT COMPONENT MUST IMPORT FROM THE ROWS MODULE DIRECTLY, never
+   through this re-export — a re-export is still a value edge through this file.
+   These lines exist only so a SERVER caller can take everything from one place.
+   `lint-server-only-boundary.mjs` now treats `next/headers` as a boundary root
+   and will say so in about a second rather than in a twenty-minute build.
+*/
+
+export {
+  liveByPart,
+  frozenNow,
+  type PartFinalizationRecord,
+} from './moodboard-finalization-rows';

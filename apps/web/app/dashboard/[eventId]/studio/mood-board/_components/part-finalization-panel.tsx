@@ -45,22 +45,45 @@ import {
   partReopenStateOf,
 } from '@/lib/lock-request-state';
 import {
-  eligibleSuppliersForPart,
-  finalizeBlocker,
   liveByPart,
-  partFreezesNothing,
-  type BookedSupplier,
   type PartFinalizationRecord,
-} from '@/lib/moodboard-finalization';
+} from '@/lib/moodboard-finalization-rows';
 
-export type FinalizationPanelPart = { id: string; label: string };
+/**
+ * One row of the panel, RESOLVED ON THE SERVER.
+ *
+ * 🛑 THE ELIGIBILITY IS NOT COMPUTED HERE, AND THAT IS NOT A STYLE CHOICE.
+ * Answering "who may be asked about this part" means composing MB10's slot →
+ * trade map, which reaches `lib/taxonomy-db.ts` → `lib/supabase/server.ts` →
+ * `next/headers`. Importing it from a `'use client'` file fails the production
+ * build outright — and MB12 shipped exactly that to CI before this shape
+ * existed. `tsc` cannot see it; only `next build` can.
+ *
+ * The secondary reason is the one `moodboard-gallery.ts` already wrote down:
+ * even where it compiled, it would drag a ~1,300-line vendor taxonomy into the
+ * browser bundle to render one sentence.
+ *
+ * So `page.tsx` resolves each part into this shape and the panel renders it.
+ * `blockerMessage` is the sentence to show INSTEAD of controls; `null` means
+ * the part is askable, and `eligible` is then non-empty.
+ */
+export type FinalizationPanelPart = {
+  id: string;
+  label: string;
+  /** `null` = askable. Never a bare `disabled` — see `finalizeBlocker`. */
+  blockerMessage: string | null;
+  /** The booked suppliers whose trade reaches this part. */
+  eligible: ReadonlyArray<{ vendorId: string; name: string }>;
+  /** TRUE when agreeing RECORDS the design but stops nothing (its colours are
+   *  the couple's majors read directly, and the majors are never frozen). */
+  freezesNothing: boolean;
+};
 
 type ActionResult = { status: string };
 
 export function PartFinalizationPanel({
   parts,
   records,
-  booked,
   requestAction,
   cancelAction,
   reopenAction,
@@ -69,7 +92,6 @@ export function PartFinalizationPanel({
 }: {
   parts: readonly FinalizationPanelPart[];
   records: readonly PartFinalizationRecord[];
-  booked: readonly BookedSupplier[];
   requestAction: (partId: string, vendorId: string) => Promise<ActionResult>;
   cancelAction: (finalizationId: string) => Promise<ActionResult>;
   reopenAction: (finalizationId: string) => Promise<ActionResult>;
@@ -122,8 +144,6 @@ export function PartFinalizationPanel({
           const row = live.get(part.id) ?? null;
           const state = partFinalizationStateOf(row);
           const reopen = partReopenStateOf(row);
-          const blocker = finalizeBlocker(part.id, booked);
-          const eligible = eligibleSuppliersForPart(part.id, booked);
           const busy = pendingPart === part.id;
 
           return (
@@ -144,7 +164,7 @@ export function PartFinalizationPanel({
                       is derived (`partFreezesNothing`) and pinned by
                       `lib/moodboard-finalization.test.ts`, never counted here.
                       */}
-                  {partFreezesNothing(part.id) ? (
+                  {part.freezesNothing ? (
                     <span className="text-[11px] text-ink/50">
                       recorded, but its colours still follow your main colours
                     </span>
@@ -209,12 +229,12 @@ export function PartFinalizationPanel({
                     Withdraw
                   </button>
                 </>
-              ) : blocker ? (
-                <span className="text-[11px] text-ink/55">{blocker.message}</span>
+              ) : part.blockerMessage ? (
+                <span className="text-[11px] text-ink/55">{part.blockerMessage}</span>
               ) : (
                 <>
                   <ClosedRoundNote records={records} partId={part.id} />
-                  {eligible.map((s) => (
+                  {part.eligible.map((s) => (
                     <button
                       key={s.vendorId}
                       type="button"

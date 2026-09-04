@@ -42,10 +42,14 @@ import {
   requestPartFinalization,
   requestPartReopen,
 } from './finalization-actions';
-import type {
-  BookedSupplier,
-  PartFinalizationRecord,
+import {
+  eligibleSuppliersForPart,
+  finalizeBlocker,
+  partFreezesNothing,
+  type BookedSupplier,
+  type PartFinalizationRecord,
 } from '@/lib/moodboard-finalization';
+import type { FinalizationPanelPart } from './_components/part-finalization-panel';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { PaletteBoardProvider } from './_components/palette-board-context';
 import {
@@ -443,16 +447,33 @@ export default async function MoodBoardPage({ params }: Props) {
   // this wedding. Room parts follow `venueZoneApplies`, the same predicate the
   // reception summary above already uses. Place parts ride with the room: a
   // cake and a bar are things at the venue, not roles in the palette.
+  //
+  // 🛑 THE ELIGIBILITY IS RESOLVED HERE, ON THE SERVER, AND THAT IS LOAD-BEARING.
+  // `finalizeBlocker` / `eligibleSuppliersForPart` compose MB10's slot → trade
+  // map, which reaches lib/vendor-counts → lib/taxonomy-db → lib/supabase/server
+  // → next/headers. Calling them from the client panel fails the production
+  // build, which is the ONLY thing that can see it — `tsc` is not a bundler and
+  // `tsx --test` resolves it happily in node. MB12 shipped that chain to CI.
+  const asPanelPart = (p: RenderPart): FinalizationPanelPart => ({
+    id: p.id,
+    label: p.label,
+    blockerMessage: finalizeBlocker(p.id, bookedSuppliers)?.message ?? null,
+    eligible: eligibleSuppliersForPart(p.id, bookedSuppliers).map((s) => ({
+      vendorId: s.vendorId,
+      name: s.name,
+    })),
+    freezesNothing: partFreezesNothing(p.id),
+  });
   const peopleFinalizationParts = eligibleRenderParts
     .filter((p) => p.group === 'people')
-    .map((p) => ({ id: p.id, label: p.label }));
+    .map(asPanelPart);
   const roomFinalizationParts = eligibleRenderParts
     .filter(
       (p) =>
         (p.group === 'room' && venueZoneApplies(event.venue_setting, p.sourceKey as PartId)) ||
         p.group === 'places',
     )
-    .map((p) => ({ id: p.id, label: p.label }));
+    .map(asPanelPart);
 
   // Every inspiration slot that holds at least one photo — the same
   // `inspirations` rows InspirationBoard renders, read once here rather than
@@ -770,7 +791,6 @@ export default async function MoodBoardPage({ params }: Props) {
               <PartFinalizationPanel
                 parts={peopleFinalizationParts}
                 records={finalizationRecords}
-                booked={bookedSuppliers}
                 requestAction={requestPartFinalization.bind(null, eventId)}
                 cancelAction={cancelPartFinalization.bind(null, eventId)}
                 reopenAction={requestPartReopen.bind(null, eventId)}
@@ -818,7 +838,6 @@ export default async function MoodBoardPage({ params }: Props) {
             <PartFinalizationPanel
               parts={roomFinalizationParts}
               records={finalizationRecords}
-              booked={bookedSuppliers}
               requestAction={requestPartFinalization.bind(null, eventId)}
               cancelAction={cancelPartFinalization.bind(null, eventId)}
               reopenAction={requestPartReopen.bind(null, eventId)}

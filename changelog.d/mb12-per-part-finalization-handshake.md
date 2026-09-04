@@ -74,3 +74,24 @@ and the panel says which is which on the row.
 SPEC IMPACT: None. MB12 implements the plan in `build-sessions/MB12.md` and the
 owner's inheritance ruling recorded there; no locked decision changes, no price
 is touched, and `platform_retail_catalog_v2` is not read or written.
+
+### Follow-up · the client bundle cannot reach the taxonomy
+
+CI's production build caught a real defect `tsc` structurally cannot see:
+`palette-board-context.tsx` (`'use client'`) imported a VALUE from
+`lib/moodboard-finalization.ts`, which composes MB10's slot → trade map and so
+reaches `lib/vendor-counts.ts` → `lib/taxonomy-db.ts` → `lib/supabase/server.ts`
+→ `next/headers` (and, worse, `lib/supabase/admin.ts` — the service-role
+client). `moodboard-gallery.ts`'s own docblock had already written the warning
+down.
+
+- The row readers moved to `lib/moodboard-finalization-rows.ts`, which imports
+  nothing but its own types; the server module re-exports them.
+- Eligibility (`finalizeBlocker` / `eligibleSuppliersForPart` /
+  `partFreezesNothing`) is now resolved in `page.tsx` and handed to the panel as
+  props, so no client component touches the taxonomy at all.
+- `lint-server-only-boundary.mjs` now treats `next/headers` as a boundary root
+  alongside `import 'server-only'` — DERIVED from a module's own imports, not
+  hand-listed, because nobody adds a module to a list before they know it bites.
+  Repo-wide it now knows 262 boundary modules and reports zero violations.
+

@@ -152,9 +152,38 @@ const EXTRA_BOUNDARY_MODULES = [
 const extraBoundaryPaths = new Set(
   EXTRA_BOUNDARY_MODULES.map((p) => join(WEB_ROOT, p)),
 );
+/**
+ * 🔴 `next/headers` IS A BOUNDARY TOO, AND THIS SCRIPT USED TO MISS IT.
+ *
+ * `import 'server-only'` is one way a module says "never bundle me". Importing
+ * `next/headers` is another, and the build message is the same shape:
+ *
+ *     You're importing a component that needs "next/headers".
+ *
+ * `lib/supabase/server.ts` — the ordinary request-scoped Supabase client, which
+ * something like a third of `lib/` reaches transitively — declares itself that
+ * second way and carries no `server-only` line, so it was invisible here. On
+ * 2026-09-04 MB12 shipped a chain through it (`palette-board-context.tsx` →
+ * lib/moodboard-finalization → lib/moodboard-gallery → lib/vendor-counts →
+ * lib/taxonomy-db → lib/supabase/server) and took FIVE CI checks red on a
+ * twenty-minute build — which is the precise cost this script exists to avoid.
+ * The hand-list below could not have prevented it: nobody adds a module to a
+ * list before they know it bites.
+ *
+ * 🔑 DERIVED, NOT LISTED. Any module whose own value imports include
+ * `next/headers` is a boundary, at any depth. That covers every present and
+ * future one without anybody remembering to add it.
+ *
+ * ⚠ Only `next/headers`. `next/navigation` and `next/server` are fine in a
+ * client bundle, and flagging them would make this cry wolf.
+ */
+const importsNextHeaders = (file) =>
+  valueImports(file).some((spec) => spec === 'next/headers');
+
 const isServerOnly = (file) =>
   extraBoundaryPaths.has(file) ||
-  /(^|\n)\s*import\s+['"]server-only['"]/.test(source(file).clean);
+  /(^|\n)\s*import\s+['"]server-only['"]/.test(source(file).clean) ||
+  importsNextHeaders(file);
 
 /**
  * A `'use server'` module is a BOUNDARY, not an edge to follow.

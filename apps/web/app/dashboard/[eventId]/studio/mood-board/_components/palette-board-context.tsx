@@ -49,10 +49,14 @@ import {
   type RoomDressing,
 } from '@/lib/mood-board';
 import { derivedBoardFor, displayColorsFor, effectiveMajors } from '@/lib/mood-board-derive';
+// 🛑 THE ROWS MODULE, NOT `@/lib/moodboard-finalization`. That one composes
+// MB10's slot → trade map, which reaches lib/supabase/server.ts → next/headers,
+// and a VALUE import of it from a 'use client' file fails the production build.
+// MB12 shipped exactly that to CI. `tsc` cannot see it; only `next build` can.
 import {
   frozenNow,
   type PartFinalizationRecord,
-} from '@/lib/moodboard-finalization';
+} from '@/lib/moodboard-finalization-rows';
 import {
   applyAddMajorSlot,
   applyAddRoleColor,

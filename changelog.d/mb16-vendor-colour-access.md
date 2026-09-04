@@ -18,7 +18,7 @@ shape MB8's `moodboard_begin_render` and MB12's `vendor_agree_to_part` proved.
   — the enum label, its own file (Postgres forbids USING a new enum value in the
   transaction that adds it).
 - `supabase/migrations/20271204966904_colour_access_grants.sql` —
-  `event_colour_grants` (per booking × domain), `event_colour_grants_host` (per
+  `event_colour_grants` (per booking × domain), `event_colour_grants_coordinator` (per
   person × domain, composite-FK'd to `event_members` so removing a delegate
   CASCADEs their access away), `event_colour_changes` (the history "reject"
   operates against), and five RPCs. The lane is resolved from
@@ -37,7 +37,20 @@ shape MB8's `moodboard_begin_render` and MB12's `vendor_agree_to_part` proved.
   on their read-only mood board.
 - `UGAT_TYPES` gains `TYPE-COLOURGRANT` and `UGAT_JOINTS` gains `J48`.
 
-**Two things found while building, both worth naming:**
+**Three things found while building, all worth naming:**
+
+- `event_colour_changes.reverted_by_user_id` was ON DELETE SET NULL under a
+  BICONDITIONAL check (`reverted_at IS NULL` = `reverted_by_user_id IS NULL`).
+  That turns the FK into a RESTRICT while it still claims SET NULL: erasing the
+  account of a partner who once rejected a change would fail on the CHECK and
+  refuse the user DELETE. Now one-directional — an author implies a date, and a
+  date with no author is the honest record an erased account leaves.
+- The coordinator grant table was first named `event_colour_grants_host`, and
+  `tests/db/couple-host-policy-scope.db.test.ts` failed it: the policy
+  `event_colour_grants_host_member_read` says "host" and resolves through the
+  member-wide `current_event_ids()`, which is exactly the shape that once gave
+  an ordinary guest couple-level access to harassment reports. Renamed to
+  `_coordinator`, which is also what the function actually requires.
 
 - `jsonb_set(palette, ARRAY['room_dressing','linens'], …)` RETURNS THE INPUT
   UNCHANGED when `room_dressing` does not exist — a two-element path cannot

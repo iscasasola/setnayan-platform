@@ -197,6 +197,8 @@ export async function GET() {
     ownCostsRes,
     ownRendersRes,
     ownShareConsentsRes,
+    ownColourGrantsRes,
+    ownColourChangesRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -594,6 +596,41 @@ export async function GET() {
       .select('event_id, consented, consented_at, withdrawn_at, updated_at')
       .eq('consented_by_user_id', user.id)
       .order('updated_at', { ascending: true }),
+    // RA 10173 (MB16) — the standing colour access this subject HOLDS.
+    //
+    // A fact about THEM, not about the event: it says what this person, by
+    // name, may change on somebody else's Mood Board, and it persists until
+    // the couple turns it off or removes them. Somebody asking what we hold
+    // about them is entitled to see a live capability attached to their
+    // account.
+    //
+    // SUBJECT-scoped on `user_id`, not on `granted_by_user_id`: the granter is
+    // the couple, and exporting by that column would hand one partner a list
+    // of permissions the other partner gave. The vendor half
+    // (`event_colour_grants`) is deliberately NOT here — see its
+    // DELIBERATE_EXCLUSIONS entry in export-coverage-guardrail.test.ts.
+    supabase
+      .from('event_colour_grants_coordinator')
+      .select('event_id, domain, is_active, granted_at, revoked_at, updated_at')
+      .eq('user_id', user.id)
+      .order('granted_at', { ascending: true }),
+    // RA 10173 (MB16) — the colours this subject CHANGED on somebody's board.
+    //
+    // Their own activity record, and the only one of the three MB16 tables
+    // that is unambiguously about the actor. AUTHOR-scoped for the same reason
+    // `event_renders` above is: an event-scoped read would disclose what the
+    // OTHER holders on that board did.
+    //
+    // `reverted_at` is included because it is part of the same fact — "I made
+    // this change and the couple put it back" is the record, and giving them
+    // half of it would be a more misleading answer than giving them none.
+    supabase
+      .from('event_colour_changes')
+      .select(
+        'change_id, event_id, domain, target_kind, target_key, target_index, old_value, new_value, created_at, reverted_at',
+      )
+      .eq('actor_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -644,6 +681,8 @@ export async function GET() {
   const ownCosts = listOutcome('own_costs_recorded', ownCostsRes);
   const ownRenders = listOutcome('own_renders_requested', ownRendersRes);
   const ownShareConsents = listOutcome('own_share_consents_given', ownShareConsentsRes);
+  const ownColourGrants = listOutcome('own_colour_access_held', ownColourGrantsRes);
+  const ownColourChanges = listOutcome('own_colour_changes_made', ownColourChangesRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -714,6 +753,8 @@ export async function GET() {
     accessRequests,
     ownCosts,
     ownRenders,
+    ownColourGrants,
+    ownColourChanges,
   ]);
 
   const exported = {
@@ -806,6 +847,12 @@ export async function GET() {
     // The "let Setnayan feature your creation" answers this subject gave, with
     // the dates they gave or withdrew them. See the read above.
     own_share_consents_given: ownShareConsents.rows,
+    // The standing colour access this subject HOLDS on other people's mood
+    // boards — a live capability attached to their account, subject-scoped.
+    own_colour_access_held: ownColourGrants.rows,
+    // The colours this subject changed under that access, and whether the
+    // couple put each one back. Author-scoped.
+    own_colour_changes_made: ownColourChanges.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     not_included: [

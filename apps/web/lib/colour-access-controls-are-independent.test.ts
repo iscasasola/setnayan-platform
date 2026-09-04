@@ -43,7 +43,7 @@ const MIGRATION = join(
 );
 const SQL = readFileSync(MIGRATION, 'utf8');
 
-const GRANT_TABLES = ['event_colour_grants', 'event_colour_grants_host'];
+const GRANT_TABLES = ['event_colour_grants', 'event_colour_grants_coordinator'];
 const LOG_TABLE = 'event_colour_changes';
 
 /**
@@ -83,7 +83,7 @@ test('REJECT cannot revoke — its body names no grant table', () => {
 });
 
 test('REVOKE cannot erase — neither grant function names the change log', () => {
-  for (const fn of ['set_vendor_colour_access', 'set_host_colour_access']) {
+  for (const fn of ['set_vendor_colour_access', 'set_coordinator_colour_access']) {
     const body = bodyOf(fn);
     assert.ok(
       !body.includes(LOG_TABLE),
@@ -102,7 +102,7 @@ test('REVOCATION IS A FLIP, NOT A DELETE — no grant function deletes a row', (
   // A deleted grant row takes `granted_at` with it, so "since when could this
   // shop do this" becomes unanswerable — and the change log's rows would point
   // at a permission with no record of ever having existed.
-  for (const fn of ['set_vendor_colour_access', 'set_host_colour_access']) {
+  for (const fn of ['set_vendor_colour_access', 'set_coordinator_colour_access']) {
     const body = bodyOf(fn);
     assert.ok(!/DELETE\s+FROM/i.test(body), `${fn} deletes a grant row instead of flipping it`);
     assert.ok(/is_active\s*=\s*FALSE/i.test(body), `${fn} has no revoke path at all`);
@@ -124,7 +124,7 @@ test('THE APPLY DOOR CHECKS A GRANT — and the check is not a comment', () => {
   // Both halves of "who is asking": the booking and the person.
   assert.ok(body.includes('event_colour_grants'), 'apply_colour_change reads no vendor grant');
   assert.ok(
-    body.includes('event_colour_grants_host'),
+    body.includes('event_colour_grants_coordinator'),
     'apply_colour_change reads no coordinator grant',
   );
   assert.ok(/is_active/.test(body), 'apply_colour_change ignores the couple’s switch');
@@ -165,7 +165,7 @@ test('EVERY MB16 FUNCTION IS SECURITY DEFINER WITH A PINNED search_path', () => 
   for (const fn of [
     'colour_access_caller_is_couple',
     'set_vendor_colour_access',
-    'set_host_colour_access',
+    'set_coordinator_colour_access',
     'apply_colour_change',
     'reject_colour_change',
   ]) {
@@ -182,7 +182,7 @@ test('ANON HOLDS EXECUTE ON NOTHING MB16 ADDED', () => {
     'colour_domain_covers',
     'colour_access_caller_is_couple',
     'set_vendor_colour_access',
-    'set_host_colour_access',
+    'set_coordinator_colour_access',
     'apply_colour_change',
     'reject_colour_change',
   ]) {

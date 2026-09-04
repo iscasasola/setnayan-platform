@@ -113,7 +113,7 @@ export async function setCoordinatorColourDomain(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data, error } = await supabase.rpc('set_host_colour_access', {
+  const { data, error } = await supabase.rpc('set_coordinator_colour_access', {
     p_event_id: eventId,
     p_user_id: userId,
     p_domain: domain,

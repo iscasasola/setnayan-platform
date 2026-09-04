@@ -794,6 +794,26 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which member of the supplier’s team answered a re-open request (MB12). Same call as answered_by_user_id — the answer is the shop’s, and on a YES it is the receipt for a design that was released back to the couple.',
   },
   {
+    table: 'event_colour_grants',
+    column: 'granted_by_user_id',
+    why: 'Which partner flipped ON a supplier’s standing colour access (MB16). The grant belongs to the EVENT and to the BOOKING, both of which are still standing after this person leaves — and it is a LIVE permission a supplier is working under, so deleting it because the partner who pressed the switch left would silently revoke access mid-build with nothing on any screen to explain it. The uuid is a stamp: selected by no reader, shown in no label, consulted by no RLS policy (the gate is colour_access_caller_is_couple → current_couple_event_ids, and the holder’s own gate is current_vendor_event_vendor_ids). Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_colour_grants_coordinator',
+    column: 'granted_by_user_id',
+    why: 'Same stamp on the coordinator half (MB16). ⚠ NOT the same column as `user_id` beside it — that one IS the subject and is in OWN_ROW_DELETES. This is who GRANTED, on a row about somebody else, so erasing the granter must not take away a coordinator’s live access to a wedding they are still running.',
+  },
+  {
+    table: 'event_colour_changes',
+    column: 'actor_user_id',
+    why: 'Who changed a colour on somebody’s Mood Board under a standing grant (MB16). 🔑 THE ROW IS THE COUPLE’S RECORD, NOT THE ACTOR’S — it is the entire oversight this mechanism has (there is no per-change approval), and `reject_colour_change` operates on it, so deleting it would take away the couple’s undo for a change that is still live on their board. It is also readable without the uuid: `actor_label` denormalises the shop or person name AS IT READ AT THE TIME, precisely so the log survives the booking being deleted or the person leaving. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_colour_changes',
+    column: 'reverted_by_user_id',
+    why: 'Which partner rejected a colour change (MB16). An actor stamp on the same couple-owned row. ⚠ Its CHECK is deliberately ONE-DIRECTIONAL (`reverted_by_user_id IS NULL OR reverted_at IS NOT NULL`) rather than a biconditional, precisely so this null lands: a biconditional would make ON DELETE SET NULL behave as RESTRICT and refuse the account deletion outright. A date with no author is the honest record an erased account leaves.',
+  },
+  {
     table: 'event_egift_methods',
     column: 'created_by_user_id',
     why: '⚠ This stamp records WHO FIRST PRESSED ADD, not whose account it is — the update path rewrites the handle and account name but never this column. So a row now holding the OTHER partner’s GCash number still carries the leaver’s uuid. Nulling is the only safe move; see PARTIALLY_PURGED for what is deliberately retained.',
@@ -1221,6 +1241,23 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     table: 'guest_saved_vendors',
     column: 'user_id',
     why: 'The subject’s private saved-vendor list, keyed to them alone.',
+  },
+  {
+    table: 'event_colour_grants_coordinator',
+    column: 'user_id',
+    why:
+      'Standing permission for THIS PERSON to change colours on a couple’s ' +
+      'Mood Board (MB16). The row’s whole reason for existing is them — it ' +
+      'says what they, specifically, may touch — so deleting it IS the ' +
+      'erasure; keeping it would be keeping a live capability attached to an ' +
+      'account that no longer exists. 🔑 The row already disappears on a hard ' +
+      'account delete (the composite FK to event_members CASCADEs, and that ' +
+      'table CASCADEs from auth.users); this makes it a DECISION rather than ' +
+      'a side effect, which is the same call event_deletion_requests makes ' +
+      'above. ⚖ Not a shared record: the couple loses nothing they can act on ' +
+      'when a coordinator leaves — their history of what that person changed ' +
+      'lives in event_colour_changes, which is retained and de-identified ' +
+      'rather than deleted.',
   },
   {
     table: 'event_deletion_requests',

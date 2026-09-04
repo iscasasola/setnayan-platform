@@ -238,7 +238,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   // delegate with a claimed account is an `event_members` row with
   // `member_type = 'coordinator'` — minted and deleted by
   // `sync_delegate_membership` — and that is exactly what
-  // `set_host_colour_access` requires and what the grant table's composite FK
+  // `set_coordinator_colour_access` requires and what the grant table's composite FK
   // CASCADEs from. So the list below is every accepted host, whatever their
   // role_subtype: the couple's own maid of honour is as grantable as their
   // planner, because the database calls both the same thing and inventing a
@@ -248,7 +248,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
     const [{ data: colourGrantRows, error: colourGrantErr }, { data: colourChangeRows, error: colourChangeErr }] =
       await Promise.all([
         admin
-          .from('event_colour_grants_host')
+          .from('event_colour_grants_coordinator')
           .select('user_id, domain, is_active')
           .eq('event_id', eventId)
           .eq('is_active', true),

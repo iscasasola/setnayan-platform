@@ -932,7 +932,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
      * ⚠ TWO GRANT TABLES, AND THE SPLIT IS REFERENTIAL. A vendor's subject is a
      * BOOKING (`event_vendors.vendor_id`); a coordinator's is a PERSON, and
      * specifically their `event_members` row — so
-     * `event_colour_grants_host` FKs the composite `(event_id, user_id)` and
+     * `event_colour_grants_coordinator` FKs the composite `(event_id, user_id)` and
      * `sync_delegate_membership`'s DELETE cascades their colour access away
      * with no code performing that revoke. One polymorphic table could FK
      * neither.
@@ -3096,7 +3096,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
      * `lib/colour-access-controls-are-independent.test.ts` reads the bodies out
      * of the migration and fails if either one gains such a statement.
      *
-     * ⚠ THE COORDINATOR HALF IS A SECOND TABLE, `event_colour_grants_host`, and
+     * ⚠ THE COORDINATOR HALF IS A SECOND TABLE, `event_colour_grants_coordinator`, and
      * it cannot be claimed here — a joint names ONE joint table. Its composite
      * FK to `event_members (event_id, user_id)` is what makes removing a
      * delegate revoke their colour access, and it is claimed by its own row in
@@ -3105,7 +3105,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     id: 'J48',
     claims: [
       { kind: 'table', table: 'event_colour_grants' },
-      { kind: 'table', table: 'event_colour_grants_host' },
+      { kind: 'table', table: 'event_colour_grants_coordinator' },
       { kind: 'table', table: 'event_colour_changes' },
       { kind: 'fk', table: 'event_colour_grants', column: 'event_id', references: 'events' },
       { kind: 'fk', table: 'event_colour_grants', column: 'vendor_id', references: 'event_vendors' },
@@ -3113,9 +3113,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'event_colour_grants', column: 'domain' },
       { kind: 'column', table: 'event_colour_grants', column: 'is_active' },
       { kind: 'column', table: 'event_colour_grants', column: 'revoked_at' },
-      { kind: 'column', table: 'event_colour_grants_host', column: 'user_id' },
-      { kind: 'column', table: 'event_colour_grants_host', column: 'domain' },
-      { kind: 'column', table: 'event_colour_grants_host', column: 'is_active' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'user_id' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'domain' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'is_active' },
       { kind: 'column', table: 'event_colour_changes', column: 'old_value' },
       { kind: 'column', table: 'event_colour_changes', column: 'new_value' },
       { kind: 'column', table: 'event_colour_changes', column: 'reverted_at' },
@@ -3144,8 +3144,8 @@ export const UGAT_JOINTS: UgatJoint[] = [
       },
       {
         kind: 'check',
-        table: 'event_colour_grants_host',
-        name: 'event_colour_grants_host_domain_chk',
+        table: 'event_colour_grants_coordinator',
+        name: 'event_colour_grants_coordinator_domain_chk',
         mentions: 'domain',
       },
       {
@@ -3163,7 +3163,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
       {
         kind: 'check',
         table: 'event_colour_changes',
-        name: 'event_colour_changes_revert_coherent',
+        name: 'event_colour_changes_revert_dated',
         mentions: 'reverted_at',
       },
     ],
@@ -3172,13 +3172,13 @@ export const UGAT_JOINTS: UgatJoint[] = [
     title: 'Colour access ↔ Event (a standing grant, a logged write, and one undo)',
     joint: 'event_colour_grants',
     cardinality:
-      'One row per (event, booking, DOMAIN) — a stylist’s single on-screen switch is two rows (decor + main_colours), and the coordinator half is one row per (event, user, domain) in event_colour_grants_host. Revocation flips is_active; rows are never deleted',
+      'One row per (event, booking, DOMAIN) — a stylist’s single on-screen switch is two rows (decor + main_colours), and the coordinator half is one row per (event, user, domain) in event_colour_grants_coordinator. Revocation flips is_active; rows are never deleted',
     implementedBy:
       'events.role_palette, written by apply_colour_change (SECURITY DEFINER) and by nothing else on this path — the couple keeps their own RLS route through couple_can_update_event, which is unchanged',
     writtenBy:
-      'four SECURITY DEFINER RPCs and nothing else — set_vendor_colour_access / set_host_colour_access / reject_colour_change (the couple) and apply_colour_change (the grant holder). authenticated holds NO insert, update or delete on any of the three tables',
+      'four SECURITY DEFINER RPCs and nothing else — set_vendor_colour_access / set_coordinator_colour_access / reject_colour_change (the couple) and apply_colour_change (the grant holder). authenticated holds NO insert, update or delete on any of the three tables',
     guardedBy:
-      'RLS Pattern B read half on all three (event members read; the granted BOOKING reads its own row via current_vendor_event_vendor_ids; admin all) · no authenticated write policy anywhere · colour_access_caller_is_couple refuses a NULL auth.uid() rather than failing open to a server context · colour_domains_for_category resolves the lane IN SQL so no caller can widen it · colour_domain_covers refuses a target outside the granted domain · event_colour_grants_host_membership_fk CASCADEs from event_members, so removing a delegate revokes their access with no code doing it',
+      'RLS Pattern B read half on all three (event members read; the granted BOOKING reads its own row via current_vendor_event_vendor_ids; admin all) · no authenticated write policy anywhere · colour_access_caller_is_couple refuses a NULL auth.uid() rather than failing open to a server context · colour_domains_for_category resolves the lane IN SQL so no caller can widen it · colour_domain_covers refuses a target outside the granted domain · event_colour_grants_coordinator_membership_fk CASCADEs from event_members, so removing a delegate revokes their access with no code doing it',
     traps:
       'apply_colour_change READS THE ROW BACK after the UPDATE: MB12’s events_hold_part_finalization_freeze reverts an agreed part’s colour inside the same statement and the UPDATE still reports success, so without the read-back the log would carry a change that never happened. A palette slot is CHANGED and never CREATED (no_such_slot) — that is what lets reject be an in-place restore instead of an array splice. And event_colour_changes.vendor_id is ON DELETE SET NULL with deliberately NO companion CHECK requiring it: SET NULL onto a CHECKed column makes the FK behave like RESTRICT while claiming SET NULL, and deleting the booking would fail with a constraint error nobody could place.',
   },

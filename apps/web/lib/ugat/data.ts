@@ -298,7 +298,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // flip, not a delete) and counting it would report standing permission
     // that no longer stands.
     headCount(admin, 'event_colour_grants', (q) => q.eq('is_active', true)),
-    headCount(admin, 'event_colour_grants_host', (q) => q.eq('is_active', true)),
+    headCount(admin, 'event_colour_grants_coordinator', (q) => q.eq('is_active', true)),
   ]);
 
   return {

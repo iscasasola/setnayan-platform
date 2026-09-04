@@ -466,10 +466,10 @@ test('GUARD 3c · the two functions cannot reach each other’s table — read t
     !/event_colour_changes/.test(grantVendor),
     'set_vendor_colour_access now touches the change log',
   );
-  const grantHost = bodyOf(sql, 'set_host_colour_access');
+  const grantHost = bodyOf(sql, 'set_coordinator_colour_access');
   assert.ok(
     !/event_colour_changes/.test(grantHost),
-    'set_host_colour_access now touches the change log',
+    'set_coordinator_colour_access now touches the change log',
   );
 });
 
@@ -584,14 +584,14 @@ test('GUARD 4 · and the mirror can go red — a target nobody covers is FALSE i
 test('WIRE · removing a delegate CASCADES their colour grants away — no code does it', async () => {
   const ok = await rpcAs<{ status: string }>(
     W.couple,
-    `SELECT public.set_host_colour_access($1,$2,'decor',TRUE) AS out`,
+    `SELECT public.set_coordinator_colour_access($1,$2,'decor',TRUE) AS out`,
     [W.eventId, W.coordinator],
   );
   assert.equal((ok as { value: { status: string } }).value.status, 'ok');
 
   await reset();
   const held = await db.query(
-    `SELECT 1 FROM public.event_colour_grants_host WHERE event_id=$1 AND user_id=$2 AND is_active`,
+    `SELECT 1 FROM public.event_colour_grants_coordinator WHERE event_id=$1 AND user_id=$2 AND is_active`,
     [W.eventId, W.coordinator],
   );
   assert.equal(held.rows.length, 1);
@@ -603,7 +603,7 @@ test('WIRE · removing a delegate CASCADES their colour grants away — no code 
     [W.eventId, W.coordinator],
   );
   const after = await db.query(
-    `SELECT 1 FROM public.event_colour_grants_host WHERE event_id=$1 AND user_id=$2`,
+    `SELECT 1 FROM public.event_colour_grants_coordinator WHERE event_id=$1 AND user_id=$2`,
     [W.eventId, W.coordinator],
   );
   assert.equal(
@@ -616,7 +616,7 @@ test('WIRE · removing a delegate CASCADES their colour grants away — no code 
 test('WIRE · a coordinator who is not a member of the event cannot be granted at all', async () => {
   const r = await rpcAs<{ status: string }>(
     W.couple,
-    `SELECT public.set_host_colour_access($1,$2,'decor',TRUE) AS out`,
+    `SELECT public.set_coordinator_colour_access($1,$2,'decor',TRUE) AS out`,
     [W.eventId, W.stranger],
   );
   assert.equal((r as { value: { status: string } }).value.status, 'not_a_coordinator');

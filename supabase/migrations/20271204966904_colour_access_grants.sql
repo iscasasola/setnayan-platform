@@ -38,7 +38,7 @@
 -- states the schema permits and something has to remember to check.
 --
 -- 🔑 SPLIT, BOTH ARE STRUCTURAL. `event_colour_grants.vendor_id` CASCADEs from
--- the booking; `event_colour_grants_host (event_id, user_id)` CASCADEs from the
+-- the booking; `event_colour_grants_coordinator (event_id, user_id)` CASCADEs from the
 -- MEMBERSHIP row, so removing a delegate revokes their colour access with no
 -- code anywhere doing it on purpose. That wire is the one most likely to be
 -- forgotten, so it is a foreign key rather than a rule.
@@ -69,7 +69,7 @@
 -- that reads them. The couple is told so in words on the card, every time.
 --
 -- ── THREE INDEPENDENT CONTROLS. NONE TOUCHES ANOTHER. ──────────────────────
---   GRANT   set_vendor_colour_access / set_host_colour_access — writes ONLY the
+--   GRANT   set_vendor_colour_access / set_coordinator_colour_access — writes ONLY the
 --           grant tables. Never reads or writes event_colour_changes.
 --   NOTIFY  every change writes a row here and the server action emits
 --           `colour_changed_in_lane`, which is on EMAIL_ENABLED_TYPES. A
@@ -279,16 +279,29 @@ CREATE INDEX IF NOT EXISTS event_colour_grants_event_idx
 
 -- ---- 2 · the COORDINATOR grant ---------------------------------------------
 --
+-- ⚠ NAMED `_coordinator`, NOT `_host`, AND A SHIPPED GUARD IS WHY.
+-- The first cut called it `event_colour_grants_host`, which made its read
+-- policy `event_colour_grants_host_member_read` — and
+-- `tests/db/couple-host-policy-scope.db.test.ts` failed it, correctly: that
+-- guard exists because ten policies once SAID couple/host and resolved through
+-- the member-wide `current_event_ids()`, so an ordinary invited guest got
+-- couple-level access to harassment reports and to the consent record that
+-- authorises CHECKOUT. Here the word came from the TABLE and meant the SUBJECT
+-- of the grant, while the policy's audience really is any member — but a reader
+-- cannot tell those apart from the name, which is the entire failure mode the
+-- guard watches. `coordinator` is also the more accurate word: the function
+-- below requires `event_members.member_type = 'coordinator'`, not "a host".
+--
 -- Keyed by the PERSON, and by their MEMBERSHIP specifically. `event_members`
 -- carries UNIQUE (event_id, user_id), so the composite FK below is legal — and
 -- it is what makes "removing a delegate revokes their colour access" a
 -- structural fact rather than a step somebody has to remember.
 
-CREATE TABLE IF NOT EXISTS public.event_colour_grants_host (
+CREATE TABLE IF NOT EXISTS public.event_colour_grants_coordinator (
   event_id           UUID NOT NULL,
   user_id            UUID NOT NULL,
   domain             TEXT NOT NULL
-                       CONSTRAINT event_colour_grants_host_domain_chk
+                       CONSTRAINT event_colour_grants_coordinator_domain_chk
                        CHECK (domain IN ('main_colours', 'decor', 'florals', 'attire')),
 
   is_active          BOOLEAN NOT NULL DEFAULT TRUE,
@@ -302,24 +315,24 @@ CREATE TABLE IF NOT EXISTS public.event_colour_grants_host (
   -- 🔑 THE WIRE, AS A FOREIGN KEY. sync_delegate_membership DELETEs the
   -- coordinator event_members row when the delegate is removed; this CASCADEs
   -- their standing colour grants away with it. No code performs that revoke.
-  CONSTRAINT event_colour_grants_host_membership_fk
+  CONSTRAINT event_colour_grants_coordinator_membership_fk
     FOREIGN KEY (event_id, user_id)
     REFERENCES public.event_members (event_id, user_id) ON DELETE CASCADE,
 
-  CONSTRAINT event_colour_grants_host_revocation_dated
+  CONSTRAINT event_colour_grants_coordinator_revocation_dated
     CHECK (is_active = TRUE OR revoked_at IS NOT NULL)
 );
 
-COMMENT ON TABLE public.event_colour_grants_host IS
+COMMENT ON TABLE public.event_colour_grants_coordinator IS
   'MB16. A coordinator is NOT one lane — they hold several independent domain '
   'grants at once, one row each, and the couple grants only what they choose. '
   'Keyed to event_members (event_id, user_id) by a composite FK, so removing '
   'the delegate CASCADEs the grants away: sync_delegate_membership deletes the '
   'membership row and nothing has to remember to revoke. Written only by '
-  'set_host_colour_access (couple-only, SECURITY DEFINER).';
+  'set_coordinator_colour_access (couple-only, SECURITY DEFINER).';
 
-CREATE INDEX IF NOT EXISTS event_colour_grants_host_event_idx
-  ON public.event_colour_grants_host (event_id) WHERE is_active;
+CREATE INDEX IF NOT EXISTS event_colour_grants_coordinator_event_idx
+  ON public.event_colour_grants_coordinator (event_id) WHERE is_active;
 
 -- ---- 3 · the change log — what "reject" operates against -------------------
 
@@ -382,9 +395,20 @@ CREATE TABLE IF NOT EXISTS public.event_colour_changes (
   -- An index belongs to a palette slot and to nothing else.
   CONSTRAINT event_colour_changes_index_shape
     CHECK ((target_kind = 'palette') = (target_index IS NOT NULL)),
-  -- A revert has a date the moment it has an author, and vice versa.
-  CONSTRAINT event_colour_changes_revert_coherent
-    CHECK ((reverted_at IS NULL) = (reverted_by_user_id IS NULL))
+  -- 🪤 ONE DIRECTION ONLY, AND THE MISSING HALF IS THE SAME TRAP AS `vendor_id`
+  -- ABOVE. The obvious constraint here is the BICONDITIONAL — a revert has a
+  -- date iff it has an author — and it would silently turn
+  -- `reverted_by_user_id`'s ON DELETE SET NULL into a RESTRICT: erasing the
+  -- account of a partner who once rejected a change would try to null the
+  -- author on a row that still carries a date, fail this CHECK, and refuse the
+  -- user DELETE with a constraint error nobody could place. This repo has paid
+  -- for that shape once already.
+  --
+  -- So: an AUTHOR implies a DATE (a stamp with no time is unreadable), and a
+  -- date with no author is legal — which is exactly what an erased account
+  -- leaves behind, and is the truth about that row.
+  CONSTRAINT event_colour_changes_revert_dated
+    CHECK (reverted_by_user_id IS NULL OR reverted_at IS NOT NULL)
 );
 
 COMMENT ON TABLE public.event_colour_changes IS
@@ -413,7 +437,7 @@ CREATE INDEX IF NOT EXISTS event_colour_changes_vendor_idx
 -- ---- 4 · RLS — Pattern B read half; every write is a definer function ------
 
 ALTER TABLE public.event_colour_grants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.event_colour_grants_host ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_colour_grants_coordinator ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.event_colour_changes ENABLE ROW LEVEL SECURITY;
 
 -- Any event member may see what colour access this board has handed out — the
@@ -433,9 +457,9 @@ CREATE POLICY event_colour_grants_vendor_read
   FOR SELECT TO authenticated
   USING (vendor_id IN (SELECT public.current_vendor_event_vendor_ids()));
 
-DROP POLICY IF EXISTS event_colour_grants_host_member_read ON public.event_colour_grants_host;
-CREATE POLICY event_colour_grants_host_member_read
-  ON public.event_colour_grants_host
+DROP POLICY IF EXISTS event_colour_grants_coordinator_member_read ON public.event_colour_grants_coordinator;
+CREATE POLICY event_colour_grants_coordinator_member_read
+  ON public.event_colour_grants_coordinator
   FOR SELECT TO authenticated
   USING (event_id IN (SELECT public.current_event_ids()) OR public.is_admin());
 
@@ -456,9 +480,9 @@ CREATE POLICY event_colour_grants_admin_all
   ON public.event_colour_grants FOR ALL TO authenticated
   USING (public.is_admin()) WITH CHECK (public.is_admin());
 
-DROP POLICY IF EXISTS event_colour_grants_host_admin_all ON public.event_colour_grants_host;
-CREATE POLICY event_colour_grants_host_admin_all
-  ON public.event_colour_grants_host FOR ALL TO authenticated
+DROP POLICY IF EXISTS event_colour_grants_coordinator_admin_all ON public.event_colour_grants_coordinator;
+CREATE POLICY event_colour_grants_coordinator_admin_all
+  ON public.event_colour_grants_coordinator FOR ALL TO authenticated
   USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS event_colour_changes_admin_all ON public.event_colour_changes;
@@ -472,13 +496,13 @@ CREATE POLICY event_colour_changes_admin_all
 -- policy audience have to move together
 -- (tests/db/anon-table-grants-closed.db.test.ts).
 REVOKE ALL ON TABLE public.event_colour_grants      FROM anon;
-REVOKE ALL ON TABLE public.event_colour_grants_host FROM anon;
+REVOKE ALL ON TABLE public.event_colour_grants_coordinator FROM anon;
 REVOKE ALL ON TABLE public.event_colour_changes     FROM anon;
 -- 🛑 NO AUTHENTICATED WRITE, ANYWHERE. A grant a couple never gave, and a
 -- change nobody was permitted to make, are UNREPRESENTABLE rather than merely
 -- refused by a server action.
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.event_colour_grants      FROM authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.event_colour_grants_host FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.event_colour_grants_coordinator FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.event_colour_changes     FROM authenticated;
 
 -- ---- 5 · the couple's gate, once ------------------------------------------
@@ -614,7 +638,7 @@ GRANT EXECUTE ON FUNCTION public.set_vendor_colour_access(UUID, UUID, BOOLEAN) T
 
 -- ---- 7 · GRANT (coordinator) — one domain at a time ------------------------
 
-CREATE OR REPLACE FUNCTION public.set_host_colour_access(
+CREATE OR REPLACE FUNCTION public.set_coordinator_colour_access(
   p_event_id UUID,
   p_user_id  UUID,
   p_domain   TEXT,
@@ -651,7 +675,7 @@ BEGIN
   END IF;
 
   IF p_active THEN
-    INSERT INTO public.event_colour_grants_host AS h
+    INSERT INTO public.event_colour_grants_coordinator AS h
       (event_id, user_id, domain, is_active, granted_at, granted_by_user_id, revoked_at)
     VALUES (p_event_id, p_user_id, p_domain, TRUE, NOW(), auth.uid(), NULL)
     ON CONFLICT (event_id, user_id, domain) DO UPDATE SET
@@ -662,7 +686,7 @@ BEGIN
       updated_at         = NOW();
   ELSE
     -- Names only the grant table. See set_vendor_colour_access.
-    UPDATE public.event_colour_grants_host
+    UPDATE public.event_colour_grants_coordinator
        SET is_active  = FALSE,
            revoked_at = NOW(),
            updated_at = NOW()
@@ -676,7 +700,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.set_host_colour_access(UUID, UUID, TEXT, BOOLEAN) IS
+COMMENT ON FUNCTION public.set_coordinator_colour_access(UUID, UUID, TEXT, BOOLEAN) IS
   'MB16. ONE domain of ONE coordinator''s colour access. A coordinator is not '
   'one lane — the couple ticks each domain independently and this is called '
   'once per tick, so "reception decor but not the main colours" is expressible '
@@ -684,9 +708,9 @@ COMMENT ON FUNCTION public.set_host_colour_access(UUID, UUID, TEXT, BOOLEAN) IS
   '(member_type = ''coordinator''), the shipped definition. Never touches '
   'event_colour_changes.';
 
-REVOKE ALL ON FUNCTION public.set_host_colour_access(UUID, UUID, TEXT, BOOLEAN) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.set_host_colour_access(UUID, UUID, TEXT, BOOLEAN) FROM anon;
-GRANT EXECUTE ON FUNCTION public.set_host_colour_access(UUID, UUID, TEXT, BOOLEAN) TO authenticated;
+REVOKE ALL ON FUNCTION public.set_coordinator_colour_access(UUID, UUID, TEXT, BOOLEAN) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.set_coordinator_colour_access(UUID, UUID, TEXT, BOOLEAN) FROM anon;
+GRANT EXECUTE ON FUNCTION public.set_coordinator_colour_access(UUID, UUID, TEXT, BOOLEAN) TO authenticated;
 
 -- ---- 8 · APPLY — the sanctioned door into events.role_palette --------------
 --
@@ -757,7 +781,7 @@ BEGIN
   IF v_actor_kind IS NULL THEN
     SELECT 'coordinator'
       INTO v_actor_kind
-      FROM public.event_colour_grants_host h
+      FROM public.event_colour_grants_coordinator h
      WHERE h.event_id = p_event_id
        AND h.domain   = p_domain
        AND h.is_active
@@ -908,7 +932,7 @@ GRANT EXECUTE ON FUNCTION public.apply_colour_change(UUID, TEXT, TEXT, TEXT, SMA
 -- ---- 9 · REJECT — one change back, and nothing else ------------------------
 --
 -- 🔑 READ THE BODY. It names `event_colour_changes` and `events`. It does not
--- name `event_colour_grants` or `event_colour_grants_host` anywhere, and that
+-- name `event_colour_grants` or `event_colour_grants_coordinator` anywhere, and that
 -- absence is the guarantee: rejecting a change CANNOT revoke access, because
 -- there is no statement here that could.
 -- `apps/web/lib/colour-access-controls-are-independent.test.ts` reads this

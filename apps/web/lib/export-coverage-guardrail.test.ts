@@ -177,6 +177,24 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-09-04 with the table itself (MB16) ──
+  event_colour_grants:
+    'The VENDOR half of the standing colour grant. Its only subject-identifying ' +
+    'column is `granted_by_user_id` — which partner flipped the switch — and the ' +
+    'row is about a BOOKING on an EVENT, not about that person: it says a shop ' +
+    'may adjust florals, and it goes on saying so after either partner leaves. ' +
+    'The account holder is not its data subject; the SHOP is, and a shop is not ' +
+    'a person with an RA 10173 right against us here. ' +
+    '⚖ THE COORDINATOR HALF IS DIFFERENT AND IS EXPORTED: ' +
+    '`event_colour_grants_coordinator.user_id` names a PERSON and says what ' +
+    'they, specifically, may change — a live capability attached to their ' +
+    'account — so the route reads it scoped to `user_id`. The two tables were ' +
+    'split for referential reasons (a booking vs a membership) and it turns out ' +
+    'the RA 10173 answer differs across the same seam. ' +
+    '⚠ What the subject DID under this grant is not hidden by this exclusion: ' +
+    '`event_colour_changes` is exported, author-scoped, so every colour they ' +
+    'actually changed is in the file.',
+
   // ⚠ REWRITTEN 2026-08-22 — THE TABLE IS GONE, AND THE OLD REASON ENDED IN A
   // PROMISE THAT WOULD NOW BE FALSE: "the subject can see and reset the link on
   // My Events at any time, which is the surface that right belongs on." That

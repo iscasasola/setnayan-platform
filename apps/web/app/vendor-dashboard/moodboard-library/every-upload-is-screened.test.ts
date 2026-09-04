@@ -155,6 +155,36 @@ test('the warranty is written on the same insert as the row', () => {
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
+   WHICH MARK — DECIDED BY THE ROW, NOT BY THE CALLER
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('SABOTAGE-PROVEN: the watermark variant is read off source_event_id', () => {
+  // MB20 gives event-linked photographs a discreet seal and everything else the
+  // WWW.SETNAYAN.COM stamp. `markVariantForSource` is unit-tested on values in
+  // lib/mark-fits-and-marks.test.ts; what is structural — and therefore lives
+  // here — is that the ONE call site is fed the COLUMN.
+  //
+  // 🔑 A LITERAL WOULD PASS EVERY OTHER TEST IN THE REPO. `watermarkImageBytes(
+  // args.bytes, 'stamp')` marks every photo, correctly, in the right place, with
+  // real ink; the pixel guards all stay green and every celebration silently
+  // loses its seal. Sabotage run, restored after: hard-coded 'stamp' at the call
+  // site → this test RED, and nothing else moved.
+  const store = functionBody(read(ACTIONS), 'storeScreenedAsset');
+  assert.match(
+    store,
+    /watermarkImageBytes\(\s*args\.bytes,\s*markVariantForSource\(args\.row\.source_event_id\),?\s*\)/,
+    'the mark must be chosen from the row’s source_event_id, not by the entry point',
+  );
+  assert.doesNotMatch(
+    store,
+    /'stamp'|'seal'/,
+    'a literal variant here decides the mark before the row does',
+  );
+  // And the two entry points still set that column in opposite directions —
+  // asserted above — so the two halves together fix which photo gets which mark.
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
    THE QUOTA, AND WHICH ROWS IT COUNTS
    ══════════════════════════════════════════════════════════════════════════ */
 

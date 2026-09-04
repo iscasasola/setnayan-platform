@@ -56,7 +56,7 @@ import {
   type ImportableEditorialRow,
 } from '@/lib/editorial-vendor-media';
 import { tierCaps } from '@/lib/vendor-tier-caps';
-import { watermarkImageBytes } from '@/lib/watermark-server';
+import { watermarkImageBytes, markVariantForSource } from '@/lib/watermark-server';
 import { screenGalleryImage } from '@/lib/moodboard-gallery-screen.server';
 import {
   resolveMoodboardLibraryAccess,
@@ -193,7 +193,18 @@ async function storeScreenedAsset(args: {
   // says why: one format out means one extension, one content type and one set
   // of bytes to assert on), so `args.contentType` decides nothing here — a PNG
   // or WebP upload lands as a marked JPEG like everything else.
-  const marked = await watermarkImageBytes(args.bytes);
+  //
+  // 🔑 WHICH MARK IS DECIDED BY THE ROW, NOT BY THE ENTRY POINT (MB20). A file
+  // off the shop's own machine has no celebration behind it and gets the
+  // `WWW.SETNAYAN.COM` stamp; a photo imported from a celebration Setnayan
+  // actually ran carries `source_event_id` and gets the discreet seal instead.
+  // Reading the COLUMN rather than branching on the caller is what keeps the
+  // two upload routes from drifting apart — the same predicate that decides
+  // the back-catalogue quota decides the mark.
+  const marked = await watermarkImageBytes(
+    args.bytes,
+    markVariantForSource(args.row.source_event_id),
+  );
   const ext = 'jpg';
 
   // Vendor uploads land under their own user-id prefix so the storage RLS

@@ -31,7 +31,8 @@ import {
   creditLine,
   tradeLabelForCredit,
 } from '@/lib/moodboard-gallery';
-import { PaletteEditor } from './_components/palette-editor';
+import { PaletteSection } from './_components/palette-section';
+import { PaletteBoardProvider } from './_components/palette-board-context';
 import {
   MoodboardBoard,
   type BoardSection,
@@ -584,39 +585,45 @@ export default async function MoodBoardPage({ params }: Props) {
           ))}
         </nav>
 
-        {/* Overall Theme — the card that opens the canvas — and the theme
-            gallery under it. They render exactly as before; the wrapper is a
-            client boundary so a feeling+setting READ OUT OF THE COUPLE'S OWN
-            DESCRIPTION can travel from the card to the gallery (page.tsx is a
-            server component and cannot hold that state itself).
+        {/* 00 (Theme) through 02 (Palette) share one client boundary — MB5's
+            live 00 → 02 derivation. `<ThemeStudio>` (00) edits the majors via
+            `<MajorsEditor>`; `<PaletteSection>` (02) derives every other
+            role from them, live, on the palette-style engine. See
+            palette-board-context.tsx's docblock for why a provider (they are
+            SIBLINGS below, not parent/child) and for the one-directional
+            rule. Inspiration (01) sits between them, matching the
+            atelier-board.html reference's linear 00→01→02 order — it doesn't
+            read this state, so it's an ordinary (untouched) child. */}
+        <PaletteBoardProvider eventId={eventId} initial={initialPalette} saveAction={saveRolePalette}>
+          {/* Overall Theme — the card that opens the canvas — and the theme
+              gallery under it. They render exactly as before; the wrapper is a
+              client boundary so a feeling+setting READ OUT OF THE COUPLE'S OWN
+              DESCRIPTION can travel from the card to the gallery (page.tsx is a
+              server component and cannot hold that state itself).
 
-            No `templates` prop — the gallery asks for its own rows, ~6 at a
-            time, only once the couple has answered both narrowing questions
-            (or the reader has answered them from their sentence). See the
-            comment on the Promise.all above for why. */}
-        <ThemeStudio
-          eventId={eventId}
-          initialName={
-            (event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null
-          }
-          initialDescription={
-            (event as { moodboard_theme_description?: string | null })
-              .moodboard_theme_description ?? null
-          }
-          palette={palette}
-          receptionDesign={receptionDesign}
-          saveThemeAction={saveMoodboardTheme}
-          readAction={readMoodboardThemeDescription}
-          applyIntentAction={applyThemeIntent}
-          fetchTemplatesAction={fetchThemeTemplates}
-          applyTemplateAction={applyMoodboardTemplate}
-        />
+              No `templates` prop — the gallery asks for its own rows, ~6 at a
+              time, only once the couple has answered both narrowing questions
+              (or the reader has answered them from their sentence). See the
+              comment on the Promise.all above for why. */}
+          <ThemeStudio
+            eventId={eventId}
+            initialName={
+              (event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null
+            }
+            initialDescription={
+              (event as { moodboard_theme_description?: string | null })
+                .moodboard_theme_description ?? null
+            }
+            palette={palette}
+            receptionDesign={receptionDesign}
+            saveThemeAction={saveMoodboardTheme}
+            readAction={readMoodboardThemeDescription}
+            applyIntentAction={applyThemeIntent}
+            fetchTemplatesAction={fetchThemeTemplates}
+            applyTemplateAction={applyMoodboardTemplate}
+          />
 
-        {/* Inspiration + inline palette — presented side by side in the canvas
-            flow (was a separate tab). Reuses InspirationBoard/PaletteEditor's
-            logic/props unchanged; only the surrounding layout changed. */}
-        <div className="grid gap-6 lg:grid-cols-5">
-          <section id="inspiration" className="scroll-mt-24 space-y-4 lg:col-span-3">
+          <section id="inspiration" className="scroll-mt-24 space-y-4">
             <header className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
@@ -640,22 +647,16 @@ export default async function MoodBoardPage({ params }: Props) {
             />
           </section>
 
-          <section id="palette" className="scroll-mt-24 space-y-4 lg:col-span-2">
+          <section id="palette" className="scroll-mt-24 space-y-4">
             <header>
               <h2 className="text-2xl font-semibold text-ink">Palette</h2>
               <p className="text-sm text-ink/65">
-                Set each role&rsquo;s colors — the rest of the board follows.
+                Derived live from your main colours above — change a role to make it yours.
               </p>
             </header>
-            <PaletteEditor
-              eventId={eventId}
-              initial={initialPalette}
-              visibleKeys={Array.from(visibleKeys)}
-              saveAction={saveRolePalette}
-              venueLabel={venueLabel}
-            />
+            <PaletteSection visibleKeys={Array.from(visibleKeys)} venueLabel={venueLabel} />
           </section>
-        </div>
+        </PaletteBoardProvider>
 
         <section id="reception" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
           <header>

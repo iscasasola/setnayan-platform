@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
+import { shopToolShelves } from './shop-tool-shelves';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -1713,59 +1714,8 @@ const SHOP_SECTIONS: AccordionSection[] = [
     · working with others — other shops, creators, and your own team
     · protection          — the two rooms you open when something is wrong
 */
-type ShopTool = { href: string; label: string; sub: string };
-type ShopToolShelf = { key: string; label: string; tools: ShopTool[] };
-
-const TOOLS_COUPLES_SEE: ShopTool[] = [
-  { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
-  { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
-  { href: '/vendor-dashboard/real-stories', label: 'Stories', sub: 'Editorial features starring your work.' },
-  { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
-  { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
-  { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
-  // 🔴 ADDED 2026-08-06 — /vendor-dashboard/activities shipped 2026-07-28 with
-  // NO doorway anywhere in the repo: no <Link>, no router.push, no redirect, no
-  // nav-config entry, no route-builder, no registry key. Its deliberately-
-  // identical sibling /vendor-dashboard/repertoire (the line above) had five.
-  // A host wrote his segments into a page he could only reach by typing the URL.
-  { href: '/vendor-dashboard/activities', label: 'Your segments', sub: 'The parts of the night you run — couples tick these onto their timeline.' },
-];
-
-const TOOLS_WITH_OTHERS: ShopTool[] = [
-  { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
-  { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
-  { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
-  // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline
-  // BranchManager) is the canonical branch surface; the standalone /branches
-  // route now redirects here. Team stays: /team hosts the extra-seat purchase
-  // flow the inline Team tile doesn't.
-  { href: '/vendor-dashboard/team', label: 'Team & Setnayan', sub: 'Seats, roles, and your Setnayan relationship.' },
-];
-
-const TOOLS_PROTECTION: ShopTool[] = [
-  { href: '/vendor-dashboard/disputes', label: 'Disputes', sub: 'Open cases and their timelines.' },
-  { href: '/vendor-dashboard/theft-watch', label: 'Theft Watch', sub: 'Portfolio-theft reports and takedowns.' },
-];
-
-// Stylist-only card (owner-locked 2026-07-12: the Moodboard library is a
-// stylist's own collection — reception_decor vendors only). It sits on the
-// couples-see shelf because that is what it feeds.
-const STYLIST_TOOL: ShopTool = { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Your own moodboard collection — recolourable sets couples match to their palette.' };
-
-function shopToolShelves(isStylist: boolean): ShopToolShelf[] {
-  return [
-    {
-      key: 'couples-see',
-      label: 'What couples see',
-      tools: isStylist ? [STYLIST_TOOL, ...TOOLS_COUPLES_SEE] : TOOLS_COUPLES_SEE,
-    },
-    { key: 'with-others', label: 'Working with others', tools: TOOLS_WITH_OTHERS },
-    { key: 'protection', label: 'Protection', tools: TOOLS_PROTECTION },
-  ];
-}
-
-function ShopTools({ isStylist }: { isStylist: boolean }) {
-  const shelves = shopToolShelves(isStylist);
+function ShopTools({ hasMoodboardLibraryAccess }: { hasMoodboardLibraryAccess: boolean }) {
+  const shelves = shopToolShelves(hasMoodboardLibraryAccess);
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <div className="space-y-7">
@@ -1816,7 +1766,7 @@ async function ShopSectionBody({
     case 'manpower':
       return <ManpowerSurface />;
     case 'tools':
-      return <ShopTools isStylist={await shopOwnerIsStylist()} />;
+      return <ShopTools hasMoodboardLibraryAccess={await shopHasMoodboardLibraryAccess()} />;
     default:
       return null;
   }
@@ -1861,16 +1811,14 @@ export default async function VendorShopHub({
 }
 
 
-/** Stylist check for the More-tools tab (owner lock 2026-07-12): reads the
- * caller's own vendor profile; reception_decor = the stylist/decorator tile. */
-async function shopOwnerIsStylist(): Promise<boolean> {
+/** Moodboard library card gate for the More-tools tab — the shared predicate
+ * both the page and the server action use (lib/moodboard-library-access.ts). */
+async function shopHasMoodboardLibraryAccess(): Promise<boolean> {
   const { createClient: createShopToolsClient } = await import('@/lib/supabase/server');
-  const { fetchOwnVendorProfile: fetchShopToolsProfile } = await import('@/lib/vendor-profile');
+  const { resolveMoodboardLibraryAccess } = await import('@/lib/moodboard-library-access');
   const supabase = await createShopToolsClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return false;
-  const profile = await fetchShopToolsProfile(supabase, user.id);
-  return (profile?.services ?? []).some((s: string) => s === 'reception_decor');
+  return (await resolveMoodboardLibraryAccess(supabase, user?.id)).allowed;
 }

@@ -207,11 +207,12 @@ test('the card can say which kind it is — the one-shelf rule', () => {
 // The shelf's own contract
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('an editorial satisfies what selectShelf requires of a story', () => {
-  // `selectShelf` is generic over `{ hasVideo: boolean; fromYourPeople?: boolean }`.
-  // If this shape ever stops satisfying it, the editorials silently stop
-  // reaching the shelf — with no type error at the call site, because the
-  // generic would just infer a wider S.
+test('an editorial carries the fields the shelf card reads', () => {
+  // 2026-09-03: was "what selectShelf requires" — that function is retired
+  // along with the chip bar. The shape check itself still matters: StoryCard
+  // and (now) selectTrendingChapters both read `hasVideo` directly, so an
+  // editorial that stopped carrying it as a real boolean would fail silently
+  // at the call site rather than with a type error.
   const story = at(editorialsToStories([realEditorial()]), 0);
   assert.equal(typeof story.hasVideo, 'boolean');
   assert.equal(typeof story.fromYourPeople, 'boolean');

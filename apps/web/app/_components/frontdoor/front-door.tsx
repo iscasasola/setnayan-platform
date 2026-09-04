@@ -15,9 +15,8 @@ import {
 
 import { loadFrontDoorData } from './data';
 import { FrontDoorShell } from './front-door-shell';
-import { FrontDoorOpening } from './front-door-opening';
-import { FrontDoorStory } from './front-door-story';
-import { FrontDoorFeed, isChip, type ChipKey } from './front-door-feed';
+import { FrontDoorAnchor } from './front-door-anchor';
+import { FrontDoorFeed } from './front-door-feed';
 import { FrontDoorResults } from './front-door-results';
 import { SignedInCluster } from './signed-in-cluster';
 import { resolveCommandItems } from './command-data';
@@ -32,8 +31,9 @@ import {
   resolveRailAccount,
   toRailFolder,
 } from './rail-data';
+import { togetherRailItems } from '@/lib/free-tools-rail';
 
-export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
+export async function FrontDoor({ q }: { q?: string }) {
   const [account, data, studioEvent, commandItems] = await Promise.all([
     resolveRailAccount(),
     loadFrontDoorData(),
@@ -54,18 +54,15 @@ export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
     resolveCommandItems(),
   ]);
 
-  const activeChip: ChipKey = isChip(chip) ? chip : 'All';
-
   /*
-    A SEARCH REPLACES THE SHELF, IT DOES NOT FILTER IT. Owner 2026-08-20: the
-    results belong in this page's own body. The chips are a filter over what
-    the page already holds; a typed query reaches things the page never loaded
-    (help pages, guides, shops, your own events), so it answers with its own
-    list rather than narrowing this one.
+    A SEARCH REPLACES THE FEED, IT DOES NOT FILTER IT. Owner 2026-08-20: the
+    results belong in this page's own body. A typed query reaches things the
+    page never loaded (help pages, guides, shops, your own events), so it
+    answers with its own list rather than narrowing New uploads/Trending.
 
-    ⚠ THE QUERY WINS OVER THE CHIP, and a whitespace-only `?q=` is not a
-    search. Both matter because the address bar is a real interface here: `?q=`
-    arrives from the palette, from the public box, and from anybody's paste.
+    ⚠ A whitespace-only `?q=` is not a search. The address bar is a real
+    interface here: `?q=` arrives from the palette, from the public box, and
+    from anybody's paste.
   */
   const searchQuery = (q ?? '').trim();
 
@@ -73,13 +70,16 @@ export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
     <FrontDoorShell
       account={account}
       /*
-        THE PAGE'S ONE VISIBLE HEADING. It REPLACES the shell's screen-reader-
-        only <h1> rather than joining it — see the shell's `heading` prop. Shown
-        to everybody, signed in or out: a returning person still benefits from
-        the page saying what it is, and branching it would make two front doors
-        to keep true.
+        THE PAGE'S ONE VISIBLE HEADING — SIGNED-OUT ONLY, owner-confirmed this
+        session. A stranger needs the five-second "what is this"; a signed-in
+        visitor who lands back on `/` already knows, so pitching them again is
+        the wrong sentence for that reader. Signed in, `heading` is left
+        unset and the shell falls back to its screen-reader-only <h1>, same as
+        every other converted app surface — see `front-door-anchor.tsx`'s own
+        docblock for the fuller reasoning behind dropping the old always-on
+        opening.
       */
-      heading={<FrontDoorOpening />}
+      heading={account.signedIn ? undefined : <FrontDoorAnchor />}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}
       moreFolders={FRONT_DOOR_MORE_FOLDERS.map(toRailFolder)}
       /*
@@ -90,6 +90,16 @@ export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
       */
       tools={
         account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
+      }
+      /*
+        Together only — Planner/Builder stay unset (they default to `[]` and
+        render nothing) because `insideEvent` is never true on `/`; see the
+        shell's own prop note. Together isn't event-gated, so a signed-in
+        visitor gets it here same as everywhere else; `studioEvent.eventId`
+        is the same honestly-resolved value the Studio rows above already use.
+      */
+      togetherTools={
+        account.signedIn ? togetherRailItems(studioEvent.eventId) : []
       }
       /*
         🔴 THE SAME FALLBACK LEAK THE DOORWAY PAGES HAD — this is the page in
@@ -129,12 +139,6 @@ export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
         ) : undefined
       }
     >
-      {/*
-        WHO IS LOOKING DECIDES WHETHER THE "YOUR PEOPLE" CHIP IS OFFERED — the
-        same one rule this file already settled for the Studio rows, the
-        account cluster and the search box. A stranger has no people; showing
-        them the button is a door onto a room that can never fill.
-      */}
       {searchQuery ? (
         <FrontDoorResults
           query={searchQuery}
@@ -142,18 +146,7 @@ export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
           commandItems={commandItems}
         />
       ) : (
-        <>
-          {/*
-            THE STORY SITS ABOVE THE FEED AND ONLY ON THE FEED BRANCH. A person
-            who has typed a query is looking for a specific thing; putting the
-            marketing argument above their results would push the answer they
-            asked for below the fold to sell them something they are already
-            using. `/?q=` therefore renders results and nothing else, exactly as
-            before this change.
-          */}
-          <FrontDoorStory />
-          <FrontDoorFeed data={data} chip={activeChip} signedIn={account.signedIn} />
-        </>
+        <FrontDoorFeed data={data} />
       )}
     </FrontDoorShell>
   );

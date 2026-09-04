@@ -383,16 +383,38 @@ const WALL_DRESS_H = 2.6;
  * kept and simply has nothing to hang on — `VenueShell` already replaces those
  * walls with perimeter greenery).
  */
+/** How far in front of the previous layer each extra wall treatment hangs.
+ *  Small enough to read as one dressed wall, large enough that a garland sits
+ *  ON a drape instead of z-fighting through it. */
+const WALL_LAYER_STEP_M = 0.09;
+
 function WallTreatment({
   room,
   palette,
   quality,
-  treatment,
+  treatments,
 }: {
   room: Room;
   palette: Lab3DPalette;
   quality: DecorQuality;
-  treatment: string;
+  /** EVERY treatment the couple chose for their side walls, in their order.
+   *
+   *  A real wall carries more than one: greenery behind a drape, a garland
+   *  along the top of it. The room drew the primary and dropped the rest.
+   *
+   *  ⚠ THE PRIMARY DOES NOT MOVE. Layer 0 renders at depth 0 — exactly where
+   *  the single-treatment version put it — and each extra hangs
+   *  WALL_LAYER_STEP_M further into the room. `selAll(…)[0]` is `sel(…)` by
+   *  construction, so a wall that chose one thing is untouched, and this is
+   *  additive by arithmetic rather than by promise.
+   *
+   *  ⚠ AND THE COST OF THAT, STATED: the stack follows the couple's PICK
+   *  order, not physical plausibility. Choose a garland first and a greenery
+   *  wall second and the greenery hangs in front of the garland. Ordering by
+   *  physical depth instead would move whichever treatment is currently drawn
+   *  — restyling rooms couples have already shown suppliers — so pick order
+   *  wins. Their first choice is the one they are looking at. */
+  treatments: readonly string[];
 }) {
   const halfW = room.w / 2;
   const bloom = useMemo(() => bloomColor(palette), [palette]);
@@ -423,9 +445,15 @@ function WallTreatment({
   const drapePanels = Math.max(6, Math.round(room.d / 0.72));
 
   return (
-    <group name={`decor-walls-${treatment}`}>
+    <group name="decor-walls">
       {runs.map((run, ri) => (
         <group key={ri} position={[run.x, 0, 0]} rotation={[0, run.ry, 0]}>
+          {treatments.map((treatment, li) => (
+          <group
+            key={treatment}
+            name={`decor-walls-${treatment}`}
+            position={[0, 0, li * WALL_LAYER_STEP_M]}
+          >
           {treatment === 'fabric_drape'
             ? Array.from({ length: drapePanels }).map((_, i) => {
                 const z = -room.d / 2 + (room.d / drapePanels) * (i + 0.5);
@@ -486,6 +514,8 @@ function WallTreatment({
                 );
               })
             : null}
+          </group>
+          ))}
         </group>
       ))}
     </group>
@@ -1068,7 +1098,6 @@ export const ROOM_DRAWN_ATTRIBUTES: ReadonlyArray<DrawnAttribute> = [
   ['backdrop', 'style'],
   ['tables', 'centerpiece'],
   ['tunnel', 'style'],
-  ['walls', 'treatment'],
   ['photo_wall', 'style'],
   // ⚠ `welcome_signage` IS DELIBERATELY ABSENT. This list is what the legend
   // discloses as PRIMARY-ONLY, and the welcome table now draws every piece the
@@ -1119,7 +1148,13 @@ export function VenueDecor({
   // treatment only, deliberately, because there is one physical wall / panel /
   // welcome table. What the room is therefore NOT drawing is disclosed to the
   // couple by `primaryOnlyNotice()` in the room's legend; see that function.
-  const walls = sel(design, 'walls', 'treatment');
+  // Side walls are MULTI-SELECT — greenery behind a drape, a garland along it.
+  // selAll rather than sel so the whole wall reaches the room; 'bare' is the
+  // explicit "nothing here" choice and is dropped rather than drawn.
+  const wallTreatments = useMemo(
+    () => selAll(design, 'walls', 'treatment').filter((v) => v !== 'bare'),
+    [design],
+  );
   const photoWall = sel(design, 'photo_wall', 'style');
   // The welcome table is MULTI-SELECT and holds several things at once. selAll
   // rather than sel, so the couple's whole table reaches the room; selAll(…)[0]
@@ -1203,8 +1238,8 @@ export function VenueDecor({
           archetypes have no side wall to dress (VenueShell replaces them with
           perimeter greenery), so the choice is kept and simply has nothing to
           hang on — same rule as the ceiling above. */}
-      {!openAir && walls !== 'bare' && (
-        <WallTreatment room={room} palette={palette} quality={quality} treatment={walls} />
+      {!openAir && wallTreatments.length > 0 && (
+        <WallTreatment room={room} palette={palette} quality={quality} treatments={wallTreatments} />
       )}
 
       {/* Photo wall — the step-and-repeat, explicitly NOT the stage backdrop. */}

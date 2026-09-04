@@ -65,6 +65,7 @@ import {
 import {
   backCatalogueQuotaVerdict,
   slotUploadVerdict,
+  GALLERY_SLOT_LABEL,
   RIGHTS_WARRANTY_VERSION,
   type GalleryUploadMode,
 } from '@/lib/moodboard-gallery-upload';
@@ -110,23 +111,31 @@ async function fetchShopTier(
 }
 
 /**
- * How many BACK-CATALOGUE gallery photos this shop already holds.
+ * How many BACK-CATALOGUE gallery photos this shop already holds IN ONE
+ * CATEGORY (MB19 — the quota is per category, not per account).
  *
- * 🔑 `source_event_id IS NULL` IS THE WHOLE QUOTA. A photo delivered on a
- * celebration the shop was booked on carries the event id and is not in this
- * count at any tier — see lib/moodboard-gallery-upload.ts for why rationing
- * that would be the wrong shape of gate. Retired rows are excluded so retiring
- * one genuinely frees a slot.
+ * 🔑 THREE PREDICATES NARROW THIS QUERY, EACH LOAD-BEARING ON ITS OWN:
+ *   · `source_event_id IS NULL` — a photo delivered on a celebration the shop
+ *     was booked on carries the event id and is not in this count at any
+ *     tier or category — see lib/moodboard-gallery-upload.ts for why
+ *     rationing that would be the wrong shape of gate.
+ *   · `retired_at IS NULL` — retired rows are excluded so retiring one
+ *     genuinely frees a slot.
+ *   · `asset_subtype = slot` — the category itself. Drop this filter and the
+ *     quota silently reverts to account-wide, which is the exact regression
+ *     this session exists to fix.
  */
 async function countBackCatalogue(
   admin: ReturnType<typeof createAdminClient>,
   vendorProfileId: string,
+  slot: string,
 ): Promise<number> {
   const { count } = await admin
     .from('moodboard_library_assets')
     .select('asset_id', { count: 'exact', head: true })
     .eq('vendor_profile_id', vendorProfileId)
     .eq('asset_type', SUPPLIER_GALLERY_ASSET_TYPE)
+    .eq('asset_subtype', slot)
     .is('source_event_id', null)
     .is('retired_at', null);
   return count ?? 0;
@@ -308,8 +317,13 @@ export async function uploadStylistAsset(
     const mode: GalleryUploadMode = 'back_catalogue';
     const quota = backCatalogueQuotaVerdict({
       mode,
-      cap: tierCaps(tier).galleryBackCatalogPhotos,
-      backCatalogueUsed: await countBackCatalogue(admin, profile.vendor_profile_id),
+      cap: tierCaps(tier).galleryBackCatalogPhotosPerCategory,
+      backCatalogueUsed: await countBackCatalogue(
+        admin,
+        profile.vendor_profile_id,
+        slot.slotKey,
+      ),
+      categoryLabel: GALLERY_SLOT_LABEL[slot.slotKey] ?? 'that category',
     });
     if (!quota.allowed) throw new Error(quota.message);
   }

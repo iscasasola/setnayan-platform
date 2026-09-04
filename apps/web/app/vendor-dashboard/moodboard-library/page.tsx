@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMoodboardLibraryAccess } from '@/lib/moodboard-library-access';
 import { tierCaps } from '@/lib/vendor-tier-caps';
-import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery';
 import {
   StylistLibraryEditor,
   type StylistAsset,
@@ -87,10 +86,12 @@ export default async function StylistMoodboardLibraryPage() {
     };
   });
 
-  // The quota's own numbers, computed the same way the server action computes
-  // them, so the screen states the true remaining count rather than a guess.
-  // Event-linked rows are excluded here for exactly the reason they are
-  // excluded there: they are never rationed.
+  // The quota's own ceiling, computed the same way the server action computes
+  // it, so the screen states the true cap rather than a guess. MB19: the cap
+  // is PER CATEGORY now, and the per-category USED count is derived in the
+  // editor from `assets` below — it already carries asset_subtype,
+  // source_event_id and retired_at, so a second account-wide query here would
+  // only compute a number the per-category quota no longer uses.
   const { data: tierRow } = await admin
     .from('vendor_profiles')
     .select('tier_state')
@@ -98,14 +99,7 @@ export default async function StylistMoodboardLibraryPage() {
     .maybeSingle();
   const cap = tierCaps(
     (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null,
-  ).galleryBackCatalogPhotos;
-  const { count: backCatalogueUsed } = await admin
-    .from('moodboard_library_assets')
-    .select('asset_id', { count: 'exact', head: true })
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .eq('asset_type', SUPPLIER_GALLERY_ASSET_TYPE)
-    .is('source_event_id', null)
-    .is('retired_at', null);
+  ).galleryBackCatalogPhotosPerCategory;
 
   // 🔑 A FAILED READ MUST NOT RENDER AS AN ABSENCE. `.catch(() => [])` here
   // would tell a supplier who worked six weddings that they have no day-of
@@ -151,7 +145,6 @@ export default async function StylistMoodboardLibraryPage() {
         initialAssets={assets}
         gallerySlots={slots}
         backCatalogueCap={cap}
-        backCatalogueUsed={backCatalogueUsed ?? 0}
         importableEditorial={importable}
         importableEditorialFailed={importableFailed}
       />

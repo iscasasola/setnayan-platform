@@ -88,25 +88,33 @@ test('SABOTAGE-PROVEN: the quota counts back-catalogue and nothing else', () => 
   // Sabotage run: `backCatalogueQuotaVerdict` was changed to drop the
   // `mode === 'event_linked'` early return, so event-linked uploads fell
   // through to the same `used >= cap` branch. This test went RED on the first
-  // assertion below (a free shop at 40 event-linked photos was refused), which
-  // is exactly the failure the brief names — a shop rationed for the weddings
-  // it actually worked. Restored.
-  const free = tierCaps('free').galleryBackCatalogPhotos;
-  assert.equal(free, 0, 'free tier holds no back-catalogue allowance');
+  // assertion below (a shop at 40 event-linked photos, cap 20, was refused),
+  // which is exactly the failure the brief names — a shop rationed for the
+  // weddings it actually worked. Restored.
+  const cap = tierCaps('free').galleryBackCatalogPhotosPerCategory;
+  assert.equal(
+    cap,
+    20,
+    'MB19: every tier, including free, now holds a per-category back-catalogue allowance',
+  );
 
   const eventLinked = backCatalogueQuotaVerdict({
     mode: 'event_linked',
-    cap: free,
+    cap,
     backCatalogueUsed: 40,
+    categoryLabel: 'Flowers',
   });
-  assert.equal(eventLinked.allowed, true, 'event-linked is never rationed');
+  assert.equal(eventLinked.allowed, true, 'event-linked is never rationed, even past the cap');
   assert.equal(eventLinked.message, '');
 });
 
-test('free tier can event-link but not back-catalogue', () => {
-  const cap = tierCaps('free').galleryBackCatalogPhotos;
+test('MB19: a free-tier shop may now back-catalogue at all', () => {
+  // Before MB19, free/verified/solo read 0 here and the branch below refused
+  // unconditionally. The owner's 2026-09-04 ruling opens back-catalogue
+  // uploads to every tier, free included, at 20 per category.
+  const cap = tierCaps('free').galleryBackCatalogPhotosPerCategory;
   assert.equal(
-    backCatalogueQuotaVerdict({ mode: 'event_linked', cap, backCatalogueUsed: 0 })
+    backCatalogueQuotaVerdict({ mode: 'event_linked', cap, backCatalogueUsed: 0, categoryLabel: 'Flowers' })
       .allowed,
     true,
   );
@@ -114,50 +122,63 @@ test('free tier can event-link but not back-catalogue', () => {
     mode: 'back_catalogue',
     cap,
     backCatalogueUsed: 0,
+    categoryLabel: 'Flowers',
   });
-  assert.equal(back.allowed, false);
-  // The refusal must say what they CAN do, not just what they cannot.
-  assert.match(back.message, /booked on/);
+  assert.equal(back.allowed, true, 'free tier is no longer shut out of back-catalogue uploads');
 });
 
-test('the owner’s two figures are the ladder: pro 20 · enterprise 100', () => {
-  assert.equal(TIER_CAPS.pro.galleryBackCatalogPhotos, 20);
-  assert.equal(TIER_CAPS.enterprise.galleryBackCatalogPhotos, 100);
-  // Custom runs as Enterprise on every axis (vendor-tier-caps.ts lock).
-  assert.equal(TIER_CAPS.custom.galleryBackCatalogPhotos, 100);
+test('the owner’s figure is the ladder: 20, per category, every tier', () => {
+  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const) {
+    assert.equal(
+      TIER_CAPS[tier].galleryBackCatalogPhotosPerCategory,
+      20,
+      `${tier}: MB19 opened back-catalogue to every tier at the same per-category cap`,
+    );
+  }
 });
 
 test('the NEW ladder never overwrote the portfolio ladder beside it', () => {
-  // MB11: "add the 20/100 pair ALONGSIDE the existing quota precedent — never
-  // overwriting it". These are the shipped portfolioPhotos figures; if a future
-  // edit collapses the two axes into one, this goes red.
+  // MB11: "add the per-category pair ALONGSIDE the existing quota precedent —
+  // never overwriting it". These are the shipped portfolioPhotos figures; if a
+  // future edit collapses the two axes into one, this goes red.
   assert.equal(TIER_CAPS.free.portfolioPhotos, 30);
   assert.equal(TIER_CAPS.pro.portfolioPhotos, 100);
   assert.equal(TIER_CAPS.enterprise.portfolioPhotos, 300);
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const) {
     assert.notEqual(
       TIER_CAPS[tier].portfolioPhotos,
-      TIER_CAPS[tier].galleryBackCatalogPhotos,
+      TIER_CAPS[tier].galleryBackCatalogPhotosPerCategory,
       `${tier}: the two photo ladders must stay distinct numbers`,
     );
   }
 });
 
-test('the ceiling refuses the (cap+1)th and names the remedy', () => {
-  const cap = TIER_CAPS.pro.galleryBackCatalogPhotos;
+test('the ceiling refuses the (cap+1)th, names the category, and drops the tier framing', () => {
+  const cap = TIER_CAPS.pro.galleryBackCatalogPhotosPerCategory;
   assert.equal(
-    backCatalogueQuotaVerdict({ mode: 'back_catalogue', cap, backCatalogueUsed: cap - 1 })
-      .allowed,
+    backCatalogueQuotaVerdict({
+      mode: 'back_catalogue',
+      cap,
+      backCatalogueUsed: cap - 1,
+      categoryLabel: 'Flowers',
+    }).allowed,
     true,
   );
   const full = backCatalogueQuotaVerdict({
     mode: 'back_catalogue',
     cap,
     backCatalogueUsed: cap,
+    categoryLabel: 'Flowers',
   });
   assert.equal(full.allowed, false);
   assert.match(full.message, new RegExp(String(cap)));
   assert.match(full.message, /never count/);
+  assert.match(full.message, /Flowers/, 'MB19: the refusal must name the category');
+  assert.doesNotMatch(
+    full.message,
+    /on your plan/,
+    'MB19: every tier shares the cap now, so this is no longer a tier statement',
+  );
 });
 
 test('an over-cap shop is refused a NEW row, never told to delete one', () => {
@@ -168,9 +189,32 @@ test('an over-cap shop is refused a NEW row, never told to delete one', () => {
     mode: 'back_catalogue',
     cap: 20,
     backCatalogueUsed: 55,
+    categoryLabel: 'Flowers',
   });
   assert.equal(v.allowed, false);
   assert.equal(v.used, 55, 'the true count is reported, not clamped to the cap');
+});
+
+test('the quota is scoped per category — the same shop, two different categories, two different verdicts', () => {
+  // MB19's whole point: a shop full on Flowers may still upload to Tables.
+  // This is the pure-function half of that guarantee; the DB half (the
+  // `asset_subtype` predicate on the actual count query) is pinned in
+  // tests/db/the-back-catalogue-quota-counts-the-right-rows.db.test.ts.
+  const cap = TIER_CAPS.pro.galleryBackCatalogPhotosPerCategory;
+  const flowersFull = backCatalogueQuotaVerdict({
+    mode: 'back_catalogue',
+    cap,
+    backCatalogueUsed: cap,
+    categoryLabel: 'Flowers',
+  });
+  const tablesEmpty = backCatalogueQuotaVerdict({
+    mode: 'back_catalogue',
+    cap,
+    backCatalogueUsed: 0,
+    categoryLabel: 'Table styling',
+  });
+  assert.equal(flowersFull.allowed, false, 'Flowers is full');
+  assert.equal(tablesEmpty.allowed, true, 'Tables has its own, separate room');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

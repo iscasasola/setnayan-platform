@@ -199,6 +199,15 @@ test('SABOTAGE-PROVEN: the count is scoped to back-catalogue rows', () => {
   assert.match(body, /SUPPLIER_GALLERY_ASSET_TYPE/);
 });
 
+test('MB19: the count is ALSO scoped to one category — drop this line and the quota reverts to account-wide', () => {
+  // The behavioural half (that this predicate produces the right numbers
+  // against real rows) is pinned against Postgres in
+  // tests/db/the-back-catalogue-quota-counts-the-right-rows.db.test.ts; this
+  // is the wiring half — that the query itself still carries the filter.
+  const body = functionBody(read(ACTIONS), 'countBackCatalogue');
+  assert.match(body, /\.eq\('asset_subtype', slot\)/);
+});
+
 test('the file upload is back-catalogue; the editorial import is event-linked', () => {
   const src = read(ACTIONS);
   assert.match(functionBody(src, 'uploadStylistAsset'), /source_event_id: null/);

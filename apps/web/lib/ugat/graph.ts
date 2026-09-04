@@ -50,7 +50,8 @@ export type UgatEntityType =
   | 'runofshow'
   | 'livestudio'
   | 'render'
-  | 'gallery';
+  | 'gallery'
+  | 'signoff';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -848,7 +849,67 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'picked onto the boards of', to: 'TYPE-EVENTS' },
     ],
   },
+  {
+    /**
+     * THE SIGN-OFF — the moment a design stops being a wish (MB12).
+     *
+     * A mood board is a couple TELLING a supplier what they want. This table is
+     * the supplier ANSWERING, one part at a time, and the answer has a
+     * consequence: an agreed part stops re-deriving from the couple’s five
+     * main colours.
+     *
+     * ⚠ IT IS THE BOOKING HANDSHAKE’S VOCABULARY AT A SECOND SCOPE, NOT A
+     * SECOND MECHANISM. `state` holds the same five values as
+     * `event_vendors.lock_request_state` — pending / agreed / declined /
+     * cancelled / expired — with the same 48-hour materialised fuse and the
+     * same lazy expiry on the answer path. `apps/web/lib/lock-request-state.ts`
+     * reads both.
+     *
+     * 🔑 AND IT DELIBERATELY DOES NOT INHERIT “A BOOKING OUTRANKS ANY
+     * MARKER” (owner ruling 2026-09-04). `lockRequestStateOf` returns `locked`
+     * for any confirmed booking; `partFinalizationStateOf` takes no status at
+     * all. Being hired is not the same as having reviewed and agreed to a
+     * specific design, and auto-finalizing from a booking would fabricate the
+     * exact agreement this table exists to capture.
+     *
+     * ⚠ THE FREEZE IS NOT IN THIS TABLE. It is in `events.role_palette` —
+     * `touched_roles` plus `room_dressing`, MB5’s existing derivation-stops.
+     * `vendor_agree_to_part` writes both in ONE transaction with the state
+     * flip, and `events_hold_part_finalization_freeze` (a BEFORE UPDATE trigger
+     * on events) puts the freeze back on EVERY palette write from every path,
+     * so a writer that has never heard of finalization cannot drop it by
+     * forgetting. J47 claims that pair.
+     *
+     * ⚠ THE COUNT IS EVERY ROW EVER, INCLUDING CLOSED ROUNDS. A declined or
+     * expired ask stays as history and does not occupy the one-live-handshake
+     * slot. For “how many parts are settled right now”, filter:
+     * `select count(*) from moodboard_part_finalizations where state = 'agreed'`.
+     */
+    id: 'TYPE-SIGNOFF',
+    type: 'signoff',
+    name: 'Design sign-off',
+    blurb: 'a supplier agreed to one part — and it stopped moving',
+    countKey: 'signoff',
+    icon: 'lock',
+    color: 'var(--ug-e-signoff)',
+    colorBg: 'var(--ug-e-signoff-bg)',
+    table: 'moodboard_part_finalizations',
+    x: 660,
+    y: 140,
+    fields: [
+      { key: 'pk', name: 'finalization_id', note: 'uuid — what every RPC takes' },
+      { key: '', name: 'state', note: 'the booking handshake’s five values, second scope; NEVER derived from event_vendors.status' },
+      { key: '', name: 'design_snapshot', note: 'the colours the supplier answered — recorded at ASK time, because the couple keeps editing' },
+      { key: '', name: 'frozen_palette_keys', note: 'what THIS agreement added to touched_roles — not everything the snapshot names, so a re-open cannot discard the couple’s own edit' },
+      { key: '', name: 'reopen_state', note: 'the COUNTER-handshake: a finalized part is released only when the supplier says yes' },
+    ],
+    edges: [
+      { verb: 'settles a part of', to: 'TYPE-EVENTS' },
+      { verb: 'answered by', to: 'TYPE-VENDORS' },
+    ],
+  },
 ];
+
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
   UGAT_TYPES.map((t) => [t.id, t]),
@@ -873,6 +934,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'image',
     color: 'var(--ug-e-gallery)',
     colorBg: 'var(--ug-e-gallery-bg)',
+  },
+  signoff: {
+    label: 'Design sign-off',
+    icon: 'lock',
+    color: 'var(--ug-e-signoff)',
+    colorBg: 'var(--ug-e-signoff-bg)',
   },
   community: {
     label: 'Samahan',
@@ -2821,6 +2888,109 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 18-key slot CHECK',
     traps:
       'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
+  },
+  {
+    /**
+     * THE SIGN-OFF AND THE FREEZE ARE ONE ACT (MB12).
+     *
+     * 🔑 THIS JOINT EXISTS TO CLAIM A WIRE, NOT A TABLE. Two separate writes —
+     * “mark the row agreed” and “stop that part re-deriving” — have two seams,
+     * and both are invisible:
+     *
+     *   · agreed with no freeze → the couple edits their five majors and the
+     *     supplier’s agreed design quietly becomes a different design. Nothing
+     *     renders differently. The supplier builds what they agreed to and it is
+     *     wrong on the day.
+     *   · frozen with no agreement → a role stops following the majors for a
+     *     reason no surface can name.
+     *
+     * `vendor_agree_to_part` does both in one function body, i.e. one
+     * transaction, and `vendor_answer_part_reopen` welds the release the same
+     * way. `events_hold_part_finalization_freeze` is the backstop for every
+     * OTHER writer of `events.role_palette` — the board’s debounced save, a
+     * theme apply, the onboarding wizard, an admin repair — because a guard on
+     * one writer is a guard on one writer.
+     *
+     * ⚠ THE FREEZE LIVES IN MB5’s MECHANISM, NOT A NEW ONE. Agreeing writes the
+     * snapshot’s colours into `events.role_palette.touched_roles` and
+     * `.room_dressing`, which `deriveBoard` and `resolveRoomDressing` already
+     * refuse to overwrite. There is no second definition of “frozen” anywhere,
+     * and that is deliberate: two definitions would each pass their own suite.
+     *
+     * ⚠ AND THE ONE-LIVE-HANDSHAKE RULE IS A PARTIAL UNIQUE INDEX, so it is
+     * invisible to pg_constraint and cannot be claimed below — verify it with
+     * \d moodboard_part_finalizations.
+     */
+    id: 'J47',
+    claims: [
+      { kind: 'table', table: 'moodboard_part_finalizations' },
+      {
+        kind: 'fk',
+        table: 'moodboard_part_finalizations',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'moodboard_part_finalizations',
+        column: 'vendor_id',
+        references: 'event_vendors',
+      },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'state' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'design_snapshot' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'expires_at' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'reopen_state' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'reopen_expires_at' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'frozen_palette_keys' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'frozen_dressing_fields' },
+      // 🔑 CLAIMED AS AN ABSENCE. The finalized/frozen fact is NEVER a boolean
+      // on this row: it is `state`, and the freeze it implies lives in
+      // events.role_palette. A `is_frozen` column added here would be a second
+      // source of truth that can disagree with the palette, so this claim turns
+      // that edit red rather than letting it ship.
+      { kind: 'no_column', table: 'moodboard_part_finalizations', column: 'is_frozen' },
+      // 🔑 AND SO IS THIS ONE. Copying event_vendors.status onto the row is the
+      // shape that would let “a booking outranks any marker” creep back in.
+      { kind: 'no_column', table: 'moodboard_part_finalizations', column: 'status' },
+      {
+        kind: 'check',
+        table: 'moodboard_part_finalizations',
+        name: 'moodboard_part_finalizations_state_chk',
+        mentions: 'state',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_part_finalizations',
+        name: 'moodboard_part_finalizations_part_id_shape',
+        mentions: 'part_id',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_part_finalizations',
+        name: 'moodboard_part_finalizations_answer_coherent',
+        mentions: 'agreed_at',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_part_finalizations',
+        name: 'moodboard_part_finalizations_reopen_needs_agreement',
+        mentions: 'reopen_state',
+      },
+    ],
+    chain: 21,
+    pair: ['TYPE-SIGNOFF', 'TYPE-EVENTS'],
+    title: 'Design sign-off ↔ Event (the agreement, and the freeze welded to it)',
+    joint: 'moodboard_part_finalizations',
+    cardinality:
+      'At most ONE pending-or-agreed row per (event, part) — a part is one design; closed rounds (declined / cancelled / expired) accumulate as history and free the slot for a fresh ask',
+    implementedBy:
+      'moodboard_part_finalizations.state (the booking handshake’s five values at a second scope) + events.role_palette.touched_roles / .room_dressing, which is where the freeze actually lives',
+    writtenBy:
+      'seven SECURITY DEFINER RPCs and nothing else — request_part_finalization / cancel_part_finalization_request / request_part_reopen / cancel_part_reopen_request (the couple) and vendor_agree_to_part / vendor_decline_part / vendor_answer_part_reopen (the supplier). authenticated holds NO insert, update or delete on the table',
+    guardedBy:
+      'RLS Pattern B read half (event members read; the ASKED booking reads via current_vendor_event_vendor_ids; admin all) · no authenticated write policy at all · request_part_finalization refuses unless event_vendors.status is one of the four CONFIRMED values · guard_moodboard_part_finalization materialises the 48-hour fuse on every transition into pending · events_hold_part_finalization_freeze re-asserts the freeze on every write to events.role_palette',
+    traps:
+      'The one-live-handshake rule is a PARTIAL UNIQUE INDEX (WHERE state IN (\'pending\',\'agreed\')), invisible to pg_constraint — verify with \\d. Expiry is LAZY: a lapsed ask keeps state=\'pending\' until somebody presses Agree or Decline, so any count of "waiting" must compare expires_at itself rather than trusting the state. An expired RE-OPEN leaves the part FROZEN — silence is not consent in either direction. And the two RPCs that touch both tables write the ROW FIRST and the palette SECOND on purpose: reassert_part_finalization_freeze reads AGREED rows, so the order decides what the backstop sees.',
   },
 ];
 

@@ -63,6 +63,9 @@
   /* Mood Board library — the photo pool, incl. suppliers' credited work (MB10).
      A cooler sibling of the render hue: same subsystem, different substance. */
   --ug-e-gallery: #4f7a6a; --ug-e-gallery-bg: #e6f0ec;
+  /* Design sign-off — the moment a part stops moving (MB12). A deeper, settled
+     cousin of the render hue: same subsystem, an agreement rather than an image. */
+  --ug-e-signoff: #7a5a3a; --ug-e-signoff-bg: #f1e9e0;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;

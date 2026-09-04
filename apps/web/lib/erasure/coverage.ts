@@ -774,6 +774,26 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who ticked “let Setnayan feature your creation” for an event (MB8). The consent is the EVENT’s, not the person’s — it governs whether that event’s renders may be published, and deleting the row because the partner who ticked it left would silently revoke a permission the couple still holds (or, worse, leave renders featured with no record of why they were allowed to be). The uuid is the stamp of who gave it: selected by no reader, shown in no label, consulted by no RLS policy, so nulling de-identifies it at zero cost. Nullable with ON DELETE SET NULL from the day it shipped. Note the withdrawal path is deliberately NOT a delete either — `consented` flips to FALSE and `withdrawn_at` is stamped — because a render featured while consent stood is a thing that happened and has to stay explainable.',
   },
   {
+    table: 'moodboard_part_finalizations',
+    column: 'requested_by_user_id',
+    why: 'Who asked a supplier to sign off on one part of the Mood Board (MB12). The handshake belongs to the EVENT and to the SUPPLIER, both of whom are still standing after this person leaves — and the row is what freezes that part of the design, so deleting it because the partner who pressed Ask left would silently un-freeze work a supplier is already building against. The uuid is a stamp: selected by no reader, shown in no label, consulted by no RLS policy (the couple-side gate is event_members, the supplier-side gate is current_vendor_event_vendor_ids). Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'moodboard_part_finalizations',
+    column: 'answered_by_user_id',
+    why: 'Which member of the SUPPLIER’s team agreed to or turned down one part of a design (MB12). The agreement is the shop’s, not the individual’s — the same call editorial_vendor_media.created_by makes — and it is what a couple’s board is frozen against. Deleting it because a staff member left would release a design nobody agreed to release. Nulling de-identifies it at zero cost; the supplier’s own WORDS on a decline live in decline_reason, which is the shop’s statement about the work, not personal data about the leaver.',
+  },
+  {
+    table: 'moodboard_part_finalizations',
+    column: 'reopen_requested_by_user_id',
+    why: 'Who asked the supplier to re-open a part they had already agreed to (MB12). Same shape as requested_by_user_id: an actor stamp on a row whose subjects are the event and the booking. It is also load-bearing in the other direction — an open re-open request is a question the supplier still owes an answer to, and it must not vanish because the person who asked it deleted their account.',
+  },
+  {
+    table: 'moodboard_part_finalizations',
+    column: 'reopen_answered_by_user_id',
+    why: 'Which member of the supplier’s team answered a re-open request (MB12). Same call as answered_by_user_id — the answer is the shop’s, and on a YES it is the receipt for a design that was released back to the couple.',
+  },
+  {
     table: 'event_egift_methods',
     column: 'created_by_user_id',
     why: '⚠ This stamp records WHO FIRST PRESSED ADD, not whose account it is — the update path rewrites the handle and account name but never this column. So a row now holding the OTHER partner’s GCash number still carries the leaver’s uuid. Nulling is the only safe move; see PARTIALLY_PURGED for what is deliberately retained.',

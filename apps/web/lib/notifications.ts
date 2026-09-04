@@ -155,6 +155,21 @@ export type NotificationType =
   | 'lock_request_declined'
   | 'lock_request_expired'
   | 'lock_request_withdrawn'
+  // MB12 · the per-part finalization handshake (2026-09-04). ⚠ These five are
+  // also ENUM values in Postgres — 20271203493803. A TS-only member typechecks
+  // and then the INSERT is refused in silence, so the person is never told.
+  //   requested → the SUPPLIER, who has 48 hours and may never open the app.
+  //   agreed/declined → the COUPLE, waiting on an answer about their own design.
+  //   reopen_requested → the SUPPLIER again; their answer is what releases it.
+  //   reopen_answered → the COUPLE, yes or no.
+  // There is no `part_finalization_expired`: an unanswered part ask leaves the
+  // design exactly where it already was, and a notice announcing that nothing
+  // changed is noise.
+  | 'part_finalization_requested'
+  | 'part_finalization_agreed'
+  | 'part_finalization_declined'
+  | 'part_reopen_requested'
+  | 'part_reopen_answered'
   // The deletion handshake (owner 2026-08-21). ⚠ These four are also ENUM
   // values in Postgres — 20271152428061. A TS-only member typechecks and then
   // the INSERT fails at runtime, and emitNotification only console.errors it,
@@ -386,6 +401,11 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   lock_request_declined: 'Booking request declined',
   lock_request_expired: 'Booking request expired',
   lock_request_withdrawn: 'Booking request withdrawn',
+  part_finalization_requested: 'Design sign-off — agree?',
+  part_finalization_agreed: 'A supplier signed off on your design',
+  part_finalization_declined: 'A supplier turned down a design',
+  part_reopen_requested: 'A couple wants to change an agreed part',
+  part_reopen_answered: 'Your re-open request was answered',
   deletion_request_received: 'A celebration you were paid for is being removed',
   deletion_request_nudge: 'Still waiting on your answer',
   deletion_request_agreed: 'A supplier agreed to the removal',
@@ -508,6 +528,17 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   lock_request_declined: 'bg-warn-100 text-warn-900',
   lock_request_expired: 'bg-warn-100 text-warn-900',
   lock_request_withdrawn: 'bg-warn-100 text-warn-900',
+  // The supplier owes an answer inside a 48-hour window → amber, on the design
+  // ask and on the re-open ask alike.
+  part_finalization_requested: 'bg-warn-100 text-warn-900',
+  part_reopen_requested: 'bg-warn-100 text-warn-900',
+  // The one good-news member: a part is settled.
+  part_finalization_agreed: 'bg-success-100 text-success-900',
+  // A no needs the couple to redesign or ask somebody else → amber. The re-open
+  // answer can be either, so it takes the neutral-but-actionable amber too
+  // rather than claiming a verdict the type alone does not carry.
+  part_finalization_declined: 'bg-warn-100 text-warn-900',
+  part_reopen_answered: 'bg-warn-100 text-warn-900',
   // Danger, not warn: this one asks whether a celebration may be erased.
   deletion_request_received: 'bg-danger-100 text-danger-900',
   deletion_request_nudge: 'bg-danger-100 text-danger-900',

@@ -14,6 +14,13 @@ import { fetchDecorLayerCatalog, renderDecorLayerDataUrl } from '@/lib/reception
 import { PILOT_DECOR_ZONES } from '@/lib/reception-decor-layers';
 import { isMoodboardStyleFamily } from '@/lib/moodboard-templates';
 import type { PartId } from '@/lib/reception-scene';
+import { renderPartLabel } from '@/lib/moodboard-finalization';
+import { VendorPartSignoff, type VendorSignoffRow } from '../_components/vendor-part-signoff';
+import {
+  vendorAgreeToPart,
+  vendorAnswerPartReopen,
+  vendorDeclinePart,
+} from '../finalization-actions';
 
 export const metadata = { title: 'Mood Board · Vendor' };
 
@@ -62,6 +69,47 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   if (error || !data) redirect(`/vendor-dashboard/clients/${eventId}`);
 
   const board = data as MoodBoardData;
+
+  // ── MB12: what this supplier has been asked to sign off on ───────────────
+  // Read with the supplier's OWN client, through
+  // `moodboard_part_finalizations_vendor_read`, which is scoped to the BOOKING
+  // (`current_vendor_event_vendor_ids`) rather than to the event — so a shop
+  // sees the parts it was asked about and nothing else on this board.
+  //
+  // ⚠ A REFUSED READ IS NOT "NOTHING TO ANSWER". An error renders identically
+  // to a board with no open asks, and the supplier would simply never answer.
+  // Logged, and the section is omitted only when the read genuinely returned
+  // nothing.
+  const { data: signoffRows, error: signoffError } = await supabase
+    .from('moodboard_part_finalizations')
+    .select('finalization_id, part_id, state, expires_at, reopen_state, reopen_expires_at')
+    .eq('event_id', eventId)
+    .in('state', ['pending', 'agreed'])
+    .order('created_at', { ascending: true });
+  if (signoffError) {
+    console.error(
+      `[vendorMoodBoard] sign-off rows unreadable for event_id=${eventId}:`,
+      signoffError.message,
+    );
+  }
+  const signoffs: VendorSignoffRow[] = (signoffRows ?? []).map((r) => {
+    const row = r as {
+      finalization_id: string;
+      part_id: string;
+      state: string;
+      expires_at: string | null;
+      reopen_state: string | null;
+      reopen_expires_at: string | null;
+    };
+    return {
+      finalizationId: row.finalization_id,
+      partLabel: renderPartLabel(row.part_id),
+      state: row.state,
+      expiresAt: row.expires_at,
+      reopenState: row.reopen_state,
+      reopenExpiresAt: row.reopen_expires_at,
+    };
+  });
   // SANITIZE, never cast. `as RolePalette` asserted a shape nobody had checked:
   // the RPC hands back raw jsonb, and its hex strings land directly in a
   // `style={{ backgroundColor: hex }}` swatch below. Every other surface that
@@ -198,6 +246,16 @@ export default async function VendorMoodBoardPage({ params }: Props) {
         </div>
       ) : (
         <div className="space-y-8">
+          {/* MB12 — the ask sits ABOVE the design, because it is the reason the
+              supplier opened this page. Renders nothing when there is nothing
+              to answer. */}
+          <VendorPartSignoff
+            rows={signoffs}
+            agreeAction={vendorAgreeToPart}
+            declineAction={vendorDeclinePart}
+            answerReopenAction={vendorAnswerPartReopen}
+          />
+
           {/* Palette */}
           {hasPalette ? (
             <section className="sn-tile p-5 sm:p-6">

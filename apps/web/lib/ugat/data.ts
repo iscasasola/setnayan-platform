@@ -103,6 +103,12 @@ export interface UgatCounts {
    * asset_type = 'supplier_gallery'.
    */
   gallery: number;
+  /**
+   * Design sign-offs: EVERY per-part finalization handshake ever opened,
+   * including closed rounds (declined / cancelled / expired). Not "parts
+   * currently settled"; for that slice, filter on state = 'agreed'.
+   */
+  signoff: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -207,6 +213,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     cameraRows,
     renderRows,
     libraryRows,
+    signoffRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -276,6 +283,9 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // filter on asset_type, deliberately NOT what this node counts — see the
     // warning on UgatCounts.gallery and on TYPE-GALLERY itself.
     headCount(admin, 'moodboard_library_assets'),
+    // Design sign-offs: every handshake ever opened. The node counts the
+    // CONVERSATION, not its verdict — see the warning on UgatCounts.signoff.
+    headCount(admin, 'moodboard_part_finalizations'),
   ]);
 
   return {
@@ -302,6 +312,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     livestudio: cameraRows,
     render: renderRows,
     gallery: libraryRows,
+    signoff: signoffRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,

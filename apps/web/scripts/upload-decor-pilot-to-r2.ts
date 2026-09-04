@@ -1,26 +1,43 @@
 /**
  * upload-decor-pilot-to-r2.ts
  *
- * Uploads the 10 reception-decor pilot SVGs (generated this session, saved at
- * apps/web/scripts/decor-pilot-output/{zone}/{style-slug}.svg) to the real
- * `setnayan-media` R2 bucket at the keys the seed migration
+ * Uploads the 10 reception-decor pilot SVGs to the real `setnayan-media` R2
+ * bucket at the keys the seed migration
  * (20271194970382_moodboard_reception_decor_layers_pilot.sql) already
  * references — mirrors reupload-attire-figures.ts exactly, just pointed at a
  * different local folder + key prefix.
  *
- * This script could NOT be run from the generation session itself: that
- * environment had no R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY.
- * A human with those credentials in .env.local runs this once, then flips
- * `approved_at = NOW()` on the 10 moodboard_library_assets rows this
- * migration inserted (they were seeded with approved_at = NULL on purpose —
- * see the migration header for why).
+ * MB14 (2026-09-04) confirmed the 10 files still exist (generated in an
+ * earlier session, never uploaded — no R2 credentials were readable from
+ * that environment, or from MB14's either: `vercel env pull` writes an empty
+ * string for every sensitive var, R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY
+ * included, and there is no CI path that has them either). MB14 also
+ * re-verified the 10 committed `sampled_hex` values against the real files
+ * using the background-exclusion method documented in
+ * reception-decor-pilot-prompts.ts (see scripts/verify-decor-pilot-colors.mjs)
+ * — all 10 match exactly, so no tagging correction is needed, only the
+ * upload + approval below, which still needs a human (or a session) with the
+ * real secret values in hand.
+ *
+ * Default source layout: apps/web/scripts/decor-pilot-output/{zone}/{style-slug}.svg
+ * — override with DECOR_PILOT_SRC_DIR if the 10 files live somewhere else
+ * (they are not committed to git; see the migration header for why).
  *
  * Run:
- *   cd apps/web && set -a; source .env.local; set +a; npx tsx scripts/upload-decor-pilot-to-r2.ts
+ *   cd apps/web && set -a; source .env.local; set +a
+ *   DECOR_PILOT_SRC_DIR=/path/to/the/10/svgs npx tsx scripts/upload-decor-pilot-to-r2.ts
  */
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+
+const REQUIRED_ENV = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY'] as const;
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`FAILED: ${key} is not set. Source the real .env.local before running this.`);
+    process.exit(1);
+  }
+}
 
 const client = new S3Client({
   region: 'auto',
@@ -31,8 +48,11 @@ const client = new S3Client({
   },
 });
 
-const ROOT = path.join(__dirname, 'decor-pilot-output');
+const ROOT = process.env.DECOR_PILOT_SRC_DIR
+  ? path.resolve(process.env.DECOR_PILOT_SRC_DIR)
+  : path.join(__dirname, 'decor-pilot-output');
 const ZONES = ['backdrop', 'ceiling'] as const;
+const EXPECTED_TOTAL = 10;
 
 async function main() {
   let count = 0;
@@ -55,7 +75,14 @@ async function main() {
       console.log(`Uploaded ${key}`);
     }
   }
-  console.log(`DONE · uploaded ${count}/10 decor pilot SVGs to R2`);
+  if (count !== EXPECTED_TOTAL) {
+    console.error(
+      `FAILED: uploaded ${count}/${EXPECTED_TOTAL} — do NOT flip approved_at until all 10 are ` +
+        `confirmed live (a partial upload would approve rows whose image 404s).`,
+    );
+    process.exit(1);
+  }
+  console.log(`DONE · uploaded ${count}/${EXPECTED_TOTAL} decor pilot SVGs to R2`);
   console.log(
     'Next: verify each URL loads, then run — ' +
       `UPDATE public.moodboard_library_assets SET approved_at = NOW() ` +

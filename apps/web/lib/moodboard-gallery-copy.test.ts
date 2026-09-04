@@ -108,6 +108,46 @@ test('the key and the bytes come back TOGETHER, so a caller cannot pair one with
   assert.deepEqual(Object.keys(copy).sort(), ['bytes', 'contentType', 'key']);
 });
 
+test('SABOTAGE-PROVEN: the couple’s own copy comes back byte-for-byte untouched', async () => {
+  // 🔒 THE OTHER HALF OF THE TWO-KEY STORY, AND THE ONE NOTHING ASSERTED UNTIL
+  // MB20. The tests above prove the GALLERY copy is marked. They say nothing
+  // about the buffer that was handed in — which is the same buffer the caller
+  // then uploads to `renders/<event>/<render>.<ext>`, the photograph the couple
+  // paid for. sharp is perfectly capable of mutating a buffer in place, and a
+  // marker that did would deface the private master while every assertion in
+  // this file stayed green: the gallery copy would still be marked, the keys
+  // would still differ, the pixels would still be right.
+  //
+  // Sabotage run, restored after: `watermarkImageBytes` was changed to write
+  // its JPEG back over `input` before returning. This test went RED on the byte
+  // comparison, naming the defect. Two neighbouring tests also went red — but
+  // on `VipsJpeg: premature end of JPEG image`, because they happened to re-read
+  // the fixture afterwards. That is the symptom, several steps downstream, and
+  // it reads like a broken test fixture rather than a defaced master. The
+  // difference between those two failures is the reason this test is written
+  // as a byte comparison against a copy taken BEFORE the call.
+  const original = await flatImage(640, 480);
+  const pristine = Buffer.from(original); // an independent copy, taken first
+
+  const copy = await buildGalleryCopy({
+    eventId: 'event-1',
+    renderId: 'render-1',
+    bytes: original,
+  });
+
+  assert.equal(
+    Buffer.compare(original, pristine),
+    0,
+    'the bytes handed in — the couple’s own copy — were modified in place',
+  );
+  // And the marked copy is genuinely a different object, not an alias of it.
+  assert.notEqual(Buffer.compare(copy.bytes, pristine), 0);
+  assert.notEqual(copy.key, 'renders/event-1/render-1.png');
+
+  // The unmarked master still reads as unmarked: no ink anywhere in it.
+  assert.equal(await deviationInBottomRight(original), 0);
+});
+
 test('bytes that cannot be marked THROW — there is no publish-the-original fallback', async () => {
   await assert.rejects(() =>
     buildGalleryCopy({ eventId: 'e', renderId: 'r', bytes: Buffer.from('nope') }),

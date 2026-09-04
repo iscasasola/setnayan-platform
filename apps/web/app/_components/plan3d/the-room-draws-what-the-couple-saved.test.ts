@@ -428,48 +428,47 @@ test('a multi-selection names the primary AND every pick left off screen', () =>
   const design = sanitizeReceptionDesign({
     ...DEFAULT_DESIGN,
     ceiling: { treatment: ['draped', 'fairy_lights'] },
-    // Was `welcome_signage` — that zone now draws every piece the couple chose,
-    // so it has nothing hidden to disclose. `photo_wall` is still primary-only
-    // and keeps this test asserting the behaviour rather than the zone.
-    photo_wall: { style: ['neon_backdrop', 'floral_wall', 'balloon_garland'] },
   });
   const hidden = hiddenTreatments(design, ROOM_DRAWN_ATTRIBUTES);
-  assert.equal(hidden.length, 2);
+  assert.equal(hidden.length, 1, 'ceiling is the only zone here still drawn primary-only');
   const ceiling = hidden.find((h) => h.part === 'ceiling')!;
   assert.equal(ceiling.primaryLabel, 'Draped canopy');
   assert.deepEqual(ceiling.hiddenLabels, ['Fairy lights']);
-  const photo = hidden.find((h) => h.part === 'photo_wall')!;
-  assert.deepEqual(photo.hiddenLabels, ['Floral wall', 'Balloon garland']);
 
-  // And the zone that now draws in full must be ABSENT from the notice.
+  // Every zone that now draws in FULL must be ABSENT from the notice. Claiming
+  // the room is hiding a choice it is actually showing is the same defect as
+  // hiding one silently, pointed the other way.
   const full = sanitizeReceptionDesign({
     ...DEFAULT_DESIGN,
     welcome_signage: { style: ['easel_sign', 'framed_seating_chart'] },
+    walls: { treatment: ['fabric_drape', 'floral_garland'] },
+    photo_wall: { style: ['neon_backdrop', 'balloon_garland'] },
   });
-  assert.equal(
-    hiddenTreatments(full, ROOM_DRAWN_ATTRIBUTES).some((h) => h.part === 'welcome_signage'),
-    false,
-    'the welcome table draws every piece now — claiming otherwise is a false disclosure',
-  );
+  const fullParts: string[] = hiddenTreatments(full, ROOM_DRAWN_ATTRIBUTES).map((h) => h.part);
+  for (const drawnInFull of ['welcome_signage', 'walls', 'photo_wall']) {
+    assert.ok(!fullParts.includes(drawnInFull), `${drawnInFull} draws every pick — do not disclose it`);
+  }
 
   const notice = primaryOnlyNotice(design, ROOM_DRAWN_ATTRIBUTES)!;
-  assert.match(notice, /3 of your picks are not on screen/);
+  assert.match(notice, /1 of your picks is not on screen|1 of your picks are not on screen/);
   assert.match(notice, /Ceiling \(showing Draped canopy\)/);
-  assert.match(notice, /Photo wall \(showing Neon sign\)/);
 });
 
 test('the label the legend prints is the option the room actually drew', async () => {
   // The failure this blocks: the notice says "showing Draped canopy" while the
   // room draws fairy lights. `sel()` and `hiddenTreatments()` must agree, so
   // the primary is read back out of the RENDER, not out of the helper.
+  // Moved from photo_wall to ceiling: photo_wall now draws every pick, so it no
+  // longer HAS a hidden treatment to misreport. Ceiling is still primary-only,
+  // and `decor-ceiling-*` was named for exactly this read-back.
   const design = sanitizeReceptionDesign({
     ...DEFAULT_DESIGN,
-    photo_wall: { style: ['neon_backdrop', 'floral_wall'] },
+    ceiling: { treatment: ['chandeliers', 'fairy_lights'] },
   });
   const html = await paint(design, MAJORS.slice(0, 4) as unknown as string[]);
-  assert.ok(html.includes('name="decor-photo-wall-neon_backdrop"'), 'the room drew the primary');
-  assert.equal(html.includes('decor-photo-wall-floral_wall'), false, 'and only the primary');
-  assert.match(primaryOnlyNotice(design, ROOM_DRAWN_ATTRIBUTES)!, /Photo wall \(showing Neon sign\)/);
+  assert.ok(html.includes('name="decor-ceiling-chandeliers"'), 'the room drew the primary');
+  assert.equal(html.includes('name="decor-ceiling-fairy_lights"'), false, 'and only the primary');
+  assert.match(primaryOnlyNotice(design, ROOM_DRAWN_ATTRIBUTES)!, /Ceiling \(showing Crystal chandeliers\)/);
 });
 
 test('the notice reaches the room legend — not just the resolver', () => {

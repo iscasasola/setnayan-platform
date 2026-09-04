@@ -383,16 +383,38 @@ const WALL_DRESS_H = 2.6;
  * kept and simply has nothing to hang on — `VenueShell` already replaces those
  * walls with perimeter greenery).
  */
+/** How far in front of the previous layer each extra wall treatment hangs.
+ *  Small enough to read as one dressed wall, large enough that a garland sits
+ *  ON a drape instead of z-fighting through it. */
+const WALL_LAYER_STEP_M = 0.09;
+
 function WallTreatment({
   room,
   palette,
   quality,
-  treatment,
+  treatments,
 }: {
   room: Room;
   palette: Lab3DPalette;
   quality: DecorQuality;
-  treatment: string;
+  /** EVERY treatment the couple chose for their side walls, in their order.
+   *
+   *  A real wall carries more than one: greenery behind a drape, a garland
+   *  along the top of it. The room drew the primary and dropped the rest.
+   *
+   *  ⚠ THE PRIMARY DOES NOT MOVE. Layer 0 renders at depth 0 — exactly where
+   *  the single-treatment version put it — and each extra hangs
+   *  WALL_LAYER_STEP_M further into the room. `selAll(…)[0]` is `sel(…)` by
+   *  construction, so a wall that chose one thing is untouched, and this is
+   *  additive by arithmetic rather than by promise.
+   *
+   *  ⚠ AND THE COST OF THAT, STATED: the stack follows the couple's PICK
+   *  order, not physical plausibility. Choose a garland first and a greenery
+   *  wall second and the greenery hangs in front of the garland. Ordering by
+   *  physical depth instead would move whichever treatment is currently drawn
+   *  — restyling rooms couples have already shown suppliers — so pick order
+   *  wins. Their first choice is the one they are looking at. */
+  treatments: readonly string[];
 }) {
   const halfW = room.w / 2;
   const bloom = useMemo(() => bloomColor(palette), [palette]);
@@ -423,9 +445,15 @@ function WallTreatment({
   const drapePanels = Math.max(6, Math.round(room.d / 0.72));
 
   return (
-    <group name={`decor-walls-${treatment}`}>
+    <group name="decor-walls">
       {runs.map((run, ri) => (
         <group key={ri} position={[run.x, 0, 0]} rotation={[0, run.ry, 0]}>
+          {treatments.map((treatment, li) => (
+          <group
+            key={treatment}
+            name={`decor-walls-${treatment}`}
+            position={[0, 0, li * WALL_LAYER_STEP_M]}
+          >
           {treatment === 'fabric_drape'
             ? Array.from({ length: drapePanels }).map((_, i) => {
                 const z = -room.d / 2 + (room.d / drapePanels) * (i + 0.5);
@@ -486,6 +514,8 @@ function WallTreatment({
                 );
               })
             : null}
+          </group>
+          ))}
         </group>
       ))}
     </group>
@@ -498,23 +528,51 @@ function WallTreatment({
  * backdrop"), so it stands against a side wall on the entrance half of the
  * room, facing in.
  */
+/** How far forward each non-primary photo-wall layer is lifted, so a monogram
+ *  plate is not swallowed by the blossoms of a floral wall 1 cm behind it. */
+const PHOTO_LAYER_STEP_M = 0.06;
+
 function PhotoWall({
   room,
   palette,
   quality,
-  style,
+  styles,
 }: {
   room: Room;
   palette: Lab3DPalette;
   quality: DecorQuality;
-  style: string;
+  /** EVERY style the couple chose for the photo wall, in their order.
+   *
+   *  ⚠ ONE PANEL, MANY DECORATIONS — the rule this zone needed and the walls
+   *  did not. A photo wall is ONE physical backdrop: it cannot be both a
+   *  greenery wall and a lit neon panel, because those are the same surface
+   *  described two ways. So the PANEL takes the primary's material and every
+   *  chosen style's decoration draws on top. A balloon garland over a
+   *  step-and-repeat is two things; a greenery wall over a neon panel is one
+   *  thing chosen twice, and the primary wins.
+   *
+   *  ⚠ THE PRIMARY DOES NOT MOVE. `selAll(…)[0]` is `sel(…)`, and `lift()`
+   *  returns 0 for it, so a board that chose one style renders exactly as
+   *  before — panel material AND decoration depth. Extras lift forward. */
+  styles: readonly string[];
 }) {
+  const style = styles[0] ?? 'none';
+  /** 0 for the primary — its decoration keeps the depth it always had — and a
+   *  step per position for anything layered in front of it. */
+  const lift = (id: string): number => {
+    const i = styles.indexOf(id);
+    return i > 0 ? i * PHOTO_LAYER_STEP_M : 0;
+  };
   const w = Math.min(3.2, Math.max(2.0, room.w * 0.2));
   const h = 2.6;
   const x = -room.w / 2 + 0.5;
   const z = room.d * 0.16;
   const bloom = useMemo(() => bloomColor(palette), [palette]);
   const leaf = useMemo(() => leafColor(palette), [palette]);
+  // Greenery tints the blossoms leaf-green — but only when the couple did NOT
+  // also choose a floral wall. Both together is a floral wall ON greenery, and
+  // green blossoms would read as the flowers having been swapped out.
+  const greeneryOnly = styles.includes('greenery_wall') && !styles.includes('floral_wall');
   const grid = useMemo(
     () => blossomGrid(w, h, quality === 'low' ? 6 : 9, quality === 'low' ? 5 : 8),
     [w, h, quality],
@@ -540,21 +598,26 @@ function PhotoWall({
         />
       </mesh>
 
-      {style === 'floral_wall' || style === 'greenery_wall' ? (
+      {styles.includes('floral_wall') || styles.includes('greenery_wall') ? (
         <BlossomInstances
-          points={grid.map((p) => new THREE.Vector3(p.x, p.y, 0.08))}
-          colorA={style === 'greenery_wall' ? leaf : bloom}
-          colorB={bloomSecondary(palette, style === 'greenery_wall' ? leaf : bloom, 0.4)}
+          points={grid.map(
+            (p) => new THREE.Vector3(p.x, p.y, 0.08 + lift(styles.includes('floral_wall') ? 'floral_wall' : 'greenery_wall')),
+          )}
+          colorA={greeneryOnly ? leaf : bloom}
+          colorB={bloomSecondary(palette, greeneryOnly ? leaf : bloom, 0.4)}
           radius={0.15}
         />
       ) : null}
 
       {/* Step & repeat — the couple's monogram tiled across the panel. Small
           plates rather than text: no fonts are loaded in the 3D room. */}
-      {style === 'step_repeat'
+      {styles.includes('step_repeat')
         ? Array.from({ length: 5 }).map((_, r) =>
             Array.from({ length: 4 }).map((__, c) => (
-              <mesh key={`${r}-${c}`} position={[-w / 2 + (w / 4) * (c + 0.5), -h / 2 + (h / 5) * (r + 0.5), 0.07]}>
+              <mesh
+                key={`${r}-${c}`}
+                position={[-w / 2 + (w / 4) * (c + 0.5), -h / 2 + (h / 5) * (r + 0.5), 0.07 + lift('step_repeat')]}
+              >
                 <boxGeometry args={[w * 0.12, w * 0.12, 0.02]} />
                 <meshStandardMaterial color={palette.accent2 ?? palette.accent} roughness={0.45} metalness={0.4} />
               </mesh>
@@ -562,14 +625,14 @@ function PhotoWall({
           )
         : null}
 
-      {style === 'balloon_garland'
+      {styles.includes('balloon_garland')
         ? Array.from({ length: quality === 'low' ? 14 : 22 }).map((_, i, arr) => {
             const t = i / (arr.length - 1);
             const bx = -w / 2 + t * w;
             const by = h / 2 - 0.25 - Math.sin(t * Math.PI) * 0.5 + (((i * 13) % 5) / 5 - 0.5) * 0.3;
             const tone = [palette.accent, palette.accent2 ?? palette.table, bloom][i % 3]!;
             return (
-              <mesh key={i} position={[bx, by, 0.16]}>
+              <mesh key={i} position={[bx, by, 0.16 + lift('balloon_garland')]}>
                 <sphereGeometry args={[0.13 + ((i * 7) % 3) * 0.03, 8, 7]} />
                 <meshStandardMaterial color={tone} roughness={0.35} />
               </mesh>
@@ -577,8 +640,8 @@ function PhotoWall({
           })
         : null}
 
-      {style === 'neon_backdrop' ? (
-        <mesh position={[0, 0.1, 0.09]} rotation={[Math.PI / 2, 0, 0]}>
+      {styles.includes('neon_backdrop') ? (
+        <mesh position={[0, 0.1, 0.09 + lift('neon_backdrop')]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[w * 0.26, 0.035, 6, 26]} />
           <meshStandardMaterial
             color={palette.accent2 ?? palette.accent}
@@ -1068,8 +1131,6 @@ export const ROOM_DRAWN_ATTRIBUTES: ReadonlyArray<DrawnAttribute> = [
   ['backdrop', 'style'],
   ['tables', 'centerpiece'],
   ['tunnel', 'style'],
-  ['walls', 'treatment'],
-  ['photo_wall', 'style'],
   // ⚠ `welcome_signage` IS DELIBERATELY ABSENT. This list is what the legend
   // discloses as PRIMARY-ONLY, and the welcome table now draws every piece the
   // couple chose (selAll). Leaving it here would make the notice say "showing
@@ -1119,8 +1180,19 @@ export function VenueDecor({
   // treatment only, deliberately, because there is one physical wall / panel /
   // welcome table. What the room is therefore NOT drawing is disclosed to the
   // couple by `primaryOnlyNotice()` in the room's legend; see that function.
-  const walls = sel(design, 'walls', 'treatment');
-  const photoWall = sel(design, 'photo_wall', 'style');
+  // Side walls are MULTI-SELECT — greenery behind a drape, a garland along it.
+  // selAll rather than sel so the whole wall reaches the room; 'bare' is the
+  // explicit "nothing here" choice and is dropped rather than drawn.
+  const wallTreatments = useMemo(
+    () => selAll(design, 'walls', 'treatment').filter((v) => v !== 'bare'),
+    [design],
+  );
+  // Multi-select, and its own catalogue comment says the photo op is "usually
+  // two things at once". One panel, many decorations — see PhotoWall.
+  const photoWallStyles = useMemo(
+    () => selAll(design, 'photo_wall', 'style').filter((v) => v !== 'none'),
+    [design],
+  );
   // The welcome table is MULTI-SELECT and holds several things at once. selAll
   // rather than sel, so the couple's whole table reaches the room; selAll(…)[0]
   // is sel(…) by construction, so this can only ever ADD pieces and never move
@@ -1163,12 +1235,19 @@ export function VenueDecor({
     <group>
       {/* Ceiling — hung fixtures only exist where there IS a ceiling; open-air
           archetypes keep string lights (strung, not slab-hung) and drop the rest. */}
-      {!openAir && ceiling === 'chandeliers' && <Chandeliers room={room} palette={palette} quality={quality} />}
-      {(ceiling === 'fairy_lights') && <StringLights room={room} palette={palette} />}
-      {!openAir && ceiling === 'lanterns' && <Lanterns room={room} palette={palette} quality={quality} />}
-      {!openAir && (ceiling === 'hanging_florals' || ceiling === 'hanging_greenery') && (
-        <HangingFlorals room={room} palette={palette} quality={quality} greenery={ceiling === 'hanging_greenery'} />
-      )}
+      {/* Named so the disclosure guard can read the drawn treatment back OUT of
+          the render and check the legend agrees with it. Every other zone that
+          carried such a name now draws in FULL, which leaves nothing
+          primary-only to verify — so the check moved here rather than being
+          dropped. */}
+      <group name={`decor-ceiling-${ceiling}`}>
+        {!openAir && ceiling === 'chandeliers' && <Chandeliers room={room} palette={palette} quality={quality} />}
+        {(ceiling === 'fairy_lights') && <StringLights room={room} palette={palette} />}
+        {!openAir && ceiling === 'lanterns' && <Lanterns room={room} palette={palette} quality={quality} />}
+        {!openAir && (ceiling === 'hanging_florals' || ceiling === 'hanging_greenery') && (
+          <HangingFlorals room={room} palette={palette} quality={quality} greenery={ceiling === 'hanging_greenery'} />
+        )}
+      </group>
       {/* 'draped' | 'geometric' | 'bare' → no ceiling decor (drape reads as the room itself) */}
 
       {/* Stage backdrop */}
@@ -1203,13 +1282,13 @@ export function VenueDecor({
           archetypes have no side wall to dress (VenueShell replaces them with
           perimeter greenery), so the choice is kept and simply has nothing to
           hang on — same rule as the ceiling above. */}
-      {!openAir && walls !== 'bare' && (
-        <WallTreatment room={room} palette={palette} quality={quality} treatment={walls} />
+      {!openAir && wallTreatments.length > 0 && (
+        <WallTreatment room={room} palette={palette} quality={quality} treatments={wallTreatments} />
       )}
 
       {/* Photo wall — the step-and-repeat, explicitly NOT the stage backdrop. */}
-      {photoWall !== 'none' && (
-        <PhotoWall room={room} palette={palette} quality={quality} style={photoWall} />
+      {photoWallStyles.length > 0 && (
+        <PhotoWall room={room} palette={palette} quality={quality} styles={photoWallStyles} />
       )}
 
       {/* Welcome table by the door. */}

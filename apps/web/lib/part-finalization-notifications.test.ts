@@ -27,6 +27,10 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { NOTIFICATION_TYPE_LABEL, NOTIFICATION_TYPE_TONE, type NotificationType } from './notifications';
+// 🔑 THE ONE STRIPPER. A two-replace regex opens a comment on any `/*` inside a
+// string and blanks real code to the next close — so the set it parses could be
+// missing members nobody can see. See lib/strip-comments.ts.
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -64,9 +68,7 @@ const VENDOR_ACTIONS = join(
 function setMembers(name: string): string[] {
   const at = EMIT_SRC.indexOf(`const ${name}`);
   assert.ok(at >= 0, `${name} not found — did the set move or get renamed?`);
-  const body = EMIT_SRC.slice(at, EMIT_SRC.indexOf(']);', at))
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*/g, '');
+  const body = stripComments(EMIT_SRC.slice(at, EMIT_SRC.indexOf(']);', at)));
   const members = [...body.matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]!).filter(Boolean);
   // Floor: an empty parse reports a perfectly clean sweep.
   assert.ok(members.length >= 3, `${name} parse floor: found ${members.length}`);
@@ -86,12 +88,12 @@ test('all five MB12 types are on the EMAIL allowlist', () => {
 });
 
 test('and none of them is in the set that would silently suppress every one of them', () => {
-  const gated = EMIT_SRC.slice(
-    EMIT_SRC.indexOf('const MARKETING_GATED_EMAIL_TYPES'),
-    EMIT_SRC.indexOf(']);', EMIT_SRC.indexOf('const MARKETING_GATED_EMAIL_TYPES')),
-  )
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*/g, '');
+  const gated = stripComments(
+    EMIT_SRC.slice(
+      EMIT_SRC.indexOf('const MARKETING_GATED_EMAIL_TYPES'),
+      EMIT_SRC.indexOf(']);', EMIT_SRC.indexOf('const MARKETING_GATED_EMAIL_TYPES')),
+    ),
+  );
   const members = [...gated.matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]!);
   for (const t of MB12_TYPES) {
     assert.ok(

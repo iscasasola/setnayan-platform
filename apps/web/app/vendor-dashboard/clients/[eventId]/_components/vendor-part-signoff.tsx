@@ -114,7 +114,7 @@ export function VendorPartSignoff({
                 type="button"
                 disabled={busy === row.finalizationId}
                 onClick={() => run(row.finalizationId, () => agreeAction(row.finalizationId))}
-                className="inline-flex items-center gap-1 rounded-full bg-terracotta px-3 py-1 text-xs font-medium text-white hover:bg-terracotta-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-3 py-1 text-xs font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
               >
                 <Check className="h-3.5 w-3.5" aria-hidden />
                 I&rsquo;ll build this
@@ -184,7 +184,7 @@ export function VendorPartSignoff({
                     answerReopenAction(row.finalizationId, true, ''),
                   )
                 }
-                className="rounded-full bg-terracotta px-3 py-1 text-xs font-medium text-white hover:bg-terracotta-700 disabled:opacity-50"
+                className="rounded-full bg-terracotta-700 px-3 py-1 text-xs font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
               >
                 Go ahead, change it
               </button>

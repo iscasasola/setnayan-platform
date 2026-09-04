@@ -136,10 +136,14 @@ export function PartFinalizationPanel({
                     <Lock className="h-3 w-3" aria-hidden />
                     Agreed — settled
                   </span>
-                  {/* 🔑 THE HONEST FOOTNOTE. Eight parts freeze nothing (their
-                      colour is the couple's majors read directly, and the
-                      majors are never frozen). Saying "settled" without saying
-                      that would promise a stop that does not exist. */}
+                  {/* 🔑 THE HONEST FOOTNOTE. Some parts freeze nothing — their
+                      colour is the couple's five majors read directly, and the
+                      majors are section 00's own, never touchable by an
+                      agreement. Saying "settled" without saying so would
+                      promise a stop that does not exist. Which parts those are
+                      is derived (`partFreezesNothing`) and pinned by
+                      `lib/moodboard-finalization.test.ts`, never counted here.
+                      */}
                   {partFreezesNothing(part.id) ? (
                     <span className="text-[11px] text-ink/50">
                       recorded, but its colours still follow your main colours
@@ -216,7 +220,7 @@ export function PartFinalizationPanel({
                       type="button"
                       disabled={busy}
                       onClick={() => run(part.id, () => requestAction(part.id, s.vendorId))}
-                      className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2.5 py-1 text-[11px] font-medium text-white hover:bg-terracotta-700 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2.5 py-1 text-[11px] font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
                     >
                       <Check className="h-3 w-3" aria-hidden />
                       Ask {s.name}

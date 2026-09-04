@@ -32,6 +32,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from './strip-comments';
 import {
   LOCK_ANSWER_WINDOW_HOURS,
   isPartFinalized,
@@ -80,10 +81,11 @@ test('the module never reads a booking status on the finalization path', () => {
   // violation of it, and matching on one would make the guard cry wolf.
   const at = SRC.indexOf('MB12 · THE SAME MACHINE AT A SECOND SCOPE');
   assert.ok(at > 0, 'the MB12 section banner moved — re-anchor this guard');
-  const tail = SRC.slice(at)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*/g, '')
-    .replace(/\/\*\*[\s\S]*?\*\//g, '');
+  // 🔑 THE ONE STRIPPER, not a two-replace regex. A regex that deletes block
+  // comments first turns any `/*` inside a STRING into a comment opener and
+  // blanks everything to the next real close — and the guard then asserts
+  // against a blank and passes. See lib/strip-comments.ts.
+  const tail = stripComments(SRC.slice(at));
   for (const forbidden of ['CONFIRMED', 'row.status', 'contracted', 'deposit_paid']) {
     assert.ok(
       !tail.includes(forbidden),

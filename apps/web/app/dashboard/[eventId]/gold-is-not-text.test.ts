@@ -98,6 +98,12 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['guests/souvenirs/_components/souvenir-desk.tsx', 1],
   ['guests/souvenirs/page.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/change-order-trail.tsx', 1],
+  // MB16 · the section icon on the Colour access card. ONE bare use, and it is
+  // an ICON (aria-hidden) — the non-text bar is 3:1 and gold clears it. It is
+  // bare rather than terracotta-700 so it matches the Conversation and
+  // Documents icons it sits between; a section header whose icon is a
+  // different gold from the two beside it reads as a bug.
+  ['vendors/[vendorId]/workspace/_components/colour-access-card.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/deposit-reservation.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/handover-inbox.tsx', 2],
   ['vendors/[vendorId]/workspace/_components/host-service-details.tsx', 1],

@@ -109,6 +109,12 @@ export interface UgatCounts {
    * currently settled"; for that slice, filter on state = 'agreed'.
    */
   signoff: number;
+  /**
+   * Colour access: every LIVE grant row — vendors and coordinators together,
+   * one row per DOMAIN. A stylist's single on-screen switch is two rows. Not
+   * "how many people hold access"; for that, count distinct subjects.
+   */
+  colourgrant: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -214,6 +220,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     renderRows,
     libraryRows,
     signoffRows,
+    colourGrantRows,
+    colourGrantHostRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -286,6 +294,11 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // Design sign-offs: every handshake ever opened. The node counts the
     // CONVERSATION, not its verdict — see the warning on UgatCounts.signoff.
     headCount(admin, 'moodboard_part_finalizations'),
+    // Colour access: LIVE grants only. A revoked row is kept (revocation is a
+    // flip, not a delete) and counting it would report standing permission
+    // that no longer stands.
+    headCount(admin, 'event_colour_grants', (q) => q.eq('is_active', true)),
+    headCount(admin, 'event_colour_grants_coordinator', (q) => q.eq('is_active', true)),
   ]);
 
   return {
@@ -313,6 +326,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     render: renderRows,
     gallery: libraryRows,
     signoff: signoffRows,
+    colourgrant: colourGrantRows + colourGrantHostRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,

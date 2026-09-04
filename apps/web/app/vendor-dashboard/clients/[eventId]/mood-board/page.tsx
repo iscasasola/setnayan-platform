@@ -16,6 +16,9 @@ import { isMoodboardStyleFamily } from '@/lib/moodboard-templates';
 import type { PartId } from '@/lib/reception-scene';
 import { renderPartLabel } from '@/lib/moodboard-finalization';
 import { VendorPartSignoff, type VendorSignoffRow } from '../_components/vendor-part-signoff';
+import { ColourLaneEditor } from '../_components/colour-lane-editor';
+import { editableSwatches, isColourDomain, type ColourDomain, type EditableSwatch } from '@/lib/colour-access';
+import { applyColourChange } from '@/app/dashboard/[eventId]/colour-access-actions';
 import {
   vendorAgreeToPart,
   vendorAnswerPartReopen,
@@ -195,6 +198,39 @@ export default async function VendorMoodBoardPage({ params }: Props) {
     backdrop: { l: 33, t: 22, w: 34, h: 26 },
   };
 
+  // ── MB16 · which colours, if any, this supplier may change ───────────────
+  //
+  // Read with the supplier's OWN client through
+  // `event_colour_grants_vendor_read`, which is scoped to the BOOKING via
+  // `current_vendor_event_vendor_ids()` — so a shop sees its own grant and
+  // nothing else about this board's permissions.
+  //
+  // ⚠ A REFUSED READ RENDERS AS "NO GRANT", which is indistinguishable from
+  // the couple never having given one. Logged. The consequence of getting it
+  // wrong is mild in this direction (the supplier sees the board they saw
+  // yesterday and the RPC would have let them write) — but it is still a
+  // silence, and a silence is what this whole session is about.
+  const { data: grantRows, error: grantError } = await supabase
+    .from('event_colour_grants')
+    .select('domain, is_active')
+    .eq('event_id', eventId)
+    .eq('is_active', true);
+  if (grantError) {
+    console.error(
+      `[vendorMoodBoard] colour grants unreadable for event_id=${eventId}:`,
+      grantError.message,
+    );
+  }
+  const grantedDomains: ColourDomain[] = [
+    ...new Set(
+      ((grantRows ?? []) as { domain: string }[])
+        .map((r) => r.domain)
+        .filter(isColourDomain),
+    ),
+  ];
+  const colourSwatches: EditableSwatch[] =
+    grantedDomains.length > 0 ? editableSwatches(grantedDomains, palette) : [];
+
   const hasInspiration = board.inspirations.length > 0;
   const hasPalette = paletteRows.length > 0;
   const hasReception =
@@ -254,6 +290,15 @@ export default async function VendorMoodBoardPage({ params }: Props) {
             agreeAction={vendorAgreeToPart}
             declineAction={vendorDeclinePart}
             answerReopenAction={vendorAnswerPartReopen}
+          />
+
+          {/* MB16 — the swatches this supplier may change, if the couple gave
+              them any. Above the read-only palette below it, because a control
+              underneath the thing it controls is one nobody finds; renders
+              nothing at all without a grant. */}
+          <ColourLaneEditor
+            swatches={colourSwatches}
+            applyAction={applyColourChange.bind(null, eventId)}
           />
 
           {/* Palette */}

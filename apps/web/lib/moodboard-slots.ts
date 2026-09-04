@@ -19,6 +19,10 @@
  * agree today; widen both together, and the DB is the one that fails loudly.
  */
 
+// Types only — erased at compile time, so this module keeps its zero VALUE
+// imports and stays reachable from a `'use client'` component.
+import type { WeddingTile } from './taxonomy';
+
 /**
  * 18 named slots. Grouped in the UI as Location feel (11) · Palette (1) ·
  * Dress codes (6) — see `_components/inspiration-board.tsx`.
@@ -114,6 +118,93 @@ export const INSPIRATION_SLOT_FOR_PART: Readonly<Record<string, MoodboardSlotKey
 /** The inspiration slot for a design part, or null when the part has none. */
 export function inspirationSlotForPart(partId: string): MoodboardSlotKey | null {
   return INSPIRATION_SLOT_FOR_PART[partId] ?? null;
+}
+
+/**
+ * THE EIGHT ORPHANED DESIGN PARTS, AND THE TRADE THAT SIGNS EACH ONE OFF (MB16).
+ *
+ * 🔑 A DIFFERENT QUESTION FROM `MOODBOARD_SLOT_TRADES`, WHICH IS WHY IT IS A
+ * SEPARATE MAP AND NOT FOUR MORE ROWS OF THAT ONE. MB10's map answers *"which
+ * trades may UPLOAD to this inspiration slot"*; this one answers *"which trade
+ * can be asked to AGREE to this design part"*. For the twelve parts that alias
+ * a slot the two coincide, and `tradesForPart` composes MB10's map through
+ * MB2's part → slot join to get them — never a second opinion.
+ *
+ * But eight parts alias NO slot (`INSPIRATION_SLOT_FOR_PART` above says so in
+ * its own docblock: `walls`, `photo_wall`, `welcome_signage`, `entrance` have
+ * none, and neither do the four attire roles below). For those the composition
+ * has nothing to compose, and MB12 shipped them as permanently un-finalizable
+ * with the note that the fix was to *"give those slots a trade in
+ * `MOODBOARD_SLOT_TRADES`"*. That sentence was wrong, and this map is the
+ * correction: they have no slot to give a trade TO, and
+ * `MOODBOARD_SLOT_TRADES` is typed `Record<MoodboardSlotKey, …>`, so adding
+ * `walls` to it does not compile. Widening `MoodboardSlotKey` instead would
+ * cascade into the DB CHECK `event_inspiration_assets_slot_key_check`,
+ * `GALLERY_SLOT_LABEL`, the couple's picker and the per-slot upload quota — to
+ * express a fact about sign-off that has nothing to do with uploads.
+ *
+ * ⚠ KEYED BY THE NAMESPACED RENDER-PART ID, unlike its sibling above, which is
+ * keyed by a bare `RECEPTION_PARTS` id. This map spans BOTH room zones and
+ * attire roles, and `bride` is a real member of each vocabulary — the
+ * namespace is what `lib/moodboard-render-parts.ts` invented for exactly that
+ * collision. Keys are plain strings so this file keeps its zero imports;
+ * `lib/moodboard-finalization.ts` asserts at module load that every key is a
+ * real part AND that the part has no slot-derived trades, so this map can
+ * never become a second opinion about a part that already has one.
+ *
+ * ⚠ VALUES ARE `WeddingTile`s, NOT CANONICAL SERVICE KEYS. `filipiniana_terno`,
+ * `barong_tagalog_custom` and their siblings are canonicals living UNDER the
+ * `brides_attire` / `grooms_attire` / `filipiniana_barongs` tiles, and
+ * `canonicalServicesForSlot` expands a tile into them. Naming the tile reaches
+ * every canonical it holds — including the Muslim, Maranao, Tausug and Yakan
+ * attire — so "whichever matches the couple's ceremony" is resolved by
+ * intersecting with the SHOP's own `services[]` at read time, exactly the way
+ * the existing attire parts resolve. There is no ceremony-type branch anywhere
+ * in that path and this map does not invent one.
+ *
+ * ⚠ AND NO PART DEPENDS ON `filipiniana_barongs` ALONE. It is a cross-view
+ * tile, so its canonical list is assembled by an explicit `map.set` in
+ * `lib/vendor-counts.ts` rather than by the ordinary tile derivation — a
+ * fragile shape. Measured on 2026-09-04 it resolves to 10 canonicals, so it is
+ * NOT empty; but every row below also carries `mens_attire` and/or
+ * `womens_attire`, so if a later session did empty it, these parts would
+ * narrow rather than go dark.
+ *
+ * Owner-decided 2026-09-04.
+ */
+export const MOODBOARD_PART_TRADES: Readonly<Record<string, readonly WeddingTile[]>> = {
+  // ── the four room zones nobody could sign off on ──
+  // A wall, a doorway, a photo wall and a welcome sign are all things a
+  // stylist/decorator builds. Nothing else in the marketplace does.
+  'room:walls': ['stylist_decorator'],
+  'room:welcome_signage': ['stylist_decorator'],
+  'room:entrance': ['stylist_decorator'],
+  'room:photo_wall': ['stylist_decorator'],
+
+  // ── the four attire roles nobody could sign off on ──
+  // Ordered MOST characteristic first, the same rule MOODBOARD_SLOT_TRADES
+  // states: the first tile a shop matches is the one printed on the credit.
+  //
+  // The Nikah cast. `filipiniana_barongs` leads because it is the tile
+  // carrying muslim_modest_bridal / maranao / tausug / yakan attire.
+  'people:muslim_principals': ['filipiniana_barongs', 'womens_attire', 'mens_attire'],
+  // Cord, veil and candle sponsors dress like the principal sponsors, whose
+  // inspiration slot already resolves to exactly these three.
+  'people:secondary_sponsors': ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  // `womens_attire` holds flower_girl_dress and `mens_attire` holds
+  // ring_bearer_suit — the two halves of this one part, and the reason it is
+  // narrower than the sponsors above.
+  'people:bearers_flower_girl': ['womens_attire', 'mens_attire'],
+  // Vestments. The `officiants` TILE is the officiant's own service (marrying
+  // people), not a tailor, so it is deliberately NOT here — the trade that
+  // agrees to the COLOUR of a vestment is the trade that makes it.
+  'people:officiants': ['mens_attire', 'womens_attire', 'filipiniana_barongs'],
+};
+
+/** The trades that can sign off a part with no inspiration slot — empty for
+ *  every part that has one, whose trades are composed from MB10's map. */
+export function orphanPartTrades(partId: string): readonly WeddingTile[] {
+  return MOODBOARD_PART_TRADES[partId] ?? [];
 }
 
 export function isMoodboardSlotKey(value: unknown): value is MoodboardSlotKey {

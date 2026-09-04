@@ -22,16 +22,29 @@
  * silently — nobody would be shown a wrong supplier, they would simply be shown
  * a shorter list, which looks exactly like "no shop does this".
  *
- * ⚠ AN EMPTY TRADE LIST IS AN ANSWER, AND EIGHT PARTS HAVE ONE.
- * `room:entrance`, `room:walls`, `room:photo_wall`, `room:welcome_signage`,
- * `people:muslim_principals`, `people:secondary_sponsors`,
- * `people:bearers_flower_girl` and `people:officiants` alias no inspiration
- * slot, so no trade supplies them and no supplier can be asked to agree to
- * them. The board says so in words rather than offering a dead button. Guessing
- * a trade would be worse than silence — it is MB10's own rule, and the fix (if
- * the owner wants those parts askable) is to give those slots a trade in
- * `MOODBOARD_SLOT_TRADES`, where every other reader would learn about it too.
- * `moodboard-finalization.test.ts` pins that list, so it can only grow visibly.
+ * ✅ THE EIGHT PARTS THAT HAD NO TRADE NOW HAVE ONE (MB16, owner-decided
+ * 2026-09-04). `room:entrance`, `room:walls`, `room:photo_wall`,
+ * `room:welcome_signage`, `people:muslim_principals`,
+ * `people:secondary_sponsors`, `people:bearers_flower_girl` and
+ * `people:officiants` alias no inspiration slot, so the composition above has
+ * nothing to compose for them and they were permanently un-finalizable.
+ *
+ * 🛑 AND THE FIX THIS DOCBLOCK USED TO PRESCRIBE WAS IMPOSSIBLE. It said to
+ * *"give those slots a trade in `MOODBOARD_SLOT_TRADES`"*. Those parts have no
+ * slot to give a trade TO — that is the whole reason they were orphaned — and
+ * `MOODBOARD_SLOT_TRADES` is typed `Record<MoodboardSlotKey, …>`, so `walls`
+ * does not even compile as a key. The sentence read as a plan for a year and
+ * could never have been carried out.
+ *
+ * The real answer is `MOODBOARD_PART_TRADES` in `lib/moodboard-slots.ts`, a
+ * sibling of `INSPIRATION_SLOT_FOR_PART`: a part → trade map for exactly the
+ * parts with no slot, composed in below. It is NOT a second opinion — the
+ * module-load assertion refuses a key that names a part the slot join already
+ * answers, so the two maps cannot both speak about one part.
+ *
+ * ⚠ AN EMPTY TRADE LIST IS STILL AN ANSWER for anything that gains neither.
+ * Guessing a trade is worse than silence — it is MB10's own rule.
+ * `moodboard-finalization.test.ts` pins the set, so it can only change visibly.
  */
 
 import {
@@ -50,6 +63,8 @@ import {
   type RenderPart,
 } from './moodboard-render-parts';
 import { canonicalServicesForSlot, tradesForSlot } from './moodboard-gallery';
+import { canonicalServicesForTile } from './vendor-counts';
+import { MOODBOARD_PART_TRADES, orphanPartTrades } from './moodboard-slots';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
 import { displayColorsFor } from './mood-board-derive';
 import type { Board } from './palette-styles';
@@ -85,15 +100,64 @@ export function isFinalizablePartId(partId: string): boolean {
    1 · WHO MAY BE ASKED
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** The marketplace trades that could agree to this part — MB10's map, composed
- *  through MB2's part → slot join. Empty is an answer (see the header). */
+/**
+ * The marketplace trades that could agree to this part.
+ *
+ * MB10's slot → trade map composed through MB2's part → slot join, PLUS
+ * MB16's `MOODBOARD_PART_TRADES` for the eight parts that alias no slot.
+ *
+ * 🔑 THE SUPPLEMENT IS ONLY EVER CONSULTED WHERE THE COMPOSITION IS EMPTY, and
+ * `assertOrphanTradesDoNotOverlap` below refuses a key that names a part the
+ * slot join already answers. So there is still exactly one answer per part, and
+ * a future edit that tried to give a part a second, disagreeing trade list
+ * throws at module load rather than shipping two maps nobody compares.
+ */
 export function tradesForPart(partId: string): WeddingTile[] {
   const out = new Set<WeddingTile>();
   for (const slot of inspirationSlotsForPart(partId)) {
     for (const tile of tradesForSlot(slot)) out.add(tile);
   }
+  if (out.size === 0) {
+    for (const tile of orphanPartTrades(partId)) out.add(tile);
+  }
   return [...out];
 }
+
+/**
+ * Every `MOODBOARD_PART_TRADES` key must name a REAL part that the slot join
+ * leaves empty — checked once, at module load, exactly like
+ * `assertAliasesResolve` in the registry.
+ *
+ * Two failures it makes impossible:
+ *   · a typo'd key (`room:wall`) that silently supplies nothing, and reads as
+ *     "no shop does this" — the same invisible shape MB10's own docblock warns
+ *     about;
+ *   · a key on a part that ALREADY has slot-derived trades, which would be a
+ *     second opinion about one fact that nothing would ever compare.
+ */
+function assertOrphanTradesDoNotOverlap(): void {
+  for (const partId of Object.keys(MOODBOARD_PART_TRADES)) {
+    if (renderPartById(partId) === undefined) {
+      throw new Error(
+        `moodboard-finalization: MOODBOARD_PART_TRADES names "${partId}", which is not a render part`,
+      );
+    }
+    const fromSlots = inspirationSlotsForPart(partId).flatMap((s) => [...tradesForSlot(s)]);
+    if (fromSlots.length > 0) {
+      throw new Error(
+        `moodboard-finalization: MOODBOARD_PART_TRADES names "${partId}", which already has ` +
+          `slot-derived trades (${fromSlots.join(', ')}) — two maps would answer one question`,
+      );
+    }
+    if (MOODBOARD_PART_TRADES[partId]!.length === 0) {
+      throw new Error(
+        `moodboard-finalization: MOODBOARD_PART_TRADES gives "${partId}" an empty list — ` +
+          'absence is how a part says it has no trade; an empty entry says the same thing twice',
+      );
+    }
+  }
+}
+assertOrphanTradesDoNotOverlap();
 
 /**
  * The canonical service keys a supplier must hold to be asked about this part.
@@ -106,6 +170,16 @@ export function canonicalServicesForPart(partId: string): string[] {
   const out = new Set<string>();
   for (const slot of inspirationSlotsForPart(partId)) {
     for (const canonical of canonicalServicesForSlot(slot)) out.add(canonical);
+  }
+  // MB16: the eight parts with no slot resolve through the part → trade map,
+  // and through the SAME tile → canonical expansion, so an orphan part's
+  // eligibility test is byte-identical in shape to every other part's. A
+  // second expansion here would be the drift `canonicalServicesForSlot`'s own
+  // docblock exists to prevent.
+  if (out.size === 0) {
+    for (const tile of orphanPartTrades(partId)) {
+      for (const canonical of canonicalServicesForTile(tile)) out.add(canonical);
+    }
   }
   return [...out];
 }

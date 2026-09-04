@@ -51,7 +51,8 @@ export type UgatEntityType =
   | 'livestudio'
   | 'render'
   | 'gallery'
-  | 'signoff';
+  | 'signoff'
+  | 'colourgrant';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -908,6 +909,68 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'answered by', to: 'TYPE-VENDORS' },
     ],
   },
+  {
+    /**
+     * STANDING PERMISSION TO CHANGE SOMEBODY ELSE'S COLOURS (MB16).
+     *
+     * The mood board is the couple's, and `events.role_palette` has been
+     * writable by `member_type = 'couple'` alone since day one. This subsystem
+     * is how a specific trusted person gets to move one part of it — and it
+     * exists as three tables rather than a flag because all three answers have
+     * to be separately true: WHO may (the two grant tables), WHAT they did (the
+     * change log), and WHETHER it still stands (`reverted_at`).
+     *
+     * 🛑 IT DOES NOT WIDEN ANY POLICY, AND THAT IS THE WHOLE DESIGN.
+     * `couple_can_update_event` is byte-for-byte what `20260513040000` wrote.
+     * A grant holder reaches the column ONLY through
+     * `apply_colour_change`, a SECURITY DEFINER function that checks the grant
+     * and performs the write internally — the shape MB8's
+     * `moodboard_begin_render` and MB12's `vendor_agree_to_part` already use.
+     * `tests/db/the-events-update-policy-does-not-move.db.test.ts` reads the
+     * live policy out of pg_policies and fails on a diff in either direction.
+     *
+     * ⚠ TWO GRANT TABLES, AND THE SPLIT IS REFERENTIAL. A vendor's subject is a
+     * BOOKING (`event_vendors.vendor_id`); a coordinator's is a PERSON, and
+     * specifically their `event_members` row — so
+     * `event_colour_grants_coordinator` FKs the composite `(event_id, user_id)` and
+     * `sync_delegate_membership`'s DELETE cascades their colour access away
+     * with no code performing that revoke. One polymorphic table could FK
+     * neither.
+     *
+     * ⚠ THREE CONTROLS, NONE TOUCHING ANOTHER. The switch (`is_active`), the
+     * notification (`colour_changed_in_lane`, on the EMAIL allowlist) and the
+     * reject (`reverted_at`) are independent by construction, not by
+     * convention: `reject_colour_change`'s body never names a grant table and
+     * `set_vendor_colour_access`'s never names the change log. J48 claims that.
+     *
+     * ⚠ THE COUNT IS EVERY LIVE GRANT ROW — vendors and coordinators together,
+     * one row per DOMAIN. A stylist's single on-screen switch is TWO rows
+     * (decor + main_colours), on purpose: the grant stores the lane that was
+     * actually given, so re-categorising a booking later cannot widen it. For
+     * "how many people hold access", count distinct subjects.
+     */
+    id: 'TYPE-COLOURGRANT',
+    type: 'colourgrant',
+    name: 'Colour access',
+    blurb: 'somebody other than the couple may move one part of the palette',
+    countKey: 'colourgrant',
+    icon: 'key',
+    color: 'var(--ug-e-colourgrant)',
+    colorBg: 'var(--ug-e-colourgrant-bg)',
+    table: 'event_colour_grants',
+    x: 660,
+    y: 260,
+    fields: [
+      { key: 'pk', name: 'event_id + vendor_id + domain', note: 'composite — one row per DOMAIN, so a stylist’s one switch is two rows' },
+      { key: '', name: 'domain', note: 'main_colours · decor · florals · attire — resolved from event_vendors.category IN SQL, never passed in by a caller who could widen it' },
+      { key: '', name: 'is_active', note: 'the couple’s switch. FALSE is refused at apply_colour_change itself, not merely hidden in the UI' },
+      { key: '', name: 'revoked_at', note: 'revocation is a FLIP, never a delete — the change log has to stay explainable' },
+    ],
+    edges: [
+      { verb: 'permits a write to', to: 'TYPE-EVENTS' },
+      { verb: 'held by', to: 'TYPE-VENDORS' },
+    ],
+  },
 ];
 
 
@@ -940,6 +1003,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'lock',
     color: 'var(--ug-e-signoff)',
     colorBg: 'var(--ug-e-signoff-bg)',
+  },
+  colourgrant: {
+    label: 'Colour access',
+    icon: 'key',
+    color: 'var(--ug-e-colourgrant)',
+    colorBg: 'var(--ug-e-colourgrant-bg)',
   },
   community: {
     label: 'Samahan',
@@ -1017,6 +1086,10 @@ export const UGAT_TYPE_VOCAB: Record<
 
 /* ── inline Lucide-style icon paths (no network; SVG innerHTML) ── */
 export const UGAT_ICON_PATHS: Record<string, string> = {
+  // ⚠ A MISSING KEY RENDERS AS NOTHING, SILENTLY — the consumer is
+  // `UGAT_ICON_PATHS[n.icon] ?? ''`. A node whose icon is not in this record
+  // draws a blank circle that looks like a styling bug rather than a missing
+  // entry, so add the path in the same commit as the node.
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   users:
     '<circle cx="9" cy="8" r="3.5"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M17 5a3.5 3.5 0 0 1 0 7M22 21a7 7 0 0 0-4-6.3"/>',
@@ -1054,6 +1127,7 @@ export const UGAT_ICON_PATHS: Record<string, string> = {
   // (Papic, which is an act of shooting) and from `sparkles` (a paid render).
   // ⚠ AN UNKNOWN ICON KEY DOES NOT FAIL, IT FALLS BACK TO `tag` — so a node
   // added without its path here draws a price label and nobody notices.
+  key: '<circle cx="8" cy="12" r="4"/><path d="M12 12h9"/><path d="M17 12v3"/><path d="M20.5 12v2"/>',
   image:
     '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 17 5-5 3.5 3.5L16 12l4 4"/>',
 };
@@ -2991,6 +3065,122 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'RLS Pattern B read half (event members read; the ASKED booking reads via current_vendor_event_vendor_ids; admin all) · no authenticated write policy at all · request_part_finalization refuses unless event_vendors.status is one of the four CONFIRMED values · guard_moodboard_part_finalization materialises the 48-hour fuse on every transition into pending · events_hold_part_finalization_freeze re-asserts the freeze on every write to events.role_palette',
     traps:
       'The one-live-handshake rule is a PARTIAL UNIQUE INDEX (WHERE state IN (\'pending\',\'agreed\')), invisible to pg_constraint — verify with \\d. Expiry is LAZY: a lapsed ask keeps state=\'pending\' until somebody presses Agree or Decline, so any count of "waiting" must compare expires_at itself rather than trusting the state. An expired RE-OPEN leaves the part FROZEN — silence is not consent in either direction. And the two RPCs that touch both tables write the ROW FIRST and the palette SECOND on purpose: reassert_part_finalization_freeze reads AGREED rows, so the order decides what the backstop sees.',
+  },
+  {
+    /**
+     * A STANDING GRANT, A WRITE THAT GOES THROUGH A DOOR, AND AN UNDO — MB16.
+     *
+     * 🔑 THIS JOINT CLAIMS THE WIRING, AND THE WIRING IS THE WHOLE FEATURE.
+     * Three connections, each of which fails invisibly if it comes loose:
+     *
+     *   · GRANT → WRITE. `apply_colour_change` refuses without an ACTIVE row in
+     *     the named domain. Hiding the control instead would leave the RPC open
+     *     to anybody who kept a tab from before the revoke.
+     *   · WRITE → NOTICE. There is NO per-change approval in this mechanism, by
+     *     owner ruling — so the notification is the only thing that tells a
+     *     couple their colours moved. `colour_changed_in_lane` is on
+     *     EMAIL_ENABLED_TYPES and out of MARKETING_GATED_EMAIL_TYPES; a notice
+     *     with no allowlist entry reaches nobody, which is the gap MB8 found on
+     *     payments and the six lock_request_* types found before that.
+     *   · WRITE → HISTORY → UNDO. `reject_colour_change` operates on the logged
+     *     row, so a change that was not logged cannot be undone. That is why
+     *     `apply_colour_change` READS THE ROW BACK before logging: MB12's
+     *     freeze trigger reverts an agreed part's colour inside the same
+     *     statement and the UPDATE still reports success, so a logged-but-never-
+     *     applied change would give the couple an undo for something that never
+     *     happened.
+     *
+     * ⚠ AND THE THREE CONTROLS ARE INDEPENDENT BY ABSENCE. Rejecting cannot
+     * revoke and revoking cannot erase, because neither function contains a
+     * statement naming the other's table.
+     * `lib/colour-access-controls-are-independent.test.ts` reads the bodies out
+     * of the migration and fails if either one gains such a statement.
+     *
+     * ⚠ THE COORDINATOR HALF IS A SECOND TABLE, `event_colour_grants_coordinator`, and
+     * it cannot be claimed here — a joint names ONE joint table. Its composite
+     * FK to `event_members (event_id, user_id)` is what makes removing a
+     * delegate revoke their colour access, and it is claimed by its own row in
+     * the claims list below.
+     */
+    id: 'J48',
+    claims: [
+      { kind: 'table', table: 'event_colour_grants' },
+      { kind: 'table', table: 'event_colour_grants_coordinator' },
+      { kind: 'table', table: 'event_colour_changes' },
+      { kind: 'fk', table: 'event_colour_grants', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_colour_grants', column: 'vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'event_colour_changes', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'event_colour_grants', column: 'domain' },
+      { kind: 'column', table: 'event_colour_grants', column: 'is_active' },
+      { kind: 'column', table: 'event_colour_grants', column: 'revoked_at' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'user_id' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'domain' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'is_active' },
+      { kind: 'column', table: 'event_colour_changes', column: 'old_value' },
+      { kind: 'column', table: 'event_colour_changes', column: 'new_value' },
+      { kind: 'column', table: 'event_colour_changes', column: 'reverted_at' },
+      { kind: 'column', table: 'event_colour_changes', column: 'actor_label' },
+      // 🔑 CLAIMED AS AN ABSENCE. The couple's undo lives on the CHANGE, never
+      // on the grant — a `revoked_by_reject` column here would be exactly the
+      // coupling the owner ruled against, and it would be a second source of
+      // truth that can disagree with is_active.
+      { kind: 'no_column', table: 'event_colour_grants', column: 'reverted_at' },
+      // 🔑 AND SO IS THIS. A grant does not carry an approval queue: "once
+      // granted, no per-change approval" is the ruling, and a pending/approved
+      // column on the change log is the shape that would quietly reintroduce
+      // one.
+      { kind: 'no_column', table: 'event_colour_changes', column: 'approved_at' },
+      {
+        kind: 'check',
+        table: 'event_colour_grants',
+        name: 'event_colour_grants_domain_chk',
+        mentions: 'domain',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_grants',
+        name: 'event_colour_grants_revocation_dated',
+        mentions: 'revoked_at',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_grants_coordinator',
+        name: 'event_colour_grants_coordinator_domain_chk',
+        mentions: 'domain',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_changes',
+        name: 'event_colour_changes_value_shape',
+        mentions: 'new_value',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_changes',
+        name: 'event_colour_changes_palette_has_prior',
+        mentions: 'old_value',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_changes',
+        name: 'event_colour_changes_revert_dated',
+        mentions: 'reverted_at',
+      },
+    ],
+    chain: 21,
+    pair: ['TYPE-COLOURGRANT', 'TYPE-EVENTS'],
+    title: 'Colour access ↔ Event (a standing grant, a logged write, and one undo)',
+    joint: 'event_colour_grants',
+    cardinality:
+      'One row per (event, booking, DOMAIN) — a stylist’s single on-screen switch is two rows (decor + main_colours), and the coordinator half is one row per (event, user, domain) in event_colour_grants_coordinator. Revocation flips is_active; rows are never deleted',
+    implementedBy:
+      'events.role_palette, written by apply_colour_change (SECURITY DEFINER) and by nothing else on this path — the couple keeps their own RLS route through couple_can_update_event, which is unchanged',
+    writtenBy:
+      'four SECURITY DEFINER RPCs and nothing else — set_vendor_colour_access / set_coordinator_colour_access / reject_colour_change (the couple) and apply_colour_change (the grant holder). authenticated holds NO insert, update or delete on any of the three tables',
+    guardedBy:
+      'RLS Pattern B read half on all three (event members read; the granted BOOKING reads its own row via current_vendor_event_vendor_ids; admin all) · no authenticated write policy anywhere · colour_access_caller_is_couple refuses a NULL auth.uid() rather than failing open to a server context · colour_domains_for_category resolves the lane IN SQL so no caller can widen it · colour_domain_covers refuses a target outside the granted domain · event_colour_grants_coordinator_membership_fk CASCADEs from event_members, so removing a delegate revokes their access with no code doing it',
+    traps:
+      'apply_colour_change READS THE ROW BACK after the UPDATE: MB12’s events_hold_part_finalization_freeze reverts an agreed part’s colour inside the same statement and the UPDATE still reports success, so without the read-back the log would carry a change that never happened. A palette slot is CHANGED and never CREATED (no_such_slot) — that is what lets reject be an in-place restore instead of an array splice. And event_colour_changes.vendor_id is ON DELETE SET NULL with deliberately NO companion CHECK requiring it: SET NULL onto a CHECKed column makes the FK behave like RESTRICT while claiming SET NULL, and deleting the booking would fail with a constraint error nobody could place.',
   },
 ];
 

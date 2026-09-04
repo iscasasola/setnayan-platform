@@ -25,6 +25,8 @@ import {
   applyThemeIntent,
   fetchGalleryAssets,
   applyGalleryPick,
+  fetchRenderPool,
+  applyRenderPick,
 } from './actions';
 import {
   GALLERY_SLOT_KEYS,
@@ -644,6 +646,8 @@ export default async function MoodBoardPage({ params }: Props) {
               gallerySlots={GALLERY_SLOT_KEYS}
               fetchGalleryAction={fetchGalleryAssets}
               applyGalleryAction={applyGalleryPick}
+              fetchRenderPoolAction={fetchRenderPool}
+              applyRenderPickAction={applyRenderPick}
             />
           </section>
 

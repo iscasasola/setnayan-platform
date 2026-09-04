@@ -43,6 +43,15 @@ import {
   type ThemeTextReading,
 } from '@/lib/theme-text-intent';
 import { readThemeTextWithModel } from '@/lib/theme-text-intent-model';
+import {
+  normalizeRenderPoolQuery,
+  shapeRenderPoolPage,
+  type RawPoolRow,
+  type RenderPoolPage,
+} from '@/lib/moodboard-render-pool';
+import { pickedRenderObjectKey } from '@/lib/moodboard-gallery-copy';
+import { r2GetBytes, r2Upload, r2SignedGet, R2_BUCKETS, isR2Configured } from '@/lib/r2';
+import { RENDER_BUCKET_KEY } from '@/lib/bucket-routing';
 
 export async function saveRolePalette(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -963,4 +972,211 @@ export async function applyGalleryPick(input: {
 
   revalidatePath(`/dashboard/${input.eventId}/studio/mood-board`);
   return { status: 'ok', imageUrl: asset.imageUrl };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MB9 · THE INSPIRATION POOL — other couples' renders, as REFERENCE PHOTOS
+   ══════════════════════════════════════════════════════════════════════════
+
+   ⛔ THE CACHE IS CANCELLED. The original MB9 substituted a "close enough"
+   prior render for a new one and told the couple it was free. Owner,
+   2026-09-03: *"no need to give free renders. always charge for renders."*
+   Neither function below reads `config_digest`, scores similarity, or returns
+   a price, and neither can produce an image.
+
+   🔑 THESE TWO ACTIONS LIVE HERE, BESIDE `applyGalleryPick`, AND NOT IN
+   `render-actions.ts`. That file is the PAID path — it holds the credit read,
+   the debit RPC and the provider call. Picking a reference is the same act as
+   picking a florist's photo: one row in `event_inspiration_assets` and no
+   other table touched. Putting it in the paid file would put it one import
+   away from the machinery that spends money, which is exactly the distance
+   `the-render-pool-pick-is-free.test.ts` measures.
+*/
+
+/**
+ * One page of the cross-event inspiration pool for one slot.
+ *
+ * The RPC is the sanctioned door: `event_renders`' RLS is Pattern B and grants
+ * a member their OWN event's rows only — the table's own migration header says
+ * cross-event reads must go through a SECURITY DEFINER function "never by
+ * widening this policy". The function returns four columns and nothing that
+ * would say whose wedding it was.
+ *
+ * 🛑 CAPPED TWICE, AND NEITHER CAP IS THE CALLER'S. `normalizeRenderPoolQuery`
+ * clamps whatever arrives (including nothing, NaN, Infinity, a negative) and
+ * the SQL clamps again inside the function. There is no code path here that
+ * reads the pool unbounded.
+ *
+ * 🔒 THE URL IS MINTED FROM `gallery_image_key`, WHICH IS THE WATERMARKED COPY.
+ * The RPC does not return `image_key` at all, so there is no unmarked key in
+ * this function's reach to sign by mistake.
+ */
+export async function fetchRenderPool(input: {
+  eventId: string;
+  slotKey: string;
+  limit?: number;
+  offset?: number;
+}): Promise<RenderPoolPage> {
+  const query = normalizeRenderPoolQuery(input);
+  if (!query) throw new Error('Not an inspiration slot');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('moodboard_inspiration_pool', {
+    p_event_id: input.eventId,
+    p_part_ids: query.partIds,
+    p_limit: query.limit,
+    p_offset: query.offset,
+    p_render_id: null,
+  });
+  // A failed read THROWS. The picker catches it and says so — an empty grid
+  // that means "the fetch died" must never render as "nobody has shared a
+  // render", which is a real and different answer.
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as RawPoolRow[];
+  const { renders, withheld, total } = await shapeRenderPoolPage(rows, (key) =>
+    r2SignedGet({ bucket: R2_BUCKETS[RENDER_BUCKET_KEY], key, expiresIn: 60 * 60 }).catch(
+      () => null,
+    ),
+  );
+
+  return {
+    renders,
+    total,
+    withheld,
+    offset: query.offset,
+    limit: query.limit,
+    hasMore: query.offset + query.limit < total,
+  };
+}
+
+/**
+ * Save one pooled render into one inspiration slot.
+ *
+ * 🔑 THIS COSTS NOTHING AND CANNOT COST ANYTHING. It reads no config, calls no
+ * provider, and touches neither `event_render_credit_usage` nor
+ * `moodboard_begin_render`. What it writes is one `event_inspiration_assets`
+ * row — the same table, the same shape and the same replace-in-place as a
+ * photo the couple uploaded themselves. Held by
+ * `the-render-pool-pick-is-free.test.ts`, which reads this function's body.
+ *
+ * ADMISSION IS RE-CHECKED THROUGH THE SAME PREDICATE the browse used:
+ * `moodboard_inspiration_pool` with `p_render_id` set. So a render whose event
+ * withdrew consent, or that an admin quarantined, between the picker opening
+ * and the couple tapping Save is refused here — and the two checks cannot
+ * drift, because there is only one.
+ *
+ * ⚠ THE BYTES ARE COPIED, NOT LINKED. The pool's URL is a one-hour presigned
+ * GET of a PRIVATE object; storing it in `image_url` (which is NOT NULL and
+ * permanent) would give the couple a tile that goes dead in an hour and looks
+ * like a deleted photo. So the WATERMARKED bytes are copied into this couple's
+ * own `inspiration/<eventId>/` prefix in the public bucket, exactly where their
+ * own uploads live — which is also what the tile now is.
+ */
+export async function applyRenderPick(input: {
+  eventId: string;
+  slotKey: string;
+  slotPosition: number;
+  renderId: string;
+}): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
+  if (!isMoodboardSlotKey(input.slotKey)) {
+    return { status: 'error', message: 'That slot does not exist.' };
+  }
+  if (!isMoodboardSlotPosition(input.slotPosition)) {
+    return { status: 'error', message: 'That photo slot does not exist.' };
+  }
+  if (typeof input.renderId !== 'string' || input.renderId.length === 0) {
+    return { status: 'error', message: 'Pick a photo first.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('moodboard_inspiration_pool', {
+    p_event_id: input.eventId,
+    p_part_ids: null,
+    p_limit: 1,
+    p_offset: 0,
+    p_render_id: input.renderId,
+  });
+  if (error) return { status: 'error', message: error.message };
+  const row = ((data ?? []) as RawPoolRow[])[0];
+  if (!row) return { status: 'error', message: 'That photo is no longer available.' };
+
+  // The same shaping the picker used, so anything it would have withheld — a
+  // render with no palette to sample — is refused here too rather than written
+  // to the board with six invented colours.
+  const shaped = await shapeRenderPoolPage([row], async (key) => key);
+  const picked = shaped.renders[0];
+  if (!picked) return { status: 'error', message: 'That photo is not ready to save yet.' };
+
+  if (!isR2Configured()) {
+    return { status: 'error', message: 'Saving photos is unavailable right now.' };
+  }
+
+  let publicUrl: string;
+  const destinationKey = pickedRenderObjectKey(input.eventId, input.renderId);
+  try {
+    // Read the WATERMARKED object's bytes server-side and re-upload them under
+    // this couple's own prefix. Not `r2Copy`: that helper copies within ONE
+    // bucket, and this crosses from the private bucket to the public one — the
+    // only crossing in the whole path, and it happens only for a render whose
+    // event has consented to exactly this.
+    const source = await r2GetBytes({
+      bucket: R2_BUCKETS[RENDER_BUCKET_KEY],
+      key: row.gallery_image_key!,
+    });
+    publicUrl = await r2Upload({
+      bucket: R2_BUCKETS.media,
+      key: destinationKey,
+      body: source.bytes,
+      contentType: source.contentType ?? 'image/jpeg',
+    });
+  } catch {
+    return { status: 'error', message: 'Could not save that photo — try again.' };
+  }
+
+  // Replace-in-place, mirroring uploadMoodboardSlot and applyGalleryPick: the
+  // partial UNIQUE(event_id, slot_key, slot_position) WHERE removed_at IS NULL
+  // needs the cell freed before the new row lands.
+  await supabase
+    .from('event_inspiration_assets')
+    .update({ removed_at: new Date().toISOString() })
+    .eq('event_id', input.eventId)
+    .eq('slot_key', input.slotKey)
+    .eq('slot_position', input.slotPosition)
+    .is('removed_at', null);
+
+  const { error: insertErr } = await supabase.from('event_inspiration_assets').insert({
+    event_id: input.eventId,
+    added_by_user_id: user.id,
+    slot_key: input.slotKey,
+    slot_position: input.slotPosition,
+    // The database refuses this row without `source_render_id`: the
+    // biconditional CHECK `(source_kind = 'render_pick') = (source_render_id IS
+    // NOT NULL)` makes a reference that forgot what it references
+    // unrepresentable, exactly as MB10's gallery_pick provenance does.
+    source_kind: 'render_pick',
+    source_render_id: input.renderId,
+    image_url: publicUrl,
+    r2_key: destinationKey,
+    sampled_hex_1: picked.swatches[0],
+    sampled_hex_2: picked.swatches[1],
+    sampled_hex_3: picked.swatches[2],
+    sampled_hex_4: picked.swatches[3],
+    sampled_hex_5: picked.swatches[4],
+    sampled_hex_6: picked.swatches[5],
+  });
+  if (insertErr) return { status: 'error', message: insertErr.message };
+
+  revalidatePath(`/dashboard/${input.eventId}/studio/mood-board`);
+  return { status: 'ok', imageUrl: publicUrl };
 }

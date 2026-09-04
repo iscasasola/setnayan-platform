@@ -56,10 +56,7 @@ import {
   type ImportableEditorialRow,
 } from '@/lib/editorial-vendor-media';
 import { tierCaps } from '@/lib/vendor-tier-caps';
-import {
-  watermarkImageBytes,
-  watermarkOutputExtension,
-} from '@/lib/watermark-server';
+import { watermarkImageBytes } from '@/lib/watermark-server';
 import { screenGalleryImage } from '@/lib/moodboard-gallery-screen.server';
 import {
   resolveMoodboardLibraryAccess,
@@ -189,8 +186,15 @@ async function storeScreenedAsset(args: {
   if (screen.blocked) throw new Error(screen.message);
 
   // 2 · WATERMARK, on the server, on the authoritative bytes.
-  const marked = await watermarkImageBytes(args.bytes, args.contentType);
-  const ext = watermarkOutputExtension(args.contentType);
+  //
+  // ⚠ ONE MODULE, SHARED WITH MB9. The mood-board render pool and this supplier
+  // upload are the two publicly-readable pools, and both marks now come from
+  // lib/watermark-server.ts. It normalises to JPEG deliberately (its docblock
+  // says why: one format out means one extension, one content type and one set
+  // of bytes to assert on), so `args.contentType` decides nothing here — a PNG
+  // or WebP upload lands as a marked JPEG like everything else.
+  const marked = await watermarkImageBytes(args.bytes);
+  const ext = 'jpg';
 
   // Vendor uploads land under their own user-id prefix so the storage RLS
   // policy can scope writes by `name LIKE auth.uid()::text || '/%'`.

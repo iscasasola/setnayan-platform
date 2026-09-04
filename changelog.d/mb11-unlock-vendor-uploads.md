@@ -97,6 +97,29 @@ green would have erased a real open finding: the couple's "hide this from my
 story" control does not exist. The row type moved to
 `lib/editorial-vendor-media.ts`, where nothing writes the table.
 
+⚠ **TWO SESSIONS BUILT `lib/watermark-server.ts` ON THE SAME DAY.** MB9 (PR
+#5170) shipped one for the render pool while this branch was in CI; the vendor
+gallery needed the same thing. They are now ONE module — MB9's contract,
+geometry and JPEG-only output kept verbatim, with two things folded in:
+
+- **`imageRegionStats`**, the pixel-reading instrument this branch's guards use;
+- **the glyphs are vector paths, not a font-family request.** 🔑 **This is a
+  correction to a claim in MB9's docblock and it needs owner sign-off.** It read
+  *"No font FILE is referenced… A generic family is available everywhere the app
+  runs."* If that is wrong, the failure is silent and lands on a public gallery:
+  the scrim composites, the pixels change, every pixel-reading test passes, and
+  the mark is a blank grey pill. The repo's own shipped evidence points the
+  other way — `lib/social/card.tsx` records *"librsvg's fontconfig path is flaky
+  on Vercel"*, which is why every social card, the lockup PDF and the Papic
+  display ref render text through satori with an explicit font buffer, and a
+  grep confirms MB9's file was the **only** place in the codebase rasterizing
+  SVG `<text>` through sharp. The wordmark now comes from satori + the bundled
+  Poppins TTF, so no host font is consulted on any runtime. **If the
+  DejaVu/Helvetica assumption was in fact measured against a Vercel lambda, say
+  so and this can go back.** A new guard asserts the LETTERS are present, not
+  merely that something was composited — sabotage-proven by dropping the
+  wordmark layer, which leaves the scrim and turns the assertion red.
+
 Two findings worth carrying: sharp's `.stats()` **ignores a preceding
 `.extract()`**, so the first watermark guard read identical numbers for all four
 quadrants and could never have failed; and a DCT pHash is **unstable on a

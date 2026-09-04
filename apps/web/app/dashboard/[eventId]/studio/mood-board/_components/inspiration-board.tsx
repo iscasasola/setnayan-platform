@@ -26,7 +26,9 @@ import {
 } from '@/lib/moodboard-slots';
 import { reorderMoodboardSlot } from '../actions';
 import { GalleryPicker } from './gallery-picker';
+import { RenderPoolPicker } from './render-pool-picker';
 import type { GalleryPage } from '@/lib/moodboard-gallery';
+import type { RenderPoolPage } from '@/lib/moodboard-render-pool';
 
 export type InspirationItem = {
   slot_key: string;
@@ -59,6 +61,29 @@ type Props = {
     slotKey: string;
     slotPosition: number;
     assetId: string;
+  }) => Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }>;
+  /**
+   * MB9 — the THIRD source: renders other couples chose to share, browsable as
+   * reference photos. Unlike the supplier gallery there is no per-slot
+   * eligibility list, because every slot has at least the whole-look renders as
+   * a legitimate reference; the pool's own emptiness is the honest gate, and
+   * the picker says so in words.
+   *
+   * ⛔ SAVING ONE COSTS NOTHING AND CANNOT TRIGGER A RENDER. These props reach
+   * `fetchRenderPool` / `applyRenderPick` in actions.ts, which touch no credit
+   * table and no provider. Rendering is section 04's job, at full price, every
+   * time (owner 2026-09-03).
+   */
+  fetchRenderPoolAction?: (input: {
+    eventId: string;
+    slotKey: string;
+    offset?: number;
+  }) => Promise<RenderPoolPage>;
+  applyRenderPickAction?: (input: {
+    eventId: string;
+    slotKey: string;
+    slotPosition: number;
+    renderId: string;
   }) => Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }>;
 };
 
@@ -102,6 +127,8 @@ export function InspirationBoard({
   gallerySlots,
   fetchGalleryAction,
   applyGalleryAction,
+  fetchRenderPoolAction,
+  applyRenderPickAction,
 }: Props) {
   const [tiles, setTiles] = useState<Record<string, Tile>>(() => {
     const m: Record<string, Tile> = {};
@@ -115,6 +142,7 @@ export function InspirationBoard({
   });
   const [error, setError] = useState<string | null>(null);
   const [openGallerySlot, setOpenGallerySlot] = useState<string | null>(null);
+  const [openPoolSlot, setOpenPoolSlot] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   /**
@@ -128,6 +156,7 @@ export function InspirationBoard({
 
   const galleryWired = Boolean(fetchGalleryAction && applyGalleryAction);
   const gallerySlotSet = new Set(gallerySlots ?? []);
+  const poolWired = Boolean(fetchRenderPoolAction && applyRenderPickAction);
 
   async function onFile(slot: string, pos: number, file: File | undefined) {
     if (!file) return;
@@ -242,6 +271,23 @@ export function InspirationBoard({
                       : 'Browse supplier photos'}
                   </button>
                 ) : null}
+                {/* MB9's door. Every slot gets it — a whole-look render is a
+                    legitimate reference for any part of the room — and the
+                    label says what it costs, which is nothing. */}
+                {poolWired ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenPoolSlot((prior) => (prior === slot.k ? null : slot.k))
+                    }
+                    aria-expanded={openPoolSlot === slot.k}
+                    className="sn-press px-0.5 text-left text-[10px] font-bold text-ink/55 underline underline-offset-2 hover:text-ink"
+                  >
+                    {openPoolSlot === slot.k
+                      ? 'Hide shared renders'
+                      : 'Browse shared renders'}
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -269,6 +315,32 @@ export function InspirationBoard({
                 setTiles((t) => ({ ...t, [key(saved, pos)]: { url, credit } }));
               }}
               onClose={() => setOpenGallerySlot(null)}
+            />
+          ) : null}
+          {/* Rendered under the GROUP for the same reason the supplier picker
+              is: it is a six-photo grid of its own and a 2-column tile cannot
+              hold it. */}
+          {poolWired &&
+          openPoolSlot !== null &&
+          group.slots.some((s) => s.k === openPoolSlot) ? (
+            <RenderPoolPicker
+              eventId={eventId}
+              slotKey={openPoolSlot}
+              slotLabel={
+                group.slots.find((s) => s.k === openPoolSlot)?.label ?? openPoolSlot
+              }
+              emptyPositions={emptyPositionsFor(openPoolSlot)}
+              fetchAction={fetchRenderPoolAction!}
+              applyAction={applyRenderPickAction!}
+              onSaved={(pos, url) => {
+                // No credit line: a shared render names no shop, and the
+                // couple who made it is deliberately not identified — the pool
+                // returns nothing that would say whose wedding it was.
+                const saved = openPoolSlot;
+                if (!saved) return;
+                setTiles((t) => ({ ...t, [key(saved, pos)]: { url, credit: null } }));
+              }}
+              onClose={() => setOpenPoolSlot(null)}
             />
           ) : null}
         </div>

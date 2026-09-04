@@ -20,7 +20,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import QRCode from 'qrcode';
-import { watermarkImageBytes, imageRegionStats, WATERMARK_TEXT } from './watermark-server';
+import {
+  watermarkImageBytes,
+  imageRegionStats,
+  WATERMARK_TEXT,
+  GALLERY_MAX_EDGE,
+} from './watermark-server';
 import { decodeQrPayloadFromImage } from './qr-decode';
 import { computePHash, hammingDistance } from './perceptual-hash';
 
@@ -53,7 +58,7 @@ test('SABOTAGE-PROVEN: every photo comes out of the pipeline marked', async () =
   const before = await imageRegionStats(plain, 'bottom_right');
   assert.equal(before.stdev, 0, 'the test image must start perfectly flat');
 
-  const marked = await watermarkImageBytes(plain, 'image/jpeg');
+  const marked = await watermarkImageBytes(plain);
   const after = await imageRegionStats(marked.bytes, 'bottom_right');
   const untouched = await imageRegionStats(marked.bytes, 'top_left');
 
@@ -71,7 +76,7 @@ test('the mark lands on a dark photo too', async () => {
   // A white translucent wordmark alone vanishes on an overexposed sky and a
   // dark plate alone vanishes on a black tuxedo; the overlay carries both.
   for (const grey of [12, 245]) {
-    const marked = await watermarkImageBytes(await flatPhoto(800, 600, grey), 'image/jpeg');
+    const marked = await watermarkImageBytes(await flatPhoto(800, 600, grey));
     const stats = await imageRegionStats(marked.bytes, 'bottom_right');
     assert.ok(stats.stdev > 3, `grey ${grey}: mark must be visible (${stats.stdev})`);
   }
@@ -84,15 +89,46 @@ test('the wordmark is SETNAYAN, spelled out', () => {
 
 test('an oversized upload is capped, and still marked', async () => {
   const huge = await flatPhoto(4200, 2800);
-  const marked = await watermarkImageBytes(huge, 'image/jpeg');
-  assert.ok(Math.max(marked.width, marked.height) <= 2000);
+  const marked = await watermarkImageBytes(huge);
+  assert.ok(Math.max(marked.width, marked.height) <= GALLERY_MAX_EDGE);
   const stats = await imageRegionStats(marked.bytes, 'bottom_right');
   assert.ok(stats.stdev > 3);
 });
 
 test('an undecodable upload throws rather than storing an unmarked file', async () => {
-  await assert.rejects(
-    () => watermarkImageBytes(new Uint8Array([1, 2, 3, 4, 5]), 'image/jpeg'),
+  // No "return the original on failure" branch — that branch is exactly how an
+  // unmarked image reaches a public pool.
+  await assert.rejects(() => watermarkImageBytes(new Uint8Array([1, 2, 3, 4, 5])));
+});
+
+test('the wordmark is drawn as GLYPHS, not just a scrim', async () => {
+  // 🔑 THE ASSERTION THE FONT QUESTION NEEDS. A missing host font would still
+  // composite the scrim — the pixels change, the corner stops being flat, and
+  // every "did the mark land" test passes while the plate reads blank. So this
+  // asks a different question: within the marked corner, is there LIGHT ink on
+  // the dark plate? A scrim alone is uniform; letters are not.
+  const marked = await watermarkImageBytes(await flatPhoto(1000, 800, 128));
+  const buf = Buffer.from(marked.bytes);
+  const meta = await sharp(buf).metadata();
+  const w = meta.width!;
+  const h = meta.height!;
+  // The bottom-right eighth — the plate and nothing else.
+  const raw = await sharp(buf)
+    .extract({
+      left: Math.floor(w * 0.62),
+      top: Math.floor(h * 0.78),
+      width: Math.floor(w * 0.33),
+      height: Math.floor(h * 0.18),
+    })
+    .greyscale()
+    .raw()
+    .toBuffer();
+  const dark = [...raw].filter((v) => v < 110).length;
+  const light = [...raw].filter((v) => v > 190).length;
+  assert.ok(dark > 0, 'the scrim must be there');
+  assert.ok(
+    light > raw.length * 0.01,
+    `the wordmark glyphs must be there — only ${light}/${raw.length} light pixels, which is what a missing font looks like`,
   );
 });
 

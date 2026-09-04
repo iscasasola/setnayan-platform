@@ -224,7 +224,6 @@ import {
   steerPath,
   seatApproachPath,
   resolvePalette,
-  resolvePaletteFromRoles,
   DEMO_PALETTES,
   seatStatusOf,
   SIDE_COLOR,
@@ -235,6 +234,7 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import type { MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
+import { resolveDisplayPalette, resolveRoomPalette } from '@/lib/room-palette';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { GhostBooths } from '@/app/_components/plan3d/ghost-booth';
 import { PLAN3D_BOOTH_ADS_ENABLED, type GhostBooth3D } from '@/lib/ghost-booths';
@@ -257,6 +257,15 @@ type Props = {
    *  parts with a matching slot appear; a part with none is simply absent, and
    *  shows no reference rather than an unrelated photo. */
   inspirationByPart?: Record<string, string[]>;
+  /** MB15 — the room zones a supplier has AGREED to build, keyed by RECEPTION
+   *  part id, resolved on the server through `isPartFinalized`. An entry means
+   *  the chips for that zone are frozen and the panel says who agreed and when.
+   *  Absent = nothing agreed, which is the common case. */
+  finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** MB15 — `events.moodboard_theme_name`, the couple's own name for this
+   *  look. Null when they have not named one; the room then says nothing rather
+   *  than inventing a title. */
+  themeName?: string | null;
   /** `events.moodboard_style_family` (migration 20271197327520) — which theme
    *  family produced this board, or null when the couple hasn't applied a
    *  template. Passed straight down to ReceptionDesignEditor, which is where
@@ -460,7 +469,7 @@ type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target
 // figure for free. `faceY` is the heading it settles into while dancing.
 type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, themeName, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -488,10 +497,21 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   const room = useMemo(() => roomSize(floor), [floor]);
   const [mode, setMode] = useState<'build' | 'play'>('build');
   const [paletteKey, setPaletteKey] = useState('mood');
+  // MB15 — the couple's board resolved through `resolveRoomPalette`: their five
+  // majors AND their palette style. The demo switcher's fixed palettes are
+  // unchanged; only the 'mood' entry — the couple's own room — reads the board.
   const palette = useMemo<Lab3DPalette>(() => {
-    if (paletteKey === 'mood') return resolvePaletteFromRoles(rolePalette);
-    return DEMO_PALETTES.find((p) => p.key === paletteKey)?.palette ?? resolvePaletteFromRoles(rolePalette);
+    if (paletteKey === 'mood') return resolveRoomPalette(rolePalette);
+    return DEMO_PALETTES.find((p) => p.key === paletteKey)?.palette ?? resolveRoomPalette(rolePalette);
   }, [paletteKey, rolePalette]);
+  // 🔑 THE RESOLVED ATTIRE PALETTE IS NOT MEMOIZED HERE, AND THAT IS DELIBERATE.
+  // The only consumer in this file is the concept illustration inside <Hud>,
+  // which holds its own `hudDisplayPalette`. A second memo here would be a
+  // second `deriveBoard` on every mount of the lab, feeding nothing — the first
+  // draft of MB15 shipped exactly that, and neither tsc nor eslint said a word
+  // about it. `deriveBoard` measures ~11 ms a call on an idle M-series Mac
+  // (median of 3 × 60; it reads ~50 ms while the db suite is running, which is
+  // contention, not the number).
   // Wave 2b: room archetype + its floor tint (background stays the lab's dark
   // studio in Play/Build for editing legibility, but garden/beach/rooftop lift
   // it toward their sky so the open-air shells don't float in black).
@@ -2983,6 +3003,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         eventId={eventId}
         receptionDesign={design}
         inspirationByPart={inspirationByPart}
+        finalizedByPart={finalizedByPart}
+        themeName={themeName}
         onReceptionDesignChange={setDesign}
         styleFamily={styleFamily}
         venueSetting={venueSetting}
@@ -5191,6 +5213,8 @@ function Hud({
   eventId,
   receptionDesign,
   inspirationByPart,
+  finalizedByPart,
+  themeName,
   onReceptionDesignChange,
   styleFamily,
   venueSetting,
@@ -5273,6 +5297,12 @@ function Hud({
    *  parts with a matching slot appear; a part with none is simply absent, and
    *  shows no reference rather than an unrelated photo. */
   inspirationByPart?: Record<string, string[]>;
+  /** MB15 — room zones a supplier has agreed to, keyed by reception part id.
+   *  Frozen in the designer below and named in the room legend. */
+  finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** MB15 — `events.moodboard_theme_name`; null when the couple never named
+   *  their look, and the legend then shows no title rather than a made-up one. */
+  themeName?: string | null;
   onReceptionDesignChange: (next: ReceptionDesign) => void;
   styleFamily: MoodboardStyleFamily | null;
   /** `events.venue_setting`, read-only here — see `ReceptionDesignEditor`'s
@@ -5355,6 +5385,10 @@ function Hud({
     'rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md text-white shadow-lg';
   // Two-tap confirm for the destructive auto-arrange (re-tidies every table).
   const [confirmArrange, setConfirmArrange] = useState(false);
+  // MB15 — the SAME resolver the 3D room and section 02 read. The concept
+  // illustration below drew neutral people for any role the couple had not
+  // hand-edited, beside a board that showed those roles in colour.
+  const hudDisplayPalette = useMemo(() => resolveDisplayPalette(rolePalette), [rolePalette]);
   return (
     <>
       {/* Top bar: the LIST | 2D | 3D view segment STACKED above the mode toggle
@@ -5421,6 +5455,17 @@ function Hud({
       {/* RSVP seat legend (hidden while a walker toast is showing) */}
       {!walker ? (
         <div className="pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+          {/* MB15 · THE COUPLE'S OWN NAME FOR THIS LOOK.
+              `events.moodboard_theme_name` is what they typed on the mood
+              board. The room is a drawing OF that theme and never said its
+              name — the same room, under two different themes, was labelled
+              identically. Null when they have not named one: no title beats an
+              invented one, and beats "Untitled event". */}
+          {themeName ? (
+            <p className={`px-3 py-1.5 text-[11px] font-medium tracking-wide text-white/90 ${glass}`}>
+              {themeName}
+            </p>
+          ) : null}
           {/* WHAT THE ROOM IS NOT SHOWING.
               The reception catalogue lets a couple combine treatments — a
               draped ceiling AND fairy lights, three things on one welcome
@@ -5657,17 +5702,18 @@ function Hud({
               eventId={eventId}
               design={receptionDesign}
               inspirationByPart={inspirationByPart}
+              finalizedByPart={finalizedByPart}
               onChange={onReceptionDesignChange}
               styleFamily={styleFamily}
               venueSetting={venueSetting}
               venueLabel={venueLabel}
               palette={rolePalette.reception ?? []}
               roleColors={{
-                bride: rolePalette.bride?.[0],
-                groom: rolePalette.groom?.[0],
-                party: rolePalette.wedding_party?.[0],
-                guest: rolePalette.guest?.[0],
-                guestPalette: rolePalette.guest ?? [],
+                bride: hudDisplayPalette.bride?.[0],
+                groom: hudDisplayPalette.groom?.[0],
+                party: hudDisplayPalette.wedding_party?.[0],
+                guest: hudDisplayPalette.guest?.[0],
+                guestPalette: hudDisplayPalette.guest ?? [],
               }}
               canEdit={canEdit}
             />

@@ -40,6 +40,14 @@
 # top-level directory later.
 !/build-sessions/
 
+# Added 2026-09-04 with docs/03-REFERENCE/contracts.md (MB15). THE THIRD TIME
+# this exact swallowing happened, and the two notes above are why it was caught
+# in minutes rather than in CI: the file was written, a unit test read it and
+# went GREEN, and `git diff --stat origin/main` simply did not list it. A
+# document nothing tracks is worse than no document — every session after would
+# read a stale copy from one machine's disk.
+!/docs/
+
 # --- build + tooling config at the root ---
 !/package.json
 !/pnpm-lock.yaml

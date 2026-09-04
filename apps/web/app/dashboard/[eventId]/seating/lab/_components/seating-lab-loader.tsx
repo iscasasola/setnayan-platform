@@ -51,6 +51,15 @@ type Props = {
    *  parts with a matching slot appear; a part with none is simply absent, and
    *  shows no reference rather than an unrelated photo. */
   inspirationByPart?: Record<string, string[]>;
+  /** MB15 — the room zones a supplier has AGREED to build, keyed by RECEPTION
+   *  part id, resolved on the server through `isPartFinalized`. An entry means
+   *  the chips for that zone are frozen and the panel says who agreed and when.
+   *  Absent = nothing agreed, which is the common case. */
+  finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** MB15 — `events.moodboard_theme_name`, the couple's own name for this
+   *  look. Null when they have not named one; the room then says nothing rather
+   *  than inventing a title. */
+  themeName?: string | null;
   /** `events.moodboard_style_family` — which theme family produced this board,
    *  or null when the couple hasn't applied a template. Drives the reception
    *  decor AI-image layer pilot's asset lookup (@/lib/reception-decor-layers). */

@@ -372,6 +372,21 @@ BEGIN
 END;
 $reassert$;
 
+-- 🛑 NOT CALLABLE BY ANYBODY HOLDING THE PUBLISHABLE KEY.
+-- This is SECURITY DEFINER and it reads moodboard_part_finalizations with RLS
+-- bypassed, so a caller who chose its arguments could hand it any event_id and
+-- read back that couple's AGREED colours and which roles are frozen. Nothing
+-- about "we only call it from our own trigger" gates that — the GRANT decides,
+-- not the caller. `tests/db/anon-rpc-surface.db.test.ts` caught exactly this
+-- while it still had Supabase's default grant.
+--
+-- Its two real callers both already run as the table owner: vendor_agree_to_part
+-- is SECURITY DEFINER, and the trigger function below is made SECURITY DEFINER
+-- for this reason. So there is no role that needs EXECUTE at all.
+REVOKE ALL ON FUNCTION public.reassert_part_finalization_freeze(UUID, JSONB) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.reassert_part_finalization_freeze(UUID, JSONB) FROM anon;
+REVOKE ALL ON FUNCTION public.reassert_part_finalization_freeze(UUID, JSONB) FROM authenticated;
+
 COMMENT ON FUNCTION public.reassert_part_finalization_freeze(UUID, JSONB) IS
   'MB12 backstop. Given an event and a proposed role_palette, returns it with '
   'every AGREED part''s frozen keys and colours put back — touched_roles '
@@ -379,9 +394,15 @@ COMMENT ON FUNCTION public.reassert_part_finalization_freeze(UUID, JSONB) IS
   'Called by the BEFORE UPDATE trigger on events, so no palette writer '
   'anywhere can drop a freeze by forgetting it exists.';
 
+-- SECURITY DEFINER so the helper above needs no EXECUTE grant for any role —
+-- see the REVOKEs. A trigger function runs as the INVOKER by default, which
+-- would have meant granting `authenticated` execute on a function that reads
+-- another couple's agreed colours.
 CREATE OR REPLACE FUNCTION public.events_hold_part_finalization_freeze()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $hold$
 BEGIN
   NEW.role_palette := public.reassert_part_finalization_freeze(NEW.event_id, NEW.role_palette);
@@ -395,6 +416,18 @@ CREATE TRIGGER events_hold_part_finalization_freeze
   FOR EACH ROW
   WHEN (OLD.role_palette IS DISTINCT FROM NEW.role_palette)
   EXECUTE FUNCTION public.events_hold_part_finalization_freeze();
+
+-- Revoked for the same reason the helper it calls is, and in the same breath:
+-- it is SECURITY DEFINER, so leaving Supabase's default grant on it would put a
+-- definer-privileged function on the publishable-key surface.
+-- `tests/db/anon-rpc-surface.db.test.ts` flags exactly this. A trigger function
+-- needs EXECUTE only at CREATE TRIGGER time — the trigger above is created by
+-- the owner, one statement earlier — so firing is unaffected, which the backstop
+-- test in a-finalized-part-and-its-freeze-are-one-transaction.db.test.ts proves
+-- rather than assumes.
+REVOKE ALL ON FUNCTION public.events_hold_part_finalization_freeze() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.events_hold_part_finalization_freeze() FROM anon;
+REVOKE ALL ON FUNCTION public.events_hold_part_finalization_freeze() FROM authenticated;
 
 COMMENT ON FUNCTION public.events_hold_part_finalization_freeze() IS
   'BEFORE UPDATE OF role_palette on events. Runs every proposed palette through '

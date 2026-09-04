@@ -54,6 +54,7 @@ import {
   type ReferenceImage,
   type RenderFailureCode,
 } from '@/lib/gemini-image';
+import { buildGalleryCopy } from '@/lib/moodboard-gallery-copy';
 
 /**
  * What the tile gets back. Three outcomes, all of them visible:
@@ -308,6 +309,43 @@ export async function requestRender(args: {
     // ever find this image. That is a failed render from the couple's side and
     // is refunded as one.
     return fail('unavailable', finishError?.message ?? 'the render row would not accept the image');
+  }
+
+  // ---- 4b. THE WATERMARKED GALLERY COPY (MB9) ------------------------------
+  //
+  // A SECOND OBJECT, at a key that is not the couple's, holding bytes that are
+  // not the couple's. `buildGalleryCopy` returns the key and the marked bytes
+  // together precisely so this call site cannot pair a `render-gallery/` key
+  // with unmarked bytes — and `image_key` above was written from
+  // `image.bytes`, which never passes through the marker. That is the whole
+  // "we did not deface what they paid for" guarantee, and it is structural.
+  //
+  // ⚠ EVERY FAILURE HERE IS SWALLOWED, AND THAT IS THE CORRECT DIRECTION.
+  // The render succeeded; the couple has their photograph. A gallery copy that
+  // could not be made simply means this render is not in the pool — a render
+  // with no `gallery_image_key` is not in the pool's partial index at all.
+  // Routing this through `fail` would refund and mark-failed a render that was
+  // delivered, which is the meanest possible reading of "the watermark step
+  // broke".
+  try {
+    const gallery = await buildGalleryCopy({ eventId, renderId, bytes: image.bytes });
+    await r2Upload({
+      bucket: RENDER_BUCKET,
+      key: gallery.key,
+      body: gallery.bytes,
+      contentType: gallery.contentType,
+    });
+    await supabase
+      .rpc('moodboard_attach_gallery_copy', {
+        p_render_id: renderId,
+        p_gallery_image_key: gallery.key,
+      })
+      .then(
+        () => undefined,
+        () => undefined,
+      );
+  } catch {
+    // No gallery copy → not in the pool. The couple's render is unaffected.
   }
 
   // A short-lived presigned GET, minted here so the tile can show the photo

@@ -73,5 +73,12 @@ export function bucketForPrefix(pathPrefix: string): R2BucketKey {
   // couple's render in the public bucket by omission. That omission is how the
   // payment proofs got there.
   if (normalized.startsWith('renders/')) return 'threadFiles';
+  // MB9's WATERMARKED gallery copy of a render. PRIVATE for the same reason
+  // `renders/` is, and this rule is NOT redundant with it: `render-gallery/`
+  // does not start with `renders/`, so without this line it would fall through
+  // to the public `media` default and put every render — consented or not —
+  // behind a plain URL at the moment it was created. Consent gates
+  // publication; a routing default must not pre-empt it.
+  if (normalized.startsWith('render-gallery/')) return 'threadFiles';
   return 'media';
 }

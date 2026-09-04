@@ -2448,6 +2448,18 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'event_renders', column: 'featured_at' },
       { kind: 'column', table: 'event_renders', column: 'failed_at' },
       { kind: 'column', table: 'event_renders', column: 'failure_reason' },
+      // MB9. The WATERMARKED copy, at a key that is not image_key. The
+      // inspiration pool selects THIS column and never image_key, which is what
+      // makes "an unmarked render cannot reach another couple" structural
+      // rather than a promise \u2014 there is no flag claiming the mark was applied,
+      // and the couple's own copy stays unmarked because they paid for it.
+      { kind: 'column', table: 'event_renders', column: 'gallery_image_key' },
+      {
+        kind: 'check',
+        table: 'event_renders',
+        name: 'event_renders_gallery_image_key_not_blank',
+        mentions: 'gallery_image_key',
+      },
     ],
     chain: 19,
     pair: ['TYPE-RENDERS', 'TYPE-EVENTS'],
@@ -2456,11 +2468,11 @@ export const UGAT_JOINTS: UgatJoint[] = [
     cardinality:
       'Many per event \u00b7 one row per render, including regenerations of the same part \u2014 a couple may re-render a part as often as they hold credits',
     implementedBy:
-      'event_renders.event_id \u2192 events, with part_id naming WHICH part (room:/people:/place:/whole_look) and config_digest keying the cross-event reuse pool',
+      'event_renders.event_id \u2192 events, with part_id naming WHICH part (room:/people:/place:/whole_look). \u26d4 config_digest was built to key a cross-event render CACHE and NOTHING READS IT: the owner cancelled that design on 2026-09-03 (\u201calways charge for renders\u201d). The cross-event surface that shipped instead is MB9\u2019s inspiration POOL \u2014 moodboard_inspiration_pool, which matches nothing and returns reference photos, not substitute outputs.',
     writtenBy:
-      'moodboard_begin_render inserts the row (in flight, image_key NULL) \u00b7 moodboard_finish_render attaches the R2 key \u00b7 moodboard_fail_render marks it failed AND refunds \u00b7 moodboard_set_render_featured curates \u2014 SHIPPED in MB8',
+      'moodboard_begin_render inserts the row (in flight, image_key NULL) \u00b7 moodboard_finish_render attaches the R2 key \u00b7 moodboard_fail_render marks it failed AND refunds \u00b7 moodboard_set_render_featured curates \u2014 SHIPPED in MB8; moodboard_attach_gallery_copy records the watermarked copy \u2014 SHIPPED in MB9, and it is the ONLY writer of gallery_image_key',
     guardedBy:
-      'RLS Pattern B (members read \u00b7 couples/coordinators + admin write); the reuse pool is guarded by the GENERATED `reusable` column and the PARTIAL index that only indexes it',
+      'RLS Pattern B (members read \u00b7 couples/coordinators + admin write, the write half REVOKED from authenticated in MB8 so every write goes through a SECURITY DEFINER function); cross-event reads go ONLY through moodboard_inspiration_pool, which requires reusable AND the event\u2019s share consent AND a watermarked gallery_image_key \u2014 three independently droppable predicates, one per row constructed in tests/db/the-inspiration-pool-shows-only-what-was-shared.db.test.ts',
     traps:
       'design_snapshot is a HISTORICAL copy, not a live join \u2014 a render must stay explicable after the couple redesigns, so reading the event\u2019s current design to explain an old render is wrong. inspiration_asset_ids is a UUID[] with NO foreign key: inspirations are soft-deleted (removed_at), so the ids keep resolving, but nothing at the database level stops an id from a different event landing there.',
   },
@@ -2765,7 +2777,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
       {
         kind: 'check',
         table: 'event_inspiration_assets',
-        name: 'event_inspiration_assets_source_kind_check_v2',
+        name: 'event_inspiration_assets_source_kind_check_v3',
         mentions: 'source_kind',
       },
       {
@@ -2773,6 +2785,20 @@ export const UGAT_JOINTS: UgatJoint[] = [
         table: 'event_inspiration_assets',
         name: 'event_inspiration_assets_gallery_pick_has_provenance',
         mentions: 'library_asset_id',
+      },
+      // MB9's third provenance, built to the same biconditional shape: a
+      // reference picked out of another couple's shared render.
+      {
+        kind: 'fk',
+        table: 'event_inspiration_assets',
+        column: 'source_render_id',
+        references: 'event_renders',
+      },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_render_pick_has_provenance',
+        mentions: 'source_render_id',
       },
       {
         kind: 'check',
@@ -2790,7 +2816,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'event_inspiration_assets.library_asset_id \u2192 moodboard_library_assets, paired with source_kind = \'gallery_pick\' by a CHECK biconditional',
     writtenBy:
-      'applyGalleryPick (the couple\u2019s picker) and applyMoodboardTemplate (theme seeding) \u2014 both in studio/mood-board/actions.ts; uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
+      'applyGalleryPick (the couple\u2019s picker), applyRenderPick (MB9 \u2014 another couple\u2019s shared render, saved as a reference, costing nothing) and applyMoodboardTemplate (theme seeding) \u2014 all three in studio/mood-board/actions.ts; uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
     guardedBy:
       'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 18-key slot CHECK',
     traps:

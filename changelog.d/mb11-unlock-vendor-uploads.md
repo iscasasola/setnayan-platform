@@ -72,6 +72,31 @@ Guards, each sabotage-tested (broken on purpose, confirmed red, restored):
 decoded QR) · `app/vendor-dashboard/moodboard-library/every-upload-is-screened.test.ts`
 (13) · `tests/db/the-back-catalogue-quota-counts-the-right-rows.db.test.ts` (9).
 
+🛑 **CI's exposure-freeze guard caught a hole this feature's own gate depended
+on, and it is the most important thing in this PR.** Supabase grants table-level
+ALL on every public table and a **new column inherits it silently**, so
+`source_event_id` shipped readable AND writable by `anon` and `authenticated`.
+The read half published which celebration each public gallery photo came off.
+The write half was worse: `moodboard_library_assets_vendor_insert` admits a
+supplier's own row, RLS is ROW-level and cannot constrain a column's VALUE, so a
+supplier could POST straight to PostgREST with any `source_event_id` and their
+upload would be event-linked — permanently outside the back-catalogue count. The
+tier gate would have been one HTTP request wide, with every other test green.
+Fixed by REVOKE-at-table-level then re-GRANT of a live-computed allow-list (the
+`oauth_grants` SEC-8 shape; the naive column REVOKE is a documented no-op against
+a table-level grant), with post-conditions that make the migration REFUSE TO
+APPLY rather than ship looking fixed — proven by re-granting the column, which
+stops the replay with `authenticated can still INSERT source_event_id`.
+
+A second CI failure was a FALSE POSITIVE that must not be silenced:
+`gates-have-handles` reads a column as written when one file both `.insert(`s the
+table and names the column in a `column:` position — and a TypeScript type
+annotation is that spelling. `editorial_vendor_media.hidden_by_couple` still has
+**zero writers** (three readers, measured), so deleting its baseline line to go
+green would have erased a real open finding: the couple's "hide this from my
+story" control does not exist. The row type moved to
+`lib/editorial-vendor-media.ts`, where nothing writes the table.
+
 Two findings worth carrying: sharp's `.stats()` **ignores a preceding
 `.extract()`**, so the first watermark guard read identical numbers for all four
 quadrants and could never have failed; and a DCT pHash is **unstable on a

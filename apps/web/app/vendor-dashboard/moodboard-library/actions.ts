@@ -51,7 +51,10 @@ import { parseStoredAsset } from '@/lib/uploads';
 import { r2GetBytes } from '@/lib/r2';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
-import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
+import {
+  getEditorialEligibility,
+  type ImportableEditorialRow,
+} from '@/lib/editorial-vendor-media';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
   watermarkImageBytes,
@@ -449,16 +452,11 @@ export async function importEditorialMediaToGallery(input: {
     .select('media_id, event_id, vendor_profile_id, still_r2_key, caption, media_type, moderation_state, hidden_by_couple')
     .eq('media_id', input.mediaId)
     .maybeSingle();
-  const row = media as {
-    media_id: string;
-    event_id: string;
-    vendor_profile_id: string;
-    still_r2_key: string;
-    caption: string | null;
-    media_type: string;
-    moderation_state: string;
-    hidden_by_couple: boolean;
-  } | null;
+  // ⚠ THE ROW SHAPE IS IMPORTED, NOT DECLARED HERE — see
+  // ImportableEditorialRow's docblock. A `hidden_by_couple: boolean` annotation
+  // in this file (which also `.insert(`s) makes gates-have-handles read the
+  // column as WRITTEN, and it is not: nothing in the repo writes it.
+  const row = media as ImportableEditorialRow | null;
 
   if (!row) throw new Error('That photo is no longer available.');
   if (row.vendor_profile_id !== profile.vendor_profile_id) {

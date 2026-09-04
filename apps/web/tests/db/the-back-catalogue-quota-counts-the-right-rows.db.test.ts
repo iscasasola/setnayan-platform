@@ -312,3 +312,62 @@ test('⭐ deleting a celebration does NOT fail, and demotes its photos', async (
     'and it now counts — a demotion, never a takedown',
   );
 });
+
+/* ── 5 · THE GRANT IS THE ONLY THING THAT MAKES THE QUOTA REAL ─────────── */
+
+test('⭐ SABOTAGE-PROVEN: a supplier cannot stamp an event id on their own upload', async () => {
+  // 🛑 THE FINDING `exposure-freeze.db.test.ts` CAUGHT, kept as a standing
+  // assertion. Supabase grants table-level ALL on every public table and a NEW
+  // COLUMN INHERITS IT — so the first draft of this migration handed anon and
+  // authenticated SELECT/INSERT/UPDATE on `source_event_id`.
+  //
+  // `moodboard_library_assets_vendor_insert` (20260527000000) admits a
+  // supplier's OWN row, and RLS is ROW-level: it cannot constrain a column's
+  // VALUE. With the grant, a supplier could POST straight to PostgREST with
+  // `source_event_id` set to any UUID, and their upload would be EVENT-LINKED
+  // — permanently outside the back-catalogue count above. The tier gate would
+  // be one HTTP request wide, and every test in this file would still pass,
+  // because the arithmetic was never the problem.
+  //
+  // Sabotage run: re-granted the column (`GRANT ALL (source_event_id) ON
+  // public.moodboard_library_assets TO authenticated`) and this test went RED
+  // on the INSERT assertion. Restored by re-running the migration's revoke.
+  for (const role of ['anon', 'authenticated']) {
+    for (const priv of ['SELECT', 'INSERT', 'UPDATE']) {
+      const r = await db.query<{ ok: boolean }>(
+        `SELECT has_column_privilege($1, 'public.moodboard_library_assets',
+                                     'source_event_id', $2) AS ok`,
+        [role, priv],
+      );
+      assert.equal(
+        r.rows[0]!.ok,
+        false,
+        `${role} must not be able to ${priv} source_event_id`,
+      );
+    }
+  }
+});
+
+test('the narrowing took nothing else with it', async () => {
+  // A mis-computed allow-list would break vendor uploads and the couple's
+  // picker silently — the columns below are what both actually read.
+  for (const col of [
+    'asset_id', 'asset_type', 'asset_subtype', 'label', 'storage_path',
+    'source', 'uploaded_by', 'approved_at', 'retired_at', 'created_at',
+    'vendor_profile_id',
+  ]) {
+    for (const role of ['anon', 'authenticated']) {
+      const r = await db.query<{ ok: boolean }>(
+        `SELECT has_column_privilege($1, 'public.moodboard_library_assets', $2, 'SELECT') AS ok`,
+        [role, col],
+      );
+      assert.equal(r.rows[0]!.ok, true, `${role} lost SELECT on ${col}`);
+    }
+  }
+  // And the server, which does every write on this path, keeps the column.
+  const svc = await db.query<{ ok: boolean }>(
+    `SELECT has_column_privilege('service_role', 'public.moodboard_library_assets',
+                                 'source_event_id', 'INSERT') AS ok`,
+  );
+  assert.equal(svc.rows[0]!.ok, true, 'service_role must keep source_event_id');
+});

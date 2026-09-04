@@ -24,6 +24,8 @@
  * so this cannot silently come back.
  */
 
+import { isPartFinalized } from './lock-request-state';
+
 /**
  * One `moodboard_part_finalizations` row, as every surface reads it.
  *
@@ -84,4 +86,38 @@ export function frozenNow(rows: readonly PartFinalizationRecord[]): {
     for (const f of row.frozen_dressing_fields ?? []) dressingFields.add(f);
   }
   return { paletteKeys, dressingFields };
+}
+
+/**
+ * MB15 — WHO AGREED TO WHAT, AND WHEN, through the ONE predicate.
+ *
+ * 🔑 `isPartFinalized`, NEVER `state === 'agreed'` SPELLED OUT AGAIN. Section
+ * 02 and section 03 already read the handshake through `partFinalizationStateOf`
+ * (`isPartFinalized` is that function compared to `'locked'`). The 3D Plan's
+ * Reception Designer — the ONE editor of `events.reception_design` — reads this
+ * helper, which reads the same predicate. A part editable in one surface and
+ * frozen in the other is two mechanisms disagreeing about one fact, and both
+ * would pass their own tests while the couple is told two different things.
+ *
+ * The map is keyed by the FULL namespaced part id (`room:ceiling`,
+ * `people:bride`) exactly as the row stores it. Callers that need a reception
+ * part id strip the prefix through the registry, never by hand.
+ *
+ * `vendorNameById` supplies the label. A missing name yields `null` rather than
+ * a placeholder — "Agreed with your supplier" with no name is honest; a made-up
+ * name is not.
+ */
+export function finalizedPartsNow(
+  rows: readonly PartFinalizationRecord[],
+  vendorNameById: ReadonlyMap<string, string> = new Map(),
+): Map<string, { vendorName: string | null; agreedAt: string | null }> {
+  const out = new Map<string, { vendorName: string | null; agreedAt: string | null }>();
+  for (const row of rows) {
+    if (!isPartFinalized(row)) continue;
+    out.set(row.part_id, {
+      vendorName: vendorNameById.get(row.vendor_id) ?? null,
+      agreedAt: row.agreed_at,
+    });
+  }
+  return out;
 }

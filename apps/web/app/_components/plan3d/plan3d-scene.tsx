@@ -54,8 +54,10 @@
  *
  * Theming (owner 2026-07-03 "add apply mood board toggle so the place is
  * themed"): when a `rolePalette` is passed the room recolours through
- * `resolvePaletteFromRoles` — the SAME mapping the couple-facing venue walk
- * (`guest-venue-3d.tsx`) uses — otherwise it renders the neutral default.
+ * `resolveRoomPalette` (MB15) — the SAME resolver the couple-facing venue walk
+ * (`guest-venue-3d.tsx`) and the couple lab use — otherwise it renders the
+ * neutral default. That resolver reads the couple's palette STYLE as well as
+ * their five majors; see lib/room-palette.ts for what moves and what may not.
  *
  * Walk quality (owner 2026-07-03 "movement is not fluid, and the person is
  * walking through the table not going around it"): the walker is speed-paced
@@ -116,7 +118,6 @@ import {
   clampPointToZone,
   separateAgents,
   resolvePalette,
-  resolvePaletteFromRoles,
   SIDE_COLOR,
   type ObstacleDisc,
   type ObstacleGrid,
@@ -159,6 +160,7 @@ import {
   type FigureQuality,
   type SeatedInstance,
 } from './kit';
+import { resolveDisplayPalette, resolveRoomPalette } from '@/lib/room-palette';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import {
@@ -846,8 +848,19 @@ export function Plan3DScene({
   const room = useMemo(() => roomSize(floor), [floor]);
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
   const entranceWorld = useMemo(() => pctToWorld(entrancePct(floor).xPct, entrancePct(floor).yPct, room), [floor, room]);
+  // MB15: the RESOLVED board — majors AND palette style — not the flat colour
+  // list. `resolveRoomPalette` takes accent/floor/wall/accent2 from
+  // `resolvePaletteFromRoles` verbatim and style-derives only the four
+  // room-dressing surfaces. See lib/room-palette.ts.
   const palette = useMemo(
-    () => (rolePalette ? resolvePaletteFromRoles(rolePalette) : NEUTRAL_PALETTE),
+    () => (rolePalette ? resolveRoomPalette(rolePalette) : NEUTRAL_PALETTE),
+    [rolePalette],
+  );
+  // MB15: the SAME palette section 02 shows — every untouched role filled in
+  // from the derived board, so a bridesmaid in the room wears the colour the
+  // board displays rather than falling through to the side colour.
+  const attirePalette = useMemo(
+    () => (rolePalette ? resolveDisplayPalette(rolePalette) : {}),
     [rolePalette],
   );
   // One FigureSpec per guest, shared by the seated crowd AND the walker so a
@@ -859,7 +872,10 @@ export function Plan3DScene({
     // (specific role palette key → wedding_party → bride/groom SIDE colour → kit
     // default) — the SAME resolver the couple lab uses. No palette → the chain
     // returns null and the kit wears its own tasteful default cloth per outfit.
-    const palette = rolePalette ?? {};
+    //
+    // MB15: fed the RESOLVED palette, so an untouched role reaches the chain
+    // with the colour 02 shows instead of arriving absent and falling through.
+    const palette = attirePalette;
     const m = new Map<string, FigureSpec>();
     for (const g of guests) {
       const outfit = outfitForGuest(g);
@@ -877,7 +893,7 @@ export function Plan3DScene({
       });
     }
     return m;
-  }, [guests, rolePalette]);
+  }, [guests, attirePalette]);
   // Wave 2b: room archetype + its floor/background tints. `venueSetting` is
   // independent of the mood-board toggle — the archetype room shows either way.
   const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);

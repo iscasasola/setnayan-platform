@@ -65,6 +65,25 @@ type Props = {
    *  shows no reference rather than an unrelated photo. */
   inspirationByPart?: Record<string, string[]>;
   /**
+   * MB15 — the room zones a supplier has AGREED to build, keyed by reception
+   * part id, resolved on the server through `isPartFinalized` (the SAME
+   * predicate the mood board's sections 02 and 03 read).
+   *
+   * 🛑 THIS EDITOR IS THE ONLY PLACE `events.reception_design` IS EDITED.
+   * Section 03 shows the handshake and links here; until MB15 the editor it
+   * links to did not know the handshake existed, so a couple could re-dress a
+   * ceiling their stylist had signed off and neither surface said a word. A
+   * part frozen in one surface and editable in the other is two mechanisms
+   * disagreeing about one fact — both pass their own tests and the couple is
+   * told two different things.
+   *
+   * ⚠ THE UI IS NOT THE LOCK. `events_hold_part_finalization_design` (migration
+   * 20271204471183) re-asserts an agreed zone on every write to
+   * `reception_design`, whichever writer sends it. This prop is what makes the
+   * refusal legible instead of a silent revert.
+   */
+  finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /**
    * The couple's reception style family — drives the AI decor-image layer
    * pilot (see @/lib/reception-decor-layers).
    *
@@ -101,6 +120,15 @@ type Props = {
    *  Build panel keeps this consistent with every other control in it). */
   canEdit: boolean;
 };
+
+/** "12 Sep 2026" — the agreed-on date, in the couple's own locale-neutral form.
+ *  An unparseable timestamp yields null and the sentence simply omits the date
+ *  rather than printing "Invalid Date" at a couple. */
+function finalizedOnLabel(iso: string): string | null {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 const HOTSPOTS: ReadonlyArray<{ part: PartId; l: number; t: number; w: number; h: number }> = [
   { part: 'ceiling', l: 4, t: 0, w: 92, h: 20 },
@@ -165,6 +193,7 @@ export function ReceptionDesignEditor({
   venueLabel,
   canEdit,
   inspirationByPart,
+  finalizedByPart,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activePart, setActivePart] = useState<PartId>(
@@ -304,6 +333,11 @@ export function ReceptionDesignEditor({
    *   picked), and nothing is added past MAX_SELECTIONS_PER_ATTRIBUTE.
    */
   function choose(part: PartId, attrDef: Attribute, optionId: string) {
+    // MB15 — a zone the supplier agreed to build stops moving. Refused at the
+    // ONE funnel every chip (single and multi) already passes through, so a new
+    // control cannot route around it. The chips are also disabled below; this
+    // is the half that holds when they are not.
+    if (finalizedByPart?.[part]) return;
     if (attrDef.multi !== true) {
       commit(part, attrDef.id, optionId);
       return;
@@ -336,6 +370,10 @@ export function ReceptionDesignEditor({
       .filter((l): l is string => Boolean(l));
     return labels.length ? labels.join(' + ') : 'not chosen yet';
   }
+
+  /** Who agreed to the zone currently open, or null. */
+  const activeFinalized = finalizedByPart?.[activePart] ?? null;
+  const activeFinalizedOn = activeFinalized?.agreedAt ? finalizedOnLabel(activeFinalized.agreedAt) : null;
 
   const venueZoneHotspots = HOTSPOTS.filter((z) => venueZoneApplies(venueSetting, z.part));
 
@@ -442,6 +480,9 @@ export function ReceptionDesignEditor({
                   }`}
                 >
                   {p.label}
+                  {/* MB15 — an agreed zone is marked in the rail, so a couple
+                      can see what is settled without opening each one. */}
+                  {finalizedByPart?.[p.id] ? <span className="ml-1" aria-label="Agreed with your supplier">🔒</span> : null}
                   <span className={na ? 'ml-1' : 'ml-1 text-ink/40'}>
                     · {na ? `not at a ${(venueLabel ?? 'this venue').toLowerCase()}` : zoneRailText(p)}
                   </span>
@@ -455,6 +496,19 @@ export function ReceptionDesignEditor({
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
               {activeDef.label} · {activeDef.blurb}
             </p>
+            {/* ── MB15 · AGREED, SO IT STOPS MOVING ──────────────────────────
+                The same sentence the mood board's sections 02 and 03 show, in
+                the surface where the design is actually edited. Naming WHO and
+                WHEN is the point: "locked" with nobody's name attached leaves a
+                couple with a control that does not respond and nothing anywhere
+                telling them why, which is the shape MB12's panel exists against. */}
+            {activeFinalized ? (
+              <p className="rounded-lg border border-terracotta/30 bg-terracotta/10 px-2.5 py-2 text-[11px] leading-snug text-ink/75">
+                <span className="font-medium text-ink">Agreed{activeFinalized.vendorName ? ` with ${activeFinalized.vendorName}` : ''}</span>
+                {activeFinalizedOn ? ` on ${activeFinalizedOn}` : ''}. This part stops changing
+                until you both re-open it — ask on your Mood Board.
+              </p>
+            ) : null}
             {/* ── WHO IS IN THE ROOM IS THE GUEST LIST'S ANSWER ──────────────
                 This control sits beside the 3D room and reads like a room
                 control. It is not one: it feeds `renderVenueSvg` — the flat
@@ -525,7 +579,11 @@ export function ReceptionDesignEditor({
                       const selected = chosen.includes(opt.id);
                       // At the cap, an unselected chip can't be added — say so
                       // by dimming it rather than swallowing the tap silently.
-                      const blocked = atCap && !selected && opt.exclusive !== true;
+                      // A finalized zone blocks EVERY chip, selected or not:
+                      // turning the agreed treatment off is as much a change as
+                      // turning another one on.
+                      const blocked =
+                        Boolean(activeFinalized) || (atCap && !selected && opt.exclusive !== true);
                       return (
                         <button
                           key={opt.id}

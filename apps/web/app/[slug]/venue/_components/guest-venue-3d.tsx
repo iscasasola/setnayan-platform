@@ -59,7 +59,6 @@ import {
   boothApproach,
   VENUE_OBJECT_CATALOG,
   resolvePalette,
-  resolvePaletteFromRoles,
   guestAttireColor,
   type Lab3DFloor,
   type Lab3DTable,
@@ -75,6 +74,7 @@ import {
   type AgentVel,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
+import { resolveDisplayPalette, resolveRoomPalette } from '@/lib/room-palette';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { damp, lerpAngle } from '@/lib/figure-rig';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
@@ -785,8 +785,19 @@ export default function GuestVenue3D({
     [scene],
   );
   const room = useMemo(() => roomSize(floor), [floor]);
+  // MB15: the RESOLVED board — majors AND palette style. The guest walk and
+  // the couple's own lab must never disagree about the colour of the room the
+  // guest is standing in, so both go through `resolveRoomPalette`.
   const palette = useMemo(
-    () => (scene.rolePalette ? resolvePaletteFromRoles(scene.rolePalette) : resolvePalette([])),
+    () => (scene.rolePalette ? resolveRoomPalette(scene.rolePalette) : resolvePalette([])),
+    [scene.rolePalette],
+  );
+  // MB15: the dress-code palette a stranger's seat colour is drawn from, with
+  // every untouched role filled in from the derived board — the same colours
+  // section 02 shows the couple. A board that never hand-edited `guest` used to
+  // reach `guestAttireColor` with nothing and dress the whole room white.
+  const attirePalette = useMemo(
+    () => (scene.rolePalette ? resolveDisplayPalette(scene.rolePalette) : null),
     [scene.rolePalette],
   );
   // Wave 2b: the couple's reception treatments + venue archetype reach the guest
@@ -951,12 +962,12 @@ export default function GuestVenue3D({
             seatFaceY: c.faceY,
           }),
           // Seat-keyed, NEVER guest-keyed — the whole reason this is allowed.
-          color: guestAttireColor(scene.rolePalette, `${t.id}:${i}`),
+          color: guestAttireColor(attirePalette, `${t.id}:${i}`),
         });
       }
     }
     return out;
-  }, [tables, occByTable, photoByTable, room, scene.you, scene.rolePalette]);
+  }, [tables, occByTable, photoByTable, room, scene.you, attirePalette]);
 
   // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
   // venue-object discs slot in once the object render lands):

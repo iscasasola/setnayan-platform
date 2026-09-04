@@ -66,6 +66,10 @@
   /* Design sign-off — the moment a part stops moving (MB12). A deeper, settled
      cousin of the render hue: same subsystem, an agreement rather than an image. */
   --ug-e-signoff: #7a5a3a; --ug-e-signoff-bg: #f1e9e0;
+  /* Colour access — standing permission for somebody who is not the couple to
+     move one part of the palette (MB16). A cooler, keyed sibling of the
+     sign-off hue: same subsystem, a permission rather than an agreement. */
+  --ug-e-colourgrant: #5c6b8a; --ug-e-colourgrant-bg: #e8ecf4;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;

@@ -13,8 +13,14 @@
 //
 // Supersedes the vendor-first layout from the 2026-05-22 owner directive.
 // Section order: service hero · what's included · order & payment status +
-// payments · conversation · documents · schedules · marketplace info ·
-// costing (host's 3-line total) · your notes · bring-vendor-onto-Setnayan.
+// payments · conversation · COLOUR ACCESS (MB16) · documents · schedules ·
+// marketplace info · costing (host's 3-line total) · your notes ·
+// bring-vendor-onto-Setnayan.
+//
+// MB16's card sits after Conversation on purpose: giving somebody standing
+// permission to change your colours is a RELATIONSHIP decision, not a
+// paperwork one, so it belongs beside the conversation rather than filed with
+// the contracts.
 //
 // Unit boundary: event_vendors.*_php are PESOS; the vendor_packages /
 // event_vendor_packages / vendor_package_items *_centavos columns are CENTAVOS.
@@ -82,6 +88,16 @@ import {
   type SnapshotChargeLine,
 } from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
+import { ColourAccessCard } from './_components/colour-access-card';
+import {
+  laneForVendorCategory,
+  type ColourChangeRow,
+  type ColourDomain,
+} from '@/lib/colour-access';
+import {
+  setVendorColourAccess,
+  rejectColourChange,
+} from '@/app/dashboard/[eventId]/colour-access-actions';
 import { PaymentAsksCard } from './_components/payment-asks-card';
 
 /** One open payment ask, as PostgREST returns it (NUMERIC arrives as a string). */
@@ -969,6 +985,46 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const categoryLabel =
     (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
 
+  // ── MB16 · colour access for this booking ────────────────────────────────
+  // The lane comes from the CATEGORY, resolved by the same map
+  // `public.colour_domains_for_category` uses — this is the display half; the
+  // write half is in SQL and refuses independently of anything decided here.
+  const colourLane: ColourDomain[] = laneForVendorCategory(ev.category);
+  let colourAccessOn = false;
+  let colourChanges: ColourChangeRow[] = [];
+  if (colourLane.length > 0) {
+    const [{ data: grantRows, error: grantErr }, { data: changeRows, error: changeErr }] =
+      await Promise.all([
+        supabase
+          .from('event_colour_grants')
+          .select('domain, is_active')
+          .eq('event_id', eventId)
+          .eq('vendor_id', ev.vendor_id),
+        supabase
+          .from('event_colour_changes')
+          .select(
+            'change_id, domain, target_kind, target_key, target_index, old_value, new_value, actor_kind, actor_label, vendor_id, created_at, reverted_at',
+          )
+          .eq('event_id', eventId)
+          .eq('vendor_id', ev.vendor_id)
+          .order('created_at', { ascending: false })
+          .limit(12),
+      ]);
+    // ⚠ A REFUSED READ IS NOT "OFF" AND IS NOT "NO CHANGES YET". Both render
+    // identically to the real thing — the couple would be shown a switch that
+    // says Off for a supplier who can still write, and an empty log for a
+    // supplier who has changed six colours. Logged rather than swallowed; the
+    // card still renders, because hiding it would be a third wrong answer.
+    if (grantErr) {
+      logQueryError('VendorWorkspace.colourGrants', grantErr, { eventId }, 'graceful_degrade');
+    }
+    if (changeErr) {
+      logQueryError('VendorWorkspace.colourChanges', changeErr, { eventId }, 'graceful_degrade');
+    }
+    colourAccessOn = ((grantRows ?? []) as { is_active: boolean }[]).some((r) => r.is_active);
+    colourChanges = (changeRows ?? []) as ColourChangeRow[];
+  }
+
   // Service-scoped hero: package name is the service title; the category is the
   // fallback when this pick isn't tied to a locked package (manual/off-platform).
   const serviceTitle = packageHeader?.name ?? categoryLabel;
@@ -1737,6 +1793,30 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
   );
 
+  const colourAccessSection = (
+    <ColourAccessCard
+      vendorId={ev.vendor_id}
+      displayName={displayName}
+      /* The prototype reads "Florist · booked for your reception". The half
+         after the dot is not derivable — a booking records no ceremony-vs-
+         reception scope — so it says the true thing instead of the specific
+         one. Inventing "reception" would be wrong for every ceremony-only
+         supplier on the platform. */
+      tradeLine={`${categoryLabel} · booked for this celebration`}
+      lane={colourLane}
+      isOn={colourAccessOn}
+      changes={colourChanges}
+      isCoordinatorBooking={ev.category === 'planner_coordinator'}
+      hostsHref={`/dashboard/${eventId}/hosts`}
+      /* `.bind` rather than an inline closure: a Server Action passed to a
+         client component has to be an action reference, and binding the
+         eventId keeps the client's call signature to the two things it
+         actually knows. */
+      setAccessAction={setVendorColourAccess.bind(null, eventId)}
+      rejectAction={rejectColourChange.bind(null, eventId)}
+    />
+  );
+
   const documentsSection = (
         <section
           id="documents"
@@ -2252,6 +2332,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {statusSection}
         <div className="grid gap-5 lg:grid-cols-2">
           {conversationSection}
+          {colourAccessSection}
           {documentsSection}
           {proposalsCard}
           {schedulesSection}
@@ -2608,6 +2689,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       node: (
         <div className="space-y-6">
           {coupleCompletionSection}
+          {colourAccessSection}
           {includedSection}
           {choicesSection}
           {addOnsSection}

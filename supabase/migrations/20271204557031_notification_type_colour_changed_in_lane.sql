@@ -1,0 +1,33 @@
+-- notification_type_colour_changed_in_lane
+-- ============================================================================
+-- MB16 · the ONE notification type the standing colour grant needs.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE.
+-- notification_type is a Postgres ENUM (20260513160000_iteration_0028_notifications.sql),
+-- and Postgres forbids USING a newly-added enum value in the same transaction
+-- that adds it. So: no BEGIN/COMMIT, no other statements. Exact shape of
+-- 20271203493803_notification_type_part_finalization.sql.
+--
+-- 🔑 A TYPE THE DATABASE HAS NEVER HEARD OF IS REFUSED, NOT THROWN. Adding the
+-- member to the TypeScript union costs one line and typechecks instantly;
+-- without the label here the INSERT is rejected, emitNotification console.errors
+-- it by design so the action still completes, and the only symptom is a couple
+-- who is never told that somebody else changed their colours.
+-- `every-notice-type-exists-in-the-database.test.ts` is the other half of it.
+--
+-- Who hears it:
+--   colour_changed_in_lane → the COUPLE. "Your florist changed a colour."
+--                            One per change, always, with no per-change
+--                            approval anywhere in the mechanism — the
+--                            notification IS the oversight, which is exactly
+--                            why it may not be optional or in-app-only.
+--
+-- 🔑 THERE IS NO `colour_change_rejected`. The reject is the COUPLE'S OWN act,
+-- performed on their own screen, and telling somebody what they just did is the
+-- noise this repo keeps cutting. Whether the vendor should hear that a change
+-- of theirs was reverted is a real product question and deliberately NOT
+-- answered by inventing a type nobody asked for — see the migration header of
+-- 20271204966904_colour_access_grants.sql.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'colour_changed_in_lane';

@@ -29,7 +29,12 @@ import {
   type BookedSupplier,
   type PartFinalizationRecord,
 } from './moodboard-finalization';
-import { RENDER_PARTS, WHOLE_LOOK_PART_ID } from './moodboard-render-parts';
+import {
+  RENDER_PARTS,
+  WHOLE_LOOK_PART_ID,
+  inspirationSlotsForPart,
+} from './moodboard-render-parts';
+import { MOODBOARD_PART_TRADES } from './moodboard-slots';
 import { canonicalServicesForSlot } from './moodboard-gallery';
 import { deriveBoard } from './palette-styles';
 import type { RolePalette } from './mood-board';
@@ -69,16 +74,24 @@ test('a part’s services are exactly its slots’ services — one map, compose
 });
 
 /**
- * 🔒 THE PIN. Eight parts alias no inspiration slot, so no trade supplies them.
- * That is an ANSWER, not a gap to be filled with a guess — but it must only
- * ever change visibly, in a diff somebody reads.
+ * 🔒 THE PIN, INVERTED BY MB16 (owner-decided 2026-09-04).
  *
- * To make one of these askable, give its slot a trade in
- * `MOODBOARD_SLOT_TRADES` (or give the part an aliasing slot), where the
- * picker and MB11's upload gate learn about it too. Editing this list without
- * doing that is the change this test exists to stop.
+ * Eight parts aliased no inspiration slot, so the slot → trade composition had
+ * nothing to compose and they were permanently un-finalizable — a supplier
+ * could never be asked to agree to a couple's walls, welcome sign, entrance,
+ * photo wall, Nikah cast, secondary sponsors, bearers or officiants.
+ * `MOODBOARD_PART_TRADES` gives exactly those eight a trade.
+ *
+ * 🔑 THE PIN IS NOW "ZERO", AND IT IS STRICTLY STRONGER THAN THE OLD LIST.
+ * Before, a part quietly LOSING its trades landed in a list somebody had to
+ * notice had grown. Now any part with no trade at all fails, whichever part it
+ * is — and the visible symptom of that bug was always the same either way: an
+ * Ask button that is simply not there, which reads as "no shop does this".
  */
-const PARTS_NO_TRADE_ANSWERS = [
+const PARTS_NO_TRADE_ANSWERS: string[] = [];
+
+/** The eight MB16 rescued, by name, so a silent deletion of the map is red. */
+const MB16_RESCUED_PARTS = [
   'people:bearers_flower_girl',
   'people:muslim_principals',
   'people:officiants',
@@ -89,7 +102,7 @@ const PARTS_NO_TRADE_ANSWERS = [
   'room:welcome_signage',
 ];
 
-test('exactly eight parts have no supplying trade, and they are these eight', () => {
+test('no part is left with no supplying trade — all eight orphans were adopted', () => {
   const none = RENDER_PARTS.filter((p) => canonicalServicesForPart(p.id).length === 0)
     .map((p) => p.id)
     .sort();
@@ -98,6 +111,59 @@ test('exactly eight parts have no supplying trade, and they are these eight', ()
     PARTS_NO_TRADE_ANSWERS,
     'a part gaining or losing its trades removes or adds an Ask button, and both read as "no shop does this"',
   );
+});
+
+test('each rescued part resolves through MOODBOARD_PART_TRADES, and to REAL canonicals', () => {
+  for (const id of MB16_RESCUED_PARTS) {
+    const tiles = MOODBOARD_PART_TRADES[id];
+    assert.ok(tiles && tiles.length > 0, `${id} lost its part → trade entry`);
+    // The tile has to expand into canonical services or nothing can match a
+    // shop — a tile that resolves to zero canonicals grants nothing at all,
+    // which renders exactly like having no trade.
+    assert.ok(
+      canonicalServicesForPart(id).length > 0,
+      `${id} names tiles that expand to no canonical service — it is still unaskable`,
+    );
+    assert.ok(tradeLabelsForPart(id).length > 0, `${id} has no human trade label`);
+  }
+});
+
+test('the rescue is a SUPPLEMENT, never a second opinion about a part with a slot', () => {
+  // The module-load assertion in moodboard-finalization.ts already throws on
+  // an overlapping key; this states the invariant where a reader will see it.
+  for (const id of Object.keys(MOODBOARD_PART_TRADES)) {
+    assert.equal(
+      inspirationSlotsForPart(id).length,
+      0,
+      `${id} has an inspiration slot, so MB10's map already answers it — two maps, one question`,
+    );
+  }
+});
+
+test('the four room orphans are the stylist’s, and the four people orphans are attire’s', () => {
+  for (const id of ['room:walls', 'room:welcome_signage', 'room:entrance', 'room:photo_wall']) {
+    assert.deepEqual([...MOODBOARD_PART_TRADES[id]!], ['stylist_decorator'], id);
+  }
+  for (const id of [
+    'people:muslim_principals',
+    'people:secondary_sponsors',
+    'people:bearers_flower_girl',
+    'people:officiants',
+  ]) {
+    const tiles = MOODBOARD_PART_TRADES[id]!;
+    assert.ok(
+      tiles.every((t) => ['mens_attire', 'womens_attire', 'filipiniana_barongs'].includes(t)),
+      `${id} names a non-attire tile`,
+    );
+    // 🔑 NEVER filipiniana_barongs ALONE. It is a cross-view tile whose
+    // canonical list is assembled by an explicit map.set rather than by the
+    // ordinary derivation, so it is the fragile one; every row keeps a plain
+    // attire tile beside it.
+    assert.ok(
+      tiles.some((t) => t === 'mens_attire' || t === 'womens_attire'),
+      `${id} depends on filipiniana_barongs alone`,
+    );
+  }
 });
 
 test('every OTHER part has at least one trade and at least one human label for it', () => {
@@ -120,9 +186,25 @@ const FLORIST: BookedSupplier = {
 const CATERER: BookedSupplier = { vendorId: 'v-cater', name: 'Kusina', services: ['catering'] };
 
 test('a part with no trade says so, rather than offering nothing and explaining nothing', () => {
-  const b = finalizeBlocker('room:walls', [FLORIST]);
+  // ⚠ NO REAL PART REACHES THIS BRANCH ANY MORE — MB16 gave the last eight a
+  // trade. It is still the answer for a part id that names nothing, which is
+  // what a retired or mistyped part looks like, and the sentence has to
+  // survive: a dead button with no explanation is the shape this repo keeps
+  // shipping.
+  const b = finalizeBlocker('room:no_such_zone', [FLORIST]);
   assert.equal(b?.code, 'no_trade');
   assert.ok(b!.message.length > 20, 'a blocker with no sentence is a dead button');
+});
+
+test('a rescued part is now BLOCKED ON BOOKING, not on existence — the difference is the point', () => {
+  // Before MB16 this said "nobody can ever agree to this". Now it names the
+  // trade to book, which is a thing the couple can act on.
+  const b = finalizeBlocker('room:walls', [FLORIST]);
+  assert.equal(b?.code, 'no_booked_supplier');
+  assert.ok(
+    b!.message.includes('Stylist'),
+    'the couple has to be told WHICH trade would unlock their walls',
+  );
 });
 
 test('a part with a trade but nobody booked names the trade to book', () => {

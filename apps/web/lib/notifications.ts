@@ -170,6 +170,15 @@ export type NotificationType =
   | 'part_finalization_declined'
   | 'part_reopen_requested'
   | 'part_reopen_answered'
+  // MB16 · a granted vendor or coordinator changed a colour on the board
+  // (2026-09-04). ⚠ Also an ENUM value in Postgres — 20271204557031.
+  //   → the COUPLE, every time, with no per-change approval anywhere in the
+  //     mechanism. The notification IS the oversight: the couple gave standing
+  //     permission, so being told what happened is the only thing standing
+  //     between "they can adjust their own lane" and "somebody is changing my
+  //     wedding and I cannot see it". That is why it is not optional and not
+  //     in-app-only.
+  | 'colour_changed_in_lane'
   // The deletion handshake (owner 2026-08-21). ⚠ These four are also ENUM
   // values in Postgres — 20271152428061. A TS-only member typechecks and then
   // the INSERT fails at runtime, and emitNotification only console.errors it,
@@ -406,6 +415,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   part_finalization_declined: 'A supplier turned down a design',
   part_reopen_requested: 'A couple wants to change an agreed part',
   part_reopen_answered: 'Your re-open request was answered',
+  colour_changed_in_lane: 'A colour on your board was changed',
   deletion_request_received: 'A celebration you were paid for is being removed',
   deletion_request_nudge: 'Still waiting on your answer',
   deletion_request_agreed: 'A supplier agreed to the removal',
@@ -539,6 +549,11 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // rather than claiming a verdict the type alone does not carry.
   part_finalization_declined: 'bg-warn-100 text-warn-900',
   part_reopen_answered: 'bg-warn-100 text-warn-900',
+  // 🔑 AMBER, NOT SUCCESS — and not danger either. Somebody the couple trusted
+  // changed something on their board. Nothing is wrong, and nothing is
+  // settled: the whole point of the notice is that there is a Reject button at
+  // the other end of it, so it must not read as an announcement they can skip.
+  colour_changed_in_lane: 'bg-warn-100 text-warn-900',
   // Danger, not warn: this one asks whether a celebration may be erased.
   deletion_request_received: 'bg-danger-100 text-danger-900',
   deletion_request_nudge: 'bg-danger-100 text-danger-900',

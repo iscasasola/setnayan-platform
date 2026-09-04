@@ -20,6 +20,12 @@ import { revokeHostInvite, removeHost, setDelegateBudget, setDelegatePhotos } fr
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
+import { CoordinatorColourDomains, type CoordinatorColourGrantee } from './_components/coordinator-colour-domains';
+import { isColourDomain, type ColourChangeRow, type ColourDomain } from '@/lib/colour-access';
+import {
+  setCoordinatorColourDomain,
+  rejectColourChange,
+} from '@/app/dashboard/[eventId]/colour-access-actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { eventNoun } from '@/lib/event-noun';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -224,6 +230,85 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
     usersById = Object.fromEntries(
       ((userRows ?? []) as UserMini[]).map((u) => [u.user_id, u]),
     );
+  }
+
+  // ── MB16 · colour domains for the people helping run this celebration ────
+  //
+  // 🔑 WHO IS ELIGIBLE IS THE SHIPPED DEFINITION, NOT A NEW ONE. An accepted
+  // delegate with a claimed account is an `event_members` row with
+  // `member_type = 'coordinator'` — minted and deleted by
+  // `sync_delegate_membership` — and that is exactly what
+  // `set_host_colour_access` requires and what the grant table's composite FK
+  // CASCADEs from. So the list below is every accepted host, whatever their
+  // role_subtype: the couple's own maid of honour is as grantable as their
+  // planner, because the database calls both the same thing and inventing a
+  // narrower TS-only rule here would put the screen and the gate out of step.
+  let colourGrantees: CoordinatorColourGrantee[] = [];
+  if (isCouple && accepted.length > 0) {
+    const [{ data: colourGrantRows, error: colourGrantErr }, { data: colourChangeRows, error: colourChangeErr }] =
+      await Promise.all([
+        admin
+          .from('event_colour_grants_host')
+          .select('user_id, domain, is_active')
+          .eq('event_id', eventId)
+          .eq('is_active', true),
+        admin
+          .from('event_colour_changes')
+          .select(
+            'change_id, domain, target_kind, target_key, target_index, old_value, new_value, actor_kind, actor_user_id, actor_label, vendor_id, created_at, reverted_at',
+          )
+          .eq('event_id', eventId)
+          .eq('actor_kind', 'coordinator')
+          .order('created_at', { ascending: false })
+          .limit(30),
+      ]);
+    // ⚠ A refused read here renders as "nobody has any colour access" and as
+    // "nobody has changed anything" — both indistinguishable from the truth,
+    // and both wrong in the direction that matters.
+    if (colourGrantErr) {
+      logQueryError('HostsPage.colourGrants', colourGrantErr, { eventId }, 'graceful_degrade');
+    }
+    if (colourChangeErr) {
+      logQueryError('HostsPage.colourChanges', colourChangeErr, { eventId }, 'graceful_degrade');
+    }
+    const activeByUser = new Map<string, ColourDomain[]>();
+    for (const raw of (colourGrantRows ?? []) as { user_id: string; domain: string }[]) {
+      if (!isColourDomain(raw.domain)) continue;
+      const list = activeByUser.get(raw.user_id) ?? [];
+      list.push(raw.domain);
+      activeByUser.set(raw.user_id, list);
+    }
+    const changesByUser = new Map<string, ColourChangeRow[]>();
+    for (const raw of (colourChangeRows ?? []) as (ColourChangeRow & {
+      actor_user_id: string | null;
+    })[]) {
+      if (!raw.actor_user_id) continue;
+      const list = changesByUser.get(raw.actor_user_id) ?? [];
+      list.push(raw);
+      changesByUser.set(raw.actor_user_id, list);
+    }
+    colourGrantees = accepted
+      .filter((r): r is ModeratorRow & { user_id: string } => Boolean(r.user_id))
+      // The couple's own rows are excluded: they already hold every colour on
+      // the board through `couple_can_update_event`, and offering to grant
+      // somebody something they already have is the kind of control that makes
+      // a person doubt what the rest of the page means.
+      .filter((r) => r.user_id !== user.id)
+      .map((r) => ({
+        userId: r.user_id,
+        displayName:
+          r.display_label?.trim() ||
+          usersById[r.user_id]?.display_name?.trim() ||
+          usersById[r.user_id]?.email ||
+          'This host',
+        roleLine: `${ROLE_SUBTYPE_LABEL[r.role_subtype] ?? 'Host'}${
+          r.accepted_at
+            ? ` · joined ${new Date(r.accepted_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`
+            : ''
+        }`,
+        active: activeByUser.get(r.user_id) ?? [],
+        changes: changesByUser.get(r.user_id) ?? [],
+      }));
   }
 
   const justSent = search.invite_sent === '1';
@@ -569,6 +654,15 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           </ul>
         )}
       </section>
+
+      {/* MB16 · colour domains, per person. Sits above Delegate activity: this
+          is a CONTROL and that is a LOG, and a control buried under a log is
+          one nobody finds. */}
+      <CoordinatorColourDomains
+        people={colourGrantees}
+        setDomainAction={setCoordinatorColourDomain.bind(null, eventId)}
+        rejectAction={rejectColourChange.bind(null, eventId)}
+      />
 
       {/* Delegate activity — "your coordinator did X" (couple-visible). */}
       {isCouple && activity.length > 0 ? (

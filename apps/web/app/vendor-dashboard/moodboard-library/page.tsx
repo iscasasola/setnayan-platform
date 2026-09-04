@@ -2,11 +2,17 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { resolveMoodboardLibraryAccess } from '@/lib/moodboard-library-access';
+import { tierCaps } from '@/lib/vendor-tier-caps';
+import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery';
 import {
   StylistLibraryEditor,
   type StylistAsset,
 } from './_components/stylist-library-editor';
+import {
+  listImportableEditorialMedia,
+  type ImportableEditorialPhoto,
+} from './actions';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 
 export const metadata = { title: 'Moodboard Library · My Designs' };
@@ -21,29 +27,25 @@ export default async function StylistMoodboardLibraryPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Align with the vendor-dashboard layout's gate (vendor-profile ownership
-  // via hasVendorAccess), NOT the rigid `account_type === 'vendor'` check.
-  // The old account_type gate 404'd dual-role owners (e.g. a §10a internal
-  // account that also owns a vendor_profile for dogfooding) even though the
-  // layout + every sibling surface grant them access. Mirror the sibling
-  // pattern (payment-options / tokens): fetch the caller's own vendor
-  // profile, bounce to the dashboard root if they don't own one.
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard');
-
-  // OWNER-LOCKED 2026-07-12: the Moodboard library is a STYLIST's own
-  // collection — only stylist/decorator vendors (reception_decor category)
-  // may author boards here. Everyone else bounces to My Shop.
-  const isStylist = (profile.services ?? []).some(
-    (s: string) => s === 'reception_decor',
-  );
-  if (!isStylist) redirect('/vendor-dashboard/shop');
+  // 🔑 ONE PREDICATE, SHARED WITH actions.ts. The page used to ask "do you own
+  // a shop AND is `reception_decor` among your services"; the save asked
+  // `users.account_type === 'vendor'`. Two predicates for one question is a bug
+  // with a UI — the page rendered and the upload threw. See
+  // lib/moodboard-library-access.ts for the whole story, including why the
+  // trade gate is now DERIVED from MB10's slot→trade map rather than pinned to
+  // one service key that excluded every gown designer, florist and cake maker.
+  const access = await resolveMoodboardLibraryAccess(supabase, user.id);
+  if (!access.allowed) {
+    if (access.reason === 'no_shop') redirect('/vendor-dashboard');
+    redirect('/vendor-dashboard/shop');
+  }
+  const { profile, slots } = access;
 
   const admin = createAdminClient();
   const { data: rows } = await admin
     .from('moodboard_library_assets')
     .select(
-      'asset_id, asset_type, asset_subtype, label, storage_path, approved_at, retired_at, created_at',
+      'asset_id, asset_type, asset_subtype, label, storage_path, approved_at, retired_at, created_at, source_event_id',
     )
     .eq('uploaded_by', user.id)
     .order('created_at', { ascending: false });
@@ -79,10 +81,44 @@ export default async function StylistMoodboardLibraryPage() {
       approved_at: r.approved_at,
       retired_at: r.retired_at,
       created_at: r.created_at,
+      source_event_id: r.source_event_id ?? null,
       public_url: pub.publicUrl,
       color_ranges: colorRangesByAsset.get(r.asset_id) ?? {},
     };
   });
+
+  // The quota's own numbers, computed the same way the server action computes
+  // them, so the screen states the true remaining count rather than a guess.
+  // Event-linked rows are excluded here for exactly the reason they are
+  // excluded there: they are never rationed.
+  const { data: tierRow } = await admin
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const cap = tierCaps(
+    (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null,
+  ).galleryBackCatalogPhotos;
+  const { count: backCatalogueUsed } = await admin
+    .from('moodboard_library_assets')
+    .select('asset_id', { count: 'exact', head: true })
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('asset_type', SUPPLIER_GALLERY_ASSET_TYPE)
+    .is('source_event_id', null)
+    .is('retired_at', null);
+
+  // 🔑 A FAILED READ MUST NOT RENDER AS AN ABSENCE. `.catch(() => [])` here
+  // would tell a supplier who worked six weddings that they have no day-of
+  // photos to add — byte-identical to the honest empty state, and the exact
+  // defect `app/vendor-dashboard/reads-are-honest.test.ts` exists for. The
+  // error is bound and the difference reaches the render.
+  let importable: ImportableEditorialPhoto[] = [];
+  let importableFailed = false;
+  try {
+    importable = await listImportableEditorialMedia();
+  } catch {
+    importableFailed = true;
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
@@ -98,20 +134,27 @@ export default async function StylistMoodboardLibraryPage() {
           My moodboard designs
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Upload photos of your real wedding setups, tag the color regions, and
-          Setnayan will review them for the shared template library. Once approved,
-          hosts will see your work rendered in their own palette and can pick it
-          for their moodboard.
+          Upload photos of your real work, tag the color regions, and Setnayan
+          will review them for the shared inspiration library. Once approved,
+          couples browsing that part of their mood board see your photo with
+          your shop credited underneath — and can walk straight from it to you.
         </p>
         <p className="max-w-prose text-xs text-ink/50">
-          Every photo you upload here is auto-watermarked with SETNAYAN. Your
-          original photos stay on your device; the watermarked copy is what we
-          store. (Google-Drive-direct uploads — where your masters stay on your
-          own Drive — land in V1.x.)
+          Every photo is watermarked with SETNAYAN on our side before it is
+          stored, and screened for QR codes and your own contact details — those
+          would take couples around Setnayan rather than through it, and your
+          shop is already named under every photo.
         </p>
       </header>
 
-      <StylistLibraryEditor initialAssets={assets} />
+      <StylistLibraryEditor
+        initialAssets={assets}
+        gallerySlots={slots}
+        backCatalogueCap={cap}
+        backCatalogueUsed={backCatalogueUsed ?? 0}
+        importableEditorial={importable}
+        importableEditorialFailed={importableFailed}
+      />
     </div>
   );
 }

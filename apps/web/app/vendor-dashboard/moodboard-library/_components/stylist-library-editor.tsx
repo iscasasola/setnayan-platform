@@ -1,18 +1,35 @@
 'use client';
 
 /**
- * Stylist-side moodboard library editor. Renders the vendor's own uploaded
+ * Supplier-side moodboard library editor. Renders the shop's own uploaded
  * photos (drafts + Setnayan-approved) plus an upload form. Strips the
  * admin-only affordances (approve/retire) from the admin editor.
  *
  * V1 implementation per the 2026-05-21 lock — vendor uploads land in
  * Setnayan storage with source='stylist_upload', awaiting admin approval
  * before hosts can see them on the moodboard.
+ *
+ * ── MB11 (2026-09-04) ───────────────────────────────────────────────────────
+ * Three additions, and one DELETION worth reading before touching this file:
+ *
+ *   + a SUPPLIER GALLERY asset type, whose subtype is the inspiration slot the
+ *     photo answers. The slot list arrives from the server already filtered to
+ *     the trades this shop actually covers.
+ *   + a RIGHTS WARRANTY tick, which the server refuses the upload without.
+ *   + an IMPORT list of the shop's own day-of editorial photos, which are
+ *     event-linked and never count against the back-catalogue quota.
+ *
+ *   − 🛑 THE CLIENT-SIDE `watermarkFile` CALL IS GONE ON PURPOSE. It ran here
+ *     from May 2026 and it was never a rule: the upload is a server action, and
+ *     anything that can call it could hand it unmarked bytes while the browser
+ *     path looked identical. MB11 moved the mark to the server
+ *     (lib/watermark-server.ts) on the authoritative bytes. RE-ADDING IT HERE
+ *     WOULD PRINT SETNAYAN TWICE — the server marks every photo that reaches
+ *     this bucket, unconditionally.
  */
 
 import { useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
-import { watermarkFile } from '@/lib/watermark';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import {
   ColorRangeManipulator,
@@ -21,9 +38,20 @@ import {
 } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import {
   deleteStylistAsset,
+  importEditorialMediaToGallery,
   saveStylistColorRanges,
   uploadStylistAsset,
+  type ImportableEditorialPhoto,
 } from '../actions';
+// ⚠ FROM THE PURE MODULE, DELIBERATELY. `lib/moodboard-gallery.ts` and
+// `lib/moodboard-gallery-upload.ts` both reach `lib/supabase/admin.ts` through
+// the taxonomy, and this is a client component — importing either of them from
+// here turns `lint-server-only-boundary` red, which is the only thing in the
+// toolchain that can see the problem before a multi-minute `next build`.
+import {
+  RIGHTS_WARRANTY_TEXT,
+  SUPPLIER_GALLERY_ASSET_TYPE,
+} from '@/lib/moodboard-gallery-pure';
 import { ShopNotice } from '../../_components/kit';
 
 export type StylistAsset = {
@@ -38,6 +66,9 @@ export type StylistAsset = {
   // hand-made here, and they carry a rights warranty this form cannot capture.
   asset_type: 'venue_scene' | 'figure_attire' | 'florals' | 'supplier_gallery';
   asset_subtype: string | null;
+  /** The celebration this photo came off. NULL = back-catalogue, which is the
+   *  only thing the per-tier quota counts (MB11). */
+  source_event_id: string | null;
   label: string;
   storage_path: string;
   approved_at: string | null;
@@ -56,8 +87,36 @@ const DEFAULT_PREVIEW_PALETTE: PalettePreview = {
   6: '#a02c45',
 };
 
-export function StylistLibraryEditor({ initialAssets }: { initialAssets: StylistAsset[] }) {
+export type StylistLibraryEditorProps = {
+  initialAssets: StylistAsset[];
+  /** Slots this shop may upload into — derived server-side from its trades. */
+  gallerySlots: Array<{ key: string; label: string }>;
+  /** This tier's back-catalogue ceiling. 0 = event-linked photos only. */
+  backCatalogueCap: number;
+  /** Back-catalogue photos already held. Event-linked rows are NOT in here. */
+  backCatalogueUsed: number;
+  /** The shop's own day-of editorial photos, eligible to become gallery rows. */
+  importableEditorial: ImportableEditorialPhoto[];
+  /** TRUE when that read FAILED — which is not the same as "you have none". */
+  importableEditorialFailed: boolean;
+};
+
+export function StylistLibraryEditor({
+  initialAssets,
+  gallerySlots,
+  backCatalogueCap,
+  backCatalogueUsed,
+  importableEditorial,
+  importableEditorialFailed,
+}: StylistLibraryEditorProps) {
   const [assets, setAssets] = useState<StylistAsset[]>(initialAssets);
+  const [assetType, setAssetType] = useState<StylistAsset['asset_type']>(
+    gallerySlots.length > 0 ? SUPPLIER_GALLERY_ASSET_TYPE : 'venue_scene',
+  );
+  const [rightsWarranted, setRightsWarranted] = useState(false);
+  const [importSlot, setImportSlot] = useState<string>(gallerySlots[0]?.key ?? '');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [used, setUsed] = useState(backCatalogueUsed);
   const [selectedId, setSelectedId] = useState<string | null>(initialAssets[0]?.asset_id ?? null);
   const [isPending, startTransition] = useTransition();
   const [localMaps, setLocalMaps] = useState<Record<string, ColorRangeMap>>(() =>
@@ -76,6 +135,12 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
     [assets, selectedId],
   );
 
+  const isGalleryUpload = assetType === SUPPLIER_GALLERY_ASSET_TYPE;
+  // The quota gates the BUTTON as well as the server, so a supplier who is out
+  // of room is told before they pick a file rather than after they wait for an
+  // upload. The server still decides — this is the same number, not a substitute.
+  const quotaExhausted = isGalleryUpload && used >= backCatalogueCap;
+
   function setMapForSelected(next: ColorRangeMap) {
     if (!selected) return;
     setLocalMaps((prev) => ({ ...prev, [selected.asset_id]: next }));
@@ -85,40 +150,67 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
     const formData = new FormData(form);
     startTransition(async () => {
       try {
-        // Auto SETNAYAN watermark (owner directive 2026-05-21).
-        const original = formData.get('file') as File | null;
-        if (original) {
-          const watermarked = await watermarkFile(original, {
-            position: 'bottom-right',
-            opacity: 0.55,
-          });
-          formData.set('file', watermarked);
-        }
-
-        const { assetId } = await uploadStylistAsset(formData);
+        // ⚠ NO CLIENT-SIDE WATERMARK HERE — the server marks the authoritative
+        // bytes (see the file docblock). Adding one back prints it twice.
+        setActionError(null);
+        setNotice(null);
+        const { assetId, textScreen } = await uploadStylistAsset(formData);
         const label = String(formData.get('label') ?? '');
-        const assetType = String(formData.get('assetType') ?? '') as StylistAsset['asset_type'];
+        const uploadedType = String(
+          formData.get('assetType') ?? '',
+        ) as StylistAsset['asset_type'];
         const assetSubtype = String(formData.get('assetSubtype') ?? '') || null;
         const file = formData.get('file') as File | null;
         const blobUrl = file ? URL.createObjectURL(file) : '';
         const placeholder: StylistAsset = {
           asset_id: assetId,
-          asset_type: assetType,
+          asset_type: uploadedType,
           asset_subtype: assetSubtype,
           label,
           storage_path: 'pending',
           approved_at: null,
           retired_at: null,
           created_at: new Date().toISOString(),
+          source_event_id: null,
           public_url: blobUrl,
           color_ranges: {},
         };
         setAssets((prev) => [placeholder, ...prev]);
         setLocalMaps((prev) => ({ ...prev, [assetId]: {} }));
         setSelectedId(assetId);
+        if (uploadedType === SUPPLIER_GALLERY_ASSET_TYPE) setUsed((n) => n + 1);
+        // 🔑 A CHECK THAT DID NOT RUN IS NOT A CHECK THAT PASSED, and the
+        // supplier is the one person who can act on knowing. When the text
+        // screen was unavailable we say so instead of implying the photo was
+        // read and found clean.
+        if (textScreen === 'unavailable') {
+          setNotice(
+            'Uploaded. We couldn’t read the text in this photo just now, so Setnayan will look at it before couples see it.',
+          );
+        }
+        setRightsWarranted(false);
         form.reset();
       } catch (err) {
-        setActionError(`Upload failed: ${(err as Error).message}`);
+        setActionError((err as Error).message);
+      }
+    });
+  }
+
+  function handleImport(mediaId: string) {
+    startTransition(async () => {
+      try {
+        setActionError(null);
+        setNotice(null);
+        await importEditorialMediaToGallery({
+          mediaId,
+          slotKey: importSlot,
+          rightsWarranted: true,
+        });
+        setNotice(
+          'Added to your gallery. Photos from a celebration you were booked on never count against your back-catalogue allowance.',
+        );
+      } catch (err) {
+        setActionError((err as Error).message);
       }
     });
   }
@@ -163,6 +255,19 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
   return (
     <>
       {dialog}
+      {notice ? (
+        <ShopNotice tone="success" role="status" className="mb-4 flex items-start justify-between gap-3">
+          <span>{notice}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700 hover:text-ink"
+            aria-label="Dismiss message"
+          >
+            Dismiss
+          </button>
+        </ShopNotice>
+      ) : null}
       {actionError ? (
         <ShopNotice tone="gold" role="alert" className="mb-4 flex items-start justify-between gap-3">
           <span>{actionError}</span>
@@ -208,34 +313,154 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
               <select
                 name="assetType"
                 required
-                defaultValue="venue_scene"
+                value={assetType}
+                onChange={(e) =>
+                  setAssetType(e.target.value as StylistAsset['asset_type'])
+                }
                 className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
               >
+                {gallerySlots.length > 0 ? (
+                  <option value={SUPPLIER_GALLERY_ASSET_TYPE}>
+                    Couples&rsquo; inspiration gallery
+                  </option>
+                ) : null}
                 <option value="venue_scene">Venue scene</option>
                 <option value="figure_attire">Figure attire</option>
                 <option value="florals">Florals</option>
               </select>
-              <input
-                name="assetSubtype"
-                type="text"
-                placeholder="Subtype (e.g. 'reception')"
-                className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
-              />
+              {isGalleryUpload ? (
+                <select
+                  name="assetSubtype"
+                  required
+                  defaultValue={gallerySlots[0]?.key ?? ''}
+                  aria-label="Which part of the mood board"
+                  className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
+                >
+                  {gallerySlots.map((slot) => (
+                    <option key={slot.key} value={slot.key}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  name="assetSubtype"
+                  type="text"
+                  placeholder="Subtype (e.g. 'reception')"
+                  className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
+                />
+              )}
             </div>
+
+            {/* 🛑 THE WARRANTY IS A DELIBERATE TICK, NEVER A HIDDEN FIELD. A
+                pre-checked box, or a `<input type="hidden" value="1">`, would
+                record a promise the supplier never made — the same shape as the
+                onboarding consent this repo already had to unwind. The server
+                refuses the upload without it. */}
+            <label className="flex items-start gap-2 text-[11px] leading-snug text-ink/70">
+              <input
+                type="checkbox"
+                name="rightsWarranted"
+                value="1"
+                checked={rightsWarranted}
+                onChange={(e) => setRightsWarranted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-shrink-0"
+              />
+              <span>{RIGHTS_WARRANTY_TEXT}</span>
+            </label>
+
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || !rightsWarranted || quotaExhausted}
               className="w-full rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
             >
               {isPending ? 'Uploading…' : 'Upload + tag'}
             </button>
+
+            {isGalleryUpload ? (
+              <p className="text-[11px] text-ink/55">
+                {backCatalogueCap === 0
+                  ? 'Your plan doesn’t include back-catalogue photos. You can still add photos from celebrations you were booked on — those never count.'
+                  : `Back-catalogue photos: ${used} of ${backCatalogueCap} used. Photos from celebrations you were booked on never count.`}
+              </p>
+            ) : null}
+
             <p className="text-[11px] text-ink/55">
-              Your photo will be auto-watermarked with SETNAYAN before it lands on
-              your library. Submissions appear as drafts; Setnayan reviews them
-              before hosts see them in the shared template library.
+              We watermark every photo with SETNAYAN on our side before storing
+              it, and check it for QR codes and your own contact details —
+              couples reach you through the credit under the photo, so those
+              only take them off Setnayan. Submissions appear as drafts;
+              Setnayan reviews them before couples see them.
             </p>
           </form>
         </section>
+
+        {/* ── THE EVENT-LINKED ROUTE ───────────────────────────────────────
+            The shop's own day-of photos from `editorial_vendor_media` — a
+            table built in June 2026 and standing at zero rows since. They are
+            already the couple's, already NSFW-screened, and already curated by
+            the couple (a photo they hid on their own story never appears
+            here). Promoting one re-checks `selection_match_rank = 1` server
+            side rather than trusting the gate that let it be submitted, and
+            the result is EVENT-LINKED — so it never touches the
+            back-catalogue allowance, at any tier. */}
+        {importableEditorialFailed ? (
+          <ShopNotice tone="warn" role="status" className="text-sm">
+            We couldn’t load your photos from celebrations you worked just now.
+            They aren’t gone — reload in a moment, or upload from your own files
+            below.
+          </ShopNotice>
+        ) : null}
+
+        {importableEditorial.length > 0 && gallerySlots.length > 0 ? (
+          <section className="rounded-xl border border-ink/15 bg-white/70 p-4">
+            <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              From celebrations you worked
+            </p>
+            <p className="mb-3 text-[11px] text-ink/55">
+              Your day-of photos from couples who picked you. These never count
+              against your back-catalogue allowance.
+            </p>
+            <label
+              htmlFor="import-slot"
+              className="mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+            >
+              Add to
+            </label>
+            <select
+              id="import-slot"
+              value={importSlot}
+              onChange={(e) => setImportSlot(e.target.value)}
+              className="mb-3 w-full rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
+            >
+              {gallerySlots.map((slot) => (
+                <option key={slot.key} value={slot.key}>
+                  {slot.label}
+                </option>
+              ))}
+            </select>
+            <ul className="space-y-2">
+              {importableEditorial.map((photo) => (
+                <li
+                  key={photo.mediaId}
+                  className="flex items-center justify-between gap-3 rounded-md border border-ink/10 p-2"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                    {photo.caption?.trim() || 'Day-of photo'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isPending || photo.alreadyImported}
+                    onClick={() => handleImport(photo.mediaId)}
+                    className="flex-shrink-0 rounded-md border border-mulberry px-3 py-1.5 text-xs font-medium text-mulberry disabled:opacity-50"
+                  >
+                    {photo.alreadyImported ? 'Added' : 'Add to gallery'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="rounded-xl border border-ink/15 bg-white/70 p-4">
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

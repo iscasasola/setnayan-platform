@@ -890,3 +890,65 @@ export function lerpAngle(a: number, b: number, k: number): number {
   const d = Math.atan2(Math.sin(b - a), Math.cos(b - a));
   return a + d * k;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * THE CHIBI HOP — motion for a body that has no legs to swing.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The chibi rig is jointless below the neck: `lib/chibi-geometry.ts` merges
+ * legs, shoes and outfit into single buffers so no junction can show. That is
+ * what makes it read as one solid figure — and it is also why `pose`/`phase`
+ * have nothing to drive, so an avatar GLIDED where the blob runs.
+ *
+ * 🔑 THE CONSTRAINT DOES NOT APPLY TO A HOP. A leg cycle needs joints; a hop
+ * needs none — it is a whole-body translate and scale. So the very merge that
+ * removed the walk leaves the bounce completely available, and the figure stops
+ * sliding without re-opening a single seam.
+ *
+ * Squash-and-stretch carries the weight: the body flattens as it lands and
+ * draws out as it leaves, which is what separates "bouncing" from "moving up
+ * and down". Volume is held roughly constant (xz widens as y flattens) so the
+ * figure never reads as inflating.
+ */
+
+/** Hops per radian of the shared gait clock. The clock already runs at the RUN
+ *  cadence for the blob's stride; a hop wants to be slower than a footfall or
+ *  it reads as a vibration rather than a bounce. */
+export const CHIBI_HOP_RATE = 0.5;
+/** Peak lift, in metres. Deliberately small — this is a person hopping, not a
+ *  ball bouncing, and a big arc makes the room look like a game. */
+export const CHIBI_HOP_HEIGHT = 0.055;
+/** How much the body flattens at the moment of landing (1 = no squash). */
+export const CHIBI_SQUASH = 0.14;
+
+export type ChibiHop = {
+  /** Vertical offset in metres — never negative, so the figure never sinks. */
+  lift: number;
+  /** Vertical scale: <1 landing (squashed), >1 mid-flight (stretched). */
+  scaleY: number;
+  /** Horizontal scale, the inverse of scaleY so volume reads as preserved. */
+  scaleXZ: number;
+};
+
+/**
+ * The hop pose for a gait-clock phase.
+ *
+ * `amp` is the settle control: 1 while moving, eased to 0 on arrival so the
+ * figure LANDS instead of freezing mid-air. At amp 0 this returns exact
+ * neutral — lift 0, scales 1 — so a standing chibi is untransformed.
+ */
+export function chibiHop(phase: number, amp = 1): ChibiHop {
+  const a = Math.max(0, Math.min(1, amp));
+  if (a === 0) return { lift: 0, scaleY: 1, scaleXZ: 1 };
+  // |sin| gives the arc: 0 at the ground, 1 at the apex, back to 0 — one hop
+  // per half-cycle, with a real contact moment at each zero rather than a
+  // smooth sine that never lands.
+  const arc = Math.abs(Math.sin(phase * CHIBI_HOP_RATE));
+  // Squash is strongest AT the ground (arc 0) and gone by the apex.
+  const squash = (1 - arc) * CHIBI_SQUASH * a;
+  return {
+    lift: arc * CHIBI_HOP_HEIGHT * a,
+    scaleY: 1 - squash,
+    scaleXZ: 1 + squash * 0.5,
+  };
+}

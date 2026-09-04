@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6469
+# facts: 6505
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     580
-#   col       4756
-#   policy    882
+#   tpriv     581
+#   col       4781
+#   policy    885
 #   view      8
-#   func      239
+#   func      246
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -277,6 +277,7 @@ tpriv	public.moodboard_asset_color_ranges|anon	SIUD
 tpriv	public.moodboard_asset_color_ranges|authenticated	SIUD
 tpriv	public.moodboard_library_assets|anon	SIUD
 tpriv	public.moodboard_library_assets|authenticated	SIUD
+tpriv	public.moodboard_part_finalizations|authenticated	S
 tpriv	public.moodboard_render_config|anon	S
 tpriv	public.moodboard_render_config|authenticated	S
 tpriv	public.moodboard_theme_templates|anon	SIUD
@@ -2685,6 +2686,31 @@ col	public.moodboard_library_assets.storage_path	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.style_theme	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.uploaded_by	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.moodboard_part_finalizations.agreed_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.answered_by_user_id	anon=- authenticated=S
+col	public.moodboard_part_finalizations.cancelled_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.created_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.decline_reason	anon=- authenticated=S
+col	public.moodboard_part_finalizations.declined_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.design_snapshot	anon=- authenticated=S
+col	public.moodboard_part_finalizations.event_id	anon=- authenticated=S
+col	public.moodboard_part_finalizations.expires_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.finalization_id	anon=- authenticated=S
+col	public.moodboard_part_finalizations.frozen_dressing_fields	anon=- authenticated=S
+col	public.moodboard_part_finalizations.frozen_palette_keys	anon=- authenticated=S
+col	public.moodboard_part_finalizations.part_id	anon=- authenticated=S
+col	public.moodboard_part_finalizations.reopen_answered_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.reopen_answered_by_user_id	anon=- authenticated=S
+col	public.moodboard_part_finalizations.reopen_decline_reason	anon=- authenticated=S
+col	public.moodboard_part_finalizations.reopen_expires_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.reopen_requested_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.reopen_requested_by_user_id	anon=- authenticated=S
+col	public.moodboard_part_finalizations.reopen_state	anon=- authenticated=S
+col	public.moodboard_part_finalizations.requested_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.requested_by_user_id	anon=- authenticated=S
+col	public.moodboard_part_finalizations.state	anon=- authenticated=S
+col	public.moodboard_part_finalizations.updated_at	anon=- authenticated=S
+col	public.moodboard_part_finalizations.vendor_id	anon=- authenticated=S
 col	public.moodboard_render_config.config_key	anon=S authenticated=S
 col	public.moodboard_render_config.credits_per_pack	anon=S authenticated=S
 col	public.moodboard_render_config.credits_per_part	anon=S authenticated=S
@@ -5780,6 +5806,9 @@ policy	public.moodboard_library_assets|moodboard_library_assets_vendor_delete_ow
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((uploaded_by = auth.uid()) AND (source = 'stylist_upload'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))))
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_select_own	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((uploaded_by = auth.uid()) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type))))) check=NULL
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_update_own	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=((uploaded_by = auth.uid()) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type))))) check=(uploaded_by = auth.uid())
+policy	public.moodboard_part_finalizations|moodboard_part_finalizations_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
+policy	public.moodboard_part_finalizations|moodboard_part_finalizations_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
+policy	public.moodboard_part_finalizations|moodboard_part_finalizations_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_id IN ( SELECT current_vendor_event_vendor_ids() AS current_vendor_event_vendor_ids)) check=NULL
 policy	public.moodboard_render_config|moodboard_render_config_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.moodboard_theme_templates|moodboard_theme_templates_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type)))))
 policy	public.moodboard_theme_templates|moodboard_theme_templates_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
@@ -6273,6 +6302,8 @@ func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
 func	public.call_rtc_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.cancel_event_deletion_request(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.cancel_part_finalization_request(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.cancel_part_reopen_request(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_service_slot_reservation(p_reservation_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_lock_request(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_plan_change()	secdef=yes exec=authenticated search_path=""
@@ -6410,6 +6441,8 @@ func	public.release_schedule_pools(p_event_vendor_id uuid, p_reason text)	secdef
 func	public.release_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.report_guest_capture(p_reporter_guest_id uuid, p_capture_id uuid, p_reason text, p_details text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.request_event_deletion(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.request_part_finalization(p_event_id uuid, p_part_id text, p_vendor_id uuid, p_snapshot jsonb)	secdef=yes exec=authenticated search_path=public
+func	public.request_part_reopen(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.reserve_service_slot_seats(p_event_id uuid, p_slot_id uuid, p_reserved_date date, p_party_size integer, p_guest_note text)	secdef=yes exec=authenticated search_path=public
 func	public.resolve_custom_domain(p_host text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_subdomain(p_label text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6441,7 +6474,9 @@ func	public.unread_message_threads_by_event()	secdef=yes exec=anon,authenticated
 func	public.unread_message_threads_by_vendor()	secdef=yes exec=anon,authenticated search_path=public
 func	public.user_holds_founder_seat(p_user_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.vendor_agree_to_lock(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_agree_to_part(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_answer_event_deletion(p_event_vendor_id uuid, p_agree boolean, p_reason text)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_answer_part_reopen(p_finalization_id uuid, p_agree boolean, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_booking_daily_series(p_vendor_profile_id uuid, p_days integer, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_booking_monthly_series(p_vendor_profile_id uuid, p_months integer, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_cancel_admin_motion(p_motion_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6449,6 +6484,7 @@ func	public.vendor_claim_locked_qr(p_token text, p_event_id uuid)	secdef=yes exe
 func	public.vendor_customer_source_counts(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.vendor_deal_size(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_decline_lock(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_decline_part(p_finalization_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_delete_cocktail_booth(p_event_id uuid, p_booth_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_delete_sign(p_event_id uuid, p_sign_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_inquiry_heatmap(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public

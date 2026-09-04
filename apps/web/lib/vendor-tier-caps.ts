@@ -87,6 +87,33 @@ export interface TierCaps {
   /** Portfolio photo cap. Infinity = unlimited. */
   portfolioPhotos: number;
   /**
+   * BACK-CATALOGUE photos the shop may put into the couple-facing moodboard
+   * supplier gallery (MB11). A SECOND, SMALLER ladder that sits ALONGSIDE
+   * `portfolioPhotos` and never replaces it — the two answer different
+   * questions and the owner sized them separately:
+   *
+   *   · `portfolioPhotos` = how much of your shop YOUR OWN page may show.
+   *   · `galleryBackCatalogPhotos` = how much of your archive we push into
+   *     OTHER people's inspiration boards.
+   *
+   * Only BACK-CATALOGUE counts — a photo delivered on a celebration the shop
+   * was actually booked for (`moodboard_library_assets.source_event_id IS NOT
+   * NULL`) is never rationed, at any tier. That is why FREE is 0 here and is
+   * still not shut out: a free shop can event-link, it just cannot mine its
+   * archive into the gallery.
+   *
+   * 🔑 THE TWO FIGURES THE OWNER GAVE ARE PRO 20 AND ENTERPRISE 100 (MB11
+   * brief, 2026-09-03). Solo is 0 because he did not name a solo figure and
+   * inventing one would be exactly the guess CLAUDE.md RULE 0 §9 forbids —
+   * a solo allowance is an owner call, not an engineering default. Custom
+   * clones Enterprise like every other axis.
+   *
+   * Enforced as a check on NEW INSERTS only (see the server action), so rows
+   * created under a looser ladder are grandfathered by construction and no
+   * rescue migration is ever needed.
+   */
+  galleryBackCatalogPhotos: number;
+  /**
    * Eligible to be tagged in editorial (the showcase credit chip — logo +
    * /v/[slug] link). RETIRED AS A TIER DISTINCTION 2026-07-16 (owner-ratified
    * Simplicity Canon rule 2, Creator_Economy_Discount_Collab_Build_Plan:
@@ -235,6 +262,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: false,
     importCustomerTokenCost: 0,
     portfolioPhotos: 30,
+    galleryBackCatalogPhotos: 0, // MB11 — back-catalogue only; event-linked is never counted
     marketIntel: false,
     theftWatch: false,
     performanceTrends: false,
@@ -290,6 +318,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
+    galleryBackCatalogPhotos: 0, // MB11 — back-catalogue only; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     seoLevel: 'basic', // basic indexability is free for all (§ 8)
@@ -326,6 +355,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
+    galleryBackCatalogPhotos: 0, // MB11 — back-catalogue only; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     // Solo buys ENHANCED SEO + GEO (§ 8): local/entity structured data on top of
@@ -364,6 +394,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 100,
+    galleryBackCatalogPhotos: 20, // MB11 — back-catalogue only; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
     // Pro buys AEO — the machine-answerable offer graph AI answer engines quote
@@ -404,6 +435,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 300,
+    galleryBackCatalogPhotos: 100, // MB11 — back-catalogue only; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
     // Enterprise · Custom buy the TOP sitemap priority band on top of AEO
@@ -446,6 +478,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 300,
+    galleryBackCatalogPhotos: 100, // MB11 — back-catalogue only; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
     // Enterprise · Custom buy the TOP sitemap priority band on top of AEO

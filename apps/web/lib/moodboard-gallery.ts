@@ -45,8 +45,15 @@ import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
 
-/** `moodboard_library_assets.asset_type` for a supplier's own portfolio photo. */
-export const SUPPLIER_GALLERY_ASSET_TYPE = 'supplier_gallery' as const;
+/**
+ * `moodboard_library_assets.asset_type` for a supplier's own portfolio photo.
+ *
+ * DEFINED in lib/moodboard-gallery-pure.ts and re-exported here so every server
+ * caller keeps its import path. The literal moved because MB11's upload FORM is
+ * a client component and this module reaches `lib/supabase/admin.ts` through
+ * the taxonomy — the boundary this file's closing note already warns about.
+ */
+export { SUPPLIER_GALLERY_ASSET_TYPE } from './moodboard-gallery-pure';
 
 /**
  * Which marketplace trades supply each inspiration slot.

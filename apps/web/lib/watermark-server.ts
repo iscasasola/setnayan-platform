@@ -28,6 +28,40 @@
  * owner directive it serves is about scraping and attribution, and a visible
  * mark is what that asks for.
  *
+ * ── TWO SESSIONS BUILT THIS FILE ON THE SAME DAY (MB9 · MB11) ─────────────
+ * MB11 needed the same thing for the VENDOR upload path — the supplier gallery
+ * is the other publicly-readable pool — and wrote its own copy of this module
+ * before MB9 merged. They are now ONE module: MB9's contract, geometry and
+ * JPEG-only output are kept verbatim (its callers and tests are untouched),
+ * with two things folded in from MB11 below — `imageRegionStats`, and the way
+ * the glyphs are drawn.
+ *
+ * ── THE GLYPHS ARE VECTOR PATHS, NOT A FONT-FAMILY REQUEST ────────────────
+ * ⚠ THIS IS A CORRECTION TO WHAT THIS FILE SAID ON 2026-09-04, AND IT IS
+ * LOAD-BEARING. The original note here read: "No font FILE is referenced. sharp
+ * renders SVG text through librsvg/fontconfig using whatever the host has… A
+ * generic family is available everywhere the app runs." That is an assumption,
+ * and if it is wrong the failure is silent and lands exactly where it must not:
+ * the scrim composites, the pixels change, every pixel-reading test still
+ * passes — and the mark is a blank grey pill on a public gallery photograph.
+ *
+ * The repo's own shipped evidence points the other way. `lib/social/card.tsx`
+ * carries the finding in its docblock — "librsvg's fontconfig path is flaky on
+ * Vercel" — which is why every social card, the lockup PDF and the Papic
+ * display ref all render text through satori with an EXPLICIT font buffer. Grep
+ * confirms it: before this change, this file was the ONLY place in the codebase
+ * rasterizing SVG `<text>` through sharp.
+ *
+ * So the wordmark is rendered by satori into vector PATHS from the bundled
+ * Poppins TTF and composited as an image. No host font is consulted, on any
+ * runtime. The scrim stays a plain `<rect>` (no font needed) and the geometry
+ * below is unchanged, so the mark looks the same and MB9's tests assert the
+ * same pixels.
+ *
+ * 🔑 FLAGGED FOR THE OWNER rather than assumed: if the DejaVu/Helvetica
+ * assumption was in fact verified against a Vercel lambda, say so and this can
+ * go back — but it should not rest on a claim nobody measured.
+ *
  * ── OUTPUT IS ALWAYS JPEG, ON PURPOSE ─────────────────────────────────────
  * One format out means one extension, one content type and one set of bytes to
  * assert on. A render is a photograph; JPEG loses nothing that matters here and
@@ -77,10 +111,13 @@ export async function watermarkImageBytes(
     .toBuffer({ resolveWithObject: true });
 
   const { width, height } = resized.info;
-  const overlay = Buffer.from(watermarkSvg(width, height));
+  const { scrim, wordmark } = await watermarkLayers(width, height);
 
   const bytes = await sharp(resized.data)
-    .composite([{ input: overlay, top: 0, left: 0 }])
+    .composite([
+      { input: scrim, top: 0, left: 0 },
+      { input: wordmark.buffer, top: wordmark.top, left: wordmark.left },
+    ])
     .jpeg({ quality: 86 })
     .toBuffer();
 
@@ -88,21 +125,29 @@ export async function watermarkImageBytes(
 }
 
 /**
- * The mark itself — an SVG the exact size of the image, composited at 0,0.
+ * The mark, in two layers.
  *
- * Sized off the SHORT edge so a wide render and a tall one get a mark of the
- * same visual weight, and drawn bottom-right over a soft dark scrim so it stays
- * legible on both a white ceiling drape and a night reception. The scrim is why
- * this is not just `text` with an opacity: white-on-white is a watermark that
- * marks nothing, and it would still pass any test that only asked "did we
- * composite something".
+ * LAYER 1 — the scrim: a rounded `<rect>` the size of the image, drawn
+ * bottom-right. Plain SVG geometry, no text, so librsvg needs no font for it.
+ * It is why this is not just translucent white lettering: white-on-white is a
+ * watermark that marks nothing, and it would still pass any test that only
+ * asked "did we composite something".
  *
- * No font FILE is referenced. sharp renders SVG text through librsvg/fontconfig
- * using whatever the host has; a missing custom font on a Vercel lambda would
- * silently drop the glyphs. A generic family is available everywhere the app
- * runs, and legibility here beats typography.
+ * LAYER 2 — the wordmark: SETNAYAN, rendered by satori into vector PATHS from
+ * the bundled Poppins TTF and rasterized as its own small PNG, then placed on
+ * the scrim. No host font is consulted — see the header for why that matters
+ * more than it looks like it does.
+ *
+ * Both are sized off the SHORT edge so a wide render and a tall one get a mark
+ * of the same visual weight. The geometry is MB9's, unchanged.
  */
-function watermarkSvg(width: number, height: number): string {
+async function watermarkLayers(
+  width: number,
+  height: number,
+): Promise<{
+  scrim: Buffer;
+  wordmark: { buffer: Buffer; top: number; left: number };
+}> {
   const short = Math.min(width, height);
   const fontSize = Math.max(16, Math.round(short * 0.055));
   const pad = Math.max(10, Math.round(short * 0.03));
@@ -110,16 +155,134 @@ function watermarkSvg(width: number, height: number): string {
   const scrimW = Math.round(fontSize * (WATERMARK_TEXT.length * 0.72 + 1.4));
   const scrimX = Math.max(0, width - scrimW - pad);
   const scrimY = Math.max(0, height - scrimH - pad);
-  const textX = scrimX + Math.round(scrimW / 2);
-  const textY = scrimY + Math.round(scrimH / 2 + fontSize * 0.36);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  const scrim = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
   <rect x="${scrimX}" y="${scrimY}" width="${scrimW}" height="${scrimH}" rx="${Math.round(
-    scrimH / 2,
-  )}" fill="rgba(20,18,16,0.42)"/>
-  <text x="${textX}" y="${textY}" text-anchor="middle"
-        font-family="DejaVu Sans, Helvetica, Arial, sans-serif"
-        font-size="${fontSize}" font-weight="700" letter-spacing="${Math.round(fontSize * 0.12)}"
-        fill="rgba(255,255,255,0.92)">${WATERMARK_TEXT}</text>
-</svg>`;
+      scrimH / 2,
+    )}" fill="rgba(20,18,16,0.42)"/>
+</svg>`,
+  );
+
+  const wordmarkPng = await renderWordmark(fontSize, scrimW, scrimH);
+  const placed = await sharp(wordmarkPng).metadata();
+  const wmW = placed.width ?? scrimW;
+  const wmH = placed.height ?? scrimH;
+
+  return {
+    scrim,
+    wordmark: {
+      buffer: wordmarkPng,
+      // Centred in the scrim, and clamped so a mark wider than its plate (only
+      // reachable on a pathologically small image) still lands inside the
+      // canvas rather than making sharp throw.
+      left: Math.max(0, Math.min(width - wmW, scrimX + Math.round((scrimW - wmW) / 2))),
+      top: Math.max(0, Math.min(height - wmH, scrimY + Math.round((scrimH - wmH) / 2))),
+    },
+  };
+}
+
+/**
+ * SETNAYAN as vector paths on a transparent ground.
+ *
+ * satori is loaded dynamically and the TTF is read on demand so neither is
+ * pulled in until a mark is actually drawn. Same font and same mechanism as
+ * every social card in `lib/social`, for the same documented reason.
+ */
+async function renderWordmark(
+  fontSizePx: number,
+  maxWidth: number,
+  maxHeight: number,
+): Promise<Buffer> {
+  const [{ default: satori }, fs, path] = await Promise.all([
+    import('satori'),
+    import('node:fs'),
+    import('node:path'),
+  ]);
+  const fontData = fs.readFileSync(
+    path.join(process.cwd(), 'lib', 'social', 'fonts', 'Poppins-Bold.ttf'),
+  );
+
+  const tree = {
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        height: '100%',
+      },
+      children: {
+        type: 'span',
+        props: {
+          style: {
+            fontFamily: 'Poppins',
+            fontSize: fontSizePx,
+            fontWeight: 700,
+            letterSpacing: Math.round(fontSizePx * 0.12),
+            color: 'rgba(255,255,255,0.92)',
+          },
+          children: WATERMARK_TEXT,
+        },
+      },
+    },
+  };
+
+  // The object element form, cast at the boundary — the app's tsconfig is
+  // `jsx: preserve` and satori wants React-element-SHAPED objects but not real
+  // React. Same cast, for the same reason, as every card in lib/social.
+  const svg = await satori(tree as unknown as React.ReactNode, {
+    width: Math.max(1, Math.round(maxWidth)),
+    height: Math.max(1, Math.round(maxHeight)),
+    fonts: [
+      { name: 'Poppins', data: fontData, weight: 700 as const, style: 'normal' as const },
+    ],
+  });
+
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+/**
+ * Read back the greyscale statistics of one quadrant of an ENCODED image.
+ *
+ * The instrument the watermark guards measure with: it looks at the pixels that
+ * were actually produced, so a change that skips the mark shows up as a flat
+ * corner and the test goes red. Nothing here reads a flag or a return value
+ * claiming the mark was applied.
+ *
+ * 🪤 sharp's own `.stats()` READS THE INPUT IMAGE and silently DISCARDS the
+ * pipeline queued in front of it — an `.extract()` before it is thrown away.
+ * Measured 2026-09-04 on a flat 800×600 test image: all four quadrants of a
+ * MARKED image came back identical (mean 139.584 · stdev 6.200), so a guard
+ * built on `.stats()` could never have gone red no matter what it watched. The
+ * region is read out with `.raw()` and the statistics computed by hand.
+ */
+export async function imageRegionStats(
+  bytes: Uint8Array,
+  region: 'bottom_right' | 'top_left',
+): Promise<{ mean: number; stdev: number }> {
+  const meta = await sharp(Buffer.from(bytes)).metadata();
+  const width = meta.width ?? 0;
+  const height = meta.height ?? 0;
+  if (width < 4 || height < 4) throw new Error('imageRegionStats: image too small');
+
+  const w = Math.floor(width / 2);
+  const h = Math.floor(height / 2);
+  const left = region === 'bottom_right' ? width - w : 0;
+  const top = region === 'bottom_right' ? height - h : 0;
+
+  const raw = await sharp(Buffer.from(bytes))
+    .extract({ left, top, width: w, height: h })
+    .greyscale()
+    .raw()
+    .toBuffer();
+  if (raw.length === 0) throw new Error('imageRegionStats: empty region');
+
+  let sum = 0;
+  for (const v of raw) sum += v;
+  const mean = sum / raw.length;
+  let variance = 0;
+  for (const v of raw) variance += (v - mean) * (v - mean);
+  return { mean, stdev: Math.sqrt(variance / raw.length) };
 }

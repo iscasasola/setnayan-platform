@@ -65,9 +65,12 @@ test("GUARD: the reconnecting sentence is gated on state === 'reconnecting' alon
 });
 
 test('polling stops once nothing is left to reconnect to', () => {
+  // Tolerates extra guards/parens around the core condition (e.g. `!slug ||`)
+  // as long as the stop-condition itself — state is neither 'live' nor
+  // 'reconnecting' — still gates the effect's early return.
   assert.match(
     EMBED,
-    /if \(state !== 'live' && state !== 'reconnecting'\) return;/,
+    /if \([\s\S]{0,40}state !== 'live' && state !== 'reconnecting'[\s\S]{0,10}\) return;/,
     "the effect no longer stops polling on 'ended'/'not_yet' — this could poll a finished event forever",
   );
 });

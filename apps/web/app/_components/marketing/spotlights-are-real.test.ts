@@ -115,9 +115,14 @@ const BANNED_STILLS: ReadonlyArray<{ file: string; why: string }> = [
   {
     file: '/add-ons/demo/stills/animated-monogram-1.jpg',
     why:
-      'the frame reads "One price for your wedding · ₱1,000" and carries an ' +
+      'the frame carries a PRICE ("One price for your wedding · …") and an ' +
       '"Upgrade" pill. Every doorway quotes NO price — prices are admin-managed ' +
-      'and move, and a screenshot of one is a dead number on an indexed page.',
+      'and move, and a screenshot of one is a number nothing watches: the drift ' +
+      'checker reads source literals, and a JPEG is not source. ' +
+      '⚠ THE REASON IS DELIBERATELY NOT THE FIGURE. It said "₱1,000" for one ' +
+      'day and the SKU was repriced to ₱500 the next, which would have left a ' +
+      'ban justified by a number that no longer existed. The objection is that ' +
+      'a price is there at all.',
   },
   {
     file: '/add-ons/demo/stills/custom-qr-guest-0.jpg',

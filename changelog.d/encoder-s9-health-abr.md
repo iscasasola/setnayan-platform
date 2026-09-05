@@ -64,16 +64,26 @@ OR expression.
   or `Channel<u64>` (occupancy) at all — S5, once its own CI is green, will ship the envelope/
   ACL/token machinery, not the glue between the received bytes and this crate's already-shipped
   (S6/S7) sender/reconnect path.
-- S4 (the browser-side `VideoEncoder` from the canvas) also has not landed — `git grep VideoEncoder
-  origin/main -- apps/web` returns only the pre-existing, unrelated `boomerang-encoder.ts`/
-  `reel-render.ts`. There is no live-encode call site for `stepBitrateRung`'s output to reconfigure.
-- Consequence: `IngestHealthStrip` passes `encoder: null` always (documented inline, at the exact
-  line); the EVIDENCE section of S9.md (throttle the uplink, observe the rung step within 3s) could
-  not be produced — there is no running desktop encoder on `origin/main` to throttle. This is a
-  premise finding, not a skipped step: `decideIngestHealth`/`stepBitrateRung` are fully built,
-  tested, and ready to receive real data the moment a follow-up session finishes the
-  `encoder_ipc.rs` ↔ `reconnect::supervise()`/`occupancy::SendBufferProbe` glue and adds the two
-  Tauri channels. That follow-up is flagged as its own session below, per rule 15.
+- S4 (the browser-side `VideoEncoder` from the canvas) had ALSO not landed when this session
+  started — it merged mid-session as PR #5236, picked up here via a clean merge from
+  `origin/main` (no conflicts; this PR's files are untouched by it). `apps/web/lib/encoder/
+  program-canvas.worker.ts`'s `startVideoEncoder`/`videoEncoder.configure(VIDEO_ENCODER_CONFIG)`
+  is the real call site a follow-up should call `stepBitrateRung`'s ladder entry into — but S4
+  shipped a FIXED config (2.5 Mbps, no runtime reconfigure path, no message protocol from the
+  main thread into the worker for "change rung now") and there is still no occupancy DATA to
+  drive it with (see the S5 gap below). Wiring the call site without a real sender behind it
+  would mean guessing at a postMessage protocol S5's actual shape should decide — not done here,
+  flagged as the precise integration point instead.
+- S5 (Rust→JS IPC): consequence unchanged from above — `IngestHealthStrip` passes `encoder: null`
+  always (documented inline, at the exact line); the EVIDENCE section of S9.md (throttle the
+  uplink, observe the rung step within 3s) could not be produced — there is no running desktop
+  encoder end-to-end on `origin/main` to throttle, even with S4 now real, because nothing carries
+  occupancy samples or `HealthEvent`s across the IPC boundary yet. This is a premise finding, not
+  a skipped step: `decideIngestHealth`/`stepBitrateRung` are fully built, tested, and ready to
+  receive real data the moment a follow-up session finishes the `encoder_ipc.rs` ↔
+  `reconnect::supervise()`/`occupancy::SendBufferProbe` glue, adds the two Tauri channels, and
+  wires `program-canvas.worker.ts`'s reconfigure call site. That follow-up is flagged as its own
+  session below, per rule 15.
 
 MUTATION COUNTS (rule 7 — before → after, all reverted):
   - `decideIngestHealth` PRECEDENCE 1 guard (`youtube.state === 'no_data' || !encoder`): 26 pass, 0
@@ -93,9 +103,12 @@ machine load — see `build-sessions/encoder/S9.md`'s own rule 6 on non-zero tes
 
 FOLLOW-UP SESSION NEEDED (rule 15 — flagged, not opened here): wire `encoder_ipc.rs`'s
 `encoder_push` path into `reconnect::supervise()` + `occupancy::SendBufferProbe`, add the two Tauri
-`Channel`s (`HealthEvent`, raw occupancy `u64`), and only then can `IngestHealthStrip`'s `encoder`
-value and `stepBitrateRung`'s `VideoEncoder.configure()` call site (needs S4 first) go live. Nothing
-in this PR needs to change for that to happen — both deciders already accept the real shape.
+`Channel`s (`HealthEvent`, raw occupancy `u64`), define the main-thread → worker message that
+carries a rung change into `program-canvas.worker.ts`, and call `videoEncoder.configure()` there
+with `BITRATE_LADDER[newRung]`. S4 (real `VideoEncoder`) is now on `main`, so only the IPC/message
+plumbing is left — `IngestHealthStrip`'s `encoder` value and `stepBitrateRung`'s output can go live
+the moment that plumbing exists. Nothing in this PR needs to change for that to happen — both
+deciders already accept the real shape.
 
 SPEC IMPACT: None (build-sessions/encoder/S9.md is a build-session prompt, not the design doc; no
 locked decision changed).

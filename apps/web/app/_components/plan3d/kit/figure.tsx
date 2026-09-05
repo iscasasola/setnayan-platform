@@ -65,7 +65,8 @@ import {
   type StaffIdleKind,
 } from '@/lib/figure-rig';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
-import { mannequinMaterial, isStaffOutfit, outfitMaterial, trouserMaterial } from './outfits';
+import { mannequinMaterial, isStaffOutfit, outfitMaterial, trouserMaterial, plainMaterial } from './outfits';
+import { hairCapGeometry } from './hair-cap';
 // Rig proportions + leaf placements + the pose applier now live in the PURE,
 // unit-tested `lib/figure-sit-bake` so the SINGLE source drives BOTH this
 // rendered figure AND the instanced seated crowd's baked-pose extraction — the
@@ -462,8 +463,16 @@ export const Figure = memo(function Figure({
   // wear the darker trouser cloth; the head + joint stumps stay body so the
   // one-piece silhouette is unchanged — only the colour/texture reads as a role.
   const staff = isStaffOutfit(spec.outfit);
-  const garmentMat = staff ? outfitMaterial(spec.outfit, spec.outfitColor) : bodyMat;
-  const legMat = staff ? trouserMaterial(spec.outfit, spec.outfitColor) : bodyMat;
+  // HERITAGE (owner 2026-09-06, the second avatar style): a spec that carries
+  // its look — `skinTone` is the tell — is DRESSED like staff (garment cloth on
+  // the torso + arms, trouser cloth on the legs) and gets skin on the head plus
+  // a hair cap. A spec without a look is the untouched one-piece mannequin:
+  // every guest who never made an avatar renders byte-for-byte as before.
+  const look = spec.skinTone != null;
+  const dressed = staff || look;
+  const garmentMat = dressed ? outfitMaterial(spec.outfit, spec.outfitColor) : bodyMat;
+  const legMat = dressed ? trouserMaterial(spec.outfit, spec.outfitColor) : bodyMat;
+  const headMat = look ? plainMaterial(spec.skinTone!) : bodyMat;
 
   // Shell placement: the re-proportioned lathe shells (2026-07-08 silhouette
   // pass) are authored directly in torso space — collar at ≈0.50, waist,
@@ -634,7 +643,16 @@ export const Figure = memo(function Figure({
               ) : (
                 // 2026-07-08 avatar pivot: the blank featureless head — no
                 // face, no hair. Pure silhouette (the owner's blueprint).
-                <mesh geometry={HEAD_GEO} material={bodyMat} castShadow={castShadow} />
+                <>
+                  <mesh geometry={HEAD_GEO} material={headMat} castShadow={castShadow} />
+                  {look && spec.hairStyle != null ? (
+                    <mesh
+                      geometry={hairCapGeometry(spec.hairStyle)}
+                      material={plainMaterial(spec.hairColor ?? '#241a12')}
+                      castShadow={castShadow}
+                    />
+                  ) : null}
+                </>
               )}
             </group>
           </group>

@@ -25,7 +25,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { stripComments } from '@/lib/strip-comments';
 
 const PAGE = new URL('./page.tsx', import.meta.url);
@@ -204,5 +204,71 @@ test('the canvas image asks for CORS — a clean host is useless if the tag neve
     'RecolorStudio loads the image for the canvas without crossOrigin="anonymous", so ' +
       'every getImageData throws a security error and every card degrades to an ' +
       'un-recoloured paint — with no console error the couple or we would ever see.',
+  );
+});
+
+/**
+ * MB24 · AND THE MODERN-MINIMALIST BRIDE IS PICKABLE AGAIN.
+ *
+ * The preference asserted above — first-variant-with-ranges wins — is what kept
+ * "In your colors" honest while this asset had no range: MB23 deleted hers
+ * because her gown and a full-canvas backdrop path shared one fill (ΔE 0.0), so
+ * the picker quietly passed her over and showed a bride who could recolour.
+ *
+ * MB24 re-cut the artwork and gave her `#ECEBE7 ± 16` in migration
+ * `20271206127987`, so she is a candidate again. That is a good outcome and a
+ * fragile one: the preference is silent by design. Delete her range in some
+ * later migration and nothing fails — the section simply stops offering the
+ * modern-minimalist bride, and no one finds out by looking at a green build.
+ *
+ * 🪤 SO THE ASSERTION IS ON THE NET EFFECT OF THE MIGRATIONS, NOT ON MB24 ALONE.
+ * Checking only that `20271206127987` inserts a range would stay green forever
+ * after a later migration deleted it again — the migration would still say what
+ * it always said. What decides whether she is pickable is the LAST migration to
+ * touch her range, so that is what this reads.
+ */
+const MIGRATIONS_DIR = new URL('../../../../../../../supabase/migrations/', import.meta.url);
+const BRIDE_SUFFIX = 'figure_attire/modern-minimalist/bride.svg';
+
+test('MB24: the modern-minimalist bride still ends up WITH a colour range', () => {
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort(); // 14-digit prefixes sort chronologically
+
+  // Every migration that changes her range, in order. `stripComments` keeps a
+  // docblock that merely DISCUSSES the bride — this file is full of them — from
+  // being read as a statement that acts on her.
+  const touches: { file: string; effect: 'insert' | 'delete' }[] = [];
+  for (const f of files) {
+    const sql = stripComments(readFileSync(new URL(f, MIGRATIONS_DIR), 'utf8'));
+    if (!sql.includes('moodboard_asset_color_ranges')) continue;
+    if (!sql.includes(BRIDE_SUFFIX)) continue;
+    // A DELETE naming her, versus an INSERT of a range for her.
+    const deletes = /DELETE\s+FROM\s+public\.moodboard_asset_color_ranges/i.test(sql);
+    const inserts = /INSERT\s+INTO\s+public\.moodboard_asset_color_ranges/i.test(sql);
+    if (deletes && !inserts) touches.push({ file: f, effect: 'delete' });
+    else if (inserts) touches.push({ file: f, effect: 'insert' });
+  }
+
+  assert.ok(
+    touches.length > 0,
+    'no migration mentions the modern-minimalist bride\'s colour range at all, so this ' +
+      'guard is watching nothing. MB24 (20271206127987) should be inserting one.',
+  );
+
+  const last = touches[touches.length - 1]!;
+  assert.equal(
+    last.effect,
+    'insert',
+    `the last migration to touch the modern-minimalist bride's colour range is ${last.file}, ` +
+      'and it DELETES it. She then has no range, `figureBySubtype` prefers a variant that ' +
+      'does, and the modern-minimalist bride silently stops appearing in "In your colors" — ' +
+      'with every test green, because the preference is a fallback and not an error.\n\n' +
+      'If the range genuinely cannot survive (the artwork changed again), that is a real ' +
+      'decision: re-measure, say so here, and record it in the untaggable list in ' +
+      'tests/db/no-placeholder-photo-is-ever-live.db.test.ts — which MB24 emptied.\n\n' +
+      `Migrations touching her range, in order: ${touches
+        .map((t) => `${t.file} (${t.effect})`)
+        .join(' → ')}`,
   );
 });

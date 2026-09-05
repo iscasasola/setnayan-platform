@@ -35,6 +35,17 @@ const FIGURE = {
     'https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/moodboard-library/figure_attire/elegant-simple-classic/bride.svg',
 };
 const FLORAL = { source: 'setnayan_seed', storage_path: '/moodboard-seed/florals/bouquet.webp' };
+/**
+ * MB24 moved the re-cut modern-minimalist bride to the same app-served shape as
+ * the florals. Pinned here because the alternative, if this predicate ever
+ * refused an app-relative path, would be to host the artwork on R2 instead —
+ * and that is the wrong repair. A `/moodboard-seed/…` path has no host to judge;
+ * refusing one would be a bug in the predicate, not a reason to move the file.
+ */
+const RECUT_BRIDE = {
+  source: 'higgsfield_generated',
+  storage_path: '/moodboard-seed/figure_attire/modern-minimalist/bride.svg',
+};
 
 test('the two rows the owner saw are placeholders', () => {
   assert.equal(isPlaceholderAsset(CHURCH), true);
@@ -44,6 +55,13 @@ test('the two rows the owner saw are placeholders', () => {
 test('real artwork is not', () => {
   assert.equal(isPlaceholderAsset(FIGURE), false);
   assert.equal(isPlaceholderAsset(FLORAL), false, 'an app-relative path has no host to judge');
+  assert.equal(
+    isPlaceholderAsset(RECUT_BRIDE),
+    false,
+    'the app-served attire figure MB24 added is real artwork; refusing it would block the ' +
+      'admin from approving the asset this app serves itself',
+  );
+  assert.equal(placeholderRefusal(RECUT_BRIDE), null);
 });
 
 test('the host test and the source test each catch rows the other misses', () => {

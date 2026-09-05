@@ -1150,7 +1150,8 @@ export function ShortlistCategories({
   const [moreSaved, setMoreSaved] = useState<
     Record<string, { eventVendorId: string; undoable: boolean }>
   >({});
-  // The one card mid-flight, so only its own button says "Saving…".
+  // The one card mid-flight, so only ITS buttons go quiet — a save on one card
+  // must not disable the row.
   const [moreBusy, setMoreBusy] = useState<string | null>(null);
   const [moreError, setMoreError] = useState<string | null>(null);
 

@@ -1,0 +1,15 @@
+=== S0 probe run mode=ipc minutes=1 started Sat Sep  5 14:51:38 PST 2026 ===
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+arm64
+Apple M1 Pro
+WebKit framework: 21624.5.1.11.3
+Safari: 26.6.2
+rustc: rustc 1.95.0 (59807616e 2026-04-14) · tauri-cli: tauri-cli 2.11.1
+git: abb485e26 claude/encoder-s0-spike
+[runner] 2026-09-05T14:51:39+0800 CONTROL RUN on tauri://localhost (SETNAYAN_PROBE_SHELL=local) — weaker origin, not the finding's primary result
+        Info Looking up installed tauri packages to check mismatched versions...
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling setnayan-desktop v0.0.1 (/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri)

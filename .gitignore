@@ -141,3 +141,6 @@ supabase/.temp/
 *.tsbuildinfo
 .vercel
 apps/web/supabase/.temp/
+
+# S0 encoder-spike evidence logs are the finding's evidence, not build noise (build-sessions/encoder/S0-FINDING.md § 10).
+!/build-sessions/encoder/S0-logs/*.log

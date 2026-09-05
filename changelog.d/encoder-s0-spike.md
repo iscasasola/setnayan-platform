@@ -30,10 +30,29 @@ and AAC-LC 48k stereo supported; the Tauri custom-protocol IPC FAILS on the firs
 `disposition:report`), so every body arrives as `InvokeBody::Json` (array of 10240 numbers) —
 the binary path is never taken from the https origin.
 
-Next concrete step if this session ends early: run `SETNAYAN_PROBE_TOP=1 src-tauri/probe/run.sh
-encode 60` and paste the `encode-10s` lines into `build-sessions/encoder/S0-FINDING.md` § 4; run
-`SETNAYAN_PROBE_SHELL=local src-tauri/probe/run.sh ipc` for the control and `run.sh ipc` again
-with the loopback arm for the real origin.
+- `build-sessions/encoder/S0-FINDING.md` (new) — THE DELIVERABLE: the Q1 matrix with versions, the
+  Q2 transport finding (real origin vs. `tauri://localhost` control vs. loopback HTTP/WebSocket
+  arms), the long-encode summary, Q3 as LEFT UNDONE with exact steps, and the two closing answers
+  (a: the WebCodecs floor holds on macOS 26.6.2 arm64 / WebKit 21624.5.1.11.3, other cells LEFT
+  UNDONE; b: `InvokeBody::Raw` is unreachable from the https origin — S5's contract cannot pass as
+  written; options laid out, none chosen).
+- `build-sessions/encoder/S0-logs/` (new) — byte-for-byte copies of every runner log the finding
+  quotes (`src-tauri/.gitignore` excludes `probe/*.log`, so they would otherwise never enter the repo).
+- Harness hardening while finishing: window ops off the page-load thread, a loopback `/diag` side
+  channel, a `ws://127.0.0.1` arm, time-boxed direct `ipc://` diagnostics, `detach.py` (runs
+  outlive the shell that launched them), and run.sh's silence check counting `[probe` lines.
+
+COORDINATION NOTE (2026-09-05 14:53): TWO sessions were found working this branch in the same
+worktree at once (commits 7be5cbecf and abb485e26 are from different sessions, minutes apart), and
+every `cargo tauri build` in `wt-s0` kills the other session's running probe (macOS terminates a
+process whose binary is rewritten). The session writing `S0-FINDING.md` runs its measurements from
+a detached worktree `../wt-s0-run` with its own cargo target so the runs cannot be killed; its
+final logs are copied into `build-sessions/encoder/S0-logs/`. If you are the other session: do not
+start another control/encode run from `wt-s0` — the finding will carry the numbers.
+
+Next concrete step if this session ends early: everything measured is in `S0-logs/`; the finding's
+§ 3.2 / § 3.3 / § 4 are filled from `s0-ipc-localshell-rerun.log`, `s0-ipc-realorigin-loopback.log`
+and `s0-encode.log` respectively — re-run whichever is missing with the command in § 1.
 
 SPEC IMPACT: None (finding only; the design doc `Live_Studio_Encoder_Scope_2026-09-03.md` is
 updated by the owner once the floor is confirmed on the remaining matrix machines).

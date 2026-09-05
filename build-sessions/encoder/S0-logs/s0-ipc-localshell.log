@@ -1,0 +1,73 @@
+=== S0 probe run mode=ipc minutes=1 started Sat Sep  5 14:34:27 PST 2026 ===
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+arm64
+Apple M1 Pro
+WebKit framework: 21624.5.1.11.3
+Safari: 26.6.2
+rustc: rustc 1.95.0 (59807616e 2026-04-14) · tauri-cli: tauri-cli 2.11.1
+git: 23afcb631 claude/encoder-s0-spike
+[runner] 2026-09-05T14:34:28+0800 CONTROL RUN on tauri://localhost (SETNAYAN_PROBE_SHELL=local) — weaker origin, not the finding's primary result
+        Info Looking up installed tauri packages to check mismatched versions...
+   Compiling objc2-exception-helper v0.1.1
+   Compiling objc2 v0.6.4
+   Compiling block2 v0.6.2
+   Compiling objc2-core-foundation v0.3.2
+   Compiling dispatch2 v0.3.1
+   Compiling objc2-foundation v0.3.2
+   Compiling objc2-app-kit v0.3.2
+   Compiling objc2-web-kit v0.3.2
+   Compiling tao v0.35.2
+   Compiling window-vibrancy v0.6.0
+   Compiling muda v0.19.1
+   Compiling tauri-runtime v2.11.1
+   Compiling wry v0.55.1
+   Compiling tauri-runtime-wry v2.11.1
+   Compiling tauri v2.11.1
+   Compiling tauri-plugin-opener v2.5.4
+   Compiling tauri-plugin-oauth v2.0.0
+   Compiling setnayan-desktop v0.0.1 (/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.71s
+       Built application at: /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[runner] 2026-09-05T14:34:43+0800 BUILD_EXIT=0 elapsed=15s
+[runner] 2026-09-05T14:34:43+0800 load-at-start: 11.03 14.02 10.75 · SETNAYAN_PROBE_TOP=1 SETNAYAN_PROBE_ORIGIN=any
+[runner] 2026-09-05T14:34:43+0800 app pid=67115 bin=/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[sample] 2026-09-05T14:34:43 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67115   0.0     32 /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[sample]   54038   0.0   7584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   54035   0.0  14672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   54034   0.0   8080 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   44679   0.0   2928 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   44677   0.0  11920 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788590085572 page-load finished url=tauri://localhost on_target_origin=false tauri=2.11.1
+[probe] t=1788590085572 loopback listener 127.0.0.1:57368
+[probe] t=1788590085573 eval dispatched mode=ipc origin=null
+[probe] t=1788590085574 window pinned always-on-top 560x360 (SETNAYAN_PROBE_TOP=1)
+__TAURI_INVOKE_KEY__ expected Fl+0Bt1Wu6EOlem.[Vox but received bogus
+[sample] 2026-09-05T14:34:53 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67197   0.0  32384 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67193   0.0  27856 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67115   0.0 125472 /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[sample]   54038   0.0   8432 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   54035   0.0  16384 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   54034   0.0  47408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T14:35:03 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67197   0.0  32368 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67193   0.0  27840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67115   0.0 125376 /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[sample]   54038   0.0   8416 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   54035   0.0  16368 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   54034   0.0  47408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T14:35:13 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   44657   0.1  12880 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67197   0.0  32304 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67193   0.0  27840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67115   0.0 125360 /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[sample]   54038   0.0   8416 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   54035   0.0  16384 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[runner] 2026-09-05T14:35:23+0800 app exited; log=/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/probe/s0-ipc-localshell.log

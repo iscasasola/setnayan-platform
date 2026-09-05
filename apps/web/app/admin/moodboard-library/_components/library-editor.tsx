@@ -24,10 +24,17 @@ import {
   approveAsset,
   deleteAsset,
   getRandomHiggsfieldPrompt,
+  rejectAsset,
   retireAsset,
   saveColorRanges,
   uploadAsset,
 } from '../actions';
+import { ScreenFindingsPanel } from './screen-findings-panel';
+// ⚠ FROM THE ZERO-IMPORT MODULE, DELIBERATELY. This is a client component;
+// `lib/moodboard-gallery-upload.ts` reaches `lib/supabase/admin.ts` through the
+// taxonomy, so importing the findings vocabulary from there turns
+// `lint-server-only-boundary` red.
+import type { ScreenFindings } from '@/lib/moodboard-screen-findings';
 import type { RandomMoodboardPrompt } from '@/lib/higgsfield-prompts';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -49,6 +56,11 @@ export type LibraryAsset = {
   approved_at: string | null;
   retired_at: string | null;
   created_at: string;
+  /** MB21 · what the content screen found. NULL = clean, or pre-MB21. */
+  screen_findings: ScreenFindings | null;
+  /** MB21 · when a reviewer refused it. Paired with the reason by a DB CHECK. */
+  rejected_at: string | null;
+  rejection_reason: string | null;
   public_url: string;
   color_ranges: ColorRangeMap;
 };
@@ -78,6 +90,9 @@ export function LibraryEditor({ initialAssets }: Props) {
   // In-app confirm dialog replaces the 2 prior `confirm(...)` callsites.
   // Render `{dialog}` at the editor root so the modal can mount.
   const { confirm, dialog } = useConfirm();
+  // MB21 · the reject-with-reason box, opened beside Publish.
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const selected = useMemo(
     () => assets.find((a) => a.asset_id === selectedId) ?? null,
@@ -155,6 +170,9 @@ export function LibraryEditor({ initialAssets }: Props) {
           source,
           approved_at: null,
           retired_at: null,
+          screen_findings: null,
+          rejected_at: null,
+          rejection_reason: null,
           created_at: new Date().toISOString(),
           public_url: blobUrl,
           color_ranges: {},
@@ -201,7 +219,16 @@ export function LibraryEditor({ initialAssets }: Props) {
         setAssets((prev) =>
           prev.map((a) =>
             a.asset_id === selected.asset_id
-              ? { ...a, approved_at: new Date().toISOString(), retired_at: null }
+              ? {
+                  ...a,
+                  approved_at: new Date().toISOString(),
+                  retired_at: null,
+                  // The server clears both halves of the pairing; the optimistic
+                  // row must too, or the editor keeps drawing a rejection that
+                  // no longer exists.
+                  rejected_at: null,
+                  rejection_reason: null,
+                }
               : a,
           ),
         );
@@ -233,6 +260,47 @@ export function LibraryEditor({ initialAssets }: Props) {
         );
       } catch (err) {
         setActionError(`Retire failed: ${(err as Error).message}`);
+      }
+    });
+  }
+
+  /**
+   * MB21 · REJECT WITH A REASON.
+   *
+   * 🛑 A FREE-TEXT BOX, NOT A CONFIRM DIALOG. `useConfirm` answers yes/no, and
+   * a yes/no rejection is precisely the thing this session exists to delete —
+   * it is `retireAsset` with a different button. The supplier reads whatever is
+   * typed here and it is the only thing they can act on, so the reason is the
+   * feature and the button is the packaging.
+   */
+  function handleReject() {
+    if (!selected) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setActionError(
+        'Say what is wrong with the photo — the supplier sees this sentence.',
+      );
+      return;
+    }
+    startTransition(async () => {
+      try {
+        setActionError(null);
+        await save.run(() => rejectAsset(selected.asset_id, reason), {
+          steps: ['Sending the reason to the supplier'],
+          hint: 'Saving',
+        });
+        const now = new Date().toISOString();
+        setAssets((prev) =>
+          prev.map((a) =>
+            a.asset_id === selected.asset_id
+              ? { ...a, rejected_at: now, rejection_reason: reason, retired_at: now }
+              : a,
+          ),
+        );
+        setRejectReason('');
+        setRejectOpen(false);
+      } catch (err) {
+        setActionError(`Reject failed: ${(err as Error).message}`);
       }
     });
   }
@@ -444,8 +512,19 @@ export function LibraryEditor({ initialAssets }: Props) {
                         {a.asset_type}
                         {a.asset_subtype ? ` · ${a.asset_subtype}` : ''}
                         {' · '}
-                        {a.approved_at ? '✓ approved' : 'draft'}
-                        {a.retired_at ? ' · retired' : ''}
+                        {a.rejected_at
+                          ? '✕ rejected'
+                          : a.approved_at
+                            ? '✓ approved'
+                            : 'draft'}
+                        {a.retired_at && !a.rejected_at ? ' · retired' : ''}
+                        {/* 🔑 THE QUEUE HAS TO LOOK DIFFERENT. Before MB21 a
+                            flagged photo and a spotless one were byte-identical
+                            in this list, so "send it to a human" had no way of
+                            reaching the human's eye. */}
+                        {a.screen_findings && !a.approved_at && !a.rejected_at
+                          ? ' · ⚑ needs review'
+                          : ''}
                       </p>
                     </div>
                   </button>
@@ -487,6 +566,16 @@ export function LibraryEditor({ initialAssets }: Props) {
                     Publish
                   </button>
                 )}
+                {!selected.rejected_at && (
+                  <button
+                    type="button"
+                    onClick={() => setRejectOpen((v) => !v)}
+                    disabled={isPending}
+                    className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
+                  >
+                    Reject…
+                  </button>
+                )}
                 {selected.approved_at && !selected.retired_at && (
                   <button
                     type="button"
@@ -507,6 +596,57 @@ export function LibraryEditor({ initialAssets }: Props) {
                 </button>
               </div>
             </header>
+
+            {/* 🔑 MB21 · THE FINDING REACHES THE PIXEL. `findings` is read off
+                the selected asset, never hard-coded — a-finding-reaches-the-
+                admin.test.ts pins this mount for exactly that reason. */}
+            <ScreenFindingsPanel findings={selected.screen_findings} />
+
+            {selected.rejected_at ? (
+              <div className="rounded-lg border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em]">
+                  Rejected · the supplier sees this
+                </p>
+                <p className="mt-1">{selected.rejection_reason}</p>
+              </div>
+            ) : null}
+
+            {rejectOpen && !selected.rejected_at ? (
+              <div className="space-y-2 rounded-lg border border-danger-300 bg-danger-50 p-3">
+                <label
+                  htmlFor="reject-reason"
+                  className="block text-sm font-medium text-ink"
+                >
+                  Why can’t we publish this? The supplier reads this sentence.
+                </label>
+                <textarea
+                  id="reject-reason"
+                  name="rejectReason"
+                  rows={2}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="there’s a phone number on the sign behind the cake"
+                  className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={isPending}
+                    className="rounded-md bg-danger-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    Reject with this reason
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRejectOpen(false)}
+                    className="rounded-md border border-ink/20 px-3 py-1.5 text-sm font-medium text-ink/70"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <ColorRangeManipulator
               imageSrc={selected.public_url}

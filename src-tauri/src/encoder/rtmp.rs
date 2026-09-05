@@ -31,7 +31,7 @@ pub const DEFAULT_RTMP_PORT: u16 = 1935;
 pub const DEFAULT_RTMPS_PORT: u16 = 443;
 
 /// A parsed publish destination.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct RtmpEndpoint {
     /// `rtmps://` — wrap the socket in TLS. `rtmp://` — do not.
     pub tls: bool,
@@ -167,6 +167,23 @@ impl RtmpEndpoint {
     /// A redactor bound to this endpoint's key.
     pub fn redactor(&self) -> Redactor {
         Redactor::new(&self.stream_key)
+    }
+}
+
+/// `Debug` is written by hand, and prints the redacted URL.
+///
+/// A derived `Debug` would print `stream_key: "abcd-efgh-…"`, and the string that
+/// eventually leaks a key is never the one someone wrote on purpose — it is a
+/// `{:?}` in a log line, a `.expect()` message, or a panic payload written by
+/// somebody who did not know this struct held a secret. Deriving it here would be
+/// leaving that loaded.
+impl fmt::Debug for RtmpEndpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RtmpEndpoint")
+            .field("url", &self.redacted_url())
+            .field("tls", &self.tls)
+            .field("port", &self.port)
+            .finish()
     }
 }
 
@@ -370,6 +387,11 @@ mod tests {
         assert_eq!(printed, "rtmps://a.rtmps.youtube.com/live2/****");
         assert!(!printed.contains("abcd-efgh"));
         assert!(!format!("{:?}", endpoint.redactor()).contains("abcd-efgh"));
+        // The `{:?}` nobody meant to write is the one that leaks.
+        assert!(
+            !format!("{endpoint:?}").contains("abcd-efgh"),
+            "Debug leaked the key: {endpoint:?}"
+        );
     }
 
     #[test]

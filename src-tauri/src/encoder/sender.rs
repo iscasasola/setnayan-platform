@@ -23,6 +23,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use rml_rtmp::handshake::{Handshake, HandshakeProcessResult, PeerType};
+use rml_rtmp::rml_amf0::Amf0Value;
 use rml_rtmp::sessions::{
     ClientSession, ClientSessionConfig, ClientSessionEvent, ClientSessionResult, PublishRequestType,
 };
@@ -226,6 +227,16 @@ impl RtmpSender {
                 Some(Err(description.clone()))
             }
             ClientSessionEvent::UnhandleableOnStatusCode { code } => Some(Err(code.clone())),
+            // A REFUSED PUBLISH ARRIVES HERE, not as a named rejection event.
+            // The ingest answers `_error` with transaction id 0, which belongs to no
+            // outstanding transaction, so the session raises this instead. Measured
+            // against a real `ServerSession` in `tests/publish_session.rs`: without
+            // this arm a rejected stream key waits out the full 15 s timeout and is
+            // reported as "the ingest did not answer in time" — the operator is told
+            // the network is slow when in fact their key is wrong.
+            ClientSessionEvent::UnknownTransactionResultReceived { additional_values, .. } => {
+                Some(Err(describe_status(additional_values)))
+            }
             _ => None,
         })
         .await?;
@@ -496,6 +507,30 @@ impl RtmpSender {
     fn connect_error(&self, detail: &str) -> SenderError {
         SenderError::Connect(self.redactor.scrub(detail))
     }
+}
+
+/// Pull an ingest's own words out of an AMF0 status object.
+///
+/// `description` when it is there (it carries the sentence a person can act on),
+/// `code` otherwise (`NetStream.Publish.BadName`), and a plain statement of ignorance
+/// rather than an empty string when the ingest sent neither — "the ingest refused to
+/// publish: " with nothing after it is a support ticket with no information in it.
+fn describe_status(values: &[Amf0Value]) -> String {
+    for value in values {
+        if let Amf0Value::Object(properties) = value {
+            if let Some(Amf0Value::Utf8String(description)) = properties.get("description") {
+                if !description.is_empty() {
+                    return description.clone();
+                }
+            }
+            if let Some(Amf0Value::Utf8String(code)) = properties.get("code") {
+                if !code.is_empty() {
+                    return code.clone();
+                }
+            }
+        }
+    }
+    "the ingest gave no reason".to_string()
 }
 
 /// Wrap the socket in TLS for RTMPS.

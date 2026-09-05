@@ -28,6 +28,7 @@ import {
   plannerDoorwayRows,
   togetherDoorwayRows,
 } from './studio-rail';
+import { togetherRailItems } from './free-tools-rail';
 import { STUDIO_APPS } from './studio-apps';
 import { ADD_ONS, type AddOnEntry } from './add-ons-catalog';
 import { addOnOfferedForEvent } from './add-on-event-scope';
@@ -230,7 +231,7 @@ test('Samahan is a Together row, everywhere, and never a Studio one', () => {
     so unlike the Planner rows it is not `doorwayOnly` and does not vanish
     inside an event. Nothing else carries it, so there is nothing to double.
   */
-  const together = togetherDoorwayRows().map((r) => r.key);
+  const together = togetherDoorwayRows(false).map((r) => r.key);
   assert.ok(together.includes('samahan'), 'Samahan is missing from the Together group');
   assert.ok(
     !railToolsSignedOut().some((r) => r.key === 'samahan'),
@@ -242,6 +243,41 @@ test('Samahan is a Together row, everywhere, and never a Studio one', () => {
       'Samahan appeared in the in-event Studio rows',
     );
   }
+});
+
+test('the Samahan doorway stands aside for a signed-in person — one row, not two', () => {
+  /*
+    🔴 THE DEFECT THIS PINS WAS REAL AND WAS SPOTTED ON THE LIVE FRONT DOOR
+    before it shipped. `togetherRailItems` gives a signed-in person a row named
+    **"Samahan groups"** → `/dashboard/samahan`. The doorway row is named
+    **"Samahan groups"** too → `/samahan`. Rendered together they put the
+    identical label in one group twice, pointing at two different places — the
+    "same destination, two names" defect the owner had just ruled out for the
+    Marketplace, arriving from the opposite direction.
+
+    The gate is the SESSION rather than the event, because that is what decides
+    which list carries the row. `togetherRailItems` is unconditional for a
+    signed-in person, so the doorway is never the only door once they are in.
+  */
+  assert.deepEqual(
+    togetherDoorwayRows(true),
+    [],
+    'the Samahan doorway rendered for a signed-in person, whose own Samahan ' +
+      'rows already carry that name',
+  );
+
+  // …and the two labels really are the same string, which is WHY this matters.
+  // If either is renamed the collision may be gone, but this assertion should
+  // be re-reasoned rather than deleted.
+  const doorway = togetherDoorwayRows(false).find((r) => r.key === 'samahan');
+  const own = togetherRailItems(null).find((r) => r.key === 'together-samahan');
+  assert.ok(doorway && own, 'one of the two Samahan rows disappeared');
+  assert.equal(
+    doorway!.name,
+    own!.name,
+    'the doorway and the account row no longer share a name — re-check whether ' +
+      'the signed-in gate above is still the right rule',
+  );
 });
 
 test('Logo Maker is wedding-only; 3D Plan, Live Studio and Pakanta each ride their own surface', () => {

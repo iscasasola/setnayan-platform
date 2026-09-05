@@ -260,7 +260,7 @@ export async function AppRailShell({
       togetherTools={[
         // The public Samahan doorway — what a samahan IS, for somebody who has
         // none yet. Account-level, so it is never event-gated.
-        ...togetherDoorwayRows(),
+        ...togetherDoorwayRows(account.signedIn),
         ...(account.signedIn ? togetherRailItems(studioEvent.eventId) : []),
       ]}
       railContext={railContext}

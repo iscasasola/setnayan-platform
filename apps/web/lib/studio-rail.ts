@@ -213,14 +213,26 @@ export function plannerDoorwayRows(insideEvent: boolean): ReadonlyArray<RailTool
  *
  * 🔑 NOT gated on the event, because Samahan is ACCOUNT-LEVEL: it is keyed on
  * the person, never nested under an `[eventId]`, so it is as true inside a
- * wedding as outside one. It is also not `doorwayOnly` — no event rail carries
- * it, so there is nothing to double.
+ * wedding as outside one. It is gated on being SIGNED OUT instead, and that
+ * distinction was not free — see below.
  *
- * ⚠ Signed IN, `togetherRailItems` already contributes the person's own
- * Samahan rows (their groups, stories, chats). This row is the PUBLIC
- * explanation, for somebody who does not have one yet.
+ * 🔴 SIGNED IN, THIS WOULD HAVE DOUBLED A ROW WITH THE SAME NAME. Caught on the
+ * live front door before this shipped: `togetherRailItems` already contributes
+ * **"Samahan groups"** → `/dashboard/samahan` for a signed-in person, and this
+ * doorway row is also called **"Samahan groups"** → `/samahan`. Byte-identical
+ * label, two destinations, in one group — the "same destination, two names"
+ * defect run backwards, and the exact shape the owner had just ruled out for
+ * the Marketplace (*"do not double the marketplace"*).
+ *
+ * 🔑 SO THE RULE IS THE SAME RULE, ONLY ITS CONDITION DIFFERS. A Planner
+ * doorway leaves when an EVENT opens, because the event rail then carries it.
+ * This one leaves when a SESSION opens, because `togetherRailItems` then
+ * carries it — and that list is unconditional, so a signed-in person always has
+ * the real row whether or not they belong to a samahan yet (`/dashboard/samahan`
+ * is where they make one).
  */
-export function togetherDoorwayRows(): ReadonlyArray<RailTool> {
+export function togetherDoorwayRows(signedIn: boolean): ReadonlyArray<RailTool> {
+  if (signedIn) return [];
   return STUDIO_APPS.filter(inGroup('together')).map((a) => ({
     key: a.key,
     href: a.href,

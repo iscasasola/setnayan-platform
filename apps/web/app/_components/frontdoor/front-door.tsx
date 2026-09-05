@@ -111,15 +111,22 @@ export async function FrontDoor({ q }: { q?: string }) {
         its rows (Compare, Contracts) are in-event only and `insideEvent` is
         never true on `/`.
 
-        TOGETHER now carries two things that are deliberately different: the
-        public Samahan DOORWAY (what a samahan is, for somebody who has none)
-        and, when signed in, that person's own Samahan rows. Neither is
-        event-gated — Samahan is account-level. `studioEvent.eventId` is the
-        same honestly-resolved value the Studio rows above already use.
+        TOGETHER carries EXACTLY ONE of two things, never both. Signed out it is
+        the public Samahan doorway — what a samahan is, for somebody who has
+        none. Signed in it is that person's own Samahan rows, and the doorway
+        steps aside.
+
+        🔴 THEY ARE MUTUALLY EXCLUSIVE BECAUSE BOTH ARE CALLED "Samahan groups".
+        Caught on the live front door before this shipped: rendering both put
+        the identical label in one group twice, pointing at `/samahan` and
+        `/dashboard/samahan` — the doubling the owner had just ruled out for the
+        Marketplace. Neither is event-gated (Samahan is account-level);
+        `studioEvent.eventId` is the same honestly-resolved value the Studio
+        rows above already use.
       */
       plannerTools={plannerDoorwayRows(false)}
       togetherTools={[
-        ...togetherDoorwayRows(),
+        ...togetherDoorwayRows(account.signedIn),
         ...(account.signedIn ? togetherRailItems(studioEvent.eventId) : []),
       ]}
       /*

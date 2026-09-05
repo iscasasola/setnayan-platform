@@ -35,7 +35,6 @@ import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
-import { Vendor3dPlanUnlockSection } from './_components/vendor-3d-plan-unlock-section';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
 import {
@@ -2568,13 +2567,10 @@ function OverviewTab(props: {
         <VendorChallengeSection eventId={eventId} vendorProfileId={vendorProfileId} />
       ) : null}
 
-      {/* 3D Plan unlock (booked-only). A vendor with an ACTIVE 3D Booth add-on
-          unlocks the discounted ₱1,000 SEATING_3D for this couple; self-gates on
-          the add-on window (shows the honest "add the 3D Booth add-on" state when
-          inactive). */}
-      {isBooked ? (
-        <Vendor3dPlanUnlockSection eventId={eventId} vendorProfileId={vendorProfileId} />
-      ) : null}
+      {/* The "unlock the 3D Plan for this couple" section that stood here is
+          RETIRED (owner 2026-09-05): the 3D Plan is free for couples, so there is
+          no couple price left to discount. What a vendor buys for a room is
+          BRANDING — the 3D Booth add-on on the subscription page. */}
     </div>
   );
 }

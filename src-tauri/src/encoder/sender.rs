@@ -34,7 +34,7 @@ use tokio::sync::mpsc;
 
 use super::contract::{ChunkKind, EncodedChunk};
 use super::flv::{self, StreamMeta};
-use super::rtmp::{Redactor, RtmpClock, RtmpEndpoint};
+use super::rtmp::{Redactor, RtmpClock, RtmpEndpoint, Track};
 
 /// Anything we can speak RTMP over: a plain TCP stream, a TLS stream, or — in tests —
 /// an in-memory duplex pipe with a real `ServerSession` on the far end.
@@ -84,7 +84,16 @@ impl std::fmt::Display for SenderError {
                 write!(f, "the ingest did not answer in time ({stage})")
             }
             SenderError::PeerClosed { stage } => {
-                write!(f, "the ingest closed the connection ({stage})")
+                write!(f, "the ingest closed the connection ({stage})")?;
+                if *stage == "publish" {
+                    // Measured against YouTube's real ingest on 2026-09-05: an
+                    // unrecognised stream key is not refused with a message, it is a
+                    // silent close at exactly this stage. Saying so is the difference
+                    // between an operator checking their key and an operator checking
+                    // the venue's Wi-Fi.
+                    write!(f, " — most often an unrecognised, expired or already-live stream key")?;
+                }
+                Ok(())
             }
             SenderError::Chunk(detail) => write!(f, "malformed encoder chunk: {detail}"),
         }
@@ -312,13 +321,14 @@ impl RtmpSender {
                 // A second config mid-stream is a re-configuration; sending the
                 // headers again is correct and cheap, and refusing it would strand
                 // a stream that legitimately changed resolution.
-                let timestamp = self.clock.stamp(chunk.header.ts_us);
+                let video_at = self.clock.stamp(Track::Video, chunk.header.ts_us);
+                let audio_at = self.clock.stamp(Track::Audio, chunk.header.ts_us);
                 let video_header = flv::avc_sequence_header(&config.avc_c)
                     .map_err(|error| SenderError::Chunk(error.to_string()))?;
                 let audio_header = flv::aac_sequence_header(&config.asc)
                     .map_err(|error| SenderError::Chunk(error.to_string()))?;
-                self.publish_video(video_header, timestamp, false).await?;
-                self.publish_audio(audio_header, timestamp).await?;
+                self.publish_video(video_header, video_at, false).await?;
+                self.publish_audio(audio_header, audio_at).await?;
                 self.configured = true;
                 Ok(())
             }
@@ -327,7 +337,7 @@ impl RtmpSender {
                     self.stats.media_before_config += 1;
                     return Ok(());
                 }
-                let timestamp = self.clock.stamp(chunk.header.ts_us);
+                let timestamp = self.clock.stamp(Track::Video, chunk.header.ts_us);
                 // Composition time is 0: S4 encodes realtime with no B-frames, so
                 // presentation and decode order are the same. `flv::avc_nalu_tag`
                 // refuses an out-of-range value rather than truncating one, which is
@@ -343,7 +353,7 @@ impl RtmpSender {
                     self.stats.media_before_config += 1;
                     return Ok(());
                 }
-                let timestamp = self.clock.stamp(chunk.header.ts_us);
+                let timestamp = self.clock.stamp(Track::Audio, chunk.header.ts_us);
                 let tag = flv::aac_raw_tag(&chunk.payload);
                 self.publish_audio(tag, timestamp).await?;
                 self.stats.audio_tags += 1;
@@ -395,7 +405,7 @@ impl RtmpSender {
             let count = tokio::time::timeout(NEGOTIATION_TIMEOUT, self.read.read(&mut buffer))
                 .await
                 .map_err(|_| SenderError::Timeout { stage: "handshake" })?
-                .map_err(|error| self.connect_error(&error.to_string()))?;
+                .map_err(|error| self.read_error("handshake", &error))?;
             if count == 0 {
                 return Err(SenderError::PeerClosed { stage: "handshake" });
             }
@@ -434,7 +444,7 @@ impl RtmpSender {
             let count = tokio::time::timeout(NEGOTIATION_TIMEOUT, self.read.read(&mut buffer))
                 .await
                 .map_err(|_| SenderError::Timeout { stage })?
-                .map_err(|error| self.connect_error(&error.to_string()))?;
+                .map_err(|error| self.read_error(stage, &error))?;
             if count == 0 {
                 return Err(SenderError::PeerClosed { stage });
             }
@@ -507,6 +517,33 @@ impl RtmpSender {
     fn connect_error(&self, detail: &str) -> SenderError {
         SenderError::Connect(self.redactor.scrub(detail))
     }
+
+    /// A read failure during negotiation, named by what actually happened.
+    ///
+    /// An ingest that dislikes us does not always answer — plain RTMP gives a clean
+    /// `read() == 0`, but the same close under TLS surfaces as an io error, and
+    /// rustls's is `peer closed connection without sending TLS close_notify:
+    /// https://docs.rs/rustls/...`. Measured on 2026-09-05: the same bad key against
+    /// YouTube produced "the ingest closed the connection (publish)" over rtmp:// and
+    /// that documentation URL over rtmps://. Two messages for one cause, and the one
+    /// the product will actually ship is the useless one.
+    fn read_error(&self, stage: &'static str, error: &std::io::Error) -> SenderError {
+        match closed_by_peer(error.kind()) {
+            true => SenderError::PeerClosed { stage },
+            false => self.connect_error(&error.to_string()),
+        }
+    }
+}
+
+/// Whether this io error is the peer hanging up rather than the network failing.
+fn closed_by_peer(kind: std::io::ErrorKind) -> bool {
+    matches!(
+        kind,
+        std::io::ErrorKind::UnexpectedEof
+            | std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::ConnectionAborted
+            | std::io::ErrorKind::BrokenPipe
+    )
 }
 
 /// Pull an ingest's own words out of an AMF0 status object.
@@ -563,4 +600,55 @@ async fn wrap_tls(
         .await
         .map_err(|_| SenderError::Timeout { stage: "tls handshake" })?
         .map_err(|error| SenderError::Tls(redactor.scrub(&error.to_string())))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_abrupt_close_is_the_peer_hanging_up_and_a_timeout_is_not() {
+        // rustls reports a TLS peer that vanished as UnexpectedEof; a plain socket
+        // reports the same event as a clean `read() == 0`. Both are the ingest hanging
+        // up, and the operator needs to hear the same sentence either way.
+        assert!(closed_by_peer(std::io::ErrorKind::UnexpectedEof));
+        assert!(closed_by_peer(std::io::ErrorKind::ConnectionReset));
+        assert!(closed_by_peer(std::io::ErrorKind::ConnectionAborted));
+        assert!(closed_by_peer(std::io::ErrorKind::BrokenPipe));
+        // Not these: a refused connection or a dead network is a different sentence.
+        assert!(!closed_by_peer(std::io::ErrorKind::ConnectionRefused));
+        assert!(!closed_by_peer(std::io::ErrorKind::TimedOut));
+        assert!(!closed_by_peer(std::io::ErrorKind::HostUnreachable));
+    }
+
+    #[test]
+    fn a_close_during_publish_says_what_it_usually_means() {
+        // Measured against YouTube on 2026-09-05: a bad key is a silent close here.
+        let text = format!("{}", SenderError::PeerClosed { stage: "publish" });
+        assert!(text.contains("closed the connection (publish)"));
+        assert!(text.contains("stream key"), "the likely cause must be named: {text}");
+        // But not everywhere — a close during the handshake is not a key problem.
+        let handshake = format!("{}", SenderError::PeerClosed { stage: "handshake" });
+        assert!(!handshake.contains("stream key"), "do not guess: {handshake}");
+    }
+
+    #[test]
+    fn an_ingest_status_object_gives_up_its_description_then_its_code() {
+        use std::collections::HashMap;
+        let with_description = Amf0Value::Object(HashMap::from([
+            ("code".to_string(), Amf0Value::Utf8String("NetStream.Publish.BadName".to_string())),
+            ("description".to_string(), Amf0Value::Utf8String("key not authorised".to_string())),
+        ]));
+        assert_eq!(describe_status(&[with_description]), "key not authorised");
+
+        let code_only = Amf0Value::Object(HashMap::from([(
+            "code".to_string(),
+            Amf0Value::Utf8String("NetStream.Publish.BadName".to_string()),
+        )]));
+        assert_eq!(describe_status(&[code_only]), "NetStream.Publish.BadName");
+
+        // Silence must not become an error message that says nothing.
+        assert_eq!(describe_status(&[]), "the ingest gave no reason");
+        assert_eq!(describe_status(&[Amf0Value::Null]), "the ingest gave no reason");
+    }
 }

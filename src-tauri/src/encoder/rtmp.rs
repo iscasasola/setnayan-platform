@@ -232,12 +232,25 @@ impl fmt::Debug for Redactor {
 /// 1. **Rebase to the first chunk.** `ts_us` is the S3 master clock, which starts
 ///    whenever the AudioContext did, not when we connected. Sending its absolute value
 ///    would open the stream at some arbitrary timestamp; YouTube tolerates that far
-///    less well than it tolerates a stream that starts at 0.
-/// 2. **Never go backwards.** Video and audio arrive interleaved from separate
-///    encoders, and a chunk can be handed over a hair behind the one before it. RTMP
-///    computes chunk-header deltas by subtraction on an unsigned type, so one
-///    backwards step does not produce a small negative — it produces a delta near
-///    2^32, which is a header the ingest cannot read. Clamping is the whole defence.
+///    less well than it tolerates a stream that starts at 0. The base is taken ONCE,
+///    from whichever track speaks first, so video and audio stay on one timeline —
+///    rebasing each track to its own first chunk would offset one against the other
+///    by however long the second one took to arrive.
+/// 2. **Never go backwards — PER TRACK.** Video and audio arrive interleaved from
+///    separate encoders. RTMP computes chunk-header deltas by subtraction on an
+///    unsigned type, so a backwards step does not produce a small negative: it
+///    produces a delta near 2^32, which is a header the ingest cannot read. Clamping
+///    is the defence — but it must be per track, because RTMP keeps video and audio on
+///    **separate chunk streams** with separate deltas, and an audio frame at 90 ms
+///    legitimately follows a video frame at 100 ms.
+///
+/// ⚠ A SHARED CLAMP IS AN A/V SYNC BUG, NOT A ROUNDING ONE. The first version of this
+/// clock kept one `last_ms` for everything. Replaying a real 2-second fixture through
+/// it (`examples/publish_probe.rs`) clamped **295 timestamps in ten minutes** of stream
+/// — every one of them an audio frame dragged forward onto the last video frame's
+/// timestamp. Ten minutes of that is audio walking steadily out of sync with picture
+/// on a wedding recording that cannot be re-shot. The counter is what made it visible;
+/// the fix is that `Track` parameter.
 ///
 /// It does NOT wrap at 24 bits. The 24-bit ceiling belongs to the chunk *header*
 /// encoding, and the vendored serializer emits an extended timestamp past it; a clock
@@ -246,30 +259,42 @@ impl fmt::Debug for Redactor {
 #[derive(Debug, Clone)]
 pub struct RtmpClock {
     base_us: Option<u64>,
-    last_ms: u32,
+    last_video_ms: u32,
+    last_audio_ms: u32,
     clamped: u64,
+}
+
+/// The two RTMP chunk streams a publish uses. Separate timelines, separate deltas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Track {
+    Video,
+    Audio,
 }
 
 impl RtmpClock {
     pub fn new() -> RtmpClock {
-        RtmpClock { base_us: None, last_ms: 0, clamped: 0 }
+        RtmpClock { base_us: None, last_video_ms: 0, last_audio_ms: 0, clamped: 0 }
     }
 
-    /// Stamp a chunk. The first chunk defines zero.
-    pub fn stamp(&mut self, ts_us: u64) -> u32 {
+    /// Stamp a chunk on one track. The first chunk on either track defines zero.
+    pub fn stamp(&mut self, track: Track, ts_us: u64) -> u32 {
         let base = *self.base_us.get_or_insert(ts_us);
         let elapsed_us = ts_us.saturating_sub(base);
         let ms = (elapsed_us / 1_000).min(u32::MAX as u64) as u32;
-        if ms < self.last_ms {
+        let last = match track {
+            Track::Video => &mut self.last_video_ms,
+            Track::Audio => &mut self.last_audio_ms,
+        };
+        if ms < *last {
             self.clamped += 1;
-            return self.last_ms;
+            return *last;
         }
-        self.last_ms = ms;
+        *last = ms;
         ms
     }
 
-    /// How many chunks arrived out of order and were clamped. S9's health surface
-    /// reports it; a stream with a rising count has a producer problem, not a
+    /// How many chunks arrived out of order **on their own track** and were clamped.
+    /// S9's health surface reports it; a rising count is a producer problem, not a
     /// network problem, and those two get confused every time nobody counts.
     pub fn clamped_count(&self) -> u64 {
         self.clamped
@@ -279,11 +304,12 @@ impl RtmpClock {
     /// i.e. whether extended timestamps are now in play for real, in production,
     /// rather than only in the marathon fixture.
     pub fn past_24_bit_ceiling(&self) -> bool {
-        self.last_ms >= MAX_INITIAL_TIMESTAMP_MS
+        self.last_ms() >= MAX_INITIAL_TIMESTAMP_MS
     }
 
+    /// The furthest either track has reached.
     pub fn last_ms(&self) -> u32 {
-        self.last_ms
+        self.last_video_ms.max(self.last_audio_ms)
     }
 }
 
@@ -407,9 +433,23 @@ mod tests {
     #[test]
     fn the_clock_starts_at_the_first_chunk_and_counts_milliseconds() {
         let mut clock = RtmpClock::new();
-        assert_eq!(clock.stamp(9_000_000_000), 0, "the first chunk defines zero");
-        assert_eq!(clock.stamp(9_000_033_366), 33);
-        assert_eq!(clock.stamp(9_001_000_000), 1_000);
+        assert_eq!(clock.stamp(Track::Video, 9_000_000_000), 0, "the first chunk defines zero");
+        assert_eq!(clock.stamp(Track::Video, 9_000_033_366), 33);
+        assert_eq!(clock.stamp(Track::Video, 9_001_000_000), 1_000);
+    }
+
+    #[test]
+    fn both_tracks_share_one_zero_but_not_one_monotonic_guard() {
+        // The base is shared: audio arriving 40 ms after the first video frame is 40 ms
+        // into the stream, not 0. The guard is not: an audio frame behind the last
+        // VIDEO frame is normal interleaving, and clamping it would walk the sound out
+        // of sync with the picture for the length of the wedding.
+        let mut clock = RtmpClock::new();
+        assert_eq!(clock.stamp(Track::Video, 1_000_000), 0);
+        assert_eq!(clock.stamp(Track::Video, 1_100_000), 100);
+        assert_eq!(clock.stamp(Track::Audio, 1_040_000), 40, "audio keeps its own timeline");
+        assert_eq!(clock.stamp(Track::Audio, 1_060_000), 60);
+        assert_eq!(clock.clamped_count(), 0, "interleaving is not disorder");
     }
 
     #[test]
@@ -417,23 +457,23 @@ mod tests {
         // Unclamped this is a chunk delta of ~2^32, which is a header the ingest
         // cannot read — the failure looks like corruption, not like a late frame.
         let mut clock = RtmpClock::new();
-        clock.stamp(0);
-        assert_eq!(clock.stamp(2_000_000), 2_000);
-        assert_eq!(clock.stamp(1_000_000), 2_000, "clamped to the last stamp");
+        clock.stamp(Track::Video, 0);
+        assert_eq!(clock.stamp(Track::Video, 2_000_000), 2_000);
+        assert_eq!(clock.stamp(Track::Video, 1_000_000), 2_000, "clamped to the last stamp");
         assert_eq!(clock.clamped_count(), 1);
-        assert_eq!(clock.stamp(3_000_000), 3_000, "and the clock carries on");
+        assert_eq!(clock.stamp(Track::Video, 3_000_000), 3_000, "and the clock carries on");
     }
 
     #[test]
     fn the_clock_walks_past_the_24_bit_ceiling_without_wrapping() {
         let mut clock = RtmpClock::new();
-        clock.stamp(0);
+        clock.stamp(Track::Video, 0);
         assert!(!clock.past_24_bit_ceiling());
         // 4 h 39 m 37 s, and then one millisecond more.
-        assert_eq!(clock.stamp(16_777_215_000), MAX_INITIAL_TIMESTAMP_MS);
+        assert_eq!(clock.stamp(Track::Video, 16_777_215_000), MAX_INITIAL_TIMESTAMP_MS);
         assert!(clock.past_24_bit_ceiling());
-        assert_eq!(clock.stamp(16_777_216_000), 16_777_216, "no 24-bit mask anywhere");
+        assert_eq!(clock.stamp(Track::Video, 16_777_216_000), 16_777_216, "no 24-bit mask anywhere");
         // A five-hour reception.
-        assert_eq!(clock.stamp(18_000_000_000), 18_000_000);
+        assert_eq!(clock.stamp(Track::Video, 18_000_000_000), 18_000_000);
     }
 }

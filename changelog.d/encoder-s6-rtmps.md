@@ -27,5 +27,31 @@ web and starts being a protocol.
 - **`apps/web/lib/panood-youtube.ts`** — additive: carry YouTube's RTMPS primary and
   backup ingestion addresses alongside the plain-RTMP one it already stored.
 
+**Three defects the evidence found, all fixed here** — each one was invisible to
+reading and visible only to running something:
+
+- **The clock clamped video and audio against one another.** RTMP keeps the two on
+  separate chunk streams with separate deltas, so an audio frame at 90 ms legitimately
+  follows a video frame at 100 ms. One shared monotonic guard dragged it forward.
+  Replaying a real fixture for ten minutes clamped 295 timestamps — audio walking
+  steadily out of sync with picture on a recording that cannot be re-shot. The clock
+  is per-track now; the same replay clamps zero.
+- **A refused publish was reported as a timeout.** An ingest rejecting a stream key
+  answers `_error` on a transaction the session no longer holds, so the operator was
+  told "the ingest did not answer in time" — network language — for a wrong key.
+- **RTMPS and RTMP disagreed about what a hang-up was.** Measured against YouTube's
+  real ingest: the same bad key gives "the ingest closed the connection (publish)"
+  over `rtmp://` and a rustls documentation URL over `rtmps://` — and `rtmps://` is
+  what ships. Both now say the same actionable sentence.
+
+Evidence: 4 h 40 m 01 s published over a real socket to an ffmpeg RTMP listener —
+494,640 video and 783,180 audio packets, every one received, **zero** backwards
+timestamps, 707 packets past the 24-bit ceiling. TLS, the RTMP handshake and `connect`
+all accepted by YouTube's own ingest (`rtmps://a.rtmps.youtube.com/live2`); the publish
+is refused there because the key used was deliberately invalid. **A real 20-minute
+publish to the owner's channel is LEFT UNDONE** — it needs a live stream key, which
+this session had no business holding. `cargo run --example publish_probe` is the tool
+to do it with.
+
 SPEC IMPACT: None — `Live_Studio_Encoder_Scope_2026-09-03.md` § "Corrections
 2026-09-05" already specifies this session; nothing here changes a decision.

@@ -64,6 +64,10 @@ struct IngestReport {
 
 const OPENING_TAGS_KEPT: usize = 8;
 
+/// How long a whole publish may take before the test calls it stalled. See the note
+/// at its use — the failure this catches is a hang, which no assertion can catch.
+const RUN_BUDGET: Duration = Duration::from_secs(180);
+
 /// The server side: handshake, `ServerSession`, accept or reject, record.
 async fn fake_ingest(mut io: DuplexStream, policy: Policy) -> IngestReport {
     let mut report = IngestReport::default();
@@ -220,8 +224,28 @@ where
         Ok(sender) => {
             let (tx, mut rx) = mpsc::channel(256);
             let producer = produce(tx);
-            let outcome = sender.run(&mut rx).await;
-            producer.await.expect("producer");
+            // A BUDGET, BECAUSE THE FAILURE MODE HERE IS A HANG, NOT A PANIC.
+            // If a chunk stream desynchronises, the ingest stops making sense of it
+            // and stops reading; the sender then blocks forever on a full pipe and the
+            // test never finishes. That was measured: sabotaging the extended-timestamp
+            // branch in the vendored serializer turned this test from red into
+            // *silent*, and a check that hangs is not a check. 180 s against a normal
+            // run of ~35 s.
+            let outcome = tokio::time::timeout(RUN_BUDGET, sender.run(&mut rx))
+                .await
+                .expect(
+                    "the publish stalled — the ingest stopped reading, which is what a \
+                     desynchronised chunk stream looks like from this side",
+                );
+            // DROP THE RECEIVER BEFORE WAITING ON THE PRODUCER. If the session ended
+            // early — which is exactly what a failing guard causes — the producer is
+            // parked on a full channel that nothing will ever drain again, and
+            // `producer.await` waits for it forever. That is how the first version of
+            // this helper turned a red test into a hang: everything parked, no CPU, no
+            // timer pending, no output. Dropping `rx` makes the next `send` fail, which
+            // every producer here treats as "stop".
+            drop(rx);
+            let _ = tokio::time::timeout(RUN_BUDGET, producer).await;
             Ok(PublishRun { outcome })
         }
         Err(error) => Err(error),

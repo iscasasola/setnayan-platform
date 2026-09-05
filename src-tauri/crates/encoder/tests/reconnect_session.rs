@@ -26,8 +26,14 @@ use setnayan_encoder::tagger::Pipeline;
 use tokio::sync::mpsc;
 
 /// A steady producer: one video and one audio chunk per second of stream time, a
-/// keyframe every fifth video frame, paced at 3 ms of wall clock so an outage staged
-/// in the first few tags still leaves plenty of stream to reconnect into.
+/// keyframe every fifth video frame, paced at 3 ms of wall clock.
+///
+/// ⚠ `frames` MUST out-last the test's whole retry budget with room to spare, on a
+/// LOADED runner and not just on a quiet laptop. A producer that finishes first ends
+/// the supervisor with `ProducerFinished` before the reconnect it was staged to
+/// exercise ever happens — and the test then fails on `sessions`, pointing at the
+/// supervisor instead of at its own arithmetic. The backup test alone waits
+/// 10+20+40+50 ms between attempts; the counts below are several times that.
 fn spawn_producer(tx: mpsc::Sender<setnayan_encoder::contract::EncodedChunk>, frames: u64) {
     tokio::spawn(async move {
         if tx.send(config_chunk(0, 0)).await.is_err() {
@@ -62,7 +68,7 @@ async fn a_dropped_connection_resumes_with_both_headers_and_a_clock_that_never_r
     ]);
     let (tx, mut rx) = mpsc::channel(256);
     let (events, mut event_rx) = mpsc::channel(256);
-    spawn_producer(tx, 40);
+    spawn_producer(tx, 120);
 
     let mut pipeline = Pipeline::streaming_only();
     let outcome = tokio::time::timeout(
@@ -162,7 +168,7 @@ async fn the_backup_ingest_enters_only_after_three_primary_failures() {
     ]);
     let (tx, mut rx) = mpsc::channel(256);
     let (events, mut event_rx) = mpsc::channel(256);
-    spawn_producer(tx, 40);
+    spawn_producer(tx, 250);
 
     let mut pipeline = Pipeline::streaming_only();
     let outcome = tokio::time::timeout(
@@ -298,7 +304,7 @@ async fn a_wedding_that_drops_three_times_still_ends_on_one_continuous_timeline(
     ]);
     let (tx, mut rx) = mpsc::channel(256);
     let (events, _event_rx) = mpsc::channel(512);
-    spawn_producer(tx, 60);
+    spawn_producer(tx, 200);
 
     let mut pipeline = Pipeline::streaming_only();
     let outcome = tokio::time::timeout(

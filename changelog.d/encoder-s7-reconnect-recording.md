@@ -12,9 +12,10 @@ that jumped four hours backwards. The clock and the FLV tagging now live in
 
 **One tagger, two sinks.** `Pipeline::ingest` tags a chunk once and gives the identical
 `Vec<u8>` to the recording and to the socket — not two equal ones built twice.
-`tests/recording.rs` asserts that the tags the ingest received appear inside the `.flv`
-as a contiguous, byte-identical, gap-free run, reading the file back with a parser
-independent of the writer.
+`tests/recording.rs` asserts that every tag the ingest received appears inside the `.flv`
+byte-identically and in order, reading the file back with a parser independent of the
+writer. (This first said "as a contiguous run" — see the correction below; contiguity is
+not true when `WireGate` withholds a frame, and CI was right to reject it.)
 
 **The wire and the file do not want the same frames.** After a reconnect the new ingest
 cannot decode inter-frames it has no reference for, so `WireGate` withholds video until
@@ -66,3 +67,35 @@ SPEC IMPACT: None. No product decision changed. The recording path and the disk
 thresholds are implementation choices inside the already-locked native-encoder scope
 (`Live_Studio_Encoder_Scope_2026-09-03.md`); the grace window is explicitly deferred
 to S13 rather than being asserted anywhere as fact.
+
+### 2026-09-06 · fix(encoder-tests): the recording guard was judged against the lucky case
+
+The first CI run went red on `every_tag_the_ingest_received_is_in_the_recording…`, and the
+code was right — the assertion was wrong. It demanded that the ingest's tags form a
+CONTIGUOUS run inside the `.flv`, which is only true when nothing is gated. The
+supervisor records while the TCP handshake is in flight, so on a slower runner an
+inter-frame landed between the re-sent sequence headers and the first keyframe,
+`WireGate` correctly withheld it, and a perfectly correct stream failed the check.
+
+Replaced with an ordered byte-identical SUBSEQUENCE plus an exact accounting identity:
+the number of file tags that are not on the wire must equal `WireGate`'s withheld count,
+and every one of them must be a non-keyframe video tag. Audio is never gated, so the
+file and the broadcast must agree on audio EXACTLY — which is what keeps the guard
+strong: the "skip audio tags in the file" sabotage is still caught, now by four tests.
+
+⚠ **Two test-fragility classes fixed, both found by running the suite 6–8× CONCURRENTLY
+rather than once on an idle machine:**
+- `a_slow_connect_still_leaves_the_recording_and_the_broadcast_the_same_wedding` asserted
+  the gate had withheld something — with a keyframe every 5th frame that is a coin toss
+  decided by the scheduler, and it failed **6 times out of 6** under load. Fixed by
+  construction, not by tolerance: that test now uses a GOP as long as the run, so the
+  next keyframe cannot arrive inside it and withholding is guaranteed on any machine.
+- Several producers were sized close to their own retry budgets (the backup test waits
+  10+20+40+50 ms between attempts while its producer lived 120 ms), so a loaded runner
+  would end the stream with `ProducerFinished` before the reconnect it was staged to
+  exercise. Counts raised to several times each budget, with the reason written above
+  `spawn_producer` so the next person does not trim them back.
+
+0 failures in 8 concurrent runs after the fix. Encoder tests 77 → 78.
+
+SPEC IMPACT: None.

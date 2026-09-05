@@ -221,6 +221,11 @@ pub enum Attempt {
     Unreachable,
     /// A live ingest with this policy.
     Ingest(Policy),
+    /// A live ingest that takes this long to answer — a slow handshake, which is what a
+    /// loaded CI runner and a venue's congested uplink both look like from here. The
+    /// producer keeps producing throughout, so the recording gets a longer head and the
+    /// session's first frames are more likely to be gated inter-frames.
+    IngestAfter(Policy, std::time::Duration),
 }
 
 /// A `Connector` that follows a script, so a test can stage an outage precisely.
@@ -272,6 +277,19 @@ impl Connector for ScriptedConnector {
         match attempt.unwrap_or(Attempt::Unreachable) {
             Attempt::Unreachable => {
                 Err(SenderError::Connect("no route to the ingest (scripted)".to_string()))
+            }
+            Attempt::IngestAfter(policy, delay) => {
+                tokio::time::sleep(delay).await;
+                let (client_io, server_io) = tokio::io::duplex(256 * 1024);
+                let handle = tokio::spawn(fake_ingest(server_io, policy));
+                self.ingests.lock().unwrap().push(handle);
+                RtmpSender::negotiate(
+                    Box::new(client_io),
+                    endpoint,
+                    meta,
+                    Redactor::new(STREAM_KEY),
+                )
+                .await
             }
             Attempt::Ingest(policy) => {
                 let (client_io, server_io) = tokio::io::duplex(256 * 1024);

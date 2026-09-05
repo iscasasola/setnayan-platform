@@ -271,7 +271,25 @@ test('onFrameCount fans out the worker\'s stats; onError its errors; stop unsubs
   canvas.onError((where) => errors.push(where));
   canvas.start();
   w.emit({ type: 'ready' });
-  w.emit({ type: 'stats', stats: { frameCount: 30, repeatedCount: 1, maxGapTicks: 1, maxGapMs: 34, maxGapAtMs: 500, longGaps: 0, elapsedMs: 1000 } });
+  w.emit({
+    type: 'stats',
+    stats: {
+      frameCount: 30,
+      repeatedCount: 1,
+      maxGapTicks: 1,
+      maxGapMs: 34,
+      maxGapAtMs: 500,
+      longGaps: 0,
+      elapsedMs: 1000,
+      audioQuanta: 375,
+      audioPackets: 46,
+      audioChunks: 46,
+      audioMs: 1000,
+      maxAvSkewMs: 21.3,
+      maxWallDriftMs: 4,
+      ascReady: true,
+    },
+  });
   w.emit({ type: 'error', where: 'read:primary', message: 'x' });
   assert.deepEqual(seen, [30]);
   assert.deepEqual(errors, ['read:primary']);
@@ -303,7 +321,16 @@ test('program-surface.tsx draws the shared strings and carries no literal of its
 /* ── the module stays free of Tauri gating (S5 owns it) ────────────────────── */
 
 test('lib/encoder carries no window.__TAURI__ gate — that is the call site\'s (S5) job', () => {
-  for (const f of ['program-canvas.ts', 'program-canvas.worker.ts', 'program-compositor.ts', 'program-plan.ts', 'program-clock.ts']) {
+  for (const f of [
+    'program-canvas.ts',
+    'program-canvas.worker.ts',
+    'program-compositor.ts',
+    'program-plan.ts',
+    'audio-clock.ts',
+    'audio-mixer.ts',
+    'audio-packer.ts',
+    'audio-tap.worklet.ts',
+  ]) {
     const src = readFileSync(join(__dirname, f), 'utf8');
     assert.doesNotMatch(src, /__TAURI__/, `${f} must not gate on Tauri`);
   }

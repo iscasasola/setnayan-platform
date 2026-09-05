@@ -27,6 +27,29 @@ serde_json = "1"
 tauri-plugin-oauth = "2"
 tauri-plugin-opener = "2"
 
+# ── Native encoder (S6) — RTMPS + FLV, the one thing the browser cannot do ──
+#
+# `rml_rtmp` is sans-IO: it turns RTMP messages into bytes and back and never
+# touches a socket, which is exactly why TLS can be wrapped around it (an RTMPS
+# ingest is RTMP inside TLS on :443, and YouTube's primary ingest is RTMPS).
+# It is VENDORED, not pulled from crates.io — `vendor/rml_rtmp/NOTICE.md` says
+# why, what was changed (nothing), and what to write there if that changes.
+# The `[patch.crates-io]` below points any transitive resolution at the same copy.
+rml_rtmp = { path = "vendor/rml_rtmp" }
+bytes = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros"] }
+# rustls with the *ring* provider on purpose: the default `aws-lc-rs` provider
+# needs cmake + NASM at build time, which would land on the Windows runner in
+# `.github/workflows/build-desktop.yml` (and on every owner machine that builds
+# the desktop app) as a new toolchain requirement. `ring` builds with what is
+# already there. Roots come from `webpki-roots` — a pinned Mozilla bundle —
+# rather than the platform store, so a stream does not depend on a keychain
+# state we cannot see from a log.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
+webpki-roots = "0.26"
+thiserror = "1.0"
+
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 
@@ -36,3 +59,8 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# Any transitive `rml_rtmp` resolves to the vendored copy too, so there is exactly
+# one RTMP implementation in the binary. See vendor/rml_rtmp/NOTICE.md.
+[patch.crates-io]
+rml_rtmp = { path = "vendor/rml_rtmp" }

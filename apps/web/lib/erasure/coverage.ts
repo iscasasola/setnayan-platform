@@ -901,6 +901,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     why: '⚠ NOT NULL with NO FK — nulling would be rejected and would void the statement. The row is free prose the subject wrote about a booking; same call as chat_messages and coordinator_broadcasts.',
   },
   {
+    table: 'papic_free_grant_claims',
+    column: 'user_id',
+    why: 'CASCADE + PRIMARY KEY (so NOT NULL) — the schema\u2019s own verdict that the row dies with the account, and it is strictly 1:1 with the subject: the single fact that THIS account has used its one free Papic pool grant. Nobody else is a data subject of it. \u26a0 The consequence is deliberate and worth stating: erasing an account also erases the claim, so a re-signup starts fresh. That is the correct trade \u2014 retaining a row keyed to an erased person to deny them 50 credits later would be retaining personal data to their detriment, which is what RA 10173 forbids. The cheap reset this replaced (deleting your own event_members row, 2026-09-05) cost nothing; this one costs the whole account.',
+  },
+  {
     table: 'referral_codes',
     column: 'owner_user_id',
     why: 'CASCADE + NOT NULL, and UNIQUE — one code per account, so the row is strictly 1:1 with the subject and co-owned by nobody.',

@@ -187,6 +187,7 @@ export async function GET() {
     samahanMessagesRes,
     coordinatorConsentsRes,
     marketingShareConsentsRes,
+    papicFreeGrantClaimsRes,
     vendorReuseRequestsRes,
     workingNotesRes,
     broadcastsSentRes,
@@ -416,6 +417,17 @@ export async function GET() {
       )
       .eq('customer_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-06) — the subject's ONE free-Papic-pool claim
+    // (migration 20271208142357). A fact held about THIS account and nobody
+    // else: that its one free 50-credit grant has been used, and on which
+    // event. Strictly 1:1 with the subject (PRIMARY KEY on user_id), so there
+    // is no counterparty whose data this could also be. Exported rather than
+    // excluded because a person asking what we hold about them is entitled to
+    // the row that decides whether their next celebration starts with credits.
+    supabase
+      .from('papic_free_grant_claims')
+      .select('user_id, event_id, claimed_at')
+      .eq('user_id', user.id),
     // RA 10173 (2026-08-04) — RE-BOOKING REQUESTS the subject initiated
     // (migration 20271103100614). AUTHOR-scoped on requested_by_user_id, not
     // event-scoped: the row records a request THIS person made, and a co-host
@@ -660,6 +672,7 @@ export async function GET() {
   const samahanMessages = listOutcome('samahan_messages', samahanMessagesRes);
   const coordinatorConsents = listOutcome('coordinator_access_consents', coordinatorConsentsRes);
   const marketingShareConsents = listOutcome('marketing_share_consents', marketingShareConsentsRes);
+  const papicFreeGrantClaims = listOutcome('papic_free_grant_claims', papicFreeGrantClaimsRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
@@ -825,6 +838,7 @@ export async function GET() {
     // consents (per-artifact FB-feature grants incl. post/take-down evidence).
     coordinator_access_consents: coordinatorConsents.rows,
     marketing_share_consents: marketingShareConsents.rows,
+    papic_free_grant_claims: papicFreeGrantClaims.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).

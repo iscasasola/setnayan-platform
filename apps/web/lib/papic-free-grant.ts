@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchPapicFreeGrantPoints } from '@/lib/papic-tier-copy';
 
 /**
  * apps/web/lib/papic-free-grant.ts — ARM the Papic FREE pool.
@@ -67,166 +66,69 @@ import { fetchPapicFreeGrantPoints } from '@/lib/papic-tier-copy';
  * it. That is why the lazy call site is kept even though creation now covers it:
  * the two together are what make "every event is fenced" true in practice.
  *
- * FIRST EVENT ONLY (2026-09-04, owner-confirmed)
- * ───────────────────────────────────────────────
- * The free allowance is a "try Papic once" sample, not a per-event perk — an
- * account gets it on their FIRST event ever and (practically) nothing on
- * every event after, regardless of event_type (per-type would have been a
- * 16x farming loophole: one simple_event + one wedding + one birthday etc.
- * all on the same account). "First" is resolved from event_members
- * (member_type='couple'): any OTHER event already carrying a couple row for
- * this user_id means this is not the first.
+ * FIRST EVENT ONLY — AND THE ROW IT IS STORED IN (2026-09-04, fixed 2026-09-06)
+ * ────────────────────────────────────────────────────────────────────────────
+ * The free allowance is a "try Papic once" sample, not a per-event perk: an
+ * account gets it on their FIRST event ever and the 1-point minimum on every
+ * event after, regardless of event_type (per-type would have been a 16x
+ * farming loophole — one simple_event + one wedding + one birthday, each 50).
  *
- * 🚨 IT CANNOT ACTUALLY BE ZERO — RULE 0 MISS CAUGHT MID-BUILD. The obvious
- * design ("insert a free_grant row with points = 0") is a schema-level
- * impossibility (points had `CHECK (points > 0)`) AND, worse, would not have
- * worked even with that relaxed: `papic_event_pool_status()` (live def.
- * migration 20271185813837) fences on `SUM(points) > 0`, not on whether a
- * grant ROW exists — its own comment says so explicitly: "granted_points <= 0
- * is this function's test for 'this event has no Papic pool product at
- * all'". A 0-point row is therefore indistinguishable from no grant at all
- * and would revert the event to the exact "no fence → unmetered" state this
- * whole module exists to prevent.
+ * 🚨 THE FIRST VERSION STORED THAT FACT IN A ROW THE CUSTOMER CAN DELETE.
+ * It asked `event_members` whether the account had another 'couple' row. But
+ * `couple_can_delete_member` is `FOR DELETE TO authenticated`, so a signed-in
+ * customer could delete their own membership with one PostgREST call and the
+ * history simply vanished — next event, another full 50, repeatable, with the
+ * credits already granted to the older event still sitting on it. The exact
+ * farming the rule was written that morning to stop, through a different door.
+ * Found by a post-merge audit 2026-09-05; fixed by migration 20271208142357.
  *
- * So a repeat event gets `PAPIC_REPEAT_EVENT_GRANT_POINTS` (1) instead of the
- * full allowance — enough to flip `applies = TRUE` and fence the event,
- * consumed by the very first capture. Not literally "0 credits shown", but
- * the closest the current additive-sum model can express without changing
- * `papic_event_pool_status()` itself (a shared, many-times-redefined RPC —
- * out of scope for this change; loosening its `<= 0` check to an EXISTS
- * check would be a real behavior change for unrelated cases, e.g. a fully
- * refunded pool netting to exactly 0).
+ * 🔑 A RULE IS ONLY AS DURABLE AS THE ROW IT READS. The claim now lives in
+ * `papic_free_grant_claims` — one row per account, ever, PRIMARY KEY on
+ * user_id, REVOKEd from anon and authenticated so no browser can read or
+ * delete it. Membership is the customer's to remove; entitlement history is not.
  *
- * The owning account is resolved two ways: at event-creation call sites the
- * caller passes `creatingUserId` directly (event_members doesn't have the
- * couple row yet at that point in the flow). At the Papic-studio self-heal
- * call site, `creatingUserId` is omitted and the couple's user_id is looked
- * up from event_members instead — deliberately NOT the visiting user, since
- * self-heal can fire for any studio visitor, not only the couple.
+ * 🔑 AND THERE IS NOW EXACTLY ONE DECISION SITE. `papic_claim_free_pool()` is
+ * called by both the `event_members` trigger and this module. The previous
+ * shape kept the rule in SQL *and* in TypeScript, and for a day the two
+ * disagreed about which was even live — this module's own docblock claimed an
+ * insert that the trigger had already won the race to perform.
  *
- * If the owning user_id can't be resolved at all (lookup error, no couple row
- * yet), this falls back to granting the FULL allowance rather than the
- * repeat-event minimum — consistent with the module's best-effort
- * philosophy: a lookup hiccup should never wrongly deny a genuine
- * first-timer their free credits.
+ * 🚨 IT CANNOT BE ZERO. A repeat event gets 1 point, not 0:
+ * `papic_event_pool_status()` fences on `SUM(points) > 0`, not on whether a
+ * grant ROW exists ("granted_points <= 0 is this function's test for 'this
+ * event has no Papic pool product at all'"), so a 0-point row is
+ * indistinguishable from no grant and would revert the event to UNMETERED
+ * capture — the state this whole module exists to prevent. 1 point flips
+ * applies=TRUE and is consumed by the first capture.
  */
 
 /** The `papic_event_point_grants.source` value reserved for the free pool. */
 export const PAPIC_FREE_GRANT_SOURCE = 'free_grant' as const;
 
 /**
- * What a repeat event's free grant carries instead of the full allowance.
- * MUST stay > 0 — see the module docblock's "IT CANNOT ACTUALLY BE ZERO"
- * section: `papic_event_pool_status()` fences on `SUM(points) > 0`, so 0
- * would silently revert the event to unmetered.
- */
-export const PAPIC_REPEAT_EVENT_GRANT_POINTS = 1;
-
-export type FreePapicGrantRow = {
-  event_id: string;
-  points: number;
-  source: typeof PAPIC_FREE_GRANT_SOURCE;
-  note: string;
-};
-
-/**
- * The row we insert. PURE + unit-tested, so the shape is asserted without a
- * database. `points` is passed IN (resolved from the admin-editable config by
- * the caller) rather than baked in — that is the whole point of the 2026-07-28
- * correction. `isFirstEvent` picks the note text explicitly rather than being
- * inferred from `points`, since both branches now grant a positive number.
- */
-export function freePapicGrantRow(
-  eventId: string,
-  points: number,
-  isFirstEvent: boolean,
-): FreePapicGrantRow {
-  return {
-    event_id: eventId,
-    points,
-    source: PAPIC_FREE_GRANT_SOURCE,
-    note: isFirstEvent
-      ? 'Free pool — armed at event creation (owner-locked 2026-07-27).'
-      : 'Free pool minimum — not this account\'s first event (owner-confirmed 2026-09-04).',
-  };
-}
-
-/**
- * True when `userId` already has another event carrying a 'couple' row —
- * i.e. this is NOT their first event, regardless of event_type. PURE query,
- * unit-tested via a stubbed client.
- */
-async function hasPriorPapicEvent(
-  admin: SupabaseClient,
-  userId: string,
-  eventId: string,
-): Promise<boolean> {
-  const { data, error } = await admin
-    .from('event_members')
-    .select('event_id')
-    .eq('user_id', userId)
-    .eq('member_type', 'couple')
-    .neq('event_id', eventId)
-    .limit(1);
-  if (error) throw error;
-  return !!data && data.length > 0;
-}
-
-/**
- * Resolves the couple's user_id for an event from event_members. Used only at
- * the self-heal call site, where the visiting user may not be the couple.
- */
-async function resolveCoupleUserId(admin: SupabaseClient, eventId: string): Promise<string | null> {
-  const { data, error } = await admin
-    .from('event_members')
-    .select('user_id')
-    .eq('event_id', eventId)
-    .eq('member_type', 'couple')
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data.user_id;
-}
-
-/**
- * Resolves this event's free grant: the full admin-configured allowance on an
- * account's first event ever, `PAPIC_REPEAT_EVENT_GRANT_POINTS` on every
- * event after. Never throws — any resolution failure (unknown owner, query
- * error) falls back to "first event", per the best-effort contract above.
- */
-async function resolveFreeGrant(
-  admin: SupabaseClient,
-  eventId: string,
-  creatingUserId: string | undefined,
-): Promise<{ points: number; isFirstEvent: boolean }> {
-  const fullAllowance = await fetchPapicFreeGrantPoints(admin);
-  try {
-    const ownerUserId = creatingUserId ?? (await resolveCoupleUserId(admin, eventId));
-    if (!ownerUserId) return { points: fullAllowance, isFirstEvent: true };
-    const hasPrior = await hasPriorPapicEvent(admin, ownerUserId, eventId);
-    return hasPrior
-      ? { points: PAPIC_REPEAT_EVENT_GRANT_POINTS, isFirstEvent: false }
-      : { points: fullAllowance, isFirstEvent: true };
-  } catch {
-    return { points: fullAllowance, isFirstEvent: true };
-  }
-}
-
-/**
- * Arm the free 50-point pool for an event. Idempotent, best-effort, non-fatal.
+ * Arm the free pool for an event. Idempotent, best-effort, non-fatal.
  *
- * Returns true when this call inserted the grant OR the grant was already there
- * (i.e. the event is fenced either way), false only when the write errored and
- * the event may still be unmetered.
+ * 🔑 THIS FUNCTION NO LONGER DECIDES ANYTHING. It calls
+ * `papic_claim_free_pool(p_event_id, p_user_id)` — the one SQL decision site
+ * (migration 20271208142357) that the `event_members` trigger also calls.
+ * Before that migration the rule lived in BOTH places, and the two disagreed
+ * about which was live for a whole day. One site cannot drift from itself.
  *
- * MUST be called with an ADMIN (service-role) client: the couple's own RLS
- * client has no INSERT policy on papic_event_point_grants, and it must not —
- * a host granting themselves points is exactly what the fence exists to stop.
+ * Returns true when the call completed (the event is armed either way — the
+ * function is a no-op when a free_grant already exists), false only when the
+ * RPC errored and the event may still be unmetered.
+ *
+ * MUST be called with an ADMIN (service-role) client: EXECUTE on the function
+ * is granted to `service_role` alone, and `papic_free_grant_claims` is
+ * revoked from every browser role. A customer who could reach either would be
+ * able to reset their own "first event ever" — which is exactly the defect
+ * this replaced (they could delete their own `event_members` row, and the old
+ * rule read that table).
  *
  * `creatingUserId` — pass the creating user's id at event-creation call sites
- * (event_members has no couple row yet at that point). Omit it at the
- * Papic-studio self-heal call site; the couple's user_id is looked up from
- * event_members instead, since the studio visitor need not be the couple.
+ * (event_members has no couple row yet at that point in the flow). Omit it at
+ * the Papic-studio self-heal call site: the SQL resolves the couple itself,
+ * deliberately NOT the visiting user, who need not be the couple.
  */
 export async function ensureFreePapicPoolGrantAdmin(
   admin: SupabaseClient,
@@ -235,33 +137,19 @@ export async function ensureFreePapicPoolGrantAdmin(
 ): Promise<boolean> {
   if (!eventId) return false;
   try {
-    // The admin-editable allowance, or the repeat-event minimum when this
-    // account has already used its first-event grant elsewhere. Resolved per
-    // call rather than cached: event creation is rare, the reads are indexed,
-    // and a stale cache here would silently mint the OLD allowance after an
-    // admin edit — the exact drift the 2026-07-28 correction removed for the
-    // allowance, now extended to this.
-    const { points, isFirstEvent } = await resolveFreeGrant(admin, eventId, creatingUserId);
-    const { error } = await admin
-      .from('papic_event_point_grants')
-      .insert(freePapicGrantRow(eventId, points, isFirstEvent));
-    if (!error) return true;
-    // 23505 = unique_violation against papic_event_point_grants_one_free_per_event
-    // → this event is ALREADY armed. That is the steady state (every call after
-    // the first), not a failure.
-    return isAlreadyArmedError(error);
+    const { error } = await admin.rpc('papic_claim_free_pool', {
+      p_event_id: eventId,
+      p_user_id: creatingUserId ?? null,
+    });
+    if (error) {
+      console.error('[ensureFreePapicPoolGrantAdmin] papic_claim_free_pool failed', error.message);
+      return false;
+    }
+    return true;
   } catch {
-    // Pre-bootstrap DB / missing table / transport hiccup. Never fatal: the
-    // Papic-studio self-heal call retries on the next render.
+    // Pre-bootstrap DB / missing function / transport hiccup. Never fatal: a
+    // couple must always get their event, and the Papic-studio self-heal call
+    // retries on the next render.
     return false;
   }
-}
-
-/**
- * True when a PostgREST error means "the free grant already exists".
- * PURE + unit-tested — this predicate is the difference between "armed" and a
- * false alarm, so it is asserted rather than trusted.
- */
-export function isAlreadyArmedError(error: { code?: string | null } | null): boolean {
-  return error?.code === '23505';
 }

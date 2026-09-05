@@ -217,26 +217,104 @@ test('every ON DELETE action on comp_grants is the one we intend', async () => {
   assert.equal(byCol.user_id, 'c', 'user_id must stay CASCADE — the row is ABOUT them');
 });
 
-test('no actor-stamp column anywhere still deletes its row on the actor’s departure', async () => {
-  // Generalises the fix. The over-deletion rule is a rule, not a one-column
-  // patch: a NEW table wiring granted_by/approved_by/revoked_by/created_by to
-  // CASCADE reproduces exactly this defect, and would land green without this.
+/**
+ * Columns that LOOK like actor stamps by name, are still CASCADE, and have NOT
+ * been through the actor-vs-subject argument. They are listed so the ratchet
+ * below can go red on a SEVENTH without going red on these six today.
+ *
+ * 🛑 THIS IS A BACKLOG, NOT AN APPROVAL. Every one is `CASCADE + NOT NULL`, the
+ * same shape `comp_grants.granted_by` had, so each is a candidate for the same
+ * defect — deleting the actor destroys somebody else's row. Each also needs its
+ * own answer, because a name is not an argument: `initiated_by` on an OAuth
+ * state row genuinely IS the SUBJECT of that row (delete the initiator, delete
+ * their pending handshake), exactly as `event_delegates.delegate_user_id` is.
+ * Settling them was out of scope for the comp_grants fix and is deliberately
+ * not guessed at here.
+ *
+ * 🔑 THE LIST IS TEN, AND THE FIRST DRAFT OF IT WAS SIX. A survey named the six
+ * `%granted_by%`-ish ones and missed every `*oauth_state.initiated_by`; the
+ * shape-based query below found them. Do not hand-maintain this from a report —
+ * re-measure it:
+ *   grep -E '^[a-z_]+\.[a-z_]*(_by|_by_user_id)  ' \
+ *     apps/web/tests/db/user-fk-behaviour.generated.txt | grep CASCADE
+ *
+ * To retire a line: make the actor-vs-subject argument, then either convert it
+ * (DROP NOT NULL + SET NULL, as the comp_grants migration does) or record why
+ * CASCADE is right. Never add a line to keep this test green.
+ */
+const UNREVIEWED_CASCADING_ACTOR_STAMPS = [
+  // ── almost certainly CORRECT, but nobody has written it down ──────────────
+  // A pending OAuth handshake IS the initiator's own row: nothing survives them
+  // that anyone else can use, and a dangling state row would be a liability
+  // rather than a record. Listed for completeness, not as suspects.
+  'live_studio_channel_oauth_state.initiated_by',
+  'oauth_state.initiated_by',
+  'patiktok_oauth_state.initiated_by',
+  'vendor_ig_oauth_state.initiated_by',
+
+  // ── genuine candidates for the comp_grants defect ─────────────────────────
+  // Each records that somebody ACTED on a row other people also rely on: an
+  // approval request, a consent, an encoder claim, a motion, an invite, a lock
+  // proposal. If deleting the actor deletes the row, a third party loses
+  // something that was never theirs to lose — the over-deletion trap exactly.
+  'admin_approval_requests.initiated_by',
+  'coordinator_access_consents.consented_by_user_id',
+  'live_studio_encoder_claims.requested_by',
+  'vendor_admin_motions.proposed_by',
+  'vendor_invites.invited_by_user_id',
+  'vendor_lock_proposals.proposed_by_user_id',
+];
+
+/** Every single-column FK onto a users table whose column name reads as "who acted". */
+const ACTOR_STAMP_PREDICATE = `
+  con.contype = 'f'
+  AND con.confrelid IN ('auth.users'::regclass, 'public.users'::regclass)
+  AND array_length(con.conkey, 1) = 1
+  AND (a.attname LIKE '%\\_by' OR a.attname LIKE '%\\_by\\_user\\_id')`;
+
+test('no NEW actor stamp may CASCADE — the known ones are pinned, not blessed', async () => {
+  // ⚠ THIS GUARD WAS WRONG WHEN FIRST WRITTEN, AND THE BUG IS WORTH KEEPING IN
+  // MIND. It matched only '%granted_by%', '%approved_by%', '%revoked_by%' and
+  // '%created_by%' while calling itself "no actor-stamp column ANYWHERE" — so
+  // it passed green over six CASCADE columns named initiated_by, requested_by,
+  // proposed_by, invited_by_user_id and consented_by_user_id, none of which its
+  // patterns could match. A guard whose NAME is broader than its QUERY is a
+  // false green: it reports on a population it never looked at. The predicate
+  // now matches the shape ("…_by" / "…_by_user_id") rather than a hand-listed
+  // set of verbs, and the known offenders are pinned by name below.
   const r = await db.query<{ tbl: string; col: string }>(
     `SELECT con.conrelid::regclass::text AS tbl, a.attname AS col
        FROM pg_constraint con
        JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = con.conkey[1]
-      WHERE con.contype = 'f'
-        AND con.confrelid IN ('auth.users'::regclass, 'public.users'::regclass)
-        AND array_length(con.conkey, 1) = 1
+      WHERE ${ACTOR_STAMP_PREDICATE}
         AND con.confdeltype = 'c'
-        AND (a.attname LIKE '%granted\\_by%' OR a.attname LIKE '%approved\\_by%'
-          OR a.attname LIKE '%revoked\\_by%' OR a.attname LIKE '%created\\_by%')
       ORDER BY 1, 2`,
   );
+  const cascading = r.rows.map((x) => `${x.tbl}.${x.col}`);
+
+  const unexpected = cascading.filter((c) => !UNREVIEWED_CASCADING_ACTOR_STAMPS.includes(c));
   assert.deepEqual(
-    r.rows.map((x) => `${x.tbl}.${x.col}`),
+    unexpected,
     [],
-    'these actor stamps still CASCADE, so deleting the actor destroys somebody else’s record',
+    'a NEW actor stamp CASCADEs, so deleting the actor destroys somebody else’s record. ' +
+      'Make the actor-vs-subject argument (see erasure-completeness.db.test.ts) and either ' +
+      'convert it to SET NULL or say why CASCADE is right — do not add it to the pinned list.',
+  );
+
+  // The ratchet only tightens. A pinned line that no longer cascades has been
+  // fixed and must be deleted, so the list can never quietly outlive its truth.
+  const stale = UNREVIEWED_CASCADING_ACTOR_STAMPS.filter((c) => !cascading.includes(c));
+  assert.deepEqual(
+    stale,
+    [],
+    'these are pinned as still-CASCADE but no longer are — delete them from ' +
+      'UNREVIEWED_CASCADING_ACTOR_STAMPS rather than leaving a stale exemption',
+  );
+
+  // And the column this PR exists for must not be among them.
+  assert.ok(
+    !cascading.includes('comp_grants.granted_by'),
+    'comp_grants.granted_by is CASCADE again — the fix was reverted',
   );
 });
 
@@ -247,14 +325,10 @@ test('META · the roll-call is not vacuous — actor stamps really are being exa
     `SELECT count(*)::int AS n
        FROM pg_constraint con
        JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = con.conkey[1]
-      WHERE con.contype = 'f'
-        AND con.confrelid IN ('auth.users'::regclass, 'public.users'::regclass)
-        AND array_length(con.conkey, 1) = 1
-        AND (a.attname LIKE '%granted\\_by%' OR a.attname LIKE '%approved\\_by%'
-          OR a.attname LIKE '%revoked\\_by%' OR a.attname LIKE '%created\\_by%')`,
+      WHERE ${ACTOR_STAMP_PREDICATE}`,
   );
   assert.ok(
-    r.rows[0]!.n >= 25,
+    r.rows[0]!.n >= 40,
     `only ${r.rows[0]!.n} actor stamps found — the pattern stopped matching, so the ` +
       'CASCADE roll-call above is passing over an empty set',
   );

@@ -153,3 +153,66 @@ test('bytes that cannot be marked THROW — there is no publish-the-original fal
     buildGalleryCopy({ eventId: 'e', renderId: 'r', bytes: Buffer.from('nope') }),
   );
 });
+
+/**
+ * MB27 · THE RENDER POOL GETS THE **STAMP**, AND WOULD NOTICE IF IT DIDN'T.
+ *
+ * `buildGalleryCopy` calls `watermarkImageBytes(args.bytes)` with no variant,
+ * and the parameter defaults to `'stamp'` — so renders already carry
+ * `WWW.SETNAYAN.COM` on a filled pill, and owner question 4 of 2026-09-05 was
+ * closed by the code as it stood. Nothing was built here. This is the guard
+ * that keeps it closed.
+ *
+ * 🔑 THE SECOND SABOTAGE IS ALREADY COVERED — cited, not duplicated. Dropping
+ * the `watermarkImageBytes` call entirely goes red on "buildGalleryCopy returns
+ * MARKED bytes, not the original, under the gallery key" above, which reads the
+ * bottom-right pixels. What NOTHING asserted before MB27 is WHICH mark: a
+ * refactor that threaded a variant through and passed `'seal'` would keep every
+ * existing test green while putting the celebration badge — the mark reserved
+ * for photographs of events Setnayan actually ran — on generated renders.
+ *
+ * ⚠ THE DISCRIMINATOR IS THE OPPOSITE CORNER, not the bottom-right one. Both
+ * marks put ink bottom-right, so reading there cannot tell them apart. The seal
+ * is the only variant that also writes the URL in the bottom-LEFT (see
+ * `sealLayers`), and the stamp is the only one with a filled plate. Both are
+ * asserted, so the test fails on `'seal'` for two independent reasons.
+ */
+test('the gallery copy is produced with the STAMP variant, not the seal', async () => {
+  const { bytes } = await buildGalleryCopy({
+    eventId: 'event-mb27',
+    renderId: 'render-mb27',
+    bytes: await flatImage(900, 700),
+  });
+
+  const meta = await sharp(bytes).metadata();
+  const w = meta.width!;
+  const h = meta.height!;
+  const qw = Math.floor(w / 3);
+  const qh = Math.floor(h / 4);
+
+  const region = async (left: number, top: number) => {
+    const { data, info } = await sharp(bytes)
+      .extract({ left, top, width: qw, height: qh })
+      .greyscale()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    let dev = 0;
+    let dark = 0;
+    for (const v of data) {
+      dev += Math.abs(v - FLAT.r);
+      if (v < FLAT.r - 12) dark += 1;
+    }
+    return { dev: dev / data.length, darkShare: dark / (info.width * info.height) };
+  };
+
+  const right = await region(w - qw, h - qh);
+  const left = await region(0, h - qh);
+
+  // The stamp's filled pill: a real block of darker-than-background pixels.
+  assert.ok(right.darkShare > 0.03, `the stamp's plate must be there (got ${right.darkShare})`);
+  // The seal's giveaway: it is the only variant that marks the bottom-LEFT.
+  assert.ok(
+    left.dev < 0.5,
+    `the bottom-left corner carries ink — that is the SEAL, and renders take the stamp (dev ${left.dev})`,
+  );
+});

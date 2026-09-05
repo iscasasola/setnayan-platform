@@ -92,6 +92,32 @@
  * assumption was in fact verified against a Vercel lambda, say so and this can
  * go back — but it should not rest on a claim nobody measured.
  *
+ * ── VIDEO IS PHASE 2, AND A VIDEO IS REFUSED, NOT PASSED (MB27) ───────────
+ * 🔒 OWNER RULING 2026-09-05: **no video watermarking in V1.** Recorded, not
+ * built. Papic clips, Panood recordings and vendor showcase reels ship
+ * unmarked in V1 by decision, and the decision is the owner's to revisit.
+ *
+ * 🛑 BUT "WE DON'T MARK VIDEO" MUST NOT MEAN "WE QUIETLY DON'T MARK VIDEO".
+ * `watermarkImageBytes` takes raw bytes and is called from a lambda; the
+ * caller's own MIME check is the only thing standing between it and an MP4.
+ * Handed one, the honest outcomes are a loud throw or a marked video — never a
+ * successful call that returns the clip untouched, because every artefact of
+ * success (a key, a content type, a row) would be present and the file on the
+ * public pool would carry no mark at all. That is the failure-looks-like-
+ * success disease, and it is the one this module's header already refuses in
+ * three other places.
+ *
+ * So the bytes are SNIFFED before sharp sees them (`assertNotVideoBytes`), and
+ * a video container throws with the ruling in the message. Not left to sharp's
+ * decode error: sharp says "unsupported image format", which reads like a
+ * corrupt upload and sends the next engineer looking in the wrong place.
+ *
+ * ⚠ THE SNIFF IS BRAND-AWARE ON PURPOSE. `ftyp` at offset 4 is ISO-BMFF, which
+ * is MP4 *and* HEIC *and* AVIF — and AVIF is an image this pipeline must keep
+ * accepting (`preserveMime` in `lib/watermark.ts` names it). Only known VIDEO
+ * brands are refused; an unrecognised brand falls through to sharp, which is
+ * the component that actually knows what it can decode.
+ *
  * ── OUTPUT IS ALWAYS JPEG, ON PURPOSE ─────────────────────────────────────
  * One format out means one extension, one content type and one set of bytes to
  * assert on. A render is a photograph; JPEG loses nothing that matters here and
@@ -100,9 +126,17 @@
  */
 
 import sharp from 'sharp';
+import { WATERMARK_TEXT } from './watermark-text';
 
-/** The URL every marked photograph carries. Owner directive, 2026-09-04. */
-export const WATERMARK_TEXT = 'WWW.SETNAYAN.COM';
+/**
+ * The URL every marked photograph carries. Owner directive 2026-09-04; MB27
+ * moved the string itself to `lib/watermark-text.ts` so the browser-side
+ * marker can share it (this module cannot be imported by a browser — `sharp`
+ * above is a native addon). Re-exported because the MB20 guards import it from
+ * here, and because "the server's watermark text" is a thing callers look for
+ * at this address.
+ */
+export { WATERMARK_TEXT };
 
 /** The two lines inside the seal's badge. Brand lock: never STNYN. */
 export const SEAL_NAME_TEXT = 'SETNAYAN';
@@ -185,11 +219,18 @@ export function markVariantForSource(
  * It also throws when the measured mark will not FIT — see `assertInside`. A
  * mark that does not fit is the bug MB20 fixed, and shearing it silently is
  * what let that bug ship.
+ *
+ * And it throws on VIDEO bytes rather than returning them: video marking is
+ * Phase 2 by owner ruling 2026-09-05, and this function is images only. See
+ * the header — a video that "succeeds" here is an unmarked clip on a public
+ * pool with every sign of success around it.
  */
 export async function watermarkImageBytes(
   input: Uint8Array | Buffer,
   variant: WatermarkVariant = 'stamp',
 ): Promise<ServerWatermarkResult> {
+  assertNotVideoBytes(input);
+
   const base = sharp(Buffer.from(input), { failOn: 'error' }).rotate();
   const resized = await base
     .resize({
@@ -596,6 +637,51 @@ function assertInside(inner: MarkBox, outer: MarkBox, what: string): void {
         `does not fit ${outer.width}x${outer.height} at (${outer.left},${outer.top})`,
     );
   }
+}
+
+/**
+ * REFUSE A VIDEO OUT LOUD (MB27 · owner ruling 2026-09-05).
+ *
+ * Container sniffing, not MIME: this function is handed BYTES by a lambda, and
+ * the MIME string that came with them is the caller's claim, not a fact about
+ * the file. The bytes are the fact.
+ *
+ * 🪤 `ftyp` IS NOT ENOUGH ON ITS OWN. ISO-BMFF is the container for MP4 and
+ * MOV *and* for HEIC and AVIF — images this pipeline must keep marking. So the
+ * BRAND at offset 8 decides, and only brands that are unambiguously video are
+ * refused. Anything else falls through to sharp, which is the component that
+ * actually knows what it can decode; a wrong guess here would reject a real
+ * photograph, which is the more expensive mistake.
+ */
+const VIDEO_FTYP_BRANDS = new Set([
+  'isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'mp4v', 'avc1',
+  'dash', 'm4v ', 'M4V ', 'M4VP', 'qt  ', '3gp4', '3gp5', '3gp6', '3g2a',
+]);
+
+export function assertNotVideoBytes(input: Uint8Array | Buffer): void {
+  const b = Buffer.from(
+    input.buffer,
+    input.byteOffset,
+    Math.min(input.byteLength, 16),
+  );
+  const refuse = (container: string): never => {
+    throw new Error(
+      `watermark: refusing to mark a video (${container}). Video marking is ` +
+        'Phase 2 by owner ruling 2026-09-05 — watermarkImageBytes is images ' +
+        'only. Returning the clip unmarked would look exactly like success.',
+    );
+  };
+  if (b.length >= 12 && b.toString('latin1', 4, 8) === 'ftyp') {
+    const brand = b.toString('latin1', 8, 12);
+    if (VIDEO_FTYP_BRANDS.has(brand)) refuse(`ISO-BMFF brand "${brand.trim()}"`);
+  }
+  // Matroska / WebM share the EBML magic; the DocType that separates them sits
+  // further in, and neither is an image, so the magic alone is enough here.
+  if (b.length >= 4 && b.readUInt32BE(0) === 0x1a45dfa3) refuse('Matroska/WebM');
+  if (b.length >= 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'AVI ')
+    refuse('AVI');
+  if (b.length >= 3 && b.toString('latin1', 0, 3) === 'FLV') refuse('FLV');
+  if (b.length >= 4 && b.readUInt32BE(0) === 0x000001ba) refuse('MPEG program stream');
 }
 
 /**

@@ -35,6 +35,7 @@ import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
+import { BoothEventSection } from './_components/booth-event-section';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
 import {
@@ -2567,10 +2568,14 @@ function OverviewTab(props: {
         <VendorChallengeSection eventId={eventId} vendorProfileId={vendorProfileId} />
       ) : null}
 
-      {/* The "unlock the 3D Plan for this couple" section that stood here is
-          RETIRED (owner 2026-09-05): the 3D Plan is free for couples, so there is
-          no couple price left to discount. What a vendor buys for a room is
-          BRANDING — the 3D Booth add-on on the subscription page. */}
+      {/* Your booth in THEIR 3D Plan (booked-only). The "unlock the 3D Plan for
+          this couple" section that stood here is RETIRED (owner 2026-09-05): the
+          room is free for couples. What a vendor buys for it is BRANDING — ₱500
+          for this one celebration here, or the ₱3,000 / 4-week cycle for every
+          client on the subscription page. Self-gates on the 3D kill-switch. */}
+      {isBooked ? (
+        <BoothEventSection eventId={eventId} vendorProfileId={vendorProfileId} />
+      ) : null}
     </div>
   );
 }

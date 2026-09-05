@@ -34,7 +34,8 @@ const PAID_PATHS = [
   'app/vendor-dashboard/team/actions.ts', // extra seat
   'app/vendor-dashboard/branches/actions.ts', // additional branch (buy + renew)
   'app/vendor-dashboard/subscription/ai-addon-actions.ts', // Vendor AI
-  'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth
+  'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth (28-day cycle)
+  'app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts', // 3D Booth at ONE event (₱500)
   'app/vendor-dashboard/deep-search/actions.ts', // one Deep Search
   'app/vendor-dashboard/subscription/custom/actions.ts', // negotiated plan
   // ⬇ ADDED 2026-08-23. A vendor sponsoring Papic Challenges for a client's

@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
@@ -90,7 +91,9 @@ export default async function SeatingLabPage({ params }: Props) {
     fetchFloorPlan(supabase, eventId),
     fetchSeatingConstraints(supabase, eventId),
     fetchSceneObjects(supabase, eventId),
-    fetchBooths(supabase, eventId),
+    // brandedReader: the per-event branding RPC is service_role-only; the
+    // couple's session would be refused and every booth would draw generic.
+    fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
     fetchSigns(supabase, eventId),
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),

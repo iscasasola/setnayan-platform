@@ -193,6 +193,13 @@ const ORDER_MINTERS: Record<string, string> = {
     'Vendor 3D-booth add-on. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch now service-role (`moneyWriter`). Authorized by fetchOwnVendorProfile + ' +
     'resolveVendorRoleForProfile + tier + verified + the first-5-free evaluation.',
+  'app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts':
+    'Vendor 3D-booth branding for ONE event (₱500 one-time, owner 2026-09-05). pricePhp read ' +
+    'server-side from the vendor catalog (fetchVendor3dBoothEventPricePhp; null = off sale = refuse). ' +
+    'Service-role (`moneyWriter`). Authorized by fetchOwnVendorProfile + resolveVendorRoleForProfile + ' +
+    'seating3dEnabled + booked-on-this-event (get_vendor_event_brief) + paid-tier floor + verified + ' +
+    'not-already-branded (live cycle, or a paid/pending per-event order). Minted WITH eventId — the ' +
+    'paid row IS the grant, read back through event_branded_booth_vendor_ids.',
   'app/vendor-dashboard/subscription/ai-addon-actions.ts':
     'Vendor AI add-on. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch now service-role (`moneyWriter`); the free-first-cycle branch keeps its ' +

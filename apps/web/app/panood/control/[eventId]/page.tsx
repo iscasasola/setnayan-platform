@@ -23,7 +23,6 @@ import {
   ExternalLink,
   Unlink2,
   Server,
-  KeyRound,
   Zap,
   Crown,
   Captions,
@@ -107,6 +106,7 @@ import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { ChannelFreshness } from './_components/channel-freshness';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
+import { EncoderKeyPanel } from '@/app/_components/encoder-key-panel';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
 import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
@@ -1632,25 +1632,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </div>
           </div>
 
-          <div className="sn-row space-y-1 p-3">
-            <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              <KeyRound aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Stream key · keep this secret
-            </p>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <code className="break-all font-mono text-sm text-ink/85">
-                {activeStreamKey
-                  ? `${'•'.repeat(Math.max(0, activeStreamKey.length - 4))}${activeStreamKey.slice(-4)}`
-                  : '— unavailable —'}
-              </code>
-              {activeStreamKey ? (
-                <CopyButton value={activeStreamKey} label="Copy" copiedLabel="Copied" />
-              ) : null}
-            </div>
-            <p className="text-[11px] text-ink/50">
-              Treat it like a password — anyone with it can stream to your broadcast.
-            </p>
-          </div>
+          {/* S8: three renderings (browser reveal/copy · desktop own-channel
+              paste · desktop hosted-channel connect) — see EncoderKeyPanel's
+              docblock. Replaces this section's former inline copy of the same
+              reveal/copy JSX that go-live-card.tsx also carried. */}
+          <EncoderKeyPanel
+            eventId={eventId}
+            streamKey={activeStreamKey}
+            ownsHostedChannel={ownsHostedChannel}
+          />
 
           <div className="sn-row space-y-1 p-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">

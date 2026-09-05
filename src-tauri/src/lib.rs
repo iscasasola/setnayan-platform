@@ -13,6 +13,10 @@ pub use setnayan_encoder as encoder;
 #[cfg(debug_assertions)]
 mod probe;
 
+// S8 — the stream key, two sources, one Rust sink (build-sessions/encoder/S8.md).
+// Ships in EVERY build: real product surface, not a spike.
+mod stream_key;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -22,12 +26,31 @@ pub fn run() {
         // redirect back on the `oauth://url` event.
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_oauth::init())
+        .manage(stream_key::StreamKeyState::default())
         .setup(|_app| Ok(()));
 
+    // NOTE: `invoke_handler` is called exactly ONCE below — it SETS the
+    // builder's handler rather than merging with a prior call, so the S0 probe
+    // commands and the S8 stream-key commands must be registered in the SAME
+    // `generate_handler!` call for debug builds, or the second call would
+    // silently drop the first one's commands.
     #[cfg(debug_assertions)]
     let builder = builder
-        .invoke_handler(tauri::generate_handler![probe::probe_report, probe::probe_ipc])
+        .invoke_handler(tauri::generate_handler![
+            stream_key::stream_key_set_pasted,
+            stream_key::stream_key_claim_hosted,
+            stream_key::stream_key_forget,
+            probe::probe_report,
+            probe::probe_ipc,
+        ])
         .on_page_load(probe::on_page_load);
+
+    #[cfg(not(debug_assertions))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        stream_key::stream_key_set_pasted,
+        stream_key::stream_key_claim_hosted,
+        stream_key::stream_key_forget,
+    ]);
 
     builder
         .run(tauri::generate_context!())

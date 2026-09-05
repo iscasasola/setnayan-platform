@@ -1,6 +1,26 @@
 /**
  * upload-decor-pilot-to-r2.ts
  *
+ * ⛔ SUPERSEDED 2026-09-05 BY MB14b — THIS SCRIPT IS NOT THE WAY THESE TEN
+ * ASSETS SHIPPED, AND RUNNING IT WOULD NOW UN-DO THAT.
+ *
+ * It waited for R2 credentials that never arrived: measured again on
+ * 2026-09-05, the owner's local environment still has none, and the owner
+ * ruled that `media.setnayan.com` — the host the keys below were written for —
+ * is not being set up. So MB14b hosted the ten files APP-SERVED instead,
+ * copied byte-for-byte into `apps/web/public/moodboard-seed/venue_scene/`,
+ * following the precedent MB24 (`20271206127987`) and MB25
+ * (`20271206413595`) set for exactly this problem. Migration
+ * `20271207934361` repoints all ten rows at `/moodboard-seed/venue_scene/…`
+ * and publishes them; an app-served path needs no bucket, no custom domain
+ * and no CORS negotiation, and recolours identically.
+ *
+ * Kept, not deleted: it is the ready-made template for the NEXT asset class
+ * that genuinely belongs in a bucket (anything large, or anything a couple
+ * uploads). If you run it for these ten, also change `storage_path` back — a
+ * row on R2 while the file is also in `public/` is two sources of truth for
+ * one drawing.
+ *
  * Uploads the 10 reception-decor pilot SVGs to the real `setnayan-media` R2
  * bucket at the keys the seed migration
  * (20271194970382_moodboard_reception_decor_layers_pilot.sql) already

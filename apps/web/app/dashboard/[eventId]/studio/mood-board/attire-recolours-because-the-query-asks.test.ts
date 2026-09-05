@@ -272,3 +272,111 @@ test('MB24: the modern-minimalist bride still ends up WITH a colour range', () =
         .join(' → ')}`,
   );
 });
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * MB14b · TEN MORE LIVE VENUE SCENES MUST NOT TAKE THE CEREMONY CARD.
+ *
+ * `findVenue` is FIRST-MATCH over a query with NO `ORDER BY`
+ * (`.in('asset_type', ['venue_scene','florals'])`), so which row wins is
+ * whatever Postgres returns first. That was harmless while exactly one
+ * `venue_scene` was ever live — MB25's Ceremony drawing. MB14b's migration
+ * `20271207934361` publishes TEN more: the backdrop and ceiling decor layers,
+ * which belong inside the reception room and are not a ceremony space at all.
+ *
+ * If any of them could satisfy `findVenue`, the Ceremony card would show a
+ * couple a draped ceiling labelled "Ceremony" — and it would do so
+ * intermittently, on row order, which is the worst way for a defect to arrive.
+ * They cannot, because the predicate is exact equality on `church`/`ceremony`
+ * and the ten carry `backdrop`/`ceiling`. That is a fact about two artefacts
+ * that were written weeks apart by different sessions, so it is asserted, not
+ * assumed — and asserted with the decor rows deliberately placed FIRST.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const DECOR_SEED = new URL(
+  '20271194970382_moodboard_reception_decor_layers_pilot.sql',
+  MIGRATIONS_DIR,
+);
+
+/** The subtypes `findVenue`'s predicate accepts, read out of page.tsx. */
+function ceremonySubtypesFromPage(): string[] {
+  const call = windowBetween('const findVenue =', 'const bouquetRow =');
+  const out = [...call.matchAll(/s === '([a-z_]+)'/g)].map((m) => m[1]!);
+  assert.ok(
+    out.length > 0,
+    'findVenue no longer compares `asset_subtype` to any literal. If it now matches every ' +
+      'venue_scene, the ten MB14b decor layers can win the Ceremony card on row order.',
+  );
+  return out;
+}
+
+/** The subtypes MB14b publishes, read out of the pilot seed migration. */
+function decorSubtypesFromSeed(): string[] {
+  const sql = readFileSync(DECOR_SEED, 'utf8');
+  const out = new Set<string>();
+  for (const m of sql.matchAll(
+    /'(https:\/\/media\.setnayan\.com\/moodboard-library\/venue_scene\/(backdrop|ceiling)\/[a-z0-9-]+\.svg)'/g,
+  )) {
+    out.add(m[2]!);
+  }
+  assert.equal(out.size, 2, 'expected the pilot to seed exactly the backdrop and ceiling zones');
+  return [...out];
+}
+
+test('MB14b: the ten decor subtypes can never satisfy findVenue', () => {
+  const ceremony = ceremonySubtypesFromPage();
+  const decor = decorSubtypesFromSeed();
+  for (const d of decor) {
+    assert.ok(
+      !ceremony.includes(d),
+      `findVenue accepts asset_subtype "${d}", which is a MB14b decor zone, not a ceremony ` +
+        'space. The Ceremony card would show a couple a reception backdrop or ceiling — ' +
+        'intermittently, depending on which row Postgres returns first.',
+    );
+  }
+  // And the predicate is EQUALITY, not a substring test: `s.includes('c')`
+  // would pass the loop above by accident on this data and fail on the next
+  // zone we add.
+  const call = windowBetween('const findVenue =', 'const bouquetRow =');
+  assert.doesNotMatch(
+    call,
+    /\.(includes|startsWith|endsWith|match|test)\s*\(/,
+    'findVenue now matches a subtype by substring rather than by equality. Every zone name ' +
+      'we ever add becomes a candidate for the Ceremony card.',
+  );
+});
+
+test('MB14b: with all ten decor rows returned FIRST, findVenue still picks the church', () => {
+  // The failure mode reproduced: no ORDER BY means the ten new live rows can
+  // arrive ahead of the Ceremony drawing. This runs page.tsx's own predicate,
+  // rebuilt from the literals parsed out of page.tsx, over exactly that order.
+  const ceremony = new Set(ceremonySubtypesFromPage());
+  const rows = [
+    ...decorSubtypesFromSeed().flatMap((zone) =>
+      ['elegant-simple-classic', 'bridgerton-regal', 'editorial-cream', 'tropical-heritage', 'modern-minimalist'].map(
+        (slug) => ({
+          asset_type: 'venue_scene',
+          asset_subtype: zone,
+          storage_path: `/moodboard-seed/venue_scene/${zone}/${slug}.svg`,
+        }),
+      ),
+    ),
+    {
+      asset_type: 'venue_scene',
+      asset_subtype: 'church',
+      storage_path: '/moodboard-seed/venue_scene/church/ceremony-aisle.svg',
+    },
+    { asset_type: 'florals', asset_subtype: 'bridal_bouquet', storage_path: '/x.svg' },
+  ];
+  assert.equal(rows.filter((r) => r.asset_type === 'venue_scene').length, 11);
+
+  const picked = rows.find(
+    (r) => r.asset_type === 'venue_scene' && ceremony.has((r.asset_subtype || '').toLowerCase()),
+  );
+  assert.equal(
+    picked?.storage_path,
+    '/moodboard-seed/venue_scene/church/ceremony-aisle.svg',
+    'the Ceremony card resolved to a decor layer instead of the church drawing. Ten decor ' +
+      'rows come back ahead of it and findVenue takes the first match.',
+  );
+});

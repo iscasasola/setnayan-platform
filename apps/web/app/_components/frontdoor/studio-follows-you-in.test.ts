@@ -142,9 +142,27 @@ test('with an event, every product row opens inside that event', () => {
     profile: WEDDING_PROFILE,
   });
   const products = rows.filter((r) => r.key !== '__all__');
+  /*
+    ⚠ THE EXPECTED COUNT IS THE NON-DOORWAY PRODUCTS, NOT ALL OF STUDIO_APPS
+    (2026-09-05). `marketplace` · `guest-list` · `seat-plan` are public
+    description pages that LEAVE the Studio group the moment an event opens —
+    owner: *"do not double the marketplace"* · *"Marketplace will disappear on
+    studio once we enter an event just like guestlist"* · *"and seat plan"* —
+    because the event's own rail already carries Guests, Marketplace→/vendors
+    and Seat plan. See `StudioApp.doorwayOnly`.
+
+    🔑 THIS DOES NOT WEAKEN THE GUARD, AND THE LOOP BELOW IS WHY. What this test
+    protects is that a product which IS in the in-event rail opens INSIDE the
+    event rather than falling back to its public page. A doorway row is not
+    dropped silently — it is dropped by a declared field, and
+    `studio-menu-adapts-to-event.test.ts` asserts both halves: absent with an
+    event, present without one. Comparing against a derived count keeps this
+    assertion honest if a doorway row is ever added or removed.
+  */
+  const expected = STUDIO_APPS.filter((a) => !a.doorwayOnly).length;
   assert.equal(
     products.length,
-    STUDIO_APPS.length,
+    expected,
     'a product row was dropped for a wedding, which enables every surface',
   );
   for (const r of products) {

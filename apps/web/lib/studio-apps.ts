@@ -122,6 +122,39 @@ export type StudioApp = {
    * checks this first.
    */
   eventHref?: (eventId: string) => string;
+  /**
+   * TRUE ⇒ this row is a DOORWAY ONLY. It appears in the Studio group for a
+   * stranger and for a signed-in person with no event open, and DISAPPEARS the
+   * moment they step inside one.
+   *
+   * ─── WHY (owner 2026-09-05) ──────────────────────────────────────────────
+   * Verbatim: *"do not double the marketplace"* … *"Marketplace will disappear
+   * on studio once we enter an event just like guestlist"* … *"and seat plan"*.
+   *
+   * 🔑 THE DUPLICATION IS REAL AND ALREADY DOCUMENTED IN THIS REPO. Inside an
+   * event the person is handed these same three destinations twice:
+   *   · the event's own rail (`EventRailContext` via `customer-nav-config.ts`)
+   *     carries **Guests · Marketplace→`/vendors` · Seat plan** — read
+   *     `lib/free-tools-rail.ts`, which trimmed its own brief for exactly this
+   *     reason and calls a second copy *"the exact 'same destination, two
+   *     names' defect … the Studio/Suite rail once shipped precisely this
+   *     duplicate and had to be corrected."*
+   *   · and the shell's Marketplace destination row, which is gated ON being
+   *     inside an event (owner 2026-08-22: *"marketplace is best shown inside
+   *     an event, not when they just logged in"*).
+   *
+   * 🔑 SO THE GATE IS `insideEvent`, NOT `signedIn`, AND THAT IS MEASURED
+   * RATHER THAN ASSUMED. With no event open NONE of those competing rows
+   * render — the shell's Marketplace row is absent by its own gate and there is
+   * no event rail at all — so the doorway row is the only one and must stay.
+   * Dropping these on sign-in instead would delete the only door a person with
+   * no event has to the page that explains the tool.
+   *
+   * ⚠ NOT THE SAME THING AS `surface`. A surface says an event TYPE never
+   * offers this. This says the tool is offered, and the event already has a
+   * better door to it.
+   */
+  doorwayOnly?: boolean;
 };
 
 /**
@@ -348,6 +381,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       'Browse verified Filipino wedding vendors — photographers, caterers, coordinators, florists, hair and makeup and more — free, with 0% commission on bookings. Save the ones you like and put any two side by side before you decide.',
     railLine: 'Browse verified Filipino vendors free, and compare two side by side.',
     eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
+    doorwayOnly: true,
   },
   {
     key: 'guest-list',
@@ -357,6 +391,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       'Every guest is one row — RSVP, plus-one, meal preference, role and table, with a personal QR that updates your list the moment they answer. Free with every Setnayan account.',
     railLine: 'Every guest, one row — RSVP, plus-one, role, table and QR.',
     eventHref: (eventId) => `/dashboard/${eventId}/guests`,
+    doorwayOnly: true,
   },
   {
     key: 'seat-plan',
@@ -368,6 +403,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     addOnKey: 'seating',
     surface: 'seating',
     eventHref: (eventId) => `/dashboard/${eventId}/seating`,
+    doorwayOnly: true,
   },
   {
     key: 'palogo',

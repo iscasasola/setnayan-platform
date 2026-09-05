@@ -27,7 +27,7 @@ import {
   type ColorRangeSlot,
   type RegionEditMap,
 } from './color-recolor';
-import type { PartId } from './reception-scene';
+import type { DecorLayers, PartId } from './reception-scene';
 import type { MoodboardStyleFamily } from './moodboard-templates';
 
 /** Zones with a generated AI-image decor library today. Backdrop + Ceiling
@@ -93,6 +93,42 @@ export function resolveDecorLayer(
   const asset = catalog[zone]?.[styleFamily];
   if (!asset) return { kind: 'svg' };
   return { kind: 'image', asset };
+}
+
+/**
+ * MB14b · The whole pilot's decision, in the shape `renderVenueSvg` consumes.
+ *
+ * Runs `resolveDecorLayer` over every pilot zone and keeps only the zones that
+ * produced BOTH a match and an href — so a zone with no asset, a couple with no
+ * style family, and an asset whose href the caller cannot build all land in the
+ * same place: absent from the map, which `renderVenueSvg` renders as today's
+ * flat SVG, byte for byte.
+ *
+ * 🪤 THIS IS THE FUNCTION A NEAR-MISS WOULD CORRUPT. The one thing that must
+ * never happen is an uncovered (zone, style) getting SOME asset — the nearest
+ * style, the zone's only asset, a default. Every one of those would render a
+ * room the couple did not design, and every one of them is a one-line edit
+ * inside `resolveDecorLayer`. `reception-scene.test.ts` sabotages exactly that
+ * and asserts the byte-equality guard goes red.
+ *
+ * @param hrefFor Builds the drawable href for a matched asset — a data: URI on
+ *   the server (`renderDecorLayerDataUrl`), the app-served path on the client.
+ *   Returning null means "I could not produce one", which is a fallback, never
+ *   an error.
+ */
+export function decorLayerHrefs(
+  styleFamily: MoodboardStyleFamily | null,
+  catalog: DecorLayerCatalog,
+  hrefFor: (asset: DecorLayerAsset) => string | null,
+): DecorLayers {
+  const layers: DecorLayers = {};
+  for (const zone of PILOT_DECOR_ZONES) {
+    const resolved = resolveDecorLayer(zone, styleFamily, catalog);
+    if (resolved.kind !== 'image') continue;
+    const href = hrefFor(resolved.asset);
+    if (href) layers[zone] = href;
+  }
+  return layers;
 }
 
 /**

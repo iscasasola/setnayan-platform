@@ -1,3 +1,13 @@
+// The native RTMPS/FLV encoder (S6). Pure protocol code plus one socket; it holds no
+// Tauri commands, because S5 — which owns the webview→Rust transport — is re-scoped
+// pending an owner decision (build-sessions/encoder/S0-FINDING.md § 7).
+//
+// It lives in its own crate (`crates/encoder`) so that its 42 tests can run on every
+// pull request without compiling tauri, wry and webkit first — that manifest explains
+// why at length. Re-exported here so `encoder::…` resolves the same as when it was a
+// module, and so the desktop build still links it even though nothing calls it yet.
+pub use setnayan_encoder as encoder;
+
 // S0 spike harness — compiled ONLY into debug builds (see build.rs + src/probe.rs).
 // A release build has no probe commands, no page-load hook and no capability for them.
 #[cfg(debug_assertions)]
@@ -6,6 +16,10 @@ mod probe;
 // S10: keep-awake assertions held around the (not-yet-built) encoder. Ships in
 // every build — release included — unlike `probe`.
 mod keep_awake;
+
+// S8 — the stream key, two sources, one Rust sink (build-sessions/encoder/S8.md).
+// Ships in EVERY build: real product surface, not a spike.
+mod stream_key;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,17 +30,22 @@ pub fn run() {
         // redirect back on the `oauth://url` event.
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_oauth::init())
+        .manage(stream_key::StreamKeyState::default())
         .setup(|_app| Ok(()));
 
-    // `invoke_handler` REPLACES rather than appends, so the debug/release variants
-    // each list every command they ship rather than layering a second call on top
-    // of the release one (which would silently drop the release-only commands from
-    // debug builds).
+    // NOTE: `invoke_handler` SETS the builder's handler rather than merging with a
+    // prior call, so every command a profile ships must be listed in that profile's
+    // SINGLE `generate_handler!` call — S8's stream-key commands, S10's keep-awake
+    // commands and (debug only) S0's probe commands together. A second call would
+    // silently drop the first one's commands.
     #[cfg(debug_assertions)]
     let builder = builder
         .invoke_handler(tauri::generate_handler![
             keep_awake::start_keep_awake,
             keep_awake::stop_keep_awake,
+            stream_key::stream_key_set_pasted,
+            stream_key::stream_key_claim_hosted,
+            stream_key::stream_key_forget,
             probe::probe_report,
             probe::probe_ipc,
         ])
@@ -36,6 +55,9 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         keep_awake::start_keep_awake,
         keep_awake::stop_keep_awake,
+        stream_key::stream_key_set_pasted,
+        stream_key::stream_key_claim_hosted,
+        stream_key::stream_key_forget,
     ]);
 
     builder

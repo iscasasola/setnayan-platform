@@ -23,6 +23,8 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { PGlite } from '@electric-sql/pglite';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
@@ -41,6 +43,9 @@ after(async () => {
 });
 
 const LIVE = 'approved_at IS NOT NULL AND retired_at IS NULL';
+
+/** apps/web/public/ — what actually serves a `/moodboard-seed/...` path. */
+const PUBLIC_DIR = new URL('../../public/', import.meta.url);
 
 type Row = { asset_type: string; label: string; storage_path: string; source: string | null };
 
@@ -123,6 +128,136 @@ test('retiring the placeholders did not retire anything else', async () => {
  * matches too eagerly, a rolled-back COMMIT) leaves every assertion above
  * green and the Ceremony card still absent.
  */
+/**
+ * MB26 · THE MEDIA.SETNAYAN.COM PILOT ROWS ARE RETIRED, NOT LIVE.
+ *
+ * The 2026-09-03 decor-layers pilot (migration 20271194970382) seeded ten
+ * `venue_scene` rows pointing at `https://media.setnayan.com/...` — a host
+ * that does not resolve, whose objects also 404 on the working `pub-…r2.dev`
+ * host. Owner ruling 2026-09-05: "media.setnayan.com is not being set up
+ * now." Migration 20271206504078 retires all ten. This is the OTHER half —
+ * the guard that stops one coming back live, the same shape MB23's
+ * placeholder assertion above takes for picsum/pexels.
+ */
+test('no LIVE moodboard_library_assets row is served from media.setnayan.com', async () => {
+  const { rows } = await db.query<Row>(
+    `SELECT asset_type, label, storage_path, source
+       FROM public.moodboard_library_assets
+      WHERE ${LIVE}
+        AND storage_path ILIKE 'https://media.setnayan.com/%'
+      ORDER BY asset_type, label`,
+  );
+  assert.deepEqual(
+    rows,
+    [],
+    'A media.setnayan.com pilot row is live and a couple can see it:\n  ' +
+      rows.map((r) => `${r.asset_type} · ${r.label} · ${r.source} · ${r.storage_path}`).join('\n  ') +
+      '\n\nThat host does not resolve and its objects 404 on the working pub-…r2.dev host — ' +
+      'the owner ruled 2026-09-05 the domain is not being set up. Retire the row (set ' +
+      'retired_at) in a migration — never DELETE it.',
+  );
+});
+
+/**
+ * 🪤 THE ASSERTION ABOVE IS TRIVIALLY TRUE ON ITS OWN, AND ALWAYS WAS.
+ * MB26 found this: all ten pilot rows were `approved_at IS NULL`, so `LIVE`
+ * (`approved_at IS NOT NULL AND retired_at IS NULL`) excluded every one of
+ * them regardless of `retired_at` — deleting MB26's UPDATE left the test above
+ * green. Its answer was a second assertion that counted the RETIREMENT.
+ *
+ * MB14b moves the same rows on again, so that second assertion had to move
+ * with them rather than be deleted. The ten are no longer retired and no
+ * longer on that host at all: `20271207934361` repoints them to
+ * `/moodboard-seed/venue_scene/{backdrop,ceiling}/…`, which this app serves
+ * itself, and publishes them. They were retired for a DEAD HOST, never for
+ * their content, and the host is now gone from the row.
+ *
+ * The assertion above therefore stays — as the standing rule it always was
+ * ("nothing live on media.setnayan.com"), now satisfied by a table where that
+ * host does not appear at all rather than by rows hidden behind `retired_at`.
+ * What follows is the proof MB14b actually ran, in the same shape MB26's proof
+ * took: the ten rows still EXIST, all ten are live, all ten are app-served.
+ */
+test('MB14b · all ten decor-pilot rows are LIVE and app-served, and none is still on the dead host', async () => {
+  const { rows } = await db.query<{
+    subtype: string;
+    style: string | null;
+    storage_path: string;
+    approved: boolean;
+    retired: boolean;
+    slots: number;
+  }>(
+    `SELECT a.asset_subtype AS subtype, a.style_theme AS style, a.storage_path,
+            (a.approved_at IS NOT NULL) AS approved,
+            (a.retired_at IS NOT NULL) AS retired,
+            (SELECT count(*)::int FROM public.moodboard_asset_color_ranges c
+              WHERE c.asset_id = a.asset_id) AS slots
+       FROM public.moodboard_library_assets a
+      WHERE a.asset_type = 'venue_scene'
+        AND a.asset_subtype IN ('backdrop', 'ceiling')
+      ORDER BY a.asset_subtype, a.style_theme`,
+  );
+  assert.equal(
+    rows.length,
+    10,
+    `expected the ten decor-pilot rows to still exist (repoint, never delete), saw ${rows.length}`,
+  );
+  const notLive = rows.filter((r) => !r.approved || r.retired);
+  assert.deepEqual(
+    notLive.map((r) => `${r.subtype}/${r.style}`),
+    [],
+    'MB14b (migration 20271207934361) did not publish every decor-pilot row. It clears ' +
+      'retired_at and sets approved_at on exactly ten; if some are still dark the UPDATE ' +
+      'matched fewer rows than its own DO block counted, which should have RAISEd.',
+  );
+  const wrongHost = rows.filter(
+    (r) => !/^\/moodboard-seed\/venue_scene\/(backdrop|ceiling)\/[a-z0-9-]+\.svg$/.test(r.storage_path),
+  );
+  assert.deepEqual(
+    wrongHost.map((r) => r.storage_path),
+    [],
+    'A live decor-pilot row is served from somewhere this app does not serve. The whole ' +
+      'point of MB14b is that these ten need no bucket and no custom domain: the files sit ' +
+      'in apps/web/public/moodboard-seed/venue_scene/ and the path is app-relative, so ' +
+      'lib/moodboard-library-placeholder.ts reads no host on them.',
+  );
+  const untagged = rows.filter((r) => r.slots !== 1);
+  assert.deepEqual(
+    untagged.map((r) => `${r.subtype}/${r.style}:${r.slots}`),
+    [],
+    'Every decor-pilot asset carries exactly ONE tagged region (slot 1) — the pilot was ' +
+      'generated that way and reception-decor-layers-server.ts skips any row without a ' +
+      'slot 1 rather than compositing it untinted. A row with 0 slots would silently drop ' +
+      'out of the catalog and fall back to the flat SVG forever.',
+  );
+});
+
+/**
+ * 🪤 AND THE FILES ARE ACTUALLY THERE.
+ * A migration can publish ten perfectly-shaped paths to ten files that do not
+ * exist, and every assertion above stays green while a couple sees ten broken
+ * images. This is the half no query can answer: it reads the repo.
+ */
+test('MB14b · every live app-served asset path resolves to a real file in public/', async () => {
+  const { rows } = await db.query<{ storage_path: string }>(
+    `SELECT storage_path
+       FROM public.moodboard_library_assets
+      WHERE ${LIVE} AND storage_path LIKE '/moodboard-seed/%'
+      ORDER BY storage_path`,
+  );
+  assert.ok(rows.length >= 10, `expected at least the ten decor scenes to be app-served, saw ${rows.length}`);
+  const missing = rows
+    .map((r) => r.storage_path)
+    .filter((p) => !existsSync(fileURLToPath(new URL(`.${p}`, PUBLIC_DIR))));
+  assert.deepEqual(
+    missing,
+    [],
+    'A LIVE asset points at a /moodboard-seed path with no file behind it in ' +
+      'apps/web/public/. The couple gets a broken image. Either the migration names the ' +
+      'wrong path or the file was never committed — check `git status` for an untracked SVG.',
+  );
+});
+
 test('the Ceremony scene is live, app-served, and carries BOTH of its colour ranges', async () => {
   const { rows } = await db.query<{
     source: string | null;
@@ -135,15 +270,26 @@ test('the Ceremony scene is live, app-served, and carries BOTH of its colour ran
                FROM public.moodboard_asset_color_ranges c
               WHERE c.asset_id = a.asset_id) AS slots
        FROM public.moodboard_library_assets a
-      WHERE a.asset_type = 'venue_scene' AND ${LIVE}`,
+      WHERE a.asset_type = 'venue_scene' AND a.asset_subtype IN ('church', 'ceremony')
+        AND ${LIVE}`,
   );
+  // 🪤 THIS ASSERTION USED TO READ "EXACTLY ONE LIVE venue_scene", FULL STOP.
+  // It was true when written and it was never the rule. MB14b publishes ten
+  // more venue scenes — the backdrop and ceiling decor layers — and NONE of
+  // them is a ceremony space; they are zones of the reception room. Counting
+  // all venue scenes conflated "the Ceremony card has an asset" with "no other
+  // venue artwork exists anywhere", which is the same shape of mistake the
+  // comment two tests above describes ("no placeholder is live" pinned as "no
+  // venue scene is live"). The query is now scoped to the subtypes `findVenue`
+  // in page.tsx actually matches — `church` and `ceremony` — so it asserts the
+  // thing it always meant.
   assert.equal(
     rows.length,
     1,
-    `expected exactly one live venue_scene (the MB25 Ceremony aisle), saw ${rows.length}. ` +
-      'If it is 0, migration 20271206413595 did not insert — the Ceremony card is absent ' +
-      'and the couple sees no ceremony space at all. If it is >1, a second scene was seeded ' +
-      'and `findVenue` in page.tsx picks between them by row order.',
+    `expected exactly one live church/ceremony venue_scene (the MB25 Ceremony aisle), saw ` +
+      `${rows.length}. If it is 0, migration 20271206413595 did not insert — the Ceremony ` +
+      'card is absent and the couple sees no ceremony space at all. If it is >1, a second ' +
+      'ceremony scene was seeded and `findVenue` in page.tsx picks between them by row order.',
   );
   const row = rows[0]!;
   assert.ok(

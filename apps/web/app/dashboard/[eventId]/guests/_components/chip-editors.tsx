@@ -195,7 +195,12 @@ function LockedChip({
         {children}
       </button>
       {open ? (
-        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={232}>
+        <Popover
+          anchorRef={ref}
+          onClose={() => setOpen(false)}
+          width={232}
+          role="dialog"
+        >
           <p className="px-2.5 py-2 text-xs leading-relaxed text-ink/70">{reason}</p>
         </Popover>
       ) : null}
@@ -580,9 +585,24 @@ export function AddToGroupControl({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Add ${guestName} to a group`}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-ink/25 text-ink/45 outline-none hover:border-terracotta/50 hover:text-terracotta-700 focus-visible:ring-2 focus-visible:ring-terracotta"
+        className="group/addgrp inline-flex w-6 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
       >
-        <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        {/* The DASHED RING IS AN INNER SPAN, and this is load-bearing.
+         *  globals.css gives every `button` `min-height: 44px` (the ≥44pt touch
+         *  target from the kickoff rules). Putting `h-6 w-6 rounded-full border`
+         *  on the button itself therefore drew a 24x44 ELLIPSE, not a circle —
+         *  measured live on the shipped page. It was easy to miss on the
+         *  desktop row and the photo card, where a tall control just absorbs
+         *  into the row; it is obvious on the compact list row, where the chips
+         *  beside it are 20px tall.
+         *  The button keeps the full 44px hit area (never shrink a touch
+         *  target to fix a shape); only the visible ring is 24x24. */}
+        <span
+          aria-hidden
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-ink/25 text-ink/45 transition-colors group-hover/addgrp:border-terracotta/50 group-hover/addgrp:text-terracotta-700"
+        >
+          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        </span>
       </button>
       {open ? (
         <Popover anchorRef={ref} onClose={close} width={220}>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Store, Ticket } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Store, Ticket } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -15,8 +15,36 @@ import {
   describeSource,
   type CompGrantRow,
 } from '@/lib/comp-grants';
-import { fetchCompedVendors, type CompedVendorRow } from '@/lib/vendor-tier-comps';
+import {
+  fetchCompedVendors,
+  fetchVendorDealWindows,
+  type CompedVendorRow,
+  type VendorDealRow,
+} from '@/lib/vendor-tier-comps';
 import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import {
+  createFreeWindow,
+  setFreeWindowActive,
+} from '@/app/admin/pricing/_surfaces/free-windows-actions';
+import { FREE_WINDOW_CREATE_ERROR_COPY } from '@/app/admin/pricing/_surfaces/free-windows-copy';
+import { fetchV2VendorCatalog, formatPeso, type V2VendorSku } from '@/lib/v2-catalog';
+import { isPromoFreeWindowsEnabled, vendorTierOfSku } from '@/lib/promo-free-windows';
+
+/**
+ * One row of the vendor list — a single comped vendor, or one cohort DEAL
+ * (a `promo_free_windows` row with a vendor audience) sitting beside it.
+ */
+type VendorGiftRow =
+  | ({ kind: 'vendor' } & CompedVendorRow)
+  | ({ kind: 'window' } & VendorDealRow);
+
+const DEAL_WHO: Record<VendorDealRow['audience_type'], string> = {
+  all_vendors: 'All verified vendors',
+  new_verified_vendors: 'Vendors who register + get verified in the window',
+};
+
+const fmtDay = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 
 export const metadata = {
   title: 'Gifts · Admin',
@@ -30,27 +58,40 @@ type Props = {
     grant_vendor?: string;
     grant_user?: string;
     banner?: string;
+    created?: string;
+    createError?: string;
+    saved?: string;
+    error?: string;
   }>;
 };
 
 /**
  * /admin/gifts — everything currently comped, for a vendor or a user, in one
- * place. v1 scope (owner-picked 2026-09-04): list + grant a SINGLE named
- * target. No cohort/date-window targeting yet — that needs
- * `promo_free_windows` (still flag-gated off) and a still-unbuilt
- * registration-window trigger for vendors.
+ * place. v1 (owner-picked 2026-09-04): list + grant a SINGLE named target.
+ * v2 (2026-09-05): the vendor half also carries COHORT DEALS — one
+ * `promo_free_windows` row with a vendor audience, granting every vendor who
+ * qualifies: all VERIFIED vendors, or every vendor who registers and gets
+ * verified inside the window. Resolved statelessly per vendor at gate time
+ * (lib/promo-free-windows.ts); no per-vendor row, no job, no trigger.
  *
  * Deliberately reuses the EXISTING write paths rather than inventing a third:
  *   - Vendor comps write through `setVendorTier` (tier only — comp_grants
  *     explicitly excludes vendors, see its own docblock in admin/users/actions.ts).
+ *   - Vendor deals write through `createFreeWindow` / `setFreeWindowActive`
+ *     (app/admin/pricing/_surfaces/free-windows-actions.ts — the Catalog
+ *     Studio tab's own actions, posted with `return_to=/admin/gifts`).
  *   - User/event comps write through `issueCompGrant` / `revokeCompGrant`
  *     (comp_grants is scoped to a USER account; since migration
  *     20271205612762 an optional `event_id` narrows a grant to ONE of that
  *     user's events — NULL still means every event they host).
  *
- * This page is the READ-side union of those two writers plus a lightweight
+ * This page is the READ-side union of those writers plus a lightweight
  * search-and-select flow to reach either grant form without already knowing
  * the target's ID.
+ *
+ * ⚠ Deals ship DARK: env PROMO_FREE_WINDOWS_ENABLED (default off) is checked
+ * before any window is read, so a live deal grants nothing until the owner
+ * flips it in Vercel. The page says which state the switch is in.
  *
  * Both lists render through `ConsoleTable`, so a REFUSED read says "couldn't
  * read" instead of "nobody is comped" — the readers throw, and a throw caught
@@ -72,6 +113,25 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   } catch (e) {
     vendorsReadError = asReadError(e);
   }
+  let dealWindows: VendorDealRow[] | null = null;
+  let dealsReadError: { message: string } | null = null;
+  try {
+    dealWindows = await fetchVendorDealWindows(admin);
+  } catch (e) {
+    dealsReadError = asReadError(e);
+  }
+  // ONE vendor list: deals first (each reaches many vendors), then the named
+  // vendors. Either read refused → the whole list says "couldn't read"; a
+  // half-list would read as "these are all the comps", which is the lie the
+  // archetype exists to prevent.
+  const vendorRows: VendorGiftRow[] | null =
+    compedVendors && dealWindows
+      ? [
+          ...dealWindows.map((w): VendorGiftRow => ({ kind: 'window', ...w })),
+          ...compedVendors.map((v): VendorGiftRow => ({ kind: 'vendor', ...v })),
+        ]
+      : null;
+  const vendorRowsReadError = vendorsReadError ?? dealsReadError;
   let activeGrants: CompGrantRow[] | null = null;
   let grantsReadError: { message: string } | null = null;
   try {
@@ -79,6 +139,13 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   } catch (e) {
     grantsReadError = asReadError(e);
   }
+  // What a deal can make free — READ FROM vendor_billing_catalog, never typed.
+  // Only the tier rows can be picked: a deal is a tier promotion, and no
+  // add-on has a shared gate a window could reach today.
+  const vendorCatalog = await fetchV2VendorCatalog();
+  const tierSkus = vendorCatalog.filter((r) => vendorTierOfSku(r.sku_code) !== null);
+  const addonSkus = vendorCatalog.filter((r) => vendorTierOfSku(r.sku_code) === null);
+  const dealsFlagOn = isPromoFreeWindowsEnabled();
 
   // Resolve display info for every user_id on an active grant, one query.
   const userIds = Array.from(
@@ -151,15 +218,35 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
       <div className="mb-6 space-y-1">
         <p className="text-2xl font-semibold tracking-tight">Gifts</p>
         <p className="text-sm text-ink/60">
-          Every vendor tier comp and user/event comp currently active, in one place. Grants a single
-          named vendor, or a user account either across every event they host or scoped to one
-          specific event — cohort and date-window promos aren&rsquo;t built yet.
+          Every vendor tier comp, vendor cohort deal and user/event comp currently active, in one
+          place. Grants a single named vendor or user account, or opens a deal for all verified
+          vendors or for every vendor who registers and gets verified inside a window.
         </p>
       </div>
 
       {sp.banner && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ {sp.banner}
+        </div>
+      )}
+      {sp.created && (
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+          ✓ Deal created.
+        </div>
+      )}
+      {sp.saved && (
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+          ✓ Deal updated.
+        </div>
+      )}
+      {sp.createError && (
+        <div className="mb-6 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          {FREE_WINDOW_CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the deal.'}
+        </div>
+      )}
+      {sp.error && (
+        <div className="mb-6 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          Something went wrong. Please try again.
         </div>
       )}
 
@@ -263,46 +350,79 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           </div>
         )}
 
-        <ConsoleTable<CompedVendorRow>
-          rows={compedVendors}
-          readError={vendorsReadError}
+        <ConsoleTable<VendorGiftRow>
+          rows={vendorRows}
+          readError={vendorRowsReadError}
           readPermitted
-          reads="the comped vendors"
-          label="Comped vendors"
+          reads="the comped vendors and vendor deals"
+          label="Comped vendors and deals"
           cap={200}
-          minWidth="32rem"
-          rowKey={(v) => v.vendor_profile_id}
+          minWidth="36rem"
+          rowKey={(r) => (r.kind === 'window' ? `window:${r.promo_window_id}` : `vendor:${r.vendor_profile_id}`)}
           empty={{
             Icon: Store,
-            title: 'No vendor is comped onto a paid tier',
-            blurb: 'Search a vendor above to set a tier with an end date and a reason.',
+            title: 'No vendor is comped onto a paid tier, and no deal is open',
+            blurb: 'Search a vendor above to set a tier, or open a deal below for a cohort.',
           }}
           columns={[
-            { header: 'Vendor', cell: (v) => v.business_name },
-            { header: 'Tier', cell: (v) => TIER_LABEL[v.tier_state] },
+            {
+              header: 'Vendor',
+              cell: (r) =>
+                r.kind === 'window' ? (
+                  <span>
+                    <span className="mr-1.5 inline-flex rounded-md bg-terracotta/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-terracotta-700">
+                      Deal
+                    </span>
+                    {r.title}
+                    <span className="block text-xs text-ink/55">
+                      {DEAL_WHO[r.audience_type]} · {fmtDay(r.starts_at)} → {fmtDay(r.ends_at)}
+                      {new Date(r.starts_at).getTime() > Date.now() ? ' · scheduled' : ''}
+                    </span>
+                  </span>
+                ) : (
+                  r.business_name
+                ),
+            },
+            { header: 'Tier', cell: (r) => TIER_LABEL[r.kind === 'window' ? r.promoted_vendor_tier : r.tier_state] },
             {
               header: 'Ends',
               mono: true,
-              cell: (v) =>
-                v.tier_expires_at
-                  ? new Date(v.tier_expires_at).toLocaleDateString('en-PH', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })
-                  : 'Open-ended',
+              cell: (r) =>
+                r.kind === 'window'
+                  ? r.deal_length_days
+                    ? `${r.deal_length_days} days each`
+                    : fmtDay(r.ends_at)
+                  : r.tier_expires_at
+                    ? fmtDay(r.tier_expires_at)
+                    : 'Open-ended',
             },
             {
               header: 'Manage',
               align: 'right',
-              cell: (v) => (
-                <Link
-                  href={`/admin/vendors/${v.vendor_profile_id}/plan`}
-                  className="text-xs font-medium text-link hover:underline"
-                >
-                  Manage
-                </Link>
-              ),
+              // A row that settles on one click renders its own form in its own
+              // cell — the archetype offers no actions API, on purpose.
+              cell: (r) =>
+                r.kind === 'window' ? (
+                  <form action={setFreeWindowActive} className="inline-flex items-center gap-2">
+                    <input type="hidden" name="return_to" value="/admin/gifts" />
+                    <input type="hidden" name="promo_window_id" value={r.promo_window_id} />
+                    <input type="hidden" name="is_active" value="false" />
+                    <SubmitButton
+                      className="text-xs font-medium text-mulberry hover:underline"
+                      overlay={false}
+                      pendingLabel="…"
+                    >
+                      End deal
+                    </SubmitButton>
+                  </form>
+                ) : (
+                  <Link
+                    href={`/admin/vendors/${r.vendor_profile_id}/plan`}
+                    className="text-xs font-medium text-link hover:underline"
+                  >
+                    Manage
+                  </Link>
+                ),
             },
           ]}
         />

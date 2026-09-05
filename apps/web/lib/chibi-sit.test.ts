@@ -96,7 +96,7 @@ test('the renderer: white materials, DoubleSide, one instancedMesh per batch, no
 test('the walk splits: avatar seats → chibi crowd, the rest → mannequins, only while the flag is on', () => {
   const src = read('app/[slug]/venue/_components/guest-venue-3d.tsx');
   assert.match(src, /if \(!guestAvatarsEnabled\(\)\) return \[\];/, 'flag off → no chibi seats');
-  assert.match(src, /selfFigureAvatar\(\{ avatarConfig: seatsWithAvatar\.get\(i\) \}, `\$\{t\.id\}:\$\{i\}`, true\)/, 'the ONE fallback rule validates each config');
+  assert.match(src, /resolveGuestAvatar\(seatsWithAvatar\.get\(i\), `\$\{t\.id\}:\$\{i\}`, true\)/, 'the ONE resolver validates each config');
   assert.match(src, /if \(chibiSeatKeys\.has\(`\$\{t\.id\}:\$\{i\}`\)\) continue;/, 'the mannequin loop skips chibi seats — no doubles');
   assert.match(src, /<InstancedChibiCrowd seats=\{chibiSeats\} \/>/);
   assert.match(src, /<InstancedSeatedCrowd seats=\{crowdSeats\} quality="low" \/>/, 'the mannequin crowd stays');

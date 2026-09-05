@@ -32,9 +32,21 @@
  * the thing this file exists to prevent.
  *
  * 🛡 Mutation-checked against the real file, failures counted, each RED:
- *  · drop the <form action={softDeleteGuest…}>      → 0 → 1 failing · RED
- *  · remove the isCouple branch (dangle the button) → 0 → 1 failing · RED
- *  · re-spell the RSVP gate in the body             → 0 → 1 failing · RED
+ * ── THE SECOND TAP (2026-09-06) ────────────────────────────────────────────
+ * The remove shipped as ONE unguarded tap on a full-width danger button sitting
+ * directly beneath the full-width "Open full details" — two stacked full-width
+ * targets, the lower destructive, on a panel opened casually mid-scan. Every
+ * other delete path here has a guard (the swipe IS the confirm; the desktop
+ * bulk delete has a 6s undo); this one had none while being the LEAST undoable,
+ * because `softDeleteGuest` hard-deletes the seat assignment and only the bulk
+ * path can put a seat back. It is now armed by a first tap and disarms itself.
+ *
+ * 🛡 Mutation-checked against the real files, failures counted, each RED:
+ *  · drop the <form action={softDeleteGuest…}>       → RED
+ *  · remove the isCouple branch (dangle the button)  → RED
+ *  · re-spell the RSVP gate                          → RED
+ *  · make the resting button a submit (first tap deletes) → RED
+ *  · drop the auto-disarm timer                      → RED
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,20 +57,59 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BODY = stripComments(readFileSync(join(HERE, 'guest-detail-body.tsx'), 'utf8'));
+// The remove moved into its own client component when the second tap was added
+// (2026-09-06). These assertions follow the action rather than the file — a test
+// that kept pointing at the body would have gone green by finding nothing.
+const REMOVE = stripComments(
+  readFileSync(join(HERE, 'remove-guest-confirm.tsx'), 'utf8'),
+);
 const DETAIL = stripComments(
   readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8'),
 );
 
 test('the quick view can remove a guest', () => {
   assert.ok(
-    /action=\{softDeleteGuest\.bind\(null, eventId, guest\.guest_id\)\}/.test(BODY),
-    'the shared quick-view body has no remove action — a host can read the ' +
-      'guest and do nothing about them',
+    /action=\{softDeleteGuest\.bind\(null, eventId, guestId\)\}/.test(REMOVE),
+    'the quick view has no remove action — a host can read the guest and do ' +
+      'nothing about them',
   );
   assert.ok(
-    /from '\.\.\/\[guestId\]\/actions'/.test(BODY),
+    /from '\.\.\/\[guestId\]\/actions'/.test(REMOVE),
     'it must import the shipped action, not declare its own',
   );
+  assert.ok(
+    /<RemoveGuestConfirm/.test(BODY),
+    'and the body must actually mount it',
+  );
+});
+
+test('THE SECOND TAP IS REAL — the first one cannot submit', () => {
+  // The hazard this guards: a full-width destructive button directly under the
+  // full-width "Open full details", on a panel opened casually mid-scan.
+  assert.ok(
+    /const \[armed, setArmed\] = useState\(false\)/.test(REMOVE),
+    'the button must start disarmed',
+  );
+  // The resting button is type="button" — a submit here would fire the action
+  // on the FIRST tap and the arming state would be decorative.
+  const resting = REMOVE.slice(REMOVE.indexOf(') : ('));
+  assert.ok(
+    /type="button"/.test(resting) && /onClick=\{\(\) => setArmed\(true\)\}/.test(resting),
+    'the resting button must arm, not submit',
+  );
+  assert.ok(
+    /armed \?/.test(REMOVE),
+    'the submit must be gated behind the armed state',
+  );
+});
+
+test('an armed button disarms itself', () => {
+  // Arming and then scrolling away must not leave a one-tap delete on screen.
+  assert.ok(/setTimeout\(\(\) => setArmed\(false\), ARM_MS\)/.test(REMOVE),
+    'no auto-disarm — an armed delete would lie in wait',
+  );
+  assert.ok(/clearTimeout/.test(REMOVE), 'the disarm timer must be cleaned up');
+  assert.ok(/Cancel/.test(REMOVE), 'an armed state needs a way out that is not waiting');
 });
 
 test('it posts the SAME action the full detail page posts', () => {
@@ -69,7 +120,7 @@ test('it posts the SAME action the full detail page posts', () => {
     'the detail page no longer uses softDeleteGuest — the baseline moved',
   );
   assert.ok(
-    /softDeleteGuest/.test(BODY),
+    /softDeleteGuest/.test(REMOVE),
     'the quick view must post the same action',
   );
 });
@@ -94,9 +145,11 @@ test('the couple gets the sentence, not a button that always fails', () => {
 test('the RSVP gate is NOT re-spelled here', () => {
   // softDeleteGuest owns it. A second copy in the UI is a rule that can drift
   // out of step with the server silently.
-  assert.equal(
-    /rsvp_status !== 'pending'/.test(BODY),
-    false,
-    'the quick view is re-implementing the RSVP gate — leave it in the action',
-  );
+  for (const [label, src] of [['body', BODY], ['remove button', REMOVE]] as const) {
+    assert.equal(
+      /rsvp_status !== 'pending'/.test(src),
+      false,
+      `the quick view's ${label} is re-implementing the RSVP gate — leave it in the action`,
+    );
+  }
 });

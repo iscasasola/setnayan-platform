@@ -25,7 +25,7 @@
 
 import Link from 'next/link';
 import { ArrowRight, Download, QrCode } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { RemoveGuestConfirm } from './remove-guest-confirm';
 import {
   guestDisplayName,
   guestInitials,
@@ -34,7 +34,6 @@ import {
   SIDE_LABELS,
   type GuestRow,
 } from '@/lib/guests';
-import { softDeleteGuest } from '../[guestId]/actions';
 
 // ── decorative QR (seeded from the real qr_token) ──────────────────────────
 
@@ -293,25 +292,26 @@ export function GuestDetailBody({
           replaced by the same sentence the full detail page shows rather than
           dangling an action that can only fail. A guest who has already RSVP'd
           is also refused (reset them to Pending first); that message comes back
-          from the action itself, which is why it is not re-spelled here. */}
+          from the action itself, which is why it is not re-spelled here.
+          *
+          *  THE SECOND TAP IS THE GUARD (2026-09-06). This shipped hours earlier
+          *  as ONE unguarded tap on a full-width danger button directly beneath
+          *  the full-width "Open full details" — two stacked full-width targets,
+          *  the lower one destructive, on a panel opened casually mid-scan. Every
+          *  other delete path here has a guard (the swipe IS the confirm; the
+          *  desktop bulk delete has a 6s undo) and this one had none, while being
+          *  the LEAST undoable: softDeleteGuest hard-deletes the seat assignment
+          *  and only the bulk path can put a seat back. See remove-guest-confirm.tsx. */}
       {isCouple ? (
         <p className="mt-3 text-center text-xs text-ink/50">
           Foundation of the event — can&rsquo;t be removed
         </p>
       ) : (
-        <form
-          action={softDeleteGuest.bind(null, eventId, guest.guest_id)}
-          className="mt-3"
-        >
-          <SubmitButton
-            overlay={false}
-            pendingLabel="Removing…"
-            aria-label={`Remove ${guestDisplayName(guest)}`}
-            className="inline-flex w-full items-center justify-center rounded-lg border border-danger-300/70 px-4 py-2.5 text-sm font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
-          >
-            Remove guest
-          </SubmitButton>
-        </form>
+        <RemoveGuestConfirm
+          eventId={eventId}
+          guestId={guest.guest_id}
+          guestName={guestDisplayName(guest)}
+        />
       )}
       <p className="mt-3 text-[11px] text-ink/40">
         The code above is a preview. Every guest&rsquo;s default QR is free —

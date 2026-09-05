@@ -324,7 +324,7 @@ export default async function VenuePage({
             </Link>
           </div>
         </div>
-        <GuestVenueLoader scene={scene} eventId={eventId} />
+        <GuestVenueLoader scene={scene} eventId={eventId} slug={slug} token={token} />
       </div>
       <RoomFooter links={roomLinks} tone="dark" />
     </main>

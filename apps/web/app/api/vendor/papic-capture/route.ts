@@ -8,7 +8,7 @@ import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import {
   deriveVendorPapicTier,
   fetchVendorPapicPointsSpent,
-  fetchVendorBookingFeePaidPhp,
+  fetchVendorPapicCreditsGranted,
 } from '@/lib/vendor-papic-grants';
 import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -147,13 +147,14 @@ export async function POST(req: Request) {
   // RLS-scoped to owner/admin, and the tier must be authoritative). Each tier's
   // point budget is the ceiling (photo=1, clip=7); free Lite is 50 pts + video.
   const admin = createAdminClient();
-  // ⚠ THE FEE THEY PAID IS NOW PART OF THE ALLOWANCE — owner 2026-07-22,
-  // *"points in proportion to what they paid"*. That ruling shipped as a pure,
-  // fully unit-tested function with NO CALLER for over a month, because the
-  // booking-fee mechanism did not exist yet; `booking_fee_charges` does now.
-  // The fee can only ever RAISE the number (see `allowancePointsFor`), and an
-  // unread fee is `null`, which grants nothing — never a zero that would look
-  // like "they paid nothing".
+  // ⚠ THE CREDITS THEY HOLD ARE PART OF THE ALLOWANCE — owner 2026-09-05,
+  // *"base it all from the supplier's shots per event"*: 5% of the booking fee
+  // paid (cap 1,000, no floor) plus any ₱500/25 packs, summed from the
+  // supplier's ledger (vendor_papic_portfolio_credit_grants, written on admin
+  // payment approval). Until 2026-09-05 this read the booking fee itself at
+  // ₱5/point; the owner said *"replace it."* The credits can only ever RAISE
+  // the number (see `allowancePointsFor`), and an unread ledger is `null`,
+  // which grants nothing — never a zero that would look like "they hold none".
   // ── THE WINDOW ────────────────────────────────────────────────────────────
   // Owner 2026-08-28: *"they get to use it until event day."* A supplier's
   // camera documents their own work, so it is open through the celebration and
@@ -197,12 +198,12 @@ export async function POST(req: Request) {
     }
   }
 
-  const [tier, spent, feePaidPhp] = await Promise.all([
+  const [tier, spent, creditsGranted] = await Promise.all([
     deriveVendorPapicTier(admin, vendorProfileId, eventId),
     fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),
-    fetchVendorBookingFeePaidPhp(admin, vendorProfileId, eventId),
+    fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
   ]);
-  const check = canCapture(tier, spent, mediaType, feePaidPhp);
+  const check = canCapture(tier, spent, mediaType, creditsGranted);
   if (!check.ok) {
     return NextResponse.json(
       { error: check.reason, tier, pointsSpent: spent },

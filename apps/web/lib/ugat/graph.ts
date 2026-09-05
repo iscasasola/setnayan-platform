@@ -1989,6 +1989,98 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * A SUPPLIER'S OWN Papic — three tables, one meter, and it is not the host's.
+     *
+     * Owner 2026-09-05: *"vendors get 5% of the amount they paid for on booking
+     * fee … they pay 500 pesos for 25 papic credits"*, and, asked what the
+     * credits are for, *"base it all from the supplier's shots per event not from
+     * what the host gives them."* So the supplier's credits are a DIFFERENT
+     * ledger from the couple's pool (J-papic ↔ orders, papic_event_point_grants):
+     * a grant here never reaches papic_event_pool_status and a host-side grant
+     * never reaches here — tests/db/vendor-papic-credits-are-the-suppliers.db.test.ts.
+     *
+     * ⚠ GRANTS ARE APPEND-ONLY AND ALWAYS POSITIVE; THE SPEND SIDE IS NOT A
+     * COUNTER HERE. What the supplier has spent is their own captures
+     * (vendor_papic_captures, 1 point per photo, 8 per clip) — the same meter
+     * the capture route charges — so there is no second table to drift from
+     * it. G3's portfolio imports must count against the same meter.
+     *
+     * ⚠ vendor_papic_capture_grants is the TIER row (one per vendor×event,
+     * UNIQUE on the pair — free/ltd/unli, admin-comped), not the credit ledger.
+     * It could not hold a second pack for the same event, which is why the
+     * ledger is a table of its own rather than a `source` value on it.
+     *
+     * ⚠ NO WRITE POLICY ON THE LEDGER. A supplier that could INSERT a grant
+     * could grant itself the pack. Writes are service-role only, from
+     * lib/sku-activation.ts on admin payment approval (*"when we approve the
+     * payment"*) — the booking-fee hook (5%, cap 1,000, no floor) and the
+     * vendor_papic_portfolio_pack hook (25). Idempotent per (order_id, source)
+     * by a partial UNIQUE INDEX.
+     */
+    id: 'J49',
+    claims: [
+      { kind: 'table', table: 'vendor_papic_portfolio_credit_grants' },
+      { kind: 'table', table: 'vendor_papic_capture_grants' },
+      { kind: 'table', table: 'vendor_papic_captures' },
+      {
+        kind: 'fk',
+        table: 'vendor_papic_portfolio_credit_grants',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      {
+        kind: 'fk',
+        table: 'vendor_papic_portfolio_credit_grants',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'vendor_papic_portfolio_credit_grants',
+        column: 'order_id',
+        references: 'orders',
+      },
+      { kind: 'column', table: 'vendor_papic_portfolio_credit_grants', column: 'credits' },
+      { kind: 'column', table: 'vendor_papic_portfolio_credit_grants', column: 'source' },
+      {
+        kind: 'check',
+        table: 'vendor_papic_portfolio_credit_grants',
+        name: 'vendor_papic_portfolio_credit_grants_credits_positive',
+        mentions: 'credits',
+      },
+      {
+        kind: 'check',
+        table: 'vendor_papic_portfolio_credit_grants',
+        name: 'vendor_papic_portfolio_credit_grants_source_allowed',
+        mentions: 'source',
+      },
+      // The ₱ price is NOT on the ledger — it is a vendor_billing_catalog row
+      // (sku_code vendor_papic_portfolio_pack), admin-managed.
+      { kind: 'no_column', table: 'vendor_papic_portfolio_credit_grants', column: 'price_php' },
+      // The tier row: one per vendor×event, and the spend side's columns.
+      { kind: 'unique', table: 'vendor_papic_capture_grants', columns: ['vendor_profile_id', 'event_id'] },
+      { kind: 'column', table: 'vendor_papic_capture_grants', column: 'tier' },
+      { kind: 'fk', table: 'vendor_papic_captures', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'vendor_papic_captures', column: 'media_type' },
+      { kind: 'column', table: 'vendor_papic_captures', column: 'hidden_at' },
+    ],
+    chain: 18,
+    pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
+    title: 'Papic ↔ Vendor (the supplier’s own credits, tier and captures)',
+    joint: 'vendor_papic_portfolio_credit_grants',
+    cardinality:
+      'Many grant rows per (vendor, event) — one per approved booking-fee order, one per approved pack, any number of admin/comp rows · exactly one tier row per (vendor, event) · many captures',
+    implementedBy:
+      'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts, fed by fetchVendorPapicCreditsGranted in lib/vendor-papic-grants.ts',
+    writtenBy:
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture',
+    guardedBy:
+      'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see',
+    traps:
+      'The partial UNIQUE on (order_id, source) is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above — verify with \\d vendor_papic_portfolio_credit_grants. fetchVendorPapicCreditsGranted returns NULL on a failed read and allowancePointsFor treats null as "unproven" (falls back to the tier gift): a reader that coalesces null to 0 is wrong in the same way, but a reader that shows null as "0 credits" tells a supplier who earned 1,000 that they hold nothing. The 50-point Lite gift is a 2026-07-22 lock the 2026-09-05 "no floor" ruling did not mention — allowancePointsFor keeps it as a MAX and the PR body asks the owner; do not treat the tier number as the credit balance. The video-at-800 threshold (2026-08-26) was priced against the retired ₱5/point rate and is UNCHANGED pending an owner answer.',
+  },
+  {
+    /**
      * The person graph's own edge: a relation between two PEOPLE, not between
      * two guests and not between two accounts. It survives the event that
      * created it — `created_by_event_id` records provenance, it does not scope

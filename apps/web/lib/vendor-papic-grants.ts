@@ -25,6 +25,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+  VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+  offerPack,
+  type VendorPapicPortfolioCredits,
+} from '@/lib/vendor-papic-credits';
+import {
   captureAllowance,
   pointsSpent,
   resolveVendorPapicTier,
@@ -113,31 +119,34 @@ export async function deriveVendorPapicTier(
   return resolveVendorPapicTier(provenance, paidUnli);
 }
 
-/** Capture points already spent by this vendor on this event (non-hidden rows). */
 /**
- * WHAT THIS SUPPLIER ACTUALLY PAID IN BOOKING FEES FOR THIS EVENT, in pesos.
+ * THE CREDITS THIS SUPPLIER HOLDS FOR THIS EVENT — the sum of their ledger,
+ * `vendor_papic_portfolio_credit_grants` (owner 2026-09-05: 5% of the booking
+ * fee paid, cap 1,000, no floor; plus ₱500/25 packs; written only on admin
+ * payment approval by lib/sku-activation.ts).
  *
- * Feeds `allowancePointsFor` — the owner's 2026-07-22 rule that a supplier's
- * free Papic shots scale with the fee they paid (50 at ₱0 → 200 at ₱4,000).
+ * 🔁 This replaced `fetchVendorBookingFeePaidPhp` on 2026-09-05 (owner:
+ * *"replace it"*). That reader derived the allowance LIVE from
+ * `booking_fee_charges` at ₱5/point; the rate is retired and the credits are
+ * now a written ledger, so the allowance reads what was granted rather than
+ * re-deriving it. Two of its rules survive unchanged, because they were never
+ * about the rate:
  *
- * 🔑 ONLY `status = 'paid'` COUNTS, and that is the whole point of the rule.
- * The other statuses are real and none of them is money we received:
- * `pending` (not yet), `failed`, `expired`, `waived_import`, and
- * `waived_free5` — the owner's own first-5-sourced-bookings-free rule, which
- * by construction means they paid ₱0 and get the 50-point floor. Reading a
- * waived charge as paid would hand the free five a 200-point allowance.
- *
- * ⚠ RETURNS null ON A READ ERROR, NEVER 0 — and null is NOT "they paid
+ * ⚠ RETURNS null ON A READ ERROR, NEVER 0 — and null is NOT "they hold
  * nothing". `allowancePointsFor` treats null as "unproven" and falls back to
  * the tier's own number, so a transient failure can never MINT points. That is
- * the mirror of `fetchVendorPapicPointsSpent` above, which fails closed in the
+ * the mirror of `fetchVendorPapicPointsSpent` below, which fails closed in the
  * other direction by assuming the budget is exhausted. Both refuse to invent
  * generosity out of an outage.
+ *
+ * 🔑 `waived_free5` / `waived_import` STILL MEAN THEY PAID NOTHING — enforced
+ * one step earlier now: the activation hook grants only from a charge whose
+ * status is `paid`, so a waived charge never produces a ledger row to sum.
  *
  * ⚠ Supabase does not throw on a failed read — it resolves with `{ error }` —
  * so the explicit error check below is the only one that exists.
  */
-export async function fetchVendorBookingFeePaidPhp(
+export async function fetchVendorPapicCreditsGranted(
   client: SupabaseClient,
   vendorProfileId: string,
   eventId: string,
@@ -145,22 +154,78 @@ export async function fetchVendorBookingFeePaidPhp(
   if (!vendorProfileId || !eventId) return null;
   try {
     const { data, error } = await client
-      .from('booking_fee_charges')
-      .select('amount_charged_centavos')
+      .from('vendor_papic_portfolio_credit_grants')
+      .select('credits')
       .eq('vendor_profile_id', vendorProfileId)
-      .eq('event_id', eventId)
-      .eq('status', 'paid');
+      .eq('event_id', eventId);
     if (error) return null; // unproven — never an uplift
-    const centavos = (data ?? []).reduce(
-      (sum, r) => sum + Math.max(0, Number((r as { amount_charged_centavos?: number }).amount_charged_centavos) || 0),
+    return (data ?? []).reduce(
+      (sum, r) => sum + Math.max(0, Math.floor(Number((r as { credits?: number }).credits) || 0)),
       0,
     );
-    return Math.floor(centavos / 100);
   } catch {
     return null;
   }
 }
 
+/**
+ * The ₱ price of the credit pack, read from `vendor_billing_catalog` — the only
+ * place a vendor price is allowed to live (admin-managed at /admin/pricing).
+ * `null` when the row is missing, inactive or unreadable: render "unavailable",
+ * never a remembered number.
+ */
+export async function fetchVendorPapicPackPricePhp(
+  client: SupabaseClient,
+): Promise<number | null> {
+  try {
+    const { data, error } = await client
+      .from('vendor_billing_catalog')
+      .select('price_php, is_active')
+      .eq('sku_code', VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as { price_php?: number | string | null; is_active?: boolean | null };
+    if (row.is_active !== true) return null;
+    const price = Number(row.price_php);
+    return Number.isFinite(price) && price > 0 ? price : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * WHAT G3 CALLS — the supplier's credits, spend and pack, in ONE read.
+ *
+ * Owner 2026-09-05: the under-25 grant still lands and the ₱500/25 pack is the
+ * CTA beside it. This returns everything that surface needs so it re-derives
+ * nothing: the ledger total, what the same meter has already spent, the
+ * allowance's own "left" (tier floor included — the SAME number the capture
+ * screen shows), and the pack's SKU, live price and credit count.
+ *
+ * Run on the SERVICE-ROLE admin client, like every reader in this module.
+ */
+export async function fetchVendorPapicPortfolioCredits(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  eventId: string,
+): Promise<VendorPapicPortfolioCredits> {
+  const [allowance, credits, packPricePhp] = await Promise.all([
+    fetchVendorPapicAllowance(admin, vendorProfileId, eventId),
+    fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
+    fetchVendorPapicPackPricePhp(admin),
+  ]);
+  return {
+    credits,
+    spent: allowance.pointsSpent,
+    left: allowance.pointsLeft,
+    packSkuCode: VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+    packPricePhp,
+    packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+    offerPack: offerPack(credits ?? 0),
+  };
+}
+
+/** Capture points already spent by this vendor on this event (non-hidden rows). */
 export async function fetchVendorPapicPointsSpent(
   client: SupabaseClient,
   vendorProfileId: string,
@@ -190,8 +255,8 @@ export async function fetchVendorPapicPointsSpent(
  *
  * ⚠ IT MUST READ THE SAME THREE THINGS THE CAPTURE ROUTE READS. This is what a
  * supplier SEES; the route is what a supplier GETS. When this was wired to the
- * booking fee, missing it here would have shown a supplier "50 credits" on their
- * own screen while the route happily accepted their 125th — a screen
+ * credit ledger, missing it here would have shown a supplier "50 credits" on
+ * their own screen while the route happily accepted their 125th — a screen
  * contradicting the screen beside it, with no error anywhere. Pinned by
  * `the-fee-reaches-the-allowance.test.ts`.
  */
@@ -200,10 +265,10 @@ export async function fetchVendorPapicAllowance(
   vendorProfileId: string,
   eventId: string,
 ): Promise<CaptureAllowance> {
-  const [tier, spent, feePaidPhp] = await Promise.all([
+  const [tier, spent, creditsGranted] = await Promise.all([
     deriveVendorPapicTier(admin, vendorProfileId, eventId),
     fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),
-    fetchVendorBookingFeePaidPhp(admin, vendorProfileId, eventId),
+    fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
   ]);
-  return captureAllowance(tier, spent, feePaidPhp);
+  return captureAllowance(tier, spent, creditsGranted);
 }

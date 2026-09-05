@@ -20,6 +20,18 @@
  */
 
 import { useMemo, useState, useTransition } from 'react';
+import { Figure } from '@/app/_components/plan3d/kit/figure';
+import { resolveGuestAvatar } from '@/lib/guest-avatar';
+import {
+  HERITAGE_SKIN_TONES,
+  HERITAGE_HAIR_STYLES,
+  HERITAGE_HAIR_COLORS,
+  HERITAGE_OUTFITS,
+  HERITAGE_OUTFIT_COLORS,
+  resolveHeritageConfig,
+  heritageFigureSpec,
+  type HeritageAvatarConfig,
+} from '@/lib/heritage-config';
 import Link from 'next/link';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -118,8 +130,16 @@ export function AvatarMaker({
   // resolveChibiConfig NEVER throws: a stored value from an older `v`, or junk,
   // repairs field-by-field to this guest's hash defaults rather than opening a
   // broken maker.
+  // TWO STYLES (owner 2026-09-06: "just so there are now options"). The stored
+  // row is one or the other; the maker keeps a draft of BOTH so switching the
+  // style never throws away what the guest dressed on the other one.
+  const initial = useMemo(() => resolveGuestAvatar(initialConfig, figureId, true), [figureId, initialConfig]);
+  const [style, setStyle] = useState<'chibi' | 'heritage'>(initial?.style ?? 'chibi');
   const [cfg, setCfg] = useState<ChibiAvatarConfig>(() =>
-    resolveChibiConfig(figureId, initialConfig),
+    initial?.style === 'chibi' ? initial.config : resolveChibiConfig(figureId, null),
+  );
+  const [hcfg, setHcfg] = useState<HeritageAvatarConfig>(() =>
+    initial?.style === 'heritage' ? initial.config : resolveHeritageConfig(figureId, null),
   );
   const [saved, setSaved] = useState(hasSaved);
   const [dirty, setDirty] = useState(false);
@@ -131,13 +151,26 @@ export function AvatarMaker({
     setDirty(true);
     setNote(null);
   };
+  const setH = <K extends keyof HeritageAvatarConfig>(key: K, value: HeritageAvatarConfig[K]) => {
+    setHcfg((c) => ({ ...c, [key]: value }));
+    setDirty(true);
+    setNote(null);
+  };
+  const pickStyle = (next: 'chibi' | 'heritage') => {
+    if (next === style) return;
+    setStyle(next);
+    setDirty(true);
+    setNote(null);
+  };
 
   // The preview remounts only when the config actually changes.
   const preview = useMemo(() => cfg, [cfg]);
+  const heritagePreview = useMemo(() => heritageFigureSpec(figureId, hcfg, ''), [figureId, hcfg]);
+  const activeConfig = style === 'chibi' ? cfg : hcfg;
 
   const onSave = () =>
     startTransition(async () => {
-      const res = await saveMyAvatarAction(eventId, slug, cfg);
+      const res = await saveMyAvatarAction(eventId, slug, activeConfig);
       if (res.ok) {
         setSaved(true);
         setDirty(false);
@@ -158,6 +191,8 @@ export function AvatarMaker({
       const res = await resetMyAvatarAction(eventId, slug);
       if (res.ok) {
         setCfg(resolveChibiConfig(figureId, null));
+        setHcfg(resolveHeritageConfig(figureId, null));
+        setStyle('chibi');
         setSaved(false);
         setDirty(false);
         setNote('Removed — you look like everyone else again.');
@@ -173,7 +208,11 @@ export function AvatarMaker({
           <ambientLight intensity={0.85} />
           <directionalLight position={[2.5, 4, 3]} intensity={1.15} />
           <directionalLight position={[-3, 2, -2]} intensity={0.35} />
-          <ChibiFigure id={figureId} config={preview} castShadow={false} />
+          {style === 'chibi' ? (
+            <ChibiFigure id={figureId} config={preview} castShadow={false} />
+          ) : (
+            <Figure spec={heritagePreview} pose="stand" castShadow={false} />
+          )}
           <OrbitControls
             enablePan={false}
             minDistance={1.6}
@@ -186,6 +225,14 @@ export function AvatarMaker({
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0c0e14]">
+        {/* THE CHOICE (owner 2026-09-06). Two styles, both shipped rigs: the
+            chibi, and Heritage — the articulated figure wearing its own look. */}
+        <Row title="Style">
+          <Chip on={style === 'chibi'} onClick={() => pickStyle('chibi')}>Chibi</Chip>
+          <Chip on={style === 'heritage'} onClick={() => pickStyle('heritage')}>Heritage</Chip>
+        </Row>
+        {style === 'chibi' ? (
+          <>
         <Row title="Body">
           {CHIBI_BODY_TYPES.map((b) => (
             <Chip key={b} on={cfg.bodyType === b} onClick={() => set('bodyType', b)}>
@@ -250,6 +297,40 @@ export function AvatarMaker({
             </Chip>
           ))}
         </Row>
+          </>
+        ) : (
+          <>
+        <Row title="Skin">
+          {HERITAGE_SKIN_TONES.map((hex) => (
+            <Swatch key={hex} hex={hex} name={`Skin ${hex}`} on={hcfg.skinTone === hex} onClick={() => setH('skinTone', hex)} />
+          ))}
+        </Row>
+        <Row title="Hair">
+          {HERITAGE_HAIR_STYLES.map((h) => (
+            <Chip key={h} on={hcfg.hairStyle === h} onClick={() => setH('hairStyle', h)}>
+              {['Crop', 'Short', 'Side-swept', 'Bob', 'Shoulder', 'Long'][h] ?? `Style ${h + 1}`}
+            </Chip>
+          ))}
+        </Row>
+        <Row title="Hair colour">
+          {HERITAGE_HAIR_COLORS.map((hex) => (
+            <Swatch key={hex} hex={hex} name={`Hair ${hex}`} on={hcfg.hairColor === hex} onClick={() => setH('hairColor', hex)} />
+          ))}
+        </Row>
+        <Row title="Outfit">
+          {HERITAGE_OUTFITS.map((o) => (
+            <Chip key={o} on={hcfg.outfit === o} onClick={() => setH('outfit', o)}>
+              {label(o)}
+            </Chip>
+          ))}
+        </Row>
+        <Row title="Outfit colour">
+          {HERITAGE_OUTFIT_COLORS.map((c) => (
+            <Swatch key={c.hex} hex={c.hex} name={c.name} on={hcfg.outfitColor === c.hex} onClick={() => setH('outfitColor', c.hex)} />
+          ))}
+        </Row>
+          </>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

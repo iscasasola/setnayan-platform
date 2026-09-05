@@ -255,14 +255,38 @@ test('every non-opensDirect live entry has an add-ons-detail entry (its /about p
 
 // ── 4 · free layer ≠ paid buy-wall surface ─────────────────────────────────────
 
-test('the paid Custom QR buy-wall never appears in the Suite free layer', () => {
-  // The audit's concrete regression: /studio/custom-qr-guest is the PAID SKU
-  // surface; the FREE per-guest QR lives on the Invitation tab. Custom QR must
-  // therefore never carry tier 'free' (which is what feeds the free layer).
+test('the Custom QR is in the free layer, because it is free', () => {
+  /*
+    ⚖ THIS ASSERTION IS INVERTED, NOT DELETED (2026-09-06). It read
+    `notEqual(tier, 'free')` — *"custom-qr-guest routes to the paid buy wall"* —
+    and that was correct for as long as the branded per-guest QR was sold.
+
+    The owner ruled otherwise: *"keep custom QR per guest free"*. The SKU joined
+    `FREE_FOR_ALL_SKUS`, so `eventOwnsSku` now answers true for every event, and
+    the catalogue entry carries `tier: 'free'` so the card stops offering a
+    purchase for something every event already owns.
+
+    🔑 THE OLD GUARD WAS PROTECTING A REAL DEFECT — a paid buy-wall leaking into
+    the free layer — and that defect simply cannot exist for this key any more.
+    Inverting keeps the key WATCHED: if someone quietly re-gates the QR, this
+    fails. Deleting the test would have left the reversal unguarded in both
+    directions, which is how a ruling gets undone by accident.
+
+    ⚠ The general rule it belonged to is untouched: `a free-trial chip is never
+    presented as "Free"` below still holds every other key to it.
+  */
   const customQr = ADD_ONS.find((a) => a.key === 'custom-qr-guest');
   assert.ok(customQr, 'custom-qr-guest should exist in the catalog');
-  assert.notEqual(customQr!.tier, 'free', 'custom-qr-guest routes to the paid buy wall');
-  assert.ok(!suiteFreeLayerKeys().includes('custom-qr-guest'));
+  assert.equal(
+    customQr!.tier,
+    'free',
+    'custom-qr-guest lost tier "free" — the Suite would offer a purchase for a ' +
+      'SKU that is in FREE_FOR_ALL_SKUS, so every event already owns it',
+  );
+  assert.ok(
+    suiteFreeLayerKeys().includes('custom-qr-guest'),
+    'the free per-guest QR is missing from the Suite free layer',
+  );
 });
 
 test('a free-trial chip is never presented as "Free" (trial ≠ free)', () => {
@@ -288,8 +312,14 @@ test('the Suite free layer is exactly the reviewed set (any change is a consciou
   // standalone cards into chips on the "Your Website" card. Same mechanism as
   // photo-delivery 2026-07-22: studioGroup 'utility', so the card leaves the
   // grid while the entry + every deep link to it stay alive. Locked below.
+  // 2026-09-06: custom-qr-guest ADDED — owner "keep custom QR per guest free".
+  // The SKU was already ₱0.00 in the catalogue and published as free in
+  // llms.txt, while `eventOwnsSku` still demanded an order — so the branded QR
+  // stayed locked behind a zero-peso checkout. It joined FREE_FOR_ALL_SKUS and
+  // the entry took `tier: 'free'`; this row is the Suite's half of that.
   assert.deepEqual(suiteFreeLayerKeys().sort(), [
     'animated-monogram',
+    'custom-qr-guest',
     'indoor-blueprint',
     'landing-page',
     'mood-board',

@@ -84,6 +84,7 @@ import {
   readMoodboardRenderBalance,
 } from '@/lib/moodboard-render-credits';
 import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
+import { pickCeremonyScene, pickFiguresByRole } from '@/lib/moodboard-board-picks';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -194,7 +195,7 @@ export default async function MoodBoardPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description, venue_setting',
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description, venue_setting, ceremony_venue_setting, moodboard_style_family',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -219,7 +220,7 @@ export default async function MoodBoardPage({ params }: Props) {
     supabase
       .from('moodboard_library_assets')
       .select(
-        `asset_subtype, label, storage_path,
+        `asset_subtype, label, storage_path, style_theme,
          moodboard_asset_color_ranges ( slot_id, sampled_hex, tolerance_de, region_label )`,
       )
       .eq('asset_type', 'figure_attire')
@@ -229,7 +230,7 @@ export default async function MoodBoardPage({ params }: Props) {
     // in-browser. NOTE (MB23): the two `venue_scene` rows that were live here
     // were picsum.photos STOCK PHOTOGRAPHS and are retired by migration
     // 20271205919528. MB25 puts a real one back — the app-served Ceremony
-    // DRAWING seeded by migration 20271206413595 — so `churchRow` resolves
+    // DRAWING seeded by migration 20271206413595 — so `ceremonyRow` resolves
     // again, now to our own artwork with two tagged regions.
     supabase
       .from('moodboard_library_assets')
@@ -596,6 +597,9 @@ export default async function MoodBoardPage({ params }: Props) {
     asset_subtype: string | null;
     label: string;
     storage_path: string;
+    /** `moodboard_library_assets.style_theme` — one of MOODBOARD_STYLE_FAMILIES
+     *  on all 75 live figures, and what MB28 matches the couple against. */
+    style_theme: string | null;
     moodboard_asset_color_ranges: RangeRow[] | RangeRow | null;
   };
   //
@@ -610,19 +614,45 @@ export default async function MoodBoardPage({ params }: Props) {
   // tolerance for it, and this prefers a variant that HAS one. First-with-ranges
   // wins; if no variant has any, the first is still used and the card renders as
   // a reference drawing, exactly as before.
+  //
+  // ── MB28 · AND THE COUPLE'S OWN STYLE FAMILY DECIDES WHICH ONE ────────────
+  // Each role has exactly one figure per style family (15 figures × 5
+  // families = the 75 live rows), and until now which of the five a couple saw
+  // was decided by "first row with a range", i.e. by Postgres row order. A
+  // couple who applied a `bridgerton · regal` theme saw whichever bride came
+  // back first.
+  //
+  // The family is `events.moodboard_style_family` (migration 20271197327520),
+  // and `pickFiguresByRole` (lib/moodboard-board-picks.ts) validates it through
+  // `isMoodboardStyleFamily` — the SAME validate-or-null the seating lab does
+  // before handing a family to MB14b's `resolveDecorLayer`. There is
+  // deliberately no second mapping anywhere from `mood_feel_key`, or from a
+  // theme name, to a family: a mapping that only this page knew would put the
+  // attire row and the reception room in different style families for the same
+  // couple, and neither surface would report it.
+  //
+  // 🪤 THE FAMILY NEVER OUTRANKS A COLOUR RANGE. Preference order is
+  // (family AND range) → (any range) → (first row). Preferring the family
+  // FIRST is the MB23 disease coming back by another door — see `rankFigure`.
+  // A couple with no family resolves EXACTLY as before this change.
   const figureBySubtype: Record<
     string,
     { url: string; label: string; regions: ColorRangeSlot[] }
   > = {};
-  for (const row of (attireRes.data ?? []) as AttireRow[]) {
-    if (!row.asset_subtype) continue;
-    const regions = toRegions(row.moodboard_asset_color_ranges);
-    const held = figureBySubtype[row.asset_subtype];
-    if (held && (held.regions.length > 0 || regions.length === 0)) continue;
-    figureBySubtype[row.asset_subtype] = {
-      url: row.storage_path,
-      label: row.label,
-      regions,
+  const figurePicks = pickFiguresByRole(
+    ((attireRes.data ?? []) as AttireRow[]).map((row) => ({
+      subtype: row.asset_subtype,
+      styleTheme: row.style_theme,
+      hasRange: toRegions(row.moodboard_asset_color_ranges).length > 0,
+      row,
+    })),
+    (event as { moodboard_style_family?: string | null }).moodboard_style_family,
+  );
+  for (const [subtype, pick] of Object.entries(figurePicks)) {
+    figureBySubtype[subtype] = {
+      url: pick.row.storage_path,
+      label: pick.row.label,
+      regions: toRegions(pick.row.moodboard_asset_color_ranges),
     };
   }
 
@@ -635,11 +665,31 @@ export default async function MoodBoardPage({ params }: Props) {
     moodboard_asset_color_ranges: RangeRow[] | RangeRow | null;
   };
   const vfRows = (venueFlowerRes.data ?? []) as VFRow[];
-  const findVenue = (match: (s: string) => boolean) =>
-    vfRows.find(
-      (r) => r.asset_type === 'venue_scene' && match((r.asset_subtype || '').toLowerCase()),
-    );
-  const churchRow = findVenue((s) => s === 'church' || s === 'ceremony');
+  //
+  // ── MB28 · THE CEREMONY CARD KNOWS WHERE THE WEDDING IS ───────────────────
+  // `events.ceremony_venue_setting` has held the couple's answer since
+  // migration 20271197508087 and nothing read it, so a beach wedding and a
+  // mosque wedding were both shown MB25's church aisle. Migration
+  // 20271208519468 seeds the other eight settings as `venue_scene` rows whose
+  // `asset_subtype` is the setting string VERBATIM, and this selects on it.
+  //
+  // 🪤 THE FALLBACK IS `church`, NEVER "the first venue_scene". MB14b's ten
+  // backdrop and ceiling decor layers are `venue_scene` rows too, live, with
+  // no ORDER BY on the query above — so "any venue scene" would show a couple
+  // a draped reception ceiling labelled "Ceremony", intermittently, on row
+  // order.
+  //
+  // Both the equality match and that fallback are `pickCeremonyScene`
+  // (lib/moodboard-board-picks.ts). The decision does NOT live here, and that
+  // is deliberate: `attire-recolours-because-the-query-asks.test.ts` used to
+  // rebuild this predicate from literals parsed out of page.tsx and assert
+  // against its own copy — which is how a guard ends up guarding the copy. It
+  // now imports the real function and runs it over the real MB14b decor rows,
+  // and holds this file to calling it.
+  const ceremonyRow = pickCeremonyScene(
+    vfRows,
+    (event as { ceremony_venue_setting?: string | null }).ceremony_venue_setting,
+  );
   const bouquetRow =
     vfRows.find((r) => r.asset_type === 'florals' && r.asset_subtype === 'bridal_bouquet') ||
     vfRows.find((r) => r.asset_type === 'florals');
@@ -659,7 +709,7 @@ export default async function MoodBoardPage({ params }: Props) {
     // `resolveAttirePaletteColor` uses to dress the figure in the 3D room.
     paletteColors:
       (d.specific && palette[d.specific]?.length ? palette[d.specific] : palette[d.key]) ?? [],
-    // MB23 — the figure now recolours, exactly as `churchRow`/`bouquetRow` do.
+    // MB23 — the figure now recolours, exactly as `ceremonyRow`/`bouquetRow` do.
     // The 🔑 risk this carries is the WHITE: four of the forty seeded figures
     // had a range whose tolerance also swallowed their own opaque background
     // rect, so the gown AND the page behind it turned burgundy (measured: 100%
@@ -684,14 +734,25 @@ export default async function MoodBoardPage({ params }: Props) {
   // ceremony colours rather than one. Nothing here changed to make that work;
   // the card was always built to. Pinned by
   // `_components/the-background-never-wears-the-palette.test.ts`.
+  //
+  // MB28 makes it NINE drawings — one per `events.ceremony_venue_setting` —
+  // seeded by migration 20271208519468 and chosen above. ⚠ EIGHT OF THE NINE
+  // HAVE TWO SLOTS; THE BEACH HAS ONE. Its arch is driftwood, 3.5 from the
+  // fabric slot in the recolour engine's metric, and `tolerance_de` is CHECKed
+  // at a minimum of 5 — so no legal tolerance separates the drapes from the
+  // trees, and the fabric slot is deliberately unseeded rather than seeded
+  // wrong (MB23's precedent, applied to a slot instead of a whole asset). This
+  // block needs no branch for that: `toRegions` returns the one range and
+  // `moodboard-board.tsx` spends only the couple's first ceremony colour, the
+  // same as every one-slot asset in the library.
   const ceremonyCards: BoardCard[] = [];
-  if (churchRow) {
+  if (ceremonyRow) {
     ceremonyCards.push({
       key: 'venue-ceremony',
       label: 'Ceremony',
-      imageUrl: churchRow.storage_path,
+      imageUrl: ceremonyRow.storage_path,
       paletteColors: palette.ceremony ?? [],
-      regions: toRegions(churchRow.moodboard_asset_color_ranges),
+      regions: toRegions(ceremonyRow.moodboard_asset_color_ranges),
     });
   }
 

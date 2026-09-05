@@ -636,7 +636,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // Every kind that keeps 'seating' (14 of 17, incl. every wedding) is
     // byte-identical.
     surface: 'seating',
-    tags: ['Invitation', 'Guests', 'Branding'],
+    tags: ['Invitation', 'Guests', 'Branding', 'Free'],
     label: 'Custom QR per guest',
     Icon: QrCode,
     iteration: '0002',
@@ -645,6 +645,20 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'A branded QR for every guest — your monogram and colors, print-ready on each invite.',
     cta: 'Brand my QRs',
     studioGroup: 'branding',
+    // FREE FOR EVERYONE (owner 2026-09-06: *"keep custom QR per guest free"*).
+    //
+    // 🔑 THE TIER IS THE SUITE GRID'S HALF OF THAT RULING, AND WITHOUT IT THE
+    // CONTRADICTION JUST MOVES UP A LAYER. `FREE_FOR_ALL_SKUS` in
+    // `entitlements.ts` decides whether the branded QR RENDERS; this field
+    // decides what the card SAYS. With the entitlement free and no `tier` here,
+    // the Suite would keep presenting a purchase for something every event
+    // already owns. Same shape as `mood-board` below.
+    //
+    // ⚠ `serviceKey` STAYS. It is what the ownership badge reads, and the SKU
+    // still exists (₱0.00, active — the row cannot be retired because
+    // `llms-txt.ts` names it in REQUIRED_RETAIL). Removing it would break the
+    // badge, not the price.
+    tier: 'free',
     serviceKey: 'CUSTOM_QR_GUEST',
     poster: {
       motion: 'drift',

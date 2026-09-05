@@ -123,7 +123,18 @@ test('renderRemote: waving flag reflects greetUntil vs now', () => {
 
 // ── presence reconcile ───────────────────────────────────────────────────────
 
-const peer = (id: string, name = id, color = '#abc'): RoomPeer => ({ id, name, color });
+const peer = (id: string, name = id, color = '#abc', avatar?: unknown): RoomPeer => ({ id, name, color, ...(avatar === undefined ? {} : { avatar }) });
+
+test('reconcilePresence: a peer\'s avatar rides presence, RAW, and updates when they re-track', () => {
+  const cfg = { v: 1, outfit: 'barong' };
+  let map: RemoteMap = new Map();
+  map = reconcilePresence(map, [peer('a', 'Ana', '#abc', cfg)], 'me', 1000);
+  assert.deepEqual(map.get('a')?.avatar, cfg, 'kept raw — the renderer resolves it');
+  map = reconcilePresence(map, [peer('a', 'Ana', '#abc', 'junk')], 'me', 2000);
+  assert.equal(map.get('a')?.avatar, 'junk', 'still raw: junk reaches the ONE fallback rule, which declines it');
+  map = reconcilePresence(map, [peer('a', 'Ana')], 'me', 3000);
+  assert.equal(map.get('a')?.avatar, null, 'an older build (no field) reads as no avatar');
+});
 
 test('reconcilePresence: spawns new peers, drops self, marks left peers absent', () => {
   let map: RemoteMap = new Map();

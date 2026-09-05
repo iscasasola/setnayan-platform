@@ -159,7 +159,13 @@ test('with an event, every product row opens inside that event', () => {
     event, present without one. Comparing against a derived count keeps this
     assertion honest if a doorway row is ever added or removed.
   */
-  const expected = STUDIO_APPS.filter((a) => !a.doorwayOnly).length;
+  /* 🔄 ALSO FILTERED BY GROUP (2026-09-06). STUDIO_APPS stopped being "the
+     Studio rail" the day the owner split the rail by kind: it is now every
+     product that HAS a doorway page, and `railGroup` says which group renders
+     it. Samahan is in Together, the five planning tools are in Planner. */
+  const expected = STUDIO_APPS.filter(
+    (a) => (a.railGroup ?? 'studio') === 'studio' && !a.doorwayOnly,
+  ).length;
   assert.equal(
     products.length,
     expected,

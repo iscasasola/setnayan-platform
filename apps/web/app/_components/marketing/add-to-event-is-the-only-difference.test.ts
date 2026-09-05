@@ -161,6 +161,11 @@ test('every doorway that sells an addable service passes its key', () => {
     'marketplace',
     'guest-list',
     'seat-plan',
+    // The last two free workspace tools, 2026-09-06 (owner: "add these").
+    'budget',
+    'schedule',
+    // Samahan's doorway, 2026-09-06 — a Together row, not a Studio one.
+    'samahan',
   ].sort();
   const found: string[] = [];
   for (const dir of readdirSync(SHELL, { withFileTypes: true })) {

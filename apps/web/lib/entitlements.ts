@@ -682,7 +682,25 @@ export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
   // charging the couple taxed the inventory the vendor add-on sells into. What
   // still costs money INSIDE the room keeps its price: the animated monogram,
   // mood-board renders, Papic — only the room itself is free.
-  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO', 'SEATING_3D']),
+  // CUSTOM_QR_GUEST — the branded per-guest QR — FREE for everyone (owner
+  // 2026-09-06: *"keep custom QR per guest free"*), resolving a contradiction
+  // the product had been carrying in public.
+  //
+  // 🔑 IT WAS ALREADY PRICED AT ZERO AND STILL LOCKED, WHICH IS THE WORST OF
+  // BOTH. `platform_retail_catalog_v2.CUSTOM_QR_GUEST` reads ₱0.00 · active,
+  // and `lib/llms-txt.ts` has been publishing it to AI crawlers under
+  // "Free — Explore" — while `eventOwnsSku` still required an ORDER, so the
+  // branded QR stayed locked until a couple checked out for zero pesos. Being
+  // in this set is what makes the published claim true; a ₱0 price never did.
+  // (The same lesson as the LIVE_WALL row: only this list decides.)
+  //
+  // ⚠ THE CATALOGUE ROW STAYS ACTIVE AT ₱0, DELIBERATELY, UNLIKE SEATING_3D
+  // ABOVE. `REQUIRED_RETAIL` in `llms-txt.ts` names CUSTOM_QR_GUEST, and that
+  // renderer throws `MissingSkuError` on a SKU it cannot resolve — which is how
+  // production ends up serving the 603-byte fallback stub. Deactivating the row
+  // to match the 3D Plan's shape would break the very document that carries the
+  // free claim. Free is decided here; the row's job is to exist.
+  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO', 'SEATING_3D', 'CUSTOM_QR_GUEST']),
 ) as ReadonlySet<string>;
 
 export async function eventOwnsSku(

@@ -21,9 +21,11 @@ import {
   BRIDGE_REPOLL_MS,
   chooseTrackTransport,
   createProgramCanvas,
+  resolveQrUrl,
   type ProgramWorkerLike,
 } from './program-canvas';
 import type { ProgramCanvasInbound, ProgramCanvasOutbound } from './program-canvas.worker';
+import type { ResolvedOverlays } from '../live-studio-overlays';
 
 type Posted = { message: ProgramCanvasInbound; transfer: Transferable[] | undefined };
 
@@ -114,7 +116,7 @@ test('resolveLocalProgramBridge reads THIS window, not the opener', () => {
   assert.equal(resolveLocalProgramBridge(), 'no-bridge');
 });
 
-test('start: air + start go first, then the bridge\'s current frame as wire, then the tracks', () => {
+test('start: air + overlays + start go first, then the bridge\'s current frame as wire, then the tracks', () => {
   const host = installProgramBridge(frameWith({ label: 'Before' }));
   const w = fakeWorker();
   const iv = fakeIntervals();
@@ -125,10 +127,18 @@ test('start: air + start go first, then the bridge\'s current frame as wire, the
   canvas.start();
   assert.deepEqual(
     w.posted.map((p) => p.message.type),
-    ['air', 'start', 'frame'],
+    ['air', 'overlays', 'start', 'frame'],
   );
   assert.deepEqual(w.posted[0]?.message, { type: 'air', air: { enforced: true, permittedSlots: ['cam1'] } });
-  assert.deepEqual(w.posted[2]?.message, {
+  // S2: no `overlays` option given ⇒ forwarded as the same "nothing resolved" shape
+  // `air` gets when omitted — never undefined, so the worker's state is unambiguous.
+  assert.deepEqual(w.posted[1]?.message, {
+    type: 'overlays',
+    overlays: null,
+    qrSrc: null,
+    lowerThirdFallback: '',
+  });
+  assert.deepEqual(w.posted[3]?.message, {
     type: 'frame',
     frame: {
       source: null,
@@ -143,6 +153,52 @@ test('start: air + start go first, then the bridge\'s current frame as wire, the
   assert.equal(iv.count(), 1, 'the re-poll timer is armed');
   canvas.stop();
   host.dispose();
+});
+
+/* ── S2: the ₱0 broadcast extras, forwarded exactly as `airOverlays` holds them ───── */
+
+test('S2 — a real `overlays` option is forwarded verbatim, with qrSrc resolved to an absolute URL', () => {
+  const host = installProgramBridge();
+  const w = fakeWorker();
+  const resolved: ResolvedOverlays = {
+    monogram: { text: 'J&M', position: 'top-right', markDataUri: null },
+    lowerThird: { title: 'THE SMITHS', subtitle: null, forced: false },
+    eventQr: { position: 'top-left' },
+  };
+  const canvas = createProgramCanvas({
+    overlays: { resolved, qrSrc: '/api/website/qr/the-smiths', lowerThirdFallback: 'J & M' },
+    deps: {
+      createWorker: () => w.worker,
+      trackProcessor: null,
+      ...fakeIntervals(),
+    },
+  });
+  canvas.start();
+  const overlaysMsg = w.posted.find((p) => p.message.type === 'overlays')?.message;
+  assert.deepEqual(overlaysMsg, {
+    type: 'overlays',
+    overlays: resolved,
+    // No `location` global under node:test ⇒ resolveQrUrl falls back to the input
+    // unchanged; the browser path is covered by the resolveQrUrl unit tests below.
+    qrSrc: '/api/website/qr/the-smiths',
+    lowerThirdFallback: 'J & M',
+  });
+  canvas.stop();
+  host.dispose();
+});
+
+test('resolveQrUrl: null passes through; a relative path resolves against `location`, not the worker\'s own URL', () => {
+  assert.equal(resolveQrUrl(null), null);
+  // No `location` global in Node ⇒ returns the input unchanged (documented fallback).
+  assert.equal(resolveQrUrl('/api/website/qr/the-smiths'), '/api/website/qr/the-smiths');
+
+  const restore = (globalThis as { location?: unknown }).location;
+  (globalThis as { location?: unknown }).location = { href: 'https://panood.example/panood/control/evt1' };
+  try {
+    assert.equal(resolveQrUrl('/api/website/qr/the-smiths'), 'https://panood.example/api/website/qr/the-smiths');
+  } finally {
+    (globalThis as { location?: unknown }).location = restore;
+  }
 });
 
 test('a published frame is forwarded as wire; a NEW stream sends a transferred readable (Chromium path)', () => {

@@ -115,6 +115,9 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/marketplace',
   '/guest-list',
   '/seat-plan',
+  // Added 2026-09-06 with their doorways.
+  '/budget',
+  '/schedule',
   '/monogram',
   '/alaala',
   '/weddings',

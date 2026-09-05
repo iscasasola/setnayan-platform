@@ -896,6 +896,12 @@ export function GuestListMultiselect({
                         selectMode={selectMode}
                         selected={selectedSet.has(guest.guest_id)}
                         onToggle={() => guestSelection.toggle(guest.guest_id)}
+                        palette={palette}
+                        groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groups={groups}
+                        groupsById={groupsById}
+                        currentGroupId={currentGroupId}
+                        bulkRoleSections={bulkRoleSections}
                         seat={seatByGuest[guest.guest_id]}
                       />
                     ),
@@ -1608,6 +1614,12 @@ function MobileListRow({
   selectMode,
   selected,
   onToggle,
+  palette,
+  groupIds,
+  groups,
+  groupsById,
+  currentGroupId,
+  bulkRoleSections,
   seat,
 }: {
   guest: GuestRow;
@@ -1616,6 +1628,12 @@ function MobileListRow({
   selectMode: boolean;
   selected: boolean;
   onToggle: () => void;
+  palette: RolePalette;
+  groupIds: string[];
+  groups: GuestGroupWithCount[];
+  groupsById: Record<string, GuestGroupWithCount>;
+  currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
   seat?: { placed: string | null; suggested: string | null };
 }) {
   // Same gate as MobileGridItem: select mode owns the card for checkbox bulk
@@ -1651,15 +1669,58 @@ function MobileListRow({
           />
         </label>
       ) : (
-        <span className="pointer-events-none relative z-10">
-          <RowAvatar guest={guest} displayUrl={displayUrl} />
+        // The avatar ALREADY carries the side (RowAvatar tints it, and
+        // SIDE_RING tints the row's border), so making it the side trigger adds
+        // no pixels to a row whose whole point is density — it turns an existing
+        // signal into the control for the thing it signals.
+        <span className="pointer-events-auto relative z-20">
+          <SideChipEditor eventId={eventId} guest={guest}>
+            <RowAvatar guest={guest} displayUrl={displayUrl} />
+          </SideChipEditor>
         </span>
       )}
-      <div className="pointer-events-none relative z-10 min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
-        {guest.plus_one_allowed ? (
-          <p className="truncate text-xs text-ink/55">+ {guest.plus_one_name ?? 'TBA'}</p>
-        ) : null}
+      <div className="relative z-10 min-w-0 flex-1">
+        <p className="pointer-events-none truncate text-sm font-medium text-ink">
+          {guestDisplayName(guest)}
+        </p>
+        {/* Sub-line. Role and groups CANNOT be edited without being shown, so
+            allowing that here costs a second line on rows that previously had
+            one (owner call 2026-09-05 — "allow it if possible"). It is kept to
+            one flex line that scrolls rather than wraps, so a guest with four
+            groups never grows the row a third time. */}
+        <div className="m-no-scrollbar pointer-events-auto -mx-0.5 mt-0.5 overflow-x-auto px-0.5">
+          {/* `w-max` so the chips keep their natural width and scroll instead of
+              squashing — the row has no space to give, and a half-width role
+              chip is worse than one the host has to nudge sideways. */}
+          <div className="flex w-max items-center gap-1">
+          <RoleChipEditor
+            eventId={eventId}
+            guest={guest}
+            roleSections={bulkRoleSections}
+          >
+            <RoleChips guest={guest} palette={palette} />
+          </RoleChipEditor>
+          <GroupChipList
+            eventId={eventId}
+            guestId={guest.guest_id}
+            groupIds={groupIds}
+            groupsById={groupsById}
+            currentGroupId={currentGroupId}
+            compact
+          />
+          <AddToGroupControl
+            eventId={eventId}
+            guest={guest}
+            groups={groups}
+            memberGroupIds={groupIds}
+          />
+          {guest.plus_one_allowed ? (
+            <span className="pointer-events-none whitespace-nowrap text-xs text-ink/55">
+              + {guest.plus_one_name ?? 'TBA'}
+            </span>
+          ) : null}
+          </div>
+        </div>
       </div>
       <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
         <RsvpChipEditor

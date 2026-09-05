@@ -6,6 +6,7 @@ import {
   builderRailItems,
   togetherRailItems,
 } from './free-tools-rail';
+import { railToolsSignedIn } from './studio-rail';
 
 /**
  * THE WHOLE REASON THIS FILE IS SHORT.
@@ -38,15 +39,61 @@ const EVENT_MENU_HREFS = [
   `/dashboard/${EVENT_ID}/budget`,
 ];
 
-test('Planner is exactly the one genuine gap — Mood Board, nothing the event menu already carries', () => {
+test('the in-event Planner is empty — its one gap closed, and it must not re-open as a duplicate', () => {
+  /*
+    🔄 THIS TEST USED TO PIN ONE ROW, AND THAT ROW HAD BECOME A DUPLICATE.
+    Planner held Mood Board on the reasoning that the board *"lives inside
+    Studio → Branding, not the event's own top-level menu"* — true when written,
+    false from 2026-09-03, when the owner promoted the Mood Board into the
+    Studio rail group (*"i do not see it"*). For three days the in-event rail
+    carried Mood Board twice, at the same href, in two groups.
+
+    🔴 AND THIS GUARD COULD NOT HAVE CAUGHT IT. Its duplicate check compared
+    Planner only against `EVENT_MENU_HREFS` — the event's own menu — so a
+    collision with the STUDIO group was outside everything it looked at. The
+    check below now spans both, which is the actual fix; emptying the list is
+    only today's consequence of it.
+
+    Planner is not dead: `plannerDoorwayRows` fills it OUTSIDE an event with the
+    five free planning tools' doorways. Inside one it is empty, and an empty
+    array renders no group rather than a heading over nothing.
+  */
   const items = plannerRailItems(EVENT_ID);
-  assert.equal(items.length, 1, 'Planner grew past its one verified gap');
-  assert.equal(items[0]!.key, 'planner-mood-board');
-  assert.equal(items[0]!.href, `/dashboard/${EVENT_ID}/studio/mood-board`);
-  for (const item of items) {
+  assert.deepEqual(
+    items,
+    [],
+    'Planner grew an in-event row again. Before adding one, check it against ' +
+      'BOTH the event menu and the Studio group — the last row here duplicated ' +
+      'Studio and no test noticed for three days.',
+  );
+});
+
+test('nothing in Planner or Builder duplicates a Studio row or the event menu', () => {
+  /*
+    The rule the test above should always have enforced, applied to every group
+    that sits beside Studio. `railToolsSignedIn` is asked for the SAME event, so
+    this compares the real lists rather than two hand-typed ones.
+
+    ⚠ The two Together pairs that share a destination are deliberate and
+    documented in `front-door-shell.tsx` — Together is not checked here for that
+    reason, and adding it would mean encoding those exceptions, which is how a
+    guard starts crying wolf.
+  */
+  const studioHrefs = railToolsSignedIn({
+    eventId: EVENT_ID,
+    count: 1,
+    profile: null,
+  }).map((r) => r.href);
+
+  for (const item of [...plannerRailItems(EVENT_ID), ...builderRailItems(EVENT_ID)]) {
     assert.ok(
       !EVENT_MENU_HREFS.includes(item.href),
-      `Planner item "${item.name}" duplicates an href the event menu already owns: ${item.href}`,
+      `"${item.name}" duplicates an href the event menu already owns: ${item.href}`,
+    );
+    assert.ok(
+      !studioHrefs.includes(item.href),
+      `"${item.name}" duplicates a STUDIO row: ${item.href} — the collision ` +
+        'class that went unnoticed for three days in 2026-09.',
     );
   }
 });

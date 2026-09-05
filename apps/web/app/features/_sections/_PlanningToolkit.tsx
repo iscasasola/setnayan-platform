@@ -72,7 +72,7 @@ const COPY: Record<
       {
         title: 'Budget · the truth, in PHP',
         oneLiner: 'Budget by category, paid vs. owed, what’s due next month.',
-        body: 'Set a total budget. Setnayan splits it across categories (venue, catering, photography, attire, flowers, music) with smart Filipino-wedding defaults you can override. Log payments as you make them; the system tracks paid vs. owed and surfaces what’s due in the next 30 days. Every payment ties back to a vendor and an OR, no orphaned line items.',
+        body: 'Set a total budget. Setnayan splits it across categories (venue, catering, photography, attire, flowers, music) with smart Filipino-wedding defaults you can override. Log payments as you make them; the system tracks paid vs. owed and surfaces what’s due next, with overdue called out. Only finalized bookings count — suppliers you are still choosing between stay in the Marketplace. Costs with no supplier at all, like the rings, the licence and tips, have a place of their own.',
       },
       {
         title: 'Mood board · your wedding’s look',
@@ -82,7 +82,7 @@ const COPY: Record<
       {
         title: 'Schedule · the day, minute by minute',
         oneLiner: 'Build your day-of timeline; we sync it to every vendor’s calendar.',
-        body: 'Compose your day-of run-of-show: prep, ceremony, photos, reception, after-party. Each block has a time, a location, the responsible vendors, and the guests involved. Subscribe to .ics so it syncs to your phone. When you adjust a block, every vendor on that block gets a notification.',
+        body: 'Compose your day-of run-of-show: pre-ceremony, ceremony, cocktails, reception, dinner, dancing, send-off. Each block has a time, a location, notes, and who is responsible. Show a block to guests and it appears on their invitation site with a live “happening now” as the day unfolds. Running late? Shift a block and everything after it, durations kept. Tag a booked vendor and that row shows up in their own run-of-show — they suggest changes, you accept or decline.',
       },
     ],
   },
@@ -107,7 +107,7 @@ const COPY: Record<
       {
         title: 'Budget · ang totoo, sa PHP',
         oneLiner: 'Budget per category, bayad vs. utang, ano ang due next month.',
-        body: 'Mag-set ng total budget. Hinahati ito ng Setnayan sa mga category (venue, catering, photography, attire, flowers, music) na may smart Filipino-wedding defaults na pwede mong i-override. I-log ang payments habang nagbabayad ka; tina-track ng system ang bayad vs. utang at ilalabas kung ano ang due sa susunod na 30 araw. Bawat bayad ay nakakabit sa vendor at sa OR, walang orphaned line items.',
+        body: 'Mag-set ng total budget. Hinahati ito ng Setnayan sa mga category (venue, catering, photography, attire, flowers, music) na may smart Filipino-wedding defaults na pwede mong i-override. I-log ang payments habang nagbabayad ka; tina-track ng system ang bayad vs. utang at ipinapakita kung ano ang susunod na due, tinatawag ang overdue. Ang na-finalize lang na booking ang binibilang — ang mga supplier na pinipili mo pa ay nasa Marketplace muna. May sariling lugar din ang mga gastusing walang supplier, gaya ng singsing, lisensya at tips.',
       },
       {
         title: 'Mood board · ang hitsura ng kasal mo',
@@ -117,7 +117,7 @@ const COPY: Record<
       {
         title: 'Schedule · ang araw, minuto por minuto',
         oneLiner: 'Buuin ang day-of timeline mo; sini-sync namin ito sa calendar ng bawat vendor.',
-        body: 'Buuin ang day-of run-of-show mo: prep, ceremony, photos, reception, after-party. May oras, lokasyon, responsableng vendors, at kasaling guests ang bawat block. I-subscribe sa .ics para mag-sync sa phone mo. Pag in-adjust mo ang isang block, makakakuha ng notification ang bawat vendor sa block na ‘yun.',
+        body: 'Buuin ang day-of run-of-show mo: pre-ceremony, ceremony, cocktails, reception, hapunan, sayawan, send-off. May oras, lokasyon, notes, at kung sino ang responsable sa bawat block. Kapag ipinakita mo ang isang block sa guests, lalabas ito sa invitation site nila na may live na “happening now” habang umuusad ang araw. Na-late? I-shift ang isang block at susunod na lahat, buo pa rin ang haba ng bawat isa. I-tag ang na-book na vendor at lalabas ang row na ‘yun sa sarili nilang run-of-show — sila ang magmumungkahi, ikaw ang magpapasya.',
       },
     ],
   },
@@ -409,7 +409,7 @@ function ScheduleMock() {
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-ink">Sat, Dec 12 &middot; 2026</p>
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-            .ics synced
+            Live for guests
           </span>
         </div>
         <ol className="space-y-2">

@@ -758,12 +758,20 @@ export default function GuestVenue3D({
   // eventId, so the single-player walk is byte-identical by default.
   const selfIdRef = useRef<string>('');
   if (!selfIdRef.current) selfIdRef.current = makeSelfId();
+  // The viewer's OWN chibi (null for everyone who never made one — the room is
+  // unchanged for them; lib/venue-avatars.test.ts pins it). Hoisted above `me`
+  // because presence now carries it (C6b): every peer draws this person as
+  // their avatar while they cross the room, not only once they sit.
+  const selfAvatar = useMemo(
+    () => selfFigureAvatar(scene.you, 'guest-self', guestAvatarsEnabled()),
+    [scene.you],
+  );
   const me = useMemo<LocalPlayer | null>(
     () =>
       PLAN3D_SHARED_ROOM_ENABLED && eventId
-        ? { id: selfIdRef.current, name: selfName?.trim() || 'Guest', color: colorFromId(selfIdRef.current) }
+        ? { id: selfIdRef.current, name: selfName?.trim() || 'Guest', color: colorFromId(selfIdRef.current), avatar: selfAvatar }
         : null,
-    [eventId, selfName],
+    [eventId, selfName, selfAvatar],
   );
   const sharedRoom = usePlan3dRoom(eventId ?? null, me);
   const walkerPosRef = useRef<Vec2 | null>(null);
@@ -924,10 +932,6 @@ export default function GuestVenue3D({
   // the whole flag-off path and for every guest who never made one — which is
   // everyone in production today, and is exactly what keeps this room
   // unchanged for them (lib/venue-avatars.test.ts pins it).
-  const selfAvatar = useMemo(
-    () => selfFigureAvatar(scene.you, 'guest-self', guestAvatarsEnabled()),
-    [scene.you],
-  );
 
   // Warm the texture cache once so the first frame paints faces, not tokens.
   useEffect(() => {

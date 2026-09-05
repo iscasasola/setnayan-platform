@@ -90,7 +90,12 @@ export type MoveMsg = {
 export type GreetMsg = { from: string; to: string | null; t: number };
 
 /** One entry in the presence roster (who is online in this room). */
-export type RoomPeer = { id: string; name: string; color: string };
+/** A presence roster entry. `avatar` is the peer's RAW stored chibi config as
+ *  they tracked it (or absent — a peer on an older build, or one who never
+ *  made an avatar). Kept RAW here on purpose: this module is pure state; the
+ *  renderer resolves it through the ONE fallback rule (`selfFigureAvatar`) and
+ *  declines junk to the mannequin, exactly as it does for the viewer's own. */
+export type RoomPeer = { id: string; name: string; color: string; avatar?: unknown };
 
 // ── Local per-remote state ───────────────────────────────────────────────────
 
@@ -98,6 +103,8 @@ export type RemotePlayer = {
   id: string;
   name: string;
   color: string; // status-ring colour so online people are tell-apart-able
+  /** Raw chibi config from presence (see RoomPeer.avatar). */
+  avatar?: unknown;
   /** Last received snapshot. */
   x: number;
   z: number;
@@ -229,12 +236,13 @@ export function reconcilePresence(prev: RemoteMap, roster: readonly RoomPeer[], 
     live.add(peer.id);
     const existing = next.get(peer.id);
     if (existing) {
-      next.set(peer.id, { ...existing, present: true, name: peer.name, color: peer.color });
+      next.set(peer.id, { ...existing, present: true, name: peer.name, color: peer.color, avatar: peer.avatar ?? null });
     } else {
       next.set(peer.id, {
         id: peer.id,
         name: peer.name,
         color: peer.color,
+        avatar: peer.avatar ?? null,
         x: 0,
         z: 0,
         vx: 0,

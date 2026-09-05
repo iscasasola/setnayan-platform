@@ -23,6 +23,7 @@ import { logAdminDataAccess } from '@/lib/admin-data-access';
 import { formatPhp } from '@/lib/orders';
 import {
   fetchCompGrantsForUser,
+  describeReach,
   describeScope,
   describeSource,
   formatRetailValueCentavos,
@@ -501,6 +502,11 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium text-ink/80">
                           {describeScope(g.scope, g.scoped_skus)}
+                          {/* Reach, never omitted — see describeReach's note. */}
+                          <span className="font-normal text-ink/55">
+                            {' · '}
+                            {describeReach(g)}
+                          </span>
                         </span>
                         <span className="text-xs text-ink/55">
                           {formatRetailValueCentavos(g.retail_value_centavos)} ·{' '}

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setVendorTier, setVendorFoundingSupplier } from '../../actions';
-import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import { VENDOR_TIER_SETTABLE, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
@@ -183,7 +183,7 @@ export default async function AdminVendorPlanPage({
                 defaultValue={currentTier}
                 className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
               >
-                {VENDOR_TIERS.map((t) => (
+                {VENDOR_TIER_SETTABLE.map((t) => (
                   <option key={t} value={t}>
                     {TIER_LABEL[t]}
                   </option>

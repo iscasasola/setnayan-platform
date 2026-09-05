@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBookable, isPubliclyVisible, parseVisibility } from './vendor-visibility';
 import { isVendor3dBoothActive } from './vendor-3d-booth-pricing';
+import { boothBrandedAtEvent, fetchEventBrandedBoothVendorIds } from './vendor-3d-booth-event-pricing';
 // Iteration 0053 Phase 2: the wedding seating-tier data now lives in
 // lib/role-sets.ts (single source). We import WEDDING_ROLE_SET as the DEFAULT
 // for every tier classifier so un-threaded callers behave exactly as before;
@@ -1777,10 +1778,12 @@ export type FloorBoothRow = {
     // owner-locked surface-D contract; a coming_soon profile keeps its slug
     // (the profile page is publicly visible) but is NOT bookable.
     bookable: boolean;
-    // Whether the vendor holds an ACTIVE paid 3D Booth add-on (owner 2026-07-22
-    // · isVendor3dBoothActive(booth_addon_expires_at)). THE gate the branded
-    // booth render (lib/seating-3d.ts boothIsBranded) requires on top of the
-    // Pro/Enterprise tier — false → the generic (unbranded) booth.
+    // Whether the vendor is BRANDED at this event: an ACTIVE 28-day 3D Booth
+    // cycle (owner 2026-07-22 · isVendor3dBoothActive(booth_addon_expires_at))
+    // OR a paid per-event order here (owner 2026-09-05 · ₱500,
+    // event_branded_booth_vendor_ids). THE gate the branded booth render
+    // (lib/seating-3d.ts boothIsBranded) requires on top of the paid tier —
+    // false → the generic (unbranded) booth.
     boothAddonActive: boolean;
   } | null;
 };
@@ -1788,6 +1791,14 @@ export type FloorBoothRow = {
 export async function fetchBooths(
   supabase: SupabaseClient,
   eventId: string,
+  opts: {
+    /** The client for the ONE privileged read (event_branded_booth_vendor_ids is
+     *  service_role-only). Callers holding a session client MUST pass the admin
+     *  client here, or every per-event branding renders as absent; callers
+     *  already reading with admin may omit it. This module is imported by client
+     *  components, so it cannot create the admin client itself. */
+    brandedReader?: SupabaseClient;
+  } = {},
 ): Promise<FloorBoothRow[]> {
   const { data, error } = await supabase
     .from('event_floor_booths')
@@ -1796,11 +1807,16 @@ export async function fetchBooths(
       // TWO relationships to vendor_profiles (linked_vendor_profile_id and
       // marketplace_vendor_id) and an unhinted embed errors as ambiguous.
       'booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id,offerings,' +
-        'event_vendors(vendor_name,category,vendor_profiles!marketplace_vendor_id(logo_url,tier_state,business_slug,public_visibility,booth_addon_expires_at))',
+        'event_vendors(vendor_name,category,marketplace_vendor_id,vendor_profiles!marketplace_vendor_id(logo_url,tier_state,business_slug,public_visibility,booth_addon_expires_at))',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
+  // The PER-EVENT half of branding (owner 2026-09-05, ₱500 one event): which
+  // vendors hold a paid `vendor_3d_booth_event` order HERE. One RPC per
+  // fetchBooths, not one per booth; resolved beside the cycle window below so
+  // the single `boothAddonActive` boolean carries both.
+  const brandedHere = await fetchEventBrandedBoothVendorIds(opts.brandedReader ?? supabase, eventId);
   // Graceful-degrade (same contract as fetchFloorPlan): a not-yet-migrated
   // table or RLS hiccup renders a booth-less plan, never a crashed page. The
   // vendor EMBED is the most fragile piece (it needs the FK relationship
@@ -1831,11 +1847,9 @@ export async function fetchBooths(
     public_visibility: string | null;
     booth_addon_expires_at: string | null;
   } | null;
+  type EV = { vendor_name: string; category: string; marketplace_vendor_id: string | null; vendor_profiles: VP };
   type Joined = Omit<FloorBoothRow, 'vendor'> & {
-    event_vendors:
-      | { vendor_name: string; category: string; vendor_profiles: VP }
-      | { vendor_name: string; category: string; vendor_profiles: VP }[]
-      | null;
+    event_vendors: EV | EV[] | null;
   };
   return (data as unknown as Joined[]).map((b) => {
     // PostgREST returns an embedded to-one as an object, but typings sometimes
@@ -1861,7 +1875,12 @@ export async function fetchBooths(
             tier: vp?.tier_state ?? null,
             slug: vp && isPubliclyVisible(parseVisibility(vp.public_visibility)) ? vp.business_slug ?? null : null,
             bookable: vp ? isBookable(parseVisibility(vp.public_visibility)) : false,
-            boothAddonActive: isVendor3dBoothActive(vp?.booth_addon_expires_at ?? null),
+            // Cycle window OR a paid per-event order on THIS event — one boolean,
+            // so logo, poster and avoidance disc can never disagree.
+            boothAddonActive: boothBrandedAtEvent({
+              cycleActive: isVendor3dBoothActive(vp?.booth_addon_expires_at ?? null),
+              eventOrderActive: !!ev.marketplace_vendor_id && brandedHere.has(ev.marketplace_vendor_id),
+            }),
           }
         : null,
     };

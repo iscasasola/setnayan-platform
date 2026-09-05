@@ -96,11 +96,15 @@ function bodyOf(src: string, name: string): string {
 function openingButtonTag(src: string): string {
   const at = src.indexOf('<button');
   assert.notEqual(at, -1, 'no <button> found');
+  // `charAt`, not `src[i]`: this project has `noUncheckedIndexedAccess`, so an
+  // index read is `string | undefined` and handing it to `RegExp.test` fails
+  // typecheck. charAt returns '' past the end, which is neither '>' nor '='
+  // nor whitespace — so the loop reads the same either way.
   for (let i = at; i < src.length; i += 1) {
-    if (src[i] !== '>') continue;
+    if (src.charAt(i) !== '>') continue;
     let j = i - 1;
-    while (j > at && /\s/.test(src[j])) j -= 1;
-    if (src[j] !== '=') return src.slice(at, i + 1);
+    while (j > at && /\s/.test(src.charAt(j))) j -= 1;
+    if (src.charAt(j) !== '=') return src.slice(at, i + 1);
   }
   throw new Error('unterminated <button> tag');
 }

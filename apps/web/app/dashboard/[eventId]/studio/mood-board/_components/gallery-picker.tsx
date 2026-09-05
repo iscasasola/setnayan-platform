@@ -31,6 +31,7 @@
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Check, ImageOff, Sparkles } from 'lucide-react';
 import type { GalleryAsset, GalleryPage } from '@/lib/moodboard-gallery';
+import { EventLinkedBadge } from './event-linked-badge';
 
 export type GalleryPickerProps = {
   eventId: string;
@@ -203,6 +204,10 @@ export function GalleryPicker({
                   className="h-full w-full object-cover"
                 />
               </div>
+              {/* MB22 — driven per-row by asset.isEventLinked, never hard-coded
+                  (see event-linked-badge.tsx for why that distinction is the
+                  whole point). */}
+              <EventLinkedBadge show={asset.isEventLinked} />
               {/* THE CREDIT. Never conditional, never abbreviated: a gallery
                   photo whose shop is not named is a stock photo, and the
                   server withholds those rather than sending them here. */}

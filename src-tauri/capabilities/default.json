@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Scoped grant so the bundled Setnayan web app (loaded as a remote URL) can run system-browser OAuth: start/stop the localhost loopback (oauth), open the provider consent page in the system browser (opener), and listen for the oauth:// redirect event. No filesystem / shell-exec / arbitrary-IPC is granted.",
+  "description": "Scoped grant so the bundled Setnayan web app (loaded as a remote URL) can run system-browser OAuth: start/stop the localhost loopback (oauth), open the provider consent page in the system browser (opener), and listen for the oauth:// redirect event; and (S10) hold/release an OS sleep-prevention assertion around the live-broadcast encoder. No filesystem / shell-exec / arbitrary-IPC is granted.",
   "windows": ["main"],
   "remote": {
     "urls": ["https://setnayan.com", "https://www.setnayan.com"]
@@ -12,6 +12,8 @@
     "oauth:allow-start",
     "oauth:allow-cancel",
     "opener:default",
-    "opener:allow-open-url"
+    "opener:allow-open-url",
+    "allow-start-keep-awake",
+    "allow-stop-keep-awake"
   ]
 }

@@ -3,6 +3,10 @@
 #[cfg(debug_assertions)]
 mod probe;
 
+// S10: keep-awake assertions held around the (not-yet-built) encoder. Ships in
+// every build — release included — unlike `probe`.
+mod keep_awake;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -14,10 +18,25 @@ pub fn run() {
         .plugin(tauri_plugin_oauth::init())
         .setup(|_app| Ok(()));
 
+    // `invoke_handler` REPLACES rather than appends, so the debug/release variants
+    // each list every command they ship rather than layering a second call on top
+    // of the release one (which would silently drop the release-only commands from
+    // debug builds).
     #[cfg(debug_assertions)]
     let builder = builder
-        .invoke_handler(tauri::generate_handler![probe::probe_report, probe::probe_ipc])
+        .invoke_handler(tauri::generate_handler![
+            keep_awake::start_keep_awake,
+            keep_awake::stop_keep_awake,
+            probe::probe_report,
+            probe::probe_ipc,
+        ])
         .on_page_load(probe::on_page_load);
+
+    #[cfg(not(debug_assertions))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        keep_awake::start_keep_awake,
+        keep_awake::stop_keep_awake,
+    ]);
 
     builder
         .run(tauri::generate_context!())

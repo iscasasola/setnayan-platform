@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   sanitizeReceptionDesign,
   sel,
@@ -13,8 +14,15 @@ import {
   buildPrompt,
   venueZoneApplies,
   venueSceneFamily,
+  isCompositableDecorHref,
   type PartId,
+  type ReceptionDesign,
 } from './reception-scene';
+import {
+  decorLayerHrefs,
+  PILOT_DECOR_ZONES,
+  type DecorLayerCatalog,
+} from './reception-decor-layers';
 import { VENUE_SETTINGS, AMBIGUOUS_VENUE_SETTING } from './venue-settings';
 
 test('sanitizeReceptionDesign: keeps only known part → attr → valid option ids', () => {
@@ -457,4 +465,209 @@ test('buildPrompt: a venue-gated zone never contributes a phrase, even with a re
   // The rest of the room is unaffected — a beach reception still gets its
   // floral-wall backdrop in the brief.
   assert.match(beach, /a full floral wall backdrop/);
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * MB14b · COMPOSITE-WITH-FALLBACK, AND THE INVARIANT THAT MAKES IT SAFE.
+ *
+ * Ten (zone, style) pairs out of the whole product have a decor asset —
+ * backdrop × 5 style families, ceiling × 5. `renderVenueSvg` now composites
+ * one when it is handed one. The safety property is not "the fallback looks
+ * the same": it is that the fallback is the SAME BYTES the function produced
+ * before compositing existed. Four surfaces render this string, and one of
+ * them is the control image for a PAID photoreal render — a silently different
+ * control image is a silently different paid product.
+ *
+ * 🪤 THE SNAPSHOT IS THE PRE-CHANGE OUTPUT, CAPTURED BEFORE THE CHANGE.
+ * These sha256 digests were taken by running `renderVenueSvg` on `origin/main`
+ * at 67362e5af, BEFORE `decorImage` existed, and pasted here unchanged. A
+ * snapshot recorded after the fact would only prove the code equals itself.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const MB14B_DESIGN: ReceptionDesign = {
+  ceiling: { treatment: ['draped', 'fairy_lights'] },
+  backdrop: { style: 'floral_wall', florals: 'roses' },
+  stage: { setup: 'sweetheart' },
+  tables: { shape: 'round', chairs: 'chiavari', linen: 'full', centerpiece: 'tall', place: 'menu' },
+  entrance: { runner: 'fabric' },
+  people: { who: 'couple_only' },
+};
+const MB14B_PALETTE = ['#C9A059', '#8C6BA6', '#D98BA6', '#9CB29A', '#4A3B45'];
+
+/** sha256 of `renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, <venue>)`
+ *  measured on origin/main @ 67362e5af, before this feature was written. */
+const MB14B_PRE_CHANGE: Record<string, string> = {
+  undefined: '977d1a9d5c38cc809e6492534de97c1d098399b47bd8a757b7c58fff821e06e2',
+  banquet_hall: '977d1a9d5c38cc809e6492534de97c1d098399b47bd8a757b7c58fff821e06e2',
+  beach: 'cee3cbb3c4c529564a39c0324ec3577d4f557b8df7f3b52a279fd99ace7558ef',
+  garden: 'de741b628ca5eb2f26e1fe028ea5c9228d4b78ba50842b3b5d29ecdba0998dac',
+};
+
+const sha = (s: string) => createHash('sha256').update(s).digest('hex');
+
+test('MB14b: an UNCOVERED (zone, style) renders byte-identically to the pre-composite flat SVG', () => {
+  for (const [venue, digest] of Object.entries(MB14B_PRE_CHANGE)) {
+    const setting = venue === 'undefined' ? undefined : venue;
+    assert.equal(
+      sha(renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, setting)),
+      digest,
+      `renderVenueSvg no longer produces the bytes it produced before decor compositing ` +
+        `existed (venue: ${venue}). Every (zone, style) without an asset — which is almost ` +
+        'all of them — must be untouched by this feature. Four surfaces render this string, ' +
+        'including the control image for the paid photoreal render.',
+    );
+  }
+});
+
+test('MB14b: passing an EMPTY decor map is the same bytes as passing none', () => {
+  // The shape a couple with no style family, or a style family with no assets,
+  // actually produces: `decorLayerHrefs` returns {}, not undefined.
+  for (const setting of [undefined, 'banquet_hall', 'beach', 'garden'] as const) {
+    assert.equal(
+      renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, setting, {}),
+      renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, setting),
+      `an empty decor map changed the render at ${setting}. It is the COMMON case, not an ` +
+        'edge case, and it must be indistinguishable from no decor at all.',
+    );
+  }
+});
+
+test('MB14b: a COVERED zone actually composites, and only that zone changes', () => {
+  const href = '/moodboard-seed/venue_scene/backdrop/editorial-cream.svg';
+  const flat = renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE);
+  const composed = renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, undefined, {
+    backdrop: href,
+  });
+  // 🪤 PRESENCE OF THE HREF IS NOT PROOF THE ZONE WAS REPLACED. A layer drawn
+  // ON TOP of the flat backdrop would contain the href too, and would show the
+  // couple both. The flat backdrop's own signature must be GONE.
+  assert.notEqual(flat, composed);
+  assert.match(composed, /<image[^>]+href="\/moodboard-seed\/venue_scene\/backdrop\/editorial-cream\.svg"/);
+  assert.match(composed, /clip-path="url\(#decor-backdrop\)"/);
+  // The floral-wall backdrop draws a 300x210 rounded panel at BD. With a decor
+  // layer that panel is not drawn at all.
+  assert.match(flat, /<rect x="330" y="150" width="300" height="210" rx="10"/);
+  assert.doesNotMatch(composed, /<rect x="330" y="150" width="300" height="210" rx="10" fill=/);
+  // ...and the ceiling, which has no layer here, is untouched: the draped swag
+  // path signature survives.
+  const swag = /<path d="M 60 8 Q 132\.5 96 205 8/;
+  assert.match(flat, swag);
+  assert.match(composed, swag);
+});
+
+test('MB14b: the venue gate outranks a decor layer — a beach gets no ceiling image', () => {
+  // A beach reception has no ceiling. Handing it a ceiling decor layer must not
+  // grow one; the gate is deliberately OUTSIDE the fallback expression.
+  const beach = renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, 'beach', {
+    ceiling: '/moodboard-seed/venue_scene/ceiling/editorial-cream.svg',
+  });
+  assert.doesNotMatch(beach, /decor-ceiling/);
+  assert.equal(sha(beach), MB14B_PRE_CHANGE.beach);
+});
+
+test('MB14b: an href this app cannot recognise falls back rather than being drawn', () => {
+  // The href reaches this function from a database column and is interpolated
+  // into markup four surfaces serve. Only an app-served seed path or a data:
+  // URI we just built is legitimate; anything else is a row we do not
+  // recognise, and an unrecognised row is a fallback, never an escape problem.
+  for (const bad of [
+    'https://media.setnayan.com/moodboard-library/venue_scene/backdrop/editorial-cream.svg',
+    'https://evil.example/x.svg',
+    '/moodboard-seed/../../etc/passwd',
+    // 🪤 THIS ONE MATCHES THE SHAPE. The charset admits a dot, so it admits a
+    // dot-dot, and this path ends in .svg like a real one. Only the explicit
+    // `..` refusal stops it — and the SAME predicate gates the filesystem read
+    // in reception-decor-layers-server.ts.
+    '/moodboard-seed/../../../etc/hosts.svg',
+    '/moodboard-seed/venue_scene/backdrop/x.svg" onload="alert(1)',
+    'javascript:alert(1)',
+    'data:text/html;base64,PHNjcmlwdD4=',
+  ]) {
+    assert.equal(
+      sha(renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, undefined, { backdrop: bad })),
+      MB14B_PRE_CHANGE.undefined,
+      `the href ${JSON.stringify(bad)} was not refused — the render changed. An href that is ` +
+        'neither an app-served /moodboard-seed path nor a retinted data: URI must fall back ' +
+        'to the flat SVG, unchanged and unescaped.',
+    );
+    assert.equal(isCompositableDecorHref(bad), false);
+  }
+  assert.equal(isCompositableDecorHref('/moodboard-seed/venue_scene/ceiling/modern-minimalist.svg'), true);
+  assert.equal(isCompositableDecorHref('data:image/png;base64,iVBORw0KGgo='), true);
+});
+
+test('MB14b: only the two pilot zones can composite, and they are the same two the resolver knows', () => {
+  // The geometry map IS the permission — a zone with no slot cannot draw an
+  // image however a caller asks. Pinned equal to the resolver's own list so the
+  // two cannot drift into a zone that composites but is never resolved, or the
+  // reverse.
+  const composited = (['ceiling', 'backdrop', 'stage', 'tables', 'tunnel', 'entrance', 'walls', 'photo_wall', 'welcome_signage', 'people'] as PartId[])
+    .filter((zone) => {
+      const svg = renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, undefined, {
+        [zone]: '/moodboard-seed/venue_scene/backdrop/editorial-cream.svg',
+      });
+      return svg.includes(`decor-${zone}`);
+    });
+  assert.deepEqual(
+    [...composited].sort(),
+    [...PILOT_DECOR_ZONES].sort(),
+    'the zones renderVenueSvg can composite have drifted from PILOT_DECOR_ZONES in ' +
+      'reception-decor-layers.ts. A zone the resolver returns an asset for but this function ' +
+      'cannot draw is a dead pipeline; a zone this function draws but the resolver never ' +
+      'returns is markup nobody can reach.',
+  );
+});
+
+/* ── the resolver half, and the near-miss that must never happen ─────────── */
+
+const MB14B_CATALOG: DecorLayerCatalog = {
+  backdrop: {
+    'editorial cream': {
+      assetId: 'S89A-EDITORIAL',
+      storagePath: '/moodboard-seed/venue_scene/backdrop/editorial-cream.svg',
+      colorRange: { slotId: 1, sampledHex: '#D98BA6', toleranceDe: 15, regionLabel: 'draped fabric' },
+    },
+  },
+};
+
+test('MB14b: decorLayerHrefs covers a covered pair and returns NOTHING for an uncovered one', () => {
+  assert.deepEqual(
+    decorLayerHrefs('editorial cream', MB14B_CATALOG, (a) => a.storagePath),
+    { backdrop: '/moodboard-seed/venue_scene/backdrop/editorial-cream.svg' },
+  );
+  // Uncovered style: the catalog has editorial cream and nothing else.
+  assert.deepEqual(decorLayerHrefs('bridgerton · regal', MB14B_CATALOG, (a) => a.storagePath), {});
+  // Uncovered zone: nothing has a ceiling asset here.
+  assert.equal(
+    decorLayerHrefs('editorial cream', MB14B_CATALOG, (a) => a.storagePath).ceiling,
+    undefined,
+  );
+  // No style family at all — the couple who never applied a template.
+  assert.deepEqual(decorLayerHrefs(null, MB14B_CATALOG, (a) => a.storagePath), {});
+  // A resolver that cannot build an href is a fallback, not an error.
+  assert.deepEqual(decorLayerHrefs('editorial cream', MB14B_CATALOG, () => null), {});
+});
+
+test('MB14b · THE INVARIANT: an uncovered (zone, style) renders the pre-change bytes END TO END', () => {
+  // The whole pipeline, not the pieces: catalog → resolveDecorLayer →
+  // decorLayerHrefs → renderVenueSvg. `bridgerton · regal` has no asset in this
+  // catalog, so the room must come out of the far end byte-for-byte as it did
+  // before any of this code existed.
+  //
+  // 🪤 THE SABOTAGE THIS PINS: make `resolveDecorLayer` substitute a NEAR MISS
+  // for a missing style — the zone's only asset, the nearest family, a default
+  // — and this assertion goes red. Reproduced before landing: replacing
+  // `catalog[zone]?.[styleFamily]` with
+  // `catalog[zone]?.[styleFamily] ?? Object.values(catalog[zone] ?? {})[0]`
+  // fails HERE with the editorial-cream backdrop composited into a Bridgerton
+  // couple's room, while every other test in this file stays green.
+  const layers = decorLayerHrefs('bridgerton · regal', MB14B_CATALOG, (a) => a.storagePath);
+  assert.deepEqual(layers, {}, 'an uncovered style resolved to SOME asset — a near miss is a room the couple did not design');
+  assert.equal(
+    sha(renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, undefined, layers)),
+    MB14B_PRE_CHANGE.undefined,
+    'an uncovered (zone, style) no longer renders the exact bytes it rendered before decor ' +
+      'compositing existed.',
+  );
 });

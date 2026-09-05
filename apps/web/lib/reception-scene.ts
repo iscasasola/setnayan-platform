@@ -1578,6 +1578,100 @@ function sceneBackground(scene: VenueSceneFamily, W: number, H: number, aisleTin
     <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.55"/>`;
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+ * MB14b · COMPOSITE-WITH-FALLBACK — the AI decor layers finally reach the room.
+ *
+ * The 2026-09-03 pilot generated ten decor drawings (backdrop × 5 styles,
+ * ceiling × 5) and `lib/reception-decor-layers.ts` has been able to CHOOSE one
+ * since that day. Nothing ever DREW one: `renderVenueSvg` had no way to accept
+ * a chosen layer, so the whole pipeline terminated in a value nobody consumed.
+ * This is the consumer.
+ *
+ * ── 🔑 THE SAFETY PROPERTY IS BYTE-IDENTITY, NOT "LOOKS THE SAME" ───────────
+ * Four surfaces render this string today — the couple's Reception Designer,
+ * the vendor read-only board, the concept PDF, and the paid render's control
+ * image — and only ten (zone, style) pairs out of the whole product have an
+ * asset. EVERY other combination must come out of this function EXACTLY as it
+ * did before this change: same bytes, not merely the same picture. A "nearly
+ * identical" flat render is a silently different control image for a paid
+ * photoreal render, and a diff no reviewer would catch.
+ *
+ * That is why the fallback is written as `decorImage(zone) ?? <the call that
+ * was already there>`: with no layer for a zone, the original expression is
+ * evaluated unchanged and the surrounding array join is untouched. Byte
+ * identity is a property of the SHAPE of this code, not of a test that hopes
+ * to notice. `reception-scene.test.ts` pins it anyway, and the sabotage that
+ * proves the pin is a near-miss substitution in `resolveDecorLayer`.
+ *
+ * ── WHAT A LAYER IS, AND WHAT IT IS NOT ─────────────────────────────────────
+ * An href, already retinted by whoever resolved it —
+ * `renderDecorLayerDataUrl` on the server (sharp), the Recolor Studio's canvas
+ * on the client. No pixel work happens here; this module stays pure and
+ * DOM-free, exactly as its own header promises.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+/** Where a composited decor image sits, per zone. A zone absent from this map
+ *  can never composite, whatever a caller passes — the geometry IS the
+ *  permission. Keys are pinned equal to `PILOT_DECOR_ZONES` by
+ *  `reception-scene.test.ts` (asserted there, not imported here, so this file
+ *  keeps its one-way dependency on nothing). */
+const DECOR_SLOTS: Partial<Record<PartId, { x: number; y: number; w: number; h: number; rx: number }>> = {
+  // The same panel `backdropStyleLayer` draws — BD, with its rx 10 corners.
+  backdrop: { ...BD, rx: 10 },
+  // The overhead band every `ceilingLayer` treatment hangs inside: the draped
+  // swags reach y 96 at their lowest, the fairy-light rows end at y 70.
+  ceiling: { x: 0, y: 0, w: 960, h: 100, rx: 0 },
+};
+
+/** Zone → the href of its already-retinted decor image. A zone absent from the
+ *  map falls back to the flat SVG, which is what almost every zone does. */
+export type DecorLayers = Partial<Record<PartId, string>>;
+
+const APP_SERVED_DECOR = /^\/moodboard-seed\/[A-Za-z0-9/_.-]+\.(?:svg|png|jpg|jpeg|webp)$/;
+const RETINTED_DATA_URI = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+
+/**
+ * 🪤 AN href IS ATTACKER-SHAPED INPUT UNTIL IT IS CHECKED. It arrives from a
+ * database column (`moodboard_library_assets.storage_path`) and is
+ * interpolated into markup four surfaces serve. Only two shapes are ever
+ * legitimate — an app-served seed path, or a data: URI this app just built —
+ * and anything else FALLS BACK rather than being escaped and drawn, because a
+ * row we cannot recognise is a row we should not composite.
+ *
+ * `..` is rejected SEPARATELY, not left to the character class: `[A-Za-z0-9/_.-]`
+ * admits a dot, so it admits a dot-dot, so `/moodboard-seed/../../../etc/x.svg`
+ * matches the shape above. The same predicate gates the filesystem read in
+ * `reception-decor-layers-server.ts`, so one rule covers markup and disk.
+ */
+export function isCompositableDecorHref(href: string): boolean {
+  if (href.includes('..')) return false;
+  return APP_SERVED_DECOR.test(href) || RETINTED_DATA_URI.test(href);
+}
+
+/** One zone's composited decor image, or null to fall back to the flat SVG. */
+function decorImage(zone: PartId, layers: DecorLayers | undefined): string | null {
+  const href = layers?.[zone];
+  if (!href) return null;
+  const slot = DECOR_SLOTS[zone];
+  if (!slot) return null;
+  if (!isCompositableDecorHref(href)) return null;
+  const clip = `decor-${zone}`;
+  return (
+    `<defs><clipPath id="${clip}"><rect x="${slot.x}" y="${slot.y}" width="${slot.w}" height="${slot.h}" rx="${slot.rx}"/></clipPath></defs>` +
+    // 🪤 `xmlns:xlink` IS DECLARED ON THE ELEMENT, NOT ON THE ROOT <svg>.
+    // Putting it on the root would change the first bytes of EVERY render this
+    // function has ever produced, including the ones with no decor layer at
+    // all — the exact regression this whole design exists to prevent. A
+    // namespace declaration is legal on any element, so it rides along with
+    // the only element that needs it. `href` is the SVG2 spelling browsers
+    // use; `xlink:href` is what librsvg (our server rasteriser) still reads.
+    `<image xmlns:xlink="http://www.w3.org/1999/xlink" clip-path="url(#${clip})"` +
+    ` x="${slot.x}" y="${slot.y}" width="${slot.w}" height="${slot.h}"` +
+    ` preserveAspectRatio="xMidYMid slice" href="${href}" xlink:href="${href}"/>`
+  );
+}
+
 /**
  * Compose the full venue SVG for a given design + palette + role attire
  * colors — the couple's own room, re-drawn live in their own colours.
@@ -1594,6 +1688,7 @@ export function renderVenueSvg(
   palette: string[],
   roleColors?: RoleColors,
   venueSetting?: string | null,
+  decor?: DecorLayers,
 ): string {
   const P = paletteFn(palette);
   const rc: RC = {
@@ -1613,9 +1708,15 @@ export function renderVenueSvg(
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`,
     bg,
-    backdrop(selAll(design, 'backdrop', 'style'), selAll(design, 'backdrop', 'florals'), P),
+    decorImage('backdrop', decor) ??
+      backdrop(selAll(design, 'backdrop', 'style'), selAll(design, 'backdrop', 'florals'), P),
     stage(sel(design, 'stage', 'setup'), selAll(design, 'stage', 'florals'), P),
-    venueZoneApplies(venueSetting, 'ceiling') ? ceiling(selAll(design, 'ceiling', 'treatment'), P) : '',
+    // The venue gate stays OUTERMOST on purpose: a beach reception has no
+    // ceiling, so it gets no ceiling decor image either, however well the
+    // couple's style family is covered.
+    venueZoneApplies(venueSetting, 'ceiling')
+      ? (decorImage('ceiling', decor) ?? ceiling(selAll(design, 'ceiling', 'treatment'), P))
+      : '',
     tables(
       sel(design, 'tables', 'shape'),
       sel(design, 'tables', 'chairs'),

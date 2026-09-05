@@ -51,13 +51,30 @@ before(async () => {
   db = replay.db;
 });
 
+/**
+ * An event WITH a couple member — the shared 50-pt pool these tests bound
+ * against is seeded by `papic_seed_free_grant_trg` on `event_members`, not on
+ * `events` (migration 20271204225094: free credits are per ACCOUNT, first
+ * event only). A fresh auth user per call keeps each event "somebody's first".
+ */
 async function createEvent(name: string): Promise<string> {
   const r = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type)
      VALUES ($1, 'birthday') RETURNING event_id`,
     [name],
   );
-  return r.rows[0]!.event_id;
+  const eventId = r.rows[0]!.event_id;
+  const couple = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type', 'customer')) RETURNING id`,
+    [`dedicated-couple-${eventId}@test.dev`],
+  );
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type)
+     VALUES ($1, $2, 'couple')`,
+    [eventId, couple.rows[0]!.id],
+  );
+  return eventId;
 }
 
 /** A camera with NO dedicated grant — it draws the shared pool. */

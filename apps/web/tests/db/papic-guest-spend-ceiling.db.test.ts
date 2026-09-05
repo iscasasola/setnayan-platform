@@ -48,13 +48,35 @@ type Reply = {
   ceiling?: number | null;
 };
 
-/** An event with a REAL shared pool — the condition four dead limits died in. */
+/**
+ * An event with a REAL shared pool — the condition four dead limits died in.
+ *
+ * 🔑 A FRESH ACCOUNT, EVERY CALL. The 50-credit free grant this file's math
+ * depends on (see the PRECONDITION assertion below) is now ACCOUNT-scoped
+ * (migration 20271204225094, owner-confirmed 2026-09-04): `papic_seed_free_grant_trg`
+ * moved from `events` to `event_members` (member_type='couple') because only
+ * event_members can say who owns the event, and only that account's FIRST
+ * event ever gets the full 50 — every event after gets a 1-point minimum
+ * instead. A brand-new `auth.users` row per call keeps every event in this
+ * suite "somebody's first event", preserving the file's original math
+ * unchanged; it would silently drop to 1 point if these events shared a user.
+ */
 async function seedPoolEvent(grantPoints = 5000, pax: number | null = null) {
   n += 1;
   const eventId = await one<string>(
     `INSERT INTO public.events (display_name, event_type, estimated_pax)
      VALUES ($1, 'birthday', $2) RETURNING event_id`,
     [`ceiling test ${n}`, pax],
+  );
+  const userId = await one<string>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    [`ceiling-test-${n}@test.local`],
+  );
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type)
+     VALUES ($1, $2, 'couple')`,
+    [eventId, userId],
   );
   await db.query(
     `INSERT INTO public.papic_event_point_grants (event_id, points, source, note)

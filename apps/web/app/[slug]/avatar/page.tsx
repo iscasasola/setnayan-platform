@@ -21,10 +21,15 @@ import { AvatarMakerLoader } from './_components/avatar-maker-loader';
  * sent to the event page, which is where the lock screen explains how to get in
  * — exactly what `/venue` does for an unredeemed guest, rather than a dead end.
  *
- * 🚩 FLAG-DARK BY DEFAULT. `NEXT_PUBLIC_FIGURE_CHIBI` (the EXISTING chibi
- * switch, not a new one) gates the whole route: unset — production's only state
- * so far — and this is a 404, so the maker cannot be reached, no config can be
- * written, and the room keeps rendering exactly as it does today.
+ * 🚩 FLAG-GATED, DEFAULT OFF — AND ON IN PRODUCTION. `NEXT_PUBLIC_FIGURE_CHIBI`
+ * (the EXISTING chibi switch, not a new one) gates the whole route: unset and
+ * this is a 404, so the maker cannot be reached and no config can be written.
+ * ⚠ This block used to say unset was "production's only state so far". FALSE
+ * since 2026-08-31: the flag is `"true"` in Vercel Production (env pulled
+ * 2026-09-05), this route is LIVE, and guests are writing `avatar_config`.
+ * kit/chibi-figure.tsx recorded the flip the day it happened; this file and
+ * two others kept asserting the dark state for five days. A code default is
+ * not a production value.
  */
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Make your avatar' };

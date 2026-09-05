@@ -27,10 +27,10 @@ use rml_rtmp::time::RtmpTimestamp;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
 use tokio::sync::mpsc;
 
-use setnayan_desktop_lib::encoder::contract::{ChunkHeader, ChunkKind, DecoderConfig, EncodedChunk};
-use setnayan_desktop_lib::encoder::flv::StreamMeta;
-use setnayan_desktop_lib::encoder::rtmp::{Redactor, RtmpEndpoint, MAX_INITIAL_TIMESTAMP_MS};
-use setnayan_desktop_lib::encoder::sender::{EndReason, RtmpSender, SenderError};
+use setnayan_encoder::contract::{ChunkHeader, ChunkKind, DecoderConfig, EncodedChunk};
+use setnayan_encoder::flv::StreamMeta;
+use setnayan_encoder::rtmp::{Redactor, RtmpEndpoint, MAX_INITIAL_TIMESTAMP_MS};
+use setnayan_encoder::sender::{EndReason, RtmpSender, SenderError};
 
 const STREAM_KEY: &str = "abcd-efgh-ijkl-mnop-qrst";
 const AVC_C: &[u8] = &[1, 0x42, 0xC0, 0x1F, 0xFF, 0xE1, 0x00, 0x04, 0x67, 0x42, 0xC0, 0x1F];
@@ -260,7 +260,7 @@ where
 }
 
 struct PublishRun {
-    outcome: setnayan_desktop_lib::encoder::sender::SenderOutcome,
+    outcome: setnayan_encoder::sender::SenderOutcome,
 }
 
 #[tokio::test]

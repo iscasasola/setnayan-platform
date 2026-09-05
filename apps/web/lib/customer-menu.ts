@@ -257,6 +257,7 @@ export function buildCustomerMenuTree(
       activeMatch: [
         `${base}/guests`,
         `${base}/seating`,
+        `${base}/plan3d`,
         `${base}/event-qr`,
         `${base}/hosts`,
         `${base}/people`,

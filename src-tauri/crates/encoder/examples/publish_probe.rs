@@ -22,10 +22,10 @@
 
 use std::time::Duration;
 
-use setnayan_desktop_lib::encoder::contract::{ChunkHeader, ChunkKind, DecoderConfig, EncodedChunk};
-use setnayan_desktop_lib::encoder::flv::StreamMeta;
-use setnayan_desktop_lib::encoder::rtmp::RtmpEndpoint;
-use setnayan_desktop_lib::encoder::sender::{EndReason, RtmpSender};
+use setnayan_encoder::contract::{ChunkHeader, ChunkKind, DecoderConfig, EncodedChunk};
+use setnayan_encoder::flv::StreamMeta;
+use setnayan_encoder::rtmp::RtmpEndpoint;
+use setnayan_encoder::sender::{EndReason, RtmpSender};
 use tokio::sync::mpsc;
 
 const FIXTURE: &[u8] = include_bytes!("../tests/fixtures/two-seconds-h264-aac.flv");

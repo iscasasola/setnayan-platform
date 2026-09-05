@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
-import { WEDDING_TILE_LABEL } from './taxonomy';
+import { FILIPINIANA_BARONG_CANONICALS, WEDDING_TILE_LABEL } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
 import {
   GALLERY_MAX_LIMIT,
@@ -85,8 +85,16 @@ test('GALLERY_SLOT_KEYS is DERIVED from the map, never listed', () => {
 });
 
 test('canonicalServicesForSlot derives from the tiles and de-dupes', () => {
+  // `venue` names one tile — a single-tile slot resolves to exactly that
+  // tile's canonicals.
+  const venue = canonicalServicesForSlot('venue');
+  assert.deepEqual(venue, canonicalServicesForTile('ceremony_venue'));
+  // `flowers` names two tiles (MB18 added `stylist_decorator`) — the slot's
+  // canonicals must be the union of both, not either tile alone.
   const flowers = canonicalServicesForSlot('flowers');
-  assert.deepEqual(flowers, canonicalServicesForTile('florist'));
+  for (const c of canonicalServicesForTile('florist')) assert.ok(flowers.includes(c));
+  for (const c of canonicalServicesForTile('stylist_decorator')) assert.ok(flowers.includes(c));
+  assert.equal(new Set(flowers).size, flowers.length, 'duplicates leaked through');
   // `bride` names three tiles that overlap on the Filipiniana canonicals.
   const bride = canonicalServicesForSlot('bride');
   assert.equal(new Set(bride).size, bride.length, 'duplicates leaked through');
@@ -98,6 +106,67 @@ test('canonicalServicesForSlot derives from the tiles and de-dupes', () => {
 test('an unknown slot key gets an empty answer, never a guessed one', () => {
   assert.deepEqual([...tradesForSlot('not_a_slot')], []);
   assert.equal(slotHasSupplierTrade('not_a_slot'), false);
+});
+
+/* ── MB18 — the four map rows the owner asked for, verbatim ─────────────── */
+
+test('⭐ MB18 · a shop whose only service is barong_tagalog_rental may upload to entourage AND guests', () => {
+  // The map ADDITION this session makes — `filipiniana_barongs` was already
+  // resolving canonicals correctly (see moodboard-gallery.ts's docblock and
+  // build-sessions/MB-GALLERY-PLAN.md's 2026-09-05 correction); it was simply
+  // missing from these two slots' rows.
+  const entourage = canonicalServicesForSlot('entourage');
+  const guests = canonicalServicesForSlot('guests');
+  assert.ok(
+    entourage.includes('barong_tagalog_rental'),
+    'entourage must resolve barong_tagalog_rental via filipiniana_barongs',
+  );
+  assert.ok(
+    guests.includes('barong_tagalog_rental'),
+    'guests must resolve barong_tagalog_rental via filipiniana_barongs',
+  );
+});
+
+test('MB18 · entourage and guests each carry exactly 3 trades, filipiniana_barongs among them', () => {
+  // A COUNT per row, not a file-level match — a stray append that also duped
+  // an existing tile would pass an `.includes()`-only check.
+  assert.equal(MOODBOARD_SLOT_TRADES.entourage.length, 3);
+  assert.deepEqual(
+    [...MOODBOARD_SLOT_TRADES.entourage],
+    ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  );
+  assert.equal(MOODBOARD_SLOT_TRADES.guests.length, 3);
+  assert.deepEqual(
+    [...MOODBOARD_SLOT_TRADES.guests],
+    ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  );
+});
+
+test('MB18 · flowers is florist FIRST, then stylist_decorator — 2 trades, in that order', () => {
+  assert.equal(MOODBOARD_SLOT_TRADES.flowers.length, 2);
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.flowers], ['florist', 'stylist_decorator']);
+});
+
+test('MB18 · overall is reception, stylist_decorator, lights_sound — the owner\'s order, verbatim', () => {
+  assert.equal(MOODBOARD_SLOT_TRADES.overall.length, 3);
+  assert.deepEqual(
+    [...MOODBOARD_SLOT_TRADES.overall],
+    ['reception', 'stylist_decorator', 'lights_sound'],
+  );
+  // `coordinator` was the old row's second trade — this session replaces the
+  // row entirely rather than appending, so it must be gone.
+  assert.ok(!MOODBOARD_SLOT_TRADES.overall.includes('coordinator' as never));
+});
+
+test('⭐ MB18 · non-regression pin — canonicalServicesForSlot(\'bride\') still resolves a Filipiniana/Barong canonical', () => {
+  // `bride` already worked before this session touched anything (the
+  // 2026-09-05 correction to the plan measured this directly). Pinned here so
+  // a future refactor of the map cannot quietly break it.
+  const bride = canonicalServicesForSlot('bride');
+  const hasFilipinianaBarongMember = FILIPINIANA_BARONG_CANONICALS.some((c) =>
+    bride.includes(c),
+  );
+  assert.ok(hasFilipinianaBarongMember, 'bride lost its Filipiniana/Barong resolution');
 });
 
 /* ── the credit line ───────────────────────────────────────────────────── */
@@ -126,6 +195,26 @@ test('the slot’s ORDER decides which of several matched trades is printed', ()
   const stylist = canonicalServicesForTile('stylist_decorator')[0]!;
   const florist = canonicalServicesForTile('florist')[0]!;
   assert.equal(tradeLabelForCredit('table', [florist, stylist]), 'Stylist / Decorator');
+});
+
+test('⭐ MB18 · the credit for a florist on flowers still reads "Florist"', () => {
+  const floristCanonical = canonicalServicesForTile('florist')[0]!;
+  assert.equal(tradeLabelForCredit('flowers', [floristCanonical]), 'Florist');
+});
+
+test('MB18 · a stylist-only shop on flowers is credited "Stylist / Decorator", florist wins when both', () => {
+  const stylistCanonical = canonicalServicesForTile('stylist_decorator')[0]!;
+  const floristCanonical = canonicalServicesForTile('florist')[0]!;
+  assert.equal(
+    tradeLabelForCredit('flowers', [stylistCanonical]),
+    'Stylist / Decorator',
+    'a shop that is ONLY a stylist must still get a label on flowers',
+  );
+  assert.equal(
+    tradeLabelForCredit('flowers', [stylistCanonical, floristCanonical]),
+    'Florist',
+    'florist leads the row, so it wins the credit when a shop is both',
+  );
 });
 
 test('creditLine joins with a middot and survives a blank name', () => {

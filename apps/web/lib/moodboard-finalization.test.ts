@@ -36,6 +36,7 @@ import {
 } from './moodboard-render-parts';
 import { MOODBOARD_PART_TRADES } from './moodboard-slots';
 import { canonicalServicesForSlot } from './moodboard-gallery';
+import { canonicalServicesForTile } from './vendor-counts';
 import { deriveBoard } from './palette-styles';
 import type { RolePalette } from './mood-board';
 
@@ -181,7 +182,11 @@ test('every OTHER part has at least one trade and at least one human label for i
 const FLORIST: BookedSupplier = {
   vendorId: 'v-florist',
   name: 'Bloom & Vine',
-  services: canonicalServicesForSlot('flowers'),
+  // The florist TILE's own canonicals, not the `flowers` SLOT's — MB18 added
+  // `stylist_decorator` to that slot's trades, and a fixture meant to be
+  // "florist, nothing else" must not pick up a second trade's canonicals as
+  // a side effect of that map.
+  services: canonicalServicesForTile('florist'),
 };
 const CATERER: BookedSupplier = { vendorId: 'v-cater', name: 'Kusina', services: ['catering'] };
 

@@ -105,25 +105,94 @@ test('retiring the placeholders did not retire anything else', async () => {
   );
 });
 
-test('every live attire figure still carries a colour range, so the recolour has something to act on', async () => {
-  // MB23 Part 1 turns attire recolour on by SELECTing these ranges. A figure
-  // that is live with no range renders as an un-recolourable reference image —
-  // which is the state the whole section was stuck in before MB23.
+/**
+ * Assets we have DELIBERATELY refused to tag, with the measurement that justifies it.
+ *
+ * ⚠ THIS LIST IS NOT A MUTE BUTTON. Adding a row here is a claim that the asset
+ * CANNOT be tagged, not that tagging it is inconvenient — and the second test
+ * below fails if the claim stops being true, so a stale entry is as loud as a
+ * missing one.
+ */
+const UNTAGGABLE: ReadonlyArray<{ pathSuffix: string; because: string }> = [
+  {
+    pathSuffix: 'figure_attire/modern-minimalist/bride.svg',
+    because:
+      'The gown is filled with #ECEBE7 — byte-identical (ΔE 0.0) to the file\'s own background ' +
+      'rect, across 76.6% of the figure column, measured 2026-09-05 on a 520px raster. To ' +
+      '`recolorRGBA` the dress and the backdrop are ONE region: every (sampled_hex, tolerance) ' +
+      'pair catches both or neither. Migration 20271205919528 deletes the range rather than ' +
+      'leave a plausible-looking row claiming a region that cannot be isolated, and page.tsx ' +
+      'prefers a bride variant that HAS one. Fix is to re-cut the artwork, not to re-tag it. ' +
+      'Proof lives in _components/the-background-never-wears-the-palette.test.ts.',
+  },
+];
+
+test('every live attire figure carries a colour range, except the ones we documented as untaggable', async () => {
+  // 🪤 THIS ASSERTION WAS WRONG WHEN FIRST WRITTEN, AND CI CAUGHT IT.
+  // It read "every live attire figure still carries a colour range" — full stop —
+  // and it was written BEFORE the bride was measured. The same PR then deleted her
+  // range on purpose. Two halves of one change asserting opposite things; it passed
+  // locally only because it was never re-run after the migration changed.
+  //
+  // The lesson is not "loosen the guard". It is that the rule always had an
+  // exception clause and nobody had needed it yet, so the honest shape is an
+  // explicit, reasoned, SHRINKING list — never a softened predicate.
   const { rows } = await db.query<{ label: string; storage_path: string }>(
     `SELECT a.label, a.storage_path
        FROM public.moodboard_library_assets a
       WHERE a.asset_type = 'figure_attire'
-        AND ${LIVE.replace(/\b(approved_at|retired_at)\b/g, 'a.$1')}
+        AND a.approved_at IS NOT NULL
+        AND a.retired_at IS NULL
         AND NOT EXISTS (
           SELECT 1 FROM public.moodboard_asset_color_ranges c WHERE c.asset_id = a.asset_id
         )
-      ORDER BY a.label`,
+      ORDER BY a.storage_path`,
+  );
+  const unexplained = rows.filter(
+    (r) => !UNTAGGABLE.some((u) => r.storage_path.endsWith(u.pathSuffix)),
   );
   assert.deepEqual(
-    rows,
+    unexplained,
     [],
     'A live attire figure has no tagged colour range, so its card cannot recolour:\n  ' +
-      rows.map((r) => `${r.label} · ${r.storage_path}`).join('\n  ') +
-      '\n\nTag it in the admin Color Range Manipulator, or seed a range alongside the asset.',
+      unexplained.map((r) => `${r.label} · ${r.storage_path}`).join('\n  ') +
+      '\n\nTag it in the admin Color Range Manipulator, or seed a range alongside the asset. ' +
+      'If it genuinely cannot be tagged — measure first, the way the bride was — add it to ' +
+      'UNTAGGABLE above WITH the measurement, and never without one.',
+  );
+});
+
+test('each documented exception is still real — a re-tagged asset must leave the list', async () => {
+  // The other direction, and the reason the list above cannot rot quietly. If
+  // someone re-cuts the artwork and tags it, the exception becomes a lie that
+  // would hide the NEXT untagged figure behind the same path.
+  for (const u of UNTAGGABLE) {
+    const { rows } = await db.query<{ n: number }>(
+      `SELECT count(*)::int AS n
+         FROM public.moodboard_asset_color_ranges c
+         JOIN public.moodboard_library_assets a USING (asset_id)
+        WHERE a.storage_path LIKE '%' || $1`,
+      [u.pathSuffix],
+    );
+    assert.equal(
+      rows[0]?.n ?? 0,
+      0,
+      `${u.pathSuffix} now HAS a colour range, so it is no longer untaggable and its entry in ` +
+        `UNTAGGABLE is stale — delete it.\n\nThe recorded reason was:\n  ${u.because}\n\n` +
+        'If the range was added back without re-cutting the artwork, it is the range that is ' +
+        'wrong, not this test: see _components/the-background-never-wears-the-palette.test.ts.',
+    );
+  }
+});
+
+test('the exception list has not grown', async () => {
+  // An anchor on the COUNT, so widening the escape hatch is a deliberate,
+  // reviewable edit rather than one more line nobody notices.
+  assert.equal(
+    UNTAGGABLE.length,
+    1,
+    'The untaggable-asset list changed size. Exactly one asset has ever earned a place on it ' +
+      '(modern-minimalist/bride). Growing it means more of "In your colors" cannot show the ' +
+      "couple their own colours — that is a product decision, not a test fixture.",
   );
 });

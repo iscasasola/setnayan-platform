@@ -75,10 +75,10 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   stage: ['stylist_decorator', 'av_production'],
   table: ['stylist_decorator', 'florist'],
   ceiling: ['stylist_decorator', 'lights_sound'],
-  flowers: ['florist'],
+  flowers: ['florist', 'stylist_decorator'],
   cocktail: ['mobile_bar', 'mocktail', 'coffee_espresso'],
   cake: ['cake', 'dessert'],
-  overall: ['stylist_decorator', 'coordinator'],
+  overall: ['reception', 'stylist_decorator', 'lights_sound'],
   // 🔑 NOT A TRADE. A palette source is a photo the couple sampled colours
   // from — a wall, a fabric, a sunset. No shop's portfolio answers it.
   palette: [],
@@ -87,9 +87,9 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   bride: ['brides_attire', 'filipiniana_barongs', 'hmua'],
   groom: ['grooms_attire', 'mens_attire', 'filipiniana_barongs'],
   principal_sponsor: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  entourage: ['womens_attire', 'mens_attire'],
+  entourage: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
   parents: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  guests: ['womens_attire', 'mens_attire'],
+  guests: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
 };
 
 /** The trades that supply a slot — empty when no shop's portfolio answers it. */

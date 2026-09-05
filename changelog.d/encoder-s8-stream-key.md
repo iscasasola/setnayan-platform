@@ -50,10 +50,16 @@ this is one more artifact of that same relationship, not a new subsystem.
 
 COORDINATION NOTE: `git grep redact_url origin/main` and `git grep -e rtmp -e RTMP origin/main --
 src-tauri` both came back empty of any actual Rust/RTMP code (only S6.md's and S8.md's own spec
-text) — S6 (the RTMP/FLV session S8's prompt names as `redact_url`'s owner) has not landed on
-origin/main as of this session. `stream_key.rs`'s `redact_url` is a LOCAL STAND-IN with the same
-behavior S6.md documents; its docblock says so explicitly so a later session can delete it and
-depend on S6's once that lands, without any call site needing to change.
+text) — S6 (the RTMP/FLV session S8's prompt names as `redact_url`'s owner) had not landed on
+origin/main when this session started building. `stream_key.rs`'s `redact_url` is a LOCAL STAND-IN
+with the same behavior S6.md documents; its docblock says so explicitly so a later session can
+delete it and depend on S6's once that lands, without any call site needing to change.
+
+UPDATE (same PR, after a merge from origin/main): S6 landed on `main` while this PR was open
+(`src-tauri/src/encoder/{rtmp,sender}.rs`), resolving as a `Redactor` VALUE + `.redacted_url()`
+METHOD, not a standalone `redact_url` FUNCTION as S6.md's own text implied. That shape mismatch
+means swapping `stream_key.rs` over is not the one-line delete the note above expected — flagged
+for a dedicated follow-up session rather than done as a drive-by inside this merge.
 
 OWNER QUESTIONS LEFT OPEN:
   - S5's IPC transport is still an open owner decision (S0-FINDING.md) — this session's own key/nonce

@@ -3,12 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  PAPIC_FREE_GRANT_SOURCE,
-  PAPIC_REPEAT_EVENT_GRANT_POINTS,
-  freePapicGrantRow,
-  isAlreadyArmedError,
-} from './papic-free-grant';
+import { PAPIC_FREE_GRANT_SOURCE } from './papic-free-grant';
 import { PAPIC_FREE_GRANT_POINTS_FALLBACK, fetchPapicFreeGrantPoints } from './papic-tier-copy';
 
 // Resolved by slug, not by prefix: the migration was reissued under a fresh
@@ -28,24 +23,9 @@ test('the free-pool fallback is 50 points (owner-locked 2026-07-27)', () => {
   assert.equal(PAPIC_FREE_GRANT_POINTS_FALLBACK, 50);
 });
 
-test('the grant row is shaped for papic_event_point_grants', () => {
-  const row = freePapicGrantRow('evt-1', 50, true);
-  assert.equal(row.event_id, 'evt-1');
-  assert.equal(row.points, 50);
-  // Must be one of the CHECK-constrained sources on the table, and must be the
-  // one the partial unique index keys on — anything else silently disables the
-  // once-per-event guarantee.
-  assert.equal(row.source, 'free_grant');
-  assert.equal(PAPIC_FREE_GRANT_SOURCE, 'free_grant');
-});
 
-test('the grant row carries the ADMIN value, not a baked-in default', () => {
-  // The regression this locks: the first cut hardcoded 50, so an admin raising
-  // papic_event_pool_config.free_grant_points would move the COPY while the
-  // meter kept handing out 50.
-  assert.equal(freePapicGrantRow('evt-1', 90, true).points, 90);
-  assert.equal(freePapicGrantRow('evt-1', 250, true).points, 250);
-});
+
+
 
 test('DRIFT GUARD — the migration backfill matches the shared fallback', () => {
   // The backfill runs in SQL before any app code, so its literal must equal the
@@ -115,32 +95,59 @@ test('a fractional config value is truncated to a whole point', async () => {
 
 // ── first-event-only (2026-09-04) ──────────────────────────────────────────
 
-test('PAPIC_REPEAT_EVENT_GRANT_POINTS stays positive — 0 would be invisible to papic_event_pool_status()', () => {
-  // papic_event_pool_status() (migration 20271185813837) fences on
-  // SUM(points) > 0, not on row existence. A 0-point row would be
-  // indistinguishable from no grant at all and revert the event to unmetered.
-  assert.ok(PAPIC_REPEAT_EVENT_GRANT_POINTS > 0);
+// ── 2026-09-06 · the reset loophole, and the one decision site ──────────────
+// A post-merge audit found that "first event ever" was resolved from
+// event_members, a row `couple_can_delete_member` lets the customer DELETE —
+// so the 50-point grant could be re-earned at will. These pin the fix's two
+// load-bearing properties in the SOURCE, because both are invisible to a unit
+// test of behaviour: the claim must be unreachable from a browser, and the
+// rule must not exist in TypeScript at all any more.
+
+const FIX = (() => {
+  const f = readdirSync(MIGRATIONS_DIR)
+    .filter((n) => n.includes('free_grant_claim_and_comp_survives_event_delete'))
+    .sort()
+    .pop();
+  if (!f) throw new Error('free_grant_claim_and_comp_survives_event_delete migration not found');
+  return readFileSync(join(MIGRATIONS_DIR, f), 'utf8');
+})();
+
+test('the claim table is REVOKED from anon and authenticated', () => {
+  // The whole defect was a customer reaching the row the rule reads. If a
+  // browser role can touch papic_free_grant_claims, the loophole is back in a
+  // new shape — this is the assertion that would go red.
+  assert.match(
+    FIX,
+    /REVOKE ALL ON public\.papic_free_grant_claims FROM anon, authenticated/,
+    'papic_free_grant_claims must be unreachable from any browser role',
+  );
+  assert.match(FIX, /ALTER TABLE public\.papic_free_grant_claims ENABLE ROW LEVEL SECURITY/);
 });
 
-test('a repeat-event grant row carries the minimum and its own copy', () => {
-  const row = freePapicGrantRow('evt-2', PAPIC_REPEAT_EVENT_GRANT_POINTS, false);
-  assert.equal(row.points, PAPIC_REPEAT_EVENT_GRANT_POINTS);
-  assert.match(row.note, /not this account's first event/);
+test('the claim is keyed one-per-account and survives its event being deleted', () => {
+  assert.match(FIX, /user_id\s+UUID PRIMARY KEY REFERENCES auth\.users\(id\)/);
+  // event_id must be SET NULL, never CASCADE — deleting the event must not
+  // erase the claim, or deleting an event becomes the reset button again.
+  assert.match(FIX, /event_id\s+UUID REFERENCES public\.events\(event_id\) ON DELETE SET NULL/);
 });
 
-test('a first-event grant row keeps the original first-event copy', () => {
-  const row = freePapicGrantRow('evt-1', 50, true);
-  assert.match(row.note, /armed at event creation/);
+test('a deleted event REVOKES its scoped comp rather than widening it', () => {
+  // comp_grants.event_id NULL means "every event this user hosts", so plain
+  // SET NULL on delete would PROMOTE a one-event comp to account-wide. The
+  // trigger must snapshot and revoke.
+  assert.match(FIX, /ADD COLUMN IF NOT EXISTS scoped_event_id_snapshot UUID/);
+  assert.match(FIX, /REFERENCES public\.events\(event_id\) ON DELETE SET NULL/);
+  assert.match(FIX, /revoked_at = COALESCE\(revoked_at, NOW\(\)\)/);
+  assert.match(FIX, /BEFORE DELETE ON public\.events/);
 });
 
-test('a 23505 unique violation means ALREADY ARMED, not a failure', () => {
-  assert.equal(isAlreadyArmedError({ code: '23505' }), true);
-});
-
-test('any other error is a real failure — the event may still be unmetered', () => {
-  assert.equal(isAlreadyArmedError({ code: '42P01' }), false); // undefined_table
-  assert.equal(isAlreadyArmedError({ code: '42501' }), false); // insufficient_privilege
-  assert.equal(isAlreadyArmedError({ code: null }), false);
-  assert.equal(isAlreadyArmedError({}), false);
-  assert.equal(isAlreadyArmedError(null), false);
+test('the rule lives in ONE place — the app layer only calls the RPC', () => {
+  // Before this fix the rule existed in SQL and in TypeScript, and for a day
+  // the two disagreed about which was live. A second copy here is the defect.
+  const mod = readFileSync(join(process.cwd(), 'lib', 'papic-free-grant.ts'), 'utf8');
+  assert.match(mod, /rpc\('papic_claim_free_pool'/, 'the module must call the single decision site');
+  for (const gone of ['hasPriorPapicEvent', 'resolveFreeGrant', 'freePapicGrantRow']) {
+    assert.ok(!mod.includes(gone), `${gone} is a second copy of the rule — it must not come back`);
+  }
+  assert.equal(PAPIC_FREE_GRANT_SOURCE, 'free_grant');
 });

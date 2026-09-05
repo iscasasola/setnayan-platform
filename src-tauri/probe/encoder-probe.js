@@ -77,9 +77,15 @@
     return originalWarn(...args);
   };
   const ipcUrl = window.__TAURI_INTERNALS__.convertFileSrc('probe_report', 'ipc');
+  // Time-boxed: on tauri://localhost a request that reaches Rust with a wrong invoke key
+  // is dropped WITHOUT a response (`Webview::on_message` returns early), so an un-bounded
+  // await here hangs the whole probe — measured 2026-09-05 as "one Rust line, then silence".
   async function diagFetch(label, init) {
     try {
-      const r = await fetch(ipcUrl, init);
+      const r = await Promise.race([
+        fetch(ipcUrl, init),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout 3000 ms — request accepted by WebKit but never answered (reached Rust?)')), 3000)),
+      ]);
       const text = await r.text().catch(() => '');
       return { label, ok: r.ok, status: r.status, type: r.type, tauriResponse: r.headers.get('Tauri-Response'), body: text.slice(0, 120) };
     } catch (e) {
@@ -112,6 +118,8 @@
       x.open('POST', ipcUrl);
       x.onload = () => resolve({ status: x.status, body: String(x.responseText).slice(0, 120) });
       x.onerror = () => resolve({ error: 'xhr onerror', status: x.status });
+      x.timeout = 3000;
+      x.ontimeout = () => resolve({ error: 'xhr timeout 3000 ms', status: x.status });
       x.send('{}');
     });
   } catch (e) { xhrResult = { error: String(e) }; }

@@ -31,7 +31,9 @@ import {
   type FigureSpec,
 } from '@/lib/figure-rig';
 import { renderRemote, activeRemotes, type RemoteMap, type RemotePlayer, type Vec2 } from '@/lib/plan3d-room';
-import { selfFigureAvatar, guestAvatarsEnabled } from '@/lib/venue-avatars';
+import { guestAvatarsEnabled } from '@/lib/venue-avatars';
+import { resolveGuestAvatar } from '@/lib/guest-avatar';
+import { heritageFigureSpec } from '@/lib/heritage-config';
 import { chibiHop } from '@/lib/figure-rig';
 import { ChibiFigure } from './kit/chibi-figure';
 
@@ -61,7 +63,7 @@ function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality
   // ONE fallback rule the viewer's own figure uses: junk declines to the
   // mannequin, never to a hash-rolled default. Resolved once per (id, config).
   const avatar = useMemo(
-    () => selfFigureAvatar({ avatarConfig: player.avatar }, player.id, guestAvatarsEnabled()),
+    () => resolveGuestAvatar(player.avatar, player.id, guestAvatarsEnabled()),
     [player.id, player.avatar],
   );
   // The chibi hop — the SAME pure clip the viewer's own <ChibiBounce> drives
@@ -80,9 +82,14 @@ function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality
 
   // Deterministic matte-white mannequin; the presence colour rings the floor so
   // online people are tell-apart-able. No photo, no PII beyond the ring + name.
+  // Heritage rides the SAME mannequin path with its look on the spec; the
+  // neutral spec is what every guest without an avatar has always had.
   const spec = useMemo<FigureSpec>(
-    () => ({ id: player.id, outfit: 'neutral', outfitColor: null, statusColor: player.color }),
-    [player.id, player.color],
+    () =>
+      avatar?.style === 'heritage'
+        ? heritageFigureSpec(player.id, avatar.config, player.color)
+        : { id: player.id, outfit: 'neutral', outfitColor: null, statusColor: player.color },
+    [player.id, player.color, avatar],
   );
 
   useFrame((_, delta) => {
@@ -119,11 +126,11 @@ function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality
     }
   });
 
-  if (avatar) {
+  if (avatar?.style === 'chibi') {
     return (
       <group ref={groupRef}>
         <group ref={hopRef}>
-          <ChibiFigure id={player.id} config={avatar} castShadow={false} />
+          <ChibiFigure id={player.id} config={avatar.config} castShadow={false} />
         </group>
         {/* The presence colour still rings the floor — the mannequin carried
             it as a status ring; the chibi has none, and "tell-apart-able" is

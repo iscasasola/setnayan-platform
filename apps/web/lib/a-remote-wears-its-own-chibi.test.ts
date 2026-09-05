@@ -30,17 +30,17 @@ test('the hook tracks the avatar in presence — both track calls, and re-tracks
 
 test('the walk hands its own resolved avatar to presence', () => {
   const src = read('app/[slug]/venue/_components/guest-venue-3d.tsx');
-  assert.match(src, /color: colorFromId\(selfIdRef\.current\), avatar: selfAvatar \}/);
+  assert.match(src, /color: colorFromId\(selfIdRef\.current\), avatar: selfAvatar\?\.config \?\? null \}/);
   assert.match(src, /\[eventId, selfName, selfAvatar\],/);
   assert.equal((src.match(/<ChibiBounce/g) ?? []).length, 1, 'still exactly one bouncing figure in the walk file');
 });
 
 test('a remote with an avatar is a chibi that hops through the pure clip; without one, the mannequin', () => {
   const src = read('app/_components/plan3d/plan3d-remote-players.tsx');
-  assert.match(src, /selfFigureAvatar\(\{ avatarConfig: player\.avatar \}, player\.id, guestAvatarsEnabled\(\)\)/, 'the ONE fallback rule');
+  assert.match(src, /resolveGuestAvatar\(player\.avatar, player\.id, guestAvatarsEnabled\(\)\)/, 'the ONE resolver');
   assert.match(src, /const \{ lift, scaleY, scaleXZ \} = chibiHop\(phaseRef\.current, hopAmp\.current\);/, 'the same hop as the viewer');
   assert.match(src, /const target = r\.pose === 'stand' \|\| r\.waving \? 0 : 1;/, 'no hop while standing or waving');
-  assert.match(src, /<ChibiFigure id=\{player\.id\} config=\{avatar\} castShadow=\{false\} \/>/);
+  assert.match(src, /<ChibiFigure id=\{player\.id\} config=\{avatar\.config\} castShadow=\{false\} \/>/);
   assert.match(src, /<meshBasicMaterial color=\{player\.color\}/, 'the presence colour still rings the floor');
   assert.match(src, /<Figure\s+spec=\{spec\}/, 'the mannequin path is untouched');
   assert.doesNotMatch(src, /ChibiBounce/, 'no second bounce wrapper anywhere');

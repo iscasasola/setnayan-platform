@@ -219,7 +219,38 @@ That line is `tauri-2.11.1/src/webview/mod.rs` `Webview::on_message` answering t
 
 ### 3.3 The loopback arms — a plain HTTP server on 127.0.0.1, and a WebSocket, from the https page
 
-<!-- S0-LOOPBACK-RESULTS -->
+**NOT MEASURED — and it is the one open question S5's re-scope hinges on.**
+
+What § 3.2 established from the bundled `tauri://localhost` origin: the loopback HTTP arm carried
+**1776 / 1776** raw 10 240-byte bodies to the Rust listener, the `ws://127.0.0.1` handshake reached
+Rust, and once a CSP was injected the same POSTs failed **277 / 277** — the loopback path is
+governed by `connect-src` like any other fetch, so S5 must allow-list it.
+
+What is **still unknown** is the question that decides the option: **may an https page in WKWebView
+reach `http://127.0.0.1` / `ws://127.0.0.1` at all?** WebKit's mixed-content rules may forbid it
+outright — the same rule that makes `ipc://localhost` unreachable from https (§ 3.1) — which would
+eliminate the leading candidate transport for a re-scoped S5 and leave only the § 7 options that
+change the origin or the payload encoding.
+
+Why it is unanswered: one attempt on a quiet machine (load 4.70) never navigated off
+`tauri://localhost` and measures nothing (archived as
+`S0-logs/s0-ipc-realorigin-loopback-attempt1-no-redirect.log`). Every rerun was blocked by the
+load ≤ 5 gate this finding imposes on itself — from 15:55 to 17:11 the 1-min load never fell below
+10.17 (**0 of 146 samples**, `S0-logs/s0-load-timeline-2026-09-05.txt`) while five other sessions ran
+vitest and tsc continuously. Measuring anyway would have produced another set of latencies labelled
+unusable, which § 3.2 already has.
+
+**Exact resume** (≈ 4 minutes on a quiet machine), from the worktree root:
+
+```
+uptime   # require 1-min load ≤ 5
+SETNAYAN_PROBE_TOP=1 src-tauri/probe/run.sh ipc 1 src-tauri/probe/s0-ipc-realorigin-loopback.log
+```
+
+Fill this section from `loopback-raw-60s`, the `[probe-loopback]` lines, `loopback-websocket` and
+`loopback-after-csp-10s`. A negative result — "https may not reach the loopback" — is as valuable as
+a positive one and must be recorded with the same care: it removes an option from § 7 rather than
+adding one.
 
 ### 3.4 CSP — what the page ships, and what enforcing one does
 
@@ -278,7 +309,24 @@ Across all 65 windows: fps min / mean / max **12.08 / 20.28 / 30.09**; windows w
 
 ### 4.2 Rerun
 
-<!-- S0-ENCODE-RERUN -->
+**NOT RUN.** § 4.1 covers 10.83 of the 60 minutes and answers everything except sustain: 30 fps
+held while visible, hardware encode confirmed by VideoToolbox's own `VCPRateControlSession` log,
+`encodeQueueSize` 0 throughout, thermal state nominal for the whole 10.83 minutes. What the rerun
+adds is **thermal and throughput sustain over an hour on a fanless machine** — the number that
+decides whether the default rung stays at 2.5 Mbps (§ 7) — plus a hidden-phase-free control.
+
+Blocked by the same load gate as § 3.3: an hour-long thermal measurement taken at load 10–58 would
+measure the other sessions, not the encoder. **Exact resume**, from the worktree root, with the
+pinned probe window left uncovered for the full hour:
+
+```
+uptime   # require 1-min load ≤ 5
+SETNAYAN_PROBE_TOP=1 src-tauri/probe/run.sh encode 60 src-tauri/probe/s0-encode.log
+```
+
+Also unresolved from § 4.1 and worth watching in the rerun: **WebContent's footprint grew 439 → 910 MB
+during the hidden phase**, unattributed. If it grows the same way while visible, it is a leak that
+matters over a six-hour wedding; if it does not, it was the background-throttled frame backlog.
 
 ---
 

@@ -88,3 +88,13 @@ process (`didChangeThrottleState(Suspended)` 15:46:44) and the runner's silence 
 attempt (`s0-ipc-realorigin-loopback-attempt1-no-redirect.log`) never left `tauri://localhost` and measures
 nothing; § 3.3 and the encode rerun (§ 4.2) wait on a load ≤ 5 window, which other sessions' test bursts
 have denied since 15:55 (1-min load 10–50 continuously).
+
+### Landed 2026-09-05 with two measurements open (overseer decision)
+
+The finding is merged with § 3.3 (loopback from https) and § 4.2 (60-minute encode rerun) recorded
+as NOT MEASURED rather than held back. Both are gated on a 1-min load ≤ 5 and the machine did not
+reach it — 0 of 146 samples between 15:55 and 17:11 while five other sessions ran vitest/tsc. The
+substantial results (capability floor, the raw-vs-JSON transport control, hardware-encode
+confirmation, the visibility throttle measured in the real WKWebView) are what other sessions need
+now; the two open items each carry their exact resume command in place. Overseer's call, not the
+session's — the original brief forbade a PR with open placeholders.

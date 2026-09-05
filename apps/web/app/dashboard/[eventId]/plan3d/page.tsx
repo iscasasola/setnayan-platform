@@ -98,7 +98,7 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
     await Promise.all([
       supabase
         .from('events')
-        .select('slug, event_date, timezone, guest_list_edit_deadline, guest_count_locked_at')
+        .select('slug, event_date, timezone, guest_list_edit_deadline, guest_count_locked_at, seating_autoplace_enabled')
         .eq('event_id', eventId)
         .maybeSingle(),
       // THE GATE, READ WITH ERROR AWARENESS (see the docblock).
@@ -123,6 +123,7 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
     timezone?: string | null;
     guest_list_edit_deadline?: string | null;
     guest_count_locked_at?: string | null;
+    seating_autoplace_enabled?: boolean | null;
   } | null;
   const eventRead: Plan3dEventRead = {
     measured: !eventRes.error,
@@ -147,6 +148,9 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
     boothCount: booths.length,
     brandedBooths: booths.filter((b) => boothIsBranded(asBoothVendor(b))).length,
     photoVisibility: floorPlan.venue_photo_visibility,
+    // The guest-reactive seat plan: seats fill themselves; tables are the
+    // couple's. `?? true` is the editor's own default for a null column.
+    autoplace: eventRow?.seating_autoplace_enabled ?? true,
   };
   const guestRead: Plan3dGuestRead = {
     shared: mayReadGuestList,

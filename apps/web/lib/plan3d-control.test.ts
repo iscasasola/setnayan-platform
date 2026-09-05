@@ -22,7 +22,7 @@ const ev = (o: Partial<Plan3dEventRead> = {}): Plan3dEventRead => ({
   guestListEditDeadline: null, guestListLockedAt: null, ...o,
 });
 const plan = (o: Partial<Plan3dPlanRead> = {}): Plan3dPlanRead => ({
-  measured: true, published: false, publishedAt: null, tables: 22, seated: 174, boothCount: 3, brandedBooths: 1, photoVisibility: 'table', ...o,
+  measured: true, published: false, publishedAt: null, tables: 22, seated: 174, boothCount: 3, brandedBooths: 1, photoVisibility: 'table', autoplace: true, ...o,
 });
 const guests = (o: Partial<Plan3dGuestRead> = {}): Plan3dGuestRead => ({ shared: true, measured: true, total: 178, withAvatar: 12, ...o });
 const BASE = '/dashboard/E';
@@ -57,8 +57,17 @@ test('next step: one rung per state, in order', () => {
   const step = (e = ev(), p = plan(), g = guests()) => resolvePlan3dNextStep(e, p, g, BASE, NOW);
   assert.equal(step(ev(), plan({ measured: false })).tone, 'failed');
   assert.equal(step(ev(), plan({ tables: 0 })).headline, 'Place your first table');
-  assert.equal(step(ev(), plan({ seated: 174 }), guests({ total: 178 })).headline, '4 guests have no seat');
-  assert.equal(step(ev(), plan({ seated: 177 }), guests({ total: 178 })).headline, '1 guest has no seat');
+  // auto-seating ON (the default): a guest with no seat means not enough
+  // tables — the act is ADD A TABLE, never "seat them by hand"
+  const short = step(ev(), plan({ seated: 174 }), guests({ total: 178 }));
+  assert.equal(short.headline, '4 guests have no seat yet');
+  assert.equal(short.cta, 'Add a table');
+  assert.match(short.blurb, /seats fill themselves/);
+  assert.equal(step(ev(), plan({ seated: 177 }), guests({ total: 178 })).headline, '1 guest has no seat yet');
+  // auto-seating OFF: they really are the couple's to place
+  const manual = step(ev(), plan({ seated: 174, autoplace: false }), guests({ total: 178 }));
+  assert.equal(manual.headline, '4 guests have no seat');
+  assert.equal(manual.cta, 'Seat them');
   // fully seated, draft, list still open (deadline = event − 14d) → WAIT, not a gate
   const wait = step(ev(), plan({ seated: 178 }), guests({ total: 178 }));
   assert.equal(wait.tone, 'wait');
@@ -96,7 +105,8 @@ test('sources: three doors, each carrying its state, unread rows say so', () => 
   const s = resolvePlan3dSources(ev(), plan(), guests(), BASE, NOW);
   assert.deepEqual(s.map((r) => r.key), ['guests', 'seatplan', 'moodboard']);
   assert.equal(s[0]!.value, '178 guests · finalizes 28 Nov');
-  assert.equal(s[1]!.value, '22 tables · 4 with no seat · 3 supplier booths (1 branded)');
+  assert.equal(s[1]!.value, '22 tables · 4 with no seat · 3 supplier booths (1 branded) · auto-seating on');
+  assert.match(resolvePlan3dSources(ev(), plan({ autoplace: false }), guests(), BASE, NOW)[1]!.value!, /auto-seating off$/);
   assert.deepEqual(s.map((r) => r.href), [`${BASE}/guests`, `${BASE}/seating`, `${BASE}/studio/mood-board`]);
   const unread = resolvePlan3dSources(ev(), plan({ measured: false }), guests({ measured: false }), BASE, NOW);
   assert.equal(unread[0]!.known, false); assert.equal(unread[1]!.known, false);

@@ -17,7 +17,7 @@ async function paint(o: { measured?: boolean; published?: boolean; tables?: numb
   const { Plan3dStage } = await import('./plan3d-stage');
   const c = await import('@/lib/plan3d-control');
   const ev = { measured: true, slug: o.slug === undefined ? 'maria-and-jose' : o.slug, eventDate: '2026-12-12', timezone: 'Asia/Manila', guestListEditDeadline: null, guestListLockedAt: null };
-  const plan = { measured: o.measured ?? true, published: o.published ?? false, publishedAt: o.published ? '2026-09-01T00:00:00Z' : null, tables: o.tables ?? 22, seated: 174, boothCount: 1, brandedBooths: 1, photoVisibility: 'table' as const };
+  const plan = { measured: o.measured ?? true, published: o.published ?? false, publishedAt: o.published ? '2026-09-01T00:00:00Z' : null, tables: o.tables ?? 22, seated: 174, boothCount: 1, brandedBooths: 1, photoVisibility: 'table' as const, autoplace: true };
   const guests = { shared: true, measured: o.measured ?? true, total: 178, withAvatar: 12 };
   const standing = c.resolvePlan3dStanding(ev, plan, NOW);
   const facts = c.resolvePlan3dFacts(ev, plan, guests, NOW);

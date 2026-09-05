@@ -49,6 +49,12 @@ export type Plan3dPlanRead = {
   boothCount: number;
   brandedBooths: number;
   photoVisibility: 'table' | 'all' | 'none';
+  /** `events.seating_autoplace_enabled` — the guest-reactive seat plan (Smart
+   *  Seat-Plan Phase 5, 2026-07-08). ON (the default): a new guest gets a
+   *  provisional seat, role/group changes re-seat them, a decline frees the
+   *  seat. So a guest with no seat means NOT ENOUGH TABLES, and the act is
+   *  "add a table" — never "seat them by hand". OFF: the couple seats manually. */
+  autoplace: boolean;
 };
 
 export type Plan3dGuestRead = {
@@ -217,20 +223,30 @@ export function resolvePlan3dNextStep(
     };
   }
   if (unseated > 0) {
-    return {
-      headline: `${unseated} guest${unseated === 1 ? ' has' : 's have'} no seat`,
-      blurb: 'They will be told to ask at the door. Seat them and the room follows.',
-      href: `${base}/seating`,
-      cta: 'Seat them',
-      tone: 'act',
-    };
+    return plan.autoplace
+      ? {
+          headline: `${unseated} guest${unseated === 1 ? ' has' : 's have'} no seat yet`,
+          blurb: 'Auto-seating is on — seats fill themselves as you add tables. Add one and the room follows.',
+          href: `${base}/seating`,
+          cta: 'Add a table',
+          tone: 'act',
+        }
+      : {
+          headline: `${unseated} guest${unseated === 1 ? ' has' : 's have'} no seat`,
+          blurb: 'Auto-seating is off, so these are yours to place. They will be told to ask at the door until then.',
+          href: `${base}/seating`,
+          cta: 'Seat them',
+          tone: 'act',
+        };
   }
   if (standing.state === 'draft') {
     const fin = resolveGuestListFinalize(event, nowMs);
     if (!fin.closed && fin.endMs != null) {
       return {
         headline: `Your guest list ${fin.label}`,
-        blurb: 'You can publish now — the room follows every change — or wait until the list is settled so nobody walks in to a seat that moves.',
+        blurb: plan.autoplace
+          ? 'You can publish now — new guests get a seat automatically and the room follows — or wait until the list is settled so nobody walks in to a seat that moves.'
+          : 'You can publish now — the room follows every change — or wait until the list is settled so nobody walks in to a seat that moves.',
         href: null,
         cta: null,
         tone: 'wait',
@@ -289,7 +305,7 @@ export function resolvePlan3dSources(
       value: plan.measured
         ? `${plan.tables} table${plan.tables === 1 ? '' : 's'} · ${
             unseated == null ? `${plan.seated} seated` : unseated === 0 ? 'everyone seated' : `${unseated} with no seat`
-          }${plan.boothCount > 0 ? ` · ${plan.boothCount} supplier booth${plan.boothCount === 1 ? '' : 's'}${plan.brandedBooths > 0 ? ` (${plan.brandedBooths} branded)` : ''}` : ''}`
+          }${plan.boothCount > 0 ? ` · ${plan.boothCount} supplier booth${plan.boothCount === 1 ? '' : 's'}${plan.brandedBooths > 0 ? ` (${plan.brandedBooths} branded)` : ''}` : ''} · auto-seating ${plan.autoplace ? 'on' : 'off'}`
         : null,
       href: `${base}/seating`,
     },

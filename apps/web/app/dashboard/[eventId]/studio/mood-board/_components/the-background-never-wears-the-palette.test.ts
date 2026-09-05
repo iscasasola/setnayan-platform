@@ -1164,3 +1164,358 @@ test('ceremony-aisle · REAL RASTER: the recolour does not grow a fringe along t
       'around the arch or a fringe along the aisle runner.',
   );
 });
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * MB14b · THE TEN DECOR LAYERS — ten ONE-slot cases, on the real rasters.
+ *
+ * The 2026-09-03 pilot generated ten venue scenes (backdrop × 5 style
+ * families, ceiling × 5) and pointed them at `media.setnayan.com`, a host that
+ * never resolved. MB26 retired all ten; MB14b's migration `20271207934361`
+ * repoints them at `public/moodboard-seed/venue_scene/` and publishes them.
+ * That makes them the first venue scenes a couple sees INSIDE THE RECEPTION
+ * ROOM — composited by `renderVenueSvg` over the flat drawing — so they are
+ * now exposed to exactly the defect this file was written for.
+ *
+ * ── WHY THEY ARE A HARDER CASE THAN THE CEREMONY AISLE ──────────────────────
+ * The Ceremony drawing is flat: 326 paths, six exact fills, no gradients. These
+ * ten are shaded AI vectors whose "region" is a family of tones around one
+ * sampled colour, and whose background is a pale cream generated on purpose to
+ * sit near-neutral. So "the background never wears the palette" cannot be
+ * measured by band colours here — it has to be measured on the real raster,
+ * and it has to distinguish three populations, not two:
+ *
+ *   • the EXACT background fill — the flat cream field. It must not move. At
+ *     all. Zero pixels, on all ten files. This is the MB23 rule.
+ *   • the BACKGROUND FAMILY (within ΔE 6 of that fill) — includes antialiased
+ *     pixels along the region's own edge, which legitimately blend toward the
+ *     region. Some movement here is correct; a lot is a halo. Ceiling, not zero.
+ *   • the exact REGION fill — must move completely, or the couple's colour
+ *     lands on part of the decor and leaves the rest at stock.
+ *
+ * ── 🔑 THE FINDING: ONE FILE'S MARGIN IS 0.6 ────────────────────────────────
+ * `backdrop/elegant-simple-classic` samples #F7C680 and was generated on a
+ * #ECE6DD background. Through the engine's own metric those are 15.6 apart,
+ * and the seeded tolerance is 15. The margin is SIX TENTHS. It is outside — no
+ * exact background pixel moves — but it is the reason `bgFamilyMoved` is 100 px
+ * on that file and 0 on seven others, and it is why this guard pins the margin
+ * itself rather than only the outcome. The next re-cut of that artwork, or any
+ * widening of that tolerance, crosses the line.
+ *
+ * MB23's bride was the other side of this: her gown WAS her background (ΔE 0.0)
+ * and no tolerance could separate them, so her range was deleted. None of these
+ * ten is in that state — all ten are strictly outside — so all ten ship.
+ *
+ * 🪤 NOTHING BELOW IS RETYPED FROM AN ARTEFACT. The background colours come out
+ * of `scripts/reception-decor-pilot-prompts.ts` (the generator's own input),
+ * the slot values out of the seed migration, and the served path is DERIVED
+ * from the seed's own storage_path using the replacement pair parsed out of
+ * MB14b's migration — the same derivation the SQL performs. A guard that
+ * retypes what it guards is guarding the copy.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const DECOR_SEED_MIGRATION = new URL(
+  '../../../../../../../../supabase/migrations/20271194970382_moodboard_reception_decor_layers_pilot.sql',
+  import.meta.url,
+);
+const DECOR_LIVE_MIGRATION = new URL(
+  '../../../../../../../../supabase/migrations/20271207934361_mb14b_decor_pilot_live_app_served.sql',
+  import.meta.url,
+);
+const DECOR_PROMPTS_SRC = new URL('../../../../../../scripts/reception-decor-pilot-prompts.ts', import.meta.url);
+
+type DecorCase = {
+  zone: 'backdrop' | 'ceiling';
+  style: string;
+  slug: string;
+  servedPath: string;
+  sampledHex: string;
+  tolerance: number;
+  region: string;
+  /** The exact `background_color` handed to the generator for this cell. */
+  background: string;
+};
+
+/** The `replace(storage_path, '<from>', '<to>')` MB14b's migration performs. */
+function repointPair(): { from: string; to: string } {
+  const sql = readFileSync(DECOR_LIVE_MIGRATION, 'utf8');
+  const m = /replace\(storage_path,\s*'([^']+)',\s*'([^']+)'\)/s.exec(sql);
+  assert.ok(m, 'migration 20271207934361 no longer derives the served path with replace() — if it now writes literal paths, this guard must read those instead of deriving them.');
+  return { from: m[1]!, to: m[2]! };
+}
+
+function decorCases(): DecorCase[] {
+  const seed = readFileSync(DECOR_SEED_MIGRATION, 'utf8');
+  const prompts = readFileSync(DECOR_PROMPTS_SRC, 'utf8');
+  const { from, to } = repointPair();
+
+  // Generator background per (zone, style) — read out of DECOR_PROMPTS itself.
+  const bg = new Map<string, string>();
+  for (const m of prompts.matchAll(
+    /zone:\s*'([a-z]+)',\s*\n\s*style:\s*'([^']+)',[\s\S]*?backgroundColor:\s*'(#[0-9A-Fa-f]{6})'/g,
+  )) {
+    bg.set(`${m[1]}/${m[2]}`, m[3]!.toUpperCase());
+  }
+
+  // Slot-1 tag per (zone, style) — read out of the seed migration's range INSERTs.
+  const slot = new Map<string, { hex: string; tol: number; region: string }>();
+  for (const m of seed.matchAll(
+    /SELECT a\.asset_id, 1, '(#[0-9A-Fa-f]{6})', (\d+), '([^']+)'\s*\nFROM public\.moodboard_library_assets a\s*\nWHERE a\.asset_subtype = '([a-z]+)' AND a\.style_theme = '([^']+)'/g,
+  )) {
+    slot.set(`${m[4]}/${m[5]}`, { hex: m[1]!.toUpperCase(), tol: Number(m[2]), region: m[3]! });
+  }
+
+  // The rows themselves, in the seed's own order.
+  const out: DecorCase[] = [];
+  for (const m of seed.matchAll(
+    /'(https:\/\/media\.setnayan\.com\/moodboard-library\/venue_scene\/(backdrop|ceiling)\/([a-z0-9-]+)\.svg)', 'higgsfield_generated', '([^']+)', NULL/g,
+  )) {
+    const zone = m[2] as 'backdrop' | 'ceiling';
+    const key = `${zone}/${m[4]}`;
+    const s = slot.get(key);
+    const b = bg.get(key);
+    assert.ok(s, `seed migration 20271194970382 has no slot-1 range for ${key}`);
+    assert.ok(b, `scripts/reception-decor-pilot-prompts.ts has no backgroundColor for ${key}`);
+    out.push({
+      zone,
+      style: m[4]!,
+      slug: m[3]!,
+      servedPath: m[1]!.replace(from, to),
+      sampledHex: s.hex,
+      tolerance: s.tol,
+      region: s.region,
+      background: b,
+    });
+  }
+  return out;
+}
+
+const DECOR = decorCases();
+
+test('MB14b: the ten decor rows parse out of their artefacts, five per zone', () => {
+  // If this drops to nine, a later edit deleted a row from the seed and every
+  // per-file assertion below silently stopped covering it.
+  assert.equal(DECOR.length, 10, `expected ten decor-pilot cases, parsed ${DECOR.length}`);
+  for (const zone of ['backdrop', 'ceiling'] as const) {
+    assert.equal(
+      DECOR.filter((d) => d.zone === zone).length,
+      5,
+      `expected five ${zone} decor scenes, one per style family`,
+    );
+  }
+  for (const d of DECOR) {
+    assert.match(
+      d.servedPath,
+      /^\/moodboard-seed\/venue_scene\/(backdrop|ceiling)\/[a-z0-9-]+\.svg$/,
+      `${d.zone}/${d.style} derives to "${d.servedPath}", which this app does not serve.`,
+    );
+  }
+});
+
+/**
+ * 🔑 THE PRE-CONDITION MB23's BRIDE FAILED. Before any pixel is rasterised: is
+ * the region's colour even SEPARABLE from the background it was drawn on? Her
+ * gown was #ECEBE7 on an #ECEBE7 backdrop — distance 0.0 — and no tolerance in
+ * the allowed 5..30 range could pick one without the other. This asserts every
+ * one of the ten is strictly outside, and reports the margin, because the
+ * margin is what a future re-cut spends.
+ */
+test('MB14b: every decor slot is strictly OUTSIDE its own generated background', () => {
+  const margins = DECOR.map((d) => {
+    const [sr, sg, sb] = hexToRgb(d.sampledHex);
+    const [br, bg2, bb] = hexToRgb(d.background);
+    return { d, dist: distance(d.sampledHex, d.background), margin: distance(d.sampledHex, d.background) - d.tolerance, sr, sg, sb, br, bg2, bb };
+  });
+  for (const m of margins) {
+    assert.ok(
+      m.margin > 0,
+      `${m.d.zone}/${m.d.style} samples ${m.d.sampledHex} at tolerance ${m.d.tolerance}, but its own ` +
+        `generated background ${m.d.background} is only ${m.dist.toFixed(1)} away in the engine's ` +
+        'metric — INSIDE the range. This is MB23\'s bride disease on a venue scene: the couple\'s ' +
+        'colour lands on the whole panel, background included. Do not widen or narrow a number ' +
+        'here. Leave this row RETIRED in the migration and drop the expected count from 10 to 9, ' +
+        'exactly as MB23 deleted the bride\'s false range rather than inventing a tolerance.',
+    );
+  }
+  // The thinnest margin, pinned. Measured 2026-09-05:
+  //   backdrop/elegant-simple-classic  #F7C680 → #ECE6DD  15.6 vs tol 15  = 0.6
+  // Everything else is 5.5 or wider. If this floor moves DOWN, a re-cut or a
+  // tolerance edit has eaten the only margin the pilot has left.
+  const thinnest = margins.reduce((a, b) => (a.margin <= b.margin ? a : b));
+  assert.equal(
+    `${thinnest.d.zone}/${thinnest.d.slug}`,
+    'backdrop/elegant-simple-classic',
+    `the thinnest slot-to-background margin has moved to ${thinnest.d.zone}/${thinnest.d.slug} ` +
+      `(${thinnest.margin.toFixed(1)}). It was backdrop/elegant-simple-classic at 0.6. Re-measure ` +
+      'before trusting any tolerance in this set.',
+  );
+  assert.ok(
+    thinnest.margin >= 0.5,
+    `the thinnest margin is now ${thinnest.margin.toFixed(2)}, below the 0.5 floor this pilot ` +
+      'was measured at (0.6). The generated cream backgrounds and the sampled regions have ' +
+      'drifted together far enough that antialiasing alone will start repainting the panel.',
+  );
+});
+
+const decorRasterCache = new Map<string, Raster>();
+async function decorRaster(servedPath: string): Promise<Raster> {
+  let r = decorRasterCache.get(servedPath);
+  if (!r) {
+    r = await rasteriseFromPublic(servedPath);
+    decorRasterCache.set(servedPath, r);
+  }
+  return r;
+}
+
+/**
+ * Recolour one decor scene's REAL raster with one palette colour in its single
+ * slot, and split the opaque pixels into the three populations the header
+ * describes.
+ */
+async function recolourDecor(d: DecorCase, hex: string) {
+  const { rgba } = await decorRaster(d.servedPath);
+  const slots: ColorRangeSlot[] = [
+    { slotId: 1, sampledHex: d.sampledHex, toleranceDe: d.tolerance, regionLabel: d.region },
+  ];
+  const out = recolorRGBA(rgba, slots, { 1: { mode: 'palette', hex } });
+  const [sr, sg, sb] = hexToRgb(d.sampledHex);
+  const [br, bg2, bb] = hexToRgb(d.background);
+  let opaque = 0;
+  let regionExact = 0;
+  let regionMoved = 0;
+  let bgExact = 0;
+  let bgExactMoved = 0;
+  let bgFamily = 0;
+  let bgFamilyMoved = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    if (rgba[i + 3]! < 250) continue; // transparent padding from `fit: contain`
+    opaque++;
+    const moved =
+      out[i] !== rgba[i] || out[i + 1] !== rgba[i + 1] || out[i + 2] !== rgba[i + 2];
+    if (rgba[i] === sr && rgba[i + 1] === sg && rgba[i + 2] === sb) {
+      regionExact++;
+      if (moved) regionMoved++;
+    }
+    if (rgba[i] === br && rgba[i + 1] === bg2 && rgba[i + 2] === bb) {
+      bgExact++;
+      if (moved) bgExactMoved++;
+    }
+    if (distance(
+      `#${[rgba[i]!, rgba[i + 1]!, rgba[i + 2]!].map((n) => n.toString(16).padStart(2, '0')).join('')}`,
+      d.background,
+    ) <= 6) {
+      bgFamily++;
+      if (moved) bgFamilyMoved++;
+    }
+  }
+  return { opaque, regionExact, regionMoved, bgExact, bgExactMoved, bgFamily, bgFamilyMoved };
+}
+
+test('MB14b · REAL RASTER: every decor file is served, and its tagged region is really in it', async () => {
+  for (const d of DECOR) {
+    // rasteriseFromPublic throws if the migration's path has no file behind it,
+    // which is the failure a SQL-only guard structurally cannot see.
+    const { regionExact, opaque } = await recolourDecor(d, '#7A1F2B');
+    // Measured 2026-09-05 as a share of the OPAQUE area. The smallest is
+    // backdrop/tropical-heritage at 16.6%; the floor is set well under every
+    // measurement so rasteriser drift does not fire it but a re-cut does.
+    const share = regionExact / opaque;
+    assert.ok(
+      share > 0.1,
+      `${d.zone}/${d.style}: the tagged region ${d.sampledHex} covers ${(100 * share).toFixed(2)}% ` +
+        'of the opaque area, under the 10% floor this guard was measured against (16.6%–44.7%). ' +
+        'The artwork has been re-cut and the seeded sample no longer describes it. RE-MEASURE ' +
+        'with scripts/verify-decor-pilot-colors.mjs — do not adjust a number here.',
+    );
+  }
+});
+
+test('MB14b · REAL RASTER: the tagged region recolours COMPLETELY, on all ten', async () => {
+  for (const hex of ['#7A1F2B', '#0F766E'] as const) {
+    for (const d of DECOR) {
+      const { regionExact, regionMoved } = await recolourDecor(d, hex);
+      assert.equal(
+        regionMoved,
+        regionExact,
+        `${d.zone}/${d.style}: ${regionExact - regionMoved} of ${regionExact} exact ` +
+          `${d.region} pixels kept their stock colour with the slot set to ${hex}. Half a ` +
+          'recoloured decor panel is worse than none — the couple sees their colour next to ' +
+          'the pilot\'s stock colour and reads it as a rendering bug.',
+      );
+    }
+  }
+});
+
+test('MB14b · REAL RASTER: the background field moves by NOTHING, on all ten', async () => {
+  // The MB23 rule, on the ten hardest files we have. `bgExact` is the flat
+  // generated cream field — the "page behind the figure" of this asset class.
+  for (const hex of ['#7A1F2B', '#0F766E'] as const) {
+    for (const d of DECOR) {
+      const { bgExact, bgExactMoved } = await recolourDecor(d, hex);
+      assert.ok(bgExact > 0, `${d.zone}/${d.style}: no pixel holds the generated background ${d.background} exactly — the artwork was re-cut and this guard is measuring nothing.`);
+      assert.equal(
+        bgExactMoved,
+        0,
+        `${d.zone}/${d.style}: ${bgExactMoved} of ${bgExact} exact background pixels ` +
+          `(${d.background}) wore the palette with the slot set to ${hex}. This is the MB23 ` +
+          'defect — the couple\'s colour on the panel behind the decor, not on the decor. Fix ' +
+          'the DATA in a migration, or leave this row retired; never widen the assertion.',
+      );
+    }
+  }
+});
+
+test('MB14b · REAL RASTER: the antialiased fringe stays under its measured ceiling', async () => {
+  // The population between the two above: pixels within ΔE 6 of the background
+  // that are NOT the exact fill — the blend along the region's own edge. Some
+  // movement is correct (it IS the edge); a lot is a halo around the whole
+  // panel. Measured 2026-09-05, as a share of each file's background family:
+  //   backdrop/elegant-simple-classic  100/114,912 = 0.087%   ← the 0.6 margin
+  //   ceiling/tropical-heritage         97/100,902 = 0.096%
+  //   backdrop/tropical-heritage        23/129,556 = 0.018%
+  //   the other seven                            0 = 0.000%
+  for (const d of DECOR) {
+    const { bgFamily, bgFamilyMoved } = await recolourDecor(d, '#7A1F2B');
+    const share = bgFamilyMoved / bgFamily;
+    assert.ok(
+      share < 0.005,
+      `${d.zone}/${d.style}: ${bgFamilyMoved} of ${bgFamily} near-background pixels ` +
+        `(${(100 * share).toFixed(3)}%) recoloured — above the 0.5% ceiling. Measured at the ` +
+        'seeded values the worst file is 0.096%, so this is a ~50x jump: the range has widened ' +
+        'far enough to catch the blend between the decor and the panel behind it, which reads ' +
+        'as a halo around the whole backdrop.',
+    );
+  }
+});
+
+test('MB14b: the decor harness can tell a bleeding tolerance from a clean one', async () => {
+  // Without this, every assertion above could be green because the harness
+  // cannot see a background move at all. `backdrop/elegant-simple-classic` is
+  // the right probe precisely BECAUSE its margin is 0.6: widening its tolerance
+  // from the seeded 15 to 25 puts its own background (15.6 away) inside the
+  // range, and the whole cream field must turn.
+  const d = DECOR.find((x) => x.zone === 'backdrop' && x.slug === 'elegant-simple-classic');
+  assert.ok(d, 'backdrop/elegant-simple-classic is no longer in the pilot set');
+  const { rgba } = await decorRaster(d.servedPath);
+  const bleeding: ColorRangeSlot[] = [
+    { slotId: 1, sampledHex: d.sampledHex, toleranceDe: 25, regionLabel: d.region },
+  ];
+  const out = recolorRGBA(rgba, bleeding, { 1: { mode: 'palette', hex: '#7A1F2B' } });
+  const [br, bg2, bb] = hexToRgb(d.background);
+  let bgExact = 0;
+  let bgMoved = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    if (rgba[i + 3]! < 250) continue;
+    if (rgba[i] === br && rgba[i + 1] === bg2 && rgba[i + 2] === bb) {
+      bgExact++;
+      if (out[i] !== rgba[i] || out[i + 1] !== rgba[i + 1] || out[i + 2] !== rgba[i + 2]) bgMoved++;
+    }
+  }
+  assert.equal(
+    bgMoved,
+    bgExact,
+    `widening backdrop/elegant-simple-classic to ±25 moved only ${bgMoved} of ${bgExact} ` +
+      'background pixels. It must move ALL of them — its background is 15.6 away. If it does ' +
+      'not, this harness cannot see a background bleed and every assertion above is vacuous.',
+  );
+});

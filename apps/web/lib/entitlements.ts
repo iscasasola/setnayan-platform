@@ -674,7 +674,15 @@ async function basketGrantsSku(
  * the thing that gets monetised.
  */
 export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
-  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO']),
+  // SEATING_3D — the 3D Plan — FREE for couples (owner 2026-09-05). Measured
+  // before the decision: the ₱1,500 gated NOTHING at any layer (the
+  // public_venue_scene RPC, /[slug]/venue, publishSeating, the lab) and had zero
+  // orders in its history. The couple's published room is the shelf a vendor
+  // pays to be branded on (vendor_3d_booth · per-event or per-cycle), so
+  // charging the couple taxed the inventory the vendor add-on sells into. What
+  // still costs money INSIDE the room keeps its price: the animated monogram,
+  // mood-board renders, Papic — only the room itself is free.
+  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO', 'SEATING_3D']),
 ) as ReadonlySet<string>;
 
 export async function eventOwnsSku(

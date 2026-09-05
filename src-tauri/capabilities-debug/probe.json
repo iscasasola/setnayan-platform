@@ -1,0 +1,9 @@
+{
+  "identifier": "s0-probe-debug",
+  "description": "S0 spike harness — DEBUG BUILDS ONLY. Lives outside capabilities/ so the default glob never loads it; build.rs adds `./capabilities*/**/*.json` only when cargo PROFILE=debug. Grants the two probe commands to the real origin so the OS-matrix and IPC-body probes run inside the shipped webview on https://setnayan.com, not in Safari.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["https://setnayan.com", "https://www.setnayan.com"]
+  },
+  "permissions": ["allow-probe-report", "allow-probe-ipc"]
+}

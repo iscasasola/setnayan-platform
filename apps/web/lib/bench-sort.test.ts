@@ -86,6 +86,73 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
 
 const order = (out: { v: ShortlistVendor }[]) => out.map((r) => r.v.vendorId);
 
+// ── Locked vendors hoist to the front of their category ─────────────────────
+// Owner ruling 2026-09-06: "yes, hoist it". A locked vendor is the answer to
+// its category; it used to sort by the same lens as everyone else and could sit
+// behind candidates the couple will never choose.
+
+test('a locked vendor hoists to the front under EVERY lens', () => {
+  for (const mode of ['fit', 'price', 'rating'] as const) {
+    const out = sortWithReasons(
+      [
+        vendor({ vendorId: 'cheapBest', totalCostPhp: 1, rating: 5, distanceKm: 1 }),
+        vendor({ vendorId: 'theLock', status: 'locked', totalCostPhp: 999999, rating: 1, distanceKm: 400 }),
+      ],
+      mode,
+    );
+    assert.equal(order(out)[0], 'theLock', `locked must lead under "${mode}"`);
+  }
+});
+
+test('the hoist is STABLE — unlocked cards keep their lens order underneath', () => {
+  const out = sortWithReasons(
+    [
+      vendor({ vendorId: 'mid', totalCostPhp: 500 }),
+      vendor({ vendorId: 'locked', status: 'locked', totalCostPhp: 900 }),
+      vendor({ vendorId: 'cheap', totalCostPhp: 100 }),
+    ],
+    'price',
+  );
+  assert.deepEqual(order(out), ['locked', 'cheap', 'mid']);
+});
+
+test('two locked vendors keep their lens order relative to each other', () => {
+  const out = sortWithReasons(
+    [
+      vendor({ vendorId: 'lockedDear', status: 'locked', totalCostPhp: 900 }),
+      vendor({ vendorId: 'lockedCheap', status: 'locked', totalCostPhp: 100 }),
+      vendor({ vendorId: 'open', totalCostPhp: 50 }),
+    ],
+    'price',
+  );
+  assert.deepEqual(order(out), ['lockedCheap', 'lockedDear', 'open']);
+});
+
+test('a superlative pill stays with the card that earned it, not with position 1', () => {
+  // "Lowest price" means THIS CARD is the lowest price — not "this card is
+  // first". A hoisted lock pushing it to position 2 must not move the pill.
+  const out = sortWithReasons(
+    [
+      vendor({ vendorId: 'cheapest', totalCostPhp: 100 }),
+      vendor({ vendorId: 'theLock', status: 'locked', totalCostPhp: 900 }),
+    ],
+    'price',
+  );
+  assert.equal(order(out)[0], 'theLock');
+  const cheapest = out.find((r) => r.v.vendorId === 'cheapest');
+  assert.equal(cheapest?.reason?.label, 'Lowest price');
+  assert.equal(out[0]?.reason?.label ?? null, null, 'the lock did not steal the pill');
+});
+
+test('no locked vendor → order is byte-identical to before the hoist', () => {
+  const rows = [
+    vendor({ vendorId: 'a', totalCostPhp: 300 }),
+    vendor({ vendorId: 'b', totalCostPhp: 100 }),
+    vendor({ vendorId: 'c', totalCostPhp: 200 }),
+  ];
+  assert.deepEqual(order(sortWithReasons(rows, 'price')), ['b', 'c', 'a']);
+});
+
 test('three sort lenses are exposed', () => {
   // The FLAG-OFF control, frozen. `BENCH_SORTS` is what the bench renders when
   // `isExploreReplanEnabled()` is false, and it must stay production-identical.

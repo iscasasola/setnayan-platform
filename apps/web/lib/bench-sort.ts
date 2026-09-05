@@ -227,6 +227,34 @@ function dimensionCopyFor(
  *
  * `nowMs` exists only so the freshness anchor is deterministic under test.
  */
+/**
+ * Move locked vendors to the front, preserving relative order within each group.
+ *
+ * Owner ruling 2026-09-06: *"yes, hoist it"* — a locked vendor is the ANSWER to
+ * its category, and before this it sorted by the same lens as everyone else, so
+ * it could sit at position 3 behind two candidates the couple will never choose.
+ * The bench already announces the lock in four places above the carousel (the
+ * Coverage Strip tile, the folder-head pill, the category-head lock line, the
+ * card's own badge) — the carousel itself was the one surface still ordering as
+ * if no decision had been made. This makes it agree with the other four.
+ *
+ * 🔑 **The reason pills are assigned BEFORE this runs, and that is correct.**
+ * "Lowest price" means *this card is the lowest price*, not *this card is
+ * first* — so a hoisted lock pushing it to position 2 leaves the pill true. Do
+ * not "fix" that by re-deriving reasons after the hoist; it would silently turn
+ * every superlative into a statement about position.
+ *
+ * Stable: `Array.prototype.sort` is stable per spec, and both keys are equal
+ * within a group, so lens order survives untouched underneath.
+ */
+function hoistLocked<T extends { v: ShortlistVendor }>(rows: T[]): T[] {
+  return rows.sort((a, b) => {
+    const al = a.v.status === 'locked' ? 0 : 1;
+    const bl = b.v.status === 'locked' ? 0 : 1;
+    return al - bl;
+  });
+}
+
 export function sortWithReasons(
   vendors: ShortlistVendor[],
   mode: BenchSort,
@@ -236,26 +264,30 @@ export function sortWithReasons(
 
   if (mode === 'price') {
     arr.sort((a, b) => (a.totalCostPhp ?? Infinity) - (b.totalCostPhp ?? Infinity));
-    return arr.map((v, i) => ({
-      v,
-      reason:
-        i === 0 && v.totalCostPhp != null
-          ? ({ label: 'Lowest price', tone: 'ok' } as SortReason)
-          : null,
-    }));
+    return hoistLocked(
+      arr.map((v, i) => ({
+        v,
+        reason:
+          i === 0 && v.totalCostPhp != null
+            ? ({ label: 'Lowest price', tone: 'ok' } as SortReason)
+            : null,
+      })),
+    );
   }
 
   if (mode === 'rating') {
     arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    return arr.map((v, i) => ({
-      v,
-      reason:
-        i === 0 && v.rating != null
-          ? ({ label: 'Top rated', tone: 'ok' } as SortReason)
-          : v.rating != null
-            ? ({ label: `${v.rating.toFixed(1)}★`, tone: 'soft' } as SortReason)
-            : null,
-    }));
+    return hoistLocked(
+      arr.map((v, i) => ({
+        v,
+        reason:
+          i === 0 && v.rating != null
+            ? ({ label: 'Top rated', tone: 'ok' } as SortReason)
+            : v.rating != null
+              ? ({ label: `${v.rating.toFixed(1)}★`, tone: 'soft' } as SortReason)
+              : null,
+      })),
+    );
   }
 
   // ── A ranking LENS · the composite under this lens's weights. Score + explain
@@ -299,22 +331,24 @@ export function sortWithReasons(
     if (prev == null || sub > prev) bestByDim.set(s.dim, sub);
   }
 
-  return arr.map((v, i) => {
-    const s = scored.get(v);
-    const dim = s?.dim ?? null;
-    // No dimension rose above neutral → we have nothing honest to say. Render
-    // no pill rather than a manufactured reason.
-    if (!s || !dim) return { v, reason: null };
-    const copy = dimensionCopyFor(dim, v);
-    const isBestOnDim = bestByDim.get(dim) === s.subs[dim];
-    return {
-      v,
-      reason: {
-        label: isBestOnDim ? copy.lead : copy.plain,
-        tone: i === 0 ? 'ok' : 'soft',
-      } as SortReason,
-    };
-  });
+  return hoistLocked(
+    arr.map((v, i) => {
+      const s = scored.get(v);
+      const dim = s?.dim ?? null;
+      // No dimension rose above neutral → we have nothing honest to say. Render
+      // no pill rather than a manufactured reason.
+      if (!s || !dim) return { v, reason: null };
+      const copy = dimensionCopyFor(dim, v);
+      const isBestOnDim = bestByDim.get(dim) === s.subs[dim];
+      return {
+        v,
+        reason: {
+          label: isBestOnDim ? copy.lead : copy.plain,
+          tone: i === 0 ? 'ok' : 'soft',
+        } as SortReason,
+      };
+    }),
+  );
 }
 
 // ── Sort persistence (§13.3) ───────────────────────────────────────────────

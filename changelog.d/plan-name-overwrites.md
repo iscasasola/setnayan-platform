@@ -62,6 +62,34 @@ RED (the other 3 are non-regression guards that must hold either way); reverting
 the old wording turns the banner case RED. Restored, all green — `named-builds` 22/22,
 `build-date-window` 34/34, adjacent `plans-panel` + `your-team` suites 51/51 combined.
 
-SPEC IMPACT: two DECISION_LOG rows (2026-09-06) — the plan-name uniqueness rule, and the converged
-banner's consequence-first copy with its no-reservation constraint. No SKU, price, schema or
+### 3 · A locked vendor hoists to the front of its category on the bench
+
+Owner: *"yes, hoist it."*
+
+`bench-sort.ts` had **no reference to `locked` anywhere in the file**. A locked vendor sorted by
+the same lens as everyone else, so it could sit at position 3 behind two candidates the couple
+will never choose — and in a `hardSingle` category ("This category holds exactly one — locking
+fills the slot") the decision was already made, leaving the answer buried behind dead cards.
+
+🔑 **The bench already announced the lock in FOUR places above the carousel** — the Coverage Strip
+tile (`.ctile.st-locked`), the folder-head pill (`● N locked · N to decide`), the category-head
+lock line (`lockedNamesLine`), and the card's own badge. The carousel was the one surface still
+ordering as if no decision had been made. This makes it agree with the other four.
+
+`hoistLocked` is a stable partition applied to all three lenses (Best fit · Lowest price · Top
+rated), so lens order survives untouched underneath and two locked vendors keep their order
+relative to each other.
+
+⚠ **Reason pills are assigned BEFORE the hoist, deliberately.** "Lowest price" means *this card is
+the lowest price*, not *this card is first* — a hoisted lock pushing it to position 2 leaves the
+pill true. Re-deriving reasons after the hoist would silently turn every superlative into a claim
+about position; a test now pins that the pill stays with the card that earned it.
+
+Five new cases in `bench-sort.test.ts` (all three lenses · stability · two-locked ordering · the
+pill · no-locked-is-unchanged). Mutation-checked: neutralising the hoist turns 4 of 5 RED, the
+fifth being the non-regression guard that must hold either way. Restored, 41/41 green.
+
+SPEC IMPACT: three DECISION_LOG rows (2026-09-06) — the plan-name uniqueness rule, the converged
+banner's consequence-first copy with its no-reservation constraint, and locked-hoists-first on the
+bench. No SKU, price, schema or
 migration change.

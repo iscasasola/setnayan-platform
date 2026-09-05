@@ -1,21 +1,30 @@
 'use client';
 
 /**
- * Shared lock-flow UI: the date-lock confirmation modal + the milestone
- * congrats toast. Both are used by every finalizeVendor caller (accordion-lock,
- * plan-card-lock, plan-card-compare) so the "locking this narrows your date" and
+ * Shared lock-flow UI: the pre-lock confirmation modal + the milestone congrats
+ * toast. Both are used by every finalizeVendor caller (accordion-lock,
+ * plan-card-lock, plan-card-compare) so the "here is what this lock costs" and
  * "congratulations, you picked X" experiences are identical everywhere.
  *
  * Both self-portal to <body> so `position:fixed` escapes any ancestor transform
  * (the coverflow `.card` on the home plan cards), matching the existing
  * ExceptionModal/UndoToast pattern in accordion-lock.tsx.
+ *
+ * ⚠ ONE MODAL, NOT TWO (owner 2026-09-06). The confirm below was
+ * `LockDateConfirmModal` and fired only on 'date_will_lock'. It now also fires
+ * on 'lock_will_cost' — a lock that kills a saved plan or sinks a bench vendor
+ * without setting the date — and a lock that does BOTH renders both facts in a
+ * single dialog. A second confirm stacked after the first would ask the couple
+ * to re-decide something they decided one screen ago, and the second one gets
+ * clicked through unread.
  */
 
 import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { CalendarHeart, Loader2, PartyPopper, X, ArrowRight } from 'lucide-react';
+import { CalendarHeart, Loader2, Lock, PartyPopper, X, ArrowRight } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { lockImpactCopy, type LockImpact } from '@/lib/lock-impact';
 import type { LockMilestone } from '../actions';
 
 function portal(node: React.ReactNode): React.ReactNode {
@@ -24,25 +33,54 @@ function portal(node: React.ReactNode): React.ReactNode {
 }
 
 /**
- * "Locking this service will finally set your wedding date to {date}." Shown
- * when finalizeVendor returns 'date_will_lock'. Confirm → re-call the lock with
- * confirm_date_lock=1.
+ * The pre-lock confirm — *"what does this cost me?"*, answered before the write.
+ *
+ * Fires on two gate results, together or apart:
+ *
+ *  • `date_will_lock` → `dateLabel` set: "Locking this service will finally set
+ *    your wedding date to {date}." Confirm → re-call with confirm_date_lock=1.
+ *  • `lock_will_cost` → `impact` set: the saved plans that stop being loadable
+ *    and the bench vendors that stop sharing a free day. Confirm → re-call with
+ *    confirm_lock_impact=1.
+ *
+ * Both null is not a state this renders — the caller must not open a confirm
+ * for a lock that costs nothing (a modal that always fires is clicked through
+ * unread, and then the one that mattered is too).
+ *
+ * ⚠ TWO SENTENCES THIS MODAL MUST NEVER SAY, both already pinned by tests:
+ *  • that a day is HELD or RESERVED. `build-date-window.ts` rule 3 — the soft
+ *    tier reasons over declared calendars and promises nothing about
+ *    reservations until a vendor accepts payment. A lock SETS the event's date;
+ *    it does not hold a day with anybody.
+ *  • that a saved plan is DELETED. A lock makes a plan un-loadable; the row
+ *    survives and comes back the moment the lock does. `lockImpactCopy` owns
+ *    that wording (`lock-impact.test.ts` fails if it drifts), which is exactly
+ *    why the copy is called here rather than re-written in JSX.
  */
-export function LockDateConfirmModal({
+export function LockConfirmModal({
   vendorName,
   dateLabel,
+  impact,
   isPending,
   onConfirm,
   onDismiss,
 }: {
   vendorName: string;
-  dateLabel: string;
+  /** Set when this lock also finalizes the wedding date; null otherwise. */
+  dateLabel: string | null;
+  /** What else this lock closes; null when it closes nothing. */
+  impact: LockImpact | null;
   isPending: boolean;
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
+
+  // Single source for every casualty sentence. Returns null for an empty
+  // impact, so a stale non-null-but-empty impact renders nothing rather than an
+  // empty bulleted list.
+  const copy = impact ? lockImpactCopy(impact, vendorName) : null;
 
   return portal(
     <div
@@ -65,21 +103,39 @@ export function LockDateConfirmModal({
         </button>
 
         <div className="flex items-start gap-2.5 pr-6">
-          <CalendarHeart
-            aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0 text-terracotta"
-            strokeWidth={2}
-          />
+          {dateLabel ? (
+            <CalendarHeart
+              aria-hidden
+              className="mt-0.5 h-5 w-5 shrink-0 text-terracotta"
+              strokeWidth={2}
+            />
+          ) : (
+            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
+          )}
           <div className="space-y-1.5">
             <h3 className="text-sm font-semibold text-ink">
-              This locks your wedding date.
+              {dateLabel ? 'This locks your wedding date.' : copy?.headline}
             </h3>
-            <p className="text-xs leading-snug text-ink/70">
-              Locking <strong>{vendorName}</strong> leaves only one of your
-              candidate dates open. Continuing will finally set your wedding date
-              to <strong>{dateLabel}</strong>. You can still change vendors, but
-              the date becomes official.
-            </p>
+            {dateLabel ? (
+              <p className="text-xs leading-snug text-ink/70">
+                Locking <strong>{vendorName}</strong> leaves only one of your
+                candidate dates open. Continuing will finally set your wedding
+                date to <strong>{dateLabel}</strong>. You can still change
+                vendors, but the date becomes official.
+              </p>
+            ) : null}
+            {/* What else it closes. Rendered under the date sentence when this
+                lock does both, so the couple reads one consequence list. */}
+            {copy ? (
+              <ul className="space-y-1.5 pt-0.5">
+                {copy.lines.map((line) => (
+                  <li key={line} className="flex items-start gap-1.5 text-xs leading-snug text-ink/70">
+                    <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-terracotta" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </div>
 
@@ -104,7 +160,7 @@ export function LockDateConfirmModal({
                 Locking…
               </>
             ) : (
-              <>Lock {dateLabel}</>
+              <>{dateLabel ? `Lock ${dateLabel}` : (copy?.confirmLabel ?? `Lock ${vendorName}`)}</>
             )}
           </button>
         </div>

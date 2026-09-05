@@ -334,6 +334,7 @@ Neither spike can run from this machine alone; both are written up so the next s
 2. Q3a HLS-CORS and Q3b WHIP (§ 5) — owner's channel + VPS.
 3. A 60-minute encode on a Windows box (§ 4 is this Mac only).
 4. One `run.sh ipc` with the window pinned visible (`SETNAYAN_PROBE_TOP=1`) to give S5 a non-hidden latency profile (§ 3.5).
+6. **§ 3.3 — the loopback / WebSocket arms from `https://www.setnayan.com`** and **§ 4.2 — the 60-minute encode rerun with the window kept visible.** Both were gated on a 1-min load ≤ 5 (every latency in the earlier logs was taken at load 6–123 and is labelled unusable); from 15:55 to 17:08 the load never fell below 10.17 (`S0-logs/s0-load-timeline-2026-09-05.txt`, 0 of 146 samples ≤ 5) because five other sessions were running tests and typechecks. Exact resume: pause the other sessions, wait for `uptime` ≤ 5, then from the worktree root `SETNAYAN_PROBE_TOP=1 src-tauri/probe/run.sh ipc 1 src-tauri/probe/s0-ipc-realorigin-loopback.log` (≈ 4 min; fill `<!-- S0-LOOPBACK-RESULTS -->` from `loopback-raw-60s`, `[probe-loopback]`, `loopback-websocket`, `loopback-after-csp-10s`), then `SETNAYAN_PROBE_TOP=1 src-tauri/probe/run.sh encode 60 src-tauri/probe/s0-encode.log` with the pinned window left uncovered for the hour (fill `<!-- S0-ENCODE-RERUN -->`), copy both logs into `S0-logs/`, then PR.
 5. The IPC probe on Windows (WebView2 `http://ipc.localhost`) — decides whether option A is a one-transport or a two-transport contract.
 
 ## 10. Evidence files

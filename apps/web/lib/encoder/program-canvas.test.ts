@@ -288,6 +288,14 @@ test('onFrameCount fans out the worker\'s stats; onError its errors; stop unsubs
       maxAvSkewMs: 21.3,
       maxWallDriftMs: 4,
       ascReady: true,
+      videoChunks: 30,
+      videoKeyframes: 1,
+      avccReady: true,
+      videoDriftEvents: 0,
+      videoDriftDrops: 0,
+      videoRingDrops: 0,
+      videoBytes: 93_750,
+      videoAvgKbps: 750,
     },
   });
   w.emit({ type: 'error', where: 'read:primary', message: 'x' });

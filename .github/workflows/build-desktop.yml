@@ -13,10 +13,17 @@ name: build-desktop
 # macOS signing: if the APPLE_* repo secrets are present, `tauri build`
 # Developer-ID-signs + notarizes the bundle (no Gatekeeper warning on
 # download); if they're absent it falls back to ad-hoc signing (the old
-# Sprint-0 behavior, so CI never breaks). Windows is unsigned until S11 lands
-# a code-signing cert — `release.json`'s `windows.signed: false` and the job
-# summary below both say so; the desktop-encoder README's rehearsal script
-# (S13) teaches "More info → Run anyway" for the SmartScreen warning.
+# Sprint-0 behavior, so CI never breaks) and the job summary says so LOUDLY —
+# an ad-hoc build is not shippable. Windows signing (S11,
+# build-sessions/encoder/S11.md) follows the identical gated shape: if the
+# SSL_COM_ESIGNER_* repo secrets are present, `tauri build`'s `signCommand`
+# (src-tauri/scripts/windows-codesign.ps1) signs the .exe/.msi via SSL.com eSigner
+# CodeSignTool (the X0-decided cloud signer — Azure excludes PH orgs, a file
+# cert can't sign from Actions since 2023-06-01); if absent, the script is a
+# safe no-op and the build stays unsigned exactly as before S11.
+# `release.json`'s `windows.signed` and the job summary both reflect whichever
+# is true. The desktop-encoder README's rehearsal script (S13) teaches
+# "More info → Run anyway" for the SmartScreen warning on an unsigned build.
 
 on:
   # DEFERRED 2026-06-20 (owner): website-first. The desktop (macOS/Windows)
@@ -119,12 +126,70 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "Developer ID cert present — macOS build will be SIGNED + NOTARIZED."
 
+      - name: Configure Windows signing (only when eSigner credentials exist)
+        # Mirrors the macOS step above: an ABSENT secret is never exported, so
+        # src-tauri/scripts/windows-codesign.ps1 (wired via tauri.conf.json's
+        # bundle.windows.signCommand) sees no ES_USERNAME and no-ops, leaving
+        # the build unsigned exactly as it was before S11. Flipping the four
+        # SSL_COM_ESIGNER_* secrets on turns signing on with no code change.
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        env:
+          ES_USERNAME: ${{ secrets.SSL_COM_ESIGNER_USERNAME }}
+          ES_PASSWORD: ${{ secrets.SSL_COM_ESIGNER_PASSWORD }}
+          ES_CREDENTIAL_ID: ${{ secrets.SSL_COM_ESIGNER_CREDENTIAL_ID }}
+          ES_TOTP_SECRET: ${{ secrets.SSL_COM_ESIGNER_TOTP_SECRET }}
+        run: |
+          if [ -z "$ES_USERNAME" ]; then
+            echo "No SSL_COM_ESIGNER_USERNAME secret — Windows build will be UNSIGNED (cert ordered in X0, not yet issued)."
+            echo "windows_signing_configured=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          {
+            echo "ES_USERNAME=$ES_USERNAME"
+            echo "ES_PASSWORD=$ES_PASSWORD"
+            echo "ES_CREDENTIAL_ID=$ES_CREDENTIAL_ID"
+            echo "ES_TOTP_SECRET=$ES_TOTP_SECRET"
+            echo "windows_signing_configured=true"
+          } >> "$GITHUB_ENV"
+          echo "SSL.com eSigner credentials present — Windows build will be SIGNED."
+
+      - name: Install SSL.com CodeSignTool (Windows, only when signing configured)
+        # Downloads the official Windows release (bundles its own JRE, so no
+        # separate Java install) into $RUNNER_TEMP/CodeSignTool. Gated behind
+        # the secret check above so a pre-cert build doesn't pay this download
+        # on every run for a tool it will never invoke.
+        if: matrix.platform == 'windows-latest' && env.windows_signing_configured == 'true'
+        shell: pwsh
+        run: |
+          $ZipPath = Join-Path $env:RUNNER_TEMP "CodeSignTool.zip"
+          Invoke-WebRequest -Uri "https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.2/CodeSignTool-v1.3.2-windows.zip" -OutFile $ZipPath
+          Expand-Archive -Path $ZipPath -DestinationPath $env:RUNNER_TEMP -Force
+          $Extracted = Get-ChildItem -Path $env:RUNNER_TEMP -Directory -Filter "CodeSignTool*" | Select-Object -First 1
+          if (-not $Extracted) {
+            Write-Error "CodeSignTool zip did not extract a CodeSignTool* directory — release asset layout may have changed."
+            exit 1
+          }
+          $ToolDir = Join-Path $env:RUNNER_TEMP "CodeSignTool"
+          if ($Extracted.FullName -ne $ToolDir) {
+            Rename-Item -Path $Extracted.FullName -NewName "CodeSignTool"
+          }
+          if (-not (Test-Path (Join-Path $ToolDir "CodeSignTool.bat"))) {
+            Write-Error "CodeSignTool.bat not found after extraction at $ToolDir."
+            exit 1
+          }
+          Write-Host "CodeSignTool installed at $ToolDir"
+
       - name: Build desktop bundle
         run: tauri build --target ${{ matrix.target }}
         env:
-          # Sprint 0: build is unsigned so the Tauri build doesn't try to load
-          # signing identities that don't exist yet.
-          TAURI_SIGNING_PRIVATE_KEY: ''
+          # S11: a real ed25519 updater keypair now exists as repo secrets.
+          # This is inert until S12 sets bundle.createUpdaterArtifacts + adds
+          # tauri-plugin-updater — Tauri only signs updater artifacts when ALL
+          # THREE of {createUpdaterArtifacts, this env var, the plugin} are
+          # present, so wiring the env var now cannot change today's output.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'http://placeholder' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://setnayan.com' }}
@@ -141,6 +206,8 @@ jobs:
           xattr -cr "$APP_PATH"
           xattr -cr "$DMG_PATH"
           echo "Ad-hoc signed (unsigned distribution): $APP_PATH"
+          echo "## :rotating_light: AD-HOC SIGNED — not shippable :rotating_light:" >> "$GITHUB_STEP_SUMMARY"
+          echo "No \`APPLE_CERTIFICATE\` secret — this .dmg is ad-hoc signed, not Developer-ID-signed or notarized. Gatekeeper will refuse to open it on any other Mac. Do not publish this build." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify Developer ID signature + notarization (macOS, when signed)
         # Informational: logs the signing authority, Gatekeeper verdict, and
@@ -291,6 +358,7 @@ jobs:
           # job is a matrix and doesn't expose per-leg outputs; secrets are
           # visible to every job in the run regardless of which job set them up.
           MAC_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          WIN_SIGNED: ${{ secrets.SSL_COM_ESIGNER_USERNAME != '' }}
           SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
         run: |
@@ -308,16 +376,20 @@ jobs:
           WINDOWS_JSON='null'
           if [ -n "$MSI" ]; then
             MSI_NAME=$(basename "$MSI")
-            echo "Uploading $MSI_NAME ($MSI_SIZE bytes, signed=false — S11)"
+            echo "Uploading $MSI_NAME ($MSI_SIZE bytes, signed=$WIN_SIGNED)"
             for PREFIX in "desktop/$VERSION" "desktop/latest"; do
               aws --endpoint-url "$ENDPOINT" s3 cp "$MSI" "s3://$BUCKET/$PREFIX/$MSI_NAME" \
                 --content-type application/x-msi --cache-control "public, max-age=300"
             done
             WIN_URL="$PUBLIC_URL_TRIMMED/desktop/latest/$MSI_NAME"
-            WINDOWS_JSON=$(jq -n --arg url "$WIN_URL" --argjson size "$MSI_SIZE" --arg filename "$MSI_NAME" \
-              '{url: $url, sizeBytes: $size, filename: $filename, signed: false}')
-            echo "### Windows build: UNSIGNED" >> "$GITHUB_STEP_SUMMARY"
-            echo "SmartScreen will warn on first run until S11 lands a code-signing cert. The rehearsal script (S13) teaches: **More info -> Run anyway**." >> "$GITHUB_STEP_SUMMARY"
+            WINDOWS_JSON=$(jq -n --arg url "$WIN_URL" --argjson size "$MSI_SIZE" --arg filename "$MSI_NAME" --argjson signed "$WIN_SIGNED" \
+              '{url: $url, sizeBytes: $size, filename: $filename, signed: $signed}')
+            if [ "$WIN_SIGNED" = "true" ]; then
+              echo "### Windows build: SIGNED (SSL.com eSigner)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "### Windows build: UNSIGNED" >> "$GITHUB_STEP_SUMMARY"
+              echo "SmartScreen will warn on first run until the SSL_COM_ESIGNER_* secrets are set (cert ordered in X0). The rehearsal script (S13) teaches: **More info -> Run anyway**." >> "$GITHUB_STEP_SUMMARY"
+            fi
           else
             echo "### Windows build: NOT PUBLISHED THIS RUN" >> "$GITHUB_STEP_SUMMARY"
             echo "No .msi artifact — /download keeps serving the last successful Windows build, if any." >> "$GITHUB_STEP_SUMMARY"

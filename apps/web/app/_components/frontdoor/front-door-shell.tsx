@@ -346,17 +346,34 @@ type Props = {
   moreFolders: ReadonlyArray<RailFolder>;
   tools: ReadonlyArray<RailTool>;
   /**
-   * Planner and Together sit above Studio, same row grammar. Planner and
-   * Builder are gated on `insideEvent` by the caller (empty arrays outside
-   * one) — see `lib/free-tools-rail.ts` for why each list is short: most of
-   * what a first draft would list here already exists as a row in
+   * Planner, Builder and Together sit above Studio, same row grammar. See
+   * `lib/free-tools-rail.ts` for why each in-event list is short: most of what
+   * a first draft would list here already exists as a row in
    * `EventRailContext`. Defaulting to `[]` renders no group at all, so a
    * caller that says nothing (every doorway page, `/`'s search-results
    * branch) is unaffected.
+   *
+   * 🔴 THE SHELL RENDERS WHATEVER IT IS HANDED. IT DOES NOT RE-DECIDE.
+   * These three groups were once ALSO gated here on `account.signedIn` (and
+   * Planner on `insideEvent`), back when the only rows that existed were the
+   * in-event ones. On 2026-09-06 the same slots gained their SIGNED-OUT
+   * doorway rows (`plannerDoorwayRows` · `togetherDoorwayRows`), whose whole
+   * condition is the opposite one — and the stale gates here swallowed them:
+   * Marketplace, Guest list, Seat plan, Budget, Schedule and Samahan shipped
+   * to production rendering in NO group at all for a signed-out stranger, the
+   * exact audience the doorways exist for. Two of those had been visible in
+   * Studio the day before, so the change was a net loss.
+   *
+   * 🔑 SO THE RULE IS: THE CALLER DECIDES WHICH ROWS EXIST, AND AN EMPTY LIST
+   * IS HOW IT SAYS "NOT HERE". Both callers already branch on session and
+   * event (`app-rail-shell.tsx`, `front-door.tsx`), and both list functions
+   * return `[]` in the states they do not belong in. A second copy of that
+   * decision here can only ever disagree with the first — and when it did, it
+   * disagreed silently, because a group that renders nothing looks exactly
+   * like a group with nothing to render.
    */
   plannerTools?: ReadonlyArray<RailTool>;
   builderTools?: ReadonlyArray<RailTool>;
-  /** NOT gated on `insideEvent` — Samahan is account-level. */
   togetherTools?: ReadonlyArray<RailTool>;
   children: React.ReactNode;
   /**
@@ -1627,8 +1644,14 @@ export function FrontDoorShell({
               draft would have listed here already exists as a row in
               `EventRailContext`, and duplicating it would be the exact
               "same destination, two names" defect that file's own docblock
-              warns against. */}
-          {account.signedIn && insideEvent && plannerTools.length > 0 ? (
+              warns against.
+
+              ⚠ AND THE ONLY CONDITION IS "ARE THERE ROWS". Do not re-add a
+              `signedIn` or `insideEvent` test here — see the props docblock:
+              each list already returns `[]` in the states it does not belong
+              in, and the gates that used to stand here silently hid all six
+              doorway rows from the signed-out visitors they were built for. */}
+          {plannerTools.length > 0 ? (
             <div className="fd-rgroup">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">
@@ -1651,7 +1674,7 @@ export function FrontDoorShell({
               ))}
             </div>
           ) : null}
-          {account.signedIn && insideEvent && builderTools.length > 0 ? (
+          {builderTools.length > 0 ? (
             <div className="fd-rgroup">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">
@@ -1674,7 +1697,7 @@ export function FrontDoorShell({
               ))}
             </div>
           ) : null}
-          {account.signedIn && togetherTools.length > 0 ? (
+          {togetherTools.length > 0 ? (
             <div className="fd-rgroup">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">

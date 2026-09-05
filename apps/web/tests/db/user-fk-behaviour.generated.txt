@@ -10,7 +10,7 @@
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
 # 237 single-column FKs onto auth.users / public.users
-# CASCADE=65  RESTRICT=3  SET NULL=169
+# CASCADE=64  RESTRICT=3  SET NULL=170
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -39,7 +39,7 @@ communities.created_by                                    SET NULL     nullable 
 community_invite_tokens.created_by                        SET NULL     nullable  -> auth.users
 community_members.user_id                                 CASCADE      NOT NULL  -> auth.users
 comp_grants.approved_by                                   SET NULL     nullable  -> users
-comp_grants.granted_by                                    CASCADE      nullable  -> users
+comp_grants.granted_by                                    SET NULL     nullable  -> users
 comp_grants.user_id                                       CASCADE      nullable  -> users
 concierge_abuse_flags.flagged_user_id                     CASCADE      NOT NULL  -> users
 concierge_abuse_flags.reviewed_by                         SET NULL     nullable  -> users

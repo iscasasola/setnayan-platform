@@ -148,6 +148,19 @@ test('every doorway that sells an addable service passes its key', () => {
       dead-end the 2026-08-21 ruling existed to remove.
     */
     'mood-board',
+    /*
+      The three free planning tools — public pages added 2026-09-05 so they
+      could join the Studio rail (owner: *"Also add the other services.
+      Marketplace to search for vendors with compare, Guestlist, Seatplan"*).
+      Same reasoning as the Mood Board: each carries a key so a signed-in
+      couple's button on the page is a door to THEIR tool, not the onboarding
+      dead-end. The guest list and the marketplace resolve through
+      `StudioApp.eventHref` (no catalogue add-on to go through); the seat plan
+      keeps `seating`.
+    */
+    'marketplace',
+    'guest-list',
+    'seat-plan',
   ].sort();
   const found: string[] = [];
   for (const dir of readdirSync(SHELL, { withFileTypes: true })) {

@@ -111,6 +111,10 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/pakanta',
   // The mood board's public doorway — free tool, page added 2026-09-03.
   '/mood-board',
+  // The other three free tools' doorways — pages added 2026-09-05.
+  '/marketplace',
+  '/guest-list',
+  '/seat-plan',
   '/monogram',
   '/alaala',
   '/weddings',

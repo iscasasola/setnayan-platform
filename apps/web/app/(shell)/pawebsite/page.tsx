@@ -25,6 +25,7 @@
  */
 
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
+import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
 
 
@@ -174,6 +175,55 @@ const VS = [
 
 ] as const;
 
+/*
+ * ─── THE FEATURE SPOTLIGHTS (2026-09-05) ─────────────────────────────────
+ * One idea · one picture · one sentence — the shape the owner approved for
+ * `/papic` and asked for on every Studio page (`_components/marketing/
+ * _spotlights.tsx`). Every sentence is traceable to copy already on this
+ * page, the product record, or the demo scenes' captions. Left out on
+ * purpose: the Custom QR scenes' "Upgrade" / "Default — free" tier labels
+ * (a price path this page must not quote). The stills are frames of the
+ * product's own demo scenes, captured by `scripts/capture-demo-stills.mjs`.
+ */
+const SPOTLIGHTS: readonly Spotlight[] = [
+  {
+    chip: 'One address',
+    t: 'Everything your guests need, one link',
+    d: 'Your save-the-date, RSVP, event details, and love story all live at one beautiful address. Send it once and your guests have everything they need.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/landing-page-0.jpg', alt: 'Event Hub — one page behind every link you share' },
+  },
+  {
+    chip: 'No design work',
+    t: 'Tell your story once, it composes itself',
+    d: 'Add how you met, your date, your venue, what to wear. The website composes itself around you — no design work, no code.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/landing-page-1.jpg', alt: 'Event Hub — your colors and story, automatically' },
+  },
+  {
+    chip: 'RSVP',
+    t: 'Guests answer in a tap',
+    d: 'Your guests tap a button on the site and they’re counted — no forms to print, no replies to chase. You see who’s coming in real time, right beside your guest list and seating.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/landing-page-2.jpg', alt: 'Event Hub — guests RSVP and reserve their place' },
+  },
+  {
+    chip: 'Save the date',
+    t: 'Your news arrives, beautifully sealed',
+    d: 'Guests swipe the wax seal to open it, watch your story play like a little film, and put the day on their calendar in one tap.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/save-the-date-0.jpg', alt: 'Save the date — your news arrives, beautifully sealed' },
+  },
+  {
+    chip: 'Editorial',
+    t: 'Your story, told like a feature',
+    d: 'Most wedding sites are a form with a photo on top. Yours reads like the front-page story of your life, laid out with the care of a magazine feature.',
+    media: { kind: 'photo', src: '/demo/maria-jose/hero.webp', alt: 'A bride and groom forehead to forehead on a hillside terrace at golden hour' },
+  },
+  {
+    chip: 'Permanent home',
+    t: 'One address, before, during, and after',
+    d: 'After the day, the same address is where your guest gallery, your live stream, and your day-of details live too. Not a separate site that expires — your wedding’s permanent home.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/landing-page-3.jpg', alt: 'Event Hub — after the day, it becomes your story' },
+  },
+];
+
 export default function PawebsiteLandingPage() {
   return (
     <DoorwayPage
@@ -196,6 +246,13 @@ export default function PawebsiteLandingPage() {
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}
-    />
+    >
+      <SpotlightSection
+        productName="Event Hub"
+        heading="One address, and everything behind it"
+        lede="What the one link you share actually carries — and what it becomes once the day is over."
+        items={SPOTLIGHTS}
+      />
+    </DoorwayPage>
   );
 }

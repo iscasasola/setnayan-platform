@@ -54,6 +54,7 @@
  */
 
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
+import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
@@ -183,6 +184,58 @@ const VS = [
   ['Finding out at the reception', 'Seeing it in your 3D Plan first'],
 ] as const;
 
+/*
+ * ─── THE FEATURE SPOTLIGHTS (2026-09-05) ─────────────────────────────────
+ * One idea · one picture · one sentence — the shape the owner approved for
+ * `/papic` and asked for on every Studio page (`_components/marketing/
+ * _spotlights.tsx`). Every sentence is traceable to copy already on this
+ * page, the product record, or the demo scenes' captions. Left out on
+ * purpose: the scene's "one vision every vendor pulls from" (the page
+ * promises BOOKED suppliers, not every vendor), and any line that Setnayan AI
+ * picks or suggests colours — the palette engine is deterministic and
+ * unrelated to that product. Still no price, tier pill or upgrade prompt: see
+ * the docblock at the top of this file. The stills are frames of the
+ * board's own demo scenes, captured by `scripts/capture-demo-stills.mjs`.
+ */
+const SPOTLIGHTS: readonly Spotlight[] = [
+  {
+    chip: 'Your palette',
+    t: 'Pick the colors of your day',
+    d: 'Start from a curated theme or build your own — colors for the ceremony and the reception, colors for the two of you, and a dress code for every role. Set your palette once, and see it everywhere.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/mood-board-0.jpg', alt: 'Mood Board — pick the colors of your day' },
+  },
+  {
+    chip: 'In your colors',
+    t: 'See your colors on every part',
+    d: 'One picture for each color decision — the bouquet, the ceremony, the bride, the party — and every card repaints to match the palette you set.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/mood-board-1.jpg', alt: 'Mood Board — see your colors on every part' },
+  },
+  {
+    chip: 'The reception',
+    t: 'Style the reception room itself',
+    d: 'Tap a part of the room — the ceiling, the tables, the stage — and decide how it looks, so the look is a decision, not a folder of screenshots.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/mood-board-2.jpg', alt: 'Mood Board — style your reception room' },
+  },
+  {
+    chip: 'Everywhere',
+    t: 'Everything else dresses to match',
+    d: 'Your save-the-date, your Event Hub, your monogram, your QR codes and the people in your 3D Plan all wear the colors you set here. What you see in the room is what you chose.',
+    media: { kind: 'photo', src: '/demo/maria-jose/details.webp', alt: 'A wedding invitation with two gold rings, beside a bouquet of white roses' },
+  },
+  {
+    chip: 'Your suppliers',
+    t: 'One board, and everyone is looking at it',
+    d: 'Suppliers you have booked through Setnayan open a read-only copy of your board, and one press tells all of them it is ready. For everyone else — your florist, your caterer, your seamstress — there is a one-page printable, with palette, reception and attire in one PDF.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/mood-board-3.jpg', alt: 'Mood Board — one vision your whole team shares' },
+  },
+  {
+    chip: 'Free',
+    t: 'Nothing to buy, nothing that expires',
+    d: 'The Mood Board is free with every Setnayan account, beside your guest list, your schedule and your seat plan. Change your mind as often as you like — nothing here is locked, and everything that reads from your board picks up the change.',
+    media: { kind: 'photo', src: '/demo/maria-jose/moodboard.webp', alt: 'A flat lay of a ribbon, a ring, a compact and a bouquet on linen' },
+  },
+];
+
 export default function MoodBoardLandingPage() {
   return (
     <DoorwayPage
@@ -213,6 +266,13 @@ export default function MoodBoardLandingPage() {
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}
-    />
+    >
+      <SpotlightSection
+        productName="Mood Board"
+        heading="Decide it once, and it shows up everywhere"
+        lede="Free with every Setnayan account."
+        items={SPOTLIGHTS}
+      />
+    </DoorwayPage>
   );
 }

@@ -122,6 +122,12 @@ const STATIC_ROUTES: ReadonlyArray<{
   // The mood board. FREE with every account (the only free tool in this block),
   // public page added 2026-09-03 when it joined the Studio rail.
   { path: '/mood-board', lastmod: '2026-09-03', changefreq: 'monthly', priority: '0.7' },
+  // The three free planning tools, public pages added 2026-09-05 when they
+  // joined the Studio rail: the marketplace (search + compare), the guest
+  // list and the seat plan.
+  { path: '/marketplace', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
+  { path: '/guest-list', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
+  { path: '/seat-plan', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
 
 
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.

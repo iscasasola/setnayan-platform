@@ -70,7 +70,7 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
   // ── app-store demo · the two that were found stale on 2026-07-31 ───────────
   {
     file: 'app/_components/app-store/studio-card-demo.tsx',
-    literal: '₱1,000',
+    literal: '₱500',
     sku: 'ANIMATED_MONOGRAM',
     reason: 'Monogram demo frame sells the single-price idea; the figure must be the real one.',
   },

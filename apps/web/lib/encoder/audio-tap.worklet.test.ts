@@ -15,6 +15,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from '../strip-comments';
+
 import { TAP_CHANNELS, TAP_QUANTUM_FRAMES, packQuantum } from './audio-tap.worklet';
 
 const SHIPPED = join(__dirname, '..', '..', 'public', 'encoder', 'audio-tap.worklet.js');
@@ -57,7 +59,9 @@ test('a short channel buffer is zero-filled, not shifted', () => {
 });
 
 test('the shipped worklet is registered as `setnayan-tap` and never returns false', () => {
-  const src = readFileSync(SHIPPED, 'utf8');
+  // Comments stripped with the repo's one stripper: the file's own prose says "ALWAYS true",
+  // and a guard that reads prose as code is not a guard.
+  const src = stripComments(readFileSync(SHIPPED, 'utf8'));
   assert.match(src, /registerProcessor\('setnayan-tap'/);
   assert.doesNotMatch(src, /return false/);
   // The laptop mic is not an input anywhere in S3.

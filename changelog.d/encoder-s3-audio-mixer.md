@@ -92,5 +92,15 @@ worker cannot happen through its public API today — but both carry monotonic c
 reused worker with a stale `lastSlot` would sit silent until the new context caught up to the
 old one's frame count.
 
+**RULE 0 caught one more thing, in CI rather than before the fact.** The first draft of the
+source-reading guards hand-rolled a comment stripper — `.replace(<block>, ' ').replace(<line>, ' ')`
+— and the required `lint one comment stripper` guard failed the PR for it. That repo already has
+exactly ONE stripper (`lib/strip-comments.ts`, a lexer, with `scripts/port-controls.mjs` as its
+JS twin) and a guard whose whole job is to stop a second being written, because the two-regex
+shape strips BLOCK comments first: a `//` line containing `video/*` opens a comment that never
+existed and blanks everything to the next real close, so the guard reading that text asserts
+against nothing and passes. Both S3 test files now use `stripComments`, and the no-timer guard
+was re-sabotaged through it to confirm it can still go red.
+
 SPEC IMPACT: None. Path A is unchanged; the B-remux fork the S-series README marks at S3 stays
 open at the cost of one `MediaStreamAudioDestinationNode`.

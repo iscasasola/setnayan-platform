@@ -18,6 +18,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from '../strip-comments';
+
 import {
   AUDIO_QUANTUM_FRAMES,
   AUDIO_SAMPLE_RATE,
@@ -348,11 +350,17 @@ test('a cut is a 5 ms linear cross-fade on gains — no rewiring, no click, half
   await mixer.stop();
 });
 
-/** Source with comments removed — a docblock that NAMES a forbidden call is not a call. */
+/**
+ * Source with comments removed — a docblock that NAMES a forbidden call is not a call.
+ *
+ * Uses the repo's ONE stripper (`lib/strip-comments.ts`), not a pair of regexes. The obvious
+ * two-line version strips BLOCK comments first, so a `//` line mentioning `video/*` opens a
+ * comment that never existed and silently blanks everything up to the next real `*` + `/` —
+ * which would make the guards below assert against nothing and pass. `lint-one-comment-stripper`
+ * is a required CI guard for exactly this, and it caught the first draft of this file.
+ */
 function code(file: string): string {
-  return readFileSync(join(__dirname, file), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+  return stripComments(readFileSync(join(__dirname, file), 'utf8'));
 }
 
 test('the laptop mic is not an input — the mixer never asks for a capture device', () => {

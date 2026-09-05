@@ -50,18 +50,43 @@ this is the literal committed code, not a reimplementation) and run against a RE
 so frames are not trivially static), synthetic timestamps on the exact `33333µs`-per-tick grid
 `audio-clock.ts` uses, `lastAudioTsMicros` fed as the SAME value as each chunk's own video
 timestamp (the real pipeline's invariant), through the real `createDriftGuardedRing`. This machine
-had 10+ other build-session worktrees (typecheck/lint/test runs) competing for CPU at the same time,
-which measurably slowed the encode well below realtime — the numbers below are keyframe-cadence and
-bitrate correctness over however much media time was reached, not a realtime/thermal sustain claim
-(that claim is S0's, already measured and open at the OS-matrix level, not S4's to re-prove).
+had 10+ other build-session worktrees (typecheck/lint/test runs) competing for CPU at the same time
+(`uptime` load average measured **50.84 → 67.59** during the run — 10× S0-FINDING.md § 4.2's own
+`≤5` gate for a valid measurement), which measurably starved the encode well below realtime.
 
-<!-- EVIDENCE_PLACEHOLDER -->
+**2,171 ticks reached (72.37s of media) in 652s of wall time** before the run was stopped (not a
+crash — `videoDriftEvents`/keyframe grid below are exact over everything actually encoded):
+- **Keyframes: 37, all 37 exactly on the 60-tick grid** (`badKeyframeSeqs: []`) — first ten at
+  ticks `[0, 60, 120, 180, 240, 300, 360, 420, 480, 540]`, unbroken.
+- **Drift events: 0** — `lastAudioTsMicros` fed as each chunk's own video timestamp (the real
+  pipeline's invariant), through the real `createDriftGuardedRing`, for all 2,171 ticks.
+- `decoderConfig.description` (the AVCDecoderConfigurationRecord) captured once, before the first
+  chunk — `configCaptured: true`, no `SharedArrayBuffer`/description type errors.
+- **Average bitrate: ≈1.79 Mbps (16,202,541 bytes / 72.37s), 28% BELOW the 2.5 Mbps ±10% bar.**
+  Reported as measured, not smoothed over: `maxEncodeQueueSize` reached 31 against a 30-frame
+  backpressure ceiling, meaning `VideoEncoder.encode()` itself was the bottleneck (this harness
+  never throttled faster than the encoder could drain), consistent with `latencyMode:'realtime'`
+  rate control adapting to real encode-call timing under severe CPU starvation rather than to the
+  nominal PTS grid — `bitrateMode:'constant'` and `bitrate:2_500_000` are independently verified
+  correct by direct assertion against the exported config object (mutation-tested above), and
+  `VideoEncoder.isConfigSupported` accepted the config unmodified before this run started. **This
+  bitrate figure is not claimed to satisfy the evidence bar** — it needs a re-run at load ≤5 (S0's
+  own gate) to separate a real rate-control effect from a config defect, and is left open below.
 
-**Not done, and why (following S3's own precedent below).** `createProgramCanvas` still has no
-call site in the app — S1 left that to S5, which owns the Tauri gate — so there is no way to run
-this "in the real app" any more than S3's 30-minute figure could be a browser measurement instead
-of a simulation. Unlike S3, this evidence run at least exercises a REAL `VideoEncoder` on the REAL
+**Not done, and why (following S3's own precedent).** `createProgramCanvas` still has no call site
+in the app — S1 left that to S5, which owns the Tauri gate — so there is no way to run this "in the
+real app" any more than S3's 30-minute figure could be a browser measurement instead of a
+simulation. Unlike S3, this evidence run at least exercises a REAL `VideoEncoder` on the REAL
 compiled module (not a fake encoder), which is the strongest claim available before S5 exists.
+Also not done: the full hour (blocked by the load-50+ gate above, same shape as S0-FINDING.md
+§ 4.2's own blocked rerun) and a Windows/OpenH264 run (S0's matrix gap, not S4's to fill).
+
+**LEFT UNDONE / owner-relevant:** re-run the harness (kept at `build-sessions/encoder/S4-harness/`
+if a future session wants it) at `uptime` load ≤5 to get a clean average-bitrate figure — the
+2,171-tick run above measured ≈1.79 Mbps against the 2.5 Mbps ±10% target and could not separate
+a real `latencyMode:'realtime'` rate-control effect under CPU starvation from a config problem.
+Everything else the S4 prompt asked to be measured (keyframe grid exactness, zero drift) held
+cleanly over the whole measured window.
 
 SPEC IMPACT: None. Config values are filled from S0's own measurements; nothing here chooses
 between the S0 § 7 IPC transport options, which remains S5's open decision.

@@ -9,6 +9,17 @@
  * each carried this exact element, differing only in the slug and the width.
  * Both wrap it now, so the lesson below is written once.
  *
+ * ⚠ THIS MOVE COST TWO LINES IN `scripts/port-control-baseline.json`, AND THE
+ * VIDEO DID NOT GO ANYWHERE. `lint-port-no-lost-controls` reads each route's
+ * OWN folder (plus its private subdirs) and does not follow imports, so once
+ * the `<video>` lived here instead of in `(shell)/papic/` and `(shell)/pa3d/`,
+ * both routes stopped listing `HTMLVideoElement` and the guard reported a lost
+ * control. It was right about the letter and wrong about the fact: both pages
+ * still render a film. The baseline was regenerated in the same PR, which is
+ * that guard's own documented path for a deliberate change — but a reader
+ * meeting those two removed lines in git history deserves to find this
+ * paragraph rather than conclude the films were dropped.
+ *
  * ─── AUTOPLAY IS A POLICY, NOT A GUARANTEE ───────────────────────────────
  * A bare `<video autoPlay muted loop playsInline>` is correct until a browser
  * refuses the autoplay — and then it is a still frame with NO CONTROL ON IT,

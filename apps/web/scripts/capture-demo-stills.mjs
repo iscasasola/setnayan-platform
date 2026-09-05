@@ -27,6 +27,13 @@
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 
+// 🔑 THE ONE COMMENT STRIPPER. Not a local regex — `lint-one-comment-stripper`
+// forbids that, and the reason is specific: a naive two-replace strips BLOCK
+// comments first, so a line comment containing `video/*` opens a comment that
+// closes at the next real `*/` and blanks everything between, after which a
+// guard asserts against a blank and passes.
+import { stripComments } from './port-controls.mjs';
+
 // The repo installs `@playwright/test`; a bare `playwright` may or may not be
 // resolvable from apps/web depending on hoisting. Both export `chromium`.
 let chromium;
@@ -42,17 +49,18 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASE = process.env.BASE ?? 'http://localhost:3000';
 const OUT_DIR = join(__dirname, '..', 'public', 'add-ons', 'demo', 'stills');
 
-const SLUGS_SRC = readFileSync(
-  join(__dirname, '..', 'app', '_components', 'app-store', 'rich-demo-slugs.ts'),
-  'utf8',
+// Comments are stripped from the WHOLE file before the block is sliced: a
+// retired slug lives on in that file as a `// 'led' removed …` comment, and a
+// quoted word inside a comment is not a slug. (Measured: without this the
+// recorder spent 30s timing out on `led`, a demo that has not existed since
+// 2026-08-11.)
+const SLUGS_SRC = stripComments(
+  readFileSync(join(__dirname, '..', 'app', '_components', 'app-store', 'rich-demo-slugs.ts'), 'utf8'),
 );
 const SLUGS_BLOCK = SLUGS_SRC.slice(
   SLUGS_SRC.indexOf('RICH_DEMO_SLUGS'),
   SLUGS_SRC.indexOf('] as const'),
-)
-  // A retired slug lives on in that file as a `// 'led' removed …` comment,
-  // and a quoted word in a comment is not a slug. Drop comment lines first.
-  .replace(/^\s*\/\/.*$/gm, '');
+);
 const ALL_SLUGS = (SLUGS_BLOCK.match(/'([a-z0-9-]+)'/g) || []).map((s) => s.slice(1, -1));
 if (ALL_SLUGS.length === 0) {
   throw new Error(

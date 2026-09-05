@@ -33,14 +33,27 @@
     );
     const json = JSON.stringify(rec);
     console.log('[s0-probe]', json);
-    if (!invoke) return Promise.resolve();
-    return invoke('probe_report', { json }).catch((e) =>
-      console.error('[s0-probe] probe_report failed', e)
-    );
+    if (!invoke) { sideChannel({ stage: 'no-invoke', rec }); return Promise.resolve(); }
+    return invoke('probe_report', { json }).catch((e) => {
+      console.error('[s0-probe] probe_report failed', e);
+      // Side channel: when the invoke itself fails, the record would otherwise vanish
+      // (console output never reaches the runner's log). Debug-only loopback listener.
+      return sideChannel({ stage: 'probe_report-failed', error: String(e), rec });
+    });
+  }
+  // Fire-and-forget POST to the loopback `/diag` path (printed verbatim by probe.rs).
+  function sideChannel(obj) {
+    if (!LOOPBACK_PORT) return Promise.resolve();
+    try {
+      return fetch('http://127.0.0.1:' + LOOPBACK_PORT + '/diag', {
+        method: 'POST', body: JSON.stringify(obj), headers: { 'Content-Type': 'text/plain' },
+      }).catch(() => {});
+    } catch (_) { return Promise.resolve(); }
   }
 
   if (!invoke) {
     console.error('[s0-probe] window.__TAURI__.core.invoke is missing — withGlobalTauri off?');
+    sideChannel({ stage: 'no-invoke', href: location.href, hasTauri: !!tauri });
     return;
   }
 
@@ -348,6 +361,32 @@
     });
   }
 
+  // Fourth arm: can this origin open a WebSocket to 127.0.0.1 at all? The loopback
+  // listener does not speak WebSocket; it logs the handshake it receives and answers
+  // 405, so "close code 1006 AND Rust logged websocket-handshake-received" means the
+  // page was ALLOWED to connect (no mixed-content block), while "error/close with NO
+  // Rust line" means WebKit refused before opening the socket.
+  async function websocketProbe() {
+    if (!LOOPBACK_PORT) { await log('loopback-websocket', { skipped: 'no loopback port' }); return; }
+    const url = 'ws://127.0.0.1:' + LOOPBACK_PORT + '/ws';
+    const violations = [];
+    const onV = (e) => { if (String(e.blockedURI).indexOf('ws') === 0 || String(e.blockedURI).indexOf('127.0.0.1') >= 0) violations.push({ blockedURI: e.blockedURI, directive: e.effectiveDirective, disposition: e.disposition }); };
+    document.addEventListener('securitypolicyviolation', onV);
+    const s = performance.now();
+    const result = await new Promise((resolve) => {
+      let ws;
+      const events = [];
+      try { ws = new WebSocket(url); } catch (e) { resolve({ constructorError: String(e) }); return; }
+      const timer = setTimeout(() => { try { ws.close(); } catch (_) {} resolve({ events, timeout: true }); }, 5000);
+      ws.onopen = () => events.push({ ev: 'open', ms: +(performance.now() - s).toFixed(1) });
+      ws.onerror = () => events.push({ ev: 'error', ms: +(performance.now() - s).toFixed(1) });
+      ws.onclose = (e) => { events.push({ ev: 'close', code: e.code, wasClean: e.wasClean, reason: e.reason, ms: +(performance.now() - s).toFixed(1) }); clearTimeout(timer); resolve({ events }); };
+    });
+    await sleep(100);
+    document.removeEventListener('securitypolicyviolation', onV);
+    await log('loopback-websocket', Object.assign({ url, pageOrigin: location.origin, violations }, result));
+  }
+
   async function ipc() {
     // Baseline: what CSP does the live page ship, and does the IPC URL resolve?
     const metas = Array.from(document.querySelectorAll('meta[http-equiv]')).map((m) => ({
@@ -359,6 +398,7 @@
     });
     await ipcRun('raw-60s', 60, 30);
     await loopbackRun('raw-60s', 60, 30);
+    await websocketProbe();
 
     // Forced CSP: a policy whose connect-src has NO ipc: / http://ipc.localhost.
     // Every fetch to ipc://localhost is then a CSP violation; Tauri's

@@ -60,7 +60,16 @@ fn start_loopback() -> Option<u16> {
                     if buf.len() > 64 * 1024 { return; }
                 }
                 let head = String::from_utf8_lossy(&buf[..head_end]).to_string();
-                let method = head.split_whitespace().next().unwrap_or("").to_string();
+                let mut first = head.split_whitespace();
+                let method = first.next().unwrap_or("").to_string();
+                let path = first.next().unwrap_or("").to_string();
+                let upgrade = head
+                    .lines()
+                    .find_map(|l| l.to_ascii_lowercase().strip_prefix("upgrade:").map(|v| v.trim().to_string()));
+                let origin_hdr = head
+                    .lines()
+                    .find_map(|l| l.to_ascii_lowercase().strip_prefix("origin:").map(|v| v.trim().to_string()))
+                    .unwrap_or_default();
                 let content_length: usize = head
                     .lines()
                     .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse().unwrap_or(0)))
@@ -78,9 +87,21 @@ fn start_loopback() -> Option<u16> {
                 }
                 let body_len = buf.len() - head_end;
                 let cors = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: *\r\nAccess-Control-Allow-Methods: POST, OPTIONS\r\nAccess-Control-Max-Age: 600\r\n";
-                let (status, body) = match method.as_str() {
-                    "OPTIONS" => ("204 No Content", String::new()),
-                    "POST" => {
+                // A WebSocket handshake is a GET with `Upgrade: websocket`. The listener does
+                // not complete the upgrade; RECEIVING it is the measurement — it proves WebKit
+                // let the page open ws://127.0.0.1 from its origin (the mixed-content question).
+                if let Some(up) = upgrade.as_deref() {
+                    println!("[probe-loopback] t={} websocket-handshake-received method={method} path={path} upgrade={up:?} origin={origin_hdr:?}", now_ms());
+                }
+                // `/diag`: the page's side channel for records that could not reach
+                // `probe_report` (e.g. the invoke itself failed). Printed verbatim.
+                if method == "POST" && path.starts_with("/diag") {
+                    println!("[probe-diag] t={} origin={origin_hdr:?} {}", now_ms(), String::from_utf8_lossy(&buf[head_end..head_end + body_len]));
+                }
+                let (status, body) = match (method.as_str(), path.starts_with("/diag")) {
+                    ("OPTIONS", _) => ("204 No Content", String::new()),
+                    ("POST", true) => ("200 OK", "diag".to_string()),
+                    ("POST", false) => {
                         let n = LOOPBACK_CALLS.fetch_add(1, Ordering::Relaxed) + 1;
                         if n == 1 || n % 300 == 0 {
                             println!("[probe-loopback] t={} #{n} body_len={body_len} content-type={content_type:?} first_bytes={:?}", now_ms(), &buf[head_end..head_end + body_len.min(4)]);
@@ -218,20 +239,27 @@ pub fn on_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<
     }
     // SETNAYAN_PROBE_TOP=1: shrink to a corner and float above other windows so a
     // 60-minute run stays "visible" while the operator works. Debug-only, opt-in.
+    // The window ops run on a spawned thread: called from inside this page-load
+    // callback (main thread) they dispatch to the main thread and block on it —
+    // measured 2026-09-05 as a hang right after "loopback listener" (no eval ever
+    // dispatched). set_focus() alone survives; current_monitor()/set_size() do not.
     if std::env::var("SETNAYAN_PROBE_TOP").map(|v| v == "1").unwrap_or(false) {
-        use tauri::{LogicalPosition, LogicalSize};
-        let _ = window.set_min_size(None::<LogicalSize<f64>>);
-        let _ = window.set_size(LogicalSize::new(560.0, 360.0));
-        if let Ok(Some(mon)) = window.current_monitor() {
-            let sf = mon.scale_factor();
-            let size = mon.size().to_logical::<f64>(sf);
-            let pos = mon.position().to_logical::<f64>(sf);
-            let _ = window.set_position(LogicalPosition::new(pos.x + size.width - 580.0, pos.y + size.height - 400.0));
-        }
-        if let Err(e) = window.set_always_on_top(true) {
-            eprintln!("[probe] set_always_on_top failed: {e}");
-        }
-        println!("[probe] t={} window pinned always-on-top 560x360 (SETNAYAN_PROBE_TOP=1)", now_ms());
+        let w = window.clone();
+        std::thread::spawn(move || {
+            use tauri::{LogicalPosition, LogicalSize};
+            let _ = w.set_min_size(None::<LogicalSize<f64>>);
+            let _ = w.set_size(LogicalSize::new(560.0, 360.0));
+            if let Ok(Some(mon)) = w.current_monitor() {
+                let sf = mon.scale_factor();
+                let size = mon.size().to_logical::<f64>(sf);
+                let pos = mon.position().to_logical::<f64>(sf);
+                let _ = w.set_position(LogicalPosition::new(pos.x + size.width - 580.0, pos.y + size.height - 400.0));
+            }
+            if let Err(e) = w.set_always_on_top(true) {
+                eprintln!("[probe] set_always_on_top failed: {e}");
+            }
+            println!("[probe] t={} window pinned always-on-top 560x360 (SETNAYAN_PROBE_TOP=1)", now_ms());
+        });
     }
     match webview.eval(js) {
         Ok(()) => println!("[probe] t={} eval dispatched mode={mode} origin={}", now_ms(), url.origin().ascii_serialization()),

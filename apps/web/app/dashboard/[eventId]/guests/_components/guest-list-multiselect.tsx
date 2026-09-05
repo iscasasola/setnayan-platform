@@ -1553,6 +1553,15 @@ function MobileGridItem({
 // reactive seat chip on the right (Living Roster P4 · mobile parity). A stretched
 // Link covers the row for tap-to-detail; the checkbox + the RSVP button re-enable
 // their own pointer events above it, exactly like GuestCard.
+//
+// SWIPE-TO-DELETE PARITY (2026-09-05): this row shipped WITHOUT the left-swipe
+// Delete that its grid twin (MobileGridItem) has had since 2026-06-03. Removing
+// somebody is one of the four things a host does to a roster, and flipping the
+// carousel's density toggle to `?density=list` silently took it away — the same
+// list, the same guests, one affordance gone. The gate, the action and the
+// server-side blocks are IDENTICAL to the grid path (bulkSoftDeleteGuests: the
+// couple is protected, an RSVP'd guest must be reset first, and the delete is a
+// recoverable soft one) — this is the wrapper, not a second delete.
 function MobileListRow({
   guest,
   eventId,
@@ -1570,61 +1579,82 @@ function MobileListRow({
   onToggle: () => void;
   seat?: { placed: string | null; suggested: string | null };
 }) {
+  // Same gate as MobileGridItem: select mode owns the card for checkbox bulk
+  // ops, and the couple can never be removed (bulkSoftDeleteGuests blocks them
+  // server-side, so don't dangle a Delete that will always fail).
+  const swipeable =
+    !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
+
+  const row = (
+    <div
+      className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
+        selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
+      }`}
+    >
+      {/* Stretched detail link (z-0); content sits above it (z-10) and the
+          interactive bits re-enable pointer events (z-20). */}
+      <Link
+        href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+        aria-label={guestDisplayName(guest)}
+        className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+      />
+      {selectMode ? (
+        <label
+          onClick={(e) => e.stopPropagation()}
+          className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            aria-label={`Select ${guestDisplayName(guest)}`}
+            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+        </label>
+      ) : (
+        <span className="pointer-events-none relative z-10">
+          <RowAvatar guest={guest} displayUrl={displayUrl} />
+        </span>
+      )}
+      <div className="pointer-events-none relative z-10 min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
+        {guest.plus_one_allowed ? (
+          <p className="truncate text-xs text-ink/55">+ {guest.plus_one_name ?? 'TBA'}</p>
+        ) : null}
+      </div>
+      <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
+        <RsvpChipEditor
+          eventId={eventId}
+          guest={guest}
+          mobileCycle
+          seatedTableLabel={seat?.placed ?? null}
+        >
+          <RsvpPill status={guest.rsvp_status} />
+        </RsvpChipEditor>
+        <SeatChip
+          placed={seat?.placed ?? null}
+          suggested={seat?.suggested ?? null}
+          rsvp={guest.rsvp_status}
+          hasPlusOne={guest.plus_one_allowed}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <li className="list-none">
-      <div
-        className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
-          selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
-        }`}
-      >
-        {/* Stretched detail link (z-0); content sits above it (z-10) and the
-            interactive bits re-enable pointer events (z-20). */}
-        <Link
-          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-          aria-label={guestDisplayName(guest)}
-          className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-        />
-        {selectMode ? (
-          <label
-            onClick={(e) => e.stopPropagation()}
-            className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
-          >
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={onToggle}
-              aria-label={`Select ${guestDisplayName(guest)}`}
-              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-            />
-          </label>
-        ) : (
-          <span className="pointer-events-none relative z-10">
-            <RowAvatar guest={guest} displayUrl={displayUrl} />
-          </span>
-        )}
-        <div className="pointer-events-none relative z-10 min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
-          {guest.plus_one_allowed ? (
-            <p className="truncate text-xs text-ink/55">+ {guest.plus_one_name ?? 'TBA'}</p>
-          ) : null}
-        </div>
-        <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
-          <RsvpChipEditor
-            eventId={eventId}
-            guest={guest}
-            mobileCycle
-            seatedTableLabel={seat?.placed ?? null}
-          >
-            <RsvpPill status={guest.rsvp_status} />
-          </RsvpChipEditor>
-          <SeatChip
-            placed={seat?.placed ?? null}
-            suggested={seat?.suggested ?? null}
-            rsvp={guest.rsvp_status}
-            hasPlusOne={guest.plus_one_allowed}
-          />
-        </div>
-      </div>
+      {swipeable ? (
+        <SwipeToDelete
+          eventId={eventId}
+          guestId={guest.guest_id}
+          guestName={guestDisplayName(guest)}
+          radiusClass="rounded-xl"
+        >
+          {row}
+        </SwipeToDelete>
+      ) : (
+        row
+      )}
     </li>
   );
 }
@@ -1706,18 +1736,24 @@ function MobileSelfJoinCard({
 // (iOS-style), and deletion reuses bulkSoftDeleteGuests, so the same gates
 // apply (couple blocked upstream · RSVP'd guests get the reset-first message)
 // and it's a recoverable SOFT delete. Touch-only — the desktop table keeps
-// its own row affordances; rendered only in the `sm:hidden` card list.
+// its own row affordances; rendered in BOTH `sm:hidden` densities — the photo
+// grid (MobileGridItem) and the compact list (MobileListRow).
 // -----------------------------------------------------------------------
 function SwipeToDelete({
   eventId,
   guestId,
   guestName,
   children,
+  // The clipping wrapper rounds to match the card it wraps — the grid card is
+  // rounded-lg, the compact list row rounded-xl. Passing it keeps the swipe
+  // container from shaving the child's corners.
+  radiusClass = 'rounded-lg',
 }: {
   eventId: string;
   guestId: string;
   guestName: string;
   children: ReactNode;
+  radiusClass?: string;
 }) {
   const REVEAL = 84; // px width of the revealed Delete action
   const [tx, setTx] = useState(0);
@@ -1757,7 +1793,7 @@ function SwipeToDelete({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-lg">
+    <div className={`relative overflow-hidden ${radiusClass}`}>
       {/* Delete action, revealed behind the card on a left-swipe. */}
       <form
         action={bulkSoftDeleteGuests.bind(null, eventId)}

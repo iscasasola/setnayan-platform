@@ -21,6 +21,7 @@ import {
   type ProgramFrame,
 } from '../panood-program-bridge';
 import type { ProgramAirDecision } from '../live-studio-publish-pure';
+import type { ResolvedOverlays } from '../live-studio-overlays';
 import { toWireFrame, type VideoSlot } from './program-plan';
 import type { ProgramCanvasInbound, ProgramCanvasOutbound, ProgramCanvasStats } from './program-canvas.worker';
 
@@ -50,8 +51,35 @@ export type ProgramCanvasDeps = {
 export type ProgramCanvasOptions = {
   /** Server-resolved program-output entitlement, as the controller page already holds it. */
   air?: Pick<ProgramAirDecision, 'enforced' | 'permittedSlots'> | null;
+  /**
+   * S2 · the ₱0 broadcast extras, as the controller page already holds them
+   * (`airOverlays` — `resolveOverlays({ owned, ... })`). Passed once, exactly like
+   * `air` above: this page never re-derives `owned` and never calls `resolveOverlays`
+   * itself, it only forwards the already-resolved decision to the worker.
+   */
+  overlays?: {
+    resolved: ResolvedOverlays | null;
+    /** The same-origin QR route the page already builds (`/api/website/qr/<slug>`),
+     *  or null for a slug-less event. Resolved to an ABSOLUTE url before crossing
+     *  into the worker — a relative fetch there would resolve against the WORKER's
+     *  own script URL, not this page's. */
+    qrSrc: string | null;
+    /** The couple's monogram text — the DOM's `lowerThirdFallback` prop, unchanged. */
+    lowerThirdFallback: string;
+  } | null;
   deps?: Partial<ProgramCanvasDeps>;
 };
+
+/** Pure so it is directly testable without a `location` global (Node has none). */
+export function resolveQrUrl(qrSrc: string | null): string | null {
+  if (!qrSrc) return null;
+  if (typeof location === 'undefined') return qrSrc;
+  try {
+    return new URL(qrSrc, location.href).href;
+  } catch {
+    return qrSrc;
+  }
+}
 
 export type ProgramCanvas = {
   start(): void;
@@ -166,6 +194,12 @@ export function createProgramCanvas(options: ProgramCanvasOptions = {}): Program
         else if (msg.type === 'error') for (const fn of errorListeners) fn(msg.where, msg.message);
       });
       post({ type: 'air', air: options.air ?? null });
+      post({
+        type: 'overlays',
+        overlays: options.overlays?.resolved ?? null,
+        qrSrc: resolveQrUrl(options.overlays?.qrSrc ?? null),
+        lowerThirdFallback: options.overlays?.lowerThirdFallback ?? '',
+      });
       post({ type: 'start' });
       poll();
       repoll = deps.setInterval(poll, BRIDGE_REPOLL_MS);

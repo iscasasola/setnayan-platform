@@ -47,6 +47,9 @@ import {
 import { createAudioPacker, type AudioPacket } from './audio-packer';
 import { PROGRAM_HEIGHT, PROGRAM_WIDTH, type ProgramFrameWire, type Region, type VideoSlot } from './program-plan';
 import type { ProgramAirDecision } from '../live-studio-publish-pure';
+import type { ResolvedOverlays } from '../live-studio-overlays';
+import { drawOverlays, shouldDrawOverlays, type OverlayAssets, type OverlayCanvasContext } from './draw-overlays';
+import { REFERENCE_LAYOUT } from './encoder-layout';
 
 /* ── message contract (page ↔ worker) ─────────────────────────────────────── */
 
@@ -55,6 +58,14 @@ export type ProgramCanvasInbound =
   | { type: 'stop' }
   | { type: 'frame'; frame: ProgramFrameWire }
   | { type: 'air'; air: Pick<ProgramAirDecision, 'enforced' | 'permittedSlots'> | null }
+  /**
+   * S2 · the ₱0 broadcast extras, already resolved server-side exactly as the
+   * controller page's `airOverlays` holds them. This worker never derives `owned`,
+   * never calls `resolveOverlays` — it only draws what it is handed (rule 18).
+   * `qrSrc` and `lowerThirdFallback` are the DOM parity data `ResolvedOverlays` does
+   * not itself carry; see `draw-overlays.ts`'s `OverlayAssets`.
+   */
+  | { type: 'overlays'; overlays: ResolvedOverlays | null; qrSrc: string | null; lowerThirdFallback: string }
   /** A transferred `MediaStreamTrackProcessor.readable` (Chromium path). Null = slot cleared. */
   | { type: 'track'; slot: VideoSlot; readable: ReadableStream<VideoFrame> | null }
   /** A transferred cloned `MediaStreamTrack` (WebKit path — the worker wraps it). */
@@ -221,6 +232,19 @@ const ctx = canvas.getContext('2d', { alpha: false });
 if (!ctx) throw new Error('program-canvas.worker: no 2d context');
 
 const compositor = new ProgramCompositor(makePainter(ctx));
+
+/* ── S2: the broadcast extras, drawn straight on `ctx` — see draw-overlays.ts ──────
+   The hook receives `frame` precisely so THIS module decides whether there is
+   anything on program to brand; draw-overlays.ts itself stays a pure painter with
+   no bridge/frame awareness (its own docblock explains the split). */
+let overlaysState: { overlays: ResolvedOverlays | null; assets: OverlayAssets } | null = null;
+compositor.setOverlayHook((_painter, frame) => {
+  if (!overlaysState || !shouldDrawOverlays(frame)) return;
+  // Same cast the painter above already makes at this boundary (`ctx.drawImage(frame as
+  // unknown as CanvasImageSource, ...)`): `OverlayCanvasContext` is a narrow structural
+  // subset of the real context, not a lib.dom type it can satisfy invariantly.
+  drawOverlays(ctx as unknown as OverlayCanvasContext, overlaysState.overlays, REFERENCE_LAYOUT, overlaysState.assets);
+});
 
 /* ── the audio half: encoder, packer, and the clock they share ─────────────── */
 
@@ -478,6 +502,12 @@ scope.addEventListener('message', (ev) => {
       return;
     case 'air':
       compositor.setAir(msg.air);
+      return;
+    case 'overlays':
+      overlaysState = {
+        overlays: msg.overlays,
+        assets: { qrSrc: msg.qrSrc, lowerThirdFallback: msg.lowerThirdFallback },
+      };
       return;
     case 'track':
       if ('track' in msg) attachTrack(msg.slot, msg.track);

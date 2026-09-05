@@ -63,6 +63,7 @@ import {
   builderRailItems,
   togetherRailItems,
 } from '@/lib/free-tools-rail';
+import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
 import { resolveCommandItems } from './command-data';
 import { SignedInCluster } from './signed-in-cluster';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
@@ -231,10 +232,19 @@ export async function AppRailShell({
         everything else a first draft would have put here already exists as a
         real row in `EventRailContext`.
       */
+      /*
+        🔄 PLANNER IS TWO LISTS, ONE PER STATE (2026-09-06). Inside an event it
+        is what it always was — `plannerRailItems`, the one genuine gap the
+        event's own rail does not carry. OUTSIDE one it is the five free
+        planning tools' DOORWAY rows, which moved here from Studio when the
+        owner split the rail by kind rather than price. They are `doorwayOnly`,
+        so `plannerDoorwayRows` returns nothing inside an event and the two
+        lists can never both render — see `lib/studio-rail.ts`.
+      */
       plannerTools={
         account.signedIn && studioEvent.eventId
           ? plannerRailItems(studioEvent.eventId)
-          : []
+          : plannerDoorwayRows(Boolean(studioEvent.eventId))
       }
       builderTools={
         account.signedIn && studioEvent.eventId
@@ -247,9 +257,12 @@ export async function AppRailShell({
         event-scoped rows (Vendor chat, Event chat) a real thread when one is
         known, `/dashboard` otherwise.
       */
-      togetherTools={
-        account.signedIn ? togetherRailItems(studioEvent.eventId) : []
-      }
+      togetherTools={[
+        // The public Samahan doorway — what a samahan IS, for somebody who has
+        // none yet. Account-level, so it is never event-gated.
+        ...togetherDoorwayRows(),
+        ...(account.signedIn ? togetherRailItems(studioEvent.eventId) : []),
+      ]}
       railContext={railContext}
       contextMatchRows={contextMatchRows}
       /*

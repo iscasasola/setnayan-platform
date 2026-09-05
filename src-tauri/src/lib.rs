@@ -13,6 +13,10 @@ pub use setnayan_encoder as encoder;
 #[cfg(debug_assertions)]
 mod probe;
 
+// S10: keep-awake assertions held around the (not-yet-built) encoder. Ships in
+// every build — release included — unlike `probe`.
+mod keep_awake;
+
 // S8 — the stream key, two sources, one Rust sink (build-sessions/encoder/S8.md).
 // Ships in EVERY build: real product surface, not a spike.
 mod stream_key;
@@ -29,14 +33,16 @@ pub fn run() {
         .manage(stream_key::StreamKeyState::default())
         .setup(|_app| Ok(()));
 
-    // NOTE: `invoke_handler` is called exactly ONCE below — it SETS the
-    // builder's handler rather than merging with a prior call, so the S0 probe
-    // commands and the S8 stream-key commands must be registered in the SAME
-    // `generate_handler!` call for debug builds, or the second call would
+    // NOTE: `invoke_handler` SETS the builder's handler rather than merging with a
+    // prior call, so every command a profile ships must be listed in that profile's
+    // SINGLE `generate_handler!` call — S8's stream-key commands, S10's keep-awake
+    // commands and (debug only) S0's probe commands together. A second call would
     // silently drop the first one's commands.
     #[cfg(debug_assertions)]
     let builder = builder
         .invoke_handler(tauri::generate_handler![
+            keep_awake::start_keep_awake,
+            keep_awake::stop_keep_awake,
             stream_key::stream_key_set_pasted,
             stream_key::stream_key_claim_hosted,
             stream_key::stream_key_forget,
@@ -47,6 +53,8 @@ pub fn run() {
 
     #[cfg(not(debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        keep_awake::start_keep_awake,
+        keep_awake::stop_keep_awake,
         stream_key::stream_key_set_pasted,
         stream_key::stream_key_claim_hosted,
         stream_key::stream_key_forget,

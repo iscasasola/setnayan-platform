@@ -169,7 +169,7 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
     !standing.measured
       ? { strong: 'We could not read your room just now.', rest: 'So we are not going to guess what your guests would see. Nothing has been lost.' }
       : standing.state === 'draft'
-        ? { strong: 'Only you can see this.', rest: 'Publish when the seats are settled — your guests will always open the latest version.' }
+        ? { strong: 'Only you can see this.', rest: 'Publish whenever you like — seats can change right up to and during the day, and your guests always open the latest version.' }
         : standing.state === 'after'
           ? { strong: 'Your day has passed.', rest: 'Your guests can still walk the room — it stays up until you take it down.' }
           : { strong: `Live${planRead.publishedAt ? ` since ${shortDate(planRead.publishedAt)}` : ''}.`, rest: 'Anyone with the address can walk your reception and find their seat in it.' };
@@ -267,7 +267,7 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
             );
           })}
         </ul>
-        <p className="mt-2 text-xs text-ink/50">↻ Change any of these and the room follows. Your guests always open the latest version — you never republish.</p>
+        <p className="mt-2 text-xs text-ink/50">↻ Change any of these — even on the day — and the room follows. Your guests open the latest version each time they come in; you never republish.</p>
       </section>
 
       {/* S5 · SET ONCE — only what lives nowhere else */}

@@ -19,5 +19,13 @@ enough tables — add one and the seats fill themselves."**
 - Guards extended: both branches of the rung, the row suffix, and the wiring
   (column selected, editor default, no literal).
 
-SPEC IMPACT: None — the rule was already the owner's (2026-07-08); the page now
-states it.
+- **And no *wait* step.** Owner, 2026-09-06: *"seating can always change in the
+  last minute and even during the event."* The first draft told a couple to hold
+  the room until the guest list settled — the opposite of the rule. Removed;
+  Publish's own copy now says seats can change right up to and during the day.
+  Measured, not promised: the guest walk fetches the scene per request, so a
+  change shows when a guest next opens the room, not mid-walk — the page says
+  "always opens the latest version", never "live". Pinned by the wiring guard.
+
+SPEC IMPACT: `DECISION_LOG.md` 2026-09-06 row — the finalize-gate call is closed
+(no gate, ever); the live-update reality is recorded.

@@ -154,3 +154,11 @@ events.papic_guest_spend_ceiling_on | ⏳ TEMPORARY — the control exists, in t
 
 # ── ADDED 2026-09-02 · phase 7a is schema, and this line expires with phase 7b ─
 
+# ── ADDED 2026-09-05 · GENERATED column, the writer is the source column ────
+# The detector looks for something that WRITES the column. A `GENERATED ALWAYS
+# AS (...) STORED` column can never have one — Postgres computes it from its
+# source expression on every insert/update and rejects any attempt to assign
+# it directly — so "no writer" is the guaranteed, permanent, correct state,
+# not an absence to be filled in later.
+moodboard_library_assets.is_event_linked | GENERATED ALWAYS AS (source_event_id IS NOT NULL) STORED (migration 20271204967268, MB22). The handle is `source_event_id`, not this column: it has a real writer in the event-linked import path (apps/web/app/vendor-dashboard/moodboard-library/actions.ts, MB11's upload flow), and Postgres recomputes `is_event_linked` from it automatically. Nothing should ever write this column directly — the database would refuse it.
+

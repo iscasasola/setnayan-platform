@@ -101,7 +101,9 @@ export function railToolsSignedIn(
       this change exists to fix.
     */
     let href: string;
-    if (eventId && a.addOnKey) {
+    if (eventId && a.eventHref) {
+      href = a.eventHref(eventId); // exactly one event, a free tool's own room
+    } else if (eventId && a.addOnKey) {
       href = addOnHref(a.addOnKey, eventId); // exactly one event
     } else if (count > 1) {
       href = '/dashboard'; // several — the board IS the picker; never guess

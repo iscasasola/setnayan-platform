@@ -40,6 +40,7 @@
  */
 
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
+import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
@@ -163,6 +164,52 @@ const VS = [
   ['A licence that can be pulled', 'Cleared to post anywhere'],
 ] as const;
 
+/*
+ * ─── THE FEATURE SPOTLIGHTS (2026-09-05) ─────────────────────────────────
+ * One idea · one picture · one sentence — the shape the owner approved for
+ * `/papic` and asked for on every Studio page (`_components/marketing/
+ * _spotlights.tsx`). Every sentence is traceable to copy already on this
+ * page, the product record, or the demo scenes' captions. Left out on
+ * purpose: scene 1 as a picture (its button carries a price, and this page
+ * quotes none), the "acoustic ballad" genre a scene shows (the page names no
+ * genre), the sibling Music Creator's "no licences" promise, and anything
+ * about how or by whom the song is composed — see the docblock at the top of
+ * this file. The stills are frames of the product's own demo scenes,
+ * captured by `scripts/capture-demo-stills.mjs`.
+ */
+const SPOTLIGHTS: readonly Spotlight[] = [
+  {
+    chip: 'Your story',
+    t: 'Written from the story you already told',
+    d: 'How you met, what changed, why it is this person — the same story your wedding page is built from, with nothing to write again. There is no blank page; we only ask a few short things the story does not carry, like what you call each other.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-0.jpg', alt: 'Pakanta — a song made only for the two of you' },
+  },
+  {
+    chip: 'Only yours',
+    t: 'A song nobody else can use',
+    d: 'Not a popular song ten other weddings used, and not lyrics that are almost about you — words from your own story, in the kind of music the two of you actually listen to.',
+    media: { kind: 'photo', src: '/demo/maria-jose/firstdance.webp', alt: 'A couple dancing under lights' },
+  },
+  {
+    chip: 'Yours to keep',
+    t: 'Finished music, delivered inside Setnayan',
+    d: 'After you order, it is written and produced, and you can watch its status on your own Pakanta page while it is being made. When it arrives it is yours to keep, with nothing to renew and nothing that expires.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-2.jpg', alt: 'Pakanta — your finished song, yours to keep' },
+  },
+  {
+    chip: 'Behind your videos',
+    t: 'The music behind every video from your day',
+    d: 'Instead of stock music, your song scores the videos Setnayan makes from your wedding and plays on your Event Hub — so the whole wedding sounds like you.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-3.jpg', alt: 'Pakanta — it scores every video from your day' },
+  },
+  {
+    chip: 'Cleared to share',
+    t: 'Post it anywhere, no takedown',
+    d: 'The song is cleared for sharing, so a video scored with it can go anywhere without a takedown or a licensing headache.',
+    media: { kind: 'photo', src: '/demo/maria-jose/toast.webp', alt: 'A toast, seen over the heads of the guests watching it' },
+  },
+];
+
 export default function PakantaLandingPage() {
   return (
     <DoorwayPage
@@ -185,6 +232,13 @@ export default function PakantaLandingPage() {
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}
-    />
+    >
+      <SpotlightSection
+        productName="Pakanta"
+        heading="From your story to your videos"
+        lede="Written from what you already told us, and yours to keep."
+        items={SPOTLIGHTS}
+      />
+    </DoorwayPage>
   );
 }

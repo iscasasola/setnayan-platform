@@ -62,8 +62,15 @@ test('the anchor: there are nine Studio apps and each names a page', () => {
     renders exactly like a paid one — see `studio-apps.ts`'s own note. If a
     future change makes "free" visible here, that is a new decision, not a
     detail.
+
+    🔄 NINE → TWELVE, 2026-09-05. Owner: *"Also add the other services.
+    Marketplace to search for vendors with compare, Guestlist, Seatplan"* —
+    and, asked where their rows live, chose new Studio rows over a separate
+    group. Three more free tools, each with a public description page (signed
+    out, or signed in with no event) that becomes the event's own control
+    centre inside one. Recorded in the corpus DECISION_LOG the same day.
   */
-  assert.equal(STUDIO_APPS.length, 9, 'the Studio group is nine rows');
+  assert.equal(STUDIO_APPS.length, 12, 'the Studio group is twelve rows');
   for (const a of STUDIO_APPS) {
     assert.ok(a.href.startsWith('/'), `${a.key}: href is not a path`);
     assert.ok(a.description.length > 80, `${a.key}: description is a stub`);

@@ -19,6 +19,7 @@
  */
 
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
+import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
 
 
@@ -162,6 +163,65 @@ const VS = [
 
 ] as const;
 
+/*
+ * ─── THE FEATURE SPOTLIGHTS (2026-09-05) ─────────────────────────────────
+ * One idea · one picture · one sentence — the shape the owner approved for
+ * `/papic` and asked for on every Studio page (`_components/marketing/
+ * _spotlights.tsx`). Every sentence is traceable to copy already on this
+ * page, the product record, or the demo scenes' captions. Left out on
+ * purpose: the demo's font names and "Vector studio" chrome (not a promise
+ * the page makes), and the retired LED wall.
+ *
+ * 🔴 SCENE 1'S STILL IS BANNED, AND THAT IS A CORRECTION. "Your initials,
+ * drawn live" was first illustrated with `animated-monogram-1.jpg` — and the
+ * frame reads **"One price for your wedding · ₱1,000"** with an "Upgrade"
+ * pill. This page's whole pricing rule is that it quotes NO price, because
+ * prices are admin-managed and move; a screenshot showing one is a price on an
+ * indexed page that nobody will remember to update. Dropping it from the COPY
+ * and then showing it in the PICTURE is the same claim by another route.
+ * 🔑 A PICTURE IS A CLAIM — look at the frame, do not trust the caption.
+ * `spotlights-are-real.test.ts` bans that file by name with the reason. The
+ * other three monogram stills were opened and carry no price or tier.
+ */
+const SPOTLIGHTS: readonly Spotlight[] = [
+  {
+    chip: 'Your initials',
+    t: 'A mark drawn from the two of you',
+    d: 'Tell Setnayan your initials and the feel you’re after — classic, modern, playful, grand — then nudge the look until it’s exactly right. Tap a letter to restyle; no design skills required.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/animated-monogram-0.jpg', alt: 'Logo Maker — design a mark that’s truly yours' },
+  },
+  {
+    chip: 'Alive',
+    t: 'Your initials, drawn live',
+    d: 'Not just an image. You get the still mark for print and small spaces, and a living version that draws itself in for screens, your Event Hub, and your videos.',
+    media: { kind: 'photo', src: '/demo/maria-jose/details.webp', alt: 'An invitation card with two gold rings resting on it, beside a bouquet of white roses' },
+  },
+  {
+    chip: 'Event Hub',
+    t: 'It opens your Event Hub',
+    d: 'Guests see it bloom in as the page loads — your mark, then your names and the date, right above the RSVP.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/animated-monogram-2.jpg', alt: 'Logo Maker — it opens your Event Hub' },
+  },
+  {
+    chip: 'Keepsakes',
+    t: 'The same mark on every keepsake',
+    d: 'Your mark sits at the heart of your QR and on your save-the-date, so nothing about your wedding wears a different look.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/animated-monogram-3.jpg', alt: 'Logo Maker — and every keepsake carries it' },
+  },
+  {
+    chip: 'At the reception',
+    t: 'It glows on the screen at the reception',
+    d: 'The same mark glows on the screen at the reception, marks your signage, and closes every Setnayan video you make for the day.',
+    media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A long reception table under strings of lights, candles lit' },
+  },
+  {
+    chip: 'Try it free',
+    t: 'Preview yours before you decide',
+    d: 'You can preview a monogram for your initials free, no sign-up, before you decide. The animated version that follows you across the whole wedding is the upgrade.',
+    media: { kind: 'photo', src: '/demo/maria-jose/hero.webp', alt: 'A couple on a hillside terrace at golden hour, a lake and volcano behind them' },
+  },
+];
+
 export default function LogoMakerLandingPage() {
   return (
     <DoorwayPage
@@ -175,6 +235,13 @@ export default function LogoMakerLandingPage() {
       faq={FAQ}
       closing={{ heading: 'Give your wedding its signature', body: 'Logo Maker lives inside your free Setnayan wedding — alongside your save-the-date, website, and videos. Start planning free, and add your animated monogram when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
-    />
+    >
+      <SpotlightSection
+        productName="Logo Maker"
+        heading="One mark, and everywhere it goes"
+        lede="Your initials, drawn once, carried across the whole day."
+        items={SPOTLIGHTS}
+      />
+    </DoorwayPage>
   );
 }

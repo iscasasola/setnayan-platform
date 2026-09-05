@@ -34,6 +34,7 @@
  */
 
 import { DoorwayPage, type DoorwayVersus } from '@/app/_components/marketing/_doorway';
+import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
 
 
@@ -180,6 +181,68 @@ const VS: readonly DoorwayVersus[] = [
   ['Generic, one-size-fits-all', 'Tuned to Filipino weddings, your fit'],
 ];
 
+/*
+ * ─── "24-HOUR SECRETARY" — THE FEATURE SPOTLIGHTS ───────────────────────
+ * Owner, 2026-09-05: sell it as *"having a 24 hour secretary to run your
+ * errands inside your event"*, in the one-idea · one-picture · one-sentence
+ * shape `/papic` already ships (`_components/marketing/_spotlights.tsx`).
+ *
+ * 🔒 EVERY SENTENCE IS TRACEABLE. Each block is a rewording of copy already on
+ * this page, this product's record in `studio-apps.ts`, its demo scenes'
+ * captions, or a capability in `setnayan-ai-value-copy.ts` (the in-app,
+ * "no fake doors" list) — nothing here is a new claim. Left out on purpose,
+ * so nobody adds them back: "chases quiet vendors / lines up quotes" (the
+ * value-copy file removed `chase` as never having reached a person); the
+ * "3 couples inquired" chip (a number nothing on this page hand-writes);
+ * "one calm weekly digest" (no message path behind it); "learns your taste"
+ * and "couples like you" (dormant, per the guardrail above); and any Mood
+ * Board / colour-recommendation line — there is no shipped link between
+ * Setnayan AI and the mood board's palette engine (`lib/palette-styles.ts`
+ * is deterministic and unrelated to this product).
+ *
+ * 📷 The stills are frames of this product's OWN demo scenes (the ones the
+ * Studio card plays), captured by `scripts/capture-demo-stills.mjs` — the
+ * real UI, not a drawing. The two photographs are our demo celebration.
+ */
+const SPOTLIGHTS: readonly Spotlight[] = [
+  {
+    chip: 'One brief',
+    t: 'Tell it about your wedding once',
+    d: 'Your style, your budget, your date, your guest count, where you’re celebrating. No forms to repeat, no questions asked twice.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-0.jpg', alt: 'Setnayan AI — stop guessing who to hire' },
+  },
+  {
+    chip: 'Ranked shortlist',
+    t: 'Your best vendors, sorted to the top',
+    d: 'It turns the whole vendor directory into a shortlist of verified vendors ranked by how well they fit your day — style, budget, availability and place. Your suggested team is picked by best fit, never cheapest first.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-1.jpg', alt: 'Setnayan AI — your best vendors, sorted to the top' },
+  },
+  {
+    chip: 'Your date',
+    t: 'Lock in the right team before it’s gone',
+    d: 'Your vendor list marks anyone another couple starts looking at for your date, so you can choose first. And when a vendor you’re considering gets booked — or frees up — you hear it from us, not from a reply three days later.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-2.jpg', alt: 'Setnayan AI — book the right team before it’s gone' },
+  },
+  {
+    chip: 'Deadlines',
+    t: 'It tells you the one next thing',
+    d: 'It watches every category’s booking window, and the paperwork a Philippine wedding actually needs — marriage license, Pre-Cana, PSA — then tells you the single most urgent thing to do next, instead of a to-do pile to stare at.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-3.jpg', alt: 'Setnayan AI — every decision, with deadlines that nudge you' },
+  },
+  {
+    chip: 'Your money',
+    t: 'It catches the slips that cost money',
+    d: 'A deposit coming due. A total creeping past your budget while there’s still room to trim. A vendor you’re watching who quietly changes their price — it keeps the figure you were quoted and checks it against what they charge now. Each one flagged before it costs you.',
+    media: { kind: 'photo', src: '/demo/maria-jose/vendor-catering.webp', alt: 'A catering buffet laid out on a white tablecloth at a reception' },
+  },
+  {
+    chip: 'Quiet weeks',
+    t: 'Most weeks, it stays quiet',
+    d: 'It speaks up only when something genuinely can’t wait — a deposit due, a price that moved, two things clashing on the day — while there’s still time to act calmly. No fake countdowns, no manufactured panic.',
+    media: { kind: 'photo', src: '/demo/maria-jose/ceremony.webp', alt: 'A couple kneeling at a candlelit church altar during their ceremony' },
+  },
+];
+
 export default function SetnayanAiLandingPage() {
   return (
     <DoorwayPage
@@ -202,6 +265,13 @@ export default function SetnayanAiLandingPage() {
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}
-    />
+    >
+      <SpotlightSection
+        productName="Setnayan AI"
+        heading="A 24-hour secretary, working inside your wedding."
+        lede="It doesn’t wait to be asked — it runs the errands for you, finding, tracking, and flagging, so the next thing on your plate is always the one that actually matters."
+        items={SPOTLIGHTS}
+      />
+    </DoorwayPage>
   );
 }

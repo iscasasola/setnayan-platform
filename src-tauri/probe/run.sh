@@ -48,9 +48,17 @@ log "BUILD_EXIT=$BUILD_EXIT elapsed=$(( $(date +%s) - S ))s"
 if [ "$BUILD_EXIT" -ne 0 ] || [ ! -x "$BIN" ]; then log "build failed or binary missing: $BIN"; exit 1; fi
 
 log "load-at-start: $(uptime | sed 's/.*load averages: //') · SETNAYAN_PROBE_TOP=${SETNAYAN_PROBE_TOP:-0} SETNAYAN_PROBE_ORIGIN=${SETNAYAN_PROBE_ORIGIN:-}"
-SETNAYAN_PROBE="$MODE" SETNAYAN_PROBE_MINUTES="$MINUTES" "$BIN" >> "$LOG" 2>&1 &
+# Launch a per-run COPY of the binary. macOS SIGKILLs a process whose executable is
+# replaced underneath it (code-signing page validation), and any `cargo tauri build
+# --debug` in this tree — another run, a compile check after editing the include_str!'d
+# probe script — replaces target/debug/setnayan-desktop. Measured 2026-09-05: three
+# control runs died 10–40 s in with no Rust output while a rebuild happened beside them.
+# The copy is removed when the run ends.
+RUNBIN="$BIN.run-$$"
+cp "$BIN" "$RUNBIN" || { log "could not copy $BIN to $RUNBIN"; exit 1; }
+SETNAYAN_PROBE="$MODE" SETNAYAN_PROBE_MINUTES="$MINUTES" "$RUNBIN" >> "$LOG" 2>&1 &
 APP_PID=$!
-log "app pid=$APP_PID bin=$BIN"
+log "app pid=$APP_PID bin=$RUNBIN (copy of $BIN)"
 
 pmset -g thermlog 2>&1 | while IFS= read -r line; do echo "[thermlog] $(date '+%H:%M:%S') $line"; done >> "$LOG" &
 THERM_PID=$!
@@ -63,20 +71,28 @@ sample() {
   } >> "$LOG"
 }
 
-last_size=0; silent=0
+# Silence = no new `[probe…]` line from the APP. It must NOT be the log's byte size:
+# sample() above appends to the same log every loop, so a size-based check could
+# never fire — measured 2026-09-05 as a hung control run that outlived its 300 s
+# budget by an hour (rule 0c: a check that cannot fail is not a check).
+last_probe_lines=0; silent=0
 while kill -0 "$APP_PID" 2>/dev/null; do
   sample
   if grep -q '"stage":"done"' "$LOG" || grep -q '"stage":"fatal"' "$LOG"; then
     log "page reported done/fatal — stopping app"
     break
   fi
-  size=$(wc -c < "$LOG")
-  if [ "$size" -eq "$last_size" ]; then silent=$((silent+10)); else silent=0; fi
-  last_size=$size
-  if [ "$silent" -ge 300 ]; then log "no output for 300 s — stopping app"; break; fi
+  probe_lines=$(grep -c '^\[probe' "$LOG")
+  if [ "$probe_lines" -eq "$last_probe_lines" ]; then silent=$((silent+10)); else silent=0; fi
+  last_probe_lines=$probe_lines
+  if [ "$silent" -ge 300 ]; then log "no [probe] output for 300 s — stopping app"; break; fi
   sleep 10
 done
 kill "$APP_PID" 2>/dev/null; kill "$THERM_PID" 2>/dev/null; pkill -P "$THERM_PID" 2>/dev/null
+# `pmset -g thermlog | while …` puts pmset in the pipeline, not under $THERM_PID —
+# five of them were still alive from earlier runs on 2026-09-05. Kill ours by name.
+pkill -f "pmset -g thermlog" 2>/dev/null
 wait "$APP_PID" 2>/dev/null
+rm -f "$RUNBIN"
 log "app exited; log=$LOG"
 echo "$LOG"

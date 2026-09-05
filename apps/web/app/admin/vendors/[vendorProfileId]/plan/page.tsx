@@ -206,6 +206,20 @@ export default async function AdminVendorPlanPage({
                 className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
               />
             </div>
+          </div>
+          <div className="mt-3">
+            <label htmlFor="reason" className="block text-xs font-medium text-ink/70 mb-1">
+              Reason <span className="text-ink/50">(logged, min. 10 characters)</span>
+            </label>
+            <input
+              type="text"
+              id="reason"
+              name="reason"
+              placeholder="e.g. Confirmed GCash payment off-platform, receipt on file"
+              className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="mt-3">
             <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
               Set tier
             </SubmitButton>

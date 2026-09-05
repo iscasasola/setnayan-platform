@@ -71,6 +71,7 @@ import {
   Tag,
   Tag as TagIcon,
   TestTube,
+  Ticket,
   TrendingUp,
   Trophy,
   UserX,
@@ -352,6 +353,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/founder-seats',
         icon: Crown,
         matchPrefix: '/admin/founder-seats',
+      },
+      {
+        // Gifts (2026-09-05) — every comp currently live, in one place: vendor
+        // tier comps (setVendorTier) and user/event comp_grants, with a
+        // search-and-grant flow for a single named target. `Ticket`, not
+        // `Gift` — that icon already means Referrals in the Studio group.
+        key: 'gifts',
+        label: 'Gifts',
+        href: '/admin/gifts',
+        icon: Ticket,
+        matchPrefix: '/admin/gifts',
       },
       {
         // Repointed to the Accounts Studio Events tab (slice 1). matchPrefix

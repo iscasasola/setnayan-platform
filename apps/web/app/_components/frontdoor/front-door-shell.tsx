@@ -1470,7 +1470,7 @@ export function FrontDoorShell({
                     <VendorAvatar
                       logoUrl={account.shopLogoUrl ?? null}
                       initials={deriveVendorInitials(account.shopName)}
-                      className="block h-[18px] w-[18px] rounded-[4px] text-[8px] font-semibold leading-[18px] text-center"
+                      className="block h-[18px] w-[18px] rounded-sm text-[8px] font-semibold leading-[18px] text-center"
                     />
                   </span>
                   <span className="fd-label-text">{account.shopName}</span>
@@ -1481,7 +1481,7 @@ export function FrontDoorShell({
               {account.isAdmin ? (
                 <Link href="/admin" {...rowProps('hq')}>
                   <span className="fd-gi" aria-hidden="true">
-                    <LogoMark size={18} className="rounded-[4px]" />
+                    <LogoMark size={18} className="rounded-sm" />
                   </span>
                   <span className="fd-label-text">Setnayan HQ</span>
                   <span className="fd-icon-caption">HQ</span>

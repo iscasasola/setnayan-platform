@@ -25,6 +25,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TAURI = join(HERE, '..', '..', '..', 'src-tauri');
@@ -48,10 +49,11 @@ test('build.rs widens the capabilities glob only when PROFILE=debug', () => {
   assert.match(build, /let debug = std::env::var\("PROFILE"\)\.map\(\|p\| p == "debug"\)/);
   const ifDebug = /if debug \{([\s\S]*?)\n\s*\}\n/.exec(build);
   assert.notEqual(ifDebug, null, 'no `if debug { … }` block in build.rs');
-  assert.match(ifDebug![1], /capabilities_path_pattern\("\.\/capabilities\*\/\*\*\/\*\.json"\)/, 'the widened glob must live inside the debug branch');
-  assert.match(ifDebug![1], /\.commands\(&\["probe_report", "probe_ipc"\]\)/, 'the command manifest must live inside the debug branch');
+  const debugBody = ifDebug![1] ?? '';
+  assert.match(debugBody, /capabilities_path_pattern\("\.\/capabilities\*\/\*\*\/\*\.json"\)/, 'the widened glob must live inside the debug branch');
+  assert.match(debugBody, /\.commands\(&\["probe_report", "probe_ipc"\]\)/, 'the command manifest must live inside the debug branch');
   // Comments may name the commands (build.rs documents the release `strings` check); code may not.
-  const outside = build.replace(ifDebug![0], '').replace(/^\s*\/\/.*$/gm, '');
+  const outside = stripComments(build.replace(ifDebug![0], ''));
   assert.doesNotMatch(outside, /capabilities\*|probe_report|probe_ipc/, 'probe commands / widened glob referenced outside the debug branch');
 });
 

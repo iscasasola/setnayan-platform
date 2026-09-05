@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import {
   PAPIC_FREE_GRANT_SOURCE,
+  PAPIC_REPEAT_EVENT_GRANT_POINTS,
   freePapicGrantRow,
   isAlreadyArmedError,
 } from './papic-free-grant';
@@ -28,7 +29,7 @@ test('the free-pool fallback is 50 points (owner-locked 2026-07-27)', () => {
 });
 
 test('the grant row is shaped for papic_event_point_grants', () => {
-  const row = freePapicGrantRow('evt-1', 50);
+  const row = freePapicGrantRow('evt-1', 50, true);
   assert.equal(row.event_id, 'evt-1');
   assert.equal(row.points, 50);
   // Must be one of the CHECK-constrained sources on the table, and must be the
@@ -42,8 +43,8 @@ test('the grant row carries the ADMIN value, not a baked-in default', () => {
   // The regression this locks: the first cut hardcoded 50, so an admin raising
   // papic_event_pool_config.free_grant_points would move the COPY while the
   // meter kept handing out 50.
-  assert.equal(freePapicGrantRow('evt-1', 90).points, 90);
-  assert.equal(freePapicGrantRow('evt-1', 250).points, 250);
+  assert.equal(freePapicGrantRow('evt-1', 90, true).points, 90);
+  assert.equal(freePapicGrantRow('evt-1', 250, true).points, 250);
 });
 
 test('DRIFT GUARD — the migration backfill matches the shared fallback', () => {
@@ -110,6 +111,26 @@ test('a non-positive or junk config value falls back, never mints a bad grant', 
 
 test('a fractional config value is truncated to a whole point', async () => {
   assert.equal(await fetchPapicFreeGrantPoints(stubClient({ data: { free_grant_points: 90.7 } })), 90);
+});
+
+// ── first-event-only (2026-09-04) ──────────────────────────────────────────
+
+test('PAPIC_REPEAT_EVENT_GRANT_POINTS stays positive — 0 would be invisible to papic_event_pool_status()', () => {
+  // papic_event_pool_status() (migration 20271185813837) fences on
+  // SUM(points) > 0, not on row existence. A 0-point row would be
+  // indistinguishable from no grant at all and revert the event to unmetered.
+  assert.ok(PAPIC_REPEAT_EVENT_GRANT_POINTS > 0);
+});
+
+test('a repeat-event grant row carries the minimum and its own copy', () => {
+  const row = freePapicGrantRow('evt-2', PAPIC_REPEAT_EVENT_GRANT_POINTS, false);
+  assert.equal(row.points, PAPIC_REPEAT_EVENT_GRANT_POINTS);
+  assert.match(row.note, /not this account's first event/);
+});
+
+test('a first-event grant row keeps the original first-event copy', () => {
+  const row = freePapicGrantRow('evt-1', 50, true);
+  assert.match(row.note, /armed at event creation/);
 });
 
 test('a 23505 unique violation means ALREADY ARMED, not a failure', () => {

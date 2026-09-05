@@ -1361,6 +1361,53 @@ export async function publishSeating(formData: FormData): Promise<{ published: n
   return { published: stamped?.length ?? 0 };
 }
 
+// Take the plan back down. The MISSING HALF of publishSeating, and the reason
+// it had to exist: `event_floor_plan.published_at IS NOT NULL` is the ONLY
+// condition `public_venue_scene` checks before it serves the room, the tables,
+// the booths and which seats are taken (20270224160000_public_venue_scene.sql —
+// a draft plan gets `{published:false}` and nothing else). Publishing stamped
+// it; NOTHING in the codebase had ever cleared it, so a couple who published
+// once could not make their reception private again. The only escape was
+// flipping the whole celebration to private, which also takes down their
+// landing page — a far bigger hammer than "not yet, actually".
+//
+// 🔑 THIS CLEARS THE PUBLIC GATE ONLY, AND DELIBERATELY LEAVES THE PRINT PACK
+// ALONE. `event_tables.qr_published_at` records that a table's sign sheet was
+// run off; those signs are already standing at the venue and their qr_tokens
+// are never re-rolled (publishSeating's own contract). Un-stamping them would
+// state something untrue — that the pack was never printed — to undo something
+// it has no bearing on. A guest scanning a printed sign still reaches their
+// seat; what stops is the public 3D walk.
+//
+// UPDATE, never upsert: no row means nothing was ever published, and writing
+// one to say "not published" is a row nobody asked for. RLS scopes the write to
+// the couple. Returns whether a published row was actually found, so the editor
+// can tell "taken down" from "it already wasn't up".
+export async function unpublishSeating(formData: FormData): Promise<{ wasPublished: boolean }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: cleared, error } = await supabase
+    .from('event_floor_plan')
+    .update({ published_at: null, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .not('published_at', 'is', null)
+    .select('event_id');
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  revalidatePath(`/dashboard/${eventId}/seating/print`);
+  return { wasPublished: (cleared?.length ?? 0) > 0 };
+}
+
 // Rename a table (the per-table popup's inline rename). Mirrors
 // updateTableRotation: a single guarded UPDATE under the couple's RLS.
 // `table_label` already exists — no schema change. Trim + 1–64 chars, matching

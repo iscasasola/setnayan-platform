@@ -64,3 +64,29 @@ its demo scene treat it as the paid upgrade — the new page claims only the fre
 
 SPEC IMPACT: DECISION_LOG row added (rail structure: three free tools promoted to Studio rows,
 2026-09-05). No spec iteration file changes.
+
+## 2026-09-05 · fix(db): the reserved-word list was a CREATE OR REPLACE collision
+
+Migration `20271206246873`. Two same-day migrations each REPLACED
+`business_slug_is_reserved` in full without knowing about the other — this branch's
+`20271205860548` (marketplace · guest-list · seat-plan) and main's `20271205904859`
+(web-only) — so whichever applied last silently deleted the other's words.
+
+**The two orderings fail differently, and production would have taken the worse one.** The
+PGlite replay applies in filename order, so `web-only` won and this branch's three vanished —
+that is what `vendor-business-slug-mint.db.test.ts` reported. But in production `…904859` is
+already applied, so `db push --include-all` would have applied `…860548` *after* it and
+**un-reserved `web-only`**, a word already protecting a live route: a shop could then have
+minted it and held that address forever.
+
+The superseding migration carries the union, its body read from production's own
+`pg_get_functiondef` after `…904859` had landed. The earlier files are neither edited nor
+deleted — migrations are append-only here.
+
+It also seeds the ₱500 monogram price. Repricing production directly was not enough:
+`llms-fixture-matches-the-catalog.db.test.ts` compares the fixture against the **replayed**
+catalogue, which is built from these files, so it still read ₱1,000. An admin-editable price
+is still seeded by a migration — change prod alone and the repo's own reality is a reprice
+behind.
+
+SPEC IMPACT: None — the ₱500 ruling is already logged; this is the mechanism catching up.

@@ -13,6 +13,12 @@
  * next.config.ts deliberately keeps facebook.com off `frame-src`, so it would
  * also be CSP-blocked and simply render a broken box at a wedding. This file
  * pins all three halves of that: the component, the whole app tree, and the CSP.
+ *
+ * W1 moved the plain-embed branch's `<a href>` + `<iframe>` out of this file
+ * into watch-live-embed.tsx (a client component — the poll that keeps them
+ * pointed at a broadcast that reconnected needs client state; the Roam-picker
+ * and Facebook-only branches here do not). The doors/iframe assertions below
+ * now read that file instead of this one.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,10 +32,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = join(HERE, '..', '..', '..');
 
 const BLOCK = readFileSync(join(HERE, 'watch-live-block.tsx'), 'utf8');
+const EMBED = readFileSync(join(HERE, 'watch-live-embed.tsx'), 'utf8');
 
 test('both doors are offered, and the YouTube one is untouched', () => {
-  assert.match(BLOCK, /Open on YouTube/, 'the existing YouTube link-out was removed');
+  assert.match(EMBED, /Open on YouTube/, 'the existing YouTube link-out was removed');
   assert.match(BLOCK, /Watch on Facebook/, 'there is no Facebook link-out');
+  assert.match(EMBED, /Watch on Facebook/, 'the plain-embed branch lost its Facebook link-out');
 });
 
 test('a Facebook-only event still renders something', () => {
@@ -42,16 +50,17 @@ test('a Facebook-only event still renders something', () => {
   );
 });
 
-test('the only iframe in the block is the YouTube embed', () => {
-  const iframes = BLOCK.match(/<iframe/g) ?? [];
-  assert.equal(iframes.length, 1, `expected exactly one iframe, found ${iframes.length}`);
+test('the only iframe in the feature is the YouTube embed, and it is client-polled', () => {
+  const iframes = (BLOCK.match(/<iframe/g) ?? []).length + (EMBED.match(/<iframe/g) ?? []).length;
+  assert.equal(iframes, 1, `expected exactly one iframe across both files, found ${iframes}`);
+  assert.doesNotMatch(BLOCK, /<iframe/, 'watch-live-block.tsx should delegate the embed, not render it');
   assert.match(
-    BLOCK,
-    /<iframe[\s\S]*?src=\{watchLive\.embedUrl\}/,
-    'the iframe src is not watchLive.embedUrl — only the validated YouTube embed may be framed',
+    EMBED,
+    /<iframe[\s\S]*?src=\{embedUrl\}/,
+    'the iframe src is not the polled embedUrl state — a reconnect could not update it',
   );
   assert.doesNotMatch(
-    BLOCK,
+    EMBED,
     /src=\{[^}]*facebook/i,
     'a Facebook value reached an iframe src',
   );

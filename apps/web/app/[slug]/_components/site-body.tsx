@@ -946,7 +946,7 @@ export async function SiteBody({
                 couple's links resolve, so no dayOfPhase gate is needed here. */}
             {plan.liveMediaVisible && watchLive ? (
               <section className="mt-10">
-                <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} />
+                <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} />
               </section>
             ) : null}
 
@@ -1333,7 +1333,7 @@ export async function SiteBody({
                   Spec §7.5: remote guests first. Follows the broadcast, not the
                   calendar (owner-ruled 2026-09-02) — `watchLive` is only ever set
                   when the couple's links resolve, so no `isLive` gate here. */}
-              {watchLive ? <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} /> : null}
+              {watchLive ? <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} /> : null}
 
               {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
                   promotion used to wrap the whole widget in an app-green box.

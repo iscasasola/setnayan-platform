@@ -1,5 +1,6 @@
 import type { WatchLiveData } from '../_lib/types';
 import { RoamWatchPicker } from './roam-watch-picker';
+import { WatchLiveEmbed } from './watch-live-embed';
 
 /**
  * Panood Watch-Live — the broadcast embedded on the day-of page (spec §7.5:
@@ -22,9 +23,16 @@ import { RoamWatchPicker } from './roam-watch-picker';
  */
 export function WatchLiveBlock({
   watchLive,
+  slug,
   occasion = 'celebration',
 }: {
   watchLive: WatchLiveData;
+  /**
+   * The event's public slug — the only thing the CAST embed's client-side
+   * poll (watch-live-embed.tsx) needs to call GET /api/live/[slug]/watch.
+   * Unused by the Roam-picker and Facebook-only branches below.
+   */
+  slug: string;
   /** EventWords.occasion — 'celebration' (default) or the funeral's 'gathering'.
    *  Reaches only assistive text (aria-labels, the iframe title). */
   occasion?: string;
@@ -62,66 +70,13 @@ export function WatchLiveBlock({
   }
 
   return (
-    <section
-      aria-label={`Watch the ${occasion} live`}
-      className="overflow-hidden rounded-2xl border-2 border-terracotta/40 bg-ink shadow-sm"
-    >
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-        <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
-          Watch live
-        </p>
-        <span className="flex items-center gap-3">
-          {watchLive.watchUrl ? (
-            <a
-              href={watchLive.watchUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-cream/65 underline-offset-4 hover:text-cream hover:underline"
-            >
-              Open on YouTube
-            </a>
-          ) : null}
-          {facebookUrl ? (
-            <a
-              href={facebookUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-cream/65 underline-offset-4 hover:text-cream hover:underline"
-            >
-              Watch on Facebook
-            </a>
-          ) : null}
-        </span>
-      </div>
-      <div className="aspect-video w-full">
-        <iframe
-          title={`Live broadcast of the ${occasion}`}
-          src={watchLive.embedUrl}
-          className="h-full w-full border-0"
-          allow="autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-      {/* NOTHING HERE KNOWS WHETHER A STREAM IS RUNNING (2026-08-05).
-          The pulsing dot above and this whole block appear because the couple
-          SAVED A LINK and the event is inside its day-of window — which is now
-          noon the day before to noon the day after. The broadcast itself might
-          be three hours of that. So the relative in Dubai who opens the page at
-          8 AM sees a live badge and a player that says "video unavailable", and
-          has no way to tell a stream that has not started from one that broke.
-          One true sentence, said before they need it.
-
-          The real fix is the couple (or their coordinator) flipping the
-          broadcast on — the same shape as the host's Papic switch, owner-ruled
-          2026-08-03. It needs a column and a control, and it is the next slice.
-          Detecting it from YouTube is not an option: the Google account is
-          suspended (appeal 73857927), so there is no API to ask. */}
-      <p className="bg-ink px-4 pb-3 pt-1 text-xs leading-relaxed text-cream/60">
-        If the ceremony hasn&rsquo;t started, the player above will say the video
-        is unavailable. Nothing is wrong — check back a little later.
-      </p>
-    </section>
+    <WatchLiveEmbed
+      slug={slug}
+      initialWatchUrl={watchLive.watchUrl}
+      initialEmbedUrl={watchLive.embedUrl}
+      facebookUrl={facebookUrl}
+      occasion={occasion}
+    />
   );
 }
 

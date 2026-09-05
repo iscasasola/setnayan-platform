@@ -16,6 +16,8 @@ MODE="${1:?mode: matrix|ipc|encode}"
 MINUTES="${2:-60}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="${3:-$HERE/probe/s0-$MODE-$(date +%Y%m%d-%H%M%S).log}"
+case "$LOG" in /*) ;; *) LOG="$PWD/$LOG" ;; esac   # the script cd's into src-tauri below
+mkdir -p "$(dirname "$LOG")"
 BIN="$HERE/target/debug/setnayan-desktop"
 
 log() { echo "[runner] $(date '+%Y-%m-%dT%H:%M:%S%z') $*" | tee -a "$LOG"; }
@@ -31,11 +33,21 @@ log() { echo "[runner] $(date '+%Y-%m-%dT%H:%M:%S%z') $*" | tee -a "$LOG"; }
 
 cd "$HERE" || exit 1
 S=$(date +%s)
-cargo tauri build --debug --no-bundle >> "$LOG" 2>&1
+# SETNAYAN_PROBE_SHELL=local: build with probe/local-shell as frontendDist so the
+# webview STAYS on tauri://localhost (no redirect to setnayan.com) — the weaker
+# control origin; run.sh then also sets SETNAYAN_PROBE_ORIGIN=any for the launch.
+BUILD_ARGS=(--debug --no-bundle)
+if [ "${SETNAYAN_PROBE_SHELL:-}" = "local" ]; then
+  BUILD_ARGS+=(--config '{"build":{"frontendDist":"./probe/local-shell"}}')
+  export SETNAYAN_PROBE_ORIGIN=any
+  log "CONTROL RUN on tauri://localhost (SETNAYAN_PROBE_SHELL=local) — weaker origin, not the finding's primary result"
+fi
+cargo tauri build "${BUILD_ARGS[@]}" >> "$LOG" 2>&1
 BUILD_EXIT=$?
 log "BUILD_EXIT=$BUILD_EXIT elapsed=$(( $(date +%s) - S ))s"
 if [ "$BUILD_EXIT" -ne 0 ] || [ ! -x "$BIN" ]; then log "build failed or binary missing: $BIN"; exit 1; fi
 
+log "load-at-start: $(uptime | sed 's/.*load averages: //') · SETNAYAN_PROBE_TOP=${SETNAYAN_PROBE_TOP:-0} SETNAYAN_PROBE_ORIGIN=${SETNAYAN_PROBE_ORIGIN:-}"
 SETNAYAN_PROBE="$MODE" SETNAYAN_PROBE_MINUTES="$MINUTES" "$BIN" >> "$LOG" 2>&1 &
 APP_PID=$!
 log "app pid=$APP_PID bin=$BIN"

@@ -19,6 +19,8 @@
 
   const MODE = String(window.__SETNAYAN_PROBE_MODE__ || 'matrix');
   const ENCODE_MINUTES = Number(window.__SETNAYAN_PROBE_MINUTES__ || 60);
+  const SETTLE_S = Number(window.__SETNAYAN_PROBE_SETTLE_S__ || 0);
+  const LOOPBACK_PORT = window.__SETNAYAN_PROBE_LOOPBACK_PORT__ || null;
   const tauri = window.__TAURI__;
   const invoke = tauri && tauri.core && tauri.core.invoke;
   const t0 = performance.now();
@@ -42,7 +44,59 @@
     return;
   }
 
+  // --- transport diagnostics, BEFORE the first invoke ---
+  // Tauri's ipc-protocol.js surfaces the reason for a custom-protocol failure only
+  // through console.warn, so capture it; and try the ipc:// URL directly with and
+  // without the headers Tauri sends, with a CSP-violation listener already armed,
+  // so a failure is attributable (CSP vs. network/mixed-content vs. CORS).
+  const tauriWarnings = [];
+  const cspViolations = [];
+  document.addEventListener('securitypolicyviolation', (e) => {
+    cspViolations.push({ blockedURI: e.blockedURI, directive: e.effectiveDirective, disposition: e.disposition });
+  });
+  const originalWarn = console.warn.bind(console);
+  console.warn = function (...args) {
+    try {
+      if (String(args[0]).indexOf('IPC custom protocol failed') === 0) {
+        tauriWarnings.push(args.map((a) => (a && a.stack) ? String(a) + ' @ ' + a.stack.split('\n')[0] : String(a)).join(' | '));
+      }
+    } catch (_) {}
+    return originalWarn(...args);
+  };
+  const ipcUrl = window.__TAURI_INTERNALS__.convertFileSrc('probe_report', 'ipc');
+  async function diagFetch(label, init) {
+    try {
+      const r = await fetch(ipcUrl, init);
+      const text = await r.text().catch(() => '');
+      return { label, ok: r.ok, status: r.status, type: r.type, tauriResponse: r.headers.get('Tauri-Response'), body: text.slice(0, 120) };
+    } catch (e) {
+      return { label, error: String(e) };
+    }
+  }
+  const diag = [];
+  diag.push(await diagFetch('POST no custom headers (no preflight)', { method: 'POST', body: '{}' }));
+  diag.push(await diagFetch('POST with Tauri headers (preflight)', {
+    method: 'POST', body: '{}',
+    headers: { 'Content-Type': 'application/json', 'Tauri-Callback': '1', 'Tauri-Error': '2', 'Tauri-Invoke-Key': 'bogus' },
+  }));
+  diag.push(await diagFetch('POST mode=no-cors', { method: 'POST', body: '{}', mode: 'no-cors' }));
+  diag.push(await diagFetch('GET', { method: 'GET' }));
+  let xhrResult;
+  try {
+    xhrResult = await new Promise((resolve) => {
+      const x = new XMLHttpRequest();
+      x.open('POST', ipcUrl);
+      x.onload = () => resolve({ status: x.status, body: String(x.responseText).slice(0, 120) });
+      x.onerror = () => resolve({ error: 'xhr onerror', status: x.status });
+      x.send('{}');
+    });
+  } catch (e) { xhrResult = { error: String(e) }; }
+
   await log('start', {
+    ipcUrl,
+    directFetch: diag,
+    xhr: xhrResult,
+    cspViolationsBeforeFirstInvoke: cspViolations.slice(),
     mode: MODE,
     href: location.href,
     origin: location.origin,
@@ -51,6 +105,21 @@
     hardwareConcurrency: navigator.hardwareConcurrency,
     devicePixelRatio: window.devicePixelRatio,
   });
+  await log('first-invoke-transport', {
+    tauriFallbackWarnings: tauriWarnings.slice(),
+    cspViolationsSoFar: cspViolations.length,
+  });
+
+  // Measured 2026-09-05: /login hard-redirects to /dashboard ~17 s after load when a
+  // session exists, unloading the document and killing whatever the probe was
+  // measuring. The Rust side re-evaluates on the next page load, so the FIRST
+  // instance must not start a long measurement before the page has settled.
+  window.addEventListener('pagehide', () => { log('pagehide', { href: location.href }); });
+  if (SETTLE_S > 0 && MODE !== 'matrix') {
+    await log('settling', { seconds: SETTLE_S, href: location.href });
+    await sleep(SETTLE_S * 1000);
+    await log('settled', { href: location.href });
+  }
 
   // ------------------------------------------------------------------ Q1 matrix
   const VIDEO_720 = {
@@ -235,6 +304,50 @@
     });
   }
 
+  // Third arm: raw POST bodies to the debug-only loopback listener on 127.0.0.1.
+  async function loopbackRun(label, seconds, rate) {
+    if (!LOOPBACK_PORT) { await log('loopback-' + label, { skipped: 'no loopback port' }); return; }
+    const url = 'http://127.0.0.1:' + LOOPBACK_PORT + '/probe';
+    const payload = new Uint8Array(10_240);
+    for (let i = 0; i < payload.length; i++) payload[i] = i & 255;
+    const interval = 1000 / rate;
+    const latencies = [];
+    const kinds = {};
+    let sent = 0, errors = 0, inflight = 0, inflightMax = 0;
+    const pending = [];
+    const start = performance.now();
+    const end = start + seconds * 1000;
+    while (performance.now() < end) {
+      const due = start + sent * interval;
+      const now = performance.now();
+      if (now < due) await sleep(due - now);
+      sent++;
+      const s = performance.now();
+      inflight++;
+      inflightMax = Math.max(inflightMax, inflight);
+      pending.push(
+        fetch(url, { method: 'POST', body: payload, headers: { 'Content-Type': 'application/octet-stream' } })
+          .then((r) => r.text().then((t) => (r.ok ? t : 'http:' + r.status)))
+          .then(
+            (r) => { latencies.push(performance.now() - s); kinds[r] = (kinds[r] || 0) + 1; },
+            (e) => { errors++; const k = 'error:' + String(e).slice(0, 120); kinds[k] = (kinds[k] || 0) + 1; }
+          )
+          .finally(() => { inflight--; })
+      );
+    }
+    await Promise.all(pending);
+    const elapsedMs = performance.now() - start;
+    latencies.sort((a, b) => a - b);
+    const q = (p) => (latencies.length ? +latencies[Math.min(latencies.length - 1, Math.floor(p * latencies.length))].toFixed(3) : null);
+    const mean = latencies.length ? +(latencies.reduce((a, b) => a + b, 0) / latencies.length).toFixed(3) : null;
+    return log('loopback-' + label, {
+      url, payloadBytes: payload.length, targetRate: rate, seconds, sent, completed: latencies.length, errors,
+      achievedRate: +(sent / (elapsedMs / 1000)).toFixed(2), kinds,
+      latencyMs: { mean, p50: q(0.5), p95: q(0.95), p99: q(0.99), max: q(1) },
+      inflightMax, elapsedMs: Math.round(elapsedMs),
+    });
+  }
+
   async function ipc() {
     // Baseline: what CSP does the live page ship, and does the IPC URL resolve?
     const metas = Array.from(document.querySelectorAll('meta[http-equiv]')).map((m) => ({
@@ -245,6 +358,7 @@
       existingMetaCsp: metas,
     });
     await ipcRun('raw-60s', 60, 30);
+    await loopbackRun('raw-60s', 60, 30);
 
     // Forced CSP: a policy whose connect-src has NO ipc: / http://ipc.localhost.
     // Every fetch to ipc://localhost is then a CSP violation; Tauri's
@@ -278,6 +392,10 @@
     await sleep(100);
     await log('ipc-csp-direct-fetch', { directFetch, violations: violations.slice(0, 3), violationCount: violations.length });
     await ipcRun('after-csp-10s', 10, 30);
+    // The forced CSP above ("connect-src 'self' https: wss:") also excludes
+    // http://127.0.0.1 — so this arm must now FAIL, proving the loopback path is
+    // CSP-governed like any other connect-src target (S5 must allow-list it).
+    await loopbackRun('after-csp-10s', 10, 30);
     await log('ipc-csp-violations', { violationCount: violations.length, first: violations[0] || null });
   }
 

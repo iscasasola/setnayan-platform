@@ -29,6 +29,12 @@ planning + guests + real-world supplier bookings only.
 - `app/(shell)/web-only/page.tsx`: "not in the app" — deliberately names no
   website, price or purchase (the #2180 no-steering posture).
 - `lib/request-platform.ts`: `isStoreShellRequest()` server wrapper.
+- Migration `20271205904859`: `web-only` added to
+  `public.business_slug_is_reserved` — a new top-level route is a word the
+  shop-address mint could otherwise hand out, permanently. Body copied from
+  prod's `pg_get_functiondef` (2026-09-05), diffed, one entry added; verified
+  no shop/event/person holds the word. This was the ONLY CI failure on the
+  first push (`vendor-business-slug-mint.db.test.ts`), exactly as designed.
 - **Web / PWA / desktop: byte-identical.**
 - Free planning tools that merely EMBED the inert drawer (Save the Date, Indoor
   Blueprint, Seating, Mood Board, the supplier workspace) stay open. Residual

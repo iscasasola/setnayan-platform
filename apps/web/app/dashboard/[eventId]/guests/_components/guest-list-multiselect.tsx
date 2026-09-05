@@ -923,8 +923,10 @@ export function GuestListMultiselect({
                         selected={selectedSet.has(guest.guest_id)}
                         onToggle={() => guestSelection.toggle(guest.guest_id)}
                         groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groups={groups}
                         groupsById={groupsById}
                         currentGroupId={currentGroupId}
+                        bulkRoleSections={bulkRoleSections}
                         seat={seatByGuest[guest.guest_id]}
                       />
                     ),
@@ -1368,8 +1370,10 @@ function GuestCard({
   selected,
   onToggle,
   groupIds,
+  groups,
   groupsById,
   currentGroupId,
+  bulkRoleSections,
   seat,
 }: {
   guest: GuestRow;
@@ -1380,8 +1384,13 @@ function GuestCard({
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
+  /** The event's groups — AddToGroupControl's picker (mobile parity 2026-09-05). */
+  groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  /** Grouped role options for RoleChipEditor — the SAME sections the desktop
+   *  row and the bulk bar use, so a phone offers no different set of roles. */
+  bulkRoleSections: RoleSection[];
   // Reactive seat (Living Roster P4 · mobile parity) — same placed/suggested
   // contract the desktop row gets. Undefined when no seat data reached this card.
   seat?: { placed: string | null; suggested: string | null };
@@ -1427,8 +1436,14 @@ function GuestCard({
       <div className="pointer-events-none relative z-10">
         <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink/[0.04]">
           <GuestPhoto guest={guest} displayUrl={displayUrl} />
-          <span className="absolute right-2 top-2">
-            <SidePill side={guest.side} />
+          {/* Side is EDITABLE here (mobile parity 2026-09-05) — it was a bare
+              <SidePill> while the desktop row's identical pill opened a picker,
+              so the same chip did nothing on a phone. pointer-events-auto lifts
+              it above the card's stretched detail link. */}
+          <span className="pointer-events-auto absolute right-2 top-2">
+            <SideChipEditor eventId={eventId} guest={guest}>
+              <SidePill side={guest.side} />
+            </SideChipEditor>
           </span>
         </div>
         <div className="space-y-1.5 p-2.5">
@@ -1442,11 +1457,19 @@ function GuestCard({
               </p>
             ) : null}
           </div>
-          {/* Role stays read-only here; RSVP is a one-tap cycle (P4) and the
-              seat chip mirrors the desktop row. pointer-events-auto so the RSVP
-              button sits above the card's stretched detail link. */}
+          {/* Role is EDITABLE here too (mobile parity 2026-09-05); RSVP is a
+              one-tap cycle (P4) and the seat chip mirrors the desktop row.
+              pointer-events-auto so these buttons sit above the card's
+              stretched detail link. RoleChipEditor keeps its own bride/groom
+              lock — the phone offers exactly what the desktop row offers. */}
           <div className="pointer-events-auto flex flex-wrap items-center gap-1">
-            <RoleChips guest={guest} palette={palette} />
+            <RoleChipEditor
+              eventId={eventId}
+              guest={guest}
+              roleSections={bulkRoleSections}
+            >
+              <RoleChips guest={guest} palette={palette} />
+            </RoleChipEditor>
             <RsvpChipEditor
               eventId={eventId}
               guest={guest}
@@ -1463,8 +1486,12 @@ function GuestCard({
             />
           </div>
           {/* GroupChipList can render a remove-from-group <form>; give it back
-              pointer events so that button works above the stretched link. */}
-          <div className="pointer-events-auto">
+              pointer events so that button works above the stretched link.
+              AddToGroupControl is the other half (mobile parity 2026-09-05):
+              without it a phone could take a guest OUT of a group and never put
+              one back — the only one of these gaps that loses an association
+              rather than merely blocking an edit. */}
+          <div className="pointer-events-auto flex items-center gap-1.5">
             <GroupChipList
               eventId={eventId}
               guestId={guest.guest_id}
@@ -1472,6 +1499,12 @@ function GuestCard({
               groupsById={groupsById}
               currentGroupId={currentGroupId}
               compact
+            />
+            <AddToGroupControl
+              eventId={eventId}
+              guest={guest}
+              groups={groups}
+              memberGroupIds={groupIds}
             />
           </div>
         </div>
@@ -1492,8 +1525,10 @@ function MobileGridItem({
   selected,
   onToggle,
   groupIds,
+  groups,
   groupsById,
   currentGroupId,
+  bulkRoleSections,
   seat,
 }: {
   guest: GuestRow;
@@ -1504,8 +1539,10 @@ function MobileGridItem({
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
+  groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
   seat?: { placed: string | null; suggested: string | null };
 }) {
   const card = (
@@ -1518,8 +1555,10 @@ function MobileGridItem({
       selected={selected}
       onToggle={onToggle}
       groupIds={groupIds}
+      groups={groups}
       groupsById={groupsById}
       currentGroupId={currentGroupId}
+      bulkRoleSections={bulkRoleSections}
       seat={seat}
     />
   );

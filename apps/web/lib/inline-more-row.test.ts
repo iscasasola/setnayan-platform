@@ -70,6 +70,23 @@ test('excludeBenchVendors ignores off-platform picks with no profile id', () => 
   assert.equal(excludeBenchVendors(rows, [null, undefined, '']).length, 2);
 });
 
+test('a vendor saved in this session stays put, so its Undo stays reachable', () => {
+  const rows = [V('p1'), V('p2')];
+  // p2 was just saved from row 2 and a refresh has since put it in row 1.
+  assert.deepEqual(
+    excludeBenchVendors(rows, ['p2'], ['p2']).map((r) => r.vendorProfileId),
+    ['p1', 'p2'],
+  );
+});
+
+test('keeping a session save does not resurrect an unrelated row-1 pick', () => {
+  const rows = [V('p1'), V('p2')];
+  assert.deepEqual(
+    excludeBenchVendors(rows, ['p1', 'p2'], ['p2']).map((r) => r.vendorProfileId),
+    ['p2'],
+  );
+});
+
 test('excludeBenchVendors preserves the owner-locked result order', () => {
   const rows = [V('boosted'), V('reviewed'), V('nearest')];
   assert.deepEqual(

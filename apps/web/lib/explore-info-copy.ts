@@ -354,3 +354,12 @@ export function inlineMoreSunkNote(count: number): string {
     ? '1 of these shares no free day with your build — same rule as the row above.'
     : `${count} of these share no free day with your build — same rule as the row above.`;
 }
+
+/* Row 2's failures. Each one names a DIFFERENT fact, because "nothing here" and
+   "we could not look" must never wear the same words on a surface whose whole
+   job is to show the couple more vendors. */
+export const INLINE_MORE_FAILED = "We couldn't load more vendors just now. Try again in a moment.";
+export const INLINE_MORE_SAVE_FAILED = "We couldn't save that vendor. Nothing was added.";
+export const INLINE_MORE_UNDO_FAILED = "We couldn't undo that. Check the row above.";
+export const INLINE_MORE_INQUIRE_FAILED = "We couldn't open the conversation. They're saved to your shortlist.";
+export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save vendors.';

@@ -75,13 +75,21 @@ export function toggleInlineMoreTile(open: string | null, tile: string): string 
  * result under Styling, and the shipped sheet shows it as "✓ Added" rather than
  * hiding it. What must never happen is the same card appearing twice, one row
  * above the other.
+ *
+ * 🔑 `keepProfileIds` is the exception that makes UNDO possible. A save from
+ * row 2 lands in row 1 a refresh later, and the naive rule above would then
+ * delete the very card carrying the "Undo" — the couple would watch their
+ * mis-tap disappear beyond reach. So a vendor saved in THIS row's session stays
+ * put, wearing its confirmation, until the row is closed or re-searched.
  */
 export function excludeBenchVendors<T extends InlineMoreVendor>(
   rows: readonly T[],
   benchProfileIds: Iterable<string | null | undefined>,
+  keepProfileIds: Iterable<string> = [],
 ): T[] {
   const taken = new Set<string>();
   for (const id of benchProfileIds) if (id) taken.add(id);
+  for (const id of keepProfileIds) taken.delete(id);
   return rows.filter((r) => !taken.has(r.vendorProfileId));
 }
 

@@ -72,13 +72,13 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // ── what the room is dressed with ──
   backdrop: ['stylist_decorator', 'led_wall'],
   tunnel: ['stylist_decorator'],
-  stage: ['stylist_decorator', 'av_production'],
+  stage: ['stylist_decorator', 'av_production', 'lights_sound'],
   table: ['stylist_decorator', 'florist'],
   ceiling: ['stylist_decorator', 'lights_sound'],
   flowers: ['florist', 'stylist_decorator'],
   cocktail: ['mobile_bar', 'mocktail', 'coffee_espresso'],
   cake: ['cake', 'dessert'],
-  overall: ['reception', 'stylist_decorator', 'lights_sound'],
+  overall: ['reception', 'stylist_decorator', 'lights_sound', 'coordinator'],
   // 🔑 NOT A TRADE. A palette source is a photo the couple sampled colours
   // from — a wall, a fabric, a sunset. No shop's portfolio answers it.
   palette: [],

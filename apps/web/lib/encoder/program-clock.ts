@@ -19,8 +19,13 @@
  * slots as a burst of same-instant ticks: S4 pulls one encode per tick, and three composites
  * stamped on the same millisecond are duplicates, not catch-up.
  * Gap-accounted: `maxGapTicks` records the worst distance between two consecutive ticks in
- * whole intervals — the number the evidence run prints (no gap > 2 ticks).
+ * whole intervals and `maxGapAtMs` when it happened; `longGaps` COUNTS every inter-tick gap
+ * wider than two intervals — the evidence run's number ("no gaps > 2 ticks" is longGaps = 0
+ * outside warm-up), which a running maximum alone cannot give.
  */
+
+/** An inter-tick gap wider than this many intervals counts as a long gap. */
+export const LONG_GAP_TICKS = 2;
 
 export const PROGRAM_TICK_MS = 1000 / 30;
 
@@ -33,8 +38,8 @@ export type ProgramClockDeps = {
 export type ProgramClock = {
   start(): void;
   stop(): void;
-  /** Ticks fired so far, plus the worst inter-tick gap measured in whole intervals. */
-  stats(): { ticks: number; maxGapTicks: number; maxGapMs: number };
+  /** Ticks fired so far, the worst inter-tick gap (in intervals, and when), and how many gaps exceeded LONG_GAP_TICKS. */
+  stats(): { ticks: number; maxGapTicks: number; maxGapMs: number; maxGapAtMs: number; longGaps: number };
 };
 
 export function createProgramClock(
@@ -50,6 +55,8 @@ export function createProgramClock(
   let ticks = 0;
   let lastTickAt: number | null = null;
   let maxGapMs = 0;
+  let maxGapAtMs = 0;
+  let longGaps = 0;
 
   function armNext(): void {
     if (!running) return;
@@ -64,7 +71,14 @@ export function createProgramClock(
   function fire(): void {
     if (!running) return;
     const at = deps.now();
-    if (lastTickAt !== null) maxGapMs = Math.max(maxGapMs, at - lastTickAt);
+    if (lastTickAt !== null) {
+      const gap = at - lastTickAt;
+      if (gap > maxGapMs) {
+        maxGapMs = gap;
+        maxGapAtMs = at - origin;
+      }
+      if (gap > LONG_GAP_TICKS * intervalMs) longGaps += 1;
+    }
     lastTickAt = at;
     ticks += 1;
     try {
@@ -84,6 +98,8 @@ export function createProgramClock(
       ticks = 0;
       lastTickAt = null;
       maxGapMs = 0;
+      maxGapAtMs = 0;
+      longGaps = 0;
       armNext();
     },
     stop() {
@@ -92,7 +108,7 @@ export function createProgramClock(
       handle = null;
     },
     stats() {
-      return { ticks, maxGapTicks: maxGapMs / intervalMs, maxGapMs };
+      return { ticks, maxGapTicks: maxGapMs / intervalMs, maxGapMs, maxGapAtMs, longGaps };
     },
   };
 }

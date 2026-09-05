@@ -62,6 +62,7 @@ test('ticks at 33.3 ms — 30 ticks in one second, gap never above one tick when
   const s = clock.stats();
   assert.equal(s.ticks, 30);
   assert.ok(s.maxGapTicks <= 1.0001, `maxGapTicks ${s.maxGapTicks}`);
+  assert.equal(s.longGaps, 0);
   assert.equal(PROGRAM_TICK_MS, 1000 / 30);
 });
 
@@ -73,8 +74,10 @@ test('a late callback is measured as a gap; the next tick re-anchors to the GRID
   t.advance(PROGRAM_TICK_MS * 3); // 3 on-time ticks: slots 1, 2, 3
   t.fireNextLate(90); // the 4th (slot 4, nominal 133 ms) fires at 223 ms
   assert.equal(firedAt.length, 4);
-  const gap = clock.stats().maxGapTicks;
+  const { maxGapTicks: gap, longGaps, maxGapAtMs } = clock.stats();
   assert.ok(gap > 3.6 && gap < 3.8, `gap should be ~3.7 ticks, got ${gap}`);
+  assert.equal(longGaps, 1, 'one gap wider than two ticks');
+  assert.ok(Math.abs(maxGapAtMs - (4 * PROGRAM_TICK_MS + 90)) < 1e-6, `worst gap ended at ${maxGapAtMs}`);
   // Slots 5 and 6 (167, 200 ms) went by while the worker was busy. They are SKIPPED, not
   // replayed: nothing fires at 223 ms itself…
   t.advance(0);
@@ -88,6 +91,7 @@ test('a late callback is measured as a gap; the next tick re-anchors to the GRID
   t.advance(PROGRAM_TICK_MS);
   assert.equal(firedAt.length, 6);
   assert.ok(Math.abs((firedAt[5] ?? 0) - 8 * PROGRAM_TICK_MS) < 1e-6, `6th at ${firedAt[5]}`);
+  assert.equal(clock.stats().longGaps, 1, 'the recovery ticks are on-grid, not further long gaps');
 });
 
 test('stop cancels the pending timer and no further ticks fire; start after stop re-arms', () => {

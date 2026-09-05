@@ -271,7 +271,7 @@ test('onFrameCount fans out the worker\'s stats; onError its errors; stop unsubs
   canvas.onError((where) => errors.push(where));
   canvas.start();
   w.emit({ type: 'ready' });
-  w.emit({ type: 'stats', stats: { frameCount: 30, repeatedCount: 1, maxGapTicks: 1, maxGapMs: 34, elapsedMs: 1000 } });
+  w.emit({ type: 'stats', stats: { frameCount: 30, repeatedCount: 1, maxGapTicks: 1, maxGapMs: 34, maxGapAtMs: 500, longGaps: 0, elapsedMs: 1000 } });
   w.emit({ type: 'error', where: 'read:primary', message: 'x' });
   assert.deepEqual(seen, [30]);
   assert.deepEqual(errors, ['read:primary']);

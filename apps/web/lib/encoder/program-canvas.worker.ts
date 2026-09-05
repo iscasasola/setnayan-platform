@@ -44,9 +44,12 @@ export type ProgramCanvasStats = {
   frameCount: number;
   /** Ticks that re-drew the last composite because no new VideoFrame had arrived. */
   repeatedCount: number;
-  /** Worst inter-tick gap seen so far, in whole ticks. The evidence threshold is ≤ 2. */
+  /** Worst inter-tick gap seen so far, in whole ticks, and when (ms since start) it ended. */
   maxGapTicks: number;
   maxGapMs: number;
+  maxGapAtMs: number;
+  /** Inter-tick gaps wider than two ticks, counted. The evidence threshold: 0 outside warm-up. */
+  longGaps: number;
   elapsedMs: number;
 };
 
@@ -246,6 +249,8 @@ function postStats(): void {
       repeatedCount: c.repeatedCount,
       maxGapTicks: k.maxGapTicks,
       maxGapMs: k.maxGapMs,
+      maxGapAtMs: k.maxGapAtMs,
+      longGaps: k.longGaps,
       elapsedMs: performance.now() - startedAt,
     },
   });

@@ -291,9 +291,12 @@ const CLOSED_IN_BATCH_6 = [
  * Batch 7 (20271162239362) — the dashboards' fifteen, and the first batch where
  * the CONSTANT-INDIRECTION shape had to be swept explicitly: a `from('name')`
  * grep reports event_vendor_3d_plan_unlocks as "queried by nothing", and the
- * truth is that it is queried through the exported VENDOR_3D_PLAN_UNLOCK_TABLE
+ * truth WAS that it was queried through the exported VENDOR_3D_PLAN_UNLOCK_TABLE
  * constant — every caller passing the ADMIN client. Grep the REF, not just the
- * literal.
+ * literal. (2026-09-05: that lib is RETIRED — the 3D Plan is free for couples,
+ * so the vendor-unlock discount it recorded no longer exists. The table now
+ * genuinely has no reader; it stays because migrations are never deleted, and
+ * its grants stay closed for the same reason as every other row here.)
  *
  * Every gate re-run in prod 2026-08-24: anon held the grant on all 15 · no
  * policy admits anon · none is a base of the three security_invoker views · no

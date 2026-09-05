@@ -60,8 +60,6 @@ import { renderPartById } from '@/lib/moodboard-render-parts';
 import { INSPIRATION_SLOT_FOR_PART } from '@/lib/moodboard-slots';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
-import { Couple3dPlanUnlockNotice } from './_components/couple-3d-plan-unlock-notice';
-import { Couple3dPlanBuy } from './_components/couple-3d-plan-buy';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
@@ -455,16 +453,10 @@ export default async function SeatingLabPage({ params }: Props) {
 
   return (
     <section className="relative space-y-3">
-      {/* Couple-facing acknowledgement: "your 3D Plan upgrade was unlocked by
-          <vendor>" when a booked vendor with an active 3D Booth add-on unlocked
-          the discounted 3D Plan. Renders null when there's no vendor unlock. */}
-      <Couple3dPlanUnlockNotice eventId={eventId} />
-
-      {/* The live "Add the 3D Plan" buy CTA — flows through the same apply-then-pay
-          SEATING_3D checkout every couple SKU uses. Priced ₱1,000 when a vendor
-          unlocked it (see notice above), else ₱2,999. Renders an owned/pending/
-          unlocked state instead of a duplicate button when already purchased. */}
-      <Couple3dPlanBuy eventId={eventId} />
+      {/* No buy card. The 3D Plan is FREE for couples (owner 2026-09-05 —
+          SEATING_3D sits in FREE_FOR_ALL_SKUS). The card that stood here sold a
+          lock that was never on the door: nothing in the RPC, the route, publish
+          or this page ever checked the purchase. */}
 
       {/* The mirrored LIST | 2D | 3D segment now lives INSIDE the lab chrome,
           stacked above the Build/Play toggle (owner 2026-07-17 · chrome overlap

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "363774aa8",
+  "generatedFromRef": "bd1c1a39f",
   "routeCount": 415,
   "destinations": 885,
   "actions": 620,
-  "blocks": 4245,
+  "blocks": 4261,
   "routes": {
     "/": {
       "files": [
@@ -1155,6 +1155,7 @@
         "AgentVel",
         "BoothVendorCard",
         "Canvas",
+        "ChibiBounce",
         "ChibiFigure",
         "DanceFloorMural",
         "EmoteBubbles",
@@ -2380,6 +2381,7 @@
       "files": [
         "admin/moodboard-library/_components/color-range-manipulator.tsx",
         "admin/moodboard-library/_components/library-editor.tsx",
+        "admin/moodboard-library/_components/screen-findings-panel.tsx",
         "admin/moodboard-library/actions.ts",
         "admin/moodboard-library/loading.tsx",
         "admin/moodboard-library/page.tsx"
@@ -2395,7 +2397,8 @@
         "HTMLImageElement",
         "Image",
         "PalettePreview",
-        "RandomMoodboardPrompt"
+        "RandomMoodboardPrompt",
+        "ScreenFindingsPanel"
       ]
     },
     "/admin/moodboard-renders": {
@@ -4436,6 +4439,7 @@
         "dashboard/[eventId]/actions.ts",
         "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
+        "dashboard/[eventId]/colour-access-actions.ts",
         "dashboard/[eventId]/delete-actions.ts",
         "dashboard/[eventId]/layout.tsx",
         "dashboard/[eventId]/loading.tsx",
@@ -4484,6 +4488,7 @@
         "AccessRequestsDoorway",
         "AccountSwitcher",
         "AppRailShell",
+        "ApplyColourResult",
         "ApplyVoucherResult",
         "ArchiveResult",
         "AskResult",
@@ -4497,6 +4502,7 @@
         "ChecklistItemView",
         "ChecklistPhaseGroup",
         "ColorRow",
+        "ColourAccessResult",
         "ConfirmForm",
         "ContactCard",
         "CoordinatorBroadcastCard",
@@ -5376,6 +5382,7 @@
     "/dashboard/[eventId]/hosts": {
       "files": [
         "dashboard/[eventId]/hosts/_components/consent-gated-invite-form.tsx",
+        "dashboard/[eventId]/hosts/_components/coordinator-colour-domains.tsx",
         "dashboard/[eventId]/hosts/actions.ts",
         "dashboard/[eventId]/hosts/loading.tsx",
         "dashboard/[eventId]/hosts/page.tsx"
@@ -5392,8 +5399,10 @@
         "setDelegatePhotos"
       ],
       "blocks": [
+        "ColourChangeRowView",
         "ConsentGatedInviteForm",
         "ConsentModal",
+        "CoordinatorColourDomains",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -5401,6 +5410,7 @@
         "ListPageSkeleton",
         "PageMasthead",
         "ReadRefusedNotice",
+        "Result",
         "SubmitButton"
       ]
     },
@@ -5942,8 +5952,6 @@
     },
     "/dashboard/[eventId]/seating/lab": {
       "files": [
-        "dashboard/[eventId]/seating/lab/_components/couple-3d-plan-buy.tsx",
-        "dashboard/[eventId]/seating/lab/_components/couple-3d-plan-unlock-notice.tsx",
         "dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-loader.tsx",
@@ -5960,8 +5968,6 @@
         "CameraRig",
         "Canvas",
         "CinematicPass",
-        "Couple3dPlanBuy",
-        "Couple3dPlanUnlockNotice",
         "Crowd",
         "DanceFloorMural",
         "DancerToken",
@@ -5977,7 +5983,6 @@
         "Grid",
         "HTMLDivElement",
         "Hud",
-        "InlineCheckoutDrawer",
         "InstancedChairs",
         "InstancedSeatedCrowd",
         "Lab3DBooth",
@@ -6295,14 +6300,17 @@
         "dashboard/[eventId]/studio/mood-board/_components/moodboard-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-board-context.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/part-finalization-panel.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/printable-pdf-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/render-pool-picker.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/share-with-vendors-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/theme-studio.tsx",
         "dashboard/[eventId]/studio/mood-board/actions.ts",
+        "dashboard/[eventId]/studio/mood-board/finalization-actions.ts",
         "dashboard/[eventId]/studio/mood-board/loading.tsx",
         "dashboard/[eventId]/studio/mood-board/page.tsx",
         "dashboard/[eventId]/studio/mood-board/render-actions.ts"
@@ -6313,6 +6321,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionResult",
         "ApplyResult",
         "ApplySummary",
         "ApplyTemplateSummary",
@@ -6321,8 +6330,10 @@
         "ChoiceButton",
         "ChoosePlanSheet",
         "ClipboardEntry",
+        "ClosedRoundNote",
         "ConceptPdfButton",
         "CustomRolesEditor",
+        "FinalizationActionResult",
         "GalleryPage",
         "GalleryPicker",
         "HTMLButtonElement",
@@ -6346,6 +6357,7 @@
         "PaletteKey",
         "PaletteSection",
         "PaletteStrip",
+        "PartFinalizationPanel",
         "PartRenderState",
         "PartTile",
         "PrintablePdfButton",
@@ -6354,6 +6366,8 @@
         "RegionEditMap",
         "RenderActionResult",
         "RenderGallery",
+        "RenderPoolPage",
+        "RenderPoolPicker",
         "RoleCard",
         "RolePalette",
         "RoomDressing",
@@ -7368,6 +7382,7 @@
       "files": [
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/host-service-details.tsx",
@@ -7408,6 +7423,8 @@
         "ChatSendForm",
         "ChatThreadMenu",
         "ClaimLinkShare",
+        "ColourAccessCard",
+        "ColourChangeRowView",
         "DepositReservation",
         "DetailPageSkeleton",
         "DisputeLinkButton",
@@ -7425,6 +7442,7 @@
         "ReadRefusedNotice",
         "RelationshipTabShell",
         "ReservationTermsAck",
+        "Result",
         "SnapshotChargeLine",
         "SubmitButton",
         "ThreadCallLauncherLazy",
@@ -9464,19 +9482,19 @@
     "/vendor-dashboard/clients/[eventId]": {
       "files": [
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
-        "vendor-dashboard/clients/[eventId]/_components/vendor-3d-plan-unlock-button.tsx",
-        "vendor-dashboard/clients/[eventId]/_components/vendor-3d-plan-unlock-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
         "vendor-dashboard/clients/[eventId]/actions.ts",
+        "vendor-dashboard/clients/[eventId]/finalization-actions.ts",
         "vendor-dashboard/clients/[eventId]/page.tsx",
-        "vendor-dashboard/clients/[eventId]/script-actions.ts",
-        "vendor-dashboard/clients/[eventId]/vendor-3d-plan-unlock-actions.ts"
+        "vendor-dashboard/clients/[eventId]/script-actions.ts"
       ],
       "destinations": [
         "/proposals/[seg]",
@@ -9545,6 +9563,7 @@
         "PipelineStrip",
         "QuoteTab",
         "RelationshipTabShell",
+        "Result",
         "ReturningMarkerAndActions",
         "RunOfShowHeader",
         "ScheduleTab",
@@ -9556,11 +9575,9 @@
         "SubmitButton",
         "ThreadCallLauncherLazy",
         "ThreadInterestChips",
-        "Vendor3dPlanUnlockActionState",
-        "Vendor3dPlanUnlockButton",
-        "Vendor3dPlanUnlockSection",
         "VendorChallengeSection",
         "VendorCompletionCard",
+        "VendorFinalizationResult",
         "VendorPaymentLive"
       ]
     },
@@ -9623,7 +9640,9 @@
       ],
       "actions": [],
       "blocks": [
-        "Link"
+        "ColourLaneEditor",
+        "Link",
+        "VendorPartSignoff"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/production-sheet": {
@@ -10027,6 +10046,7 @@
     },
     "/vendor-dashboard/moodboard-library": {
       "files": [
+        "vendor-dashboard/moodboard-library/_components/rejection-notice.tsx",
         "vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx",
         "vendor-dashboard/moodboard-library/actions.ts",
         "vendor-dashboard/moodboard-library/loading.tsx",
@@ -10042,8 +10062,10 @@
         "Image",
         "Link",
         "PalettePreview",
+        "RejectionNotice",
         "ShopNotice",
-        "StylistLibraryEditor"
+        "StylistLibraryEditor",
+        "Uint8Array"
       ]
     },
     "/vendor-dashboard/more": {
@@ -10720,6 +10742,7 @@
         "vendor-dashboard/shop/page.tsx",
         "vendor-dashboard/shop/public-line-actions.ts",
         "vendor-dashboard/shop/radius-actions.ts",
+        "vendor-dashboard/shop/shop-tool-shelves.ts",
         "vendor-dashboard/shop/suggested-coverage-actions.ts",
         "vendor-dashboard/shop/venue-match-actions.ts",
         "vendor-dashboard/shop/venue-type-actions.ts",

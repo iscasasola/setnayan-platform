@@ -846,7 +846,7 @@ export async function fetchGalleryAssets(input: {
   const { data, count, error } = await supabase
     .from('moodboard_library_assets')
     .select(
-      `asset_id, label, storage_path, vendor_profile_id,
+      `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
        shop:vendor_profiles ( business_name, services ),
        ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`,
       { count: 'exact' },
@@ -855,6 +855,13 @@ export async function fetchGalleryAssets(input: {
     .eq('asset_subtype', query.slotKey)
     .not('approved_at', 'is', null)
     .is('retired_at', null)
+    // MB22 — event-linked photos stand out FIRST, ahead of back-catalogue, in
+    // this same ranged query: `is_event_linked` is boolean (never null, see
+    // its column comment), so this partitions the page without touching
+    // `total`/`withheld`/`hasMore` below, all three of which stay offset-math,
+    // never `assets.length`. `created_at` then orders each partition by
+    // recency, exactly as it did before this session.
+    .order('is_event_linked', { ascending: false })
     .order('created_at', { ascending: false })
     .order('asset_id', { ascending: true })
     .range(query.offset, query.offset + query.limit - 1);
@@ -921,7 +928,7 @@ export async function applyGalleryPick(input: {
   const { data: assetRow, error: assetErr } = await supabase
     .from('moodboard_library_assets')
     .select(
-      `asset_id, label, storage_path, vendor_profile_id,
+      `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
        shop:vendor_profiles ( business_name, services ),
        ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`,
     )

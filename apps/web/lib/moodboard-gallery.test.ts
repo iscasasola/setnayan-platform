@@ -183,6 +183,7 @@ function row(over: Partial<RawGalleryRow> = {}): RawGalleryRow {
       { slot_id: 2, sampled_hex: '#B22222' },
       { slot_id: 1, sampled_hex: '#F8F1E7' },
     ],
+    is_event_linked: false,
     ...over,
   };
 }
@@ -220,6 +221,34 @@ test('⭐ WITHHELD · no sampled colours means no invented colours', () => {
   const { assets, withheld } = shapeGalleryPage('flowers', [row({ ranges: [] })]);
   assert.equal(assets.length, 0);
   assert.equal(withheld, 1);
+});
+
+/* ── MB22 · isEventLinked reaches the shaped asset, exactly as given ────── */
+
+test('⭐ MB22 · a back-catalogue row (is_event_linked: false) is NOT marked event-linked', () => {
+  const { assets } = shapeGalleryPage('flowers', [row({ is_event_linked: false })]);
+  assert.equal(assets[0]!.isEventLinked, false);
+});
+
+test('⭐ MB22 · an event-linked row (is_event_linked: true) IS marked event-linked', () => {
+  const { assets } = shapeGalleryPage('flowers', [row({ is_event_linked: true })]);
+  assert.equal(assets[0]!.isEventLinked, true);
+});
+
+test('MB22 · shapeGalleryPage never reorders — the DB query is the only sort', () => {
+  // A page arrives already ordered (event-linked first, then by recency —
+  // see fetchGalleryAssets). Shaping must preserve that order; a `.sort()`
+  // here would be a second, competing place deciding rank.
+  const { assets } = shapeGalleryPage('flowers', [
+    row({ asset_id: 'BACK-1', is_event_linked: false }),
+    row({ asset_id: 'EVENT-1', is_event_linked: true }),
+    row({ asset_id: 'BACK-2', is_event_linked: false }),
+  ]);
+  assert.deepEqual(
+    assets.map((a) => a.assetId),
+    ['BACK-1', 'EVENT-1', 'BACK-2'],
+    'shapeGalleryPage must not re-sort — ordering is the query’s job, not the shaper’s',
+  );
 });
 
 test('withholding is counted, not swallowed — a mixed page reports both halves', () => {

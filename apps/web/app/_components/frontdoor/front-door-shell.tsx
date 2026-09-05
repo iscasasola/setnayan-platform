@@ -62,6 +62,7 @@ import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { SIGNED_IN_LANDING } from '@/lib/sign-in-landing';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
+import { VendorAvatar, deriveVendorInitials } from '@/app/_components/vendor-avatar';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
 import type { RailMatchRow } from './rail-active';
@@ -101,9 +102,7 @@ import {
   LayoutGrid,
   PenLine,
   Search,
-  ShieldCheck,
   Sparkles,
-  Store,
   Users,
 } from 'lucide-react';
 /*
@@ -279,6 +278,14 @@ export type FrontDoorAccount = {
   alaalaCount?: number | null;
   /** A vendor also gets a row straight into their own shop. */
   shopName: string | null;
+  /**
+   * The shop's uploaded logo, already resolved to a presigned display URL
+   * (never the raw `r2://` ref — resolve via `displayUrlForStoredAsset`
+   * server-side, same rule as `VendorAvatar`'s `logoUrl` prop). Null/undefined
+   * falls back to the initials tile, same as everywhere else the shop avatar
+   * renders.
+   */
+  shopLogoUrl?: string | null;
   /**
    * An admin gets a row straight into HQ (owner 2026-08-13: "user home and shop
    * and admin will be on that sidebar"). Capability-gated like the shop row —
@@ -1459,7 +1466,13 @@ export function FrontDoorShell({
               ) : null}
               {account.shopName ? (
                 <Link href="/vendor-dashboard" {...rowProps('shop')}>
-                  <RailIcon as={Store} />
+                  <span className="fd-gi" aria-hidden="true">
+                    <VendorAvatar
+                      logoUrl={account.shopLogoUrl ?? null}
+                      initials={deriveVendorInitials(account.shopName)}
+                      className="block h-[18px] w-[18px] rounded-sm text-[8px] font-semibold leading-[18px] text-center"
+                    />
+                  </span>
                   <span className="fd-label-text">{account.shopName}</span>
                   <span className="fd-icon-caption">Shop</span>
                   <span className="fd-ct">your shop</span>
@@ -1467,7 +1480,9 @@ export function FrontDoorShell({
               ) : null}
               {account.isAdmin ? (
                 <Link href="/admin" {...rowProps('hq')}>
-                  <RailIcon as={ShieldCheck} />
+                  <span className="fd-gi" aria-hidden="true">
+                    <LogoMark size={18} className="rounded-sm" />
+                  </span>
                   <span className="fd-label-text">Setnayan HQ</span>
                   <span className="fd-icon-caption">HQ</span>
                   <span className="fd-ct">admin</span>

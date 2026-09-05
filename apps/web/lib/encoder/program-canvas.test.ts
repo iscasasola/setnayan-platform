@@ -194,7 +194,7 @@ test('WebKit path: no page processor → the cloned TRACK is transferred for the
   w.posted.splice(0);
   const cam = fakeStream('cam1');
   host.publish(frameWith({ source: 'cam1', stream: cam.stream }));
-  const msg = w.posted[1]!.message as { type: 'track'; slot: string; track: { name: string } };
+  const msg = w.posted[1]!.message as unknown as { type: 'track'; slot: string; track: { name: string } };
   assert.equal(msg.type, 'track');
   assert.equal(msg.track.name, 'cam1-clone');
   assert.deepEqual(w.posted[1]!.transfer, [msg.track]);

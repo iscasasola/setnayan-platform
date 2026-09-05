@@ -142,12 +142,12 @@ export function planProgram({ frame, air }: PlanInput): ProgramPlan {
 
   // ── WAVE 5 · the host's cut is not what is going out ──────────────────────────
   // Only ever true on the free tier: for an entitled host `decideProgramAir` sets
-  // `airSlot === requestedSlot`, so the two fields agree. When `air` is known we also
-  // require it to be enforcing, exactly as the pop-out does.
+  // `airSlot === requestedSlot`, so the two fields agree. Same clause as the pop-out's
+  // `cutWithheld`: `air` must be present AND enforcing — a null `air` (flag off, legacy
+  // Cast) draws no notice there either. (`sourceAllowed` is implied: a refused source
+  // already returned above.)
   const cutWithheld = Boolean(
-    frame.requestedSource &&
-      frame.requestedSource !== frame.source &&
-      (air ? air.enforced : true),
+    air?.enforced && frame.requestedSource && frame.requestedSource !== frame.source,
   );
   if (cutWithheld) {
     ops.push({ kind: 'notice', notice: 'withheld-cut', text: pinnedChannelNotice(frame.label) });

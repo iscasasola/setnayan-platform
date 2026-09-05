@@ -17,7 +17,7 @@
  * keeps exactly one per slot (the compositor closes the previous). Frames MUST be closed
  * promptly or the track's frame pool stalls — that is why the read loop never buffers.
  *
- * NO `window.__TAURI__` HERE. The same JS ships to plain browsers; S5 gates the call site.
+ * NO DESKTOP-SHELL (TAURI) GATE HERE. The same JS ships to plain browsers; S5 gates the call site.
  *
  * // S4: encode from `canvas` here on each tick (new VideoFrame(canvas, { timestamp })).
  */
@@ -162,6 +162,8 @@ if (!ctx) throw new Error('program-canvas.worker: no 2d context');
 
 const compositor = new ProgramCompositor(makePainter(ctx));
 
+// The draw loop: a worker timer at 33.3 ms for now (see program-clock.ts).
+// S3 replaces this tick with the AudioContext-derived clock
 const clock = createProgramClock(
   () => {
     compositor.tick();

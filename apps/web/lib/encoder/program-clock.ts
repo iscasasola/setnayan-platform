@@ -12,8 +12,12 @@
  * is swapped for a clock fed from the audio graph and the rest of the worker is unchanged.
  * Nothing before S3 may assume a programme audio stream (rule 19).
  *
- * Drift-corrected: each tick is scheduled against `start + n × interval`, not `now +
- * interval`, so a late callback shortens the next wait instead of pushing every later tick.
+ * Drift-corrected, never bursting: every tick is scheduled against the GRID `origin + n ×
+ * interval`, not `now + interval`, so a callback that ran a few ms late shortens the next
+ * wait instead of pushing every later tick — and a callback that ran so late that whole
+ * slots went by SKIPS them and lands on the next grid instant. It never replays the missed
+ * slots as a burst of same-instant ticks: S4 pulls one encode per tick, and three composites
+ * stamped on the same millisecond are duplicates, not catch-up.
  * Gap-accounted: `maxGapTicks` records the worst distance between two consecutive ticks in
  * whole intervals — the number the evidence run prints (no gap > 2 ticks).
  */
@@ -41,15 +45,20 @@ export function createProgramClock(
   let handle: unknown = null;
   let running = false;
   let origin = 0;
+  /** Grid slot of the tick currently armed (or just fired). Ticks fired may be fewer. */
+  let slot = 0;
   let ticks = 0;
   let lastTickAt: number | null = null;
   let maxGapMs = 0;
 
   function armNext(): void {
     if (!running) return;
-    const target = origin + (ticks + 1) * intervalMs;
-    const delay = Math.max(0, target - deps.now());
-    handle = deps.schedule(fire, delay);
+    const now = deps.now();
+    // The next grid slot strictly after `now` — at least the one after the slot that just
+    // fired, further ahead if that many have already gone by.
+    slot = Math.max(slot + 1, Math.floor((now - origin) / intervalMs) + 1);
+    const target = origin + slot * intervalMs;
+    handle = deps.schedule(fire, Math.max(0, target - now));
   }
 
   function fire(): void {
@@ -71,6 +80,7 @@ export function createProgramClock(
       if (running) return;
       running = true;
       origin = deps.now();
+      slot = 0;
       ticks = 0;
       lastTickAt = null;
       maxGapMs = 0;

@@ -54,7 +54,9 @@ test('ticks at 33.3 ms — 30 ticks in one second, gap never above one tick when
   const ticks: number[] = [];
   const clock = createProgramClock((i) => ticks.push(i), t);
   clock.start();
-  t.advance(1000);
+  // 30 × (1000/30) is 1000.0000000000001 in floats, so probe 1 ms past the 30th tick's
+  // nominal instant; the 31st is not due until 1033 ms.
+  t.advance(1001);
   assert.equal(ticks.length, 30);
   assert.deepEqual(ticks.slice(0, 3), [1, 2, 3]);
   const s = clock.stats();
@@ -63,20 +65,29 @@ test('ticks at 33.3 ms — 30 ticks in one second, gap never above one tick when
   assert.equal(PROGRAM_TICK_MS, 1000 / 30);
 });
 
-test('a late callback is measured as a gap AND the next tick is re-anchored, not pushed', () => {
+test('a late callback is measured as a gap; the next tick re-anchors to the GRID — never a burst', () => {
   const t = fakeTimers();
-  let count = 0;
-  const clock = createProgramClock(() => count++, t);
+  const firedAt: number[] = [];
+  const clock = createProgramClock(() => firedAt.push(t.now()), t);
   clock.start();
-  t.advance(PROGRAM_TICK_MS * 3); // 3 on-time ticks
-  t.fireNextLate(100); // the 4th fires ~133 ms after the 3rd
-  assert.equal(count, 4);
+  t.advance(PROGRAM_TICK_MS * 3); // 3 on-time ticks: slots 1, 2, 3
+  t.fireNextLate(90); // the 4th (slot 4, nominal 133 ms) fires at 223 ms
+  assert.equal(firedAt.length, 4);
   const gap = clock.stats().maxGapTicks;
-  assert.ok(gap > 3.9 && gap < 4.1, `gap should be ~4 ticks, got ${gap}`);
-  // Drift correction: the 5th tick is scheduled against origin + 5 × interval, which is
-  // already past — so it is due IMMEDIATELY (delay 0), not a full interval later.
+  assert.ok(gap > 3.6 && gap < 3.8, `gap should be ~3.7 ticks, got ${gap}`);
+  // Slots 5 and 6 (167, 200 ms) went by while the worker was busy. They are SKIPPED, not
+  // replayed: nothing fires at 223 ms itself…
   t.advance(0);
-  assert.equal(count, 5, 'the clock catches up rather than carrying the delay forward');
+  assert.equal(firedAt.length, 4, 'no burst of catch-up ticks at the late instant');
+  // …the 5th tick lands on the next grid instant, slot 7 = 233 ms — 10 ms after the late
+  // tick, not a full interval after it (that is the drift correction)…
+  t.advance(PROGRAM_TICK_MS);
+  assert.equal(firedAt.length, 5);
+  assert.ok(Math.abs((firedAt[4] ?? 0) - 7 * PROGRAM_TICK_MS) < 1e-6, `5th at ${firedAt[4]}`);
+  // …and the cadence continues on the original grid (slot 8 = 267 ms).
+  t.advance(PROGRAM_TICK_MS);
+  assert.equal(firedAt.length, 6);
+  assert.ok(Math.abs((firedAt[5] ?? 0) - 8 * PROGRAM_TICK_MS) < 1e-6, `6th at ${firedAt[5]}`);
 });
 
 test('stop cancels the pending timer and no further ticks fire; start after stop re-arms', () => {

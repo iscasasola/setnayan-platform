@@ -9,7 +9,7 @@
  * a remounted controller installs a NEW bridge object over the same key, and a canvas
  * latched to the old one would hold a still photograph with no error state.
  *
- * Plain browser code — no `window.__TAURI__` here. S5 gates the call site.
+ * Plain browser code — no desktop-shell (Tauri) gate here. S5 gates the call site.
  *
  * Every browser touch-point is injectable (`deps`) so the whole page-side contract runs in
  * Node against a fake worker and a fake bridge.
@@ -41,7 +41,7 @@ type TrackProcessorCtor = new (init: { track: MediaStreamTrack }) => {
 export type ProgramCanvasDeps = {
   createWorker: () => ProgramWorkerLike;
   resolveBridge: () => ProgramBridge | null;
-  /** Chromium exposes the processor on the window; WebKit only inside workers. */
+  /** Chromium exposes the processor on the page; WebKit only inside workers. */
   trackProcessor: TrackProcessorCtor | null;
   setInterval: (fn: () => void, ms: number) => unknown;
   clearInterval: (handle: unknown) => void;

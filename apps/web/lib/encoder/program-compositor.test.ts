@@ -158,7 +158,7 @@ test('split: both slots drawn object-contain inside their panes, divider between
   c.tick();
   assert.deepEqual(calls, [
     ['clear'],
-    ['video', 'A', { x: 0, y: 120, w: 640, h: 360 }],
+    ['video', 'A', { x: 0, y: 180, w: 640, h: 360 }],
     ['divider', 640, 2],
     ['video', 'B', { x: 642 + Math.round((638 - 405) / 2), y: 0, w: 405, h: 720 }],
   ]);

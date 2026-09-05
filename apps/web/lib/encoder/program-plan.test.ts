@@ -21,6 +21,7 @@ import {
   type DrawOp,
 } from './program-plan';
 import { WITHHELD_CARD, pinnedChannelNotice } from './program-strings';
+import type { ProgramAirDecision } from '../live-studio-publish-pure';
 
 /** A stand-in MediaStream: the planner only ever tests for null. */
 const fakeStream = (): MediaStream => ({ id: 'fake' }) as unknown as MediaStream;
@@ -57,12 +58,18 @@ test('a stream → one full-frame video op, object-contain region', () => {
 
 /* ── GUARD 2 · requestedSource ≠ source draws the withheld notice ──────────── */
 
-test('requestedSource ≠ source → pinned-channel notice OVER the permitted picture', () => {
+/** The free tier as the server decides it: enforcing, one pinned slot. */
+const FREE_TIER_AIR: Pick<ProgramAirDecision, 'enforced' | 'permittedSlots'> = {
+  enforced: true,
+  permittedSlots: ['cam1'],
+};
+
+test('requestedSource ≠ source (enforced) → pinned-channel notice OVER the permitted picture', () => {
   const plan = planProgram({
     frame: toWireFrame(
       frameWith({ source: 'cam1', requestedSource: 'cam3', label: 'Altar', stream: fakeStream() }),
     ),
-    air: null,
+    air: FREE_TIER_AIR,
   });
   assert.deepEqual(kinds(plan), ['clear', 'video', 'notice']);
   assert.deepEqual(plan[2], {
@@ -76,9 +83,17 @@ test('requestedSource ≠ source → pinned-channel notice OVER the permitted pi
 test('requestedSource === source → no notice (the host is airing what they cut)', () => {
   const plan = planProgram({
     frame: toWireFrame(frameWith({ source: 'cam1', requestedSource: 'cam1', stream: fakeStream() })),
-    air: null,
+    air: FREE_TIER_AIR,
   });
   assert.equal(plan.some((o) => o.kind === 'notice'), false);
+});
+
+test('requestedSource ≠ source with air === null → no notice (mirrors the pop-out: flag off / legacy Cast)', () => {
+  const plan = planProgram({
+    frame: toWireFrame(frameWith({ source: 'cam1', requestedSource: 'cam3', stream: fakeStream() })),
+    air: null,
+  });
+  assert.deepEqual(kinds(plan), ['clear', 'video']);
 });
 
 test('requestedSource ≠ source with a NON-enforcing air → no notice (entitled host)', () => {

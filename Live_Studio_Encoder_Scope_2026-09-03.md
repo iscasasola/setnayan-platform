@@ -10,6 +10,59 @@ greppable symbol or a live query, never a line number. Re-measure before acting.
 
 ---
 
+## ⚠ Corrections 2026-09-05 — read before § 4, § 6 and § 10
+
+Audited claim-by-claim against `origin/main @ 118546afe` and a cited feasibility pass on
+2026-09-05 (Encoder Replan: https://claude.ai/code/artifact/dfa993e3-4229-4b50-a7ec-8c2e3a7eff35).
+The recommendation (Path A) STANDS and was re-affirmed by the owner on 2026-09-05 — on corrected
+figures, for different reasons. The plan of record is now `build-sessions/encoder/README.md`
+(S-series); the E0–E9 prompts derived from this scope are retired.
+
+1. **§ 4B's own correction is itself wrong.** "Once the client composites and encodes H.264, Path A
+   is strictly better — same client work minus a server" is false: a remux relay does NOT need
+   this encoder. `canvas.captureStream() → WHIP → MediaMTX → ffmpeg -c:v copy` uses the browser's
+   built-in WebRTC H.264, so it deletes WebCodecs, IPC, Rust, the install, signing, the updater and
+   the OS floor. Real cost ≈ fixed server ÷ weddings/month (₱30–₱700), or ~₱15–20/wedding at
+   hourly provisioning. Path A wins on *product shape* — the default tier streams on the couple's
+   own channel with no server and no Google API in the path, and native keeps that at any volume;
+   the WebRTC encoder is call-tuned and downgrades itself under loss; the laptop keeps the
+   recording — not on marginal cost.
+2. **"₱0 per wedding" is ₱0 marginal.** Fixed: Apple Developer is already paid (owner, 2026-09-05);
+   the incremental cost is a Windows OV cert + cloud signer (~$130–400/yr ≈ ₱600–1,900/month;
+   Azure Trusted Signing excludes PH organisations) plus macOS CI minutes if release builds run
+   in CI.
+3. **§ 8 / E0 "WebCodecs undocumented in WKWebView" is wrong.** WebKit's preferences turn it ON
+   (video gated on WebRTC availability, audio unconditional). The gate is WebKit VERSION:
+   `AudioEncoder` only from Safari 26 → floor **Apple-silicon macOS 14 + Safari 26**, Windows
+   10/11 with hardware H.264. S0 measures the matrix; it does not ask yes/no.
+4. **§ 5's overlay guard targets a retired mechanism.** `ProgramFrame.overlay` / `WatermarkReason`
+   retired 2026-07-25; the unified bridge publishes `overlay: false`. Overlays are
+   `ResolvedOverlays` (`lib/live-studio-overlays.ts`), already on the controller as `airOverlays`;
+   "POWERED BY SETNAYAN" is `lowerThird.forced`. The invariant is "forced lower third cannot be
+   skipped; the renderer never derives `owned`".
+5. **§ 3.2 understates audio.** There is no programme audio stream and no mixer; per-phone tracks
+   change on every cut and may be absent; Safari's `MediaStreamTrackProcessor` is video-only.
+   S3 (3–4 days, Opus) builds the mixer + master clock. Not in the 2–3 days § 4A budgeted.
+6. **§ 6 is contradicted one page away, and misses the default tier.** The key is server-rendered
+   into the controller and setup pages for OBS today. And the DEFAULT route to air is the couple's
+   OWN channel by hand (`live-studio-manual-air.ts`) — the key is theirs; only the hosted-channel
+   add-on has a Setnayan-held key. S8 handles both.
+7. **§ 4A's estimate.** 19–28 → **33–48 session-days**: RTMP 6–9 not 4–6 (RTMPS, reconnect inside
+   YouTube's grace, backup ingest, the 4 h 39 m extended-timestamp boundary); plus the sessions
+   the scope never listed — audio mixer, local recording (E9 assumed one), reconnect + guest
+   watch-link resolution, a release channel (`publish-latest` is unreachable under
+   `workflow_dispatch`; the repo is private so release URLs 404; `/download` has no Windows link),
+   adaptive bitrate for ~10 Mb/s PH uplinks, updater.
+8. **`build-desktop` ran 2026-09-05** (twice, owner dispatch): Windows OK; macOS compiled, signed,
+   failed notarization — HTTP 403 "A required agreement is missing or has expired" (unaccepted
+   Apple agreement; membership paid). The "ad-hoc fallback so CI never breaks" claim is false:
+   all six `APPLE_*` secrets exist, so the fallback never engages.
+9. **§ 7 / LS4 shipped** (PR #5122, 2026-09-03). Extend `decideIngestHealth`; never a second decider.
+10. **Split-screen has no live publisher** (`ProgramBridgeHost` hard-codes `secondaryStream: null`).
+    Out of launch scope; unit-tested only.
+
+---
+
 ## 0. TL;DR
 
 Live Studio **works end to end today**. The couple runs OBS, which window-captures

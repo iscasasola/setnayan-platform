@@ -231,6 +231,15 @@ export type GalleryAsset = {
   vendorProfileId: string;
   /** The 6 sampled colours written onto the board row when this is picked. */
   swatches: string[];
+  /**
+   * TRUE for a photo delivered on a celebration the shop was actually booked
+   * for; FALSE for the shop's own back-catalogue (MB22). Read off the
+   * `is_event_linked` generated column — never `source_event_id` itself,
+   * which stays revoked from the couple-facing client (MB11, see
+   * migration 20271204967268's header for why a boolean is safe where the
+   * raw event id is not).
+   */
+  isEventLinked: boolean;
 };
 
 export type GalleryPage = {
@@ -276,6 +285,8 @@ export type RawGalleryRow = {
   /** The embedded shop. `null` when RLS refused it — see GalleryPage.withheld. */
   shop: { business_name: string | null; services: string[] | null } | null;
   ranges: ReadonlyArray<{ slot_id: number; sampled_hex: string }>;
+  /** The generated column, not `source_event_id` — see GalleryAsset.isEventLinked. */
+  is_event_linked: boolean | null;
 };
 
 /**
@@ -313,6 +324,7 @@ export function shapeGalleryPage(
       credit: creditLine(shopName, tradeLabelForCredit(slot, row.shop?.services ?? null)),
       vendorProfileId,
       swatches: Array.from({ length: 6 }, (_, i) => hexes[i % hexes.length]!),
+      isEventLinked: row.is_event_linked === true,
     });
   }
   return { assets, withheld };

@@ -348,6 +348,8 @@ PR legitimately landed before restoring anything wholesale, because a wholesale 
 4. **Done means MERGED with proof** — never "it typechecks", never "PR opened".
 5. **The overseer verifies independently.** A session's own report is a claim, not evidence.
    So is this file.
+6. **The encoder program has its own register** — `build-sessions/encoder/README.md` (S-series,
+   2026-09-05, supersedes the E0–E9 zip). Same rules; rule 1 applies across BOTH registers.
 
 ---
 

@@ -560,7 +560,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         assistantLive={vendorAutoReplyEnabled()}
       />
 
-      {/* 3D Booth add-on — free first 28-day cycle, then ₱1,500/28d, on
+      {/* 3D Booth add-on — free first 28-day cycle, then ₱3,000/28d (flat, 2026-09-05), on
           Pro/Enterprise/Custom + verified shops (owner 2026-07-22). Turns on the
           vendor's branded booth inside their couples' published 3D Plans.
           With the 2026-07-25 tiered model on: every verified tier, at ₱2,000

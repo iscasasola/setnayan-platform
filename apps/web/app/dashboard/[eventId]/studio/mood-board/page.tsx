@@ -136,12 +136,24 @@ type RangeRow = {
 
 function toRegions(raw: RangeRow[] | RangeRow | null | undefined): ColorRangeSlot[] {
   const rows = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  return rows.map((r) => ({
-    slotId: r.slot_id,
-    sampledHex: r.sampled_hex,
-    toleranceDe: Number(r.tolerance_de),
-    regionLabel: r.region_label ?? undefined,
-  }));
+  // 🔑 MB25 — SORTED BY slot_id, because the ORDER IS THE COUPLE'S COLOUR ORDER.
+  // `moodboard-board.tsx` assigns `out[r.slotId] = palette[i % palette.length]`
+  // using the ARRAY INDEX i, and neither embedded select above carries an
+  // ORDER BY, so the mapping was whatever PostgREST happened to return. That
+  // was harmless while every asset had exactly ONE range. The Ceremony aisle
+  // (migration 20271206413595) is the first with two — slot 1 the florals,
+  // slot 2 the fabric — and unsorted rows would hand the couple's first
+  // ceremony colour to the aisle runner on some responses and to the flowers
+  // on others, for the same couple and the same data.
+  return rows
+    .slice()
+    .sort((a, b) => a.slot_id - b.slot_id)
+    .map((r) => ({
+      slotId: r.slot_id,
+      sampledHex: r.sampled_hex,
+      toleranceDe: Number(r.tolerance_de),
+      regionLabel: r.region_label ?? undefined,
+    }));
 }
 
 export default async function MoodBoardPage({ params }: Props) {
@@ -216,8 +228,9 @@ export default async function MoodBoardPage({ params }: Props) {
     // Venue scenes + florals + their tagged colour regions, auto-recoloured
     // in-browser. NOTE (MB23): the two `venue_scene` rows that were live here
     // were picsum.photos STOCK PHOTOGRAPHS and are retired by migration
-    // 20271205919528 — so `churchRow` is now undefined and the Ceremony card
-    // does not build. That is deliberate; see the comment on `ceremonyCards`.
+    // 20271205919528. MB25 puts a real one back — the app-served Ceremony
+    // DRAWING seeded by migration 20271206413595 — so `churchRow` resolves
+    // again, now to our own artwork with two tagged regions.
     supabase
       .from('moodboard_library_assets')
       .select(
@@ -657,12 +670,20 @@ export default async function MoodBoardPage({ params }: Props) {
     portrait: true,
   }));
 
-  // MB23 — with every `internet_placeholder` row retired there is no live
-  // `venue_scene`, so this stays empty and the Ceremony card is ABSENT. That is
-  // the correct, honest end state: the card used to be a random stock
-  // photograph of a church, shown to the couple as their ceremony space "in
-  // their colors". Nothing substitutes a photograph here; the card returns when
-  // an owner-supplied Ceremony DRAWING (SVG, colour regions tagged) is seeded.
+  // MB23 retired every `internet_placeholder` venue scene, which left this
+  // empty and the Ceremony card ABSENT — the correct end state for a card whose
+  // asset was a random stock photograph of a church, shown to the couple as
+  // their ceremony space "in their colors", but a temporary one.
+  //
+  // MB25 ends it. Migration 20271206413595 seeds the Ceremony DRAWING this
+  // comment was waiting for: our own Recraft V4.1 vector, app-served at
+  // `/moodboard-seed/venue_scene/church/ceremony-aisle.svg`, with TWO tagged
+  // regions — slot 1 the florals (#D98BA6 ± 10), slot 2 the fabric
+  // (#E8D9B5 ± 5). It is the first two-slot asset in the library, so
+  // `paletteColors: palette.ceremony` now spends the couple's first TWO
+  // ceremony colours rather than one. Nothing here changed to make that work;
+  // the card was always built to. Pinned by
+  // `_components/the-background-never-wears-the-palette.test.ts`.
   const ceremonyCards: BoardCard[] = [];
   if (churchRow) {
     ceremonyCards.push({

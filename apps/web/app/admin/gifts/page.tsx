@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { Store, Ticket } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -42,27 +44,45 @@ type Props = {
  *   - Vendor comps write through `setVendorTier` (tier only — comp_grants
  *     explicitly excludes vendors, see its own docblock in admin/users/actions.ts).
  *   - User/event comps write through `issueCompGrant` / `revokeCompGrant`
- *     (comp_grants is scoped to a USER account, not to one specific event —
- *     there is no event_id column on the table. A comp reaches every event
- *     that user owns, not one.).
+ *     (comp_grants is scoped to a USER account; since migration
+ *     20271205612762 an optional `event_id` narrows a grant to ONE of that
+ *     user's events — NULL still means every event they host).
  *
  * This page is the READ-side union of those two writers plus a lightweight
  * search-and-select flow to reach either grant form without already knowing
  * the target's ID.
+ *
+ * Both lists render through `ConsoleTable`, so a REFUSED read says "couldn't
+ * read" instead of "nobody is comped" — the readers throw, and a throw caught
+ * here becomes `rows: null` + `readError`, which the archetype reports and can
+ * never fall through to Empty.
  */
 export default async function AdminGiftsPage({ searchParams }: Props) {
   await requireAdmin();
   const sp = await searchParams;
   const admin = createAdminClient();
 
-  const [compedVendors, activeGrants] = await Promise.all([
-    fetchCompedVendors(admin),
-    fetchAllActiveCompGrants(admin),
-  ]);
+  const asReadError = (e: unknown): { message: string } => ({
+    message: e instanceof Error ? e.message : String(e),
+  });
+  let compedVendors: CompedVendorRow[] | null = null;
+  let vendorsReadError: { message: string } | null = null;
+  try {
+    compedVendors = await fetchCompedVendors(admin);
+  } catch (e) {
+    vendorsReadError = asReadError(e);
+  }
+  let activeGrants: CompGrantRow[] | null = null;
+  let grantsReadError: { message: string } | null = null;
+  try {
+    activeGrants = await fetchAllActiveCompGrants(admin);
+  } catch (e) {
+    grantsReadError = asReadError(e);
+  }
 
   // Resolve display info for every user_id on an active grant, one query.
   const userIds = Array.from(
-    new Set(activeGrants.map((g) => g.user_id).filter((id): id is string => !!id)),
+    new Set((activeGrants ?? []).map((g) => g.user_id).filter((id): id is string => !!id)),
   );
   const { data: grantUsers } = userIds.length
     ? await admin.from('users').select('user_id, email, display_name').in('user_id', userIds)
@@ -118,7 +138,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
 
   // Resolve display names for every event a listed grant is scoped to.
   const grantEventIds = Array.from(
-    new Set(activeGrants.map((g) => g.event_id).filter((id): id is string => !!id)),
+    new Set((activeGrants ?? []).map((g) => g.event_id).filter((id): id is string => !!id)),
   );
   const { data: grantEventsData } = grantEventIds.length
     ? await admin.from('events').select('event_id, display_name').in('event_id', grantEventIds)
@@ -243,45 +263,49 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           </div>
         )}
 
-        {compedVendors.length === 0 ? (
-          <p className="text-sm text-ink/50">No vendor is currently comped onto a paid tier.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-ink/50">
-                <th className="py-2 pr-2">Vendor</th>
-                <th className="py-2 pr-2">Tier</th>
-                <th className="py-2 pr-2">Ends</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {compedVendors.map((v: CompedVendorRow) => (
-                <tr key={v.vendor_profile_id} className="border-b border-ink/5">
-                  <td className="py-2 pr-2">{v.business_name}</td>
-                  <td className="py-2 pr-2">{TIER_LABEL[v.tier_state]}</td>
-                  <td className="py-2 pr-2 font-mono text-xs">
-                    {v.tier_expires_at
-                      ? new Date(v.tier_expires_at).toLocaleDateString('en-PH', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })
-                      : 'Open-ended'}
-                  </td>
-                  <td className="py-2 text-right">
-                    <Link
-                      href={`/admin/vendors/${v.vendor_profile_id}/plan`}
-                      className="text-xs font-medium text-link hover:underline"
-                    >
-                      Manage
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <ConsoleTable<CompedVendorRow>
+          rows={compedVendors}
+          readError={vendorsReadError}
+          readPermitted
+          reads="the comped vendors"
+          label="Comped vendors"
+          cap={200}
+          minWidth="32rem"
+          rowKey={(v) => v.vendor_profile_id}
+          empty={{
+            Icon: Store,
+            title: 'No vendor is comped onto a paid tier',
+            blurb: 'Search a vendor above to set a tier with an end date and a reason.',
+          }}
+          columns={[
+            { header: 'Vendor', cell: (v) => v.business_name },
+            { header: 'Tier', cell: (v) => TIER_LABEL[v.tier_state] },
+            {
+              header: 'Ends',
+              mono: true,
+              cell: (v) =>
+                v.tier_expires_at
+                  ? new Date(v.tier_expires_at).toLocaleDateString('en-PH', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : 'Open-ended',
+            },
+            {
+              header: 'Manage',
+              align: 'right',
+              cell: (v) => (
+                <Link
+                  href={`/admin/vendors/${v.vendor_profile_id}/plan`}
+                  className="text-xs font-medium text-link hover:underline"
+                >
+                  Manage
+                </Link>
+              ),
+            },
+          ]}
+        />
         <p className="mt-2 text-xs text-ink/40">
           Every non-free tier here is a comp — self-serve vendor billing doesn&rsquo;t exist yet.
         </p>
@@ -429,70 +453,83 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           </div>
         )}
 
-        {activeGrants.length === 0 ? (
-          <p className="text-sm text-ink/50">No user is currently comped.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-ink/50">
-                <th className="py-2 pr-2">User</th>
-                <th className="py-2 pr-2">Applies to</th>
-                <th className="py-2 pr-2">Covers</th>
-                <th className="py-2 pr-2">Value</th>
-                <th className="py-2 pr-2">Ends</th>
-                <th className="py-2 pr-2">Source</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {activeGrants.map((g: CompGrantRow) => {
+        <ConsoleTable<CompGrantRow>
+          rows={activeGrants}
+          readError={grantsReadError}
+          readPermitted
+          reads="the active comp grants"
+          label="Active comp grants"
+          cap={200}
+          rowKey={(g) => g.grant_id}
+          empty={{
+            Icon: Ticket,
+            title: 'No user is comped right now',
+            blurb: 'Search a user above to issue a comp — account-wide, or scoped to one of their events.',
+          }}
+          columns={[
+            {
+              header: 'User',
+              cell: (g) => {
                 const u = g.user_id ? userById.get(g.user_id) : null;
-                return (
-                  <tr key={g.grant_id} className="border-b border-ink/5 align-top">
-                    <td className="py-2 pr-2">{u?.display_name ?? u?.email ?? g.user_id ?? '—'}</td>
-                    <td className="py-2 pr-2">
-                      {g.event_id ? (eventNameById.get(g.event_id) ?? 'One event (deleted?)') : 'Every event they host'}
-                    </td>
-                    <td className="py-2 pr-2">{describeScope(g.scope, g.scoped_skus)}</td>
-                    <td className="py-2 pr-2 font-mono text-xs">
-                      {formatRetailValueCentavos(g.retail_value_centavos)}
-                    </td>
-                    <td className="py-2 pr-2 font-mono text-xs">
-                      {g.expiry
-                        ? new Date(g.expiry).toLocaleDateString('en-PH', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })
-                        : 'Lifetime'}
-                    </td>
-                    <td className="py-2 pr-2 text-xs">{describeSource(g.source)}</td>
-                    <td className="py-2 text-right">
-                      <form action={revokeCompGrant} className="inline-flex items-center gap-1">
-                        <input type="hidden" name="grant_id" value={g.grant_id} />
-                        <input
-                          type="text"
-                          name="reason"
-                          placeholder="Revoke reason…"
-                          required
-                          minLength={10}
-                          className="w-32 rounded-md border border-ink/15 bg-paper px-2 py-1 text-xs"
-                        />
-                        <SubmitButton
-                          className="text-xs font-medium text-mulberry hover:underline"
-                          overlay={false}
-                          pendingLabel="…"
-                        >
-                          Revoke
-                        </SubmitButton>
-                      </form>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+                return u?.display_name ?? u?.email ?? g.user_id ?? '—';
+              },
+            },
+            {
+              header: 'Applies to',
+              cell: (g) =>
+                g.event_id
+                  ? (eventNameById.get(g.event_id) ?? 'One event (deleted?)')
+                  : 'Every event they host',
+            },
+            { header: 'Covers', cell: (g) => describeScope(g.scope, g.scoped_skus) },
+            {
+              header: 'Value',
+              mono: true,
+              align: 'right',
+              hideBelow: 'md',
+              cell: (g) => formatRetailValueCentavos(g.retail_value_centavos),
+            },
+            {
+              header: 'Ends',
+              mono: true,
+              cell: (g) =>
+                g.expiry
+                  ? new Date(g.expiry).toLocaleDateString('en-PH', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : 'Lifetime',
+            },
+            { header: 'Source', hideBelow: 'lg', cell: (g) => describeSource(g.source) },
+            {
+              header: 'Revoke',
+              align: 'right',
+              // A row that settles on one click renders its own form in its own
+              // cell — the archetype offers no actions API, on purpose.
+              cell: (g) => (
+                <form action={revokeCompGrant} className="inline-flex items-center gap-1">
+                  <input type="hidden" name="grant_id" value={g.grant_id} />
+                  <input
+                    type="text"
+                    name="reason"
+                    placeholder="Revoke reason…"
+                    required
+                    minLength={10}
+                    className="w-32 rounded-md border border-ink/15 bg-paper px-2 py-1 text-xs"
+                  />
+                  <SubmitButton
+                    className="text-xs font-medium text-mulberry hover:underline"
+                    overlay={false}
+                    pendingLabel="…"
+                  >
+                    Revoke
+                  </SubmitButton>
+                </form>
+              ),
+            },
+          ]}
+        />
       </section>
     </div>
   );

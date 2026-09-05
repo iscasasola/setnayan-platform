@@ -51,6 +51,11 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
 webpki-roots = "0.26"
 thiserror = "1.0"
+# S5 (owner decision 2026-09-06): the transport IS the JSON envelope, sent as ONE
+# base64 string field rather than a `Uint8Array` (which `ipc-protocol.js` would expand
+# into a JSON number array at ~3.6×; base64 is ~1.33×). `EncodedChunk::from_base64`
+# decodes it — the header/payload SHAPE this crate owns is unchanged either way.
+base64 = "0.22"
 
 # ─── THE DISK CHECK, AND ONLY THE DISK CHECK ───────────────────────────────
 #

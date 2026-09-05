@@ -228,3 +228,55 @@ export async function completePanoodBroadcast(
   if (!data) return null;
   return { broadcastId: data.broadcast_id as string };
 }
+
+/**
+ * W1 — mark the active broadcast 'errored' the instant S7 reports the ingest
+ * dropped (POST /api/live-studio/encoder/broadcast-ended), BEFORE the slow
+ * YouTube re-provisioning calls run. `'errored'` was declared in the original
+ * migration's CHECK constraint and never had a writer until this — it is now
+ * this table's own "a reconnect is in flight" signal: still non-'complete' (so
+ * `getActivePanoodBroadcast`/`getActivePanoodStreamKey` keep resolving the same
+ * row's stream_id/ingestion_url/stream_key for the rebind), but no longer a
+ * status a guest-facing read should call "live". See
+ * lib/live-watch-state.ts's `decideGuestWatchState`, which is what actually
+ * reduces this to the guest's 'reconnecting' state.
+ *
+ * Best-effort + idempotent, same posture as completePanoodBroadcast: a no-op
+ * when there's no active row (a by-hand host, or already ended) and silent on
+ * a missing table (pre-migration).
+ */
+export async function markPanoodBroadcastReconnecting(eventId: string): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from('panood_broadcasts')
+    .update({ status: 'errored', updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .neq('status', 'complete');
+}
+
+/**
+ * W1 — the status of the MOST RECENT panood_broadcasts row for this event,
+ * regardless of status (unlike getActivePanoodBroadcast, which excludes
+ * 'complete'). This is what lets the guest-facing decider
+ * (lib/live-watch-state.ts) tell "never started" (`null`, no row at all)
+ * apart from "the last one finished" (`'complete'`) apart from "a broadcast's
+ * lifecycle is still open but nothing resolves right now" (any other status).
+ *
+ * Fails open to `null` on any error (missing table, RLS, transient) — the
+ * guest decider treats `null` as 'not_yet', the least alarming honest answer
+ * when we genuinely cannot tell.
+ */
+export async function getLatestPanoodBroadcastStatus(
+  eventId: string,
+): Promise<PanoodBroadcast['status'] | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('panood_broadcasts')
+    .select('status')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.status as PanoodBroadcast['status'];
+}

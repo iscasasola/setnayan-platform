@@ -106,6 +106,7 @@ import {
   updateTableType,
   updateTableLabel,
   publishSeating,
+  unpublishSeating,
   autoSeatGuests,
   seatRoleAtTable,
   unassignGuest,
@@ -1825,7 +1826,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     [selectedId, canEdit, eventId, lock.lockId, persist, router],
   );
 
-  // 2D-parity: publish the plan (stamps table QR sheets for the print pack).
+  // Publish the plan. TWO things happen and the couple is told BOTH: the table
+  // QR sign sheets are stamped for the print pack, AND `event_floor_plan.
+  // published_at` is set — the one and only condition `public_venue_scene`
+  // checks before it serves the room to /[slug]/venue. The old notice named
+  // only the print pack, so the control that opens the reception walk read as
+  // a printing button. `floor.published` is carried forward optimistically so
+  // the panel switches to "Live" without waiting for a refresh.
   const publishPlan = useCallback(() => {
     if (!canEdit) return;
     const fd = new FormData();
@@ -1833,7 +1840,28 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     fd.set('lock_id', lock.lockId ?? '');
     void persist(async () => {
       const res = await publishSeating(fd);
-      setNotice(`Published — ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ready to print.`);
+      setFloor((f) => ({ ...f, published: true }));
+      setNotice(
+        `Live — guests can walk your reception, and ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ${res.published === 1 ? 'is' : 'are'} ready to print.`,
+      );
+    });
+  }, [canEdit, eventId, lock.lockId, persist]);
+
+  // Take it back down — the other half. Clears the public gate only; the
+  // printed sign sheets keep working (see unpublishSeating's contract).
+  const unpublishPlan = useCallback(() => {
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    void persist(async () => {
+      const res = await unpublishSeating(fd);
+      setFloor((f) => ({ ...f, published: false }));
+      setNotice(
+        res.wasPublished
+          ? 'Taken down — the 3D walk is private again. Printed table signs still work.'
+          : 'That plan wasn’t published.',
+      );
     });
   }, [canEdit, eventId, lock.lockId, persist]);
 
@@ -3103,6 +3131,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         selectedLinked={selectedId ? Boolean(tablesById.get(selectedId)?.linkGroupId) : false}
         onBreakApart={breakApart}
         onPublish={publishPlan}
+        onUnpublish={unpublishPlan}
+        published={floor.published}
         printHref={`/dashboard/${eventId}/seating/print`}
         tableCount={tables.length}
       />
@@ -5288,6 +5318,8 @@ function Hud({
   selectedLinked,
   onBreakApart,
   onPublish,
+  onUnpublish,
+  published,
   printHref,
   tableCount,
 }: {
@@ -5378,6 +5410,11 @@ function Hud({
   selectedLinked: boolean;
   onBreakApart: () => void;
   onPublish: () => void;
+  onUnpublish: () => void;
+  /** Is the plan LIVE at /[slug]/venue right now? Straight off
+   *  `event_floor_plan.published_at`, which page.tsx has always shipped on
+   *  `Lab3DFloor` and this panel had never once read. */
+  published: boolean;
   printHref: string;
   tableCount: number;
 }) {
@@ -5727,14 +5764,29 @@ function Hud({
               onReorderPriority={onReorderPriority}
             />
             <p className="mt-2 text-[11px] text-white/50">{tableCount} tables</p>
+            {/* WHETHER THE ROOM IS OPEN, SAID OUT LOUD. `published` came down
+                from page.tsx on every load and this panel read it nowhere, so
+                the only two states a couple can be in — nobody can see it /
+                anyone with the address can walk it — looked identical, and the
+                single button that moves between them said "Publish" and
+                confirmed itself by counting print sheets. */}
+            <p className="mt-2 flex items-center gap-1.5 text-[11px]">
+              <span
+                aria-hidden
+                className={`inline-block h-1.5 w-1.5 rounded-full ${published ? 'bg-emerald-400' : 'bg-white/40'}`}
+              />
+              <span className={published ? 'text-emerald-300' : 'text-white/50'}>
+                {published ? 'Live — guests can walk your reception' : 'Draft — only you can see this'}
+              </span>
+            </p>
             <div className="mt-2 flex gap-1.5">
               <button
                 type="button"
                 disabled={!canEdit}
-                onClick={onPublish}
+                onClick={published ? onUnpublish : onPublish}
                 className="flex-1 rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium text-white transition hover:bg-white/20 disabled:opacity-40"
               >
-                Publish
+                {published ? 'Take it down' : 'Publish'}
               </button>
               <a
                 href={printHref}
@@ -5745,6 +5797,11 @@ function Hud({
                 Print pack
               </a>
             </div>
+            {published ? (
+              <p className="mt-1.5 text-[10px] leading-snug text-white/45">
+                Taking it down hides the 3D walk. Printed table signs keep working.
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>

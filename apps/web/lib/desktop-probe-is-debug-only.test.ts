@@ -32,29 +32,54 @@ const TAURI = join(HERE, '..', '..', '..', 'src-tauri');
 const read = (rel: string) => readFileSync(join(TAURI, rel), 'utf8');
 
 test('lib.rs compiles the probe module only under #[cfg(debug_assertions)]', () => {
-  const lib = read('src/lib.rs');
+  const lib = stripComments(read('src/lib.rs'));
   assert.match(lib, /#\[cfg\(debug_assertions\)\]\s*\n\s*mod probe;/, 'mod probe; must sit directly under #[cfg(debug_assertions)]');
-  assert.match(
-    lib,
-    /#\[cfg\(debug_assertions\)\]\s*\n\s*let builder = builder\s*\n?\s*\.invoke_handler\(tauri::generate_handler!\[probe::probe_report, probe::probe_ipc\]\)/,
-    'the invoke_handler registration must be under its own #[cfg(debug_assertions)]',
-  );
-  // Nothing else in lib.rs may mention probe:: outside those two gated sites.
+
+  // The PROPERTY, not the shape: every probe:: site must be reachable only in a
+  // debug build. S10 added keep-awake commands that ship in every profile, so the
+  // debug invoke_handler is no longer the two-probe one-liner S0 wrote — asserting
+  // that literal made the guard fail on a change that kept the property intact.
+  // What must stay true is that the RELEASE builder mentions no probe.
+  const releaseArm = /#\[cfg\(not\(debug_assertions\)\)\]([\s\S]*?)(?=\n\s*#\[cfg|\n\s*builder\b|$)/.exec(lib);
+  if (releaseArm) {
+    assert.doesNotMatch(releaseArm[1] ?? '', /probe/, 'the #[cfg(not(debug_assertions))] arm must not mention probe');
+  }
+  // Each probe:: use must be preceded, somewhere above it, by a debug gate and no
+  // intervening not(debug_assertions) gate.
+  for (const m of lib.matchAll(/probe::/g)) {
+    const before = lib.slice(0, m.index);
+    const lastDebug = before.lastIndexOf('#[cfg(debug_assertions)]');
+    const lastRelease = before.lastIndexOf('#[cfg(not(debug_assertions))]');
+    assert.ok(lastDebug > lastRelease, `a probe:: reference at ${m.index} is not under #[cfg(debug_assertions)]`);
+  }
   const mentions = lib.match(/probe::/g)?.length ?? 0;
   assert.equal(mentions, 3, `expected exactly 3 probe:: references (two commands + on_page_load), got ${mentions}`);
 });
 
 test('build.rs widens the capabilities glob only when PROFILE=debug', () => {
-  const build = read('build.rs');
+  const build = stripComments(read('build.rs'));
   assert.match(build, /let debug = std::env::var\("PROFILE"\)\.map\(\|p\| p == "debug"\)/);
   const ifDebug = /if debug \{([\s\S]*?)\n\s*\}\n/.exec(build);
   assert.notEqual(ifDebug, null, 'no `if debug { … }` block in build.rs');
   const debugBody = ifDebug![1] ?? '';
   assert.match(debugBody, /capabilities_path_pattern\("\.\/capabilities\*\/\*\*\/\*\.json"\)/, 'the widened glob must live inside the debug branch');
-  assert.match(debugBody, /\.commands\(&\["probe_report", "probe_ipc"\]\)/, 'the command manifest must live inside the debug branch');
-  // Comments may name the commands (build.rs documents the release `strings` check); code may not.
-  const outside = stripComments(build.replace(ifDebug![0], ''));
-  assert.doesNotMatch(outside, /capabilities\*|probe_report|probe_ipc/, 'probe commands / widened glob referenced outside the debug branch');
+
+  // The command manifest itself is no longer debug-only — S10's keep-awake commands
+  // ship in every profile, so `.commands(...)` moved out and now picks between two
+  // arrays. The property to hold is narrower and more honest: the PROBE commands
+  // must appear only where `debug` is true.
+  const selector = /if debug \{([\s\S]*?)\}\s*else\s*\{([\s\S]*?)\}/.exec(build);
+  if (selector) {
+    assert.match(selector[1] ?? '', /"probe_report"[\s\S]*"probe_ipc"/, 'the debug arm must list the probe commands');
+    assert.doesNotMatch(selector[2] ?? '', /probe_report|probe_ipc/, 'the release arm must not list any probe command');
+  } else {
+    assert.match(debugBody, /\.commands\(&\["probe_report", "probe_ipc"\]\)/, 'the command manifest must live inside the debug branch');
+  }
+
+  // Outside any debug-conditional code, probe commands and the widened glob must
+  // not appear at all.
+  const withoutConditionals = build.replace(ifDebug![0], '').replace(selector ? selector[0] : '', '');
+  assert.doesNotMatch(withoutConditionals, /capabilities\*|probe_report|probe_ipc/, 'probe commands / widened glob referenced outside a debug conditional');
 });
 
 test('release capabilities grant no probe permission; debug capabilities grant only probe permissions', () => {

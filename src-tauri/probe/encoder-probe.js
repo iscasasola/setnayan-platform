@@ -88,10 +88,21 @@
   }
   const diag = [];
   diag.push(await diagFetch('POST no custom headers (no preflight)', { method: 'POST', body: '{}' }));
-  diag.push(await diagFetch('POST with Tauri headers (preflight)', {
-    method: 'POST', body: '{}',
-    headers: { 'Content-Type': 'application/json', 'Tauri-Callback': '1', 'Tauri-Error': '2', 'Tauri-Invoke-Key': 'bogus' },
-  }));
+  // https only. On tauri://localhost the ipc:// custom protocol WORKS, so this
+  // well-formed request with a bogus key reaches Tauri's invoke-key check
+  // (tauri-2.11.1 src/webview/mod.rs: `eprintln!("__TAURI_INVOKE_KEY__ expected …")`
+  // then `return` — no response is ever sent), the fetch never settles and the
+  // whole probe hangs at this await. Measured 2026-09-05 (s0-ipc-localshell.log:
+  // "eval dispatched" → the eprintln → silence). A request with MISSING headers
+  // gets a 500 from parse_invoke_request instead, so the other three arms are safe.
+  if (location.protocol === 'https:') {
+    diag.push(await diagFetch('POST with Tauri headers (preflight)', {
+      method: 'POST', body: '{}',
+      headers: { 'Content-Type': 'application/json', 'Tauri-Callback': '1', 'Tauri-Error': '2', 'Tauri-Invoke-Key': 'bogus' },
+    }));
+  } else {
+    diag.push({ label: 'POST with Tauri headers (preflight)', skipped: 'not https: — a bogus invoke key on the working custom protocol never gets a response' });
+  }
   diag.push(await diagFetch('POST mode=no-cors', { method: 'POST', body: '{}', mode: 'no-cors' }));
   diag.push(await diagFetch('GET', { method: 'GET' }));
   let xhrResult;

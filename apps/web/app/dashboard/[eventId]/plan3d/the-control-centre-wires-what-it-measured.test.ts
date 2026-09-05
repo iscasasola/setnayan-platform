@@ -53,6 +53,20 @@ test('booths are read with the admin brandedReader, and the host gate is the one
   assert.match(src, /redirect\(`\/dashboard\/\$\{eventId\}`\)/);
 });
 
+test('auto-seating is READ from the event, with the editor\'s own default', () => {
+  const src = page();
+  assert.match(src, /seating_autoplace_enabled'\)/, 'the column is selected');
+  assert.match(src, /autoplace: eventRow\?\.seating_autoplace_enabled \?\? true,/);
+  assert.doesNotMatch(src, /autoplace:\s*(true|false),/, 'never a typed-in value');
+});
+
+test('no finalize gate, no wait, and no promise of "live" updates', () => {
+  const src = page();
+  assert.doesNotMatch(src, /guestListIsClosed|finalized\b.*publish|publishSeating.*closed/i, 'Publish is never conditioned on the guest list');
+  assert.doesNotMatch(src, /updates live|in real time|real-time/i, 'the scene is fetched per request — say "latest", not "live"');
+  assert.match(src, /right up to and during the day/, 'the owner\'s rule is on the page');
+});
+
 test('no money card: the 3D Plan is free for couples', () => {
   const src = page();
   assert.doesNotMatch(src, /SEATING_3D|InlineCheckoutDrawer|₱|peso\(/);

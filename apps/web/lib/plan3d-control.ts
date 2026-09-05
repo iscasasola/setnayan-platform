@@ -17,14 +17,20 @@
  * values and `known:false` facts are how the refusal reaches the pixel
  * (`lib/event-hub-control.ts` is the precedent and `HubFact` is reused as-is).
  *
- * ── THE ONE RULE THIS FILE DOES NOT ADD ─────────────────────────────────────
- * The owner said "the seat plan can be activated once the guest list is
- * finalized" AND "any changes on the moodboard and seat plan will adapt real
- * time". Gating Publish on finalization would also hold back the free 2D
- * table lookup and the print pack (same `published_at` column), so it is NOT
- * enforced here or in `publishSeating`. The finalize date is a FACT on the
- * guest-list row and the next step says "wait" while it is open — the couple
- * decides, with the date in front of them. Flagged for the owner in the PR.
+ * ── SEATING IS NEVER FINAL — OWNER, 2026-09-06 ──────────────────────────────
+ * "seating can always change in the last minute and even during the event."
+ * So there is NO finalize gate on Publish, and no "wait" step either (a first
+ * draft had one — it told the couple to hold the room until the list settled,
+ * which is the opposite of the rule). The guest-list edit deadline still shows
+ * on its row because it is a true fact about the LIST (counts, pricing); it
+ * says nothing about the room. Auto-seating (Smart Seat-Plan Phase 5) is what
+ * makes late changes safe: a guest added on the morning still gets a seat.
+ *
+ * What "the room follows" honestly means today: the guest walk fetches the
+ * scene PER REQUEST (`/[slug]/venue` is force-dynamic; the only live channel is
+ * presence), so a seat change appears the next time a guest opens or refreshes
+ * the room — not mid-walk. The copy says "always opens the latest", never
+ * "updates live". A live seat-map subscription is its own build.
  */
 
 import { NOT_SHARED, type HubFact } from './event-hub-control';
@@ -49,6 +55,12 @@ export type Plan3dPlanRead = {
   boothCount: number;
   brandedBooths: number;
   photoVisibility: 'table' | 'all' | 'none';
+  /** `events.seating_autoplace_enabled` — the guest-reactive seat plan (Smart
+   *  Seat-Plan Phase 5, 2026-07-08). ON (the default): a new guest gets a
+   *  provisional seat, role/group changes re-seat them, a decline frees the
+   *  seat. So a guest with no seat means NOT ENOUGH TABLES, and the act is
+   *  "add a table" — never "seat them by hand". OFF: the couple seats manually. */
+  autoplace: boolean;
 };
 
 export type Plan3dGuestRead = {
@@ -177,7 +189,7 @@ export type Plan3dNextStep = {
   /** A door, or null when the act is the switch on this page. */
   href: string | null;
   cta: string | null;
-  tone: 'act' | 'wait' | 'quiet' | 'failed';
+  tone: 'act' | 'quiet' | 'failed';
 };
 
 export function resolvePlan3dNextStep(
@@ -217,28 +229,28 @@ export function resolvePlan3dNextStep(
     };
   }
   if (unseated > 0) {
-    return {
-      headline: `${unseated} guest${unseated === 1 ? ' has' : 's have'} no seat`,
-      blurb: 'They will be told to ask at the door. Seat them and the room follows.',
-      href: `${base}/seating`,
-      cta: 'Seat them',
-      tone: 'act',
-    };
+    return plan.autoplace
+      ? {
+          headline: `${unseated} guest${unseated === 1 ? ' has' : 's have'} no seat yet`,
+          blurb: 'Auto-seating is on — seats fill themselves as you add tables. Add one and the room follows.',
+          href: `${base}/seating`,
+          cta: 'Add a table',
+          tone: 'act',
+        }
+      : {
+          headline: `${unseated} guest${unseated === 1 ? ' has' : 's have'} no seat`,
+          blurb: 'Auto-seating is off, so these are yours to place. They will be told to ask at the door until then.',
+          href: `${base}/seating`,
+          cta: 'Seat them',
+          tone: 'act',
+        };
   }
   if (standing.state === 'draft') {
-    const fin = resolveGuestListFinalize(event, nowMs);
-    if (!fin.closed && fin.endMs != null) {
-      return {
-        headline: `Your guest list ${fin.label}`,
-        blurb: 'You can publish now — the room follows every change — or wait until the list is settled so nobody walks in to a seat that moves.',
-        href: null,
-        cta: null,
-        tone: 'wait',
-      };
-    }
     return {
       headline: 'Publish — your guests can walk the room',
-      blurb: 'Opens the moment you publish. Stays up until you take it down.',
+      blurb: plan.autoplace
+        ? 'Seats can change right up to and during the day — a guest added late still gets one, and your guests always open the latest version.'
+        : 'Seats can change right up to and during the day; your guests always open the latest version.',
       href: null,
       cta: null,
       tone: 'act',
@@ -289,7 +301,7 @@ export function resolvePlan3dSources(
       value: plan.measured
         ? `${plan.tables} table${plan.tables === 1 ? '' : 's'} · ${
             unseated == null ? `${plan.seated} seated` : unseated === 0 ? 'everyone seated' : `${unseated} with no seat`
-          }${plan.boothCount > 0 ? ` · ${plan.boothCount} supplier booth${plan.boothCount === 1 ? '' : 's'}${plan.brandedBooths > 0 ? ` (${plan.brandedBooths} branded)` : ''}` : ''}`
+          }${plan.boothCount > 0 ? ` · ${plan.boothCount} supplier booth${plan.boothCount === 1 ? '' : 's'}${plan.brandedBooths > 0 ? ` (${plan.brandedBooths} branded)` : ''}` : ''} · auto-seating ${plan.autoplace ? 'on' : 'off'}`
         : null,
       href: `${base}/seating`,
     },

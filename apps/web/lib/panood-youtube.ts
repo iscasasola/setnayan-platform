@@ -479,6 +479,43 @@ export async function transitionYoutubeBroadcast(
 }
 
 /**
+ * liveStreams.delete — S8's durable mitigation for a leaked hosted-channel
+ * key: rather than relying only on the claim-nonce handoff to keep the key
+ * off the wire, delete the YouTube `liveStream` resource itself the moment a
+ * broadcast ends, which invalidates its `streamName` (the RTMP stream key)
+ * on YouTube's side. A key that did leak stops being useful within one API
+ * call of the couple pressing "End broadcast" — see the threat model in
+ * lib/live-studio-encoder-claims.ts and src-tauri/src/stream_key.rs.
+ *
+ * Deliberately its own `fetch` rather than a `youtubeApi()` call: a
+ * successful delete returns 204 No Content, and `youtubeApi()` always calls
+ * `res.json()` on success, which throws on an empty body.
+ *
+ * Best-effort by convention (same as every other call site in
+ * endPanoodBroadcast): the couple's "End broadcast" must succeed even if this
+ * fails (already revoked, already deleted, a transient YouTube error), so
+ * callers should catch and ignore, not surface this as a user-facing error.
+ */
+export async function deleteYoutubeStream(
+  accessToken: string,
+  streamId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${YOUTUBE_LIVE_STREAMS_URL}?id=${encodeURIComponent(streamId)}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `YouTube DELETE liveStreams failed: ${res.status} ${text.slice(0, 300)}`,
+    );
+  }
+}
+
+/**
  * liveStreams.list(part=status) — read the stream's ingestion status. Poll
  * until streamStatus === 'active' (the encoder is connected + sending) before
  * transitioning the broadcast to live. 1 quota unit.

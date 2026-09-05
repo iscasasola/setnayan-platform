@@ -34,11 +34,30 @@ const read = (rel: string) => readFileSync(join(TAURI, rel), 'utf8');
 test('lib.rs compiles the probe module only under #[cfg(debug_assertions)]', () => {
   const lib = read('src/lib.rs');
   assert.match(lib, /#\[cfg\(debug_assertions\)\]\s*\n\s*mod probe;/, 'mod probe; must sit directly under #[cfg(debug_assertions)]');
-  assert.match(
-    lib,
-    /#\[cfg\(debug_assertions\)\]\s*\n\s*let builder = builder\s*\n?\s*\.invoke_handler\(tauri::generate_handler!\[probe::probe_report, probe::probe_ipc\]\)/,
-    'the invoke_handler registration must be under its own #[cfg(debug_assertions)]',
-  );
+
+  // S8 (2026-09-05) added stream-key commands that ship in EVERY build.
+  // `invoke_handler` can only be called once, so the debug branch's
+  // `generate_handler!` now lists the S8 commands alongside the two probe
+  // commands, rather than the two probe commands alone. The invariant this
+  // test protects is unchanged — probe_report/probe_ipc must be registered
+  // ONLY from inside the #[cfg(debug_assertions)] branch, and must be ABSENT
+  // from the #[cfg(not(debug_assertions))] branch — so both are checked
+  // directly instead of requiring one exact, now-stale invoke_handler shape.
+  const debugBranch = /#\[cfg\(debug_assertions\)\]\s*\n\s*let builder = builder([\s\S]*?);/.exec(lib);
+  assert.notEqual(debugBranch, null, 'no #[cfg(debug_assertions)] "let builder = builder" branch found');
+  // The regex has exactly one capturing group and `debugBranch` is confirmed
+  // non-null above, so group 1 is always a real string here — the `?? ''`
+  // only satisfies TS's (correctly conservative) `string | undefined` typing
+  // for regex capture groups.
+  const debugBody = debugBranch![1] ?? '';
+  assert.match(debugBody, /probe::probe_report/, 'probe_report must be registered inside the debug branch');
+  assert.match(debugBody, /probe::probe_ipc/, 'probe_ipc must be registered inside the debug branch');
+
+  const releaseBranch = /#\[cfg\(not\(debug_assertions\)\)\]\s*\n\s*let builder = builder([\s\S]*?);/.exec(lib);
+  assert.notEqual(releaseBranch, null, 'no #[cfg(not(debug_assertions))] "let builder = builder" branch found');
+  const releaseBody = releaseBranch![1] ?? '';
+  assert.doesNotMatch(releaseBody, /probe::/, 'the release invoke_handler branch must never mention probe::');
+
   // Nothing else in lib.rs may mention probe:: outside those two gated sites.
   const mentions = lib.match(/probe::/g)?.length ?? 0;
   assert.equal(mentions, 3, `expected exactly 3 probe:: references (two commands + on_page_load), got ${mentions}`);
@@ -51,7 +70,14 @@ test('build.rs widens the capabilities glob only when PROFILE=debug', () => {
   assert.notEqual(ifDebug, null, 'no `if debug { … }` block in build.rs');
   const debugBody = ifDebug![1] ?? '';
   assert.match(debugBody, /capabilities_path_pattern\("\.\/capabilities\*\/\*\*\/\*\.json"\)/, 'the widened glob must live inside the debug branch');
-  assert.match(debugBody, /\.commands\(&\["probe_report", "probe_ipc"\]\)/, 'the command manifest must live inside the debug branch');
+  // S8 (2026-09-05): the probe command names are pushed onto a runtime Vec
+  // inside this branch (rather than passed as a literal array straight to
+  // `.commands()`) because that same Vec also carries the S8 stream-key
+  // commands, which ship in every build and can only reach the manifest via
+  // ONE `.app_manifest(...).commands(...)` call. The invariant is unchanged —
+  // "probe_report"/"probe_ipc" enter that Vec ONLY here.
+  assert.match(debugBody, /commands\.push\("probe_report"\)/, 'probe_report must be pushed inside the debug branch');
+  assert.match(debugBody, /commands\.push\("probe_ipc"\)/, 'probe_ipc must be pushed inside the debug branch');
   // Comments may name the commands (build.rs documents the release `strings` check); code may not.
   const outside = stripComments(build.replace(ifDebug![0], ''));
   assert.doesNotMatch(outside, /capabilities\*|probe_report|probe_ipc/, 'probe commands / widened glob referenced outside the debug branch');

@@ -30,6 +30,13 @@ serde_json = "1"
 # window.__TAURI__ (withGlobalTauri) under the scoped capability in capabilities/.
 tauri-plugin-oauth = "2"
 tauri-plugin-opener = "2"
+# S8 (build-sessions/encoder/S8.md) — the hosted-channel stream-key exchange.
+# rustls, NOT the platform TLS stack / OpenSSL (rule 22's "reqwest (rustls, no
+# OpenSSL)"): default-features = false drops reqwest's default `default-tls`.
+# json: the exchange endpoint speaks JSON in and out.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# Zeroises the stream key's backing memory on drop / explicit forget — Part C.
+zeroize = "1"
 
 # The native RTMPS/FLV encoder. Its own crate since 2026-09-05 so it can be
 # tested on every PR without compiling tauri — `crates/encoder/Cargo.toml`

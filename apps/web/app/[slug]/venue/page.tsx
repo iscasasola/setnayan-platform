@@ -307,8 +307,10 @@ export default async function VenuePage({
                 nobody can find, which is the same as not shipping it — and
                 this is the one screen where the reason for it is visible.
                 Flag-gated to match the route itself, which 404s when
-                NEXT_PUBLIC_FIGURE_CHIBI is unset (production today), so this
-                never offers a link to a dead end. */}
+                NEXT_PUBLIC_FIGURE_CHIBI is unset, so this never offers a link
+                to a dead end. (This comment used to add "production today" —
+                false since 2026-08-31: the flag is "true" in Production, so the
+                link renders and the maker is live.) */}
             {guestAvatarsEnabled() ? (
               <Link
                 href={`/${slug}/avatar`}

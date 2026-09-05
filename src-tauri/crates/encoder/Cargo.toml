@@ -51,3 +51,16 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
 webpki-roots = "0.26"
 thiserror = "1.0"
+
+# ─── THE DISK CHECK, AND ONLY THE DISK CHECK ───────────────────────────────
+#
+# `file_sink.rs` refuses to start a recording on a volume with under 2 GB free,
+# and there is no std API that answers "how much room is on this volume". Both
+# of these are already in this workspace's lock file (tokio pulls libc; tauri
+# pulls windows-sys), so neither is a new download or a new audit — they are a
+# statvfs and a GetDiskFreeSpaceExW, target-gated, used in one function each.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }

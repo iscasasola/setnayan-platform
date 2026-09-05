@@ -15,7 +15,13 @@
 //!   carried it (S0 measured that the envelope is not settled; see its module docs).
 //! · [`flv`] — FLV tag bodies. Pure, no I/O, byte-checked against ffmpeg's own muxer.
 //! · [`rtmp`] — destination, clock, redaction. Pure.
-//! · [`sender`] — TLS, handshake, publish, ordering. The only file that touches a socket.
+//! · [`sender`] — TLS, handshake, publish, ordering. The only file that speaks to a socket.
+//! · [`tagger`] — S7. The clock and the FLV bodies, ABOVE the socket so both survive a
+//!   reconnect and so one set of bytes reaches both the wire and the recording.
+//! · [`file_sink`] — S7. The `.flv` on the laptop; for a hosted-channel couple, the
+//!   only copy that will ever exist.
+//! · [`reconnect`] — S7. Backoff, the backup ingest, the grace window. The only file
+//!   that decides anything.
 //!
 //! WHAT IS NOT HERE YET, ON PURPOSE:
 //! · The Tauri commands and their ACL entries — **S5**, whose transport is an open
@@ -24,12 +30,13 @@
 //!   by the compiler rather than promised in a comment: this is a separate crate with
 //!   no tauri dependency, which is also what lets its tests run on every pull request
 //!   in seconds instead of after a webkit build. `Cargo.toml` here explains the rest.
-//! · Reconnect, the backup ingest, local recording — **S7**. `sender::SenderOutcome`
-//!   is the seam it wraps.
 //! · Ingest health and adaptive bitrate — **S9**, extending the existing
 //!   `apps/web/lib/live-studio-ingest-health.ts`. `sender::SenderStats` is what it reads.
 
 pub mod contract;
+pub mod file_sink;
 pub mod flv;
+pub mod reconnect;
 pub mod rtmp;
 pub mod sender;
+pub mod tagger;

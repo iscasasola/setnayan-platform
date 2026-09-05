@@ -359,6 +359,15 @@ Neither spike can run from this machine alone; both are written up so the next s
 - **S5** — its contract as written (`invoke('encoder_push', bytes)` → `InvokeBody::Raw`; the go-live guard "anything but `Raw` REFUSES go-live") **cannot pass on this platform today.** Measured: 100 % of bodies are `Json` from the real origin, before any CSP is enforced, and adding `ipc:` to `connect-src` addresses the CSP report but not the `Load failed`. A guard that refuses on non-`Raw` would refuse **every** macOS user. S5 has to be re-scoped around one of the options in § 7 — this finding does not choose.
 - **S6** — codes against S5's contract only; the byte layout (16-byte header, seq, ts_us) is transport-independent and can stand. What S6 must not assume is that a chunk arrives as one contiguous `&[u8]` at custom-protocol cost; if the transport stays JSON, the Rust side receives `Vec<serde_json::Value>` per chunk and pays a parse + copy per frame (measured cost is inside the § 3.1 latencies; CPU is in the `[sample]` lines of the same log — the debug binary sat at 1–16 % of one core at 30 chunks/s of 10 KB).
 
+> 🔒 **RESOLVED 2026-09-06 — the owner chose the JSON envelope.** Not on performance (720p30 at
+> 2.5 Mbps is 312 KB/s, ~416 KB/s as base64, between two processes on one machine — trivial) but on
+> failure mode: `_registerURLSchemeAsSecure:` is a private Apple API that can break on any macOS
+> point release, and it would break on a couple's laptop mid-wedding with a fix that only reaches
+> them through S12's updater days later. The JSON path is measured working (1797/1797 chunks, zero
+> errors) and degrades predictably. Serving from a Tauri scheme was rejected because it ends the
+> meta-refresh shell's "the desktop app is the live site" property. S5 is re-scoped accordingly and
+> must measure base64 against the number-array encoding before settling on either.
+
 ## 7. The options — measured or reasoned, none chosen
 
 | Option | What is known from this session | What is not |

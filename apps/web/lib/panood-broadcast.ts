@@ -210,21 +210,26 @@ export async function createPanoodBroadcast(
 /**
  * Mark the event's active broadcast 'complete' (the couple pressed "End
  * broadcast"). Best-effort + idempotent: a no-op when there's no active row.
- * Returns the broadcast_id of the row that was ended, so the caller can also
- * transition it complete on YouTube. Graceful-degrade on a missing table.
+ * Returns the broadcast_id + stream_id of the row that was ended, so the
+ * caller can also transition it complete on YouTube AND (S8) delete the
+ * underlying liveStream to invalidate its stream key. Graceful-degrade on a
+ * missing table.
  */
 export async function completePanoodBroadcast(
   eventId: string,
-): Promise<{ broadcastId: string } | null> {
+): Promise<{ broadcastId: string; streamId: string } | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('panood_broadcasts')
     .update({ status: 'complete', ended_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('event_id', eventId)
     .neq('status', 'complete')
-    .select('broadcast_id')
+    .select('broadcast_id, stream_id')
     .maybeSingle();
   if (error?.code === UNDEFINED_TABLE) return null;
   if (!data) return null;
-  return { broadcastId: data.broadcast_id as string };
+  return {
+    broadcastId: data.broadcast_id as string,
+    streamId: data.stream_id as string,
+  };
 }

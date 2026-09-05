@@ -354,6 +354,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         // lays upgrade, opened via liveStudioControllerHref). Pass true to unlock
         // the go-live button; the add-on rows below still reflect REAL ownership.
         ownsPanood={true}
+        ownsHostedChannel={ownsHostedChannel}
         active={
           activeBroadcast
             ? {

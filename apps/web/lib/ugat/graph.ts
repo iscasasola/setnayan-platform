@@ -2573,6 +2573,13 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'live_studio_overlay_settings' },
       { kind: 'table', table: 'live_studio_roam_streams' },
       { kind: 'table', table: 'live_studio_channel_oauth_state' },
+      // S8 (build-sessions/encoder/S8.md): single-use nonce for the desktop
+      // encoder's hosted-channel stream-key handoff. Same shape and posture as
+      // live_studio_channel_oauth_state above — added here rather than as a
+      // new joint, since it is one more artifact of this same control-room →
+      // channel-pool relationship, not a new subsystem.
+      { kind: 'table', table: 'live_studio_encoder_claims' },
+      { kind: 'fk', table: 'live_studio_encoder_claims', column: 'broadcast_id', references: 'panood_broadcasts' },
     ],
     chain: 2,
     pair: ['TYPE-LIVESTUDIO', 'TYPE-EVENTS'],

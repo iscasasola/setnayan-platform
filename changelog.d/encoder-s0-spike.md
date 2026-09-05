@@ -73,3 +73,18 @@ Still open, owned by the `../wt-s0-run` session (or whoever resumes): § 3.3 fro
 
 SPEC IMPACT: None (finding only; the design doc `Live_Studio_Encoder_Scope_2026-09-03.md` is
 updated by the owner once the floor is confirmed on the remaining matrix machines).
+
+Session note 2026-09-05 16:35 (the sole remaining S0 session, harness `21d1eee84`): § 8 now states that the
+`require-hardware` `TypeError` is spec-conformant (W3C WebCodecs WD 2026-08-27: `enum HardwareAcceleration`
+has only `no-preference` / `prefer-hardware` / `prefer-software`; zero occurrences of `require-hardware`;
+verified against https://www.w3.org/TR/webcodecs/ in-session) and that nothing measured triggers the
+B-remux branch (the capability floor held; only S5's transport assumption failed). § 4.1 is filled from
+`S0-logs/s0-encode-attempt1-hidden-then-suspended.log` (+ `…-unified-log-excerpt.txt`): 30.0 fps / 2.3 Mbps
+CBR / queue 0 / 0 drops while the page was visible (170 s); the pinned window was then occluded, WebKit put
+WebContent in Background state with GPU access denied and VideoToolbox `input_fps` fell 30 → 16 within 3 s
+(encoder queue still 0 — the drop is upstream of `VideoEncoder`); after ~8 min hidden WebKit SUSPENDED the
+process (`didChangeThrottleState(Suspended)` 15:46:44) and the runner's silence cut-off ended the run at
+10.83 min. Thermal nominal throughout. `probe/detach.py` (named above) is now tracked. A first loopback
+attempt (`s0-ipc-realorigin-loopback-attempt1-no-redirect.log`) never left `tauri://localhost` and measures
+nothing; § 3.3 and the encode rerun (§ 4.2) wait on a load ≤ 5 window, which other sessions' test bursts
+have denied since 15:55 (1-min load 10–50 continuously).

@@ -702,3 +702,465 @@ test('MB24: the measured artwork constants are still true of the file', async ()
     );
   }
 });
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * MB25 · THE FIRST TWO-SLOT ASSET — the Ceremony church aisle.
+ *
+ * Everything above this line is a ONE-slot figure: one region, one palette
+ * colour, and the only question is whether the range bleeds into the file's own
+ * background. The Ceremony drawing
+ * (`public/moodboard-seed/venue_scene/church/ceremony-aisle.svg`, seeded by
+ * migration 20271206413595) is the first asset in the library with TWO, and it
+ * brings a failure mode one-slot assets cannot have: the two slots recolouring
+ * each other's region, or collapsing into one.
+ *
+ * ── 🔑 THE TOLERANCES HERE ARE NOT CIELAB ΔE, AND THAT IS THE WHOLE POINT ───
+ * MB25's brief specified the fabric tolerance from a CIELAB measurement of the
+ * file: nearest neutral (the floor #D6D1C7) at ΔE 14.4, so "≤ 10 is safe".
+ * `recolorRGBA` does not use CIELAB. `colorDistance` is a weighted-RGB
+ * Euclidean proxy, and in it that same pair is 5.1 apart — so a tolerance of
+ * 10, and even of 6, repaints EVERY floor pixel in the couple's second colour.
+ * Measured 2026-09-05 on a real 520px raster: 3,158/3,158 exact floor pixels
+ * turn at tolerance 6. The seeded value is 5 for that reason, not for caution.
+ *
+ * The lesson generalises: a tolerance is a number in the ENGINE'S metric. Never
+ * transfer one from a ΔE measurement without re-measuring through this function.
+ *
+ * ── HOW THESE CONSTANTS WERE OBTAINED ───────────────────────────────────────
+ * The fills are read straight out of the SVG (it has 326 flat `fill="rgb(…)"`
+ * paths, no gradients and no rasters, so every region IS one exact byte
+ * triple). The behaviour was then measured on the real artwork rasterised at
+ * the component's own MAX_PREVIEW_PX:
+ *
+ *   rsvg-convert -w 520 -o out.png \
+ *     apps/web/public/moodboard-seed/venue_scene/church/ceremony-aisle.svg
+ *   magick out.png -depth 8 RGBA:out.rgba   # then push through recolorRGBA
+ *
+ * Result at the seeded values, both slots applied together (burgundy + gold):
+ *   florals  5,094/5,094 exact px recolour      pews   0/26,958 move
+ *   fabric  13,409/13,409 exact px recolour     walls  0/43,552 move
+ *                                               floor  0/3,158  move
+ *                                               white  0/64,981 move
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const CEREMONY_MIGRATION = new URL(
+  '../../../../../../../../supabase/migrations/20271206413595_mb25_ceremony_church_aisle_drawing_app_served.sql',
+  import.meta.url,
+);
+
+type CeremonySlot = { slotId: number; sampledHex: string; tolerance: number; region: string };
+
+/**
+ * 🪤 PARSED FROM THE MIGRATION, NEVER RETYPED — the same trap MB23's sabotage
+ * pass caught above. A guard carrying its own copy of the values it guards is
+ * guarding the copy: edit the migration and this file must re-measure at once.
+ */
+function ceremonySlotsFromMigration(): CeremonySlot[] {
+  const sql = readFileSync(CEREMONY_MIGRATION, 'utf8');
+  const body = sql.slice(sql.indexOf('moodboard_asset_color_ranges'));
+  const out: CeremonySlot[] = [];
+  for (const m of body.matchAll(
+    /\(\s*(\d+)::SMALLINT\s*,\s*'(#[0-9A-Fa-f]{6})'\s*,\s*(\d+)::NUMERIC\s*,\s*'([a-z]+)'\s*\)/g,
+  )) {
+    out.push({
+      slotId: Number(m[1]),
+      sampledHex: m[2]!.toUpperCase(),
+      tolerance: Number(m[3]),
+      region: m[4]!,
+    });
+  }
+  return out;
+}
+
+const CEREMONY_SLOTS = ceremonySlotsFromMigration();
+
+/**
+ * MEASURED ARTWORK FACTS — the exact `fill="rgb(…)"` values in the SVG, with
+ * the path count each covers. No migration can change these; only a re-cut of
+ * the drawing can, and then they must be re-read from the file.
+ */
+const CEREMONY_ART = {
+  florals: '#D98BA6', //  64 paths — altar arch, pew-end clusters
+  fabric: '#E8D9B5', //  35 paths — aisle runner, pew ribbons, candle bases
+  pews: '#8A6A4E', //  99 paths
+  walls: '#F4F1EA', //  83 paths
+  floor: '#D6D1C7', //   7 paths — the neutral nearest the fabric slot (5.1)
+  white: '#FFFFFF', //   6 paths — window glass
+} as const;
+
+type CeremonyRegion = keyof typeof CEREMONY_ART;
+const CEREMONY_NEUTRALS: CeremonyRegion[] = ['pews', 'walls', 'floor', 'white'];
+
+/**
+ * A six-band raster of the real fills — one horizontal band per region, run
+ * through the SAME `recolorRGBA` the browser runs with the SAME rows the
+ * database holds. Flat bands are a faithful stand-in here precisely BECAUSE the
+ * artwork is flat: every region in this file is a single exact byte triple, so
+ * there is no shading for a band to misrepresent (unlike the attire figures
+ * above, whose `farthestTone` exists for exactly that reason).
+ */
+function renderCeremony(
+  slots: ColorRangeSlot[],
+  edits: Parameters<typeof recolorRGBA>[2],
+): Record<CeremonyRegion, { moved: number; total: number; after: string }> {
+  const bands = Object.keys(CEREMONY_ART) as CeremonyRegion[];
+  const W = 8;
+  const H = bands.length * 2;
+  const src = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    const [r, g, b] = hexToRgb(CEREMONY_ART[bands[Math.floor(y / 2)]!]);
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      src[i] = r!;
+      src[i + 1] = g!;
+      src[i + 2] = b!;
+      src[i + 3] = 255;
+    }
+  }
+  const out = recolorRGBA(src, slots, edits);
+  const result = {} as Record<CeremonyRegion, { moved: number; total: number; after: string }>;
+  for (const [bandIndex, name] of bands.entries()) {
+    let moved = 0;
+    let total = 0;
+    let after = '';
+    for (let y = bandIndex * 2; y < bandIndex * 2 + 2; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        total++;
+        if (out[i] !== src[i] || out[i + 1] !== src[i + 1] || out[i + 2] !== src[i + 2]) moved++;
+        after = `#${[out[i]!, out[i + 1]!, out[i + 2]!]
+          .map((n) => n.toString(16).padStart(2, '0'))
+          .join('')}`;
+      }
+    }
+    result[name] = { moved, total, after };
+  }
+  return result;
+}
+
+/** The seeded rows, in the shape the component passes to `recolorRGBA`. */
+const ceremonyLiveSlots = (): ColorRangeSlot[] =>
+  CEREMONY_SLOTS.map((s) => ({
+    slotId: s.slotId,
+    sampledHex: s.sampledHex,
+    toleranceDe: s.tolerance,
+    regionLabel: s.region,
+  }));
+
+test('ceremony-aisle: the migration seeds exactly two slots, one per recolourable region', () => {
+  // Catches a dropped slot. With only slot 1 the card silently becomes a
+  // one-colour scene — the runner and ribbons keep their stock cream while the
+  // flowers turn, and nothing else in this file would notice.
+  assert.deepEqual(
+    CEREMONY_SLOTS.map((s) => `${s.slotId}:${s.region}`),
+    ['1:florals', '2:fabric'],
+    'migration 20271206413595 no longer seeds slot 1 = florals and slot 2 = fabric for the ' +
+      'Ceremony aisle. moodboard-board.tsx maps slot N to the couple\'s Nth ceremony colour ' +
+      '(`out[r.slotId] = palette[i % palette.length]`), so the slot NUMBERS are the colour ' +
+      'order the couple chose — they are not free to renumber.',
+  );
+});
+
+test('ceremony-aisle: each slot samples the region it claims', () => {
+  // Catches the two sampled_hex values being swapped. Without this the swap is
+  // still caught below (the fabric hex at tolerance 10 turns the floor), but it
+  // is caught as "the floor moved" — which sends the next reader hunting for a
+  // tolerance bug that is not there. This says what actually happened.
+  for (const s of CEREMONY_SLOTS) {
+    assert.equal(
+      s.sampledHex,
+      (CEREMONY_ART as Record<string, string>)[s.region]?.toUpperCase(),
+      `slot ${s.slotId} is labelled '${s.region}' but samples ${s.sampledHex}, which is not ` +
+        `that region's fill in the artwork (${(CEREMONY_ART as Record<string, string>)[s.region]}). ` +
+        'If the two sampled_hex values were swapped, the couple\'s first ceremony colour lands ' +
+        'on the aisle runner and their second on the flowers — the card is wrong in a way that ' +
+        'still LOOKS recoloured. Re-read the fills from the SVG; do not adjust this test.',
+    );
+  }
+});
+
+test('ceremony-aisle: each slot recolours its OWN region and nothing else', () => {
+  for (const s of CEREMONY_SLOTS) {
+    for (const hex of PALETTE) {
+      const bands = renderCeremony(ceremonyLiveSlots(), { [s.slotId]: { mode: 'palette', hex } });
+      const own = bands[s.region as CeremonyRegion]!;
+      assert.equal(
+        own.moved,
+        own.total,
+        `slot ${s.slotId} (${s.region}, ${s.sampledHex} ± ${s.tolerance}) leaves ` +
+          `${own.total - own.moved}/${own.total} of its own region at stock colour under ` +
+          `${hex}. A tolerance tightened until the region stops matching passes every ` +
+          '"the neutrals did not move" assertion forever while the Ceremony card quietly ' +
+          'shows the couple nothing of their own.',
+      );
+      // The other slot's region must not follow along.
+      const other = CEREMONY_SLOTS.find((o) => o.slotId !== s.slotId);
+      if (other) {
+        const theirs = bands[other.region as CeremonyRegion]!;
+        assert.equal(
+          theirs.moved,
+          0,
+          `applying ${hex} to slot ${s.slotId} (${s.region}) also moved ${theirs.moved}/` +
+            `${theirs.total} of the ${other.region} region. The two ranges overlap, so the ` +
+            'couple cannot give the flowers and the fabric different colours — they are one ' +
+            'region wearing two labels. Re-sample; do not widen.',
+        );
+      }
+    }
+  }
+});
+
+test('ceremony-aisle: the walls, the floor and the pews move by NOTHING', () => {
+  // 🔑 THE FLOOR IS THE ONE. #D6D1C7 sits 5.1 from the fabric slot in the
+  // engine's own metric (CIELAB says 14.4 — see the header). At tolerance 6 the
+  // whole floor turns; the seeded 5 is the only clean value, and this assertion
+  // is what stops it drifting back up "because ΔE says there is room".
+  for (const first of PALETTE) {
+    for (const second of PALETTE) {
+      const bands = renderCeremony(ceremonyLiveSlots(), {
+        1: { mode: 'palette', hex: first },
+        2: { mode: 'palette', hex: second },
+      });
+      for (const n of CEREMONY_NEUTRALS) {
+        assert.equal(
+          bands[n]!.moved,
+          0,
+          `the ${n} (${CEREMONY_ART[n]}) wear the palette: ${bands[n]!.moved}/` +
+            `${bands[n]!.total} px moved with florals→${first}, fabric→${second}. Distances: ` +
+            // Built by ITERATING the seeded slots, never by index. An earlier
+            // draft read CEREMONY_SLOTS[1] here; assert's message argument is
+            // evaluated eagerly, so with slot 2 dropped this line threw a
+            // TypeError and the test reported "cannot read sampledHex" instead
+            // of which neutral had turned. A guard whose failure message
+            // crashes tells you about the guard, not about the data.
+            CEREMONY_SLOTS.map(
+              (s) =>
+                `${n}→slot ${s.slotId} (${s.region}) = ` +
+                `${distance(CEREMONY_ART[n], s.sampledHex).toFixed(1)} vs tolerance ${s.tolerance}`,
+            ).join(', ') +
+            '. ' +
+            'A church whose stone turns burgundy is the same defect MB23 fixed on the attire ' +
+            'figures. Fix the DATA in a migration on moodboard_asset_color_ranges — never ' +
+            'special-case the asset in the component.',
+        );
+      }
+    }
+  }
+});
+
+test('ceremony-aisle: the two slots recolour INDEPENDENTLY', () => {
+  // The assertion a one-slot asset cannot make. Two DIFFERENT palette colours
+  // must land two DIFFERENT colours on the two regions; if a single range
+  // covered both, or the board collapsed them, this is where it shows.
+  const [a, b] = ['#7A1F2B', '#D4AF37'];
+  const bands = renderCeremony(ceremonyLiveSlots(), {
+    1: { mode: 'palette', hex: a },
+    2: { mode: 'palette', hex: b },
+  });
+  assert.notEqual(
+    bands.florals.after,
+    bands.fabric.after,
+    `the florals and the fabric both ended at ${bands.florals.after} when the couple asked ` +
+      `for ${a} and ${b}. Their two ceremony colours have collapsed into one, so the card ` +
+      'shows a scene they did not choose.',
+  );
+  // …and each landed the colour meant for IT, not the other one's.
+  const soloFlorals = renderCeremony(ceremonyLiveSlots(), { 1: { mode: 'palette', hex: a } });
+  const soloFabric = renderCeremony(ceremonyLiveSlots(), { 2: { mode: 'palette', hex: b } });
+  assert.equal(
+    bands.florals.after,
+    soloFlorals.florals.after,
+    'the florals region renders differently when the fabric slot is also edited — the two ' +
+      'ranges are interfering, so what the couple sees on the flowers depends on what they ' +
+      'chose for the runner.',
+  );
+  assert.equal(
+    bands.fabric.after,
+    soloFabric.fabric.after,
+    'the fabric region renders differently when the florals slot is also edited — the two ' +
+      'ranges are interfering.',
+  );
+});
+
+test('ceremony-aisle: the harness can tell a bleeding tolerance from a clean one', () => {
+  // Without this, every ceremony assertion above could be green because the
+  // six-band raster never moves at all. This is the fabric tolerance MB25's
+  // brief originally specified, and the reason it was not used: it paints the
+  // floor AND the walls.
+  const bled = renderCeremony(
+    [
+      { slotId: 1, sampledHex: CEREMONY_ART.florals, toleranceDe: 10, regionLabel: 'florals' },
+      { slotId: 2, sampledHex: CEREMONY_ART.fabric, toleranceDe: 15, regionLabel: 'fabric' },
+    ],
+    { 1: { mode: 'palette', hex: '#7A1F2B' }, 2: { mode: 'palette', hex: '#D4AF37' } },
+  );
+  assert.ok(
+    bled.floor.moved > 0 && bled.walls.moved > 0,
+    'a fabric tolerance of 15 should repaint the floor and the walls, and this harness says ' +
+      'it does not — the harness is wrong, not the data. (Measured on the real 520px raster: ' +
+      'at 15, all 3,158 floor px and all 43,552 wall px turn.)',
+  );
+});
+
+/**
+ * ── AND NOW ON THE REAL PIXELS ──────────────────────────────────────────────
+ *
+ * The six-band harness above is a faithful stand-in for THIS artwork because
+ * every region in it is one exact byte triple. But MB24 landed
+ * `rasteriseFromPublic` in this same file, on the reasoning that an asset served
+ * out of `public/` is on disk at test time and there is no excuse for a
+ * stand-in — and the Ceremony aisle is served out of `public/` too. So the same
+ * claims are re-made against the ACTUAL file, rasterised at the component's own
+ * MAX_PREVIEW_PX and pushed through the real `recolorRGBA`.
+ *
+ * This catches two things flat bands cannot:
+ *   • ANTIALIASED EDGE PIXELS. The rasteriser blends fabric into floor along the
+ *     runner's edge, producing colours that exist in neither region. If a
+ *     tolerance is wide enough to swallow that blend, the aisle grows a fringe
+ *     the couple can see and the band harness cannot.
+ *   • A REDRAWN REGION. The path counts are asserted by proxy: if the artwork is
+ *     re-cut and a region moves or shrinks, its measured share moves with it.
+ *
+ * 🪤 The served path is PARSED from the migration, not retyped — so a migration
+ * pointed at a file this app does not serve fails HERE, not in a couple's
+ * browser.
+ */
+const CEREMONY_SERVED = (() => {
+  const sql = readFileSync(CEREMONY_MIGRATION, 'utf8');
+  const m = /'(\/moodboard-seed\/[^']+\.svg)'/.exec(sql);
+  assert.ok(m, 'migration 20271206413595 no longer names an app-served /moodboard-seed path');
+  return m[1]!;
+})();
+
+let ceremonyRasterCache: Raster | null = null;
+async function ceremonyRaster(): Promise<Raster> {
+  ceremonyRasterCache ??= await rasteriseFromPublic(CEREMONY_SERVED);
+  return ceremonyRasterCache;
+}
+
+/**
+ * Count, for each named fill, how many pixels hold it EXACTLY and how many of
+ * those moved. Exact-match populations are the honest unit here: an antialiased
+ * pixel belongs to no region, so counting it as one would let a fringe hide
+ * inside a rounding argument. Fringe is measured separately, below.
+ */
+async function recolourCeremony(edits: Parameters<typeof recolorRGBA>[2]) {
+  const { rgba } = await ceremonyRaster();
+  const out = recolorRGBA(rgba, ceremonyLiveSlots(), edits);
+  const stats = {} as Record<CeremonyRegion, { moved: number; total: number }>;
+  for (const name of Object.keys(CEREMONY_ART) as CeremonyRegion[]) {
+    const [r, g, b] = hexToRgb(CEREMONY_ART[name]);
+    let moved = 0;
+    let total = 0;
+    for (let i = 0; i < rgba.length; i += 4) {
+      if (rgba[i] === r && rgba[i + 1] === g && rgba[i + 2] === b) {
+        total++;
+        if (out[i] !== rgba[i] || out[i + 1] !== rgba[i + 1] || out[i + 2] !== rgba[i + 2]) moved++;
+      }
+    }
+    stats[name] = { moved, total };
+  }
+  // Pixels that moved but hold NO named fill exactly — the antialiased blend.
+  let fringe = 0;
+  const exact = (i: number) =>
+    (Object.values(CEREMONY_ART) as string[]).some((hex) => {
+      const [r, g, b] = hexToRgb(hex);
+      return rgba[i] === r && rgba[i + 1] === g && rgba[i + 2] === b;
+    });
+  for (let i = 0; i < rgba.length; i += 4) {
+    if (out[i] !== rgba[i] || out[i + 1] !== rgba[i + 1] || out[i + 2] !== rgba[i + 2]) {
+      if (!exact(i)) fringe++;
+    }
+  }
+  // Denominator is the OPAQUE area, not the frame. `rasteriseFromPublic` fits a
+  // 3:2 drawing into a 520x520 box, so ~35% of the frame is transparent padding
+  // — measuring against it would make every share depend on the aspect ratio of
+  // the artwork rather than on the artwork.
+  let opaquePx = 0;
+  for (let i = 3; i < rgba.length; i += 4) if (rgba[i]! > 0) opaquePx++;
+  return { stats, fringe, opaque: opaquePx };
+}
+
+test('ceremony-aisle · REAL RASTER: both regions are actually present in the served file', async () => {
+  // If the migration points at a file public/ does not serve, rasteriseFromPublic
+  // throws here. If the artwork is re-cut and a region vanishes, this is where it
+  // shows — before any tolerance claim is made about it.
+  const { stats, opaque } = await recolourCeremony({});
+  // Measured 2026-09-05 on the sharp raster, as a share of the OPAQUE area
+  // (175,760 px). Floors sit ~25% below each measurement, so ordinary
+  // rasteriser drift does not fire this but a re-cut region does:
+  //   florals 2.90% · fabric 7.63% · pews 15.34% · walls 24.78% · floor 1.80%
+  // These same exact-pixel counts reproduce independently under rsvg-convert
+  // (5,094 / 13,409 / 26,958 / 43,552 / 3,158), which is why they are trusted.
+  for (const [name, minShare] of [
+    ['florals', 0.021],
+    ['fabric', 0.057],
+    ['pews', 0.115],
+    ['walls', 0.185],
+    ['floor', 0.013],
+  ] as const) {
+    const share = stats[name].total / opaque;
+    assert.ok(
+      share > minShare,
+      `the ${name} fill (${CEREMONY_ART[name]}) now covers ${(100 * share).toFixed(2)}% of the ` +
+        `opaque area, under the ${(100 * minShare).toFixed(1)}% floor this guard was measured ` +
+        'against. ' +
+        'The artwork has been re-cut, so every constant in CEREMONY_ART describes a file that no ' +
+        'longer exists. RE-MEASURE the raster — do not adjust a number here to make a red test green.',
+    );
+  }
+});
+
+test('ceremony-aisle · REAL RASTER: the seeded ranges recolour both regions and no neutral', async () => {
+  for (const [first, second] of [
+    ['#7A1F2B', '#D4AF37'],
+    ['#0F766E', '#7A1F2B'],
+  ] as const) {
+    const { stats } = await recolourCeremony({
+      1: { mode: 'palette', hex: first },
+      2: { mode: 'palette', hex: second },
+    });
+    for (const region of ['florals', 'fabric'] as const) {
+      assert.equal(
+        stats[region].moved,
+        stats[region].total,
+        `on the REAL raster, ${stats[region].total - stats[region].moved} of ` +
+          `${stats[region].total} exact ${region} pixels kept their stock colour with ` +
+          `florals→${first}, fabric→${second}.`,
+      );
+    }
+    for (const n of CEREMONY_NEUTRALS) {
+      assert.equal(
+        stats[n].moved,
+        0,
+        `on the REAL raster, ${stats[n].moved} of ${stats[n].total} exact ${n} pixels ` +
+          `(${CEREMONY_ART[n]}) wore the palette with florals→${first}, fabric→${second}. ` +
+          'This is the MB23 defect on a venue scene. Fix the DATA in a migration.',
+      );
+    }
+  }
+});
+
+test('ceremony-aisle · REAL RASTER: the recolour does not grow a fringe along the aisle', async () => {
+  // The assertion the flat-band harness structurally cannot make. Antialiased
+  // pixels along the runner's edge blend fabric into floor; a tolerance wide
+  // enough to catch that blend paints a halo the couple sees. Some fringe is
+  // correct and desirable — it is the region's own edge — so this is a CEILING,
+  // not zero. Measured at the seeded values; ±15 on the fabric slot blows well
+  // past it because the floor itself joins in.
+  const { fringe, opaque } = await recolourCeremony({
+    1: { mode: 'palette', hex: '#7A1F2B' },
+    2: { mode: 'palette', hex: '#D4AF37' },
+  });
+  const share = fringe / opaque;
+  assert.ok(
+    share < 0.015,
+    `${fringe} antialiased pixels (${(100 * share).toFixed(2)}% of the opaque area) recoloured — ` +
+      'above the 1.5% ceiling. Measured at the seeded tolerances the fringe is 0.97% of the ' +
+      'opaque area (1,709 px); raising the fabric slot to ±15 takes it to 4.60%. The ranges ' +
+      'have widened far ' +
+      'enough to catch the blend between a region and its neighbour, which reads as a halo ' +
+      'around the arch or a fringe along the aisle runner.',
+  );
+});

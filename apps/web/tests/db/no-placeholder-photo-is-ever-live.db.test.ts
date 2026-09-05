@@ -106,6 +106,65 @@ test('retiring the placeholders did not retire anything else', async () => {
 });
 
 /**
+ * MB25 · AND THE HONEST REPLACEMENT IS ACTUALLY THERE.
+ *
+ * 🪤 THE RULE IS "NO PLACEHOLDER IS LIVE", NOT "NO VENUE SCENE IS LIVE".
+ * Between MB23 and MB25 those two were indistinguishable in the data: the only
+ * `venue_scene` rows that had ever been live were the two picsum photographs,
+ * so after MB23 retired them the live count was zero — and a guard written in
+ * that window could easily have pinned the zero and called it the rule. It
+ * would then have failed the moment we did the RIGHT thing. (Checked: the
+ * assertions above pin placeholder-ness, never the count. Nothing needed
+ * loosening for MB25; this test is the other direction.)
+ *
+ * Migration 20271206413595 seeds the real one — our own Recraft V4.1 vector,
+ * app-served, two tagged regions. This asserts it arrives live and tagged,
+ * because a migration that silently inserts nothing (a WHERE NOT EXISTS that
+ * matches too eagerly, a rolled-back COMMIT) leaves every assertion above
+ * green and the Ceremony card still absent.
+ */
+test('the Ceremony scene is live, app-served, and carries BOTH of its colour ranges', async () => {
+  const { rows } = await db.query<{
+    source: string | null;
+    storage_path: string;
+    slots: string;
+  }>(
+    `SELECT a.source, a.storage_path,
+            (SELECT string_agg(c.slot_id || ':' || c.region_label || ':' || c.sampled_hex ||
+                               ':' || c.tolerance_de, ' | ' ORDER BY c.slot_id)
+               FROM public.moodboard_asset_color_ranges c
+              WHERE c.asset_id = a.asset_id) AS slots
+       FROM public.moodboard_library_assets a
+      WHERE a.asset_type = 'venue_scene' AND ${LIVE}`,
+  );
+  assert.equal(
+    rows.length,
+    1,
+    `expected exactly one live venue_scene (the MB25 Ceremony aisle), saw ${rows.length}. ` +
+      'If it is 0, migration 20271206413595 did not insert — the Ceremony card is absent ' +
+      'and the couple sees no ceremony space at all. If it is >1, a second scene was seeded ' +
+      'and `findVenue` in page.tsx picks between them by row order.',
+  );
+  const row = rows[0]!;
+  assert.ok(
+    row.storage_path.startsWith('/moodboard-seed/'),
+    `the Ceremony scene is served from ${row.storage_path}, not from our own app. It must be ` +
+      'app-relative like the florals seed, so lib/moodboard-library-placeholder.ts reads no ' +
+      'host on it and the MB23 write-side guard passes it.',
+  );
+  assert.equal(
+    row.slots,
+    '1:florals:#D98BA6:10 | 2:fabric:#E8D9B5:5',
+    'the Ceremony scene\'s two colour ranges are not what migration 20271206413595 seeds. ' +
+      'These values were MEASURED by pixel through the real `recolorRGBA` at the component\'s ' +
+      'MAX_PREVIEW_PX — NOT converted from CIELAB ΔE, which disagrees sharply here (the floor ' +
+      'is ΔE 14.4 from the fabric slot but only 5.1 in the engine\'s own metric, so a fabric ' +
+      'tolerance of 6 already repaints the whole floor). Re-measure before changing one; the ' +
+      'proof lives in _components/the-background-never-wears-the-palette.test.ts.',
+  );
+});
+
+/**
  * Assets we have DELIBERATELY refused to tag, with the measurement that justifies it.
  *
  * ⚠ THIS LIST IS NOT A MUTE BUTTON. Adding a row here is a claim that the asset

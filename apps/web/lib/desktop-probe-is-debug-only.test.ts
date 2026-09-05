@@ -45,12 +45,18 @@ test('lib.rs compiles the probe module only under #[cfg(debug_assertions)]', () 
   // directly instead of requiring one exact, now-stale invoke_handler shape.
   const debugBranch = /#\[cfg\(debug_assertions\)\]\s*\n\s*let builder = builder([\s\S]*?);/.exec(lib);
   assert.notEqual(debugBranch, null, 'no #[cfg(debug_assertions)] "let builder = builder" branch found');
-  assert.match(debugBranch![1], /probe::probe_report/, 'probe_report must be registered inside the debug branch');
-  assert.match(debugBranch![1], /probe::probe_ipc/, 'probe_ipc must be registered inside the debug branch');
+  // The regex has exactly one capturing group and `debugBranch` is confirmed
+  // non-null above, so group 1 is always a real string here — the `?? ''`
+  // only satisfies TS's (correctly conservative) `string | undefined` typing
+  // for regex capture groups.
+  const debugBody = debugBranch![1] ?? '';
+  assert.match(debugBody, /probe::probe_report/, 'probe_report must be registered inside the debug branch');
+  assert.match(debugBody, /probe::probe_ipc/, 'probe_ipc must be registered inside the debug branch');
 
   const releaseBranch = /#\[cfg\(not\(debug_assertions\)\)\]\s*\n\s*let builder = builder([\s\S]*?);/.exec(lib);
   assert.notEqual(releaseBranch, null, 'no #[cfg(not(debug_assertions))] "let builder = builder" branch found');
-  assert.doesNotMatch(releaseBranch![1], /probe::/, 'the release invoke_handler branch must never mention probe::');
+  const releaseBody = releaseBranch![1] ?? '';
+  assert.doesNotMatch(releaseBody, /probe::/, 'the release invoke_handler branch must never mention probe::');
 
   // Nothing else in lib.rs may mention probe:: outside those two gated sites.
   const mentions = lib.match(/probe::/g)?.length ?? 0;

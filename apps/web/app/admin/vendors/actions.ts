@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { parsePhPhone } from '@/lib/ph-phone';
+import { VENDOR_TIER_SETTABLE } from '@/lib/vendor-tier-caps';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -325,7 +326,11 @@ function parseCsvList(raw: FormDataEntryValue | null): string[] {
     .slice(0, 30);
 }
 
-const VENDOR_TIER_VALUES = ['free', 'verified', 'pro', 'enterprise'] as const;
+// 🚨 WAS A PRIVATE FOUR-VALUE LIST that silently disagreed with the six-option
+// dropdowns posting to it — picking Solo threw `Invalid tier.` as an unhandled
+// error. Now the ONE list, shared with every `<select>` that posts here, so the
+// offered set and the accepted set cannot drift apart again. See its docblock.
+const VENDOR_TIER_VALUES = VENDOR_TIER_SETTABLE;
 
 /**
  * Set a vendor's subscription tier (`vendor_profiles.tier_state`). Until the

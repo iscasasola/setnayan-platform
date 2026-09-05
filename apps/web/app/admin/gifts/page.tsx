@@ -11,6 +11,7 @@ import {
   fetchAllActiveCompGrants,
   fetchEventsHostedBy,
   formatRetailValueCentavos,
+  describeReach,
   describeScope,
   describeSource,
   type CompGrantRow,
@@ -21,7 +22,7 @@ import {
   type CompedVendorRow,
   type VendorDealRow,
 } from '@/lib/vendor-tier-comps';
-import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import { VENDOR_TIER_SETTABLE, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import {
   createFreeWindow,
   setFreeWindowActive,
@@ -144,7 +145,6 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   // add-on has a shared gate a window could reach today.
   const vendorCatalog = await fetchV2VendorCatalog();
   const tierSkus = vendorCatalog.filter((r) => vendorTierOfSku(r.sku_code) !== null);
-  const addonSkus = vendorCatalog.filter((r) => vendorTierOfSku(r.sku_code) === null);
   const dealsFlagOn = isPromoFreeWindowsEnabled();
 
   // Resolve display info for every user_id on an active grant, one query.
@@ -203,14 +203,10 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
     }
   }
 
-  // Resolve display names for every event a listed grant is scoped to.
-  const grantEventIds = Array.from(
-    new Set((activeGrants ?? []).map((g) => g.event_id).filter((id): id is string => !!id)),
-  );
-  const { data: grantEventsData } = grantEventIds.length
-    ? await admin.from('events').select('event_id, display_name').in('event_id', grantEventIds)
-    : { data: [] as { event_id: string; display_name: string }[] };
-  const eventNameById = new Map((grantEventsData ?? []).map((e) => [e.event_id, e.display_name]));
+  // (Event display names arrive on the grant rows themselves — `event_name`,
+  // embedded by fetchAllActiveCompGrants — so the separate lookup this page
+  // used to run is gone. One resolver, `describeReach`, renders it here and on
+  // both per-user surfaces, which is how those two stopped disagreeing.)
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -312,7 +308,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                     defaultValue={asVendorTier(grantVendor.tier_state)}
                     className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
                   >
-                    {VENDOR_TIERS.map((t) => (
+                    {VENDOR_TIER_SETTABLE.map((t) => (
                       <option key={t} value={t}>
                         {TIER_LABEL[t]}
                       </option>
@@ -429,6 +425,196 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
         <p className="mt-2 text-xs text-ink/40">
           Every non-free tier here is a comp — self-serve vendor billing doesn&rsquo;t exist yet.
         </p>
+      </section>
+
+      {/* ══════════════════ VENDOR COHORT DEALS ══════════════════
+          🚨 THIS FORM DID NOT EXIST until 2026-09-06, and everything behind it
+          did. `createFreeWindow` already accepted `service_keys` picked from
+          the live vendor catalogue, `new_verified_vendors` was a valid
+          audience, `deal_length_days` was a column, and BOTH surfaces' copy
+          pointed here — the Catalog Studio tab says in so many words "use the
+          Deals section on Gifts". There was nothing to use. A post-merge audit
+          found it: two of the feature's three shapes were uncreatable from any
+          UI. This renders the writer that was already wired. */}
+      <section className="mb-10">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
+          Vendor cohort deals
+        </h2>
+
+        {/* 🔑 THE KILL-SWITCH, SAID OUT LOUD. `dealsFlagOn` was computed on this
+            page and never rendered, so a deal listed above as "currently
+            active" was indistinguishable from one that grants nothing —
+            `getPromotedVendorTierFor` returns null before any read while the
+            flag is off. The page's own docblock claimed it said which state the
+            switch was in; now it does. */}
+        {dealsFlagOn ? (
+          <p className="mb-4 flex items-start gap-2 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
+            <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
+            <span>
+              Vendor deals are <strong>live</strong>. A deal below promotes every vendor it
+              covers for as long as it runs.
+            </span>
+          </p>
+        ) : (
+          <p className="mb-4 flex items-start gap-2 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
+            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
+            <span>
+              Vendor deals are <strong>switched off</strong> — <code className="font-mono text-[11px]">PROMO_FREE_WINDOWS_ENABLED</code>{' '}
+              is not set in Vercel. Anything listed above or created below is recorded and
+              dated, and promotes <strong>nobody</strong> until the owner flips it. Deals are
+              not retroactive: a vendor who qualifies while it is off gets nothing for that time.
+            </span>
+          </p>
+        )}
+
+        {sp.created === 'window' && (
+          <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
+            ✓ Deal created.
+          </p>
+        )}
+        {sp.createError && (
+          <p className="mb-4 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
+            {FREE_WINDOW_CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the deal.'}
+          </p>
+        )}
+
+        <form action={createFreeWindow} className="rounded-md border border-ink/10 bg-paper p-4 space-y-4">
+          <input type="hidden" name="return_to" value="/admin/gifts" />
+
+          <div>
+            <span className="mb-1 block text-xs font-medium text-ink/70">Who qualifies</span>
+            <label className="mr-4 text-sm">
+              <input type="radio" name="audience_type" value="all_vendors" defaultChecked />{' '}
+              Every verified vendor
+            </label>
+            <label className="text-sm">
+              <input type="radio" name="audience_type" value="new_verified_vendors" />{' '}
+              Vendors who register <em>and</em> get verified inside the window
+            </label>
+            <p className="mt-1 text-xs text-ink/50">
+              Both mean <strong>verified</strong> vendors only — a pending or unverified shop
+              never qualifies.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <div className="min-w-[220px] flex-1">
+              <label htmlFor="deal_title" className="block text-xs font-medium text-ink/70 mb-1">
+                Title
+              </label>
+              <input
+                type="text"
+                id="deal_title"
+                name="title"
+                required
+                maxLength={120}
+                placeholder="Founding shops — free Pro for the September intake"
+                className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="min-w-[220px] flex-1">
+              <label htmlFor="deal_blurb" className="block text-xs font-medium text-ink/70 mb-1">
+                Banner blurb <span className="text-ink/50">(optional)</span>
+              </label>
+              <input
+                type="text"
+                id="deal_blurb"
+                name="blurb"
+                maxLength={240}
+                placeholder="Pro is on us while you set up your shop."
+                className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <label htmlFor="deal_starts" className="block text-xs font-medium text-ink/70 mb-1">
+                Window opens
+              </label>
+              <input
+                type="datetime-local"
+                id="deal_starts"
+                name="starts_at"
+                required
+                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="deal_ends" className="block text-xs font-medium text-ink/70 mb-1">
+                Window closes
+              </label>
+              <input
+                type="datetime-local"
+                id="deal_ends"
+                name="ends_at"
+                required
+                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="deal_length" className="block text-xs font-medium text-ink/70 mb-1">
+                Each vendor keeps it <span className="text-ink/50">(days, optional)</span>
+              </label>
+              <input
+                type="number"
+                id="deal_length"
+                name="deal_length_days"
+                min={1}
+                max={365}
+                placeholder="28"
+                className="w-40 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <p className="-mt-1 text-xs text-ink/50">
+            The window decides <strong>who gets in</strong>; this decides{' '}
+            <strong>how long each of them keeps it</strong>, counted from the moment they
+            qualify. Leave it blank and the deal simply runs until the window closes.
+          </p>
+
+          <div>
+            <span className="mb-1 block text-xs font-medium text-ink/70">What&rsquo;s free</span>
+            <div className="flex flex-wrap gap-2">
+              {tierSkus.map((sku: V2VendorSku) => (
+                <label key={sku.sku_code} className="text-sm">
+                  <input type="checkbox" name="service_keys" value={sku.sku_code} />{' '}
+                  {sku.title} <span className="text-ink/50">₱{formatPeso(sku.price_php)}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-ink/50">
+              Prices come from the live vendor catalogue, never from code. Only <strong>tier</strong>{' '}
+              plans can be given away: a vendor add-on can never be ₱0 (the catalogue CHECKs
+              <code className="font-mono text-[11px]"> price_php &gt; 0</code>) and each add-on has its
+              own gate, so freeing one is not a thing this deal can do. The highest tier you tick
+              is the one vendors get; the rest are kept on the record so the deal shows what it
+              waived.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="deal_reason" className="block text-xs font-medium text-ink/70 mb-1">
+              Reason <span className="text-ink/50">(logged, min. 10 characters)</span>
+            </label>
+            <input
+              type="text"
+              id="deal_reason"
+              name="reason"
+              placeholder="Founding-shop intake incentive, approved by ops"
+              className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Creating…">
+              Create deal
+            </SubmitButton>
+            <label className="text-xs text-ink/60">
+              <input type="checkbox" name="show_banner" /> Show a banner to vendors
+            </label>
+          </div>
+        </form>
       </section>
 
       {/* ══════════════════ USER SIDE ══════════════════ */}
@@ -594,13 +780,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                 return u?.display_name ?? u?.email ?? g.user_id ?? '—';
               },
             },
-            {
-              header: 'Applies to',
-              cell: (g) =>
-                g.event_id
-                  ? (eventNameById.get(g.event_id) ?? 'One event (deleted?)')
-                  : 'Every event they host',
-            },
+            { header: 'Applies to', cell: (g) => describeReach(g) },
             { header: 'Covers', cell: (g) => describeScope(g.scope, g.scoped_skus) },
             {
               header: 'Value',

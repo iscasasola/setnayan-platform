@@ -14,6 +14,34 @@
 export const VENDOR_TIERS = ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const;
 export type VendorTier = (typeof VENDOR_TIERS)[number];
 
+/**
+ * The tiers an admin may SET on one vendor from a dropdown — the list
+ * `setVendorTier` validates against, and the list both tier `<select>`s are
+ * built from. ONE constant, because the two used to disagree.
+ *
+ * 🚨 THE BUG THIS EXISTS TO END (found by a post-merge audit 2026-09-05). The
+ * dropdowns on /admin/gifts and /admin/vendors/[id]/plan were built from
+ * `VENDOR_TIERS` (six options) while `setVendorTier` validated against its own
+ * private four — so choosing **Solo**, the cheapest paid tier and the natural
+ * comp, threw `Invalid tier.` as an unhandled server-action error: the form
+ * contents lost, the vendor unchanged, and nothing on screen explaining why.
+ * Same for Custom. A list you can pick from and a list that is accepted must be
+ * the same list, so now they are literally the same constant.
+ *
+ * `solo` IS settable: it is a real `tier_state` enum value (migration
+ * 20270221294989), `solo_vendor_monthly` is a live catalogue SKU, and a cohort
+ * deal can already promote vendors to it (`PROMOTABLE_VENDOR_TIERS`). Denying
+ * it to a single named vendor was an accident, not a decision.
+ *
+ * `custom` is deliberately NOT here, and that is a decision. The Custom tier is
+ * a bespoke arrangement assembled from its own `vendor_custom_*` line items;
+ * stamping `tier_state = 'custom'` from a dropdown would leave a vendor on a
+ * plan whose contents nobody configured. `PROMOTABLE_VENDOR_TIERS` excludes it
+ * for the same reason. It is set through the custom-plan surface, not here.
+ */
+export const VENDOR_TIER_SETTABLE = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
+export type SettableVendorTier = (typeof VENDOR_TIER_SETTABLE)[number];
+
 // Video calls REMOVED 2026-06-09 (owner). ChatLevel is text-only now — no
 // 'chat_video'; Enterprise chat == Pro/Verified. The 2026-05-16 "video
 // meetings retired" lock stands.

@@ -219,38 +219,38 @@ That line is `tauri-2.11.1/src/webview/mod.rs` `Webview::on_message` answering t
 
 ### 3.3 The loopback arms — a plain HTTP server on 127.0.0.1, and a WebSocket, from the https page
 
-**NOT MEASURED — and it is the one open question S5's re-scope hinges on.**
+**MEASURED — and the answer is NO. An https page in WKWebView cannot reach the loopback at all,
+by HTTP or by WebSocket. This removes the leading candidate transport from § 7.**
 
-What § 3.2 established from the bundled `tauri://localhost` origin: the loopback HTTP arm carried
-**1776 / 1776** raw 10 240-byte bodies to the Rust listener, the `ws://127.0.0.1` handshake reached
-Rust, and once a CSP was injected the same POSTs failed **277 / 277** — the loopback path is
-governed by `connect-src` like any other fetch, so S5 must allow-list it.
+`s0-ipc-realorigin-loopback.log` (harness `c7a39fee4`, 2026-09-05 19:48–19:51, 184 s, page
+`https://www.setnayan.com/login`, `load-at-start 8.08 / 5.85 / 4.09`):
 
-What is **still unknown** is the question that decides the option: **may an https page in WKWebView
-reach `http://127.0.0.1` / `ws://127.0.0.1` at all?** WebKit's mixed-content rules may forbid it
-outright — the same rule that makes `ipc://localhost` unreachable from https (§ 3.1) — which would
-eliminate the leading candidate transport for a re-scoped S5 and leave only the § 7 options that
-change the origin or the payload encoding.
+| stage | target | sent | completed | errors | result |
+|---|---|---|---|---|---|
+| `loopback-raw-60s` | `http://127.0.0.1:57669/probe` | 1801 | **0** | **1801** | all `TypeError: Load failed`, 29.53/s attempted |
+| `loopback-websocket` | `ws://127.0.0.1:57669/ws` | — | — | — | blocked; `connect-src` violation, `disposition:"report"` |
+| `loopback-after-csp-10s` | `http://127.0.0.1:57669/probe` | 301 | **0** | **301** | unchanged by the CSP — it never got that far |
 
-Why it is unanswered: one attempt on a quiet machine (load 4.70) never navigated off
-`tauri://localhost` and measures nothing (archived as
-`S0-logs/s0-ipc-realorigin-loopback-attempt1-no-redirect.log`). Every rerun was blocked by the
-load ≤ 5 gate this finding imposes on itself — from 15:55 to 17:11 the 1-min load never fell below
-10.17 (**0 of 146 samples**, `S0-logs/s0-load-timeline-2026-09-05.txt`) while five other sessions ran
-vitest and tsc continuously. Measuring anyway would have produced another set of latencies labelled
-unusable, which § 3.2 already has.
+**Zero requests reached Rust**: `grep -c "probe-loopback"` on the log is **0**, against **1776 / 1776**
+that arrived over the identical listener from the bundled `tauri://localhost` origin in § 3.2. Same
+listener, same port, same payload, same binary — only the page's origin differs.
 
-**Exact resume** (≈ 4 minutes on a quiet machine), from the worktree root:
+So the loopback fails for exactly the reason `ipc://localhost` fails (§ 3.1): **WebKit mixed-content.
+An `https://` page may not load `http://` or `ws://` subresources, and `127.0.0.1` is not exempt in
+WKWebView.** (Chromium treats loopback as a potentially-trustworthy origin and would allow it — which
+is why this had to be measured on WKWebView rather than reasoned from Chrome's behaviour. The Windows
+WebView2 arm is still LEFT UNDONE and may well differ.)
 
-```
-uptime   # require 1-min load ≤ 5
-SETNAYAN_PROBE_TOP=1 src-tauri/probe/run.sh ipc 1 src-tauri/probe/s0-ipc-realorigin-loopback.log
-```
+⚠ **Do not read the `connect-src` violation as the cause.** It is `disposition:"report"` — the
+production policy is report-only (§ 3.4) — and the HTTP arm, which drew no enforced violation at all,
+failed identically. CSP allow-listing the loopback would change nothing while the origin stays https.
 
-Fill this section from `loopback-raw-60s`, the `[probe-loopback]` lines, `loopback-websocket` and
-`loopback-after-csp-10s`. A negative result — "https may not reach the loopback" — is as valuable as
-a positive one and must be recorded with the same care: it removes an option from § 7 rather than
-adding one.
+**What this leaves for S5** (§ 7 options, now that this one is gone): budget the JSON-array envelope
+at the § 3.1 cost; change the page's origin so the app is served from a Tauri-registered scheme
+instead of the remote https URL — which restores both the custom protocol *and* the loopback, at the
+cost of the meta-refresh shell's "the desktop app is the live site" property and therefore of S12's
+premise; or patch wry to register a secure scheme via private WebKit API. **Still no option is chosen
+here** — that is the owner's call and a re-scoped S5's.
 
 ### 3.4 CSP — what the page ships, and what enforcing one does
 
@@ -382,8 +382,10 @@ Neither spike can run from this machine alone; both are written up so the next s
 2. Q3a HLS-CORS and Q3b WHIP (§ 5) — owner's channel + VPS.
 3. A 60-minute encode on a Windows box (§ 4 is this Mac only).
 4. One `run.sh ipc` with the window pinned visible (`SETNAYAN_PROBE_TOP=1`) to give S5 a non-hidden latency profile (§ 3.5).
-6. **§ 3.3 — the loopback / WebSocket arms from `https://www.setnayan.com`** and **§ 4.2 — the 60-minute encode rerun with the window kept visible.** Both were gated on a 1-min load ≤ 5 (every latency in the earlier logs was taken at load 6–123 and is labelled unusable); from 15:55 to 17:08 the load never fell below 10.17 (`S0-logs/s0-load-timeline-2026-09-05.txt`, 0 of 146 samples ≤ 5) because five other sessions were running tests and typechecks. Exact resume: pause the other sessions, wait for `uptime` ≤ 5, then from the worktree root `SETNAYAN_PROBE_TOP=1 src-tauri/probe/run.sh ipc 1 src-tauri/probe/s0-ipc-realorigin-loopback.log` (≈ 4 min; fill `<!-- S0-LOOPBACK-RESULTS -->` from `loopback-raw-60s`, `[probe-loopback]`, `loopback-websocket`, `loopback-after-csp-10s`), then `SETNAYAN_PROBE_TOP=1 src-tauri/probe/run.sh encode 60 src-tauri/probe/s0-encode.log` with the pinned window left uncovered for the hour (fill `<!-- S0-ENCODE-RERUN -->`), copy both logs into `S0-logs/`, then PR.
-5. The IPC probe on Windows (WebView2 `http://ipc.localhost`) — decides whether option A is a one-transport or a two-transport contract.
+6. **§ 4.2 — the 60-minute encode rerun with the window kept visible.** Gated on a 1-min load ≤ 5;
+   § 4.1 covers 10.83 minutes and answers everything except thermal/throughput sustain. Exact resume
+   is in § 4.2. (§ 3.3's loopback arms were measured 2026-09-05 19:48 and the answer is negative —
+   see that section.)
 
 ## 10. Evidence files
 

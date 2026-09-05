@@ -91,8 +91,11 @@ have denied since 15:55 (1-min load 10–50 continuously).
 
 ### Landed 2026-09-05 with two measurements open (overseer decision)
 
-The finding is merged with § 3.3 (loopback from https) and § 4.2 (60-minute encode rerun) recorded
-as NOT MEASURED rather than held back. Both are gated on a 1-min load ≤ 5 and the machine did not
+§ 3.3 was measured after the machine went quiet and the answer is **negative**: an https page in
+WKWebView cannot reach `http://127.0.0.1` or `ws://127.0.0.1` — 0 of 1801 requests reached Rust,
+against 1776/1776 over the same listener from `tauri://localhost`. That removes the loopback
+transport from S5's options. § 4.2 (60-minute encode rerun) is recorded as NOT MEASURED rather than
+held back. Both are gated on a 1-min load ≤ 5 and the machine did not
 reach it — 0 of 146 samples between 15:55 and 17:11 while five other sessions ran vitest/tsc. The
 substantial results (capability floor, the raw-vs-JSON transport control, hardware-encode
 confirmation, the visibility throttle measured in the real WKWebView) are what other sessions need

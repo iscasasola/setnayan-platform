@@ -15,6 +15,12 @@ import {
   resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
 import { userNestingRewritePath } from '@/lib/u-nesting';
+import {
+  isStoreShellSignals,
+  isStoreShellWebOnlyPath,
+  STORE_SHELL_CLIENT_TYPE_COOKIE,
+  STORE_SHELL_WEB_ONLY_PATH,
+} from '@/lib/store-shell';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
 // (`[a-z0-9-]+`), so a UUID — 36 chars including hyphens — cannot
@@ -369,6 +375,27 @@ export async function middleware(request: NextRequest) {
       new URL(user ? '/dashboard' : '/login', request.url),
       307,
     );
+  }
+
+  // 🔒 STORE SHELL SHOWS NO PAID DIGITAL FEATURE. App Review 2026-06-30
+  // rejected build 1.0 (1) under Guideline 3.1.1 / 3.1.3(b) even though the
+  // in-app checkout was already hidden on native: a feature bought on the web
+  // still WORKED in the app, and Apple requires such content to be purchasable
+  // by IAP too. Until IAP ships (v1.1), the Capacitor shell — and ONLY the
+  // Capacitor shell; the desktop .dmg is not store-distributed and is excluded
+  // by the predicate — is sent to a plain "not in the app" page whenever it
+  // reaches a paid feature's home or a purchase route. The Studio hub filters
+  // its own grid; this catches deep links, notifications and dashboard tiles.
+  // 307, same reasoning as the marketing bounce above. Held by
+  // lib/store-shell.test.ts.
+  if (
+    isStoreShellWebOnlyPath(pathname) &&
+    isStoreShellSignals(
+      request.headers.get('user-agent'),
+      request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value,
+    )
+  ) {
+    return NextResponse.redirect(new URL(STORE_SHELL_WEB_ONLY_PATH, request.url), 307);
   }
 
   /*

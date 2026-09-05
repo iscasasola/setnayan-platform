@@ -31,6 +31,7 @@ use setnayan_encoder::contract::{ChunkHeader, ChunkKind, DecoderConfig, EncodedC
 use setnayan_encoder::flv::StreamMeta;
 use setnayan_encoder::rtmp::{Redactor, RtmpEndpoint, MAX_INITIAL_TIMESTAMP_MS};
 use setnayan_encoder::sender::{EndReason, RtmpSender, SenderError};
+use setnayan_encoder::tagger::Pipeline;
 
 const STREAM_KEY: &str = "abcd-efgh-ijkl-mnop-qrst";
 const AVC_C: &[u8] = &[1, 0x42, 0xC0, 0x1F, 0xFF, 0xE1, 0x00, 0x04, 0x67, 0x42, 0xC0, 0x1F];
@@ -231,7 +232,8 @@ where
             // branch in the vendored serializer turned this test from red into
             // *silent*, and a check that hangs is not a check. 180 s against a normal
             // run of ~35 s.
-            let outcome = tokio::time::timeout(RUN_BUDGET, sender.run(&mut rx))
+            let mut pipeline = Pipeline::streaming_only();
+            let outcome = tokio::time::timeout(RUN_BUDGET, sender.run(&mut rx, &mut pipeline))
                 .await
                 .expect(
                     "the publish stalled — the ingest stopped reading, which is what a \

@@ -5,13 +5,20 @@
 //! connection, the RTMP handshake and publish negotiation, the order tags go out in,
 //! and the promise that no string it produces contains the stream key.
 //!
-//! WHAT IT DELIBERATELY DOES NOT OWN — **reconnect is S7's**. When this session ends
-//! it returns a [`SenderOutcome`] saying why and what it had sent, and stops. It does
-//! not retry, does not fall back to the backup ingest, does not decide whether losing
-//! the connection at 19:40 on a Saturday should interrupt the couple's ceremony. Those
-//! are policy, they are S7's, and a reconnect loop grown quietly inside a send path is
+//! WHAT IT DELIBERATELY DOES NOT OWN — **reconnect is `reconnect.rs`'s**. When this
+//! session ends it returns a [`SenderOutcome`] saying why and what it had sent, and
+//! stops. It does not retry, does not fall back to the backup ingest, does not decide
+//! whether losing the connection at 19:40 on a Saturday should interrupt the couple's
+//! ceremony. Those are policy, and a reconnect loop grown quietly inside a send path is
 //! the shape that makes them impossible to change later. The seam is `run()` returning
 //! rather than looping.
+//!
+//! NOR DOES IT OWN THE BYTES ANY MORE (changed by S7). It used to hold the `RtmpClock`
+//! and build every FLV tag itself. Both moved up into `tagger::Pipeline`, because a
+//! reconnect is a NEW `RtmpSender` and a clock that died with the socket restarted the
+//! stream's timeline at zero after four hours — and because the local recording has to
+//! keep growing during exactly the window when no sender exists. This file now
+//! receives finished [`TaggedFrame`]s and puts them on the wire in order.
 //!
 //! THE ONE ORDERING RULE. An ingest cannot decode a single frame until it has the
 //! AVC and AAC sequence headers, so they go out before any media tag, always. Media
@@ -32,9 +39,10 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf, Wr
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
-use super::contract::{ChunkKind, EncodedChunk};
-use super::flv::{self, StreamMeta};
-use super::rtmp::{Redactor, RtmpClock, RtmpEndpoint, Track};
+use super::contract::EncodedChunk;
+use super::flv::StreamMeta;
+use super::rtmp::{Redactor, RtmpEndpoint, Track};
+use super::tagger::{Pipeline, TaggedFrame};
 
 /// Anything we can speak RTMP over: a plain TCP stream, a TLS stream, or — in tests —
 /// an in-memory duplex pipe with a real `ServerSession` on the far end.
@@ -110,6 +118,11 @@ pub struct SenderStats {
     pub bytes_published: u64,
     /// Media chunks that arrived before the decoder configuration and were dropped.
     /// Non-zero means the producer sent media before config — a bug upstream, not here.
+    ///
+    /// ⚠ CUMULATIVE ACROSS SESSIONS since S7, not per-session: it is counted by the
+    /// `Tagger`, which outlives any one connection. Same for `clamped_timestamps` and
+    /// `past_24_bit_ceiling`. The tag and byte counters below are still per-session —
+    /// they are what THIS socket carried.
     pub media_before_config: u64,
     /// Chunks whose timestamp went backwards and were clamped (see `RtmpClock`).
     pub clamped_timestamps: u64,
@@ -149,9 +162,7 @@ pub struct RtmpSender {
     endpoint: RtmpEndpoint,
     redactor: Redactor,
     meta: StreamMeta,
-    clock: RtmpClock,
     stats: SenderStats,
-    configured: bool,
 }
 
 impl RtmpSender {
@@ -202,9 +213,7 @@ impl RtmpSender {
             endpoint,
             redactor,
             meta,
-            clock: RtmpClock::new(),
             stats: SenderStats::default(),
-            configured: false,
         };
         sender.write_results(initial).await?;
         sender.handshake().await?;
@@ -275,7 +284,11 @@ impl RtmpSender {
     /// and drains what the ingest sent, and because both branches run in the same task
     /// the RTMP session needs no lock. Draining is not optional — an ingest whose
     /// acknowledgements are never read will eventually stop reading ours.
-    pub async fn run(mut self, chunks: &mut mpsc::Receiver<EncodedChunk>) -> SenderOutcome {
+    pub async fn run(
+        mut self,
+        chunks: &mut mpsc::Receiver<EncodedChunk>,
+        pipeline: &mut Pipeline,
+    ) -> SenderOutcome {
         let mut buffer = vec![0u8; READ_BUFFER];
         loop {
             // The `select!` resolves to a value and ENDS, so both futures — and the
@@ -289,98 +302,98 @@ impl RtmpSender {
 
             match step {
                 Step::Produced(Some(chunk)) => {
-                    if let Err(error) = self.publish_chunk(chunk).await {
-                        return self.finish(EndReason::Failed(error));
+                    if let Err(error) = self.publish_chunk(&chunk, pipeline).await {
+                        return self.finish(EndReason::Failed(error), pipeline);
                     }
                 }
-                Step::Produced(None) => return self.finish(EndReason::ProducerFinished),
+                Step::Produced(None) => return self.finish(EndReason::ProducerFinished, pipeline),
                 Step::Inbound(Ok(0)) => {
-                    return self
-                        .finish(EndReason::Failed(SenderError::PeerClosed { stage: "publishing" }));
+                    return self.finish(
+                        EndReason::Failed(SenderError::PeerClosed { stage: "publishing" }),
+                        pipeline,
+                    );
                 }
                 Step::Inbound(Ok(count)) => {
                     if let Err(error) = self.handle_inbound(&buffer[..count]).await {
-                        return self.finish(EndReason::Failed(error));
+                        return self.finish(EndReason::Failed(error), pipeline);
                     }
                 }
                 Step::Inbound(Err(error)) => {
                     let detail = self.redactor.scrub(&error.to_string());
-                    return self.finish(EndReason::Failed(SenderError::Connect(detail)));
+                    return self
+                        .finish(EndReason::Failed(SenderError::Connect(detail)), pipeline);
                 }
             }
         }
     }
 
-    /// One chunk from the producer → zero or one FLV tags on the wire.
-    async fn publish_chunk(&mut self, chunk: EncodedChunk) -> Result<(), SenderError> {
-        match chunk.header.kind {
-            ChunkKind::Config => {
-                let config = chunk
-                    .decoder_config()
-                    .map_err(|error| SenderError::Chunk(error.to_string()))?;
-                // A second config mid-stream is a re-configuration; sending the
-                // headers again is correct and cheap, and refusing it would strand
-                // a stream that legitimately changed resolution.
-                let video_at = self.clock.stamp(Track::Video, chunk.header.ts_us);
-                let audio_at = self.clock.stamp(Track::Audio, chunk.header.ts_us);
-                let video_header = flv::avc_sequence_header(&config.avc_c)
-                    .map_err(|error| SenderError::Chunk(error.to_string()))?;
-                let audio_header = flv::aac_sequence_header(&config.asc)
-                    .map_err(|error| SenderError::Chunk(error.to_string()))?;
-                self.publish_video(video_header, video_at, false).await?;
-                self.publish_audio(audio_header, audio_at).await?;
-                self.configured = true;
-                Ok(())
-            }
-            ChunkKind::Video => {
-                if !self.configured {
-                    self.stats.media_before_config += 1;
-                    return Ok(());
+    /// One chunk from the producer → the recording, then the wire.
+    ///
+    /// The pipeline does the tagging and the recording and hands back only the frames
+    /// THIS session may send — after a reconnect that is fewer than it recorded, because
+    /// the new ingest cannot decode inter-frames it has no reference for. See
+    /// `tagger::WireGate`.
+    async fn publish_chunk(
+        &mut self,
+        chunk: &EncodedChunk,
+        pipeline: &mut Pipeline,
+    ) -> Result<(), SenderError> {
+        let frames = pipeline
+            .ingest(chunk)
+            .map_err(|error| SenderError::Chunk(error.to_string()))?;
+        for frame in &frames {
+            self.publish_frame(frame).await?;
+        }
+        Ok(())
+    }
+
+    /// Put one finished tag on the wire, on its own track's chunk stream.
+    async fn publish_frame(&mut self, frame: &TaggedFrame) -> Result<(), SenderError> {
+        match frame.track {
+            Track::Video => {
+                self.publish_video(&frame.body, frame.timestamp_ms, frame.can_be_dropped)
+                    .await?;
+                if !frame.is_sequence_header() {
+                    self.stats.video_tags += 1;
                 }
-                let timestamp = self.clock.stamp(Track::Video, chunk.header.ts_us);
-                // Composition time is 0: S4 encodes realtime with no B-frames, so
-                // presentation and decode order are the same. `flv::avc_nalu_tag`
-                // refuses an out-of-range value rather than truncating one, which is
-                // what would tell us that assumption had changed.
-                let tag = flv::avc_nalu_tag(chunk.header.keyframe, 0, &chunk.payload)
-                    .map_err(|error| SenderError::Chunk(error.to_string()))?;
-                self.publish_video(tag, timestamp, !chunk.header.keyframe).await?;
-                self.stats.video_tags += 1;
-                Ok(())
             }
-            ChunkKind::Audio => {
-                if !self.configured {
-                    self.stats.media_before_config += 1;
-                    return Ok(());
+            Track::Audio => {
+                self.publish_audio(&frame.body, frame.timestamp_ms).await?;
+                if !frame.is_sequence_header() {
+                    self.stats.audio_tags += 1;
                 }
-                let timestamp = self.clock.stamp(Track::Audio, chunk.header.ts_us);
-                let tag = flv::aac_raw_tag(&chunk.payload);
-                self.publish_audio(tag, timestamp).await?;
-                self.stats.audio_tags += 1;
-                Ok(())
             }
         }
+        Ok(())
     }
 
     async fn publish_video(
         &mut self,
-        tag: Vec<u8>,
+        tag: &[u8],
         timestamp_ms: u32,
         can_be_dropped: bool,
     ) -> Result<(), SenderError> {
         let result = self
             .session
-            .publish_video_data(tag.into(), RtmpTimestamp::new(timestamp_ms), can_be_dropped)
+            .publish_video_data(
+                bytes::Bytes::copy_from_slice(tag),
+                RtmpTimestamp::new(timestamp_ms),
+                can_be_dropped,
+            )
             .map_err(|error| self.protocol_error(&format!("{error:?}")))?;
         self.write_results(vec![result]).await
     }
 
     /// Audio tags are **never** marked droppable. Video can lose a frame and recover;
     /// audio that goes missing is what the couple hears in the archive forever.
-    async fn publish_audio(&mut self, tag: Vec<u8>, timestamp_ms: u32) -> Result<(), SenderError> {
+    async fn publish_audio(&mut self, tag: &[u8], timestamp_ms: u32) -> Result<(), SenderError> {
         let result = self
             .session
-            .publish_audio_data(tag.into(), RtmpTimestamp::new(timestamp_ms), false)
+            .publish_audio_data(
+                bytes::Bytes::copy_from_slice(tag),
+                RtmpTimestamp::new(timestamp_ms),
+                false,
+            )
             .map_err(|error| self.protocol_error(&format!("{error:?}")))?;
         self.write_results(vec![result]).await
     }
@@ -496,9 +509,13 @@ impl RtmpSender {
         Ok(())
     }
 
-    fn finish(mut self, reason: EndReason) -> SenderOutcome {
-        self.stats.clamped_timestamps = self.clock.clamped_count();
-        self.stats.past_24_bit_ceiling = self.clock.past_24_bit_ceiling();
+    /// The tagger outlives this session, so the cumulative counters are read from it
+    /// rather than from a clock this struct no longer owns.
+    fn finish(mut self, reason: EndReason, pipeline: &Pipeline) -> SenderOutcome {
+        let tagger = pipeline.tagger();
+        self.stats.clamped_timestamps = tagger.clamped_count();
+        self.stats.past_24_bit_ceiling = tagger.past_24_bit_ceiling();
+        self.stats.media_before_config = tagger.media_before_config();
         SenderOutcome { stats: self.stats, reason }
     }
 

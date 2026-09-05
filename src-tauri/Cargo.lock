@@ -3468,6 +3468,7 @@ name = "setnayan-encoder"
 version = "0.0.1"
 dependencies = [
  "bytes",
+ "libc",
  "rml_rtmp",
  "rustls",
  "serde_json",
@@ -3475,6 +3476,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "webpki-roots 0.26.11",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

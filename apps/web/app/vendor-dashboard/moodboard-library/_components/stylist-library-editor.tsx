@@ -53,6 +53,7 @@ import {
   SUPPLIER_GALLERY_ASSET_TYPE,
 } from '@/lib/moodboard-gallery-pure';
 import { ShopNotice } from '../../_components/kit';
+import { RejectionNotice } from './rejection-notice';
 
 export type StylistAsset = {
   asset_id: string;
@@ -73,6 +74,10 @@ export type StylistAsset = {
   storage_path: string;
   approved_at: string | null;
   retired_at: string | null;
+  /** MB21 · when Setnayan refused this photo. Paired with the reason by a DB
+   *  CHECK, so a rejection can never arrive without something to read. */
+  rejected_at: string | null;
+  rejection_reason: string | null;
   created_at: string;
   public_url: string;
   color_ranges: ColorRangeMap;
@@ -188,6 +193,8 @@ export function StylistLibraryEditor({
           storage_path: 'pending',
           approved_at: null,
           retired_at: null,
+          rejected_at: null,
+          rejection_reason: null,
           created_at: new Date().toISOString(),
           source_event_id: null,
           public_url: blobUrl,
@@ -518,8 +525,12 @@ export function StylistLibraryEditor({
                         {a.asset_type}
                         {a.asset_subtype ? ` · ${a.asset_subtype}` : ''}
                         {' · '}
-                        {a.approved_at ? '✓ live' : 'draft'}
-                        {a.retired_at ? ' · retired' : ''}
+                        {a.rejected_at
+                          ? '✕ not published'
+                          : a.approved_at
+                            ? '✓ live'
+                            : 'draft'}
+                        {a.retired_at && !a.rejected_at ? ' · retired' : ''}
                       </p>
                     </div>
                   </button>
@@ -540,7 +551,11 @@ export function StylistLibraryEditor({
                 <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
                   {selected.asset_type}
                   {selected.asset_subtype ? ` · ${selected.asset_subtype}` : ''} ·{' '}
-                  {selected.approved_at ? '✓ approved by Setnayan' : 'draft (pending review)'}
+                  {selected.rejected_at
+                    ? '✕ not published'
+                    : selected.approved_at
+                      ? '✓ approved by Setnayan'
+                      : 'draft (pending review)'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -562,6 +577,15 @@ export function StylistLibraryEditor({
                 </button>
               </div>
             </header>
+
+            {/* 🔑 MB21 · THE REASON REACHES THE PIXEL. Read off the selected
+                asset, never hard-coded — a-rejection-reaches-the-vendor.test.ts
+                pins this mount, because a rejection stored and not shown is
+                exactly the "pending review forever" this replaced. */}
+            <RejectionNotice
+              rejectedAt={selected.rejected_at}
+              reason={selected.rejection_reason}
+            />
 
             <ColorRangeManipulator
               imageSrc={selected.public_url}

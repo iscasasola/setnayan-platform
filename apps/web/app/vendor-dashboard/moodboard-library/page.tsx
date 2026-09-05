@@ -44,7 +44,12 @@ export default async function StylistMoodboardLibraryPage() {
   const { data: rows } = await admin
     .from('moodboard_library_assets')
     .select(
-      'asset_id, asset_type, asset_subtype, label, storage_path, approved_at, retired_at, created_at, source_event_id',
+      // MB21 · `rejected_at` + `rejection_reason` are what turn "draft
+      // (pending review)" forever into a sentence the supplier can act on.
+      // `screen_findings` is deliberately NOT read here: it holds the screen's
+      // internals and the reviewer's raw transcript, which is an admin's view
+      // of a supplier's photo, not the supplier's.
+      'asset_id, asset_type, asset_subtype, label, storage_path, approved_at, retired_at, created_at, source_event_id, rejected_at, rejection_reason',
     )
     .eq('uploaded_by', user.id)
     .order('created_at', { ascending: false });
@@ -79,6 +84,8 @@ export default async function StylistMoodboardLibraryPage() {
       storage_path: r.storage_path,
       approved_at: r.approved_at,
       retired_at: r.retired_at,
+      rejected_at: r.rejected_at ?? null,
+      rejection_reason: r.rejection_reason ?? null,
       created_at: r.created_at,
       source_event_id: r.source_event_id ?? null,
       public_url: pub.publicUrl,
@@ -135,9 +142,11 @@ export default async function StylistMoodboardLibraryPage() {
         </p>
         <p className="max-w-prose text-xs text-ink/50">
           Every photo is watermarked with SETNAYAN on our side before it is
-          stored, and screened for QR codes and your own contact details — those
-          would take couples around Setnayan rather than through it, and your
-          shop is already named under every photo.
+          stored, and screened for QR codes, web addresses, social handles,
+          email addresses and your own contact details — those would take
+          couples around Setnayan rather than through it, and your shop is
+          already named under every photo. Names on a backdrop or a welcome sign
+          are fine; we just look at those ourselves before they go live.
         </p>
       </header>
 

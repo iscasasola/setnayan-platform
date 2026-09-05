@@ -238,6 +238,12 @@ async function storeScreenedAsset(args: {
       vendor_profile_id: isGalleryRow ? profile.vendor_profile_id : null,
       rights_warranted_at: new Date().toISOString(),
       rights_warranty_version: RIGHTS_WARRANTY_VERSION,
+      // 🔑 MB21 — THE FLAG IS WRITTEN IN THE SAME STATEMENT AS THE ROW. A
+      // second UPDATE after the insert is a second thing that can fail, and
+      // its failure mode is the worst one available here: a questionable photo
+      // sitting in the admin queue looking spotless. NULL when the screen was
+      // clean, so `screen_findings IS NOT NULL` IS the queue.
+      screen_findings: screen.findings,
     })
     .select('asset_id')
     .single();

@@ -8,7 +8,9 @@
  *   1. uploadAsset()       — push a file to the moodboard-library bucket and
  *                            create the asset row (status = draft)
  *   2. saveColorRanges()   — replace the color-range tag map for an asset
- *   3. approveAsset() / retireAsset() — flip the visibility gates
+ *   3. approveAsset() / rejectAsset() / retireAsset() — flip the visibility
+ *                            gates. MB21 added rejectAsset: a refusal that
+ *                            carries a REASON the supplier can read.
  *
  * Auth: admin-only. We rely on the existing /admin layout's role check + RLS
  * policies on the tables themselves. If RLS denies, the action throws.
@@ -151,10 +153,82 @@ export async function approveAsset(assetId: string): Promise<void> {
   const admin = createAdminClient();
   const { error } = await admin
     .from('moodboard_library_assets')
-    .update({ approved_at: new Date().toISOString(), retired_at: null })
+    .update({
+      approved_at: new Date().toISOString(),
+      retired_at: null,
+      // 🔑 MB21 — APPROVING UNDOES A REJECTION, BOTH HALVES OF IT. The DB CHECK
+      // `moodboard_library_assets_rejection_paired` refuses a reason without a
+      // timestamp, so clearing only one of these is not a cosmetic slip: the
+      // UPDATE is REFUSED and the admin's Publish silently does nothing.
+      // Leaving both would be worse — the supplier's editor would go on showing
+      // "We couldn't publish this…" underneath a photo that is live.
+      rejected_at: null,
+      rejection_reason: null,
+    })
     .eq('asset_id', assetId);
   if (error) throw new Error(`approve failed: ${error.message}`);
   revalidatePath('/admin/moodboard-library');
+  revalidatePath('/admin/studio');
+  revalidatePath('/vendor-dashboard/moodboard-library');
+}
+
+/**
+ * MB21 · REFUSE A PHOTO, AND TELL ITS SUPPLIER WHY.
+ *
+ * ── THE GAP THIS CLOSES ─────────────────────────────────────────────────────
+ * Before this, an admin had `approveAsset`, `retireAsset` and `deleteAsset`.
+ * Retiring hid the photo and said nothing; the supplier's own library editor
+ * went on reading "draft (pending review)" forever, for a photo nobody was
+ * ever going to review again. That is the same shape as every defect in this
+ * repo's 2026-08-19 sweep: the decision was made, recorded, and never reached
+ * the one person who could act on it.
+ *
+ * 🛑 REJECTION IS NOT RETIREMENT, AND THEY ARE DELIBERATELY DIFFERENT COLUMNS.
+ * `retired_at` means "was live, now it is not" — reversible housekeeping, no
+ * judgement attached. `rejected_at` + `rejection_reason` mean "a person looked
+ * and said no, and here is what to fix". Collapsing them would make an
+ * ordinary un-publish read to the supplier as an accusation.
+ *
+ * `retired_at` is set ALONGSIDE the rejection so a photo that was already live
+ * comes down in the same statement — the public read policy is
+ * `approved_at IS NOT NULL AND retired_at IS NULL`, so this is the half that
+ * actually unpublishes it.
+ *
+ * ⚠ A RESIDUE, NAMED RATHER THAN ASSUMED HANDLED: a couple who ALREADY picked
+ * this photo keeps their tile. `event_inspiration_assets.library_asset_id`
+ * cascades on DELETE and is untouched by `retired_at`, so retiring — and now
+ * rejecting — takes a photo out of the PICKER without reaching into boards that
+ * already hold it. That is the shipped behaviour of `retireAsset`, unchanged
+ * here; pulling a tile off a stranger's mood board is a real, separate decision
+ * about somebody else's design and MB21 was not asked to make it. Use
+ * `deleteAsset` when a photo genuinely must come off every board.
+ */
+export async function rejectAsset(assetId: string, reason: string): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  // The DB CHECK refuses a blank reason beside a rejection. Catching it here
+  // means the admin gets a sentence instead of a constraint name.
+  const trimmed = reason.trim();
+  if (!trimmed) {
+    throw new Error(
+      'Say what is wrong with the photo — the supplier sees this sentence and it is the only thing they can act on.',
+    );
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from('moodboard_library_assets')
+    .update({
+      rejected_at: now,
+      rejection_reason: trimmed,
+      retired_at: now,
+    })
+    .eq('asset_id', assetId);
+  if (error) throw new Error(`reject failed: ${error.message}`);
+  revalidatePath('/admin/moodboard-library');
+  revalidatePath('/admin/studio');
+  revalidatePath('/vendor-dashboard/moodboard-library');
 }
 
 export async function retireAsset(assetId: string): Promise<void> {
@@ -166,6 +240,7 @@ export async function retireAsset(assetId: string): Promise<void> {
     .eq('asset_id', assetId);
   if (error) throw new Error(`retire failed: ${error.message}`);
   revalidatePath('/admin/moodboard-library');
+  revalidatePath('/admin/studio');
 }
 
 export async function deleteAsset(assetId: string): Promise<void> {

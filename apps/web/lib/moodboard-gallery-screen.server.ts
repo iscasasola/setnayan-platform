@@ -6,11 +6,19 @@ import { computePHash, hammingDistance } from '@/lib/perceptual-hash';
 import {
   contentRejectionMessage,
   findOwnContactHits,
+  findPublishedContactHits,
+  findQuestionableHits,
   ownContactNeedles,
   ownLogoHit,
+  parseScreenTranscript,
   qrHit,
+  screenOutcome,
+  LOGO_MARK_SENTINEL,
   type ContentHit,
   type OwnContactSource,
+  type ScreenFindings,
+  type ScreenOutcome,
+  type TextScreenStatus,
 } from '@/lib/moodboard-gallery-upload';
 
 /**
@@ -25,6 +33,24 @@ import {
  *
  * Owner correction, same day: these are HARD BLOCKS AT UPLOAD, not an admin
  * review queue. The vendor is told what was found and fixes it in a minute.
+ *
+ * ── MB21 (2026-09-05) · THE RULE GREW A MIDDLE ─────────────────────────────
+ * Two changes, and the second one is the session:
+ *
+ *   + THE BLOCKS WIDENED to ANY url, ANY social handle, ANY email address —
+ *     not only this shop's own. A stranger's Instagram printed on a styled
+ *     shoot takes the couple off Setnayan just as effectively. Cheap, because
+ *     the model already transcribes every legible string; only the judgement
+ *     is new, and it lives in the pure module.
+ *   + A THIRD OUTCOME. An unfamiliar name, a phone-shaped digit run, a
+ *     logo-style mark or a wall of printed text now FLAGS to the admin queue
+ *     instead of doing nothing. `GalleryScreenResult.findings` is what gets
+ *     stored, and `screen_findings IS NOT NULL` is the queue.
+ *
+ * 🛑 NAMES ARE NOT A BLOCK, AND THAT IS THE OWNER'S RULE. Couples' names on
+ * backdrops, welcome signs, monograms and stage lettering ARE the design in
+ * the `backdrop` and `stage` shelves. Wiring `blocked` to `hits.length > 0`
+ * — the shape this file had when every hit WAS a block — would empty them.
  *
  * ── WHAT EACH CHECK COSTS IF IT IS WRONG, AND WHY EACH IS SHAPED THIS WAY ───
  *
@@ -91,20 +117,48 @@ const MAX_MODEL_EDGE = 1568;
  */
 export const OWN_LOGO_HAMMING_THRESHOLD = 6;
 
+/**
+ * ⚠ MB21 APPENDED ONE STRUCTURED LINE, AND NOTHING ELSE CHANGED. The model was
+ * already transcribing every legible string; the new judgement is plain
+ * TypeScript over that transcript. The one thing text cannot answer is "is
+ * there a graphic mark that looks like a business logo" — MB11 named that
+ * residue explicitly (a purely graphic corner badge the whole-image pHash
+ * cannot match) and said it reaches the queue. So the model is asked, on its
+ * own last line, and `parseScreenTranscript` strips that line before any text
+ * rule reads it.
+ */
 export const GALLERY_TEXT_READ_PROMPT =
-  'Transcribe every piece of readable text visible in this image — signage, printed cards, banners, screens, watermarks, logos containing words, anything legible. Output the text only, one item per line. If there is no readable text, output exactly: NO TEXT.';
+  'Transcribe every piece of readable text visible in this image — signage, printed cards, banners, screens, watermarks, logos containing words, anything legible. Output the text only, one item per line. If there is no readable text, write exactly: NO TEXT. ' +
+  `Then, on a final separate line, write exactly "${LOGO_MARK_SENTINEL} yes" if the image contains a graphic logo, emblem, badge or stamped watermark that looks like a business mark, or "${LOGO_MARK_SENTINEL} no" if it does not.`;
 
-export type TextScreenStatus = 'ran' | 'unavailable';
+export type { TextScreenStatus };
 
 export type GalleryScreenResult = {
   /** TRUE ⇒ refuse the upload and show `message`. */
   blocked: boolean;
+  /**
+   * MB21's third outcome. `blocked` and `clean` were the only two states this
+   * screen could produce, so a questionable photo reached the admin queue
+   * looking identical to a spotless one.
+   */
+  outcome: ScreenOutcome;
   /** Everything we found, each naming itself. Empty when clean. */
   hits: ContentHit[];
   /** The vendor-facing sentence. Empty when not blocked. */
   message: string;
   /** Whether the text read actually ran — see the fail-open note above. */
   textScreen: TextScreenStatus;
+  /**
+   * What gets WRITTEN to `moodboard_library_assets.screen_findings`, ready to
+   * store. Null when there is nothing a human would want to see — a clean
+   * photo does not need a row of JSON saying so.
+   *
+   * 🔑 THE FINDINGS ARE PART OF THE RESULT, NOT A SIDE EFFECT. The one thing
+   * this session had to avoid is a screen that logs a finding nowhere a person
+   * can read it. Handing the caller a value it must store makes dropping it a
+   * visible deletion rather than a forgotten line.
+   */
+  findings: ScreenFindings | null;
 };
 
 /** Is the text half of the screen configured at all? */
@@ -122,12 +176,18 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 /**
+ * What the model gave back, split. `logoMark` is `null` when the sentinel was
+ * absent — the model declining to answer is NOT the model saying "no logo".
+ */
+export type ScreenTranscript = { text: string; logoMark: boolean | null };
+
+/**
  * Read every legible string out of the photo. Returns null when the read could
  * not run at all (no key, undecodable image, model error, timeout) — which the
  * caller reports as `textScreen: 'unavailable'` rather than as "clean".
  * NEVER THROWS.
  */
-export async function readVisibleText(bytes: Uint8Array): Promise<string | null> {
+export async function readVisibleText(bytes: Uint8Array): Promise<ScreenTranscript | null> {
   if (!galleryTextScreenConfigured()) return null;
   try {
     const sharp = (await import('sharp')).default;
@@ -166,13 +226,16 @@ export async function readVisibleText(bytes: Uint8Array): Promise<string | null>
       }),
       READ_TIMEOUT_MS,
     );
-    const text = res.content
+    const reply = res.content
       .filter((b): b is { type: 'text'; text: string } & typeof b => b.type === 'text')
       .map((b) => b.text)
       .join('\n')
       .trim();
-    if (!text || text === 'NO TEXT') return '';
-    return text;
+    // ⚠ THE SENTINEL COMES OFF HERE, BEFORE ANY RULE SEES THE STRING. Left in,
+    // `LOGO MARK: no` is transcribed content and `findNameLike` reports it —
+    // every photo in the library would arrive flagged for a name that is our
+    // own prompt.
+    return parseScreenTranscript(reply);
   } catch (err) {
     Sentry.captureException(err, {
       tags: { feature: 'moodboard-gallery-screen' },
@@ -252,12 +315,27 @@ export async function ownLogoMatch(
 }
 
 /**
- * Run all three checks over ONE upload and return a single verdict.
+ * Run every check over ONE upload and return a single verdict.
  *
  * The order is cheapest-first: the QR decode is local pixels, the logo compare
  * is local pixels, the text read is a network call. A QR hit short-circuits the
  * model call — there is no point paying to transcribe a photo we have already
  * refused.
+ *
+ * ── MB21 · THREE OUTCOMES OUT OF THE SAME ONE READ ─────────────────────────
+ * Nothing new is asked of the model except one sentinel line. What changed is
+ * the judgement over the transcript it already produced:
+ *
+ *   BLOCK  the shop's own name/phone/email/website/logo (MB11), a QR code
+ *          (MB11), and now ANY url, ANY handle, ANY email address.
+ *   FLAG   a name, a phone-shaped digit run, a logo-style mark, heavy text.
+ *   CLEAN  everything else.
+ *
+ * 🛑 A FLAG DOES NOT STOP THE UPLOAD. `blocked` stays keyed on the blocking
+ * hits alone, so a photo carrying the couple's names uploads exactly as it did
+ * before and gains a finding a human can read. Wiring `blocked` to
+ * `hits.length > 0` — the shape MB11 had, when every hit WAS a block — is the
+ * one-character change that would empty the backdrop and stage shelves.
  */
 export async function screenGalleryImage(args: {
   bytes: Uint8Array;
@@ -275,11 +353,24 @@ export async function screenGalleryImage(args: {
   }
 
   let textScreen: TextScreenStatus = 'unavailable';
+  let transcript = '';
   if (hits.length === 0) {
-    const text = await readVisibleText(args.bytes);
-    if (text !== null) {
+    const read = await readVisibleText(args.bytes);
+    if (read !== null) {
       textScreen = 'ran';
-      hits.push(...findOwnContactHits(text, ownContactNeedles(args.profile)));
+      transcript = read.text;
+      // The two hard-block families, then the queue's flags — which subtract
+      // whatever the blocks already named, so one string on one sign is one
+      // finding rather than three.
+      hits.push(...findOwnContactHits(read.text, ownContactNeedles(args.profile)));
+      hits.push(...findPublishedContactHits(read.text));
+      hits.push(
+        ...findQuestionableHits({
+          extractedText: read.text,
+          logoMark: read.logoMark,
+          blocked: hits,
+        }),
+      );
     }
   } else {
     // Already refused on a local check — the model was never asked, which is
@@ -290,10 +381,25 @@ export async function screenGalleryImage(args: {
     textScreen = 'unavailable';
   }
 
+  const outcome = screenOutcome(hits);
   return {
-    blocked: hits.length > 0,
+    blocked: outcome === 'blocked',
+    outcome,
     hits,
     message: contentRejectionMessage(hits),
     textScreen,
+    // 🔑 A CLEAN PHOTO STORES NOTHING. `screen_findings IS NOT NULL` is then a
+    // straight answer to "does a human need to look at this", with no
+    // outcome-string comparison for a caller to get backwards.
+    findings:
+      outcome === 'clean'
+        ? null
+        : {
+            outcome,
+            hits,
+            text: transcript,
+            textScreen,
+            screenedAt: new Date().toISOString(),
+          },
   };
 }

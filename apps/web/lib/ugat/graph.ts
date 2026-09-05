@@ -819,6 +819,15 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
      * asset_type before touching asset_subtype; one that does not would read a
      * cake photo as a gown.
      *
+     * ⚠ SINCE MB21 THE SCREEN HAS THREE OUTCOMES, NOT TWO. `screen_findings`
+     * is NULL for a clean photo, so `screen_findings IS NOT NULL AND
+     * approved_at IS NULL AND rejected_at IS NULL` IS the admin review queue —
+     * there is no separate queue table and no status enum. A refusal is
+     * `rejected_at` + `rejection_reason`, deliberately NOT `retired_at`:
+     * retiring is reversible housekeeping with no judgement attached, and
+     * collapsing the two would make an ordinary un-publish read to a supplier
+     * as an accusation.
+     *
      * ⚠ THE PUBLIC-READ POLICY AND THE WARRANTY CHECK OPEN THE SAME DOOR.
      * Public read is `approved_at IS NOT NULL AND retired_at IS NULL`, and
      * `moodboard_library_assets_supplier_gallery_shape` refuses an APPROVED
@@ -844,6 +853,8 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: '', name: 'vendor_profile_id', note: 'the SHOP credited on the photo \u2014 not uploaded_by, which is a user account' },
       { key: '', name: 'asset_subtype', note: 'for supplier_gallery rows this is the INSPIRATION SLOT, CHECK-constrained to the same 18 keys' },
       { key: '', name: 'rights_warranted_at', note: 'required before an approved gallery row may be publicly read; MB11 captures it at upload' },
+      { key: '', name: 'screen_findings', note: 'MB21 \u2014 what the content screen found, plus the text it read. NOT NULL IS the admin queue. Revoked from anon + authenticated: this table has a PUBLIC read policy' },
+      { key: '', name: 'rejection_reason', note: 'MB21 \u2014 a reviewer\u2019s words, shown to the supplier. Paired with rejected_at by a CHECK, so a refusal can never arrive with nothing to read' },
     ],
     edges: [
       { verb: 'credited to', to: 'TYPE-VENDORS' },

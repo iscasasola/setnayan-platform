@@ -59,6 +59,7 @@ import {
   GALLERY_SLOT_KEYS,
 } from './moodboard-gallery';
 import type { MoodboardSlotKey } from './moodboard-slots';
+import { HIT_LABEL, type ContentHit } from './moodboard-screen-findings';
 
 /* ══════════════════════════════════════════════════════════════════════════
    1 · THE RIGHTS WARRANTY
@@ -265,37 +266,44 @@ export function backCatalogueQuotaVerdict(input: {
    4 · THE CONTENT CHECKS — WHAT THE PHOTO ITSELF CARRIES
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** What a content check found. `label` is what the vendor is told we saw. */
-export type ContentHitKind =
-  | 'qr_code'
-  | 'business_name'
-  | 'phone'
-  | 'email'
-  | 'website'
-  | 'social_handle'
-  | 'own_logo';
-
-export type ContentHit = {
-  kind: ContentHitKind;
-  /** The vendor-facing name of the thing, e.g. "your phone number". */
-  label: string;
-  /** What we actually matched, echoed back so the vendor can find it. */
-  found: string;
-};
-
-const HIT_LABEL: Readonly<Record<ContentHitKind, string>> = {
-  qr_code: 'a QR code',
-  business_name: 'your shop’s name',
-  phone: 'your phone number',
-  email: 'your email address',
-  website: 'your website address',
-  social_handle: 'your social handle',
-  own_logo: 'your shop’s logo',
-};
+/**
+ * The finding vocabulary — kinds, labels, severities, the three outcomes and
+ * both human-facing sentences — lives in lib/moodboard-screen-findings.ts and
+ * is re-exported here so every server caller keeps ONE import path.
+ *
+ * 🔑 IT LIVES THERE BECAUSE OF THE CLIENT BOUNDARY, NOT FOR TIDINESS. MB21's
+ * whole point is that a finding reaches a RENDER, and both renders are
+ * `'use client'`. This file reaches `lib/supabase/admin.ts` through
+ * `./moodboard-gallery` → `lib/taxonomy.ts`, so a component importing the
+ * labels from here turns `lint-server-only-boundary` red.
+ */
+export {
+  HIT_LABEL,
+  HIT_SEVERITY,
+  blockingHits,
+  contentRejectionMessage,
+  flaggedHits,
+  parseScreenFindings,
+  rejectionSentence,
+  screenOutcome,
+} from './moodboard-screen-findings';
+export type {
+  ContentHit,
+  ContentHitKind,
+  ContentHitSeverity,
+  ScreenFindings,
+  ScreenOutcome,
+  TextScreenStatus,
+} from './moodboard-screen-findings';
 
 /** One value of this shop's own that we look for inside the photo's text. */
 export type ContactNeedle = {
-  kind: Exclude<ContentHitKind, 'qr_code' | 'own_logo'>;
+  // 🔑 SPELLED OUT, NOT `Exclude<ContentHitKind, …>`. MB21 widened the kind
+  // union with three "any at all" blocks and four queue flags, and an Exclude
+  // would have silently admitted every one of them as a needle kind — a
+  // `heavy_text` needle is not a thing, and the compiler would never have said
+  // so.
+  kind: 'business_name' | 'phone' | 'email' | 'website' | 'social_handle';
   /** Normalised form used for matching. */
   needle: string;
   /** The original value, for the message. */
@@ -501,30 +509,273 @@ export function ownLogoHit(distance: number): ContentHit {
   };
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   5 · MB21 — THE WIDENED BLOCKS, AND WHAT GOES TO A HUMAN
+   ══════════════════════════════════════════════════════════════════════════
+
+   MB11 asked one question of the transcribed text: "is THIS shop's own contact
+   information in it?" The owner's rule (2026-09-05) asks two more:
+
+     · ANY web address, ANY social handle, ANY email address → HARD BLOCK.
+       A stranger's Instagram printed on a styled shoot takes the couple off
+       Setnayan exactly as effectively as the uploader's own would, and unlike
+       a phone number there is nothing ambiguous about an `@` or a `.com`.
+     · an unfamiliar NAME, a phone-SHAPED digit run, a logo-ish mark, or a wall
+       of text → FLAG, and a person looks.
+
+   🛑 AND THE THING THIS SECTION MOST HAD TO GET RIGHT IS WHAT IT DOES **NOT**
+   BLOCK. Couples' names on backdrops, welcome signs, monograms and stage
+   lettering ARE the design in the `backdrop` and `stage` shelves. `findNameLike`
+   below therefore feeds a FLAG and nothing else; making it a block would empty
+   two categories, and the only symptom would be honest suppliers quietly
+   giving up. The same reasoning kills a generic phone matcher as a block — the
+   false positives are written out in this file's own docblock.
+
+   ⚠ `lib/chat-contact-filter.ts` IS STILL NOT IMPORTED HERE. It is tuned for a
+   chat message, where a phone-shaped run IS a phone number. The card-profile
+   retune its docblock records ("Php 9,000 per hour, minimum 4 hours, 150 pax"
+   fusing into a PH-mobile shape) is exactly what a wedding photograph is full
+   of. Nothing about MB21 changes that; the widened rules here are about the
+   two shapes that ARE unambiguous — an `@` and a hostname.
+   ══════════════════════════════════════════════════════════════════════════ */
+
 /**
- * 🛑 THE REJECTION NAMES WHAT WAS FOUND. This is the whole difference between
- * a gate a vendor can clear and a wall they bounce off forever.
- *
- * The failure this repo keeps re-learning is a measurement that never reaches
- * the render: an upload refused with "invalid image" tells the supplier
- * nothing, so they re-upload the same photo, or give up and conclude Setnayan
- * is broken. Naming the thing — "we found your phone number in this photo" —
- * turns a block into an instruction they can act on in one minute.
- *
- * Nobody is banned, nothing is deleted, and the photo is never quietly
- * dropped: the upload simply does not happen and the vendor is told why.
+ * The sentinel the vision model appends. Parsed and STRIPPED before any text
+ * rule runs — see `parseScreenTranscript`.
  */
-export function contentRejectionMessage(hits: readonly ContentHit[]): string {
-  if (hits.length === 0) return '';
-  const named = hits.map((h) => h.label);
-  const list =
-    named.length === 1
-      ? named[0]
-      : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`;
+export const LOGO_MARK_SENTINEL = 'LOGO MARK:';
 
-  const fix = hits.some((h) => h.kind === 'qr_code')
-    ? 'Couples find your shop through the credit we print under the photo, so a QR code in the picture is never needed. Upload a version without it and it will go straight through.'
-    : 'Upload a clean version without it — your shop is already credited under every photo, so couples can still find you.';
+/** ≥ this many transcribed lines, or characters, reads as "heavy text". */
+export const HEAVY_TEXT_LINES = 8;
+export const HEAVY_TEXT_CHARS = 220;
 
-  return `We can’t add this photo yet: we found ${list} in it. ${fix}`;
+/**
+ * ≥ this many digits in one run reads as "phone-shaped". Seven, because a PH
+ * landline is 7 digits and a mobile 11 — while a table number, a year, a price
+ * and a time are all shorter. It FLAGS; it never blocks.
+ */
+export const PHONE_SHAPED_MIN_DIGITS = 7;
+
+/**
+ * Hostname endings we are willing to call a web address on sight. An
+ * allow-list, not `\.[a-z]{2,}`: "Mr. and Mrs. Reyes" and "8:00 p.m." both
+ * match a naive dotted pattern, and this one BLOCKS, so a false positive is an
+ * honest supplier bounced.
+ */
+const URL_TLDS = [
+  'com', 'net', 'org', 'ph', 'co', 'io', 'me', 'ly', 'tv', 'info', 'biz',
+  'shop', 'store', 'studio', 'design', 'photo', 'events', 'app', 'site',
+  'online', 'xyz', 'asia', 'link', 'page', 'live', 'art',
+];
+
+const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi;
+const SCHEME_URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"')]+/gi;
+const BARE_HOST_RE = new RegExp(
+  String.raw`\b[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9-]+)*\.(?:${URL_TLDS.join('|')})\b(?:\/[^\s<>"')]*)?`,
+  'gi',
+);
+/** `@handle` — 3+ characters, and never the tail of an email address. */
+const HANDLE_RE = /(^|[^a-z0-9._%+-])@([a-z0-9._]{3,30})\b/gi;
+
+/** A capitalised or all-caps word that could be part of somebody's name. */
+const NAME_TOKEN_RE = /^(?:[A-Z][a-z'’-]{1,}|[A-Z]{2,})$/;
+
+/**
+ * Words that look like names on a sign and are not. Wedding signage is full of
+ * them, and a run made only of these must never be reported as "a name" — the
+ * flag would fire on every welcome board in the country and an admin who sees
+ * a flag on everything sees a flag on nothing.
+ */
+const NOT_A_NAME = new Set([
+  'WELCOME', 'TO', 'THE', 'OUR', 'WEDDING', 'OF', 'AND', 'SAVE', 'DATE',
+  'RECEPTION', 'CEREMONY', 'MENU', 'TABLE', 'SEAT', 'SEATING', 'CHART',
+  'GUEST', 'GUESTS', 'BOOK', 'GIFTS', 'CARDS', 'BAR', 'OPEN', 'PHOTO',
+  'BOOTH', 'LOVE', 'FOREVER', 'ALWAYS', 'CELEBRATE', 'CELEBRATION',
+  'TOGETHER', 'WITH', 'US', 'JOIN', 'MR', 'MRS', 'MS', 'THANK', 'YOU',
+  'PLEASE', 'BE', 'SEATED', 'DINNER', 'LUNCH', 'COCKTAILS', 'DESSERT',
+  'CAKE', 'ENTRANCE', 'EXIT', 'STAGE', 'DANCE', 'FLOOR', 'PROGRAM',
+  'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST',
+  'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+  'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY',
+  'A', 'AN', 'IS', 'ARE', 'FOR', 'FROM', 'AT', 'ON', 'IN', 'BY', 'HERE',
+  'MANILA', 'CEBU', 'DAVAO', 'PHILIPPINES', 'CHURCH', 'GARDEN', 'HOTEL',
+  'BALLROOM', 'HALL', 'CHAPEL', 'RESORT', 'BEACH', 'PAVILION',
+]);
+
+/** Strip the runs another rule has already reported, so one string is one hit. */
+function without(text: string, taken: readonly string[]): string {
+  let out = text;
+  for (const t of taken) out = out.split(t).join(' ');
+  return out;
+}
+
+function hit(kind: ContentHit['kind'], found: string): ContentHit {
+  return { kind, label: HIT_LABEL[kind], found: found.slice(0, 120) };
+}
+
+function uniqueBy(hits: readonly ContentHit[]): ContentHit[] {
+  const seen = new Set<string>();
+  const out: ContentHit[] = [];
+  for (const h of hits) {
+    const key = `${h.kind}::${h.found.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(h);
+  }
+  return out;
+}
+
+/**
+ * ANY web address, social handle or email address in the photo — a HARD BLOCK
+ * regardless of whose it is.
+ *
+ * The order is load-bearing: emails are taken first and removed from the text,
+ * because `hello@bloomandvine.com` otherwise reads as an email AND a bare host
+ * AND (`@bloomandvine`) a handle, and the supplier is handed a refusal listing
+ * three findings for one string on one sign.
+ */
+export function findPublishedContactHits(extractedText: string): ContentHit[] {
+  const raw = extractedText ?? '';
+  if (!raw.trim()) return [];
+  const hits: ContentHit[] = [];
+
+  const emails = raw.match(EMAIL_RE) ?? [];
+  for (const e of emails) hits.push(hit('any_email', e));
+
+  const afterEmails = without(raw, emails);
+
+  const urls = [
+    ...(afterEmails.match(SCHEME_URL_RE) ?? []),
+    ...(afterEmails.match(BARE_HOST_RE) ?? []),
+  ];
+  for (const u of urls) hits.push(hit('any_url', u.replace(/[.,;:)]+$/, '')));
+
+  const afterUrls = without(afterEmails, urls);
+  for (const m of afterUrls.matchAll(HANDLE_RE)) {
+    hits.push(hit('any_social_handle', `@${m[2]}`));
+  }
+
+  return uniqueBy(hits);
+}
+
+/**
+ * Runs of capitalised words that read like somebody's name.
+ *
+ * Names joined by `&` or `and` are ONE run — "Maria & Jose" is one couple, not
+ * two findings — and a run whose every word is in `NOT_A_NAME` is not reported
+ * at all. Exported for its own unit tests: this is the single most consequential
+ * function in MB21, because getting it wrong in the other direction (a block)
+ * would empty the `backdrop` and `stage` shelves.
+ */
+export function findNameLike(extractedText: string): string[] {
+  const out: string[] = [];
+  for (const line of (extractedText ?? '').split(/[\n.;!?]+/)) {
+    const tokens = line.trim().split(/\s+/).filter(Boolean);
+    let run: string[] = [];
+    const flush = () => {
+      const words = run.filter((t) => t !== '&' && t.toUpperCase() !== 'AND');
+      const real = words.filter((w) => !NOT_A_NAME.has(w.toUpperCase()));
+      if (real.length >= 2) out.push(run.join(' '));
+      run = [];
+    };
+    for (const tok of tokens) {
+      const bare = tok.replace(/^[^A-Za-z&]+|[^A-Za-z&’']+$/g, '');
+      const isConnector =
+        (bare === '&' || bare.toUpperCase() === 'AND') && run.length > 0;
+      if (isConnector) {
+        run.push(bare);
+        continue;
+      }
+      if (NAME_TOKEN_RE.test(bare)) {
+        run.push(bare);
+        continue;
+      }
+      flush();
+    }
+    flush();
+  }
+  return Array.from(new Set(out));
+}
+
+/** Digit runs long enough to read like a phone number. Separators collapse. */
+export function findPhoneShaped(extractedText: string): string[] {
+  const out: string[] = [];
+  for (const m of (extractedText ?? '').matchAll(/[+]?[\d][\d\s().-]{5,}\d/g)) {
+    const raw = m[0].trim();
+    if (raw.replace(/\D+/g, '').length >= PHONE_SHAPED_MIN_DIGITS) out.push(raw);
+  }
+  return Array.from(new Set(out));
+}
+
+/**
+ * THE QUEUE'S HALF OF THE OWNER'S RULE — everything that is questionable and
+ * nothing that is refusable.
+ *
+ * `blocked` hits are passed in so this can subtract them: the shop's OWN phone
+ * number is already a hard block, and reporting it a second time as
+ * "phone-shaped" would put a flag on a photo that is never going to exist.
+ */
+export function findQuestionableHits(input: {
+  extractedText: string;
+  /** From the vision sentinel. `null` = the model did not say, not "no". */
+  logoMark?: boolean | null;
+  /** Already-decided blocking hits, so nothing is reported twice. */
+  blocked?: readonly ContentHit[];
+}): ContentHit[] {
+  const text = input.extractedText ?? '';
+  const hits: ContentHit[] = [];
+
+  const takenFound = (input.blocked ?? []).map((h) => h.found).filter(Boolean);
+  const remaining = without(text, takenFound);
+
+  for (const name of findNameLike(remaining)) hits.push(hit('unfamiliar_name', name));
+  for (const num of findPhoneShaped(remaining)) hits.push(hit('phone_shaped', num));
+
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length >= HEAVY_TEXT_LINES || text.trim().length >= HEAVY_TEXT_CHARS) {
+    hits.push(
+      hit('heavy_text', `${lines.length} lines, ${text.trim().length} characters`),
+    );
+  }
+
+  if (input.logoMark === true) {
+    hits.push(hit('logo_mark', 'the model saw a logo-style mark'));
+  }
+
+  return uniqueBy(hits);
+}
+
+/**
+ * Split the model's reply into the TEXT the rules read and the LOGO MARK
+ * sentinel appended after it.
+ *
+ * 🔑 THE SENTINEL IS STRIPPED, AND THAT IS NOT COSMETIC. Left in the text it
+ * would be transcribed content: `LOGO MARK: no` is eight capitalised
+ * characters that `findNameLike` would happily report, so every single photo
+ * would arrive at the admin queue flagged for a name that is our own prompt.
+ *
+ * An ABSENT sentinel yields `null`, never `false`. The model declining to
+ * answer is not the model saying there is no logo, and a screen that reports
+ * "no logo" when it was never told is the silent-non-answer failure this repo
+ * keeps paying for.
+ */
+export function parseScreenTranscript(raw: string): {
+  text: string;
+  logoMark: boolean | null;
+} {
+  const lines = (raw ?? '').split('\n');
+  let logoMark: boolean | null = null;
+  const kept: string[] = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (t.toUpperCase().startsWith(LOGO_MARK_SENTINEL)) {
+      const answer = t.slice(LOGO_MARK_SENTINEL.length).trim().toLowerCase();
+      if (answer.startsWith('yes')) logoMark = true;
+      else if (answer.startsWith('no')) logoMark = false;
+      continue;
+    }
+    kept.push(line);
+  }
+  const text = kept.join('\n').trim();
+  return { text: text === 'NO TEXT' ? '' : text, logoMark };
 }

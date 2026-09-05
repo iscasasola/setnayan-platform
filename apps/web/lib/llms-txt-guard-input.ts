@@ -149,7 +149,10 @@ export const RETAIL: RetailRow[] = [
   // when a SKU's is_active changes in prod, it must change here in the same PR.
   { service_code: 'PAPIC_ADDON_STORIES', title: 'Stories', retail_price_php: 2000, is_active: false },
   { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1500, is_active: true },
-  { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: true },
+  // SEATING_3D is FREE for couples since 2026-09-05 (owner) — deactivated in
+  // prod by migration 20271205977137 and carried by FREE_FOR_ALL_SKUS (PR
+  // #5185). Kept listed, inactive, same convention as KWENTO below.
+  { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: false },
   { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 2499, is_active: true },
   // PABATI is GONE from this fixture on purpose. It went FREE on 2026-08-21 and
   // was RETIRED the same day ("we do not need pabati. retire it because it is

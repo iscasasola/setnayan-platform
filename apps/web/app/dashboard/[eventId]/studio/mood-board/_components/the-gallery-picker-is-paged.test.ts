@@ -106,6 +106,64 @@ test('⭐ THE GUARD · fetchGalleryAssets normalizes, then RANGES — there is n
   assert.match(body, /withheld/, 'the page must report what it withheld');
 });
 
+/* ── 1b · MB22 · EVENT-LINKED SORTS FIRST, WITHOUT TOUCHING THE PAGE MATH ── */
+
+test('⭐ THE GUARD · fetchGalleryAssets orders event-linked first, THEN by recency', () => {
+  const body = windowOf(
+    read(ACTIONS),
+    'export async function fetchGalleryAssets(',
+    /\nexport (async )?function /,
+  );
+
+  assert.match(
+    body,
+    /is_event_linked/,
+    'the query must select the generated flag — source_event_id itself stays revoked',
+  );
+  assert.doesNotMatch(
+    body,
+    /select\([^)]*source_event_id/s,
+    'source_event_id is revoked from the authenticated client (MB11) — selecting ' +
+      'it here would throw, not silently fall back',
+  );
+
+  const orderIdx = body.indexOf(".order('is_event_linked'");
+  const createdIdx = body.indexOf(".order('created_at'");
+  assert.notEqual(orderIdx, -1, 'must order by the event-linked flag');
+  assert.notEqual(createdIdx, -1, 'must still order by recency');
+  assert.ok(
+    orderIdx < createdIdx,
+    'event-linked must be the PRIMARY sort key — recency only breaks ties within each group',
+  );
+  assert.match(
+    body,
+    /\.order\('is_event_linked', \{ ascending: false \}\)/,
+    'ascending:false puts TRUE (event-linked) ahead of FALSE (back-catalogue)',
+  );
+});
+
+test('⭐ THE GUARD · hasMore stays OFFSET-based — a re-sort must not switch it to assets.length', () => {
+  // The trap this session was explicitly warned about: GalleryPage.hasMore is
+  // offset-based precisely because a page may legitimately drop rows
+  // (withheld). Sorting the SAME ranged query by an extra column must not
+  // touch this line.
+  const body = windowOf(
+    read(ACTIONS),
+    'export async function fetchGalleryAssets(',
+    /\nexport (async )?function /,
+  );
+  assert.match(
+    body,
+    /hasMore: query\.offset \+ query\.limit < total/,
+    'hasMore must be computed from offset + limit vs. total, not from the fetched array',
+  );
+  assert.doesNotMatch(
+    body,
+    /hasMore:\s*assets\.length/,
+    'assets.length undercounts whenever a row is withheld — that is the exact bug this shape prevents',
+  );
+});
+
 /* ── 2 · A PICK CARRIES ITS PROVENANCE ────────────────────────────────── */
 
 test('⭐ THE GUARD · applyGalleryPick writes gallery_pick AND the library_asset_id together', () => {

@@ -61,8 +61,9 @@ import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
  * ── 2026-07-25 TIERED ADD-ON MODEL (owner-locked · flag-dark) ───────────────
  * Behind `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` the Pro+ gate LIFTS and 3D
  * Plan Ads becomes buyable on EVERY tier at the tier-banded price —
- * `resolveVendorAddonPricePhp('ads_3d_plan', tier)` → ₱2,000 Free/Solo, ₱1,500
- * Pro/Enterprise. The tier is re-read here from `vendor_profiles.tier_state`, so
+ * `resolveVendorAddonPricePhp('ads_3d_plan', tier)` → ₱3,000 on EVERY tier since
+ * 2026-09-05 (owner: "flat prices for all of them"; bands equal, catalogue
+ * ₱3,000, so both paths below agree). The tier is re-read here from `vendor_profiles.tier_state`, so
  * the band is server-authoritative and a tampered client can never buy at the
  * cheaper Pro price. Everything else is untouched: verified-only, the one-time
  * free first cycle, the atomic trial claim, and apply-then-pay. Flag OFF
@@ -189,8 +190,9 @@ export async function activateVendor3dBooth(
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
   // Under the tiered model the CYCLE price comes from the code SSOT band
-  // (₱2,000 entry / ₱1,500 growth) instead of the flat catalog row; the free
-  // first cycle and every other rule below are unchanged.
+  // instead of the flat catalog row — since 2026-09-05 both say ₱3,000 (bands
+  // equal), so this branch selects a SOURCE, not a price; the free first cycle
+  // and every other rule below are unchanged.
   const cyclePricePhp = tieredPricing
     ? resolveVendorAddonPricePhp('ads_3d_plan', tier)
     : catalogCyclePricePhp;

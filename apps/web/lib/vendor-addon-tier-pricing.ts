@@ -67,7 +67,12 @@ export const VENDOR_ADDON_TIER_PRICES_PHP: Record<
   // charge ₱400 for a 28-day subscription the moment that flag flips — the
   // catalogue price would be right and the charge would not.
   papic_challenge: { entry: 2500, growth: 2500 }, // per 28 days, unlimited
-  ads_3d_plan: { entry: 2000, growth: 1500 }, // per 28-day cycle
+  // OWNER 2026-09-05 — "flat prices for all of them": the 3D Booth is ₱3,000 per
+  // 28-day cycle on every paid tier. Same rule as papic_challenge above: kept in
+  // the matrix, bands EQUAL, so the tiered-pricing flag cannot pick a different
+  // number from the catalogue in either state. Fallback + catalogue row moved
+  // in the same change (migration 20271205977137).
+  ads_3d_plan: { entry: 3000, growth: 3000 }, // per 28-day cycle, flat
   ai_chatbot_basic: { entry: 2000, growth: 1500 }, // per 28-day cycle
   ai_chatbot_advanced: { entry: 3000, growth: 2500 }, // per 28-day cycle
   deep_search_about_you: { entry: 1000, growth: 500 }, // per search

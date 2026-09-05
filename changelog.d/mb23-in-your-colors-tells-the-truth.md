@@ -22,10 +22,10 @@ canvas-recolored". Measured 2026-09-05 — the R2 host echoes `https://www.setna
 that re-measures it, and a guard now allows the old claim to appear **only inside a comment block
 that refutes it**.
 
-⚠ **`setnayan.ph` and `www.setnayan.ph` are NOT on that allowlist** (measured: no
-`Access-Control-Allow-Origin` returned). The brand locks list both domains. If the app is ever
-served from `.ph`, every attire card silently stops recolouring. Reported, not fixed — the bucket's
-CORS policy is not this session's lane.
+The allowlist is precise rather than permissive. `setnayan.ph` and `www.setnayan.ph` get no
+`Access-Control-Allow-Origin` at all — which is **correct**, because we do not own that domain
+(owner, verbatim 2026-08-11: *"we do not have setnayan.ph"*). Recorded only so the next session
+does not read the absence as a gap; nothing to fix.
 
 ### No palette → no colour
 
@@ -89,6 +89,5 @@ comment guard used a ±600-character window that reached into the neighbouring d
 its "FALSE". Both are recorded in the files.
 
 SPEC IMPACT: None. Owner ruling of 2026-09-05 ("In your colors" = recoloured drawings only) is
-already carried in `build-sessions/MB23.md`; no `DECISION_LOG.md` row changes. Two items for the
-owner are surfaced in the PR body rather than the corpus: the Ceremony drawing, and whether
-`setnayan.ph` should be added to the R2 bucket's CORS allowlist.
+already carried in `build-sessions/MB23.md`; no `DECISION_LOG.md` row changes. One item for the owner is
+surfaced in the PR body rather than the corpus: the Ceremony drawing.

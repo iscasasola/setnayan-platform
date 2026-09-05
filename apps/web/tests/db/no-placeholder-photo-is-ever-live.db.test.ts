@@ -114,17 +114,23 @@ test('retiring the placeholders did not retire anything else', async () => {
  * missing one.
  */
 const UNTAGGABLE: ReadonlyArray<{ pathSuffix: string; because: string }> = [
-  {
-    pathSuffix: 'figure_attire/modern-minimalist/bride.svg',
-    because:
-      'The gown is filled with #ECEBE7 — byte-identical (ΔE 0.0) to the file\'s own background ' +
-      'rect, across 76.6% of the figure column, measured 2026-09-05 on a 520px raster. To ' +
-      '`recolorRGBA` the dress and the backdrop are ONE region: every (sampled_hex, tolerance) ' +
-      'pair catches both or neither. Migration 20271205919528 deletes the range rather than ' +
-      'leave a plausible-looking row claiming a region that cannot be isolated, and page.tsx ' +
-      'prefers a bride variant that HAS one. Fix is to re-cut the artwork, not to re-tag it. ' +
-      'Proof lives in _components/the-background-never-wears-the-palette.test.ts.',
-  },
+  // ✅ EMPTIED BY MB24 — and emptied BY THIS GUARD, which is the point of it.
+  //
+  // The one entry this list ever held was `figure_attire/modern-minimalist/bride.svg`:
+  // her gown was filled #ECEBE7, byte-identical (ΔE 0.0) to a full-canvas backdrop
+  // path in the same file, so no (sampled_hex, tolerance) pair could select the
+  // dress without the page behind it. MB23 deleted her range and recorded the
+  // measurement here rather than shipping a row that claimed a region it could not
+  // isolate.
+  //
+  // MB24 re-cut the artwork — the backdrop path removed, nothing else — moved the
+  // row to `/moodboard-seed/figure_attire/modern-minimalist/bride.svg`, and gave
+  // her `#ECEBE7 ± 16` in migration `20271206127987`. The test below then failed on
+  // the stale entry and said, in as many words, to delete it. So it is deleted.
+  //
+  // The list is empty, not gone: every live attire figure now carries a range, and
+  // the next asset that cannot be tagged has to earn its place here WITH a
+  // measurement, exactly as the bride did.
 ];
 
 test('every live attire figure carries a colour range, except the ones we documented as untaggable', async () => {
@@ -190,9 +196,11 @@ test('the exception list has not grown', async () => {
   // reviewable edit rather than one more line nobody notices.
   assert.equal(
     UNTAGGABLE.length,
-    1,
-    'The untaggable-asset list changed size. Exactly one asset has ever earned a place on it ' +
-      '(modern-minimalist/bride). Growing it means more of "In your colors" cannot show the ' +
-      "couple their own colours — that is a product decision, not a test fixture.",
+    0,
+    'The untaggable-asset list changed size. It is EMPTY as of MB24: exactly one asset ever ' +
+      'earned a place on it (modern-minimalist/bride), and re-cutting her artwork retired the ' +
+      'entry. Growing it means some of "In your colors" cannot show the couple their own ' +
+      'colours — that is a product decision, not a test fixture, and it needs a measurement ' +
+      'the way the bride had one.',
   );
 });

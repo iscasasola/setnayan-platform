@@ -488,6 +488,12 @@ export async function issueCompGrant(formData: FormData) {
   const { adminUserId } = await requireAdmin();
 
   const targetUserId = formData.get('user_id');
+  // Optional (2026-09-05, migration 20271205612762): scope the grant to ONE
+  // event the target hosts, instead of every event on their account. Blank
+  // means "every event", preserving every pre-existing call site's behavior.
+  const eventIdRaw = formData.get('event_id');
+  const eventId =
+    typeof eventIdRaw === 'string' && eventIdRaw.trim().length > 0 ? eventIdRaw.trim() : null;
   const scopeRaw = formData.get('scope');
   // Checkboxes submit one value per checked service under the same name — use
   // getAll. Falls back gracefully if the form still sends a single string
@@ -590,6 +596,28 @@ export async function issueCompGrant(formData: FormData) {
     );
   }
 
+  // event_id is never trusted bare — the entitlement functions also re-check
+  // host membership at read time, but a grant scoped to an event this target
+  // doesn't even host is a silently-dead row, and an admin who typed the
+  // wrong event_id deserves an error, not a comp that quietly does nothing.
+  let eventDisplayName: string | null = null;
+  if (eventId) {
+    const { data: hostRow, error: hostErr } = await admin
+      .from('event_members')
+      .select('event_id, events(display_name)')
+      .eq('event_id', eventId)
+      .eq('user_id', targetUserId)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    if (hostErr) throw new Error(`Event host check failed: ${hostErr.message}`);
+    if (!hostRow) {
+      throw new Error('That event is not hosted by this user — pick one of their own events.');
+    }
+    eventDisplayName =
+      (hostRow as unknown as { events: { display_name: string } | null }).events
+        ?.display_name ?? null;
+  }
+
   // Insert the grant. `public_id` defaults to generate_public_id('C')
   // per the schema. `approved_by` stays NULL for V1 — the two-admin
   // gate ships V1.x. retail_value > ₱10K rows still INSERT but get
@@ -599,6 +627,7 @@ export async function issueCompGrant(formData: FormData) {
     .from('comp_grants')
     .insert({
       user_id: targetUserId,
+      event_id: eventId,
       source: 'external_promo',
       scope: scopeRaw,
       scoped_skus: scopedSkus,
@@ -624,6 +653,8 @@ export async function issueCompGrant(formData: FormData) {
       grant_public_id: inserted.public_id,
       target_user_id: targetUserId,
       target_email: target.email ?? null,
+      event_id: eventId,
+      event_display_name: eventDisplayName,
       scope: scopeRaw,
       scoped_skus_count: scopedSkus?.length ?? 0,
       retail_value_centavos: retailValueCentavos,
@@ -647,9 +678,11 @@ export async function issueCompGrant(formData: FormData) {
   // Surface large-grant warning in the success banner via the existing
   // transient-query-param pattern from resetUserPassword.
   const needsReview = (retailValueCentavos ?? 0) > 10_000 * 100;
+  const scopeNote = scopeRaw === 'all_services' ? 'every Setnayan service' : `${scopedSkus?.length ?? 0} scoped services`;
+  const eventNote = eventDisplayName ? ` on "${eventDisplayName}" only` : ' across every event they host';
   const banner = needsReview
     ? `Comp grant ${inserted.public_id} issued — flag for owner+spouse co-approval (exceeds ₱10,000 · two-admin primitive lands V1.x)`
-    : `Comp grant ${inserted.public_id} issued — ${target.email ?? 'target user'} can now access ${scopeRaw === 'all_services' ? 'every Setnayan service' : `${scopedSkus?.length ?? 0} scoped services`}`;
+    : `Comp grant ${inserted.public_id} issued — ${target.email ?? 'target user'} can now access ${scopeNote}${eventNote}`;
   redirect(
     `/admin/users?expand=${encodeURIComponent(targetUserId)}&grant_banner=${encodeURIComponent(banner)}`,
   );

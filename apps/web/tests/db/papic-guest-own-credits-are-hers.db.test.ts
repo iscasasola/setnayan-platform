@@ -61,13 +61,42 @@ type Reply = {
   self_funded?: number;
 };
 
-/** An event with a REAL shared pool — the condition four dead limits died in. */
+/**
+ * An event with a REAL shared pool — the condition four dead limits died in.
+ *
+ * 🔑 WITH A COUPLE MEMBER, because that is what seeds the 50-pt free grant now:
+ * `papic_seed_free_grant_trg` moved from `events` to `event_members` (migration
+ * 20271204225094 — free credits are per ACCOUNT, first event only). A fresh
+ * auth user per call keeps every event here "somebody's first", so the pot is
+ * `grantPoints + 50` exactly as it was when the trigger fired on `events`.
+ *
+ * ⚠ THAT 50 IS LOAD-BEARING FOR TWO ASSERTIONS BELOW, AND NOT ON PURPOSE.
+ * Measured 2026-09-05 with the free grant absent: "her own 50 never touched
+ * the pot" asserts `poolLeft >= 5000 - 20` and reads **4979** — the pot paid
+ * for 21, not 20. `shootOwnCamera` calls `papic_reserve_capture_split` BEFORE
+ * `papic_record_guest_capture`, so the 21st (refused) capture reserves a pool
+ * point the refusal never releases. With the 50 present the same run reads
+ * 5029 and passes by slack. The couple row restores production shape (every
+ * real event has one); it does NOT make the assertion tight. Tightening it —
+ * or releasing on refusal in the helper — is a separate change, flagged in
+ * PR #5192, not smuggled in here.
+ */
 async function seedPoolEvent(grantPoints = 5000) {
   n += 1;
   const eventId = await one<string>(
     `INSERT INTO public.events (display_name, event_type)
      VALUES ($1, 'birthday') RETURNING event_id`,
     [`own-credits test ${n}`],
+  );
+  const coupleId = await one<string>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    [`own-credits-couple-${n}@test.local`],
+  );
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type)
+     VALUES ($1, $2, 'couple')`,
+    [eventId, coupleId],
   );
   await db.query(
     `INSERT INTO public.papic_event_point_grants (event_id, points, source, note)

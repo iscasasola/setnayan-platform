@@ -92,6 +92,12 @@ const DOORWAYS = [
   // a canonical and structured data are owed by any page whose job is to be
   // found, priced or not.
   'mood-board',
+  // The three free planning tools — public pages added 2026-09-05 so each
+  // could join the Studio rail (owner: *"Also add the other services.
+  // Marketplace to search for vendors with compare, Guestlist, Seatplan"*).
+  'marketplace',
+  'guest-list',
+  'seat-plan',
 ] as const;
 
 /** Every source file a doorway's markup can live in: its page, plus any
@@ -237,7 +243,7 @@ test('the scan is not vacuous — it really read ten pages', () => {
   // Every assertion above passes trivially if `sourcesFor` returns nothing:
   // a renamed folder or a moved app root would make this file green while
   // checking absolutely nothing.
-  assert.equal(DOORWAYS.length, 10);
+  assert.equal(DOORWAYS.length, 13);
   for (const route of DOORWAYS) {
     const srcs = sourcesFor(route);
     assert.ok(srcs.length > 0, `/${route}: no source files found — the app root is wrong`);

@@ -923,8 +923,10 @@ export function GuestListMultiselect({
                         selected={selectedSet.has(guest.guest_id)}
                         onToggle={() => guestSelection.toggle(guest.guest_id)}
                         groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groups={groups}
                         groupsById={groupsById}
                         currentGroupId={currentGroupId}
+                        bulkRoleSections={bulkRoleSections}
                         seat={seatByGuest[guest.guest_id]}
                       />
                     ),
@@ -1368,8 +1370,10 @@ function GuestCard({
   selected,
   onToggle,
   groupIds,
+  groups,
   groupsById,
   currentGroupId,
+  bulkRoleSections,
   seat,
 }: {
   guest: GuestRow;
@@ -1380,8 +1384,13 @@ function GuestCard({
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
+  /** The event's groups — AddToGroupControl's picker (mobile parity 2026-09-05). */
+  groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  /** Grouped role options for RoleChipEditor — the SAME sections the desktop
+   *  row and the bulk bar use, so a phone offers no different set of roles. */
+  bulkRoleSections: RoleSection[];
   // Reactive seat (Living Roster P4 · mobile parity) — same placed/suggested
   // contract the desktop row gets. Undefined when no seat data reached this card.
   seat?: { placed: string | null; suggested: string | null };
@@ -1427,8 +1436,14 @@ function GuestCard({
       <div className="pointer-events-none relative z-10">
         <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink/[0.04]">
           <GuestPhoto guest={guest} displayUrl={displayUrl} />
-          <span className="absolute right-2 top-2">
-            <SidePill side={guest.side} />
+          {/* Side is EDITABLE here (mobile parity 2026-09-05) — it was a bare
+              <SidePill> while the desktop row's identical pill opened a picker,
+              so the same chip did nothing on a phone. pointer-events-auto lifts
+              it above the card's stretched detail link. */}
+          <span className="pointer-events-auto absolute right-2 top-2">
+            <SideChipEditor eventId={eventId} guest={guest}>
+              <SidePill side={guest.side} />
+            </SideChipEditor>
           </span>
         </div>
         <div className="space-y-1.5 p-2.5">
@@ -1442,11 +1457,19 @@ function GuestCard({
               </p>
             ) : null}
           </div>
-          {/* Role stays read-only here; RSVP is a one-tap cycle (P4) and the
-              seat chip mirrors the desktop row. pointer-events-auto so the RSVP
-              button sits above the card's stretched detail link. */}
+          {/* Role is EDITABLE here too (mobile parity 2026-09-05); RSVP is a
+              one-tap cycle (P4) and the seat chip mirrors the desktop row.
+              pointer-events-auto so these buttons sit above the card's
+              stretched detail link. RoleChipEditor keeps its own bride/groom
+              lock — the phone offers exactly what the desktop row offers. */}
           <div className="pointer-events-auto flex flex-wrap items-center gap-1">
-            <RoleChips guest={guest} palette={palette} />
+            <RoleChipEditor
+              eventId={eventId}
+              guest={guest}
+              roleSections={bulkRoleSections}
+            >
+              <RoleChips guest={guest} palette={palette} />
+            </RoleChipEditor>
             <RsvpChipEditor
               eventId={eventId}
               guest={guest}
@@ -1463,8 +1486,12 @@ function GuestCard({
             />
           </div>
           {/* GroupChipList can render a remove-from-group <form>; give it back
-              pointer events so that button works above the stretched link. */}
-          <div className="pointer-events-auto">
+              pointer events so that button works above the stretched link.
+              AddToGroupControl is the other half (mobile parity 2026-09-05):
+              without it a phone could take a guest OUT of a group and never put
+              one back — the only one of these gaps that loses an association
+              rather than merely blocking an edit. */}
+          <div className="pointer-events-auto flex items-center gap-1.5">
             <GroupChipList
               eventId={eventId}
               guestId={guest.guest_id}
@@ -1472,6 +1499,12 @@ function GuestCard({
               groupsById={groupsById}
               currentGroupId={currentGroupId}
               compact
+            />
+            <AddToGroupControl
+              eventId={eventId}
+              guest={guest}
+              groups={groups}
+              memberGroupIds={groupIds}
             />
           </div>
         </div>
@@ -1492,8 +1525,10 @@ function MobileGridItem({
   selected,
   onToggle,
   groupIds,
+  groups,
   groupsById,
   currentGroupId,
+  bulkRoleSections,
   seat,
 }: {
   guest: GuestRow;
@@ -1504,8 +1539,10 @@ function MobileGridItem({
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
+  groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
   seat?: { placed: string | null; suggested: string | null };
 }) {
   const card = (
@@ -1518,8 +1555,10 @@ function MobileGridItem({
       selected={selected}
       onToggle={onToggle}
       groupIds={groupIds}
+      groups={groups}
       groupsById={groupsById}
       currentGroupId={currentGroupId}
+      bulkRoleSections={bulkRoleSections}
       seat={seat}
     />
   );
@@ -1553,6 +1592,15 @@ function MobileGridItem({
 // reactive seat chip on the right (Living Roster P4 · mobile parity). A stretched
 // Link covers the row for tap-to-detail; the checkbox + the RSVP button re-enable
 // their own pointer events above it, exactly like GuestCard.
+//
+// SWIPE-TO-DELETE PARITY (2026-09-05): this row shipped WITHOUT the left-swipe
+// Delete that its grid twin (MobileGridItem) has had since 2026-06-03. Removing
+// somebody is one of the four things a host does to a roster, and flipping the
+// carousel's density toggle to `?density=list` silently took it away — the same
+// list, the same guests, one affordance gone. The gate, the action and the
+// server-side blocks are IDENTICAL to the grid path (bulkSoftDeleteGuests: the
+// couple is protected, an RSVP'd guest must be reset first, and the delete is a
+// recoverable soft one) — this is the wrapper, not a second delete.
 function MobileListRow({
   guest,
   eventId,
@@ -1570,61 +1618,82 @@ function MobileListRow({
   onToggle: () => void;
   seat?: { placed: string | null; suggested: string | null };
 }) {
+  // Same gate as MobileGridItem: select mode owns the card for checkbox bulk
+  // ops, and the couple can never be removed (bulkSoftDeleteGuests blocks them
+  // server-side, so don't dangle a Delete that will always fail).
+  const swipeable =
+    !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
+
+  const row = (
+    <div
+      className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
+        selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
+      }`}
+    >
+      {/* Stretched detail link (z-0); content sits above it (z-10) and the
+          interactive bits re-enable pointer events (z-20). */}
+      <Link
+        href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+        aria-label={guestDisplayName(guest)}
+        className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+      />
+      {selectMode ? (
+        <label
+          onClick={(e) => e.stopPropagation()}
+          className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            aria-label={`Select ${guestDisplayName(guest)}`}
+            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+        </label>
+      ) : (
+        <span className="pointer-events-none relative z-10">
+          <RowAvatar guest={guest} displayUrl={displayUrl} />
+        </span>
+      )}
+      <div className="pointer-events-none relative z-10 min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
+        {guest.plus_one_allowed ? (
+          <p className="truncate text-xs text-ink/55">+ {guest.plus_one_name ?? 'TBA'}</p>
+        ) : null}
+      </div>
+      <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
+        <RsvpChipEditor
+          eventId={eventId}
+          guest={guest}
+          mobileCycle
+          seatedTableLabel={seat?.placed ?? null}
+        >
+          <RsvpPill status={guest.rsvp_status} />
+        </RsvpChipEditor>
+        <SeatChip
+          placed={seat?.placed ?? null}
+          suggested={seat?.suggested ?? null}
+          rsvp={guest.rsvp_status}
+          hasPlusOne={guest.plus_one_allowed}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <li className="list-none">
-      <div
-        className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
-          selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
-        }`}
-      >
-        {/* Stretched detail link (z-0); content sits above it (z-10) and the
-            interactive bits re-enable pointer events (z-20). */}
-        <Link
-          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-          aria-label={guestDisplayName(guest)}
-          className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-        />
-        {selectMode ? (
-          <label
-            onClick={(e) => e.stopPropagation()}
-            className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
-          >
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={onToggle}
-              aria-label={`Select ${guestDisplayName(guest)}`}
-              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-            />
-          </label>
-        ) : (
-          <span className="pointer-events-none relative z-10">
-            <RowAvatar guest={guest} displayUrl={displayUrl} />
-          </span>
-        )}
-        <div className="pointer-events-none relative z-10 min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
-          {guest.plus_one_allowed ? (
-            <p className="truncate text-xs text-ink/55">+ {guest.plus_one_name ?? 'TBA'}</p>
-          ) : null}
-        </div>
-        <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
-          <RsvpChipEditor
-            eventId={eventId}
-            guest={guest}
-            mobileCycle
-            seatedTableLabel={seat?.placed ?? null}
-          >
-            <RsvpPill status={guest.rsvp_status} />
-          </RsvpChipEditor>
-          <SeatChip
-            placed={seat?.placed ?? null}
-            suggested={seat?.suggested ?? null}
-            rsvp={guest.rsvp_status}
-            hasPlusOne={guest.plus_one_allowed}
-          />
-        </div>
-      </div>
+      {swipeable ? (
+        <SwipeToDelete
+          eventId={eventId}
+          guestId={guest.guest_id}
+          guestName={guestDisplayName(guest)}
+          radiusClass="rounded-xl"
+        >
+          {row}
+        </SwipeToDelete>
+      ) : (
+        row
+      )}
     </li>
   );
 }
@@ -1706,18 +1775,24 @@ function MobileSelfJoinCard({
 // (iOS-style), and deletion reuses bulkSoftDeleteGuests, so the same gates
 // apply (couple blocked upstream · RSVP'd guests get the reset-first message)
 // and it's a recoverable SOFT delete. Touch-only — the desktop table keeps
-// its own row affordances; rendered only in the `sm:hidden` card list.
+// its own row affordances; rendered in BOTH `sm:hidden` densities — the photo
+// grid (MobileGridItem) and the compact list (MobileListRow).
 // -----------------------------------------------------------------------
 function SwipeToDelete({
   eventId,
   guestId,
   guestName,
   children,
+  // The clipping wrapper rounds to match the card it wraps — the grid card is
+  // rounded-lg, the compact list row rounded-xl. Passing it keeps the swipe
+  // container from shaving the child's corners.
+  radiusClass = 'rounded-lg',
 }: {
   eventId: string;
   guestId: string;
   guestName: string;
   children: ReactNode;
+  radiusClass?: string;
 }) {
   const REVEAL = 84; // px width of the revealed Delete action
   const [tx, setTx] = useState(0);
@@ -1757,7 +1832,7 @@ function SwipeToDelete({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-lg">
+    <div className={`relative overflow-hidden ${radiusClass}`}>
       {/* Delete action, revealed behind the card on a left-swipe. */}
       <form
         action={bulkSoftDeleteGuests.bind(null, eventId)}

@@ -346,6 +346,19 @@ export async function setVendorTier(formData: FormData): Promise<void> {
     throw new Error('Invalid tier.');
   }
 
+  // Required + logged (2026-09-04) — until self-serve checkout ships, every
+  // non-free tier on this page IS a comp with no invoice behind it; there was
+  // no record of WHY beyond whoever remembered to leave a Slack message. Same
+  // 10-char minimum as revokeCompGrant's reason field, not issueCompGrant's
+  // 20-char rationale — this form sets a tier in one click, not a multi-SKU
+  // grant, so the friction should match.
+  const reasonRaw = String(formData.get('reason') ?? '').trim();
+  if (reasonRaw.length < 10) {
+    throw new Error(
+      'Write a short reason (at least 10 characters) for this tier change — it is logged.',
+    );
+  }
+
   // Parse optional end-date. Free tier always clears it; paid tiers use the
   // admin-supplied date or null (open-ended comp access).
   let tierExpiresAt: string | null = null;
@@ -384,6 +397,7 @@ export async function setVendorTier(formData: FormData): Promise<void> {
       to_tier: tier,
       from_expires_at: (before as { tier_expires_at?: string | null }).tier_expires_at ?? null,
       to_expires_at: tierExpiresAt,
+      reason: reasonRaw,
     },
   });
   if (auditErr) {

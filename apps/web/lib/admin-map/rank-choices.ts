@@ -44,15 +44,25 @@ import { jobNameFromAskHref } from './humanize-field';
 import { jobPrefillIsRead } from './prefill-consumers';
 
 /**
- * How many candidates the model is shown. See the docblock — 140 is the
+ * How many candidates the model is shown. See the docblock — this is the
  * smallest cap that keeps every admin page in the list.
+ *
+ * 🔑 IT IS DERIVED, AND A NEW ADMIN PAGE RAISES IT BY ONE. Measured 2026-09-05
+ * by executing the ranker over the shipped list for the flagship sentence:
+ * 90 pages + 51 jobs that share a word with it = 141 candidates that must all
+ * survive the slice, because a zero-hit page sorts behind every scoring job
+ * and the LAST zero-hit page by original index is the one that falls off
+ * (`/admin/more`, when this was 140 and `/admin/gifts` became the 90th page).
+ * Re-measure with `rank-choices.test.ts` — "every admin page still reaches
+ * the model" goes red at exactly the page that was cut — rather than picking
+ * a round number, which would hide the next off-by-one behind slack.
  *
  * 🔑 EXPORTED SO A GUARD CAN PIN THE REAL VALUE. The test that checks jobs are
  * never severed imports THIS constant; it does not keep its own copy, which is
  * exactly how the previous guard in this feature came to pass while the thing
  * it guarded was broken.
  */
-export const MODEL_CHOICE_CAP = 140;
+export const MODEL_CHOICE_CAP = 141;
 
 export type ModelChoice = { label: string; href: string };
 

@@ -21,6 +21,10 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
+  assertNotPlaceholder,
+  PLACEHOLDER_COLUMNS,
+} from '@/lib/moodboard-library-placeholder';
+import {
   generateRandomMoodboardPrompt,
   type RandomMoodboardPrompt,
 } from '@/lib/higgsfield-prompts';
@@ -151,6 +155,16 @@ export async function saveColorRanges(assetId: string, map: ColorRangeMap): Prom
 export async function approveAsset(assetId: string): Promise<void> {
   await requireAdmin();
   const admin = createAdminClient();
+  // MB23 — a bring-up placeholder (picsum/Pexels stock, or source =
+  // 'internet_placeholder') is never publishable to a couple. Throws on refusal;
+  // the rule and its reasoning live in lib/moodboard-library-placeholder.ts.
+  await assertNotPlaceholder(() =>
+    admin
+      .from('moodboard_library_assets')
+      .select(PLACEHOLDER_COLUMNS)
+      .eq('asset_id', assetId)
+      .maybeSingle(),
+  );
   const { error } = await admin
     .from('moodboard_library_assets')
     .update({

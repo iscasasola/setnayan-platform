@@ -62,6 +62,23 @@ async function seed(granted: number, dedicated: number) {
      VALUES ('Floor test', 'birthday') RETURNING event_id`,
   );
   const eventId = ev.rows[0]!.event_id;
+
+  // A couple member is what seeds the (now account-scoped, migration
+  // 20271204225094) free grant at all — some tests below pass granted=0 and
+  // rely on that automatic free allowance existing in the shared pool to
+  // dedicate FROM (papic_dedicate_shots), then drain it back to 0 themselves.
+  // Without a couple member the pool has zero grants and nothing to dedicate.
+  seatCounter += 1;
+  const coupleUser = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email) VALUES ($1) RETURNING id`,
+    [`floor-test-couple-${seatCounter}@example.test`],
+  );
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type)
+     VALUES ($1, $2, 'couple')`,
+    [eventId, coupleUser.rows[0]!.id],
+  );
+
   if (granted > 0) {
     await db.query(
       `INSERT INTO public.papic_event_point_grants (event_id, points, source, note)

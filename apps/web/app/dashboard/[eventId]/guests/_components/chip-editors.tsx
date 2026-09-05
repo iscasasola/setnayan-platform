@@ -17,7 +17,10 @@
  *
  * LOCKED chips: the bride & groom are the event foundation — always Attending,
  * never bulk-role-assigned (owner 2026-06-03) — so their RSVP and Role chips
- * render as plain, non-interactive pills here (side stays editable).
+ * cannot be edited here (side stays editable). They are NOT plain pills any
+ * more: a plain pill in a row of editable chips just swallows the tap, and a
+ * host cannot tell "protected" from "broken". Both now render through
+ * `LockedChip`, which keeps the lock and answers for it in one line.
  */
 
 import { useRef, useState, useTransition, type ReactNode } from 'react';
@@ -148,6 +151,58 @@ function OptionRow({
   );
 }
 
+/**
+ * LockedChip — a chip that is DELIBERATELY not editable, and says so when tapped.
+ *
+ * The bride & groom are the event foundation: always Attending, never assigned
+ * another role (owner 2026-06-03, reaffirmed 2026-09-05 — "only non bride and
+ * groom can be changed"). That lock is correct and stays. What was wrong is how
+ * it presented: their Role and RSVP chips rendered as PLAIN pills sitting in a
+ * row where every other chip opens a picker, so tapping one did nothing at all.
+ * Nothing was disabled, greyed, or captioned — the host got silence, which reads
+ * as a broken cell, not a protected one. (This is the tap that sent somebody
+ * looking for the missing editor.)
+ *
+ * So the chip stays uneditable and becomes ANSWERABLE: it is a real button that
+ * opens one line explaining why. `aria-haspopup="dialog"` (not `menu`) because
+ * nothing in it can be chosen, and the pill keeps its exact visual — the lock is
+ * explained on demand, never advertised as a disabled-looking chip on a row the
+ * host cannot fix.
+ */
+function LockedChip({
+  label,
+  reason,
+  children,
+}: {
+  label: string;
+  reason: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={label}
+        className="inline-flex cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+      >
+        {children}
+      </button>
+      {open ? (
+        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={232}>
+          <p className="px-2.5 py-2 text-xs leading-relaxed text-ink/70">{reason}</p>
+        </Popover>
+      ) : null}
+    </>
+  );
+}
+
 /** A chip rendered as an editable trigger button, wrapping the row's pill. */
 function ChipTrigger({
   triggerRef,
@@ -274,8 +329,17 @@ export function RsvpChipEditor({
   const commit = useFieldEdit(guest.guest_id);
   const name = guestDisplayName(guest);
 
-  // Couple RSVP is locked — render the plain pill, no interaction.
-  if (rsvpLocked(guest)) return <>{children}</>;
+  // Couple RSVP is locked to Attending — same silent-tap defect as the role
+  // chip, same fix: the lock holds, the chip answers for it.
+  if (rsvpLocked(guest))
+    return (
+      <LockedChip
+        label={`Why ${name}’s RSVP can’t be changed`}
+        reason={`${name} is ${ROLE_LABELS[guest.role]} — the event is theirs, so their RSVP stays Attending and can’t be set to pending or declined.`}
+      >
+        {children}
+      </LockedChip>
+    );
 
   // Reactive decline (Living Roster P3). Unlike the generic field edit, a decline
   // also FREES the guest's seat (live `free_seat_on_decline` trigger), so the undo
@@ -405,8 +469,17 @@ export function RoleChipEditor({
   const commit = useFieldEdit(guest.guest_id);
   const name = guestDisplayName(guest);
 
-  // Bride/groom aren't a bulk-assignable role (owner 2026-06-03) — plain chips.
-  if (guest.role === 'bride' || guest.role === 'groom') return <>{children}</>;
+  // Bride/groom aren't a bulk-assignable role (owner 2026-06-03) — the lock
+  // holds; the chip now explains it instead of swallowing the tap.
+  if (guest.role === 'bride' || guest.role === 'groom')
+    return (
+      <LockedChip
+        label={`Why ${name}’s role can’t be changed`}
+        reason={`${ROLE_LABELS[guest.role]} is the foundation of the event, so this role is fixed — it’s what keeps ${name} off every bulk action and out of the delete. Every other guest’s role is editable here.`}
+      >
+        {children}
+      </LockedChip>
+    );
 
   const pick = (value: GuestRole) => {
     setOpen(false);

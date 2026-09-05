@@ -111,6 +111,17 @@ export type StudioApp = {
    * The couple's own Studio hub already filters on exactly this field.
    */
   surface?: ProfileSurface;
+  /**
+   * Where a SIGNED-IN person goes INSIDE AN EVENT when the product is not a
+   * catalogue add-on — the free planning tools the owner put on this list on
+   * 2026-09-05 (*"when they enter the event, it will move to the different
+   * control centers"*). The guest list and the marketplace have no `ADD_ONS`
+   * entry to resolve through `addOnHref`, and pointing them at the public page
+   * from inside an event would be the exact complaint the three-state rail
+   * exists to fix. Mutually exclusive with `addOnKey` in practice; the rail
+   * checks this first.
+   */
+  eventHref?: (eventId: string) => string;
 };
 
 /**
@@ -297,6 +308,66 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       'An original song from your love story — and the music behind your videos.',
     addOnKey: 'pakanta',
     surface: 'song',
+  },
+  {
+    /*
+      ─── THE TENTH TO TWELFTH, ADDED 2026-09-05 — THE OTHER FREE TOOLS ────
+      Owner, after the spotlight pass on the product pages: *"Also add the
+      other services. Marketplace to search for vendors with compare,
+      Guestlist, Seatplan"* — then, on the rail's behaviour: *"when logged out
+      or logged in and not inside an event, these links will direct to the
+      service description page … when they enter the event, it will move to
+      the different control centers."* Asked where the rows live (this group,
+      a reuse of the shell's Marketplace row, or a new "Plan" group), the
+      owner chose: **all three as new Studio rows.**
+
+      🔑 THAT IS THE MOOD BOARD'S SHAPE, THREE MORE TIMES. Each is FREE, each
+      has a public page (the rail hands a stranger `href` verbatim, so an
+      event-scoped address would 404 for exactly the people the row exists
+      to introduce), and each carries no price, tier or lock here — see the
+      2026-09-03 note above. `front-door-invariants.test.ts` requires the
+      page; `studio-menu-adapts-to-event.test.ts` pins the row counts.
+
+      🔑 INSIDE AN EVENT, A FREE TOOL OPENS ITS OWN ROOM. The guest list and
+      the marketplace have no `ADD_ONS` entry to resolve through `addOnHref`,
+      so they carry `eventHref` (see the type). The seat plan keeps
+      `addOnKey: 'seating'` — that catalogue entry's `surface` is what the
+      Suite grid gates on, and the sidebar must agree with it — but ALSO
+      carries `eventHref`, because `addOnHref('seating')` opens the 3D lab
+      and this row is the FREE 2D plan. The rail checks `eventHref` first.
+
+      ⚠ THE SHELL STILL HAS ITS OWN "Marketplace" DESTINATION ROW (→ /explore
+      signed in, "Find a supplier" signed out). The owner chose a Studio row
+      knowing that; whether the destination row then goes is a separate
+      decision, recorded as open in the corpus DECISION_LOG, not made here.
+    */
+    key: 'marketplace',
+    name: 'Marketplace',
+    href: '/marketplace',
+    description:
+      'Browse verified Filipino wedding vendors — photographers, caterers, coordinators, florists, hair and makeup and more — free, with 0% commission on bookings. Save the ones you like and put any two side by side before you decide.',
+    railLine: 'Browse verified Filipino vendors free, and compare two side by side.',
+    eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
+  },
+  {
+    key: 'guest-list',
+    name: 'Guest list',
+    href: '/guest-list',
+    description:
+      'Every guest is one row — RSVP, plus-one, meal preference, role and table, with a personal QR that updates your list the moment they answer. Free with every Setnayan account.',
+    railLine: 'Every guest, one row — RSVP, plus-one, role, table and QR.',
+    eventHref: (eventId) => `/dashboard/${eventId}/guests`,
+  },
+  {
+    key: 'seat-plan',
+    name: 'Seat plan',
+    href: '/seat-plan',
+    description:
+      'Seat Plan is the free seating chart in every Setnayan wedding. Lay out your tables, drag every guest into a chair, keep the right people apart and the right groups together, then print the chart and hand it to your coordinator.',
+    railLine: 'Lay out your tables and seat every guest — free.',
+    addOnKey: 'seating',
+    surface: 'seating',
+    eventHref: (eventId) => `/dashboard/${eventId}/seating`,
   },
   {
     key: 'palogo',

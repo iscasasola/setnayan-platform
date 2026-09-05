@@ -17,6 +17,7 @@
  */
 
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
+import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
 
 
@@ -160,6 +161,57 @@ const VS = [
 
 ] as const;
 
+/*
+ * ─── THE FEATURE SPOTLIGHTS (2026-09-05) ─────────────────────────────────
+ * One idea · one picture · one sentence — the shape the owner approved for
+ * `/papic` and asked for on every Studio page (`_components/marketing/
+ * _spotlights.tsx`). Every sentence is traceable to copy already on this
+ * page, the product record, or the demo scenes' captions. Left out on
+ * purpose: the scenes' "15s" slider and "68%" progress figures (no number on
+ * this page is hand-written), the template's name and its filter chips (a
+ * catalogue the page never promises), and any named song or genre (music is
+ * Setnayan-owned and never named). The stills are frames of the product's
+ * own demo scenes, captured by `scripts/capture-demo-stills.mjs`.
+ */
+const SPOTLIGHTS: readonly Spotlight[] = [
+  {
+    chip: 'Your moments',
+    t: 'Choose the beats you love most',
+    d: 'The entrance, the first dance, the toast — you pick the moments, and a short, vertical reel composes itself around them, set to music.',
+    media: { kind: 'photo', src: '/demo/maria-jose/firstdance.webp', alt: 'A couple mid first dance under the lights' },
+  },
+  {
+    chip: 'Your look',
+    t: 'Tap a style to choose it',
+    d: 'Pick a vertical look you love — every reel comes out short and upright, the shape made to fly around your group chats.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/patiktok-0.jpg', alt: 'Patiktok — pick a vertical look you love' },
+  },
+  {
+    chip: 'Music',
+    t: 'Set the length and the song',
+    d: 'Slide the length and pick a track, or let the template pick one for you. Every reel is set to music that’s cleared for sharing, so you can post it anywhere without worry.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/patiktok-1.jpg', alt: 'Patiktok — set the length and the song' },
+  },
+  {
+    chip: 'No editing',
+    t: 'Watch it come together right here',
+    d: 'Tap Render and keep the tab open — the reel builds in your browser, no server, no wait queue. No timeline, no editing app, no skills required.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/patiktok-2.jpg', alt: 'Patiktok — watch it come together right here' },
+  },
+  {
+    chip: 'Same night',
+    t: 'Share it the day it happens',
+    d: 'Download the reel and post it to your stories, the group chat, everyone who wants to relive the day. It’s saved to your event gallery too, alongside everything else from your wedding.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/patiktok-3.jpg', alt: 'Patiktok — your reel, ready to share' },
+  },
+  {
+    chip: 'Not the film',
+    t: 'The big film still takes its time',
+    d: 'Your videographer still makes the keepsake film. Patiktok is the fast, shareable version — the highlights that go out the same night while the big film is on its way.',
+    media: { kind: 'photo', src: '/demo/maria-jose/ceremony.webp', alt: 'A wedding ceremony in progress' },
+  },
+];
+
 export default function PatiktokLandingPage() {
   return (
     <DoorwayPage
@@ -173,6 +225,13 @@ export default function PatiktokLandingPage() {
       faq={FAQ}
       closing={{ heading: 'Share the day, the day it happens', body: 'Patiktok lives inside your free Setnayan wedding — alongside your gallery, website, and guest list. Start planning free, and add your highlight reels when you’re ready.', href: '/onboarding/wedding?from=patiktok', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
-    />
+    >
+      <SpotlightSection
+        productName="Patiktok"
+        heading="From the moment to the group chat"
+        lede="You choose the moments and the song. The reel composes itself."
+        items={SPOTLIGHTS}
+      />
+    </DoorwayPage>
   );
 }

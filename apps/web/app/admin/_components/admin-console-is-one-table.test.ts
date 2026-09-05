@@ -123,6 +123,11 @@ const CONVERTED = [
   // ones included. Wears the archetype, so it is bound by the error-vs-empty,
   // cap and colour rules like every other console table.
   'money/_components/transactions-ledger.tsx',
+  // /admin/gifts (2026-09-05) — the two comp lists, vendor tier comps and user/
+  // event comp grants. Born on the archetype: its readers THROW on a refused
+  // read and the page turns the throw into `rows: null` + `readError`, so a
+  // rejected query says "couldn't read", never "nobody is comped".
+  'gifts/page.tsx',
   // The judgement queues + the money desks, 2026-08-17.
   // ⚠ ON TWO OF THESE THE TABLE WAS NOT WHERE THE LIE WAS: /admin/fraud's queue and
   // /admin/approvals' pending list are <ul>s of cards; their <table> is the audit

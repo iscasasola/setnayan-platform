@@ -25,6 +25,7 @@ import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
+import type { VendorDealFacts } from '@/lib/promo-free-windows';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
@@ -118,19 +119,37 @@ export default async function VendorDashboardLayout({
   // profile resolves, overlapping with switcherData's remaining stages instead
   // of queuing behind them — cuts one full round trip off the critical path of
   // every sidebar navigation. That still holds with one query instead of two.
+  //
+  // The same single-row probe also carries the three facts the vendor deal
+  // banner resolves against (verification_state · created_at ·
+  // last_verified_at) — one read, not two; see lib/promo-free-windows.ts.
   const tierProbePromise = vendorProfilePromise.then(async (vp) => {
     if (!vp?.vendor_profile_id) {
-      return { tier: null as string | null, vendorId: null as string | null };
+      return {
+        tier: null as string | null,
+        vendorId: null as string | null,
+        dealFacts: null as VendorDealFacts | null,
+      };
     }
     const vendorId = vp.vendor_profile_id;
     const tierRes = await supabase
       .from('vendor_profiles')
-      .select('tier_state')
+      .select('tier_state, verification_state, created_at, last_verified_at')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
+    const row = tierRes.data as
+      | ({ tier_state?: string | null } & Partial<VendorDealFacts>)
+      | null;
     return {
-      tier: (tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null,
+      tier: row?.tier_state ?? null,
       vendorId,
+      dealFacts: row
+        ? {
+            verification_state: row.verification_state ?? null,
+            created_at: row.created_at ?? null,
+            last_verified_at: row.last_verified_at ?? null,
+          }
+        : null,
     };
   });
 
@@ -474,9 +493,10 @@ export default async function VendorDashboardLayout({
               row of content. The desktop offset is the rail's grid now, so
               there is no padding math left here. */}
           <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
-            {/* Live vendor "free tier" promo announcement (self-gates to null when
-                PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
-            <PromoFreeWindowBannerVendor />
+            {/* Live vendor deal announcement (self-gates to null when
+                PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
+                vendor right now). */}
+            <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
             {children}
           </div>
         </main>

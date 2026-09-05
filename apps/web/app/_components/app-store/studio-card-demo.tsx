@@ -246,11 +246,16 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           ))}
         </div>
         <div className="mt-auto mb-4">
-          {/* ₱1,000 = ANIMATED_MONOGRAM. Was ₱2,499 — the retired pre-2026-07-10
-              monogram price, 2.5× the live one, found stale 2026-07-31. Declared
-              in lib/public-price-literals.ts; the daily SEO audit re-checks it
+          {/* ₱500 = ANIMATED_MONOGRAM. Repriced from ₱1,000 on 2026-09-05 by the
+              owner: the SKU lost the LED Live Background on 2026-08-11 ("that
+              half of the ₱1,000 could never be delivered") and kept its number,
+              so the figure was halved to match what it actually buys — the six
+              CSS animation signatures, on a mark whose maker is already free.
+              Before that it was ₱2,499, the retired pre-2026-07-10 price, 2.5×
+              the live one, found stale 2026-07-31. Declared in
+              lib/public-price-literals.ts; the daily SEO audit re-checks it
               against the catalog so it cannot silently drift again. */}
-          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱1,000</p>
+          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱500</p>
           <button type="button" className="mt-1 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Draw my monogram live</button>
         </div>
       </div>

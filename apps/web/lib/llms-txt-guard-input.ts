@@ -156,7 +156,12 @@ export const RETAIL: RetailRow[] = [
   // part of papic"), so it is no longer in REQUIRED_RETAIL and no longer named
   // in the prose. A fixture row for it would assert a catalog entry the
   // document must never read.
-  { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 1000, is_active: true },
+  // ⬇ ₱1,000 → ₱500, 2026-09-05 (owner). The SKU lost the LED Live Background
+  // on 2026-08-11 ("that half of the ₱1,000 could never be delivered") and kept
+  // its number for three weeks; what it buys now is the six CSS animation
+  // signatures on a mark whose maker is already free. This fixture mirrors
+  // production and MUST be changed in the same PR as the catalogue row.
+  { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 500, is_active: true },
   // KWENTO is FREE since 2026-08-21 (owner: "kwento is free") — its row is
   // deactivated in prod by migration 20271156242842, and this fixture is a
   // second hand-typed copy of that catalog which CI reads instead of the

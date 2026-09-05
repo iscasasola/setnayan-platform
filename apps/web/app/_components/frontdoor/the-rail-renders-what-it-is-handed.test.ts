@@ -76,10 +76,13 @@ test('each rail group asks one question: are there rows', () => {
         'or it is now gated some other way — which is the thing this guard exists ' +
         'to stop.',
     );
+    /* `?? ''` because the capture is typed optional under
+       `noUncheckedIndexedAccess`; a matched group-1 can only be a string here. */
+    const alsoGatedOn = (gate[1] ?? '').trim();
     assert.equal(
-      gate[1].trim(),
+      alsoGatedOn,
       '',
-      `\`${group}\` is gated on "${gate[1].trim()}" as well as having rows. That is a ` +
+      `\`${group}\` is gated on "${alsoGatedOn}" as well as having rows. That is a ` +
         'SECOND copy of a decision the caller already made, and a second copy can ' +
         'only ever disagree with the first. On 2026-09-06 it did: six free doorway ' +
         'rows shipped to production visible to nobody, because the shell demanded ' +

@@ -19,8 +19,11 @@
 //!
 //! WHAT IS NOT HERE YET, ON PURPOSE:
 //! · The Tauri commands and their ACL entries — **S5**, whose transport is an open
-//!   owner decision as of 2026-09-05. Nothing in this module names `tauri`, so that
-//!   decision can land without reopening any of it.
+//!   owner decision as of 2026-09-05. Nothing in this crate names `tauri`, so that
+//!   decision can land without reopening any of it. Since 2026-09-05 that is enforced
+//!   by the compiler rather than promised in a comment: this is a separate crate with
+//!   no tauri dependency, which is also what lets its tests run on every pull request
+//!   in seconds instead of after a webkit build. `Cargo.toml` here explains the rest.
 //! · Reconnect, the backup ingest, local recording — **S7**. `sender::SenderOutcome`
 //!   is the seam it wraps.
 //! · Ingest health and adaptive bitrate — **S9**, extending the existing

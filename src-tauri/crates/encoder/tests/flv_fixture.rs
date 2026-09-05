@@ -25,7 +25,7 @@
 //! time is asserted from the file rather than assumed to be zero, so if that ever
 //! changes the fixture, not a comment, is what says so.
 
-use setnayan_desktop_lib::encoder::flv;
+use setnayan_encoder::flv;
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/two-seconds-h264-aac.flv");
 

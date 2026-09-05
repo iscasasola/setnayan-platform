@@ -61,6 +61,12 @@ M5 acceptance (S13) · M6 a real wedding on it.
 - `ProgramBridge` + `EMPTY_FRAME` are tested and on the same window — S1 subscribes.
 - `reel-render.ts` has the WebCodecs codec probe — S4 copies the shape.
 - Own-channel by hand is the DEFAULT route to air (`live-studio-manual-air.ts`) — the key is the couple's.
+- **The encoder crate is `src-tauri/crates/encoder` (`setnayan-encoder`), not `src-tauri/src/encoder`** —
+  moved 2026-09-05 so its 42 tests run on every PR without compiling tauri. `contract.rs`, the FLV
+  tagger, the RTMP clock, the redactor and the RTMPS sender all ship there already (S6); S5 mirrors
+  the contract in TypeScript and S7 wraps `SenderOutcome`. Neither writes a new one.
+- **`cargo test -p setnayan-encoder` is a blocking check now** — a step inside `typecheck + lint`,
+  not a job of its own, because only that job is required. Add Rust guards as steps there.
 
 ## What this does not buy
 

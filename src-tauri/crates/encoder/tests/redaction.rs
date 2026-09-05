@@ -14,7 +14,7 @@
 //! catches a leak; the structural one catches the next author adding a path where one
 //! could happen.
 
-use setnayan_desktop_lib::encoder::rtmp::{Redactor, RtmpEndpoint, REDACTION};
+use setnayan_encoder::rtmp::{Redactor, RtmpEndpoint, REDACTION};
 
 const KEY: &str = "abcd-efgh-ijkl-mnop-qrst";
 
@@ -85,7 +85,7 @@ fn the_socket_file_reads_the_stream_key_exactly_once() {
     // Every other read is a new chance to log it. If this count changes, the change is
     // either a leak or a deliberate second use that should be justified here — either
     // way it deserves the two minutes this assertion costs.
-    let source = include_str!("../src/encoder/sender.rs");
+    let source = include_str!("../src/sender.rs");
     let reads = source.matches("endpoint.stream_key").count();
     assert_eq!(
         reads, 1,

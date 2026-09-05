@@ -3197,15 +3197,23 @@ dependencies = [
 name = "setnayan-desktop"
 version = "0.0.1"
 dependencies = [
- "bytes",
- "rml_rtmp",
- "rustls",
  "serde",
  "serde_json",
+ "setnayan-encoder",
  "tauri",
  "tauri-build",
  "tauri-plugin-oauth",
  "tauri-plugin-opener",
+]
+
+[[package]]
+name = "setnayan-encoder"
+version = "0.0.1"
+dependencies = [
+ "bytes",
+ "rml_rtmp",
+ "rustls",
+ "serde_json",
  "thiserror 1.0.69",
  "tokio",
  "tokio-rustls",

@@ -408,6 +408,58 @@ jobs:
       - name: Duplicated-rule guards
         run: pnpm --filter @setnayan/web lint:dup-rule
 
+      # ══ THE NATIVE ENCODER'S OWN TESTS ═══════════════════════════════════
+      #
+      # 42 Rust tests covering the one part of Live Studio a browser cannot do:
+      # FLV tagging and RTMPS publishing to YouTube. Three of them are guards
+      # that took real work to write and would rot in silence — sequence headers
+      # before any media tag, RTMP's extended-timestamp encoding past
+      # 16,777,215 ms (4 h 39 m 37 s, which lands INSIDE a wedding reception),
+      # and a sweep asserting no string this program emits contains the stream
+      # key. Until this step existed, nothing in CI ran a single one of them:
+      # `build-desktop.yml` was the only workflow that touched cargo, and it has
+      # been workflow_dispatch-only since 2026-06-20.
+      #
+      # IT RIDES THIS JOB BECAUSE THIS JOB IS REQUIRED. A `cargo test` job of its
+      # own would go red on the PR page and the PR would merge anyway — see this
+      # job's header for the nine guards that spent months blocking nothing.
+      #
+      # AND IT TESTS `setnayan-encoder`, NOT `setnayan-desktop`. That is the
+      # whole reason the encoder is a separate crate: `setnayan-desktop` cannot
+      # compile without tauri, and `tauri::generate_context!` cannot expand
+      # without `src-tauri/icons/*.png`, which are generated and gitignored. So
+      # testing it there would mean apt-installing libwebkit2gtk, installing
+      # node + the Tauri CLI, generating icons and compiling tauri + wry on every
+      # pull request — which is the exact cost the owner removed on 2026-06-20
+      # when the desktop builds came off push/PR triggers for "dominating GitHub
+      # Actions usage". Measured locally on a clean worktree with no icons at
+      # all: 42 tests, 41 s, no tauri in the tree.
+      #
+      # NO `if:` CONDITION, DELIBERATELY. Gating this on "did the PR touch Rust"
+      # would make it `skipped` on most PRs, and the aggregator below is
+      # fail-closed on skipped for good reason. A cached run is seconds; an
+      # uncached one is a couple of minutes on a change nobody makes weekly.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          # Keyed on the encoder's manifest and the workspace lock — NOT on
+          # src-tauri/Cargo.toml alone, which would miss a dependency bump made
+          # in the crate this step actually builds.
+          key: ${{ runner.os }}-cargo-encoder-${{ hashFiles('src-tauri/crates/encoder/Cargo.toml', 'src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-encoder-
+
+      - name: Test the native encoder
+        id: guard_encoder_tests
+        continue-on-error: true
+        run: cargo test --manifest-path src-tauri/Cargo.toml -p setnayan-encoder
+
       # ══ THE AGGREGATOR — this is what makes the guards above BLOCK ═══════
       #
       # Each guard step is `continue-on-error: true`, which rewrites its
@@ -450,6 +502,7 @@ jobs:
           LABEL_CONTRAST: ${{ steps.guard_label_contrast.outcome }}
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
           STORED_ASSET_REFS: ${{ steps.guard_stored_asset_refs.outcome }}
+          ENCODER_TESTS: ${{ steps.guard_encoder_tests.outcome }}
         run: |
           failed=0
           check() {
@@ -484,6 +537,7 @@ jobs:
           check 'lint label-on-fill contrast' "$LABEL_CONTRAST"
           check 'lint auto-merge hold'        "$AUTOMERGE_HOLD"
           check 'lint stored-asset refs'      "$STORED_ASSET_REFS"
+          check 'native encoder tests'        "$ENCODER_TESTS"
           if [ "$failed" -ne 0 ]; then
             echo
             echo 'One or more blocking guards failed. Every failure is listed above with its'

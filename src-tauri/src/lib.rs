@@ -1,8 +1,12 @@
 // The native RTMPS/FLV encoder (S6). Pure protocol code plus one socket; it holds no
 // Tauri commands, because S5 — which owns the webview→Rust transport — is re-scoped
-// pending an owner decision (build-sessions/encoder/S0-FINDING.md § 7). Compiled into
-// every build so it typechecks and tests with the app, reachable from nothing yet.
-pub mod encoder;
+// pending an owner decision (build-sessions/encoder/S0-FINDING.md § 7).
+//
+// It lives in its own crate (`crates/encoder`) so that its 42 tests can run on every
+// pull request without compiling tauri, wry and webkit first — that manifest explains
+// why at length. Re-exported here so `encoder::…` resolves the same as when it was a
+// module, and so the desktop build still links it even though nothing calls it yet.
+pub use setnayan_encoder as encoder;
 
 // S0 spike harness — compiled ONLY into debug builds (see build.rs + src/probe.rs).
 // A release build has no probe commands, no page-load hook and no capability for them.

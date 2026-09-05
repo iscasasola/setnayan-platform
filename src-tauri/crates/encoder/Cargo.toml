@@ -1,0 +1,53 @@
+[package]
+name = "setnayan-encoder"
+version = "0.0.1"
+description = "Setnayan Live Studio native encoder — FLV tagging and RTMPS publishing"
+edition = "2021"
+rust-version = "1.77"
+publish = false
+
+# ─── WHY THIS IS ITS OWN CRATE, AND NOT A MODULE OF setnayan-desktop ───
+#
+# It was a module until 2026-09-05. Moving it out bought exactly one thing, and
+# that thing is CI: `setnayan-desktop` cannot compile without `tauri`, and
+# `tauri::generate_context!` cannot expand without `src-tauri/icons/*.png`,
+# which are GENERATED and gitignored. So testing the encoder inside that crate
+# meant, on every pull request: apt-installing libwebkit2gtk on the runner,
+# installing node + the Tauri CLI, generating icons from the SVG, and compiling
+# tauri + wry — to exercise 42 tests that touch none of it.
+#
+# The owner has already ruled on that cost once. `build-desktop.yml`'s own
+# header records it: the desktop builds were taken OFF push/PR triggers on
+# 2026-06-20 because a macOS (10x minutes) + Windows (2x) Tauri build on every
+# web PR "dominated GitHub Actions usage". A cargo job that rebuilt the same
+# tree on every PR would have walked straight back into that, at 1x instead
+# of 10x but on far more PRs.
+#
+# So the encoder depends on tokio, rustls and an RTMP protocol library, and on
+# NOTHING from Tauri — which was already true, and is now enforced by the
+# compiler instead of by a comment. `setnayan-desktop` depends on this crate,
+# so the desktop build still proves it links.
+#
+# ⚠ S5's prompt names `src-tauri/src/encoder/contract.rs`. That file is now
+# `src-tauri/crates/encoder/src/contract.rs` — same contract, same bytes, one
+# directory across. Do not write a second one.
+
+[dependencies]
+# Sans-IO RTMP: it turns RTMP messages into bytes and back and never touches a
+# socket, which is why TLS can be wrapped around it. VENDORED — see
+# ../../vendor/rml_rtmp/NOTICE.md for why and what was changed (nothing).
+rml_rtmp = { path = "../../vendor/rml_rtmp" }
+bytes = "1"
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros"] }
+# rustls with the *ring* provider on purpose: the default `aws-lc-rs` provider
+# needs cmake + NASM at build time, which would land on the Windows runner in
+# `.github/workflows/build-desktop.yml` (and on every owner machine that builds
+# the desktop app) as a new toolchain requirement. `ring` builds with what is
+# already there. Roots come from `webpki-roots` — a pinned Mozilla bundle —
+# rather than the platform store, so a stream does not depend on a keychain
+# state we cannot see from a log.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
+webpki-roots = "0.26"
+thiserror = "1.0"

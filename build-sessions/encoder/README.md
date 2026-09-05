@@ -8,6 +8,7 @@ behind the Path A lock were wrong twice. Evidence and design:
 - Encoder Replan (audits, architecture, corrections): https://claude.ai/code/artifact/dfa993e3-4229-4b50-a7ec-8c2e3a7eff35
 - Launch Plan (decision, scope, week-by-week): https://claude.ai/code/artifact/331d962c-15f5-4d12-8f3d-cf7274f1b9bd
 - Source scope: `Live_Studio_Encoder_Scope_2026-09-03.md` → § "Corrections 2026-09-05"
+- Lead-time tracker (owner items, updated in place): `build-sessions/encoder/X0-TRACKER.md`
 
 **Decision (owner, 2026-09-05): native encoder in the Tauri desktop app — Path A, re-affirmed on true
 figures.** Not for ₱0; because the default tier streams on the couple's own channel with no

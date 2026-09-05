@@ -71,9 +71,18 @@ const HOOKS = [
       'const purchaseId = purchaseIdFromVendorSubscriptionServiceKey(ctx.serviceKey);',
     firstEffect: "rpc('approve_vendor_subscription'",
   },
+  {
+    // Added 2026-09-05 with the supplier's Papic credits: the ₱500/25 pack is
+    // an exact-match SKU whose target (vendor, event) is read off the ORDER
+    // itself, so the gate asserts that the paying order belongs to the vendor
+    // it is about to credit before the ledger row is written.
+    name: 'vendor papic portfolio pack',
+    extract: 'async function grantVendorPapicPortfolioPack(ctx: ActivationContext)',
+    firstEffect: 'await grantVendorPapicCredits(ctx, {',
+  },
 ] as const;
 
-test('all five vendor-surface hooks call the ownership gate', () => {
+test('every vendor-surface hook calls the ownership gate — six today', () => {
   const calls = SRC.split('await assertOrderOwnsVendorTarget(').length - 1;
   assert.equal(
     calls,

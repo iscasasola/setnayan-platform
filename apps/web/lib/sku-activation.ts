@@ -47,6 +47,11 @@ import {
   nextPhotoChallengeExpiry,
 } from '@/lib/vendor-photo-challenge';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
+import {
+  VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+  VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+  vendorPortfolioCreditsForFee,
+} from '@/lib/vendor-papic-credits';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
@@ -282,6 +287,170 @@ async function grantMoodboardRenderPackCredits(ctx: ActivationContext): Promise<
   } catch (e) {
     console.error('[sku-activation] MOODBOARD_RENDER_PACK grant threw (non-fatal):', e);
     reportActivationFault('activate:moodboard_render_pack', ctx, e);
+  }
+}
+
+/**
+ * VENDOR PAPIC CREDITS — one INSERT into the supplier's per-event ledger,
+ * `vendor_papic_portfolio_credit_grants`. Shared by the two doors the owner
+ * named on 2026-09-05 (*"when we approve the payment"*):
+ *   • the booking-fee approval → `floor(fee × 5%)`, cap 1,000, no floor
+ *     (`grantVendorPapicCreditsForBookingFee`);
+ *   • the ₱500/25 pack approval → 25 (`grantVendorPapicPortfolioPack`).
+ *
+ * IDEMPOTENT BY (order_id, source): the table's own partial UNIQUE index
+ * `vendor_papic_portfolio_credit_grants_order_source_unique` enforces it, so a
+ * re-approval — or two admins approving at once — cannot double-grant; the
+ * insert's unique-violation is "already granted", not an error. Scoped to
+ * `source`, not just the order, for the same reason grantPapicPassPoints is.
+ *
+ * NON-FATAL per the dispatcher contract: a failure here leaves a paid order
+ * with no credits, which an admin can re-run — it must never roll back the
+ * approval that already happened. Zero credits is not a failure and writes no
+ * row: the ledger's CHECK (credits > 0) would refuse it, and a ₱0 grant is the
+ * owner's "no floor", not an outage.
+ */
+async function grantVendorPapicCredits(
+  ctx: ActivationContext,
+  args: {
+    vendorProfileId: string;
+    eventId: string;
+    credits: number;
+    source: 'booking_fee' | 'pack_order';
+    note: string;
+  },
+): Promise<void> {
+  if (args.credits <= 0) return;
+  const { error } = await ctx.admin.from('vendor_papic_portfolio_credit_grants').insert({
+    vendor_profile_id: args.vendorProfileId,
+    event_id: args.eventId,
+    credits: args.credits,
+    source: args.source,
+    order_id: ctx.orderId,
+    note: args.note,
+  });
+  if (error) {
+    if (error.code === '23505') return; // already granted for this (order, source)
+    console.error('[sku-activation] vendor Papic credit grant insert failed (non-fatal):', {
+      order_id: ctx.orderId,
+      service_key: ctx.serviceKey,
+      source: args.source,
+      error: error.message,
+    });
+    reportActivationFault(`activate:vendor_papic_credits_${args.source}`, ctx, error);
+    return;
+  }
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: {
+      service_key: ctx.serviceKey,
+      event_id: args.eventId,
+      vendor_profile_id: args.vendorProfileId,
+      vendor_papic_credits_granted: args.credits,
+      source: args.source,
+    },
+  });
+}
+
+/**
+ * The booking-fee door. Runs INSIDE the existing `vendor_booking_fee__{id}`
+ * hook, after the charge is settled, and reads the CHARGE — not the order —
+ * because the charge is the money record (`amount_charged_centavos`) and the
+ * only row whose `status` says whether we were actually paid.
+ *
+ * 🔑 ONLY `status = 'paid'` EARNS. `waived_free5` (the owner's first-5-free
+ * rule) and `waived_import` mean they paid ₱0 and earn 0 — the rule the retired
+ * `fetchVendorBookingFeePaidPhp` enforced, moved to the moment of writing.
+ * 🔑 AN UNREAD CHARGE GRANTS NOTHING. A failed read is reported, not rounded
+ * to ₱0 — null is a failed read, never "they paid nothing".
+ */
+async function grantVendorPapicCreditsForBookingFee(
+  ctx: ActivationContext,
+  chargeId: string,
+): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin
+      .from('booking_fee_charges')
+      .select('vendor_profile_id, event_id, amount_charged_centavos, status')
+      .eq('charge_id', chargeId)
+      .maybeSingle();
+    if (error || !data) {
+      reportActivationFault(
+        'activate:vendor_papic_credits_charge_unread',
+        ctx,
+        error ?? new Error(`booking_fee_charges ${chargeId} not found`),
+      );
+      return;
+    }
+    const charge = data as {
+      vendor_profile_id: string | null;
+      event_id: string | null;
+      amount_charged_centavos: number | null;
+      status: string | null;
+    };
+    if (charge.status !== 'paid') return; // waived / pending / failed → ₱0 paid → 0 credits
+    if (!charge.vendor_profile_id || !charge.event_id) return;
+    const feePhp = Math.floor(Math.max(0, Number(charge.amount_charged_centavos) || 0) / 100);
+    await grantVendorPapicCredits(ctx, {
+      vendorProfileId: charge.vendor_profile_id,
+      eventId: charge.event_id,
+      credits: vendorPortfolioCreditsForFee(feePhp),
+      source: 'booking_fee',
+      note: `5% of booking fee ₱${feePhp} · ${ctx.serviceKey}`,
+    });
+  } catch (e) {
+    console.error('[sku-activation] vendor Papic booking-fee credits threw (non-fatal):', e);
+    reportActivationFault('activate:vendor_papic_credits_booking_fee', ctx, e);
+  }
+}
+
+/**
+ * The pack door — 'vendor_papic_portfolio_pack' → 25 credits for ONE event
+ * (owner: *"they pay 500 pesos for 25 papic credits … the photo importation
+ * fee for their portfolio"*). The order must carry the event it is for and the
+ * vendor who paid (`orders.event_id`, `orders.vendor_profile_id`); a pack with
+ * no event has nowhere to land and is reported, not guessed.
+ *
+ * No tier or verification gate: the owner priced this for the import case
+ * ("if they import a user and get to sync with them for free"), which is any
+ * supplier. Ownership is asserted the same way as every `vendor_*` hook.
+ */
+async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data: order } = await ctx.admin
+      .from('orders')
+      .select('vendor_profile_id, event_id')
+      .eq('order_id', ctx.orderId)
+      .maybeSingle();
+    const vendorProfileId =
+      (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+    const eventId =
+      ctx.eventId ?? (order as { event_id?: string | null } | null)?.event_id ?? null;
+    if (!vendorProfileId || !eventId) {
+      reportActivationFault(
+        'activate:vendor_papic_portfolio_pack_target',
+        ctx,
+        new Error(
+          `vendor_papic_portfolio_pack order ${ctx.orderId} has no ` +
+            `${!vendorProfileId ? 'vendor_profile_id' : 'event_id'} — credits are per (vendor, event)`,
+        ),
+      );
+      return;
+    }
+    await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
+    await grantVendorPapicCredits(ctx, {
+      vendorProfileId,
+      eventId,
+      credits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+      source: 'pack_order',
+      note: `Papic portfolio pack · ${ctx.serviceKey}`,
+    });
+  } catch (e) {
+    console.error('[sku-activation] vendor Papic portfolio pack threw (non-fatal):', e);
+    reportActivationFault('activate:vendor_papic_portfolio_pack', ctx, e);
   }
 }
 
@@ -857,6 +1026,12 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // approval + records was_free=false (pay-then-run). See
   // activateVendorDeepSearchOrder.
   [VENDOR_DEEP_SEARCH_SKU_CODE]: activateVendorDeepSearchOrder,
+
+  // 'vendor_papic_portfolio_pack' → 25 Papic credits for ONE event, into the
+  // supplier's own ledger (owner 2026-09-05: "they pay 500 pesos for 25 papic
+  // credits"). The 5% booking-fee door is the `vendor_booking_fee__` prefix
+  // hook below. See grantVendorPapicPortfolioPack.
+  [VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE]: grantVendorPapicPortfolioPack,
 
   // 'MOODBOARD_RENDER_PACK' → the Mood Board "Make it real" render-credit pack
   // (MB2 ledger, MB7 surface). Grants credits_per_pack into
@@ -1457,6 +1632,13 @@ const PREFIX_HOOKS: ReadonlyArray<{
         actor_role: 'admin',
         metadata: { service_key: ctx.serviceKey, booking_fee_charge_id: chargeId, settled },
       });
+      // THE OWNER'S FIRST DOOR (2026-09-05): "vendors get 5% of the amount they
+      // paid for on booking fee … when we approve the payment." The fee is now
+      // settled, so read the charge and write the supplier's credits. Runs
+      // whether or not `settled` flipped just now — a re-approval after a
+      // failed grant must be able to land the credits, and the ledger's own
+      // unique index makes a second landing a no-op.
+      await grantVendorPapicCreditsForBookingFee(ctx, chargeId);
     },
   },
   {

@@ -35,7 +35,7 @@ import {
 import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { deriveVendorPapicTier,
-  fetchVendorBookingFeePaidPhp } from '@/lib/vendor-papic-grants';
+  fetchVendorPapicCreditsGranted } from '@/lib/vendor-papic-grants';
 import { tierReadout } from '@/lib/vendor-papic-tier';
 import {
   fetchVendorTeam,
@@ -778,15 +778,16 @@ async function ConfigureEventView({
     // else Lite. While the control is OFF, it stays counsel-gated/locked.
     let readout: string | undefined;
     try {
-      // ⚠ READ THE FEE TOO. The readout a supplier sees must agree with the
-      // allowance the capture route enforces; on the bare tier it would show
-      // "50 pts" to somebody with 800.
+      // ⚠ READ THE CREDITS TOO. The readout a supplier sees must agree with
+      // the allowance the capture route enforces; on the bare tier it would
+      // show "50 pts" to somebody holding 1,000 (owner 2026-09-05: 5% of the
+      // booking fee + ₱500/25 packs, summed from their ledger).
       const admin = createAdminClient();
-      const [tier, feePaidPhp] = await Promise.all([
+      const [tier, creditsGranted] = await Promise.all([
         deriveVendorPapicTier(admin, vendorProfileId, booking.eventId),
-        fetchVendorBookingFeePaidPhp(admin, vendorProfileId, booking.eventId),
+        fetchVendorPapicCreditsGranted(admin, vendorProfileId, booking.eventId),
       ]);
-      readout = tierReadout(tier, feePaidPhp);
+      readout = tierReadout(tier, creditsGranted);
     } catch {
       /* readout is decorative — omit on any failure */
     }

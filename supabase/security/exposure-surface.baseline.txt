@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6554
+# facts: 6564
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     582
-#   col       4814
-#   policy    893
+#   tpriv     583
+#   col       4822
+#   policy    894
 #   view      8
 #   func      253
 #
@@ -512,6 +512,7 @@ tpriv	public.vendor_papic_capture_grants|anon	SIUD
 tpriv	public.vendor_papic_capture_grants|authenticated	SIUD
 tpriv	public.vendor_papic_captures|anon	SIUD
 tpriv	public.vendor_papic_captures|authenticated	SIUD
+tpriv	public.vendor_papic_portfolio_credit_grants|authenticated	S
 tpriv	public.vendor_partnerships|anon	SIUD
 tpriv	public.vendor_partnerships|authenticated	SIUD
 tpriv	public.vendor_payment_asks|authenticated	SI
@@ -4658,6 +4659,14 @@ col	public.vendor_papic_captures.thumb_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.tile_bytes	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.tile_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_papic_portfolio_credit_grants.created_at	anon=- authenticated=S
+col	public.vendor_papic_portfolio_credit_grants.credits	anon=- authenticated=S
+col	public.vendor_papic_portfolio_credit_grants.event_id	anon=- authenticated=S
+col	public.vendor_papic_portfolio_credit_grants.grant_id	anon=- authenticated=S
+col	public.vendor_papic_portfolio_credit_grants.note	anon=- authenticated=S
+col	public.vendor_papic_portfolio_credit_grants.order_id	anon=- authenticated=S
+col	public.vendor_papic_portfolio_credit_grants.source	anon=- authenticated=S
+col	public.vendor_papic_portfolio_credit_grants.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_partnerships.accepted_at	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.additional_fee_centavos	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.admin_verified	anon=SIU authenticated=SIU
@@ -6176,6 +6185,7 @@ policy	public.vendor_papic_captures|vendor_papic_captures_member_read	mode=PERMI
 policy	public.vendor_papic_captures|vendor_papic_captures_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
 policy	public.vendor_papic_captures|vendor_papic_captures_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR is_admin()) check=NULL
 policy	public.vendor_papic_captures|vendor_papic_captures_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_papic_portfolio_credit_grants|vendor_papic_portfolio_credit_grants_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR is_admin()) check=NULL
 policy	public.vendor_partnerships|admins manage vendor partnerships	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
 policy	public.vendor_partnerships|parties read own vendor partnerships	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((recommending_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (recommended_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))) check=NULL
 policy	public.vendor_partnerships|proposer inserts vendor partnership	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((recommending_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = 'proposed'::text))

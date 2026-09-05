@@ -3,14 +3,14 @@
  * Owner-locked 2026-07-18 (DECISION_LOG). PURE + unit-testable; every value here
  * is admin-dialable later without a schema change.
  *
- * TARGET model — owner 2026-07-22 "points in proportion to what they paid":
- * every booked vendor gets Papic as a GIFT so they can document the events they
- * work. The free allowance is a floor of 50 points that SCALES UP with the
- * booking fee the vendor paid — 50 pts at ₱0, up to 200 pts at a ₱4,000 fee,
- * proportional in between (see vendorPapicPointsForBookingFee). Photos + video
- * throughout. ⚠ INPUT PENDING: the booking-fee mechanism is still a working doc
- * (unbuilt) — until it lands there is no per-event fee to scale on, so the
- * derivation below is the INTERIM.
+ * CURRENT model — owner 2026-09-05 (supersedes 2026-07-22's "points in
+ * proportion to what they paid" and 2026-08-26's ₱5/point): a supplier holds
+ * CREDITS per event — 5% of the booking fee they paid (cap 1,000, no floor) plus
+ * any ₱500/25 packs — written to a ledger on admin payment approval. The rate
+ * lives in lib/vendor-papic-credits.ts, the ledger read in
+ * lib/vendor-papic-grants.ts; this module is handed the credit total and turns
+ * it into an allowance (`allowancePointsFor`), never lower than the tier's own
+ * gift. Photos + video, video behind the 800 threshold.
  *
  * INTERIM tier (until the fee input exists) — derived, never chosen:
  *   • FOUNDER-comped accept (vendor_event_unlocks.comp_reason='founder', a
@@ -72,74 +72,40 @@ export function pointsForMedia(media: VendorPapicMedia): number {
   return VENDOR_PAPIC_POINTS[media];
 }
 
-// ── Fee-scaled documentation allowance (owner 2026-07-22) ───────────────────
-// The gift floor every booked vendor gets, and the ceiling it scales to as the
-// booking fee grows. Papic points = 50 at a ₱0 fee → 200 at a ₱4,000+ fee,
-// linear in between ("goes smaller in proportion to the amount they paid for").
-/** The gift floor — what every booked supplier gets having paid nothing. */
-export const VENDOR_PAPIC_BASE_GIFT_POINTS = 50;
-
-/**
- * ⚠ THE RATE WAS RESET 2026-08-26, AND THE REASON IS THAT THE ALLOWANCE CHANGED
- * PURPOSE. The old model gave 50 → 200 points across a ₱0–₱4,000 fee, and it was
- * sized for a supplier DOCUMENTING THE DAY — a handful of shots between jobs.
- * Owner 2026-08-26: *"they can upload their work via papic credits as well per
- * event."* A wedding photographer delivers 300–800 photographs. **200 cannot
- * hold a gallery**, so the old ceiling was sized for a job nobody is doing.
- *
- * The principle is unchanged and still the owner's (2026-07-22, *"points in
- * proportion to what they paid"*) — only the rate and the ceiling move.
- *
- * ⚖ ONE SHOT PER ₱5 OF FEE PAID. A ₱50,000 booking earns a ₱2,500 fee → 500
- * shots; ₱80,000 → 800. 🔑 **It costs us nothing that matters**: 500 kept photos
- * are ~6 centavos a YEAR of storage, against ₱165 if a couple bought the same
- * 500. The gift feels substantial and is a rounding error to serve.
- */
-export const VENDOR_PAPIC_PHP_PER_POINT = 5;
-
-/** The ceiling, so a ₱2M booking cannot mint twenty thousand free credits. */
-export const VENDOR_PAPIC_MAX_POINTS = 2000;
-
-/** The fee at which the ceiling is reached — DERIVED, never re-typed. */
-export const VENDOR_PAPIC_FEE_CEILING_PHP =
-  VENDOR_PAPIC_MAX_POINTS * VENDOR_PAPIC_PHP_PER_POINT;
+// ── The credits a supplier holds for an event (owner 2026-09-05) ──────────────
+// 🔁 RETIRED HERE 2026-09-05, owner: *"replace it."* This block used to hold the
+// 2026-08-26 fee-scaled rate — `VENDOR_PAPIC_PHP_PER_POINT` (₱5/point),
+// `VENDOR_PAPIC_BASE_GIFT_POINTS` (the 50 floor), `VENDOR_PAPIC_MAX_POINTS`
+// (the 2,000 ceiling) and `vendorPapicPointsForBookingFee`. The rule that
+// replaced it — 5% of the booking fee, cap 1,000, NO floor, plus a ₱500/25
+// pack — lives in lib/vendor-papic-credits.ts, and the credits it produces are
+// written to a LEDGER (vendor_papic_portfolio_credit_grants) on admin payment
+// approval rather than derived live from the fee. This module no longer knows
+// the rate at all: it is handed the supplier's credit total and asks only
+// "how many shots does that buy, and is video unlocked?"
 
 /**
  * VIDEO UNLOCKS AT 800 — owner 2026-08-26: *"800 credits will allow them to
  * take videos."*
  *
- * 🚨 UNTIL NOW `allowVideo` WAS `true` ON EVERY TIER, so `canCapture`'s
+ * 🚨 UNTIL 2026-08-26 `allowVideo` WAS `true` ON EVERY TIER, so `canCapture`'s
  * `video_not_allowed` refusal **could never fire** — a dead branch describing a
  * rule nothing enforced. This is the number that gives it meaning.
  *
- * ⚠ IT NARROWS VIDEO RELATIVE TO THE (UNREACHABLE) STATE BEFORE IT: a supplier
- * on the 50-point floor could nominally shoot video and now cannot. Safe by
- * arithmetic — production holds **zero** vendor captures and the whole lane is
- * switched off behind the DPO ruling, so nobody loses something they were
- * using. Stated rather than buried, because it is a narrowing.
+ * ⚠ OPEN — owner question, 2026-09-05. *"Replace it"* retired the RATE this
+ * threshold was priced against (800 points was a ₱4,000 fee at ₱5/point; at 5%
+ * it is a ₱16,000 fee, or 32 packs). The owner has not said whether 800 still
+ * stands, moves, or goes. Until he does, the threshold is UNCHANGED and is
+ * compared against the same allowance it always was — now fed by the credit
+ * ledger instead of the fee. Deliberately neither kept-by-assumption nor
+ * dropped-by-assumption: it is in the PR body as a question.
  *
- * At one shot per ₱5, 800 points is a ₱4,000 booking fee.
+ * ⚠ It is a narrowing relative to the never-reachable state before it (a
+ * supplier on the 50-point floor could nominally shoot video and cannot).
+ * Safe by arithmetic — production holds **zero** vendor captures and the lane
+ * is switched off behind the DPO ruling. Stated rather than buried.
  */
 export const VENDOR_PAPIC_VIDEO_MIN_POINTS = 800;
-
-/**
- * Papic documentation points a vendor earns for a booked event, scaled by the
- * booking fee (in PHP) they paid: the 50-pt gift floor at ₱0, rising linearly to
- * 200 pts at the ₱4,000 ceiling and capped there. PURE — the caller supplies the
- * fee once the booking-fee mechanism exists; a missing/0 fee yields the floor,
- * so this is safe to wire before that lands (it just returns the base gift).
- */
-export function vendorPapicPointsForBookingFee(bookingFeePhp: number): number {
-  const fee = Number(bookingFeePhp);
-  // A missing, negative or nonsense fee is not evidence of payment — it earns
-  // the floor, never a windfall.
-  if (!Number.isFinite(fee) || fee <= 0) return VENDOR_PAPIC_BASE_GIFT_POINTS;
-  const earned = Math.floor(fee / VENDOR_PAPIC_PHP_PER_POINT);
-  return Math.min(
-    VENDOR_PAPIC_MAX_POINTS,
-    Math.max(VENDOR_PAPIC_BASE_GIFT_POINTS, earned),
-  );
-}
 
 export type VendorPapicTierSpec = {
   tier: VendorPapicTier;
@@ -174,41 +140,45 @@ export function pointsSpent(
 }
 
 /**
- * THE ALLOWANCE A SUPPLIER ACTUALLY HAS, once the booking fee they PAID is known.
+ * THE ALLOWANCE A SUPPLIER ACTUALLY HAS, once their CREDITS for the event are
+ * known.
  *
- * Owner 2026-07-22: *"points in proportion to what they paid"* — 50 points at
- * ₱0, up to 200 at a ₱4,000 fee, proportional in between. Restated 2026-08-26:
- * *"photographer will buy credits or use their free credits from booking fee to
- * upload their photos."*
+ * Owner 2026-09-05: *"vendors get 5% of the amount they paid for on booking
+ * fee … they pay 500 pesos for 25 papic credits"* — and, asked what the credits
+ * are for: *"base it all from the supplier's shots per event not from what the
+ * host gives them."* The credits are summed from the supplier's ledger
+ * (`fetchVendorPapicCreditsGranted`) and handed in here. Before 2026-09-05 this
+ * argument was the booking fee itself and the rate lived in this file; the
+ * rate is retired (*"replace it"*), the shape of the wire is not.
  *
- * 🚨 THAT RULING WAS WRITTEN, UNIT-TESTED, AND CALLED BY NOTHING.
- * `vendorPapicPointsForBookingFee` has existed since the ruling with **zero**
- * application callers — only its own tests referenced it — so every supplier
- * has been getting the flat tier number regardless of what they paid. The
- * reason is recorded in this file's own header: when it was written *"the
- * booking-fee mechanism is still a working doc (unbuilt)"*, so there was no fee
- * to scale on. `booking_fee_charges` exists now. This is the wire.
+ * 🔑 CREDITS CAN ONLY EVER RAISE, NEVER LOWER. A founder-comped supplier sits
+ * on `ltd` (70) having paid nothing; a ledger holding 0 would otherwise hand
+ * them 0 and TAKE 70 POINTS AWAY. Nobody may lose an allowance they already had
+ * because we connected a wire, so this is a MAX, not a replacement.
  *
- * 🔑 THE FEE CAN ONLY EVER RAISE, NEVER LOWER. A founder-comped supplier sits
- * on `ltd` (70) having paid nothing; the fee formula would hand them 50 and
- * TAKE 20 POINTS AWAY. Nobody may lose an allowance they already had because we
- * connected a wire, so this is a MAX, not a replacement.
+ * ⚠ THAT MEANS THE TIER'S OWN NUMBER IS STILL A FLOOR FOR ON-THE-DAY SHOTS.
+ * The owner's *"no floor"* (2026-09-05) was said of the 5% FORMULA — a ₱0 fee
+ * earns 0 credits — and the ledger honours it exactly. The 50-point Lite gift
+ * is an older, separate lock (2026-07-22, *"every booked vendor gets a FREE
+ * 50-point documentation allowance"*) that this ruling did not mention. It is
+ * kept, not silently dropped, and named in the PR body as a question.
  *
- * 🔑 AN UNPROVEN FEE GRANTS NOTHING. `null` means we could not read what they
- * paid — never "they paid nothing extra". It falls back to the tier's own
- * number, which is the mirror of this module's existing posture that a failed
- * spend read fails CLOSED. A metering outage must not mint points.
+ * 🔑 AN UNREAD LEDGER GRANTS NOTHING. `null` means we could not read the
+ * credits — never "they hold none". It falls back to the tier's own number,
+ * the mirror of this module's existing posture that a failed spend read fails
+ * CLOSED. A metering outage must not mint points.
  *
  * ⛔ Unlimited stays unlimited: `null` points is not a number to compare.
  */
 export function allowancePointsFor(
   tier: VendorPapicTier,
-  bookingFeePaidPhp: number | null,
+  creditsGranted: number | null,
 ): number | null {
   const base = tierSpec(tier).points;
   if (base == null) return null; // unli — nothing to raise
-  if (bookingFeePaidPhp == null) return base;
-  return Math.max(base, vendorPapicPointsForBookingFee(bookingFeePaidPhp));
+  if (creditsGranted == null) return base;
+  const credits = Math.max(0, Math.floor(Number(creditsGranted)) || 0);
+  return Math.max(base, credits);
 }
 
 /**
@@ -225,10 +195,10 @@ export function allowancePointsFor(
  */
 export function allowVideoFor(
   tier: VendorPapicTier,
-  bookingFeePaidPhp: number | null,
+  creditsGranted: number | null,
 ): boolean {
   if (!tierSpec(tier).allowVideo) return false;
-  const cap = allowancePointsFor(tier, bookingFeePaidPhp);
+  const cap = allowancePointsFor(tier, creditsGranted);
   if (cap == null) return true; // unli
   return cap >= VENDOR_PAPIC_VIDEO_MIN_POINTS;
 }
@@ -246,16 +216,16 @@ export type CaptureAllowance = {
 export function captureAllowance(
   tier: VendorPapicTier,
   spent: number,
-  /** What the supplier PAID in booking fees for this event. null = unread; see
-   *  `allowancePointsFor`. Omitted → today's flat tier number, unchanged. */
-  bookingFeePaidPhp: number | null = null,
+  /** The supplier's Papic credits for this event, summed from the ledger.
+   *  null = unread; see `allowancePointsFor`. Omitted → the flat tier number. */
+  creditsGranted: number | null = null,
 ): CaptureAllowance {
-  const cap = allowancePointsFor(tier, bookingFeePaidPhp);
+  const cap = allowancePointsFor(tier, creditsGranted);
   const cleanSpent = Math.max(0, Math.floor(Number(spent)) || 0);
   const pointsLeft = cap == null ? null : Math.max(0, cap - cleanSpent);
   return {
     tier,
-    allowVideo: allowVideoFor(tier, bookingFeePaidPhp),
+    allowVideo: allowVideoFor(tier, creditsGranted),
     pointsCap: cap,
     pointsSpent: cleanSpent,
     pointsLeft,
@@ -271,13 +241,14 @@ export function canCapture(
   tier: VendorPapicTier,
   spent: number,
   media: VendorPapicMedia,
-  /** See `allowancePointsFor`. Omitted → today's flat tier number, unchanged. */
-  bookingFeePaidPhp: number | null = null,
+  /** The supplier's credits for this event. See `allowancePointsFor`. Omitted →
+   *  the flat tier number. */
+  creditsGranted: number | null = null,
 ): CaptureCheck {
-  if (media === 'clip' && !allowVideoFor(tier, bookingFeePaidPhp)) {
+  if (media === 'clip' && !allowVideoFor(tier, creditsGranted)) {
     return { ok: false, reason: 'video_not_allowed' };
   }
-  const cap = allowancePointsFor(tier, bookingFeePaidPhp);
+  const cap = allowancePointsFor(tier, creditsGranted);
   if (cap == null) return { ok: true }; // unlimited
   const cleanSpent = Math.max(0, Math.floor(Number(spent)) || 0);
   if (cleanSpent + pointsForMedia(media) > cap) {
@@ -326,18 +297,18 @@ export function resolveVendorPapicTier(
 /** The readout badge string for the launcher / console (e.g. "Papic Ltd · 70 pts · photos + video"). */
 export function tierReadout(
   tier: VendorPapicTier,
-  /** What they PAID. Omitted → the bare tier number, which is now only the
-   *  floor. See the warning below. */
-  bookingFeePaidPhp: number | null = null,
+  /** The supplier's credits for this event. Omitted → the bare tier number,
+   *  which is only the floor. See the warning below. */
+  creditsGranted: number | null = null,
 ): string {
-  // ⚠ THIS IS THE THIRD SURFACE THAT MUST KNOW ABOUT THE FEE, and it is the one
-  // a supplier actually READS on their on-the-day page. Left on the bare tier
-  // it would say "Papic Lite · 50 pts" to somebody whose real allowance is 800
-  // — a screen contradicting the two beside it, with no error anywhere.
+  // ⚠ THIS IS THE THIRD SURFACE THAT MUST KNOW ABOUT THE CREDITS, and it is the
+  // one a supplier actually READS on their on-the-day page. Left on the bare
+  // tier it would say "Papic Lite · 50 pts" to somebody whose real allowance is
+  // 1,000 — a screen contradicting the two beside it, with no error anywhere.
   const spec = tierSpec(tier);
-  const cap = allowancePointsFor(tier, bookingFeePaidPhp);
+  const cap = allowancePointsFor(tier, creditsGranted);
   if (cap == null) return `${spec.label} · unlimited`;
-  const video = allowVideoFor(tier, bookingFeePaidPhp);
+  const video = allowVideoFor(tier, creditsGranted);
   return video
     ? `${spec.label} · ${cap} pts · photos + video`
     : `${spec.label} · ${cap} photos`;

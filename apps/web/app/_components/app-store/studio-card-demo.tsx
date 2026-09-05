@@ -442,10 +442,17 @@ const CUSTOM_QR_SCENES: RichFrame[] = [
         <div className="mt-2 grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-ink/10 bg-white p-2 text-center">
             <QrCode aria-hidden className="mx-auto h-12 w-12 text-ink" strokeWidth={0.75} />
-            <p className="mt-1 text-[8px] font-medium">Default — free</p>
+            {/* ⚠ BOTH SIDES ARE FREE NOW (owner 2026-09-06, "keep custom QR
+                per guest free" → CUSTOM_QR_GUEST joined FREE_FOR_ALL_SKUS).
+                This pair used to read "Default — free" against an "Upgrade"
+                pill; leaving that would advertise a purchase that no longer
+                exists — the fake door this repo forbids. The comparison is
+                still worth showing: it is plain versus branded, not free
+                versus paid. */}
+            <p className="mt-1 text-[8px] font-medium">Plain</p>
           </div>
           <div className="relative rounded-lg border-2 border-terracotta bg-white p-2 text-center">
-            <span className="absolute right-1 top-1 rounded-full bg-terracotta-700 px-1 py-0.5 text-[6px] font-medium text-cream">Upgrade</span>
+            <span className="absolute right-1 top-1 rounded-full bg-terracotta-700 px-1 py-0.5 text-[6px] font-medium text-cream">Free</span>
             <QrCode aria-hidden className="mx-auto h-12 w-12" strokeWidth={0.75} style={{ color: MULB }} />
             <p className="mt-1 text-[8px] font-medium">Branded</p>
           </div>

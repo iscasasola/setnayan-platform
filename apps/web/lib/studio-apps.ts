@@ -155,6 +155,31 @@ export type StudioApp = {
    * better door to it.
    */
   doorwayOnly?: boolean;
+  /**
+   * WHICH RAIL GROUP THIS ROW BELONGS TO. Absent ⇒ `studio`.
+   *
+   * ─── WHY (owner 2026-09-06) ──────────────────────────────────────────────
+   * Asked, with Studio standing at fourteen rows: *"should all of these be in
+   * studio or studio should only be for the ones with payment/upgrades? and we
+   * will cluster all free for life on a different cluster?"* — and, given the
+   * choice, ruled: **split by KIND, not by price.**
+   *
+   * 🔑 THE RAIL'S GROUPS HAVE ALWAYS BEEN IDENTITIES, NOT PRICES, AND THEIR OWN
+   * SUBTITLES SAY SO: Studio *"the things you make"* · Planner *"things you
+   * plan with"* · Builder *"things you book & pay with"* · Together *"things
+   * you do with people"*. Nothing in that vocabulary is about cost.
+   *
+   * 🔑 AND A PRICE-KEYED RAIL WOULD RESHUFFLE ITSELF. In the two days before
+   * this ruling the 3D Plan became free, the Custom QR became free and the
+   * monogram halved — navigation keyed to a mutable attribute moves whenever
+   * the owner reprices. Worse, three products are free-with-a-paid-upgrade
+   * (Papic and its credits, the Event Hub and its Pro, the free monogram maker
+   * and its paid animation), so each would have had to sit in both clusters.
+   *
+   * ⚠ THIS IS A GROUPING, NOT A GATE. It says nothing about who sees the row —
+   * `doorwayOnly` and `surface` still decide that, independently.
+   */
+  railGroup?: 'studio' | 'planner' | 'together';
 };
 
 /**
@@ -382,6 +407,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     railLine: 'Browse verified Filipino vendors free, and compare two side by side.',
     eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
     doorwayOnly: true,
+    railGroup: 'planner',
   },
   {
     key: 'guest-list',
@@ -392,6 +418,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     railLine: 'Every guest, one row — RSVP, plus-one, role, table and QR.',
     eventHref: (eventId) => `/dashboard/${eventId}/guests`,
     doorwayOnly: true,
+    railGroup: 'planner',
   },
   {
     key: 'seat-plan',
@@ -404,6 +431,63 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     surface: 'seating',
     eventHref: (eventId) => `/dashboard/${eventId}/seating`,
     doorwayOnly: true,
+    railGroup: 'planner',
+  },
+  {
+    /*
+      ─── AND THE LAST TWO FREE TOOLS, 2026-09-06 ──────────────────────────
+      Owner: *"add these"* — the Budget and the Schedule were the only members
+      of the free workspace (`help.ts`: schedule · budget · guest list · seat
+      plan · mood board) still without a doorway once the other three got one
+      the day before. Both are `doorwayOnly` for the same reason as those: the
+      event's own rail already carries Budget and Schedule.
+    */
+    key: 'budget',
+    name: 'Budget',
+    href: '/budget',
+    description:
+      'Set your total wedding budget in pesos, take a suggested split from typical Filipino wedding costs, and see what you have agreed, paid and still owe — only finalized bookings, never a quote. Free with every Setnayan account, beside your guest list, schedule, seat plan and mood board.',
+    railLine: 'Your budget in PHP: planned, agreed, paid and owed. Free.',
+    eventHref: (eventId) => `/dashboard/${eventId}/budget`,
+    doorwayOnly: true,
+    railGroup: 'planner',
+  },
+  {
+    key: 'schedule',
+    name: 'Schedule',
+    href: '/schedule',
+    description:
+      'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s invitation site with a live “happening now” as the day unfolds; booked vendors see the blocks they carry.',
+    railLine: 'Your wedding day, block by block, live for guests and vendors.',
+    eventHref: (eventId) => `/dashboard/${eventId}/schedule`,
+    doorwayOnly: true,
+    railGroup: 'planner',
+  },
+  {
+    /*
+      ─── SAMAHAN, 2026-09-06 — AND IT IS NOT A STUDIO ROW ─────────────────
+      Owner: *"we also want to feature our samahan/groups. This has a feature
+      where they can share stories every hour, chat, and create events"*.
+
+      🔑 `railGroup: 'together'` — Studio is *"the things you make"* and a
+      samahan is people, which is exactly what the Together group is already
+      called: *"things you do with people"*. It is also ACCOUNT-LEVEL rather
+      than event-scoped (`dashboard/(account)/samahan/` is keyed on the user),
+      so unlike the Planner rows it is NOT `doorwayOnly`: there is no event
+      rail carrying it, and nothing to double.
+
+      ⚠ `/samahan` already existed as `/samahan/join/[token]` — the door an
+      invited person walks through — which is why the word was reserved while
+      nothing public explained what a samahan IS. The page fills that gap; the
+      join route is untouched.
+    */
+    key: 'samahan',
+    name: 'Samahan groups',
+    href: '/samahan',
+    description:
+      'Samahan is the group space in your Setnayan account for your barkada, parish, or clan — a shared name and photo, a group chat called Usapan, short video stories that are gone after 24 hours, and the reunions, outings and tournaments an organizer plans for everyone.',
+    railLine: 'Your barkada, ninongs, family — chat, stories, the next reunion.',
+    railGroup: 'together',
   },
   {
     key: 'palogo',

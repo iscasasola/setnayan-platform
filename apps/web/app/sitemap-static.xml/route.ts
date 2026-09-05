@@ -128,6 +128,9 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: '/marketplace', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
   { path: '/guest-list', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
   { path: '/seat-plan', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
+  // The last two free workspace tools to get a doorway (owner 2026-09-06).
+  { path: '/budget', lastmod: '2026-09-06', changefreq: 'monthly', priority: '0.7' },
+  { path: '/schedule', lastmod: '2026-09-06', changefreq: 'monthly', priority: '0.7' },
 
 
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.

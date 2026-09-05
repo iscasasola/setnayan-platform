@@ -30,6 +30,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { SKU_OWNERSHIP_ALIASES, eventSkuActive } from './entitlements';
 import { PANOOD_PAID_SKUS } from './panood-watermark';
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => readFileSync(resolve(HERE, rel), 'utf8');
@@ -214,7 +215,20 @@ test('the alias is UNCHANGED — this PR retires a row, it does not rewrite owne
 });
 
 test('DESIGN PIN: ownership never reads the retail catalog, so retirement cannot revoke', () => {
-  const src = read('./entitlements.ts');
+  /*
+    ⚠ COMMENTS ARE STRIPPED FIRST, AND THAT IS NOT A WEAKENING — it is the same
+    correction `papic-page-says-only-what-is-true.test.ts` already made for
+    itself. This scanned RAW source, so it fired on 2026-09-06 for a DOCBLOCK in
+    `entitlements.ts` that merely names the table while explaining why the Custom
+    QR is free ("the row reads ₱0.00 · active"). Prose about a table is not a
+    read of it.
+
+    🔑 A GUARD THAT CANNOT TELL CODE FROM A COMMENT PUNISHES EXPLANATION — and
+    the explanation is the thing this repo most wants written down. The rule it
+    protects is unchanged and still exact: no `platform_retail_catalog_v2` in
+    executable code in this file.
+  */
+  const src = stripComments(read('./entitlements.ts'));
   assert.ok(
     !src.includes('platform_retail_catalog_v2'),
     'if a gate ever starts filtering on is_active, retiring a SKU would silently '

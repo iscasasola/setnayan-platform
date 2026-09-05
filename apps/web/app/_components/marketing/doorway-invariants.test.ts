@@ -98,6 +98,9 @@ const DOORWAYS = [
   'marketplace',
   'guest-list',
   'seat-plan',
+  // The last two free workspace tools (owner 2026-09-06, "add these").
+  'budget',
+  'schedule',
 ] as const;
 
 /** Every source file a doorway's markup can live in: its page, plus any
@@ -243,7 +246,7 @@ test('the scan is not vacuous — it really read ten pages', () => {
   // Every assertion above passes trivially if `sourcesFor` returns nothing:
   // a renamed folder or a moved app root would make this file green while
   // checking absolutely nothing.
-  assert.equal(DOORWAYS.length, 13);
+  assert.equal(DOORWAYS.length, 15);
   for (const route of DOORWAYS) {
     const srcs = sourcesFor(route);
     assert.ok(srcs.length > 0, `/${route}: no source files found — the app root is wrong`);

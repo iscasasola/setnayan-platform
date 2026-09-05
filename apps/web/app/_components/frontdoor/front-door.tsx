@@ -32,6 +32,7 @@ import {
   toRailFolder,
 } from './rail-data';
 import { togetherRailItems } from '@/lib/free-tools-rail';
+import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
 
 export async function FrontDoor({ q }: { q?: string }) {
   const [account, data, studioEvent, commandItems] = await Promise.all([
@@ -92,15 +93,42 @@ export async function FrontDoor({ q }: { q?: string }) {
         account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
       }
       /*
-        Together only — Planner/Builder stay unset (they default to `[]` and
-        render nothing) because `insideEvent` is never true on `/`; see the
-        shell's own prop note. Together isn't event-gated, so a signed-in
-        visitor gets it here same as everywhere else; `studioEvent.eventId`
-        is the same honestly-resolved value the Studio rows above already use.
+        ─── PLANNER + TOGETHER ON `/` (rewritten 2026-09-06) ─────────────────
+        This note used to read *"Together only — Planner/Builder stay unset …
+        because `insideEvent` is never true on `/`"*. That was true while
+        Planner held only in-event rows, and it is now the opposite of the
+        code below it, so it is replaced rather than left to disagree.
+
+        The owner split the rail by KIND rather than price, and the five free
+        planning tools — Marketplace · Guest list · Seat plan · Budget ·
+        Schedule — moved out of Studio into Planner as DOORWAY rows. Those
+        exist precisely for the state this page is in: nobody is inside an
+        event on `/`, so `plannerDoorwayRows(false)` returns all five, pointing
+        at the pages that explain them. Inside an event it returns nothing,
+        because the event's own rail carries the real tools.
+
+        BUILDER still stays unset here, and that part of the old note stands:
+        its rows (Compare, Contracts) are in-event only and `insideEvent` is
+        never true on `/`.
+
+        TOGETHER carries EXACTLY ONE of two things, never both. Signed out it is
+        the public Samahan doorway — what a samahan is, for somebody who has
+        none. Signed in it is that person's own Samahan rows, and the doorway
+        steps aside.
+
+        🔴 THEY ARE MUTUALLY EXCLUSIVE BECAUSE BOTH ARE CALLED "Samahan groups".
+        Caught on the live front door before this shipped: rendering both put
+        the identical label in one group twice, pointing at `/samahan` and
+        `/dashboard/samahan` — the doubling the owner had just ruled out for the
+        Marketplace. Neither is event-gated (Samahan is account-level);
+        `studioEvent.eventId` is the same honestly-resolved value the Studio
+        rows above already use.
       */
-      togetherTools={
-        account.signedIn ? togetherRailItems(studioEvent.eventId) : []
-      }
+      plannerTools={plannerDoorwayRows(false)}
+      togetherTools={[
+        ...togetherDoorwayRows(account.signedIn),
+        ...(account.signedIn ? togetherRailItems(studioEvent.eventId) : []),
+      ]}
       /*
         🔴 THE SAME FALLBACK LEAK THE DOORWAY PAGES HAD — this is the page in
         the owner's second screenshot. `/` handed in no cluster, so a signed-in

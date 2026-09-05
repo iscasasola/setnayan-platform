@@ -37,6 +37,33 @@ export type PartId =
   | 'walls'
   | 'photo_wall'
   | 'welcome_signage'
+  // ── the celebration, added 2026-09-06 (owner) ─────────────────────────────
+  // 🔑 A FILIPINO WEDDING HAS TWO VENUES, AND THIS IS THE SECOND ONE.
+  // Owner: *"after a ceremony venue like church, they transfer to a place to
+  // eat and celebrate the wedding. that is the reception venue. this is what
+  // is supposed to be created with the stylist and everyone else, catering,
+  // food, wall, ceiling, etc… it is a place not where the bride walks but a
+  // time to celebrate and eat thus having booths, hosts, bands, etc."*
+  //
+  // The room could already be dressed — ceiling, walls, backdrop, the couple's
+  // stage, the guest tables — but it had nowhere to put the things that make
+  // it a CELEBRATION rather than a decorated hall. A couple could book a live
+  // band, an emcee, a mobile bar and a perfume booth in the marketplace and
+  // not one of them had a place in the drawing, in the zone rail, or in the
+  // brief that drives the paid photoreal render.
+  //
+  // These three are not invented categories. Each is exactly one marketplace
+  // PARENT out of the ten in `lib/taxonomy.ts`, chosen because it is a parent
+  // whose suppliers occupy floor space at the reception and had no zone:
+  //   feast   → `feast`   (catering · stations · cake · crew_meals)
+  //   program → `program` (live_band · dj · orchestra · host_mc · performers…)
+  //   booths  → `booths`  (photo_booth · mobile_bar · food_cart · perfume_bar…)
+  // Anchoring them to the parents rather than naming them freehand is what
+  // lets a later change light a zone up from what the couple actually BOOKED
+  // without inventing a second mapping between the two vocabularies.
+  | 'feast'
+  | 'program'
+  | 'booths'
   | 'people';
 
 /** Per-role attire colors for the people layer. `guestPalette` is the guest
@@ -391,6 +418,125 @@ export const RECEPTION_PARTS: Part[] = [
       },
     ],
   },
+  // ── THE CELEBRATION · three zones, three marketplace parents ──────────────
+  // Every option below carries the tile it corresponds to in `lib/taxonomy.ts`,
+  // so the thing a couple DRESSES and the thing they BOOK are the same noun.
+  // The prompt phrases are written for `buildPrompt`, which drives the paid
+  // photoreal render — they describe a place in the room, never a supplier.
+  {
+    id: 'feast',
+    label: 'Food & drink',
+    blurb: 'Where the eating happens',
+    attributes: [
+      {
+        id: 'service',
+        label: 'How dinner is served',
+        // Single: a reception serves dinner one way. (Stations BESIDE a plated
+        // dinner is real, and that is what `stations` below is for.)
+        options: [
+          ONone('none', 'Not decided yet', ''),
+          O('buffet', 'Buffet line', 'a long draped buffet line along the side of the room'), // catering
+          O('plated', 'Plated service', 'plated table service, no buffet line'), // catering
+          O('family_style', 'Family style', 'family-style platters shared down the middle of each table'), // catering
+          O('grazing', 'Grazing table', 'an abundant grazing table of cheeses, fruit and bread'), // stations
+          O('lechon', 'Lechon centrepiece', 'a whole roast lechon presented on its own carving table'), // stations
+        ],
+      },
+      {
+        id: 'stations',
+        label: 'Stations & sweets',
+        // Multi: a dessert table AND a cake table AND a mobile bar is an
+        // ordinary Filipino reception, not an extravagance.
+        multi: true,
+        options: [
+          ONone('none', 'None', ''),
+          O('cake_table', 'Cake table', 'a dressed cake table with the tiered wedding cake'), // cake
+          O('dessert', 'Dessert table', 'a dessert table of Filipino sweets and pastries'), // dessert
+          O('mobile_bar', 'Mobile bar', 'a styled mobile cocktail bar'), // mobile_bar
+          O('mocktail', 'Mocktail bar', 'a non-alcoholic mocktail and fresh-juice bar'), // mocktail
+          O('coffee', 'Coffee cart', 'an espresso and coffee cart'), // coffee_espresso
+          O('food_cart', 'Food carts', 'Filipino street-food carts along the wall'), // food_cart / food_truck
+        ],
+      },
+    ],
+  },
+  {
+    id: 'program',
+    label: 'Program',
+    blurb: 'The band, the host, the dancing',
+    attributes: [
+      {
+        id: 'performers',
+        // NOT "Who plays": the People zone's one attribute is labelled "Who",
+        // and `briefWholeLookZoneLines` excludes People from the whole-look
+        // brief. A guard identified it by `label.startsWith('Who')`, so this
+        // label would have been silently dropped from the brief the couple pays
+        // to render. The proxy is fixed in that guard too — but a label that
+        // does not collide is the better half of the fix.
+        label: 'The band',
+        // Multi: a string quartet at dinner and a band for the party is one of
+        // the commonest programs there is.
+        multi: true,
+        options: [
+          ONone('none', 'None', ''),
+          O('live_band', 'Live band', 'a live band on a low riser with their instruments'), // live_band
+          O('dj', 'DJ booth', 'a DJ booth with decks and speakers'), // dj
+          O('string_quartet', 'String quartet', 'a string quartet seated to one side'), // orchestra
+          O('singer', 'Wedding singer', 'a solo wedding singer at a standing microphone'), // wedding_singer
+          O('choir', 'Choir', 'a small choir standing in rows'), // choir
+        ],
+      },
+      {
+        id: 'host',
+        label: 'The host',
+        // Single: one emcee has one spot.
+        options: [
+          ONone('none', 'None', ''),
+          O('podium', 'Podium', 'a styled podium for the host'), // host_mc
+          O('standing_mic', 'Standing mic', 'a standing microphone for the host'), // host_mc
+          O('host_table', 'Host table', 'a small dressed table for the host and their notes'), // host_mc
+        ],
+      },
+      {
+        id: 'floor',
+        label: 'Dance floor',
+        options: [
+          ONone('none', 'None', ''),
+          O('parquet', 'Parquet', 'a parquet dance floor in front of the stage'), // dance_floor
+          O('monogram', 'Monogram decal', 'a dance floor with the couple’s monogram decal at its centre'), // dance_floor
+          O('led', 'LED floor', 'a glowing LED dance floor'), // dance_floor / led_wall
+        ],
+      },
+    ],
+  },
+  {
+    id: 'booths',
+    label: 'Guest booths',
+    blurb: 'What guests wander to',
+    attributes: [
+      {
+        id: 'kinds',
+        label: 'Booths',
+        // Multi, capped at MAX_SELECTIONS_PER_ATTRIBUTE like every other multi.
+        // These are the `booths` parent's own tiles; the food-and-drink ones
+        // that also live under that parent are offered under `feast.stations`
+        // instead, where a couple would look for them.
+        multi: true,
+        options: [
+          ONone('none', 'None', ''),
+          O('photo_booth', 'Photo booth', 'a photo booth with a props table'), // photo_booth
+          O('arcade', 'Arcade games', 'a retro arcade games corner'), // arcade_games
+          O('caricature', 'Caricature artist', 'a caricature artist sketching guests at a small easel'), // caricature_calligraphy_painting
+          O('henna', 'Henna tattoo', 'a henna tattoo booth with low seating'), // henna_tattoo
+          O('massage', 'Massage chairs', 'a pair of massage chairs in a quiet corner'), // massage_chair
+          O('nail_bar', 'Mini nail bar', 'a mini nail bar with two stools'), // mini_nail_bar
+          O('perfume', 'Perfume bar', 'a perfume-blending bar with rows of small bottles'), // perfume_bar
+          O('tarot', 'Tarot reader', 'a tarot reader at a draped round table'), // tarot_astrology_palmistry
+          O('engraving', 'Live engraving', 'a live engraving station personalising guest favours'), // engraving_embroidery
+        ],
+      },
+    ],
+  },
   {
     id: 'people',
     label: 'People',
@@ -482,6 +628,17 @@ export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
   walls: { treatment: 'bare' },
   photo_wall: { style: 'none' },
   welcome_signage: { style: 'minimal' },
+  // 🔑 THE THREE CELEBRATION ZONES DEFAULT TO NOTHING, AND THAT IS THE POINT.
+  // `sel()`/`selAll()` fall back to DEFAULT_DESIGN for any part a stored
+  // `reception_design` has no key for — which is EVERY event that existed
+  // before these zones did. Defaulting `feast.service` to 'buffet' would put a
+  // buffet line into every couple's room overnight, in the drawing, in the zone
+  // rail and in the brief that drives their paid render, without one of them
+  // choosing it. 'none' keeps the room byte-identical until a couple picks
+  // something, and `reception-scene.test.ts` asserts exactly that.
+  feast: { service: 'none', stations: 'none' },
+  program: { performers: 'none', host: 'none', floor: 'none' },
+  booths: { kinds: 'none' },
   people: { who: 'couple' },
 };
 
@@ -1388,6 +1545,312 @@ function wallsDecorLayer(t: string, P: (i: number) => string): string {
 // Reuses the same glyph vocabulary as `backdrop()`, scaled into a small
 // corner panel (a lounge/entrance-corner photo op is smaller than the couple's
 // own stage backdrop) — a reasonable fallback, not bespoke geometry.
+/* ════════════════════════════════════════════════════════════════════════════
+ * THE CELEBRATION LAYERS · feast · program · booths (2026-09-06).
+ *
+ * Three zones drawn into space the room was not using: the back-left floor
+ * (the feast), the back-right floor (the program), and the left wall above it
+ * (the booth row). Measured against a rendered grid before a line was written,
+ * so nothing overlaps the backdrop (x 330–635), the couple's stage
+ * (x 325–640), the guest-table clusters (x 75–230 and x 660–890, y 390–560),
+ * the aisle polygon, the photo wall (x 786–916, y 92–200) or the welcome table
+ * (x 26–118, y 588–634).
+ *
+ * 🪤 EVERY ONE OF THESE RETURNS '' FOR 'none' AND FOR AN EMPTY SELECTION. The
+ * default design selects 'none' on all three, so a couple who has never opened
+ * these zones gets a room whose bytes are unchanged — asserted, not assumed.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/** Back-left floor: the buffet line, the grazing table, the stations. */
+function feastDecor(service: string, stations: string[], P: (i: number) => string): string {
+  const x = 24,
+    y = 300,
+    w = 288;
+  let out = '';
+  if (service !== 'none' && service !== '') {
+    const top = y + 34;
+    if (service === 'plated') {
+      // No line to draw — plated service IS the guest tables, already drawn.
+      out += '';
+    } else if (service === 'lechon') {
+      out += `<rect x="${x + 70}" y="${top}" width="140" height="34" rx="3" fill="${LINEN}" stroke="${shade(LINEN, -18)}" stroke-width="1"/>`;
+      out += `<ellipse cx="${x + 140}" cy="${top - 4}" rx="46" ry="14" fill="${shade('#B06A3B', 6)}"/>`;
+      out += `<ellipse cx="${x + 140}" cy="${top - 7}" rx="30" ry="8" fill="${shade('#B06A3B', 26)}" opacity="0.7"/>`;
+    } else {
+      // buffet / family_style / grazing all read as a long dressed table.
+      out += `<rect x="${x}" y="${top}" width="${w}" height="30" rx="3" fill="${LINEN}" stroke="${shade(LINEN, -18)}" stroke-width="1"/>`;
+      out += `<rect x="${x}" y="${top + 22}" width="${w}" height="14" fill="${P(1)}" opacity="0.5"/>`;
+      const n = service === 'grazing' ? 9 : 6;
+      for (let i = 0; i < n; i++) {
+        const cx = x + 22 + i * ((w - 44) / (n - 1));
+        if (service === 'grazing') {
+          out += `<circle cx="${cx.toFixed(1)}" cy="${top + 8}" r="7" fill="${[P(3), P(0), P(2)][i % 3]}" opacity="0.9"/>`;
+        } else {
+          out += `<rect x="${(cx - 11).toFixed(1)}" y="${top - 9}" width="22" height="14" rx="2" fill="${SILVER}" stroke="${shade(SILVER, -22)}" stroke-width="1"/>`;
+          out += `<rect x="${(cx - 7).toFixed(1)}" y="${top - 13}" width="14" height="5" rx="2" fill="${shade(SILVER, 16)}"/>`;
+        }
+      }
+    }
+  }
+  // Stations stand BEHIND the line (drawn first, higher up), so the food area
+  // reads as one depth rather than as a second shelf floating on the wall.
+  const real = stations.filter((k) => k !== 'none' && k !== '');
+  const behind = real
+    .map((kind, i) => station(kind, x + 14 + i * 94, y - 48, P))
+    .join('');
+  return behind + out;
+}
+
+/** One food-and-drink station, drawn at its own top-left corner. */
+function station(kind: string, x: number, y: number, P: (i: number) => string): string {
+  const table = `<rect x="${x}" y="${y + 40}" width="72" height="22" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -18)}" stroke-width="1"/>`;
+  if (kind === 'cake_table') {
+    let s = table;
+    for (let t = 0; t < 3; t++) {
+      const tw = 40 - t * 12;
+      s += `<rect x="${x + 36 - tw / 2}" y="${y + 40 - (t + 1) * 12}" width="${tw}" height="12" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -22)}" stroke-width="1"/>`;
+    }
+    s += flower(x + 36, y + 4, 6, P(2), P(0));
+    return s;
+  }
+  if (kind === 'dessert') {
+    let s = table;
+    for (let i = 0; i < 5; i++)
+      s += `<circle cx="${x + 10 + i * 13}" cy="${y + 34}" r="5" fill="${[P(0), P(2), P(3)][i % 3]}" opacity="0.9"/>`;
+    return s;
+  }
+  if (kind === 'mobile_bar' || kind === 'mocktail') {
+    let s = `<rect x="${x + 4}" y="${y + 18}" width="64" height="44" rx="3" fill="${shade(P(1), 30)}" stroke="${shade(P(1), -20)}" stroke-width="1"/>`;
+    s += `<rect x="${x}" y="${y + 14}" width="72" height="7" rx="2" fill="${GOLD}"/>`;
+    for (let i = 0; i < 4; i++)
+      s += `<rect x="${x + 10 + i * 14}" y="${y + 2}" width="7" height="12" rx="2" fill="${kind === 'mocktail' ? shade(P(3), 10) : GLASS}" opacity="0.95"/>`;
+    return s;
+  }
+  if (kind === 'coffee') {
+    let s = table + `<rect x="${x + 16}" y="${y + 20}" width="40" height="20" rx="3" fill="${SILVER}" stroke="${shade(SILVER, -25)}" stroke-width="1"/>`;
+    s += `<rect x="${x + 30}" y="${y + 14}" width="12" height="7" rx="2" fill="${shade(SILVER, -12)}"/>`;
+    for (let i = 0; i < 3; i++)
+      s += `<circle cx="${x + 14 + i * 10}" cy="${y + 46}" r="3.5" fill="${LINEN}" stroke="${shade(LINEN, -25)}" stroke-width="1"/>`;
+    return s;
+  }
+  // food_cart — a wheeled cart with a striped awning
+  let s = `<rect x="${x + 6}" y="${y + 24}" width="60" height="30" rx="3" fill="${shade(WALL, -6)}" stroke="${shade(WALL, -26)}" stroke-width="1"/>`;
+  s += `<path d="M ${x + 2} ${y + 24} L ${x + 70} ${y + 24} L ${x + 62} ${y + 12} L ${x + 10} ${y + 12} Z" fill="${P(0)}" opacity="0.85"/>`;
+  s += `<circle cx="${x + 18}" cy="${y + 58}" r="5" fill="${shade(WALL, -34)}"/><circle cx="${x + 54}" cy="${y + 58}" r="5" fill="${shade(WALL, -34)}"/>`;
+  return s;
+}
+
+/** Back-right floor: the band's riser, the host's spot, the dance floor. */
+/**
+ * The dance floor — drawn on the AISLE polygon, and drawn EARLY.
+ *
+ * 🪤 THE FIRST DRAFT PUT IT ON THE BACK-RIGHT FLOOR AND DREW IT LAST, WHICH
+ * PAINTED IT STRAIGHT OVER THE RIGHT-HAND GUEST TABLES. Caught by rendering
+ * the room and looking at it, not by any type or test — the polygon was
+ * perfectly valid and the tables were simply underneath it.
+ *
+ * Two rules came out of that, and both are structural:
+ *  • The room's only uncommitted floor is the OPEN CENTRE — the aisle polygon
+ *    `380,372 580,372 760,640 200,640`. Both guest-table clusters
+ *    (x 75–230 and x 660–890) sit on the rest of it. So the dance floor IS the
+ *    open centre; anywhere else is on top of somebody's table.
+ *  • A floor treatment must be drawn immediately after the background, before
+ *    the tables, the people and the entrance florals — so they stand ON it.
+ */
+function danceFloor(floor: string, P: (i: number) => string): string {
+  if (floor === 'none' || floor === '') return '';
+  // Slightly inset from the aisle so the runner still reads at its edges.
+  const pts = '392,378 568,378 726,616 234,616';
+  if (floor === 'led') {
+    let out = `<polygon points="${pts}" fill="${shade(P(1), -30)}" opacity="0.8"/>`;
+    for (let r = 0; r < 4; r++) {
+      const y = 386 + r * 58;
+      const half = 88 + r * 60;
+      for (let c = 0; c < 5; c++) {
+        const x = 480 - half + (c * 2 * half) / 5;
+        out += `<rect x="${x.toFixed(1)}" y="${y}" width="${((2 * half) / 5 - 4).toFixed(1)}" height="48" fill="${shade(P(2), 40)}" opacity="${(0.14 + r * 0.05).toFixed(2)}"/>`;
+      }
+    }
+    return out;
+  }
+  let out = `<polygon points="${pts}" fill="${shade(GOLD, 40)}" opacity="0.45"/>`;
+  for (let i = 1; i < 6; i++) {
+    const t = i / 6;
+    out += `<line x1="${(392 + t * 176).toFixed(1)}" y1="378" x2="${(234 + t * 492).toFixed(1)}" y2="616" stroke="${shade(GOLD, -10)}" stroke-width="1" opacity="0.3"/>`;
+  }
+  if (floor === 'monogram')
+    out += `<ellipse cx="480" cy="500" rx="52" ry="26" fill="none" stroke="${shade(GOLD, -20)}" stroke-width="3" opacity="0.7"/>`;
+  return out;
+}
+
+function programDecor(
+  performers: string[],
+  host: string,
+  P: (i: number) => string,
+): string {
+  let out = '';
+  // Performers, on a low riser against the back-right wall.
+  const real = performers.filter((k) => k !== 'none' && k !== '');
+  if (real.length > 0) {
+    // 🪤 THE RISER IS SIZED TO THE BAND, NOT TO THE WALL. A fixed 288-wide bar
+    // under one performer draws an empty shelf running off to the corner —
+    // which is what the first render showed. It ends where the last group does.
+    const x = 664,
+      y = 316,
+      w = real.length * 92 + 16;
+    out += `<rect x="${x}" y="${y + 46}" width="${w}" height="14" rx="2" fill="${shade(WALL, -22)}"/>`;
+    out += `<ellipse cx="${x + w / 2}" cy="${y + 62}" rx="${w / 2}" ry="4" fill="${shade(WALL, -26)}" opacity="0.3"/>`;
+    real.forEach((kind, i) => {
+      out += performer(kind, x + 46 + i * 92, y, P);
+    });
+  }
+  if (host !== 'none' && host !== '') out += hostSpot(host, 596, 330, P);
+  return out;
+}
+
+/** One performer group, drawn at its own anchor on the riser. */
+function performer(kind: string, x: number, y: number, P: (i: number) => string): string {
+  const figure = (cx: number) =>
+    `<circle cx="${cx}" cy="${y + 16}" r="6" fill="${SKIN}"/>` +
+    `<rect x="${cx - 7}" y="${y + 23}" width="14" height="23" rx="5" fill="${shade(P(1), -30)}"/>`;
+  if (kind === 'dj') {
+    let s = `<rect x="${x - 26}" y="${y + 26}" width="52" height="20" rx="2" fill="${shade(WALL, -14)}" stroke="${shade(WALL, -32)}" stroke-width="1"/>`;
+    s += `<circle cx="${x - 12}" cy="${y + 36}" r="5" fill="${SILVER}"/><circle cx="${x + 12}" cy="${y + 36}" r="5" fill="${SILVER}"/>`;
+    s += figure(x);
+    return s;
+  }
+  if (kind === 'live_band') {
+    let s = figure(x - 16) + figure(x + 16);
+    s += `<rect x="${x + 30}" y="${y + 28}" width="16" height="18" rx="2" fill="${shade(P(0), -20)}"/>`; // amp
+    // The cymbal belongs to the kit. Drawn at x-30 in the first pass it landed
+    // beside the HOST's podium, a hundred pixels from any drummer.
+    s += `<ellipse cx="${x - 34}" cy="${y + 36}" rx="8" ry="8" fill="none" stroke="${GOLD}" stroke-width="2"/>`;
+    s += `<rect x="${x - 40}" y="${y + 36}" width="12" height="10" rx="2" fill="${shade(WALL, -18)}"/>`; // drum
+    return s;
+  }
+  if (kind === 'string_quartet') {
+    let s = '';
+    for (let i = 0; i < 3; i++) s += figure(x - 18 + i * 18);
+    s += `<path d="M ${x + 26} ${y + 44} q 6 -14 0 -20" fill="none" stroke="${shade('#8A5A2B', 0)}" stroke-width="3"/>`;
+    return s;
+  }
+  if (kind === 'choir') {
+    let s = '';
+    for (let i = 0; i < 4; i++) s += figure(x - 24 + i * 16);
+    return s;
+  }
+  // singer — one figure at a standing mic
+  return (
+    figure(x) +
+    `<line x1="${x + 14}" y1="${y + 46}" x2="${x + 14}" y2="${y + 18}" stroke="${shade(WALL, -40)}" stroke-width="2"/>` +
+    `<circle cx="${x + 14}" cy="${y + 16}" r="3" fill="${shade(WALL, -46)}"/>`
+  );
+}
+
+/** The host's spot, at the near edge of the stage. */
+function hostSpot(kind: string, x: number, y: number, P: (i: number) => string): string {
+  if (kind === 'podium')
+    return (
+      `<path d="M ${x} ${y + 54} L ${x + 34} ${y + 54} L ${x + 30} ${y + 16} L ${x + 4} ${y + 16} Z" fill="${shade(P(1), 20)}" stroke="${shade(P(1), -24)}" stroke-width="1"/>` +
+      `<rect x="${x - 2}" y="${y + 12}" width="38" height="6" rx="2" fill="${GOLD}"/>`
+    );
+  if (kind === 'host_table')
+    return (
+      `<rect x="${x - 4}" y="${y + 34}" width="44" height="20" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -20)}" stroke-width="1"/>` +
+      `<rect x="${x + 6}" y="${y + 28}" width="20" height="7" rx="2" fill="${shade(P(2), 10)}"/>`
+    );
+  // standing_mic
+  return (
+    `<line x1="${x + 16}" y1="${y + 54}" x2="${x + 16}" y2="${y + 18}" stroke="${shade(WALL, -40)}" stroke-width="2"/>` +
+    `<circle cx="${x + 16}" cy="${y + 15}" r="4" fill="${shade(WALL, -46)}"/>` +
+    `<ellipse cx="${x + 16}" cy="${y + 55}" rx="10" ry="3" fill="${shade(WALL, -34)}"/>`
+  );
+}
+
+/** The booth row, against the upper-left wall. */
+function boothsDecor(kinds: string[], P: (i: number) => string): string {
+  const real = kinds.filter((k) => k !== 'none' && k !== '');
+  if (real.length === 0) return '';
+  const y = 132;
+  return real.map((kind, i) => booth(kind, 28 + i * 96, y, P)).join('');
+}
+
+/** One guest booth: a common bay, then the thing that makes it that booth. */
+function booth(kind: string, x: number, y: number, P: (i: number) => string): string {
+  const w = 84,
+    h = 108;
+  // 🪤 THE FIRST DRAFT DREW A PLAIN OUTLINED RECT AND THE THREE BOOTHS READ AS
+  // FRAMED PICTURES HUNG ON THE WALL. A booth is read from three things — a
+  // canopy over it, a counter across its front, and a shadow under it — so the
+  // bay draws all three and never an outline around the whole thing.
+  const bay =
+    `<rect x="${x + 4}" y="${y + 14}" width="${w - 8}" height="${h - 30}" rx="3" fill="${shade(WALL, 6)}"/>` +
+    // canopy
+    `<path d="M ${x - 4} ${y + 16} L ${x + w + 4} ${y + 16} L ${x + w - 6} ${y} L ${x + 6} ${y} Z" fill="${shade(P(1), 12)}"/>` +
+    `<path d="M ${x - 4} ${y + 16} L ${x + w + 4} ${y + 16} L ${x + w + 4} ${y + 21} L ${x - 4} ${y + 21} Z" fill="${shade(P(1), -14)}"/>` +
+    // counter across the front, and the shadow that grounds it
+    `<rect x="${x}" y="${y + h - 16}" width="${w}" height="13" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -20)}" stroke-width="1"/>` +
+    `<ellipse cx="${x + w / 2}" cy="${y + h + 1}" rx="${w / 2 - 2}" ry="4" fill="${shade(WALL, -26)}" opacity="0.35"/>`;
+  const mid = x + w / 2;
+  if (kind === 'photo_booth')
+    return (
+      bay +
+      `<rect x="${mid - 22}" y="${y + 16}" width="44" height="52" rx="4" fill="${shade(P(1), -40)}"/>` +
+      `<circle cx="${mid}" cy="${y + 42}" r="12" fill="${GLASS}" stroke="${shade(WALL, -30)}" stroke-width="2"/>` +
+      `<rect x="${mid - 16}" y="${y + 74}" width="32" height="8" rx="2" fill="${P(0)}"/>`
+    );
+  if (kind === 'arcade')
+    return (
+      bay +
+      `<rect x="${mid - 20}" y="${y + 14}" width="40" height="62" rx="4" fill="${shade(P(2), -30)}"/>` +
+      `<rect x="${mid - 13}" y="${y + 22}" width="26" height="20" rx="2" fill="${GLASS}"/>` +
+      `<circle cx="${mid - 7}" cy="${y + 54}" r="4" fill="${P(0)}"/><circle cx="${mid + 7}" cy="${y + 54}" r="4" fill="${P(3)}"/>`
+    );
+  if (kind === 'caricature')
+    return (
+      bay +
+      `<path d="M ${mid} ${y + 14} L ${mid - 18} ${y + 78} L ${mid + 18} ${y + 78} Z" fill="none" stroke="${shade('#8A5A2B', 0)}" stroke-width="3"/>` +
+      `<rect x="${mid - 15}" y="${y + 24}" width="30" height="24" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -25)}" stroke-width="1"/>`
+    );
+  if (kind === 'henna')
+    return (
+      bay +
+      `<rect x="${mid - 22}" y="${y + 54}" width="44" height="16" rx="2" fill="${shade(P(1), 20)}"/>` +
+      `<path d="M ${mid} ${y + 24} q 12 12 0 24 q -12 -12 0 -24" fill="${shade('#7A4A22', 0)}" opacity="0.85"/>`
+    );
+  if (kind === 'massage')
+    return (
+      bay +
+      `<path d="M ${mid - 20} ${y + 74} L ${mid - 20} ${y + 44} q 0 -10 12 -10 L ${mid + 6} ${y + 34}" fill="none" stroke="${shade(P(1), -30)}" stroke-width="9" stroke-linecap="round"/>` +
+      `<path d="M ${mid + 2} ${y + 74} L ${mid + 20} ${y + 74}" stroke="${shade(P(1), -30)}" stroke-width="7" stroke-linecap="round"/>`
+    );
+  if (kind === 'nail_bar')
+    return (
+      bay +
+      `<rect x="${mid - 24}" y="${y + 50}" width="48" height="14" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -22)}" stroke-width="1"/>` +
+      [0, 1, 2, 3].map((i) => `<rect x="${mid - 20 + i * 11}" y="${y + 36}" width="7" height="13" rx="3" fill="${[P(0), P(2), P(3), P(1)][i]}"/>`).join('')
+    );
+  if (kind === 'perfume')
+    return (
+      bay +
+      `<rect x="${mid - 24}" y="${y + 56}" width="48" height="12" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -22)}" stroke-width="1"/>` +
+      [0, 1, 2, 3, 4].map((i) => `<rect x="${mid - 21 + i * 9}" y="${y + 40}" width="6" height="15" rx="2" fill="${GLASS}" stroke="${shade(GOLD, -10)}" stroke-width="1"/>`).join('')
+    );
+  if (kind === 'tarot')
+    return (
+      bay +
+      `<ellipse cx="${mid}" cy="${y + 62}" rx="26" ry="10" fill="${shade(P(1), -20)}"/>` +
+      [0, 1, 2].map((i) => `<rect x="${mid - 18 + i * 13}" y="${y + 44}" width="10" height="15" rx="2" fill="${LINEN}" stroke="${shade(GOLD, -14)}" stroke-width="1" transform="rotate(${-8 + i * 8} ${mid - 13 + i * 13} ${y + 51})"/>`).join('')
+    );
+  // engraving
+  return (
+    bay +
+    `<rect x="${mid - 24}" y="${y + 54}" width="48" height="14" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -22)}" stroke-width="1"/>` +
+    `<rect x="${mid - 10}" y="${y + 30}" width="20" height="22" rx="3" fill="${SILVER}" stroke="${shade(SILVER, -26)}" stroke-width="1"/>` +
+    `<line x1="${mid}" y1="${y + 52}" x2="${mid}" y2="${y + 60}" stroke="${GOLD}" stroke-width="2"/>`
+  );
+}
+
 function photoWallDecor(styles: string[], P: (i: number) => string): string {
   return styles.map((style) => photoWallDecorLayer(style, P)).join('');
 }
@@ -1708,6 +2171,12 @@ export function renderVenueSvg(
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`,
     bg,
+    // The dance floor is a FLOOR TREATMENT, so it goes down before anything
+    // that stands on it — see `danceFloor`'s note on the draft that painted it
+    // over the guest tables.
+    venueZoneApplies(venueSetting, 'program')
+      ? danceFloor(sel(design, 'program', 'floor'), P)
+      : '',
     decorImage('backdrop', decor) ??
       backdrop(selAll(design, 'backdrop', 'style'), selAll(design, 'backdrop', 'florals'), P),
     stage(sel(design, 'stage', 'setup'), selAll(design, 'stage', 'florals'), P),
@@ -1733,6 +2202,26 @@ export function renderVenueSvg(
       : `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
     photoWallDecor(selAll(design, 'photo_wall', 'style'), P),
     welcomeSignageDecor(selAll(design, 'welcome_signage', 'style'), P),
+    // ── the celebration (2026-09-06) ─────────────────────────────────────
+    // Drawn AFTER the horizon line and the wall pieces so their furniture
+    // reads as standing in the room rather than painted on the wall, and
+    // gated by `venueZoneApplies` like every other zone — a beach reception
+    // still has a buffet and a band, so none of the three is N/A anywhere
+    // today, but routing them through the one predicate is what stops that
+    // from becoming an assumption the next venue family has to remember.
+    venueZoneApplies(venueSetting, 'feast')
+      ? feastDecor(sel(design, 'feast', 'service'), selAll(design, 'feast', 'stations'), P)
+      : '',
+    venueZoneApplies(venueSetting, 'program')
+      ? programDecor(
+          selAll(design, 'program', 'performers'),
+          sel(design, 'program', 'host'),
+          P,
+        )
+      : '',
+    venueZoneApplies(venueSetting, 'booths')
+      ? boothsDecor(selAll(design, 'booths', 'kinds'), P)
+      : '',
     `</svg>`,
   ].join('');
 }

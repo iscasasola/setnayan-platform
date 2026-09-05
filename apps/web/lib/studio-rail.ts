@@ -89,6 +89,23 @@ export function railToolsSignedIn(
       question, and it is settled where the match list is built
       (`front-door-shell.tsx`), leaving every rendered row intact.
     */
+    /*
+      ─── A DOORWAY-ONLY ROW LEAVES WHEN AN EVENT OPENS (owner 2026-09-05) ──
+      *"do not double the marketplace"* · *"Marketplace will disappear on studio
+      once we enter an event just like guestlist"* · *"and seat plan"*.
+
+      Inside an event those three destinations are ALREADY on screen — the
+      event's own rail carries Guests, Marketplace→/vendors and Seat plan, and
+      the shell adds its Marketplace destination row, which is gated on exactly
+      this condition. Keeping the Studio copies would hand the same place two
+      names in one sidebar, which `lib/free-tools-rail.ts` records this repo
+      having shipped once already and had to undo.
+
+      🔑 GATED ON THE EVENT, NOT ON BEING SIGNED IN. With no event open none of
+      those competing rows exist, so the doorway row is the ONLY door to the
+      page that explains the tool — see `StudioApp.doorwayOnly`.
+    */
+    if (eventId && a.doorwayOnly) return false;
     // Nothing is gated until we know WHICH event — the surface list is a
     // property of the event type, and without one there is nothing to ask.
     if (!eventId || !profile) return true;

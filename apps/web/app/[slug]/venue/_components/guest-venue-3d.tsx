@@ -35,6 +35,7 @@ import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/pl
 import { colorFromId, remoteMovers, type RemoteMap } from '@/lib/plan3d-room';
 import { chibiHop } from '@/lib/figure-rig';
 import { selfFigureAvatar, guestAvatarsEnabled } from '@/lib/venue-avatars';
+import type { ChibiSeat } from '@/lib/chibi-sit';
 import { ChibiFigure } from '@/app/_components/plan3d/kit/chibi-figure';
 import type { ChibiAvatarConfig } from '@/lib/chibi-config';
 import {
@@ -88,6 +89,7 @@ import {
   EMOTE_TABLE_Y,
   EMOTE_DANCE_Y,
   InstancedSeatedCrowd,
+  InstancedChibiCrowd,
   seatedFigureMatrix,
   RUN_CLOCK_RAD_S,
   SitController,
@@ -172,6 +174,10 @@ export type VenueScene = {
   /** Cocktail / waiting room (v2 payload) — null/absent when the couple didn't enable one. */
   cocktail?: { xPct: number; yPct: number; wPct: number; hPct: number; label: string | null } | null;
   occupancy: { table: string; seats: number[] }[];
+  /** C6 — seated guests who made an avatar (cartoon configs, never photos),
+   *  under the couple's `venue_photo_visibility`, exactly like `photos`. Absent
+   *  on an older cached payload → every seat stays a mannequin. */
+  avatars?: { table: string; seatNumber: number; config: unknown }[];
   /** `avatarConfig` (v12 payload) is the VIEWER'S OWN stored
    *  `guests.avatar_config` — their chibi, resolved through
    *  `selfFigureAvatar`. Absent on any older cached payload, and null for
@@ -939,6 +945,68 @@ export default function GuestVenue3D({
   // purpose intact). No guest palette → null → the old white mannequin. Each
   // world matrix reproduces the exact table→seat→nudge nesting the individual
   // <SeatedFigure> used (proven in figure-sit-bake.test.ts).
+  // C6 — which seats have an avatar config. Same shape as photoByTable. Each
+  // config is re-validated by the ONE fallback rule (selfFigureAvatar), so junk
+  // from an older payload declines to the mannequin, never to a hash-rolled
+  // default — the server never invents an avatar, and neither does the room.
+  const avatarByTable = useMemo(() => {
+    const m = new Map<string, Map<number, unknown>>();
+    for (const a of scene.avatars ?? []) {
+      if (a.config == null) continue;
+      let seats = m.get(a.table);
+      if (!seats) {
+        seats = new Map<number, unknown>();
+        m.set(a.table, seats);
+      }
+      seats.set(a.seatNumber, a.config);
+    }
+    return m;
+  }, [scene.avatars]);
+
+  // THE SPLIT: a seat whose guest made an avatar is drawn by the chibi crowd;
+  // every other occupied seat stays a neutral mannequin. Both are one batch set
+  // for the whole room; the chibi half is empty until somebody opts in, and the
+  // whole thing collapses to the mannequin crowd while the chibi flag is off.
+  const chibiSeats = useMemo<ChibiSeat[]>(() => {
+    if (!guestAvatarsEnabled()) return [];
+    const out: ChibiSeat[] = [];
+    for (const t of tables) {
+      const seatsWithAvatar = avatarByTable.get(t.id);
+      if (!seatsWithAvatar || seatsWithAvatar.size === 0) continue;
+      const occupied = occByTable.get(t.id);
+      if (!occupied || occupied.size === 0) continue;
+      const chairs = chairPlacements(t.shape, t.capacity, t.linkGroupId != null);
+      const home = pctToWorld(t.xPct, t.yPct, room);
+      const tableFaceY = (-t.rotationDeg * Math.PI) / 180;
+      const yourSeat = scene.you?.table === t.id ? scene.you.seatNumber : null;
+      const photoBySeat = photoByTable.get(t.id);
+      for (let i = 0; i < chairs.length; i++) {
+        if (!occupied.has(i) || yourSeat === i || photoBySeat?.get(i)) continue;
+        const cfg = selfFigureAvatar({ avatarConfig: seatsWithAvatar.get(i) }, `${t.id}:${i}`, true);
+        if (!cfg) continue;
+        const c = chairs[i]!;
+        out.push({
+          matrix: seatedFigureMatrix({ homeX: home.x, homeZ: home.z, tableFaceY, seatX: c.x, seatZ: c.z, seatFaceY: c.faceY }),
+          config: cfg,
+        });
+      }
+    }
+    return out;
+  }, [tables, occByTable, avatarByTable, photoByTable, room, scene.you]);
+  // The seats the mannequin loop must skip — keyed exactly as above.
+  const chibiSeatKeys = useMemo(() => {
+    const s = new Set<string>();
+    if (!guestAvatarsEnabled()) return s;
+    for (const t of tables) {
+      const seatsWithAvatar = avatarByTable.get(t.id);
+      if (!seatsWithAvatar) continue;
+      for (const [i, stored] of seatsWithAvatar) {
+        if (selfFigureAvatar({ avatarConfig: stored }, `${t.id}:${i}`, true)) s.add(`${t.id}:${i}`);
+      }
+    }
+    return s;
+  }, [tables, avatarByTable]);
+
   const crowdSeats = useMemo<SeatedInstance[]>(() => {
     const out: SeatedInstance[] = [];
     for (const t of tables) {
@@ -951,6 +1019,7 @@ export default function GuestVenue3D({
       const photoBySeat = photoByTable.get(t.id);
       for (let i = 0; i < chairs.length; i++) {
         if (!occupied.has(i) || yourSeat === i || photoBySeat?.get(i)) continue;
+        if (chibiSeatKeys.has(`${t.id}:${i}`)) continue; // drawn by the chibi crowd
         const c = chairs[i]!;
         out.push({
           matrix: seatedFigureMatrix({
@@ -967,7 +1036,7 @@ export default function GuestVenue3D({
       }
     }
     return out;
-  }, [tables, occByTable, photoByTable, room, scene.you, attirePalette]);
+  }, [tables, occByTable, photoByTable, room, scene.you, attirePalette, chibiSeatKeys]);
 
   // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
   // venue-object discs slot in once the object render lands):
@@ -1258,6 +1327,8 @@ export default function GuestVenue3D({
             (in the same world space as the tables above). Photo seats + the
             viewer's own seat stay individual inside each GuestTable. */}
         <InstancedSeatedCrowd seats={crowdSeats} quality="low" />
+        {/* C6 — the seats whose guests made an avatar, as their chibis. */}
+        <InstancedChibiCrowd seats={chibiSeats} />
 
         {/* Placed venue fixtures — objects · booths · signs · cocktail room.
             quality 'low' (this surface is the phone walk) bakes every booth

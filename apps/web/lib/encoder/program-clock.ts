@@ -6,9 +6,13 @@
  * occluded (Chromium: 1 Hz after a few seconds, then 1/min; WebKit similar), and a live
  * encoder cannot be at the mercy of which window the couple has in front. Dedicated-worker
  * timers are throttled LESS than page timers, which is the whole reason S1 exists — but NOT
- * zero: the only measurement so far (a browser proxy, hidden Chromium 148, under concurrent
- * CPU load) saw ~6–13 ticks/s with a 9.5 s worst gap. S13's minimise test on the real
- * installers is the measurement that decides it; until then treat immunity as UNPROVEN.
+ * zero. MEASURED 2026-09-05 (S1 close, plain Chromium 148, this `setTimeout` tick, load
+ * held constant by a visible control on the same machine): visible 30.0 ticks/s, 0 gaps
+ * > 2 ticks in 180 s; tab hidden with the window on screen 21.6 ticks/s, 381 long gaps,
+ * worst 1.35 s; hidden + window minimised 26.0 ticks/s, 635 long gaps in 540 s, worst
+ * 8.4 s. The throttling is the visibility state, not the load. This tick is a scaffold;
+ * S3's audio-thread clock is the one the couple streams on, and S13's minimise test on the
+ * real installers (WKWebView / WebView2) is the measurement that decides the shipped app.
  *
  * // S3 replaces this tick with the AudioContext-derived clock
  * S3 owns the master clock (`AudioContext.currentTime`); when it lands, `createProgramClock`

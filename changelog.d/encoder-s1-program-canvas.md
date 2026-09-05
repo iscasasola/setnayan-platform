@@ -99,6 +99,36 @@ this program and are kept as recorded, not re-verified at close. Independent S0 
 of the worker placement (separate from throttling): in the real Tauri webview
 `MediaStreamTrackProcessor` is undefined on the window but present in a worker.
 
+**Occluded-run evidence — RESOLVED at close (second finisher, same day): the confound above
+IS separated, and it is the visibility state.** Same harness (real `program-canvas.worker.ts` +
+`createProgramCanvas`, esbuild-bundled), but Chromium 148.0.7778.96 launched BY HAND over
+`--remote-debugging-pipe` with no automation switches — Playwright's own launcher passes
+`--disable-background-timer-throttling` / `--disable-backgrounding-occluded-windows` /
+`--disable-renderer-backgrounding`, and with those present the tab never reported `hidden`
+(measured), so a Playwright-launched run proves nothing. Every number is the WORKER's own
+(its `performance.now()`, tick counter and gap accounting), read after un-occluding so the
+page — whose message handler is itself throttled while hidden, lagging the worker by up to
+8.4 s — could drain the worker's queued stats. `longGaps` = inter-tick gaps > 2 ticks
+(66.7 ms). S0's Tauri probes ran throughout (load avg 12–40 on 10 cores):
+
+| run | occlusion | window (worker time) | ticks/s (ideal 30) | longGaps | worst gap |
+|---|---|---|---|---|---|
+| 4 · CONTROL | none — tab visible | 180 s | **30.0** (5400/5400) | **0** | 43 ms |
+| 3 | tab `hidden`, window on screen | 180 s | 21.6 | 381 | 1.35 s |
+| 2 | tab `hidden` + window minimised | 540 s | 26.0 | 635 | 8.4 s |
+| 1 | as 2, under the full unit suite | 210 s (killed at a turn boundary) | ~9.7 | 394 | 9.5 s |
+
+Run 2 per-second tick-rate histogram: 320 s at 29–30/s · 72 s at 25–29 · 104 s at 15–25 ·
+32 s at 5–15 · 3 s below 5. The control, under the same load, is 180/180 s at 29–30/s. So the
+worker tick is throttled by the page's visibility even when the process is scheduled and the
+machine is busy either way; the earlier runs' App-Nap / hidden-tab-freeze suspensions sit on
+top of that. Consequence unchanged in kind, stronger in force: the 33.3 ms worker `setTimeout`
+is a scaffold; S3's audio-thread clock is required, not merely planned; S10's keep-awake and
+S13's real-installer minimise test remain the shipped-app measurement. Harness and every stats
+message: this session's scratchpad `harness/{page.ts,run-raw.cjs,cdp.cjs,analyze.cjs}` and
+`run{2,3,4}.final.json`. The four guards are untouched by all of this — they decide what is
+drawn, not when — and repeat-last-frame did its job on every tick that fired.
+
 Proof recorded at close (S1 gate; not re-run):
 - Typecheck scoped to `apps/web`: `TSC_EXIT=0 ERROR_LINES=0 elapsed=11s` (incremental, warm
   tsbuildinfo). Falsifiability probe — a deliberate error gave `TSC_EXIT=2 ERROR_LINES=1`, so

@@ -12,14 +12,14 @@ import {
 
 /**
  * 3D Booth add-on card — the sellable surface on the subscription hub
- * (owner-locked 2026-07-22). Free first 28-day cycle, then ₱1,500 / 28 days, on
+ * (owner-locked 2026-07-22; ₱3,000 flat since 2026-09-05). Free first 28-day cycle, then ₱3,000 / 28 days, on
  * Pro / Enterprise / Custom + verified shops only. When active, the vendor's
  * booth renders BRANDED (logo + poster) inside their couples' published 3D
  * Plans; without it a Pro/Enterprise vendor keeps the generic booth.
  *
  * Under the 2026-07-25 tiered add-on model (flag-dark) the page opens `eligible`
- * to EVERY verified tier and passes the banded `pricePhp` (₱2,000 Free/Solo ·
- * ₱1,500 Pro/Ent). This card needs no branch for that: every price it prints
+ * to EVERY verified paid tier and passes `pricePhp` — ₱3,000 FLAT on every tier
+ * since 2026-09-05 (the bands are equal). This card needs no branch for that: every price it prints
  * comes from the `pricePhp` prop, and with the tier gate lifted the only way to
  * be ineligible is "not verified yet" — which already has its own copy below.
  *
@@ -29,7 +29,7 @@ import {
  *   • not eligible (below Pro OR unverified) → a muted upsell, no CTA.
  *   • eligible + trial available → "Turn on 3D Booth — free first cycle".
  *   • eligible + active → live chip + "active through …" + a Renew button.
- *   • eligible + trial used, not active → "Reactivate — ₱1,500 / 28 days".
+ *   • eligible + trial used, not active → "Reactivate — ₱3,000 / 28 days".
  *
  * The buy CTA opens an apply-then-pay order (BDO/GCash) that a Setnayan admin
  * confirms; the FREE first cycle activates instantly.
@@ -61,7 +61,7 @@ export type BoothAddonCardProps = {
   active: boolean;
   /** booth_addon_expires_at, when set. */
   expiresAt: string | null;
-  /** Standing renewal price (₱1,500) from the admin-managed catalog. */
+  /** Standing renewal price (₱3,000 since 2026-09-05) from the admin-managed catalog. */
   pricePhp: number;
   /** "Free until your 6th booking" is ACTIVE for this vendor right now (owner
    *  2026-07-25) — the add-on grants at ₱0 and REPEATS while they stay inside the

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e07861d93",
-  "routeCount": 419,
-  "destinations": 892,
-  "actions": 620,
-  "blocks": 4279,
+  "generatedFromRef": "f854382b4",
+  "routeCount": 421,
+  "destinations": 900,
+  "actions": 628,
+  "blocks": 4301,
   "routes": {
     "/": {
       "files": [
@@ -739,6 +739,7 @@
         "[slug]/_components/vendor-doorway.tsx",
         "[slug]/_components/venue-widget.tsx",
         "[slug]/_components/watch-live-block.tsx",
+        "[slug]/_components/watch-live-embed.tsx",
         "[slug]/_components/what-to-bring-widget.tsx",
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
@@ -861,6 +862,7 @@
         "GuestHubCard",
         "GuestPreload",
         "GuestToHostCta",
+        "GuestWatchState",
         "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLCanvasElement",
@@ -997,6 +999,7 @@
         "WallControl",
         "WallPullResult",
         "WatchLiveBlock",
+        "WatchLiveEmbed",
         "WatchTheFilm",
         "WaxSeal",
         "WaxSealGLState",
@@ -1333,6 +1336,7 @@
         "/admin/force-majeure",
         "/admin/founder-seats",
         "/admin/fraud",
+        "/admin/gifts",
         "/admin/help",
         "/admin/integrations",
         "/admin/integrity-watch",
@@ -2260,6 +2264,31 @@
       "actions": [],
       "blocks": []
     },
+    "/admin/gifts": {
+      "files": [
+        "admin/gifts/page.tsx"
+      ],
+      "destinations": [
+        "/admin/gifts",
+        "/admin/gifts?grant_user=[seg]",
+        "/admin/gifts?grant_vendor=[seg]",
+        "/admin/vendors/[seg]/plan"
+      ],
+      "actions": [
+        "createFreeWindow",
+        "issueCompGrant",
+        "revokeCompGrant",
+        "setFreeWindowActive",
+        "setVendorTier"
+      ],
+      "blocks": [
+        "CompGrantRow",
+        "Link",
+        "PageMasthead",
+        "SubmitButton",
+        "VendorGiftRow"
+      ]
+    },
     "/admin/growth": {
       "files": [
         "admin/growth/page.tsx"
@@ -2718,6 +2747,7 @@
         "admin/pricing/_surfaces/ai-prices-surface.tsx",
         "admin/pricing/_surfaces/custom-plans-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
+        "admin/pricing/_surfaces/free-windows-copy.ts",
         "admin/pricing/_surfaces/free-windows-surface.tsx",
         "admin/pricing/_surfaces/papic-ladder-surface.tsx",
         "admin/pricing/_surfaces/price-bands-surface.tsx",
@@ -2729,6 +2759,7 @@
       ],
       "destinations": [
         "/admin/addons/pricing-report",
+        "/admin/gifts",
         "/admin/pricing?tab=[seg]",
         "/admin/pricing?tab=custom-plans&vendor=[seg]",
         "/admin/pricing?tab=pricing"
@@ -5194,6 +5225,7 @@
         "LensPill",
         "Link",
         "LiveSearch",
+        "LockedChip",
         "MPill",
         "MapActionResult",
         "MiniChip",
@@ -5822,6 +5854,26 @@
         "PageMasthead"
       ]
     },
+    "/dashboard/[eventId]/plan3d": {
+      "files": [
+        "dashboard/[eventId]/plan3d/_components/plan3d-stage.tsx",
+        "dashboard/[eventId]/plan3d/actions.ts",
+        "dashboard/[eventId]/plan3d/loading.tsx",
+        "dashboard/[eventId]/plan3d/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "publishFromControlCentre",
+        "unpublishFromControlCentre"
+      ],
+      "blocks": [
+        "GridPageSkeleton",
+        "Icon",
+        "Link",
+        "Miniature",
+        "Plan3dStage"
+      ]
+    },
     "/dashboard/[eventId]/progress": {
       "files": [
         "dashboard/[eventId]/progress/_actions/free-venue-shortlist.ts",
@@ -6021,7 +6073,9 @@
         "dashboard/[eventId]/seating/lab/_components/seating-lab-loader.tsx",
         "dashboard/[eventId]/seating/lab/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/plan3d"
+      ],
       "actions": [
         "dismissGhostBooth",
         "setGhostBoothsEnabled"
@@ -6415,6 +6469,7 @@
         "MoodboardBoard",
         "MoodboardMoodTag",
         "MoodboardStyleFamily",
+        "NeutralDrawing",
         "PageMasthead",
         "PaletteBoardContext.Provider",
         "PaletteBoardProvider",
@@ -6581,6 +6636,7 @@
         "ConnectedPanel",
         "CopyButton",
         "DeliveryFact",
+        "EncoderKeyPanel",
         "FacebookDualStreamCard",
         "FormPageSkeleton",
         "GoLiveCard",
@@ -7344,7 +7400,8 @@
         "ListPageSkeleton",
         "LoadCategoryRequirementsResult",
         "LoadingStatus",
-        "LockDateConfirmModal",
+        "LockConfirmModal",
+        "LockImpact",
         "LockMilestoneToast",
         "LockState",
         "LockTile",
@@ -7940,7 +7997,8 @@
         "download/page.tsx"
       ],
       "destinations": [
-        "/api/download/mac"
+        "/api/download/mac",
+        "/api/download/windows"
       ],
       "actions": [],
       "blocks": [
@@ -7957,6 +8015,7 @@
         "MagneticDownloadButton",
         "NavRow",
         "Note",
+        "PlatformCompatBanner",
         "Req",
         "RevealGroup",
         "StatCard",
@@ -8456,6 +8515,7 @@
         "ChannelVideo",
         "CopyButton",
         "Date",
+        "EncoderKeyPanel",
         "FacebookDualStreamCard",
         "FeedMap",
         "GoLiveResult",
@@ -9350,6 +9410,7 @@
         "UnreadBellBadge",
         "UpcomingSchedules",
         "VendorBottomNav",
+        "VendorDealFacts",
         "VendorEnergyStats",
         "VendorFirstSteps",
         "VendorNavFab",
@@ -9547,6 +9608,8 @@
     },
     "/vendor-dashboard/clients/[eventId]": {
       "files": [
+        "vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
@@ -9558,6 +9621,7 @@
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
         "vendor-dashboard/clients/[eventId]/actions.ts",
+        "vendor-dashboard/clients/[eventId]/booth-event-actions.ts",
         "vendor-dashboard/clients/[eventId]/finalization-actions.ts",
         "vendor-dashboard/clients/[eventId]/page.tsx",
         "vendor-dashboard/clients/[eventId]/script-actions.ts"
@@ -9585,6 +9649,7 @@
       ],
       "actions": [
         "acceptInquiry",
+        "action",
         "createClientNote",
         "createVendorChallengeAction",
         "declineInquiry",
@@ -9608,6 +9673,9 @@
         "ActivityFeed",
         "AppointmentsSection",
         "AskAccess",
+        "BoothEventActionState",
+        "BoothEventBuyForm",
+        "BoothEventSection",
         "BoothPosterCard",
         "Card",
         "CardTabs",

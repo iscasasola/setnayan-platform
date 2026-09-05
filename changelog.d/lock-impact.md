@@ -89,6 +89,16 @@ file uses source assertions — `actions.ts` is `'use server'` and `accordion-lo
 1100-line client component, neither importable in `tsx --test`, the same shape
 `bench-deep-link-anchor.test.ts` already uses.
 
+**Two CI guards caught real things and were obeyed, not worked around.** (1) `gold-is-not-text`:
+the new `Lock` glyph made a second bare `text-terracotta` in `lock-milestone.tsx`, and gold is
+3.37:1 on the page ground. Fixed at the source — the icon is `text-terracotta-700` — rather than by
+widening the sanctioned-bill allowlist; the two icons are mutually exclusive so nothing renders
+side by side. (2) `lint port keeps every control`: the `LockDateConfirmModal` → `LockConfirmModal`
+rename dropped a control from the `/dashboard/[eventId]/vendors` baseline, so the baseline was
+regenerated in this same PR, exactly as the guard instructs. That regeneration also folds in
+additive catch-up from already-merged work (the baseline on `main` was stale at `e07861d93`);
+every `-` line in it was checked, and the ONLY genuine control removal is the renamed modal.
+
 SPEC IMPACT: `Explore_Replan_BUILD_SPEC_2026-07-27.md` §6 + §8 — the pre-lock confirm now announces
 plan and service casualties on every lock that has them, not only on the date-setting lock.
 `DECISION_LOG.md` row added in the corpus.

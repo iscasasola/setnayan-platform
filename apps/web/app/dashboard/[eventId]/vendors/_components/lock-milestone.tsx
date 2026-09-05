@@ -110,7 +110,7 @@ export function LockConfirmModal({
               strokeWidth={2}
             />
           ) : (
-            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
+            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta-700" strokeWidth={2} />
           )}
           <div className="space-y-1.5">
             <h3 className="text-sm font-semibold text-ink">

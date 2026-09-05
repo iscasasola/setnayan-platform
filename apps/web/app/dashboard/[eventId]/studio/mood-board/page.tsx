@@ -187,18 +187,37 @@ export default async function MoodBoardPage({ params }: Props) {
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchGuestsByEvent(supabase, eventId),
-    // One representative figure per attire role. These are colored SVG
-    // illustrations on a no-CORS host, so they're shown as reference images
-    // beside the role's palette swatches (not canvas-recolored).
+    // One representative figure per attire role, WITH its tagged colour ranges
+    // so the board can recolour it — see the note on `attireCards` below.
+    //
+    // ⛔ The comment that used to sit here said these figures are "on a no-CORS
+    // host, so they can't be canvas-recolored". THAT WAS FALSE, and it was the
+    // only evidence anyone had for the belief. The R2 host echoes every origin
+    // we run on; re-measure it in one line:
+    //
+    //   curl -sI -H "Origin: https://www.setnayan.com" \
+    //     https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/moodboard-library/figure_attire/elegant-simple-classic/bride.svg
+    //   → 200 · Access-Control-Allow-Origin: https://www.setnayan.com
+    //
+    // What actually kept attire at stock colours was THIS SELECT: it asked for
+    // three columns and never for `moodboard_asset_color_ranges`, so
+    // `attireCards` had no `regions` to pass and `BoardCardView`'s `recolorable`
+    // was false for every attire card. A query shape, not a hosting problem.
+    // All 75 live figures already carry a range (measured on prod 2026-09-05).
     supabase
       .from('moodboard_library_assets')
-      .select('asset_subtype, label, storage_path')
+      .select(
+        `asset_subtype, label, storage_path,
+         moodboard_asset_color_ranges ( slot_id, sampled_hex, tolerance_de, region_label )`,
+      )
       .eq('asset_type', 'figure_attire')
       .not('approved_at', 'is', null)
       .is('retired_at', null),
-    // Venue scenes + florals + their tagged color regions. These are
-    // CORS-clean (picsum / app-served), so the board auto-applies the palette
-    // to them in-browser.
+    // Venue scenes + florals + their tagged colour regions, auto-recoloured
+    // in-browser. NOTE (MB23): the two `venue_scene` rows that were live here
+    // were picsum.photos STOCK PHOTOGRAPHS and are retired by migration
+    // 20271205919528 — so `churchRow` is now undefined and the Ceremony card
+    // does not build. That is deliberate; see the comment on `ceremonyCards`.
     supabase
       .from('moodboard_library_assets')
       .select(
@@ -560,15 +579,38 @@ export default async function MoodBoardPage({ params }: Props) {
   const initialPalette = palette;
 
   // ── one representative figure per attire subtype (first wins) ───────────
-  const figureBySubtype: Record<string, { url: string; label: string }> = {};
-  for (const row of attireRes.data ?? []) {
+  type AttireRow = {
+    asset_subtype: string | null;
+    label: string;
+    storage_path: string;
+    moodboard_asset_color_ranges: RangeRow[] | RangeRow | null;
+  };
+  //
+  // 🔑 A REPRESENTATIVE THAT CANNOT RECOLOUR IS THE WRONG REPRESENTATIVE.
+  // This used to be "first row wins" over a query with no ORDER BY — so which
+  // of the five style variants a couple saw was whatever Postgres happened to
+  // return. That was harmless while nothing recoloured. It is not harmless now:
+  // `modern-minimalist/bride` draws the gown in #ECEBE7, the SAME COLOUR as its
+  // own background rect (ΔE 0.0, 76.6% of the figure column — measured
+  // 2026-09-05), so no colour range can select the dress without the backdrop.
+  // Migration 20271205919528 deletes that false range rather than inventing a
+  // tolerance for it, and this prefers a variant that HAS one. First-with-ranges
+  // wins; if no variant has any, the first is still used and the card renders as
+  // a reference drawing, exactly as before.
+  const figureBySubtype: Record<
+    string,
+    { url: string; label: string; regions: ColorRangeSlot[] }
+  > = {};
+  for (const row of (attireRes.data ?? []) as AttireRow[]) {
     if (!row.asset_subtype) continue;
-    if (!figureBySubtype[row.asset_subtype]) {
-      figureBySubtype[row.asset_subtype] = {
-        url: row.storage_path,
-        label: row.label,
-      };
-    }
+    const regions = toRegions(row.moodboard_asset_color_ranges);
+    const held = figureBySubtype[row.asset_subtype];
+    if (held && (held.regions.length > 0 || regions.length === 0)) continue;
+    figureBySubtype[row.asset_subtype] = {
+      url: row.storage_path,
+      label: row.label,
+      regions,
+    };
   }
 
   // ── representative venue scenes + bouquet (first match) ─────────────────
@@ -604,9 +646,23 @@ export default async function MoodBoardPage({ params }: Props) {
     // `resolveAttirePaletteColor` uses to dress the figure in the 3D room.
     paletteColors:
       (d.specific && palette[d.specific]?.length ? palette[d.specific] : palette[d.key]) ?? [],
+    // MB23 — the figure now recolours, exactly as `churchRow`/`bouquetRow` do.
+    // The 🔑 risk this carries is the WHITE: four of the forty seeded figures
+    // had a range whose tolerance also swallowed their own opaque background
+    // rect, so the gown AND the page behind it turned burgundy (measured: 100%
+    // of the outer frame). Fixed in the DATA by migration 20271205919528, never
+    // by an override here, and pinned by
+    // `_components/the-background-never-wears-the-palette.test.ts`.
+    regions: figureBySubtype[d.subtype]!.regions,
     portrait: true,
   }));
 
+  // MB23 — with every `internet_placeholder` row retired there is no live
+  // `venue_scene`, so this stays empty and the Ceremony card is ABSENT. That is
+  // the correct, honest end state: the card used to be a random stock
+  // photograph of a church, shown to the couple as their ceremony space "in
+  // their colors". Nothing substitutes a photograph here; the card returns when
+  // an owner-supplied Ceremony DRAWING (SVG, colour regions tagged) is seeded.
   const ceremonyCards: BoardCard[] = [];
   if (churchRow) {
     ceremonyCards.push({

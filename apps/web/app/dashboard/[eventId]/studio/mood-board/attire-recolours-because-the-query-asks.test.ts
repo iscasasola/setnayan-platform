@@ -1,0 +1,208 @@
+/**
+ * MB23 · THE DEFECT WAS A SELECT THAT DID NOT ASK.
+ *
+ * "In your colors" showed every attire figure at its artist-chosen colours for
+ * months. The code said why: the figures were "on a no-CORS host, so they can't
+ * be canvas-recolored". That comment was false — the R2 host echoes the origins
+ * we run on, and all 75 live figures already carried tagged colour ranges.
+ *
+ * The real cause was one line of query shape. `page.tsx` selected
+ * `asset_subtype, label, storage_path` and never `moodboard_asset_color_ranges`,
+ * so `attireCards` had no `regions` to pass and `BoardCardView.recolorable` was
+ * false for every attire card, forever, silently.
+ *
+ * 🪤 NOTHING WOULD HAVE CAUGHT THAT. No type error: `regions` is optional. No
+ * test: the cards still rendered. No visual alarm: a drawing at stock colours
+ * looks like a drawing. A missing column in a SELECT is invisible to everything
+ * except someone looking at the screen and knowing what they should be seeing.
+ * This file is the thing that would have caught it.
+ *
+ * Source-level by necessity — `page.tsx` is an async server component over a
+ * Supabase client, so importing it here would drag in the whole request graph.
+ * Every window below ends at a SYMBOL, never at "the next export", so a mention
+ * in a neighbouring comment cannot satisfy an assertion (see
+ * [[a-source-guards-window-must-end-at-the-brace]]).
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { stripComments } from '@/lib/strip-comments';
+
+const PAGE = new URL('./page.tsx', import.meta.url);
+const source = readFileSync(PAGE, 'utf8');
+
+/** The slice from `open` up to (not including) the next occurrence of `close`. */
+function windowBetween(open: string, close: string): string {
+  const start = source.indexOf(open);
+  assert.notEqual(start, -1, `\`${open}\` is gone — this guard now watches nothing`);
+  const end = source.indexOf(close, start + open.length);
+  assert.notEqual(end, -1, `\`${close}\` no longer follows \`${open}\``);
+  return source.slice(start, end);
+}
+
+test('the attire query asks for the colour ranges', () => {
+  // Window: the attire select, ending at the venue/florals query that follows it.
+  const attireQuery = windowBetween(
+    ".eq('asset_type', 'figure_attire')",
+    ".in('asset_type', ['venue_scene', 'florals'])",
+  );
+  // The select sits ABOVE the .eq, so widen backwards to the .from() that opens it.
+  const fromIdx = source.lastIndexOf(
+    ".from('moodboard_library_assets')",
+    source.indexOf(".eq('asset_type', 'figure_attire')"),
+  );
+  const select = source.slice(fromIdx, source.indexOf(".eq('asset_type', 'figure_attire')"));
+
+  assert.match(
+    select,
+    /moodboard_asset_color_ranges\s*\(\s*slot_id,\s*sampled_hex,\s*tolerance_de,\s*region_label\s*\)/,
+    'The attire query has stopped selecting moodboard_asset_color_ranges. Every attire ' +
+      'card in "In your colors" will silently render at the artist\'s colours instead of ' +
+      "the couple's — which is exactly the bug MB23 fixed, and it is invisible to types, " +
+      'to rendering tests, and to the eye of anyone who does not already know what the ' +
+      'card should look like.',
+  );
+  assert.ok(attireQuery.length > 0);
+});
+
+test('attireCards passes those ranges through as regions', () => {
+  // Window: the attireCards builder, ending at the next top-level const.
+  const builder = windowBetween('const attireCards: BoardCard[]', '\n  const ceremonyCards');
+  assert.match(
+    builder,
+    /regions:\s*figureBySubtype\[d\.subtype\]!\.regions/,
+    'attireCards no longer passes `regions`. Selecting the colour ranges and then not ' +
+      'handing them to the card is the same defect one step later: BoardCardView falls ' +
+      'back to a plain reference drawing and nothing anywhere reports it.',
+  );
+});
+
+test('the representative figure prefers a variant that can actually recolour', () => {
+  // Window: the figureBySubtype loop, ending at the venue/florals block.
+  const picker = windowBetween('const figureBySubtype: Record<', '// ── representative venue');
+  assert.match(
+    picker,
+    /held\.regions\.length > 0/,
+    'The representative-figure pick is back to "whatever row Postgres returned first". ' +
+      'That decides, at random, whether a couple sees a recolourable figure or a fixed ' +
+      'one — and for the bride it decides whether she sees modern-minimalist/bride, whose ' +
+      'gown is the same colour as its own background (ΔE 0.0) and therefore carries no ' +
+      'colour range at all. Restore the first-with-ranges-wins preference.',
+  );
+});
+
+/**
+ * The comment blocks of a file, with their offsets: each `/* … *\/` and each run
+ * of consecutive `//` lines, as one block. A blank line ends a run.
+ *
+ * 🪤 THE WINDOW IS THE BLOCK, NOT A CHARACTER COUNT. The first version of the
+ * guard below took ±600 characters around each hit — and a sabotage pass walked
+ * straight through it: inserting a fresh, unrefuted "no-CORS host" claim above
+ * the attire query left the test GREEN, because the window reached into the
+ * NEIGHBOURING docblock and borrowed the word FALSE out of the correction. Same
+ * failure as [[a-source-guards-window-must-end-at-the-brace]], one file over: a
+ * window that does not end where the thing it describes ends will eventually
+ * read someone else's prose and report it as yours.
+ *
+ * 🪤 AND THE BLOCKS COME FROM `stripComments`, NOT FROM A REGEX OF MY OWN. The
+ * second version hand-rolled `/\/\*[\s\S]*?\*\//g` + a `//`-line scanner, and
+ * `lint-one-comment-stripper.mjs` refused it — correctly. That regex treats the
+ * `/*` inside a string like `accept="image/*"` as a comment opener and blanks
+ * everything to the next real `*\/`; a guard whose subject lands in one of those
+ * windows asserts against a blank and passes. `stripComments` is a lexer, and it
+ * replaces comment characters with SPACES, so offsets stay true and the blocks
+ * can be recovered by diffing it against the source.
+ */
+function commentBlocks(text: string): { text: string; index: number }[] {
+  const stripped = stripComments(text);
+  const inComment = (i: number) => text[i] !== stripped[i];
+  const out: { text: string; index: number }[] = [];
+  let start = -1;
+  let lastHit = -1;
+  const flush = () => {
+    if (start === -1) return;
+    out.push({ text: text.slice(start, lastHit + 1), index: start });
+    start = -1;
+  };
+  for (let i = 0; i < text.length; i++) {
+    if (!inComment(i)) continue;
+    if (start !== -1) {
+      // A gap of pure whitespace with at most one newline keeps the run going
+      // (consecutive `//` lines); a blank line starts a new block.
+      const gap = text.slice(lastHit + 1, i);
+      if (!/^\s*$/.test(gap) || (gap.match(/\n/g)?.length ?? 0) > 1) flush();
+    }
+    if (start === -1) start = i;
+    lastHit = i;
+  }
+  flush();
+  return out;
+}
+
+test('the false "no-CORS host" claim may only appear where it is refuted', () => {
+  const board = readFileSync(
+    new URL('./_components/moodboard-board.tsx', import.meta.url),
+    'utf8',
+  );
+  // 🪤 NOT "the phrase must not appear". Both files QUOTE the old claim on
+  // purpose, so the next reader learns what was believed and why it was wrong —
+  // a guard that banned the words outright would fire on the correction itself
+  // and be deleted within a week. The rule is: every occurrence must sit in a
+  // comment block that ALSO refutes it.
+  const CLAIM = /can'?t be canvas-recolou?red|can ?not be canvas-recolou?red|no-CORS host/gi;
+  const REFUTED = /\bFALSE\b|\bthey are not\b|⛔/i;
+
+  for (const [name, text] of [
+    ['page.tsx', source],
+    ['moodboard-board.tsx', board],
+  ] as const) {
+    const blocks = commentBlocks(text);
+    const hits = [...text.matchAll(CLAIM)];
+    assert.ok(
+      hits.length > 0,
+      `${name} no longer mentions the old "no-CORS host" claim at all. Keep the ` +
+        'correction: this belief survived for months precisely because nothing in the ' +
+        'code contradicted it, and a session that has never heard of it will re-derive ' +
+        'it from the same evidence.',
+    );
+    for (const hit of hits) {
+      const block = blocks.find(
+        (b) => hit.index! >= b.index && hit.index! < b.index + b.text.length,
+      );
+      assert.ok(
+        block,
+        `${name} carries the "no-CORS host" claim OUTSIDE any comment — as code or as a ` +
+          `string, at character ${hit.index}. That is not a quotation being refuted.`,
+      );
+      assert.match(
+        block!.text,
+        REFUTED,
+        `${name} states, at character ${hit.index}, that attire figures cannot be ` +
+          'canvas-recoloured because of their host — in a comment block that does not ' +
+          'refute it. That claim is FALSE, and it was the only evidence anyone had for ' +
+          'leaving this broken for months. Measure before you write it:\n' +
+          '  curl -sI -H "Origin: https://www.setnayan.com" \\\n' +
+          '    https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/moodboard-library/figure_attire/elegant-simple-classic/bride.svg\n' +
+          '  → 200 · Access-Control-Allow-Origin: https://www.setnayan.com\n\n' +
+          `The offending block:\n${block!.text.slice(0, 400)}`,
+      );
+    }
+    assert.match(
+      text,
+      /curl -sI -H "Origin:/,
+      `${name} should carry the one-line re-measurement, so the next reader can check ` +
+        'the claim instead of trusting a comment.',
+    );
+  }
+});
+
+test('the canvas image asks for CORS — a clean host is useless if the tag never does', () => {
+  const studio = readFileSync(new URL('./_components/recolor-studio.tsx', import.meta.url), 'utf8');
+  assert.match(
+    studio,
+    /img\.crossOrigin = 'anonymous'/,
+    'RecolorStudio loads the image for the canvas without crossOrigin="anonymous", so ' +
+      'every getImageData throws a security error and every card degrades to an ' +
+      'un-recoloured paint — with no console error the couple or we would ever see.',
+  );
+});

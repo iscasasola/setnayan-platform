@@ -1,29 +1,33 @@
 import Link from 'next/link';
 import { AppWindow, Globe, ShieldCheck, Zap } from 'lucide-react';
-import { DESKTOP_RELEASE } from '@/lib/desktop-release';
+import { resolveDesktopRelease } from '@/lib/desktop-release-server';
+import { DESKTOP_ENCODER_READINESS_NOTICE } from '@/lib/live-studio-readiness';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import {
   RevealGroup,
   LineRevealH1,
   AppWindowHero,
   MagneticDownloadButton,
+  PlatformCompatBanner,
 } from './_download-motion';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
 // edge cache so static marketing routes serve Google's crawl rate-limit
 // budget without origin pressure. Each page rebuilds at most once per hour.
+// S10: also bounds how stale the R2-resolved release can be — a fresh release
+// shows up within this window, never instantly and never never.
 export const revalidate = 3600;
 
 export const metadata = {
-  title: 'Download Setnayan for Mac',
+  title: 'Download Setnayan for Mac or Windows',
   description:
-    'Install Setnayan as a native macOS app for Apple Silicon. It opens straight to your account — your guest list, invitations, planner and seating in their own window. iOS and Android shells on the V1.5 roadmap.',
+    'Install Setnayan as a native desktop app for Mac or Windows. It opens straight to your account — your guest list, invitations, planner and seating in their own window. iOS and Android shells on the V1.5 roadmap.',
   alternates: { canonical: '/download' },
   openGraph: {
-    title: 'Download Setnayan for Mac',
+    title: 'Download Setnayan for Mac or Windows',
     description:
-      'A native macOS app for Apple Silicon that opens straight to your Setnayan account. iOS and Android on the V1.5 roadmap.',
+      'A native desktop app for Mac or Windows that opens straight to your Setnayan account. iOS and Android on the V1.5 roadmap.',
     url: '/download',
   },
 };
@@ -33,8 +37,15 @@ function formatMb(bytes: number) {
 }
 
 export default async function DownloadPage() {
-  const mac = DESKTOP_RELEASE.mac.aarch64;
-  const sizeLabel = formatMb(mac.sizeBytes);
+  // S10: resolves from the setnayan-media R2 bucket (see lib/desktop-release.ts)
+  // instead of a hardcoded object pointing at one committed .dmg. `release` is
+  // `null` when R2 can't be reached or hasn't published yet — rendered as an
+  // honest "not available right now" state below, never a link that 404s.
+  const release = await resolveDesktopRelease();
+  const mac = release?.mac.aarch64 ?? null;
+  const windows = release?.windows ?? null;
+  const macSizeLabel = mac ? formatMb(mac.sizeBytes) : null;
+  const winSizeLabel = windows ? formatMb(windows.sizeBytes) : null;
 
   // Nav/icon/menu-registry overlay for the "Download for Mac" CTA label
   // (public.download.mac-api) — applied to the CTA + the step-1 instruction.
@@ -47,6 +58,7 @@ export default async function DownloadPage() {
   // the next ISR pass), not on the next request.
   const navSlots = await getNavSlotMap();
   const macDownloadLabel = navSlots['public.download.mac-api']?.label ?? 'Download for Mac';
+  const winDownloadLabel = 'Download for Windows';
 
   return (
     <main className="min-h-dvh bg-cream text-ink">
@@ -69,27 +81,78 @@ export default async function DownloadPage() {
               to your account, no browser tab in sight.
             </p>
 
-            <div data-reveal-item className="flex flex-wrap items-center gap-x-4 gap-y-3 pt-1">
-              <MagneticDownloadButton label={macDownloadLabel} sizeLabel={sizeLabel} />
-              <Link
-                href="https://setnayan.com"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/70 underline-offset-4 transition-colors hover:text-ink hover:underline"
-              >
-                <Globe aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Use it on the web instead
-              </Link>
-            </div>
+            {/* READINESS GATE — rendered verbatim, above both download buttons
+                (S10 guard test asserts the exact string). Not a claim about the
+                app in general: the OS floor for Setnayan's own future in-app
+                encoder specifically. See DESKTOP_ENCODER_READINESS_NOTICE's
+                docblock in lib/live-studio-readiness.ts for why this is a
+                separate fact from "you need OBS today". The OBS link itself
+                lives in PlatformCompatBanner just below, next to the
+                best-effort per-visitor nudge, rather than mid-sentence here. */}
+            <p data-reveal-item className="max-w-md text-xs leading-relaxed text-ink/50">
+              {DESKTOP_ENCODER_READINESS_NOTICE}
+            </p>
 
-            <div data-reveal-item className="space-y-1.5 pt-1">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
-                v{DESKTOP_RELEASE.version} · {sizeLabel} · Apple Silicon (M1 – M4) · Released{' '}
-                {DESKTOP_RELEASE.publishedAt}
-              </p>
-              <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
-                <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Signed &amp; notarized by Apple
-              </p>
-            </div>
+            <PlatformCompatBanner />
+
+            {mac ? (
+              <div data-reveal-item className="flex flex-wrap items-center gap-x-4 gap-y-3 pt-1">
+                <MagneticDownloadButton href="/api/download/mac" label={macDownloadLabel} sizeLabel={macSizeLabel!} />
+                {windows ? (
+                  <MagneticDownloadButton
+                    href="/api/download/windows"
+                    label={winDownloadLabel}
+                    sizeLabel={winSizeLabel!}
+                    variant="secondary"
+                  />
+                ) : null}
+                <Link
+                  href="https://setnayan.com"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/70 underline-offset-4 transition-colors hover:text-ink hover:underline"
+                >
+                  <Globe aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Use it on the web instead
+                </Link>
+              </div>
+            ) : (
+              // Honest degraded state — never a link that 404s. See
+              // lib/desktop-release.ts: resolveDesktopRelease() returns null when
+              // R2 hasn't published a release yet or can't be reached.
+              <div data-reveal-item className="max-w-md rounded-xl border border-ink/12 bg-ink/[0.03] px-4 py-3 text-sm text-ink/65">
+                The desktop download isn&rsquo;t available right now. Try again shortly, or{' '}
+                <Link href="https://setnayan.com" className="text-terracotta underline-offset-4 hover:underline">
+                  use Setnayan on the web
+                </Link>{' '}
+                in the meantime.
+              </div>
+            )}
+
+            {mac ? (
+              <div data-reveal-item className="space-y-1.5 pt-1">
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
+                  v{release!.version} · {macSizeLabel} · Apple Silicon · Released {release!.publishedAt}
+                  {windows ? ` · Windows build ${winSizeLabel}` : ''}
+                </p>
+                {mac.signed ? (
+                  <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
+                    <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Signed &amp; notarized by Apple
+                  </p>
+                ) : (
+                  // Truthful, not alarming: an ad-hoc-signed build opens fine on
+                  // first launch with one extra click (see "First launch" below),
+                  // it is simply not Apple-notarized YET (S11).
+                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/40">
+                    Not yet notarized by Apple — see &ldquo;First launch&rdquo; below
+                  </p>
+                )}
+                {windows && !windows.signed ? (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/40">
+                    Windows build is unsigned — Windows SmartScreen will warn on first run
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </RevealGroup>
 
           <AppWindowHero />
@@ -181,17 +244,36 @@ export default async function DownloadPage() {
             <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
               <Note data-reveal-item label="First launch">
                 <h3 className="text-xl font-semibold tracking-[-0.01em] text-ink">
-                  Just double-click to open.
+                  {mac?.signed ? 'Just double-click to open.' : 'One extra click, first time only.'}
                 </h3>
-                <p className="mt-3 text-ink/65">
-                  Because Setnayan is notarized by Apple, it opens like any trusted
-                  Mac app — no right-click, no Gatekeeper workarounds.
-                </p>
-                <p className="mt-3 text-ink/65">
-                  The first time, macOS may ask once to confirm you downloaded it
-                  from the internet — click <span className="text-ink/80">Open</span>.
-                  That&rsquo;s it.
-                </p>
+                {mac?.signed ? (
+                  <>
+                    <p className="mt-3 text-ink/65">
+                      Because Setnayan is notarized by Apple, it opens like any trusted
+                      Mac app — no right-click, no Gatekeeper workarounds.
+                    </p>
+                    <p className="mt-3 text-ink/65">
+                      The first time, macOS may ask once to confirm you downloaded it
+                      from the internet — click <span className="text-ink/80">Open</span>.
+                      That&rsquo;s it.
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-3 text-ink/65">
+                    This build isn&rsquo;t Apple-notarized yet, so macOS will warn once on first
+                    open. Right-click the app in Applications and choose{' '}
+                    <span className="text-ink/80">Open</span>, then confirm — after that it
+                    opens normally.
+                  </p>
+                )}
+                {windows && !windows.signed ? (
+                  <p className="mt-3 text-ink/65">
+                    On Windows, SmartScreen will warn too (the build isn&rsquo;t
+                    code-signed yet) — click{' '}
+                    <span className="text-ink/80">More info</span>, then{' '}
+                    <span className="text-ink/80">Run anyway</span>.
+                  </p>
+                ) : null}
               </Note>
 
               <Note data-reveal-item label="What you need">
@@ -199,12 +281,21 @@ export default async function DownloadPage() {
                   System requirements.
                 </h3>
                 <ul className="mt-4 divide-y divide-ink/8">
-                  <Req>Apple Silicon Mac (M1, M2, M3 or M4)</Req>
-                  <Req>macOS 11 Big Sur or newer</Req>
+                  <Req>Apple-silicon Mac (M1 or newer) on macOS 14 or later, with the Safari 26 update</Req>
+                  {windows ? <Req>Or Windows 10/11 with hardware video encoding</Req> : null}
                   <Req>An internet connection — it opens your account in a native window</Req>
                 </ul>
                 <p className="mt-4 text-sm text-ink/55">
-                  On an Intel Mac? Use{' '}
+                  On an Intel Mac, or an older macOS? Use{' '}
+                  <a
+                    href="https://obsproject.com/"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-terracotta underline-offset-4 hover:underline"
+                  >
+                    OBS
+                  </a>{' '}
+                  or{' '}
                   <Link
                     href="https://setnayan.com"
                     className="text-terracotta underline-offset-4 hover:underline"

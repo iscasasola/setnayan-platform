@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle2, MonitorPlay } from 'lucide-react';
-import type { ReadinessDecision } from '@/lib/live-studio-readiness';
+import { DESKTOP_ENCODER_READINESS_NOTICE, type ReadinessDecision } from '@/lib/live-studio-readiness';
 
 /**
  * BROADCAST READINESS — the couple-facing "can this actually go out?" card.
@@ -77,6 +77,12 @@ export function BroadcastReadiness({
         <MonitorPlay aria-hidden className="mt-px h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
         <span>{readiness.encoderNotice}</span>
       </p>
+
+      {/* S10 — the desktop app's own OS floor, mirrored from /download. A
+          DIFFERENT fact than encoderNotice above (see the constant's docblock):
+          which machines can run Setnayan's OWN future encoder, not which
+          software sends the picture out today. */}
+      <p className="mt-1.5 pl-6 text-[11px] text-ink/45">{DESKTOP_ENCODER_READINESS_NOTICE}</p>
     </section>
   );
 }

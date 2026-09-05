@@ -1,13 +1,22 @@
 name: build-desktop
 
 # Produces buildable .app (macOS) + .exe / .msi (Windows) artifacts on every
-# push to main and on PRs touching the desktop wrapper, and publishes the
-# freshest installers to a rolling `desktop-latest` release.
+# push to main and on PRs touching the desktop wrapper, and (S10, 2026-09-05)
+# publishes the freshest installers to the PUBLIC `setnayan-media` R2 bucket —
+# the actual release channel `/download` and the desktop updater (S12) read
+# from. `publish-latest` used to target a `desktop-latest` GitHub Release, but
+# that URL 404s for the public: this repo is private, and GitHub Release asset
+# URLs require auth regardless of `prerelease`. That publish step is KEPT here
+# only as an internal/CI artifact mirror (useful to a logged-in maintainer);
+# it is no longer anything `/download` or `lib/desktop-release.ts` points at.
 #
 # macOS signing: if the APPLE_* repo secrets are present, `tauri build`
 # Developer-ID-signs + notarizes the bundle (no Gatekeeper warning on
 # download); if they're absent it falls back to ad-hoc signing (the old
-# Sprint-0 behavior, so CI never breaks). Windows is still unsigned (Phase 2).
+# Sprint-0 behavior, so CI never breaks). Windows is unsigned until S11 lands
+# a code-signing cert — `release.json`'s `windows.signed: false` and the job
+# summary below both say so; the desktop-encoder README's rehearsal script
+# (S13) teaches "More info → Run anyway" for the SmartScreen warning.
 
 on:
   # DEFERRED 2026-06-20 (owner): website-first. The desktop (macOS/Windows)
@@ -159,22 +168,31 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # Publish the freshest macOS .dmg + Windows .msi to a rolling pre-release
-  # ("desktop-latest") on every push to main, so the public download is never
-  # stale. The Actions artifacts above expire in 14 days and need a GitHub
-  # login to fetch; this gives a stable, always-current download URL:
-  #   https://github.com/iscasasola/setnayan-platform/releases/download/desktop-latest/Setnayan_0.0.1_aarch64.dmg
-  # The semantic v0.0.1 release is left untouched.
+  # Publish the freshest macOS .dmg + Windows .msi to the public `setnayan-media`
+  # R2 bucket, under BOTH an immutable `desktop/<version>/` path and a rolling
+  # `desktop/latest/` path — so `/download` (via `lib/desktop-release.ts` ->
+  # `desktop/latest/release.json`) and the future updater (S12, via
+  # `desktop/latest/latest.json`) always resolve the freshest build without a
+  # code change on every release. `setnayan-media` is the ONLY publicly-served
+  # R2 bucket (`lib/r2.ts`'s `publicUrlFor` — the other four hold vendor
+  # contracts/IDs/private uploads); everything under `desktop/` here is meant to
+  # be fetched by an anonymous browser or `tauri`'s Rust-side updater check.
   publish-latest:
     name: publish desktop-latest
     needs: build
-    # Run on main pushes only, and even if one matrix leg flaked — Windows is a
-    # non-required check, so a Windows hiccup must not freeze the Mac download.
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Runs on a manual dispatch (today's only trigger — see the `on:` block
+    # above) AND on a future push-to-main, and even if one matrix leg flaked —
+    # Windows is a non-required check, so a Windows hiccup must not freeze the
+    # Mac download. Previously gated on `github.event_name == 'push'` alone,
+    # which made this job UNREACHABLE while the trigger is workflow_dispatch-only
+    # (measured 2026-09-05 — `desktop-latest` had been frozen since 2026-06-19).
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -186,7 +204,11 @@ jobs:
       - name: List downloaded installers
         run: ls -laR dist
 
-      - name: Publish to rolling desktop-latest release
+      - name: Publish to rolling desktop-latest release (internal/CI mirror only)
+        # Kept as a maintainer-facing artifact mirror. The repo is PRIVATE, so
+        # these asset URLs 404 for an anonymous visitor regardless of
+        # `prerelease` — this is NOT what `/download` or the updater use; see
+        # the R2 steps below for the actual public release channel.
         uses: softprops/action-gh-release@v2
         with:
           tag_name: desktop-latest
@@ -210,3 +232,145 @@ jobs:
             warning on an unsigned fallback build, right-click the app →
             **Open**, or run `xattr -cr /Applications/Setnayan.app`. Apple
             Silicon only for now (no Intel build yet).
+
+            This GitHub Release is an internal mirror only — the repo is
+            private, so these asset links 404 for the public. The real
+            download channel is https://setnayan.com/download (R2-backed).
+
+      - name: Resolve version + installer paths
+        id: rel
+        run: |
+          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          DMG=$(find dist -iname '*.dmg' | head -1)
+          MSI=$(find dist -iname '*.msi' | head -1)
+          if [ -z "$DMG" ]; then
+            echo "::error::no .dmg found under dist/ — macOS build must have failed; refusing to publish a release with no macOS artifact."
+            exit 1
+          fi
+          if [ -z "$MSI" ]; then
+            echo "::warning::no .msi found under dist/ — Windows build likely failed. Publishing macOS only; the Windows link on /download will keep pointing at the last successful Windows build until this is fixed."
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
+          echo "msi=$MSI" >> "$GITHUB_OUTPUT"
+          echo "dmg_size=$(stat -c%s "$DMG")" >> "$GITHUB_OUTPUT"
+          if [ -n "$MSI" ]; then
+            echo "msi_size=$(stat -c%s "$MSI")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check R2 credentials
+        id: r2check
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+        run: |
+          if [ -z "$R2_ACCOUNT_ID" ] || [ -z "$R2_ACCESS_KEY_ID" ] || [ -z "$R2_SECRET_ACCESS_KEY" ] || [ -z "$R2_PUBLIC_URL" ]; then
+            echo "::warning::R2 credentials (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_PUBLIC_URL) are not fully configured as repo secrets — skipping the public R2 publish. /download will fall back to its last-known-good release (see lib/desktop-release.ts). This is an owner action, not a code gap: rule 12 says build behind the gate rather than fail the run."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish installers + release manifests to R2
+        if: steps.r2check.outputs.configured == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          BUCKET: setnayan-media
+          VERSION: ${{ steps.rel.outputs.version }}
+          DMG: ${{ steps.rel.outputs.dmg }}
+          MSI: ${{ steps.rel.outputs.msi }}
+          DMG_SIZE: ${{ steps.rel.outputs.dmg_size }}
+          MSI_SIZE: ${{ steps.rel.outputs.msi_size }}
+          # Read directly from secrets, not a `needs.build.outputs.*` — the build
+          # job is a matrix and doesn't expose per-leg outputs; secrets are
+          # visible to every job in the run regardless of which job set them up.
+          MAC_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          DMG_NAME=$(basename "$DMG")
+          PUBLIC_URL_TRIMMED="${PUBLIC_URL%/}"
+
+          echo "Uploading $DMG_NAME ($DMG_SIZE bytes, signed=$MAC_SIGNED)"
+          for PREFIX in "desktop/$VERSION" "desktop/latest"; do
+            aws --endpoint-url "$ENDPOINT" s3 cp "$DMG" "s3://$BUCKET/$PREFIX/$DMG_NAME" \
+              --content-type application/x-apple-diskimage --cache-control "public, max-age=300"
+          done
+          MAC_URL="$PUBLIC_URL_TRIMMED/desktop/latest/$DMG_NAME"
+
+          WINDOWS_JSON='null'
+          if [ -n "$MSI" ]; then
+            MSI_NAME=$(basename "$MSI")
+            echo "Uploading $MSI_NAME ($MSI_SIZE bytes, signed=false — S11)"
+            for PREFIX in "desktop/$VERSION" "desktop/latest"; do
+              aws --endpoint-url "$ENDPOINT" s3 cp "$MSI" "s3://$BUCKET/$PREFIX/$MSI_NAME" \
+                --content-type application/x-msi --cache-control "public, max-age=300"
+            done
+            WIN_URL="$PUBLIC_URL_TRIMMED/desktop/latest/$MSI_NAME"
+            WINDOWS_JSON=$(jq -n --arg url "$WIN_URL" --argjson size "$MSI_SIZE" --arg filename "$MSI_NAME" \
+              '{url: $url, sizeBytes: $size, filename: $filename, signed: false}')
+            echo "### Windows build: UNSIGNED" >> "$GITHUB_STEP_SUMMARY"
+            echo "SmartScreen will warn on first run until S11 lands a code-signing cert. The rehearsal script (S13) teaches: **More info -> Run anyway**." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Windows build: NOT PUBLISHED THIS RUN" >> "$GITHUB_STEP_SUMMARY"
+            echo "No .msi artifact — /download keeps serving the last successful Windows build, if any." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # `release.json` — OUR OWN shape, consumed by lib/desktop-release.ts to
+          # render /download. Deliberately separate from latest.json below: this
+          # carries display fields (size, signed) the Tauri updater format has no
+          # room for, and desktop-release.ts should not be coupled to whatever
+          # S12 decides the updater manifest needs.
+          jq -n \
+            --arg version "$VERSION" \
+            --arg publishedAt "$(date -u +%Y-%m-%d)" \
+            --arg sha "$SHA" \
+            --arg runId "$RUN_ID" \
+            --arg macUrl "$MAC_URL" \
+            --argjson macSize "$DMG_SIZE" \
+            --argjson macSigned "$MAC_SIGNED" \
+            --argjson windows "$WINDOWS_JSON" \
+            '{
+              version: $version,
+              publishedAt: $publishedAt,
+              commit: $sha,
+              runId: $runId,
+              mac: { aarch64: { url: $macUrl, sizeBytes: $macSize, signed: $macSigned } },
+              windows: $windows
+            }' > release.json
+          cat release.json
+
+          # `latest.json` — the Tauri v2 updater manifest SHAPE (S12 will wire the
+          # actual updater plugin + real ed25519 signatures via S11's signing key;
+          # empty `signature` here is honest about "not wired yet", not a bug).
+          jq -n \
+            --arg version "$VERSION" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg macUrl "$MAC_URL" \
+            --arg winUrl "${WIN_URL:-}" \
+            '{
+              version: $version,
+              notes: ("Setnayan desktop " + $version),
+              pub_date: $pub_date,
+              platforms: (
+                { "darwin-aarch64": { signature: "", url: $macUrl } }
+                + (if $winUrl != "" then { "windows-x86_64": { signature: "", url: $winUrl } } else {} end)
+              )
+            }' > latest.json
+          cat latest.json
+
+          for PREFIX in "desktop/$VERSION" "desktop/latest"; do
+            aws --endpoint-url "$ENDPOINT" s3 cp release.json "s3://$BUCKET/$PREFIX/release.json" \
+              --content-type application/json --cache-control "public, max-age=60"
+            aws --endpoint-url "$ENDPOINT" s3 cp latest.json "s3://$BUCKET/$PREFIX/latest.json" \
+              --content-type application/json --cache-control "public, max-age=60"
+          done
+
+          echo "Published desktop/$VERSION and desktop/latest to r2://$BUCKET"

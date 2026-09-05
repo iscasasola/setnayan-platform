@@ -292,3 +292,74 @@ export function lockedNamesLabel(names: readonly string[], categoryLabel: string
 export function cardAddAnother(label: string): string {
   return `Add another ${label}`;
 }
+
+/* ── Inline "More in {category}" row (owner 2026-09-06) ────────────────────────
+   Owner: *"when they also click the find reception button, it must show a lower
+   row that will show other vendors for that category and a search button also"*
+   … **"we do not want to leave the page."**
+
+   Rule 3 above applies here too: this copy is read by `shortlist-categories.tsx`
+   and asserted in `lib/inline-more-row.test.ts` + `lib/explore-info-copy.test.ts`,
+   so a wording change is a deliberate edit in one place, never a string retyped
+   inside JSX. The decisions the copy DESCRIBES live in `lib/inline-more-row.ts`. */
+
+/** Row 2's heading. Uppercased by CSS, not here — screen readers get the words. */
+export function inlineMoreHeading(label: string): string {
+  return `More in ${label}`;
+}
+
+/** The row's own search field. It filters ROW 2, never the bench's category list. */
+export function inlineMoreSearchPlaceholder(label: string): string {
+  return `Search ${label.toLowerCase()}…`;
+}
+
+/** The full sheet is opt-in now, not deleted — it still owns filters + facets. */
+export const INLINE_MORE_SEE_ALL = 'See all';
+
+/** aria-label for the above, which renders as two words and an arrow. */
+export function inlineMoreSeeAllLabel(label: string): string {
+  return `See all ${label} with filters`;
+}
+
+/** The primary action on a row-2 card. Saves to *considering* — never locks. */
+export function inlineMoreSaveLabel(label: string): string {
+  return `Save to ${label}`;
+}
+
+/** The secondary action. Shortlists first, because a thread needs a pick. */
+export const INLINE_MORE_INQUIRE = 'Inquire';
+
+/** Confirmation on the card that was just saved, naming where it went. */
+export function inlineMoreSavedNote(label: string): string {
+  return `Saved to ${label} — it's in the row above.`;
+}
+
+/** The undo beside it. See `canUndoInlineSave` for when it may be offered. */
+export const INLINE_MORE_UNDO = 'Undo';
+
+export const INLINE_MORE_LOADING = 'Finding vendors…';
+
+/** Empty state. A query that matched nothing is a different fact from a
+ *  category with nobody in it, and saying so stops the row reading as broken. */
+export function inlineMoreEmpty(query: string): string {
+  const q = query.trim();
+  return q
+    ? `Nothing else matches “${q}”.`
+    : 'Nothing else in this category yet — try “See all” for the full filters.';
+}
+
+/** Said once under the row, not printed on each sunk card (the badge does that). */
+export function inlineMoreSunkNote(count: number): string {
+  return count === 1
+    ? '1 of these shares no free day with your build — same rule as the row above.'
+    : `${count} of these share no free day with your build — same rule as the row above.`;
+}
+
+/* Row 2's failures. Each one names a DIFFERENT fact, because "nothing here" and
+   "we could not look" must never wear the same words on a surface whose whole
+   job is to show the couple more vendors. */
+export const INLINE_MORE_FAILED = "We couldn't load more vendors just now. Try again in a moment.";
+export const INLINE_MORE_SAVE_FAILED = "We couldn't save that vendor. Nothing was added.";
+export const INLINE_MORE_UNDO_FAILED = "We couldn't undo that. Check the row above.";
+export const INLINE_MORE_INQUIRE_FAILED = "We couldn't open the conversation. They're saved to your shortlist.";
+export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save vendors.';

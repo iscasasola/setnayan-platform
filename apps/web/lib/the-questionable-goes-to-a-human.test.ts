@@ -84,7 +84,7 @@ test('one string on one sign is ONE finding, not three', () => {
   // problems for one line of text on one card.
   const hits = findPublishedContactHits('hello@bloomandvine.com');
   assert.equal(hits.length, 1, JSON.stringify(hits));
-  assert.equal(hits[0].kind, 'any_email');
+  assert.equal(hits[0]?.kind, 'any_email');
 });
 
 test('a date, a time and a name with a full stop are NOT web addresses', () => {
@@ -299,7 +299,7 @@ test('parseScreenFindings is total — it never throws and never invents', () =>
   });
   assert.ok(parsed);
   assert.equal(parsed.hits.length, 1);
-  assert.equal(parsed.hits[0].kind, 'unfamiliar_name');
+  assert.equal(parsed.hits[0]?.kind, 'unfamiliar_name');
 
   // A missing outcome is DERIVED from the hits rather than defaulted to clean.
   const derived = parseScreenFindings({

@@ -162,12 +162,12 @@ test('the service role keeps all three — every write on this path is its', asy
    THE PAIRING
    ══════════════════════════════════════════════════════════════════════════ */
 
-async function insertAsset(extra: string): Promise<{ ok: boolean; message: string }> {
+/** Insert a minimal row plus ONE extra `column = value` pair. */
+async function insertAsset(column: string, value: string) {
   return attempt(
     `INSERT INTO public.moodboard_library_assets
-       (asset_type, label, storage_path, source ${extra ? ', ' + extra.split('=')[0].trim() : ''})
-     VALUES ('venue_scene', 'x', 'moodboard-library/x.jpg', 'internet_placeholder'
-       ${extra ? ', ' + extra.split('=').slice(1).join('=').trim() : ''})`,
+       (asset_type, label, storage_path, source, ${column})
+     VALUES ('venue_scene', 'x', 'moodboard-library/x.jpg', 'internet_placeholder', ${value})`,
   );
 }
 
@@ -175,13 +175,16 @@ test('⭐ THE GUARD · a rejection cannot exist without a reason', async () => {
   // Sabotage run: the CHECK was dropped. This went GREEN — which is exactly
   // what "retire it and say nothing" looked like before MB21, and why the
   // constraint rather than a convention is the fix.
-  const res = await insertAsset("rejected_at = now()");
+  const res = await insertAsset('rejected_at', 'now()');
   assert.equal(res.ok, false, 'a bare rejected_at must be refused');
   assert.match(res.message, /moodboard_library_assets_rejection_paired/);
 });
 
 test('a reason cannot exist without a rejection', async () => {
-  const res = await insertAsset("rejection_reason = 'there is a phone number on the sign'");
+  const res = await insertAsset(
+    'rejection_reason',
+    "'there is a phone number on the sign'",
+  );
   assert.equal(res.ok, false, 'a reason with no refusal is a sentence about nothing');
   assert.match(res.message, /moodboard_library_assets_rejection_paired/);
 });

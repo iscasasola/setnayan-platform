@@ -5802,6 +5802,15 @@ function Hud({
                 Taking it down hides the 3D walk. Printed table signs keep working.
               </p>
             ) : null}
+            {/* The door to the control centre — the couple's room as their
+                guests see it, the facts, and what feeds it. This panel keeps
+                the switch; that page explains it. */}
+            <a
+              href={`/dashboard/${eventId}/plan3d`}
+              className="mt-2 block text-[11px] text-white/55 underline-offset-2 hover:text-white hover:underline"
+            >
+              3D Plan control centre →
+            </a>
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>

@@ -340,11 +340,22 @@ test('convergenceBanner: NARROWING caps the list and says how many more', () => 
   assert.ok(b?.headline.includes('+5 more'));
 });
 
-test('convergenceBanner: ONE day left says only that day works — and does NOT promise a reservation', () => {
+test('convergenceBanner: ONE day left states the CONSEQUENCE + the day — and does NOT promise a reservation', () => {
+  // Owner ruling 2026-09-06: the couple must be told that going ahead with this
+  // build decides their date, not merely that one day happens to fit. Both
+  // halves are asserted: the consequence AND the day, because a headline
+  // carrying only one of them is the defect this replaced.
   const b = convergenceBanner(BUILD_WINDOW);
   assert.equal(b?.tone, 'converged');
-  assert.equal(b.headline, 'Only Sep 26 works for everyone');
+  assert.equal(b.headline, 'Locking these vendors sets your date: Sep 26');
+  assert.match(b.headline, /sets your date/i);
+  assert.ok(b.headline.includes('Sep 26'), 'the headline must name the day, not just the consequence');
+  // Rule 3 of the module: the soft tier never implies a held day.
   assert.ok(/nothing is held yet/i.test(b.detail));
+  assert.ok(
+    !/reserved for you|we have held|date is held/i.test(`${b.headline} ${b.detail}`),
+    'converged copy must never imply the day is held with the vendor',
+  );
 });
 
 test('convergenceBanner: EMPTY uses the shipped Compare conflict copy and names the pair', () => {

@@ -42,6 +42,11 @@ export type CompGrantRow = {
   grant_id: string;
   public_id: string;
   user_id: string | null;
+  /**
+   * NULL = applies to every event this user hosts (the original, only shape
+   * before migration 20271205612762). Set = scoped to that one event only.
+   */
+  event_id: string | null;
   source: CompGrantSource;
   scope: CompGrantScope;
   scoped_skus: string[] | null;
@@ -71,13 +76,65 @@ export async function fetchCompGrantsForUser(
   const { data, error } = await admin
     .from('comp_grants')
     .select(
-      'grant_id, public_id, user_id, source, scope, scoped_skus, expiry, retail_value_centavos, rationale, granted_by, approved_by, revoked_at, created_at',
+      'grant_id, public_id, user_id, event_id, source, scope, scoped_skus, expiry, retail_value_centavos, rationale, granted_by, approved_by, revoked_at, created_at',
     )
     .eq('user_id', userId)
     .order('revoked_at', { ascending: true, nullsFirst: true })
     .order('created_at', { ascending: false });
   if (error) throw new Error(`fetchCompGrantsForUser failed: ${error.message}`);
   return (data ?? []) as CompGrantRow[];
+}
+
+/**
+ * Fetch every ACTIVE comp_grants row, across every user — the read side of
+ * `/admin/gifts`. Unlike `fetchCompGrantsForUser`, this is not scoped to one
+ * target; it is the "what's currently comped, for whom" oversight view.
+ *
+ * Revoked rows are excluded — this page is about what's live, not history.
+ * (A revoked grant is still visible on the target user's own expand-panel at
+ * `/admin/accounts?tab=users`, which is where `fetchCompGrantsForUser`'s
+ * revoked-rows-included behavior is actually used.)
+ */
+export async function fetchAllActiveCompGrants(
+  admin: SupabaseClient,
+  limit = 200,
+): Promise<CompGrantRow[]> {
+  const { data, error } = await admin
+    .from('comp_grants')
+    .select(
+      'grant_id, public_id, user_id, event_id, source, scope, scoped_skus, expiry, retail_value_centavos, rationale, granted_by, approved_by, revoked_at, created_at',
+    )
+    .is('revoked_at', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`fetchAllActiveCompGrants failed: ${error.message}`);
+  return (data ?? []) as CompGrantRow[];
+}
+
+export type HostedEventRow = {
+  event_id: string;
+  display_name: string;
+  event_type: string;
+  event_date: string | null;
+};
+
+/**
+ * Every event `userId` hosts as a 'couple' member — the picker for scoping a
+ * comp grant to one specific event instead of their whole account.
+ */
+export async function fetchEventsHostedBy(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<HostedEventRow[]> {
+  const { data, error } = await admin
+    .from('event_members')
+    .select('events(event_id, display_name, event_type, event_date)')
+    .eq('user_id', userId)
+    .eq('member_type', 'couple');
+  if (error) throw new Error(`fetchEventsHostedBy failed: ${error.message}`);
+  return ((data ?? []) as unknown as { events: HostedEventRow | null }[])
+    .map((row) => row.events)
+    .filter((e): e is HostedEventRow => !!e);
 }
 
 /**

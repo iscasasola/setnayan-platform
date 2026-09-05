@@ -184,7 +184,20 @@ const CSP_REPORT_ONLY = [
   // NOT added: `connect-src`. Turnstile's own traffic runs INSIDE its iframe,
   // on its own origin. If a parent-context call to it ever appears, that is
   // precisely the report this header exists to raise — do not pre-empt it.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com",
+  // `ipc:` / `http://ipc.localhost` — S5 (build-sessions/encoder/S5.md, trap 2):
+  // Tauri's custom-protocol IPC on WINDOWS (WebView2) requests
+  // `http://ipc.localhost/<command>`; WITHOUT this origin in connect-src, that
+  // fetch is a CSP violation and `ipc-protocol.js` permanently latches into its
+  // JSON/postMessage fallback for the rest of the session — a self-inflicted
+  // version of the exact trap `contract.rs`'s docblock describes. Listing it
+  // is NECESSARY for Windows, but NOT SUFFICIENT to reach `InvokeBody::Raw`
+  // everywhere: S0 measured that on macOS/WebKit the `ipc://` custom protocol
+  // is refused from an `https://` document regardless of this header (mixed
+  // content, not CSP) — see `contract.rs`'s own docblock and
+  // `ipc-envelope.ts`'s go-live guard, which is why the chosen transport is
+  // the base64-JSON envelope on EVERY platform, not just macOS. Guarded by
+  // `csp-encoder-ipc.test.ts`.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com ipc: http://ipc.localhost",
   // 🔴 ADDED 2026-08-11. This directive was MISSING ENTIRELY, and its absence was
   // a live outage scheduled for whenever someone enforces this draft: with no
   // `frame-src`, frames fall back to `default-src 'self'`, so EVERY embed on the

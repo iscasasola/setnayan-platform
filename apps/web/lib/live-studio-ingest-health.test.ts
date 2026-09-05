@@ -143,6 +143,79 @@ test('every state carries a non-empty operator sentence — never rendered nothi
 });
 
 // ─────────────────────────────────────────────────────────────────────────
+// S5 — THE DESKTOP TRANSPORT ANNOTATION. Informational only: must NEVER
+// change `state`, in either direction, for any envelope value — including
+// `base64`/`json_array`, the EXPECTED path today (owner decision 2026-09-06).
+// A guard that turned "not raw" into a degradation would flag every macOS
+// user as broken; see the module docblock and `Envelope::is_zero_copy`'s
+// Rust comment for the exact mistake this must not repeat.
+// ─────────────────────────────────────────────────────────────────────────
+
+test('transportEnvelope never changes `state`, for any envelope value, in any base state', () => {
+  const bases: Array<Parameters<typeof decideIngestHealth>[0]> = [
+    { streamStatus: null, healthStatus: null, live: false, lastOkAt: null },
+    { streamStatus: null, healthStatus: null, live: true, lastOkAt: null },
+    { streamStatus: 'active', healthStatus: 'good', live: true, lastOkAt: 0 },
+    { streamStatus: 'active', healthStatus: 'bad', live: true, lastOkAt: 0 },
+    { streamStatus: 'inactive', healthStatus: null, live: true, lastOkAt: 0 },
+  ];
+  for (const base of bases) {
+    const without = decideIngestHealth(base);
+    for (const envelope of ['raw', 'json_array', 'base64', 'loopback']) {
+      const withEnvelope = decideIngestHealth({ ...base, transportEnvelope: envelope });
+      assert.equal(
+        withEnvelope.state,
+        without.state,
+        `transportEnvelope=${envelope} must not change state from ${without.state} (base=${JSON.stringify(base)})`,
+      );
+      assert.equal(
+        withEnvelope.sentence,
+        without.sentence,
+        `transportEnvelope=${envelope} must not change the operator sentence`,
+      );
+    }
+  }
+});
+
+test('REGRESSION GUARD — being on base64/json_array specifically must not degrade a healthy receive', () => {
+  // The literal shape of the mistake this exists to prevent: refusing/degrading
+  // merely because the envelope answer is not "raw".
+  const receiving = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+    transportEnvelope: 'base64',
+  });
+  assert.equal(receiving.state, 'receiving');
+});
+
+test('transportEnvelope present → a non-empty, non-alarming transportNote', () => {
+  const d = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+    transportEnvelope: 'base64',
+  });
+  assert.equal(d.transportNote, 'Desktop transport: base64.');
+  assert.doesNotMatch(d.transportNote ?? '', /degrad|unstable|refus|fail/i);
+});
+
+test('transportEnvelope omitted or null → transportNote is null, not an empty string or "undefined"', () => {
+  const d1 = decideIngestHealth({ streamStatus: 'active', healthStatus: 'good', live: true, lastOkAt: 0 });
+  assert.equal(d1.transportNote, null);
+  const d2 = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+    transportEnvelope: null,
+  });
+  assert.equal(d2.transportNote, null);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
 // QUOTA ARITHMETIC — pin the numbers the comment derives, not just the comment.
 // ─────────────────────────────────────────────────────────────────────────
 

@@ -19,6 +19,15 @@
  * Mutation check (2026-09-05): deleting the `#[cfg(debug_assertions)]` line above
  * `mod probe;` turns assertion 1 red; adding `allow-probe-report` to
  * capabilities/default.json turns assertion 3 red.
+ *
+ * Assertion 3's release-side check matches the S0 harness's own permission
+ * NAMES (`allow-probe-report`, `allow-probe-ipc`) rather than a bare `/probe/`
+ * substring. S5 (build-sessions/encoder/S5.md) shipped `allow-encoder-probe` —
+ * a real, every-build product permission for the go-live transport-envelope
+ * probe, an ordinary English word for a different concept than the S0 spike
+ * module — and a bare substring match flagged it as if it were the debug
+ * harness leaking into release. The two S0 permission names are enumerated
+ * exactly, so this stays just as strict about the actual banned commands.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -89,7 +98,15 @@ test('release capabilities grant no probe permission; debug capabilities grant o
   for (const f of releaseFiles) {
     const cap = JSON.parse(read(join('capabilities', f))) as { permissions: unknown[] };
     for (const p of cap.permissions) {
-      assert.doesNotMatch(String(typeof p === 'string' ? p : JSON.stringify(p)), /probe/, `${f} grants a probe permission — that ships in release`);
+      // Named exactly, not `/probe/` as a bare substring: S5's `allow-encoder-probe`
+      // (a real, every-build permission — the go-live transport-envelope probe) also
+      // contains the word "probe" without being the S0 spike harness this guards
+      // against — see the module docblock.
+      assert.doesNotMatch(
+        String(typeof p === 'string' ? p : JSON.stringify(p)),
+        /^allow-probe-(report|ipc)$/,
+        `${f} grants an S0 probe-harness permission — that ships in release`,
+      );
     }
   }
   const debugFiles = readdirSync(join(TAURI, 'capabilities-debug')).filter((f) => f.endsWith('.json'));

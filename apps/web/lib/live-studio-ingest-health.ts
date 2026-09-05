@@ -37,6 +37,21 @@
  *      has been no successful read at all yet (`streamStatus === null`), this
  *      is a READ (not an `actions.ts` write) — an absence must be SHOWN, not
  *      denied by rendering nothing or by guessing "fine".
+ *
+ * ── S5 ADDITION: THE DESKTOP TRANSPORT ENVELOPE (informational, NEVER a state)
+ * `apps/web/lib/encoder/ipc-envelope.ts`'s go-live guard probes which envelope
+ * carries the webview→Rust IPC (`raw` / `json_array` / `base64` / `loopback`)
+ * BEFORE `encoder_start`. This is the one existing health surface that
+ * decision is supposed to reach (rule 24 — extend this decider, never build a
+ * second one) — but it must NEVER change `state`, only annotate it, because
+ * the base64/JSON envelope is the EXPECTED path today (owner decision
+ * 2026-09-06), not a degradation. A guard that turned `transportEnvelope !==
+ * 'raw'` into `degraded` would mark every macOS user as broken — see
+ * `Envelope::is_zero_copy`'s Rust docblock for the exact mistake this must
+ * not repeat. Whether the transport is genuinely UNUSABLE is `probeTransport`'s
+ * `usable` field, decided upstream of this module entirely (the go-live guard
+ * refuses to start at all in that case) — by the time a broadcast is live and
+ * being read here, the transport already passed that gate.
  */
 
 export type IngestHealthState =
@@ -49,6 +64,13 @@ export type IngestHealthDecision = {
   state: IngestHealthState;
   /** The operator-facing sentence for this state. Rendered, never logged only. */
   sentence: string;
+  /**
+   * S5: an informational annotation of which desktop IPC envelope the go-live
+   * guard measured (`raw` / `json_array` / `base64` / `loopback`), or `null`
+   * when the input carried none (web-only session, or the probe hasn't run
+   * yet). NEVER influences `state` — see the module docblock.
+   */
+  transportNote: string | null;
 };
 
 export type IngestHealthInput = {
@@ -72,6 +94,16 @@ export type IngestHealthInput = {
   live: boolean;
   /** Milliseconds since `streamStatus`/`healthStatus` were last confirmed. See module docblock. */
   lastOkAt: number | null;
+  /**
+   * S5: which desktop IPC envelope `apps/web/lib/encoder/ipc-envelope.ts`'s
+   * go-live guard measured for this session (`'raw' | 'json_array' | 'base64'
+   * | 'loopback'`, mirroring `EnvelopeValue`), or `null`/omitted on the web
+   * (no desktop app in play) or before the probe has run once. Optional and
+   * ADDITIVE — every existing caller that never passes it keeps behaving
+   * identically; see the module docblock for why it can only annotate, never
+   * gate, `state`.
+   */
+  transportEnvelope?: string | null;
 };
 
 /**
@@ -122,28 +154,40 @@ const RECEIVING_SENTENCE = 'Receiving video from your encoder.';
 const YOUTUBE_BAD_HEALTH = new Set(['bad', 'noData']);
 
 /**
+ * S5: format the informational transport annotation. Pure, and deliberately
+ * NEVER returns anything that reads as an alarm — see the module docblock:
+ * `base64`/`json_array` is the EXPECTED envelope today, not a degradation.
+ */
+function transportNoteFor(envelope: string | null | undefined): string | null {
+  if (!envelope) return null;
+  return `Desktop transport: ${envelope}.`;
+}
+
+/**
  * Decide the operator-facing ingest state. Pure and total: every input
  * combination returns a nameable state, never nothing — see trap 2 above.
  */
 export function decideIngestHealth(input: IngestHealthInput): IngestHealthDecision {
+  const transportNote = transportNoteFor(input.transportEnvelope);
+
   if (!input.live) {
-    return { state: 'waiting_for_encoder', sentence: WAITING_SENTENCE };
+    return { state: 'waiting_for_encoder', sentence: WAITING_SENTENCE, transportNote };
   }
 
   if (input.streamStatus === null) {
-    return { state: 'no_data', sentence: CANNOT_CONFIRM_SENTENCE };
+    return { state: 'no_data', sentence: CANNOT_CONFIRM_SENTENCE, transportNote };
   }
 
   if (input.lastOkAt === null || input.lastOkAt > STALE_AFTER_MS) {
-    return { state: 'no_data', sentence: STALE_SENTENCE };
+    return { state: 'no_data', sentence: STALE_SENTENCE, transportNote };
   }
 
   if (input.streamStatus === 'active') {
     if (input.healthStatus !== null && YOUTUBE_BAD_HEALTH.has(input.healthStatus)) {
-      return { state: 'degraded', sentence: DEGRADED_SENTENCE };
+      return { state: 'degraded', sentence: DEGRADED_SENTENCE, transportNote };
     }
-    return { state: 'receiving', sentence: RECEIVING_SENTENCE };
+    return { state: 'receiving', sentence: RECEIVING_SENTENCE, transportNote };
   }
 
-  return { state: 'no_data', sentence: NOT_SENDING_SENTENCE };
+  return { state: 'no_data', sentence: NOT_SENDING_SENTENCE, transportNote };
 }

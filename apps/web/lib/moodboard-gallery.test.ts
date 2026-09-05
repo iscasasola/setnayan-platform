@@ -147,15 +147,37 @@ test('MB18 · flowers is florist FIRST, then stylist_decorator — 2 trades, in 
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.flowers], ['florist', 'stylist_decorator']);
 });
 
-test('MB18 · overall is reception, stylist_decorator, lights_sound — the owner\'s order, verbatim', () => {
-  assert.equal(MOODBOARD_SLOT_TRADES.overall.length, 3);
+test('MB26 · overall is reception, stylist_decorator, lights_sound, coordinator — the owner\'s order, verbatim', () => {
+  // MB18 pinned `overall` at 3 trades and explicitly asserted `coordinator`
+  // absent. MB26 reverses that: the owner ruled 2026-09-05 that `overall`
+  // KEEPS coordinator — MB16 already gives coordinators the same colour
+  // powers as stylists, and a full-room photo is exactly what a
+  // coordinator's portfolio holds. `coordinator` is appended LAST, so it
+  // never wins the credit over reception/stylist_decorator/lights_sound.
+  assert.equal(MOODBOARD_SLOT_TRADES.overall.length, 4);
   assert.deepEqual(
     [...MOODBOARD_SLOT_TRADES.overall],
-    ['reception', 'stylist_decorator', 'lights_sound'],
+    ['reception', 'stylist_decorator', 'lights_sound', 'coordinator'],
   );
-  // `coordinator` was the old row's second trade — this session replaces the
-  // row entirely rather than appending, so it must be gone.
-  assert.ok(!MOODBOARD_SLOT_TRADES.overall.includes('coordinator' as never));
+});
+
+test('MB26 · stage admits lights_sound — a lights-and-sound shop\'s own portfolio', () => {
+  assert.equal(MOODBOARD_SLOT_TRADES.stage.length, 3);
+  assert.deepEqual(
+    [...MOODBOARD_SLOT_TRADES.stage],
+    ['stylist_decorator', 'av_production', 'lights_sound'],
+  );
+});
+
+test('MB26 · backdrop does NOT change — a backdrop is a stylist\'s work, never lights_sound\'s', () => {
+  // The owner ruled `stage` admits lights-and-sound shops but `backdrop`
+  // does not — a backdrop is a stylist's work. Pinned here so a future
+  // "tidy-up" that copies stage's row onto backdrop goes red.
+  assert.equal(MOODBOARD_SLOT_TRADES.backdrop.length, 2);
+  assert.deepEqual(
+    [...MOODBOARD_SLOT_TRADES.backdrop],
+    ['stylist_decorator', 'led_wall'],
+  );
 });
 
 test('⭐ MB18 · non-regression pin — canonicalServicesForSlot(\'bride\') still resolves a Filipiniana/Barong canonical', () => {

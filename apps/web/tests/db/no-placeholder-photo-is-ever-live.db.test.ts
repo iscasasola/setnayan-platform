@@ -123,6 +123,60 @@ test('retiring the placeholders did not retire anything else', async () => {
  * matches too eagerly, a rolled-back COMMIT) leaves every assertion above
  * green and the Ceremony card still absent.
  */
+/**
+ * MB26 · THE MEDIA.SETNAYAN.COM PILOT ROWS ARE RETIRED, NOT LIVE.
+ *
+ * The 2026-09-03 decor-layers pilot (migration 20271194970382) seeded ten
+ * `venue_scene` rows pointing at `https://media.setnayan.com/...` — a host
+ * that does not resolve, whose objects also 404 on the working `pub-…r2.dev`
+ * host. Owner ruling 2026-09-05: "media.setnayan.com is not being set up
+ * now." Migration 20271206504078 retires all ten. This is the OTHER half —
+ * the guard that stops one coming back live, the same shape MB23's
+ * placeholder assertion above takes for picsum/pexels.
+ */
+test('no LIVE moodboard_library_assets row is served from media.setnayan.com', async () => {
+  const { rows } = await db.query<Row>(
+    `SELECT asset_type, label, storage_path, source
+       FROM public.moodboard_library_assets
+      WHERE ${LIVE}
+        AND storage_path ILIKE 'https://media.setnayan.com/%'
+      ORDER BY asset_type, label`,
+  );
+  assert.deepEqual(
+    rows,
+    [],
+    'A media.setnayan.com pilot row is live and a couple can see it:\n  ' +
+      rows.map((r) => `${r.asset_type} · ${r.label} · ${r.source} · ${r.storage_path}`).join('\n  ') +
+      '\n\nThat host does not resolve and its objects 404 on the working pub-…r2.dev host — ' +
+      'the owner ruled 2026-09-05 the domain is not being set up. Retire the row (set ' +
+      'retired_at) in a migration — never DELETE it.',
+  );
+});
+
+/**
+ * 🪤 THE ASSERTION ABOVE IS TRIVIALLY TRUE WITHOUT MIGRATION 20271206504078.
+ * All ten pilot rows are `approved_at IS NULL` — never approved, so `LIVE`
+ * (`approved_at IS NOT NULL AND retired_at IS NULL`) already excludes every
+ * one of them regardless of `retired_at`. Deleting the migration's UPDATE
+ * entirely leaves the test above green. This is the actual proof the
+ * retirement ran: all ten still exist (never DELETEd) and now carry a
+ * `retired_at`.
+ */
+test('MB26 · all ten media.setnayan.com pilot rows are RETIRED, not merely never-approved', async () => {
+  const { rows } = await db.query<{ n: number; retired: number }>(
+    `SELECT count(*)::int AS n, count(retired_at)::int AS retired
+       FROM public.moodboard_library_assets
+      WHERE asset_type = 'venue_scene'
+        AND storage_path ILIKE 'https://media.setnayan.com/%'`,
+  );
+  assert.equal(rows[0]!.n, 10, `expected the ten pilot rows to still exist (retire, never delete), saw ${rows[0]!.n}`);
+  assert.equal(
+    rows[0]!.retired,
+    10,
+    `expected all ten media.setnayan.com pilot rows to carry retired_at, saw ${rows[0]!.retired} of ${rows[0]!.n}`,
+  );
+});
+
 test('the Ceremony scene is live, app-served, and carries BOTH of its colour ranges', async () => {
   const { rows } = await db.query<{
     source: string | null;

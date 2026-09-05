@@ -21,7 +21,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { asVendorTier, type VendorTier } from './vendor-tier-caps';
 import {
   applyVendorTierPromotion,
-  getPromotedVendorTierNow,
+  getPromotedVendorTierFor,
+  type VendorDealFacts,
 } from './promo-free-windows';
 import { envFlagEnabled } from '@/lib/env-flag';
 
@@ -34,13 +35,18 @@ export function isVendorFeatureGateEnabled(): boolean {
  * NOT part of the shared `FULL_VENDOR_PROFILE_SELECT` — keeps the gate additive —
  * so read with a targeted single-column query on the PK). Defaults to `free`.
  *
- * Then a live admin "free window" for all vendors (PROMOTED_VENDOR_TIER · flag
- * PROMO_FREE_WINDOWS_ENABLED) upgrades that tier for free during its window —
- * never a downgrade. All 7 callers are feature gates (theft-watch, recaps,
- * earnings, creators, performance, calls, help routing), so the promotion is
- * exactly the tier those gates should see; billing/subscription surfaces read
- * vendor_subscriptions directly, not this. The promo read short-circuits to null
- * when the flag is off → byte-identical to today. See lib/promo-free-windows.ts.
+ * Then a live admin vendor DEAL (promo_free_windows · flag
+ * PROMO_FREE_WINDOWS_ENABLED) upgrades that tier for free while it lasts —
+ * never a downgrade. Resolved PER VENDOR: only a vendor whose
+ * `verification_state` is 'verified' ever qualifies (owner 2026-09-05: "all
+ * vendors" means all VERIFIED vendors), and the `new_verified_vendors` cohort
+ * needs sign-up (`created_at`) AND approval (`last_verified_at`) inside the
+ * window — so those three facts ride the same single-row read as tier_state.
+ * All 7 callers are feature gates (theft-watch, recaps, earnings, creators,
+ * performance, calls, help routing), so the promotion is exactly the tier those
+ * gates should see; billing/subscription surfaces read vendor_subscriptions
+ * directly, not this. The promo read short-circuits to null when the flag is
+ * off → byte-identical to today. See lib/promo-free-windows.ts.
  */
 export async function resolveVendorTier(
   supabase: SupabaseClient,
@@ -48,11 +54,17 @@ export async function resolveVendorTier(
 ): Promise<VendorTier> {
   const { data } = await supabase
     .from('vendor_profiles')
-    .select('tier_state')
+    .select('tier_state, verification_state, created_at, last_verified_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  const realTier = asVendorTier(
-    (data as { tier_state?: string | null } | null)?.tier_state,
-  );
-  return applyVendorTierPromotion(realTier, await getPromotedVendorTierNow());
+  const row = data as
+    | ({ tier_state?: string | null } & Partial<VendorDealFacts>)
+    | null;
+  const realTier = asVendorTier(row?.tier_state);
+  const facts: VendorDealFacts = {
+    verification_state: row?.verification_state ?? null,
+    created_at: row?.created_at ?? null,
+    last_verified_at: row?.last_verified_at ?? null,
+  };
+  return applyVendorTierPromotion(realTier, await getPromotedVendorTierFor(facts));
 }

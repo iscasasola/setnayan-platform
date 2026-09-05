@@ -1,3 +1,9 @@
+// The native RTMPS/FLV encoder (S6). Pure protocol code plus one socket; it holds no
+// Tauri commands, because S5 — which owns the webview→Rust transport — is re-scoped
+// pending an owner decision (build-sessions/encoder/S0-FINDING.md § 7). Compiled into
+// every build so it typechecks and tests with the app, reachable from nothing yet.
+pub mod encoder;
+
 // S0 spike harness — compiled ONLY into debug builds (see build.rs + src/probe.rs).
 // A release build has no probe commands, no page-load hook and no capability for them.
 #[cfg(debug_assertions)]

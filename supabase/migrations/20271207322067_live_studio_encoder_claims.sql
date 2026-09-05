@@ -37,7 +37,11 @@ CREATE TABLE IF NOT EXISTS public.live_studio_encoder_claims (
   -- The specific panood_broadcasts row this claim may resolve — a claim from
   -- event A's broadcast cannot be replayed against event A's NEXT broadcast.
   broadcast_id bigint NOT NULL REFERENCES public.panood_broadcasts(id) ON DELETE CASCADE,
-  requested_by uuid NOT NULL REFERENCES auth.users(id),
+  -- This claim is meaningless once its author no longer exists — a 60-second
+  -- nonce has no life to outlive its requester, unlike an authorship stamp on
+  -- a durable record. ON DELETE CASCADE (not the FK default of NO ACTION):
+  -- deleting the user should not be blocked by an ephemeral row like this one.
+  requested_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at   timestamptz NOT NULL DEFAULT now(),
   expires_at   timestamptz NOT NULL DEFAULT (now() + interval '60 seconds')
 );

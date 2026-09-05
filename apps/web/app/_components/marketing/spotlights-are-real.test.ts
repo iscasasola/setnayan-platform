@@ -124,24 +124,23 @@ const BANNED_STILLS: ReadonlyArray<{ file: string; why: string }> = [
       'ban justified by a number that no longer existed. The objection is that ' +
       'a price is there at all.',
   },
-  {
-    file: '/add-ons/demo/stills/custom-qr-guest-0.jpg',
-    why:
-      'it reads "CUSTOM QR PER GUEST" over the couple\'s monogram — the PAID ' +
-      'branded QR. /guest-list may claim only the free per-guest QR.',
-  },
-  {
-    file: '/add-ons/demo/stills/custom-qr-guest-1.jpg',
-    why: 'it shows the "Default — free / Upgrade" tier pill outright.',
-  },
-  {
-    file: '/add-ons/demo/stills/custom-qr-guest-2.jpg',
-    why: 'it reads "Your branded QR cards are ready" — again the paid product.',
-  },
-  {
-    file: '/add-ons/demo/stills/custom-qr-guest-3.jpg',
-    why: 'the branded print pack, same paid product as 0 and 2.',
-  },
+  /*
+    ⚖ THE FOUR `custom-qr-guest` FRAMES WERE BANNED HERE ON 2026-09-05 AND ARE
+    UNBANNED ON 2026-09-06 — because their REASON stopped being true, not
+    because anyone decided to tolerate them.
+
+    They were banned for showing the PAID branded QR ("CUSTOM QR PER GUEST"
+    over the monogram · "Your branded QR cards are ready" · the branded print
+    pack · a "Default — free / Upgrade" tier pill) on a page allowed to claim
+    only the free per-guest QR. The owner then ruled: *"keep custom QR per guest
+    free"*. `CUSTOM_QR_GUEST` joined `FREE_FOR_ALL_SKUS`, the scene's pill was
+    corrected to "Plain / Branded — Free", and every frame was re-captured. The
+    branded QR IS the free one now, so a picture of it is a true picture.
+
+    🔑 A BAN WHOSE REASON HAS EXPIRED IS WORSE THAN NO BAN — it teaches the next
+    reader something false about the product. Removed deliberately, with the
+    history kept here, rather than left standing as folklore.
+  */
 ];
 
 test('no doorway illustrates itself with a banned frame', () => {

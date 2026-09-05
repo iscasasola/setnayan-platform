@@ -128,14 +128,25 @@ export function buildEventLandingUrl(params: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Branded per-guest QR — the paid CUSTOM_QR_GUEST SKU (₱1,499).
+// Branded per-guest QR — CUSTOM_QR_GUEST, and it is FREE FOR EVERYONE
+// (owner 2026-09-06: "keep custom QR per guest free").
+//
+// ⚠ THIS COMMENT USED TO READ "the paid CUSTOM_QR_GUEST SKU (₱1,499)" AND THE
+// NUMBER WAS NEVER RIGHT AGAIN AFTER THE CATALOGUE MOVED. The live row has read
+// ₱0.00 for some time while this line kept quoting ₱1,499 — a price in a
+// comment that nothing checks, which is why `lib/public-price-literals.ts`
+// exists for the ones that face a customer. Do not restore a figure here: read
+// the catalogue.
 //
 // The default per-guest QR (above) always renders in ink-on-cream with the
 // couple's monogram in the center. The BRANDED variant additionally tints
 // the QR modules with the couple's palette color (pulled from their Mood
 // Board reception/couple palette) and ships inside a premium card layout
-// suitable for print + share. Gated on the event owning a paid order; the
-// unowned path keeps the plain default QR.
+// suitable for print + share. Ownership still runs through `eventOwnsSku`, and
+// that helper now answers TRUE for every event because the SKU is in
+// `FREE_FOR_ALL_SKUS` — so the branded variant is what everybody gets, and the
+// plain default is the fallback for a read that fails, not for a couple who
+// did not pay.
 //
 // Cross-references:
 //   • CLAUDE.md 2026-05-22 "Unified QR Code Lifecycle Model" (per-guest QR)

@@ -5,7 +5,10 @@
  * worker on purpose: a page's own timers are throttled the moment its window is hidden or
  * occluded (Chromium: 1 Hz after a few seconds, then 1/min; WebKit similar), and a live
  * encoder cannot be at the mercy of which window the couple has in front. Dedicated-worker
- * timers are not throttled by page visibility, which is the whole reason S1 exists.
+ * timers are throttled LESS than page timers, which is the whole reason S1 exists — but NOT
+ * zero: the only measurement so far (a browser proxy, hidden Chromium 148, under concurrent
+ * CPU load) saw ~6–13 ticks/s with a 9.5 s worst gap. S13's minimise test on the real
+ * installers is the measurement that decides it; until then treat immunity as UNPROVEN.
  *
  * // S3 replaces this tick with the AudioContext-derived clock
  * S3 owns the master clock (`AudioContext.currentTime`); when it lands, `createProgramClock`

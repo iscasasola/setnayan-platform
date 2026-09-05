@@ -83,6 +83,39 @@ became visible). What it cannot: keep a suspended process running. That is S10's
 S10 lands, the rehearsal script's "do not minimise, do not close the lid" is load-bearing.
 The acceptance run (S13) must re-measure this inside the signed Tauri app, not a browser.
 
+**Occluded-run evidence — STATUS AT CLOSE (overseer decision, 2026-09-05): PROVISIONAL.** The
+run this close is signed against: in a genuinely hidden tab in plain Chromium 148 the worker
+tick throttled to ~6–13 ticks/s with a 9.5 s worst gap, measured while the unit suite was
+loading the same machine — so CPU contention and occlusion are CONFOUNDED in that run and the
+magnitude cannot be attributed to either alone. The direction is corroborated in a second
+engine (an independent earlier run in hidden Safari: ~10 ticks/s, 51 long gaps in 10 s), so the
+DIRECTION is corroborated even where the magnitude is confounded. This is a browser proxy, not
+the Tauri app, and cannot settle the real question either way; a second run to separate load
+from occlusion is deliberately NOT part of this PR — S13's 10-minute minimise test on both OSes
+from the real installers is the measurement that decides it. The worker design is NOT proven
+immune to background throttling and this PR does not claim it is; `program-clock.ts`'s
+docblock now says exactly that. The run logs above were recorded by the earlier sessions of
+this program and are kept as recorded, not re-verified at close. Independent S0 corroboration
+of the worker placement (separate from throttling): in the real Tauri webview
+`MediaStreamTrackProcessor` is undefined on the window but present in a worker.
+
+Proof recorded at close (S1 gate; not re-run):
+- Typecheck scoped to `apps/web`: `TSC_EXIT=0 ERROR_LINES=0 elapsed=11s` (incremental, warm
+  tsbuildinfo). Falsifiability probe — a deliberate error gave `TSC_EXIT=2 ERROR_LINES=1`, so
+  the check CAN fail.
+- Encoder tests: 37 passed, 37 total.
+- Five mutations (occurrences before → after · encoder-suite result):
+  - M1a planner `const hasPrimary = frame.hasStream;` 1→0 → 34/37, 3 red incl. "null stream →
+    no-signal card, NO video op"
+  - M1b compositor `if (!wire.hasStream) this.dropHeld('primary');` 1→0 → 36/37, red "previous
+    camera's frame is CLOSED, not kept"
+  - M2 `requestedSource !== source` → `===` 1→0 → 35/37, 2 red incl. "pinned-channel notice
+    OVER the permitted picture"
+  - M3 inserted `kind: 'watermark'` 0→1 → 34/37, 3 red incl. "EMPTY_FRAME → no
+    overlay/watermark op"
+  - M4 `if (hasPrimary && hasSecondary)` → `if (hasPrimary)` 1→0 → 29/37, 8 red incl.
+    "secondaryStream null → splitRatio IGNORED"
+
 Next concrete step (S2): install `setOverlayHook` on the compositor and draw `ResolvedOverlays`
 from `airOverlays` into the painter after the program picture; nothing else in S1 changes.
 

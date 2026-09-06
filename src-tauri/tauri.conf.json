@@ -50,11 +50,13 @@
         "cmd": "pwsh",
         "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows-codesign.ps1", "%1"]
       }
-    }
+    },
+    "createUpdaterArtifacts": true
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI1RTU0NTA1M0E3N0Y3NzIKUldSeTkzYzZCVVhsSmR1K290SDkwNDdNdVNQVWJXSHFLWnpzTHNKTXo4VnM0Qzc1Ymc3VU1KQjkK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI1RTU0NTA1M0E3N0Y3NzIKUldSeTkzYzZCVVhsSmR1K290SDkwNDdNdVNQVWJXSHFLWnpzTHNKTXo4VnM0Qzc1Ymc3VU1KQjkK",
+      "endpoints": ["https://media.setnayan.com/desktop/latest/latest.json"]
     }
   }
 }

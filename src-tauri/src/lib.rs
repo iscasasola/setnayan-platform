@@ -25,6 +25,11 @@ mod stream_key;
 // Ships in EVERY build: real product surface, not a spike (unlike `probe`, above).
 mod encoder_ipc;
 
+// S12 — the auto-updater (build-sessions/encoder/S12.md). Ships in EVERY
+// build: checked from Rust at launch and again after every `encoder_stop`,
+// never from the web page (see the module's own docblock).
+mod updater;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -34,9 +39,22 @@ pub fn run() {
         // redirect back on the `oauth://url` event.
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_oauth::init())
+        // S12: no webview-invokable commands are registered for this plugin
+        // (see updater.rs's docblock — the check is driven entirely from
+        // Rust), so capabilities/default.json needs no new grant for it.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(stream_key::StreamKeyState::default())
         .manage(encoder_ipc::EncoderIpcState::default())
-        .setup(|_app| Ok(()));
+        .manage(updater::UpdaterState::default())
+        .setup(|app| {
+            // Fire-and-forget: check for an update the moment the app is up.
+            // Deferred entirely inside `check_and_maybe_install` if a
+            // broadcast is somehow already live (e.g. a crash-relaunch mid-
+            // stream); never blocks startup on a network round-trip.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(updater::check_and_maybe_install(handle));
+            Ok(())
+        });
 
     // NOTE: `invoke_handler` SETS the builder's handler rather than merging with a
     // prior call, so every command a profile ships must be listed in that profile's

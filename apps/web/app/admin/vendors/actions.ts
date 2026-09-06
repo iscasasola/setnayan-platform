@@ -6,7 +6,12 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { parsePhPhone } from '@/lib/ph-phone';
-import { VENDOR_TIER_SETTABLE } from '@/lib/vendor-tier-caps';
+import { VENDOR_TIER_SETTABLE, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import {
+  VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+  nextPhotoChallengeExpiry,
+  fetchVendorPhotoChallengePricePhp,
+} from '@/lib/vendor-photo-challenge';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -333,6 +338,19 @@ function parseCsvList(raw: FormDataEntryValue | null): string[] {
 const VENDOR_TIER_VALUES = VENDOR_TIER_SETTABLE;
 
 /**
+ * Where a `setVendorTier` / `issueVendorSkuComp` form came from, for the
+ * optional `return_to` field. Same shape as free-windows-actions.ts's
+ * `RETURN_TARGETS` — an allowlist, not a bare passthrough, so a form field
+ * can never become an open redirect. `/admin/gifts` is the only surface that
+ * posts here besides each action's own default page.
+ */
+const GIFTS_RETURN_TARGET = '/admin/gifts';
+
+function wantsGiftsReturn(formData: FormData): boolean {
+  return String(formData.get('return_to') ?? '').trim() === GIFTS_RETURN_TARGET;
+}
+
+/**
  * Set a vendor's subscription tier (`vendor_profiles.tier_state`). Until the
  * self-serve subscription checkout lands (Phase D), this is the ONLY way to
  * reach Pro/Enterprise — every paid-tier capability gate is inert without it.
@@ -385,9 +403,14 @@ export async function setVendorTier(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!before) throw new Error('Vendor not found.');
 
+  // tier_source='admin_comp' on every write, not just the default — this is
+  // the ONLY writer of a non-free tier today (see fetchCompedVendors's
+  // trip-wire docblock), so stamping it explicitly here means the day a
+  // self-serve writer is added elsewhere, this one's rows are already correct
+  // rather than relying on a column default nobody remembers to revisit.
   const { error } = await admin
     .from('vendor_profiles')
-    .update({ tier_state: tier, tier_expires_at: tierExpiresAt })
+    .update({ tier_state: tier, tier_expires_at: tierExpiresAt, tier_source: 'admin_comp' })
     .eq('vendor_profile_id', vendorId);
   if (error) throw new Error(error.message);
 
@@ -419,7 +442,144 @@ export async function setVendorTier(formData: FormData): Promise<void> {
 
   revalidatePath(`/admin/vendors/${vendorId}/plan`);
   revalidatePath('/admin/vendors');
+
+  // Optional `return_to=/admin/gifts` — a grant made FROM the gifts console
+  // lands back there instead of the vendor's own /plan page. Everything else
+  // (the vendor plan page itself, direct links) keeps the pre-existing
+  // redirect, since /admin/vendors/:id/plan reads its own `?tier=` banner.
+  if (wantsGiftsReturn(formData)) {
+    revalidatePath(GIFTS_RETURN_TARGET);
+    const banner = `Tier for ${before.business_name} set to ${TIER_LABEL[asVendorTier(tier)]}.`;
+    redirect(`${GIFTS_RETURN_TARGET}?banner=${encodeURIComponent(banner)}`);
+  }
   redirect(`/admin/vendors/${vendorId}/plan?tier=${tier}`);
+}
+
+/**
+ * The vendor add-on SKUs an admin comp can grant FOR REAL. Deliberately a
+ * short, explicit map rather than "any SKU string" — every vendor add-on
+ * OTHER than Papic Challenges has its own resolver with no shared choke point
+ * (lib/promo-free-windows.ts docblock on `vendorTierOfSku`), so comping one
+ * means writing that SKU's own direct-grant branch below, not adding a string
+ * to an array and hoping something reads it. An entry here is a PROMISE that
+ * `issueVendorSkuComp` actually provisions it, not just records it.
+ */
+const VENDOR_COMPABLE_SKUS = {
+  [VENDOR_PHOTO_CHALLENGE_SKU_CODE]: { label: 'Papic Challenges (28 days)' },
+} as const;
+
+type VendorCompableSku = keyof typeof VENDOR_COMPABLE_SKUS;
+
+/**
+ * Grant a vendor ONE Papic Challenges cycle for free — the SKU-level sibling
+ * of `setVendorTier` (which comps the whole subscription tier, not one
+ * add-on). Uses `comp_grants.vendor_profile_id`, dormant until now: its only
+ * prior reader is `enforce_vendor_self_comp_quota` (BEFORE INSERT trigger,
+ * migration slug `self_review_gate`), and that trigger counts a
+ * `vendor_profile_id` row ONLY when `source = 'vendor_self_comp'`. This
+ * action always writes `source: 'external_promo'`, so an admin-issued row can
+ * never silently consume the target vendor's own quarterly self-comp
+ * allowance — verified by reading the trigger body, not assumed.
+ *
+ * The grant is REAL, not a ledger entry that looks like one: it writes the
+ * exact column the vendor's own self-serve free-cycle path writes
+ * (`vendor_profiles.papic_challenge_expires_at`), which is the ONLY thing
+ * `public.vendor_papic_challenge_entitled()` checks (migration
+ * `one_way_to_buy_a_challenge`). No order is minted — unlike the vendor
+ * self-serve free path, there is no billing history to justify; the
+ * `comp_grants` row IS the audit trail here, same role `admin_audit_log`
+ * plays for `setVendorTier`.
+ */
+export async function issueVendorSkuComp(formData: FormData): Promise<void> {
+  const { adminUserId } = await requireAdmin();
+  const vendorId = String(formData.get('vendor_id') ?? '').trim();
+  const sku = String(formData.get('sku') ?? '').trim();
+  if (vendorId.length === 0) throw new Error('Missing vendor_id.');
+  if (!Object.prototype.hasOwnProperty.call(VENDOR_COMPABLE_SKUS, sku)) {
+    throw new Error('Invalid SKU.');
+  }
+
+  // Same 10-char floor as setVendorTier's reason field — a one-click grant,
+  // not issueCompGrant's multi-field rationale.
+  const reasonRaw = String(formData.get('reason') ?? '').trim();
+  if (reasonRaw.length < 10) {
+    throw new Error(
+      'Write a short reason (at least 10 characters) for this comp — it is logged.',
+    );
+  }
+
+  const admin = createAdminClient();
+  const { data: vendor } = await admin
+    .from('vendor_profiles')
+    .select('business_name, public_id, papic_challenge_expires_at')
+    .eq('vendor_profile_id', vendorId)
+    .maybeSingle();
+  if (!vendor) throw new Error('Vendor not found.');
+
+  const currentExpiry =
+    (vendor as { papic_challenge_expires_at?: string | null }).papic_challenge_expires_at ??
+    null;
+  // Stacks from the LATER of now / the current expiry (same rule the vendor's
+  // own free-activation path uses) — a comp on top of a live subscription
+  // extends it rather than truncating time the vendor already has.
+  const newExpiry = nextPhotoChallengeExpiry(currentExpiry, Date.now());
+
+  const { error: grantErr } = await admin
+    .from('vendor_profiles')
+    .update({ papic_challenge_expires_at: newExpiry })
+    .eq('vendor_profile_id', vendorId);
+  if (grantErr) throw new Error(grantErr.message);
+
+  const pricePhp = await fetchVendorPhotoChallengePricePhp(admin);
+
+  const { error: insertErr } = await admin.from('comp_grants').insert({
+    user_id: null,
+    vendor_profile_id: vendorId,
+    source: 'external_promo',
+    scope: 'specific_skus',
+    scoped_skus: [sku],
+    expiry: newExpiry,
+    retail_value_centavos: pricePhp * 100,
+    rationale: reasonRaw,
+    granted_by: adminUserId,
+    approved_by: null,
+  });
+  if (insertErr) {
+    // The entitlement write already succeeded — rolling it back would take
+    // away what the admin just confirmed granting. Same "don't undo a real
+    // grant over an audit-row failure" call issueCompGrant makes; log for
+    // Sentry rather than throw.
+    console.error('[issueVendorSkuComp] comp_grants insert failed', insertErr.message);
+  }
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'vendor_sku_comp_issued',
+    target_id: vendorId,
+    actor_user_id: adminUserId,
+    metadata: {
+      business_name: vendor.business_name,
+      public_id: vendor.public_id,
+      sku,
+      from_expires_at: currentExpiry,
+      to_expires_at: newExpiry,
+      retail_value_centavos: pricePhp * 100,
+      reason: reasonRaw,
+    },
+  });
+  if (auditErr) {
+    console.error('[issueVendorSkuComp] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath(`/admin/vendors/${vendorId}/plan`);
+  revalidatePath('/admin/vendors');
+
+  const label = VENDOR_COMPABLE_SKUS[sku as VendorCompableSku].label;
+  const banner = `${vendor.business_name} comped ${label}.`;
+  if (wantsGiftsReturn(formData)) {
+    revalidatePath(GIFTS_RETURN_TARGET);
+    redirect(`${GIFTS_RETURN_TARGET}?banner=${encodeURIComponent(banner)}`);
+  }
+  redirect(`/admin/vendors/${vendorId}/plan?banner=${encodeURIComponent(banner)}`);
 }
 
 /**

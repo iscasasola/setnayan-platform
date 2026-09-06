@@ -7,15 +7,15 @@
  * (apps/web/app/admin/vendors/actions.ts). History beyond "what it is right
  * now" exists only in `admin_audit_log` (action='vendor_tier_set').
  *
- * 🔑 EVERY NON-FREE VENDOR TODAY IS, BY CONSTRUCTION, A COMP. Self-serve
- * vendor subscription checkout does not exist yet — `setVendorTier` is
- * documented as "the ONLY way to reach Pro/Enterprise" until it ships. So
- * reading `tier_state <> 'free'` as "comped" is exactly true right now.
- * IT WILL STOP BEING TRUE the moment self-serve checkout lands — a real
- * paying vendor will look identical to a comped one under this query. There
- * is no `source`/`is_comp` flag to tell them apart. Whoever builds self-serve
- * checkout MUST add that distinction before this reader is trusted again;
- * this comment is the trip-wire, not a promise it will be remembered.
+ * 🔑 THE TRIP-WIRE THIS DOCBLOCK USED TO WARN ABOUT IS NOW CLOSED, NOT JUST
+ * NOTED. `vendor_profiles.tier_source` (migration 20271209332066) records HOW
+ * a vendor reached its tier — `setVendorTier` stamps `'admin_comp'` on every
+ * write. This reader filters on it, so the day a self-serve checkout writer
+ * ships and starts stamping `'self_serve'`, its rows fall out of "comped"
+ * automatically, with no code change here required. Before this migration,
+ * every non-free vendor was a comp BY CONSTRUCTION (setVendorTier was the
+ * ONLY writer) — that was true, but relied on nobody adding a second writer
+ * without also remembering this comment. It no longer does.
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
@@ -35,8 +35,9 @@ export type CompedVendorRow = {
 };
 
 /**
- * Fetch every vendor currently holding a non-free tier. See the module
- * docblock's trip-wire before trusting this once self-serve billing ships.
+ * Fetch every vendor currently holding a non-free, ADMIN-COMPED tier. Filters
+ * `tier_source = 'admin_comp'` (see the module docblock) so a future
+ * self-serve-billing tier change never renders here as a gift.
  */
 export async function fetchCompedVendors(
   admin: SupabaseClient,
@@ -46,6 +47,7 @@ export async function fetchCompedVendors(
     .from('vendor_profiles')
     .select('vendor_profile_id, public_id, business_name, tier_state, tier_expires_at')
     .neq('tier_state', 'free')
+    .eq('tier_source', 'admin_comp')
     .order('tier_expires_at', { ascending: true, nullsFirst: false })
     .limit(limit);
   if (error) throw new Error(`fetchCompedVendors failed: ${error.message}`);

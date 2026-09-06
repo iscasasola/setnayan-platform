@@ -6,7 +6,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { issueCompGrant, revokeCompGrant } from '@/app/admin/users/actions';
-import { setVendorTier } from '@/app/admin/vendors/actions';
+import { setVendorTier, issueVendorSkuComp } from '@/app/admin/vendors/actions';
+import {
+  VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+  VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS,
+} from '@/lib/vendor-photo-challenge';
 import {
   fetchAllActiveCompGrants,
   fetchEventsHostedBy,
@@ -297,6 +301,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             </p>
             <form action={setVendorTier} className="space-y-3">
               <input type="hidden" name="vendor_id" value={grantVendor.vendor_profile_id} />
+              <input type="hidden" name="return_to" value="/admin/gifts" />
               <div className="flex flex-wrap items-end gap-3">
                 <div>
                   <label htmlFor="tier_state" className="block text-xs font-medium text-ink/70 mb-1">
@@ -341,6 +346,29 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
               </div>
               <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
                 Set tier
+              </SubmitButton>
+            </form>
+
+            {/* SKU-level, not the whole tier — comps ONE add-on
+                (comp_grants.vendor_profile_id, source='external_promo', never
+                'vendor_self_comp' — see issueVendorSkuComp's docblock for the
+                self-comp-quota trigger this deliberately never trips). */}
+            <form action={issueVendorSkuComp} className="mt-4 space-y-3 border-t border-ink/10 pt-4">
+              <input type="hidden" name="vendor_id" value={grantVendor.vendor_profile_id} />
+              <input type="hidden" name="sku" value={VENDOR_PHOTO_CHALLENGE_SKU_CODE} />
+              <input type="hidden" name="return_to" value="/admin/gifts" />
+              <p className="text-xs font-medium text-ink/70">
+                Or comp Papic Challenges only ({VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days,
+                stacking) — no tier change.
+              </p>
+              <input
+                type="text"
+                name="reason"
+                placeholder="Reason (logged, min. 10 characters)"
+                className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+              <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
+                Comp Papic Challenges
               </SubmitButton>
             </form>
           </div>
@@ -665,6 +693,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             </p>
             <form action={issueCompGrant} className="space-y-3">
               <input type="hidden" name="user_id" value={grantUser.user_id} />
+              <input type="hidden" name="return_to" value="/admin/gifts" />
               <div>
                 <label htmlFor="event_id" className="block text-xs font-medium text-ink/70 mb-1">
                   Applies to
@@ -776,6 +805,12 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             {
               header: 'User',
               cell: (g) => {
+                // A vendor SKU comp (issueVendorSkuComp) has no user_id at
+                // all — show the targeted vendor's name instead of '—', which
+                // would otherwise read as a grant nobody can identify.
+                if (!g.user_id && g.vendor_profile_id) {
+                  return `${g.vendor_business_name ?? g.vendor_profile_id} (vendor)`;
+                }
                 const u = g.user_id ? userById.get(g.user_id) : null;
                 return u?.display_name ?? u?.email ?? g.user_id ?? '—';
               },

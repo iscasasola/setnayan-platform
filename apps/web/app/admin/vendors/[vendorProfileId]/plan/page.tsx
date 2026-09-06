@@ -5,8 +5,17 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { setVendorTier, setVendorFoundingSupplier } from '../../actions';
+import {
+  setVendorTier,
+  setVendorFoundingSupplier,
+  issueVendorSkuComp,
+} from '../../actions';
 import { VENDOR_TIER_SETTABLE, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import {
+  VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+  VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS,
+  isPhotoChallengeSubscriptionActive,
+} from '@/lib/vendor-photo-challenge';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
@@ -16,7 +25,7 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ vendorProfileId: string }>;
-  searchParams: Promise<{ tier?: string; founding?: string }>;
+  searchParams: Promise<{ tier?: string; founding?: string; banner?: string }>;
 };
 
 /**
@@ -65,7 +74,7 @@ export default async function AdminVendorPlanPage({
   const { data: vendor } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, public_id, user_id, business_name, location_city, is_published, tier_state, tier_expires_at',
+      'vendor_profile_id, public_id, user_id, business_name, location_city, is_published, tier_state, tier_expires_at, papic_challenge_expires_at',
     )
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
@@ -75,6 +84,9 @@ export default async function AdminVendorPlanPage({
   );
   const currentTierExpiresAt =
     (vendor as { tier_expires_at?: string | null }).tier_expires_at ?? null;
+  const photoChallengeExpiresAt =
+    (vendor as { papic_challenge_expires_at?: string | null }).papic_challenge_expires_at ??
+    null;
 
   const isClaimed = vendor.user_id !== null;
   const tierSet = search?.tier ? asVendorTier(search.tier) : null;
@@ -141,6 +153,12 @@ export default async function AdminVendorPlanPage({
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Founding supplier{' '}
           <strong>{foundingSet === 'granted' ? 'granted' : 'removed'}</strong>.
+        </div>
+      )}
+
+      {search?.banner && (
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+          ✓ {search.banner}
         </div>
       )}
 
@@ -277,6 +295,60 @@ export default async function AdminVendorPlanPage({
             </form>
           </>
         )}
+      </section>
+
+      {/* Papic Challenges — a SINGLE add-on, not the whole tier. Uses
+          comp_grants.vendor_profile_id (dormant until this form) so the grant
+          is both audit-logged there AND real: it writes the exact column
+          public.vendor_papic_challenge_entitled() checks. Deliberately the
+          only add-on offered here — every other one (3D Booth, Deep Search,
+          seats, branches) has its own resolver with no shared choke point;
+          see the docblock on issueVendorSkuComp before adding another. */}
+      <section className="mb-6 rounded-md border border-ink/10 bg-paper p-4">
+        <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
+          Papic Challenges
+        </h2>
+        <p className="mb-3 text-xs text-ink/60">
+          Current:{' '}
+          <span className="font-medium text-ink">
+            {isPhotoChallengeSubscriptionActive(photoChallengeExpiresAt)
+              ? 'Active'
+              : 'Not active'}
+          </span>
+          {photoChallengeExpiresAt && (
+            <>
+              {' '}· expires{' '}
+              <span className="font-medium text-ink">
+                {new Date(photoChallengeExpiresAt).toLocaleDateString('en-PH', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </span>
+            </>
+          )}
+          . Grants one {VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS}-day cycle, stacking onto any
+          time already live.
+        </p>
+        <form action={issueVendorSkuComp} className="space-y-3">
+          <input type="hidden" name="vendor_id" value={vendor.vendor_profile_id} />
+          <input type="hidden" name="sku" value={VENDOR_PHOTO_CHALLENGE_SKU_CODE} />
+          <div>
+            <label htmlFor="sku_reason" className="block text-xs font-medium text-ink/70 mb-1">
+              Reason <span className="text-ink/50">(logged, min. 10 characters)</span>
+            </label>
+            <input
+              type="text"
+              id="sku_reason"
+              name="reason"
+              placeholder="e.g. Founding cohort perk — verified before Oct 15"
+              className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            />
+          </div>
+          <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
+            Comp {VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days
+          </SubmitButton>
+        </form>
       </section>
 
       {!isClaimed && (

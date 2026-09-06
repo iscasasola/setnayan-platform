@@ -1,0 +1,178 @@
+<title>Encoder Build Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Public+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root{--ground:#faf7f2;--raised:#fffdfa;--ink:#221d1a;--ink-soft:#5d534c;--rule:#e2d9cd;
+    --burgundy:#6d2233;--amber:#8a5a12;--amber-wash:#f6ecd8;--good:#2f5d3a;--bad:#8c2f22;--bad-wash:#f9ece9;--done:#4a6b52}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --ground:#16130f;--raised:#1e1a16;--ink:#efe7dc;--ink-soft:#b0a496;--rule:#372f27;
+    --burgundy:#d98a9c;--amber:#e0b25f;--amber-wash:#2b2318;--good:#8fc79c;--bad:#e3907f;--bad-wash:#2e1d1a;--done:#8fc79c}}
+  :root[data-theme="dark"]{--ground:#16130f;--raised:#1e1a16;--ink:#efe7dc;--ink-soft:#b0a496;--rule:#372f27;
+    --burgundy:#d98a9c;--amber:#e0b25f;--amber-wash:#2b2318;--good:#8fc79c;--bad:#e3907f;--bad-wash:#2e1d1a;--done:#8fc79c}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:"Public Sans",system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:62rem;margin:0 auto;padding:clamp(1.5rem,4vw,4rem) clamp(1.1rem,4vw,2.5rem) 5rem}
+  h1{font-family:Newsreader,Georgia,serif;font-weight:600;font-size:clamp(2rem,5.5vw,3rem);line-height:1.1;letter-spacing:-.02em;margin:0 0 .5rem;text-wrap:balance}
+  h2{font-family:Newsreader,Georgia,serif;font-weight:600;font-size:clamp(1.35rem,3.2vw,1.75rem);line-height:1.2;margin:3rem 0 .9rem;text-wrap:balance}
+  h3{font-size:.95rem;font-weight:600;margin:0 0 .3rem}
+  p{margin:0 0 1rem;max-width:62ch}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 .7rem}
+  .lede{font-size:1.1rem;color:var(--ink-soft);max-width:56ch;margin-bottom:2rem}
+  .callout{border-left:3px solid var(--amber);background:var(--amber-wash);padding:1rem 1.2rem;margin:1.4rem 0;border-radius:0 6px 6px 0}
+  .callout.stop{border-color:var(--bad);background:var(--bad-wash)}
+  .callout p{margin:0;max-width:58ch}.callout p+p{margin-top:.6rem}
+  figure{margin:1.6rem 0;overflow-x:auto}
+  figcaption{font-size:.82rem;color:var(--ink-soft);margin-top:.6rem;max-width:60ch}
+  svg{max-width:100%;height:auto;display:block}
+  .sessions{display:grid;gap:.8rem;margin:1.3rem 0}
+  .s{background:var(--raised);border:1px solid var(--rule);border-radius:8px;padding:.9rem 1.1rem;display:grid;gap:.35rem}
+  .s.risk{border-color:var(--bad)}
+  .s.gate{border-color:var(--amber);border-width:2px}
+  .s.done{opacity:.72;border-style:dashed}
+  .shead{display:flex;flex-wrap:wrap;align-items:baseline;gap:.6rem}
+  .sid{font-family:"IBM Plex Mono",monospace;font-size:.78rem;font-weight:600;color:var(--burgundy)}
+  .s.done .sid{color:var(--done)}
+  .meta{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--ink-soft);white-space:nowrap}
+  .s p{font-size:.89rem;margin:0;max-width:60ch}
+  .why{font-size:.84rem;color:var(--ink-soft)}
+  .why strong{color:var(--ink)}
+  table{border-collapse:collapse;width:100%;font-size:.89rem;margin:1.2rem 0}
+  th,td{text-align:left;padding:.6rem .7rem;border-bottom:1px solid var(--rule)}
+  thead th{font-family:"IBM Plex Mono",monospace;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+  .num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-size:.8rem;color:var(--ink-soft)}
+  code{font-family:"IBM Plex Mono",monospace;font-size:.86em;background:var(--amber-wash);padding:.05em .3em;border-radius:3px}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Setnayan · Live Studio · plan of record · 3 Sept 2026</p>
+  <h1>Setnayan's own encoder</h1>
+  <p class="lede">Nine sessions to replace OBS with your own desktop app — so a couple opens Setnayan instead of configuring streaming software the week of their wedding.</p>
+
+  <div class="callout">
+    <p><strong>The decision is already made.</strong> Path A — the desktop app encodes — owner-ruled 3 Sept. ₱0 per wedding against the relay's ₱500–1,000 every wedding. This is the how, not the whether.</p>
+  </div>
+
+  <h2>The architecture, and the one thing not to build</h2>
+  <p>The obvious build is <em>"the app screen-captures the program window."</em> <strong>Don't.</strong> The web app already runs <em>inside</em> the Tauri webview, so frames can be produced in-process.</p>
+
+  <figure>
+    <svg viewBox="0 0 880 190" role="img" aria-label="Pipeline: phones publish over WebRTC to the controller, which composites to a canvas, encodes with WebCodecs, passes frames over IPC to Rust, which muxes FLV and pushes RTMP to YouTube. Sessions E1 to E5 own the hops.">
+      <defs><marker id="ar" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+        <polygon points="0 0, 9 3.5, 0 7" fill="currentColor"/></marker></defs>
+      <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)" opacity=".55">
+        <line x1="104" y1="66" x2="150" y2="66"/><line x1="254" y1="66" x2="300" y2="66"/>
+        <line x1="404" y1="66" x2="450" y2="66"/><line x1="554" y1="66" x2="600" y2="66"/>
+        <line x1="704" y1="66" x2="750" y2="66"/>
+      </g>
+      <g font-family="Public Sans, sans-serif" font-size="12.5" text-anchor="middle">
+        <g>
+          <rect x="8" y="44" width="96" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".45"/>
+          <text x="56" y="63" fill="currentColor">phones</text><text x="56" y="79" fill="currentColor" opacity=".6" font-size="11">WebRTC</text>
+        </g>
+        <g><rect x="150" y="44" width="104" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".45"/>
+          <text x="202" y="63" fill="currentColor">controller</text><text x="202" y="79" fill="currentColor" opacity=".6" font-size="11">built</text></g>
+        <g><rect x="300" y="44" width="104" height="44" rx="6" fill="none" stroke="#6d2233" stroke-width="1.8"/>
+          <text x="352" y="63" fill="currentColor">canvas</text><text x="352" y="79" fill="#6d2233" font-size="11" font-weight="600">E1 · E2</text></g>
+        <g><rect x="450" y="44" width="104" height="44" rx="6" fill="none" stroke="#6d2233" stroke-width="1.8"/>
+          <text x="502" y="63" fill="currentColor">WebCodecs</text><text x="502" y="79" fill="#6d2233" font-size="11" font-weight="600">E3 · E4</text></g>
+        <g><rect x="600" y="44" width="104" height="44" rx="6" fill="none" stroke="#6d2233" stroke-width="1.8"/>
+          <text x="652" y="63" fill="currentColor">Rust · RTMP</text><text x="652" y="79" fill="#6d2233" font-size="11" font-weight="600">E5 · E6</text></g>
+        <g><rect x="750" y="44" width="104" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".45"/>
+          <text x="802" y="63" fill="currentColor">YouTube</text><text x="802" y="79" fill="currentColor" opacity=".6" font-size="11">free CDN</text></g>
+      </g>
+      <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor" opacity=".62">
+        <text x="8" y="132">Everything left of the canvas already ships. Only the three highlighted hops are new.</text>
+        <text x="8" y="152">A browser cannot open the RTMP socket — that, and only that, is why native code is involved.</text>
+      </g>
+    </svg>
+    <figcaption>The pipeline, with each session mapped to the hop it owns. Window capture is deliberately absent: producing frames in-process removes the macOS Screen Recording prompt, black frames from minimise or display-sleep, wrong-window capture, and the manual desktop-audio step that can silently lose the vows.</figcaption>
+  </figure>
+
+  <h2>The nine sessions</h2>
+
+  <div class="sessions">
+    <div class="s gate">
+      <div class="shead"><span class="sid">E0</span><h3>The spike — does any of this work here?</h3><span class="meta">Opus 5 · high · 1–2 d</span></div>
+      <p>Two questions that can reshape everything. Does the Tauri webview expose <code>VideoEncoder</code> <em>and</em> <code>AudioEncoder</code> on macOS and Windows? And does the desktop build still compile — it has not run since 25 June.</p>
+      <p class="why"><strong>Blocking.</strong> WebCodecs is confirmed in Safari 26; whether WKWebView exposes it is undocumented either way. If it doesn't, the whole shape changes and you want to know on day one, not day fourteen.</p>
+    </div>
+
+    <div class="s">
+      <div class="shead"><span class="sid">E1</span><h3>Program surface → canvas</h3><span class="meta">Sonnet 5 · high · 2–3 d</span></div>
+      <p>Composite the program frame in-process. The pattern exists in <code>reel-render.ts</code>, and the WebRTC streams do not taint the canvas — unlike that file's cross-origin R2 clips, which is its main hazard.</p>
+    </div>
+
+    <div class="s risk">
+      <div class="shead"><span class="sid">E2</span><h3>Overlays on canvas + the drift guard</h3><span class="meta">Sonnet 5 · high · 3–4 d</span></div>
+      <p>Monogram, lower third, event QR, POWERED BY SETNAYAN. These are React DOM and must be re-drawn — a second renderer for the same fact.</p>
+      <p class="why">🚩 <strong>The revenue-protecting session, and the one most likely to be left uncovered.</strong> The <em>decision</em> stays server-side (<code>decideWatermark</code>, the air decision); only the <em>drawing</em> is duplicated. The encoder consumes <code>ProgramFrame.overlay</code> and never re-derives it. Guard must assert every <code>WatermarkReason</code> variant is handled, so a new variant fails the build rather than silently airing unbranded.</p>
+    </div>
+
+    <div class="s">
+      <div class="shead"><span class="sid">E3</span><h3>WebCodecs encode — H.264 + AAC</h3><span class="meta">Sonnet 5 · high · 2–3 d</span></div>
+      <p>Video is proven in-repo. <strong>AAC audio is new</strong> — and audio arrives as a track off the <code>MediaStream</code>, which is precisely how this design stops the vows being lost to an OS routing setting.</p>
+    </div>
+
+    <div class="s">
+      <div class="shead"><span class="sid">E4</span><h3>IPC transport + backpressure</h3><span class="meta">Sonnet 5 · high · 2 d</span></div>
+      <p>Frames from webview to Rust. Dropping frames must <strong>degrade, never stall</strong> — a stalled pipeline mid-ceremony is the failure this whole project exists to remove.</p>
+    </div>
+
+    <div class="s">
+      <div class="shead"><span class="sid">E5</span><h3>RTMP client + FLV mux in Rust</h3><span class="meta">Opus 5 · high · 4–6 d</span></div>
+      <p>A build-or-buy decision as much as systems code: native Rust, or an ffmpeg sidecar at ~2–3 days but <strong>+80 MB and an LGPL/GPL call</strong> you would be making for the whole product.</p>
+    </div>
+
+    <div class="s">
+      <div class="shead"><span class="sid">E6</span><h3>The stream key never reaches the renderer</h3><span class="meta">Sonnet 5 · high · 1–2 d</span></div>
+      <p>A bearer credential for a channel <em>other couples' weddings</em> stream on. Fetched server-side, handed to Rust, never to the webview. Never logged, never in an error string, never in Sentry, redacted in diagnostics.</p>
+      <p class="why">Precedent to follow, not shortcut: <code>live_studio_channel_grants</code> is RLS-enabled <strong>with no policy</strong> — service-role only — exactly so a platform credential is not exposed row-wise to event members.</p>
+    </div>
+
+    <div class="s">
+      <div class="shead"><span class="sid">E7</span><h3>Cross-platform build, signing, notarization</h3><span class="meta">Sonnet 5 · high · 3–5 d</span></div>
+      <p>Routinely underestimated. macOS Developer ID + notarization already has a fallback path; <strong>Windows is still unsigned</strong>, which means a SmartScreen warning — the same category of friction as Google's unverified-app screen, on a wedding week.</p>
+    </div>
+
+    <div class="s">
+      <div class="shead"><span class="sid">E8</span><h3>Auto-updater</h3><span class="meta">Sonnet 5 · high · 2–3 d</span></div>
+      <p class="why"><strong>Not in the original 19–28 day estimate, and not optional.</strong> The Tauri shell meta-refreshes to setnayan.com, so web changes reach users instantly — but the <em>native</em> half is version-locked. Without this, an encoder bug means asking couples to reinstall the week of their wedding.</p>
+    </div>
+
+    <div class="s">
+      <div class="shead"><span class="sid">E9</span><h3>Acceptance run</h3><span class="meta">Sonnet 5 · medium · 1–2 d</span></div>
+      <p>A real end-to-end rehearsal on both operating systems: phones join, cut between them, overlays correct, stream reaches YouTube, health strip honest, kill the network and confirm it degrades rather than lies.</p>
+    </div>
+
+    <div class="s done">
+      <div class="shead"><span class="sid">✓ LS4</span><h3>Failure reaches the controller — already shipped</h3><span class="meta">merged 2 Sept</span></div>
+      <p>The scope budgeted 2–3 days for "encoder death is visible." <code>getYoutubeStreamStatus</code> is already wired, quota-costed and mutation-tested. That work is done and carries over unchanged.</p>
+    </div>
+  </div>
+
+  <h2>The honest total</h2>
+  <table>
+    <thead><tr><th>Source</th><th>Days</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>LS3's original estimate</td><td class="num">19–28</td><td>the eight build pieces</td></tr>
+      <tr><td>− already shipped by LS4</td><td class="num">−2–3</td><td>failure visibility</td></tr>
+      <tr><td>+ E0 spike</td><td class="num">+1–2</td><td>omitted</td></tr>
+      <tr><td>+ E8 auto-updater</td><td class="num">+2–3</td><td>omitted, and not optional</td></tr>
+      <tr><td>+ E9 acceptance</td><td class="num">+1–2</td><td>omitted</td></tr>
+      <tr><td><strong>Realistic</strong></td><td class="num"><strong>21–32 days</strong></td><td>9 sessions</td></tr>
+    </tbody>
+  </table>
+  <p>Wall-clock is shorter than the sum: <strong>E5 and E6 depend only on the IPC contract</strong>, so they can run alongside E1–E4. E7 and E8 need a working binary. E9 is last.</p>
+
+  <div class="callout stop">
+    <p><strong>Do not start E1 before E0 comes back.</strong> Every session after it assumes WebCodecs works inside the Tauri webview. That is confirmed for Safari 26 and undocumented for WKWebView — one day of spike against three weeks of rework.</p>
+  </div>
+
+  <h2>What this does not buy you</h2>
+  <p><strong>It does not remove the laptop.</strong> Nothing can — a browser cannot open an RTMP socket, on any device. It replaces <em>"bring a laptop, install OBS, configure a custom RTMP server, paste a stream key, set up window capture"</em> with <em>"bring a laptop, open Setnayan."</em></p>
+  <p><strong>And it is not B4.</strong> B4 is a phone app pushing one stream per kit camera, for Roam. Different input, different topology. Building this leaves Roam with no capture path, and any plan treating them as one item under-scopes Roam.</p>
+
+  <footer>
+    Grounded in <code>Live_Studio_Encoder_Scope_2026-09-03.md</code> (LS3, PR #5118) — read §5 and §6 before E2 and E6. Owner ruling 3 Sept in <code>DECISION_LOG.md</code>. Plan of record; no code written.
+  </footer>
+</div>

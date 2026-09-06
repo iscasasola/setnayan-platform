@@ -37,12 +37,48 @@
  *      has been no successful read at all yet (`streamStatus === null`), this
  *      is a READ (not an `actions.ts` write) — an absence must be SHOWN, not
  *      denied by rendering nothing or by guessing "fine".
+ *
+ * ── S9 — THE ENCODER'S OWN HEALTH (build-sessions/encoder/S9.md) ───────────
+ * Everything above this line answers "does YouTube see video?" — a question
+ * that only exists once a Setnayan-managed broadcast exists to ask it of
+ * (`live`). It cannot see a local RTMP reconnect loop, and it cannot see
+ * anything at all on the couple's OWN channel (§ the by-hand route, which has
+ * no `stream_id` and therefore no YouTube health to poll). `encoder` closes
+ * both gaps: an OPTIONAL reading from the desktop app's native RTMP sender
+ * (`src-tauri/crates/encoder::reconnect::HealthEvent`, S6/S7), forwarded
+ * through S5's Tauri command surface.
+ *
+ * PRECEDENCE (measured, not guessed — see this module's tests):
+ *   · YouTube `no_data` (never confirmed, or stale) ALWAYS wins. A locally
+ *     "publishing" encoder cannot make the strip GREENER than what YouTube
+ *     itself is reporting — see trap 1/2 above; this is the same trap with a
+ *     second, louder liar added to the room.
+ *   · Local `reconnecting`/`down` CAN pre-empt an otherwise-fine YouTube
+ *     `receiving`/`degraded` reading — LOUDER AND FASTER than waiting for
+ *     YouTube's own ~10s detection latency. `reconnecting` needs to have held
+ *     for at least `LOCAL_PREEMPT_MS` first (one dropped TCP ack is not an
+ *     outage); `down` — already past the supervisor's own grace window
+ *     (`reconnect.rs`'s `HealthEvent::Down` doc) — pre-empts immediately.
+ *   · A non-zero `bitrateRung` is a SUB-state, not a different top-level
+ *     state: "streaming at reduced quality" while still `receiving`/
+ *     `degraded`, never its own alarm color.
+ *
+ * ⚠ NOT WIRED END TO END YET. `src-tauri/src/encoder_ipc.rs` (S5, PR #5239)
+ * ships `encoder_push`'s bytes into a STUB byte-counter (its own comment:
+ * "S6 replaces this with the real FLV-tag/RTMP writer") — nothing today
+ * calls `reconnect::supervise()`, and no Tauri `Channel<HealthEvent>` exists
+ * for Rust to push updates to this page at all. `IngestHealthStrip` therefore
+ * always passes `encoder: null` for now — see that component's own comment.
+ * This module accepts the real shape today so a follow-up session only has
+ * to wire the channel, never touch `decideIngestHealth` again.
  */
 
 export type IngestHealthState =
   | 'waiting_for_encoder'
   | 'receiving'
   | 'degraded'
+  | 'reconnecting'
+  | 'encoder_down'
   | 'no_data';
 
 export type IngestHealthDecision = {
@@ -50,6 +86,28 @@ export type IngestHealthDecision = {
   /** The operator-facing sentence for this state. Rendered, never logged only. */
   sentence: string;
 };
+
+/** Mirrors `reconnect::HealthEvent`'s states, collapsed to what the strip renders. */
+export type EncoderRtmpState = 'idle' | 'connecting' | 'publishing' | 'reconnecting' | 'down';
+
+export type EncoderHealthInput = {
+  rtmp: EncoderRtmpState;
+  /** How long the CURRENT reconnect attempt has been running. 0 when `rtmp` isn't `'reconnecting'`. */
+  reconnectingForMs: number;
+  droppedFrames: number;
+  /** 0 = full quality; see `live-studio-encoder-bitrate.ts`'s `BITRATE_LADDER`. */
+  bitrateRung: 0 | 1 | 2;
+  recording: boolean;
+};
+
+/**
+ * A local `reconnecting` reading must hold for at least this long before it
+ * pre-empts a fine-looking YouTube reading — a single dropped ack that
+ * recovers inside a second is not an outage worth alarming over. `down` has
+ * no such grace: the supervisor only emits it once its OWN grace window has
+ * already elapsed (see `HealthEvent::Down`'s doc in `reconnect.rs`).
+ */
+export const LOCAL_PREEMPT_MS = 1_000;
 
 export type IngestHealthInput = {
   /**
@@ -72,6 +130,11 @@ export type IngestHealthInput = {
   live: boolean;
   /** Milliseconds since `streamStatus`/`healthStatus` were last confirmed. See module docblock. */
   lastOkAt: number | null;
+  /**
+   * The desktop encoder's own reading, or `null` when there is none — no
+   * desktop app, or (today) no wiring to it yet. See the S9 docblock above.
+   */
+  encoder?: EncoderHealthInput | null;
 };
 
 /**
@@ -118,32 +181,93 @@ const NOT_SENDING_SENTENCE =
 const DEGRADED_SENTENCE =
   'Your encoder is connected but the stream is unstable. Check your upload connection.';
 const RECEIVING_SENTENCE = 'Receiving video from your encoder.';
+const OWN_CHANNEL_NO_YOUTUBE_NOTE =
+  " Setnayan can't check your YouTube status directly on your own channel.";
+const ENCODER_IDLE_SENTENCE = 'Your desktop encoder is idle. Start it before you go live.';
+const ENCODER_CONNECTING_SENTENCE = 'Your desktop encoder is connecting…';
+const ENCODER_PUBLISHING_SENTENCE = 'Receiving video from your desktop encoder.';
+const ENCODER_RECONNECTING_SENTENCE = 'Your desktop encoder lost connection and is reconnecting…';
+const ENCODER_DOWN_SENTENCE =
+  "Your desktop encoder can't reach the ingest. Check your upload connection.";
+const REDUCED_QUALITY_SUFFIX = ' Streaming at reduced quality to keep up with your connection.';
 
 const YOUTUBE_BAD_HEALTH = new Set(['bad', 'noData']);
+
+/** The encoder's own reading, with no YouTube broadcast to combine it against
+ * (own-channel/by-hand, or not `live` yet). Used both when `!input.live` and
+ * as the base for the S9 precedence rules below. */
+function decideFromEncoderOnly(encoder: EncoderHealthInput, ownChannelNote: string): IngestHealthDecision {
+  switch (encoder.rtmp) {
+    case 'idle':
+      return { state: 'waiting_for_encoder', sentence: ENCODER_IDLE_SENTENCE + ownChannelNote };
+    case 'connecting':
+      return { state: 'waiting_for_encoder', sentence: ENCODER_CONNECTING_SENTENCE + ownChannelNote };
+    case 'publishing':
+      return {
+        state: 'receiving',
+        sentence:
+          (encoder.bitrateRung > 0
+            ? ENCODER_PUBLISHING_SENTENCE + REDUCED_QUALITY_SUFFIX
+            : ENCODER_PUBLISHING_SENTENCE) + ownChannelNote,
+      };
+    case 'reconnecting':
+      return { state: 'reconnecting', sentence: ENCODER_RECONNECTING_SENTENCE + ownChannelNote };
+    case 'down':
+      return { state: 'encoder_down', sentence: ENCODER_DOWN_SENTENCE + ownChannelNote };
+  }
+}
 
 /**
  * Decide the operator-facing ingest state. Pure and total: every input
  * combination returns a nameable state, never nothing — see trap 2 above.
  */
 export function decideIngestHealth(input: IngestHealthInput): IngestHealthDecision {
+  const encoder = input.encoder ?? null;
+
   if (!input.live) {
+    // Own-channel (by-hand): no Setnayan-managed broadcast, so no stream_id
+    // exists for YouTube to report on — that half must say so rather than
+    // showing nothing (S9's mount-rule extension), while the desktop
+    // encoder's OWN reading, when there is one, still gets shown.
+    if (encoder) {
+      return decideFromEncoderOnly(encoder, OWN_CHANNEL_NO_YOUTUBE_NOTE);
+    }
     return { state: 'waiting_for_encoder', sentence: WAITING_SENTENCE };
   }
 
+  let youtube: IngestHealthDecision;
   if (input.streamStatus === null) {
-    return { state: 'no_data', sentence: CANNOT_CONFIRM_SENTENCE };
+    youtube = { state: 'no_data', sentence: CANNOT_CONFIRM_SENTENCE };
+  } else if (input.lastOkAt === null || input.lastOkAt > STALE_AFTER_MS) {
+    youtube = { state: 'no_data', sentence: STALE_SENTENCE };
+  } else if (input.streamStatus === 'active') {
+    youtube =
+      input.healthStatus !== null && YOUTUBE_BAD_HEALTH.has(input.healthStatus)
+        ? { state: 'degraded', sentence: DEGRADED_SENTENCE }
+        : { state: 'receiving', sentence: RECEIVING_SENTENCE };
+  } else {
+    youtube = { state: 'no_data', sentence: NOT_SENDING_SENTENCE };
   }
 
-  if (input.lastOkAt === null || input.lastOkAt > STALE_AFTER_MS) {
-    return { state: 'no_data', sentence: STALE_SENTENCE };
+  // PRECEDENCE 1 — YouTube `no_data` always wins. A locally "fine" encoder
+  // reading must never make this GREENER than what YouTube itself reports.
+  if (youtube.state === 'no_data' || !encoder) {
+    return youtube;
   }
 
-  if (input.streamStatus === 'active') {
-    if (input.healthStatus !== null && YOUTUBE_BAD_HEALTH.has(input.healthStatus)) {
-      return { state: 'degraded', sentence: DEGRADED_SENTENCE };
-    }
-    return { state: 'receiving', sentence: RECEIVING_SENTENCE };
+  // PRECEDENCE 2 — local reconnecting/down pre-empts an otherwise-fine
+  // YouTube reading, louder and faster than YouTube's own ~10s detection.
+  if (encoder.rtmp === 'down') {
+    return { state: 'encoder_down', sentence: ENCODER_DOWN_SENTENCE };
+  }
+  if (encoder.rtmp === 'reconnecting' && encoder.reconnectingForMs >= LOCAL_PREEMPT_MS) {
+    return { state: 'reconnecting', sentence: ENCODER_RECONNECTING_SENTENCE };
   }
 
-  return { state: 'no_data', sentence: NOT_SENDING_SENTENCE };
+  // PRECEDENCE 3 — bitrate rung is a sub-state, never its own alarm color.
+  if (encoder.bitrateRung > 0 && (youtube.state === 'receiving' || youtube.state === 'degraded')) {
+    return { state: youtube.state, sentence: youtube.sentence + REDUCED_QUALITY_SUFFIX };
+  }
+
+  return youtube;
 }

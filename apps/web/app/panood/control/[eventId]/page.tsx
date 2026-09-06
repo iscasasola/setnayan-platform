@@ -1139,10 +1139,11 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               managed broadcast exists to poll — the by-hand route (below) has no
               stream_id for YouTube to report on. PERSISTENT, beside the tally —
               never a toast, never console-only. */}
-          {liveAir.source === 'broadcast' ? (
+          {liveAir.source === 'broadcast' || liveAir.source === 'manual' ? (
             <IngestHealthStrip
               eventId={eventId}
-              initialLive
+              mode={liveAir.source === 'broadcast' ? 'broadcast' : 'manual'}
+              initialLive={liveAir.source === 'broadcast'}
               initialStreamStatus={null}
               initialHealthStatus={null}
             />

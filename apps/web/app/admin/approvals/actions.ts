@@ -189,7 +189,7 @@ export async function approveRequest(formData: FormData) {
   if (claimErr) throw new Error(`Could not approve: ${claimErr.message}`);
   if (!claimed) {
     throw new Error(
-      'Could not approve — the request was already decided, has expired, or you initiated it (a different admin must approve).',
+      'Could not approve — the request was already decided, has expired, you initiated it (a different admin must approve), or the admin who raised it has since been deleted, in which case it can only expire.',
     );
   }
 
@@ -264,7 +264,7 @@ export async function rejectRequest(formData: FormData) {
   if (claimErr) throw new Error(`Could not reject: ${claimErr.message}`);
   if (!claimed) {
     throw new Error(
-      'Could not reject — the request was already decided or you initiated it (a different admin must decide).',
+      'Could not reject — the request was already decided, you initiated it (a different admin must decide), or the admin who raised it has since been deleted, in which case it can only expire.',
     );
   }
 

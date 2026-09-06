@@ -6,7 +6,8 @@
  * CURRENT model — owner 2026-09-05 (supersedes 2026-07-22's "points in
  * proportion to what they paid" and 2026-08-26's ₱5/point): a supplier holds
  * CREDITS per event — 5% of the booking fee they paid (cap 1,000, no floor) plus
- * any ₱500/25 packs — written to a ledger on admin payment approval. The rate
+ * any ₱500 packs (100 credits since 2026-09-06) — written to a ledger on admin
+ * payment approval. The rate
  * lives in lib/vendor-papic-credits.ts, the ledger read in
  * lib/vendor-papic-grants.ts; this module is handed the credit total and turns
  * it into an allowance (`allowancePointsFor`), never lower than the tier's own
@@ -77,7 +78,7 @@ export function pointsForMedia(media: VendorPapicMedia): number {
 // 2026-08-26 fee-scaled rate — `VENDOR_PAPIC_PHP_PER_POINT` (₱5/point),
 // `VENDOR_PAPIC_BASE_GIFT_POINTS` (the 50 floor), `VENDOR_PAPIC_MAX_POINTS`
 // (the 2,000 ceiling) and `vendorPapicPointsForBookingFee`. The rule that
-// replaced it — 5% of the booking fee, cap 1,000, NO floor, plus a ₱500/25
+// replaced it — 5% of the booking fee, cap 1,000, NO floor, plus a ₱500/100
 // pack — lives in lib/vendor-papic-credits.ts, and the credits it produces are
 // written to a LEDGER (vendor_papic_portfolio_credit_grants) on admin payment
 // approval rather than derived live from the fee. This module no longer knows

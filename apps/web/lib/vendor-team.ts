@@ -198,7 +198,9 @@ export type VendorAdminMotion = {
   target_member_id: string;
   kind: 'demote' | 'remove';
   new_role: VendorTeamRole;
-  proposed_by: string;
+  /** NULL once the proposing admin's account is deleted — the motion and
+   *  everyone else's votes survive them (migration 20271210831005). */
+  proposed_by: string | null;
   status: 'open' | 'executed' | 'rejected' | 'cancelled';
   created_at: string;
   resolved_at: string | null;

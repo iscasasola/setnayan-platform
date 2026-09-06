@@ -781,7 +781,8 @@ async function ConfigureEventView({
       // ⚠ READ THE CREDITS TOO. The readout a supplier sees must agree with
       // the allowance the capture route enforces; on the bare tier it would
       // show "50 pts" to somebody holding 1,000 (owner 2026-09-05: 5% of the
-      // booking fee + ₱500/25 packs, summed from their ledger).
+      // booking fee + ₱500 packs (100 credits since 2026-09-06), summed from
+      // their ledger).
       const admin = createAdminClient();
       const [tier, creditsGranted] = await Promise.all([
         deriveVendorPapicTier(admin, vendorProfileId, booking.eventId),

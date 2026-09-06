@@ -27,7 +27,8 @@ type RequestRow = {
   target_id: string | null;
   rationale: string;
   status: string;
-  initiated_by: string;
+  /** NULL once admin A's account is deleted; the four-eyes record survives. */
+  initiated_by: string | null;
   decided_by: string | null;
   decision_reason: string | null;
   created_at: string;

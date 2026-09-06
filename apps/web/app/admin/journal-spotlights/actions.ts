@@ -285,7 +285,7 @@ export async function confirmSponsored(formData: FormData): Promise<void> {
   if (!claimed) {
     back(
       'error',
-      'Could not confirm — the request was already decided, expired, or you initiated it. A different admin must confirm.',
+      'Could not confirm — the request was already decided, expired, you initiated it (a different admin must confirm), or the admin who raised it has since been deleted, in which case it can only expire.',
     );
   }
 

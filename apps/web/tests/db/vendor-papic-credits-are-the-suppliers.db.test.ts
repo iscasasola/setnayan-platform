@@ -7,7 +7,7 @@
  * host gives them."* So there are TWO ledgers on one event and they must never
  * mix: `papic_event_point_grants` is what the host bought or was granted for
  * guests' cameras; `vendor_papic_portfolio_credit_grants` is what a supplier
- * earned (5% of their booking fee) or bought (₱500/25) for their own shots.
+ * earned (5% of their booking fee) or bought (₱500 a pack) for their own shots.
  * A grant landing in the wrong one would either hand a couple credits they
  * did not buy or hand a supplier the couple's — and both would render as an
  * ordinary balance with nothing to notice.

@@ -142,14 +142,45 @@ async function fetchProductionCommit(args) {
   return { sha, id: deployment.uid, url: deployment.url, createdAt: deployment.createdAt };
 }
 
+/**
+ * Seconds between a pending commit's timestamp and now.
+ *
+ * 🔴 `now` IS THE WALL CLOCK, AND IT USED TO BE THE GIT TIP. This read
+ * `git log -1 --format=%ct origin/main` — the committer timestamp of main's
+ * TIP — so the "age" it returned was the span BETWEEN TWO COMMITS, not how
+ * long the change had been waiting. Measured 2026-09-06: the monitor reported
+ * "merged 46 min ago" (tip 06:06:09Z minus pending 05:20) while the true age
+ * was already 64 minutes, and the reported figure could never grow again.
+ *
+ * 🔑 WHICH DEFEATED THE HOURLY CRON, THE ONE THING ADDED TO CLOSE THE BLIND
+ * WINDOW. `deploy-drift-monitor.yml`'s schedule exists because "drift beginning
+ * after the last merge of the day goes unreported until the next one". But with
+ * `now` frozen at the tip, the age STOPS GROWING the moment merging stops — so
+ * every hourly run re-reports the same frozen figure. A deploy that fails right
+ * after a merge landing five minutes behind it sits at "5 min old" forever,
+ * permanently inside the 20-minute grace, and every scheduled run says
+ * "within grace — normal deploy latency, not drift" while production serves
+ * stale code for days. That is a monitor reporting healthy while the thing it
+ * watches is broken — the exact disease it was built to catch, reproduced
+ * inside the watcher.
+ *
+ * @param {{pendingCommitTs:number, nowTs:number}} args seconds since epoch
+ * @returns {number} age in seconds, never negative (clock skew between the
+ *   runner and a committer's machine must not read as "from the future" and
+ *   land inside the grace window).
+ */
+export function pendingAgeSeconds({ pendingCommitTs, nowTs }) {
+  if (!Number.isFinite(pendingCommitTs) || !Number.isFinite(nowTs)) return null;
+  return Math.max(0, nowTs - pendingCommitTs);
+}
+
 /** Age in seconds of the first commit AFTER `deployedSha` on the way to origin/main; null if unknown. */
 function oldestPendingAgeSeconds(deployedSha) {
   const nextSha = shSafe(`git rev-list --reverse ${deployedSha}..origin/main`).split('\n')[0];
   if (!nextSha) return null;
-  const ct = shSafe(`git log -1 --format=%ct ${nextSha}`);
+  const ct = Number(shSafe(`git log -1 --format=%ct ${nextSha}`));
   if (!ct) return null;
-  const now = Number(shSafe('git log -1 --format=%ct origin/main')) || Math.floor(Date.now() / 1000);
-  return now - Number(ct);
+  return pendingAgeSeconds({ pendingCommitTs: ct, nowTs: Math.floor(Date.now() / 1000) });
 }
 
 async function main() {

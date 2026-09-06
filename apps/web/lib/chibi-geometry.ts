@@ -954,6 +954,16 @@ function bodyParts(bodyType: ChibiBodyType, outfit: ChibiOutfit): ChibiPart[] {
  * part's `paint` descriptor (that separation is what keeps one buffer
  * servable to N differently-coloured instances later).
  */
+/** The cached face-ink geometry for a (eyes, mouth, mark) combo, in CHIBI
+ *  head space (radius CHIBI_HEAD_R, +Z forward). SHARED — callers that need
+ *  another head size must `clone()` before scaling (kit/rig-face.ts does).
+ *  Null when every feature is 'none'. */
+export function chibiFaceInkGeo(eyes: ChibiEyes, mouth: ChibiMouth, mark: ChibiMark): THREE.BufferGeometry | null {
+  const faceKey = `${eyes}|${mouth}|${mark}`;
+  if (!faceCache.has(faceKey)) faceCache.set(faceKey, faceInkGeo(eyes, mouth, mark));
+  return faceCache.get(faceKey) ?? null;
+}
+
 export function buildChibiGeometry(cfg: ChibiAvatarConfig): ChibiGeometryBundle {
   const body = bodyParts(cfg.bodyType, cfg.outfit);
 

@@ -46,7 +46,7 @@ const COPY: Record<
     items: [
       {
         title: 'Personal QR invitations',
-        body: 'Each guest gets a personal invitation site with a branded QR: your monogram in the center, your colors, your URL. Print sheet ready, share-by-link ready, MMS-ready. We render every invite at three aspect ratios so you can post the same invite to a story, a feed, or a print sheet without re-cropping.',
+        body: 'Each guest gets a personal invitation site with a branded QR: your monogram in the center, your colors, your URL. Print sheet ready, share-by-link ready, MMS-ready. The QR renders at 1024px, so the same invite stays crisp from a phone screen to a printed table card.',
       },
       {
         title: 'QR codes that do more than open a URL',
@@ -62,7 +62,7 @@ const COPY: Record<
       },
       {
         title: 'Email notifications that don’t feel like spam',
-        body: 'Just the things you actually need to know about: an RSVP came in, a vendor sent a message, a payment is due in 7 days. No marketing blasts, no daily digests, no cross-promotion. Per-event delivery preferences (per channel, per category). Unsubscribe is one click and per-channel.',
+        body: 'Just the things you actually need to know about: an RSVP came in, a vendor sent a message, a payment is due in 7 days. No marketing blasts, no daily digests, no cross-promotion. Each kind of notice has a fixed channel — some reach your inbox, some only ring the in-app tray — and every email we send your guests carries one-click unsubscribe.',
       },
     ],
   },
@@ -74,7 +74,7 @@ const COPY: Record<
     items: [
       {
         title: 'Personal QR invitations',
-        body: 'Bawat guest ay may sariling invitation site na may branded QR: ang monogram mo sa gitna, ang colors mo, ang URL mo. Print sheet ready, share-by-link ready, MMS-ready. Nire-render namin ang bawat invite sa tatlong aspect ratio para ma-post mo ang parehong invite sa story, feed, o print sheet nang hindi nire-crop ulit.',
+        body: 'Bawat guest ay may sariling invitation site na may branded QR: ang monogram mo sa gitna, ang colors mo, ang URL mo. Print sheet ready, share-by-link ready, MMS-ready. Ang QR ay nire-render sa 1024px, kaya nananatiling malinaw ang parehong invite mula sa phone screen hanggang sa naka-print na table card.',
       },
       {
         title: 'QR codes na hindi lang basta nagbubukas ng URL',
@@ -90,7 +90,7 @@ const COPY: Record<
       },
       {
         title: 'Email notifications na hindi parang spam',
-        body: '‘Yung mga bagay lang talaga na kailangan mong malaman: may dumating na RSVP, may nagpadala ng message na vendor, may bayarin na due sa loob ng 7 araw. Walang marketing blasts, walang daily digests, walang cross-promotion. Per-event delivery preferences (per channel, per category). One click lang ang unsubscribe, at per-channel.',
+        body: '‘Yung mga bagay lang talaga na kailangan mong malaman: may dumating na RSVP, may nagpadala ng message na vendor, may bayarin na due sa loob ng 7 araw. Walang marketing blasts, walang daily digests, walang cross-promotion. Bawat uri ng abiso ay may nakatakdang channel — may umaabot sa inbox mo, may tumutunog lang sa in-app tray — at bawat email na ipinapadala namin sa mga guest mo ay may one-click unsubscribe.',
       },
     ],
   },

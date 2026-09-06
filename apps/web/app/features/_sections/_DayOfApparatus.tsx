@@ -67,7 +67,7 @@ const COPY: Record<
       },
       {
         tagline: 'TikTok-format booth at the venue',
-        body: 'A booth station capturing 30-second TikTok-format videos from your guests during cocktail or reception. Two tiers: post to your own TikTok handle, or to Setnayan’s curated showcase. Compilation arrives in your gallery the next morning.',
+        body: 'A booth station capturing 30-second TikTok-format videos from your guests during cocktail or reception. Two tiers: post to your own TikTok handle, or to Setnayan’s curated showcase. The compilation renders from the booth itself and lands in your gallery as soon as it finishes.',
       },
       {
         tagline: 'Mood-board engine',
@@ -110,7 +110,7 @@ const COPY: Record<
       },
       {
         tagline: 'TikTok-format booth sa venue',
-        body: 'Isang booth station na kumukuha ng 30-second TikTok-format videos mula sa guests mo tuwing cocktail o reception. Dalawang tier: i-post sa sarili mong TikTok handle, o sa curated showcase ng Setnayan. Dumarating ang compilation sa gallery mo kinabukasan ng umaga.',
+        body: 'Isang booth station na kumukuha ng 30-second TikTok-format videos mula sa guests mo tuwing cocktail o reception. Dalawang tier: i-post sa sarili mong TikTok handle, o sa curated showcase ng Setnayan. Nire-render ang compilation mula mismo sa booth at dumarating sa gallery mo pagkatapos nitong matapos. kinabukasan ng umaga.',
       },
       {
         tagline: 'Mood-board engine',

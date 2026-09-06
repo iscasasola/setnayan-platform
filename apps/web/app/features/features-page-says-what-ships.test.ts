@@ -85,6 +85,46 @@ const BANNED: ReadonlyArray<{ phrase: RegExp; why: string }> = [
       'says so in its own empty state: "Vendors will upload PDFs here once you agree on ' +
       'terms in chat." The vendor uploads; both parties sign in-browser.',
   },
+  /* ── ADDED 2026-09-06, the sweep that finished the audit ──────────────────
+     The first pass fixed the sections carrying the .ics/OCR vocabulary and
+     stopped there. Finishing the remaining eight files found four more, none
+     of which shared a single word with the first three — which is the argument
+     against ever calling a copy audit done at the first clean grep. */
+  {
+    phrase: /three aspect ratios|tatlong aspect ratio/i,
+    why:
+      'The invite renders at ONE size. `app/api/website/qr/guest/[guestId]/route.ts` ' +
+      'emits a single 1024x1024 PNG; there is no story/feed/print variant set anywhere ' +
+      'in the tree. The print sheet at /dashboard/[eventId]/invitation/print is real and ' +
+      'may be claimed — a second and third aspect ratio may not.',
+  },
+  {
+    phrase: /delivery preferences \(per channel, per category\)|Per-event delivery preferences/i,
+    why:
+      'There is no notification-preference table and no surface that edits one. Which ' +
+      'channel a notice takes is a HARDCODED per-notice-type allowlist in ' +
+      '`lib/notifications.ts` ("ON the email allowlist" / "NOT on the push allowlist"), ' +
+      'chosen by us and not by the couple. Build a preferences table and a UI before ' +
+      'this sentence goes back.',
+  },
+  {
+    phrase: /arrives in your gallery the next morning|Dumarating ang compilation sa gallery mo kinabukasan/i,
+    why:
+      'Nothing runs overnight. `vercel.json` ships `"crons": []`, the render happens in ' +
+      "the guest's browser (WebCodecs/MediaRecorder) and is closed out by " +
+      '`finalizePatiktokRenderJob` the moment it completes — the stub queue-drainer that ' +
+      'would have batched it was DELETED, and `patiktok-render-completion-writer.test.ts` ' +
+      'exists to keep it deleted. A morning-after promise implies a schedule we removed ' +
+      'on purpose.',
+  },
+  {
+    phrase: /receipts download together|sabay-sabay na nada-download/i,
+    why:
+      'There is no combined download and no receipts index. `lib/routes.ts` exposes only ' +
+      '`receipts.detail(receiptId)`; each receipt is its own printable page at ' +
+      '/receipts/[receiptId], reached from its order. "Together" promises a bundle that ' +
+      'does not exist.',
+  },
 ];
 
 function sectionFiles(): string[] {
@@ -101,6 +141,18 @@ test('the sections exist — the guard cannot silently scan an empty directory',
 });
 
 test('/features makes no claim the app cannot keep', () => {
+  /*
+    EVERY VIOLATION IS COLLECTED, NEVER JUST THE FIRST.
+
+    🔴 This test used to assert inside the loop, so the first bad phrase threw
+    and the rest of the page went unread. Caught by its own mutation check on
+    2026-09-06: four known-false claims were restored and the run reported
+    exactly ONE of them — the other three were invisible, in a guard whose whole
+    job is finding claims nobody has looked at. A checker that stops at the
+    first problem hides the others, which is the same defect this file exists to
+    catch in the copy.
+  */
+  const found: string[] = [];
   for (const file of sectionFiles()) {
     /*
       Comments are stripped FIRST — this file's own docblock quotes every banned
@@ -111,14 +163,16 @@ test('/features makes no claim the app cannot keep', () => {
     const src = stripComments(readFileSync(join(SECTIONS, file), 'utf8'));
     for (const { phrase, why } of BANNED) {
       const hit = phrase.exec(src);
-      assert.equal(
-        hit,
-        null,
-        `${file} claims "${hit?.[0]}" — and the app does not do it.\n\n${why}\n\n` +
-          'If you have genuinely SHIPPED this, delete its entry from BANNED in this ' +
-          'file and say in the same commit what now makes it true. Do not weaken the ' +
-          'pattern to get green.',
-      );
+      if (hit) found.push(`${file} claims "${hit[0]}" — and the app does not do it.\n    ${why}`);
     }
   }
+  assert.deepEqual(
+    found,
+    [],
+    `/features makes ${found.length} claim(s) the app cannot keep:\n\n` +
+      found.map((f, i) => `  ${i + 1}. ${f}`).join('\n\n') +
+      '\n\nIf you have genuinely SHIPPED one of these, delete its entry from BANNED in ' +
+      'this file and say in the same commit what now makes it true. Do not weaken a ' +
+      'pattern to get green.',
+  );
 });

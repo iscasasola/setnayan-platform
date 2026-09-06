@@ -115,6 +115,31 @@ export const STORE_SHELL_WEB_ONLY_STUDIO_SEGMENTS: ReadonlySet<string> = new Set
  */
 const WEB_ONLY_PURCHASE_ROUTE = /^\/(?:dashboard\/[^/]+\/(?:orders\/new|checkout)|papic\/order)(?:\/|$)/;
 
+/**
+ * 🔑 PAID FEATURES WHOSE HOME IS NOT UNDER /studio. The first version of this
+ * gate was a path allowlist over `/studio/*` alone, and its test only grepped
+ * `page.tsx` files for `InlineCheckoutDrawer` — so it could not see a paid
+ * feature living anywhere else. An audit on 2026-09-06 found eight such
+ * surfaces still reachable in the store shell. These are the ones whose whole
+ * page IS the paid thing, so the route is refused outright:
+ *
+ *   · /vendor-dashboard/subscription — a digital subscription, sold in-app at a
+ *     1.5× "mobile SRP" beside a banner that linked OUT to the web to pay. That
+ *     banner is the clearest 3.1.1 violation in the tree; it is deleted in the
+ *     same change, and DECISION_LOG 2026-06-11 already locked vendor billing as
+ *     web-only, which this route was quietly contradicting.
+ *   · /dashboard/<eventId>/live — the Live Venue Photo Wall. Bought on the web,
+ *     it WORKED in the app: that is guideline 3.1.3(b) verbatim, and it is the
+ *     exact reasoning App Review used on 2026-06-30. Access to web-bought
+ *     content is only allowed when the same content is ALSO purchasable by IAP.
+ *
+ * A feature that is merely UPSOLD on an otherwise-free page is NOT here — the
+ * page stays reachable and the price-bearing component hides itself. Splitting
+ * it this way keeps the free planning tools whole, which is the entire point of
+ * shipping a store shell at all.
+ */
+const WEB_ONLY_FEATURE_ROUTE = /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/live)(?:\/|$)/;
+
 const STUDIO_ROUTE = /^\/dashboard\/[^/]+\/studio\/([^/]+)(?:\/|$)/;
 
 /** Where the store shell lands when it reaches a web-only route. */
@@ -127,6 +152,7 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  */
 export function isStoreShellWebOnlyPath(pathname: string): boolean {
   if (WEB_ONLY_PURCHASE_ROUTE.test(pathname)) return true;
+  if (WEB_ONLY_FEATURE_ROUTE.test(pathname)) return true;
   const m = pathname.match(STUDIO_ROUTE);
   if (!m) return false;
   return STORE_SHELL_WEB_ONLY_STUDIO_SEGMENTS.has(m[1]!);

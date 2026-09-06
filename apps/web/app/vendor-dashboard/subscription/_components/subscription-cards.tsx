@@ -3,8 +3,26 @@
 /**
  * SubscriptionCards — client-rendered Pro / Enterprise plan cards.
  *
- * Extracted from the server-rendered subscription page to enable
- * Capacitor detection (isNativeApp()) for mobile SRP pricing display.
+ * 🔑 ONE PRICE, AND NO POINTER TO A CHEAPER ONE (2026-09-06). This component
+ * used to do two things that App Review rejects an app for. It showed native
+ * users a "mobile SRP" marked up 1.5×, and above the cards it rendered a
+ * banner — visible ONLY inside the app — reading "Buy on our website for less"
+ * and linking out to setnayan.com. That is guideline 3.1.1 external steering,
+ * and it also contradicted DECISION_LOG 2026-06-11, which locked vendor
+ * subscription billing as web-only.
+ *
+ * The deleted banner's own docblock justified itself with a "post-2024 Apple
+ * ruling" permitting external purchase links. That ruling covers the UNITED
+ * STATES storefront only; the 2026-06-30 rejection letter spells out the rest
+ * — "for storefronts where there are not alternative options … the app must
+ * use in-app purchase." Setnayan ships to the Philippine storefront, so the
+ * premise never applied to us.
+ *
+ * The route itself is now refused in the store shell (lib/store-shell.ts), so
+ * these cards do not render there at all. The markup and the banner are gone
+ * anyway rather than merely hidden: a component whose only purpose is to steer
+ * app users to a web checkout should not exist to be re-mounted somewhere the
+ * gate does not cover.
  *
  * The optional token-pack ADD-ON selector was REMOVED 2026-08-07 with the rest
  * of the token currency (owner 2026-07-21: "token can retire, there should be
@@ -12,28 +30,15 @@
  * the selector already rendered empty — but an empty selector is one catalog
  * row away from offering a currency that buys nothing.
  *
- * MOBILE CHANNEL PRICING (SRP · 1.5× the web price, illustrative)
- *   Pro:        ~₱3,750/28d  (1.5× ₱2,500 web)
- *   Enterprise: ~₱12,000/28d (1.5× ₱8,000 web)
- *
- * The "Buy on web for less" banner guides vendors to the web checkout where
- * canonical DB prices apply. The server action (startSubscriptionPurchase)
- * always uses the sku_code so the DB RPC reads the authoritative price —
- * the SRP display is informational only.
- *
- * If the admin reprices a tier in vendor_billing_catalog, the web price
- * changes and the mobile SRP scales proportionally (MOBILE_SRP_MULTIPLIER).
+ * The price shown is the admin-set price from `vendor_billing_catalog`, the
+ * same one `startSubscriptionPurchase` charges through the DB RPC. There is no
+ * second, channel-dependent price any more.
  */
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, Lock } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { WebNudgeBanner } from '@/app/vendor-dashboard/_components/web-nudge-banner';
-import { isNativeApp } from '@/lib/capacitor';
 import { startSubscriptionPurchase } from '../actions';
-
-const MOBILE_SRP_MULTIPLIER = 1.5;
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
@@ -67,11 +72,6 @@ export interface SubscriptionCardData {
   tooShortReason?: string | null;
 }
 
-function mobileSrp(webPrice: number): number {
-  // Round to nearest ₱500 for clean display on subscription amounts.
-  return Math.round((webPrice * MOBILE_SRP_MULTIPLIER) / 500) * 500;
-}
-
 export function SubscriptionCards({
   cards,
   cycle,
@@ -87,22 +87,8 @@ export function SubscriptionCards({
    */
   verified: boolean;
 }) {
-  const [native, setNative] = useState(false);
-
-  useEffect(() => {
-    setNative(isNativeApp());
-  }, []);
-
   return (
     <>
-      {native && (
-        <WebNudgeBanner
-          savingsCopy="up to 33% off"
-          webPricesCopy="Solo ₱1,000/28d · Pro ₱2,500/28d · Enterprise ₱8,000/28d on web"
-          webUrl="https://setnayan.com/vendor-dashboard/subscription"
-        />
-      )}
-
       {/* Shared benefits — true for every paid plan, so shown once here instead
           of repeated on all three cards (keeps each card to its differentiators). */}
       <div
@@ -130,8 +116,7 @@ export function SubscriptionCards({
         }
       >
         {cards.map((card) => {
-          const webPrice = card.price;
-          const displayPrice = native ? mobileSrp(webPrice) : webPrice;
+          const displayPrice = card.price;
           // Small-unit framing (owner-directed): show the SAME admin-set price
           // broken down per day/week so the headline reads lighter. Pure
           // derivation of displayPrice — not a separate price. 28-day block ÷ 28
@@ -185,12 +170,6 @@ export function SubscriptionCards({
               {cycle === 'annual' && (
                 <p className="mt-1 inline-flex w-fit items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-800">
                   Save 20% vs paying monthly
-                </p>
-              )}
-              {native && (
-                <p className="mt-0.5 text-xs text-ink/50">
-                  Web price: ₱{NUMBER.format(webPrice)}/
-                  {cycle === 'monthly' ? '28d' : 'yr'}
                 </p>
               )}
               {/* The "Includes N free tokens each period" line was removed

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { createClient } from '@/lib/supabase/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
@@ -32,6 +33,7 @@ type Props = {
 
 export default async function PapicSeatPage({ params, searchParams }: Props) {
   const { token } = await params;
+  const storeShell = await isStoreShellRequest();
   const { bridge, papic_buy_error: buyError, papic_release: released } = await searchParams;
   // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
   // visible only via ?bridge=demo or the env flag, never by default.
@@ -168,6 +170,9 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
           eventId={(seat.event_id as string) ?? ''}
         />
       ) : null}
+      {/* 🔒 Withheld in the store shell — same reason as /papic/guest: rung
+          prices plus a purchase. The seat's capture surface is untouched. */}
+      {!storeShell && (
       <PapicGuestBuyPanel
         seatToken={token}
         returnTo={`/papic/seat/${token}`}
@@ -177,6 +182,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         ownSeatId={(seat.seat_id as string) ?? null}
         released={released ?? null}
       />
+      )}
     </>
   );
 }

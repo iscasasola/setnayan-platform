@@ -395,130 +395,40 @@ export async function removeGuestFromGroup(
 }
 
 // -----------------------------------------------------------------------
-// Bulk soft-delete · owner directive 2026-05-23. Deletes the selected
-// guests AND releases their seat assignments so the seats open up for
-// other guests. Blocks when any guest has already RSVP'd
-// (rsvp_status != 'pending') — owner's phrasing: "delete cannot be
-// performed when RSVP has been already set".
+// Living Roster P1 · optimistic delete + undo. THE ONLY WAY THIS PAGE REMOVES
+// A GUEST (2026-09-06 — the redirect-based `bulkSoftDeleteGuests` that used to
+// sit above this was deleted; see "why there is only one" below).
 //
-// "RSVP set" = anything other than 'pending'. The 4 enum values are
-// pending / attending / declined / maybe — pending is the only "no
-// response yet" state. The other three all imply the guest engaged
-// with the invitation, so removing them silently would wipe legitimate
-// signal (an attending count drops, a declined gets re-invited, etc.).
+// It hides the rows optimistically and drops a 6s undo snackbar, so it needs
+// actions that RETURN a result rather than redirect: this pair returns
+// `{ ok, removedIds, releasedSeats }`. `restoreDeletedGuests` is the inverse —
+// it un-soft-deletes and re-inserts those seats.
 //
-// Seat release: event_seat_assignments has a FK to guests with ON
-// DELETE CASCADE — but we soft-delete (set deleted_at) instead of hard
-// DELETE, so the FK cascade never fires. We DELETE the assignment rows
-// explicitly to match the cascade intent. Safe to call against guests
-// with no seat assignment — DELETE just affects 0 rows.
-// -----------------------------------------------------------------------
-
-export async function bulkSoftDeleteGuests(
-  eventId: string,
-  formData: FormData,
-): Promise<void> {
-  const guestIds = parseGuestIds(formData);
-
-  if (guestIds.length === 0) {
-    redirect(backToList(eventId, { error: 'no_selection' }));
-  }
-
-  const supabase = await createClient();
-
-  // Pre-flight: load every selected guest's current RSVP status +
-  // display name. We need names for the error message + statuses for
-  // the gate. Filtering on event_id + .in('guest_id', ...) + deleted_at
-  // IS NULL is RLS-safe (couple sees their own event's guests).
-  const { data: rows, error: readErr } = await supabase
-    .from('guests')
-    .select('guest_id, role, rsvp_status, first_name, last_name, display_name')
-    .eq('event_id', eventId)
-    .in('guest_id', guestIds)
-    .is('deleted_at', null);
-
-  if (readErr) {
-    redirect(backToList(eventId, { error: encodeURIComponent(readErr.message) }));
-  }
-  if (!rows || rows.length === 0) {
-    redirect(backToList(eventId, { error: 'no_selection' }));
-  }
-
-  // Couple gate (owner directive 2026-06-03) — the bride & groom are the
-  // foundation of the event and can never be removed. Block the whole batch if
-  // any is selected so the host gets a couple-specific message rather than the
-  // RSVP-gate copy (the couple is always Attending, which would trip it).
-  if (rows.some((r) => r.role === 'bride' || r.role === 'groom')) {
-    redirect(
-      backToList(eventId, {
-        error: encodeURIComponent(
-          "The bride and groom can't be removed — they're the foundation of the event. Deselect them and try again.",
-        ),
-      }),
-    );
-  }
-
-  // RSVP-set gate. If ANY selected guest has a non-pending RSVP, block
-  // the entire operation + surface the first few names so the host
-  // knows which guests need their RSVP reset before they can be
-  // removed. All-or-nothing matches the spirit of "delete cannot be
-  // performed when RSVP has been already set" — we don't silently
-  // delete the deletable subset.
-  const blocked = rows.filter((r) => r.rsvp_status !== 'pending');
-  if (blocked.length > 0) {
-    const names = blocked
-      .slice(0, 3)
-      .map((r) =>
-        r.display_name?.trim() || `${r.first_name} ${r.last_name}`.trim(),
-      )
-      .filter(Boolean);
-    const tail =
-      blocked.length > 3 ? ` (and ${blocked.length - 3} more)` : '';
-    const friendly = `Can't delete — ${names.join(', ')}${tail} already RSVP'd. Reset their RSVP to "Pending" first.`;
-    redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
-  }
-
-  // Release seat assignments for the qualifying guests. Best-effort —
-  // an error here is logged via the redirect path but we don't block
-  // the soft-delete (a guest's row living past the seat-DELETE failure
-  // is recoverable; the seat will just need a manual unassign).
-  await supabase
-    .from('event_seat_assignments')
-    .delete()
-    .eq('event_id', eventId)
-    .in('guest_id', guestIds);
-
-  // Soft-delete.
-  const { error: updateErr } = await supabase
-    .from('guests')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('event_id', eventId)
-    .in('guest_id', guestIds);
-
-  if (updateErr) {
-    redirect(
-      backToList(eventId, { error: encodeURIComponent(updateErr.message) }),
-    );
-  }
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(
-    backToList(eventId, { bulk_deleted: String(rows.length) }),
-  );
-}
-
-// -----------------------------------------------------------------------
-// Living Roster P1 · optimistic delete + undo.
+// ── THE GATES (owner directive 2026-05-23, carried over verbatim in effect) ──
+// Blocks when any guest has already RSVP'd (`rsvp_status != 'pending'`) —
+// owner's phrasing: "delete cannot be performed when RSVP has been already
+// set". "RSVP set" = anything other than 'pending'. The 4 enum values are
+// pending / attending / declined / maybe; pending is the only "no response
+// yet" state. The other three all imply the guest engaged with the invitation,
+// so removing them silently would wipe legitimate signal (an attending count
+// drops, a declined gets re-invited). The couple is blocked outright — they are
+// the foundation of the event.
 //
-// `bulkSoftDeleteGuests` above (FormData → redirect) still backs the mobile
-// swipe-to-delete path unchanged. The desktop SelectionBar now deletes WITHOUT
-// a confirm dialog: it hides the rows optimistically and drops a 6s undo
-// snackbar. That flow needs actions that RETURN a result (to build the undo)
-// rather than redirect, so the pair below mirrors the gates of
-// `bulkSoftDeleteGuests` but (a) captures the released seats before deleting so
-// an undo can re-place them, and (b) returns `{ ok, removedIds, releasedSeats }`
-// instead of navigating. `restoreDeletedGuests` is the inverse — it un-soft-
-// deletes and re-inserts those seats.
+// ── WHY THE SEAT IS DELETED EXPLICITLY ──────────────────────────────────────
+// `event_seat_assignments` has a FK to `guests` with ON DELETE CASCADE — but we
+// SOFT delete (set `deleted_at`), so the cascade never fires. The assignment
+// rows are deleted explicitly to match the cascade's intent and free the chair.
+// Safe against a guest with no seat: the DELETE just affects 0 rows.
+//
+// ── WHY THERE IS ONLY ONE OF THESE ──────────────────────────────────────────
+// There were two. `bulkSoftDeleteGuests` (FormData → redirect) backed the phone
+// swipe and released the seat WITHOUT capturing it; this one captures it first.
+// So the same act, from a phone, permanently lost the guest's chair and offered
+// no undo, while the desktop bulk bar could take it back in full — and from the
+// roster the two looked identical. The swipe was moved onto this action, which
+// left the other with no callers at all, and a dead lossy delete is just a
+// waiting re-wire. It is gone. Its gates were byte-equivalent to these; nothing
+// was lost but the duplication.
 //
 // RLS: `couple_writes_guest` is FOR ALL and NOT gated on `deleted_at IS NULL`
 // (only the SELECT read policy is), so a couple can flip `deleted_at` back to
@@ -543,8 +453,8 @@ export async function bulkSoftDeleteGuestsForUndo(
 
   const supabase = await createClient();
 
-  // Same pre-flight as bulkSoftDeleteGuests: RSVP status + names + role for the
-  // gates. RLS scopes the read to the couple's own event.
+  // Pre-flight for the gates: RSVP status + names + role. RLS scopes the read
+  // to the couple's own event.
   const { data: rows, error: readErr } = await supabase
     .from('guests')
     .select('guest_id, role, rsvp_status, first_name, last_name, display_name')
@@ -581,8 +491,8 @@ export async function bulkSoftDeleteGuestsForUndo(
   const removedIds = rows.map((r) => r.guest_id as string);
 
   // Capture seat placements BEFORE releasing them, so an undo can re-place the
-  // guest on the exact same table/chair. (bulkSoftDeleteGuests drops these with
-  // no capture — the undo path is the reason we read them first.)
+  // guest on the exact same table/chair. This read IS the undo — without it the
+  // chair is simply gone, which is what the deleted sibling action did.
   const { data: seatRows } = await supabase
     .from('event_seat_assignments')
     .select('guest_id, table_id, seat_number, locked')

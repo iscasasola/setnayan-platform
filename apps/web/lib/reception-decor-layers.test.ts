@@ -23,8 +23,9 @@ import {
   type DecorLayerAsset,
   type DecorLayerCatalog,
 } from './reception-decor-layers';
-import { recolorRGBA } from './color-recolor';
+import { recolorRGBA, colorDistance, hexToRgb } from './color-recolor';
 import sharp from 'sharp';
+import { renderVenueSvg, DEFAULT_DESIGN } from './reception-scene';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -399,7 +400,7 @@ async function ra1SceneRaster(slug: string) {
 test('RA1: only scene zones knock their background out — backdrop and ceiling must not', () => {
   assert.deepEqual(
     [...SCENE_DECOR_ZONES],
-    ['stage'],
+    ['stage', 'tables'],
     'SCENE_DECOR_ZONES changed. Adding a zone here is a claim that its drawing is an OBJECT ' +
       'standing in a room, so its background is foreign and should go. Adding `backdrop` or ' +
       '`ceiling` would be wrong in the opposite direction — those drawings FILL their zone, and ' +
@@ -557,4 +558,271 @@ test('RA1 · REAL BYTES: the served stage layer comes back with its background t
       'transparent. The server renderer is not knocking the scene background out, so the drawing ' +
       "will paint its own cream room over the couple's floor and wall.",
   );
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA1 · PART B · THE GUEST TABLES.
+ *
+ * `20271211440288` seeds `tables` for all five style families — the fourth
+ * zone to carry generated artwork, and the first whose geometry does not
+ * describe a single object.
+ *
+ * 🪤 `tables` DRAWS FOUR OF THEM, AT SCATTERED SPOTS, WITH THE AISLE BETWEEN.
+ * (150,520,r60) (810,520,r60) (240,432,r44) (720,432,r44). `DECOR_SLOTS` takes
+ * one rect per zone, so a single 88..872 × 386..586 rect has to span all four —
+ * and that only works because `tables` is ALSO a scene zone: its drawing's
+ * background is knocked out first, so the floor, the aisle runner and the dance
+ * floor show through BETWEEN the tables. Composited opaque, the same rect would
+ * blank the entire lower half of the couple's room. The membership assertions
+ * below are not bookkeeping; dropping either one produces a silently wrong room.
+ *
+ * ── MEASURED WITH NO AREA FLOOR ─────────────────────────────────────────────
+ * Every constant is from a 520px `sharp` raster pushed through the real
+ * `recolorRGBA` against four unrelated targets, counting opaque pixels that
+ * change OUTSIDE a 2px dilation of the tagged cloth. If a drawing is re-cut,
+ * RE-MEASURE — do not adjust a number here to make a red test green.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const RA1_TABLES_MIGRATION = new URL(
+  '../../../supabase/migrations/20271211440288_ra1_tables_decor_five_families.sql',
+  import.meta.url,
+);
+
+type Ra1Table = { slug: string; servedPath: string; sampledHex: string; tolerance: number };
+
+/** 🪤 Parsed from the migration, never retyped — including the served path,
+ *  so a migration pointed at a file `public/` does not serve fails HERE. */
+function ra1Tables(): Ra1Table[] {
+  const sql = readFileSync(RA1_TABLES_MIGRATION, 'utf8')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  return [
+    ...sql.matchAll(
+      /\('(\/moodboard-seed\/venue_scene\/tables\/([a-z0-9-]+)\.svg)',\s*'(#[0-9A-Fa-f]{6})',\s*(\d+)::NUMERIC\)/g,
+    ),
+  ]
+    .map((m) => ({
+      slug: m[2]!,
+      servedPath: m[1]!,
+      sampledHex: m[3]!.toUpperCase(),
+      tolerance: Number(m[4]),
+    }))
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+const RA1_TABLES = ra1Tables();
+
+/**
+ * Opaque pixels outside the tagged cloth that may recolour at the seeded
+ * tolerance: 0.02% of the opaque area (31 px of 154,440). A MEASURED allowance
+ * for the antialiasing where a chair leg or a plate rim crosses the cloth's
+ * edge — not a concession. Measured 2026-09-07: 17, 6, 28, 4, 28.
+ */
+const RA1_TABLES_BUDGET = 31;
+
+/**
+ * The two drawings whose seeded value sits on a CLIFF: one step up turns a
+ * measured field. The other three climb gradually (their real neutrals — chair
+ * and plate greys — sit further out), so their bound is the antialiasing budget
+ * above rather than a boundary, and this file says so instead of asserting a
+ * cliff that is not there.
+ */
+const RA1_TABLES_CLIFF: Record<string, number> = {
+  'bridgerton-regal': 593,
+  'tropical-heritage': 351,
+};
+
+async function ra1TableObject(t: Ra1Table) {
+  const file = fileURLToPath(new URL(`.${t.servedPath}`, new URL('../public/', import.meta.url)));
+  const { data, info } = await sharp(file, { density: 300 })
+    .resize(520, 520, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const rgba = new Uint8ClampedArray(data);
+  const { width: w, height: h } = info;
+  const [sr, sg, sb] = hexToRgb(t.sampledHex);
+  // 🔑 THE OBJECT IS EVERY PIXEL NEAR THE SLOT, NOT ONLY THE EXACT MATCHES.
+  // Built from exact matches alone, a cloth's own antialiased interior lands
+  // OUTSIDE the mask and every tolerance looks like a bleed — measured on these
+  // five, which report "no clean tolerance at all" under that reading.
+  const core = new Uint8Array(w * h);
+  const mask = new Uint8Array(w * h);
+  let opaque = 0;
+  let exact = 0;
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    if (rgba[i] === sr && rgba[i + 1] === sg && rgba[i + 2] === sb) exact++;
+    if (colorDistance(rgba[i]!, rgba[i + 1]!, rgba[i + 2]!, sr, sg, sb) <= 3) core[p] = 1;
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!core[y * w + x]) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          if (ny >= 0 && nx >= 0 && ny < h && nx < w) mask[ny * w + nx] = 1;
+        }
+      }
+    }
+  }
+  return { rgba, w, h, core, mask, opaque, exact, slot: [sr, sg, sb] as const };
+}
+
+const RA1_TABLE_TARGETS = ['#7A1F2B', '#D4AF37', '#0F766E', '#1E3A8A'] as const;
+
+async function ra1TableRecolour(t: Ra1Table, tolerance: number, hex: string) {
+  const o = await ra1TableObject(t);
+  const out = recolorRGBA(
+    o.rgba,
+    [{ slotId: 1, sampledHex: t.sampledHex, toleranceDe: tolerance, regionLabel: 'draped fabric' }],
+    { 1: { mode: 'palette', hex } },
+  );
+  let outside = 0;
+  let stuck = 0;
+  for (let p = 0; p < o.w * o.h; p++) {
+    const i = p * 4;
+    if (o.rgba[i + 3]! < 250) continue;
+    const moved =
+      out[i] !== o.rgba[i] || out[i + 1] !== o.rgba[i + 1] || out[i + 2] !== o.rgba[i + 2];
+    if (moved && !o.mask[p]) outside++;
+    if (
+      o.rgba[i] === o.slot[0] &&
+      o.rgba[i + 1] === o.slot[1] &&
+      o.rgba[i + 2] === o.slot[2] &&
+      !moved
+    ) {
+      stuck++;
+    }
+  }
+  return { outside, stuck, exact: o.exact, opaque: o.opaque };
+}
+
+test('RA1 tables: the migration seeds five measured drawings, one range each', () => {
+  assert.deepEqual(
+    RA1_TABLES.map((t) => `${t.slug}:${t.sampledHex}:${t.tolerance}`),
+    [
+      'bridgerton-regal:#8C6BA6:8',
+      'editorial-cream:#D98BA6:7',
+      'elegant-simple-classic:#C9A059:9',
+      'modern-minimalist:#4A3B45:6',
+      'tropical-heritage:#9CB29A:5',
+    ],
+    'a seeded guest-table tolerance or sampled_hex changed. Each of 9, 8, 7, 5 and 6 is a ' +
+      'separate measurement against a different neighbour in its own drawing. Re-measure ' +
+      'through the real recolorRGBA at 520px before editing this list.',
+  );
+  for (const t of RA1_TABLES) {
+    assert.ok(
+      t.tolerance >= 5 && t.tolerance <= 30,
+      `${t.slug}: ${t.tolerance} is outside moodboard_asset_color_ranges' CHECK (5..30). A slot ` +
+        'needing a value outside it is UNSEEDABLE — re-cut the artwork or ship the cell ' +
+        'uncovered. Never widen the CHECK for one file.',
+    );
+  }
+});
+
+test('RA1 tables: the zone is wired all four ways, or the room is silently wrong', () => {
+  assert.ok(
+    PILOT_DECOR_ZONES.includes('tables'),
+    "'tables' is missing from PILOT_DECOR_ZONES — resolveDecorLayer will never return these " +
+      'five approved rows and every couple keeps seeing the flat drawing, with nothing logged.',
+  );
+  assert.ok(
+    SCENE_DECOR_ZONES.includes('tables'),
+    "'tables' is missing from SCENE_DECOR_ZONES. Its DECOR_SLOTS rect spans all four guest " +
+      'tables AND the aisle between them, so without the background knockout the drawing paints ' +
+      "an opaque rectangle across the entire lower half of the couple's room. This is the one " +
+      'membership whose absence is a visual disaster rather than a no-op.',
+  );
+});
+
+test('RA1 tables · REAL BYTES: a tables layer actually reaches the composited room', () => {
+  // The three-permission failure, asserted on bytes. PILOT_DECOR_ZONES and the
+  // rows are not enough — DECOR_SLOTS needs the geometry ("the geometry IS the
+  // permission") and renderVenueSvg needs the call site. Missing either is
+  // invisible: no error, no null, no log.
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/tables/elegant-simple-classic.svg';
+  const flat = renderVenueSvg(DEFAULT_DESIGN, palette, undefined, 'hotel_venue');
+  const composited = renderVenueSvg(DEFAULT_DESIGN, palette, undefined, 'hotel_venue', {
+    tables: href,
+  });
+  assert.ok(
+    composited.includes(href),
+    'renderVenueSvg was handed a tables decor layer and did not draw it. Check DECOR_SLOTS has ' +
+      "a `tables` geometry and that renderVenueSvg calls decorImage('tables', decor) at the " +
+      'tables layer.',
+  );
+  assert.equal(
+    renderVenueSvg(DEFAULT_DESIGN, palette, undefined, 'hotel_venue', {}),
+    flat,
+    'an empty decor map changed the render — an uncovered cell must be byte-identical to the ' +
+      'flat drawing.',
+  );
+});
+
+test('RA1 tables · REAL RASTER, NO AREA FLOOR: nothing but the cloth wears the palette', async () => {
+  for (const t of RA1_TABLES) {
+    for (const hex of RA1_TABLE_TARGETS) {
+      const { outside, opaque } = await ra1TableRecolour(t, t.tolerance, hex);
+      assert.ok(
+        outside <= RA1_TABLES_BUDGET,
+        `${t.slug}: ${outside} opaque px outside the tagged cloth recoloured under ${hex} ` +
+          `(${(100 * outside / opaque).toFixed(3)}% of the frame), above the measured ` +
+          `${RA1_TABLES_BUDGET} px antialiasing budget. Chair legs, plate rims and glass stems ` +
+          'are hairlines — a census with an area floor cannot see them, which is why this ' +
+          'assertion has none. Re-measure; do not raise the budget to fit a wider tolerance.',
+      );
+    }
+  }
+});
+
+test('RA1 tables · REAL RASTER: every cloth recolours COMPLETELY', async () => {
+  // 🪤 The other half of MB23's rule — but be honest about its reach on THESE
+  // drawings. Each cloth is a FLAT fill, so its exact slot pixels match at any
+  // tolerance ≥ 0 and a tightening cannot strand them: sabotaging elegant from
+  // 9 down to 5 leaves this case green (the pinned-values case above is what
+  // catches it). What this case DOES catch is a wrong or swapped `sampled_hex`
+  // — then `exact` is 0 and it fires — and it would catch a re-cut that gave a
+  // cloth a second tone. Stated rather than left to look stronger than it is.
+  for (const t of RA1_TABLES) {
+    for (const hex of RA1_TABLE_TARGETS) {
+      const { stuck, exact } = await ra1TableRecolour(t, t.tolerance, hex);
+      assert.ok(exact > 0, `${t.slug}: no pixel carries the slot colour ${t.sampledHex}`);
+      assert.equal(
+        stuck,
+        0,
+        `${t.slug}: ${stuck}/${exact} px of the tablecloth stayed at stock colour under ${hex} ` +
+          `at tolerance ${t.tolerance}.`,
+      );
+    }
+  }
+});
+
+test('RA1 tables: the two cliff-bounded tolerances really are on a cliff', async () => {
+  // 🔑 PINS THE NUMBER RATHER THAN THE OUTCOME, and doubles as "can this
+  // harness see a bleed at all". Only the two files that HAVE a cliff are
+  // asserted here — claiming one for the other three would be inventing a
+  // boundary to make the table look uniform.
+  for (const [slug, expected] of Object.entries(RA1_TABLES_CLIFF)) {
+    const t = RA1_TABLES.find((x) => x.slug === slug)!;
+    let worst = 0;
+    for (const hex of RA1_TABLE_TARGETS) {
+      const { outside } = await ra1TableRecolour(t, t.tolerance + 1, hex);
+      worst = Math.max(worst, outside);
+    }
+    assert.ok(
+      worst > 0.5 * expected,
+      `${slug}: widening from ${t.tolerance} to ${t.tolerance + 1} moved ${worst} px outside ` +
+        `the cloth, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
+        're-cut, or this harness can no longer see a bleed — in which case the assertions above ' +
+        'are vacuous. Re-measure; do not delete this test.',
+    );
+  }
 });

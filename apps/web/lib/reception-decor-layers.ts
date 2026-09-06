@@ -23,6 +23,7 @@
  */
 
 import {
+  colorDistance,
   recolorRGBA,
   type ColorRangeSlot,
   type RegionEditMap,
@@ -156,6 +157,107 @@ export function retintDecorLayerRGBA(
     [colorRange.slotId]: { mode: 'palette', hex: targetHex },
   };
   return recolorRGBA(src, [colorRange], edits);
+}
+
+/**
+ * RA1 · ZONES WHOSE DRAWING IS A SCENE, NOT A PANEL.
+ *
+ * 🔑 THE DIFFERENCE THAT DECIDES WHETHER THE ROOM LOOKS RIGHT. A `backdrop` or
+ * `ceiling` drawing FILLS its zone — the panel behind the couple, the band
+ * overhead. Every pixel of those files is meant to be drawn, background
+ * included, and clearing their background would punch a hole in the backdrop.
+ *
+ * A `stage` drawing is not like that. It is a picture OF a draped table,
+ * standing in its own little cream room — and `renderVenueSvg` already has a
+ * room. Composited as-is it lays an opaque rectangle of foreign cream across
+ * the floor and the wall behind the stage: measured on all four covered
+ * families, and on `modern minimalist`, whose background is 48% of its frame,
+ * it reads as a broken image rather than as decor. So a scene zone's background
+ * is made TRANSPARENT before the image reaches the renderer, and only the
+ * furniture composites.
+ *
+ * ⚠ EVERY REMAINING RECEPTION ZONE IS A SCENE ZONE. `tables`, `feast`,
+ * `program`, `booths`, `photo_wall`, `tunnel` and `welcome_signage` are all
+ * objects standing in a room, exactly like `stage` — so this list is expected
+ * to grow with each of them, and the alternative is shipping the same opaque
+ * rectangle eight more times.
+ *
+ * Adding a zone here is a claim about its ARTWORK, not its geometry: the
+ * drawing must be a full-bleed object on a flat, uniform background that its
+ * own corners agree on. `knockOutSceneBackground` refuses the job otherwise
+ * rather than guessing.
+ */
+export const SCENE_DECOR_ZONES: readonly PartId[] = ['stage'];
+
+/**
+ * Make a scene drawing's flat background transparent, returning a NEW buffer.
+ *
+ * The background colour is SAMPLED FROM THE IMAGE rather than passed in or
+ * hardcoded: a full-bleed drawing carries its background at every corner, so
+ * sampling means a re-cut or a newly generated file needs no constant updated
+ * anywhere. If the corners DISAGREE (beyond `cornerTolerance`) the image is not
+ * the shape this function assumes — something is drawn into a corner — and it
+ * returns the source untouched. Compositing a background that should have gone
+ * is a cosmetic flaw; erasing a table because this function guessed a
+ * "background" out of the middle of it is not.
+ *
+ * @param tolerance how far from the sampled background a pixel may sit and
+ *   still be cleared, in `colorDistance`'s metric. Kept TIGHT: the flat field
+ *   is one exact colour, so this only has to cover the rasteriser's own dither,
+ *   and every point of slack eats into the drawing's antialiased edge.
+ */
+export function knockOutSceneBackground(
+  src: Uint8ClampedArray,
+  width: number,
+  height: number,
+  tolerance = 8,
+  cornerTolerance = 4,
+): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(src);
+  if (width < 2 || height < 2 || src.length !== width * height * 4) return out;
+
+  const at = (x: number, y: number) => (y * width + x) * 4;
+
+  // 🪤 THE CORNERS OF THE FRAME ARE NOT ALWAYS THE CORNERS OF THE DRAWING. A
+  // 16:9 drawing rasterised into a square with `fit: 'contain'` is letterboxed
+  // with TRANSPARENT bands, so the frame's corners carry no colour at all. The
+  // server renderer uses `fit: 'inside'` and has no bands — but a caller that
+  // letterboxes would otherwise get a silent no-op here, which is exactly the
+  // "it just didn't happen" failure this whole change exists to stop. So sample
+  // the corners of the OPAQUE CONTENT instead of the frame.
+  let x0 = width;
+  let y0 = height;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (src[at(x, y) + 3]! < 250) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < x0 || y1 < y0) return out; // nothing opaque at all
+
+  const corners = [at(x0, y0), at(x1, y0), at(x0, y1), at(x1, y1)];
+  if (corners.some((i) => src[i + 3]! < 250)) return out;
+  const br = src[corners[0]!]!;
+  const bg = src[corners[0]! + 1]!;
+  const bb = src[corners[0]! + 2]!;
+  for (const i of corners) {
+    if (colorDistance(src[i]!, src[i + 1]!, src[i + 2]!, br, bg, bb) > cornerTolerance) {
+      return out; // corners disagree — refuse rather than guess
+    }
+  }
+
+  for (let i = 0; i < src.length; i += 4) {
+    if (src[i + 3]! === 0) continue;
+    if (colorDistance(src[i]!, src[i + 1]!, src[i + 2]!, br, bg, bb) <= tolerance) {
+      out[i + 3] = 0;
+    }
+  }
+  return out;
 }
 
 const HEX6 = /^#[0-9a-fA-F]{6}$/;

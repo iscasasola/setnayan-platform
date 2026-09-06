@@ -18,10 +18,14 @@ import {
   retintDecorLayerRGBA,
   primaryZoneTargetHex,
   PILOT_DECOR_ZONES,
+  SCENE_DECOR_ZONES,
+  knockOutSceneBackground,
   type DecorLayerAsset,
   type DecorLayerCatalog,
 } from './reception-decor-layers';
 import { recolorRGBA } from './color-recolor';
+import sharp from 'sharp';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
@@ -349,4 +353,208 @@ test('stage: an uncovered style family still renders the flat drawing, byte for 
       'never a substitute — that is a room they did not design.',
   );
   assert.deepEqual(resolveDecorLayer('stage', null, catalog), { kind: 'svg' });
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA1 · A SCENE DRAWING IS NOT A PANEL DRAWING.
+ *
+ * `20271211370331` put the stage zone live. Every stage drawing is a picture of
+ * a table standing in its own cream room — and `renderVenueSvg` already draws a
+ * room. Composited opaque, each one lays a rectangle of foreign cream across
+ * the floor and the wall behind the stage. On `modern minimalist`, whose
+ * background is 48% of its frame, the result reads as a broken image rather
+ * than as decor. Found by rendering a room and LOOKING at it; no assertion in
+ * the suite was failing.
+ *
+ * `knockOutSceneBackground` clears it, for the zones named in
+ * `SCENE_DECOR_ZONES` only. `backdrop` and `ceiling` are deliberately excluded:
+ * their drawings FILL their zone, and clearing their background would punch a
+ * hole in the backdrop.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const RA1_STAGE_DIR = new URL('../public/moodboard-seed/venue_scene/stage/', import.meta.url);
+const RA1_STAGE_FILES = [
+  'bridgerton-regal',
+  'editorial-cream',
+  'elegant-simple-classic',
+  'modern-minimalist',
+  'tropical-heritage',
+] as const;
+
+/** Rasterised the way the SERVER renderer does it — `fit: 'inside'`, not the
+ *  square letterboxed `contain` the preview guards use. Testing the knockout on
+ *  a differently-shaped raster than production would prove nothing about
+ *  production. */
+async function ra1SceneRaster(slug: string) {
+  const file = fileURLToPath(new URL(`${slug}.svg`, RA1_STAGE_DIR));
+  const { data, info } = await sharp(file, { density: 300 })
+    .resize(800, 800, { fit: 'inside' })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return { rgba: new Uint8ClampedArray(data), w: info.width, h: info.height };
+}
+
+test('RA1: only scene zones knock their background out — backdrop and ceiling must not', () => {
+  assert.deepEqual(
+    [...SCENE_DECOR_ZONES],
+    ['stage'],
+    'SCENE_DECOR_ZONES changed. Adding a zone here is a claim that its drawing is an OBJECT ' +
+      'standing in a room, so its background is foreign and should go. Adding `backdrop` or ' +
+      '`ceiling` would be wrong in the opposite direction — those drawings FILL their zone, and ' +
+      'clearing their background punches a hole in the panel behind the couple.',
+  );
+  for (const zone of SCENE_DECOR_ZONES) {
+    assert.ok(
+      PILOT_DECOR_ZONES.includes(zone),
+      `${zone} is a scene zone but is not in PILOT_DECOR_ZONES, so it composites nothing at all ` +
+        'and this knockout runs on no image.',
+    );
+  }
+});
+
+test('RA1 · REAL RASTER: the knockout clears the drawing\'s own room and keeps its furniture', async () => {
+  for (const slug of RA1_STAGE_FILES) {
+    const { rgba, w, h } = await ra1SceneRaster(slug);
+    const out = knockOutSceneBackground(rgba, w, h);
+
+    // The background is whatever the drawing's own corners carry — sampled the
+    // same way the function does, so this asserts the OUTCOME rather than
+    // restating the input.
+    const c = [rgba[0]!, rgba[1]!, rgba[2]!];
+    let bgOpaque = 0;
+    let bgTotal = 0;
+    let cleared = 0;
+    let opaque = 0;
+    for (let p = 0; p < w * h; p++) {
+      const i = p * 4;
+      if (rgba[i + 3]! < 250) continue;
+      opaque++;
+      if (out[i + 3]! === 0) cleared++;
+      if (rgba[i] === c[0] && rgba[i + 1] === c[1] && rgba[i + 2] === c[2]) {
+        bgTotal++;
+        if (out[i + 3]! > 0) bgOpaque++;
+      }
+    }
+    assert.ok(bgTotal > 0.1 * opaque, `${slug}: no flat background found to clear`);
+    assert.equal(
+      bgOpaque,
+      0,
+      `${slug}: ${bgOpaque} px of the drawing's own background survived the knockout and will ` +
+        'paint over the room behind the stage.',
+    );
+    // 🪤 AND THE OPPOSITE FAILURE, WHICH IS WORSE. A tolerance wide enough to
+    // eat the furniture leaves a table with a hole in it — unrecoverable by the
+    // viewer in a way a stray cream rectangle is not. Every file measured
+    // 2026-09-06 clears between 45% and 78% of its opaque area; a run that
+    // clears nearly everything has stopped distinguishing figure from ground.
+    assert.ok(
+      cleared / opaque < 0.9,
+      `${slug}: the knockout cleared ${(100 * cleared / opaque).toFixed(1)}% of the opaque area. ` +
+        'That is not a background any more — the tolerance is eating the drawing.',
+    );
+  }
+});
+
+test('RA1: the knockout refuses to guess when the corners disagree', () => {
+  // 🪤 THE SAFETY THAT MAKES SAMPLING SAFE AT ALL. Sampling a background from
+  // the corners is only sound for a full-bleed drawing. Hand it something drawn
+  // into a corner and it must return the source untouched rather than clear
+  // whatever colour it happened to find — otherwise a future zone added to
+  // SCENE_DECOR_ZONES silently loses its furniture, with nothing red anywhere.
+  const w = 4;
+  const h = 4;
+  const flat = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < flat.length; i += 4) {
+    flat[i] = 0xf3;
+    flat[i + 1] = 0xec;
+    flat[i + 2] = 0xe0;
+    flat[i + 3] = 255;
+  }
+  assert.ok(
+    [...knockOutSceneBackground(flat, w, h)].filter((_, i) => i % 4 === 3).every((a) => a === 0),
+    'a frame that is entirely background should be entirely cleared',
+  );
+
+  const corner = new Uint8ClampedArray(flat);
+  const last = (h - 1) * w * 4 + (w - 1) * 4;
+  corner[last] = 0x4a;
+  corner[last + 1] = 0x3b;
+  corner[last + 2] = 0x45;
+  assert.deepEqual(
+    [...knockOutSceneBackground(corner, w, h)],
+    [...corner],
+    'a drawing whose corners disagree is not the full-bleed shape this function assumes and must ' +
+      'come back untouched. Clearing a guessed "background" out of the middle of a table erases ' +
+      'the furniture, which is worse than compositing a background that should have gone.',
+  );
+});
+
+test('RA1: a letterboxed raster is still knocked out — the frame corners are not the drawing\'s', async () => {
+  // 🔑 THE SILENT NO-OP THIS AVOIDS. A 16:9 drawing rasterised into a square
+  // with `fit: 'contain'` has TRANSPARENT bands top and bottom, so the frame's
+  // corners carry no colour. Sampling those would make the function return the
+  // source untouched — no error, no log, and a cream rectangle back in the
+  // room. It samples the opaque CONTENT box instead.
+  const file = fileURLToPath(new URL('elegant-simple-classic.svg', RA1_STAGE_DIR));
+  const { data, info } = await sharp(file, { density: 300 })
+    .resize(520, 520, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const rgba = new Uint8ClampedArray(data);
+  const out = knockOutSceneBackground(rgba, info.width, info.height);
+  let cleared = 0;
+  let opaque = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    if (out[i + 3]! === 0) cleared++;
+  }
+  assert.ok(
+    cleared > 0.3 * opaque,
+    `a letterboxed raster cleared only ${cleared}/${opaque} opaque px. The function is sampling ` +
+      'the transparent frame corners instead of the drawing\'s own content box, and is returning ' +
+      'the source untouched — silently.',
+  );
+});
+
+test('RA1 · REAL BYTES: the served stage layer comes back with its background transparent', async () => {
+  // The end-to-end claim, on the actual path a couple's board uses. A unit test
+  // on the pure function cannot tell you the server renderer CALLS it — that is
+  // the same "a null that means unwired is indistinguishable from a null that
+  // means nothing to show" trap MB14b paid for. Assert the bytes.
+  const catalog = {
+    stage: {
+      'elegant · simple · classic': {
+        assetId: 'ra1-scene',
+        storagePath: '/moodboard-seed/venue_scene/stage/elegant-simple-classic.svg',
+        colorRange: {
+          slotId: 1,
+          sampledHex: '#C9A059',
+          toleranceDe: 9,
+          regionLabel: 'decor',
+        },
+      },
+    },
+  } as const;
+  const { renderDecorLayerDataUrl } = await import('./reception-decor-layers-server');
+  const url = await renderDecorLayerDataUrl(
+    'stage',
+    'elegant · simple · classic',
+    catalog as never,
+    ['#7A1F2B', '#E8D9B5'],
+  );
+  assert.ok(url, 'renderDecorLayerDataUrl returned null for a seeded, served stage asset');
+  const png = Buffer.from(url!.split(',')[1]!, 'base64');
+  const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let transparent = 0;
+  for (let i = 3; i < data.length; i += 4) if (data[i] === 0) transparent++;
+  assert.ok(
+    transparent > 0.3 * info.width * info.height,
+    `the served stage layer came back ${(100 * transparent / (info.width * info.height)).toFixed(1)}% ` +
+      'transparent. The server renderer is not knocking the scene background out, so the drawing ' +
+      "will paint its own cream room over the couple's floor and wall.",
+  );
 });

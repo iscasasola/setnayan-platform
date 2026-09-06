@@ -8,6 +8,10 @@
  * into PGlite and compares; committing the prod half is what lets the
  * comparison run in CI on a pull request with NO production credentials.
  *
+ * It records which columns EXIST and which are NOT NULL. Nullability was added
+ * on 2026-09-06 after two defects shipped past a guard that compared names
+ * only — see the `[notnull]` note on the column query below.
+ *
  * WHY BOTH HALVES ARE NEEDED, AND WHY THE LEDGER IS IN THE FILE
  * -------------------------------------------------------------
  * `CREATE TABLE IF NOT EXISTS` silently no-ops when the table already exists in
@@ -123,8 +127,15 @@ async function main(): Promise<void> {
   // 2. The columns of every `public` BASE TABLE. `information_schema` rather
   //    than pg_catalog so the definition of "a table" matches what the test's
   //    own docblock claims, and dropped columns are excluded for free.
-  const colRows = query<{ t: string; c: string }>(`
-    select c.table_name as t, c.column_name as c
+  //    `n` carries whether prod ENFORCES NOT NULL. Recorded because the guard
+  //    compared column NAMES only until 2026-09-06, and that blind spot let two
+  //    defects through in one day: a SET NULL foreign key on a column prod had
+  //    marked NOT NULL (which would have made admin accounts undeletable), and a
+  //    feature whose every insert wrote `user_id: null` into a column prod had
+  //    marked NOT NULL (so it could not have run once). Both were caught by hand
+  //    against prod's catalog; neither was visible to any test.
+  const colRows = query<{ t: string; c: string; n: string }>(`
+    select c.table_name as t, c.column_name as c, c.is_nullable as n
       from information_schema.columns c
       join information_schema.tables tb
         on tb.table_schema = c.table_schema
@@ -134,11 +145,23 @@ async function main(): Promise<void> {
      order by c.table_name, c.column_name
   `);
   const columns = colRows.map((r) => `${r.t}.${r.c}`).sort();
+  // information_schema spells it 'NO' / 'YES', never a boolean.
+  const notnull = colRows
+    .filter((r) => String(r.n).toUpperCase() === 'NO')
+    .map((r) => `${r.t}.${r.c}`)
+    .sort();
 
   if (ledger.length === 0) throw new Error('ledger query returned nothing — refusing to write an empty snapshot');
   if (columns.length === 0) throw new Error('column query returned nothing — refusing to write an empty snapshot');
 
-  const snapshot: ProdSnapshot = { ledger, columns };
+  if (notnull.length === 0) {
+    throw new Error(
+      'no NOT NULL columns found — refusing to write a snapshot that would turn the ' +
+        'nullability half of the drift guard into a comparison against nothing',
+    );
+  }
+
+  const snapshot: ProdSnapshot = { ledger, columns, notnull };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, renderSnapshot(snapshot), 'utf8');
 
@@ -146,7 +169,7 @@ async function main(): Promise<void> {
   console.log(
     `✓ wrote ${SNAPSHOT_PATH_FROM_REPO_ROOT}\n` +
       `    ledger:  ${ledger.length} migrations (head ${ledger[ledger.length - 1]})\n` +
-      `    schema:  ${tables} tables, ${columns.length} columns`,
+      `    schema:  ${tables} tables, ${columns.length} columns (${notnull.length} NOT NULL)`,
   );
 }
 

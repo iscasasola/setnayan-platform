@@ -19,7 +19,7 @@
  * Undo: `buildUndo` turns a landed mutation + the prior rows (+ the seats a
  * delete released) into an `UndoPlan`. Crucially, the undo of a soft-delete
  * carries the RELEASED SEATS so restoring a guest also re-places them — the
- * seat-release that `bulkSoftDeleteGuests` performs is not silently lost.
+ * seat-release the delete performs is not silently lost.
  */
 
 import type { GuestSide, GuestRole, RsvpStatus } from './guests';

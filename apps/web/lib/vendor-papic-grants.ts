@@ -30,6 +30,7 @@ import {
   offerPack,
   type VendorPapicPortfolioCredits,
 } from '@/lib/vendor-papic-credits';
+import { portfolioCreditsSpent } from '@/lib/vendor-papic-portfolio-album';
 import {
   captureAllowance,
   pointsSpent,
@@ -195,13 +196,54 @@ export async function fetchVendorPapicPackPricePhp(
 }
 
 /**
+ * Credits spent through the OTHER door — importing a photo into the private
+ * portfolio album (`vendor_papic_portfolio_photos`, G3). A hidden row (NSFW-
+ * blocked, or the supplier's own takedown) does not count, mirroring
+ * `fetchVendorPapicPointsSpent` below exactly, because both feed the SAME
+ * "left" total (G2: "ONE meter per (vendor, event)").
+ *
+ * Money logic (see module header): fails CLOSED on a read error, same
+ * ASSUME_EXHAUSTED sentinel as the capture-points reader — a metering outage
+ * must block new spend, never silently un-meter it.
+ */
+export async function fetchVendorPapicPortfolioPhotosSpent(
+  client: SupabaseClient,
+  vendorProfileId: string,
+  eventId: string,
+): Promise<number> {
+  const ASSUME_EXHAUSTED = Number.MAX_SAFE_INTEGER;
+  try {
+    const { data, error } = await client
+      .from('vendor_papic_portfolio_photos')
+      .select('credits_spent, hidden_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('event_id', eventId)
+      .is('hidden_at', null);
+    if (error) return ASSUME_EXHAUSTED;
+    return portfolioCreditsSpent(
+      (data ?? []) as { credits_spent: number | null; hidden_at: string | null }[],
+    );
+  } catch {
+    return ASSUME_EXHAUSTED;
+  }
+}
+
+/**
  * WHAT G3 CALLS — the supplier's credits, spend and pack, in ONE read.
  *
- * Owner 2026-09-05: a grant under a pack's worth still lands and the ₱500 pack is the
+ * Owner 2026-09-05: a grant under a pack's worth still lands and the pack is the
  * CTA beside it. This returns everything that surface needs so it re-derives
- * nothing: the ledger total, what the same meter has already spent, the
- * allowance's own "left" (tier floor included — the SAME number the capture
- * screen shows), and the pack's SKU, live price and credit count.
+ * nothing: the ledger total, what the same meter has already spent through
+ * EITHER door (on-the-day capture + the portfolio-import album), the
+ * allowance's own "left" reduced by both, and the pack's SKU, live price and
+ * credit count.
+ *
+ * 🔑 TWO SPEND READERS, ONE TOTAL. `allowance.pointsLeft` already subtracts
+ * capture spend; portfolio spend is subtracted again here rather than folded
+ * into `captureAllowance` itself, because that function's contract (photo/clip
+ * points, the video-credits threshold) is the on-the-day CAMERA's and must not
+ * grow a second, unrelated meaning. `null` (Unli, uncapped) stays `null` — an
+ * unlimited allowance has nothing to subtract a portfolio import from.
  *
  * Run on the SERVICE-ROLE admin client, like every reader in this module.
  */
@@ -210,15 +252,16 @@ export async function fetchVendorPapicPortfolioCredits(
   vendorProfileId: string,
   eventId: string,
 ): Promise<VendorPapicPortfolioCredits> {
-  const [allowance, credits, packPricePhp] = await Promise.all([
+  const [allowance, credits, packPricePhp, portfolioSpent] = await Promise.all([
     fetchVendorPapicAllowance(admin, vendorProfileId, eventId),
     fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
     fetchVendorPapicPackPricePhp(admin),
+    fetchVendorPapicPortfolioPhotosSpent(admin, vendorProfileId, eventId),
   ]);
   return {
     credits,
-    spent: allowance.pointsSpent,
-    left: allowance.pointsLeft,
+    spent: allowance.pointsSpent + portfolioSpent,
+    left: allowance.pointsLeft == null ? null : Math.max(0, allowance.pointsLeft - portfolioSpent),
     packSkuCode: VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
     packPricePhp,
     packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,

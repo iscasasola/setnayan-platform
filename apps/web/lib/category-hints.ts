@@ -34,46 +34,46 @@ import type { WeddingFolder } from '@/lib/taxonomy';
 /** ⓘ for a tile no plan group claims (or one whose group hint is too broad). */
 export const TILE_HINTS: Readonly<Record<string, string>> = {
   choir:
-    'Live voices for the ceremony, processional to recessional. Parish choirs follow the church calendar; ask early.',
+    "Real voices rising as you walk in, and again as you walk out. Parish choirs follow the church calendar; ask early.",
   orchestra:
-    'Strings or a full ensemble for the aisle, the first dance, or a gala. Send your song list 2 months out.',
+    "Strings swelling as the doors open — for the aisle, the first dance, or a gala. Send your song list 2 months out.",
   performers:
-    'Band, acoustic duo, dancers, cultural or fire show. Confirm set length and sound needs before you sign.',
+    "Band, acoustic duo, dancers, a cultural or fire show — the part guests film. Confirm set length and sound needs before you sign.",
   speaker_talent:
-    'Host, emcee, keynote, or a celebrity guest. Popular names hold dates first; book before the program is final.',
+    "Host, emcee, keynote, or the celebrity guest people whisper about. Popular names hold dates first; book before the program is final.",
   kids_entertainer:
-    "Magician, mascot, face painting, a games corner — keeps the small guests busy while the adults celebrate. Book 1-2 months out.",
+    "Magician, mascot, face painting, a games corner — the small guests stay delighted while the adults linger. Book 1-2 months out.",
   av_production:
-    'Sound, lights, LED wall, mics for speeches and the program. Ask your venue what is in-house before you rent.',
+    "Sound, lights, LED wall, mics — so every speech lands in the back row. Ask your venue what is in-house before you rent.",
   event_medic:
-    'A nurse or paramedic on standby for outdoor, sports, or large events. Many venues and tournaments require one.',
+    "A nurse or paramedic quietly on standby at outdoor, sports, or large events. Many venues and tournaments require one.",
   tour_activity:
-    'Island hopping, city tour, team-building, a day out for visiting guests. Book once your headcount is firm.',
+    "Island hopping, a city tour, team-building — the day your visiting guests talk about longest. Book once your headcount is firm.",
   tour_guide:
-    'A local who knows the route, the stories, and the shortcuts. Book alongside your transport.',
+    "A local who knows the route, the stories behind it, and the shortcuts nobody posts. Book alongside your transport.",
   travel_insurance:
-    'Cancelled flights, lost bags, medical care while away — for you or a travelling group. Buy when you book flights.',
+    "Cancelled flights, lost bags, medical care while away — handled, for you or a travelling group. Buy when you book flights.",
   restaurant_reservation:
-    'A held table for a rehearsal dinner, intimate birthday, or team lunch. Reserve 2-4 weeks out; longer on holidays.',
+    "A table waiting with your name on it — rehearsal dinner, intimate birthday, team lunch. Reserve 2-4 weeks out; longer on holidays.",
   brides_attire:
-    'Gown, veil, shoes, and a second look for the reception. Designers need 4-6 months plus fittings.',
+    "Gown, veil, shoes, and a second look for the dance floor. Designers need 4-6 months plus fittings.",
   grooms_attire:
-    'Suit, barong, or tux, plus shoes and the entourage’s look. Tailors need 2-3 months; ready-to-wear less.',
+    "Suit, barong, or tux, shoes, and the entourage matching you. Tailors need 2-3 months; ready-to-wear, less.",
   souvenir_giveaways:
-    'The keepsake guests take home — a token, a treat, a plant, corporate kits. Order 1-2 months out for personalisation.',
+    "What guests find in their bag next week — a token, a treat, a plant, corporate kits. Order 1-2 months out for personalisation.",
   // ── the six the owner defined on 2026-09-06 ──────────────────────────────
   escort:
-    'Convoy or security escort for the bridal car, VIP arrivals, or a group on the road. Confirm the route first.',
+    "A convoy clearing the way for the bridal car, VIP arrivals, or a group on the road. Confirm the route first.",
   reveal_element:
-    'Cold sparks, confetti, smoke, drone show, gender-reveal burst. Check the venue allows it before booking.',
+    "Cold sparks, confetti, smoke, a drone show, the gender-reveal burst — the gasp moment. Check the venue allows it before booking.",
   event_insurance:
-    'Cover for cancellation, postponement, and venue damage. Sold by suppliers here; arrange it once deposits go out.',
+    "Cancellation, postponement, venue damage — covered, so one bad week doesn't cost you twice. Arrange it once deposits go out.",
   personal_accident_insurance:
-    'Covers the two of you, not your guests: medical costs if something happens on the way or on the day.',
+    "For the two of you, not your guests — medical costs looked after if something happens on the way or on the day.",
   referee_official:
-    'Referees, umpires, scorers for tournaments; judges for contests and pageants. Book accredited ones for anything with a prize.',
+    "Referees, umpires, scorers for tournaments; judges for contests and pageants — calls nobody argues with. Book accredited ones for anything with a prize.",
   massage_chair:
-    'Machines for hire, or a therapist doing chair massages. Set them where guests wait: cocktail hour, tournament breaks.',
+    "Machines for hire, or a therapist working the shoulders. Set them where guests wait: cocktail hour, tournament breaks.",
 };
 
 /**
@@ -81,26 +81,26 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
  * categories inside do the explaining.
  */
 export const FOLDER_HINTS: Readonly<Record<WeddingFolder, string>> = {
-  venue: 'Churches, gardens, hotels, halls. Ceremony and reception, together or apart.',
-  planning: "Coordinators, planners, day-of teams. Whoever runs the schedule so you don't.",
-  feast: 'Caterers, cake makers, dessert tables. The main meal and what follows it.',
-  design: 'Florists, stylists, lights, drapes. How the place looks when guests walk in.',
-  program: 'Hosts, emcees, bands, DJs, sound systems. Everything that runs through the mic.',
+  venue: "Churches, gardens, hotels, halls. Where the ceremony and the party happen, together or apart.",
+  planning: "Coordinators, planners, day-of teams. They hold the clipboard; you hold the moment.",
+  feast: "Caterers, cake makers, dessert tables. The meal guests still mention, and the sweet after.",
+  design: "Florists, stylists, lights, drapes. The gasp when guests first walk in.",
+  program: "Hosts, emcees, bands, DJs, sound systems. Everything through the mic that moves the room.",
   documentary:
-    'Photographers, videographers, drone crews, same-day edit. How the day gets remembered.',
-  look: 'Gowns, suits, barong, hair, make-up. What you wear, who gets you ready.',
-  booths: 'Photo booths, food carts, coffee and cocktail bars. Stations guests wander to.',
-  prints: 'Invitations, signage, menus, giveaways. What guests hold, read, and take home.',
-  transport: 'Bridal cars, shuttles, vans, coaches. Getting everyone there and home.',
+    "Photographers, videographers, drone crews, same-day edit. How you'll relive it in twenty years.",
+  look: "Gowns, suits, barong, hair, make-up. What you wear, and the hands that get you ready.",
+  booths: "Photo booths, food carts, coffee and cocktail bars. Where guests drift, between courses and conversations.",
+  prints: "Invitations, signage, menus, giveaways. What guests hold, read, and keep in a drawer.",
+  transport: "Bridal cars, shuttles, vans, coaches. Everyone arrives on time and gets home safely.",
   experience:
-    'Performers, games, activity corners, special effects. Things guests do, not just watch.',
-  dining: 'Lechon, grazing tables, dessert stations, drinks. Add-ons around the main caterer.',
+    "Performers, games, activity corners, special effects. The parts guests join in, not just watch.",
+  dining: "Lechon, grazing tables, dessert stations, drinks. Add-ons that turn the caterer's meal into a feast.",
   logistics_safety:
-    'Security, escorts, medics, marshals, generators, portalets. What keeps a crowd safe and moving.',
-  insurance: "Event cover and personal accident cover. So a bad surprise isn't also a bill.",
-  specialty: 'Officials, tour guides, and the one-off asks. What fits nowhere else lives here.',
+    "Security, escorts, medics, marshals, generators, portalets. Nobody notices them; that means they worked.",
+  insurance: "Event cover and personal accident cover. A bad surprise stays a story, not a bill.",
+  specialty: "Officials, tour guides, and the one-off asks. The unusual request that fits nowhere else.",
   // ⚠ No cue, no urgency, no selling. See the docblock.
-  farewell: 'Funeral homes, memorial chapels, hearse, and interment services.',
+  farewell: "Funeral homes, memorial chapels, hearse, interment. The services that carry a family through the week.",
 };
 
 /** The ⓘ text for a folder. Total — every folder has one, and a guard holds that. */

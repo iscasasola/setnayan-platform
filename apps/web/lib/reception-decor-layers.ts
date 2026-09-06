@@ -37,7 +37,16 @@ import type { MoodboardStyleFamily } from './moodboard-templates';
  *  is just: generate more images (apps/web/scripts/reception-decor-pilot-
  *  prompts.ts documents the exact recipe), seed them, and add the zone id
  *  here. */
-export const PILOT_DECOR_ZONES: readonly PartId[] = ['backdrop', 'ceiling'];
+/**
+ * ⚠ THIS LIST IS THE SWITCH. A zone with seeded artwork that is NOT named here
+ * gets `{kind:'svg'}` from `resolveDecorLayer` and its rows are dead — the
+ * exact shape MB14b shipped ten of. Adding a zone means: seed the assets, add
+ * the id here, and prove BYTES come back (see `renderDecorLayerDataUrl`).
+ *
+ * `stage` joined 2026-09-06 (migration 20271211370331) — the first zone added
+ * since the pilot pair, under `build-sessions/RECEPTION-ART-PLAN.md`.
+ */
+export const PILOT_DECOR_ZONES: readonly PartId[] = ['backdrop', 'ceiling', 'stage'];
 
 /** One zone's decor image, ready to composite: where the source pixels live
  *  + the single tagged color region to retint (slot 1 only, for the pilot —

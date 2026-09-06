@@ -1598,8 +1598,8 @@ function MobileGridItem({
 
   // Swipe-left-to-delete — only when NOT in select mode (there the card is for
   // checkbox bulk ops) and not the couple (bride & groom can't be removed;
-  // bulkSoftDeleteGuests blocks them server-side, so don't dangle a Delete
-  // that will always fail).
+  // the server refuses them either way, so don't dangle a Delete that can only
+  // fail).
   const swipeable =
     !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
 
@@ -1631,9 +1631,10 @@ function MobileGridItem({
 // somebody is one of the four things a host does to a roster, and flipping the
 // carousel's density toggle to `?density=list` silently took it away — the same
 // list, the same guests, one affordance gone. The gate, the action and the
-// server-side blocks are IDENTICAL to the grid path (bulkSoftDeleteGuests: the
-// couple is protected, an RSVP'd guest must be reset first, and the delete is a
-// recoverable soft one) — this is the wrapper, not a second delete.
+// server-side blocks are IDENTICAL to the grid path (both go through
+// `useGuestRemoval`: the couple is protected, an RSVP'd guest must be reset
+// first, and the delete is a recoverable soft one) — this is the wrapper, not a
+// second delete.
 function MobileListRow({
   guest,
   eventId,
@@ -1664,8 +1665,8 @@ function MobileListRow({
   seat?: { placed: string | null; suggested: string | null };
 }) {
   // Same gate as MobileGridItem: select mode owns the card for checkbox bulk
-  // ops, and the couple can never be removed (bulkSoftDeleteGuests blocks them
-  // server-side, so don't dangle a Delete that will always fail).
+  // ops, and the couple can never be removed (the server refuses them, so don't
+  // dangle a Delete that can only fail).
   const swipeable =
     !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
 

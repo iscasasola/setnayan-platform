@@ -78,6 +78,11 @@ export type FigureSpec = {
    *  the mannequin) or rounded boxes ('blocky' — the Blocky Kit, owner
    *  2026-09-06). Same skeleton, same poses, same seat bake either way. */
   kit?: 'round' | 'blocky';
+  /** Body build for a DRESSED figure (Heritage / Blocky, owner 2026-09-06:
+   *  "chibi looks like a female and heritage and block looks like a male").
+   *  'female' narrows the torso and shoulders and widens the hips; 'male' is
+   *  the mannequin's own proportions. Absent → the mannequin, unchanged. */
+  build?: 'female' | 'male';
 };
 
 /**

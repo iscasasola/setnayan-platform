@@ -21,7 +21,7 @@ test('the rig honours skinTone / hairStyle / hairColor — and ONLY when a spec 
   assert.match(f, /const headMat = look \? plainMaterial\(spec\.skinTone!\) : bodyMat;/);
   assert.match(f, /<mesh geometry=\{G\.head\} material=\{headMat\}/);
   assert.match(f, /\{look && spec\.hairStyle != null \? \(/);
-  assert.match(f, /geometry=\{hairCapGeometry\(spec\.hairStyle\)\}/);
+  assert.match(f, /geometry=\{hairCapGeometry\(spec\.hairStyle, kit\)\}/);
   // the blob is untouched: a look-less spec still resolves every material to bodyMat
   assert.match(f, /const garmentMat = dressed \? outfitMaterial\(spec\.outfit, spec\.outfitColor\) : bodyMat;/);
 });

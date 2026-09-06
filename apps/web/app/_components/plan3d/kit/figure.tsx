@@ -497,7 +497,16 @@ export const Figure = memo(function Figure({
   // Dressed only — the untouched blob keeps its rounded stump.
   const HAND_R = 0.052;
   // …and a FACE: the chibi's ink, scaled to this head, by the look's faceVariant.
-  const faceGeo = look ? rigFaceGeometry(resolveFigureLook(spec).faceVariant) : null;
+  const kit = spec.kit === 'blocky' ? 'blocky' : 'round';
+  const faceGeo = look ? rigFaceGeometry(resolveFigureLook(spec).faceVariant, kit) : null;
+  // BUILD (owner 2026-09-06): a dressed figure's proportions. 'female' narrows
+  // the torso + shoulders and widens the hips; 'male' and the look-less blob
+  // are the mannequin's own. Only the individual figure — the instanced crowd
+  // never draws a dressed figure.
+  const female = look && spec.build === 'female';
+  const torsoScale: [number, number, number] = female ? [0.88, 1, 0.92] : [1, 1, 1];
+  const hipScale: [number, number, number] = female ? [1.06, 1, 1.03] : [1, 1, 1];
+  const shoulderX = female ? SHOULDER_X * 0.9 : SHOULDER_X;
 
   // Shell placement: the re-proportioned lathe shells (2026-07-08 silhouette
   // pass) are authored directly in torso space — collar at ≈0.50, waist,
@@ -539,7 +548,7 @@ export const Figure = memo(function Figure({
             HIP BLOCK joins the leg tops so trousers read as one garment, the
             stance narrows, and every visible leg ends in a SHOE — the two
             floating capsules become a person standing in shoes. */}
-        <mesh geometry={G.hip} material={legMat} position={[0, HIP_BLOCK_Y, 0]} castShadow={castShadow} />
+        <mesh geometry={G.hip} material={legMat} position={[0, HIP_BLOCK_Y, 0]} scale={hipScale} castShadow={castShadow} />
         {[-1, 1].map((side) => (
           <group
             key={side}
@@ -596,14 +605,14 @@ export const Figure = memo(function Figure({
         {/* ── Torso: the blank plump mannequin body (2026-07-08 avatar pivot —
             no wardrobe, no shells) + arms + head ride the lean/sway together. ── */}
         <group ref={(el) => void (groups.current.torso = el)}>
-          <mesh geometry={G.torso} material={garmentMat} castShadow={castShadow} />
+          <mesh geometry={G.torso} material={garmentMat} scale={torsoScale} castShadow={castShadow} />
 
           {/* ── Arms: shoulder → elbow. ── */}
           {[-1, 1].map((side) => (
             <group
               key={side}
               ref={(el) => void (groups.current[side < 0 ? 'lShoulder' : 'rShoulder'] = el)}
-              position={[side * SHOULDER_X, SHOULDER_Y, 0]}
+              position={[side * shoulderX, SHOULDER_Y, 0]}
             >
               <mesh
                 geometry={G.arm}
@@ -684,7 +693,7 @@ export const Figure = memo(function Figure({
                   ) : null}
                   {look && spec.hairStyle != null ? (
                     <mesh
-                      geometry={hairCapGeometry(spec.hairStyle)}
+                      geometry={hairCapGeometry(spec.hairStyle, kit)}
                       material={plainMaterial(spec.hairColor ?? '#241a12')}
                       castShadow={castShadow}
                     />

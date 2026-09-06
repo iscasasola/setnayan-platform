@@ -20,22 +20,28 @@ import { FACE_VARIANT_COUNT } from './figure-rig';
 const ROOT = join(import.meta.dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(ROOT, rel), 'utf8'));
 
+const cz0 = (() => { const g = chibiFaceInkGeo('dots', 'smile', 'none')!; g.computeBoundingBox(); return g.boundingBox!.max.z; })();
+
 test('the rig face is the chibi ink, scaled head-to-head, on a CLONE', () => {
   assert.equal(RIG_FACE_VARIANTS.length, FACE_VARIANT_COUNT);
   assert.ok(Math.abs(RIG_FACE_SCALE - RIG_HEAD_R / CHIBI_HEAD_R) < 1e-9);
   const rig = rigFaceGeometry(0)!;
   const chibi = chibiFaceInkGeo('dots', 'smile', 'none')!;
   rig.computeBoundingBox(); chibi.computeBoundingBox();
-  const rz = rig.boundingBox!.max.z, cz = chibi.boundingBox!.max.z;
-  assert.ok(Math.abs(rz - cz * RIG_FACE_SCALE) < 1e-6, 'the face sits on the smaller head, not floating at chibi distance');
+  // Scaled head-to-head (the WIDTH proves the scale; the depth is then pushed
+  // proud of the head — see the-face-faces-out.test.ts), and a clone.
+  const rw = rig.boundingBox!.max.x - rig.boundingBox!.min.x, cw = chibi.boundingBox!.max.x - chibi.boundingBox!.min.x;
+  assert.ok(Math.abs(rw - cw * RIG_FACE_SCALE) < 1e-6, 'scaled to the smaller head');
   assert.notEqual(rig, chibi, 'a clone — the chibi cache is shared with every mounted chibi');
+  chibi.computeBoundingBox();
+  assert.ok(Math.abs(chibi.boundingBox!.max.z - cz0) < 1e-9, 'the shared chibi ink was not moved');
   assert.equal(rigFaceGeometry(3), rigFaceGeometry(0), 'variants wrap');
   assert.equal(rigFaceGeometry(-1), rigFaceGeometry(2), 'negative wraps too');
 });
 
 test('face and hands mount ONLY under the look gate — the blob keeps no face and its stump', () => {
   const f = read('app/_components/plan3d/kit/figure.tsx');
-  assert.match(f, /const faceGeo = look \? rigFaceGeometry\(resolveFigureLook\(spec\)\.faceVariant\) : null;/);
+  assert.match(f, /const faceGeo = look \? rigFaceGeometry\(resolveFigureLook\(spec\)\.faceVariant, kit\) : null;/);
   assert.match(f, /\{faceGeo \? \(\s*<mesh geometry=\{faceGeo\} material=\{plainMaterial\(CHIBI_FACE_INK\)\} castShadow=\{false\} \/>/);
   const hands = f.match(/\{look \? \(\s*<mesh\s+geometry=\{G\.joint\}\s+material=\{headMat\}\s+position=\{\[0, -FOREARM_LEN, 0\]\}/g) ?? [];
   assert.equal(hands.length, 1, 'one hand mount inside the mirrored arm chain (the chain renders both sides)');

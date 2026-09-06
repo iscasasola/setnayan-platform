@@ -26,6 +26,7 @@
  */
 
 import { receptionVenuePhrase, isVenueSetting, type VenueSetting } from './venue-settings';
+import type { WeddingTile } from './taxonomy';
 
 export type PartId =
   | 'ceiling'
@@ -80,6 +81,31 @@ export type Option = {
   id: string;
   label: string;
   prompt: string;
+  /**
+   * The marketplace trade that SUPPLIES this treatment — data, not decoration.
+   *
+   * 🔑 THESE WERE COMMENTS, AND A COMMENT CANNOT BE READ BY THE ROOM. RV1 wrote
+   * the trade beside each celebration option (`// live_band`, `// mobile_bar`)
+   * and said, in this file's own PartId docblock, that anchoring the zones to
+   * the marketplace parents is *"what lets a later change light a zone up from
+   * what the couple actually BOOKED without inventing a second mapping between
+   * the two vocabularies."* This field is that link, promoted from a comment to
+   * a value. Nothing re-types a trade name here that is not already a
+   * `WeddingTile`, and `assertOptionTilesBelongToTheirZone`
+   * (lib/reception-booked-suggestions.ts) refuses, at module load, any tile the
+   * zone's own `MOODBOARD_PART_TRADES` entry does not already claim — so the
+   * option vocabulary and the part → trade map cannot drift apart silently.
+   *
+   * ⚠ ABSENT IS AN ANSWER. A ceiling treatment, a table linen or a runner has
+   * no single trade that "is" it — a stylist builds all of them — and guessing
+   * one would put a florist's name on a chandelier. Only options a marketplace
+   * shop is booked to PROVIDE carry a tile; every other option leaves it unset
+   * and is therefore never suggested by anybody.
+   *
+   * The import is type-only, so this adds no runtime edge to `./taxonomy` and
+   * this module stays as client-safe as it has always been.
+   */
+  tile?: WeddingTile;
   /** "Nothing here" (None / Bare / Minimal). On a `multi` attribute it can
    *  never sit alongside a real treatment — "no entrance tunnel" AND "a
    *  tunnel of floral arches" is a contradiction the AI prompt would
@@ -127,6 +153,13 @@ export type ReceptionDesign = Partial<Record<PartId, Record<string, AttributeVal
 export const MAX_SELECTIONS_PER_ATTRIBUTE = 3;
 
 const O = (id: string, label: string, prompt: string): Option => ({ id, label, prompt });
+/** An option a marketplace trade SUPPLIES — see `Option.tile`. */
+const OT = (id: string, label: string, prompt: string, tile: WeddingTile): Option => ({
+  id,
+  label,
+  prompt,
+  tile,
+});
 /** An option meaning "nothing here" — see `Option.exclusive`. */
 const ONone = (id: string, label: string, prompt: string): Option => ({
   id,
@@ -435,11 +468,11 @@ export const RECEPTION_PARTS: Part[] = [
         // dinner is real, and that is what `stations` below is for.)
         options: [
           ONone('none', 'Not decided yet', ''),
-          O('buffet', 'Buffet line', 'a long draped buffet line along the side of the room'), // catering
-          O('plated', 'Plated service', 'plated table service, no buffet line'), // catering
-          O('family_style', 'Family style', 'family-style platters shared down the middle of each table'), // catering
-          O('grazing', 'Grazing table', 'an abundant grazing table of cheeses, fruit and bread'), // stations
-          O('lechon', 'Lechon centrepiece', 'a whole roast lechon presented on its own carving table'), // stations
+          OT('buffet', 'Buffet line', 'a long draped buffet line along the side of the room', 'catering'),
+          OT('plated', 'Plated service', 'plated table service, no buffet line', 'catering'),
+          OT('family_style', 'Family style', 'family-style platters shared down the middle of each table', 'catering'),
+          OT('grazing', 'Grazing table', 'an abundant grazing table of cheeses, fruit and bread', 'stations'),
+          OT('lechon', 'Lechon centrepiece', 'a whole roast lechon presented on its own carving table', 'stations'),
         ],
       },
       {
@@ -450,12 +483,15 @@ export const RECEPTION_PARTS: Part[] = [
         multi: true,
         options: [
           ONone('none', 'None', ''),
-          O('cake_table', 'Cake table', 'a dressed cake table with the tiered wedding cake'), // cake
-          O('dessert', 'Dessert table', 'a dessert table of Filipino sweets and pastries'), // dessert
-          O('mobile_bar', 'Mobile bar', 'a styled mobile cocktail bar'), // mobile_bar
-          O('mocktail', 'Mocktail bar', 'a non-alcoholic mocktail and fresh-juice bar'), // mocktail
-          O('coffee', 'Coffee cart', 'an espresso and coffee cart'), // coffee_espresso
-          O('food_cart', 'Food carts', 'Filipino street-food carts along the wall'), // food_cart / food_truck
+          OT('cake_table', 'Cake table', 'a dressed cake table with the tiered wedding cake', 'cake'),
+          OT('dessert', 'Dessert table', 'a dessert table of Filipino sweets and pastries', 'dessert'),
+          OT('mobile_bar', 'Mobile bar', 'a styled mobile cocktail bar', 'mobile_bar'),
+          OT('mocktail', 'Mocktail bar', 'a non-alcoholic mocktail and fresh-juice bar', 'mocktail'),
+          OT('coffee', 'Coffee cart', 'an espresso and coffee cart', 'coffee_espresso'),
+          // `food_cart`, not `food_truck`: both parents exist and both are in
+          // `MOODBOARD_PART_TRADES['room:feast']`, but a truck parks outside and a
+          // cart stands in the room, and this option draws carts along the wall.
+          OT('food_cart', 'Food carts', 'Filipino street-food carts along the wall', 'food_cart'),
         ],
       },
     ],
@@ -479,11 +515,11 @@ export const RECEPTION_PARTS: Part[] = [
         multi: true,
         options: [
           ONone('none', 'None', ''),
-          O('live_band', 'Live band', 'a live band on a low riser with their instruments'), // live_band
-          O('dj', 'DJ booth', 'a DJ booth with decks and speakers'), // dj
-          O('string_quartet', 'String quartet', 'a string quartet seated to one side'), // orchestra
-          O('singer', 'Wedding singer', 'a solo wedding singer at a standing microphone'), // wedding_singer
-          O('choir', 'Choir', 'a small choir standing in rows'), // choir
+          OT('live_band', 'Live band', 'a live band on a low riser with their instruments', 'live_band'),
+          OT('dj', 'DJ booth', 'a DJ booth with decks and speakers', 'dj'),
+          OT('string_quartet', 'String quartet', 'a string quartet seated to one side', 'orchestra'),
+          OT('singer', 'Wedding singer', 'a solo wedding singer at a standing microphone', 'wedding_singer'),
+          OT('choir', 'Choir', 'a small choir standing in rows', 'choir'),
         ],
       },
       {
@@ -492,9 +528,9 @@ export const RECEPTION_PARTS: Part[] = [
         // Single: one emcee has one spot.
         options: [
           ONone('none', 'None', ''),
-          O('podium', 'Podium', 'a styled podium for the host'), // host_mc
-          O('standing_mic', 'Standing mic', 'a standing microphone for the host'), // host_mc
-          O('host_table', 'Host table', 'a small dressed table for the host and their notes'), // host_mc
+          OT('podium', 'Podium', 'a styled podium for the host', 'host_mc'),
+          OT('standing_mic', 'Standing mic', 'a standing microphone for the host', 'host_mc'),
+          OT('host_table', 'Host table', 'a small dressed table for the host and their notes', 'host_mc'),
         ],
       },
       {
@@ -502,9 +538,12 @@ export const RECEPTION_PARTS: Part[] = [
         label: 'Dance floor',
         options: [
           ONone('none', 'None', ''),
-          O('parquet', 'Parquet', 'a parquet dance floor in front of the stage'), // dance_floor
-          O('monogram', 'Monogram decal', 'a dance floor with the couple’s monogram decal at its centre'), // dance_floor
-          O('led', 'LED floor', 'a glowing LED dance floor'), // dance_floor / led_wall
+          OT('parquet', 'Parquet', 'a parquet dance floor in front of the stage', 'dance_floor'),
+          OT('monogram', 'Monogram decal', 'a dance floor with the couple’s monogram decal at its centre', 'dance_floor'),
+          // `dance_floor`, not `led_wall`: a wall is not a floor, and the shop a
+          // couple books for this is a dance-floor supplier who happens to
+          // build it out of LEDs.
+          OT('led', 'LED floor', 'a glowing LED dance floor', 'dance_floor'),
         ],
       },
     ],
@@ -524,15 +563,15 @@ export const RECEPTION_PARTS: Part[] = [
         multi: true,
         options: [
           ONone('none', 'None', ''),
-          O('photo_booth', 'Photo booth', 'a photo booth with a props table'), // photo_booth
-          O('arcade', 'Arcade games', 'a retro arcade games corner'), // arcade_games
-          O('caricature', 'Caricature artist', 'a caricature artist sketching guests at a small easel'), // caricature_calligraphy_painting
-          O('henna', 'Henna tattoo', 'a henna tattoo booth with low seating'), // henna_tattoo
-          O('massage', 'Massage chairs', 'a pair of massage chairs in a quiet corner'), // massage_chair
-          O('nail_bar', 'Mini nail bar', 'a mini nail bar with two stools'), // mini_nail_bar
-          O('perfume', 'Perfume bar', 'a perfume-blending bar with rows of small bottles'), // perfume_bar
-          O('tarot', 'Tarot reader', 'a tarot reader at a draped round table'), // tarot_astrology_palmistry
-          O('engraving', 'Live engraving', 'a live engraving station personalising guest favours'), // engraving_embroidery
+          OT('photo_booth', 'Photo booth', 'a photo booth with a props table', 'photo_booth'),
+          OT('arcade', 'Arcade games', 'a retro arcade games corner', 'arcade_games'),
+          OT('caricature', 'Caricature artist', 'a caricature artist sketching guests at a small easel', 'caricature_calligraphy_painting'),
+          OT('henna', 'Henna tattoo', 'a henna tattoo booth with low seating', 'henna_tattoo'),
+          OT('massage', 'Massage chairs', 'a pair of massage chairs in a quiet corner', 'massage_chair'),
+          OT('nail_bar', 'Mini nail bar', 'a mini nail bar with two stools', 'mini_nail_bar'),
+          OT('perfume', 'Perfume bar', 'a perfume-blending bar with rows of small bottles', 'perfume_bar'),
+          OT('tarot', 'Tarot reader', 'a tarot reader at a draped round table', 'tarot_astrology_palmistry'),
+          OT('engraving', 'Live engraving', 'a live engraving station personalising guest favours', 'engraving_embroidery'),
         ],
       },
     ],

@@ -26,7 +26,16 @@ import type { EditorialEditorInput } from './actions';
 import { eventNoun } from '@/lib/event-noun';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-type LandingVisibility = 'public' | 'unlisted' | 'private';
+/**
+ * How the celebration's own page is published.
+ *
+ * ⚠ `invited_accounts` is a REAL fourth state (the privacy screen's "tagged
+ * accounts only", owner 2026-08-15) and this union omitted it, so the page cast
+ * it to one of the three and the Stories caveat named the wrong setting back at
+ * the person. Only 'public' reaches Stories either way — but a caveat has to
+ * name the choice they actually made or it reads as a bug.
+ */
+type LandingVisibility = 'public' | 'unlisted' | 'invited_accounts' | 'private';
 
 /**
  * Consolidated editorial editor (iteration 0046). One page where the couple
@@ -381,7 +390,7 @@ export default async function EditorialEditorPage({
         shareUrl={shareUrl}
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}
-        isWedding={(event.event_type ?? 'wedding') === 'wedding'}
+        eventType={(event.event_type as string | null) ?? 'wedding'}
       />
     </div>
   );

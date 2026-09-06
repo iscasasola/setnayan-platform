@@ -43,7 +43,15 @@ const RULES = [
   { re: /rounded(?:-(?:t|b|l|r|s|e|tl|tr|bl|br|ss|se|es|ee))?-\[\d+px\]/g, msg: 'arbitrary rounded-[Npx]' },
   { re: /border-radius:\s*\d+px(?=\s*(?:;|}|\n|$))/g, msg: 'hardcoded CSS border-radius px' },
   { re: /borderRadius:\s*\d+(?=\s*[,}\n])/g, msg: 'inline borderRadius px literal' },
-  { re: /borderRadius:\s*'\d+px'/g, msg: "inline borderRadius '<px>'" },
+  /*
+    🔴 EITHER QUOTE STYLE. This read `'\d+px'` — single quotes ONLY — so
+    `borderRadius: "13px"` walked straight past it, and double quotes are
+    ordinary in TSX. Found 2026-09-07 by mutation-testing every blocking guard:
+    the single-quoted form went red, the double-quoted form went green, same
+    file, same value. A guard that catches one spelling of a thing teaches you
+    the thing is handled.
+  */
+  { re: /borderRadius:\s*['"]\d+px['"]/g, msg: "inline borderRadius '<px>'" },
 ];
 
 function walk(dir) {

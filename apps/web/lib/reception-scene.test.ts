@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import sharp from 'sharp';
 import {
   sanitizeReceptionDesign,
   sel,
@@ -53,26 +55,89 @@ test('sanitizeReceptionDesign: empty result falls back to DEFAULT_DESIGN via sel
   assert.equal(sel(clean, 'tables', 'centerpiece'), DEFAULT_DESIGN.tables.centerpiece);
 });
 
-// ── new Filipino-relevant decor zones (2026-09-03): walls/surroundings,
-// photo wall, welcome & signage — additive, same vocabulary shape as the
-// original 7 parts. ──────────────────────────────────────────────────────
+// ── the decor zones beyond the original seven ────────────────────────────
+// 2026-09-03 added walls/surroundings, photo wall, welcome & signage.
+// 2026-09-06 added the celebration: food & drink, program, guest booths.
+//
+// 🪤 THESE FOUR TESTS USED TO CARRY A HARD-CODED LIST OF THREE ZONE IDS, so
+// they covered exactly the zones someone had remembered to type into them. The
+// 2026-09-06 zones landed and not one of these guards looked at them. They now
+// iterate RECEPTION_PARTS itself, which is the only list that cannot go stale:
+// a zone that exists is a zone these cover.
 
-test('new zones are registered in RECEPTION_PARTS with the standard shape', () => {
-  for (const id of ['walls', 'photo_wall', 'welcome_signage'] as const) {
-    const part = RECEPTION_PARTS.find((p) => p.id === id);
-    assert.ok(part, `expected a RECEPTION_PARTS entry for ${id}`);
-    assert.ok(part!.attributes.length > 0);
-    for (const attr of part!.attributes) {
-      assert.ok(attr.options.length > 0);
+test('EVERY zone is registered in RECEPTION_PARTS with the standard shape', () => {
+  assert.ok(RECEPTION_PARTS.length >= 13, `expected at least 13 zones, saw ${RECEPTION_PARTS.length}`);
+  const seen = new Set<string>();
+  for (const part of RECEPTION_PARTS) {
+    assert.ok(!seen.has(part.id), `two RECEPTION_PARTS entries share the id "${part.id}"`);
+    seen.add(part.id);
+    assert.ok(part.label.length > 0, `${part.id} has no label`);
+    assert.ok(part.attributes.length > 0, `${part.id} has no attributes`);
+    for (const attr of part.attributes) {
+      assert.ok(attr.options.length > 0, `${part.id}.${attr.id} has no options`);
+      const ids = new Set<string>();
+      for (const opt of attr.options) {
+        assert.ok(!ids.has(opt.id), `${part.id}.${attr.id} repeats option id "${opt.id}"`);
+        ids.add(opt.id);
+        assert.ok(opt.label.length > 0, `${part.id}.${attr.id}.${opt.id} has no label`);
+        // 🔑 A REAL OPTION WITH AN EMPTY PROMPT IS INVISIBLE TO THE PAID
+        // RENDER. `buildPrompt` pushes `opt.prompt` only when it is truthy, so
+        // a blank one means the couple picks a mobile bar, sees it in the SVG,
+        // pays for a photoreal render, and gets a room without it — with every
+        // test green. Only an `exclusive` "nothing here" option may be blank.
+        // `people` is the ONE documented exception, and it is a real one:
+        // `buildPrompt` does not read `opt.prompt` for it at all — it composes
+        // the people clause itself, from the couple's actual role attire
+        // colours ("the bride in a #… gown…"), which no static string could
+        // carry. The test below this one asserts that clause still appears, so
+        // the exemption cannot quietly become "people are not described".
+        if (!opt.exclusive && part.id !== 'people') {
+          assert.ok(
+            opt.prompt.trim().length > 0,
+            `${part.id}.${attr.id}.${opt.id} has an empty prompt, so it is drawn in the SVG ` +
+              'but silently absent from the brief that drives the paid render.',
+          );
+        }
+      }
     }
   }
 });
 
-test('new zones have a DEFAULT_DESIGN entry usable via sel()', () => {
+test('the people exemption is paid for: buildPrompt still describes who is in the room', () => {
+  // The guard on the guard. `people`'s options carry no prompt string, so the
+  // loop above skips them — which is only safe while buildPrompt composes that
+  // clause from the role colours instead. If that composition is ever deleted,
+  // the exemption above would silently mean "nobody is described".
+  const prompt = buildPrompt({ people: { who: 'everyone' } }, ['#7A1F2B'], {
+    bride: '#FFFFFF',
+    groom: '#101820',
+    party: '#7A1F2B',
+    guest: '#D4AF37',
+  });
+  assert.match(prompt, /the bride in a #FFFFFF gown/i);
+  assert.match(prompt, /groom in a #101820 suit/i);
+  assert.match(prompt, /guests/i);
+});
+
+test('EVERY zone has a DEFAULT_DESIGN entry usable via sel()', () => {
   const clean = sanitizeReceptionDesign({});
-  assert.equal(sel(clean, 'walls', 'treatment'), DEFAULT_DESIGN.walls.treatment);
-  assert.equal(sel(clean, 'photo_wall', 'style'), DEFAULT_DESIGN.photo_wall.style);
-  assert.equal(sel(clean, 'welcome_signage', 'style'), DEFAULT_DESIGN.welcome_signage.style);
+  for (const part of RECEPTION_PARTS) {
+    const defaults = DEFAULT_DESIGN[part.id];
+    assert.ok(defaults, `no DEFAULT_DESIGN entry for zone "${part.id}"`);
+    for (const attr of part.attributes) {
+      const d = defaults[attr.id];
+      assert.ok(
+        d !== undefined,
+        `DEFAULT_DESIGN.${part.id} has no default for attribute "${attr.id}", so sel() ` +
+          'returns the first option — whatever it happens to be — for every couple.',
+      );
+      assert.ok(
+        attr.options.some((o) => o.id === d),
+        `DEFAULT_DESIGN.${part.id}.${attr.id} is "${d}", which is not one of its options.`,
+      );
+      assert.equal(sel(clean, part.id, attr.id), d);
+    }
+  }
 });
 
 test('sanitizeReceptionDesign keeps valid new-zone choices and drops invalid ones', () => {
@@ -86,9 +151,9 @@ test('sanitizeReceptionDesign keeps valid new-zone choices and drops invalid one
   assert.deepEqual(out.welcome_signage, { style: 'easel_sign' });
 });
 
-test('renderVenueSvg includes every new zone option without throwing', () => {
-  for (const id of ['walls', 'photo_wall', 'welcome_signage'] as const) {
-    const part = RECEPTION_PARTS.find((p) => p.id === id)!;
+test('renderVenueSvg includes every zone option without throwing', () => {
+  for (const part of RECEPTION_PARTS) {
+    const id = part.id;
     for (const attr of part.attributes) {
       for (const opt of attr.options) {
         const design = { [id]: { [attr.id]: opt.id } };
@@ -670,4 +735,258 @@ test('MB14b · THE INVARIANT: an uncovered (zone, style) renders the pre-change 
     'an uncovered (zone, style) no longer renders the exact bytes it rendered before decor ' +
       'compositing existed.',
   );
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * THE CELEBRATION · feast · program · booths (owner, 2026-09-06).
+ *
+ * Owner: *"after a ceremony venue like church, they transfer to a place to eat
+ * and celebrate… it is a place not where the bride walks but a time to
+ * celebrate and eat thus having booths, hosts, bands, etc."*
+ *
+ * The room could be dressed but not CELEBRATED in: a couple could book a live
+ * band, an emcee, a mobile bar and a perfume booth in the marketplace and none
+ * of them had a place in the drawing, the zone rail, or the brief that drives
+ * the paid render. These three zones are one marketplace parent each — `feast`,
+ * `program`, `booths` — so what a couple dresses and what they book are the
+ * same noun.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const CELEBRATION = ['feast', 'program', 'booths'] as const;
+const PAL = ['#C9A059', '#8C6BA6', '#D98BA6', '#9CB29A', '#F3ECE0'];
+
+test('CELEBRATION: a couple who never opens these zones gets a byte-identical room', () => {
+  // 🔑 THE REGRESSION THAT MATTERS MOST, AND THE ONLY ONE THAT WOULD HAVE HIT
+  // EVERY EXISTING COUPLE AT ONCE. `sel()`/`selAll()` fall back to
+  // DEFAULT_DESIGN for any part a stored `reception_design` has no key for —
+  // which is every event that existed before these zones did. A default of
+  // 'buffet' rather than 'none' would have put a buffet line, a band and a
+  // booth row into every couple's room overnight, in the drawing AND in the
+  // brief they pay to render, without one of them choosing it.
+  const stored = sanitizeReceptionDesign({
+    ceiling: { treatment: 'chandeliers' },
+    backdrop: { style: 'draped', florals: 'corner' },
+    tables: { shape: 'round', chairs: 'chiavari' },
+  });
+  for (const part of CELEBRATION) {
+    assert.equal(stored[part], undefined, `a pre-2026-09-06 design should carry no ${part} key`);
+  }
+  const withoutZones = renderVenueSvg(stored, PAL, {});
+  const withExplicitNone = renderVenueSvg(
+    { ...stored, feast: { service: 'none', stations: 'none' }, program: { performers: 'none', host: 'none', floor: 'none' }, booths: { kinds: 'none' } },
+    PAL,
+    {},
+  );
+  assert.equal(
+    withoutZones,
+    withExplicitNone,
+    'a stored design with no celebration keys renders differently from one that explicitly ' +
+      'chooses nothing — so the DEFAULT_DESIGN fallback is drawing something the couple ' +
+      'never picked.',
+  );
+  // …and the same brief, which is what they actually pay for.
+  assert.equal(buildPrompt(stored, PAL), buildPrompt({ ...stored, booths: { kinds: 'none' } }, PAL));
+});
+
+test('CELEBRATION: every zone draws SOMETHING when chosen, and nothing when not', () => {
+  const bare = renderVenueSvg(sanitizeReceptionDesign({}), PAL, {});
+  for (const part of RECEPTION_PARTS.filter((p) => (CELEBRATION as readonly string[]).includes(p.id))) {
+    for (const attr of part.attributes) {
+      for (const opt of attr.options) {
+        const svg = renderVenueSvg({ [part.id]: { [attr.id]: opt.id } }, PAL, {});
+        assert.match(svg, /^<svg/);
+        if (opt.exclusive) {
+          assert.equal(
+            svg,
+            bare,
+            `${part.id}.${attr.id}.${opt.id} is a "nothing here" option but changed the room.`,
+          );
+        } else if (opt.id !== 'plated') {
+          // `plated` is the one real option that deliberately draws nothing —
+          // plated service IS the guest tables, which are already in the room.
+          assert.notEqual(
+            svg,
+            bare,
+            `${part.id}.${attr.id}.${opt.id} is offered to the couple and drawn in the zone ` +
+              'rail, but renders no pixels at all — they pick it and the room does not change.',
+          );
+        }
+      }
+    }
+  }
+});
+
+test('CELEBRATION: the three zones do not draw over each other', () => {
+  // Each zone owns its own region, so choosing one must not alter what another
+  // one contributes. Measured as: the SVG for A+B contains everything A alone
+  // contributes and everything B alone contributes.
+  const only: { feast: ReceptionDesign; program: ReceptionDesign; booths: ReceptionDesign } = {
+    feast: { feast: { service: 'buffet', stations: ['cake_table', 'mobile_bar'] } },
+    program: { program: { performers: ['live_band'], host: 'podium', floor: 'parquet' } },
+    booths: { booths: { kinds: ['photo_booth', 'tarot'] } },
+  };
+  const bare = renderVenueSvg({}, PAL, {});
+  const deltaOf = (d: object) => {
+    const svg = renderVenueSvg(d, PAL, {});
+    // Everything in the dressed room that the bare room does not have.
+    return svg.length - bare.length;
+  };
+  const all = renderVenueSvg({ ...only.feast, ...only.program, ...only.booths }, PAL, {});
+  const sum = deltaOf(only.feast) + deltaOf(only.program) + deltaOf(only.booths);
+  assert.equal(
+    all.length - bare.length,
+    sum,
+    'the three celebration zones together do not contribute what they contribute apart — ' +
+      'one of them is suppressing or duplicating another’s markup.',
+  );
+});
+
+test('CELEBRATION: the dance floor is drawn BEFORE the guest tables and the people', () => {
+  // 🪤 THE BUG THE FIRST RENDER SHOWED. The dance floor is a FLOOR treatment.
+  // Drawn last — as the first draft did — it paints straight over the guest
+  // tables and the couple. No type and no test saw it: the polygon was valid
+  // and the tables were simply underneath. Order in the emitted string IS the
+  // paint order, so that is what this reads.
+  const svg = renderVenueSvg(
+    { program: { floor: 'parquet' }, tables: { shape: 'round' }, people: { who: 'everyone' } },
+    PAL,
+    {},
+  );
+  const floorAt = svg.indexOf('392,378 568,378');
+  assert.notEqual(floorAt, -1, 'the parquet dance floor is no longer drawn at all');
+  const tablesAt = svg.indexOf('<ellipse', floorAt);
+  assert.ok(
+    floorAt < tablesAt,
+    'the dance floor is emitted after the first table ellipse, so it paints over the guest ' +
+      'tables and the couple standing on it.',
+  );
+});
+
+test('CELEBRATION: the dance floor repaints NO guest-table pixel', async () => {
+  // The claim is "the dance floor does not cover the tables", and the honest
+  // unit for that claim is PIXELS.
+  //
+  // 🪤 TWO EARLIER VERSIONS OF THIS GUARD FAILED ON CORRECT CODE, both by
+  // testing something cheaper than the claim. The first compared bounding
+  // boxes — but the aisle is a trapezoid that narrows toward the back, so its
+  // widest points sit in the empty foreground and the boxes overlap where the
+  // shapes never touch. The second did a real point-in-polygon test against a
+  // guest-table rectangle read off a screenshot by eye (x 660–890), and the
+  // tables do not actually reach that far. Measured here instead: 1,260 table
+  // pixels at this raster size, 0 of them repainted by the floor.
+  //
+  // A guard that asserts a cheaper property than the one it claims will
+  // eventually call right code wrong — and get "fixed" by loosening the real
+  // constraint, which is how the defect it was written for comes back.
+  const TABLES = { shape: 'round', chairs: 'chiavari', linen: 'plain', centerpiece: 'none', place: 'none' };
+  // Everything else off, so the only difference between rasters is the layer
+  // under test.
+  const QUIET = {
+    people: { who: 'none' },
+    tunnel: { style: 'none' },
+    entrance: { runner: 'none' },
+    backdrop: { style: 'none', florals: 'none' },
+    stage: { setup: 'sweetheart', florals: 'none' },
+    ceiling: { treatment: 'bare' },
+  };
+  const raster = async (design: object) => {
+    const { data } = await sharp(Buffer.from(renderVenueSvg(design, PAL, {})))
+      .resize(480, 320)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    return new Uint8ClampedArray(data);
+  };
+  const differs = (a: Uint8ClampedArray, b: Uint8ClampedArray, i: number) =>
+    a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2];
+
+  const withTables = await raster({ ...QUIET, tables: TABLES });
+  const noTables = await raster({ ...QUIET, tables: { shape: 'none' } });
+  const floorOff = await raster({ ...QUIET, tables: TABLES, program: { floor: 'none' } });
+  const floorOn = await raster({ ...QUIET, tables: TABLES, program: { floor: 'parquet' } });
+
+  let tablePx = 0;
+  let repainted = 0;
+  for (let i = 0; i < withTables.length; i += 4) {
+    if (!differs(withTables, noTables, i)) continue; // not a table pixel
+    tablePx++;
+    if (differs(floorOn, floorOff, i)) repainted++;
+  }
+  assert.ok(tablePx > 500, `only ${tablePx} table pixels found — the harness is measuring nothing`);
+  assert.equal(
+    repainted,
+    0,
+    `${repainted} of ${tablePx} guest-table pixels are repainted by the dance floor. It is a ` +
+      'FLOOR treatment and belongs under the furniture — the first draft drew it on the ' +
+      'back-right floor, last, and painted it straight over the right-hand tables.',
+  );
+
+  // 🔑 AND THE HARNESS CAN SEE THE FLOOR AT ALL. Without this, `repainted === 0`
+  // would also be satisfied by a dance floor that draws nothing, which is the
+  // vacuous pass every "nothing moved" assertion is one edit away from.
+  let floorPx = 0;
+  for (let i = 0; i < floorOn.length; i += 4) if (differs(floorOn, floorOff, i)) floorPx++;
+  assert.ok(
+    floorPx > 2000,
+    `the parquet dance floor repaints only ${floorPx} pixels in the whole room. It is not ` +
+      'being drawn, so "0 table pixels repainted" proves nothing.',
+  );
+});
+
+test('CELEBRATION: the band riser is sized to the band, not to the wall', () => {
+  // A fixed-width riser under one performer draws an empty shelf running off
+  // to the corner — what the first render showed.
+  const one = renderVenueSvg({ program: { performers: ['dj'] } }, PAL, {});
+  const three = renderVenueSvg({ program: { performers: ['dj', 'live_band', 'choir'] } }, PAL, {});
+  const widthOf = (svg: string) => {
+    const m = /<rect x="664" y="362" width="(\d+)"/.exec(svg);
+    assert.ok(m, 'the performer riser is gone or has moved');
+    return Number(m[1]);
+  };
+  assert.ok(
+    widthOf(three) > widthOf(one),
+    `a three-group band (${widthOf(three)}px) must sit on a wider riser than a lone DJ ` +
+      `(${widthOf(one)}px).`,
+  );
+});
+
+test('CELEBRATION: each zone is routed through venueZoneApplies like every other', () => {
+  // Not because any venue lacks them today — a beach reception still has a
+  // buffet and a band — but so that gating one later is a data change and not a
+  // hunt for the call site that forgot.
+  for (const part of CELEBRATION) {
+    for (const setting of VENUE_SETTINGS) {
+      assert.equal(
+        venueZoneApplies(setting, part),
+        true,
+        `${part} is marked N/A at a ${setting} reception. If that is deliberate, say why ` +
+          'here — every one of these zones exists at every venue we sell.',
+      );
+    }
+  }
+});
+
+test('CELEBRATION: every option maps to a marketplace tile the couple can actually book', () => {
+  // The whole reason these three zones are the three marketplace PARENTS: what
+  // a couple dresses and what they book must be the same noun, or a later
+  // change that lights a zone from a booking has to invent a second mapping.
+  // The anchor is recorded as a trailing comment on each option in
+  // reception-scene.ts; this asserts the comment is actually there, for every
+  // real option, so it cannot rot into decoration.
+  const src = readFileSync(new URL('./reception-scene.ts', import.meta.url), 'utf8');
+  const block = src.slice(
+    src.indexOf("    id: 'feast',"),
+    src.indexOf("  {\n    id: 'people',"),
+  );
+  assert.ok(block.length > 0, 'the celebration zones are gone from RECEPTION_PARTS');
+  const lines = block.split('\n').filter((l) => /^\s+O\('/.test(l));
+  assert.ok(lines.length >= 25, `expected at least 25 real celebration options, saw ${lines.length}`);
+  for (const line of lines) {
+    assert.match(
+      line,
+      /\/\/ [a-z_]+(\s*\/\s*[a-z_]+)*\s*$/,
+      'a celebration option carries no marketplace-tile anchor comment:\n  ' + line.trim(),
+    );
+  }
 });

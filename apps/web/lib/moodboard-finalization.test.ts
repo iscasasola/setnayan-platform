@@ -292,8 +292,15 @@ test('the parts that freeze nothing are exactly the ones the UI says so about', 
   assert.deepEqual(nothing, [
     'people:officiants',
     'room:backdrop',
+    // The three celebration zones freeze nothing, for the reason every other
+    // `room:*` zone freezes nothing: their colour is the couple's reception
+    // palette, which no single supplier owns. Agreeing to the band's riser
+    // records what was agreed; it does not lock a role's swatches.
+    'room:booths',
     'room:entrance',
+    'room:feast',
     'room:photo_wall',
+    'room:program',
     'room:stage',
     'room:tunnel',
     'room:walls',

@@ -164,7 +164,24 @@ test('brief lines print human labels, never machine prompt text, and are honest 
 test('the whole-look brief covers every reception zone except People', () => {
   const lines = briefWholeLookZoneLines({} as ReceptionDesign);
   assert.ok(lines.length > 0);
-  assert.ok(!lines.some((l) => l.startsWith('Who')), 'People is a modifier on the room, not a treatment line');
+  // 🪤 THIS USED TO READ `l.startsWith('Who')`, WHICH IS NOT "is this the
+  // People zone" — it is "does this line begin with three particular letters".
+  // The 2026-09-06 `program` zone labelled an attribute "Who plays" and this
+  // guard failed on it, reporting that People had leaked into the brief when
+  // what had actually happened is that a different zone chose a similar word.
+  // A guard that identifies its subject by a string prefix will eventually
+  // accuse the wrong one. The People zone is identified by its id.
+  const peopleLabels = (RECEPTION_PARTS.find((p) => p.id === 'people')?.attributes ?? []).map(
+    (a) => a.label,
+  );
+  assert.ok(peopleLabels.length > 0, 'the People zone is gone, so this guard watches nothing');
+  for (const label of peopleLabels) {
+    assert.ok(
+      !lines.some((l) => l.startsWith(`${label}:`) || l === label),
+      `People's "${label}" reached the whole-look brief. People is a modifier on the room, ` +
+        'not a treatment line.',
+    );
+  }
 });
 
 /* ── MB6: honest gating — a venue-gated zone is EXCLUDED, not merely hidden ── */

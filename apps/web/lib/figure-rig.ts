@@ -956,3 +956,55 @@ export function chibiHop(phase: number, amp = 1): ChibiHop {
     scaleXZ: 1 + squash * 0.5,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § 11 PR-2 (partial) — THE CHIBI DANCE, on the reduced joint set
+// ─────────────────────────────────────────────────────────────────────────────
+/** The chibi has no limbs to swing (the rig is jointless below the neck), so
+ *  its dance is the four things a chibi CAN do: bounce on the beat, lean side
+ *  to side, turn a little, and bob its head — the head being the one part the
+ *  rig mounts as its own group for exactly this (`userData.headGroup`). Same
+ *  beat clock as the rig's `dancePose` (DANCE_HZ) so a chibi and a Heritage
+ *  guest on the same floor keep time, and the same per-id phase offset so a
+ *  crowd never dances in unison. Every channel is bounded for all t (the
+ *  unit suite asserts the envelope) and `amp` eases the whole thing in and
+ *  out so a chibi never snaps mid-beat. */
+export const CHIBI_DANCE_LIFT = 0.07;
+export const CHIBI_DANCE_SWAY_RAD = 0.16;
+export const CHIBI_DANCE_TURN_RAD = 0.22;
+export const CHIBI_DANCE_HEAD_TILT_RAD = 0.2;
+export const CHIBI_DANCE_HEAD_NOD_RAD = 0.12;
+export type ChibiDance = {
+  lift: number;
+  scaleY: number;
+  scaleXZ: number;
+  /** Body lean about z (side to side). */
+  sway: number;
+  /** Body turn about y. */
+  turn: number;
+  /** Head roll about z. */
+  headTilt: number;
+  /** Head nod about x. */
+  headNod: number;
+};
+export function chibiDance(id: string, t: number, amp = 1, out?: ChibiDance): ChibiDance {
+  const a = Math.max(0, Math.min(1, amp));
+  const o = out ?? { lift: 0, scaleY: 1, scaleXZ: 1, sway: 0, turn: 0, headTilt: 0, headNod: 0 };
+  if (a === 0) {
+    o.lift = 0; o.scaleY = 1; o.scaleXZ = 1; o.sway = 0; o.turn = 0; o.headTilt = 0; o.headNod = 0;
+    return o;
+  }
+  const b = t * DANCE_HZ + idlePhaseOffset(id);
+  const sb = Math.sin(b);
+  const bounce = Math.abs(Math.sin(2 * b)); // two bounces per sway, lands at each zero
+  const squash = (1 - bounce) * CHIBI_SQUASH * 0.7 * a;
+  o.lift = bounce * CHIBI_DANCE_LIFT * a;
+  o.scaleY = 1 - squash;
+  o.scaleXZ = 1 + squash * 0.5;
+  o.sway = sb * CHIBI_DANCE_SWAY_RAD * a;
+  o.turn = Math.sin(b * 0.5) * CHIBI_DANCE_TURN_RAD * a;
+  o.headTilt = -sb * CHIBI_DANCE_HEAD_TILT_RAD * a; // counter-lean, so the head reads as "into it"
+  o.headNod = (bounce - 0.5) * CHIBI_DANCE_HEAD_NOD_RAD * a;
+  return o;
+}
+

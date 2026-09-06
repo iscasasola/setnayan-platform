@@ -9,6 +9,11 @@ import {
 } from '@/lib/moodboard-templates';
 import { getCurrentUser } from '@/lib/auth';
 import {
+  suggestZonesFromBookings,
+  suggestionLine,
+  type BookedSupplier,
+} from '@/lib/reception-booked-suggestions';
+import {
   fetchGuestsByEvent,
   guestDisplayName,
   resolveGuestAttire,
@@ -59,7 +64,8 @@ import {
 } from '@/lib/moodboard-finalization-rows';
 import { renderPartById } from '@/lib/moodboard-render-parts';
 import { INSPIRATION_SLOT_FOR_PART } from '@/lib/moodboard-slots';
-import { sanitizeReceptionDesign } from '@/lib/reception-scene';
+import { sanitizeReceptionDesign, RECEPTION_PARTS, venueZoneApplies } from '@/lib/reception-scene';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
@@ -123,7 +129,14 @@ export default async function SeatingLabPage({ params }: Props) {
     // row records who agreed, and a booking whose status later changed does not
     // un-say it — showing "Agreed with your supplier" with no name would be a
     // worse answer than the name on the row.
-    supabase.from('event_vendors').select('vendor_id, vendor_name').eq('event_id', eventId),
+    // Q9 — `services` rides along on the select the page already makes, so a
+    // booked supplier can be matched to the reception zone they work in. If
+    // RLS refuses the shop (unverified, hidden) the embed comes back null and
+    // that supplier simply suggests nothing, which is the same as not booked.
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, status, shop:vendor_profiles ( services )')
+      .eq('event_id', eventId),
   ]);
 
   // Tables created but never dragged onto the spatial canvas have null
@@ -235,6 +248,42 @@ export default async function SeatingLabPage({ params }: Props) {
     // no design chip in this editor and must not silently claim one.
     if (!part || part.group !== 'room') continue;
     finalizedByPart[part.sourceKey] = who;
+  }
+
+  // ── Q9 · "YOU'VE BOOKED THEM" (owner ruling 2026-09-06) ───────────────────
+  // A zone whose trade the couple has ALREADY BOOKED says so — and says only
+  // that. `suggestZonesFromBookings` cannot produce a design (see its own
+  // note), so nothing here can write into `reception_design`: the couple opens
+  // the zone and chooses, or they do not, and their room is unchanged either
+  // way. That is the whole ruling, and the reason this computes a SENTENCE.
+  const bookedSuppliers: BookedSupplier[] = (vendorNameRes.data ?? [])
+    .filter((v) =>
+      CONFIRMED_VENDOR_STATUSES.includes(
+        ((v as { status?: string | null }).status ?? '') as (typeof CONFIRMED_VENDOR_STATUSES)[number],
+      ),
+    )
+    .map((v) => {
+      const row = v as {
+        vendor_id: string;
+        vendor_name: string | null;
+        shop?: { services?: string[] | null } | { services?: string[] | null }[] | null;
+      };
+      const shop = Array.isArray(row.shop) ? row.shop[0] : row.shop;
+      return {
+        vendorId: row.vendor_id,
+        vendorName: (row.vendor_name ?? '').trim(),
+        services: (shop?.services ?? []).filter((x): x is string => typeof x === 'string'),
+      };
+    })
+    .filter((v) => v.vendorName && v.services.length > 0);
+
+  const bookedByZone: Record<string, string> = {};
+  for (const suggestion of suggestZonesFromBookings(
+    bookedSuppliers,
+    RECEPTION_PARTS.filter((p) => venueZoneApplies(venueSetting, p.id)).map((p) => p.id),
+  )) {
+    const line = suggestionLine(suggestion);
+    if (line) bookedByZone[suggestion.zone] = line;
   }
 
   // MB15 — THE COUPLE'S OWN NAME FOR THIS ROOM. `events.moodboard_theme_name`
@@ -475,6 +524,7 @@ export default async function SeatingLabPage({ params }: Props) {
         receptionDesign={receptionDesign}
         inspirationByPart={inspirationByPart}
         finalizedByPart={finalizedByPart}
+        bookedByZone={bookedByZone}
         themeName={themeName}
         styleFamily={styleFamily}
         venueSetting={venueSetting}

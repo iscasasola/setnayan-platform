@@ -263,6 +263,9 @@ type Props = {
    *  the chips for that zone are frozen and the panel says who agreed and when.
    *  Absent = nothing agreed, which is the common case. */
   finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** Q9 · zone → "You've booked …". A sentence, never a selection — see
+   *  ReceptionDesignEditor's own note and lib/reception-booked-suggestions.ts. */
+  bookedByZone?: Record<string, string>;
   /** MB15 — `events.moodboard_theme_name`, the couple's own name for this
    *  look. Null when they have not named one; the room then says nothing rather
    *  than inventing a title. */
@@ -470,7 +473,7 @@ type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target
 // figure for free. `faceY` is the heading it settles into while dancing.
 type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, themeName, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, bookedByZone, themeName, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -3032,6 +3035,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         receptionDesign={design}
         inspirationByPart={inspirationByPart}
         finalizedByPart={finalizedByPart}
+        bookedByZone={bookedByZone}
         themeName={themeName}
         onReceptionDesignChange={setDesign}
         styleFamily={styleFamily}
@@ -5244,6 +5248,7 @@ function Hud({
   receptionDesign,
   inspirationByPart,
   finalizedByPart,
+  bookedByZone,
   themeName,
   onReceptionDesignChange,
   styleFamily,
@@ -5332,6 +5337,9 @@ function Hud({
   /** MB15 — room zones a supplier has agreed to, keyed by reception part id.
    *  Frozen in the designer below and named in the room legend. */
   finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** Q9 · zone → "You've booked …". A sentence, never a selection — see
+   *  ReceptionDesignEditor's own note and lib/reception-booked-suggestions.ts. */
+  bookedByZone?: Record<string, string>;
   /** MB15 — `events.moodboard_theme_name`; null when the couple never named
    *  their look, and the legend then shows no title rather than a made-up one. */
   themeName?: string | null;
@@ -5740,6 +5748,7 @@ function Hud({
               design={receptionDesign}
               inspirationByPart={inspirationByPart}
               finalizedByPart={finalizedByPart}
+              bookedByZone={bookedByZone}
               onChange={onReceptionDesignChange}
               styleFamily={styleFamily}
               venueSetting={venueSetting}

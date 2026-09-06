@@ -56,6 +56,7 @@ type Props = {
    *  the chips for that zone are frozen and the panel says who agreed and when.
    *  Absent = nothing agreed, which is the common case. */
   finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  bookedByZone?: Record<string, string>;
   /** MB15 — `events.moodboard_theme_name`, the couple's own name for this
    *  look. Null when they have not named one; the room then says nothing rather
    *  than inventing a title. */

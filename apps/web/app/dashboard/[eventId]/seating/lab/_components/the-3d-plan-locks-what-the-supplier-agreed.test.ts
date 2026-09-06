@@ -176,6 +176,47 @@ test('the Seat Plan resolves the freeze through the same predicate, on the serve
   assert.match(page, /part\.group !== 'room'/);
 });
 
+test('Q9: the BOOKED-SUPPLIER prop chain is unbroken too, link by link', () => {
+  // The same shape, for the suggestion added 2026-09-06 under the owner's Q9
+  // ruling. Without every one of these hops the module computes a correct
+  // sentence that nothing renders — a resolver with no consumer, which is the
+  // exact defect this file exists for and the one MB14b shipped ten rows of.
+  assert.match(src(PAGE), /bookedByZone=\{bookedByZone\}/, 'page → loader');
+  assert.match(src(PAGE), /suggestZonesFromBookings\(/, 'the page never computes the suggestions');
+  assert.match(src(LOADER), /bookedByZone\?: Record<string, string>;/, 'the loader does not carry it');
+  const lab3d = src(LAB);
+  assert.match(lab3d, /\bbookedByZone,/, 'SeatingLab3D does not destructure it');
+  assert.equal(
+    (lab3d.match(/bookedByZone=\{bookedByZone\}/g) ?? []).length,
+    2,
+    'expected exactly 2 forwards inside seating-lab-3d (SeatingLab3D → Hud, Hud → the ' +
+      'Reception Designer) — a COUNT, so a broken hop names itself.',
+  );
+  const editor = src(EDITOR);
+  assert.match(
+    editor.slice(editor.indexOf('export function ReceptionDesignEditor({'), editor.indexOf('}: Props) {')),
+    /\bbookedByZone,/,
+    'the editor does not accept bookedByZone',
+  );
+  // …and it is actually RENDERED, not merely accepted.
+  //
+  // 🪤 A BARE SUBSTRING MATCH ON `bookedByZone?.[activePart]` SURVIVED BEING
+  // WRAPPED IN `false && …` — it is present either way. The claim is "this
+  // renders", so the assertion reads the GATE of the conditional, not the
+  // presence of the identifier somewhere inside it.
+  assert.match(
+    editor,
+    /\{bookedByZone\?\.\[activePart\] \? \(/,
+    'the suggestion is no longer rendered on its own condition — it has been deleted, or ' +
+      'gated behind something else, and the couple never sees who they booked.',
+  );
+  assert.match(
+    editor,
+    /\{bookedByZone\[activePart\]\}/,
+    'the suggestion sentence itself is not interpolated, so the block renders empty.',
+  );
+});
+
 test('the prop chain from the page to the chips is unbroken, link by link', () => {
   /*
     Each of these is ONE line, and any one of them can be deleted while every
@@ -193,7 +234,18 @@ test('the prop chain from the page to the chips is unbroken, link by link', () =
       'Reception Designer). A COUNT, not a spot-check: a file-level match cannot say WHICH ' +
       'hop still carries it, and the broken hop is the regression.',
   );
-  assert.match(src(EDITOR), /\bfinalizedByPart,\n\}: Props\) \{/, 'the editor does not accept it');
+  // 🪤 THIS USED TO REQUIRE `finalizedByPart,` TO BE THE LAST DESTRUCTURED
+  // PROP (`/finalizedByPart,\n\}: Props\) \{/`). "Is it last" is a cheaper
+  // proxy for "does the editor accept it", and it went red the moment a second
+  // prop was added after it — accusing correct wiring. The claim is that the
+  // editor DESTRUCTURES it, so that is what this reads: inside the signature,
+  // in any position.
+  const editorSignature = src(EDITOR).slice(
+    src(EDITOR).indexOf('export function ReceptionDesignEditor({'),
+    src(EDITOR).indexOf('}: Props) {'),
+  );
+  assert.ok(editorSignature.length > 0, 'the editor signature has moved — this guard reads nothing');
+  assert.match(editorSignature, /\bfinalizedByPart,/, 'the editor does not accept finalizedByPart');
 });
 
 test('the editor refuses the tap at the one funnel every chip goes through', () => {

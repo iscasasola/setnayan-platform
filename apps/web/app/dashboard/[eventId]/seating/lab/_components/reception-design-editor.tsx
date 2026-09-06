@@ -84,6 +84,17 @@ type Props = {
    */
   finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
   /**
+   * Q9 (owner, 2026-09-06) · zone → "You've booked Manila Strings and Kuya Mike".
+   *
+   * 🔑 A SENTENCE, NOT A SELECTION. Computed server-side by
+   * `suggestZonesFromBookings` from the couple's CONFIRMED suppliers, and
+   * deliberately carrying no option id: the ruling is *suggest, never write*.
+   * Clicking it OPENS the zone so the couple chooses — it cannot pick for them,
+   * because there is nothing here to pick with. A couple must not find
+   * selections they did not make, nor delete one and have it reappear.
+   */
+  bookedByZone?: Record<string, string>;
+  /**
    * The couple's reception style family — drives the AI decor-image layer
    * pilot (see @/lib/reception-decor-layers).
    *
@@ -194,6 +205,7 @@ export function ReceptionDesignEditor({
   canEdit,
   inspirationByPart,
   finalizedByPart,
+  bookedByZone,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activePart, setActivePart] = useState<PartId>(
@@ -483,6 +495,15 @@ export function ReceptionDesignEditor({
                   {/* MB15 — an agreed zone is marked in the rail, so a couple
                       can see what is settled without opening each one. */}
                   {finalizedByPart?.[p.id] ? <span className="ml-1" aria-label="Agreed with your supplier">🔒</span> : null}
+                  {/* Q9 — a zone a booked supplier works in is marked here, so a
+                      couple can see where their own suppliers belong without
+                      opening every zone. The mark says nothing about what is
+                      CHOSEN; `zoneRailText` below still reads "not chosen yet". */}
+                  {!na && bookedByZone?.[p.id] ? (
+                    <span className="ml-1" aria-label={bookedByZone[p.id]} title={bookedByZone[p.id]}>
+                      ·
+                    </span>
+                  ) : null}
                   <span className={na ? 'ml-1' : 'ml-1 text-ink/40'}>
                     · {na ? `not at a ${(venueLabel ?? 'this venue').toLowerCase()}` : zoneRailText(p)}
                   </span>
@@ -502,6 +523,17 @@ export function ReceptionDesignEditor({
                 WHEN is the point: "locked" with nobody's name attached leaves a
                 couple with a control that does not respond and nothing anywhere
                 telling them why, which is the shape MB12's panel exists against. */}
+            {/* ── Q9 · YOU'VE BOOKED THEM — the offer, never the act ────────
+                Shown under the zone heading and above its materials, so the
+                couple reads "you've booked X" while looking at the choices it
+                would inform. It states a fact about their BOOKINGS; the room is
+                unchanged until they pick something themselves. */}
+            {bookedByZone?.[activePart] ? (
+              <p className="mt-1 rounded-lg border border-ink/10 bg-cream px-2.5 py-1.5 text-[11px] text-ink/70">
+                {bookedByZone[activePart]} — their work would show up here. Choose what you want
+                and it appears in your room.
+              </p>
+            ) : null}
             {activeFinalized ? (
               <p className="rounded-lg border border-terracotta/30 bg-terracotta/10 px-2.5 py-2 text-[11px] leading-snug text-ink/75">
                 <span className="font-medium text-ink">Agreed{activeFinalized.vendorName ? ` with ${activeFinalized.vendorName}` : ''}</span>

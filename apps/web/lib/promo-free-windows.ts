@@ -17,11 +17,18 @@
  * identical to today. The owner flips the flag the day a promo should go live
  * (belt-and-suspenders over is_active + the date window).
  *
- * AUDIENCES — 'all_couples' is global (same free SKU set for every couple, so
- * no per-event scoping and no cross-account leak to guard). The two VENDOR
- * audiences ('all_vendors' · 'new_verified_vendors') are resolved PER VENDOR
- * against three facts on their vendor_profiles row — see the vendor section
- * below. 'segment' is schema-forward and resolves for nobody.
+ * AUDIENCES — 'all_couples' is global: the same free SKU set for every couple
+ * UNLESS the window also carries an event-date filter (event_date_from /
+ * event_date_to, migration 20271208727445), in which case it is global among
+ * couples whose event falls in that date range — still no per-event ROW
+ * scoping (no comp_grant, no join to a specific event_id) and no cross-account
+ * leak to guard, just a date predicate the caller evaluates against the one
+ * event it already has in scope (see coupleWindowCoversEvent below, and
+ * lib/entitlements.ts for the caller-fetches-the-facts pattern this mirrors
+ * from the vendor side). The two VENDOR audiences ('all_vendors' ·
+ * 'new_verified_vendors') are resolved PER VENDOR against three facts on their
+ * vendor_profiles row — see the vendor section below. 'segment' is
+ * schema-forward and resolves for nobody.
  *
  * Reads through the service-role admin client (promo_free_windows is admin-only
  * RLS); graceful-degrades to empty on any error / missing env, so a promo read
@@ -70,10 +77,19 @@ export type PromoFreeWindow = {
    * audiences only; ignored for couples.
    */
   deal_length_days: number | null;
+  /**
+   * Inclusive event-date bounds (bare 'YYYY-MM-DD'), meaningful ONLY for
+   * audience_type='all_couples' — DB CHECK
+   * promo_free_windows_event_date_couples_only keeps both NULL for every
+   * vendor/segment audience. Both NULL = applies to any event (unchanged
+   * pre-G5 behavior). See coupleWindowCoversEvent below.
+   */
+  event_date_from: string | null;
+  event_date_to: string | null;
 };
 
 const SELECT_COLS =
-  'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, show_banner, deal_length_days';
+  'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, show_banner, deal_length_days, event_date_from, event_date_to';
 
 function mapWindow(row: Record<string, unknown>): PromoFreeWindow {
   return {
@@ -92,6 +108,8 @@ function mapWindow(row: Record<string, unknown>): PromoFreeWindow {
       typeof row.deal_length_days === 'number' && row.deal_length_days > 0
         ? row.deal_length_days
         : null,
+    event_date_from: (row.event_date_from as string | null) ?? null,
+    event_date_to: (row.event_date_to as string | null) ?? null,
   };
 }
 
@@ -145,26 +163,66 @@ async function fetchLiveWindows(
 }
 
 /**
- * The flattened set of couple service_codes that are FREE right now via any live
- * promo window. The entitlement-OR consults this in eventSkuActive /
- * eventActiveSkus. Empty set when the flag is off or nothing is live.
+ * Does this couple WINDOW cover an event on `eventDate`? Pure predicate,
+ * mirroring vendorQualifiedAt's shape/rigor on the couple side.
+ *
+ * Logic:
+ *   • both event_date_from/to NULL → true for ANY event (including a null
+ *     eventDate) — this is (c) "any event", the pre-G5 unfiltered behavior.
+ *   • either bound set + eventDate falsy → FALSE. An event with no locked
+ *     event_date (apps/web/lib/checklist.ts: event_date stays NULL until
+ *     locked) is UNKNOWN, and unknown is excluded, never assumed included —
+ *     get this backwards and an unlocked event silently qualifies for every
+ *     dated promo, which is the wrong direction to be wrong in.
+ *   • otherwise, lexicographic string comparison of the bare 'YYYY-MM-DD' day
+ *     (`.slice(0, 10)` on both sides, defensively, in case a stray time
+ *     component ever rides along) against whichever bound(s) are set.
+ *     ISO 'YYYY-MM-DD' strings compare correctly as plain strings.
  */
-export const promoFreeSkusForCouples = cache(async (): Promise<Set<string>> => {
-  const windows = await getLiveCoupleFreeWindows();
-  const set = new Set<string>();
-  for (const w of windows) {
-    for (const code of w.covered_service_keys) set.add(code);
-  }
-  return set;
-});
+export function coupleWindowCoversEvent(
+  w: Pick<PromoFreeWindow, 'event_date_from' | 'event_date_to'>,
+  eventDate: string | null | undefined,
+): boolean {
+  if (!w.event_date_from && !w.event_date_to) return true;
+  if (!eventDate) return false;
+  const day = eventDate.slice(0, 10);
+  if (w.event_date_from && day < w.event_date_from.slice(0, 10)) return false;
+  if (w.event_date_to && day > w.event_date_to.slice(0, 10)) return false;
+  return true;
+}
 
 /**
- * Convenience predicate for a single SKU — is it free right now via a live promo?
+ * The flattened set of couple service_codes that are FREE right now via any
+ * live promo window COVERING `eventDate` (see coupleWindowCoversEvent — pass
+ * undefined/null when there is no specific event in scope, which only matches
+ * windows with no date filter). The entitlement-OR consults this in
+ * eventSkuActive / eventActiveSkus. Empty set when the flag is off or nothing
+ * is live/covering. cache()d per (eventDate) argument value within a request —
+ * getLiveCoupleFreeWindows itself takes no args and is separately cache()d, so
+ * the underlying window-list fetch is still deduped regardless of how many
+ * distinct eventDates are queried in one request.
+ */
+export const promoFreeSkusForCouples = cache(
+  async (eventDate?: string | null): Promise<Set<string>> => {
+    const windows = await getLiveCoupleFreeWindows();
+    const set = new Set<string>();
+    for (const w of windows) {
+      if (!coupleWindowCoversEvent(w, eventDate)) continue;
+      for (const code of w.covered_service_keys) set.add(code);
+    }
+    return set;
+  },
+);
+
+/**
+ * Convenience predicate for a single SKU — is it free right now via a live
+ * promo covering `eventDate` (or any event, for a window with no date filter)?
  */
 export async function isSkuFreeForCouplesNow(
   serviceCode: string,
+  eventDate?: string | null,
 ): Promise<boolean> {
-  return (await promoFreeSkusForCouples()).has(serviceCode);
+  return (await promoFreeSkusForCouples(eventDate)).has(serviceCode);
 }
 
 /**

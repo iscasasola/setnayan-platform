@@ -1,11 +1,40 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { cache } from 'react';
 
 import { eventBasketOrdersGranting } from '@/lib/onboarding-order-items';
 import {
   isSkuFreeForCouplesNow,
+  isPromoFreeWindowsEnabled,
   promoFreeSkusForCouples,
 } from '@/lib/promo-free-windows';
 import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
+
+/**
+ * The event's own event_date, fetched ONLY to resolve a date-filtered couple
+ * promo window (see lib/promo-free-windows.ts coupleWindowCoversEvent) —
+ * caller-fetches-the-subject's-own-facts, mirroring the vendor precedent in
+ * lib/vendor-feature-gate.ts (it queries vendor_profiles itself and builds a
+ * VendorDealFacts object before calling getPromotedVendorTierFor). Every call
+ * site guards with isPromoFreeWindowsEnabled() FIRST, so this never runs while
+ * the flag is off (byte-identical to pre-G5 behavior). `events.event_date` is
+ * read elsewhere via ordinary/public clients too (e.g. lib/chat.ts joins
+ * `event:events(display_name, event_date, public_id)`), so an admin OR a
+ * user-scoped client passed into eventOwnsSku/eventSkuActive/eventActiveSkus
+ * can read it. cache()d per (supabase, eventId) — in practice per eventId
+ * within one request, since these call sites share one client per request.
+ */
+const fetchEventDateForPromo = cache(async (
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data as { event_date: string | null }).event_date ?? null;
+});
 
 /**
  * apps/web/lib/entitlements.ts
@@ -743,12 +772,17 @@ export async function eventOwnsSku(
   //    never leaks across accounts. Checked last: it's the rare path.
   if (await eventHasCompGrant(supabase, eventId, serviceKey)) return true;
 
-  // 4. Promo free window — a live admin announcement makes this SKU free for all
-  //    couples right now. Treat it as OWNED so buy surfaces hide the purchase CTA
-  //    (a couple must never be charged for something that is free this moment).
-  //    Ephemeral + flag-guarded (empty set / short-circuit when off) — see
-  //    eventSkuActive + lib/promo-free-windows.ts.
-  if (await isSkuFreeForCouplesNow(serviceKey)) return true;
+  // 4. Promo free window — a live admin announcement makes this SKU free for
+  //    all couples right now, OR for couples whose event falls in a date range
+  //    the window carries (G5: event_date_from/to). Treat it as OWNED so buy
+  //    surfaces hide the purchase CTA (a couple must never be charged for
+  //    something that is free this moment). Ephemeral + flag-guarded (empty
+  //    set / short-circuit when off, and the event_date read itself is
+  //    skipped while off) — see eventSkuActive + lib/promo-free-windows.ts.
+  if (isPromoFreeWindowsEnabled()) {
+    const eventDate = await fetchEventDateForPromo(supabase, eventId);
+    if (await isSkuFreeForCouplesNow(serviceKey, eventDate)) return true;
+  }
 
   return false;
 }
@@ -789,12 +823,19 @@ export async function eventSkuActive(
   }
 
   // Promo free window — a live admin announcement (PROMO_FREE_WINDOWS_ENABLED)
-  // makes this SKU free for ALL couples during its date range, exactly like a
-  // comp grant but audience-wide + ephemeral (reverts when the window closes).
-  // The audience is global, so there is no per-event scoping to resolve. Reads
-  // short-circuit to an empty set when the flag is off, so this is byte-identical
-  // to today until the owner turns a promo on. See lib/promo-free-windows.ts.
-  if (await isSkuFreeForCouplesNow(serviceKey)) return true;
+  // makes this SKU free for ALL couples during its wall-clock date range,
+  // exactly like a comp grant but audience-wide + ephemeral (reverts when the
+  // window closes). Optionally (G5) the window ALSO carries an event_date
+  // filter, so the audience is "all couples whose event falls in this range" —
+  // still no per-event ROW scoping, just a date predicate evaluated against
+  // this event's own event_date. Reads short-circuit to an empty set (and the
+  // event_date lookup itself is skipped) when the flag is off, so this stays
+  // byte-identical to today until the owner turns a promo on. See
+  // lib/promo-free-windows.ts.
+  if (isPromoFreeWindowsEnabled()) {
+    const eventDate = await fetchEventDateForPromo(supabase, eventId);
+    if (await isSkuFreeForCouplesNow(serviceKey, eventDate)) return true;
+  }
 
   // Admin comp grant — bypass the handshake gate too (a gifted feature is
   // unlocked immediately; there's no payment to verify). Host-scoped server-side.
@@ -918,12 +959,17 @@ export async function eventActiveSkus(
     active.add(sku);
   }
 
-  // Promo free windows — union every SKU currently free for all couples via a
-  // live admin announcement into `active` (a promo unlock is on, never pending),
-  // so the Studio grid renders it as owned/included. Empty set + short-circuit
+  // Promo free windows — union every SKU currently free for this event's
+  // couple (all couples, or all couples whose event falls in a window's
+  // event_date range — G5) via a live admin announcement into `active` (a
+  // promo unlock is on, never pending), so the Studio grid renders it as
+  // owned/included. Empty set + short-circuit (event_date lookup skipped too)
   // when PROMO_FREE_WINDOWS_ENABLED is off. See lib/promo-free-windows.ts.
-  for (const sku of await promoFreeSkusForCouples()) {
-    active.add(sku);
+  if (isPromoFreeWindowsEnabled()) {
+    const eventDate = await fetchEventDateForPromo(supabase, eventId);
+    for (const sku of await promoFreeSkusForCouples(eventDate)) {
+      active.add(sku);
+    }
   }
 
   return { active, pending };

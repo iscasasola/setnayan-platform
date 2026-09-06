@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, Store, Ticket } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Gift, Store, Ticket } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -22,13 +22,20 @@ import {
   type CompedVendorRow,
   type VendorDealRow,
 } from '@/lib/vendor-tier-comps';
+import { fetchCoupleFreeWindows, type CoupleFreeWindowRow } from '@/lib/promo-free-window-admin';
 import { VENDOR_TIER_SETTABLE, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import {
   createFreeWindow,
   setFreeWindowActive,
 } from '@/app/admin/pricing/_surfaces/free-windows-actions';
 import { FREE_WINDOW_CREATE_ERROR_COPY } from '@/app/admin/pricing/_surfaces/free-windows-copy';
-import { fetchV2VendorCatalog, formatPeso, type V2VendorSku } from '@/lib/v2-catalog';
+import {
+  fetchV2VendorCatalog,
+  fetchV2CustomerCatalog,
+  formatPeso,
+  type V2VendorSku,
+  type V2CustomerSku,
+} from '@/lib/v2-catalog';
 import { isPromoFreeWindowsEnabled, vendorTierOfSku } from '@/lib/promo-free-windows';
 
 /**
@@ -46,6 +53,32 @@ const DEAL_WHO: Record<VendorDealRow['audience_type'], string> = {
 
 const fmtDay = (iso: string) =>
   new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+
+/** 'YYYY-MM-DD' → 'Dec 25, 2026', forced to UTC so the date-only column
+ * always reads back as the calendar day it says (a Date parsed from a bare
+ * date string at midnight UTC would print the PREVIOUS day under a
+ * negative-offset local zone otherwise). */
+const fmtEventDay = (dateOnly: string) =>
+  new Intl.DateTimeFormat('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${dateOnly}T00:00:00Z`));
+
+/** Human summary of a couple window's event-date filter, or null when unset
+ * (applies to any event — unchanged pre-G5 behavior). */
+function eventDateRangeLabel(w: Pick<CoupleFreeWindowRow, 'event_date_from' | 'event_date_to'>): string | null {
+  if (!w.event_date_from && !w.event_date_to) return null;
+  if (w.event_date_from && w.event_date_to) {
+    return w.event_date_from === w.event_date_to
+      ? `Events dated ${fmtEventDay(w.event_date_from)}`
+      : `Events dated ${fmtEventDay(w.event_date_from)} – ${fmtEventDay(w.event_date_to)}`;
+  }
+  return w.event_date_from
+    ? `Events dated ${fmtEventDay(w.event_date_from)} onward`
+    : `Events dated through ${fmtEventDay(w.event_date_to!)}`;
+}
 
 export const metadata = {
   title: 'Gifts · Admin',
@@ -146,6 +179,23 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   const vendorCatalog = await fetchV2VendorCatalog();
   const tierSkus = vendorCatalog.filter((r) => vendorTierOfSku(r.sku_code) !== null);
   const dealsFlagOn = isPromoFreeWindowsEnabled();
+
+  // ── Couple free windows (G5) ───────────────────────────────────────────
+  // Own ConsoleTable, not merged into VendorGiftRow — a couple window has no
+  // "vendor" or "tier" concept, so folding it into the vendor-shaped table
+  // (Vendor/Tier/Ends/Manage) would force blank cells on every row of one
+  // kind or the other. See the PR body for the fuller reasoning.
+  let coupleWindows: CoupleFreeWindowRow[] | null = null;
+  let coupleWindowsReadError: { message: string } | null = null;
+  try {
+    coupleWindows = await fetchCoupleFreeWindows(admin);
+  } catch (e) {
+    coupleWindowsReadError = asReadError(e);
+  }
+  const customerCatalog = await fetchV2CustomerCatalog();
+  const coupleTitleFor = new Map<string, string>(
+    customerCatalog.map((s: V2CustomerSku) => [s.service_code, s.title]),
+  );
 
   // Resolve display info for every user_id on an active grant, one query.
   const userIds = Array.from(
@@ -612,6 +662,249 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             </SubmitButton>
             <label className="text-xs text-ink/60">
               <input type="checkbox" name="show_banner" /> Show a banner to vendors
+            </label>
+          </div>
+        </form>
+      </section>
+
+      {/* ══════════════════ COUPLE FREE WINDOWS (G5) ══════════════════
+          Owner ask 2026-09-05, verbatim: "for an event for a specific date"
+          (a) and "for any event" (c) — (b), a NAMED event, already ships via
+          comp_grants.event_id (PR #5193). A live row here makes its covered
+          services free for every couple (a), or every couple whose event
+          falls in the row's event_date_from/to range (c when both are blank).
+          Own ConsoleTable, not merged into the vendor list above — a couple
+          window has no vendor/tier, and the vendor table's columns
+          (Vendor/Tier/Ends/Manage) don't fit it. */}
+      <section className="mb-10">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
+          Couple free windows
+        </h2>
+
+        {dealsFlagOn ? (
+          <p className="mb-4 flex items-start gap-2 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
+            <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
+            <span>
+              Couple windows are <strong>live</strong>. A window below frees its services for
+              every couple it covers, for as long as it runs.
+            </span>
+          </p>
+        ) : (
+          <p className="mb-4 flex items-start gap-2 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
+            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
+            <span>
+              Couple windows are <strong>switched off</strong> —{' '}
+              <code className="font-mono text-[11px]">PROMO_FREE_WINDOWS_ENABLED</code> is not set
+              in Vercel. Anything listed below or created here is recorded and dated, and frees{' '}
+              <strong>nothing</strong> until the owner flips it.
+            </span>
+          </p>
+        )}
+
+        {sp.created === 'window' && (
+          <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
+            ✓ Free window created.
+          </p>
+        )}
+        {sp.createError && (
+          <p className="mb-4 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
+            {FREE_WINDOW_CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the free window.'}
+          </p>
+        )}
+
+        <ConsoleTable<CoupleFreeWindowRow>
+          rows={coupleWindows}
+          readError={coupleWindowsReadError}
+          readPermitted
+          reads="the couple free windows"
+          label="Couple free windows"
+          cap={200}
+          minWidth="36rem"
+          rowKey={(w) => w.promo_window_id}
+          empty={{
+            Icon: Gift,
+            title: 'No couple free window is open right now',
+            blurb: 'Create one below — for any event, or restricted to a date range.',
+          }}
+          columns={[
+            {
+              header: 'Title',
+              cell: (w) => (
+                <span>
+                  {w.title}
+                  {w.blurb ? <span className="block text-xs text-ink/55">{w.blurb}</span> : null}
+                </span>
+              ),
+            },
+            {
+              header: 'Event dates',
+              cell: (w) => eventDateRangeLabel(w) ?? 'Any event',
+            },
+            {
+              header: 'Services',
+              cell: (w) => (
+                <span className="flex flex-wrap gap-1">
+                  {w.covered_service_keys.map((code) => (
+                    <span
+                      key={code}
+                      className="inline-flex rounded-md bg-ink/[0.04] px-1.5 py-0.5 text-[11px] text-ink/70"
+                    >
+                      {coupleTitleFor.get(code) ?? code}
+                    </span>
+                  ))}
+                </span>
+              ),
+            },
+            { header: 'Ends', mono: true, cell: (w) => fmtDay(w.ends_at) },
+            {
+              header: 'Manage',
+              align: 'right',
+              cell: (w) => (
+                <form action={setFreeWindowActive} className="inline-flex items-center gap-2">
+                  <input type="hidden" name="return_to" value="/admin/gifts" />
+                  <input type="hidden" name="promo_window_id" value={w.promo_window_id} />
+                  <input type="hidden" name="is_active" value="false" />
+                  <SubmitButton
+                    className="text-xs font-medium text-mulberry hover:underline"
+                    overlay={false}
+                    pendingLabel="…"
+                  >
+                    End window
+                  </SubmitButton>
+                </form>
+              ),
+            },
+          ]}
+        />
+
+        <form
+          action={createFreeWindow}
+          className="mt-4 rounded-md border border-ink/10 bg-paper p-4 space-y-4"
+        >
+          <input type="hidden" name="return_to" value="/admin/gifts" />
+          <input type="hidden" name="audience_type" value="all_couples" />
+
+          <div className="flex flex-wrap gap-3">
+            <div className="min-w-[220px] flex-1">
+              <label htmlFor="couple_title" className="block text-xs font-medium text-ink/70 mb-1">
+                Title
+              </label>
+              <input
+                type="text"
+                id="couple_title"
+                name="title"
+                required
+                maxLength={120}
+                placeholder="Free Papic for December weddings"
+                className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="min-w-[220px] flex-1">
+              <label htmlFor="couple_blurb" className="block text-xs font-medium text-ink/70 mb-1">
+                Banner blurb <span className="text-ink/50">(optional)</span>
+              </label>
+              <input
+                type="text"
+                id="couple_blurb"
+                name="blurb"
+                maxLength={240}
+                placeholder="Every Papic camera is on us this weekend."
+                className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <label htmlFor="couple_starts" className="block text-xs font-medium text-ink/70 mb-1">
+                Starts <span className="text-ink/50">(PH time)</span>
+              </label>
+              <input
+                type="datetime-local"
+                id="couple_starts"
+                name="starts_at"
+                required
+                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="couple_ends" className="block text-xs font-medium text-ink/70 mb-1">
+                Ends <span className="text-ink/50">(PH time)</span>
+              </label>
+              <input
+                type="datetime-local"
+                id="couple_ends"
+                name="ends_at"
+                required
+                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <label htmlFor="couple_event_from" className="block text-xs font-medium text-ink/70 mb-1">
+                Only for events dated <span className="text-ink/50">(optional)</span>
+              </label>
+              <input
+                type="date"
+                id="couple_event_from"
+                name="event_date_from"
+                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="couple_event_to" className="block text-xs font-medium text-ink/70 mb-1">
+                through <span className="text-ink/50">(optional)</span>
+              </label>
+              <input
+                type="date"
+                id="couple_event_to"
+                name="event_date_to"
+                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <p className="-mt-1 text-xs text-ink/50">
+            Leave both blank to free these services for <strong>any event</strong>. Set one or
+            both to restrict the freebie to couples whose event date falls in that range
+            (inclusive) — use the same date in both fields for one specific date. An event with
+            no locked date yet does not qualify for a date-restricted window.
+          </p>
+
+          <div>
+            <span className="mb-1 block text-xs font-medium text-ink/70">Services to make free</span>
+            <div className="flex flex-wrap gap-2">
+              {customerCatalog.map((s: V2CustomerSku) => (
+                <label key={s.service_code} className="text-sm">
+                  <input type="checkbox" name="service_keys" value={s.service_code} />{' '}
+                  {s.title} <span className="text-ink/50">₱{formatPeso(s.retail_price_php)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="couple_reason" className="block text-xs font-medium text-ink/70 mb-1">
+              Reason <span className="text-ink/50">(logged, min. 10 characters)</span>
+            </label>
+            <input
+              type="text"
+              id="couple_reason"
+              name="reason"
+              required
+              minLength={10}
+              placeholder="Launch promo, approved by ops"
+              className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Creating…">
+              Create free window
+            </SubmitButton>
+            <label className="text-xs text-ink/60">
+              <input type="checkbox" name="show_banner" defaultChecked /> Show a banner to couples
             </label>
           </div>
         </form>

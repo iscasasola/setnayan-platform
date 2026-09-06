@@ -44,6 +44,10 @@ const PAID_PATHS = [
   // and the reference, and "pay to our BDO or GCash account" — naming NEITHER
   // account, with no QR carrying the amount and nowhere to send a screenshot.
   'app/vendor-dashboard/subscription/photo-challenge-actions.ts',
+  // ⬇ ADDED 2026-09-06 (G3). A vendor buying a Papic portfolio-credit pack
+  // (₱500/100 credits, per booked event) pays real money and must land on the
+  // same one screen as every other paid buy button.
+  'app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts',
 ] as const;
 
 /**

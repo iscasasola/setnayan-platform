@@ -204,3 +204,37 @@ BEGIN
 END;
 $$;
 
+
+-- ----------------------------------------------------------------------------
+-- 🛑 THE FEATURE ABOVE IS DEAD ON ARRIVAL IN PRODUCTION WITHOUT THIS LINE.
+--
+-- `issueVendorSkuComp` (apps/web/app/admin/vendors/actions.ts) inserts a comp
+-- with `user_id: null` — deliberately, and correctly: a comp that targets a
+-- VENDOR has no user, which is why the column comment above says the two are
+-- mutually exclusive for `source = 'external_promo'`.
+--
+-- Production has `comp_grants.user_id` marked NOT NULL. **No migration in this
+-- repo creates that constraint** — the whole migration set declares the column
+-- nullable (20260515030000 adds it as a bare `UUID REFERENCES …`), so the
+-- PGlite replay every db test runs against has it nullable too. Measured
+-- 2026-09-06 with `pg_attribute.attnotnull` against prod: user_id = true,
+-- rationale = true, granted_by = false.
+--
+-- The consequence is the whole reason this line exists: every vendor SKU comp
+-- would raise 23502 in production while the entire local db suite stayed green,
+-- because the replay has no NOT NULL to violate. A feature that cannot run
+-- once, and no test on this machine can see it.
+--
+-- 🔑 NULLABLE IS THE DECLARED INTENT, SO PROD IS THE HALF THAT IS WRONG. This
+-- brings production back to the schema-as-code rather than weakening a
+-- constraint anyone designed, exactly as 20271208517365 did for `granted_by` —
+-- the same drift, on the same table, found the same way. `comp_grants` holds
+-- zero rows in production, so nothing is at risk.
+--
+-- ⚠ `rationale` carries the identical undocumented prod NOT NULL and is NOT
+-- touched here: every writer supplies it, so it is drift without a defect.
+-- Reconciling it belongs with the schema-drift guard work, not with a feature.
+--
+-- No-op where the column is already nullable (the replay, any fresh database).
+ALTER TABLE public.comp_grants
+  ALTER COLUMN user_id DROP NOT NULL;

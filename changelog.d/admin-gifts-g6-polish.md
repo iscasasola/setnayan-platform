@@ -103,6 +103,41 @@ current value does not break an ordinary save. Both refusal cases were
 mutation-proven: with the two guard clauses removed they go red.
 
 
+### 🛑 And the vendor SKU comp was dead on arrival in production
+
+`issueVendorSkuComp` inserts `comp_grants` with `user_id: null` — deliberately,
+and correctly: a comp that targets a VENDOR has no user, which is what makes it
+mutually exclusive with `user_id` for `source = 'external_promo'`.
+
+**Production has `comp_grants.user_id` marked NOT NULL, and no migration in this
+repo creates that constraint.** The whole migration set declares the column
+nullable, so the PGlite replay every db test runs against has it nullable too.
+Measured 2026-09-06 against prod with `pg_attribute.attnotnull`: `user_id` =
+true, `rationale` = true, `granted_by` = false.
+
+So every vendor SKU comp would have raised **23502** in production while the
+entire local db suite stayed green — a feature that could not run once, and
+nothing on this machine could see it. `ALTER COLUMN user_id DROP NOT NULL` is
+now part of the migration. Nullable is the DECLARED intent, so production is the
+half that is wrong; this brings prod back to the schema-as-code rather than
+weakening anything anyone designed, exactly as `20271208517365` did for
+`granted_by` — the same drift, on the same table, found the same way, hours
+apart. `comp_grants` holds zero rows in production, so nothing was at risk.
+
+⚠ **The tests that guard it cannot see production.** The replay never had that
+NOT NULL, so they pass with or without the fix; it was verified by querying
+prod's catalog directly. Two cases in
+`apps/web/tests/db/comp-grant-survives-its-granter.db.test.ts` fence the DECLARED
+shape (the column stays nullable; a vendor-targeted comp really inserts with no
+user), which is all a replay can honestly do. Closing that blind spot properly
+means teaching `schema-drift.db.test.ts` to compare nullability — today it
+compares column NAMES only (`SELECT c.relname AS t, a.attname AS c`), which is
+exactly why both of today's traps got through. That is separate work.
+
+`rationale` carries the identical undocumented prod NOT NULL and is deliberately
+NOT touched: every writer supplies it, so it is drift without a defect.
+
+
 SPEC IMPACT: None — no price, SKU, or entitlement rule changes. Papic
 Challenges' price, cadence and gate are unchanged; this only adds an
 admin-triggered way to grant it for free, using the same entitlement column

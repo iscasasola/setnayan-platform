@@ -439,6 +439,19 @@ export async function confirmUserEmail(formData: FormData) {
 }
 
 /**
+ * Where an `issueCompGrant` form came from, for the optional `return_to`
+ * field. Allowlist, not a bare passthrough — mirrors
+ * app/admin/vendors/actions.ts's `wantsGiftsReturn` / free-windows-actions.ts's
+ * `RETURN_TARGETS`, so a form field can never become an open redirect.
+ * `/admin/gifts` is the only surface that posts here besides `/admin/users`
+ * (this action's own page) and `/admin/accounts?tab=users` (which does not
+ * set this field, so it is unaffected).
+ */
+function wantsGiftsReturn(formData: FormData): boolean {
+  return String(formData.get('return_to') ?? '').trim() === '/admin/gifts';
+}
+
+/**
  * Issue a comp grant against a target user account.
  *
  * Why this action exists
@@ -683,6 +696,14 @@ export async function issueCompGrant(formData: FormData) {
   const banner = needsReview
     ? `Comp grant ${inserted.public_id} issued — flag for owner+spouse co-approval (exceeds ₱10,000 · two-admin primitive lands V1.x)`
     : `Comp grant ${inserted.public_id} issued — ${target.email ?? 'target user'} can now access ${scopeNote}${eventNote}`;
+
+  // Optional `return_to=/admin/gifts` — a grant made FROM the gifts console
+  // lands back there instead of /admin/users. /admin/users reads its OWN
+  // `grant_banner` + `expand` params, which this default keeps unchanged.
+  if (wantsGiftsReturn(formData)) {
+    revalidatePath('/admin/gifts');
+    redirect(`/admin/gifts?banner=${encodeURIComponent(banner)}`);
+  }
   redirect(
     `/admin/users?expand=${encodeURIComponent(targetUserId)}&grant_banner=${encodeURIComponent(banner)}`,
   );

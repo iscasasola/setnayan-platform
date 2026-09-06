@@ -166,6 +166,53 @@ test('the column stays nullable — re-adding NOT NULL would silently break SET 
   );
 });
 
+test('user_id stays nullable — a VENDOR comp has no user, and prod disagrees', async () => {
+  // 🚨 THE SECOND HALF OF THE SAME DRIFT, AND IT ALMOST SHIPPED A DEAD FEATURE.
+  // `issueVendorSkuComp` inserts a comp with `user_id: null` on purpose — a comp
+  // that targets a vendor has no user. Production has `comp_grants.user_id`
+  // marked NOT NULL and NO migration creates that constraint, so every such
+  // insert would have raised 23502 in prod while this entire suite stayed green.
+  // Migration 20271209332066 drops it; this asserts the declared shape the code
+  // depends on, and will go red if anyone re-adds NOT NULL to the migrations.
+  //
+  // ⚠ IT CANNOT SEE PRODUCTION. The replay has never had that NOT NULL, so this
+  // test passes with or without the DROP — the fix was verified by querying
+  // prod's pg_attribute directly. Closing that blind spot is the job of the
+  // schema-drift guard, which today compares column NAMES and not nullability.
+  const r = await db.query<{ attnotnull: boolean }>(
+    `SELECT a.attnotnull
+       FROM pg_attribute a
+      WHERE a.attrelid = 'public.comp_grants'::regclass
+        AND a.attname = 'user_id' AND a.attnum > 0 AND NOT a.attisdropped`,
+  );
+  assert.equal(r.rows.length, 1, 'user_id is missing from comp_grants');
+  assert.equal(
+    r.rows[0]!.attnotnull,
+    false,
+    'user_id is NOT NULL: a vendor-targeted comp (user_id null) can no longer be issued',
+  );
+});
+
+test('a VENDOR-targeted comp really inserts with no user at all', async () => {
+  // The behavioural half: not "the column is nullable" but "the row the feature
+  // actually writes goes in". Mirrors issueVendorSkuComp's payload shape.
+  const admin = await newUser('vendor-comp-admin');
+  const v = await db.query<{ id: string }>(
+    `INSERT INTO public.vendor_profiles (business_name) VALUES ('SKU Comp Studio')
+     RETURNING vendor_profile_id AS id`,
+  );
+  const r = await db.query<{ grant_id: string; user_id: string | null }>(
+    `INSERT INTO public.comp_grants
+       (source, user_id, vendor_profile_id, scope, scoped_skus, rationale,
+        retail_value_centavos, granted_by)
+     VALUES ('external_promo', NULL, $1, 'specific_skus', ARRAY['vendor_photo_challenge'],
+             'Comped the challenge window for launch.', 250000, $2)
+     RETURNING grant_id, user_id`,
+    [v.rows[0]!.id, admin],
+  );
+  assert.equal(r.rows[0]!.user_id, null, 'a vendor comp must carry no user');
+});
+
 // ══ WHAT MUST NOT CHANGE ═══════════════════════════════════════════════════
 
 test('the customer’s own deletion still removes their grant (user_id stays CASCADE)', async () => {

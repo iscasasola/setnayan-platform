@@ -117,6 +117,11 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'show_team_bookings_in_backend_count, social_feature_opt_out, social_featured_at, ' +
   'social_post_url, subscription_credit_php, supplier_categories, tagline, ' +
   'tier_billing_cycle, tier_expires_at, ' +
+  // tier_source (migration 20271209332066) — HOW the subject reached their
+  // tier ('admin_comp' vs the future 'self_serve'). Exported alongside
+  // tier_state/tier_expires_at for the same reason: it is a fact about their
+  // own account, not internal-only bookkeeping.
+  'tier_source, ' +
   'tier_state, tin_number, tin_type, updated_at, user_id, vendor_profile_id, venue_type, ' +
   'verification_state, waitlist_enabled, website, weddings_done_approx';
 

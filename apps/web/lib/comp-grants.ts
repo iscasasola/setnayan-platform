@@ -43,6 +43,16 @@ export type CompGrantRow = {
   public_id: string;
   user_id: string | null;
   /**
+   * The vendor this grant TARGETS — set only for an admin-issued vendor SKU
+   * comp (source='external_promo', via issueVendorSkuComp), mutually
+   * exclusive with user_id. NOT the same thing as a 'vendor_self_comp' row's
+   * vendor_profile_id, which names the vendor GRANTING a comp to a user —
+   * see the column comment on comp_grants.vendor_profile_id (migration
+   * 20271209332066) for the full disambiguation. Always check `source`
+   * before trusting which meaning applies.
+   */
+  vendor_profile_id: string | null;
+  /**
    * NULL = applies to every event this user hosts (the original, only shape
    * before migration 20271205612762). Set = scoped to that one event only.
    */
@@ -63,6 +73,12 @@ export type CompGrantRow = {
    */
   event_name: string | null;
   /**
+   * The targeted vendor's business name, resolved by the fetchers' embed when
+   * `vendor_profile_id` + source='external_promo' name a vendor SKU comp. NOT
+   * a column; NULL for every user-targeted grant.
+   */
+  vendor_business_name: string | null;
+  /**
    * Set only once migration 20271208142357 (PR #5221) is live: the event this
    * grant WAS scoped to, kept after that event was deleted. Optional here so
    * this module compiles either side of that merge; the fetchers start
@@ -72,18 +88,21 @@ export type CompGrantRow = {
   scoped_event_id_snapshot?: string | null;
 };
 
-/** PostgREST returns an embed as a nested object; flatten it to `event_name`. */
-type CompGrantSelectRow = Omit<CompGrantRow, 'event_name'> & {
+/** PostgREST returns an embed as a nested object; flatten it to `event_name` /
+ *  `vendor_business_name`. */
+type CompGrantSelectRow = Omit<CompGrantRow, 'event_name' | 'vendor_business_name'> & {
   events: { display_name: string | null } | null;
+  vendor_profiles: { business_name: string | null } | null;
 };
 
 const COMP_GRANT_SELECT =
-  'grant_id, public_id, user_id, event_id, source, scope, scoped_skus, expiry, retail_value_centavos, rationale, granted_by, approved_by, revoked_at, created_at, events(display_name)';
+  'grant_id, public_id, user_id, vendor_profile_id, event_id, source, scope, scoped_skus, expiry, retail_value_centavos, rationale, granted_by, approved_by, revoked_at, created_at, events(display_name), vendor_profiles(business_name)';
 
 function toCompGrantRows(data: unknown): CompGrantRow[] {
-  return ((data ?? []) as CompGrantSelectRow[]).map(({ events, ...row }) => ({
+  return ((data ?? []) as CompGrantSelectRow[]).map(({ events, vendor_profiles, ...row }) => ({
     ...row,
     event_name: events?.display_name ?? null,
+    vendor_business_name: vendor_profiles?.business_name ?? null,
   }));
 }
 
@@ -215,7 +234,10 @@ export function describeReach(
   grant: Pick<
     CompGrantRow,
     'event_id' | 'user_id' | 'event_name' | 'scoped_event_id_snapshot'
-  >,
+  > & {
+    /** Optional so existing call sites built before this field need no update. */
+    vendor_profile_id?: CompGrantRow['vendor_profile_id'];
+  },
 ): string {
   if (grant.event_id) {
     return grant.event_name ? `${grant.event_name} only` : 'One event only';
@@ -225,6 +247,10 @@ export function describeReach(
   // privilege the customer does not have (see migration 20271208142357).
   if (grant.scoped_event_id_snapshot) return 'One event only — since deleted';
   if (grant.user_id) return 'Every event they host';
+  // No user_id at all → an admin-issued vendor SKU comp (issueVendorSkuComp),
+  // not an event-scoping question — "not tied to an event" would be true but
+  // misleading (it reads as "account-wide" for a user grant with no event).
+  if (grant.vendor_profile_id) return 'This vendor’s shop, not an event';
   return 'Not tied to an event';
 }
 

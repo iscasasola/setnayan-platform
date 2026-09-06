@@ -34,9 +34,12 @@ kinds:
 
 **On its first real run the guard independently found `comp_grants.user_id`** —
 the defect discovered by hand that morning — plus `comp_grants.rationale`, and
-nothing else. Both are recorded in `KNOWN_GAPS` with reasons (ceiling 2 → 4), not
-silently repaired: `user_id`'s direction is settled and waiting on PR #5246 to
-deploy, while `rationale`'s is genuinely undecided — every writer supplies one,
+nothing else. `user_id` was fixed and DEPLOYED while this branch was open (PR #5246), and
+production was re-queried to confirm — `attnotnull` is now false — so its
+snapshot line and its allow-list entry are simply gone rather than shipped as a
+gap that was already untrue. Only `rationale` remains, recorded in `KNOWN_GAPS`
+with its reason (ceiling 2 → 3) rather than silently repaired, because its
+direction is genuinely undecided — every writer supplies one,
 but a shipped db test inserts without it, so declaring `SET NOT NULL` would break
 that test and might be enshrining an accident. The ratchet's dead-entry check
 deletes both the moment they stop being true.

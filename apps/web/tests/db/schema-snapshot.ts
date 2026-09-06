@@ -99,14 +99,6 @@ export const KNOWN_GAPS: ReadonlyMap<string, string> = new Map([
    * the moment they stop being true, so neither can quietly outlive its reason.
    */
   [
-    'comp_grants.user_id',
-    "prod NOT NULL, migrations nullable. A vendor SKU comp writes `user_id: null` on purpose (it " +
-      'targets a vendor, not a user), so this made that feature raise 23502 in prod while the whole ' +
-      'db suite stayed green. PR #5246 adds `ALTER COLUMN user_id DROP NOT NULL`; REMOVE THIS ENTRY ' +
-      'once that has deployed and the snapshot is refreshed — the direction is settled, only the ' +
-      'deploy is outstanding.',
-  ],
-  [
     'comp_grants.rationale',
     'prod NOT NULL, migrations nullable — same out-of-band origin as user_id, but the direction is ' +
       'NOT settled and must not be guessed. Every application writer supplies a rationale, so prod ' +
@@ -117,7 +109,7 @@ export const KNOWN_GAPS: ReadonlyMap<string, string> = new Map([
 ]);
 
 /** The allow-list may shrink, never grow past this. Lower it when you fix one. */
-export const KNOWN_GAP_CEILING = 4;
+export const KNOWN_GAP_CEILING = 3;
 
 /**
  * Anti-vacuity floors. A drift check that silently compares nothing is exactly

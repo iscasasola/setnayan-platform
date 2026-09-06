@@ -10,7 +10,7 @@
 # ledger: 1351
 # tables: 413
 # columns: 5052
-# notnull: 3136
+# notnull: 3135
 [ledger]
 20260512000000
 20260513000000
@@ -6635,7 +6635,6 @@ comp_grants.public_id
 comp_grants.rationale
 comp_grants.scope
 comp_grants.source
-comp_grants.user_id
 concierge_abuse_flags.created_at
 concierge_abuse_flags.flag_id
 concierge_abuse_flags.flagged_user_id

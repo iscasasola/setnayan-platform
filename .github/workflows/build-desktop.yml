@@ -45,10 +45,27 @@ jobs:
         include:
           - platform: macos-latest
             target: 'aarch64-apple-darwin'
-            artifact-glob: 'src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg'
+            # S12: with `bundle.createUpdaterArtifacts: true` (this PR), a
+            # non-v1-compatible macOS build ALSO produces `Setnayan.app.tar.gz`
+            # + `.sig` next to the `.app` (`tauri-bundler`'s own
+            # `updater_bundle.rs`: the updater installs from that .tar.gz, not
+            # from the .dmg — a `.dmg` isn't a gzip stream and the plugin's
+            # macOS `install_inner` unconditionally treats the download as
+            # one). Both must ship alongside the .dmg or the updater manifest
+            # has nothing valid to point at.
+            artifact-glob: |
+              src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+              src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+              src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           - platform: windows-latest
             target: 'x86_64-pc-windows-msvc'
-            artifact-glob: 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi'
+            # S12: for a WindowsMsi bundle in non-v1-compatible mode,
+            # tauri-bundler signs the .msi directly (no separate zip wrapper —
+            # see `tauri-cli`'s `sign_updaters`), so the sibling `.sig` is all
+            # that's new here.
+            artifact-glob: |
+              src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+              src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi.sig
 
     runs-on: ${{ matrix.platform }}
 
@@ -317,10 +334,46 @@ jobs:
           if [ -z "$MSI" ]; then
             echo "::warning::no .msi found under dist/ — Windows build likely failed. Publishing macOS only; the Windows link on /download will keep pointing at the last successful Windows build until this is fixed."
           fi
+
+          # S12: the updater's REAL macOS artifact. `tauri-bundler` writes this
+          # as `<AppBundle>.app.tar.gz` next to the `.app` the moment
+          # `bundle.createUpdaterArtifacts` is on — the plugin's macOS
+          # `install_inner` gunzips+untars whatever URL `latest.json` gives
+          # it, so pointing that URL at the `.dmg` instead would fail on every
+          # install attempt. Both artifacts now come out of the SAME `tauri
+          # build` invocation that already produces the (required) `.dmg`, so
+          # a missing tar.gz/.sig here means the updater half of that same
+          # build is broken, not a separate leg that can fail independently —
+          # hard-fail like the `.dmg` check above, don't publish a manifest
+          # the updater cannot use.
+          TARGZ=$(find dist -iname '*.app.tar.gz' | head -1)
+          TARGZ_SIG=$(find dist -iname '*.app.tar.gz.sig' | head -1)
+          if [ -z "$TARGZ" ] || [ -z "$TARGZ_SIG" ]; then
+            echo "::error::no .app.tar.gz / .app.tar.gz.sig found under dist/ — bundle.createUpdaterArtifacts is on but tauri build didn't emit the updater archive (or didn't sign it, e.g. TAURI_SIGNING_PRIVATE_KEY missing). Refusing to publish a macOS updater manifest the plugin can't actually install from."
+            exit 1
+          fi
+
+          # S12: the Windows updater artifact IS the .msi itself (tauri-bundler
+          # signs a WindowsMsi bundle's own file directly — no separate zip
+          # wrapper in non-v1-compatible mode), so only its sibling `.sig` is
+          # new. Optional like $MSI above: a Windows-leg failure must not
+          # block the (required) macOS publish.
+          MSI_SIG=""
+          if [ -n "$MSI" ]; then
+            MSI_SIG=$(find dist -iname '*.msi.sig' | head -1)
+            if [ -z "$MSI_SIG" ]; then
+              echo "::warning::.msi built but no .msi.sig found — publishing the Windows download link with an EMPTY updater signature (the client-side guard in src-tauri/src/updater.rs refuses to install an unsigned manifest, so this degrades to 'no Windows auto-update' rather than an unsafe install)."
+            fi
+          fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
           echo "msi=$MSI" >> "$GITHUB_OUTPUT"
+          echo "targz=$TARGZ" >> "$GITHUB_OUTPUT"
+          echo "targz_sig=$TARGZ_SIG" >> "$GITHUB_OUTPUT"
+          echo "msi_sig=$MSI_SIG" >> "$GITHUB_OUTPUT"
           echo "dmg_size=$(stat -c%s "$DMG")" >> "$GITHUB_OUTPUT"
+          echo "targz_size=$(stat -c%s "$TARGZ")" >> "$GITHUB_OUTPUT"
           if [ -n "$MSI" ]; then
             echo "msi_size=$(stat -c%s "$MSI")" >> "$GITHUB_OUTPUT"
           fi
@@ -352,6 +405,9 @@ jobs:
           VERSION: ${{ steps.rel.outputs.version }}
           DMG: ${{ steps.rel.outputs.dmg }}
           MSI: ${{ steps.rel.outputs.msi }}
+          TARGZ: ${{ steps.rel.outputs.targz }}
+          TARGZ_SIG: ${{ steps.rel.outputs.targz_sig }}
+          MSI_SIG: ${{ steps.rel.outputs.msi_sig }}
           DMG_SIZE: ${{ steps.rel.outputs.dmg_size }}
           MSI_SIZE: ${{ steps.rel.outputs.msi_size }}
           # Read directly from secrets, not a `needs.build.outputs.*` — the build
@@ -371,7 +427,25 @@ jobs:
             aws --endpoint-url "$ENDPOINT" s3 cp "$DMG" "s3://$BUCKET/$PREFIX/$DMG_NAME" \
               --content-type application/x-apple-diskimage --cache-control "public, max-age=300"
           done
+          # $MAC_URL is release.json's / /download's mac link — the .dmg, same
+          # as before. The updater manifest below points at a DIFFERENT URL
+          # ($MAC_UPDATE_URL, the .app.tar.gz) — see the "Resolve version"
+          # step's comment on why those two must not be the same file.
           MAC_URL="$PUBLIC_URL_TRIMMED/desktop/latest/$DMG_NAME"
+
+          TARGZ_NAME=$(basename "$TARGZ")
+          echo "Uploading $TARGZ_NAME (updater artifact, $(stat -c%s "$TARGZ") bytes)"
+          for PREFIX in "desktop/$VERSION" "desktop/latest"; do
+            aws --endpoint-url "$ENDPOINT" s3 cp "$TARGZ" "s3://$BUCKET/$PREFIX/$TARGZ_NAME" \
+              --content-type application/gzip --cache-control "public, max-age=300"
+          done
+          MAC_UPDATE_URL="$PUBLIC_URL_TRIMMED/desktop/latest/$TARGZ_NAME"
+          # The `.sig` FILE'S CONTENTS are already the exact base64 string
+          # `tauri-plugin-updater` expects in `latest.json`'s `signature`
+          # field (`tauri-cli`'s `updater_signature::sign_file` writes it
+          # base64-encoded, nothing further to do) — never uploaded itself,
+          # only its content read into the manifest below.
+          MAC_SIGNATURE=$(cat "$TARGZ_SIG")
 
           WINDOWS_JSON='null'
           if [ -n "$MSI" ]; then
@@ -384,6 +458,16 @@ jobs:
             WIN_URL="$PUBLIC_URL_TRIMMED/desktop/latest/$MSI_NAME"
             WINDOWS_JSON=$(jq -n --arg url "$WIN_URL" --argjson size "$MSI_SIZE" --arg filename "$MSI_NAME" --argjson signed "$WIN_SIGNED" \
               '{url: $url, sizeBytes: $size, filename: $filename, signed: $signed}')
+            # The updater manifest's Windows signature: real content when
+            # `.msi.sig` exists (see the "Resolve version" step — WIN_SIGNED
+            # is the separate Authenticode/eSigner code-signing status, not
+            # this), honestly empty otherwise so S12's client-side guard
+            # refuses to auto-install rather than accept a manifest entry
+            # with nothing behind it.
+            WIN_UPDATE_SIGNATURE=""
+            if [ -n "$MSI_SIG" ]; then
+              WIN_UPDATE_SIGNATURE=$(cat "$MSI_SIG")
+            fi
             if [ "$WIN_SIGNED" = "true" ]; then
               echo "### Windows build: SIGNED (SSL.com eSigner)" >> "$GITHUB_STEP_SUMMARY"
             else
@@ -419,21 +503,29 @@ jobs:
             }' > release.json
           cat release.json
 
-          # `latest.json` — the Tauri v2 updater manifest SHAPE (S12 will wire the
-          # actual updater plugin + real ed25519 signatures via S11's signing key;
-          # empty `signature` here is honest about "not wired yet", not a bug).
+          # `latest.json` — the Tauri v2 updater manifest (S12,
+          # build-sessions/encoder/S12.md). darwin-aarch64's `url` is the
+          # `.app.tar.gz` uploaded above ($MAC_UPDATE_URL) — NOT $MAC_URL, the
+          # `.dmg` release.json/`/download` link; a `.dmg` isn't a gzip stream
+          # and the plugin's macOS install path will fail on it. Every
+          # `signature` is real ed25519 (S11's key) when its `.sig` file
+          # existed, honestly empty otherwise — `updater.rs`'s
+          # `manifest_signature_ok` on the client refuses to install against
+          # an empty one rather than accept an unsigned manifest.
           jq -n \
             --arg version "$VERSION" \
             --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg macUrl "$MAC_URL" \
+            --arg macUrl "$MAC_UPDATE_URL" \
+            --arg macSig "$MAC_SIGNATURE" \
             --arg winUrl "${WIN_URL:-}" \
+            --arg winSig "${WIN_UPDATE_SIGNATURE:-}" \
             '{
               version: $version,
               notes: ("Setnayan desktop " + $version),
               pub_date: $pub_date,
               platforms: (
-                { "darwin-aarch64": { signature: "", url: $macUrl } }
-                + (if $winUrl != "" then { "windows-x86_64": { signature: "", url: $winUrl } } else {} end)
+                { "darwin-aarch64": { signature: $macSig, url: $macUrl } }
+                + (if $winUrl != "" then { "windows-x86_64": { signature: $winSig, url: $winUrl } } else {} end)
               )
             }' > latest.json
           cat latest.json

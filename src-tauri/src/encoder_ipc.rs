@@ -71,6 +71,23 @@ const CHANNEL_CAPACITY: usize = 256;
 #[derive(Default)]
 pub struct EncoderIpcState(Mutex<Session>);
 
+impl EncoderIpcState {
+    /// S12 (`build-sessions/encoder/S12.md`) reads this before ever installing
+    /// an update: "idle" here means NOT mid-broadcast — no session has been
+    /// authorized by `encoder_start`, or a prior one was already ended by
+    /// `encoder_stop`. There is no separate encoder-state enum; `authorized`
+    /// IS the broadcasting flag (see the module docblock's ACL section). A
+    /// poisoned lock (a panic while some other command held it) reports
+    /// `false` — not idle — because the safe direction when the true state
+    /// is unknown is to defer an install, never risk one mid-stream.
+    pub fn is_idle(&self) -> bool {
+        match self.0.lock() {
+            Ok(guard) => !guard.authorized,
+            Err(_) => false,
+        }
+    }
+}
+
 #[derive(Default)]
 struct Session {
     authorized: bool,
@@ -227,13 +244,26 @@ pub fn encoder_push(state: State<'_, EncoderIpcState>, chunk: String) -> Result<
 /// sink task's `while let Some(..) = rx.recv().await` loop) and reports the
 /// stub sink's tallies. Refuses if the session was never authorized — there
 /// is nothing to stop.
+///
+/// `app` is injected by Tauri (every command may take an `AppHandle`
+/// parameter; the frontend never supplies it) — S12
+/// (`build-sessions/encoder/S12.md`) uses it to re-check for a deferred
+/// update the MOMENT this session goes back to idle, from Rust, exactly as
+/// the task requires ("Re-check on `encoder_stop`"). The state reset above
+/// happens first, so `updater::recheck_after_stop`'s own idle read (via
+/// `EncoderIpcState::is_idle`) always sees the post-stop state.
 #[tauri::command]
-pub fn encoder_stop(state: State<'_, EncoderIpcState>) -> Result<EncoderStopResult, String> {
+pub fn encoder_stop(
+    state: State<'_, EncoderIpcState>,
+    app: tauri::AppHandle,
+) -> Result<EncoderStopResult, String> {
     let mut guard = state.0.lock().map_err(|_| "state_poisoned".to_string())?;
     require_authorized(&guard)?;
     let bytes_received = guard.bytes_received.load(Ordering::Relaxed);
     let chunks_received = guard.chunks_received.load(Ordering::Relaxed);
     *guard = Session::default();
+    drop(guard);
+    crate::updater::recheck_after_stop(app);
     Ok(EncoderStopResult {
         bytes_received,
         chunks_received,
@@ -346,5 +376,33 @@ mod tests {
             decode_and_check_kind(&b64, true).unwrap_err(),
             "expected_config_chunk"
         );
+    }
+
+    // ── S12'S "MID-BROADCAST" READ (`EncoderIpcState::is_idle`) ─────────────
+    // The updater's whole "never mid-broadcast" guard rests on this being
+    // accurate: a fresh (never-started) state must read idle, and a state an
+    // `encoder_start` call has authorized must read NOT idle. Mutating either
+    // branch of `is_idle` to always return the same value is exactly the
+    // defect that would let S12 install over a live stream.
+    #[test]
+    fn a_fresh_encoder_state_is_idle() {
+        let state = EncoderIpcState::default();
+        assert!(state.is_idle());
+    }
+
+    #[test]
+    fn an_authorized_encoder_state_is_not_idle() {
+        let state = EncoderIpcState::default();
+        state.0.lock().unwrap().authorized = true;
+        assert!(!state.is_idle());
+    }
+
+    #[test]
+    fn is_idle_flips_back_true_once_the_session_resets_to_default() {
+        let state = EncoderIpcState::default();
+        state.0.lock().unwrap().authorized = true;
+        assert!(!state.is_idle());
+        *state.0.lock().unwrap() = Session::default();
+        assert!(state.is_idle());
     }
 }

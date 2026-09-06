@@ -32,6 +32,7 @@ import { PostHogProvider } from './_components/posthog-provider';
 import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
 import { ToastProvider } from './_components/toast/toast-provider';
 import { ToastFromParams } from './_components/toast/toast-from-params';
+import { DesktopUpdaterListener } from './_components/desktop-updater-listener';
 
 const PERSIST_KEY = 'setnayan-query-cache';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — spec § 3.1
@@ -186,6 +187,10 @@ export function Providers({
                   <Suspense fallback={null}>
                     <ToastFromParams />
                   </Suspense>
+                  {/* S12 (build-sessions/encoder/S12.md): renders the Rust
+                      updater's deferred-install notice as a plain info toast.
+                      No search params, so no Suspense boundary needed. */}
+                  <DesktopUpdaterListener />
                 </ToastProvider>
               </BrandProvider>
             </LoaderOverlayProvider>

@@ -12,7 +12,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyVendorTierPromotion,
+  coupleWindowCoversEvent,
   getPromotedVendorTierFor,
+  isSkuFreeForCouplesNow,
+  promoFreeSkusForCouples,
   resolveVendorDealTier,
   vendorDealEndsAt,
   vendorDealWindowsFor,
@@ -39,6 +42,8 @@ function win(over: Partial<PromoFreeWindow> = {}): PromoFreeWindow {
     ends_at: iso(T0 + 30 * DAY),
     show_banner: true,
     deal_length_days: null,
+    event_date_from: null,
+    event_date_to: null,
     ...over,
   };
 }
@@ -240,6 +245,102 @@ test('flag on: the same vendor gets the tier through the same path', async () =>
     };
     assert.equal(await getPromotedVendorTierFor(qualifies, async () => [live]), 'solo');
     assert.equal(await getPromotedVendorTierFor(pending, async () => [live]), null);
+  } finally {
+    if (prev === undefined) delete process.env.PROMO_FREE_WINDOWS_ENABLED;
+    else process.env.PROMO_FREE_WINDOWS_ENABLED = prev;
+  }
+});
+
+// ── G5: coupleWindowCoversEvent — event-date-range filter on all_couples ────
+//
+// (a) "an event for a specific date/range" and (c) "for any event" from the
+// owner's ask, both resolved by ONE pure predicate over already-fetched
+// facts, mirroring vendorQualifiedAt's shape on the couple side.
+
+test('coupleWindowCoversEvent: no filter (both bounds null) → true for ANY date, including null/undefined — this is (c)', () => {
+  const w = win({ event_date_from: null, event_date_to: null });
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-25'), true);
+  assert.equal(coupleWindowCoversEvent(w, null), true);
+  assert.equal(coupleWindowCoversEvent(w, undefined), true);
+});
+
+test('coupleWindowCoversEvent: a filter is set but the event has no locked date → FALSE, never assumed included', () => {
+  const fromOnly = win({ event_date_from: '2026-12-01', event_date_to: null });
+  const toOnly = win({ event_date_from: null, event_date_to: '2026-12-31' });
+  const range = win({ event_date_from: '2026-12-01', event_date_to: '2026-12-31' });
+  for (const w of [fromOnly, toOnly, range]) {
+    assert.equal(coupleWindowCoversEvent(w, null), false);
+    assert.equal(coupleWindowCoversEvent(w, undefined), false);
+    assert.equal(coupleWindowCoversEvent(w, ''), false);
+  }
+});
+
+test('coupleWindowCoversEvent: a range bound is inclusive at both ends, and excludes just outside', () => {
+  const w = win({ event_date_from: '2026-12-01', event_date_to: '2026-12-31' });
+  assert.equal(coupleWindowCoversEvent(w, '2026-11-30'), false, 'day before start');
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-01'), true, 'exactly at start — inclusive');
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-15'), true, 'inside');
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-31'), true, 'exactly at end — inclusive');
+  assert.equal(coupleWindowCoversEvent(w, '2027-01-01'), false, 'day after end');
+});
+
+test('coupleWindowCoversEvent: an open-ended lower bound only (event_date_to null) covers everything from that day on', () => {
+  const w = win({ event_date_from: '2026-12-01', event_date_to: null });
+  assert.equal(coupleWindowCoversEvent(w, '2026-11-30'), false);
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-01'), true);
+  assert.equal(coupleWindowCoversEvent(w, '2099-01-01'), true);
+});
+
+test('coupleWindowCoversEvent: an open-ended upper bound only (event_date_from null) covers everything up to that day', () => {
+  const w = win({ event_date_from: null, event_date_to: '2026-12-31' });
+  assert.equal(coupleWindowCoversEvent(w, '2000-01-01'), true);
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-31'), true);
+  assert.equal(coupleWindowCoversEvent(w, '2027-01-01'), false);
+});
+
+test('coupleWindowCoversEvent: from === to is (a) "a specific single date"', () => {
+  const w = win({ event_date_from: '2026-12-25', event_date_to: '2026-12-25' });
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-24'), false);
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-25'), true);
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-26'), false);
+});
+
+test('coupleWindowCoversEvent: defensive against a stray time component on either side', () => {
+  const w = win({ event_date_from: '2026-12-01', event_date_to: '2026-12-31' });
+  assert.equal(coupleWindowCoversEvent(w, '2026-12-15T00:00:00.000Z'), true);
+  const wWithTime = win({
+    event_date_from: '2026-12-01T00:00:00.000Z',
+    event_date_to: '2026-12-31T00:00:00.000Z',
+  });
+  assert.equal(coupleWindowCoversEvent(wWithTime, '2026-12-15'), true);
+});
+
+// ── PROVABLY INERT while the flag is off (couple side) ──────────────────────
+
+test('flag off: a live event-dated couple window frees NOTHING, for a matching event or any event', async () => {
+  const prev = process.env.PROMO_FREE_WINDOWS_ENABLED;
+  delete process.env.PROMO_FREE_WINDOWS_ENABLED;
+  try {
+    // Sanity: the pure predicate WOULD cover this event — so an empty result
+    // below is the flag, not a bug in coupleWindowCoversEvent.
+    const w = win({
+      audience_type: 'all_couples',
+      promoted_vendor_tier: null,
+      covered_service_keys: ['PAPIC_ONE_50'],
+      starts_at: iso(Date.now() - DAY),
+      ends_at: iso(Date.now() + DAY),
+      event_date_from: '2026-12-01',
+      event_date_to: '2026-12-31',
+    });
+    assert.equal(coupleWindowCoversEvent(w, '2026-12-15'), true);
+
+    // getLiveCoupleFreeWindows short-circuits to [] before touching the DB
+    // while the flag is off, so isSkuFreeForCouplesNow / promoFreeSkusForCouples
+    // need no injected fetch here — the flag guard runs first regardless.
+    assert.equal(await isSkuFreeForCouplesNow('PAPIC_ONE_50', '2026-12-15'), false);
+    assert.equal(await isSkuFreeForCouplesNow('PAPIC_ONE_50', null), false);
+    assert.equal((await promoFreeSkusForCouples('2026-12-15')).size, 0);
+    assert.equal((await promoFreeSkusForCouples(null)).size, 0);
   } finally {
     if (prev === undefined) delete process.env.PROMO_FREE_WINDOWS_ENABLED;
     else process.env.PROMO_FREE_WINDOWS_ENABLED = prev;

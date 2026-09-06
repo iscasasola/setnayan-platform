@@ -193,6 +193,44 @@ export function addToPlanChipLabel(label: string): string {
 /** The quiet per-category removal control. */
 export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
 
+/**
+ * What removal actually does, said out loud (owner 2026-09-06: *"archive …
+ * just means, that category will no longer be on their choices to build"* +
+ * *"yes archive the conversations too"*).
+ *
+ * 🔑 Every clause here is TRUE of the shipped code, and an earlier draft of
+ * this sentence was not: it said the inquiries would be *deleted*, when
+ * `excludeTileFromPlan` deleted nothing at all. Nothing in this string may
+ * claim a destruction the code does not perform — a conversation is never
+ * hard-deleted (there is no DELETE policy on `chat_threads`), and adding the
+ * category back un-archives exactly the threads this removal archived.
+ */
+export const REMOVE_FROM_PLAN_NOTE =
+  'The category leaves your choices, and your conversations with those ' +
+  'suppliers move to Archived — nothing is deleted. Add it back and they return.';
+
+/**
+ * The confirm shown before a category is removed (owner 2026-09-06, after the
+ * note-on-the-button shipped: *"yes add the confirm step"*).
+ *
+ * 🔑 WHY A CONFIRM AND NOT JUST THE NOTE. The note rides the button's
+ * aria-label and title. `title` is a HOVER tooltip — and this is a phone-first
+ * app, where there is no hover. A touch user therefore got NO visible warning
+ * before their conversations were archived. The consequence has to reach the
+ * screen, not just the accessibility tree.
+ *
+ * NOT `destructive`. The terracotta tint means "this deletes something", and we
+ * spent a whole change establishing that this deletes nothing — using it here
+ * would contradict the sentence it sits above. Reversibility is the message.
+ */
+export function removeFromPlanConfirmTitle(label: string): string {
+  return `Remove ${label} from your event?`;
+}
+
+export const REMOVE_FROM_PLAN_CONFIRM_BODY = REMOVE_FROM_PLAN_NOTE;
+export const REMOVE_FROM_PLAN_CONFIRM_OK = 'Remove it';
+export const REMOVE_FROM_PLAN_CONFIRM_CANCEL = 'Keep it';
+
 export function removeFromPlanButtonLabel(label: string): string {
   return `Remove ${label} from your event`;
 }

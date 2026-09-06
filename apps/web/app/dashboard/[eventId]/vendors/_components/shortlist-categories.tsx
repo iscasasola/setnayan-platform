@@ -74,6 +74,7 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
+import { useConfirm } from '@/app/_components/confirm-dialog';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
 import {
   coverageBadgeOf,
@@ -102,6 +103,11 @@ import {
   lockedNamesLabel,
   lockedNamesLine,
   REMOVE_FROM_PLAN_LABEL,
+  REMOVE_FROM_PLAN_NOTE,
+  REMOVE_FROM_PLAN_CONFIRM_BODY,
+  REMOVE_FROM_PLAN_CONFIRM_CANCEL,
+  REMOVE_FROM_PLAN_CONFIRM_OK,
+  removeFromPlanConfirmTitle,
   removeFromPlanButtonLabel,
   INLINE_MORE_FAILED,
   INLINE_MORE_INQUIRE,
@@ -1216,9 +1222,28 @@ export function ShortlistCategories({
   // state and the last refusal message for add/remove.
   const [hintTile, setHintTile] = useState<string | null>(null);
   const [planEditing, startPlanEdit] = useTransition();
+  const { confirm, dialog: removeConfirmDialog } = useConfirm();
   const [planError, setPlanError] = useState<{ tile: string; message: string } | null>(null);
 
-  function removeTileFromPlan(tile: string) {
+  /**
+   * Ask before removing. The note on the button rides `title`, which is a HOVER
+   * tooltip — and on a phone there is no hover, so a touch user got no visible
+   * warning at all before their conversations were archived.
+   *
+   * The confirm is awaited OUTSIDE `startPlanEdit`: a transition cannot await,
+   * and starting one before the couple has answered would flip the row into its
+   * pending state while the dialog is still open.
+   */
+  async function removeTileFromPlan(tile: string, label: string) {
+    const ok = await confirm({
+      title: removeFromPlanConfirmTitle(label),
+      body: REMOVE_FROM_PLAN_CONFIRM_BODY,
+      confirmLabel: REMOVE_FROM_PLAN_CONFIRM_OK,
+      cancelLabel: REMOVE_FROM_PLAN_CONFIRM_CANCEL,
+      // NOT destructive: the terracotta tint means "this deletes something",
+      // and this deletes nothing. Reversibility is the message.
+    });
+    if (!ok) return;
     setPlanError(null);
     startPlanEdit(async () => {
       const res = await excludeTileFromPlan({ eventId, tile });
@@ -1736,6 +1761,10 @@ export function ShortlistCategories({
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
+      {/* The remove confirm. It must live INSIDE the rendered tree or
+          `confirm()` resolves against a dialog that was never mounted —
+          the hook's own docblock says so. */}
+      {removeConfirmDialog}
       {replan && stripTiles.length > 0 ? (
         /* Coverage Strip v2 (Explore Replan PR-B) — the SAME `.plan-strip`
            shell + the SAME `openPlan` doorway as the chip strip it upgrades;
@@ -2510,8 +2539,14 @@ export function ShortlistCategories({
                                   type="button"
                                   className="rmv"
                                   disabled={planEditing}
-                                  aria-label={removeFromPlanButtonLabel(t.label)}
-                                  onClick={() => removeTileFromPlan(t.tile)}
+                                  /* The note rides the aria-label and the
+                                     title, NOT an sr-only span: aria-label
+                                     OVERRIDES inner text for assistive tech,
+                                     so a hidden span inside this button would
+                                     have reached nobody at all. */
+                                  aria-label={`${removeFromPlanButtonLabel(t.label)} — ${REMOVE_FROM_PLAN_NOTE}`}
+                                  title={REMOVE_FROM_PLAN_NOTE}
+                                  onClick={() => void removeTileFromPlan(t.tile, t.label)}
                                 >
                                   {REMOVE_FROM_PLAN_LABEL}
                                 </button>

@@ -5,7 +5,9 @@
  * doorway (#3262), contact, groups, and details all live here so the two frames
  * that present a guest render byte-identical content + actions:
  *
- *   • the mobile / below-xl right slide-in SHEET  (guest-drawer.tsx · Drawer)
+ *   • the ≥sm / below-xl right slide-in SHEET     (guest-drawer.tsx · Drawer)
+ *     — NOT reachable on a phone; its only trigger renders in the `sm:block`
+ *     desktop table. See the reach note at the top of guest-drawer.tsx.
  *   • the desktop ≥xl sticky INSPECTOR COLUMN     (guests/page.tsx · server)
  *
  * No client hooks of its own — so it renders happily inside a Server Component

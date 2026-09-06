@@ -1540,21 +1540,27 @@ test('MB14b: the decor harness can tell a bleeding tolerance from a clean one', 
  * WHICH NO NEUTRAL MOVES; one step higher and a measured field turns. That is
  * asserted below, per file, in both directions.
  *
- * ── ⚠ AND THE BEACH HAS FIFTEEN RANGES' WORTH OF SLOTS, NOT SIXTEEN ─────────
- * The beach arch is DRIFTWOOD, #DDD6C8, and it sits 3.536 from the fabric slot
+ * ── ⚠ AS SHIPPED, THE BEACH HAD FIFTEEN RANGES' WORTH OF SLOTS, NOT SIXTEEN ──
+ * The beach arch was DRIFTWOOD, #DDD6C8, and it sat 3.536 from the fabric slot
  * in the engine's metric. `moodboard_asset_color_ranges` CHECKs
- * `tolerance_de BETWEEN 5 AND 30`, so the tightest LEGAL tolerance is 5 — and
- * at 5 the whole arch turns the couple's second colour. There is no legal
- * value that separates the drapes from the trees, so the beach ships slot 1
- * only, exactly as MB23 deleted the modern-minimalist bride's false range
- * rather than inventing a tolerance for it. The last test in this file is the
- * one that keeps that decision honest: it FAILS if someone seeds it.
+ * `tolerance_de BETWEEN 5 AND 30`, so the tightest LEGAL tolerance was 5 — and
+ * at 5 the whole arch would have turned the couple's second colour. There was
+ * no legal value that separated the drapes from the trees, so the beach
+ * shipped slot 1 only, exactly as MB23 deleted the modern-minimalist bride's
+ * false range rather than inventing a tolerance for it. This was surfaced as
+ * an owner decision, not silently worked around.
  *
- * The brief called #DDD6C8 "the sand". It is not — the sand is #B8B2A6, a
+ * The brief called #DDD6C8 "the sand". It was not — the sand is #B8B2A6, a
  * comfortable 15.8 away. The 2026-09-06 oversight round could not have caught
  * this, because every candidate was judged on a simulated recolour performed by
  * EXACT FILL SWAP, and a fill swap structurally cannot show a tolerance
  * bleeding into a neighbouring colour.
+ *
+ * 🔑 MB28b RE-CUT THE DRIFTWOOD AND SEEDED THE SLOT. Both halves stay here on
+ * purpose — the history is why the seeded tolerance (5, the legal floor) is
+ * measured against the sky rather than invented outright. `MB28` below already
+ * carries the beach with two slots; see the MB28b section near the end of this
+ * file for the re-cut's own migration, parse, and boundary test.
  *
  * ── HOW THE CONSTANTS BELOW WERE OBTAINED ───────────────────────────────────
  *   node -e "…"  # sharp → 520px raster → exact-fill census → recolorRGBA
@@ -1609,7 +1615,46 @@ function mb28Scenes(): Mb28Scene[] {
   return [...bySetting.values()];
 }
 
+/**
+ * MB28b's migration, one range: the beach's fabric slot, seeded after the
+ * driftwood re-cut. Same parse-don't-retype rule as `mb28Scenes` above.
+ */
+const MB28B_MIGRATION = new URL(
+  '../../../../../../../../supabase/migrations/20271209690679_mb28b_beach_ceremony_fabric_slot_seeded_after_driftwood_recut.sql',
+  import.meta.url,
+);
+
+function mb28bBeachFabricSlot(): Mb28Slot {
+  const sql = stripComments(readFileSync(MB28B_MIGRATION, 'utf8'));
+  const m = /SELECT\s+a\.asset_id,\s*(\d+)::SMALLINT,\s*'(#[0-9A-Fa-f]{6})',\s*(\d+)::NUMERIC,\s*'([a-z]+)'/.exec(
+    sql,
+  );
+  assert.ok(
+    m,
+    'migration 20271209690679 no longer inserts a colour range for the beach — this guard ' +
+      'watches nothing',
+  );
+  return {
+    slotId: Number(m![1]),
+    sampledHex: m![2]!.toUpperCase(),
+    tolerance: Number(m![3]),
+    region: m![4]!,
+  };
+}
+
+/**
+ * MB28's eight scenes, with the beach's MB28b fabric slot folded in — so every
+ * generic MB28 assertion below (own region moves, neutrals don't, no
+ * sampled_hex swap, no fringe) runs on the beach exactly like the other seven,
+ * without a single beach-shaped exception in the test bodies themselves.
+ */
 const MB28 = mb28Scenes();
+{
+  const beach = MB28.find((s) => s.setting === 'beach');
+  assert.ok(beach, 'MB28 no longer seeds a beach ceremony drawing');
+  beach!.slots.push(mb28bBeachFabricSlot());
+  beach!.slots.sort((a, b) => a.slotId - b.slotId);
+}
 
 /**
  * MEASURED ARTWORK FACTS — every exact `fill="rgb(…)"` that covers ≥0.2% of
@@ -1640,7 +1685,10 @@ const MB28_ART: Record<string, { fills: Record<string, string>; shares: Record<s
       sand: '#B8B2A6',
       shore: '#E3EBEE',
       sea: '#7FA6A8',
-      driftwood: '#DDD6C8',
+      // MB28b re-cut the driftwood arch from #DDD6C8 (3.5 from the fabric slot,
+      // unseedable) to #ACA8A0 (19.8 away) so slot 2 could be seeded. See the
+      // MB28b section below.
+      driftwood: '#ACA8A0',
       florals: '#D98BA6',
       fabric: '#E8D9B5',
     },
@@ -1702,7 +1750,10 @@ const MB28_ART: Record<string, { fills: Record<string, string>; shares: Record<s
  */
 const MB28_FRINGE_CEILING: Record<string, number> = {
   ancestral_house: 0.02, // measured 1.36%
-  beach: 0.01, //           measured 0.66%
+  // Re-measured after MB28b seeded slot 2 (florals-only was 0.66%): the fabric
+  // slot's own antialiased edge (drapes/sashes against sand and shore) adds to
+  // the fringe, same as every other two-slot scene below.
+  beach: 0.015, //          measured 0.96%
   chapel: 0.01, //          measured 0.64%
   civil_registrar: 0.015, // measured 0.86%
   garden: 0.05, //          measured 4.35%
@@ -1788,7 +1839,7 @@ const neutralNames = (setting: string) =>
     (n) => !(SLOT_NAMES as readonly string[]).includes(n),
   );
 
-test('MB28: the migration seeds a drawing for every ceremony setting but one slot short of sixteen', () => {
+test('MB28+MB28b: the migrations together seed a drawing for every ceremony setting, two slots each', () => {
   assert.equal(
     MB28.length,
     8,
@@ -1806,18 +1857,18 @@ test('MB28: the migration seeds a drawing for every ceremony setting but one slo
   const ranges = MB28.reduce((n, s) => n + s.slots.length, 0);
   assert.equal(
     ranges,
-    15,
-    `the migration seeds ${ranges} colour ranges across eight drawings. It must be 15: two ` +
-      'each except the beach, whose fabric slot cannot be separated from its driftwood arch ' +
-      'at any legal tolerance (see the header, and the last test in this file).',
+    16,
+    `MB28 + MB28b together seed ${ranges} colour ranges across eight drawings. It must be ` +
+      '16: two each, now including the beach — MB28b re-cut its driftwood arch (was 3.5 from ' +
+      "the fabric slot, unseedable at the table's CHECK floor of 5) and seeded slot 2 at 5, " +
+      'the same value the church uses. See the MB28b section below.',
   );
   for (const scene of MB28) {
     assert.deepEqual(
       scene.slots.map((s) => `${s.slotId}:${s.region}`),
-      scene.setting === 'beach' ? ['1:florals'] : ['1:florals', '2:fabric'],
-      `${scene.setting} no longer seeds slot 1 = florals${
-        scene.setting === 'beach' ? ' only' : ' and slot 2 = fabric'
-      }. moodboard-board.tsx maps slot N to the couple's Nth ceremony colour ` +
+      ['1:florals', '2:fabric'],
+      `${scene.setting} no longer seeds slot 1 = florals and slot 2 = fabric. ` +
+        "moodboard-board.tsx maps slot N to the couple's Nth ceremony colour " +
         "(`out[r.slotId] = palette[i % palette.length]`), so the slot NUMBERS are the colour " +
         'order the couple chose — they are not free to renumber.',
     );
@@ -1972,7 +2023,14 @@ test('MB28: each seeded fabric tolerance is the LARGEST clean one — a single s
   // all" check — if the widened run moves nothing, nothing above means anything.
   for (const scene of MB28) {
     const fabric = scene.slots.find((s) => s.region === 'fabric');
-    if (!fabric) continue; // the beach; covered by its own test below
+    if (!fabric) continue;
+    // The beach is seeded at the LEGAL FLOOR (5), not at the largest clean
+    // value (which MB28b measured at 9 — see the boundary test in the MB28b
+    // section below). It deliberately does not follow this file's "tightest
+    // value before a neutral turns" rule, so it cannot be asserted by it;
+    // skipping it here is not a gap, because the boundary it actually sits at
+    // is pinned separately.
+    if (scene.setting === 'beach') continue;
     const widened = liveSlots(scene).map((s) =>
       s.slotId === fabric.slotId ? { ...s, toleranceDe: fabric.tolerance + 1 } : s,
     );
@@ -1993,43 +2051,85 @@ test('MB28: each seeded fabric tolerance is the LARGEST clean one — a single s
   }
 });
 
-test('MB28: the beach fabric slot is UNSEEDABLE, and must stay unseeded', async () => {
-  // MB23's bride, on a venue scene, and the reason this migration seeds fifteen
-  // ranges instead of sixteen. If a later session "fixes" the missing slot by
-  // adding one at the CHECK floor, this is what tells them what happens.
-  const beach = MB28.find((s) => s.setting === 'beach');
-  assert.ok(beach, 'the beach ceremony drawing is no longer seeded at all');
-  assert.equal(
-    beach.slots.length,
-    1,
-    'a fabric slot has been seeded for the beach. Its arch is DRIFTWOOD (#DDD6C8), 3.536 ' +
-      "from the fabric slot in the engine's metric, and `tolerance_de` is CHECKed at a " +
-      'minimum of 5 — so the couple\'s second ceremony colour paints the trees. If the ' +
-      'artwork has been re-cut to move the driftwood away from #E8D9B5, RE-MEASURE and say ' +
-      'so in the migration; do not lower the table CHECK for one drawing.',
+/* ════════════════════════════════════════════════════════════════════════════
+ * MB28b · THE BEACH DRAPES TAKE THE COUPLE'S COLOUR.
+ *
+ * MB28 shipped the beach florals-only: its driftwood arch was #DDD6C8, 3.536
+ * from the fabric slot in the engine's metric, and the table's
+ * `tolerance_de BETWEEN 5 AND 30` CHECK made 5 the tightest legal value — at
+ * which the whole arch would have turned. Oversight re-cut the driftwood to
+ * #ACA8A0 (19.8 away) and migration 20271209690679 seeds slot 2 at tolerance
+ * 5, the same value the church uses.
+ *
+ * Every ordinary MB28 claim above already covers the beach's fabric slot,
+ * because `MB28` (built above) has the beach carrying two slots exactly like
+ * the other seven — own-region-moves, neutrals-move-by-nothing, sampled_hex
+ * matches its region, no fringe growth. A sabotage that swaps the beach's two
+ * sampled_hex values, or reverts the driftwood fill in the SVG, fails one of
+ * those tests already; nothing beach-specific needs to check for either.
+ *
+ * What IS beach-specific is that 5 is not the largest clean tolerance here —
+ * it is the legal floor, chosen for margin (the church's own reasoning) over
+ * the seven other files' "largest integer before a neutral turns" rule. That
+ * is why the beach is excluded from the "LARGEST clean one" test above, and
+ * why its actual boundary needs pinning here instead.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+test('MB28b: the migration seeds exactly one range for the beach — its fabric slot', () => {
+  const slot = mb28bBeachFabricSlot();
+  assert.deepEqual(
+    slot,
+    { slotId: 2, sampledHex: '#E8D9B5', tolerance: 5, region: 'fabric' },
+    'migration 20271209690679 no longer seeds slot 2 = fabric at #E8D9B5 ± 5 for the beach. ' +
+      'If the value changed on purpose, re-measure the sky margin below before updating this.',
   );
-  // The measurement itself, so the claim above is not just prose.
-  const MIN_LEGAL_TOLERANCE = 5;
-  const { stats } = await recolourScene(
+});
+
+test('MB28b: the beach fabric tolerance sits well inside its margin — the sky is the ceiling, not the driftwood', async () => {
+  const beach = MB28.find((s) => s.setting === 'beach')!;
+  // At the seeded tolerance (5) and right up to the true boundary (9), no
+  // neutral moves — the driftwood re-cut and the sky's own 9.25 distance both
+  // hold. This is the honest reason beach is excluded from the generic
+  // "largest clean" test: 5 is not that boundary, 9 is, and the gap is
+  // deliberate margin, not an oversight.
+  for (const tolerance of [5, 9]) {
+    const { stats } = await recolourScene(
+      beach,
+      { 1: { mode: 'palette', hex: '#7A1F2B' }, 2: { mode: 'palette', hex: '#D4AF37' } },
+      [
+        { slotId: 1, sampledHex: '#D98BA6', toleranceDe: 10, regionLabel: 'florals' },
+        { slotId: 2, sampledHex: '#E8D9B5', toleranceDe: tolerance, regionLabel: 'fabric' },
+      ],
+    );
+    for (const n of neutralNames('beach')) {
+      assert.equal(
+        stats[n]!.moved,
+        0,
+        `beach: at fabric tolerance ${tolerance}, the ${n} (${MB28_ART.beach!.fills[n]!}) ` +
+          `wore the palette — ${stats[n]!.moved}/${stats[n]!.total} px moved. The margin to ` +
+          "the sky (#E3EBEE, 9.25 from the slot) is what actually bounds this tolerance, not " +
+          'the driftwood re-cut (19.8 away) — see the next assertion.',
+      );
+    }
+  }
+  // 🔑 THE SABOTAGE THIS CATCHES: raising the seeded tolerance from 5 toward
+  // 10 eventually repaints the sky. At 10 it does, completely — this is the
+  // boundary the seeded value of 5 leaves 4-plus points of margin against.
+  const { stats: bled } = await recolourScene(
     beach,
     { 1: { mode: 'palette', hex: '#7A1F2B' }, 2: { mode: 'palette', hex: '#D4AF37' } },
     [
-      ...liveSlots(beach),
-      { slotId: 2, sampledHex: '#E8D9B5', toleranceDe: MIN_LEGAL_TOLERANCE, regionLabel: 'fabric' },
+      { slotId: 1, sampledHex: '#D98BA6', toleranceDe: 10, regionLabel: 'florals' },
+      { slotId: 2, sampledHex: '#E8D9B5', toleranceDe: 10, regionLabel: 'fabric' },
     ],
   );
-  assert.ok(
-    stats.driftwood!.moved === stats.driftwood!.total && stats.driftwood!.total > 0,
-    `at the tightest LEGAL fabric tolerance (${MIN_LEGAL_TOLERANCE}) only ` +
-      `${stats.driftwood!.moved} of ${stats.driftwood!.total} driftwood pixels turned. If the ` +
-      'whole arch no longer turns, the artwork has changed and the beach fabric slot may now ' +
-      'be seedable — re-measure and seed it, rather than leaving this test asserting a fact ' +
-      'that is no longer true.',
-  );
   assert.equal(
-    stats.fabric!.moved,
-    stats.fabric!.total,
-    'the beach drapes did not fully recolour even at the tolerance that ruins the arch, so ' +
-      'the tradeoff this test describes is not the one the file actually presents.',
+    bled.shore!.moved,
+    bled.shore!.total,
+    'widening the beach fabric tolerance to 10 should turn the whole sky (#E3EBEE, 9.25 from ' +
+      'the slot) and this harness says it does not — the harness is wrong, not the data. If ' +
+      'this ever fires for real (the seeded tolerance itself reached 10), a beach sky is about ' +
+      'to turn burgundy or gold for a real couple.',
   );
 });

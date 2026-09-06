@@ -26,12 +26,36 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 // (owner: "remove wall backdrop") — it promised an 8K file and a posted USB
 // that nothing produced.
 
+/*
+  ─── NAMES LEAD WITH THE BRAND (owner, 2026-09-06) ────────────────────────────
+  `Feature_Catalog_Canon.md` § 1 is LOCKED and defines two shapes: brand-first on
+  brand surfaces (`Salamisim (Live Photo Wall)`), generic-first on
+  pricing/app-store/first-touch/SEO (`Live Photo Wall (Salamisim)`). `/features`
+  is genuinely BOTH, and that unresolved conflict is what the owner register
+  called "the features page is frozen" (WHAT_IS_LEFT_2026-08-17.md § 6 item 8).
+  The owner classified this page as a BRAND surface: our name leads, the generic
+  follows in parentheses.
+
+  🔑 EVERY GENERIC BELOW IS COPIED VERBATIM FROM THE CANON'S § 2 TABLE. None is
+  invented. Where the canon has no generic for a name, the name is LEFT ALONE
+  rather than given one here — a second, competing source of truth for what a
+  product is called is exactly what froze this page in the first place.
+
+  Left alone, and why:
+    · `Papic` — the canon names generics only per TIER (Papic Crew → Paparazzi
+      Crew · Papic Guests → Guest Cameras). It has none for the bare family, and
+      this row IS the family. NEEDS AN OWNER RULING.
+    · `Pakulay` — no row in the canon at all. NEEDS AN OWNER RULING.
+    · `Photo Delivery`, `Supplies Marketplace` — already-plain names. Canon § 1:
+      "Already-plain features take no parentheses (the name IS the generic)."
+      Correct as they stand; not a gap.
+*/
 const META: { Icon: LucideIcon; sku: string }[] = [
-  { Icon: Tv, sku: 'Live Studio' },
+  { Icon: Tv, sku: 'Live Studio (Live Stream)' },
   { Icon: Camera, sku: 'Papic' },
-  { Icon: Video, sku: 'Patiktok' },
+  { Icon: Video, sku: 'Patiktok (Reel Booth)' },
   { Icon: Palette, sku: 'Pakulay' },
-  { Icon: Music, sku: 'Pakanta' },
+  { Icon: Music, sku: 'Pakanta (Your Wedding Song)' },
   { Icon: CloudUpload, sku: 'Photo Delivery' },
   { Icon: ShoppingBag, sku: 'Supplies Marketplace' },
 ];

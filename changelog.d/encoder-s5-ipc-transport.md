@@ -173,6 +173,39 @@ Mutation counts (before → after), the ones not already listed above:
 - CSP `ipc: http://ipc.localhost` line stripped from `next.config.ts`: 3/0 → 1
   passing/2 failing.
 
+### Merge against 50 commits that landed on `main` while this branch was open
+
+`origin/main` moved 50 commits ahead (S3, S7, S10, R2-secrets-tracker, and others,
+including S9's `live-studio-ingest-health.ts` change) before this PR's checks finished,
+producing three real conflicts — resolved by understanding both sides, not by picking one:
+
+- `lib/live-studio-ingest-health.ts` / `.test.ts`: S9 (build-sessions/encoder/S9.md,
+  already merged — its own docblock names this PR, #5239, by number) restructured
+  `decideIngestHealth` around encoder-health precedence (`reconnecting`/`encoder_down`
+  states, YouTube-always-wins-on-no_data, local-preempts-fine-YouTube, bitrate as a
+  sub-state). Merged so S9's precedence logic and this PR's additive, state-never-changing
+  `transportNote` annotation coexist: `decideFromEncoderOnly`'s return type narrowed to
+  `Omit<IngestHealthDecision, 'transportNote'>` since every call site now adds it via
+  spread. Both test suites kept intact and concatenated, not interleaved.
+- `tests/db/user-fk-behaviour.generated.txt`: regenerated against the merged migrations
+  (`UPDATE_FK_BEHAVIOUR=1 pnpm test:db`) rather than hand-resolved — it is a live DB-replay
+  artifact, not authored text. Final: 238 FKs, CASCADE=65/RESTRICT=3/SET NULL=170.
+- `tests/db/comp-grant-survives-its-granter.db.test.ts`: the merged tree's actor-stamp
+  guard (added since this branch started) correctly flagged
+  `live_studio_encoder_tokens.requested_by` as a new CASCADE actor stamp. Added it to the
+  "almost certainly correct" section (not the "genuine candidates for review" one) with
+  the actor-vs-subject argument the test requires in its own docblock: the row is a
+  single-use, 60s-TTL, service-role-only nonce (RLS, no policy at all) with no third party
+  who could ever rely on it — the same shape as the already-pinned `oauth_state` rows, not
+  the shape the guard exists to catch.
+- `lib/ugat/graph.ts`: added `live_studio_encoder_tokens` to joint J39 alongside S8's
+  `live_studio_encoder_claims`, same reasoning S8's own comment there already gives.
+
+Verified on the fully merged tree: `TSC_EXIT=0 ERROR_LINES=0`; root `pnpm lint` clean;
+`apps/web/tests/db/*.db.test.ts` 2346/2346 passing (was 2345/2346 — the one failure was
+the actor-stamp guard above, fixed with an argument, not silenced); both required Ugat
+db-tests 6/6 passing.
+
 ### What is still open (owner questions / left undone)
 
 - `encoder_probe`'s ACL entry (`allow-encoder-probe`) was added to

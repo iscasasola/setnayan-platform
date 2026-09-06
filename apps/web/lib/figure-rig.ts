@@ -74,6 +74,10 @@ export type FigureSpec = {
   statusColor: string;
   /** Uniform scale (1 = adult). Kids/principal-sponsor variation later. */
   scale?: number;
+  /** Which part table the rig draws with: capsules ('round', the default and
+   *  the mannequin) or rounded boxes ('blocky' — the Blocky Kit, owner
+   *  2026-09-06). Same skeleton, same poses, same seat bake either way. */
+  kit?: 'round' | 'blocky';
 };
 
 /**

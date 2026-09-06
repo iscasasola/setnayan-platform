@@ -134,12 +134,12 @@ export function AvatarMaker({
   // row is one or the other; the maker keeps a draft of BOTH so switching the
   // style never throws away what the guest dressed on the other one.
   const initial = useMemo(() => resolveGuestAvatar(initialConfig, figureId, true), [figureId, initialConfig]);
-  const [style, setStyle] = useState<'chibi' | 'heritage'>(initial?.style ?? 'chibi');
+  const [style, setStyle] = useState<'chibi' | 'heritage' | 'blocky'>(initial?.style ?? 'chibi');
   const [cfg, setCfg] = useState<ChibiAvatarConfig>(() =>
     initial?.style === 'chibi' ? initial.config : resolveChibiConfig(figureId, null),
   );
   const [hcfg, setHcfg] = useState<HeritageAvatarConfig>(() =>
-    initial?.style === 'heritage' ? initial.config : resolveHeritageConfig(figureId, null),
+    initial && initial.style !== 'chibi' ? initial.config : resolveHeritageConfig(figureId, null),
   );
   const [saved, setSaved] = useState(hasSaved);
   const [dirty, setDirty] = useState(false);
@@ -156,7 +156,7 @@ export function AvatarMaker({
     setDirty(true);
     setNote(null);
   };
-  const pickStyle = (next: 'chibi' | 'heritage') => {
+  const pickStyle = (next: 'chibi' | 'heritage' | 'blocky') => {
     if (next === style) return;
     setStyle(next);
     setDirty(true);
@@ -165,8 +165,14 @@ export function AvatarMaker({
 
   // The preview remounts only when the config actually changes.
   const preview = useMemo(() => cfg, [cfg]);
-  const heritagePreview = useMemo(() => heritageFigureSpec(figureId, hcfg, ''), [figureId, hcfg]);
-  const activeConfig = style === 'chibi' ? cfg : hcfg;
+  // The rig config carries WHICH rig style it is; Heritage and Blocky share
+  // every other field, so switching between them keeps the whole look.
+  const rigConfig = useMemo<HeritageAvatarConfig>(
+    () => ({ ...hcfg, style: style === 'blocky' ? 'blocky' : 'heritage' }),
+    [hcfg, style],
+  );
+  const heritagePreview = useMemo(() => heritageFigureSpec(figureId, rigConfig, ''), [figureId, rigConfig]);
+  const activeConfig = style === 'chibi' ? cfg : rigConfig;
 
   const onSave = () =>
     startTransition(async () => {
@@ -230,6 +236,7 @@ export function AvatarMaker({
         <Row title="Style">
           <Chip on={style === 'chibi'} onClick={() => pickStyle('chibi')}>Chibi</Chip>
           <Chip on={style === 'heritage'} onClick={() => pickStyle('heritage')}>Heritage</Chip>
+          <Chip on={style === 'blocky'} onClick={() => pickStyle('blocky')}>Blocky</Chip>
         </Row>
         {style === 'chibi' ? (
           <>

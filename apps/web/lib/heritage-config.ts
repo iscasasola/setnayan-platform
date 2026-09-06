@@ -24,6 +24,11 @@ import { SKIN_TONES, HAIR_COLORS, HAIR_STYLE_COUNT, hashId, type FigureSpec } fr
 import { CHIBI_OUTFIT_COLORS } from './chibi-config';
 
 export const HERITAGE_STYLE = 'heritage' as const;
+/** The rig styles that share this schema: Heritage (capsule parts) and the
+ *  Blocky Kit (rounded-box parts, owner 2026-09-06). Same skeleton, same
+ *  poses, same look fields — the style IS the part table. */
+export const RIG_STYLES = ['heritage', 'blocky'] as const;
+export type RigStyle = (typeof RIG_STYLES)[number];
 export const HERITAGE_CONFIG_VERSION = 1 as const;
 
 export const HERITAGE_OUTFITS = ['gown', 'suit', 'barong', 'filipiniana', 'neutral'] as const;
@@ -36,7 +41,7 @@ export const HERITAGE_OUTFIT_COLORS = CHIBI_OUTFIT_COLORS;
 
 export type HeritageAvatarConfig = {
   v: typeof HERITAGE_CONFIG_VERSION;
-  style: typeof HERITAGE_STYLE;
+  style: RigStyle;
   skinTone: string;
   hairStyle: number;
   hairColor: string;
@@ -53,7 +58,7 @@ const HEX = /^#[0-9a-f]{6}$/i;
 export function isHeritageStored(stored: unknown): boolean {
   return (
     typeof stored === 'object' && stored !== null && !Array.isArray(stored) &&
-    (stored as { style?: unknown }).style === HERITAGE_STYLE
+    (RIG_STYLES as readonly unknown[]).includes((stored as { style?: unknown }).style)
   );
 }
 
@@ -79,7 +84,7 @@ export function validateHeritageConfig(input: unknown): string[] {
   const known = new Set<string>(HERITAGE_CONFIG_KEYS);
   for (const key of Object.keys(rec)) if (!known.has(key)) errors.push(`unknown key: ${key}`);
   if (rec.v !== HERITAGE_CONFIG_VERSION) errors.push('v must be 1');
-  if (rec.style !== HERITAGE_STYLE) errors.push("style must be 'heritage'");
+  if (!(RIG_STYLES as readonly unknown[]).includes(rec.style)) errors.push("style must be 'heritage' or 'blocky'");
   if (typeof rec.skinTone !== 'string' || !HERITAGE_SKIN_TONES.includes(rec.skinTone)) errors.push('skinTone not in catalog');
   if (typeof rec.hairStyle !== 'number' || !HERITAGE_HAIR_STYLES.includes(rec.hairStyle)) errors.push('hairStyle not in catalog');
   if (typeof rec.hairColor !== 'string' || !HERITAGE_HAIR_COLORS.includes(rec.hairColor)) errors.push('hairColor not in catalog');
@@ -95,7 +100,7 @@ export function resolveHeritageConfig(id: string, stored: unknown): HeritageAvat
   const r = stored as Record<string, unknown>;
   return {
     v: HERITAGE_CONFIG_VERSION,
-    style: HERITAGE_STYLE,
+    style: (RIG_STYLES as readonly unknown[]).includes(r.style) ? (r.style as RigStyle) : HERITAGE_STYLE,
     skinTone: typeof r.skinTone === 'string' && HERITAGE_SKIN_TONES.includes(r.skinTone) ? r.skinTone : d.skinTone,
     hairStyle: typeof r.hairStyle === 'number' && HERITAGE_HAIR_STYLES.includes(r.hairStyle) ? r.hairStyle : d.hairStyle,
     hairColor: typeof r.hairColor === 'string' && HERITAGE_HAIR_COLORS.includes(r.hairColor) ? r.hairColor : d.hairColor,
@@ -115,5 +120,6 @@ export function heritageFigureSpec(id: string, cfg: HeritageAvatarConfig, status
     hairStyle: cfg.hairStyle,
     hairColor: cfg.hairColor,
     statusColor,
+    kit: cfg.style === 'blocky' ? 'blocky' : 'round',
   };
 }

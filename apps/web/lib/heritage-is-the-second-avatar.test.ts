@@ -19,7 +19,7 @@ test('the rig honours skinTone / hairStyle / hairColor — and ONLY when a spec 
   assert.match(f, /const look = spec\.skinTone != null;/);
   assert.match(f, /const dressed = staff \|\| look;/);
   assert.match(f, /const headMat = look \? plainMaterial\(spec\.skinTone!\) : bodyMat;/);
-  assert.match(f, /<mesh geometry=\{HEAD_GEO\} material=\{headMat\}/);
+  assert.match(f, /<mesh geometry=\{G\.head\} material=\{headMat\}/);
   assert.match(f, /\{look && spec\.hairStyle != null \? \(/);
   assert.match(f, /geometry=\{hairCapGeometry\(spec\.hairStyle\)\}/);
   // the blob is untouched: a look-less spec still resolves every material to bodyMat
@@ -36,7 +36,7 @@ test('every reader dispatches through resolveGuestAvatar; nobody feeds a stored 
   }
   assert.match(walk, /resolveGuestAvatar\(scene\.you\?\.avatarConfig, 'guest-self', guestAvatarsEnabled\(\)\)/);
   assert.match(walk, /if \(!ga \|\| ga\.style !== 'chibi'\) continue;/, 'the chibi crowd takes chibis only');
-  assert.match(walk, /return ga\?\.style === 'heritage' \? ga\.config : null;/, 'heritage seats are individual dressed figures');
+  assert.match(walk, /return ga && ga\.style !== 'chibi' \? ga\.config : null;/, 'rig-style seats are individual dressed figures');
   assert.match(walk, /if \(!photoUrl && !heritageAt\) return null;/);
   assert.match(walk, /\? heritageFigureSpec\('guest-self', look, ''\)/, "the viewer's own heritage rides the blob path on a dressed spec");
   assert.match(remotes, /if \(avatar\?\.style === 'chibi'\) \{/);
@@ -56,7 +56,7 @@ test('the maker offers both styles, previews the active one, saves the active on
   assert.match(m, /<Chip on=\{style === 'heritage'\} onClick=\{\(\) => pickStyle\('heritage'\)\}>Heritage<\/Chip>/);
   assert.match(m, /<Figure spec=\{heritagePreview\} pose="stand" castShadow=\{false\} \/>/);
   assert.match(m, /saveMyAvatarAction\(eventId, slug, activeConfig\)/);
-  assert.match(m, /const activeConfig = style === 'chibi' \? cfg : hcfg;/);
+  assert.match(m, /const activeConfig = style === 'chibi' \? cfg : rigConfig;/);
   for (const row of ['HERITAGE_SKIN_TONES', 'HERITAGE_HAIR_STYLES', 'HERITAGE_HAIR_COLORS', 'HERITAGE_OUTFITS', 'HERITAGE_OUTFIT_COLORS']) {
     assert.match(m, new RegExp(`\\{${row}\\.map\\(`), `${row} is driven off the catalog`);
   }

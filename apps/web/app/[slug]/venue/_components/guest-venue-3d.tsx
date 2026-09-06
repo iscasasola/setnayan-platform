@@ -338,7 +338,7 @@ function GuestTable({
         const heritageAt = (() => {
           if (!taken || !guestAvatarsEnabled()) return null;
           const ga = resolveGuestAvatar(avatarBySeat?.get(i), `${table.id}:${i}`, true);
-          return ga?.style === 'heritage' ? ga.config : null;
+          return ga && ga.style !== 'chibi' ? ga.config : null;
         })();
         // Neutral, ringless strangers render through the room-level
         // <InstancedSeatedCrowd> (one batch for the whole walk). Only per-guest
@@ -1479,7 +1479,7 @@ export default function GuestVenue3D({
             remotesRef={remotesRef}
             waveUntil={sharedRoom.selfGreetUntil}
             avatar={selfAvatar?.style === 'chibi' ? selfAvatar.config : null}
-            look={selfAvatar?.style === 'heritage' ? selfAvatar.config : null}
+            look={selfAvatar && selfAvatar.style !== 'chibi' ? selfAvatar.config : null}
           />
         ) : null}
 

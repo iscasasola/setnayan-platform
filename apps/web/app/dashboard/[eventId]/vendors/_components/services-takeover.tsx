@@ -82,7 +82,7 @@ const SECTION_HEADING: Record<BudgetBuildTab, string> = {
   // people you chose — locked, mid-handshake, and candidates — not a verb. The
   // owner's complaint was literal: "why does the build your team has build your
   // plan and your team?" It named itself twice and then named a THIRD thing.
-  build: isExploreReplanEnabled() ? 'Your team' : 'Build your team',
+  build: isExploreReplanEnabled() ? 'Picks' : 'Build your team',
   budget: isExploreReplanEnabled() ? 'Payments' : 'Your budget',
   compare: isExploreReplanEnabled() ? 'Your plans' : 'Compare saved builds',
 };
@@ -198,7 +198,7 @@ export function ServicesTakeover({
           breadcrumb component and the masthead's own docblock says so. */}
       {replan ? (
         <PageMasthead
-          title="Marketplace"
+          title="Your Team"
         />
       ) : null}
 

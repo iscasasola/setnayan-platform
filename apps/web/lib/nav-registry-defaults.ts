@@ -286,7 +286,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-account",
     route: "/explore",
-    label: "Marketplace",
+    // Lineage: Explore → Merkado → Marketplace → Suppliers (2026-09-06).
+    // ⚠ Keep this comment SHORT: `front-door-invariants.test.ts` scans at most
+    // 400 chars from this key to its label. A longer note broke that guard.
+    label: "Suppliers",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Store",
@@ -386,10 +389,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    // Label lineage: Explore → Merkado (2026-07) → Marketplace (2026-07-27,
-    // owner: "just use Marketplace so it is easier to understand").
-    // Slot key + route unchanged throughout.
-    label: "Marketplace",
+    // Lineage: Explore → Merkado → Marketplace → Your Team (2026-09-06).
+    // ⚠ Keep SHORT — two guards scan ≤400 chars from key to label.
+    label: "Your Team",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -427,10 +429,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/vendors",
-    // Label lineage: Explore → Merkado (2026-07) → Marketplace (2026-07-27,
-    // owner: "just use Marketplace so it is easier to understand").
-    // Slot key + route unchanged throughout.
-    label: "Marketplace",
+    // Lineage: Explore → Merkado → Marketplace → Your Team (2026-09-06).
+    // ⚠ Keep SHORT — two guards scan ≤400 chars from key to label.
+    label: "Your Team",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",

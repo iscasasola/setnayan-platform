@@ -1323,7 +1323,7 @@ export function FrontDoorShell({
                       diverged, and the same row read two different words on
                       two pages. `front-door-invariants.test` now pins them
                       equal. */}
-                  {slotLabel(RAIL_SLOT.find, 'Marketplace')}
+                  {slotLabel(RAIL_SLOT.find, 'Suppliers')}
                 </span>
                 <span className="fd-icon-caption">Market</span>
               </Link>

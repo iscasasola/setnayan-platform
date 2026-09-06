@@ -2085,6 +2085,12 @@ const DECOR_SLOTS: Partial<Record<PartId, { x: number; y: number; w: number; h: 
   // The overhead band every `ceilingLayer` treatment hangs inside: the draped
   // swags reach y 96 at their lowest, the fairy-light rows end at y 70.
   ceiling: { x: 0, y: 0, w: 960, h: 100, rx: 0 },
+  // The couple's spot: the flat `stage()` draws its riser as a 300-wide rect at
+  // y 372 with an ellipse platform at cy 392, so the furniture standing on it
+  // occupies x 330–630 above that line. The box is that footprint plus the
+  // height a sweetheart table or clad riser needs; the 16:9 sources are
+  // centre-weighted, so `slice` crops sky and floor rather than the table.
+  stage: { x: 330, y: 262, w: 300, h: 132, rx: 8 },
 };
 
 /** Zone → the href of its already-retinted decor image. A zone absent from the
@@ -2179,7 +2185,12 @@ export function renderVenueSvg(
       : '',
     decorImage('backdrop', decor) ??
       backdrop(selAll(design, 'backdrop', 'style'), selAll(design, 'backdrop', 'florals'), P),
-    stage(sel(design, 'stage', 'setup'), selAll(design, 'stage', 'florals'), P),
+    // The stage image REPLACES the flat furniture, exactly as backdrop and
+    // ceiling do — and, like them, an uncovered (zone, style) falls straight
+    // back to the flat drawing. `people` is composited after this, so the
+    // couple still stands in front of whichever version is drawn.
+    decorImage('stage', decor) ??
+      stage(sel(design, 'stage', 'setup'), selAll(design, 'stage', 'florals'), P),
     // The venue gate stays OUTERMOST on purpose: a beach reception has no
     // ceiling, so it gets no ceiling decor image either, however well the
     // couple's style family is covered.

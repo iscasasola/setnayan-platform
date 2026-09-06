@@ -76,6 +76,7 @@ import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
+import { folderHintButtonLabel, folderHintFor } from '@/lib/category-hints';
 import {
   coverageBadgeOf,
   coverageStateOf,
@@ -1221,6 +1222,7 @@ export function ShortlistCategories({
   // setting, so it always starts closed and never persists), plus the in-flight
   // state and the last refusal message for add/remove.
   const [hintTile, setHintTile] = useState<string | null>(null);
+  const [hintFolder, setHintFolder] = useState<string | null>(null);
   const [planEditing, startPlanEdit] = useTransition();
   const { confirm, dialog: removeConfirmDialog } = useConfirm();
   const [planError, setPlanError] = useState<{ tile: string; message: string } | null>(null);
@@ -2041,10 +2043,12 @@ export function ShortlistCategories({
             id={benchFolderAnchorId(folder.slug)}
             className={`fold${folderOpen ? ' open' : ''}`}
           >
+            <div className="fold-head-row" style={{ display: 'flex', alignItems: 'center' }}>
             <button
               type="button"
               className="fold-head"
               aria-expanded={folderOpen}
+              style={{ flex: 1, minWidth: 0 }}
               onClick={() => {
                 setOpenFolder(folderOpen ? null : folder.folder);
                 setOpenTile(null);
@@ -2088,6 +2092,29 @@ export function ShortlistCategories({
                 <ChevronDown className="fold-chev" size={17} strokeWidth={1.75} aria-hidden />
               </span>
             </button>
+            {/* The folder ⓘ — a SIBLING of the head button, not nested inside
+                it (buttons cannot nest), exactly as `cat-head-row` already does
+                one level down. Measured 2026-09-06: all 16 folders had no ⓘ at
+                all, so a collapsed "Specialty" or "Dining extras" told a couple
+                nothing until they expanded it. Reuses `.cat-info` so the two
+                levels look and behave identically. */}
+            <button
+              type="button"
+              className="cat-info"
+              aria-expanded={hintFolder === folder.folder}
+              aria-label={folderHintButtonLabel(folder.label)}
+              title={folderHintButtonLabel(folder.label)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setHintFolder((cur) => (cur === folder.folder ? null : folder.folder));
+              }}
+            >
+              i
+            </button>
+            </div>
+            {hintFolder === folder.folder ? (
+              <div className="hintbox">{folderHintFor(folder.folder)}</div>
+            ) : null}
             <div className="fold-collapse">
               <div className="fold-body">
                 {rowTiles.map((t) => {

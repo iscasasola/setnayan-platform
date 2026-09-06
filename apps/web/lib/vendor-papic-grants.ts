@@ -122,7 +122,8 @@ export async function deriveVendorPapicTier(
 /**
  * THE CREDITS THIS SUPPLIER HOLDS FOR THIS EVENT — the sum of their ledger,
  * `vendor_papic_portfolio_credit_grants` (owner 2026-09-05: 5% of the booking
- * fee paid, cap 1,000, no floor; plus ₱500/25 packs; written only on admin
+ * fee paid, cap 1,000, no floor; plus ₱500 packs (100 credits since
+ * 2026-09-06); written only on admin
  * payment approval by lib/sku-activation.ts).
  *
  * 🔁 This replaced `fetchVendorBookingFeePaidPhp` on 2026-09-05 (owner:
@@ -196,7 +197,7 @@ export async function fetchVendorPapicPackPricePhp(
 /**
  * WHAT G3 CALLS — the supplier's credits, spend and pack, in ONE read.
  *
- * Owner 2026-09-05: the under-25 grant still lands and the ₱500/25 pack is the
+ * Owner 2026-09-05: a grant under a pack's worth still lands and the ₱500 pack is the
  * CTA beside it. This returns everything that surface needs so it re-derives
  * nothing: the ledger total, what the same meter has already spent, the
  * allowance's own "left" (tier floor included — the SAME number the capture

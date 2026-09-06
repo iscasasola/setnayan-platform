@@ -296,7 +296,8 @@ async function grantMoodboardRenderPackCredits(ctx: ActivationContext): Promise<
  * named on 2026-09-05 (*"when we approve the payment"*):
  *   • the booking-fee approval → `floor(fee × 5%)`, cap 1,000, no floor
  *     (`grantVendorPapicCreditsForBookingFee`);
- *   • the ₱500/25 pack approval → 25 (`grantVendorPapicPortfolioPack`).
+ *   • the ₱500 pack approval → VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS (100 since
+ *     2026-09-06; `grantVendorPapicPortfolioPack`).
  *
  * IDEMPOTENT BY (order_id, source): the table's own partial UNIQUE index
  * `vendor_papic_portfolio_credit_grants_order_source_unique` enforces it, so a
@@ -409,7 +410,8 @@ async function grantVendorPapicCreditsForBookingFee(
 
 /**
  * The pack door — 'vendor_papic_portfolio_pack' → 25 credits for ONE event
- * (owner: *"they pay 500 pesos for 25 papic credits … the photo importation
+ * (owner 2026-09-05, credits since RAISED to 100 on 2026-09-06 — the ₱500 did
+ * not move: *"they pay 500 pesos for 25 papic credits … the photo importation
  * fee for their portfolio"*). The order must carry the event it is for and the
  * vendor who paid (`orders.event_id`, `orders.vendor_profile_id`); a pack with
  * no event has nowhere to land and is reported, not guessed.
@@ -1028,7 +1030,8 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   [VENDOR_DEEP_SEARCH_SKU_CODE]: activateVendorDeepSearchOrder,
 
   // 'vendor_papic_portfolio_pack' → 25 Papic credits for ONE event, into the
-  // supplier's own ledger (owner 2026-09-05: "they pay 500 pesos for 25 papic
+  // supplier's own ledger (owner 2026-09-05, raised to 100 credits 2026-09-06:
+  // "they pay 500 pesos for 25 papic
   // credits"). The 5% booking-fee door is the `vendor_booking_fee__` prefix
   // hook below. See grantVendorPapicPortfolioPack.
   [VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE]: grantVendorPapicPortfolioPack,

@@ -818,6 +818,21 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'created_by_user_id',
     why: '⚠ This stamp records WHO FIRST PRESSED ADD, not whose account it is — the update path rewrites the handle and account name but never this column. So a row now holding the OTHER partner’s GCash number still carries the leaver’s uuid. Nulling is the only safe move; see PARTIALLY_PURGED for what is deliberately retained.',
   },
+  {
+    table: 'vendor_invites',
+    column: 'invited_by_user_id',
+    why: 'Who tapped "Invite to Setnayan". MOVED here from SUBJECT_ROW_DELETES by owner ruling 2026-09-06, together with migration 20271210831005 which made the column nullable + SET NULL. The old reason read "CASCADE + NOT NULL — the schema’s own verdict that an invitation dies with whoever sent it", which argued FROM the constraint to the disposition and so could never notice the constraint was wrong. It was: the row is a LIVE CLAIM CREDENTIAL held by the INVITEE and carrying THEIR email, so deleting it kills a claim link a supplier is holding and applyClaimAutoLink answers INVITE_NOT_FOUND to somebody who did nothing. The invitee’s email is third-party data this file already excludes from erasure elsewhere. The sender is de-identified either way; the delete only added a second victim. Its sibling claimed_by_user_id was already nulled here, so the table now treats both stamps alike.',
+  },
+  {
+    table: 'vendor_lock_proposals',
+    column: 'proposed_by_user_id',
+    why: 'The coordinator who raised a lock proposal. MOVED here from SUBJECT_ROW_DELETES by owner ruling 2026-09-06, with migration 20271210831005. The old reason called it "a proposal the subject personally raised" and leaned on NOT NULL + CASCADE being "the schema’s own answer" — the same circular step. The row is ADDRESSED TO THE COUPLE ("your coordinator wants to lock vendor X — confirm or dismiss") and a pending one is the ONLY thing that renders their confirm strip, so deleting it removes a live decision from their dashboard for a reason that has nothing to do with them. Nulling keeps the decision theirs and still de-identifies the coordinator.',
+  },
+  {
+    table: 'vendor_admin_motions',
+    column: 'proposed_by',
+    why: 'Who RAISED a motion to demote or remove another vendor admin. Owner ruling 2026-09-06, answering the DPO question this file had carried open: clear it. The motion’s value is the DECISION and the VOTES, not who raised it, and the target’s record survives either way — so retaining an erased person’s uuid buys nothing and costs a residual. The row itself must NOT be deleted: vendor_admin_motion_votes.motion_id CASCADEs off it, so deleting the motion would destroy OTHER admins’ votes (the event_delegates over-deletion in a different suit). Migration 20271210831005 made the column nullable + SET NULL, which handles a hard DELETE; this entry is what handles an ERASURE, which anonymizes in place and issues no delete. Both halves are needed — the FK alone never fires on the erasure path.',
+  },
 ] as const;
 
 /**
@@ -831,11 +846,6 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   column: string;
   why: string;
 }> = [
-  {
-    table: 'vendor_lock_proposals',
-    column: 'proposed_by_user_id',
-    why: 'A proposal the subject personally raised. NOT NULL and ON DELETE CASCADE — the schema’s own answer is that it dies with the account; erasure just never issued the delete that would have fired it.',
-  },
   {
     table: 'vendor_feature_recommendations',
     column: 'recommended_by_user_id',
@@ -882,11 +892,6 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_creator_offers',
     column: 'creator_user_id',
     why: 'CASCADE + NOT NULL — the offer is addressed TO this creator, so the row is about them. Its holder side is an actor stamp and is nulled instead.',
-  },
-  {
-    table: 'vendor_invites',
-    column: 'invited_by_user_id',
-    why: 'CASCADE + NOT NULL — the schema’s own verdict that an invitation dies with whoever sent it. The claimed side is a stamp and is nulled, so a store that already accepted keeps its record.',
   },
   {
     table: 'coordinator_broadcasts',
@@ -993,22 +998,42 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
 /**
  * ⚠ RESIDUAL, KNOWN AND ACCEPTED: `vendor_admin_motions.proposed_by`.
  *
- * It is CASCADE + NOT NULL like `target_user_id`, so the schema's own verdict is
- * that the motion dies with its proposer too. We deliberately do NOT delete on
- * it, because a motion is a governance record ABOUT its target — removing it
- * because the PROPOSER left would erase a third party's record of a demotion
- * that happened. That is the `event_delegates` over-deletion in a different suit.
+ * It WAS CASCADE + NOT NULL like `target_user_id`, so the schema's own verdict
+ * read as "the motion dies with its proposer too". We deliberately did NOT
+ * delete on it, because a motion is a governance record ABOUT its target —
+ * removing it because the PROPOSER left would erase a third party's record of a
+ * demotion that happened. That is the `event_delegates` over-deletion in a
+ * different suit.
  *
- * The cost: after erasure, a motion the subject proposed still carries their
- * uuid, and NOT NULL means it cannot be nulled instead. Neither option is clean.
+ * ✅ THE SCHEMA NOW AGREES, AND THE HARDER HALF OF THAT WAS NOT THE UUID.
+ * Migration 20271210831005 converted `proposed_by` to SET NULL + nullable, on
+ * the argument that `vendor_admin_motion_votes.motion_id` CASCADEs off the
+ * motion — so a hard delete of the proposer destroyed OTHER admins' votes, not
+ * merely the proposer's stamp.
+ *
+ * ⚠ BUT THE RESIDUAL BELOW IS NOT CLEARED BY THAT, AND MUST NOT BE READ AS IF
+ * IT WERE. `ON DELETE SET NULL` fires on DELETE only. RA 10173 erasure
+ * anonymizes IN PLACE and issues no delete (`purge.ts` goes through
+ * `auth.admin.updateUserById`), so the FK never fires on the erasure path and
+ * the subject's uuid still sits in `proposed_by` afterwards. What changed is
+ * that nulling is now POSSIBLE — the technical excuse is gone, the decision is
+ * not. Clearing it for real means an `AUTHOR_UUID_NULLS` entry, and that is the
+ * product/DPO call the `why` below still asks for.
+ *
  * Written down rather than quietly picked, because a silent residual is how the
  * first 78 got classified wrong.
  */
 export const KNOWN_RESIDUAL_SUBJECT_UUIDS: ReadonlyArray<{ column: string; why: string }> = [
-  {
-    column: 'vendor_admin_motions.proposed_by',
-    why: 'Deleting on it would destroy a governance record about the motion’s TARGET; NOT NULL forecloses nulling. Needs a product/DPO call on whether a proposer’s identity may be retained in a peer-governance record.',
-  },
+  // EMPTY, and that is the point: the one entry this list ever held
+  // (`vendor_admin_motions.proposed_by`) was RESOLVED on 2026-09-06 rather than
+  // re-explained. The schema half landed in migration 20271210831005 (nullable +
+  // SET NULL, so a hard delete clears the stamp instead of destroying other
+  // admins' votes) and the erasure half is now an AUTHOR_UUID_NULLS entry, which
+  // is what actually fires on an anonymize-in-place request.
+  //
+  // Keep it empty rather than deleting the export: a residual that nobody has
+  // anywhere to write down is a residual that goes unwritten, and this file's
+  // own note says a silent residual is how the first 78 got classified wrong.
 ] as const;
 
 /**

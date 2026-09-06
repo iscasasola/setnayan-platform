@@ -82,9 +82,16 @@ test('falls back to svg when style_family is null (the real, unsolved gap)', () 
   assert.deepEqual(resolveDecorLayer('backdrop', null, CATALOG), { kind: 'svg' });
 });
 
-test('falls back to svg for a zone outside the pilot pair, even with a matching style', () => {
-  const wideCatalog: DecorLayerCatalog = { tables: { 'tropical heritage': ASSET } };
-  assert.deepEqual(resolveDecorLayer('tables', 'tropical heritage', wideCatalog), {
+test('falls back to svg for a zone outside the decor list, even with a matching style', () => {
+  // 🪤 THIS TEST USED `tables` AS ITS OUT-OF-SCOPE EXEMPLAR, AND `tables` JOINED
+  // THE LIST (20271211440288), which retired its premise rather than breaking
+  // its claim. Picked again on a durable basis: `entrance` is the aisle runner,
+  // a FLOOR TINT rather than a dressable object, and `people` is a modifier
+  // drawn from role attire colours — `build-sessions/RECEPTION-ART-PLAN.md`
+  // rules both permanently out of scope for generated decor. So this exemplar
+  // does not expire the way a merely-not-yet-done zone does.
+  const wideCatalog: DecorLayerCatalog = { entrance: { 'tropical heritage': ASSET } };
+  assert.deepEqual(resolveDecorLayer('entrance', 'tropical heritage', wideCatalog), {
     kind: 'svg',
   });
 });
@@ -112,7 +119,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
   // fails loudly if someone adds a zone speculatively.
   assert.deepEqual(
     [...PILOT_DECOR_ZONES].sort(),
-    ['backdrop', 'ceiling', 'stage'],
+    ['backdrop', 'ceiling', 'stage', 'tables'],
     'PILOT_DECOR_ZONES changed. That is allowed — but it is a switch, so update the artwork ' +
       'and the count in the same change, never the list alone.',
   );
@@ -456,6 +463,61 @@ test('RA1 · REAL RASTER: the knockout clears the drawing\'s own room and keeps 
         'That is not a background any more — the tolerance is eating the drawing.',
     );
   }
+});
+
+test('RA1 · REAL PIXELS: no panel drawing is ever knocked out — all ten stay whole', async () => {
+  // 🔑 THE MIRROR OF THE STAGE ASSERTION, AND THE ONE WITH THE WORSE FAILURE.
+  // `backdrop` and `ceiling` drawings FILL their zone: their background IS the
+  // panel behind the couple and the canopy overhead. If the knockout ever
+  // reached them, those would be punched out — and the SVG bytes on disk would
+  // be completely unchanged, so a byte-identity check cannot see it.
+  //
+  // 🪤 THE FIRST DRAFT OF THIS TEST NAMED ONE FILE, AND PICKED THE ONE THAT
+  // COULD NOT FAIL. `backdrop/editorial-cream` has corners that disagree, so
+  // `knockOutSceneBackground` REFUSES it and returns the source untouched —
+  // adding `backdrop` to SCENE_DECOR_ZONES left that assertion green. Measured
+  // 2026-09-07, five of these ten would lose 39.6%–78.1% of their opaque pixels
+  // and five are saved only by that accidental refusal. So the claim is made
+  // over ALL TEN, and it does not depend on which file someone happened to pick.
+  const src = readFileSync(new URL('./reception-decor-layers.ts', import.meta.url), 'utf8');
+  for (const zone of ['backdrop', 'ceiling'] as const) {
+    assert.ok(
+      !SCENE_DECOR_ZONES.includes(zone),
+      `${zone} is in SCENE_DECOR_ZONES. Its drawings FILL their zone, so knocking their ` +
+        "background out makes the couple's panel see-through.",
+    );
+    const dir = new URL(`../public/moodboard-seed/venue_scene/${zone}/`, import.meta.url);
+    for (const file of readdirSync(dir).filter((f) => f.endsWith('.svg'))) {
+      const { data, info } = await sharp(fileURLToPath(new URL(file, dir)), { density: 300 })
+        .resize(800, 800, { fit: 'inside' })
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const rgba = new Uint8ClampedArray(data);
+      const out = knockOutSceneBackground(rgba, info.width, info.height);
+      let cleared = 0;
+      let opaque = 0;
+      for (let i = 0; i < rgba.length; i += 4) {
+        if (rgba[i + 3]! < 250) continue;
+        opaque++;
+        if (out[i + 3]! === 0) cleared++;
+      }
+      // Not an assertion that the knockout is harmless here — five of these ten
+      // are NOT — but that the wiring never lets it run on them.
+      const wouldLose = (100 * cleared) / opaque;
+      assert.ok(
+        !SCENE_DECOR_ZONES.includes(zone),
+        `${zone}/${file} would lose ${wouldLose.toFixed(1)}% of its opaque pixels if the ` +
+          'knockout ran on it, and its zone is now in SCENE_DECOR_ZONES.',
+      );
+    }
+  }
+  assert.match(
+    src,
+    /SCENE_DECOR_ZONES: readonly PartId\[\] = \['stage', 'tables'\]/,
+    'SCENE_DECOR_ZONES no longer reads exactly [stage, tables] in the source. Panel zones ' +
+      '(backdrop, ceiling) must never appear there.',
+  );
 });
 
 test('RA1: the knockout refuses to guess when the corners disagree', () => {

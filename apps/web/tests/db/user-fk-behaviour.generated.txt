@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 237 single-column FKs onto auth.users / public.users
-# CASCADE=65  RESTRICT=3  SET NULL=169
+# 238 single-column FKs onto auth.users / public.users
+# CASCADE=66  RESTRICT=3  SET NULL=169
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -132,6 +132,7 @@ kwento_assignments.assigned_by_user_id                    SET NULL     nullable 
 lead_token_holds.holder_user_id                           CASCADE      NOT NULL  -> auth.users
 live_studio_channel_oauth_state.initiated_by              CASCADE      NOT NULL  -> auth.users
 live_studio_encoder_claims.requested_by                   CASCADE      NOT NULL  -> auth.users
+live_studio_encoder_tokens.requested_by                   CASCADE      NOT NULL  -> auth.users
 manpower_gigs.posted_by_user_id                           SET NULL     nullable  -> users
 marketing_share_consents.customer_id                      CASCADE      NOT NULL  -> users
 moodboard_library_assets.uploaded_by                      SET NULL     nullable  -> users

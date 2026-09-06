@@ -119,3 +119,53 @@ test('source · pressing the folder ⓘ does not also toggle the folder', () => 
   const seg = BENCH.slice(i, i + 500);
   assert.match(seg, /e\.stopPropagation\(\)/, 'the press would collapse the folder underneath it');
 });
+
+/* ── THE RE-VOICE GUARD (2026-09-06) ────────────────────────────────────────
+   All 70 lines were rewritten warmer in one pass. The register was the point;
+   the BOOKING TIMINGS were not — those are the most trusted, hardest-won part
+   of this copy ("licence valid 120 days", "crews are 15-25 people"), and a
+   rewrite is exactly where a number quietly disappears and nobody notices.
+   A future re-voice must carry them too. */
+
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+
+test('a re-voice never drops a booking timing', () => {
+  const corpus = [
+    ...PLAN_GROUPS.map((g) => g.hint ?? ''),
+    ...Object.values(TILE_HINTS),
+    ...Object.values(FOLDER_HINTS),
+  ].join(' \n ');
+
+  // Every figure that survived the 2026-09-06 rewrite. Each one is a real
+  // planning fact a couple acts on — not decoration.
+  const FIGURES = [
+    '12 months out',      // ceremony venue
+    '9-12 months out',    // coordinator
+    '4-6 months out',     // catering, host/MC
+    '15-25 people',       // crew meals
+    '1-2 months',         // hair & makeup, kids entertainer, accommodation
+    '6-9 months ahead',   // live band
+    '2-3 months',         // dance instructor, groom's attire
+    '4-6 weeks',          // after-party DJ
+    '3-4 months',         // cake
+    '6-8 weeks',          // rings
+    '120 days',           // marriage licence validity
+    '4 months out',       // wedding paperwork
+    '2 months out',       // orchestra song list
+    '2-4 weeks out',      // restaurant reservation
+    '4-6 months plus fittings', // bride's attire
+  ];
+  const lost = FIGURES.filter((f) => !corpus.includes(f));
+  assert.deepEqual(lost, [], `a rewrite dropped these timings: ${lost.join(' · ')}`);
+});
+
+test('the warmer voice did not turn into a sales pitch', () => {
+  const all = [...Object.values(TILE_HINTS), ...Object.values(FOLDER_HINTS), ...PLAN_GROUPS.map((g) => g.hint ?? '')];
+  for (const h of all) {
+    if (!h) continue;
+    assert.ok(
+      !/\bbest\b.{0,12}\bprice|cheapest|limited time|act now|only \d+ left|don't miss|hurry/i.test(h),
+      `scarcity or sales pressure crept in: "${h}"`,
+    );
+  }
+});

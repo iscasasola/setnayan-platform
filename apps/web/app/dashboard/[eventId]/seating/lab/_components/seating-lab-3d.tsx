@@ -86,6 +86,7 @@ import {
   ROOM_DRAWN_ATTRIBUTES,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, primaryOnlyNotice, type ReceptionDesign } from '@/lib/reception-scene';
+import type { BookedZoneCandidate } from '@/lib/reception-suggestion-chips';
 import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
 import { ReceptionDesignEditor } from './reception-design-editor';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
@@ -263,6 +264,14 @@ type Props = {
    *  the chips for that zone are frozen and the panel says who agreed and when.
    *  Absent = nothing agreed, which is the common case. */
   finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** RV2 — booked suppliers whose trade reaches a reception zone (owner ruling
+   *  Q9, 2026-09-06). OFFERS, not settings: nothing here has been applied to
+   *  `receptionDesign`, and rendering them applies nothing. Resolved on the
+   *  server because the trade map reaches `next/headers`. */
+  bookedSuggestions?: BookedZoneCandidate[];
+  /** RV2 — suggestion keys this couple has already waved away
+   *  (`events.dismissed_room_suggestions`). */
+  dismissedSuggestions?: string[];
   /** MB15 — `events.moodboard_theme_name`, the couple's own name for this
    *  look. Null when they have not named one; the room then says nothing rather
    *  than inventing a title. */
@@ -470,7 +479,7 @@ type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target
 // figure for free. `faceY` is the heading it settles into while dancing.
 type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, themeName, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, bookedSuggestions, dismissedSuggestions, themeName, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -3032,6 +3041,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         receptionDesign={design}
         inspirationByPart={inspirationByPart}
         finalizedByPart={finalizedByPart}
+        bookedSuggestions={bookedSuggestions}
+        dismissedSuggestions={dismissedSuggestions}
         themeName={themeName}
         onReceptionDesignChange={setDesign}
         styleFamily={styleFamily}
@@ -5244,6 +5255,8 @@ function Hud({
   receptionDesign,
   inspirationByPart,
   finalizedByPart,
+  bookedSuggestions,
+  dismissedSuggestions,
   themeName,
   onReceptionDesignChange,
   styleFamily,
@@ -5332,6 +5345,14 @@ function Hud({
   /** MB15 — room zones a supplier has agreed to, keyed by reception part id.
    *  Frozen in the designer below and named in the room legend. */
   finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** RV2 — booked suppliers whose trade reaches a reception zone (owner ruling
+   *  Q9, 2026-09-06). OFFERS, not settings: nothing here has been applied to
+   *  `receptionDesign`, and rendering them applies nothing. Resolved on the
+   *  server because the trade map reaches `next/headers`. */
+  bookedSuggestions?: BookedZoneCandidate[];
+  /** RV2 — suggestion keys this couple has already waved away
+   *  (`events.dismissed_room_suggestions`). */
+  dismissedSuggestions?: string[];
   /** MB15 — `events.moodboard_theme_name`; null when the couple never named
    *  their look, and the legend then shows no title rather than a made-up one. */
   themeName?: string | null;
@@ -5740,6 +5761,8 @@ function Hud({
               design={receptionDesign}
               inspirationByPart={inspirationByPart}
               finalizedByPart={finalizedByPart}
+        bookedSuggestions={bookedSuggestions}
+        dismissedSuggestions={dismissedSuggestions}
               onChange={onReceptionDesignChange}
               styleFamily={styleFamily}
               venueSetting={venueSetting}

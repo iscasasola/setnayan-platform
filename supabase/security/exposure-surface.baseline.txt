@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6569
+# facts: 6580
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     583
-#   col       4827
-#   policy    894
+#   tpriv     584
+#   col       4835
+#   policy    896
 #   view      8
 #   func      253
 #
@@ -513,6 +513,7 @@ tpriv	public.vendor_papic_capture_grants|authenticated	SIUD
 tpriv	public.vendor_papic_captures|anon	SIUD
 tpriv	public.vendor_papic_captures|authenticated	SIUD
 tpriv	public.vendor_papic_portfolio_credit_grants|authenticated	S
+tpriv	public.vendor_papic_portfolio_photos|authenticated	SI
 tpriv	public.vendor_partnerships|anon	SIUD
 tpriv	public.vendor_partnerships|authenticated	SIUD
 tpriv	public.vendor_payment_asks|authenticated	SI
@@ -4671,6 +4672,14 @@ col	public.vendor_papic_portfolio_credit_grants.note	anon=- authenticated=S
 col	public.vendor_papic_portfolio_credit_grants.order_id	anon=- authenticated=S
 col	public.vendor_papic_portfolio_credit_grants.source	anon=- authenticated=S
 col	public.vendor_papic_portfolio_credit_grants.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_papic_portfolio_photos.created_at	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.credits_spent	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.event_id	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.hidden_at	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.nsfw_checked	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.photo_id	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.r2_object_key	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.vendor_profile_id	anon=- authenticated=SI
 col	public.vendor_partnerships.accepted_at	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.additional_fee_centavos	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.admin_verified	anon=SIU authenticated=SIU
@@ -6191,6 +6200,8 @@ policy	public.vendor_papic_captures|vendor_papic_captures_vendor_insert	mode=PER
 policy	public.vendor_papic_captures|vendor_papic_captures_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR is_admin()) check=NULL
 policy	public.vendor_papic_captures|vendor_papic_captures_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_papic_portfolio_credit_grants|vendor_papic_portfolio_credit_grants_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR is_admin()) check=NULL
+policy	public.vendor_papic_portfolio_photos|vendor_papic_portfolio_photos_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
+policy	public.vendor_papic_portfolio_photos|vendor_papic_portfolio_photos_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR is_admin()) check=NULL
 policy	public.vendor_partnerships|admins manage vendor partnerships	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
 policy	public.vendor_partnerships|parties read own vendor partnerships	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((recommending_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (recommended_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))) check=NULL
 policy	public.vendor_partnerships|proposer inserts vendor partnership	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((recommending_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = 'proposed'::text))

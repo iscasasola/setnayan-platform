@@ -43,6 +43,8 @@ type PromoRow = {
   show_banner: boolean;
   created_at: string;
   deal_length_days: number | null;
+  event_date_from: string | null;
+  event_date_to: string | null;
 };
 
 const AUDIENCE_LABEL: Record<string, string> = {
@@ -80,6 +82,18 @@ const fmtDateTime = (iso: string) =>
     timeZone: 'Asia/Manila',
   }).format(new Date(iso));
 
+/** 'YYYY-MM-DD' → 'Dec 25, 2026'. Plain calendar day, no timezone conversion
+ * (a Date parsed from a bare date string at midnight UTC would print the
+ * PREVIOUS day in a negative-offset zone — force UTC on the formatter so the
+ * date-only column always reads back as the day it says). */
+const fmtDay = (dateOnly: string) =>
+  new Intl.DateTimeFormat('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${dateOnly}T00:00:00Z`));
+
 type Props = {
   searchParams: Promise<{
     created?: string;
@@ -99,7 +113,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
     admin
       .from('promo_free_windows')
       .select(
-        'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, is_active, show_banner, created_at, deal_length_days',
+        'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, is_active, show_banner, created_at, deal_length_days, event_date_from, event_date_to',
       )
       .order('created_at', { ascending: false }),
     fetchV2CustomerCatalog(),
@@ -236,6 +250,36 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           </label>
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">
+              Only for events dated <span className="text-ink/45">(optional)</span>
+            </span>
+            <input
+              type="date"
+              name="event_date_from"
+              className="input-field w-full"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">
+              through <span className="text-ink/45">(optional)</span>
+            </span>
+            <input
+              type="date"
+              name="event_date_to"
+              className="input-field w-full"
+            />
+          </label>
+        </div>
+        <p className="-mt-2 text-xs text-ink/50">
+          Leave both blank to free these services for <strong>any event</strong>
+          (unchanged). Set one or both to restrict the freebie to couples whose
+          event date falls in that range — inclusive; use the same date in both
+          fields for one specific date. An event with no locked date yet does
+          not qualify for a date-restricted window.
+        </p>
+
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-ink/80">
             Services to make free
@@ -268,6 +312,20 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             </div>
           )}
         </fieldset>
+
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-ink/80">
+            Reason <span className="text-ink/45">(logged, min. 10 characters)</span>
+          </span>
+          <input
+            name="reason"
+            required
+            minLength={10}
+            maxLength={240}
+            placeholder="e.g. Launch promo — Papic free for December weddings"
+            className="input-field w-full"
+          />
+        </label>
 
         <label className="flex items-center gap-2 text-sm text-ink/80">
           <input
@@ -414,6 +472,15 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                       {AUDIENCE_LABEL[row.audience_type] ?? row.audience_type}
                       {row.deal_length_days
                         ? ` · each keeps it ${row.deal_length_days} days`
+                        : ''}
+                      {row.event_date_from || row.event_date_to
+                        ? row.event_date_from && row.event_date_to
+                          ? row.event_date_from === row.event_date_to
+                            ? ` · only for events dated ${fmtDay(row.event_date_from)}`
+                            : ` · only for events dated ${fmtDay(row.event_date_from)} – ${fmtDay(row.event_date_to)}`
+                          : row.event_date_from
+                            ? ` · only for events dated ${fmtDay(row.event_date_from)} onward`
+                            : ` · only for events dated through ${fmtDay(row.event_date_to!)}`
                         : ''}
                       {row.show_banner ? ' · banner on' : ' · banner off'}
                     </p>

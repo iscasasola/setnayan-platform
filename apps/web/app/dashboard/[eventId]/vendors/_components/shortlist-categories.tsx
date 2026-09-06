@@ -103,7 +103,35 @@ import {
   lockedNamesLine,
   REMOVE_FROM_PLAN_LABEL,
   removeFromPlanButtonLabel,
+  INLINE_MORE_FAILED,
+  INLINE_MORE_INQUIRE,
+  INLINE_MORE_INQUIRE_FAILED,
+  INLINE_MORE_LOADING,
+  INLINE_MORE_SAVE_FAILED,
+  INLINE_MORE_SEE_ALL,
+  INLINE_MORE_SIGNED_OUT,
+  INLINE_MORE_UNDO,
+  INLINE_MORE_UNDO_FAILED,
+  inlineMoreEmpty,
+  inlineMoreHeading,
+  inlineMoreSavedNote,
+  inlineMoreSaveLabel,
+  inlineMoreSearchPlaceholder,
+  inlineMoreSeeAllLabel,
+  inlineMoreSunkNote,
 } from '@/lib/explore-info-copy';
+import {
+  canUndoInlineSave,
+  classifyInlineMoreRow,
+  excludeBenchVendors,
+  shouldRunInlineMoreQuery,
+  toggleInlineMoreTile,
+} from '@/lib/inline-more-row';
+import { fetchInlineMoreRow } from '../_actions/inline-more-row';
+import type { CategoryVendorResult } from '../_actions/category-search';
+import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
+import { deleteVendor } from '../actions';
+import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { categoryForTile } from '@/lib/shortlist-taxonomy';
 import { planGroupForCategory } from '@/lib/wedding-plan-groups';
@@ -116,7 +144,9 @@ import {
   DOESNT_FIT_DIVIDER,
   noSharedDateBadge,
   partitionByBuildFit,
+  type BuildDateWindow,
   type ConvergenceBanner,
+  type TeamCalendarMember,
 } from '@/lib/build-date-window';
 import { BenchVendorActions } from './bench-vendor-actions';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
@@ -552,6 +582,43 @@ html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(25
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
 html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
 html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
+
+/* ── ROW 2 · the inline "More in {category}" rail (owner 2026-09-06) ─────────
+   Deliberately QUIETER than row 1: a tinted well with a hairline top rule, so
+   the considered carousel above stays the loud thing on the surface. The cards
+   themselves reuse .vcw / .vc unchanged — two rows of the same kind of
+   thing, seen at two distances. */
+.slcat .morerow{margin-top:12px;padding:11px 0 3px;border-top:1px solid var(--line-soft);animation:slcat-mr .22s cubic-bezier(.2,.7,.2,1)}
+@keyframes slcat-mr{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.slcat .morehead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:0 16px 9px 0}
+.slcat .morehead .mt{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
+.slcat .morehead .mq{flex:1 1 130px;min-width:0;padding:7px 11px;border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card);color:var(--ink);font:inherit;font-size:12.5px;appearance:none;-webkit-appearance:none}
+.slcat .morehead .mq::placeholder{color:var(--ink-soft)}
+.slcat .morehead .mq:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.slcat .morehead .seeall{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;padding:7px 12px;border:1px solid var(--line);border-radius:var(--m-r-full);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;transition:background .2s var(--ease)}
+.slcat .morehead .seeall:hover{background:rgba(30,26,18,.05)}
+
+/* The row-2 card's action pair. Save is the primary; Inquire sits beside it.
+   There is no third slot, and that absence is the constraint: no Lock, no Add
+   to build — the bench does not carry that machinery. */
+.slcat .mrc .mra{display:flex;flex-direction:column;gap:5px}
+.slcat .mrc.is-busy{opacity:.7;pointer-events:none}
+.slcat .mrb{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px 10px;border-radius:var(--m-r-md);border:1px solid transparent;font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;line-height:1.3;cursor:pointer;text-align:center;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
+.slcat .mrb:active{transform:scale(.97)}
+.slcat .mrb:disabled{opacity:.55;cursor:default}
+.slcat .mrb.dark{background:var(--mulberry);color:#fff}
+.slcat .mrb.ghost{background:transparent;border-color:var(--line);color:var(--ink-soft)}
+.slcat .mrb.ghost:hover:not(:disabled){background:rgba(30,26,18,.05)}
+.slcat .mrsaved{font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.35;color:#2e7d4f}
+
+/* Notes under the row: the loading line, the empty state, and the count of
+   sunk cards. Said once here rather than printed on every card. */
+.slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
+.slcat .mrerr{padding:0 16px 8px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
+html.dark .slcat .morehead .seeall{color:#C99DB0}
+html.dark .slcat .mrb.dark{background:#C99DB0;color:#1B1A17}
+html.dark .slcat .mrsaved{color:#7FBF9A}
+html.dark .slcat .mrerr{color:#E39A9A}
 `;
 
 function initials(name: string): string {
@@ -784,6 +851,120 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
   );
 }
 
+/**
+ * One card in ROW 2 — a marketplace vendor the couple has NOT shortlisted yet.
+ *
+ * It borrows row 1's `.vcw` / `.vc` chrome on purpose: the two rows are the same
+ * kind of thing seen at two distances, and a second card language would make the
+ * lower row read as a different product. What differs is the ACTIONS, and only
+ * downward: Save and Inquire, never Lock and never Add-to-build. The bench's own
+ * docblock is the authority — it is read-only about picks and "carries none of
+ * the plan-group lock/build machinery … so it can't destabilise those tabs".
+ * Saving to *considering* is exactly what row 1 displays, so it stays inside
+ * that boundary; a Lock button here would cross it.
+ */
+function InlineMoreCard({
+  v,
+  label,
+  sunk,
+  clashWith,
+  saved,
+  busy,
+  onSave,
+  onUndo,
+  onInquire,
+}: {
+  v: CategoryVendorResult;
+  label: string;
+  /**
+   * TRUE when this card shares no free day with the build. It is its OWN prop
+   * and not inferred from `clashWith`: a real clash can have no single culprit
+   * to name, and inferring sunkenness from the name would silently un-sink
+   * exactly those cards.
+   */
+  sunk: boolean;
+  /** The candidate named in the amber badge; null when there is no one culprit. */
+  clashWith: string | null;
+  saved: { eventVendorId: string; undoable: boolean } | undefined;
+  busy: boolean;
+  onSave: () => void;
+  onUndo: () => void;
+  onInquire: () => void;
+}) {
+  return (
+    <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
+      <span className="vc">
+        <span className="img">
+          {v.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={v.logoUrl} alt="" loading="lazy" />
+          ) : (
+            <span className="ini">{initials(v.name)}</span>
+          )}
+          {v.boosted ? <span className="pcorner">Featured</span> : null}
+        </span>
+        <span className="meta">
+          <span className="vn">{v.name}</span>
+          {/* Hybrid anonymity — the placeholder is a taxonomy-and-city string,
+              and without this line a couple reads it as a fake listing. Same
+              sentence the full sheet shows, for the same reason. */}
+          {v.nameAnonymized ? (
+            <span className="freedays">Real name shown after they reply</span>
+          ) : null}
+          {v.city ? (
+            <span className="sub">
+              <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
+            </span>
+          ) : null}
+          {v.rating != null ? (
+            <span className="stars">
+              <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
+              {v.reviewCount != null ? ` · ${v.reviewCount}` : ''}
+            </span>
+          ) : null}
+          {v.verified ? (
+            <span className="badges">
+              <span className="bdg verified">
+                <BadgeCheck size={9} strokeWidth={2} aria-hidden /> Verified
+              </span>
+            </span>
+          ) : null}
+          {/* Constraint 2 — the SAME badge row 1 draws, from the same function.
+              Amber, never red: the vendor is fine, it is the couple's own build
+              that has narrowed past them, and un-narrowing it is one tap away. */}
+          {sunk ? (
+            <span className="fits">
+              <span className="fit warn">
+                <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />{' '}
+                {noSharedDateBadge(clashWith)}
+              </span>
+            </span>
+          ) : null}
+        </span>
+      </span>
+      {saved ? (
+        <div className="mra">
+          <span className="mrsaved">{inlineMoreSavedNote(label)}</span>
+          {saved.undoable ? (
+            <button type="button" className="mrb ghost" disabled={busy} onClick={onUndo}>
+              {INLINE_MORE_UNDO}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mra">
+          <button type="button" className="mrb dark" disabled={busy} onClick={onSave}>
+            <Plus size={13} strokeWidth={2} aria-hidden /> {inlineMoreSaveLabel(label)}
+          </button>
+          <button type="button" className="mrb ghost" disabled={busy} onClick={onInquire}>
+            {INLINE_MORE_INQUIRE}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ShortlistCategories({
   folders,
   eventId,
@@ -794,6 +975,9 @@ export function ShortlistCategories({
   daysUntilWedding = null,
   excludedTiles = [],
   convergence = null,
+  buildWindow = null,
+  probeDayKeys = [],
+  teamCalendar = [],
 }: {
   folders: ShortlistFolder[];
   eventId: string;
@@ -850,6 +1034,26 @@ export function ShortlistCategories({
    * is visible.
    */
   convergence?: ConvergenceBanner | null;
+  /**
+   * Inline "More in {category}" row (owner 2026-09-06) — the build's shared-date
+   * window, EXACTLY as row 1 was drawn from it, so row 2 sinks the same vendors.
+   *
+   * 🔑 This is a pass-down of a value the page already computed for
+   * `buildFitByVendorId` and `convergence`, never a second resolution. The row's
+   * server action deliberately does not recompute the window: one window, one
+   * classifier (`lib/inline-more-row.ts`), two rows. Null → the soft tier is not
+   * running and row 2 sinks nothing, which is precisely what row 1 does too.
+   */
+  buildWindow?: BuildDateWindow | null;
+  /** The probe window's day keys — the range the clash search runs over. */
+  probeDayKeys?: readonly string[];
+  /**
+   * The build's calendar-bearing members. `TeamCalendarMember.freeDays` is a
+   * `Set`, which is why this prop carries ARRAYS: it crosses the server→client
+   * boundary, and the Sets are rebuilt once here rather than trusted to survive
+   * serialisation.
+   */
+  teamCalendar?: readonly { vendorId: string; name: string; freeDays: readonly string[] }[];
 }) {
   const router = useRouter();
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
@@ -918,6 +1122,77 @@ export function ShortlistCategories({
   // filter, so a couple can discover a vendor they haven't shortlisted.
   const [mktResults, setMktResults] = useState<BenchMarketResult[]>([]);
   const [mktLoading, setMktLoading] = useState(false);
+
+  // ── Inline "More in {category}" row · ROW 2 (owner 2026-09-06) ─────────────
+  // Owner: "when they also click the find reception button, it must show a
+  // lower row that will show other vendors for that category and a search
+  // button also" — and, decisively, "we do not want to leave the page."
+  //
+  // `CategorySearchOverlay` does not navigate, but it is position:fixed;inset:0
+  // — it COVERS the bench, which is the same feeling. So "Find {category}" now
+  // opens a second rail right under the considered carousel, and the full sheet
+  // moves behind "See all →". The sheet is NOT deleted: it owns filters and
+  // facets this row deliberately does not.
+  //
+  // Everything decidable is in `lib/inline-more-row.ts`; this block only holds
+  // the state and calls it.
+  const [moreOpen, setMoreOpen] = useState<{
+    tile: string;
+    label: string;
+    groupId: string;
+  } | null>(null);
+  const [moreQuery, setMoreQuery] = useState('');
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [moreRows, setMoreRows] = useState<CategoryVendorResult[]>([]);
+  const [moreFreeDays, setMoreFreeDays] = useState<Record<string, string[]>>({});
+  // Saves made from THIS open row: profile id → the created event_vendors row
+  // and whether it may be undone (`canUndoInlineSave` — never on a re-save).
+  const [moreSaved, setMoreSaved] = useState<
+    Record<string, { eventVendorId: string; undoable: boolean }>
+  >({});
+  // The one card mid-flight, so only ITS buttons go quiet — a save on one card
+  // must not disable the row.
+  const [moreBusy, setMoreBusy] = useState<string | null>(null);
+  const [moreError, setMoreError] = useState<string | null>(null);
+
+  // Rebuilt once per render, not per card: `TeamCalendarMember.freeDays` is a
+  // Set and the prop carries arrays (see the prop's docblock).
+  const teamCalendarMembers: TeamCalendarMember[] = useMemo(
+    () => teamCalendar.map((m) => ({ ...m, freeDays: new Set(m.freeDays) })),
+    [teamCalendar],
+  );
+  const moreFreeDaysMap = useMemo(
+    () => new Map(Object.entries(moreFreeDays)),
+    [moreFreeDays],
+  );
+
+  const openMore = (tile: string, label: string) => {
+    const next = toggleInlineMoreTile(moreOpen?.tile ?? null, tile);
+    setMoreQuery('');
+    setMoreRows([]);
+    setMoreFreeDays({});
+    setMoreSaved({});
+    setMoreError(null);
+    // Loading is raised HERE, not in the fetch effect: the effect runs after the
+    // commit, so an empty row would paint "Nothing else in this category yet"
+    // for one frame before the request it is still waiting on has even started.
+    setMoreLoading(Boolean(next));
+    setMoreOpen(next ? { ...benchSearchScopeForTile(tile), label } : null);
+  };
+
+  /**
+   * `redirect()` inside a server action signals itself by THROWING. Swallowing
+   * that throw in a catch turns "we are sending you to sign in" into "we
+   * couldn't undo that" and strands the couple on a page that will not work.
+   * `deleteVendor` redirects a signed-out caller, so its catch must let this one
+   * back out. Matched on the digest Next stamps, not on the class, which is not
+   * exported from a stable path.
+   */
+  const isRedirect = (e: unknown): boolean =>
+    typeof e === 'object' &&
+    e !== null &&
+    'digest' in e &&
+    String((e as { digest?: unknown }).digest).startsWith('NEXT_REDIRECT');
 
   // ── Per-category requirements view/edit modal (Phase 1b PR-4) ──────────────
   // The leaf whose saved-request modal is open: its canonical_service (the key
@@ -1328,6 +1603,136 @@ export function ShortlistCategories({
     };
   }, [q]);
 
+  // ── Row 2's fetch ─────────────────────────────────────────────────────────
+  // On EXPAND, not on page load — the bench renders ~53 categories and none of
+  // them should cost a marketplace query until the couple asks. Re-runs when the
+  // row's own search text settles, through the SAME action, because the field
+  // filters this row rather than opening a second search surface.
+  const moreTile = moreOpen?.tile ?? null;
+  const moreGroupId = moreOpen?.groupId ?? '';
+  const moreQ = moreQuery.trim();
+  useEffect(() => {
+    if (!moreTile || !shouldRunInlineMoreQuery(moreQ)) return;
+    let cancelled = false;
+    setMoreLoading(true);
+    setMoreError(null);
+    const handle = window.setTimeout(() => {
+      fetchInlineMoreRow({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
+        .then((res) => {
+          if (cancelled) return;
+          setMoreRows(res.results);
+          setMoreFreeDays(res.freeDaysByProfileId);
+          setMoreLoading(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // Say so rather than showing an empty row: "nothing here" and "we
+          // could not look" are different facts and only one of them is news.
+          setMoreRows([]);
+          setMoreFreeDays({});
+          setMoreLoading(false);
+          setMoreError(INLINE_MORE_FAILED);
+        });
+      // No debounce on the initial open (empty query) — the row would sit blank
+      // for a quarter second for no reason.
+    }, moreQ ? 280 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [eventId, moreTile, moreGroupId, moreQ]);
+
+  // Save from row 2 → the couple's *considering* list, which is what row 1
+  // shows. The SAME `saveVendorToPicks` the full sheet's Add already calls; no
+  // Lock, no Add-to-build — the bench's read-only-about-picks boundary is why it
+  // cannot destabilise the Build and Lock tabs.
+  const saveFromMore = async (v: CategoryVendorResult): Promise<string | null> => {
+    const existing = moreSaved[v.vendorProfileId];
+    if (existing) return existing.eventVendorId;
+    setMoreBusy(v.vendorProfileId);
+    setMoreError(null);
+    try {
+      const fd = new FormData();
+      fd.set('vendor_profile_id', v.vendorProfileId);
+      const res = await saveVendorToPicks(fd);
+      if (res.status !== 'ok' && res.status !== 'already_saved') {
+        setMoreError(
+          res.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_SAVE_FAILED,
+        );
+        return null;
+      }
+      setMoreSaved((cur) => ({
+        ...cur,
+        [v.vendorProfileId]: {
+          eventVendorId: res.eventVendorId,
+          undoable: canUndoInlineSave(res.status),
+        },
+      }));
+      // `saveVendorToPicks` revalidates /dashboard/[eventId], not this nested
+      // route, so nothing repaints row 1 on its own. One soft refresh, and the
+      // card the couple just saved is in the carousel above.
+      router.refresh();
+      return res.eventVendorId;
+    } catch {
+      setMoreError(INLINE_MORE_SAVE_FAILED);
+      return null;
+    } finally {
+      setMoreBusy(null);
+    }
+  };
+
+  // The undo for a mis-tap. `deleteVendor` is the shipped × the legacy
+  // accordion's cards already use; it refuses a booked row on the server, which
+  // can never be the case one tap after a save.
+  const undoFromMore = async (v: CategoryVendorResult) => {
+    const saved = moreSaved[v.vendorProfileId];
+    if (!saved?.undoable) return;
+    setMoreBusy(v.vendorProfileId);
+    setMoreError(null);
+    try {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('vendor_id', saved.eventVendorId);
+      await deleteVendor(fd);
+      setMoreSaved((cur) => {
+        const next = { ...cur };
+        delete next[v.vendorProfileId];
+        return next;
+      });
+      router.refresh();
+    } catch (e) {
+      if (isRedirect(e)) throw e;
+      setMoreError(INLINE_MORE_UNDO_FAILED);
+    } finally {
+      setMoreBusy(null);
+    }
+  };
+
+  // Inquire. A thread is opened against a SHORTLIST row (`contactShortlistVendor`
+  // resolves `event_vendors` and that read is what authorises the call), so a
+  // vendor the couple has never saved is saved first. That is not a side effect
+  // smuggled in: inquiring IS how shortlisted vendors got there, and the card
+  // says "Save to X" right beside it.
+  const inquireFromMore = async (v: CategoryVendorResult) => {
+    const vendorId = await saveFromMore(v);
+    if (!vendorId) return;
+    setMoreBusy(v.vendorProfileId);
+    try {
+      const res = await contactShortlistVendor({ eventId, vendorId });
+      if (res.status === 'ok') {
+        router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
+        return;
+      }
+      setMoreError(
+        res.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_INQUIRE_FAILED,
+      );
+    } catch {
+      setMoreError(INLINE_MORE_INQUIRE_FAILED);
+    } finally {
+      setMoreBusy(null);
+    }
+  };
+
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
@@ -1698,6 +2103,24 @@ export function ShortlistCategories({
                         : null,
                   );
                   const CatIcon = tileIcon(t.tile);
+                  // ── ROW 2 (owner 2026-09-06) ────────────────────────────
+                  // Built here, beside row 1, so both rows are drawn from the
+                  // SAME window in the same pass and cannot disagree about who
+                  // fits. Everything decided is decided in `lib/inline-more-row`.
+                  const moreIsOpen = moreOpen?.tile === t.tile;
+                  const moreClassified = moreIsOpen
+                    ? classifyInlineMoreRow({
+                        rows: excludeBenchVendors(
+                          moreRows,
+                          t.vendors.map((v) => v.marketplaceVendorId),
+                          Object.keys(moreSaved),
+                        ),
+                        freeDaysByProfileId: moreFreeDaysMap,
+                        window: buildWindow,
+                        members: teamCalendarMembers,
+                        probeDayKeys,
+                      })
+                    : null;
                   return (
                     <div
                       key={t.tile}
@@ -1872,7 +2295,8 @@ export function ShortlistCategories({
                                 {replan ? (
                                   <button
                                     type="button"
-                                    onClick={() => openSearch(t.tile, t.label)}
+                                    aria-expanded={moreIsOpen}
+                                    onClick={() => openMore(t.tile, t.label)}
                                   >
                                     {addAnother ? (
                                       <Plus size={20} strokeWidth={1.9} aria-hidden />
@@ -1947,7 +2371,8 @@ export function ShortlistCategories({
                                 <button
                                   type="button"
                                   className="fr find"
-                                  onClick={() => openSearch(t.tile, t.label)}
+                                  aria-expanded={moreIsOpen}
+                                  onClick={() => openMore(t.tile, t.label)}
                                 >
                                   <span className="fr-i">
                                     <Search size={16} strokeWidth={1.75} aria-hidden />
@@ -1974,6 +2399,103 @@ export function ShortlistCategories({
                               </button>
                             </div>
                           )}
+                          {/* ── ROW 2 · "More in {category}" (owner 2026-09-06) ──
+                              The answer to "we do not want to leave the page":
+                              a second rail directly under the considered
+                              carousel instead of a sheet that covers it. Its
+                              vendors, its order and its names all come from the
+                              SAME `searchCategoryVendors` the full sheet uses,
+                              and its shared-date sink is the SAME window row 1
+                              was drawn from. "See all →" still opens that sheet
+                              — now opt-in, and still the only place with
+                              filters and facets. */}
+                          {moreIsOpen && moreClassified ? (
+                            <div className="morerow">
+                              <div className="morehead">
+                                <span className="mt">{inlineMoreHeading(t.label)}</span>
+                                <input
+                                  className="mq"
+                                  type="search"
+                                  value={moreQuery}
+                                  onChange={(e) => setMoreQuery(e.target.value)}
+                                  placeholder={inlineMoreSearchPlaceholder(t.label)}
+                                  aria-label={inlineMoreSearchPlaceholder(t.label)}
+                                />
+                                <button
+                                  type="button"
+                                  className="seeall"
+                                  aria-label={inlineMoreSeeAllLabel(t.label)}
+                                  onClick={() => openSearch(t.tile, t.label)}
+                                >
+                                  {INLINE_MORE_SEE_ALL} <ArrowRight size={13} strokeWidth={2} aria-hidden />
+                                </button>
+                              </div>
+                              {moreError ? <div className="mrerr">{moreError}</div> : null}
+                              {moreLoading &&
+                              moreClassified.fits.length === 0 &&
+                              moreClassified.clashes.length === 0 ? (
+                                <div className="mrnote">
+                                  <span>{INLINE_MORE_LOADING}</span>
+                                </div>
+                              ) : moreClassified.fits.length === 0 &&
+                                moreClassified.clashes.length === 0 ? (
+                                <div className="mrnote">
+                                  <span>{inlineMoreEmpty(moreQuery)}</span>
+                                </div>
+                              ) : (
+                                <div className="rail" aria-busy={moreLoading || undefined}>
+                                  {moreClassified.fits.map(({ row }) => (
+                                    <InlineMoreCard
+                                      key={row.vendorProfileId}
+                                      v={row}
+                                      label={t.label}
+                                      sunk={false}
+                                      clashWith={null}
+                                      saved={moreSaved[row.vendorProfileId]}
+                                      busy={moreBusy === row.vendorProfileId}
+                                      onSave={() => void saveFromMore(row)}
+                                      onUndo={() => void undoFromMore(row)}
+                                      onInquire={() => void inquireFromMore(row)}
+                                    />
+                                  ))}
+                                  {/* The same labelled divider row 1 uses. A
+                                      sunk card is lowered, never removed —
+                                      removing the clashing candidate above
+                                      brings it straight back. */}
+                                  {moreClassified.clashes.length > 0 ? (
+                                    <>
+                                      <span
+                                        className="raildiv"
+                                        role="separator"
+                                        aria-label={DOESNT_FIT_DIVIDER}
+                                      >
+                                        <span aria-hidden>{DOESNT_FIT_DIVIDER}</span>
+                                      </span>
+                                      {moreClassified.clashes.map(({ row, clashWith }) => (
+                                        <InlineMoreCard
+                                          key={row.vendorProfileId}
+                                          v={row}
+                                          label={t.label}
+                                          sunk
+                                          clashWith={clashWith}
+                                          saved={moreSaved[row.vendorProfileId]}
+                                          busy={moreBusy === row.vendorProfileId}
+                                          onSave={() => void saveFromMore(row)}
+                                          onUndo={() => void undoFromMore(row)}
+                                          onInquire={() => void inquireFromMore(row)}
+                                        />
+                                      ))}
+                                    </>
+                                  ) : null}
+                                </div>
+                              )}
+                              {moreClassified.clashes.length > 0 ? (
+                                <div className="mrnote">
+                                  <span>{inlineMoreSunkNote(moreClassified.clashes.length)}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                           {/* "Not needed? Remove" (PR-C · decision #6). Quiet,
                               at the foot of an OPEN category, and absent
                               entirely when the category holds a locked vendor —

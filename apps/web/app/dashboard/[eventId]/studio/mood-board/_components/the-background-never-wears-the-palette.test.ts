@@ -51,6 +51,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { stripComments } from '@/lib/strip-comments';
 import {
   colorDistance,
   hexToRgb,
@@ -1517,5 +1518,518 @@ test('MB14b: the decor harness can tell a bleeding tolerance from a clean one', 
     `widening backdrop/elegant-simple-classic to ±25 moved only ${bgMoved} of ${bgExact} ` +
       'background pixels. It must move ALL of them — its background is 15.6 away. If it does ' +
       'not, this harness cannot see a background bleed and every assertion above is vacuous.',
+  );
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * MB28 · THE SAME CLAIMS, ON NINE CEREMONY SCENES INSTEAD OF ONE.
+ *
+ * MB25's church is guarded above. Migration `20271208519468` seeds the other
+ * EIGHT `events.ceremony_venue_setting` values as their own two-slot drawings,
+ * so the Ceremony card can show a couple the place they are actually marrying.
+ * Everything the church section asserts is re-asserted here per file, on the
+ * REAL raster: each slot recolours its own region completely, the two do not
+ * touch each other, and every neutral field moves by NOTHING — including the
+ * ones the church does not have: sky, sea, sand, lawn, foliage, driftwood.
+ *
+ * ── 🔑 EVERY TOLERANCE IN THE MIGRATION IS TIGHTER THAN ITS BRIEF SAID ──────
+ * MB28's brief carried per-file ceilings measured in CIELAB ΔE (8..15). The
+ * engine is not CIELAB — `colorDistance` is a weighted-RGB proxy, the point
+ * MB25 made and paid for — and re-measured through it, EVERY ceiling was too
+ * wide. The seeded fabric values are 5..10 and each is the LARGEST INTEGER AT
+ * WHICH NO NEUTRAL MOVES; one step higher and a measured field turns. That is
+ * asserted below, per file, in both directions.
+ *
+ * ── ⚠ AND THE BEACH HAS FIFTEEN RANGES' WORTH OF SLOTS, NOT SIXTEEN ─────────
+ * The beach arch is DRIFTWOOD, #DDD6C8, and it sits 3.536 from the fabric slot
+ * in the engine's metric. `moodboard_asset_color_ranges` CHECKs
+ * `tolerance_de BETWEEN 5 AND 30`, so the tightest LEGAL tolerance is 5 — and
+ * at 5 the whole arch turns the couple's second colour. There is no legal
+ * value that separates the drapes from the trees, so the beach ships slot 1
+ * only, exactly as MB23 deleted the modern-minimalist bride's false range
+ * rather than inventing a tolerance for it. The last test in this file is the
+ * one that keeps that decision honest: it FAILS if someone seeds it.
+ *
+ * The brief called #DDD6C8 "the sand". It is not — the sand is #B8B2A6, a
+ * comfortable 15.8 away. The 2026-09-06 oversight round could not have caught
+ * this, because every candidate was judged on a simulated recolour performed by
+ * EXACT FILL SWAP, and a fill swap structurally cannot show a tolerance
+ * bleeding into a neighbouring colour.
+ *
+ * ── HOW THE CONSTANTS BELOW WERE OBTAINED ───────────────────────────────────
+ *   node -e "…"  # sharp → 520px raster → exact-fill census → recolorRGBA
+ * Every share is a fraction of the OPAQUE area (~175,760 px of the 520×520
+ * frame; the rest is the letterbox `fit: 'contain'` adds to a 3:2 drawing).
+ * If the artwork is re-cut, RE-MEASURE — do not adjust a number here to make a
+ * red test green.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const MB28_MIGRATION = new URL(
+  '../../../../../../../../supabase/migrations/20271208519468_mb28_ceremony_settings_eight_venue_scenes.sql',
+  import.meta.url,
+);
+
+type Mb28Slot = { slotId: number; sampledHex: string; tolerance: number; region: string };
+type Mb28Scene = { setting: string; servedPath: string; slots: Mb28Slot[] };
+
+/**
+ * 🪤 DERIVED FROM THE MIGRATION, NEVER RETYPED — including the served path,
+ * which the SQL builds by concatenation (`'…/' || v.setting || '/…svg'`). This
+ * reproduces that concatenation from the migration's own literals, the same way
+ * MB14b's `repointPair()` reproduces its `replace()`. A migration pointed at a
+ * file this app does not serve therefore fails HERE, not in a couple's browser.
+ */
+function mb28Scenes(): Mb28Scene[] {
+  const sql = stripComments(readFileSync(MB28_MIGRATION, 'utf8'));
+  const path = /'(\/moodboard-seed\/venue_scene\/)'\s*\|\|\s*v\.setting\s*\|\|\s*'(\/[a-z-]+\.svg)'/.exec(sql);
+  assert.ok(
+    path,
+    'migration 20271208519468 no longer builds the served path from the setting. If it now ' +
+      'writes literal paths, this guard must read those instead of deriving them.',
+  );
+  const bySetting = new Map<string, Mb28Scene>();
+  for (const m of sql.matchAll(
+    /\(\s*'([a-z_]+)',\s*(\d+)::SMALLINT\s*,\s*'(#[0-9A-Fa-f]{6})'\s*,\s*(\d+)::NUMERIC\s*,\s*'([a-z]+)'\s*\)/g,
+  )) {
+    const setting = m[1]!;
+    let scene = bySetting.get(setting);
+    if (!scene) {
+      scene = { setting, servedPath: `${path[1]}${setting}${path[2]}`, slots: [] };
+      bySetting.set(setting, scene);
+    }
+    scene.slots.push({
+      slotId: Number(m[2]),
+      sampledHex: m[3]!.toUpperCase(),
+      tolerance: Number(m[4]),
+      region: m[5]!,
+    });
+  }
+  for (const s of bySetting.values()) s.slots.sort((a, b) => a.slotId - b.slotId);
+  return [...bySetting.values()];
+}
+
+const MB28 = mb28Scenes();
+
+/**
+ * MEASURED ARTWORK FACTS — every exact `fill="rgb(…)"` that covers ≥0.2% of
+ * the opaque area, with the share it covered on 2026-09-06 and what it draws.
+ * No migration can change these; only a re-cut of a drawing can, and then they
+ * must be re-read from the file.
+ *
+ * The `neutrals` of a scene are simply every named fill that is not one of its
+ * two slot colours. They are listed by NAME because a failure that says "the
+ * sea wore the palette" is a bug report and one that says "#7FA6A8 moved" is a
+ * puzzle.
+ */
+const MB28_ART: Record<string, { fills: Record<string, string>; shares: Record<string, number> }> = {
+  ancestral_house: {
+    fills: {
+      white: '#FFFFFF',
+      hardwood: '#6B4A32',
+      ceiling: '#F4F1EA',
+      capiz: '#D6D1C7',
+      florals: '#D98BA6',
+      fabric: '#E8D9B5',
+    },
+    shares: { white: 0.2893, hardwood: 0.2446, ceiling: 0.1518, capiz: 0.1147, florals: 0.0360, fabric: 0.1007 },
+  },
+  beach: {
+    fills: {
+      white: '#FFFFFF',
+      sand: '#B8B2A6',
+      shore: '#E3EBEE',
+      sea: '#7FA6A8',
+      driftwood: '#DDD6C8',
+      florals: '#D98BA6',
+      fabric: '#E8D9B5',
+    },
+    shares: { white: 0.5356, sand: 0.1307, shore: 0.0918, sea: 0.0661, driftwood: 0.0129, florals: 0.0199, fabric: 0.0324 },
+  },
+  chapel: {
+    fills: { white: '#FFFFFF', pews: '#8A6A4E', walls: '#F4F1EA', floor: '#D6D1C7', florals: '#D98BA6', fabric: '#E8D9B5' },
+    shares: { white: 0.4695, pews: 0.1461, walls: 0.1038, floor: 0.0060, florals: 0.0898, fabric: 0.1135 },
+  },
+  civil_registrar: {
+    fills: {
+      white: '#FFFFFF',
+      walls: '#F4F1EA',
+      floor: '#D6D1C7',
+      windows: '#9A948A',
+      trim: '#BCBBBA',
+      florals: '#D98BA6',
+      fabric: '#E8D9B5',
+    },
+    shares: { white: 0.3033, walls: 0.3014, floor: 0.1427, windows: 0.0137, trim: 0.0021, florals: 0.0046, fabric: 0.1051 },
+  },
+  garden: {
+    fills: { chairs: '#FFFFFF', lawn: '#8FA98A', foliage: '#A8BC9E', shrubs: '#E3EBEE', florals: '#D98BA6', fabric: '#E8D9B5' },
+    shares: { chairs: 0.4496, lawn: 0.2448, foliage: 0.0848, shrubs: 0.0245, florals: 0.0193, fabric: 0.0653 },
+  },
+  hotel_venue: {
+    fills: { walls: '#F4F1EA', chairs: '#FFFFFF', floor: '#A9A49B', chandelier: '#CFCBC2', florals: '#D98BA6', fabric: '#E8D9B5' },
+    shares: { walls: 0.5072, chairs: 0.1806, floor: 0.0506, chandelier: 0.0028, florals: 0.0185, fabric: 0.1067 },
+  },
+  mosque: {
+    fills: {
+      walls: '#F4F1EA',
+      white: '#FFFFFF',
+      floor: '#CFCBC2',
+      lattice: '#FEFEFE',
+      glass: '#FDFDFD',
+      florals: '#D98BA6',
+      fabric: '#E8D9B5',
+    },
+    shares: { walls: 0.3003, white: 0.2545, floor: 0.1427, lattice: 0.0038, glass: 0.0020, florals: 0.0490, fabric: 0.1000 },
+  },
+  temple: {
+    fills: { white: '#FFFFFF', walls: '#F4F1EA', pillars: '#5E4634', florals: '#D98BA6', fabric: '#E8D9B5' },
+    shares: { white: 0.3374, walls: 0.2869, pillars: 0.1539, florals: 0.0506, fabric: 0.1116 },
+  },
+};
+
+/**
+ * The antialiased-blend ceiling, per file, as a share of the OPAQUE area.
+ *
+ * 🪤 THIS IS NOT ONE NUMBER FOR NINE FILES, AND IT MUST NOT BECOME ONE. The
+ * church is a FLAT drawing (six exact fills, no shading), so almost everything
+ * outside its named fills is genuine antialiasing and 1.5% is a real ceiling.
+ * These eight are shaded AI vectors whose florals and fabric carry their own
+ * tone families — legitimately recoloured — so their "fringe" is structurally
+ * larger and differs per drawing. Measured 2026-09-06 at the seeded tolerances
+ * with florals→#7A1F2B and fabric→#D4AF37; each ceiling is that measurement
+ * rounded up to the next half point.
+ */
+const MB28_FRINGE_CEILING: Record<string, number> = {
+  ancestral_house: 0.02, // measured 1.36%
+  beach: 0.01, //           measured 0.66%
+  chapel: 0.01, //          measured 0.64%
+  civil_registrar: 0.015, // measured 0.86%
+  garden: 0.05, //          measured 4.35%
+  hotel_venue: 0.03, //     measured 2.26%
+  mosque: 0.03, //          measured 2.59%
+  temple: 0.025, //         measured 1.73%
+};
+
+const mb28RasterCache = new Map<string, Raster>();
+async function mb28Raster(scene: Mb28Scene): Promise<Raster> {
+  let r = mb28RasterCache.get(scene.servedPath);
+  if (!r) {
+    r = await rasteriseFromPublic(scene.servedPath);
+    mb28RasterCache.set(scene.servedPath, r);
+  }
+  return r;
+}
+
+const liveSlots = (scene: Mb28Scene): ColorRangeSlot[] =>
+  scene.slots.map((s) => ({
+    slotId: s.slotId,
+    sampledHex: s.sampledHex,
+    toleranceDe: s.tolerance,
+    regionLabel: s.region,
+  }));
+
+/**
+ * Recolour one scene's real raster and split the opaque pixels by NAMED fill.
+ *
+ * `others` is the population that matters most and that no hand-typed list can
+ * cover: every exact fill holding ≥0.2% of the opaque area that MB28_ART does
+ * NOT name. A re-cut that introduces a region — or a name this file forgot —
+ * lands there, and it must not move either.
+ */
+async function recolourScene(
+  scene: Mb28Scene,
+  edits: Parameters<typeof recolorRGBA>[2],
+  slots: ColorRangeSlot[] = liveSlots(scene),
+) {
+  const { rgba } = await mb28Raster(scene);
+  const out = recolorRGBA(rgba, slots, edits);
+  const art = MB28_ART[scene.setting]!;
+  const byName = Object.entries(art.fills).map(([name, hex]) => ({ name, hex, rgb: hexToRgb(hex) }));
+
+  const stats: Record<string, { moved: number; total: number }> = {};
+  for (const { name } of byName) stats[name] = { moved: 0, total: 0 };
+
+  const census = new Map<string, { n: number; moved: number }>();
+  let opaque = 0;
+  let fringe = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    const moved = out[i] !== rgba[i] || out[i + 1] !== rgba[i + 1] || out[i + 2] !== rgba[i + 2];
+    const hit = byName.find(
+      (c) => rgba[i] === c.rgb[0] && rgba[i + 1] === c.rgb[1] && rgba[i + 2] === c.rgb[2],
+    );
+    if (hit) {
+      stats[hit.name]!.total++;
+      if (moved) stats[hit.name]!.moved++;
+      continue;
+    }
+    if (moved) fringe++;
+    const key = `#${[rgba[i]!, rgba[i + 1]!, rgba[i + 2]!]
+      .map((n) => n.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()}`;
+    const c = census.get(key) ?? { n: 0, moved: 0 };
+    c.n++;
+    if (moved) c.moved++;
+    census.set(key, c);
+  }
+  const others = [...census.entries()]
+    .filter(([, c]) => c.n / opaque >= 0.002)
+    .map(([hex, c]) => ({ hex, ...c }));
+  return { stats, others, fringe, opaque };
+}
+
+/** The two slot colours' names inside MB28_ART, and everything else. */
+const SLOT_NAMES = ['florals', 'fabric'] as const;
+const neutralNames = (setting: string) =>
+  Object.keys(MB28_ART[setting]!.fills).filter(
+    (n) => !(SLOT_NAMES as readonly string[]).includes(n),
+  );
+
+test('MB28: the migration seeds a drawing for every ceremony setting but one slot short of sixteen', () => {
+  assert.equal(
+    MB28.length,
+    8,
+    `expected the migration to seed eight ceremony settings beside MB25's church, parsed ` +
+      `${MB28.length}: ${MB28.map((s) => s.setting).join(', ')}. A setting with no drawing ` +
+      'falls back to the church silently — nothing anywhere reports it.',
+  );
+  assert.deepEqual(
+    MB28.map((s) => s.setting).sort(),
+    Object.keys(MB28_ART).sort(),
+    'the settings seeded by the migration and the settings measured in MB28_ART have ' +
+      'diverged. Every assertion below is keyed on that name, so an unmatched setting is a ' +
+      'file nothing in here covers.',
+  );
+  const ranges = MB28.reduce((n, s) => n + s.slots.length, 0);
+  assert.equal(
+    ranges,
+    15,
+    `the migration seeds ${ranges} colour ranges across eight drawings. It must be 15: two ` +
+      'each except the beach, whose fabric slot cannot be separated from its driftwood arch ' +
+      'at any legal tolerance (see the header, and the last test in this file).',
+  );
+  for (const scene of MB28) {
+    assert.deepEqual(
+      scene.slots.map((s) => `${s.slotId}:${s.region}`),
+      scene.setting === 'beach' ? ['1:florals'] : ['1:florals', '2:fabric'],
+      `${scene.setting} no longer seeds slot 1 = florals${
+        scene.setting === 'beach' ? ' only' : ' and slot 2 = fabric'
+      }. moodboard-board.tsx maps slot N to the couple's Nth ceremony colour ` +
+        "(`out[r.slotId] = palette[i % palette.length]`), so the slot NUMBERS are the colour " +
+        'order the couple chose — they are not free to renumber.',
+    );
+  }
+});
+
+test('MB28: each slot samples the region it claims, in its own file', () => {
+  // Catches two sampled_hex being swapped between files, or a slot pointed at a
+  // colour that is not in the drawing at all. Both leave a card that still
+  // LOOKS recoloured while painting the wrong thing.
+  for (const scene of MB28) {
+    const art = MB28_ART[scene.setting]!;
+    for (const s of scene.slots) {
+      assert.equal(
+        s.sampledHex,
+        art.fills[s.region]?.toUpperCase(),
+        `${scene.setting} slot ${s.slotId} is labelled '${s.region}' but samples ` +
+          `${s.sampledHex}, which is not that region's fill in the artwork ` +
+          `(${art.fills[s.region]}). If the two sampled_hex were swapped, the couple's first ` +
+          'ceremony colour lands on the aisle runner and their second on the flowers.',
+      );
+    }
+  }
+});
+
+test('MB28 · REAL RASTER: every named region is actually present in the served file', async () => {
+  // rasteriseFromPublic throws if the migration's path has no file behind it —
+  // the failure a SQL-only guard structurally cannot see. Floors sit ~25% under
+  // each 2026-09-06 measurement, so rasteriser drift does not fire this but a
+  // re-cut region does.
+  for (const scene of MB28) {
+    const { stats, opaque } = await recolourScene(scene, {});
+    for (const [name, measured] of Object.entries(MB28_ART[scene.setting]!.shares)) {
+      const floor = measured * 0.75;
+      const share = stats[name]!.total / opaque;
+      assert.ok(
+        share > floor,
+        `${scene.setting}: the ${name} fill (${MB28_ART[scene.setting]!.fills[name]}) now ` +
+          `covers ${(100 * share).toFixed(2)}% of the opaque area, under the ` +
+          `${(100 * floor).toFixed(2)}% floor measured for it (${(100 * measured).toFixed(2)}%). ` +
+          'The artwork has been re-cut, so every constant in MB28_ART describes a file that ' +
+          'no longer exists. RE-MEASURE — do not adjust a number here to make a red test green.',
+      );
+    }
+  }
+});
+
+test('MB28 · REAL RASTER: each slot recolours its OWN region and nothing else', async () => {
+  for (const scene of MB28) {
+    for (const s of scene.slots) {
+      for (const hex of PALETTE) {
+        const { stats } = await recolourScene(scene, { [s.slotId]: { mode: 'palette', hex } });
+        const own = stats[s.region]!;
+        assert.equal(
+          own.moved,
+          own.total,
+          `${scene.setting}: slot ${s.slotId} (${s.region}, ${s.sampledHex} ± ${s.tolerance}) ` +
+            `leaves ${own.total - own.moved}/${own.total} of its own region at stock colour ` +
+            `under ${hex}. A tolerance tightened until the region stops matching passes every ` +
+            '"the neutrals did not move" assertion forever while the Ceremony card quietly ' +
+            'shows the couple nothing of their own.',
+        );
+        for (const other of scene.slots) {
+          if (other.slotId === s.slotId) continue;
+          const theirs = stats[other.region]!;
+          assert.equal(
+            theirs.moved,
+            0,
+            `${scene.setting}: applying ${hex} to slot ${s.slotId} (${s.region}) also moved ` +
+              `${theirs.moved}/${theirs.total} of the ${other.region} region. The two ranges ` +
+              'overlap, so the couple cannot give the flowers and the fabric different ' +
+              'colours — they are one region wearing two labels. Re-sample; do not widen.',
+          );
+        }
+      }
+    }
+  }
+});
+
+test('MB28 · REAL RASTER: the walls, floor, chairs, sky, sea, grass and sand move by NOTHING', async () => {
+  // The MB23 rule, on nine scenes. Both slots applied together, in both orders,
+  // because a bleed can depend on which slot claims a pixel first
+  // (`recolorRGBA` is nearest-slot-wins).
+  for (const scene of MB28) {
+    for (const [first, second] of [
+      ['#7A1F2B', '#D4AF37'],
+      ['#0F766E', '#7A1F2B'],
+    ] as const) {
+      const edits: Parameters<typeof recolorRGBA>[2] = { 1: { mode: 'palette', hex: first } };
+      if (scene.slots.some((s) => s.slotId === 2)) edits[2] = { mode: 'palette', hex: second };
+      const { stats, others } = await recolourScene(scene, edits);
+      for (const n of neutralNames(scene.setting)) {
+        assert.equal(
+          stats[n]!.moved,
+          0,
+          `${scene.setting}: the ${n} (${MB28_ART[scene.setting]!.fills[n]}) wore the ` +
+            `palette — ${stats[n]!.moved}/${stats[n]!.total} px moved with florals→${first}` +
+            `${edits[2] ? `, fabric→${second}` : ''}. Distances: ` +
+            scene.slots
+              .map(
+                (s) =>
+                  `${n}→slot ${s.slotId} (${s.region}) = ` +
+                  `${distance(MB28_ART[scene.setting]!.fills[n]!, s.sampledHex).toFixed(2)} vs ` +
+                  `tolerance ${s.tolerance}`,
+              )
+              .join(', ') +
+            '. A beach whose sand turns burgundy is the same defect MB23 fixed on the attire ' +
+            'figures. Fix the DATA in a migration on moodboard_asset_color_ranges — never ' +
+            'special-case the asset in the component.',
+        );
+      }
+      // 🪤 And the regions this file forgot to name. A re-cut that introduces a
+      // new field cannot hide behind an incomplete MB28_ART.
+      for (const o of others) {
+        assert.equal(
+          o.moved,
+          0,
+          `${scene.setting}: an UNNAMED fill ${o.hex}, covering ${(100 * o.n / 175760).toFixed(2)}% ` +
+            `of the frame, moved ${o.moved}/${o.n} px with florals→${first}. It is not one of ` +
+            'the two tagged regions and it is not in MB28_ART, so either the artwork was ' +
+            're-cut and MB28_ART is stale, or a tolerance is now swallowing a region nobody ' +
+            'measured. Re-measure the census before touching either.',
+        );
+      }
+    }
+  }
+});
+
+test('MB28 · REAL RASTER: the recolour does not grow a fringe, per file', async () => {
+  for (const scene of MB28) {
+    const edits: Parameters<typeof recolorRGBA>[2] = { 1: { mode: 'palette', hex: '#7A1F2B' } };
+    if (scene.slots.some((s) => s.slotId === 2)) edits[2] = { mode: 'palette', hex: '#D4AF37' };
+    const { fringe, opaque } = await recolourScene(scene, edits);
+    const share = fringe / opaque;
+    const ceiling = MB28_FRINGE_CEILING[scene.setting]!;
+    assert.ok(
+      share < ceiling,
+      `${scene.setting}: ${fringe} pixels outside every named fill (${(100 * share).toFixed(2)}% ` +
+        `of the opaque area) recoloured — above its measured ${(100 * ceiling).toFixed(1)}% ` +
+        'ceiling. The ranges have widened far enough to catch the blend between a region and ' +
+        'its neighbour, which reads as a halo around the arch or a fringe along the runner.',
+    );
+  }
+});
+
+test('MB28: each seeded fabric tolerance is the LARGEST clean one — a single step higher bleeds', async () => {
+  // 🔑 THE ASSERTION THAT PINS THE NUMBER RATHER THAN THE OUTCOME. Without it
+  // every test above stays green at a tolerance tightened to 5 everywhere, or
+  // at any value that happens not to bleed on the two palettes tried. This says
+  // the seeded value is exactly the boundary: at tolerance+1, a MEASURED
+  // neutral field turns. It doubles as the "can this harness see a bleed at
+  // all" check — if the widened run moves nothing, nothing above means anything.
+  for (const scene of MB28) {
+    const fabric = scene.slots.find((s) => s.region === 'fabric');
+    if (!fabric) continue; // the beach; covered by its own test below
+    const widened = liveSlots(scene).map((s) =>
+      s.slotId === fabric.slotId ? { ...s, toleranceDe: fabric.tolerance + 1 } : s,
+    );
+    const { stats } = await recolourScene(
+      scene,
+      { 1: { mode: 'palette', hex: '#7A1F2B' }, 2: { mode: 'palette', hex: '#D4AF37' } },
+      widened,
+    );
+    const turned = neutralNames(scene.setting).filter((n) => stats[n]!.moved > 0);
+    assert.ok(
+      turned.length > 0,
+      `${scene.setting}: widening the fabric slot from ${fabric.tolerance} to ` +
+        `${fabric.tolerance + 1} moved no neutral at all. Either the seeded tolerance is ` +
+        'needlessly tight — there is clean room above it and the drapes may be under-selected ' +
+        '— or this harness can no longer see a background bleed, in which case every ' +
+        'assertion above is vacuous. Re-measure the census; do not delete this test.',
+    );
+  }
+});
+
+test('MB28: the beach fabric slot is UNSEEDABLE, and must stay unseeded', async () => {
+  // MB23's bride, on a venue scene, and the reason this migration seeds fifteen
+  // ranges instead of sixteen. If a later session "fixes" the missing slot by
+  // adding one at the CHECK floor, this is what tells them what happens.
+  const beach = MB28.find((s) => s.setting === 'beach');
+  assert.ok(beach, 'the beach ceremony drawing is no longer seeded at all');
+  assert.equal(
+    beach.slots.length,
+    1,
+    'a fabric slot has been seeded for the beach. Its arch is DRIFTWOOD (#DDD6C8), 3.536 ' +
+      "from the fabric slot in the engine's metric, and `tolerance_de` is CHECKed at a " +
+      'minimum of 5 — so the couple\'s second ceremony colour paints the trees. If the ' +
+      'artwork has been re-cut to move the driftwood away from #E8D9B5, RE-MEASURE and say ' +
+      'so in the migration; do not lower the table CHECK for one drawing.',
+  );
+  // The measurement itself, so the claim above is not just prose.
+  const MIN_LEGAL_TOLERANCE = 5;
+  const { stats } = await recolourScene(
+    beach,
+    { 1: { mode: 'palette', hex: '#7A1F2B' }, 2: { mode: 'palette', hex: '#D4AF37' } },
+    [
+      ...liveSlots(beach),
+      { slotId: 2, sampledHex: '#E8D9B5', toleranceDe: MIN_LEGAL_TOLERANCE, regionLabel: 'fabric' },
+    ],
+  );
+  assert.ok(
+    stats.driftwood!.moved === stats.driftwood!.total && stats.driftwood!.total > 0,
+    `at the tightest LEGAL fabric tolerance (${MIN_LEGAL_TOLERANCE}) only ` +
+      `${stats.driftwood!.moved} of ${stats.driftwood!.total} driftwood pixels turned. If the ` +
+      'whole arch no longer turns, the artwork has changed and the beach fabric slot may now ' +
+      'be seedable — re-measure and seed it, rather than leaving this test asserting a fact ' +
+      'that is no longer true.',
+  );
+  assert.equal(
+    stats.fabric!.moved,
+    stats.fabric!.total,
+    'the beach drapes did not fully recolour even at the tolerance that ruins the arch, so ' +
+      'the tradeoff this test describes is not the one the file actually presents.',
   );
 });

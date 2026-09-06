@@ -31,6 +31,11 @@ import {
   type FigureSpec,
 } from '@/lib/figure-rig';
 import { renderRemote, activeRemotes, type RemoteMap, type RemotePlayer, type Vec2 } from '@/lib/plan3d-room';
+import { guestAvatarsEnabled } from '@/lib/venue-avatars';
+import { resolveGuestAvatar } from '@/lib/guest-avatar';
+import { heritageFigureSpec } from '@/lib/heritage-config';
+import { chibiHop } from '@/lib/figure-rig';
+import { ChibiFigure } from './kit/chibi-figure';
 
 /*
  * A remote's heading eased toward the network target instead of snapping on
@@ -54,6 +59,19 @@ const ORIGIN: Vec2 = { x: 0, z: 0 };
 function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality: 'high' | 'low' }) {
   const groupRef = useRef<THREE.Group>(null);
   const phaseRef = useRef(0);
+  // C6b — this peer's OWN chibi, if they made one and the flag is on. The same
+  // ONE fallback rule the viewer's own figure uses: junk declines to the
+  // mannequin, never to a hash-rolled default. Resolved once per (id, config).
+  const avatar = useMemo(
+    () => resolveGuestAvatar(player.avatar, player.id, guestAvatarsEnabled()),
+    [player.id, player.avatar],
+  );
+  // The chibi hop — the SAME pure clip the viewer's own <ChibiBounce> drives
+  // (lib/figure-rig chibiHop), applied here to a child group so the walk file
+  // keeps its one-and-only <ChibiBounce> mount. Amplitude eases in/out on
+  // start/stop so a chibi never snaps mid-hop.
+  const hopRef = useRef<THREE.Group>(null);
+  const hopAmp = useRef(0);
   const headingRef = useRef(player.h);
   // Pose + wave are React props on <Figure>; they change on start/stop/greet
   // (occasional), NOT per frame — so we setState only on transition.
@@ -64,9 +82,14 @@ function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality
 
   // Deterministic matte-white mannequin; the presence colour rings the floor so
   // online people are tell-apart-able. No photo, no PII beyond the ring + name.
+  // Heritage rides the SAME mannequin path with its look on the spec; the
+  // neutral spec is what every guest without an avatar has always had.
   const spec = useMemo<FigureSpec>(
-    () => ({ id: player.id, outfit: 'neutral', outfitColor: null, statusColor: player.color }),
-    [player.id, player.color],
+    () =>
+      avatar?.style === 'heritage'
+        ? heritageFigureSpec(player.id, avatar.config, player.color)
+        : { id: player.id, outfit: 'neutral', outfitColor: null, statusColor: player.color },
+    [player.id, player.color, avatar],
   );
 
   useFrame((_, delta) => {
@@ -82,6 +105,14 @@ function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality
     // Advance the gait clock while walking/running; hold it while standing.
     if (r.pose === 'walk') phaseRef.current += WALK_CLOCK_RAD_S * delta;
     else if (r.pose === 'run') phaseRef.current += RUN_CLOCK_RAD_S * delta;
+    const hop = hopRef.current;
+    if (hop) {
+      const target = r.pose === 'stand' || r.waving ? 0 : 1;
+      hopAmp.current += (target - hopAmp.current) * damp(0.06, delta);
+      const { lift, scaleY, scaleXZ } = chibiHop(phaseRef.current, hopAmp.current);
+      hop.position.y = lift;
+      hop.scale.set(scaleXZ, scaleY, scaleXZ);
+    }
 
     // Greeting pauses the figure to wave (idleClip only overlays a stand pose).
     const effPose = r.waving ? 'stand' : r.pose;
@@ -95,6 +126,22 @@ function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality
     }
   });
 
+  if (avatar?.style === 'chibi') {
+    return (
+      <group ref={groupRef}>
+        <group ref={hopRef}>
+          <ChibiFigure id={player.id} config={avatar.config} castShadow={false} />
+        </group>
+        {/* The presence colour still rings the floor — the mannequin carried
+            it as a status ring; the chibi has none, and "tell-apart-able" is
+            the whole reason the colour exists. */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
+          <ringGeometry args={[0.24, 0.3, 24]} />
+          <meshBasicMaterial color={player.color} side={THREE.DoubleSide} transparent opacity={0.9} />
+        </mesh>
+      </group>
+    );
+  }
   return (
     <group ref={groupRef}>
       <Figure

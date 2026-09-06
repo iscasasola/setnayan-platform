@@ -20,7 +20,18 @@ import {
   decideIngestHealth,
   POLL_INTERVAL_MS,
   STALE_AFTER_MS,
+  LOCAL_PREEMPT_MS,
+  type EncoderHealthInput,
 } from '@/lib/live-studio-ingest-health';
+
+const encoder = (partial: Partial<EncoderHealthInput>): EncoderHealthInput => ({
+  rtmp: 'publishing',
+  reconnectingForMs: 0,
+  droppedFrames: 0,
+  bitrateRung: 0,
+  recording: true,
+  ...partial,
+});
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -213,6 +224,167 @@ test('transportEnvelope omitted or null → transportNote is null, not an empty 
     transportEnvelope: null,
   });
   assert.equal(d2.transportNote, null);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// S9 — the encoder's own reading, and the precedence between it and YouTube.
+// ─────────────────────────────────────────────────────────────────────────
+
+test('no encoder reading at all → behaves exactly as before (backward compatible)', () => {
+  const withNull = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+    encoder: null,
+  });
+  const withUndefined = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+  });
+  assert.deepEqual(withNull, withUndefined);
+  assert.equal(withNull.state, 'receiving');
+});
+
+test('⚠ PRECEDENCE 1 — NO local encoder reading, however loud, can make a YouTube no_data reading greener', () => {
+  const youtubeNoData = { streamStatus: null, healthStatus: null, live: true, lastOkAt: null } as const;
+  for (const enc of [
+    encoder({ rtmp: 'publishing' }),
+    encoder({ rtmp: 'publishing', bitrateRung: 2 }),
+    // Even a LOCAL encoder reading that would itself be an escalation
+    // (down/reconnecting) must not be checked at all once YouTube itself
+    // has nothing to report — delete the no_data short-circuit and THESE
+    // two specifically start returning 'encoder_down'/'reconnecting'
+    // instead of the YouTube-reported 'no_data'.
+    encoder({ rtmp: 'down' }),
+    encoder({ rtmp: 'reconnecting', reconnectingForMs: LOCAL_PREEMPT_MS }),
+  ]) {
+    const d = decideIngestHealth({ ...youtubeNoData, encoder: enc });
+    assert.equal(d.state, 'no_data', `encoder=${JSON.stringify(enc)} must not override a YouTube no_data`);
+  }
+
+  for (const input of [
+    { streamStatus: 'active', healthStatus: 'good', live: true, lastOkAt: STALE_AFTER_MS + 1 },
+    { streamStatus: 'inactive', healthStatus: null, live: true, lastOkAt: 0 },
+  ] as const) {
+    const d = decideIngestHealth({ ...input, encoder: encoder({ rtmp: 'publishing' }) });
+    assert.equal(d.state, 'no_data', `local publishing must not override ${JSON.stringify(input)}`);
+  }
+});
+
+test('⚠ PRECEDENCE 2 — local `down` pre-empts an otherwise-fine YouTube `receiving` reading immediately', () => {
+  const d = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+    encoder: encoder({ rtmp: 'down', reconnectingForMs: 0 }),
+  });
+  assert.equal(d.state, 'encoder_down');
+});
+
+test('⚠ PRECEDENCE 2 — local `reconnecting` under LOCAL_PREEMPT_MS does NOT yet pre-empt a fine YouTube reading', () => {
+  const d = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+    encoder: encoder({ rtmp: 'reconnecting', reconnectingForMs: LOCAL_PREEMPT_MS - 1 }),
+  });
+  assert.equal(d.state, 'receiving', 'a sub-1s blip must not alarm yet');
+});
+
+test('⚠ PRECEDENCE 2 — local `reconnecting` AT/OVER LOCAL_PREEMPT_MS pre-empts a fine YouTube `degraded` reading too', () => {
+  const d = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'bad',
+    live: true,
+    lastOkAt: 0,
+    encoder: encoder({ rtmp: 'reconnecting', reconnectingForMs: LOCAL_PREEMPT_MS }),
+  });
+  assert.equal(d.state, 'reconnecting');
+});
+
+test('PRECEDENCE 3 — a non-zero bitrate rung is a SUB-state: stays `receiving`, sentence notes reduced quality', () => {
+  const clean = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+    encoder: encoder({ bitrateRung: 0 }),
+  });
+  const reduced = decideIngestHealth({
+    streamStatus: 'active',
+    healthStatus: 'good',
+    live: true,
+    lastOkAt: 0,
+    encoder: encoder({ bitrateRung: 2 }),
+  });
+  assert.equal(reduced.state, 'receiving', 'a reduced rung must not become its own alarm state');
+  assert.equal(clean.state, 'receiving');
+  assert.match(reduced.sentence, /reduced quality/i);
+  assert.doesNotMatch(clean.sentence, /reduced quality/i);
+});
+
+test('own-channel (not `live`) with an idle encoder → waiting, own-channel note included', () => {
+  const d = decideIngestHealth({
+    streamStatus: null,
+    healthStatus: null,
+    live: false,
+    lastOkAt: null,
+    encoder: encoder({ rtmp: 'idle' }),
+  });
+  assert.equal(d.state, 'waiting_for_encoder');
+  assert.match(d.sentence, /own channel/i);
+});
+
+test('own-channel (not `live`) with a publishing encoder → receiving, not "nothing"', () => {
+  const d = decideIngestHealth({
+    streamStatus: null,
+    healthStatus: null,
+    live: false,
+    lastOkAt: null,
+    encoder: encoder({ rtmp: 'publishing' }),
+  });
+  assert.equal(d.state, 'receiving');
+  assert.match(d.sentence, /own channel/i, 'must explain why there is no YouTube reading, not show nothing');
+});
+
+test('own-channel (not `live`) with a down encoder → encoder_down, not the generic "not live yet"', () => {
+  const d = decideIngestHealth({
+    streamStatus: null,
+    healthStatus: null,
+    live: false,
+    lastOkAt: null,
+    encoder: encoder({ rtmp: 'down' }),
+  });
+  assert.equal(d.state, 'encoder_down');
+});
+
+test('own-channel (not `live`) with NO encoder reading at all → unchanged legacy waiting_for_encoder, no own-channel note', () => {
+  const d = decideIngestHealth({ streamStatus: null, healthStatus: null, live: false, lastOkAt: null });
+  assert.equal(d.state, 'waiting_for_encoder');
+  assert.doesNotMatch(d.sentence, /own channel/i);
+});
+
+test('every new S9 state carries a non-empty operator sentence', () => {
+  const cases: Parameters<typeof decideIngestHealth>[0][] = [
+    { streamStatus: 'active', healthStatus: 'good', live: true, lastOkAt: 0, encoder: encoder({ rtmp: 'down' }) },
+    {
+      streamStatus: 'active',
+      healthStatus: 'good',
+      live: true,
+      lastOkAt: 0,
+      encoder: encoder({ rtmp: 'reconnecting', reconnectingForMs: LOCAL_PREEMPT_MS }),
+    },
+    { streamStatus: null, healthStatus: null, live: false, lastOkAt: null, encoder: encoder({ rtmp: 'connecting' }) },
+  ];
+  for (const input of cases) {
+    const d = decideIngestHealth(input);
+    assert.ok(d.sentence.length > 10, `no sentence for ${JSON.stringify(input)}`);
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────

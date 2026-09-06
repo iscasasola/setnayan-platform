@@ -66,11 +66,22 @@ test('the anchor: there are nine Studio apps and each names a page', () => {
     🔄 NINE → TWELVE, 2026-09-05. Owner: *"Also add the other services.
     Marketplace to search for vendors with compare, Guestlist, Seatplan"* —
     and, asked where their rows live, chose new Studio rows over a separate
-    group. Three more free tools, each with a public description page (signed
+    group.
+
+    🔄 TWELVE → FOURTEEN, 2026-09-06. Owner: *"add these"* — the Budget and the
+    Schedule, the last two of the free workspace (`help.ts`: schedule · budget ·
+    guest list · seat plan · mood board) still without a doorway. Both
+    `doorwayOnly`, like the three before them. Three more free tools, each with a public description page (signed
     out, or signed in with no event) that becomes the event's own control
     centre inside one. Recorded in the corpus DECISION_LOG the same day.
   */
-  assert.equal(STUDIO_APPS.length, 12, 'the Studio group is twelve rows');
+  /* 🔑 THE NAME OF THIS LIST OUTGREW ITS CONTENTS ON 2026-09-06. STUDIO_APPS is
+     no longer "the Studio group" — it is every product with a public doorway
+     page, and `railGroup` decides which rail group renders each one (Studio =
+     the things you make · Planner = the five free planning tools · Together =
+     Samahan). The count is still pinned here, deliberately, because adding a
+     row is still a decision to put a door in front of every stranger. */
+  assert.equal(STUDIO_APPS.length, 15, 'there are fifteen doorway products');
   for (const a of STUDIO_APPS) {
     assert.ok(a.href.startsWith('/'), `${a.key}: href is not a path`);
     assert.ok(a.description.length > 80, `${a.key}: description is a stub`);

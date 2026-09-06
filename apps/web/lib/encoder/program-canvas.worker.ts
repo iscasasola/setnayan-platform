@@ -34,7 +34,10 @@
  *
  * NO DESKTOP-SHELL (TAURI) GATE HERE. The same JS ships to plain browsers; S5 gates the call site.
  *
- * // S4: encode from `canvas` here on each tick (new VideoFrame(canvas, { timestamp })).
+ * S4: every tick also encodes `canvas` to H.264 (`new VideoFrame(canvas, { timestamp:
+ * tick.timestampMicros })`), on the SAME master-clock timestamp the audio side stamps its AAC
+ * packets from — see video-encode.ts for the config, the keyframe cadence, the mux-point drift
+ * guard, and the bounded ring; this file only wires them to the real `VideoEncoder`.
  */
 
 import { ProgramCompositor, type ProgramPainter, type VideoFrameLike } from './program-compositor';
@@ -47,6 +50,18 @@ import {
 import { createAudioPacker, type AudioPacket } from './audio-packer';
 import { PROGRAM_HEIGHT, PROGRAM_WIDTH, type ProgramFrameWire, type Region, type VideoSlot } from './program-plan';
 import type { ProgramAirDecision } from '../live-studio-publish-pure';
+import {
+  VIDEO_ENCODER_CONFIG,
+  isKeyframeTick,
+  createVideoEncodeSink,
+  createChunkRing,
+  createDriftGuardedRing,
+  type DriftEvent,
+  type RingEntry,
+} from './video-encode';
+import type { ResolvedOverlays } from '../live-studio-overlays';
+import { drawOverlays, shouldDrawOverlays, type OverlayAssets, type OverlayCanvasContext } from './draw-overlays';
+import { REFERENCE_LAYOUT } from './encoder-layout';
 
 /* ── message contract (page ↔ worker) ─────────────────────────────────────── */
 
@@ -55,6 +70,14 @@ export type ProgramCanvasInbound =
   | { type: 'stop' }
   | { type: 'frame'; frame: ProgramFrameWire }
   | { type: 'air'; air: Pick<ProgramAirDecision, 'enforced' | 'permittedSlots'> | null }
+  /**
+   * S2 · the ₱0 broadcast extras, already resolved server-side exactly as the
+   * controller page's `airOverlays` holds them. This worker never derives `owned`,
+   * never calls `resolveOverlays` — it only draws what it is handed (rule 18).
+   * `qrSrc` and `lowerThirdFallback` are the DOM parity data `ResolvedOverlays` does
+   * not itself carry; see `draw-overlays.ts`'s `OverlayAssets`.
+   */
+  | { type: 'overlays'; overlays: ResolvedOverlays | null; qrSrc: string | null; lowerThirdFallback: string }
   /** A transferred `MediaStreamTrackProcessor.readable` (Chromium path). Null = slot cleared. */
   | { type: 'track'; slot: VideoSlot; readable: ReadableStream<VideoFrame> | null }
   /** A transferred cloned `MediaStreamTrack` (WebKit path — the worker wraps it). */
@@ -99,6 +122,23 @@ export type ProgramCanvasStats = {
   maxWallDriftMs: number;
   /** True once `decoderConfig.description` (the AudioSpecificConfig) has been captured. */
   ascReady: boolean;
+  /* ── S4: the video half ─────────────────────────────────────────────────── */
+  /** Encoded H.264 access units handed back by `VideoEncoder`. */
+  videoChunks: number;
+  /** Of `videoChunks`, how many were forced keyframes (should be `⌈videoChunks / 60⌉`). */
+  videoKeyframes: number;
+  /** True once `decoderConfig.description` (the AVCDecoderConfigurationRecord) has been captured. */
+  avccReady: boolean;
+  /** Mux-point drift events (`|videoTs − audioTs| > 100ms`) — the evidence bar is 0. */
+  videoDriftEvents: number;
+  /** Video chunks the drift guard dropped (never re-timestamped) instead of ringing. */
+  videoDriftDrops: number;
+  /** Ring entries dropped for being unconsumed, not for drift — S5's backpressure, not S4's. */
+  videoRingDrops: number;
+  /** Bytes of H.264 payload encoded so far — `videoAvgKbps` below is derived from this. */
+  videoBytes: number;
+  /** `videoBytes × 8 / elapsedMs` — the evidence bar is the 2.5 Mbps target ±10%. */
+  videoAvgKbps: number;
 };
 
 export type ProgramCanvasOutbound =
@@ -110,6 +150,14 @@ export type ProgramCanvasOutbound =
    * `src-tauri/crates/encoder/src/contract.rs`); it is emitted once, before any media.
    */
   | { type: 'audio-config'; description: ArrayBuffer; sampleRate: number; numberOfChannels: number }
+  /**
+   * The AVCDecoderConfigurationRecord from the first encoded video chunk's
+   * `decoderConfig.description` — the `avcC` half of `ChunkKind::Config`. Emitted once, before
+   * any media, and S5 must re-ship both configs on every reconnect (S4 prompt) since Rust's
+   * FLV/RTMP muxer cannot decode a keyframe without them.
+   */
+  | { type: 'video-config'; description: ArrayBuffer; codec: string; width: number; height: number }
+  | { type: 'drift'; event: DriftEvent }
   | { type: 'error'; where: string; message: string };
 
 /** How often stats go back to the page, counted in TICKS — 30 ticks is one second of media. */
@@ -222,6 +270,19 @@ if (!ctx) throw new Error('program-canvas.worker: no 2d context');
 
 const compositor = new ProgramCompositor(makePainter(ctx));
 
+/* ── S2: the broadcast extras, drawn straight on `ctx` — see draw-overlays.ts ──────
+   The hook receives `frame` precisely so THIS module decides whether there is
+   anything on program to brand; draw-overlays.ts itself stays a pure painter with
+   no bridge/frame awareness (its own docblock explains the split). */
+let overlaysState: { overlays: ResolvedOverlays | null; assets: OverlayAssets } | null = null;
+compositor.setOverlayHook((_painter, frame) => {
+  if (!overlaysState || !shouldDrawOverlays(frame)) return;
+  // Same cast the painter above already makes at this boundary (`ctx.drawImage(frame as
+  // unknown as CanvasImageSource, ...)`): `OverlayCanvasContext` is a narrow structural
+  // subset of the real context, not a lib.dom type it can satisfy invariantly.
+  drawOverlays(ctx as unknown as OverlayCanvasContext, overlaysState.overlays, REFERENCE_LAYOUT, overlaysState.assets);
+});
+
 /* ── the audio half: encoder, packer, and the clock they share ─────────────── */
 
 let startedAt = 0;
@@ -239,6 +300,59 @@ let ascReady = false;
 let ticksSinceStats = 0;
 
 let encoder: AudioEncoder | null = null;
+
+/* ── S4: the video half ──────────────────────────────────────────────────── */
+
+let videoTickIndex = 0;
+let videoBytes = 0;
+let avccReady = false;
+let videoDriftEvents = 0;
+let videoDriftDrops = 0;
+
+/**
+ * The bounded ring (S5's consumer drains it) and, in front of it, the mux-point drift guard:
+ * a video chunk stamped too far from the last known audio PTS is dropped rather than shipped
+ * with a fabricated timestamp — see video-encode.ts's docblock for why re-stamping is wrong.
+ */
+let videoRing = createChunkRing(180); // 6s at 30fps of headroom before S5's consumer must run
+let driftGuardedRing = createDriftGuardedRing(videoRing, (event) => {
+  videoDriftEvents += 1;
+  videoDriftDrops += 1;
+  scope.postMessage({ type: 'drift', event });
+});
+let videoSink = createVideoEncodeSink({
+  onConfig: (description) => {
+    avccReady = true;
+    scope.postMessage(
+      {
+        type: 'video-config',
+        description,
+        codec: VIDEO_ENCODER_CONFIG.codec,
+        width: VIDEO_ENCODER_CONFIG.width,
+        height: VIDEO_ENCODER_CONFIG.height,
+      },
+      [description],
+    );
+  },
+  onChunk: (entry: RingEntry) => {
+    videoBytes += entry.data.byteLength;
+    driftGuardedRing.push(entry, lastAudioPtsMicros);
+  },
+});
+
+let videoEncoder: VideoEncoder | null = null;
+
+function startVideoEncoder(): void {
+  if (videoEncoder || typeof VideoEncoder === 'undefined') return;
+  const enc = new VideoEncoder({
+    output: (chunk, metadata) => videoSink.handle(chunk, metadata),
+    error: (err: DOMException) => {
+      scope.postMessage({ type: 'error', where: 'video-encoder', message: err.message });
+    },
+  });
+  enc.configure(VIDEO_ENCODER_CONFIG);
+  videoEncoder = enc;
+}
 
 function startEncoder(): void {
   if (encoder || typeof AudioEncoder === 'undefined') return;
@@ -307,7 +421,17 @@ function makePacker() {
 function makeClock() {
   return createAudioMasterClock((tick) => {
     compositor.tick();
-    // S4: encode from `canvas` here — `new VideoFrame(canvas, { timestamp: tick.timestampMicros })`.
+    // S4: one encode per tick, stamped from the SAME counter the audio side stamps from —
+    // this is the whole reason videoPTS and audioPTS cannot drift apart in steady state.
+    if (videoEncoder) {
+      const frame = new VideoFrame(canvas, { timestamp: tick.timestampMicros });
+      try {
+        videoEncoder.encode(frame, { keyFrame: isKeyframeTick(videoTickIndex) });
+      } finally {
+        frame.close();
+      }
+      videoTickIndex += 1;
+    }
     const skewMs = Math.abs(tick.timestampMicros - lastAudioPtsMicros) / 1000;
     if (skewMs > maxAvSkewMs) maxAvSkewMs = skewMs;
     const driftMs = Math.abs(
@@ -344,6 +468,36 @@ function resetAudio(): void {
   ticksSinceStats = 0;
   packer = makePacker();
   clock = makeClock();
+  videoTickIndex = 0;
+  videoBytes = 0;
+  avccReady = false;
+  videoDriftEvents = 0;
+  videoDriftDrops = 0;
+  videoRing = createChunkRing(180);
+  driftGuardedRing = createDriftGuardedRing(videoRing, (event) => {
+    videoDriftEvents += 1;
+    videoDriftDrops += 1;
+    scope.postMessage({ type: 'drift', event });
+  });
+  videoSink = createVideoEncodeSink({
+    onConfig: (description) => {
+      avccReady = true;
+      scope.postMessage(
+        {
+          type: 'video-config',
+          description,
+          codec: VIDEO_ENCODER_CONFIG.codec,
+          width: VIDEO_ENCODER_CONFIG.width,
+          height: VIDEO_ENCODER_CONFIG.height,
+        },
+        [description],
+      );
+    },
+    onChunk: (entry: RingEntry) => {
+      videoBytes += entry.data.byteLength;
+      driftGuardedRing.push(entry, lastAudioPtsMicros);
+    },
+  });
 }
 
 /** One quantum off the audio thread: pack it, then advance the clock it defines. */
@@ -427,6 +581,8 @@ function postStats(): void {
   const c = compositor.stats();
   const k = clock.stats();
   const a = packer.stats();
+  const v = videoSink.stats();
+  const elapsedMs = performance.now() - startedAt;
   scope.postMessage({
     type: 'stats',
     stats: {
@@ -436,7 +592,7 @@ function postStats(): void {
       maxGapMs: k.maxGapMs,
       maxGapAtMs: k.maxGapAtMs,
       longGaps: k.longGaps,
-      elapsedMs: performance.now() - startedAt,
+      elapsedMs,
       audioQuanta,
       audioPackets: a.packets,
       audioChunks,
@@ -444,6 +600,14 @@ function postStats(): void {
       maxAvSkewMs,
       maxWallDriftMs,
       ascReady,
+      videoChunks: v.chunks,
+      videoKeyframes: v.keyframes,
+      avccReady,
+      videoDriftEvents,
+      videoDriftDrops,
+      videoRingDrops: videoRing.stats().dropped,
+      videoBytes,
+      videoAvgKbps: elapsedMs > 0 ? (videoBytes * 8) / elapsedMs : 0,
     },
   });
 }
@@ -456,19 +620,26 @@ scope.addEventListener('message', (ev) => {
       running = true;
       resetAudio();
       startEncoder();
+      startVideoEncoder();
       // No timer is started here. The first quantum off the audio thread starts the clock.
       return;
     case 'stop':
       running = false;
       audioPort?.close();
       audioPort = null;
-      // Flush THEN close: closing an encoder mid-flush drops the tail of the audio.
+      // Flush THEN close: closing an encoder mid-flush drops the tail of the audio/video.
       const closing = encoder;
       encoder = null;
       void closing
         ?.flush()
         .catch(() => {})
         .finally(() => closing.close());
+      const closingVideo = videoEncoder;
+      videoEncoder = null;
+      void closingVideo
+        ?.flush()
+        .catch(() => {})
+        .finally(() => closingVideo.close());
       detachSlot('primary');
       detachSlot('secondary');
       compositor.dispose();
@@ -478,6 +649,12 @@ scope.addEventListener('message', (ev) => {
       return;
     case 'air':
       compositor.setAir(msg.air);
+      return;
+    case 'overlays':
+      overlaysState = {
+        overlays: msg.overlays,
+        assets: { qrSrc: msg.qrSrc, lowerThirdFallback: msg.lowerThirdFallback },
+      };
       return;
     case 'track':
       if ('track' in msg) attachTrack(msg.slot, msg.track);

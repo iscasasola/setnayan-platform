@@ -2580,6 +2580,14 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // channel-pool relationship, not a new subsystem.
       { kind: 'table', table: 'live_studio_encoder_claims' },
       { kind: 'fk', table: 'live_studio_encoder_claims', column: 'broadcast_id', references: 'panood_broadcasts' },
+      // S5 (build-sessions/encoder/S5.md): single-use, 60s-TTL nonce that
+      // authorizes ONE Tauri encoder_start call, closing the gap that
+      // capabilities/default.json's remote.urls grant is origin-scoped, not
+      // session-scoped. Same posture as live_studio_encoder_claims above —
+      // added here, not as a new joint, for the same reason.
+      { kind: 'table', table: 'live_studio_encoder_tokens' },
+      { kind: 'fk', table: 'live_studio_encoder_tokens', column: 'broadcast_id', references: 'panood_broadcasts' },
+      { kind: 'fk', table: 'live_studio_encoder_tokens', column: 'event_id', references: 'events' },
     ],
     chain: 2,
     pair: ['TYPE-LIVESTUDIO', 'TYPE-EVENTS'],

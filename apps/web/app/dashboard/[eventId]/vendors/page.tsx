@@ -1616,6 +1616,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.
         convergence={convergenceBanner(buildDateWindow, { anchoredLabel: matchFormattedDate })}
+        // Inline "More in {category}" row (owner 2026-09-06) — the SAME window
+        // `buildFitByVendorId` above was resolved from, handed down so row 2
+        // sinks exactly the vendors row 1 sinks. A pass-down of values already
+        // in memory: no second query, and no second copy of the window logic in
+        // the row's server action (see _actions/inline-more-row.ts).
+        buildWindow={buildDateWindow}
+        probeDayKeys={probeWindow?.dayKeys ?? []}
+        // `freeDays` is a Set on the server type; it crosses to the client as an
+        // array and is rebuilt there rather than trusted to survive the boundary.
+        teamCalendar={teamCalendar.map((m) => ({
+          vendorId: m.vendorId,
+          name: m.name,
+          freeDays: [...m.freeDays],
+        }))}
       />
     </>
   );

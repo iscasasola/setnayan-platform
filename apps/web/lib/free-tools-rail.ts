@@ -40,15 +40,36 @@ import type { RailTool } from '@/app/_components/frontdoor/front-door-shell';
  * `eventId` is required to build a real href and there is exactly one
  * genuine gap to fill.
  */
-export function plannerRailItems(eventId: string): ReadonlyArray<RailTool> {
-  return [
-    {
-      key: 'planner-mood-board',
-      href: `/dashboard/${eventId}/studio/mood-board`,
-      name: 'Mood Board',
-      line: 'Pin the look of your day.',
-    },
-  ];
+export function plannerRailItems(_eventId: string): ReadonlyArray<RailTool> {
+  /*
+    🔴 EMPTY SINCE 2026-09-06, AND THE ROW IT HELD WAS A DUPLICATE.
+
+    This returned a Mood Board row, on the reasoning recorded above: the board
+    *"lives inside Studio → Branding, not the event's own top-level menu"*. That
+    was TRUE WHEN IT WAS WRITTEN and stopped being true on 2026-09-03, when the
+    owner promoted the Mood Board into the Studio rail group (*"i do not see
+    it"*). From that day the in-event rail carried **Mood Board → the same
+    href** twice: once in Studio, once here. Nobody noticed for three days.
+
+    🔑 FOUND BY ASKING THE RAIL, NOT BY READING IT — every in-event row from all
+    four groups was listed and grouped by destination, and this was the only
+    undocumented collision. (The two Together pairs that share a destination are
+    deliberate and `front-door-shell.tsx` says so.)
+
+    ⚠ THE STUDIO ROW IS THE ONE THAT STAYS. Its placement is the owner's own
+    2026-09-03 ruling, made because he could not find the board when it lived
+    anywhere else. Removing THIS one keeps both rulings intact.
+
+    ⚠ AND THE GROUP IS NOT DEAD. `plannerDoorwayRows` in `lib/studio-rail.ts`
+    fills Planner OUTSIDE an event with the five free planning tools' doorways.
+    Inside one, Planner is now genuinely empty — the event's own rail carries
+    every tool it would have listed — and an empty array renders no group at
+    all, which is the correct answer rather than a heading over nothing.
+
+    Kept as a function, with its argument, so a future in-event Planner row has
+    an obvious home and this reasoning is the first thing its author reads.
+  */
+  return [];
 }
 
 /**

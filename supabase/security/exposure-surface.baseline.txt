@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6566
+# facts: 6568
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     583
-#   col       4824
+#   col       4826
 #   policy    894
 #   view      8
 #   func      253
@@ -3531,6 +3531,8 @@ col	public.promo_free_windows.created_at	anon=- authenticated=SIU
 col	public.promo_free_windows.created_by	anon=- authenticated=SIU
 col	public.promo_free_windows.deal_length_days	anon=- authenticated=SIU
 col	public.promo_free_windows.ends_at	anon=- authenticated=SIU
+col	public.promo_free_windows.event_date_from	anon=- authenticated=SIU
+col	public.promo_free_windows.event_date_to	anon=- authenticated=SIU
 col	public.promo_free_windows.is_active	anon=- authenticated=SIU
 col	public.promo_free_windows.promo_window_id	anon=- authenticated=SIU
 col	public.promo_free_windows.promoted_vendor_tier	anon=- authenticated=SIU

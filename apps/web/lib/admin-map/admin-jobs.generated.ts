@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 314 jobs, 207 of them form-driven, as of 4daf31206.
+// that performs it. 314 jobs, 207 of them form-driven, as of 8cbd2d4db.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -730,6 +730,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "promoted_vendor_tier",
       "deal_length_days",
       "reason",
+      "event_date_from",
+      "event_date_to",
       "show_banner"
     ],
     "refusedWhenEmpty": [

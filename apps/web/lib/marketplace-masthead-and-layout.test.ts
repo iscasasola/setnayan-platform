@@ -63,7 +63,7 @@ test('the Marketplace mounts <PageMasthead> — it had NO h1 at all', () => {
   // sidebar to read, nothing on screen said which page this was.
   const src = code(TAKEOVER);
   assert.match(src, /<PageMasthead\b/, 'the masthead must be MOUNTED, not merely imported');
-  assert.match(src, /title="Marketplace"/);
+  assert.match(src, /title="Your Team"/);
 });
 
 test('the masthead is the shared component, never a hand-roll', () => {

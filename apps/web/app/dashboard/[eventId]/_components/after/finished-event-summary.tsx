@@ -143,7 +143,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           // With none, the plain bench is the honest destination.
           href={summary.suppliers === 0 ? `${base}/vendors` : `${base}/vendors?tab=build`}
           Icon={Compass}
-          title="Marketplace"
+          title="Your Team"
           cta={summary.suppliers === 0 ? 'Open the marketplace' : 'Open your suppliers'}
         >
           <Figure value={summary.suppliers} unit="supplier" />

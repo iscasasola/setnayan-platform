@@ -863,13 +863,54 @@ test('the event rail is the five destinations plus "Also in this event"', () => 
   );
 });
 
+/* ── THE EVENT ROW'S TWO FILES MUST AGREE ─────────────────────────────────
+   The account row has had this guard since 2026-08-15, after one row shipped
+   wearing two words for three days ("Find a supplier" on `/`, "Marketplace"
+   inside the app) because the shell and the nav registry each stayed
+   self-consistent while disagreeing with each other.
+
+   The EVENT row had no such guard. Measured 2026-09-06 during the
+   Marketplace → Your Team rename: reverting the registry's event label to
+   "Marketplace" broke NOTHING — `customer-menu.ts` feeds the phone, the
+   registry feeds /admin/menus and the desktop rail, and nothing compared them.
+   An admin renaming the row, or a half-applied rename, would ship silently.
+
+   🔑 Same defect class, opposite side of the app. One file cannot see it. */
+test('the event row says the same word in customer-menu and in the nav registry', () => {
+  const registry = readFileSync(resolve(HERE, '../../../lib/nav-registry-defaults.ts'), 'utf8');
+  const entry = /key:\s*"customer\.bottom-nav\.explore"[\s\S]{0,400}?label:\s*"([^"]+)"/.exec(
+    registry,
+  );
+  assert.ok(entry, 'no nav-registry default for customer.bottom-nav.explore');
+
+  const menuLabel = buildCustomerNavGroups('EVT123')
+    .flatMap((g) => g.items)
+    .find((i) => i.key === 'explore')?.label;
+
+  assert.equal(
+    menuLabel,
+    entry![1],
+    `the phone menu would say "${menuLabel}" and the registry "${entry![1]}" ` +
+      'for the SAME row and the SAME destination.',
+  );
+
+  // And the sidebar slot must not drift from the bottom-nav slot either.
+  const sidebar = /key:\s*"customer\.sidebar\.explore"[\s\S]{0,400}?label:\s*"([^"]+)"/.exec(
+    registry,
+  );
+  assert.ok(sidebar, 'no nav-registry default for customer.sidebar.explore');
+  assert.equal(sidebar![1], entry![1], 'the sidebar and bottom-nav slots disagree');
+});
+
 test('the Marketplace row is the one the mobile tabs also carry', () => {
   const groups = buildCustomerNavGroups('EVT123');
   const market = groups
     .flatMap((g) => g.items)
     .find((i) => i.key === 'explore');
   assert.equal(market?.href, '/dashboard/EVT123/vendors');
-  assert.equal(market?.label, 'Marketplace');
+  // EVENT-scoped row → "Your Team". The account row (/explore) says "Suppliers"
+  // and is asserted separately; the two must NOT be interchangeable.
+  assert.equal(market?.label, 'Your Team');
 });
 
 // ── 5 · CREATING A TRIP IS NEVER REFUSED ────────────────────────────────────

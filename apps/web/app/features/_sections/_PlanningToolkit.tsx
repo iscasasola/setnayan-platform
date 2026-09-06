@@ -72,7 +72,7 @@ const COPY: Record<
       {
         title: 'Budget · the truth, in PHP',
         oneLiner: 'Budget by category, paid vs. owed, what’s due next month.',
-        body: 'Set a total budget. Setnayan splits it across categories (venue, catering, photography, attire, flowers, music) with smart Filipino-wedding defaults you can override. Log payments as you make them; the system tracks paid vs. owed and surfaces what’s due next, with overdue called out. Only finalized bookings count — suppliers you are still choosing between stay in the Marketplace. Costs with no supplier at all, like the rings, the licence and tips, have a place of their own.',
+        body: 'Set a total budget. Setnayan splits it across categories (venue, catering, photography, attire, flowers, music) with smart Filipino-wedding defaults you can override. Log payments as you make them; the system tracks paid vs. owed and surfaces what’s due next, with overdue called out. Only finalized bookings count — suppliers you are still choosing between stay in Your Team. Costs with no supplier at all, like the rings, the licence and tips, have a place of their own.',
       },
       {
         title: 'Mood board · your wedding’s look',
@@ -107,7 +107,7 @@ const COPY: Record<
       {
         title: 'Budget · ang totoo, sa PHP',
         oneLiner: 'Budget per category, bayad vs. utang, ano ang due next month.',
-        body: 'Mag-set ng total budget. Hinahati ito ng Setnayan sa mga category (venue, catering, photography, attire, flowers, music) na may smart Filipino-wedding defaults na pwede mong i-override. I-log ang payments habang nagbabayad ka; tina-track ng system ang bayad vs. utang at ipinapakita kung ano ang susunod na due, tinatawag ang overdue. Ang na-finalize lang na booking ang binibilang — ang mga supplier na pinipili mo pa ay nasa Marketplace muna. May sariling lugar din ang mga gastusing walang supplier, gaya ng singsing, lisensya at tips.',
+        body: 'Mag-set ng total budget. Hinahati ito ng Setnayan sa mga category (venue, catering, photography, attire, flowers, music) na may smart Filipino-wedding defaults na pwede mong i-override. I-log ang payments habang nagbabayad ka; tina-track ng system ang bayad vs. utang at ipinapakita kung ano ang susunod na due, tinatawag ang overdue. Ang na-finalize lang na booking ang binibilang — ang mga supplier na pinipili mo pa ay nasa Your Team muna. May sariling lugar din ang mga gastusing walang supplier, gaya ng singsing, lisensya at tips.',
       },
       {
         title: 'Mood board · ang hitsura ng kasal mo',

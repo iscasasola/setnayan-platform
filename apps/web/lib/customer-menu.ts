@@ -269,7 +269,7 @@ export function buildCustomerMenuTree(
       // design prototype + the desktop sidebar). Key + route (/vendors) + match
       // unchanged — the bottom-nav registry slot `customer.bottom-nav.explore`
       // carries the same rename.
-      label: 'Marketplace',
+      label: 'Your Team',
       icon: Compass,
       href: `${base}/vendors`,
       activeMatch: `${base}/vendors`,

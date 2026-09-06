@@ -313,7 +313,7 @@ export function buildCustomerNavGroups(
           // Label lineage: Explore → Merkado (2026-07) → Marketplace
           // (2026-07-27, owner: easier to understand). Key ('explore') + route
           // (/vendors) + matchPrefix unchanged throughout — links never break.
-          label: 'Marketplace',
+          label: 'Your Team',
           href: `${base}/vendors`,
           icon: Compass,
           matchPrefix: `${base}/vendors`,

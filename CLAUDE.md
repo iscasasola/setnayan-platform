@@ -288,10 +288,21 @@ risk; bypassing `db push --include-all`'s single, ordered application path is.
 
 ## Locked decisions you must respect
 
+> 🔎 **EVERY RULE BELOW SAYS WHO CHECKS IT.** Added 2026-09-07 after each was tested the only
+> way a rule can be tested — by breaking it and seeing whether anything failed.
+> **✅ CHECKED BY** names a test that provably goes red. **⚠ NOBODY IS CHECKING THIS** means
+> exactly that: break it and the build stays green, so it holds only as long as somebody
+> remembers it. Owner ruled (2026-09-07) that unenforceable rules stay, *labelled*, rather than
+> being deleted — but the label must stay honest. **Do not write ✅ without a test that fails.**
+>
+> Why: on 2026-09-07 an SMS sender was added to `lib/` and the full 13,619-test suite went
+> green. Four separate registers had already gone stale that week for the same reason — prose
+> cannot fail.
+
 Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. If any of these is at risk, **stop and surface the question** rather than silently changing direction.
 
-- **Web-first V1, single Next.js codebase.** Distributed to web (Vercel) · desktop (Tauri macOS + Windows) · installable PWA (iPhone / Android / iPad). Native iOS/Android Papic + DSLR pairing are Phase 2.
-- **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct pricing.
+- ⚠ **NOBODY IS CHECKING THIS** (architectural, not mechanically testable) · **Web-first V1, single Next.js codebase.** Distributed to web (Vercel) · desktop (Tauri macOS + Windows) · installable PWA (iPhone / Android / iPad). Native iOS/Android Papic + DSLR pairing are Phase 2.
+- ✅ **CHECKED BY `apps/web/lib/token-economy-is-retired.test.ts`** (verified 2026-09-07: writing a live `token_grant_count` fails it) · **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct pricing.
   ⚠ **CHARM ENDINGS ARE NO LONGER THE RULE.** This line said "charm pricing (-1 endings)" for months,
   but the owner's 2026-08-27 price sheet (`DECISION_LOG.md`) rounded three SKUs OFF their -1 endings in
   one day — `LIVE_STUDIO` ₱2,999 → **₱3,000**, `PAPIC_ADDON_THANK_YOU` ₱2,499 → ₱2,500, and the custom
@@ -299,17 +310,22 @@ Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. 
   end in -1 and that is fine; there is no convention to enforce either way.
   🔑 **NEVER derive a price from this file or from a code comment — read
   `platform_retail_catalog_v2`, which is admin-managed and is the only price a customer is charged.**
-- **Canonical entity IDs:** `S89<TYPE>-<10-char Crockford>` random body. Generator function: `public.generate_public_id(type_letter)`. Internal joins use hidden `bigserial`.
-- **RLS canonical patterns.** 8 patterns + 4 helper functions (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). No invented patterns. RLS enabled at `CREATE TABLE` time.
-- **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com`. ⚠ **WE DO NOT OWN
+- ❓ **NOT YET TESTED** (2026-09-07 sweep ran out of scope before this one — do not assume either way) · **Canonical entity IDs:** `S89<TYPE>-<10-char Crockford>` random body. Generator function: `public.generate_public_id(type_letter)`. Internal joins use hidden `bigserial`.
+- ❓ **NOT YET TESTED** (2026-09-07 sweep ran out of scope before this one) · **RLS canonical patterns.** 8 patterns + 4 helper functions (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). No invented patterns. RLS enabled at `CREATE TABLE` time.
+- ✅ **CHECKED BY `apps/web/lib/one-mark-everywhere.test.ts`** (verified 2026-09-07 twice: renaming the brand in the watermark AND in an ordinary lib module both fail it) · **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com`. ⚠ **WE DO NOT OWN
   `setnayan.ph`** — owner, verbatim, 2026-08-11: *"we do not have setnayan.ph"*. This line
   claimed both for months and sent sessions looking for DNS that was never ours. It is
   unregistered, so anyone can take it; whether to buy it is an open owner call, not a fact.
-  Brand strings centralized in `brand.config.ts`.
-- **Five-file iteration folder pattern** in the spec corpus (`.md` + `.html` + `.docx` + `tests.md` + `fixtures.json`).
-- **No manual video editor in V1.** All renders template-driven via Remotion + Lottie + LUTs.
-- **No SMS in V1.** Email-only via Resend.
-- **No public API endpoints in V1.** Iteration 0033 plumbs the gateway only.
+  ⚠ **`brand.config.ts` DOES NOT EXIST.** This line said "Brand strings centralized in
+  `brand.config.ts`" until 2026-09-07; `git ls-tree origin/main` finds no such file anywhere in
+  the repo. The brand string is not centralised in one module — it appears across `lib/`
+  (`platform-settings.ts`, `monogram.ts`, `watermark-text.ts`, …). Whether to actually
+  centralise it is an open question; what is fixed here is that the file being cited was
+  imaginary.
+- ⚠ **NOBODY IS CHECKING THIS** — and nobody here can: it describes the spec corpus, a different repository · **Five-file iteration folder pattern** in the spec corpus (`.md` + `.html` + `.docx` + `tests.md` + `fixtures.json`).
+- ⚠ **NOBODY IS CHECKING THIS.** Verified 2026-09-07: a video-editor page was added and the full suite stayed green on the rule. (A top-level one trips the reserved-slug guard and a nested one trips the one-`<main>` guard — both incidental, neither is this rule.) **It cannot be guarded until somebody defines what counts as a "manual video editor"** · **No manual video editor in V1.** All renders template-driven via Remotion + Lottie + LUTs.
+- ✅ **CHECKED BY `apps/web/lib/no-sms-in-v1.test.ts`** (written 2026-09-07 *because* breaking this rule changed nothing; catches an SMS provider dependency and an SMS-sending symbol, and deliberately does NOT fire on copy that mentions SMS) · **No SMS in V1.** Email-only via Resend.
+- ⚠ **NOBODY IS CHECKING THIS.** Verified 2026-09-07: an unauthenticated public `GET /api/public/v1/events` was added and nothing failed. **It cannot be guarded until somebody defines what separates a "public API endpoint" from the 111 `/api` routes the app already serves itself** · **No public API endpoints in V1.** Iteration 0033 plumbs the gateway only.
 
 See spec corpus `CLAUDE.md` for the full decision log.
 

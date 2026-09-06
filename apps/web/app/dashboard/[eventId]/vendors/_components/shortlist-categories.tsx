@@ -102,6 +102,7 @@ import {
   lockedNamesLabel,
   lockedNamesLine,
   REMOVE_FROM_PLAN_LABEL,
+  REMOVE_FROM_PLAN_NOTE,
   removeFromPlanButtonLabel,
   INLINE_MORE_FAILED,
   INLINE_MORE_INQUIRE,
@@ -2510,7 +2511,13 @@ export function ShortlistCategories({
                                   type="button"
                                   className="rmv"
                                   disabled={planEditing}
-                                  aria-label={removeFromPlanButtonLabel(t.label)}
+                                  /* The note rides the aria-label and the
+                                     title, NOT an sr-only span: aria-label
+                                     OVERRIDES inner text for assistive tech,
+                                     so a hidden span inside this button would
+                                     have reached nobody at all. */
+                                  aria-label={`${removeFromPlanButtonLabel(t.label)} — ${REMOVE_FROM_PLAN_NOTE}`}
+                                  title={REMOVE_FROM_PLAN_NOTE}
                                   onClick={() => removeTileFromPlan(t.tile)}
                                 >
                                   {REMOVE_FROM_PLAN_LABEL}

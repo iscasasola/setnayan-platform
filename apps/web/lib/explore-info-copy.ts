@@ -193,6 +193,22 @@ export function addToPlanChipLabel(label: string): string {
 /** The quiet per-category removal control. */
 export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
 
+/**
+ * What removal actually does, said out loud (owner 2026-09-06: *"archive …
+ * just means, that category will no longer be on their choices to build"* +
+ * *"yes archive the conversations too"*).
+ *
+ * 🔑 Every clause here is TRUE of the shipped code, and an earlier draft of
+ * this sentence was not: it said the inquiries would be *deleted*, when
+ * `excludeTileFromPlan` deleted nothing at all. Nothing in this string may
+ * claim a destruction the code does not perform — a conversation is never
+ * hard-deleted (there is no DELETE policy on `chat_threads`), and adding the
+ * category back un-archives exactly the threads this removal archived.
+ */
+export const REMOVE_FROM_PLAN_NOTE =
+  'The category leaves your choices, and your conversations with those ' +
+  'suppliers move to Archived — nothing is deleted. Add it back and they return.';
+
 export function removeFromPlanButtonLabel(label: string): string {
   return `Remove ${label} from your event`;
 }

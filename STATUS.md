@@ -1,6 +1,6 @@
 # Setnayan — Project Status
 
-> Living checkpoint. **Refreshed 2026-08-19.**
+> Living checkpoint. **Refreshed 2026-09-06.**
 > Anchor doc — if you're opening this repo cold in a new Claude session, start here, then read
 > the newest handoff named at the top of `CLAUDE.md`.
 > **Snapshot, not a log.** Full per-PR detail lives in `CHANGELOG.md` + git history — this file is the current-state picture only.
@@ -16,23 +16,36 @@
 
 ---
 
-## Verified production state — 2026-08-19
+## Verified production state — 2026-09-06
 
-Measured against the live database and the live site, not remembered.
+Measured against the live database today, not remembered. Re-run before trusting any figure here:
 
-**8 events · 39 guests** (largest roster 32) · **2 shops** · ~~**0 orders, ever**~~ ⚠ **CORRECTED
-2026-08-30 (C10): 6 orders as of 2026-08-29** — four paid and receipted (₱2,499 GCash · ₱2,899
-GCash · ₱147 GCash · ₱49 BDO), two cancelled; most recent completed 2026-08-29 — · **14 Papic
-photos** (13 stills + 1 clip, one event, none hidden).
-⚠ This line said **"0 photos"** when first written *today*, in the section headed "measured, not
-remembered". It was not measured. **Do not treat the gallery as empty** when reasoning about
-retention, the compression sweep, face-matching or the photo wall.
-Nothing has been bought and almost nothing has been exercised — **which is why defects here are
-found by reading code rather than by anyone complaining.** Every one fixed on 2026-08-19 had been
-live for weeks: the upload stall since 5 July, the call-room initials since 11 July.
+```sql
+select 'accounts', count(*) from auth.users
+union all select 'events', count(*) from public.events
+union all select 'guests', count(*) from public.guests
+union all select 'shops', count(*) from public.vendor_profiles
+union all select 'orders '||status::text, count(*) from public.orders group by status
+union all select 'papic photos', count(*) from public.papic_photos;
+```
 
-🔑 **The highest-value action is not on this list: somebody using the product end to end on a
-phone.** An hour of that surfaces more than a day of sweeping, and no session can do it.
+**12 accounts · 5 events · 43 guests · 2 shops · 6 orders (4 paid, 2 cancelled) · 14 Papic
+photos.**
+
+⚠ **EVENTS WENT DOWN, 8 → 5.** The previous refresh recorded 8. Whether those three were deleted
+deliberately (test cleanup) or lost is NOT established here — it is a question, not a finding.
+
+📉 **And the deltas since 2026-08-19 are the point: +3 accounts, +4 guests, 0 new orders, 0 new
+photos, 0 new shops.** ⚠ **That is NOT evidence of a demand problem — the doors are not open yet
+and this is still a build.** It IS the reason defects here are found by reading code rather than by
+anyone complaining: every one fixed on 2026-08-19 had been live for weeks (the upload stall since
+5 July, the call-room initials since 11 July), and the two `/features` batches fixed on 2026-09-06
+had been live since the page was written.
+
+🔑 **Do not treat the gallery as empty.** An earlier version of this line said "0 photos" *in the
+section headed "measured, not remembered"* — it had not been measured. 14 photos exist (13 stills
++ 1 clip, one event, none hidden); reason about retention, compression, face-matching and the photo
+wall accordingly.
 
 ## Where we are right now
 
@@ -58,16 +71,23 @@ V1 web surface is **functionally complete** and live at `setnayan.com`. The buil
 
 **Housekeeping — dependabot 14 → 4.** Security alerts triaged down: web js-yaml/esbuild (#3286) + 8 mobile transitive bumps tar/minimatch (#3297), leaving 4 open.
 
-### What's next (2026-08-19)
+### What's next (2026-09-06)
 
 ⚠ **The four bullets that stood here were the 2026-07-16 seat-plan follow-ups.** They may still
 be worth doing, but they were NOT verified against shipped code at this refresh — treat them as
 unverified, not as a plan. They are preserved at the bottom of this section.
 
-**The current stream: a failed read must not be rendered as a fact.** Nine confirmed instances
-remain, each with file:line, in the corpus doc
-`WHATS_NEXT_Silent_Failures_2026-08-19.md` §2. **None of the nine is money — the two money ones
-are done** (#4587 · #4588).
+~~**The current stream: a failed read must not be rendered as a fact.** Nine confirmed instances
+remain…~~ ✅ **CLOSED — re-measured against `origin/main` on 2026-09-06.** The 11-item list in
+`WHATS_NEXT_Silent_Failures_2026-08-19.md` §2 is complete (#4583 → #4594). Both rows still carrying
+a `file:line` in that doc were checked directly and are fixed: `lib/roles.ts` no longer tells a
+supplier who already has a shop to *"Create your shop"*, and `lib/communities.ts` binds its count
+error and degrades gracefully rather than printing **"0 members · 0 events"**. The pattern is
+fenced by `reads-are-honest` guards on both the supplier and couple sides.
+
+🔑 **THIS PARAGRAPH IS WHY THE FILE IS BEING REFRESHED AT ALL.** It told cold sessions — which this
+file's own header sends here first — to go build nine things that were already done. A stale
+"what's next" is worse than no "what's next": it is confidently actionable.
 
 **The pattern to copy — it already exists in this repo, do not invent a new one:**
 

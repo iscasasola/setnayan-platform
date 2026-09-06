@@ -18,7 +18,12 @@ they cannot trust — the same reasoning that made RV1's three celebration zones
   from the above for the MB12 reason: the trade map reaches `next/headers`, and a client component
   importing it fails only the production build.
 - `events.dismissed_room_suggestions` (migration `20271211125659`) — dismissals as
-  `<vendor_id>:<zone>`, keyed on the booking, never a flag on it.
+  `<vendor_id>:<zone>`, keyed on the booking, never a flag on it. Carries its own
+  `GRANT SELECT (col)` **and** an `events_host` rebuild: `public.events` revokes
+  table-level SELECT and re-grants a computed allowlist, so an ungranted column makes
+  PostgREST refuse the WHOLE query — the seating lab would have rendered as an event
+  that does not exist. Caught by `lint-events-column-grants.mjs`, which the db coverage
+  tests structurally cannot replace (their `before()` recomputes the allowlist).
 - Guards are the NEGATIVE: the saved room byte-identical across render, chip and dismiss; the
   click writes exactly one zone; no chip for a photographer, a coordinator, a frozen zone, or a
   shop whose trade names no option. 9 sabotages, 9 red.

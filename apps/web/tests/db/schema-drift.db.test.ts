@@ -96,7 +96,9 @@ import {
   MIN_TABLES,
   MIN_COLUMNS,
   MIN_LEDGER,
+  MIN_NOTNULL,
   diffSchema,
+  diffNotNull,
   unexplained,
   isKnownGap,
   tableOf,
@@ -122,6 +124,10 @@ let declaredLedger: Set<string>;
 /** `table.column` after replaying EVERY migration in the repo. */
 let declaredAll: Set<string>;
 let prod: Set<string>;
+/** `table.column` marked NOT NULL, per side. */
+let declaredLedgerNotNull: Set<string>;
+let declaredAllNotNull: Set<string>;
+let prodNotNull: Set<string>;
 let divergences: Divergence[];
 
 const COLUMNS_SQL = `
@@ -134,6 +140,25 @@ const COLUMNS_SQL = `
      AND a.attnum > 0 AND NOT a.attisdropped
    ORDER BY 1, 2
 `;
+
+const NOTNULL_SQL = `
+  SELECT c.relname AS t, a.attname AS c
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_attribute a ON a.attrelid = c.oid
+   WHERE n.nspname = 'public'
+     AND c.relkind IN ('r', 'p')
+     AND a.attnum > 0 AND NOT a.attisdropped
+     AND a.attnotnull
+   ORDER BY 1, 2
+`;
+
+async function notNullOf(db: PGlite): Promise<Set<string>> {
+  const q = await db.query<{ t: string; c: string }>(NOTNULL_SQL);
+  return new Set(
+    q.rows.filter((r) => r.t !== '_replay_migrations').map((r) => `${r.t}.${r.c}`),
+  );
+}
 
 async function columnsOf(db: PGlite): Promise<Set<string>> {
   const q = await db.query<{ t: string; c: string }>(COLUMNS_SQL);
@@ -161,7 +186,20 @@ before(async () => {
   declaredLedger = await columnsOf(replay.db);
   declaredAll = await columnsOf(replayAll.db);
   prod = new Set(snapshot.columns);
-  divergences = diffSchema(declaredLedger, declaredAll, prod);
+
+  declaredLedgerNotNull = await notNullOf(replay.db);
+  declaredAllNotNull = await notNullOf(replayAll.db);
+  prodNotNull = new Set(snapshot.notnull);
+
+  // Nullability is only meaningful for a column BOTH sides agree exists; one
+  // that exists on a single side is already reported as a column divergence,
+  // and saying it twice would bury the finding that matters.
+  const onBothSides = new Set([...prod].filter((k) => declaredLedger.has(k) || declaredAll.has(k)));
+
+  divergences = [
+    ...diffSchema(declaredLedger, declaredAll, prod),
+    ...diffNotNull(declaredLedgerNotNull, declaredAllNotNull, prodNotNull, onBothSides),
+  ];
 });
 
 after(async () => {
@@ -253,6 +291,30 @@ test('meta: the committed snapshot exists, parses, is canonical, and is not trun
       '`pnpm --filter @setnayan/web schema:snapshot`.',
   );
 
+  assert.equal(
+    counts.notnull,
+    snapshot.notnull.length,
+    `snapshot header says ${counts.notnull} notnull rows but ${snapshot.notnull.length} parsed — ` +
+      `the file was truncated or hand-edited. Regenerate rather than patching it.`,
+  );
+  assert.ok(
+    snapshot.notnull.length >= MIN_NOTNULL,
+    `the snapshot lists only ${snapshot.notnull.length} NOT NULL columns (floor ${MIN_NOTNULL}). ` +
+      `An empty or truncated [notnull] section would silently turn the nullability half of this ` +
+      `guard into a comparison against nothing — which is precisely how the drift it now catches ` +
+      `survived for months.`,
+  );
+  // Every NOT NULL column must be a column. A name in [notnull] that is absent
+  // from [columns] means the two sections were generated from different reads.
+  const columnSet = new Set(snapshot.columns);
+  const orphans = snapshot.notnull.filter((c) => !columnSet.has(c));
+  assert.deepEqual(
+    orphans,
+    [],
+    'these appear in [notnull] but not in [columns] — the sections disagree, so the snapshot ' +
+      'was not written by one generator run',
+  );
+  assert.equal(new Set(snapshot.notnull).size, snapshot.notnull.length, 'snapshot has duplicate notnull entries');
   assert.equal(new Set(snapshot.columns).size, snapshot.columns.length, 'snapshot has duplicate columns');
   assert.equal(new Set(snapshot.ledger).size, snapshot.ledger.length, 'snapshot has duplicate ledger versions');
   for (const c of snapshot.columns) {
@@ -463,6 +525,74 @@ test('meta: the differ catches injected divergences and stays quiet on agreement
 });
 
 /* ── 6. THE CHECK ITSELF ────────────────────────────────────────────────────*/
+
+test('meta: the NULLABILITY differ catches both directions, and stays quiet on a pending change', () => {
+  // The same neutralisation discipline as the column differ above: prove it
+  // FAILS on an injected divergence before believing it when it passes. This
+  // half is new (2026-09-06) and exists because the column differ, which is
+  // thorough, was structurally blind to the attribute that broke two features
+  // in one day.
+  const cols = new Set(['comp_grants.user_id', 'users.email', 'orders.order_id']);
+  const none = new Set<string>();
+
+  assert.deepEqual(
+    diffNotNull(none, none, none, cols),
+    [],
+    'nullability differ invented a divergence where neither side enforces anything',
+  );
+  assert.deepEqual(
+    diffNotNull(new Set(['users.email']), new Set(['users.email']), new Set(['users.email']), cols),
+    [],
+    'nullability differ invented a divergence where both sides agree',
+  );
+
+  // 🚨 THE REAL BUG, TWICE OVER: prod enforces NOT NULL, the migrations do not.
+  const prodOnly = diffNotNull(none, none, new Set(['comp_grants.user_id']), cols);
+  assert.equal(prodOnly.length, 1, 'nullability differ MISSED a prod-only NOT NULL');
+  assert.equal(prodOnly[0]!.kind, 'NOT_NULL_ONLY_IN_PROD');
+  assert.equal(prodOnly[0]!.key, 'comp_grants.user_id');
+  assert.match(
+    formatDriftReport(prodOnly),
+    /comp_grants\.user_id/,
+    'the report must NAME the column — a failure nobody can act on gets rubber-stamped',
+  );
+  assert.match(
+    formatDriftReport(prodOnly),
+    /23502/,
+    'the report must say what actually happens in production, not just that sets differ',
+  );
+
+  // The other direction: the suite is stricter than reality.
+  const declOnly = diffNotNull(
+    new Set(['orders.order_id']),
+    new Set(['orders.order_id']),
+    none,
+    cols,
+  );
+  assert.equal(declOnly.length, 1, 'nullability differ MISSED a declared-only NOT NULL');
+  assert.equal(declOnly[0]!.kind, 'NOT_NULL_ONLY_DECLARED');
+
+  // ── must stay QUIET, or every schema pull request goes red ───────────────
+  assert.deepEqual(
+    diffNotNull(none, new Set(['users.email']), none, cols),
+    [],
+    'a PENDING migration that adds NOT NULL must not be reported — it is not deployed yet',
+  );
+  assert.deepEqual(
+    diffNotNull(new Set(['users.email']), none, new Set(['users.email']), cols),
+    [],
+    'a PENDING migration that DROPS a NOT NULL must clear the finding — the fix is in flight, ' +
+      'and re-reporting it would block the pull request that repairs it',
+  );
+
+  // A column only ONE side has is a column divergence, not a nullability one.
+  assert.deepEqual(
+    diffNotNull(none, none, new Set(['ghost.col']), cols),
+    [],
+    'a column absent from the shared set must not be reported here — it is already a ' +
+      'DECLARED_NOT_IN_PROD / PROD_NOT_DECLARED finding, and saying it twice buries the real one',
+  );
+});
 
 test('THE CHECK: every migration production applied actually landed', () => {
   const left = unexplained(divergences);

@@ -4,6 +4,7 @@ import { AccessRequestsDoorway } from './_components/access-requests-doorway';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -468,6 +469,14 @@ export default async function EventHomePage({
   // same pattern as the studio buy page.
   const aiOfferSettings = aiOffer ? await fetchPlatformSettings(supabase) : null;
 
+  // 🔒 NO PRICE ON THE FIRST SCREEN IN THE STORE SHELL. This offer carries a
+  // peso figure (and a struck-through "regular" one) for a digital SKU, on the
+  // page a couple lands on right after signing in — the most visible possible
+  // place for an App Review 3.1.1 finding. The route stays open because the
+  // dashboard is the planning surface the store shell exists for; only the
+  // purchase pitch is withheld. See lib/store-shell.ts.
+  const storeShell = await isStoreShellRequest();
+
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
   // between the At-a-glance bento and the journey rail.
@@ -526,7 +535,7 @@ export default async function EventHomePage({
        *  Papic) ask for one thing at a time, and this is a purchase pitch, not
        *  a setup step. Absent entirely when the paywall is off or the event
        *  already owns AI. */}
-      {aiOffer && aiOfferSettings ? (
+      {aiOffer && aiOfferSettings && !storeShell ? (
         <SetnayanAiComebackOffer
           eventId={eventId}
           displayName={(event as { display_name?: string | null }).display_name ?? null}

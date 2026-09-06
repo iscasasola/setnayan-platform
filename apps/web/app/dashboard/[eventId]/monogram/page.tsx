@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
@@ -121,6 +122,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   // "Animate the reveal" panel previews all five kinds free, but the LIVE site
   // plays the pick only with the paid Animated Monogram — say so where the
   // choice is made. Price from the admin catalog only (owner rule 2026-06-14).
+  const storeShell = await isStoreShellRequest();
   const ownsAnimated = await eventOwnsAnimatedMonogram(supabase, eventId);
   const animatedPricePhp = ownsAnimated
     ? null
@@ -200,8 +202,13 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       />
 
       {/* ── Paid Animated-Monogram upgrade, merged inline (owner 2026-06-25).
-          Owned → live confirmation + preview; unowned → before/after + buy. ── */}
-      <AnimatedMonogramUpgrade eventId={eventId} />
+          Owned → live confirmation + preview; unowned → before/after + buy. ──
+
+          🔒 Withheld in the store shell (App Review 3.1.1). The monogram maker
+          ABOVE is free and stays whole — this is the paid upgrade block, which
+          carries the live catalogue price on a route the /studio gate never
+          covered. See lib/store-shell.ts. */}
+      {!storeShell && <AnimatedMonogramUpgrade eventId={eventId} />}
     </section>
   );
 }

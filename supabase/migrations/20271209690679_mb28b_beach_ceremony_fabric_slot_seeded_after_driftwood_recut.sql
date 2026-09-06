@@ -60,9 +60,7 @@ BEGIN
 
   IF n_ranges <> 2 THEN
     RAISE EXCEPTION
-      'MB28b: expected the beach ceremony drawing to carry exactly 2 colour ranges (florals ' ||
-      'from MB28 + fabric from this migration), found %. Either the beach row does not exist, ' ||
-      'MB28''s florals range is missing, or this migration inserted a duplicate fabric slot.',
+      'MB28b: expected the beach ceremony drawing to carry exactly 2 colour ranges (florals from MB28 + fabric from this migration), found %. Either the beach row does not exist, MB28''s florals range is missing, or this migration inserted a duplicate fabric slot.',
       n_ranges;
   END IF;
 END $$;

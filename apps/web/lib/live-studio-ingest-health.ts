@@ -228,7 +228,10 @@ const YOUTUBE_BAD_HEALTH = new Set(['bad', 'noData']);
 /** The encoder's own reading, with no YouTube broadcast to combine it against
  * (own-channel/by-hand, or not `live` yet). Used both when `!input.live` and
  * as the base for the S9 precedence rules below. */
-function decideFromEncoderOnly(encoder: EncoderHealthInput, ownChannelNote: string): IngestHealthDecision {
+function decideFromEncoderOnly(
+  encoder: EncoderHealthInput,
+  ownChannelNote: string,
+): Omit<IngestHealthDecision, 'transportNote'> {
   switch (encoder.rtmp) {
     case 'idle':
       return { state: 'waiting_for_encoder', sentence: ENCODER_IDLE_SENTENCE + ownChannelNote };

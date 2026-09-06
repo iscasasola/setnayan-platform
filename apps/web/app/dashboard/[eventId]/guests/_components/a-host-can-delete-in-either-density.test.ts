@@ -33,7 +33,7 @@
  * all. Both now call one hook, `useGuestRemoval`. The "ONE delete form"
  * assertion MOVED to follow that mechanism instead of being deleted: left as it
  * was, it counted a pattern that no longer exists.
- *  · route the swipe back through bulkSoftDeleteGuests → 0 → 2 failing · RED
+ *  · route the swipe back through the removed action  → typecheck fails · RED
  *  · remove the hook from SwipeToDelete entirely       → 0 → 1 failing · RED
  *  · drop the setTx(0) reset callback                  → 0 → 1 failing · RED
  *    (the FIRST draft of that assertion scored 0 — a bare /setTx\(0\)/ also
@@ -151,16 +151,30 @@ test('there is ONE removal path, not one per density', () => {
   );
 });
 
-test('nothing on this page calls the delete that cannot be undone', () => {
-  // `bulkSoftDeleteGuests` releases the guest's seat WITHOUT capturing it, so a
-  // caller silently loses the chair. It stays exported (other trees may use it),
-  // but this page must never route through it again — that asymmetry is what
-  // this change removed.
+test('the delete that cannot be undone no longer EXISTS', () => {
+  // Stronger than the first version of this assertion (2026-09-06), which only
+  // checked that this page did not call `bulkSoftDeleteGuests`. It had zero
+  // callers left after the swipe moved, and a dead lossy delete is a waiting
+  // re-wire — so it was removed outright. Assert the export is gone, not merely
+  // unused: "unused" is a state somebody can undo in one line.
+  const ACTIONS = stripComments(
+    readFileSync(join(HERE, '..', 'groups-actions.ts'), 'utf8'),
+  );
+  assert.equal(
+    /export async function bulkSoftDeleteGuests\s*\(/.test(ACTIONS),
+    false,
+    'the un-undoable delete is back. It releases the seat without capturing ' +
+      'it, so any caller silently loses the guest\u2019s chair — the asymmetry ' +
+      'this change removed. Use bulkSoftDeleteGuestsForUndo.',
+  );
+  assert.ok(
+    /export async function bulkSoftDeleteGuestsForUndo\s*\(/.test(ACTIONS),
+    'the surviving action is gone too — this test is pinning a ghost',
+  );
   assert.equal(
     /bulkSoftDeleteGuests\s*[.(]/.test(SRC),
     false,
-    'this page is calling the un-undoable delete again — use useGuestRemoval, ' +
-      'which captures released seats so the undo can re-place them',
+    'this page references the removed action in code',
   );
 });
 

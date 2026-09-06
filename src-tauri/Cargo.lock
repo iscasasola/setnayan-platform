@@ -3460,6 +3460,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-oauth",
  "tauri-plugin-opener",
+ "tokio",
  "zeroize",
 ]
 
@@ -3467,6 +3468,7 @@ dependencies = [
 name = "setnayan-encoder"
 version = "0.0.1"
 dependencies = [
+ "base64 0.22.1",
  "bytes",
  "libc",
  "rml_rtmp",

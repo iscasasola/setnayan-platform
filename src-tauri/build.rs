@@ -22,15 +22,21 @@ fn main() {
     }
 
     // Commands that ship in EVERY build: S8's stream-key commands (own-channel
-    // paste + hosted-channel nonce exchange) and S10's keep-awake assertions.
-    // Both are real product surface, not spikes, so they are registered
-    // unconditionally; only S0's probe commands are gated on `debug`.
+    // paste + hosted-channel nonce exchange), S10's keep-awake assertions, and
+    // S5's encoder IPC transport commands (encoder_ipc.rs). All real product
+    // surface, not spikes, so they are registered unconditionally; only S0's
+    // probe commands are gated on `debug`.
     let mut commands: Vec<&'static str> = vec![
         "stream_key_set_pasted",
         "stream_key_claim_hosted",
         "stream_key_forget",
         "start_keep_awake",
         "stop_keep_awake",
+        "encoder_start",
+        "encoder_config",
+        "encoder_push",
+        "encoder_stop",
+        "encoder_probe",
     ];
 
     let mut attrs = tauri_build::Attributes::new();

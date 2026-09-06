@@ -251,6 +251,15 @@ const UNREVIEWED_CASCADING_ACTOR_STAMPS = [
   'oauth_state.initiated_by',
   'patiktok_oauth_state.initiated_by',
   'vendor_ig_oauth_state.initiated_by',
+  // A live_studio_encoder_tokens row is a single-use, 60s-TTL nonce that
+  // authorizes ONE encoder_start call and is deleted on read regardless of
+  // outcome (S5 — build-sessions/encoder/S5.md); RLS has no policy at all, so
+  // no other user or role can even SELECT it. Its requester is both the actor
+  // and the only party the row could ever matter to — there is no third party
+  // to protect from an over-deletion, the exact question this list exists to
+  // ask. (live_studio_encoder_claims.requested_by below is the same shape but
+  // remains an open item in that list — not re-litigated here.)
+  'live_studio_encoder_tokens.requested_by',
 
   // ── genuine candidates for the comp_grants defect ─────────────────────────
   // Each records that somebody ACTED on a row other people also rely on: an

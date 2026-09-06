@@ -144,6 +144,9 @@ pub enum ContractError {
     ReservedNotZero { value: u16 },
     /// A byte value outside 0..=255 in a JSON-array envelope, or a non-number.
     NotAByte { index: usize },
+    /// The base64 envelope's string field did not decode (owner decision 2026-09-06 —
+    /// this is now the PRIMARY envelope, not a fallback; see `from_base64`).
+    BadBase64,
     /// The config payload's JSON prefix did not parse, or its lengths did not add up.
     BadConfigPayload { reason: &'static str },
     /// A non-video chunk carried the keyframe flag.
@@ -163,6 +166,7 @@ impl fmt::Display for ContractError {
             ContractError::NotAByte { index } => {
                 write!(f, "JSON envelope element {index} is not a byte value")
             }
+            ContractError::BadBase64 => write!(f, "base64 envelope field did not decode"),
             ContractError::BadConfigPayload { reason } => {
                 write!(f, "config payload malformed: {reason}")
             }
@@ -233,6 +237,25 @@ impl EncodedChunk {
             bytes.push(byte);
         }
         EncodedChunk::parse(&bytes)
+    }
+
+    /// THE base64 envelope — S5's owner-decided transport (2026-09-06). `invoke` carries
+    /// one string field holding the standard-alphabet, padded base64 of the 16-byte
+    /// header followed by the payload; this decodes it and calls the same one parser
+    /// as every other envelope. ~1.33× on the wire against ~3.6× for a JSON number
+    /// array — see `ipc-envelope.ts` for the measurement this was chosen from.
+    pub fn from_base64(field: &str) -> Result<EncodedChunk, ContractError> {
+        use base64::Engine as _;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(field)
+            .map_err(|_| ContractError::BadBase64)?;
+        EncodedChunk::parse(&bytes)
+    }
+
+    /// The mirror of `from_base64`, for the sender side and for tests.
+    pub fn to_base64(&self) -> String {
+        use base64::Engine as _;
+        base64::engine::general_purpose::STANDARD.encode(self.encode())
     }
 
     pub fn encode(&self) -> Vec<u8> {
@@ -312,6 +335,27 @@ impl DecoderConfig {
         out
     }
 }
+
+/* ── THE CROSS-LANGUAGE FIXTURE ──────────────────────────────────────────────────────────
+ * S5's TypeScript mirror (`apps/web/lib/encoder/ipc-contract.ts`) encodes the IDENTICAL
+ * logical chunk below and must produce IDENTICAL bytes. Neither side's test derives the
+ * expected value from its own `encode()` — that would only prove a function agrees with
+ * itself. Both assert against this same hard-coded hex literal, kept in lockstep by hand
+ * with `ENCODED_FIXTURE_HEX` in the TypeScript file; that duplication IS the test. */
+
+/// The fixture chunk both languages encode. Reuses the exact values from
+/// `the_json_envelope_and_the_raw_envelope_decode_identically` below rather than
+/// inventing a second one.
+pub fn fixture_chunk() -> EncodedChunk {
+    EncodedChunk {
+        header: ChunkHeader { kind: ChunkKind::Video, keyframe: true, seq: 7, ts_us: 33_366 },
+        payload: vec![0, 0, 0, 5, 0x65, 1, 2, 3, 4],
+    }
+}
+
+/// The bytes `fixture_chunk()` must encode to, LOWERCASE hex, no separators. Mirror:
+/// `ipc-contract.ts`'s `ENCODED_FIXTURE_HEX`.
+pub const ENCODED_FIXTURE_HEX: &str = "00010000070000005682000000000000000000056501020304";
 
 #[cfg(test)]
 mod tests {
@@ -416,5 +460,62 @@ mod tests {
         assert!(Envelope::Raw.is_zero_copy());
         assert!(!Envelope::JsonArray.is_zero_copy());
         assert!(!Envelope::Loopback.is_zero_copy());
+    }
+
+    /// THE CROSS-LANGUAGE CONTRACT TEST. `apps/web/lib/encoder/ipc-contract.test.ts`
+    /// asserts the TypeScript mirror against this exact same hex literal, independently.
+    /// If one side's encoder drifts from the other, ONE of the two tests goes red — the
+    /// hex literal is the shared ground truth neither side derives from the other.
+    #[test]
+    fn fixture_chunk_encodes_to_the_hex_both_languages_are_pinned_to() {
+        let hex: String = fixture_chunk().encode().iter().map(|b| format!("{b:02x}")).collect();
+        assert_eq!(hex, ENCODED_FIXTURE_HEX);
+    }
+
+    #[test]
+    fn base64_envelope_round_trips_the_same_chunk_as_raw_and_json() {
+        let chunk = fixture_chunk();
+        let encoded = chunk.to_base64();
+        assert_eq!(EncodedChunk::from_base64(&encoded).unwrap(), chunk);
+    }
+
+    #[test]
+    fn base64_envelope_refuses_a_string_that_does_not_decode() {
+        assert_eq!(EncodedChunk::from_base64("not valid base64!!").unwrap_err(), ContractError::BadBase64);
+    }
+
+    #[test]
+    fn base64_is_smaller_on_the_wire_than_the_json_number_array_it_replaces() {
+        // The deterministic byte-math half of "measure both before choosing" (S5 prompt):
+        // this does not need a live webview to be true. A 16-byte header + 10 KB payload,
+        // JSON-array-encoded (`ipc-protocol.js`'s `Array.from()` -> `[255,0,17,...]`) is
+        // roughly 3.6x the raw bytes; base64 is exactly ceil(n/3)*4 ~= 1.333x.
+        let payload = vec![0xABu8; 10 * 1024];
+        let chunk = EncodedChunk {
+            header: ChunkHeader { kind: ChunkKind::Video, keyframe: false, seq: 1, ts_us: 1 },
+            payload,
+        };
+        let raw = chunk.encode();
+        let raw_len = raw.len();
+
+        // JSON number array: "[" + each value's digits + "," between them + "]".
+        let digit_total: usize = raw.iter().map(|b| b.to_string().len()).sum();
+        let json_array_len = 2 + digit_total + raw.len().saturating_sub(1);
+        let base64_len = chunk.to_base64().len();
+
+        let json_ratio = json_array_len as f64 / raw_len as f64;
+        let base64_ratio = base64_len as f64 / raw_len as f64;
+        assert!(
+            json_ratio > 3.0,
+            "expected the JSON-array envelope to be roughly 3.6x, measured {json_ratio:.2}x"
+        );
+        assert!(
+            base64_ratio < 1.4,
+            "expected the base64 envelope to be roughly 1.33x, measured {base64_ratio:.2}x"
+        );
+        assert!(
+            base64_ratio < json_ratio,
+            "base64 ({base64_ratio:.2}x) must beat the JSON array ({json_ratio:.2}x) it replaces"
+        );
     }
 }

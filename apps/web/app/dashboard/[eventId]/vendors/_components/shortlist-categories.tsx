@@ -22,7 +22,15 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -74,6 +82,14 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
+import { cardDates, dateOutcome, type CardDates, type DateOutcome } from '@/lib/card-dates';
+import { formatDayKeyLabel } from '@/lib/build-date-window';
+import {
+  cardDatesInlineLine,
+  cardDatesMoreLabel,
+  cardDatesPopupTitle,
+  dateOutcomeLine,
+} from '@/lib/explore-info-copy';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
 import {
@@ -625,6 +641,19 @@ html.dark .slcat .morehead .seeall{color:#C99DB0}
 html.dark .slcat .mrb.dark{background:#C99DB0;color:#1B1A17}
 html.dark .slcat .mrsaved{color:#7FBF9A}
 html.dark .slcat .mrerr{color:#E39A9A}
+
+/* ── A card's dates (2026-09-06) ─────────────────────────────────────────── */
+.slcat .fd-more{margin-left:6px;border:0;background:none;padding:0 2px;cursor:pointer;
+  font-family:var(--mono);font-size:9.5px;color:var(--gold-deep);text-decoration:underline;
+  text-underline-offset:2px}
+.slcat .fd-more:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:3px}
+.slcat .fd-pop{display:block;margin:4px 0 2px;padding:7px 9px;border:1px solid rgba(169,131,75,.35);
+  border-radius:9px;background:var(--m-paper,#FBFBFA)}
+.slcat .fd-pop-t{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--gold-deep);margin-bottom:4px}
+.slcat .fd-chip{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:999px;
+  background:rgba(27,26,23,.06);font-family:var(--mono);font-size:9.5px}
+.slcat .fd-out{display:block;margin-top:3px;font-size:9.5px;color:var(--gold-deep)}
 `;
 
 function initials(name: string): string {
@@ -634,11 +663,77 @@ function initials(name: string): string {
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
+/**
+ * The card's date block: the mono "Free: …" line, an overflow disclosure when
+ * more than four days are free, and one sentence about what locking would do
+ * to the couple's DATE.
+ *
+ * 🔑 The outcome sentence may say "sets your date" ONLY for a single viable
+ * day — `dateOutcome` enforces that, mirroring `actions.ts`'s
+ * `viable.length === 1`. A vendor free on several days narrows; it does not
+ * settle. The binding prototype claims otherwise from a hardcoded fixture
+ * string; it is wrong, and it is not the source here.
+ */
+function CardDateBlock({
+  line,
+  dates,
+  name,
+}: {
+  line: string | null;
+  dates: { parts: CardDates | null; outcome: DateOutcome } | null;
+  name: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const parts = dates?.parts ?? null;
+  const outcome = dates?.outcome ?? null;
+  if (!line && !parts && !outcome) return null;
+  return (
+    <>
+      {parts ? (
+        <span className="freedays">
+          {cardDatesInlineLine(parts)}
+          {parts.hidden > 0 ? (
+            <button
+              type="button"
+              className="fd-more"
+              aria-expanded={open}
+              aria-label={cardDatesMoreLabel(parts.hidden, name)}
+              onClick={(e) => {
+                // The card is an InspectorTrigger — without this the popup
+                // press also opens the vendor's quick-view behind it.
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen((o) => !o);
+              }}
+            >
+              +{parts.hidden} more
+            </button>
+          ) : null}
+        </span>
+      ) : line ? (
+        <span className="freedays">{line}</span>
+      ) : null}
+      {open && parts ? (
+        <span className="fd-pop" role="group" aria-label={cardDatesPopupTitle(name)}>
+          <span className="fd-pop-t">{cardDatesPopupTitle(name)}</span>
+          {parts.all.map((d) => (
+            <span key={d} className="fd-chip">
+              {formatDayKeyLabel(d)}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      {outcome ? <span className="fd-out">{dateOutcomeLine(outcome)}</span> : null}
+    </>
+  );
+}
+
 function VendorCard({
   v,
   reason,
   eventId,
   tileLabel,
+  dates,
   actions,
 }: {
   v: ShortlistVendor;
@@ -646,6 +741,15 @@ function VendorCard({
   eventId: string;
   /** The category label — the lock modals' "for {this}" copy. */
   tileLabel: string;
+  /**
+   * What this card says about the vendor's dates: the inline list (capped at
+   * four), the overflow count, and whether locking would SETTLE the couple's
+   * date or merely narrow it. Resolved once per render by the caller, which
+   * holds the build window — recomputing it here would be a second copy of the
+   * intersection, free to drift from the banner and the sink drawn from the
+   * same window. Null ⇒ render nothing, which is the fail-open case.
+   */
+  dates?: { parts: CardDates | null; outcome: DateOutcome } | null;
   /**
    * Explore Replan slice D — the resolved three-action set, or null when the
    * flag is OFF / nothing applies. Null keeps the pre-replan render EXACTLY:
@@ -712,7 +816,7 @@ function VendorCard({
         {/* PR-G1 — the vendor's own free days inside the couple's date window,
             in the bench's mono voice. Renders only when there IS a signal; a
             calendar we could not read stays silent rather than guessing. */}
-        {v.freeDaysLine ? <span className="freedays">{v.freeDaysLine}</span> : null}
+        <CardDateBlock line={v.freeDaysLine} dates={dates ?? null} name={v.name} />
       </span>
     </InspectorTrigger>
   );
@@ -1221,6 +1325,30 @@ export function ShortlistCategories({
   // setting, so it always starts closed and never persists), plus the in-flight
   // state and the last refusal message for add/remove.
   const [hintTile, setHintTile] = useState<string | null>(null);
+  /**
+   * The card date view, resolved ONCE per render against the SAME
+   * `buildWindow` the banner and the sink are drawn from. Recomputing the
+   * intersection inside the card would be a second copy, free to drift.
+   */
+  const dateViewFor = useCallback(
+    (v: ShortlistVendor) => {
+      const parts = cardDates({
+        freeDays: v.freeDays ?? null,
+        windowSize: buildWindow?.dayKeys.length ?? 0,
+      });
+      const viable = v.freeDays
+        ? v.freeDays.filter((d) => (buildWindow?.dayKeys ?? []).includes(d))
+        : null;
+      return {
+        parts,
+        outcome: dateOutcome({
+          viableDays: viable,
+          dateAnchored: buildWindow?.source === 'anchored',
+        }),
+      };
+    },
+    [buildWindow],
+  );
   const [planEditing, startPlanEdit] = useTransition();
   const { confirm, dialog: removeConfirmDialog } = useConfirm();
   const [planError, setPlanError] = useState<{ tile: string; message: string } | null>(null);
@@ -2301,6 +2429,7 @@ export function ShortlistCategories({
                                   reason={reason}
                                   eventId={eventId}
                                   tileLabel={t.label}
+                                  dates={dateViewFor(v)}
                                   // Slice D — three-action card. The resolver is
                                   // pure + unit-tested; flag OFF returns nothing
                                   // and the card renders exactly as it shipped.
@@ -2380,6 +2509,7 @@ export function ShortlistCategories({
                                       reason={reason}
                                       eventId={eventId}
                                       tileLabel={t.label}
+                                    dates={dateViewFor(v)}
                                       actions={resolveBenchCardActions({
                                         enabled: replan,
                                         vendor: v,

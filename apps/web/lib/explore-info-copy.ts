@@ -401,3 +401,43 @@ export const INLINE_MORE_SAVE_FAILED = "We couldn't save that vendor. Nothing wa
 export const INLINE_MORE_UNDO_FAILED = "We couldn't undo that. Check the row above.";
 export const INLINE_MORE_INQUIRE_FAILED = "We couldn't open the conversation. They're saved to your shortlist.";
 export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save vendors.';
+
+
+/* ── A CARD'S DATES (owner 2026-09-06) ──────────────────────────────────────
+   *"i also need to know what if the vendor has multiple dates available"* and
+   *"if there are more than 4 dates available, we can control what shows and
+   make a small popup to show their dates"*.
+
+   🔑 `dateOutcomeLine` may only say "sets your date" for a SINGLE viable day.
+   That mirrors `actions.ts`, which gates the wedding date on
+   `viable.length === 1` — a vendor free on several days narrows the candidates
+   and settles nothing. Never widen this wording. */
+
+import type { CardDates, DateOutcome } from '@/lib/card-dates';
+import { formatDayKeyLabel } from '@/lib/build-date-window';
+
+/** The mono "Free: …" line, from the parts rather than a pre-baked string. */
+export function cardDatesInlineLine(d: CardDates): string {
+  if (d.wide) return `Free ${d.all.length} of ${d.windowSize} days`;
+  return `Free: ${d.shown.map(formatDayKeyLabel).join(' · ')}`;
+}
+
+/** The overflow trigger's accessible name — never a bare "+3 more". */
+export function cardDatesMoreLabel(hidden: number, vendorName: string): string {
+  return `Show all ${vendorName} free dates — ${hidden} more not listed`;
+}
+
+export function cardDatesPopupTitle(vendorName: string): string {
+  return `${vendorName} is free on`;
+}
+
+/**
+ * One sentence about what locking this vendor would do to the couple's DATE.
+ * `narrows` deliberately says the date is NOT set yet: the whole defect this
+ * closes is a card implying a settled wedding day when two remain.
+ */
+export function dateOutcomeLine(o: DateOutcome): string | null {
+  if (!o) return null;
+  if (o.kind === 'sets') return `Locking this sets your date to ${formatDayKeyLabel(o.day)}`;
+  return `Leaves ${o.count} possible dates — your date is not set yet`;
+}

@@ -357,6 +357,13 @@ export type ShortlistVendor = {
    *  formatted upstream against the probe window's size. Null = say nothing (no
    *  signal, or no free day — the amber badge covers that case). */
   freeDaysLine: string | null;
+  /**
+   * The SAME free days `freeDaysLine` was formatted from, unformatted. The card
+   * needs the parts, not the sentence: with >4 of them the overflow becomes a
+   * button opening a popup, and a string cannot carry a button. `freeDaysLine`
+   * is unchanged and still rendered — this is additive.
+   */
+  freeDays: readonly string[] | null;
 };
 
 /**
@@ -473,6 +480,7 @@ export function buildShortlistFolders(args: {
    *  days for a handful of candidate dates; count them for a whole month) and
    *  that is a page-level fact, not a per-vendor one. */
   freeDaysLineByVendorId?: ReadonlyMap<string, string>;
+  freeDaysByVendorId?: ReadonlyMap<string, readonly string[]>;
   /** `isLockHandshakeEnabled()`, passed IN. This module is a pure builder and
    *  must not read the env itself — `flag-chokepoint-scan.test.ts` property 3
    *  reddens the moment it does, and taking it as a parameter is what lets one
@@ -492,6 +500,7 @@ export function buildShortlistFolders(args: {
     demandByVendorId,
     buildFitByVendorId,
     freeDaysLineByVendorId,
+    freeDaysByVendorId,
     lockHandshakeEnabled = false,
   } = args;
 
@@ -632,6 +641,7 @@ export function buildShortlistFolders(args: {
       })(),
       buildClashWith: buildFitByVendorId?.get(v.vendor_id)?.clashWith ?? null,
       freeDaysLine: freeDaysLineByVendorId?.get(v.vendor_id) ?? null,
+      freeDays: freeDaysByVendorId?.get(v.vendor_id) ?? null,
     };
     const arr = byTile.get(tile);
     if (arr) arr.push(vendor);

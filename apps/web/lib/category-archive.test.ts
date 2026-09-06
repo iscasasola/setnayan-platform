@@ -195,3 +195,60 @@ test('source · the couple is TOLD what removal does, somewhere that reaches the
       'deletes nothing at all',
   );
 });
+
+/* ── THE CONFIRM ─────────────────────────────────────────────────────────────
+   Owner 2026-09-06: *"yes add the confirm step"* — because the note rides
+   `title`, a HOVER tooltip, and a phone has no hover. The consequence has to
+   reach the SCREEN, not only the accessibility tree. */
+
+test('source · removal asks first, and the dialog is actually mounted', () => {
+  const bench = readFileSync(
+    resolve(HERE, '../app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx'),
+    'utf8',
+  );
+  assert.match(bench, /useConfirm\(\)/, 'the remove path no longer asks anything');
+  assert.match(
+    bench,
+    /await confirm\(\{[\s\S]{0,400}?removeFromPlanConfirmTitle\(label\)/,
+    'the confirm no longer carries the category’s own title',
+  );
+  assert.match(
+    bench,
+    /if \(!ok\) return;/,
+    'the answer is not checked — a Cancel would remove the category anyway',
+  );
+  // A dialog that is never rendered means confirm() resolves against nothing.
+  assert.match(bench, /\{removeConfirmDialog\}/, 'the dialog is never mounted');
+});
+
+test('source · the confirm is awaited BEFORE the transition starts', () => {
+  const bench = readFileSync(
+    resolve(HERE, '../app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx'),
+    'utf8',
+  );
+  const fn = bench.slice(bench.indexOf('async function removeTileFromPlan'));
+  const ask = fn.indexOf('await confirm({');
+  const start = fn.indexOf('startPlanEdit(');
+  assert.ok(ask > -1 && start > -1, 'the remove path changed shape');
+  assert.ok(
+    ask < start,
+    'the transition starts before the couple has answered — the row would flip ' +
+      'into its pending state while the dialog is still open',
+  );
+});
+
+test('source · the confirm is NOT styled destructive — it destroys nothing', () => {
+  const bench = readFileSync(
+    resolve(HERE, '../app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx'),
+    'utf8',
+  );
+  const fn = bench.slice(
+    bench.indexOf('async function removeTileFromPlan'),
+    bench.indexOf('async function removeTileFromPlan') + 1200,
+  );
+  assert.ok(
+    !/destructive:\s*true/.test(fn),
+    'the terracotta destructive tint says "this deletes something", and this ' +
+      'archives — the tint would contradict the sentence above it',
+  );
+});

@@ -209,6 +209,28 @@ export const REMOVE_FROM_PLAN_NOTE =
   'The category leaves your choices, and your conversations with those ' +
   'suppliers move to Archived — nothing is deleted. Add it back and they return.';
 
+/**
+ * The confirm shown before a category is removed (owner 2026-09-06, after the
+ * note-on-the-button shipped: *"yes add the confirm step"*).
+ *
+ * 🔑 WHY A CONFIRM AND NOT JUST THE NOTE. The note rides the button's
+ * aria-label and title. `title` is a HOVER tooltip — and this is a phone-first
+ * app, where there is no hover. A touch user therefore got NO visible warning
+ * before their conversations were archived. The consequence has to reach the
+ * screen, not just the accessibility tree.
+ *
+ * NOT `destructive`. The terracotta tint means "this deletes something", and we
+ * spent a whole change establishing that this deletes nothing — using it here
+ * would contradict the sentence it sits above. Reversibility is the message.
+ */
+export function removeFromPlanConfirmTitle(label: string): string {
+  return `Remove ${label} from your event?`;
+}
+
+export const REMOVE_FROM_PLAN_CONFIRM_BODY = REMOVE_FROM_PLAN_NOTE;
+export const REMOVE_FROM_PLAN_CONFIRM_OK = 'Remove it';
+export const REMOVE_FROM_PLAN_CONFIRM_CANCEL = 'Keep it';
+
 export function removeFromPlanButtonLabel(label: string): string {
   return `Remove ${label} from your event`;
 }

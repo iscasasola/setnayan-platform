@@ -2133,3 +2133,310 @@ test('MB28b: the beach fabric tolerance sits well inside its margin — the sky 
       'to turn burgundy or gold for a real couple.',
   );
 });
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA1 · THE STAGE'S FIVE SEEDED TOLERANCES, MEASURED WITH NO AREA FLOOR.
+ *
+ * `20271211370331` (PR #5270) shipped the stage zone with five ranges. THREE OF
+ * THEM REPAINT THE ROOM — measured on the served files through the real
+ * `recolorRGBA`, against four unrelated targets:
+ *
+ *   bridgerton · regal   seeded 12 → 2572 px outside the cloth (1.67%)
+ *   editorial cream      seeded 15 →  628 px (0.41%)
+ *   tropical heritage    seeded 15 → 1480 px (0.96%)
+ *
+ * `20271212320441` corrects them to 8, 12 and (for tropical) no range at all.
+ *
+ * ── 🔑 WHY THE GUARD THAT SHIPPED WITH THEM COULD NOT SEE IT ────────────────
+ * It asked a CENSUS question with a "fills ≥0.2% of the opaque area" floor.
+ * Every region these tolerances repaint — chair outlines, plate rims, wall
+ * mouldings, glass stems — is HAIRLINE, and none of them reaches 0.2%. The
+ * measurement was blind to exactly the class of pixel a too-wide tolerance
+ * takes first. There is NO area floor anywhere in this section.
+ *
+ * The question asked here is SPATIAL: after a real recolour, did any opaque
+ * pixel change OUTSIDE the tagged object? The object is derived from the file —
+ * its exact slot-colour pixels, dilated by 2px so it keeps its own antialiased
+ * edge — so a one-pixel stroke anywhere else in the frame counts exactly like a
+ * wall.
+ *
+ * ⚠ AND A HUE FILTER IS NOT A SUBSTITUTE FOR POSITION. Exempting "same-hue"
+ * pixels as antialiasing was measured on these five files and fails in BOTH
+ * directions at once:
+ *
+ *   • `modern minimalist`'s slot #4A3B45 has HSL saturation 0.113. Any
+ *     near-grey cutoff at 0.12 classifies THE SLOT ITSELF as off-hue and
+ *     reports its own 77,650 correctly-recoloured pixels as a 50% bleed — it
+ *     accuses the one file with nothing wrong with it.
+ *   • `elegant`'s cream background #F3ECE0 sits at hue 37.9° against a slot at
+ *     38.0°. A >40° off-hue rule exempts it as "the slot's own edge", so the
+ *     same filter reports a clean max of 30 for a file whose real clean max is
+ *     9 — it would bless widening the one tolerance that is already correct.
+ *
+ * A pixel is either part of the tagged object or it is not, and that is a
+ * question about WHERE it is, not what colour it happens to be.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const RA1_FIX = new URL(
+  '../../../../../../../../supabase/migrations/20271212320441_ra1_stage_tolerances_that_bleed.sql',
+  import.meta.url,
+);
+
+/** A fourth target beyond this file's shared PALETTE. The stage slots span
+ *  gold, purple, pink and plum; a navy is far from all four, so "the region
+ *  moved" measures whether the slot MATCHES rather than how lucky the palette
+ *  is. */
+const RA1_PALETTE = [...PALETTE, '#1E3A8A'] as const;
+
+type Ra1Stage = { slug: string; servedPath: string; sampledHex: string; tolerance: number };
+
+/**
+ * 🪤 DERIVED FROM THE CORRECTION MIGRATION'S OWN GUARD, NEVER RETYPED. That
+ * guard enumerates the four (path, hex, tolerance) triples it will allow to
+ * survive; parsing it here means the SQL and this file cannot drift apart
+ * silently — if someone edits a tolerance in the migration without
+ * re-measuring, the assertions below run against the new value and go red.
+ */
+function ra1Stages(): Ra1Stage[] {
+  const sql = stripComments(readFileSync(RA1_FIX, 'utf8'));
+  const out: Ra1Stage[] = [];
+  for (const m of sql.matchAll(
+    /a\.storage_path = '(\/moodboard-seed\/venue_scene\/stage\/([a-z0-9-]+)\.svg)'\s*\n\s*AND c\.sampled_hex = '(#[0-9A-Fa-f]{6})' AND c\.tolerance_de = (\d+)/g,
+  )) {
+    out.push({
+      slug: m[2]!,
+      servedPath: m[1]!,
+      sampledHex: m[3]!.toUpperCase(),
+      tolerance: Number(m[4]),
+    });
+  }
+  return out.sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+const RA1 = ra1Stages();
+const RA1_TROPICAL = '/moodboard-seed/venue_scene/stage/tropical-heritage.svg';
+
+/**
+ * The pixel budget OUTSIDE the tagged object, per file, at the seeded
+ * tolerance. Zero on three of the four.
+ *
+ * It is not zero on `modern minimalist`, and that is measured rather than
+ * conceded: its bench and arch are drawn ON TOP of the plum block, so their
+ * antialiased join with the block falls just outside the 2px dilation. 15 px
+ * were measured; the budget is 0.05% of the opaque area (77 px), which leaves
+ * real margin without hiding a bleed — the same file at the CHECK ceiling of 30
+ * puts 346 px outside.
+ */
+const RA1_OUTSIDE_BUDGET: Record<string, number> = {
+  'bridgerton-regal': 0,
+  'editorial-cream': 0,
+  'elegant-simple-classic': 0,
+  'modern-minimalist': 77,
+};
+
+/** What `20271211370331` shipped, and what each of those values costs. Kept so
+ *  the harness must PROVE it can see the bleed it was written to catch — a
+ *  guard that cannot fail on the known-bad values is not evidence for the good
+ *  ones. */
+const RA1_SHIPPED_BLEED: Record<string, { tolerance: number; outside: number }> = {
+  'bridgerton-regal': { tolerance: 12, outside: 2572 },
+  'editorial-cream': { tolerance: 15, outside: 628 },
+};
+
+const ra1RasterCache = new Map<string, Raster>();
+const ra1MaskCache = new Map<string, { core: Uint8Array; mask: Uint8Array; opaque: number }>();
+
+async function ra1Object(servedPath: string, sampledHex: string) {
+  let m = ra1MaskCache.get(servedPath);
+  if (m) return m;
+  let r = ra1RasterCache.get(servedPath);
+  if (!r) {
+    r = await rasteriseFromPublic(servedPath);
+    ra1RasterCache.set(servedPath, r);
+  }
+  const { rgba, w, h } = r;
+  const [sr, sg, sb] = hexToRgb(sampledHex);
+  const core = new Uint8Array(w * h);
+  const mask = new Uint8Array(w * h);
+  let opaque = 0;
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    if (rgba[i] === sr && rgba[i + 1] === sg && rgba[i + 2] === sb) core[p] = 1;
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!core[y * w + x]) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          if (ny >= 0 && nx >= 0 && ny < h && nx < w) mask[ny * w + nx] = 1;
+        }
+      }
+    }
+  }
+  m = { core, mask, opaque };
+  ra1MaskCache.set(servedPath, m);
+  return m;
+}
+
+/** Recolour one stage drawing at `tolerance` and count, with NO area floor:
+ *  how much of the tagged region moved, and how many opaque pixels moved that
+ *  are not part of it. */
+async function ra1Recolour(servedPath: string, sampledHex: string, tolerance: number, hex: string) {
+  const { rgba, w, h } = ra1RasterCache.get(servedPath) ?? (await rasteriseFromPublic(servedPath));
+  ra1RasterCache.set(servedPath, { rgba, w, h });
+  const { core, mask, opaque } = await ra1Object(servedPath, sampledHex);
+  const out = recolorRGBA(
+    rgba,
+    [{ slotId: 1, sampledHex, toleranceDe: tolerance, regionLabel: 'decor' }],
+    { 1: { mode: 'palette', hex } },
+  );
+  let regionMoved = 0;
+  let regionTotal = 0;
+  let outside = 0;
+  const offenders = new Map<string, number>();
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (rgba[i + 3]! < 250) continue;
+    const moved =
+      out[i] !== rgba[i] || out[i + 1] !== rgba[i + 1] || out[i + 2] !== rgba[i + 2];
+    if (core[p]) {
+      regionTotal++;
+      if (moved) regionMoved++;
+    }
+    if (moved && !mask[p]) {
+      outside++;
+      const k = `#${[rgba[i]!, rgba[i + 1]!, rgba[i + 2]!]
+        .map((n) => n.toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase()}`;
+      offenders.set(k, (offenders.get(k) ?? 0) + 1);
+    }
+  }
+  const worst = [...offenders.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  return { regionMoved, regionTotal, outside, opaque, worst };
+}
+
+test('RA1: the correction migration leaves exactly four measured stage ranges', () => {
+  assert.deepEqual(
+    RA1.map((s) => `${s.slug}:${s.sampledHex}:${s.tolerance}`),
+    [
+      'bridgerton-regal:#8C6BA6:8',
+      'editorial-cream:#D98BA6:12',
+      'elegant-simple-classic:#C9A059:9',
+      'modern-minimalist:#4A3B45:15',
+    ],
+    'the four surviving stage tolerances changed. Each is a separate measurement against a ' +
+      'different neighbour in its own drawing — 8, 12, 9 and 15, no two alike. If one moved on ' +
+      'purpose, re-measure it through the real recolorRGBA at 520px against the SERVED file ' +
+      'before editing this list.',
+  );
+  const sql = stripComments(readFileSync(RA1_FIX, 'utf8'));
+  assert.match(
+    sql,
+    /DELETE FROM public\.moodboard_asset_color_ranges[\s\S]*tropical-heritage\.svg/,
+    'the migration no longer deletes tropical heritage\'s colour range. Its nearest neutral is ' +
+      "3.60 away in the engine metric and the table's CHECK floor is 5, so NO legal tolerance " +
+      'separates them. Re-cut the artwork before seeding one.',
+  );
+  for (const s of RA1) {
+    assert.ok(
+      s.tolerance >= 5 && s.tolerance <= 30,
+      `${s.slug}: ${s.tolerance} is outside moodboard_asset_color_ranges' CHECK (5..30)`,
+    );
+  }
+});
+
+test('RA1 · REAL RASTER, NO AREA FLOOR: nothing outside the tagged surface wears the palette', async () => {
+  for (const s of RA1) {
+    const budget = RA1_OUTSIDE_BUDGET[s.slug]!;
+    for (const hex of RA1_PALETTE) {
+      const { outside, opaque, worst } = await ra1Recolour(
+        s.servedPath,
+        s.sampledHex,
+        s.tolerance,
+        hex,
+      );
+      assert.ok(
+        outside <= budget,
+        `${s.slug}: ${outside} opaque px OUTSIDE the tagged surface recoloured under ${hex} ` +
+          `(${(100 * outside / opaque).toFixed(2)}% of the frame), above its measured budget of ` +
+          `${budget}. Worst offenders: ${worst.map(([h, n]) => `${h}×${n}`).join(' ')}. ` +
+          'These are hairlines — chair outlines, plate rims, wall mouldings — which is why a ' +
+          'census with an area floor could not see them and why this assertion has none. ' +
+          'Re-measure the boundary; do not raise the budget to fit a wider tolerance.',
+      );
+    }
+  }
+});
+
+test('RA1 · REAL RASTER: the tagged surface still recolours COMPLETELY', async () => {
+  // 🪤 The other half. "Nothing outside moved" passes vacuously at a tolerance
+  // tightened until the region stops matching, and the couple's stage would
+  // then show them nothing of their own. Tightening 12→8 and 15→12 must not
+  // have cost the cloth.
+  for (const s of RA1) {
+    for (const hex of RA1_PALETTE) {
+      const { regionMoved, regionTotal } = await ra1Recolour(
+        s.servedPath,
+        s.sampledHex,
+        s.tolerance,
+        hex,
+      );
+      assert.ok(regionTotal > 0, `${s.slug}: no pixel carries the slot colour ${s.sampledHex}`);
+      assert.equal(
+        regionMoved,
+        regionTotal,
+        `${s.slug}: at tolerance ${s.tolerance}, ${regionTotal - regionMoved}/${regionTotal} px ` +
+          `of the tagged surface stayed at stock colour under ${hex}. The correction went too ` +
+          'far — it stopped the bleed by stopping the feature.',
+      );
+    }
+  }
+});
+
+test('RA1: the values that shipped DO bleed — this harness can see what it was written to catch', async () => {
+  // 🔑 WITHOUT THIS, EVERY ASSERTION ABOVE IS UNFALSIFIED. A guard that has
+  // never failed on the known-bad input is not evidence about the good one.
+  // These are the exact values `20271211370331` put in front of couples.
+  for (const [slug, { tolerance, outside: expected }] of Object.entries(RA1_SHIPPED_BLEED)) {
+    const s = RA1.find((x) => x.slug === slug)!;
+    let worstSeen = 0;
+    for (const hex of RA1_PALETTE) {
+      const { outside } = await ra1Recolour(s.servedPath, s.sampledHex, tolerance, hex);
+      worstSeen = Math.max(worstSeen, outside);
+    }
+    assert.ok(
+      worstSeen > 0.5 * expected,
+      `${slug}: restoring the shipped tolerance of ${tolerance} moved only ${worstSeen} px ` +
+        `outside the tagged surface, against the ${expected} px measured on 2026-09-06. Either ` +
+        'the artwork was re-cut, or this harness has lost the ability to see a bleed — in which ' +
+        'case every assertion above is vacuous. Re-measure; do not delete this test.',
+    );
+  }
+});
+
+test('RA1: tropical heritage has no legal tolerance at all, and therefore no range', async () => {
+  // Both ends of the CHECK. At 5 — the tightest value the table permits — the
+  // chair and foliage grey #A7A99D (3.60 from the slot) already turns; at 30
+  // three quarters of the frame does. There is nothing in between to seed.
+  const sql = stripComments(readFileSync(RA1_FIX, 'utf8'));
+  assert.ok(
+    !new RegExp(`tropical-heritage\\.svg'\\s*\\n\\s*AND c\\.sampled_hex`).test(sql),
+    'tropical heritage appears among the migration\'s allowed (path, hex, tolerance) triples. ' +
+      'It must carry no range.',
+  );
+  for (const tolerance of [5, 30]) {
+    const { outside } = await ra1Recolour(RA1_TROPICAL, '#9CB29A', tolerance, '#7A1F2B');
+    assert.ok(
+      outside > 0,
+      `tropical heritage at tolerance ${tolerance} moved NOTHING outside its tagged surface. ` +
+        'That would mean a legal tolerance exists after all and the range should be re-seeded ' +
+        'rather than left deleted — re-measure before acting on it.',
+    );
+  }
+});

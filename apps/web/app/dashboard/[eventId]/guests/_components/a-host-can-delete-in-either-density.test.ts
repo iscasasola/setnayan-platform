@@ -25,6 +25,19 @@
  *  · widen the gate to `swipeable = !selectMode` (couple admitted)
  *                                                        → 0 → 1 failing · RED
  *  · stop passing `radiusClass` (back to a hardcoded one) → 0 → 1 failing · RED
+ *
+ * ⚠ UPDATED 2026-09-06 — THE SWIPE NO LONGER POSTS A FORM. It submitted to
+ * `bulkSoftDeleteGuests`, which releases the guest's seat WITHOUT capturing it,
+ * so a swipe permanently dropped their chair and offered no undo — while the
+ * identical act from the desktop bulk bar could be taken back in full, seat and
+ * all. Both now call one hook, `useGuestRemoval`. The "ONE delete form"
+ * assertion MOVED to follow that mechanism instead of being deleted: left as it
+ * was, it counted a pattern that no longer exists.
+ *  · route the swipe back through bulkSoftDeleteGuests → 0 → 2 failing · RED
+ *  · remove the hook from SwipeToDelete entirely       → 0 → 1 failing · RED
+ *  · drop the setTx(0) reset callback                  → 0 → 1 failing · RED
+ *    (the FIRST draft of that assertion scored 0 — a bare /setTx\(0\)/ also
+ *     matches this component's tap-to-close handler. It pins the callback now.)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -116,16 +129,55 @@ test('the couple is gated out of the swipe in BOTH densities', () => {
   }
 });
 
-test('there is ONE delete form, not one per density', () => {
-  // The point of the shared wrapper: the gates, the action and the soft-delete
-  // semantics have a single home. A second form is a second set of rules to
-  // drift.
-  const forms = SRC.match(/action=\{bulkSoftDeleteGuests\.bind/g) ?? [];
+test('there is ONE removal path, not one per density', () => {
+  // ⚠ THIS ASSERTION MOVED RATHER THAN BEING DELETED (2026-09-06). It used to
+  // count `action={bulkSoftDeleteGuests.bind` and expect exactly 1. The swipe no
+  // longer posts a form, so that regex now matches ZERO — an "exactly 1" test
+  // would have gone RED for the right reason, and an "at most 1" test would have
+  // gone GREEN BY FINDING NOTHING. The mechanism changed; the assertion follows
+  // it. What replaced it is stronger.
+  const hookRefs = SRC.match(/useGuestRemoval\(/g) ?? [];
+  assert.ok(
+    hookRefs.length >= 3,
+    'expected the hook definition plus BOTH call sites (bulk bar + swipe), ' +
+      `found ${hookRefs.length} references`,
+  );
+  const actionCalls = SRC.match(/bulkSoftDeleteGuestsForUndo\(/g) ?? [];
   assert.equal(
-    forms.length,
+    actionCalls.length,
     1,
-    `expected the single form inside SwipeToDelete, found ${forms.length} — ` +
-      'a density that spells its own delete will drift from the other',
+    'the delete action must be called from exactly one place (the hook), found ' +
+      `${actionCalls.length} — a second caller is a second set of rules to drift`,
+  );
+});
+
+test('nothing on this page calls the delete that cannot be undone', () => {
+  // `bulkSoftDeleteGuests` releases the guest's seat WITHOUT capturing it, so a
+  // caller silently loses the chair. It stays exported (other trees may use it),
+  // but this page must never route through it again — that asymmetry is what
+  // this change removed.
+  assert.equal(
+    /bulkSoftDeleteGuests\s*[.(]/.test(SRC),
+    false,
+    'this page is calling the un-undoable delete again — use useGuestRemoval, ' +
+      'which captures released seats so the undo can re-place them',
+  );
+});
+
+test('the swipe hands its guest to the shared path, and resets itself', () => {
+  const swipe = bodyOf('SwipeToDelete');
+  assert.ok(
+    /remove\(\[guestId\]/.test(swipe),
+    'the swipe must remove through the shared hook',
+  );
+  // ⚠ NOT a bare /setTx\(0\)/ — this component ALREADY calls setTx(0) in its
+  // tap-to-close handler, so a loose match stays green with the reset callback
+  // removed. Measured: dropping the callback scored 0 failing against the first
+  // draft of this assertion. Pin the callback ITSELF.
+  assert.ok(
+    /remove\(\[guestId\],\s*\(\)\s*=>\s*setTx\(0\)\)/.test(swipe),
+    'the swipe must reset its revealed gesture once the server confirms, or ' +
+      'the row stays swiped open over a guest that is already gone',
   );
 });
 

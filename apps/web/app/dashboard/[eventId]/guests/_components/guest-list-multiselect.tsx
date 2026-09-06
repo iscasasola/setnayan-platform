@@ -26,7 +26,6 @@ import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
 import { resolveRoleSet } from '@/lib/role-sets';
 import {
   bulkApplyRoleAndGroup,
-  bulkSoftDeleteGuests,
   bulkSoftDeleteGuestsForUndo,
   createGuestGroup,
   removeGuestFromGroup,
@@ -989,7 +988,7 @@ function SelectionBar({
           *
           *  BulkApplyForm + BulkDeleteForm are two separate <form>
           *  elements (each has its own server action — Apply hits
-          *  bulkApplyRoleAndGroup, Delete hits bulkSoftDeleteGuests).
+          *  bulkApplyRoleAndGroup, Delete goes through useGuestRemoval).
           *  Wrapping them in this flex flex-wrap parent so they sit on
           *  the SAME ROW at desktop widths instead of stacking. On
           *  narrow screens flex-wrap kicks in and Delete drops to its
@@ -1035,25 +1034,34 @@ function SelectionBar({
 // undo snackbar whose Undo restores the guests + their released seats; on a
 // server-side gate rejection (couple/RSVP) it rolls the overlay back and toasts
 // the reason. No confirm dialog — undo is the safety net.
-function OptimisticDeleteButton({
-  eventId,
-  selectedIds,
-  count,
-}: {
-  eventId: string;
-  selectedIds: string[];
-  count: number;
-}) {
+/**
+ * useGuestRemoval — the ONE way this page removes a guest.
+ *
+ * ⚠ IT EXISTS BECAUSE THERE WERE TWO, AND ONLY ONE OF THEM COULD BE UNDONE.
+ * The desktop bulk bar called `bulkSoftDeleteGuestsForUndo`, which CAPTURES the
+ * seats it releases so an undo can re-place them. The mobile swipe posted a
+ * plain form to `bulkSoftDeleteGuests`, which does not — and
+ * `event_seat_assignments` rows are HARD deleted (a soft delete does not trip
+ * the FK cascade, so the seat is dropped on purpose). So the same act, from a
+ * phone, permanently lost the guest's chair with no undo offered, and a host
+ * who re-added them found a hole in the seating plan they had to rediscover.
+ *
+ * Two call sites, one rule. A test asserts this hook is the only thing that
+ * calls the delete action.
+ */
+function useGuestRemoval(eventId: string) {
   const toast = useToast();
-  const [deleting, setDeleting] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
-  async function handleDelete() {
-    if (deleting) return;
-    const ids = [...selectedIds];
+  /** @param onRemoved runs only after the server confirms; the swipe uses it to
+   *  reset its own gesture state, the bulk bar has nothing to reset. */
+  async function remove(guestIds: string[], onRemoved?: () => void) {
+    if (removing) return;
+    const ids = [...guestIds];
     if (ids.length === 0) return;
     const mutation = { kind: 'remove' as const, guestIds: ids };
 
-    setDeleting(true);
+    setRemoving(true);
     guestOptimistic.apply(mutation); // hide rows now
     guestSelection.clear(); // retract the bar (the acted-on guests are gone)
 
@@ -1062,17 +1070,18 @@ function OptimisticDeleteButton({
       result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
     } catch {
       guestOptimistic.clear(mutation); // rollback the hide
-      setDeleting(false);
+      setRemoving(false);
       toast.error('Could not remove — check your connection and try again.');
       return;
     }
-    setDeleting(false);
+    setRemoving(false);
 
     if (!result.ok) {
       guestOptimistic.clear(mutation); // rollback — server refused (gate)
       toast.error(result.error);
       return;
     }
+    onRemoved?.();
 
     // buildUndo carries the released seats through, so restore re-places them.
     const plan = buildUndo(
@@ -1093,6 +1102,24 @@ function OptimisticDeleteButton({
         }
       },
     });
+  }
+
+  return { removing, remove };
+}
+
+function OptimisticDeleteButton({
+  eventId,
+  selectedIds,
+  count,
+}: {
+  eventId: string;
+  selectedIds: string[];
+  count: number;
+}) {
+  const { removing: deleting, remove } = useGuestRemoval(eventId);
+
+  async function handleDelete() {
+    await remove(selectedIds);
   }
 
   return (
@@ -1833,9 +1860,10 @@ function MobileSelfJoinCard({
 // -----------------------------------------------------------------------
 // SwipeToDelete — wraps a mobile guest card so a left-swipe reveals a Delete
 // action (owner directive 2026-06-03). The swipe-then-tap IS the confirmation
-// (iOS-style), and deletion reuses bulkSoftDeleteGuests, so the same gates
-// apply (couple blocked upstream · RSVP'd guests get the reset-first message)
-// and it's a recoverable SOFT delete. Touch-only — the desktop table keeps
+// (iOS-style), and deletion goes through `useGuestRemoval` — the SAME path
+// the desktop bulk bar uses — so the same gates apply (couple blocked upstream
+// · RSVP'd guests get the reset-first message), the delete is a recoverable
+// SOFT one, AND the released seat is captured so an undo can re-place it. Touch-only — the desktop table keeps
 // its own row affordances; rendered in BOTH `sm:hidden` densities — the photo
 // grid (MobileGridItem) and the compact list (MobileListRow).
 // -----------------------------------------------------------------------
@@ -1856,6 +1884,7 @@ function SwipeToDelete({
   radiusClass?: string;
 }) {
   const REVEAL = 84; // px width of the revealed Delete action
+  const { removing, remove } = useGuestRemoval(eventId);
   const [tx, setTx] = useState(0);
   const [dragging, setDragging] = useState(false);
   // Gesture state in a ref so the touch handlers never read a stale closure.
@@ -1895,22 +1924,29 @@ function SwipeToDelete({
   return (
     <div className={`relative overflow-hidden ${radiusClass}`}>
       {/* Delete action, revealed behind the card on a left-swipe. */}
-      <form
-        action={bulkSoftDeleteGuests.bind(null, eventId)}
+      <div
         className="absolute inset-y-0 right-0 flex"
         style={{ width: REVEAL }}
       >
-        <input type="hidden" name="guest_ids[]" value={guestId} />
+        {/* NOT a form post any more. It used to submit to `bulkSoftDeleteGuests`,
+            which releases the guest's seat WITHOUT capturing it — so a swipe
+            permanently dropped their chair and offered no undo, while the same
+            act from the desktop bulk bar could be taken back in full. Both now
+            go through `useGuestRemoval`. */}
         <button
-          type="submit"
+          type="button"
+          onClick={() => remove([guestId], () => setTx(0))}
+          disabled={removing}
           aria-label={`Delete ${guestName}`}
           tabIndex={tx === 0 ? -1 : 0}
-          className="flex w-full flex-col items-center justify-center gap-0.5 bg-danger-600 text-cream"
+          className="flex w-full flex-col items-center justify-center gap-0.5 bg-danger-600 text-cream disabled:opacity-70"
         >
           <Trash2 aria-hidden className="h-5 w-5" strokeWidth={2} />
-          <span className="text-[11px] font-semibold">Delete</span>
+          <span className="text-[11px] font-semibold">
+            {removing ? '…' : 'Delete'}
+          </span>
         </button>
-      </form>
+      </div>
 
       {/* Front card — translates on swipe; opaque (bg-cream on the child) so it
           fully covers the Delete action when closed. */}

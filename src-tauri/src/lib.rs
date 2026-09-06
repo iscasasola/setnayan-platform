@@ -1,11 +1,11 @@
-// The native RTMPS/FLV encoder (S6). Pure protocol code plus one socket; it holds no
-// Tauri commands, because S5 — which owns the webview→Rust transport — is re-scoped
-// pending an owner decision (build-sessions/encoder/S0-FINDING.md § 7).
+// The native RTMPS/FLV encoder (S6). Pure protocol code plus one socket; the crate
+// itself holds no Tauri commands ON PURPOSE — see its own `lib.rs`/`Cargo.toml`
+// headers — so its 42 tests run on every pull request without compiling tauri, wry
+// and webkit first. S5's webview→Rust transport command surface (`encoder_ipc`,
+// below) lives in THIS crate instead, and calls into `encoder::contract` to decode
+// the wire format.
 //
-// It lives in its own crate (`crates/encoder`) so that its 42 tests can run on every
-// pull request without compiling tauri, wry and webkit first — that manifest explains
-// why at length. Re-exported here so `encoder::…` resolves the same as when it was a
-// module, and so the desktop build still links it even though nothing calls it yet.
+// Re-exported here so `encoder::…` resolves the same as when it was a module.
 pub use setnayan_encoder as encoder;
 
 // S0 spike harness — compiled ONLY into debug builds (see build.rs + src/probe.rs).
@@ -21,6 +21,10 @@ mod keep_awake;
 // Ships in EVERY build: real product surface, not a spike.
 mod stream_key;
 
+// S5 — the webview→Rust transport's command surface (build-sessions/encoder/S5.md).
+// Ships in EVERY build: real product surface, not a spike (unlike `probe`, above).
+mod encoder_ipc;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -31,6 +35,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_oauth::init())
         .manage(stream_key::StreamKeyState::default())
+        .manage(encoder_ipc::EncoderIpcState::default())
         .setup(|_app| Ok(()));
 
     // NOTE: `invoke_handler` SETS the builder's handler rather than merging with a
@@ -46,6 +51,11 @@ pub fn run() {
             stream_key::stream_key_set_pasted,
             stream_key::stream_key_claim_hosted,
             stream_key::stream_key_forget,
+            encoder_ipc::encoder_start,
+            encoder_ipc::encoder_config,
+            encoder_ipc::encoder_push,
+            encoder_ipc::encoder_stop,
+            encoder_ipc::encoder_probe,
             probe::probe_report,
             probe::probe_ipc,
         ])
@@ -58,6 +68,11 @@ pub fn run() {
         stream_key::stream_key_set_pasted,
         stream_key::stream_key_claim_hosted,
         stream_key::stream_key_forget,
+        encoder_ipc::encoder_start,
+        encoder_ipc::encoder_config,
+        encoder_ipc::encoder_push,
+        encoder_ipc::encoder_stop,
+        encoder_ipc::encoder_probe,
     ]);
 
     builder

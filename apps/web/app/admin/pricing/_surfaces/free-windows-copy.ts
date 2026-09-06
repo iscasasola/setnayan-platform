@@ -10,6 +10,7 @@ export const FREE_WINDOW_CREATE_ERROR_COPY: Record<string, string> = {
   starts: 'Set a valid start date and time.',
   ends: 'Set a valid end date and time.',
   order: 'The end must be after the start.',
+  event_date_order: 'The "through" event date must be on or after the "only for events dated" date.',
   tier: 'Pick which paid plan the vendors get for free.',
   audience: 'That audience is not built yet — pick all verified vendors, or the registers-and-verifies cohort.',
   length: 'Deal length must be a whole number of days, 1 to 365.',

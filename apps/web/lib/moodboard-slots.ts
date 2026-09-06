@@ -181,6 +181,52 @@ export const MOODBOARD_PART_TRADES: Readonly<Record<string, readonly WeddingTile
   'room:entrance': ['stylist_decorator'],
   'room:photo_wall': ['stylist_decorator'],
 
+  // ── the three celebration zones (2026-09-06) ──
+  // Unlike the four above, these are NOT things a stylist builds — they are
+  // things a SUPPLIER brings, and the trade that agrees to how a buffet or a
+  // band looks is the trade that provides it. That is the same rule the
+  // officiant row below states from the other side.
+  //
+  // 🔑 EVERY TILE A COUPLE CAN CHOOSE IN THAT ZONE IS LISTED, not a
+  // representative sample. `canonicalServicesForPart` is what puts an Ask
+  // button in front of a real shop; a couple who picks a perfume bar and gets
+  // offered a photo-booth vendor has been sent to the wrong supplier, and the
+  // finalization screen would still look perfectly healthy. Ordered
+  // most-characteristic first, because the first tile a shop matches is the
+  // one printed on the credit.
+  'room:feast': [
+    'catering',
+    'stations',
+    'cake',
+    'dessert',
+    'mobile_bar',
+    'mocktail',
+    'coffee_espresso',
+    'food_cart',
+    'food_truck',
+  ],
+  'room:program': [
+    'live_band',
+    'dj',
+    'host_mc',
+    'orchestra',
+    'wedding_singer',
+    'choir',
+    'av_production',
+    'dance_floor',
+  ],
+  'room:booths': [
+    'photo_booth',
+    'arcade_games',
+    'caricature_calligraphy_painting',
+    'henna_tattoo',
+    'massage_chair',
+    'mini_nail_bar',
+    'perfume_bar',
+    'tarot_astrology_palmistry',
+    'engraving_embroidery',
+  ],
+
   // ── the four attire roles nobody could sign off on ──
   // Ordered MOST characteristic first, the same rule MOODBOARD_SLOT_TRADES
   // states: the first tile a shop matches is the one printed on the credit.

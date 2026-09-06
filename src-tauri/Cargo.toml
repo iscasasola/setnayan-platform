@@ -43,6 +43,12 @@ zeroize = "1"
 # explains why at length. Depended on here (rather than merely living beside
 # the app) so the desktop build still proves it links.
 setnayan-encoder = { path = "crates/encoder" }
+# S5 (build-sessions/encoder/S5.md) — the bounded producer/consumer channel
+# between `encoder_push`/`encoder_config` (encoder_ipc.rs) and the stub sink
+# task S6 replaces. `rt`+`macros` so `#[tauri::command] pub async fn
+# encoder_start` can `tokio::spawn` the sink loop from inside Tauri's own
+# async runtime (which is tokio already) rather than needing a second one.
+tokio = { version = "1", features = ["sync", "rt", "macros"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -92,7 +92,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'founder-seats':
     'Up to 10 owner-granted founder accounts — all features comped, token-free vendor inquiries, founder badge.',
   gifts:
-    'Every live comp on one page — vendor tier comps, vendor cohort deals, and user or event comp grants. Search a vendor or user and gift a tier or a service, or open a deal for all verified vendors or for vendors who register and get verified in a window.',
+    'Every live comp on one page — vendor tier comps, vendor cohort deals, couple free windows, and user or event comp grants. Search a vendor or user and gift a tier or a service, open a deal for all verified vendors or for vendors who register and get verified in a window, or free a service for any event or for events dated in a range.',
   vendors:
     'Vendor profiles directory. Edit business details, override visibility, and review tier state.',
   'demo-vendors':
@@ -249,7 +249,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   'data-privacy': 'npc privacy dpo consent ra10173 filing',
   approvals: 'pending sign off second admin two admin',
   subscriptions: 'pro plan upgrade billing recurring',
-  gifts: 'comp complimentary free gift grant waive promo giveaway tier credits deal cohort window verified vendors',
+  gifts: 'comp complimentary free gift grant waive promo giveaway tier credits deal cohort window verified vendors event date range couple',
   // 'prices' and 'papic' added 2026-08-26 under this list's own rule — the owner
   // typed "show me the prices of papic" and "take me to the pricing for papic
   // services" and got nothing. Measured why: the plural 'prices' appeared in ZERO

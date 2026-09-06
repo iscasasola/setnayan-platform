@@ -24,6 +24,16 @@ import {
  * Every write requireAdminAction()-gates + writes an admin_audit_log row (same
  * {action,target_id,actor_user_id,metadata} shape as saveAllPricing). Redirects
  * back to the posting surface with a flash param it renders as a banner.
+ *
+ * G5 (2026-09-06): a couple window may also carry an event_date_from/to
+ * range (both nullable, migration 20271208727445) — "for an event dated
+ * on/in a range" (a), vs. the pre-existing unfiltered "for any event" (c)
+ * when both stay null. Date-only, parsed WITHOUT the Manila-anchoring
+ * parsePhLocal uses (it's compared against another date-only column,
+ * events.event_date, never a wall-clock instant). The couple branch now also
+ * requires `reason` (min 10 chars), matching the vendor branch's own bar —
+ * giving a paid service away, cohort-wide or date-scoped, gets the same
+ * on-the-record justification either way.
  */
 
 const TAB = '/admin/pricing?tab=free-windows';
@@ -75,6 +85,19 @@ function parsePhLocal(raw: string): Date | null {
  */
 const PROMOTABLE_VENDOR_TIERS = ['solo', 'pro', 'enterprise'];
 
+/**
+ * Parse a bare <input type="date"> value ('YYYY-MM-DD') as a plain date
+ * string — NOT anchored to Manila time like parsePhLocal. This bound is
+ * compared against another date-only column (events.event_date), never
+ * against a wall-clock instant, so there is no timezone to anchor: "Dec 1"
+ * means the calendar day, full stop. Returns null for empty/malformed input.
+ */
+function parsePlainDate(raw: string): string | null {
+  const s = raw.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return s;
+}
+
 export async function createFreeWindow(formData: FormData): Promise<never> {
   const { userId } = await requireAdminAction();
   const base = returnBase(formData);
@@ -105,6 +128,8 @@ export async function createFreeWindow(formData: FormData): Promise<never> {
   let promotedTier: string | null = null;
   let dealLengthDays: number | null = null;
   let reason: string | null = null;
+  let eventDateFrom: string | null = null;
+  let eventDateTo: string | null = null;
 
   if (isVendor) {
     // Vendor deal: a TIER promotion (a vendor SKU can never be ₱0 — DB CHECK
@@ -160,6 +185,22 @@ export async function createFreeWindow(formData: FormData): Promise<never> {
     const valid = new Set(catalog.map((s) => s.service_code));
     covered = skus.filter((s) => valid.has(s));
     if (covered.length === 0) backWith('createError', 'skus');
+
+    // Event-date-range filter (G5): optional, date-only, NOT PH-anchored —
+    // compared against events.event_date, a bare 'YYYY-MM-DD' column, never
+    // against a wall-clock instant. Blank → null → (c) "for any event",
+    // unchanged. Both set → (a) "for an event dated on/in a range" (from ===
+    // to is the single-specific-date case).
+    eventDateFrom = parsePlainDate(String(formData.get('event_date_from') ?? ''));
+    eventDateTo = parsePlainDate(String(formData.get('event_date_to') ?? ''));
+    if (eventDateFrom && eventDateTo && eventDateTo < eventDateFrom) {
+      backWith('createError', 'event_date_order');
+    }
+
+    // A couple window gives a paid service away to every qualifying couple;
+    // say why, on the record — same bar as the vendor branch's own reason.
+    reason = String(formData.get('reason') ?? '').trim();
+    if (reason.length < 10) backWith('createError', 'reason');
   }
 
   const admin = createAdminClient();
@@ -172,6 +213,8 @@ export async function createFreeWindow(formData: FormData): Promise<never> {
       audience_type: audienceType,
       promoted_vendor_tier: promotedTier,
       deal_length_days: dealLengthDays,
+      event_date_from: eventDateFrom,
+      event_date_to: eventDateTo,
       starts_at: startsAt!.toISOString(),
       ends_at: endsAt!.toISOString(),
       is_active: true,
@@ -193,6 +236,8 @@ export async function createFreeWindow(formData: FormData): Promise<never> {
       covered_service_keys: covered,
       promoted_vendor_tier: promotedTier,
       deal_length_days: dealLengthDays,
+      event_date_from: eventDateFrom,
+      event_date_to: eventDateTo,
       reason,
       starts_at: startsAt!.toISOString(),
       ends_at: endsAt!.toISOString(),

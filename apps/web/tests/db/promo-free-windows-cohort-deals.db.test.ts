@@ -47,13 +47,23 @@ async function insert(r: Row): Promise<string> {
 }
 
 test('the audience CHECK is ONE constraint carrying the new value — no stale twin survived', async () => {
+  // Tightened by migration 20271208727445 (G5): that migration adds
+  // promo_free_windows_event_date_couples_only, a SECOND constraint whose
+  // definition also mentions 'all_couples' and never 'promoted_vendor_tier'
+  // (CHECK (audience_type = 'all_couples' OR (both date columns are null))) —
+  // it started matching this query's old filter too, turning the "exactly
+  // one" assertion into a false failure against a perfectly correct schema.
+  // The enum-style CHECK this test actually means to find is unique in using
+  // `= ANY (ARRAY[...])`; the G5 constraint is a plain `=` equality, so
+  // filtering on that shape distinguishes them without hardcoding a name.
   const r = await db.query<{ conname: string; def: string }>(
     `SELECT conname, pg_get_constraintdef(oid) AS def
        FROM pg_constraint
       WHERE conrelid = 'public.promo_free_windows'::regclass
         AND contype = 'c'
         AND pg_get_constraintdef(oid) LIKE '%all_couples%'
-        AND pg_get_constraintdef(oid) NOT LIKE '%promoted_vendor_tier%'`,
+        AND pg_get_constraintdef(oid) NOT LIKE '%promoted_vendor_tier%'
+        AND pg_get_constraintdef(oid) LIKE '%= ANY (ARRAY[%'`,
   );
   assert.equal(r.rows.length, 1, JSON.stringify(r.rows));
   assert.equal(r.rows[0]!.conname, 'promo_free_windows_audience_type_check');

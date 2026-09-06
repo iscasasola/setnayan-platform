@@ -53,12 +53,12 @@ const COPY: Record<
         body: '50% reservation, 30% midway, 20% balance. Set the schedule once, Setnayan reminds you (and the vendor) when each milestone is due. Mark paid; we attach the OR. Watch the budget bar move. No more “wait, did we already pay them for this?”',
       },
       {
-        title: 'Calendar export · .ics for everything',
-        body: 'Vendor meetings, payment deadlines, RSVP cutoffs, dress fittings, food tastings, all exportable as a single .ics feed your phone subscribes to. Updates push live; you don’t re-import. Family members get their own subscribable feed (filtered to just events they’re part of).',
+        title: 'Calendar export · your dates, your calendar',
+        body: 'Every vendor payment with a due date exports from the budget page as one .ics file, and each confirmed vendor meeting exports as its own. Download, import, done — into whichever calendar you already use. Overdue milestones sort above what is merely next, so you see what is late first.',
       },
       {
         title: 'Contract & document uploads',
-        body: 'Drop the PDF the vendor sent you. Setnayan stores it against the vendor row, OCR-scans the signed page, and surfaces the key fields (deposit amount, balance due date, deliverables list) into the ledger automatically. Reachable from anywhere in the app, no more digging through your email for that one PDF.',
+        body: 'Your vendor uploads the contract PDF against your event, and the two of you sign it in the browser — signatures captured on the page, with a timestamped record of who signed and when. It stays on the vendor row, reachable from anywhere in the app, so nobody has to dig through email for that one PDF.',
       },
     ],
   },
@@ -77,12 +77,12 @@ const COPY: Record<
         body: '50% reservation, 30% midway, 20% balance. Set ang schedule once, ire-remind ka ng Setnayan (at ang vendor) kung kailan due ang bawat milestone. I-mark na paid; ikakabit namin ang OR. Panoorin mong gumalaw ang budget bar. Wala nang “teka, nabayaran na ba natin sila dito?”',
       },
       {
-        title: 'Calendar export · .ics para sa lahat',
-        body: 'Vendor meetings, payment deadlines, RSVP cutoffs, dress fittings, food tastings, lahat exportable bilang isang .ics feed na sina-subscribe ng phone mo. Live ang updates; hindi mo na kailangang mag-re-import. May sariling subscribable feed ang mga kapamilya (naka-filter sa mga event lang na kasali sila).',
+        title: 'Calendar export · ang mga petsa mo, sa calendar mo',
+        body: 'Bawat vendor payment na may due date ay nae-export mula sa budget page bilang isang .ics file, at ang bawat kumpirmadong vendor meeting ay may sarili ring export. I-download, i-import, tapos — sa kahit anong calendar na ginagamit mo na. Nauuna ang overdue na milestones kaysa sa mga paparating pa lang, para makita mo agad kung ano ang huli na.',
       },
       {
         title: 'Contract & document uploads',
-        body: 'I-drop ang PDF na pinadala sa’yo ng vendor. Iso-store ito ng Setnayan sa vendor row, ie-OCR-scan ang naka-pirmang page, at ila-labas ang mga key fields (deposit amount, balance due date, deliverables list) papunta sa ledger nang automatic. Maa-access kahit saan sa app, hindi mo na kailangang halungkatin ang email mo para sa isang PDF.',
+        body: 'Ang vendor mo ang mag-a-upload ng contract PDF sa event mo, at pareho kayong pipirma sa browser — nakukuha ang pirma sa mismong page, may timestamp kung sino ang pumirma at kailan. Nananatili ito sa vendor row, maa-access kahit saan sa app, para walang maghahalungkat ng email para sa isang PDF.',
       },
     ],
   },

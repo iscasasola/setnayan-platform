@@ -86,7 +86,7 @@ function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality
   // neutral spec is what every guest without an avatar has always had.
   const spec = useMemo<FigureSpec>(
     () =>
-      avatar?.style === 'heritage'
+      avatar && avatar.style !== 'chibi'
         ? heritageFigureSpec(player.id, avatar.config, player.color)
         : { id: player.id, outfit: 'neutral', outfitColor: null, statusColor: player.color },
     [player.id, player.color, avatar],

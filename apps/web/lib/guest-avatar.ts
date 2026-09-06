@@ -6,6 +6,7 @@
  *
  *   · no `style` key  → chibi (v1 shipped without one; every stored row today)
  *   · style 'heritage' → the mannequin rig with its look fields
+ *   · style 'blocky'   → the same rig, rounded-box parts (the Blocky Kit)
  *
  * The chibi path is `selfFigureAvatar` unchanged — the fallback rule that
  * lib/venue-avatars.test.ts pins (flag off / null / junk ⇒ null ⇒ the blob) is
@@ -24,11 +25,14 @@ import {
 
 export type GuestAvatar =
   | { style: 'chibi'; config: ChibiAvatarConfig }
-  | { style: 'heritage'; config: HeritageAvatarConfig };
+  | { style: 'heritage' | 'blocky'; config: HeritageAvatarConfig };
 
 export function resolveGuestAvatar(stored: unknown, id: string, enabled: boolean): GuestAvatar | null {
   if (!enabled || stored == null) return null;
-  if (isHeritageStored(stored)) return { style: 'heritage', config: resolveHeritageConfig(id, stored) };
+  if (isHeritageStored(stored)) {
+    const config = resolveHeritageConfig(id, stored);
+    return { style: config.style, config };
+  }
   const chibi = selfFigureAvatar({ avatarConfig: stored }, id, true);
   return chibi ? { style: 'chibi', config: chibi } : null;
 }

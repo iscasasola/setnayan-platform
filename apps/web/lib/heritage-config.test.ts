@@ -27,6 +27,7 @@ test('validate is strict: unknown key, wrong style, off-catalog values', () => {
   assert.deepEqual(validateHeritageConfig(ok), []);
   assert.ok(validateHeritageConfig({ ...ok, extra: 1 }).some((e) => e.includes('unknown key')));
   assert.ok(validateHeritageConfig({ ...ok, style: 'chibi' }).length > 0);
+  assert.deepEqual(validateHeritageConfig({ ...ok, style: 'blocky' }), [], 'blocky shares the schema');
   assert.ok(validateHeritageConfig({ ...ok, hairStyle: 99 }).some((e) => e.includes('hairStyle')));
   assert.ok(validateHeritageConfig({ ...ok, outfitColor: '#123456' }).some((e) => e.includes('outfitColor')));
   assert.ok(validateHeritageConfig({ ...ok, outfit: 'chef_whites' }).some((e) => e.includes('outfit')), 'staff garments are not guest outfits');

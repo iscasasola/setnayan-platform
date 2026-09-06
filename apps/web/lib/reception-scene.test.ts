@@ -971,22 +971,53 @@ test('CELEBRATION: every option maps to a marketplace tile the couple can actual
   // The whole reason these three zones are the three marketplace PARENTS: what
   // a couple dresses and what they book must be the same noun, or a later
   // change that lights a zone from a booking has to invent a second mapping.
-  // The anchor is recorded as a trailing comment on each option in
-  // reception-scene.ts; this asserts the comment is actually there, for every
-  // real option, so it cannot rot into decoration.
-  const src = readFileSync(new URL('./reception-scene.ts', import.meta.url), 'utf8');
-  const block = src.slice(
-    src.indexOf("    id: 'feast',"),
-    src.indexOf("  {\n    id: 'people',"),
+  //
+  // 🔑 THE ANCHOR IS NOW A FIELD, NOT A COMMENT — and this guard reads the
+  // field. RV1 recorded each option's tile as a trailing `// live_band` comment
+  // and this test asserted the COMMENT was present, "so it cannot rot into
+  // decoration". RV2 promoted those comments to `Option.tile` and deleted them,
+  // because a comment beside a value is a second copy of one fact that nothing
+  // compares — `// live_bnad` would have passed the old regex happily.
+  //
+  // The claim is unchanged and now checked three ways instead of one:
+  //   · every real celebration option carries a tile (below);
+  //   · the tile is a `WeddingTile`, so a typo does not compile;
+  //   · `assertOptionTilesBelongToTheirZone` (lib/reception-booked-suggestions.ts)
+  //     throws at module load if a tile is not one the zone's own
+  //     `MOODBOARD_PART_TRADES` entry already claims — a real tile in the wrong
+  //     zone, which no comment check could ever have seen.
+  const celebration = RECEPTION_PARTS.filter((p) =>
+    (CELEBRATION as readonly string[]).includes(p.id),
   );
-  assert.ok(block.length > 0, 'the celebration zones are gone from RECEPTION_PARTS');
-  const lines = block.split('\n').filter((l) => /^\s+O\('/.test(l));
-  assert.ok(lines.length >= 25, `expected at least 25 real celebration options, saw ${lines.length}`);
-  for (const line of lines) {
-    assert.match(
-      line,
-      /\/\/ [a-z_]+(\s*\/\s*[a-z_]+)*\s*$/,
-      'a celebration option carries no marketplace-tile anchor comment:\n  ' + line.trim(),
+  assert.equal(celebration.length, 3, 'the celebration zones are gone from RECEPTION_PARTS');
+
+  // "Real" = not the exclusive "nothing here" option, which names no supplier
+  // because nobody supplies an absence.
+  const real = celebration.flatMap((p) =>
+    p.attributes.flatMap((a) =>
+      a.options.filter((o) => o.exclusive !== true).map((o) => ({ zone: p.id, attr: a.id, o })),
+    ),
+  );
+  // Paired with the per-option check below so this cannot pass vacuously — the
+  // count is what caught RV2's own change, when the options stopped matching
+  // the old `O('` regex and the loop silently had nothing to iterate.
+  assert.ok(real.length >= 25, `expected at least 25 real celebration options, saw ${real.length}`);
+
+  for (const { zone, attr, o } of real) {
+    assert.ok(
+      o.tile,
+      `${zone}.${attr}.${o.id} names no marketplace tile — a couple can dress it and has ` +
+        'no way to book it, and no booking of theirs can ever light it up',
     );
+  }
+
+  // …and the "nothing here" options carry none, so absence stays meaningful.
+  for (const p of celebration) {
+    for (const a of p.attributes) {
+      for (const o of a.options) {
+        if (o.exclusive !== true) continue;
+        assert.equal(o.tile, undefined, `${p.id}.${a.id}.${o.id} is "none" and must name no trade`);
+      }
+    }
   }
 });

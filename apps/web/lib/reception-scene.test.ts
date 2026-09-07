@@ -17,8 +17,10 @@ import {
   venueZoneApplies,
   venueSceneFamily,
   isCompositableDecorHref,
+  compositeFloorItems,
   type PartId,
   type ReceptionDesign,
+  type FloorItem,
 } from './reception-scene';
 import {
   decorLayerHrefs,
@@ -667,13 +669,32 @@ test('MB14b: only the two pilot zones can composite, and they are the same two t
   // image however a caller asks. Pinned equal to the resolver's own list so the
   // two cannot drift into a zone that composites but is never resolved, or the
   // reverse.
-  const composited = (['ceiling', 'backdrop', 'stage', 'tables', 'tunnel', 'entrance', 'walls', 'photo_wall', 'welcome_signage', 'people'] as PartId[])
-    .filter((zone) => {
-      const svg = renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, undefined, {
-        [zone]: '/moodboard-seed/venue_scene/backdrop/editorial-cream.svg',
-      });
-      return svg.includes(`decor-${zone}`);
+  // 🪤 THIS CANDIDATE LIST WAS HARDCODED AND WENT STALE. It omitted `feast`, so
+  // when that zone gained a slot the test failed for the WRONG reason — not
+  // "the two lists drifted" but "the probe never asked about feast". Derived
+  // from RECEPTION_PARTS now, so every zone this app knows about is probed and
+  // the next one is covered without editing a string.
+  //
+  // The probe design adds a feast service on top of MB14B_DESIGN (which is left
+  // untouched — the byte-identity hashes below are measured against it). `feast`
+  // is a FloorItem and returns null when the couple chose no service and no
+  // stations, so a probe without one cannot tell "no geometry" from "nothing to
+  // draw".
+  // Every FloorItem zone needs its own line here: each returns null when the
+  // couple chose nothing, and RA2 gates `program` on the couple having a BAND,
+  // so a probe without one cannot tell "no geometry" from "nothing to draw".
+  const probeDesign: ReceptionDesign = {
+    ...MB14B_DESIGN,
+    feast: { service: 'buffet' },
+    booths: { kinds: 'photo_booth' },
+    program: { performers: 'live_band' },
+  };
+  const composited = RECEPTION_PARTS.map((part) => part.id).filter((zone) => {
+    const svg = renderVenueSvg(probeDesign, MB14B_PALETTE, undefined, undefined, {
+      [zone]: '/moodboard-seed/venue_scene/backdrop/editorial-cream.svg',
     });
+    return svg.includes(`decor-${zone}`);
+  });
   assert.deepEqual(
     [...composited].sort(),
     [...PILOT_DECOR_ZONES].sort(),
@@ -951,6 +972,105 @@ test('CELEBRATION: the band riser is sized to the band, not to the wall', () => 
   );
 });
 
+/* ════════════════════════════════════════════════════════════════════════════
+ * RV3 · ONE DEPTH RULE — the band's riser is a floor-standing thing too.
+ *
+ * RV2 gave the room a live band and drew it LAST — the same mistake RV1
+ * already fixed once for the dance floor (see `danceFloor`'s own note on the
+ * draft that painted it over the guest tables). Measured on the rendered
+ * SVG: the riser + figures span y[332,378]; the tall centrepiece on the
+ * cx=720 guest table spans y[335,396]. In this projection larger y is nearer
+ * the viewer, so the band (anchor 378) is FURTHER than that table
+ * (anchor ≈432) and must be drawn first. `compositeFloorItems` decides that
+ * from the numbers now, not from which line was appended last.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const hexToRgb = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+
+test('DEPTH: the band no longer repaints the guest-table centrepiece it used to paint over', async () => {
+  // 🪤 THE BUG THIS PINS. Before this rule, `programDecor` was appended after
+  // `tables`, so the live band's riser — which reaches x 664–772, the same
+  // x-range as the back-right guest table (cx 720) — painted its opaque
+  // riser bar straight over that table's tall centrepiece. Reproduced by
+  // stashing this fix and re-running this exact assertion: the pixel came
+  // back as the riser's own fill, not the centrepiece's.
+  const PAL = ['#C9A059', '#8C6BA6', '#D98BA6', '#9CB29A', '#F3ECE0'];
+  const svg = renderVenueSvg({ program: { performers: ['live_band'] } }, PAL, {});
+  const { data, info } = await sharp(Buffer.from(svg))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const px = (x: number, y: number) => {
+    const i = (y * info.width + x) * 4;
+    return [data[i], data[i + 1], data[i + 2]];
+  };
+  // The default "tall" centerpiece on the cx=720, cy=432, r=44 table draws
+  // its flower's own centre at (720, 367) — WARM_LIGHT, '#FCE4A6'.
+  assert.deepEqual(
+    px(720, 367),
+    hexToRgb('#FCE4A6'),
+    'the guest table’s tall centrepiece is repainted by the band’s riser — the exact defect RV3 fixed.',
+  );
+  // 🔑 AND THE HARNESS CAN SEE THE BAND AT ALL. A riser that draws nothing
+  // would also leave the centrepiece pixel untouched — vacuously. Sampled a
+  // few pixels left of the centrepiece's own reach, inside the riser bar.
+  assert.deepEqual(
+    px(670, 363),
+    hexToRgb('#D6D0C7'), // shade(WALL, -22) — the riser bar's own fill
+    'the live-band riser is not being drawn at all, so "centrepiece intact" proves nothing.',
+  );
+});
+
+test('DEPTH: compositeFloorItems paints whichever item is nearer on top — in EITHER direction', async () => {
+  // The real room only ever exercises one direction: every fixed guest-table
+  // spot sits nearer than the band, so the guard above only ever shows "band
+  // behind". The rule must also hold the OTHER way — a table further than the
+  // band stays behind it — and no real table spot ever produces that
+  // arrangement, so this proves it directly against the same compositor the
+  // room uses: two overlapping, opaque, differently-anchored rectangles, in
+  // both build orders, in both anchor directions.
+  const rasterizeTopColor = async (items: FloorItem[]) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">${compositeFloorItems(items)}</svg>`;
+    const { data } = await sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    return [data[0], data[1], data[2]];
+  };
+  const table = (anchorY: number): FloorItem => ({ anchorY, svg: '<rect width="10" height="10" fill="#224488"/>' });
+  const band = (anchorY: number): FloorItem => ({ anchorY, svg: '<rect width="10" height="10" fill="#ffaa00"/>' });
+  // The symmetric case: a table FURTHER than the band (smaller anchor) sits
+  // BEHIND it — the band's colour wins, whichever order they were built in.
+  assert.deepEqual(await rasterizeTopColor([table(50), band(300)]), [0xff, 0xaa, 0x00]);
+  assert.deepEqual(await rasterizeTopColor([band(300), table(50)]), [0xff, 0xaa, 0x00]);
+  // The primary case this PR fixes: a table NEARER than the band (larger
+  // anchor, like every real guest table today) sits IN FRONT of it.
+  assert.deepEqual(await rasterizeTopColor([table(300), band(50)]), [0x22, 0x44, 0x88]);
+  assert.deepEqual(await rasterizeTopColor([band(50), table(300)]), [0x22, 0x44, 0x88]);
+});
+
+test('DEPTH: a room with no band and default tables renders byte-identically to before this rule existed', () => {
+  // 🪤 THE SNAPSHOT IS THE PRE-CHANGE OUTPUT, measured on this exact design on
+  // origin/main @ d7e3558b9 — BEFORE `compositeFloorItems` existed — the same
+  // discipline MB14b's own pin (above) uses. Nothing about ordering guest
+  // tables, ceiling and backdrop should move just because the compositor
+  // learned to sort the zones that can actually overlap.
+  const PAL = ['#C9A059', '#8C6BA6', '#D98BA6', '#9CB29A', '#F3ECE0'];
+  const design = {
+    ceiling: { treatment: 'chandeliers' },
+    backdrop: { style: 'draped', florals: 'corner' },
+    tables: { shape: 'round', chairs: 'chiavari', linen: 'plain', centerpiece: 'tall', place: 'gold' },
+  };
+  const svg = renderVenueSvg(design, PAL, {});
+  assert.equal(
+    createHash('sha256').update(svg).digest('hex'),
+    '21cc8b10020b075fba519282121faeae5265462c27040695241a722020935420',
+    'a room with no band and default tables changed bytes — something moved that this rule ' +
+      'was never supposed to touch.',
+  );
+});
+
 test('CELEBRATION: each zone is routed through venueZoneApplies like every other', () => {
   // Not because any venue lacks them today — a beach reception still has a
   // buffet and a band — but so that gating one later is a data change and not a
@@ -971,22 +1091,53 @@ test('CELEBRATION: every option maps to a marketplace tile the couple can actual
   // The whole reason these three zones are the three marketplace PARENTS: what
   // a couple dresses and what they book must be the same noun, or a later
   // change that lights a zone from a booking has to invent a second mapping.
-  // The anchor is recorded as a trailing comment on each option in
-  // reception-scene.ts; this asserts the comment is actually there, for every
-  // real option, so it cannot rot into decoration.
-  const src = readFileSync(new URL('./reception-scene.ts', import.meta.url), 'utf8');
-  const block = src.slice(
-    src.indexOf("    id: 'feast',"),
-    src.indexOf("  {\n    id: 'people',"),
+  //
+  // 🔑 THE ANCHOR IS NOW A FIELD, NOT A COMMENT — and this guard reads the
+  // field. RV1 recorded each option's tile as a trailing `// live_band` comment
+  // and this test asserted the COMMENT was present, "so it cannot rot into
+  // decoration". RV2 promoted those comments to `Option.tile` and deleted them,
+  // because a comment beside a value is a second copy of one fact that nothing
+  // compares — `// live_bnad` would have passed the old regex happily.
+  //
+  // The claim is unchanged and now checked three ways instead of one:
+  //   · every real celebration option carries a tile (below);
+  //   · the tile is a `WeddingTile`, so a typo does not compile;
+  //   · `assertOptionTilesBelongToTheirZone` (lib/reception-booked-suggestions.ts)
+  //     throws at module load if a tile is not one the zone's own
+  //     `MOODBOARD_PART_TRADES` entry already claims — a real tile in the wrong
+  //     zone, which no comment check could ever have seen.
+  const celebration = RECEPTION_PARTS.filter((p) =>
+    (CELEBRATION as readonly string[]).includes(p.id),
   );
-  assert.ok(block.length > 0, 'the celebration zones are gone from RECEPTION_PARTS');
-  const lines = block.split('\n').filter((l) => /^\s+O\('/.test(l));
-  assert.ok(lines.length >= 25, `expected at least 25 real celebration options, saw ${lines.length}`);
-  for (const line of lines) {
-    assert.match(
-      line,
-      /\/\/ [a-z_]+(\s*\/\s*[a-z_]+)*\s*$/,
-      'a celebration option carries no marketplace-tile anchor comment:\n  ' + line.trim(),
+  assert.equal(celebration.length, 3, 'the celebration zones are gone from RECEPTION_PARTS');
+
+  // "Real" = not the exclusive "nothing here" option, which names no supplier
+  // because nobody supplies an absence.
+  const real = celebration.flatMap((p) =>
+    p.attributes.flatMap((a) =>
+      a.options.filter((o) => o.exclusive !== true).map((o) => ({ zone: p.id, attr: a.id, o })),
+    ),
+  );
+  // Paired with the per-option check below so this cannot pass vacuously — the
+  // count is what caught RV2's own change, when the options stopped matching
+  // the old `O('` regex and the loop silently had nothing to iterate.
+  assert.ok(real.length >= 25, `expected at least 25 real celebration options, saw ${real.length}`);
+
+  for (const { zone, attr, o } of real) {
+    assert.ok(
+      o.tile,
+      `${zone}.${attr}.${o.id} names no marketplace tile — a couple can dress it and has ` +
+        'no way to book it, and no booking of theirs can ever light it up',
     );
+  }
+
+  // …and the "nothing here" options carry none, so absence stays meaningful.
+  for (const p of celebration) {
+    for (const a of p.attributes) {
+      for (const o of a.options) {
+        if (o.exclusive !== true) continue;
+        assert.equal(o.tile, undefined, `${p.id}.${a.id}.${o.id} is "none" and must name no trade`);
+      }
+    }
   }
 });

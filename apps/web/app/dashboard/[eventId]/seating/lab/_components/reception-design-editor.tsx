@@ -47,7 +47,15 @@ import {
 } from '@/lib/reception-decor-layers';
 import type { MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { trackFailure } from '@/lib/telemetry/track-error';
-import { saveReceptionDesign, getReceptionDecorLayerCatalog } from '../../actions';
+import {
+  suggestionsToShow,
+  type BookedZoneCandidate,
+} from '@/lib/reception-suggestion-chips';
+import {
+  saveReceptionDesign,
+  getReceptionDecorLayerCatalog,
+  dismissRoomSuggestion,
+} from '../../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
 type Props = {
@@ -114,6 +122,29 @@ type Props = {
    *  resolved by the caller (`VENUE_SETTING_LABEL`) — this component never
    *  guesses a label from the raw enum value. */
   venueLabel?: string;
+  /**
+   * RV2 — the suppliers this couple has ALREADY BOOKED whose trade reaches a
+   * reception zone, resolved on the server (owner ruling Q9, 2026-09-06).
+   *
+   * 🛑 THESE ARE OFFERS, NOT SETTINGS. Nothing in this list has been applied to
+   * `design`, and rendering them applies nothing: the couple's room is
+   * byte-identical before and after this panel draws. One click on a chip's one
+   * button routes through `choose()` — the same funnel every option chip
+   * already uses, with every refusal it already carries.
+   *
+   * 🔑 RESOLVED ON THE SERVER BECAUSE IT HAS TO BE. Deciding which booking
+   * reaches which zone runs `eligibleSuppliersForPart`, which composes MB10's
+   * slot -> trade map and reaches lib/vendor-counts -> lib/taxonomy-db ->
+   * lib/supabase/server -> next/headers. Importing that from this
+   * `'use client'` file fails the PRODUCTION BUILD and nothing earlier — MB12
+   * shipped exactly that chain to CI. Which of these offers to DRAW right now
+   * is the client's half, and lives in `lib/reception-suggestion-chips.ts`,
+   * which imports no taxonomy at all.
+   */
+  bookedSuggestions?: BookedZoneCandidate[];
+  /** Suggestion keys this couple has already waved away
+   *  (`events.dismissed_room_suggestions`). */
+  dismissedSuggestions?: string[];
   /** Gated on the same seating-editor lock as the rest of the Build sidebar
    *  (judgment call: reception_design writes don't actually touch the
    *  seating lock, but showing edit controls only when the couple "owns" the
@@ -194,6 +225,8 @@ export function ReceptionDesignEditor({
   canEdit,
   inspirationByPart,
   finalizedByPart,
+  bookedSuggestions,
+  dismissedSuggestions,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activePart, setActivePart] = useState<PartId>(
@@ -371,6 +404,83 @@ export function ReceptionDesignEditor({
     return labels.length ? labels.join(' + ') : 'not chosen yet';
   }
 
+  // ── RV2 · WHAT THE COUPLE HAS BOOKED, OFFERED — NEVER APPLIED ────────────
+  // Owner ruling 2026-09-06 (Q9). Every line below is a READ of `design`; not
+  // one of them writes it. The saved room is byte-identical before and after
+  // this block runs, and `the-room-offers-what-you-booked.test.ts` asserts
+  // exactly that against a real booked event.
+  const [dismissedLocal, setDismissedLocal] = useState<string[]>(dismissedSuggestions ?? []);
+  // The couple's LIVE selections per zone, as TILES — so a chip disappears the
+  // instant its own button is pressed, not at the next server render.
+  //
+  // 🔑 TILE-LEVEL, NOT OPTION-LEVEL, AND THAT IS THE HONEST TEST. A caterer
+  // matches Buffet line, Plated service AND Family style. A couple who chose
+  // Plated has answered their caterer; a chip still offering Buffet (the first
+  // option, so the suggested one) would be nagging them to undo a decision.
+  const selectedTilesByZone = useMemo(() => {
+    const out = new Map<PartId, ReadonlySet<string>>();
+    for (const part of RECEPTION_PARTS) {
+      const tiles = new Set<string>();
+      for (const attr of part.attributes) {
+        for (const id of selAll(design, part.id, attr.id)) {
+          const tile = attr.options.find((o) => o.id === id)?.tile;
+          if (tile) tiles.add(tile);
+        }
+      }
+      out.set(part.id, tiles);
+    }
+    return out;
+  }, [design]);
+  const visibleSuggestions = useMemo(
+    () =>
+      suggestionsToShow(bookedSuggestions ?? [], {
+        dismissedKeys: dismissedLocal,
+        // A zone a supplier has AGREED to build offers nothing. A frozen part
+        // does not re-derive (MB12), and it does not re-offer either — a chip
+        // whose one button `choose()` refuses is the dead control with no
+        // explanation this editor's own comments keep arguing against.
+        frozenZones: new Set(Object.keys(finalizedByPart ?? {})),
+        selectedTilesByZone,
+      }),
+    [bookedSuggestions, dismissedLocal, finalizedByPart, selectedTilesByZone],
+  );
+  const activeSuggestions = visibleSuggestions.filter((sg) => sg.zone === activePart);
+  const zonesWithSuggestion = new Set(visibleSuggestions.map((sg) => sg.zone));
+
+  /** Accept one offer. Routed through `choose()` — the SAME funnel every option
+   *  chip already passes — so this adds no writer, and inherits the finalized
+   *  refusal, the exclusive-option rule and the per-attribute cap unchanged.
+   *  One zone is written; every other key of `reception_design` is untouched. */
+  function acceptSuggestion(sg: BookedZoneCandidate) {
+    const attrDef = RECEPTION_PARTS.find((p) => p.id === sg.zone)?.attributes.find(
+      (a) => a.id === sg.attr,
+    );
+    if (!attrDef) return;
+    choose(sg.zone, attrDef, sg.optionId);
+  }
+
+  /** Wave one offer away. Optimistic locally, persisted to its OWN column —
+   *  `dismissRoomSuggestion` cannot reach `reception_design` at all. */
+  function dismissSuggestion(sg: BookedZoneCandidate) {
+    setDismissedLocal((prev) => (prev.includes(sg.dismissKey) ? prev : [...prev, sg.dismissKey]));
+    startTransition(async () => {
+      try {
+        await dismissRoomSuggestion(eventId, sg.dismissKey);
+      } catch (err) {
+        // Non-fatal, and deliberately NOT rolled back on screen: the couple
+        // said no, and re-showing the chip under their cursor would be a worse
+        // answer than a dismissal that has to be repeated after a reload.
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Dismiss reception suggestion',
+          filePath: 'app/dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx',
+          error: err,
+          payload: { dismissKey: sg.dismissKey },
+        });
+      }
+    });
+  }
+
   /** Who agreed to the zone currently open, or null. */
   const activeFinalized = finalizedByPart?.[activePart] ?? null;
   const activeFinalizedOn = activeFinalized?.agreedAt ? finalizedOnLabel(activeFinalized.agreedAt) : null;
@@ -483,6 +593,16 @@ export function ReceptionDesignEditor({
                   {/* MB15 — an agreed zone is marked in the rail, so a couple
                       can see what is settled without opening each one. */}
                   {finalizedByPart?.[p.id] ? <span className="ml-1" aria-label="Agreed with your supplier">🔒</span> : null}
+                  {/* RV2 — a zone with an unanswered offer says so in the rail,
+                      so a couple who never opens Program is not the only couple
+                      who never learns their band could be in the room. A dot,
+                      not a number: it means "there is something here", and it
+                      disappears the moment they answer either way. */}
+                  {zonesWithSuggestion.has(p.id) ? (
+                    <span className="ml-1 text-terracotta" aria-label="A supplier you booked works here">
+                      &bull;
+                    </span>
+                  ) : null}
                   <span className={na ? 'ml-1' : 'ml-1 text-ink/40'}>
                     · {na ? `not at a ${(venueLabel ?? 'this venue').toLowerCase()}` : zoneRailText(p)}
                   </span>
@@ -509,6 +629,49 @@ export function ReceptionDesignEditor({
                 until you both re-open it — ask on your Mood Board.
               </p>
             ) : null}
+            {/* ── RV2 · YOU'VE BOOKED THEM — SHALL I ADD THEM? ───────────────
+                Owner ruling 2026-09-06 (Q9): SUGGEST, never write. The room a
+                couple comes back to is the room they left; a zone that had
+                filled itself in from their bookings would be a room they cannot
+                trust, which is the same reasoning that made every celebration
+                zone default to `none`.
+
+                So this is an offer with two answers and no third: "Add it"
+                writes the one option through the same `choose()` every other
+                chip uses, and "No thanks" writes a key to a DIFFERENT COLUMN
+                and never touches the design. Doing nothing leaves the room
+                exactly as it is, which is the state it is already in.
+
+                The copy names the shop the couple actually booked and the
+                option's real label. No "recommended", no "we picked this for
+                you" — nobody picked anything. */}
+            {activeSuggestions.map((sg) => (
+              <div
+                key={sg.dismissKey}
+                className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg border border-ink/15 bg-cream px-2.5 py-2 text-[11px] leading-snug text-ink/75"
+              >
+                <span>
+                  You&rsquo;ve booked <span className="font-medium text-ink">{sg.vendorName}</span> —
+                  add <span className="font-medium text-ink">{sg.optionLabel}</span>?
+                </span>
+                <span className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => acceptSuggestion(sg)}
+                    className="rounded-md border border-terracotta bg-terracotta/10 px-2 py-1 text-[11px] font-medium text-ink transition hover:bg-terracotta/20"
+                  >
+                    Add it
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dismissSuggestion(sg)}
+                    className="rounded-md border border-ink/15 px-2 py-1 text-[11px] text-ink/60 transition hover:border-ink/30"
+                  >
+                    No thanks
+                  </button>
+                </span>
+              </div>
+            ))}
             {/* ── WHO IS IN THE ROOM IS THE GUEST LIST'S ANSWER ──────────────
                 This control sits beside the 3D room and reads like a room
                 control. It is not one: it feeds `renderVenueSvg` — the flat

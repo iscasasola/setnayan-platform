@@ -149,7 +149,8 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   // ⚠ THE CREDITS THEY HOLD ARE PART OF THE ALLOWANCE — owner 2026-09-05,
   // *"base it all from the supplier's shots per event"*: 5% of the booking fee
-  // paid (cap 1,000, no floor) plus any ₱500/25 packs, summed from the
+  // paid (cap 1,000, no floor) plus any ₱500 packs (100 credits since
+  // 2026-09-06), summed from the
   // supplier's ledger (vendor_papic_portfolio_credit_grants, written on admin
   // payment approval). Until 2026-09-05 this read the booking fee itself at
   // ₱5/point; the owner said *"replace it."* The credits can only ever RAISE

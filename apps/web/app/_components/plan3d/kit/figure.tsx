@@ -68,6 +68,9 @@ import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
 import { mannequinMaterial, isStaffOutfit, outfitMaterial, trouserMaterial, plainMaterial } from './outfits';
 import { hairCapGeometry } from './hair-cap';
 import { BLOCKY_PARTS, type RigParts } from './blocky-parts';
+import { rigFaceGeometry } from './rig-face';
+import { resolveFigureLook } from '@/lib/figure-rig';
+import { CHIBI_FACE_INK } from '@/lib/chibi-geometry';
 // Rig proportions + leaf placements + the pose applier now live in the PURE,
 // unit-tested `lib/figure-sit-bake` so the SINGLE source drives BOTH this
 // rendered figure AND the instanced seated crowd's baked-pose extraction — the
@@ -488,6 +491,22 @@ export const Figure = memo(function Figure({
   const headMat = look ? plainMaterial(spec.skinTone!) : bodyMat;
   // BLOCKY KIT — the same skeleton drawn with rounded boxes (owner 2026-09-06).
   const G: RigParts = spec.kit === 'blocky' ? BLOCKY_PARTS : ROUND_PARTS;
+  // A dressed figure gets HANDS (owner 2026-09-06): the sleeve used to run to
+  // the fingertip, so a gown gave gown-coloured hands. One skin-tinted part at
+  // each forearm's end, the rig's joint shape (a ball, or a cube on Blocky).
+  // Dressed only — the untouched blob keeps its rounded stump.
+  const HAND_R = 0.052;
+  // …and a FACE: the chibi's ink, scaled to this head, by the look's faceVariant.
+  const kit = spec.kit === 'blocky' ? 'blocky' : 'round';
+  const faceGeo = look ? rigFaceGeometry(resolveFigureLook(spec).faceVariant, kit) : null;
+  // BUILD (owner 2026-09-06): a dressed figure's proportions. 'female' narrows
+  // the torso + shoulders and widens the hips; 'male' and the look-less blob
+  // are the mannequin's own. Only the individual figure — the instanced crowd
+  // never draws a dressed figure.
+  const female = look && spec.build === 'female';
+  const torsoScale: [number, number, number] = female ? [0.88, 1, 0.92] : [1, 1, 1];
+  const hipScale: [number, number, number] = female ? [1.06, 1, 1.03] : [1, 1, 1];
+  const shoulderX = female ? SHOULDER_X * 0.9 : SHOULDER_X;
 
   // Shell placement: the re-proportioned lathe shells (2026-07-08 silhouette
   // pass) are authored directly in torso space — collar at ≈0.50, waist,
@@ -529,7 +548,7 @@ export const Figure = memo(function Figure({
             HIP BLOCK joins the leg tops so trousers read as one garment, the
             stance narrows, and every visible leg ends in a SHOE — the two
             floating capsules become a person standing in shoes. */}
-        <mesh geometry={G.hip} material={legMat} position={[0, HIP_BLOCK_Y, 0]} castShadow={castShadow} />
+        <mesh geometry={G.hip} material={legMat} position={[0, HIP_BLOCK_Y, 0]} scale={hipScale} castShadow={castShadow} />
         {[-1, 1].map((side) => (
           <group
             key={side}
@@ -586,14 +605,14 @@ export const Figure = memo(function Figure({
         {/* ── Torso: the blank plump mannequin body (2026-07-08 avatar pivot —
             no wardrobe, no shells) + arms + head ride the lean/sway together. ── */}
         <group ref={(el) => void (groups.current.torso = el)}>
-          <mesh geometry={G.torso} material={garmentMat} castShadow={castShadow} />
+          <mesh geometry={G.torso} material={garmentMat} scale={torsoScale} castShadow={castShadow} />
 
           {/* ── Arms: shoulder → elbow. ── */}
           {[-1, 1].map((side) => (
             <group
               key={side}
               ref={(el) => void (groups.current[side < 0 ? 'lShoulder' : 'rShoulder'] = el)}
-              position={[side * SHOULDER_X, SHOULDER_Y, 0]}
+              position={[side * shoulderX, SHOULDER_Y, 0]}
             >
               <mesh
                 geometry={G.arm}
@@ -621,6 +640,15 @@ export const Figure = memo(function Figure({
                   scale={[FOREARM_SCALE_XZ, FOREARM_SCALE_Y, FOREARM_SCALE_XZ]}
                   castShadow={castShadow}
                 />
+                {look ? (
+                  <mesh
+                    geometry={G.joint}
+                    material={headMat}
+                    position={[0, -FOREARM_LEN, 0]}
+                    scale={[HAND_R, HAND_R * 0.9, HAND_R]}
+                    castShadow={castShadow}
+                  />
+                ) : null}
                 {/* Elbow joint-blend ball — smooth bent-elbow bend. */}
                 <mesh
                   geometry={G.joint}
@@ -660,9 +688,12 @@ export const Figure = memo(function Figure({
                 // face, no hair. Pure silhouette (the owner's blueprint).
                 <>
                   <mesh geometry={G.head} material={headMat} castShadow={castShadow} />
+                  {faceGeo ? (
+                    <mesh geometry={faceGeo} material={plainMaterial(CHIBI_FACE_INK)} castShadow={false} />
+                  ) : null}
                   {look && spec.hairStyle != null ? (
                     <mesh
-                      geometry={hairCapGeometry(spec.hairStyle)}
+                      geometry={hairCapGeometry(spec.hairStyle, kit)}
                       material={plainMaterial(spec.hairColor ?? '#241a12')}
                       castShadow={castShadow}
                     />

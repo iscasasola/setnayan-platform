@@ -72,7 +72,7 @@ const HOOKS = [
     firstEffect: "rpc('approve_vendor_subscription'",
   },
   {
-    // Added 2026-09-05 with the supplier's Papic credits: the ₱500/25 pack is
+    // Added 2026-09-05 with the supplier's Papic credits: the ₱500 pack is
     // an exact-match SKU whose target (vendor, event) is read off the ORDER
     // itself, so the gate asserts that the paying order belongs to the vendor
     // it is about to credit before the ledger row is written.

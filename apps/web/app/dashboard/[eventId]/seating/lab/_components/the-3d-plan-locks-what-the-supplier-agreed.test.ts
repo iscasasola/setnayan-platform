@@ -193,7 +193,20 @@ test('the prop chain from the page to the chips is unbroken, link by link', () =
       'Reception Designer). A COUNT, not a spot-check: a file-level match cannot say WHICH ' +
       'hop still carries it, and the broken hop is the regression.',
   );
-  assert.match(src(EDITOR), /\bfinalizedByPart,\n\}: Props\) \{/, 'the editor does not accept it');
+  // 🪤 SCOPED TO THE DESTRUCTURE, NOT PINNED TO BEING THE LAST PROP. This read
+  // `/finalizedByPart,\n\}: Props\) \{/`, which asserted the prop was the FINAL
+  // entry in the parameter list — a fact about alphabetical accident, not about
+  // the wire. RV2 added two props after it and this failed while the chain it
+  // guards was perfectly intact. Slicing the destructure block keeps the claim
+  // ("the editor really accepts it") exactly as strong, and it no longer
+  // accuses the next session to add a prop.
+  const editor = src(EDITOR);
+  const destructure = editor.slice(
+    editor.indexOf('export function ReceptionDesignEditor({'),
+    editor.indexOf('}: Props) {') + '}: Props) {'.length,
+  );
+  assert.ok(destructure.length > 20, 'could not find the editor’s destructure block');
+  assert.match(destructure, /\bfinalizedByPart,/, 'the editor does not accept it');
 });
 
 test('the editor refuses the tap at the one funnel every chip goes through', () => {
@@ -234,11 +247,15 @@ test('the room says WHO agreed and WHEN — never a control that just stops resp
   // panel — same placement rule MB1's disclosure follows.
   const notice = s.indexOf('{activeFinalized ? (');
   const chips = s.indexOf('activeDef.attributes.map');
-  // ~3.3k today: the inspiration strip and the people-layer note sit between
-  // them. The bound is a drift alarm, not a byte count — a notice pushed to the
-  // other end of the panel stops explaining the disabled chips.
+  // ~5.6k today: the inspiration strip, the people-layer note and RV2's booked-
+  // supplier suggestion chips sit between them. RAISED from 5000 (it was ~3.3k
+  // when written) because RV2 added a real block of panel between the two, NOT
+  // because the alarm was inconvenient — the bound is a drift alarm, not a byte
+  // count, and what it protects is that a notice pushed to the other end of the
+  // panel stops explaining the disabled chips. Everything between them today is
+  // still the same zone's own controls.
   assert.ok(
-    notice > 0 && chips > notice && chips - notice < 5000,
+    notice > 0 && chips > notice && chips - notice < 7000,
     `the notice has drifted ${chips - notice} chars from the chips it explains`,
   );
 });

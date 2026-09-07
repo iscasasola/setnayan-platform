@@ -98,18 +98,10 @@ export const KNOWN_GAPS: ReadonlyMap<string, string> = new Map([
    * These are gaps, not approvals. The ratchet's dead-entry check removes them
    * the moment they stop being true, so neither can quietly outlive its reason.
    */
-  [
-    'comp_grants.rationale',
-    'prod NOT NULL, migrations nullable — same out-of-band origin as user_id, but the direction is ' +
-      'NOT settled and must not be guessed. Every application writer supplies a rationale, so prod ' +
-      'is arguably right; but `the-public-numbers-keep-the-record.db.test.ts` inserts a comp_grants ' +
-      'row without one, so declaring SET NOT NULL would break a shipped test, and that test may ' +
-      'itself be asserting a shape prod would refuse. Needs a decision, not a sweep.',
-  ],
 ]);
 
 /** The allow-list may shrink, never grow past this. Lower it when you fix one. */
-export const KNOWN_GAP_CEILING = 3;
+export const KNOWN_GAP_CEILING = 2;
 
 /**
  * Anti-vacuity floors. A drift check that silently compares nothing is exactly

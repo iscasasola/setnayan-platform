@@ -32,6 +32,7 @@
  * Update the line HERE — not in the components.
  */
 
+import { TILE_HINTS } from '@/lib/category-hints';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { COVERAGE_GLYPH, planGroupsForTile, type CoverageState } from '@/lib/coverage-strip';
 
@@ -151,6 +152,14 @@ export const FOLDER_SUMMARY_ALL_COVERED = '✓ All covered';
  * rather than invent copy. Tile-level overrides arrive with the Taxonomy Studio.
  */
 export function categoryHintForTile(tile: string): string | null {
+  // A tile-level entry WINS (2026-09-06). 20 of the 45 tiles reachable from the
+  // pick enum matched no plan group and were therefore silent — `escort`,
+  // `reveal_element` and `personal_accident_insurance` among them, which are
+  // exactly the ones a couple cannot guess from the label. This is the override
+  // this function's own note promised: "Tile-level overrides arrive with the
+  // Taxonomy Studio."
+  const override = TILE_HINTS[tile];
+  if (override) return override;
   const groups = planGroupsForTile(tile);
   if (groups.length === 0) return null;
   for (const g of PLAN_GROUPS) {

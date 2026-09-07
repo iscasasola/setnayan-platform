@@ -23,6 +23,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { Figure } from '@/app/_components/plan3d/kit/figure';
 import { resolveGuestAvatar } from '@/lib/guest-avatar';
 import {
+  HERITAGE_BODY_TYPES,
   HERITAGE_SKIN_TONES,
   HERITAGE_HAIR_STYLES,
   HERITAGE_HAIR_COLORS,
@@ -307,6 +308,13 @@ export function AvatarMaker({
           </>
         ) : (
           <>
+        <Row title="Body">
+          {HERITAGE_BODY_TYPES.map((b) => (
+            <Chip key={b} on={hcfg.bodyType === b} onClick={() => setH('bodyType', b)}>
+              {label(b)}
+            </Chip>
+          ))}
+        </Row>
         <Row title="Skin">
           {HERITAGE_SKIN_TONES.map((hex) => (
             <Swatch key={hex} hex={hex} name={`Skin ${hex}`} on={hcfg.skinTone === hex} onClick={() => setH('skinTone', hex)} />

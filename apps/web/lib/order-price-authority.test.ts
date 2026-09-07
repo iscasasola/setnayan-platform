@@ -193,6 +193,14 @@ const ORDER_MINTERS: Record<string, string> = {
     'Vendor 3D-booth add-on. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch now service-role (`moneyWriter`). Authorized by fetchOwnVendorProfile + ' +
     'resolveVendorRoleForProfile + tier + verified + the first-5-free evaluation.',
+  'app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts':
+    'Vendor Papic portfolio-credit pack (₱500/100 credits, per booked event, G3). pricePhp read ' +
+    'server-side from vendor_billing_catalog (fetchVendorPapicPackPricePhp; null/inactive = refuse). ' +
+    'Service-role (`createMoneyWriterClient`). No tier or verification gate (owner: priced for the ' +
+    'import case, any booked supplier) — authorized by fetchOwnVendorProfile + ' +
+    'resolveVendorRoleForProfile + canManageVendor + booked-on-this-event (fetchVendorRoomEvents) + ' +
+    'the Papic lane kill-switch (isVendorPapicCaptureEnabled). Minted WITH eventId — credits are ' +
+    'per (vendor, event); the activation hook (grantVendorPapicPortfolioPack) shipped in G2.',
   'app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts':
     'Vendor 3D-booth branding for ONE event (₱500 one-time, owner 2026-09-05). pricePhp read ' +
     'server-side from the vendor catalog (fetchVendor3dBoothEventPricePhp; null = off sale = refuse). ' +

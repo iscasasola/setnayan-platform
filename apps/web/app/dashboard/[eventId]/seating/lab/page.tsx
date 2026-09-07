@@ -60,6 +60,10 @@ import {
 import { renderPartById } from '@/lib/moodboard-render-parts';
 import { INSPIRATION_SLOT_FOR_PART } from '@/lib/moodboard-slots';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
+import { bookedZoneCandidates } from '@/lib/reception-booked-suggestions';
+import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
+import type { BookedSupplier } from '@/lib/moodboard-finalization';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
@@ -84,7 +88,7 @@ export default async function SeatingLabPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet, finalizationRes, vendorNameRes] = await Promise.all([
+  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet, finalizationRes, vendorNameRes, bookedSupplierRes] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
@@ -103,7 +107,7 @@ export default async function SeatingLabPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting, moodboard_style_family, moodboard_theme_name',
+        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting, moodboard_style_family, moodboard_theme_name, dismissed_room_suggestions',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -124,6 +128,20 @@ export default async function SeatingLabPage({ params }: Props) {
     // un-say it — showing "Agreed with your supplier" with no name would be a
     // worse answer than the name on the row.
     supabase.from('event_vendors').select('vendor_id, vendor_name').eq('event_id', eventId),
+    // RV2 — the couple's CONFIRMED bookings and the shop behind each one.
+    //
+    // 🔑 THE SAME SELECT THE FINALIZATION PANEL USES, deliberately character for
+    // character (`studio/mood-board/page.tsx`): the same table, the same
+    // embedded `vendor_profiles ( services )`, the same
+    // `CONFIRMED_VENDOR_STATUSES` filter. Two surfaces answering "which
+    // suppliers has this couple booked" from two different queries drift the
+    // first time a status is added, and the drift is INVISIBLE — the shorter
+    // list simply reads as "you have not booked anybody who does this".
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, shop:vendor_profiles ( services )')
+      .eq('event_id', eventId)
+      .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
   ]);
 
   // Tables created but never dragged onto the spatial canvas have null
@@ -236,6 +254,32 @@ export default async function SeatingLabPage({ params }: Props) {
     if (!part || part.group !== 'room') continue;
     finalizedByPart[part.sourceKey] = who;
   }
+
+  // ── RV2 · WHAT THEY BOOKED, OFFERED TO THE ZONE IT BELONGS TO ───────────
+  // Owner ruling 2026-09-06 (Q9): a booked supplier makes their zone SUGGEST
+  // their trade; one click makes it the couple's. Nothing here writes anything
+  // — `bookedZoneCandidates` cannot produce a `ReceptionDesign` (it does not
+  // import one), and `receptionDesign` above is read from the database and
+  // handed on untouched.
+  //
+  // The shop's `services[]` decides the match, so the embedded one-to-one is
+  // normalised rather than cast — Supabase types it as an object or an array
+  // depending on the inferred relationship, and a wrong guess yields an EMPTY
+  // services list, which reads as "this shop does not work in that trade" and
+  // silently hides every chip. Same normalisation, same reason, as the
+  // finalization panel's own read.
+  const bookedSuppliers: BookedSupplier[] = (bookedSupplierRes.data ?? []).map((r) => {
+    const raw = (r as { shop?: unknown }).shop;
+    const shop = Array.isArray(raw) ? raw[0] : raw;
+    return {
+      vendorId: (r as { vendor_id: string }).vendor_id,
+      name: ((r as { vendor_name: string | null }).vendor_name ?? '').trim() || 'your supplier',
+      services: ((shop as { services?: string[] } | null | undefined)?.services ?? []).filter(Boolean),
+    };
+  });
+  const dismissedSuggestions = sanitizeDismissedSuggestions(
+    (eventRow.data as Record<string, unknown> | null)?.dismissed_room_suggestions,
+  );
 
   // MB15 — THE COUPLE'S OWN NAME FOR THIS ROOM. `events.moodboard_theme_name`
   // is what they typed on the mood board ("Coastal Dusk"); the lab has always
@@ -475,6 +519,8 @@ export default async function SeatingLabPage({ params }: Props) {
         receptionDesign={receptionDesign}
         inspirationByPart={inspirationByPart}
         finalizedByPart={finalizedByPart}
+        bookedSuggestions={bookedZoneCandidates(bookedSuppliers, venueSetting)}
+        dismissedSuggestions={dismissedSuggestions}
         themeName={themeName}
         styleFamily={styleFamily}
         venueSetting={venueSetting}

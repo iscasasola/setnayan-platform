@@ -33,7 +33,7 @@ import * as THREE from 'three';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
 import { colorFromId, remoteMovers, type RemoteMap } from '@/lib/plan3d-room';
-import { chibiHop } from '@/lib/figure-rig';
+import { chibiHop, chibiDance, type ChibiDance } from '@/lib/figure-rig';
 import { selfFigureAvatar, guestAvatarsEnabled } from '@/lib/venue-avatars';
 import type { ChibiSeat } from '@/lib/chibi-sit';
 import { resolveGuestAvatar, type GuestAvatar } from '@/lib/guest-avatar';
@@ -423,30 +423,54 @@ const CLAMP_PERP: Vec2 = { x: 1, z: 0 };
 function ChibiBounce({
   phaseRef,
   moving,
+  dancing = false,
+  id = 'guest-self',
   children,
 }: {
   phaseRef: React.MutableRefObject<number>;
   moving: boolean;
+  /** On the dance floor and at rest — the SAME condition that puts the rig
+   *  figure into `pose="dance"`. The chibi has no limbs to swing, so it
+   *  dances with what it has (lib/figure-rig chibiDance): bounce, lean, turn,
+   *  and a head bob on the one group the rig mounts separately for this. */
+  dancing?: boolean;
+  id?: string;
   children: React.ReactNode;
 }) {
   const g = useRef<THREE.Group>(null);
   const amp = useRef(0);
+  const danceAmp = useRef(0);
+  const headRef = useRef<THREE.Group | null>(null);
+  const dance = useRef<ChibiDance>({ lift: 0, scaleY: 1, scaleXZ: 1, sway: 0, turn: 0, headTilt: 0, headNod: 0 });
   const reduced = usePrefersReducedMotion();
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const grp = g.current;
     if (!grp) return;
     if (reduced) {
       grp.position.y = 0;
       grp.scale.set(1, 1, 1);
+      grp.rotation.set(0, 0, 0);
       return;
     }
-    // damp() returns the blend factor for this frame, so the settle is
-    // frame-rate independent — the same landing at 30fps and 120fps.
-    const target = moving ? 1 : 0;
-    amp.current += (target - amp.current) * damp(0.06, delta);
-    const { lift, scaleY, scaleXZ } = chibiHop(phaseRef.current, amp.current);
-    grp.position.y = lift;
-    grp.scale.set(scaleXZ, scaleY, scaleXZ);
+    // The chibi's head group, found once: chibi-figure.tsx flags it on the
+    // figure's own root (`userData.headGroup = <group>`), one level down.
+    if (!headRef.current) {
+      grp.traverse((o) => {
+        const hg = (o.userData as { headGroup?: unknown }).headGroup;
+        if (!headRef.current && hg instanceof THREE.Group) headRef.current = hg;
+      });
+    }
+    const hopTarget = moving ? 1 : 0;
+    amp.current += (hopTarget - amp.current) * damp(0.06, delta);
+    const danceTarget = dancing && !moving ? 1 : 0;
+    danceAmp.current += (danceTarget - danceAmp.current) * damp(0.08, delta);
+    const hop = chibiHop(phaseRef.current, amp.current);
+    const d = chibiDance(id, state.clock.elapsedTime, danceAmp.current, dance.current);
+    grp.position.y = hop.lift + d.lift;
+    grp.scale.set(hop.scaleXZ * d.scaleXZ, hop.scaleY * d.scaleY, hop.scaleXZ * d.scaleXZ);
+    grp.rotation.set(0, d.turn, d.sway);
+    const head = headRef.current;
+    if (head) head.rotation.set(d.headNod, 0, d.headTilt);
   });
   return <group ref={g}>{children}</group>;
 }
@@ -717,7 +741,7 @@ function GuestAvatar({
       {bodyHidden ? null : (
         <>
           {avatar ? (
-            <ChibiBounce phaseRef={phaseRef} moving={!atRest}>
+            <ChibiBounce phaseRef={phaseRef} moving={!atRest} dancing={atRest && dance && !waving} id={selfSpec.id}>
               <ChibiFigure id={selfSpec.id} config={avatar} castShadow />
             </ChibiBounce>
           ) : (

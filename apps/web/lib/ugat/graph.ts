@@ -2063,21 +2063,43 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'vendor_papic_captures', column: 'event_id', references: 'events' },
       { kind: 'column', table: 'vendor_papic_captures', column: 'media_type' },
       { kind: 'column', table: 'vendor_papic_captures', column: 'hidden_at' },
+      // G3 — the private portfolio album a supplier IMPORTS into (never the
+      // couple's to see), spending the SAME meter as the captures above. A
+      // FOURTH table, not a fourth spend-source on vendor_papic_captures,
+      // because an import is not a camera event (no media_type, no clip
+      // duration) — it is a finished photo the supplier already had.
+      { kind: 'table', table: 'vendor_papic_portfolio_photos' },
+      {
+        kind: 'fk',
+        table: 'vendor_papic_portfolio_photos',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      { kind: 'fk', table: 'vendor_papic_portfolio_photos', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'vendor_papic_portfolio_photos', column: 'credits_spent' },
+      { kind: 'column', table: 'vendor_papic_portfolio_photos', column: 'nsfw_checked' },
+      { kind: 'column', table: 'vendor_papic_portfolio_photos', column: 'hidden_at' },
+      {
+        kind: 'check',
+        table: 'vendor_papic_portfolio_photos',
+        name: 'vendor_papic_portfolio_photos_credits_positive',
+        mentions: 'credits_spent',
+      },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
-    title: 'Papic ↔ Vendor (the supplier’s own credits, tier and captures)',
+    title: 'Papic ↔ Vendor (the supplier’s own credits, tier, captures and portfolio album)',
     joint: 'vendor_papic_portfolio_credit_grants',
     cardinality:
-      'Many grant rows per (vendor, event) — one per approved booking-fee order, one per approved pack, any number of admin/comp rows · exactly one tier row per (vendor, event) · many captures',
+      'Many grant rows per (vendor, event) — one per approved booking-fee order, one per approved pack, any number of admin/comp rows · exactly one tier row per (vendor, event) · many captures · many portfolio-album imports',
     implementedBy:
-      'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts, fed by fetchVendorPapicCreditsGranted in lib/vendor-papic-grants.ts',
+      'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
-      'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see',
+      'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:
-      'The partial UNIQUE on (order_id, source) is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above — verify with \\d vendor_papic_portfolio_credit_grants. fetchVendorPapicCreditsGranted returns NULL on a failed read and allowancePointsFor treats null as "unproven" (falls back to the tier gift): a reader that coalesces null to 0 is wrong in the same way, but a reader that shows null as "0 credits" tells a supplier who earned 1,000 that they hold nothing. The 50-point Lite gift is a 2026-07-22 lock the 2026-09-05 "no floor" ruling did not mention — allowancePointsFor keeps it as a MAX and the PR body asks the owner; do not treat the tier number as the credit balance. The video-at-800 threshold (2026-08-26) was priced against the retired ₱5/point rate and is UNCHANGED pending an owner answer.',
+      'The partial UNIQUE on (order_id, source) is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above — verify with \\d vendor_papic_portfolio_credit_grants. fetchVendorPapicCreditsGranted returns NULL on a failed read and allowancePointsFor treats null as "unproven" (falls back to the tier gift): a reader that coalesces null to 0 is wrong in the same way, but a reader that shows null as "0 credits" tells a supplier who earned 1,000 that they hold nothing. The 50-point Lite gift is a 2026-07-22 lock the 2026-09-05 "no floor" ruling did not mention — allowancePointsFor keeps it as a MAX and the PR body asks the owner; do not treat the tier number as the credit balance. The video-at-800 threshold (2026-08-26) was re-priced, not moved, by the 2026-09-06 pack repricing (₱5/credit again) and stays UNCHANGED. ⚠ vendor_papic_portfolio_photos is a THIRD spend surface on the SAME meter as vendor_papic_captures — a reader that computes "left" from only one of the two under-reports what a supplier can still spend after using the other door.',
   },
   {
     /**

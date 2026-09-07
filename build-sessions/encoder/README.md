@@ -1,84 +1,82 @@
-# Encoder program — S-series (plan of record, 2026-09-05)
+# Setnayan's own encoder — a spike plus nine sessions (E0–E9)
 
-**Supersedes the E0–E9 prompts** (`setnayanencoderplan.zip`, 2026-09-03). Those were audited
-claim-by-claim against `origin/main` and a feasibility pass on 2026-09-05; three of ten sessions rested
-on false premises (E2 · E3 · E6), five pieces of work were missing outright, and the cost figures
-behind the Path A lock were wrong twice. Evidence and design:
+Replaces OBS with the Tauri desktop app you already ship, so a couple opens Setnayan instead
+of configuring streaming software the week of their wedding.
 
-- Encoder Replan (audits, architecture, corrections): https://claude.ai/code/artifact/dfa993e3-4229-4b50-a7ec-8c2e3a7eff35
-- Launch Plan (decision, scope, week-by-week): https://claude.ai/code/artifact/331d962c-15f5-4d12-8f3d-cf7274f1b9bd
-- Source scope: `Live_Studio_Encoder_Scope_2026-09-03.md` → § "Corrections 2026-09-05"
-- Lead-time tracker (owner items, updated in place): `build-sessions/encoder/X0-TRACKER.md`
+Owner-ruled 2026-09-03 (Path A): ₱0 per wedding.
 
-**Decision (owner, 2026-09-05): native encoder in the Tauri desktop app — Path A, re-affirmed on true
-figures.** Not for ₱0; because the default tier streams on the couple's own channel with no
-Setnayan server and no Google API in the path, and native keeps it that way at any volume.
-**Owner ruling 2026-09-05: "we will finish everything asap. no need to wait."** No calendar gating —
-every session starts as soon as its dependency lands; owner items (X0) run alongside.
+⚠ **Be precise about what Path B costs, because the scope corrected its own figure.** A
+COMPOSITING relay (LiveKit `RoomComposite`, which re-encodes server-side) is ₱500–1,000 per
+wedding. A REMUX-ONLY relay is ≈₱46–₱280 — but it only works once the client already
+composites and encodes H.264, at which point it is Path A minus a server. The categorical
+claim "a relay breaks the ₱0 lock" is flagged in the scope (§ 4B) as *too strong*; the
+accurate claim is that a **transcoding** relay is unaffordable. Do not repeat the
+₱500–1,000 figure without saying which relay it describes.
+
+Plan of record (diagram + reasoning): https://claude.ai/code/artifact/bc4f3469-fa86-4473-848d-4bb73677de78
+Source scope: `Live_Studio_Encoder_Scope_2026-09-03.md` in the repo (LS3, PR #5118).
 
 ## The pipeline
 
-    phones → controller → OffscreenCanvas (worker) → WebCodecs H.264 ─┐
-             (ships)      S1 · S2                     S4              ├─ IPC (S5) → Rust FLV/RTMPS (S6·S7) → YouTube
-    phone mics → MIXER (S3, new) → AudioEncoder AAC ──────────────────┘            └→ local .flv (S7)
-                 ↑ MASTER CLOCK = AudioContext.currentTime
+    phones → controller → canvas → WebCodecs → IPC → Rust/RTMP → YouTube
+             (built)      E1·E2     E3·E4            E5·E6        (free CDN)
 
-Everything left of the canvas ships behind two env flags whose prod values X0 records. There is no
-programme audio today (S3 builds it). Split-screen has no live publisher (unit-tested, not accepted).
+Everything left of the canvas already ships. Only the highlighted hops are new.
+A browser cannot open the RTMP socket — that, and only that, is why native code is involved.
 
 ## Order
 
 | | Session | Model · Effort | Days | Depends on |
 |---|---|---|---|---|
-| **X0** | Calendar-first: Apple agreement · Developer ID identity · Windows cert order · prod flags | Sonnet 5 · medium | 0.5 + owner | — day 1 |
-| **S0** | The spike: OS matrix · 60-min encode · IPC-fallback probe · HLS + WHIP for the record | Opus 5 · high | 2–3 | X0 (agreement) |
-| S1 | Program → OffscreenCanvas in a worker | Sonnet 5 · high | 2–3 | may start with S0 |
-| S2 | Overlays from `ResolvedOverlays` + `encoder-layout.ts` | Sonnet 5 · high | 3–4 | S1 · § 4c answer |
-| **S3** | Audio mixer + master clock + AAC | Opus 5 · high | 3–4 | S1 — **B-remux branch point** |
-| S4 | Video encode + drift guard | Sonnet 5 · high | 2 | S3 · S0 finding |
-| S5 | IPC · ACL · CSP · token · backpressure (**contract in first commit**) | Sonnet 5 · high | 2–3 | S4 |
-| **S6** | RTMPS + FLV in Rust · 4h39m fixture | Opus 5 · high | 4–6 | S5's contract only — **parallel** |
-| **S7** | Reconnect · backup ingest · local recording | Opus 5 · high | 3–4 | S6 |
-| S8 | Stream key: paste-to-Rust (own channel) · nonce (hosted) · desktop UI gate | Sonnet 5 · high | 2–3 | S5's contract — **parallel** |
-| S9 | Ingest-health states + adaptive bitrate | Sonnet 5 · high | 2–3 | S5 · S6 |
-| W1 | Guests: live watch-link on the story page | Sonnet 5 · high | 1–2 | — **parallel** |
-| S10 | Release channel (R2) · `/download` readiness gate · min OS · throttling · keep-awake | Sonnet 5 · high | 2–3 | X0 — **parallel** |
-| S11 | Signing + notarization (macOS now; Windows when the cert lands) | Sonnet 5 · high | 2–3 | S10 |
-| S12 | Updater (R2 endpoint, Rust-side check, never mid-broadcast) | Sonnet 5 · high | 2–3 | S11 |
-| S13 | Acceptance run on both OSes — a REPORT | Sonnet 5 · medium | 2–3 | everything |
+| **E0** | The spike — does WebCodecs work in Tauri? | Opus 5 · high | 1–2 | — **BLOCKING** |
+| E1 | Program surface → canvas | Sonnet 5 · high | 2–3 | E0 |
+| **E2** | Overlays on canvas + the drift guard | Sonnet 5 · high | 3–4 | E1 — **the risky one** |
+| E3 | WebCodecs H.264 + AAC | Sonnet 5 · high | 2–3 | E1 |
+| E4 | IPC + backpressure | Sonnet 5 · high | 2 | E3 |
+| E5 | RTMP + FLV in Rust | Opus 5 · high | 4–6 | IPC contract only — **parallel** |
+| E6 | Stream key never reaches the renderer | Sonnet 5 · high | 1–2 | — **parallel** |
+| E7 | Build, signing, notarization | Sonnet 5 · high | 3–5 | a working binary |
+| E8 | Auto-updater | Sonnet 5 · high | 2–3 | E7 |
+| E9 | Acceptance run | Sonnet 5 · medium | 1–2 | everything |
 
-**33–48 session-days.** `BUILD_SESSIONS.md` rule 1 still applies: never more than TWO build
-sessions at once — "parallel" means eligible, not simultaneous. Serial spine S1 → S2 → S3 → S4 → S5 → S13; S6, S8, W1, S10 run beside
-it. Milestones: M0 the shipped pipeline proven end-to-end with OBS · M1 path confirmed (S0) ·
-M2 picture + sound on canvas (S3) · M3 first OBS-free stream (S7) · M4 signed installers (S11) ·
-M5 acceptance (S13) · M6 a real wedding on it.
+**21–32 engineer-days across ten prompts (E0–E9)** — E1–E9 alone are 20–30; E0's spike is the rest. Wall-clock is shorter: E5 and E6 need only the IPC contract, so they
+run alongside E1–E4.
 
-## Do not rebuild (RULE 0 hits the E-series missed)
+## Do not skip E0
 
-- `airOverlays: ResolvedOverlays` is already on the controller page — S2 draws it, never resolves it.
-- `lib/live-studio-ingest-health.ts` (LS4) is THE health surface — S9 extends `decideIngestHealth`.
-- `live_studio_channel_oauth_state` is the nonce precedent — S8 copies its shape.
-- `ProgramBridge` + `EMPTY_FRAME` are tested and on the same window — S1 subscribes.
-- `reel-render.ts` has the WebCodecs codec probe — S4 copies the shape.
-- Own-channel by hand is the DEFAULT route to air (`live-studio-manual-air.ts`) — the key is the couple's.
-- **The encoder crate is `src-tauri/crates/encoder` (`setnayan-encoder`), not `src-tauri/src/encoder`** —
-  moved 2026-09-05 so its 42 tests run on every PR without compiling tauri. `contract.rs`, the FLV
-  tagger, the RTMP clock, the redactor and the RTMPS sender all ship there already (S6); S5 mirrors
-  the contract in TypeScript and S7 wraps `SenderOutcome`. Neither writes a new one.
-- **`cargo test -p setnayan-encoder` is a blocking check now** — a step inside `typecheck + lint`,
-  not a job of its own, because only that job is required. Add Rust guards as steps there.
+Every session after it assumes WebCodecs works inside the Tauri webview. That is confirmed for
+Safari 26 and **undocumented for WKWebView**. One day of spike against three weeks of rework.
+
+## Already done — do not rebuild
+
+**LS4** shipped "a dead encoder is visible on the controller" (`lib/live-studio-ingest-health.ts`,
+`getYoutubeStreamStatus` wired, quota-costed, mutation-tested). The scope budgeted 2–3 days for
+it. E4 and E5 should EXTEND that surface, never build a second one that can disagree with it.
 
 ## What this does not buy
 
-It does not remove the laptop. It is not B4/Roam. It does not stop clamshell sleep — the
-rehearsal script says "lid open, power in, do not close, do not minimise."
+**It does not remove the laptop.** Nothing can — a browser cannot open an RTMP socket on any
+device. It replaces "install OBS, configure a custom RTMP server, paste a stream key, set up
+window capture" with "open Setnayan."
 
-## Retired: E0–E9
+**And it is not B4.** B4 is a phone app pushing one stream per kit camera, for Roam. Different
+input, different topology. Building this leaves Roam with no capture path.
 
-Do not run them. Their false premises: E0 "WebCodecs undocumented in WKWebView" (documented ON;
-gate is Safari 26's WebKit → floor macOS 14 + Apple silicon) · E2 guards retired `WatermarkReason` ·
-E3 encodes programme audio that does not exist · E6 protects a key the product hands to the browser
-and ignores that the default tier's key is the couple's own · E5 is happy-path (no reconnect, no
-RTMPS, no 4h39m) · E7 "ad-hoc fallback so CI never breaks" (false: secrets exist, CI fails hard) ·
-E8 GitHub-release endpoint (repo is private) · E9 asserts a recording nobody built and a split
-nobody publishes.
+---
+
+## Audited 3 Sept 2026
+
+Both documents were checked claim-by-claim against `origin/main` and the live database by a
+separate model before release. Seven false or overstated claims were corrected and four
+omissions closed — audio, the free tier's route to air, multi-day events, and what guests see
+when it fails. Two corrections worth carrying forward:
+
+- **The relay figure.** "₱500–1,000 per wedding" describes a COMPOSITING relay. A remux-only
+  relay is ≈₱46–₱280. The scope flags the categorical "a relay breaks the ₱0 lock" as *too
+  strong*. Path A still wins — the cheap relay needs the client to composite and encode
+  anyway, which is most of Path A — but do not quote the big number without saying which
+  relay it describes.
+- **Ten prompts, not nine sessions.** E0–E9. The 21–32 day range includes E0's spike.
+
+Companion document — the whole system end to end, including what the encoder does NOT fix:
+`live-studio-system.html` in this folder.

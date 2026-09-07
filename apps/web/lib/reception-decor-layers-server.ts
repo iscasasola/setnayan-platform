@@ -23,6 +23,8 @@ import {
   retintDecorLayerRGBA,
   primaryZoneTargetHex,
   PILOT_DECOR_ZONES,
+  SCENE_DECOR_ZONES,
+  knockOutSceneBackground,
   type DecorLayerCatalog,
   type DecorLayerAsset,
 } from './reception-decor-layers';
@@ -187,7 +189,16 @@ export async function renderDecorLayerDataUrl(
       targetHex,
     );
 
-    const png = await sharp(Buffer.from(retinted), {
+    // RA1 · a scene zone's drawing carries its own cream room, and
+    // renderVenueSvg already has one. Knocking the background out AFTER the
+    // retint, never before: the retint's own "the background never wears the
+    // palette" guarantee is measured on the opaque file, and clearing pixels
+    // first would hide a bleed from every check that looks at this path.
+    const composited = SCENE_DECOR_ZONES.includes(zone)
+      ? knockOutSceneBackground(retinted, info.width, info.height)
+      : retinted;
+
+    const png = await sharp(Buffer.from(composited), {
       raw: { width: info.width, height: info.height, channels: 4 },
     })
       .png()

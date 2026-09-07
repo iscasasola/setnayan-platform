@@ -140,8 +140,12 @@ test('a SELF-DEALT review is destroyed by the delete, never laundered into the p
   const couple = await newUser('counts-couple-selfdealt@example.com');
   const eventId = await newFinishedJob(v.vendorProfileId, couple);
   await db.query(
-    `INSERT INTO public.comp_grants (source, vendor_profile_id, created_by_user_id)
-     VALUES ('vendor_self_comp', $1, $2)`,
+    // `rationale` is NOT NULL as of migration 20271210309938 — production has
+    // enforced it since before the corpus recorded it, so a row without one
+    // could never have existed there. Repairing the FIXTURE, never the
+    // assertion below, which is about the public numbers and is unaffected.
+    `INSERT INTO public.comp_grants (source, vendor_profile_id, created_by_user_id, rationale)
+     VALUES ('vendor_self_comp', $1, $2, 'Self-comped their own couple — counted against the quarterly cap.')`,
     [v.vendorProfileId, couple],
   );
 

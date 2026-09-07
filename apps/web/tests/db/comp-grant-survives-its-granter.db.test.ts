@@ -308,17 +308,32 @@ const UNREVIEWED_CASCADING_ACTOR_STAMPS = [
   // remains an open item in that list — not re-litigated here.)
   'live_studio_encoder_tokens.requested_by',
 
-  // ── genuine candidates for the comp_grants defect ─────────────────────────
-  // Each records that somebody ACTED on a row other people also rely on: an
-  // approval request, a consent, an encoder claim, a motion, an invite, a lock
-  // proposal. If deleting the actor deletes the row, a third party loses
-  // something that was never theirs to lose — the over-deletion trap exactly.
-  'admin_approval_requests.initiated_by',
-  'coordinator_access_consents.consented_by_user_id',
+  // ── REVIEWED 2026-09-06, and CASCADE is CORRECT — retired by argument ─────
+  // A live_studio_encoder_claims row is a single-use 60-second CSPRNG nonce that
+  // hands the desktop encoder a stream key. Nothing references it
+  // (`grep -rn "REFERENCES public.live_studio_encoder_claims" supabase/migrations`
+  // returns nothing), nothing outlives it, and no code reads `requested_by` at
+  // all — so there is no third party to protect from an over-deletion, which is
+  // the only question this list asks. The row genuinely IS about the host who
+  // asked for it. Same shape and same verdict as its `_tokens` sibling above.
+  //
+  // It stays listed because it still CASCADEs and the stale-check below requires
+  // that; the list's contract is "convert it OR record why CASCADE is right",
+  // and this is the second half of that sentence.
   'live_studio_encoder_claims.requested_by',
-  'vendor_admin_motions.proposed_by',
-  'vendor_invites.invited_by_user_id',
-  'vendor_lock_proposals.proposed_by_user_id',
+
+  // ── nothing else. The six this list shipped with are all settled ─────────
+  // Five converted by migration 20271210831005 (vendor_admin_motions.proposed_by,
+  // coordinator_access_consents.consented_by_user_id,
+  // admin_approval_requests.initiated_by, and — by owner ruling 2026-09-06,
+  // because they also reversed a shipped RA 10173 disposition —
+  // vendor_invites.invited_by_user_id and
+  // vendor_lock_proposals.proposed_by_user_id). The sixth is above, kept because
+  // CASCADE is right for it.
+  //
+  // The list is not closed: the guard below still fails on any NEW cascading
+  // actor stamp, which is the whole point of it. It is simply empty of unsettled
+  // ones for the first time.
 ];
 
 /** Every single-column FK onto a users table whose column name reads as "who acted". */

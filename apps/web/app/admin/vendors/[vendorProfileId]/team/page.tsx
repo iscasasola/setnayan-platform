@@ -59,7 +59,8 @@ export default async function AdminVendorTeamPage({ params }: Props) {
   const rows = await fetchVendorTeam(admin, vendorProfileId);
   const members = await enrichTeamWithUsers(admin, rows);
   const { motions } = await fetchOpenAdminMotions(admin, vendorProfileId);
-  const nameOf = (uid: string) =>
+  const nameOf = (uid: string | null) =>
+    !uid ? 'a departed admin' :
     members.find((m) => m.user_id === uid)?.display_name?.trim() ||
     members.find((m) => m.user_id === uid)?.email ||
     'Admin';

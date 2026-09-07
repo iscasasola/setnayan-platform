@@ -100,7 +100,8 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
   // `event_seat_assignments` has an ON DELETE CASCADE FK to `guests`, but we
   // SOFT-delete here (set `deleted_at`), so the cascade never fires. Every other
   // delete path in this app deletes the assignment explicitly for exactly this
-  // reason (see the note above `bulkSoftDeleteGuests` in ../groups-actions.ts);
+  // reason (see "WHY THE SEAT IS DELETED EXPLICITLY" above
+  // `bulkSoftDeleteGuestsForUndo` in ../groups-actions.ts);
   // these two claims paths did not, and the row was left behind.
   //
   // 🔑 AN ORPHANED ASSIGNMENT IS INVISIBLE AND STILL COUNTS. Both seat editors

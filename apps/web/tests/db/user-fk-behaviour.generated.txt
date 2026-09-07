@@ -10,14 +10,14 @@
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
 # 238 single-column FKs onto auth.users / public.users
-# CASCADE=65  RESTRICT=3  SET NULL=170
+# CASCADE=60  RESTRICT=3  SET NULL=175
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
 account_deletion_requests.reviewed_by                     SET NULL     nullable  -> auth.users
 account_deletion_requests.user_id                         CASCADE      NOT NULL  -> auth.users
 admin_approval_requests.decided_by                        SET NULL     nullable  -> users
-admin_approval_requests.initiated_by                      CASCADE      NOT NULL  -> users
+admin_approval_requests.initiated_by                      SET NULL     nullable  -> users
 admin_approval_requests.target_user_id                    CASCADE      nullable  -> users
 admin_audit_log.actor_user_id                             SET NULL     nullable  -> users
 admin_data_access_log.accessed_user_id                    SET NULL     nullable  -> users
@@ -47,7 +47,7 @@ concierge_brain_chunks.last_verified_by_user_id           SET NULL     nullable 
 concierge_plan_templates.admin_edited_by_user_id          SET NULL     nullable  -> users
 concierge_response_cache.admin_edited_by_user_id          SET NULL     nullable  -> users
 concierge_unanswered_questions.resolved_by_user_id        SET NULL     nullable  -> users
-coordinator_access_consents.consented_by_user_id          CASCADE      NOT NULL  -> auth.users
+coordinator_access_consents.consented_by_user_id          SET NULL     nullable  -> auth.users
 couple_event_type_notify_signups.user_id                  SET NULL     nullable  -> users
 couple_wedding_type_notify_signups.user_id                SET NULL     nullable  -> users
 creator_chapters.user_id                                  CASCADE      NOT NULL  -> auth.users
@@ -207,7 +207,7 @@ users.user_id                                             CASCADE      NOT NULL 
 vendor_2307_filings.generated_by_admin_id                 SET NULL     nullable  -> users
 vendor_ad_subscriptions.cancelled_by_user_id              SET NULL     nullable  -> users
 vendor_admin_motion_votes.voter_user_id                   CASCADE      NOT NULL  -> auth.users
-vendor_admin_motions.proposed_by                          CASCADE      NOT NULL  -> auth.users
+vendor_admin_motions.proposed_by                          SET NULL     nullable  -> auth.users
 vendor_admin_motions.target_user_id                       CASCADE      NOT NULL  -> auth.users
 vendor_billing_catalog.retired_by_admin_id                SET NULL     nullable  -> auth.users
 vendor_contract_signatures.signer_user_id                 RESTRICT     NOT NULL  -> users
@@ -226,8 +226,8 @@ vendor_guest_deliveries.delivered_by                      SET NULL     nullable 
 vendor_ig_oauth_state.initiated_by                        CASCADE      NOT NULL  -> auth.users
 vendor_image_flags.reviewed_by                            SET NULL     nullable  -> users
 vendor_invites.claimed_by_user_id                         SET NULL     nullable  -> auth.users
-vendor_invites.invited_by_user_id                         CASCADE      NOT NULL  -> auth.users
-vendor_lock_proposals.proposed_by_user_id                 CASCADE      NOT NULL  -> auth.users
+vendor_invites.invited_by_user_id                         SET NULL     nullable  -> auth.users
+vendor_lock_proposals.proposed_by_user_id                 SET NULL     nullable  -> auth.users
 vendor_lock_proposals.resolved_by_user_id                 SET NULL     nullable  -> auth.users
 vendor_meetings.created_by_user_id                        SET NULL     nullable  -> auth.users
 vendor_member_token_wallets.user_id                       CASCADE      NOT NULL  -> auth.users

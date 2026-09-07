@@ -32,6 +32,10 @@ export type RigStyle = (typeof RIG_STYLES)[number];
 export const HERITAGE_CONFIG_VERSION = 1 as const;
 
 export const HERITAGE_OUTFITS = ['gown', 'suit', 'barong', 'filipiniana', 'neutral'] as const;
+/** Body build (owner 2026-09-06: the rig styles read male; the chibi has a
+ *  body type, so must these). Same two values as the chibi. */
+export const HERITAGE_BODY_TYPES = ['female', 'male'] as const;
+export type HeritageBodyType = (typeof HERITAGE_BODY_TYPES)[number];
 export type HeritageOutfit = (typeof HERITAGE_OUTFITS)[number];
 export const HERITAGE_SKIN_TONES: readonly string[] = SKIN_TONES;
 export const HERITAGE_HAIR_COLORS: readonly string[] = HAIR_COLORS;
@@ -42,6 +46,7 @@ export const HERITAGE_OUTFIT_COLORS = CHIBI_OUTFIT_COLORS;
 export type HeritageAvatarConfig = {
   v: typeof HERITAGE_CONFIG_VERSION;
   style: RigStyle;
+  bodyType: HeritageBodyType;
   skinTone: string;
   hairStyle: number;
   hairColor: string;
@@ -49,7 +54,7 @@ export type HeritageAvatarConfig = {
   outfitColor: string;
 };
 
-export const HERITAGE_CONFIG_KEYS = ['v', 'style', 'skinTone', 'hairStyle', 'hairColor', 'outfit', 'outfitColor'] as const;
+export const HERITAGE_CONFIG_KEYS = ['v', 'style', 'bodyType', 'skinTone', 'hairStyle', 'hairColor', 'outfit', 'outfitColor'] as const;
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -65,13 +70,21 @@ export function isHeritageStored(stored: unknown): boolean {
 /** Hash-derived defaults — same id ⇒ same look forever (the resolveFigureLook convention). */
 export function defaultHeritageConfig(id: string): HeritageAvatarConfig {
   const h = hashId(id);
+  const bodyType: HeritageBodyType = HERITAGE_BODY_TYPES[(h >>> 15) % 2]!;
+  // The default outfit follows the body so the first impression reads right:
+  // gown / filipiniana for female, suit / barong for male. Any outfit stays
+  // pickable for any body — this is only the default.
+  const outfit: HeritageOutfit = bodyType === 'female'
+    ? (['gown', 'filipiniana'] as const)[(h >>> 9) % 2]!
+    : (['suit', 'barong'] as const)[(h >>> 9) % 2]!;
   return {
     v: HERITAGE_CONFIG_VERSION,
     style: HERITAGE_STYLE,
+    bodyType,
     skinTone: HERITAGE_SKIN_TONES[h % HERITAGE_SKIN_TONES.length]!,
-    hairStyle: (h >>> 3) % HAIR_STYLE_COUNT,
+    hairStyle: bodyType === 'female' ? 3 + ((h >>> 3) % 3) : (h >>> 3) % 3, // long-ish vs short-ish defaults
     hairColor: HERITAGE_HAIR_COLORS[(h >>> 6) % HERITAGE_HAIR_COLORS.length]!,
-    outfit: HERITAGE_OUTFITS[(h >>> 9) % HERITAGE_OUTFITS.length]!,
+    outfit,
     outfitColor: HERITAGE_OUTFIT_COLORS[(h >>> 12) % HERITAGE_OUTFIT_COLORS.length]!.hex,
   };
 }
@@ -85,6 +98,7 @@ export function validateHeritageConfig(input: unknown): string[] {
   for (const key of Object.keys(rec)) if (!known.has(key)) errors.push(`unknown key: ${key}`);
   if (rec.v !== HERITAGE_CONFIG_VERSION) errors.push('v must be 1');
   if (!(RIG_STYLES as readonly unknown[]).includes(rec.style)) errors.push("style must be 'heritage' or 'blocky'");
+  if (!(HERITAGE_BODY_TYPES as readonly unknown[]).includes(rec.bodyType)) errors.push('bodyType not in catalog');
   if (typeof rec.skinTone !== 'string' || !HERITAGE_SKIN_TONES.includes(rec.skinTone)) errors.push('skinTone not in catalog');
   if (typeof rec.hairStyle !== 'number' || !HERITAGE_HAIR_STYLES.includes(rec.hairStyle)) errors.push('hairStyle not in catalog');
   if (typeof rec.hairColor !== 'string' || !HERITAGE_HAIR_COLORS.includes(rec.hairColor)) errors.push('hairColor not in catalog');
@@ -101,6 +115,7 @@ export function resolveHeritageConfig(id: string, stored: unknown): HeritageAvat
   return {
     v: HERITAGE_CONFIG_VERSION,
     style: (RIG_STYLES as readonly unknown[]).includes(r.style) ? (r.style as RigStyle) : HERITAGE_STYLE,
+    bodyType: (HERITAGE_BODY_TYPES as readonly unknown[]).includes(r.bodyType) ? (r.bodyType as HeritageBodyType) : d.bodyType,
     skinTone: typeof r.skinTone === 'string' && HERITAGE_SKIN_TONES.includes(r.skinTone) ? r.skinTone : d.skinTone,
     hairStyle: typeof r.hairStyle === 'number' && HERITAGE_HAIR_STYLES.includes(r.hairStyle) ? r.hairStyle : d.hairStyle,
     hairColor: typeof r.hairColor === 'string' && HERITAGE_HAIR_COLORS.includes(r.hairColor) ? r.hairColor : d.hairColor,
@@ -121,5 +136,6 @@ export function heritageFigureSpec(id: string, cfg: HeritageAvatarConfig, status
     hairColor: cfg.hairColor,
     statusColor,
     kit: cfg.style === 'blocky' ? 'blocky' : 'round',
+    build: cfg.bodyType,
   };
 }

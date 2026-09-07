@@ -92,6 +92,7 @@ import {
 } from '@/lib/explore-info-copy';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
+import { folderHintButtonLabel, folderHintFor } from '@/lib/category-hints';
 import {
   coverageBadgeOf,
   coverageStateOf,
@@ -646,12 +647,12 @@ html.dark .slcat .mrerr{color:#E39A9A}
 .slcat .fd-more{margin-left:6px;border:0;background:none;padding:0 2px;cursor:pointer;
   font-family:var(--mono);font-size:9.5px;color:var(--gold-deep);text-decoration:underline;
   text-underline-offset:2px}
-.slcat .fd-more:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:3px}
+.slcat .fd-more:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:var(--m-r-xs)}
 .slcat .fd-pop{display:block;margin:4px 0 2px;padding:7px 9px;border:1px solid rgba(169,131,75,.35);
-  border-radius:9px;background:var(--m-paper,#FBFBFA)}
+  border-radius:var(--m-r-sm);background:var(--m-paper,#FBFBFA)}
 .slcat .fd-pop-t{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
   text-transform:uppercase;color:var(--gold-deep);margin-bottom:4px}
-.slcat .fd-chip{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:999px;
+.slcat .fd-chip{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:var(--m-r-full);
   background:rgba(27,26,23,.06);font-family:var(--mono);font-size:9.5px}
 .slcat .fd-out{display:block;margin-top:3px;font-size:9.5px;color:var(--gold-deep)}
 `;
@@ -1349,6 +1350,7 @@ export function ShortlistCategories({
     },
     [buildWindow],
   );
+  const [hintFolder, setHintFolder] = useState<string | null>(null);
   const [planEditing, startPlanEdit] = useTransition();
   const { confirm, dialog: removeConfirmDialog } = useConfirm();
   const [planError, setPlanError] = useState<{ tile: string; message: string } | null>(null);
@@ -2169,10 +2171,12 @@ export function ShortlistCategories({
             id={benchFolderAnchorId(folder.slug)}
             className={`fold${folderOpen ? ' open' : ''}`}
           >
+            <div className="fold-head-row" style={{ display: 'flex', alignItems: 'center' }}>
             <button
               type="button"
               className="fold-head"
               aria-expanded={folderOpen}
+              style={{ flex: 1, minWidth: 0 }}
               onClick={() => {
                 setOpenFolder(folderOpen ? null : folder.folder);
                 setOpenTile(null);
@@ -2216,6 +2220,29 @@ export function ShortlistCategories({
                 <ChevronDown className="fold-chev" size={17} strokeWidth={1.75} aria-hidden />
               </span>
             </button>
+            {/* The folder ⓘ — a SIBLING of the head button, not nested inside
+                it (buttons cannot nest), exactly as `cat-head-row` already does
+                one level down. Measured 2026-09-06: all 16 folders had no ⓘ at
+                all, so a collapsed "Specialty" or "Dining extras" told a couple
+                nothing until they expanded it. Reuses `.cat-info` so the two
+                levels look and behave identically. */}
+            <button
+              type="button"
+              className="cat-info"
+              aria-expanded={hintFolder === folder.folder}
+              aria-label={folderHintButtonLabel(folder.label)}
+              title={folderHintButtonLabel(folder.label)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setHintFolder((cur) => (cur === folder.folder ? null : folder.folder));
+              }}
+            >
+              i
+            </button>
+            </div>
+            {hintFolder === folder.folder ? (
+              <div className="hintbox">{folderHintFor(folder.folder)}</div>
+            ) : null}
             <div className="fold-collapse">
               <div className="fold-body">
                 {rowTiles.map((t) => {

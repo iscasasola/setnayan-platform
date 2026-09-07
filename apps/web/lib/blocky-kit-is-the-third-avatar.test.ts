@@ -31,7 +31,7 @@ test('the rig mounts EVERY part through the table — no capsule const left hard
   const f = read('app/_components/plan3d/kit/figure.tsx');
   assert.match(f, /const G: RigParts = spec\.kit === 'blocky' \? BLOCKY_PARTS : ROUND_PARTS;/);
   const viaTable = f.match(/geometry=\{G\.(arm|leg|head|joint|hip|shoe|torso)\}/g) ?? [];
-  assert.equal(viaTable.length, 12, 'hip · 2 legs · 4 joints · shoe · torso · 2 arms · head');
+  assert.equal(viaTable.length, 13, 'hip · 2 legs · 4 joints · shoe · torso · 2 arms · head · hand (dressed only)');
   for (const hard of ['ARM_GEO', 'LEG_GEO', 'HEAD_GEO', 'JOINT_GEO', 'HIP_GEO', 'SHOE_GEO', 'MANNEQUIN_TORSO_GEO']) {
     assert.doesNotMatch(f, new RegExp(`geometry=\\{${hard}\\}`), `${hard} must reach JSX only through the table`);
   }

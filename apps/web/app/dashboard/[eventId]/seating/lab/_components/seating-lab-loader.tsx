@@ -22,6 +22,7 @@ import type {
 } from '@/lib/seating-3d';
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 import type { RolePalette } from '@/lib/mood-board';
+import type { BookedZoneCandidate } from '@/lib/reception-suggestion-chips';
 import type { ReceptionDesign } from '@/lib/reception-scene';
 import type { MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import type { GhostBooth3D } from '@/lib/ghost-booths';
@@ -56,6 +57,14 @@ type Props = {
    *  the chips for that zone are frozen and the panel says who agreed and when.
    *  Absent = nothing agreed, which is the common case. */
   finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** RV2 — booked suppliers whose trade reaches a reception zone (owner ruling
+   *  Q9, 2026-09-06). OFFERS, not settings: nothing here has been applied to
+   *  `receptionDesign`, and rendering them applies nothing. Resolved on the
+   *  server because the trade map reaches `next/headers`. */
+  bookedSuggestions?: BookedZoneCandidate[];
+  /** RV2 — suggestion keys this couple has already waved away
+   *  (`events.dismissed_room_suggestions`). */
+  dismissedSuggestions?: string[];
   /** MB15 — `events.moodboard_theme_name`, the couple's own name for this
    *  look. Null when they have not named one; the room then says nothing rather
    *  than inventing a title. */

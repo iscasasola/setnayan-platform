@@ -25,7 +25,7 @@ import {
 } from './reception-decor-layers';
 import { recolorRGBA, colorDistance, hexToRgb } from './color-recolor';
 import sharp from 'sharp';
-import { renderVenueSvg, DEFAULT_DESIGN } from './reception-scene';
+import { renderVenueSvg, DEFAULT_DESIGN, type ReceptionDesign } from './reception-scene';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -119,10 +119,21 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
   // fails loudly if someone adds a zone speculatively.
   assert.deepEqual(
     [...PILOT_DECOR_ZONES].sort(),
-    ['backdrop', 'ceiling', 'feast', 'stage', 'tables'],
+    ['backdrop', 'booths', 'ceiling', 'feast', 'stage', 'tables'],
     'PILOT_DECOR_ZONES changed. That is allowed — but it is a switch, so update the artwork ' +
       'and the count in the same change, never the list alone.',
   );
+  // 🔑 EVERY FILE MUST BE NAMED FOR A STYLE FAMILY, not merely counted.
+  // `resolveDecorLayer` keys the catalog on the family, so a drawing named
+  // anything else can never be resolved by any couple — a dead file that still
+  // passes a bare count.
+  const STYLE_SLUGS = [
+    'elegant-simple-classic',
+    'bridgerton-regal',
+    'editorial-cream',
+    'tropical-heritage',
+    'modern-minimalist',
+  ];
   for (const zone of PILOT_DECOR_ZONES) {
     const dir = new URL(`../public/moodboard-seed/venue_scene/${zone}/`, import.meta.url);
     const files = readdirSync(dir).filter((f) => f.endsWith('.svg'));
@@ -133,6 +144,12 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
         `${files.length} SVGs, not one per style family. A zone on this list with no file ` +
         'behind it hands the compositor an href that 404s, and the couple sees nothing.',
     );
+    for (const file of files) {
+      assert.ok(
+        STYLE_SLUGS.includes(file.replace(/\.svg$/, '')),
+        `${zone}/${file} is not named for a style family, so no couple can ever resolve it.`,
+      );
+    }
   }
 });
 
@@ -407,7 +424,7 @@ async function ra1SceneRaster(slug: string) {
 test('RA1: only scene zones knock their background out — backdrop and ceiling must not', () => {
   assert.deepEqual(
     [...SCENE_DECOR_ZONES],
-    ['stage', 'tables', 'feast'],
+    ['stage', 'tables', 'feast', 'booths'],
     'SCENE_DECOR_ZONES changed. Adding a zone here is a claim that its drawing is an OBJECT ' +
       'standing in a room, so its background is foreign and should go. Adding `backdrop` or ' +
       '`ceiling` would be wrong in the opposite direction — those drawings FILL their zone, and ' +
@@ -514,9 +531,9 @@ test('RA1 · REAL PIXELS: no panel drawing is ever knocked out — all ten stay 
   }
   assert.match(
     src,
-    /SCENE_DECOR_ZONES: readonly PartId\[\] = \['stage', 'tables', 'feast'\]/,
-    'SCENE_DECOR_ZONES no longer reads exactly [stage, tables] in the source. Panel zones ' +
-      '(backdrop, ceiling) must never appear there.',
+    /SCENE_DECOR_ZONES: readonly PartId\[\] = \['stage', 'tables', 'feast', 'booths'\]/,
+    'SCENE_DECOR_ZONES no longer reads exactly [stage, tables, feast, booths] in the source. Panel ' +
+      'zones (backdrop, ceiling) must never appear there.',
   );
 });
 
@@ -1037,6 +1054,286 @@ test('RA1 feast: the three cliff-bounded tolerances really are on a cliff', asyn
       `${slug}: widening from ${t.tolerance} to ${t.tolerance + 1} moved ${worst} px outside ` +
         `the cloth, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
         're-cut or this harness can no longer see a bleed. Re-measure; do not delete this test.',
+    );
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA2 · PART B · THE BOOTH ROW.
+ *
+ * `20271212913454` seeds `booths` for all five style families. The tagged
+ * surface is the booths' awning canopy.
+ *
+ * 🔎 THE FINDING THAT UNBLOCKED THIS ZONE — SWAP THE NEUTRALS, NOT THE SLOT.
+ * `modern minimalist` was unseedable on `program` three times running (nearest
+ * neutral 3.01, 3.08, 3.01), because a desaturated plum and a GREY are
+ * near-neighbours in `colorDistance` by construction. Removing outlines did not
+ * help; moving the seed to a mid tone did not help. Asking for the neutrals in
+ * WARM CREAM — "no greys anywhere in the picture, no black, no charcoal, no
+ * silver" — landed it first attempt here at 4.51.
+ *
+ * 🪤 AND THE REJECT NO NUMBER CAUGHT. `bridgerton · regal`'s first generation
+ * measured PERFECTLY: zero pixels outside the canopy at tolerance 13, a clean
+ * cliff at 14. It was still a reject — its canopy is two stacked panels, a flat
+ * top and a scalloped valance 13.76 apart, so the recolour turned the tops teal
+ * and left three purple valances hanging under them. The valance is genuinely
+ * OUTSIDE the tagged region, so no outside-pixel assertion can see it, and a
+ * dedicated bi-tonal check written this session passed it too (0.07%) because
+ * the second tone forms its OWN connected region rather than sitting inside the
+ * first one's silhouette. What caught it was rendering the recolour and looking.
+ * The tests below cannot replace that, and none of them claims to.
+ *
+ * ── MEASURED WITH NO AREA FLOOR ─────────────────────────────────────────────
+ * Every constant is from a 520px `sharp` raster pushed through the real
+ * `recolorRGBA` against four unrelated targets, counting opaque pixels that
+ * change OUTSIDE a 2px dilation of the tagged canopy. If a drawing is re-cut,
+ * RE-MEASURE — do not adjust a number here to make a red test green.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const RA2_BOOTHS_MIGRATION = new URL(
+  '../../../supabase/migrations/20271212913454_ra2_booths_decor_five_families.sql',
+  import.meta.url,
+);
+
+type Ra2Booth = { slug: string; servedPath: string; sampledHex: string; tolerance: number };
+
+/** 🪤 Parsed from the migration, never retyped — including the served path,
+ *  so a migration pointed at a file `public/` does not serve fails HERE. */
+function ra2Booths(): Ra2Booth[] {
+  const sql = readFileSync(RA2_BOOTHS_MIGRATION, 'utf8')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  return [
+    ...sql.matchAll(
+      /\('(\/moodboard-seed\/venue_scene\/booths\/([a-z0-9-]+)\.svg)',\s*'(#[0-9A-Fa-f]{6})',\s*(\d+)::NUMERIC\)/g,
+    ),
+  ]
+    .map((m) => ({
+      slug: m[2]!,
+      servedPath: m[1]!,
+      sampledHex: m[3]!.toUpperCase(),
+      tolerance: Number(m[4]),
+    }))
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+const RA2_BOOTHS = ra2Booths();
+
+/** 0.02% of the opaque area (31 px of 154,440) — the same measured antialiasing
+ *  allowance every decor zone since `tables` has used. Four of these five
+ *  measure ZERO at their seeded value; `modern minimalist` measures 26. */
+const RA2_BOOTHS_BUDGET = 31;
+
+/** Every one of the five turns a measured field one step up. */
+const RA2_BOOTHS_CLIFF: Record<string, number> = {
+  'elegant-simple-classic': 485,
+  'bridgerton-regal': 1198,
+  'editorial-cream': 48,
+  'tropical-heritage': 633,
+  'modern-minimalist': 39,
+};
+
+async function ra2BoothObject(t: Ra2Booth) {
+  const file = fileURLToPath(new URL(`.${t.servedPath}`, new URL('../public/', import.meta.url)));
+  const { data, info } = await sharp(file, { density: 300 })
+    .resize(520, 520, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const rgba = new Uint8ClampedArray(data);
+  const { width: w, height: h } = info;
+  const [sr, sg, sb] = hexToRgb(t.sampledHex);
+  // 🔑 THE OBJECT IS EVERY PIXEL NEAR THE SLOT, NOT ONLY THE EXACT MATCHES —
+  // built from exact matches alone, a canopy's own antialiased interior lands
+  // OUTSIDE the mask and every tolerance looks like a bleed.
+  const core = new Uint8Array(w * h);
+  const mask = new Uint8Array(w * h);
+  let opaque = 0;
+  let exact = 0;
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    if (rgba[i] === sr && rgba[i + 1] === sg && rgba[i + 2] === sb) exact++;
+    if (colorDistance(rgba[i]!, rgba[i + 1]!, rgba[i + 2]!, sr, sg, sb) <= 3) core[p] = 1;
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!core[y * w + x]) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          if (ny >= 0 && nx >= 0 && ny < h && nx < w) mask[ny * w + nx] = 1;
+        }
+      }
+    }
+  }
+  return { rgba, w, h, core, mask, opaque, exact, slot: [sr, sg, sb] as const };
+}
+
+const RA2_BOOTHS_TARGETS = ['#7A1F2B', '#D4AF37', '#0F766E', '#1E3A8A'] as const;
+
+async function ra2BoothRecolour(t: Ra2Booth, tolerance: number, hex: string) {
+  const o = await ra2BoothObject(t);
+  const out = recolorRGBA(
+    o.rgba,
+    [{ slotId: 1, sampledHex: t.sampledHex, toleranceDe: tolerance, regionLabel: 'awning canopy' }],
+    { 1: { mode: 'palette', hex } },
+  );
+  let outside = 0;
+  let stuck = 0;
+  for (let p = 0; p < o.w * o.h; p++) {
+    const i = p * 4;
+    if (o.rgba[i + 3]! < 250) continue;
+    const moved =
+      out[i] !== o.rgba[i] || out[i + 1] !== o.rgba[i + 1] || out[i + 2] !== o.rgba[i + 2];
+    if (moved && !o.mask[p]) outside++;
+    if (
+      o.rgba[i] === o.slot[0] &&
+      o.rgba[i + 1] === o.slot[1] &&
+      o.rgba[i + 2] === o.slot[2] &&
+      !moved
+    ) {
+      stuck++;
+    }
+  }
+  return { outside, stuck, exact: o.exact, opaque: o.opaque };
+}
+
+test('RA2 booths: the migration seeds five measured drawings, one range each', () => {
+  assert.deepEqual(
+    RA2_BOOTHS.map((t) => `${t.slug}:${t.sampledHex}:${t.tolerance}`),
+    [
+      'bridgerton-regal:#7356FE:20',
+      'editorial-cream:#D98BA6:12',
+      'elegant-simple-classic:#C9A059:11',
+      'modern-minimalist:#4A3B45:14',
+      'tropical-heritage:#9CB29A:5',
+    ],
+    'a seeded booth-canopy tolerance or sampled_hex changed. Each is a separate measurement ' +
+      'against a different neighbour in its own drawing. Re-measure through the real ' +
+      'recolorRGBA at 520px before editing this list.',
+  );
+  for (const t of RA2_BOOTHS) {
+    assert.ok(
+      t.tolerance >= 5 && t.tolerance <= 30,
+      `${t.slug}: ${t.tolerance} is outside moodboard_asset_color_ranges' CHECK (5..30).`,
+    );
+  }
+});
+
+test('RA2 booths: the zone is wired all four ways, or the room is silently wrong', () => {
+  assert.ok(
+    PILOT_DECOR_ZONES.includes('booths'),
+    "'booths' is missing from PILOT_DECOR_ZONES — resolveDecorLayer will never return these " +
+      'five approved rows and every couple keeps seeing the flat drawing, with nothing logged.',
+  );
+  assert.ok(
+    SCENE_DECOR_ZONES.includes('booths'),
+    "'booths' is missing from SCENE_DECOR_ZONES. Its drawing is a row of stalls on a plain " +
+      "field, so without the background knockout it lays an opaque slab across the couple's " +
+      'floor and wall.',
+  );
+});
+
+test('RA2 booths · REAL BYTES: the image reaches the room, and never invents a booth', () => {
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/booths/elegant-simple-classic.svg';
+
+  const ticked: ReceptionDesign = { ...DEFAULT_DESIGN, booths: { kinds: 'photo_booth' } };
+  assert.ok(
+    renderVenueSvg(ticked, palette, undefined, 'hotel_venue', { booths: href }).includes(href),
+    'renderVenueSvg was handed a booths decor layer for a couple who ticked a photo booth and ' +
+      "did not draw it. Check DECOR_SLOTS has a `booths` geometry and that boothsFloorItem " +
+      "calls decorImage('booths', decor).",
+  );
+
+  // 🪤 THE GATE, IN THE SHAPE THIS ZONE NEEDS IT. `booths` returns null on the
+  // couple's own CHOICE (`real.length === 0`) rather than on the rendered
+  // group, so it cannot fail the way `feast` did — but that is a property of
+  // the current code, not a law, and this asserts it. A couple who ticked
+  // nothing must get nothing, and the layer must be a total no-op.
+  const none: ReceptionDesign = { ...DEFAULT_DESIGN, booths: { kinds: 'none' } };
+  const withDecor = renderVenueSvg(none, palette, undefined, 'hotel_venue', { booths: href });
+  assert.ok(
+    !withDecor.includes(href),
+    'a couple who ticked NO booths got a generated booth row drawn into their room. The image ' +
+      'replaces what they chose; it never supplies a choice they did not make.',
+  );
+  assert.equal(
+    withDecor,
+    renderVenueSvg(none, palette, undefined, 'hotel_venue', {}),
+    'a booths decor layer changed the render of a couple who ticked no booths. With nothing to ' +
+      'replace it must be a no-op, byte for byte.',
+  );
+
+  assert.equal(
+    renderVenueSvg(ticked, palette, undefined, 'hotel_venue', {}),
+    renderVenueSvg(ticked, palette, undefined, 'hotel_venue'),
+    'an empty decor map changed the render — an uncovered cell must be byte-identical to the ' +
+      'flat drawing.',
+  );
+});
+
+test('RA2 booths · REAL RASTER, NO AREA FLOOR: nothing but the canopy wears the palette', async () => {
+  for (const t of RA2_BOOTHS) {
+    for (const hex of RA2_BOOTHS_TARGETS) {
+      const { outside, opaque } = await ra2BoothRecolour(t, t.tolerance, hex);
+      assert.ok(
+        outside <= RA2_BOOTHS_BUDGET,
+        `${t.slug}: ${outside} opaque px outside the tagged canopy recoloured under ${hex} ` +
+          `(${((100 * outside) / opaque).toFixed(3)}% of the frame), above the measured ` +
+          `${RA2_BOOTHS_BUDGET} px antialiasing budget. Four of these five measure ZERO here, ` +
+          'so a number climbing off zero is a real change in the artwork. Re-measure; do not ' +
+          'raise the budget to fit a wider tolerance.',
+      );
+    }
+  }
+});
+
+test('RA2 booths · REAL RASTER: every canopy recolours COMPLETELY', async () => {
+  // 🪤 The reach of this case, stated rather than left to look stronger than it
+  // is: each canopy is a FLAT fill, so its exact slot pixels match at any
+  // tolerance and a TIGHTENING cannot strand them. What it DOES catch is a
+  // wrong or swapped sampled_hex — `bridgerton`'s is `#7356FE`, which is not
+  // the `#8C6BA6` that was asked for, so "correcting" it to the seed sets
+  // `exact` to 0 and fires here.
+  for (const t of RA2_BOOTHS) {
+    for (const hex of RA2_BOOTHS_TARGETS) {
+      const { stuck, exact } = await ra2BoothRecolour(t, t.tolerance, hex);
+      assert.ok(exact > 0, `${t.slug}: no pixel carries the slot colour ${t.sampledHex}`);
+      assert.equal(
+        stuck,
+        0,
+        `${t.slug}: ${stuck}/${exact} px of the awning stayed at stock colour under ${hex} ` +
+          `at tolerance ${t.tolerance}.`,
+      );
+    }
+  }
+});
+
+test('RA2 booths: all five tolerances really are on a cliff', async () => {
+  // 🔑 PINS THE NUMBER RATHER THAN THE OUTCOME, and doubles as "can this harness
+  // see a bleed at all" — which matters more here than anywhere, because four
+  // of the five measure ZERO outside pixels at their seeded value, and an
+  // assertion of "0 <= 31" passes just as well on a harness that has stopped
+  // looking. Every one of the five has a genuine boundary one step up.
+  for (const [slug, expected] of Object.entries(RA2_BOOTHS_CLIFF)) {
+    const t = RA2_BOOTHS.find((x) => x.slug === slug)!;
+    let worst = 0;
+    for (const hex of RA2_BOOTHS_TARGETS) {
+      const { outside } = await ra2BoothRecolour(t, t.tolerance + 1, hex);
+      worst = Math.max(worst, outside);
+    }
+    assert.ok(
+      worst > 0.5 * expected,
+      `${slug}: widening from ${t.tolerance} to ${t.tolerance + 1} moved ${worst} px outside ` +
+        `the canopy, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
+        're-cut, or this harness can no longer see a bleed — in which case the assertions above ' +
+        'are vacuous. Re-measure; do not delete this test.',
     );
   }
 });

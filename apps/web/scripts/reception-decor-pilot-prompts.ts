@@ -56,7 +56,7 @@
  * too-wide tolerance repaints first.
  */
 
-export const PILOT_ZONES = ['backdrop', 'ceiling', 'stage', 'tables', 'feast'] as const;
+export const PILOT_ZONES = ['backdrop', 'ceiling', 'stage', 'tables', 'feast', 'booths'] as const;
 export type PilotZone = (typeof PILOT_ZONES)[number];
 
 export const STYLE_SLUGS = {
@@ -418,6 +418,138 @@ export const FEAST_PROMPTS: DecorPromptEntry[] = [
       'saying what they are not.',
     prompt:
       'A long Filipino wedding feast table seen straight on, draped to the floor in ONE single flat solid sage green cloth, the SAME single sage across the whole cloth including its top surface and every fold — no second shade, no lighter top, no highlight. On top stand serving platters and capiz-shell bowls holding food; the FOOD and the platters must be warm brown, terracotta, cream and oatmeal — NOTHING on the table is green, only the cloth itself is green. The table sits on a completely plain empty background with generous empty margins above and below it: NO floor, NO wall, NO room, no horizon line and no foliage anywhere. Tropical Filipino heritage illustration. ' +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── BOOTHS · RA2, 2026-09-07 ───────────────────────────────────────────────
+ *
+ * 5 keepers from 7 generations (1 per 1.4) — the best yield of the session, and
+ * the zone that produced the most useful finding in it. The tagged surface is
+ * the booths' AWNING CANOPY. Composition is TABLES_PROMPTS'
+ * object-on-plain-background, confirmed on a fourth zone.
+ *
+ * 🔑 THE FINDING: SWAP THE NEUTRALS OUT OF GREY, NOT THE SLOT COLOUR.
+ *
+ * `modern minimalist` had been UNSEEDABLE on `program` three times (nearest
+ * neutral 3.01, 3.08, 3.01). A desaturated plum and a GREY are near-neighbours
+ * in `colorDistance` by construction, so every drawing that uses grey for its
+ * line work and its objects puts something inside the CHECK floor of 5. Two
+ * levers had already failed: removing outlines, and moving the seed to a mid
+ * tone. Both of those change the SLOT. The one that works changes everything
+ * ELSE:
+ *
+ *     "…drawn in WARM CREAM, oatmeal and pale sand only. There are NO GREYS
+ *      anywhere in the picture, no black, no charcoal, no silver."
+ *
+ * `modern minimalist` landed FIRST ATTEMPT here, nearest neutral 4.51. The same
+ * line rescued `bridgerton · regal` and `tropical heritage` on their second
+ * attempts. Four of the five drawings move ZERO pixels outside their canopy at
+ * the seeded tolerance — the cleanest set this session measured.
+ * ➡ PUT WARM-CREAM NEUTRALS IN THE FIRST PROMPT FOR ANY DARK OR DESATURATED
+ *   FAMILY. It costs nothing and it is the difference between 3.01 and 4.51.
+ *
+ * ⚠ IT IS NOT UNIVERSAL, AND THAT WAS MEASURED. Re-run on `program` with this
+ * exact wording (job a02dcf50) it still came back 3.01: that drawing's subject
+ * IS grey equipment, and Recraft keeps musicians' outlines and instrument
+ * bodies dark whatever the surround is asked to be.
+ *
+ * 🪤 AND THE REJECT NO NUMBER CAUGHT — the reason "look at every keeper" is in
+ * the plan. `bridgerton`'s FIRST generation (job 7792a979) measured perfectly:
+ * ZERO pixels outside the canopy at tolerance 13, a clean cliff at 14. It was a
+ * reject. Its canopy is TWO stacked panels — a flat top `#7A60FC` and a
+ * scalloped valance `#5C43BB` under it, 13.76 apart — so the recolour turned
+ * three canopy tops teal and left three purple valances hanging beneath them.
+ * No outside-pixel assertion can see that (the valance is genuinely outside the
+ * tagged region), and a dedicated bi-tonal check written this session passed it
+ * too, because the second tone forms its OWN connected region rather than
+ * sitting inside the first one's silhouette.
+ * ➡ Ask for "ONE SINGLE FLAT RECTANGULAR PANEL … no scalloped valance, no
+ *   second panel, no hanging fringe, no trim edge, no darker band along its
+ *   lower edge". That is what the shipped file was generated with.
+ */
+export const BOOTHS_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'booths',
+    style: 'elegant · simple · classic',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #C9A059 tol 11 (0 px outside at 11, 485 at 12). ' +
+      'Job 5381385c.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. All three canopies are ONE single flat solid warm gold, the SAME single colour on every canopy — one completely flat colour with NO shading of any kind: no darker panels, no shadow shapes, no gradient, no highlight, no stripes, no scalloped trim. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. The booth frames, counters and everything standing inside them are drawn in pale silver grey and white only — nothing else in the picture is gold, amber, tan or brown. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'booths',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER on the second attempt — shipped, slot #7356FE tol 20 (0 px outside at 20, 1198 ' +
+      'at 21). Job 6ba846c2. The FIRST attempt (job 7792a979) measured PERFECTLY — zero ' +
+      'outside pixels at tol 13, clean cliff at 14 — and was a reject on sight: a two-panel ' +
+      'canopy whose scalloped valance stayed purple while its top recoloured. See the finding ' +
+      'above. ⚠ The slot is #7356FE, NOT the #8C6BA6 passed in `colors` — re-sampled, as ' +
+      'always.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. Each canopy is ONE SINGLE FLAT RECTANGULAR PANEL of solid jewel-tone purple — no scalloped valance, no second panel, no hanging fringe, no trim edge, no darker band along its lower edge, no shading, no gradient, no highlight. All three canopies are the SAME single purple, and that purple appears nowhere else. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. The booth frames, counters and everything standing inside them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no silver, and nothing else in the picture is purple, violet, mauve or lilac. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'booths',
+    style: 'editorial cream',
+    aspectRatio: '16:9',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #D98BA6 tol 12 (0 px outside at 12, 48 at 13). ' +
+      'Job 404d4747.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. All three canopies are ONE single flat solid blush pink, the SAME single colour on every canopy — one completely flat colour with NO shading of any kind: no darker panels, no shadow shapes, no gradient, no highlight, no stripes, no scalloped trim. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. The booth frames, counters and everything standing inside them are drawn in pale silver grey and white only — nothing else in the picture is pink, rose or blush. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'booths',
+    style: 'tropical heritage',
+    aspectRatio: '16:9',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER on the second attempt — shipped, slot #9CB29A tol 5 (0 px outside at 5, 633 at ' +
+      '6). Job 3ce05832. The first attempt (job 7a279583) was UNSEEDABLE at 3.02: its COOL ' +
+      'charcoal-and-white neutrals produced a grey-green #9CA89B right beside the sage. Warm ' +
+      'cream neutrals fixed it — the same lever as `modern minimalist`, and note it works in ' +
+      'the opposite direction from the wording that rescued `feast`’s tropical cell, where ' +
+      'COOL neutrals were what was needed. Neither is a rule; the rule is to measure the ' +
+      'nearest neutral and move the NEUTRALS away from the slot.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. Each canopy is ONE SINGLE FLAT RECTANGULAR PANEL of solid sage green — no scalloped valance, no second panel, no hanging fringe, no trim edge, no darker band along its lower edge, no shading, no gradient, no highlight. All three canopies are the SAME single sage green, and that green appears nowhere else. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. The booth frames, counters and everything standing inside them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no charcoal, no black, no silver, no olive, and nothing else in the picture is green. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'booths',
+    style: 'modern minimalist',
+    aspectRatio: '16:9',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER, FIRST ATTEMPT — shipped, slot #4A3B45 tol 14 (26 px outside at 14, 39 at 15). ' +
+      'Job 228aa3a7. 🔑 THE CELL `program` COULD NOT SOLVE IN THREE GENERATIONS, LANDED IN ONE ' +
+      'by asking for warm-cream neutrals instead of grey ones. Nearest neutral 4.51, against ' +
+      "3.01 / 3.08 / 3.01 on `program`. The slot colour was never the problem; the drawing's " +
+      'greys were.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. All three canopies are ONE single flat solid deep charcoal plum, the SAME single colour on every canopy — one completely flat colour with NO shading of any kind: no darker panels, no shadow shapes, no gradient, no highlight, no stripes, no scalloped trim. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Everything that is not a canopy — the booth frames, counters, contents and every outline stroke — is drawn in WARM CREAM, oatmeal and pale sand only. There are NO GREYS anywhere in the picture, no black, no charcoal, no silver: the canopies are the only cool dark thing in it. ' +
       COMMON_SUFFIX,
   },
 ];

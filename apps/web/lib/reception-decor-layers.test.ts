@@ -119,7 +119,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
   // fails loudly if someone adds a zone speculatively.
   assert.deepEqual(
     [...PILOT_DECOR_ZONES].sort(),
-    ['backdrop', 'booths', 'ceiling', 'feast', 'program', 'stage', 'tables', 'walls'],
+    ['backdrop', 'booths', 'ceiling', 'feast', 'photo_wall', 'program', 'stage', 'tables', 'walls'],
     'PILOT_DECOR_ZONES changed. That is allowed — but it is a switch, so update the artwork ' +
       'and the count in the same change, never the list alone.',
   );
@@ -155,6 +155,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
     feast: 5,
     booths: 5,
     walls: 5,
+    photo_wall: 5,
     program: 4,
   };
   for (const zone of PILOT_DECOR_ZONES) {
@@ -521,7 +522,7 @@ test('RA1 · REAL PIXELS: no panel drawing is ever knocked out — all ten stay 
   // and five are saved only by that accidental refusal. So the claim is made
   // over ALL TEN, and it does not depend on which file someone happened to pick.
   const src = readFileSync(new URL('./reception-decor-layers.ts', import.meta.url), 'utf8');
-  for (const zone of ['backdrop', 'ceiling', 'walls'] as const) {
+  for (const zone of ['backdrop', 'ceiling', 'walls', 'photo_wall'] as const) {
     assert.ok(
       !SCENE_DECOR_ZONES.includes(zone),
       `${zone} is in SCENE_DECOR_ZONES. Its drawings FILL their zone, so knocking their ` +
@@ -2151,4 +2152,308 @@ test('RA2 walls: the four ceiling-bound tolerances are honest, and the harness s
       '2026-09-07. Its nearest neighbour is 5.89 away, so a tolerance of 30 MUST bleed — if it ' +
       'no longer does, this harness has stopped measuring and every assertion above is vacuous.',
   );
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA2 · PART B · THE PHOTO WALL — THE SECOND PANEL ZONE OF THE SESSION.
+ *
+ * `20271213232572` seeds `photo_wall` for all five style families.
+ *
+ * 🔑 IT IS A PANEL, NOT A SCENE, AND THE TESTS ASSERT THAT IN BOTH DIRECTIONS.
+ * The scene zones added since `stage` — `tables`, `feast`, `booths`, `program`
+ * — are objects standing in a room, whose foreign background is knocked out
+ * before compositing. This one is not, and neither is `walls` above it: like
+ * `backdrop` and `ceiling` its drawing FILLS its rect and the
+ * ground between its blooms IS the wall. It is absent from `SCENE_DECOR_ZONES`
+ * on purpose, and the panel-zone knockout guard above now covers it, because
+ * knocking it out would punch holes through the couple's photo wall to the room
+ * behind it — with the SVG bytes on disk completely unchanged.
+ *
+ * ── MEASURED WITH NO AREA FLOOR ─────────────────────────────────────────────
+ * 520px `sharp` raster → the real `recolorRGBA` → four unrelated targets,
+ * counting opaque pixels that change OUTSIDE a 2px dilation of the tagged wall.
+ * The budget is 42 px (0.02% of 210,080) rather than the scene zones' 31,
+ * because a 4:5 raster letterboxes less of the 520px square than 16:9 does.
+ * If a drawing is re-cut, RE-MEASURE — do not adjust a number here to make a
+ * red test green.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const RA2_PW_MIGRATION = new URL(
+  '../../../supabase/migrations/20271213232572_ra2_photo_wall_decor_five_families.sql',
+  import.meta.url,
+);
+
+type Ra2PhotoWall = { slug: string; servedPath: string; sampledHex: string; tolerance: number };
+
+/** 🪤 Parsed from the migration, never retyped — including the served path,
+ *  so a migration pointed at a file `public/` does not serve fails HERE. */
+function ra2PhotoWalls(): Ra2PhotoWall[] {
+  const sql = readFileSync(RA2_PW_MIGRATION, 'utf8')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  return [
+    ...sql.matchAll(
+      /\('(\/moodboard-seed\/venue_scene\/photo_wall\/([a-z0-9-]+)\.svg)',\s*'(#[0-9A-Fa-f]{6})',\s*(\d+)::NUMERIC\)/g,
+    ),
+  ]
+    .map((m) => ({
+      slug: m[2]!,
+      servedPath: m[1]!,
+      sampledHex: m[3]!.toUpperCase(),
+      tolerance: Number(m[4]),
+    }))
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+const RA2_PW = ra2PhotoWalls();
+
+/** 0.02% of the opaque area — 42 px of 210,080. Measured 2026-09-07 on these
+ *  five at their seeded values: 42, 22, 4, 4, 0. */
+const RA2_PW_BUDGET = 42;
+
+/**
+ * ⚠ ONLY ONE OF THE FIVE HAS A CLIFF, AND THAT IS WHY THIS RECORD EXISTS
+ * RATHER THAN A UNIFORM ONE. `tropical heritage` turns a measured field one
+ * step up (4 px → 5,416). The other four do not, for two different and both
+ * legitimate reasons, and each is written down instead of smoothed:
+ *
+ *   elegant · bridgerton   bounded by the antialiasing BUDGET (42 px at 6, 22
+ *                          at 8) — they climb gradually past it.
+ *   editorial · modern     bounded by the CHECK CEILING of 30. These are
+ *                          near-monochrome walls whose nearest neighbour is
+ *                          4.78 (its own edge) and 70.07, so there is nothing
+ *                          in the picture for a wider tolerance to reach and
+ *                          the measurement runs clean to 30 and stops because
+ *                          the table's CHECK stops it. `modern minimalist`'s
+ *                          70.07 is the widest margin measured this session.
+ */
+const RA2_PW_CLIFF: Record<string, number> = {
+  'tropical-heritage': 5416,
+};
+const RA2_PW_CHECK_BOUNDED = ['editorial-cream', 'modern-minimalist'];
+
+async function ra2PwObject(t: Ra2PhotoWall) {
+  const file = fileURLToPath(new URL(`.${t.servedPath}`, new URL('../public/', import.meta.url)));
+  const { data, info } = await sharp(file, { density: 300 })
+    .resize(520, 520, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const rgba = new Uint8ClampedArray(data);
+  const { width: w, height: h } = info;
+  const [sr, sg, sb] = hexToRgb(t.sampledHex);
+  const core = new Uint8Array(w * h);
+  const mask = new Uint8Array(w * h);
+  let opaque = 0;
+  let exact = 0;
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    if (rgba[i] === sr && rgba[i + 1] === sg && rgba[i + 2] === sb) exact++;
+    if (colorDistance(rgba[i]!, rgba[i + 1]!, rgba[i + 2]!, sr, sg, sb) <= 3) core[p] = 1;
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!core[y * w + x]) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          if (ny >= 0 && nx >= 0 && ny < h && nx < w) mask[ny * w + nx] = 1;
+        }
+      }
+    }
+  }
+  return { rgba, w, h, core, mask, opaque, exact, slot: [sr, sg, sb] as const };
+}
+
+const RA2_PW_TARGETS = ['#7A1F2B', '#D4AF37', '#0F766E', '#1E3A8A'] as const;
+
+async function ra2PwRecolour(t: Ra2PhotoWall, tolerance: number, hex: string) {
+  const o = await ra2PwObject(t);
+  const out = recolorRGBA(
+    o.rgba,
+    [{ slotId: 1, sampledHex: t.sampledHex, toleranceDe: tolerance, regionLabel: 'wall face' }],
+    { 1: { mode: 'palette', hex } },
+  );
+  let outside = 0;
+  let stuck = 0;
+  for (let p = 0; p < o.w * o.h; p++) {
+    const i = p * 4;
+    if (o.rgba[i + 3]! < 250) continue;
+    const moved =
+      out[i] !== o.rgba[i] || out[i + 1] !== o.rgba[i + 1] || out[i + 2] !== o.rgba[i + 2];
+    if (moved && !o.mask[p]) outside++;
+    if (
+      o.rgba[i] === o.slot[0] &&
+      o.rgba[i + 1] === o.slot[1] &&
+      o.rgba[i + 2] === o.slot[2] &&
+      !moved
+    ) {
+      stuck++;
+    }
+  }
+  return { outside, stuck, exact: o.exact, opaque: o.opaque };
+}
+
+test('RA2 photo_wall: the migration seeds five measured drawings, one range each', () => {
+  assert.deepEqual(
+    RA2_PW.map((t) => `${t.slug}:${t.sampledHex}:${t.tolerance}`),
+    [
+      'bridgerton-regal:#8C6BA6:8',
+      'editorial-cream:#F75B74:30',
+      'elegant-simple-classic:#EE8827:6',
+      'modern-minimalist:#4A3B45:30',
+      'tropical-heritage:#9CB29A:20',
+    ],
+    'a seeded photo-wall tolerance or sampled_hex changed. Note TWO of these hexes are NOT the ' +
+      'colour that was asked for — `editorial cream` came back #F75B74 rather than the #D98BA6 ' +
+      'blush passed in `colors`, and `elegant` #EE8827 rather than #C9A059 gold. Both are ' +
+      're-sampled off the pixels. "Correcting" either to its seed tags a colour the file does ' +
+      'not have. Re-measure through the real recolorRGBA at 520px before editing this list.',
+  );
+  for (const t of RA2_PW) {
+    assert.ok(
+      t.tolerance >= 5 && t.tolerance <= 30,
+      `${t.slug}: ${t.tolerance} is outside moodboard_asset_color_ranges' CHECK (5..30).`,
+    );
+  }
+});
+
+test('RA2 photo_wall is a PANEL zone — it must never be knocked out', () => {
+  assert.ok(
+    PILOT_DECOR_ZONES.includes('photo_wall'),
+    "'photo_wall' is missing from PILOT_DECOR_ZONES — resolveDecorLayer will never return " +
+      'these five approved rows and every couple keeps seeing the flat panel, with nothing ' +
+      'logged.',
+  );
+  assert.ok(
+    !SCENE_DECOR_ZONES.includes('photo_wall'),
+    "'photo_wall' was added to SCENE_DECOR_ZONES. Its drawing FILLS its rect and the ground " +
+      'between its blooms IS the wall, so the knockout would punch holes through the wall to ' +
+      'the room behind it — and the SVG bytes on disk would be completely unchanged, so no ' +
+      'byte check can see it. Scene zones are objects standing in a room; this is not one.',
+  );
+});
+
+test('RA2 photo_wall · REAL BYTES: the image reaches the room, and never invents a wall', () => {
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/photo_wall/elegant-simple-classic.svg';
+
+  const chosen: ReceptionDesign = { ...DEFAULT_DESIGN, photo_wall: { style: 'floral_wall' } };
+  assert.ok(
+    renderVenueSvg(chosen, palette, undefined, 'hotel_venue', { photo_wall: href }).includes(href),
+    'renderVenueSvg was handed a photo_wall decor layer for a couple who chose a floral wall ' +
+      'and did not draw it. Check DECOR_SLOTS has a `photo_wall` geometry and that ' +
+      "photoWallDecor calls decorImage('photo_wall', decor).",
+  );
+
+  // 🪤 `photo_wall` DEFAULTS TO `none`, so this is the common case, not an edge
+  // one: most couples have no photo wall and must not be handed a generated
+  // flower wall by a decor layer.
+  const none: ReceptionDesign = { ...DEFAULT_DESIGN, photo_wall: { style: 'none' } };
+  const withDecor = renderVenueSvg(none, palette, undefined, 'hotel_venue', { photo_wall: href });
+  assert.ok(
+    !withDecor.includes(href),
+    'a couple who chose NO photo wall got a generated one drawn into their room. The image ' +
+      'replaces what they chose; it never supplies a choice they did not make.',
+  );
+  assert.equal(
+    withDecor,
+    renderVenueSvg(none, palette, undefined, 'hotel_venue', {}),
+    'a photo_wall decor layer changed the render of a couple who chose none. With nothing to ' +
+      'replace it must be a no-op, byte for byte.',
+  );
+
+  assert.equal(
+    renderVenueSvg(chosen, palette, undefined, 'hotel_venue', {}),
+    renderVenueSvg(chosen, palette, undefined, 'hotel_venue'),
+    'an empty decor map changed the render — an uncovered cell must be byte-identical to the ' +
+      'flat drawing.',
+  );
+});
+
+test('RA2 photo_wall · REAL RASTER, NO AREA FLOOR: nothing but the wall wears the palette', async () => {
+  for (const t of RA2_PW) {
+    for (const hex of RA2_PW_TARGETS) {
+      const { outside, opaque } = await ra2PwRecolour(t, t.tolerance, hex);
+      assert.ok(
+        outside <= RA2_PW_BUDGET,
+        `${t.slug}: ${outside} opaque px outside the tagged wall recoloured under ${hex} ` +
+          `(${((100 * outside) / opaque).toFixed(3)}% of the frame), above the measured ` +
+          `${RA2_PW_BUDGET} px antialiasing budget. Re-measure; do not raise the budget to fit ` +
+          'a wider tolerance.',
+      );
+    }
+  }
+});
+
+test('RA2 photo_wall · REAL RASTER: every wall recolours COMPLETELY', async () => {
+  for (const t of RA2_PW) {
+    for (const hex of RA2_PW_TARGETS) {
+      const { stuck, exact } = await ra2PwRecolour(t, t.tolerance, hex);
+      assert.ok(
+        exact > 0,
+        `${t.slug}: no pixel carries the slot colour ${t.sampledHex}. Two of these hexes are ` +
+          'not the colour that was asked for — if one was "corrected" back to its seed, this ' +
+          'is where it fires.',
+      );
+      assert.equal(
+        stuck,
+        0,
+        `${t.slug}: ${stuck}/${exact} px of the wall stayed at stock colour under ${hex} at ` +
+          `tolerance ${t.tolerance}.`,
+      );
+    }
+  }
+});
+
+test('RA2 photo_wall: the one cliff is a cliff, and the two ceiling-bound ones are honest', async () => {
+  // 🔑 THE HARNESS MUST STILL BE ABLE TO SEE A BLEED. Three of these five
+  // measure 4 px or fewer outside at their seeded value, and "4 <= 42" passes
+  // just as well on a harness that has stopped looking — so the one file that
+  // HAS a boundary carries that proof for the set.
+  for (const [slug, expected] of Object.entries(RA2_PW_CLIFF)) {
+    const t = RA2_PW.find((x) => x.slug === slug)!;
+    let worst = 0;
+    for (const hex of RA2_PW_TARGETS) {
+      const { outside } = await ra2PwRecolour(t, t.tolerance + 1, hex);
+      worst = Math.max(worst, outside);
+    }
+    assert.ok(
+      worst > 0.5 * expected,
+      `${slug}: widening from ${t.tolerance} to ${t.tolerance + 1} moved ${worst} px outside ` +
+        `the wall, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
+        're-cut, or this harness can no longer see a bleed — in which case the assertions above ' +
+        'are vacuous. Re-measure; do not delete this test.',
+    );
+  }
+
+  // And the two seeded AT the CHECK ceiling are there because nothing is near
+  // them, not because a boundary was ignored. Asserting the reason keeps the 30
+  // from being read as "we ran out of patience".
+  for (const slug of RA2_PW_CHECK_BOUNDED) {
+    const t = RA2_PW.find((x) => x.slug === slug)!;
+    assert.equal(
+      t.tolerance,
+      30,
+      `${slug} is recorded as bounded by the CHECK ceiling but is seeded at ${t.tolerance}. If ` +
+        'it was re-measured to a lower value, move it out of RA2_PW_CHECK_BOUNDED and say what ' +
+        'bounds it now.',
+    );
+    let worst = 0;
+    for (const hex of RA2_PW_TARGETS) {
+      const { outside } = await ra2PwRecolour(t, 30, hex);
+      worst = Math.max(worst, outside);
+    }
+    assert.ok(
+      worst <= RA2_PW_BUDGET,
+      `${slug} is seeded at the CHECK ceiling of 30 and moves ${worst} px outside its wall ` +
+        `there, over the ${RA2_PW_BUDGET} px budget. A ceiling-bounded value is only honest ` +
+        'while the ceiling is genuinely clean; re-measure and seed the largest value that is.',
+    );
+  }
 });

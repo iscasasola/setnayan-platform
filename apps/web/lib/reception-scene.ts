@@ -2109,8 +2109,21 @@ function booth(kind: string, x: number, y: number, P: (i: number) => string): st
   );
 }
 
-function photoWallDecor(styles: string[], P: (i: number) => string): string {
-  return styles.map((style) => photoWallDecorLayer(style, P)).join('');
+function photoWallDecor(
+  styles: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): string {
+  const flat = styles.map((style) => photoWallDecorLayer(style, P)).join('');
+  // 🔑 THE IMAGE REPLACES WHAT THE COUPLE CHOSE, IT NEVER INVENTS A WALL.
+  // Every style but `none` draws a panel; `none` draws nothing, and a couple who
+  // chose nothing must not be handed a generated flower wall. `photo_wall` has
+  // ONE attribute, so unlike `feast` and `program` there is no second
+  // independently chosen object to lose — the gate is simply "did the flat layer
+  // draw anything", and with no decor layer this returns `flat` unchanged,
+  // character for character (MB14b's byte-identity invariant).
+  if (flat === '') return '';
+  return decorImage('photo_wall', decor) ?? flat;
 }
 function photoWallDecorLayer(style: string, P: (i: number) => string): string {
   if (style === 'none') return '';
@@ -2419,6 +2432,17 @@ const DECOR_SLOTS: Partial<Record<PartId, DecorRect | readonly DecorRect[]>> = {
     { x: 0, y: 0, w: 56, h: 372, rx: 0 },
     { x: 904, y: 0, w: 56, h: 372, rx: 0 },
   ],
+  // RA2 · the photo wall. The ONLY decor geometry with no judgement in it: a
+  // PANEL drawing fills exactly the box the flat drawing already occupies, so
+  // this is `photoWallDecorLayer`'s own rect, `rx` included.
+  //
+  // 🔑 AND IT IS A PANEL, NOT A SCENE — the second of them, after `walls`. The
+  // zones added between `stage` and those two were each an object standing in a
+  // room, with its background knocked out. This one's ground between the blooms
+  // IS the wall — it is deliberately absent from SCENE_DECOR_ZONES, and
+  // knocking it out would punch holes through the couple's photo wall to the
+  // room behind it.
+  photo_wall: { x: 786, y: 92, w: 130, h: 108, rx: 8 },
 };
 
 /** Zone → the href of its already-retinted decor image. A zone absent from the
@@ -2592,7 +2616,7 @@ export function renderVenueSvg(
     scene === 'beach' || scene === 'garden'
       ? ''
       : `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
-    photoWallDecor(selAll(design, 'photo_wall', 'style'), P),
+    photoWallDecor(selAll(design, 'photo_wall', 'style'), P, decor),
     welcomeSignageDecor(selAll(design, 'welcome_signage', 'style'), P),
     `</svg>`,
   ].join('');

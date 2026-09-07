@@ -65,3 +65,14 @@ never says "sets your date", and the docblock explaining that rule contains the 
 SPEC IMPACT: `DECISION_LOG.md` 2026-09-06 — a card may claim the date only for a single viable day
 (mirroring `viable.length === 1`), and names at most four dates inline. No schema, SKU or price
 change.
+
+### Follow-up · 2026-09-07 — the fixture had to declare the new required field
+
+`bench-sort.test.ts`'s `vendor()` helper left `freeDays` to the `...p` spread, so
+an absent key arrived as `undefined` against a `readonly string[] | null` field
+and the whole fixture stopped satisfying `ShortlistVendor`. Declared explicitly
+alongside `freeDaysLine`, for the reason the neighbouring comment already gives
+about `lockRequestState`: a defaulted field lets a fixture silently mean
+something the case is not about.
+
+SPEC IMPACT: None.

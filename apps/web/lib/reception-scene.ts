@@ -1607,8 +1607,35 @@ function tunnelLayer(
 // defined above) — a simplified side-margin treatment, not full stylist-grade
 // intricacy like the 7 original parts, since the couple already sees the
 // backdrop/ceiling carry most of the room's character.
-function wallsDecor(treatments: string[], P: (i: number) => string): string {
-  return treatments.map((t) => wallsDecorLayer(t, P)).join('');
+/** The three treatments that actually DRESS a wall. `bare` and
+ *  `uplighting_only` both say, in words, that there is none — `uplighting_only`
+ *  is a light thrown on a bare wall, not a covering. */
+const WALL_DRESSINGS = new Set(['fabric_drape', 'floral_garland', 'greenery_wall']);
+
+function wallsDecor(
+  treatments: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): string {
+  const flat = treatments.map((t) => wallsDecorLayer(t, P)).join('');
+
+  // 🔑 THE IMAGE REPLACES A DRESSING, AND ONLY WHEN THERE IS ONE. `walls` is the
+  // third shape of the gate `feast` shipped wrong: a couple who chose
+  // `uplighting_only` — which is spelled, in the taxonomy, as one of the two
+  // options meaning NO wall dressing — must not be handed a generated fabric
+  // drape. Gating on "did the flat layer draw anything" would do exactly that,
+  // because uplighting draws four ellipses per band.
+  if (!treatments.some((t) => WALL_DRESSINGS.has(t))) return flat;
+  const image = decorImage('walls', decor);
+  if (image === null) return flat;
+
+  // The uplighting survives, drawn OVER the image: it is a light on the wall,
+  // and a couple who ticked both a drape and uplighting chose both.
+  const lights = treatments
+    .filter((t) => !WALL_DRESSINGS.has(t))
+    .map((t) => wallsDecorLayer(t, P))
+    .join('');
+  return image + lights;
 }
 function wallsDecorLayer(t: string, P: (i: number) => string): string {
   if (t === 'bare') return '';
@@ -2310,7 +2337,25 @@ function sceneBackground(scene: VenueSceneFamily, W: number, H: number, aisleTin
  *  permission. Keys are pinned equal to `PILOT_DECOR_ZONES` by
  *  `reception-scene.test.ts` (asserted there, not imported here, so this file
  *  keeps its one-way dependency on nothing). */
-const DECOR_SLOTS: Partial<Record<PartId, { x: number; y: number; w: number; h: number; rx: number }>> = {
+type DecorRect = { x: number; y: number; w: number; h: number; rx: number };
+
+/**
+ * 🔑 A ZONE MAY OCCUPY MORE THAN ONE BOX, AND `walls` IS THE FIRST THAT DOES.
+ * Every decor zone before it is one contiguous rect. `walls` is TWO — a 56-wide
+ * band down the left edge and another down the right, with the whole room
+ * between them — so a single rect spanning both would paint over the backdrop,
+ * the stage and the couple. An array here draws the SAME drawing into each box,
+ * which is exactly what the flat `wallsDecorLayer` does with its two bands.
+ *
+ * 🔑 THE FIRST BOX KEEPS THE BARE `decor-<zone>` CLIP ID, and that one line is
+ * what makes this change invisible to the eight zones that came before it: their
+ * markup is byte-identical to what it was when a slot could only be one rect.
+ * A one-element array is therefore EQUIVALENT to a bare rect, deliberately — the
+ * numbering only starts at `-2`. What must never change is the FIRST id; suffix
+ * it and every existing zone's bytes move at once. `reception-scene.test.ts`
+ * pins those bytes against hashes measured before this feature existed.
+ */
+const DECOR_SLOTS: Partial<Record<PartId, DecorRect | readonly DecorRect[]>> = {
   // The same panel `backdropStyleLayer` draws — BD, with its rx 10 corners.
   backdrop: { ...BD, rx: 10 },
   // The overhead band every `ceilingLayer` treatment hangs inside: the draped
@@ -2362,6 +2407,18 @@ const DECOR_SLOTS: Partial<Record<PartId, { x: number; y: number; w: number; h: 
   // `slice` trims the drawing's own empty margins and nothing else, and its
   // bottom edge sits on the riser's ground line at 392.
   program: { x: 624, y: 242, w: 320, h: 150, rx: 0 },
+  // RA2 · the side walls — the FIRST zone with two boxes. `wallsDecorLayer`
+  // draws a 56-wide band down each edge, full height to the floor line at 372,
+  // with the entire room between them. The same drawing goes in both, as the
+  // flat layer already puts the same treatment in both.
+  //
+  // 🔑 A PANEL, NOT A SCENE. Like `backdrop`, `ceiling` and `photo_wall`, a wall
+  // drawing FILLS its band — its ground IS the wall — so it is absent from
+  // SCENE_DECOR_ZONES and must never be knocked out.
+  walls: [
+    { x: 0, y: 0, w: 56, h: 372, rx: 0 },
+    { x: 904, y: 0, w: 56, h: 372, rx: 0 },
+  ],
 };
 
 /** Zone → the href of its already-retinted decor image. A zone absent from the
@@ -2396,7 +2453,15 @@ function decorImage(zone: PartId, layers: DecorLayers | undefined): string | nul
   const slot = DECOR_SLOTS[zone];
   if (!slot) return null;
   if (!isCompositableDecorHref(href)) return null;
-  const clip = `decor-${zone}`;
+  // One box or several — see DECOR_SLOTS. The FIRST box keeps the bare
+  // `decor-<zone>` clip id, so a single-rect zone emits exactly the string it
+  // emitted before multi-box zones existed, byte for byte.
+  const boxes: readonly DecorRect[] = 'x' in slot ? [slot] : slot;
+  return boxes.map((box, i) => decorBox(zone, href, box, i)).join('');
+}
+
+function decorBox(zone: PartId, href: string, slot: DecorRect, index: number): string {
+  const clip = index === 0 ? `decor-${zone}` : `decor-${zone}-${index + 1}`;
   return (
     `<defs><clipPath id="${clip}"><rect x="${slot.x}" y="${slot.y}" width="${slot.w}" height="${slot.h}" rx="${slot.rx}"/></clipPath></defs>` +
     // 🪤 `xmlns:xlink` IS DECLARED ON THE ELEMENT, NOT ON THE ROOT <svg>.
@@ -2515,7 +2580,9 @@ export function renderVenueSvg(
     // backdrop — it dresses the room's own shell, never furniture, so it
     // keeps a fixed slot ahead of the floor group rather than competing with
     // it on ground-contact `y`.
-    venueZoneApplies(venueSetting, 'walls') ? wallsDecor(selAll(design, 'walls', 'treatment'), P) : '',
+    venueZoneApplies(venueSetting, 'walls')
+      ? wallsDecor(selAll(design, 'walls', 'treatment'), P, decor)
+      : '',
     // Everything that stands ON the floor — guest tables, the band's riser
     // and figures, the host's spot, the booth row, the feast — composited by
     // the ONE depth rule above, not by which line comes last in this array.

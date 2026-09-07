@@ -64,6 +64,7 @@ export const PILOT_ZONES = [
   'feast',
   'booths',
   'program',
+  'walls',
 ] as const;
 export type PilotZone = (typeof PILOT_ZONES)[number];
 
@@ -86,7 +87,8 @@ export type DecorPromptEntry = {
   zone: PilotZone;
   style: StyleFamily;
   prompt: string;
-  aspectRatio: '4:5' | '16:9';
+  /** `9:16` joined for `walls`, whose band is 56 wide and 372 high. */
+  aspectRatio: '4:5' | '9:16' | '16:9';
   backgroundColor: string;
   /** Seed hex fed to Recraft's `colors` control — NOT necessarily the final
    *  sampled hex (Recraft followed these closely this run, but always
@@ -676,6 +678,111 @@ export const PROGRAM_PROMPTS: DecorPromptEntry[] = [
       'desaturated family has nowhere to sit, and a third generation would not have changed it.',
     prompt:
       "A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid MID-TONE muted slate plum — a medium value, clearly lighter than black and clearly darker than white. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second plum, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. Everything that is not the skirt — the musicians, instruments, amplifier, microphone stands and every outline stroke — is drawn in pure BLACK and pure WHITE only, with no greys and no colours at all, so nothing in the picture sits near the skirt's value. " +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── WALLS · RA2, 2026-09-07 ────────────────────────────────────────────────
+ *
+ * 5 keepers from 5 GENERATIONS — a 1:1 round, the second of the session after
+ * `tables`, and the clearest evidence that the findings compound. Every lesson
+ * this session paid for went into the FIRST prompt:
+ *
+ *   · full-bleed, not object-on-a-field — `walls` is a PANEL zone, so its
+ *     drawing fills its band and its ground IS the wall (`photo_wall`'s lesson);
+ *   · WARM-CREAM neutrals, no greys anywhere (`booths`' lesson, which is what
+ *     lets `modern minimalist`'s dark plum sit 70.07 from its nearest
+ *     neighbour here against 3.01 on `program`);
+ *   · "no tonal variation of any kind from one fold to the next" — the motifs
+ *     must not vary FROM EACH OTHER (`photo_wall`'s lesson);
+ *   · ONE colour in `colors`, neutrals named in words (the pilot's finding 3).
+ *
+ * 🔑 THE FIRST PORTRAIT-TALL SOURCES IN THE FEATURE: `9:16`, for a band 56 wide
+ * and 372 high. `slice` then crops a vertical centre strip of the drawing into
+ * each band, which is why the prompts ask for folds running the FULL HEIGHT —
+ * a drawing with a top or bottom feature would lose it to the crop.
+ *
+ * 🪤 AND FINDING 3 TWICE MORE: `bridgerton` came back `#5643A0` rather than the
+ * `#8C6BA6` passed in `colors`, `tropical` `#519374` rather than `#9CB29A`.
+ * Across this session the seed has been wrong on 6 of 25 files — roughly one in
+ * four. RE-SAMPLE EVERY FILE.
+ */
+export const WALLS_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'walls',
+    style: 'elegant · simple · classic',
+    aspectRatio: '9:16',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #C9A059 tol 15 (23 px outside). Job 1e78893e. The ' +
+      'ONLY one of the five with a real neighbour close enough to bound it (5.89), which is why ' +
+      'it is the one file on this zone that is not seeded at the CHECK ceiling — and why it ' +
+      "carries the harness's eyesight proof for the set.",
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid warm gold. The whole drape is the EXACT SAME ONE GOLD from top to bottom — no second gold, no lighter gold, no darker gold, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM. There are no greys, no black and no charcoal anywhere in the picture. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'walls',
+    style: 'bridgerton · regal',
+    aspectRatio: '9:16',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #5643A0 (NOT the #8C6BA6 asked for) tol 30, ZERO ' +
+      'px outside at the ceiling. Job d6f4e76e. Nearest neighbour 42.60.',
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid jewel-tone purple. The whole drape is the EXACT SAME ONE PURPLE from top to bottom — no second purple, no lighter purple, no darker purple, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM. There are no greys, no black and no charcoal anywhere in the picture. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'walls',
+    style: 'editorial cream',
+    aspectRatio: '9:16',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #D98BA6 tol 30 (4 px outside at the ceiling). ' +
+      'Job dc44a5fc. Nearest neighbour 22.02.',
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid blush pink. The whole drape is the EXACT SAME ONE PINK from top to bottom — no second pink, no lighter pink, no darker pink, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM. There are no greys, no black and no charcoal anywhere in the picture. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'walls',
+    style: 'tropical heritage',
+    aspectRatio: '9:16',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #519374 (NOT the #9CB29A asked for) tol 30 (9 px ' +
+      'outside at the ceiling). Job 900b3068. A greenery wall rather than a drape, which is ' +
+      "the family's own wall treatment.",
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling foliage, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense greenery wall of leaves running the full height, in ONE single flat solid sage green. Every leaf is the EXACT SAME ONE GREEN — no second green, no lighter green, no darker green, no shadow, no gradient, no highlight, no tonal variation of any kind from one leaf to the next. The few stems between them are drawn in WARM CREAM only. There are no greys, no black, no charcoal and no olive anywhere in the picture. No room, no floor, no ceiling, no furniture, no people — only the foliage, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'walls',
+    style: 'modern minimalist',
+    aspectRatio: '9:16',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #4A3B45 tol 30, ZERO px outside at the ceiling. ' +
+      'Job 72834633. Nearest neighbour 70.07, the joint-widest margin of the session (with its ' +
+      "own `photo_wall` file) — and the same family that was UNSEEDABLE three times on " +
+      '`program` at 3.01. The whole difference is warm-cream neutrals and a subject with no ' +
+      'grey equipment in it.',
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid deep charcoal plum. The whole drape is the EXACT SAME ONE PLUM from top to bottom — no second plum, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM and pale sand. There are NO GREYS anywhere in the picture, no black, no charcoal, no silver: the drape is the only dark thing in it. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
       COMMON_SUFFIX,
   },
 ];

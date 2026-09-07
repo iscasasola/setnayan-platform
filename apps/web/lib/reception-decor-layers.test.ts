@@ -1333,7 +1333,14 @@ test('RA2 booths · REAL BYTES: the image reaches the room, and never invents a 
   const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
   const href = '/moodboard-seed/venue_scene/booths/elegant-simple-classic.svg';
 
-  const ticked: ReceptionDesign = { ...DEFAULT_DESIGN, booths: { kinds: 'photo_booth' } };
+  // THREE booths, because the drawing is a row of three and the image is gated
+  // on the couple's count matching it — see the count case above. A one-booth
+  // probe here would assert that the zone composites while the room silently
+  // gained two stalls nobody booked.
+  const ticked: ReceptionDesign = {
+    ...DEFAULT_DESIGN,
+    booths: { kinds: ['photo_booth', 'arcade', 'perfume'] },
+  };
   assert.ok(
     renderVenueSvg(ticked, palette, undefined, 'hotel_venue', { booths: href }).includes(href),
     'renderVenueSvg was handed a booths decor layer for a couple who ticked a photo booth and ' +
@@ -1365,6 +1372,62 @@ test('RA2 booths · REAL BYTES: the image reaches the room, and never invents a 
     renderVenueSvg(ticked, palette, undefined, 'hotel_venue'),
     'an empty decor map changed the render — an uncovered cell must be byte-identical to the ' +
       'flat drawing.',
+  );
+});
+
+test('RA2 booths: the room holds the number of booths the couple ticked, not three', () => {
+  // 🪤 THE DEFECT THIS ZONE SHIPPED WITH, AND THE CLASS IT BELONGS TO.
+  // The drawing is a row of exactly THREE bays. Composited ungated it was wrong
+  // in BOTH directions, measured on the merged code: a couple who ticked ONE
+  // photo booth got a room with THREE stalls — two suppliers they never booked
+  // — and a couple who ticked FOUR got three, their fourth silently dropped
+  // (the flat row reaches x 404; the image stops at 320).
+  //
+  // 🔑 It is the empty-shelf class RV1 already paid for on the band riser.
+  // `tables` cannot hit it — its flat drawing is ALWAYS four tables at fixed
+  // spots, so the drawing and the room can never disagree about the count.
+  // `booths` is the first zone where the count is the couple's own choice.
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/booths/elegant-simple-classic.svg';
+  const design = (kinds: string[]): ReceptionDesign => ({
+    ...DEFAULT_DESIGN,
+    booths: { kinds },
+  });
+  // `booth()`'s own ground ellipse, one per bay the ROOM actually draws.
+  const bays = (svg: string) => (svg.match(/<ellipse cx="\d+" cy="241"/g) ?? []).length;
+
+  for (const kinds of [
+    ['photo_booth'],
+    ['photo_booth', 'arcade'],
+    ['photo_booth', 'arcade', 'perfume', 'caricature'],
+  ]) {
+    const d = design(kinds);
+    const withDecor = renderVenueSvg(d, palette, undefined, 'hotel_venue', { booths: href });
+    assert.ok(
+      !withDecor.includes(href),
+      `a couple who ticked ${kinds.length} booth(s) was handed the three-bay drawing. Fewer ` +
+        'than three invents booths they never booked; more than three drops the ones past the ' +
+        'third. The image may only stand in for a count it can actually show.',
+    );
+    assert.equal(
+      withDecor,
+      renderVenueSvg(d, palette, undefined, 'hotel_venue', {}),
+      `booths with ${kinds.length} ticked rendered differently with and without a decor layer. ` +
+        'With a count the drawing cannot represent, the layer must be a total no-op.',
+    );
+    assert.equal(
+      bays(renderVenueSvg(d, palette, undefined, 'hotel_venue', { booths: href })),
+      kinds.length,
+      `the room drew a different number of bays than the ${kinds.length} the couple ticked.`,
+    );
+  }
+
+  // And the one count the drawing CAN represent still composites.
+  const three = design(['photo_booth', 'arcade', 'perfume']);
+  assert.ok(
+    renderVenueSvg(three, palette, undefined, 'hotel_venue', { booths: href }).includes(href),
+    'a couple who ticked exactly three booths did not get the drawing, so this zone now ships ' +
+      'artwork no couple can ever see.',
   );
 });
 

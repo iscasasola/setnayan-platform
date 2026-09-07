@@ -1427,6 +1427,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     demandByVendorId: aiActive ? demandByVendorId : undefined,
     buildFitByVendorId,
     freeDaysLineByVendorId,
+    freeDaysByVendorId,
     // PR-H · the flag is READ HERE and PASSED IN; the builder is a pure core and
     // must never reach for the env itself.
     lockHandshakeEnabled: isLockHandshakeEnabled(),

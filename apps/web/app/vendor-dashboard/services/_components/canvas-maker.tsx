@@ -1,14 +1,7 @@
 'use client';
 
-import {
-  useActionState,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertCircle,
   Check,
@@ -2331,7 +2324,33 @@ function CanvasSheet({
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose, containerRef: dialogRef });
 
-  return (
+  /**
+   * 🔑 PORTAL TO <body> — `position: fixed` is relative to the nearest
+   * TRANSFORMED ancestor, not the viewport, and this sheet had one.
+   *
+   * Measured in production 2026-09-07 at 1187×1208: the page wrapper
+   * `.sn-page-enter` carries `transform: matrix(1, 0, 0, 1, 0, 0)` — an
+   * IDENTITY transform, left behind by the entrance animation and doing
+   * nothing visible. It is still a transform, so it became the containing
+   * block: this `fixed inset-0` backdrop measured **77px from the top and
+   * 184px tall** instead of filling the viewport. `lg:my-auto` then centred a
+   * 435px sheet inside 184px — `margin-top: -125.5px`, sheet top **-48px** —
+   * so it rendered squashed into the top-right corner, over the header,
+   * unreadable. Nothing was mis-styled; the container was the wrong size.
+   *
+   * This is the SAME fix `category-search-overlay.tsx` and
+   * `team-summary-chip.tsx` already carry, for the same reason, each with its
+   * own note. This sheet was the one that missed it.
+   *
+   * Removing the identity transform from `.sn-page-enter` would also work and
+   * is deliberately NOT done here: it is a shared page wrapper, and anything
+   * else relying on it as a containing block would move with it.
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <div hidden={!open} className="fixed inset-0 z-40">
       <button
         type="button"
@@ -2391,6 +2410,7 @@ function CanvasSheet({
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

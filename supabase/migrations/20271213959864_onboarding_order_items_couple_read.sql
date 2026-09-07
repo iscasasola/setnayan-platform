@@ -1,4 +1,5 @@
--- onboarding_order_items — the couple may read their own bill's line items.
+-- onboarding_order_items — the couple learns what their own bill covers,
+-- WITHOUT the table ever becoming readable by a session role.
 --
 -- ── THE DEFECT, MEASURED IN PRODUCTION ──────────────────────────────────────
 -- `403 /rest/v1/onboarding_order_items` — 42501 — every hit since 2026-08-11,
@@ -14,51 +15,79 @@
 -- inherits whatever authority the caller has." Called from a page rendered for
 -- the couple, it goes out as `authenticated`.
 --
--- Measured state of the table: RLS **enabled**, **zero grants**, **zero
--- policies**. So the read was refused twice over, and a GRANT alone would still
--- have been refused — RLS with no policy denies everything.
---
 -- 🔑 The failure is silent by construction. `lib/entitlements.ts` treats the
 -- refusal as "does not own it", so a couple who BOUGHT Setnayan AI inside an
 -- onboarding basket reads as not owning it. `data ?? []` on a refused query is
 -- an empty result for a broken read, not an empty table.
 --
--- ── WHY THE POLICY REACHES THROUGH `orders` ─────────────────────────────────
--- This table has `order_id` and NO `event_id`, so membership cannot be tested
--- on the row itself. `orders` has `event_id`, already carries
--- `orders_owner_read`, and already grants SELECT to `authenticated` — the
--- parent is reachable, only the child was not. The policy therefore mirrors the
--- parent's reach rather than inventing a second definition of "yours".
+-- ── WHY THIS IS AN RPC AND NOT A GRANT + POLICY ─────────────────────────────
+-- The first draft of this migration granted `SELECT` to `authenticated` and
+-- added a policy reaching through `orders`. Two shipped guards refused it, both
+-- correctly, and both are worth more than the shortcut:
 --
--- Canonical pattern: event-membership via `public.current_event_ids()`
--- (02_Specifications/RLS_Policy_Pattern.md § 5). No new pattern is introduced.
+--   · `onboarding-basket-one-bill.db.test.ts` — "no session role can read or
+--     write a bill's contents". RLS on, ZERO policies, grants revoked: only
+--     service_role touches this table. That is a deliberate decision about a
+--     billing table, not an oversight to be corrected by the first reader that
+--     trips over it.
+--   · `couple-host-policy-scope.db.test.ts` T1/T7c — a policy named
+--     `*_couple_*` must not resolve through the MEMBER-wide
+--     `current_event_ids()`. The draft's did, which would have shown every
+--     invited guest what the couple was billed for.
 --
--- ⚠ SELECT ONLY. Line items are minted server-side with the service-role client
--- (`mintOnboardingServiceOrders`); nothing user-facing writes them, so no
--- INSERT/UPDATE/DELETE policy is granted. A couple may read what they were
--- billed — never author it.
+-- So the table stays shut and the QUESTION gets an answer instead. This
+-- function is the repo's ordinary shape for exactly that (several hundred
+-- `GRANT EXECUTE … TO authenticated` RPCs precede it), and it is narrower than
+-- the policy would have been in both directions: it answers one boolean-shaped
+-- question about ONE event, and it resolves membership through
+-- `current_couple_event_ids()` — the couple, never any member.
+--
+-- ⚠ READ-ONLY AND `STABLE`. Line items are minted server-side by
+-- `mintOnboardingServiceOrders`; nothing user-facing writes them. A couple may
+-- learn what they were billed — never author it.
 
--- Idempotent: safe to re-run, and safe if a later branch adds the same policy.
-DROP POLICY IF EXISTS onboarding_order_items_couple_read ON public.onboarding_order_items;
+CREATE OR REPLACE FUNCTION public.event_basket_orders_granting(
+  p_event_id     UUID,
+  p_service_code TEXT
+)
+RETURNS TABLE (order_id UUID, status TEXT)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_event_id IS NULL OR p_service_code IS NULL OR p_service_code = '' THEN
+    RETURN;
+  END IF;
 
-CREATE POLICY onboarding_order_items_couple_read
-  ON public.onboarding_order_items
-  FOR SELECT
-  TO authenticated
-  USING (
-    order_id IN (
-      SELECT o.order_id
-      FROM public.orders o
-      WHERE o.event_id IN (SELECT public.current_event_ids())
-    )
-  );
+  -- The authority check, ahead of any read. A caller who is not the couple on
+  -- this event, not an admin, and not the elevated server client gets an empty
+  -- result — the same value an event with no basket returns, which is the
+  -- correct answer to "does this event own X?" for someone who may not ask.
+  IF NOT (
+    p_event_id IN (SELECT public.current_couple_event_ids())
+    OR public.is_admin()
+    OR coalesce(auth.role(), '') = 'service_role'
+  ) THEN
+    RETURN;
+  END IF;
 
--- The grant is REQUIRED as well as the policy: PostgREST refuses the request at
--- the privilege layer before RLS is ever consulted, and that refusal reads as
--- exactly the same 42501.
-GRANT SELECT ON public.onboarding_order_items TO authenticated;
+  RETURN QUERY
+  SELECT i.order_id, o.status::TEXT
+  FROM public.onboarding_order_items i
+  JOIN public.orders o ON o.order_id = i.order_id
+  WHERE i.service_code = p_service_code
+    AND o.event_id = p_event_id;
+END;
+$$;
 
-COMMENT ON POLICY onboarding_order_items_couple_read ON public.onboarding_order_items IS
-  'A couple reads the line items of orders on their own events, via orders.event_id '
-  '→ current_event_ids(). SELECT only: items are minted service-side. Added 2026-09-07 '
-  'after a 403 that had silenced Setnayan AI ownership since 2026-08-11.';
+COMMENT ON FUNCTION public.event_basket_orders_granting(UUID, TEXT) IS
+  'Which orders on THIS event carry a basket line for this service_code, and their status. '
+  'SECURITY DEFINER because onboarding_order_items is deliberately unreadable by any session '
+  'role; authority is the couple (current_couple_event_ids), an admin, or service_role. '
+  'Added 2026-09-07 after a 403 that had silenced Setnayan AI ownership since 2026-08-11.';
+
+REVOKE ALL ON FUNCTION public.event_basket_orders_granting(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.event_basket_orders_granting(UUID, TEXT)
+  TO authenticated, service_role;

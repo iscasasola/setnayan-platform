@@ -67,3 +67,42 @@ Fourth time today a guard read prose instead of code.
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-09-07 — a couple may read their own onboarding order items;
 `platform_settings` is never granted to anon, and callers read it with the admin client.
+
+### Correction · 2026-09-07 — the first fix opened a bill, and two guards said no
+
+The `onboarding_order_items` half originally shipped as `GRANT SELECT … TO
+authenticated` plus a policy reaching through `orders`. Two shipped db guards
+refused it, both correctly:
+
+- **`onboarding-basket-one-bill.db.test.ts`** — *"no session role can read or
+  write a bill's contents"*. RLS on, zero policies, grants revoked: only
+  `service_role` touches that table. That is a decision about a billing table,
+  not an oversight for the first reader that trips over it to correct.
+- **`couple-host-policy-scope.db.test.ts` T1/T7c** — a policy named `*_couple_*`
+  must not resolve through the MEMBER-wide `current_event_ids()`. The draft's
+  did, so every invited guest would have been able to read what the couple was
+  billed for. The narrow helper is `current_couple_event_ids()`.
+
+🔑 **The guard that caught it was already there, and the first draft's own test
+passed.** A source guard over migration text cannot see who ends up holding a
+privilege — it read the SQL and agreed with it.
+
+The table now stays shut. `public.event_basket_orders_granting(uuid, text)` — a
+`STABLE SECURITY DEFINER` function following the repo's ordinary RPC shape —
+answers the ownership question instead, admitting the couple
+(`current_couple_event_ids()`), an admin, or `service_role`, and nobody else.
+`lib/onboarding-order-items.ts` calls it with `.rpc()`.
+
+Proved against a replayed database in
+`apps/web/tests/db/the-couple-can-read-their-own-bill.db.test.ts`: the couple
+gets the row, an invited guest gets nothing, another couple gets nothing, a
+signed-out caller gets nothing, `service_role` still gets it, the table is still
+unreadable by every session role, and `anon` holds no EXECUTE. Mutation-tested
+three ways — swapping in the member-wide helper, deleting the authority gate,
+and granting EXECUTE to `anon` — each turns it red on exactly the assertions it
+should.
+
+Exposure baseline grows by ONE line: the function itself. No new table or column
+grant.
+
+SPEC IMPACT: None.

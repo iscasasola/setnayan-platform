@@ -8,6 +8,18 @@
  *     ZERO policies. `lib/entitlements.ts` reads the refusal as "does not own
  *     it", so a couple who bought Setnayan AI inside an onboarding basket read
  *     as not owning it.
+ *
+ *     🔑 AND THE FIX FOR #1 IS NOT A GRANT EITHER. The first draft opened the
+ *     table to `authenticated` with a policy through `orders`, and two shipped
+ *     guards refused it: `onboarding-basket-one-bill.db.test.ts` ("no session
+ *     role can read or write a bill's contents") and
+ *     `couple-host-policy-scope.db.test.ts` T1/T7c (a `*_couple_*` policy must
+ *     not resolve through the MEMBER-wide `current_event_ids()` — that draft's
+ *     did, which would have shown every invited guest the couple's bill). The
+ *     table stays shut; `public.event_basket_orders_granting` answers the
+ *     question instead. Its behaviour is proved against a real database in
+ *     `tests/db/the-couple-can-read-their-own-bill.db.test.ts`; what this file
+ *     holds is the SOURCE half — that the reader still goes through the RPC.
  * 2 · `platform_settings` — 401, because `/onboarding/wedding` passed the
  *     ANONYMOUS caller's client into a read of PLATFORM CONFIG. Wrapped in a
  *     try/catch that degraded to the default discount, so the owner's
@@ -34,44 +46,84 @@ const migration = (() => {
 })();
 
 /**
- * Scoped to the CREATE POLICY statement itself. An earlier draft asserted
- * against the whole file and passed on the `COMMENT ON POLICY` text — the
- * mutation that swapped the helper for a hand-rolled membership subquery went
- * completely undetected. A guard that reads prose is measuring the wrong thing.
+ * Scoped to the CREATE FUNCTION statement itself. An earlier draft asserted
+ * against the whole file and passed on the `COMMENT ON …` text — the mutation
+ * that swapped the helper for a hand-rolled membership subquery went completely
+ * undetected. A guard that reads prose is measuring the wrong thing.
  */
-const policyBody = (() => {
-  const i = migration.search(/CREATE POLICY onboarding_order_items_couple_read/i);
-  assert.ok(i > -1, 'the policy statement is gone');
-  const end = migration.indexOf(';', i);
+const functionBody = (() => {
+  const i = migration.search(/CREATE OR REPLACE FUNCTION public\.event_basket_orders_granting/i);
+  assert.ok(i > -1, 'the RPC is gone');
+  const end = migration.indexOf('$$;', i);
+  assert.ok(end > i, 'the function body is unterminated');
   return migration.slice(i, end);
 })();
 
-test('the policy reaches membership through orders, using the canonical helper', () => {
-  assert.match(policyBody, /public\.current_event_ids\(\)/, 'it invented a membership rule');
-  assert.match(policyBody, /FROM public\.orders/i, 'it does not reach through orders');
+test('the RPC resolves the COUPLE, not any event member', () => {
+  assert.match(functionBody, /public\.current_couple_event_ids\(\)/, 'it invented a membership rule');
   assert.ok(
-    !/event_members/i.test(policyBody),
+    !/current_event_ids\(\)/.test(functionBody.replace(/current_couple_event_ids\(\)/g, '')),
+    'it resolves through the MEMBER-wide helper — an invited guest would see the bill',
+  );
+  assert.ok(
+    !/event_members/i.test(functionBody),
     'it hand-rolls membership instead of using the canonical helper',
   );
 });
 
-test('SELECT only — a couple reads what they were billed, never authors it', () => {
-  assert.match(migration, /FOR SELECT/i);
+test('the authority check comes BEFORE the read, and admits only three callers', () => {
+  const gate = functionBody.slice(0, functionBody.search(/RETURN QUERY/i));
+  assert.ok(gate.length > 0, 'there is no gate ahead of the read');
+  assert.match(gate, /current_couple_event_ids\(\)/);
+  assert.match(gate, /public\.is_admin\(\)/);
+  assert.match(gate, /service_role/);
+});
+
+test('SELECT only — a couple learns what they were billed, never authors it', () => {
+  assert.match(functionBody, /\bSTABLE\b/, 'the function is not marked STABLE');
   assert.ok(
-    !/FOR (INSERT|UPDATE|DELETE|ALL)/i.test(migration),
-    'the migration grants write access to billing line items',
-  );
-  assert.ok(
-    !/GRANT\s+(INSERT|UPDATE|DELETE|ALL)/i.test(migration),
-    'the migration grants a write privilege',
+    !/\b(INSERT INTO|UPDATE |DELETE FROM)\b/i.test(functionBody),
+    'the RPC writes to billing line items',
   );
 });
 
-test('the grant is present too — a policy alone is still refused at the privilege layer', () => {
+test('🔑 the table itself stays shut — no grant, no policy', () => {
+  assert.ok(
+    !/GRANT[^;]*\bON\s+(TABLE\s+)?public\.onboarding_order_items/i.test(migration),
+    'the migration grants a table privilege on a bill’s contents',
+  );
+  assert.ok(
+    !/CREATE POLICY/i.test(migration),
+    'the migration adds a policy to a table that is meant to have none',
+  );
+});
+
+test('the RPC is executable by the couple, and never by anon', () => {
   assert.match(
     migration,
-    /GRANT SELECT ON public\.onboarding_order_items TO authenticated/i,
-    'PostgREST refuses before RLS is consulted; both are required',
+    /GRANT EXECUTE ON FUNCTION public\.event_basket_orders_granting\(UUID, TEXT\)\s*\n?\s*TO authenticated, service_role;/i,
+    'the RPC is not granted to the couple — every call would be refused',
+  );
+  assert.match(
+    migration,
+    /REVOKE ALL ON FUNCTION public\.event_basket_orders_granting\(UUID, TEXT\) FROM PUBLIC, anon;/i,
+    'anon is not revoked',
+  );
+});
+
+test('source · the ownership reader goes through the RPC, not the table', () => {
+  const src = stripComments(readFileSync(resolve(HERE, 'onboarding-order-items.ts'), 'utf8'));
+  const i = src.indexOf('export async function eventBasketOrdersGranting');
+  assert.ok(i > -1, 'the ownership reader is gone — re-point this guard');
+  const body = src.slice(i, src.indexOf('\n}', i));
+  assert.match(
+    body,
+    /\.rpc\('event_basket_orders_granting'/,
+    'the ownership reader queries the table again — that read 42501s for every couple',
+  );
+  assert.ok(
+    !/from\('onboarding_order_items'\)/.test(body),
+    'the ownership reader still reaches for the table directly',
   );
 });
 

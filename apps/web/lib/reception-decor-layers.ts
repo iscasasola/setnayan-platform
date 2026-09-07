@@ -54,6 +54,7 @@ export const PILOT_DECOR_ZONES: readonly PartId[] = [
   'tables',
   'feast',
   'booths',
+  'program',
 ];
 
 /** One zone's decor image, ready to composite: where the source pixels live
@@ -194,7 +195,13 @@ export function retintDecorLayerRGBA(
  * own corners agree on. `knockOutSceneBackground` refuses the job otherwise
  * rather than guessing.
  */
-export const SCENE_DECOR_ZONES: readonly PartId[] = ['stage', 'tables', 'feast', 'booths'];
+export const SCENE_DECOR_ZONES: readonly PartId[] = [
+  'stage',
+  'tables',
+  'feast',
+  'booths',
+  'program',
+];
 
 /**
  * Make a scene drawing's flat background transparent, returning a NEW buffer.

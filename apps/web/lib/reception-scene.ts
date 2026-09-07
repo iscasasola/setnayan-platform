@@ -1848,8 +1848,10 @@ function programFloorItem(
   performers: string[],
   host: string,
   P: (i: number) => string,
+  decor?: DecorLayers,
 ): FloorItem | null {
-  let out = '';
+  let band = '';
+  let hostSvg = '';
   let anchorY = 0;
   // Performers, on a low riser against the back-right wall.
   const real = performers.filter((k) => k !== 'none' && k !== '');
@@ -1860,19 +1862,38 @@ function programFloorItem(
     const x = 664,
       y = 316,
       w = real.length * 92 + 16;
-    out += `<rect x="${x}" y="${y + 46}" width="${w}" height="14" rx="2" fill="${shade(WALL, -22)}"/>`;
-    out += `<ellipse cx="${x + w / 2}" cy="${y + 62}" rx="${w / 2}" ry="4" fill="${shade(WALL, -26)}" opacity="0.3"/>`;
+    band += `<rect x="${x}" y="${y + 46}" width="${w}" height="14" rx="2" fill="${shade(WALL, -22)}"/>`;
+    band += `<ellipse cx="${x + w / 2}" cy="${y + 62}" rx="${w / 2}" ry="4" fill="${shade(WALL, -26)}" opacity="0.3"/>`;
     real.forEach((kind, i) => {
-      out += performer(kind, x + 46 + i * 92, y, P);
+      band += performer(kind, x + 46 + i * 92, y, P);
     });
     anchorY = Math.max(anchorY, y + 62); // the riser's own shadow ellipse
   }
   if (host !== 'none' && host !== '') {
-    out += hostSpot(host, 596, 330, P);
+    hostSvg = hostSpot(host, 596, 330, P);
     anchorY = Math.max(anchorY, 330 + 55); // the host spot's own ground line
   }
-  if (out === '') return null;
-  return { anchorY, svg: out };
+  const flat = band + hostSvg;
+  if (flat === '') return null;
+
+  // 🔑 THE IMAGE STANDS IN FOR THE BAND, AND ONLY WHEN THERE IS ONE.
+  //
+  // 🪤 THE LESSON `feast` PAID FOR, APPLIED BEFORE IT COULD REPEAT. `program`
+  // is the second zone whose flat drawing holds TWO independently chosen
+  // objects: the line-up on its riser, and — from a separate attribute — the
+  // host's spot. Gating on `flat === ''` reads like the same claim and is not:
+  // a couple who booked an emcee and no band would have had a generated BAND
+  // drawn into their room, and lost the podium they chose. That is exactly what
+  // shipped on `feast` (a plated-service couple got a buffet line, minus their
+  // cake table) before it was corrected.
+  //
+  // So the gate is the BAND, and the HOST SPOT is drawn AFTER the image,
+  // standing in front of the riser rather than being replaced by it. With no
+  // decor layer this is `band + hostSvg`, character for character as before —
+  // MB14b's byte-identity invariant. `anchorY` stays computed from the flat
+  // geometry, so the depth sort keeps this item at its own ground contact.
+  const image = band === '' ? null : decorImage('program', decor);
+  return { anchorY, svg: image === null ? flat : image + hostSvg };
 }
 
 /** One performer group, drawn at its own anchor on the riser. */
@@ -2298,6 +2319,18 @@ const DECOR_SLOTS: Partial<Record<PartId, { x: number; y: number; w: number; h: 
   // that costs (the specific KINDS they ticked do not survive the image) and why
   // it is the same trade `tables` already ships.
   booths: { x: 20, y: 120, w: 300, h: 130, rx: 0 },
+  // RA2 · the band's own corner. The flat `programFloorItem` puts the riser at
+  // x 664 with a width that grows with the line-up (one act 108, two 200), its
+  // deck at y 362 and its shadow ellipse at y 382; the performer glyphs reach
+  // up to y 326 and the drum kit out to x 624.
+  //
+  // 🔑 THIS BOX IS TALLER THAN THE FLAT DRAWING, ON PURPOSE — the same reason
+  // `stage`'s is. The sources are 16:9 and `slice` scales to COVER, so a box cut
+  // down to the flat riser's own 56px band would crop away the musicians and
+  // keep a strip of skirt. 320 x 150 is close enough to the source's ratio that
+  // `slice` trims the drawing's own empty margins and nothing else, and its
+  // bottom edge sits on the riser's ground line at 392.
+  program: { x: 624, y: 242, w: 320, h: 150, rx: 0 },
 };
 
 /** Zone → the href of its already-retinted decor image. A zone absent from the
@@ -2415,6 +2448,7 @@ export function renderVenueSvg(
       selAll(design, 'program', 'performers'),
       sel(design, 'program', 'host'),
       P,
+      decor,
     );
     if (item) floorItems.push(item);
   }

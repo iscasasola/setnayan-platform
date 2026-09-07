@@ -680,9 +680,13 @@ test('MB14b: only the two pilot zones can composite, and they are the same two t
   // is a FloorItem and returns null when the couple chose no service and no
   // stations, so a probe without one cannot tell "no geometry" from "nothing to
   // draw".
+  // `booths` needs its own line for the same reason `feast` does — it is a
+  // FloorItem too and returns null when the couple ticked nothing, so a probe
+  // without a booth cannot tell "no geometry" from "nothing to draw".
   const probeDesign: ReceptionDesign = {
     ...MB14B_DESIGN,
     feast: { service: 'buffet' },
+    booths: { kinds: 'photo_booth' },
   };
   const composited = RECEPTION_PARTS.map((part) => part.id).filter((zone) => {
     const svg = renderVenueSvg(probeDesign, MB14B_PALETTE, undefined, undefined, {

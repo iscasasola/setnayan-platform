@@ -1935,13 +1935,23 @@ function hostSpot(kind: string, x: number, y: number, P: (i: number) => string):
 }
 
 /** The booth row, against the upper-left wall. */
-function boothsFloorItem(kinds: string[], P: (i: number) => string): FloorItem | null {
+function boothsFloorItem(
+  kinds: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): FloorItem | null {
   const real = kinds.filter((k) => k !== 'none' && k !== '');
+  // The null check stays FIRST and on the couple's own choice: a couple who
+  // ticked no booths has no booth row, and a decor image must never supply a
+  // choice they did not make. `feast` shipped that defect by gating on the
+  // rendered group instead; this gate is the choice itself, so it cannot.
   if (real.length === 0) return null;
   const y = 132;
   const svg = real.map((kind, i) => booth(kind, 28 + i * 96, y, P)).join('');
-  // `booth()`'s own shadow ellipse sits at y + h + 1 (h = 108) — its ground.
-  return { anchorY: y + 108 + 1, svg };
+  // `booth()`'s own shadow ellipse sits at y + h + 1 (h = 108) — its ground,
+  // and it stays computed from the flat geometry so the depth sort keeps
+  // placing this item where the row actually stands, image or not.
+  return { anchorY: y + 108 + 1, svg: decorImage('booths', decor) ?? svg };
 }
 
 /** One guest booth: a common bay, then the thing that makes it that booth. */
@@ -2275,6 +2285,19 @@ const DECOR_SLOTS: Partial<Record<PartId, { x: number; y: number; w: number; h: 
   // BEHIND it from y 252. 24..312 × 250..366 is that combined extent, clear of
   // the guest-table band (y 386..586) below it.
   feast: { x: 24, y: 250, w: 288, h: 116, rx: 0 },
+  // RA2 · the booth row. The flat `boothsFloorItem` draws one 84x108 bay per
+  // ticked kind at x = 28 + i*96, y 132, grounded by a shadow ellipse at y 241.
+  // 20..320 x 120..250 covers a row of three, the common case, and its bottom
+  // edge sits on that ground line.
+  //
+  // 🔑 UNLIKE `feast` AND `program`, THE IMAGE HERE REPLACES THE WHOLE ROW ON
+  // PURPOSE. Those two hold objects chosen through SEPARATE attributes, so
+  // swallowing the group dropped a supplier the couple booked. Every booth bay
+  // comes from the SAME multi-select, so the row is one object drawn N times —
+  // the `tables` shape, not the `feast` shape. See the migration header for what
+  // that costs (the specific KINDS they ticked do not survive the image) and why
+  // it is the same trade `tables` already ships.
+  booths: { x: 20, y: 120, w: 300, h: 130, rx: 0 },
 };
 
 /** Zone → the href of its already-retinted decor image. A zone absent from the
@@ -2396,7 +2419,7 @@ export function renderVenueSvg(
     if (item) floorItems.push(item);
   }
   if (venueZoneApplies(venueSetting, 'booths')) {
-    const item = boothsFloorItem(selAll(design, 'booths', 'kinds'), P);
+    const item = boothsFloorItem(selAll(design, 'booths', 'kinds'), P, decor);
     if (item) floorItems.push(item);
   }
 

@@ -829,6 +829,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'The coordinator who raised a lock proposal. MOVED here from SUBJECT_ROW_DELETES by owner ruling 2026-09-06, with migration 20271210831005. The old reason called it "a proposal the subject personally raised" and leaned on NOT NULL + CASCADE being "the schema’s own answer" — the same circular step. The row is ADDRESSED TO THE COUPLE ("your coordinator wants to lock vendor X — confirm or dismiss") and a pending one is the ONLY thing that renders their confirm strip, so deleting it removes a live decision from their dashboard for a reason that has nothing to do with them. Nulling keeps the decision theirs and still de-identifies the coordinator.',
   },
   {
+    table: 'comp_grants',
+    column: 'granted_by',
+    why: 'The ADMIN who issued a comp. Added 2026-09-06 to close a gap this file had left open: the FK became ON DELETE SET NULL that morning (migration 20271208517365), but erasure ANONYMIZES IN PLACE and issues no delete, so the FK never fires on this path and the erased admin\u2019s uuid simply stayed. 🔑 A DELETE RULE AND AN ERASURE RULE ARE TWO DIFFERENT MECHANISMS AND YOU NEED BOTH — fixing one and calling it done is how the residual survived the morning it was created. The ROW is retained on the lawful-retention basis (financial record of a waived charge), so this is a column null, not a delete; the same shape as discount_code_eligible_users, where the staff stamp goes and the commercial concession stays.',
+  },
+  {
+    table: 'comp_grants',
+    column: 'approved_by',
+    why: 'The SECOND admin on a comp, where one was required. Nulled alongside granted_by for the same reason and in the same commit — clearing one admin\u2019s identity while keeping the other\u2019s would be a half-fix that reads as a decision. Already ON DELETE SET NULL since the table shipped; this is the erasure half.',
+  },
+  {
     table: 'vendor_admin_motions',
     column: 'proposed_by',
     why: 'Who RAISED a motion to demote or remove another vendor admin. Owner ruling 2026-09-06, answering the DPO question this file had carried open: clear it. The motion’s value is the DECISION and the VOTES, not who raised it, and the target’s record survives either way — so retaining an erased person’s uuid buys nothing and costs a residual. The row itself must NOT be deleted: vendor_admin_motion_votes.motion_id CASCADEs off it, so deleting the motion would destroy OTHER admins’ votes (the event_delegates over-deletion in a different suit). Migration 20271210831005 made the column nullable + SET NULL, which handles a hard DELETE; this entry is what handles an ERASURE, which anonymizes in place and issues no delete. Both halves are needed — the FK alone never fires on the erasure path.',

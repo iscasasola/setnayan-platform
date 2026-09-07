@@ -516,6 +516,21 @@ before(async () => {
   // DELETE — seeding proves the purge clears them anyway. A statement against an
   // empty table passes trivially, which is exactly what META-3 guards against.
   await db.exec(`
+    -- comp_grants, added 2026-09-06. TWO rows, one per role the subject can
+    -- play on this table, because the answers are opposite: the comp they
+    -- ISSUED as an admin keeps its money and loses their stamp; the comp issued
+    -- TO them is theirs and is retained wholesale on the lawful-retention basis.
+    INSERT INTO public.comp_grants
+      (source, user_id, scope, rationale, retail_value_centavos, granted_by, approved_by)
+    VALUES ('external_promo', '${OUTSIDER}', 'all_services',
+            'Goodwill for a third party — the subject signed it off.', 499900,
+            '${SUBJECT}', '${ADMIN}')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.comp_grants
+      (source, user_id, scope, rationale, retail_value_centavos, granted_by, approved_by)
+    VALUES ('external_promo', '${SUBJECT}', 'all_services',
+            'A comp the subject themselves received.', 250000, '${ADMIN}', NULL)
+    ON CONFLICT DO NOTHING;
     INSERT INTO public.event_preparation_items (event_id, due_date, label, source_tag, created_by)
     VALUES ('${EVENT}', CURRENT_DATE, 'Confirm the venue walkthrough', 'couple_manual', '${SUBJECT}')
     ON CONFLICT DO NOTHING;
@@ -721,6 +736,66 @@ test('2q · a delegation the subject GRANTED survives — only the one about the
     'the subject is still named as the granter — the actor stamp was not cleared',
   );
   assert.equal(others.rows[0]?.role, 'planner', 'the surviving delegation lost its own data');
+});
+
+test('a comp the subject ISSUED keeps its money and loses their stamp', async () => {
+  // 🔑 THE FK ALONE COULD NEVER HAVE DONE THIS. comp_grants.granted_by became
+  // ON DELETE SET NULL on 2026-09-06 (migration 20271208517365) — and erasure
+  // ANONYMIZES IN PLACE and issues no DELETE, so that FK never fires here. The
+  // stamp is cleared only because AUTHOR_UUID_NULLS names it. Two mechanisms,
+  // both required; fixing one and calling it done is how this residual survived
+  // the very morning the FK was corrected.
+  const issued = await db.query<{
+    granted_by: string | null;
+    approved_by: string | null;
+    retail_value_centavos: number | null;
+    rationale: string | null;
+    user_id: string | null;
+  }>(
+    `SELECT granted_by, approved_by, retail_value_centavos, rationale, user_id
+       FROM public.comp_grants WHERE user_id = '${OUTSIDER}'`,
+  );
+  assert.equal(
+    issued.rows.length,
+    1,
+    'OVER-DELETION: a third party lost the comp they were given because the admin who issued it erased their account',
+  );
+  assert.equal(issued.rows[0]?.granted_by, null, 'the issuing admin is still named — the stamp was not cleared');
+  assert.equal(
+    issued.rows[0]?.retail_value_centavos,
+    499900,
+    'the money left the record — this row is the platform’s proof of a charge it waived',
+  );
+  assert.equal(
+    issued.rows[0]?.rationale,
+    'Goodwill for a third party — the subject signed it off.',
+    'the reason left the record; a gift with no recorded reason is what this column exists to prevent',
+  );
+  assert.equal(issued.rows[0]?.user_id, OUTSIDER, 'the third party stopped being named as the recipient');
+});
+
+test('the SECOND admin stamp is cleared too — not a half-fix', async () => {
+  // approved_by is the same class as granted_by on the same row. Clearing one
+  // and keeping the other would read as a decision rather than an oversight.
+  const r = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.comp_grants
+      WHERE approved_by = '${SUBJECT}' OR granted_by = '${SUBJECT}'`,
+  );
+  assert.equal(r.rows[0]?.n, 0, 'the subject is still named as an admin on some comp_grants row');
+});
+
+test('a comp issued TO the subject is RETAINED — lawful retention, not an oversight', async () => {
+  // The mirror of the test above, and the reason comp_grants is PARTIALLY_PURGED
+  // rather than purged: the row about the subject stays, on the same financial
+  // basis as vendor_token_purchases and discount_code_redemptions. If this ever
+  // starts failing, somebody has quietly turned a retention decision into a
+  // deletion without saying so.
+  const mine = await db.query<{ n: number; cents: number | null }>(
+    `SELECT count(*)::int AS n, max(retail_value_centavos) AS cents
+       FROM public.comp_grants WHERE user_id = '${SUBJECT}'`,
+  );
+  assert.equal(mine.rows[0]?.n, 1, 'the subject’s own comp was deleted — that is a retention decision reversed silently');
+  assert.equal(mine.rows[0]?.cents, 250000, 'the retained row lost its amount');
 });
 
 test('META-3 · the seed really landed (a purge of nothing passes trivially)', () => {

@@ -688,6 +688,7 @@ test('MB14b: only the two pilot zones can composite, and they are the same two t
     feast: { service: 'buffet' },
     booths: { kinds: 'photo_booth' },
     program: { performers: 'live_band' },
+    walls: { treatment: 'fabric_drape' },
   };
   const composited = RECEPTION_PARTS.map((part) => part.id).filter((zone) => {
     const svg = renderVenueSvg(probeDesign, MB14B_PALETTE, undefined, undefined, {

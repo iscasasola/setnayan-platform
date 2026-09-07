@@ -55,6 +55,7 @@ export const PILOT_DECOR_ZONES: readonly PartId[] = [
   'feast',
   'booths',
   'program',
+  'walls',
 ];
 
 /** One zone's decor image, ready to composite: where the source pixels live
@@ -184,7 +185,12 @@ export function retintDecorLayerRGBA(
  * is made TRANSPARENT before the image reaches the renderer, and only the
  * furniture composites.
  *
- * ⚠ EVERY REMAINING RECEPTION ZONE IS A SCENE ZONE. `tables`, `feast`,
+ * ⚠ NOT EVERY REMAINING ZONE IS A SCENE ZONE — `walls` IS NOT ONE. Added
+ * 2026-09-07 with generated artwork and DELIBERATELY LEFT OFF THIS LIST: like
+ * `backdrop` and `ceiling`, a wall drawing FILLS its band and its ground IS the
+ * wall. Knocking it out would make the couple's side walls see-through.
+ *
+ * ⚠ THE ZONES THAT REMAIN AFTER IT ARE SCENE ZONES. EVERY ONE. `tables`, `feast`,
  * `program`, `booths`, `photo_wall`, `tunnel` and `welcome_signage` are all
  * objects standing in a room, exactly like `stage` — so this list is expected
  * to grow with each of them, and the alternative is shipping the same opaque

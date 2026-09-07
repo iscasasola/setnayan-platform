@@ -119,7 +119,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
   // fails loudly if someone adds a zone speculatively.
   assert.deepEqual(
     [...PILOT_DECOR_ZONES].sort(),
-    ['backdrop', 'booths', 'ceiling', 'feast', 'program', 'stage', 'tables'],
+    ['backdrop', 'booths', 'ceiling', 'feast', 'program', 'stage', 'tables', 'walls'],
     'PILOT_DECOR_ZONES changed. That is allowed — but it is a switch, so update the artwork ' +
       'and the count in the same change, never the list alone.',
   );
@@ -154,6 +154,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
     tables: 5,
     feast: 5,
     booths: 5,
+    walls: 5,
     program: 4,
   };
   for (const zone of PILOT_DECOR_ZONES) {
@@ -520,7 +521,7 @@ test('RA1 · REAL PIXELS: no panel drawing is ever knocked out — all ten stay 
   // and five are saved only by that accidental refusal. So the claim is made
   // over ALL TEN, and it does not depend on which file someone happened to pick.
   const src = readFileSync(new URL('./reception-decor-layers.ts', import.meta.url), 'utf8');
-  for (const zone of ['backdrop', 'ceiling'] as const) {
+  for (const zone of ['backdrop', 'ceiling', 'walls'] as const) {
     assert.ok(
       !SCENE_DECOR_ZONES.includes(zone),
       `${zone} is in SCENE_DECOR_ZONES. Its drawings FILL their zone, so knocking their ` +
@@ -1749,4 +1750,342 @@ test('RA2 program: all four tolerances really are on a cliff', async () => {
         'are vacuous. Re-measure; do not delete this test.',
     );
   }
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA2 · PART B · THE SIDE WALLS — AND THE FIRST ZONE WITH TWO BOXES.
+ *
+ * `20271212927845` seeds `walls` for all five style families.
+ *
+ * 🔑 `walls` OCCUPIES TWO RECTS, NOT ONE. `wallsDecorLayer` draws a 56-wide band
+ * down each edge of the room, with the backdrop, the stage and the couple
+ * between them, so a single rect spanning both would paint over all of it.
+ * `DECOR_SLOTS` values are now "a rect OR an array of rects", and the same
+ * drawing composites into each band — what the flat layer already does.
+ *
+ * ⚠ AND THE SINGLE-BOX OUTPUT MUST NOT MOVE. `decorImage` keeps the bare clip
+ * id `decor-<zone>` for the FIRST box, so all eight one-box zones emit exactly
+ * the markup they emitted when a slot could only be one rect. A one-element
+ * array is therefore equivalent to a bare rect — that is the design, not an
+ * accident, and writing a slot either way is fine. What must never change is
+ * the FIRST id: suffix it and all eight zones' bytes move at once, which
+ * `reception-scene.test.ts`'s pre-change hashes catch.
+ *
+ * 🔑 IT IS ALSO A PANEL ZONE. Its drawing FILLS its band and its ground IS the
+ * wall — absent from `SCENE_DECOR_ZONES`, and covered by the panel-knockout
+ * guard above.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const RA2_WALLS_MIGRATION = new URL(
+  '../../../supabase/migrations/20271212927845_ra2_walls_decor_five_families.sql',
+  import.meta.url,
+);
+
+type Ra2Wall = { slug: string; servedPath: string; sampledHex: string; tolerance: number };
+
+function ra2Walls(): Ra2Wall[] {
+  const sql = readFileSync(RA2_WALLS_MIGRATION, 'utf8')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  return [
+    ...sql.matchAll(
+      /\('(\/moodboard-seed\/venue_scene\/walls\/([a-z0-9-]+)\.svg)',\s*'(#[0-9A-Fa-f]{6})',\s*(\d+)::NUMERIC\)/g,
+    ),
+  ]
+    .map((m) => ({
+      slug: m[2]!,
+      servedPath: m[1]!,
+      sampledHex: m[3]!.toUpperCase(),
+      tolerance: Number(m[4]),
+    }))
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+const RA2_WALLS = ra2Walls();
+const RA2_WALLS_BUDGET = 31;
+
+/**
+ * ⚠ FOUR OF THE FIVE ARE BOUNDED BY THE CHECK CEILING, NOT BY A CLIFF, AND THAT
+ * IS RECORDED RATHER THAN SMOOTHED INTO A UNIFORM-LOOKING TABLE. These are
+ * near-monochrome full-bleed panels — one fabric or leaf colour over 55–70% of
+ * the frame, a cream ground, nothing in between — so their nearest neighbours
+ * sit at 42.60, 22.02, 4.06 (its own antialiased edge) and 70.07, and there is
+ * simply nothing a wider tolerance can reach. `elegant` is the only file with a
+ * real neighbour close enough to bound it (5.89), and it is seeded at 15.
+ */
+const RA2_WALLS_CHECK_BOUNDED = [
+  'bridgerton-regal',
+  'editorial-cream',
+  'tropical-heritage',
+  'modern-minimalist',
+];
+
+async function ra2WallObject(t: Ra2Wall) {
+  const file = fileURLToPath(new URL(`.${t.servedPath}`, new URL('../public/', import.meta.url)));
+  const { data, info } = await sharp(file, { density: 300 })
+    .resize(520, 520, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const rgba = new Uint8ClampedArray(data);
+  const { width: w, height: h } = info;
+  const [sr, sg, sb] = hexToRgb(t.sampledHex);
+  const core = new Uint8Array(w * h);
+  const mask = new Uint8Array(w * h);
+  let opaque = 0;
+  let exact = 0;
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    if (rgba[i] === sr && rgba[i + 1] === sg && rgba[i + 2] === sb) exact++;
+    if (colorDistance(rgba[i]!, rgba[i + 1]!, rgba[i + 2]!, sr, sg, sb) <= 3) core[p] = 1;
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!core[y * w + x]) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          if (ny >= 0 && nx >= 0 && ny < h && nx < w) mask[ny * w + nx] = 1;
+        }
+      }
+    }
+  }
+  return { rgba, w, h, core, mask, opaque, exact, slot: [sr, sg, sb] as const };
+}
+
+const RA2_WALLS_TARGETS = ['#7A1F2B', '#D4AF37', '#0F766E', '#1E3A8A'] as const;
+
+async function ra2WallRecolour(t: Ra2Wall, tolerance: number, hex: string) {
+  const o = await ra2WallObject(t);
+  const out = recolorRGBA(
+    o.rgba,
+    [{ slotId: 1, sampledHex: t.sampledHex, toleranceDe: tolerance, regionLabel: 'draped fabric' }],
+    { 1: { mode: 'palette', hex } },
+  );
+  let outside = 0;
+  let stuck = 0;
+  for (let p = 0; p < o.w * o.h; p++) {
+    const i = p * 4;
+    if (o.rgba[i + 3]! < 250) continue;
+    const moved =
+      out[i] !== o.rgba[i] || out[i + 1] !== o.rgba[i + 1] || out[i + 2] !== o.rgba[i + 2];
+    if (moved && !o.mask[p]) outside++;
+    if (
+      o.rgba[i] === o.slot[0] &&
+      o.rgba[i + 1] === o.slot[1] &&
+      o.rgba[i + 2] === o.slot[2] &&
+      !moved
+    ) {
+      stuck++;
+    }
+  }
+  return { outside, stuck, exact: o.exact, opaque: o.opaque };
+}
+
+test('RA2 walls: the migration seeds five measured drawings, one range each', () => {
+  assert.deepEqual(
+    RA2_WALLS.map((t) => `${t.slug}:${t.sampledHex}:${t.tolerance}`),
+    [
+      'bridgerton-regal:#5643A0:30',
+      'editorial-cream:#D98BA6:30',
+      'elegant-simple-classic:#C9A059:15',
+      'modern-minimalist:#4A3B45:30',
+      'tropical-heritage:#519374:30',
+    ],
+    'a seeded side-wall tolerance or sampled_hex changed. TWO of these hexes are NOT the colour ' +
+      'that was asked for — `bridgerton` came back #5643A0 rather than #8C6BA6, and `tropical` ' +
+      '#519374 rather than #9CB29A. Both are re-sampled off the pixels; "correcting" either to ' +
+      'its seed tags a colour the file does not have.',
+  );
+  for (const t of RA2_WALLS) {
+    assert.ok(
+      t.tolerance >= 5 && t.tolerance <= 30,
+      `${t.slug}: ${t.tolerance} is outside moodboard_asset_color_ranges' CHECK (5..30).`,
+    );
+  }
+});
+
+test('RA2 walls is a PANEL zone with TWO boxes, and single-box zones are untouched', () => {
+  assert.ok(
+    PILOT_DECOR_ZONES.includes('walls'),
+    "'walls' is missing from PILOT_DECOR_ZONES — resolveDecorLayer will never return these " +
+      'five approved rows and every couple keeps seeing the flat bands, with nothing logged.',
+  );
+  assert.ok(
+    !SCENE_DECOR_ZONES.includes('walls'),
+    "'walls' was added to SCENE_DECOR_ZONES. A wall drawing FILLS its band and its ground IS " +
+      "the wall, so the knockout would make the couple's side walls see-through — and the SVG " +
+      'bytes on disk would be completely unchanged, so no byte check can see it.',
+  );
+
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/walls/elegant-simple-classic.svg';
+  const dressed: ReceptionDesign = { ...DEFAULT_DESIGN, walls: { treatment: 'fabric_drape' } };
+  const svg = renderVenueSvg(dressed, palette, undefined, 'hotel_venue', { walls: href });
+
+  // 🔑 TWO BOXES, ONE DRAWING. The left band keeps the bare `decor-walls` id so
+  // every single-box zone's markup is unchanged; the right band gets
+  // `decor-walls-2`. Asserting BOTH is the point — one band dressed and the
+  // other bare is a room nobody designed, and it would pass a bare
+  // "does the href appear" check.
+  assert.ok(svg.includes('id="decor-walls"'), 'the LEFT wall band did not composite.');
+  assert.ok(
+    svg.includes('id="decor-walls-2"'),
+    'the RIGHT wall band did not composite. `walls` is the first zone with two boxes; dressing ' +
+      'only one edge of the room is worse than dressing neither.',
+  );
+  assert.equal(
+    (svg.match(new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? []).length,
+    4,
+    'the walls drawing should appear four times — two boxes, each with `href` and `xlink:href`.',
+  );
+
+  // And a single-box zone still emits exactly one clip with the bare id.
+  const tableHref = '/moodboard-seed/venue_scene/tables/elegant-simple-classic.svg';
+  const oneBox = renderVenueSvg(DEFAULT_DESIGN, palette, undefined, 'hotel_venue', {
+    tables: tableHref,
+  });
+  assert.ok(
+    oneBox.includes('id="decor-tables"'),
+    'a single-box zone no longer emits the BARE `decor-<zone>` clip id. That id is what keeps ' +
+      "this feature invisible to the eight zones that predate multi-box slots — suffix the " +
+      "first box and all eight zones' markup moves at once.",
+  );
+  assert.ok(
+    !oneBox.includes('id="decor-tables-2"'),
+    'a single-box zone emitted a second clip id, so it is drawing its image twice.',
+  );
+});
+
+test('RA2 walls · REAL BYTES: the image dresses a wall, and never dresses a bare one', () => {
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/walls/elegant-simple-classic.svg';
+
+  // 🪤 THE GATE IN ITS THIRD SHAPE, AND THE SUBTLEST OF THE THREE.
+  // `uplighting_only` is spelled in the taxonomy as one of the TWO options
+  // meaning "no wall dressing" (`bare` is the other) — and unlike `bare` it
+  // DRAWS, four ellipses per band. So a gate of "did the flat layer draw
+  // anything" hands a generated fabric drape to a couple who said their walls
+  // are undressed. That is exactly the defect `feast` shipped, wearing
+  // different clothes.
+  for (const treatment of ['bare', 'uplighting_only']) {
+    const design: ReceptionDesign = { ...DEFAULT_DESIGN, walls: { treatment } };
+    const withDecor = renderVenueSvg(design, palette, undefined, 'hotel_venue', { walls: href });
+    assert.ok(
+      !withDecor.includes(href),
+      `a couple whose walls are '${treatment}' had a generated drape hung on them. Both ` +
+        "'bare' and 'uplighting_only' say, in the taxonomy's own words, that there is no wall " +
+        'dressing — the gate must be the three DRESSING treatments, not "did anything draw".',
+    );
+    assert.equal(
+      withDecor,
+      renderVenueSvg(design, palette, undefined, 'hotel_venue', {}),
+      `walls.treatment='${treatment}' rendered differently with and without a decor layer.`,
+    );
+  }
+
+  // And the uplighting survives when it accompanies a real dressing: a couple
+  // who ticked both chose both.
+  const both: ReceptionDesign = {
+    ...DEFAULT_DESIGN,
+    walls: { treatment: ['fabric_drape', 'uplighting_only'] },
+  };
+  const composited = renderVenueSvg(both, palette, undefined, 'hotel_venue', { walls: href });
+  assert.ok(composited.includes(href), 'a couple who chose a drape did not get the drawing.');
+  // `uplighting_only`'s own ellipses, at the coordinates wallsDecorLayer places
+  // them — rx 30 ry 60, which nothing else in the room draws.
+  assert.ok(
+    composited.includes('rx="30" ry="60"'),
+    "the couple ticked uplighting as well as a drape and the image swallowed the uplighting. " +
+      'It is a light thrown on the wall, not a covering, and it is drawn over the image.',
+  );
+
+  assert.equal(
+    renderVenueSvg(both, palette, undefined, 'hotel_venue', {}),
+    renderVenueSvg(both, palette, undefined, 'hotel_venue'),
+    'an empty decor map changed the render — an uncovered cell must be byte-identical to the ' +
+      'flat drawing.',
+  );
+});
+
+test('RA2 walls · REAL RASTER, NO AREA FLOOR: nothing but the drape wears the palette', async () => {
+  for (const t of RA2_WALLS) {
+    for (const hex of RA2_WALLS_TARGETS) {
+      const { outside, opaque } = await ra2WallRecolour(t, t.tolerance, hex);
+      assert.ok(
+        outside <= RA2_WALLS_BUDGET,
+        `${t.slug}: ${outside} opaque px outside the tagged drape recoloured under ${hex} ` +
+          `(${((100 * outside) / opaque).toFixed(3)}% of the frame), above the measured ` +
+          `${RA2_WALLS_BUDGET} px antialiasing budget.`,
+      );
+    }
+  }
+});
+
+test('RA2 walls · REAL RASTER: every drape recolours COMPLETELY', async () => {
+  for (const t of RA2_WALLS) {
+    for (const hex of RA2_WALLS_TARGETS) {
+      const { stuck, exact } = await ra2WallRecolour(t, t.tolerance, hex);
+      assert.ok(
+        exact > 0,
+        `${t.slug}: no pixel carries the slot colour ${t.sampledHex}. Two of these hexes are ` +
+          'not the colour that was asked for — if one was "corrected" back to its seed, this ' +
+          'is where it fires.',
+      );
+      assert.equal(
+        stuck,
+        0,
+        `${t.slug}: ${stuck}/${exact} px of the drape stayed at stock colour under ${hex} at ` +
+          `tolerance ${t.tolerance}.`,
+      );
+    }
+  }
+});
+
+test('RA2 walls: the four ceiling-bound tolerances are honest, and the harness still sees', async () => {
+  // 🔑 FOUR OF FIVE MEASURE ~ZERO AT THEIR SEEDED VALUE, AND "0 <= 31" PASSES
+  // JUST AS WELL ON A HARNESS THAT HAS STOPPED LOOKING. There is no cliff on
+  // this zone to prove otherwise, so the proof is built instead: push each file
+  // to a tolerance wide enough to reach its own measured neighbour and assert
+  // the count MOVES. A harness that cannot see that is not measuring anything.
+  for (const slug of RA2_WALLS_CHECK_BOUNDED) {
+    const t = RA2_WALLS.find((x) => x.slug === slug)!;
+    assert.equal(
+      t.tolerance,
+      30,
+      `${slug} is recorded as bounded by the CHECK ceiling but is seeded at ${t.tolerance}. If ` +
+        'it was re-measured to a lower value, move it out of RA2_WALLS_CHECK_BOUNDED and say ' +
+        'what bounds it now.',
+    );
+    let atCeiling = 0;
+    for (const hex of RA2_WALLS_TARGETS) {
+      const { outside } = await ra2WallRecolour(t, 30, hex);
+      atCeiling = Math.max(atCeiling, outside);
+    }
+    assert.ok(
+      atCeiling <= RA2_WALLS_BUDGET,
+      `${slug} is seeded at the CHECK ceiling of 30 and moves ${atCeiling} px outside its drape ` +
+        'there. A ceiling-bounded value is only honest while the ceiling is genuinely clean.',
+    );
+  }
+
+  // The harness's own eyesight, on the one file that HAS a near neighbour:
+  // `elegant`'s nearest is 5.89, so a tolerance far past it must bleed.
+  const elegant = RA2_WALLS.find((x) => x.slug === 'elegant-simple-classic')!;
+  let wide = 0;
+  for (const hex of RA2_WALLS_TARGETS) {
+    const { outside } = await ra2WallRecolour(elegant, 30, hex);
+    wide = Math.max(wide, outside);
+  }
+  assert.ok(
+    wide > RA2_WALLS_BUDGET,
+    `elegant at tolerance 30 moved only ${wide} px outside its drape, against 85 measured on ` +
+      '2026-09-07. Its nearest neighbour is 5.89 away, so a tolerance of 30 MUST bleed — if it ' +
+      'no longer does, this harness has stopped measuring and every assertion above is vacuous.',
+  );
 });

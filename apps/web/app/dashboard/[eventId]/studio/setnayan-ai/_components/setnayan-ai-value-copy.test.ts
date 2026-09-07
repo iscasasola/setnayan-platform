@@ -8,6 +8,7 @@ import {
   buildAiValueGroups,
   buildAiValueSpotlights,
   WEDDING_AI_VALUE_TERMS,
+  type AiCapabilityId,
   type AiValueTerms,
 } from './setnayan-ai-value-copy';
 
@@ -120,6 +121,53 @@ test('COVERAGE — every capability is shown by exactly one spotlight', () => {
     }
     assert.equal(shown.length, declared.length);
   }
+});
+
+/*
+ * ── THE CLAIM IS IN THE SENTENCE, NOT ONLY IN THE MAPPING ─────────────────
+ * `caps` is a DECLARATION: it says a spotlight speaks for `payments`. It does
+ * not prove the sentence beside the picture actually mentions a payment. On its
+ * own it is exactly the cheap proxy that lets a rewrite quietly drop a promise
+ * while the coverage test stays green — the page would get shorter by promising
+ * less, which is the one thing this redesign must not do.
+ *
+ * So each capability also names a word its spotlight's prose must contain. The
+ * words are deliberately the PLAIN ones a reader would recognise, not internal
+ * vocabulary: if a rewrite can no longer say "deposit" anywhere near the money
+ * spotlight, the claim has probably gone with it.
+ */
+const CLAIM_IN_PROSE: Record<AiCapabilityId, RegExp> = {
+  rank: /best fit/i,
+  demand: /marks anyone another/i,
+  date_watch: /frees up/i,
+  deadlines: /booking window/i,
+  next_move: /most urgent thing to do next/i,
+  schedule_clash: /booked over each other/i,
+  payments: /deposit/i,
+  budget: /budget/i,
+  price_watch: /changes their price/i,
+};
+
+test('each spotlight actually SAYS the capability it claims to cover', () => {
+  for (const terms of [WEDDING_AI_VALUE_TERMS, BIRTHDAY]) {
+    for (const spot of buildAiValueSpotlights(terms)) {
+      for (const id of spot.caps) {
+        assert.match(
+          spot.d,
+          CLAIM_IN_PROSE[id],
+          `spotlight "${spot.t}" claims capability "${id}" but its sentence never says so:\n  ${spot.d}`,
+        );
+      }
+    }
+  }
+});
+
+test('CLAIM_IN_PROSE covers every capability — a partial map is a partial guard', () => {
+  const declared = buildAiValueGroups(WEDDING_AI_VALUE_TERMS).flatMap((g) => g.caps.map((c) => c.id));
+  for (const id of declared) {
+    assert.ok(CLAIM_IN_PROSE[id] instanceof RegExp, `CLAIM_IN_PROSE is missing "${id}"`);
+  }
+  assert.equal(Object.keys(CLAIM_IN_PROSE).length, declared.length);
 });
 
 test('the component renders the shared kit rather than a second one', () => {

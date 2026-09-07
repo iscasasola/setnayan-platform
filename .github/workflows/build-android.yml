@@ -98,3 +98,55 @@ jobs:
           path: apps/mobile/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 30
+
+      # ── A DIRECTLY INSTALLABLE APK, alongside the Play bundle ──────────────
+      #
+      # An .aab is an upload format: Google Play splits it into per-device APKs
+      # at install time, and it CANNOT be sideloaded. So while the Play org
+      # account is blocked (the D-U-N-S requested 2026-06-25 has not arrived —
+      # see build-sessions/STORE-SHELL-CLOSEOUT-2026-09-07.md § 5), the bundle
+      # this workflow produced was unreachable by any human: no store, and no
+      # way to put it on a phone.
+      #
+      # `assembleRelease` produces one universal APK signed with the SAME
+      # upload keystore as the bundle, so it can be copied to an Android 10+
+      # device and installed directly ("Install unknown apps" must be allowed
+      # for whichever app opens it).
+      #
+      # 🔑 THIS IS ALSO HOW THE APP FINALLY GETS RUN ON REAL HARDWARE. Nobody
+      # has ever launched it on a physical Android device — CI has only ever
+      # compiled it (DECISION_LOG 2026-06-07: "NOT runtime-tested (no AVD) —
+      # compile-verified only"; the 2026-06-25 row still lists an on-device
+      # smoke test as an open gate). A shipping app nobody has opened is worth
+      # more attention than a build number.
+      #
+      # ⚠ NOT a substitute for the Play upload: an APK installed this way gets
+      # no Play updates, no Play integrity checks, and Play Console still needs
+      # the .aab above. It is for testing and for hand-distribution.
+      - name: Build release APK (directly installable)
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Verify the APK exists and is signed
+        working-directory: apps/mobile/android
+        run: |
+          APK=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
+          test -n "$APK" || { echo "::error::No .apk produced"; exit 1; }
+          echo "Built: $APK"
+          # apksigner lives under an unpredictable build-tools version dir, so
+          # find it rather than pinning a path that rots on the next SDK bump.
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort | tail -1)
+          if [ -n "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --print-certs "$APK" || {
+              echo "::error::APK failed signature verification"; exit 1; }
+          else
+            echo "::warning::apksigner not found — APK built but signature unverified"
+          fi
+
+      - name: Upload .apk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: setnayan-release-apk
+          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30

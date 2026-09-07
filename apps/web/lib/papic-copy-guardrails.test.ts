@@ -66,6 +66,11 @@ const PAPIC_COPY_FILES = [
   // guard that reads only the page would miss a literal moved one file over.
   'app/(shell)/papic/page.tsx',
   'app/(shell)/papic/_papic-dial.tsx',
+  // The market-cost comparison (2026-09-08). Its Papic-side numbers are
+  // props derived from `lib/papic-cost-comparison.ts`, which itself reads the
+  // live catalog through the same `anchor.rungs` this page already resolves —
+  // listed here so a future literal on this card is caught the same way.
+  'app/(shell)/papic/_papic-cost-comparison.tsx',
 ];
 
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');

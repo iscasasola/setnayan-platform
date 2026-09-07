@@ -55,6 +55,8 @@ import { PapicScan } from './_papic-scan';
 import { PapicFilm } from './_papic-film';
 import { PapicDial, type PapicRung } from './_papic-dial';
 import { PapicFeatures, PapicHub } from './_papic-sections';
+import { PapicCostComparisonSection } from './_papic-cost-comparison';
+import { buildPapicCostComparison } from '@/lib/papic-cost-comparison';
 
 /*
  * ⛔ NO `force-static` HERE, AND NO `revalidate`. This page sits inside
@@ -343,6 +345,12 @@ async function resolvePapicAnchor(): Promise<PapicAnchor | null> {
 export default async function PapicLandingPage() {
   const anchor = await resolvePapicAnchor();
   const free = anchor?.freeCredits ?? 0;
+  // Derived from the SAME rung array `resolvePapicAnchor()` already resolved
+  // from the live catalog — no second fetch. `null` when no rung can be
+  // priced, and the section below is omitted rather than shown at ₱0. See
+  // `lib/papic-cost-comparison.ts` for the derivation and the flag on the
+  // photographer-side assumption.
+  const comparison = anchor ? buildPapicCostComparison(anchor.rungs) : null;
 
   return (
     <main className="px-5 pb-24 pt-10 sm:pt-14">
@@ -576,65 +584,69 @@ export default async function PapicLandingPage() {
 
       {/* ── WHAT IT COSTS — sixteen rows become one dial. ─────────────────── */}
       {anchor ? (
-        <section className="mx-auto mt-16 max-w-2xl" aria-label="What Papic costs">
-          <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
-            What it costs
-          </h2>
-          <p className="mt-2 text-sm text-[var(--m-slate-2)]">
-            Start free. Move the dial only if you run out.
-          </p>
-
-          {/* WHAT A CREDIT IS — owner, 2026-08-29: "Explain credits." It used to
-              be three bare rows that assumed the reader already knew. It now
-              says what a credit buys, and what it does NOT have to buy, which
-              is the half people get wrong: they assume the cameras and the wall
-              are metered too. Both figures are DERIVED; a literal fails the
-              copy guard. */}
-          <div className="mt-4 rounded-xl border border-[var(--m-line)] px-4 py-4">
-            <p className="text-[0.92rem] text-[var(--m-ink)]">
-              A credit is <span className="font-medium">one photograph</span>. That is the whole
-              meter — you spend a credit when someone takes a picture, and nothing else on Papic
-              costs anything at all.
+        <>
+          <section className="mx-auto mt-16 max-w-2xl" aria-label="What Papic costs">
+            <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
+              What it costs
+            </h2>
+            <p className="mt-2 text-sm text-[var(--m-slate-2)]">
+              Start free. Move the dial only if you run out.
             </p>
-            <ul className="mt-3 list-none border-t border-[var(--m-line)] pt-3">
-              <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
-                <Cost n={PAPIC_POINTS_PER_PHOTO} /> a photograph
-              </li>
-              <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
-                <Cost n={PAPIC_POINTS_PER_CLIP} /> a{' '}
-                <span className="font-medium text-[var(--m-ink)]">Snippet</span> — our ten-second
-                video, the longest there is. A shorter one costs less.
-              </li>
-              <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
-                <span className="mr-2 inline-block min-w-[2.2em] font-mono font-medium text-[var(--m-orange-2)]">
-                  free
-                </span>
-                <span className="mr-1.5">·</span>
-                the cameras, the live wall, the galleries, and keeping it all
-              </li>
-            </ul>
-            <p className="mt-3 text-[0.82rem] text-[var(--m-slate-2)]">
-              Credits never expire, and they are not a subscription. You buy them once and what you
-              don’t spend simply stays.
+
+            {/* WHAT A CREDIT IS — owner, 2026-08-29: "Explain credits." It used to
+                be three bare rows that assumed the reader already knew. It now
+                says what a credit buys, and what it does NOT have to buy, which
+                is the half people get wrong: they assume the cameras and the wall
+                are metered too. Both figures are DERIVED; a literal fails the
+                copy guard. */}
+            <div className="mt-4 rounded-xl border border-[var(--m-line)] px-4 py-4">
+              <p className="text-[0.92rem] text-[var(--m-ink)]">
+                A credit is <span className="font-medium">one photograph</span>. That is the whole
+                meter — you spend a credit when someone takes a picture, and nothing else on Papic
+                costs anything at all.
+              </p>
+              <ul className="mt-3 list-none border-t border-[var(--m-line)] pt-3">
+                <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
+                  <Cost n={PAPIC_POINTS_PER_PHOTO} /> a photograph
+                </li>
+                <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
+                  <Cost n={PAPIC_POINTS_PER_CLIP} /> a{' '}
+                  <span className="font-medium text-[var(--m-ink)]">Snippet</span> — our ten-second
+                  video, the longest there is. A shorter one costs less.
+                </li>
+                <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
+                  <span className="mr-2 inline-block min-w-[2.2em] font-mono font-medium text-[var(--m-orange-2)]">
+                    free
+                  </span>
+                  <span className="mr-1.5">·</span>
+                  the cameras, the live wall, the galleries, and keeping it all
+                </li>
+              </ul>
+              <p className="mt-3 text-[0.82rem] text-[var(--m-slate-2)]">
+                Credits never expire, and they are not a subscription. You buy them once and what you
+                don’t spend simply stays.
+              </p>
+            </div>
+
+            <div className="mt-4">
+              <PapicDial
+                rungs={anchor.rungs}
+                freeCredits={anchor.freeCredits}
+                clipCost={PAPIC_POINTS_PER_CLIP}
+                idealPerGuest={IDEAL_PHOTOGRAPHS_PER_GUEST}
+              />
+            </div>
+
+            <p className="mt-4 text-sm text-[var(--m-slate-2)]">
+              Every amount is repeatable, and nothing here renews or expires.{' '}
+              <Link href="/pricing" className="font-medium text-[var(--m-mulberry)] hover:opacity-80">
+                See every amount →
+              </Link>
             </p>
-          </div>
+          </section>
 
-          <div className="mt-4">
-            <PapicDial
-              rungs={anchor.rungs}
-              freeCredits={anchor.freeCredits}
-              clipCost={PAPIC_POINTS_PER_CLIP}
-              idealPerGuest={IDEAL_PHOTOGRAPHS_PER_GUEST}
-            />
-          </div>
-
-          <p className="mt-4 text-sm text-[var(--m-slate-2)]">
-            Every amount is repeatable, and nothing here renews or expires.{' '}
-            <Link href="/pricing" className="font-medium text-[var(--m-mulberry)] hover:opacity-80">
-              See every amount →
-            </Link>
-          </p>
-        </section>
+          {comparison ? <PapicCostComparisonSection comparison={comparison} /> : null}
+        </>
       ) : null}
 
       {/*

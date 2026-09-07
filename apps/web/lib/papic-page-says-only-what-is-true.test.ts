@@ -71,6 +71,7 @@ const PAPIC_PAGE_FILES = [
   'app/(shell)/papic/_papic-sections.tsx',
   'app/(shell)/papic/_papic-scan.tsx',
   'app/(shell)/papic/_papic-film.tsx',
+  'app/(shell)/papic/_papic-cost-comparison.tsx',
   'app/(shell)/papic/try/page.tsx',
 ] as const;
 

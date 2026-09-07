@@ -1715,17 +1715,36 @@ function feastFloorItem(
   // Every station glyph fits within 63px of its own top (the deepest is the
   // food cart's wheels) — its own ground contact.
   const stationsBottom = real.length > 0 ? y - 48 + 63 : 0;
-  const svg = behind + out;
-  // 🔑 THE IMAGE REPLACES WHAT THE COUPLE CHOSE, IT NEVER INVENTS A FEAST.
-  // The null check stays on the FLAT svg, so a couple who picked no service and
-  // no stations still gets nothing drawn — a decor image must not put a buffet
-  // in a room that was never meant to have one. And `anchorY` stays COMPUTED
-  // from the flat geometry, so the depth sort keeps placing this item where its
-  // own ground contact actually is.
-  if (svg === '') return null;
+  const flat = behind + out;
+  if (flat === '') return null;
+
+  // 🔑 THE IMAGE REPLACES WHAT THE COUPLE CHOSE, IT NEVER INVENTS A FEAST —
+  // AND THE GATE HAS TO BE THE SERVICE LINE, NOT THE WHOLE GROUP.
+  //
+  // 🪤 Gating on `flat === ''` looks like the same claim and is not, because
+  // `feast` is the only decor zone whose flat drawing holds MORE THAN ONE
+  // independently chosen object. Measured on the shipped code: a couple with
+  // `service: 'plated'` who ticked a cake table got the generated BUFFET LINE
+  // drawn into their room — a service they explicitly did not choose — and lost
+  // the cake table they did. The whole group was non-empty, so the gate opened;
+  // the image then stood in for all of it. `service: 'none'` plus any station
+  // failed the same way.
+  //
+  // So the gate is `out` — the service line itself — and the STATIONS are drawn
+  // AFTER the image rather than swallowed by it, standing in front of the
+  // generated buffet. `stage` and `tables` need none of this: each of their flat
+  // drawings is ONE restyled object, so replacing the whole thing costs the
+  // couple a linen choice, not a supplier they booked.
+  //
+  // With no decor layer this is `behind + out`, character for character as
+  // before — an uncovered (zone, style) cell must render byte-identically to the
+  // flat drawing (MB14b's invariant). And `anchorY` stays COMPUTED from the flat
+  // geometry, so the depth sort keeps placing this item at its own ground
+  // contact.
+  const image = out === '' ? null : decorImage('feast', decor);
   return {
     anchorY: Math.max(lineBottom, stationsBottom),
-    svg: decorImage('feast', decor) ?? svg,
+    svg: image === null ? flat : image + behind,
   };
 }
 

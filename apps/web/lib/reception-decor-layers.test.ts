@@ -25,7 +25,7 @@ import {
 } from './reception-decor-layers';
 import { recolorRGBA, colorDistance, hexToRgb } from './color-recolor';
 import sharp from 'sharp';
-import { renderVenueSvg, DEFAULT_DESIGN } from './reception-scene';
+import { renderVenueSvg, DEFAULT_DESIGN, type ReceptionDesign } from './reception-scene';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -994,6 +994,72 @@ test('RA1 feast · REAL BYTES: the layer reaches the room, and never invents a f
     !empty.includes(href),
     'a couple who chose no feast service and no stations got a buffet table drawn into their ' +
       'room by the decor layer. The image must replace what they chose, never invent one.',
+  );
+});
+
+test('RA2: the feast image never invents a SERVICE, and never swallows a STATION', () => {
+  // 🪤 THE CASE THE ORIGINAL GUARD ABOVE COULD NOT SEE, AND THE ONE THAT SHIPPED
+  // BROKEN. It probes `service: 'none'` with `stations: []` — the whole flat
+  // group empty — so it passes whether the gate is the SERVICE LINE or the
+  // WHOLE GROUP. Those two are the same claim only for a zone whose flat drawing
+  // is one object, and `feast` is the only decor zone where it is not: a couple
+  // ticks a service AND, independently, a cake table, a mobile bar, a coffee
+  // cart.
+  //
+  // Measured on the shipped code before this fix: `service: 'plated'` plus a
+  // cake table drew the generated BUFFET LINE — a service they explicitly did
+  // not choose — and dropped the cake table they did. A room they did not
+  // design, which is the one thing MB14b says must never happen, arriving
+  // through the gap between "the group is empty" and "there is a line here to
+  // replace".
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/feast/elegant-simple-classic.svg';
+  // The cake table's three tiers, from `station()` — 40/28/16 wide, 12 tall.
+  const cakeTier = /<rect x="\d+" y="\d+" width="(?:40|28|16)" height="12"/;
+
+  for (const service of ['plated', 'none']) {
+    const design: ReceptionDesign = {
+      ...DEFAULT_DESIGN,
+      feast: { service, stations: 'cake_table' },
+    };
+    const withDecor = renderVenueSvg(design, palette, undefined, 'hotel_venue', { feast: href });
+    assert.ok(
+      !withDecor.includes(href),
+      `a couple with feast.service='${service}' who ticked a cake table had the generated ` +
+        'buffet line drawn into their room. `plated` and `none` draw NO service line, so there ' +
+        'is nothing for the image to replace — the gate must be the line, not the group.',
+    );
+    assert.equal(
+      withDecor,
+      renderVenueSvg(design, palette, undefined, 'hotel_venue', {}),
+      `feast.service='${service}' rendered differently with and without a decor layer. With no ` +
+        'line to replace the layer must be a total no-op, byte for byte.',
+    );
+  }
+
+  // And when there IS a line: the image replaces the line, the station survives.
+  const buffet: ReceptionDesign = {
+    ...DEFAULT_DESIGN,
+    feast: { service: 'buffet', stations: 'cake_table' },
+  };
+  const flat = renderVenueSvg(buffet, palette, undefined, 'hotel_venue');
+  const composited = renderVenueSvg(buffet, palette, undefined, 'hotel_venue', { feast: href });
+  assert.match(
+    flat,
+    cakeTier,
+    'the flat render of a cake table no longer contains its tiers — this probe has stopped ' +
+      'testing anything and needs updating, not deleting.',
+  );
+  assert.ok(
+    composited.includes(href),
+    'a couple who chose a buffet AND a cake table did not get the generated buffet line.',
+  );
+  assert.match(
+    composited,
+    cakeTier,
+    'the couple ticked a cake table and the generated buffet swallowed it. The image stands in ' +
+      'for the SERVICE LINE; every station they ticked is a separate object they chose, and it ' +
+      'is drawn in front of the image rather than replaced by it.',
   );
 });
 

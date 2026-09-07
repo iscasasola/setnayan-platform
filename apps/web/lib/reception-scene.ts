@@ -967,6 +967,53 @@ function qpoint(p0: [number, number], c: [number, number], p2: [number, number],
   return [u * u * p0[0] + 2 * u * t * c[0] + t * t * p2[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p2[1]];
 }
 
+// ---- depth compositing ----
+/**
+ * One drawable, floor-standing thing. `anchorY` is where it touches the
+ * FLOOR — its ground-contact line, never its top and never its tallest
+ * point — because in this projection larger `y` is nearer the viewer, and
+ * the thing that decides what paints over what is what is standing closer
+ * to the camera, not what reaches highest into the air.
+ *
+ * 🪤 THIS TYPE EXISTS BECAUSE "APPEND IT LAST" HAS NOW BEEN THE BUG TWICE.
+ * RV1 drew the dance floor as the room's final layer and it painted straight
+ * over the guest tables; the fix there was to special-case it as a FLOOR
+ * TREATMENT, drawn before the furniture that stands on it (see `danceFloor`'s
+ * own note above it — it stays a special case, not a `FloorItem`, because a
+ * rug has no single ground-contact point, it IS the ground). RV2 then gave
+ * the room a live band on a riser at the back-right and drew it last again —
+ * the exact same mistake, on a zone `danceFloor`'s fix never touched, because
+ * that fix was local to one zone instead of being a rule the compositor
+ * enforces for everyone standing on the floor. A shared anchor + one sort
+ * closes the whole category at once: nothing that stands on the floor gets
+ * to skip the comparison by being appended after everything else.
+ *
+ * Exported (with `compositeFloorItems` below) so `reception-scene.test.ts`
+ * can prove the rule is bidirectional — behind AND in front, depending on
+ * the numbers, never "the band always loses" hard-coded to look that way —
+ * even for a pairing the room's own fixed table spots never actually
+ * produce, since every real guest table happens to sit nearer than the band
+ * today.
+ */
+export type FloorItem = { anchorY: number; svg: string };
+
+/**
+ * Composite floor-standing items back to front — ascending ground-contact
+ * `y`, so whichever one actually touches the floor nearer the viewer always
+ * paints last (on top), regardless of the order the caller happened to build
+ * them in. The sort is STABLE: two items that tie on `anchorY` (or that never
+ * share a pixel) keep the relative order they were given, which is what lets
+ * a room with no real overlap come out byte-identical to before this
+ * function existed — nothing moves unless the numbers say it must.
+ */
+export function compositeFloorItems(items: ReadonlyArray<FloorItem>): string {
+  return items
+    .map((item, order) => ({ item, order }))
+    .sort((a, b) => a.item.anchorY - b.item.anchorY || a.order - b.order)
+    .map(({ item }) => item.svg)
+    .join('');
+}
+
 // ---- ceiling ----
 /** Every selected ceiling treatment, drawn one over the other — hung fixtures
  *  share the overhead band (draped canopy + fairy lights is the owner's own
@@ -1254,14 +1301,25 @@ function stage(setup: string, florals: string[], P: (i: number) => string): stri
 }
 
 // ---- tables ----
-function tables(
+/**
+ * The four guest-table spots, as ONE floor item. Not split per spot: the
+ * front pair and the back pair are drawn front-first today, which is not
+ * depth order, but the two pairs never occupy the same pixels either — so
+ * there is no defect to fix there, and splitting them would let the general
+ * sort quietly re-order front vs. back on every render, which is exactly the
+ * "nothing else moves" a room with no real overlap is required to keep.
+ * `anchorY` uses the FURTHEST spot's own ground-contact line (its shadow
+ * ellipse, `cy + r * 0.36`, already drawn below) — the back-right table,
+ * which is the one this zone's own defect measured against the band.
+ */
+function tableFloorItem(
   shapeT: string,
   chairsT: string,
   linenT: string,
   centerT: string,
   placeT: string,
   P: (i: number) => string,
-): string {
+): FloorItem {
   const cloth = linenT === 'sequin' ? shade(P(1), 30) : LINEN;
   const accent = P(1);
   const charger = chargerColor(placeT);
@@ -1358,7 +1416,10 @@ function tables(
     [240, 432, 44],
     [720, 432, 44],
   ];
-  return spots.map(([cx, cy, r]) => drawTable(cx, cy, r)).join('');
+  return {
+    anchorY: Math.min(...spots.map(([, cy, r]) => cy + r * 0.36)),
+    svg: spots.map(([cx, cy, r]) => drawTable(cx, cy, r)).join(''),
+  };
 }
 
 // ---- entrance ----
@@ -1600,12 +1661,15 @@ function wallsDecorLayer(t: string, P: (i: number) => string): string {
  * these zones gets a room whose bytes are unchanged — asserted, not assumed.
  * ════════════════════════════════════════════════════════════════════════════ */
 
-/** Back-left floor: the buffet line, the grazing table, the stations. */
-function feastDecor(service: string, stations: string[], P: (i: number) => string): string {
+/** Back-left floor: the buffet line, the grazing table, the stations — as
+ *  ONE floor item, so a table between the feast and the viewer paints over
+ *  it and a couple's own program on the far side of the room does not. */
+function feastFloorItem(service: string, stations: string[], P: (i: number) => string): FloorItem | null {
   const x = 24,
     y = 300,
     w = 288;
   let out = '';
+  let lineBottom = 0;
   if (service !== 'none' && service !== '') {
     const top = y + 34;
     if (service === 'plated') {
@@ -1615,6 +1679,7 @@ function feastDecor(service: string, stations: string[], P: (i: number) => strin
       out += `<rect x="${x + 70}" y="${top}" width="140" height="34" rx="3" fill="${LINEN}" stroke="${shade(LINEN, -18)}" stroke-width="1"/>`;
       out += `<ellipse cx="${x + 140}" cy="${top - 4}" rx="46" ry="14" fill="${shade('#B06A3B', 6)}"/>`;
       out += `<ellipse cx="${x + 140}" cy="${top - 7}" rx="30" ry="8" fill="${shade('#B06A3B', 26)}" opacity="0.7"/>`;
+      lineBottom = top + 34;
     } else {
       // buffet / family_style / grazing all read as a long dressed table.
       out += `<rect x="${x}" y="${top}" width="${w}" height="30" rx="3" fill="${LINEN}" stroke="${shade(LINEN, -18)}" stroke-width="1"/>`;
@@ -1629,6 +1694,7 @@ function feastDecor(service: string, stations: string[], P: (i: number) => strin
           out += `<rect x="${(cx - 7).toFixed(1)}" y="${top - 13}" width="14" height="5" rx="2" fill="${shade(SILVER, 16)}"/>`;
         }
       }
+      lineBottom = top + 30;
     }
   }
   // Stations stand BEHIND the line (drawn first, higher up), so the food area
@@ -1637,7 +1703,12 @@ function feastDecor(service: string, stations: string[], P: (i: number) => strin
   const behind = real
     .map((kind, i) => station(kind, x + 14 + i * 94, y - 48, P))
     .join('');
-  return behind + out;
+  // Every station glyph fits within 63px of its own top (the deepest is the
+  // food cart's wheels) — its own ground contact.
+  const stationsBottom = real.length > 0 ? y - 48 + 63 : 0;
+  const svg = behind + out;
+  if (svg === '') return null;
+  return { anchorY: Math.max(lineBottom, stationsBottom), svg };
 }
 
 /** One food-and-drink station, drawn at its own top-left corner. */
@@ -1722,12 +1793,27 @@ function danceFloor(floor: string, P: (i: number) => string): string {
   return out;
 }
 
-function programDecor(
+/**
+ * The band's riser + figures and the host's spot — as ONE floor item.
+ *
+ * 🪤 THIS IS THE ZONE RV2 SHIPPED AND DREW LAST, AND THE SECOND TIME THIS
+ * FILE PAINTED A CELEBRATION LAYER OVER THE GUEST TABLES IT WAS SUPPOSED TO
+ * STAND BEHIND. The riser sits at x 664–~940 (real.length up to 3), which
+ * reaches into the same x-range as the back-right guest table (cx 720) — a
+ * range the zone-layout note above `feastDecor` said nothing overlapped,
+ * because it was measured against the table SPOTS, not against a table's own
+ * tall centrepiece reaching up past the table's y. `anchorY` is the riser's
+ * own shadow ellipse — its literal ground contact — so `compositeFloorItems`
+ * can put it behind whichever table actually sits closer to the viewer,
+ * instead of behind (or in front of) all of them by convention.
+ */
+function programFloorItem(
   performers: string[],
   host: string,
   P: (i: number) => string,
-): string {
+): FloorItem | null {
   let out = '';
+  let anchorY = 0;
   // Performers, on a low riser against the back-right wall.
   const real = performers.filter((k) => k !== 'none' && k !== '');
   if (real.length > 0) {
@@ -1742,9 +1828,14 @@ function programDecor(
     real.forEach((kind, i) => {
       out += performer(kind, x + 46 + i * 92, y, P);
     });
+    anchorY = Math.max(anchorY, y + 62); // the riser's own shadow ellipse
   }
-  if (host !== 'none' && host !== '') out += hostSpot(host, 596, 330, P);
-  return out;
+  if (host !== 'none' && host !== '') {
+    out += hostSpot(host, 596, 330, P);
+    anchorY = Math.max(anchorY, 330 + 55); // the host spot's own ground line
+  }
+  if (out === '') return null;
+  return { anchorY, svg: out };
 }
 
 /** One performer group, drawn at its own anchor on the riser. */
@@ -1807,11 +1898,13 @@ function hostSpot(kind: string, x: number, y: number, P: (i: number) => string):
 }
 
 /** The booth row, against the upper-left wall. */
-function boothsDecor(kinds: string[], P: (i: number) => string): string {
+function boothsFloorItem(kinds: string[], P: (i: number) => string): FloorItem | null {
   const real = kinds.filter((k) => k !== 'none' && k !== '');
-  if (real.length === 0) return '';
+  if (real.length === 0) return null;
   const y = 132;
-  return real.map((kind, i) => booth(kind, 28 + i * 96, y, P)).join('');
+  const svg = real.map((kind, i) => booth(kind, 28 + i * 96, y, P)).join('');
+  // `booth()`'s own shadow ellipse sits at y + h + 1 (h = 108) — its ground.
+  return { anchorY: y + 108 + 1, svg };
 }
 
 /** One guest booth: a common bay, then the thing that makes it that booth. */
@@ -2213,6 +2306,42 @@ export function renderVenueSvg(
   const scene = venueSceneFamily(venueSetting);
   const aisleTint = selAll(design, 'entrance', 'runner').includes('fabric') ? P(1) : shade(P(1), 70);
   const bg = sceneBackground(scene, W, H, aisleTint);
+
+  // ── ONE DEPTH RULE for everything that stands on the floor ───────────────
+  // The guest tables are always here; the celebration zones (2026-09-06) join
+  // only when the venue allows them and the couple actually chose something —
+  // each helper returns `null` for "nothing to draw", same as the empty
+  // strings this list replaced. `compositeFloorItems` then sorts all of them
+  // by ground-contact `y` — ascending, so whichever one actually touches the
+  // floor nearer the viewer paints last — instead of by which line happened
+  // to be appended to this array last.
+  const floorItems: FloorItem[] = [
+    tableFloorItem(
+      sel(design, 'tables', 'shape'),
+      sel(design, 'tables', 'chairs'),
+      sel(design, 'tables', 'linen'),
+      sel(design, 'tables', 'centerpiece'),
+      sel(design, 'tables', 'place'),
+      P,
+    ),
+  ];
+  if (venueZoneApplies(venueSetting, 'feast')) {
+    const item = feastFloorItem(sel(design, 'feast', 'service'), selAll(design, 'feast', 'stations'), P);
+    if (item) floorItems.push(item);
+  }
+  if (venueZoneApplies(venueSetting, 'program')) {
+    const item = programFloorItem(
+      selAll(design, 'program', 'performers'),
+      sel(design, 'program', 'host'),
+      P,
+    );
+    if (item) floorItems.push(item);
+  }
+  if (venueZoneApplies(venueSetting, 'booths')) {
+    const item = boothsFloorItem(selAll(design, 'booths', 'kinds'), P);
+    if (item) floorItems.push(item);
+  }
+
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`,
     bg,
@@ -2236,15 +2365,15 @@ export function renderVenueSvg(
     venueZoneApplies(venueSetting, 'ceiling')
       ? (decorImage('ceiling', decor) ?? ceiling(selAll(design, 'ceiling', 'treatment'), P))
       : '',
-    tables(
-      sel(design, 'tables', 'shape'),
-      sel(design, 'tables', 'chairs'),
-      sel(design, 'tables', 'linen'),
-      sel(design, 'tables', 'centerpiece'),
-      sel(design, 'tables', 'place'),
-      P,
-    ),
+    // `walls` is behind everything standing IN the room, same as ceiling and
+    // backdrop — it dresses the room's own shell, never furniture, so it
+    // keeps a fixed slot ahead of the floor group rather than competing with
+    // it on ground-contact `y`.
     venueZoneApplies(venueSetting, 'walls') ? wallsDecor(selAll(design, 'walls', 'treatment'), P) : '',
+    // Everything that stands ON the floor — guest tables, the band's riser
+    // and figures, the host's spot, the booth row, the feast — composited by
+    // the ONE depth rule above, not by which line comes last in this array.
+    compositeFloorItems(floorItems),
     people(sel(design, 'people', 'who'), rc, guestPalette),
     entrance(selAll(design, 'tunnel', 'style'), selAll(design, 'entrance', 'runner'), P),
     scene === 'beach' || scene === 'garden'
@@ -2252,26 +2381,6 @@ export function renderVenueSvg(
       : `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
     photoWallDecor(selAll(design, 'photo_wall', 'style'), P),
     welcomeSignageDecor(selAll(design, 'welcome_signage', 'style'), P),
-    // ── the celebration (2026-09-06) ─────────────────────────────────────
-    // Drawn AFTER the horizon line and the wall pieces so their furniture
-    // reads as standing in the room rather than painted on the wall, and
-    // gated by `venueZoneApplies` like every other zone — a beach reception
-    // still has a buffet and a band, so none of the three is N/A anywhere
-    // today, but routing them through the one predicate is what stops that
-    // from becoming an assumption the next venue family has to remember.
-    venueZoneApplies(venueSetting, 'feast')
-      ? feastDecor(sel(design, 'feast', 'service'), selAll(design, 'feast', 'stations'), P)
-      : '',
-    venueZoneApplies(venueSetting, 'program')
-      ? programDecor(
-          selAll(design, 'program', 'performers'),
-          sel(design, 'program', 'host'),
-          P,
-        )
-      : '',
-    venueZoneApplies(venueSetting, 'booths')
-      ? boothsDecor(selAll(design, 'booths', 'kinds'), P)
-      : '',
     `</svg>`,
   ].join('');
 }

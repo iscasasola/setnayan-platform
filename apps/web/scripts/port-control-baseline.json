@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f854382b4",
-  "routeCount": 421,
-  "destinations": 900,
-  "actions": 628,
-  "blocks": 4301,
+  "generatedFromRef": "dd837a0fe",
+  "routeCount": 424,
+  "destinations": 906,
+  "actions": 630,
+  "blocks": 4317,
   "routes": {
     "/": {
       "files": [
@@ -27,6 +27,7 @@
         "CookieConsentBanner",
         "DeferredObservability",
         "DemoModeBanner",
+        "DesktopUpdaterListener",
         "DeviceCapture",
         "FrontDoor",
         "GlobalHaptics",
@@ -121,6 +122,20 @@
         "Reveal",
         "RevealBand",
         "RevealList"
+      ]
+    },
+    "/(shell)/budget": {
+      "files": [
+        "(shell)/budget/page.tsx"
+      ],
+      "destinations": [
+        "/features",
+        "/onboarding/wedding?from=budget"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage",
+        "SpotlightSection"
       ]
     },
     "/(shell)/cookies": {
@@ -576,6 +591,34 @@
         "Link"
       ]
     },
+    "/(shell)/samahan": {
+      "files": [
+        "(shell)/samahan/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/samahan/new",
+        "/features"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage",
+        "SpotlightSection"
+      ]
+    },
+    "/(shell)/schedule": {
+      "files": [
+        "(shell)/schedule/page.tsx"
+      ],
+      "destinations": [
+        "/features",
+        "/onboarding/wedding?from=schedule"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage",
+        "SpotlightSection"
+      ]
+    },
     "/(shell)/seat-plan": {
       "files": [
         "(shell)/seat-plan/page.tsx"
@@ -1027,6 +1070,8 @@
         "ChibiAvatarConfig",
         "ChibiFigure",
         "Chip",
+        "Figure",
+        "HeritageAvatarConfig",
         "K",
         "Link",
         "OrbitControls",
@@ -1210,6 +1255,7 @@
       "files": [
         "[slug]/venue/_components/guest-venue-3d.tsx",
         "[slug]/venue/_components/guest-venue-loader.tsx",
+        "[slug]/venue/_components/use-live-scene.ts",
         "[slug]/venue/page.tsx"
       ],
       "destinations": [
@@ -1223,6 +1269,7 @@
         "BoothVendorCard",
         "Canvas",
         "ChibiBounce",
+        "ChibiDance",
         "ChibiFigure",
         "DanceFloorMural",
         "EmoteBubbles",
@@ -1233,6 +1280,7 @@
         "GuestVenue3D",
         "GuestVenueLoader",
         "InstancedChairs",
+        "InstancedChibiCrowd",
         "InstancedSeatedCrowd",
         "Lab3DBooth",
         "Lab3DCocktail",
@@ -1256,6 +1304,7 @@
         "Vec2",
         "VenueDecor",
         "VenueFixtures",
+        "VenueScene",
         "VenueShell"
       ]
     },
@@ -2277,12 +2326,14 @@
       "actions": [
         "createFreeWindow",
         "issueCompGrant",
+        "issueVendorSkuComp",
         "revokeCompGrant",
         "setFreeWindowActive",
         "setVendorTier"
       ],
       "blocks": [
         "CompGrantRow",
+        "CoupleFreeWindowRow",
         "Link",
         "PageMasthead",
         "SubmitButton",
@@ -3618,6 +3669,7 @@
         "/admin/vendors"
       ],
       "actions": [
+        "issueVendorSkuComp",
         "setVendorFoundingSupplier",
         "setVendorTier"
       ],
@@ -5144,6 +5196,7 @@
         "dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx",
         "dashboard/[eventId]/guests/_components/overlay-primitives.tsx",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
+        "dashboard/[eventId]/guests/_components/remove-guest-confirm.tsx",
         "dashboard/[eventId]/guests/_components/seat-chip.tsx",
         "dashboard/[eventId]/guests/_components/sort-select.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
@@ -5250,6 +5303,7 @@
         "QuickGroupResult",
         "QuickRoleResult",
         "QuickViewButton",
+        "RemoveGuestConfirm",
         "RestoreResult",
         "RoleChip",
         "RoleChipEditor",
@@ -7290,6 +7344,7 @@
         "dashboard/[eventId]/vendors/_actions/bench-marketplace-search.ts",
         "dashboard/[eventId]/vendors/_actions/category-search.ts",
         "dashboard/[eventId]/vendors/_actions/contact-shortlist-vendor.ts",
+        "dashboard/[eventId]/vendors/_actions/inline-more-row.ts",
         "dashboard/[eventId]/vendors/_actions/reuse-actions.ts",
         "dashboard/[eventId]/vendors/_actions/unlock-category.ts",
         "dashboard/[eventId]/vendors/_components/accordion-build.tsx",
@@ -7393,6 +7448,8 @@
         "HTMLInputElement",
         "Icon",
         "InAppServiceCard",
+        "InlineMoreCard",
+        "InlineMoreRowResult",
         "InspectorColumn",
         "InspectorLayout",
         "InspectorTrigger",
@@ -8523,6 +8580,7 @@
         "HTMLElement",
         "HTMLVideoElement",
         "Icon",
+        "IngestHealthState",
         "IngestHealthStrip",
         "Link",
         "LiveStudioRecordingsCard",
@@ -9292,7 +9350,6 @@
         "vendor-dashboard/_components/vendor-rail-context.tsx",
         "vendor-dashboard/_components/vendor-track-record-panel.tsx",
         "vendor-dashboard/_components/video-links-editor.tsx",
-        "vendor-dashboard/_components/web-nudge-banner.tsx",
         "vendor-dashboard/actions.ts",
         "vendor-dashboard/error.tsx",
         "vendor-dashboard/instagram-actions.ts",
@@ -11059,8 +11116,7 @@
         "SubscriptionCards",
         "SubscriptionCycleToggle",
         "Vendor3dBoothActionState",
-        "VendorAiAddonActionState",
-        "WebNudgeBanner"
+        "VendorAiAddonActionState"
       ]
     },
     "/vendor-dashboard/subscription/custom": {

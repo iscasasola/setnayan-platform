@@ -104,6 +104,99 @@ test('the route gate covers the pure purchase routes and the feature pages whose
   }
 });
 
+test('the paid features whose home is NOT under /studio are refused too', () => {
+  // The 2026-09-06 audit found eight paid surfaces the /studio-only gate could
+  // not see. These two are the ones whose whole page IS the paid thing.
+  for (const p of [
+    '/vendor-dashboard/subscription',
+    '/dashboard/S89E-ABCDEFGHIJ/live',
+    '/dashboard/S89E-ABCDEFGHIJ/live/anything',
+  ]) {
+    assert.equal(isStoreShellWebOnlyPath(p), true, p);
+  }
+  // The rest of the vendor dashboard is a working surface, not a shop.
+  for (const p of ['/vendor-dashboard', '/vendor-dashboard/bookings', '/vendor-dashboard/profile']) {
+    assert.equal(isStoreShellWebOnlyPath(p), false, p);
+  }
+});
+
+test('🔴 nothing steers a store-shell user OUT of the app to pay', () => {
+  // THE SINGLE WORST THING THAT WAS IN THE TREE. `web-nudge-banner.tsx`
+  // rendered ONLY when isNativeApp() was true, said "Buy on our website for
+  // less — up to 33% off", and linked to setnayan.com with target="_blank".
+  // That is App Review guideline 3.1.1 external steering, verbatim, and the
+  // component's own docblock justified it with a post-2024 Apple ruling that
+  // applies to the UNITED STATES storefront only — never to ours.
+  //
+  // This asserts the SHAPE, not the filename: any component that both gates on
+  // native-ness and points at an external setnayan.com URL fails here, so the
+  // pattern cannot come back under a new name.
+  const { execSync } = require('node:child_process') as typeof import('node:child_process');
+  const root = join(__dirname, '..');
+  const files = execSync(
+    'grep -rl "isNativeApp\\|isStoreShell" app lib --include="*.tsx" --include="*.ts" || true',
+    { cwd: root },
+  )
+    .toString()
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .filter((f) => !f.endsWith('.test.ts') && !f.endsWith('.test.tsx'));
+
+  assert.ok(files.length > 0, 'grep found no native-aware files — the anchor moved');
+
+  const offenders: string[] = [];
+  for (const f of files) {
+    const src = readFileSync(join(root, f), 'utf8');
+    // An absolute link to our own web checkout, in a file that knows whether it
+    // is running natively, is the steering shape.
+    if (/https?:\/\/(www\.)?setnayan\.com/.test(src) && /target=["']_blank["']/.test(src)) {
+      offenders.push(f);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `these open an external setnayan.com link from a native-aware component (3.1.1 steering): ${offenders.join(', ')}`,
+  );
+});
+
+test('the store shell is never shown a second, marked-up price', () => {
+  // Vendor plan cards used to multiply the admin-set price by 1.5 for native
+  // users, then point them at the cheaper web page. One price, from the
+  // catalogue, everywhere.
+  const src = readFileSync(
+    join(__dirname, '../app/vendor-dashboard/subscription/_components/subscription-cards.tsx'),
+    'utf8',
+  );
+  // Match the multiplier, not the digits: `1.5` alone hits Tailwind spacing
+  // classes (`gap-1.5`, `py-1.5`) all over the file and fails on a clean tree.
+  assert.ok(
+    !/MOBILE_SRP|mobileSrp|SRP_MULTIPLIER/.test(src),
+    'a channel-dependent price multiplier is back',
+  );
+  assert.ok(!/isNativeApp/.test(src), 'plan cards should no longer branch on native-ness at all');
+});
+
+test('the build number is past the one App Review rejected', () => {
+  // Apple rejected 1.0 (1) on 2026-06-30. App Store Connect refuses a duplicate
+  // build number outright, so shipping the same one means the upload fails
+  // before a human ever looks at it.
+  const ios = readFileSync(
+    join(__dirname, '../../mobile/ios/App/App.xcodeproj/project.pbxproj'),
+    'utf8',
+  );
+  const builds = [...ios.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
+  assert.ok(builds.length > 0, 'no CURRENT_PROJECT_VERSION found — the anchor moved');
+  for (const b of builds) {
+    assert.ok(b > 1, `iOS build number ${b} is the rejected one (or older)`);
+  }
+  const android = readFileSync(join(__dirname, '../../mobile/android/app/build.gradle'), 'utf8');
+  const vc = android.match(/versionCode\s+(\d+)/);
+  assert.ok(vc, 'no versionCode found — the anchor moved');
+  assert.ok(Number(vc![1]) > 1, `Android versionCode ${vc![1]} is the rejected one`);
+});
+
 test('the route gate leaves the planning surface open', () => {
   for (const p of [
     '/dashboard',

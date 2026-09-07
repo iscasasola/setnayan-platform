@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
@@ -415,6 +416,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   });
   const proPriceLabel = proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
 
+  // 🔒 The Event Hub itself is a planning surface and stays open in the store
+  // shell; only the PRO upsell — which prints a peso price for a digital SKU —
+  // is withheld (App Review 3.1.1). See lib/store-shell.ts.
+  const storeShell = await isStoreShellRequest();
+
   /*
     ─── VIEW AS ──────────────────────────────────────────────────────────────
     Owner 2026-09-02: "make sure it also has view as (they pick what each role
@@ -716,7 +722,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             looking at and cannot have. Null — owned, unmeasured, or the day
             itself — renders nothing at all, and the cards above are UNCHANGED in
             either case. Nothing here dims, greys or locks them. */}
-        {proOffer && (
+        {proOffer && !storeShell && (
           <HubProOffer
             offer={proOffer}
             channelName={activeChannel?.name ?? null}

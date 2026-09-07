@@ -12,7 +12,7 @@ import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-c
 export const metadata = { title: 'Stories · Vendor' };
 
 /**
- * Vendor "Featured in Stories" — the weddings this vendor helped create
+ * Vendor "Featured in Stories" — the celebrations this vendor helped create
  * that the couple has published to the public showcase (/realstories), each
  * ready to SHARE to the vendor's Facebook Page.
  *
@@ -65,7 +65,7 @@ export default async function VendorRealStoriesPage() {
           Featured in Stories
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          When a couple you worked with publishes their wedding to{' '}
+          When someone you worked with publishes their celebration to{' '}
           <Link href="/realstories" className="font-medium text-mulberry underline">
             Stories
           </Link>
@@ -106,7 +106,7 @@ export default async function VendorRealStoriesPage() {
                     Featured in Stories
                   </p>
                   <h2 className="mt-1.5 text-lg font-semibold leading-snug text-ink">
-                    {s.coupleNames}
+                    {s.hostNames}
                   </h2>
                   {meta ? <p className="mt-0.5 text-sm text-ink/55">{meta}</p> : null}
                 </div>
@@ -122,7 +122,7 @@ export default async function VendorRealStoriesPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <ShareButtons
                       url={editorialUrl}
-                      title={`${s.coupleNames} — a wedding we helped create, on Setnayan`}
+                      title={`${s.hostNames} — a day we helped create, on Setnayan`}
                       image={ogImage}
                     />
                     {/* File-asset path (share-asset completion 2026-07-17): IG

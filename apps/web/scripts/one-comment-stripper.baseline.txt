@@ -4,7 +4,7 @@
 # --write. This list may only SHRINK: a new entry fails the build, and an
 # entry whose file has been migrated must be deleted here in the same change.
 #
-# 295 files at the time of writing.
+# 294 files at the time of writing.
 apps/web/app/(shell)/explore/_components/save-is-open-to-strangers.test.ts
 apps/web/app/(shell)/explore/compare/ask-about-your-date.test.ts
 apps/web/app/(shell)/one-shell-mount.test.ts
@@ -158,7 +158,6 @@ apps/web/lib/custom-plan-term-and-extend.test.ts
 apps/web/lib/custom-tier-is-hidden-publicly.test.ts
 apps/web/lib/data-subject-register.test.ts
 apps/web/lib/doorways-before-the-day.test.ts
-apps/web/lib/editorial-event-types.test.ts
 apps/web/lib/env-flag.test.ts
 apps/web/lib/erasure/samahan-stories-purge.test.ts
 apps/web/lib/event-date-precision-scan.test.ts

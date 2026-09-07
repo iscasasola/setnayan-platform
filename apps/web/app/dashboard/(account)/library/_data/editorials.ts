@@ -31,6 +31,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { UNNAMED_EDITORIAL_LABEL } from '@/lib/editorial-event-types';
 import { resolveStillRef } from '@/lib/papic-display-ref';
 import { fetchUserEvents } from '@/lib/events';
 
@@ -281,7 +282,7 @@ export async function fetchLibraryEditorials(
 
     const card: LibraryEditorial = {
       eventId,
-      displayName: eventMeta.get(eventId)?.displayName ?? 'A Setnayan wedding',
+      displayName: eventMeta.get(eventId)?.displayName ?? UNNAMED_EDITORIAL_LABEL,
       eventDate: eventMeta.get(eventId)?.eventDate ?? null,
       monogramColor: meta?.monogram_color ?? null,
       slug: meta?.slug ?? null,

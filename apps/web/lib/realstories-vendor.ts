@@ -1,23 +1,38 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  UNNAMED_EDITORIAL_LABEL,
+  withEditorialEventTypes,
+} from '@/lib/editorial-event-types';
 
 // ============================================================================
-// Vendor "Featured in Real Stories" — the booked weddings a vendor helped
-// create that the couple has published to the public showcase.
+// Vendor "Featured in Stories" — the booked celebrations a vendor helped create
+// that the host has published to the public showcase.
 // ============================================================================
+// 🔴 EVERY KIND OF CELEBRATION, NOT ONLY WEDDINGS. This loader carried its own
+// `.eq('event_type', 'wedding')` and its own `'A Setnayan wedding'` fallback
+// through the 2026-08-15 correction that opened the SHELF to all sixteen kinds
+// — so a debut, reunion, graduation or wake published to /realstories and was
+// then never collected on the credited vendor's portfolio (/v/[slug] "Featured
+// in these stories") nor shown in /vendor-dashboard/real-stories. The free
+// tier's headline promise — "the story is collected on your portfolio,
+// automatically" — was false for fifteen of the sixteen kinds.
+// 🔑 The kind question now has exactly ONE home for every surface:
+// `withEditorialEventTypes` in lib/editorial-event-types.ts. Do not re-add a
+// local filter here; `editorial-event-types.test.ts` scans for it.
 // Strategy: the editorial credits the vendor; giving the vendor a one-click
 // "Share to your Facebook Page" turns every published Real Story into free
 // reach back to Setnayan. This loader returns ONLY the signed-in vendor's OWN
 // booked events that ALSO pass the public-showcase gate — the SAME RA 10173
 // gate as lib/showcase-db.ts (couple opted in via users.public_summary_consent_at,
-// it's a wedding with a public slug, past the T+30d grace window), scoped to
+// the kind is not excluded, there is a public slug, past the T+30d grace window), scoped to
 // the vendor's booked event ids so it never leaks another vendor's clients.
 //
 // Read via the admin client (the consent + editorial rows sit behind RLS, same
 // as showcase-db). Best-effort: any failure returns [] so the vendor surface
 // degrades to its empty state and never crashes. Today this returns [] for
-// everyone (no consented past weddings exist yet — first real editorials land
+// everyone (no consented past celebrations exist yet — first real editorials land
 // ~Dec 2026), so the surface is ready-but-empty.
 
 const GRACE_DAYS = 30;
@@ -50,7 +65,8 @@ export type VendorFeaturedStory = {
   eventId: string;
   /** Public slug → the couple's canonical editorial at /[slug]. */
   slug: string;
-  coupleNames: string;
+  /** The host's own name for the day — a couple, a celebrant, a family, a company. */
+  hostNames: string;
   city: string | null;
   dateLabel: string | null;
 };
@@ -79,18 +95,20 @@ export async function loadVendorFeaturedStories(
       .toISOString()
       .slice(0, 10); // YYYY-MM-DD
 
-    // 1 · the vendor's booked weddings with a public slug, past the grace window.
-    const { data: evRows } = await admin
-      .from('events')
-      .select('event_id, slug, display_name, event_date, venue_name, venue_address')
+    // 1 · the vendor's booked celebrations with a public slug, past the grace
+    //     window — of every kind the exclusion set allows.
+    const { data: evRows } = await withEditorialEventTypes(
+      admin
+        .from('events')
+        .select('event_id, slug, display_name, event_date, venue_name, venue_address'),
+    )
       .in('event_id', ids)
-      .eq('event_type', 'wedding')
       .not('slug', 'is', null)
       .lte('event_date', cutoff);
     const events = evRows ?? [];
     if (events.length === 0) return [];
 
-    // 2 · couple consent (RA 10173) — a couple member opted in to public showcase.
+    // 2 · host consent (RA 10173) — a host opted in to the public showcase.
     const eventIds = events.map((e) => e.event_id as string);
     const { data: members } = await admin
       .from('event_members')
@@ -119,7 +137,7 @@ export async function loadVendorFeaturedStories(
       .map((e) => ({
         eventId: e.event_id as string,
         slug: e.slug as string,
-        coupleNames: (e.display_name as string | null) ?? 'A Setnayan wedding',
+        hostNames: (e.display_name as string | null)?.trim() || UNNAMED_EDITORIAL_LABEL,
         city: deriveCity(
           e.venue_name as string | null,
           e.venue_address as string | null,

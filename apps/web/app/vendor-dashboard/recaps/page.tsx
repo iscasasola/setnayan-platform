@@ -61,7 +61,7 @@ export default async function VendorRecapsPage() {
         </span>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Recaps</h1>
         <p className="max-w-prose text-base text-ink/65">
-          When a couple you worked with publishes their wedding recap, it shows up here — the day
+          When someone you worked with publishes their recap, it shows up here — the day
           you helped make, as a living page. Share it to your Facebook Page in one tap: it&rsquo;s
           real proof of your work, with a beautiful preview straight back to the couple&rsquo;s
           recap.
@@ -77,7 +77,7 @@ export default async function VendorRecapsPage() {
             Your couples&rsquo; recaps will appear here.
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
-            Once a couple you helped publishes their wedding recap, you&rsquo;ll find it here — ready
+            Once someone you helped publishes their recap, you&rsquo;ll find it here — ready
             to share to your Page.
           </p>
         </ShopEmpty>
@@ -97,7 +97,7 @@ export default async function VendorRecapsPage() {
                     Published recap
                   </p>
                   <h2 className="mt-1.5 text-lg font-semibold leading-snug text-ink">
-                    {r.coupleNames}
+                    {r.hostNames}
                   </h2>
                   {meta ? <p className="mt-0.5 text-sm text-ink/55">{meta}</p> : null}
                 </div>
@@ -113,7 +113,7 @@ export default async function VendorRecapsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <ShareButtons
                       url={recapUrl}
-                      title={`${r.coupleNames} — a wedding we helped create, on Setnayan`}
+                      title={`${r.hostNames} — a day we helped create, on Setnayan`}
                       image={ogImage}
                     />
                     {/* File-asset path (share-asset completion 2026-07-17): IG

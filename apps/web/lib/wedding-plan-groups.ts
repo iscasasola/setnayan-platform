@@ -44,6 +44,7 @@ import {
   type WeddingFolder,
   type WeddingTile,
 } from '@/lib/taxonomy';
+import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 
 export type PlanGroupId =
   // A wake's own sections (2026-08-27) — see the three groups at the end of
@@ -948,6 +949,24 @@ export type PlanCardPick = {
    */
   compatibility_issue: PlanCardCompatibilityIssue | null;
   /**
+   * Promote-the-invite (owner ruling 2026-09-08 · "we allow this. so promote
+   * it."): TRUE when this booked pick is off-platform and could still be sent
+   * the Setnayan claim link (the same `canInviteSupplier` gate the per-vendor
+   * workspace page's invite CTA already uses — see
+   * lib/supplier-invite-eligibility.ts). Computed once here, at pick-build
+   * time, from the real `marketplace_vendor_id` column, so every render
+   * consumer reads ONE answer instead of re-deriving the account fact from a
+   * proxy (a missing photo, a null business name) that can't actually
+   * distinguish "no account" from "just no join yet".
+   *
+   * Card consumers gate their own invite affordance on `locked &&
+   * needs_setnayan_invite` — this field alone does not imply the booking is
+   * real enough to bother (an unlocked/considering pick can be off-platform
+   * too); that status AND is deliberately left to each surface, mirroring the
+   * workspace page's own `canOfferInvite`.
+   */
+  needs_setnayan_invite: boolean;
+  /**
    * Finalized-vendor-photo-card (2026-05-22, owner directive).
    *
    * For marketplace-linked picks (vendor_profiles join via
@@ -1350,6 +1369,7 @@ export function bucketVendorsByGroup(
         eventCeremonyType,
         eventVenueSetting,
       ),
+      needs_setnayan_invite: canInviteSupplier(v),
       marketplace_logo_url: v.marketplace_logo_url ?? null,
       marketplace_business_name: v.marketplace_business_name ?? null,
       marketplace_city: v.marketplace_city ?? null,

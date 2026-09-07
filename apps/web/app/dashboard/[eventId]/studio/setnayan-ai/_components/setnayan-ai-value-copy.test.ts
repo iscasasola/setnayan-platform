@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 
 import {
   buildAiValueGroups,
+  buildAiValueSpotlights,
   WEDDING_AI_VALUE_TERMS,
   type AiValueTerms,
 } from './setnayan-ai-value-copy';
@@ -91,16 +92,43 @@ test('every type gets the same 9 capabilities with stable ids', () => {
   assert.deepEqual(ids(BIRTHDAY), wedding);
 });
 
-test('DRIFT GUARD — the component maps an icon for every capability id', () => {
-  // The component keys CAP_ICON off the ids authored here. Adding a capability
-  // without an icon renders `undefined` as a JSX tag and crashes the surface, so
-  // pin the two lists together rather than trusting the Record type at a
-  // distance.
-  const tsx = readFileSync(join(HERE, 'setnayan-ai-value.tsx'), 'utf8');
-  const iconBlock = tsx.slice(tsx.indexOf('const CAP_ICON'), tsx.indexOf('const CAP_FIGURE'));
-  for (const { id } of buildAiValueGroups(WEDDING_AI_VALUE_TERMS).flatMap((g) => g.caps)) {
-    assert.match(iconBlock, new RegExp(`\\b${id}:`), `CAP_ICON is missing an icon for "${id}"`);
+/*
+ * ── THE COVERAGE CONTRACT — replaces the old CAP_ICON drift guard ──────────
+ * The nine capabilities are no longer nine cards with nine icons; they are four
+ * spotlights (owner 2026-09-07: *"too wordy … more image simple impact"*). The
+ * icon map that guard pinned no longer exists.
+ *
+ * 🔑 IT IS REPLACED RATHER THAN DELETED, AND AIMED AT THE SAME RISK. The old
+ * guard existed so a capability could not be added without something to render
+ * it. The way to render one is now a spotlight, so that is what gets pinned. A
+ * shorter page must never be a page that quietly promises less — this is the
+ * mechanism that makes "nine paragraphs went away, nine promises did not" a
+ * fact instead of a comment.
+ */
+test('COVERAGE — every capability is shown by exactly one spotlight', () => {
+  for (const terms of [WEDDING_AI_VALUE_TERMS, BIRTHDAY]) {
+    const declared = buildAiValueGroups(terms).flatMap((g) => g.caps.map((c) => c.id));
+    const shown = buildAiValueSpotlights(terms).flatMap((s) => s.caps);
+
+    for (const id of declared) {
+      const times = shown.filter((c) => c === id).length;
+      assert.equal(times, 1, `capability "${id}" is shown ${times} times — must be exactly 1`);
+    }
+    // And nothing is shown that was never declared.
+    for (const id of shown) {
+      assert.ok(declared.includes(id), `spotlight claims "${id}", which is not a capability`);
+    }
+    assert.equal(shown.length, declared.length);
   }
+});
+
+test('the component renders the shared kit rather than a second one', () => {
+  // Rule 0. `_spotlights.tsx` is the shipped archetype; this page supplies
+  // content to it. A hand-rolled row grid here would drift from the eight
+  // public doorways the moment either side changed.
+  const tsx = readFileSync(join(HERE, 'setnayan-ai-value.tsx'), 'utf8');
+  assert.match(tsx, /from '@\/app\/_components\/marketing\/_spotlights'/);
+  assert.match(tsx, /<Spotlights\b/);
 });
 
 test('DRIFT GUARD — no capability body hardcodes a wedding-ism', () => {
@@ -109,5 +137,56 @@ test('DRIFT GUARD — no capability body hardcodes a wedding-ism', () => {
   const text = allText(BIRTHDAY).toLowerCase();
   for (const word of ['couple', 'wedding', 'bride', 'groom', 'reception', 'pre-cana']) {
     assert.ok(!text.includes(word), `non-wedding copy leaked the wedding-ism "${word}"`);
+  }
+});
+
+const WEDDING_ISMS = ['couple', 'wedding', 'bride', 'groom', 'reception', 'pre-cana'];
+
+test('DRIFT GUARD — no spotlight WORDS hardcode a wedding-ism', () => {
+  const text = buildAiValueSpotlights(BIRTHDAY)
+    .flatMap((s) => [s.chip, s.t, s.d])
+    .join('\n')
+    .toLowerCase();
+  for (const word of WEDDING_ISMS) {
+    assert.ok(!text.includes(word), `non-wedding spotlight copy leaked "${word}"`);
+  }
+});
+
+/*
+ * 🖼 A PICTURE IS A CLAIM, AND NO COPY TEST CAN READ ONE.
+ * `/add-ons/demo/stills/setnayan-ai-2.jpg` is a frame of our own demo scene and
+ * it PRINTS the words "3 couples inquired for your date" inside the image. That
+ * is true for a wedding and false for a birthday — the very wedding-ism this
+ * module exists to kill, except baked into a JPEG where the sweep above is
+ * blind to it. Pin the picture by name for the type it cannot describe.
+ */
+test('the couples-only still is never shown to a non-couple event type', () => {
+  const srcs = (t: AiValueTerms) =>
+    buildAiValueSpotlights(t)
+      .map((s) => ('src' in s.media ? s.media.src : `film:${s.media.slug}`))
+      .join('\n');
+
+  assert.ok(
+    !srcs(BIRTHDAY).includes('setnayan-ai-2.jpg'),
+    'the still printing "3 couples inquired" was shown to an event with no couple',
+  );
+  assert.ok(
+    srcs(WEDDING_AI_VALUE_TERMS).includes('setnayan-ai-2.jpg'),
+    'a wedding should still get the real screen, not the fallback photograph',
+  );
+});
+
+test('every spotlight picture is one of the three real roots', () => {
+  // Mirrors `_components/marketing/spotlights-are-real.test.ts`, which scans
+  // only `app/(shell)` and therefore cannot see this dashboard page.
+  for (const terms of [WEDDING_AI_VALUE_TERMS, BIRTHDAY]) {
+    for (const s of buildAiValueSpotlights(terms)) {
+      if (s.media.kind === 'still') {
+        assert.match(s.media.src, /^\/add-ons\/demo\/stills\/[a-z0-9-]+\.jpg$/);
+      } else if (s.media.kind === 'photo') {
+        assert.match(s.media.src, /^\/demo\//);
+      }
+      if ('alt' in s.media) assert.ok(s.media.alt.length > 10, 'alt text must describe the picture');
+    }
   }
 });

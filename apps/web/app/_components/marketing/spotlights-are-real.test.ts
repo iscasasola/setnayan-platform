@@ -36,7 +36,27 @@ const WEB = join(HERE, '..', '..', '..');
 const PUBLIC = join(WEB, 'public');
 const SHELLED = join(WEB, 'app', '(shell)');
 
-/** Every .tsx directly under a shelled route folder (page + its `_sections`). */
+/**
+ * Every .tsx directly under a shelled route folder (page + its `_sections`),
+ * PLUS the in-app surfaces that compose the same kit.
+ *
+ * ⚠ THE SCAN USED TO BE PUBLIC-ONLY, AND THAT WAS A HOLE. The docblock above
+ * says "a page can reference a still that was never captured", and it is just
+ * as true inside the dashboard — more so, because a couple only reaches the
+ * buy page after deciding to spend money, so a broken frame there is seen at
+ * the worst possible moment and by the fewest people who would report it. The
+ * Setnayan AI buy surface started composing `Spotlights` on 2026-09-07 and
+ * would have been invisible to this guard on the day it shipped.
+ *
+ * Extra roots are FILES, not a directory walk: the dashboard has hundreds of
+ * `.tsx` and this guard is about the handful that name a picture. Add a path
+ * here when a new in-app surface composes the kit — the vacuity test below
+ * fails if one goes missing.
+ */
+const EXTRA_SOURCES = [
+  'app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value-copy.ts',
+] as const;
+
 function sources(): Array<{ path: string; src: string }> {
   const out: Array<{ path: string; src: string }> = [];
   for (const route of readdirSync(SHELLED)) {
@@ -46,6 +66,13 @@ function sources(): Array<{ path: string; src: string }> {
       if (!f.endsWith('.tsx')) continue;
       out.push({ path: `app/(shell)/${route}/${f}`, src: stripComments(readFileSync(join(dir, f), 'utf8')) });
     }
+  }
+  for (const rel of EXTRA_SOURCES) {
+    const abs = join(WEB, rel);
+    // Fail loudly rather than silently scanning nothing: a renamed file must
+    // update this list, not quietly drop out of the guard.
+    assert.ok(existsSync(abs), `EXTRA_SOURCES names a file that does not exist: ${rel}`);
+    out.push({ path: rel, src: stripComments(readFileSync(abs, 'utf8')) });
   }
   return out;
 }
@@ -94,10 +121,13 @@ test('every spotlight still, photo and film named by a doorway is a real file', 
   );
 });
 
-test('the scan is not vacuous — it read the doorway pages', () => {
+test('the scan is not vacuous — it read the doorway pages and the in-app surfaces', () => {
   const paths = sources().map((s) => s.path);
   assert.ok(paths.includes('app/(shell)/papic/_papic-sections.tsx'), 'Papic sections were not scanned');
   assert.ok(paths.includes('app/(shell)/setnayan-ai/page.tsx'), '/setnayan-ai was not scanned');
+  for (const rel of EXTRA_SOURCES) {
+    assert.ok(paths.includes(rel), `in-app spotlight surface was not scanned: ${rel}`);
+  }
 });
 
 /**

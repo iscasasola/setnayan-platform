@@ -1319,6 +1319,7 @@ function tableFloorItem(
   centerT: string,
   placeT: string,
   P: (i: number) => string,
+  decor?: DecorLayers,
 ): FloorItem {
   const cloth = linenT === 'sequin' ? shade(P(1), 30) : LINEN;
   const accent = P(1);
@@ -1417,8 +1418,11 @@ function tableFloorItem(
     [720, 432, 44],
   ];
   return {
+    // The decor image REPLACES the flat furniture, exactly as backdrop,
+    // ceiling and stage do — the couple's chosen anchor still describes where
+    // the field of tables actually sits, image or not.
     anchorY: Math.min(...spots.map(([, cy, r]) => cy + r * 0.36)),
-    svg: spots.map(([cx, cy, r]) => drawTable(cx, cy, r)).join(''),
+    svg: decorImage('tables', decor) ?? spots.map(([cx, cy, r]) => drawTable(cx, cy, r)).join(''),
   };
 }
 
@@ -2223,6 +2227,16 @@ const DECOR_SLOTS: Partial<Record<PartId, { x: number; y: number; w: number; h: 
   // height a sweetheart table or clad riser needs; the 16:9 sources are
   // centre-weighted, so `slice` crops sky and floor rather than the table.
   stage: { x: 330, y: 262, w: 300, h: 132, rx: 8 },
+  // RA1 · the guest-table FIELD, not one table. `tables` draws FOUR of them at
+  // (150,520,r60) (810,520,r60) (240,432,r44) (720,432,r44), so unlike every
+  // other decor zone its geometry has to span scattered objects with the aisle
+  // running between them — 88..872 × 386..586 is their combined extent.
+  //
+  // 🔑 THIS ONLY WORKS BECAUSE `tables` IS A SCENE ZONE. Its drawing's own
+  // background is knocked out before it reaches here, so the floor, the aisle
+  // runner and the dance floor all show through BETWEEN the tables. Composited
+  // opaque this rect would blank the entire lower half of the room.
+  tables: { x: 88, y: 386, w: 784, h: 200, rx: 0 },
 };
 
 /** Zone → the href of its already-retinted decor image. A zone absent from the
@@ -2323,6 +2337,7 @@ export function renderVenueSvg(
       sel(design, 'tables', 'centerpiece'),
       sel(design, 'tables', 'place'),
       P,
+      decor,
     ),
   ];
   if (venueZoneApplies(venueSetting, 'feast')) {

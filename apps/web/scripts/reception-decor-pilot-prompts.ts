@@ -56,7 +56,15 @@
  * too-wide tolerance repaints first.
  */
 
-export const PILOT_ZONES = ['backdrop', 'ceiling', 'stage', 'tables', 'feast', 'booths'] as const;
+export const PILOT_ZONES = [
+  'backdrop',
+  'ceiling',
+  'stage',
+  'tables',
+  'feast',
+  'booths',
+  'program',
+] as const;
 export type PilotZone = (typeof PILOT_ZONES)[number];
 
 export const STYLE_SLUGS = {
@@ -550,6 +558,124 @@ export const BOOTHS_PROMPTS: DecorPromptEntry[] = [
       'greys were.',
     prompt:
       'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. All three canopies are ONE single flat solid deep charcoal plum, the SAME single colour on every canopy — one completely flat colour with NO shading of any kind: no darker panels, no shadow shapes, no gradient, no highlight, no stripes, no scalloped trim. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Everything that is not a canopy — the booth frames, counters, contents and every outline stroke — is drawn in WARM CREAM, oatmeal and pale sand only. There are NO GREYS anywhere in the picture, no black, no charcoal, no silver: the canopies are the only cool dark thing in it. ' +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── PROGRAM · RA2, 2026-09-07 ──────────────────────────────────────────────
+ *
+ * 4 keepers from 7 generations (1 per 1.75), and the fifth family is a MEASURED
+ * REFUSAL rather than a miss. The tagged surface is the performance riser's
+ * floor-length draped skirt — the plan's "draped or flat-clad surface", and the
+ * same shape as the stage's clad riser. Composition is TABLES_PROMPTS'
+ * object-on-plain-background, confirmed on a third zone.
+ *
+ * 🔎 THE FINDING: A DESATURATED SLOT COLOUR IS UNSEEDABLE ON A ZONE WHOSE
+ * SUBJECT IS EQUIPMENT. `modern minimalist` failed twice and the diagnosis is
+ * about the ZONE, not the wording:
+ *
+ *   attempt 1  deep charcoal plum `#4A3B45`  nearest neutral 3.01 (grey line work)
+ *   attempt 2  mid slate plum     `#6E5A68`  nearest neutral 3.08 (mid greys)
+ *
+ * `tolerance_de` is CHECKed `BETWEEN 5 AND 30`, so both are unseedable at any
+ * legal value. This drawing is a band — musicians, instruments, amplifiers,
+ * cymbals, mic stands — and Recraft renders all of it in GREY at every value
+ * from near-black to near-white, however the neutrals are named. A family whose
+ * colour IS a desaturated grey-violet has no gap to sit in. Moving the seed
+ * lighter just moved the collision from the dark greys to the mid greys, and
+ * "NO OUTLINES AT ALL" — which solved the identical-looking problem on `feast`
+ * — did nothing here, because on this zone the greys are the SUBJECT rather
+ * than the line work. The four families that landed are all SATURATED hues.
+ * ➡ Before spending a generation, ask whether the zone's own subject is grey.
+ *   If it is, a desaturated family is a refusal, not a re-run.
+ *
+ * 🔎 AND FINDING 3 AGAIN, ON `tropical heritage`: Recraft ignored the `#9CB29A`
+ * sage in `colors`, invented a bright mint dominant (39% of the frame) and spent
+ * the sage on a MINOR fill 18.10 away. The seeded hex is `#66DEBA`, measured off
+ * the pixels. Tagging the seed would have tagged almost nothing and left the
+ * visible skirt stock. RE-SAMPLE; `colors` is a hint, never a promise.
+ */
+export const PROGRAM_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'program',
+    style: 'elegant · simple · classic',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #C9A059 tol 11 (0 px outside at 11, 325 at 12). ' +
+      'Job 549f1b26. The widest clean margin of the four: its nearest neutral is 11.09 away.',
+    prompt:
+      'A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid warm gold. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second gold, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. The musicians, instruments, amplifier and microphone stands are drawn in pale silver grey, white and soft charcoal only — nothing else in the picture is gold, amber, tan or brown. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'program',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #8C6BA6 tol 8 (22 px outside at 8, 268 at 9). ' +
+      'Job 7866ce96.',
+    prompt:
+      'A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid jewel-tone purple. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second purple, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. The musicians, instruments, amplifier and microphone stands are drawn in pale silver grey, white and soft charcoal only — nothing else in the picture is purple, violet, mauve or lilac. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'program',
+    style: 'editorial cream',
+    aspectRatio: '16:9',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #D98BA6 tol 12 (25 px outside at 12, 99 at 13). ' +
+      "Job 1cd031b8. ⚠ The drummer's shirt is drawn in the skirt's own fill, so it recolours " +
+      'with the skirt. Measured and kept: at the composited size the figure is a few pixels ' +
+      'tall. Worth a prompt line next time — "nobody in the picture wears the skirt colour".',
+    prompt:
+      'A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid blush pink. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second pink, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. The musicians, instruments, amplifier and microphone stands are drawn in pale silver grey, white and soft charcoal only — nothing else in the picture is pink, rose or blush. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'program',
+    style: 'tropical heritage',
+    aspectRatio: '16:9',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #66DEBA tol 18 (0 px outside at 18, 68 at 19). ' +
+      'Job 210fc7f0. 🪤 THE SLOT IS NOT THE SEED. Recraft invented a bright mint dominant ' +
+      '(39% of the frame) and spent the passed #9CB29A sage on a minor fill 18.10 away — which ' +
+      "is also what bounds this file's tolerance. Tagging the seed would have tagged almost " +
+      'nothing and left the visible skirt stock.',
+    prompt:
+      'A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid sage green. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second green, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. Everything that is not the skirt — the musicians, instruments, amplifier, microphone stands and every outline — is drawn in COOL dark charcoal grey and pure white only: no beige, no warm grey, no taupe, no cream, no olive, and nothing else in the picture is green. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'program',
+    style: 'modern minimalist',
+    aspectRatio: '16:9',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#6E5A68',
+    colorsPassed: ['#6E5A68'],
+    outcome:
+      'NOT SHIPPED — UNSEEDABLE, twice. This is attempt 2 (job 3dd63d1c): a MID-TONE slate ' +
+      'plum, with every other shape asked for in pure black and white so nothing would sit ' +
+      'near its value. Nearest neutral came back 3.08 (mid greys), against 3.01 for attempt 1 ' +
+      "(job c1af9eba, deep charcoal plum #4A3B45, the family's usual seed, with the " +
+      '"NO OUTLINES AT ALL" wording that solved the same-looking problem on `feast`). Both ' +
+      "under tolerance_de's CHECK floor of 5. The cell ships UNCOVERED and renders flat, byte " +
+      'for byte. See the finding above: on a zone whose subject IS grey equipment, a ' +
+      'desaturated family has nowhere to sit, and a third generation would not have changed it.',
+    prompt:
+      "A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid MID-TONE muted slate plum — a medium value, clearly lighter than black and clearly darker than white. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second plum, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. Everything that is not the skirt — the musicians, instruments, amplifier, microphone stands and every outline stroke — is drawn in pure BLACK and pure WHITE only, with no greys and no colours at all, so nothing in the picture sits near the skirt's value. " +
       COMMON_SUFFIX,
   },
 ];

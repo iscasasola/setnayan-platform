@@ -25,7 +25,7 @@ import {
 } from './reception-decor-layers';
 import { recolorRGBA, colorDistance, hexToRgb } from './color-recolor';
 import sharp from 'sharp';
-import { renderVenueSvg, DEFAULT_DESIGN, type ReceptionDesign } from './reception-scene';
+import { renderVenueSvg, DEFAULT_DESIGN, type ReceptionDesign, type PartId } from './reception-scene';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -119,7 +119,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
   // fails loudly if someone adds a zone speculatively.
   assert.deepEqual(
     [...PILOT_DECOR_ZONES].sort(),
-    ['backdrop', 'booths', 'ceiling', 'feast', 'stage', 'tables'],
+    ['backdrop', 'booths', 'ceiling', 'feast', 'program', 'stage', 'tables'],
     'PILOT_DECOR_ZONES changed. That is allowed — but it is a switch, so update the artwork ' +
       'and the count in the same change, never the list alone.',
   );
@@ -134,14 +134,37 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
     'tropical-heritage',
     'modern-minimalist',
   ];
+  // 🔑 A ZONE MAY LEGITIMATELY COVER FEWER THAN FIVE FAMILIES, AND `program` IS
+  // THE FIRST THAT DOES. This asserted a flat 5, which was true of every zone
+  // that existed when it was written and is not the claim: an uncovered
+  // (zone, style) cell renders as the flat SVG byte for byte — MB14b's own
+  // invariant, asserted in `reception-scene.test.ts` — so shipping four is
+  // graceful degradation, not a hole. `program`'s `modern minimalist` cell is
+  // UNSEEDABLE (nearest neutral measured 3.01, then 3.08, then 3.01 again, all
+  // under `tolerance_de`'s CHECK floor of 5) and ships uncovered, not widened.
+  //
+  // The count stays PINNED PER ZONE rather than relaxed to "at least one",
+  // because the failure this guard exists for — a file quietly missing from a
+  // zone that claims it — looks exactly like a deliberately uncovered cell from
+  // the outside. Adding a drawing means editing this map in the same change.
+  const EXPECTED_ARTWORK: Partial<Record<PartId, number>> = {
+    backdrop: 5,
+    ceiling: 5,
+    stage: 5,
+    tables: 5,
+    feast: 5,
+    booths: 5,
+    program: 4,
+  };
   for (const zone of PILOT_DECOR_ZONES) {
     const dir = new URL(`../public/moodboard-seed/venue_scene/${zone}/`, import.meta.url);
     const files = readdirSync(dir).filter((f) => f.endsWith('.svg'));
     assert.equal(
       files.length,
-      5,
+      EXPECTED_ARTWORK[zone],
       `zone "${zone}" is switched on but public/moodboard-seed/venue_scene/${zone}/ holds ` +
-        `${files.length} SVGs, not one per style family. A zone on this list with no file ` +
+        `${files.length} SVGs, not the ${EXPECTED_ARTWORK[zone]} this list expects. A zone on ` +
+        `this list with no file ` +
         'behind it hands the compositor an href that 404s, and the couple sees nothing.',
     );
     for (const file of files) {
@@ -424,7 +447,7 @@ async function ra1SceneRaster(slug: string) {
 test('RA1: only scene zones knock their background out — backdrop and ceiling must not', () => {
   assert.deepEqual(
     [...SCENE_DECOR_ZONES],
-    ['stage', 'tables', 'feast', 'booths'],
+    ['stage', 'tables', 'feast', 'booths', 'program'],
     'SCENE_DECOR_ZONES changed. Adding a zone here is a claim that its drawing is an OBJECT ' +
       'standing in a room, so its background is foreign and should go. Adding `backdrop` or ' +
       '`ceiling` would be wrong in the opposite direction — those drawings FILL their zone, and ' +
@@ -531,8 +554,9 @@ test('RA1 · REAL PIXELS: no panel drawing is ever knocked out — all ten stay 
   }
   assert.match(
     src,
-    /SCENE_DECOR_ZONES: readonly PartId\[\] = \['stage', 'tables', 'feast', 'booths'\]/,
-    'SCENE_DECOR_ZONES no longer reads exactly [stage, tables, feast, booths] in the source. Panel ' +
+    /SCENE_DECOR_ZONES: readonly PartId\[\] = \[\s*'stage',\s*'tables',\s*'feast',\s*'booths',\s*'program',?\s*\]/,
+    'SCENE_DECOR_ZONES no longer reads exactly [stage, tables, feast, booths, program] in the ' +
+      'source. Panel ' +
       'zones (backdrop, ceiling) must never appear there.',
   );
 });
@@ -1398,6 +1422,329 @@ test('RA2 booths: all five tolerances really are on a cliff', async () => {
       worst > 0.5 * expected,
       `${slug}: widening from ${t.tolerance} to ${t.tolerance + 1} moved ${worst} px outside ` +
         `the canopy, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
+        're-cut, or this harness can no longer see a bleed — in which case the assertions above ' +
+        'are vacuous. Re-measure; do not delete this test.',
+    );
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA2 · PART B · THE PROGRAM ZONE.
+ *
+ * `20271212747087` seeds `program` for FOUR of the five style families. The
+ * tagged surface is the performance riser's floor-length draped skirt.
+ *
+ * ⚠ `modern minimalist` HAS NO ROW AND THAT IS THE MEASURED OUTCOME, not an
+ * omission. Two generations, two ways: `#4A3B45` sat 3.01 from the drawing's
+ * grey line work, `#6E5A68` sat 3.08 from its mid greys — both under
+ * `tolerance_de`'s CHECK floor of 5, so no legal tolerance isolates the skirt.
+ * The cell renders flat, byte for byte. The guards below assert the ABSENCE as
+ * deliberately as they assert the four that landed, because "four rows" and
+ * "one row silently failed to insert" look identical from the outside.
+ *
+ * ── MEASURED WITH NO AREA FLOOR ─────────────────────────────────────────────
+ * Every constant is from a 520px `sharp` raster pushed through the real
+ * `recolorRGBA` against four unrelated targets, counting opaque pixels that
+ * change OUTSIDE a 2px dilation of the tagged skirt. If a drawing is re-cut,
+ * RE-MEASURE — do not adjust a number here to make a red test green.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const RA2_PROGRAM_MIGRATION = new URL(
+  '../../../supabase/migrations/20271212747087_ra2_program_decor_four_families.sql',
+  import.meta.url,
+);
+
+type Ra2Program = { slug: string; servedPath: string; sampledHex: string; tolerance: number };
+
+/** 🪤 Parsed from the migration, never retyped — including the served path,
+ *  so a migration pointed at a file `public/` does not serve fails HERE. */
+function ra2Programs(): Ra2Program[] {
+  const sql = readFileSync(RA2_PROGRAM_MIGRATION, 'utf8')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  return [
+    ...sql.matchAll(
+      /\('(\/moodboard-seed\/venue_scene\/program\/([a-z0-9-]+)\.svg)',\s*'(#[0-9A-Fa-f]{6})',\s*(\d+)::NUMERIC\)/g,
+    ),
+  ]
+    .map((m) => ({
+      slug: m[2]!,
+      servedPath: m[1]!,
+      sampledHex: m[3]!.toUpperCase(),
+      tolerance: Number(m[4]),
+    }))
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+const RA2_PROGRAM = ra2Programs();
+
+/** 0.02% of the opaque area (31 px of 154,440) — the same measured antialiasing
+ *  allowance every decor zone since `tables` has used. Measured 2026-09-07 on
+ *  these four: 0, 22, 25, 0. */
+const RA2_PROGRAM_BUDGET = 31;
+
+/** All four are bounded by a genuine cliff — one step up turns a measured
+ *  field. Unlike `feast`, none of them is budget-bounded, so all four are
+ *  asserted rather than a subset. */
+const RA2_PROGRAM_CLIFF: Record<string, number> = {
+  'elegant-simple-classic': 325,
+  'bridgerton-regal': 268,
+  'editorial-cream': 99,
+  'tropical-heritage': 68,
+};
+
+async function ra2ProgramObject(t: Ra2Program) {
+  const file = fileURLToPath(new URL(`.${t.servedPath}`, new URL('../public/', import.meta.url)));
+  const { data, info } = await sharp(file, { density: 300 })
+    .resize(520, 520, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const rgba = new Uint8ClampedArray(data);
+  const { width: w, height: h } = info;
+  const [sr, sg, sb] = hexToRgb(t.sampledHex);
+  // 🔑 THE OBJECT IS EVERY PIXEL NEAR THE SLOT, NOT ONLY THE EXACT MATCHES —
+  // built from exact matches alone, the skirt's own antialiased interior lands
+  // OUTSIDE the mask and every tolerance looks like a bleed.
+  const core = new Uint8Array(w * h);
+  const mask = new Uint8Array(w * h);
+  let opaque = 0;
+  let exact = 0;
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    if (rgba[i] === sr && rgba[i + 1] === sg && rgba[i + 2] === sb) exact++;
+    if (colorDistance(rgba[i]!, rgba[i + 1]!, rgba[i + 2]!, sr, sg, sb) <= 3) core[p] = 1;
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!core[y * w + x]) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          if (ny >= 0 && nx >= 0 && ny < h && nx < w) mask[ny * w + nx] = 1;
+        }
+      }
+    }
+  }
+  return { rgba, w, h, core, mask, opaque, exact, slot: [sr, sg, sb] as const };
+}
+
+const RA2_PROGRAM_TARGETS = ['#7A1F2B', '#D4AF37', '#0F766E', '#1E3A8A'] as const;
+
+async function ra2ProgramRecolour(t: Ra2Program, tolerance: number, hex: string) {
+  const o = await ra2ProgramObject(t);
+  const out = recolorRGBA(
+    o.rgba,
+    [{ slotId: 1, sampledHex: t.sampledHex, toleranceDe: tolerance, regionLabel: 'draped fabric' }],
+    { 1: { mode: 'palette', hex } },
+  );
+  let outside = 0;
+  let stuck = 0;
+  for (let p = 0; p < o.w * o.h; p++) {
+    const i = p * 4;
+    if (o.rgba[i + 3]! < 250) continue;
+    const moved =
+      out[i] !== o.rgba[i] || out[i + 1] !== o.rgba[i + 1] || out[i + 2] !== o.rgba[i + 2];
+    if (moved && !o.mask[p]) outside++;
+    if (
+      o.rgba[i] === o.slot[0] &&
+      o.rgba[i + 1] === o.slot[1] &&
+      o.rgba[i + 2] === o.slot[2] &&
+      !moved
+    ) {
+      stuck++;
+    }
+  }
+  return { outside, stuck, exact: o.exact, opaque: o.opaque };
+}
+
+test('RA2 program: the migration seeds FOUR measured drawings, and deliberately not five', () => {
+  assert.deepEqual(
+    RA2_PROGRAM.map((t) => `${t.slug}:${t.sampledHex}:${t.tolerance}`),
+    [
+      'bridgerton-regal:#8C6BA6:8',
+      'editorial-cream:#D98BA6:12',
+      'elegant-simple-classic:#C9A059:11',
+      'tropical-heritage:#66DEBA:18',
+    ],
+    'a seeded band-riser tolerance or sampled_hex changed. Each is a separate measurement ' +
+      'against a different neighbour in its own drawing. Re-measure through the real ' +
+      'recolorRGBA at 520px before editing this list.',
+  );
+  assert.ok(
+    !RA2_PROGRAM.some((t) => t.slug === 'modern-minimalist'),
+    "a `modern minimalist` band riser was seeded. It measured UNSEEDABLE twice — nearest " +
+      'neutral 3.01 with a deep plum and 3.08 with a mid slate plum, both under ' +
+      "tolerance_de's CHECK floor of 5, because this drawing's subject IS grey equipment " +
+      '(instruments, amps, mic stands) at every value. If a drawing has been re-cut, ' +
+      're-measure it and update this assertion in the same change. Never widen the CHECK.',
+  );
+  for (const t of RA2_PROGRAM) {
+    assert.ok(
+      t.tolerance >= 5 && t.tolerance <= 30,
+      `${t.slug}: ${t.tolerance} is outside moodboard_asset_color_ranges' CHECK (5..30).`,
+    );
+  }
+});
+
+test('RA2 program: the sampled hex is the PIXELS, not the seed that was asked for', () => {
+  // 🪤 THE PILOT'S FINDING 3, MEASURED AGAIN AND WORTH ITS OWN CASE. Every other
+  // family's drawing came back wearing the hex passed in `colors`. `tropical
+  // heritage` did not: Recraft invented a bright mint dominant and spent the
+  // passed sage `#9CB29A` on a MINOR fill 18.10 away. Tagging the seed would
+  // have tagged almost nothing and left the visible skirt stock — the exact
+  // shape of the pilot's `bridgerton` failure, which took three rounds to
+  // diagnose. This case exists so the next session does not re-learn it.
+  const tropical = RA2_PROGRAM.find((t) => t.slug === 'tropical-heritage')!;
+  assert.equal(
+    tropical.sampledHex,
+    '#66DEBA',
+    'the tropical band riser is tagged at a hex other than the one measured off its pixels. ' +
+      'If this was "corrected" to the #9CB29A sage passed in `colors`, it is now tagging a ' +
+      'minor fill 18.10 away and the skirt a couple actually sees will not recolour at all.',
+  );
+});
+
+test('RA2 program: the zone is wired all four ways, or the room is silently wrong', () => {
+  assert.ok(
+    PILOT_DECOR_ZONES.includes('program'),
+    "'program' is missing from PILOT_DECOR_ZONES — resolveDecorLayer will never return these " +
+      'four approved rows and every couple keeps seeing the flat drawing, with nothing logged.',
+  );
+  assert.ok(
+    SCENE_DECOR_ZONES.includes('program'),
+    "'program' is missing from SCENE_DECOR_ZONES. Its drawing is a riser standing on a plain " +
+      "field, so without the background knockout it lays an opaque slab across the couple's " +
+      'floor and the guest tables beside it.',
+  );
+});
+
+test('RA2 program · REAL BYTES: the image never invents a BAND, and never swallows the HOST', () => {
+  // 🪤 THE LESSON `feast` PAID FOR, ASSERTED BEFORE IT COULD REPEAT. `program`
+  // is the second zone whose flat drawing holds TWO independently chosen
+  // objects — the line-up on its riser, and, from a separate attribute, the
+  // host's spot. On `feast` the image was gated on the WHOLE flat group, and a
+  // couple with plated service who ticked a cake table got a generated buffet
+  // line and lost the cake table. The same gate here would give a couple who
+  // booked only an emcee a generated BAND, and take their podium away.
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/program/elegant-simple-classic.svg';
+
+  // A host and NO band: the image must not appear, and the layer must be a
+  // total no-op.
+  const hostOnly: ReceptionDesign = {
+    ...DEFAULT_DESIGN,
+    program: { performers: 'none', host: 'podium', floor: 'none' },
+  };
+  const hostWithDecor = renderVenueSvg(hostOnly, palette, undefined, 'hotel_venue', {
+    program: href,
+  });
+  assert.ok(
+    !hostWithDecor.includes(href),
+    'a couple who booked an emcee and NO band had a generated band riser drawn into their ' +
+      'room. There is no riser to replace, so the gate must be the band, not the group.',
+  );
+  assert.equal(
+    hostWithDecor,
+    renderVenueSvg(hostOnly, palette, undefined, 'hotel_venue', {}),
+    'a program decor layer changed the render of a couple who chose no band. With nothing to ' +
+      'replace it must be a no-op, byte for byte.',
+  );
+
+  // A band AND a host: the image replaces the riser, the host spot survives.
+  const both: ReceptionDesign = {
+    ...DEFAULT_DESIGN,
+    program: { performers: 'live_band', host: 'podium', floor: 'none' },
+  };
+  const flat = renderVenueSvg(both, palette, undefined, 'hotel_venue');
+  const composited = renderVenueSvg(both, palette, undefined, 'hotel_venue', { program: href });
+  assert.ok(
+    composited.includes(href),
+    'a couple who booked a band did not get the generated riser. Check DECOR_SLOTS has a ' +
+      "`program` geometry and that programFloorItem calls decorImage('program', decor).",
+  );
+  // The podium's own gold lip, from `hostSpot()` — at the exact coordinates
+  // `programFloorItem` places it (596, 330), so this cannot match some other
+  // rect elsewhere in the room and pass vacuously.
+  const podium = '<rect x="594" y="342" width="38" height="6"';
+  assert.ok(
+    flat.includes(podium),
+    'the flat render of a podium no longer contains its gold lip at (594,342) — this probe has ' +
+      'stopped testing anything and needs updating, not deleting.',
+  );
+  assert.ok(
+    composited.includes(podium),
+    'the couple booked an emcee and the generated band riser swallowed their podium. The ' +
+      'image stands in for the BAND; the host spot is a separate object they chose.',
+  );
+
+  assert.equal(
+    renderVenueSvg(both, palette, undefined, 'hotel_venue', {}),
+    flat,
+    'an empty decor map changed the render — an uncovered cell must be byte-identical to the ' +
+      'flat drawing.',
+  );
+});
+
+test('RA2 program · REAL RASTER, NO AREA FLOOR: nothing but the skirt wears the palette', async () => {
+  for (const t of RA2_PROGRAM) {
+    for (const hex of RA2_PROGRAM_TARGETS) {
+      const { outside, opaque } = await ra2ProgramRecolour(t, t.tolerance, hex);
+      assert.ok(
+        outside <= RA2_PROGRAM_BUDGET,
+        `${t.slug}: ${outside} opaque px outside the tagged skirt recoloured under ${hex} ` +
+          `(${((100 * outside) / opaque).toFixed(3)}% of the frame), above the measured ` +
+          `${RA2_PROGRAM_BUDGET} px antialiasing budget. Mic stands and cymbal wires are ` +
+          'hairlines — a census with an area floor cannot see them, which is why this ' +
+          'assertion has none. Re-measure; do not raise the budget to fit a wider tolerance.',
+      );
+    }
+  }
+});
+
+test('RA2 program · REAL RASTER: every skirt recolours COMPLETELY', async () => {
+  // 🪤 The reach of this case, stated rather than left to look stronger than it
+  // is: each skirt is a FLAT fill, so its exact slot pixels match at any
+  // tolerance and a TIGHTENING cannot strand them — the pinned-values case is
+  // what catches that. What this DOES catch is a wrong or swapped sampled_hex,
+  // which is a live risk on this zone: `tropical heritage`'s dominant is not
+  // the hex that was asked for, and "correcting" it back to the seed would set
+  // `exact` to 0 and fire here.
+  for (const t of RA2_PROGRAM) {
+    for (const hex of RA2_PROGRAM_TARGETS) {
+      const { stuck, exact } = await ra2ProgramRecolour(t, t.tolerance, hex);
+      assert.ok(exact > 0, `${t.slug}: no pixel carries the slot colour ${t.sampledHex}`);
+      assert.equal(
+        stuck,
+        0,
+        `${t.slug}: ${stuck}/${exact} px of the riser skirt stayed at stock colour under ` +
+          `${hex} at tolerance ${t.tolerance}.`,
+      );
+    }
+  }
+});
+
+test('RA2 program: all four tolerances really are on a cliff', async () => {
+  // 🔑 PINS THE NUMBER RATHER THAN THE OUTCOME, and doubles as "can this harness
+  // see a bleed at all". Every one of the four has a genuine boundary one step
+  // up, so all four are asserted — unlike `feast`, where one climbed gradually
+  // and claiming a cliff for it would have been inventing one.
+  for (const [slug, expected] of Object.entries(RA2_PROGRAM_CLIFF)) {
+    const t = RA2_PROGRAM.find((x) => x.slug === slug)!;
+    let worst = 0;
+    for (const hex of RA2_PROGRAM_TARGETS) {
+      const { outside } = await ra2ProgramRecolour(t, t.tolerance + 1, hex);
+      worst = Math.max(worst, outside);
+    }
+    assert.ok(
+      worst > 0.5 * expected,
+      `${slug}: widening from ${t.tolerance} to ${t.tolerance + 1} moved ${worst} px outside ` +
+        `the skirt, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
         're-cut, or this harness can no longer see a bleed — in which case the assertions above ' +
         'are vacuous. Re-measure; do not delete this test.',
     );

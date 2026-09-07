@@ -80,6 +80,11 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     buildFit: null,
     buildClashWith: null,
     freeDaysLine: null,
+    // Explicit, not left to `...p`. `freeDays` is REQUIRED on ShortlistVendor
+    // (the popup needs the days themselves, not the formatted line), so an
+    // absent key spreads as `undefined` and the fixture stops satisfying the
+    // type — which is exactly what tsc said.
+    freeDays: null,
     ...p,
   };
 }

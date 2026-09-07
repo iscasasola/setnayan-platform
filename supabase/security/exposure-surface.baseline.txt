@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6581
+# facts: 6589
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     584
-#   col       4836
-#   policy    896
+#   tpriv     585
+#   col       4842
+#   policy    897
 #   view      8
 #   func      253
 #
@@ -291,6 +291,7 @@ tpriv	public.npc_filing_tasks|anon	SIUD
 tpriv	public.npc_filing_tasks|authenticated	SIUD
 tpriv	public.oauth_grants|authenticated	D
 tpriv	public.oauth_state|authenticated	SIUD
+tpriv	public.onboarding_order_items|authenticated	S
 tpriv	public.onboarding_refinement_options|anon	SIUD
 tpriv	public.onboarding_refinement_options|authenticated	SIUD
 tpriv	public.onboarding_refinements|anon	SIUD
@@ -2820,6 +2821,12 @@ col	public.oauth_state.event_id	anon=- authenticated=SIU
 col	public.oauth_state.initiated_by	anon=- authenticated=SIU
 col	public.oauth_state.provider	anon=- authenticated=SIU
 col	public.oauth_state.state_token	anon=- authenticated=SIU
+col	public.onboarding_order_items.created_at	anon=- authenticated=S
+col	public.onboarding_order_items.item_id	anon=- authenticated=S
+col	public.onboarding_order_items.order_id	anon=- authenticated=S
+col	public.onboarding_order_items.quantity	anon=- authenticated=S
+col	public.onboarding_order_items.service_code	anon=- authenticated=S
+col	public.onboarding_order_items.unit_price_php	anon=- authenticated=S
 col	public.onboarding_refinement_options.created_at	anon=SIU authenticated=SIU
 col	public.onboarding_refinement_options.emoji	anon=SIU authenticated=SIU
 col	public.onboarding_refinement_options.label_en	anon=SIU authenticated=SIU
@@ -5887,6 +5894,7 @@ policy	public.npc_filing_tasks|npc_filing_tasks_admin_write	mode=PERMISSIVE cmd=
 policy	public.oauth_grants|admin_manages_oauth_grants	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.oauth_grants|event_member_reads_oauth_grants	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.oauth_state|admin_reads_oauth_state	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.onboarding_order_items|onboarding_order_items_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(order_id IN ( SELECT o.order_id FROM orders o WHERE (o.event_id IN ( SELECT current_event_ids() AS current_event_ids)))) check=NULL
 policy	public.onboarding_refinement_options|onboarding_refinement_options_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.onboarding_refinement_options|onboarding_refinement_options_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.onboarding_refinements|onboarding_refinements_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()

@@ -66,3 +66,18 @@ Each was caught only by mutation. That is five such slips in one day, all in gua
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-09-07 — verification bypass exists; same badge; no cap; six-month
 deadline enforced by on-access sweep; the vouch lives in its own service-role-only table.
+
+### Follow-up · 2026-09-07 — two CI guards this PR had not satisfied
+
+- **`lint-one-comment-stripper`** refused `verification-bypass.test.ts`: the
+  couple-facing-label assertion stripped comments with its own two-replace
+  regex. Swapped for `stripComments` from `lib/strip-comments.ts`. Mutation-
+  tested both directions — adding `BADGE_LABEL = 'Vouched'` to the module turns
+  it red, and a *comment* mentioning "Provisional" correctly does not.
+- **`admin-jobs-are-generated`** was red because the three new server actions
+  (`grantVerificationBypass`, `revokeVerificationBypass`,
+  `sweepExpiredVerificationBypasses`) were not in the committed checklist.
+  Regenerated with `pnpm --filter @setnayan/web admin:jobs`. The admin *map* is
+  untouched: regenerating it changes only its commit stamp, which is churn.
+
+SPEC IMPACT: None.

@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 315 jobs, 208 of them form-driven, as of b49cf310d.
+// that performs it. 318 jobs, 208 of them form-driven, as of 2e3d5d639.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -1138,6 +1138,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "grantVerificationBypass",
+    "phrase": "grant verification bypass",
+    "ownerPath": "/admin/vendors",
+    "resolvedPath": "/admin/vendors",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "holdPaymentMethod",
     "phrase": "hold payment method",
     "ownerPath": "/admin/payment-options",
@@ -2255,6 +2264,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": true
   },
   {
+    "name": "revokeVerificationBypass",
+    "phrase": "revoke verification bypass",
+    "ownerPath": "/admin/vendors",
+    "resolvedPath": "/admin/vendors",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
     "name": "runDemandRadarRefresh",
     "phrase": "run demand radar refresh",
     "ownerPath": "/admin/demand",
@@ -3267,6 +3285,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "refusedWhenEmpty": [
       "reason"
     ],
+    "destructive": false
+  },
+  {
+    "name": "sweepExpiredVerificationBypasses",
+    "phrase": "sweep expired verification bypasses",
+    "ownerPath": "/admin/vendors",
+    "resolvedPath": "/admin/vendors",
+    "fields": [],
+    "refusedWhenEmpty": [],
     "destructive": false
   },
   {

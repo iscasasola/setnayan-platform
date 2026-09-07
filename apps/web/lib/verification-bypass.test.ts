@@ -79,12 +79,17 @@ test('🔑 nothing here produces a COUPLE-facing label — the badge is the same
   // Owner, asked directly whether a couple should see a difference: "just same."
   // If a public label ever appears in this module, that ruling has been quietly
   // reversed in code rather than by a decision.
-  const src = new URL('./verification-bypass.ts', import.meta.url);
-  const text = require('node:fs').readFileSync(src, 'utf8') as string;
+  // ⚠ `stripComments` from lib/strip-comments.ts — NOT a two-replace regex of
+  // this file's own. A private stripper takes BLOCK comments first, so a line
+  // comment containing `*/`-adjacent text opens a comment that closes at the
+  // next real `*/` and blanks everything between; the guard then asserts
+  // against a blank and passes. `lint-one-comment-stripper.mjs` fails on any
+  // new one, and it failed on this one.
+  const text = stripComments(
+    readFileSync(resolve(HERE2, 'verification-bypass.ts'), 'utf8'),
+  );
   assert.ok(
-    !/(Vouched|Provisional|Pending documents|Trial|Unverified badge)/i.test(
-      text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, ''),
-    ),
+    !/(Vouched|Provisional|Pending documents|Trial|Unverified badge)/i.test(text),
     'a couple-facing distinction crept into the bypass module',
   );
 });

@@ -66,6 +66,7 @@ export const PILOT_ZONES = [
   'program',
   'walls',
   'photo_wall',
+  'tunnel',
 ] as const;
 export type PilotZone = (typeof PILOT_ZONES)[number];
 
@@ -88,8 +89,9 @@ export type DecorPromptEntry = {
   zone: PilotZone;
   style: StyleFamily;
   prompt: string;
-  /** `9:16` joined for `walls`, whose band is 56 wide and 372 high. */
-  aspectRatio: '4:5' | '9:16' | '16:9';
+  /** `9:16` joined for `walls`, whose band is 56 wide and 372 high; `4:3` for
+   *  `tunnel`, whose arch group is 356 wide and 268 high. */
+  aspectRatio: '4:3' | '4:5' | '9:16' | '16:9';
   backgroundColor: string;
   /** Seed hex fed to Recraft's `colors` control — NOT necessarily the final
    *  sampled hex (Recraft followed these closely this run, but always
@@ -897,6 +899,120 @@ export const WALLS_PROMPTS: DecorPromptEntry[] = [
       'grey equipment in it.',
     prompt:
       'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid deep charcoal plum. The whole drape is the EXACT SAME ONE PLUM from top to bottom — no second plum, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM and pale sand. There are NO GREYS anywhere in the picture, no black, no charcoal, no silver: the drape is the only dark thing in it. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+];
+/**
+ * ── TUNNEL · RA2, 2026-09-07 ───────────────────────────────────────────────
+ *
+ * 5 keepers from 6 generations (1 per 1.2). The tagged surface is the blooms,
+ * leaves or hoops on the arches.
+ *
+ * 🔑 THE FIRST ZONE WHOSE COMPOSITION HAD TO MATCH A PERSPECTIVE, NOT JUST A
+ * SHAPE. Every other zone in this feature is an object seen flat-on.
+ * `tunnelLayer` draws THREE arches receding down the aisle in one-point
+ * perspective at depths (470,178,636) (432,124,588) (404,86,548), so the prompt
+ * names exactly that — "a large arch nearest, a medium one behind it, a small
+ * one furthest, forming a walkway tunnel" — and all five came back with the
+ * recession reading correctly against the aisle. First `4:3` sources in the
+ * feature, matching a group 356 wide and 268 high.
+ *
+ * 🔎 THE FINDING: ON A PERSPECTIVE ZONE, FORBID DEPTH-SHADING EXPLICITLY.
+ * `tropical heritage`'s first attempt (job 76643e4b) was UNSEEDABLE — 100 px
+ * outside at the tightest legal tolerance, against a `#94A992` sitting 3.37
+ * away, which was a slightly DARKER sage used for the leaves on the arches
+ * further back. The prompt had already said "no second green, no darker green";
+ * the model read that as a rule about each leaf and still shaded BY DEPTH.
+ * What worked was naming the mechanism:
+ *
+ *     "THE ENTIRE PICTURE CONTAINS EXACTLY ONE SHADE OF GREEN AND NO OTHER
+ *      GREEN AT ALL … Depth is shown ONLY by the size of the arches, never by
+ *      colour."
+ *
+ * ➡ This is the third form of the same lesson. "One flat colour" is heard as a
+ *   rule about each SHAPE — not across the wall (`photo_wall`), not across the
+ *   row (`booths`), and not across depth (here). Say which axis you mean.
+ *
+ * 🪤 AND TWO OF THE FIVE HAVE A NEAREST NEUTRAL UNDER 5 AND SHIP ANYWAY. That
+ * is the plan's 2026-09-07 correction working: "nearest neutral" is a COLOUR
+ * distance, and the rule that decides is POSITIONAL. Those sub-5 colours are the
+ * arches' own antialiased edges, inside the 2px dilation; what counts is the 18
+ * and 37 px that move OUTSIDE it, both under the 40 px budget. Judging by
+ * colour distance alone would have thrown away two good files.
+ */
+export const TUNNEL_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'tunnel',
+    style: 'elegant · simple · classic',
+    aspectRatio: '4:3',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #C9A059 tol 14 (0 px outside at 14, 655 at 15). ' +
+      'Job 3e837c71.',
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. Every arch is covered in blooms in ONE single flat solid warm gold. All three arches are the EXACT SAME ONE GOLD — no second gold, no lighter gold, no darker gold, no shading, no gradient, no highlight, no tonal variation of any kind between one arch and another or between one bloom and another. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. The few leaves and the arch frames are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is gold, amber, tan or brown. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tunnel',
+    style: 'bridgerton · regal',
+    aspectRatio: '4:3',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #481C77 (NOT the #8C6BA6 asked for) tol 11 ' +
+      '(0 px outside at 11, 133 at 12). Job 45344e15.',
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. Every arch is covered in blooms in ONE single flat solid jewel-tone purple. All three arches are the EXACT SAME ONE PURPLE — no second purple, no lighter purple, no darker purple, no shading, no gradient, no highlight, no tonal variation of any kind between one arch and another or between one bloom and another. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. The few leaves and the arch frames are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is purple, violet, mauve or lilac. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tunnel',
+    style: 'editorial cream',
+    aspectRatio: '4:3',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #D98BA6 tol 6 (37 px outside, just under the 40 px ' +
+      'budget; no cliff, it climbs gradually). Job d1ed1087. ⚠ Its nearest neutral is 3.21 — its ' +
+      "own antialiased edge. It ships because the POSITIONAL count is what decides.",
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. Every arch is covered in blooms in ONE single flat solid blush pink. All three arches are the EXACT SAME ONE PINK — no second pink, no lighter pink, no darker pink, no shading, no gradient, no highlight, no tonal variation of any kind between one arch and another or between one bloom and another. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. The few leaves and the arch frames are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is pink, rose or blush. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tunnel',
+    style: 'tropical heritage',
+    aspectRatio: '4:3',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER on the second attempt — shipped, slot #9CB29A tol 5 (18 px outside at 5, 131 at ' +
+      '6). Job 4ada9f96. The first attempt (job 76643e4b) was UNSEEDABLE at 3.37 because the ' +
+      'leaves on the further arches were drawn a shade DARKER — depth-shading, which "no darker ' +
+      'green" did not forbid because the model read it per-leaf. See the finding above.',
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. Every arch is covered in tropical leaves. THE ENTIRE PICTURE CONTAINS EXACTLY ONE SHADE OF GREEN AND NO OTHER GREEN AT ALL — every leaf on every arch, near and far, is filled with that one identical flat sage green. There is absolutely no gradient anywhere, no second green, no darker green for the leaves behind, no lighter green for the leaves in front, no shadow, no highlight, no tint, no shade. Depth is shown ONLY by the size of the arches, never by colour. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. The arch frames are drawn in WARM CREAM and pale sand only — no greys, no black, no charcoal, no olive. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tunnel',
+    style: 'modern minimalist',
+    aspectRatio: '4:3',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #4A3B45 tol 30, ZERO px outside at the CHECK ' +
+      'ceiling, nearest neighbour 70.07. Job 754f4175. Bare geometric hoops rather than ' +
+      'flowers, which is what the family means by an arch.',
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. The arches are plain bare geometric hoops with no flowers, each a solid band of ONE single flat solid deep charcoal plum. All three arches are the EXACT SAME ONE PLUM — no second plum, no shading, no gradient, no highlight, no tonal variation of any kind between one arch and another. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. Everything else in the picture is drawn in WARM CREAM, oatmeal and pale sand only. There are NO GREYS anywhere in it, no black, no charcoal, no silver: the arches are the only dark thing in the picture. ' +
       COMMON_SUFFIX,
   },
 ];

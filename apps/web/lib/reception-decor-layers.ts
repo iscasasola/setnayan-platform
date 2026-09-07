@@ -57,6 +57,7 @@ export const PILOT_DECOR_ZONES: readonly PartId[] = [
   'program',
   'walls',
   'photo_wall',
+  'tunnel',
 ];
 
 /** One zone's decor image, ready to composite: where the source pixels live
@@ -215,6 +216,7 @@ export const SCENE_DECOR_ZONES: readonly PartId[] = [
   'feast',
   'booths',
   'program',
+  'tunnel',
 ];
 
 /**

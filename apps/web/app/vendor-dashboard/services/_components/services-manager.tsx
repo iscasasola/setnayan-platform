@@ -72,6 +72,7 @@ import {
   specialistToolsForCategories,
 } from '@/lib/vendor-service-tools';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PublishGateSubmit } from './publish-gate-submit';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { Field } from '@/app/_components/forms/field';
 import {
@@ -1253,9 +1254,18 @@ export async function VendorServicesManager({
                             <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                             Delete
                           </button>
-                          <SubmitButton className="button-primary" pendingLabel="Saving…">
+                          {/* The gate, on the button. A LIVE card whose price
+                              or Setnayan Exclusive is blank cannot be saved —
+                              the trigger would refuse it and the vendor would
+                              see a generic error instead of the sentence the
+                              database wrote for them. A DRAFT is never blocked;
+                              that is the trigger's own first branch. */}
+                          <PublishGateSubmit
+                            isActive={svc.is_active}
+                            className="button-primary"
+                          >
                             Save changes
-                          </SubmitButton>
+                          </PublishGateSubmit>
                         </div>
                       </form>
 

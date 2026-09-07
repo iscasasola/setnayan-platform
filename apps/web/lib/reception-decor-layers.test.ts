@@ -119,7 +119,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
   // fails loudly if someone adds a zone speculatively.
   assert.deepEqual(
     [...PILOT_DECOR_ZONES].sort(),
-    ['backdrop', 'ceiling', 'stage', 'tables'],
+    ['backdrop', 'ceiling', 'feast', 'stage', 'tables'],
     'PILOT_DECOR_ZONES changed. That is allowed — but it is a switch, so update the artwork ' +
       'and the count in the same change, never the list alone.',
   );
@@ -407,7 +407,7 @@ async function ra1SceneRaster(slug: string) {
 test('RA1: only scene zones knock their background out — backdrop and ceiling must not', () => {
   assert.deepEqual(
     [...SCENE_DECOR_ZONES],
-    ['stage', 'tables'],
+    ['stage', 'tables', 'feast'],
     'SCENE_DECOR_ZONES changed. Adding a zone here is a claim that its drawing is an OBJECT ' +
       'standing in a room, so its background is foreign and should go. Adding `backdrop` or ' +
       '`ceiling` would be wrong in the opposite direction — those drawings FILL their zone, and ' +
@@ -514,7 +514,7 @@ test('RA1 · REAL PIXELS: no panel drawing is ever knocked out — all ten stay 
   }
   assert.match(
     src,
-    /SCENE_DECOR_ZONES: readonly PartId\[\] = \['stage', 'tables'\]/,
+    /SCENE_DECOR_ZONES: readonly PartId\[\] = \['stage', 'tables', 'feast'\]/,
     'SCENE_DECOR_ZONES no longer reads exactly [stage, tables] in the source. Panel zones ' +
       '(backdrop, ceiling) must never appear there.',
   );
@@ -651,18 +651,29 @@ const RA1_TABLES_MIGRATION = new URL(
   import.meta.url,
 );
 
+/** RA1 · `feast`, the fifth zone. Same parse, same instrument, same budget —
+ *  extended rather than paralleled, so a third zone costs one migration URL
+ *  and one row of constants instead of another copy of this section. */
+const RA1_FEAST_MIGRATION = new URL(
+  '../../../supabase/migrations/20271212409881_ra1_feast_decor_five_families.sql',
+  import.meta.url,
+);
+
 type Ra1Table = { slug: string; servedPath: string; sampledHex: string; tolerance: number };
 
 /** 🪤 Parsed from the migration, never retyped — including the served path,
  *  so a migration pointed at a file `public/` does not serve fails HERE. */
-function ra1Tables(): Ra1Table[] {
-  const sql = readFileSync(RA1_TABLES_MIGRATION, 'utf8')
+function ra1Zone(migration: URL, zone: string): Ra1Table[] {
+  const sql = readFileSync(migration, 'utf8')
     .split('\n')
     .filter((l) => !l.trim().startsWith('--'))
     .join('\n');
   return [
     ...sql.matchAll(
-      /\('(\/moodboard-seed\/venue_scene\/tables\/([a-z0-9-]+)\.svg)',\s*'(#[0-9A-Fa-f]{6})',\s*(\d+)::NUMERIC\)/g,
+      new RegExp(
+        `\\('(\\/moodboard-seed\\/venue_scene\\/${zone}\\/([a-z0-9-]+)\\.svg)',\\s*'(#[0-9A-Fa-f]{6})',\\s*(\\d+)::NUMERIC\\)`,
+        'g',
+      ),
     ),
   ]
     .map((m) => ({
@@ -674,7 +685,8 @@ function ra1Tables(): Ra1Table[] {
     .sort((a, b) => a.slug.localeCompare(b.slug));
 }
 
-const RA1_TABLES = ra1Tables();
+const RA1_TABLES = ra1Zone(RA1_TABLES_MIGRATION, 'tables');
+const RA1_FEAST = ra1Zone(RA1_FEAST_MIGRATION, 'feast');
 
 /**
  * Opaque pixels outside the tagged cloth that may recolour at the seeded
@@ -694,6 +706,15 @@ const RA1_TABLES_BUDGET = 31;
 const RA1_TABLES_CLIFF: Record<string, number> = {
   'bridgerton-regal': 593,
   'tropical-heritage': 351,
+};
+
+/** `feast`, measured 2026-09-07. THREE of its five sit on a cliff and two do
+ *  not — a different split from the guest tables, which is why each zone
+ *  carries its own map rather than a shared rule. */
+const RA1_FEAST_CLIFF: Record<string, number> = {
+  'elegant-simple-classic': 52,
+  'bridgerton-regal': 411,
+  'tropical-heritage': 132,
 };
 
 async function ra1TableObject(t: Ra1Table) {
@@ -885,6 +906,137 @@ test('RA1 tables: the two cliff-bounded tolerances really are on a cliff', async
         `the cloth, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
         're-cut, or this harness can no longer see a bleed — in which case the assertions above ' +
         'are vacuous. Re-measure; do not delete this test.',
+    );
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA1 · PART B · THE FEAST LINE.
+ *
+ * `20271212409881` seeds `feast` for all five style families. Same instrument
+ * and same 31 px antialiasing budget as the guest tables — the helpers above
+ * are reused, not copied.
+ *
+ * 🪤 BUT THE WIRING IS DIFFERENT, AND THAT IS THE PART WORTH GUARDING.
+ * `stage` and `backdrop` are plain layers in `renderVenueSvg`'s output list.
+ * `feast` is a `FloorItem`: it returns `{ anchorY, svg }` and is depth-sorted
+ * against the guest tables by `compositeFloorItems` (RV3, #5281). So the
+ * substitution happens INSIDE `feastFloorItem`, on the `svg` field only —
+ *
+ *   • `anchorY` stays COMPUTED from the flat geometry, so an image cannot
+ *     change where the thing stands in the room;
+ *   • the `return null` check stays on the FLAT svg, so a couple who chose no
+ *     service and no stations still gets nothing drawn. 🔑 A DECOR IMAGE MUST
+ *     NEVER INVENT A FEAST IN A ROOM THAT WAS NOT MEANT TO HAVE ONE.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+test('RA1 feast: the migration seeds five measured drawings, one range each', () => {
+  assert.deepEqual(
+    RA1_FEAST.map((t) => `${t.slug}:${t.sampledHex}:${t.tolerance}`),
+    [
+      'bridgerton-regal:#8C6BA6:8',
+      'editorial-cream:#D98BA6:10',
+      'elegant-simple-classic:#C9A059:8',
+      'modern-minimalist:#4A3B45:5',
+      'tropical-heritage:#9CB29A:5',
+    ],
+    'a seeded feast tolerance or sampled_hex changed. Re-measure through the real recolorRGBA ' +
+      'at 520px against the SERVED file before editing this list.',
+  );
+  for (const t of RA1_FEAST) {
+    assert.ok(
+      t.tolerance >= 5 && t.tolerance <= 30,
+      `${t.slug}: ${t.tolerance} is outside moodboard_asset_color_ranges' CHECK (5..30).`,
+    );
+  }
+});
+
+test('RA1 feast: the zone is wired all four ways', () => {
+  assert.ok(
+    PILOT_DECOR_ZONES.includes('feast'),
+    "'feast' is missing from PILOT_DECOR_ZONES — five approved rows that resolveDecorLayer " +
+      'will never return, with nothing logged.',
+  );
+  assert.ok(
+    SCENE_DECOR_ZONES.includes('feast'),
+    "'feast' is missing from SCENE_DECOR_ZONES. Its drawing is a buffet table on a plain " +
+      "background, so without the knockout it paints an opaque rectangle over the couple's " +
+      'floor and the dance floor beside it.',
+  );
+});
+
+test('RA1 feast · REAL BYTES: the layer reaches the room, and never invents a feast', () => {
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/feast/elegant-simple-classic.svg';
+  // A design that HAS a feast: the image must reach the composited SVG.
+  const chosen = {
+    ...DEFAULT_DESIGN,
+    feast: { ...DEFAULT_DESIGN.feast, service: 'buffet' },
+  };
+  const withImage = renderVenueSvg(chosen, palette, undefined, 'hotel_venue', { feast: href });
+  assert.ok(
+    withImage.includes(href),
+    'renderVenueSvg was handed a feast decor layer for a couple who chose buffet service and ' +
+      "did not draw it. Check DECOR_SLOTS has a `feast` geometry and that feastFloorItem calls " +
+      "decorImage('feast', decor) on its svg field.",
+  );
+
+  // 🔑 AND A DESIGN THAT HAS NONE: the image must NOT appear. The null check
+  // lives on the flat svg for exactly this reason — a decor image replaces what
+  // the couple chose, it does not supply a choice they never made.
+  const none = {
+    ...DEFAULT_DESIGN,
+    feast: { service: 'none', stations: [] },
+  };
+  const empty = renderVenueSvg(none, palette, undefined, 'hotel_venue', { feast: href });
+  assert.ok(
+    !empty.includes(href),
+    'a couple who chose no feast service and no stations got a buffet table drawn into their ' +
+      'room by the decor layer. The image must replace what they chose, never invent one.',
+  );
+});
+
+test('RA1 feast · REAL RASTER, NO AREA FLOOR: nothing but the cloth wears the palette', async () => {
+  for (const t of RA1_FEAST) {
+    for (const hex of RA1_TABLE_TARGETS) {
+      const { outside, opaque } = await ra1TableRecolour(t, t.tolerance, hex);
+      assert.ok(
+        outside <= RA1_TABLES_BUDGET,
+        `${t.slug}: ${outside} opaque px outside the tagged cloth recoloured under ${hex} ` +
+          `(${(100 * outside / opaque).toFixed(3)}%), above the measured ` +
+          `${RA1_TABLES_BUDGET} px antialiasing budget. Chafing dishes, platters and bowls are ` +
+          'hairline-outlined — a census with an area floor cannot see them.',
+      );
+    }
+  }
+});
+
+test('RA1 feast · REAL RASTER: every cloth recolours COMPLETELY', async () => {
+  for (const t of RA1_FEAST) {
+    for (const hex of RA1_TABLE_TARGETS) {
+      const { stuck, exact } = await ra1TableRecolour(t, t.tolerance, hex);
+      assert.ok(exact > 0, `${t.slug}: no pixel carries the slot colour ${t.sampledHex}`);
+      assert.equal(stuck, 0, `${t.slug}: ${stuck}/${exact} px stayed at stock colour under ${hex}`);
+    }
+  }
+});
+
+test('RA1 feast: the three cliff-bounded tolerances really are on a cliff', async () => {
+  // Three of five here, against two of five on the guest tables — the split
+  // differs per zone, so each carries its own map rather than a shared rule.
+  for (const [slug, expected] of Object.entries(RA1_FEAST_CLIFF)) {
+    const t = RA1_FEAST.find((x) => x.slug === slug)!;
+    let worst = 0;
+    for (const hex of RA1_TABLE_TARGETS) {
+      const { outside } = await ra1TableRecolour(t, t.tolerance + 1, hex);
+      worst = Math.max(worst, outside);
+    }
+    assert.ok(
+      worst > 0.5 * expected,
+      `${slug}: widening from ${t.tolerance} to ${t.tolerance + 1} moved ${worst} px outside ` +
+        `the cloth, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
+        're-cut or this harness can no longer see a bleed. Re-measure; do not delete this test.',
     );
   }
 });

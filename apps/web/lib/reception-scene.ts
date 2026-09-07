@@ -1668,7 +1668,12 @@ function wallsDecorLayer(t: string, P: (i: number) => string): string {
 /** Back-left floor: the buffet line, the grazing table, the stations — as
  *  ONE floor item, so a table between the feast and the viewer paints over
  *  it and a couple's own program on the far side of the room does not. */
-function feastFloorItem(service: string, stations: string[], P: (i: number) => string): FloorItem | null {
+function feastFloorItem(
+  service: string,
+  stations: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): FloorItem | null {
   const x = 24,
     y = 300,
     w = 288;
@@ -1711,8 +1716,17 @@ function feastFloorItem(service: string, stations: string[], P: (i: number) => s
   // food cart's wheels) — its own ground contact.
   const stationsBottom = real.length > 0 ? y - 48 + 63 : 0;
   const svg = behind + out;
+  // 🔑 THE IMAGE REPLACES WHAT THE COUPLE CHOSE, IT NEVER INVENTS A FEAST.
+  // The null check stays on the FLAT svg, so a couple who picked no service and
+  // no stations still gets nothing drawn — a decor image must not put a buffet
+  // in a room that was never meant to have one. And `anchorY` stays COMPUTED
+  // from the flat geometry, so the depth sort keeps placing this item where its
+  // own ground contact actually is.
   if (svg === '') return null;
-  return { anchorY: Math.max(lineBottom, stationsBottom), svg };
+  return {
+    anchorY: Math.max(lineBottom, stationsBottom),
+    svg: decorImage('feast', decor) ?? svg,
+  };
 }
 
 /** One food-and-drink station, drawn at its own top-left corner. */
@@ -2237,6 +2251,11 @@ const DECOR_SLOTS: Partial<Record<PartId, { x: number; y: number; w: number; h: 
   // runner and the dance floor all show through BETWEEN the tables. Composited
   // opaque this rect would blank the entire lower half of the room.
   tables: { x: 88, y: 386, w: 784, h: 200, rx: 0 },
+  // RA1 · the feast line and its stations. `feastFloorItem` draws at x 24,
+  // y 300, w 288: the service line occupies y 334..364 and the stations stand
+  // BEHIND it from y 252. 24..312 × 250..366 is that combined extent, clear of
+  // the guest-table band (y 386..586) below it.
+  feast: { x: 24, y: 250, w: 288, h: 116, rx: 0 },
 };
 
 /** Zone → the href of its already-retinted decor image. A zone absent from the
@@ -2341,7 +2360,12 @@ export function renderVenueSvg(
     ),
   ];
   if (venueZoneApplies(venueSetting, 'feast')) {
-    const item = feastFloorItem(sel(design, 'feast', 'service'), selAll(design, 'feast', 'stations'), P);
+    const item = feastFloorItem(
+      sel(design, 'feast', 'service'),
+      selAll(design, 'feast', 'stations'),
+      P,
+      decor,
+    );
     if (item) floorItems.push(item);
   }
   if (venueZoneApplies(venueSetting, 'program')) {

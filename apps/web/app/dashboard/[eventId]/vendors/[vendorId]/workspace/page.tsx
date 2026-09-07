@@ -2187,7 +2187,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
       ) : null;
 
-  const claimSection =
+  const claimContent =
       needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
         <section
           aria-labelledby="claim-invite-heading"
@@ -2315,6 +2315,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           </form>
         </section>
       ) : null;
+
+  // Promote-the-invite (owner ruling 2026-09-08 · "we allow this. so promote
+  // it."). Stable anchor so the vendors-list nudge
+  // (plan-budget-accordion.tsx `.invite-cta`) can deep-link straight to
+  // whichever of the four claim-state sections above is currently showing,
+  // instead of dropping the couple at the top of this long page. `null` when
+  // none of the four branches matched (e.g. the invite already expired with
+  // no re-lock) — no id renders, and there is nothing to scroll a link to.
+  const claimSection = claimContent ? <div id="invite-vendor">{claimContent}</div> : null;
 
   // ------------------------------------------------------------------------
   // Flag OFF — the current long-scroll page, byte-identical to before: the

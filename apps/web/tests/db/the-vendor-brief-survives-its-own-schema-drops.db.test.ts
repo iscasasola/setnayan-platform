@@ -63,8 +63,17 @@ const PRE_AGREEMENT_KEYS = [
   'timeline',
 ].sort();
 
-/** The booked payload. Same set MINUS `lock_request` — an ask envelope is not a fact about a booking. */
-const BOOKED_KEYS = PRE_AGREEMENT_KEYS.filter((k) => k !== 'lock_request').sort();
+/**
+ * The booked payload. Same set MINUS `lock_request` (an ask envelope is not a
+ * fact about a booking) PLUS `vendor_roster` — the other locked vendors on
+ * this event, added 20271213732174, BOOKED STAGE ONLY: an inquiry/requested
+ * supplier has not earned the venue address or the running order either, and
+ * "who else is booked" is the same class of fact.
+ */
+const BOOKED_KEYS = [...PRE_AGREEMENT_KEYS.filter((k) => k !== 'lock_request'), 'vendor_roster'].sort();
+
+/** The one shape a vendor_roster entry may ever have — name + category, nothing else. */
+const VENDOR_ROSTER_ITEM_KEYS = ['category', 'vendor_name'].sort();
 
 /** 🔒 The pre-agreement `event` object. venue_name/venue_address are KEYS but hard-NULL; `region` is the city grain that replaces them. */
 const PRE_AGREEMENT_EVENT_KEYS = [
@@ -166,14 +175,19 @@ async function newFullEvent(label: string): Promise<{ eventId: string; coupleUid
 
 async function newBooking(
   eventId: string,
-  vpid: string,
-  opts: { status?: string; pending?: boolean } = {},
+  vpid: string | null,
+  opts: {
+    status?: string;
+    pending?: boolean;
+    category?: string;
+    vendorName?: string | null;
+  } = {},
 ): Promise<string> {
   const r = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
        (event_id, category, vendor_name, status, marketplace_vendor_id,
         lock_request_state, lock_requested_at)
-     VALUES ($1, 'photographer'::public.vendor_category, 'Invocation Co',
+     VALUES ($1, $6::public.vendor_category, $7,
              $2::public.vendor_status, $3, $4, $5)
      RETURNING vendor_id`,
     [
@@ -182,6 +196,8 @@ async function newBooking(
       vpid,
       opts.pending ? 'pending' : null,
       opts.pending ? new Date().toISOString() : null,
+      opts.category ?? 'photographer',
+      opts.vendorName === undefined ? 'Invocation Co' : opts.vendorName,
     ],
   );
   return r.rows[0]!.vendor_id;
@@ -190,6 +206,27 @@ async function newBooking(
 async function asVendor(uid: string): Promise<void> {
   await db.exec('RESET ROLE').catch(() => {});
   await setAuthUid(db, uid);
+}
+
+/**
+ * Stamp `guest_count_locked_at` the way `ensureFinalized()` (apps/web/lib/
+ * pax.ts) actually does it in production: through the service role.
+ * `guard_pax_finalize_columns_trg` (20261214000000) silently REVERTS this
+ * column to its old value on any non-service-role UPDATE — a couple's own
+ * session, and a plain `db.query` here, both count as non-service-role. A
+ * direct UPDATE with no role switch is a same-shaped no-op, not a write.
+ */
+async function stampGuestCountLocked(eventId: string, finalPax: number): Promise<void> {
+  await db.exec('RESET ROLE').catch(() => {});
+  await setAuthUid(db, null);
+  await db.query(`SELECT set_config('request.jwt.claim.role', 'service_role', false)`);
+  await db.exec('SET ROLE service_role');
+  await db.query(
+    `UPDATE public.events SET guest_count_locked_at = NOW(), final_pax = $2 WHERE event_id = $1`,
+    [eventId, finalPax],
+  );
+  await db.exec('RESET ROLE').catch(() => {});
+  await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
 }
 
 /**
@@ -252,6 +289,145 @@ test('a BOOKED supplier can call the brief, and it carries every key its callers
   assert.equal((b.monogram as Row).text, 'A&B');
   assert.equal((b.pax as Row).attending, 1);
   assert.equal((b.timeline as unknown[]).length, 1);
+
+  // No other vendor is booked in this test's event, so the roster is present
+  // (never absent) and empty — never null, never a missing key.
+  assert.deepEqual(b.vendor_roster, [], 'an empty roster must still be [], the shape-preserving default');
+
+  // Widening #2 (2026-09-08): a fresh event with no explicit deadline and an
+  // event_date far in the future has not auto-finalized.
+  assert.equal((b.pax as Row).finalized, false, 'nothing has stamped or passed a deadline yet');
+});
+
+/**
+ * WIDENING (20271213732174) — the vendor roster: which OTHER vendors are
+ * locked on this event, and for what category. Product ask: a booked supplier
+ * should see their fellow suppliers. What must NOT happen while widening it:
+ *
+ *   1. The caller's OWN booking appears in their own roster — they already
+ *      know it; the ask was "which OTHER vendors".
+ *   2. A vendor who is merely 'considering' (not locked) appears — the
+ *      roster must use the SAME locked-status vocabulary the stage gate
+ *      above already gates 'booked' on.
+ *   3. Anything beyond name + category crosses — no marketplace_vendor_id,
+ *      no cost, no contact info, no lock-request timestamps.
+ *   4. It reaches a pre-agreement (inquiry/requested) supplier — asserted
+ *      already above via PRE_AGREEMENT_KEYS not containing 'vendor_roster'.
+ */
+test('the vendor roster names OTHER locked vendors only, name + category, and nothing else', async () => {
+  const { eventId } = await newFullEvent('roster');
+  const { vpid: callerVpid, uid: callerUid } = await newVendor('roster-caller@brief-invocation.test');
+  const { vpid: otherVpid } = await newVendor('roster-other@brief-invocation.test');
+
+  // The caller — booked, photographer.
+  await newBooking(eventId, callerVpid, { status: 'contracted', category: 'photographer', vendorName: 'Invocation Co' });
+  // Another marketplace vendor — booked, different category. Must appear.
+  await newBooking(eventId, otherVpid, { status: 'deposit_paid', category: 'catering', vendorName: 'Fellow Feast Co' });
+  // An off-platform vendor (no marketplace_vendor_id) — booked. Must still
+  // appear: "another vendor locked on this event" does not require a
+  // Setnayan account.
+  await newBooking(eventId, null, { status: 'complete', category: 'florist', vendorName: 'Off-Platform Blooms' });
+  // A vendor who is only 'considering' — NOT locked. Must be excluded.
+  await newBooking(eventId, null, { status: 'considering', category: 'cake_maker', vendorName: 'Not Yet Locked Cakes' });
+
+  await asVendor(callerUid);
+  const b = await brief(eventId);
+
+  assert.equal(b.stage, 'booked');
+  const roster = b.vendor_roster as Row[];
+  const names = roster.map((r) => r.vendor_name).sort();
+  assert.deepEqual(
+    names,
+    ['Fellow Feast Co', 'Off-Platform Blooms'].sort(),
+    'the caller’s own booking and the not-yet-locked vendor must both be absent',
+  );
+  for (const entry of roster) {
+    assert.deepEqual(sortedKeys(entry), VENDOR_ROSTER_ITEM_KEYS, 'a roster entry may only ever be {category, vendor_name}');
+  }
+  const byName = Object.fromEntries(roster.map((r) => [r.vendor_name, r.category]));
+  assert.equal(byName['Fellow Feast Co'], 'catering');
+  assert.equal(byName['Off-Platform Blooms'], 'florist');
+});
+
+/**
+ * WIDENING (20271213732174) — pax.finalized. Mirrors `guestListIsClosed()`
+ * (apps/web/lib/guest-list-closed.ts) exactly: stamped, OR the deadline
+ * (explicit `guest_list_edit_deadline`, else event_date minus
+ * FINALIZE_LEAD_DAYS) has passed. Both paths are asserted so the two can
+ * never quietly drift into disagreement.
+ */
+test('pax.finalized is true once stamped, and true once the deadline has passed — false otherwise', async () => {
+  const { eventId: eventUnfinalized } = await newFullEvent('unfinalized');
+  const { eventId: eventStamped } = await newFullEvent('stamped');
+  const { eventId: eventDeadlinePassed } = await newFullEvent('deadline-passed');
+  const { vpid, uid } = await newVendor('finalized-check@brief-invocation.test');
+
+  // Case 1: no deadline set, event_date is far in the future (2027-06-06 minus
+  // 14 days is still far off) — never auto-finalized.
+  await newBooking(eventUnfinalized, vpid, { status: 'contracted' });
+
+  // Case 2: stamped via the service role (the only way this column actually
+  // moves in production — see stampGuestCountLocked) — finalized regardless
+  // of any deadline math.
+  await stampGuestCountLocked(eventStamped, 1);
+  await newBooking(eventStamped, vpid, { status: 'contracted' });
+
+  // Case 3: an explicit guest_list_edit_deadline in the past — finalized via
+  // the deadline arm, with no stamp at all (the lazy-write path never ran;
+  // this function must never write it either).
+  await db.query(
+    `UPDATE public.events SET guest_list_edit_deadline = '2020-01-01'::date WHERE event_id = $1`,
+    [eventDeadlinePassed],
+  );
+  await newBooking(eventDeadlinePassed, vpid, { status: 'contracted' });
+
+  await asVendor(uid);
+
+  assert.equal(((await brief(eventUnfinalized)).pax as Row).finalized, false);
+  assert.equal(((await brief(eventStamped)).pax as Row).finalized, true);
+  assert.equal(((await brief(eventDeadlinePassed)).pax as Row).finalized, true);
+
+  // The read must never itself stamp the lazy lock — this is a STABLE
+  // function and must not have written guest_count_locked_at as a side
+  // effect of Case 3 being read.
+  const { rows } = await db.query<{ guest_count_locked_at: string | null }>(
+    `SELECT guest_count_locked_at FROM public.events WHERE event_id = $1`,
+    [eventDeadlinePassed],
+  );
+  assert.equal(rows[0]!.guest_count_locked_at, null, 'a read-only brief must never write the finalize stamp itself');
+});
+
+/**
+ * THE WIDENING DID NOT WIDEN ANYTHING ELSE. Guest names, seating assignments
+ * and the exact budget figure were never in this payload and must still not
+ * be — the roster and the flag are additive, not a re-scoping. Mirrors the
+ * "reads are honest" guard style (apps/web/app/vendor-dashboard/
+ * reads-are-honest.test.ts): assert the FORBIDDEN facts never cross, by
+ * value, not merely by key name (a renamed key would slip past a key-set
+ * check alone).
+ */
+test('the widening leaks no guest name, no seat assignment, and no exact budget figure', async () => {
+  const { eventId } = await newFullEvent('leak-check');
+  const { vpid, uid } = await newVendor('leak-check@brief-invocation.test');
+  await newBooking(eventId, vpid, { status: 'contracted' });
+  await db.query(
+    `UPDATE public.guests SET first_name = 'Secret', last_name = 'Guestname' WHERE event_id = $1`,
+    [eventId],
+  );
+  await asVendor(uid);
+
+  const b = await brief(eventId);
+  const serialized = JSON.stringify(b);
+
+  assert.doesNotMatch(serialized, /Secret/, 'no guest name may reach the wire, in the roster or anywhere else');
+  assert.doesNotMatch(serialized, /Guestname/);
+  assert.deepEqual(sortedKeys(b.seat_plan), SEAT_PLAN_KEYS, 'seat_plan must stay status + counts, never a layout');
+  assert.equal(b.budget_band, null, 'no share_budget_band opt-in was set — the band, exact or otherwise, must stay NULL');
+
+  // The roster itself carries no guest-shaped or money-shaped keys.
+  for (const entry of b.vendor_roster as Row[]) {
+    assert.deepEqual(sortedKeys(entry), VENDOR_ROSTER_ITEM_KEYS);
+  }
 });
 
 test('an ASKED supplier can call the brief, and it carries every key its callers read', async () => {

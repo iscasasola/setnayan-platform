@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "dd837a0fe",
+  "generatedFromRef": "85ee6be2d",
   "routeCount": 424,
   "destinations": 906,
-  "actions": 630,
-  "blocks": 4317,
+  "actions": 631,
+  "blocks": 4323,
   "routes": {
     "/": {
       "files": [
@@ -7233,12 +7233,11 @@
         "setPlanningMode"
       ],
       "blocks": [
-        "Figure",
-        "Icon",
         "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
         "SetnayanAiValue",
+        "Spotlights",
         "StudioBuyHero",
         "SubmitButton"
       ]
@@ -10357,6 +10356,9 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/own-captures-strip.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-credits-card.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-import-form.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/requests-inbox.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/song-desk.tsx",
@@ -10376,6 +10378,7 @@
         "/vendor-dashboard/repertoire"
       ],
       "actions": [
+        "formAction",
         "markStageNoteSeen",
         "sendStageNote"
       ],
@@ -10386,6 +10389,7 @@
         "AskAccessResult",
         "Banned",
         "Blob",
+        "BuyVendorPapicPortfolioPackState",
         "Card",
         "Closed",
         "ComingSoon",
@@ -10400,6 +10404,7 @@
         "FloorClock",
         "Group",
         "HTMLCanvasElement",
+        "HTMLInputElement",
         "HTMLVideoElement",
         "HostPlaylist",
         "Icon",
@@ -10412,6 +10417,7 @@
         "PauseToggle",
         "PickRow",
         "PlaylistSlotType",
+        "PortfolioImportForm",
         "PrivateBadge",
         "ReactNode",
         "RequestsInbox",
@@ -10439,7 +10445,8 @@
     },
     "/vendor-dashboard/on-the-day/live/[eventId]/papic": {
       "files": [
-        "vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx"
+        "vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/on-the-day",
@@ -10447,9 +10454,12 @@
       ],
       "actions": [],
       "blocks": [
+        "BuyVendorPapicPortfolioPackState",
         "Link",
         "OwnCapturesStrip",
         "PapicCaptureController",
+        "PortfolioAlbumSection",
+        "PortfolioCreditsCard",
         "SponsoredShotsStrip"
       ]
     },
@@ -10774,6 +10784,7 @@
         "vendor-dashboard/services/_components/manager-tabs.tsx",
         "vendor-dashboard/services/_components/payment-schedule-editor.tsx",
         "vendor-dashboard/services/_components/pricing-basis-editor.tsx",
+        "vendor-dashboard/services/_components/publish-gate-submit.tsx",
         "vendor-dashboard/services/_components/refinements-editor.tsx",
         "vendor-dashboard/services/_components/service-card-live-preview.tsx",
         "vendor-dashboard/services/_components/service-list-editors.tsx",
@@ -10863,6 +10874,7 @@
         "PaymentScheduleEditor",
         "PriceBracketsEditor",
         "PricingBasisEditor",
+        "PublishGateSubmit",
         "Recap",
         "RefinementsEditor",
         "RequestStatusBadge",

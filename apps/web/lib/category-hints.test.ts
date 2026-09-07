@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tileForCategory } from '@/lib/shortlist-taxonomy';
-import { WEDDING_FOLDER_ORDER } from '@/lib/taxonomy';
+import { WEDDING_FOLDER_ORDER, WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 import { categoryHintForTile } from '@/lib/explore-info-copy';
 import { FOLDER_HINTS, TILE_HINTS, folderHintFor } from '@/lib/category-hints';
 
@@ -31,8 +31,14 @@ test('EVERY folder explains itself — no folder may be silent', () => {
   );
 });
 
-test('EVERY tile a considered vendor can land on explains itself', () => {
-  const tiles = [...new Set(VENDOR_CATEGORIES.map(tileForCategory).filter(Boolean))] as string[];
+test('EVERY tile the BENCH renders explains itself', () => {
+  // 🪤 2026-09-07 — the first version of this guard measured
+  // `VENDOR_CATEGORIES → tileForCategory`, a 45-tile set, and passed at "45 of
+  // 45" while the bench rendered `WEDDING_TILE_ORDER` — 78 tiles, THIRTY of
+  // them silent, including Wedding Singer, Officiants and Accommodation. The
+  // owner found one by looking at the screen. A guard aimed at the wrong
+  // universe is worse than no guard: it reports coverage it never checked.
+  const tiles = WEDDING_TILE_ORDER as readonly string[];
   const missing = tiles.filter((t) => !categoryHintForTile(t));
   assert.deepEqual(
     missing,
@@ -40,7 +46,16 @@ test('EVERY tile a considered vendor can land on explains itself', () => {
     `tiles with no ⓘ: ${missing.join(', ')} — add to TILE_HINTS, or give the ` +
       'plan group that claims them a hint',
   );
-  assert.ok(tiles.length >= 40, 'the tile set collapsed — the bridge changed shape');
+  assert.ok(tiles.length >= 70, 'the bench tile set collapsed — the taxonomy changed shape');
+});
+
+test('and every tile a considered vendor can LAND on is inside that set', () => {
+  // The pick enum bridges to tiles; every one of those must be a bench tile,
+  // or a saved pick would sit in a category the bench cannot draw.
+  const bench = new Set(WEDDING_TILE_ORDER as readonly string[]);
+  const landable = [...new Set(VENDOR_CATEGORIES.map(tileForCategory).filter(Boolean))] as string[];
+  const orphans = landable.filter((t) => !bench.has(t));
+  assert.deepEqual(orphans, [], `pick tiles the bench never renders: ${orphans.join(', ')}`);
 });
 
 test('a tile-level hint WINS over the plan group’s', () => {

@@ -81,3 +81,15 @@ deadline enforced by on-access sweep; the vouch lives in its own service-role-on
   untouched: regenerating it changes only its commit stamp, which is churn.
 
 SPEC IMPACT: None.
+
+### Follow-up · 2026-09-08 — the FK-behaviour map had to learn the new table
+
+`user-fk-behaviour.db.test.ts` went red once `vendor_verification_bypasses`
+existed: its generated map is what erasure decisions are read from, and it did
+not yet know that `granted_by` is `SET NULL` onto `auth.users`. Regenerated with
+`UPDATE_FK_BEHAVIOUR=1`, exactly one line added (238 → 239 FKs, SET NULL 175 →
+176). `SET NULL` is the right behaviour here and is safe: the column is nullable
+and carries no CHECK, so deleting the admin who vouched blanks the attribution
+without blocking the delete or revoking the bypass.
+
+SPEC IMPACT: None.

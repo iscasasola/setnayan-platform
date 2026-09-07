@@ -686,7 +686,10 @@ test('MB14b: only the two pilot zones can composite, and they are the same two t
   const probeDesign: ReceptionDesign = {
     ...MB14B_DESIGN,
     feast: { service: 'buffet' },
-    booths: { kinds: 'photo_booth' },
+    // THREE booths: RA2 gates the booths image on the couple's own count matching
+    // the three bays the drawing holds, so a one-booth probe cannot tell "no
+    // geometry" from "a count this drawing cannot represent".
+    booths: { kinds: ['photo_booth', 'arcade', 'perfume'] },
     program: { performers: 'live_band' },
   };
   const composited = RECEPTION_PARTS.map((part) => part.id).filter((zone) => {

@@ -1969,11 +1969,42 @@ function boothsFloorItem(
   if (real.length === 0) return null;
   const y = 132;
   const svg = real.map((kind, i) => booth(kind, 28 + i * 96, y, P)).join('');
+
+  // 🪤 THE IMAGE IS A ROW OF EXACTLY THREE BAYS, SO IT CAN ONLY STAND IN FOR A
+  // COUPLE WHO TICKED THREE. This shipped ungated and was wrong in BOTH
+  // directions, measured on the merged code: a couple who ticked ONE photo
+  // booth got a room with THREE stalls in it — two suppliers they never booked
+  // — and a couple who ticked FOUR got three, their fourth bay dropped, the
+  // flat row reaching x 404 while the image stops at 320.
+  //
+  // 🔑 IT IS THE EMPTY-SHELF CLASS RV1 ALREADY PAID FOR, on the band riser: a
+  // fixed-width bar under a lone DJ. `tables` is safe from it because its flat
+  // drawing is ALWAYS four tables at fixed spots, so the drawing and the room
+  // can never disagree about the count. `booths` is the first zone where the
+  // count is the couple's own choice, and an image cannot follow it.
+  //
+  // Clipping the drawing to N of its three bays was measured and rejected: the
+  // bays do not sit on even thirds — across the five files their boundaries
+  // range 5–19% at the left edge and 81–95% at the right — so a fixed clip
+  // slices a canopy in half on some families. Per-file boundary constants would
+  // be five more measured numbers that rot when a file is re-cut.
+  //
+  // So the gate is the count, and every other count renders the flat row, byte
+  // for byte — which is what every uncovered (zone, style) cell already does.
+  // If coverage for N ≠ 3 is wanted, the honest way is one bay per booth,
+  // tiled: a real piece of work, not a wider tolerance here.
+  const image = real.length === BOOTHS_IN_THE_DRAWING ? decorImage('booths', decor) : null;
   // `booth()`'s own shadow ellipse sits at y + h + 1 (h = 108) — its ground,
   // and it stays computed from the flat geometry so the depth sort keeps
   // placing this item where the row actually stands, image or not.
-  return { anchorY: y + 108 + 1, svg: decorImage('booths', decor) ?? svg };
+  return { anchorY: y + 108 + 1, svg: image ?? svg };
 }
+
+/** How many bays every `booths` drawing contains — LOOKED AT, on all five
+ *  files, not inferred from a pixel heuristic (a run-detector miscounts
+ *  `bridgerton`, whose canopies almost touch, as one). The image may only
+ *  stand in for a couple whose own count matches it. */
+const BOOTHS_IN_THE_DRAWING = 3;
 
 /** One guest booth: a common bay, then the thing that makes it that booth. */
 function booth(kind: string, x: number, y: number, P: (i: number) => string): string {

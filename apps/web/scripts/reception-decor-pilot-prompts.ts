@@ -56,7 +56,7 @@
  * too-wide tolerance repaints first.
  */
 
-export const PILOT_ZONES = ['backdrop', 'ceiling', 'stage', 'tables'] as const;
+export const PILOT_ZONES = ['backdrop', 'ceiling', 'stage', 'tables', 'feast'] as const;
 export type PilotZone = (typeof PILOT_ZONES)[number];
 
 export const STYLE_SLUGS = {
@@ -333,6 +333,91 @@ export const TABLES_PROMPTS: DecorPromptEntry[] = [
       'KEEPER — shipped, slot #4A3B45 tol 6. Job 07102f92.',
     prompt:
       'A horizontal row of four round wedding guest tables seen straight on, each covered by a floor-length draped tablecloth in ONE single flat solid deep charcoal plum, the SAME single colour across every cloth including its top surface and every fold — no second shade, no highlight, no trim. The tables sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Plain simple chair outlines and tableware drawn in muted warm grey and cream neutrals only. ' +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── FEAST · RA1 PART B, 2026-09-07 ─────────────────────────────────────────
+ *
+ * Five keepers from SIX generations — the object-on-plain-background
+ * composition holding for a third zone.
+ *
+ * 🔑 THE ONE RETRY IS THE FINDING. `tropical heritage` v1 MEASURED CLEAN and
+ * was still wrong: it drew the FOOD on the platters in the same sage as the
+ * cloth, so a burgundy palette produced a table of burgundy food. Nothing in
+ * the recipe could see it — the food sits INSIDE the tagged region, so
+ * "nothing outside the cloth moved" was true, the region recoloured
+ * completely, and tolerance 5 measured clean. Caught by rendering the room.
+ *
+ * ➡ The fix is a prompt rule, not a measurement: NAME THE COLOURS OF EVERY
+ * OBJECT THAT SITS ON THE TAGGED SURFACE, and say what they are not. The v2
+ * prompt below is the v1 prompt plus that clause, and it landed first try.
+ */
+export const FEAST_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'feast',
+    style: 'elegant · simple · classic',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome: 'KEEPER — slot #C9A059 tol 8 (cliff: 8 px outside at 8, 52 at 9). Job df180dad.',
+    prompt:
+      'A long wedding buffet table seen straight on, draped to the floor in ONE single flat solid warm gold cloth, the SAME single colour across the whole cloth including its top surface and every fold — no second shade, no highlight, no trim. A row of chafing dishes and serving platters stands along the top, drawn in muted silver, warm grey and cream neutrals only. The table sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no horizon line. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'feast',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome: 'KEEPER — slot #8C6BA6 tol 8 (cliff: 11 px at 8, 411 at 9). Job 30e426af.',
+    prompt:
+      'A long wedding buffet table seen straight on, draped to the floor in ONE single flat solid jewel-tone purple cloth, the SAME single colour across the whole cloth including its top surface and every fold — no second shade, no highlight, no trim. A row of covered silver serving dishes and a tiered stand stands along the top, drawn in muted silver, warm grey and cream neutrals only. The table sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no horizon line. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'feast',
+    style: 'editorial cream',
+    aspectRatio: '16:9',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome: 'KEEPER — slot #D98BA6 tol 10, no cliff (18 px at 10, 39 at 11); bounded by the antialiasing budget. Job ad8ee36f.',
+    prompt:
+      'A long wedding buffet table seen straight on, draped to the floor in ONE single flat solid blush pink cloth, the SAME single colour across the whole cloth including its top surface and every fold — no second shade, no highlight, no trim. A row of platters, boards and small bowls stands along the top, drawn in muted warm grey, oatmeal and cream neutrals only. The table sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no horizon line. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'feast',
+    style: 'modern minimalist',
+    aspectRatio: '16:9',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome: 'KEEPER — slot #4A3B45 tol 5, no cliff (26 px at 5, 55 at 6). Job d67121f1.',
+    prompt:
+      'A long wedding buffet table seen straight on, draped to the floor in ONE single flat solid deep charcoal plum cloth, the SAME single colour across the whole cloth including its top surface and every fold — no second shade, no highlight, no trim. A row of simple rectangular serving vessels stands along the top, drawn in muted grey and cream neutrals only. The table sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no horizon line. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'feast',
+    style: 'tropical heritage',
+    aspectRatio: '16:9',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER, SECOND GENERATION — slot #9CB29A tol 5 (cliff: 0 px at 5, 132 at 6). Job ' +
+      'ea2110dc. v1 (job 4af29bf0) MEASURED CLEAN at the same tolerance and was still wrong: ' +
+      'it drew the food in the same sage as the cloth, so a burgundy palette gave a table of ' +
+      'burgundy food. The only difference below is the clause naming the food\'s colours and ' +
+      'saying what they are not.',
+    prompt:
+      'A long Filipino wedding feast table seen straight on, draped to the floor in ONE single flat solid sage green cloth, the SAME single sage across the whole cloth including its top surface and every fold — no second shade, no lighter top, no highlight. On top stand serving platters and capiz-shell bowls holding food; the FOOD and the platters must be warm brown, terracotta, cream and oatmeal — NOTHING on the table is green, only the cloth itself is green. The table sits on a completely plain empty background with generous empty margins above and below it: NO floor, NO wall, NO room, no horizon line and no foliage anywhere. Tropical Filipino heritage illustration. ' +
       COMMON_SUFFIX,
   },
 ];

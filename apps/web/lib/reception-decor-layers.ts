@@ -47,7 +47,7 @@ import type { MoodboardStyleFamily } from './moodboard-templates';
  * `stage` joined 2026-09-06 (migration 20271211370331) — the first zone added
  * since the pilot pair, under `build-sessions/RECEPTION-ART-PLAN.md`.
  */
-export const PILOT_DECOR_ZONES: readonly PartId[] = ['backdrop', 'ceiling', 'stage', 'tables'];
+export const PILOT_DECOR_ZONES: readonly PartId[] = ['backdrop', 'ceiling', 'stage', 'tables', 'feast'];
 
 /** One zone's decor image, ready to composite: where the source pixels live
  *  + the single tagged color region to retint (slot 1 only, for the pilot —
@@ -187,7 +187,7 @@ export function retintDecorLayerRGBA(
  * own corners agree on. `knockOutSceneBackground` refuses the job otherwise
  * rather than guessing.
  */
-export const SCENE_DECOR_ZONES: readonly PartId[] = ['stage', 'tables'];
+export const SCENE_DECOR_ZONES: readonly PartId[] = ['stage', 'tables', 'feast'];
 
 /**
  * Make a scene drawing's flat background transparent, returning a NEW buffer.

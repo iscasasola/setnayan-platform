@@ -669,13 +669,27 @@ test('MB14b: only the two pilot zones can composite, and they are the same two t
   // image however a caller asks. Pinned equal to the resolver's own list so the
   // two cannot drift into a zone that composites but is never resolved, or the
   // reverse.
-  const composited = (['ceiling', 'backdrop', 'stage', 'tables', 'tunnel', 'entrance', 'walls', 'photo_wall', 'welcome_signage', 'people'] as PartId[])
-    .filter((zone) => {
-      const svg = renderVenueSvg(MB14B_DESIGN, MB14B_PALETTE, undefined, undefined, {
-        [zone]: '/moodboard-seed/venue_scene/backdrop/editorial-cream.svg',
-      });
-      return svg.includes(`decor-${zone}`);
+  // 🪤 THIS CANDIDATE LIST WAS HARDCODED AND WENT STALE. It omitted `feast`, so
+  // when that zone gained a slot the test failed for the WRONG reason — not
+  // "the two lists drifted" but "the probe never asked about feast". Derived
+  // from RECEPTION_PARTS now, so every zone this app knows about is probed and
+  // the next one is covered without editing a string.
+  //
+  // The probe design adds a feast service on top of MB14B_DESIGN (which is left
+  // untouched — the byte-identity hashes below are measured against it). `feast`
+  // is a FloorItem and returns null when the couple chose no service and no
+  // stations, so a probe without one cannot tell "no geometry" from "nothing to
+  // draw".
+  const probeDesign: ReceptionDesign = {
+    ...MB14B_DESIGN,
+    feast: { service: 'buffet' },
+  };
+  const composited = RECEPTION_PARTS.map((part) => part.id).filter((zone) => {
+    const svg = renderVenueSvg(probeDesign, MB14B_PALETTE, undefined, undefined, {
+      [zone]: '/moodboard-seed/venue_scene/backdrop/editorial-cream.svg',
     });
+    return svg.includes(`decor-${zone}`);
+  });
   assert.deepEqual(
     [...composited].sort(),
     [...PILOT_DECOR_ZONES].sort(),

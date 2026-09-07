@@ -391,7 +391,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // Picker options for the Pro "Featured editorials" control (id = event_id).
   const editorialOptions = stories.map((s) => ({
     id: s.eventId,
-    label: [s.coupleNames, [s.city, s.dateLabel].filter(Boolean).join(' · ')]
+    label: [s.hostNames, [s.city, s.dateLabel].filter(Boolean).join(' · ')]
       .filter(Boolean)
       .join(' — '),
   }));

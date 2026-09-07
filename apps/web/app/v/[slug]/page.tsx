@@ -2568,7 +2568,7 @@ export async function renderVendorBySlug({
                         idx === 0 ? 'text-2xl' : 'text-lg'
                       }`}
                     >
-                      {story.coupleNames}
+                      {story.hostNames}
                     </p>
                     <p className="mt-1 text-sm text-ink/60">
                       {[story.city, story.dateLabel].filter(Boolean).join(' · ')}

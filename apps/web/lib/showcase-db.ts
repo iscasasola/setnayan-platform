@@ -37,8 +37,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  EDITORIAL_EXCLUDED_EVENT_TYPES,
   UNNAMED_EDITORIAL_LABEL,
+  withEditorialEventTypes,
 } from '@/lib/editorial-event-types';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -61,30 +61,6 @@ export type ShowcaseVendorCredit = {
   slug: string;
   logoUrl: string | null;
 };
-
-/**
- * Apply the KIND exclusion to an events query — the one filter that replaced
- * five hardcoded `.eq('event_type', 'wedding')` calls.
- *
- * 🔑 IT ADDS NOTHING WHEN THE EXCLUSION SET IS EMPTY, which is the point: with
- * no ruling in force every celebration is eligible, so the query must not
- * constrain the type at all. Filtering in SQL rather than after the read is
- * load-bearing — an excluded row dropped in JS would still have consumed one of
- * the `limit` slots and silently shortened the shelf.
- *
- * Structurally typed over `.not()` so it composes with whichever query builder
- * stage it is handed, without importing Supabase's internal builder types.
- */
-function withEditorialEventTypes<Q extends { not(c: string, o: string, v: string): Q }>(
-  query: Q,
-): Q {
-  if (EDITORIAL_EXCLUDED_EVENT_TYPES.length === 0) return query;
-  return query.not(
-    'event_type',
-    'in',
-    `(${EDITORIAL_EXCLUDED_EVENT_TYPES.join(',')})`,
-  );
-}
 
 export type ShowcaseEntry = {
   href: string; // canonical editorial — the couple's own /[slug] page

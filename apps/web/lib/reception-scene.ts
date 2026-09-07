@@ -1433,7 +1433,12 @@ function tableFloorItem(
  *  selection draws its own pass over the same aisle / the same three arch
  *  depths — the exclusive "Bare"/"No tunnel" ids contribute nothing, and the
  *  sanitizer has already refused to store them beside a real treatment. */
-function entrance(tunnels: string[], runners: string[], P: (i: number) => string): string {
+function entrance(
+  tunnels: string[],
+  runners: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): string {
   const cx = 480;
   const depths = [
     { top: 470, half: 178, y0: 636 },
@@ -1459,6 +1464,23 @@ function entrance(tunnels: string[], runners: string[], P: (i: number) => string
       }
   }
 
+  // 🔑 THE IMAGE STANDS IN FOR THE ARCHES, AND ONLY WHEN THERE ARE ARCHES.
+  //
+  // 🪤 THE GATE IN ITS FOURTH SHAPE, AND `cold_spark` IS WHY IT MATTERS HERE.
+  // `cold_spark` is a walkway of spark FOUNTAINS with no arches at all, and the
+  // tunnel catalog's realism rule (2026-07-08) says its sparks are NEVER
+  // palette-tinted. A generated arch tunnel handed to a couple who chose it
+  // would invent a structure they did not book AND tint what must not be
+  // tinted. `none` is the same defect in the plainer case. So the gate is the
+  // ARCH styles, and any non-arch style the couple also chose — the sparks —
+  // is drawn OVER the image, exactly as `walls` keeps its uplighting.
+  const arches = tunnels.filter((t) => t !== 'none' && t !== '' && t !== 'cold_spark');
+  const image = arches.length > 0 ? decorImage('tunnel', decor) : null;
+  if (image !== null) {
+    s += image;
+    for (const t of tunnels) if (t === 'cold_spark') s += tunnelLayer(t, cx, depths, P);
+    return s;
+  }
   for (const tunnelT of tunnels) s += tunnelLayer(tunnelT, cx, depths, P);
   return s;
 }
@@ -2443,6 +2465,18 @@ const DECOR_SLOTS: Partial<Record<PartId, DecorRect | readonly DecorRect[]>> = {
   // knocking it out would punch holes through the couple's photo wall to the
   // room behind it.
   photo_wall: { x: 786, y: 92, w: 130, h: 108, rx: 8 },
+  // RA2 · the entrance tunnel. `tunnelLayer` draws THREE arches receding down
+  // the aisle in one-point perspective, at depths (470,178,636) (432,124,588)
+  // (404,86,548) — so the group spans x 302..658 and y 368..636, and the
+  // generated drawings are composed the same way: a large arch nearest, a
+  // medium one behind it, a small one furthest.
+  //
+  // 🔑 A SCENE ZONE, AND THE ONE WHERE THE KNOCKOUT MATTERS MOST. The aisle
+  // runner, the petals and the mirror floor are drawn BENEATH this group and
+  // must show through the arch openings and between the legs. Composited
+  // opaque, this rect would blank the whole lower centre of the room — the
+  // couple's walk included.
+  tunnel: { x: 302, y: 368, w: 356, h: 268, rx: 0 },
 };
 
 /** Zone → the href of its already-retinted decor image. A zone absent from the
@@ -2612,7 +2646,7 @@ export function renderVenueSvg(
     // the ONE depth rule above, not by which line comes last in this array.
     compositeFloorItems(floorItems),
     people(sel(design, 'people', 'who'), rc, guestPalette),
-    entrance(selAll(design, 'tunnel', 'style'), selAll(design, 'entrance', 'runner'), P),
+    entrance(selAll(design, 'tunnel', 'style'), selAll(design, 'entrance', 'runner'), P, decor),
     scene === 'beach' || scene === 'garden'
       ? ''
       : `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,

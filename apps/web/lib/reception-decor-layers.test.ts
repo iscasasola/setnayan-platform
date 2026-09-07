@@ -119,7 +119,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
   // fails loudly if someone adds a zone speculatively.
   assert.deepEqual(
     [...PILOT_DECOR_ZONES].sort(),
-    ['backdrop', 'booths', 'ceiling', 'feast', 'photo_wall', 'program', 'stage', 'tables', 'walls'],
+    ['backdrop', 'booths', 'ceiling', 'feast', 'photo_wall', 'program', 'stage', 'tables', 'tunnel', 'walls'],
     'PILOT_DECOR_ZONES changed. That is allowed — but it is a switch, so update the artwork ' +
       'and the count in the same change, never the list alone.',
   );
@@ -156,6 +156,7 @@ test('PILOT_DECOR_ZONES is a DELIBERATE list, and every zone on it has artwork',
     booths: 5,
     walls: 5,
     photo_wall: 5,
+    tunnel: 5,
     program: 4,
   };
   for (const zone of PILOT_DECOR_ZONES) {
@@ -449,7 +450,7 @@ async function ra1SceneRaster(slug: string) {
 test('RA1: only scene zones knock their background out — backdrop and ceiling must not', () => {
   assert.deepEqual(
     [...SCENE_DECOR_ZONES],
-    ['stage', 'tables', 'feast', 'booths', 'program'],
+    ['stage', 'tables', 'feast', 'booths', 'program', 'tunnel'],
     'SCENE_DECOR_ZONES changed. Adding a zone here is a claim that its drawing is an OBJECT ' +
       'standing in a room, so its background is foreign and should go. Adding `backdrop` or ' +
       '`ceiling` would be wrong in the opposite direction — those drawings FILL their zone, and ' +
@@ -556,10 +557,11 @@ test('RA1 · REAL PIXELS: no panel drawing is ever knocked out — all ten stay 
   }
   assert.match(
     src,
-    /SCENE_DECOR_ZONES: readonly PartId\[\] = \[\s*'stage',\s*'tables',\s*'feast',\s*'booths',\s*'program',?\s*\]/,
-    'SCENE_DECOR_ZONES no longer reads exactly [stage, tables, feast, booths, program] in the ' +
-      'source. Panel ' +
-      'zones (backdrop, ceiling) must never appear there.',
+    /SCENE_DECOR_ZONES: readonly PartId\[\] = \[\s*'stage',\s*'tables',\s*'feast',\s*'booths',\s*'program',\s*'tunnel',?\s*\]/,
+    'SCENE_DECOR_ZONES no longer reads exactly [stage, tables, feast, booths, program, tunnel] ' +
+      'in the source. Panel zones (backdrop, ceiling, walls, photo_wall) must never appear ' +
+      'there — this stays an EXACT list rather than a "contains" match, because a loose match ' +
+      'would let a panel zone be added here and stay green.',
   );
 });
 
@@ -2454,6 +2456,278 @@ test('RA2 photo_wall: the one cliff is a cliff, and the two ceiling-bound ones a
       `${slug} is seeded at the CHECK ceiling of 30 and moves ${worst} px outside its wall ` +
         `there, over the ${RA2_PW_BUDGET} px budget. A ceiling-bounded value is only honest ` +
         'while the ceiling is genuinely clean; re-measure and seed the largest value that is.',
+    );
+  }
+});
+/* ════════════════════════════════════════════════════════════════════════════
+ * RA2 · PART B · THE ENTRANCE TUNNEL.
+ *
+ * `20271213363713` seeds `tunnel` for all five style families. The tagged
+ * surface is the blooms, leaves or hoops on three arches receding down the
+ * aisle in one-point perspective.
+ *
+ * 🪤 THE GATE IN ITS FOURTH SHAPE, AND THE SHARPEST OF THE FOUR. `cold_spark`
+ * is a walkway of spark FOUNTAINS with NO ARCHES AT ALL, and the tunnel
+ * catalog's realism rule (2026-07-08) says its sparks are NEVER palette-tinted.
+ * A gate of "did the flat layer draw anything" would hand that couple a
+ * generated arch tunnel — inventing a structure they did not book AND tinting
+ * what the catalog says must not be tinted. So the gate is the ARCH styles, and
+ * a `cold_spark` they also chose is drawn OVER the image.
+ *
+ * ── MEASURED WITH NO AREA FLOOR ─────────────────────────────────────────────
+ * 520px `sharp` raster → the real `recolorRGBA` → four unrelated targets,
+ * counting opaque pixels that change OUTSIDE a 2px dilation of the tagged
+ * arches. Budget 40 px (0.02% of 199,160).
+ *
+ * 🪤 TWO OF THE FIVE HAVE A NEAREST NEUTRAL UNDER 5 AND ARE STILL SEEDABLE.
+ * That is not a contradiction — it is the plan's 2026-09-07 correction doing
+ * its job. "Nearest neutral" is a COLOUR distance; the rule that decides is
+ * POSITIONAL, and those sub-5 colours are the arches' own antialiased edges,
+ * inside the 2px dilation. A pure colour-distance reading would reject two good
+ * files here.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const RA2_TUNNEL_MIGRATION = new URL(
+  '../../../supabase/migrations/20271213363713_ra2_tunnel_decor_five_families.sql',
+  import.meta.url,
+);
+
+type Ra2Tunnel = { slug: string; servedPath: string; sampledHex: string; tolerance: number };
+
+function ra2Tunnels(): Ra2Tunnel[] {
+  const sql = readFileSync(RA2_TUNNEL_MIGRATION, 'utf8')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  return [
+    ...sql.matchAll(
+      /\('(\/moodboard-seed\/venue_scene\/tunnel\/([a-z0-9-]+)\.svg)',\s*'(#[0-9A-Fa-f]{6})',\s*(\d+)::NUMERIC\)/g,
+    ),
+  ]
+    .map((m) => ({
+      slug: m[2]!,
+      servedPath: m[1]!,
+      sampledHex: m[3]!.toUpperCase(),
+      tolerance: Number(m[4]),
+    }))
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+const RA2_TUNNEL = ra2Tunnels();
+const RA2_TUNNEL_BUDGET = 40;
+
+/** Three of the five turn a measured field one step up. `editorial cream`
+ *  climbs gradually (37 → 65 → 91) and `modern minimalist` is bounded by the
+ *  CHECK ceiling with its nearest neighbour 70.07 away — neither is given a
+ *  cliff it does not have. */
+const RA2_TUNNEL_CLIFF: Record<string, number> = {
+  'elegant-simple-classic': 655,
+  'bridgerton-regal': 133,
+  'tropical-heritage': 131,
+};
+
+async function ra2TunnelObject(t: Ra2Tunnel) {
+  const file = fileURLToPath(new URL(`.${t.servedPath}`, new URL('../public/', import.meta.url)));
+  const { data, info } = await sharp(file, { density: 300 })
+    .resize(520, 520, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const rgba = new Uint8ClampedArray(data);
+  const { width: w, height: h } = info;
+  const [sr, sg, sb] = hexToRgb(t.sampledHex);
+  const core = new Uint8Array(w * h);
+  const mask = new Uint8Array(w * h);
+  let opaque = 0;
+  let exact = 0;
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (rgba[i + 3]! < 250) continue;
+    opaque++;
+    if (rgba[i] === sr && rgba[i + 1] === sg && rgba[i + 2] === sb) exact++;
+    if (colorDistance(rgba[i]!, rgba[i + 1]!, rgba[i + 2]!, sr, sg, sb) <= 3) core[p] = 1;
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!core[y * w + x]) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          if (ny >= 0 && nx >= 0 && ny < h && nx < w) mask[ny * w + nx] = 1;
+        }
+      }
+    }
+  }
+  return { rgba, w, h, core, mask, opaque, exact, slot: [sr, sg, sb] as const };
+}
+
+const RA2_TUNNEL_TARGETS = ['#7A1F2B', '#D4AF37', '#0F766E', '#1E3A8A'] as const;
+
+async function ra2TunnelRecolour(t: Ra2Tunnel, tolerance: number, hex: string) {
+  const o = await ra2TunnelObject(t);
+  const out = recolorRGBA(
+    o.rgba,
+    [{ slotId: 1, sampledHex: t.sampledHex, toleranceDe: tolerance, regionLabel: 'arch florals' }],
+    { 1: { mode: 'palette', hex } },
+  );
+  let outside = 0;
+  let stuck = 0;
+  for (let p = 0; p < o.w * o.h; p++) {
+    const i = p * 4;
+    if (o.rgba[i + 3]! < 250) continue;
+    const moved =
+      out[i] !== o.rgba[i] || out[i + 1] !== o.rgba[i + 1] || out[i + 2] !== o.rgba[i + 2];
+    if (moved && !o.mask[p]) outside++;
+    if (
+      o.rgba[i] === o.slot[0] &&
+      o.rgba[i + 1] === o.slot[1] &&
+      o.rgba[i + 2] === o.slot[2] &&
+      !moved
+    ) {
+      stuck++;
+    }
+  }
+  return { outside, stuck, exact: o.exact, opaque: o.opaque };
+}
+
+test('RA2 tunnel: the migration seeds five measured drawings, one range each', () => {
+  assert.deepEqual(
+    RA2_TUNNEL.map((t) => `${t.slug}:${t.sampledHex}:${t.tolerance}`),
+    [
+      'bridgerton-regal:#481C77:11',
+      'editorial-cream:#D98BA6:6',
+      'elegant-simple-classic:#C9A059:14',
+      'modern-minimalist:#4A3B45:30',
+      'tropical-heritage:#9CB29A:5',
+    ],
+    'a seeded entrance-tunnel tolerance or sampled_hex changed. Re-measure through the real ' +
+      'recolorRGBA at 520px before editing this list.',
+  );
+  for (const t of RA2_TUNNEL) {
+    assert.ok(
+      t.tolerance >= 5 && t.tolerance <= 30,
+      `${t.slug}: ${t.tolerance} is outside moodboard_asset_color_ranges' CHECK (5..30).`,
+    );
+  }
+});
+
+test('RA2 tunnel: the zone is wired all four ways, or the room is silently wrong', () => {
+  assert.ok(
+    PILOT_DECOR_ZONES.includes('tunnel'),
+    "'tunnel' is missing from PILOT_DECOR_ZONES — resolveDecorLayer will never return these " +
+      'five approved rows and every couple keeps seeing the flat arches, with nothing logged.',
+  );
+  assert.ok(
+    SCENE_DECOR_ZONES.includes('tunnel'),
+    "'tunnel' is missing from SCENE_DECOR_ZONES. This is the zone where the knockout matters " +
+      'MOST: the aisle runner, the petals and the mirror floor are drawn BENEATH the arches and ' +
+      'must show through their openings. Composited opaque, its rect blanks the whole lower ' +
+      "centre of the room — the couple's walk included.",
+  );
+});
+
+test('RA2 tunnel · REAL BYTES: the image stands in for ARCHES, and never for cold sparks', () => {
+  const palette = ['#7A1F2B', '#E8D9B5', '#F4F1EA'];
+  const href = '/moodboard-seed/venue_scene/tunnel/elegant-simple-classic.svg';
+
+  const arches: ReceptionDesign = { ...DEFAULT_DESIGN, tunnel: { style: 'floral' } };
+  assert.ok(
+    renderVenueSvg(arches, palette, undefined, 'hotel_venue', { tunnel: href }).includes(href),
+    'renderVenueSvg was handed a tunnel decor layer for a couple who chose floral arches and ' +
+      "did not draw it. Check DECOR_SLOTS has a `tunnel` geometry and that entrance() calls " +
+      "decorImage('tunnel', decor).",
+  );
+
+  // 🪤 THE SHARPEST FORM OF THE GATE. `cold_spark` draws — machine boxes and
+  // spark fans — but it has NO ARCHES, and the tunnel catalog's realism rule
+  // says its sparks are never palette-tinted. Handing it a generated arch
+  // tunnel invents a structure the couple did not book.
+  for (const style of ['cold_spark', 'none']) {
+    const design: ReceptionDesign = { ...DEFAULT_DESIGN, tunnel: { style } };
+    const withDecor = renderVenueSvg(design, palette, undefined, 'hotel_venue', { tunnel: href });
+    assert.ok(
+      !withDecor.includes(href),
+      `a couple whose tunnel is '${style}' had a generated ARCH tunnel drawn into their room. ` +
+        "'cold_spark' is a walkway of spark fountains with no arches at all; 'none' is no " +
+        'tunnel. The gate must be the arch styles, not "did anything draw".',
+    );
+    assert.equal(
+      withDecor,
+      renderVenueSvg(design, palette, undefined, 'hotel_venue', {}),
+      `tunnel.style='${style}' rendered differently with and without a decor layer.`,
+    );
+  }
+
+  // And when a couple chose BOTH arches and cold sparks, the sparks survive —
+  // drawn over the image, still untinted.
+  const both: ReceptionDesign = { ...DEFAULT_DESIGN, tunnel: { style: ['floral', 'cold_spark'] } };
+  const composited = renderVenueSvg(both, palette, undefined, 'hotel_venue', { tunnel: href });
+  assert.ok(composited.includes(href), 'a couple who chose floral arches did not get the image.');
+  assert.ok(
+    composited.includes('fill="#23252B"'),
+    "the couple chose cold sparks as well as arches and the image swallowed the spark machines.",
+  );
+  assert.ok(
+    composited.includes('#FFF3D9'),
+    'the cold-spark sparks are gone. The tunnel catalog\'s realism rule (2026-07-08) keeps them ' +
+      'titanium gold-white and NEVER palette-tinted — the decor image must not remove them.',
+  );
+
+  assert.equal(
+    renderVenueSvg(arches, palette, undefined, 'hotel_venue', {}),
+    renderVenueSvg(arches, palette, undefined, 'hotel_venue'),
+    'an empty decor map changed the render — an uncovered cell must be byte-identical to the ' +
+      'flat drawing.',
+  );
+});
+
+test('RA2 tunnel · REAL RASTER, NO AREA FLOOR: nothing but the arches wears the palette', async () => {
+  for (const t of RA2_TUNNEL) {
+    for (const hex of RA2_TUNNEL_TARGETS) {
+      const { outside, opaque } = await ra2TunnelRecolour(t, t.tolerance, hex);
+      assert.ok(
+        outside <= RA2_TUNNEL_BUDGET,
+        `${t.slug}: ${outside} opaque px outside the tagged arches recoloured under ${hex} ` +
+          `(${((100 * outside) / opaque).toFixed(3)}% of the frame), above the measured ` +
+          `${RA2_TUNNEL_BUDGET} px antialiasing budget. Two of these five have a nearest ` +
+          'neutral under 5 and pass ONLY because that neighbour is their own antialiased edge, ' +
+          'inside the 2px dilation — so this count is the whole safety margin. Re-measure.',
+      );
+    }
+  }
+});
+
+test('RA2 tunnel · REAL RASTER: every arch recolours COMPLETELY', async () => {
+  for (const t of RA2_TUNNEL) {
+    for (const hex of RA2_TUNNEL_TARGETS) {
+      const { stuck, exact } = await ra2TunnelRecolour(t, t.tolerance, hex);
+      assert.ok(exact > 0, `${t.slug}: no pixel carries the slot colour ${t.sampledHex}`);
+      assert.equal(
+        stuck,
+        0,
+        `${t.slug}: ${stuck}/${exact} px of the arches stayed at stock colour under ${hex} at ` +
+          `tolerance ${t.tolerance}.`,
+      );
+    }
+  }
+});
+
+test('RA2 tunnel: the three cliff-bounded tolerances really are on a cliff', async () => {
+  for (const [slug, expected] of Object.entries(RA2_TUNNEL_CLIFF)) {
+    const t = RA2_TUNNEL.find((x) => x.slug === slug)!;
+    let worst = 0;
+    for (const hex of RA2_TUNNEL_TARGETS) {
+      const { outside } = await ra2TunnelRecolour(t, t.tolerance + 1, hex);
+      worst = Math.max(worst, outside);
+    }
+    assert.ok(
+      worst > 0.5 * expected,
+      `${slug}: widening from ${t.tolerance} to ${t.tolerance + 1} moved ${worst} px outside ` +
+        `the arches, against the ${expected} px measured on 2026-09-07. Either the artwork was ` +
+        're-cut, or this harness can no longer see a bleed — in which case the assertions above ' +
+        'are vacuous. Re-measure; do not delete this test.',
     );
   }
 });

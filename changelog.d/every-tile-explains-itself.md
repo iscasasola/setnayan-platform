@@ -40,3 +40,16 @@ tile hint turns the suite RED; **and reverting the guard to its old universe mak
 deletion invisible**, which is the point.
 
 SPEC IMPACT: None — copy plus a corrected guard. No schema, SKU or price change.
+
+### Follow-up · 2026-09-07 — the test that named the old silence
+
+`coverage-strip.test.ts` used `assert.equal(categoryHintForTile('perfume_bar'), null)`
+as its example of "finer than the plan-group set → null". That assertion WAS the bug
+this PR fixes, written down: `perfume_bar` is a tile a couple can see on the bench, and
+it had no ⓘ. Replaced with the two claims that are actually the contract now — every
+bench tile resolves to copy, and an id no override and no plan group claims still
+returns `null` so the caller hides the button. Mutation-tested both ways: dropping
+`perfume_bar` from `TILE_HINTS` and making the unknown-id path return copy each turn it
+red.
+
+SPEC IMPACT: None.

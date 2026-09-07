@@ -56,6 +56,7 @@ export const PILOT_DECOR_ZONES: readonly PartId[] = [
   'booths',
   'program',
   'walls',
+  'photo_wall',
 ];
 
 /** One zone's decor image, ready to composite: where the source pixels live
@@ -190,11 +191,18 @@ export function retintDecorLayerRGBA(
  * `backdrop` and `ceiling`, a wall drawing FILLS its band and its ground IS the
  * wall. Knocking it out would make the couple's side walls see-through.
  *
- * ⚠ THE ZONES THAT REMAIN AFTER IT ARE SCENE ZONES. EVERY ONE. `tables`, `feast`,
- * `program`, `booths`, `photo_wall`, `tunnel` and `welcome_signage` are all
- * objects standing in a room, exactly like `stage` — so this list is expected
- * to grow with each of them, and the alternative is shipping the same opaque
- * rectangle eight more times.
+ * ⚠ NOR IS `photo_wall`. Added 2026-09-07 with generated artwork and
+ * DELIBERATELY LEFT OFF THIS LIST for the same reason: its drawing FILLS its
+ * rect, and the ground between its blooms IS the wall. Knocking it out punches
+ * holes through the couple's photo wall to the room behind it.
+ * `reception-decor-layers.test.ts` asserts its absence here and measures what
+ * the knockout would cost it.
+ *
+ * ⚠ THE ZONES THAT REMAIN AFTER THOSE TWO ARE SCENE ZONES. EVERY ONE. `tables`,
+ * `feast`, `program`, `booths`, `tunnel` and `welcome_signage` are all objects
+ * standing in a room, exactly like `stage` — so this list is expected to grow
+ * with each of them, and the alternative is shipping the same opaque rectangle
+ * for every one of them.
  *
  * Adding a zone here is a claim about its ARTWORK, not its geometry: the
  * drawing must be a full-bleed object on a flat, uniform background that its

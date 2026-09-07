@@ -65,6 +65,7 @@ export const PILOT_ZONES = [
   'booths',
   'program',
   'walls',
+  'photo_wall',
 ] as const;
 export type PilotZone = (typeof PILOT_ZONES)[number];
 
@@ -678,6 +679,119 @@ export const PROGRAM_PROMPTS: DecorPromptEntry[] = [
       'desaturated family has nowhere to sit, and a third generation would not have changed it.',
     prompt:
       "A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid MID-TONE muted slate plum — a medium value, clearly lighter than black and clearly darker than white. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second plum, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. Everything that is not the skirt — the musicians, instruments, amplifier, microphone stands and every outline stroke — is drawn in pure BLACK and pure WHITE only, with no greys and no colours at all, so nothing in the picture sits near the skirt's value. " +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── PHOTO WALL · RA2, 2026-09-07 ───────────────────────────────────────────
+ *
+ * 5 keepers from 6 generations (1 per 1.2). The `booths` warm-cream-neutrals
+ * lever was in the FIRST prompt for every family here and four landed first
+ * time.
+ *
+ * 🔑 A PANEL ZONE, SO THE PROMPT SHAPE IS DIFFERENT FROM EVERY ZONE SINCE
+ * `stage`. The scene zones ask for an OBJECT on a plain field with generous
+ * empty margins, because their background is knocked out and the couple's room
+ * shows through. A panel drawing FILLS its rect — its ground IS the wall — so
+ * these ask for the opposite: "FILLING THE ENTIRE FRAME edge to edge with no
+ * border and no margin … cropped by the frame on all four sides", and `4:5`
+ * portrait rather than `16:9`. Getting this backwards would put a small wall
+ * floating in the middle of the couple's panel with a border of foreign cream
+ * around it.
+ *
+ * 🔎 THE FINDING: "ONE FLAT COLOUR" IS HEARD AS *PER SHAPE*, NOT *ACROSS THE
+ * WALL*. `elegant`'s first generation (job 8555b7a3) looked right and measured
+ * UNSEEDABLE — 545 px outside the tagged region at the tightest legal
+ * tolerance. Diagnosed positionally rather than argued about: 238 of those
+ * pixels sit MORE THAN 6px from any tagged pixel, scattered across the frame,
+ * and every one is a near-duplicate gold (`#CFAB6D`, 4.4 away) the model used
+ * for a SUBSET OF THE BLOOMS. A second tone of the same object, spatially
+ * disjoint from the first — no tolerance reaches it without also reaching the
+ * ground, and no mask can call it an edge.
+ * ➡ For a repeating-motif wall, say the motifs must not vary FROM EACH OTHER:
+ *   "EVERY SINGLE BLOOM IS THE EXACT SAME ONE GOLD … no tonal variation of any
+ *   kind between one flower and another". It landed on that.
+ *
+ * 🪤 AND FINDING 3 TWICE MORE. `editorial cream` came back a hot `#F75B74`
+ * rather than the `#D98BA6` blush passed in `colors`; `elegant` came back a
+ * bright `#EE8827` rather than `#C9A059` gold. Both are seeded from the pixels.
+ * Across this session the seed has been wrong on 4 of 20 files — treat `colors`
+ * as a hint, never as a promise, and re-sample every time.
+ */
+export const PHOTO_WALL_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'photo_wall',
+    style: 'elegant · simple · classic',
+    aspectRatio: '4:5',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER on the second attempt — shipped, slot #EE8827 tol 6 (42 px outside at 6, its ' +
+      'budget exactly; no cliff until 22). Job fbeb5daa. The first attempt (job 8555b7a3) was ' +
+      'UNSEEDABLE for the reason in the finding above: a second gold on a subset of the blooms.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense wall of blooms in ONE single flat solid warm gold. EVERY SINGLE BLOOM IS THE EXACT SAME ONE GOLD — there is no second gold, no lighter gold, no darker gold, no highlight, no shading, no gradient, no tonal variation of any kind between one flower and another. The few leaves and stems between them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is gold, amber, tan or brown. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'photo_wall',
+    style: 'bridgerton · regal',
+    aspectRatio: '4:5',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome: 'KEEPER, first attempt — shipped, slot #8C6BA6 tol 8 (22 px outside). Job 7d4b12a4.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense wall of blooms in ONE single flat solid jewel-tone purple. The blooms are ONE completely flat colour with NO shading of any kind: no darker petals, no shadow shapes, no gradient, no highlight, no second purple. The few leaves and stems between them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is purple, violet, mauve or lilac. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'photo_wall',
+    style: 'editorial cream',
+    aspectRatio: '4:5',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #F75B74 (NOT the #D98BA6 blush asked for) tol 30. ' +
+      'Job f446ac80. Bounded by the CHECK ceiling, not by a cliff: its nearest neighbour is ' +
+      '4.78, its own antialiased edge, so nothing in the picture is reachable at any legal ' +
+      'tolerance and the measurement runs clean all the way to 30.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense wall of blooms in ONE single flat solid blush pink. The blooms are ONE completely flat colour with NO shading of any kind: no darker petals, no shadow shapes, no gradient, no highlight, no second pink. The few leaves and stems between them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is pink, rose or blush. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'photo_wall',
+    style: 'tropical heritage',
+    aspectRatio: '4:5',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #9CB29A tol 20 (4 px outside at 20, 5,416 at 21). ' +
+      'Job fbe16cb4. The only one of the five with a genuine cliff, and therefore the one that ' +
+      'carries "can this harness still see a bleed" for the set.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense wall of monstera and banana leaves in ONE single flat solid sage green. The leaves are ONE completely flat colour with NO shading of any kind: no darker leaves, no shadow shapes, no gradient, no highlight, no second green. The few capiz shell discs between them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, no olive, and nothing else in the picture is green. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'photo_wall',
+    style: 'modern minimalist',
+    aspectRatio: '4:5',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #4A3B45 tol 30, ZERO px outside at the CHECK ' +
+      'ceiling. Job 4e167a9b. 🔑 NEAREST NEUTRAL 70.07 — the widest margin measured anywhere ' +
+      'this session, against 3.01 for the same family on `program`. The difference is entirely ' +
+      'the warm-cream-neutrals lever plus a subject with no equipment in it.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a plain architectural panel wall of flat rectangular tiles in ONE single flat solid deep charcoal plum. The tiles are ONE completely flat colour with NO shading of any kind: no darker tiles, no shadow shapes, no gradient, no highlight, no second plum. The thin seams between the tiles are drawn in WARM CREAM and pale sand only. There are NO GREYS anywhere in the picture, no black, no charcoal, no silver: the tiles are the only dark thing in it. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
       COMMON_SUFFIX,
   },
 ];

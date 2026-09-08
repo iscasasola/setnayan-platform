@@ -19,7 +19,6 @@
  * assembly in `vendor-overview.ts` imports both the type and the builder).
  */
 import { regionLabel } from '@/lib/region-source';
-import { inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
 
 /**
  * A single PRE-ACCEPT inquiry card. Deliberately carries NO couple identity —
@@ -92,12 +91,14 @@ export function buildInquiryCard(input: {
   /** The vendor's own primary service label (what they were inquired FOR). */
   category: string | null;
   /**
-   * The organiser noun for this event's type — REQUIRED, NO DEFAULT, `null`
-   * when unresolved. This module is pure like `inquiry-mask.ts`, so the noun is
-   * threaded in from the server caller rather than read here; see
-   * `inquiryPlaceholderLabel` for why a default would be the wrong shape.
+   * WHO IS ASKING — the event's `display_name`, which carries the couple's
+   * names ("Cale & Ice"). This slot used to be `hostNoun`, the organiser noun
+   * that fed the neutral placeholder ("A couple planning a wedding in Manila")
+   * shown while an inquiry was unaccepted. Owner ruling 2026-09-08: "we do not
+   * need to hide anything, since no more tokens." `null` only when the event
+   * genuinely has no name.
    */
-  hostNoun: string | null;
+  displayName: string | null;
   /** Guest count at inquiry — permitted pre-accept (2026-07-15). */
   paxAtInquiry?: number | null;
   /** The couple's message — permitted pre-accept (2026-07-15). */
@@ -109,11 +110,7 @@ export function buildInquiryCard(input: {
     id: `inq-${input.threadId}`,
     threadId: input.threadId,
     title: 'New inquiry — New customer',
-    descriptor: inquiryPlaceholderLabel({
-      eventType: input.eventType,
-      city,
-      hostNoun: input.hostNoun,
-    }),
+    descriptor: input.displayName?.trim() || 'New customer',
     eventDate: input.eventDate,
     place: city,
     category: input.category,

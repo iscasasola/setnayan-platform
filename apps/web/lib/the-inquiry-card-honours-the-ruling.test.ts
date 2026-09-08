@@ -1,11 +1,23 @@
 /**
- * The pre-accept inquiry card shows exactly what the 2026-07-15 ruling grants.
+ * The inquiry card shows exactly what the ruling in force grants.
  *
- * ── THE RULING (owner-locked, DECISION_LOG 2026-07-15) ────────────────────
+ * ── THE RULING NOW (owner, 2026-09-08) ────────────────────────────────────
+ * *"we do not need to hide anything, since no more tokens."*
+ *
+ * ── THE RULING IT REPLACED (owner-locked, DECISION_LOG 2026-07-15) ────────
  * *"Vendor inquiries ANONYMIZED-UNTIL-ACCEPT … Pre-accept a vendor sees the JOB
  * (event type · date · city/area · guest/budget bands · category · couple's
  * message text) but NOT WHO the couple is (no display name, initials, photo,
  * event title, public-page link, contact)."*
+ *
+ * 🔑 WHY IT WAS REVERSED RATHER THAN RELAXED. Anonymisation was the token
+ * wallet's storefront — the retired `inquiry-mask.ts` said so outright:
+ * *"Accepting (the flat 1-token burn, ₱200) reveals everything — identity is
+ * what the token buys."* The wallet was retired on 2026-05-11, so for four
+ * months the mask withheld a name and sold nothing. Its residual privacy
+ * argument does not survive contact with the data model either: a
+ * `chat_threads` row exists ONLY because the couple chose to write to this one
+ * supplier, so there was never cold outreach here to protect them from.
  *
  * ── WHAT WAS WRONG (owner, 2026-09-08) ────────────────────────────────────
  * *"i cannot see all the information I need from the inquiry."* The dashboard
@@ -22,9 +34,10 @@
  * the card had drifted below it. The thread page honoured the ruling in full the
  * whole time — so the two surfaces disagreed about what a supplier may see.
  *
- * ⚠ THESE TESTS CUT BOTH WAYS. The same ruling FORBIDS identity pre-accept, and
- * a test that only pushed for "more information" would happily wave through a
- * display name. Both halves are asserted.
+ * ⚠ THE JOB-FACT HALF OF THE OLD RULING SURVIVES UNCHANGED, and every test
+ * below it still stands: pax, the couple's own words, the word-boundary cut,
+ * and the degrade-to-null. Reversing WHO may be seen is not licence to get
+ * WHAT sloppy — those were the fields the owner said were missing.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,7 +50,7 @@ const base = {
   eventType: 'wedding',
   region: 'ncr',
   category: 'Live Band',
-  hostNoun: 'couple',
+  displayName: 'Cale & Ice',
 };
 
 test('the guest count reaches the card', () => {
@@ -74,16 +87,33 @@ test('an absent message and an absent pax degrade to null, not to noise', () => 
   assert.equal(blank.messageExcerpt, null, 'whitespace became an empty quote block');
 });
 
-test('🔑 IDENTITY STILL CANNOT REACH THE CARD', () => {
-  // The other half of the same ruling. The builder takes no identity parameter
-  // at all — that is the enforcement, and this pins it.
+test('🔑 THE CARD NAMES WHO IS ASKING', () => {
   const c = buildInquiryCard({ ...base, paxAtInquiry: 230, messageExcerpt: 'hello' });
-  const serialised = JSON.stringify(c);
-  for (const forbidden of ['displayName', 'eventName', 'contact', 'publicId', 'photo']) {
-    assert.ok(
-      !serialised.includes(forbidden),
-      `the card carries ${forbidden} — identity is what accepting buys`,
-    );
+  assert.equal(
+    c.descriptor,
+    'Cale & Ice',
+    'the supplier is asked to Accept or Decline without being told who is asking',
+  );
+});
+
+test('the placeholder cannot come back by accident', () => {
+  // The exact sentence the retired `inquiryPlaceholderLabel` produced. If any
+  // future change reintroduces a neutral stand-in for a name that IS known,
+  // this is the shape it would take.
+  const c = buildInquiryCard({ ...base });
+  assert.doesNotMatch(
+    c.descriptor,
+    /planning a .* in |^An? (couple|host|organizer|family|celebrant)\b/,
+    `the card is describing the customer instead of naming them: ${c.descriptor}`,
+  );
+});
+
+test('a nameless event degrades to a neutral noun, never to a guess', () => {
+  // 'New customer' is the honest answer when `display_name` is genuinely null.
+  // It must NOT become "A couple planning a wedding" — that sentence asserts a
+  // wedding, and seventeen event types exist.
+  for (const displayName of [null, '   ']) {
+    const c = buildInquiryCard({ ...base, displayName });
+    assert.equal(c.descriptor, 'New customer', `blank name rendered as: ${c.descriptor}`);
   }
-  assert.match(c.descriptor, /A couple planning a wedding/, 'the neutral placeholder is gone');
 });

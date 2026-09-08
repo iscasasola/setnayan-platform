@@ -47,3 +47,33 @@ export function formatLongDate(value: string | null | undefined): string {
     day: 'numeric',
   });
 }
+
+/**
+ * A TIMESTAMP as "June 19, 2026" — the Manila calendar day it happened on.
+ *
+ * ⚠ NOT THE SAME FUNCTION AS {@link formatLongDate}, AND THE DIFFERENCE IS A
+ * WHOLE DAY. `formatLongDate` takes the leading `YYYY-MM-DD` of its input and
+ * builds LOCAL midnight from it, which is exactly right for a `date` column —
+ * a wedding day is a calendar day and carries no instant. A `timestamptz` is
+ * an instant, and its leading characters are the **UTC** date, so anything that
+ * happened after 16:00 Manila renders one day early.
+ *
+ * 🔑 THIS IS NOT HYPOTHETICAL — it was measured on the first event the feature
+ * would ever render. `events.created_at = 2026-06-18 23:24:45+00` is
+ * **2026-06-19 07:24 in Manila**; `formatLongDate` on it prints "June 18,
+ * 2026", telling a supplier the couple started planning the day before they
+ * did. Roughly a third of every day falls in that window.
+ *
+ * So this converts to Manila FIRST, then reuses the one formatter. Hard-coded
+ * to `Asia/Manila` rather than the reader's zone deliberately: this is a fact
+ * about when a Filipino couple opened their event, not about where the supplier
+ * is sitting, and the whole V1 market is in one zone.
+ */
+export function formatLongTimestamp(value: string | null | undefined): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return formatLongDate(value);
+  // en-CA yields ISO-ordered `YYYY-MM-DD`, which is what formatLongDate parses.
+  const manilaKey = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  return formatLongDate(manilaKey);
+}

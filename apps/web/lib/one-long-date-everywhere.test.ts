@@ -31,6 +31,9 @@ const thread = stripComments(
     'utf8',
   ),
 );
+const summary = stripComments(
+  readFileSync(resolve(HERE, 'customer-event-summary.ts'), 'utf8'),
+);
 
 test('it renders the month by name', () => {
   assert.equal(formatLongDate('2026-12-18'), 'December 18, 2026');
@@ -63,7 +66,14 @@ test('it degrades without ever printing "Invalid Date" at a supplier', () => {
 });
 
 test('the Accept/Decline chip does not show a raw database value', () => {
-  const i = thread.indexOf('inquiryBasics.event_date ?');
+  // ⚠ RE-POINTED 2026-09-08. The anchor was `inquiryBasics.event_date`, the
+  // field fed by the `get_pending_inquiry_basics` RPC. That RPC returned four
+  // deliberately NON-IDENTIFYING fields for a MASKED lead; with the mask
+  // retired the chips read the same admin-scoped `events` row as the header, so
+  // the name above and the date here can no longer disagree. The chip itself
+  // is unchanged — this guard watches a rename, which is exactly the rot it
+  // warns about, so it names the field rather than a line number.
+  const i = thread.indexOf('event.event_date ?');
   assert.ok(i > -1, 're-point this guard — the inquiry date chip moved');
   // 900, not 500: `stripComments` blanks a JSX comment to spaces rather than
   // deleting it, so the explanatory comment sitting between the anchor and the
@@ -73,9 +83,22 @@ test('the Accept/Decline chip does not show a raw database value', () => {
   const chip = thread.slice(i, i + 900);
   assert.match(
     chip,
-    /formatLongDate\(inquiryBasics\.event_date\)/,
+    /formatLongDate\(event\.event_date\)/,
     'the inquiry chip prints the raw ISO key again — the one field a supplier ' +
       'reads before accepting or declining',
+  );
+});
+
+test('the summary builder formats BOTH of its dates, and the right way round', () => {
+  // Two dates, two functions, and swapping them is a silent one-day error:
+  // `targetDate` is a `date` column (local midnight is correct);
+  // `createdAt` is a `timestamptz` (must be converted to Manila first).
+  assert.match(summary, /formatLongDate\(input\.targetDate\)/);
+  assert.match(summary, /formatLongTimestamp\(input\.createdAt\)/);
+  assert.doesNotMatch(
+    summary,
+    /formatLongDate\(input\.createdAt\)/,
+    'a timestamp is being read as a date key — renders a day early after 16:00 Manila',
   );
 });
 
@@ -84,6 +107,46 @@ test('the thread header uses the same formatter', () => {
     thread,
     /formatLongDate\(event\.event_date\)/,
     'the header date drifted back to its own rendering',
+  );
+});
+
+test('🔑 NO site on this page renders the date raw — counted, not merely present', () => {
+  // ⚠ THE TEST ABOVE CANNOT CATCH A SINGLE SITE REGRESSING. It matches the
+  // whole file, and there are now THREE `formatLongDate(event.event_date)`
+  // call sites (header · Accept/Decline chip · the customer rail's prop). Break
+  // any one and the other two still satisfy it — measured 2026-09-08 by
+  // reverting the header to `{event.event_date}` and watching this file stay
+  // fully green. Presence is not coverage when the anchor repeats.
+  //
+  // So assert the ABSENCE of the raw rendering instead, which has no such
+  // escape hatch: every site is covered by one check, and a fourth site added
+  // later is covered the day it is written.
+  const raw = [...thread.matchAll(/\{\s*event\??\.event_date\s*\}/g)];
+  assert.equal(
+    raw.length,
+    0,
+    `${raw.length} site(s) on the vendor thread page print the raw ISO date. ` +
+      'The owner asked for "December 18, 2026", not "2026-12-18".',
+  );
+
+  // And the count itself, so that DELETING a date rather than formatting it
+  // cannot read as a pass.
+  const formatted = [...thread.matchAll(/formatLongDate\(event\.event_date\)/g)];
+  assert.equal(
+    formatted.length,
+    2,
+    `expected 2 formatted date renders (header · inquiry chip), found ${formatted.length}`,
+  );
+  // ⚠ WAS 3. The third was the customer rail's `eventDate` prop, which moved
+  // into `buildCustomerEventSummary` — the rail's date now comes from the same
+  // builder as the sentence beside it, so the two cannot disagree. The date is
+  // still formatted; the count moved because the RENDER moved, which is why
+  // this asserts the raw-absence above as well. That check is the one that
+  // cannot be satisfied by relocating code.
+  assert.match(
+    summary,
+    /formatLongDate\(input\.targetDate\)/,
+    'the summary builder stopped formatting the target date',
   );
 });
 

@@ -12,8 +12,10 @@ import {
 import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
 import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
 import { FOUNDER_BADGE_LABEL, FOUNDER_INQUIRY_NOTE } from '@/lib/founder-seats';
-import { isInquiryRevealed, inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
-import { inquiryHostNoun } from '@/lib/inquiry-mask.server';
+import { inquiryCityLabel } from '@/lib/inquiry-customer.server';
+import { buildCustomerEventSummary } from '@/lib/customer-event-summary';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -79,16 +81,6 @@ type Props = {
   searchParams?: Promise<{ notice?: string }>;
 };
 
-// Masked-lead inquiry basics (PR 1) — the 4 non-identifying fields the gated
-// get_pending_inquiry_basics RPC returns for a PENDING lead. NEVER carries the
-// couple's name/contact/venue.
-type InquiryBasics = {
-  event_date: string | null;
-  region: string | null;
-  event_type: string | null;
-  setnayan_ai_active: boolean | null;
-};
-
 const PROPOSAL_NOTICE: Record<string, string> = {
   proposal_sent: 'Proposal sent — it’s in the conversation below.',
   proposal_failed: 'Couldn’t send that proposal. Please try again.',
@@ -144,16 +136,22 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     planProgress,
     reasonCodes,
     { data: existingOutcome },
-    inquiryBasics,
+    customerPlan,
     ownPaymentMethods,
   ] = await msgTimer.track('thread', () => Promise.all([
     // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
     getThreadBlockState(thread, user.id, 'vendor'),
-    // Identity-masking source of truth: never expose the couple's email or
-    // personal name; show only the event's display_name + date.
-    supabase
+    // WHO IS ASKING. Read with the ADMIN client, like the three sibling reads
+    // below, because a vendor holds no `events` RLS — not even after accepting
+    // (measured in prod 2026-09-08: an accepted thread's vendor still had
+    // `vendor_is_event_member = 0`). With the vendor's own client this row came
+    // back null on EVERY load, so the header fell back to "Couple" and the rail
+    // read "Not set yet" against a real 2026-12-18 date. The ownership gate
+    // above (`thread.vendor_profile_id !== profile.vendor_profile_id` →
+    // notFound) is what authorises the bypass.
+    paxAdmin
       .from('events')
-      .select('display_name, event_date')
+      .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at')
       .eq('event_id', thread.event_id)
       .maybeSingle(),
     // Server-rendered first batch (SSR + SEO). Realtime takes over from here.
@@ -212,27 +210,63 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       .eq('chat_thread_id', threadId)
       .is('vendor_proposal_id', null)
       .maybeSingle(),
-    // Masked-lead inquiry basics (PR 1 · owner-approved 2026-07-11). A vendor is
-    // NOT an event_members row while the inquiry is pending, so a direct read on
-    // `events` returns NULL under their RLS. This gated SECURITY DEFINER RPC
-    // returns ONLY 4 non-identifying fields (date / region / event_type /
-    // AI-status) for a PENDING thread the caller's vendor org owns — never
-    // name/contact/venue. FAIL-SOFT: any error (e.g. the function isn't in prod
-    // yet) degrades to null so the masked lead still renders.
-    thread.inquiry_status === 'pending'
-      ? (async (): Promise<InquiryBasics | null> => {
-          try {
-            const { data, error } = await supabase.rpc(
-              'get_pending_inquiry_basics',
-              { p_thread_id: thread.thread_id },
-            );
-            if (error || !Array.isArray(data)) return null;
-            return (data[0] as InquiryBasics | undefined) ?? null;
-          } catch {
-            return null;
-          }
-        })()
-      : Promise.resolve<InquiryBasics | null>(null),
+    // WHO STARTED THE EVENT, and HOW FAR ALONG the plan is — the two halves of
+    // the owner's 2026-09-08 summary ("User name create a … event … with X
+    // locked vendors"). Admin-scoped for the same reason as the `events` read
+    // above: a vendor holds no RLS on either table. Best-effort — the summary
+    // degrades field by field rather than costing the page.
+    (async (): Promise<{
+      hostName: string | null;
+      locked: number | null;
+      total: number | null;
+      lockedCategories: string[];
+    }> => {
+      try {
+        const [members, vendors] = await Promise.all([
+          paxAdmin
+            .from('event_members')
+            .select('user_id')
+            .eq('event_id', thread.event_id)
+            .limit(1),
+          paxAdmin
+            // `category` rides along on a query this page already makes — the
+            // locked-category chips cost no extra round trip. ⚠ `vendor_name`
+            // is NOT selected: which SLOTS are taken is the owner's 2026-09-08
+            // grant; WHO took them stays the booked-stage `vendor_roster`.
+            .from('event_vendors')
+            .select('status, category')
+            .eq('event_id', thread.event_id),
+        ]);
+        const rows = (vendors.data ?? []) as Array<{
+          status: string | null;
+          category: string | null;
+        }>;
+        const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES);
+        const lockedRows = rows.filter((r) => r.status && confirmed.has(r.status));
+        const locked = lockedRows.length;
+        // `displayServiceLabel`, not a raw `category`: the column holds canonical
+        // enum keys AND custom free-text entries, and that resolver is the one
+        // place that already handles both. Its docblock: "NEVER PRINT A DATABASE
+        // KEY AT A COUPLE" — a supplier deserves the same.
+        const lockedCategories = lockedRows
+          .map((r) => (r.category ? displayServiceLabel(r.category) : null))
+          .filter((c): c is string => !!c);
+        const hostId = (members.data ?? [])[0]?.user_id as string | undefined;
+        let hostName: string | null = null;
+        if (hostId) {
+          // ⚠ `display_name`, NOT `full_name` — public.users has no `full_name`.
+          const { data: u } = await paxAdmin
+            .from('users')
+            .select('display_name')
+            .eq('user_id', hostId)
+            .maybeSingle();
+          hostName = (u as { display_name: string | null } | null)?.display_name ?? null;
+        }
+        return { hostName, locked, total: rows.length, lockedCategories };
+      } catch {
+        return { hostName: null, locked: null, total: null, lockedCategories: [] };
+      }
+    })(),
     // Vendor Proposal Maker (§ 9) — the vendor's OWN published payment methods
     // for the in-thread quote's method picker (RLS-scoped). Best-effort: any
     // failure degrades to no picker (the couple falls back to all approved).
@@ -244,23 +278,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     markThreadRead(threadId).catch(() => undefined),
   ]));
 
+  // WHO IS ASKING — one label, the same before and after accepting. The
+  // anonymization-until-accept placeholder ("A couple planning a wedding in
+  // Manila") is gone: it existed so that accepting, which cost a token, bought
+  // something. The token wallet is retired, so it bought nothing and only
+  // withheld a name from the one supplier this couple had already written to.
+  // Owner ruling 2026-09-08: "we do not need to hide anything, since no more
+  // tokens." 'Couple' remains only for a genuinely missing event row.
   const coupleLabel = event?.display_name ?? 'Couple';
-  // Anonymization-until-accept (Glass PR-6b): pre-accept, the thread header + the
-  // customer rail show the neutral placeholder ("A couple planning a {type} in
-  // {city}") built from the non-identifying `get_pending_inquiry_basics` facts —
-  // never the couple's event title. Post-accept (answering is free) the real
-  // label shows. The message-stream `counterpartyLabel` stays the generic `coupleLabel`
-  // (which the vendor's RLS already resolves to "Couple" while pending) so chat
-  // bubbles read naturally rather than repeating the long placeholder.
-  const inquiryRevealed = isInquiryRevealed(thread);
-  const maskedInquiryLabel = inquiryPlaceholderLabel({
-    eventType: inquiryBasics?.event_type ?? null,
-    city: regionLabel(inquiryBasics?.region ?? null),
-    // The organiser noun follows the event type, so a wake reads "A family" and
-    // a corporate booking "An organizer" instead of every type reading "A couple".
-    hostNoun: await inquiryHostNoun(inquiryBasics?.event_type ?? null),
-  });
-  const headerLabel = inquiryRevealed ? coupleLabel : maskedInquiryLabel;
+  const headerLabel = coupleLabel;
+  const inquiryCity = inquiryCityLabel(event?.region ?? null);
 
   const alreadyOnThread = new Set(
     existingInterests
@@ -373,10 +400,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   );
 
   // ── Customer info rail (Customer Card respine PR-3) ──────────────────────
-  // Masked = the inquiry is still pending; the rail reveals nothing beyond the
-  // placeholder (vendor hybrid-anonymity — mirrors the accept-gate on the
-  // conversation below). Only derive the stage/snapshot when unmasked.
-  const railMasked = thread.inquiry_status === 'pending';
+  // The rail no longer hides anything (owner ruling 2026-09-08). This flag now
+  // means ONLY what its name says: a pending inquiry sits at the 'inquiry'
+  // stage by definition, so there is no pipeline to derive yet. It must never
+  // regain an identity meaning — that was the token wallet's lock.
+  const threadIsPendingInquiry = thread.inquiry_status === 'pending';
   const railInitials =
     coupleLabel
       .split(/[\s&·]+/)
@@ -388,8 +416,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // same source the interest chips + cross-sell already use on this page).
   const firstInterest = existingInterests[0];
   const railService = firstInterest ? interestChipLabel(firstInterest) : null;
-  const railPaxLabel = !railMasked && headerPax ? `~${headerPax} planning` : null;
-  const railStage = railMasked
+  const railStage = threadIsPendingInquiry
     ? ('inquiry' as const)
     : await deriveThreadStage({
         supabase,
@@ -397,14 +424,27 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         eventId: thread.event_id,
         vendorProfileId: profile.vendor_profile_id,
       });
+  // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
+  // the rows cannot disagree with each other or with the header above them.
+  const customerSummary = buildCustomerEventSummary({
+    hostName: customerPlan.hostName,
+    eventTypeLabel: event?.event_type ? eventTypeLabel(event.event_type) : null,
+    eventName: event?.display_name ?? null,
+    createdAt: event?.created_at ?? null,
+    targetDate: event?.event_date ?? null,
+    pax: headerPax ?? null,
+    location: inquiryCity,
+    lockedVendors: customerPlan.locked,
+    totalVendors: customerPlan.total,
+    lockedCategoryLabels: customerPlan.lockedCategories,
+  });
+
   const railProps = {
-    displayName: railMasked ? maskedInquiryLabel : coupleLabel,
+    displayName: coupleLabel,
+    summary: customerSummary,
     initials: railInitials,
-    masked: railMasked,
     stage: { label: THREAD_STAGE_LABEL[railStage], tone: THREAD_STAGE_TONE[railStage] },
-    eventDate: event?.event_date ?? null,
-    service: railMasked ? null : railService,
-    paxLabel: railPaxLabel,
+    service: railService,
     threadId,
     eventId: thread.event_id,
   };
@@ -704,23 +744,23 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">
-            <span className="font-semibold">New inquiry.</span> Accept to see who
-            they are and reply — it&rsquo;s free. Or decline if you&rsquo;re not
-            available for this date.
+            <span className="font-semibold">New inquiry.</span> Accept to reply,
+            or decline if you&rsquo;re not available for this date.
           </p>
-          {/* Inquiry basics (PR 1 · owner-approved 2026-07-11) — decision-useful,
-              non-identifying facts surfaced on the MASKED lead. The couple's name
-              stays hidden; these come from the gated get_pending_inquiry_basics
-              RPC and are null-safe (RPC absent / pre-migration → no chips). */}
-          {inquiryBasics ? (
+          {/* The facts a supplier decides on. These came from the gated
+              get_pending_inquiry_basics RPC, which returned four deliberately
+              NON-IDENTIFYING fields for a masked lead; they now come from the
+              same admin-scoped `events` read that feeds the header, so the name
+              above and the chips here can no longer disagree. Null-safe. */}
+          {event ? (
             <div className="flex flex-wrap gap-1.5">
-              {inquiryBasics.event_date ? (
+              {event.event_date ? (
                 <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
                   {/* The chip a supplier reads before Accept/Decline. It showed
                       the raw ISO key while the line below it said "18 Dec." and
                       the header said something else again — three renderings of
                       one wedding day on one screen (owner 2026-09-08). */}
-                  {formatLongDate(inquiryBasics.event_date)}
+                  {formatLongDate(event.event_date)}
                 </span>
               ) : null}
               {(() => {
@@ -731,17 +771,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   </span>
                 ) : null;
               })()}
-              {inquiryBasics.event_type ? (
+              {event.event_type ? (
                 <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
-                  {eventTypeLabel(inquiryBasics.event_type)}
+                  {eventTypeLabel(event.event_type)}
                 </span>
               ) : null}
-              {regionLabel(inquiryBasics.region) ? (
+              {inquiryCity ? (
                 <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
-                  {regionLabel(inquiryBasics.region)}
+                  {inquiryCity}
                 </span>
               ) : null}
-              {inquiryBasics.setnayan_ai_active ? (
+              {event.setnayan_ai_active ? (
                 <span className="inline-flex items-center rounded-full bg-mulberry/10 px-2.5 py-1 text-xs font-semibold text-mulberry">
                   Setnayan AI · Active
                 </span>

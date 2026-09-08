@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "85ee6be2d",
+  "generatedFromRef": "f852341eb",
   "routeCount": 424,
-  "destinations": 906,
+  "destinations": 907,
   "actions": 631,
-  "blocks": 4323,
+  "blocks": 4327,
   "routes": {
     "/": {
       "files": [
@@ -238,6 +238,7 @@
         "SaveVendorButton",
         "SaveVendorResult",
         "ScopedFolderBanner",
+        "ServiceCardView",
         "SortKey",
         "StatePill",
         "StickyMarketplaceHeader",
@@ -427,6 +428,7 @@
     },
     "/(shell)/papic": {
       "files": [
+        "(shell)/papic/_papic-cost-comparison.tsx",
         "(shell)/papic/_papic-dial.tsx",
         "(shell)/papic/_papic-film.tsx",
         "(shell)/papic/_papic-scan.tsx",
@@ -450,6 +452,7 @@
         "Link",
         "Mini",
         "PapicAnchor",
+        "PapicCostComparisonSection",
         "PapicDial",
         "PapicFeatures",
         "PapicFilm",
@@ -3637,7 +3640,8 @@
         "admin/vendors/_components/invite-vendor-form.tsx",
         "admin/vendors/actions.ts",
         "admin/vendors/loading.tsx",
-        "admin/vendors/page.tsx"
+        "admin/vendors/page.tsx",
+        "admin/vendors/verification-bypass-actions.ts"
       ],
       "destinations": [],
       "actions": [],
@@ -7387,6 +7391,7 @@
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
+        "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
         "/explore?q=[seg]"
       ],
@@ -7414,6 +7419,7 @@
         "BuildPickResult",
         "BuildStateMap",
         "CancelBookingAsHostResult",
+        "CardDateBlock",
         "CatIcon",
         "CategoryDecisionResult",
         "CategorySearchOverlay",
@@ -10209,7 +10215,6 @@
         "ChatSendForm",
         "ChatThreadMenu",
         "Icon",
-        "InquiryBasics",
         "InquiryOutcomeCapture",
         "Link",
         "NegotiationComposerMenu",
@@ -10786,6 +10791,7 @@
         "vendor-dashboard/services/_components/pricing-basis-editor.tsx",
         "vendor-dashboard/services/_components/publish-gate-submit.tsx",
         "vendor-dashboard/services/_components/refinements-editor.tsx",
+        "vendor-dashboard/services/_components/service-card-face.tsx",
         "vendor-dashboard/services/_components/service-card-live-preview.tsx",
         "vendor-dashboard/services/_components/service-list-editors.tsx",
         "vendor-dashboard/services/_components/service-wizard.tsx",
@@ -10882,7 +10888,9 @@
         "RowRemove",
         "SectionEyebrow",
         "SelectChip",
+        "ServiceCardFace",
         "ServiceCardLivePreview",
+        "ServiceCardView",
         "ServicesManagerSearch",
         "SheetKey",
         "ShowcaseMediaFields",

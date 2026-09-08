@@ -8,11 +8,11 @@ import {
   CalendarDays,
   FileText,
   Info,
-  Lock,
   User,
   Wallet,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import type { CustomerEventSummary } from '@/lib/customer-event-summary';
 
 /**
  * Customer info rail beside the vendor⇆couple conversation (PR-3 of the
@@ -25,9 +25,12 @@ import { Sheet } from '@/app/_components/sheet';
  * bottom-sheet primitive (app/_components/sheet.tsx · the locked modal-a11y
  * pattern).
  *
- * MASKING: the parent only passes `masked = true` for a still-pending inquiry.
- * When masked, the rail reveals nothing beyond the "New inquiry" placeholder —
- * no snapshot, no quick actions, no profile link (vendor hybrid-anonymity).
+ * NO MASKING (owner ruling 2026-09-08 — "we do not need to hide anything, since
+ * no more tokens"). This rail used to take a `masked` flag that, for a pending
+ * inquiry, replaced the whole body with "accept the conversation to reveal who
+ * they are". That lock was the token wallet's storefront, and the wallet was
+ * retired on 2026-05-11 — so it withheld the customer without selling anything.
+ * A supplier now sees the same rail before and after accepting.
  */
 
 export type ChatInfoRailProps = {
@@ -35,19 +38,27 @@ export type ChatInfoRailProps = {
   displayName: string;
   /** Initials for the avatar (derived by the parent from displayName). */
   initials: string;
-  /** True while the inquiry is pending — reveal nothing extra. */
-  masked: boolean;
   stage: {
     label: string;
     /** Tailwind classes for the pill (border/bg/text). */
     tone: string;
   };
-  /** Event date, pre-formatted for display (or null). */
-  eventDate: string | null;
+  /**
+   * The customer's event, in one sentence plus the decision rows — built by
+   * `buildCustomerEventSummary` so the sentence, the rows and the header above
+   * them all come from a single resolve. Owner 2026-09-08.
+   */
+  summary: CustomerEventSummary;
+  /*
+   * ⚠ `eventDate` AND `paxLabel` USED TO LIVE HERE and are deliberately gone.
+   * Both now arrive inside `summary.facts`, from one builder. `eventDate` was
+   * documented "pre-formatted" while its only caller passed the raw Postgres
+   * value, so the rail rendered "2026-12-18" — a mismatch no type could catch,
+   * both being `string | null`. Two props feeding rows that a third prop also
+   * describes is exactly how one screen came to show a wedding day three ways.
+   */
   /** Service / inquiry category label (or null). */
   service: string | null;
-  /** Live pax estimate, when the page has one. */
-  paxLabel: string | null;
   threadId: string;
   eventId: string;
 };
@@ -93,11 +104,9 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
 function RailBody({
   displayName,
   initials,
-  masked,
+  summary,
   stage,
-  eventDate,
   service,
-  paxLabel,
   threadId,
   eventId,
   headingId,
@@ -118,11 +127,7 @@ function RailBody({
       {/* Identity */}
       <div className="flex flex-col items-center gap-2 border-b border-ink/10 px-4 py-5 text-center">
         <span className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-ink/10 bg-white text-sm font-semibold text-ink/70">
-          {masked ? (
-            <User aria-hidden className="h-6 w-6 text-ink/40" strokeWidth={1.75} />
-          ) : (
-            initials
-          )}
+          {initials}
         </span>
         <p className="text-base font-semibold text-ink">{displayName}</p>
         <span
@@ -132,25 +137,49 @@ function RailBody({
         </span>
       </div>
 
-      {masked ? (
-        /* Masked pre-accept — reveal nothing. */
-        <div className="flex items-start gap-2 px-4 py-5 text-sm text-ink/65">
-          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
-          <p>
-            New inquiry — accept the conversation to reveal who they are and open
-            their customer profile.
+      <>
+          {/* WHO STARTED WHAT, AND WHEN. */}
+          <p className="border-b border-ink/10 px-4 py-4 text-left text-sm leading-relaxed text-ink/75">
+            {summary.sentence}
           </p>
-        </div>
-      ) : (
-        <>
-          {/* Event snapshot — only what this page already exposes. Location is
-              deliberately omitted (masked by the disclosure ladder; the page
-              never loads a venue for the vendor's plain client). */}
+
+          {/* The decision rows. `Date`/`Guests` used to be rendered here from
+              their own props; they now come from `summary.facts` so the rail
+              cannot show one date while the sentence beside it shows another.
+              `Service` stays a separate row — it is a fact about THIS thread
+              (the interest chip), not about the couple's event. Exact venue is
+              still absent: that sits behind the agreement ladder in
+              `get_vendor_event_brief`, which the 2026-09-08 ruling did not
+              touch. */}
           <dl className="flex flex-col gap-3 border-b border-ink/10 px-4 py-4 text-left">
-            <SnapRow label="Date" value={eventDate ?? 'Not set yet'} />
+            {summary.facts.map((f) => (
+              <SnapRow key={f.label} label={f.label} value={f.value} />
+            ))}
             {service ? <SnapRow label="Service" value={service} /> : null}
-            {paxLabel ? <SnapRow label="Guests" value={paxLabel} /> : null}
           </dl>
+
+          {/* WHICH SLOTS ARE TAKEN (owner 2026-09-08). Rendered only when the
+              couple has actually locked something — an "Already locked" heading
+              over nothing reads as a finding, and "none" is already said by the
+              `Locked suppliers` row above. Categories only; the supplier's
+              NAMES stay behind the booked-stage `vendor_roster`. */}
+          {summary.lockedCategories.length > 0 ? (
+            <div className="border-b border-ink/10 px-4 py-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                Already locked
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {summary.lockedCategories.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {/* Quick actions — all reuse EXISTING in-thread flows. Send proposal &
               Log payment anchor-scroll to the affordances already on the page;
@@ -186,8 +215,7 @@ function RailBody({
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
             </Link>
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }

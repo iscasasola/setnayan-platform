@@ -48,6 +48,8 @@ import {
 import { SendProposalCard } from './_components/send-proposal-card';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
 import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
+import { ThreadToolHashReveal } from './_components/reveal-thread-tool';
+import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { interestChipLabel } from '@/lib/thread-interests';
@@ -399,6 +401,97 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     />
   );
 
+  /**
+   * THE TOOLS, MOUNTED ONCE AND CLOSED.
+   *
+   * ── WHY THIS EXISTS (owner, 2026-09-08: "still messy chatbox") ───────────
+   * Six panels used to sit BETWEEN the last message and the text box — the
+   * cross-sell picker, the proposal-template banner, Build a quote, "How did
+   * this inquiry end?", the call launcher and Deal-or-meeting. The
+   * conversation was left a sliver, and on a phone it was pushed off screen
+   * entirely. Every one of them is still here and still works; each is now a
+   * closed disclosure ABOVE the stream, opened from the customer rail's tool
+   * list (the right column), which is where the owner asked the tools to live.
+   *
+   * 🔑 MOUNTED ONCE, NOT PER BREAKPOINT. The rail renders twice — a desktop
+   * column and a mobile sheet — so putting these components inside it would
+   * mount `ProposalMaker` and `SendProposalCard` twice, duplicate every form
+   * and every anchor id. The rail carries LAUNCHERS (cheap, safe to duplicate);
+   * the heavy tools live here, once, and the launchers open them by id.
+   */
+  const toolNodes: Record<string, React.ReactNode> = {
+    'send-proposal': (
+        <SendProposalCard
+          threadId={threadId}
+          templates={proposalTemplates}
+          packages={proposalPackages}
+        />
+    ),
+    'build-quote': (
+        <ProposalMaker
+          threadId={threadId}
+          requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
+          coupleName={coupleLabel}
+          packages={proposalPackages}
+          paymentMethods={proposalPaymentMethods}
+          viewerPromo={
+            attribution?.audienceRateTerms
+              ? {
+                  terms: attribution.audienceRateTerms,
+                  creatorName: attribution.creatorName,
+                }
+              : null
+          }
+        />
+    ),
+    'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
+    'thread-call': (
+        <ThreadCallLauncher
+          threadId={threadId}
+          currentUserId={user.id}
+          counterpartyLabel={coupleLabel}
+          callsEnabled={callsEnabled}
+          viewerRole="vendor"
+          upgradeHref="/vendor-dashboard/subscription"
+          // Gives the two Start buttons the ids `thread-call-voice` and
+          // `thread-call-video`, which is what lets the rail offer "Voice call"
+          // and "Video call" as two entries that open ONE panel and land on the
+          // right button. Passed here only — the launcher is mounted on three
+          // other screens and must not grow duplicate ids there.
+          buttonIdPrefix="thread-call"
+        />
+    ),
+    'deal-or-meeting': (
+        <NegotiationComposerMenu
+          threadId={threadId}
+          returnPath={`/vendor-dashboard/messages/${threadId}`}
+          eventDate={event?.event_date ?? null}
+        />
+    ),
+    'log-outcome': outcomeCapture,
+  };
+
+  const toolsMounted = thread.inquiry_status === 'accepted';
+
+  const vendorTools = toolsMounted ? (
+      <div className="flex flex-col gap-2">
+        {VENDOR_THREAD_PANELS.map((t) => (
+          <details
+            key={t.id}
+            id={t.id}
+            className="group scroll-mt-24 rounded-xl border border-ink/10 bg-cream open:border-ink/20"
+          >
+            <summary className="flex cursor-pointer items-baseline gap-2 px-4 py-2.5 text-sm font-semibold text-ink marker:content-none">
+              <span>{t.label}</span>
+              <span className="font-normal text-ink/45">{t.hint}</span>
+              <span className="ml-auto text-ink/40 transition-transform group-open:rotate-90">›</span>
+            </summary>
+            <div className="border-t border-ink/10 p-3">{toolNodes[t.id]}</div>
+          </details>
+        ))}
+      </div>
+    ) : null;
+
   // ── Customer info rail (Customer Card respine PR-3) ──────────────────────
   // The rail no longer hides anything (owner ruling 2026-09-08). This flag now
   // means ONLY what its name says: a pending inquiry sits at the 'inquiry'
@@ -447,6 +540,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     service: railService,
     threadId,
     eventId: thread.event_id,
+    // The launchers are only honest while the panels they open are on the page.
+    toolsMounted,
+    templateCount: proposalTemplates.length,
   };
 
   msgTimer.flush();
@@ -662,9 +758,13 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
       <ThreadInterestChips supabase={supabase} threadId={threadId} />
 
-      {thread.inquiry_status === 'accepted' ? (
-        <VendorOfferService threadId={threadId} options={offerOptions} />
-      ) : null}
+      {/* A deep link from the client brief (Quote / Call / Log payment) and the
+          rail's own launchers both land on an id inside a CLOSED disclosure.
+          This opens it; without it those four controls scroll to a collapsed
+          strip and read as doing nothing. */}
+      <ThreadToolHashReveal />
+
+      {vendorTools}
 
       <ChatMessageStream
         threadId={threadId}
@@ -688,57 +788,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               {proposalNotice}
             </p>
           ) : null}
-          <div id="send-proposal" className="scroll-mt-24">
-            <SendProposalCard
-              threadId={threadId}
-              templates={proposalTemplates}
-              packages={proposalPackages}
-            />
-          </div>
-          {/* Proposal Maker (PR 3) — compose a custom priced quote (pricing
-              bases + freebies + crew/transport) right in the thread. Seeded
-              from the couple's requested pax. Additive to the template-based
-              SendProposalCard above. */}
-          <div id="build-quote" className="scroll-mt-24">
-            <ProposalMaker
-              threadId={threadId}
-              requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
-              coupleName={coupleLabel}
-              packages={proposalPackages}
-              paymentMethods={proposalPaymentMethods}
-              // PR-C — quoting an attributed thread surfaces the promised
-              // audience rate and labels the discount line "Viewer promo" so
-              // the customer quote (/proposals/[publicId]) reflects it.
-              viewerPromo={
-                attribution?.audienceRateTerms
-                  ? {
-                      terms: attribution.audienceRateTerms,
-                      creatorName: attribution.creatorName,
-                    }
-                  : null
-              }
-            />
-          </div>
-          {/* Won & Lost Reasons (Wave 6) — log the outcome of this booked/active
-              inquiry. Self-reported; "Won" is off-platform, not a payment. */}
-          {outcomeCapture}
-          {/* Free 1:1 voice/video call — accepted threads only (PR 10). Anchor
-              target for the customer card's "Call" quick action. */}
-          <div id="thread-call" className="scroll-mt-24">
-            <ThreadCallLauncher
-              threadId={threadId}
-              currentUserId={user.id}
-              counterpartyLabel={coupleLabel}
-              callsEnabled={callsEnabled}
-              viewerRole="vendor"
-              upgradeHref="/vendor-dashboard/subscription"
-            />
-          </div>
-          <NegotiationComposerMenu
-            threadId={threadId}
-            returnPath={`/vendor-dashboard/messages/${threadId}`}
-            eventDate={event?.event_date ?? null}
-          />
+          {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX. The six
+              panels that used to sit here are `vendorTools`, above the stream
+              and closed, opened from the rail's tool list. */}
           <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
         </div>
       ) : thread.inquiry_status === 'pending' ? (

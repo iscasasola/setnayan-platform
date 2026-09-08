@@ -421,6 +421,14 @@ export function PapicGuestCapture({
     }
     ctx.drawImage(video, 0, 0, w, h);
 
+    // 🕐 THE SHUTTER — stamped on the frame itself, before the on-device face
+    // pass, the look and the JPEG encode, and long before any of the network.
+    // Everything after this line can take seconds or, on the offline queue,
+    // hours; none of it is allowed to be the minute this photograph is filed
+    // under. Never shown to the guest and never asked of them (owner ruling,
+    // 2026-09-07) — the camera simply knows.
+    const capturedAtMs = Date.now();
+
     // FACE auto-tag runs on the CLEAN frame, BEFORE the look is applied — the
     // event style (mono / cross-process / etc.) would otherwise wreck face-api's
     // 128-d descriptors. ON-DEVICE: only the tiny vectors leave the phone, never
@@ -470,6 +478,7 @@ export function PapicGuestCapture({
         blob,
         sharePublicly,
         faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
+        capturedAtMs,
         reason: 'low_bandwidth',
       });
       setBusy(false);
@@ -484,6 +493,7 @@ export function PapicGuestCapture({
     try {
       const form = new FormData();
       form.append('file', blob, `papic-${Date.now()}.jpg`);
+      form.append('captured_at_ms', String(capturedAtMs));
       // Public-sharing consent for THIS shot (Alaala orb gate). Only sent when
       // the guest opted in; the server sets consent_to_public from it.
       if (sharePublicly) form.append('share_publicly', '1');
@@ -612,6 +622,9 @@ export function PapicGuestCapture({
         blob,
         sharePublicly,
         faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
+        // The shot the guest watched themselves take, with the minute they took
+        // it. Without this the queue stamps the moment the upload FAILED.
+        capturedAtMs,
         reason: 'network',
       });
       setSaveError(
@@ -740,7 +753,7 @@ export function PapicGuestCapture({
   }, []);
 
   const uploadClip = useCallback(
-    async (clip: Blob, durationMs: number) => {
+    async (clip: Blob, durationMs: number, capturedAtMs: number) => {
       setBusy(true);
       setSaveError(null);
       // Link effectively unusable — skip the doomed POST, queue the clip.
@@ -755,6 +768,7 @@ export function PapicGuestCapture({
           posterFilename: `papic-${Date.now()}.jpg`,
           durationMs: Math.min(durationMs, MAX_CLIP_MS),
           sharePublicly,
+          capturedAtMs,
           reason: 'low_bandwidth',
         });
         setSaveError(
@@ -773,6 +787,7 @@ export function PapicGuestCapture({
           form.append('poster', posterBlobRef.current, `papic-${Date.now()}.jpg`);
         }
         form.append('duration_ms', String(Math.min(durationMs, MAX_CLIP_MS)));
+        form.append('captured_at_ms', String(capturedAtMs));
         // Same public-sharing opt-in as photos (Alaala orb gate). Only sent when
         // the guest opted in; the server sets consent_to_public from it.
         if (sharePublicly) form.append('share_publicly', '1');
@@ -873,6 +888,9 @@ export function PapicGuestCapture({
           posterFilename: `papic-${Date.now()}.jpg`,
           durationMs: Math.min(durationMs, MAX_CLIP_MS),
           sharePublicly,
+          // The moment the clip opened. Without it the queue would stamp the
+          // moment the upload gave up.
+          capturedAtMs,
           reason: 'network',
         });
         setSaveError(
@@ -952,7 +970,9 @@ export function PapicGuestCapture({
         return;
       }
       posterBlobRef.current = await grabPoster(); // last live frame ≈ NSFW proxy
-      void uploadClip(clip, durationMs);
+      // 🕐 The clip's minute is when it OPENED, not when it closed — the same
+      // instant `durationMs` is measured from, so the two can never disagree.
+      void uploadClip(clip, durationMs, startedAtRef.current || Date.now() - durationMs);
     };
 
     startedAtRef.current = Date.now();

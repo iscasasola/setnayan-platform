@@ -36,11 +36,22 @@ export interface PapicSinkDeps {
   presign(req: PresignRequest): Promise<{ uploadUrl: string; r2Ref: string } | null>;
   /** PUT the bytes to R2 — returns false on any failure. */
   put(uploadUrl: string, bytes: Uint8Array, contentType: string): Promise<boolean>;
-  /** The recordSeatCapture server action (passed in — lib never imports app/). */
+  /**
+   * The recordSeatCapture server action (passed in — lib never imports app/).
+   *
+   * 🕐 `capturedAtMs` IS THE SHUTTER, AND THIS ARITY IS WHERE IT USED TO DIE.
+   * `CapturedFile` has carried the real shutter instant since S0 — a DSLR's own
+   * clock, or the phone's at the moment of the grab — and this dep took three
+   * arguments, none of them it. So every bridge capture and every drained
+   * offline capture was filed under the minute its bytes finished arriving.
+   * The server still decides what to believe (papic_capture_minute); this is
+   * only the wire that was missing.
+   */
   record(
     r2Ref: string,
     kind: 'photo' | 'clip',
     posterR2Ref?: string,
+    capturedAtMs?: number,
   ): Promise<{ ok: true; count: number } | { ok: false; error: string }>;
   /**
    * Optional: extract one poster JPEG from a CLIP so the server's always-on
@@ -159,6 +170,11 @@ export async function deliverCapture(
       presigned.r2Ref,
       file.kind === 'clip' ? 'clip' : 'photo',
       posterR2Ref,
+      // The shutter, straight off the CapturedFile. Deliberately NOT re-derived
+      // from anything here: a capture that spent six hours in the offline queue
+      // arrives at this line with the same instant it had at the shutter, and
+      // that is the entire point of the queue carrying it.
+      file.capturedAtMs,
     );
     if (!result.ok) {
       // A server rejection is FINAL — queueing a not_your_seat/revoked capture

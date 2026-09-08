@@ -25,6 +25,7 @@ import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { buildPapicGeoFields, type PapicGeoInput } from '@/lib/papic-geo';
+import { capturedAtIso } from '@/lib/papic-capture-minute';
 import {
   eventOwnsPapicSeats,
   papicSeatAnonEnabled,
@@ -254,6 +255,10 @@ export async function recordSeatCapture(
   posterR2Key?: string,
   durationMs?: number,
   geo?: PapicGeoInput,
+  /** 🕐 The shutter instant, from the device that took it. Optional and last:
+   *  a caller that does not know (the dashboard's add-to-library import) sends
+   *  nothing and the row falls to the upload minute, exactly as before. */
+  capturedAtMs?: number,
 ): Promise<RecordSeatCaptureResult> {
   // RAW-ONLY record path (Papic storage PR-1): this writes the raw clip/photo row
   // with NULL clip_web columns. The small H.264 web copy is a separate, off-drain
@@ -612,29 +617,67 @@ export async function recordSeatCapture(
   }
 
   {
-    const { data: recorded, error: recordError } = await writer.rpc(
+    // 🕐 THE SHUTTER. Same client-supplied / server-validated shape as p_geo_*
+    // directly below it: only the device knows, and nothing it says is trusted
+    // — public.papic_capture_minute refuses a future time and a clock from
+    // before the celebration existed, and answers now() in either case. null
+    // means "you decide", which is what every row got before this shipped.
+    const capturedAtIsoValue = capturedAtIso(capturedAtMs);
+
+    const recordArgs = {
+      p_seat_id: seat.seat_id,
+      p_event_id: seat.event_id,
+      // 🔑 IDENTITY IS AN ARGUMENT, RESOLVED HERE. Inside the function
+      // `current_user` is its OWNER and `auth.uid()` is empty (we call as the
+      // service role), so neither can answer "who is shooting". This is the
+      // id RLS already scoped the seat lookup by, and the function compares it
+      // to the seat's claimer again on its own side.
+      p_claimer_user_id: user.id,
+      p_r2_object_key: cleanKey,
+      p_photo_type: kind === 'clip' ? 'clip' : 'photo',
+      // clip_web_r2_key / clip_web_bytes are left NULL — the web copy is
+      // stamped by the off-drain persistSeatClipWebCopy follow-up.
+      p_poster_r2_key: cleanPoster,
+      p_cost: meterCost,
+      p_geo_lat: geoFields.geo_lat ?? null,
+      p_geo_lon: geoFields.geo_lon ?? null,
+      p_geo_accuracy_m: geoFields.geo_accuracy_m ?? null,
+      p_geo_unavailable: geoFields.geo_unavailable ?? null,
+    };
+
+    let { data: recorded, error: recordError } = await writer.rpc(
       'papic_record_seat_capture',
-      {
-        p_seat_id: seat.seat_id,
-        p_event_id: seat.event_id,
-        // 🔑 IDENTITY IS AN ARGUMENT, RESOLVED HERE. Inside the function
-        // `current_user` is its OWNER and `auth.uid()` is empty (we call as the
-        // service role), so neither can answer "who is shooting". This is the
-        // id RLS already scoped the seat lookup by, and the function compares it
-        // to the seat's claimer again on its own side.
-        p_claimer_user_id: user.id,
-        p_r2_object_key: cleanKey,
-        p_photo_type: kind === 'clip' ? 'clip' : 'photo',
-        // clip_web_r2_key / clip_web_bytes are left NULL — the web copy is
-        // stamped by the off-drain persistSeatClipWebCopy follow-up.
-        p_poster_r2_key: cleanPoster,
-        p_cost: meterCost,
-        p_geo_lat: geoFields.geo_lat ?? null,
-        p_geo_lon: geoFields.geo_lon ?? null,
-        p_geo_accuracy_m: geoFields.geo_accuracy_m ?? null,
-        p_geo_unavailable: geoFields.geo_unavailable ?? null,
-      },
+      { ...recordArgs, p_captured_at: capturedAtIsoValue },
     );
+
+    /*
+      ⚠ THE DEPLOY-WINDOW RUNG, AND IT IS NOT DECORATION — it is the difference
+      between this change being invisible and this change REFUSING PHOTOGRAPHS
+      AT A WEDDING IN PROGRESS.
+
+      Vercel and the migration workflow both fire on a push to main and race. For
+      the minutes where this code is live and 20271214644139 is not, the call
+      above 42883s on an argument Postgres has never heard of. The block below
+      treats a missing function as an outage and returns 'unavailable' — correct
+      when the WRITE is gone, catastrophic when only the newest ARGUMENT is: the
+      camera would refuse every shot for as long as the window lasted.
+
+      So exactly one retry, dropping only the new argument, and only when the
+      error actually names it. The capture then records with its upload minute —
+      the behaviour of every row before this migration — instead of not
+      recording at all. This mirrors the ladder the guest route has carried for
+      the same reason since 20271184624871.
+
+      🔑 IT CANNOT WIDEN ANYTHING. The retry sends a strict SUBSET of the same
+      arguments to the same function; if the function itself is absent, the
+      retry 42883s too and the outage path below runs unchanged.
+    */
+    if (recordError && /p_captured_at/i.test(recordError.message ?? '')) {
+      ({ data: recorded, error: recordError } = await writer.rpc(
+        'papic_record_seat_capture',
+        recordArgs,
+      ));
+    }
 
     if (recordError) {
       // ⚠ NO FUNCTION-NOT-FOUND CARVE-OUT, DELIBERATELY. `resolvePointsGate`

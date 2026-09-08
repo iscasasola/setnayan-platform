@@ -9,11 +9,9 @@ import {
   type VendorThreadWithEvent,
 } from '@/lib/chat';
 import {
-  fetchInquiryMaskMeta,
-  inquiryPlaceholderLabel,
-  isInquiryRevealed,
-  INQUIRY_MASK_UNKNOWN,
-} from '@/lib/inquiry-mask.server';
+  fetchInquiryCustomerFacts,
+  INQUIRY_CUSTOMER_UNKNOWN,
+} from '@/lib/inquiry-customer.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPreparationItemsByEvent } from '@/lib/preparation';
 import {
@@ -84,15 +82,14 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     fetchVendorPreparationItemsByEvent(supabase, profile.vendor_profile_id),
   ]);
 
-  // Anonymization-until-accept (Glass PR-6b): for PRE-accept (unrevealed)
-  // threads, fetchVendorThreads already stripped the couple's event title +
-  // public-page link from the DTO. To still show a useful, non-identifying label
-  // ("A couple planning a {type} in {city}") we batch-read ONLY event_type +
-  // city-level region via the admin client (a vendor holds no events RLS),
-  // scoped to this vendor's own unrevealed threads.
-  const inquiryMaskMeta = await fetchInquiryMaskMeta(
+  // WHO IS ASKING, for every row. A vendor holds no `events` RLS, so the
+  // embedded `r.event.display_name` is null on EVERY thread of theirs — which
+  // is why the old revealed/unrevealed split rendered "Event" either way. One
+  // admin-scoped batch over all rows, gated by the vendor-scoped thread fetch
+  // above, is what actually names them.
+  const inquiryCustomers = await fetchInquiryCustomerFacts(
     createAdminClient(),
-    threads.filter((t) => !isInquiryRevealed(t)).map((t) => t.event_id),
+    threads.map((t) => t.event_id),
   );
 
   // Pull latest message per thread for preview + unread inference.
@@ -322,9 +319,8 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                         {STATUS_LABEL[r.status]}
                       </span>
                       <p className="truncate text-sm font-semibold text-ink">
-                        {isInquiryRevealed(r)
-                          ? (r.event?.display_name ?? 'Event')
-                          : inquiryPlaceholderLabel(inquiryMaskMeta.get(r.event_id) ?? INQUIRY_MASK_UNKNOWN)}
+                        {(inquiryCustomers.get(r.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN)
+                          .displayName ?? 'Event'}
                       </p>
                     </div>
                     <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">

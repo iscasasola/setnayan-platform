@@ -8,7 +8,6 @@ import {
   CalendarDays,
   FileText,
   Info,
-  Lock,
   User,
   Wallet,
 } from 'lucide-react';
@@ -25,9 +24,12 @@ import { Sheet } from '@/app/_components/sheet';
  * bottom-sheet primitive (app/_components/sheet.tsx · the locked modal-a11y
  * pattern).
  *
- * MASKING: the parent only passes `masked = true` for a still-pending inquiry.
- * When masked, the rail reveals nothing beyond the "New inquiry" placeholder —
- * no snapshot, no quick actions, no profile link (vendor hybrid-anonymity).
+ * NO MASKING (owner ruling 2026-09-08 — "we do not need to hide anything, since
+ * no more tokens"). This rail used to take a `masked` flag that, for a pending
+ * inquiry, replaced the whole body with "accept the conversation to reveal who
+ * they are". That lock was the token wallet's storefront, and the wallet was
+ * retired on 2026-05-11 — so it withheld the customer without selling anything.
+ * A supplier now sees the same rail before and after accepting.
  */
 
 export type ChatInfoRailProps = {
@@ -35,14 +37,18 @@ export type ChatInfoRailProps = {
   displayName: string;
   /** Initials for the avatar (derived by the parent from displayName). */
   initials: string;
-  /** True while the inquiry is pending — reveal nothing extra. */
-  masked: boolean;
   stage: {
     label: string;
     /** Tailwind classes for the pill (border/bg/text). */
     tone: string;
   };
-  /** Event date, pre-formatted for display (or null). */
+  /**
+   * Event date, ALREADY FORMATTED for display ("December 18, 2026").
+   * ⚠ This said "pre-formatted" while the only caller passed the raw ISO
+   * `event_date` straight from Postgres, so the rail rendered "2026-12-18" —
+   * the exact string the owner asked to be spelled out on 2026-09-08. Format at
+   * the call site with `formatLongDate`; this component does not parse dates.
+   */
   eventDate: string | null;
   /** Service / inquiry category label (or null). */
   service: string | null;
@@ -93,7 +99,6 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
 function RailBody({
   displayName,
   initials,
-  masked,
   stage,
   eventDate,
   service,
@@ -118,11 +123,7 @@ function RailBody({
       {/* Identity */}
       <div className="flex flex-col items-center gap-2 border-b border-ink/10 px-4 py-5 text-center">
         <span className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-ink/10 bg-white text-sm font-semibold text-ink/70">
-          {masked ? (
-            <User aria-hidden className="h-6 w-6 text-ink/40" strokeWidth={1.75} />
-          ) : (
-            initials
-          )}
+          {initials}
         </span>
         <p className="text-base font-semibold text-ink">{displayName}</p>
         <span
@@ -132,20 +133,9 @@ function RailBody({
         </span>
       </div>
 
-      {masked ? (
-        /* Masked pre-accept — reveal nothing. */
-        <div className="flex items-start gap-2 px-4 py-5 text-sm text-ink/65">
-          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
-          <p>
-            New inquiry — accept the conversation to reveal who they are and open
-            their customer profile.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Event snapshot — only what this page already exposes. Location is
-              deliberately omitted (masked by the disclosure ladder; the page
-              never loads a venue for the vendor's plain client). */}
+      <>
+          {/* Event snapshot. Location stays omitted because this page never
+              loads a venue at all — not because anything is being withheld. */}
           <dl className="flex flex-col gap-3 border-b border-ink/10 px-4 py-4 text-left">
             <SnapRow label="Date" value={eventDate ?? 'Not set yet'} />
             {service ? <SnapRow label="Service" value={service} /> : null}
@@ -186,8 +176,7 @@ function RailBody({
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
             </Link>
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }

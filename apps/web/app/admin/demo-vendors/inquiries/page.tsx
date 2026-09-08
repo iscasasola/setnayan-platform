@@ -17,12 +17,7 @@
 import Link from 'next/link';
 import { MessageSquare } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  isInquiryRevealed,
-  inquiryPlaceholderLabel,
-  inquiryCityLabel,
-  inquiryHostNounsByType,
-} from '@/lib/inquiry-mask.server';
+
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
@@ -108,23 +103,16 @@ export default async function DemoInquiriesPage() {
       }>).map((e) => [e.event_id, e]),
     );
     labelsUnresolved = Boolean(eventsError) || events === null;
-    // One batched resolve for the whole page — the organiser noun follows each
-    // event's type, so a wake in this list reads "A family" and not "A couple".
-    const hostNounByType = await inquiryHostNounsByType(
-      listed.map((t) => eventById.get(t.event_id)?.event_type ?? null),
-    );
     for (const t of listed) {
       const e = eventById.get(t.event_id);
       if (!e) continue;
+      // One label, accepted or not. This mirrored the supplier's own view,
+      // which stopped masking on the owner's 2026-09-08 ruling; an admin
+      // console showing LESS than the supplier it exists to inspect would be
+      // showing the wrong thing.
       eventLabel.set(
         t.event_id,
-        isInquiryRevealed(t)
-          ? [e.display_name ?? 'Couple', e.event_date ?? null].filter(Boolean).join(' · ')
-          : inquiryPlaceholderLabel({
-              eventType: e.event_type,
-              city: inquiryCityLabel(e.region),
-              hostNoun: e.event_type ? (hostNounByType.get(e.event_type) ?? null) : null,
-            }),
+        [e.display_name ?? 'Couple', e.event_date ?? null].filter(Boolean).join(' · '),
       );
     }
   }

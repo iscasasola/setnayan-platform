@@ -39,6 +39,9 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { countLiveShops } from '@/lib/live-shops';
+import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
+import { toServiceCard } from '@/lib/service-card-view-model';
+import { ServiceCardView } from '@/app/_components/service-card-view';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
 import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
@@ -1498,6 +1501,34 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     an empty marketplace. Failure degrades to the old behaviour, not to a lie.
   */
   const liveShopCount = isLandingView ? await countLiveShops(admin) : null;
+
+  /*
+    ═ THE BODY LISTS SERVICES, NOT SHOPS ═
+    Owner, 2026-09-08, twice: *"i still do not see the service cards"*, and
+    earlier *"Marketplace is where they can view all services and search what
+    they want … so on the body, it will only show all service cards."*
+
+    🔑 RULE 0 — THE QUERY ALREADY EXISTED AND HAD NO CALLER.
+    `lib/marketplace-service-cards.ts` shipped EARLIER TODAY with a docblock
+    naming this exact defect, and nothing imported it outside its own test. The
+    card component (`ServiceCardView`, "THE service card, the one a couple
+    sees") shipped today too. Both halves were built; the page was never wired
+    to them. This is the wire, not a third implementation.
+
+    The bug the module records, reproduced verbatim on the owner's screen: the
+    grid drew ONE card per VENDOR and picked a service to stand for the shop —
+    "Live Band by Saysay Live Band & Hosting" — so Saysay's second card was
+    nowhere, and a couple searching for a host was shown a band at the band's
+    price. One row per card makes that unrepresentable.
+
+    ⚠ IT THROWS RATHER THAN RETURNING []. Deliberate, and stated in the module:
+    an empty array renders identically to a genuinely empty marketplace. Caught
+    here so a broken read falls back to the vendor grid this page shipped
+    yesterday — degraded, never a convincing lie.
+  */
+  const serviceCards = isLandingView
+    ? await fetchMarketplaceServiceCards(supabase, { limit: 24 }).catch(() => null)
+    : null;
   const marketplaceIsEmpty = liveShopCount === 0;
 
   if (isLandingView && marketplaceIsEmpty) {
@@ -3379,6 +3410,48 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             }
           />
         ) : (
+          serviceCards !== null ? (
+          /*
+            THE LANDING'S BODY — one card per SERVICE.
+
+            `detailsEnabled={false}` renders the card to be LOOKED AT: every
+            interactive branch inside the view is already gated on that flag, so
+            a server component can render it without a client wrapper existing
+            only to satisfy a type. Same call shape the vendor's own card list
+            uses, so all three surfaces draw the identical card.
+          */
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {serviceCards.map((c) => (
+              <li key={c.row.vendor_service_id}>
+                <Link
+                  href={c.businessSlug ? `/v/${c.businessSlug}` : '/explore'}
+                  className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                >
+                  <ServiceCardView
+                    card={toServiceCard(
+                      c.row,
+                      undefined,
+                      undefined,
+                      undefined,
+                      undefined,
+                      false,
+                      null,
+                      new Date(),
+                      null,
+                      null,
+                      false,
+                    )}
+                    detailsEnabled={false}
+                  />
+                  <p className="mt-1.5 truncate text-xs text-ink/55">
+                    {c.businessName}
+                    {c.locationCity ? ` · ${c.locationCity}` : ''}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          ) : (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((v) => {
               /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
@@ -3424,6 +3497,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               );
             })}
           </ul>
+          )
         )}
 
         <Pagination
@@ -3446,34 +3520,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             simply the first thing with an answer in it. */}
         <ReadsResults hits={readHits} query={filters.q} />
 
-        {/*
-          ═ THE CATALOG IS NOT LOST, IT MOVED UNDER THE SHOPS ═
-          The landing used to render this INSTEAD of vendors. It still renders,
-          below them, so the breadth story ("here is everything Setnayan
-          covers") survives for a visitor who scrolls — and a visitor who came
-          to see suppliers meets suppliers first.
 
-          Filtered views render no catalog: somebody who narrowed to Catering
-          has already told us what they came for.
+        {/*
+          ⛔ NO CATALOG, AND NO SECOND SEARCH BAR, UNDER THE RESULTS.
+
+          Earlier today this rendered <CatalogView> here so the category
+          breadth survived below the shops. It also dragged CatalogView's
+          `ExploreSearchHero` down with it — so the page grew a SECOND search
+          field under the sticky one at the top. Owner, immediately: *"why are
+          there 2 search bar when i explicitly said use the search bar on
+          top"*. Correct, and it was my regression.
+
+          🔑 A COMPONENT IS NOT A SECTION. CatalogView is a whole landing —
+          hero, search, folder strip — not a "category grid" you can park under
+          something else. Reaching for it to get one of its parts brought all
+          of them.
+
+          The catalog is still one tap away: the hero's own "Browse all
+          categories" link and `?browse=1`, exactly as `browseMode` already
+          documents.
         */}
-        {isLandingView ? (
-          <CatalogView
-            admin={admin}
-            matchableEvent={matchableEvent}
-            matchEvent={filters.matchEvent}
-            coupleFaith={coupleFaith}
-            venueAnchor={venueAnchor}
-            coupleEventType={coupleEventType}
-            currentEventId={coupleEventId}
-            noticeKey={noticeKey}
-            compareHref={compareHref}
-            scopedFolder={filters.folder}
-            inDemoMode={inDemoMode}
-            focusedMode={filters.focusedMode}
-            faithFilter={filters.faithFilter}
-            browseMode={browseMode}
-          />
-        ) : null}
       </section>
     </main>
   );

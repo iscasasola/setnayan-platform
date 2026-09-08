@@ -257,10 +257,42 @@ const EMPTY: CategorySearchResult = {
  *  the Budget-Planner allocation leaf — and both already fail open on a miss.
  *
  *  No `tile` ⇒ the shipped group path, byte for byte. That is the accordion. */
+/**
+ * The values a vendor's `services` may hold for this scope to match them.
+ *
+ * ⚠ THIS IS NOT "the canonicals of a tile" — that question belongs to
+ * `canonicalServicesForTile`, and answering it there breaks something.
+ * `taxonomy-tile-reachability.test.ts` reads its `length > 0` to decide a tile
+ * is ALIVE and to self-clean `KNOWN_DEAD_TILES`; widen it and every tile looks
+ * healthy, silently retiring a real regression detector. The first draft of
+ * this fix did exactly that, and that guard caught it.
+ *
+ * ── WHY THE TILE ID BELONGS HERE (measured 2026-09-08) ────────────────────
+ * A shop with two live, priced, verified cards was findable on the bench's
+ * **Live Band** row and invisible on **Host / MC**:
+ *
+ *     live_band  → canonicals: live_band, band_live_music
+ *                  overlap with the shop's stored services: live_band
+ *     host_mc    → canonicals: host_emcee, tea_ceremony_master
+ *                  overlap with the shop's stored services: NONE
+ *
+ * The shop stores TILE IDS in `vendor_profiles.services`. `live_band` matched
+ * only because its tile id and one of its canonicals are the same string — a
+ * coincidence, not a mechanism. **53 of the 78 wedding tiles** have an id that
+ * is no canonical (`reception`, `ceremony_venue`, `coordinator`, `cake`,
+ * `florist` …), so this was never one broken category — and each row reported
+ * the CATEGORY as empty rather than the lookup as missed.
+ *
+ * 🔑 A VOCABULARY THE PRODUCT SAVES HAS TO BE ONE ITS READERS ACCEPT — the same
+ * conclusion `/services/new/[category]` reached the same day.
+ */
 function canonicalsForScope(groupId: string, tile: string): string[] {
   if (tile) {
     const fromTile = canonicalServicesForTile(tile as WeddingTile);
-    if (fromTile.length > 0) return fromTile;
+    // Widen, never replace: a shop stored the CORRECT way must keep matching.
+    if (fromTile.length > 0) {
+      return fromTile.includes(tile) ? fromTile : [...fromTile, tile];
+    }
     // A tile with no canonicals at all (`editorial`) falls through to the group
     // rather than returning an empty scope that would read as "no vendors".
   }

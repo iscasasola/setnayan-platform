@@ -91,3 +91,14 @@ on the same file. Widening it reports **zero new offenders across all 222 guest-
 files**, so nothing was grandfathered in to make it go green.
 
 SPEC IMPACT: None.
+
+### One stale sentence corrected, in the code and in the corpus
+
+`COUNTS_ARE_THE_GUESTS_LAYER`'s docblock said **"⛔ NOT ANSWERED as of 2026-09-09"** about
+owner gate Q1 — and `03` §2.5 said the same. Q1 **was** ruled that day (*no counts, no bar
+heights, to a stranger before publish*). The VALUE was right in both places; only the
+sentence beside it was stale. A stale "unanswered" on an owner gate is precisely how a
+settled question gets asked a second time, and the house rule is never to ask the owner a
+question the corpus answers.
+
+SPEC IMPACT: `03_Data_Requirements.md` §2.5 — applied directly in the corpus.

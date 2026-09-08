@@ -49,11 +49,16 @@ export type StoryLayer = (typeof STORY_LAYERS)[number];
 /**
  * OWNER GATE Q1 — are aggregate counts and bar heights public before publish?
  *
- * ⛔ NOT ANSWERED as of 2026-09-09 (`07_Open_Questions.md` Q1, and the session
- * register lists it as one of the three the owner must answer). The documented
- * default is NO: a stranger before publish sees flat baseline ticks and no
- * counts, because "492 captures · 26 phones" describes the guests' day to
- * somebody who was not asked.
+ * ✅ **RULED 2026-09-09 — NO. DO NOT RE-ASK IT.** Owner, shown all five gates
+ * with what each costs: *"follow your recommendations"*. A stranger before
+ * publish sees flat baseline ticks and no counts, because "492 captures · 26
+ * phones" describes the guests' day to somebody who was not asked.
+ *
+ * ⚠ THIS DOCBLOCK SAID "NOT ANSWERED" UNTIL 2026-09-09 (S9). The VALUE below
+ * was right the whole time — it was built to the documented default — but the
+ * sentence above it was stale, and a stale "unanswered" on an owner gate is
+ * how a settled question gets asked a second time. The house rule is: never
+ * ask the owner a question the corpus answers.
  *
  * 🔑 FLIPPING IT IS THIS ONE LINE. Set it to `false` and counts and bar heights
  * become part of the host's layer — public as the day happens — while the

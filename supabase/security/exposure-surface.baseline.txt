@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6587
+# facts: 6591
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     584
-#   col       4841
-#   policy    896
+#   col       4843
+#   policy    898
 #   view      8
 #   func      254
 #
@@ -319,7 +319,7 @@ tpriv	public.papic_guest_captures|anon	SIUD
 tpriv	public.papic_guest_captures|authenticated	SIUD
 tpriv	public.papic_limited_snapshots|anon	SIUD
 tpriv	public.papic_limited_snapshots|authenticated	SIUD
-tpriv	public.papic_mission_completions|authenticated	SIUD
+tpriv	public.papic_mission_completions|authenticated	SID
 tpriv	public.papic_missions|authenticated	SIUD
 tpriv	public.papic_one_tiers|anon	S
 tpriv	public.papic_one_tiers|authenticated	S
@@ -1245,6 +1245,7 @@ col	public.editorial_vendor_media.media_type	anon=S authenticated=SIU
 col	public.editorial_vendor_media.moderation_state	anon=S authenticated=S
 col	public.editorial_vendor_media.public_id	anon=S authenticated=SIU
 col	public.editorial_vendor_media.sort_order	anon=S authenticated=SIU
+col	public.editorial_vendor_media.status	anon=S authenticated=SU
 col	public.editorial_vendor_media.still_r2_key	anon=S authenticated=SIU
 col	public.editorial_vendor_media.updated_at	anon=S authenticated=SIU
 col	public.editorial_vendor_media.vendor_profile_id	anon=S authenticated=SIU
@@ -3044,14 +3045,15 @@ col	public.papic_limited_snapshots.snapshot_id	anon=SIU authenticated=SIU
 col	public.papic_limited_snapshots.status	anon=SIU authenticated=SIU
 col	public.papic_limited_snapshots.superseded_at	anon=SIU authenticated=SIU
 col	public.papic_limited_snapshots.tier	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.capture_id	anon=- authenticated=SIU
-col	public.papic_mission_completions.completion_id	anon=- authenticated=SIU
-col	public.papic_mission_completions.consent_to_share	anon=- authenticated=SIU
-col	public.papic_mission_completions.created_at	anon=- authenticated=SIU
-col	public.papic_mission_completions.event_id	anon=- authenticated=SIU
-col	public.papic_mission_completions.guest_id	anon=- authenticated=SIU
-col	public.papic_mission_completions.id	anon=- authenticated=SIU
-col	public.papic_mission_completions.mission_id	anon=- authenticated=SIU
+col	public.papic_mission_completions.capture_id	anon=- authenticated=SI
+col	public.papic_mission_completions.completion_id	anon=- authenticated=SI
+col	public.papic_mission_completions.consent_to_share	anon=- authenticated=SI
+col	public.papic_mission_completions.created_at	anon=- authenticated=SI
+col	public.papic_mission_completions.event_id	anon=- authenticated=SI
+col	public.papic_mission_completions.guest_id	anon=- authenticated=SI
+col	public.papic_mission_completions.id	anon=- authenticated=SI
+col	public.papic_mission_completions.mission_id	anon=- authenticated=SI
+col	public.papic_mission_completions.status	anon=- authenticated=SIU
 col	public.papic_missions.approved	anon=- authenticated=SIU
 col	public.papic_missions.armed_at	anon=- authenticated=SIU
 col	public.papic_missions.armed_duration_minutes	anon=- authenticated=SIU
@@ -5577,6 +5579,7 @@ policy	public.earned_token_vouchers|earned_token_vouchers_vendor_read	mode=PERMI
 policy	public.editorial_vendor_media|editorial_vendor_media_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.editorial_vendor_media|editorial_vendor_media_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.editorial_vendor_media|editorial_vendor_media_couple_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
+policy	public.editorial_vendor_media|editorial_vendor_media_host_decides	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT em.event_id FROM event_moderators em WHERE ((em.user_id = auth.uid()) AND (em.accepted_at IS NOT NULL) AND (em.removed_at IS NULL))))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT em.event_id FROM event_moderators em WHERE ((em.user_id = auth.uid()) AND (em.accepted_at IS NOT NULL) AND (em.removed_at IS NULL)))))
 policy	public.editorial_vendor_media|editorial_vendor_media_vendor_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) check=NULL
 policy	public.editorial_vendor_media|editorial_vendor_media_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (event_id IN ( SELECT chat_threads.event_id FROM chat_threads WHERE ((chat_threads.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (chat_threads.inquiry_status = 'accepted'::chat_inquiry_status)))))
 policy	public.editorial_vendor_media|editorial_vendor_media_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR (event_id IN ( SELECT chat_threads.event_id FROM chat_threads WHERE ((chat_threads.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (chat_threads.inquiry_status = 'accepted'::chat_inquiry_status))))) check=NULL
@@ -5925,6 +5928,7 @@ policy	public.papic_guest_captures|papic_guest_captures_couple_read	mode=PERMISS
 policy	public.papic_guest_captures|papic_guest_captures_moderator_photos_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'photos'::text) = ANY (ARRAY['view'::text, 'edit'::text])) check=NULL
 policy	public.papic_limited_snapshots|papic_limited_snapshots_couple_full	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_limited_snapshots.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_limited_snapshots.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))
 policy	public.papic_mission_completions|papic_mission_completions_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
+policy	public.papic_mission_completions|papic_mission_completions_host_decides	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT em.event_id FROM event_moderators em WHERE ((em.user_id = auth.uid()) AND (em.accepted_at IS NOT NULL) AND (em.removed_at IS NULL))))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT em.event_id FROM event_moderators em WHERE ((em.user_id = auth.uid()) AND (em.accepted_at IS NOT NULL) AND (em.removed_at IS NULL)))))
 policy	public.papic_mission_completions|papic_mission_completions_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_mission_completions.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.papic_missions|papic_missions_member_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_missions.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_missions.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))))
 policy	public.papic_one_tiers|papic_one_tiers_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL

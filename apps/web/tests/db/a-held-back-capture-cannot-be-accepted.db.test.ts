@@ -32,7 +32,7 @@ before(async () => {
   db = replay.db;
 });
 after(async () => {
-  await replay?.close?.();
+  await db?.close();
 });
 
 let n = 0;

@@ -1476,6 +1476,15 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       )
       .eq('event_id', eventId)
       .eq('moderation_state', 'clean')
+      // ⚖ ACCEPT IS THE ONLY WAY ANYTHING ENTERS (08 step 1.2). Until the desk
+      // shipped there was no host decision on this table at all: the only lever
+      // was `hidden_by_couple`, DEFAULT FALSE — shown unless hidden — and it has
+      // never had a writer, so a supplier's frame published itself. `status` is
+      // born 'pending' and the host chooses it in at the desk.
+      // ⚠ BOTH filters are kept, not one: belt and braces, so losing either
+      // still leaves the other. That is this file's own house style (see the
+      // challenge-answer read below, which filters server-side AND in memory).
+      .eq('status', 'approved')
       .eq('hidden_by_couple', false)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
@@ -2041,6 +2050,11 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .select('completion_id, mission_id, capture_id, guest_id, created_at')
       .eq('event_id', eventId)
       .eq('consent_to_share', true)
+      // ⚖ ACCEPT IS THE ONLY WAY ANYTHING ENTERS (08 step 1.2). `consent_to_share`
+      // is the GUEST's yes; before the desk it was the ONLY yes, so an answer
+      // reached the public story without the host ever being asked. Both are
+      // required now and neither substitutes for the other.
+      .eq('status', 'approved')
       .not('capture_id', 'is', null)
       .order('created_at', { ascending: true })
       .limit(EDITORIAL_CHALLENGE_ANSWER_CAP);

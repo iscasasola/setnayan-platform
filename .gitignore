@@ -144,3 +144,6 @@ apps/web/supabase/.temp/
 
 # S0 encoder-spike evidence logs are the finding's evidence, not build noise (build-sessions/encoder/S0-FINDING.md § 10).
 !/build-sessions/encoder/S0-logs/*.log
+
+# S17 thermal/memory sustained-load evidence logs — same reasoning (build-sessions/encoder/S17-FINDING.md).
+!/build-sessions/encoder/S17-logs/*.log

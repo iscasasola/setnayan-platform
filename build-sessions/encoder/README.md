@@ -66,6 +66,15 @@ one publish, two measurement runs and the physical rehearsal.
 | S17 | 60-minute thermal, memory, the OS matrix, Windows | Sonnet 5 · medium | 1–2 | S15 + **a Windows laptop** |
 | S13 | The acceptance rehearsal (`S13.md`, already written) | Sonnet 5 · medium | 2–3 | S14·S15·S16 + hardware |
 
+🔶 **S17 PARTIALLY RUN 2026-09-09** (`S17-FINDING.md`) — do not treat as "never started" from a
+`0 commits` read (see the trap this README already warns about above). Done: OS matrix cited from
+S0 (unchanged machine); one full hour of the *hidden*-regime encode measured (new — no WebKit
+suspension this time, unlike S0's 8 minutes). **Still open, both by owner instruction, not by
+failure:** the visible-state 60-minute run (needs a human physically at this Mac's keyboard — an
+unattended launch here never reaches WindowServer "visible" state) and the entire Windows leg
+(owner has the laptop, will run it personally later). Exact resume commands for both in
+`S17-FINDING.md` §§ 1 and 4.
+
 **5.5–7.5 engineer-days.** S16 is parallel-safe with S14/S15 — it touches
 `src-tauri/crates/encoder/` only. 🛑 **Never more than two build sessions at once**; collisions
 were observed on S0 and S1.

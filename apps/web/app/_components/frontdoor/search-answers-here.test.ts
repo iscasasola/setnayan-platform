@@ -156,9 +156,18 @@ test('both shop readers share one visibility gate', () => {
   */
   assert.equal(
     (src.match(/public_visibility:\s*'verified'/g) ?? []).length,
-    1,
-    'the live-shop gate is defined more than once — a second hand-typed copy is ' +
-      'how one reader starts publishing what the other hides',
+    0,
+    'the live-shop gate is hand-typed here again. It moved to `lib/live-shops.ts` ' +
+      'on 2026-09-08 because /explore needed the same rule; a local copy is ' +
+      'exactly how one reader starts publishing what the other hides',
+  );
+  // …and it must still arrive from somewhere, or the assertion above passes
+  // for a file that stopped gating altogether.
+  assert.match(
+    src,
+    /import \{[^}]*LIVE_SHOP_GATE[^}]*\} from '@\/lib\/live-shops'/,
+    'the shared live-shop gate is no longer imported — this reader stopped ' +
+      'asking whether a shop may be shown',
   );
   assert.equal(
     (src.match(/\.eq\('public_visibility'/g) ?? []).length,

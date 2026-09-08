@@ -35,6 +35,7 @@
  */
 import 'server-only';
 
+import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayLogoUrl } from '@/lib/uploads';
 import {
@@ -267,10 +268,9 @@ export type FrontDoorData = {
  * silently and in the direction that costs most. Same rule this file already
  * states about `readingMinutes`: two definitions of one rule do not stay equal.
  */
-const LIVE_SHOP_GATE = {
-  public_visibility: 'verified',
-  verification_state: 'verified',
-} as const;
+/* Moved to `lib/live-shops.ts` on 2026-09-08 so `/explore` reads the same rule
+   rather than hand-typing a second copy — the exact drift the paragraph above
+   warns about. Imported, not redefined; the docblock above still governs. */
 
 /*
  * ⚠ APPLIED WITH `.match()`, NOT A GENERIC HELPER. The obvious shape — a

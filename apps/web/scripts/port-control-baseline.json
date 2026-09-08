@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f852341eb",
-  "routeCount": 424,
+  "generatedFromRef": "81cf19175",
+  "routeCount": 425,
   "destinations": 907,
   "actions": 631,
-  "blocks": 4327,
+  "blocks": 4330,
   "routes": {
     "/": {
       "files": [
@@ -5225,8 +5225,8 @@
         "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/seating",
-        "/dashboard/[seg]/studio/custom-qr-guest",
-        "/dashboard/[seg]/website/editorial"
+        "/dashboard/[seg]/story",
+        "/dashboard/[seg]/studio/custom-qr-guest"
       ],
       "actions": [],
       "blocks": [
@@ -6261,6 +6261,36 @@
         "PrincipalPairRow",
         "SponsorCard",
         "SubmitButton"
+      ]
+    },
+    "/dashboard/[eventId]/story": {
+      "files": [
+        "dashboard/[eventId]/story/_components/editorial-editor.tsx",
+        "dashboard/[eventId]/story/actions.ts",
+        "dashboard/[eventId]/story/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]?phase=editorial",
+        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/website/living-hero",
+        "/dashboard/[seg]/website/our-photos",
+        "/dashboard/[seg]/website/privacy",
+        "/dashboard/[seg]/website/special-message"
+      ],
+      "actions": [],
+      "blocks": [
+        "CustomColumn",
+        "EditorialEditor",
+        "EditorialEditorInput",
+        "Field",
+        "FileUpload",
+        "K",
+        "Link",
+        "PageMasthead",
+        "ProChip",
+        "ProUpsellLine",
+        "ShareButtons",
+        "WishRow"
       ]
     },
     "/dashboard/[eventId]/studio": {
@@ -7742,8 +7772,8 @@
       ],
       "destinations": [
         "/dashboard/[seg]/schedule?view=event-day",
-        "/dashboard/[seg]/studio/save-the-date",
-        "/dashboard/[seg]/website/editorial"
+        "/dashboard/[seg]/story",
+        "/dashboard/[seg]/studio/save-the-date"
       ],
       "actions": [
         "action",
@@ -7793,33 +7823,11 @@
     },
     "/dashboard/[eventId]/website/editorial": {
       "files": [
-        "dashboard/[eventId]/website/editorial/_components/editorial-editor.tsx",
-        "dashboard/[eventId]/website/editorial/actions.ts",
         "dashboard/[eventId]/website/editorial/page.tsx"
       ],
-      "destinations": [
-        "/[seg]?phase=editorial",
-        "/dashboard/[seg]/website",
-        "/dashboard/[seg]/website/living-hero",
-        "/dashboard/[seg]/website/our-photos",
-        "/dashboard/[seg]/website/privacy",
-        "/dashboard/[seg]/website/special-message"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "CustomColumn",
-        "EditorialEditor",
-        "EditorialEditorInput",
-        "Field",
-        "FileUpload",
-        "K",
-        "Link",
-        "PageMasthead",
-        "ProChip",
-        "ProUpsellLine",
-        "ShareButtons",
-        "WishRow"
-      ]
+      "blocks": []
     },
     "/dashboard/[eventId]/website/hero-photo": {
       "files": [
@@ -10177,6 +10185,7 @@
       "files": [
         "vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx",
         "vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/reveal-thread-tool.tsx",
         "vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx",
         "vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx",
         "vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx",
@@ -10214,9 +10223,11 @@
         "ChatPrivacyNotice",
         "ChatSendForm",
         "ChatThreadMenu",
+        "HTMLElement",
         "Icon",
         "InquiryOutcomeCapture",
         "Link",
+        "LinkTool",
         "NegotiationComposerMenu",
         "OfferServiceResult",
         "OutcomeState",
@@ -10234,6 +10245,7 @@
         "ThreadAttribution",
         "ThreadCallLauncher",
         "ThreadInterestChips",
+        "ThreadToolHashReveal",
         "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive"

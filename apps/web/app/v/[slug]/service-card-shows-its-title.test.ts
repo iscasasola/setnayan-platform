@@ -41,9 +41,19 @@ const src = stripComments(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'page.tsx'), 'utf8'),
 );
 
+/**
+ * `toServiceCard` moved to `lib/service-card-view-model.ts` (2026-09-08) so the
+ * vendor's own card list renders the couple's card from the SAME builder. The
+ * claims below are unchanged — only the builder's address is.
+ */
+const viewModel = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '../../../lib/service-card-view-model.ts'),
+  'utf8',
+);
+
 test('the card the gallery renders reads the vendor-authored title first', () => {
   assert.match(
-    src,
+    viewModel,
     /const label = row\.title\?\.trim\(\) \|\| displayServiceLabel\(row\.category\);/,
     'toServiceCard must prefer row.title over the bare category label',
   );

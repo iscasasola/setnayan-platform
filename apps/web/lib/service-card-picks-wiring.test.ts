@@ -54,7 +54,9 @@ test('the SHARED gate decides whether the section shows, not a copy per file', (
   for (const f of [
     'app/_components/card-record-section.tsx',
     'app/vendor-dashboard/services/_components/services-manager.tsx',
-    'app/v/[slug]/page.tsx',
+    // `toServiceCard` — and with it the shared-predicate call — moved here on
+    // 2026-09-08 so both the public profile and the vendor list build one card.
+    'lib/service-card-view-model.ts',
   ]) {
     const src = code(f);
     assert.match(

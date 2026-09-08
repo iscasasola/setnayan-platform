@@ -112,6 +112,8 @@ import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
 import { ManagerTabs } from './manager-tabs';
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { ServiceCardLivePreview } from './service-card-live-preview';
+import { ServiceCardView } from '@/app/_components/service-card-view';
+import { toServiceCard } from '@/lib/service-card-view-model';
 import { RefinementsEditor } from './refinements-editor';
 import {
   fetchCategoryChipRefinementsMany,
@@ -201,6 +203,13 @@ export async function VendorServicesManager({
   // Only the canvas maker can open pre-filled, so "start a new card from this
   // one" is gated on the same flag that decides which maker the route renders.
   const canvasMaker = canvasMakerEnabled();
+  /**
+   * ONE clock for every card in this list, mirroring the public profile's own
+   * note: the early-booking ladder must not be able to resolve two different
+   * tiers within a single render. Hoisted here rather than taken per row, which
+   * is what a `new Date()` inside the map would silently do.
+   */
+  const cardListNow = new Date();
 
   const serviceIdList = services.map((s) => s.vendor_service_id);
 
@@ -946,21 +955,57 @@ export async function VendorServicesManager({
                     opacity: svc.is_active ? 1 : 0.7,
                   }}
                 >
-                  {/* Row header — icon · name · price · flat/pax · assigned · toggle */}
+                  {/* Row header — THE ACTUAL CARD · assigned · reach · toggle
+                      Owner 2026-09-08: *"we want to show the actual service
+                      cards."* This row used to be a grey wrench glyph, the
+                      title and one line of text, while the real card lived only
+                      inside the collapsed editor below. It is the same
+                      card the PUBLIC PROFILE renders, built by the same
+                      `toServiceCard` — see `lib/service-card-view-model`.
+
+                      The supplier-only facts (assigned-to, coverage, hidden,
+                      reach) STAY, under the card. They are not on the couple's
+                      card and never should be, but they are exactly what a shop
+                      scans a list for. */}
                   <div className="flex items-center gap-3 p-4">
-                    <span
-                      aria-hidden
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: 'var(--m-paper-2)', color: 'var(--m-slate)' }}
-                    >
-                      <Icon className="h-5 w-5" strokeWidth={1.75} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                        {svc.title?.trim() || displayServiceLabel(svc.category)}
-                      </p>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      {/* THE COUPLE'S OWN CARD, not a vendor-side lookalike.
+                          Same `toServiceCard` the public profile calls and the
+                          same `ServiceCardView` it renders - owner 2026-09-08:
+                          "there is already a template of how a service card
+                          looks like. all we want is for that to show instead of
+                          this."
+
+                          `detailsEnabled={false}` and no `onOpen`: this list is
+                          a server component and the card here is to be LOOKED
+                          at. Every interactive branch in the view is already
+                          gated on `detailsEnabled`, so it renders inert without
+                          a client wrapper existing only to satisfy a type. */}
+                      <ServiceCardView
+                        card={toServiceCard(
+                          svc,
+                          svcInclusions,
+                          svcDiscountList,
+                          undefined,
+                          {
+                            photos: (svc.showcase_photo_r2_keys ?? [])
+                              .map((k) => showcaseDisplayUrls[k])
+                              .filter((u): u is string => !!u),
+                            videoUrl: svc.showcase_video_r2_key
+                              ? showcaseDisplayUrls[svc.showcase_video_r2_key] ?? null
+                              : null,
+                          },
+                          false,
+                          null,
+                          cardListNow,
+                          null,
+                          null,
+                          false,
+                        )}
+                        detailsEnabled={false}
+                      />
                       <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                        {priceLabel} · {paxLabel} · assigned to {branchLabel}
+                        {paxLabel} · assigned to {branchLabel}
                         {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
                           ? ` · ${coverageLabelById.get(svc.coverage_id)}`
                           : ''}

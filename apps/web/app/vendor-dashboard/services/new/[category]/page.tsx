@@ -15,6 +15,7 @@ import {
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { buildLeafIndex, isCoverageLeafKind } from '@/lib/service-card-kind';
+import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 import { buildCanvasInitialFromCard } from '@/lib/vendor-card-copy';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
@@ -22,6 +23,37 @@ import { FAITH_REGISTRY } from '@/lib/faith-registry';
 export const metadata = { title: 'Add a service' };
 
 const CATEGORY_SET = new Set<string>(VENDOR_CATEGORIES);
+
+/**
+ * The THIRD legal vocabulary for a card kind: a wedding TILE id.
+ *
+ * ── MEASURED IN PRODUCTION, 2026-09-08 ────────────────────────────────────
+ * A shop's two cards held `live_band` and `host_mc`. `/services/new/live_band`
+ * rendered; `/services/new/host_mc` returned "This page doesn't exist on
+ * Setnayan" — so the "start a new card from this one" button worked on one card
+ * and 404'd on the other, for no reason the vendor could see.
+ *
+ * Neither is a `VENDOR_CATEGORIES` member. Measured:
+ *
+ *   live_band  VENDOR_CATEGORY false  WEDDING_TILE true   → passed on the LEAF arm
+ *   host_mc    VENDOR_CATEGORY false  WEDDING_TILE true   → matched neither → 404
+ *   dj, choir  VENDOR_CATEGORY false  WEDDING_TILE true   → passed on the LEAF arm
+ *
+ * The three that worked did so only because they also happen to be coverage
+ * leaves on that shop's live tree. `host_mc` is not, so the route refused a kind
+ * the product had already saved on a real card.
+ *
+ * 🔑 THE ROUTE'S OWN COMMENT PREDICTED THIS AND NAMED THE WRONG SECOND ARM:
+ * *"a leaf card would simply have no copy button that works."* True, and it is
+ * not only leaf cards — `lib/card-kind-labeller.ts` says it outright: *"cards in
+ * production hold `live_band` / `host_mc`, which are tile ids"*. The vocabulary
+ * a card is SAVED with has to be a vocabulary this door ACCEPTS, and tile ids
+ * were saved for a year before this door learned them.
+ *
+ * ⚠ Membership only — this does not make a tile id a `VendorCategory`. It says
+ * the door may open for a kind the product itself stores.
+ */
+const WEDDING_TILE_SET = new Set<string>(WEDDING_TILE_ORDER);
 
 /**
  * /vendor-dashboard/services/new/[category] — the guided "create a service"
@@ -49,7 +81,13 @@ export default async function NewServicePage({
   // cannot disagree about what a valid kind is.
   const kindLabel = await cardKindLabeller();
   const leafKinds = buildLeafIndex(await getCoverageTaxonomy().catch(() => []));
-  if (!CATEGORY_SET.has(category) && !isCoverageLeafKind(category, leafKinds)) notFound();
+  if (
+    !CATEGORY_SET.has(category) &&
+    !isCoverageLeafKind(category, leafKinds) &&
+    !WEDDING_TILE_SET.has(category)
+  ) {
+    notFound();
+  }
   const cat = category as VendorCategory;
 
   const supabase = await createClient();

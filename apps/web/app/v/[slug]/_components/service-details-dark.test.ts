@@ -24,9 +24,21 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const gallery = readFileSync(join(here, 'services-gallery.tsx'), 'utf8');
+// `ServiceCardView` moved to `app/_components/service-card-view.tsx` (2026-09-08)
+// so the vendor's card list could render the identical card. Read BOTH: the
+// gallery still owns the grouping/filtering, the view owns the card itself, and
+// every claim below is about one or the other.
+const gallery =
+  readFileSync(join(here, 'services-gallery.tsx'), 'utf8') +
+  readFileSync(join(here, '../../../_components/service-card-view.tsx'), 'utf8');
 const composer = readFileSync(join(here, 'inquiry-composer.tsx'), 'utf8');
-const page = readFileSync(join(here, '..', 'page.tsx'), 'utf8');
+// `toServiceCard` — and the conditional spread that keeps details-only keys out
+// of the flag-OFF payload — moved to `lib/service-card-view-model.ts` on
+// 2026-09-08. Read both: the page still owns the section, the builder owns the
+// payload shape.
+const page =
+  readFileSync(join(here, '..', 'page.tsx'), 'utf8') +
+  readFileSync(join(here, '../../../../lib/service-card-view-model.ts'), 'utf8');
 const action = readFileSync(join(here, '..', 'inquiry-actions.ts'), 'utf8');
 const lockModal = readFileSync(
   join(here, '..', '..', '..', '_components', 'vendor-packages', 'lock-modal.tsx'),

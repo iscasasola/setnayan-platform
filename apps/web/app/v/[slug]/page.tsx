@@ -47,6 +47,10 @@ import {
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import {
+  toServiceCard,
+  type ServiceShowcaseMedia,
+} from '@/lib/service-card-view-model';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
   fetchTrustedByVendors,
@@ -662,7 +666,6 @@ function PlatformIcon({ platform }: { platform: VideoPlatform }) {
 }
 
 /** Display URLs for one service card's showcase media. */
-type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
 
 /**
  * Showcase media per active service (couple-side serves payoff, 2026-07-03) —
@@ -3292,9 +3295,6 @@ function ServicesPricingSection({
   );
 }
 
-/** Max inclusions listed before we collapse the rest into "+N more included". */
-const SERVICE_CARD_INCLUSION_LIMIT = 3;
-
 /**
  * One `event_vendor_preferences` row → the composer's pre-fill shape.
  *
@@ -3331,159 +3331,6 @@ function toSavedRequirements(
  * discount, FREE inclusions (with their stated worth), and "not included"
  * expectation flags so couples see the value + the caveats before quoting.
  */
-function toServiceCard(
-  row: VendorServiceRow,
-  inclusions: VendorServiceInclusion[] | undefined,
-  discounts: VendorServiceDiscount[] | undefined,
-  serves: string | undefined,
-  showcase: ServiceShowcaseMedia | undefined,
-  /** Council #6: when true the vendor opted to hide public prices — every peso
-   *  amount below is suppressed (labels/inclusions still show; only figures go). */
-  hidePrices: boolean,
-  /** Viewing couple's event date (ISO YYYY-MM-DD) or null — picks the
-   *  early-booking ladder tier (owner-locked 2026-07-27). */
-  coupleEventDate: string | null,
-  /** The render's single clock (injected — never Date.now() down here). */
-  now: Date,
-  /** This card's compiled record, or null when the flag is off. */
-  cardRecord: CompiledCardRecord | null,
-  /** Shop-wide trusted rating for the record block, or null. */
-  cardRecordRating: CardRecordRating | null,
-  /** `serviceDetailsEnabled()` — gates the details-sheet-only payload below, so
-   *  the flag-OFF card ships exactly the bytes it ships today. */
-  detailsEnabled: boolean,
-): ServiceCard {
-  // ⚠ MUST read the vendor's own title first. This card is what the
-  // maker's live preview promises "exactly what couples see" — a card
-  // authored with a name (or the maker's own kind-derived default) must
-  // show that name, not silently fall back to the bare category. And for
-  // a CUSTOM category the fallback must go through `displayServiceLabel`,
-  // never the raw stored key — see its own docblock on why a couple must
-  // never be shown a database key on this exact card.
-  const label = row.title?.trim() || displayServiceLabel(row.category);
-  const priceLabel =
-    !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
-      ? `from ${formatPhp(row.starting_price_php)}`
-      : 'Inquire';
-
-  // Pricing-basis detail — HOW the "from ₱X" anchor is computed. Per-pax shows
-  // the per-guest rate (+ the min floor when set); per-hour shows the base
-  // block (+ the extra-hour rate when set). Fixed = nothing extra to explain
-  // (the pax brackets stay a vendor-side quoting tool in V1). The anchor line
-  // above is untouched.
-  const isCrewMeals = row.category === 'crew_meals';
-  const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
-  let priceDetail: string | null = null;
-  if (hidePrices) {
-    // Vendor hid prices — no per-pax/per-hour rate breakdown.
-    priceDetail = null;
-  } else if (
-    row.pricing_basis === 'per_pax' &&
-    row.per_pax_price_php !== null &&
-    row.per_pax_price_php > 0
-  ) {
-    const minPart =
-      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} ${perPaxUnit}s` : '';
-    priceDetail = `${formatPhp(row.per_pax_price_php)} / ${perPaxUnit}${minPart}`;
-  } else if (
-    row.pricing_basis === 'per_hour' &&
-    row.hour_base_php !== null &&
-    row.hour_base_php > 0
-  ) {
-    const base =
-      row.min_hours !== null && row.min_hours > 0
-        ? `${formatPhp(row.hour_base_php)} for ${row.min_hours} hr${row.min_hours === 1 ? '' : 's'}`
-        : formatPhp(row.hour_base_php);
-    const extra =
-      row.extra_hour_php !== null && row.extra_hour_php > 0
-        ? ` · +${formatPhp(row.extra_hour_php)}/extra hr`
-        : '';
-    priceDetail = `${base}${extra}`;
-  }
-
-  // Best applicable discount → a single badge (pickBestDiscount ranks by peso
-  // savings on the anchor, dropping expired offers). Suppressed when the vendor
-  // hid prices — a "Save ₱X" / "N% off" badge reveals the underlying figure.
-  //
-  // Early-booking LADDER (owner-locked 2026-07-27): when the viewer is a couple
-  // with an event date, that date picks the tier and the badge names it
-  // ("Booked 6+ months ahead · −10%"); rungs they are too late for are dropped.
-  // Anonymous viewers see the ladder advertised as "Save up to 15% booking
-  // early". Display only — the quote still happens in chat.
-  const best = hidePrices
-    ? null
-    : pickBestDiscount(discounts, row.starting_price_php, {
-        eventDate: coupleEventDate,
-        now,
-      });
-
-  // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
-  // it blank, OR when the vendor hid prices — keep the inclusion label, drop the
-  // peso worth). Trim to a few; the overflow surfaces as "+N more".
-  const allInclusions = (inclusions ?? []).map((inc) =>
-    !hidePrices && inc.worth_php !== null && inc.worth_php > 0
-      ? `${inc.label} · ${formatPhp(inc.worth_php)} free`
-      : inc.label,
-  );
-  const shownInclusions = allInclusions.slice(0, SERVICE_CARD_INCLUSION_LIMIT);
-  const inclusionsMore = Math.max(0, allInclusions.length - shownInclusions.length);
-
-  // Crew / meta line (unchanged behaviour).
-  const crewParts: string[] = [];
-  if (row.crew_size !== null && row.crew_size > 0) {
-    crewParts.push(`${row.crew_size} crew on-site`);
-  }
-  if (row.crew_meal_required && !isCrewMeals) {
-    crewParts.push('crew meal required');
-  }
-
-  // "Not included" expectation flags — feed the couple's budget + set
-  // expectations before the quote (0007 budget line items).
-  const notIncluded: string[] = [];
-  if (!row.crew_meal_included && !isCrewMeals) notIncluded.push('Crew meal not included');
-  if (!row.transport_included) {
-    notIncluded.push(
-      !hidePrices && row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
-        ? `Transport: ${formatPhp(row.transport_flat_fee_php)}`
-        : 'Transport not included',
-    );
-  }
-
-  return {
-    id: row.vendor_service_id,
-    label,
-    priceLabel,
-    meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
-    discountLabel: best?.label ?? null,
-    inclusions: shownInclusions,
-    inclusionsMore,
-    // ── Details-sheet-only payload ────────────────────────────────────────
-    // A CONDITIONAL SPREAD, not `: []` / `: null` defaults. "Flag off ⇒
-    // byte-identical" has to cover the serialized RSC payload the browser
-    // downloads, not just the rendered DOM — shipping two extra keys per card
-    // to every anonymous visitor would quietly break that contract. With the
-    // flag off these keys are ABSENT, so the card streams exactly the bytes it
-    // streams today. Pinned by `service-details-dark.test.ts`.
-    ...(detailsEnabled
-      ? {
-          publicId: row.public_id,
-          // The sheet is the one place the "+N more included" tail is readable.
-          inclusionsFull: allInclusions,
-        }
-      : {}),
-    notIncluded,
-    priceDetail,
-    serves: serves ?? null,
-    photos: showcase?.photos ?? [],
-    videoUrl: showcase?.videoUrl ?? null,
-    // A card with no history shows NOTHING new — the record only exists once
-    // this card has actually been booked (owner: a zero-history card must not
-    // advertise its emptiness).
-    record: cardRecordHasSomethingToSay(cardRecord) ? cardRecord : null,
-    recordRating: cardRecordHasSomethingToSay(cardRecord) ? cardRecordRating : null,
-  };
-}
-
 // Min-N floor for the public "saved by N" chip — a count below this stays
 // hidden so a tiny number never de-anonymizes or reads as vanity (owner default
 // 2026-07-02: favorites public / viewers vendor-only; behavioral-data min-N lock).

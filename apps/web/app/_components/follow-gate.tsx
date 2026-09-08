@@ -39,6 +39,7 @@ export function FollowGate({
   const [following, setFollowing] = useState<boolean>(initialFollowing);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const isCard = variant === 'card';
 
   const onToggle = () => {
     if (!isAuthenticated) {
@@ -61,26 +62,37 @@ export function FollowGate({
     });
   };
 
-  const messageDisabled = !isAuthenticated || !following || !vendorEmail;
+  /**
+   * ── FOLLOWING IS NO LONGER A PRECONDITION THE COUPLE HAS TO SOLVE ─────────
+   * Owner 2026-09-08: *"message can message even if not followed."*
+   *
+   * The Iteration 0019 gate is real and still enforced — a restrictive INSERT
+   * policy on `chat_threads` — but `startThreadByVendorEmail` now RECORDS the
+   * follow when the couple presses Message instead of bouncing them back to
+   * press a heart first. That is what `app/v/[slug]/inquiry-actions.ts` has
+   * always done ("…2. follow the vendor (satisfies the iteration 0019
+   * follow-gate RLS)"); the two doors simply disagreed, and this was the odd one.
+   *
+   * 🔑 THE OLD STATE WAS A PUZZLE WHOSE ANSWER WAS A DIFFERENT BUTTON. A greyed
+   * "Follow to message" sat beside a bookmark that means something else
+   * entirely, and the couple had to guess that a HEART was the key to CHAT.
+   */
+  const messageDisabled = !isAuthenticated || !vendorEmail;
   const messageHint = !isAuthenticated
     ? 'Sign in to message'
-    : !following
-      ? 'Follow to message'
-      : !vendorEmail
-        ? 'Vendor has no contact email yet'
-        : null;
+    : !vendorEmail
+      ? 'Vendor has no contact email yet'
+      : null;
 
   // Single canonical message target: the couple's primary-event messages tab
   // with the vendor email prefilled. When no event yet, drop the eventId and
   // bounce to /dashboard so the user picks one.
   const messageHref =
-    isAuthenticated && following && vendorEmail
+    isAuthenticated && vendorEmail
       ? eventId
         ? `/dashboard/${eventId}/messages?prefill_vendor_email=${encodeURIComponent(vendorEmail)}`
         : `/dashboard?prefill_vendor_email=${encodeURIComponent(vendorEmail)}`
       : null;
-
-  const isCard = variant === 'card';
 
   return (
     <div
@@ -90,6 +102,20 @@ export function FollowGate({
           : 'flex flex-col gap-3 sm:flex-row sm:items-center'
       }
     >
+      {/* ── NO FOLLOW BUTTON ON A SEARCH RESULT (owner 2026-09-08) ──────────
+          Four controls sat on the explore card — Follow, "Follow to message",
+          Save, View vendor — and two of them read as "keep this vendor" while
+          doing unrelated things. Follow is the one that earns its place least:
+          it produces a number NO vendor surface displays (the shop page's
+          "couples saved you" counts SAVES), and the thread gate it used to
+          protect is now satisfied by pressing Message.
+
+          The relation itself stays — RLS, `unlock-category` and the inquiry
+          path all read it. What goes is asking the couple to perform it as a
+          separate step. The profile variant keeps the button: on a vendor's own
+          page "follow this shop" is a real, unambiguous action, and it is the
+          recovery affordance the messages page renders for `next_action=follow`. */}
+      {isCard ? null : (
       <button
         type="button"
         onClick={onToggle}
@@ -116,6 +142,7 @@ export function FollowGate({
             : `Follow${pending ? '…' : ''}`}
         </span>
       </button>
+      )}
 
       {messageHref ? (
         <a

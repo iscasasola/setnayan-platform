@@ -1,14 +1,26 @@
 /**
- * fetchVendorThreads anonymization-until-accept DTO invariants (Glass PR-6b ·
- * spec Vendor_Inquiry_Anonymization_Spec_2026-07-15). Node built-in runner via
- * tsx (`pnpm test:unit`).
+ * fetchVendorThreads DTO invariants. Node built-in runner via tsx
+ * (`pnpm test:unit`).
  *
- * The load-bearing enforcement: the couple's identity fields (event title
- * `display_name` + public-page link `public_id`) must NOT ship to the vendor
- * client for a PRE-accept thread — they're stripped in the fetcher's mapper, so
- * no vendor-facing surface can leak them regardless of its own render logic. A
- * post-accept (token-burned) thread passes through unchanged. `event_date` is
- * retained on both (the spec permits showing the date).
+ * ── THIS BLOCK USED TO ASSERT STRIPPING ────────────────────────────────────
+ * Four tests here pinned `maskVendorThreadEvent`, which nulled `display_name`
+ * and `public_id` for any thread the vendor had not accepted (Glass PR-6b ·
+ * `Vendor_Inquiry_Anonymization_Spec_2026-07-15`). Retired by the owner's
+ * 2026-09-08 ruling — *"we do not need to hide anything, since no more
+ * tokens"* — because accepting cost a token and the name was what it bought.
+ * The fetcher now passes the embed through untouched.
+ *
+ * 🔑 THE TRAP THESE TESTS HID, AND WHY THEY ARE REWRITTEN RATHER THAN DELETED.
+ * The stub below feeds a POPULATED `event` embed, so both the old tests and the
+ * new ones exercise a value production never produces. In prod a vendor holds
+ * no `events` RLS — measured on an ACCEPTED thread, `vendor_is_event_member = 0`
+ * — so PostgREST resolves this embed to **null on every vendor thread, accepted
+ * or not**. The old "accepted thread: full identity is preserved" test passed
+ * for four months while the accepted thread on screen said "Event".
+ *
+ * ⚠ SO A GREEN HERE PROVES THE MAPPER, NEVER THE SCREEN. Anything that needs
+ * the customer's name reads `fetchInquiryCustomerFacts`; see
+ * `the-supplier-sees-who-is-asking.test.ts`.
  *
  * Second block: countCoupleMessages' pre-accept-allowance invariant. The
  * couple's `pending`-thread allowance (inquiry + ONE follow-up) may only be
@@ -63,16 +75,18 @@ function baseRow(overrides: Row): Row {
   };
 }
 
-test('pending thread: couple identity is stripped from the DTO', async () => {
+test('pending thread: the DTO is passed through, not stripped', async () => {
   const supabase = makeSupabase([baseRow({ inquiry_status: 'pending', accepted_at: null })]);
   const [row] = await fetchVendorThreads(supabase, 'v1');
   assert.ok(row);
-  assert.equal(row.event?.display_name, null, 'event title must not ship pre-accept');
-  assert.equal(row.event?.public_id, null, 'public-page link must not ship pre-accept');
-  assert.equal(row.event?.event_date, '2026-11-01', 'date is permitted pre-accept');
+  // Was asserted as null on all three counts. The mapper that made it null is
+  // gone; accept state no longer changes the shape of this row at all.
+  assert.equal(row.event?.display_name, 'Ana & Leo');
+  assert.equal(row.event?.public_id, 'S89E-aaaaaaaaaa');
+  assert.equal(row.event?.event_date, '2026-11-01');
 });
 
-test('accepted thread: full identity is preserved (revealed = what the token buys)', async () => {
+test('accepted thread: passed through identically — accept state changes nothing here', async () => {
   const supabase = makeSupabase([
     baseRow({
       thread_id: 't2',
@@ -88,18 +102,36 @@ test('accepted thread: full identity is preserved (revealed = what the token buy
   assert.equal(row.event?.event_date, '2026-12-01');
 });
 
-test('declined thread (never accepted): identity stays masked', async () => {
+test('declined thread (never accepted): passed through too', async () => {
   const supabase = makeSupabase([
     baseRow({ thread_id: 't3', inquiry_status: 'declined', accepted_at: null }),
   ]);
   const [row] = await fetchVendorThreads(supabase, 'v1');
   assert.ok(row);
-  assert.equal(row.event?.display_name, null);
-  assert.equal(row.event?.public_id, null);
+  assert.equal(row.event?.display_name, 'Ana & Leo');
+  assert.equal(row.event?.public_id, 'S89E-aaaaaaaaaa');
 });
 
-test('accepted-then-displaced: revealed stays revealed', async () => {
-  // accepted_at was stamped (token burned) before the later transition.
+test('🔑 no accept state produces a different shape — there is one code path now', async () => {
+  // The mapper branched on accept state, so four statuses meant two shapes and
+  // a reader had to know which. Any reintroduced branch fails here.
+  const statuses = ['pending', 'accepted', 'declined', 'displaced', 'withdrawn'];
+  for (const inquiry_status of statuses) {
+    const supabase = makeSupabase([
+      baseRow({ thread_id: `t-${inquiry_status}`, inquiry_status, accepted_at: null }),
+    ]);
+    const [row] = await fetchVendorThreads(supabase, 'v1');
+    assert.equal(
+      row?.event?.display_name,
+      'Ana & Leo',
+      `'${inquiry_status}' is being treated specially again`,
+    );
+  }
+});
+
+test('accepted-then-displaced: still passed through', async () => {
+  // `accepted_at` was stamped before the later transition. It used to be the
+  // reveal predicate ("revealed stays revealed"); it now predicates nothing.
   const supabase = makeSupabase([
     baseRow({
       thread_id: 't4',

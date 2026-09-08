@@ -35,6 +35,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(import.meta.dirname, '..');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
@@ -97,13 +98,12 @@ test('the date reaches the rail SPELLED OUT, not as an ISO key', () => {
 test('the rail has no masked branch left to fall into', () => {
   const rail = read('app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx');
   // ⚠ CODE ONLY. This file's own header narrates the lock it removed and quotes
-  // its copy, so a check run over the raw text fails on the explanation of the
-  // fix rather than on the defect. Strip block-comment and `//` lines first —
-  // the first draft of this test went red on its own docblock.
-  const code = rail
-    .split('\n')
-    .filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l))
-    .join('\n');
+  // its copy, so a check over the raw text fails on the explanation of the fix
+  // rather than on the defect — the first draft went red on its own docblock.
+  // The stripper is the SHIPPED lexer, not a line filter: `lib/strip-comments.ts`
+  // documents a regex version blanking 5,104 lines of real code, and a
+  // hand-rolled one here would also be a new `one-comment-stripper` entry.
+  const code = stripComments(rail);
   assert.ok(!/\bmasked\b/.test(code), 'a `masked` prop is back on the customer rail');
   assert.ok(
     !code.includes('accept the conversation to reveal'),
@@ -154,5 +154,12 @@ test('the customers roster still asks only for its own vendor’s events', () =>
     ) || src.includes('.in('),
     'the roster event read is no longer narrowed with .in(rosterEventIds)',
   );
-  assert.match(src, /revealed: true/, 'the roster is masking its own customers again');
+  // ⚠ CODE ONLY, and this one was caught by its own sabotage. The first draft
+  // matched /revealed: true/ against the raw file — which also matches the
+  // explanatory comment twenty lines below the call site, so flipping the real
+  // `revealed: true` to `false` left the test GREEN. A guard that reads prose
+  // is measuring the explanation of the fix, not the fix.
+  const code = stripComments(src);
+  assert.match(code, /revealed: true/, 'the roster is masking its own customers again');
+  assert.doesNotMatch(code, /revealed: false/, 'a roster row is masked again');
 });

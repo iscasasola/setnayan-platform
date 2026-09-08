@@ -178,7 +178,6 @@ apps/web/lib/host-can-remove-any-photo.test.ts
 apps/web/lib/host-means-host.test.ts
 apps/web/lib/host-setlist-read.test.ts
 apps/web/lib/human-auth-error.test.ts
-apps/web/lib/inquiry-mask-every-host.test.ts
 apps/web/lib/invitation-words-draft.test.ts
 apps/web/lib/join-door-meta.test.ts
 apps/web/lib/journal-affiliate-links.test.ts

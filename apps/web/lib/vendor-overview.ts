@@ -413,6 +413,39 @@ export async function fetchVendorOverviewData(
   // --- Assemble WHAT'S NEW ---------------------------------------------------
   const whatsNew: WhatsNewCard[] = [];
 
+  /**
+   * The couple's own first message per pending thread — ONE batched read.
+   *
+   * Granted pre-accept by the 2026-07-15 anonymisation decision (*"a vendor
+   * sees … the couple's message text"*) and already shown pre-accept on the
+   * thread page. This card was withholding it, so a supplier was asked to
+   * Accept or Decline without seeing what had been asked.
+   *
+   * ⚠ `sender_role = 'couple'` is load-bearing: a vendor auto-reply bot inserts
+   * its own row into a still-pending thread (recorded 2026-07-21), so "the
+   * earliest message" alone can be the SHOP'S OWN words quoted back at it.
+   *
+   * Fails soft — a card without an excerpt is worse than no card, but a
+   * dashboard that 500s because a preview could not be read is worse than both.
+   */
+  const firstMessageByThread = new Map<string, string>();
+  if (pendingThreads.length > 0) {
+    const { data: msgRows, error: msgErr } = await supabase
+      .from('chat_messages')
+      .select('thread_id, body, created_at, sender_role')
+      .in('thread_id', pendingThreads.map((t) => t.thread_id))
+      .eq('sender_role', 'couple')
+      .order('created_at', { ascending: true });
+    if (msgErr) {
+      logQueryError('vendorOverview.inquiryPreview', msgErr, {}, 'graceful_degrade');
+    }
+    for (const row of (msgRows ?? []) as Array<{ thread_id: string; body: string | null }>) {
+      if (!firstMessageByThread.has(row.thread_id) && row.body) {
+        firstMessageByThread.set(row.thread_id, row.body);
+      }
+    }
+  }
+
   for (const t of pendingThreads) {
     const meta = eventMeta.get(t.event_id);
     // Anonymization-until-accept (Glass PR-6b): a pending inquiry is PRE-accept,
@@ -432,6 +465,11 @@ export async function fetchVendorOverviewData(
         region: meta?.region ?? null,
         category: vendorCategory,
         hostNoun: meta?.eventType ? (inquiryHostNouns.get(meta.eventType) ?? null) : null,
+        // Both permitted pre-accept by the 2026-07-15 decision; neither is
+        // identity. `pax_at_inquiry` already rides the thread DTO, so it costs
+        // no query.
+        paxAtInquiry: t.pax_at_inquiry ?? null,
+        messageExcerpt: firstMessageByThread.get(t.thread_id) ?? null,
       }),
     );
   }

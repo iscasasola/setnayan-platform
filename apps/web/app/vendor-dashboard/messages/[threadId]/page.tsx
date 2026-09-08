@@ -17,6 +17,7 @@ import { inquiryHostNoun } from '@/lib/inquiry-mask.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
+import { formatLongDate } from '@/lib/format-date';
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
@@ -459,7 +460,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           </p>
           {event?.event_date ? (
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-              {event.event_date}
+              {/* "December 18, 2026", not the raw ISO key. A supplier deciding
+                  whether they are free that day should not be reading a
+                  database value (owner 2026-09-08). */}
+              {formatLongDate(event.event_date)}
             </p>
           ) : null}
           {/* Live pax — recomputed fresh on view (Phase 5); the count the couple
@@ -712,7 +716,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             <div className="flex flex-wrap gap-1.5">
               {inquiryBasics.event_date ? (
                 <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
-                  {inquiryBasics.event_date}
+                  {/* The chip a supplier reads before Accept/Decline. It showed
+                      the raw ISO key while the line below it said "18 Dec." and
+                      the header said something else again — three renderings of
+                      one wedding day on one screen (owner 2026-09-08). */}
+                  {formatLongDate(inquiryBasics.event_date)}
                 </span>
               ) : null}
               {(() => {

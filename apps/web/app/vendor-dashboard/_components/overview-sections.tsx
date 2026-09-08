@@ -16,6 +16,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { waitingAge } from '@/lib/waiting-age';
+import { formatLongDate } from '@/lib/format-date';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { reviewTemper, CLOSED_WINDOW_GRACE_DAYS } from '@/lib/answers-desk';
 import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
@@ -738,11 +739,15 @@ function InquiryBody({
 }) {
   // `card.descriptor` is the neutral anonymized label ("A couple planning a
   // {type} in {city}") — the inquiry card carries no couple identity pre-accept.
+  // ⚠ `card.place` was printed twice — once inside `descriptor` ("A couple
+  // planning a wedding in Metro Manila") and again as its own item, so the line
+  // read "… in Metro Manila · Dec 18 · Metro Manila · Live Band". Dropped from
+  // the list; the descriptor already says where.
   const meta = metaLine([
     card.descriptor,
-    shortDate(card.eventDate),
-    card.place,
+    formatLongDate(card.eventDate),
     card.category,
+    card.paxAtInquiry ? `~${card.paxAtInquiry} guests` : null,
   ]);
   return (
     <>
@@ -757,6 +762,17 @@ function InquiryBody({
         {' · '}
         <AgeLine since={card.createdAt} />
       </p>
+      {/* WHAT THEY ASKED. Granted pre-accept by the 2026-07-15 anonymisation
+          decision — *"a vendor sees the JOB (… guest/budget bands · category ·
+          couple's message text)"* — and already shown pre-accept on the thread
+          page. This card withheld it, so a supplier chose Accept or Decline
+          without seeing the question. Quoted, never summarised: a paraphrase is
+          a second author's version of what somebody asked. */}
+      {card.messageExcerpt ? (
+        <p className="mt-2 border-l-2 border-ink/15 pl-3 text-sm italic text-ink/75">
+          “{card.messageExcerpt}”
+        </p>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={acceptInquiry}>
           <input type="hidden" name="thread_id" value={card.threadId} />

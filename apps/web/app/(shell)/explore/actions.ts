@@ -9,7 +9,7 @@ import {
   userHostsEvent,
 } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
-import { resolveVendorCategory } from '@/lib/vendor-packages';
+import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -118,30 +118,39 @@ export type SaveVendorResult =
   | { status: 'error'; message: string };
 
 function coerceCategory(services: ReadonlyArray<string>): VendorCategory {
-  // vendor_profiles.services is `text[]` that in practice holds leaf /
-  // canonical_service taxonomy strings (e.g. 'photography', 'cake_desserts'),
-  // and occasionally a raw vendor_category enum value.
-  //
-  // Pass 1 — direct enum match. Handles the rare row that already stores a
-  // coarse `vendor_category` enum value.
+  /**
+   * ── WHY THIS STOPPED USING `resolveVendorCategory` (measured 2026-09-08) ──
+   * A shop was saved to a couple's shortlist with `category = 'misc'`, so the
+   * bench's **Live Band** row — which looks for `live_band` — could not show a
+   * supplier the couple had just inquired with. The same fallback rendered
+   * "INQUIRING ABOUT: Miscellaneous" on the thread header.
+   *
+   * `resolveVendorCategory` says so in its own docblock: *"LEAF-KEYED, AND IT
+   * COVERS 52 OF 246 LIVE LEAVES … Do NOT reach for it to classify an arbitrary
+   * service — 194 live leaves land in `misc` here. Use `vendorCategoryForLeaf`
+   * below, which falls back to the leaf's BRANCH and covers all of them."* This
+   * function was reaching for exactly the one it warns about.
+   *
+   * And the owner ruled on the symptom on 2026-08-09: *"fix the taxonomy if
+   * needed. we do not like having categories under misc."*
+   *
+   * 🔑 THE VALUE IS PASSED AS BOTH LEAF AND BRANCH ON PURPOSE.
+   * `vendor_profiles.services` holds TILE IDS in production
+   * (`lib/card-kind-labeller.ts` records this), and a tile id is exactly what
+   * the branch arm wants. Measured:
+   *
+   *     live_band → band_dj    host_mc → host_emcee    cake → cake_maker
+   *     dj        → band_dj    choir   → choir         florist → florist
+   *
+   * A value that IS a canonical leaf still resolves on the leaf arm first, so
+   * correctly-stored shops are unaffected.
+   */
   for (const s of services) {
-    if (VENDOR_CATEGORIES.includes(s as VendorCategory)) {
-      return s as VendorCategory;
-    }
-  }
-  // Pass 2 — leaf → coarse mapping. The common case: 'photography' →
-  // 'photographer', 'cake_desserts' → 'cake_maker'. resolveVendorCategory
-  // returns 'misc' for anything unmapped, so take the first entry that maps
-  // to a real category. Without this pass the leaf strings never matched the
-  // enum check above and every save fell through to 'misc' (the "MISC" bug in
-  // the editorial "Team Behind the Day").
-  for (const s of services) {
-    const resolved = resolveVendorCategory(s);
+    const resolved = vendorCategoryForLeaf(s, s);
     if (resolved !== 'misc') {
       return resolved;
     }
   }
-  // Nothing mapped — generic Misc bucket.
   return 'misc';
 }
 

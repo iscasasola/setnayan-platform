@@ -216,7 +216,21 @@ test('a capture uploaded six hours late does not move a bar', async () => {
 
   // Three shots taken inside one ten-minute window. Two upload at once; the
   // third is the one whose phone found no signal until the guests went home.
-  const base = new Date(Date.now() - 6 * 3_600_000);
+  //
+  // ⚠ THE WINDOW IS PINNED INSIDE ONE HOUR ON PURPOSE. An earlier draft started
+  // it at `now() - 6h` and the last shot sometimes fell past the top of the
+  // hour, splitting the bar and failing a CORRECT writer roughly one run in six.
+  // A guard that is right on average is not a guard.
+  const sixHoursAgo = new Date(Date.now() - 6 * 3_600_000);
+  const base = new Date(
+    Date.UTC(
+      sixHoursAgo.getUTCFullYear(),
+      sixHoursAgo.getUTCMonth(),
+      sixHoursAgo.getUTCDate(),
+      sixHoursAgo.getUTCHours(),
+      10, // ten past the hour, so +0/+5/+9 all stay inside it
+    ),
+  );
   const taken = [0, 5, 9].map((m) => new Date(base.getTime() + m * 60_000).toISOString());
   for (const t of taken) assert.equal((await guestCapture(guestId, t)).status, 'ok');
 

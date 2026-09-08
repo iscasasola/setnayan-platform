@@ -127,6 +127,53 @@ test('the guest-list row appears only once the couple has started', () => {
   assert.equal(some.facts.find((f) => f.label === 'Guest list')!.value, '10 added so far');
 });
 
+test('locked categories are deduped, sorted, and blank-free', () => {
+  const { lockedCategories } = buildCustomerEventSummary({
+    ...REAL,
+    // Two rows can hold the same category (a couple may lock two photographers),
+    // and `event_vendors.category` is nullable free-text for custom entries.
+    lockedCategoryLabels: ['Venue', 'Catering', 'Venue', '  ', 'Catering'],
+  });
+  assert.deepEqual(lockedCategories, ['Catering', 'Venue']);
+});
+
+test('a stable chip order — the same plan renders the same way twice', () => {
+  // A list that reshuffles between loads reads as the plan having changed.
+  const a = buildCustomerEventSummary({ ...REAL, lockedCategoryLabels: ['Venue', 'Catering'] });
+  const b = buildCustomerEventSummary({ ...REAL, lockedCategoryLabels: ['Catering', 'Venue'] });
+  assert.deepEqual(a.lockedCategories, b.lockedCategories);
+});
+
+test('nothing locked yields no chips — not an empty heading', () => {
+  for (const labels of [undefined, null, [], ['   ']]) {
+    const { lockedCategories } = buildCustomerEventSummary({
+      ...REAL,
+      lockedCategoryLabels: labels,
+    });
+    assert.deepEqual(lockedCategories, [], `rendered chips for ${JSON.stringify(labels)}`);
+  }
+});
+
+test('🔑 CATEGORIES ONLY — no parameter can carry a competitor\'s NAME', () => {
+  // The owner granted "what categories is already locked". `vendor_roster` —
+  // {vendor_name, category} for every other locked supplier — stays BOOKED-stage
+  // only in `get_vendor_event_brief`, by construction. "Venue is taken" tells a
+  // supplier the couple is spending real money and which slots are open. "Venue
+  // is taken BY <rival>" names a competitor to someone who has not committed to
+  // anything and can still walk away. The builder's input has no name field;
+  // this pins that absence, which is the enforcement.
+  const summary = buildCustomerEventSummary({
+    ...REAL,
+    lockedCategoryLabels: ['Venue', 'Catering'],
+  });
+  const serialised = JSON.stringify(summary);
+  for (const forbidden of ['vendor_name', 'vendorName', 'business_name', 'roster']) {
+    assert.ok(!serialised.includes(forbidden), `summary carries ${forbidden}`);
+  }
+  // And the labels that DO ship are the granted half.
+  assert.deepEqual(summary.lockedCategories, ['Catering', 'Venue']);
+});
+
 test('🔑 no ladder-gated field can be passed in at all', () => {
   // Exact venue, address, timeline, seat plan and dietary sit behind
   // `get_vendor_event_brief`'s agreement ladder, which the 2026-09-08 identity

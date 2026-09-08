@@ -102,3 +102,28 @@ settled question gets asked a second time, and the house rule is never to ask th
 question the corpus answers.
 
 SPEC IMPACT: `03_Data_Requirements.md` §2.5 — applied directly in the corpus.
+
+### The port guard fired, and it was right to
+
+`lint-port-no-lost-controls` failed on `/[slug]`: **`<EditionLine>` is no longer rendered.** True
+— the cover took over all three of its jobs, and each was checked before the baseline was
+regenerated rather than after:
+
+| `EditionLine` rendered | now on the cover |
+|---|---|
+| `Vol. N · No. N` (left) | `mastheadEdition(...)` under the SETNAYAN mark |
+| city · date (centre) | the kicker above the names |
+| Share + Save story card (right) | the same two components, passed in as `actions` |
+
+The baseline is regenerated **in this PR**, which is the guard's own escape hatch, and the diff
+was read line by line rather than skimmed: **exactly one removal** (`EditionLine`) against 12
+additions on `/[slug]`. ⚠ It also absorbs one addition on
+`/vendor-dashboard/messages/[threadId]` (`HTMLDetailsElement`) that is **not this PR's** — it
+landed on `main` after the baseline was last generated at `81cf19175`, and regenerating
+necessarily picks it up. Zero removals anywhere else.
+
+🔑 **Regenerating a baseline is how a real mistake gets recorded as intended.** The only thing
+that makes it safe here is that the removed control's three jobs were located on the new surface
+FIRST.
+
+SPEC IMPACT: None.

@@ -130,6 +130,34 @@ test('the rail has no masked branch left to fall into', () => {
   );
 });
 
+test('🔑 the thread page reads locked CATEGORIES and never a competitor NAME', () => {
+  // Owner, 2026-09-08: "if they have lock specific vendors as well for that
+  // event, we can share what categories is already locked." Categories — not
+  // who took them. `event_vendors` carries `vendor_name` right beside
+  // `category`, so the whole boundary is one word in one `.select()`, and
+  // `get_vendor_event_brief` keeps `vendor_roster` (which pairs the two) at the
+  // BOOKED stage by construction. This asserts the select stays narrow.
+  const src = stripComments(read(THREAD_PAGE));
+
+  assert.match(
+    src,
+    /\.from\('event_vendors'\)\s*\n\s*\.select\('status, category'\)/,
+    'the event_vendors select changed — check it did not gain vendor_name',
+  );
+  assert.ok(
+    !/vendor_name/.test(src),
+    'the thread page selects vendor_name — that names a rival to a supplier who ' +
+      'has not committed to anything and can still walk away',
+  );
+  // The labels must go through the resolver that refuses to print a raw key.
+  assert.match(
+    src,
+    /displayServiceLabel\(r\.category\)/,
+    'locked categories are being rendered without displayServiceLabel — a raw ' +
+      'database key like "band_dj" would reach the supplier',
+  );
+});
+
 test('🔑 every admin-scoped customer read is gated by a vendor-scoped fetch', () => {
   // `fetchInquiryCustomerFacts` bypasses RLS by construction. Its safety is
   // entirely the caller's: each surface must derive the event ids it passes

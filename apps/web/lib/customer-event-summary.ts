@@ -45,6 +45,14 @@ export type CustomerEventSummary = {
   /** "Ice Casasola created a wedding called “Cale & Ice” on June 19, 2026." */
   sentence: string;
   facts: CustomerFactRow[];
+  /**
+   * WHICH categories the couple has already locked, as display labels ready to
+   * render — deduped, sorted, never raw database keys. Empty when nothing is
+   * locked or nothing is known; a caller renders no chips rather than an
+   * "unknown" chip. See {@link CustomerEventSummaryInput.lockedCategoryLabels}
+   * for the disclosure note.
+   */
+  lockedCategories: string[];
 };
 
 export type CustomerEventSummaryInput = {
@@ -68,6 +76,26 @@ export type CustomerEventSummaryInput = {
   totalVendors?: number | null;
   /** Guest rows entered so far — "progress of the build", not the target. */
   guestsAdded?: number | null;
+  /**
+   * WHICH categories are already locked on this event — display labels, not
+   * slugs. Owner, 2026-09-08: *"if they have lock specific vendors as well for
+   * that event, we can share what categories is already locked."*
+   *
+   * ⚠ THIS IS A DELIBERATE WIDENING OF A LADDER, NOT A BUG FIX, AND IT IS
+   * NARROWER THAN IT LOOKS. `get_vendor_event_brief` returns `vendor_roster` —
+   * `{vendor_name, category}` for every OTHER locked supplier — at the BOOKED
+   * stage ONLY, by construction. What the owner asked for is the CATEGORY half
+   * of that fact, one rung earlier.
+   *
+   * 🔑 CATEGORIES ONLY. NEVER `vendor_name`. "Venue and Catering are taken"
+   * tells a supplier the couple is committing real money and which slots are
+   * still open — a reason to reply. "Venue is taken BY <competitor>" is a
+   * different disclosure: it names a rival to someone who has not committed to
+   * anything and can still walk away. The booked-stage roster keeps the names;
+   * this input accepts labels only, and there is no parameter through which a
+   * vendor name can arrive.
+   */
+  lockedCategoryLabels?: string[] | null;
 };
 
 const UNKNOWN = 'Not set yet';
@@ -125,7 +153,13 @@ export function buildCustomerEventSummary(
     facts.push({ label: 'Guest list', value: `${input.guestsAdded} added so far` });
   }
 
-  return { sentence, facts };
+  // Deduped + sorted so the same plan always renders the same chip order — a
+  // list that reshuffles between loads reads as the plan having changed.
+  const lockedCategories = Array.from(
+    new Set((input.lockedCategoryLabels ?? []).map((c) => clean(c)).filter((c): c is string => !!c)),
+  ).sort((a, b) => a.localeCompare(b));
+
+  return { sentence, facts, lockedCategories };
 }
 
 /**

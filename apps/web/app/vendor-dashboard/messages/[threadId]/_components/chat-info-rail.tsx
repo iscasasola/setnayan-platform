@@ -158,6 +158,29 @@ function RailBody({
             {service ? <SnapRow label="Service" value={service} /> : null}
           </dl>
 
+          {/* WHICH SLOTS ARE TAKEN (owner 2026-09-08). Rendered only when the
+              couple has actually locked something — an "Already locked" heading
+              over nothing reads as a finding, and "none" is already said by the
+              `Locked suppliers` row above. Categories only; the supplier's
+              NAMES stay behind the booked-stage `vendor_roster`. */}
+          {summary.lockedCategories.length > 0 ? (
+            <div className="border-b border-ink/10 px-4 py-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                Already locked
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {summary.lockedCategories.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {/* Quick actions — all reuse EXISTING in-thread flows. Send proposal &
               Log payment anchor-scroll to the affordances already on the page;
               Propose schedule links the client brief's schedule tab. */}

@@ -15,6 +15,7 @@ import { FOUNDER_BADGE_LABEL, FOUNDER_INQUIRY_NOTE } from '@/lib/founder-seats';
 import { inquiryCityLabel } from '@/lib/inquiry-customer.server';
 import { buildCustomerEventSummary } from '@/lib/customer-event-summary';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -214,7 +215,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     // locked vendors"). Admin-scoped for the same reason as the `events` read
     // above: a vendor holds no RLS on either table. Best-effort — the summary
     // degrades field by field rather than costing the page.
-    (async (): Promise<{ hostName: string | null; locked: number | null; total: number | null }> => {
+    (async (): Promise<{
+      hostName: string | null;
+      locked: number | null;
+      total: number | null;
+      lockedCategories: string[];
+    }> => {
       try {
         const [members, vendors] = await Promise.all([
           paxAdmin
@@ -223,13 +229,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             .eq('event_id', thread.event_id)
             .limit(1),
           paxAdmin
+            // `category` rides along on a query this page already makes — the
+            // locked-category chips cost no extra round trip. ⚠ `vendor_name`
+            // is NOT selected: which SLOTS are taken is the owner's 2026-09-08
+            // grant; WHO took them stays the booked-stage `vendor_roster`.
             .from('event_vendors')
-            .select('status')
+            .select('status, category')
             .eq('event_id', thread.event_id),
         ]);
-        const rows = (vendors.data ?? []) as Array<{ status: string | null }>;
+        const rows = (vendors.data ?? []) as Array<{
+          status: string | null;
+          category: string | null;
+        }>;
         const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES);
-        const locked = rows.filter((r) => r.status && confirmed.has(r.status)).length;
+        const lockedRows = rows.filter((r) => r.status && confirmed.has(r.status));
+        const locked = lockedRows.length;
+        // `displayServiceLabel`, not a raw `category`: the column holds canonical
+        // enum keys AND custom free-text entries, and that resolver is the one
+        // place that already handles both. Its docblock: "NEVER PRINT A DATABASE
+        // KEY AT A COUPLE" — a supplier deserves the same.
+        const lockedCategories = lockedRows
+          .map((r) => (r.category ? displayServiceLabel(r.category) : null))
+          .filter((c): c is string => !!c);
         const hostId = (members.data ?? [])[0]?.user_id as string | undefined;
         let hostName: string | null = null;
         if (hostId) {
@@ -241,9 +262,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             .maybeSingle();
           hostName = (u as { display_name: string | null } | null)?.display_name ?? null;
         }
-        return { hostName, locked, total: rows.length };
+        return { hostName, locked, total: rows.length, lockedCategories };
       } catch {
-        return { hostName: null, locked: null, total: null };
+        return { hostName: null, locked: null, total: null, lockedCategories: [] };
       }
     })(),
     // Vendor Proposal Maker (§ 9) — the vendor's OWN published payment methods
@@ -415,6 +436,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     location: inquiryCity,
     lockedVendors: customerPlan.locked,
     totalVendors: customerPlan.total,
+    lockedCategoryLabels: customerPlan.lockedCategories,
   });
 
   const railProps = {

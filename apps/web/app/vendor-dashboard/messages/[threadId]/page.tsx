@@ -516,6 +516,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         adminClient: paxAdmin,
         eventId: thread.event_id,
         vendorProfileId: profile.vendor_profile_id,
+        // Without this a declined, withdrawn, expired or displaced thread keeps
+        // reading as a live `Inquiry` — the pill said the conversation was
+        // still open long after it had ended.
+        inquiryStatus: thread.inquiry_status,
       });
   // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
   // the rows cannot disagree with each other or with the header above them.

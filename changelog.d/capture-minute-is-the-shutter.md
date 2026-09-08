@@ -37,3 +37,35 @@ guest does not need to know."* Read on ingest — never asked, never surfaced.
 SPEC IMPACT: None. `Design_Editorial_By_The_Minute_2026-09-07/03_Data_Requirements.md`
 §2.1 and `08_Build_Order.md` step 0.1 specify exactly this; the corpus is updated
 separately when the phase closes.
+
+### Guards this change had to answer to (2026-09-09)
+
+Six existing guards fire on the code and the surface this touches. None was weakened;
+each was answered.
+
+* `app/papic/the-meter-is-the-only-door.test.ts` §3/§4 — **exactly one**
+  `writer.rpc('papic_record_seat_capture')` in `actions.ts`, with the caller identity and the
+  metered cost inline at that call. A first cut added a signature-fallback rung there, which
+  made two call sites into the authoritative writer. The rung is **removed**, for a measured
+  reason rather than to go green: `deploy-prod.yml` applies migrations **before** it triggers
+  the Vercel deploy hook (gate step printed "✅ Configured" on the 2026-09-08 `main` runs), and
+  even without that, a `42883` on this path answers `unavailable`, which is not in
+  `PAPIC_TERMINAL_ERRORS` — so the capture UI queues the shot and a later drain lands it.
+  Nothing is lost by waiting, so the rung bought nothing and cost a money-safety property.
+* `lib/papic-guest-ceiling-is-wired.test.ts` — the guest ladder's expected shape moves from
+  `[7,6,3,2]` to `[8,7,6,3,2]`. **Widened by one entry at the front, not loosened.** That rung
+  IS load-bearing and outlives the deploy race: without it a `42883` on the 8-arg call is caught
+  by the next rung's own `/function .*papic_record_guest_capture/` arm and falls straight to the
+  6-arg shape, which cannot carry `media_type` — silently recording every clip of that window as
+  a photo, the exact degradation the test exists to prevent. Sabotage-checked: removing the rung
+  turns the guard red.
+* `tests/db/papic-guest-own-credits-are-hers.db.test.ts` and
+  `tests/db/papic-guest-spend-ceiling.db.test.ts` pin the writer's exact `regprocedure`; both
+  updated to the 8-argument signature.
+* `supabase/security/exposure-surface.baseline.txt` regenerated. The diff is **one line**: the
+  same anon/authenticated-callable function with one more argument — same grantees, same
+  `secdef`, same `search_path`, no new capability. `papic_capture_minute` deliberately does not
+  appear; it is service_role only.
+
+Local verification after the fixes: unit `13870 tests · 0 fail` · db replay `2383 tests · 0 fail`
+· `TSC_EXIT=0 ERROR_LINES=0`.

@@ -52,14 +52,29 @@ test('🪤 the deploy-window rung exists — the migration and Vercel race, and 
   // 20271184624871 is not, the 7-arg call 42883s; without a 6-arg rung it would
   // fall to shapes that cannot carry media_type, recording every clip of that
   // window as a photo.
+  //
+  // 🕐 THE LADDER GAINED AN 8-ARG TOP RUNG (20271214644139, `p_captured_at`),
+  // and the descent below it is UNCHANGED — this list is widened by exactly one
+  // entry at the front, not loosened. The new rung is load-bearing for a reason
+  // that outlives the deploy race: without it, a 42883 on the 8-arg call is
+  // caught by the NEXT rung's own /function .*papic_record_guest_capture/ arm
+  // and falls straight to the 6-arg shape, which cannot carry media_type —
+  // silently recording every clip of that window as a photo, which is the exact
+  // degradation this test was written to prevent. It must descend 8 → 7 first.
+  //
+  // (The race itself is now closed on this pipeline: deploy-prod.yml applies
+  // migrations BEFORE it triggers the Vercel deploy hook, and its gate step
+  // printed "✅ Configured" on the 2026-09-08 main runs. The ladder is kept
+  // because the one-shape-at-a-time descent is what stops the degradation
+  // above, not because the window is still open.)
   const rungs = [...ROUTE.matchAll(/admin\.rpc\('papic_record_guest_capture', \{([^}]*)\}/gs)]
     // 🪤 `[a-z0-9_]`, not `[a-z_]` — `p_r2_object_key` and `p_poster_r2_key`
     // carry a DIGIT, so the obvious character class silently counted 5 and 4.
     .map((m) => ((m[1] ?? '').match(/p_[a-z0-9_]+:/g) ?? []).length);
   assert.deepEqual(
     rungs,
-    [7, 6, 3, 2],
-    'the ladder must descend one argument-shape at a time, 7 → 6 → 3 → 2',
+    [8, 7, 6, 3, 2],
+    'the ladder must descend one argument-shape at a time, 8 → 7 → 6 → 3 → 2',
   );
 });
 

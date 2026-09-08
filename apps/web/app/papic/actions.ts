@@ -616,68 +616,58 @@ export async function recordSeatCapture(
     return { ok: false, error: 'unavailable' };
   }
 
+  /*
+    🕐 THE SHUTTER RIDES THIS CALL, as `p_captured_at` — the same
+    client-supplied / server-validated shape as the p_geo_* arguments, and for
+    the same reason: only the device that took the picture knows the minute, and
+    nothing it says is trusted. `public.papic_capture_minute` refuses a future
+    time and a clock from before the celebration existed, and answers now() in
+    either case, so a wrong clock costs a shot its exact minute and never the
+    shot. null means "you decide", which is what every row got before 20271214644139.
+
+    ⚠ AND THERE IS DELIBERATELY NO SIGNATURE-FALLBACK RUNG, which is a departure
+    from the guest route's ladder. Two measured reasons, not one assumption:
+
+      • `deploy-prod.yml` applies migrations BEFORE it triggers the Vercel deploy
+        hook (gate step printed "✅ Configured" on the 2026-09-08 main runs), so
+        the window where this code is live and the migration is not does not
+        exist on this pipeline;
+      • and if it did, the 42883 falls to the refusal below as 'unavailable',
+        which is NOT in PAPIC_TERMINAL_ERRORS — the capture UI queues the shot
+        and a later drain lands it. Nothing is lost by waiting.
+
+    A rung would therefore buy nothing, and would cost the ONE-CALL-SITE property
+    that `app/papic/the-meter-is-the-only-door.test.ts` exists to hold: exactly
+    one `writer.rpc('papic_record_seat_capture')` in this file, on the
+    service-role client. That guard is about money safety and outranks a
+    convenience retry.
+  */
   {
-    // 🕐 THE SHUTTER. Same client-supplied / server-validated shape as p_geo_*
-    // directly below it: only the device knows, and nothing it says is trusted
-    // — public.papic_capture_minute refuses a future time and a clock from
-    // before the celebration existed, and answers now() in either case. null
-    // means "you decide", which is what every row got before this shipped.
-    const capturedAtIsoValue = capturedAtIso(capturedAtMs);
-
-    const recordArgs = {
-      p_seat_id: seat.seat_id,
-      p_event_id: seat.event_id,
-      // 🔑 IDENTITY IS AN ARGUMENT, RESOLVED HERE. Inside the function
-      // `current_user` is its OWNER and `auth.uid()` is empty (we call as the
-      // service role), so neither can answer "who is shooting". This is the
-      // id RLS already scoped the seat lookup by, and the function compares it
-      // to the seat's claimer again on its own side.
-      p_claimer_user_id: user.id,
-      p_r2_object_key: cleanKey,
-      p_photo_type: kind === 'clip' ? 'clip' : 'photo',
-      // clip_web_r2_key / clip_web_bytes are left NULL — the web copy is
-      // stamped by the off-drain persistSeatClipWebCopy follow-up.
-      p_poster_r2_key: cleanPoster,
-      p_cost: meterCost,
-      p_geo_lat: geoFields.geo_lat ?? null,
-      p_geo_lon: geoFields.geo_lon ?? null,
-      p_geo_accuracy_m: geoFields.geo_accuracy_m ?? null,
-      p_geo_unavailable: geoFields.geo_unavailable ?? null,
-    };
-
-    let { data: recorded, error: recordError } = await writer.rpc(
+    const { data: recorded, error: recordError } = await writer.rpc(
       'papic_record_seat_capture',
-      { ...recordArgs, p_captured_at: capturedAtIsoValue },
+      {
+        p_seat_id: seat.seat_id,
+        p_event_id: seat.event_id,
+        // 🔑 IDENTITY IS AN ARGUMENT, RESOLVED HERE. Inside the function
+        // `current_user` is its OWNER and `auth.uid()` is empty (we call as the
+        // service role), so neither can answer "who is shooting". This is the
+        // id RLS already scoped the seat lookup by, and the function compares it
+        // to the seat's claimer again on its own side.
+        p_claimer_user_id: user.id,
+        p_r2_object_key: cleanKey,
+        p_photo_type: kind === 'clip' ? 'clip' : 'photo',
+        // clip_web_r2_key / clip_web_bytes are left NULL — the web copy is
+        // stamped by the off-drain persistSeatClipWebCopy follow-up.
+        p_poster_r2_key: cleanPoster,
+        p_cost: meterCost,
+        p_geo_lat: geoFields.geo_lat ?? null,
+        p_geo_lon: geoFields.geo_lon ?? null,
+        p_geo_accuracy_m: geoFields.geo_accuracy_m ?? null,
+        p_geo_unavailable: geoFields.geo_unavailable ?? null,
+        // 🕐 The shutter — see the note above this block.
+        p_captured_at: capturedAtIso(capturedAtMs),
+      },
     );
-
-    /*
-      ⚠ THE DEPLOY-WINDOW RUNG, AND IT IS NOT DECORATION — it is the difference
-      between this change being invisible and this change REFUSING PHOTOGRAPHS
-      AT A WEDDING IN PROGRESS.
-
-      Vercel and the migration workflow both fire on a push to main and race. For
-      the minutes where this code is live and 20271214644139 is not, the call
-      above 42883s on an argument Postgres has never heard of. The block below
-      treats a missing function as an outage and returns 'unavailable' — correct
-      when the WRITE is gone, catastrophic when only the newest ARGUMENT is: the
-      camera would refuse every shot for as long as the window lasted.
-
-      So exactly one retry, dropping only the new argument, and only when the
-      error actually names it. The capture then records with its upload minute —
-      the behaviour of every row before this migration — instead of not
-      recording at all. This mirrors the ladder the guest route has carried for
-      the same reason since 20271184624871.
-
-      🔑 IT CANNOT WIDEN ANYTHING. The retry sends a strict SUBSET of the same
-      arguments to the same function; if the function itself is absent, the
-      retry 42883s too and the outage path below runs unchanged.
-    */
-    if (recordError && /p_captured_at/i.test(recordError.message ?? '')) {
-      ({ data: recorded, error: recordError } = await writer.rpc(
-        'papic_record_seat_capture',
-        recordArgs,
-      ));
-    }
 
     if (recordError) {
       // ⚠ NO FUNCTION-NOT-FOUND CARVE-OUT, DELIBERATELY. `resolvePointsGate`

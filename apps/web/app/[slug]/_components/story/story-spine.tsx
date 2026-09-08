@@ -55,6 +55,9 @@ import type { RoadFact, StorySpineFacts } from './spine-data';
 /** The tallest a bar is drawn, in axis units. `BASELINE_Y` in the clock is 50. */
 const MAX_BAR = 46;
 
+/** How many hour stamps one day's segment may carry — see the note at the loop. */
+const MAX_DAY_TICKS = 4;
+
 const MONTH_LONG = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -290,10 +293,17 @@ export function StorySpine({
       }
     }
     labels.push({ x: day.x0 + 1, text: shortDate(day.date), kind: 'segment' });
-    // Hour ticks — every second or third hour, so a phone gets four or five
-    // legible ones rather than eleven overlapping ones.
-    const hours = Math.max(1, Math.round(span / 60));
-    const step = hours <= 6 ? 60 : hours <= 12 ? 120 : 180;
+    /*
+      Hour ticks, thinned to AT MOST FOUR per day.
+
+      ⚠ THE COUNT IS DECIDED BY THE TYPE, NOT BY THE HOURS. At the 12px
+      legibility floor a stamp like "7:12" is about 30px wide, and one day's
+      segment is roughly 215px on a 375px phone — so eleven hourly ticks are
+      eleven overlapping smudges. Four is what fits with clear air between
+      them, and the reader loses nothing: every minute in between is still on
+      the strip and still opens.
+    */
+    const step = Math.max(60, Math.ceil(span / MAX_DAY_TICKS / 60) * 60);
     for (let m = Math.ceil(day.startMin / step) * step; m < day.endMin; m += step) {
       labels.push({ x: dayX(day, m), text: formatClock(m).t, kind: 'tick' });
     }
@@ -354,7 +364,7 @@ export function StorySpine({
             {monogram}
             <span className="font-mono text-xs font-bold uppercase tracking-[0.24em]">
               Setnayan
-              <small className="mt-0.5 block text-[9.5px] font-medium tracking-[0.14em] text-ink/55">
+              <small className="mt-0.5 block text-xs font-medium tracking-[0.14em] text-ink/55">
                 {mastheadEdition(data.eventDate, data.editionNo, data.published)}
               </small>
             </span>
@@ -364,12 +374,12 @@ export function StorySpine({
 
         <div className="mt-6 flex flex-wrap items-center gap-2.5">
           {isSample ? (
-            <span className="inline-flex items-center rounded-full border border-terracotta-700/50 bg-terracotta-700/10 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-terracotta-700">
+            <span className="inline-flex items-center rounded-full border border-terracotta-700/50 bg-terracotta-700/10 px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-terracotta-700">
               Sample story — not a real {words.host}
             </span>
           ) : null}
           {data.published ? (
-            <span className="inline-flex items-center rounded-full border border-ink/30 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-ink/70">
+            <span className="inline-flex items-center rounded-full border border-ink/30 px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-ink/70">
               Complete
             </span>
           ) : null}
@@ -377,7 +387,7 @@ export function StorySpine({
 
         <div className="mt-6">
           {data.eventDateFormatted ? (
-            <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+            <span className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
               {data.eventDateFormatted}
               {data.venueCity ? ` · ${data.venueCity}` : ''}
             </span>
@@ -397,7 +407,7 @@ export function StorySpine({
                 <dd className="font-condensed text-3xl font-extrabold leading-none tabular-nums">
                   {f.n == null ? '—' : f.n.toLocaleString('en-PH')}
                 </dd>
-                <dt className="mt-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
                   {f.label}
                 </dt>
               </div>
@@ -494,7 +504,7 @@ function PartHead({ title, note }: { title: string; note: string }): ReactElemen
       <h2 className="font-condensed text-[clamp(1.9rem,6vw,3.25rem)] font-black uppercase leading-[0.9] tracking-tight">
         {title}
       </h2>
-      <span className="pb-1 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+      <span className="pb-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
         {note}
       </span>
     </div>
@@ -526,7 +536,7 @@ function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
             </small>
           ) : null}
         </span>
-        <span className="pb-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+        <span className="pb-1.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
           {fact.kicker}
         </span>
       </div>
@@ -552,7 +562,7 @@ function Gap({ text, blocks }: { text: string; blocks: string | null }): ReactEl
   return (
     <div aria-hidden className="flex items-center gap-3 py-2 text-ink/55">
       <span className="h-px flex-1 bg-ink/15" />
-      <span className="text-center font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">
+      <span className="text-center font-mono text-xs font-semibold uppercase tracking-[0.12em]">
         <b className="mr-2 font-condensed text-[15px] tracking-wide text-ink">{text}</b>
         {blocks}
       </span>
@@ -633,7 +643,7 @@ function MinuteEntry({
           </small>
         </span>
         {block?.location || block?.label ? (
-          <span className="pb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+          <span className="pb-2 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
             {block.location ?? block.label}
           </span>
         ) : null}
@@ -662,7 +672,7 @@ function MinuteEntry({
               {said.map((q, i) => (
                 <p key={i} className="font-serif text-[17px] italic leading-snug">
                   {q.body}
-                  <small className="mt-1 block font-mono text-[10px] font-semibold uppercase not-italic tracking-[0.12em] text-ink/55">
+                  <small className="mt-1 block font-mono text-xs font-semibold uppercase not-italic tracking-[0.12em] text-ink/55">
                     {q.author ? <b className="text-terracotta-700">{q.author}</b> : 'A guest'}
                     {q.role ? ` · ${q.role}` : ''} · Kwento
                     {q.author ? ' · asked to be named' : ' · chose not to be named'}
@@ -680,7 +690,7 @@ function MinuteEntry({
                 <li key={i} className="w-[9.5rem] flex-none">
                   <p className="font-serif text-[15px] leading-snug">{a.prompt}</p>
                   {a.byline ? (
-                    <small className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
+                    <small className="mt-1 block font-mono text-xs uppercase tracking-[0.12em] text-ink/55">
                       {a.byline}
                     </small>
                   ) : null}
@@ -711,7 +721,7 @@ function MinuteEntry({
               href={`https://www.youtube.com/watch?v=${film.videoId}&t=${film.seconds}s`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-[44px] items-center gap-2 text-[12.5px] font-semibold"
+              className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold underline-offset-4 hover:underline"
             >
               <b className="rounded bg-ink px-1.5 py-0.5 font-condensed text-sm tracking-wide text-cream">
                 {film.label}
@@ -737,7 +747,7 @@ function MinuteEntry({
 function Layer({ name, children }: { name: string; children: ReactNode }): ReactElement {
   return (
     <div className="grid grid-cols-[5.75rem_1fr] gap-3 border-b border-ink/10 py-3">
-      <span className="pt-0.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+      <span className="pt-0.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
         {name}
       </span>
       <div className="min-w-0">{children}</div>

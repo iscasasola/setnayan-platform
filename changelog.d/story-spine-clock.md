@@ -70,3 +70,24 @@ SPEC IMPACT: None. `08` step 2.1 and `03` §2.5 are already written this way; th
 correction worth carrying is that `03` §2.5's line about the consent veto having "landed in
 PR #5331" is optimistic — `drawnBins()` applies the layer and the future check, not the
 veto, which is why S9 had to.
+
+### Follow-up in the same PR — the legibility floor, and a hole in the guard that protects it
+
+`lint-guest-legibility` failed the first push, and it was right to: the port had carried the
+prototype's 9–11px eyebrows onto a guest-facing page. Fine on a 1000px desktop mock, illegible
+to the guest the 2026-06-20 "Lola Remedios" audit was named after. Every size is at or above
+the 12px floor now, and the two controls (the sheet's Close, the film link) are at 14px.
+
+The dial adapted to the larger type rather than the type shrinking back to the dial: hour
+stamps are thinned to at most four per day, and the road's date marks are hidden below `sm`
+— that band is about 103px on a phone and five legible stamps cannot share it. Nothing is
+lost: the strip is one hit area and the sheet a tap opens names the entry and links to it.
+
+🪤 **AND THE GUARD ITSELF HAD A HOLE.** Its pattern was `text-\[(\d+)px\]` — integers only —
+so `text-[9.5px]` walked straight past it, which is exactly the value you get copying a
+prototype's type scale. Measured on a deliberate sabotage: **0 → 1** occurrence of
+`text-[9.5px]`; the widened pattern fails (exit 1), the pattern as it shipped passes (exit 0)
+on the same file. Widening it reports **zero new offenders across all 222 guest-facing
+files**, so nothing was grandfathered in to make it go green.
+
+SPEC IMPACT: None.

@@ -76,6 +76,9 @@ export type StoryClockProps = {
 const BASELINE_Y = 50;
 const DIAL_HEIGHT = 58;
 
+/** The label rows above and below the axis, now that the type is at the floor. */
+const LABEL_ROW_PX = 16;
+
 export function StoryClock({
   bars,
   labels,
@@ -328,7 +331,7 @@ export function StoryClock({
             </div>
           </div>
 
-          <div className="relative mt-1.5">
+          <div className="relative mt-1.5 pb-4 pt-4" style={{ minHeight: DIAL_HEIGHT + LABEL_ROW_PX * 2 }}>
             {/*
               The bars live in a stretched 1000-unit space. Nothing that has to
               stay legible may live in there with them — see the label layer.
@@ -419,16 +422,32 @@ export function StoryClock({
               every label to about 35% of its width. They sit over the same
               axis, in the same units, and are simply not inside it.
             */}
-            <div aria-hidden className="pointer-events-none absolute inset-0">
+            {/*
+              ⚠ 12px IS THE FLOOR, NOT A PREFERENCE. The prototype sets these at
+              9–10px, which is fine on a 1000px-wide desktop dial and illegible
+              on the page an actual guest opens — the 2026-06-20 "Lola Remedios"
+              audit found small load-bearing text was THE dominant guest-facing
+              failure, and `lint-guest-legibility` caught this port doing it
+              again. Raised, and the axis adapted to the larger type instead.
+
+              🔑 THE ROAD'S DATE MARKS ARE HIDDEN ON A PHONE, AND NOTHING IS
+              LOST BY IT. The road band is 30% of the axis — about 103px at
+              375px wide — and five date stamps at a legible size cannot share
+              it without overlapping into mush. They come back from `sm:` up.
+              Every one of those dates is still REACHABLE below that width: the
+              strip is one hit area, and the sheet a tap opens names the entry
+              and links to it. A label you cannot read is not information.
+            */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-1 -bottom-1">
               {labels.map((l, i) => (
                 <span
                   key={i}
                   className={
                     l.kind === 'segment'
-                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-ink/55'
+                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/55'
                       : l.kind === 'mark'
-                        ? 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-condensed text-[10px] font-bold tracking-wide text-ink/55'
-                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-[9px] tracking-wider text-ink/45'
+                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/55 sm:block'
+                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/55'
                   }
                   style={{ left: percentOf(l.x) }}
                 >
@@ -438,7 +457,7 @@ export function StoryClock({
             </div>
           </div>
 
-          <p className="mt-0.5 text-center text-[10.5px] text-ink/50">
+          <p className="mt-0.5 text-center text-xs text-ink/60">
             Tap anywhere on the line to open that moment
           </p>
         </div>
@@ -469,7 +488,7 @@ export function StoryClock({
               <button
                 type="button"
                 onClick={close}
-                className="-mr-2 -mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full px-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60 hover:text-ink"
+                className="-mr-2 -mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full px-3 font-mono text-sm uppercase tracking-[0.14em] text-ink/70 hover:text-ink"
               >
                 Close
               </button>
@@ -487,7 +506,7 @@ export function StoryClock({
             </p>
 
             {openBar.place ? (
-              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
+              <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
                 {openBar.place}
               </p>
             ) : null}

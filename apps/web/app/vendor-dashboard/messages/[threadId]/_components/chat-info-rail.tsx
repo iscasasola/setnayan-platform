@@ -7,12 +7,24 @@ import {
   CalendarClock,
   CalendarDays,
   FileText,
+  Handshake,
   Info,
+  ListChecks,
+  Phone,
+  Plus,
+  ReceiptText,
   User,
+  Video,
   Wallet,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import type { CustomerEventSummary } from '@/lib/customer-event-summary';
+import {
+  VENDOR_THREAD_TOOLS,
+  type VendorThreadLinkTool,
+  type VendorThreadToolIcon,
+} from '@/lib/vendor-thread-tools';
+import { revealThreadTool } from './reveal-thread-tool';
 
 /**
  * Customer info rail beside the vendor⇆couple conversation (PR-3 of the
@@ -61,6 +73,19 @@ export type ChatInfoRailProps = {
   service: string | null;
   threadId: string;
   eventId: string;
+  /**
+   * Whether the tools this rail launches are actually ON THE PAGE. They mount
+   * in the accepted branch only, so on a pending inquiry every launcher would
+   * open nothing — a button that does nothing is worse than no button. The
+   * rail shows the customer and the way out instead.
+   */
+  toolsMounted: boolean;
+  /**
+   * How many saved proposal templates the shop has. At zero the proposal
+   * composer refuses to send and says "Pick a template" — with no way from
+   * there to make one. The rail says so and links to the maker.
+   */
+  templateCount: number;
 };
 
 const HEADING_ID = 'chat-info-rail-heading';
@@ -95,7 +120,16 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
         <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={HEADING_ID} title="Customer">
-        <RailBody {...props} headingId={HEADING_ID} inSheet />
+        {/* A tool opens BEHIND this sheet, so launching one closes it. Without
+            that the supplier taps "Build a quote" and watches nothing happen,
+            because the thing that opened is under the sheet they are looking
+            at. */}
+        <RailBody
+          {...props}
+          headingId={HEADING_ID}
+          inSheet
+          onLaunch={() => setOpen(false)}
+        />
       </Sheet>
     </div>
   );
@@ -109,9 +143,17 @@ function RailBody({
   service,
   threadId,
   eventId,
+  toolsMounted,
+  templateCount,
   headingId,
   inSheet = false,
-}: ChatInfoRailProps & { headingId: string; inSheet?: boolean }) {
+  onLaunch,
+}: ChatInfoRailProps & {
+  headingId: string;
+  inSheet?: boolean;
+  /** Called before a tool is revealed — the sheet uses it to close itself. */
+  onLaunch?: () => void;
+}) {
   return (
     <div className="flex flex-col">
       {/* Column-only header (the sheet renders its own title bar). */}
@@ -181,28 +223,67 @@ function RailBody({
             </div>
           ) : null}
 
-          {/* Quick actions — all reuse EXISTING in-thread flows. Send proposal &
-              Log payment anchor-scroll to the affordances already on the page;
-              Propose schedule links the client brief's schedule tab. */}
-          <div className="px-4 pt-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-              Quick actions
-            </p>
-          </div>
-          <div className="flex flex-col gap-1.5 px-3 py-2">
-            <RailAction href={`/vendor-dashboard/messages/${threadId}#send-proposal`} icon={FileText}>
-              Send proposal
-            </RailAction>
-            <RailAction
-              href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-              icon={CalendarClock}
-            >
-              Propose schedule
-            </RailAction>
-            <RailAction href={`/vendor-dashboard/messages/${threadId}#pending-payments`} icon={Wallet}>
-              Log payment
-            </RailAction>
-          </div>
+          {/* TOOLS — the right column's job (owner, 2026-09-08: "the right most
+              can be the tools"). Every one of these used to be a panel wedged
+              between the last message and the text box. They are still the same
+              components, mounted once above the stream and closed; these are
+              the launchers that open them.
+
+              🔑 LABELLED BUTTONS, NOT AN ICON ROW. A supplier picking "Log
+              payment" is choosing money, and an unlabelled glyph makes that a
+              guess. The icons ride along with the words; they never replace
+              them. */}
+          {toolsMounted ? (
+            <>
+              <div className="px-4 pt-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  Tools
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5 px-3 py-2">
+                {VENDOR_THREAD_TOOLS.map((tool) =>
+                  tool.link ? (
+                    <LinkTool key={tool.key} tool={tool} eventId={eventId} />
+                  ) : (
+                    <RailAction
+                      key={tool.key}
+                      icon={TOOL_ICON[tool.icon]}
+                      primary={tool.primary}
+                      onClick={() => {
+                        // On a phone this rail IS a sheet covering the page it
+                        // is about to scroll. Close it first, then reveal on
+                        // the next tick so the scroll lands on a visible page.
+                        onLaunch?.();
+                        if (inSheet) {
+                          window.setTimeout(() => revealThreadTool(tool.reveal), 0);
+                        } else {
+                          revealThreadTool(tool.reveal);
+                        }
+                      }}
+                    >
+                      {tool.label}
+                    </RailAction>
+                  ),
+                )}
+              </div>
+
+              {/* A shop with no template cannot send a proposal at all — the
+                  composer says "Pick a template to send a proposal" and offers
+                  no way to make one. Said here, where the button is. */}
+              {templateCount === 0 ? (
+                <p className="px-4 pb-1 text-xs leading-relaxed text-ink/55">
+                  No proposal template yet —{' '}
+                  <Link
+                    href="/vendor-dashboard/proposals"
+                    className="font-semibold text-mulberry underline underline-offset-2"
+                  >
+                    create one
+                  </Link>{' '}
+                  and proposals become one click.
+                </p>
+              ) : null}
+            </>
+          ) : null}
 
           {/* Full customer profile */}
           <div className="px-3 pb-4 pt-2">
@@ -229,22 +310,95 @@ function SnapRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * The one tool that still leaves this screen.
+ *
+ * ⚠ THE URL IS SPELLED OUT HERE, IN THE ROUTE'S OWN FILE, ON PURPOSE.
+ * `lint-port-no-lost-controls` reads a route's files for the destinations it
+ * offers and only sees a literal after `href=` — a URL composed in the shared
+ * tool list makes this route read as having LOST that destination, and the
+ * tempting fix (regenerating the baseline) would record a removal that never
+ * happened.
+ *
+ * The `switch` is exhaustive by type, so a new link target with no URL fails
+ * the typecheck rather than falling through to a launcher with nothing to open.
+ */
+function LinkTool({ tool, eventId }: { tool: VendorThreadLinkTool; eventId: string }) {
+  const icon = TOOL_ICON[tool.icon];
+  switch (tool.link) {
+    case 'client-schedule':
+      return (
+        <RailAction
+          href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+          icon={icon}
+          primary={tool.primary}
+        >
+          {tool.label}
+        </RailAction>
+      );
+    default: {
+      const unhandled: never = tool.link;
+      return unhandled;
+    }
+  }
+}
+
+/**
+ * One icon per tool, resolved from the shared list's `icon` key rather than
+ * chosen at each call site — so the rail cannot grow a tool the page does not
+ * render, or render one under two different glyphs.
+ */
+const TOOL_ICON: Record<VendorThreadToolIcon, typeof CalendarDays> = {
+  quote: ReceiptText,
+  proposal: FileText,
+  payment: Wallet,
+  schedule: CalendarClock,
+  offer: Plus,
+  voice: Phone,
+  video: Video,
+  deal: Handshake,
+  outcome: ListChecks,
+};
+
 function RailAction({
   href,
+  onClick,
   icon: Icon,
+  primary = false,
   children,
 }: {
-  href: string;
+  /** Leaves the page. Mutually exclusive with `onClick` by construction. */
+  href?: string;
+  onClick?: () => void;
   icon: typeof CalendarDays;
+  primary?: boolean;
   children: React.ReactNode;
 }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-2.5 rounded-lg border border-ink/10 bg-white px-3 py-2.5 text-sm font-semibold text-ink hover:border-terracotta/40"
-    >
-      <Icon aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+  const className = `flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm font-semibold ${
+    primary
+      ? 'border-mulberry/40 bg-mulberry/[0.06] text-ink hover:border-mulberry'
+      : 'border-ink/10 bg-white text-ink hover:border-terracotta/40'
+  }`;
+  const inner = (
+    <>
+      <Icon
+        aria-hidden
+        className={`h-4 w-4 shrink-0 ${primary ? 'text-mulberry' : 'text-ink/55'}`}
+        strokeWidth={1.75}
+      />
       {children}
-    </Link>
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {inner}
+    </button>
   );
 }

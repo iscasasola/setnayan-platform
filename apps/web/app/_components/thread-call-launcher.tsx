@@ -40,6 +40,7 @@ export function ThreadCallLauncher({
   callsEnabled = true,
   viewerRole = 'couple',
   upgradeHref,
+  buttonIdPrefix,
 }: {
   threadId: string;
   currentUserId: string;
@@ -54,6 +55,17 @@ export function ThreadCallLauncher({
   viewerRole?: 'couple' | 'vendor';
   /** Vendor upsell target for the locked-state CTA (vendor viewer only). */
   upgradeHref?: string;
+  /**
+   * When set, the two Start buttons get the ids `{prefix}-voice` and
+   * `{prefix}-video` so another control can reveal and focus one of them (the
+   * supplier thread's rail offers "Voice call" and "Video call" separately).
+   *
+   * ⚠ OPT-IN, and it has to stay that way. This launcher is mounted on four
+   * screens and at least one of them can render it more than once; ids minted
+   * unconditionally would be duplicated, and `getElementById` would then reach
+   * whichever copy came first. Left undefined, nothing changes anywhere.
+   */
+  buttonIdPrefix?: string;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [open, setOpen] = useState<OpenCall | null>(null);
@@ -224,6 +236,7 @@ export function ThreadCallLauncher({
         </span>
         <button
           type="button"
+          id={buttonIdPrefix ? `${buttonIdPrefix}-voice` : undefined}
           onClick={() => start('voice')}
           disabled={starting !== null}
           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-ink/20 px-3 text-xs font-medium text-ink hover:bg-ink/5 disabled:opacity-50"
@@ -232,6 +245,7 @@ export function ThreadCallLauncher({
         </button>
         <button
           type="button"
+          id={buttonIdPrefix ? `${buttonIdPrefix}-video` : undefined}
           onClick={() => start('video')}
           disabled={starting !== null}
           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-ink/20 px-3 text-xs font-medium text-ink hover:bg-ink/5 disabled:opacity-50"

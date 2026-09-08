@@ -78,6 +78,14 @@ import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
+// ONE definition of a category's name. A file-local `CATEGORY_LABELS` used to
+// live here with 28 of the 52 categories, so `CATEGORY_LABELS[c] ?? c` printed
+// the RAW ENUM KEY for the other 24 — `funeral_home`, `crew_meals`,
+// `av_production` — and the call-time row wrote that key into a PERSISTED
+// `proposed_label`. Ten of the 28 it did have also disagreed with the shared
+// map ("Cake" vs "Cake maker"), so one category read two ways on two supplier
+// screens. See `lib/one-word-per-category.test.ts`.
+import { displayServiceLabel } from '@/lib/vendors';
 import { ActivityFeed, type ActivityEvent } from './_components/customer-card-activity';
 import type { ClientNote } from './_components/customer-card-notes';
 import {
@@ -243,36 +251,6 @@ const MEAL_LABELS: Record<string, string> = {
   no_preference: 'No preference',
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  venue: 'Venue',
-  catering: 'Catering',
-  photographer: 'Photographer',
-  videographer: 'Videographer',
-  florist: 'Florist',
-  cake_maker: 'Cake',
-  host_emcee: 'Host / Emcee',
-  band_dj: 'Band / DJ',
-  string_quartet: 'String quartet',
-  choir: 'Choir',
-  officiant: 'Officiant',
-  planner_coordinator: 'Planner / Coordinator',
-  makeup_artist: 'Makeup',
-  hair_stylist: 'Hair',
-  gown_designer: 'Gown',
-  suit_designer: 'Suit',
-  rings: 'Rings',
-  invitations_stationery: 'Stationery',
-  transportation: 'Transportation',
-  lights_and_sound: 'Lights & sound',
-  led_screens: 'LED screens',
-  photobooth: 'Photo booth',
-  mobile_bar: 'Mobile bar',
-  church_fees: 'Church',
-  reception_decor: 'Reception décor',
-  security: 'Security',
-  gifts_and_giveaways: 'Gifts & giveaways',
-  misc: 'Other',
-};
 
 function fmtDate(iso: string | null): string {
   if (!iso) return 'Date not set yet';
@@ -1139,7 +1117,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
             >
               {isBooked ? 'Booked · ' : ''}
-              {CATEGORY_LABELS[c] ?? c}
+              {displayServiceLabel(c)}
             </span>
           ))}
         </div>
@@ -3022,7 +3000,7 @@ function ScheduleTab(props: {
               <input
                 type="hidden"
                 name="proposed_label"
-                value={`${CATEGORY_LABELS[callTime.category] ?? callTime.category} setup / call time`}
+                value={`${displayServiceLabel(callTime.category)} setup / call time`}
               />
               <input type="hidden" name="proposed_start_at" value={callTime.call_time} />
               <input type="hidden" name="proposed_end_at" value={callTime.anchor_start_at} />

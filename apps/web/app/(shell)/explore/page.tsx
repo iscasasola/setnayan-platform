@@ -38,6 +38,8 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 // structural type so the const passes through unchanged.
 import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
+import { countLiveShops } from '@/lib/live-shops';
+import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
 import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
 import type { FilterDrawerProps } from './_components/filter-drawer';
@@ -1369,14 +1371,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     ? mapCeremonyTypeToFaith(matchableEvent.ceremony_type)
     : null;
 
-  // Catalog mode — landing view when no narrowing filter is set. Renders the
-  // full 192-category taxonomy grouped by mega-column so couples see the full
-  // breadth of services Setnayan covers, even before vendor pools fill in.
-  // Replaces the bare empty-state that previously rendered when zero vendors
-  // satisfied the publishing gate. Any filter (category, search, city,
-  // verified-only, match, event_type) drops the user into vendor-grid mode
-  // below so they can drill into a specific service.
-  const isCatalogMode =
+  // Landing view — no narrowing filter set.
+  //
+  // ⚠ THIS USED TO MEAN "SHOW THE TAXONOMY INSTEAD OF VENDORS", AND ITS OWN
+  // REASON HAD EXPIRED. The rule was written for an empty marketplace — its
+  // comment said so: the catalog "replaces the bare empty-state that
+  // previously rendered when ZERO VENDORS satisfied the publishing gate".
+  // That was right when nothing could be shown. It is wrong the moment a shop
+  // opens: a visitor landing on /explore saw a wall of category tiles and not
+  // one of the shops that actually exist, and the owner asked why (2026-09-08:
+  // *"entering on this page should automatically show service cards already.
+  // why don't I see any"*).
+  //
+  // 🔑 THE FIX IS TO ASK THE DATABASE INSTEAD OF ASSUMING. The catalog-only
+  // landing now renders only when the marketplace is GENUINELY empty, which is
+  // the condition the original comment claimed. With shops live, the landing
+  // shows them and keeps the catalog underneath — nothing is taken away.
+  //
+  // Any filter (category, search, city, verified-only, match, event_type)
+  // still drops straight into vendor-grid mode with no catalog below it.
+  const isLandingView =
     !filters.category &&
     !filters.q &&
     !filters.city &&
@@ -1476,7 +1490,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // main public entry drives them daily. Per-job daily DB claim; never throws.
   after(() => runDailyEmailJobs().catch(() => {}));
 
-  if (isCatalogMode) {
+  /*
+    💸 ONE `head: true` COUNT ON THE LANDING ONLY. It is not run on a filtered
+    view (which never shows the catalog) and it fetches no rows. `null` means
+    the read FAILED — never 0 — so a broken count can only fall back to the
+    catalog, the same thing this page rendered yesterday, instead of claiming
+    an empty marketplace. Failure degrades to the old behaviour, not to a lie.
+  */
+  const liveShopCount = isLandingView ? await countLiveShops(admin) : null;
+  const marketplaceIsEmpty = liveShopCount === 0;
+
+  if (isLandingView && marketplaceIsEmpty) {
     return (
       /*
         🔑 THE SHARED SHELL IS NOT MOUNTED HERE — it lives in
@@ -3162,27 +3186,80 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               </div>
             ) : null}
 
-            {/* Compact context strip — back to catalog + current filter
-                summary. Kept below the sticky header so it doesn't bloat
-                the sticky chrome but stays reachable on every grid page. */}
-            <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
-              <Link
-                href="/explore?match=0"
-                className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
-              >
-                <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
-                Browse all 192 categories
-              </Link>
-              {filters.category ? (
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                  Showing: {taxonomyLabel(filters.category)}
+            {/*
+              ═ THE LANDING'S OWN HEADING — and the word it is NOT allowed to
+              use yet.
+
+              🔒 "TRENDING IS EARNED, NEVER SOLD" (FRONT_DOOR_CORRECTNESS_PASS
+              2026-08-11), and a ranking over a handful of shops is noise
+              wearing the clothes of merit. The owner set the number where it
+              stops being noise — `TRENDING_MIN_LIVE_SHOPS`, imported rather
+              than re-typed, and *"yours to move"* per FRONT_DOOR_AND_SEAM_FINAL
+              §1. Below it the front door already says "The first shops"; this
+              page now says the same thing, from the same constant, so the two
+              surfaces cannot disagree about whether the marketplace is
+              trending.
+
+              ⚠ NO COUNT IS PRINTED. `liveShopCount` decides the WORD and is
+              never rendered — a number beside it would be a second claim that
+              rots, which is the defect this file just had removed from it.
+            */}
+            {isLandingView ? (
+              <div className="mt-4">
+                <h2 className="text-lg font-semibold tracking-tight text-ink">
+                  {(liveShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
+                    ? 'Trending shops'
+                    : 'The first shops'}
+                </h2>
+                <p className="mt-1 text-sm text-ink/60">
+                  {(liveShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
+                    ? 'Ranked by what couples actually book and review.'
+                    : 'The suppliers who opened first. New shops appear here as they join.'}
                 </p>
-              ) : filters.q ? (
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                  Search: &ldquo;{filters.q}&rdquo;
-                </p>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
+            {/*
+              Current-filter summary.
+
+              ⛔ THE "BROWSE ALL 192 CATEGORIES" BACK-LINK USED TO LEAD THIS
+              STRIP AND IS GONE (owner 2026-09-08: *"we also do not need the
+              browse line since we are already browsing the whole taxonomy"*).
+              Two things were wrong with it and only one was the wording:
+
+                1. It rendered on EVERY grid page, including the unfiltered
+                   catalog — where `/explore?match=0` is the page you are
+                   already on. A link to where you are is not an affordance.
+                2. It said 192. That number was typed by hand when
+                   `TAXONOMY_MAP` held 192 entries; the map now holds 288, so
+                   the marketplace was advertising a third fewer categories
+                   than it has. Nothing derived it and nothing watched it —
+                   exactly the rot CLAUDE.md rule 7 is about ("an anchor is a
+                   string, never a number").
+
+              🔑 REMOVING IT DOES NOT STRAND A NARROWED VISITOR, which was the
+              only reason to keep it. `filter-drawer.tsx` has a pinned Clear
+              button whose visibility is driven by whether any filter is
+              active, reachable from the sticky header's Filters button, and
+              the zero-results EmptyState carries its own "Clear all filters".
+              Checked before deleting rather than assumed.
+
+              The summary itself stays — it says what you are narrowed BY,
+              which nothing else on the grid tells you — and now renders only
+              when there is something to say, instead of holding an empty row.
+            */}
+            {filters.category || filters.q.length > 0 ? (
+              <div className="mt-4 flex flex-wrap items-baseline justify-end gap-3">
+                {filters.category ? (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    Showing: {taxonomyLabel(filters.category)}
+                  </p>
+                ) : (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    Search: &ldquo;{filters.q}&rdquo;
+                  </p>
+                )}
+              </div>
+            ) : null}
           </>
         ) : (
           /* Focused-mode replacement: a slim search form with only the
@@ -3368,6 +3445,35 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             writing to reach one. When the vendor list is empty this section is
             simply the first thing with an answer in it. */}
         <ReadsResults hits={readHits} query={filters.q} />
+
+        {/*
+          ═ THE CATALOG IS NOT LOST, IT MOVED UNDER THE SHOPS ═
+          The landing used to render this INSTEAD of vendors. It still renders,
+          below them, so the breadth story ("here is everything Setnayan
+          covers") survives for a visitor who scrolls — and a visitor who came
+          to see suppliers meets suppliers first.
+
+          Filtered views render no catalog: somebody who narrowed to Catering
+          has already told us what they came for.
+        */}
+        {isLandingView ? (
+          <CatalogView
+            admin={admin}
+            matchableEvent={matchableEvent}
+            matchEvent={filters.matchEvent}
+            coupleFaith={coupleFaith}
+            venueAnchor={venueAnchor}
+            coupleEventType={coupleEventType}
+            currentEventId={coupleEventId}
+            noticeKey={noticeKey}
+            compareHref={compareHref}
+            scopedFolder={filters.folder}
+            inDemoMode={inDemoMode}
+            focusedMode={filters.focusedMode}
+            faithFilter={filters.faithFilter}
+            browseMode={browseMode}
+          />
+        ) : null}
       </section>
     </main>
   );
@@ -4665,7 +4771,7 @@ function VenueFilterBanner({
 // longer needed.
 
 // Task #47 — scoped-folder banner. Renders when the catalog is showing
-// only one of the 12 folders (driven by ?folder=… from the dashboard
+// only ONE folder (driven by ?folder=… from the dashboard
 // planning-group [Search] buttons). Tells the couple what they're looking
 // at and gives them a one-click escape to the full universal catalog if
 // they want to browse outside the locked scope. The FolderTabs strip
@@ -4681,7 +4787,7 @@ async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
         <span className="font-medium text-ink">
           {tax.folderLabel[folder] ?? folder}
         </span>{' '}
-        only — the other 11 folders are hidden so you can focus.
+        only — the other folders are hidden so you can focus.
       </p>
       <Link
         href="/explore"

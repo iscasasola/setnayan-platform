@@ -3162,27 +3162,48 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               </div>
             ) : null}
 
-            {/* Compact context strip — back to catalog + current filter
-                summary. Kept below the sticky header so it doesn't bloat
-                the sticky chrome but stays reachable on every grid page. */}
-            <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
-              <Link
-                href="/explore?match=0"
-                className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
-              >
-                <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
-                Browse all 192 categories
-              </Link>
-              {filters.category ? (
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                  Showing: {taxonomyLabel(filters.category)}
-                </p>
-              ) : filters.q ? (
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                  Search: &ldquo;{filters.q}&rdquo;
-                </p>
-              ) : null}
-            </div>
+            {/*
+              Current-filter summary.
+
+              ⛔ THE "BROWSE ALL 192 CATEGORIES" BACK-LINK USED TO LEAD THIS
+              STRIP AND IS GONE (owner 2026-09-08: *"we also do not need the
+              browse line since we are already browsing the whole taxonomy"*).
+              Two things were wrong with it and only one was the wording:
+
+                1. It rendered on EVERY grid page, including the unfiltered
+                   catalog — where `/explore?match=0` is the page you are
+                   already on. A link to where you are is not an affordance.
+                2. It said 192. That number was typed by hand when
+                   `TAXONOMY_MAP` held 192 entries; the map now holds 288, so
+                   the marketplace was advertising a third fewer categories
+                   than it has. Nothing derived it and nothing watched it —
+                   exactly the rot CLAUDE.md rule 7 is about ("an anchor is a
+                   string, never a number").
+
+              🔑 REMOVING IT DOES NOT STRAND A NARROWED VISITOR, which was the
+              only reason to keep it. `filter-drawer.tsx` has a pinned Clear
+              button whose visibility is driven by whether any filter is
+              active, reachable from the sticky header's Filters button, and
+              the zero-results EmptyState carries its own "Clear all filters".
+              Checked before deleting rather than assumed.
+
+              The summary itself stays — it says what you are narrowed BY,
+              which nothing else on the grid tells you — and now renders only
+              when there is something to say, instead of holding an empty row.
+            */}
+            {filters.category || filters.q.length > 0 ? (
+              <div className="mt-4 flex flex-wrap items-baseline justify-end gap-3">
+                {filters.category ? (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    Showing: {taxonomyLabel(filters.category)}
+                  </p>
+                ) : (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    Search: &ldquo;{filters.q}&rdquo;
+                  </p>
+                )}
+              </div>
+            ) : null}
           </>
         ) : (
           /* Focused-mode replacement: a slim search form with only the
@@ -4665,7 +4686,7 @@ function VenueFilterBanner({
 // longer needed.
 
 // Task #47 — scoped-folder banner. Renders when the catalog is showing
-// only one of the 12 folders (driven by ?folder=… from the dashboard
+// only ONE folder (driven by ?folder=… from the dashboard
 // planning-group [Search] buttons). Tells the couple what they're looking
 // at and gives them a one-click escape to the full universal catalog if
 // they want to browse outside the locked scope. The FolderTabs strip
@@ -4681,7 +4702,7 @@ async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
         <span className="font-medium text-ink">
           {tax.folderLabel[folder] ?? folder}
         </span>{' '}
-        only — the other 11 folders are hidden so you can focus.
+        only — the other folders are hidden so you can focus.
       </p>
       <Link
         href="/explore"

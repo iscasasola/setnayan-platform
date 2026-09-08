@@ -72,9 +72,17 @@ async function heldBackNow(
   const { table, key } = DESK_WRITE_TARGET[source];
 
   if (source === 'kwento' || source === 'letter') {
-    const { data, error } = await admin
-      .from(table)
-      .select('moderation_state, user_deleted_at, author_publicly_hidden')
+    // ⚠ EVERY TABLE NAME IN THIS FILE IS A LITERAL, NEVER a variable.
+    // `.from(someVariable)` is unresolvable to the repo's select-column scanner,
+    // so T1 — "no select names a column the table does not have" — CANNOT CHECK
+    // it. That scanner is exactly what caught this feature selecting a `guests`
+    // column that does not exist, which would have made every byline null
+    // forever. A variable also makes `gate-writers` read this file as writing
+    // EVERY table it can reach, which silently retired a TRUE
+    // `gates-have-handles` baseline line about a different table entirely.
+    const { data, error } = await (source === 'kwento'
+      ? admin.from('photo_messages').select('moderation_state, user_deleted_at, author_publicly_hidden, status')
+      : admin.from('guest_columns').select('moderation_state, user_deleted_at, author_publicly_hidden, status'))
       .eq(key, id)
       .eq('event_id', eventId)
       .maybeSingle();
@@ -85,13 +93,14 @@ async function heldBackNow(
       wordsHeldBack({
         moderationState: typeof r.moderation_state === 'string' ? r.moderation_state : 'unscreened',
         userDeletedAt: typeof r.user_deleted_at === 'string' ? r.user_deleted_at : null,
+        status: typeof r.status === 'string' ? r.status : null,
       }) !== null
     );
   }
 
   if (source === 'supplier') {
     const { data, error } = await admin
-      .from(table)
+      .from('editorial_vendor_media')
       .select('moderation_state')
       .eq(key, id)
       .eq('event_id', eventId)
@@ -103,7 +112,7 @@ async function heldBackNow(
 
   // ── challenge: the safety facts live on ANOTHER table, plus the veto ──────
   const { data, error } = await admin
-    .from(table)
+    .from('papic_mission_completions')
     .select('capture_id, consent_to_share')
     .eq(key, id)
     .eq('event_id', eventId)
@@ -175,7 +184,7 @@ export async function decideDeskItem(
     return { ok: false, error: HELD_BACK };
   }
 
-  const { table, key, reviewedAtColumn } = DESK_WRITE_TARGET[source];
+  const { key, reviewedAtColumn } = DESK_WRITE_TARGET[source];
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { status: statusForDatabase(decision) };
   // Only where the host actually holds the grant — the two new columns are
@@ -187,7 +196,15 @@ export async function decideDeskItem(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from(table).update(patch).eq(key, id).eq('event_id', eventId);
+  const write =
+    source === 'kwento'
+      ? supabase.from('photo_messages').update(patch)
+      : source === 'letter'
+        ? supabase.from('guest_columns').update(patch)
+        : source === 'challenge'
+          ? supabase.from('papic_mission_completions').update(patch)
+          : supabase.from('editorial_vendor_media').update(patch);
+  const { error } = await write.eq(key, id).eq('event_id', eventId);
   if (error) {
     // The database's own refusals carry a stable prefix; turn them into the
     // host's sentence rather than showing a raw constraint name.
@@ -237,11 +254,17 @@ export async function editDeskItem(
   const userId = await hostUserId(eventId);
   if (!userId) return { ok: false, error: NO_ACCESS };
 
-  const { table, key } = DESK_WRITE_TARGET[source];
+  const { key } = DESK_WRITE_TARGET[source];
   const supabase = await createClient();
-  const { error } = await supabase
-    .from(table)
-    .update({ body_text: trimmed, edited_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+  const words = {
+    body_text: trimmed,
+    edited_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  // Literal tables again; `source` is already narrowed to the two text sources.
+  const { error } = await (source === 'kwento'
+    ? supabase.from('photo_messages').update(words)
+    : supabase.from('guest_columns').update(words))
     .eq(key, id)
     .eq('event_id', eventId);
   if (error) return { ok: false, error: error.message.slice(0, 120) };

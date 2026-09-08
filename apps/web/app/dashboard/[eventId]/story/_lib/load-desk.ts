@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { bylineFor } from '@/lib/guest-columns';
 import {
@@ -120,21 +121,49 @@ export async function loadDesk(eventId: string): Promise<DeskData> {
   ]);
   if (veto === null) unreadable.push('the photo-consent check');
 
-  // Guest names, for the two sources whose byline is an opt-in. Resolved ONCE.
+  /*
+    Guest names, for the two sources whose byline is an opt-in. Resolved ONCE.
+
+    ⚠ THE ERROR IS BOUND AND IT REACHES THE SCREEN. Losing this read makes every
+    byline resolve to null — the SAFE direction, but it means a guest who ASKED
+    to be named renders unnamed and the card still says "Asked to be named".
+    The host would be deciding against a card that contradicts itself, so the
+    desk says the name list could not be read rather than quietly dropping it.
+  */
   const nameOf = new Map<string, string>();
   try {
-    const { data } = await admin
+    /*
+      🪤 THE FIRST VERSION OF THIS SELECT NAMED `full_name`, WHICH DOES NOT
+      EXIST ON `guests`. PostgREST fails the WHOLE query with 42703, so `data`
+      would have been null and `?? []` would have rendered it as "no guests" —
+      meaning EVERY byline resolved to null, permanently. A guest who asked to
+      be named would never have been named, and nothing would have thrown.
+      The columns are `display_name` / `first_name` / `last_name`, and the
+      fallback order below is PORTED from the shipped public reader rather than
+      re-invented, so the desk and the story agree on what a person is called.
+    */
+    const { data, error } = await admin
       .from('guests')
-      .select('guest_id, full_name')
+      .select('guest_id, display_name, first_name, last_name')
       .eq('event_id', eventId)
       .is('deleted_at', null);
+    if (error) {
+      logQueryError('storyDesk.guestNames', error, { event_id: eventId }, 'graceful_degrade');
+      unreadable.push('your guests’ names');
+    }
     for (const g of data ?? []) {
-      const id = str((g as Row).guest_id);
-      const n = str((g as Row).full_name);
+      const row = g as Row;
+      const id = str(row.guest_id);
+      const n =
+        str(row.display_name) ??
+        (str(
+          [str(row.first_name), str(row.last_name)].filter(Boolean).join(' '),
+        ) ||
+          null);
       if (id && n) nameOf.set(id, n);
     }
   } catch {
-    /* no names → every byline resolves to null, which is the SAFE direction */
+    unreadable.push('your guests’ names');
   }
 
   /* ── ① Kwento wishes (photo_messages) ─────────────────────────────────── */
@@ -157,6 +186,7 @@ export async function loadDesk(eventId: string): Promise<DeskData> {
         wordsHeldBack({
           moderationState: str(r.moderation_state) ?? 'unscreened',
           userDeletedAt: str(r.user_deleted_at),
+          status: str(r.status),
         }) ?? (r.author_publicly_hidden === true ? ('withdrawn' as HeldBackReason) : null);
       const named = r.author_named_publicly === true;
       items.push({
@@ -206,6 +236,7 @@ export async function loadDesk(eventId: string): Promise<DeskData> {
           wordsHeldBack({
             moderationState: str(r.moderation_state) ?? 'unscreened',
             userDeletedAt: str(r.user_deleted_at),
+            status: str(r.status),
           }) ?? (r.author_publicly_hidden === true ? ('withdrawn' as HeldBackReason) : null);
         const named = r.author_named_publicly === true;
         items.push({
@@ -247,10 +278,19 @@ export async function loadDesk(eventId: string): Promise<DeskData> {
     const captureIds = rows.map((r) => str(r.capture_id)).filter((v): v is string => !!v);
     const capById = new Map<string, Row>();
     if (captureIds.length) {
-      const { data: caps } = await admin
+      // ⚠ A REFUSAL HERE READS AS "every capture is missing", and
+      // `captureHeldBack` answers `nothing_to_show` for each — so an unbound
+      // error shows the host a desk of held-back answers that are perfectly
+      // fine. Fails in the SAFE direction (nothing can be accepted), but it is
+      // a lie about WHY, so it is said out loud.
+      const { data: caps, error: capsError } = await admin
         .from('papic_guest_captures')
         .select('capture_id, media_type, moderation_state, hidden_at, consent_to_public')
         .in('capture_id', captureIds);
+      if (capsError) {
+        logQueryError('storyDesk.captures', capsError, { event_id: eventId }, 'graceful_degrade');
+        unreadable.push('the photos behind the answers');
+      }
       for (const c of (caps ?? []) as Row[]) {
         const id = str(c.capture_id);
         if (id) capById.set(id, c);
@@ -259,10 +299,17 @@ export async function loadDesk(eventId: string): Promise<DeskData> {
     const missionIds = rows.map((r) => str(r.mission_id)).filter((v): v is string => !!v);
     const promptById = new Map<string, string>();
     if (missionIds.length) {
-      const { data: ms } = await admin
+      // The PROMPT is the card's title — the question the guest was answering.
+      // Without it the host is asked to judge an answer to a question the desk
+      // cannot show them.
+      const { data: ms, error: msError } = await admin
         .from('papic_missions')
         .select('mission_id, prompt')
         .in('mission_id', missionIds);
+      if (msError) {
+        logQueryError('storyDesk.missions', msError, { event_id: eventId }, 'graceful_degrade');
+        unreadable.push('the questions you asked');
+      }
       for (const m of (ms ?? []) as Row[]) {
         const id = str(m.mission_id);
         const p = str(m.prompt);
@@ -326,10 +373,17 @@ export async function loadDesk(eventId: string): Promise<DeskData> {
     );
     const vendorName = new Map<string, string>();
     if (evIds.length) {
-      const { data: evs } = await admin
+      // The shop's NAME is how the host tells one supplier's submission from
+      // another's. Losing it renders every card as the generic "Your supplier",
+      // which is indistinguishable from a supplier we genuinely cannot name.
+      const { data: evs, error: evsError } = await admin
         .from('event_vendors')
         .select('vendor_id, vendor_name')
         .in('vendor_id', evIds);
+      if (evsError) {
+        logQueryError('storyDesk.vendorNames', evsError, { event_id: eventId }, 'graceful_degrade');
+        unreadable.push('your suppliers’ names');
+      }
       for (const e of (evs ?? []) as Row[]) {
         const id = str(e.vendor_id);
         const n = str(e.vendor_name);

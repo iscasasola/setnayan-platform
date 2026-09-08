@@ -109,6 +109,28 @@ test('MONOTONE: nothing the desk permits is wider than the raw row', () => {
   );
 });
 
+test('a guest’s own withdrawal is caught by EITHER signal, not just one', () => {
+  /*
+    🔒 THE ONE DECISION A HOST MUST NEVER BE ABLE TO OVERTURN. Both shipped
+    withdrawal paths set `status = 'user_deleted'` AND `user_deleted_at` in the
+    same UPDATE (read out of production by the function bodies), so today either
+    alone would do — which is exactly why relying on one is a silent dependency
+    on a fact nothing here enforces. Both are checked.
+  */
+  assert.equal(
+    wordsHeldBack({ moderationState: 'clean', userDeletedAt: '2026-01-01', status: 'approved' }),
+    'withdrawn',
+    'the timestamp alone must withhold it',
+  );
+  assert.equal(
+    wordsHeldBack({ moderationState: 'clean', userDeletedAt: null, status: 'user_deleted' }),
+    'withdrawn',
+    'the status alone must withhold it — a future path could set one without the other',
+  );
+  // …and a live row is still decidable, or the desk could never be cleared.
+  assert.equal(wordsHeldBack({ moderationState: 'clean', userDeletedAt: null, status: 'pending' }), null);
+});
+
 test('a flagged wish is NOT held back — the database permits approving it', () => {
   // Narrowing this would refuse something `approved_needs_screen` allows, which
   // leaves a card the host can never clear and a desk that never reaches 100%.

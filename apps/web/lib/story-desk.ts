@@ -193,8 +193,20 @@ export function captureHeldBack(capture: {
 export function wordsHeldBack(row: {
   moderationState: string;
   userDeletedAt: string | null;
+  /** The raw database status, so a withdrawal is caught by EITHER signal. */
+  status?: string | null;
 }): HeldBackReason | null {
+  /*
+    ⚖ BELT AND BRACES ON THE GUEST'S OWN WITHDRAWAL. Both shipped withdrawal
+    paths — `guest_delete_own_message` and `guest_withdraw_column` — set
+    `status = 'user_deleted'` AND `user_deleted_at = now()` in the SAME update,
+    read out of production by the function bodies, so today either signal alone
+    would do. Both are checked anyway, because this is the one decision a host
+    must never be able to overturn: if a future path ever sets one without the
+    other, the guest is still protected. Losing one still leaves the other.
+  */
   if (row.userDeletedAt) return 'withdrawn';
+  if (row.status === 'user_deleted') return 'withdrawn';
   if (row.moderationState === 'unscreened') return 'unscreened';
   if (row.moderationState === 'blocked') return 'blocked';
   return null;

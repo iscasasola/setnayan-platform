@@ -193,11 +193,21 @@ BEGIN
       USING HINT = 'A challenge answer with no capture has nothing to show.';
   END IF;
 
+  -- 🪤 `col = TRUE` / `col = FALSE` ARE DELIBERATELY NOT WRITTEN HERE, and this
+  -- is the second migration in this repo to pay for it. `gates-have-handles`
+  -- scans every function body with `\mcol\M\s*=[^=]` to find who WRITES a
+  -- column — and a COMPARISON matches that shape exactly as an assignment does.
+  -- Writing `c.consent_to_public = TRUE` made this function look like a writer
+  -- of `consent_to_public`, which retired a baseline line recording something
+  -- still TRUE about a different table's copy of that column (`papic_photos`),
+  -- and the guard failed with a message naming a table this migration never
+  -- touches. Both columns below are NOT NULL, so the bare-boolean form is
+  -- exactly equivalent — no three-valued logic changes hands.
   SELECT TRUE INTO v_ok
   FROM public.papic_guest_captures c
   WHERE c.capture_id = NEW.capture_id
     AND c.hidden_at IS NULL
-    AND c.consent_to_public = TRUE
+    AND c.consent_to_public
     AND c.moderation_state = 'clean'
     AND NOT EXISTS (
       SELECT 1
@@ -206,7 +216,7 @@ BEGIN
       WHERE t.source_table = 'papic_guest_captures'
         AND t.source_id = c.capture_id
         AND t.removed_at IS NULL
-        AND g.photo_consent = FALSE
+        AND NOT g.photo_consent
         AND g.deleted_at IS NULL
     );
 

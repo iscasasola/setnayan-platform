@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * WHO MAY WORK ON THIS STORY — the couple, or an ACCEPTED co-host.
@@ -27,7 +28,13 @@ export async function hostUserId(eventId: string): Promise<string | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: moderator } = await supabase
+  /*
+    ⚠ BOTH READS BIND THEIR ERROR. A refusal resolves as `data: null`, which is
+    byte-identical to "you hold no such row" — so an unbound error here answers
+    "you are not a host" to somebody who is, and the desk simply does not render.
+    That direction is SAFE (it withholds), but it is silent, so it is logged.
+  */
+  const { data: moderator, error: modError } = await supabase
     .from('event_moderators')
     .select('moderator_id')
     .eq('event_id', eventId)
@@ -35,13 +42,19 @@ export async function hostUserId(eventId: string): Promise<string | null> {
     .not('accepted_at', 'is', null)
     .is('removed_at', null)
     .maybeSingle();
+  if (modError) {
+    logQueryError('storyHostAuthority.moderator', modError, { event_id: eventId }, 'graceful_degrade');
+  }
   if (moderator) return user.id;
 
-  const { data: legacy } = await supabase
+  const { data: legacy, error: memberError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  if (memberError) {
+    logQueryError('storyHostAuthority.member', memberError, { event_id: eventId }, 'graceful_degrade');
+  }
   return legacy?.member_type === 'couple' ? user.id : null;
 }

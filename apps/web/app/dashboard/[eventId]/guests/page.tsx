@@ -739,7 +739,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               Who came
             </Link>
             <Link
-              href={`/dashboard/${eventId}/website/editorial`}
+              href={`/dashboard/${eventId}/story`}
               className="text-sm font-medium text-mulberry underline underline-offset-2"
             >
               Write the story

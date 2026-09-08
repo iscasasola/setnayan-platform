@@ -280,7 +280,7 @@ export function appStoreDetailHref(key: string, eventId: string): string {
   // CONTROLLER (`/launch`). The card's two deep-link chips were RETIRED in the
   // same change: the controller's own "set once" strip already carries both of
   // their destinations by name — "The page itself" → /website/editor and "The
-  // story" → /website/editorial — so a chip beside the card would be a second
+  // story" → /story — so a chip beside the card would be a second
   // control for a door already visible one tap in, which is the distinction a
   // couple can see is fake that the 2026-08-14 verdict existed to remove.
   // Everything else is data-driven by the `opensDirect` catalog flag — no

@@ -483,9 +483,9 @@ export function buildCustomerNavGroups(
           {
             key: 'editorial',
             label: 'Editorial',
-            href: `${base}/website/editorial`,
+            href: `${base}/story`,
             icon: Newspaper,
-            matchPrefix: `${base}/website/editorial`,
+            matchPrefix: `${base}/story`,
           },
           {
             key: 'galleries',

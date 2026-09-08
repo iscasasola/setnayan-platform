@@ -618,7 +618,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   // ⛔ `customer.bottom-nav.editorial` RETIRED 2026-09-02 (EH3). The after-phase
   // tab it governed is now the Event Hub (`customer.bottom-nav.launch` above) —
   // the editorial maker is a door INSIDE the controller ("The story", S5), and
-  // the DESKTOP rail keeps its own /website/editorial row, which
+  // the DESKTOP rail keeps its own /story row, which
   // `a-finished-event-shows-its-summary.test.ts` holds open. That guard exists
   // because the maker was orphaned once already: before the after-phase roster
   // took a `phase` argument it "appeared in no menu at all."

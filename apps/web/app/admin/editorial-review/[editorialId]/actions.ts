@@ -45,7 +45,7 @@ async function notifyCoupleEditorialDecision(
           type: 'editorial_decision',
           title,
           body,
-          relatedUrl: `/dashboard/${eventId}/website/editorial`,
+          relatedUrl: `/dashboard/${eventId}/story`,
         }),
       ),
     );

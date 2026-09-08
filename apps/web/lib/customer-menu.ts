@@ -213,7 +213,7 @@ export function buildCustomerMenuTree(
       { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors?tab=build`,       activeMatch: `${base}/vendors`                                         },
       // Position 3 — was "Editorial" pointing straight at the maker. The maker
       // is a DOOR INSIDE the controller (its S5 "The story" row), and the
-      // desktop rail keeps its own /website/editorial row, so nothing is
+      // desktop rail keeps its own /story row, so nothing is
       // orphaned: `a-finished-event-shows-its-summary.test.ts` still holds that
       // door open, which is the 2026-08-21 lesson this must not undo.
       { key: 'launch',    label: 'Event Hub Controller', icon: Globe,     href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },

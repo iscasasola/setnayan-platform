@@ -372,7 +372,7 @@ export async function saveEditorial(
     .eq('event_id', eventId)
     .maybeSingle();
 
-  revalidatePath(`/dashboard/${eventId}/website/editorial`);
+  revalidatePath(`/dashboard/${eventId}/story`);
   revalidatePath(`/dashboard/${eventId}/website`);
   if (ev?.slug) {
     revalidatePath(`/${ev.slug}`);
@@ -441,7 +441,7 @@ export async function setStoryShowcase(
     .eq('user_id', userId);
   if (error) return { ok: false, error: 'Could not update. Please try again.' };
 
-  revalidatePath(`/dashboard/${eventId}/website/editorial`);
+  revalidatePath(`/dashboard/${eventId}/story`);
   revalidatePath(`/dashboard/${eventId}/website/privacy`);
   return { ok: true };
 }

@@ -320,7 +320,7 @@ test('the menu cannot announce a gallery the viewer may not open', () => {
  */
 const NOT_REDACTED_BY_DESIGN = new Map<string, string>([
   [
-    'app/dashboard/[eventId]/website/editorial/page.tsx',
+    'app/dashboard/[eventId]/story/page.tsx',
     "the host's own desk — the events read goes through the user's session " +
       'client, so RLS scopes it to an event they host, and a host reads every layer.',
   ],

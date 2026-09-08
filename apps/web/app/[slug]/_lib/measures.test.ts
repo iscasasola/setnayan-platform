@@ -75,8 +75,12 @@ function pageColumns(): Array<{ file: string; line: number; width: string }> {
  */
 const KNOWN_DRIFT: Record<string, { count: number; why: string }> = {
   'editorial/editorial-content.tsx': {
-    count: 4,
-    why: 'A standfirst, a pull-quote, a caption and a figure. TYPOGRAPHIC, not columns — the reading measure is ch-based and would widen the standfirst. Decide while looking at the page.',
+    // 4 → 3 on 2026-09-09: the story's spine replaced the centred masthead and
+    // the lead, and the STANDFIRST went with them. The cover's sentence is set
+    // on a ch-based measure, which is what this guard wanted all along — so the
+    // bill shrank because the drift was fixed, not because the check was moved.
+    count: 3,
+    why: 'A pull-quote, a caption and a figure. TYPOGRAPHIC, not columns — the reading measure is ch-based. Decide while looking at the page.',
   },
   'recap/page.tsx': {
     count: 1,

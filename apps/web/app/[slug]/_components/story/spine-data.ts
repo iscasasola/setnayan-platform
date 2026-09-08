@@ -31,6 +31,7 @@ import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import {
   dialBucketMinutes,
   manilaMinuteOfDay,
+  subtractWithheldFromBins,
   type BroadcastSession,
   type VenueBlock,
 } from '@/lib/story-spine';
@@ -261,7 +262,23 @@ export async function loadStorySpineFacts(args: {
   // Captures made BEFORE the day — the prenup, the despedida shoot. One entry,
   // stamped at the first of them, and it belongs to the GUESTS' layer: the
   // count is what the guests made, exactly like a bar height.
+  //
+  // ⚠ TWO QUERIES, NOT ONE, AND THAT IS THE POINT. Pulling every pre-day row to
+  // count them in memory is the exact shape `03` §3 records as the read that
+  // starved: Papic cameras may shoot for six months before the day, so "just
+  // select the column and take .length" is an unbounded read of hundreds of rows
+  // to produce one integer. A HEAD count returns no rows at all, and the
+  // earliest is a single row. Both are bounded ABOVE by the window's start —
+  // the road is, by definition, everything before the day.
   try {
+    const { count } = await admin
+      .from('papic_photos')
+      .select('captured_at', { count: 'exact', head: true })
+      .eq('event_id', args.eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .eq('moderation_state', 'clean')
+      .lt('captured_at', window.startIso);
     const { data } = await admin
       .from('papic_photos')
       .select('captured_at')
@@ -270,14 +287,16 @@ export async function loadStorySpineFacts(args: {
       .is('hidden_at', null)
       .eq('moderation_state', 'clean')
       .lt('captured_at', window.startIso)
-      .order('captured_at', { ascending: true });
+      .order('captured_at', { ascending: true })
+      .limit(1);
     const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const total = typeof count === 'number' && count > 0 ? count : rows.length;
     const firstMs = rows.length ? msOf(rows[0]!.captured_at) : null;
     if (firstMs != null) {
       const fact = roadFact(
         'road-pre-captures',
         firstMs,
-        `${rows.length} before the day`,
+        `${total} before the day`,
         'The camera opens',
         'The first photographs of this celebration, taken before the day itself.',
         'guest',
@@ -520,18 +539,7 @@ async function loadDialBins(
   }
   if (withheld.length === 0) return bins;
 
-  const widthMs = Math.max(1, bucketMinutes) * 60_000;
-  const startMs = bins[0]!.at;
-  const byIndex = new Map<number, number>();
-  for (const at of withheld) {
-    const idx = Math.floor((at - startMs) / widthMs);
-    byIndex.set(idx, (byIndex.get(idx) ?? 0) + 1);
-  }
-  bins = bins.map((b, i) => ({
-    at: b.at,
-    captures: Math.max(0, b.captures - (byIndex.get(i) ?? 0)),
-  }));
-  return bins;
+  return subtractWithheldFromBins(bins, withheld, bucketMinutes);
 }
 
 /** Minute-of-day for each of a day's written minutes — the day's own clock. */

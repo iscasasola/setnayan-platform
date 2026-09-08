@@ -337,10 +337,10 @@ export function StorySpine({
       : days.length;
 
   const coverFacts: Array<{ n: number | null; label: string }> = [
-    { n: countForLayer(data.metrics.photos, guestOpen), label: 'captures' },
-    { n: facts.broadcasts.length, label: facts.broadcasts.length === 1 ? 'live film' : 'live films' },
-    { n: countForLayer(voices, guestOpen), label: voices === 1 ? 'voice' : 'voices' },
-    { n: daysTold, label: 'days told' },
+    { n: countForLayer(data.metrics.photos, guestOpen), label: plural(data.metrics.photos, 'capture', 'captures') },
+    { n: facts.broadcasts.length, label: plural(facts.broadcasts.length, 'live film', 'live films') },
+    { n: countForLayer(voices, guestOpen), label: plural(voices, 'voice', 'voices') },
+    { n: daysTold, label: plural(daysTold, 'day told', 'days told') },
   ];
 
   const opening = roadPlaced[0]?.fact ?? null;
@@ -765,6 +765,17 @@ function roomSentence(state: string, blockLabel: string | null): string {
     default:
       return 'Between the seated parts of the day — no table to attribute a photograph to.';
   }
+}
+
+/**
+ * The label under a cover number.
+ *
+ * ⚠ A WITHHELD COUNT TAKES THE PLURAL. When the number is an em dash there is
+ * no quantity to agree with, and "— capture" reads as a fact about one
+ * photograph. The plural is the neutral form.
+ */
+function plural(n: number | null | undefined, one: string, many: string): string {
+  return n === 1 ? one : many;
 }
 
 /** The sentence under the names. The couple's own deck when they wrote one. */

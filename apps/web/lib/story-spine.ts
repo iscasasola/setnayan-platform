@@ -275,6 +275,75 @@ export function dialBucketMinutes(days: number): number {
   return Math.min(180, Math.max(DIAL_BUCKET_MINUTES, stepped));
 }
 
+/**
+ * WHICH BAR A TAP OPENS — the whole strip is ONE hit area (review finding).
+ *
+ * 🔴 A 1.3px BAR IS NOT A TAP TARGET. Five minutes of a ten-hour day on a
+ * 390px phone is about one device pixel wide, and the bars that matter most to
+ * this design are the quiet ones BETWEEN the written moments, which are the
+ * thinnest of all. Owner lock 4 says every bar opens; a bar a thumb cannot land
+ * on does not open, whatever the click handler says.
+ *
+ * So the hit area spans the axis and the NEAREST bin wins. This returns an
+ * index, never null, for any x — including one outside the axis, which is what
+ * a tap on the strip's padding produces.
+ */
+export function nearestBarAt(centres: readonly number[], x: number): number {
+  if (centres.length === 0) return -1;
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < centres.length; i += 1) {
+    const d = Math.abs(centres[i]! - x);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
+ * Take the captures that are shown NOWHERE out of the bar heights they inflate.
+ *
+ * 🔴 THE DEFECT THIS EXISTS FOR. `story_dial_bucket_counts` excludes hidden and
+ * unscreened captures and stops there — a capture VETOED under RA 10173 still
+ * adds to a bar's height. `04` rule 6 is that a guest's veto beats the host's
+ * curation, and a bar height is data about the guests' layer exactly as a
+ * photograph is: a guest who withdrew from the photographs still appears as
+ * height on the chart of the minute they were in.
+ *
+ * ⚖ IT IS NOT "SUBTRACT EVERY VETOED CAPTURE". A vetoed capture with a baked
+ * all-faces-blurred stand-in IS on the page (owner, 2026-08-18), so it keeps
+ * its height; only the ones `publicKeyForCapture` resolves to null come out.
+ * Subtracting all of them would draw a shorter bar than the photographs
+ * actually rendered — a different lie in the other direction.
+ *
+ * Pure: the caller decides WHICH captures are unshowable (that is the gate's
+ * job, and it lives in `consent-veto.ts`); this only does the arithmetic.
+ */
+export function subtractWithheldFromBins<T extends { at: number; captures: number }>(
+  bins: readonly T[],
+  withheldAtMs: readonly number[],
+  bucketMinutes: number,
+): Array<{ at: number; captures: number }> {
+  const out = bins.map((b) => ({ at: b.at, captures: b.captures }));
+  if (out.length === 0 || withheldAtMs.length === 0) return out;
+  const widthMs = Math.max(1, bucketMinutes) * MS_PER_MINUTE;
+  const startMs = out[0]!.at;
+  for (const at of withheldAtMs) {
+    if (!Number.isFinite(at)) continue;
+    const idx = Math.floor((at - startMs) / widthMs);
+    const bin = out[idx];
+    // A capture outside the drawn window has no bar to come off. It cannot be
+    // charged to the nearest one: that would move a photograph to a minute it
+    // was not taken in, which is the mistake the whole day-bounding exists to
+    // stop.
+    if (!bin) continue;
+    bin.captures = Math.max(0, bin.captures - 1);
+  }
+  return out;
+}
+
 // ─── Gaps ───────────────────────────────────────────────────────────────────
 
 /**

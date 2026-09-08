@@ -19,7 +19,8 @@
  */
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { DIAL_WIDTH, formatClock, percentOf } from '@/lib/story-spine';
+import { DIAL_WIDTH, formatClock, nearestBarAt, percentOf } from '@/lib/story-spine';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /** One bar, fully resolved on the server. */
 export type DialBar = {
@@ -94,9 +95,30 @@ export function StoryClock({
     label: openingLabel,
   });
   const [activeX, setActiveX] = useState<number | null>(null);
-  const returnFocusTo = useRef<HTMLElement | null>(null);
-  const sheetCloseRef = useRef<HTMLButtonElement | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
   const sheetId = useId();
+
+  /*
+    🔑 THE SHIPPED HOOK, NOT A SECOND COPY OF ITS JOB. `useModalA11y` already
+    remembers what had focus, moves focus into the dialog, TRAPS Tab so it
+    cannot wander out behind the scrim, closes on Escape, and hands focus back
+    on close — plus a modal stack so a dialog opened over this one peels off
+    first. The first cut of this component hand-rolled the focus-return and the
+    Escape key and had no trap at all, which is the exact dead-end the hook was
+    written to end; `modal-a11y-adoption.test.ts` caught it.
+
+    ⚠ `lockScroll: false` ON PURPOSE. Every other sheet in the app is a
+    decision the reader must finish; this one is a footnote on a page they are
+    reading. Freezing a 16,000px story to show one minute's line takes the page
+    away to say something small, and the sheet is dismissed by a tap on the
+    scrim anyway.
+  */
+  useModalA11y({
+    open: openBar !== null,
+    onClose: () => setOpenBar(null),
+    containerRef: sheetRef,
+    lockScroll: false,
+  });
 
   // ── the reader's position ────────────────────────────────────────────────
   //
@@ -142,13 +164,33 @@ export function StoryClock({
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(read);
     };
+
+    /*
+      🔴 A BACKGROUNDED TAB LEAVES THE NEEDLE DEAD, AND IT STAYS DEAD.
+      `requestAnimationFrame` does not fire while the tab is hidden, so a scroll
+      that happens (or is queued) there books a frame that never arrives — and
+      because `frame` is only cleared INSIDE `read`, the coalescing guard then
+      refuses every later scroll as "one already pending". A reader who switches
+      apps mid-story comes back to a needle frozen where they left it and a
+      readout naming a minute they scrolled past. Measured, not theorised: this
+      was found with the browser pane hidden, where rAF is paused outright.
+    */
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = 0;
+      read();
+    };
+
     read();
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [openingStamp, openingSuffix, openingLabel]);
 
@@ -220,31 +262,8 @@ export function StoryClock({
   }, []);
 
   // ── every bar opens ──────────────────────────────────────────────────────
-  const open = useCallback((bar: DialBar) => {
-    returnFocusTo.current = (document.activeElement as HTMLElement) ?? null;
-    setOpenBar(bar);
-  }, []);
-
-  const close = useCallback(() => {
-    setOpenBar(null);
-    // Focus comes back where it started (review finding: both overlays opened
-    // without moving focus, leaving the keyboard behind the scrim).
-    returnFocusTo.current?.focus?.();
-    returnFocusTo.current = null;
-  }, []);
-
-  useEffect(() => {
-    if (openBar) sheetCloseRef.current?.focus();
-  }, [openBar]);
-
-  useEffect(() => {
-    if (!openBar) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [openBar, close]);
+  const open = useCallback((bar: DialBar) => setOpenBar(bar), []);
+  const close = useCallback(() => setOpenBar(null), []);
 
   /**
    * THE WHOLE STRIP IS ONE HIT AREA AND THE NEAREST BIN WINS (review finding).
@@ -259,16 +278,11 @@ export function StoryClock({
       const r = svg.getBoundingClientRect();
       if (r.width <= 0) return null;
       const x = ((clientX - r.left) / r.width) * DIAL_WIDTH;
-      let best = bars[0]!;
-      let bestD = Infinity;
-      for (const b of bars) {
-        const d = Math.abs(b.x + b.w / 2 - x);
-        if (d < bestD) {
-          bestD = d;
-          best = b;
-        }
-      }
-      return best;
+      const i = nearestBarAt(
+        bars.map((b) => b.x + b.w / 2),
+        x,
+      );
+      return i < 0 ? null : (bars[i] ?? null);
     },
     [bars],
   );
@@ -438,9 +452,11 @@ export function StoryClock({
             className="fixed inset-0 z-40 bg-ink/45 backdrop-blur-[2px]"
           />
           <div
+            ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={`${sheetId}-t`}
+            tabIndex={-1}
             className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/15 bg-cream px-5 pb-8 pt-4 shadow-[0_-24px_60px_-30px_rgba(30,34,41,0.55)] sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[26rem] sm:rounded-2xl sm:border"
           >
             <div className="flex items-start justify-between gap-4">
@@ -451,7 +467,6 @@ export function StoryClock({
                 {openBar.label}
               </b>
               <button
-                ref={sheetCloseRef}
                 type="button"
                 onClick={close}
                 className="-mr-2 -mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full px-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60 hover:text-ink"

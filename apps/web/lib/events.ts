@@ -801,6 +801,72 @@ export type PrimaryHostResolution = {
  * event_moderators is restrictive in V1.2 Phase A and would otherwise
  * hide moderator-only rows from the very query trying to surface them.
  */
+/**
+ * Does this user HOST this specific event?
+ *
+ * ── WHY THIS EXISTS (measured 2026-09-08) ──────────────────────────────────
+ * `saveVendorToPicks` ignored the event it was called from and wrote to
+ * whatever `resolvePrimaryHostEvent` returned. On the bench — which is scoped
+ * to ONE event by its own URL — that means inquiring about a supplier from
+ * event A's bench could write the pick into event B, silently and correctly as
+ * far as any test was concerned.
+ *
+ * It surfaced on a real account holding TWO events flagged `is_primary = true`
+ * (nothing enforces one): a wedding and a "Movie Night". The resolver sorts
+ * primaries first and takes `sorted[0]` — a stable sort over an unordered
+ * query — so which one won was effectively arbitrary per request. The same
+ * coin toss pointed /explore at a `date` marketplace and told the owner
+ * "Date vendors are being recruited" while a verified wedding band sat in it.
+ *
+ * 🔑 A CALLER THAT KNOWS ITS EVENT MUST NOT RE-DERIVE ONE. Passing the id is
+ * the fix; this function is what makes passing it SAFE, because an id from a
+ * form is a claim until it is checked.
+ *
+ * Mirrors `resolvePrimaryHostEvent`'s two membership models deliberately —
+ * legacy `event_members.member_type = 'couple'` and the iteration-0048
+ * `event_moderators` host roles — so the two cannot disagree about who hosts
+ * an event. Archived events are not hosted by anyone for this purpose.
+ */
+export async function userHostsEvent(
+  client: SupabaseClient,
+  userId: string,
+  eventId: string,
+): Promise<boolean> {
+  if (!userId || !eventId) return false;
+
+  const { data: memberRows, error: memErr } = await client
+    .from('event_members')
+    .select('event_id, events:event_id(archived)')
+    .eq('user_id', userId)
+    .eq('member_type', 'couple')
+    .eq('event_id', eventId);
+  if (memErr) throw new Error(`event_members lookup failed: ${memErr.message}`);
+  for (const row of memberRows ?? []) {
+    const ev = (Array.isArray(row.events) ? row.events[0] : row.events) as
+      | { archived: boolean }
+      | null;
+    if (ev && !ev.archived) return true;
+  }
+
+  const { data: modRows, error: modErr } = await client
+    .from('event_moderators')
+    .select('event_id, events:event_id(archived)')
+    .eq('user_id', userId)
+    .eq('event_id', eventId)
+    .is('removed_at', null)
+    .not('accepted_at', 'is', null)
+    .in('role_subtype', PRIMARY_HOST_ROLE_SUBTYPES as unknown as string[]);
+  if (modErr) throw new Error(`event_moderators lookup failed: ${modErr.message}`);
+  for (const row of modRows ?? []) {
+    const ev = (Array.isArray(row.events) ? row.events[0] : row.events) as
+      | { archived: boolean }
+      | null;
+    if (ev && !ev.archived) return true;
+  }
+
+  return false;
+}
+
 export async function resolvePrimaryHostEvent(
   client: SupabaseClient,
   userId: string,

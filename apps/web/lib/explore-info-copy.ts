@@ -407,6 +407,14 @@ export function inlineMoreSunkNote(count: number): string {
    job is to show the couple more vendors. */
 export const INLINE_MORE_FAILED = "We couldn't load more vendors just now. Try again in a moment.";
 export const INLINE_MORE_SAVE_FAILED = "We couldn't save that vendor. Nothing was added.";
+/**
+ * The refusal when the save was handed an event this account does not host.
+ * Separate from the catch-all because it is the one cause a couple can act on —
+ * and because collapsing it into "we couldn't save that vendor" is how a wrong
+ * event looks identical to a database failure.
+ */
+export const INLINE_MORE_NOT_YOUR_EVENT =
+  "That is not one of your events, so nothing was added. Open the event you are planning and try again.";
 export const INLINE_MORE_UNDO_FAILED = "We couldn't undo that. Check the row above.";
 export const INLINE_MORE_INQUIRE_FAILED = "We couldn't open the conversation. They're saved to your shortlist.";
 export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save vendors.';

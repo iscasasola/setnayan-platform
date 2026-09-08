@@ -59,6 +59,7 @@ import {
   priceIsSet,
   unmetPublishRequirements,
 } from '@/lib/service-publish-gate';
+import { SERVICE_UPDATE_MATCHED_NOTHING } from '@/lib/a-write-that-matched-nothing';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { validatePackageDraft, type DraftItem } from '@/lib/package-authoring';
 import {
@@ -1036,7 +1037,17 @@ export async function updateVendorService(formData: FormData) {
     }
   }
 
-  const { error } = await supabase
+  // 🔑 `.select()` IS NOT DECORATION — it is how we learn whether anything was
+  // written. A Supabase `.update()` that matches ZERO rows returns
+  // `error: null`, so without asking for the changed rows back, "saved one
+  // card" and "saved nothing at all" are the same value here, and the redirect
+  // at the end of this function would say `?saved=1` for both. Both ways to
+  // match nothing are live: a stale or wrong `vendor_service_id` in the form,
+  // and an RLS USING clause that excludes the row (`vendor_services_manage`
+  // resolves through `current_vendor_profile_ids()`, so losing a team
+  // membership is enough). Either hands a supplier a green save and an
+  // unchanged card.
+  const { data: updatedRows, error } = await supabase
     .from('vendor_services')
     .update({
       starting_price_php: pricing.starting_price_php,
@@ -1066,11 +1077,19 @@ export async function updateVendorService(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)
-    .eq('vendor_profile_id', profile.vendor_profile_id);
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .select('vendor_service_id');
 
   if (error) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+  // Matched nothing. Not an error to PostgREST, and a lie to the supplier if we
+  // fall through to `?saved=1`. Say what is true: the card was not written.
+  if (!updatedRows || updatedRows.length === 0) {
+    return redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(SERVICE_UPDATE_MATCHED_NOTHING)}`,
     );
   }
 

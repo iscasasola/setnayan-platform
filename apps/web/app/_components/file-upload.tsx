@@ -106,8 +106,25 @@ export type FileUploadProps = {
   help?: string;
   /** Disables uploads, used when the parent is reset/saving. */
   disabled?: boolean;
-  /** Visual variant — `square` is good for logos, `wide` for evidence. */
-  variant?: 'square' | 'wide';
+  /**
+   * Visual variant — `square` is good for logos, `wide` for evidence,
+   * `gallery` for a set of pictures the uploader is meant to LOOK at.
+   *
+   * ⚠ `gallery` REVERSES a decision recorded a few lines below in
+   * `isSingleImagePreview`: *"`!multiple` because a gallery needs a scannable
+   * list, not N hero images."* That reasoning held while the only multi-file
+   * fields were evidence lanes, where the filename is the thing you scan.
+   * Owner, 2026-09-08, looking at three uploaded showcase photos rendered as
+   * filename rows: *"we want gallery type icon and same to video."* For a
+   * vendor's own showcase the PICTURE is the thing being checked — whether the
+   * right shot went up, whether the crop works — and a filename cannot answer
+   * either question.
+   *
+   * It is a third variant rather than a second boolean for the same reason
+   * `roundPreview` was reused above: two flags describing one picture drift
+   * into disagreeing about it.
+   */
+  variant?: 'square' | 'wide' | 'gallery';
   /**
    * Show the finished upload as a CIRCLE (owner 2026-08-10: "Profile Logo must
    * be cropped to a round image").
@@ -850,6 +867,7 @@ export function FileUpload({
   }
 
   const dropzoneHeight = variant === 'square' ? 'min-h-[160px]' : 'min-h-[120px]';
+  const isGallery = variant === 'gallery';
 
   /**
    * ── THE EMPTY SLOT IS THE SHAPE OF THE RESULT (owner 2026-08-10) ───────────
@@ -1117,7 +1135,102 @@ export function FileUpload({
           and `isSingleImagePreview` needs a completed item so it is false for
           the whole time a file is uploading. Guarding the whole block on it
           would have blanked the field mid-upload. */}
-      {(inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && (
+      {/* ── GALLERY TILES ────────────────────────────────────────────────────
+          Owner 2026-09-08: *"we want gallery type icon and same to video."*
+          The picture IS the identifier here — a vendor checking their showcase
+          is asking "did the right shot go up, does the crop work", and a
+          filename row answers neither.
+
+          Deliberately NOT hover-only for the remove control: this field is used
+          on phones, where there is no hover, and a delete you cannot reach is
+          worse than a visible one. The filename survives as the tile's `title`
+          and inside the remove button's `aria-label`, so nothing a screen
+          reader had in the row layout is lost.
+
+          A video renders as a real <video> (muted, preload=metadata) rather
+          than a play glyph, so the poster frame shows — same reason as the
+          picture: the vendor is checking WHICH clip, not that one exists. */}
+      {isGallery && (inFlight.length > 0 || items.length > 0) ? (
+        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {items.map((item) => (
+            <li
+              key={item.id}
+              title={item.filename}
+              className="relative aspect-square overflow-hidden rounded-xl border border-ink/10 bg-cream"
+            >
+              {isImage(item.contentType) && item.displayUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.displayUrl}
+                  alt={item.filename}
+                  className="h-full w-full object-cover"
+                />
+              ) : isVideo(item.contentType) && item.displayUrl ? (
+                // eslint-disable-next-line jsx-a11y/media-has-caption -- the vendor's own showcase clip, shown as a poster frame
+                <video
+                  src={item.displayUrl}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-ink/55">
+                  <FileText className="h-5 w-5" strokeWidth={1.75} />
+                  <span className="w-full truncate text-center text-[10px]">
+                    {item.filename}
+                  </span>
+                </span>
+              )}
+              <span className="sr-only">{item.filename} — uploaded</span>
+              <span
+                aria-hidden
+                className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-cream/90 text-success-700"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
+              </span>
+              <button
+                type="button"
+                onClick={() => removeItem(item.id)}
+                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
+                aria-label={`Remove ${item.filename}`}
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+            </li>
+          ))}
+          {inFlight.map((item) => (
+            <li
+              key={item.id}
+              title={item.filename}
+              className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-ink/10 bg-cream p-2"
+            >
+              <Loader2 className="h-5 w-5 animate-spin text-terracotta" strokeWidth={1.75} />
+              <span className="w-full">
+                <span className="block h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+                  <span
+                    className="block h-full rounded-full bg-terracotta transition-all"
+                    style={{ width: `${item.progress}%` }}
+                  />
+                </span>
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                {item.progress}%
+              </span>
+              <button
+                type="button"
+                onClick={() => cancelInFlight(item.id)}
+                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
+                aria-label={`Cancel ${item.filename}`}
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {!isGallery && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && (
         <ul className="grid gap-2 sm:grid-cols-2">
           {/* Skipped when the big preview owns the completed item — otherwise a
               replacement upload would show the picture AND its own filename row

@@ -206,10 +206,34 @@ test('a leaf-filed card can still be copied — the [category] route accepts it'
   // a route that only knows the 52 would 404 on a card the NEW door legitimately
   // created — the copy button would simply not work, with no error to explain it.
   const route = read('app/vendor-dashboard/services/new/[category]/page.tsx');
+  // Asserted as PROPERTIES, not as one exact expression. The previous version
+  // pinned the whole two-arm condition verbatim, so adding a legitimate third
+  // vocabulary (wedding tile ids, 2026-09-08) turned it red for widening the
+  // door rather than narrowing it — the direction this guard does not care
+  // about. What it protects is that each arm is still consulted and that an
+  // unknown kind is still refused.
   assert.match(
     route,
-    /!CATEGORY_SET\.has\(category\) && !isCoverageLeafKind\(category, leafKinds\)/,
+    /isCoverageLeafKind\(category, leafKinds\)/,
     'the [category] route stopped accepting the shop’s own coverage words',
+  );
+  assert.match(
+    route,
+    /CATEGORY_SET\.has\(category\)/,
+    'the [category] route stopped accepting the canonical categories',
+  );
+  // ── THE THIRD VOCABULARY (measured in production 2026-09-08) ─────────────
+  // A shop's two cards held `live_band` and `host_mc`. Neither is a
+  // VENDOR_CATEGORIES member; `live_band` passed only because it also happens
+  // to be a coverage leaf on that shop's tree, and `host_mc` matched nothing,
+  // so ONE of the two cards had a copy button that 404'd and the other did not.
+  // `lib/card-kind-labeller.ts` says it plainly: cards in production hold tile
+  // ids. A kind the product SAVES has to be a kind this door ACCEPTS.
+  assert.match(
+    route,
+    /WEDDING_TILE_SET\.has\(category\)/,
+    'the [category] route refuses wedding tile ids again — a card filed under ' +
+      'one (host_mc, live_band, dj, choir …) gets a copy button that 404s',
   );
   assert.match(route, /notFound\(\)/, 'the route stopped refusing an unknown kind entirely');
   // And its rendered name goes through the shared resolver, not the legacy-only

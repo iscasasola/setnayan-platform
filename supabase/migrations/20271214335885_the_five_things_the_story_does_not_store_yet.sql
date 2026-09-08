@@ -28,9 +28,15 @@
 -- both inherit the LIVING hero (landing_page_hero_image_url / hero_video_r2_key),
 -- so a couple cannot choose the one picture their story is known by.
 -- ⚠ showcase_photo_r2_key is on VENDOR SERVICES, a different table. Not this.
-ALTER TABLE public.events
-  ADD COLUMN IF NOT EXISTS story_cover_kind TEXT,
-  ADD COLUMN IF NOT EXISTS story_cover_ref  TEXT;
+-- 🪤 ONE `ALTER TABLE` PER COLUMN, AND DO NOT TIDY THESE BACK INTO ONE STATEMENT.
+-- lint-events-column-grants.mjs matches `ALTER TABLE events` IMMEDIATELY followed
+-- by `ADD COLUMN`, so in a comma-separated statement it sees only the FIRST
+-- column. Written as one statement, `story_cover_ref` was invisible to the guard
+-- and a forgotten grant on it would have sailed through CI — measured here
+-- 2026-09-09 by deleting its GRANT line and watching the lint still exit 0.
+-- Split, both columns are checked, and the sabotage now fails as it should.
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS story_cover_kind TEXT;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS story_cover_ref  TEXT;
 
 -- The five candidates the design offers (02 §6): the living hero · any accepted
 -- capture from a written minute · a supplier frame · the animated monogram ·

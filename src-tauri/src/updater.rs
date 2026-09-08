@@ -20,8 +20,19 @@
 //! `build-desktop.yml`'s own header comment, which retired that path for
 //! exactly this reason. `EXPECTED_ENDPOINT_HOST` is the ONE public host this
 //! build's manifest may ever come from: the `setnayan-media` R2 bucket's
-//! custom domain, the same one `apps/web/lib/r2.ts`'s `publicUrlFor` and
-//! `apps/web/lib/desktop-release.test.ts`'s own fixtures use.
+//! public `r2.dev` dev subdomain, the same one `apps/web/lib/r2.ts`'s
+//! `publicUrlFor` reads out of `R2_PUBLIC_URL`.
+//!
+//! ── WHY r2.dev, NOT media.setnayan.com (S14) ────────────────────────────────
+//! `media.setnayan.com` never resolved and never will — owner ruling
+//! 2026-09-05, `apps/web/scripts/upload-decor-pilot-to-r2.ts`'s header: "the
+//! owner ruled that `media.setnayan.com` … is not being set up." Production
+//! serves the `setnayan-media` bucket from its `r2.dev` dev subdomain
+//! instead (measured 2026-09-08 against the live `/download` page and
+//! `apps/web/lib/moodboard-library-placeholder.test.ts`'s fixtures). Both
+//! this constant and `tauri.conf.json`'s `plugins.updater.endpoints` must
+//! name that host — see `tauri_conf_json_updater_endpoint_is_the_real_r2_host`
+//! below, which reads the JSON live so the two can never silently drift.
 //!
 //! ── WHY A SEPARATE SIGNATURE GUARD, WHEN THE PLUGIN ALREADY VERIFIES ────────
 //! `tauri-plugin-updater`'s own `Update::download` calls `verify_signature`
@@ -41,11 +52,12 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 use crate::encoder_ipc::EncoderIpcState;
 
 /// The one public host `plugins.updater.endpoints` in `tauri.conf.json` may
-/// ever resolve to. Mirrors `apps/web/lib/r2.ts`'s `publicUrlFor` doc comment
-/// and `apps/web/lib/desktop-release.test.ts`'s own fixture host — the
-/// `setnayan-media` R2 bucket's custom domain, the only PUBLICLY-served R2
-/// bucket in this project.
-pub const EXPECTED_ENDPOINT_HOST: &str = "media.setnayan.com";
+/// ever resolve to — the `setnayan-media` R2 bucket's public `r2.dev` dev
+/// subdomain, the only PUBLICLY-served R2 bucket in this project. NOT
+/// `media.setnayan.com`: that hostname does not resolve and the owner ruled
+/// it is not being set up (2026-09-05) — see the module docblock's "WHY
+/// r2.dev, NOT media.setnayan.com" section.
+pub const EXPECTED_ENDPOINT_HOST: &str = "pub-37d64fe618584c2981a88610a55dd439.r2.dev";
 
 /// Event the (non-modal) frontend toast listens for. Payload:
 /// `DeferredUpdateNotice`.
@@ -68,11 +80,11 @@ pub fn manifest_signature_ok(signature: &str) -> bool {
 
 /// GUARD — "endpoint not R2 -> red". Requires the URL's origin to be exactly
 /// `https://EXPECTED_ENDPOINT_HOST` — not merely containing that string
-/// somewhere in the URL (`https://media.setnayan.com.evil.example/...` and
-/// `https://evil.example/media.setnayan.com/...` must both fail) and not
-/// merely `http` (an unencrypted manifest fetch is its own compromise, and
-/// `tauri-plugin-updater`'s own config also refuses non-`https` outside
-/// debug builds).
+/// somewhere in the URL (`https://pub-37d64fe618584c2981a88610a55dd439.r2.dev.evil.example/...`
+/// and `https://evil.example/pub-37d64fe618584c2981a88610a55dd439.r2.dev/...`
+/// must both fail) and not merely `http` (an unencrypted manifest fetch is
+/// its own compromise, and `tauri-plugin-updater`'s own config also refuses
+/// non-`https` outside debug builds).
 pub fn is_r2_endpoint(url: &str) -> bool {
     match url.strip_prefix("https://") {
         Some(rest) => rest.split('/').next().unwrap_or("") == EXPECTED_ENDPOINT_HOST,
@@ -254,30 +266,40 @@ mod tests {
     #[test]
     fn is_r2_endpoint_accepts_the_real_host() {
         assert!(is_r2_endpoint(
-            "https://media.setnayan.com/desktop/latest/latest.json"
+            "https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/desktop/latest/latest.json"
         ));
     }
 
     #[test]
     fn is_r2_endpoint_rejects_a_lookalike_suffix_host() {
-        // "media.setnayan.com" is a PREFIX of this host, which a naive
+        // The real host is a PREFIX of this one, which a naive
         // `.starts_with(...)` or `.contains(...)` check would wrongly accept.
         assert!(!is_r2_endpoint(
-            "https://media.setnayan.com.evil.example/desktop/latest/latest.json"
+            "https://pub-37d64fe618584c2981a88610a55dd439.r2.dev.evil.example/desktop/latest/latest.json"
         ));
     }
 
     #[test]
     fn is_r2_endpoint_rejects_the_host_string_merely_appearing_in_the_path() {
         assert!(!is_r2_endpoint(
-            "https://evil.example/media.setnayan.com/latest.json"
+            "https://evil.example/pub-37d64fe618584c2981a88610a55dd439.r2.dev/latest.json"
         ));
     }
 
     #[test]
     fn is_r2_endpoint_rejects_plain_http() {
         assert!(!is_r2_endpoint(
-            "http://media.setnayan.com/desktop/latest/latest.json"
+            "http://pub-37d64fe618584c2981a88610a55dd439.r2.dev/desktop/latest/latest.json"
+        ));
+    }
+
+    #[test]
+    fn is_r2_endpoint_rejects_the_retired_media_setnayan_host() {
+        // S14 — media.setnayan.com never resolved and the owner ruled it is
+        // not being set up (2026-09-05). If EXPECTED_ENDPOINT_HOST ever
+        // regresses back to it, this must go red, not merely "also pass".
+        assert!(!is_r2_endpoint(
+            "https://media.setnayan.com/desktop/latest/latest.json"
         ));
     }
 

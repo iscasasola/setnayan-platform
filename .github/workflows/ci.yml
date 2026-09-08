@@ -334,6 +334,16 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-demo-capture-geometry.mjs
 
+      # Sibling of the geometry guard, DIFFERENT defect: the geometry can be
+      # perfect (460x972 in, 460x972 out, content spanning the full width) and
+      # the picture still ship two-thirds blank, because the SCENE top-aligns
+      # short content inside a frame 2.5x its height. Baselined, so the 23 that
+      # already do are recorded and a NEW one is refused.
+      - name: Lint scene fills its frame
+        id: guard_scene_fill
+        continue-on-error: true
+        run: node apps/web/scripts/lint-scene-fills-its-frame.mjs
+
       # Fails when a migration declares a FUNCTION-LEVEL `SET` on a custom
       # `setnayan.*` parameter. Prod refuses to create such a function —
       # "permission denied to set parameter" (42501) — because that clause is
@@ -498,6 +508,7 @@ jobs:
           MIGRATIONS_KEPT: ${{ steps.guard_migrations_kept.outcome }}
           FONTS_LOCAL: ${{ steps.guard_fonts_local.outcome }}
           DEMO_CAPTURE: ${{ steps.guard_demo_capture.outcome }}
+          SCENE_FILL: ${{ steps.guard_scene_fill.outcome }}
           FUNCTION_LEVEL_SET: ${{ steps.guard_function_level_set.outcome }}
           LABEL_CONTRAST: ${{ steps.guard_label_contrast.outcome }}
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
@@ -531,6 +542,7 @@ jobs:
           check 'lint server-only boundary'   "$SERVER_ONLY"
           check 'lint fonts are local'        "$FONTS_LOCAL"
           check 'lint demo-capture geometry'  "$DEMO_CAPTURE"
+          check 'lint scene fills its frame' "$SCENE_FILL"
           check 'lint migrations dir'         "$MIGRATIONS_DIR"
           check 'lint migrations kept'        "$MIGRATIONS_KEPT"
           check 'lint no function-level custom SET' "$FUNCTION_LEVEL_SET"

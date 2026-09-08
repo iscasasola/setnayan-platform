@@ -730,6 +730,20 @@ const INDOOR_BLUEPRINT_SCENES: RichFrame[] = [
 ];
 
 // ── Setnayan AI — pitch → ranked matches → choose → deadlines ──
+//
+// 🖼 THE SCENES CENTRE THEMSELVES, AND THAT IS ABOUT THE STILLS AS MUCH AS THE
+// CARD. `capture-demo-stills.mjs` photographs each of these into a 460×972
+// frame, and `_spotlights.tsx` renders that frame at its full 9:19 on eight
+// public product pages. A scene that top-aligns short content therefore ships
+// a picture whose bottom two thirds are blank — which is what the owner saw on
+// /setnayan-ai and the Setnayan AI buy page (2026-09-08: "reframe it").
+//
+// ⚠ NOT THE CAPTURE BUG `lint-demo-capture-geometry.mjs` GUARDS. That one was
+// a viewport SMALLER than the frame, so content landed in the top-LEFT and the
+// right was padded too. Here the geometry is right — 460×972 in, 460×972 out,
+// content spanning the full WIDTH — and only the vertical slack is wrong. Two
+// different defects that produce a similar-looking picture; checking the width
+// is what tells them apart.
 function vendorRow(name: string, pct: string, tint: string, why: string) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-ink/10 bg-white p-1.5">
@@ -760,7 +774,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
     caption: 'Your best vendors, sorted to the top.',
     hint: 'Scroll the ranked shortlist.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <div className="flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1">
           <Sparkles aria-hidden className="h-2.5 w-2.5 text-terracotta" strokeWidth={2} />
           <span className="font-mono text-[6px] uppercase tracking-[0.12em] text-ink/55">Matching you on</span>
@@ -809,7 +823,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
     caption: 'Every decision, with deadlines that nudge you.',
     hint: 'Tap a circle to check it off.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <div className="flex justify-between font-mono text-[7px] uppercase tracking-[0.12em] text-ink/55"><span>Up next</span><span>4 of 18 done</span></div>
         <div className="mt-2 space-y-1.5">
           {[

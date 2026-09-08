@@ -1,0 +1,37 @@
+# Scenes whose content top-aligns inside the 460x972 capture frame, so the
+# still photographed from them ships with the slack dumped at the bottom.
+#
+# WHY A BASELINE AND NOT A FIX: every line here is a real picture on a real
+# public product page, and correcting one is a LOOK-AT-IT job -- centring a
+# scene whose content overflows would clip its first row instead of its last,
+# which is worse and which no source check can tell apart. They come off this
+# list one at a time, each re-captured and each looked at.
+#
+# SETNAYAN_AI:1 and :3 were fixed and re-captured on 2026-09-08 and are
+# deliberately absent.
+#
+# Regenerate deliberately, never to go green:
+#   node apps/web/scripts/lint-scene-fills-its-frame.mjs --write
+PAPIC_SCENES:0
+PAPIC_SCENES:1
+PAPIC_SCENES:3
+ANIMATED_MONOGRAM_SCENES:0
+ANIMATED_MONOGRAM_SCENES:1
+MOOD_BOARD_SCENES:0
+MOOD_BOARD_SCENES:1
+MOOD_BOARD_SCENES:2
+CUSTOM_QR_SCENES:1
+CUSTOM_QR_SCENES:2
+CUSTOM_QR_SCENES:3
+PHOTO_DELIVERY_SCENES:1
+PATIKTOK_SCENES:0
+PATIKTOK_SCENES:1
+INDOOR_BLUEPRINT_SCENES:0
+INDOOR_BLUEPRINT_SCENES:1
+INDOOR_BLUEPRINT_SCENES:2
+LANDING_PAGE_SCENES:1
+MUSIC_CREATOR_SCENES:1
+PAKANTA_SCENES:0
+PAKANTA_SCENES:3
+PLAYLIST_SCENES:0
+PLAYLIST_SCENES:3

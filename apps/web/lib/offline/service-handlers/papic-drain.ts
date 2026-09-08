@@ -144,6 +144,7 @@ export function buildSeatSinkDeps(
     posterR2Ref?: string,
     durationMs?: number,
     geo?: PapicGeoInput,
+    capturedAtMs?: number,
   ) => Promise<{ ok: true; count: number; photoId: string | null } | { ok: false; error: string }>,
   extractClipPosterBytes: (bytes: Uint8Array, mimeType: string) => Promise<Uint8Array | null>,
   geo?: PapicGeoInput,
@@ -174,8 +175,20 @@ export function buildSeatSinkDeps(
       });
       return res.ok;
     },
-    record: async (r2Ref, kind, posterR2Ref) => {
-      const result = await record(seatToken, r2Ref, kind, posterR2Ref, durationMs, geo);
+    // 🕐 The shutter comes from the FILE the sink is delivering, not from this
+    // closure and not from the clock — a capture that waited out a dead venue
+    // link keeps the minute it was taken. `durationMs` and `geo` stay closed
+    // over here because the sink's `record` arity never carried them.
+    record: async (r2Ref, kind, posterR2Ref, capturedAtMs) => {
+      const result = await record(
+        seatToken,
+        r2Ref,
+        kind,
+        posterR2Ref,
+        durationMs,
+        geo,
+        capturedAtMs,
+      );
       return result.ok ? { ok: true, count: result.count } : { ok: false, error: result.error };
     },
     extractPoster: async (file) => extractClipPosterBytes(file.bytes, file.mimeType),
@@ -361,6 +374,15 @@ export async function drainGuestCaptureWith(
   }
   if (parsed.share_publicly) form.append('share_publicly', '1');
   if (parsed.face_vectors) form.append('face_vectors', parsed.face_vectors);
+  // 🕐 THE SHUTTER — and this line is the queue's half of the whole defect.
+  // `captured_at_ms` has been written into the payload since the guest queue
+  // shipped and was never put back on the wire, so a shot that waited out a
+  // dead link was re-POSTed with no time at all and filed under the minute it
+  // finally drained. A guest whose phone found signal in the car park had their
+  // whole evening stack up on one bar.
+  if (parsed.captured_at_ms > 0) {
+    form.append('captured_at_ms', String(parsed.captured_at_ms));
+  }
 
   let res: GuestPostResult;
   try {

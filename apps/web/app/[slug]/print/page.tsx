@@ -22,6 +22,7 @@ import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { storyAudienceAdmits } from '@/lib/who-can-see-your-story';
+import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
@@ -180,6 +181,15 @@ export default async function EditorialPrintPage({
   if (data && data.audience && !storyAudienceAdmits(data.audience, printViewer)) {
     redirect(`/${slug}`);
   }
+
+  /*
+    (3b) THE LAYER FENCE — the same second question the screen asks, for the same
+    reason this route asks the first one: it takes the loader directly, so gating
+    only `EditorialContent` would make the printable keepsake the way around it.
+    A guest layer withheld on screen and printed onto an A3 sheet is the worse
+    leak of the two, because paper does not revalidate.
+  */
+  if (data) data = redactStoryLayers(data, printViewer);
 
   if (!data) {
     return (

@@ -197,7 +197,14 @@ const CSP_REPORT_ONLY = [
   // `ipc-envelope.ts`'s go-live guard, which is why the chosen transport is
   // the base64-JSON envelope on EVERY platform, not just macOS. Guarded by
   // `csp-encoder-ipc.test.ts`.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com ipc: http://ipc.localhost",
+  // `media.setnayan.com` never resolves — owner ruling 2026-09-05, it is not
+  // being set up (S14, build-sessions/encoder/S14.md). Production actually
+  // serves the `setnayan-media` bucket from its `r2.dev` dev subdomain
+  // (measured live 2026-09-08 against `/download` and the homepage's own
+  // rendered asset URLs), which is ADDED alongside the dead host below
+  // rather than replacing it — `R2_PUBLIC_URL` is unset in production today,
+  // so a future custom domain would need the same treatment, not a swap.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com ipc: http://ipc.localhost",
   // 🔴 ADDED 2026-08-11. This directive was MISSING ENTIRELY, and its absence was
   // a live outage scheduled for whenever someone enforces this draft: with no
   // `frame-src`, frames fall back to `default-src 'self'`, so EVERY embed on the
@@ -214,8 +221,8 @@ const CSP_REPORT_ONLY = [
   // fails if the enforced list gains a host this one lacks. The chain is anchored
   // in code at both ends: source iframes/scripts → enforced list → this draft.
   "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com https://www.openstreetmap.org https://challenges.cloudflare.com",
-  "img-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
-  "media-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com",
+  "img-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
+  "media-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "worker-src 'self' blob:",

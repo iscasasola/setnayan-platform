@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6582
+# facts: 6587
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     584
-#   col       4836
+#   col       4841
 #   policy    896
 #   view      8
 #   func      254
@@ -2161,6 +2161,7 @@ col	public.events.photo_wall_photos	anon=S authenticated=S
 col	public.events.photos_released_at	anon=S authenticated=S
 col	public.events.planning_mode	anon=SIU authenticated=SIU
 col	public.events.pool_gallery_open	anon=S authenticated=S
+col	public.events.previous_event_id	anon=- authenticated=S
 col	public.events.public_id	anon=S authenticated=S
 col	public.events.recap_social_optout_at	anon=SIU authenticated=SIU
 col	public.events.reception_design	anon=SIU authenticated=SIU
@@ -2203,6 +2204,8 @@ col	public.events.std_media_nsfw	anon=- authenticated=S
 col	public.events.std_reveal_effects	anon=SIU authenticated=SIU
 col	public.events.std_reveal_template	anon=SIU authenticated=SIU
 col	public.events.std_theme	anon=SIU authenticated=SIU
+col	public.events.story_cover_kind	anon=- authenticated=S
+col	public.events.story_cover_ref	anon=- authenticated=S
 col	public.events.story_language	anon=SIU authenticated=SIU
 col	public.events.story_tone	anon=SIU authenticated=SIU
 col	public.events.style_preferences	anon=SIU authenticated=SIU
@@ -2907,6 +2910,7 @@ col	public.panood_broadcasts.ended_at	anon=- authenticated=SIU
 col	public.panood_broadcasts.event_id	anon=- authenticated=SIU
 col	public.panood_broadcasts.id	anon=- authenticated=SIU
 col	public.panood_broadcasts.ingestion_url	anon=- authenticated=SIU
+col	public.panood_broadcasts.peak_concurrent_viewers	anon=- authenticated=SIU
 col	public.panood_broadcasts.scheduled_start_at	anon=- authenticated=SIU
 col	public.panood_broadcasts.status	anon=- authenticated=SIU
 col	public.panood_broadcasts.stream_id	anon=- authenticated=SIU
@@ -3305,6 +3309,7 @@ col	public.person_story_items.source_table	anon=SIU authenticated=SIU
 col	public.person_story_items.source_tag_id	anon=SIU authenticated=SIU
 col	public.person_story_items.story_item_id	anon=SIU authenticated=SIU
 col	public.person_story_items.updated_at	anon=SIU authenticated=SIU
+col	public.photo_messages.author_named_publicly	anon=- authenticated=SIU
 col	public.photo_messages.author_publicly_hidden	anon=- authenticated=SIU
 col	public.photo_messages.baked_into_render	anon=- authenticated=SIU
 col	public.photo_messages.body_text	anon=- authenticated=SIU
@@ -6490,7 +6495,7 @@ func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef
 func	public.papic_event_has_flat_pass(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_guest_missions(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean, p_media_type text, p_duration_ms integer, p_poster_r2_key text, p_points_cost integer)	secdef=yes exec=anon,authenticated search_path=public
+func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean, p_media_type text, p_duration_ms integer, p_poster_r2_key text, p_points_cost integer, p_captured_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_review_vendor_challenge(p_mission_id uuid, p_approve boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_set_completion_consent(p_guest_id uuid, p_mission_id uuid, p_consent boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_stop_challenge(p_mission_id uuid)	secdef=no exec=authenticated search_path=public

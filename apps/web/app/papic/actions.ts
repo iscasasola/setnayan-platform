@@ -25,6 +25,7 @@ import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { buildPapicGeoFields, type PapicGeoInput } from '@/lib/papic-geo';
+import { capturedAtIso } from '@/lib/papic-capture-minute';
 import {
   eventOwnsPapicSeats,
   papicSeatAnonEnabled,
@@ -254,6 +255,10 @@ export async function recordSeatCapture(
   posterR2Key?: string,
   durationMs?: number,
   geo?: PapicGeoInput,
+  /** 🕐 The shutter instant, from the device that took it. Optional and last:
+   *  a caller that does not know (the dashboard's add-to-library import) sends
+   *  nothing and the row falls to the upload minute, exactly as before. */
+  capturedAtMs?: number,
 ): Promise<RecordSeatCaptureResult> {
   // RAW-ONLY record path (Papic storage PR-1): this writes the raw clip/photo row
   // with NULL clip_web columns. The small H.264 web copy is a separate, off-drain
@@ -611,6 +616,32 @@ export async function recordSeatCapture(
     return { ok: false, error: 'unavailable' };
   }
 
+  /*
+    🕐 THE SHUTTER RIDES THIS CALL, as `p_captured_at` — the same
+    client-supplied / server-validated shape as the p_geo_* arguments, and for
+    the same reason: only the device that took the picture knows the minute, and
+    nothing it says is trusted. `public.papic_capture_minute` refuses a future
+    time and a clock from before the celebration existed, and answers now() in
+    either case, so a wrong clock costs a shot its exact minute and never the
+    shot. null means "you decide", which is what every row got before 20271214644139.
+
+    ⚠ AND THERE IS DELIBERATELY NO SIGNATURE-FALLBACK RUNG, which is a departure
+    from the guest route's ladder. Two measured reasons, not one assumption:
+
+      • `deploy-prod.yml` applies migrations BEFORE it triggers the Vercel deploy
+        hook (gate step printed "✅ Configured" on the 2026-09-08 main runs), so
+        the window where this code is live and the migration is not does not
+        exist on this pipeline;
+      • and if it did, the 42883 falls to the refusal below as 'unavailable',
+        which is NOT in PAPIC_TERMINAL_ERRORS — the capture UI queues the shot
+        and a later drain lands it. Nothing is lost by waiting.
+
+    A rung would therefore buy nothing, and would cost the ONE-CALL-SITE property
+    that `app/papic/the-meter-is-the-only-door.test.ts` exists to hold: exactly
+    one `writer.rpc('papic_record_seat_capture')` in this file, on the
+    service-role client. That guard is about money safety and outranks a
+    convenience retry.
+  */
   {
     const { data: recorded, error: recordError } = await writer.rpc(
       'papic_record_seat_capture',
@@ -633,6 +664,8 @@ export async function recordSeatCapture(
         p_geo_lon: geoFields.geo_lon ?? null,
         p_geo_accuracy_m: geoFields.geo_accuracy_m ?? null,
         p_geo_unavailable: geoFields.geo_unavailable ?? null,
+        // 🕐 The shutter — see the note above this block.
+        p_captured_at: capturedAtIso(capturedAtMs),
       },
     );
 

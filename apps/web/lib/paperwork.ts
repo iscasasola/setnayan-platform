@@ -511,19 +511,12 @@ export function expiresAtFor(
 }
 
 /**
- * Format a YYYY-MM-DD date as "March 2, 2026" for display. Returns "—"
- * for null. Locale forced to en-PH so dates read naturally for the host.
+ * Re-exported from `lib/format-date.ts` (2026-09-08). It moved because a
+ * generic date formatter living in a DOMAIN module is a formatter nobody
+ * imports — five screens had rolled their own rather than import "paperwork"
+ * to print a date. Kept exported here so every existing importer is untouched.
  */
-export function formatLongDate(value: string | null): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
+export { formatLongDate } from '@/lib/format-date';
 
 /**
  * Tone for the deadline pill: 'overdue' if the complete-by date has

@@ -38,8 +38,42 @@ export type InquiryWhatsNewCard = {
   /** City/area-level place ONLY — never a venue name or address. */
   place: string | null;
   category: string | null;
+  /**
+   * Guest count at inquiry. Granted pre-accept by the 2026-07-15 anonymisation
+   * decision — *"a vendor sees the JOB (event type · date · city/area ·
+   * guest/budget bands · category · couple's message text)"* — and already
+   * shown pre-accept on the thread page ("Planning for ~230 guests"). This card
+   * was withholding it, so the supplier was asked to Accept or Decline without
+   * the one number that sizes the job.
+   */
+  paxAtInquiry: number | null;
+  /**
+   * The couple's own words, granted by the same decision and likewise already
+   * visible pre-accept on the thread. NOT identity: it is what they asked, not
+   * who they are.
+   */
+  messageExcerpt: string | null;
   createdAt: string;
 };
+
+/** Max characters of the couple's message shown on the dashboard card. */
+const MESSAGE_EXCERPT_CHARS = 180;
+
+/**
+ * The couple's message, trimmed to fit a card.
+ *
+ * ⚠ Cut on a WORD boundary and marked with an ellipsis. A hard slice can end
+ * mid-word or, worse, mid-number — "for 2" out of "for 230 guests" is not a
+ * shorter truth, it is a different one.
+ */
+function excerpt(text: string | null | undefined): string | null {
+  const t = (text ?? '').trim();
+  if (!t) return null;
+  if (t.length <= MESSAGE_EXCERPT_CHARS) return t;
+  const cut = t.slice(0, MESSAGE_EXCERPT_CHARS);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
 
 /**
  * Assemble a masked inquiry card from ONLY non-identifying inputs. There is no
@@ -64,6 +98,10 @@ export function buildInquiryCard(input: {
    * `inquiryPlaceholderLabel` for why a default would be the wrong shape.
    */
   hostNoun: string | null;
+  /** Guest count at inquiry — permitted pre-accept (2026-07-15). */
+  paxAtInquiry?: number | null;
+  /** The couple's message — permitted pre-accept (2026-07-15). */
+  messageExcerpt?: string | null;
 }): InquiryWhatsNewCard {
   const city = regionLabel(input.region);
   return {
@@ -79,6 +117,11 @@ export function buildInquiryCard(input: {
     eventDate: input.eventDate,
     place: city,
     category: input.category,
+    paxAtInquiry: input.paxAtInquiry ?? null,
+    // Trimmed, never re-worded. A summary of what somebody asked is a second
+    // author's version of their question; the supplier is deciding whether to
+    // answer THEM.
+    messageExcerpt: excerpt(input.messageExcerpt),
     createdAt: input.createdAt,
   };
 }

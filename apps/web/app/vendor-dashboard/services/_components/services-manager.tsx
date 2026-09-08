@@ -112,8 +112,8 @@ import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
 import { ManagerTabs } from './manager-tabs';
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { ServiceCardLivePreview } from './service-card-live-preview';
-import { ServiceCardFace } from './service-card-face';
-import { snapshotFromService } from '@/lib/service-card-snapshot';
+import { ServiceCardView } from '@/app/_components/service-card-view';
+import { toServiceCard } from '@/lib/service-card-view-model';
 import { RefinementsEditor } from './refinements-editor';
 import {
   fetchCategoryChipRefinementsMany,
@@ -203,6 +203,13 @@ export async function VendorServicesManager({
   // Only the canvas maker can open pre-filled, so "start a new card from this
   // one" is gated on the same flag that decides which maker the route renders.
   const canvasMaker = canvasMakerEnabled();
+  /**
+   * ONE clock for every card in this list, mirroring the public profile's own
+   * note: the early-booking ladder must not be able to resolve two different
+   * tiers within a single render. Hoisted here rather than taken per row, which
+   * is what a `new Date()` inside the map would silently do.
+   */
+  const cardListNow = new Date();
 
   const serviceIdList = services.map((s) => s.vendor_service_id);
 
@@ -953,9 +960,8 @@ export async function VendorServicesManager({
                       cards."* This row used to be a grey wrench glyph, the
                       title and one line of text, while the real card lived only
                       inside the collapsed editor below. It is the same
-                      `ServiceCardFace` that editor renders, fed from the stored
-                      row instead of from the live form — see
-                      `lib/service-card-snapshot`, which both go through.
+                      card the PUBLIC PROFILE renders, built by the same
+                      `toServiceCard` — see `lib/service-card-view-model`.
 
                       The supplier-only facts (assigned-to, coverage, hidden,
                       reach) STAY, under the card. They are not on the couple's
@@ -963,28 +969,40 @@ export async function VendorServicesManager({
                       scans a list for. */}
                   <div className="flex items-center gap-3 p-4">
                     <div className="min-w-0 flex-1 space-y-2">
-                      <ServiceCardFace
-                        snap={snapshotFromService(svc, {
-                          discounts: svcDiscountList,
-                          inclusions: svcInclusions,
-                          brackets: svcBrackets,
-                        })}
-                        leafPathLabel={
-                          (svc.coverage_id != null
-                            ? coverageLabelById.get(svc.coverage_id)
-                            : null) ?? displayServiceLabel(svc.category)
-                        }
-                        addonsFromPhp={(() => {
-                          const prices = (addonsByService.get(svc.vendor_service_id) ?? [])
-                            .map((a) => a.from_price_php)
-                            .filter((p): p is number => p != null && p > 0);
-                          return prices.length ? Math.min(...prices) : null;
-                        })()}
-                        coverUrl={
-                          svc.primary_photo_r2_key
-                            ? showcaseDisplayUrls[svc.primary_photo_r2_key] ?? null
-                            : null
-                        }
+                      {/* THE COUPLE'S OWN CARD, not a vendor-side lookalike.
+                          Same `toServiceCard` the public profile calls and the
+                          same `ServiceCardView` it renders - owner 2026-09-08:
+                          "there is already a template of how a service card
+                          looks like. all we want is for that to show instead of
+                          this."
+
+                          `detailsEnabled={false}` and no `onOpen`: this list is
+                          a server component and the card here is to be LOOKED
+                          at. Every interactive branch in the view is already
+                          gated on `detailsEnabled`, so it renders inert without
+                          a client wrapper existing only to satisfy a type. */}
+                      <ServiceCardView
+                        card={toServiceCard(
+                          svc,
+                          svcInclusions,
+                          svcDiscountList,
+                          undefined,
+                          {
+                            photos: (svc.showcase_photo_r2_keys ?? [])
+                              .map((k) => showcaseDisplayUrls[k])
+                              .filter((u): u is string => !!u),
+                            videoUrl: svc.showcase_video_r2_key
+                              ? showcaseDisplayUrls[svc.showcase_video_r2_key] ?? null
+                              : null,
+                          },
+                          false,
+                          null,
+                          cardListNow,
+                          null,
+                          null,
+                          false,
+                        )}
+                        detailsEnabled={false}
                       />
                       <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
                         {paxLabel} · assigned to {branchLabel}

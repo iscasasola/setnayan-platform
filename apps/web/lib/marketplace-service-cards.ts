@@ -76,10 +76,20 @@ function safeForOr(value: string): string {
  * Every service card a stranger may see, newest first.
  *
  * The visibility rule mirrors the `vendor_services_public_read` policy exactly —
- * active card, published shop, `verification_state` AND `public_visibility` both
- * `verified` — rather than trusting RLS alone, because this runs with whatever
- * client the caller passes and an admin client bypasses the policy entirely.
- * Stating the rule here means the answer does not change with the caller.
+ * active card, and a shop whose `verification_state` AND `public_visibility` are
+ * both `verified` — rather than trusting RLS alone, because this runs with
+ * whatever client the caller passes and an admin client bypasses the policy
+ * entirely. Stating the rule here means the answer does not change with the
+ * caller.
+ *
+ * ⛔ `is_published` IS NOT PART OF IT, and the first draft of this function got
+ * that wrong. It is a dead column: its only writer in the whole app is a
+ * tick-box on `/admin/vendors/[id]/edit`, and approving a shop does not set it —
+ * the owner's own fully-verified shop sat at `is_published = false`. Seven code
+ * paths were once gated on it and all seven silently found nothing, because a
+ * dead gate and a genuinely empty result are the same value.
+ * `lib/one-definition-of-live.test.ts` is what caught this one, before it
+ * shipped.
  */
 export async function fetchMarketplaceServiceCards(
   supabase: SupabaseClient,
@@ -94,7 +104,6 @@ export async function fetchMarketplaceServiceCards(
       `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,is_published,verification_state,public_visibility)`,
     )
     .eq('is_active', true)
-    .eq('vendor_profiles.is_published', true)
     .eq('vendor_profiles.verification_state', 'verified')
     .eq('vendor_profiles.public_visibility', 'verified');
 

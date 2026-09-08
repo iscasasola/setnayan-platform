@@ -58,6 +58,18 @@ test('it lists SERVICES, not shops', async () => {
   );
 });
 
+test('⛔ it never gates on the DEAD is_published column', async () => {
+  // Its only writer is an admin tick-box; approving a shop does not set it, and
+  // the owner's own verified shop sat at false. Gating on it hides verified
+  // shops and looks exactly like an empty marketplace.
+  const { calls } = await run({});
+  assert.ok(
+    !calls.some((c) => c.fn === 'eq' && String(c.args[0]).includes('is_published')),
+    'the marketplace filters on is_published — verified shops nobody ticked by ' +
+      'hand would silently vanish from it',
+  );
+});
+
 test('it states the public-visibility rule itself, not trusting the caller’s RLS', async () => {
   // It runs with whatever client the caller passes, and an admin client bypasses
   // `vendor_services_public_read` entirely. Stating the rule keeps the answer
@@ -66,7 +78,6 @@ test('it states the public-visibility rule itself, not trusting the caller’s R
   const eqs = calls.filter((c) => c.fn === 'eq').map((c) => `${c.args[0]}=${c.args[1]}`);
   for (const expected of [
     'is_active=true',
-    'vendor_profiles.is_published=true',
     'vendor_profiles.verification_state=verified',
     'vendor_profiles.public_visibility=verified',
   ]) {

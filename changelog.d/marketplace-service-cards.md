@@ -58,3 +58,25 @@ separator we build. Counting conditions is the honest check.)
 proof.
 
 SPEC IMPACT: None.
+
+### ⛔ Correction before merge — the first draft gated on a DEAD column
+
+The query filtered `vendor_profiles.is_published = true`, and
+`lib/one-definition-of-live.test.ts` refused it. That column's **only writer in
+the whole app** is a tick-box on `/admin/vendors/[id]/edit`; approving a shop
+does not set it, and the guard's own header records that *the owner's own
+fully-verified shop sat at `is_published = false`*. Seven code paths were once
+gated on it and all seven silently found nothing.
+
+So the new marketplace would have hidden every verified shop nobody had ticked
+by hand — a query that runs perfectly and matches nothing, which is the exact
+disease the rest of this file is about. Dropped; the rule is now
+`verification_state` AND `public_visibility`, matching
+`vendor_profiles_public_read`.
+
+🔑 **The live-database check I ran did not catch it.** Saysay happens to be
+ticked, so the wrong query returned the right answer. A measurement against one
+row that happens to pass proves the row, not the rule. The repo's own guard
+caught it, before it shipped.
+
+A test now pins it: the marketplace must never filter on `is_published`.

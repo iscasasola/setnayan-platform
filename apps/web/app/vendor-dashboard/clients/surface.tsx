@@ -14,7 +14,10 @@ import { importExternalClient, removeBlock } from '../calendar/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { shopInputClass } from '../_components/kit';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
+  resolveThreadStage,
+  rowReadsCompleted,
   THREAD_STAGE_LABEL,
   THREAD_STAGE_TONE,
 } from '@/lib/vendor-thread-stage';
@@ -181,6 +184,48 @@ export default async function VendorClientsPage({ searchParams }: Props) {
     }
   }
 
+  /* FINISHED — which of these bookings is already done.
+     ⚠ READ WITH THE SERVICE ROLE, SCOPED BY THIS SHOP'S OWN ID, AND IT HAS TO
+     BE. `event_vendors` carries FOUR select policies and not one of them admits
+     a supplier (couple · couple-write · moderator · moderator-write, read out
+     of prod 2026-09-09). A supplier's own session therefore reads ZERO ROWS —
+     so the obvious version of this probe would report every booking as
+     unfinished, forever, and look exactly like "nobody has finished a job yet".
+     The scope is the two ids the caller has already proved: this shop, and the
+     events it holds live bookings on.
+
+     🔑 A FAILED READ IS NOT AN EMPTY ONE. On error the set stays empty and the
+     rows keep saying Booked, which is the conservative direction — a finished
+     job shown as live is a stale label; a live job shown as finished tells a
+     supplier to stop working. */
+  const completedEventIds = new Set<string>();
+  const bookedEventIds = [...bookedByEvent.keys()];
+  if (bookedEventIds.length > 0) {
+    const { data: done, error: doneError } = await createAdminClient()
+      .from('event_vendors')
+      .select('event_id, completion_status, customer_confirmed_received_at, status')
+      .eq('marketplace_vendor_id', profile.vendor_profile_id)
+      .in('event_id', bookedEventIds);
+    if (doneError) {
+      logQueryError(
+        'VendorClientsSurface.completed',
+        doneError,
+        { vendorProfileId: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+    }
+    for (const row of (done ?? []) as Array<{
+      event_id: string;
+      completion_status: string | null;
+      customer_confirmed_received_at: string | null;
+      status: string | null;
+    }>) {
+      // The SAME predicate the thread pill uses — a second copy of "is it
+      // finished?" is how one screen comes to disagree with another.
+      if (rowReadsCompleted(row)) completedEventIds.add(row.event_id);
+    }
+  }
+
   // Outside — external-client blocks.
   const externals = blocks.filter((b) => b.source === 'external_client');
 
@@ -230,14 +275,22 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
-            {[...bookedByEvent.entries()].map(([eventId, group]) => (
+            {[...bookedByEvent.entries()].map(([eventId, group]) => {
+              // One ordering, shared with the thread pill.
+              const stage = resolveThreadStage({
+                completed: completedEventIds.has(eventId),
+                booked: true,
+                quoted: false,
+                cancelled: false,
+              });
+              return (
               <li key={eventId} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">{group.eventName}</p>
                     <StageChip
-                      tone={THREAD_STAGE_TONE.booked}
-                      label={THREAD_STAGE_LABEL.booked}
+                      tone={THREAD_STAGE_TONE[stage]}
+                      label={THREAD_STAGE_LABEL[stage]}
                     />
                   </div>
                   <p className="text-xs text-ink/55">
@@ -263,7 +316,8 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                   ) : null}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
@@ -286,15 +340,26 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
             {accepted.map((t) => {
-              const isQuoted = quotedEventIds.has(t.event_id);
+              // Same resolver, same ordering — the list cannot rank these
+              // differently from the thread it opens.
+              const stage = resolveThreadStage({
+                completed: false,
+                booked: false,
+                quoted: quotedEventIds.has(t.event_id),
+                cancelled: false,
+              });
               return (
                 <li key={t.thread_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium">{t.event?.display_name ?? 'A Setnayan event'}</p>
                       <StageChip
-                        tone={isQuoted ? THREAD_STAGE_TONE.quoted : THREAD_STAGE_TONE.inquiry}
-                        label={isQuoted ? THREAD_STAGE_LABEL.quoted : 'In conversation'}
+                        tone={THREAD_STAGE_TONE[stage]}
+                        // ⚖ The list says "In conversation" where the thread
+                        // says "Inquiry" — this bucket IS the accepted-and-
+                        // talking one, and the heading above already says so.
+                        // Deliberate, not a drift.
+                        label={stage === 'inquiry' ? 'In conversation' : THREAD_STAGE_LABEL[stage]}
                       />
                       {/* Inquiry-source chip (PR-C · owner taxonomy) — vendor-
                           private; non-default origins only, plus the returning

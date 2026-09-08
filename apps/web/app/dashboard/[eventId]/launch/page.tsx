@@ -536,7 +536,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     The hub carried six QuickLinks. Four of its destinations are reached from
     elsewhere and were left alone — `/invitation` from the checklist, guest
     detail and the QR page; `/website/privacy` from the editorial editor;
-    `/website/editor` and `/website/editorial` already sit above. TWO were
+    `/website/editor` and `/story` already sit above. TWO were
     reachable from the hub and NOWHERE else, and folding the hub without them
     would have orphaned a shipped page each:
 
@@ -554,7 +554,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   */
   const setOnce: Array<{ key: string; label: string; hint: string; href: string }> = [
     { key: 'editor', label: 'The page itself', hint: 'Copy, photos, colours, music', href: `${base}/website/editor` },
-    { key: 'story', label: 'The story', hint: 'Chapters, guest columns, the album', href: `${base}/website/editorial` },
+    { key: 'story', label: 'The story', hint: 'Chapters, guest columns, the album', href: `${base}/story` },
     ...(eventRow?.event_type === 'wedding'
       ? [{ key: 'ourstory', label: 'Our story', hint: 'How you met, the spark, the yes', href: `${base}/website/our-story` }]
       : []),
@@ -690,7 +690,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                   */}
                   {page.phaseParam === 'editorial' && (
                     <Link
-                      href={`${base}/website/editorial`}
+                      href={`${base}/story`}
                       className="inline-flex w-fit items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
                     >
                       Open the workroom

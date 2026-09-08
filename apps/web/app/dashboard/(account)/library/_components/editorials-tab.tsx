@@ -96,7 +96,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
   // private). A card with nowhere to go renders WITHOUT a link — the same call
   // lib/event-board.eventBoardHref makes when it returns null rather than
   // building `/null`.
-  const editorHref = `/dashboard/${item.eventId}/website/editorial`;
+  const editorHref = `/dashboard/${item.eventId}/story`;
   const publicHref = item.slug ? `/${item.slug}` : null;
   const primaryHref = item.relation === 'owned' ? editorHref : publicHref;
 

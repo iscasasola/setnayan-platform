@@ -539,13 +539,13 @@ export default async function SuitePage({ params }: Props) {
   /*
     ⭐ THE TWO WEBSITE CHIPS ARE GONE (owner ruling 2026-09-02 — "if it is the
     same then adjust"). They were "Event page" → /website/editor and
-    "Editorial" → /website/editorial, added 2026-08-14 when this card opened
+    "Editorial" → /story, added 2026-08-14 when this card opened
     the `/website` hub: the hub was the map and the chips were the shortcuts.
 
     The card now opens the Event Hub CONTROLLER (`/launch`), and the
     controller's own "set once" strip already carries BOTH of those
     destinations, by name and one tap in — "The page itself" → /website/editor
-    and "The story" → /website/editorial. A chip beside the card would be a
+    and "The story" → /story. A chip beside the card would be a
     second control for a door the card's own landing already shows, which is
     the distinction a couple can see is fake that the 2026-08-14 verdict
     existed to remove. The alternative the ruling allowed — repointing the

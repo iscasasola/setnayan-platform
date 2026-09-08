@@ -122,7 +122,7 @@ test('⭐ LAST MONTH — the story is the live page, and the offers have closed'
 
   const next = resolveHubNextStep(standing, read, guests());
   assert.equal(next.key, 'story');
-  assert.equal(next.ctaPath, '/website/editorial', 'channel 4 opens the existing workroom');
+  assert.equal(next.ctaPath, '/story', 'channel 4 opens the existing workroom');
 
   assert.equal(hubOffersAllowed(standing.phase), false, 'the day-of rows close rather than sell');
 });
@@ -226,14 +226,14 @@ test('zero pending columns keeps the generic "write your story" step', () => {
     guests(),
     editorial({ columnsOn: true, columnsMeasured: true, columnsPending: 0 }),
   );
-  assert.equal(next.ctaPath, '/website/editorial');
+  assert.equal(next.ctaPath, '/story');
 });
 
 test('columns switched off never fabricates a "wrote you a column" step', () => {
   const read = event({ eventDate: '2026-08-02' });
   const standing = resolveHubStanding(read, NOW);
   const next = resolveHubNextStep(standing, read, guests(), editorial({ columnsOn: false }));
-  assert.equal(next.ctaPath, '/website/editorial');
+  assert.equal(next.ctaPath, '/story');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

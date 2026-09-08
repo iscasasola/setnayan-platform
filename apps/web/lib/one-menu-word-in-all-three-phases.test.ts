@@ -20,7 +20,7 @@ import { SIDEBAR_SLOT_KEYS } from '@/app/dashboard/[eventId]/_components/custome
  *
  *   plan   "Launch"     → /website/editor        (the editor, not the address)
  *   dayof  "Services"   → /launch                (the controller, right place)
- *   after  "Editorial"  → /website/editorial     (one room of it)
+ *   after  "Editorial"  → /story     (one room of it)
  *
  * Three names, three destinations, one thing. The vocabulary is owner-locked
  * (2026-08-16: *Event Hub* = the one public address) and the ruling is one slot,
@@ -286,7 +286,7 @@ test('the editor and the editorial maker are still reachable', () => {
       'Hub controller shrank to a stub, or the stripper blanked what this test ' +
       'reads. Either way the assertions below would be checking nothing.',
   );
-  for (const room of ['website/editor', 'website/editorial']) {
+  for (const room of ['website/editor', 'story']) {
     assert.ok(
       src.includes(`/${room}\``),
       `the Event Hub controller no longer links /${room}. It was the ONLY door ` +
@@ -300,7 +300,7 @@ test('the editor and the editorial maker are still reachable', () => {
      maker (added 2026-08-21 after the owner asked "how do i see the editorial
      maker?"). The Hub taking the phone's tab must not undo that. */
   assert.ok(
-    railEntries('after').some((e) => e.href === `${BASE}/website/editorial`),
+    railEntries('after').some((e) => e.href === `${BASE}/story`),
     'the After rail lost its row for the editorial maker',
   );
 });

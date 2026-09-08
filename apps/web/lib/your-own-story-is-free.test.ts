@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const base = '../app/dashboard/[eventId]/website/editorial/';
+const base = '../app/dashboard/[eventId]/story/';
 const read = (f: string) =>
   stripComments(readFileSync(resolve(HERE, base + f), 'utf8'));
 

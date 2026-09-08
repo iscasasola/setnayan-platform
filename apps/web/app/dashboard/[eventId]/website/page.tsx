@@ -28,6 +28,9 @@ import { redirect } from 'next/navigation';
  * privacy · hero-photo · colors · dress-code · what-to-bring · widgets ·
  * site-chrome · living-hero · photo-moments · our-photos · special-message ·
  * stories. They are the controller's doors, not casualties of this merge.
+ * (`editorial` keeps its route as a REDIRECT: the Story Maker moved to
+ * `/dashboard/[eventId]/story` on 2026-09-09 and the stub carries the
+ * bookmarks. The contract above is why it is a stub and not a deletion.)
  *
  * ⚠ NO `metadata` HERE, DELIBERATELY. Exactly one surface may declare the name
  * "Event Hub" now, and it is the controller —

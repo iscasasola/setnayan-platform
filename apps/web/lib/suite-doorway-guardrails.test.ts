@@ -391,7 +391,7 @@ test('the Your Website card carries NO chips, because its landing already does',
     path.join(APP_DIR, 'dashboard', '[eventId]', 'launch', 'page.tsx'),
     'utf8',
   );
-  for (const door of ['/website/editor', '/website/editorial']) {
+  for (const door of ['/website/editor', '/story']) {
     assert.ok(
       controller.includes(`\${base}${door}`),
       `the controller no longer links ${door} — the retired chip was that page's last shortcut`,

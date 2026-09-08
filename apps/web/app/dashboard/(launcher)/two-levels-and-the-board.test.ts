@@ -464,7 +464,7 @@ test('the Untold card itself opens THAT EVENT\'S OWN story page — no separate 
   );
   assert.match(
     src,
-    /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\s*:\s*undefined\s*\}/,
+    /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/story`\s*:\s*undefined\s*\}/,
     "The Untold shelf's cards no longer override their href to that event's own story page.",
   );
   /*
@@ -480,7 +480,7 @@ test('the Untold card itself opens THAT EVENT\'S OWN story page — no separate 
   */
   const overrideCount = (
     src.match(
-      /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\s*:\s*undefined\s*\}/g,
+      /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/story`\s*:\s*undefined\s*\}/g,
     ) ?? []
   ).length;
   assert.equal(

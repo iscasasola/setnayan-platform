@@ -46,7 +46,7 @@ const SKU_CODE = 'EDITORIAL_PRO';
 
 type Props = { params: Promise<{ eventId: string }> };
 
-const EDITOR_HREF = (eventId: string) => `/dashboard/${eventId}/website/editorial`;
+const EDITOR_HREF = (eventId: string) => `/dashboard/${eventId}/story`;
 const WEBSITE_PRO_HREF = (eventId: string) => `/dashboard/${eventId}/studio/website-pro`;
 
 const BENEFITS = [

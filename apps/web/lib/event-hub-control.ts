@@ -413,7 +413,7 @@ export function resolveHubNextStep(
       blurb:
         'Your link keeps going: it becomes the story and the album your guests come back to. Write it while you still remember the small things.',
       ctaLabel: 'Open the story',
-      ctaPath: '/website/editorial',
+      ctaPath: '/story',
     };
   }
 

@@ -92,8 +92,16 @@ export async function notifyWhenEventTypeLaunches(formData: FormData): Promise<N
 // ============================================================================
 
 export type SaveVendorResult =
-  | { status: 'ok'; eventVendorId: string }
-  | { status: 'already_saved'; eventVendorId: string }
+  /**
+   * `eventName` exists because Save is an EVENT-SCOPED action taken from a
+   * screen that has no event on it (owner 2026-09-08: *"Save adds to a specific
+   * event? this is a search result outside an event"*). The action resolves the
+   * couple's PRIMARY host event and writes there. That is a reasonable default
+   * and a terrible secret: a couple planning a wedding and a debut had no way to
+   * learn which one just gained a supplier. The button says it now.
+   */
+  | { status: 'ok'; eventVendorId: string; eventName: string | null }
+  | { status: 'already_saved'; eventVendorId: string; eventName: string | null }
   | { status: 'not_signed_in' }
   | { status: 'no_primary_event' }
   | { status: 'vendor_not_found' }
@@ -147,13 +155,25 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   //    models — event_members (legacy 'couple') and event_moderators
   //    (iteration 0048 multi-host invite path). See
   //    resolvePrimaryHostEvent in @/lib/events for the rule.
-  let primaryEvent: { event_id: string };
+  let primaryEvent: { event_id: string; display_name: string | null };
   try {
     const resolved = await resolvePrimaryHostEvent(admin, user.id);
     if (!resolved) {
       return { status: 'no_primary_event' };
     }
-    primaryEvent = { event_id: resolved.event_id };
+    // The NAME is read here, next to the id it belongs to, so the two can never
+    // describe different events. Best-effort: a save must not fail because a
+    // label could not be read.
+    const { data: named } = await admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', resolved.event_id)
+      .maybeSingle();
+    primaryEvent = {
+      event_id: resolved.event_id,
+      display_name:
+        (named as { display_name?: string | null } | null)?.display_name ?? null,
+    };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown resolution error';
     return { status: 'error', message };
@@ -181,7 +201,11 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     .eq('marketplace_vendor_id', vendorProfileId)
     .maybeSingle();
   if (existing?.vendor_id) {
-    return { status: 'already_saved', eventVendorId: existing.vendor_id };
+    return {
+      status: 'already_saved',
+      eventVendorId: existing.vendor_id,
+      eventName: primaryEvent.display_name,
+    };
   }
 
   // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
@@ -223,7 +247,11 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   revalidatePath(`/v/`);
   revalidatePath(`/dashboard/${primaryEvent.event_id}`);
 
-  return { status: 'ok', eventVendorId: inserted.vendor_id };
+  return {
+    status: 'ok',
+    eventVendorId: inserted.vendor_id,
+    eventName: primaryEvent.display_name,
+  };
 }
 
 // ============================================================================

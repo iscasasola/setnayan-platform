@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolvePrimaryHostEvent, recomputeReceptionAnchor } from '@/lib/events';
+import {
+  resolvePrimaryHostEvent,
+  recomputeReceptionAnchor,
+  userHostsEvent,
+} from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { resolveVendorCategory } from '@/lib/vendor-packages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
@@ -104,6 +108,12 @@ export type SaveVendorResult =
   | { status: 'already_saved'; eventVendorId: string; eventName: string | null }
   | { status: 'not_signed_in' }
   | { status: 'no_primary_event' }
+  /**
+   * An `event_id` was supplied and this user does not host it. Distinct from
+   * every other refusal on purpose — the caller can say "that is not your
+   * event" instead of the catch-all "we couldn't save that vendor".
+   */
+  | { status: 'not_your_event' }
   | { status: 'vendor_not_found' }
   | { status: 'error'; message: string };
 
@@ -155,12 +165,40 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   //    models — event_members (legacy 'couple') and event_moderators
   //    (iteration 0048 multi-host invite path). See
   //    resolvePrimaryHostEvent in @/lib/events for the rule.
+  /**
+   * ── THE EVENT THE CALLER IS STANDING IN WINS ─────────────────────────────
+   * The bench is scoped to ONE event by its own URL. Re-deriving a "primary"
+   * event here meant a pick made on event A's bench could land in event B —
+   * silently, and correctly as far as any test was concerned.
+   *
+   * Measured 2026-09-08 on a real account holding TWO events flagged
+   * `is_primary = true` (nothing enforces one): the resolver sorts primaries
+   * first and takes `sorted[0]`, a stable sort over an unordered query, so
+   * which event won was arbitrary per request.
+   *
+   * `/explore` genuinely has no event on it, so the primary fallback stays for
+   * that caller. An id that IS supplied is a claim from a form, so it is
+   * checked — `userHostsEvent` shares its definition of "hosts" with
+   * `resolvePrimaryHostEvent`, so the two cannot disagree.
+   */
+  const requestedEventId = String(formData.get('event_id') ?? '').trim();
+
   let primaryEvent: { event_id: string; display_name: string | null };
   try {
-    const resolved = await resolvePrimaryHostEvent(admin, user.id);
-    if (!resolved) {
+    let resolvedEventId: string | null = null;
+    if (requestedEventId) {
+      if (!(await userHostsEvent(admin, user.id, requestedEventId))) {
+        return { status: 'not_your_event' };
+      }
+      resolvedEventId = requestedEventId;
+    } else {
+      const resolved = await resolvePrimaryHostEvent(admin, user.id);
+      resolvedEventId = resolved?.event_id ?? null;
+    }
+    if (!resolvedEventId) {
       return { status: 'no_primary_event' };
     }
+    const resolved = { event_id: resolvedEventId };
     // The NAME is read here, next to the id it belongs to, so the two can never
     // describe different events. Best-effort: a save must not fail because a
     // label could not be read.

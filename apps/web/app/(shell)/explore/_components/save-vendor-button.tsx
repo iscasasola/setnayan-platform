@@ -87,6 +87,14 @@ export function SaveVendorButton({
         setState({ kind: 'error', message: 'Vendor unavailable.' });
         return;
       }
+      // `/explore` never sends an event_id, so this branch is unreachable from
+      // here today — handled anyway rather than falling into the catch-all,
+      // because the next caller that DOES send one would otherwise be told
+      // "Save failed" for a cause the action named precisely.
+      if (result.status === 'not_your_event') {
+        setState({ kind: 'error', message: 'That is not one of your events.' });
+        return;
+      }
       setState({ kind: 'error', message: result.message ?? 'Save failed.' });
     });
   }

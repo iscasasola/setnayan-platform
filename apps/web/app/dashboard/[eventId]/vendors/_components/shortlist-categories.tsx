@@ -131,6 +131,7 @@ import {
   INLINE_MORE_INQUIRE_FAILED,
   INLINE_MORE_LOADING,
   INLINE_MORE_SAVE_FAILED,
+  INLINE_MORE_NOT_YOUR_EVENT,
   INLINE_MORE_SEE_ALL,
   INLINE_MORE_SIGNED_OUT,
   INLINE_MORE_UNDO,
@@ -1809,10 +1810,24 @@ export function ShortlistCategories({
     try {
       const fd = new FormData();
       fd.set('vendor_profile_id', v.vendorProfileId);
+      // 🔑 THE BENCH KNOWS ITS EVENT — it is in the URL. Without this the save
+      // re-derived a "primary" event and could land the pick in a DIFFERENT
+      // wedding than the one on screen, silently. (Measured 2026-09-08: an
+      // account with two events flagged is_primary, one of them a "Movie
+      // Night", where which one won was arbitrary per request.)
+      fd.set('event_id', eventId);
       const res = await saveVendorToPicks(fd);
       if (res.status !== 'ok' && res.status !== 'already_saved') {
+        // Say WHICH refusal happened where we can. The catch-all sentence
+        // collapsed four distinct causes — signed out, no event, not your
+        // event, and a real database error — into one, and the action knew the
+        // difference every time.
         setMoreError(
-          res.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_SAVE_FAILED,
+          res.status === 'not_signed_in'
+            ? INLINE_MORE_SIGNED_OUT
+            : res.status === 'not_your_event'
+              ? INLINE_MORE_NOT_YOUR_EVENT
+              : INLINE_MORE_SAVE_FAILED,
         );
         return null;
       }

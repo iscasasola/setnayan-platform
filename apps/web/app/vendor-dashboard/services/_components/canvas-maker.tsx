@@ -1148,7 +1148,7 @@ export function CanvasMaker({
               </span>
             ) : (
               <span style={{ color: 'var(--m-slate-3)' }}>
-                Add a price — couples look for it first. Or leave it as price-on-request.
+                Add a price — couples look for it first. Required to publish.
               </span>
             )}
           </CardRegion>

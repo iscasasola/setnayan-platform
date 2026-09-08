@@ -112,6 +112,8 @@ import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
 import { ManagerTabs } from './manager-tabs';
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { ServiceCardLivePreview } from './service-card-live-preview';
+import { ServiceCardFace } from './service-card-face';
+import { snapshotFromService } from '@/lib/service-card-snapshot';
 import { RefinementsEditor } from './refinements-editor';
 import {
   fetchCategoryChipRefinementsMany,
@@ -946,21 +948,46 @@ export async function VendorServicesManager({
                     opacity: svc.is_active ? 1 : 0.7,
                   }}
                 >
-                  {/* Row header — icon · name · price · flat/pax · assigned · toggle */}
+                  {/* Row header — THE ACTUAL CARD · assigned · reach · toggle
+                      Owner 2026-09-08: *"we want to show the actual service
+                      cards."* This row used to be a grey wrench glyph, the
+                      title and one line of text, while the real card lived only
+                      inside the collapsed editor below. It is the same
+                      `ServiceCardFace` that editor renders, fed from the stored
+                      row instead of from the live form — see
+                      `lib/service-card-snapshot`, which both go through.
+
+                      The supplier-only facts (assigned-to, coverage, hidden,
+                      reach) STAY, under the card. They are not on the couple's
+                      card and never should be, but they are exactly what a shop
+                      scans a list for. */}
                   <div className="flex items-center gap-3 p-4">
-                    <span
-                      aria-hidden
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: 'var(--m-paper-2)', color: 'var(--m-slate)' }}
-                    >
-                      <Icon className="h-5 w-5" strokeWidth={1.75} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                        {svc.title?.trim() || displayServiceLabel(svc.category)}
-                      </p>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <ServiceCardFace
+                        snap={snapshotFromService(svc, {
+                          discounts: svcDiscountList,
+                          inclusions: svcInclusions,
+                          brackets: svcBrackets,
+                        })}
+                        leafPathLabel={
+                          (svc.coverage_id != null
+                            ? coverageLabelById.get(svc.coverage_id)
+                            : null) ?? displayServiceLabel(svc.category)
+                        }
+                        addonsFromPhp={(() => {
+                          const prices = (addonsByService.get(svc.vendor_service_id) ?? [])
+                            .map((a) => a.from_price_php)
+                            .filter((p): p is number => p != null && p > 0);
+                          return prices.length ? Math.min(...prices) : null;
+                        })()}
+                        coverUrl={
+                          svc.primary_photo_r2_key
+                            ? showcaseDisplayUrls[svc.primary_photo_r2_key] ?? null
+                            : null
+                        }
+                      />
                       <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                        {priceLabel} · {paxLabel} · assigned to {branchLabel}
+                        {paxLabel} · assigned to {branchLabel}
                         {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
                           ? ` · ${coverageLabelById.get(svc.coverage_id)}`
                           : ''}

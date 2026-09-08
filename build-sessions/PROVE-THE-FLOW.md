@@ -30,9 +30,22 @@ same rot. Run § 1 before you act on anything here.
 | | who drives it | holds |
 |---|---|---|
 | **Supplier** | the owner, at his own keyboard | `Saysay Live Band & Hosting (FIXTURE)` |
-| **Couple** | the owner's own account so far; a session may drive a couple account | event `Cale & Ice` |
+| **Couple** | **also the owner**, at his own keyboard | event `Cale & Ice` |
 
-🔑 **A SESSION CANNOT TAKE THE SUPPLIER SIDE, AND THIS IS NOT A PREFERENCE.** Claude Code
+🛑 **THE COUPLE SIDE IS AN INTERNAL ADMIN ACCOUNT — CARRY THIS CAVEAT INTO ANY RESULT.**
+Measured 2026-09-08: the couple on `Cale & Ice` is `Ice Casasola`, `account_type = 'admin'`,
+**`is_internal = TRUE`**, and the same user **also owns a vendor shop**. `is_internal` is
+this repo's documented false-green trap, and it is not a general worry — it is specific
+and it names this event. `apps/web/lib/entitlements.ts` says in its own docblock that
+internal *"showcase & demo events (e.g. \"Cale & Ice\")"* are meant to display fully, and
+that **`eventSkuActive()` ORs this in so an internal-hosted event owns any SKU** (host
+resolved server-side by `event_host_is_internal`).
+
+**So completing the flow on `Cale & Ice` proves the CHAT and PROPOSAL path. It proves
+NOTHING about any entitlement, paywall or payment gate — not one of them is exercised.** The last mile needs a genuinely external couple
+account, which only the owner can create.
+
+🔑 **A SESSION CANNOT TAKE EITHER SIDE, AND THIS IS NOT A PREFERENCE.** Claude Code
 does not create accounts, does not sign up, and does not enter or handle passwords — held
 on 2026-09-07 even when the owner said, correctly, that earlier sessions had seeded the
 `testnayan*` rows. Seeding rows in a database is not signing a person up. **The supplier
@@ -148,20 +161,22 @@ the couple's own bill, and the production-build heap floor
 
 ## § 3 · THE RESUME PATH — in order
 
-Steps 1–3 are the owner's; a session cannot do them.
+⚠ **EVERY STEP BELOW IS OWNER-DRIVEN AT A KEYBOARD.** A session's job during all of them
+is to re-measure after each, verify in the database rather than on the screen, and fix
+what the attempt exposes. There is no step here a session performs.
 
-1. **OWNER (supplier) · reply in the thread.** `vendor_replies = 0`; this path has never
+1. **OWNER (supplier) · reply in the thread.** `/vendor-dashboard/messages`. `vendor_replies = 0`; this path has never
    run in production. Verified unblocked: `current_vendor_profile_ids()` resolves from
    `vendor_profiles.user_id`, so the missing-`vendor_team_members` failure that silently
    broke **Accept** cannot repeat here.
-2. **OWNER · create a proposal template**, or the composer says *"Pick a template to send a
+2. **OWNER · create a proposal template** at `/vendor-dashboard/proposals`, or the composer says *"Pick a template to send a
    proposal."* `templates = 0`.
-3. **OWNER · add a payment method.** `payment_methods = 0` — there is nothing for the
+3. **OWNER · add a payment method** at `/vendor-dashboard/payment-options`. `payment_methods = 0` — there is nothing for the
    couple to pay *to*.
-4. **Send a quote.** `proposals` must move off 0.
-5. **Couple accepts, logs a payment.** Watch that the owner is actually notified — the
+4. **OWNER (supplier) · send a quote.** `proposals` must move off 0.
+5. **OWNER (couple) · accept and log a payment.** Watch that the owner is actually notified — the
    notification and the email allowlist are two halves of one mechanism.
-6. **Lock.** `event_vendors.status` reaches `contracted`; the rail's **Locked suppliers**
+6. **OWNER (couple) · lock.** `event_vendors.status` reaches `contracted`; the rail's **Locked suppliers**
    stops reading `0 of 3`.
 7. **BOTH · watch what each side is told.** The failure this codebase keeps producing is
    not a crash — it is **a refused read rendered as an empty state**. If either side sees
@@ -183,8 +198,7 @@ tools"*.
 
 | phase | what | depends on |
 |---|---|---|
-| **1** | The thread stops stacking. Panels mounted **once** above the stream as closed disclosures; only the composer sits under the conversation. | — |
-| **2** | The right column becomes the tools — labelled launchers replacing "Quick actions". | — |
+| **1+2** | ⚠ **ONE CHANGE, NOT TWO.** The thread stops stacking (panels mounted **once** above the stream as closed disclosures) **and** the right column becomes the tool list that opens them. Shipping 1 alone breaks a live control: `chat-info-rail.tsx` already links `#send-proposal`, which would then scroll to a **closed** `<details>` and read as doing nothing. | — |
 | **3** | Two rungs on the existing ladder: `completed`, `cancelled`. | — |
 | **4** | Conversation-list column (three-column layout), filters All / Unanswered / Quoted / Booked / Completed / Cancelled. | 3 |
 | **5** | Setnayan AI draft strip above the composer; editable labels (where `misc` becomes correctable). | — |
@@ -201,7 +215,16 @@ rail carries cheap **launchers**; the tools mount once, above the stream.
 say Booked while no money exists.
 
 ⚠ **Extend `apps/web/lib/vendor-thread-stage.ts`, do not write a new resolver.** It already
-derives `inquiry | quoted | booked | delivered`. Phase 3 adds:
+derives `inquiry | quoted | booked | delivered`.
+
+🪤 **It cannot do it as written.** `DeriveArgs` takes only
+`{ supabase, adminClient, eventId, vendorProfileId }` — **no thread and no
+`inquiry_status`**, which is exactly what `cancelled` needs. Extending the args is part of
+Phase 3, not a surprise. And a SECOND derivation of this predicate already exists,
+list-scoped in one query, in `apps/web/app/vendor-dashboard/clients/surface.tsx` — both
+must move together or the list and the thread will disagree.
+
+Phase 3 adds:
 - `cancelled` ← `chat_threads.inquiry_status` in `declined / withdrawn / expired / displaced`
 - `completed` ← `event_vendors.status = 'complete'` (it already distinguishes `delivered`
   from `complete`, so this is a real fifth rung, not a relabel)
@@ -237,8 +260,15 @@ for g in scripts/lint-*.mjs; do node "$g" >/dev/null || echo "FAIL $g"; done
 # `pnpm lint` does NOT run the repo guards — ~28 are separate CI steps.
 ```
 
+⛔ **READ PROD, NEVER WRITE IT.** The § 1 queries are SELECT-only by design. Writing rows
+into production from a session fabricates the evidence this test exists to produce, and
+hand-writing a row is what caused the missing `vendor_team_members` outage. If a row must
+change, the owner changes it through the product.
+
 **PR workflow (owner-locked):** `gh pr create` then immediately
-`gh pr merge <PR#> --auto --merge`. Never ask whether to auto-merge. Add a
+`gh pr merge <PR#> --auto --merge`. Never ask whether to auto-merge. ⚠ Auto-merge does
+**not** gate on Vercel — that check is not required on `main`, which is how four
+known-broken production builds merged green. Add a
 `changelog.d/<branch-slug>.md` fragment; never edit `CHANGELOG.md` or `STATUS.md` in a
 feature PR.
 
@@ -328,7 +358,9 @@ hours on 2026-09-02. `supabase migration repair` is an **owner** action, never a
 gh pr list --state open --limit 40 --json number,title,headRefName   # who is mid-flight
 git worktree list                                                    # what this machine builds
 git log origin/main --oneline -20                                    # what landed
-node scripts/deploy-drift-doctor.mjs                                 # is prod current (needs VERCEL_TOKEN)
+node scripts/deploy-drift-doctor.mjs   # needs VERCEL_TOKEN, which is NOT set here — it
+                                      # exits with "cannot ask Vercel what is live".
+                                      # Ask the owner to run it; never ask for the token.
 curl -s "https://www.setnayan.com/?cb=$RANDOM" | grep -o 'dpl_[A-Za-z0-9]*' | sort -u
 ```
 

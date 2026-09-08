@@ -12,6 +12,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import type { CustomerEventSummary } from '@/lib/customer-event-summary';
 
 /**
  * Customer info rail beside the vendor⇆couple conversation (PR-3 of the
@@ -43,17 +44,21 @@ export type ChatInfoRailProps = {
     tone: string;
   };
   /**
-   * Event date, ALREADY FORMATTED for display ("December 18, 2026").
-   * ⚠ This said "pre-formatted" while the only caller passed the raw ISO
-   * `event_date` straight from Postgres, so the rail rendered "2026-12-18" —
-   * the exact string the owner asked to be spelled out on 2026-09-08. Format at
-   * the call site with `formatLongDate`; this component does not parse dates.
+   * The customer's event, in one sentence plus the decision rows — built by
+   * `buildCustomerEventSummary` so the sentence, the rows and the header above
+   * them all come from a single resolve. Owner 2026-09-08.
    */
-  eventDate: string | null;
+  summary: CustomerEventSummary;
+  /*
+   * ⚠ `eventDate` AND `paxLabel` USED TO LIVE HERE and are deliberately gone.
+   * Both now arrive inside `summary.facts`, from one builder. `eventDate` was
+   * documented "pre-formatted" while its only caller passed the raw Postgres
+   * value, so the rail rendered "2026-12-18" — a mismatch no type could catch,
+   * both being `string | null`. Two props feeding rows that a third prop also
+   * describes is exactly how one screen came to show a wedding day three ways.
+   */
   /** Service / inquiry category label (or null). */
   service: string | null;
-  /** Live pax estimate, when the page has one. */
-  paxLabel: string | null;
   threadId: string;
   eventId: string;
 };
@@ -99,10 +104,9 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
 function RailBody({
   displayName,
   initials,
+  summary,
   stage,
-  eventDate,
   service,
-  paxLabel,
   threadId,
   eventId,
   headingId,
@@ -134,12 +138,24 @@ function RailBody({
       </div>
 
       <>
-          {/* Event snapshot. Location stays omitted because this page never
-              loads a venue at all — not because anything is being withheld. */}
+          {/* WHO STARTED WHAT, AND WHEN. */}
+          <p className="border-b border-ink/10 px-4 py-4 text-left text-sm leading-relaxed text-ink/75">
+            {summary.sentence}
+          </p>
+
+          {/* The decision rows. `Date`/`Guests` used to be rendered here from
+              their own props; they now come from `summary.facts` so the rail
+              cannot show one date while the sentence beside it shows another.
+              `Service` stays a separate row — it is a fact about THIS thread
+              (the interest chip), not about the couple's event. Exact venue is
+              still absent: that sits behind the agreement ladder in
+              `get_vendor_event_brief`, which the 2026-09-08 ruling did not
+              touch. */}
           <dl className="flex flex-col gap-3 border-b border-ink/10 px-4 py-4 text-left">
-            <SnapRow label="Date" value={eventDate ?? 'Not set yet'} />
+            {summary.facts.map((f) => (
+              <SnapRow key={f.label} label={f.label} value={f.value} />
+            ))}
             {service ? <SnapRow label="Service" value={service} /> : null}
-            {paxLabel ? <SnapRow label="Guests" value={paxLabel} /> : null}
           </dl>
 
           {/* Quick actions — all reuse EXISTING in-thread flows. Send proposal &

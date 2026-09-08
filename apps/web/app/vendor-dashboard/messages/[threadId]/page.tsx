@@ -13,6 +13,8 @@ import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
 import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
 import { FOUNDER_BADGE_LABEL, FOUNDER_INQUIRY_NOTE } from '@/lib/founder-seats';
 import { inquiryCityLabel } from '@/lib/inquiry-customer.server';
+import { buildCustomerEventSummary } from '@/lib/customer-event-summary';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -133,6 +135,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     planProgress,
     reasonCodes,
     { data: existingOutcome },
+    customerPlan,
     ownPaymentMethods,
   ] = await msgTimer.track('thread', () => Promise.all([
     // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
@@ -147,7 +150,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     // notFound) is what authorises the bypass.
     paxAdmin
       .from('events')
-      .select('display_name, event_date, event_type, region, setnayan_ai_active')
+      .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at')
       .eq('event_id', thread.event_id)
       .maybeSingle(),
     // Server-rendered first batch (SSR + SEO). Realtime takes over from here.
@@ -206,6 +209,43 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       .eq('chat_thread_id', threadId)
       .is('vendor_proposal_id', null)
       .maybeSingle(),
+    // WHO STARTED THE EVENT, and HOW FAR ALONG the plan is — the two halves of
+    // the owner's 2026-09-08 summary ("User name create a … event … with X
+    // locked vendors"). Admin-scoped for the same reason as the `events` read
+    // above: a vendor holds no RLS on either table. Best-effort — the summary
+    // degrades field by field rather than costing the page.
+    (async (): Promise<{ hostName: string | null; locked: number | null; total: number | null }> => {
+      try {
+        const [members, vendors] = await Promise.all([
+          paxAdmin
+            .from('event_members')
+            .select('user_id')
+            .eq('event_id', thread.event_id)
+            .limit(1),
+          paxAdmin
+            .from('event_vendors')
+            .select('status')
+            .eq('event_id', thread.event_id),
+        ]);
+        const rows = (vendors.data ?? []) as Array<{ status: string | null }>;
+        const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES);
+        const locked = rows.filter((r) => r.status && confirmed.has(r.status)).length;
+        const hostId = (members.data ?? [])[0]?.user_id as string | undefined;
+        let hostName: string | null = null;
+        if (hostId) {
+          // ⚠ `display_name`, NOT `full_name` — public.users has no `full_name`.
+          const { data: u } = await paxAdmin
+            .from('users')
+            .select('display_name')
+            .eq('user_id', hostId)
+            .maybeSingle();
+          hostName = (u as { display_name: string | null } | null)?.display_name ?? null;
+        }
+        return { hostName, locked, total: rows.length };
+      } catch {
+        return { hostName: null, locked: null, total: null };
+      }
+    })(),
     // Vendor Proposal Maker (§ 9) — the vendor's OWN published payment methods
     // for the in-thread quote's method picker (RLS-scoped). Best-effort: any
     // failure degrades to no picker (the couple falls back to all approved).
@@ -355,7 +395,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // same source the interest chips + cross-sell already use on this page).
   const firstInterest = existingInterests[0];
   const railService = firstInterest ? interestChipLabel(firstInterest) : null;
-  const railPaxLabel = headerPax ? `~${headerPax} planning` : null;
   const railStage = threadIsPendingInquiry
     ? ('inquiry' as const)
     : await deriveThreadStage({
@@ -364,17 +403,26 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         eventId: thread.event_id,
         vendorProfileId: profile.vendor_profile_id,
       });
+  // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
+  // the rows cannot disagree with each other or with the header above them.
+  const customerSummary = buildCustomerEventSummary({
+    hostName: customerPlan.hostName,
+    eventTypeLabel: event?.event_type ? eventTypeLabel(event.event_type) : null,
+    eventName: event?.display_name ?? null,
+    createdAt: event?.created_at ?? null,
+    targetDate: event?.event_date ?? null,
+    pax: headerPax ?? null,
+    location: inquiryCity,
+    lockedVendors: customerPlan.locked,
+    totalVendors: customerPlan.total,
+  });
+
   const railProps = {
     displayName: coupleLabel,
+    summary: customerSummary,
     initials: railInitials,
     stage: { label: THREAD_STAGE_LABEL[railStage], tone: THREAD_STAGE_TONE[railStage] },
-    // SPELLED OUT, not the raw ISO. The rail's prop has always been documented
-    // "pre-formatted", and this call site passed `event.event_date` straight
-    // from Postgres, so the rail rendered "2026-12-18". Owner, 2026-09-08:
-    // "Date should be more specific with Name of date".
-    eventDate: event?.event_date ? formatLongDate(event.event_date) : null,
     service: railService,
-    paxLabel: railPaxLabel,
     threadId,
     eventId: thread.event_id,
   };

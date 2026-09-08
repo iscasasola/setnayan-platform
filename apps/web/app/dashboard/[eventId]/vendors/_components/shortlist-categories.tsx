@@ -186,7 +186,23 @@ import {
 
 const SLCAT_CSS = `
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+  /* --ink-faint was USED SEVEN TIMES IN THIS STYLESHEET AND DEFINED NOWHERE
+     (2026-09-09). An undefined custom property makes the declaration invalid at
+     computed-value time, so every one of those rules fell back to INHERITED ink
+     — the bench's search placeholder rendered in full-strength body ink, which
+     made an empty search box look like a box with a query already typed in it.
+     Same family as the --font-serif and --sn-warn traps this repo has
+     already paid for: rejected, not thrown, and the only symptom is an absence. */
+  --ink-faint:#6B7079;
   --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  /* THE ONLY GOLD THAT MAY CARRY TEXT. globals.css already worked this out and
+     wrote the answer next to the token: #A9834B / #8A6B39 score 3.37:1 / 4.21:1
+     on the pale gold wash — below the 4.5:1 AA floor — and #5C4726 clears it.
+     The bench simply never used it: measured here, gold-deep on this file's own
+     gold tints is 4.18:1 and 4.33:1, and --gold-text is 7.43:1 and 7.70:1.
+     --gold-deep keeps its job as a FILL (white on it is fine); this is for
+     letters. */
+  --gold-text:var(--m-orange-deep,#5C4726);
   --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
   --line-soft:rgba(30,26,18,.07);--card:#fff;
   /* Card EDGE + resting lift (visual parity 2026-07-28).
@@ -371,8 +387,13 @@ html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
 .slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
-.slcat .vc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
+.slcat .vc .bdg.verified{color:#1F5C39;background:rgba(46,125,79,.1)}
+/* OUR OWN NAME WAS THE LEAST READABLE TEXT ON THE BENCH — 3.89:1, worse than
+   either pairing the design review flagged, and behind no flag at all.
+   --mulberry here falls back to ink, but the GLOBAL --m-mulberry wins and is
+   the terracotta #C24E25, so this was terracotta on a 10% ink wash. #A83E19 is
+   the same hue two steps down: 5.09:1. */
+.slcat .vc .bdg.setnayan{color:#A83E19;background:rgba(30, 26, 18,.1)}
 /* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
 .slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
@@ -468,7 +489,7 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 /* 10px, not 9px: at 9px mono these read as texture rather than as the counts
    they are — the reference sets them at 10.5px. */
 .slcat .fsum .s{font-family:var(--mono);font-size:10px;letter-spacing:.03em;border-radius:var(--m-r-full);padding:2.5px 9px;font-weight:700;white-space:nowrap;line-height:1.5}
-.slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-deep)}
+.slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-text)}
 .slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
 .slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
 .slcat .fsum .s.dn{background:rgba(46,125,79,.12);color:#2e7d4f}
@@ -505,7 +526,7 @@ html.dark .slcat .cat-info:hover{background:rgba(251,251,250,.08);color:#C99DB0}
 html.dark .slcat .plan-err{color:#e2b968}
 
 /* "In your plan" marker beside a category name */
-.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 /* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
    presentational chip on the venue category while its shortlist is empty */
 .slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,26,18,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
@@ -603,6 +624,25 @@ html.dark .slcat .fold-ic{background:rgba(226,185,104,.14);color:#e2b968}
 html.dark .slcat .fold.open .fold-ic{background:rgba(226,185,104,.24)}
 html.dark .slcat .cat.open .cat-ic{color:#e2b968}
 html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
+/* THE DARK BLOCK RE-POINTED EVERY NEUTRAL AND FORGOT THE GOLDS (2026-09-09).
+   --paper, --ink, --ink-soft, --line, --card and --edge all get a dark value
+   here; --gold and --gold-deep did not, so every gold thing on the bench kept a
+   colour chosen to read on WHITE and put it on a near-black card. Measured:
+   gold-deep on this file's own gold tints over the dark card is 2.22:1 and
+   2.32:1 — worse than the light-mode failures that started this. #E2B968 is the
+   value this stylesheet already uses for a dark-mode gold two lines above:
+   5.95:1 and 6.21:1. --gold-text is not overridden because #5C4726 is a DARK
+   ink; on a dark card it is the wrong direction entirely, so the dark rules
+   below point those two labels at the light gold instead. */
+html.dark .slcat{--gold:#E2B968;--gold-deep:#E2B968;--gold-text:#E2B968;--ink-faint:#8A8F98}
+/* The three tinted labels, in dark. Each was measured on ITS OWN tint over the
+   dark card, not on the card: a colour on a wash of itself loses about half a
+   point, which is the whole reason this family of bugs exists. */
+html.dark .slcat .vc .bdg.verified{color:#7BD3A0}
+/* ⚠ NO DARK RULE FOR .bdg.setnayan HERE, DELIBERATELY. The rule five lines
+   down already sets it to #C99DB0 and, being later, wins — measured 5.95:1 on
+   its own tint over the dark card, which passes. A rule added here would be
+   DEAD and would read to the next person as if it were doing the work. */
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
 html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
 html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
@@ -649,10 +689,13 @@ html.dark .slcat .mrerr{color:#E39A9A}
   font-family:var(--mono);font-size:9.5px;color:var(--gold-deep);text-decoration:underline;
   text-underline-offset:2px}
 .slcat .fd-more:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:var(--m-r-xs)}
+/* --card, not --m-paper: the app-wide paper has no dark value, so this one
+   panel stayed white in dark mode while its text inherited near-white ink —
+   1.09:1, invisible. */
 .slcat .fd-pop{display:block;margin:4px 0 2px;padding:7px 9px;border:1px solid rgba(169,131,75,.35);
-  border-radius:var(--m-r-sm);background:var(--m-paper,#FBFBFA)}
+  border-radius:var(--m-r-sm);background:var(--card)}
 .slcat .fd-pop-t{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
-  text-transform:uppercase;color:var(--gold-deep);margin-bottom:4px}
+  text-transform:uppercase;color:var(--gold-text);margin-bottom:4px}
 .slcat .fd-chip{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:var(--m-r-full);
   background:rgba(27,26,23,.06);font-family:var(--mono);font-size:9.5px}
 .slcat .fd-out{display:block;margin-top:3px;font-size:9.5px;color:var(--gold-deep)}

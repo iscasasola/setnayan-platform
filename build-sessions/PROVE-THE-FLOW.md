@@ -35,9 +35,14 @@ same rot. Run § 1 before you act on anything here.
 🛑 **THE COUPLE SIDE IS AN INTERNAL ADMIN ACCOUNT — CARRY THIS CAVEAT INTO ANY RESULT.**
 Measured 2026-09-08: the couple on `Cale & Ice` is `Ice Casasola`, `account_type = 'admin'`,
 **`is_internal = TRUE`**, and the same user **also owns a vendor shop**. `is_internal` is
-this repo's documented false-green trap — an internal account can be short-circuited past
-paywalls and entitlement gates. **A booking completed by this account does not prove an
-ordinary couple could complete one.** The last mile needs a genuinely external couple
+this repo's documented false-green trap, and it is not a general worry — it is specific
+and it names this event. `apps/web/lib/entitlements.ts` says in its own docblock that
+internal *"showcase & demo events (e.g. \"Cale & Ice\")"* are meant to display fully, and
+that **`eventSkuActive()` ORs this in so an internal-hosted event owns any SKU** (host
+resolved server-side by `event_host_is_internal`).
+
+**So completing the flow on `Cale & Ice` proves the CHAT and PROPOSAL path. It proves
+NOTHING about any entitlement, paywall or payment gate — not one of them is exercised.** The last mile needs a genuinely external couple
 account, which only the owner can create.
 
 🔑 **A SESSION CANNOT TAKE EITHER SIDE, AND THIS IS NOT A PREFERENCE.** Claude Code

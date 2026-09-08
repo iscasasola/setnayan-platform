@@ -48,6 +48,7 @@ import {
   STRANGER,
   type StoryViewer,
 } from '@/lib/who-can-see-your-story';
+import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
 import { byVoiceWeight, voiceOf, roleLabel } from './voices';
@@ -139,6 +140,27 @@ export async function EditorialContent({
   if (data.audience && !storyAudienceAdmits(data.audience, viewer)) {
     return <GracefulFallback words={w} />;
   }
+
+  /*
+    THE SECOND FENCE, AND IT IS INSIDE THE FIRST. The gate above answers "may
+    this viewer read this story?" — one audience for the whole thing. This one
+    answers "which LAYERS of it?", and it has to exist because the by-the-minute
+    page grows in public: the invitation, the room and the live broadcast are the
+    host's own and are readable while the day happens, so passing the first gate
+    stops meaning "everything here is yours to read".
+
+    🔴 IT REPLACES THE PAYLOAD, NOT THE MARKUP. The design review found the
+    photos correctly withheld and the SHAPE of them still public — the index, the
+    dial's bar heights, the minute sheet, the cover's counts, the Relive player
+    and the closing words. Every one of those is a value in `data`, so the fix is
+    here, before a single component is handed it, and not a stylesheet rule that
+    leaves the same numbers in the served HTML.
+
+    ⚖ IT CAN ONLY EVER REMOVE. `redactStoryLayers` has no branch that adds
+    anything, so it cannot widen what the gate above already closed — and a
+    viewer who may read every layer gets the identical object back.
+  */
+  data = redactStoryLayers(data, viewer);
 
   let copy: ComposedCopy;
   try {

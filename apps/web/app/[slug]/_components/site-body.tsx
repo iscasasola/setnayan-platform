@@ -48,6 +48,7 @@ import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
+import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
 import { SupplierRibbon } from './supplier-ribbon';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
@@ -460,6 +461,30 @@ export async function SiteBody({
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
 
+  /*
+    WHO IS ASKING — resolved ONCE, here, from the same facts this page already
+    established for its lock screen and its ribbon.
+
+    ⚠ IT USED TO BE BUILT AT THE `<EditorialContent>` CALL, AND ONE READER GOT
+    THERE FIRST. The gallery-anchor probe below asks the story loader how many
+    photos an edition has, ~120 lines earlier, and that answer decides whether a
+    **Gallery tab appears in the menu** — so a stranger before publish was told
+    the guests had been shooting by a tab that only exists when they have. The
+    photos were correctly withheld and the SHAPE of them was not, which is the
+    exact finding this build closes. One viewer, resolved before its first
+    reader, is what stops a second reader appearing above the definition again.
+  */
+  const storyViewer = {
+    isHost: viewerIsHost,
+    // ⚖ THROUGH THE ONE SHARED RULE (`_lib/belongs-to-this-event.ts`), because
+    // the print keepsake at /{slug}/print asks the same question and once
+    // answered it with a hardcoded `true`.
+    belongsToEvent: belongsToThisEvent({
+      holdsGuestPass: identity.kind === 'guest',
+      isBookedSupplier: vendorCapability !== null,
+    }),
+  };
+
   // Open-browse PR7 — per-widget content presence for the shared hasContent()
   // predicate. Only consulted when `event.website_open_browse` is TRUE; a
   // widget the couple kept visible but that has no content this event is
@@ -537,7 +562,12 @@ export async function SiteBody({
   let recapHasPhotos = false;
   if (recapBody) {
     try {
-      const recap = await loadEditorialData(event.event_id);
+      // Redacted with the SAME viewer the story itself is rendered for: this
+      // probe counts photo blocks, and a count of a layer is the layer.
+      const recap = redactStoryLayers(
+        await loadEditorialData(event.event_id),
+        storyViewer,
+      );
       recapHasPhotos = recap
         ? editorialShowsPhotos(
             editorialPhotoBlocks({
@@ -657,19 +687,7 @@ export async function SiteBody({
             recognises: a host, a guest with a seat or a redeemed invitation, and
             a supplier who worked the day.
           */
-          viewer={{
-            isHost: viewerIsHost,
-            // ⚖ THROUGH THE ONE SHARED RULE (`_lib/belongs-to-this-event.ts`),
-            // because the print keepsake at /{slug}/print asks the same question
-            // and answered it with a hardcoded `true` — so a stranger could
-            // print a story the couple had kept to the people of their day.
-            // Two surfaces, each resolving its own facts, one rule between them:
-            // neither can hold a different opinion about who belongs here.
-            belongsToEvent: belongsToThisEvent({
-              holdsGuestPass: identity.kind === 'guest',
-              isBookedSupplier: vendorCapability !== null,
-            }),
-          }}
+          viewer={storyViewer}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />

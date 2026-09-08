@@ -220,10 +220,15 @@ test('a bar that has not happened yet has NO height — for everyone, the host i
   // Not a privacy rule. A bar's height is data about a minute, and that minute
   // has not occurred; drawing one there is a lie, not a leak.
   const drawn = drawnBins(BINS, { now: 2_000, status: 'published', viewer: HOST });
-  assert.equal(drawn[2].future, true);
-  assert.equal(drawn[2].height, null, 'a future minute was given a height');
-  assert.equal(drawn[2].captures, null, 'a future minute was given a count');
-  assert.equal(drawn[0].height, 41, 'a minute that happened lost its height');
+  assert.equal(drawn.length, 3);
+  const [past, edge, future] = drawn;
+  assert.equal(future?.future, true);
+  assert.equal(future?.height, null, 'a future minute was given a height');
+  assert.equal(future?.captures, null, 'a future minute was given a count');
+  assert.equal(past?.height, 41, 'a minute that happened lost its height');
+  // `now` itself is not the future — a bin AT the needle has happened.
+  assert.equal(edge?.future, false);
+  assert.equal(edge?.height, 27);
 });
 
 test('a stranger before publish gets a flat baseline across the whole dial', () => {

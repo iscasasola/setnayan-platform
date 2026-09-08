@@ -209,6 +209,20 @@ export type ImpactMetrics = {
 // (fail-closed) — the words are still approved, so the card renders text-only.
 export type KwentoQuote = {
   body: string;
+  /**
+   * The MINUTE this belongs to — the anchor capture's `captured_at`, verbatim.
+   *
+   * 🔑 THE STORY FILES EVERYTHING UNDER THE MOMENT IT HAPPENED. Without this,
+   * a voice can only ever be shown in a wall of voices at the bottom of the
+   * page — never beside the minute it is about, which is the whole design.
+   * It is the anchor's shutter time, not the moment the words were typed:
+   * somebody writes their wish on the drive home, and it still belongs to the
+   * first dance.
+   *
+   * Null when the anchor did not resolve (blocked, hidden, or never gated) —
+   * the words are still approved and still render, just not under a minute.
+   */
+  atIso: string | null;
   author: string | null;
   role: string | null;
   media: { type: 'photo' | 'clip'; url: string; posterUrl?: string | null } | null;
@@ -309,6 +323,20 @@ export { readCustomColumns };
 // on the samples and resolves to [] for real events.
 /** One answered challenge on the story: the question, and what they did about it. */
 export type ChallengeAnswer = {
+  /**
+   * The MINUTE this belongs to — the anchor capture's `captured_at`, verbatim.
+   *
+   * 🔑 THE STORY FILES EVERYTHING UNDER THE MOMENT IT HAPPENED. Without this,
+   * a voice can only ever be shown in a wall of voices at the bottom of the
+   * page — never beside the minute it is about, which is the whole design.
+   * It is the anchor's shutter time, not the moment the words were typed:
+   * somebody writes their wish on the drive home, and it still belongs to the
+   * first dance.
+   *
+   * Null when the anchor did not resolve (blocked, hidden, or never gated) —
+   * the words are still approved and still render, just not under a minute.
+   */
+  atIso: string | null;
   /** The question as a READER should see it — tokens already resolved. */
   prompt: string;
   mediaType: 'photo' | 'clip';
@@ -356,6 +384,21 @@ export type ChapterMedia = {
 // supporting photos.
 export type DayChapter = {
   time: string | null;
+  /**
+   * The lead medium's `captured_at`, verbatim — the raw instant behind `time`.
+   *
+   * 🔑 `time` IS A SENTENCE, NOT A TIME. It is "4:12 in the afternoon", already
+   * formatted, already in the venue's words — and the story's clock has to
+   * PLACE this chapter: which Manila calendar day it belongs to, where on that
+   * day's segment its bar sits, how wide the gap to the next minute is, and
+   * which broadcast session it is timecoded into. Every one of those is
+   * arithmetic on an instant, and parsing it back out of a kicker is the shape
+   * that puts a 1 a.m. capture on the wrong day.
+   *
+   * Null for the legacy curated-essay path, which carries no timeline identity
+   * — exactly like `leadId`, and for the same reason.
+   */
+  atIso: string | null;
   title: string | null;
   writeUp: string | null;
   leadId: string | null;
@@ -387,6 +430,17 @@ export type EditorialData = {
    *  the sample (whose detail page owns its own share bar). */
   slug: string | null;
   eventDate: string | null; // ISO
+  /**
+   * Last day of a multi-day event, inclusive (`events.event_end_date`).
+   *
+   * 🔑 IT WAS ALREADY BEING READ AND THROWN AWAY. `loadEditorialData` selects
+   * it to bound the timeline (08 step 0.4) and then dropped it on the floor,
+   * so every consumer that needs to know how many days this celebration
+   * covers — the story's clock draws ONE SEGMENT PER CALENDAR DAY — would
+   * have had to ask the database a second time and could have got a
+   * different answer. Null = a single day.
+   */
+  eventEndDate: string | null;
   eventDateFormatted: string | null; // en-PH long form
   // Masthead dateline: this wedding's number within its AWARDS CYCLE (the Nth
   // Setnayan wedding of the cycle, by date). The edition year runs Nov 18 → Nov
@@ -1910,6 +1964,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .filter((m): m is ChapterMedia => Boolean(m));
       autoChapters.push({
         time: formatClockKicker(p.lead.tsRaw),
+        atIso: p.lead.tsRaw,
         // The couple named this moment months ago. A chapter whose lead photo
         // falls inside "Ceremony" is called Ceremony, not "Moment 3". A photo in
         // the gaps keeps `null`, exactly as every chapter did before.
@@ -1953,6 +2008,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       // `time`/`leadId` are null (curated URLs carry no timeline identity here).
       dayChapters = essayPhotos.map((url) => ({
         time: null,
+        atIso: null,
         title: null,
         writeUp: null,
         leadId: null,
@@ -1966,6 +2022,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     // essay as chapters (matches prior behaviour).
     dayChapters = essayPhotos.map((url) => ({
       time: null,
+      atIso: null,
       title: null,
       writeUp: null,
       leadId: null,
@@ -2074,7 +2131,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .from('papic_guest_captures')
         .select(
           'capture_id, media_type, display_r2_key, clip_web_r2_key, poster_r2_key, ' +
-            'moderation_state, hidden_at, consent_to_public',
+            'moderation_state, hidden_at, consent_to_public, captured_at',
         )
         .in('capture_id', captureIds)
         .is('hidden_at', null)
@@ -2123,6 +2180,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
               organizer: organizerNoun,
               eventWord: eventNoun,
             }),
+            atIso: asString(cap.captured_at),
             mediaType: isClip ? 'clip' : 'photo',
             url,
             posterUrl: isClip
@@ -2188,7 +2246,13 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
 
       // A resolved anchor's raw media (r2 keys + type), keyed by anchor id. Only
       // rows that PASS the public gate for their table land here.
-      type AnchorMedia = { type: 'photo' | 'clip'; key: string; posterKey: string | null };
+      type AnchorMedia = {
+        type: 'photo' | 'clip';
+        key: string;
+        posterKey: string | null;
+        /** The anchor's shutter time — see `KwentoQuote.atIso`. */
+        capturedAt: string | null;
+      };
       const photoAnchors = new Map<string, AnchorMedia>();
       const captureAnchors = new Map<string, AnchorMedia>();
 
@@ -2200,7 +2264,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         try {
           const { data: pRows } = await admin
             .from('papic_photos')
-            .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, photo_type, moderation_state')
+            .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, photo_type, moderation_state, captured_at')
             .eq('event_id', eventId)
             .in('photo_id', Array.from(photoAnchorIds))
             .is('hidden_at', null)
@@ -2224,7 +2288,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
             // still approved, but the opted-out guest's media never renders.
             const shown = publicKeyForCapture(consentVeto, id, key);
             if (!id || !shown) continue;
-            photoAnchors.set(id, { type, key: shown, posterKey: asString(p.poster_r2_key) });
+            photoAnchors.set(id, {
+              type,
+              key: shown,
+              posterKey: asString(p.poster_r2_key),
+              capturedAt: asString(p.captured_at),
+            });
           }
         } catch {
           // table/column absent → these anchors resolve to text-only
@@ -2241,7 +2310,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         try {
           const { data: cRows } = await admin
             .from('papic_guest_captures')
-            .select('capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, display_r2_key, poster_r2_key, media_type, moderation_state')
+            .select('capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, display_r2_key, poster_r2_key, media_type, moderation_state, captured_at')
             .eq('event_id', eventId)
             .in('capture_id', Array.from(captureAnchorIds))
             .eq('consent_to_public', true)
@@ -2266,7 +2335,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
                   })
                 : asString(c.display_r2_key) ?? asString(c.r2_object_key);
             if (!id || !key) continue;
-            captureAnchors.set(id, { type, key, posterKey: asString(c.poster_r2_key) });
+            captureAnchors.set(id, {
+              type,
+              key,
+              posterKey: asString(c.poster_r2_key),
+              capturedAt: asString(c.captured_at),
+            });
           }
         } catch {
           // table/column absent → these anchors resolve to text-only
@@ -2294,6 +2368,18 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         });
       }
 
+      /** The anchor's shutter time, whether or not its media resolved. */
+      const anchorMinute = (table: string | null, id: string | null): string | null => {
+        if (!id) return null;
+        const a =
+          table === 'papic_photos'
+            ? photoAnchors.get(id)
+            : table === 'papic_guest_captures'
+              ? captureAnchors.get(id)
+              : undefined;
+        return a?.capturedAt ?? null;
+      };
+
       const resolveAnchor = (
         table: string | null,
         id: string | null,
@@ -2320,6 +2406,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         const guestId = asString(r.guest_id);
         kwentoQuotes.push({
           body,
+          atIso: anchorMinute(asString(r.source_table), asString(r.source_id)),
           author: guestId ? nameByGuest.get(guestId) ?? null : null,
           role: null,
           media: resolveAnchor(asString(r.source_table), asString(r.source_id)),
@@ -2516,6 +2603,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     firstNames: deriveFirstNames(displayName),
     slug: asString(event.slug),
     eventDate,
+    eventEndDate,
     eventDateFormatted: formatPhDate(eventDate),
     editionNo,
     venueName,
@@ -3022,6 +3110,7 @@ function mariaAndJuan(): EditorialData {
     firstNames: 'Maria & Juan',
     slug: null, // sample has no real event row → editorial render skips the share bar (the /realstories/[slug] detail page owns it)
     eventDate: '2026-02-14',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-02-14'),
     editionNo: 1,
     venueName: 'a garden estate overlooking Taal',
@@ -3111,6 +3200,7 @@ function mariaAndJuan(): EditorialData {
     dayChapters: [
       {
         time: '11:20 in the morning',
+        atIso: '2026-02-14T11:20:00+08:00',
         title: 'The Getting Ready',
         writeUp:
           'The suite smelled of gardenias and hairspray. Maria sat still while her ninang pinned the last sprig into place, and for one quiet minute nobody said anything at all — the calm before a very loud, very happy afternoon.',
@@ -3122,6 +3212,7 @@ function mariaAndJuan(): EditorialData {
       },
       {
         time: '2:38 in the afternoon',
+        atIso: '2026-02-14T14:38:00+08:00',
         title: 'The Garden March',
         writeUp:
           'The path was lined white with blooms and the whole lawn rose at once. She walked it slowly, on her father’s arm, past every face that had ever mattered — and by the time she reached Juan, neither of them was hiding the tears.',
@@ -3132,6 +3223,7 @@ function mariaAndJuan(): EditorialData {
       },
       {
         time: '3:04 in the afternoon',
+        atIso: '2026-02-14T15:04:00+08:00',
         title: 'The Vows',
         writeUp:
           'They traded promises in a near-whisper, foreheads almost touching. The front rows swore they could hear the kiss. Taal held the light behind them like a held breath, and then everyone was on their feet.',
@@ -3143,6 +3235,7 @@ function mariaAndJuan(): EditorialData {
       },
       {
         time: '7:12 in the evening',
+        atIso: '2026-02-14T19:12:00+08:00',
         title: 'The First Dance',
         writeUp:
           'Under strings of warm light they danced to the kundiman that has followed them since a despedida in Quezon City. Slow, unhurried, foreheads together again — the same two people, a lifetime further in.',
@@ -3153,6 +3246,7 @@ function mariaAndJuan(): EditorialData {
       },
       {
         time: '9:47 in the evening',
+        atIso: '2026-02-14T21:47:00+08:00',
         title: 'The Money Dance',
         writeUp:
           'Titos and titas pinned bills to the couple while the band played faster and faster. Somebody’s lolo out-danced everyone half his age. The lawn was pure noise and light, and nobody was in any hurry for the day to end.',
@@ -3172,9 +3266,9 @@ function mariaAndJuan(): EditorialData {
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/maria-juan-v2.jpg', boomerangUrl: null, caption: 'Caught laughing in the garden' },
     ],
     kwentoQuotes: [
-      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', author: 'Tita Bing', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g1.jpg' } },
-      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', author: 'Kuya Marco', role: null, media: null },
-      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', author: 'Andrea', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g2.jpg' } },
+      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', atIso: '2026-02-14T14:38:00+08:00', author: 'Tita Bing', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g1.jpg' } },
+      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', atIso: '2026-02-14T15:04:00+08:00', author: 'Kuya Marco', role: null, media: null },
+      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', atIso: '2026-02-14T19:12:00+08:00', author: 'Andrea', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g2.jpg' } },
     ],
     watchFilmEmbedUrl: null,
   };
@@ -3190,6 +3284,7 @@ function jackAndJill(): EditorialData {
     firstNames: 'Jack & Jill',
     slug: null,
     eventDate: '2026-04-18',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-04-18'),
     editionNo: 3,
     venueName: 'a west-facing cove on the Cebu coast',
@@ -3291,6 +3386,7 @@ function johnAndJane(): EditorialData {
     firstNames: 'John & Jane',
     slug: null,
     eventDate: '2026-03-07',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-03-07'),
     editionNo: 2,
     venueName: 'a rooftop terrace above the Manila skyline',
@@ -3392,6 +3488,7 @@ function peterAndMary(): EditorialData {
     firstNames: 'Peter & Mary',
     slug: null,
     eventDate: '2026-05-23',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-05-23'),
     editionNo: 5,
     venueName: 'a ridge-top estate garden in Tagaytay',
@@ -3494,6 +3591,7 @@ function jackAndRose(): EditorialData {
     firstNames: 'Jack & Rose',
     slug: null,
     eventDate: '2026-05-09',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-05-09'),
     editionNo: 4,
     venueName: 'a pine-forest clearing in the Cordilleras',
@@ -3604,6 +3702,7 @@ function sofiaReyes(): EditorialData {
     firstNames: 'Sofia Reyes',
     slug: null, // sample has no real event row → editorial render skips the share bar
     eventDate: '2026-03-14',
+    eventEndDate: '2026-03-15',
     eventDateFormatted: formatPhDate('2026-03-14'),
     editionNo: 6,
     venueName: 'a grand ballroom in the heart of Makati',
@@ -3702,6 +3801,7 @@ function sofiaReyes(): EditorialData {
     dayChapters: [
       {
         time: '6:40 in the evening',
+        atIso: '2026-03-14T18:40:00+08:00',
         title: 'The Staircase Entrance',
         writeUp:
           'The doors opened on the first chord and Sofia came down the staircase in the rose-gold gown her lola helped choose. Two hundred people rose without being asked to — the night’s first, unplanned standing ovation.',
@@ -3712,6 +3812,7 @@ function sofiaReyes(): EditorialData {
       },
       {
         time: '7:25 in the evening',
+        atIso: '2026-03-14T19:25:00+08:00',
         title: 'The Eighteen Roses',
         writeUp:
           'Her father first, then grandfathers, uncles, cousins, and the family friends who taught her to bike, to swim, to drive. Each rose came with a dance and a sentence or two — some rehearsed, the best ones not.',
@@ -3722,6 +3823,7 @@ function sofiaReyes(): EditorialData {
       },
       {
         time: '8:10 in the evening',
+        atIso: '2026-03-14T20:10:00+08:00',
         title: 'The Cotillion',
         writeUp:
           'Eight couples, three months of Sunday rehearsals, one waltz that broke into a track nobody over forty recognized and everybody under twenty knew by heart. It brought the entire ballroom to its feet.',
@@ -3732,6 +3834,7 @@ function sofiaReyes(): EditorialData {
       },
       {
         time: '9:05 in the evening',
+        atIso: '2026-03-14T21:05:00+08:00',
         title: 'The Eighteen Candles',
         writeUp:
           'The women who raised her — mother, lola, titas, teachers, her best friend since grade two — each lit a candle and left a wish. By the twelfth, half the ballroom had given up pretending they weren’t crying.',
@@ -3742,6 +3845,7 @@ function sofiaReyes(): EditorialData {
       },
       {
         time: '12:20 past midnight',
+        atIso: '2026-03-15T00:20:00+08:00',
         title: 'The Last Dance',
         writeUp:
           'The formal program ended at eleven; nobody left. The last picture of the night is Sofia — barefoot, crown slightly crooked — dancing with her lola to a song older than both of them put together.',
@@ -3759,9 +3863,9 @@ function sofiaReyes(): EditorialData {
       { vendorName: 'Rose & Gold Studios', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/sofia-reyes-makati.jpg', boomerangUrl: '/realstories/clips/sofia-staircase.mp4', caption: 'Down the staircase, on the first chord' },
     ],
     kwentoQuotes: [
-      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', author: 'Lola Remedios', role: null, media: { type: 'clip', url: '/realstories/clips/sofia-staircase.mp4', posterUrl: '/realstories/sofia-reyes-c1.jpg' } },
-      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', author: 'Bea', role: null, media: null },
-      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', author: 'Mama & Papa', role: null, media: { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg' } },
+      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', atIso: '2026-03-14T18:40:00+08:00', author: 'Lola Remedios', role: null, media: { type: 'clip', url: '/realstories/clips/sofia-staircase.mp4', posterUrl: '/realstories/sofia-reyes-c1.jpg' } },
+      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', atIso: '2026-03-14T20:10:00+08:00', author: 'Bea', role: null, media: null },
+      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', atIso: '2026-03-14T19:25:00+08:00', author: 'Mama & Papa', role: null, media: { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg' } },
     ],
     watchFilmEmbedUrl: null,
   };

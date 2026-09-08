@@ -12,7 +12,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
   storyAudienceOf,
   storyIsShared,
@@ -31,32 +30,7 @@ import {
   type Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
-
-async function hostUserId(eventId: string): Promise<string | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-  if (moderator) return user.id;
-
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  return legacy?.member_type === 'couple' ? user.id : null;
-}
+import { hostUserId } from './_lib/host-authority';
 
 export type EditorialEditorInput = {
   headline: string;

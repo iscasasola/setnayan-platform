@@ -17,6 +17,9 @@ import {
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { loadDesk } from './_lib/load-desk';
+import { hostUserId } from './_lib/host-authority';
+import { TheDesk } from './_components/the-desk';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteUrl } from '@/lib/social/urls';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -37,7 +40,11 @@ type LandingVisibility = 'public' | 'unlisted' | 'private';
  * the section map. Event is read under the host session (RLS-scoped); the
  * composer-owned event_editorial row is read via the admin client.
  */
-export const metadata = { title: 'Editorial' };
+// "Editorial" is retired from CUSTOMER language (design decision 2026-09-07):
+// the surface is the story, the tool is the Story Maker. The word survives only
+// as internal vocabulary already baked into table and function names
+// (`event_editorial`, `EditorialSections`) — renaming those is not this change.
+export const metadata = { title: 'Story Maker' };
 
 function str(v: unknown): string {
   return typeof v === 'string' ? v : '';
@@ -258,6 +265,27 @@ export default async function EditorialEditorPage({
   }
 
   /*
+    THE DESK (08 step 1.2). `loadDesk` reads with the ADMIN client — the four
+    sources disagree about who their RLS admits, so a co-host reading through
+    their own session would get a desk silently missing two of them. That makes
+    proving authority HERE the whole fence for this read, so it is proved
+    explicitly and through the caller's OWN session (`hostUserId`) rather than
+    inferred from the RLS-scoped `events` read above: that read admits any event
+    member, and a guest who scanned the QR is one.
+
+    Failing to a NULL desk rather than throwing: a desk that cannot load must
+    not take the shipped editor down with it.
+  */
+  let desk: Awaited<ReturnType<typeof loadDesk>> | null = null;
+  if (await hostUserId(eventId)) {
+    try {
+      desk = await loadDesk(eventId);
+    } catch {
+      desk = null;
+    }
+  }
+
+  /*
     ⚠ THE EVENT HUB PRO WALL IS RETIRED (owner 2026-08-21):
     "make this feature part of free and not part of the event hub pro."
 
@@ -350,8 +378,24 @@ export default async function EditorialEditorPage({
       </Link>
 
       <PageMasthead
-        title="Editorial"
+        title="Story Maker"
       />
+
+      {/*
+        THE DESK (08 step 1.2) — one queue over four sources, above the editor
+        because it is the first of the six steps and the one that gates
+        publishing. It renders ONLY for a proved host: `loadDesk` reads with the
+        admin client, so its authority cannot be left to the page's own
+        RLS-scoped event read.
+      */}
+      {desk ? (
+        <TheDesk
+          eventId={eventId}
+          items={desk.items}
+          unreadable={desk.unreadable}
+          lettersDark={desk.lettersDark}
+        />
+      ) : null}
 
       {!draftMeasured ? (
         <p

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight, MapPin, MessageSquare, Users } from 'lucide-react';
 
 import { formatBlockTimeRange } from '@/lib/schedule';
+import { displayServiceLabel } from '@/lib/vendors';
 import { SUPPLIER_DESK_ANCHOR } from './supplier-ribbon';
 import { PRIVATE_LINE_NOTE, type SupplierDeskStage } from '@/lib/supplier-desk-rule';
 import {
@@ -154,7 +155,7 @@ export function SupplierDesk({
             <ConsoleHeading as="h2">{desk.businessName}</ConsoleHeading>
             {desk.bookedCategories.length > 0 ? (
               <p className="text-sm text-ink/70">
-                Booked here for {desk.bookedCategories.join(' · ').replace(/_/g, ' ')}.
+                Booked here for {desk.bookedCategories.map(displayServiceLabel).join(' · ')}.
               </p>
             ) : null}
             {/* THE DATE, AND HOW FAR OFF IT IS. Not on the day itself — a desk
@@ -358,7 +359,7 @@ export function SupplierDesk({
                   >
                     <span className="font-medium text-ink">{v.vendorName}</span>
                     <span className="text-xs text-ink/60">
-                      · {v.category.replace(/_/g, ' ')}
+                      · {displayServiceLabel(v.category)}
                     </span>
                   </li>
                 ))}

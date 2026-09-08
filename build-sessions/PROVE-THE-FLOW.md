@@ -198,8 +198,8 @@ tools"*.
 
 | phase | what | depends on |
 |---|---|---|
-| **1+2** | ⚠ **ONE CHANGE, NOT TWO.** The thread stops stacking (panels mounted **once** above the stream as closed disclosures) **and** the right column becomes the tool list that opens them. Shipping 1 alone breaks a live control: `chat-info-rail.tsx` already links `#send-proposal`, which would then scroll to a **closed** `<details>` and read as doing nothing. | — |
-| **3** | Two rungs on the existing ladder: `completed`, `cancelled`. | — |
+| **1+2** | ✅ **BUILT AND MERGED — PR [#5327](https://github.com/iscasasola/setnayan-platform/pull/5327). Do NOT rebuild it.** Panels mount once above the stream as closed disclosures; the right column is the labelled tool list that opens them. Shipped as ONE change because shipping 1 alone breaks **four** live controls, not the one this row named: the rail's `#send-proposal` **and** the client brief's Quote / Call / Log-payment deep links. ⚠ Verify with `gh pr view 5327 --json state,mergedAt`. | — |
+| **3** | ✅ **BUILT — PR [#5328](https://github.com/iscasasola/setnayan-platform/pull/5328). Do NOT rebuild it.** The ladder is now Inquiry · Quoted · Booked · **Completed** · **Cancelled**. ⚠ Verify with `gh pr view 5328 --json state,mergedAt`. | — |
 | **4** | Conversation-list column (three-column layout), filters All / Unanswered / Quoted / Booked / Completed / Cancelled. | 3 |
 | **5** | Setnayan AI draft strip above the composer; editable labels (where `misc` becomes correctable). | — |
 
@@ -217,17 +217,32 @@ say Booked while no money exists.
 ⚠ **Extend `apps/web/lib/vendor-thread-stage.ts`, do not write a new resolver.** It already
 derives `inquiry | quoted | booked | delivered`.
 
-🪤 **It cannot do it as written.** `DeriveArgs` takes only
-`{ supabase, adminClient, eventId, vendorProfileId }` — **no thread and no
-`inquiry_status`**, which is exactly what `cancelled` needs. Extending the args is part of
-Phase 3, not a surprise. And a SECOND derivation of this predicate already exists,
-list-scoped in one query, in `apps/web/app/vendor-dashboard/clients/surface.tsx` — both
-must move together or the list and the thread will disagree.
+🪤 **It could not do it as written**, and both halves of that warning were right: `DeriveArgs`
+took no `inquiry_status`, and the SECOND derivation in
+`apps/web/app/vendor-dashboard/clients/surface.tsx` had to move with it. Both done in #5328 —
+the ordering is ONE pure function (`resolveThreadStage`) and "is it finished?" ONE predicate
+(`rowReadsCompleted`), shared by the pill and the list.
 
-Phase 3 adds:
+Phase 3 shipped:
 - `cancelled` ← `chat_threads.inquiry_status` in `declined / withdrawn / expired / displaced`
-- `completed` ← `event_vendors.status = 'complete'` (it already distinguishes `delivered`
-  from `complete`, so this is a real fifth rung, not a relabel)
+- ~~`completed` ← `event_vendors.status = 'complete'` (a real fifth rung, not a relabel)~~
+  🛑 **THAT WAS WRONG AND WOULD HAVE SHIPPED A RUNG NOBODY CAN REACH.** Measured against prod
+  2026-09-09 before building it: **nothing writes `'complete'`** — no application writer
+  anywhere in `app/` or `lib/`, only read predicates and one legacy backfill in the migrations
+  — and prod holds `considering=33 · contracted=10 · deposit_paid=3` with **zero** rows at
+  `delivered` or `complete`. The sixth "gate with no handle", caught before it shipped.
+  🔑 **An enum HAVING a value is not evidence anything can produce it** — which is exactly the
+  argument this row used.
+  ✅ What it reads instead, both measured live: the **completion handshake** (`confirmed` /
+  `auto_confirmed` / `customer_confirmed_received_at` — prod `awaiting_vendor=45 ·
+  confirmed=1`) and **`status` `delivered`/`complete`**, written by the couple-side auto-flip
+  24h after the event, which touches no handshake column. So it is a **relabel plus a
+  widening**, not a fifth rung.
+🔒 **AND THE LIST'S PROBE MUST USE THE SERVICE ROLE.** `event_vendors` carries four SELECT
+policies and **not one admits a supplier** (couple · couple-write · moderator ·
+moderator-write, read out of prod). A supplier's own session reads **zero rows**, so the
+obvious query reports every booking as unfinished forever and looks exactly like *"nobody has
+finished a job yet."*
 
 **Three mechanisms already track thread state and none spells the ladder alone** —
 `chat_threads.inquiry_status` (pending · accepted · declined · displaced · withdrawn ·

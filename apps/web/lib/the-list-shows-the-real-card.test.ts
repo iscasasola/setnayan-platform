@@ -90,17 +90,21 @@ test('a card with no price still draws — it does not throw or blank', () => {
   assert.match(snap.priceText, /₱—/, 'a priceless card lost its "from ₱—" placeholder');
 });
 
-test('the LIST renders ServiceCardFace — not a hand-drawn row', () => {
+test('the LIST renders the COUPLE\'S card, built by the shared builder', () => {
+  // Superseded the interim step: the list first showed `ServiceCardFace` (the
+  // vendor-side approximation) instead of a wrench glyph, and now shows the
+  // real thing — owner: *"there is already a template of how a service card
+  // looks like. all we want is for that to show instead of this."*
   const manager = src('../app/vendor-dashboard/services/_components/services-manager.tsx');
+  assert.match(manager, /<ServiceCardView\b/, 'the card list stopped rendering the couple’s card');
   assert.match(
     manager,
-    /<ServiceCardFace\b/,
-    'the card list stopped rendering the real card face',
+    /toServiceCard\(/,
+    'the list builds its card some other way than the builder the public profile uses',
   );
-  assert.match(
-    manager,
-    /snapshotFromService\(/,
-    'the list builds its card some other way than the shared snapshot reader',
+  assert.ok(
+    !/<ServiceCardFace\b/.test(manager),
+    'the list is back to the vendor-side approximation instead of the real card',
   );
 });
 
@@ -181,5 +185,52 @@ test('the preview does not claim to be exactly what couples see', () => {
     'the preview claims to be the couple-facing card. It is not — the real one ' +
       'is ServiceCardView in app/v/[slug]/_components/services-gallery.tsx, and ' +
       'it carries the photo strip, the video and the card record this does not.',
+  );
+});
+
+/**
+ * ── ONE CARD, ONE BUILDER, ACROSS BOTH SIDES OF THE APP ────────────────────
+ * `toServiceCard` and `ServiceCardView` moved out of `app/v/[slug]` so the
+ * vendor's own list can render the identical card. The failure mode this
+ * prevents is not a crash — it is a vendor being shown a card that is subtly
+ * not the one couples get, and having no way to tell.
+ */
+test('the PUBLIC PROFILE still uses the same builder and the same view', () => {
+  const page = src('../app/v/[slug]/page.tsx');
+  const gallery = src('../app/v/[slug]/_components/services-gallery.tsx');
+  assert.match(page, /toServiceCard\(/, 'the public profile stopped using the shared builder');
+  assert.ok(
+    !/^function toServiceCard\(/m.test(page),
+    'the public profile grew its own copy of toServiceCard — the two will drift',
+  );
+  assert.match(gallery, /<ServiceCardView\b/, 'the public gallery stopped rendering the shared view');
+  assert.ok(
+    !/^function ServiceCardView\(/m.test(gallery),
+    'the public gallery grew its own copy of ServiceCardView',
+  );
+});
+
+test('the card view can be rendered by a SERVER component', () => {
+  // The vendor list is a server component. If `onOpen` were required again, the
+  // only ways out are a client wrapper that exists to satisfy a type, or a
+  // second non-interactive copy of the card — and the second copy is precisely
+  // what moving this component out was meant to prevent.
+  const view = src('../app/_components/service-card-view.tsx');
+  assert.match(view, /onOpen\?:\s*\(\)\s*=>\s*void/, 'onOpen went back to required');
+  assert.ok(
+    !/onOpen:\s*\(\)\s*=>\s*void;/.test(view),
+    'onOpen is required again — a server component can no longer render the card',
+  );
+});
+
+test('the vendor sees its own figures — the list never strips prices', () => {
+  // `hidePrices` is a PUBLIC choice. Passing the shop's own setting here would
+  // hide a vendor's prices from the vendor, on the screen where they set them.
+  const manager = src('../app/vendor-dashboard/services/_components/services-manager.tsx');
+  const call = manager.slice(manager.indexOf('toServiceCard('));
+  const args = call.slice(0, call.indexOf('detailsEnabled={false}'));
+  assert.ok(
+    !/hidePrices/.test(args),
+    'the vendor list passes a hidePrices flag; a shop must always see its own numbers',
   );
 });

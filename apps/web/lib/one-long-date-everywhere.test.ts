@@ -31,6 +31,9 @@ const thread = stripComments(
     'utf8',
   ),
 );
+const summary = stripComments(
+  readFileSync(resolve(HERE, 'customer-event-summary.ts'), 'utf8'),
+);
 
 test('it renders the month by name', () => {
   assert.equal(formatLongDate('2026-12-18'), 'December 18, 2026');
@@ -86,6 +89,19 @@ test('the Accept/Decline chip does not show a raw database value', () => {
   );
 });
 
+test('the summary builder formats BOTH of its dates, and the right way round', () => {
+  // Two dates, two functions, and swapping them is a silent one-day error:
+  // `targetDate` is a `date` column (local midnight is correct);
+  // `createdAt` is a `timestamptz` (must be converted to Manila first).
+  assert.match(summary, /formatLongDate\(input\.targetDate\)/);
+  assert.match(summary, /formatLongTimestamp\(input\.createdAt\)/);
+  assert.doesNotMatch(
+    summary,
+    /formatLongDate\(input\.createdAt\)/,
+    'a timestamp is being read as a date key — renders a day early after 16:00 Manila',
+  );
+});
+
 test('the thread header uses the same formatter', () => {
   assert.match(
     thread,
@@ -118,8 +134,19 @@ test('🔑 NO site on this page renders the date raw — counted, not merely pre
   const formatted = [...thread.matchAll(/formatLongDate\(event\.event_date\)/g)];
   assert.equal(
     formatted.length,
-    3,
-    `expected 3 formatted date renders (header · inquiry chip · rail prop), found ${formatted.length}`,
+    2,
+    `expected 2 formatted date renders (header · inquiry chip), found ${formatted.length}`,
+  );
+  // ⚠ WAS 3. The third was the customer rail's `eventDate` prop, which moved
+  // into `buildCustomerEventSummary` — the rail's date now comes from the same
+  // builder as the sentence beside it, so the two cannot disagree. The date is
+  // still formatted; the count moved because the RENDER moved, which is why
+  // this asserts the raw-absence above as well. That check is the one that
+  // cannot be satisfied by relocating code.
+  assert.match(
+    summary,
+    /formatLongDate\(input\.targetDate\)/,
+    'the summary builder stopped formatting the target date',
   );
 });
 

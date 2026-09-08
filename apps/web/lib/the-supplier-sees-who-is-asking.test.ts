@@ -81,18 +81,37 @@ test('🔑 the thread page reads the event with the ADMIN client, below the owne
   );
 });
 
-test('the date reaches the rail SPELLED OUT, not as an ISO key', () => {
-  // Owner, 2026-09-08: "Date should be more specific with Name of date instead
-  // of 2026-12-18, it should be December 18, 2026." The rail's prop had been
-  // documented "pre-formatted" since it was written while its only caller
-  // passed the raw Postgres value — a mismatch a type cannot catch, because
-  // both are `string | null`.
+test('the rail is handed ONE resolve of the customer, not loose fields', () => {
+  // ── WHAT THIS ASSERTED FIRST ────────────────────────────────────────────
+  // That the page passed `eventDate: formatLongDate(event.event_date)` to the
+  // rail — the fix for the owner's "it should be December 18, 2026". That prop
+  // is now GONE: the date, pax and locked count all arrive inside
+  // `summary.facts`, built by `buildCustomerEventSummary`, so the rail cannot
+  // render one date while the sentence directly above it renders another.
+  //
+  // 🔑 THE DATE RULE DID NOT MOVE WITH IT. `one-long-date-everywhere.test.ts`
+  // asserts the ABSENCE of any raw `{event.event_date}` render on this page and
+  // that the builder formats both of its dates — checks that relocating code
+  // cannot satisfy. This one now pins the single-resolve property instead.
   const src = read(THREAD_PAGE);
   assert.match(
     src,
-    /eventDate: event\?\.event_date \? formatLongDate\(event\.event_date\) : null/,
-    'the rail is being handed a raw ISO date again',
+    /summary: customerSummary/,
+    'the rail is no longer handed the built summary',
   );
+  assert.match(
+    src,
+    /const customerSummary = buildCustomerEventSummary\(/,
+    'the customer summary is not built from one call any more',
+  );
+  // The superseded props must not creep back alongside it — two sources for
+  // one fact is the defect, not the absence of a prop.
+  for (const dead of ['eventDate:', 'paxLabel:']) {
+    assert.ok(
+      !src.includes(`    ${dead}`),
+      `${dead} is back on railProps — the rail has two sources for one fact again`,
+    );
+  }
 });
 
 test('the rail has no masked branch left to fall into', () => {

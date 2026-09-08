@@ -290,7 +290,7 @@ test('⛔ the funding source is NOT an argument — this function is anon-callab
   assert.equal(
     await one<boolean>(
       `SELECT has_function_privilege('anon',
-         'public.papic_record_guest_capture(uuid,text,boolean,text,integer,text,integer)'::regprocedure,
+         'public.papic_record_guest_capture(uuid,text,boolean,text,integer,text,integer,timestamptz)'::regprocedure,
          'EXECUTE')`,
     ),
     true,

@@ -380,7 +380,7 @@ test('🚨 exactly ONE papic_record_guest_capture — a second overload makes ev
 test('the gate lives INSIDE the writer, which is the one door an anonymous caller reaches', async () => {
   const def = await one<string>(
     `SELECT pg_get_functiondef(
-       'public.papic_record_guest_capture(uuid,text,boolean,text,integer,text,integer)'::regprocedure)`,
+       'public.papic_record_guest_capture(uuid,text,boolean,text,integer,text,integer,timestamptz)'::regprocedure)`,
   );
   assert.match(def, /papic_guest_spend_ceiling/, 'a ceiling resolved anywhere else is bypassable');
   assert.match(def, /SUM\(points_cost\)/, 'and it must meter in credits');

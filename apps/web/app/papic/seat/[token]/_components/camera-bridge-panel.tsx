@@ -59,7 +59,19 @@ export function CameraBridgePanel({ token, seatIndex, eventId }: Props) {
   // Sink deps once: the server action + the camera_bridge offline queue.
   if (!sinkDepsRef.current) {
     sinkDepsRef.current = makeBrowserSinkDeps({
-      record: (r2Ref, kind, posterR2Ref) => recordSeatCapture(token, r2Ref, kind, posterR2Ref),
+      // 🕐 The camera's OWN shutter instant, off the CapturedFile — for a paired
+      // DSLR that is the body's clock, not this browser's. The offline payload
+      // below has always carried it; the live path is what dropped it.
+      record: (r2Ref, kind, posterR2Ref, capturedAtMs) =>
+        recordSeatCapture(
+          token,
+          r2Ref,
+          kind,
+          posterR2Ref,
+          undefined,
+          undefined,
+          capturedAtMs,
+        ),
       enqueueOffline: async (file: CapturedFile) => {
         try {
           await enqueueOfflineItem('camera_bridge', {

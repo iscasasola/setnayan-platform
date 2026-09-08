@@ -473,20 +473,37 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   const toolsMounted = thread.inquiry_status === 'accepted';
 
+  /* ⚠ CLOSED MEANS INVISIBLE, NOT "A ROW YOU CAN OPEN".
+     The first cut of this rendered six collapsed strips above the stream, which
+     is the SAME WALL the owner asked to be rid of, one row shorter — the
+     conversation was still a sliver at the bottom of the screen. Owner, seeing
+     it live: "This is so confusing."
+
+     A closed tool now takes NO SPACE AT ALL (`[&:not([open])]:hidden`). The
+     middle column is the conversation and the box you write in; a tool appears
+     only when it is summoned from the list on the right, one at a time, with a
+     way to put it away again. The components still mount ONCE, here, which is
+     what keeps the rail cheap and every anchor id unique. */
   const vendorTools = toolsMounted ? (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 empty:hidden">
         {VENDOR_THREAD_PANELS.map((t) => (
           <details
             key={t.id}
             id={t.id}
-            className="group scroll-mt-24 rounded-xl border border-ink/10 bg-cream open:border-ink/20"
+            data-thread-tool
+            className="group scroll-mt-24 rounded-xl border border-mulberry/25 bg-cream [&:not([open])]:hidden"
           >
-            <summary className="flex cursor-pointer items-baseline gap-2 px-4 py-2.5 text-sm font-semibold text-ink marker:content-none">
+            <summary className="flex cursor-pointer items-center gap-2 border-b border-ink/10 px-4 py-2.5 text-sm font-semibold text-ink marker:content-none">
               <span>{t.label}</span>
-              <span className="font-normal text-ink/45">{t.hint}</span>
-              <span className="ml-auto text-ink/40 transition-transform group-open:rotate-90">›</span>
+              <span className="truncate font-normal text-ink/45">{t.hint}</span>
+              {/* The way OUT. A panel that can only be opened is a panel that
+                  never goes away — and the six of them stacked is what this
+                  change exists to undo. */}
+              <span className="ml-auto shrink-0 rounded-full border border-ink/15 px-2 py-0.5 text-xs font-medium text-ink/55 group-hover:border-ink/30">
+                Close
+              </span>
             </summary>
-            <div className="border-t border-ink/10 p-3">{toolNodes[t.id]}</div>
+            <div className="p-3">{toolNodes[t.id]}</div>
           </details>
         ))}
       </div>

@@ -681,7 +681,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           name: resolvedName || v.vendor_name || 'Vendor',
           city: s.location_city ?? null,
           waitingSince: pendingSinceByProfile.get(pid) ?? null,
-          href: `/dashboard/${eventId}/messages`,
+          // 🔴 THIS WAS THE INBOX, WITH THE THREAD ID RESOLVED ELEVEN LINES
+          // ABOVE (`thread_id: threadIdByProfile.get(pid)`). The rows most
+          // likely to have something to read — the suppliers a couple is still
+          // waiting on — sent every tap to the full list, and the component
+          // that renders them says the opposite in its own docblock: "tap a row
+          // to jump to the thread". Falls back to the list only when there is
+          // genuinely no thread to open.
+          href: threadIdByProfile.get(pid)
+            ? `/dashboard/${eventId}/messages/${threadIdByProfile.get(pid)}`
+            : `/dashboard/${eventId}/messages`,
         });
       }
     }

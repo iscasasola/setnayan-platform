@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "767af4445",
+  "generatedFromRef": "b496e236e",
   "routeCount": 425,
-  "destinations": 907,
+  "destinations": 905,
   "actions": 631,
-  "blocks": 4342,
+  "blocks": 4349,
   "routes": {
     "/": {
       "files": [
@@ -4671,6 +4671,7 @@
         "ColourAccessResult",
         "ConfirmForm",
         "ContactCard",
+        "ContactShortlistVendorButton",
         "CoordinatorBroadcastCard",
         "CoordinatorBroadcastStub",
         "CopyButton",
@@ -6281,7 +6282,11 @@
     "/dashboard/[eventId]/story": {
       "files": [
         "dashboard/[eventId]/story/_components/editorial-editor.tsx",
+        "dashboard/[eventId]/story/_components/the-desk.tsx",
+        "dashboard/[eventId]/story/_lib/host-authority.ts",
+        "dashboard/[eventId]/story/_lib/load-desk.ts",
         "dashboard/[eventId]/story/actions.ts",
+        "dashboard/[eventId]/story/desk-actions.ts",
         "dashboard/[eventId]/story/page.tsx"
       ],
       "destinations": [
@@ -6295,6 +6300,9 @@
       "actions": [],
       "blocks": [
         "CustomColumn",
+        "DeskActionResult",
+        "DeskData",
+        "DeskFilter",
         "EditorialEditor",
         "EditorialEditorInput",
         "Field",
@@ -6305,6 +6313,7 @@
         "ProChip",
         "ProUpsellLine",
         "ShareButtons",
+        "TheDesk",
         "WishRow"
       ]
     },
@@ -7432,7 +7441,6 @@
       "destinations": [
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
-        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
@@ -7629,7 +7637,6 @@
       "destinations": [
         "/dashboard/[seg]",
         "/dashboard/[seg]/contracts",
-        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=chat",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=payments",
@@ -7655,6 +7662,7 @@
         "ClaimLinkShare",
         "ColourAccessCard",
         "ColourChangeRowView",
+        "ContactShortlistVendorButton",
         "DepositReservation",
         "DetailPageSkeleton",
         "DisputeLinkButton",
@@ -7721,6 +7729,7 @@
         "removeItemFromPackage"
       ],
       "blocks": [
+        "ContactShortlistVendorButton",
         "DetailPageSkeleton",
         "Link",
         "SubmitButton",

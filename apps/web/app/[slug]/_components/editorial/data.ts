@@ -41,6 +41,7 @@ import {
 } from '@/lib/vendor-recommendations';
 import { scheduleWindows, labelForCapture } from '@/lib/moments-from-the-schedule';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { storyDayWindow, manilaDayOf, allocateChapterCounts } from '@/lib/story-day-window';
 
 // ── Tunable constants (admin-tunable later · §6.8 + §6.4 M3) ────────────────
 
@@ -742,7 +743,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, pakanta_song_r2_key',
+        'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, pakanta_song_r2_key, event_end_date',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -759,7 +760,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       const { data } = await admin
         .from('events')
         .select(
-          'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos',
+          'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, event_end_date',
         )
         .eq('event_id', eventId)
         .maybeSingle();
@@ -772,6 +773,13 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
 
   const displayName = asString(event.display_name) ?? 'The Wedding';
   const eventDate = asString(event.event_date);
+  const eventEndDate = asString(event.event_end_date);
+
+  // The event's OWN days (Manila calendar), bounding every "the day"/"the
+  // timeline" read below — 03 §3 · 08 steps 0.2 + 0.4. `null` only when the
+  // event carries no event_date at all, in which case the timeline reads stay
+  // unbounded (today's pre-existing behaviour) rather than silently emptying.
+  const dayWindow = storyDayWindow(eventDate, eventEndDate);
 
   // Edition No. — this wedding's number within its AWARDS CYCLE. The edition
   // year runs Nov 18 → Nov 17 (Vol. I = Nov 18 2026 → Nov 17 2027), so the count
@@ -1056,13 +1064,22 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   };
   let papicClipRows: PapicClipRow[] = [];
   try {
-    const { data: rows, error } = await admin
+    let clipQuery = admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    // Bound to the event's OWN days (03 §3 · 08 steps 0.2 + 0.4). Cameras may
+    // shoot up to 6 months before the event (PAPIC_CAPTURE_MONTHS_BEFORE);
+    // without this bound a prenup/despedida shoot can fill the whole cap and
+    // the day itself never appears in the timeline. No bound applied when the
+    // event carries no event_date (dayWindow null) — unchanged prior behaviour.
+    if (dayWindow) {
+      clipQuery = clipQuery.gte('captured_at', dayWindow.startIso).lte('captured_at', dayWindow.endIso);
+    }
+    const { data: rows, error } = await clipQuery
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_PAPIC_CLIP_CAP);
     if (!error && Array.isArray(rows)) {
@@ -1094,16 +1111,31 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // ('clean' only). Lightweight rows only (photo_id, key, captured_at, + the
   // moderation_state used by the client-side gate) — buckets are built from these
   // FIRST, and only the ≤3 media each chapter uses get presigned later.
+  //
+  // 🚨 THE BUG THIS BLOCK USED TO BE (03 §3 · 08 steps 0.2 + 0.4). This read had
+  // NO lower bound on captured_at. Papic cameras may start shooting up to
+  // PAPIC_CAPTURE_MONTHS_BEFORE (6) months before the event — a ~100-capture
+  // prenup/despedida shoot filled all 48 rows and the wedding day itself never
+  // appeared. Fixed by bounding to `dayWindow` (the event's own Manila days —
+  // see lib/story-day-window.ts). Not fixed by raising the cap: presigning
+  // hundreds of URLs to discard most of them is the shape that made the gallery
+  // slow (see EDITORIAL_CHALLENGE_ANSWER_CAP's comment for the same lesson).
   type TimelinePhotoRow = { photoId: string; key: string; capturedAt: string | null };
   let timelinePhotoRows: TimelinePhotoRow[] = [];
   try {
-    const { data: rows, error } = await admin
+    let timelineQuery = admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    if (dayWindow) {
+      timelineQuery = timelineQuery
+        .gte('captured_at', dayWindow.startIso)
+        .lte('captured_at', dayWindow.endIso);
+    }
+    const { data: rows, error } = await timelineQuery
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
     if (!error && Array.isArray(rows)) {
@@ -1754,29 +1786,61 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     return { lead, supporting };
   };
 
+  // 08 step 0.4 — MULTI-DAY: split rawTimeline by its own Manila calendar day
+  // FIRST, then decile-split each day's items separately. A flat decile split
+  // across the whole (possibly multi-day) timeline can put a day-1 evening item
+  // and a day-2 morning item in the SAME bucket whenever a decile boundary
+  // happens to fall between them — so a day-2 capture could still lead (or
+  // support) a chapter whose kicker/title reads as day 1. Splitting by day
+  // first makes that structurally impossible: no chapter's `media` ever spans
+  // two different `manilaDayOf` values. Days are visited in Manila-calendar
+  // order (rawTimeline is already captured_at ASC, so grouping preserves it).
+  const dayGroups: RawTimelineItem[][] = [];
+  {
+    const byDay = new Map<string, RawTimelineItem[]>();
+    const dayOrder: string[] = [];
+    for (const it of rawTimeline) {
+      const day = manilaDayOf(it.tsRaw) ?? ' untimed'; // untimed sinks last, own group
+      let group = byDay.get(day);
+      if (!group) {
+        group = [];
+        byDay.set(day, group);
+        dayOrder.push(day);
+      }
+      group.push(it);
+    }
+    for (const day of dayOrder) dayGroups.push(byDay.get(day)!);
+  }
+
+  const perDayChapterCounts = allocateChapterCounts(
+    dayGroups.map((g) => g.length),
+    EDITORIAL_DAY_CHAPTER_CAP,
+  );
+
   const plans: ChapterPlan[] = [];
-  if (rawTimeline.length > 0) {
-    if (rawTimeline.length < 4) {
-      // Too few media to bucket meaningfully → one chapter per item.
-      for (const it of rawTimeline) {
+  dayGroups.forEach((group, dayIdx) => {
+    if (group.length === 0) return;
+    if (group.length < 4) {
+      // Too few media in this day to bucket meaningfully → one chapter/item.
+      for (const it of group) {
         const p = planChapter([it]);
         if (p) plans.push(p);
       }
-    } else {
-      // Even time-order split into ≤10 buckets (same decile approach as the essay
-      // sampler). Only emit non-empty buckets → never an empty frame.
-      const n = rawTimeline.length;
-      const chapterCount = Math.min(EDITORIAL_DAY_CHAPTER_CAP, n);
-      for (let i = 0; i < chapterCount; i += 1) {
-        const start = Math.floor((i * n) / chapterCount);
-        const end = Math.floor(((i + 1) * n) / chapterCount);
-        if (end > start) {
-          const p = planChapter(rawTimeline.slice(start, end));
-          if (p) plans.push(p);
-        }
+      return;
+    }
+    // Even time-order split into this day's share of the shared cap (same
+    // decile approach as the essay sampler, now scoped to one day).
+    const n = group.length;
+    const chapterCount = Math.max(1, Math.min(perDayChapterCounts[dayIdx] ?? 1, n));
+    for (let i = 0; i < chapterCount; i += 1) {
+      const start = Math.floor((i * n) / chapterCount);
+      const end = Math.floor(((i + 1) * n) / chapterCount);
+      if (end > start) {
+        const p = planChapter(group.slice(start, end));
+        if (p) plans.push(p);
       }
     }
-  }
+  });
 
   // Presign ONLY the media the plans actually chose (≤3/chapter). One R2 key can
   // appear once; de-dup the resolve set. Reuse the already-presigned gallery URLs
@@ -2550,6 +2614,24 @@ export async function loadEditorialChaptersForEditor(
   // they'd name a moment that the public recap withholds). Fail CLOSED.
   const consentVeto = await loadConsentVetoedPapicIds(admin, eventId);
 
+  // The event's own days (03 §3 · 08 steps 0.2 + 0.4) — SAME bound the public
+  // loader applies, so a leadId the couple curates here always exists in the
+  // public dayChapters it's meant to target (this function's own header:
+  // "so leadIds line up exactly"). Best-effort: an unresolvable event_date
+  // leaves the timeline reads below unbounded, matching the public loader's
+  // same fallback.
+  let dayWindow: ReturnType<typeof storyDayWindow> = null;
+  try {
+    const { data: ev } = await admin
+      .from('events')
+      .select('event_date, event_end_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    dayWindow = storyDayWindow(asString(ev?.event_date), asString(ev?.event_end_date));
+  } catch {
+    dayWindow = null;
+  }
+
   // Current overrides (from draft_json). Read even when there are no cards, so the
   // editor can drop stale ones on the next save.
   let overrides: ChapterOverride[] = [];
@@ -2568,13 +2650,17 @@ export async function loadEditorialChaptersForEditor(
   type Row = { photoId: string; key: string; posterKey: string | null; capturedAt: string | null; kind: 'photo' | 'clip' };
   const rows: Row[] = [];
   try {
-    const { data, error } = await admin
+    let photoQuery = admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    if (dayWindow) {
+      photoQuery = photoQuery.gte('captured_at', dayWindow.startIso).lte('captured_at', dayWindow.endIso);
+    }
+    const { data, error } = await photoQuery
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
     if (!error && Array.isArray(data)) {
@@ -2590,13 +2676,17 @@ export async function loadEditorialChaptersForEditor(
     // no photos
   }
   try {
-    const { data, error } = await admin
+    let clipQuery = admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, poster_r2_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    if (dayWindow) {
+      clipQuery = clipQuery.gte('captured_at', dayWindow.startIso).lte('captured_at', dayWindow.endIso);
+    }
+    const { data, error } = await clipQuery
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_PAPIC_CLIP_CAP);
     if (!error && Array.isArray(data)) {
@@ -2658,21 +2748,48 @@ export async function loadEditorialChaptersForEditor(
       first,
     );
   };
+  // Per-day split (08 step 0.4) — mirrors the public loader exactly: a decile
+  // split across the WHOLE (possibly multi-day) row set can merge a day-1 and
+  // a day-2 item into one bucket at a boundary; grouping by manilaDayOf first
+  // makes that impossible, and keeps leadIds identical to the public builder's.
+  const dayGroups: Row[][] = [];
+  {
+    const byDay = new Map<string, Row[]>();
+    const dayOrder: string[] = [];
+    for (const r of rows) {
+      const day = manilaDayOf(r.capturedAt) ?? ' untimed';
+      let group = byDay.get(day);
+      if (!group) {
+        group = [];
+        byDay.set(day, group);
+        dayOrder.push(day);
+      }
+      group.push(r);
+    }
+    for (const day of dayOrder) dayGroups.push(byDay.get(day)!);
+  }
+  const perDayChapterCounts = allocateChapterCounts(
+    dayGroups.map((g) => g.length),
+    EDITORIAL_DAY_CHAPTER_CAP,
+  );
   const leads: Row[] = [];
-  if (rows.length < 4) {
-    for (const r of rows) leads.push(r);
-  } else {
-    const n = rows.length;
-    const chapterCount = Math.min(EDITORIAL_DAY_CHAPTER_CAP, n);
+  dayGroups.forEach((group, dayIdx) => {
+    if (group.length === 0) return;
+    if (group.length < 4) {
+      for (const r of group) leads.push(r);
+      return;
+    }
+    const n = group.length;
+    const chapterCount = Math.max(1, Math.min(perDayChapterCounts[dayIdx] ?? 1, n));
     for (let i = 0; i < chapterCount; i += 1) {
       const start = Math.floor((i * n) / chapterCount);
       const end = Math.floor(((i + 1) * n) / chapterCount);
       if (end > start) {
-        const lead = pickLead(rows.slice(start, end));
+        const lead = pickLead(group.slice(start, end));
         if (lead) leads.push(lead);
       }
     }
-  }
+  });
 
   // The same run-of-show the public page names its chapters from, so the
   // editor's placeholder and the visitor's page cannot say different things.

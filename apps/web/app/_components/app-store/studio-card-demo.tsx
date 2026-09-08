@@ -97,7 +97,7 @@ const PAPIC_SCENES: RichFrame[] = [
     caption: 'Every shot lands in your gallery, instantly.',
     hint: 'You never lift a finger — it just fills up.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream text-ink">
         <div className="px-3 pb-2 pt-3 text-[12px] font-semibold">Your gallery</div>
         <div className="flex flex-wrap gap-1 px-3">
           <span className="rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-cream">All</span>
@@ -126,7 +126,7 @@ const PAPIC_SCENES: RichFrame[] = [
     caption: 'Each guest finds the photos they’re in.',
     hint: '“Photos of you” fills through the day — theirs to keep.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream text-ink">
         <div className="flex items-center justify-between px-3 pt-3">
           <span className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-terracotta">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Photos of you
@@ -334,7 +334,7 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
     caption: 'See your colors on every part.',
     hint: 'Cards repaint to match your palette.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <p className="text-[13px] font-semibold tracking-tight">In your colors</p>
         <p className="text-[8px] text-ink/60">One picture per color decision.</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
@@ -465,7 +465,7 @@ const CUSTOM_QR_SCENES: RichFrame[] = [
     caption: 'Every guest, already done.',
     hint: 'Open after purchase to see them all.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <div className="flex items-center gap-1.5 rounded-md bg-emerald-600/12 px-2 py-1.5">
           <Check aria-hidden className="h-3 w-3 text-emerald-700" strokeWidth={2.5} />
           <span className="text-[9px] font-medium text-emerald-800">Your branded QR cards are ready</span>
@@ -525,7 +525,7 @@ const PHOTO_DELIVERY_SCENES: RichFrame[] = [
     caption: 'Setnayan holds them till you’re ready.',
     hint: 'Tap Release to Drive when review’s done.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-4 pt-4 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 py-4 text-ink">
         <div className="rounded-lg bg-emerald-600/10 p-3">
           <div className="flex items-center gap-1.5 text-emerald-800">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} /><span className="text-[11px] font-semibold">Drive connected</span>
@@ -585,7 +585,7 @@ const PATIKTOK_SCENES: RichFrame[] = [
     caption: 'Pick a vertical look you love.',
     hint: 'Tap a style to choose it.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Patiktok · reel station</span>
         <p className="text-[12px] font-semibold">Pick the reel templates</p>
         <div className="mt-1.5 flex gap-1">
@@ -610,7 +610,7 @@ const PATIKTOK_SCENES: RichFrame[] = [
     caption: 'Set the length and the song.',
     hint: 'Slide the length, pick a track.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Cebu Sunrise</span>
         <div className="mt-1.5 rounded-lg border border-ink/10 bg-white p-2.5">
           <p className="text-[10px] font-medium">Render this reel</p>
@@ -865,7 +865,7 @@ const LANDING_PAGE_SCENES: RichFrame[] = [
     caption: 'Your colors and story, automatically.',
     hint: 'Swipe the tabs to style each page.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <div className="flex gap-1">
           {['Settings', 'RSVP', 'Event', 'Editorial'].map((t, k) => (
             <span key={t} className={`rounded-full px-2 py-0.5 text-[7px] ${k === 0 ? 'bg-terracotta text-cream' : 'bg-ink/5 text-ink/55'}`}>{t}</span>
@@ -943,7 +943,7 @@ const MUSIC_CREATOR_SCENES: RichFrame[] = [
     caption: 'Find the feel for your day.',
     hint: 'Tap a mood to preview.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <p className="text-[12px] font-semibold" style={{ fontFamily: SERIF }}>Library</p>
         <p className="text-[8px] text-ink/55">Browse by mood and feel.</p>
         <div className="mt-2 space-y-1.5">
@@ -1000,7 +1000,7 @@ const PAKANTA_SCENES: RichFrame[] = [
     caption: 'A song made only for the two of you.',
     hint: 'Tap Pakanta in your services.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-4 pt-4 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 py-4 text-ink">
         <div className="flex items-center gap-2">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: 'rgba(30, 26, 18,.1)' }}><Music aria-hidden className="h-5 w-5" style={{ color: MULB }} strokeWidth={1.75} /></span>
           <div>
@@ -1085,7 +1085,7 @@ const PLAYLIST_SCENES: RichFrame[] = [
     caption: 'Your whole day, song by song.',
     hint: 'Scroll the timeline of moments.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <span className="w-fit rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[6px] uppercase tracking-[0.12em] text-cream">Playlist</span>
         <p className="mt-1.5 text-[13px] italic" style={{ fontFamily: SERIF }}>Your wedding playlist</p>
         <div className="mt-2 space-y-1.5">
@@ -1135,7 +1135,7 @@ const PLAYLIST_SCENES: RichFrame[] = [
     caption: 'Handed straight to your DJ.',
     hint: 'Books a music vendor — it syncs itself.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <p className="text-[12px] italic" style={{ fontFamily: SERIF }}>Your wedding playlist</p>
         <div className="mt-2 flex items-start gap-1.5 rounded-lg border px-2 py-2" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
           <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" strokeWidth={2} />

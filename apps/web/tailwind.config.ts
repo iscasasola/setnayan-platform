@@ -353,6 +353,17 @@ const config: Config = {
         caslon: ['var(--font-libre-caslon)', ...defaultTheme.fontFamily.serif],
         vidaloka: ['var(--font-vidaloka)', ...defaultTheme.fontFamily.serif],
         script: ['var(--font-script)', 'cursive'],
+        // The story's clock face — every big time stamp, the dial's readout and
+        // its labels (Design_Editorial_By_The_Minute_2026-09-07, §7).
+        //
+        // ⚠ A KNOWN DELTA FROM THE PROTOTYPE, AND IT IS A FONT-ASSET DECISION,
+        // NOT A DESIGN ONE. The prototype sets these in Big Shoulders Display;
+        // no condensed face ships in this repo — the v2.1 marketing quartet
+        // (Saira Condensed among them) was retired 2026-07-12 and `globals.css`
+        // aliases `--font-condensed` to Hanken Grotesk. Pointing the spine at
+        // that EXISTING SLOT rather than hard-coding a family is what lets a
+        // condensed face be added later in one line, with no page to re-port.
+        condensed: ['var(--font-condensed)', 'Saira Condensed', ...defaultTheme.fontFamily.sans],
       },
     },
   },

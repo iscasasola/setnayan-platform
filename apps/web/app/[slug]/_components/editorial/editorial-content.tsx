@@ -58,6 +58,12 @@ import {
   type HeroMonogramData,
 } from '@/lib/hero-monogram-data';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { StorySpine } from '../story/story-spine';
+import {
+  loadStorySpineFacts,
+  sampleSpineFacts,
+  type StorySpineFacts,
+} from '../story/spine-data';
 
 const SHARE_SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -253,11 +259,6 @@ export async function EditorialContent({
       ? { id: galleryAnchorId, className: 'scroll-mt-6' }
       : {};
 
-  // Masthead dateline numbers — Volume follows the Setnayan awards cycle (the
-  // year runs Nov 18 → Nov 17; Vol. I = Nov 18 2026 → Nov 17 2027); No. = this
-  // wedding's number within that cycle.
-  const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
-
   // The couple's canonical mark for the masthead — resolved like the public hero
   // (animates iff they own the paid ANIMATED_MONOGRAM). Best-effort + wrapped so
   // this component keeps its "never throws" contract; null → the text-circle
@@ -312,114 +313,96 @@ export async function EditorialContent({
     }
   }
 
+  /*
+    THE SPINE'S OWN FACTS — the road's dated entries, the broadcast sessions,
+    the venue's blocks and the dial's bar heights. A supplement to the loader
+    above, never a second opinion about anything it already answered.
+
+    🔴 A CURATED SAMPLE IS RESOLVED WITHOUT TOUCHING THE DATABASE, for the same
+    reason the monogram and the perk probe above are: its id is a sentinel
+    string, not a UUID, and Postgres rejects every query carrying one with
+    22P02 — an ABSENCE, not an error anybody sees.
+  */
+  let spineFacts: StorySpineFacts;
+  try {
+    spineFacts = isSample
+      ? sampleSpineFacts(data.eventDate, data.eventEndDate)
+      : await loadStorySpineFacts({
+          eventId,
+          eventDate: data.eventDate,
+          eventEndDate: data.eventEndDate,
+          createdAtMs: null,
+        });
+  } catch {
+    // Same contract as the rest of this component: it never throws. With no
+    // facts the cover and the day's minutes still render; the road, the dial
+    // and the film timecodes simply are not there.
+    spineFacts = sampleSpineFacts(data.eventDate, data.eventEndDate);
+  }
+
   return (
-    <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
-      <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
+    <div className="min-h-screen bg-[#e7e2d6] text-ink">
+      {/*
+        ═══ THE SPINE — the page IS the event's clock ═══════════════════════
+        08 step 2.1 · Design_Editorial_By_The_Minute_2026-09-07.
+
+        🔑 IT REPLACED THE MASTHEAD AND THE LEAD, IT DID NOT SIT ON TOP OF THEM.
+        The cover carries the mark, the volume, the names very large, one
+        sentence and the four facts — every job the centred masthead + dateline
+        + lead headline used to do. Keeping both would have printed the story's
+        name twice and the edition line twice, three inches apart.
+
+        What is BELOW it is deliberately untouched: the shipped sections still
+        render, in the couple's own order, under the clock. S11 (08 step 2.4)
+        folds them into the eleven index tabs; until it does, nothing a couple
+        switched on has stopped appearing.
+      */}
+      <StorySpine
+        data={data}
+        facts={spineFacts}
+        words={w}
+        viewer={viewer}
+        isSample={isSample}
+        monogram={
+          mono ? (
+            <HeroMonogram
+              event={mono.design}
+              monogram={mono.monogram}
+              animatedMonogram={mono.animatedMonogram}
+              studioAnim={mono.studioAnim}
+              bespokeSvg={mono.bespokeSvg}
+            />
+          ) : (
+            <Monogram text={data.monogramText} color={data.monogramColor} />
+          )
+        }
+        actions={
+          effectiveShare ? (
+            <span className="inline-flex items-center gap-2">
+              <ShareButtons
+                compact
+                url={effectiveShare.url}
+                title={effectiveShare.title}
+                image={effectiveShare.image}
+              />
+              {storyCard ? (
+                <SaveStoryCardButton
+                  compact
+                  storyCardUrl={storyCard.url}
+                  filenameBase={storyCard.filenameBase}
+                />
+              ) : null}
+            </span>
+          ) : null
+        }
+      />
+
+      <article className="mx-auto mt-10 max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
         {/* Phase ribbon (cross-links) ----------------------------------------- */}
         <PhaseRibbon slug={data.slug} words={w} />
 
         <div className="border-t-[3px] border-double border-ink" />
 
-        {/* Masthead ------------------------------------------------------------ */}
-        <header className="py-3 text-center">
-          {/* The couple's REAL mark (bare — the masthead sits on cream, so it
-              reads without a backing), replacing the local initials-circle.
-              Falls back to the text-circle when no mark resolves. */}
-          {mono ? (
-            <div className="flex justify-center">
-              <HeroMonogram
-                event={mono.design}
-                monogram={mono.monogram}
-                animatedMonogram={mono.animatedMonogram}
-                studioAnim={mono.studioAnim}
-                bespokeSvg={mono.bespokeSvg}
-              />
-            </div>
-          ) : (
-            <Monogram text={data.monogramText} color={data.monogramColor} />
-          )}
-          {/*
-            ─── THE GOLD EYEBROWS, DEEPENED (2026-08-23) ──────────────────────
-            Every one of these read `text-terracotta`. ⚠ IN THIS REPO THAT SLOT
-            IS THE ATELIER GOLD #A9834B, not the action colour — the names are
-            inherited and backwards, which is the single most common colour
-            mistake made here. Measured on the page ground: **3.48:1**, under
-            the 4.5:1 floor for 12px type, on seven text sites across this
-            component plus one in `living-moments`.
-
-            🔑 A WHOLE-COMPONENT CALL, NOT A RIDER. This file's own docblock
-            names champagne-gold as a deliberate editorial accent, so fixing one
-            eyebrow would have made it the odd one out. And the fix KEEPS the
-            gold rather than trading it for the action colour: `terracotta-700`
-            is the same family one step deeper, and switching to mulberry or the
-            link slate would have changed this page's accent — a design reversal
-            wearing a contrast fix's clothes.
-
-            ✅ MEASURED IN BOTH THEMES, because a light-only check waves through
-            a token that flips on dark: #8C6932 on the light ground is 5.02:1,
-            and the dark value #A88340 on the candlelight ground is 5.17:1.
-
-            ⛔ TWO USES ARE DELIBERATELY LEFT ON THE LIGHTER GOLD, both
-            `aria-hidden` decorative glyphs. They carry no text, so the 3:1
-            non-text bar applies and 3.48:1 clears it. Do not sweep them in.
-          */}
-          <p className="mt-3 font-mono text-xs uppercase tracking-[0.34em] text-terracotta-700">
-            Set na &rsquo;yan &middot; Commemorative Edition
-          </p>
-          <h1 className="mt-2 font-display text-4xl font-semibold leading-[0.96] tracking-tight sm:text-6xl">
-            {nameplate(data.displayName)}
-          </h1>
-        </header>
-
-        <div className="border-t border-ink/80" />
-        {/* The share control replaces "Priceless" inline in the dateline (no
-            full-width row) — the editorial owns its share affordance, compact in
-            the masthead. Real editorials + curated samples both get it. */}
-        <EditionLine
-          left={editionLeft}
-          center={editionCenter(data)}
-          right={
-            effectiveShare ? (
-              <span className="inline-flex items-center gap-2">
-                <ShareButtons
-                  compact
-                  url={effectiveShare.url}
-                  title={effectiveShare.title}
-                  image={effectiveShare.image}
-                />
-                {storyCard ? (
-                  <SaveStoryCardButton
-                    compact
-                    storyCardUrl={storyCard.url}
-                    filenameBase={storyCard.filenameBase}
-                  />
-                ) : null}
-              </span>
-            ) : (
-              'Priceless'
-            )
-          }
-        />
-        <div className="border-t-[3px] border-ink" />
-
-        {/* Lead headline + deck + byline -------------------------------------- */}
-        <section className="py-5 text-center sm:py-6">
-          <p className="font-mono text-xs uppercase tracking-[0.3em] text-mulberry">
-            {copy.superKicker}
-          </p>
-          <h2 className="mx-auto mt-3 max-w-3xl font-display text-4xl font-bold leading-[0.95] tracking-tight sm:text-6xl">
-            {copy.headline}
-          </h2>
-          {copy.deck ? (
-            <p className="mx-auto mt-3 max-w-2xl font-serif text-lg italic leading-snug text-ink/70 sm:text-2xl">
-              {copy.deck}
-            </p>
-          ) : null}
-          <p className="mt-4 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
-            {copy.byline}
-            {data.eventDateFormatted ? ` · ${data.venueCity ?? ''}` : ''}
-          </p>
-        </section>
 
         {/* Full-width hero — the cover spans the whole row. A baked boomerang
             (Living Hero) plays as a looping GIF-like banner; else the still. */}
@@ -715,36 +698,6 @@ function PhaseRibbon({ slug, words: w }: { slug: string | null; words: EventWord
       ) : null}
       <span className="border-b border-mulberry pb-0.5 text-mulberry">The Story — Today</span>
     </nav>
-  );
-}
-
-function EditionLine({
-  left,
-  center,
-  right,
-}: {
-  left: string;
-  center: string;
-  right: ReactNode;
-}): ReactElement {
-  return (
-    <div className="py-2 font-mono text-xs uppercase tracking-[0.1em] text-ink/65">
-      {/* Desktop: one dateline row — Vol·No · City·Date · Share. */}
-      <div className="hidden items-center justify-between text-left sm:flex">
-        <span>{left}</span>
-        <span className="tracking-[0.16em]">{center}</span>
-        <span>{right}</span>
-      </div>
-      {/* Mobile: Vol·No + Share flank a single row, the date sits centered below
-          — so Share never takes a whole row and the dateline stays compact. */}
-      <div className="sm:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <span>{left}</span>
-          <span>{right}</span>
-        </div>
-        <div className="mt-1.5 text-center tracking-[0.16em]">{center}</div>
-      </div>
-    </div>
   );
 }
 
@@ -1778,59 +1731,6 @@ function Colophon({
 }
 
 // ── tiny presentational helpers ───────────────────────────────────────────────
-
-// Setnayan awards-cycle Volume for a wedding date. The edition year runs
-// Nov 18 → Nov 17 (not Jan–Dec): Vol. I = Nov 18 2026 → Nov 17 2027, Vol. II =
-// Nov 18 2027 → Nov 17 2028, … A December wedding starts a Volume; the following
-// June is still that same Volume. Clamped to ≥ I — the inaugural edition covers
-// anything before the first cycle's Nov-18-2026 start.
-const AWARDS_CUTOFF_MONTH = 11; // November
-const AWARDS_CUTOFF_DAY = 18; // 18th
-function editionVolume(eventDate: string | null): number {
-  if (!eventDate) return 1;
-  const [y, m, d] = eventDate.split('-').map(Number);
-  if (!y || !m || !d) return 1;
-  const onOrAfterCutoff =
-    m > AWARDS_CUTOFF_MONTH || (m === AWARDS_CUTOFF_MONTH && d >= AWARDS_CUTOFF_DAY);
-  const cycleStartYear = onOrAfterCutoff ? y : y - 1;
-  return Math.max(1, cycleStartYear - 2025);
-}
-
-// Volume number as a masthead Roman numeral (1 → I, 2 → II, …). Falls back to
-// the Arabic number above the small-numeral table for far-future volumes.
-function toRoman(n: number): string {
-  if (!Number.isFinite(n) || n < 1) return 'I';
-  const table: Array<[number, string]> = [
-    [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'],
-    [5, 'V'], [4, 'IV'], [1, 'I'],
-  ];
-  let out = '';
-  let v = Math.floor(n);
-  for (const [val, sym] of table) {
-    while (v >= val) {
-      out += sym;
-      v -= val;
-    }
-  }
-  return out;
-}
-
-function nameplate(displayName: string): string {
-  const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();
-  return `The ${cleaned} Chronicle`;
-}
-
-// The masthead dateline = venue city · the WEDDING date. Owner rule (2026-06-15):
-// the date on the editorial is the couple's wedding date (events.event_date via
-// eventDateFormatted), NEVER the publish date (event_editorial.published_at /
-// real-weddings publishedAt). Publish dates belong only to JSON-LD/sitemap meta.
-// Do not swap this to a published/generated/created date.
-function editionCenter(data: EditorialData): string {
-  const parts: string[] = [];
-  if (data.venueCity) parts.push(data.venueCity);
-  if (data.eventDateFormatted) parts.push(data.eventDateFormatted); // wedding date
-  return parts.join(' · ') || 'Commemorative Edition';
-}
 
 function fmt(n: number): string {
   try {

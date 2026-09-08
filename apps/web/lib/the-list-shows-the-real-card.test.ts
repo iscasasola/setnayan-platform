@@ -157,3 +157,29 @@ test('no supplier-facing copy offers price-on-request while a price is required'
     );
   }
 });
+
+/**
+ * ── AND THE PREVIEW MUST NOT CLAIM TO BE THE COUPLE'S CARD ─────────────────
+ * Measured 2026-09-08: this preview captioned itself *"Card preview · exactly
+ * what couples see"*, and it is not. The card a couple actually gets is
+ * `ServiceCardView` in `app/v/[slug]/_components/services-gallery.tsx`, which
+ * shows the showcase PHOTO STRIP, the showcase VIDEO, inclusions as a ✓
+ * checklist with "+N more included", and the shop's `CardRecordSection` —
+ * none of which this preview draws.
+ *
+ * 🔑 A CAPTION IS A CLAIM. Calling an approximation "exactly what couples see"
+ * is how a vendor concludes their card has no photos on it, or that it does.
+ * The preview is useful; the promise was not true. If the two are ever really
+ * unified, delete this test in the same PR that unifies them.
+ */
+test('the preview does not claim to be exactly what couples see', () => {
+  const preview = src(
+    '../app/vendor-dashboard/services/_components/service-card-live-preview.tsx',
+  );
+  assert.ok(
+    !/exactly what couples see|what couples see/i.test(preview),
+    'the preview claims to be the couple-facing card. It is not — the real one ' +
+      'is ServiceCardView in app/v/[slug]/_components/services-gallery.tsx, and ' +
+      'it carries the photo strip, the video and the card record this does not.',
+  );
+});

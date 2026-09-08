@@ -70,7 +70,7 @@ export function ServiceCardLivePreview({
           className="font-mono text-[10px] uppercase tracking-[0.13em]"
           style={{ color: 'var(--m-slate-3)' }}
         >
-          Card preview · exactly what couples see
+          Card preview
         </span>
       </div>
       <ServiceCardFace

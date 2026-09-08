@@ -1,4 +1,4 @@
-## 2026-09-08 · feat(vendor): the card list shows the actual service card
+## 2026-09-08 · feat(vendor): the card list shows the card, not a wrench glyph
 
 Owner, looking at his two service cards rendered as grey wrench glyphs with one
 line of text: *"we want to show the actual service cards."*
@@ -50,3 +50,23 @@ flag is omitted rather than sent as `'false'`, that a priceless card still draws
 and that neither surface hand-draws a card. Mutation-tested five ways.
 
 SPEC IMPACT: None.
+
+### ⚠ CORRECTION — this is the PREVIEW card, not the couple's card
+
+Checked before merge, because the component said so and nobody had: the caption
+*"Card preview · exactly what couples see"* was **false**. The card a couple
+actually gets is `ServiceCardView` in
+`app/v/[slug]/_components/services-gallery.tsx`, and it carries things this one
+does not — the showcase PHOTO STRIP, the showcase VIDEO, inclusions as a ✓
+checklist with "+N more included", the terracotta `BadgePercent` discount pill,
+and the shop's `CardRecordSection`. This preview draws one cover tile, a
+one-line "Includes:", a "Not included:" strip and a "Request a quote" pill that
+the real card does not have.
+
+The caption is removed and guarded. **The list is now much closer to the card
+than a wrench glyph was, and it is still not the card** — unifying the two means
+building the couple-side compiled record (`lib/service-card-record`) on the
+vendor side, which is its own piece of work and is NOT in this PR.
+
+🔑 **A caption is a claim.** Telling a vendor an approximation is "exactly what
+couples see" is how they conclude their card has photos on it when it has none.

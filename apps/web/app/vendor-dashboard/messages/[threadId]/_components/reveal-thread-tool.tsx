@@ -32,6 +32,15 @@ export function revealThreadTool(id: string | readonly string[]): boolean {
   }
   if (!target) return false;
 
+  /* ONE TOOL AT A TIME. Six panels open at once is the wall this change exists
+     to remove — and a closed tool is invisible now, so a stack of them left
+     open is the only way that wall can come back. Everything else closes
+     first, EXCEPT an ancestor of the target (closing that would hide the very
+     thing being opened). */
+  for (const other of document.querySelectorAll<HTMLDetailsElement>('[data-thread-tool]')) {
+    if (other !== target && !other.contains(target)) other.open = false;
+  }
+
   // Open the target itself when it IS a disclosure, then every disclosure it
   // sits inside. A button in a closed panel is unreachable until its ancestor
   // opens, and `scrollIntoView` on a hidden element goes nowhere.

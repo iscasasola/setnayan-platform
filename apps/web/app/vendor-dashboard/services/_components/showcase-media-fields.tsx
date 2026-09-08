@@ -143,7 +143,7 @@ export function ShowcaseMediaFields({
         watermark
         compressImage
         qrGuard
-        variant="wide"
+        variant="gallery"
         label="Photos (up to 5)"
         help="PNG, JPEG, or WebP up to 5 MB each. Your cover photo stays separate — these are the gallery."
         currentValue={photosCurrent && photosCurrent.length ? photosCurrent : null}
@@ -159,7 +159,7 @@ export function ShowcaseMediaFields({
         maxVideoDurationS={SHOWCASE_VIDEO_MAX_SECONDS}
         validateFile={validateVideo}
         qrGuard
-        variant="wide"
+        variant="gallery"
         label="Video (up to 30 seconds)"
         help="One short clip — booth in action, a real setup, the vibe. We compress it for smooth playback."
         currentValue={videoCurrent ?? null}

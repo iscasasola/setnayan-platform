@@ -45,7 +45,7 @@ export default async function PrivacyEditorPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; showcase?: string }>;
 }) {
   const { eventId } = await params;
   const search = await searchParams;
@@ -70,6 +70,14 @@ export default async function PrivacyEditorPage({
     | 'invited_accounts'
     | 'private';
   const saved = search.saved === '1';
+  /* A refusal from `setShowcaseConsent`. Rendered below — a guard that refuses
+     in silence is indistinguishable from one that passed. */
+  const showcaseRefusal =
+    search.showcase === 'blocked'
+      ? 'This kind of day can’t be featured in Stories.'
+      : search.showcase === 'error'
+        ? 'We couldn’t read this celebration just now. Please try again.'
+        : null;
 
   /**
    * What stands between saying yes and actually appearing in Stories.
@@ -146,6 +154,16 @@ export default async function PrivacyEditorPage({
       />
 
       {/* Saved confirmation — polite + non-dismissible (gone on next nav) */}
+      {showcaseRefusal ? (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
+          <p>{showcaseRefusal}</p>
+        </div>
+      ) : null}
+
       {saved ? (
         <div
           role="status"

@@ -82,7 +82,14 @@ const CHECKLIST: Array<{ can: string; needs: RegExp[]; where: string }> = [
   { can: 'turn any section on or off', needs: [/const toggle = \(k: keyof EditorialSections\)/], where: 'editor' },
   { can: 'reorder the sections', needs: [/moveSection\(/], where: 'editor' },
   { can: 'copy their link and share the story', needs: [/copyShareLink/, /ShareButtons/], where: 'editor' },
-  { can: 'opt into Stories, with the Event Hub guard', needs: [/Feature our story in Stories/, /Your Event Hub is/], where: 'editor' },
+  // ⚠ THE GUARD'S SENTENCE WAS REWORDED 2026-09-09, THE CAPABILITY WAS NOT
+  // REMOVED. It used to read "Your Event Hub is Private … Make it Public or
+  // Unlisted", which named a remedy that stopped qualifying on 2026-08-15 when
+  // the gallery tightened to `landing_page_visibility = 'public'`. It now names
+  // the setting actually chosen (all four states) and the remedy that works.
+  // This checklist caught the rename and was RIGHT to — the pattern is updated
+  // to the new sentence, never deleted, so the guard still has to render.
+  { can: 'opt into Stories, with the Event Hub guard', needs: [/Feature our story in Stories/, /Your page is set to/, /Who can view/], where: 'editor' },
 
   // ── THE PUBLISH LADDER (08 step 1.6) ──────────────────────────────────────
   // ⚠ THE STORIES OPT-IN ABOVE AND THE LADDER BELOW ARE SEPARATE THINGS, and

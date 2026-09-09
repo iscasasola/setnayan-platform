@@ -102,6 +102,14 @@ const PALETTES: Array<{ name: string; swatches: string[] }> = [
     name: 'the shipped reception default',
     swatches: ['#C97B4B', '#824A2A', '#D08654', '#F5EDE4', '#2B1D14'],
   },
+  {
+    // A REAL BOARD, READ OUT OF PRODUCTION 2026-09-09 (the `maria-and-jose`
+    // event). Every other palette here was chosen to be hostile; this one was
+    // chosen by a person, and it is the hardest of the lot — five colours with
+    // no true dark, so the night stage has nothing deep to build a ground from.
+    name: 'a real saved board (prod)',
+    swatches: ['#FBFBFA', '#C5A059', '#9CA98B', '#C9A9A6', '#D8C7B0'],
+  },
 ];
 
 function allStageSets(): Array<{ name: string; stages: StageColours[] }> {
@@ -142,6 +150,32 @@ test('all six stages of every palette clear the body, muted and accent floors', 
     assert.equal(set.stages.length, 6, `${set.name}: expected six stages`);
     set.stages.forEach((s, i) => {
       assertLegible(`${set.name} · ${STAGE_NAMES[i]}`, s.ground, s.ink, s.accent);
+    });
+  }
+});
+
+test('painting a stage against itself reproduces that stage exactly', () => {
+  /*
+    The server's first paint is `paintStage(s, s, 0)`, and that path runs the
+    ink through the IN-FADE floor, which is the weaker of the two. It returns
+    the stage's own ink because that ink already clears the stronger one — but
+    "because" is a thing that stops being true when someone edits the loop, and
+    the failure would be invisible: a page that is a little less readable at
+    rest than the stage it is showing, on every server render.
+  */
+  for (const set of allStageSets()) {
+    set.stages.forEach((stage, i) => {
+      const at = resolvePaint(stage, stage, 0);
+      assert.deepEqual(
+        at.ground,
+        stage.ground,
+        `${set.name} · ${STAGE_NAMES[i]}: the ground moved when nothing was fading`,
+      );
+      assert.deepEqual(
+        at.ink,
+        stage.ink,
+        `${set.name} · ${STAGE_NAMES[i]}: at rest the ink is ${describe(at.ink)}, but the stage's own is ${describe(stage.ink)}`,
+      );
     });
   }
 });

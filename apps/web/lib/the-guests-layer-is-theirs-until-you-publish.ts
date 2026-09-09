@@ -104,10 +104,7 @@ export function storyLayerAdmits(
 }
 
 /** Shorthand for the one that does the work. Reads better at a call site. */
-export function guestLayerAdmits(
-  status: StoryAudience,
-  viewer: StoryViewer = STRANGER,
-): boolean {
+export function guestLayerAdmits(status: StoryAudience, viewer: StoryViewer = STRANGER): boolean {
   return storyLayerAdmits('guest', status, viewer);
 }
 
@@ -121,10 +118,7 @@ export function guestLayerAdmits(
  * already knows how to omit needs no new branch. The prototype draws it as an
  * em dash.
  */
-export function countForLayer(
-  n: number | null | undefined,
-  admitted: boolean,
-): number | null {
+export function countForLayer(n: number | null | undefined, admitted: boolean): number | null {
   if (!admitted) return null;
   return typeof n === 'number' && Number.isFinite(n) ? n : null;
 }
@@ -274,10 +268,7 @@ export type LayeredStoryPayload = {
  * publish the guests'. Carrying provenance through the loader so the halves can
  * be separated belongs with the captures index that will need it.
  */
-export function redactStoryLayers<T extends LayeredStoryPayload>(
-  data: T,
-  viewer?: StoryViewer,
-): T;
+export function redactStoryLayers<T extends LayeredStoryPayload>(data: T, viewer?: StoryViewer): T;
 export function redactStoryLayers<T extends LayeredStoryPayload>(
   data: T | null,
   viewer?: StoryViewer,

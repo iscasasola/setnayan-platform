@@ -56,14 +56,7 @@ export type StageColours = {
  * dusk. Kept as a tuple so a stage cannot be added without the derivation, the
  * neutral fallback and the guard all being updated together.
  */
-export const STAGE_NAMES = [
-  'before',
-  'morning',
-  'afternoon',
-  'dusk',
-  'night',
-  'after',
-] as const;
+export const STAGE_NAMES = ['before', 'morning', 'afternoon', 'dusk', 'night', 'after'] as const;
 export type StageName = (typeof STAGE_NAMES)[number];
 export type StageIndex = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -383,9 +376,7 @@ function stageFrom(ground0: Rgb, lightest: Rgb, darkest: Rgb, accent: Rgb): Stag
 
 /** The neutral six, corrected. */
 export function neutralStages(): StageColours[] {
-  return NEUTRAL_GROUNDS.map((g) =>
-    stageFrom(g, [247, 243, 236], [26, 22, 32], FALLBACK_ACCENT),
-  );
+  return NEUTRAL_GROUNDS.map((g) => stageFrom(g, [247, 243, 236], [26, 22, 32], FALLBACK_ACCENT));
 }
 
 /**

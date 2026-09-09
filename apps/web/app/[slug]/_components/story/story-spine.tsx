@@ -69,8 +69,18 @@ const MAX_BAR = 46;
 const MAX_DAY_TICKS = 4;
 
 const MONTH_LONG = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 function longDate(dateStr: string): string {
@@ -290,9 +300,7 @@ export function StorySpine({
               : Math.max(2, (bin.height / tallest) * MAX_BAR),
         label: `${shortDate(day.date)} · ${clock.t} ${clock.ap}`,
         captures: bin.captures,
-        place:
-          block?.location ??
-          (state === 'no_venue' ? null : block?.label ?? null),
+        place: block?.location ?? (state === 'no_venue' ? null : (block?.label ?? null)),
         future: bin.future,
         unmeasured: false,
         nearId: near?.id ?? null,
@@ -385,8 +393,14 @@ export function StorySpine({
       : days.length;
 
   const coverFacts: Array<{ n: number | null; label: string }> = [
-    { n: countForLayer(data.metrics.photos, guestOpen), label: plural(data.metrics.photos, 'capture', 'captures') },
-    { n: facts.broadcasts.length, label: plural(facts.broadcasts.length, 'live film', 'live films') },
+    {
+      n: countForLayer(data.metrics.photos, guestOpen),
+      label: plural(data.metrics.photos, 'capture', 'captures'),
+    },
+    {
+      n: facts.broadcasts.length,
+      label: plural(facts.broadcasts.length, 'live film', 'live films'),
+    },
     { n: countForLayer(voices, guestOpen), label: plural(voices, 'voice', 'voices') },
     { n: daysTold, label: plural(daysTold, 'day told', 'days told') },
   ];
@@ -484,65 +498,65 @@ export function StorySpine({
       <main className="mx-auto max-w-5xl px-4 sm:px-6 min-[1100px]:max-w-6xl">
         <div className="min-[1100px]:grid min-[1100px]:grid-cols-[minmax(0,1fr)_320px] min-[1100px]:items-start min-[1100px]:gap-11">
           <div className="min-w-0">
-        {/* ════ THE ROAD ════ */}
-        {roadPlaced.length > 0 ? (
-          <>
-            <PartHead
-              title="The road"
-              note={`${daysTold - days.length} days · how the day was made`}
-            />
-            {roadPlaced.map((r) => (
-              <RoadEntry key={r.fact.key} fact={r.fact} x={r.x} stage={ROAD_STAGE} />
-            ))}
-          </>
-        ) : null}
+            {/* ════ THE ROAD ════ */}
+            {roadPlaced.length > 0 ? (
+              <>
+                <PartHead
+                  title="The road"
+                  note={`${daysTold - days.length} days · how the day was made`}
+                />
+                {roadPlaced.map((r) => (
+                  <RoadEntry key={r.fact.key} fact={r.fact} x={r.x} stage={ROAD_STAGE} />
+                ))}
+              </>
+            ) : null}
 
-        {/* ════ THE DAYS ════ */}
-        {days.map((day) => {
-          const mins = minutesByDay.get(day.date) ?? [];
-          return (
-            <section key={day.date} aria-label={longDate(day.date)}>
-              <PartHead
-                title={days.length > 1 ? `Day ${days.indexOf(day) + 1}` : 'The day'}
-                note={`${longDate(day.date)}${mins.length ? ' · by the minute' : ''}`}
-              />
-              {mins.length === 0 ? (
-                <p className="py-6 font-serif text-lg italic text-ink/60">
-                  {guestOpen
-                    ? 'No minute of this day has been written up yet.'
-                    : `The minutes of this day belong to the people who were there, until the ${words.host} publishes.`}
-                </p>
-              ) : null}
-              {mins.map((m, i) => {
-                const prev = mins[i - 1];
-                const gap = prev ? gapText(prev.minuteOfDay, m.minuteOfDay) : null;
-                return (
-                  <div key={m.id}>
-                    {gap ? <Gap text={gap} blocks={gapNote(prev!, m, facts)} /> : null}
-                    <MinuteEntry
-                      minute={m}
-                      day={day}
-                      facts={facts}
-                      words={words}
-                      data={data}
-                      guestOpen={guestOpen}
-                    />
-                  </div>
-                );
-              })}
-            </section>
-          );
-        })}
+            {/* ════ THE DAYS ════ */}
+            {days.map((day) => {
+              const mins = minutesByDay.get(day.date) ?? [];
+              return (
+                <section key={day.date} aria-label={longDate(day.date)}>
+                  <PartHead
+                    title={days.length > 1 ? `Day ${days.indexOf(day) + 1}` : 'The day'}
+                    note={`${longDate(day.date)}${mins.length ? ' · by the minute' : ''}`}
+                  />
+                  {mins.length === 0 ? (
+                    <p className="py-6 font-serif text-lg italic text-ink/60">
+                      {guestOpen
+                        ? 'No minute of this day has been written up yet.'
+                        : `The minutes of this day belong to the people who were there, until the ${words.host} publishes.`}
+                    </p>
+                  ) : null}
+                  {mins.map((m, i) => {
+                    const prev = mins[i - 1];
+                    const gap = prev ? gapText(prev.minuteOfDay, m.minuteOfDay) : null;
+                    return (
+                      <div key={m.id}>
+                        {gap ? <Gap text={gap} blocks={gapNote(prev!, m, facts)} /> : null}
+                        <MinuteEntry
+                          minute={m}
+                          day={day}
+                          facts={facts}
+                          words={words}
+                          data={data}
+                          guestOpen={guestOpen}
+                        />
+                      </div>
+                    );
+                  })}
+                </section>
+              );
+            })}
 
-        {/* ════ AFTER ════ */}
-        {afterPlaced.length > 0 ? (
-          <>
-            <PartHead title="After" note="the story keeps its date" />
-            {afterPlaced.map((a) => (
-              <RoadEntry key={a.fact.key} fact={a.fact} x={a.x} stage={AFTER_STAGE} />
-            ))}
-          </>
-        ) : null}
+            {/* ════ AFTER ════ */}
+            {afterPlaced.length > 0 ? (
+              <>
+                <PartHead title="After" note="the story keeps its date" />
+                {afterPlaced.map((a) => (
+                  <RoadEntry key={a.fact.key} fact={a.fact} x={a.x} stage={AFTER_STAGE} />
+                ))}
+              </>
+            ) : null}
           </div>
 
           <StoryLens

@@ -169,10 +169,7 @@ export function loudestTable(heat: readonly TableHeat[]): string | null {
  * A share of the loudest rather than an absolute, so a quiet minute still shows
  * its own shape instead of a dark room.
  */
-export function heatClassOf(
-  tableId: string,
-  heat: readonly TableHeat[],
-): 'hot' | 'warm' | 'cold' {
+export function heatClassOf(tableId: string, heat: readonly TableHeat[]): 'hot' | 'warm' | 'cold' {
   const loudest = loudestTable(heat);
   if (loudest === tableId) return 'hot';
   const mine = heat.find((h) => h.tableId === tableId);

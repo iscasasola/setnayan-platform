@@ -96,15 +96,30 @@ const ROOM: StoryRoom = {
 
 test('each of the five states is reached by the thing that actually causes it', () => {
   const cases: Array<[string, number, StoryRoom, LensState]> = [
-    ['a kind of day with no seating surface — a date, a hangout', at(19), { ...ROOM, seatingSurface: false }, 'no_venue'],
-    ['a celebration that moves — travel is roaming', at(19), { ...ROOM, roaming: true }, 'no_venue'],
+    [
+      'a kind of day with no seating surface — a date, a hangout',
+      at(19),
+      { ...ROOM, seatingSurface: false },
+      'no_venue',
+    ],
+    [
+      'a celebration that moves — travel is roaming',
+      at(19),
+      { ...ROOM, roaming: true },
+      'no_venue',
+    ],
     ['nobody ever drew a room', at(19), { ...ROOM, tables: [] }, 'not_built'],
     ['a road minute, before the room was drawn', DAY - 90 * 86_400_000, ROOM, 'not_built'],
     ['getting ready — the room exists, nobody is in it', at(11, 30), ROOM, 'designed'],
     ['the ceremony', at(14, 45), ROOM, 'ceremony'],
     ['golden hour, between the two', at(16), ROOM, 'designed'],
     ['the reception', at(19, 12), ROOM, 'reception'],
-    ['the reception, but nobody was ever seated', at(19, 12), { ...ROOM, seatsAssigned: false }, 'designed'],
+    [
+      'the reception, but nobody was ever seated',
+      at(19, 12),
+      { ...ROOM, seatsAssigned: false },
+      'designed',
+    ],
     ['after the last block', at(23, 30), ROOM, 'designed'],
   ];
   for (const [label, ms, room, expected] of cases) {
@@ -283,12 +298,24 @@ test('a withheld guests layer produces a line that says so, and no number', () =
 
 test('the ceremony and designed lines quote the block’s own opening time when there is one', () => {
   assert.match(
-    lensNote({ state: 'ceremony', opensAt: '6:15 PM', loudestLabel: null, alsoShooting: 0, heatWithheld: false }),
+    lensNote({
+      state: 'ceremony',
+      opensAt: '6:15 PM',
+      loudestLabel: null,
+      alsoShooting: 0,
+      heatWithheld: false,
+    }),
     /6:15 PM/,
   );
   // …and never invent one when the couple has not said.
   assert.doesNotMatch(
-    lensNote({ state: 'ceremony', opensAt: null, loudestLabel: null, alsoShooting: 0, heatWithheld: false }),
+    lensNote({
+      state: 'ceremony',
+      opensAt: null,
+      loudestLabel: null,
+      alsoShooting: 0,
+      heatWithheld: false,
+    }),
     /\d/,
   );
 });

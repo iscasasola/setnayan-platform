@@ -25,7 +25,12 @@ import 'server-only';
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { storyDayWindow, storyDayList, manilaDayOf, type StoryDayWindow } from '@/lib/story-day-window';
+import {
+  storyDayWindow,
+  storyDayList,
+  manilaDayOf,
+  type StoryDayWindow,
+} from '@/lib/story-day-window';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
 import { plannedInstant } from '@/lib/run-of-show';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
@@ -180,8 +185,26 @@ export function sampleSpineFacts(
     window,
     dayDates: storyDayList(window),
     bucketMinutes: dialBucketMinutes(window.days),
+    palette: SAMPLE_PALETTE,
   };
 }
+
+/**
+ * The sample stories' saved theme — the design's own "Champagne & sage, garden
+ * afternoon" board (`prototypes/story.html`).
+ *
+ * 🔑 A FIXTURE'S COLOURS, ON A PAGE THAT SAYS IT IS A FIXTURE. A sample has no
+ * event row to read a palette from, and leaving it empty would show every
+ * curated story in the neutral light — which is a real mode, so nobody looking
+ * at the page would know the six stages were never exercised. The samples
+ * already carry a *Sample story — not a real ⟨host⟩* pill on the cover, so
+ * these are not passed off as anybody's.
+ *
+ * ⚠ It is the LOOK only. A sample still has no captures, so its dial has no bar
+ * heights and its lens has no room — the honest shape of "nothing was measured
+ * here".
+ */
+const SAMPLE_PALETTE = ['#E6D3B3', '#7E8B72', '#FBFBFA', '#6B4E3D', '#C5A059'];
 
 /**
  * Load the spine's facts.
@@ -289,9 +312,7 @@ export async function loadStorySpineFacts(args: {
     const rows = (data ?? []) as Array<Record<string, unknown>>;
     const firstMs = rows.length ? msOf(rows[0]!.contract_signed_at) : null;
     if (firstMs != null) {
-      const names = rows
-        .map((r) => asString(r.vendor_name))
-        .filter((n): n is string => Boolean(n));
+      const names = rows.map((r) => asString(r.vendor_name)).filter((n): n is string => Boolean(n));
       const fact = roadFact(
         'road-team',
         firstMs,
@@ -605,7 +626,9 @@ async function loadStoryRoom(
   try {
     const { data, error } = await admin
       .from('event_floor_plan')
-      .select('stage_x, stage_y, stage_w, stage_h, dance_enabled, dance_x, dance_y, dance_w, dance_h')
+      .select(
+        'stage_x, stage_y, stage_w, stage_h, dance_enabled, dance_x, dance_y, dance_w, dance_h',
+      )
       .eq('event_id', eventId)
       .maybeSingle();
     if (!error && data) {
@@ -692,16 +715,31 @@ async function loadTableHeat(
     presigning. Nothing here is presigned at all; these are five small columns.
   */
   const half = Math.max(5, args.bucketMinutes) * 60_000 * 3;
+  // ⚠ `StoryDayWindow` carries ISO bounds, not epoch ones — its own field list
+  // is `startIso` / `endIso`, because they exist to be compared against a
+  // `captured_at` COLUMN. Parsed once here rather than assumed.
+  const winFrom = Date.parse(args.window.startIso);
+  const winTo = Date.parse(args.window.endIso);
+  if (!Number.isFinite(winFrom) || !Number.isFinite(winTo)) return [];
   const windows = args.minutesMs
     .map((ms) => ({ at: ms, from: ms - half, to: ms + half }))
-    .filter((w) => w.to >= args.window.startMs && w.from <= args.window.endMs);
+    .filter((w) => w.to >= winFrom && w.from <= winTo);
   if (windows.length === 0) return [];
 
   const clause = windows
-    .map((w) => `and(captured_at.gte.${new Date(w.from).toISOString()},captured_at.lte.${new Date(w.to).toISOString()})`)
+    .map(
+      (w) =>
+        `and(captured_at.gte.${new Date(w.from).toISOString()},captured_at.lte.${new Date(w.to).toISOString()})`,
+    )
     .join(',');
 
-  type Shot = { id: string; key: string | null; at: number; seatId: string | null; personId: string | null };
+  type Shot = {
+    id: string;
+    key: string | null;
+    at: number;
+    seatId: string | null;
+    personId: string | null;
+  };
   const shots: Shot[] = [];
   try {
     const { data, error } = await admin
@@ -749,7 +787,9 @@ async function loadTableHeat(
 
   // ── shooter → seat → table ───────────────────────────────────────────────
   const guestBySeat = new Map<string, string>();
-  const seatIds = [...new Set(admitted.map((s) => s.seatId).filter((v): v is string => Boolean(v)))];
+  const seatIds = [
+    ...new Set(admitted.map((s) => s.seatId).filter((v): v is string => Boolean(v))),
+  ];
   if (seatIds.length > 0) {
     try {
       const { data } = await admin

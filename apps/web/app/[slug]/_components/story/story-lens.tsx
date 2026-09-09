@@ -87,7 +87,15 @@ export function StoryLens({ room, blocks, heat, heatWithheld, openingAtMs }: Sto
     });
   }, [openingAtMs]);
 
-  const state: LensState = atMs == null ? 'not_built' : lensStateAt(atMs, blocks, room);
+  /*
+    🔴 A NULL INSTANT IS "BEFORE THE STORY BEGAN", NOT "NOT BUILT". Short-cutting
+    to `not_built` when the reader is above the first entry answered the wrong
+    question for a celebration that has no seating at all: a date or a hangout
+    would have opened on "the room had not been drawn yet" — which implies one
+    was coming. `lensStateAt` already tests the kind of day FIRST, so it is
+    asked either way, with an instant before everything.
+  */
+  const state: LensState = lensStateAt(atMs ?? Number.NEGATIVE_INFINITY, blocks, room);
   const showSeats = seatsAreShown(state);
 
   /*
@@ -240,6 +248,17 @@ function RoomPlan({
       {/* THE RECEPTION — the tables the couple placed, lit by this minute. */}
       {showSeats
         ? room.tables.map((t) => {
+            /*
+              ⚠ A FLAGGED DELTA FROM THE PROTOTYPE, AND IT IS OWNER LOCK 2 THAT
+              DECIDES IT. The prototype burns the loudest table in a FIXED gold
+              (`--candle`, `#D9A441`) because its own sample board is champagne
+              and gold. Lock 2 says the story's colours come from the host's
+              saved mood board — so the loudest table burns in THEIR accent,
+              already contrast-corrected by `story-light`. On a champagne board
+              that is the prototype's gold; on an orchid one a fixed gold would
+              be a colour nobody chose, sitting on a page built from colours
+              they did. Raised with the owner rather than settled quietly.
+            */
             const heat = heatClassOf(t.id, tables);
             const fill =
               heat === 'hot'
@@ -255,7 +274,13 @@ function RoomPlan({
             return (
               <g key={t.id}>
                 {t.shape === 'round' ? (
-                  <circle cx={cx} cy={cy} r={15} className={`${fill} ${stroke}`} strokeWidth={1.1} />
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={15}
+                    className={`${fill} ${stroke}`}
+                    strokeWidth={1.1}
+                  />
                 ) : (
                   <rect
                     x={cx - (wide ? 30 : 17)}

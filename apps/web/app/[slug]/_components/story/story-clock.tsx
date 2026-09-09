@@ -346,7 +346,10 @@ export function StoryClock({
             </div>
           </div>
 
-          <div className="relative mt-1.5 pb-4 pt-4" style={{ minHeight: DIAL_HEIGHT + LABEL_ROW_PX * 2 }}>
+          <div
+            className="relative mt-1.5 pb-4 pt-4"
+            style={{ minHeight: DIAL_HEIGHT + LABEL_ROW_PX * 2 }}
+          >
             {/*
               The bars live in a stretched 1000-unit space. Nothing that has to
               stay legible may live in there with them — see the label layer.
@@ -383,11 +386,7 @@ export function StoryClock({
                       width={Math.max(0.6, b.w).toFixed(2)}
                       height={1}
                       className={
-                        isCursor
-                          ? 'fill-terracotta-700'
-                          : b.future
-                            ? 'fill-ink/15'
-                            : 'fill-ink/25'
+                        isCursor ? 'fill-terracotta-700' : b.future ? 'fill-ink/15' : 'fill-ink/25'
                       }
                     />
                   );

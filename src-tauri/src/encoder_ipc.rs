@@ -50,9 +50,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::encoder::contract::{ChunkKind, EncodedChunk};
+use crate::encoder::file_sink::{judge_disk_for, recording_path, CivilDate, FlvFileWriter};
+use crate::encoder::flv::StreamMeta;
+use crate::encoder::reconnect::{
+    supervise, HealthEvent, NetworkConnector, RetryPolicy, StopReason,
+};
+use crate::encoder::tagger::{NoRecording, Pipeline, TagSink, Tagger};
+use crate::stream_key::StreamKeyState;
 use serde::{Deserialize, Serialize};
-use tauri::ipc::{InvokeBody, Request};
-use tauri::State;
+use tauri::ipc::{Channel, InvokeBody, Request};
+use tauri::{Manager, State};
 use tokio::sync::mpsc;
 
 /// The Setnayan API origin the token-verify call is made against. Hardcoded
@@ -137,6 +144,108 @@ struct VerifyResponse {
     broadcast_id: Option<i64>,
 }
 
+/// ── S18 · THE HEALTH READING THIS PROCESS PUSHES TO THE CONTROLLER ──────────
+/// Shaped to drop straight into `EncoderHealthInput` in
+/// `apps/web/lib/live-studio-ingest-health.ts` — which has accepted this shape
+/// since S9 while always being handed `null`, because nothing produced it.
+///
+/// `droppedFrames` and `bitrateRung` are NOT here on purpose: both are decided
+/// in the page (the worker's ring counts its own drops; `stepBitrateRung` in
+/// `live-studio-encoder-bitrate.ts` owns the ladder). Rust reports only what
+/// Rust alone can see — the state of the socket and of the recording — and the
+/// page composes the final input. Emitting a guessed `bitrateRung` from here
+/// would put two deciders on one value, which is rule 24's whole complaint.
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthUpdate {
+    /// One of `EncoderRtmpState`: idle · connecting · publishing · reconnecting · down.
+    pub rtmp: &'static str,
+    pub reconnecting_for_ms: u64,
+    pub recording: bool,
+    /// `primary` / `backup`, once a connection has been attempted.
+    pub ingest: Option<&'static str>,
+    /// Already redacted upstream — `reconnect.rs` scrubs the stream key out of
+    /// every `detail` string it builds (see `Redactor`). Never build one here
+    /// from an endpoint.
+    pub detail: Option<String>,
+}
+
+/// Folds the supervisor's event stream into the strip's five-state reading.
+///
+/// A STATE MACHINE, not a per-event `match`, for one reason worth stating:
+/// `RecordingStopped` and `DiskLow` say nothing about the socket. A stateless
+/// mapper has to invent an `rtmp` value for them, and whatever it invents is
+/// wrong — a full disk mid-ceremony would either blank the strip to `idle` or
+/// claim the broadcast is `down` while it is in fact still publishing happily.
+/// Carrying the previous wire state across those two events is the entire
+/// reason this type exists.
+struct HealthProjection {
+    rtmp: &'static str,
+    reconnecting_for_ms: u64,
+    recording: bool,
+}
+
+impl HealthProjection {
+    fn new(recording: bool) -> HealthProjection {
+        HealthProjection { rtmp: "idle", reconnecting_for_ms: 0, recording }
+    }
+
+    fn apply(&mut self, event: &HealthEvent) -> HealthUpdate {
+        let mut ingest = None;
+        let mut detail = None;
+        match event {
+            HealthEvent::Connecting { ingest: which, .. } => {
+                self.rtmp = "connecting";
+                self.reconnecting_for_ms = 0;
+                ingest = Some(which.label());
+            }
+            HealthEvent::Publishing { ingest: which, .. } => {
+                self.rtmp = "publishing";
+                self.reconnecting_for_ms = 0;
+                ingest = Some(which.label());
+            }
+            HealthEvent::Reconnecting { for_ms, detail: why, .. } => {
+                self.rtmp = "reconnecting";
+                self.reconnecting_for_ms = *for_ms;
+                detail = Some(why.clone());
+            }
+            HealthEvent::Down { for_ms, detail: why } => {
+                self.rtmp = "down";
+                self.reconnecting_for_ms = *for_ms;
+                detail = Some(why.clone());
+            }
+            HealthEvent::BroadcastEnded { detail: why } => {
+                self.rtmp = "down";
+                detail = Some(why.clone());
+            }
+            // NEITHER of these touches `self.rtmp` — see the type's docblock.
+            HealthEvent::RecordingStopped { detail: why } => {
+                self.recording = false;
+                detail = Some(why.clone());
+            }
+            HealthEvent::DiskLow { free_bytes } => {
+                detail = Some(format!("{free_bytes} bytes free"));
+            }
+        }
+        HealthUpdate {
+            rtmp: self.rtmp,
+            reconnecting_for_ms: self.reconnecting_for_ms,
+            recording: self.recording,
+            ingest,
+            detail,
+        }
+    }
+}
+
+/// `~` on both platforms. `HOME` is not set on Windows; `USERPROFILE` is not set
+/// on macOS. Returning `None` means "record nowhere" — never "write to the
+/// current working directory", which for a bundled `.app` is `/`.
+fn home_dir() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from)
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EncoderStartResult {
@@ -150,17 +259,42 @@ pub struct EncoderStopResult {
     pub chunks_received: u64,
 }
 
-/// Verify `token` against the server (S5.md § ACL), and if it authorizes,
-/// stand up the bounded channel + stub sink task and mark the session
-/// authorized. Every other encoder command refuses until this has succeeded.
+/// Verify `token` against the server (S5.md § ACL), and if it authorizes, open
+/// the publish destination S8 is holding, stand up the bounded channel, and run
+/// `reconnect::supervise` on it for as long as the wedding lasts.
+///
+/// ── S18 · THIS IS WHERE THE PIPELINE JOINS ──────────────────────────────────
+/// Until this session, the channel below fed a STUB that counted bytes and threw
+/// them away, and `crates/encoder`'s `supervise`/`RtmpSender` — 83 passing tests
+/// of them — had exactly one caller in the whole repository:
+/// `examples/publish_probe.rs`. S5's own comment said "S6 replaces this"; S6
+/// merged BEFORE S5 and never did; no row in the plan's ladder owned the join.
+/// Every stage was green and no wedding could reach YouTube. `publish_probe.rs`
+/// is the reference wiring this follows — deliberately the same call, in the
+/// same order, so the tool the acceptance run uses and the tool a couple uses
+/// cannot diverge.
+///
+/// ORDER MATTERS AND IS NOT ARBITRARY: the destination is resolved BEFORE the
+/// session is marked authorized. A couple who has not pasted a key (or claimed
+/// a hosted channel) is refused here, at the one moment there is still a human
+/// looking at the screen — rather than being told "you are live", encoding for
+/// twenty minutes into a channel that was never opened, and finding out from
+/// their guests.
 #[tauri::command]
 pub async fn encoder_start(
     state: State<'_, EncoderIpcState>,
+    keys: State<'_, StreamKeyState>,
+    app: tauri::AppHandle,
     token: String,
+    health: Channel<HealthUpdate>,
 ) -> Result<EncoderStartResult, String> {
     if token.trim().is_empty() {
         return Err("empty_token".to_string());
     }
+
+    // Resolved before the network call so a missing key costs nothing and is
+    // reported as itself, not as a token failure.
+    let destinations = keys.destinations().ok_or_else(|| "no_stream_key".to_string())?;
 
     let client = reqwest::Client::new();
     let resp = client
@@ -185,19 +319,108 @@ pub async fn encoder_start(
     let bytes_received = Arc::new(AtomicU64::new(0));
     let chunks_received = Arc::new(AtomicU64::new(0));
 
-    // STUB SINK — S6 replaces this with the real FLV-tag/RTMP writer
-    // (`encoder::tagger` / `encoder::sender`). All this does is prove the
-    // pipe: count bytes and chunks so `encoder_stop` can report them.
-    {
-        let bytes_received = bytes_received.clone();
-        let chunks_received = chunks_received.clone();
-        tokio::spawn(async move {
-            while let Some(chunk) = rx.recv().await {
-                bytes_received.fetch_add(chunk.payload.len() as u64, Ordering::Relaxed);
-                chunks_received.fetch_add(1, Ordering::Relaxed);
+    // ── the recording ───────────────────────────────────────────────────────
+    // For a hosted-channel couple this file is the ONLY copy that will ever
+    // exist (`file_sink.rs`'s own docblock), so it is opened here, before the
+    // socket, where a failure is still reportable.
+    //
+    // A DISK TOO FULL TO RECORD DOES NOT REFUSE THE BROADCAST. Going to air
+    // without a local copy is a worse wedding than not going to air at all only
+    // if you have never been to a wedding. The operator is told (`DiskLow` /
+    // `recording: false` on the health channel) and the ceremony still airs.
+    let event_public_id = parsed.event_id.clone().unwrap_or_default();
+    let mut recording = false;
+    let (sink, disk_warning): (Box<dyn TagSink>, Option<u64>) = match home_dir() {
+        Some(home) => {
+            let path = recording_path(&home, &event_public_id, CivilDate::today_utc());
+            let verdict = judge_disk_for(&path).ok();
+            let refused = verdict.as_ref().is_some_and(|v| !v.may_record());
+            let low = verdict
+                .as_ref()
+                .filter(|v| v.free_bytes() < crate::encoder::file_sink::DISK_WARN_BYTES)
+                .map(|v| v.free_bytes());
+            if refused {
+                (Box::new(NoRecording), low)
+            } else {
+                match FlvFileWriter::create(&path) {
+                    Ok(writer) => {
+                        recording = true;
+                        (Box::new(writer), low)
+                    }
+                    Err(_) => (Box::new(NoRecording), low),
+                }
             }
+        }
+        None => (Box::new(NoRecording), None),
+    };
+    let mut pipeline = Pipeline::new(Tagger::new(), sink);
+
+    // ── the session ─────────────────────────────────────────────────────────
+    // Spawned, not awaited: this command must return so the page can start
+    // pushing. `supervise` owns the socket for the rest of the broadcast and
+    // ends only when the producer closes the channel (`encoder_stop` drops the
+    // sender) or it gives up.
+    let app_for_reset = app.clone();
+    tokio::spawn(async move {
+        let (events, mut event_rx) = mpsc::channel::<HealthEvent>(64);
+
+        // The forwarder HANDS THE CHANNEL BACK when it finishes, so the final
+        // reading can be sent after `supervise` returns without requiring
+        // `Channel` to be cloneable.
+        let forwarder = tokio::spawn(async move {
+            let mut projection = HealthProjection::new(recording);
+            if let Some(free_bytes) = disk_warning {
+                let _ = health.send(projection.apply(&HealthEvent::DiskLow { free_bytes }));
+            }
+            while let Some(event) = event_rx.recv().await {
+                let _ = health.send(projection.apply(&event));
+            }
+            (health, projection)
         });
-    }
+
+        let outcome = supervise(
+            &NetworkConnector,
+            &destinations,
+            StreamMeta::defaults_720p30(),
+            &mut rx,
+            &mut pipeline,
+            &events,
+            &RetryPolicy::default(),
+        )
+        .await;
+
+        drop(events);
+        if let Ok((health, mut projection)) = forwarder.await {
+            // The stream is over however it ended — say so once, so a strip that
+            // last heard "publishing" does not sit green over a dead socket.
+            let closing = match &outcome.stop {
+                StopReason::ProducerFinished => HealthEvent::BroadcastEnded {
+                    detail: "stopped".to_string(),
+                },
+                StopReason::BroadcastEnded { detail } => HealthEvent::BroadcastEnded {
+                    detail: detail.clone(),
+                },
+                StopReason::GaveUp { detail } => HealthEvent::BroadcastEnded {
+                    detail: detail.clone(),
+                },
+            };
+            let _ = health.send(projection.apply(&closing));
+        }
+
+        // The broadcast is over, so the state must read idle again — otherwise
+        // `EncoderIpcState::is_idle` reports "mid-broadcast" forever and S12
+        // defers every update until the app is restarted. Resetting here covers
+        // the case the operator never pressed stop (the supervisor gave up);
+        // `encoder_stop` resetting the same state is idempotent with it.
+        let state = app_for_reset.state::<EncoderIpcState>();
+        // Bound to a local first: `if let Ok(g) = state.0.lock()` keeps the
+        // temporary `Result` alive to the end of the enclosing block, which
+        // outlives the `State` borrow it came from.
+        let locked = state.0.lock();
+        if let Ok(mut guard) = locked {
+            *guard = Session::default();
+        }
+    });
 
     let mut guard = state.0.lock().map_err(|_| "state_poisoned".to_string())?;
     *guard = Session {
@@ -218,11 +441,20 @@ pub fn encoder_config(state: State<'_, EncoderIpcState>, chunk: String) -> Resul
     require_authorized(&guard)?;
     let decoded = decode_and_check_kind(&chunk, true)?;
     let sender = guard.sender.as_ref().ok_or_else(|| "not_authorized".to_string())?;
+    let len = decoded.payload.len() as u64;
     // try_send, never await: a command handler holding the state lock across
     // an await would also block every other encoder command for the wait.
     sender
         .try_send(decoded)
-        .map_err(|_| "channel_full_or_closed".to_string())
+        .map_err(|_| "channel_full_or_closed".to_string())?;
+    // S18 — COUNTED HERE, NOT IN THE SINK. The stub sink used to tally these on
+    // the way past; the real sink is `supervise`, which owns the receiver and
+    // cannot report back synchronously. Counting on the accepted-send keeps
+    // `encoder_stop`'s numbers meaning exactly what their names say — what this
+    // IPC surface received and queued — and never counts a rejected chunk.
+    guard.bytes_received.fetch_add(len, Ordering::Relaxed);
+    guard.chunks_received.fetch_add(1, Ordering::Relaxed);
+    Ok(())
 }
 
 /// One encoded video or audio chunk, base64-enveloped (S5's owner-decided
@@ -235,9 +467,13 @@ pub fn encoder_push(state: State<'_, EncoderIpcState>, chunk: String) -> Result<
     require_authorized(&guard)?;
     let decoded = decode_and_check_kind(&chunk, false)?;
     let sender = guard.sender.as_ref().ok_or_else(|| "not_authorized".to_string())?;
+    let len = decoded.payload.len() as u64;
     sender
         .try_send(decoded)
-        .map_err(|_| "channel_full_or_closed".to_string())
+        .map_err(|_| "channel_full_or_closed".to_string())?;
+    guard.bytes_received.fetch_add(len, Ordering::Relaxed);
+    guard.chunks_received.fetch_add(1, Ordering::Relaxed);
+    Ok(())
 }
 
 /// Ends the session: drops the sender (closing the channel, which ends the
@@ -255,14 +491,26 @@ pub fn encoder_push(state: State<'_, EncoderIpcState>, chunk: String) -> Result<
 #[tauri::command]
 pub fn encoder_stop(
     state: State<'_, EncoderIpcState>,
+    keys: State<'_, StreamKeyState>,
     app: tauri::AppHandle,
 ) -> Result<EncoderStopResult, String> {
     let mut guard = state.0.lock().map_err(|_| "state_poisoned".to_string())?;
     require_authorized(&guard)?;
     let bytes_received = guard.bytes_received.load(Ordering::Relaxed);
     let chunks_received = guard.chunks_received.load(Ordering::Relaxed);
+    // Dropping the Session drops the `mpsc::Sender`, which closes the channel,
+    // which is what ends `supervise`'s loop with `StopReason::ProducerFinished`
+    // — a clean end, the recording finalised, the socket shut. There is no
+    // second "stop" path into the session task and there should not be.
     *guard = Session::default();
     drop(guard);
+    // S18 — what `stream_key.rs`'s own docblock asked the real `encoder_stop`
+    // to do: "encoder_stop should call stream_key_forget (or drop the same
+    // state) instead of this module growing a second holder." The broadcast is
+    // over, so the key's reason to be in memory is over; `Zeroizing` scrubs it.
+    // A next broadcast pastes or claims again, which is the same two taps the
+    // couple already made.
+    let _ = keys.forget();
     crate::updater::recheck_after_stop(app);
     Ok(EncoderStopResult {
         bytes_received,

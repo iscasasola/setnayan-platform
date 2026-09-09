@@ -32,6 +32,9 @@ import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+// The ladder's own vocabulary lives in the PURE module that enforces the
+// boundary, so "which rung is protected?" has one answer in the codebase.
+import type { LadderTier } from '@/lib/inline-more-order';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
@@ -169,6 +172,43 @@ export type CategoryVendorResult = {
    * their saves belong to anybody. 0 is a measured, real answer.
    */
   savedGalleryPhotoCount: number | null;
+  /**
+   * WHICH RUNG OF THE OWNER-LOCKED LADDER PUT THIS ROW WHERE IT IS.
+   *
+   * 🔑 It is surfaced for exactly one reason: so a caller can order the TAIL and
+   * nothing else. The couple's chosen sort reaches the bottom tier only (owner
+   * 2026-09-09, *"bottom tier only"*) — relationship depth, paid placement and
+   * top-reviews are what Setnayan SELLS, and no algorithm may move them. Before
+   * this field the tiers existed only as local variables in this file, so every
+   * caller downstream saw one flat list and could not have respected the
+   * boundary even if it wanted to.
+   *
+   * ⚠ IT NAMES THE RUNG, NOT THE POSITION. The service-date down-rank below
+   * stable-partitions busy vendors to the end, so a `boosted` row can legally
+   * sit after a `tail` row in the returned array. A caller must therefore
+   * re-order tail rows WITHIN THE SLOTS THEY ALREADY OCCUPY rather than assume
+   * the tail is a contiguous suffix (`lib/inline-more-order.ts` does).
+   *
+   * ⚠ And it is the ladder's verdict, not a re-derivation: a consumer that
+   * recomputed "is this boosted / well reviewed?" from the public fields would
+   * be a second definition of the tier boundary, free to drift from this one.
+   */
+  ladderTier: LadderTier;
+  /**
+   * The vendor's cheapest pax-adjusted "starts at" for this category, in PHP —
+   * or null when nothing priced could be read.
+   *
+   * ⚠ THIS IS NOT A QUOTE. The bench carousel's "Lowest price" reads a real
+   * quoted total; there is no quote for a shop the couple has not contacted, so
+   * the comparable fact here is the service floor. Any copy built on it must say
+   * "starting price", never "price" — they are different promises.
+   *
+   * The read behind it (`startsAtByVendor`) already ran unconditionally for the
+   * FREE budget-fit score; only its exposure is new. The flag-gated smart-sort
+   * internals (`_startsAt` → `budgetPressure`) are deliberately left alone, so
+   * that shipped behaviour is byte-identical either way.
+   */
+  startsAtPhp: number | null;
 };
 
 export type CategorySearchResult = {
@@ -994,8 +1034,14 @@ export async function searchCategoryVendors(input: {
      *  tail comparator that reads it is a no-op then (byte-identical order). */
     _priceFit: number;
     /** Pax-adjusted cheapest "starts at" PHP (null = no usable price). Feeds the
-     *  budget-pressure nudge; internal (never surfaced on the public result). */
+     *  budget-pressure nudge; internal, and FLAG-GATED — do not read it for the
+     *  public `startsAtPhp`, which must be populated whether smart-sort is on or
+     *  off. */
     _startsAt: number | null;
+    /** Which rung of the ladder this row landed on. Assigned once, below, where
+     *  the four tiers are actually built — never inferred from the public
+     *  fields. */
+    _tier: LadderTier;
   };
   const shaped: Shaped[] = recs.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
@@ -1141,6 +1187,13 @@ export async function searchCategoryVendors(input: {
       _facetMatch: fm?.matchedCount ?? 0,
       _priceFit: priceFit,
       _startsAt: startsAt,
+      // NOT flag-gated, unlike `_startsAt` above: the couple's "Lowest price"
+      // must be able to order the tail whether or not smart-sort is switched on.
+      startsAtPhp: startsAtByVendor.get(r.vendor_profile_id) ?? null,
+      // Provisional. The four assembly steps below overwrite it for the three
+      // tiers ABOVE the tail; anything they do not touch really is the tail, so
+      // the safe default is the only tier that may be re-ordered.
+      _tier: 'tail' as LadderTier,
     };
   });
 
@@ -1217,6 +1270,15 @@ export async function searchCategoryVendors(input: {
     }
     return b._reviews - a._reviews || b._rating - a._rating;
   });
+
+  // Stamp the rung each row landed on, at the one place that knows. Done here
+  // rather than inside each `.filter()` above so the four lines read as one
+  // statement of the ladder and cannot fall out of step with the concatenation
+  // on the next line.
+  for (const s of withRelationship) s._tier = 'relationship';
+  for (const s of boosted) s._tier = 'boosted';
+  for (const s of top10) s._tier = 'top_reviews';
+  for (const s of tail) s._tier = 'tail';
 
   let ordered = [...withRelationship, ...boosted, ...top10, ...tail];
 
@@ -1298,6 +1360,8 @@ export async function searchCategoryVendors(input: {
     facetSelectedCount: s.facetSelectedCount,
     serviceDateAvailable: s.serviceDateAvailable,
     savedGalleryPhotoCount: s.savedGalleryPhotoCount,
+    ladderTier: s._tier,
+    startsAtPhp: s.startsAtPhp,
   }));
 
   return {

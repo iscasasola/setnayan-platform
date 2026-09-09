@@ -42,31 +42,59 @@ const gate = src('../app/_components/follow-gate.tsx');
 const messages = src('../app/dashboard/[eventId]/messages/actions.ts');
 
 test('Message no longer waits on the couple having followed', () => {
-  // Scoped to the two expressions that decide the Message control. A blanket
-  // search for `following` is wrong here — the Follow toggle on the PROFILE
-  // variant legitimately reads and flips it, and a guard that fires on that is
-  // a guard nobody keeps.
-  const disabled = gate.slice(
-    gate.indexOf('const messageDisabled'),
-    gate.indexOf(';', gate.indexOf('const messageDisabled')),
+  // Scoped to the one expression that decides whether Message can open a
+  // thread. A blanket search for `following` is wrong here — the Follow
+  // toggle on the PROFILE variant legitimately reads and flips it, and a
+  // guard that fires on that is a guard nobody keeps.
+  const canOpen = gate.slice(
+    gate.indexOf('const canOpenThread'),
+    gate.indexOf(';', gate.indexOf('const canOpenThread')),
   );
-  const href = gate.slice(
-    gate.indexOf('const messageHref'),
-    gate.indexOf(';', gate.indexOf('const messageHref')),
-  );
-  assert.ok(disabled.length > 0 && href.length > 0, 're-point this guard');
+  assert.ok(canOpen.length > 0, 're-point this guard');
   assert.ok(
-    !/following/.test(disabled),
-    'the Message control is disabled on `following` again — the puzzle whose ' +
+    !/following/.test(canOpen),
+    'the Message control is gated on `following` again — the puzzle whose ' +
       'answer was a different button',
-  );
-  assert.ok(
-    !/following/.test(href),
-    'the Message link is gated on `following` again',
   );
   assert.ok(
     !/Follow to message/.test(gate),
     'the "Follow to message" caption is back',
+  );
+});
+
+/* ⚠ 2026-09-09 — "Message" ALSO USED TO LINK TO A FORM, NOT A CONVERSATION.
+   It built an href to the messages LIST with the vendor's email pre-filled
+   into a "start a new thread" form that still needed submitting, and it
+   silently dropped the vendor's address when the couple had no event yet
+   (`/dashboard?prefill_vendor_email=…`, a param the launcher page never
+   reads). Message now opens the thread directly through the same canonical
+   resolver the shortlist/budget/workspace controls use
+   (`ContactShortlistVendorButton` → `contactVendorProfile` →
+   `startServiceInquiry`), and the no-event case is an honest doorway rather
+   than a dropped address. */
+test('Message opens the thread directly — no link to the inbox form', () => {
+  assert.match(
+    gate,
+    /ContactShortlistVendorButton/,
+    'Message no longer opens the thread through the shipped resolver',
+  );
+  assert.ok(
+    !/prefill_vendor_email/.test(gate),
+    'Message is back to prefilling the "start a new thread" form instead of ' +
+      'opening the conversation',
+  );
+});
+
+test('no event yet is an honest doorway, not a silently dropped vendor', () => {
+  assert.match(
+    gate,
+    /Start an event to message/,
+    'the no-event case no longer says what happens to the vendor the couple picked',
+  );
+  assert.ok(
+    !/\/dashboard\?prefill_vendor_email/.test(gate),
+    'the no-event Message link is back to a param the launcher page never reads ' +
+      '— the vendor gets silently dropped the moment an event is created',
   );
 });
 

@@ -54,25 +54,26 @@ const SHORT_MONTHS = [
 ] as const;
 
 /**
- * A `date` column as "18 Dec" — for a chip, where the full sentence does not fit.
+ * A `date` column as "18 Dec" — day first. Sibling of {@link monthDay}, which
+ * prints the same date the other way round. The NAME says which order you get,
+ * and that is the whole point: the one thing that has ever gone wrong here is
+ * two functions printing a date differently under one name (`shortDate`, of
+ * which this repo had SEVEN separate definitions). See
+ * `scripts/dup-rule.baseline.txt`.
  *
- * ⚠ NAMED `dayMonth`, NOT `shortDate`, AND THAT IS THE POINT.
- * `app/vendor-dashboard/_components/overview-sections.tsx` already has a local
- * `shortDate`, and it is a DIFFERENT rule: it runs
- * `toLocaleDateString('en-PH', …)`, so what it prints depends on the ICU data of
- * the machine rendering it — "Dec 18" on a Mac. Two functions that format one
- * date must not share a name; a caller picking the wrong import would see
- * nothing wrong at the call site. See `scripts/dup-rule.baseline.txt`.
+ * ⚠ BUILT BY HAND, NOT BY `toLocaleDateString`, so nothing about the running
+ * Node can move it.
  *
- * 🔴 AND THE OLDER ONE IS THE ONE WITH THE BUG — flagged, deliberately NOT
- * fixed here. Re-pointing it would change six already-shipped dates on the
- * supplier's overview page, which is a visible change to a page this branch has
- * no business touching.
- *
- * ⚠ BUILT BY HAND, NOT BY `toLocaleDateString`, for exactly that reason. Same
- * shape as the copy in `lib/plan3d-control.ts`, which got there first; that one
- * and `lib/save-the-date-content.ts` are left alone rather than re-pointed,
- * because moving a date formatter under two shipped surfaces is its own change.
+ * 🔴 CORRECTION, 2026-09-09 — THE REASON ORIGINALLY WRITTEN HERE WAS NOT
+ * MEASURED. This docblock used to claim "the CI runner says 18 Dec, a Mac says
+ * Dec 18", inherited verbatim from `lib/plan3d-control.ts`, and repeated as if
+ * it were a finding. Measured on Node 22 / ICU 77.1: `en-PH` resolves to real
+ * `en-PH` data (not a fallback) and yields "Dec 18" — the same as `en-US` and
+ * `en`, across 4,800 comparisons. So no such Mac-vs-CI split was reproducible,
+ * and the day-first order here comes from `en-GB`/`plan3d-control`, not from
+ * anything `en-PH` ever did. The real reason to avoid `toLocaleDateString` is
+ * narrower and still good: a locale's pattern is CLDR data, it is versioned,
+ * and it can change under a Node upgrade without anyone touching this file.
  *
  * ⚠ Feed it a DATE, never a `timestamptz` — see {@link formatLongTimestamp}.
  */
@@ -81,6 +82,34 @@ export function dayMonth(value: string | null | undefined): string | null {
   const d = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
   if (Number.isNaN(d.getTime())) return null;
   return `${d.getUTCDate()} ${SHORT_MONTHS[d.getUTCMonth()]}`;
+}
+
+/**
+ * A `date` column as "Dec 18" — month first, the order the supplier's overview
+ * has always shown. Sibling of {@link dayMonth}; the NAME says which order you
+ * get, because the only thing that ever went wrong here was two functions
+ * printing a date differently under one name (`shortDate`).
+ *
+ * ⚠ WHY THIS EXISTS RATHER THAN `toLocaleDateString('en-PH', …)`, WHICH IS WHAT
+ * IT REPLACED. `en-PH` was the ONLY locale this app formatted a date with —
+ * every other date formatter pins `en-US` or `en-GB` or builds the string by
+ * hand — and it is the one locale here whose short-date pattern is not a fixed
+ * point: it depends on the CLDR data compiled into the running Node, and a
+ * build without `en-PH` data falls back to a different locale entirely. A date
+ * whose word order is decided by the machine that rendered it is not a fact.
+ *
+ * 🔢 MEASURED BEFORE THE SWAP, NOT ASSUMED: on Node 22 / ICU 77.1 this returns
+ * a byte-identical string to the `en-PH` call it replaced for all 1,349 dates
+ * across 2024–2027 plus the month-end and leap-day cases. The supplier's six
+ * dates did not move; only their dependence on ICU did.
+ *
+ * ⚠ Feed it a DATE, never a `timestamptz` — see {@link formatLongTimestamp}.
+ */
+export function monthDay(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${SHORT_MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
 /**

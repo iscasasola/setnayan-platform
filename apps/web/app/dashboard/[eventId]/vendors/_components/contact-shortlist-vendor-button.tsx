@@ -9,17 +9,29 @@
  * that has no thread yet (an existing inquiry shows its own status badge), but
  * the server dedupes on the UNIQUE(event_id, vendor_profile_id) thread anyway,
  * so a click can never double-send — a resumed thread just opens.
+ *
+ * Two ways in, one canonical resolver either way (2026-09-09): pass `vendorId`
+ * (an `event_vendors.vendor_id` shortlist row) to go through
+ * `contactShortlistVendor`, or pass `vendorProfileId` directly (a marketplace
+ * `vendor_profiles` id with no shortlist row — the follow-gate's public-profile
+ * / search-card "Message") to go through the sibling `contactVendorProfile`.
+ * Both delegate to `startServiceInquiry`; neither is a second thread-opening
+ * mechanism.
  */
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { MessageCircle, Loader2 } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
-import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
+import {
+  contactShortlistVendor,
+  contactVendorProfile,
+} from '../_actions/contact-shortlist-vendor';
 
 export function ContactShortlistVendorButton({
   eventId,
   vendorId,
+  vendorProfileId,
   label = 'Contact vendor',
   pendingLabel = 'Opening…',
   ariaLabel,
@@ -28,7 +40,12 @@ export function ContactShortlistVendorButton({
   errorClassName = 'mt-1 text-[11px] text-danger-700',
 }: {
   eventId: string;
-  vendorId: string;
+  /** event_vendors.vendor_id — the couple's shortlist row for this vendor.
+   *  Exactly one of `vendorId` / `vendorProfileId` is expected. */
+  vendorId?: string;
+  /** A marketplace vendor_profiles id, with no shortlist row to resolve it
+   *  through — the follow-gate's public-profile / search-card entry point. */
+  vendorProfileId?: string;
   /**
    * Presentation props (Explore Replan slice D). The bench's three-action card
    * PORTS this shipped primitive rather than mounting a second composer, so it
@@ -51,7 +68,9 @@ export function ContactShortlistVendorButton({
     haptic('confirm');
     setErr(null);
     start(async () => {
-      const res = await contactShortlistVendor({ eventId, vendorId });
+      const res = vendorProfileId
+        ? await contactVendorProfile({ eventId, vendorProfileId })
+        : await contactShortlistVendor({ eventId, vendorId: vendorId! });
       if (res.status === 'ok') {
         router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
         return;

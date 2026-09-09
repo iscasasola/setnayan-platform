@@ -30,6 +30,7 @@ import {
   type Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { sanitizeStoryTheme } from '@/lib/story-theme';
 import { hostUserId } from './_lib/host-authority';
 
 export type EditorialEditorInput = {
@@ -67,6 +68,17 @@ export type EditorialEditorInput = {
    * and nobody else". An unrecognised value fails CLOSED to 'draft'.
    */
   audience: StoryAudience;
+  /**
+   * THE STORY'S COLOURS — 'board' (follow the mood board) · 'own' (a detached
+   * palette) · 'neutral' (warm paper and ink). Re-validated server-side by
+   * `sanitizeStoryTheme`.
+   *
+   * ⚠ NOT PRO. The owner ruled 2026-09-09 that the gate stays EXACTLY as it
+   * ships — moments, section order, own columns, featured wishes — and theme is
+   * not one of the four. Adding it to the `isPro` block below would be a
+   * repricing nobody chose, in the direction that costs a host something.
+   */
+  theme?: unknown;
 };
 
 /** Cap the persisted per-moment story so a runaway paste can't bloat draft_json.
@@ -277,6 +289,12 @@ export async function saveEditorial(
   const galleryUploads = sanitizeGalleryUploads(input.galleryUploads);
   if (galleryUploads.length) draft.galleryUploads = galleryUploads;
   else delete draft.galleryUploads;
+
+  // The story's colours. FREE — see the note on `theme` above. Stored as the
+  // sanitized {mode, colors} pair; 'board' carries no colours at all, because
+  // the whole promise of that mode is that it re-reads the board on every
+  // render rather than holding a copy that can go stale.
+  draft.storyTheme = sanitizeStoryTheme(input.theme);
 
   // Section visibility map (only `false` hides; default-on otherwise).
   const sections: Record<string, boolean> = {};

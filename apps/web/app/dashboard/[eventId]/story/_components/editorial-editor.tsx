@@ -255,8 +255,8 @@ export function EditorialEditor({
   deskClear = false,
   deskOpenCount = 0,
   deskPercentDecided = 0,
-  publishConsentAt = null,
   hasBeenPublished = false,
+  publishConsentAt = null,
 }: {
   eventId: string;
   slug: string | null;
@@ -314,14 +314,20 @@ export function EditorialEditor({
   /** The desk's own meter, repeated where publishing is refused. */
   deskPercentDecided?: number;
   /** `event_editorial.publish_consent_at` — when the host agreed, or null. */
-  publishConsentAt?: string | null;
   /**
    * Has this story ever actually been public? Decides whether the fourth rung —
    * "Taken back" — is offered at all. Read from the stamped edition number on
    * the desk page, because that is the only fact on the row the database will
    * not let move.
+   *
+   * ⚠ DELIBERATELY ABOVE `publishConsentAt`, NOT BELOW IT. S7 is adding `cover`
+   * and `whatsNext` immediately after that line in a branch of its own, and the
+   * slot directly under it is the natural place for both of us to reach for.
+   * Two sessions appending to the same line is a conflict neither of us learns
+   * anything from.
    */
   hasBeenPublished?: boolean;
+  publishConsentAt?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();

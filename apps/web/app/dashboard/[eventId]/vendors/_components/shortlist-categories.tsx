@@ -30,6 +30,7 @@ import {
   useRef,
   useState,
   useTransition,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -155,6 +156,20 @@ import {
   inlineMoreOrderNote,
   orderInlineMoreRow,
 } from '@/lib/inline-more-order';
+import {
+  RESET_ORDER_LABEL,
+  YOUR_ORDER_LABEL,
+  applyBenchArrangement,
+  arrangementNote,
+  hasVisibleArrangement,
+  keyboardMoveTarget,
+  pinsAfterMove,
+  type BenchPin,
+} from '@/lib/bench-arrangement';
+import {
+  resetBenchArrangement,
+  saveBenchArrangement,
+} from '../_actions/bench-arrangement';
 import { fetchInlineMoreRow } from '../_actions/inline-more-row';
 import type { CategoryVendorResult } from '../_actions/category-search';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
@@ -681,6 +696,25 @@ html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
 
 /* Notes under the row: the loading line, the empty state, and the count of
    sunk cards. Said once here rather than printed on every card. */
+.slcat .arrnote{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 16px 8px 0}
+/* "Your order" — the couple's own arrangement is in force on this rail. Same
+   treatment as .cat-plan, which the contrast guard already measures, so this
+   label starts life on a wash that is known to carry its own text. */
+.slcat .arrl{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .arrt{font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
+.slcat .arrb{flex:0 0 auto;padding:6px 11px;min-height:32px;border:1px solid var(--line);border-radius:var(--m-r-full);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;cursor:pointer}
+.slcat .arrb:hover{background:rgba(30,26,18,.05)}
+.slcat .arrb[disabled]{opacity:.5;cursor:not-allowed}
+html.dark .slcat .arrb{color:#C99DB0}
+/* The per-card move controls, shown only while the rail is in rearrange mode.
+   The handle is the shipped proposal-maker shape (a draggable grip beside a
+   drop-target row); the two arrows are the SAME move, reachable without a mouse
+   or a touchscreen — a drag-only reorder is unreachable for a keyboard. */
+.slcat .arrctl{display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0}
+.slcat .arrh{cursor:grab;user-select:none;font-size:15px;line-height:1;color:var(--ink-soft);padding:0 2px}
+.slcat .arrm{display:inline-flex;align-items:center;justify-content:center;min-width:34px;min-height:34px;border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card);color:var(--ink);cursor:pointer;font:inherit;font-size:13px;line-height:1}
+.slcat .arrm[disabled]{opacity:.35;cursor:not-allowed}
+.slcat .vcw.is-grabbed{opacity:.45}
 .slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
 .slcat .mrerr{padding:0 16px 8px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
 html.dark .slcat .morehead .seeall{color:#C99DB0}
@@ -777,6 +811,69 @@ function CardDateBlock({
   );
 }
 
+/**
+ * Long-press, module-level so one timer serves the whole bench and a second
+ * press can never leave a first one armed.
+ *
+ * ⚠ THE MOVEMENT THRESHOLD IS THE FEATURE. Without it, every swipe of the
+ * carousel that happens to linger would enter rearrange mode — which is the
+ * gesture conflict this design exists to avoid, arriving from the other side.
+ * A press that travels more than a few pixels is a scroll, and a scroll must
+ * stay a scroll.
+ */
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_SLOP_PX = 8;
+let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+let longPressOrigin: { x: number; y: number } | null = null;
+
+function cancelLongPress(): void {
+  if (longPressTimer !== null) clearTimeout(longPressTimer);
+  longPressTimer = null;
+  longPressOrigin = null;
+}
+
+function startLongPress(e: ReactPointerEvent, arrange: CardArrange): void {
+  // Already rearranging: the press is aimed at the controls, not at entering.
+  if (arrange.active) return;
+  // Secondary buttons are a context menu, never a rearrange.
+  if (e.button !== 0 && e.pointerType === 'mouse') return;
+  cancelLongPress();
+  longPressOrigin = { x: e.clientX, y: e.clientY };
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null;
+    longPressOrigin = null;
+    arrange.onEnter();
+  }, LONG_PRESS_MS);
+}
+
+function cancelLongPressOnMove(e: ReactPointerEvent): void {
+  if (longPressTimer === null || !longPressOrigin) return;
+  const dx = Math.abs(e.clientX - longPressOrigin.x);
+  const dy = Math.abs(e.clientY - longPressOrigin.y);
+  if (dx > LONG_PRESS_SLOP_PX || dy > LONG_PRESS_SLOP_PX) cancelLongPress();
+}
+
+/**
+ * The rearrange affordances a bench card is given while its rail is in
+ * rearrange mode. Absent entirely otherwise — a card that is not being
+ * rearranged renders byte-identically to how it always has.
+ */
+export type CardArrange = {
+  /** TRUE once this rail is in rearrange mode. */
+  active: boolean;
+  /** Long-press entered rearrange mode. */
+  onEnter: () => void;
+  /** Nudge one slot. The SAME move the drag makes — see `keyboardMoveTarget`. */
+  onMove: (direction: 'left' | 'right') => void;
+  canLeft: boolean;
+  canRight: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDropOn: () => void;
+  grabbed: boolean;
+  busy: boolean;
+};
+
 function VendorCard({
   v,
   reason,
@@ -784,6 +881,7 @@ function VendorCard({
   tileLabel,
   dates,
   actions,
+  arrange,
 }: {
   v: ShortlistVendor;
   reason?: SortReason | null;
@@ -805,6 +903,9 @@ function VendorCard({
    * a bare `InspectorTrigger`, no wrapper element, no extra DOM.
    */
   actions?: BenchCardActions | null;
+  /** Undefined on every surface that does not rearrange (row 2's marketplace
+   *  card never does — those results are a search, not the couple's plan). */
+  arrange?: CardArrange;
 }) {
   const card = (
     // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
@@ -885,7 +986,68 @@ function VendorCard({
   return (
     // `.is-dim` is the SOFT tier's whole visual: a lowered card, not a removed
     // one (decision #3 — never removed, always viewable, always reversible).
-    <div className={`vcw${v.buildFit === 'clash' ? ' is-dim' : ''}`}>
+    <div
+      className={`vcw${v.buildFit === 'clash' ? ' is-dim' : ''}${
+        arrange?.grabbed ? ' is-grabbed' : ''
+      }`}
+      // ⚠ LONG-PRESS FIRST IS LOAD-BEARING, NOT A FLOURISH. This rail is a
+      // horizontal snap carousel, so a card that could be dragged straight away
+      // would hijack the swipe that scrolls it. The press enters a MODE;
+      // ordinary swiping keeps working until it does, and keeps working after
+      // it for every rail that is not in the mode.
+      onPointerDown={arrange ? (e) => startLongPress(e, arrange) : undefined}
+      onPointerMove={arrange ? cancelLongPressOnMove : undefined}
+      onPointerUp={arrange ? cancelLongPress : undefined}
+      onPointerCancel={arrange ? cancelLongPress : undefined}
+      onDragOver={arrange?.active ? (e) => e.preventDefault() : undefined}
+      onDrop={
+        arrange?.active
+          ? (e) => {
+              e.preventDefault();
+              arrange.onDropOn();
+            }
+          : undefined
+      }
+    >
+      {arrange?.active ? (
+        <div className="arrctl">
+          {/* The shipped drag shape (`proposal-maker.tsx`): a draggable GRIP
+              beside a drop-target row, not a draggable row. No drag library. */}
+          <span
+            className="arrh"
+            draggable
+            onDragStart={arrange.onDragStart}
+            onDragEnd={arrange.onDragEnd}
+            role="button"
+            tabIndex={-1}
+            aria-hidden
+          >
+            ⠿
+          </span>
+          {/* KEYBOARD IS NOT OPTIONAL — a drag-only reorder is unreachable
+              without a mouse or a touchscreen. These two are also the whole
+              touch route, because HTML5 drag-and-drop does not fire on touch
+              at all. */}
+          <button
+            type="button"
+            className="arrm"
+            disabled={!arrange.canLeft || arrange.busy}
+            aria-label={`Move ${v.name} earlier`}
+            onClick={() => arrange.onMove('left')}
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            className="arrm"
+            disabled={!arrange.canRight || arrange.busy}
+            aria-label={`Move ${v.name} later`}
+            onClick={() => arrange.onMove('right')}
+          >
+            →
+          </button>
+        </div>
+      ) : null}
       {card}
       <BenchVendorActions
         actions={actions}
@@ -1137,6 +1299,7 @@ export function ShortlistCategories({
   buildWindow = null,
   probeDayKeys = [],
   teamCalendar = [],
+  benchArrangement,
 }: {
   folders: ShortlistFolder[];
   eventId: string;
@@ -1213,6 +1376,13 @@ export function ShortlistCategories({
    * serialisation.
    */
   teamCalendar?: readonly { vendorId: string; name: string; freeDays: readonly string[] }[];
+  /**
+   * The couple's own order, per category (owner 2026-09-09 · "per category").
+   * Read on the server from the CELEBRATION, so every host of the event sees one
+   * order — unlike the sort lens beside it, which is `persistBenchSort` in this
+   * browser's localStorage and is deliberately private.
+   */
+  benchArrangement?: Record<string, BenchPin[]>;
 }) {
   const router = useRouter();
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
@@ -1272,6 +1442,24 @@ export function ShortlistCategories({
   // Reason-labeled sort lens for every category rail (2026-07-09). Default 'fit'
   // — the bench leads with what best matches the couple's date/venue/budget.
   const [sort, setSort] = useState<BenchSort>('fit');
+  // ── The couple's own order ────────────────────────────────────────────────
+  // Seeded from the server and then held locally, so a drag redraws the rail on
+  // the frame it happens rather than after a round trip. The server action
+  // revalidates the route, so the two converge; a failed write rolls the local
+  // copy back AND says why (`arrangeError`) — a silent revert would read as the
+  // rail moving on its own, which is the exact complaint this feature answers.
+  const [pinsByTile, setPinsByTile] = useState<Record<string, BenchPin[]>>(
+    () => benchArrangement ?? {},
+  );
+  useEffect(() => {
+    setPinsByTile(benchArrangement ?? {});
+  }, [benchArrangement]);
+  /** Which category's rail is in rearrange mode — one at a time, like every
+   *  other level of this accordion. */
+  const [arrangeTile, setArrangeTile] = useState<string | null>(null);
+  const [arrangeBusyTile, setArrangeBusyTile] = useState<string | null>(null);
+  const [arrangeError, setArrangeError] = useState<string | null>(null);
+  const [grabbedCard, setGrabbedCard] = useState<string | null>(null);
   // Bench search (2026-07-10, PR-4 · S3) — a client-side filter over the ~53
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
@@ -1653,6 +1841,81 @@ export function ShortlistCategories({
     }
     persistBenchSort(eventId, sort, typeof window === 'undefined' ? null : window.localStorage);
   }, [replan, eventId, sort]);
+
+  /**
+   * Move ONE card to a slot, then persist the whole of that category's pin set.
+   *
+   * 🔑 THE WHOLE SET, NOT A DELTA — `pinsAfterMove` returns it for exactly this
+   * reason: the write becomes one idempotent replacement of one category, and a
+   * card the couple has just moved off cannot be left behind by a half-applied
+   * change.
+   *
+   * ⚠ AND IT IS SCOPED TO ONE TILE THROUGHOUT. Owner: *"per category."*
+   */
+  const moveArrangedCard = useCallback(
+    (tile: string, displayed: string[], moved: string, toIndex: number) => {
+      const before = pinsByTile[tile] ?? [];
+      const next = pinsAfterMove({
+        displayed,
+        pinned: before.map((pin) => pin.vendorId),
+        moved,
+        toIndex,
+      });
+      setArrangeError(null);
+      setPinsByTile((prev) => ({ ...prev, [tile]: next }));
+      setArrangeBusyTile(tile);
+      void saveBenchArrangement({ eventId, tile, pins: next })
+        .then((res) => {
+          if (!res.ok) {
+            // Put the rail back where it was and SAY SO. A silent rollback is a
+            // rail that moves on its own.
+            setPinsByTile((prev) => ({ ...prev, [tile]: before }));
+            setArrangeError(res.error);
+          }
+        })
+        .catch(() => {
+          setPinsByTile((prev) => ({ ...prev, [tile]: before }));
+          setArrangeError('That order could not be saved. Please try again.');
+        })
+        .finally(() => setArrangeBusyTile(null));
+    },
+    [eventId, pinsByTile],
+  );
+
+  /** Reset — give ONE category's rail back to the lens. One category, because
+   *  that is the scope of the arrangement itself. */
+  const resetArrangedTile = useCallback(
+    (tile: string) => {
+      const before = pinsByTile[tile] ?? [];
+      setArrangeError(null);
+      setPinsByTile((prev) => ({ ...prev, [tile]: [] }));
+      setArrangeBusyTile(tile);
+      void resetBenchArrangement({ eventId, tile })
+        .then((res) => {
+          if (!res.ok) {
+            setPinsByTile((prev) => ({ ...prev, [tile]: before }));
+            setArrangeError(res.error);
+          }
+        })
+        .catch(() => {
+          setPinsByTile((prev) => ({ ...prev, [tile]: before }));
+          setArrangeError('That order could not be reset. Please try again.');
+        })
+        .finally(() => setArrangeBusyTile(null));
+    },
+    [eventId, pinsByTile],
+  );
+
+  // Escape leaves rearrange mode. A mode with no visible way out is a trap, and
+  // the Done button is only visible while the rail is on screen.
+  useEffect(() => {
+    if (!arrangeTile) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setArrangeTile(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [arrangeTile]);
 
   /** Every tile in a folder as a CoverageTile (`order` = taxonomy walk index). */
   const coverageByFolder = new Map<string, CoverageTile[]>();
@@ -2357,12 +2620,40 @@ export function ShortlistCategories({
                   // The two features compose cleanly and in this order only: the
                   // lens decides merit, the sink is a partition applied AFTER it
                   // and never a term inside the score.
-                  const rail = partitionByBuildFit(
+                  //
+                  // §S8 — PINS BEAT SORT. The couple's own order is applied to
+                  // the lens's answer, never instead of it: a card they dragged
+                  // holds its slot, everything else keeps the order the lens
+                  // gave it, and a supplier who arrives later lands in its
+                  // normal computed position among the unpinned rather than
+                  // jumping the queue. All of that is decided in
+                  // `lib/bench-arrangement.ts`; this file renders.
+                  //
+                  // The composition order is the shipped one, with one step
+                  // inserted: lens → the couple's own hand → sink the clashes.
+                  // The sink stays LAST because it is a partition over whatever
+                  // order was chosen, not a term inside it.
+                  const tilePins = pinsByTile[t.tile] ?? [];
+                  const arrangedRail = applyBenchArrangement(
                     sortWithReasons(t.vendors, effectiveSort),
+                    tilePins,
+                    (e) => e.v.vendorId,
+                  );
+                  const rail = partitionByBuildFit(
+                    arrangedRail,
                     ({ v }) =>
                       v.buildFit === 'clash'
                         ? { fits: false, clashWith: v.buildClashWith }
                         : null,
+                  );
+                  // The order the couple is actually looking at — the only order
+                  // a drop index can be measured against.
+                  const railOrder = rail.fits.map(({ v }) => v.vendorId);
+                  const isArranging = arrangeTile === t.tile;
+                  const tileBusy = arrangeBusyTile === t.tile;
+                  const showsArrangement = hasVisibleArrangement(
+                    tilePins,
+                    t.vendors.map((v) => v.vendorId),
                   );
                   const CatIcon = tileIcon(t.tile);
                   // ── ROW 2 (owner 2026-09-06) ────────────────────────────
@@ -2550,6 +2841,50 @@ export function ShortlistCategories({
                               </button>
                             </div>
                           ) : t.vendors.length > 0 ? (
+                            <>
+                            {/* ── THE COUPLE'S OWN ORDER (owner 2026-09-09) ──
+                                "Your order" appears on the CATEGORY, not on the
+                                Sort by bar above, and that is the ruling rather
+                                than a layout choice: an arrangement is per
+                                category, so a global chip would claim the whole
+                                bench was hand-made when one rail is. Reset
+                                reaches exactly as far as the arrangement does —
+                                a couple who arranged their caterers three weeks
+                                ago must not lose it by tidying florists today. */}
+                            {isArranging || showsArrangement ? (
+                              <div className="arrnote">
+                                {showsArrangement && !isArranging ? (
+                                  <span className="arrl">{YOUR_ORDER_LABEL}</span>
+                                ) : null}
+                                <span className="arrt">
+                                  {isArranging
+                                    ? 'Drag a card, or use ← → to move it. Long-press any card to start.'
+                                    : arrangementNote(effectiveSortLabel)}
+                                </span>
+                                {showsArrangement ? (
+                                  <button
+                                    type="button"
+                                    className="arrb"
+                                    disabled={tileBusy}
+                                    onClick={() => resetArrangedTile(t.tile)}
+                                  >
+                                    {RESET_ORDER_LABEL}
+                                  </button>
+                                ) : null}
+                                {isArranging ? (
+                                  <button
+                                    type="button"
+                                    className="arrb"
+                                    onClick={() => setArrangeTile(null)}
+                                  >
+                                    Done
+                                  </button>
+                                ) : null}
+                                {arrangeError && (isArranging || showsArrangement) ? (
+                                  <span className="plan-err">{arrangeError}</span>
+                                ) : null}
+                              </div>
+                            ) : null}
                             <div className="rail">
                               {rail.fits.map(({ v, reason }) => (
                                 <VendorCard
@@ -2559,6 +2894,31 @@ export function ShortlistCategories({
                                   eventId={eventId}
                                   tileLabel={t.label}
                                   dates={dateViewFor(v)}
+                                  arrange={{
+                                    active: isArranging,
+                                    busy: tileBusy,
+                                    grabbed: grabbedCard === v.vendorId,
+                                    onEnter: () => setArrangeTile(t.tile),
+                                    canLeft:
+                                      keyboardMoveTarget(railOrder, v.vendorId, 'left') !== null,
+                                    canRight:
+                                      keyboardMoveTarget(railOrder, v.vendorId, 'right') !== null,
+                                    onMove: (direction) => {
+                                      const to = keyboardMoveTarget(railOrder, v.vendorId, direction);
+                                      if (to === null) return;
+                                      moveArrangedCard(t.tile, railOrder, v.vendorId, to);
+                                    },
+                                    onDragStart: () => setGrabbedCard(v.vendorId),
+                                    onDragEnd: () => setGrabbedCard(null),
+                                    onDropOn: () => {
+                                      const from = grabbedCard;
+                                      setGrabbedCard(null);
+                                      if (!from || from === v.vendorId) return;
+                                      const to = railOrder.indexOf(v.vendorId);
+                                      if (to < 0) return;
+                                      moveArrangedCard(t.tile, railOrder, from, to);
+                                    },
+                                  }}
                                   // Slice D — three-action card. The resolver is
                                   // pure + unit-tested; flag OFF returns nothing
                                   // and the card renders exactly as it shipped.
@@ -2649,6 +3009,7 @@ export function ShortlistCategories({
                                 </>
                               ) : null}
                             </div>
+                            </>
                           ) : (
                             <div className="find-set">
                               {/* Empty-category doorway — same swap as the

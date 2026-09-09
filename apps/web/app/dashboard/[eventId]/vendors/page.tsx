@@ -1386,6 +1386,35 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     }
   }
 
+  // ── The couple's own order, per category (owner 2026-09-09) ──────────────
+  // Read on the couple's OWN client so RLS answers "is this a host of this
+  // celebration?" rather than a check this file could forget. Fail-open and
+  // SILENT is wrong here and right nowhere else on this page: an unreadable
+  // arrangement must not take the bench down, but it must also not be reported
+  // as "you have not arranged anything" — so the empty map means "no pins we
+  // could see", the rail falls back to the lens's order, and the "Your order"
+  // chip simply does not appear rather than appearing with a Reset that would
+  // delete rows the couple cannot see.
+  const benchArrangement: Record<string, { vendorId: string; position: number }[]> = {};
+  {
+    const { data: pinRows, error: pinError } = await supabase
+      .from('event_bench_arrangement')
+      .select('tile, vendor_id, position')
+      .eq('event_id', eventId);
+    if (pinError) {
+      // A refused read and an empty table look identical through this API — say
+      // which one this was, in the log, rather than letting the bench imply the
+      // couple never arranged anything.
+      console.error('[vendors] bench arrangement unreadable', pinError.message);
+    }
+    for (const row of (pinRows ?? []) as { tile: string; vendor_id: string; position: number }[]) {
+      (benchArrangement[row.tile] ??= []).push({
+        vendorId: row.vendor_id,
+        position: row.position,
+      });
+    }
+  }
+
   // Per-card verdicts, resolved once here (server) rather than per render. NULL
   // for every vendor when the tier isn't running — the client then partitions
   // nothing and disables nothing.
@@ -1640,6 +1669,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           name: m.name,
           freeDays: [...m.freeDays],
         }))}
+        // The couple's OWN order (owner 2026-09-09 · "per category", "all hosts
+        // of that event see the same order"). Read on the server, from the
+        // celebration — not from this browser — which is the whole difference
+        // between this and the sort lens beside it: `persistBenchSort` is
+        // localStorage and is deliberately private, an arrangement is a plan the
+        // hosts made together.
+        benchArrangement={benchArrangement}
       />
     </>
   );

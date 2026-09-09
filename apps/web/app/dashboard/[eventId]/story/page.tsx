@@ -395,14 +395,35 @@ export default async function EditorialEditorPage({
     not the `{desk ? … : null}` in the JSX. A load that runs for a guest is a
     leak waiting for someone to render it unconditionally.
   */
-  const coverCandidates = desk
-    ? await loadCoverCandidates({
+  /*
+    ⚠ AND IT FAILS TO AN EMPTY LIST RATHER THAN THROWING — the SAME rule the desk
+    load above keeps, for the same reason, twenty lines further down the page:
+    *a desk that cannot load must not take the shipped editor down with it.*
+
+    🔴 THIS WAS UNGUARDED IN THE FIRST CUT. A Server Component that throws takes
+    the WHOLE route with it, so one unreadable supplier frame would have cost the
+    host their entire Story Maker — the desk, the editor, the publish ladder, all
+    of it — and the page would simply have failed. A cover step that cannot load
+    must cost the cover step.
+  */
+  let coverCandidates: Awaited<ReturnType<typeof loadCoverCandidates>> = {
+    items: [],
+    unreadable: [],
+  };
+  if (desk) {
+    try {
+      coverCandidates = await loadCoverCandidates({
         eventId,
         heroImageRef: (event.landing_page_hero_image_url as string | null) ?? null,
         monogramText: (event.monogram_text as string | null) ?? null,
         writtenMinutes,
-      })
-    : { items: [], unreadable: [] };
+      });
+    } catch {
+      // The step renders with the living hero and the monogram only, which is
+      // honest: it offers what it could prove, and never invents a candidate.
+      coverCandidates = { items: [], unreadable: ['your pictures'] };
+    }
+  }
   const savedCover = sanitizeStoryCover(event.story_cover_kind, event.story_cover_ref);
 
   /*
@@ -413,15 +434,27 @@ export default async function EditorialEditorPage({
     resolved per type from its profile rather than by naming `wake` in a list
     this screen would then have to maintain.
   */
-  const roster: NextTypeOption[] = desk
-    ? await Promise.all(
+  /*
+    ⚠ GUARDED FOR THE SAME REASON, and this one resolves a profile PER TYPE — so
+    a single unresolvable event type would otherwise reject the whole
+    `Promise.all` and take the route down. An empty roster offers no next
+    celebration at all, which is the resting state the owner ruled is a complete
+    answer; a thrown page is not.
+  */
+  let roster: NextTypeOption[] = [];
+  if (desk) {
+    try {
+      roster = await Promise.all(
         (await getCreatableEventTypes()).map(async (t) => ({
           key: t.key,
           label: t.label,
           solemn: (await eventWordsFor(t.key)).solemn,
         })),
-      )
-    : [];
+      );
+    } catch {
+      roster = [];
+    }
+  }
   const nextOffered = nextCandidates({
     eventDateISO: (event.event_date as string | null) ?? null,
     todayISO: new Date().toISOString().slice(0, 10),

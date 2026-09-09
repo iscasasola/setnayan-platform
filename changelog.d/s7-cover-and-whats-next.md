@@ -32,6 +32,24 @@ The host chooses the one picture their story is known by, and — only if they w
 - the cover resolved to a presign instead of the stable streaming URL (1→0) → 6 pass → 5 pass / 1 fail
 - the vetoed-capture DROP replaced by the blur ruling's softening (1→0) → 9 pass → 8 pass / 1 fail
 - the capture arm's try/catch removed, so a throwing client escapes (2→1) → 10 pass → 9 pass / 1 fail
+- the COVER load unguarded on the page → 2 pass → 1 pass / 1 fail · the ROSTER load unguarded → same
+
+🔴 **A FOURTH DEFECT, AND THE RULE AGAINST IT WAS ALREADY IN THE FILE.** `/dashboard/[eventId]/story`
+is a Server Component, so a throw anywhere in it takes the WHOLE route — desk, editor, theme,
+cover, what's next and the publish ladder vanish together. The desk load has been wrapped since S5
+with the reason in its own words (*"a desk that cannot load must not take the shipped editor down
+with it"*); **both loads added by this change shipped without it**, twenty lines below that comment.
+One unreadable supplier frame would have cost the host their entire Story Maker. Both are now
+guarded and degrade to an honest empty step. Found only because S14 reported the same class of
+defect in their own file and I went looking for it in mine.
+
+⚠ **AND ITS GUARD RESOLVES POSITION, NOT COUNT.** "At least N `try` blocks" would be a threshold,
+and the measurement proves why that matters: with the cover load unguarded the file still contained
+**8** `try` blocks and the guard still failed. It strips comments through the repo's one stripper
+first — every loader it names is also discussed in the prose above it, and a match inside a comment
+would make it green on a page that had lost its fences. Its own bracket walk is exercised on inputs
+with known answers, including a negative, because the guard's plumbing is a place the answer can be
+manufactured.
 
 🔴 **A SECOND REAL DEFECT, CAUGHT IN CROSS-SESSION REVIEW BEFORE MERGE — and my guard for it was
 decoration.** `resolveStoryCover` delegated the capture arm to `publicKeyForCapture`, which

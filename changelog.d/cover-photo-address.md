@@ -49,3 +49,21 @@ scan can see. The guard now uses the repo's one string-aware stripper
 (`lib/strip-comments.ts`), and a new mutation covers exactly that shape: a
 trailing `// … r2PublicUrl(bucket, key) …` after an `image/*` string stays
 green, where the naive `^\s*` anchor could not have stripped it at all.
+
+### One line that is NOT this fix, carried because `main` was red for every PR
+
+`origin/main` (`250520835`) fails `lib/story-light.test.ts` on its own — measured
+in a clean detached worktree at that commit, with none of this branch's code in
+it, and green at this branch's pre-merge commit.
+
+PR #5380 widened that guard to scan the `[data-story-light]` wrapper's own file
+and lifted 20 of the 21 sub-60 alphas in
+`app/[slug]/_components/editorial/editorial-content.tsx`. The 21st — the
+"previous edition" link it added in the same PR, line 442 — stayed at
+`text-ink/55`, so the widened guard failed on the file it was widened for.
+Every other alpha in that file is `/60`.
+
+Lifted to `/60`, which is that PR's own stated intent and the darker (higher
+contrast) direction, not a new colour decision. Carried here rather than split
+out because a separate PR would have gone green without unblocking this one —
+required checks pin the head SHA.

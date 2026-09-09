@@ -439,7 +439,7 @@ export async function EditorialContent({
         <p className="mx-auto max-w-5xl px-4 pt-4 text-center">
           <a
             href={previousEdition.href}
-            className="font-mono text-xs uppercase tracking-[0.32em] text-ink/55 underline-offset-4 hover:underline"
+            className="font-mono text-xs uppercase tracking-[0.32em] text-ink/60 underline-offset-4 hover:underline"
           >
             {previousEdition.label}
           </a>

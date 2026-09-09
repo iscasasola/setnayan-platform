@@ -25,7 +25,15 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
       aria-label="What comes next"
       className="mx-auto mt-10 max-w-2xl border-t border-ink/15 px-4 pt-8 text-center"
     >
-      <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-ink/50">
+      {/*
+        12px, not the prototype's 11 — `lint-guest-legibility` refuses anything
+        smaller on a page a GUEST reads, and it caught this line. S9 paid for the
+        same trap and its rule is the one followed here: raise the TYPE and adapt
+        the layout to it, never shrink the type back to the layout, and never
+        buy an exemption from the baseline for a page a stranger will read on a
+        phone at a reception.
+      */}
+      <p className="font-mono text-xs uppercase tracking-[0.32em] text-ink/50">
         Previously · No. 1
       </p>
 

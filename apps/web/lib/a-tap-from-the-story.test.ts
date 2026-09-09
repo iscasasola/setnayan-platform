@@ -30,7 +30,7 @@ test('it reuses `editorial` — the receiving side DISCARDS anything else', () =
 
 test('the campaign names the story', () => {
   const href = storyTapHref('kubo-films', 'ana-and-marco');
-  assert.ok(href && href.includes(encodeURIComponent('story:ana-and-marco')), href);
+  assert.ok(href && href.includes(encodeURIComponent('story:ana-and-marco')), String(href));
 });
 
 test('a story that cannot name itself still attributes — and never writes "story:null"', () => {

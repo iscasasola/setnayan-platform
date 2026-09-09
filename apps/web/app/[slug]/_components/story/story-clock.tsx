@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DIAL_WIDTH, formatClock, nearestBarAt, percentOf } from '@/lib/story-spine';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { clearReaderPosition, publishReaderPosition } from '@/lib/story-reader-position';
 
 /** One bar, fully resolved on the server. */
 export type DialBar = {
@@ -150,6 +151,7 @@ export function StoryClock({
       if (!current) {
         setActiveX(null);
         setNow({ stamp: openingStamp, suffix: openingSuffix, label: openingLabel });
+        publishReaderPosition({ entry: null, next: null, progress: 0 });
         return;
       }
       const x = Number(current.dataset.storyX ?? '0');
@@ -162,6 +164,16 @@ export function StoryClock({
         suffix: current.dataset.storySuffix ?? '',
         label: current.dataset.storyLabel ?? openingLabel,
       });
+      /*
+        🔑 THE SAME FACT, PUBLISHED ONCE. The light on the page and the room in
+        the lens need exactly what the needle needs: which entry the reader has
+        reached and how far through it they are. Neither can live inside this
+        component — one paints the story's wrapper, the other is a sticky aside
+        beside the entries — and a second rAF loop reading these same rects
+        would give two answers to one question, plus a second layout per frame
+        on a page this long. See `lib/story-reader-position.ts`.
+      */
+      publishReaderPosition({ entry: current, next: next ?? null, progress: f });
     };
 
     const onScroll = () => {
@@ -194,6 +206,9 @@ export function StoryClock({
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       document.removeEventListener('visibilitychange', onVisible);
+      // A client-side navigation away and back would otherwise replay the
+      // PREVIOUS story's entry to a fresh lens and a fresh light.
+      clearReaderPosition();
     };
   }, [openingStamp, openingSuffix, openingLabel]);
 
@@ -322,7 +337,7 @@ export function StoryClock({
               <b className="whitespace-nowrap font-condensed text-2xl font-extrabold leading-none tabular-nums tracking-tight sm:text-3xl">
                 {now.stamp}
                 {now.suffix ? (
-                  <small className="ml-1 text-xs font-bold tracking-wider text-ink/55">
+                  <small className="ml-1 text-xs font-bold tracking-wider text-ink/60">
                     {now.suffix}
                   </small>
                 ) : null}
@@ -331,7 +346,10 @@ export function StoryClock({
             </div>
           </div>
 
-          <div className="relative mt-1.5 pb-4 pt-4" style={{ minHeight: DIAL_HEIGHT + LABEL_ROW_PX * 2 }}>
+          <div
+            className="relative mt-1.5 pb-4 pt-4"
+            style={{ minHeight: DIAL_HEIGHT + LABEL_ROW_PX * 2 }}
+          >
             {/*
               The bars live in a stretched 1000-unit space. Nothing that has to
               stay legible may live in there with them — see the label layer.
@@ -368,11 +386,7 @@ export function StoryClock({
                       width={Math.max(0.6, b.w).toFixed(2)}
                       height={1}
                       className={
-                        isCursor
-                          ? 'fill-terracotta-700'
-                          : b.future
-                            ? 'fill-ink/15'
-                            : 'fill-ink/25'
+                        isCursor ? 'fill-terracotta-700' : b.future ? 'fill-ink/15' : 'fill-ink/25'
                       }
                     />
                   );
@@ -444,10 +458,10 @@ export function StoryClock({
                   key={i}
                   className={
                     l.kind === 'segment'
-                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/55'
+                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/60'
                       : l.kind === 'mark'
-                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/55 sm:block'
-                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/55'
+                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/60 sm:block'
+                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/60'
                   }
                   style={{ left: percentOf(l.x) }}
                 >

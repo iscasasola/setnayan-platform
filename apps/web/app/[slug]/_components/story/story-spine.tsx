@@ -43,12 +43,22 @@ import { manilaDayOf } from '@/lib/story-day-window';
 import {
   countForLayer,
   drawnBins,
+  drawnHeat,
   guestLayerAdmits,
 } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
+import {
+  AFTER_STAGE,
+  ROAD_STAGE,
+  stageOfMinute,
+  type StageColours,
+  type StageIndex,
+} from '@/lib/story-light';
 import { STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import type { EventWords } from '../../_lib/event-words';
 import type { DayChapter, EditorialData } from '../editorial/data';
 import { StoryClock, type DialBar, type DialLabel } from './story-clock';
+import { StoryLens } from './story-lens';
+import { StoryLight } from './story-light';
 import { MinuteMedia } from './minute-media';
 import type { RoadFact, StorySpineFacts } from './spine-data';
 
@@ -59,8 +69,18 @@ const MAX_BAR = 46;
 const MAX_DAY_TICKS = 4;
 
 const MONTH_LONG = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 function longDate(dateStr: string): string {
@@ -90,6 +110,7 @@ export function StorySpine({
   words,
   viewer = STRANGER,
   isSample,
+  stages,
   monogram,
   actions,
 }: {
@@ -103,6 +124,16 @@ export function StorySpine({
    * on a page whose entire job is to look like somebody's real wedding.
    */
   isSample: boolean;
+  /**
+   * The six stages of the light, already derived and contrast-corrected.
+   *
+   * 🔑 DERIVED BY THE CALLER, NOT HERE, because the wrapper that WEARS them is
+   * the caller's: the light has to reach the shipped sections below the spine
+   * too, and a page painted only down to the clock would show a seam where one
+   * ground meets another. Deriving in both places would be two answers to
+   * "what colour is dusk".
+   */
+  stages: StageColours[];
   /** The event's own mark, already resolved by the shipped loader. */
   monogram: ReactNode;
   /** Share / print / the host's own door — the shipped controls, unchanged. */
@@ -227,6 +258,23 @@ export function StorySpine({
     status: data.audience ?? 'published',
     viewer,
   });
+
+  /*
+    ── THE LENS'S HEAT, THROUGH THE SAME GATE AS THE BARS ──────────────────
+    🔒 A COUNT OF PHOTOGRAPHS PER TABLE IS THE GUESTS' LAYER EXACTLY AS A BAR
+    HEIGHT IS — the same fact asked per seat instead of per minute, under the
+    same Q1 ruling. Gating the dial and forgetting the floor plan would have
+    published the day's shape on the surface where it is easiest to read: a
+    stranger could not see the bars, and could see which table was loudest.
+
+    `drawnHeat` returns an EMPTY list when the layer is withheld, so the lens
+    has nothing to draw rather than a plan of tables measured at zero — and it
+    says so in words instead.
+  */
+  const heat = facts.heat.map((m) => ({
+    atMs: m.atMs,
+    tables: drawnHeat(m.tables, { status: data.audience ?? 'published', viewer }),
+  }));
   const tallest = Math.max(1, ...drawn.map((b) => b.height ?? 0));
 
   for (const day of days) {
@@ -252,9 +300,7 @@ export function StorySpine({
               : Math.max(2, (bin.height / tallest) * MAX_BAR),
         label: `${shortDate(day.date)} · ${clock.t} ${clock.ap}`,
         captures: bin.captures,
-        place:
-          block?.location ??
-          (state === 'no_venue' ? null : block?.label ?? null),
+        place: block?.location ?? (state === 'no_venue' ? null : (block?.label ?? null)),
         future: bin.future,
         unmeasured: false,
         nearId: near?.id ?? null,
@@ -347,8 +393,14 @@ export function StorySpine({
       : days.length;
 
   const coverFacts: Array<{ n: number | null; label: string }> = [
-    { n: countForLayer(data.metrics.photos, guestOpen), label: plural(data.metrics.photos, 'capture', 'captures') },
-    { n: facts.broadcasts.length, label: plural(facts.broadcasts.length, 'live film', 'live films') },
+    {
+      n: countForLayer(data.metrics.photos, guestOpen),
+      label: plural(data.metrics.photos, 'capture', 'captures'),
+    },
+    {
+      n: facts.broadcasts.length,
+      label: plural(facts.broadcasts.length, 'live film', 'live films'),
+    },
     { n: countForLayer(voices, guestOpen), label: plural(voices, 'voice', 'voices') },
     { n: daysTold, label: plural(daysTold, 'day told', 'days told') },
   ];
@@ -364,7 +416,7 @@ export function StorySpine({
             {monogram}
             <span className="font-mono text-xs font-bold uppercase tracking-[0.24em]">
               Setnayan
-              <small className="mt-0.5 block text-xs font-medium tracking-[0.14em] text-ink/55">
+              <small className="mt-0.5 block text-xs font-medium tracking-[0.14em] text-ink/60">
                 {mastheadEdition(data.eventDate, data.editionNo, data.published)}
               </small>
             </span>
@@ -387,7 +439,7 @@ export function StorySpine({
 
         <div className="mt-6">
           {data.eventDateFormatted ? (
-            <span className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+            <span className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
               {data.eventDateFormatted}
               {data.venueCity ? ` · ${data.venueCity}` : ''}
             </span>
@@ -407,7 +459,7 @@ export function StorySpine({
                 <dd className="font-condensed text-3xl font-extrabold leading-none tabular-nums">
                   {f.n == null ? '—' : f.n.toLocaleString('en-PH')}
                 </dd>
-                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
                   {f.label}
                 </dt>
               </div>
@@ -431,67 +483,100 @@ export function StorySpine({
         </div>
       ) : null}
 
-      <main className="mx-auto max-w-5xl px-4 sm:px-6">
-        {/* ════ THE ROAD ════ */}
-        {roadPlaced.length > 0 ? (
-          <>
-            <PartHead
-              title="The road"
-              note={`${daysTold - days.length} days · how the day was made`}
-            />
-            {roadPlaced.map((r) => (
-              <RoadEntry key={r.fact.key} fact={r.fact} x={r.x} />
-            ))}
-          </>
-        ) : null}
+      {/*
+        ════ THE STAGE ═══════════════════════════════════════════════════════
+        The entries, and beside them the room at the minute being read (`01`
+        §3.4). Two columns from 1100px — below that the lens is not shown at
+        all, because a floor plan squeezed under a phone's reading column is a
+        picture nobody can read AND the same facts are already in each minute's
+        own "In the room" line, in words, in the reading order.
 
-        {/* ════ THE DAYS ════ */}
-        {days.map((day) => {
-          const mins = minutesByDay.get(day.date) ?? [];
-          return (
-            <section key={day.date} aria-label={longDate(day.date)}>
-              <PartHead
-                title={days.length > 1 ? `Day ${days.indexOf(day) + 1}` : 'The day'}
-                note={`${longDate(day.date)}${mins.length ? ' · by the minute' : ''}`}
-              />
-              {mins.length === 0 ? (
-                <p className="py-6 font-serif text-lg italic text-ink/55">
-                  {guestOpen
-                    ? 'No minute of this day has been written up yet.'
-                    : `The minutes of this day belong to the people who were there, until the ${words.host} publishes.`}
-                </p>
-              ) : null}
-              {mins.map((m, i) => {
-                const prev = mins[i - 1];
-                const gap = prev ? gapText(prev.minuteOfDay, m.minuteOfDay) : null;
-                return (
-                  <div key={m.id}>
-                    {gap ? <Gap text={gap} blocks={gapNote(prev!, m, facts)} /> : null}
-                    <MinuteEntry
-                      minute={m}
-                      day={day}
-                      facts={facts}
-                      words={words}
-                      data={data}
-                      guestOpen={guestOpen}
-                    />
-                  </div>
-                );
-              })}
-            </section>
-          );
-        })}
+        The measure widens from `max-w-5xl` to `max-w-6xl` only where the
+        second column exists; the prose column itself gets NARROWER as a result,
+        which is the right direction for a page somebody reads end to end.
+      */}
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 min-[1100px]:max-w-6xl">
+        <div className="min-[1100px]:grid min-[1100px]:grid-cols-[minmax(0,1fr)_320px] min-[1100px]:gap-11">
+          <div className="min-w-0">
+            {/* ════ THE ROAD ════ */}
+            {roadPlaced.length > 0 ? (
+              <>
+                <PartHead
+                  title="The road"
+                  note={`${daysTold - days.length} days · how the day was made`}
+                />
+                {roadPlaced.map((r) => (
+                  <RoadEntry key={r.fact.key} fact={r.fact} x={r.x} stage={ROAD_STAGE} />
+                ))}
+              </>
+            ) : null}
 
-        {/* ════ AFTER ════ */}
-        {afterPlaced.length > 0 ? (
-          <>
-            <PartHead title="After" note="the story keeps its date" />
-            {afterPlaced.map((a) => (
-              <RoadEntry key={a.fact.key} fact={a.fact} x={a.x} />
-            ))}
-          </>
-        ) : null}
+            {/* ════ THE DAYS ════ */}
+            {days.map((day) => {
+              const mins = minutesByDay.get(day.date) ?? [];
+              return (
+                <section key={day.date} aria-label={longDate(day.date)}>
+                  <PartHead
+                    title={days.length > 1 ? `Day ${days.indexOf(day) + 1}` : 'The day'}
+                    note={`${longDate(day.date)}${mins.length ? ' · by the minute' : ''}`}
+                  />
+                  {mins.length === 0 ? (
+                    <p className="py-6 font-serif text-lg italic text-ink/60">
+                      {guestOpen
+                        ? 'No minute of this day has been written up yet.'
+                        : `The minutes of this day belong to the people who were there, until the ${words.host} publishes.`}
+                    </p>
+                  ) : null}
+                  {mins.map((m, i) => {
+                    const prev = mins[i - 1];
+                    const gap = prev ? gapText(prev.minuteOfDay, m.minuteOfDay) : null;
+                    return (
+                      <div key={m.id}>
+                        {gap ? <Gap text={gap} blocks={gapNote(prev!, m, facts)} /> : null}
+                        <MinuteEntry
+                          minute={m}
+                          day={day}
+                          facts={facts}
+                          words={words}
+                          data={data}
+                          guestOpen={guestOpen}
+                        />
+                      </div>
+                    );
+                  })}
+                </section>
+              );
+            })}
+
+            {/* ════ AFTER ════ */}
+            {afterPlaced.length > 0 ? (
+              <>
+                <PartHead title="After" note="the story keeps its date" />
+                {afterPlaced.map((a) => (
+                  <RoadEntry key={a.fact.key} fact={a.fact} x={a.x} stage={AFTER_STAGE} />
+                ))}
+              </>
+            ) : null}
+          </div>
+
+          <StoryLens
+            room={facts.room}
+            blocks={facts.blocks}
+            heat={heat}
+            heatWithheld={!guestOpen}
+            openingAtMs={facts.roadStartMs}
+          />
+        </div>
       </main>
+
+      {/*
+        THE LIGHT. It renders nothing — it writes three custom properties on the
+        wrapper as the reader moves, and every colour in this tree already
+        resolves through them. The wrapper is server-painted with the opening
+        stage (`editorial-content.tsx`), so the page is a legible printed one
+        before this mounts and with JavaScript off.
+      */}
+      <StoryLight stages={stages} />
     </div>
   );
 }
@@ -504,7 +589,7 @@ function PartHead({ title, note }: { title: string; note: string }): ReactElemen
       <h2 className="font-condensed text-[clamp(1.9rem,6vw,3.25rem)] font-black uppercase leading-[0.9] tracking-tight">
         {title}
       </h2>
-      <span className="pb-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+      <span className="pb-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
         {note}
       </span>
     </div>
@@ -514,8 +599,23 @@ function PartHead({ title, note }: { title: string; note: string }): ReactElemen
 /**
  * A dated entry on the road, or after it. Same grammar as a minute — a big
  * stamp, a title, a paragraph — at the resolution the road is drawn in.
+ *
+ * 🔑 TWO ATTRIBUTES S10 ADDED, AND WHY THEY LIVE ON THE ENTRY. `data-story-
+ * stage` is which of the six lights this entry sits under; `data-story-at` is
+ * the instant the lens asks the room about. The server writes both, beside
+ * everything the entry already declares for the dial — so the light and the
+ * lens learn where the reader is FROM THE DOM, and never from a second copy of
+ * the layout that can disagree with the first.
  */
-function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
+function RoadEntry({
+  fact,
+  x,
+  stage,
+}: {
+  fact: RoadFact;
+  x: number;
+  stage: StageIndex;
+}): ReactElement {
   return (
     <article
       id={fact.key}
@@ -524,6 +624,8 @@ function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
       data-story-stamp={fact.stamp}
       data-story-suffix={fact.stampSuffix}
       data-story-label={fact.title}
+      data-story-stage={stage}
+      data-story-at={fact.atMs}
       {...(fact.layer === 'guest' ? { 'data-layer': 'guest' } : {})}
       className="scroll-mt-32 pt-7"
     >
@@ -531,12 +633,12 @@ function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
         <span className="font-condensed text-[clamp(2.5rem,9vw,4.5rem)] font-black uppercase leading-[0.82] tabular-nums tracking-tighter">
           {fact.stamp}
           {fact.stampSuffix ? (
-            <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/55">
+            <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/60">
               {fact.stampSuffix}
             </small>
           ) : null}
         </span>
-        <span className="pb-1.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+        <span className="pb-1.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
           {fact.kicker}
         </span>
       </div>
@@ -560,7 +662,7 @@ function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
  */
 function Gap({ text, blocks }: { text: string; blocks: string | null }): ReactElement {
   return (
-    <div aria-hidden className="flex items-center gap-3 py-2 text-ink/55">
+    <div aria-hidden className="flex items-center gap-3 py-2 text-ink/60">
       <span className="h-px flex-1 bg-ink/15" />
       <span className="text-center font-mono text-xs font-semibold uppercase tracking-[0.12em]">
         <b className="mr-2 font-condensed text-[15px] tracking-wide text-ink">{text}</b>
@@ -626,6 +728,8 @@ function MinuteEntry({
       data-story-suffix={clock.ap}
       data-story-label={minute.chapter.title ?? `${clock.t} ${clock.ap}`}
       data-story-minute={minute.minuteOfDay}
+      data-story-stage={stageOfMinute(minute.minuteOfDay)}
+      data-story-at={minute.atMs}
       data-layer="guest"
       className="scroll-mt-32 pt-7"
     >
@@ -638,12 +742,12 @@ function MinuteEntry({
             correct time. It is never a placeholder waiting to be filled in.
           */}
           <span data-story-countup>{clock.t}</span>
-          <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/55">
+          <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/60">
             {clock.ap}
           </small>
         </span>
         {block?.location || block?.label ? (
-          <span className="pb-2 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+          <span className="pb-2 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
             {block.location ?? block.label}
           </span>
         ) : null}
@@ -672,7 +776,7 @@ function MinuteEntry({
               {said.map((q, i) => (
                 <p key={i} className="font-serif text-[17px] italic leading-snug">
                   {q.body}
-                  <small className="mt-1 block font-mono text-xs font-semibold uppercase not-italic tracking-[0.12em] text-ink/55">
+                  <small className="mt-1 block font-mono text-xs font-semibold uppercase not-italic tracking-[0.12em] text-ink/60">
                     {q.author ? <b className="text-terracotta-700">{q.author}</b> : 'A guest'}
                     {q.role ? ` · ${q.role}` : ''} · Kwento
                     {q.author ? ' · asked to be named' : ' · chose not to be named'}
@@ -690,7 +794,7 @@ function MinuteEntry({
                 <li key={i} className="w-[9.5rem] flex-none">
                   <p className="font-serif text-[15px] leading-snug">{a.prompt}</p>
                   {a.byline ? (
-                    <small className="mt-1 block font-mono text-xs uppercase tracking-[0.12em] text-ink/55">
+                    <small className="mt-1 block font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
                       {a.byline}
                     </small>
                   ) : null}
@@ -747,7 +851,7 @@ function MinuteEntry({
 function Layer({ name, children }: { name: string; children: ReactNode }): ReactElement {
   return (
     <div className="grid grid-cols-[5.75rem_1fr] gap-3 border-b border-ink/10 py-3">
-      <span className="pt-0.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+      <span className="pt-0.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
         {name}
       </span>
       <div className="min-w-0">{children}</div>

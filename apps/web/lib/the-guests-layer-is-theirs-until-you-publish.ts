@@ -104,10 +104,7 @@ export function storyLayerAdmits(
 }
 
 /** Shorthand for the one that does the work. Reads better at a call site. */
-export function guestLayerAdmits(
-  status: StoryAudience,
-  viewer: StoryViewer = STRANGER,
-): boolean {
+export function guestLayerAdmits(status: StoryAudience, viewer: StoryViewer = STRANGER): boolean {
   return storyLayerAdmits('guest', status, viewer);
 }
 
@@ -121,10 +118,7 @@ export function guestLayerAdmits(
  * already knows how to omit needs no new branch. The prototype draws it as an
  * em dash.
  */
-export function countForLayer(
-  n: number | null | undefined,
-  admitted: boolean,
-): number | null {
+export function countForLayer(n: number | null | undefined, admitted: boolean): number | null {
   if (!admitted) return null;
   return typeof n === 'number' && Number.isFinite(n) ? n : null;
 }
@@ -187,6 +181,37 @@ export function drawnBins(
 }
 
 /**
+ * One table's share of a minute's photographs — the lens's heat (`08` step 2.3).
+ *
+ * Structural, like `CaptureBin` above and for the same reason: `lib/story-room`
+ * owns the shape, this module owns who may have it, and neither imports the
+ * other's opinion about the question it does not answer.
+ */
+export type TableCaptureCount = { tableId: string; captures: number };
+
+/**
+ * The heat a reader may actually have.
+ *
+ * 🔑 A COUNT OF PHOTOGRAPHS PER TABLE IS THE GUESTS' LAYER, EXACTLY AS A BAR
+ * HEIGHT IS. It is the same fact the dial draws, asked per seat instead of per
+ * minute — so it rides the same ruling (Q1, 2026-09-09: no counts to a stranger
+ * before publish) through the same constant. Gating the dial and forgetting the
+ * floor plan would have published the day's shape on the surface where it is
+ * easiest to read.
+ *
+ * ⚠ IT RETURNS AN EMPTY LIST, NOT A LIST OF ZEROES. A plan of tables all
+ * measured at zero is a claim — "nobody shot anything here" — and it is a false
+ * one. Nothing is a withholding; zero is a measurement.
+ */
+export function drawnHeat(
+  heat: readonly TableCaptureCount[],
+  opts: { status: StoryAudience; viewer?: StoryViewer },
+): TableCaptureCount[] {
+  const admitted = COUNTS_ARE_THE_GUESTS_LAYER ? guestLayerAdmits(opts.status, opts.viewer) : true;
+  return admitted ? heat.map((h) => ({ ...h })) : [];
+}
+
+/**
  * The guest-made fields of the story payload, and the edition's close.
  *
  * Structural rather than an import of `EditorialData`, because that type lives
@@ -243,10 +268,7 @@ export type LayeredStoryPayload = {
  * publish the guests'. Carrying provenance through the loader so the halves can
  * be separated belongs with the captures index that will need it.
  */
-export function redactStoryLayers<T extends LayeredStoryPayload>(
-  data: T,
-  viewer?: StoryViewer,
-): T;
+export function redactStoryLayers<T extends LayeredStoryPayload>(data: T, viewer?: StoryViewer): T;
 export function redactStoryLayers<T extends LayeredStoryPayload>(
   data: T | null,
   viewer?: StoryViewer,

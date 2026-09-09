@@ -930,6 +930,25 @@ export async function lockDeal(formData: FormData): Promise<void> {
     if (outcome.status === 'error') {
       failBack('We could not lock this deal just now — please try again.');
     }
+
+    // ── THE PRICE MUST HAVE LANDED BEFORE WE CALL IT FROZEN ──────────────────
+    // Every outcome that writes `event_vendors.total_cost_php` now reports
+    // whether the row actually matched. If it did not, we must NOT stamp the
+    // Deal and freeze the thread — the card would say "🔒 Deal locked — price
+    // frozen" while `/budget`, which reads that column, still showed the old
+    // figure. Telling the couple the truth and letting them retry is the whole
+    // point of the change; a silent divergence between the money they will pay
+    // and the money they are shown is the failure this repo keeps producing.
+    //
+    // 'no_marketplace_link' carries no `priceLanded` because there is no booking
+    // row to write — an off-platform supplier has no budget line either, so the
+    // thread freeze IS the whole record and falling through is correct.
+    if ('priceLanded' in outcome && !outcome.priceLanded) {
+      failBack(
+        'We could not apply the agreed price to this booking — nothing has changed. Please try again, or open the supplier from your vendors page.',
+      );
+    }
+
     // 'no_marketplace_link' | 'booked' | 'already_booked' → fall through to
     // freeze the price + stamp the Deal.
     //

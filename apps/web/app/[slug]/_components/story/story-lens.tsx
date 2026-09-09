@@ -38,6 +38,7 @@ import { subscribeReaderPosition } from '@/lib/story-reader-position';
 import { formatClock, manilaMinuteOfDay, type VenueBlock } from '@/lib/story-spine';
 import {
   heatClassOf,
+  heatWorthShowing,
   lensNote,
   lensStateAt,
   lensStateLabel,
@@ -103,7 +104,16 @@ export function StoryLens({ room, blocks, heat, heatWithheld, openingAtMs }: Sto
     the same instant the server bucketed the heat by — never re-derived from a
     time of day, which would put a day-2 minute on a day-1 table.
   */
-  const tables = showSeats && atMs != null ? (heat.find((h) => h.atMs === atMs)?.tables ?? []) : [];
+  const measured =
+    showSeats && atMs != null ? (heat.find((h) => h.atMs === atMs)?.tables ?? []) : [];
+  /*
+    ⚖ SMALL COUNTS COME OUT BEFORE ANYTHING IS DRAWN OR SAID — owner, 2026-09-09:
+    a small number tells a host, without ever saying it, that they did not make
+    enough memories. `heatWorthShowing` is applied once, here, so neither the
+    plan nor the sentence below can reach a figure the ruling withheld.
+  */
+  const tables = heatWorthShowing(measured);
+  const sawSomething = measured.some((t) => t.captures > 0);
   const loudestId = loudestTable(tables);
   const loudest = room.tables.find((t) => t.id === loudestId) ?? null;
   const alsoShooting = tables.filter((t) => t.captures > 0 && t.tableId !== loudestId).length;
@@ -141,6 +151,7 @@ export function StoryLens({ room, blocks, heat, heatWithheld, openingAtMs }: Sto
               opensAt: receptionOpensAt(blocks),
               loudestLabel: loudest?.label ?? null,
               alsoShooting,
+              sawSomething,
               heatWithheld,
             })}
           </p>

@@ -143,6 +143,45 @@ test('the plan is drawn only while the reception is in use — through the one f
   }
 });
 
+test('the lens withholds small counts BEFORE anything reads them', () => {
+  /*
+    ⚖ Owner, 2026-09-09: a table with one or two photographs shows nothing —
+    "this will subconsciously tell them they did not create enough memories for
+    the story".
+
+    🔴 THIS GUARD EXISTS BECAUSE ITS ABSENCE WAS MEASURED. `story-room.test.ts`
+    proves `heatWorthShowing` filters correctly, and a sabotage that deleted the
+    CALL to it from this component left all twenty of those tests green — the
+    floor was still perfectly implemented and simply never applied. A pure
+    function nobody calls is the definition of decoration.
+
+    So the call site is pinned: the filtered list is what the plan and the
+    sentence both read, and the raw list is touched exactly once — on the line
+    that hands it to the filter.
+  */
+  assert.match(
+    LENS,
+    /const tables = heatWorthShowing\(measured\)/,
+    'the lens must filter the minute’s heat through heatWorthShowing before drawing or describing it',
+  );
+
+  // `measured` — the unfiltered list — may be read only twice: to filter it,
+  // and to ask whether the minute was quiet rather than empty.
+  const rawReads = [...LENS.matchAll(/\bmeasured\b/g)];
+  assert.equal(
+    rawReads.length,
+    3,
+    `the unfiltered heat is read ${rawReads.length} times (its declaration, the filter, and the quiet/empty test are the only three allowed) — anything else can put a withheld figure back on the page`,
+  );
+  assert.match(LENS, /sawSomething = measured\.some/, 'the quiet/empty test is the second read');
+
+  // And nothing downstream may re-derive from the raw list.
+  assert.ok(
+    !/loudestTable\(measured\)/.test(LENS) && !/heatClassOf\([^)]*measured\)/.test(LENS),
+    'the loudest table and the heat classes must come from the FILTERED list',
+  );
+});
+
 test('the lens is hidden from assistive technology, and says why', () => {
   // Not a style preference: the same fact is in each minute's own "In the room"
   // line, in the reading order. A sticky panel rewritten on every scroll frame

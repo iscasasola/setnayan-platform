@@ -66,7 +66,7 @@ export function ShareButtons({
       'inline-flex h-6 w-6 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-terracotta';
     return (
       <span className="inline-flex items-center gap-1">
-        <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-ink/45">
+        <span className="font-mono text-xs uppercase tracking-[0.1em] text-ink/60">
           Share
         </span>
         <button
@@ -107,7 +107,7 @@ export function ShareButtons({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+      <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
         Share
       </span>
       <button

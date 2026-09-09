@@ -13,6 +13,13 @@ import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { deriveThreadStage } from '@/lib/vendor-thread-stage';
+import { buildSupplierStanding } from '@/lib/supplier-standing';
+import {
+  fetchThreadPayments,
+  fetchLiveQuoteTotalPhp,
+} from '@/lib/thread-decision-sources.server';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
@@ -96,6 +103,65 @@ export default async function CoupleThreadPage({ params }: Props) {
   // remains SEO-friendly. The <ChatMessageStream> client component takes
   // over from here, subscribing to Supabase Realtime for new inserts/updates.
   const initialMessages = await fetchMessages(supabase, threadId);
+
+  /**
+   * ── DECISIONS · the couple's side of "where are we with this supplier?" ────
+   *
+   * The same view the supplier has, from this side. The standing sentence is
+   * rendered HERE and not on the supplier's page, because
+   * `buildSupplierStanding` speaks in the couple's second person — "waiting on
+   * you" means the couple owes the answer. It is the S6 derivation verbatim;
+   * the bench card draws the same string, which is what makes showing it twice
+   * safe.
+   *
+   * ⚠ There is no guest-count source on this side. The surcharge proposal is
+   * the SUPPLIER's to act on (`fetchVendorPaxProposals` is scoped to their
+   * bookings and their pricing), so the couple's Decisions list carries the
+   * payments and the message cards. Showing the couple a decision only the
+   * supplier can take would be a to-do they cannot do.
+   */
+  const decisionAdmin = createAdminClient();
+  const [threadStage, liveQuoteTotalPhp, decisionPayments] = await Promise.all([
+    deriveThreadStage({
+      supabase,
+      adminClient: decisionAdmin,
+      eventId,
+      vendorProfileId: thread.vendor_profile_id,
+      inquiryStatus: thread.inquiry_status,
+    }),
+    fetchLiveQuoteTotalPhp({
+      supabase,
+      eventId,
+      vendorProfileId: thread.vendor_profile_id,
+    }),
+    fetchThreadPayments({
+      adminClient: decisionAdmin,
+      eventId,
+      vendorProfileId: thread.vendor_profile_id,
+    }),
+  ]);
+
+  const lastThreadMessage = initialMessages[initialMessages.length - 1];
+  const threadStanding = buildSupplierStanding({
+    stage: threadStage,
+    // The couple is reading the conversation, so there is one by definition —
+    // this is the branch that keeps an invented grievance off a stranger's
+    // bench card, and it cannot apply here.
+    hasThread: true,
+    quotedAmountPhp: liveQuoteTotalPhp,
+    lastSpeaker:
+      lastThreadMessage == null
+        ? null
+        : lastThreadMessage.sender_role === 'vendor'
+          ? 'vendor'
+          : lastThreadMessage.sender_role === 'couple'
+            ? 'couple'
+            : null,
+    lastSaidAtMs: lastThreadMessage
+      ? Date.parse(lastThreadMessage.created_at) || null
+      : null,
+    nowMs: Date.now(),
+  });
   const vendorLabel = vendor
     ? resolveVendorDisplayName({
         business_name: vendor.business_name ?? null,
@@ -353,6 +419,8 @@ export default async function CoupleThreadPage({ params }: Props) {
         viewerRole="couple"
         counterpartyLabel={vendorLabel}
         eventDate={eventDate}
+        standing={threadStanding}
+        decisionPayments={decisionPayments}
       />
 
       {blockState.blockedByMe || blockState.blockedByThem ? (

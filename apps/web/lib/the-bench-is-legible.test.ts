@@ -132,6 +132,11 @@ type Pairing = {
 const PAIRINGS: readonly Pairing[] = [
   { name: '● N locked (folder summary)', selector: '.slcat .fsum .s.lk' },
   { name: 'In your plan', selector: '.slcat .cat-plan' },
+  // "Your order" — the couple's own arrangement is in force on this rail (S8).
+  // It is gold-on-a-gold-wash, which is the exact family this guard exists for:
+  // every one of the four failures that created it was a colour on a wash of
+  // itself.
+  { name: 'Your order', selector: '.slcat .arrl' },
   { name: 'Verified badge', selector: '.slcat .vc .bdg.verified', darkSelector: 'html.dark .slcat .vc .bdg.verified' },
   {
     name: 'Setnayan badge',
@@ -176,7 +181,7 @@ function measure(p: Pairing, theme: 'light' | 'dark'): { name: string; r: number
 test('the scan read the real stylesheet (an empty read is a green lie)', () => {
   assert.ok(src.includes('const SLCAT_CSS'), 'the bench stylesheet is gone or renamed');
   assert.ok(src.length > 20000, `read only ${src.length} chars`);
-  assert.equal(PAIRINGS.length, 9, 'the pairing list changed size — say so in the PR');
+  assert.equal(PAIRINGS.length, 10, 'the pairing list changed size — say so in the PR');
   // Every selector must actually be in the file, or the loop measures nothing
   // and reports a clean pass — the shape both shipped guards failed in.
   for (const p of PAIRINGS) {

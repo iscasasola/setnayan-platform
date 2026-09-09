@@ -414,7 +414,7 @@ export function StorySpine({
   // "0 captures" is a claim about the day, and it is a false one while the
   // photographs sit behind the gate.
   const voices =
-    data.kwentoQuotes.length + (data.guestColumns?.length ?? 0) + data.challengeAnswers.length;
+    data.kwentoQuotes.length + (data.guestColumns?.length ?? 0) + challengeAnswersFor(data, words).length;
   const daysTold =
     roadStart != null && roadEnd != null
       ? Math.max(1, Math.round((roadEnd - roadStart) / 86_400_000)) + days.length
@@ -532,7 +532,7 @@ export function StorySpine({
       author: q.author,
       role: q.role,
     })),
-    asked: data.challengeAnswers.map((a) => ({
+    asked: challengeAnswersFor(data, words).map((a) => ({
       prompt: a.prompt,
       atMs: msOf(a.atIso),
       byline: a.byline,
@@ -653,7 +653,23 @@ export function StorySpine({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Relive slides={reliveSlides} label={`Relive this ${words.occasion}`} />
+            {/*
+              ▶ RELIVE IS NEVER OFFERED AT A WAKE (`05` §2 · owner ruling
+              2026-09-09, arm (b)). An autoplaying highlight reel of the day,
+              with a "Relive it" button, is the clearest example of a shipped
+              mechanism that is actively wrong for a funeral — the same family
+              of defect as the countdown, which `countdown.tsx` already refuses
+              on the same word.
+
+              🔑 GATED ON THE REGISTER, NOT ON A SURFACE FLAG, and not on
+              `slides.length`. The slides are the day's written minutes and a
+              wake HAS those — five nights and the mass are exactly what the
+              family filed — so an emptiness test would have let the button
+              through on the one event that must never show it.
+            */}
+            {words.solemn ? null : (
+              <Relive slides={reliveSlides} label={`Relive this ${words.occasion}`} />
+            )}
             {actions}
           </div>
         </div>
@@ -975,7 +991,7 @@ function MinuteEntry({
   // drive home; it still belongs to the first dance.
   const window = minuteWindow(minute, facts.bucketMinutes);
   const said = data.kwentoQuotes.filter((q) => within(q.atIso, window));
-  const asked = data.challengeAnswers.filter((a) => within(a.atIso, window));
+  const asked = challengeAnswersFor(data, words).filter((a) => within(a.atIso, window));
 
   return (
     <article
@@ -1148,6 +1164,34 @@ function roomSentence(state: string, blockLabel: string | null): string {
  */
 function plural(n: number | null | undefined, one: string, many: string): string {
   return n === 1 ? one : many;
+}
+
+/**
+ * THE CHALLENGE ANSWERS THIS EVENT MAY SHOW — the solemn register shows none.
+ *
+ * Papic challenges are a party game: the page asks the room a prompt and prints
+ * what they filmed back. `05_Occasions_Registers_MultiDay.md` §2 lists them
+ * among the things the solemn arm "renders none of", beside Relive — owner
+ * ruling 2026-09-09, build arm (b): a wake gets a story with "no Relive, no
+ * challenges, no anniversary, no countdown, and the family's words."
+ *
+ * 🔑 ONE RULE, ONE PLACE, AND THAT IS THE POINT. `data.challengeAnswers` is
+ * read from THREE sites in this file, in two different component scopes — the
+ * cover's voice count, the "asked" index tab, and the per-minute entry. A gate
+ * written at the tab would have left the wake's cover counting challenge
+ * answers among its "voices" and every minute still printing them. Every read
+ * goes through here, and `the-wake-never-celebrates.test.ts` fails on a direct
+ * `data.challengeAnswers` read anywhere in this file, so a fourth site cannot
+ * be born ungated.
+ *
+ * 🔒 A CELEBRATORY EVENT IS BYTE-IDENTICAL: `solemn` is false for every
+ * pre-existing type, so this returns the same array it was handed.
+ */
+function challengeAnswersFor(
+  data: EditorialData,
+  words: EventWords,
+): EditorialData['challengeAnswers'] {
+  return words.solemn ? [] : data.challengeAnswers;
 }
 
 /** The sentence under the names. The couple's own deck when they wrote one. */

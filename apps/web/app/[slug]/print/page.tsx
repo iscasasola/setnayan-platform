@@ -22,6 +22,8 @@ import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { storyAudienceAdmits } from '@/lib/who-can-see-your-story';
+import { printedStampLine } from '@/lib/a-withdrawal-reaches-every-copy';
+import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
@@ -259,6 +261,25 @@ export default async function EditorialPrintPage({
     qrSvg = '';
   }
 
+  /*
+    ══ THE VERSION STAMP ON PAPER (`07` Q6, ruled 2026-09-09 · 08 step 4.1) ═══
+
+    Read HERE, and deliberately not threaded through `loadEditorialData`. This is
+    a fact about the printed ARTEFACT — when was this sheet true — not a part of
+    the story's content, and every other reader of `EditorialData` would have had
+    to carry a field it has no use for.
+
+    ⚠ NO VERSION ⇒ NO STAMP, never today's date. `readStoryVersionAt` answers
+    `null` for a refused read AND for a thrown one, `printedStampLine` returns
+    null for that, and the colophon prints nothing. A copy we cannot date is
+    exactly the copy printed before this shipped; stamping it with today would
+    be the lie the whole feature exists to avoid.
+  */
+  const stampLine = printedStampLine(
+    await readStoryVersionAt(event.event_id),
+    typeof event.timezone === 'string' ? event.timezone : null,
+  );
+
   return (
     <main className="keepsake-root">
       <style dangerouslySetInnerHTML={{ __html: KEEPSAKE_CSS }} />
@@ -270,6 +291,7 @@ export default async function EditorialPrintPage({
         mono={mono}
         qrSvg={qrSvg}
         hideWatermark={hideWatermark}
+        stampLine={stampLine}
       />
     </main>
   );

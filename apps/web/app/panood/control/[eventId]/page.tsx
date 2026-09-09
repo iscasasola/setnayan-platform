@@ -113,6 +113,7 @@ import { readEventWatchUrls } from '@/lib/watch-live-links';
 import { TransportRow } from './transport-row';
 import { CameraFeedsProvider, ChannelVideo } from './_components/camera-feeds';
 import { ProgramBridgeHost } from './_components/program-bridge';
+import { DesktopEncoderHost } from './_components/desktop-encoder-host';
 import { SetupSheet } from './_components/setup-sheet';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
@@ -1411,6 +1412,31 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             airLabel={airLabel}
             streamingEnabled={streamingOn}
             mainStageSlot={programSlot}
+          />
+
+          {/* ⭐ S18 — THE ENCODER ITSELF, inside the desktop shell only.
+              ProgramBridgeHost above delivers the streams to a window an
+              EXTERNAL encoder (OBS) captures. This composites those same
+              streams, encodes H.264/AAC and hands the bytes to Rust's RTMP
+              sender — the path that exists so a couple opens Setnayan instead
+              of configuring OBS the week of their wedding.
+
+              It sits here, beside ProgramBridgeHost and outside the setup
+              sheet, for exactly the reason that one does: a component the
+              sheet can unmount is a component that stops encoding the moment
+              the host closes the sheet. Renders nothing; its health goes to
+              the IngestHealthStrip that already exists. In a plain browser
+              `isTauri()` is false and this does nothing at all. */}
+          <DesktopEncoderHost
+            eventId={eventId}
+            air={air}
+            isLive={isLive}
+            streamingEnabled={streamingOn}
+            overlays={{
+              resolved: airOverlays,
+              qrSrc: qrSrc,
+              lowerThirdFallback: monogramText,
+            }}
           />
 
           {/* ⭐ THE RESOLVED STATUS, KEPT CURRENT. `resolveChannelStatus` above runs

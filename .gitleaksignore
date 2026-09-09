@@ -53,3 +53,23 @@ dd2a89c2b3f7d57407bb18cb570cc4faa49b63f2:apps/web/lib/llms-txt.ts:generic-api-ke
 # gitleaks-action scans every commit in the PR range, so renaming the literal at
 # HEAD would not clear it.
 ee7f86117c3154443592c975fa0cdc9e1feea3ac:apps/web/tests/db/papic-rungs-are-fundable.db.test.ts:generic-api-key:187
+#
+# The same `generic-api-key` rule fires on a COLUMN NAME again: the Decisions
+# view's Files third copies the chat attachment's stored-asset column into the
+# shared-files input, so the line is one property named `..._key` assigned from
+# another property of the same name. There is NO literal on it at all — both
+# sides are reads. That column holds an r2 stored-asset ref (never a
+# credential; see migration 20271215223903), and the file is a 'use client'
+# component, so anything secret in it would already be in the page source.
+#
+# An inline `gitleaks:allow` was added at HEAD, but gitleaks-action scans every
+# commit in the PR range, so the introducing commit's fingerprint is pinned too.
+8ea4dff28f612638232ae06790b85e43a8a506aa:apps/web/app/_components/chat-message-stream.tsx:generic-api-key:473
+#
+# ⚠ AND THE ENTRY ABOVE NEEDED A SECOND ONE, because the first version of this
+# very comment QUOTED the offending line verbatim to explain it — so gitleaks
+# matched the explanation and failed the scan on `.gitleaksignore` itself. The
+# comment now describes the shape instead of reproducing it. If you are adding
+# an entry here: say what the line is, do not paste it.
+561e8614c97f2cbdbf90d03a258adbc4bd245b41:.gitleaksignore:generic-api-key:58
+

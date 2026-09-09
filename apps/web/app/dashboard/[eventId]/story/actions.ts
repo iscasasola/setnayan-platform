@@ -11,6 +11,8 @@
 // preserved by merging rather than replacing.
 
 import { revalidatePath } from 'next/cache';
+
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { after } from 'next/server';
 import {
   storyAudienceOf,
@@ -30,6 +32,7 @@ import {
   type Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 import { sanitizeStoryTheme } from '@/lib/story-theme';
 import { createClient } from '@/lib/supabase/server';
 import { deskIsClear, isWaitingOnTheHost } from '@/lib/story-desk';
@@ -588,42 +591,60 @@ export async function saveEditorial(
       .eq('event_id', eventId);
   }
 
-  const { data: ev } = await admin
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-
   revalidatePath(`/dashboard/${eventId}/story`);
   revalidatePath(`/dashboard/${eventId}/website`);
-  if (ev?.slug) {
-    /*
-      🔑 GOING BACK TO GUESTS-ONLY HAS TO ACTUALLY TAKE THE PAGE BACK FROM A
-      STRANGER, AND `/${slug}` ALONE DID NOT DO IT. `/[slug]/print` is its own
-      cached route (`revalidate = 300`) and it asks `storyAudienceAdmits` — so a
-      host who narrowed the audience stayed readable there for up to five
-      minutes, on the one surface a stranger can keep.
 
-      🔴 CORRECTED BEFORE MERGE — I FIRST WROTE THAT THE RECAP WAS THE SAME CASE.
-      IT IS NOT. `/[slug]/recap` is the Auto-Recap, a DIFFERENT keepsake with its
-      own switch (`event_recaps.status`), and it does not read `event_editorial`
-      at all — measured, 0 references in both `recap/page.tsx` and
-      `lib/auto-recap.ts`. Narrowing the story's audience changes nothing there.
-      It is revalidated anyway because `04` §3 names it in the withdrawal set and
-      it does render guest photos and Kwentos, so it is cheap insurance — but
-      **print is the load-bearing one here, and the claim that the recap leaked a
-      narrowed story was mine and was wrong.**
+  /*
+    ══ EVERY PUBLIC COPY OF THE STORY, THROWN AWAY TOGETHER ══════════════════
 
-      ⏭ THIS IS THE AUDIENCE CHANGE ONLY. The full revalidation set on a GUEST's
-      consent write — the one a withdrawal needs, plus the OG card and the
-      version stamp — is `04` §3 / Q6, ruled and assigned to S14. Doing half of
-      it here under its name would leave the next session believing the whole
-      thing had shipped.
-    */
-    revalidatePath(`/${ev.slug}`);
-    revalidatePath(`/${ev.slug}/recap`);
-    revalidatePath(`/${ev.slug}/print`);
-  }
+    🔑 GOING BACK DOWN THE LADDER HAS TO ACTUALLY TAKE THE PAGE BACK FROM A
+    STRANGER, AND `/${slug}` ALONE DID NOT DO IT. `/[slug]/print` is its own
+    cached route (`revalidate = 300`) and it asks `storyAudienceAdmits` — so a
+    host who narrowed the audience stayed readable there for up to five minutes,
+    on the one surface a stranger can keep. That fix shipped with S8 as three
+    spelled-out paths.
+
+    ⏭ S14 SHIPPED THE REST OF IT, AND THIS NOW CALLS THE ONE LIST. The share
+    card was the surface S8 could not reach: its `Cache-Control` is honoured by
+    browsers, the CDN and every platform that already fetched it, and nothing on
+    the server can revalidate that. `everyCopyIsNowStale` stamps
+    `story_version_at`, which MOVES the card's URL — the only bust a URL-keyed
+    cache has — and then throws away the story, the recap, the keepsake and the
+    nested account URL if the cutover flag is ever turned on.
+
+    🔑 IT IS THE SAME CALL A GUEST'S WITHDRAWAL MAKES, deliberately. A host
+    taking a story back and a guest taking their photograph out of it are the
+    same event from a reader's side, and one list is the only way the next
+    surface cannot be forgotten by whichever of the two is written first.
+
+    🔴 A CLAIM THIS COMMENT USED TO MAKE ABOUT THE RECAP IS FALSE, AND THE WAY
+    IT WENT WRONG IS WORTH MORE THAN THE FIX. It read: *"it does not read
+    `event_editorial` at all — measured, 0 references in `recap/page.tsx` and
+    `lib/auto-recap.ts`."*
+
+    **THE NUMBER IS RIGHT AND THE SENTENCE IS WRONG.** Re-measured on
+    `origin/main`: both files do contain 0 occurrences of the string
+    `event_editorial` — and `lib/auto-recap.ts` calls `loadEditorialData` at TWO
+    call sites (lines 201 and 347), which reads `event_editorial` itself
+    (`editorial/data.ts`, the `.select('status, draft_json, …')`). **The recap
+    reads the story's row; it just does it one hop away, where a grep for the
+    table name cannot see it.** Correct fact, invented consequence — the same
+    shape as the migration-prefix belief this repo killed twice.
+
+    ⚖ WHAT SURVIVES, and it is what the original reasoning actually needed:
+    `lib/auto-recap.ts` has **0** references to `audience`, so narrowing the
+    story's audience genuinely does NOT hide the recap — the Auto-Recap is its
+    own keepsake with its own switch (`event_recaps.status`). That conclusion is
+    sound. It just had to be measured on the word `audience`, not on the name of
+    a table.
+
+    🔑 AND THE HALF THAT WAS WRONG IS THE HALF THIS SESSION TURNS ON: a guest's
+    WITHDRAWAL absolutely reaches the recap. `loadEditorialData` applies the
+    consent veto to the very hero the recap leads with — `!consentVeto.ids.has(
+    heroPhotoId)`, under a docblock that says consent wins over curation — so the
+    recap belongs in the list for a reason far stronger than "cheap insurance".
+  */
+  await everyCopyIsNowStale(eventId);
 
   // Fire quality scan in the background after the response is sent.
   // Only triggers when the editorial is in the default 'pending' state
@@ -651,34 +672,55 @@ export async function saveEditorial(
  *
  * RA 10173: consent stays an EXPLICIT, reversible opt-in — this only flips the
  * couple's own flag when they ask. It deliberately does NOT touch
- * `landing_page_visibility`; a private page still won't surface (the
- * loadPublishedShowcases `!= 'private'` guard), and the editor surfaces that
- * caveat rather than silently making the page public.
+ * `landing_page_visibility`; a page that is not public still won't surface (the
+ * loadPublishedShowcases `landing_page_visibility = 'public'` gate), and the
+ * editor surfaces that caveat rather than silently publishing the page.
  *
- * Wedding-gated on opt-IN (server-side, behind the wedding-only UI toggle):
- * `public_summary_consent_at` is a per-USER flag and Real Stories only
- * aggregates weddings (loadPublishedShowcases filters event_type='wedding'), so
- * a non-wedding event must not be able to flip it (a direct action call would
- * otherwise set consent that affects the user's OTHER wedding events). Opt-OUT
- * is always allowed.
+ * 🔴 THE KIND GATE WAS WEDDING-ONLY AND OUTLIVED THE RULE IT ENFORCED. It
+ * refused every non-wedding celebration on opt-IN, citing "loadPublishedShowcases
+ * filters event_type='wedding'" — five filters DELETED on 2026-08-15 when the
+ * owner ruled that all sixteen kinds may be written up ("each event they create
+ * will have an editorial not just wedding"), `date` and `hangout` named out loud
+ * ("making it public will be the user's decision … so yes"). The gallery, the
+ * sitemap and the credited-vendor portfolio all moved; this door did not. So a
+ * birthday, a christening or a date night could write and publish a story here
+ * and then never be allowed to say yes to it.
+ *
+ * 🔑 AND THE GATE WAS NEVER A BOUNDARY — ITS OWN SIBLING DEFEATED IT. The
+ * privacy page's `setShowcaseConsent` writes the IDENTICAL
+ * `users.public_summary_consent_at` flag through the identical admin client with
+ * NO kind check at all. Two doors to one fact, one of them bolted. The docblock's
+ * stated fear — "a direct action call would set consent affecting the user's
+ * OTHER wedding events" — was already reachable, unguarded, one screen away, so
+ * this only ever obstructed the honest path.
+ *
+ * The kind question now has exactly ONE home (`editorialAllowsEventType`), which
+ * is what this asks. Opt-OUT is always allowed.
  */
 export async function setStoryShowcase(
   eventId: string,
   optIn: boolean,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await hostUserId(eventId);
-  if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
+  if (!userId)
+    return { ok: false, error: 'You don’t have access to this celebration.' };
 
   const admin = createAdminClient();
 
   if (optIn) {
-    const { data: ev } = await admin
+    // Fails CLOSED on an unreadable event: an unknown kind is not a consented
+    // one. The old read dropped its error and let `?? 'wedding'` answer for it,
+    // so a failed lookup was indistinguishable from a real wedding.
+    const { data: ev, error: evError } = await admin
       .from('events')
       .select('event_type')
       .eq('event_id', eventId)
       .maybeSingle();
-    if (((ev?.event_type as string | null) ?? 'wedding') !== 'wedding') {
-      return { ok: false, error: 'Stories features weddings only.' };
+    if (evError || !ev) {
+      return { ok: false, error: 'Could not update. Please try again.' };
+    }
+    if (!editorialAllowsEventType((ev.event_type as string | null) ?? 'wedding')) {
+      return { ok: false, error: 'This kind of day can’t be featured in Stories.' };
     }
   }
 

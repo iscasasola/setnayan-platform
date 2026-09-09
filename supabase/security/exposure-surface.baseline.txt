@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6611
+# facts: 6612
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     585
-#   col       4857
+#   col       4858
 #   policy    902
 #   view      8
 #   func      255
@@ -1287,6 +1287,7 @@ col	public.event_appointments.initiated_by	anon=SIU authenticated=SIU
 col	public.event_appointments.kind	anon=SIU authenticated=SIU
 col	public.event_appointments.location	anon=SIU authenticated=SIU
 col	public.event_appointments.note	anon=SIU authenticated=SIU
+col	public.event_appointments.previous_scheduled_at	anon=SIU authenticated=SIU
 col	public.event_appointments.proposed_by_user_id	anon=SIU authenticated=SIU
 col	public.event_appointments.scheduled_at	anon=SIU authenticated=SIU
 col	public.event_appointments.status	anon=SIU authenticated=SIU
@@ -1445,6 +1446,7 @@ col	public.event_editorial.scan_completed_at	anon=- authenticated=SIU
 col	public.event_editorial.scan_flags	anon=- authenticated=SIU
 col	public.event_editorial.scan_status	anon=- authenticated=SIU
 col	public.event_editorial.status	anon=- authenticated=SIU
+col	public.event_editorial.story_version_at	anon=- authenticated=SIU
 col	public.event_editorial.unlocked_for_couple_at	anon=- authenticated=SIU
 col	public.event_editorial.updated_at	anon=- authenticated=SIU
 col	public.event_egift_methods.account_name	anon=SIU authenticated=SIU
@@ -5203,7 +5205,6 @@ col	public.vendor_services.demo_batch_id	anon=SIU authenticated=SIU
 col	public.vendor_services.exclusive_perk_text	anon=SIU authenticated=SIU
 col	public.vendor_services.extra_hour_php	anon=SIU authenticated=SIU
 col	public.vendor_services.hour_base_php	anon=SIU authenticated=SIU
-col	public.vendor_services.includes_setnayan_gift	anon=SIU authenticated=SIU
 col	public.vendor_services.is_active	anon=SIU authenticated=SIU
 col	public.vendor_services.is_demo	anon=SIU authenticated=SIU
 col	public.vendor_services.is_linked_only	anon=SIU authenticated=SIU

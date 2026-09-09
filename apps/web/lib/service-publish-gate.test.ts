@@ -33,10 +33,7 @@ import {
 // ════════════════════════════════════════════════════════════════════════════
 
 test('a complete card publishes', () => {
-  assert.deepEqual(
-    unmetPublishRequirements({ hasPrice: true, hasExclusive: true }),
-    [],
-  );
+  assert.deepEqual(unmetPublishRequirements({ hasPrice: true }), []);
   assert.equal(canPublishService({ hasPrice: true }), true);
 });
 
@@ -97,8 +94,8 @@ test('a blank or whitespace Exclusive is not set', () => {
 
 // ⛔ THE LINE THIS FEATURE MUST NEVER CROSS.
 test('the gate cannot see how big the price is', () => {
-  const cheap = unmetPublishRequirements({ hasPrice: true, hasExclusive: true });
-  const dear = unmetPublishRequirements({ hasPrice: true, hasExclusive: true });
+  const cheap = unmetPublishRequirements({ hasPrice: true });
+  const dear = unmetPublishRequirements({ hasPrice: true });
   assert.deepEqual(cheap, dear);
   // The facts the gate reads are BOOLEANS by construction — there is no number
   // in `PublishFacts` for a bigger figure to climb. If a future edit puts one

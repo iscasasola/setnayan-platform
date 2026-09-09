@@ -470,7 +470,7 @@ export function ChatMessageStream({
           attachment_name: m.attachment_name ?? null,
           attachment_mime: m.attachment_mime ?? null,
           attachment_size_bytes: m.attachment_size_bytes ?? null,
-          attachment_r2_key: m.attachment_r2_key ?? null,
+          attachment_r2_key: m.attachment_r2_key ?? null, // gitleaks:allow — a column name, not a key
           attachment_url: m.attachment_url ?? null,
         })),
       coupleLabel: viewerRole === 'vendor' ? counterpartyLabel : 'You',

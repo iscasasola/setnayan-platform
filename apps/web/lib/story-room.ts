@@ -87,17 +87,16 @@ export type RoomTable = {
  * `event_moodboard_saves.palette_snapshot` as the precedent and THAT TABLE DOES
  * NOT EXIST in production).
  *
- * ⛔ IT IS DELIBERATELY NOT DONE HERE, and the reason is scope, not doubt.
- * Freezing needs a column and a write on the PUBLISH transition — which is the
- * publish ladder, `08` step 1.6 / S8, unbuilt — and that path is being edited
- * by S6 right now. Two sessions writing one publish action is how a page ends
- * up with two opinions about when a story was told.
+ * ✅ **AND IT IS NOW DONE — in S8's PR, the publish ladder, exactly where this
+ * paragraph said it belonged.** `event_editorial.room_snapshot` is written on
+ * the first transition to `published`, and `loadStoryRoom` prefers it over the
+ * live plan from then on. See `readRoomSnapshot` at the foot of this file for
+ * what is frozen, what deliberately is not (the heat), and the one window that
+ * is still live (guests-only).
  *
- * 🔑 THE EXPOSURE IS ZERO TODAY AND CHEAP TO CLOSE. Measured 2026-09-09: the one
- * published story owns no room at all, and production holds 13 tables across 2
- * events — both drafts. Nothing can silently redraw yet. It becomes real the
- * first time a story with a room is published, so this belongs in S8's PR, not
- * after it.
+ * 🔑 THE EXPOSURE WAS ZERO WHEN IT WAS CLOSED. Measured 2026-09-09: the one
+ * published story owns no room at all, and production held 13 tables across 2
+ * events — both drafts. Nothing had silently redrawn yet, and now nothing can.
  */
 export type StoryRoom = {
   /**
@@ -338,4 +337,194 @@ export function lensStateLabel(state: LensState): string {
     default:
       return '';
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE ROOM IS FROZEN AT PUBLISH
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ✅ BUILT — 08 step 1.6 / S8, the publish ladder's own PR. The docblock on
+ * `StoryRoom` above records why the live read was a defect; this is the fix it
+ * named, in the session it named.
+ *
+ * At the first transition of a story to `published`, the room as it stood is
+ * written into `event_editorial.room_snapshot`, and `loadStoryRoom` reads that
+ * instead of the live plan from then on. A host who tidies up, re-runs the
+ * seating or reuses the room for the next celebration no longer redraws a story
+ * that was already told.
+ *
+ * 🔒 THE SNAPSHOT CANNOT CARRY A NAME, AND NOT BECAUSE IT IS FILTERED. It is a
+ * `StoryRoom`, whose whole field list is the privacy boundary — a label, two
+ * percentages and a shape. There is nowhere in this shape to put a person, so
+ * freezing it cannot leak one even if the writer is careless.
+ *
+ * ⚠ WHAT IS *NOT* FROZEN, ON PURPOSE: the HEAT (how many photographs came from
+ * each table). That is drawn from captures and rides the consent veto — a guest
+ * who withdraws after publish must still come off the plan, so freezing the heat
+ * would freeze a withdrawal out. Geometry is a record of the night; the heat is
+ * live data about people, and the two must not be stored the same way.
+ *
+ * ⏭ AND THE GUESTS-ONLY WINDOW IS STILL LIVE, SAID OUT LOUD RATHER THAN LEFT
+ * UNSAID: a story sitting at `event` (guests only) is already being read, and
+ * its room is still the live plan. `03` §2.8 ties the freeze to PUBLISH and this
+ * build does exactly that; widening it to the first guests-only share is a real
+ * decision and would be a quiet scope change made in a session that was not
+ * asked for one.
+ */
+
+/**
+ * JSON-safe shape of a frozen room. The stored document, versioned.
+ *
+ * 🔴 `seats` EXISTS BECAUSE FREEZING THE GEOMETRY ALONE MADE THINGS WORSE, NOT
+ * BETTER — raised by S10 against the first cut of this freeze and verified in
+ * `loadTableHeat` before it was believed.
+ *
+ * The heat resolves a photograph to a table through `event_seat_assignments`,
+ * LIVE — the same table the seat arranger wipes and re-solves on every run,
+ * which is the exact fact that made the geometry worth freezing. Freeze one and
+ * not the other and they disagree:
+ *
+ *   · a guest re-seated at a DIFFERENT table that the frozen plan still draws
+ *     lights the WRONG table — on a plan that is otherwise a true record of the
+ *     night, so it looks right;
+ *   · a guest re-seated at a table created AFTER the freeze is dropped by
+ *     `known.has(table)`, and **the night reads quieter than it was** — which
+ *     lands on the nerve owner ruling `04` rule 11 exists for.
+ *
+ * ⚠ AND THE HALF-FREEZE IS WORSE THAN NO FREEZE, which is why this shipped in
+ * the same PR rather than after it. Before the freeze, geometry and attribution
+ * moved TOGETHER: the plan could be wrong, but it was wrong consistently.
+ * Freezing only the geometry is what introduces "looks right and is not".
+ *
+ * 🔑 GEOMETRY FROZEN · ATTRIBUTION FROZEN · CONSENT LIVE. The counts are still
+ * NOT stored — `publicKeyForCapture` subtracts vetoed captures from the frozen
+ * buckets at read time, so a guest who withdraws after publish still comes off
+ * the plan (`04` rules 6 and 9).
+ *
+ * 🔒 `seats` IS A SIBLING OF `room`, NEVER A FIELD ON IT. It maps `guest_id` →
+ * `event_tables.public_id`, so it carries guest ids — and `StoryRoom` is handed
+ * straight to the components that draw the plan. Its field list is the privacy
+ * boundary (`04` rule 2, a review blocker); putting the map inside it would
+ * hand every renderer a guest roster. `readRoomSnapshot` returns the room and
+ * cannot return this; only `readFrozenSeats` can, and only the heat loader
+ * calls it.
+ */
+export type RoomSnapshot = {
+  v: 1;
+  room: StoryRoom;
+  /** `guest_id` → `event_tables.public_id`, as the night was actually seated. */
+  seats?: Record<string, string>;
+};
+
+const TABLE_SHAPES: ReadonlySet<string> = new Set([
+  'round',
+  'long_banquet',
+  'family_head',
+  'sweetheart',
+  'serpentine',
+]);
+
+export function roomSnapshotOf(
+  room: StoryRoom,
+  seats?: ReadonlyMap<string, string> | null,
+): RoomSnapshot {
+  const doc: RoomSnapshot = { v: 1, room };
+  if (seats && seats.size > 0) doc.seats = Object.fromEntries(seats);
+  return doc;
+}
+
+function box(v: unknown): StoryRoom['stage'] {
+  if (!v || typeof v !== 'object') return null;
+  const r = v as Record<string, unknown>;
+  const nums = [r.xPct, r.yPct, r.wPct, r.hPct].map(Number);
+  if (!nums.every((n) => Number.isFinite(n))) return null;
+  const [xPct, yPct, wPct, hPct] = nums as [number, number, number, number];
+  if (wPct <= 0 || hPct <= 0) return null;
+  return { xPct, yPct, wPct, hPct };
+}
+
+/**
+ * Read a stored snapshot back, or `null`.
+ *
+ * ⚖ TOTAL AND SUSPICIOUS, like every other reader on this path. A snapshot
+ * written by an older build, truncated, or edited by hand must not put the lens
+ * into a state it cannot draw — so every field is re-validated with the same
+ * rules `loadStoryRoom` applies to the live rows (a table with no position is
+ * dropped rather than parked at the origin, where it would sit on the stage and
+ * read as a table that was really there).
+ *
+ * 🔑 `null` MEANS "NOT FROZEN", WHICH FALLS BACK TO THE LIVE PLAN — the same
+ * behaviour every story has today. An unreadable snapshot therefore costs the
+ * freeze, not the lens; it can never blank a room that exists.
+ */
+export function readRoomSnapshot(value: unknown): StoryRoom | null {
+  if (!value || typeof value !== 'object') return null;
+  const doc = value as Record<string, unknown>;
+  if (doc.v !== 1) return null;
+  const raw = doc.room;
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+
+  const tables: RoomTable[] = [];
+  if (Array.isArray(r.tables)) {
+    for (const t of r.tables) {
+      if (!t || typeof t !== 'object') continue;
+      const row = t as Record<string, unknown>;
+      const id = typeof row.id === 'string' ? row.id.trim() : '';
+      const label = typeof row.label === 'string' ? row.label.trim() : '';
+      const x = Number(row.xPct);
+      const y = Number(row.yPct);
+      const shape = typeof row.shape === 'string' ? row.shape : '';
+      if (!id || !label || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+      if (!TABLE_SHAPES.has(shape)) continue;
+      tables.push({
+        id,
+        label,
+        xPct: Math.max(0, Math.min(100, x)),
+        yPct: Math.max(0, Math.min(100, y)),
+        shape: shape as RoomTable['shape'],
+      });
+    }
+  }
+
+  const drawnAt = Number(r.drawnAtMs);
+  return {
+    seatingSurface: r.seatingSurface === true,
+    roaming: r.roaming === true,
+    tables,
+    seatsAssigned: r.seatsAssigned === true,
+    drawnAtMs: Number.isFinite(drawnAt) ? drawnAt : null,
+    dance: box(r.dance),
+    stage: box(r.stage),
+  };
+}
+
+/**
+ * The frozen seating, or `null` when this story was never frozen.
+ *
+ * ⛔ WHEN A FREEZE EXISTS IT IS THE ONLY SOURCE — the heat must NOT fall back to
+ * the live assignments for a guest the freeze does not name. A guest seated
+ * after publish was not seated on the night, and the frozen record is the
+ * record; falling back would reintroduce, one guest at a time, exactly the
+ * drift the freeze exists to stop. Monotone by construction, like every other
+ * gate on this path: it can only ever attribute FEWER photographs, never more.
+ *
+ * 🔒 THIS IS THE ONLY WAY GUEST IDS LEAVE THE STORED DOCUMENT, and it is why
+ * they are not on `StoryRoom`. Its one caller is the heat loader, which turns
+ * them into per-table COUNTS and never renders one.
+ */
+export function readFrozenSeats(value: unknown): ReadonlyMap<string, string> | null {
+  if (!value || typeof value !== 'object') return null;
+  const doc = value as Record<string, unknown>;
+  if (doc.v !== 1) return null;
+  const raw = doc.seats;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = new Map<string, string>();
+  for (const [guestId, tableId] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof guestId !== 'string' || !guestId.trim()) continue;
+    if (typeof tableId !== 'string' || !tableId.trim()) continue;
+    out.set(guestId, tableId);
+  }
+  return out.size > 0 ? out : null;
 }

@@ -17,6 +17,7 @@ import {
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { deskIsClear, percentDecided } from '@/lib/story-desk';
 import { loadDesk } from './_lib/load-desk';
 import { hostUserId } from './_lib/host-authority';
 import { TheDesk } from './_components/the-desk';
@@ -63,7 +64,7 @@ export default async function EditorialEditorPage({
   const { data: event, error } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, landing_page_visibility, event_type, event_date, event_end_date, archived, role_palette, moodboard_theme_name',
+      'event_id, display_name, slug, landing_page_visibility, event_type, event_date, event_end_date, archived, role_palette, moodboard_theme_name, special_message',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -168,12 +169,13 @@ export default async function EditorialEditorPage({
   // 🚨 draft, and they must be told before they start typing.
   let draft: Record<string, unknown> = {};
   let status = 'draft';
+  let publishConsentAt: string | null = null;
   let draftMeasured = true;
   try {
     const admin = createAdminClient();
     const { data: ed, error: edError } = await admin
       .from('event_editorial')
-      .select('draft_json, status')
+      .select('draft_json, status, publish_consent_at')
       .eq('event_id', eventId)
       .maybeSingle();
     if (edError) {
@@ -189,6 +191,13 @@ export default async function EditorialEditorPage({
       draft = ed.draft_json as Record<string, unknown>;
     }
     if (typeof ed?.status === 'string') status = ed.status;
+    // The RA 10173 record of the consent tick. Read back so a host who agreed
+    // on an earlier visit is not asked to agree again — the box comes back
+    // ticked, which is what "you can go back to guests-only whenever" needs to
+    // be true rather than an offer with a toll on the way back.
+    if (typeof ed?.publish_consent_at === 'string' && ed.publish_consent_at.trim()) {
+      publishConsentAt = ed.publish_consent_at;
+    }
   } catch {
     // A genuine throw — a network failure, not a refusal. Same conclusion.
     draftMeasured = false;
@@ -373,6 +382,13 @@ export default async function EditorialEditorPage({
     // for anything it does not recognise, which is the resting state — a host
     // who has never opened this step tracks the board they already made.
     theme: sanitizeStoryTheme(draft.storyTheme),
+    // The consent tick is a RECORD, not a form field: the editor sends `true`
+    // only on the press that ticks it. What the host already agreed to is read
+    // back through `publishConsentAt` below.
+    publishConsent: false,
+    // The host's last word — `events.special_message`, the same column the
+    // thank-you-note editor writes. Two doors, one room.
+    lastWord: (event.special_message as string | null) ?? '',
   };
 
   // Canonical share URL (posted to Facebook + cached by OG crawlers) — nested
@@ -443,6 +459,21 @@ export default async function EditorialEditorPage({
         isWedding={(event.event_type ?? 'wedding') === 'wedding'}
         boardColors={boardColors}
         boardThemeName={(event.moodboard_theme_name as string | null) ?? null}
+        /*
+          THE PUBLISH GATE (08 step 1.6). The desk is loaded once, above, and its
+          verdict is handed down rather than re-derived — a second count here
+          would be a second opinion about whether a host may publish.
+
+          ⚠ `deskLoaded` IS FALSE WHEN THE DESK COULD NOT BE READ AT ALL (not a
+          proved host, or the read was refused) AND when any single source came
+          back unreadable. An unreadable source and an empty one look identical,
+          so an incomplete desk has not proved it is clear.
+        */
+        deskLoaded={desk !== null && desk.unreadable.length === 0}
+        deskClear={desk !== null && deskIsClear(desk.items)}
+        deskOpenCount={desk ? desk.counts.open : 0}
+        deskPercentDecided={desk ? percentDecided(desk.items) : 0}
+        publishConsentAt={publishConsentAt}
       />
     </div>
   );

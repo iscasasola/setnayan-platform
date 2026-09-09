@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6605
+# facts: 6609
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     585
-#   col       4851
+#   col       4855
 #   policy    902
 #   view      8
 #   func      255
@@ -1428,6 +1428,8 @@ col	public.event_deletion_requests.user_id	anon=- authenticated=SI
 col	public.event_editorial.created_at	anon=- authenticated=SIU
 col	public.event_editorial.draft_json	anon=- authenticated=SIU
 col	public.event_editorial.edited_by_couple	anon=- authenticated=SIU
+col	public.event_editorial.edition_no	anon=- authenticated=SIU
+col	public.event_editorial.edition_volume	anon=- authenticated=SIU
 col	public.event_editorial.editorial_id	anon=- authenticated=SIU
 col	public.event_editorial.editorial_tone	anon=- authenticated=SIU
 col	public.event_editorial.essay_photo_ids	anon=- authenticated=SIU
@@ -1435,7 +1437,9 @@ col	public.event_editorial.event_id	anon=- authenticated=SIU
 col	public.event_editorial.generated_at	anon=- authenticated=SIU
 col	public.event_editorial.hero_photo_id	anon=- authenticated=SIU
 col	public.event_editorial.impact_metrics	anon=- authenticated=SIU
+col	public.event_editorial.publish_consent_at	anon=- authenticated=SIU
 col	public.event_editorial.published_at	anon=- authenticated=SIU
+col	public.event_editorial.room_snapshot	anon=- authenticated=SIU
 col	public.event_editorial.scan_completed_at	anon=- authenticated=SIU
 col	public.event_editorial.scan_flags	anon=- authenticated=SIU
 col	public.event_editorial.scan_status	anon=- authenticated=SIU

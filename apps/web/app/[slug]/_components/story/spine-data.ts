@@ -46,7 +46,13 @@ import { loadConsentVetoedPapicIds, publicKeyForCapture } from '../editorial/con
 import type { CaptureBin } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { shapeHintFor, type TableType } from '@/lib/seating';
-import { EMPTY_ROOM, type StoryRoom, type TableHeat } from '@/lib/story-room';
+import {
+  EMPTY_ROOM,
+  readFrozenSeats,
+  readRoomSnapshot,
+  type StoryRoom,
+  type TableHeat,
+} from '@/lib/story-room';
 
 /** Local string coercion — mirrors `data.ts`'s `asString`, kept dependency-free. */
 function asString(v: unknown): string | null {
@@ -581,8 +587,16 @@ export async function loadStorySpineFacts(args: {
 
   // ── The room, and the light ───────────────────────────────────────────────
   facts.palette = palette;
-  facts.room = await loadStoryRoom(admin, args.eventId, eventType);
+  /*
+    ONE read of the freeze, TWO consumers. The lens draws `freeze.room` and the
+    heat counts against `freeze.seats`; reading the row twice would let the plan
+    and the seating that attributes photographs to it come from two different
+    moments.
+  */
+  const freeze = await loadRoomFreeze(admin, args.eventId);
+  facts.room = freeze.room ?? (await loadLiveRoom(admin, args.eventId, eventType));
   facts.heat = await loadTableHeat(admin, {
+    frozenSeats: freeze.seats,
     eventId: args.eventId,
     window,
     minutesMs: args.writtenMinutesMs ?? [],
@@ -613,8 +627,71 @@ export async function loadStorySpineFacts(args: {
  * by the Story Maker's own publish ladder, and reading the walk's switch here
  * would let a couple who never opened the 3D room lose the lens on a story they
  * had already published.
+ *
+ * 🔒 A PUBLISHED STORY READS ITS FROZEN ROOM, NOT THE LIVE PLAN (`03` §2.8,
+ * built in 08 step 1.6). `event_tables` has no soft delete and the seat arranger
+ * re-solves on every run, so a host tidying up after the wedding used to redraw
+ * or empty the floor plan of a story that was already told — silently. The
+ * snapshot written at publish is preferred here, and only here, so every reader
+ * of the room gets the freeze without knowing about it. An unreadable or absent
+ * snapshot falls through to the live read below, which is what every story does
+ * today: the freeze can be lost, the room cannot.
+ *
+ * ⚠ EXPORTED FOR THE WRITER, NOT FOR REUSE. `app/dashboard/[eventId]/story/
+ * actions.ts` calls it to take the snapshot at publish, so the shape that is
+ * frozen and the shape that is read are produced by ONE function. A second
+ * "read the room" in the writer is a second opinion, and the first time the two
+ * disagreed the story would be frozen as something it never was.
  */
-async function loadStoryRoom(
+export async function loadStoryRoom(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  eventType: string | null,
+): Promise<StoryRoom> {
+  const freeze = await loadRoomFreeze(admin, eventId);
+  return freeze.room ?? (await loadLiveRoom(admin, eventId, eventType));
+}
+
+/**
+ * What was frozen at publish — the plan, AND the seating that attributed
+ * photographs to it. Read ONCE per render and handed to both readers, so the
+ * room the lens draws and the seating the heat counts against can never come
+ * from two different reads of the same row.
+ */
+export type RoomFreeze = {
+  room: StoryRoom | null;
+  seats: ReadonlyMap<string, string> | null;
+};
+
+export async function loadRoomFreeze(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<RoomFreeze> {
+  try {
+    const { data, error } = await admin
+      .from('event_editorial')
+      .select('room_snapshot')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    // A rejected query is an ABSENCE — it reads as "never frozen", which falls
+    // back to the live plan. The freeze can be lost; the room cannot.
+    if (error || !data) return { room: null, seats: null };
+    const doc = (data as Record<string, unknown>).room_snapshot;
+    return { room: readRoomSnapshot(doc), seats: readFrozenSeats(doc) };
+  } catch {
+    return { room: null, seats: null };
+  }
+}
+
+/**
+ * The plan as it stands right now.
+ *
+ * ⚠ THE WRITER WANTS THIS ONE, BY DEFINITION. `freezeTheRoom` in the Story
+ * Maker's publish action calls it directly: taking a snapshot through
+ * `loadStoryRoom` would mean the freeze could, in principle, photograph an
+ * older photograph of itself.
+ */
+export async function loadLiveRoom(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
   eventType: string | null,
@@ -770,6 +847,18 @@ async function loadTableHeat(
     minutesMs: readonly number[];
     bucketMinutes: number;
     room: StoryRoom;
+    /**
+     * The seating AS IT WAS WHEN THE STORY WAS PUBLISHED (`guest_id` →
+     * `event_tables.public_id`), or null for a story that was never frozen.
+     *
+     * 🔴 WITHOUT THIS, FREEZING THE PLAN MADE THE HEAT WORSE. The resolution
+     * below ends in `event_seat_assignments`, which the seat arranger wipes and
+     * re-solves on every run — the same fact that made the plan worth freezing.
+     * A frozen plan plus live attribution disagree: a re-seated guest lights
+     * the WRONG table on a plan that is otherwise a true record of the night, or
+     * is dropped by `known.has(table)` so the night reads QUIETER than it was.
+     */
+    frozenSeats: ReadonlyMap<string, string> | null;
   },
 ): Promise<MinuteHeat[]> {
   if (args.room.tables.length === 0 || args.minutesMs.length === 0) return [];
@@ -900,21 +989,36 @@ async function loadTableHeat(
   const guestIds = [...new Set([...guestBySeat.values(), ...guestByPerson.values()])];
   if (guestIds.length === 0) return [];
 
-  const tableByGuest = new Map<string, string>();
-  try {
-    const { data } = await admin
-      .from('event_seat_assignments')
-      .select('guest_id, table_id, event_tables!inner(public_id)')
-      .eq('event_id', args.eventId)
-      .in('guest_id', guestIds);
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      const guest = asString(r.guest_id);
-      const joined = r.event_tables as Record<string, unknown> | null;
-      const tableId = asString(joined?.public_id);
-      if (guest && tableId) tableByGuest.set(guest, tableId);
+  /*
+    ── WHERE EACH GUEST SAT ──────────────────────────────────────────────────
+    ⛔ WHEN THE STORY WAS FROZEN, THE FROZEN SEATING IS THE ONLY SOURCE — there
+    is deliberately NO live fallback for a guest it does not name. A guest
+    seated after publish was not seated on the night; falling back would
+    reintroduce the drift the freeze exists to stop, one guest at a time.
+    Monotone by construction, like every other gate here: it can only ever
+    attribute FEWER photographs, never more.
+  */
+  let tableByGuest: ReadonlyMap<string, string>;
+  if (args.frozenSeats) {
+    tableByGuest = args.frozenSeats;
+  } else {
+    const live = new Map<string, string>();
+    try {
+      const { data } = await admin
+        .from('event_seat_assignments')
+        .select('guest_id, table_id, event_tables!inner(public_id)')
+        .eq('event_id', args.eventId)
+        .in('guest_id', guestIds);
+      for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+        const guest = asString(r.guest_id);
+        const joined = r.event_tables as Record<string, unknown> | null;
+        const tableId = asString(joined?.public_id);
+        if (guest && tableId) live.set(guest, tableId);
+      }
+    } catch {
+      return [];
     }
-  } catch {
-    return [];
+    tableByGuest = live;
   }
   if (tableByGuest.size === 0) return [];
 

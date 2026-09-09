@@ -84,6 +84,37 @@ const CHECKLIST: Array<{ can: string; needs: RegExp[]; where: string }> = [
   { can: 'copy their link and share the story', needs: [/copyShareLink/, /ShareButtons/], where: 'editor' },
   { can: 'opt into Stories, with the Event Hub guard', needs: [/Feature our story in Stories/, /Your Event Hub is/], where: 'editor' },
 
+  // ── THE PUBLISH LADDER (08 step 1.6) ──────────────────────────────────────
+  // ⚠ THE STORIES OPT-IN ABOVE AND THE LADDER BELOW ARE SEPARATE THINGS, and
+  // the design says so in as many words: "Feature our story in Stories" is a
+  // SEPARATE opt-in from publishing. Two rows, so collapsing them into one
+  // control fails here rather than quietly featuring a story nobody offered.
+  {
+    can: 'choose who reads it from three states that each NAME who that is',
+    needs: [/STORY_AUDIENCES\.map/, /PUBLISH_STATE_WHO\[choice\]/, /PUBLISH_STATE_NAME\[choice\]/],
+    where: 'editor',
+  },
+  {
+    can: 'be stopped from publishing until the desk is decided and consent is ticked',
+    needs: [/mayChooseAudience\(choice, publishFacts\)/, /publishBlockerSentence\(/],
+    where: 'editor',
+  },
+  {
+    // 🔴 THESE MATCH THE RENDER, NOT THE IMPORT. A first cut asked for
+    // /PUBLISH_CONSENT_SENTENCE/ and went GREEN when the sentence in the JSX was
+    // replaced with the words "I agree to publish." — because the import line
+    // still carried the name. Measured: 2 occurrences → 1, three of three tests
+    // still passing. **An import is not a rendering.**
+    can: 'read the exact sentence they are agreeing to',
+    needs: [/\{PUBLISH_CONSENT_SENTENCE\}/, /\{PUBLISH_CONSENT_FINE_PRINT\}/],
+    where: 'editor',
+  },
+  {
+    can: 'write their last word where they publish, in their own words',
+    needs: [/set\('lastWord'/, /\{LAST_WORD_INTRO\}/],
+    where: 'editor',
+  },
+
   // ── THE CAPS — shipped values, unchanged ──────────────────────────────────
   { can: 'see the 400-char soft cap on a write-up', needs: [/WRITEUP_SOFT_CAP = 400/], where: 'editor' },
   { can: 'see the 280-char soft cap on a wish', needs: [/WISH_QUOTE_SOFT_CAP = 280/], where: 'editor' },

@@ -53,7 +53,11 @@ test('the four asked-for facts are all present, in order', () => {
     ['Target date', 'Pax', 'Location', 'Locked suppliers'],
   );
   assert.equal(facts[0]!.value, 'December 18, 2026');
-  assert.equal(facts[1]!.value, '~230 planning');
+  // "~230 now", not "~230 planning": the row now carries a SECOND number in its
+  // note ("150 at inquiry"), and "now" is the word that makes the pair read as a
+  // before/after rather than as two unrelated figures. Binding design:
+  // prototypes/chat_interface_v4_2026-09-09.html, the supplier rail.
+  assert.equal(facts[1]!.value, '~230 now');
   assert.equal(facts[2]!.value, 'Metro Manila');
 });
 

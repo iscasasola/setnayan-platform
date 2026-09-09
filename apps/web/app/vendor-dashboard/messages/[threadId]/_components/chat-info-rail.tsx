@@ -195,7 +195,13 @@ function RailBody({
               touch. */}
           <dl className="flex flex-col gap-3 border-b border-ink/10 px-4 py-4 text-left">
             {summary.facts.map((f) => (
-              <SnapRow key={f.label} label={f.label} value={f.value} />
+              <SnapRow
+                key={f.label}
+                label={f.label}
+                value={f.value}
+                note={f.note ?? null}
+                noteIsPrivate={f.noteIsPrivate ?? false}
+              />
             ))}
             {service ? <SnapRow label="Service" value={service} /> : null}
           </dl>
@@ -301,11 +307,43 @@ function RailBody({
   );
 }
 
-function SnapRow({ label, value }: { label: string; value: string }) {
+/**
+ * One decision row. The optional `note` is the SECOND fact a value sometimes
+ * needs — "150 at inquiry" under a live guest count, or who else wants the
+ * target date.
+ *
+ * 🔒 A PRIVATE NOTE SAYS SO. When `noteIsPrivate` is set the row prints, under
+ * the note, that this is the supplier's own pipeline and the couple never sees
+ * it. A supplier reading their own commercial position beside a customer's
+ * facts must never have to guess which side of the conversation it is on.
+ */
+function SnapRow({
+  label,
+  value,
+  note = null,
+  noteIsPrivate = false,
+}: {
+  label: string;
+  value: string;
+  note?: string | null;
+  noteIsPrivate?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">{label}</dt>
-      <dd className="text-sm font-medium text-ink">{value}</dd>
+      <dd className="text-sm font-medium text-ink">
+        {value}
+        {note ? (
+          <>
+            <span className="mt-0.5 block text-xs font-normal text-ink/55">{note}</span>
+            {noteIsPrivate ? (
+              <span className="mt-0.5 block text-[11px] font-normal text-ink/40">
+                Your pipeline only — the couple never sees this line.
+              </span>
+            ) : null}
+          </>
+        ) : null}
+      </dd>
     </div>
   );
 }

@@ -1,112 +1,131 @@
 # Setnayan — Project Status
 
-> Living checkpoint. **Refreshed 2026-09-06.**
+> Living checkpoint. **Refreshed 2026-09-09.**
 > Anchor doc — if you're opening this repo cold in a new Claude session, start here, then read
 > the newest handoff named at the top of `CLAUDE.md`.
 > **Snapshot, not a log.** Full per-PR detail lives in `CHANGELOG.md` + git history — this file is the current-state picture only.
 >
-> ⚠ **This file sat 34 days stale and told cold sessions to start here.** While stale it stated
-> that the vendor **token** economy was "live in prod" — tokens were **RETIRED 2026-08-07**, and
-> the repo carries `apps/web/lib/token-economy-is-retired.test.ts` to keep them retired. A cold
-> session could have built against a currency that no longer exists. **The date on a snapshot is
-> part of its content: if you cannot refresh it, say what is unverified rather than leaving a
-> confident sentence in place.**
+> ⚠ **The previous refresh (2026-08-19) sat here for three weeks** while ~890 PRs merged to
+> `main` underneath it. Nothing in it was individually false when re-checked, but the "What's
+> next" section named a build list that had since shipped in full, and the dependabot count had
+> drifted. **A snapshot's age is part of its content** — this one is dated for exactly that
+> reason; re-measure before trusting any number below once it's no longer close to that date.
 
 **Owner deadline anchor:** December 2026 wedding
 
 ---
 
-## Verified production state — 2026-09-06
+## Verified production state — 2026-09-09
 
-Measured against the live database today, not remembered. Re-run before trusting any figure here:
+Measured against the live Supabase database (`setnayan-prod`), not remembered or carried forward
+from the last refresh.
 
-```sql
-select 'accounts', count(*) from auth.users
-union all select 'events', count(*) from public.events
-union all select 'guests', count(*) from public.guests
-union all select 'shops', count(*) from public.vendor_profiles
-union all select 'orders '||status::text, count(*) from public.orders group by status
-union all select 'papic photos', count(*) from public.papic_photos;
-```
+**7 active events · 47 guests · 13 accounts** (12 customer + 1 admin) · **2 vendor shops** (both
+`verified` visibility) · **6 orders, ever** — 4 paid (₱2,499 · ₱2,899 · ₱147 · ₱49, all GCash
+except the ₱49 BDO one) + 2 cancelled, unchanged since 2026-08-29 — · **0 vendor packages
+authored** (the feature is shipped and on; nobody has built one yet — that's an empty table, not
+a broken one) · **14 Papic photos** (one event) · **1 published Story** (of 7 `event_editorial`
+rows) · **1 creator chapter** · **1 chat thread** (accepted).
 
-**12 accounts · 5 events · 43 guests · 2 shops · 6 orders (4 paid, 2 cancelled) · 14 Papic
-photos.**
+🔑 **No vendor account is labelled `account_type = 'vendor'`** — both shops are owned by accounts
+still labelled `customer`. This is not a bug: per `dashboard/layout.tsx`, vendor access is
+derived from *owning a `vendor_profiles`/`vendor_team_members` row*, never from the label — the
+two definitions disagreeing once took a real account down in an infinite redirect loop
+(2026-08-10, fixed). Don't reason about "how many vendors" from the label column.
 
-⚠ **EVENTS WENT DOWN, 8 → 5.** The previous refresh recorded 8. Whether those three were deleted
-deliberately (test cleanup) or lost is NOT established here — it is a question, not a finding.
+Production remains a thin dataset — **which is why defects here are found by reading code, not
+by anyone complaining.** Treat every count above as a floor, not a ceiling: an empty or
+near-empty table is the expected shape of this product today, not evidence a feature is broken.
 
-📉 **And the deltas since 2026-08-19 are the point: +3 accounts, +4 guests, 0 new orders, 0 new
-photos, 0 new shops.** ⚠ **That is NOT evidence of a demand problem — the doors are not open yet
-and this is still a build.** It IS the reason defects here are found by reading code rather than by
-anyone complaining: every one fixed on 2026-08-19 had been live for weeks (the upload stall since
-5 July, the call-room initials since 11 July), and the two `/features` batches fixed on 2026-09-06
-had been live since the page was written.
-
-🔑 **Do not treat the gallery as empty.** An earlier version of this line said "0 photos" *in the
-section headed "measured, not remembered"* — it had not been measured. 14 photos exist (13 stills
-+ 1 clip, one event, none hidden); reason about retention, compression, face-matching and the photo
-wall accordingly.
+🔑 **The highest-value action is still not on this list: somebody using the product end to end on
+a phone.** That has not changed since 2026-08-19.
 
 ## Where we are right now
 
-V1 web surface is **functionally complete** and live at `setnayan.com`. The build is well past the pre-launch spine (19 iterations closed 2026-05-13, then the 2026-05-14 28-PR run) and the family-life-OS expansion (date-anchor lifecycle + faith-aware person graph, flag-gated to the DPO counsel gate). The **2026-07-15/16 mega-session** was a design-system + wayfinding + seat-plan push — the product now shares one visual language and one navigation model across all four doorways.
+V1 web surface is **functionally complete** and live at `setnayan.com`. Since the last refresh
+(2026-08-19), **~890 PRs merged to `main`** — roughly 137 of them touching
+`supabase/migrations/`. The paragraphs below are a synthesis, not an enumeration; see
+`CHANGELOG.md` + `changelog.d/` for the per-PR record.
 
-**Design system — Atelier-Glass rollout PR-0…9 COMPLETE.** The whole app moved to the owner-locked **Atelier-Glass** contract (Hanken Grotesk + Space Mono, gold supersedes wine, violet retired), built as a numbered rollout: foundation + kit primitives + motion library (PR-1, #3251) → event Overview recomposition with a "Big Day" focal + glass bento + motion (PR-2, #3256) → event core sections Guests/Schedule/Vendors/Budget/Checklist (PR-3a/3b, #3258/#3259) → event long-tail sweep (PR-4, #3260) → account spokes (PR-5, #3261) → vendor shell + home (PR-6, #3264) → vendor sections (PR-7, #3270) → admin Exception-Desk home (PR-8, #3267) → admin tabbed-studio + standalone-queue sweep (PR-9a/9b, #3268/#3269, **rollout COMPLETE**). The four-surface home launcher was brought up to the approved prototype (#3240/#3241). Guest sites stay out of scope (their editorial look is deliberate).
+**"A failure must never render as success" — the money-first sweep is COMPLETE.** The dominant
+thread of this window was a defect class named explicitly in `CLAUDE.md`: a refused or silent
+read rendering identically to an honest zero or an honest empty state (an upload that stalls
+fires no error at all; a denied guest-list read returned `[]`, which read as "no guests yet" to a
+couple with 180 names; a Budget tile could read "₱0 committed" against a real target). The
+11-item, money-first build list this produced is marked **COMPLETE** (#4583 → #4594, re-verified
+2026-08-31), and the pattern it left behind — bind every `data` destructure's error, gate a
+stated absence on a measured flag plus a "couldn't load" line, never render a refused read as a
+zero — is now enforced by reusable guard tests
+(`apps/web/lib/guests-read-is-honest.test.ts`, `apps/web/lib/money-that-was-never-measured.test.ts`,
+`apps/web/app/vendor-dashboard/reads-are-honest.test.ts`) and was still being reapplied to new
+surfaces (chat/Deal-locking money paths) as recently as 2026-09-08/09.
 
-**Inspector program — desktop inspector column on 4 surfaces.** A shared inspector primitive (#3265) now lets a desktop user click a row and keep the list in view, wired into **Studio decisions + Overview decisions** (P1, #3265), **Guests** (click a guest, keep the roster, #3279), and **Merkado** (vendor quick-view + the AI toggle retired, #3280).
+**Story & Story Maker — designed 2026-09-07, built out across the window.** Chapters are now
+celebrations numbered by when they happened, with a three-way visibility control ("only me /
+your people / everyone") added 2026-08-22 as a genuine privacy fix — "only me" did not exist
+before that. A derived kinship/family-tree screen reached a UI for the first time on 2026-08-31
+after sitting unconsumed since July. Full build docs live on a branch of the specs repo, not
+`main`.
 
-**Navigation — flat rails, wayfinding audit, real doorways.** All desktop sidebars flattened to solid single-level menus (no submenus, #3257); the vendor rail collapsed to the owner's **5-page IA**; the identity **plaque became the account menu** (wordmark → home, email pill retired). A **wayfinding audit** gave **5 orphaned-but-live surfaces real doorways** (#3252), and the Guests page's seat-plan / guest-QR / invite-link doorways were restored. The old universal `(account)` sidebar cluster was deleted for the chrome-less launcher paradigm.
+**Gifts / Papic-credits program — G3 through G6 landed.** G3 (Papic portfolio + buy-pack + private
+album, PR #5267) merged; G5 added event-date-scoped promo windows; G6 gave admin a single
+consolidated `/admin/gifts` page listing every live comp, plus two follow-on fixes so a departing
+or erased admin can no longer take the money record of a comp they issued down with them.
 
-**Seat-plan program — the biggest single build of the session.** A council-verdict rebuild of the seating editor around one geometry authority:
-- **Placement oracle** — a pure geometry kernel + verified solver (#3277), then **every mutation path routed through it** (weld model + metric walkway control + honest Auto Arrange, #3278). Sweetheart-on-stage is a shared oracle rule (#3288).
-- **Scroll-less editor frame** (#3275) with a **[2D · 3D · List]** switch, **panel tabs + blueprint 2D canvas + mobile drawer** (#3276).
-- **Vendor presence** — lock-gated booth vendors + a Setnayan-promotion default across 2D/3D (#3281).
-- **3D manipulation parity** — move/rotate through the shared oracle + Save & view (#3285); full **2D⇄3D authoring parity** (#3288).
-- **Connective positioning** — combine-that-stays-combined welds (pairwise exemption + cross-family rect↔serpentine), serpentine end-to-end joins, connective snap positioning with **rigid-group linking deferred** (#3305/#3307).
-- **2D/3D sync coordinate contract v2** — one coordinate contract, 2D/3D/List **provably synced** behind a **14-test parity proof suite** + render-crash guards and a **route-level error boundary** around the editor (#3330).
+**Encoder S-series (replanned E0–E9 → S0–S13) — actively landing, not finished.** Desktop-app
+(`build-desktop.yml`) work: program-output compositing on an OffscreenCanvas worker, H.264 encode
+with an audio-clock drift guard, reconnect-and-survive-a-dropped-connection, stream-key handling
+in a zeroizing Rust sink. **End-to-end rehearsal has not started** — it needs a device separate
+from the coding machine, and the owner has exactly one phone / one iPad / one MacBook to test
+with, which is a real scheduling constraint, not an engineering one.
 
-**Vendor economy — ⚠ THE TOKEN CURRENCY IS RETIRED (2026-08-07). ~~identity is what the token buys~~.** The paragraph that stood here described a **flat ₱200/token** catalog and a **1-token burn per lead** as "live in prod". **Both are gone**: the vendor token currency was retired entirely — no packs, no bundles, no grant surface, nothing that spends one, and prod never saw one bought or spent. `apps/web/lib/token-economy-is-retired.test.ts` exists to keep it that way. Anonymized-until-accept inquiries (#3266) still ship; answering is **free on every tier**. Off-platform settlement keeps **commission at 0%** — but there **is** a **booking fee** charged to the VENDOR (5% first ₱100k · 1% above · floor ₱50 · sourced clients only · first 5 free), currently **flag-dark**. Never call it commission.
+**Vendor economy — a booth-branding SKU, and the chat→budget path keeps getting re-hardened.** A
+"brand your booth at ONE wedding" SKU (₱500/event vs. ₱3,000/4-week cycle, paid-tier-only)
+shipped 2026-09-05. The Deal-lock → budget path had another silent-failure instance closed
+2026-09-08/09: a locked-and-renegotiated Deal on an already-booked vendor could update the
+conversation without updating `event_vendors.total_cost_php`, so the budget and payment screens
+disagreed with nothing logged anywhere.
 
-**Spaces — Samahan community door live.** The minimal Samahan cut shipped end-to-end: schema (#3243) → routes + lib layer (#3245) → community-event creation context (#3246) → the **Spaces home tile goes live** (PR-4, #3250).
+**Chat — the shipped "message this supplier" resolver is now used everywhere it should be
+(2026-09-09, #5344 + #5358).** Five separate controls across the budget card, a locked package,
+the vendor workspace, the shortlist, and the supplier's public profile / search card all used to
+land the couple on the conversation **list** instead of the specific thread — one of them with
+the thread id already resolved a few lines above. All five now resolve or open the thread through
+one canonical path (`startServiceInquiry`, deduped on `chat_threads`
+UNIQUE(event_id, vendor_profile_id)). A ~100-line recovery panel this obsoleted (callerless since
+2026-09-08) was deleted alongside it.
 
-**Housekeeping — dependabot 14 → 4.** Security alerts triaged down: web js-yaml/esbuild (#3286) + 8 mobile transitive bumps tar/minimatch (#3297), leaving 4 open.
+**Seat-plan / 3D avatars — incremental polish only.** Small fixes landed (a published 3D plan
+couldn't be un-published; a swipe-deleted guest didn't consistently release their seat; avatar
+rigs got face/hand fixes). The **rigid-group linking rebuild**, multi-walker collision avoidance,
+RSVP→seat auto-rules, the Sentry v9→v10 bump, and the R6 radius-token sweep are all still
+unverified 2026-07-16 follow-ups — nothing found this refresh confirms any of them shipped; see
+the collapsed list below.
 
-### What's next (2026-09-06)
+### Corrections surfaced this window (worth knowing, not just the shipped work)
 
-⚠ **The four bullets that stood here were the 2026-07-16 seat-plan follow-ups.** They may still
-be worth doing, but they were NOT verified against shipped code at this refresh — treat them as
-unverified, not as a plan. They are preserved at the bottom of this section.
+- "0 orders, ever" → corrected to 6 (4 paid), first caught 2026-08-30, **still 6 today** — no new
+  order since 2026-08-29.
+- Marketplace **Packages** were reported to the owner as "switched off" (quoting the code
+  default) when production actually had them on. The owner caught it. **A flag's default in code
+  is not its value in prod** — open the page.
+- The **"charm pricing, -1 endings" rule is not a rule** — the owner rounded three SKUs to whole
+  pesos 2026-08-27. Some SKUs still end in -1; there is no convention either way. Read
+  `platform_retail_catalog_v2`, never a code comment, for a real price.
+- The repo does **not** own `setnayan.ph` — unregistered, open to anyone, buying it is an open
+  owner call.
+- 🔎 **New this refresh:** `CLAUDE.md`'s locked-decisions table states "Brand strings centralized
+  in `brand.config.ts`" — **that file does not exist in the repo.** Brand strings (`setnayan.com`,
+  "SETNAYAN") are scattered across `lib/`. Not fixed here — flagging it so nobody goes looking
+  for a file that isn't there.
+- A 2026-09-02 migration applied **directly to prod, outside the pipeline**, stranded seven
+  merged PRs for 3+ hours. `deploy-drift-monitor.yml` now catches this class going forward — see
+  `CLAUDE.md`'s "NEVER APPLY A MIGRATION DIRECTLY" section before ever running one by hand.
+- **Dependabot: 10 open alerts today** (3 high · 6 moderate · 1 low), re-measured via
+  `gh api repos/iscasasola/setnayan-platform/dependabot/alerts`. The 2026-08-19 refresh said
+  "14 → 4" — that 4 has grown back to 10 since; needs another triage pass.
 
-~~**The current stream: a failed read must not be rendered as a fact.** Nine confirmed instances
-remain…~~ ✅ **CLOSED — re-measured against `origin/main` on 2026-09-06.** The 11-item list in
-`WHATS_NEXT_Silent_Failures_2026-08-19.md` §2 is complete (#4583 → #4594). Both rows still carrying
-a `file:line` in that doc were checked directly and are fixed: `lib/roles.ts` no longer tells a
-supplier who already has a shop to *"Create your shop"*, and `lib/communities.ts` binds its count
-error and degrades gracefully rather than printing **"0 members · 0 events"**. The pattern is
-fenced by `reads-are-honest` guards on both the supplier and couple sides.
-
-🔑 **THIS PARAGRAPH IS WHY THE FILE IS BEING REFRESHED AT ALL.** It told cold sessions — which this
-file's own header sends here first — to go build nine things that were already done. A stale
-"what's next" is worse than no "what's next": it is confidently actionable.
-
-**The pattern to copy — it already exists in this repo, do not invent a new one:**
-
-| shape | file |
-|---|---|
-| the original (supplier side) | `apps/web/app/vendor-dashboard/reads-are-honest.test.ts` |
-| a list + its counts | `apps/web/lib/guests.ts` · `apps/web/lib/guests-read-is-honest.test.ts` |
-| money | `apps/web/lib/budget.ts` · `apps/web/lib/money-that-was-never-measured.test.ts` |
-| a `try/catch` that can never fire | `apps/web/app/dashboard/[eventId]/_components/the-dashboard-counts-what-it-read.test.ts` |
-
-Its three rules: bind the error on every `data` destructure; **gate any stated absence on a
-measured flag AND show a "we couldn't load" line** (a log line never changed a pixel); never
-render a refused read as a money figure or a headcount of zero. `actions.ts` files are out of
-scope — there an absence DENIES, and failing closed is correct.
-
-**Then stop hunting and switch to the launch checklist** — the owner rulings and sign-offs in the
-corpus `WHAT_IS_LEFT_2026-08-17.md` §6, which no amount of engineering moves.
-
-<details><summary>The unverified 2026-07-16 seat-plan follow-ups</summary>
+<details><summary>The unverified 2026-07-16 seat-plan follow-ups (still unverified)</summary>
 
 - **Rigid-group linking rebuild** — connective snap positioning shipped, but the Keynote-style "linked tables move/rotate as one rigid unit" was deferred; rebuild it on top of the oracle/weld model.
 - **Seat-plan polish list** — collision-avoidance for many simultaneous 3D walkers, free-board fit-framing for spread layouts, RSVP→seat auto-rules in the canonical engine.
@@ -115,9 +134,25 @@ corpus `WHAT_IS_LEFT_2026-08-17.md` §6, which no amount of engineering moves.
 
 </details>
 
+### What's next (2026-09-09)
+
+The money-first / "false success" sweep that occupied the 2026-08-19 refresh's "What's next" is
+**done** — see above. The current register of what's left is `WHAT_IS_LEFT.md` at the repo root
+(carried in because the spec-corpus repo and `~/.claude/.../memory/` don't travel with an account
+change): **87 claims checked against shipped code and the live DB, 58 survived, 15 need the
+owner, not engineering.** Read that file's own freshness date before trusting it as current —
+same rule this file just stated about itself.
+
+**Then the launch checklist** — the owner rulings and sign-offs in the corpus
+`WHAT_IS_LEFT_2026-08-17.md` §6 remain the gate no amount of engineering moves on its own.
+
 ### Owner-side actions
 
-Flag-gated features await owner env-flip / provisioning, not code. The canonical, always-current list is **`OWNER_ACTIONS.md`**; the standing items include any remaining counsel-gated flags. ⚠ **The PayMongo one-time gateway is NOT one of them: PR #3146 was CLOSED unmerged on 2026-07-30** (verified 2026-08-19). Do not report it to the owner as code-complete-and-waiting — there is no payment gateway sitting one flip away. Auto-merge is armed automatically on every non-draft PR (see the workflow note under Locked decisions).
+Flag-gated features await owner env-flip / provisioning, not code. The canonical, always-current
+list is **`OWNER_ACTIONS.md`**. ⚠ **PayMongo is still not one of them** — PR #3146 is
+**CLOSED, unmerged** (re-confirmed via `gh pr view 3146` today); there is no payment gateway
+sitting one flip away. Auto-merge is armed automatically on every non-draft PR (see the workflow
+note under Locked decisions).
 
 ---
 
@@ -149,20 +184,21 @@ Applies to: 0011 Live Studio (Panood), 0012 Papic, future time-budgeted SKUs. **
 
 - **Repo:** https://github.com/iscasasola/setnayan-platform (public, AGPL-3.0)
 - **Hosting:** Vercel — auto-deploys from `main` (`deploy-prod.yml` + Vercel's native git webhook)
-- **Domain:** `setnayan.com` (+ `setnayan.ph`), Vercel-managed SSL
-- **DB:** Supabase (Singapore region) — migrations via `supabase db push`; `migration-drift-monitor.yml` + a "migration timestamp guard" required check keep prod and disk in sync
+- **Domain:** `setnayan.com`. **We do not own `setnayan.ph`** — it is unregistered; buying it is an open owner call, not a fact to assume, Vercel-managed SSL.
+- **DB:** Supabase (Singapore region, project `setnayan-prod`) — migrations via `supabase db push --include-all` (the pipeline only; never apply one directly, see `CLAUDE.md`); `deploy-drift-monitor.yml` + a "migration timestamp guard" required check keep prod and disk in sync. **1,376 migration files** on disk as of this refresh.
 - **Storage:** Cloudflare R2 — **FIVE** buckets in **Asia-Pacific (APAC)**: `setnayan-media`, `-thread-files`, `-vendor-contracts`, `-samples`, **`-vendor-verification`** (this one holds vendor government IDs). `R2_BUCKETS` in `apps/web/lib/r2.ts` is canonical.
-  ⚠ **NOT "PH-region".** R2 has no Philippines region, and saying so implies a data residency we do not have — the same wording reached the live `/privacy` page once. Nothing is hosted in the Philippines: the database is Supabase **Singapore**.
+  ⚠ **NOT "PH-region".** R2 has no Philippines region, and saying so implies a data residency we do not have. Nothing is hosted in the Philippines: the database is Supabase **Singapore**. Cloudflare is storage only — `setnayan.com` is not a Cloudflare zone and no traffic is proxied through it.
 - **Email:** Resend — domain `setnayan.com` verified, `noreply@setnayan.com` from-address (email-only; no SMS in V1)
 - **Observability:** Sentry (errors) + PostHog (product analytics) + Better Stack (uptime/status) — iteration 0035
 - **Native:** Tauri 2 desktop wrapper (`.dmg` + `.msi` via `build-desktop.yml`) + Capacitor/PWA mobile shells (`build-android.yml`); true-native iOS/Android Papic is Phase 2
-- **Required CI checks** (branch protection, non-strict): typecheck+lint · production build · secret scan · migration timestamp guard · playwright e2e (chromium) · bundle size · lighthouse · six lint guards (nav icon source, bottom-nav template, entitlement gates, guest legibility, nested forms)
+- **Required CI checks** (branch protection, non-strict — confirmed via `gh api repos/.../branches/main/protection` today): typecheck+lint · production build · secret scan · migration timestamp guard · playwright e2e (chromium) · bundle size check · lighthouse · six lint guards (nav icon source, bottom-nav template, entitlement gates, guest legibility, nested forms, exposure baseline)
 
 ---
 
 ## Quick-jump anchor docs
 
 - **`HANDOFF.md`** — cold-start handoff with the verification flow, all live routes, locked decisions
+- **`WHAT_IS_LEFT.md`** — the current verified register of what remains, 58 engineering items + 15 owner-only items
 - **`OWNER_ACTIONS.md`** — step-by-step phased launch checklist + the current owner-action list
 - **`CHANGELOG.md`** — every meaningful commit with `SPEC IMPACT` callout (generated from `changelog.d/` fragments)
 - **`changelog.d/`** — per-PR changelog fragments (the conflict-free per-PR unit; see `changelog.d/README.md`)
@@ -191,4 +227,4 @@ Sprint 0 was the platform foundation — Next.js 15 + Tauri 2 + Supabase + Cloud
 
 Verification probes that passed: `/health` 200, `/`, `/login`, `/manifest.json`, all icons, RLS denies anon, `generate_public_id` produces valid S89X- IDs.
 
-Then the 19-iteration pre-launch sprint (closed 2026-05-13) shipped the couple/vendor/admin core surfaces; 2026-05-14 landed a 28-PR run; and everything since — family-life-OS, the Atelier-Glass rollout, the seat-plan program — is captured in `CHANGELOG.md` + git history.
+Then the 19-iteration pre-launch sprint (closed 2026-05-13) shipped the couple/vendor/admin core surfaces; 2026-05-14 landed a 28-PR run; and everything since — family-life-OS, the Atelier-Glass rollout, the seat-plan program, the Story/Gifts/Encoder work of 2026-08/09 — is captured in `CHANGELOG.md` + git history.

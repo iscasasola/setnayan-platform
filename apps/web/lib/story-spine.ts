@@ -621,8 +621,17 @@ export function mastheadEdition(
   eventDate: string | null,
   editionNo: number | null,
   published: boolean,
+  stampedVolume: number | null = null,
 ): string {
-  const vol = `Vol. ${toRoman(editionVolume(eventDate))}`;
+  /*
+    🔒 THE STAMPED VOLUME WINS WHEN THERE IS ONE. `editionVolume(eventDate)` is
+    derived on every render, which is right for a story that has never been
+    published — but a host who later corrects their event date would otherwise
+    move the Volume on a story already printed under it. The frozen value is
+    written at publish for exactly that reason; the derivation stays as the
+    answer for everything that has no stamp yet.
+  */
+  const vol = `Vol. ${toRoman(stampedVolume ?? editionVolume(eventDate))}`;
   if (!published || editionNo == null) return vol;
   return `${vol} · No. ${editionNo}`;
 }

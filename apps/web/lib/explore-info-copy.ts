@@ -280,7 +280,22 @@ export const CARD_NEEDS_PRICE = 'Ask for a price to add this to your build';
 
 /** Second action, stateful on thread existence. */
 export const CARD_INQUIRE = 'Inquire';
-export const CARD_CHECK_INQUIRY = 'Check inquiry';
+/**
+ * ⚖ "Open conversation", not "Check inquiry" (2026-09-09).
+ *
+ * The old label described the object; the new one describes the act, and it is
+ * the same verb the card's own aria-label has used all along
+ * (`cardCheckInquiryLabel` → "Open your conversation with {name}"), so the
+ * screen reader and the screen finally agree.
+ *
+ * 🔑 THE RELABEL IS NOT THE IMPROVEMENT AND MUST NEVER SHIP ALONE. Every
+ * "Check inquiry" on the bench looked identical whether the supplier replied an
+ * hour ago, sent a quote, or went quiet for three weeks — and so does every
+ * "Open conversation". What fixed that is the standing sentence ABOVE it
+ * (`lib/supplier-standing.ts`); this word only stops the button arguing with
+ * the sentence.
+ */
+export const CARD_CHECK_INQUIRY = 'Open conversation';
 export function cardInquireLabel(name: string): string {
   return `Inquire with ${name}`;
 }

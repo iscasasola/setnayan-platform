@@ -32,6 +32,7 @@
  */
 
 import { formatLongDate, formatLongTimestamp } from '@/lib/format-date';
+import { guestCountRow } from '@/lib/guest-count-provenance';
 import { articleFor } from '@/app/[slug]/_lib/event-words';
 
 export type CustomerFactRow = {
@@ -39,6 +40,20 @@ export type CustomerFactRow = {
   value: string;
   /** True when the value is a stand-in for something not yet known. */
   unknown?: boolean;
+  /**
+   * Small print under the value — the SECOND fact a row needs when one number
+   * is not the whole truth: "150 at inquiry" under a live guest count, or how
+   * many other couples want the target date.
+   */
+  note?: string | null;
+  /**
+   * A row whose `note` is the SUPPLIER'S OWN commercial position rather than
+   * something about the customer, and therefore must be marked as such on
+   * screen. The rail is a supplier surface, but a supplier reading their own
+   * pipeline beside a customer's facts should never have to wonder whether the
+   * customer can see it too.
+   */
+  noteIsPrivate?: boolean;
 };
 
 export type CustomerEventSummary = {
@@ -66,8 +81,29 @@ export type CustomerEventSummaryInput = {
   createdAt: string | null;
   /** `events.event_date` — a date key. */
   targetDate: string | null;
-  /** Headcount the couple is planning for. */
+  /** Headcount the couple is planning for NOW (live pax). */
   pax: number | null;
+  /**
+   * What they ASKED with — `chat_threads.pax_at_inquiry`. The number a quote
+   * was written against.
+   *
+   * ⚠ BOTH NUMBERS OR NEITHER. The Pax row used to print one figure with no
+   * hint that a second existed, on a screen whose header showed the other one;
+   * a supplier quotes against one and is paid against the other. The wording
+   * comes from `guest-count-provenance.ts`, which is also what the header and
+   * the accept card use, so the three cannot drift apart again.
+   */
+  paxAtInquiry?: number | null;
+  /**
+   * Who ELSE wants the target date — a count sentence from
+   * `vendor-date-demand.ts`, already formatted, never names.
+   *
+   * 🔒 SUPPLIER SIDE ONLY. It renders marked as the supplier's own pipeline.
+   * This builder accepts a finished STRING and never the underlying rows, so
+   * there is no parameter here through which another couple's identity could
+   * arrive.
+   */
+  dateDemandNote?: string | null;
   /** An already-resolved city/area label. Never a venue. */
   location: string | null;
   /** Suppliers at-or-past `contracted` — `CONFIRMED_VENDOR_STATUSES`. */
@@ -105,6 +141,20 @@ function clean(v: string | null | undefined): string | null {
   return v?.trim() || null;
 }
 
+/**
+ * The Guests row, with its provenance.
+ *
+ * "~230 planning" reads as an estimate, which it is. A bare "230" invites a
+ * supplier to quote against a number the couple has not committed to — and a
+ * bare number of EITHER kind invites them to quote against the wrong one, which
+ * is the more expensive mistake and the reason the inquiry count is named here.
+ */
+function paxRow(input: CustomerEventSummaryInput): CustomerFactRow {
+  const row = guestCountRow({ live: input.pax, atInquiry: input.paxAtInquiry ?? null });
+  if (!row) return { label: 'Pax', value: UNKNOWN, unknown: true };
+  return { label: 'Pax', value: row.value, note: row.note };
+}
+
 export function buildCustomerEventSummary(
   input: CustomerEventSummaryInput,
 ): CustomerEventSummary {
@@ -131,14 +181,11 @@ export function buildCustomerEventSummary(
       label: 'Target date',
       value: input.targetDate ? formatLongDate(input.targetDate) : UNKNOWN,
       unknown: !input.targetDate,
+      // Only ever set when there is a date to be in demand for.
+      note: input.targetDate ? (clean(input.dateDemandNote) ?? null) : null,
+      noteIsPrivate: true,
     },
-    {
-      label: 'Pax',
-      // "~230 planning" reads as an estimate, which it is. A bare "230" invites
-      // a supplier to quote against a number the couple has not committed to.
-      value: input.pax != null ? `~${input.pax} planning` : UNKNOWN,
-      unknown: input.pax == null,
-    },
+    paxRow(input),
     { label: 'Location', value: location ?? UNKNOWN, unknown: !location },
     {
       label: 'Locked suppliers',

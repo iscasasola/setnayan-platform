@@ -24,20 +24,20 @@
 //! state. `HeldStreamKey` wraps the key in `zeroize::Zeroizing`, which scrubs
 //! the backing buffer on drop — so replacing the held key (a re-paste, a new
 //! claim) or the app exiting zeroises the old one with no extra code, and
-//! `stream_key_forget` (Part C) does it explicitly and immediately. S5's real
-//! `encoder_start` / `encoder_stop` do not exist on this branch yet (S5's
-//! transport envelope is an open owner decision — see S0-FINDING.md) — once
-//! they land, `encoder_stop` should call `stream_key_forget` (or drop the same
-//! state) instead of this module growing a second holder.
+//! `stream_key_forget` (Part C) does it explicitly and immediately.
+//! ✅ ENC-1 (2026-09-09): `encoder_start` reads the key through
+//! `StreamKeyState::publish_endpoint` and `encoder_stop` calls
+//! `StreamKeyState::forget` — exactly what this paragraph asked for, and no
+//! second holder was added.
 //!
-//! `redact_url` BELOW IS A LOCAL STAND-IN. S6 (the RTMP/FLV Rust session, whose
-//! own doc references "S6's `redact_url`") has not landed on origin/main as of
-//! this session — verified by `git grep redact_url origin/main` returning only
-//! the S6.md / S8.md spec files, and `git grep -e rtmp -e RTMP origin/main --
-//! src-tauri` returning nothing. This copy has the SAME behavior S6.md
-//! documents (`rtmps://…/live2/****`) so a later session can delete this one
-//! and depend on S6's without changing any call site's expectations.
+//! `redact_url` BELOW IS A LOCAL STAND-IN and is now DUPLICATE: S6 landed, and
+//! `encoder::rtmp::Redactor` / `RtmpEndpoint::redacted_url` are what the live
+//! publish path actually uses (the crate's `tests/redaction.rs` asserts no
+//! string it emits contains the key). This copy is kept, with its own tests,
+//! because deleting it is a change to a security helper's call sites and
+//! belongs in its own commit — NOT because two redactors are wanted.
 
+use crate::encoder::rtmp::RtmpEndpoint;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::State;
@@ -91,15 +91,20 @@ pub fn redact_url(url: &str) -> String {
 /// drop (Zeroizing) and never `Debug`/`Display`-derived, so an accidental
 /// `{:?}` in a log line cannot print it either.
 ///
-/// `key` and `source` are read today only by this module's own tests — the
-/// consumer that reads them to actually push bytes to an encoder is S5's
-/// `encoder_start`, which has not landed on this branch (see the module
-/// docblock). `#[allow(dead_code)]` says so rather than silently deleting the
-/// field a future session needs.
-#[allow(dead_code)]
+/// ENC-1: the consumer this was written for now exists — `encoder_ipc::encoder_start`
+/// calls `StreamKeyState::publish_endpoint` below. The key itself STILL never leaves
+/// this module as a bare `String`: that method builds the `RtmpEndpoint` in here and
+/// hands back a value whose only printable form is `redacted_url()`.
 struct HeldStreamKey {
     key: Zeroizing<String>,
     rtmps_url: String,
+    /// Which door the key came in by. Written on both paths, read only by this
+    /// module's own tests today — the publish path deliberately does NOT branch
+    /// on it (`publish_endpoint` decides from whether a held address exists,
+    /// which is the same question with one fewer way to get it wrong). Kept
+    /// because a future per-source rule — a hosted key that may not be pasted
+    /// over, say — needs the fact recorded at the moment it was true.
+    #[allow(dead_code)]
     source: KeySource,
 }
 
@@ -112,6 +117,63 @@ enum KeySource {
 /// App state: `.manage(StreamKeyState::default())` in `lib.rs`.
 #[derive(Default)]
 pub struct StreamKeyState(Mutex<Option<HeldStreamKey>>);
+
+impl StreamKeyState {
+    /// ENC-1 — THE ONE READ PATH, and the reason the key can stay in this module.
+    ///
+    /// `encoder_start` needs a publish destination, not a secret. It hands over the
+    /// NON-SECRET server address the operator (or the hosted-channel exchange) gave
+    /// us, and gets back an `RtmpEndpoint` with the held key already inside it. The
+    /// key is never returned, never formatted, never logged: `RtmpEndpoint`'s only
+    /// printable form is `redacted_url()`, and `Redactor` scrubs it out of every
+    /// error string the sender produces.
+    ///
+    /// `fallback_address` is used only when the held record carries no address of its
+    /// own — the OWN-CHANNEL (pasted) path, where `set_pasted_inner` deliberately
+    /// stores an empty `rtmps_url` because the couple's YouTube "Server" field is a
+    /// separate, non-secret thing. The HOSTED path's address came back from
+    /// `/exchange` alongside the key and WINS, so a compromised page cannot redirect
+    /// a Setnayan-held key to an ingest of its own choosing by passing a different
+    /// argument.
+    pub fn publish_endpoint(&self, fallback_address: &str) -> Result<RtmpEndpoint, String> {
+        let guard = self.0.lock().map_err(|_| "state_poisoned".to_string())?;
+        let held = guard.as_ref().ok_or_else(|| "no_stream_key".to_string())?;
+        let address = if held.rtmps_url.trim().is_empty() {
+            fallback_address.trim()
+        } else {
+            held.rtmps_url.trim()
+        };
+        if address.is_empty() {
+            return Err("no_ingest_address".to_string());
+        }
+        RtmpEndpoint::parse(address, Some(held.key.as_str()))
+            // The error text is the endpoint parser's own, which never contains the
+            // key (it refuses BEFORE it has one, and never echoes the input).
+            .map_err(|error| format!("bad_ingest_address: {error}"))
+    }
+
+    /// Is a key held at all? `encoder_start` asks BEFORE it verifies the token, so a
+    /// desktop app with nothing pasted says "paste your stream key" rather than
+    /// burning the single-use token and then failing.
+    pub fn is_armed(&self) -> bool {
+        match self.0.lock() {
+            Ok(guard) => guard.is_some(),
+            Err(_) => false,
+        }
+    }
+
+    /// Part C from Rust rather than from the page. Same effect as the
+    /// `stream_key_forget` command — the `Zeroizing<String>` drops and the backing
+    /// memory is scrubbed — reachable from `encoder_stop`, which is where this
+    /// module's own docblock always said it belonged. A poisoned lock is IGNORED
+    /// rather than propagated: the caller is ending a broadcast, and failing that
+    /// because a mutex is poisoned would leave the operator unable to stop.
+    pub fn forget(&self) {
+        if let Ok(mut guard) = self.0.lock() {
+            *guard = None;
+        }
+    }
+}
 
 /// What `stream_key_claim_hosted` hands back to JS — deliberately NOT the same
 /// shape as the server's `/exchange` response. No `stream_key` field exists on

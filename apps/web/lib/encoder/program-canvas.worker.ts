@@ -54,11 +54,11 @@ import {
   VIDEO_ENCODER_CONFIG,
   isKeyframeTick,
   createVideoEncodeSink,
-  createChunkRing,
   createDriftGuardedRing,
   type DriftEvent,
   type RingEntry,
 } from './video-encode';
+import { createBackpressureRing, DEFAULT_RING_CAPACITY } from './backpressure-ring';
 import type { ResolvedOverlays } from '../live-studio-overlays';
 import { drawOverlays, shouldDrawOverlays, type OverlayAssets, type OverlayCanvasContext } from './draw-overlays';
 import { REFERENCE_LAYOUT } from './encoder-layout';
@@ -135,6 +135,12 @@ export type ProgramCanvasStats = {
   videoDriftDrops: number;
   /** Ring entries dropped for being unconsumed, not for drift — S5's backpressure, not S4's. */
   videoRingDrops: number;
+  /**
+   * ENC-1 · AAC chunks dropped because the page stopped draining. Zero on any healthy
+   * run; a non-zero value here means the IPC consumer is behind, which is a different
+   * fault from `videoRingDrops` (same cause, different half) and worth telling apart.
+   */
+  audioQueueDrops: number;
   /** Bytes of H.264 payload encoded so far — `videoAvgKbps` below is derived from this. */
   videoBytes: number;
   /** `videoBytes × 8 / elapsedMs` — the evidence bar is the 2.5 Mbps target ±10%. */
@@ -158,10 +164,55 @@ export type ProgramCanvasOutbound =
    */
   | { type: 'video-config'; description: ArrayBuffer; codec: string; width: number; height: number }
   | { type: 'drift'; event: DriftEvent }
+  /**
+   * ENC-1 · THE DRAIN THAT WAS NEVER WRITTEN.
+   *
+   * The video ring's own comment has read "S5's consumer drains it" since S4 landed, and
+   * measured 2026-09-09 there was no consumer anywhere: encoded H.264 accumulated in a
+   * bounded ring inside this worker and was evicted by its own overflow policy, while the
+   * AAC half was DISCARDED outright at the line that used to read `// S4/S5: hand chunk to
+   * the IPC sender here. S3 stops at "it encoded".` Both halves now leave here.
+   *
+   * Batched rather than posted per chunk: at 30 fps + ~47 AAC frames a second that is ~77
+   * `postMessage` calls a second, each waking the page's event loop. `MEDIA_FLUSH_TICKS`
+   * makes it ten, and the batch is the same bytes.
+   *
+   * `data` is a transferred `ArrayBuffer`, never a copy — the sink allocates a fresh buffer
+   * per chunk (`new Uint8Array(chunk.byteLength)`), so nothing here is still referenced by
+   * the encoder after the transfer.
+   */
+  | { type: 'media'; video: MediaChunk[]; audio: MediaChunk[] }
   | { type: 'error'; where: string; message: string };
+
+/** One encoded access unit on its way to the page, and from there across IPC to Rust. */
+export type MediaChunk = {
+  keyframe: boolean;
+  timestampMicros: number;
+  seq: number;
+  data: ArrayBuffer;
+};
 
 /** How often stats go back to the page, counted in TICKS — 30 ticks is one second of media. */
 export const STATS_INTERVAL_TICKS = PROGRAM_FPS;
+
+/**
+ * How often encoded media is handed to the page, in ticks. Three ticks is 100 ms at the
+ * locked 30 fps — invisible against YouTube's own multi-second ingest buffer, and a tenth
+ * of the wake-ups a per-chunk post would cost. Deliberately NOT `STATS_INTERVAL_TICKS`:
+ * stats are a once-a-second read for a human, media is the broadcast.
+ */
+export const MEDIA_FLUSH_TICKS = 3;
+
+/**
+ * Bound on the AAC chunks held between flushes. ~47 chunks a second, so 240 is a little
+ * over five seconds — far more headroom than the 100 ms cadence needs, and small enough
+ * that a page which has stopped draining entirely cannot grow this without limit.
+ *
+ * ⚠ DROPS THE OLDEST. A lost AAC frame is a 21 ms hole the decoder rides through; dropping
+ * the NEWEST instead would hold a stale five seconds forever and desynchronise the sound
+ * from the picture permanently.
+ */
+export const AUDIO_QUEUE_CAPACITY = 240;
 
 /** Programme audio is always stereo, whatever a phone publishes — see audio-tap.worklet.ts. */
 export const AUDIO_CHANNELS = 2;
@@ -298,6 +349,53 @@ let maxAvSkewMs = 0;
 let maxWallDriftMs = 0;
 let ascReady = false;
 let ticksSinceStats = 0;
+let ticksSinceMedia = 0;
+
+/**
+ * ENC-1 · the AAC chunks waiting for the next flush, and the seq that orders them.
+ *
+ * A plain array, not a ring module: the eviction rule here is one line (drop the oldest)
+ * because audio has no keyframes and therefore no GOP to protect — the whole reason
+ * `backpressure-ring.ts` exists for video and states, in its own rule 4, that "AUDIO NEVER
+ * ENTERS THIS RING."
+ */
+let audioQueue: MediaChunk[] = [];
+let audioSeq = 0;
+let audioQueueDrops = 0;
+
+function pushAudio(chunk: MediaChunk): void {
+  audioQueue.push(chunk);
+  while (audioQueue.length > AUDIO_QUEUE_CAPACITY) {
+    audioQueue.shift();
+    audioQueueDrops += 1;
+  }
+}
+
+/**
+ * Hand everything encoded since the last flush to the page, in ONE message, with every
+ * payload transferred rather than copied.
+ *
+ * Posts nothing when both halves are empty — a live encoder that has produced nothing this
+ * tick should wake the page's event loop zero times, not ten times a second.
+ */
+function flushMedia(): void {
+  const video = videoRing.drain();
+  const audio = audioQueue;
+  if (video.length === 0 && audio.length === 0) return;
+  audioQueue = [];
+  const videoOut: MediaChunk[] = video.map((entry) => ({
+    keyframe: entry.keyframe,
+    timestampMicros: entry.timestampMicros,
+    seq: entry.seq,
+    // The sink allocated this buffer per chunk and kept no reference, so the whole
+    // buffer is ours to hand over.
+    data: entry.data.buffer as ArrayBuffer,
+  }));
+  const transfer: Transferable[] = [];
+  for (const c of videoOut) transfer.push(c.data);
+  for (const c of audio) transfer.push(c.data);
+  scope.postMessage({ type: 'media', video: videoOut, audio }, transfer);
+}
 
 let encoder: AudioEncoder | null = null;
 
@@ -314,7 +412,13 @@ let videoDriftDrops = 0;
  * a video chunk stamped too far from the last known audio PTS is dropped rather than shipped
  * with a fabricated timestamp — see video-encode.ts's docblock for why re-stamping is wrong.
  */
-let videoRing = createChunkRing(180); // 6s at 30fps of headroom before S5's consumer must run
+// ENC-1: S4's placeholder (`createChunkRing`, "drop the oldest of ANY kind") swapped for
+// S5's real policy, exactly as `backpressure-ring.ts`'s own docblock instructed —
+// "whichever lands second swaps S4's placeholder `createChunkRing` for
+// `createBackpressureRing` at the one call site." Both landed; the swap never happened.
+// The difference is not academic: the placeholder could evict a KEYFRAME under overflow
+// and leave the ring holding deltas nothing can decode from.
+let videoRing = createBackpressureRing(DEFAULT_RING_CAPACITY);
 let driftGuardedRing = createDriftGuardedRing(videoRing, (event) => {
   videoDriftEvents += 1;
   videoDriftDrops += 1;
@@ -380,7 +484,18 @@ function startEncoder(): void {
           [bytes],
         );
       }
-      // S4/S5: hand `chunk` to the IPC sender here. S3 stops at "it encoded".
+      // ENC-1: THIS IS WHERE THE SOUND USED TO STOP. The line here read
+      // `// S4/S5: hand chunk to the IPC sender here. S3 stops at "it encoded".`
+      // and the chunk was dropped on the floor — a broadcast with no audio, in a
+      // module whose whole point is that audio is the master clock.
+      const bytes = new Uint8Array(chunk.byteLength);
+      chunk.copyTo(bytes);
+      pushAudio({
+        keyframe: chunk.type === 'key',
+        timestampMicros: chunk.timestamp,
+        seq: audioSeq++,
+        data: bytes.buffer,
+      });
     },
     error: (err: DOMException) => {
       scope.postMessage({ type: 'error', where: 'audio-encoder', message: err.message });
@@ -438,6 +553,15 @@ function makeClock() {
       performance.now() - startedAt - (framesRendered * 1000) / AUDIO_SAMPLE_RATE,
     );
     if (driftMs > maxWallDriftMs) maxWallDriftMs = driftMs;
+    // ENC-1: the drain, on the master clock rather than on a timer — the same reason
+    // everything else in this file is. A `setInterval` here would be throttled in exactly
+    // the minimised-window regime the audio clock exists to survive, and the picture would
+    // keep encoding while the bytes stopped leaving.
+    ticksSinceMedia += 1;
+    if (ticksSinceMedia >= MEDIA_FLUSH_TICKS) {
+      ticksSinceMedia = 0;
+      flushMedia();
+    }
     ticksSinceStats += 1;
     if (ticksSinceStats >= STATS_INTERVAL_TICKS) {
       ticksSinceStats = 0;
@@ -473,7 +597,11 @@ function resetAudio(): void {
   avccReady = false;
   videoDriftEvents = 0;
   videoDriftDrops = 0;
-  videoRing = createChunkRing(180);
+  ticksSinceMedia = 0;
+  audioQueue = [];
+  audioSeq = 0;
+  audioQueueDrops = 0;
+  videoRing = createBackpressureRing(DEFAULT_RING_CAPACITY);
   driftGuardedRing = createDriftGuardedRing(videoRing, (event) => {
     videoDriftEvents += 1;
     videoDriftDrops += 1;
@@ -605,7 +733,8 @@ function postStats(): void {
       avccReady,
       videoDriftEvents,
       videoDriftDrops,
-      videoRingDrops: videoRing.stats().dropped,
+      videoRingDrops: videoRing.stats().totalDropped,
+      audioQueueDrops,
       videoBytes,
       videoAvgKbps: elapsedMs > 0 ? (videoBytes * 8) / elapsedMs : 0,
     },
@@ -625,6 +754,9 @@ scope.addEventListener('message', (ev) => {
       return;
     case 'stop':
       running = false;
+      // Hand over whatever the last partial flush window produced BEFORE tearing down.
+      // Without this the final ~100 ms of the broadcast is evicted with the worker.
+      flushMedia();
       audioPort?.close();
       audioPort = null;
       // Flush THEN close: closing an encoder mid-flush drops the tail of the audio/video.

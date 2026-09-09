@@ -26,12 +26,29 @@
 //! stdout, runs a loopback listener — a diagnostic tool, not product surface.
 //! `encoder_probe` ships in EVERY build. The go-live guard
 //! (`lib/live-studio-ingest-health.ts`'s `transportEnvelope` input, fed by
-//! `apps/web/lib/encoder/go-live-guard.ts`) calls it ONCE before
+//! `apps/web/lib/encoder/encoder-session.ts` — ⚠ this docblock named
+//! `go-live-guard.ts` for weeks and THAT FILE HAS NEVER EXISTED, measured
+//! 2026-09-09) calls it ONCE before
 //! `encoder_start` to record which envelope actually carried the call on this
 //! machine, right now — never to refuse go-live merely because the answer is
 //! `json` (see `Envelope::is_zero_copy`'s own docblock: a guard that refused
 //! on `JsonArray` alone would refuse every macOS user, which is the precise
 //! mistake S0 caught in this task's own original wording).
+//!
+//! ── ENC-1: THE SINK IS REAL NOW ─────────────────────────────────────────────
+//! This module used to end at a byte counter. Every stage below it —
+//! `tagger` (FLV bodies + the clock), `sender` (TLS, handshake, publish),
+//! `reconnect::supervise` (backoff, backup ingest, grace window),
+//! `file_sink` (the couple's `.flv`) — had shipped, with 83 tests gating CI,
+//! and NOTHING CALLED ANY OF IT: measured 2026-09-09, `src-tauri/src/` held
+//! zero references to any of those modules. `encoder_start` now opens the
+//! real publish path and `encoder_stop` closes it.
+//! 🔑 CI compiles `setnayan-encoder`, never `setnayan-desktop`
+//! (`.github/workflows/ci.yml:437`, deliberately — the desktop crate needs
+//! tauri + wry + webkit + generated icons). So the half with the tests is
+//! the half nobody called, and the half that calls it is the half CI cannot
+//! see. Compile this crate LOCALLY (`cargo tauri icon …` then
+//! `cargo check -p setnayan-desktop`) before trusting a green PR.
 //!
 //! ── ACL / TOKEN (S5.md § ACL) ────────────────────────────────────────────────
 //! `capabilities/default.json` grants `allow-encoder-{start,config,push,stop}`
@@ -50,9 +67,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::encoder::contract::{ChunkKind, EncodedChunk};
+use crate::encoder::file_sink::{judge_disk_for, recording_path, CivilDate, FlvFileWriter};
+use crate::encoder::flv::StreamMeta;
+use crate::encoder::reconnect::{
+    supervise, Destinations, HealthEvent, Ingest, NetworkConnector, RetryPolicy, StopReason,
+};
+use crate::encoder::rtmp::RtmpEndpoint;
+use crate::encoder::tagger::{NoRecording, Pipeline, TagSink, Tagger};
 use serde::{Deserialize, Serialize};
 use tauri::ipc::{InvokeBody, Request};
-use tauri::State;
+use tauri::{Emitter, Manager, State};
 use tokio::sync::mpsc;
 
 /// The Setnayan API origin the token-verify call is made against. Hardcoded
@@ -66,6 +90,19 @@ const VERIFY_PATH: &str = "/api/live-studio/encoder/token/verify";
 /// `tokio::sync::mpsc` capacity between `encoder_push`/`encoder_config` and
 /// the sink task — S5.md's number.
 const CHANNEL_CAPACITY: usize = 256;
+
+/// Health events from `reconnect::supervise` to the webview. Small on purpose:
+/// `announce` uses `try_send` and DROPS on a full channel by design (its own
+/// comment: "a dropped health event costs one line in a status panel; a blocked
+/// send costs the ceremony"). A deep buffer here would only let the controller
+/// fall further behind the truth before it noticed.
+const HEALTH_CAPACITY: usize = 64;
+
+/// The Tauri event names the controller listens on. Named here, once, so the
+/// page and Rust cannot drift: `apps/web/lib/encoder/encoder-session.ts`
+/// imports the same two strings from `ENCODER_EVENT`.
+pub const HEALTH_EVENT: &str = "encoder://health";
+pub const ENDED_EVENT: &str = "encoder://ended";
 
 /// App state: `.manage(EncoderIpcState::default())` in `lib.rs`.
 #[derive(Default)]
@@ -150,17 +187,245 @@ pub struct EncoderStopResult {
     pub chunks_received: u64,
 }
 
-/// Verify `token` against the server (S5.md § ACL), and if it authorizes,
-/// stand up the bounded channel + stub sink task and mark the session
-/// authorized. Every other encoder command refuses until this has succeeded.
+/// Serializable mirror of `reconnect::HealthEvent`, which is deliberately
+/// serde-free (the encoder crate depends on nothing from Tauri or the web
+/// app — that is why its 83 tests run on every PR without compiling webkit).
+/// The mapping lives HERE, on the app side, so the crate stays clean.
+///
+/// `kind` is a flat discriminator rather than serde's externally-tagged enum
+/// shape because the page's reducer switches on one string; a nested
+/// `{ Reconnecting: { ... } }` object would make every consumer unwrap twice.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthEventDto {
+    pub kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ingest: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attempt: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resumed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub for_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_attempt_in_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub free_bytes: Option<u64>,
+    /// ⚠ ALWAYS a redacted string. Every `detail` this carries originates in
+    /// `SenderError`, which `sender.rs` has already run through
+    /// `Redactor::scrub` — the crate's own `tests/redaction.rs` asserts no
+    /// string it emits contains the stream key. Nothing here re-introduces
+    /// one, and nothing may: this field crosses into page state.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+fn ingest_label(ingest: Ingest) -> &'static str {
+    ingest.label()
+}
+
+/// Pure — no `State`, no `AppHandle` — so the mapping is testable directly.
+/// Every arm must be present: a `_ =>` fallback here is how a new health event
+/// would reach the operator as a blank line instead of a sentence.
+pub fn health_dto(event: &HealthEvent) -> HealthEventDto {
+    let base = HealthEventDto {
+        kind: "",
+        ingest: None,
+        attempt: None,
+        resumed: None,
+        for_ms: None,
+        next_attempt_in_ms: None,
+        free_bytes: None,
+        detail: None,
+    };
+    match event {
+        HealthEvent::Connecting { attempt, ingest } => HealthEventDto {
+            kind: "connecting",
+            ingest: Some(ingest_label(*ingest)),
+            attempt: Some(*attempt),
+            ..base
+        },
+        HealthEvent::Publishing { ingest, resumed } => HealthEventDto {
+            kind: "publishing",
+            ingest: Some(ingest_label(*ingest)),
+            resumed: Some(*resumed),
+            ..base
+        },
+        HealthEvent::Reconnecting {
+            for_ms,
+            attempt,
+            next_attempt_in_ms,
+            detail,
+        } => HealthEventDto {
+            kind: "reconnecting",
+            attempt: Some(*attempt),
+            for_ms: Some(*for_ms),
+            next_attempt_in_ms: Some(*next_attempt_in_ms),
+            detail: Some(detail.clone()),
+            ..base
+        },
+        HealthEvent::Down { for_ms, detail } => HealthEventDto {
+            kind: "down",
+            for_ms: Some(*for_ms),
+            detail: Some(detail.clone()),
+            ..base
+        },
+        HealthEvent::BroadcastEnded { detail } => HealthEventDto {
+            kind: "broadcastEnded",
+            detail: Some(detail.clone()),
+            ..base
+        },
+        HealthEvent::RecordingStopped { detail } => HealthEventDto {
+            kind: "recordingStopped",
+            detail: Some(detail.clone()),
+            ..base
+        },
+        HealthEvent::DiskLow { free_bytes } => HealthEventDto {
+            kind: "diskLow",
+            free_bytes: Some(*free_bytes),
+            ..base
+        },
+    }
+}
+
+/// What the controller is told when the whole supervised stream ends — once,
+/// on `encoder://ended`. `stop` is the operator-facing distinction between
+/// "you pressed stop", "the broadcast went away" and "we gave up".
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct EncoderEndedDto {
+    pub stop: &'static str,
+    pub sessions: u32,
+    pub reconnects: u32,
+    pub failed_attempts: u32,
+    pub longest_outage_ms: u64,
+    pub used_backup: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recording_fault: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recording_path: Option<String>,
+}
+
+pub fn stop_reason_label(stop: &StopReason) -> (&'static str, Option<String>) {
+    match stop {
+        StopReason::ProducerFinished => ("producerFinished", None),
+        StopReason::BroadcastEnded { detail } => ("broadcastEnded", Some(detail.clone())),
+        StopReason::GaveUp { detail } => ("gaveUp", Some(detail.clone())),
+    }
+}
+
+/// Where the local `.flv` goes, and whether there is one at all.
+///
+/// RECORDING IS NOT FREE AND MUST NOT SILENTLY FAIL. `judge_disk_for` refuses
+/// below 2 GB and warns below 20 GB; a refusal here produces a streaming-only
+/// pipeline plus a `RecordingStopped` health event, never a broadcast that
+/// quietly keeps nothing. For a hosted-channel couple this file is the only
+/// copy that will ever exist (`file_sink.rs`'s own docblock), so "it did not
+/// record and nobody said so" is the worst available outcome.
+fn open_recording(
+    home: Option<std::path::PathBuf>,
+    event_public_id: Option<&str>,
+    events: &mpsc::Sender<HealthEvent>,
+) -> (Box<dyn TagSink>, Option<String>) {
+    let Some(event_public_id) = event_public_id.filter(|id| !id.trim().is_empty()) else {
+        return (Box::new(NoRecording), None);
+    };
+    let Some(home) = home else {
+        let _ = events.try_send(HealthEvent::RecordingStopped {
+            detail: "no home directory to record into".to_string(),
+        });
+        return (Box::new(NoRecording), None);
+    };
+    let path = recording_path(&home, event_public_id, CivilDate::today_utc());
+    let Some(dir) = path.parent() else {
+        return (Box::new(NoRecording), None);
+    };
+    if let Err(error) = std::fs::create_dir_all(dir) {
+        let _ = events.try_send(HealthEvent::RecordingStopped {
+            detail: format!("could not create the recordings folder: {error}"),
+        });
+        return (Box::new(NoRecording), None);
+    }
+    match judge_disk_for(dir) {
+        Ok(verdict) => {
+            if !verdict.may_record() {
+                let _ = events.try_send(HealthEvent::RecordingStopped {
+                    detail: verdict.sentence(),
+                });
+                return (Box::new(NoRecording), None);
+            }
+            if verdict.free_bytes() < crate::encoder::file_sink::DISK_WARN_BYTES {
+                let _ = events.try_send(HealthEvent::DiskLow {
+                    free_bytes: verdict.free_bytes(),
+                });
+            }
+        }
+        Err(error) => {
+            // Unreadable free space is not a reason to refuse the couple their
+            // only copy — it is a reason to say so and carry on.
+            let _ = events.try_send(HealthEvent::RecordingStopped {
+                detail: format!("could not read free disk space: {error}"),
+            });
+        }
+    }
+    match FlvFileWriter::create(&path) {
+        Ok(writer) => {
+            let where_it_is = writer.path().display().to_string();
+            (Box::new(writer), Some(where_it_is))
+        }
+        Err(error) => {
+            let _ = events.try_send(HealthEvent::RecordingStopped {
+                detail: format!("could not open the recording file: {error}"),
+            });
+            (Box::new(NoRecording), None)
+        }
+    }
+}
+
+/// Verify `token` against the server (S5.md § ACL), and if it authorizes, open
+/// the real publish path and mark the session authorized. Every other encoder
+/// command refuses until this has succeeded.
+///
+/// ── ENC-1: THIS USED TO BE A STUB, AND THAT WAS THE WHOLE DEFECT ────────────
+/// Until now this function stood up the bounded channel and spawned a task that
+/// counted bytes and threw them away — its own comment said "S6 replaces this
+/// with the real FLV-tag/RTMP writer (`encoder::tagger` / `encoder::sender`)".
+/// S6 landed, with 83 passing tests, and nothing ever called it: measured
+/// 2026-09-09, `src-tauri/src/` contained ZERO references to `sender`,
+/// `tagger`, `rtmp`, `reconnect` or `file_sink`. The crate's own `lib.rs` said
+/// so in writing. It is joined here.
+///
+/// The destination is resolved from `StreamKeyState`, never from an argument
+/// carrying a secret: `publish_endpoint` builds the `RtmpEndpoint` inside
+/// `stream_key.rs` so the key never crosses a module boundary as a `String`,
+/// and the HOSTED path's own address wins over anything the page passes.
 #[tauri::command]
 pub async fn encoder_start(
+    app: tauri::AppHandle,
     state: State<'_, EncoderIpcState>,
+    keys: State<'_, crate::stream_key::StreamKeyState>,
     token: String,
+    rtmps_url: String,
+    rtmps_backup_url: Option<String>,
+    record_event_public_id: Option<String>,
 ) -> Result<EncoderStartResult, String> {
     if token.trim().is_empty() {
         return Err("empty_token".to_string());
     }
+    // ASK BEFORE BURNING THE TOKEN. `mintEncoderToken` issues a SINGLE-USE
+    // token; verifying it consumes it. A desktop app with no key pasted would
+    // otherwise spend the token, fail, and force the operator to reload the
+    // page before they could try again.
+    if !keys.is_armed() {
+        return Err("no_stream_key".to_string());
+    }
+    let endpoint: RtmpEndpoint = keys.publish_endpoint(&rtmps_url)?;
+    let destinations = match rtmps_backup_url.as_deref().map(str::trim).filter(|u| !u.is_empty()) {
+        Some(backup) => Destinations::with_backup(endpoint, keys.publish_endpoint(backup)?),
+        None => Destinations::new(endpoint),
+    };
 
     let client = reqwest::Client::new();
     let resp = client
@@ -182,20 +447,60 @@ pub async fn encoder_start(
     }
 
     let (tx, mut rx) = mpsc::channel::<EncodedChunk>(CHANNEL_CAPACITY);
+    let (health_tx, mut health_rx) = mpsc::channel::<HealthEvent>(HEALTH_CAPACITY);
     let bytes_received = Arc::new(AtomicU64::new(0));
     let chunks_received = Arc::new(AtomicU64::new(0));
 
-    // STUB SINK — S6 replaces this with the real FLV-tag/RTMP writer
-    // (`encoder::tagger` / `encoder::sender`). All this does is prove the
-    // pipe: count bytes and chunks so `encoder_stop` can report them.
+    // The health forwarder. Its own task so a slow webview cannot sit between
+    // the supervisor and the socket.
     {
-        let bytes_received = bytes_received.clone();
-        let chunks_received = chunks_received.clone();
-        tokio::spawn(async move {
-            while let Some(chunk) = rx.recv().await {
-                bytes_received.fetch_add(chunk.payload.len() as u64, Ordering::Relaxed);
-                chunks_received.fetch_add(1, Ordering::Relaxed);
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            while let Some(event) = health_rx.recv().await {
+                let _ = app.emit(HEALTH_EVENT, health_dto(&event));
             }
+        });
+    }
+
+    let home = app.path().home_dir().ok();
+    let (sink, recording_where) = open_recording(
+        home,
+        record_event_public_id.as_deref(),
+        &health_tx,
+    );
+
+    // THE REAL SINK. `supervise` owns the reconnect loop, the backup ingest,
+    // the grace window and the recording — all of it already written and
+    // tested in `crates/encoder`; none of it is re-implemented here.
+    {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let mut pipeline = Pipeline::new(Tagger::new(), sink);
+            let outcome = supervise(
+                &NetworkConnector,
+                &destinations,
+                StreamMeta::defaults_720p30(),
+                &mut rx,
+                &mut pipeline,
+                &health_tx,
+                &RetryPolicy::default(),
+            )
+            .await;
+            let (stop, detail) = stop_reason_label(&outcome.stop);
+            let _ = app.emit(
+                ENDED_EVENT,
+                EncoderEndedDto {
+                    stop,
+                    sessions: outcome.sessions,
+                    reconnects: outcome.reconnects,
+                    failed_attempts: outcome.failed_attempts,
+                    longest_outage_ms: outcome.longest_outage_ms,
+                    used_backup: outcome.used_backup,
+                    recording_fault: outcome.recording_fault,
+                    detail,
+                    recording_path: recording_where,
+                },
+            );
         });
     }
 
@@ -211,18 +516,34 @@ pub async fn encoder_start(
     Ok(EncoderStartResult { authorized: true })
 }
 
+/// Count a chunk that HAS crossed into the publisher's channel.
+///
+/// ENC-1 moved this off the sink task. Until now the sink was a byte counter
+/// and the tally meant "bytes thrown away"; now the sink is
+/// `reconnect::supervise`, which owns the receiver, so the honest place to
+/// count is the moment a chunk is accepted onto the channel. Deliberately
+/// AFTER `try_send` succeeds: a chunk refused by a full channel was never
+/// handed over and must not be reported as if it were.
+fn tally(session: &Session, len: usize) {
+    session.bytes_received.fetch_add(len as u64, Ordering::Relaxed);
+    session.chunks_received.fetch_add(1, Ordering::Relaxed);
+}
+
 /// The decoder configuration (`avcC` + `asc`), sent once before any media.
 #[tauri::command]
 pub fn encoder_config(state: State<'_, EncoderIpcState>, chunk: String) -> Result<(), String> {
     let guard = state.0.lock().map_err(|_| "state_poisoned".to_string())?;
     require_authorized(&guard)?;
     let decoded = decode_and_check_kind(&chunk, true)?;
+    let len = decoded.payload.len();
     let sender = guard.sender.as_ref().ok_or_else(|| "not_authorized".to_string())?;
     // try_send, never await: a command handler holding the state lock across
     // an await would also block every other encoder command for the wait.
     sender
         .try_send(decoded)
-        .map_err(|_| "channel_full_or_closed".to_string())
+        .map_err(|_| "channel_full_or_closed".to_string())?;
+    tally(&guard, len);
+    Ok(())
 }
 
 /// One encoded video or audio chunk, base64-enveloped (S5's owner-decided
@@ -234,10 +555,13 @@ pub fn encoder_push(state: State<'_, EncoderIpcState>, chunk: String) -> Result<
     let guard = state.0.lock().map_err(|_| "state_poisoned".to_string())?;
     require_authorized(&guard)?;
     let decoded = decode_and_check_kind(&chunk, false)?;
+    let len = decoded.payload.len();
     let sender = guard.sender.as_ref().ok_or_else(|| "not_authorized".to_string())?;
     sender
         .try_send(decoded)
-        .map_err(|_| "channel_full_or_closed".to_string())
+        .map_err(|_| "channel_full_or_closed".to_string())?;
+    tally(&guard, len);
+    Ok(())
 }
 
 /// Ends the session: drops the sender (closing the channel, which ends the
@@ -255,14 +579,23 @@ pub fn encoder_push(state: State<'_, EncoderIpcState>, chunk: String) -> Result<
 #[tauri::command]
 pub fn encoder_stop(
     state: State<'_, EncoderIpcState>,
+    keys: State<'_, crate::stream_key::StreamKeyState>,
     app: tauri::AppHandle,
 ) -> Result<EncoderStopResult, String> {
     let mut guard = state.0.lock().map_err(|_| "state_poisoned".to_string())?;
     require_authorized(&guard)?;
     let bytes_received = guard.bytes_received.load(Ordering::Relaxed);
     let chunks_received = guard.chunks_received.load(Ordering::Relaxed);
+    // Dropping the sender closes the channel, which is how `supervise` learns
+    // the producer finished (`StopReason::ProducerFinished`) and returns —
+    // emitting `encoder://ended` and closing the recording on its way out.
     *guard = Session::default();
     drop(guard);
+    // ENC-1: `stream_key.rs`'s Part C docblock asks for exactly this — "intended
+    // to be called from `encoder_stop` once S5 lands". The held key is zeroised
+    // the moment the broadcast ends, so a desktop app left open overnight is not
+    // holding a YouTube stream key in memory for a broadcast that is over.
+    keys.forget();
     crate::updater::recheck_after_stop(app);
     Ok(EncoderStopResult {
         bytes_received,

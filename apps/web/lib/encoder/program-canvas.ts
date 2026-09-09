@@ -23,9 +23,22 @@ import {
 import type { ProgramAirDecision } from '../live-studio-publish-pure';
 import type { ResolvedOverlays } from '../live-studio-overlays';
 import { toWireFrame, type VideoSlot } from './program-plan';
-import type { ProgramCanvasInbound, ProgramCanvasOutbound, ProgramCanvasStats } from './program-canvas.worker';
+import type {
+  MediaChunk,
+  ProgramCanvasInbound,
+  ProgramCanvasOutbound,
+  ProgramCanvasStats,
+} from './program-canvas.worker';
 
-export type { ProgramCanvasStats } from './program-canvas.worker';
+export type { MediaChunk, ProgramCanvasStats } from './program-canvas.worker';
+
+/** The two decoder configurations Rust cannot mux a single keyframe without. */
+export type ProgramDecoderConfigs = {
+  /** AVCDecoderConfigurationRecord — the `avcC` half. Null until the first video chunk. */
+  avcc: ArrayBuffer | null;
+  /** AudioSpecificConfig — the `asc` half. Null until the first AAC chunk. */
+  asc: ArrayBuffer | null;
+};
 
 /** The slice of `Worker` the controller uses; a test passes a recorder. */
 export type ProgramWorkerLike = {
@@ -84,8 +97,32 @@ export function resolveQrUrl(qrSrc: string | null): string | null {
 export type ProgramCanvas = {
   start(): void;
   stop(): void;
+  /**
+   * ENC-1 · hand the worker the far end of the audio mixer's `MessageChannel`, so render
+   * quanta go audio-thread → worker DIRECTLY and the master clock never queues behind the
+   * main thread's event loop (audio-clock.ts's whole argument).
+   *
+   * Until this existed the worker's `audio-link` inbound message had no sender anywhere,
+   * so the clock never started, so `createAudioMasterClock` never ticked, so NOTHING was
+   * composited and nothing was encoded. The picture was gated on the sound the entire
+   * time, exactly as the worker's docblock says it is.
+   */
+  linkAudio(port: MessagePort): void;
   /** Called about once a second with the worker's counters while running. */
   onFrameCount(fn: (stats: ProgramCanvasStats) => void): () => void;
+  /**
+   * ENC-1 · the encoded bytes, batched every `MEDIA_FLUSH_TICKS`. THE DRAIN THAT WAS
+   * MISSING: the worker's video ring said "S5's consumer drains it" and there was no
+   * consumer; the AAC half was discarded outright.
+   */
+  onMedia(fn: (media: { video: MediaChunk[]; audio: MediaChunk[] }) => void): () => void;
+  /**
+   * ENC-1 · fires each time a decoder configuration arrives, carrying BOTH halves as
+   * currently known. Deliberately not two separate callbacks: Rust needs one `Config`
+   * chunk carrying `avcC` AND `asc` together, so the consumer's real question is "do I
+   * have both yet", and two callbacks make that a piece of state every caller re-derives.
+   */
+  onConfigs(fn: (configs: ProgramDecoderConfigs) => void): () => void;
   onError(fn: (where: string, message: string) => void): () => void;
 };
 
@@ -117,6 +154,16 @@ export function createProgramCanvas(options: ProgramCanvasOptions = {}): Program
   const deps: ProgramCanvasDeps = { ...browserDeps(), ...options.deps };
   const statsListeners = new Set<(s: ProgramCanvasStats) => void>();
   const errorListeners = new Set<(where: string, message: string) => void>();
+  const mediaListeners = new Set<(m: { video: MediaChunk[]; audio: MediaChunk[] }) => void>();
+  const configListeners = new Set<(c: ProgramDecoderConfigs) => void>();
+  /**
+   * The two decoder configurations, held here rather than in the consumer. WebCodecs emits
+   * each ONE TIME, on its first output — so a consumer that missed the message (subscribed
+   * late, or reconnected) can never see it again, and Rust's FLV muxer cannot decode a
+   * keyframe without both. S4's own prompt is explicit that they must be re-shipped on
+   * every reconnect; keeping them is what makes that possible at all.
+   */
+  const configs: ProgramDecoderConfigs = { avcc: null, asc: null };
 
   let worker: ProgramWorkerLike | null = null;
   let bound: ProgramBridge | null = null;
@@ -191,7 +238,14 @@ export function createProgramCanvas(options: ProgramCanvasOptions = {}): Program
       worker.addEventListener('message', (ev) => {
         const msg = ev.data;
         if (msg.type === 'stats') for (const fn of statsListeners) fn(msg.stats);
-        else if (msg.type === 'error') for (const fn of errorListeners) fn(msg.where, msg.message);
+        else if (msg.type === 'media') for (const fn of mediaListeners) fn({ video: msg.video, audio: msg.audio });
+        else if (msg.type === 'video-config') {
+          configs.avcc = msg.description;
+          for (const fn of configListeners) fn({ ...configs });
+        } else if (msg.type === 'audio-config') {
+          configs.asc = msg.description;
+          for (const fn of configListeners) fn({ ...configs });
+        } else if (msg.type === 'error') for (const fn of errorListeners) fn(msg.where, msg.message);
       });
       post({ type: 'air', air: options.air ?? null });
       post({
@@ -218,10 +272,29 @@ export function createProgramCanvas(options: ProgramCanvasOptions = {}): Program
       post({ type: 'stop' });
       worker?.terminate();
       worker = null;
+      // A new worker re-encodes from scratch and emits fresh configurations; holding the
+      // old ones would let a restarted session ship an `avcC` describing a stream that no
+      // longer exists.
+      configs.avcc = null;
+      configs.asc = null;
+    },
+    linkAudio(port: MessagePort) {
+      post({ type: 'audio-link', port }, [port as unknown as Transferable]);
     },
     onFrameCount(fn) {
       statsListeners.add(fn);
       return () => statsListeners.delete(fn);
+    },
+    onMedia(fn) {
+      mediaListeners.add(fn);
+      return () => mediaListeners.delete(fn);
+    },
+    onConfigs(fn) {
+      configListeners.add(fn);
+      // Replay what is already known. A consumer that subscribes after the first chunk
+      // would otherwise wait forever for a message WebCodecs only ever sends once.
+      if (configs.avcc || configs.asc) fn({ ...configs });
+      return () => configListeners.delete(fn);
     },
     onError(fn) {
       errorListeners.add(fn);

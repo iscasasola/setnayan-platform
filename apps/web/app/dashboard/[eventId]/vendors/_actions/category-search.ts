@@ -1019,7 +1019,14 @@ export async function searchCategoryVendors(input: {
   }
 
   // Shape every rec, then partition into the locked tier ladder.
-  type Shaped = CategoryVendorResult & {
+  //
+  // `ladderTier` is OMITTED here and only added by the mapper at the bottom.
+  // A shaped row cannot know its rung yet — it is assigned by the four assembly
+  // steps below — so carrying the public field through this literal would mean
+  // writing a value that is a guess at this point in the function. The
+  // provisional stamp lives on `_tier` instead, and the public field is that
+  // stamp, published once, after the ladder has actually run.
+  type Shaped = Omit<CategoryVendorResult, 'ladderTier'> & {
     _adRank: number;
     _reviews: number;
     _rating: number;

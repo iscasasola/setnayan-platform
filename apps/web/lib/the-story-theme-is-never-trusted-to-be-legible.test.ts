@@ -27,19 +27,38 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 import {
   NEUTRAL_STORY_COLORS,
-  STORY_ACCENT_MIN,
-  STORY_INK_MIN,
-  STORY_LIGHT_STAGES,
-  STORY_MUTED_MIN,
-  contrastRatio,
   resolveStoryPalette,
   sanitizeStoryTheme,
-  storyLightStages,
+  storyThemeStages,
 } from './story-theme';
+// The floors and the ratio come from the PUBLIC page's module — the one the
+// derivation now lives in. Importing our own copies would let the preview be
+// measured against a floor the page does not use.
+import {
+  ACCENT_MIN,
+  BODY_MIN,
+  MUTED_MIN,
+  STAGE_NAMES,
+  contrastRatio as contrastOfRgb,
+  rgbOfHex,
+} from './story-light';
+
+/** The preview hands out hex; the public module measures Rgb. */
+function contrastRatio(a: string, b: string): number {
+  const ra = rgbOfHex(a);
+  const rb = rgbOfHex(b);
+  if (!ra || !rb) throw new Error(`not a hex colour: ${a} / ${b}`);
+  return contrastOfRgb(ra, rb);
+}
+const STORY_INK_MIN = BODY_MIN;
+const STORY_MUTED_MIN = MUTED_MIN;
+const STORY_ACCENT_MIN = ACCENT_MIN;
+const STORY_LIGHT_STAGES = STAGE_NAMES;
 
 /** Four boards. Three of them are illegible as saved — that is the point. */
 const PALETTES: Record<string, string[]> = {
@@ -59,7 +78,7 @@ test('every stage of every palette carries legible body, muted and accent text',
   let checked = 0;
 
   for (const [name, colors] of Object.entries(PALETTES)) {
-    const stages = storyLightStages(colors);
+    const stages = storyThemeStages(colors);
     assert.equal(
       stages.length,
       STORY_LIGHT_STAGES.length,
@@ -86,7 +105,7 @@ test('every stage of every palette carries legible body, muted and accent text',
 
   // Print the occurrence count either way — a guard that cannot say how much it
   // measured cannot be told apart from a guard that measured nothing.
-  console.log(`[story-theme] contrast pairs checked: ${checked}, under floor: ${failures.length}`);
+  console.log(`[story-theme] contrast pairs (over the public page's derivation) checked: ${checked}, under floor: ${failures.length}`);
   assert.equal(checked, Object.keys(PALETTES).length * STORY_LIGHT_STAGES.length * 3);
   assert.deepEqual(failures, [], `\n${failures.join('\n')}`);
 });
@@ -151,33 +170,41 @@ test('a hand-crafted theme cannot smuggle junk or extra slots into the story', (
 });
 
 /**
- * THE COLLAPSE GUARD — one derivation, or this fails.
+ * THE COLLAPSE GUARD — one derivation, and it stays that way.
  *
- * `lib/story-theme.ts` derives the six stages provisionally, because the Story
- * Maker's live preview needed them before the public page's own module existed.
- * A parallel session is building `lib/story-light.ts` with the same six stages,
- * the same three floors and the crossfade this one omits.
+ * This began as a tripwire: `story-theme.ts` derived the six stages provisionally
+ * while a parallel session built the public page's `story-light.ts`, and this
+ * test was written to FAIL the moment both existed. It did exactly that — both
+ * merged within thirteen minutes of each other and main went red on this test,
+ * which is what a tripwire is for.
  *
- * 🔑 A COMMENT ASKING A FUTURE SESSION TO REMEMBER IS NOT A MECHANISM. The
- * moment that module lands on main, this test fails and says exactly what to do,
- * so the two cannot quietly coexist and drift — which would leave the host's
- * preview showing one set of colours and their published page another.
- *
- * SABOTAGE-CHECKED: creating an empty `lib/story-light.ts` made this test fail
- * with the reconciliation instruction; removing it again restored the pass.
+ * ✅ COLLAPSED. `story-theme.ts` now adapts `deriveStages()` / `neutralStages()`
+ * and derives nothing itself. The guard is inverted and kept: it now fails if a
+ * second derivation is ever reintroduced here, because the failure it protects
+ * against is not "two files exist" but "the host's preview and their published
+ * page disagree about the same wedding."
  */
-test('the story maker and the public page derive the six stages ONCE', () => {
-  const publicModule = join(process.cwd(), 'lib', 'story-light.ts');
-  if (!existsSync(publicModule)) return; // not landed yet — nothing to collapse
-
+test('the story maker adapts the public page derivation and never repeats it', () => {
   const theme = readFileSync(join(process.cwd(), 'lib', 'story-theme.ts'), 'utf8');
+
   assert.ok(
     /from '\.\/story-light'/.test(theme),
-    'lib/story-light.ts has landed, so lib/story-theme.ts must now import its ' +
-      'deriveStages() instead of deriving the six stages a second time. Two ' +
-      'derivations means the Story Maker preview and the published page can ' +
-      'disagree about the same wedding. Delete storyLightStages() here, keep ' +
-      'sanitizeStoryTheme / resolveStoryPalette / receptionSlotLabel, and drop ' +
-      'the provisional notice at the top of the file.',
+    'story-theme.ts must take its stages from story-light.ts, not derive them',
   );
+  assert.ok(
+    /deriveStages|neutralStages/.test(theme),
+    'story-theme.ts no longer calls the public derivation',
+  );
+
+  // The tell-tale of a re-grown second derivation: the stage grounds being
+  // computed here. The six lerp weights are the prototype's and appear in
+  // story-light.ts; none of them belongs in this file.
+  const stripped = stripComments(theme);
+  for (const forbidden of ['0.45', '0.55', '0.18', 'carryable(', 'correctedInk(']) {
+    assert.ok(
+      !stripped.includes(forbidden),
+      `story-theme.ts looks like it is deriving stages again (found ${forbidden}). ` +
+        'The six stages have exactly one home: lib/story-light.ts.',
+    );
+  }
 });

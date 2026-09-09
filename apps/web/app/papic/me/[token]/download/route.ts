@@ -6,6 +6,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getR2Client } from '@/lib/r2';
 import { parseStoredAsset } from '@/lib/uploads';
 import { stripPhotoMetadata } from '@/lib/papic-derivatives';
+import {
+  loadGuestBlurGate,
+  guestSafeKeyForCapture,
+  type CaptureSourceTable,
+} from '@/lib/papic-guest-blur-gate';
 
 // "Download my photos" — stream a ZIP of the captures a GUEST is tagged in
 // ("photos of you"), scoped by their personal QR token (the same credential the
@@ -112,6 +117,44 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
     ext: string;
   };
   const items: Item[] = [];
+
+  // ── THE BLUR GATE (owner ruling 1, 2026-08-17) ──────────────────────────
+  // This route hands over the FULL-RESOLUTION ORIGINAL of every capture the
+  // guest is tagged in. A guest is not the couple, so a capture tagging someone
+  // who withdrew photo consent — or any capture on a FaceBlock event — must
+  // leave here BLURRED or not at all. Asked once, in lib/papic-guest-blur-gate,
+  // through the same SQL predicate the wall and the shared pool ask.
+  //
+  // ⚠ A blurred stand-in is the 1600px-capped bake, not the original's
+  // resolution. "Download all stays FULL-RESOLUTION" (owner 2026-07-16) governs
+  // photographs a guest may have; it never governed one somebody withdrew.
+  const blurGate = await loadGuestBlurGate(admin, eventId, [
+    ...photoIds.map((id) => ({ sourceTable: 'papic_photos' as CaptureSourceTable, sourceId: id })),
+    ...captureIds.map((id) => ({
+      sourceTable: 'papic_guest_captures' as CaptureSourceTable,
+      sourceId: id,
+    })),
+  ]);
+  // Could not answer "must this be blurred?" ⇒ hand over nothing. A zip built
+  // on an unanswered privacy question is a file that cannot be taken back.
+  if (blurGate.failed) {
+    return NextResponse.json({ error: 'unavailable' }, { status: 503 });
+  }
+  // A blurred stand-in replaces the chosen ref wholesale: never stripped again
+  // (the bake is already EXIF-free and a strip would re-encode it), and its own
+  // extension, because `safe_*` keys are AVIF while `wall_safe_r2_key` is JPEG.
+  const gated = (
+    sourceTable: CaptureSourceTable,
+    id: string,
+    sel: Pick<Item, 'ref' | 'needsStrip' | 'ext'> | null,
+  ): Pick<Item, 'ref' | 'needsStrip' | 'ext'> | null => {
+    if (!sel) return null;
+    const resolved = guestSafeKeyForCapture(blurGate, { sourceTable, sourceId: id }, sel.ref, 'display');
+    if (!resolved) return null; // withheld: needs a blur, no safe form exists
+    if (resolved === sel.ref) return sel;
+    const ext = /\.([a-z0-9]+)$/i.exec(resolved)?.[1]?.toLowerCase() ?? 'jpg';
+    return { ref: resolved, needsStrip: false, ext };
+  };
   // PRIVACY (RA 10173 · CLAUDE.md "geo stripped on outbound shares") + owner
   // 2026-07-16 "Download all stays FULL-RESOLUTION": a PHOTO's full-res original
   // carries EXIF GPS (DSLR-bridge / native-app / camera-roll sources), so it must
@@ -150,7 +193,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   };
   for (const p of photosRes.data ?? []) {
     const isClip = p.photo_type === 'clip';
-    const sel = dl(p.r2_object_key, p.display_r2_key, p.full_res_dropped_at, isClip, p.clip_web_r2_key);
+    const sel = gated(
+      'papic_photos',
+      p.photo_id,
+      dl(p.r2_object_key, p.display_r2_key, p.full_res_dropped_at, isClip, p.clip_web_r2_key),
+    );
     if (sel) {
       items.push({
         id: p.photo_id,
@@ -162,7 +209,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   }
   for (const c of capturesRes.data ?? []) {
     const isClip = c.media_type === 'clip';
-    const sel = dl(c.r2_object_key, c.display_r2_key, c.full_res_dropped_at, isClip, c.clip_web_r2_key);
+    const sel = gated(
+      'papic_guest_captures',
+      c.capture_id,
+      dl(c.r2_object_key, c.display_r2_key, c.full_res_dropped_at, isClip, c.clip_web_r2_key),
+    );
     if (sel) {
       items.push({
         id: c.capture_id,

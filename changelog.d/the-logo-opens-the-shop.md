@@ -25,6 +25,20 @@ destination, no affordance, and it swallowed the card's own `<video controls>`.
 once **per shop**; the card grows two optional props (`shop`, `detailsHref`);
 the wrapping link is gone.
 
+### A third trap, found while composing with #5384
+
+**A LEGACY `logo_url` is a URL the vendor PASTED, on any host** — and `next/image` answers **HTTP
+400** for a host outside `remotePatterns`, so the picture is simply not there and nothing throws.
+That has already cost a measured day here: the presigned R2 URL answered `200 image/png 34478 bytes`
+while `/_next/image?url=…` answered `400`.
+
+The rule that decides this **already existed** — privately, inside
+`app/(shell)/explore/_components/vendor-card.tsx`. It is extracted to
+`lib/optimizable-image-url.ts` and both cards now import the same one; the service card falls back to
+the initials tile, which is a designed state rather than broken markup. **A copy was removed, not
+added.** Latent today (prod's one stored logo is an `r2://` ref, which resolves to a whitelisted
+host) — which is exactly how it would have stayed invisible.
+
 ### The two traps this had to walk through
 
 **A second anchor inside the wrapping one is invalid HTML.** Browsers unnest it
@@ -79,7 +93,7 @@ logo rung starts working the moment a listed shop uploads one.
 
 ### Guards, every mutation measured before → after
 
-`lib/the-logo-opens-the-shop.test.ts` (11 tests) + one rewritten assertion and
+`lib/the-logo-opens-the-shop.test.ts` (12 tests) + one rewritten assertion and
 one new test in `service-details-dark.test.ts` (9 → 10).
 
 | mutation | count | result |
@@ -95,6 +109,9 @@ one new test in `service-details-dark.test.ts` (9 → 10).
 | gallery hardcodes `detailsEnabled={true}` | 0 → 1 | **RED** |
 | the Link doorway loses its flag gate | 1 → 0 | **RED** |
 | **blind the comment stripper** (anti-vacuity) | 0 → 1 | **RED**, on 2 real assertions |
+| the logo bypasses the host guard | 1 → 0 | **RED** |
+| the host whitelist admits everything | 1 → 2 | **RED** |
+| the vendor card re-grows a private copy of the rule | 0 → 1 | **RED** |
 | a comment naming `/v/{slug}` **inside** the block | 0 → 1 | **green** ✔ cry-wolf |
 
 🪤 **Four mutations first read 0 → 0 and proved nothing.** Every one was a broken
@@ -108,3 +125,8 @@ Blinding the stripper failed only the stripper's OWN self-test, because no
 comment in the sliced regions named a forbidden string. It is real now: the call
 site carries a comment naming both `/v/{slug}` and `<Link>`, the guard stays
 green with the stripper working, and blinding it turns two real assertions red.
+
+⚠ **And the stripper is no longer a private copy either.** `lib/strip-comments.ts` — the repo's ONE
+string-aware lexer, whose own docblock records the regex version it replaced blanking **5,104 lines
+of real code** because `accept="image/*"` in a string opens a comment that never existed — landed on
+main mid-build. This guard imports it. Two copies removed in one PR, none added.

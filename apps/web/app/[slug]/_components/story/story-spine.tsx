@@ -417,7 +417,12 @@ export function StorySpine({
             <span className="font-mono text-xs font-bold uppercase tracking-[0.24em]">
               Setnayan
               <small className="mt-0.5 block text-xs font-medium tracking-[0.14em] text-ink/60">
-                {mastheadEdition(data.eventDate, data.editionNo, data.published)}
+                {mastheadEdition(
+                  data.eventDate,
+                  data.editionNo,
+                  data.published,
+                  data.editionVolume,
+                )}
               </small>
             </span>
           </div>

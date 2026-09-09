@@ -31,6 +31,17 @@ import {
 } from '@/app/[slug]/_components/editorial/data';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
 import { sanitizeStoryTheme } from '@/lib/story-theme';
+import { createClient } from '@/lib/supabase/server';
+import { deskIsClear, isWaitingOnTheHost } from '@/lib/story-desk';
+import {
+  LAST_WORD_MAX,
+  publishBlockers,
+  publishRefusal,
+} from '@/lib/publish-once-knowing-who-reads-it';
+import { stampForPublish } from '@/lib/story-edition';
+import { roomSnapshotOf } from '@/lib/story-room';
+import { loadLiveRoom } from '@/app/[slug]/_components/story/spine-data';
+import { loadDesk } from './_lib/load-desk';
 import { hostUserId } from './_lib/host-authority';
 
 export type EditorialEditorInput = {
@@ -79,6 +90,29 @@ export type EditorialEditorInput = {
    * repricing nobody chose, in the direction that costs a host something.
    */
   theme?: unknown;
+  /**
+   * THE CONSENT TICK (design `02` §8). True only when the host has this moment
+   * ticked "I want this story to be public, and I understand it will carry our
+   * names, our photos, and the words our guests agreed to share."
+   *
+   * ⚖ IT IS NOT A PERMISSION SLIP THE CLIENT HANDS US. It is recorded as
+   * `publish_consent_at` and re-read on the next visit, so a host who agreed in
+   * March does not have to agree again in April to go back to published — and a
+   * request that simply asserts `true` still cannot publish an undecided desk.
+   */
+  publishConsent?: boolean;
+  /**
+   * THE HOST'S LAST WORD — `events.special_message`, the words the story closes
+   * on. Nobody writes it for them (design `02` §8).
+   *
+   * ⚠ THE SAME COLUMN `/dashboard/[eventId]/website/special-message` writes, and
+   * that is on purpose rather than a second store: the publish panel is where a
+   * host is standing when they think about how their story ends, and sending
+   * them to another screen to write it is the four-screens problem this desk
+   * exists to end. `undefined` means "this client is not editing it" and the
+   * column is left alone.
+   */
+  lastWord?: string;
 };
 
 /** Cap the persisted per-moment story so a runaway paste can't bloat draft_json.
@@ -216,6 +250,96 @@ function sanitizeReviews(input: Review[]): Review[] {
   return out;
 }
 
+/** A stored timestamp/date read back as itself, or null. Never a coerced ''. */
+function asIso(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() ? v : null;
+}
+
+/**
+ * The floor plan as it stands, AND the seating that ties photographs to it
+ * (`03` §2.8), ready to store.
+ *
+ * Returns `null` — and the story then keeps reading the live plan, exactly as
+ * every story does today — when the kind of day has no seating, when nothing
+ * was drawn, or when the read is refused. **A freeze that failed must cost the
+ * freeze, never the room**: writing an empty snapshot would blank a floor plan
+ * that exists, permanently, on the one press that is supposed to preserve it.
+ *
+ * 🔴 BOTH HALVES OR NEITHER, AND THAT IS THE WHOLE POINT. Freezing the geometry
+ * while `loadTableHeat` still resolved a photograph to a table through the LIVE
+ * `event_seat_assignments` — the same table the seat arranger wipes and
+ * re-solves on every run — would make the two disagree: a re-seated guest
+ * lights the WRONG table on a plan that is otherwise a true record of the night.
+ * **A half-freeze is worse than no freeze**, because before it geometry and
+ * attribution moved together and the plan was at least wrong consistently.
+ * Raised by S10 against the first cut and verified in the loader before it was
+ * believed.
+ *
+ * ⚠ THE SEATING IS STORED BESIDE THE ROOM, NEVER INSIDE IT. It carries guest
+ * ids, and `StoryRoom` goes straight to the components that draw the plan — its
+ * field list is the privacy boundary (`04` rule 2). `roomSnapshotOf` puts it on
+ * the document; only `readFrozenSeats` takes it back out, and only the heat
+ * loader calls that.
+ */
+async function freezeTheRoom(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<unknown | null> {
+  try {
+    const { data, error } = await admin
+      .from('events')
+      .select('event_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error || !data) return null;
+    // The LIVE plan, deliberately — `loadStoryRoom` prefers a snapshot, and a
+    // freeze must never photograph an older photograph of itself.
+    const room = await loadLiveRoom(admin, eventId, asIso(data.event_type));
+    if (room.tables.length === 0) return null;
+    return roomSnapshotOf(room, await freezeTheSeating(admin, eventId, room));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where each guest sat, as the night was actually seated — `guest_id` →
+ * `event_tables.public_id`.
+ *
+ * ⚠ ONLY TABLES THE FROZEN PLAN ACTUALLY DRAWS. A guest at a table with no
+ * saved position is left out, because `loadTableHeat` would drop that
+ * attribution anyway (`known.has(table)`) and storing it would be a row that
+ * promises heat the lens can never show.
+ *
+ * `null` on a refusal or an empty plan, which leaves the heat resolving live —
+ * the behaviour every story has today. A rejected query is an ABSENCE.
+ */
+async function freezeTheSeating(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  room: { tables: ReadonlyArray<{ id: string }> },
+): Promise<Map<string, string> | null> {
+  const drawn = new Set(room.tables.map((t) => t.id));
+  if (drawn.size === 0) return null;
+  try {
+    const { data, error } = await admin
+      .from('event_seat_assignments')
+      .select('guest_id, event_tables!inner(public_id)')
+      .eq('event_id', eventId);
+    if (error || !data) return null;
+    const seats = new Map<string, string>();
+    for (const r of data as Array<Record<string, unknown>>) {
+      const guest = asIso(r.guest_id);
+      const joined = r.event_tables as Record<string, unknown> | null;
+      const table = asIso(joined?.public_id);
+      if (guest && table && drawn.has(table)) seats.set(guest, table);
+    }
+    return seats.size > 0 ? seats : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function saveEditorial(
   eventId: string,
   input: EditorialEditorInput,
@@ -228,7 +352,9 @@ export async function saveEditorial(
   // Merge into whatever draft_json already exists (preserve unmanaged keys).
   const { data: existing } = await admin
     .from('event_editorial')
-    .select('draft_json, published_at')
+    .select(
+      'draft_json, published_at, status, edition_no, edition_volume, room_snapshot, publish_consent_at',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   const base =
@@ -339,6 +465,90 @@ export async function saveEditorial(
   // Fails closed: anything this build does not recognise reads as 'only me'.
   const audience = storyAudienceOf(input.audience);
   const shared = storyIsShared(audience);
+  const wasPublished = storyAudienceOf(existing?.status) === 'published';
+
+  /*
+    ══ THE PUBLISH GATE (design `02` §8 · 08 step 1.6) ═══════════════════════
+
+    A DISABLED BUTTON IS NOT A FENCE. The editor greys the Published rung out,
+    and this is the same question asked where it counts — an old tab, a
+    hand-made request, or a client build from before this shipped all arrive
+    here. `publishBlockers` is the ONE definition, shared with the button, so
+    the two can never drift into different ideas of "ready".
+
+    🔑 ONLY THE WAY UP IS GATED. `draft` and `event` pass untouched, and that is
+    load-bearing rather than a kindness: the consent copy promises the host they
+    can go back to guests-only whenever, so a gate on the way DOWN would break
+    a promise printed on the same screen and strand a host at `published` with a
+    half-decided desk.
+  */
+  let consentedAt: string | null = asIso(existing?.publish_consent_at);
+  if (input.publishConsent === true) consentedAt = consentedAt ?? new Date().toISOString();
+
+  let openCount = 0;
+  if (audience === 'published') {
+    /*
+      The desk, read for the gate. `loadDesk` proves nothing about authority on
+      its own — `hostUserId` above is that proof — and it is called HERE rather
+      than trusted from the client because "everything is decided" is a claim
+      about four other tables.
+
+      ⚠ AN UNREADABLE DESK REFUSES. A source that could not be read and a source
+      with nothing in it look identical; the desk's own banner says so. It has
+      not PROVED it is clear, so it is not clear, with its own sentence rather
+      than a lie about what is waiting.
+    */
+    let deskLoaded = false;
+    let deskClear = false;
+    try {
+      const desk = await loadDesk(eventId);
+      deskLoaded = desk.unreadable.length === 0;
+      deskClear = deskIsClear(desk.items);
+      openCount = desk.items.filter(isWaitingOnTheHost).length;
+    } catch {
+      deskLoaded = false;
+    }
+    const blockers = publishBlockers({
+      deskLoaded,
+      deskClear,
+      consented: consentedAt !== null,
+    });
+    if (blockers.length > 0) {
+      return { ok: false, error: publishRefusal(blockers, openCount) };
+    }
+  }
+
+  /*
+    ══ THE EDITION, AND THE ROOM — both stamped on the FIRST 'published' ══════
+
+    ⚠ NOT ON `published_at`, which is stamped at the first GUESTS-ONLY share
+    (`03` §2.4). A story that sits at guests-only for a month carries no number.
+
+    Both are written only when they are still empty, so a host who takes the
+    story back and publishes it again keeps the number they were given — that is
+    what "theirs forever" means — and the database refuses to move it anyway.
+  */
+  const stamp: Record<string, unknown> = {};
+  if (audience === 'published' && !wasPublished) {
+    if (existing?.edition_no == null) {
+      const { data: dated } = await admin
+        .from('events')
+        .select('event_date')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const edition = await stampForPublish(admin, asIso(dated?.event_date));
+      // Never half a stamp: a volume with no number would print "No. null" to
+      // any reader that trusted one field without the other.
+      if (edition) {
+        stamp.edition_volume = edition.volume;
+        stamp.edition_no = edition.no;
+      }
+    }
+    if (existing?.room_snapshot == null) {
+      const frozen = await freezeTheRoom(admin, eventId);
+      if (frozen) stamp.room_snapshot = frozen;
+    }
+  }
 
   const nowIso = new Date().toISOString();
   const { error } = await admin.from('event_editorial').upsert(
@@ -352,11 +562,31 @@ export async function saveEditorial(
       // "when did it go public" date, and it is never cleared: a story taken
       // back to only-me still happened.
       published_at: shared ? (existing?.published_at ?? nowIso) : existing?.published_at ?? null,
+      // The RA 10173 record of the tick. Never cleared on the way back down:
+      // they did agree, on that date, and re-asking to restore what they had
+      // punishes them for using a control the consent copy itself offers.
+      publish_consent_at: consentedAt,
+      ...stamp,
       updated_at: nowIso,
     },
     { onConflict: 'event_id' },
   );
   if (error) return { ok: false, error: 'Could not save. Please try again.' };
+
+  /*
+    THE HOST'S LAST WORD — through the CALLER'S OWN SESSION, not the admin
+    client sitting in scope two lines up. `event_editorial` has no couple-facing
+    write RLS, which is why the upsert above is admin; `events` does, and using
+    admin here would quietly drop that second fence for no reason at all.
+  */
+  if (typeof input.lastWord === 'string') {
+    const lastWord = input.lastWord.trim().slice(0, LAST_WORD_MAX);
+    const session = await createClient();
+    await session
+      .from('events')
+      .update({ special_message: lastWord || null })
+      .eq('event_id', eventId);
+  }
 
   const { data: ev } = await admin
     .from('events')
@@ -367,7 +597,32 @@ export async function saveEditorial(
   revalidatePath(`/dashboard/${eventId}/story`);
   revalidatePath(`/dashboard/${eventId}/website`);
   if (ev?.slug) {
+    /*
+      🔑 GOING BACK TO GUESTS-ONLY HAS TO ACTUALLY TAKE THE PAGE BACK FROM A
+      STRANGER, AND `/${slug}` ALONE DID NOT DO IT. `/[slug]/print` is its own
+      cached route (`revalidate = 300`) and it asks `storyAudienceAdmits` — so a
+      host who narrowed the audience stayed readable there for up to five
+      minutes, on the one surface a stranger can keep.
+
+      🔴 CORRECTED BEFORE MERGE — I FIRST WROTE THAT THE RECAP WAS THE SAME CASE.
+      IT IS NOT. `/[slug]/recap` is the Auto-Recap, a DIFFERENT keepsake with its
+      own switch (`event_recaps.status`), and it does not read `event_editorial`
+      at all — measured, 0 references in both `recap/page.tsx` and
+      `lib/auto-recap.ts`. Narrowing the story's audience changes nothing there.
+      It is revalidated anyway because `04` §3 names it in the withdrawal set and
+      it does render guest photos and Kwentos, so it is cheap insurance — but
+      **print is the load-bearing one here, and the claim that the recap leaked a
+      narrowed story was mine and was wrong.**
+
+      ⏭ THIS IS THE AUDIENCE CHANGE ONLY. The full revalidation set on a GUEST's
+      consent write — the one a withdrawal needs, plus the OG card and the
+      version stamp — is `04` §3 / Q6, ruled and assigned to S14. Doing half of
+      it here under its name would leave the next session believing the whole
+      thing had shipped.
+    */
     revalidatePath(`/${ev.slug}`);
+    revalidatePath(`/${ev.slug}/recap`);
+    revalidatePath(`/${ev.slug}/print`);
   }
 
   // Fire quality scan in the background after the response is sent.

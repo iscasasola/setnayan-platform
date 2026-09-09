@@ -158,6 +158,7 @@ const DUE_OPTIONS: ReadonlyArray<[InstallmentDue, string]> = [
 export function ProposalMaker({
   threadId,
   requestedPax,
+  livePax = null,
   requestedHours = 8,
   coupleName,
   packages = [],
@@ -168,6 +169,16 @@ export function ProposalMaker({
   threadId: string;
   /** Seeded from thread.pax_at_inquiry so the opening quote is sized to what they asked for. */
   requestedPax: number;
+  /**
+   * What the couple is planning for NOW, when that is a different number.
+   *
+   * ⚠ IT DOES NOT MOVE THE SEED, AND MUST NOT. A quote is priced against the
+   * count it was asked for; re-seeding this builder from the live figure would
+   * silently change what a supplier charges. It exists so the header can NAME
+   * both counts — the defect it closes is a bare "150 pax" sitting under a
+   * page header that says 170, with nothing on screen saying which is which.
+   */
+  livePax?: number | null;
   requestedHours?: number;
   coupleName?: string | null;
   packages?: { id: string; name: string }[];
@@ -458,11 +469,15 @@ export function ProposalMaker({
           <p className="mt-1.5 text-xs text-ink/55">
             {atRequest ? (
               <>
-                Sized to their request · <strong className="text-ink/75">{requestedPax} pax</strong> · {requestedHours}h
+                Sized to their request · <strong className="text-ink/75">{requestedPax} pax at inquiry</strong> · {requestedHours}h
+                {livePax != null && livePax !== requestedPax ? (
+                  <> · their plan now says {livePax}</>
+                ) : null}
               </>
             ) : (
               <>
-                Quoting <strong className="text-ink/75">{pax} pax · {hours}h</strong> — request was {requestedPax} pax{' '}
+                Quoting <strong className="text-ink/75">{pax} pax · {hours}h</strong> — request was {requestedPax} pax at inquiry
+                {livePax != null && livePax !== requestedPax ? <> · their plan now says {livePax}</> : null}{' '}
                 <button
                   type="button"
                   onClick={resetToRequest}

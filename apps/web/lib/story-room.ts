@@ -193,9 +193,10 @@ export type TableHeat = {
 /**
  * The fewest photographs a table may show a reader anything for.
  *
- * ⚖ OWNER RULING 2026-09-09 (put to him by the Story Maker session, S6, and
- * relayed here — surfaced to him again from this side rather than taken as
- * settled). He was asked whether a table with one or two photographs should
+ * ⚖ OWNER RULING 2026-09-09. Put to him by the Story Maker session (S6),
+ * relayed here, and then **CONFIRMED DIRECTLY BY HIM TO THIS SESSION** —
+ * *"yes that's the ruling"* — so it is no longer second-hand and does not need
+ * re-checking. He was asked whether a table with one or two photographs should
  * show its count at all. He said no, withhold it, and HIS REASON WAS NOT THE
  * ONE HE WAS ASKED ABOUT.
  *
@@ -214,6 +215,8 @@ export type TableHeat = {
  *
  * (It happens to satisfy the privacy question too, which is why one number can
  * serve both. If it is ever raised, raise it for the reason above.)
+ *
+ * 🔑 CONFIRMED AND CLOSED. Do not re-ask it.
  */
 export const SMALL_COUNTS_ARE_A_VERDICT = 3;
 

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { CalendarDays } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -20,6 +21,16 @@ import {
   inquiryCityLabel,
 } from '@/lib/inquiry-customer.server';
 import { buildCustomerEventSummary } from '@/lib/customer-event-summary';
+import {
+  guestCountChip,
+  guestCountLine,
+  type GuestCounts,
+} from '@/lib/guest-count-provenance';
+import {
+  fetchVendorDateDemand,
+  vendorDateDemandLine,
+  vendorDateDemandNote,
+} from '@/lib/vendor-date-demand';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -381,13 +392,54 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       : null;
 
   const headerPax = livePax ?? thread.pax_current;
+
+  /*
+    THE TWO GUEST COUNTS, READ ONCE.
+
+    A thread stores what the couple ASKED with (`pax_at_inquiry`) and what they
+    are planning NOW (live pax). Both are true and they routinely differ. Every
+    surface on this page that shows a headcount takes it from HERE and says
+    which one it is — see lib/guest-count-provenance.ts for why that is a helper
+    rather than four careful edits.
+
+    ⚠ MONEY RIDES ON THE DIFFERENCE. A supplier quotes against one and is paid
+    against the other; the "guest count changed — accept or hold your price"
+    card below exists because of it. The accept card used to render a bare
+    "150 pax" beside a header saying 170.
+  */
+  const guestCounts: GuestCounts = {
+    live: headerPax ?? null,
+    atInquiry: thread.pax_at_inquiry ?? null,
+  };
   // paxProposals depends on livePax, so it's the one query that follows the batch.
-  const paxProposals = await fetchVendorPaxProposals(paxAdmin, {
-    eventId: thread.event_id,
-    vendorProfileId: profile.vendor_profile_id,
-    livePax,
-    paxAtInquiry: thread.pax_at_inquiry,
-  });
+  // The date-demand counts ride alongside it rather than adding a third round
+  // trip: two `head: true` counts, batched, never one per row.
+  const [paxProposals, dateDemand] = await Promise.all([
+    fetchVendorPaxProposals(paxAdmin, {
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+      livePax,
+      paxAtInquiry: thread.pax_at_inquiry,
+    }),
+    /*
+      WHO ELSE WANTS THIS DATE (owner: *"Target date for vendors will show who
+      are also inquiring for that day so they do not need to browse their
+      calendar?"*).
+
+      🔒 COUNTS, NEVER NAMES, AND SUPPLIER SIDE ONLY. See
+      lib/vendor-date-demand.ts — including why the shipped
+      `get_vendor_same_day_bookings` could not answer this (it refuses unless
+      the caller is already BOOKED on the event on screen, which an inquiry by
+      definition is not) and why this is not built on the pipeline-ceiling RPC
+      whose line sits a few rows below.
+    */
+    fetchVendorDateDemand({
+      adminClient: paxAdmin,
+      vendorProfileId: profile.vendor_profile_id,
+      eventDate: event?.event_date ?? null,
+      excludeThreadId: threadId,
+    }),
+  ]);
 
   const peso = (n: number) =>
     `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
@@ -438,10 +490,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           packages={proposalPackages}
         />
     ),
+    /*
+      ⚠ THE QUOTE SEED IS UNCHANGED ON PURPOSE. The builder opens sized to what
+      the couple ASKED for (`pax_at_inquiry`); re-seeding it from the live count
+      would quietly move the number a supplier prices against. What changes is
+      that the builder is now TOLD the live count too, so its header can name
+      BOTH instead of showing one unlabelled figure.
+    */
     'build-quote': (
         <ProposalMaker
           threadId={threadId}
           requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
+          livePax={headerPax ?? null}
           coupleName={coupleLabel}
           packages={proposalPackages}
           paymentMethods={proposalPaymentMethods}
@@ -555,6 +615,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     createdAt: event?.created_at ?? null,
     targetDate: event?.event_date ?? null,
     pax: headerPax ?? null,
+    paxAtInquiry: thread.pax_at_inquiry ?? null,
+    dateDemandNote: vendorDateDemandNote(dateDemand),
     location: inquiryCity,
     lockedVendors: customerPlan.locked,
     totalVendors: customerPlan.total,
@@ -801,12 +863,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           ) : null}
           {/* Live pax — recomputed fresh on view (Phase 5); the count the couple
               is planning for, and the count at first inquiry once it grows. */}
-          {headerPax ? (
+          {guestCountLine(guestCounts) ? (
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
-              Planning for ~{headerPax} guests
-              {thread.pax_at_inquiry && thread.pax_at_inquiry < headerPax
-                ? ` · was ${thread.pax_at_inquiry} at inquiry`
-                : ''}
+              {/* ⚠ THE OLD LINE ONLY NAMED THE INQUIRY COUNT WHEN IT WAS
+                  SMALLER (`pax_at_inquiry < headerPax`). A couple who SHRANK
+                  their guest list therefore saw the second number vanish — the
+                  direction that costs a supplier money, silently. The helper
+                  names it whenever the two differ, either way. */}
+              Planning for {guestCountLine(guestCounts)}
             </p>
           ) : null}
         </div>
@@ -1013,10 +1077,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 </span>
               ) : null}
               {(() => {
-                const pax = thread.pax_at_inquiry ?? thread.pax_current;
-                return pax ? (
+                /* THE CHIP A SUPPLIER ACCEPTS ON. It rendered a bare "150 pax"
+                   while the header above it said "~170 guests" — two numbers,
+                   one screen, and nothing saying which was which. It leads with
+                   the INQUIRY count, because that is the request being accepted,
+                   and it now says so out loud even when there is only one number
+                   to show: a missing label and a missing second number are
+                   indistinguishable to the person reading. */
+                const chip = guestCountChip(guestCounts, 'at_inquiry', { unit: 'pax' });
+                return chip ? (
                   <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
-                    {pax} pax
+                    {chip.label} <i className="not-italic opacity-70">· {chip.basisLabel}</i>
                   </span>
                 ) : null;
               })()}
@@ -1036,6 +1107,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 </span>
               ) : null}
             </div>
+          ) : null}
+          {/*
+            WHO ELSE WANTS THIS DAY — the supplier's own diary, brought to the
+            decision instead of left two screens away. Owner: *"Target date for
+            vendors will show who are also inquiring for that day so they do not
+            need to browse their calendar?"*
+
+            🔒 COUNTS, NEVER NAMES, and never on the couple's side of this
+            thread — see lib/vendor-date-demand.ts and
+            lib/who-else-wants-this-date.test.ts.
+
+            ⚠ "Accepting does not book it" is part of the line, not decoration.
+            Told they already hold a booking that week, a supplier's next
+            thought is whether accepting spends something; it does not.
+          */}
+          {vendorDateDemandLine(dateDemand) ? (
+            <p className="flex items-start gap-1.5 rounded-lg bg-ink/[0.04] px-2.5 py-2 text-xs text-ink/70">
+              <CalendarDays aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" />
+              <span>
+                {vendorDateDemandLine(dateDemand)} Accepting does not book it.
+              </span>
+            </p>
           ) : null}
           {returning ? (
             <p className="text-sm text-ink">

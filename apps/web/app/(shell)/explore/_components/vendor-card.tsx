@@ -530,7 +530,6 @@ export async function VendorCard({
                "Follow Manila Wedding Photographer" instead of leaking
                the real business_name through the follow CTA. */
             vendorName={displayLabel}
-            vendorEmail={vendor.contact_email}
             isAuthenticated={isAuthenticated}
             initialFollowing={isFollowing}
             eventId={eventId}

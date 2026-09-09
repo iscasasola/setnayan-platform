@@ -53,6 +53,8 @@ import { relativeLuminance } from './booth-studio';
 import {
   ACCENT_MIN,
   BODY_MIN,
+  CANDLE,
+  CANDLE_LABEL,
   FADE_BODY_MIN,
   FADE_SOFT_BUDGET,
   MUTED_ALPHA,
@@ -359,6 +361,55 @@ test('no text in the story tree is fainter than the alpha this module corrects f
   assert.ok(
     faintest.alpha >= MUTED_ALPHA,
     `${faintest.file} renders text-ink/${Math.round(faintest.alpha * 100)}, fainter than MUTED_ALPHA (${MUTED_ALPHA}). Either lift the class or lower the constant — as it stands the contrast guard is measuring a composite nobody renders.`,
+  );
+});
+
+test("the loudest table burns the owner's gold, and its number reads on it", () => {
+  /*
+    ⚖ Owner, 2026-09-09: "gold is fine" — the candle is FIXED, not derived from
+    the couple's board. So the two things that must hold are:
+
+      1. the number on a gold table is readable ON THE GOLD (it follows the
+         candle, not the stage), and
+      2. the rim is corrected per stage, because the fixed gold is nearly
+         invisible as an edge on the light grounds — measured at ~1.5–2.2:1.
+
+    Without (2) the ruling would have quietly cost the plan its legibility on
+    every daylight stage, which is the trade nobody chose.
+  */
+  const onGold = contrastRatio(CANDLE_LABEL, CANDLE);
+  assert.ok(
+    onGold >= ACCENT_MIN,
+    `the table number ${describe(CANDLE_LABEL)} on the candle ${describe(CANDLE)} is ${onGold.toFixed(2)}:1`,
+  );
+  // The mistake this guards against: white, which looks obvious and is not.
+  assert.ok(
+    contrastRatio([255, 255, 255], CANDLE) < ACCENT_MIN,
+    'white on the candle would pass — then this guard is proving nothing',
+  );
+
+  let corrected = 0;
+  for (const set of allStageSets()) {
+    set.stages.forEach((stage, i) => {
+      const vars = paintStage(stage, stage, 0);
+      const candle = rgbOfHex(channelsToHex(vars['--color-candle']))!;
+      const rim = rgbOfHex(channelsToHex(vars['--color-candle-ink']))!;
+      assert.deepEqual(
+        candle,
+        CANDLE,
+        `${set.name} · ${STAGE_NAMES[i]}: the candle moved with the palette — it is fixed`,
+      );
+      const rimRatio = contrastRatio(rim, stage.ground);
+      assert.ok(
+        rimRatio >= ACCENT_MIN,
+        `${set.name} · ${STAGE_NAMES[i]}: the candle's rim ${describe(rim)} is ${rimRatio.toFixed(2)}:1 on ${describe(stage.ground)}`,
+      );
+      if (contrastRatio(CANDLE, stage.ground) < ACCENT_MIN) corrected += 1;
+    });
+  }
+  assert.ok(
+    corrected > 0,
+    'no stage was found where the raw gold falls short — the rim correction is doing nothing',
   );
 });
 

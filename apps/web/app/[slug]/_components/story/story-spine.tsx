@@ -549,8 +549,18 @@ export function StorySpine({
       isFirstPick: v.isFirstPick,
     })),
     films: facts.broadcasts.map((b, i) => {
-      const day = manilaDayOf(new Date(b.liveAtMs).toISOString());
-      const m = manilaMinuteOfDay(new Date(b.liveAtMs).toISOString());
+      /*
+        🪤 `new Date(x).toISOString()` THROWS on a non-finite or out-of-range
+        `x` — `RangeError: Invalid time value` — and this runs on the server, so
+        the cost of one bad row is a 500 on somebody's wedding page rather than
+        a missing line. The loader already refuses a broadcast whose
+        `went_live_at` would not parse, so this cannot fire today; it is one
+        line to keep it that way when a second producer of `broadcasts` turns
+        up. Same shape as the road's own `Number.isFinite` guards above.
+      */
+      const iso = Number.isFinite(b.liveAtMs) ? new Date(b.liveAtMs).toISOString() : null;
+      const day = iso ? manilaDayOf(iso) : null;
+      const m = iso ? manilaMinuteOfDay(iso) : null;
       return {
         title: `Live from ${m == null ? shortDate(day ?? '') : `${formatClock(m).t} ${formatClock(m).ap}`}`,
         stamp: day ? shortDate(day) : `FILM ${i + 1}`,

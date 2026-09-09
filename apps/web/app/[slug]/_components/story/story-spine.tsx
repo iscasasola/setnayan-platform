@@ -496,7 +496,7 @@ export function StorySpine({
         which is the right direction for a page somebody reads end to end.
       */}
       <main className="mx-auto max-w-5xl px-4 sm:px-6 min-[1100px]:max-w-6xl">
-        <div className="min-[1100px]:grid min-[1100px]:grid-cols-[minmax(0,1fr)_320px] min-[1100px]:items-start min-[1100px]:gap-11">
+        <div className="min-[1100px]:grid min-[1100px]:grid-cols-[minmax(0,1fr)_320px] min-[1100px]:gap-11">
           <div className="min-w-0">
             {/* ════ THE ROAD ════ */}
             {roadPlaced.length > 0 ? (

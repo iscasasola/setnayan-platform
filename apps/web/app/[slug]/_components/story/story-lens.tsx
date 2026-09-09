@@ -109,8 +109,20 @@ export function StoryLens({ room, blocks, heat, heatWithheld, openingAtMs }: Sto
   const alsoShooting = tables.filter((t) => t.captures > 0 && t.tableId !== loudestId).length;
 
   return (
-    <aside className="hidden min-[1100px]:block" aria-hidden="true">
-      <div className="sticky top-[7.5rem]">
+    /*
+      THE STICKY IS THE ASIDE ITSELF, WITH `self-start` — the prototype's own
+      `.lens{position:sticky;top:124px;align-self:start}`, ported exactly.
+
+      🔑 IT IS NOT A DETAIL. A sticky element travels inside its CONTAINING
+      BLOCK, and as a grid item that block is the full-height grid AREA while
+      `align-self:start` keeps the box itself only as tall as the card. Wrapping
+      the sticky in an inner div under a stretched aside — the shape this had
+      first — gives the sticky a containing block exactly its own height, so it
+      has nowhere to travel and simply sits at the top of the entries and
+      scrolls away with them.
+    */
+    <aside className="sticky top-[7.5rem] hidden self-start min-[1100px]:block" aria-hidden="true">
+      <div>
         <div className="overflow-hidden rounded-md border border-ink/15">
           <div className="flex items-baseline justify-between gap-3 border-b border-ink/15 px-3 py-2.5">
             <b className="font-condensed text-base font-extrabold uppercase tracking-[0.04em]">

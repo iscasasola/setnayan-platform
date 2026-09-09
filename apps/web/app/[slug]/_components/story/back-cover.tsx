@@ -33,8 +33,17 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
         buy an exemption from the baseline for a page a stranger will read on a
         phone at a reception.
       */}
+      {/*
+        🔴 THIS EYEBROW READ "Previously · No. 1" AND WAS BACKWARDS — my own
+        error, caught by re-reading `08` step 4.3 rather than by any test.
+        "Previously · No. 1" belongs at the TOP of the NEXT edition, pointing
+        BACK at this one ("No. 2 OPENS with it"). Printed here it sat above an
+        announcement of what comes NEXT and pointed at the story the reader is
+        already inside. The back cover looks FORWARD; the pointer back is S15's
+        (08 step 4.3), on the masthead of No. 2.
+      */}
       <p className="font-mono text-xs uppercase tracking-[0.32em] text-ink/50">
-        Previously · No. 1
+        What comes next
       </p>
 
       <h2 className="mt-3 font-display text-2xl italic tracking-tight text-ink sm:text-3xl">

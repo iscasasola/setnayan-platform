@@ -322,7 +322,7 @@ export function StoryClock({
               <b className="whitespace-nowrap font-condensed text-2xl font-extrabold leading-none tabular-nums tracking-tight sm:text-3xl">
                 {now.stamp}
                 {now.suffix ? (
-                  <small className="ml-1 text-xs font-bold tracking-wider text-ink/55">
+                  <small className="ml-1 text-xs font-bold tracking-wider text-ink/60">
                     {now.suffix}
                   </small>
                 ) : null}
@@ -444,10 +444,10 @@ export function StoryClock({
                   key={i}
                   className={
                     l.kind === 'segment'
-                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/55'
+                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/60'
                       : l.kind === 'mark'
-                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/55 sm:block'
-                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/55'
+                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/60 sm:block'
+                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/60'
                   }
                   style={{ left: percentOf(l.x) }}
                 >

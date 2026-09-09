@@ -364,7 +364,7 @@ export function StorySpine({
             {monogram}
             <span className="font-mono text-xs font-bold uppercase tracking-[0.24em]">
               Setnayan
-              <small className="mt-0.5 block text-xs font-medium tracking-[0.14em] text-ink/55">
+              <small className="mt-0.5 block text-xs font-medium tracking-[0.14em] text-ink/60">
                 {mastheadEdition(data.eventDate, data.editionNo, data.published)}
               </small>
             </span>
@@ -387,7 +387,7 @@ export function StorySpine({
 
         <div className="mt-6">
           {data.eventDateFormatted ? (
-            <span className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+            <span className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
               {data.eventDateFormatted}
               {data.venueCity ? ` · ${data.venueCity}` : ''}
             </span>
@@ -407,7 +407,7 @@ export function StorySpine({
                 <dd className="font-condensed text-3xl font-extrabold leading-none tabular-nums">
                   {f.n == null ? '—' : f.n.toLocaleString('en-PH')}
                 </dd>
-                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
                   {f.label}
                 </dt>
               </div>
@@ -455,7 +455,7 @@ export function StorySpine({
                 note={`${longDate(day.date)}${mins.length ? ' · by the minute' : ''}`}
               />
               {mins.length === 0 ? (
-                <p className="py-6 font-serif text-lg italic text-ink/55">
+                <p className="py-6 font-serif text-lg italic text-ink/60">
                   {guestOpen
                     ? 'No minute of this day has been written up yet.'
                     : `The minutes of this day belong to the people who were there, until the ${words.host} publishes.`}
@@ -504,7 +504,7 @@ function PartHead({ title, note }: { title: string; note: string }): ReactElemen
       <h2 className="font-condensed text-[clamp(1.9rem,6vw,3.25rem)] font-black uppercase leading-[0.9] tracking-tight">
         {title}
       </h2>
-      <span className="pb-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+      <span className="pb-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
         {note}
       </span>
     </div>
@@ -531,12 +531,12 @@ function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
         <span className="font-condensed text-[clamp(2.5rem,9vw,4.5rem)] font-black uppercase leading-[0.82] tabular-nums tracking-tighter">
           {fact.stamp}
           {fact.stampSuffix ? (
-            <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/55">
+            <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/60">
               {fact.stampSuffix}
             </small>
           ) : null}
         </span>
-        <span className="pb-1.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+        <span className="pb-1.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
           {fact.kicker}
         </span>
       </div>
@@ -560,7 +560,7 @@ function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
  */
 function Gap({ text, blocks }: { text: string; blocks: string | null }): ReactElement {
   return (
-    <div aria-hidden className="flex items-center gap-3 py-2 text-ink/55">
+    <div aria-hidden className="flex items-center gap-3 py-2 text-ink/60">
       <span className="h-px flex-1 bg-ink/15" />
       <span className="text-center font-mono text-xs font-semibold uppercase tracking-[0.12em]">
         <b className="mr-2 font-condensed text-[15px] tracking-wide text-ink">{text}</b>
@@ -638,12 +638,12 @@ function MinuteEntry({
             correct time. It is never a placeholder waiting to be filled in.
           */}
           <span data-story-countup>{clock.t}</span>
-          <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/55">
+          <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/60">
             {clock.ap}
           </small>
         </span>
         {block?.location || block?.label ? (
-          <span className="pb-2 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+          <span className="pb-2 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
             {block.location ?? block.label}
           </span>
         ) : null}
@@ -672,7 +672,7 @@ function MinuteEntry({
               {said.map((q, i) => (
                 <p key={i} className="font-serif text-[17px] italic leading-snug">
                   {q.body}
-                  <small className="mt-1 block font-mono text-xs font-semibold uppercase not-italic tracking-[0.12em] text-ink/55">
+                  <small className="mt-1 block font-mono text-xs font-semibold uppercase not-italic tracking-[0.12em] text-ink/60">
                     {q.author ? <b className="text-terracotta-700">{q.author}</b> : 'A guest'}
                     {q.role ? ` · ${q.role}` : ''} · Kwento
                     {q.author ? ' · asked to be named' : ' · chose not to be named'}
@@ -690,7 +690,7 @@ function MinuteEntry({
                 <li key={i} className="w-[9.5rem] flex-none">
                   <p className="font-serif text-[15px] leading-snug">{a.prompt}</p>
                   {a.byline ? (
-                    <small className="mt-1 block font-mono text-xs uppercase tracking-[0.12em] text-ink/55">
+                    <small className="mt-1 block font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
                       {a.byline}
                     </small>
                   ) : null}
@@ -747,7 +747,7 @@ function MinuteEntry({
 function Layer({ name, children }: { name: string; children: ReactNode }): ReactElement {
   return (
     <div className="grid grid-cols-[5.75rem_1fr] gap-3 border-b border-ink/10 py-3">
-      <span className="pt-0.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
+      <span className="pt-0.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
         {name}
       </span>
       <div className="min-w-0">{children}</div>

@@ -11,6 +11,8 @@
 // preserved by merging rather than replacing.
 
 import { revalidatePath } from 'next/cache';
+
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { after } from 'next/server';
 import {
   storyAudienceOf,
@@ -589,42 +591,60 @@ export async function saveEditorial(
       .eq('event_id', eventId);
   }
 
-  const { data: ev } = await admin
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-
   revalidatePath(`/dashboard/${eventId}/story`);
   revalidatePath(`/dashboard/${eventId}/website`);
-  if (ev?.slug) {
-    /*
-      🔑 GOING BACK TO GUESTS-ONLY HAS TO ACTUALLY TAKE THE PAGE BACK FROM A
-      STRANGER, AND `/${slug}` ALONE DID NOT DO IT. `/[slug]/print` is its own
-      cached route (`revalidate = 300`) and it asks `storyAudienceAdmits` — so a
-      host who narrowed the audience stayed readable there for up to five
-      minutes, on the one surface a stranger can keep.
 
-      🔴 CORRECTED BEFORE MERGE — I FIRST WROTE THAT THE RECAP WAS THE SAME CASE.
-      IT IS NOT. `/[slug]/recap` is the Auto-Recap, a DIFFERENT keepsake with its
-      own switch (`event_recaps.status`), and it does not read `event_editorial`
-      at all — measured, 0 references in both `recap/page.tsx` and
-      `lib/auto-recap.ts`. Narrowing the story's audience changes nothing there.
-      It is revalidated anyway because `04` §3 names it in the withdrawal set and
-      it does render guest photos and Kwentos, so it is cheap insurance — but
-      **print is the load-bearing one here, and the claim that the recap leaked a
-      narrowed story was mine and was wrong.**
+  /*
+    ══ EVERY PUBLIC COPY OF THE STORY, THROWN AWAY TOGETHER ══════════════════
 
-      ⏭ THIS IS THE AUDIENCE CHANGE ONLY. The full revalidation set on a GUEST's
-      consent write — the one a withdrawal needs, plus the OG card and the
-      version stamp — is `04` §3 / Q6, ruled and assigned to S14. Doing half of
-      it here under its name would leave the next session believing the whole
-      thing had shipped.
-    */
-    revalidatePath(`/${ev.slug}`);
-    revalidatePath(`/${ev.slug}/recap`);
-    revalidatePath(`/${ev.slug}/print`);
-  }
+    🔑 GOING BACK DOWN THE LADDER HAS TO ACTUALLY TAKE THE PAGE BACK FROM A
+    STRANGER, AND `/${slug}` ALONE DID NOT DO IT. `/[slug]/print` is its own
+    cached route (`revalidate = 300`) and it asks `storyAudienceAdmits` — so a
+    host who narrowed the audience stayed readable there for up to five minutes,
+    on the one surface a stranger can keep. That fix shipped with S8 as three
+    spelled-out paths.
+
+    ⏭ S14 SHIPPED THE REST OF IT, AND THIS NOW CALLS THE ONE LIST. The share
+    card was the surface S8 could not reach: its `Cache-Control` is honoured by
+    browsers, the CDN and every platform that already fetched it, and nothing on
+    the server can revalidate that. `everyCopyIsNowStale` stamps
+    `story_version_at`, which MOVES the card's URL — the only bust a URL-keyed
+    cache has — and then throws away the story, the recap, the keepsake and the
+    nested account URL if the cutover flag is ever turned on.
+
+    🔑 IT IS THE SAME CALL A GUEST'S WITHDRAWAL MAKES, deliberately. A host
+    taking a story back and a guest taking their photograph out of it are the
+    same event from a reader's side, and one list is the only way the next
+    surface cannot be forgotten by whichever of the two is written first.
+
+    🔴 A CLAIM THIS COMMENT USED TO MAKE ABOUT THE RECAP IS FALSE, AND THE WAY
+    IT WENT WRONG IS WORTH MORE THAN THE FIX. It read: *"it does not read
+    `event_editorial` at all — measured, 0 references in `recap/page.tsx` and
+    `lib/auto-recap.ts`."*
+
+    **THE NUMBER IS RIGHT AND THE SENTENCE IS WRONG.** Re-measured on
+    `origin/main`: both files do contain 0 occurrences of the string
+    `event_editorial` — and `lib/auto-recap.ts` calls `loadEditorialData` at TWO
+    call sites (lines 201 and 347), which reads `event_editorial` itself
+    (`editorial/data.ts`, the `.select('status, draft_json, …')`). **The recap
+    reads the story's row; it just does it one hop away, where a grep for the
+    table name cannot see it.** Correct fact, invented consequence — the same
+    shape as the migration-prefix belief this repo killed twice.
+
+    ⚖ WHAT SURVIVES, and it is what the original reasoning actually needed:
+    `lib/auto-recap.ts` has **0** references to `audience`, so narrowing the
+    story's audience genuinely does NOT hide the recap — the Auto-Recap is its
+    own keepsake with its own switch (`event_recaps.status`). That conclusion is
+    sound. It just had to be measured on the word `audience`, not on the name of
+    a table.
+
+    🔑 AND THE HALF THAT WAS WRONG IS THE HALF THIS SESSION TURNS ON: a guest's
+    WITHDRAWAL absolutely reaches the recap. `loadEditorialData` applies the
+    consent veto to the very hero the recap leads with — `!consentVeto.ids.has(
+    heroPhotoId)`, under a docblock that says consent wins over curation — so the
+    recap belongs in the list for a reason far stronger than "cheap insurance".
+  */
+  await everyCopyIsNowStale(eventId);
 
   // Fire quality scan in the background after the response is sent.
   // Only triggers when the editorial is in the default 'pending' state

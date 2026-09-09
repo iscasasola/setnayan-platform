@@ -10,6 +10,7 @@ import {
   faceVectorForMode,
 } from '@/lib/papic-face-mode';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 
 // Day-of / camera face enrollment — the "register your face if you haven't yet"
 // path for a guest who SKIPPED the optional RSVP selfie. Same write as the RSVP
@@ -236,6 +237,17 @@ export async function enrollGuestFace(
         };
       }),
     );
+
+    /*
+      🔑 A CONSENT WRITE IN THE OTHER DIRECTION, AND IT MOVES THE SAME PAGES.
+      Enrolling sets `photo_consent = true` on this guest a few lines above, and
+      the story's veto is built from guests who opted OUT — so this LIFTS a veto:
+      photographs of this person that the story was withholding may now be shown.
+      A change that makes more of a celebration public is exactly as urgent to
+      publish as one that makes less, so it goes through the same one list rather
+      than waiting for a cache to expire.
+    */
+    if (!error) await everyCopyIsNowStale(eventId);
 
     return { ok: !error };
   } catch {

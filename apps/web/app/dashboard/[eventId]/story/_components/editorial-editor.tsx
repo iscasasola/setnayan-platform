@@ -37,8 +37,8 @@ import {
 } from '@/app/[slug]/_components/editorial/editorial-order';
 import {
   STORY_AUDIENCES,
-  STORY_AUDIENCE_LABEL,
   STORY_AUDIENCE_NOTE,
+  STORY_AUDIENCE_SAVED,
   storyIsShared,
   type StoryAudience,
 } from '@/lib/who-can-see-your-story';
@@ -48,6 +48,7 @@ import {
   mayChooseAudience,
   publishBlockers,
   publishBlockerSentence,
+  rungIsOffered,
   PUBLISH_CONSENT_FINE_PRINT,
   PUBLISH_CONSENT_SENTENCE,
   PUBLISH_PANEL_INTRO,
@@ -267,6 +268,7 @@ export function EditorialEditor({
   deskClear = false,
   deskOpenCount = 0,
   deskPercentDecided = 0,
+  hasBeenPublished = false,
   publishConsentAt = null,
   cover = null,
   whatsNext = null,
@@ -331,6 +333,19 @@ export function EditorialEditor({
   /** The desk's own meter, repeated where publishing is refused. */
   deskPercentDecided?: number;
   /** `event_editorial.publish_consent_at` — when the host agreed, or null. */
+  /**
+   * Has this story ever actually been public? Decides whether the fourth rung —
+   * "Taken back" — is offered at all. Read from the stamped edition number on
+   * the desk page, because that is the only fact on the row the database will
+   * not let move.
+   *
+   * ⚠ DELIBERATELY ABOVE `publishConsentAt`, NOT BELOW IT. S7 is adding `cover`
+   * and `whatsNext` immediately after that line in a branch of its own, and the
+   * slot directly under it is the natural place for both of us to reach for.
+   * Two sessions appending to the same line is a conflict neither of us learns
+   * anything from.
+   */
+  hasBeenPublished?: boolean;
   publishConsentAt?: string | null;
   /**
    * THE COVER AND WHAT'S NEXT (08 steps 1.5 + 1.7). Both are resolved on the
@@ -587,6 +602,13 @@ export function EditorialEditor({
     consented: consentTicked,
   };
   const blockers = publishBlockers(publishFacts);
+  /*
+    Which rungs this ladder shows. Filtered and mapped through the SAME pure
+    rule, so the count that sizes the grid and the buttons that are drawn can
+    never disagree about how many there are.
+  */
+  const rungFacts = { hasBeenPublished, current: form.audience };
+  const rungsOffered = STORY_AUDIENCES.filter((c) => rungIsOffered(c, rungFacts));
 
   const persist = async (next: StoryAudience): Promise<boolean> => {
     setPhase('saving');
@@ -1417,8 +1439,21 @@ export function EditorialEditor({
           {PUBLISH_PANEL_INTRO}
         </p>
 
-        <div className="mt-4 grid gap-2.5 md:grid-cols-3">
+        {/*
+          THE FOURTH RUNG IS NOT ALWAYS ONE. "Taken back" appears only for a
+          story that has actually been published (`rungIsOffered`) — a story that
+          never left this desk has nothing to take back, and pressing it would
+          record that it had once been public. The grid widens to four only when
+          there are four; the three-up layout the prototype draws is untouched
+          for every story that has not published yet.
+        */}
+        <div
+          className={`mt-4 grid gap-2.5 ${
+            rungsOffered.length > 3 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'
+          }`}
+        >
           {STORY_AUDIENCES.map((choice) => {
+            if (!rungIsOffered(choice, rungFacts)) return null;
             const chosen = form.audience === choice;
             const allowed = mayChooseAudience(choice, publishFacts);
             return (
@@ -1535,7 +1570,7 @@ export function EditorialEditor({
           <span>
             {phase === 'done' ? (
               <span className="font-medium text-green-700">
-                Saved · {STORY_AUDIENCE_LABEL[form.audience].toLowerCase()} can read it.
+                {STORY_AUDIENCE_SAVED[form.audience]}
               </span>
             ) : phase === 'error' ? (
               <span className="font-medium text-red-700">{error ?? 'Could not save.'}</span>

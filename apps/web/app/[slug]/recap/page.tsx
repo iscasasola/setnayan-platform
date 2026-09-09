@@ -22,6 +22,8 @@ import {
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from './_components/save-story-card-button';
+import { recapCardUrlFor } from '@/lib/a-withdrawal-reaches-every-copy';
+import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
 
 /**
  * GET /[slug]/recap — the public Auto-Recap "living recap" (Living Memories
@@ -174,9 +176,28 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const mono = await resolveEventMonogram(createAdminClient(), event.event_id, event);
 
   const shareUrl = `${SITE_URL}/${event.slug}/recap`;
-  const shareImage = `${SITE_URL}/api/og/recap/${event.slug}`;
+  /*
+    ══ THE RECAP'S CARD MOVES WITH THE STORY (S14 · `04` §3 · `07` Q6) ════════
+
+    🔑 THERE ARE TWO SHARE CARDS, NOT ONE, and `04` §3's phrase "the OG card"
+    reads as one. This card renders `loadRecapCardData`'s hero, which comes from
+    `loadEditorialData` and can therefore BE A GUEST'S PHOTOGRAPH — and it
+    carries the same `max-age=3600, stale-while-revalidate=86400` that no
+    `revalidatePath` can reach. Fixing the story's card and not this one would
+    have been a fix that looks complete and is not.
+
+    ⚠ AND THE STORY-SIZED ASSET APPENDS ITS OWN PARAMETER, which is why the
+    join is written out rather than a second `?`. A versioned base already
+    carries a query string, and `…?v=123?format=story` is not a URL — it would
+    have silently served the 1200×630 unfurl card as the 9:16 asset.
+  */
+  const shareImage = recapCardUrlFor(
+    SITE_URL,
+    event.slug,
+    await readStoryVersionAt(event.event_id),
+  );
   // 1080×1920 story-sized file-asset — the IG/TikTok/Stories share path.
-  const storyCardUrl = `${shareImage}?format=story`;
+  const storyCardUrl = `${shareImage}${shareImage.includes('?') ? '&' : '?'}format=story`;
   const storyFilename = `${event.slug}-recap`;
 
   return (

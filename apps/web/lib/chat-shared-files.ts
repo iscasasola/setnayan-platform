@@ -37,20 +37,17 @@
  * who has the string, with no check that the reader is still a party to the
  * thread.
  *
- * ⚠ AND IT IS DELIBERATELY A ONE-LINE BODY TODAY. On this branch the shipped
- * column is `attachment_url` — the legacy public URL, which is also exactly
- * what the chat bubble itself renders (`AttachmentBlock` in
- * `app/_components/chat-message-stream.tsx`). PR #5339 ("a file shared in a
- * conversation is private, and small") moves the bytes to private storage
- * behind `/api/chat/attachment/<message_id>`, a route that re-proves the caller
- * is a party to that thread on EVERY request and then redirects to a
- * short-lived signed URL. That PR is OPEN and RED at the time of writing, so
- * neither the private column nor the route exists here yet.
+ * ✅ RESOLVED 2026-09-09. PR #5339 landed: `chat_messages.attachment_r2_key`
+ * holds a PRIVATE stored ref, `attachment_url` is legacy with no writer, and
+ * `/api/chat/attachment/<message_id>` re-proves thread membership on every
+ * request before redirecting to a short-lived signed GET. This function now
+ * returns that route, which is exactly the migration its previous note
+ * promised — and because every caller goes through here, the supplier's Files
+ * tab and the conversation's Files view both moved without being touched.
  *
- * 🔑 WHEN #5339 LANDS, THIS FUNCTION IS THE WHOLE MIGRATION FOR THIS SURFACE —
- * its body becomes `/api/chat/attachment/${row.message_id}` and every caller
- * follows without being touched. Which is the reason it exists as a function at
- * all rather than as a field read at four render sites.
+ * ⚠ #5339 shipped the route and the column but did NOT update this function,
+ * so between that merge and this change `chatAttachmentHref` returned
+ * `attachment_url` — now always NULL — and every file listed as unopenable.
  */
 
 /**
@@ -96,6 +93,12 @@ export type ChatFileInput = {
   attachment_name: string | null;
   attachment_mime: string | null;
   attachment_size_bytes: number | null;
+  /**
+   * The private stored-asset ref (`r2://…`), written since 2026-09-09. Optional
+   * only so a checkout without migration `20271215223903` still type-checks.
+   */
+  attachment_r2_key?: string | null;
+  /** LEGACY public URL. Nothing writes it; kept so old rows keep a reference. */
   attachment_url?: string | null;
 };
 
@@ -124,7 +127,17 @@ export type SharedFileEntry = {
  * changing this, and change it here rather than at any call site.
  */
 export function chatAttachmentHref(row: ChatFileInput): string | null {
-  return row.attachment_url ?? null;
+  // Nothing here is a stored reference and nothing is public. The route proves
+  // the caller is still a party to this thread on EVERY request and then
+  // redirects to a short-lived signed GET.
+  //
+  // Both columns are checked because they answer the same question — "is there
+  // a file on this message?" — and only differ in era: `attachment_r2_key` is
+  // what writers set since 2026-09-09, `attachment_url` is the legacy public
+  // URL that nothing writes any more. A legacy row is still fetched THROUGH
+  // the route, never by handing its old public URL back out.
+  if (!row.attachment_r2_key && !row.attachment_url) return null;
+  return `/api/chat/attachment/${row.message_id}`;
 }
 
 /**

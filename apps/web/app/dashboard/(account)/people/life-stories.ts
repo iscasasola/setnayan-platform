@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -173,6 +175,16 @@ export async function optOutOfEventStory(eventId: string): Promise<ActionResult>
     .is('removed_at', null);
   if (error) return { ok: false, error: 'Couldn’t update your preference.' };
   revalidatePath('/dashboard/people');
+  /*
+    🔴 THE STRONGEST WITHDRAWAL IN THE PRODUCT REACHED ONE HOST SCREEN. This
+    action is the RA 10173 opt-out — "remove me from this event's story
+    entirely" — and it revalidated `/dashboard/people`, which is the person's own
+    account page. The celebration's public story, its recap, its printable
+    keepsake and its share card all carried on serving the old answer until
+    whichever cache expired first. Same defect as the guest form and the "Not
+    me" button (`04` §3); it is fixed the same way, through the one list.
+  */
+  await everyCopyIsNowStale(eventId);
   return { ok: true };
 }
 

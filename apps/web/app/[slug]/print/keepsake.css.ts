@@ -474,6 +474,21 @@ export const KEEPSAKE_CSS = `
   line-height: 1.25;
   margin: 0;
 }
+/*
+  The version stamp. Design 07 Q6 (ruled 2026-09-09): a printed copy must be able to
+  say which edition it is. 9pt is bigger than the brand mark below it on purpose
+  — this is a sentence a reader is meant to READ when they wonder whether the
+  paper is still right, not a mark they are meant to ignore. Sized in points
+  because the whole keepsake is: this sheet is never a screen, so the 12px
+  on-screen legibility floor is not the measure here.
+*/
+.k-colophon-stamp {
+  font-family: var(--k-body);
+  font-size: 9pt;
+  line-height: 1.35;
+  color: rgba(var(--color-ink), 0.75);
+  margin: 2mm 0 0;
+}
 .k-colophon-url {
   font-family: var(--k-mono);
   text-transform: uppercase;

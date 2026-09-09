@@ -105,15 +105,38 @@ export function ogCardVersionToken(storyVersionAt: string | null | undefined): s
   return String(Math.floor(ms / 1000));
 }
 
-/** The share-card URL for a story, versioned when we know its version. */
+/** Append the version to a card address, when we know one. */
+function withVersion(base: string, storyVersionAt: string | null | undefined): string {
+  const token = ogCardVersionToken(storyVersionAt);
+  return token ? `${base}?v=${token}` : base;
+}
+
+/** The story's share card. */
 export function ogCardUrlFor(
   siteUrl: string,
   slug: string,
   storyVersionAt: string | null | undefined,
 ): string {
-  const base = `${siteUrl}/api/og/realstory-slug/${slug}`;
-  const token = ogCardVersionToken(storyVersionAt);
-  return token ? `${base}?v=${token}` : base;
+  return withVersion(`${siteUrl}/api/og/realstory-slug/${slug}`, storyVersionAt);
+}
+
+/**
+ * The AUTO-RECAP's share card — a SECOND cached card, and it was nearly missed.
+ *
+ * 🔑 THIS IS THE FIFTH SURFACE, AND IT IS EXACTLY THE SHAPE OF MISS THIS MODULE
+ * EXISTS TO END. `04` §3 names four things — the story, the recap, the print
+ * route, "the OG card" — and "the OG card" reads as one card. There are two.
+ * `/api/og/recap/{slug}` renders `loadRecapCardData`'s `heroUrl`, which comes
+ * from `loadEditorialData` and therefore CAN be a guest's photograph, and it
+ * carries the same hour-long `Cache-Control` nothing on the server can reach.
+ * Fixing four of five would have been a fix that looks complete and is not.
+ */
+export function recapCardUrlFor(
+  siteUrl: string,
+  slug: string,
+  storyVersionAt: string | null | undefined,
+): string {
+  return withVersion(`${siteUrl}/api/og/recap/${slug}`, storyVersionAt);
 }
 
 /* ─── What a printed copy says ──────────────────────────────────────────────

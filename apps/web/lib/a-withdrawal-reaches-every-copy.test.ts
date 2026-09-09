@@ -32,6 +32,7 @@ import { stripComments } from './strip-comments';
 import {
   storySurfacesFor,
   ogCardUrlFor,
+  recapCardUrlFor,
   ogCardVersionToken,
   printedStampLine,
   PRINTED_STAMP_LEAD,
@@ -91,6 +92,46 @@ test('no version degrades to the unversioned address rather than inventing one',
   );
   assert.equal(ogCardVersionToken('not a date'), null);
   assert.equal(ogCardVersionToken(null), null);
+});
+
+test('BOTH share cards move — the story’s and the recap’s', () => {
+  /*
+    🔑 `04` §3 says "the OG card" and there are TWO. The recap's card renders a
+    hero that comes through `loadEditorialData`, so it can be a guest's
+    photograph, and it carries the same hour-long Cache-Control. A fix applied
+    to one of them is not a fix.
+  */
+  const site = 'https://www.setnayan.com';
+  const v = '2026-09-09T10:00:05.214Z';
+  assert.ok(ogCardUrlFor(site, 'movie-night', v).includes('?v='));
+  assert.ok(recapCardUrlFor(site, 'movie-night', v).includes('?v='));
+  assert.notEqual(
+    recapCardUrlFor(site, 'movie-night', v),
+    recapCardUrlFor(site, 'movie-night', '2026-09-09T10:00:06.214Z'),
+  );
+  assert.equal(
+    recapCardUrlFor(site, 'movie-night', null),
+    `${site}/api/og/recap/movie-night`,
+  );
+});
+
+test('the 9:16 recap asset stays a URL once the card is versioned', () => {
+  /*
+    🔴 THE OBVIOUS WRITING OF THIS BREAKS THE FILE-ASSET. The recap page builds
+    its story-sized card as `${shareImage}?format=story`; a versioned base
+    already carries a query, so a second `?` yields `…?v=123?format=story`,
+    which is not a URL — the 9:16 asset would have silently come back as the
+    1200×630 unfurl card, and nobody would have seen an error.
+  */
+  const site = 'https://www.setnayan.com';
+  for (const version of ['2026-09-09T10:00:05.214Z', null]) {
+    const base = recapCardUrlFor(site, 'movie-night', version);
+    const asset = `${base}${base.includes('?') ? '&' : '?'}format=story`;
+    const parsed = new URL(asset);
+    assert.equal(parsed.searchParams.get('format'), 'story', `format lost in: ${asset}`);
+    assert.ok(!asset.includes('?v=') || parsed.searchParams.get('v'), `version lost in: ${asset}`);
+    assert.equal((asset.match(/\?/g) ?? []).length, 1, `two question marks in: ${asset}`);
+  }
 });
 
 /* ─── 3 · what a printed copy says ────────────────────────────────────────── */

@@ -221,6 +221,38 @@ async function resolveCaptureCover(
     if (!original) return null;
 
     const veto = await loadConsentVetoedPapicIds(admin, eventId);
+
+    /*
+      ⚖ A VETOED CAPTURE IS DROPPED HERE, NEVER SOFTENED — and this is the ONE
+      place in this module that does not simply delegate to the gate.
+
+      `publicKeyForCapture` is monotone and correct, but it implements the
+      2026-08-17 blur ruling: a vetoed capture with a baked all-faces-blurred
+      stand-in resolves to the STAND-IN rather than to nothing. That ruling
+      exists so a group photograph is not DELETED — it still appears, blurred,
+      in the gallery and the timeline.
+
+      🔑 THE LEAD IMAGE IS THE ONE SITE THE OWNER EXEMPTED, and a cover is a lead
+      image on three surfaces at once. `data.ts`'s hero rung keeps the old drop
+      for exactly this reason, in its own words: *"the hero is a single curated
+      lead image, and an all-faces-blurred photograph is not a thing to open a
+      wedding recap with. Softening here would gain no photo — it would only
+      make the front door worse."*
+
+      🔴 THIS WAS A REAL DEFECT, CAUGHT IN REVIEW BEFORE MERGE. Delegating to
+      the gate here read as the careful choice — it is the gate `04` rule 6
+      names — but it would have made the three surfaces DISAGREE ABOUT ONE
+      PHOTOGRAPH: the story's own top would drop it (that path goes through the
+      hero rung) while the shelf card and the share card published it blurred.
+      An inconsistency is worse than either answer alone, and the blurred half
+      was the one the owner had already ruled out.
+
+      ⚠ SO THE VETO IS CONSULTED, NOT THE SOFTENER. `publicKeyForCapture` still
+      guards the not-vetoed path below, so a change to what "vetoed" MEANS
+      reaches this file for free; only the softening is refused.
+    */
+    if (veto.failed || veto.ids.has(photoId)) return null;
+
     const shown = publicKeyForCapture(veto, photoId, original);
     return shown ? { kind: 'capture', key: shown } : null;
   } catch {

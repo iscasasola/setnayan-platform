@@ -30,6 +30,21 @@ The host chooses the one picture their story is known by, and — only if they w
 - a refused draft read treated as an empty draft (1→0) → 11 pass / 1 fail
 - the pairing CHECK removed from the migration (1→0) → 8 pass → 0 pass / 8 fail
 - the cover resolved to a presign instead of the stable streaming URL (1→0) → 6 pass → 5 pass / 1 fail
+- the vetoed-capture DROP replaced by the blur ruling's softening (1→0) → 9 pass → 8 pass / 1 fail
+
+🔴 **A SECOND REAL DEFECT, CAUGHT IN CROSS-SESSION REVIEW BEFORE MERGE — and my guard for it was
+decoration.** `resolveStoryCover` delegated the capture arm to `publicKeyForCapture`, which
+implements the 2026-08-17 blur ruling: a vetoed capture with a baked stand-in resolves to the
+BLURRED COPY. That ruling deliberately **exempts the lead image** — `data.ts`'s hero rung keeps the
+old drop because *"an all-faces-blurred photograph is not a thing to open a wedding recap with"* —
+and a cover is a lead image on three surfaces at once. Worse, the story's own top goes through that
+hero rung, so the surfaces would have **disagreed about one photograph**: dropped at the top of the
+story, published blurred on the shelf card and the share card. The cover now drops, consulting the
+veto without the softener (so a change to what *vetoed* means still reaches this file for free).
+🪤 **My existing vetoed-capture test seeded NO baked stand-in, so it passed whether the code dropped
+or softened** — it was green for the only case that mattered. The discriminating arm (vetoed **and**
+a bake exists) is added, and sabotaging the drop back to the shipped behaviour takes it 9 pass →
+8 pass / 1 fail.
 
 🔴 **AND THE FULL SUITE CAUGHT A REAL DEFECT OF MINE — 14,225 tests, one red.** The cover was first
 resolved straight to a presigned display URL, which `the-invitation-is-not-our-billboard.test.ts`

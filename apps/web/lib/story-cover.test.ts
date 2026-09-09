@@ -222,6 +222,38 @@ test('6b · a qualifying capture is the cover; a vetoed one is not', async () =>
     );
   }
 
+  /*
+    ⚖ VETOED **AND A BLURRED STAND-IN EXISTS** → STILL NOTHING. This is the arm
+    that discriminates, and the one my first cut got wrong.
+
+    `publicKeyForCapture` implements the 2026-08-17 blur ruling and would hand
+    back the stand-in here. That ruling exempts the LEAD image — `data.ts`'s
+    hero rung keeps the old drop because "an all-faces-blurred photograph is not
+    a thing to open a wedding recap with" — and a cover is a lead image on three
+    surfaces at once.
+
+    🔴 WITHOUT THIS ARM THE GUARD WAS DECORATION FOR THE ONLY CASE THAT MATTERS:
+    the existing vetoed test seeded NO bake, so it passed whether the code
+    dropped or softened. A blurred face would have reached the shelf card and
+    the share card while the story's own top refused it.
+  */
+  {
+    const { client: db } = client({
+      papic_photos: {
+        row: photo,
+        list: [{ photo_id: 'p1', safe_display_r2_key: 'r2://p1-blurred.jpg' }],
+      },
+      guests: { list: [{ guest_id: 'g1' }] },
+      photo_tags: { list: [{ source_id: 'p1' }] },
+    });
+    assert.equal(
+      await resolveStoryCover(db, 'e1', { story_cover_kind: 'capture', story_cover_ref: 'p1' }),
+      null,
+      'a vetoed capture was published as an all-faces-blurred COVER — the lead ' +
+        'image is the one site the 2026-08-17 blur ruling exempts',
+    );
+  }
+
   // The veto itself could not be resolved → withhold. A refused veto is not an
   // empty veto.
   {

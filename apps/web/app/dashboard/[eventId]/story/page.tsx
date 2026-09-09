@@ -39,7 +39,15 @@ import { nextCandidates, sanitizeNextAnnouncement, type NextTypeOption } from '@
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 
-type LandingVisibility = 'public' | 'unlisted' | 'private';
+/**
+ * How the celebration's own page is published.
+ *
+ * ⚠ `invited_accounts` is a REAL fourth state (the privacy screen's "tagged
+ * accounts only") and it is in the database's own CHECK constraint. This union
+ * omitted it, so the cast below silently relabelled it — and the Stories
+ * caveat downstream told the host their page was "Private" when it was not.
+ */
+type LandingVisibility = 'public' | 'unlisted' | 'invited_accounts' | 'private';
 
 /**
  * Consolidated editorial editor (iteration 0046). One page where the couple
@@ -567,7 +575,7 @@ export default async function EditorialEditorPage({
         shareUrl={shareUrl}
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}
-        isWedding={(event.event_type ?? 'wedding') === 'wedding'}
+        eventType={(event.event_type as string | null) ?? 'wedding'}
         boardColors={boardColors}
         boardThemeName={(event.moodboard_theme_name as string | null) ?? null}
         /*

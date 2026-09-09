@@ -60,7 +60,45 @@ export type RoomTable = {
   shape: 'round' | 'long_banquet' | 'family_head' | 'sweetheart' | 'serpentine';
 };
 
-/** The room, as the story reads it. */
+/**
+ * The room, as the story reads it.
+ *
+ * ── ⏳ IT IS READ LIVE, AND THAT IS A DEFECT WITH A DATE ON IT ─────────────
+ * Raised by the Story Maker session (S6) 2026-09-09 and VERIFIED HERE against
+ * production rather than taken on report:
+ *
+ *   • `event_tables` has NO soft-delete column — measured, 0 of
+ *     `deleted_at` / `archived_at` / `soft_deleted_at`. Every removal is a hard
+ *     delete.
+ *   • `event_seat_assignments` has none either, and the arranger wipes and
+ *     re-solves assignments on every run.
+ *
+ * So a published story's floor plan is not a record of the night — it is a live
+ * view of a working document. The host tidies up after the wedding, re-runs the
+ * seating, or reuses the room for the next event, and **the story silently
+ * redraws itself or empties**. Nobody is told; the page just quietly stops
+ * being true.
+ *
+ * 🔒 THE FIX THE OWNER AGREED TO: FREEZE THE ROOM AT PUBLISH — write the labels,
+ * the positions, the shapes and the per-table counts into the story at the
+ * moment it is told, and stop reading the live plan from then on. It is the
+ * house pattern already (`moodboard_part_finalizations.design_snapshot`,
+ * `event_renders.design_snapshot` — both verified to exist; ⚠ `03` cites
+ * `event_moodboard_saves.palette_snapshot` as the precedent and THAT TABLE DOES
+ * NOT EXIST in production).
+ *
+ * ⛔ IT IS DELIBERATELY NOT DONE HERE, and the reason is scope, not doubt.
+ * Freezing needs a column and a write on the PUBLISH transition — which is the
+ * publish ladder, `08` step 1.6 / S8, unbuilt — and that path is being edited
+ * by S6 right now. Two sessions writing one publish action is how a page ends
+ * up with two opinions about when a story was told.
+ *
+ * 🔑 THE EXPOSURE IS ZERO TODAY AND CHEAP TO CLOSE. Measured 2026-09-09: the one
+ * published story owns no room at all, and production holds 13 tables across 2
+ * events — both drafts. Nothing can silently redraw yet. It becomes real the
+ * first time a story with a room is published, so this belongs in S8's PR, not
+ * after it.
+ */
 export type StoryRoom = {
   /**
    * Does this KIND of day have seating at all?
@@ -152,6 +190,44 @@ export type TableHeat = {
   captures: number;
 };
 
+/**
+ * The fewest photographs a table may show a reader anything for.
+ *
+ * ⚖ OWNER RULING 2026-09-09 (put to him by the Story Maker session, S6, and
+ * relayed here — surfaced to him again from this side rather than taken as
+ * settled). He was asked whether a table with one or two photographs should
+ * show its count at all. He said no, withhold it, and HIS REASON WAS NOT THE
+ * ONE HE WAS ASKED ABOUT.
+ *
+ * It was put to him as privacy — a low count, plus what a guest already knows
+ * about the seating, can point at one person. His answer:
+ *
+ *     "this will subconsciously tell them they did not create enough
+ *      memories for the story"
+ *
+ * 🔑 SO THIS IS NOT A PRIVACY FLOOR. It is the rule that THE STORY NEVER PASSES
+ * JUDGEMENT ON THE DAY IT IS TELLING, and it generalises well past the floor
+ * plan: any small number anywhere in this story reads to the host as a verdict
+ * on their wedding. Treat a withheld small count as the house style, not as a
+ * seating special case. The reason is the load-bearing half and it is the half
+ * that gets lost — which is why it is written here in his words.
+ *
+ * (It happens to satisfy the privacy question too, which is why one number can
+ * serve both. If it is ever raised, raise it for the reason above.)
+ */
+export const SMALL_COUNTS_ARE_A_VERDICT = 3;
+
+/**
+ * The heat a reader may actually be shown — small counts taken out.
+ *
+ * ⚠ TAKEN OUT, NOT ROUNDED DOWN OR SHOWN AS "a few". A table drawn faintly with
+ * its number suppressed still says "this table barely shot anything", which is
+ * the verdict the ruling exists to prevent. It leaves the room entirely.
+ */
+export function heatWorthShowing(heat: readonly TableHeat[]): TableHeat[] {
+  return heat.filter((h) => h.captures >= SMALL_COUNTS_ARE_A_VERDICT);
+}
+
 /** The loudest table of a minute, or null when nothing was shot from a seat. */
 export function loudestTable(heat: readonly TableHeat[]): string | null {
   let best: TableHeat | null = null;
@@ -196,6 +272,12 @@ export function lensNote(args: {
   loudestLabel: string | null;
   /** How many other tables were shooting at this minute. */
   alsoShooting: number;
+  /**
+   * True when photographs came from seats but none of the tables cleared
+   * `SMALL_COUNTS_ARE_A_VERDICT`. Keeps the lens from claiming the room was
+   * empty when it was only quiet.
+   */
+  sawSomething?: boolean;
   /** True when this reader may not have the guests' layer at all. */
   heatWithheld: boolean;
 }): string {
@@ -217,7 +299,17 @@ export function lensNote(args: {
         return 'The room, at this minute. Which tables the photographs came from is the guests’ to share, and this story has not been published yet.';
       }
       if (!args.loudestLabel) {
-        return 'The room, at this minute. No photograph of this minute came from a seat.';
+        /*
+          Two different silences, and saying the wrong one is the whole point of
+          the ruling above. `sawSomething` means photographs DID come from
+          seats — there were simply too few for the story to make a claim about
+          which table was loudest. Telling a host "no photograph of this minute
+          came from a seat" when three of them did is both untrue and exactly
+          the verdict they must never be handed.
+        */
+        return args.sawSomething
+          ? 'The room, at this minute.'
+          : 'The room, at this minute. No photograph of this minute came from a seat.';
       }
       return args.alsoShooting > 0
         ? `Most photographs of this minute came from Table ${args.loudestLabel}. ${args.alsoShooting} other ${args.alsoShooting === 1 ? 'table was' : 'tables were'} shooting too.`

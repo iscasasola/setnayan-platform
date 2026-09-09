@@ -24,7 +24,9 @@ import assert from 'node:assert/strict';
 import type { VenueBlock } from './story-spine';
 import {
   EMPTY_ROOM,
+  SMALL_COUNTS_ARE_A_VERDICT,
   heatClassOf,
+  heatWorthShowing,
   lensNote,
   lensStateAt,
   lensStateLabel,
@@ -229,6 +231,89 @@ test('every table is hot, warm or cold, and only one is hot', () => {
   // A table with no row at all is cold, not a crash.
   assert.equal(heatClassOf('t-nobody', heat), 'cold');
   assert.equal(TABLES.filter((t) => heatClassOf(t.id, heat) === 'hot').length, 1);
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE STORY NEVER PASSES JUDGEMENT ON THE DAY IT IS TELLING
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('a table with one or two photographs shows a reader nothing at all', () => {
+  /*
+    ⚖ Owner, 2026-09-09: withhold it — "this will subconsciously tell them they
+    did not create enough memories for the story".
+
+    Checked at the boundary and on both sides of it, not at one sampled value:
+    everything under the floor leaves the room, everything at or over it stays.
+  */
+  const heat = [
+    { tableId: 't1', captures: 1 },
+    { tableId: 't7', captures: 2 },
+    { tableId: 't12', captures: SMALL_COUNTS_ARE_A_VERDICT },
+  ];
+  const shown = heatWorthShowing(heat);
+  assert.deepEqual(
+    shown.map((h) => h.tableId),
+    ['t12'],
+    'only the table that clears the floor may be shown',
+  );
+  for (let n = 0; n < SMALL_COUNTS_ARE_A_VERDICT; n += 1) {
+    assert.deepEqual(
+      heatWorthShowing([{ tableId: 'x', captures: n }]),
+      [],
+      `${n} photographs must show nothing`,
+    );
+  }
+  assert.equal(
+    heatWorthShowing([{ tableId: 'x', captures: SMALL_COUNTS_ARE_A_VERDICT }]).length,
+    1,
+    'the floor itself is shown — it is a floor, not a threshold to exceed',
+  );
+});
+
+test('a table under the floor is not drawn faintly — it is not drawn', () => {
+  // Rounding a small count down, or drawing the table warm with its number
+  // suppressed, still says "this table barely shot anything". That IS the
+  // verdict. The only safe rendering is absence.
+  const shown = heatWorthShowing([
+    { tableId: 't1', captures: 2 },
+    { tableId: 't7', captures: 40 },
+  ]);
+  assert.equal(heatClassOf('t7', shown), 'hot');
+  assert.equal(heatClassOf('t1', shown), 'cold', 'a withheld table is cold, not warm');
+  assert.equal(loudestTable(shown), 't7');
+});
+
+test('a quiet minute is not reported as an empty one', () => {
+  /*
+    The two silences. Photographs DID come from seats — there were just too few
+    to say which table was loudest. Telling the host "no photograph of this
+    minute came from a seat" would be untrue AND the exact verdict the ruling
+    exists to prevent.
+  */
+  const quiet = lensNote({
+    state: 'reception',
+    opensAt: '5:30 PM',
+    loudestLabel: null,
+    alsoShooting: 0,
+    sawSomething: true,
+    heatWithheld: false,
+  });
+  assert.doesNotMatch(
+    quiet,
+    /No photograph/,
+    `a quiet minute must not be called empty: "${quiet}"`,
+  );
+  assert.doesNotMatch(quiet, /\d/, 'and it must carry no figure');
+
+  const empty = lensNote({
+    state: 'reception',
+    opensAt: '5:30 PM',
+    loudestLabel: null,
+    alsoShooting: 0,
+    sawSomething: false,
+    heatWithheld: false,
+  });
+  assert.match(empty, /No photograph/, 'a genuinely empty minute may say so');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -132,8 +132,13 @@ const config: Config = {
           Both are painted by lib/story-light.ts; see its CANDLE constant.
         */
         candle: {
-          DEFAULT: 'rgb(var(--color-candle) / <alpha-value>)',
-          ink: 'rgb(var(--color-candle-ink) / <alpha-value>)',
+          // The literal is the FALLBACK, not a second source of truth: these
+          // vars are painted per light-stage on the story's wrapper, and the
+          // fallback only decides what a candle looks like somewhere that
+          // wrapper is not. Keeping it here rather than in globals.css keeps
+          // the token self-contained and out of the locked :root palette.
+          DEFAULT: 'rgb(var(--color-candle, 217 164 65) / <alpha-value>)',
+          ink: 'rgb(var(--color-candle-ink, 122 90 22) / <alpha-value>)',
         },
         mulberry: {
           DEFAULT: 'rgb(var(--color-mulberry) / <alpha-value>)',

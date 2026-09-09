@@ -259,7 +259,16 @@ export function ThemeStep({
 
       {/* ── The six stages, live ─────────────────────────────────────────── */}
       <div className="mt-4">
-        <ul className="flex overflow-hidden rounded-[10px] border border-ink/15">
+        {/* The prototype's band has a literal ten-pixel corner. Ten is NOT on the
+            owner-locked radius scale ("softer corners", 2026-06-20: 4 · 8 · 14 ·
+            22 · 36), and `lint-radius` blocks any ad-hoc pixel radius. THE LOCK
+            WINS OVER THE PROTOTYPE'S NUMBER — `rounded-md` (8px) is the nearest
+            token. Ported shape, tokenised corner.
+
+            ⚠ That guard reads the raw source and does NOT run the repo's comment
+            stripper, so it fails on a pixel radius written inside a COMMENT too.
+            Describe one in words here, never in the literal class form. */}
+        <ul className="flex overflow-hidden rounded-md border border-ink/15">
           {stages.map((s) => (
             <li
               key={s.key}

@@ -159,7 +159,8 @@ function topLevelFunctions(src: string): Fn[] {
         }
       }
     }
-    out.push({ name: m[1], body: src.slice(start, end + 1) });
+    const name = m[1];
+    if (name) out.push({ name, body: src.slice(start, end + 1) });
   }
   return out;
 }
@@ -225,6 +226,20 @@ const CONSENT_WRITES: Array<{ what: string; hits: (body: string) => boolean }> =
   {
     what: 'an RA 10173 opt-out from a celebration’s story',
     hits: (b) => chainedTo(b, 'person_story_items', /removed_reason/),
+  },
+  /*
+    The naming opt-in (`04` §2, DPO-ruled 2026-09-09: a photo message carries a
+    name only if the guest asked). Added when S11 landed `askToBeUnnamed` on the
+    story itself — it already reached the list through `revalidateEventSlug`,
+    but the guard could not see that it had to, and a rule the guard cannot see
+    is one the next writer is free to miss. The role rides the same consent as
+    the name, so both tables count.
+  */
+  {
+    what: 'a guest’s name coming off their own words',
+    hits: (b) =>
+      chainedTo(b, 'photo_messages', /\.update\(/, /author_named_publicly/) ||
+      chainedTo(b, 'guest_columns', /\.update\(/, /author_named_publicly/),
   },
 ];
 

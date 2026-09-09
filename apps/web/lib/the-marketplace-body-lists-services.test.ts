@@ -92,3 +92,77 @@ test('the one render site is the empty-marketplace branch', () => {
       'moved somewhere that will bring its search hero with it',
   );
 });
+
+/*
+  ══ AND THE BODY IS READ WITH THE ADMIN CLIENT, NOT THE VISITOR'S SESSION ══
+
+  Measured 2026-09-09 against production through a real anonymous PostgREST
+  client (`apikey` = the public anon key), not read off a migration:
+
+      GET /rest/v1/vendor_profiles?public_visibility=eq.verified…  →  2 rows
+      GET /rest/v1/vendor_services?is_active=eq.true               →  0 rows
+
+  `vendor_services_public_read` is `TO authenticated`; the sibling
+  `vendor_profiles_public_read` is `TO authenticated, anon`. So a signed-out
+  couple opening /explore — the first screen of the whole two-sided walk — read
+  "The first shops" above a grid with zero children, and the live page carried
+  zero occurrences of either shop's name in 176 KB of HTML.
+
+  🔑 RLS REFUSES WITHOUT RAISING. The read returned `[]`, so the `.catch` above
+  never fired and the fallback never ran: an ACCESS decision rendered as "nobody
+  has listed anything yet". Same family as the phantom column, the phantom enum
+  value and the phantom RPC argument — refused, not thrown, and the only symptom
+  is an absence.
+
+  These two tests are a PAIR and neither is sufficient alone:
+   • the first pins WHICH client — the defect was one identifier;
+   • the second pins WHY that client is safe. Handing a service-role client to a
+     function that trusted RLS for its visibility rule would publish every card
+     of every unverified shop. It is safe only because the rule is written INTO
+     the query. Delete the second and the first becomes an instruction to
+     bypass RLS with nothing standing behind it.
+*/
+
+const serviceCardModule = stripComments(
+  readFileSync(join(HERE, 'marketplace-service-cards.ts'), 'utf8'),
+);
+
+test('the service-card read uses the admin client, never the viewer session', () => {
+  const call = explore.match(/fetchMarketplaceServiceCards\(\s*([A-Za-z_$][\w$]*)/);
+  assert.ok(call, 'the service-card query is no longer called from the marketplace page');
+  assert.equal(
+    call[1],
+    'admin',
+    `the marketplace body is read with \`${call[1]}\`. On origin/main that was ` +
+      '`supabase` — the visitor\'s own session — and `vendor_services_public_read` ' +
+      'is TO authenticated only, so a signed-out couple got 0 rows and an empty ' +
+      'grid under the heading "The first shops". Every other read on this page ' +
+      'already uses the admin client because the marketplace is public and the ' +
+      'answer must not change with who is looking.',
+  );
+});
+
+test('the service-card query states the live rule itself, so the admin client cannot over-publish', () => {
+  // This is the whole safety argument for passing a service-role client. If the
+  // query ever leans on RLS again, the admin client stops being a consistent
+  // public read and becomes a bypass of the only thing keeping unverified and
+  // hidden shops off the marketplace.
+  assert.match(
+    serviceCardModule,
+    /vendor_profiles\.verification_state['"]\s*,\s*['"]verified['"]/,
+    'the service-card query no longer pins verification_state itself — with an ' +
+      'admin client that publishes every card of every UNVERIFIED shop',
+  );
+  assert.match(
+    serviceCardModule,
+    /vendor_profiles\.public_visibility['"]\s*,\s*['"]verified['"]/,
+    'the service-card query no longer pins public_visibility itself — with an ' +
+      'admin client that publishes cards of shops that asked to be HIDDEN',
+  );
+  assert.match(
+    serviceCardModule,
+    /\.eq\(\s*['"]is_active['"]\s*,\s*true\s*\)/,
+    'the service-card query no longer requires an ACTIVE card — with an admin ' +
+      'client that publishes cards a vendor has switched off',
+  );
+});

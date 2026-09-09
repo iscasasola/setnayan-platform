@@ -25,7 +25,7 @@ import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
-import { formatLongDate, shortDate } from '@/lib/format-date';
+import { dayMonth, formatLongDate } from '@/lib/format-date';
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
@@ -711,7 +711,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     if (service) tags.push(service);
     // ⚠ `event_date` is a DATE column, so it goes through the repo's own
     // formatter — `new Date('2026-12-18')` is the 17th west of Greenwich.
-    const day = shortDate(facts?.eventDate);
+    const day = dayMonth(facts?.eventDate);
     if (day) tags.push(day);
     listLabels.set(t.event_id, tags);
   }

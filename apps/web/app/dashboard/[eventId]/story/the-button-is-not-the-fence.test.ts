@@ -181,9 +181,17 @@ test('the edition is stamped ONLY on the first move to published', () => {
 test('narrowing the audience revalidates the story, the recap AND the print sheet', () => {
   /*
     Going back to guests-only has to actually take the page back from a
-    stranger. `/${slug}` alone did not: the recap and the print sheet are their
-    own cached routes (`revalidate = 300`) reading the same story, and print is
-    the one a stranger can keep.
+    stranger. `/${slug}` alone did not: `/[slug]/print` is its own cached route
+    (`revalidate = 300`) and it asks `storyAudienceAdmits`, so a narrowed story
+    stayed readable there for five minutes — on the surface a stranger can keep.
+
+    🔴 THE RECAP IS IN THIS LIST FOR A DIFFERENT REASON, and an earlier version
+    of this comment got it wrong. `/[slug]/recap` is the Auto-Recap: its own
+    switch (`event_recaps.status`), and **it does not read `event_editorial` at
+    all** — measured, 0 references in `recap/page.tsx` and `lib/auto-recap.ts`.
+    It is revalidated because `04` §3 names it in the withdrawal set and it
+    renders guest photos and Kwentos, not because an audience change leaks
+    through it. The assertion stays; the reason had to be corrected.
   */
   const body = saveEditorialBody();
   for (const path of ['`/${ev.slug}`', '`/${ev.slug}/recap`', '`/${ev.slug}/print`']) {

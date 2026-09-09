@@ -599,10 +599,20 @@ export async function saveEditorial(
   if (ev?.slug) {
     /*
       🔑 GOING BACK TO GUESTS-ONLY HAS TO ACTUALLY TAKE THE PAGE BACK FROM A
-      STRANGER, and `/${slug}` alone did not do it. The recap and the print
-      sheet are their OWN cached routes (`revalidate = 300`) reading the same
-      story, so a host who narrowed the audience was still readable on both for
-      up to five minutes — and print is the one a stranger can keep.
+      STRANGER, AND `/${slug}` ALONE DID NOT DO IT. `/[slug]/print` is its own
+      cached route (`revalidate = 300`) and it asks `storyAudienceAdmits` — so a
+      host who narrowed the audience stayed readable there for up to five
+      minutes, on the one surface a stranger can keep.
+
+      🔴 CORRECTED BEFORE MERGE — I FIRST WROTE THAT THE RECAP WAS THE SAME CASE.
+      IT IS NOT. `/[slug]/recap` is the Auto-Recap, a DIFFERENT keepsake with its
+      own switch (`event_recaps.status`), and it does not read `event_editorial`
+      at all — measured, 0 references in both `recap/page.tsx` and
+      `lib/auto-recap.ts`. Narrowing the story's audience changes nothing there.
+      It is revalidated anyway because `04` §3 names it in the withdrawal set and
+      it does render guest photos and Kwentos, so it is cheap insurance — but
+      **print is the load-bearing one here, and the claim that the recap leaked a
+      narrowed story was mine and was wrong.**
 
       ⏭ THIS IS THE AUDIENCE CHANGE ONLY. The full revalidation set on a GUEST's
       consent write — the one a withdrawal needs, plus the OG card and the

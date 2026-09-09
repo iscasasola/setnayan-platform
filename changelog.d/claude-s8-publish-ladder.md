@@ -73,9 +73,13 @@ consent live.** The seating is a SIBLING of the room, never a field on it: it
 carries guest ids and `StoryRoom` goes straight to the components that draw the
 plan.
 
-**Taking it back now takes it back.** An audience change revalidates the story,
-the recap AND the print sheet; `/${slug}` alone left a narrowed story readable on
-two cached routes for up to five minutes.
+**Taking it back now takes it back.** An audience change revalidates the story and
+the print sheet — print is its own cached route (`revalidate = 300`) that asks
+`storyAudienceAdmits`, so a narrowed story stayed readable there for five minutes on
+the one surface a stranger can keep. 🔴 **Corrected before merge:** I first claimed the
+recap was the same case; it is not — `/[slug]/recap` is the Auto-Recap with its own
+switch and **does not read `event_editorial` at all** (measured, 0 references). It is
+revalidated as insurance because `04` §3 names it, not because a leak was closed.
 
 **Migration** `20271215704492_publish_once_and_the_number_is_theirs.sql` —
 `edition_volume` · `edition_no` · `room_snapshot` · `publish_consent_at`, the

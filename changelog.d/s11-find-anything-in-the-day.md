@@ -4,9 +4,10 @@
 the SHIPPED spine (S9 PR #5342, S10 PR #5349, both merged and verified served) — nothing was drawn
 beside the prototype and nothing under the clock was replaced.
 
-**RULE 0 first.** `Relive` · `Find in this day` · `Were you there` appear nowhere in `apps/web`
-except as three "S11 builds this" notes (`story-spine.tsx:17`, `editorial-content.tsx:154`,
-`the-guests-layer-is-theirs-until-you-publish.ts:22`). What DOES already ship, and is reused
+**RULE 0 first**, and re-measurable rather than cited — rule 7: an anchor is a string, never a
+number. `grep -rn "Relive\|Find in this day\|Were you there" apps/web/app apps/web/lib` before this
+change found only three "S11 builds this" NOTES, in `story-spine.tsx`, `editorial-content.tsx` and
+`the-guests-layer-is-theirs-until-you-publish.ts` — no implementation anywhere. What DOES already ship, and is reused
 rather than rebuilt: `getGuestLiveGallery` (which captures a guest is tagged in, already gated,
 already presigned), `askToTakeMyPhotoDown` / `removeMyTag` / `takeMyPhotoOffTheWall` (the guest's
 own consent controls), `SaveStoryCardButton` → `/api/og/…?format=story` (the 9:16 card),

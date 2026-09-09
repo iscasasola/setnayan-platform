@@ -27,6 +27,11 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef } from '@/lib/papic-display-ref';
 import { assembleStoryPhotoSet } from '@/lib/guest-stories-photo-set';
 import {
+  loadGuestBlurGate,
+  guestSafeKeyForCapture,
+  type CaptureSourceTable,
+} from '@/lib/papic-guest-blur-gate';
+import {
   assembleStoryMediaSet,
   type StoryMediaEntry,
 } from '@/lib/guest-stories-media-set';
@@ -287,6 +292,52 @@ async function readTaggedPhotos(
       durationSec: null,
       subjectCenter: centerById.get(c.capture_id) ?? null,
     });
+  }
+
+  // ── THE BLUR GATE (owner ruling 1, 2026-08-17) ──────────────────────────
+  // The story maker hands the browser presigned URLs and bakes them into a reel
+  // the guest keeps. A guest is not the couple, so a capture tagging someone who
+  // withdrew photo consent — or any capture on a FaceBlock event — is replaced
+  // by its blurred stand-in here, or dropped from both sets. Asked once, in
+  // lib/papic-guest-blur-gate, through the SAME SQL predicate the venue wall and
+  // the shared pool ask; a fourth hand-written copy of the rule is how the
+  // per-guest reads came to be missing it at all.
+  const gateRefs: Array<{ sourceTable: CaptureSourceTable; sourceId: string }> = [
+    ...photoIds.map((id) => ({ sourceTable: 'papic_photos' as CaptureSourceTable, sourceId: id })),
+    ...captureIds.map((id) => ({
+      sourceTable: 'papic_guest_captures' as CaptureSourceTable,
+      sourceId: id,
+    })),
+  ];
+  const blurGate = await loadGuestBlurGate(admin, eventId, gateRefs);
+  const tableFor = (id: string): CaptureSourceTable =>
+    captureIds.includes(id) ? 'papic_guest_captures' : 'papic_photos';
+  for (const id of [...keyById.keys()]) {
+    const resolved = guestSafeKeyForCapture(
+      blurGate,
+      { sourceTable: tableFor(id), sourceId: id },
+      keyById.get(id),
+      'display',
+    );
+    if (!resolved) keyById.delete(id);
+    else keyById.set(id, resolved);
+  }
+  for (const [id, entry] of [...entryById]) {
+    // A clip needing a blur has no safe form at all — it leaves the picker.
+    const still = guestSafeKeyForCapture(
+      blurGate,
+      { sourceTable: tableFor(id), sourceId: id },
+      entry.stillKey,
+      'display',
+    );
+    const render = guestSafeKeyForCapture(
+      blurGate,
+      { sourceTable: tableFor(id), sourceId: id },
+      entry.renderKey,
+      'display',
+    );
+    if (!render) entryById.delete(id);
+    else entryById.set(id, { ...entry, renderKey: render, stillKey: still });
   }
 
   const { ordered, total } = assembleStoryPhotoSet(

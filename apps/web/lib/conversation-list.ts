@@ -260,7 +260,16 @@ const GENERATED_PREVIEW_PATTERNS: ReadonlyArray<{
   },
 ];
 
-function shortenGeneratedBody(body: string): string {
+/**
+ * Turn a generated message body into the one line a person should read.
+ *
+ * ⚠ EXPORTED 2026-09-10 because a SECOND surface needed it and was rendering the
+ * raw body instead: the supplier's own "What's new" card printed
+ * `**Setnayan Exclusive unlocked 🎁** live_band: …` — asterisks and all — as the
+ * only thing a shop reads on arriving. The rule for shortening a generated body
+ * lives here and nowhere else; a second copy is what drifts.
+ */
+export function shortenGeneratedBody(body: string): string {
   for (const { match, short } of GENERATED_PREVIEW_PATTERNS) {
     const m = body.match(match);
     if (m) return short(m);

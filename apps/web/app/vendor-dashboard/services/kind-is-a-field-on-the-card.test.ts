@@ -390,7 +390,11 @@ test('a value arriving on the card is REMOUNTED, not class-toggled', () => {
   // static className here would animate once and then never again.
   assert.match(src, /key=\{snap\.priceLine\} className="sn-paint-in"/, 'the price stopped landing visibly');
   assert.match(src, /key=\{comesWith\.join\('\|'\)\}/, 'what couples get stopped landing visibly');
-  assert.match(src, /key=\{perk\.trim\(\)\.length > 0 \? 'perk-set' : 'perk-empty'\}/, 'the Exclusive stopped lighting up');
+  // The Setnayan gift became a yes/no on 2026-09-09, so the key is now the
+  // boolean rather than the length of the retired free text. The MECHANISM is
+  // unchanged and is what this line guards: the region is keyed on its own
+  // value, so it remounts and replays the paint-in when the answer changes.
+  assert.match(src, /key=\{giftOn \? 'gift-on' : 'gift-off'\}/, 'the Setnayan gift stopped lighting up');
   assert.match(src, /key="cover-set" className="sn-paint-cover/, 'the cover stopped settling in');
 });
 

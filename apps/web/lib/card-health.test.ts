@@ -275,7 +275,15 @@ test('clean inclusions and discount conditions leave the score untouched', () =>
 
 test('every field the real gate checks is a lane in card health', () => {
   withIntegrity(true, () => {
-    // One dirty value in each of the five checked field groups at once.
+    // One dirty value in each checked field group at once.
+    //
+    // ⚖ THIS LIST LOST `text_exclusive` ON 2026-09-09 AND THAT IS THE POINT OF
+    // THE TEST, NOT A HOLE IN IT. The list mirrors what the SERVER checks. The
+    // Setnayan Exclusive free text stopped being submitted by any surface that
+    // day — the control became a yes/no — so `commitVendorService` stopped
+    // checking it too. Card health and the server moved together, which is
+    // exactly what this test exists to enforce; had only one of them moved,
+    // this assertion would be red right now.
     const h = scoreCardHealth(
       perfect({
         title: 'Catering — juan@example.com',
@@ -286,7 +294,7 @@ test('every field the real gate checks is a lane in card health', () => {
     );
     assert.deepEqual(
       h.blockers.map((b) => b.code).sort(),
-      ['text_discounts', 'text_exclusive', 'text_inclusions', 'text_lines', 'text_title'],
+      ['text_discounts', 'text_inclusions', 'text_lines', 'text_title'],
       'a field the server checks and card health does not is a false "Ready to publish"',
     );
   });

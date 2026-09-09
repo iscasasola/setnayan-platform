@@ -9,6 +9,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   countEditionNo,
@@ -21,6 +22,12 @@ import {
  * A stand-in for the admin client's counting builder. `count` is what the query
  * resolves to, `error` is a REFUSAL — which is what a missing grant, an RLS
  * refusal or a bad column looks like from here: no throw, just an absence.
+ *
+ * ⚠ THE CAST IS THE POINT, NOT A SHORTCUT. Handing the real `SupabaseClient`
+ * type a four-method stand-in is exactly what these tests want: they exercise
+ * the ARITHMETIC and the three refusals without a database, and they record
+ * which columns the query actually asks for. Widening the production signature
+ * to fit the fake instead is what made `tsc` give up (TS2589).
  */
 function client(result: { count: number | null; error?: unknown }) {
   const calls: Array<Record<string, string>> = [];
@@ -48,7 +55,7 @@ function client(result: { count: number | null; error?: unknown }) {
       return chain;
     },
   };
-  return { api: api as never, calls };
+  return { api: api as unknown as SupabaseClient, calls };
 }
 
 test('the cycle opens on 18 November, not 1 January', () => {

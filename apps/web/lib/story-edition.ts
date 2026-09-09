@@ -33,6 +33,17 @@
  * before and an after, not a tidy-up.
  */
 
+/*
+  ⚠ TYPE-ONLY IMPORT, AND THAT IS WHAT KEEPS THIS FILE TESTABLE. It is erased at
+  runtime, so the module pulls in no `server-only` client and its unit test can
+  hand it a hand-rolled stand-in. A hand-written structural type for "a thing
+  with .from().select().eq()" was tried first and made `tsc` give up —
+  `TS2589: Type instantiation is excessively deep` at the call site, because
+  checking the real client against it walks the whole PostgREST builder. The
+  house pattern (`lib/panood-control.ts`) is the exact type; follow it.
+*/
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 /** The awards cycle opens 18 November. Vol. I = 18 Nov 2026 → 17 Nov 2027. */
 const AWARDS_CUTOFF_MONTH = 11;
 const AWARDS_CUTOFF_DAY = 18;
@@ -56,21 +67,6 @@ export function editionCycleStart(eventDate: string | null): string | null {
 /** What is written onto the row. Both halves, or neither. */
 export type StampedEdition = { volume: number; no: number };
 
-type CountingClient = {
-  from: (table: string) => {
-    select: (
-      cols: string,
-      opts: { count: 'exact'; head: true },
-    ) => {
-      eq: (col: string, val: string) => {
-        gte: (col: string, val: string) => {
-          lte: (col: string, val: string) => PromiseLike<{ count: number | null; error: unknown }>;
-        };
-      };
-    };
-  };
-};
-
 /**
  * Count this celebration's place in its awards cycle, for the stamp.
  *
@@ -83,7 +79,7 @@ type CountingClient = {
  * never be corrected**, because the trigger will not let it move.
  */
 export async function countEditionNo(
-  admin: CountingClient,
+  admin: SupabaseClient,
   eventDate: string | null,
 ): Promise<number | null> {
   const cycleStart = editionCycleStart(eventDate);
@@ -129,7 +125,7 @@ export function editionVolumeToStamp(eventDate: string | null): number {
  * own rule is that the number appears only when it is real.
  */
 export async function stampForPublish(
-  admin: CountingClient,
+  admin: SupabaseClient,
   eventDate: string | null,
 ): Promise<StampedEdition | null> {
   const no = await countEditionNo(admin, eventDate);

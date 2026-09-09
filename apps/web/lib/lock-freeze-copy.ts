@@ -37,6 +37,17 @@ export type LockFreezeTone =
 
 export type LockFreezeLine = { tone: LockFreezeTone; text: string };
 
+/**
+ * The handshake state of the booking behind a chat thread, as the CARD reads
+ * it. It lives here rather than in `thread-lock-handshake.server.ts` because
+ * that module imports `server-only`, and the card is a client component — a
+ * type import from there drags the server module into the browser bundle.
+ */
+export type ThreadLockHandshake = {
+  state: LockRequestState;
+  expiresAt: string | null;
+};
+
 export type LockFreezeInput = {
   /** Derived by `lockRequestStateOf`, or null/undefined when unknown. */
   state?: LockRequestState | null;

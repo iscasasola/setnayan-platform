@@ -1,7 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
-import { lockRequestStateOf, type LockRequestState } from '@/lib/lock-request-state';
+import { lockRequestStateOf } from '@/lib/lock-request-state';
+import type { ThreadLockHandshake } from '@/lib/lock-freeze-copy';
 
 /**
  * IS THE BOOKING BEHIND THIS CHAT THREAD ACTUALLY BOOKED, OR MERELY ASKED?
@@ -27,11 +28,7 @@ import { lockRequestStateOf, type LockRequestState } from '@/lib/lock-request-st
  * improvement — it silently returns nothing, and the card falls back to the
  * vague line.
  */
-export type ThreadLockHandshake = {
-  state: LockRequestState;
-  /** The materialized deadline, so a countdown shows the number ENFORCED. */
-  expiresAt: string | null;
-};
+export type { ThreadLockHandshake };
 
 export async function fetchThreadLockHandshake(
   client: SupabaseClient,

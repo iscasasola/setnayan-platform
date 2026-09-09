@@ -390,7 +390,7 @@ function wrapperFile(): string {
     1,
     `expected exactly ONE file to declare [data-story-light]; found ${hits.length}: ${hits.join(', ')}`,
   );
-  return hits[0];
+  return hits[0]!;
 }
 
 test('no text under the light wrapper is fainter than the alpha this module corrects for', () => {
@@ -405,7 +405,7 @@ test('no text under the light wrapper is fainter than the alpha this module corr
   for (const file of files) {
     const src = stripComments(readFileSync(file, 'utf8'));
     for (const m of src.matchAll(/\btext-ink\/(\d{1,3})\b/g)) {
-      found.push({ file: file.split('/').slice(-1)[0], alpha: Number(m[1]) / 100 });
+      found.push({ file: file.split('/').slice(-1)[0]!, alpha: Number(m[1]) / 100 });
     }
   }
 

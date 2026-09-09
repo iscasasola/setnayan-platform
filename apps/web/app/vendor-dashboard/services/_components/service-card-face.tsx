@@ -17,12 +17,22 @@ import { php, type Snapshot } from '@/lib/service-card-snapshot';
  *
  * Purely presentational — no state, no effects, no form access. It renders no
  * inputs, so mounting it inside a form adds nothing to the submitted payload.
+ *
+ * ── 2026-09-09 · IT ALSO DRAWS THE CARD OFFERED INSIDE A CONVERSATION ──────
+ * When a supplier offers a service in chat the couple now receives THIS card,
+ * not a word in a chip row (`chat-offered-service-card.tsx`). Same reasoning as
+ * the split above and it is the reason `footer` exists: the preview's
+ * "Request a quote" chip is a DRAWING of a button, and a drawing of a button
+ * inside a real conversation is a control a couple will press and that does
+ * nothing. The thread passes its own footer; every other caller omits the prop
+ * and keeps the preview chip exactly as it was.
  */
 export function ServiceCardFace({
   snap,
   leafPathLabel,
   addonsFromPhp,
   coverUrl,
+  footer,
 }: {
   snap: Snapshot;
   /** "Leaf · Parent" context line under the name (server-resolved). */
@@ -31,6 +41,12 @@ export function ServiceCardFace({
   addonsFromPhp?: number | null;
   /** Presigned/public URL of the current cover, when there is one. */
   coverUrl?: string | null;
+  /**
+   * Replaces the preview's mock "Request a quote" chip. OMIT it (undefined) to
+   * keep that chip — `null` is a real value here and renders no footer at all,
+   * which is what a surface with no action to offer passes.
+   */
+  footer?: React.ReactNode;
 }) {
   return (
   <div
@@ -64,9 +80,11 @@ export function ServiceCardFace({
           </span>
         ) : null}
       </div>
-      <p className="truncate text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
-        {leafPathLabel}
-      </p>
+      {leafPathLabel ? (
+        <p className="truncate text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
+          {leafPathLabel}
+        </p>
+      ) : null}
       <p className="flex items-center gap-2 text-xs">
         {/* No star here on purpose — the real card shows a "shop
             rating" only once the shop has a real review, never a
@@ -104,17 +122,21 @@ export function ServiceCardFace({
           Setnayan Exclusive inside · unlocked in chat
         </p>
       ) : null}
-      <p className="flex items-center gap-2 pt-1">
-        <span
-          className="rounded-lg px-3 py-1.5 text-[11px] font-medium"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-        >
-          Request a quote
-        </span>
-        <span className="text-[10px]" style={{ color: 'var(--m-slate-3)' }}>
-          final price by quote
-        </span>
-      </p>
+      {footer === undefined ? (
+        <p className="flex items-center gap-2 pt-1">
+          <span
+            className="rounded-lg px-3 py-1.5 text-[11px] font-medium"
+            style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+          >
+            Request a quote
+          </span>
+          <span className="text-[10px]" style={{ color: 'var(--m-slate-3)' }}>
+            final price by quote
+          </span>
+        </p>
+      ) : (
+        footer
+      )}
     </div>
   </div>
   );

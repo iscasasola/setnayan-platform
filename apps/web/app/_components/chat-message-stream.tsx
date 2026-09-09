@@ -37,6 +37,7 @@ import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
 import { ChatAppointmentCard, type ChatAppointmentData } from './chat-appointment-card';
+import { ChatOfferedServiceCard } from './chat-offered-service-card';
 import { ScheduleSuggestChip } from './schedule-suggest-chip';
 import {
   ChatAmendmentCard,
@@ -644,6 +645,28 @@ export function ChatMessageStream({
                     <p className="whitespace-pre-wrap break-words text-sm text-ink/80">{m.body}</p>
                   </div>
                 )}
+              </li>
+            );
+          }
+          // A service the supplier OFFERED renders as the card they built —
+          // cover photograph, showcase clip, price, what is included (migration
+          // 20271214894972). Owner 2026-09-09: "the service card of each
+          // service still needs that photo/image/video." It replaced a single
+          // word in the "Inquiring about" chip row, which was the bare category
+          // on every service that ships today.
+          //
+          // Deliberately NOT behind NEXT_PUBLIC_CHAT_NEGOTIATION_V1: the offer
+          // control this serves has shipped since 2026-06-12, so gating the card
+          // would leave the old chip-row behaviour live in production. The card
+          // component fetches its own data and draws the message body until it
+          // arrives, so a slow or refused resolve still reads as an offer.
+          if (m.offered_service_id) {
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                <ChatOfferedServiceCard
+                  messageId={m.message_id}
+                  fallbackBody={m.body}
+                />
               </li>
             );
           }

@@ -68,6 +68,7 @@ import {
   VENDOR_STATUS_TONE,
   type EventVendorRow,
 } from '@/lib/vendors';
+import { ContactShortlistVendorButton } from '../vendors/_components/contact-shortlist-vendor-button';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -239,7 +240,7 @@ export function VendorItemizationCard({
   // `<details>`/`<summary>` — a nested `<a>` inside a `<summary>` fights the
   // disclosure's own click-to-toggle behavior, so this row sits above the
   // fold and stays visible whether the ledger row is collapsed or open.
-  const reachLinks = <SupplierReachLinks eventId={eventId} vendor={vendor} />;
+  const reachLinks = <SupplierReachLinks eventId={eventId} vendor={vendor} variant={variant} />;
 
   // 'embed' variant — no outer <article>, no header, no status pill. The
   // workspace page wraps this in its own Payments <section>.
@@ -385,23 +386,52 @@ export function VendorItemizationCard({
 function SupplierReachLinks({
   eventId,
   vendor,
+  variant,
 }: {
   eventId: string;
   vendor: EventVendorRow;
+  /** 'card' is the budget page; 'embed' is inside the supplier's workspace. */
+  variant: 'card' | 'embed';
 }) {
+  /* 🔴 "MESSAGE" NEVER OPENED THE CONVERSATION. Both branches land on the
+     conversation LIST — one with an email pre-filled into a "start a new
+     thread" form that still needs submitting, one bare — even when the couple
+     has been talking to this supplier for weeks. The prefill also keys on
+     `contact_email`, which most marketplace paths never write, so for exactly
+     the suppliers who CAN be messaged it usually took the bare branch.
+
+     ⚠ ONLY ON THE BUDGET CARD. The 'embed' variant renders inside the
+     supplier's own workspace, which already ships a thread deep-link AND the
+     conversation itself — a second opener there is duplication, not a fix.
+
+     ⚠ AND ONLY FOR A SUPPLIER ON SETNAYAN. The shipped button gates on the
+     marketplace id; an off-platform row a couple typed in by hand cannot be
+     messaged here at all, and offering it would return "This vendor can't be
+     messaged here". That row keeps the plain link. */
   const messagesHref = vendor.contact_email
     ? `/dashboard/${eventId}/messages?prefill_vendor_email=${encodeURIComponent(vendor.contact_email)}`
     : `/dashboard/${eventId}/messages`;
+  const canOpenThread = variant === 'card' && vendor.marketplace_vendor_id != null;
   const workspaceHref = `/dashboard/${eventId}/vendors/${vendor.vendor_id}/workspace`;
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 px-5 py-2">
-      <Link
-        href={messagesHref}
-        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"
-      >
-        <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        Message
-      </Link>
+      {canOpenThread ? (
+        <ContactShortlistVendorButton
+          eventId={eventId}
+          vendorId={vendor.vendor_id}
+          label="Message"
+          pendingLabel="Opening…"
+          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink disabled:opacity-60"
+        />
+      ) : (
+        <Link
+          href={messagesHref}
+          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"
+        >
+          <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          Message
+        </Link>
+      )}
       <Link
         href={workspaceHref}
         className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"

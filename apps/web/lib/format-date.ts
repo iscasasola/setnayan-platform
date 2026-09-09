@@ -48,6 +48,41 @@ export function formatLongDate(value: string | null | undefined): string {
   });
 }
 
+const SHORT_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+/**
+ * A `date` column as "18 Dec" — for a chip, where the full sentence does not fit.
+ *
+ * ⚠ NAMED `dayMonth`, NOT `shortDate`, AND THAT IS THE POINT.
+ * `app/vendor-dashboard/_components/overview-sections.tsx` already has a local
+ * `shortDate`, and it is a DIFFERENT rule: it runs
+ * `toLocaleDateString('en-PH', …)`, so what it prints depends on the ICU data of
+ * the machine rendering it — "Dec 18" on a Mac. Two functions that format one
+ * date must not share a name; a caller picking the wrong import would see
+ * nothing wrong at the call site. See `scripts/dup-rule.baseline.txt`.
+ *
+ * 🔴 AND THE OLDER ONE IS THE ONE WITH THE BUG — flagged, deliberately NOT
+ * fixed here. Re-pointing it would change six already-shipped dates on the
+ * supplier's overview page, which is a visible change to a page this branch has
+ * no business touching.
+ *
+ * ⚠ BUILT BY HAND, NOT BY `toLocaleDateString`, for exactly that reason. Same
+ * shape as the copy in `lib/plan3d-control.ts`, which got there first; that one
+ * and `lib/save-the-date-content.ts` are left alone rather than re-pointed,
+ * because moving a date formatter under two shipped surfaces is its own change.
+ *
+ * ⚠ Feed it a DATE, never a `timestamptz` — see {@link formatLongTimestamp}.
+ */
+export function dayMonth(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getUTCDate()} ${SHORT_MONTHS[d.getUTCMonth()]}`;
+}
+
 /**
  * A TIMESTAMP as "June 19, 2026" — the Manila calendar day it happened on.
  *

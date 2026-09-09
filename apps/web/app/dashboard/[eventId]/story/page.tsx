@@ -27,6 +27,8 @@ import { EditorialEditor } from './_components/editorial-editor';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import type { EditorialEditorInput } from './actions';
 import { eventNoun } from '@/lib/event-noun';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { sanitizeStoryTheme } from '@/lib/story-light';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
@@ -61,7 +63,7 @@ export default async function EditorialEditorPage({
   const { data: event, error } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, landing_page_visibility, event_type, event_date, event_end_date, archived',
+      'event_id, display_name, slug, landing_page_visibility, event_type, event_date, event_end_date, archived, role_palette, moodboard_theme_name',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -332,6 +334,15 @@ export default async function EditorialEditorPage({
     chapterCards = { cards: [], overrides: [] };
   }
 
+  /*
+    THE HOST'S SAVED BOARD. Read through `sanitizeRolePalette` — the SAME
+    validator the mood board, the 3D room and the vendor mirror read through, so
+    the Theme step can never show the story a colour those surfaces would drop.
+    A booked-vendor mirror that skipped it is exactly the defect
+    `the-vendor-sees-the-palette-the-couple-saved.test.ts` exists for.
+  */
+  const boardColors = sanitizeRolePalette(event.role_palette).reception ?? [];
+
   const initial: EditorialEditorInput = {
     headline: composed?.headline || str(draft.headline),
     deck: composed?.deck || str(draft.deck),
@@ -358,6 +369,10 @@ export default async function EditorialEditorPage({
     // middle answer, and its `false` meant BOTH "only me" and "I have simply
     // pressed Save", so a couple had no way to say "my guests, and nobody else".
     audience: storyAudienceOf(status),
+    // The story's colours. `sanitizeStoryTheme` fails to "follow my mood board"
+    // for anything it does not recognise, which is the resting state — a host
+    // who has never opened this step tracks the board they already made.
+    theme: sanitizeStoryTheme(draft.storyTheme),
   };
 
   // Canonical share URL (posted to Facebook + cached by OG crawlers) — nested
@@ -426,6 +441,8 @@ export default async function EditorialEditorPage({
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}
         isWedding={(event.event_type ?? 'wedding') === 'wedding'}
+        boardColors={boardColors}
+        boardThemeName={(event.moodboard_theme_name as string | null) ?? null}
       />
     </div>
   );

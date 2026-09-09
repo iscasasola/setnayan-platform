@@ -57,6 +57,8 @@ import type {
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
+import { ThemeStep } from './theme-step';
+import { sanitizeStoryTheme, type StoryTheme } from '@/lib/story-light';
 
 // FREE couple-uploaded editorial imagery (no Papic required).
 const GALLERY_UPLOADS_MAX = 30;
@@ -232,6 +234,8 @@ export function EditorialEditor({
   landingVisibility = 'public',
   isWedding = true,
   guestColumnsOn = false,
+  boardColors = [],
+  boardThemeName = null,
 }: {
   eventId: string;
   slug: string | null;
@@ -267,6 +271,11 @@ export function EditorialEditor({
    *  the "Letters to the Editor" toggle + order row are hidden so the editor
    *  never surfaces a section that can't render (no fake doors). */
   guestColumnsOn?: boolean;
+  /** `sanitizeRolePalette(events.role_palette).reception` — the host's saved
+   *  mood board, which the Theme step shows and (in "make my own") seeds from. */
+  boardColors?: string[];
+  /** `events.moodboard_theme_name` — the name the host gave their saved theme. */
+  boardThemeName?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -363,6 +372,15 @@ export function EditorialEditor({
   // Unsaved-changes flag, so opening a sub-editor can save first — kills the old
   // "save your text here first, then open one" footgun where typed words were lost.
   const [dirty, setDirty] = useState(false);
+
+  // The story's colours (draft_json.storyTheme). Sanitized on the way in as well
+  // as on the way out — a draft written by an older build, or by hand, must not
+  // put the editor into a mode it cannot render.
+  const [theme, setThemeState] = useState<StoryTheme>(() => sanitizeStoryTheme(initial.theme));
+  const setTheme = (next: StoryTheme) => {
+    setThemeState(next);
+    setDirty(true);
+  };
 
   const set = <K extends keyof EditorialEditorInput>(k: K, v: EditorialEditorInput[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -493,6 +511,7 @@ export function EditorialEditor({
         // the page renders through, so a half-written one is never published.
         customColumns: columns,
         reviews: buildReviews(),
+        theme,
         audience: next,
       });
       if (!r.ok) throw new Error(r.error);
@@ -1242,6 +1261,20 @@ export function EditorialEditor({
           })}
         </div>
       </section>
+
+      {/*
+        THEME (08 step 1.4) — after "What shows" because that is where it falls
+        in the six steps (the desk · the story · THEME · cover · what's next ·
+        publish): a host decides WHAT the story contains before they decide what
+        it looks like.
+      */}
+      <ThemeStep
+        eventId={eventId}
+        boardColors={boardColors}
+        boardThemeName={boardThemeName}
+        theme={theme}
+        onChange={setTheme}
+      />
 
       {/* Save bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

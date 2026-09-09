@@ -48,6 +48,27 @@ BEGIN
   -- Only the TRANSITION is guarded. A story already published stays published;
   -- this is not a continuous invariant, and making it one would strand every row
   -- that predates the consent column.
+  /*
+   * ⚠ ENFORCED AGAINST THE BROWSER-REACHABLE ROLES ONLY — and that is the whole
+   * threat, not a softening. The hole is that `authenticated` holds UPDATE on
+   * `status` and can PATCH it straight through PostgREST with the public anon
+   * key. Server actions, admin paths and migrations run as the service role and
+   * ALREADY set the tick; making them subject to this too breaks legitimate
+   * restores and, measured, broke four shipped edition-stamping db tests that
+   * seed a published row directly as setup.
+   *
+   * 🔑 THE ROLE TEST IS `current_user`, NOT `auth.role()`. The PGlite replay's
+   * shim returns 'anon' where production returns NULL, so every
+   * `auth.role() IS NULL` privileged branch is dead code in every db test in
+   * this repo — a trap this corpus has already paid for once.
+   *
+   * ⚠ CONSEQUENCE FOR TESTS: the replay runs as superuser, so a test must
+   * `SET ROLE authenticated` to exercise this at all. One does.
+   */
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW.status = 'published' AND COALESCE(OLD.status, '') <> 'published' THEN
     IF NEW.publish_consent_at IS NULL THEN
       RAISE EXCEPTION 'story:publish_needs_consent'

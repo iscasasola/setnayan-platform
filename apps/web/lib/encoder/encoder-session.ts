@@ -158,6 +158,15 @@ export function createEncoderSession(deps: EncoderSessionDeps): EncoderSession {
    * supervisor is behind or gone — it is counted and the stream continues,
    * because dropping one frame is not a reason to end a wedding. A dead session
    * surfaces through the health channel, which is the surface built for it.
+   *
+   * ⚠ DO NOT "FIX" THIS BY AWAITING IN A LOOP. Ordering is already guaranteed
+   * and awaiting would cost throughput for nothing: `invoke` posts its IPC
+   * message SYNCHRONOUSLY before returning its promise, and `encoder_push` is a
+   * synchronous Tauri command that `try_send`s into the channel on the same
+   * thread — so the channel receives chunks in exactly the order this loop
+   * called them, which is the order RTMP needs. Awaiting each round trip would
+   * serialise 77 invokes a second behind their own responses and starve the
+   * encoder while adding no ordering that is not already there.
    */
   function push(command: string, chunk: EncodedChunk): void {
     void deps

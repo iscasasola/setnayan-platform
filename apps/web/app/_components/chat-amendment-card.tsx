@@ -197,12 +197,42 @@ export function ChatAmendmentCard({ data, items, viewerRole, threadId, returnPat
       ) : null}
 
       {/* Lock — only the customer (couple) locks an ACCEPTED deal; freezes the
-          agreed price for the payment step. */}
+          agreed price for the payment step.
+
+          ⚠ WHAT THIS LINE MAY CLAIM, AND WHAT IT MAY NOT (corrected 2026-09-10).
+          It used to read "🔒 Deal locked — price frozen." to BOTH parties, with
+          no role test, the instant the couple pressed. Two things were wrong
+          with it and only one is fixed here:
+
+          · ROLE — FIXED. It was written in nobody's voice, so the SUPPLIER read
+            an announcement about an act they did not perform.
+          · "DEAL LOCKED" claims a BOOKING, and a booking is not what
+            `lockedAt` records. With the lock handshake ON (it is on in
+            production), `planChatLockBooking` returns 'request' for a supplier
+            who is not yet booked: an ask goes out with a 48-hour fuse, `lockDeal`
+            deliberately falls through, and the supplier still has to say yes.
+            Telling them the deal is "locked" while they hold an unanswered
+            request is the reassuring-sentence-over-the-true-one failure this
+            repo keeps producing.
+
+          What `lockedAt` DOES record is true in every branch: the couple pressed
+          Lock and the agreed price was frozen onto the thread — `lockDeal`
+          refuses (failBack) on not_verified, hard_single_blocked, error, and on
+          a price that did not land, so it only ever stamps when the number is
+          real. So the copy now claims exactly that and nothing more.
+
+          ⏭ NOT BUILT, NAMED: this card cannot yet say whether the supplier is
+          BOOKED or merely ASKED. That needs the booking's `status` /
+          `lock_request_state` threaded in — the card is built client-side from
+          `proposal_amendments` alone — and it is its own change. `SupplierStanding`
+          already derives `booked` on the server and is the place to widen. */}
       {isAccepted ? (
         <div className="border-t border-ink/10 bg-ink/[0.02] px-3.5 py-2.5">
           {data.lockedAt ? (
             <p className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700">
-              🔒 Deal locked — price frozen.
+              {viewerRole === 'couple'
+                ? '🔒 You locked this price. It is what you both agreed.'
+                : '🔒 The couple locked this price. It is what you both agreed.'}
             </p>
           ) : viewerRole === 'couple' ? (
             <form action={lockDeal}>

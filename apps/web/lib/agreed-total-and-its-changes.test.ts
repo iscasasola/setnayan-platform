@@ -46,6 +46,7 @@ import {
   type VendorMoneyRow,
 } from '@/lib/budget-truth';
 import type { VendorPricingLookup } from '@/lib/budget';
+import { legacyCommittedVendorsPhp } from '@/lib/budget-page-money';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -55,6 +56,8 @@ const MIGRATION = join(
 );
 const BUDGET_TS = join(HERE, 'budget.ts');
 const BUDGET_TRUTH_TS = join(HERE, 'budget-truth.ts');
+const BUDGET_PAGE = join(HERE, '../app/dashboard/[eventId]/budget/page.tsx');
+const AMENDMENT_CARD = join(HERE, '../app/_components/chat-amendment-card.tsx');
 const ITEMIZATION_CARD = join(
   HERE,
   '../app/dashboard/[eventId]/_components/vendor-itemization-card.tsx',
@@ -145,6 +148,16 @@ test('agreed IS the sum of the parts that draw it — across every branch', () =
                 })}`,
               );
               assert.equal(r.basePart, r.pricePart + r.breakdownPart, 'basePart drifted');
+              // COUNTED ⇔ DRAWN. `billBreakdown` is what tells a surface to
+              // draw the breakdown rows; if the total counted them while the
+              // surface did not draw them, the number on screen and the rows
+              // under it would disagree — which is the entire defect, wearing
+              // the other costume.
+              assert.equal(
+                r.breakdownPart,
+                r.billBreakdown ? breakdown : 0,
+                'the total counts breakdown lines the surface is told not to draw',
+              );
               // 4 · THE CHANGE RIDES IN EVERY BRANCH. Never gated, never
               // dropped — not on a package, not on a listing estimate, not on a
               // catalogue-priced supplier.
@@ -226,6 +239,13 @@ test('a BREAKDOWN still replaces the headline — production forbids the symmetr
       'production that carries line items sums to their headline exactly — this ' +
       'change doubles all 12 of them.',
   );
+
+  // Pinned at the BRANCH as well as at the total, because the total alone is
+  // satisfied by two different wrong answers cancelling out.
+  const r = resolveAgreedTotal({ headline: 225_000, catalogue: 0, breakdown: 225_000, changes: 0 });
+  assert.equal(r.baseSource, 'breakdown');
+  assert.equal(r.pricePart, 0, 'the headline is superseded by the breakdown, not added to it');
+  assert.equal(r.billBreakdown, true);
 });
 
 test('an unflagged row means BREAKDOWN — the safe direction for every row that already exists', () => {
@@ -328,6 +348,57 @@ test('no reader keeps a fourth copy of the cascade', () => {
   );
 });
 
+test('the flag-OFF strip counts changes too — the two numbers on that screen match', () => {
+  // THE SCREEN THE OWNER WILL ACTUALLY BE LOOKING AT. `NEXT_PUBLIC_BUDGET_TRUTH_ENABLED`
+  // is read on the server only, so a session cannot know its value; with it OFF
+  // the strip prints this legacy figure while each supplier's card prints
+  // `itemizedTotal`. Before the ruling those two could not agree after a change
+  // order, and the reassuring one was on top.
+  const confirmed = (s: string) => s === 'contracted' || s === 'deposit_paid';
+  const rows = [
+    {
+      vendor: { status: 'contracted', total_cost_php: 100_000 },
+      lineItems: [
+        { amount_php: -15_000, is_change_delta: true },
+        { amount_php: 60_000, is_change_delta: false },
+      ],
+    },
+    {
+      // Not confirmed → contributes nothing, change or no change (BA2).
+      vendor: { status: 'considering', total_cost_php: 80_000 },
+      lineItems: [{ amount_php: 9_000, is_change_delta: true }],
+    },
+  ];
+  assert.equal(
+    legacyCommittedVendorsPhp(rows, confirmed),
+    85_000,
+    'The strip is back to summing headlines alone: a change the couple and the ' +
+      'supplier agreed is missing from Committed while the supplier’s own card ' +
+      'shows it. Two numbers, one screen, disagreeing.',
+  );
+
+  // And the BREAKDOWN line above must NOT be added — it itemises the ₱100,000,
+  // it does not extend it. 100,000 + 60,000 = 160,000 is the doubling bug.
+  assert.notEqual(legacyCommittedVendorsPhp(rows, confirmed), 145_000);
+  assert.notEqual(legacyCommittedVendorsPhp(rows, confirmed), 160_000);
+});
+
+test('the budget page does not keep its own copy of that sum', () => {
+  const src = stripComments(readFileSync(BUDGET_PAGE, 'utf8'));
+  assert.equal(
+    (src.match(/legacyCommittedVendorsPhp\s*\(/g) ?? []).length,
+    1,
+    'budget/page.tsx no longer calls legacyCommittedVendorsPhp — the committed ' +
+      'figure went back to being six untestable lines inside a page.',
+  );
+  assert.equal(
+    (src.match(/total_cost_php/g) ?? []).length,
+    0,
+    'budget/page.tsx reads total_cost_php directly again. That is the hand-rolled ' +
+      'committed figure returning, and it cannot see change lines.',
+  );
+});
+
 // ───────────────────────────────────────────────────────────────────────────
 // 6 · WHO MAY AUTHOR A CHANGE, AND HOW IT IS SHOWN
 // ───────────────────────────────────────────────────────────────────────────
@@ -386,5 +457,48 @@ test('the couple’s card shows a change separately, and cannot delete it', () =
     'a second delete control appeared. If it is on the change list, one side ' +
       'can now erase something both sides agreed — and the change-order trail ' +
       'keeps saying "accepted", which is the drift this whole build removes.',
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7 · AND THE SENTENCE THAT WENT WITH IT
+// ───────────────────────────────────────────────────────────────────────────
+
+test('the lock notice is in somebody’s voice and does not claim a booking', () => {
+  const src = stripComments(readFileSync(AMENDMENT_CARD, 'utf8'));
+
+  // ANCHOR: if the lock block were removed or renamed, "no false claim" would
+  // pass vacuously on a file that no longer renders anything.
+  assert.ok(
+    src.includes('data.lockedAt'),
+    'the amendment card no longer renders a locked state — re-anchor this guard',
+  );
+
+  // 🔴 "Deal locked" claims a BOOKING. With the lock handshake ON — and it is on
+  // in production — the couple's press sends an ASK with a 48-hour fuse, and the
+  // supplier still has to say yes. `lockedAt` records a frozen PRICE, never a
+  // booking.
+  assert.equal(
+    (src.match(/Deal locked/g) ?? []).length,
+    0,
+    'The card claims "Deal locked" again. It may only claim what lockedAt ' +
+      'records: the couple locked the agreed PRICE. Whether the supplier is ' +
+      'booked or merely asked is a fact this card does not have.',
+  );
+  assert.equal(
+    (src.match(/price frozen/gi) ?? []).length,
+    0,
+    'the old sentence is back',
+  );
+
+  // ROLE. The supplier must not read an announcement about an act they did not
+  // perform. Both voices must exist in that branch.
+  assert.ok(
+    src.includes('You locked this price'),
+    'the couple’s voice is gone from the locked notice',
+  );
+  assert.ok(
+    src.includes('The couple locked this price'),
+    'the supplier reads the couple’s voice again — the notice lost its role test',
   );
 });

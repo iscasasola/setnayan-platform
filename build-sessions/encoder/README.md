@@ -38,8 +38,36 @@ A browser cannot open the RTMP socket — that, and only that, is why native cod
 
 ## Where it stands — measured 2026-09-08 against `origin/main` and the live site
 
-**14 sessions are merged; the pipeline is complete end to end.** What is left is one code defect,
-one publish, two measurement runs and the physical rehearsal.
+🛑 **CORRECTED 2026-09-09 (S18). THIS LINE USED TO READ "14 sessions are merged; the pipeline is
+complete end to end." THE FIRST HALF WAS TRUE AND THE SECOND WAS FALSE** — and it was the most
+expensive sentence in this folder, because it is the one a session reads before deciding there is
+nothing structural left to do.
+
+**Every stage was merged and tested. NOTHING CALLED ANY OF THEM.** Measured against
+`origin/main @ beccdf510`:
+
+```bash
+# No production code ever invoked the transport. Only `encoder_probe` was called.
+grep -rn "invoke('encoder_start'" apps/web            # → nothing
+# Every encoder module had zero non-test importers.
+grep -rn "lib/encoder/" apps/web/{app,lib,components} --include="*.ts*" | grep "from '"
+#   → one hit, `program-strings` (copy constants)
+# The encoded video went into a ring nothing drained.
+grep -rn "\.drain()" apps/web/{lib,app} --include="*.ts" | grep -v "\.test\.ts"   # → nothing
+grep -rn "STUB SINK" src-tauri/src/encoder_ipc.rs      # → line 188
+```
+
+`STORE-SHELL-CLOSEOUT-2026-09-07.md` § 7 had already found this and called it "the highest-value
+unowned engineering on the board" — **no row in the ladder below owned it**, so it stayed unowned
+for two more days. S5 said S6 would replace the stub; S6 merged BEFORE S5 and never did.
+
+**S18 (this correction's own PR) joins it**: the worker now emits its encoded media, the page
+pushes it over the S5 commands, and `encoder_start` runs `reconnect::supervise` instead of a
+byte-counter. ⚠ **That is "every hop is called by shipped code", NOT "a broadcast reached
+YouTube"** — no end-to-end stream has been observed by anyone, and it cannot be until the owner
+gates below are open. Do not upgrade this sentence to "it works" without a watch URL.
+
+What is left is one publish, two measurement runs and the physical rehearsal.
 
     phones ─► controller ─► canvas ─► audio ─► H.264+AAC ─► IPC ─► Rust FLV/RTMPS ─► YouTube
               (shipped)     S1·S2      S3       S4          S5      S6·S7             (free CDN)

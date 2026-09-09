@@ -400,3 +400,75 @@ test('lib/encoder carries no window.__TAURI__ gate — that is the call site\'s 
     assert.doesNotMatch(src, /__TAURI__/, `${f} must not gate on Tauri`);
   }
 });
+
+/* ── S18 · the page hears the media, and the configs ───────────────────────── */
+
+// The page-side half of the join. Before S18 the outbound contract carried no
+// media at all; a dispatch that receives a `media` message and tells no one is
+// the same "shipped but disconnected" defect one layer up.
+test('a media message reaches onMedia listeners, both tracks intact', () => {
+  installProgramBridge(frameWith({ label: 'Live' }));
+  const w = fakeWorker();
+  const iv = fakeIntervals();
+  const canvas = createProgramCanvas({
+    deps: { createWorker: () => w.worker, trackProcessor: null, ...iv },
+  });
+  const seen: Array<{ video: number[]; audio: number[] }> = [];
+  canvas.onMedia((m) => seen.push({ video: m.video.map((c) => c.seq), audio: m.audio.map((c) => c.seq) }));
+  canvas.start();
+
+  w.emit({
+    type: 'media',
+    video: [{ keyframe: true, timestampMicros: 0, seq: 0, data: new ArrayBuffer(3) }],
+    audio: [{ keyframe: false, timestampMicros: 1_000, seq: 1, data: new ArrayBuffer(2) }],
+  });
+
+  assert.deepEqual(seen, [{ video: [0], audio: [1] }]);
+});
+
+test('both decoder configs reach onConfig, each labelled by kind', () => {
+  installProgramBridge(frameWith({ label: 'Live' }));
+  const w = fakeWorker();
+  const iv = fakeIntervals();
+  const canvas = createProgramCanvas({
+    deps: { createWorker: () => w.worker, trackProcessor: null, ...iv },
+  });
+  const kinds: string[] = [];
+  canvas.onConfig((c) => kinds.push(c.kind));
+  canvas.start();
+
+  w.emit({
+    type: 'video-config',
+    description: new ArrayBuffer(4),
+    codec: 'avc1.42E01F',
+    width: 1280,
+    height: 720,
+  });
+  w.emit({
+    type: 'audio-config',
+    description: new ArrayBuffer(2),
+    sampleRate: 48_000,
+    numberOfChannels: 2,
+  });
+
+  assert.deepEqual(kinds, ['video', 'audio']);
+});
+
+test('unsubscribing actually stops delivery', () => {
+  installProgramBridge(frameWith({ label: 'Live' }));
+  const w = fakeWorker();
+  const iv = fakeIntervals();
+  const canvas = createProgramCanvas({
+    deps: { createWorker: () => w.worker, trackProcessor: null, ...iv },
+  });
+  let count = 0;
+  const off = canvas.onMedia(() => {
+    count += 1;
+  });
+  canvas.start();
+  w.emit({ type: 'media', video: [], audio: [] });
+  assert.equal(count, 1);
+  off();
+  w.emit({ type: 'media', video: [], audio: [] });
+  assert.equal(count, 1, 'no further deliveries after unsubscribe');
+});

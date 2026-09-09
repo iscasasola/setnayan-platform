@@ -559,6 +559,9 @@ pub fn encoder_probe(request: Request<'_>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Test-only: the production path never names an ingest, it only forwards
+    // whichever one the supervisor reports.
+    use crate::encoder::reconnect::Ingest;
 
     fn fixture_config_b64() -> String {
         let chunk = EncodedChunk {
@@ -634,6 +637,87 @@ mod tests {
             decode_and_check_kind(&b64, true).unwrap_err(),
             "expected_config_chunk"
         );
+    }
+
+    // ── S18 · THE HEALTH PROJECTION ────────────────────────────────────────
+    // The strip these feed renders five states, and getting them wrong is not
+    // cosmetic: `reconnecting` and `down` are how an operator learns mid-
+    // ceremony that the wedding is not reaching YouTube.
+
+    #[test]
+    fn a_fresh_projection_is_idle_not_publishing() {
+        let projection = HealthProjection::new(false);
+        assert_eq!(projection.rtmp, "idle");
+    }
+
+    #[test]
+    fn connecting_then_publishing_walks_the_states() {
+        let mut projection = HealthProjection::new(true);
+        let connecting = projection.apply(&HealthEvent::Connecting {
+            attempt: 1,
+            ingest: Ingest::Primary,
+        });
+        assert_eq!(connecting.rtmp, "connecting");
+        assert_eq!(connecting.ingest, Some("primary"));
+
+        let publishing = projection.apply(&HealthEvent::Publishing {
+            ingest: Ingest::Primary,
+            resumed: false,
+        });
+        assert_eq!(publishing.rtmp, "publishing");
+        assert!(publishing.recording, "the recording flag survives a state change");
+    }
+
+    #[test]
+    fn reconnecting_carries_the_outage_length_and_down_keeps_it() {
+        let mut projection = HealthProjection::new(false);
+        let reconnecting = projection.apply(&HealthEvent::Reconnecting {
+            for_ms: 4_000,
+            attempt: 2,
+            next_attempt_in_ms: 2_000,
+            detail: "peer closed".to_string(),
+        });
+        assert_eq!(reconnecting.rtmp, "reconnecting");
+        assert_eq!(reconnecting.reconnecting_for_ms, 4_000);
+
+        let down = projection.apply(&HealthEvent::Down {
+            for_ms: 130_000,
+            detail: "grace elapsed".to_string(),
+        });
+        assert_eq!(down.rtmp, "down");
+        assert_eq!(down.reconnecting_for_ms, 130_000);
+    }
+
+    // THE GUARD THAT THE STATE MACHINE EXISTS FOR. A full disk says nothing
+    // about the socket. Collapse `apply` into a stateless per-event match — the
+    // obvious implementation — and this event either blanks a publishing stream
+    // to `idle` or claims it is `down`. Either way the operator is told their
+    // wedding stopped reaching YouTube when it did not.
+    #[test]
+    fn a_recording_fault_never_changes_the_wire_state() {
+        let mut projection = HealthProjection::new(true);
+        projection.apply(&HealthEvent::Publishing {
+            ingest: Ingest::Primary,
+            resumed: false,
+        });
+        let stopped = projection.apply(&HealthEvent::RecordingStopped {
+            detail: "disk full".to_string(),
+        });
+        assert_eq!(stopped.rtmp, "publishing", "still on air");
+        assert!(!stopped.recording, "but no longer recording");
+
+        let low = projection.apply(&HealthEvent::DiskLow { free_bytes: 1_000 });
+        assert_eq!(low.rtmp, "publishing", "a warning is not an outage");
+    }
+
+    #[test]
+    fn the_backup_ingest_is_named_when_it_is_used() {
+        let mut projection = HealthProjection::new(false);
+        let update = projection.apply(&HealthEvent::Connecting {
+            attempt: 4,
+            ingest: Ingest::Backup,
+        });
+        assert_eq!(update.ingest, Some("backup"));
     }
 
     // ── S12'S "MID-BROADCAST" READ (`EncoderIpcState::is_idle`) ─────────────

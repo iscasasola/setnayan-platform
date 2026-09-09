@@ -56,6 +56,8 @@ import {
   createVideoEncodeSink,
   createChunkRing,
   createDriftGuardedRing,
+  drainToWire,
+  type MediaChunkWire,
   type DriftEvent,
   type RingEntry,
 } from './video-encode';
@@ -184,13 +186,9 @@ export type ProgramCanvasOutbound =
   | { type: 'media'; video: MediaChunkWire[]; audio: MediaChunkWire[] }
   | { type: 'error'; where: string; message: string };
 
-/** One encoded access unit on its way to the page. `data` is transferred, not copied. */
-export type MediaChunkWire = {
-  keyframe: boolean;
-  timestampMicros: number;
-  seq: number;
-  data: ArrayBuffer;
-};
+/** Re-exported so the page's existing import path does not move. Defined in
+ *  `video-encode.ts`, beside `drainToWire`, which is what builds it. */
+export type { MediaChunkWire } from './video-encode';
 
 /** How often stats go back to the page, counted in TICKS — 30 ticks is one second of media. */
 export const STATS_INTERVAL_TICKS = PROGRAM_FPS;
@@ -486,23 +484,11 @@ function makePacker() {
  * onto the wire by timestamp anyway (`rtmp::RtmpClock`).
  */
 function flushMedia(): void {
-  const video = videoRing.drain();
-  const audio = audioRing.drain();
-  if (video.length === 0 && audio.length === 0) return;
-  const wire = (entry: RingEntry): MediaChunkWire => ({
-    keyframe: entry.keyframe,
-    timestampMicros: entry.timestampMicros,
-    seq: entry.seq,
-    // `.buffer` is the whole allocation and every entry owns a fresh one (the
-    // encode sink allocates per chunk), so this is exact — not a view into a
-    // shared arena that would transfer more than it should.
-    data: entry.data.buffer as ArrayBuffer,
-  });
-  const videoWire = video.map(wire);
-  const audioWire = audio.map(wire);
+  const drained = drainToWire(videoRing, audioRing);
+  if (!drained) return;
   scope.postMessage(
-    { type: 'media', video: videoWire, audio: audioWire },
-    [...videoWire, ...audioWire].map((chunk) => chunk.data),
+    { type: 'media', video: drained.video, audio: drained.audio },
+    drained.transfer,
   );
 }
 

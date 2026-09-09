@@ -156,7 +156,14 @@ test('🔑 8 · the list ranks through the shared resolver, not its own', () => 
   // ranking — it would read 2 whichever half went wrong.
   const whole = read(BUILDER);
   const start = whole.indexOf('export async function buildVendorConversationRows');
-  const end = whole.indexOf('export async function buildCoupleConversationRows');
+  // ⚠ THE WINDOW ENDS AT THE SHARED READER, NOT AT THE COUPLE BUILDER. The
+  // three couple-side probes were extracted into `readCoupleStageFacts` when
+  // the shortlist bench became their second consumer (2026-09-09), and that
+  // helper sits BETWEEN the two builders — so the old bound swept it into the
+  // supplier's window and counted its `rowReadsCompleted` as a second copy the
+  // supplier had grown. A window that faces the wrong code is a guard that
+  // accuses correct work, which is how a real one comes to be edited away.
+  const end = whole.indexOf('async function readCoupleStageFacts');
   assert.ok(start > 0 && end > start, 'the supplier builder moved — this window faces nothing');
   const builder = whole.slice(start, end);
   assert.equal(
@@ -321,23 +328,50 @@ test('🔑 12 · ONE column renders both sides, and it knows both vocabularies',
 
 test('🔑 13 · the couple’s side reads with the couple’s own session, batched', () => {
   const builder = read(BUILDER);
-  const couple = builder.slice(builder.indexOf('export async function buildCoupleConversationRows'));
+  // Bounded at the bench reader below it for the same reason test 8 is bounded
+  // at the shared helper above it: `buildBenchStandings` legitimately calls the
+  // resolver once of its own, and an open-ended slice would read that as the
+  // couple builder ranking twice.
+  const couple = builder.slice(
+    builder.indexOf('export async function buildCoupleConversationRows'),
+    builder.indexOf('export async function buildBenchStandings'),
+  );
   assert.ok(couple.length > 500, 'the couple builder is gone');
   // 🔒 No service role on this side. All three stage tables carry a couple_read
   // policy — reaching for admin here would be reading past their own RLS.
   for (const forbidden of ['adminClient', 'createAdminClient', 'service_role']) {
     assert.ok(!couple.includes(forbidden), `the couple builder reached for ${forbidden}`);
   }
-  // One query per fact for the WHOLE column, keyed on the one event.
+  // ⚠ THE THREE PROBES MOVED, AND THE CLAIM DID NOT. They now live in
+  // `readCoupleStageFacts` because the shortlist bench became their SECOND
+  // consumer (2026-09-09) — a bench card and the conversation it opens
+  // disagreeing about the same supplier is the defect this module exists to
+  // prevent, so they read the same facts or none. What is still asserted is
+  // exactly what was asserted before: one batched query per fact for the whole
+  // surface, on the couple's own session. `the-bench-says-where-you-stand.test.ts`
+  // pins the helper itself and that BOTH consumers go through it.
+  assert.ok(
+    couple.includes('readCoupleStageFacts('),
+    'the couple builder stopped reading the shared stage facts — it has grown its own probes again',
+  );
+  const helper = builder.slice(
+    builder.indexOf('async function readCoupleStageFacts'),
+    builder.indexOf('type CoupleThreadInput'),
+  );
+  assert.ok(helper.length > 500, 'the shared stage-facts reader is gone');
   assert.equal(
-    (couple.match(/\.eq\('event_id', eventId\)/g) ?? []).length,
+    (helper.match(/\.eq\('event_id', eventId\)/g) ?? []).length,
     3,
     'a couple stage probe stopped batching on the event — that is three queries per row',
   );
+  for (const forbidden of ['adminClient', 'createAdminClient', 'service_role']) {
+    assert.ok(!helper.includes(forbidden), `the shared stage-facts reader reached for ${forbidden}`);
+  }
   // It ranks through the shared resolver, like the other side.
   assert.equal((couple.match(/resolveThreadStage\(/g) ?? []).length, 1);
-  assert.equal((couple.match(/rowReadsCompleted\(/g) ?? []).length, 1);
+  assert.equal((helper.match(/rowReadsCompleted\(/g) ?? []).length, 1);
   assertNamesNoRung(couple, 'couple');
+  assertNamesNoRung(helper, 'the shared stage-facts reader');
 });
 
 test('🔑 14 · a masked supplier’s real name never reaches the column', () => {

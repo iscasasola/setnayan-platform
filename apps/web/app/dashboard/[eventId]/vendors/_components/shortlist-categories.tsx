@@ -53,6 +53,13 @@ import {
 } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
 import {
+  STANDING_LABEL,
+  standingRollUp,
+  standingSentence,
+  type SupplierStanding,
+} from '@/lib/supplier-standing';
+import { THREAD_STAGE_LABEL } from '@/lib/vendor-thread-stage';
+import {
   BENCH_SORTS,
   BENCH_PLAIN_SORTS,
   benchCompatInputs,
@@ -703,6 +710,38 @@ html.dark .slcat .mrerr{color:#E39A9A}
 .slcat .fd-chip{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:var(--m-r-full);
   background:rgba(27,26,23,.06);font-family:var(--mono);font-size:9.5px}
 .slcat .fd-out{display:block;margin-top:3px;font-size:9.5px;color:var(--gold-deep)}
+
+/* ── WHERE YOU STAND ────────────────────────────────────────────────────────
+   The one line this stream adds to the card, ported from the binding prototype
+   (chat_interface_v4_2026-09-09.html, the "Couple . the bench" frame). Pushed
+   to the BOTTOM of the meta block with margin-top:auto so the sentence sits on
+   the same baseline across a rail of cards whose middles differ in height --
+   which is what makes three caterers side by side actually comparable.
+
+   COLOURS, and why these: the label and the one segment that wants the couple
+   both use --gold-text, the only gold globals.css nominated for letters
+   (#5C4726 light / #E2B968 dark). They sit on the plain card, NOT on a tint --
+   a colour on a wash of itself loses about half a point, which is how the last
+   five contrast failures on this file happened. Both pairings are pinned in
+   the-bench-is-legible.test.ts and measured in both themes. */
+.slcat .vc .stand{margin-top:auto;padding-top:6px;border-top:1px dashed var(--line);
+  font-size:10.5px;line-height:1.45;color:var(--ink-soft)}
+.slcat .vc .stand .lab{display:block;font-family:var(--mono);font-size:8px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--gold-text);margin-bottom:2px}
+.slcat .vc .stand .line{display:block}
+.slcat .vc .stand b{color:var(--ink);font-weight:600}
+.slcat .vc .stand b.need{color:var(--gold-text);font-weight:700}
+.slcat .vc .stand .sep{color:var(--ink-faint)}
+
+/* The roll-up. One line, full width, above every folder. The dot is the only
+   ornament and it is decorative -- the count is in the text, where a screen
+   reader and a colour-blind reader both get it. */
+.slcat .replied{display:flex;align-items:center;gap:.6rem;border:1px solid var(--gold);
+  border-radius:var(--m-r-md);padding:.55rem .8rem;background:var(--card);font-size:.84rem;
+  color:var(--ink);margin:0 0 14px}
+.slcat .replied .dot{width:8px;height:8px;border-radius:50%;background:var(--gold-deep);flex:none}
+.slcat .replied b{font-weight:700}
+.slcat .replied .who{color:var(--ink-soft)}
 `;
 
 function initials(name: string): string {
@@ -777,12 +816,90 @@ function CardDateBlock({
   );
 }
 
+/**
+ * WHERE YOU STAND — the standing sentence, on the card, under the free-days
+ * line. The one addition this stream makes to a card that already renders
+ * eleven facts.
+ *
+ * ⛔ IT DECIDES NOTHING. Every segment arrives already computed by
+ * `lib/supplier-standing.ts`, and the rung's word comes from
+ * `THREAD_STAGE_LABEL` — so a stage word outside the ladder's five cannot reach
+ * a card even by a typo here, and a rung renamed on the ladder is renamed on
+ * the bench for free.
+ *
+ * ⚠ THE WHOLE SENTENCE IS ALSO THE aria-LABEL. The segments are visually
+ * distinct (quiet ink · full ink · gold for the one thing that wants the
+ * couple) and a screen reader gets none of that, so it gets the sentence.
+ */
+function CardStanding({ standing }: { standing: SupplierStanding | null }) {
+  if (!standing) return null;
+  return (
+    <span className="stand" aria-label={`${STANDING_LABEL}: ${standingSentence(standing)}`}>
+      <span className="lab" aria-hidden>
+        {STANDING_LABEL}
+      </span>
+      <span className="line" aria-hidden>
+        {standing.segments.map((seg, i) => (
+          <span key={i}>
+            {i > 0 ? <span className="sep"> · </span> : null}
+            {seg.kind === 'stage' ? (
+              <b>
+                {THREAD_STAGE_LABEL[seg.stage]}
+                {seg.amountPhp == null ? '' : ` ${formatPhp(seg.amountPhp)}`}
+              </b>
+            ) : seg.kind === 'need' ? (
+              <b className="need">{seg.text}</b>
+            ) : seg.kind === 'said' ? (
+              <b>{seg.text}</b>
+            ) : (
+              <span>{seg.text}</span>
+            )}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * THE ROLL-UP — "2 suppliers replied", one line at the top of the bench, above
+ * every folder.
+ *
+ * 🔑 THE SAME DERIVATION, COUNTED. It reads the standings the cards below it
+ * are already showing (`standingRollUp`), so it can never claim a reply no card
+ * displays. Null when nobody has replied: an always-present banner is a banner
+ * couples learn to skip.
+ */
+function BenchRollUp({ folders, standings }: { folders: ShortlistFolder[]; standings: Record<string, SupplierStanding> }) {
+  // ⚠ DEDUPED BY vendorId. A supplier can sit under more than one tile (a
+  // caterer who also does the dessert bar), and the roll-up counting them twice
+  // would say "3 suppliers replied" over two names — a number the cards below
+  // it visibly contradict.
+  const seen = new Set<string>();
+  const rollUp = standingRollUp(
+    folders
+      .flatMap((f) => f.tiles.flatMap((t) => t.vendors))
+      .filter((v) => !seen.has(v.vendorId) && seen.add(v.vendorId))
+      .map((v) => ({ name: v.name, standing: standings[v.vendorId] ?? null })),
+  );
+  if (!rollUp) return null;
+  return (
+    <div className="replied" role="status">
+      <span className="dot" aria-hidden />
+      <span>
+        <b>{rollUp.headline}</b> <span className="who">— {rollUp.names.join(' · ')}</span>
+      </span>
+    </div>
+  );
+}
+
 function VendorCard({
   v,
   reason,
   eventId,
   tileLabel,
   dates,
+  standing,
   actions,
 }: {
   v: ShortlistVendor;
@@ -799,6 +916,13 @@ function VendorCard({
    * same window. Null ⇒ render nothing, which is the fail-open case.
    */
   dates?: { parts: CardDates | null; outcome: DateOutcome } | null;
+  /**
+   * Where this supplier stands, already derived on the server. Null (the common
+   * case) ⇒ nothing renders: most of the bench is suppliers the couple has
+   * never written to, and a card for a stranger must not grow a sentence about
+   * a conversation that does not exist.
+   */
+  standing?: SupplierStanding | null;
   /**
    * Explore Replan slice D — the resolved three-action set, or null when the
    * flag is OFF / nothing applies. Null keeps the pre-replan render EXACTLY:
@@ -866,6 +990,9 @@ function VendorCard({
             in the bench's mono voice. Renders only when there IS a signal; a
             calendar we could not read stays silent rather than guessing. */}
         <CardDateBlock line={v.freeDaysLine} dates={dates ?? null} name={v.name} />
+        {/* Where you stand — the last line of the meta block, under the dates.
+            The couple's eye lands on the photo, then the name, then this. */}
+        <CardStanding standing={standing ?? null} />
       </span>
     </InspectorTrigger>
   );
@@ -1137,9 +1264,21 @@ export function ShortlistCategories({
   buildWindow = null,
   probeDayKeys = [],
   teamCalendar = [],
+  standings = {},
 }: {
   folders: ShortlistFolder[];
   eventId: string;
+  /**
+   * vendorId → where that supplier stands, derived ONCE on the server by
+   * `lib/supplier-standing.ts` and passed down. A vendor absent from this map
+   * has no conversation, and their card says nothing — which is most of the
+   * bench and is the correct answer there.
+   *
+   * ⚠ A PASS-DOWN, NEVER A SECOND DERIVATION. The owner allowed this sentence
+   * to appear in more than one place ("yes, it is fine to show it twice"); what
+   * makes that safe is that every place renders the SAME computed answer.
+   */
+  standings?: Record<string, SupplierStanding>;
   /**
    * Deep-link target (checklist "Book your caterer" → `?open=catering`). When it
    * matches a tile in `folders`, that tile's folder + the tile open on first
@@ -1973,6 +2112,12 @@ export function ShortlistCategories({
           `confirm()` resolves against a dialog that was never mounted —
           the hook's own docblock says so. */}
       {removeConfirmDialog}
+      {/* THE ROLL-UP · the first thing on the bench, above the coverage strip
+          and every folder, so the couple learns there is something to read
+          before they open a single category. Owner: the sticky Picks column
+          carries at most this line; the per-supplier detail belongs on the
+          bench card, in the wide left column where they spend their time. */}
+      <BenchRollUp folders={folders} standings={standings} />
       {replan && stripTiles.length > 0 ? (
         /* Coverage Strip v2 (Explore Replan PR-B) — the SAME `.plan-strip`
            shell + the SAME `openPlan` doorway as the chip strip it upgrades;
@@ -2559,6 +2704,7 @@ export function ShortlistCategories({
                                   eventId={eventId}
                                   tileLabel={t.label}
                                   dates={dateViewFor(v)}
+                                  standing={standings[v.vendorId] ?? null}
                                   // Slice D — three-action card. The resolver is
                                   // pure + unit-tested; flag OFF returns nothing
                                   // and the card renders exactly as it shipped.
@@ -2639,6 +2785,7 @@ export function ShortlistCategories({
                                       eventId={eventId}
                                       tileLabel={t.label}
                                     dates={dateViewFor(v)}
+                                      standing={standings[v.vendorId] ?? null}
                                       actions={resolveBenchCardActions({
                                         enabled: replan,
                                         vendor: v,

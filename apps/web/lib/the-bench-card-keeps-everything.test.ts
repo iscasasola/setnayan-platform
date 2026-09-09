@@ -110,6 +110,12 @@ const CARD_ELEMENTS: ReadonlyArray<{ element: string; anchor: RegExp; count: num
     why: 'their open days inside the couple’s window — silent when unknown, never guessed',
   },
   {
+    element: 'the standing sentence',
+    anchor: /<CardStanding standing=/,
+    count: 1,
+    why: 'where this supplier stands — the line that lets a couple compare a rail of cards without opening one',
+  },
+  {
     element: 'the three actions',
     anchor: /<BenchVendorActions/,
     count: 1,
@@ -136,7 +142,7 @@ const RAIL_CONTROLS: ReadonlyArray<{ element: string; anchor: RegExp; count: num
 test('the scan read the real file (an empty read is a green lie)', () => {
   assert.ok(src.length > 20000, `the bench read as ${src.length} chars — the scan is not reading it`);
   assert.ok(actionsSrc.length > 1000, 'the actions component read empty');
-  assert.equal(CARD_ELEMENTS.length, 14, 'the pinned element list changed size — say so in the PR');
+  assert.equal(CARD_ELEMENTS.length, 15, 'the pinned element list changed size — say so in the PR');
 });
 
 /**

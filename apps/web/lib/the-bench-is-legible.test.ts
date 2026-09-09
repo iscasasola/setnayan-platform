@@ -141,6 +141,17 @@ const PAIRINGS: readonly Pairing[] = [
     // what the nearest rule says.
     darkSelector: 'html.dark .slcat .vc .bdg.setnayan',
   },
+  // ── "Where you stand" (2026-09-09) ────────────────────────────────────────
+  // The sentence added to every contacted supplier's card. Its label and its
+  // one call-to-act segment both use --gold-text, and BOTH SIT ON THE PLAIN
+  // CARD rather than on a gold wash — the wash is precisely what cost the four
+  // pairings above half a point each. Listed here because this guard cannot
+  // know about a pairing nobody told it about.
+  { name: 'Where you stand (label)', selector: '.slcat .vc .stand .lab' },
+  { name: 'Where you stand (body)', selector: '.slcat .vc .stand' },
+  { name: 'waiting on you', selector: '.slcat .vc .stand b.need' },
+  { name: 'the roll-up', selector: '.slcat .replied' },
+  { name: 'the roll-up names', selector: '.slcat .replied .who' },
 ];
 
 const AA = 4.5;
@@ -165,7 +176,7 @@ function measure(p: Pairing, theme: 'light' | 'dark'): { name: string; r: number
 test('the scan read the real stylesheet (an empty read is a green lie)', () => {
   assert.ok(src.includes('const SLCAT_CSS'), 'the bench stylesheet is gone or renamed');
   assert.ok(src.length > 20000, `read only ${src.length} chars`);
-  assert.equal(PAIRINGS.length, 4, 'the pairing list changed size — say so in the PR');
+  assert.equal(PAIRINGS.length, 9, 'the pairing list changed size — say so in the PR');
   // Every selector must actually be in the file, or the loop measures nothing
   // and reports a clean pass — the shape both shipped guards failed in.
   for (const p of PAIRINGS) {

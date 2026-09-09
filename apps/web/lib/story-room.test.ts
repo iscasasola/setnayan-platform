@@ -20,6 +20,10 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { stripComments } from './strip-comments';
 
 import type { VenueBlock } from './story-spine';
 import {
@@ -31,6 +35,8 @@ import {
   lensStateAt,
   lensStateLabel,
   loudestTable,
+  readRoomSnapshot,
+  roomSnapshotOf,
   seatsAreShown,
   type LensState,
   type RoomTable,
@@ -409,4 +415,164 @@ test('an empty room resolves to no venue rather than to a crash', () => {
   assert.equal(lensStateAt(Date.now(), [], EMPTY_ROOM), 'no_venue');
   assert.equal(seatsAreShown('no_venue'), false);
   assert.equal(lensStateLabel('no_venue'), 'no venue');
+});
+
+/* ─── THE ROOM IS FROZEN AT PUBLISH (`03` §2.8 · 08 step 1.6) ─────────────── */
+
+const A_REAL_ROOM: StoryRoom = {
+  seatingSurface: true,
+  roaming: false,
+  seatsAssigned: true,
+  drawnAtMs: 1_770_000_000_000,
+  tables: [
+    { id: 't1', label: '7', xPct: 20, yPct: 30, shape: 'round' },
+    { id: 't2', label: 'Long table', xPct: 60.5, yPct: 12.25, shape: 'long_banquet' },
+  ],
+  stage: { xPct: 40, yPct: 5, wPct: 20, hPct: 8 },
+  dance: { xPct: 40, yPct: 60, wPct: 20, hPct: 15 },
+};
+
+test('a frozen room comes back exactly as it was written', () => {
+  // The whole promise: the plan on a published story is a record of the night,
+  // not a live view of a document the host is still editing.
+  const back = readRoomSnapshot(roomSnapshotOf(A_REAL_ROOM));
+  assert.deepEqual(back, A_REAL_ROOM);
+});
+
+test('an unreadable snapshot costs the FREEZE, never the room', () => {
+  /*
+    🔑 `null` MEANS "NOT FROZEN", which falls back to the live plan — the same
+    behaviour every story has today. A snapshot reader that returned an EMPTY
+    room on junk would blank a floor plan that exists, on the one press that is
+    supposed to preserve it.
+  */
+  for (const junk of [null, undefined, 0, '', 'a room', [], {}, { v: 2, room: A_REAL_ROOM }, { v: 1 }, { v: 1, room: 'x' }]) {
+    assert.equal(readRoomSnapshot(junk), null, `${JSON.stringify(junk)} produced a room`);
+  }
+});
+
+test('a table with no position is DROPPED, not parked at the origin', () => {
+  // Where it would sit on top of the stage and read as a table that was really
+  // there — the same rule the live read applies.
+  const back = readRoomSnapshot({
+    v: 1,
+    room: {
+      ...A_REAL_ROOM,
+      tables: [
+        { id: 't1', label: '7', xPct: 20, yPct: 30, shape: 'round' },
+        { id: 't2', label: 'no position', shape: 'round' },
+        { id: 't3', label: 'bad shape', xPct: 1, yPct: 1, shape: 'hexagon' },
+        { id: '', label: 'no id', xPct: 1, yPct: 1, shape: 'round' },
+        { id: 't5', label: '', xPct: 1, yPct: 1, shape: 'round' },
+      ],
+    },
+  });
+  assert.deepEqual(back?.tables.map((t) => t.id), ['t1']);
+});
+
+test('a position outside the venue is clamped, exactly as the live read clamps it', () => {
+  const back = readRoomSnapshot({
+    v: 1,
+    room: { ...A_REAL_ROOM, tables: [{ id: 't1', label: '7', xPct: -40, yPct: 900, shape: 'round' }] },
+  });
+  assert.deepEqual(back?.tables[0], { id: 't1', label: '7', xPct: 0, yPct: 100, shape: 'round' });
+});
+
+test('a nonsense box is dropped rather than drawn inside out', () => {
+  const back = readRoomSnapshot({
+    v: 1,
+    room: { ...A_REAL_ROOM, stage: { xPct: 1, yPct: 1, wPct: 0, hPct: 5 }, dance: 'nope' },
+  });
+  assert.equal(back?.stage, null);
+  assert.equal(back?.dance, null);
+});
+
+test('THE FROZEN SHAPE HAS NOWHERE TO PUT A NAME', () => {
+  /*
+    🔒 `04` rule 2 is a review BLOCKER, and this is the version of it that
+    survives a careless writer: the snapshot is a `StoryRoom`, whose whole field
+    list is a label, two percentages and a shape. A field smuggled into the
+    stored document does not come back out — so a future writer that reached for
+    `guests` could not leak one through here even if nobody reviewed it.
+  */
+  const smuggled = {
+    v: 1,
+    room: {
+      ...A_REAL_ROOM,
+      tables: [
+        {
+          id: 't1',
+          label: '7',
+          xPct: 20,
+          yPct: 30,
+          shape: 'round',
+          guestName: 'Bing Reyes',
+          seatedGuestIds: ['g1', 'g2'],
+        },
+      ],
+      hostName: 'Maria',
+    },
+  };
+  const back = readRoomSnapshot(smuggled);
+  assert.deepEqual(Object.keys(back?.tables[0] ?? {}).sort(), [
+    'id',
+    'label',
+    'shape',
+    'xPct',
+    'yPct',
+  ]);
+  assert.doesNotMatch(JSON.stringify(back), /Bing|Maria|seatedGuestIds/);
+});
+
+test('THE PUBLIC READ PREFERS THE SNAPSHOT, AND IT IS THE ONLY ROOM READ', () => {
+  /*
+    The freeze is worth nothing if the reader still goes to `event_tables`. Two
+    claims, each checked on its own rather than counted:
+
+      1. `loadStoryRoom` consults `room_snapshot` and RETURNS it when it parses;
+      2. it is the ONE place the story reads the plan — a second reader would be
+         a second opinion, and only one of the two would be frozen.
+
+    Read over the STRIPPED source, because this file's own docblocks describe
+    both the defect and the fix and would otherwise satisfy the scan.
+  */
+  const src = stripComments(
+    readFileSync(
+      join(import.meta.dirname, '..', 'app', '[slug]', '_components', 'story', 'spine-data.ts'),
+      'utf8',
+    ),
+  );
+  const start = src.indexOf('export async function loadStoryRoom');
+  assert.ok(start >= 0, 'loadStoryRoom is gone');
+  const body = src.slice(start, src.indexOf('\nasync function ', start + 10) + 1 || undefined);
+
+  assert.match(
+    body,
+    /readRoomSnapshot\([\s\S]{0,120}room_snapshot[\s\S]{0,200}?return frozen/,
+    'loadStoryRoom no longer returns the frozen room — a published story is ' +
+      'reading the live plan again, and a host who re-runs their seating ' +
+      'silently redraws a story that was already told.',
+  );
+  // The snapshot is consulted BEFORE the live read, or it is not a freeze.
+  assert.ok(
+    body.indexOf('room_snapshot') < body.indexOf("from('event_tables')"),
+    'the live plan is read before the snapshot is consulted.',
+  );
+  // And nowhere else in the story tree reads the plan.
+  const others = readdirSync(join(import.meta.dirname, '..', 'app', '[slug]', '_components', 'story'))
+    .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && f !== 'spine-data.ts')
+    .filter((f) =>
+      stripComments(
+        readFileSync(
+          join(import.meta.dirname, '..', 'app', '[slug]', '_components', 'story', f),
+          'utf8',
+        ),
+      ).includes("from('event_tables')"),
+    );
+  assert.deepEqual(
+    others,
+    [],
+    `these read the live floor plan as well as loadStoryRoom: ${others.join(', ')} — ` +
+      `only one of the two readers is frozen.`,
+  );
 });

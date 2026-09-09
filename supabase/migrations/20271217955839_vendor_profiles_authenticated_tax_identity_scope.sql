@@ -115,10 +115,16 @@
 -- ── WHAT IS UNAFFECTED ────────────────────────────────────────────────
 --   * WRITES. This migration touches SELECT ONLY. `authenticated` keeps
 --     its table-level INSERT/UPDATE/DELETE, so the shop editor,
---     /open-shop and the docs upload are untouched. Scanned mechanically:
---     of the 401 `.from('vendor_profiles')` call sites, FIFTEEN are
---     writes with a RETURNING projection and NONE of them returns a
---     denied column (the widest is 'vendor_profile_id, business_slug').
+--     /open-shop and the docs upload are untouched. Scanned MECHANICALLY,
+--     not remembered -- every `.from('vendor_profiles')` in apps/web (405
+--     of them on 2026-09-10; that number moves with every merge, the
+--     METHOD is the point) had its following `.select()` read. FIFTEEN are
+--     writes carrying a RETURNING projection and NONE returns a denied
+--     column -- the widest is 'vendor_profile_id, business_slug'. The same
+--     pass found ZERO `select('*')` on this table anywhere, and of 40
+--     PostgREST EMBED sites (`vendor_profiles(...)` inside another table's
+--     select) none names a denied column either -- an embed is the shape
+--     SEC-2b was bitten by, and `.from()` alone would not have seen one.
 --   * anon. Not named in any statement here. Post-condition 3 asserts its
 --     21-column surface is byte-identical afterwards.
 --   * service_role / postgres. Not named. Every public and SEO surface

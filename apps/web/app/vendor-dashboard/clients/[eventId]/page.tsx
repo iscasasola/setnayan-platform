@@ -146,6 +146,11 @@ import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import {
+  buildSharedFiles,
+  type ChatFileInput,
+  type SharedFileEntry,
+} from '@/lib/chat-shared-files';
 // The tree kit (W4-B): `Card` here IS ShopCard — the local definition this
 // file used to carry was byte-identical to the kit's dominant card recipe.
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
@@ -610,6 +615,51 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // flow lives inside the thread) in the header action row.
   const thread = threads.find((t) => t.event_id === eventId) ?? null;
   const threadId = thread?.thread_id ?? null;
+
+  /*
+    FILES THE COUPLE SENT IN THE CONVERSATION — the third source of the Files
+    tab, and the one it was missing.
+
+    ⚠ IT RIDES THE SCOPE THIS PAGE ALREADY HAS. Same user client, same thread
+    the header's [Open chat] button opens, same RLS. No admin client, no new
+    SECURITY DEFINER, no widening: if the supplier may open the thread they may
+    see what is in it, and if they may not, this read returns nothing — which is
+    exactly what the FilesTab is told below.
+
+    ⚠ `chatFilesMeasured` EXISTS BECAUSE A REFUSAL LOOKS LIKE AN EMPTY ROOM.
+    In this app a denied query comes back as zero rows, so "nothing was ever
+    shared" and "you were not allowed to see it" render identically unless the
+    error is checked. Production has never had a single chat attachment, so the
+    empty state is what every supplier sees today — all the more reason it must
+    not also be what a refusal says.
+  */
+  let chatFiles: ChatFileInput[] = [];
+  let chatFilesMeasured = true;
+  if (threadId) {
+    const { data: chatFileRows, error: chatFileRowsError } = await supabase
+      .from('chat_messages')
+      .select(
+        'message_id,sender_role,created_at,attachment_name,attachment_mime,attachment_size_bytes,attachment_url',
+      )
+      .eq('thread_id', threadId)
+      // A row counts as a file if EITHER the stored reference or the filename
+      // survived — a name with no reference still tells the supplier the file
+      // exists, and listing it unlinked beats pretending it never arrived.
+      .or('attachment_url.not.is.null,attachment_name.not.is.null')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (chatFileRowsError) {
+      logQueryError(
+        'VendorClientDetail.chatFiles',
+        chatFileRowsError,
+        { eventId, thread_id: threadId },
+        'graceful_degrade',
+      );
+      chatFilesMeasured = false;
+    } else {
+      chatFiles = (chatFileRows ?? []) as ChatFileInput[];
+    }
+  }
 
   // Returning-client marker (Details/Overview tab). A row exists ONLY when this
   // couple previously CONFIRMED-booked THIS vendor on a DIFFERENT event — i.e.
@@ -1293,7 +1343,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   );
 
   const filesNode = (
-    <FilesTab contracts={contracts} threadId={threadId} handovers={handovers} isBooked={isBooked} />
+    <FilesTab
+      files={buildSharedFiles({
+        contracts,
+        handovers,
+        chatFiles,
+        coupleLabel: eventName,
+      })}
+      chatFilesMeasured={chatFilesMeasured}
+      threadId={threadId}
+      isBooked={isBooked}
+    />
   );
 
   const scheduleNode = (
@@ -2755,30 +2815,43 @@ function QuoteTab(props: {
 // FILES TAB
 // ===========================================================================
 function FilesTab(props: {
-  contracts: ContractRow[];
+  /**
+   * Contracts, handover deliverables AND the files shared in the couple's
+   * conversation, already merged and sorted newest-first by
+   * `buildSharedFiles`. THREE sources, one list: the supplier is looking for
+   * the thing that happened recently and does not know which door it came
+   * through.
+   */
+  files: SharedFileEntry[];
+  /**
+   * FALSE when the read of the conversation's files was REFUSED rather than
+   * empty. Both return zero rows in this app, and only one of them means "there
+   * is nothing here" — so the tab is told which, and says so.
+   */
+  chatFilesMeasured: boolean;
   threadId: string | null;
-  handovers: HandoverRow[];
   isBooked: boolean;
 }) {
-  const { contracts, threadId, handovers, isBooked } = props;
-  // Handover deliverables that carry a file/link the vendor sent (a light
-  // "files shared" view alongside contracts, since 0019 thread attachments are
-  // deferred in V1 — there is no thread-attachments table to read).
-  const handoverFiles = handovers.filter(
-    (h) => (h.kind === 'file' || h.kind === 'gallery_link') && h.payload,
-  );
-  const hasAny = contracts.length > 0 || handoverFiles.length > 0;
+  const { files, chatFilesMeasured, threadId, isBooked } = props;
+  const hasAny = files.length > 0;
 
   return (
     <div className="space-y-4">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Shared files</p>
 
+      {!chatFilesMeasured ? (
+        <p className="rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/60">
+          Files shared in your conversation could not be loaded just now, so this list may be
+          incomplete. Everything is still in the chat itself.
+        </p>
+      ) : null}
+
       {!hasAny ? (
         <ShopEmpty>
           <FolderOpen aria-hidden className="mx-auto h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/55">
-            No files here yet. Contracts you upload for this couple show up here; share other files
-            in your chat.
+            No files shared yet. Contracts you upload for this couple appear here, and so does
+            anything either of you attaches in the conversation.
           </p>
           {threadId ? (
             <Link
@@ -2791,57 +2864,33 @@ function FilesTab(props: {
         </ShopEmpty>
       ) : (
         <ul className="space-y-2">
-          {contracts.map((c) => (
+          {files.map((f) => (
             <li
-              key={c.contract_id}
+              key={f.key}
               className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
-                <FileText aria-hidden className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {c.file_name ?? c.title ?? 'Contract.pdf'}
-                </p>
-                <p className="text-xs text-ink/55">
-                  Contract · {c.status.replace(/_/g, ' ')} · {fmtShortDate(c.created_at)}
-                </p>
-              </div>
-              {c.file_url ? (
-                <a
-                  href={c.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs font-medium text-mulberry hover:underline"
-                >
-                  Open →
-                </a>
-              ) : null}
-            </li>
-          ))}
-          {handoverFiles.map((h) => (
-            <li
-              key={h.handover_id}
-              className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
-                {h.kind === 'gallery_link' ? (
+                {f.kind === 'chat' ? (
+                  <MessageSquare aria-hidden className="h-4 w-4" />
+                ) : f.kind === 'gallery_link' ? (
                   <Link2 aria-hidden className="h-4 w-4" />
-                ) : (
+                ) : f.kind === 'handover' ? (
                   <PackageCheck aria-hidden className="h-4 w-4" />
+                ) : (
+                  <FileText aria-hidden className="h-4 w-4" />
                 )}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {h.label ?? HANDOVER_KIND_LABEL[h.kind]}
-                </p>
+                <p className="truncate text-sm font-medium">{f.name}</p>
                 <p className="text-xs text-ink/55">
-                  You shared · {fmtShortDate(h.delivered_at)}
+                  {[f.origin, f.typeLabel, f.sizeLabel, fmtShortDate(f.at)]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
               </div>
-              {h.payload ? (
+              {f.href ? (
                 <a
-                  href={h.payload}
+                  href={f.href}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0 text-xs font-medium text-mulberry hover:underline"

@@ -56,7 +56,9 @@ import {
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { StorySpine } from '../story/story-spine';
 import { BackCoverBlock } from '../story/back-cover';
+import { storyTapHref } from '@/lib/a-tap-from-the-story';
 import { loadBackCover } from '../../_lib/back-cover.server';
+import { loadPreviousEdition, type PreviousEdition } from '../../_lib/previous-edition.server';
 import type { BackCover } from '@/lib/the-back-cover';
 import { loadYourOwnDay } from '../../_lib/your-own-day.server';
 import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/story-light';
@@ -332,6 +334,15 @@ export async function EditorialContent({
     ? null
     : await loadBackCover({ eventId, eventDateISO: data.eventDate ?? null, viewer });
 
+  /*
+    "PREVIOUSLY · No. 1" — 08 step 4.3. This edition OPENS with it when the host
+    started it from the last one's back cover. Same fail-quiet contract as the
+    back cover above, and skipped on a sample for the same reason.
+  */
+  const previousEdition: PreviousEdition | null = isSample
+    ? null
+    : await loadPreviousEdition(eventId);
+
   let spineFacts: StorySpineFacts;
   try {
     spineFacts = isSample
@@ -418,6 +429,23 @@ export async function EditorialContent({
         folds them into the eleven index tabs; until it does, nothing a couple
         switched on has stopped appearing.
       */}
+      {/*
+        The pointer BACK, at the very top — "No. 2 opens with Previously · No. 1".
+        Absent unless the host started this celebration from the last one's back
+        cover AND that story is published; a line leading to a locked page would
+        disclose that a private story exists and what it is called.
+      */}
+      {previousEdition ? (
+        <p className="mx-auto max-w-5xl px-4 pt-4 text-center">
+          <a
+            href={previousEdition.href}
+            className="font-mono text-xs uppercase tracking-[0.32em] text-ink/55 underline-offset-4 hover:underline"
+          >
+            {previousEdition.label}
+          </a>
+        </p>
+      ) : null}
+
       <StorySpine
         data={data}
         facts={spineFacts}
@@ -506,7 +534,7 @@ export async function EditorialContent({
               pullQuote={copy.pullQuote}
             />
             {isOn('team') && data.vendors.length ? (
-              <TeamBehindTheDay vendors={data.vendors} />
+              <TeamBehindTheDay vendors={data.vendors} eventSlug={data.slug} />
             ) : null}
           </div>
 
@@ -902,11 +930,22 @@ function isTaggedVendor(v: EditorialData['vendors'][number]): boolean {
   return v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' || v.isFirstPick;
 }
 
-function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement {
+function VendorRow({
+  v,
+  eventSlug,
+}: {
+  v: EditorialData['vendors'][number];
+  /** The story this credit sits on — carried so a tap is attributable to it.
+   *  Null on a curated sample, which has no event row. */
+  eventSlug: string | null;
+}): ReactElement {
   // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier badge +
   // a link to their marketplace profile; others render as a plain credit.
   // (Free vendors are already filtered out in data.ts.)
   const featured = (v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom') && !!v.slug;
+  // One href, derived once: null when this supplier has no marketplace profile,
+  // and the link is then not rendered at all rather than pointing nowhere.
+  const tapHref = storyTapHref(v.slug, eventSlug);
   return (
     <li className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0">
       {v.logoUrl ? (
@@ -924,9 +963,9 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
         />
       )}
       <span className="min-w-0 flex-1">
-        {featured ? (
+        {featured && tapHref ? (
           <a
-            href={`/v/${v.slug}`}
+            href={tapHref}
             className="block truncate font-serif text-sm font-semibold leading-tight text-ink underline-offset-2 hover:underline"
           >
             {v.name}
@@ -961,7 +1000,13 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
   );
 }
 
-function TeamBehindTheDay({ vendors }: { vendors: EditorialData['vendors'] }): ReactElement {
+function TeamBehindTheDay({
+  vendors,
+  eventSlug,
+}: {
+  vendors: EditorialData['vendors'];
+  eventSlug: string | null;
+}): ReactElement {
   const tagged = vendors.filter(isTaggedVendor);
   const rest = vendors.filter((v) => !isTaggedVendor(v));
   // If nothing is tagged (no badges/#1-matches), fall back to showing the
@@ -976,7 +1021,7 @@ function TeamBehindTheDay({ vendors }: { vendors: EditorialData['vendors'] }): R
       </p>
       <ul className="m-0 list-none p-0">
         {shown.map((v, i) => (
-          <VendorRow key={`t-${i}`} v={v} />
+          <VendorRow key={`t-${i}`} v={v} eventSlug={eventSlug} />
         ))}
       </ul>
       {collapsed.length ? (
@@ -986,7 +1031,7 @@ function TeamBehindTheDay({ vendors }: { vendors: EditorialData['vendors'] }): R
           </summary>
           <ul className="m-0 mt-1 list-none p-0">
             {collapsed.map((v, i) => (
-              <VendorRow key={`c-${i}`} v={v} />
+              <VendorRow key={`c-${i}`} v={v} eventSlug={eventSlug} />
             ))}
           </ul>
         </details>

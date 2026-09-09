@@ -114,7 +114,17 @@ test('2 · the DATABASE trigger stopped refusing, and still refuses an unpriced 
     'the old refusal sentence survived in the function body',
   );
   // …and the half that must NOT have been lost while removing the other.
-  assert.match(body, /v_priced\s*:=/, 'the price check went with it');
+  //
+  // 🪤 THIS ASSERTION WAS DECORATION ON ITS FIRST WRITING, and only a mutation
+  // found it. It matched `/v_priced\s*:=/` — which `v_priced := TRUE;` satisfies
+  // exactly as well as the real check, so gutting the price predicate left it
+  // GREEN. Match the PREDICATE, never the assignment: an occurrence count on the
+  // left-hand side cannot see the right-hand side being replaced.
+  assert.match(
+    body,
+    /v_priced\s*:=\s*NEW\.starting_price_php IS NOT NULL AND NEW\.starting_price_php > 0/,
+    'the price predicate was gutted — the trigger would publish an unpriced card',
+  );
   assert.match(
     body,
     /Set a starting price before you publish this card/,

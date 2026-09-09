@@ -35,6 +35,7 @@ import {
   lensStateAt,
   lensStateLabel,
   loudestTable,
+  readFrozenSeats,
   readRoomSnapshot,
   roomSnapshotOf,
   seatsAreShown,
@@ -542,36 +543,47 @@ test('THE PUBLIC READ PREFERS THE SNAPSHOT, AND IT IS THE ONLY ROOM READ', () =>
       'utf8',
     ),
   );
-  const start = src.indexOf('export async function loadStoryRoom');
-  assert.ok(start >= 0, 'loadStoryRoom is gone');
-  const body = src.slice(start, src.indexOf('\nasync function ', start + 10) + 1 || undefined);
-
+  /*
+    ⚠ THIS GUARD ALREADY EARNED ITS KEEP ONCE: the snapshot read MOVED out of
+    `loadStoryRoom` into `loadRoomFreeze` when the seating freeze landed, and
+    this test went red rather than quietly following. That is the behaviour a
+    source guard is for — it names where it expects the read to be, so moving it
+    is a decision somebody makes, not a thing that happens.
+  */
   assert.match(
-    body,
-    /readRoomSnapshot\([\s\S]{0,160}?room_snapshot/,
-    'loadStoryRoom no longer reads room_snapshot — a published story is reading ' +
+    src,
+    /export async function loadRoomFreeze[\s\S]{0,700}?readRoomSnapshot\(doc\)/,
+    'loadRoomFreeze no longer reads room_snapshot — a published story is reading ' +
       'the live plan again, and a host who re-runs their seating silently ' +
       'redraws a story that was already told.',
   );
   /*
-    🔴 AND THE RETURN IS ASSERTED ON ITS CONDITION, NOT ON ITS KEYWORD. The first
-    version of this guard matched `…return frozen` and went GREEN against
+    🔴 AND THE PREFERENCE IS ASSERTED ON ITS CONDITION, NOT ON A KEYWORD. The
+    first version of this guard matched `…return frozen` and went GREEN against
     `if (false) return frozen;` — the freeze switched off with the line still
-    there. Measured: the occurrence count of `if (frozen) return frozen;` went
-    1 → 0 and the guard still reported 21 of 21 passing.
+    there. Measured: the occurrence count went 1 → 0 and the guard still
+    reported 21 of 21 passing.
 
     *A guard that matches the statement and not its guard clause is decoration.*
+    Its successor is the `??` below: the frozen room WINS, and the live read is
+    only what happens when there is none.
   */
+  const roomFn = src.slice(src.indexOf('export async function loadStoryRoom'));
   assert.match(
-    body,
-    /if\s*\(\s*frozen\s*\)\s*return\s+frozen\s*;/,
-    'the frozen room is no longer returned when it parses — the freeze is ' +
-      'switched off with the line still in place.',
+    roomFn.slice(0, 400),
+    /return\s+freeze\.room\s*\?\?\s*\(await loadLiveRoom\(/,
+    'loadStoryRoom no longer prefers the frozen room over the live plan.',
   );
-  // The snapshot is consulted BEFORE the live read, or it is not a freeze.
+  // And the live plan is only ever read by the function that says it is live.
+  const liveFn = src.slice(src.indexOf('export async function loadLiveRoom'));
   assert.ok(
-    body.indexOf('room_snapshot') < body.indexOf("from('event_tables')"),
-    'the live plan is read before the snapshot is consulted.',
+    liveFn.includes("from('event_tables')"),
+    'loadLiveRoom no longer reads the plan at all.',
+  );
+  assert.ok(
+    !src.slice(0, src.indexOf('export async function loadLiveRoom')).includes("from('event_tables')"),
+    'something reads the live floor plan BEFORE loadLiveRoom — a second reader, ' +
+      'and only one of the two is frozen.',
   );
   // And nowhere else in the story tree reads the plan.
   const others = readdirSync(join(import.meta.dirname, '..', 'app', '[slug]', '_components', 'story'))
@@ -589,5 +601,118 @@ test('THE PUBLIC READ PREFERS THE SNAPSHOT, AND IT IS THE ONLY ROOM READ', () =>
     [],
     `these read the live floor plan as well as loadStoryRoom: ${others.join(', ')} — ` +
       `only one of the two readers is frozen.`,
+  );
+});
+
+/* ─── THE ATTRIBUTION IS FROZEN TOO, OR THE GEOMETRY FREEZE MAKES IT WORSE ── */
+
+test('the frozen seating survives a round trip', () => {
+  const seats = new Map([['g1', 't1'], ['g2', 't2']]);
+  const back = readFrozenSeats(roomSnapshotOf(A_REAL_ROOM, seats));
+  assert.deepEqual([...(back ?? [])], [...seats]);
+});
+
+test('a story frozen BEFORE this shipped has no seating, and says so', () => {
+  // The freeze landed in two halves in one PR, but a document written by any
+  // build that stored only the room must read as "never frozen" for the
+  // attribution — null, which leaves the heat resolving live exactly as it does
+  // today. It must NOT read as "frozen with nobody seated", which would silence
+  // every table.
+  assert.equal(readFrozenSeats(roomSnapshotOf(A_REAL_ROOM)), null);
+  assert.equal(readFrozenSeats(roomSnapshotOf(A_REAL_ROOM, new Map())), null);
+  assert.equal(readFrozenSeats({ v: 1, room: A_REAL_ROOM, seats: {} }), null);
+});
+
+test('junk in the seating is dropped, never guessed at', () => {
+  for (const junk of [null, undefined, 'seats', { v: 2, seats: { g1: 't1' } }, { v: 1, seats: [] }, { v: 1, seats: 'x' }]) {
+    assert.equal(readFrozenSeats(junk), null, `${JSON.stringify(junk)} produced a seating`);
+  }
+  // A half-written row keeps only the pairs that are actually a pair.
+  const mixed = readFrozenSeats({
+    v: 1,
+    room: A_REAL_ROOM,
+    seats: { g1: 't1', g2: '', '': 't2', g3: 7, g4: null },
+  });
+  assert.deepEqual([...(mixed ?? [])], [['g1', 't1']]);
+});
+
+test('THE SEATING IS NEVER ON THE ROOM — it carries guest ids', () => {
+  /*
+    🔒 `StoryRoom` goes straight to the components that draw the plan, and its
+    field list IS the privacy boundary (`04` rule 2, a review blocker). The
+    seating maps guest_id → table, so putting it inside the room would hand
+    every renderer a guest roster. Two readers, and only one of them can see it.
+  */
+  const doc = roomSnapshotOf(A_REAL_ROOM, new Map([['guest-abc', 't1']]));
+  const room = readRoomSnapshot(doc);
+  assert.ok(room, 'the room did not come back');
+  /*
+    🪤 THE FIRST CUT OF THIS ASSERTION MATCHED `/guest-abc|seats/` AND ACCUSED
+    CORRECT CODE — `StoryRoom` legitimately carries `seatingSurface` and
+    `seatsAssigned`, both of which contain "seats". A cheaper proxy for "the
+    seating is not in here" than the claim itself, and it failed in the
+    expensive direction: red on a room that was perfectly private. The claim is
+    two exact things — no guest id anywhere, and no `seats` KEY — so both are
+    asserted exactly.
+  */
+  assert.doesNotMatch(
+    JSON.stringify(room),
+    /guest-abc/,
+    'a guest id reached the object the lens renders',
+  );
+  assert.ok(
+    !Object.prototype.hasOwnProperty.call(room ?? {}, 'seats'),
+    'the seating map is on the room object the lens renders',
+  );
+  assert.deepEqual(Object.keys(room ?? {}).sort(), [
+    'dance', 'drawnAtMs', 'roaming', 'seatingSurface', 'seatsAssigned', 'stage', 'tables',
+  ]);
+});
+
+test('THE HEAT USES THE FROZEN SEATING AS ITS ONLY SOURCE — no live fallback', () => {
+  /*
+    🔴 THE DEFECT THIS EXISTS FOR, raised by S10 and verified in the loader
+    before it was believed: `loadTableHeat` ends its resolution in
+    `event_seat_assignments`, which the seat arranger wipes and re-solves on
+    every run. Freezing the plan and not the attribution makes them disagree —
+    a re-seated guest lights the WRONG table on a plan that is otherwise a true
+    record of the night, or is dropped by `known.has(table)` so the night reads
+    QUIETER than it was.
+
+    Two claims, each asserted at its source rather than counted:
+      1. the loader PREFERS the frozen seating;
+      2. the live query is the ELSE branch, so a frozen story never reaches it.
+  */
+  const src = stripComments(
+    readFileSync(
+      join(import.meta.dirname, '..', 'app', '[slug]', '_components', 'story', 'spine-data.ts'),
+      'utf8',
+    ),
+  );
+  const start = src.indexOf('async function loadTableHeat');
+  assert.ok(start >= 0, 'loadTableHeat is gone');
+  const body = src.slice(start);
+
+  assert.match(
+    body,
+    /if\s*\(\s*args\.frozenSeats\s*\)\s*\{\s*tableByGuest\s*=\s*args\.frozenSeats\s*;/,
+    'the heat no longer prefers the frozen seating — a published story attributes ' +
+      'its photographs through the live seat arranger again.',
+  );
+  // The live read must sit in the ELSE arm. If it ran unconditionally, or the
+  // frozen map were merged into it, a guest re-seated after publish would move.
+  const elseArm = body.slice(body.indexOf('} else {'));
+  assert.ok(
+    elseArm.indexOf("from('event_seat_assignments')") > 0 &&
+      elseArm.indexOf("from('event_seat_assignments')") <
+        elseArm.indexOf('if (tableByGuest.size === 0)'),
+    'the live seat read is no longer confined to the un-frozen branch.',
+  );
+  // And one freeze read feeds both the lens and the heat.
+  assert.match(
+    src,
+    /const freeze = await loadRoomFreeze\([\s\S]{0,200}?frozenSeats: freeze\.seats/,
+    'the room and the seating no longer come from ONE read of the frozen ' +
+      'document — the plan and the attribution can now be from two moments.',
   );
 });

@@ -40,7 +40,7 @@ import {
 } from '@/lib/publish-once-knowing-who-reads-it';
 import { stampForPublish } from '@/lib/story-edition';
 import { roomSnapshotOf } from '@/lib/story-room';
-import { loadStoryRoom } from '@/app/[slug]/_components/story/spine-data';
+import { loadLiveRoom } from '@/app/[slug]/_components/story/spine-data';
 import { loadDesk } from './_lib/load-desk';
 import { hostUserId } from './_lib/host-authority';
 
@@ -256,13 +256,30 @@ function asIso(v: unknown): string | null {
 }
 
 /**
- * The floor plan as it stands, ready to store (`03` §2.8).
+ * The floor plan as it stands, AND the seating that ties photographs to it
+ * (`03` §2.8), ready to store.
  *
  * Returns `null` — and the story then keeps reading the live plan, exactly as
  * every story does today — when the kind of day has no seating, when nothing
  * was drawn, or when the read is refused. **A freeze that failed must cost the
  * freeze, never the room**: writing an empty snapshot would blank a floor plan
  * that exists, permanently, on the one press that is supposed to preserve it.
+ *
+ * 🔴 BOTH HALVES OR NEITHER, AND THAT IS THE WHOLE POINT. Freezing the geometry
+ * while `loadTableHeat` still resolved a photograph to a table through the LIVE
+ * `event_seat_assignments` — the same table the seat arranger wipes and
+ * re-solves on every run — would make the two disagree: a re-seated guest
+ * lights the WRONG table on a plan that is otherwise a true record of the night.
+ * **A half-freeze is worse than no freeze**, because before it geometry and
+ * attribution moved together and the plan was at least wrong consistently.
+ * Raised by S10 against the first cut and verified in the loader before it was
+ * believed.
+ *
+ * ⚠ THE SEATING IS STORED BESIDE THE ROOM, NEVER INSIDE IT. It carries guest
+ * ids, and `StoryRoom` goes straight to the components that draw the plan — its
+ * field list is the privacy boundary (`04` rule 2). `roomSnapshotOf` puts it on
+ * the document; only `readFrozenSeats` takes it back out, and only the heat
+ * loader calls that.
  */
 async function freezeTheRoom(
   admin: ReturnType<typeof createAdminClient>,
@@ -275,9 +292,49 @@ async function freezeTheRoom(
       .eq('event_id', eventId)
       .maybeSingle();
     if (error || !data) return null;
-    const room = await loadStoryRoom(admin, eventId, asIso(data.event_type));
+    // The LIVE plan, deliberately — `loadStoryRoom` prefers a snapshot, and a
+    // freeze must never photograph an older photograph of itself.
+    const room = await loadLiveRoom(admin, eventId, asIso(data.event_type));
     if (room.tables.length === 0) return null;
-    return roomSnapshotOf(room);
+    return roomSnapshotOf(room, await freezeTheSeating(admin, eventId, room));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where each guest sat, as the night was actually seated — `guest_id` →
+ * `event_tables.public_id`.
+ *
+ * ⚠ ONLY TABLES THE FROZEN PLAN ACTUALLY DRAWS. A guest at a table with no
+ * saved position is left out, because `loadTableHeat` would drop that
+ * attribution anyway (`known.has(table)`) and storing it would be a row that
+ * promises heat the lens can never show.
+ *
+ * `null` on a refusal or an empty plan, which leaves the heat resolving live —
+ * the behaviour every story has today. A rejected query is an ABSENCE.
+ */
+async function freezeTheSeating(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  room: { tables: ReadonlyArray<{ id: string }> },
+): Promise<Map<string, string> | null> {
+  const drawn = new Set(room.tables.map((t) => t.id));
+  if (drawn.size === 0) return null;
+  try {
+    const { data, error } = await admin
+      .from('event_seat_assignments')
+      .select('guest_id, event_tables!inner(public_id)')
+      .eq('event_id', eventId);
+    if (error || !data) return null;
+    const seats = new Map<string, string>();
+    for (const r of data as Array<Record<string, unknown>>) {
+      const guest = asIso(r.guest_id);
+      const joined = r.event_tables as Record<string, unknown> | null;
+      const table = asIso(joined?.public_id);
+      if (guest && table && drawn.has(table)) seats.set(guest, table);
+    }
+    return seats.size > 0 ? seats : null;
   } catch {
     return null;
   }

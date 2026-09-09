@@ -370,8 +370,49 @@ export function lensStateLabel(state: LensState): string {
  * asked for one.
  */
 
-/** JSON-safe shape of a frozen room. The stored document, versioned. */
-export type RoomSnapshot = { v: 1; room: StoryRoom };
+/**
+ * JSON-safe shape of a frozen room. The stored document, versioned.
+ *
+ * 🔴 `seats` EXISTS BECAUSE FREEZING THE GEOMETRY ALONE MADE THINGS WORSE, NOT
+ * BETTER — raised by S10 against the first cut of this freeze and verified in
+ * `loadTableHeat` before it was believed.
+ *
+ * The heat resolves a photograph to a table through `event_seat_assignments`,
+ * LIVE — the same table the seat arranger wipes and re-solves on every run,
+ * which is the exact fact that made the geometry worth freezing. Freeze one and
+ * not the other and they disagree:
+ *
+ *   · a guest re-seated at a DIFFERENT table that the frozen plan still draws
+ *     lights the WRONG table — on a plan that is otherwise a true record of the
+ *     night, so it looks right;
+ *   · a guest re-seated at a table created AFTER the freeze is dropped by
+ *     `known.has(table)`, and **the night reads quieter than it was** — which
+ *     lands on the nerve owner ruling `04` rule 11 exists for.
+ *
+ * ⚠ AND THE HALF-FREEZE IS WORSE THAN NO FREEZE, which is why this shipped in
+ * the same PR rather than after it. Before the freeze, geometry and attribution
+ * moved TOGETHER: the plan could be wrong, but it was wrong consistently.
+ * Freezing only the geometry is what introduces "looks right and is not".
+ *
+ * 🔑 GEOMETRY FROZEN · ATTRIBUTION FROZEN · CONSENT LIVE. The counts are still
+ * NOT stored — `publicKeyForCapture` subtracts vetoed captures from the frozen
+ * buckets at read time, so a guest who withdraws after publish still comes off
+ * the plan (`04` rules 6 and 9).
+ *
+ * 🔒 `seats` IS A SIBLING OF `room`, NEVER A FIELD ON IT. It maps `guest_id` →
+ * `event_tables.public_id`, so it carries guest ids — and `StoryRoom` is handed
+ * straight to the components that draw the plan. Its field list is the privacy
+ * boundary (`04` rule 2, a review blocker); putting the map inside it would
+ * hand every renderer a guest roster. `readRoomSnapshot` returns the room and
+ * cannot return this; only `readFrozenSeats` can, and only the heat loader
+ * calls it.
+ */
+export type RoomSnapshot = {
+  v: 1;
+  room: StoryRoom;
+  /** `guest_id` → `event_tables.public_id`, as the night was actually seated. */
+  seats?: Record<string, string>;
+};
 
 const TABLE_SHAPES: ReadonlySet<string> = new Set([
   'round',
@@ -381,8 +422,13 @@ const TABLE_SHAPES: ReadonlySet<string> = new Set([
   'serpentine',
 ]);
 
-export function roomSnapshotOf(room: StoryRoom): RoomSnapshot {
-  return { v: 1, room };
+export function roomSnapshotOf(
+  room: StoryRoom,
+  seats?: ReadonlyMap<string, string> | null,
+): RoomSnapshot {
+  const doc: RoomSnapshot = { v: 1, room };
+  if (seats && seats.size > 0) doc.seats = Object.fromEntries(seats);
+  return doc;
 }
 
 function box(v: unknown): StoryRoom['stage'] {
@@ -449,4 +495,33 @@ export function readRoomSnapshot(value: unknown): StoryRoom | null {
     dance: box(r.dance),
     stage: box(r.stage),
   };
+}
+
+/**
+ * The frozen seating, or `null` when this story was never frozen.
+ *
+ * ⛔ WHEN A FREEZE EXISTS IT IS THE ONLY SOURCE — the heat must NOT fall back to
+ * the live assignments for a guest the freeze does not name. A guest seated
+ * after publish was not seated on the night, and the frozen record is the
+ * record; falling back would reintroduce, one guest at a time, exactly the
+ * drift the freeze exists to stop. Monotone by construction, like every other
+ * gate on this path: it can only ever attribute FEWER photographs, never more.
+ *
+ * 🔒 THIS IS THE ONLY WAY GUEST IDS LEAVE THE STORED DOCUMENT, and it is why
+ * they are not on `StoryRoom`. Its one caller is the heat loader, which turns
+ * them into per-table COUNTS and never renders one.
+ */
+export function readFrozenSeats(value: unknown): ReadonlyMap<string, string> | null {
+  if (!value || typeof value !== 'object') return null;
+  const doc = value as Record<string, unknown>;
+  if (doc.v !== 1) return null;
+  const raw = doc.seats;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = new Map<string, string>();
+  for (const [guestId, tableId] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof guestId !== 'string' || !guestId.trim()) continue;
+    if (typeof tableId !== 'string' || !tableId.trim()) continue;
+    out.set(guestId, tableId);
+  }
+  return out.size > 0 ? out : null;
 }

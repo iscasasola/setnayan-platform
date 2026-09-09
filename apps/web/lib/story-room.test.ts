@@ -548,10 +548,25 @@ test('THE PUBLIC READ PREFERS THE SNAPSHOT, AND IT IS THE ONLY ROOM READ', () =>
 
   assert.match(
     body,
-    /readRoomSnapshot\([\s\S]{0,120}room_snapshot[\s\S]{0,200}?return frozen/,
-    'loadStoryRoom no longer returns the frozen room — a published story is ' +
-      'reading the live plan again, and a host who re-runs their seating ' +
-      'silently redraws a story that was already told.',
+    /readRoomSnapshot\([\s\S]{0,160}?room_snapshot/,
+    'loadStoryRoom no longer reads room_snapshot — a published story is reading ' +
+      'the live plan again, and a host who re-runs their seating silently ' +
+      'redraws a story that was already told.',
+  );
+  /*
+    🔴 AND THE RETURN IS ASSERTED ON ITS CONDITION, NOT ON ITS KEYWORD. The first
+    version of this guard matched `…return frozen` and went GREEN against
+    `if (false) return frozen;` — the freeze switched off with the line still
+    there. Measured: the occurrence count of `if (frozen) return frozen;` went
+    1 → 0 and the guard still reported 21 of 21 passing.
+
+    *A guard that matches the statement and not its guard clause is decoration.*
+  */
+  assert.match(
+    body,
+    /if\s*\(\s*frozen\s*\)\s*return\s+frozen\s*;/,
+    'the frozen room is no longer returned when it parses — the freeze is ' +
+      'switched off with the line still in place.',
   );
   // The snapshot is consulted BEFORE the live read, or it is not a freeze.
   assert.ok(

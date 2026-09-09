@@ -68,8 +68,38 @@ test('the action asks the SAME gate the button asks', () => {
     'saveEditorial no longer calls publishBlockers — the button and the fence ' +
       'can now drift into different ideas of "ready".',
   );
-  // All three facts reach it. A gate handed two of its three inputs is a gate
-  // that stopped reading one, silently.
+  /*
+    🔴 AND EACH FACT IS CHECKED AT ITS SOURCE, NOT AT THE CALL. An earlier
+    version of this test asserted only that `deskClear` APPEARED as a key in the
+    call — and went green against `deskClear = true`, hardcoded, which is the
+    whole gate removed. Measured, not reasoned about: the sabotage took the
+    occurrence count of `deskClear = deskIsClear(desk.items)` from 1 to 0 and
+    the guard still reported 8 of 8 passing.
+
+    *A guard that watches the wiring and not the value is decoration.* So the
+    derivation of each fact is asserted, and the name reaching the call is only
+    the last of the three checks.
+  */
+  assert.match(
+    body,
+    /deskClear\s*=\s*deskIsClear\(\s*desk\.items\s*\)/,
+    'deskClear is no longer derived from the desk — the gate is being handed a ' +
+      'constant, and an undecided desk now publishes.',
+  );
+  assert.match(
+    body,
+    /consented:\s*consentedAt\s*!==\s*null/,
+    'the consent fact is no longer derived from the stored record — the gate is ' +
+      'being handed a constant, and a story publishes with nobody having agreed.',
+  );
+  assert.match(
+    body,
+    /openCount\s*=\s*desk\.items\.filter\(\s*isWaitingOnTheHost\s*\)\.length/,
+    'the refusal’s count is no longer derived from the desk, so a host is told a ' +
+      'number nobody measured.',
+  );
+  // …and all three still reach the call. A gate handed two of its three inputs
+  // is a gate that stopped reading one, silently.
   for (const fact of ['deskLoaded', 'deskClear', 'consented']) {
     assert.match(
       body,

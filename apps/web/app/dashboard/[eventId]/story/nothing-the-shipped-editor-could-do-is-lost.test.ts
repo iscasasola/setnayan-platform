@@ -100,13 +100,18 @@ const CHECKLIST: Array<{ can: string; needs: RegExp[]; where: string }> = [
     where: 'editor',
   },
   {
+    // 🔴 THESE MATCH THE RENDER, NOT THE IMPORT. A first cut asked for
+    // /PUBLISH_CONSENT_SENTENCE/ and went GREEN when the sentence in the JSX was
+    // replaced with the words "I agree to publish." — because the import line
+    // still carried the name. Measured: 2 occurrences → 1, three of three tests
+    // still passing. **An import is not a rendering.**
     can: 'read the exact sentence they are agreeing to',
-    needs: [/PUBLISH_CONSENT_SENTENCE/, /PUBLISH_CONSENT_FINE_PRINT/],
+    needs: [/\{PUBLISH_CONSENT_SENTENCE\}/, /\{PUBLISH_CONSENT_FINE_PRINT\}/],
     where: 'editor',
   },
   {
     can: 'write their last word where they publish, in their own words',
-    needs: [/set\('lastWord'/, /LAST_WORD_INTRO/],
+    needs: [/set\('lastWord'/, /\{LAST_WORD_INTRO\}/],
     where: 'editor',
   },
 

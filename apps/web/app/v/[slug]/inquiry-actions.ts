@@ -641,15 +641,13 @@ export async function startServiceInquiry(input: {
       // with no deploy; a taxonomy that could not be read degrades to the
       // branch/`misc` rungs rather than to a value the database refuses.
       const cardKind = ownedById.get(initialServiceId) ?? null;
-      let tileForKind: string | null = null;
       if (cardKind) {
+        let tileForKind: string | null = null;
         try {
           tileForKind = (await getTaxonomy()).map[cardKind]?.tile ?? null;
         } catch {
           tileForKind = null;
         }
-      }
-      if (cardKind) {
         // Fetch vendor name for the vendor_name column (required, non-null in schema).
         const { data: profRow } = await admin
           .from('vendor_profiles')

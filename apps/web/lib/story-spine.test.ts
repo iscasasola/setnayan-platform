@@ -38,6 +38,8 @@ import {
   toRoman,
   venueStateAt,
   type VenueBlock,
+  entryIsRendered,
+  readerReached,
 } from './story-spine';
 
 // ─── Manila, always ─────────────────────────────────────────────────────────
@@ -326,3 +328,71 @@ test('the volume follows the awards cycle, not the calendar year', () => {
   assert.equal(toRoman(4), 'IV');
   assert.equal(toRoman(0), 'I');
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+   WHERE THE READER IS — and the hidden copy that captured it
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('the reader is never placed inside an entry that is not on the page', () => {
+  /*
+    🔴 THE EXACT DOM MEASURED ON THE LIVE SITE, 2026-09-09. `/movie-night`
+    carried SIX entries: three drawn, and three more inside a `<div hidden>`
+    (React parks streamed content in a hidden buffer before relocating it).
+
+    A `display:none` box reports `top: 0`. Zero is above every read line, and
+    the hidden copy sorts LAST in document order — so "keep the last entry above
+    the line" keeps an invisible one at scroll position zero and never lets go.
+    The needle sat at the end of the dial, the readout named the closing entry,
+    and the page painted its `after` colour instead of its morning one, from the
+    moment it loaded.
+
+    The reader is at the TOP here. The only correct answer is `null` — the
+    cover, nothing reached.
+  */
+  const drawn = [
+    { top: 1596, height: 520, width: 976 },
+    { top: 2245, height: 610, width: 976 },
+    { top: 3448, height: 380, width: 976 },
+  ];
+  const hiddenCopy = [
+    { top: 0, height: 0, width: 0 },
+    { top: 0, height: 0, width: 0 },
+    { top: 0, height: 0, width: 0 },
+  ];
+
+  assert.equal(
+    readerReached([...drawn, ...hiddenCopy], 900 * 0.38),
+    null,
+    'at the top of the page the reader has reached nothing — a hidden entry is not a reached one',
+  );
+
+  // And the hidden copy must not win once the reader IS inside the story.
+  const insideTheSecond = readerReached([...drawn, ...hiddenCopy], 2400);
+  assert.equal(insideTheSecond?.index, 1, 'the reader is in the second DRAWN entry');
+});
+
+test('a rendered entry is still found normally, and progress runs 0 → 1', () => {
+  const boxes = [
+    { top: -200, height: 400, width: 900 },
+    { top: 800, height: 400, width: 900 },
+  ];
+  const early = readerReached(boxes, 0);
+  assert.equal(early?.index, 0);
+  assert.ok(early!.progress > 0 && early!.progress < 1, `progress was ${early?.progress}`);
+
+  assert.equal(readerReached(boxes, 900)?.index, 1, 'the later entry wins once it is reached');
+  assert.equal(readerReached(boxes, -1000), null, 'above everything is the cover');
+  assert.equal(readerReached([], 342), null, 'a story with no entries reaches nothing');
+});
+
+test('entryIsRendered is about extent, not position', () => {
+  // Scrolled far off-screen — still rendered, still followable.
+  assert.equal(entryIsRendered({ top: -99999, height: 400, width: 900 }), true);
+  assert.equal(entryIsRendered({ top: 99999, height: 400, width: 900 }), true);
+  // display:none — no extent at all.
+  assert.equal(entryIsRendered({ top: 0, height: 0, width: 0 }), false);
+  // A zero-height box that still has width is a collapsed element, not a
+  // hidden one; it is drawn, so it counts.
+  assert.equal(entryIsRendered({ top: 10, height: 0, width: 900 }), true);
+});
+

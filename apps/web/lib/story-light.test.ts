@@ -344,15 +344,68 @@ test('the naive crossfade this design forbids is measurably illegible', () => {
    4 · THE MUTED ALPHA IS READ FROM THE MARKUP, NEVER ASSUMED
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('no text in the story tree is fainter than the alpha this module corrects for', () => {
-  const files = readdirSync(STORY_DIR).filter((f) => f.endsWith('.tsx'));
-  assert.ok(files.length > 0, 'found no story components to scan — the path is wrong');
+/**
+ * 🔴 THIS GUARD SCANNED ONE DIRECTORY AND THE DEFECT WAS IN THE ONE NEXT DOOR.
+ *
+ * It read `readdirSync(STORY_DIR)` — `_components/story/`, non-recursive — where /60 genuinely is
+ * the faintest. But the `[data-story-light]` wrapper is OPENED in the SIBLING directory, in
+ * `_components/editorial/editorial-content.tsx`, and everything it wraps resolves through the same
+ * corrected ink. That file carried 21 sub-60 alphas, and the live published story measured
+ * **2.54:1** on one of them and **2.92:1** on eight more — against this module's own 4.6 floor.
+ *
+ * 🔑 The module's docblock claimed the alpha is "derived from the markup, never trusted to have
+ * stayed put". It derived from the WRONG markup. *A hand-scoped guard is a list of the files
+ * somebody thought of* — the corpus's own recurring shape, and it cost a real defect on the one
+ * page a stranger can read.
+ *
+ * ⇒ The scan set is now DERIVED FROM THE WRAPPER ITSELF: find the file that declares
+ * `data-story-light`, assert there is exactly one, and scan it together with the story directory.
+ * If the wrapper moves to a third file, the locator follows it; if a second file starts declaring
+ * one, this fails rather than silently picking one.
+ */
+function wrapperFile(): string {
+  const componentsDir = resolve(HERE, '..', 'app', '[slug]', '_components');
+  const hits: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.tsx')) {
+        /*
+         * ⚠ TWO FILES NAME THIS ATTRIBUTE AND ONLY ONE DECLARES IT. The wrapper is
+         * OPENED as a JSX attribute (`<div data-story-light …>`); `story-light.tsx`
+         * merely SELECTS it (`'[data-story-light]'`) to write the stage variables.
+         * Matching the bare string found both and this guard failed on its own
+         * locator — correctly, which is why the fix is to look for the DECLARATION
+         * (not preceded by `[`) rather than to relax the count.
+         */
+        const src = readFileSync(full, 'utf8');
+        if (/(?<!\[)data-story-light/.test(src)) hits.push(full);
+      }
+    }
+  };
+  walk(componentsDir);
+  assert.equal(
+    hits.length,
+    1,
+    `expected exactly ONE file to declare [data-story-light]; found ${hits.length}: ${hits.join(', ')}`,
+  );
+  return hits[0];
+}
+
+test('no text under the light wrapper is fainter than the alpha this module corrects for', () => {
+  const storyFiles = readdirSync(STORY_DIR)
+    .filter((f) => f.endsWith('.tsx'))
+    .map((f) => join(STORY_DIR, f));
+  // The wrapper's own file is the one this guard used to miss. Derived, not listed.
+  const files = [...new Set([...storyFiles, wrapperFile()])];
+  assert.ok(files.length > storyFiles.length - 1, 'the wrapper file must be in the scanned set');
 
   const found: Array<{ file: string; alpha: number }> = [];
   for (const file of files) {
-    const src = stripComments(readFileSync(join(STORY_DIR, file), 'utf8'));
+    const src = stripComments(readFileSync(file, 'utf8'));
     for (const m of src.matchAll(/\btext-ink\/(\d{1,3})\b/g)) {
-      found.push({ file, alpha: Number(m[1]) / 100 });
+      found.push({ file: file.split('/').slice(-1)[0], alpha: Number(m[1]) / 100 });
     }
   }
 

@@ -522,7 +522,7 @@ export async function EditorialContent({
               photo.chapters === 'living' ? (
                 <div key="chapters" {...anchorProps('chapters')}>
                   <SectionRule title="As the Day Unfolded" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     photos and living moments, in the order they happened
                   </p>
                   <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
@@ -538,7 +538,7 @@ export async function EditorialContent({
               isOn('kwento') && data.kwentoQuotes.length ? (
                 <div key="kwento">
                   <SectionRule title="What They Whispered" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     best wishes, captured on the day
                   </p>
                   <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} />
@@ -552,7 +552,7 @@ export async function EditorialContent({
               isOn('challengeAnswers') && data.challengeAnswers.length ? (
                 <div key="challengeAnswers">
                   <SectionRule title="What We Asked" />
-                  <p className="-mt-4 mb-4 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                  <p className="-mt-4 mb-4 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     the questions, and what they did about them
                   </p>
                   <ChallengeAnswerColumn answers={data.challengeAnswers} />
@@ -564,7 +564,7 @@ export async function EditorialContent({
               isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 ? (
                 <div key="guestColumns">
                   <SectionRule title="Letters to the Editor" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     columns from the guests, approved by {w.theOrganizer}
                   </p>
                   <GuestColumnsWall columns={data.guestColumns ?? []} />
@@ -750,7 +750,7 @@ function PhaseRibbon({ slug, words: w }: { slug: string | null; words: EventWord
           </a>
         </>
       ) : null}
-      <span className="border-b border-mulberry pb-0.5 text-mulberry">The Story — Today</span>
+      <span className="border-b border-mulberry pb-0.5 text-mulberry-600">The Story — Today</span>
     </nav>
   );
 }
@@ -914,7 +914,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
           </span>
         )}
         {v.category ? (
-          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/45">
+          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/60">
             {prettyCategory(v.category)}
           </span>
         ) : null}
@@ -925,7 +925,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
           badge. Replaces the old inline "· #1 match" caption so the credit
           reads as a proper badge instead of buried metadata. */}
       {v.isFirstPick ? (
-        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-mulberry">
+        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-mulberry-600">
           #1 Match
         </span>
       ) : null}
@@ -948,7 +948,7 @@ function TeamBehindTheDay({ vendors }: { vendors: EditorialData['vendors'] }): R
 
   return (
     <div className="mt-5 border-t border-ink/15 pt-3">
-      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
         The Team Behind the Day
       </p>
       <ul className="m-0 list-none p-0">
@@ -1110,7 +1110,7 @@ function ByTheNumbers({
         </div>
       </div>
 
-      <p className="px-2 py-2 text-center font-serif text-[13px] italic text-mulberry">
+      <p className="px-2 py-2 text-center font-serif text-[13px] italic text-mulberry-600">
         &ldquo;Set na &rsquo;yan.&rdquo; — your {w.eventWord}, handled.
       </p>
     </div>
@@ -1136,7 +1136,7 @@ function Stat({
       </div>
       <div className="mt-1 font-serif text-[13.5px] leading-tight text-ink/70">{label}</div>
       {note ? (
-        <div className="mt-0.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/40">
+        <div className="mt-0.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/60">
           {note}
         </div>
       ) : null}
@@ -1156,7 +1156,7 @@ function StripCell({
   return (
     <div className={`px-1 py-2 ${last ? '' : 'border-r border-ink/15'}`}>
       <b className="block font-display text-lg font-bold leading-none">{value}</b>
-      <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink/45">{label}</span>
+      <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink/60">{label}</span>
     </div>
   );
 }
@@ -1183,7 +1183,7 @@ function FromTheCouple({
       <p className="m-0 font-display text-xl font-medium italic leading-snug text-ink sm:text-2xl">
         &ldquo;{message}&rdquo;
       </p>
-      <footer className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <footer className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         &mdash; {attribution}
       </footer>
     </blockquote>
@@ -1192,7 +1192,7 @@ function FromTheCouple({
 
 function ReviewsEmptyState(): ReactElement {
   return (
-    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/45">
+    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/60">
       Reviews from guests and vendors will appear here.
     </p>
   );
@@ -1266,7 +1266,7 @@ function TheirSong({
           &ldquo;{song.label}&rdquo;
         </figcaption>
       ) : null}
-      <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         {names}
         {song.url ? ` · their ${w.eventWord} song` : ' · the song that follows them'}
       </p>
@@ -1334,7 +1334,7 @@ function VendorMediaStrip({
 }): ReactElement {
   return (
     <div className="mt-4 space-y-3">
-      <p className="text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <p className="text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         Captured by {w.theOrganizerPossessive} vendors
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1406,7 +1406,7 @@ function LivePhotoWall({
 }): ReactElement {
   return (
     <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         Powered by Setnayan
         {typeof photoCount === 'number' && photoCount > 0
           ? ` · ${photoCount.toLocaleString('en-PH')} photos captured live`
@@ -1481,7 +1481,7 @@ function GuestColumnsWall({
           </h3>
           <p className="mt-3 font-serif text-lg leading-relaxed text-ink/85">{c.body}</p>
           {c.author ? (
-            <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/55">
+            <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
               {c.author}
               {roleLabel(c.role) ? ` · ${roleLabel(c.role)}` : ''}
             </p>
@@ -1501,7 +1501,7 @@ function GuestColumnsWall({
               </h3>
               <p className="mt-1.5 font-serif text-base leading-snug text-ink/85">{c.body}</p>
               {c.author ? (
-                <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+                <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
                   {c.author}
                   {/* The badge the spec asks for — best man, maid of honour,
                       principal sponsor. 🔒 It only ever appears beside a NAME:
@@ -1546,7 +1546,7 @@ function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
           key={`${i}-${a.prompt}`}
           className="overflow-hidden rounded-2xl border border-ink/10 bg-surface"
         >
-          <p className="px-4 pt-4 font-mono text-xs uppercase tracking-[0.14em] text-ink/45">
+          <p className="px-4 pt-4 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
             we asked
           </p>
           <p className="px-4 pb-3 pt-1 text-sm font-medium text-ink">{a.prompt}</p>
@@ -1614,7 +1614,7 @@ function KwentoWall({
             {q.body}
           </blockquote>
           {q.author ? (
-            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
               {q.author}
               {q.role ? ` · ${q.role}` : ''}
             </figcaption>
@@ -1635,7 +1635,7 @@ function KwentoWall({
 function WatchTheFilm({ embedUrl, names }: { embedUrl: string; names: string }): ReactElement {
   return (
     <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         the ceremony, as it was broadcast
       </p>
       <div className="mx-auto max-w-3xl border-double border-[3px] border-ink/80 p-1.5 shadow-[0_10px_30px_-12px_rgba(20,16,12,0.35)]">
@@ -1668,7 +1668,7 @@ function ReviewsWall({ reviews }: { reviews: EditorialData['reviews'] }): ReactE
           <blockquote className="font-serif text-base italic leading-snug text-ink/85">
             &ldquo;{r.quote}&rdquo;
           </blockquote>
-          <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+          <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
             {r.stars ? (
               <span aria-hidden className="mr-1 text-terracotta">
                 {'★'.repeat(Math.max(1, Math.min(5, r.stars)))}
@@ -1776,13 +1776,13 @@ function Colophon({
       {slug ? (
         <a
           href={`/${slug}/print`}
-          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/55 no-underline hover:text-terracotta-700 print:hidden"
+          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/60 no-underline hover:text-terracotta-700 print:hidden"
         >
           <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Print the keepsake
         </a>
       ) : null}
-      <p className="mt-3 font-serif text-sm italic text-ink/45">
+      <p className="mt-3 font-serif text-sm italic text-ink/60">
         {hideWatermark ? (
           names
         ) : (

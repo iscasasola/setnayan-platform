@@ -179,11 +179,12 @@ export function CapturesByHour({
   const present = useMemo(() => {
     const seen: string[] = [];
     for (const t of tiles) if (!seen.includes(t.hour)) seen.push(t.hour);
-    return seen.sort((a, b) => {
-      if (a === 'pre') return -1;
-      if (b === 'pre') return 1;
-      return Number(a) - Number(b);
-    });
+    /*
+      "Before the day" first, the hours in order, "from the shops" last —
+      the reading order of the day itself, with the untimed pile at the end.
+    */
+    const rank = (h: string) => (h === 'pre' ? -1 : h === 'vendors' ? 99 : Number(h));
+    return seen.sort((a, b) => rank(a) - rank(b));
   }, [tiles]);
 
   useEffect(() => {
@@ -212,7 +213,13 @@ export function CapturesByHour({
                 h === hour ? 'border-ink bg-ink text-cream' : 'border-ink/25 text-ink/75'
               }`}
             >
-              {h === HOUR_ALL ? 'All' : h === 'pre' ? beforeLabel : hourChip(Number(h))}
+              {h === HOUR_ALL
+                ? 'All'
+                : h === 'pre'
+                  ? beforeLabel
+                  : h === 'vendors'
+                    ? 'From the shops'
+                    : hourChip(Number(h))}
             </button>
           ))}
         </div>

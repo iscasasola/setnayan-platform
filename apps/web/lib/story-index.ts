@@ -136,7 +136,20 @@ export type StoryIndexInput = {
   /** How wide a net a voice casts when it looks for its minute, in ms. */
   windowMs: number;
   /** THE REDACTED PAYLOAD. Everything guest-made is already gone if it must be. */
-  captures: ReadonlyArray<{ url: string; atMs: number | null; caption: string | null }>;
+  captures: ReadonlyArray<{
+    url: string;
+    atMs: number | null;
+    caption: string | null;
+    /**
+     * An hour chip decided by the CALLER rather than by the clock.
+     *
+     * The only value that uses it today is `vendors` — day-of media a shop
+     * submitted, which `01` §3.6 lists as the captures tab's third filter
+     * ("from the suppliers") and which carries no shutter time of its own. A
+     * capture with a time leaves this undefined and is filed by its hour.
+     */
+    hour?: string | null;
+  }>;
   voices: ReadonlyArray<{
     body: string;
     atMs: number | null;
@@ -242,7 +255,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
       href: a ? `#${a.id}` : null,
       layer: 'guest' as const,
       imageUrl: c.url,
-      hour: hourOf(c.atMs, dayStartMs, dayEndMs),
+      hour: c.hour ?? hourOf(c.atMs, dayStartMs, dayEndMs),
     };
   });
   /*

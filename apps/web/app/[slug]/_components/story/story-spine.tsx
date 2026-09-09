@@ -500,7 +500,31 @@ export function StorySpine({
     captures: (data.galleryCaptures?.length
       ? data.galleryCaptures
       : data.galleryPhotos.map((url) => ({ url, atMs: null }))
-    ).map((c) => ({ url: c.url, atMs: c.atMs, caption: null })),
+    )
+      .map((c) => ({
+        url: c.url,
+        atMs: c.atMs,
+        caption: null as string | null,
+        hour: null as string | null,
+      }))
+      /*
+        FROM THE SUPPLIERS — the captures tab's third filter (`01` §3.6). Day-of
+        media a shop submitted for this celebration. It carries no shutter time,
+        so it is filed under its own chip rather than guessed onto an hour, and
+        it keeps the shop's name as its caption because a credit is the point of
+        it. The gallery pool cannot answer this question: by the time the loader
+        has resolved display URLs, a couple's upload and a Papic capture are
+        indistinguishable — which is why this comes from `vendorMedia` and not
+        from a provenance flag nobody carries.
+      */
+      .concat(
+        data.vendorMedia.map((v) => ({
+          url: v.stillUrl,
+          atMs: null,
+          caption: v.caption ?? v.vendorName,
+          hour: 'vendors',
+        })),
+      ),
     voices: data.kwentoQuotes.map((q) => ({
       body: q.body,
       atMs: msOf(q.atIso),

@@ -1,3 +1,4 @@
+import { sampleShowcaseNote } from '@/lib/a-sample-says-what-it-is';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -294,9 +295,14 @@ export default async function WeddingShowcasePage({ params }: Props) {
 
       {wedding.isSample ? (
         <p className="mx-auto w-full max-w-5xl px-4 pt-4 text-center text-xs leading-relaxed text-ink/55 sm:px-6 lg:px-8">
-          A sample of how a wedding is told on Setnayan once it becomes a
-          story. Real couple stories — their own words, photos, and team —
-          begin December 2026, published with the couple&rsquo;s consent.
+          {/*
+            THE SAMPLE SAYS WHAT IT ACTUALLY IS. This sentence was hardcoded to
+            "a wedding … the couple's consent" above all 21 samples, which carry
+            17 different event types — so a family's wake announced itself as a
+            wedding and spoke to a bereaved reader about a couple. The story
+            below was already right; only this line never learned.
+          */}
+          {sampleShowcaseNote(wedding.eventType)}
         </p>
       ) : null}
 

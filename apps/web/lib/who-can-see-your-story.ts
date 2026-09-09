@@ -76,6 +76,28 @@ export const STORY_AUDIENCE_NOTE: Record<StoryAudience, string> = {
     'was; nothing can reach a printed page.',
 };
 
+/**
+ * What the screen says the moment a save lands.
+ *
+ * 🔴 IT USED TO BE ASSEMBLED FROM THE LABEL — `Saved · ${LABEL.toLowerCase()} can
+ * read it.` — and that worked only for as long as every label happened to be a
+ * noun phrase that fits a fixed frame. The fourth rung broke it on the first
+ * try: *"Saved · only me — taken back can read it."* A sentence built by
+ * concatenation is a sentence nobody has read, and this one is the confirmation
+ * a host reads after changing who may see their wedding.
+ *
+ * So each audience carries its own whole sentence. The first three are
+ * byte-identical to what the old expression produced, which
+ * `taken-back-shows-nobody.test.ts` asserts, so this is not a copy change
+ * wearing a refactor's clothes.
+ */
+export const STORY_AUDIENCE_SAVED: Record<StoryAudience, string> = {
+  draft: 'Saved · only me can read it.',
+  event: 'Saved · the people of this celebration can read it.',
+  published: 'Saved · everyone can read it.',
+  taken_back: 'Taken back · only you can read it now.',
+};
+
 export function isStoryAudience(v: unknown): v is StoryAudience {
   return typeof v === 'string' && (STORY_AUDIENCES as readonly string[]).includes(v);
 }

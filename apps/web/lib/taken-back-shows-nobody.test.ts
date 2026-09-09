@@ -22,6 +22,7 @@ import {
   STORY_AUDIENCES,
   STORY_AUDIENCE_LABEL,
   STORY_AUDIENCE_NOTE,
+  STORY_AUDIENCE_SAVED,
   storyAudienceAdmits,
   storyAudienceOf,
   storyIsShared,
@@ -115,4 +116,33 @@ test('"has it ever been public" is asked of the stamped number, not the status',
   assert.equal(storyHasBeenPublished(undefined), false);
   // A story that never got a number is not "published once" however it got here.
   assert.equal(storyHasBeenPublished(0), false);
+});
+
+test('the saved sentence is written per rung, not assembled from the label', () => {
+  /*
+    🔴 IT WAS `Saved · ${LABEL.toLowerCase()} can read it.` and the fourth rung
+    read *"Saved · only me — taken back can read it."* on the first try. The
+    three sentences that already shipped are asserted BYTE FOR BYTE against what
+    that expression produced, so moving them into their own record cannot have
+    quietly changed the words a host reads.
+  */
+  assert.equal(STORY_AUDIENCE_SAVED.draft, 'Saved · only me can read it.');
+  assert.equal(
+    STORY_AUDIENCE_SAVED.event,
+    'Saved · the people of this celebration can read it.',
+  );
+  assert.equal(STORY_AUDIENCE_SAVED.published, 'Saved · everyone can read it.');
+
+  for (const audience of STORY_AUDIENCES) {
+    const line = STORY_AUDIENCE_SAVED[audience];
+    assert.ok(line?.trim(), `${audience} has no saved sentence`);
+    assert.ok(line.endsWith('.'), `${audience}'s saved sentence is not a sentence: ${line}`);
+    // The frame the old expression forced. A sentence assembled from a label
+    // would reintroduce it; a written one never contains the em dash a label
+    // carries mid-clause.
+    assert.ok(
+      !/ — .* can read it\./.test(line),
+      `${audience}'s saved sentence reads as a label dropped into a frame: ${line}`,
+    );
+  }
 });

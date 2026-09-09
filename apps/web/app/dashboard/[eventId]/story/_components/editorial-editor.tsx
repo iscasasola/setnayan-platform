@@ -35,8 +35,8 @@ import {
 } from '@/app/[slug]/_components/editorial/editorial-order';
 import {
   STORY_AUDIENCES,
-  STORY_AUDIENCE_LABEL,
   STORY_AUDIENCE_NOTE,
+  STORY_AUDIENCE_SAVED,
   storyIsShared,
   type StoryAudience,
 } from '@/lib/who-can-see-your-story';
@@ -1510,7 +1510,7 @@ export function EditorialEditor({
           <span>
             {phase === 'done' ? (
               <span className="font-medium text-green-700">
-                Saved · {STORY_AUDIENCE_LABEL[form.audience].toLowerCase()} can read it.
+                {STORY_AUDIENCE_SAVED[form.audience]}
               </span>
             ) : phase === 'error' ? (
               <span className="font-medium text-red-700">{error ?? 'Could not save.'}</span>

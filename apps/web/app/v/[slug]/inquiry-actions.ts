@@ -50,6 +50,11 @@ import {
   resolveIsReturning,
   stampThreadProvenance,
 } from '@/lib/inquiry-attribution';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import {
+  eventVendorCategoryForCardKind,
+  eventVendorCategoryKeyForCardKind,
+} from '@/lib/event-vendor-category';
 
 const INQUIRY_BODY =
   "Hi! We're planning our wedding and would love to hear about your " +
@@ -537,26 +542,24 @@ export async function startServiceInquiry(input: {
   /**
    * Report an `event_vendors` write fault WITHOUT failing the inquiry.
    *
-   * ⚠ WHY THIS EXISTS — the write below can fail for a reason that is invisible
-   * today and will stay invisible until a real vendor service row exists.
+   * 🛑 THE DEFERRED DECISION IS SETTLED — 2026-09-09, BY THE DATA IT WAS
+   * WAITING FOR. This block used to say the vocabularies were deliberately NOT
+   * translated because `vendor_services` had **0 rows in production**. That is
+   * stale: production now carries two ACTIVE cards, `live_band` and `host_mc`,
+   * and NEITHER is a `vendor_category` label (the twins are `band_dj` and
+   * `host_emcee`). So the failure this comment predicted was LIVE, not
+   * hypothetical: the insert was answered `22P02 invalid input value for enum
+   * vendor_category`, the branch is non-fatal, and the supplier silently never
+   * reached the couple's list — which strands the BOOKING step later.
    *
-   * `event_vendors.category` is the strict Postgres enum `vendor_category`
-   * (`band_dj`, `host_emcee`, `planner_coordinator`, … 51 values). The value we
-   * put in it comes from `vendor_services.category`, which is plain **TEXT** and
-   * is treated as a CANONICAL TILE key elsewhere in the app (`live_band`,
-   * `host_mc`, `coordinator` — see `lib/vendor-category-taxonomy.ts`). Those two
-   * vocabularies do not overlap: `live_band` ∉ `vendor_category`. If a real row
-   * carries the tile vocabulary, this insert fails with
-   * `invalid input value for enum vendor_category` — the exact shape of the
-   * 2026-05-22 `guest_role: "bride"` incident.
+   * 🔑 It is translated now, and NOTHING NEW IS MAPPED: the write goes through
+   * `eventVendorCategoryForCardKind`, which is the leaf map + the branch map the
+   * marketplace already uses, and which can only ever return a label the enum
+   * has. `misc` is its floor, so the row always lands.
    *
-   * We deliberately do NOT translate between the vocabularies here. `vendor_services`
-   * has **0 rows in production**, so any mapping would be a guess about data that
-   * does not exist yet, and the Song Desk build order explicitly defers it
-   * ("needs one real vendor service row to settle" — never another hand-kept enum
-   * list). What we fix is that the failure was UNOBSERVABLE: the attempted
-   * `category` value is reported, so the FIRST real occurrence settles which
-   * vocabulary actually lands and the deferred decision becomes evidence-based.
+   * WHAT IS STILL REPORTED: any *remaining* fault, and now to the runtime log as
+   * well as to Sentry — a branch whose only witness is Sentry is a branch nobody
+   * notices breaking again.
    *
    * Non-fatal by design: the thread, the message and the service interests have
    * already been written. Failing the couple's inquiry over a bookkeeping row
@@ -571,6 +574,21 @@ export async function startServiceInquiry(input: {
     err: unknown,
     attemptedCategory: string | null,
   ): void => {
+    // LOUD FIRST. Sentry is a place somebody has to go and look; the runtime log
+    // is where anyone watching this walk already is. No PII — internal ids and a
+    // taxonomy key only (0035 · no PII in logs).
+    // eslint-disable-next-line no-console
+    console.error(
+      '[inquiry-event-vendor-write] the couple\'s supplier list did NOT get this shop',
+      {
+        stage,
+        attemptedCategory: attemptedCategory ?? 'n/a',
+        eventId,
+        vendorProfileId,
+        initialServiceId,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    );
     Sentry.captureException(err, {
       tags: {
         feature: 'inquiry-event-vendor-write',
@@ -616,9 +634,22 @@ export async function startServiceInquiry(input: {
     } else if (confirmedServiceIds.length > 0) {
       // No event_vendors row yet — create a minimal one so the service list is
       // persisted. This mirrors the auto-add path in unlock-category.ts.
-      // Resolve the initial service's category for the required 'category' column.
-      const categoryForRow = ownedById.get(initialServiceId) ?? null;
-      if (categoryForRow) {
+      //
+      // The card's OWN kind (a coverage leaf, a tile id, or a legacy coarse
+      // key) translated into the enum this column actually accepts. The tile
+      // comes from the LIVE taxonomy, so a kind an admin adds tomorrow resolves
+      // with no deploy; a taxonomy that could not be read degrades to the
+      // branch/`misc` rungs rather than to a value the database refuses.
+      const cardKind = ownedById.get(initialServiceId) ?? null;
+      let tileForKind: string | null = null;
+      if (cardKind) {
+        try {
+          tileForKind = (await getTaxonomy()).map[cardKind]?.tile ?? null;
+        } catch {
+          tileForKind = null;
+        }
+      }
+      if (cardKind) {
         // Fetch vendor name for the vendor_name column (required, non-null in schema).
         const { data: profRow } = await admin
           .from('vendor_profiles')
@@ -629,14 +660,15 @@ export async function startServiceInquiry(input: {
           (profRow as { business_name?: string | null } | null)?.business_name?.trim() || 'Vendor';
         const { error: insertError } = await supabase.from('event_vendors').insert({
           event_id: eventId,
-          category: categoryForRow,
+          category: eventVendorCategoryForCardKind(cardKind, tileForKind),
+          category_key: eventVendorCategoryKeyForCardKind(cardKind, tileForKind),
           vendor_name: vendorNameForRow,
           status: 'considering',
           marketplace_vendor_id: vendorProfileId,
           service_id: initialServiceId,
           requested_service_ids: confirmedServiceIds,
         } as Record<string, unknown>);
-        if (insertError) reportEventVendorFault('insert', insertError, categoryForRow);
+        if (insertError) reportEventVendorFault('insert', insertError, cardKind);
       }
     }
   } catch (caught) {

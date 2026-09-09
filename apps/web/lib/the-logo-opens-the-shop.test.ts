@@ -35,43 +35,15 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { serviceCardAddress, shopAddress } from './service-card-address';
+// THE repo's one string-aware comment stripper — a small lexer, not a regex.
+// Its own docblock records the measurement: the regex version it replaced was
+// blanking 5,104 lines of real code, because `accept="image/*"` in a string
+// opens a block comment that never existed. A fourth private copy here would
+// be the same mistake in a new file.
+import { stripComments } from './strip-comments';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => readFileSync(join(here, rel), 'utf8');
-
-/**
- * Strip block + line comments, and JSX comment wrappers.
- *
- * ⚠ A STATE MACHINE, NOT A LINE-PREFIX FILTER. A prefix filter keeps every
- * continuation line of a block comment (they start with `*`, not `/*`), which
- * is most of the prose in this repo — so a guard built on one reports the very
- * strings its own docblock is explaining.
- */
-function stripComments(src: string): string {
-  let out = '';
-  let i = 0;
-  let mode: 'code' | 'line' | 'block' | 'sq' | 'dq' | 'tick' = 'code';
-  while (i < src.length) {
-    const two = src.slice(i, i + 2);
-    if (mode === 'code') {
-      if (two === '//') { mode = 'line'; i += 2; continue; }
-      if (two === '/*') { mode = 'block'; i += 2; continue; }
-      if (src[i] === "'") mode = 'sq';
-      else if (src[i] === '"') mode = 'dq';
-      else if (src[i] === '`') mode = 'tick';
-      out += src[i]; i += 1; continue;
-    }
-    if (mode === 'line') { if (src[i] === '\n') { mode = 'code'; out += '\n'; } i += 1; continue; }
-    if (mode === 'block') { if (two === '*/') { mode = 'code'; i += 2; } else i += 1; continue; }
-    // inside a string literal
-    if (src[i] === '\\') { out += src.slice(i, i + 2); i += 2; continue; }
-    if ((mode === 'sq' && src[i] === "'") || (mode === 'dq' && src[i] === '"') || (mode === 'tick' && src[i] === '`')) {
-      mode = 'code';
-    }
-    out += src[i]; i += 1;
-  }
-  return out;
-}
 
 const cardView = stripComments(read('../app/_components/service-card-view.tsx'));
 const explore = stripComments(read('../app/(shell)/explore/page.tsx'));
@@ -198,16 +170,21 @@ test('/v/[slug] still resolves — printed links and bookmarks survive', () => {
 
 // ── 5 · ANTI-VACUITY ──────────────────────────────────────────────────────
 
-test('the comment stripper actually strips', () => {
-  assert.equal(stripComments('a /* x */ b'), 'a  b');
-  assert.equal(stripComments('a // x\nb'), 'a \nb');
-  // A block comment's CONTINUATION lines must go too — this is the whole
-  // reason it is a state machine and not a line filter.
-  assert.equal(stripComments('/**\n * /v/slug\n */\ncode'), '\ncode');
-  // A string literal that LOOKS like a comment must survive.
-  assert.equal(stripComments("const a = '// not a comment';"), "const a = '// not a comment';");
-  // And the fixtures this file reads must be non-empty, or every match above
-  // would be vacuously satisfied by an empty string.
+test('the shared comment stripper is load-bearing here, and does not cry wolf', () => {
+  // PROSE ABOUT a banned construct must not read as the construct: the call
+  // site deliberately names `/v/{slug}` and `<Link>` while explaining why it
+  // uses neither. If the stripper were blinded, two real assertions above go
+  // red — measured, not assumed.
+  const rawExplore = read('../app/(shell)/explore/page.tsx');
+  const block = (src: string) => {
+    const a = src.indexOf('serviceCards.map(');
+    return src.slice(a, src.indexOf('</ul>', a));
+  };
+  assert.match(block(rawExplore), /\/v\/\{slug\}/, 'the cry-wolf fixture is gone');
+  assert.match(block(rawExplore), /<Link>/, 'the cry-wolf fixture is gone');
+  assert.ok(!/\/v\/\{slug\}/.test(block(explore)), 'the stripper stopped stripping');
+  assert.ok(!/<Link>/.test(block(explore)), 'the stripper stopped stripping');
+  // And the fixtures must be non-empty, or every match in this file is vacuous.
   for (const [name, src] of [
     ['card view', cardView], ['explore', explore], ['query', query], ['sitemap', sitemap],
   ] as const) {

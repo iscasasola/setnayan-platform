@@ -66,7 +66,11 @@ import {
 } from '@/lib/taxonomy';
 import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { displayLogoUrl, displayUrlForStoredAsset } from '@/lib/uploads';
+import {
+  displayLogoUrl,
+  displayUrlForStoredAsset,
+  publicUrlForStoredAsset,
+} from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
 import {
@@ -112,7 +116,6 @@ import {
   type VendorBadge,
 } from '@/lib/vendor-badges';
 import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
-import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
 import { PARTNERSHIP_RANK, isPartnershipKind } from '@/lib/vendor-partnership-kinds';
 import { searchReads, type ReadHit } from '@/lib/site-search';
 
@@ -712,7 +715,7 @@ type VendorCardRow = {
    *  pre-migration deploy → free → name still hidden. */
   tier_state?: string | null;
   /** Resolved public URL for the vendor's hero service photo
-   *  (`vendor_services.primary_photo_r2_key` → r2PublicUrl). Null when
+   *  (`vendor_services.primary_photo_r2_key` → publicUrlForStoredAsset). Null when
    *  the vendor has no service with a photo set. */
   primary_photo_url?: string | null;
   /** Lowest active `vendor_services.starting_price_php` across all
@@ -2753,7 +2756,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     v.tier_state = meta?.tier_state ?? null;
     const svc = servicesByVendorId.get(v.vendor_profile_id);
     v.primary_photo_url = svc?.photoR2Key
-      ? r2PublicUrl(R2_BUCKETS.media, svc.photoR2Key)
+      ? publicUrlForStoredAsset(svc.photoR2Key)
       : null;
     // Off-Season Promos (Wave 5) — surface a LIVE off-peak offer (if any) so
     // the card shows the "Off-season savings" badge + the filter can narrow.

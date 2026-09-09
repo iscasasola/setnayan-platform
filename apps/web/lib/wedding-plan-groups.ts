@@ -997,7 +997,7 @@ export type PlanCardPick = {
   /**
    * 2026-05-22 owner directive — manual vendor photo URL takes PRIORITY 1
    * when the host attached a manual contact. Photo source is
-   * `event_manual_vendors.photo_r2_key` → r2PublicUrl(). NULL on
+   * `event_manual_vendors.photo_r2_key` → publicUrlForStoredAsset(). NULL on
    * marketplace picks (no manual_vendor link) and on manual picks
    * where the host skipped the photo upload. Falls through to
    * service_primary_photo_url → marketplace_logo_url → initials.
@@ -1140,7 +1140,7 @@ export type EventVendorRowInput = {
   /**
    * Resolved public URL for the linked manual vendor's photo (when
    * the host uploaded one at create-time). Source path is
-   * `event_manual_vendors.photo_r2_key` → `r2PublicUrl()` in the
+   * `event_manual_vendors.photo_r2_key` → `publicUrlForStoredAsset()` in the
    * dashboard page.tsx data fetch (NOT a raw R2 key, so consumers can
    * hand it straight to next/image). NULL when no photo OR when the
    * row is not manual-vendor-linked.
@@ -1168,7 +1168,7 @@ export type EventVendorRowInput = {
   /**
    * Finalized-card-service-photo refinement (2026-05-22, follow-up on PR
    * #341). Public URL for `vendor_services.primary_photo_r2_key` —
-   * resolved via `r2PublicUrl()` in the dashboard page.tsx data fetch
+   * resolved via `publicUrlForStoredAsset()` in the dashboard page.tsx data fetch
    * (NOT a raw R2 key, so consumers can hand it straight to next/image).
    *
    * Priority 1 on the locked-state avatars. `null` when (a) the

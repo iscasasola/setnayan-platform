@@ -235,7 +235,9 @@ export function FindInThisDay({
   const showing = query.trim().length >= FIND_MIN_LEN;
 
   return (
-    <div className="relative flex-none">
+    // `self-center`: the row it sits in is baseline-aligned for the big time
+    // readout, and a 44px button baselined against a 30px numeral hangs low.
+    <div className="relative flex-none self-center">
       <button
         ref={triggerRef}
         type="button"

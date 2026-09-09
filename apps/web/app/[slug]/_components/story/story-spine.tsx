@@ -483,11 +483,24 @@ export function StorySpine({
     guestOpen,
     anchors,
     windowMs,
-    captures: (data.galleryCaptures ?? []).map((c) => ({
-      url: c.url,
-      atMs: c.atMs,
-      caption: null,
-    })),
+    /*
+      ⚠ THE UNTIMED FALLBACK, AND WHY IT IS NOT A `?? []`. `galleryCaptures`
+      carries the shutter time and exists only where the loader resolved Papic
+      rows — the six curated SAMPLES carry `galleryPhotos` and no times at all,
+      and a plain `?? []` printed "Nothing was shot at this wedding" across a
+      showcase story whose gallery is full. An absent or empty timed list means
+      "this loader did not carry times", never "there were none", so the index
+      falls back to the photographs the page is already showing and files them
+      under "before the day", which is the honest answer to a question nobody
+      can answer for them.
+
+      🔒 It cannot leak: for a reader the layer is withheld from, BOTH arrays
+      were emptied by `redactStoryLayers` before this ran.
+    */
+    captures: (data.galleryCaptures?.length
+      ? data.galleryCaptures
+      : data.galleryPhotos.map((url) => ({ url, atMs: null }))
+    ).map((c) => ({ url: c.url, atMs: c.atMs, caption: null })),
     voices: data.kwentoQuotes.map((q) => ({
       body: q.body,
       atMs: msOf(q.atIso),

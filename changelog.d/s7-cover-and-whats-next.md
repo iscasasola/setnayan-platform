@@ -31,6 +31,7 @@ The host chooses the one picture their story is known by, and — only if they w
 - the pairing CHECK removed from the migration (1→0) → 8 pass → 0 pass / 8 fail
 - the cover resolved to a presign instead of the stable streaming URL (1→0) → 6 pass → 5 pass / 1 fail
 - the vetoed-capture DROP replaced by the blur ruling's softening (1→0) → 9 pass → 8 pass / 1 fail
+- the capture arm's try/catch removed, so a throwing client escapes (2→1) → 10 pass → 9 pass / 1 fail
 
 🔴 **A SECOND REAL DEFECT, CAUGHT IN CROSS-SESSION REVIEW BEFORE MERGE — and my guard for it was
 decoration.** `resolveStoryCover` delegated the capture arm to `publicKeyForCapture`, which
@@ -57,6 +58,17 @@ guard was widened to pin the cover's half too, and that new half was sabotaged a
 ⚠ **And one guard of mine was decoration until it was rewritten.** The db test proving "announce creates no row" ran SQL the test itself wrote, so no change to production code could ever fail it. The write now lives in `lib/whats-next.ts` (the same reason `plan-next-year-authz.ts` was extracted: a rule inside a `'use server'` module is a rule the unit glob never collects) and the test drives it with a recording client, counting the tables touched.
 
 ⚠ **Two hand-maintained rosters pass by ABSENCE, and both were updated in this change:** `GUARDED_EVENT_INSERT_PATHS` (which caught the new insert path itself) and `vendor-event-creation.test.ts`'s `CREATION_PATHS` (which did NOT — it passed only because it had never heard of the new path; removing the shop gate afterwards took it 10 pass → 9 pass / 1 fail).
+
+🔴 **A THIRD DEFECT, FOUND BY WRITING THE PRODUCTION PREDICTION BEFORE LOOKING.** Asking "which of
+these could embarrass me?" surfaced it: `loadPublishedShowcases` builds every Real Stories card
+inside one `try { … } catch { return []; }`, so an exception while resolving **one** card's cover
+does not lose one picture — it returns an empty array and **the whole shelf renders as "no couple
+has published yet"**. The share card's route is the same shape: its outer catch 302s to the static
+brand image, replacing the couple's card with a logo on every share of their wedding. Both are
+byte-identical to "there is simply nothing here", which is this repo's named disease. Both call
+sites now resolve the cover in their own `try` and fall through to the living hero, and the
+resolver holds its own end — a client that throws is answered with `null`. **A cover that fails
+costs the cover, never the shelf**, the same rule the room freeze already keeps.
 
 ⏭ **Not in this change, and named rather than left to be discovered:** the story render tree reading `resolveStoryCover` directly — that removes the two-kind asymmetry above and the ladder-mirroring bridge with it. It belongs to the page lane, which S11 holds open.
 

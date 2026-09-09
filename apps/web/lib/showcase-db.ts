@@ -447,8 +447,37 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           no photo — so "no image URL" is exactly the right answer here.
         */
         heroImageUrl: await (async () => {
-          const cover = await resolveStoryCover(admin, e.event_id, e);
-          if (cover) return cover.key ? await displayUrlForStoredAsset(cover.key) : null;
+          /*
+            🔑 A COVER THAT FAILS COSTS THE COVER, NEVER THE SHELF. This whole
+            builder sits inside a `try { … } catch { return []; }`, so an
+            exception raised here does not lose one card's picture — it returns
+            an EMPTY ARRAY and the entire Real Stories shelf renders as "no
+            couple has published yet". That is this repo's named disease: a
+            failure that is byte-identical to emptiness, on a page whose whole
+            job is to look populated.
+
+            So the cover is resolved in its own try, and any failure falls
+            through to the living hero — the picture this card showed before
+            covers existed. Same rule the room freeze keeps ("a freeze that
+            failed must cost the freeze, never the room").
+          */
+          let cover: Awaited<ReturnType<typeof resolveStoryCover>> = null;
+          try {
+            cover = await resolveStoryCover(admin, e.event_id, e);
+          } catch {
+            cover = null;
+          }
+          if (cover) {
+            try {
+              // A `monogram` cover resolves to a null key ON PURPOSE — it is
+              // drawn from the couple's mark, and this card already draws that
+              // when it has no photo. So "no URL" is the right answer, not a
+              // reason to fall back.
+              return cover.key ? await displayUrlForStoredAsset(cover.key) : null;
+            } catch {
+              /* fall through to the living hero */
+            }
+          }
           // Resolve r2:// / relative refs to a display URL; plain http passes through.
           return e.landing_page_hero_image_url
             ? await displayUrlForStoredAsset(e.landing_page_hero_image_url)

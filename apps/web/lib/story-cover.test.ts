@@ -345,3 +345,60 @@ test('8 · an upload is the host’s own file and needs no third party', async (
   );
   assert.deepEqual(asked, [], 'an upload consulted the database for a permission nobody holds');
 });
+
+/**
+ * ⚖ THE RESOLVER MUST NEVER THROW, AND THAT IS NOT TIDINESS — IT IS THE SHELF.
+ *
+ * `loadPublishedShowcases` builds every Real Stories card inside one
+ * `try { … } catch { return []; }`. An exception raised while resolving ONE
+ * card's cover therefore does not lose one picture: it returns an empty array
+ * and the whole shelf renders as "no couple has published yet". The share
+ * card's route is the same shape — its outer catch 302s to the static brand
+ * image, replacing the couple's card with a logo on every share.
+ *
+ * 🔑 Both failures are byte-identical to "there is simply nothing here", which
+ * is this repo's named disease. Both call sites now wrap the resolver, and the
+ * resolver itself must hold its own end: a client that throws is answered with
+ * `null`, which means "no cover" and falls through to the living hero.
+ */
+test('9 · a client that THROWS yields no cover, never an exception', async () => {
+  const exploding = {
+    from() {
+      throw new Error('connection reset');
+    },
+  } as unknown as SupabaseClient;
+
+  // The two kinds that consult the database are the two that can throw.
+  for (const cover of [
+    { story_cover_kind: 'capture', story_cover_ref: 'p1' },
+    { story_cover_kind: 'vendor_frame', story_cover_ref: 'm1' },
+  ]) {
+    const resolved = await resolveStoryCover(exploding, 'e1', cover);
+    assert.equal(
+      resolved,
+      null,
+      `a throwing client escaped resolveStoryCover for kind=${String(cover.story_cover_kind)} — ` +
+        'that exception empties the entire Real Stories shelf',
+    );
+  }
+
+  // …and the three that never touch the client are unaffected by it.
+  assert.deepEqual(
+    await resolveStoryCover(exploding, 'e1', {
+      story_cover_kind: 'upload',
+      story_cover_ref: 'r2://mine.jpg',
+    }),
+    { kind: 'upload', key: 'r2://mine.jpg' },
+  );
+  assert.deepEqual(
+    await resolveStoryCover(exploding, 'e1', {
+      story_cover_kind: 'monogram',
+      story_cover_ref: null,
+    }),
+    { kind: 'monogram', key: null },
+  );
+  assert.equal(
+    await resolveStoryCover(exploding, 'e1', { story_cover_kind: null, story_cover_ref: null }),
+    null,
+  );
+});

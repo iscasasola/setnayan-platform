@@ -104,7 +104,20 @@ export async function GET(
       draft does not change the invitation-phase card: the cover leads the
       STORY's card, and there is no story to share yet.
     */
-    const cover = await resolveStoryCover(admin, event.event_id, event);
+    /*
+      ⚠ IN ITS OWN TRY. This route's outer catch 302s to the STATIC BRAND
+      IMAGE — so a throw while resolving the cover would replace the couple's
+      share card with a Setnayan logo, on every share of their wedding, and
+      look like nothing more than a plain fallback. A cover that cannot be
+      resolved must cost the cover only; the hero ladder below is exactly what
+      this route served before covers existed.
+    */
+    let cover: Awaited<ReturnType<typeof resolveStoryCover>> = null;
+    try {
+      cover = await resolveStoryCover(admin, event.event_id, event);
+    } catch {
+      cover = null;
+    }
     /*
       🔑 THE COVER GETS THE SAME CRAWLER-DURABILITY TREATMENT AS THE HERO, and
       it is not optional. A presigned URL baked into a crawler's cache EXPIRES,

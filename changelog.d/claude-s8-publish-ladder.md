@@ -58,6 +58,21 @@ a person — its whole shape is a label, two percentages and a shape. ⛔ The pe
 photo HEAT is deliberately NOT frozen: it rides the consent veto, and a
 withdrawal after publish must still come off the plan.
 
+🔴 **AND FREEZING THE GEOMETRY ALONE WOULD HAVE MADE THINGS WORSE — caught by S10
+against the first cut of this PR and verified in the loader before it was believed.**
+`loadTableHeat` resolves a photograph to a table through `event_seat_assignments`,
+LIVE — the same table the arranger wipes and re-solves, which is the exact fact
+that made the plan worth freezing. Freeze one and not the other and they
+disagree: a guest re-seated at a different table the frozen plan still draws
+lights the **wrong** table on an otherwise-true record, and one re-seated at a
+table created after the freeze is dropped, so **the night reads quieter than it
+was**. ⚠ **A half-freeze is worse than no freeze** — before it, geometry and
+attribution moved together and the plan was at least wrong consistently — so the
+seating is frozen in the same write. **Geometry frozen · attribution frozen ·
+consent live.** The seating is a SIBLING of the room, never a field on it: it
+carries guest ids and `StoryRoom` goes straight to the components that draw the
+plan.
+
 **Taking it back now takes it back.** An audience change revalidates the story,
 the recap AND the print sheet; `/${slug}` alone left a narrowed story readable on
 two cached routes for up to five minutes.

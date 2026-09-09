@@ -46,7 +46,12 @@ export default async function OpenShopPage({
 
   // Own-row read passes RLS. A shop that has a NAME finished onboarding.
   const { data: owned } = await supabase
-    .from('vendor_profiles')
+    // `vendor_profiles_self` (migration 20271217955839), never the table: the
+    // projection names `business_owner_name`, off `authenticated`'s column
+    // allowlist, and one denied column refuses the whole query — which here
+    // would read as "you have no shop" and restart onboarding over a shop that
+    // already exists.
+    .from('vendor_profiles_self')
     .select(
       'vendor_profile_id, business_name, business_slug, logo_url, services, event_types, location_city, business_owner_name, business_owner_position, contact_phone, contact_email, hq_address',
     )

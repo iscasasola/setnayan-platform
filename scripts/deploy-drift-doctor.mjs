@@ -174,13 +174,53 @@ export function pendingAgeSeconds({ pendingCommitTs, nowTs }) {
   return Math.max(0, nowTs - pendingCommitTs);
 }
 
-/** Age in seconds of the first commit AFTER `deployedSha` on the way to origin/main; null if unknown. */
-function oldestPendingAgeSeconds(deployedSha) {
-  const nextSha = shSafe(`git rev-list --reverse ${deployedSha}..origin/main`).split('\n')[0];
+/**
+ * Age in seconds of the first change main took AFTER `deployedSha`; null if unknown.
+ *
+ * 🔴 `--first-parent` IS THE WHOLE FIX, AND WITHOUT IT THIS MONITOR CRIED WOLF
+ * ON ALMOST EVERY RUN. The walk used to be a plain `git rev-list --reverse
+ * <deployed>..origin/main`, which lists every commit the range CONTAINS —
+ * including the feature-branch commits that arrived inside a merge. `--reverse`
+ * then puts the OLDEST of them first, so the "age" was measured from the moment
+ * somebody first typed on their branch, not from the moment main became
+ * responsible for deploying it.
+ *
+ * MEASURED on the 2026-09-09 06:02Z run, which is the case that prompted this:
+ * production `55e3bb7`, main `96355b9`. The old walk picked `cadf407f9` —
+ * committed 03:29Z on a branch — and reported **153 minutes**, matching that
+ * run's "oldest pending change merged 152 min ago". The first-parent walk picks
+ * the merge commit `96355b960`, committed 06:01Z, and reports **1 minute**:
+ * comfortably inside the grace, which is the truth. Production had that build
+ * live minutes later.
+ *
+ * 🔑 WHY THAT MADE THE MONITOR USELESS RATHER THAN MERELY NOISY. Any pull
+ * request whose branch is older than the 20-minute grace — which is nearly all
+ * of them — trips it the instant it merges. A check that fails on almost every
+ * run cannot report a real outage: it is indistinguishable from the noise it
+ * already emits, which is precisely the disease this file was written to catch
+ * ("A check that can't verify must not say 'fine'" — and one that always says
+ * "broken" is no better). It failed on every run for hours on 2026-09-09 while
+ * production was healthy the whole time.
+ *
+ * On main's own line, a GitHub merge commit's committer timestamp IS the merge
+ * instant, and a direct push's is the push — either way, "how long has main had
+ * this and not shipped it", which is the question the grace window is asking.
+ *
+ * @param {string} deployedSha the commit production is serving
+ * @param {{ref?:string, cwd?:string, nowTs?:number}} [opts] injectable for tests
+ * @returns {number|null}
+ */
+export function oldestPendingAgeSeconds(deployedSha, opts = {}) {
+  const ref = opts.ref ?? 'origin/main';
+  const at = opts.cwd ? `-C ${JSON.stringify(opts.cwd)} ` : '';
+  const nextSha = shSafe(
+    `git ${at}rev-list --reverse --first-parent ${deployedSha}..${ref}`,
+  ).split('\n')[0];
   if (!nextSha) return null;
-  const ct = Number(shSafe(`git log -1 --format=%ct ${nextSha}`));
+  const ct = Number(shSafe(`git ${at}log -1 --format=%ct ${nextSha}`));
   if (!ct) return null;
-  return pendingAgeSeconds({ pendingCommitTs: ct, nowTs: Math.floor(Date.now() / 1000) });
+  const nowTs = opts.nowTs ?? Math.floor(Date.now() / 1000);
+  return pendingAgeSeconds({ pendingCommitTs: ct, nowTs });
 }
 
 async function main() {

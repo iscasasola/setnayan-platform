@@ -187,6 +187,15 @@ export type ChatMessageRow = {
    */
   amendment_id?: string | null;
   /**
+   * Set when this message offers one of the thread vendor's own services —
+   * renders as that supplier's service card (cover photo, showcase clip, price,
+   * inclusions) instead of a plain bubble. Migration 20271214894972. NULL on
+   * every other message. Unlike the negotiation markers this is NOT behind a
+   * flag: the offer control it replaces has shipped since 2026-06-12 and would
+   * otherwise keep producing a word in a chip row.
+   */
+  offered_service_id?: string | null;
+  /**
    * Optional file attachment (chat file sharing, PR 2). All four are NULL on
    * text-only messages. `attachment_url` is the public R2 URL; the renderer
    * shows an <img> thumbnail for image MIMEs and a file chip otherwise.
@@ -545,7 +554,9 @@ export async function fetchMessages(
   // plain human bubble. The thread page must never crash ahead of a migration.
   const withBot = await supabase
     .from('chat_messages')
-    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id`)
+    .select(
+      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id`,
+    )
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
   if (!withBot.error) return (withBot.data ?? []) as ChatMessageRow[];

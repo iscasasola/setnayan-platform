@@ -22,6 +22,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { buildBenchStandings } from '@/lib/conversation-list';
+import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import {
   fetchEventVendors,
@@ -1455,6 +1457,55 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         : null,
   });
 
+  // ── WHERE EACH SUPPLIER STANDS (2026-09-09) ────────────────────────────────
+  // A bench card used to offer "Check inquiry" and say nothing about WHERE
+  // THINGS STAND — the same button whether the supplier answered an hour ago,
+  // sent a quote waiting on the couple, or went quiet for three weeks. The
+  // couple had to open every one to find out, which makes three caterers side
+  // by side a comparison they cannot actually make.
+  //
+  // ⚡ TWO QUERIES FOR THE WHOLE BENCH. `buildBenchStandings` reuses the same
+  // batched couple-side stage probes the conversation column already runs and
+  // adds one last-message read, then hands the facts to the ONE derivation in
+  // `lib/supplier-standing.ts`. No per-card probe: a rail holds dozens of cards
+  // and the page holds many rails.
+  //
+  // `Date.now()` is read ONCE here so every card on the page agrees about what
+  // "12 days" means — a per-card clock would let two cards rendered in the same
+  // paint disagree across a midnight boundary.
+  const standingsByVendorId: Record<string, SupplierStanding> = await (async () => {
+    const out: Record<string, SupplierStanding> = {};
+    const contactable = shortlistFolders
+      .flatMap((f) => f.tiles.flatMap((t) => t.vendors))
+      .filter((v) => v.marketplaceVendorId != null && v.threadId != null);
+    if (contactable.length === 0) return out;
+    try {
+      const standings = await buildBenchStandings({
+        supabase,
+        eventId,
+        nowMs: Date.now(),
+        vendors: contactable.map((v) => ({
+          key: v.vendorId,
+          vendorProfileId: v.marketplaceVendorId as string,
+          threadId: v.threadId,
+          inquiryStatus: v.inquiryStatus,
+        })),
+        });
+      for (const [key, standing] of standings) if (standing) out[key] = standing;
+    } catch (caught) {
+      // Fail-SILENT, never fail-loud. The standing is an addition to a card that
+      // already works; a thrown read must cost the couple the sentence, never
+      // the bench.
+      logQueryError(
+        'VendorsPage.benchStandings (threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return out;
+  })();
+
   // Phase 1b PR-4 · per-category "saved request" icons. Load the couple's saved
   // event_vendor_preferences rows (one query, host-RLS scoped) and resolve, per
   // shortlist TILE, the leaf canonical_service that carries a saved template (if
@@ -1613,6 +1664,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
+        // ── Where each supplier stands · one sentence per card, plus the
+        // page's roll-up. Derived once on the server (lib/supplier-standing.ts)
+        // and passed down; the component renders it and decides nothing.
+        standings={standingsByVendorId}
         initialOpenTile={sp.open ?? null}
         savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
         coveredByTile={coveredByTile}

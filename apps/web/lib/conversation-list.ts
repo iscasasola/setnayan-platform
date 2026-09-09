@@ -6,6 +6,7 @@ import {
   rowReadsCompleted,
   type ThreadStage,
 } from '@/lib/vendor-thread-stage';
+import { buildSupplierStanding, type SupplierStanding } from '@/lib/supplier-standing';
 
 /**
  * THE CONVERSATION LIST — the rows for the column beside the thread being read
@@ -351,6 +352,111 @@ export async function buildVendorConversationRows({
   });
 }
 
+/**
+ * ── THE COUPLE'S STAGE FACTS, ONCE ──────────────────────────────────────────
+ * Three probes, three queries, whatever the length of the list — and now TWO
+ * consumers: the conversation column beside a thread, and the shortlist bench's
+ * standing sentence. They were extracted the moment the second one appeared,
+ * because a bench card and the conversation it opens disagreeing about the same
+ * supplier is precisely the defect this module was written to prevent.
+ *
+ * 🔒 THE COUPLE'S OWN SESSION, NEVER SERVICE ROLE. All three tables carry a
+ * `*_couple_read` policy keyed on `current_couple_event_ids()`.
+ *
+ * Every probe graceful-degrades to "no", which errs toward an EARLIER rung — a
+ * booking shown as still live is a stale label the couple corrects by opening
+ * it; a live one shown as finished tells them to stop chasing a supplier who is
+ * waiting on them.
+ */
+export type CoupleStageFacts = {
+  quoted: Set<string>;
+  booked: Set<string>;
+  completed: Set<string>;
+  /**
+   * vendor_profile_id → the live proposal total, IN PESOS.
+   *
+   * ⚠ Read off the SAME rows that decide the `quoted` rung (`sent` / `viewed`),
+   * so a card can never print a number from a proposal the ladder does not
+   * count. `total_centavos` is a BIGINT of centavos; the division happens here,
+   * once, rather than at each render site.
+   */
+  quotedAmountPhp: Map<string, number>;
+};
+
+function emptyCoupleStageFacts(): CoupleStageFacts {
+  return { quoted: new Set(), booked: new Set(), completed: new Set(), quotedAmountPhp: new Map() };
+}
+
+async function readCoupleStageFacts(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<CoupleStageFacts> {
+  const facts = emptyCoupleStageFacts();
+
+  const [quoteRes, bookRes, doneRes] = await Promise.all([
+    supabase
+      .from('vendor_proposals')
+      .select('vendor_profile_id, total_centavos')
+      .eq('event_id', eventId)
+      .in('status', ['sent', 'viewed']),
+    supabase
+      .from('vendor_schedule_pool_bookings')
+      .select('vendor_profile_id')
+      .eq('event_id', eventId)
+      .is('released_at', null),
+    supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id, completion_status, customer_confirmed_received_at, status')
+      .eq('event_id', eventId),
+  ]);
+
+  if (quoteRes.error) {
+    logQueryError('coupleStageFacts.quoted', quoteRes.error, { eventId }, 'graceful_degrade');
+  }
+  for (const r of (quoteRes.data ?? []) as Array<{
+    vendor_profile_id: string;
+    total_centavos: number | string | null;
+  }>) {
+    facts.quoted.add(r.vendor_profile_id);
+    const centavos = Number(r.total_centavos ?? 0);
+    // ⚠ A ZERO TOTAL IS NOT A PRICE. Proposals default to 0 and a supplier can
+    // send one before pricing it; "Quoted ₱0" would be a worse sentence than
+    // "Quoted" alone, so the rung still shows and the number simply does not.
+    if (Number.isFinite(centavos) && centavos > 0) {
+      const php = centavos / 100;
+      // Many proposals per supplier are possible (amendments supersede rather
+      // than delete). The LARGEST live one is the safe one to show: it is the
+      // figure a couple would be answering, and understating what somebody is
+      // asking for is the costlier direction to be wrong in.
+      facts.quotedAmountPhp.set(
+        r.vendor_profile_id,
+        Math.max(php, facts.quotedAmountPhp.get(r.vendor_profile_id) ?? 0),
+      );
+    }
+  }
+
+  if (bookRes.error) {
+    logQueryError('coupleStageFacts.booked', bookRes.error, { eventId }, 'graceful_degrade');
+  }
+  for (const r of (bookRes.data ?? []) as { vendor_profile_id: string }[]) {
+    facts.booked.add(r.vendor_profile_id);
+  }
+
+  if (doneRes.error) {
+    logQueryError('coupleStageFacts.completed', doneRes.error, { eventId }, 'graceful_degrade');
+  }
+  for (const r of (doneRes.data ?? []) as Array<{
+    marketplace_vendor_id: string | null;
+    completion_status: string | null;
+    customer_confirmed_received_at: string | null;
+    status: string | null;
+  }>) {
+    if (r.marketplace_vendor_id && rowReadsCompleted(r)) facts.completed.add(r.marketplace_vendor_id);
+  }
+
+  return facts;
+}
+
 type CoupleThreadInput = {
   thread_id: string;
   vendor_profile_id: string;
@@ -405,54 +511,8 @@ export async function buildCoupleConversationRows({
   unreadThreadIds,
   formatTime,
 }: CoupleBuildArgs): Promise<ConversationRow[]> {
-  const quoted = new Set<string>();
-  const booked = new Set<string>();
-  const completed = new Set<string>();
-
-  if (threads.length > 0) {
-    const [quoteRes, bookRes, doneRes] = await Promise.all([
-      supabase
-        .from('vendor_proposals')
-        .select('vendor_profile_id')
-        .eq('event_id', eventId)
-        .in('status', ['sent', 'viewed']),
-      supabase
-        .from('vendor_schedule_pool_bookings')
-        .select('vendor_profile_id')
-        .eq('event_id', eventId)
-        .is('released_at', null),
-      supabase
-        .from('event_vendors')
-        .select('marketplace_vendor_id, completion_status, customer_confirmed_received_at, status')
-        .eq('event_id', eventId),
-    ]);
-
-    if (quoteRes.error) {
-      logQueryError('coupleConversationList.quoted', quoteRes.error, { eventId }, 'graceful_degrade');
-    }
-    for (const r of (quoteRes.data ?? []) as { vendor_profile_id: string }[]) {
-      quoted.add(r.vendor_profile_id);
-    }
-
-    if (bookRes.error) {
-      logQueryError('coupleConversationList.booked', bookRes.error, { eventId }, 'graceful_degrade');
-    }
-    for (const r of (bookRes.data ?? []) as { vendor_profile_id: string }[]) {
-      booked.add(r.vendor_profile_id);
-    }
-
-    if (doneRes.error) {
-      logQueryError('coupleConversationList.completed', doneRes.error, { eventId }, 'graceful_degrade');
-    }
-    for (const r of (doneRes.data ?? []) as Array<{
-      marketplace_vendor_id: string | null;
-      completion_status: string | null;
-      customer_confirmed_received_at: string | null;
-      status: string | null;
-    }>) {
-      if (r.marketplace_vendor_id && rowReadsCompleted(r)) completed.add(r.marketplace_vendor_id);
-    }
-  }
+  const { quoted, booked, completed } =
+    threads.length > 0 ? await readCoupleStageFacts(supabase, eventId) : emptyCoupleStageFacts();
 
   return threads.map((t) => {
     const displayName = displayNames.get(t.vendor_profile_id) || 'Supplier';
@@ -484,4 +544,113 @@ export async function buildCoupleConversationRows({
       unread: unreadThreadIds.has(t.thread_id),
     };
   });
+}
+
+/**
+ * ── THE BENCH'S STANDINGS ───────────────────────────────────────────────────
+ * The shortlist bench draws many supplier cards at once, and each one now
+ * carries a sentence about where that supplier stands. The facts behind it are
+ * the SAME four the conversation column already gathers — the rung, the last
+ * thing said, who said it, and when — so this lives here, beside them, and
+ * reuses `readCoupleStageFacts` verbatim.
+ *
+ * ⚡ TWO QUERIES FOR THE WHOLE BENCH, ON TOP OF THE THREE ALREADY SHARED. A
+ * per-card probe is explicitly forbidden on this surface: a category rail holds
+ * dozens of cards and the page holds many rails.
+ *
+ * 🔑 ONE DERIVATION. `buildSupplierStanding` is called here and nowhere else in
+ * the app, so the bench card, the Picks column and (later) the conversation's
+ * Decisions view all render the same computed answer rather than three
+ * sentences that agree today.
+ */
+export type BenchStandingInput = {
+  /**
+   * The card's OWN id, which is what the returned map is keyed on. Kept
+   * separate from `vendorProfileId` deliberately: the bench draws a card per
+   * shortlist row, and the marketplace profile is only how its facts are found.
+   * Keying the map on the profile id would make the component translate between
+   * two identities at render time — a lookup that silently misses is exactly
+   * how a card comes to show the standing of the supplier beside it.
+   */
+  key: string;
+  vendorProfileId: string;
+  /** Null ⇒ this supplier has never been written to. Most of the bench. */
+  threadId: string | null;
+  inquiryStatus: string | null;
+};
+
+export async function buildBenchStandings({
+  supabase,
+  eventId,
+  vendors,
+  nowMs,
+}: {
+  /** 🔒 The couple's own session, as everywhere on this side. */
+  supabase: SupabaseClient;
+  eventId: string;
+  vendors: BenchStandingInput[];
+  /** Injected so the sentence is testable and the whole page agrees on "now". */
+  nowMs: number;
+}): Promise<Map<string, SupplierStanding | null>> {
+  const out = new Map<string, SupplierStanding | null>();
+  const threadIds = vendors.map((v) => v.threadId).filter((id): id is string => id != null);
+
+  // Nobody on this bench has a conversation — the common cold-start case, and
+  // worth its own exit so a fresh event pays for no queries at all.
+  if (threadIds.length === 0) {
+    for (const v of vendors) out.set(v.key, null);
+    return out;
+  }
+
+  const [facts, lastRes] = await Promise.all([
+    readCoupleStageFacts(supabase, eventId),
+    supabase
+      .from('chat_messages')
+      .select('thread_id, sender_role, created_at')
+      .in('thread_id', threadIds)
+      .order('created_at', { ascending: false })
+      .limit(600),
+  ]);
+
+  if (lastRes.error) {
+    logQueryError('benchStandings.lastMessages', lastRes.error, { eventId }, 'graceful_degrade');
+  }
+  // Ordered newest-first, so the FIRST row seen for a thread is its last word.
+  const lastByThread = new Map<string, { sender_role: string; created_at: string }>();
+  for (const m of (lastRes.data ?? []) as Array<{
+    thread_id: string;
+    sender_role: string;
+    created_at: string;
+  }>) {
+    if (!lastByThread.has(m.thread_id)) lastByThread.set(m.thread_id, m);
+  }
+
+  for (const v of vendors) {
+    const last = v.threadId == null ? undefined : lastByThread.get(v.threadId);
+    const saidAt = last ? Date.parse(last.created_at) : NaN;
+    out.set(
+      v.key,
+      buildSupplierStanding({
+        // ⛔ THE RUNG COMES FROM THE SHARED RESOLVER. Deciding it here would be
+        // the fourth ranking, and the bench would be the surface that disagreed
+        // with the thread it opens.
+        stage: resolveThreadStage({
+          completed: facts.completed.has(v.vendorProfileId),
+          booked: facts.booked.has(v.vendorProfileId),
+          quoted: facts.quoted.has(v.vendorProfileId),
+          cancelled: isCancelledInquiryStatus(v.inquiryStatus),
+        }),
+        hasThread: v.threadId != null,
+        quotedAmountPhp: facts.quotedAmountPhp.get(v.vendorProfileId) ?? null,
+        // `sender_role` is the message's own author column, the same one the
+        // conversation column reads; 'vendor' is the only value that means the
+        // supplier spoke, so anything else is the couple's side.
+        lastSpeaker: last ? (last.sender_role === 'vendor' ? 'vendor' : 'couple') : null,
+        lastSaidAtMs: Number.isFinite(saidAt) ? saidAt : null,
+        nowMs,
+      }),
+    );
+  }
+
+  return out;
 }

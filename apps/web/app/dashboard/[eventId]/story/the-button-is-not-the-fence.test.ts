@@ -186,13 +186,27 @@ test('narrowing the audience revalidates the story, the recap AND the print shee
     (`revalidate = 300`) and it asks `storyAudienceAdmits`, so a narrowed story
     stayed readable there for five minutes — on the surface a stranger can keep.
 
-    🔴 THE RECAP IS IN THIS LIST FOR A DIFFERENT REASON, and an earlier version
-    of this comment got it wrong. `/[slug]/recap` is the Auto-Recap: its own
-    switch (`event_recaps.status`), and **it does not read `event_editorial` at
-    all** — measured, 0 references in `recap/page.tsx` and `lib/auto-recap.ts`.
-    It is revalidated because `04` §3 names it in the withdrawal set and it
-    renders guest photos and Kwentos, not because an audience change leaks
-    through it. The assertion stays; the reason had to be corrected.
+    🔴 THE REASON THE RECAP IS IN THIS LIST HAS NOW BEEN WRONG TWICE, AND THE
+    SECOND VERSION IS THE INSTRUCTIVE ONE. It read: *"it does not read
+    `event_editorial` at all — measured, 0 references in `recap/page.tsx` and
+    `lib/auto-recap.ts`."*
+
+    **THE NUMBER WAS RIGHT AND THE SENTENCE WAS WRONG.** Both files really do
+    contain 0 occurrences of that string. `lib/auto-recap.ts` also calls
+    `loadEditorialData` at two call sites, and THAT reads `event_editorial`. The
+    recap reads the story's row one hop away, where a grep for a table name
+    cannot see it — a correct measurement turned into a consequence nobody
+    checked.
+
+    ⚖ What survives: `lib/auto-recap.ts` has 0 references to `audience`, so
+    narrowing the audience genuinely does not hide the recap. That was the
+    conclusion the comment needed, and it had to be measured on `audience`
+    rather than on the name of a table.
+
+    🔑 What does NOT survive: a guest's withdrawal reaches the recap for a much
+    stronger reason than "cheap insurance" — `loadEditorialData` applies the
+    consent veto to the hero the recap leads with. The assertion never moved;
+    only the story told about it did, twice.
   */
   const body = saveEditorialBody();
 

@@ -67,9 +67,20 @@ export function storySurfacesFor(
     // The story itself. Always the bare root as well as the canonical form: a
     // printed QR from before the cutover keeps resolving here.
     `/${clean}`,
-    // The Auto-Recap. A DIFFERENT keepsake with its own switch, which does not
-    // read `event_editorial` at all — but it renders guest photographs and
-    // Kwentos, so a withdrawal is exactly as binding on it.
+    /*
+      The Auto-Recap — a DIFFERENT keepsake with its own switch
+      (`event_recaps.status`), so narrowing the story's AUDIENCE does not hide
+      it (`lib/auto-recap.ts` has 0 references to `audience`).
+
+      🔑 BUT A WITHDRAWAL IS FULLY BINDING ON IT, and the corpus said otherwise
+      until this was measured. `lib/auto-recap.ts` contains 0 occurrences of the
+      string `event_editorial` — which is what was measured before — yet it calls
+      `loadEditorialData` at two call sites, and THAT reads the row. The recap's
+      hero goes through the consent veto inside that function
+      (`!consentVeto.ids.has(heroPhotoId)`, under a docblock that says consent
+      wins over curation), so a vetoed capture stops leading the recap. **A grep
+      for a table name cannot see one hop.**
+    */
     `/${clean}/recap`,
     // The print keepsake. The one a person is about to put on paper.
     `/${clean}/print`,

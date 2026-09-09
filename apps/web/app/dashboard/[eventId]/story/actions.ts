@@ -616,13 +616,32 @@ export async function saveEditorial(
     same event from a reader's side, and one list is the only way the next
     surface cannot be forgotten by whichever of the two is written first.
 
-    🔴 AND ONE CLAIM FROM S8 IS KEPT BECAUSE IT WAS CORRECTED, NOT BECAUSE IT
-    WAS RIGHT: `/[slug]/recap` is the Auto-Recap, a DIFFERENT keepsake with its
-    own switch, and it does not read `event_editorial` at all — measured, 0
-    references in `recap/page.tsx` and `lib/auto-recap.ts`. Narrowing the
-    audience changes nothing there. It is in the list because it renders guest
-    photographs and Kwentos, so a WITHDRAWAL is exactly as binding on it — which
-    is a different reason from the one first written down.
+    🔴 A CLAIM THIS COMMENT USED TO MAKE ABOUT THE RECAP IS FALSE, AND THE WAY
+    IT WENT WRONG IS WORTH MORE THAN THE FIX. It read: *"it does not read
+    `event_editorial` at all — measured, 0 references in `recap/page.tsx` and
+    `lib/auto-recap.ts`."*
+
+    **THE NUMBER IS RIGHT AND THE SENTENCE IS WRONG.** Re-measured on
+    `origin/main`: both files do contain 0 occurrences of the string
+    `event_editorial` — and `lib/auto-recap.ts` calls `loadEditorialData` at TWO
+    call sites (lines 201 and 347), which reads `event_editorial` itself
+    (`editorial/data.ts`, the `.select('status, draft_json, …')`). **The recap
+    reads the story's row; it just does it one hop away, where a grep for the
+    table name cannot see it.** Correct fact, invented consequence — the same
+    shape as the migration-prefix belief this repo killed twice.
+
+    ⚖ WHAT SURVIVES, and it is what the original reasoning actually needed:
+    `lib/auto-recap.ts` has **0** references to `audience`, so narrowing the
+    story's audience genuinely does NOT hide the recap — the Auto-Recap is its
+    own keepsake with its own switch (`event_recaps.status`). That conclusion is
+    sound. It just had to be measured on the word `audience`, not on the name of
+    a table.
+
+    🔑 AND THE HALF THAT WAS WRONG IS THE HALF THIS SESSION TURNS ON: a guest's
+    WITHDRAWAL absolutely reaches the recap. `loadEditorialData` applies the
+    consent veto to the very hero the recap leads with — `!consentVeto.ids.has(
+    heroPhotoId)`, under a docblock that says consent wins over curation — so the
+    recap belongs in the list for a reason far stronger than "cheap insurance".
   */
   await everyCopyIsNowStale(eventId);
 

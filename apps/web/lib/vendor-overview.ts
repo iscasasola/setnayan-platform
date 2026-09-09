@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { fetchVendorThreads } from '@/lib/chat';
+import { shortenGeneratedBody } from '@/lib/conversation-list';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
@@ -1130,7 +1131,10 @@ async function fetchOwedThreadReplies(
     const body = row.body?.trim();
     out.push({
       threadId: row.thread_id,
-      excerpt: body ? body.slice(0, 140) : null,
+      // Through the SHIPPED shortener first, never the raw body: a generated
+      // message carries markdown a card renders literally. See
+      // `shortenGeneratedBody` — one rule, one home.
+      excerpt: body ? shortenGeneratedBody(body).slice(0, 140) : null,
       lastMessageAt: row.created_at,
     });
   }

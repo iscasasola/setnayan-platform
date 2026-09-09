@@ -1524,9 +1524,46 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     an empty array renders identically to a genuinely empty marketplace. Caught
     here so a broken read falls back to the vendor grid this page shipped
     yesterday — degraded, never a convincing lie.
+
+    🔴 `admin`, NOT `supabase` — AND THE VISITOR SESSION IS WHY THE GRID WAS
+    EMPTY TO EVERY STRANGER. Measured 2026-09-09 against production through a
+    real anonymous PostgREST client, not inferred from a policy file:
+
+        vendor_profiles ..... 2 rows   (Saysay, SetnaProd)
+        vendor_services ..... 0 rows
+
+    `vendor_services_public_read` is `TO authenticated`; its sibling
+    `vendor_profiles_public_read` is `TO authenticated, anon`. So a signed-out
+    couple — the FIRST person to touch this product — opened /explore, read the
+    heading "The first shops", and got a grid with no children. RLS refuses
+    without raising, so `serviceCards` came back `[]`, the `.catch` never fired,
+    and an access decision rendered as "nobody has listed anything yet".
+
+    🔑 EVERY OTHER READ ON THIS PAGE ALREADY USES `admin` FOR EXACTLY THIS
+    REASON — see the marketplace query's own note below: *"the marketplace is a
+    public surface … the admin client carries no viewer identity so the read is
+    consistent for everyone."* One read out of ~20 took the viewer's session,
+    and it was the one that draws the body.
+
+    🔒 THIS DOES NOT WIDEN ANYTHING. The module states the visibility rule in
+    its own query — active card AND a shop whose `verification_state` and
+    `public_visibility` are both `verified` — and its docblock says why: it
+    runs with whatever client the caller passes, so the answer must not change
+    with the caller. The rule is the same rule the policy encodes; the admin
+    client is what the function was written to be handed.
+
+    ⛔ THE OTHER REPAIR WAS ADDING `anon` TO THE POLICY, AND IT IS NOT
+    EQUIVALENT. `anon` already holds table-level SELECT on `vendor_services`
+    (measured in prod: no column allowlist, all 40 columns), so admitting it to
+    the policy publishes the whole row to any holder of the public key —
+    `is_demo`/`demo_batch_id`, `daily_capacity`, `credit_price_centavos`,
+    `branch_id` included, none of which any customer surface renders. That is
+    widening a TABLE when the thing that needed widening was a PAGE. It would
+    also move the exposure baseline and need a migration to undo. This is one
+    identifier, revertible in one line.
   */
   const serviceCards = isLandingView
-    ? await fetchMarketplaceServiceCards(supabase, { limit: 24 }).catch(() => null)
+    ? await fetchMarketplaceServiceCards(admin, { limit: 24 }).catch(() => null)
     : null;
   const marketplaceIsEmpty = liveShopCount === 0;
 

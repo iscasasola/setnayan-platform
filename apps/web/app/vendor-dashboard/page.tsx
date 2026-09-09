@@ -99,9 +99,27 @@ function AgentHome() {
   );
 }
 
-/** "What needs you today — Wednesday, July 1." */
+/**
+ * "What needs you today — Wednesday, July 1."
+ *
+ * 🔴 `en-PH` IS A LANGUAGE, NOT A PLACE. Until 2026-09-10 this passed the
+ * Philippine LOCALE and no time zone, so it formatted the SERVER's instant with
+ * Filipino wording — and the server runs in UTC. Measured on the live site at
+ * Manila 2026-09-10 02:33 (UTC 09-09 18:33): the page greeted the shop with
+ * "Wednesday, September 9". **Every Filipino supplier who opens the app after
+ * 8pm was shown yesterday**, and everything on this page that means "today"
+ * moved with it — Next shoot, Upcoming, Open tasks.
+ *
+ * ⚠ CI runs in UTC, the one clock on which this cannot be seen. Same family as
+ * the 2026-08-04 wall-clock sweep (`venueNowMs`, `formatEventDate`); this page
+ * was not in it.
+ *
+ * The zone is Setnayan's own market, matching `anniversary-dates.ts` and the
+ * coordinator broadcasts — a supplier dashboard is read where the shop is.
+ */
 function todayLabel(): string {
   return new Date().toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila',
     weekday: 'long',
     month: 'long',
     day: 'numeric',

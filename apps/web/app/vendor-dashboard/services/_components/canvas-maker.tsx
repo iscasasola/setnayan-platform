@@ -578,7 +578,6 @@ export function CanvasMaker({
     }
     for (const [name, value] of keep.fields) {
       if (name === 'title') setTitle(value);
-      else if (name === 'exclusive_perk_text') setPerk(value);
       else if (name === 'coverage_id') setCoverageId(value);
       else if (name === 'category') continue; // carried above, in state
       else if (form) {
@@ -640,7 +639,19 @@ export function CanvasMaker({
   );
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? '');
-  const [perk, setPerk] = useState(initial?.exclusivePerkText ?? '');
+  /**
+   * The supplier's WHOLE say over the Setnayan gift (owner 2026-09-09: "it is
+   * either a yes or a no"). There is no amount, no picker and no top-up: the
+   * gift is Papic credits sized at 40% of the booking fee, capped at the
+   * 50,000-credit rung, and derived from a price that does not exist yet.
+   *
+   * ⚠ MIRRORED INTO A HIDDEN INPUT, NOT LEFT TO A CHECKBOX. An unchecked
+   * checkbox submits nothing, which would make "no" indistinguishable from
+   * "this surface never asked" — and the save RPC deliberately treats a missing
+   * key as UNCHANGED so it cannot erase the retired free text. A supplier
+   * turning the gift OFF must send a real `off`.
+   */
+  const [giftOn, setGiftOn] = useState(initial?.includesSetnayanGift ?? false);
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
   /**
    * How long the picked clip is, in seconds — `null` while unknown.
@@ -800,7 +811,6 @@ export function CanvasMaker({
     hasClip: snap.hasClip,
     hasPrice: snap.hasPrice,
     title,
-    exclusiveText: perk,
     // The other half of the real gate — see CardHealthSnapshot.
     inclusionLabels: snap.inclusionLabels,
     discountConditions: snap.discountConditions,
@@ -1164,14 +1174,16 @@ export function CanvasMaker({
             )}
           </CardRegion>
 
-          <CardRegion onClick={() => setSheet('excl')} label="Edit your Setnayan Exclusive">
+          <CardRegion onClick={() => setSheet('excl')} label="Choose whether you include the Setnayan gift">
             <span
-              key={perk.trim().length > 0 ? 'perk-set' : 'perk-empty'}
-              className={`flex items-center gap-1.5${perk.trim() ? ' sn-paint-in' : ''}`}
-              style={{ color: 'var(--m-orange-2)' }}
+              key={giftOn ? 'gift-on' : 'gift-off'}
+              className={`flex items-center gap-1.5${giftOn ? ' sn-paint-in' : ''}`}
+              style={{ color: giftOn ? 'var(--m-orange-2)' : 'var(--m-slate-3)' }}
             >
               <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-              {perk.trim() ? perk.trim() : 'Add your Setnayan Exclusive'}
+              {giftOn
+                ? 'Includes a Setnayan gift — free Papic photos, sized to the booking'
+                : 'Add a Setnayan gift — optional'}
             </span>
           </CardRegion>
 
@@ -1257,7 +1269,7 @@ export function CanvasMaker({
           <Recap k="Category" v={activeCategoryLabel || '— not chosen yet'} />
           <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
           <Recap k="Price" v={snap.hasPrice ? snap.priceLine : '— not set'} />
-          <Recap k="Setnayan Exclusive" v={perk.trim() ? 'Set' : '— not set'} />
+          <Recap k="Setnayan gift" v={giftOn ? 'Included' : '— not included'} />
           <Recap
             k="What couples get"
             v={
@@ -1730,42 +1742,60 @@ export function CanvasMaker({
 
         <CanvasSheet
           id="canvas-excl"
-          title={inPass ? 'Why book you here?' : 'Setnayan Exclusive'}
+          title={inPass ? 'Give a Setnayan gift?' : 'Setnayan gift'}
           open={sheet === 'excl'}
           onClose={inPass ? leavePass : () => setSheet(null)}
           confirmLabel={inPass ? null : 'Update card'}
           guided={inPass}
           footer={passStep === 'excl' ? passFooter : null}
         >
-          <Field label="Your Setnayan Exclusive" htmlFor="exclusive_perk_text">
-            <input
-              id="exclusive_perk_text"
-              name="exclusive_perk_text"
-              value={perk}
-              onChange={(e) => setPerk(e.target.value)}
-              maxLength={500}
-              placeholder="e.g. Free engagement mini-shoot for Setnayan couples"
-              className="input-field"
-            />
-          </Field>
-          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            One thing couples only get by booking you through Setnayan. Required to{' '}
-            <span className="font-medium" style={{ color: 'var(--m-ink)' }}>publish</span> — you can
-            save a draft without it.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {['Free add-on', 'Priority date hold', 'Setnayan-only rate', 'Complimentary upgrade'].map((c) => (
+          {/*
+            THE WHOLE CONTROL. It used to be a 500-character free-text box, and
+            the two cards live in production when it was retired say "Free
+            1-hour extension for Setnayan couples" and "FREE" — which is the
+            argument against free text, not for it: Setnayan could not price,
+            honour or even parse what a supplier typed there.
+
+            ⚠ NO NUMBER IS OFFERED OR PROMISED HERE. The count is 40% of the
+            booking fee spent along the live Papic rung ladder, and the booking
+            fee does not exist until a price is agreed. The supplier learns the
+            exact figure on the quote; so does the couple.
+          */}
+          <input type="hidden" name="includes_setnayan_gift" value={giftOn ? 'on' : 'off'} />
+          <div className="flex gap-2" role="group" aria-label="Include a Setnayan gift">
+            {[
+              { on: true, label: 'Yes, include it' },
+              { on: false, label: 'No, not on this card' },
+            ].map((opt) => (
               <button
-                key={c}
+                key={opt.label}
                 type="button"
-                onClick={() => setPerk(c)}
-                className="min-h-[34px] rounded-full border px-3 py-1 text-xs"
-                style={{ borderColor: line, background: paper, color: 'var(--m-slate)' }}
+                onClick={() => setGiftOn(opt.on)}
+                aria-pressed={giftOn === opt.on}
+                className="min-h-[44px] flex-1 rounded-xl border px-3 py-2 text-sm font-medium"
+                style={{
+                  borderColor: giftOn === opt.on ? 'var(--m-orange-2)' : line,
+                  background: giftOn === opt.on ? 'var(--m-orange-1)' : paper,
+                  color: giftOn === opt.on ? 'var(--m-ink)' : 'var(--m-slate-2)',
+                }}
               >
-                {c}
+                {opt.label}
               </button>
             ))}
           </div>
+          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            Say yes and every couple who books this card gets{' '}
+            <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
+              free Papic photos
+            </span>{' '}
+            for their celebration — a real Setnayan product, given in your name. The number of
+            photos is worked out from your booking fee and appears on the quote, so there is
+            nothing here for you to set.
+          </p>
+          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            It is added to your lock bill beside the booking fee, capped at 40% of that fee — never
+            more. Leaving it off is fine: your card publishes either way.
+          </p>
         </CanvasSheet>
 
         <CanvasSheet

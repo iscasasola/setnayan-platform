@@ -33,9 +33,10 @@ import { PUBLISH_COACH_MESSAGE, unmetPublishRequirements } from '@/lib/service-p
  *     service") — not a per-service field here.
  *   • Payment plans are offered during negotiation (owner 2026-06-20), not
  *     declared on the listing.
- * So the card is simple: a photo + category/title → from-price → perk →
- * comes-with. Publish needs a category (route), a PHOTO, and a perk; price is
- * optional (quote-on-request).
+ * So the card is simple: a photo + category/title → from-price → the Setnayan
+ * gift yes/no → comes-with. Publish needs a category (route), a PHOTO and a
+ * PRICE; the gift is optional (owner 2026-09-09) and so, historically, was
+ * the price — see `unmetPublishRequirements` for the one live answer.
  */
 
 type OtherCategory = { value: string; label: string };
@@ -63,7 +64,8 @@ export function ServiceWizard({
 }) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
-  const [perk, setPerk] = useState('');
+  /** The supplier's whole say over the Setnayan gift: yes or no. */
+  const [giftOn, setGiftOn] = useState(false);
   const [linkCount, setLinkCount] = useState(0);
   const [photoKey, setPhotoKey] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
@@ -127,7 +129,6 @@ export function ServiceWizard({
   const activeId = steps[clamped]?.id ?? 'what';
   const isLast = clamped === steps.length - 1;
   const hasPhoto = photoKey.trim().length > 0;
-  const hasPerk = perk.trim().length > 0;
   /**
    * What is still missing before this card may face a couple, asked of
    * `lib/service-publish-gate.ts` — the one function the two server actions and
@@ -291,34 +292,43 @@ export function ServiceWizard({
         </details>
       </section>
 
-      {/* 3 · Setnayan Exclusive perk */}
+      {/* 3 · The Setnayan gift — a yes or a no, never an amount */}
       <section {...show('perk')} className="space-y-2">
-        <Field label="Your Setnayan Exclusive" htmlFor="exclusive_perk_text">
-          <input
-            id="exclusive_perk_text"
-            name="exclusive_perk_text"
-            value={perk}
-            onChange={(e) => setPerk(e.target.value)}
-            maxLength={500}
-            placeholder="e.g. Free engagement mini-shoot for Setnayan couples"
-            className="input-field"
-          />
-        </Field>
-        <p className="text-sm text-ink/55">
-          One thing couples only get by booking you through Setnayan. This is required to <span className="font-medium text-ink">publish</span> — you can save a draft without it.
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {['Free add-on', 'Priority date hold', 'Setnayan-only rate', 'Complimentary upgrade'].map((c) => (
+        {/*
+          ⚠ A HIDDEN INPUT, NOT A CHECKBOX: an unchecked checkbox submits
+          nothing, and the save RPC reads a missing key as "leave it alone" so
+          that retiring the old free-text field cannot erase the two live cards
+          still promising through it. "No" has to travel as a real value.
+        */}
+        <input type="hidden" name="includes_setnayan_gift" value={giftOn ? 'on' : 'off'} />
+        <p className="text-sm font-medium text-ink">Include a Setnayan gift?</p>
+        <div className="flex gap-2" role="group" aria-label="Include a Setnayan gift">
+          {[
+            { on: true, label: 'Yes, include it' },
+            { on: false, label: 'No, not on this card' },
+          ].map((opt) => (
             <button
-              key={c}
+              key={opt.label}
               type="button"
-              onClick={() => setPerk(c)}
-              className="rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs text-ink/70 hover:bg-ink/5"
+              onClick={() => setGiftOn(opt.on)}
+              aria-pressed={giftOn === opt.on}
+              className={`min-h-[44px] flex-1 rounded-xl border px-3 py-2 text-sm font-medium ${
+                giftOn === opt.on
+                  ? 'border-ink/30 bg-ink/5 text-ink'
+                  : 'border-ink/15 bg-white/70 text-ink/60'
+              }`}
             >
-              {c}
+              {opt.label}
             </button>
           ))}
         </div>
+        <p className="text-sm text-ink/55">
+          Say yes and every couple who books this card gets{' '}
+          <span className="font-medium text-ink">free Papic photos</span> for their celebration,
+          given in your name. How many is worked out from your booking fee and shown on the quote —
+          there is nothing here for you to set. It is added to your lock bill, capped at 40% of that
+          fee. Optional: your card publishes either way.
+        </p>
       </section>
 
       {/* 4 · Value & media — inclusions, discounts, showcase media (wizard
@@ -375,7 +385,7 @@ export function ServiceWizard({
           {/* Pricing recap lives in the live card preview above — it reads the
               form directly, so it can honestly show whichever basis is active. */}
           <Recap k="Price" v={hasPrice ? 'Set' : '— not set (required to publish)'} />
-          <Recap k="Setnayan Exclusive" v={perk || '— not set (required to publish)'} />
+          <Recap k="Setnayan gift" v={giftOn ? 'Included' : '— not included'} />
           {linkCount > 0 ? <Recap k="Comes with" v={`${linkCount} service${linkCount === 1 ? '' : 's'}`} /> : null}
         </dl>
         <p className="text-xs text-ink/55">

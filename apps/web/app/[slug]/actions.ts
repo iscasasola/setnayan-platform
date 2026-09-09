@@ -1247,3 +1247,102 @@ async function revalidateEventSlug(eventId: string): Promise<void> {
     .maybeSingle();
   if (ev?.slug) revalidatePath(`/${ev.slug}`);
 }
+
+export type UnnameResult = { ok: true; changed: number } | { ok: false; message: string };
+
+/**
+ * A GUEST ASKS TO BE UNNAMED — on their own words, immediately, no queue.
+ *
+ * `01_The_Story.md` §3.7 · owner gate Q2, ruled 2026-09-09: *a photo message
+ * carries a name only if the guest asked*, and **the role rides the same
+ * consent as the name** — there is exactly one maid of honour, so a role badge
+ * over an unnamed column identifies her to everybody who was at the wedding.
+ *
+ * ⚖ WHY THIS ONE DOES NOT GO TO A PERSON, WHEN "TAKE MY PHOTO DOWN" DOES.
+ * A photograph is not the guest's to delete — it was taken by somebody else and
+ * may hold four other people, which is why `askToTakeMyPhotoDown` above files a
+ * request instead of erasing anything. **Their own name on their own sentence
+ * is nobody else's.** Making them wait in a moderation queue to stop being
+ * named would be the product asking permission to keep publishing their
+ * identity.
+ *
+ * 🔑 IT CAN ONLY EVER REMOVE A NAME. There is no branch that sets
+ * `author_named_publicly` to true — the same monotone construction
+ * `redactStoryLayers` and `consent-veto.ts` use, so a bug in here cannot name
+ * somebody who asked not to be.
+ *
+ * 🔒 The signed guest session is the gate AND the identity. This page is public;
+ * the guest id comes from the cookie and never from the arguments, so nobody can
+ * unname anybody else — and nobody can unname a person at another celebration,
+ * because the event must match the session's too.
+ *
+ * ⚠ IT TOUCHES BOTH TABLES THE NAME CAN BE ON. A guest who wrote a Kwento AND a
+ * letter is one person making one decision; unnaming half of it and leaving the
+ * other half bylined would be worse than not offering the control.
+ */
+export async function askToBeUnnamed(eventId: string): Promise<UnnameResult> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId) {
+    return { ok: false, message: 'Open this from your own invitation link and we can help.' };
+  }
+
+  const admin = createAdminClient();
+
+  /*
+    ⚠ TWO SPELLED-OUT CALLS, NOT A LOOP OVER A TABLE NAME. The obvious shape
+    here is `for (const table of [...]) admin.from(table)`, and it is the wrong
+    one: `lib/security/select-column-scan.test.ts` reads every `.from(…)` in
+    the app to check the columns a query selects against the schema, and a
+    `.from(variable)` is a select it CANNOT CHECK. Measured — the loop pushed
+    the unresolvable count to 6 over a ceiling of 5, and the ceiling is
+    deliberately not raisable ("Fix the resolver or the call site"). Two lines
+    of repetition buys a write path that stays inside the scanner.
+
+    ⚠ AND BOTH TABLES ARE WRITTEN EVEN IF THE FIRST FAILS. A guest who wrote a
+    Kwento AND a letter is one person making one decision; unnaming half of it
+    and leaving the other half bylined is worse than not offering the control.
+
+    A REFUSED QUERY IS NOT A THROWN ERROR — the column is missing on any
+    checkout that never ran S4's migration, and PostgREST answers that with
+    `{ error }` and no exception, so `.error` is the only way it is visible.
+  */
+  const unname = async (
+    write: () => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+  ): Promise<{ rows: number; failed: boolean }> => {
+    try {
+      const { data, error } = await write();
+      return error ? { rows: 0, failed: true } : { rows: data?.length ?? 0, failed: false };
+    } catch {
+      return { rows: 0, failed: true };
+    }
+  };
+
+  const messages = await unname(() =>
+    admin
+      .from('photo_messages')
+      .update({ author_named_publicly: false })
+      .eq('event_id', eventId)
+      .eq('guest_id', session.guest_id)
+      .eq('author_named_publicly', true)
+      .select('event_id'),
+  );
+  const columns = await unname(() =>
+    admin
+      .from('guest_columns')
+      .update({ author_named_publicly: false })
+      .eq('event_id', eventId)
+      .eq('guest_id', session.guest_id)
+      .eq('author_named_publicly', true)
+      .select('event_id'),
+  );
+
+  const changed = messages.rows + columns.rows;
+  const failed = messages.failed || columns.failed;
+
+  if (failed && changed === 0) {
+    return { ok: false, message: 'We couldn’t change that just now. Please try again.' };
+  }
+
+  await revalidateEventSlug(eventId);
+  return { ok: true, changed };
+}

@@ -55,7 +55,6 @@ import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
 import {
   PUBLISH_REFUSAL_MESSAGE,
-  exclusiveIsSet,
   priceIsSet,
   unmetPublishRequirements,
 } from '@/lib/service-publish-gate';
@@ -1587,7 +1586,6 @@ export async function commitVendorService(formData: FormData) {
   if (publish) {
     const unmet = unmetPublishRequirements({
       hasPrice: priceIsSet(fields.starting_price_php as number | null),
-      hasExclusive: exclusiveIsSet(fields.exclusive_perk_text as string | null),
     });
     const firstUnmet = unmet[0];
     if (firstUnmet) return back(PUBLISH_REFUSAL_MESSAGE[firstUnmet]);
@@ -2107,7 +2105,6 @@ export async function toggleVendorServiceActive(formData: FormData) {
     };
     const unmet = unmetPublishRequirements({
       hasPrice: priceIsSet(row.starting_price_php),
-      hasExclusive: exclusiveIsSet(row.exclusive_perk_text),
     });
     const firstUnmet = unmet[0];
     if (firstUnmet) {

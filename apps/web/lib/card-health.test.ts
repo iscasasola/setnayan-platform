@@ -126,11 +126,18 @@ test('no cover photo blocks, and points at the media sheet', () => {
   assert.equal(h.nextAction.label, '▸ Next: Add a cover photo — required to publish.');
 });
 
-test('an empty Setnayan Exclusive blocks, and points at the exclusive sheet', () => {
+test('an empty Setnayan gift does NOT block — owner ruled it optional 2026-09-09', () => {
+  // ⚖ This test asserted the exact opposite until 2026-09-09. A gift was a hard
+  // publish requirement; the owner ruled it optional, because compulsory was a
+  // RATE and not a feature — the gift is 40% of the booking fee charged on top,
+  // so it took what a shop pays us from 5% to 7% of the first PHP 100,000.
+  // ⛔ Putting the blocker back is an owner decision, not a tidy-up.
   const h = scoreCardHealth(perfect({ exclusiveText: '   ' }));
-  assert.equal(h.grade, 'blocked');
-  assert.equal(h.blockers[0]?.code, 'no_exclusive');
-  assert.equal(h.nextAction.sheet, 'excl');
+  assert.notEqual(h.grade, 'blocked', 'an empty gift still blocks the card');
+  assert.ok(
+    !h.blockers.some((b) => b.code === 'no_exclusive'),
+    'the health sheet still reports a missing gift as a blocker',
+  );
 });
 
 test('pick-N above the option count blocks — the couple could never finish it', () => {

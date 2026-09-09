@@ -53,25 +53,24 @@ test('🔑 a DRAFT is never blocked — that is the trigger’s own first branch
 });
 
 test('the predicate agrees with the trigger on every combination', () => {
+  // ⚖ The Setnayan gift left the gate on 2026-09-09 (owner: it is optional), so
+  // the only combination left is the price — and the trigger agrees, because
+  // migration 20271215941485 removed the same check from the same function in
+  // the same change. See `the-setnayan-gift-is-optional.test.ts`, which derives
+  // that agreement from the SQL rather than restating it.
   const cases = [
-    { hasPrice: true, hasExclusive: true, publishable: true },
-    { hasPrice: true, hasExclusive: false, publishable: false },
-    { hasPrice: false, hasExclusive: true, publishable: false },
-    { hasPrice: false, hasExclusive: false, publishable: false },
+    { hasPrice: true, publishable: true },
+    { hasPrice: false, publishable: false },
   ];
   for (const c of cases) {
     assert.equal(
-      canPublishService({ hasPrice: c.hasPrice, hasExclusive: c.hasExclusive }),
+      canPublishService({ hasPrice: c.hasPrice }),
       c.publishable,
-      `price=${c.hasPrice} exclusive=${c.hasExclusive}`,
+      `price=${c.hasPrice}`,
     );
   }
-  // The exact production failure: priced, no perk.
-  assert.deepEqual(
-    unmetPublishRequirements({ hasPrice: true, hasExclusive: false }),
-    ['exclusive'],
-  );
-  assert.match(PUBLISH_COACH_MESSAGE.exclusive, /required to publish/i);
+  assert.deepEqual(unmetPublishRequirements({ hasPrice: false }), ['price']);
+  assert.match(PUBLISH_COACH_MESSAGE.price, /required to publish/i);
 });
 
 test('a blank or non-numeric price box never reads as a set price', () => {

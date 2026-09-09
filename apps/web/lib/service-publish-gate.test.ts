@@ -37,26 +37,28 @@ test('a complete card publishes', () => {
     unmetPublishRequirements({ hasPrice: true, hasExclusive: true }),
     [],
   );
-  assert.equal(canPublishService({ hasPrice: true, hasExclusive: true }), true);
+  assert.equal(canPublishService({ hasPrice: true }), true);
 });
 
 test('no price is a REFUSAL, not a nudge — the rule this module reversed', () => {
-  const unmet = unmetPublishRequirements({ hasPrice: false, hasExclusive: true });
+  const unmet = unmetPublishRequirements({ hasPrice: false });
   assert.deepEqual(unmet, ['price']);
-  assert.equal(canPublishService({ hasPrice: false, hasExclusive: true }), false);
+  assert.equal(canPublishService({ hasPrice: false }), false);
 });
 
-test('no Setnayan Exclusive still refuses — the shipped half is unchanged', () => {
-  assert.deepEqual(
-    unmetPublishRequirements({ hasPrice: true, hasExclusive: false }),
-    ['exclusive'],
-  );
-});
-
-test('a blank card names EVERYTHING it is missing, price first', () => {
-  assert.deepEqual(
-    unmetPublishRequirements({ hasPrice: false, hasExclusive: false }),
-    ['price', 'exclusive'],
+test('a card with NO Setnayan gift publishes — owner 2026-09-09', () => {
+  // ⚖ This test used to assert the exact opposite, and the reversal is the
+  // point: a gift was a hard publish requirement until the owner ruled it
+  // optional. Compulsory was not a feature, it was a rate — the gift is 40% of
+  // the booking fee charged on top, so fee + 0.4 × fee took what a shop pays us
+  // from 5% to 7% of the first PHP 100,000 and made "we only charge 5% and 1%"
+  // untrue. ⛔ If this ever needs to go back, that is an owner decision and a
+  // rate change, not a tidy-up.
+  assert.deepEqual(unmetPublishRequirements({ hasPrice: true }), []);
+  assert.equal(canPublishService({ hasPrice: true }), true);
+  assert.ok(
+    !(PUBLISH_REQUIREMENTS as readonly string[]).includes('exclusive'),
+    'the Setnayan gift is back to being compulsory',
   );
 });
 
@@ -209,8 +211,15 @@ test("the wizard's Publish button is shut by the gate, not by its own two fields
   );
   assert.match(
     src,
-    /const unmetToPublish = unmetPublishRequirements\(\{ hasPrice, hasExclusive: hasPerk \}\);/,
+    /const unmetToPublish = unmetPublishRequirements\(\{ hasPrice \}\);/,
     'the wizard stopped deriving what is missing from the shared gate',
+  );
+  // ⚖ `hasExclusive` left this call on 2026-09-09 with the requirement itself.
+  // Asserting its ABSENCE too, because the failure that matters is a future
+  // edit quietly feeding the gate a gift fact again.
+  assert.ok(
+    !/hasExclusive/.test(src),
+    'the wizard is feeding a gift fact to the gate again — the gift is optional',
   );
   assert.match(
     src,

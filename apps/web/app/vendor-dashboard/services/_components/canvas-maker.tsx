@@ -860,19 +860,30 @@ export function CanvasMaker({
   /**
    * ⚖ CONTINUE WAITS FOR THE ANSWER; SKIP NEVER DOES (drawn 2026-08-28: *"the
    * Continue button stays off until the required thing on that sheet exists"*).
-   * The two questions ARE the publish gate, so letting Continue past an empty
-   * one only moves the same refusal further from the field that fixes it. The
+   * A question that IS the publish gate must hold Continue, or letting it past
+   * only moves the same refusal further from the field that fixes it. The
    * escape is the skip line below, which leaves the pass entirely — never a
    * disabled button with no way past it.
+   *
+   * 🔴 THE SETNAYAN GIFT NO LONGER HOLDS IT (owner 2026-09-09: "exclusive
+   * setnayan gift then should be optional"). THIS WAS THE THIRD PLACE THE OLD
+   * RULE WAS WRITTEN — after `PUBLISH_REQUIREMENTS` and the
+   * `enforce_service_publish_gate` trigger — and it is the one a NEW shop meets
+   * first. Relaxing the other two without this one would have shipped the
+   * ruling invisible: the gate would allow an empty gift while the guided pass
+   * still refused to walk past the field, so nobody making their first card
+   * could ever reach the state the ruling created.
+   *
+   * ⚖ The QUESTION deliberately stays in the pass. It is still worth offering,
+   * and offering is now what it is: `passAnswered` is unconditionally true
+   * here, so Continue is live whether or not a gift is typed.
    */
   const passAnswered =
     passStep === 'media'
       ? snap.hasCover
       : passStep === 'price'
         ? snap.hasPrice
-        : passStep === 'excl'
-          ? perk.trim().length > 0
-          : true;
+        : true;
   const passFooter = inPass ? (
     <div className="space-y-2 pt-1">
       <button

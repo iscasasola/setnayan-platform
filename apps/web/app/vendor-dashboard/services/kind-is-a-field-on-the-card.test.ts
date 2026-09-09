@@ -442,10 +442,18 @@ test('Continue waits for the answer; skip never does', () => {
   // exists". Letting it past an empty question only moves the same refusal
   // further from the field that fixes it.
   assert.match(src, /passStep === 'media'\s*\n?\s*\? snap\.hasCover/, 'the photo question stopped waiting for a photo');
-  assert.match(
-    src,
-    /passStep === 'excl'[\s\S]{0,40}perk\.trim\(\)\.length > 0/,
-    'the Exclusive question stopped waiting for a sentence',
+  assert.match(src, /passStep === 'price'\s*\n?\s*\? snap\.hasPrice/, 'the price question stopped waiting for a price');
+  // ⚖ THE GIFT QUESTION DELIBERATELY NO LONGER HOLDS CONTINUE (owner 2026-09-09:
+  // it is optional). The question stays in the pass — it is still worth
+  // offering — but a shop may walk straight past it. This was the THIRD place
+  // the old rule was written, after `PUBLISH_REQUIREMENTS` and the database
+  // trigger, and it is the one a new shop meets first: relaxing the other two
+  // without it would have left the ruling invisible to exactly the people it is
+  // for. Pinned in `lib/the-setnayan-gift-is-optional.test.ts`.
+  const answered = src.slice(src.indexOf('const passAnswered ='));
+  assert.ok(
+    !/perk/.test(answered.slice(0, answered.indexOf(';'))),
+    'Continue waits for a gift again — the gift is optional',
   );
   assert.match(src, /disabled=\{!passAnswered\}/, 'Continue stopped waiting at all');
   // The escape must survive the gate, or it is a disabled button with no way past.

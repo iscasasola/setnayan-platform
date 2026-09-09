@@ -39,7 +39,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   PUBLISH_COACH_MESSAGE,
-  exclusiveIsSet,
   priceIsSet,
   unmetPublishRequirements,
   type PublishRequirement,
@@ -73,7 +72,6 @@ export function PublishGateSubmit({
       setUnmet(
         unmetPublishRequirements({
           hasPrice: priceIsSet(Number.isFinite(n as number) ? (n as number) : null),
-          hasExclusive: exclusiveIsSet(perk ?? null),
         }),
       );
     };

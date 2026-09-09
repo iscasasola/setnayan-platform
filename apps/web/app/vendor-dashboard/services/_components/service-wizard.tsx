@@ -136,7 +136,7 @@ export function ServiceWizard({
    * the server has never asked for one, and quietly moving it into the shared
    * gate would make it a new server rule dressed up as a refactor.
    */
-  const unmetToPublish = unmetPublishRequirements({ hasPrice, hasExclusive: hasPerk });
+  const unmetToPublish = unmetPublishRequirements({ hasPrice });
   const canPublish = hasPhoto && unmetToPublish.length === 0;
 
   const show = (id: string) => (activeId === id ? {} : { hidden: true });

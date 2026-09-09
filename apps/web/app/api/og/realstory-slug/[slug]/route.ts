@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { formatEventDate } from '@/lib/events';
 import { resolveStoryCover } from '@/lib/story-cover';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { stableMediaPath } from '@/lib/papic-display-ref';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
 import {
   renderRealStoryOgJpeg,
@@ -104,8 +105,26 @@ export async function GET(
       STORY's card, and there is no story to share yet.
     */
     const cover = await resolveStoryCover(admin, event.event_id, event);
-    const coverPhotoUrl =
-      cover && cover.key ? await displayUrlForStoredAsset(cover.key) : null;
+    /*
+      🔑 THE COVER GETS THE SAME CRAWLER-DURABILITY TREATMENT AS THE HERO, and
+      it is not optional. A presigned URL baked into a crawler's cache EXPIRES,
+      and the card then breaks quietly weeks later with nothing to blame — this
+      repo has already paid for that on prerendered pages, and
+      `the-invitation-is-not-our-billboard.test.ts` caught this exact regression
+      in review when the cover was resolved to a presign.
+
+      So: the stable, signature-less streaming route first, exactly as the hero
+      does. `stableMediaPath` returns null for a non-`r2://` ref, and the route
+      itself serves only its allowlisted public media bucket — anything else
+      falls back to the presign, which is the behaviour the hero already has for
+      legacy and website images.
+    */
+    const coverStablePath = cover?.key ? stableMediaPath(cover.key) : null;
+    const coverPhotoUrl = cover?.key
+      ? (coverStablePath && coverStablePath.startsWith('/papic/media/')
+          ? `${SITE_URL}${coverStablePath}`
+          : await displayUrlForStoredAsset(cover.key))
+      : null;
 
     // A PUBLISHED editorial → the editorial card (hero photo + scrim).
     const data = await loadEditorialData(event.event_id);

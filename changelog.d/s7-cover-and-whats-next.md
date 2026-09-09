@@ -29,6 +29,15 @@ The host chooses the one picture their story is known by, and — only if they w
 - announcing also creates an event row → 10 pass / 2 fail. 🪤 **Measured on the string it ADDS (`from('events').insert` 0→1), not on its own needle, which read 1→1 and proved nothing** — the appending-sabotage trap, hit exactly as recorded.
 - a refused draft read treated as an empty draft (1→0) → 11 pass / 1 fail
 - the pairing CHECK removed from the migration (1→0) → 8 pass → 0 pass / 8 fail
+- the cover resolved to a presign instead of the stable streaming URL (1→0) → 6 pass → 5 pass / 1 fail
+
+🔴 **AND THE FULL SUITE CAUGHT A REAL DEFECT OF MINE — 14,225 tests, one red.** The cover was first
+resolved straight to a presigned display URL, which `the-invitation-is-not-our-billboard.test.ts`
+refuses: *"a presigned URL baked into a crawler's cache expires and the card silently breaks later
+with nothing to blame — this repo has already paid for that on prerendered blog pages."* The cover
+now takes the same stable, signature-less streaming route the hero does, with the presign only as
+the fallback for a ref that route cannot serve — which is the hero's own existing behaviour. The
+guard was widened to pin the cover's half too, and that new half was sabotaged and measured.
 
 ⚠ **And one guard of mine was decoration until it was rewritten.** The db test proving "announce creates no row" ran SQL the test itself wrote, so no change to production code could ever fail it. The write now lives in `lib/whats-next.ts` (the same reason `plan-next-year-authz.ts` was extracted: a rule inside a `'use server'` module is a rule the unit glob never collects) and the test drives it with a recording client, counting the tables touched.
 

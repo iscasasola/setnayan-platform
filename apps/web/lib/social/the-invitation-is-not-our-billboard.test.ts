@@ -160,8 +160,19 @@ test('the sanctioned photo path still prefers the STABLE url over a presign', ()
   );
   assert.match(
     route,
-    /heroPhotoUrl: data\.heroStableUrl \?\? data\.heroPhotoUrl/,
+    /heroPhotoUrl: coverPhotoUrl \?\? data\.heroStableUrl \?\? data\.heroPhotoUrl/,
     'the OG route stopped preferring the stable streaming URL for the hero — a ' +
       'presign in a crawler cache dies quietly',
+  );
+  // …AND THE HOST'S CHOSEN COVER GETS THE SAME TREATMENT (08 step 1.5). This
+  // guard caught exactly that regression in review: the cover was first
+  // resolved straight to a presigned display URL, which put a expiring link on
+  // the most-shared surface the product has. The stable, signature-less route
+  // is preferred for it too, and the presign is only the fallback.
+  assert.match(
+    route,
+    /coverStablePath && coverStablePath\.startsWith\('\/papic\/media\/'\)/,
+    'the cover stopped preferring the stable streaming URL — a presign in a ' +
+      'crawler cache dies quietly, and the cover is the most-shared image we have',
   );
 });

@@ -247,3 +247,33 @@ test('no refusal on the privacy door is silent', () => {
     );
   }
 });
+
+test('the caveat names the visibility settings in the privacy screen\'s own words', () => {
+  /*
+    🔑 GUARD TWO SURFACES AGAINST EACH OTHER. The caveat's whole job is to send
+    somebody to a control and name it, so the name has to be the one printed on
+    that control. My own first cut said "Link only" for a card the privacy
+    screen titles "Unlisted" — the same defect one rung down: the host goes
+    looking for a radio button that does not exist. These are the three
+    non-public card titles, read out of the privacy page itself rather than
+    re-typed, so a rename there fails here instead of drifting.
+  */
+  const privacy = codeOnly(PRIVACY_PAGE);
+  const titles = [...privacy.matchAll(/title="([^"]+)"/g)].map((m) => m[1]);
+  for (const t of ['Public', 'Unlisted', 'Only guests with a Setnayan account', 'Private']) {
+    assert.ok(
+      titles.includes(t),
+      `The privacy screen no longer offers a card titled "${t}" — the Stories ` +
+        `caveat names it, so update both together.`,
+    );
+  }
+  const editor = codeOnly(EDITOR);
+  for (const t of ['Unlisted', 'Only guests with a Setnayan account', 'Private']) {
+    assert.ok(
+      editor.includes(`'${t}'`),
+      `The Stories caveat must name "${t}" exactly as the privacy screen titles ` +
+        `it. Describing a setting in words the control does not use sends the ` +
+        `host hunting for a button that is not there.`,
+    );
+  }
+});

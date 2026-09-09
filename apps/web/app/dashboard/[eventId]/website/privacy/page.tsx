@@ -88,9 +88,9 @@ export default async function PrivacyEditorPage({
   const showcaseBlocker: string | null =
     currentVisibility !== 'public'
       ? currentVisibility === 'unlisted'
-        ? 'your page is Link only'
+        ? 'your page is Unlisted'
         : currentVisibility === 'invited_accounts'
-          ? 'your page is for invited accounts only'
+          ? 'your page is for guests with a Setnayan account only'
           : 'your page is Private'
       : !event.slug
         ? 'your page has no address yet'

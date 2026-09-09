@@ -1649,6 +1649,12 @@ export function EditorialEditor({
               somebody had already opted in — never to the person still
               deciding — and it tested `'private'` alone, so the two middle
               states said nothing at all.
+
+              🔑 THE FOUR NAMES BELOW ARE THE PRIVACY SCREEN'S OWN CARD TITLES,
+              copied deliberately — "Public" / "Unlisted" / "Only guests with a
+              Setnayan account" / "Private". Describing a setting in words the
+              control does not use ("Link only") is the same defect one rung
+              down: the host goes looking for a radio button that isn't there.
             */}
             {landingVisibility !== 'public' ? (
               <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
@@ -1657,7 +1663,7 @@ export function EditorialEditor({
                   Your page is set to{' '}
                   <strong>
                     {landingVisibility === 'unlisted'
-                      ? 'Link only'
+                      ? 'Unlisted'
                       : landingVisibility === 'invited_accounts'
                         ? 'Only guests with a Setnayan account'
                         : 'Private'}

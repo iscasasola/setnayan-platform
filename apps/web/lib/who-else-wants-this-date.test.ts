@@ -125,10 +125,34 @@ test('nothing this module reads could carry another couple’s identity', () => 
   }
   // Both reads are head-only counts, so no row content crosses the wire at all.
   assert.equal(
-    (moduleSrc.match(/count: 'exact', head: true/g) ?? []).length,
+    (moduleSrc.match(/count: 'exact',\s*\n?\s*head: true/g) ?? []).length,
     2,
     'both reads are counts; a row-returning select is a spill waiting for a render',
   );
+});
+
+test('both embeds name their foreign key, or the line silently never appears', () => {
+  // 🚨 `events!inner` is REFUSED by PostgREST with PGRST201: one direct foreign
+  // key reaches `events` from here, and nineteen junction tables also join the
+  // two, so it finds many routes and refuses rather than guessing. This repo
+  // has already lost three features to it silently — including *"another couple
+  // is holding this supplier on your date"*, a caution never once shown.
+  //
+  // ⚠ ASKING PRODUCTION FOR THE FOREIGN KEYS DOES NOT PREDICT THIS. That query
+  // returns exactly one FK per table, which reads as "unambiguous" and is the
+  // wrong question. This assertion tests the CLAIM — that the junction is named
+  // — rather than the proxy that made it look safe.
+  //
+  // `the-cure-was-already-written-down.test.ts` scans the whole tree for the
+  // `event_vendors` half. This one also pins the `chat_threads` half, which no
+  // guard covers, and which fails in exactly the same silent way.
+  assert.equal(
+    (moduleSrc.match(/events!inner/g) ?? []).length,
+    0,
+    'a bare events!inner is a query that returns nothing and says nothing',
+  );
+  assert.match(moduleSrc, /events!chat_threads_event_id_fkey!inner\(event_date\)/);
+  assert.match(moduleSrc, /events!event_vendors_event_id_fkey!inner\(event_date\)/);
 });
 
 test('the shipped same-day RPC is left exactly where it was', () => {

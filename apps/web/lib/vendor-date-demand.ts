@@ -73,6 +73,24 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  * client is forbidden and an RPC is required). No RLS is weakened and no new
  * SECURITY DEFINER function is introduced.
  *
+ * ── 🚨 AND BOTH EMBEDS NAME THEIR FOREIGN KEY ───────────────────────────────
+ * `events!inner` from `event_vendors` is REFUSED by PostgREST with PGRST201.
+ * There is one direct foreign key to `events` and — measured against production
+ * — nineteen junction tables that also join the two, so PostgREST finds many
+ * routes and refuses rather than guessing. This repo has already lost three
+ * features to it silently, including *"another couple is holding this supplier
+ * on your date"* — a caution that was never once shown. The cure was written
+ * down in `lib/ghosting.ts` and did not propagate;
+ * `the-cure-was-already-written-down.test.ts` is why it does now, and it is
+ * what caught this file in CI.
+ *
+ * 🔑 A COUNT OF THE FOREIGN KEYS DID NOT PREDICT IT. Asking production for the
+ * FKs from `event_vendors` to `events` returns exactly one, which reads as
+ * "unambiguous" and is the wrong question — the ambiguity comes from every
+ * OTHER table that reaches `events`. The junction is named on both embeds, not
+ * only the one the guard scans, because a refusal here renders as a line that
+ * simply never appears.
+ *
  * PURE + I/O split: the week maths and the copy are pure functions with no
  * clock and no env; the reader takes its client as an argument.
  */
@@ -222,12 +240,15 @@ export async function fetchVendorDateDemand(args: {
   if (!eventDate || !week) return null;
 
   const [asking, held] = await Promise.all([
-    // OTHER couples asking THIS shop about THIS day. `events!inner` filters on
-    // the joined date without fetching it; `head: true` returns a count and no
-    // rows at all.
+    // OTHER couples asking THIS shop about THIS day. The embed filters on the
+    // joined date without fetching it; `head: true` returns a count and no rows
+    // at all.
     adminClient
       .from('chat_threads')
-      .select('thread_id, events!inner(event_date)', { count: 'exact', head: true })
+      .select('thread_id, events!chat_threads_event_id_fkey!inner(event_date)', {
+        count: 'exact',
+        head: true,
+      })
       .eq('vendor_profile_id', vendorProfileId)
       .neq('thread_id', excludeThreadId)
       .in('inquiry_status', ['pending', 'accepted'])
@@ -236,7 +257,10 @@ export async function fetchVendorDateDemand(args: {
     // Bookings this shop already holds in the same week.
     adminClient
       .from('event_vendors')
-      .select('vendor_id, events!inner(event_date)', { count: 'exact', head: true })
+      .select('vendor_id, events!event_vendors_event_id_fkey!inner(event_date)', {
+        count: 'exact',
+        head: true,
+      })
       .eq('marketplace_vendor_id', vendorProfileId)
       .in('status', BOOKED_VENDOR_STATUSES as unknown as string[])
       .is('archived_at', null)

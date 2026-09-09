@@ -94,3 +94,19 @@ redrawn.
 
 SPEC IMPACT: None — both are the shipped design's supplier frames being built, not new decisions.
 The quote-builder seed question is flagged to the owner in the PR body rather than decided here.
+
+### ⚠ Caught by CI, and by a guard this repo had already paid for
+
+The first push used a bare `events!inner` on both reads. `the-cure-was-already-written-down.test.ts`
+failed it: **PostgREST refuses that embed from `event_vendors` with PGRST201** — one direct foreign
+key reaches `events` and nineteen junction tables also join the two, so it finds many routes and
+refuses rather than guessing. Three shipped features had already died silently that way, one of them
+*"another couple is holding this supplier on your date"* — a caution never once shown.
+
+🔑 **A count of the foreign keys did not predict it, and was the wrong question.** Production was
+asked for the FKs from `event_vendors` to `events` and answered *one*, which read as
+"unambiguous" — the ambiguity comes from every OTHER table that reaches `events`. Verified against
+the live REST API instead of reasoned about: bare `events!inner` from `event_vendors` returns
+**HTTP 300 / PGRST201**; the FK-named form returns 200. Both embeds now name the junction — the
+`chat_threads` one too, which no guard covers and which fails the same silent way — and a new
+assertion in `who-else-wants-this-date.test.ts` pins both, mutation-tested in each direction.

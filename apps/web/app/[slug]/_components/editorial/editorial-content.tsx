@@ -55,6 +55,9 @@ import {
 } from '@/lib/hero-monogram-data';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { StorySpine } from '../story/story-spine';
+import { BackCoverBlock } from '../story/back-cover';
+import { loadBackCover } from '../../_lib/back-cover.server';
+import type { BackCover } from '@/lib/the-back-cover';
 import { loadYourOwnDay } from '../../_lib/your-own-day.server';
 import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/story-light';
 import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
@@ -318,6 +321,17 @@ export async function EditorialContent({
     string, not a UUID, and Postgres rejects every query carrying one with
     22P02 — an ABSENCE, not an error anybody sees.
   */
+  /*
+    THE BACK COVER (01 §3.9). Loaded here with the other optional reads and, like
+    them, FAIL-QUIET: `loadBackCover` swallows its own errors and answers null,
+    and null is not an error state — it is the ordinary, correct-by-default
+    answer for a story whose host announced nothing. A sample has no real row and
+    is skipped for the same reason the monogram above is.
+  */
+  const backCover: BackCover | null = isSample
+    ? null
+    : await loadBackCover({ eventId, eventDateISO: data.eventDate ?? null, viewer });
+
   let spineFacts: StorySpineFacts;
   try {
     spineFacts = isSample
@@ -677,6 +691,15 @@ export async function EditorialContent({
           slug={data.slug}
           watchFilmShown={watchFilmShown}
         />
+
+        {/*
+          THE BACK COVER — after the colophon, the way a series page sits after
+          The End. It is OUTSIDE the locked close, which is exactly why it does
+          not break it: the edition still ends on the host's last word and then
+          their song, and nothing below moves either. Absent, not empty, when the
+          host announced nothing.
+        */}
+        <BackCoverBlock cover={backCover} />
       </article>
     </div>
   );

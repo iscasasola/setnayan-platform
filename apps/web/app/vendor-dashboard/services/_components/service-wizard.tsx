@@ -15,6 +15,7 @@ import { ShowcaseMediaFields } from './showcase-media-fields';
 import { ServiceCardLivePreview } from './service-card-live-preview';
 import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
+import { SetnayanGiftSwitch } from './setnayan-gift-switch';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { serviceWizardSteps } from '@/lib/service-customization-draft';
 import { cardPriceLine } from '@/lib/canvas-form-snapshot';
@@ -33,9 +34,15 @@ import { PUBLISH_COACH_MESSAGE, unmetPublishRequirements } from '@/lib/service-p
  *     service") — not a per-service field here.
  *   • Payment plans are offered during negotiation (owner 2026-06-20), not
  *     declared on the listing.
- * So the card is simple: a photo + category/title → from-price → perk →
- * comes-with. Publish needs a category (route), a PHOTO, and a perk; price is
- * optional (quote-on-request).
+ * So the card is simple: a photo + category/title → from-price → the Setnayan
+ * gift → comes-with.
+ *
+ * ⚖ WHAT PUBLISH NEEDS, CORRECTED 2026-09-09: a category (route), a PHOTO and
+ * a PRICE. It used to need a Setnayan Exclusive too, typed into a free-text
+ * box; the owner ruled the gift OPTIONAL and turned the control into a yes/no
+ * switch, so this step now offers something rather than demanding it. The
+ * free text is retired as a control and kept as data — see
+ * `setnayan-gift-switch.tsx`.
  */
 
 type OtherCategory = { value: string; label: string };
@@ -63,7 +70,13 @@ export function ServiceWizard({
 }) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
-  const [perk, setPerk] = useState('');
+  /**
+   * The Setnayan gift, as a yes/no — the whole of the supplier's control.
+   * ⛔ There is no amount to hold here: 40% of the booking fee is a ceiling
+   * with no top-up (owner 2026-09-09), and the photo count is derived from the
+   * agreed price and shown on the quote.
+   */
+  const [gift, setGift] = useState(false);
   const [linkCount, setLinkCount] = useState(0);
   const [photoKey, setPhotoKey] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
@@ -127,7 +140,6 @@ export function ServiceWizard({
   const activeId = steps[clamped]?.id ?? 'what';
   const isLast = clamped === steps.length - 1;
   const hasPhoto = photoKey.trim().length > 0;
-  const hasPerk = perk.trim().length > 0;
   /**
    * What is still missing before this card may face a couple, asked of
    * `lib/service-publish-gate.ts` — the one function the two server actions and
@@ -291,34 +303,9 @@ export function ServiceWizard({
         </details>
       </section>
 
-      {/* 3 · Setnayan Exclusive perk */}
+      {/* 3 · The Setnayan gift — one switch, no amount. */}
       <section {...show('perk')} className="space-y-2">
-        <Field label="Your Setnayan Exclusive" htmlFor="exclusive_perk_text">
-          <input
-            id="exclusive_perk_text"
-            name="exclusive_perk_text"
-            value={perk}
-            onChange={(e) => setPerk(e.target.value)}
-            maxLength={500}
-            placeholder="e.g. Free engagement mini-shoot for Setnayan couples"
-            className="input-field"
-          />
-        </Field>
-        <p className="text-sm text-ink/55">
-          One thing couples only get by booking you through Setnayan. This is required to <span className="font-medium text-ink">publish</span> — you can save a draft without it.
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {['Free add-on', 'Priority date hold', 'Setnayan-only rate', 'Complimentary upgrade'].map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setPerk(c)}
-              className="rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs text-ink/70 hover:bg-ink/5"
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <SetnayanGiftSwitch id="wizard-gift" checked={gift} onChange={setGift} />
       </section>
 
       {/* 4 · Value & media — inclusions, discounts, showcase media (wizard
@@ -375,7 +362,7 @@ export function ServiceWizard({
           {/* Pricing recap lives in the live card preview above — it reads the
               form directly, so it can honestly show whichever basis is active. */}
           <Recap k="Price" v={hasPrice ? 'Set' : '— not set (required to publish)'} />
-          <Recap k="Setnayan Exclusive" v={perk || '— not set (required to publish)'} />
+          <Recap k="Setnayan gift" v={gift ? 'Included' : '— not included'} />
           {linkCount > 0 ? <Recap k="Comes with" v={`${linkCount} service${linkCount === 1 ? '' : 's'}`} /> : null}
         </dl>
         <p className="text-xs text-ink/55">

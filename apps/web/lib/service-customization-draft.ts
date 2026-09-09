@@ -859,7 +859,11 @@ export function serviceWizardSteps(opts: {
   const steps: WizardStep[] = [
     { id: 'what', label: 'What you offer' },
     { id: 'price', label: 'Pricing' },
-    { id: 'perk', label: 'Setnayan Exclusive' },
+    // ⚠ THE ID IS A ROUTE KEY AND STAYS `perk`; only the LABEL moved. The
+    // step stopped asking for a free-text Exclusive on 2026-09-09 and now
+    // offers the Setnayan gift as a yes/no — renaming the id would silently
+    // drop the step for anyone mid-flow on a remembered index.
+    { id: 'perk', label: 'Setnayan gift' },
     { id: 'extras', label: 'Value & media' },
   ];
   if (opts.customizationEnabled) {

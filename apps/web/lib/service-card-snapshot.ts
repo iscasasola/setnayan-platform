@@ -27,7 +27,22 @@ export type Snapshot = {
   discountBadge: string | null;
   includesLine: string | null;
   notIncluded: string[];
+  /**
+   * The card carries the RETIRED free-text promise (`exclusive_perk_text`).
+   * Kept as data, not as a control — see `hasSetnayanGift` for the real one.
+   */
   hasExclusive: boolean;
+  /**
+   * The supplier switched the Setnayan gift ON for this card: free Papic
+   * photos for the couple, funded by 40% of the booking fee.
+   *
+   * ⛔ A BOOLEAN, AND IT MUST STAY ONE. The owner ruled the supplier's control
+   * is "either a yes or a no" (2026-09-09), because the number of photographs
+   * is derived from the agreed price and cannot be known while a card is
+   * still advertising. A quantity on this type is the first step back to a
+   * card that promises a figure it may not be able to keep.
+   */
+  hasSetnayanGift: boolean;
   hasCover: boolean;
 };
 
@@ -144,6 +159,10 @@ export function readSnapshot(fd: FormData): Snapshot {
     includesLine,
     notIncluded,
     hasExclusive: String(fd.get('exclusive_perk_text') ?? '').trim().length > 0,
+    // A checkbox, so the currency is the literal `'on'` — the same rule
+    // `crew_meal_included` and `transport_included` are read by, two lines up.
+    // An ABSENCE is a deliberate no: an unchecked box posts nothing at all.
+    hasSetnayanGift: fd.get('setnayan_gift_enabled') === 'on',
     hasCover: String(fd.get('primary_photo_r2_key') ?? '').trim().length > 0,
   };
 }
@@ -163,6 +182,7 @@ export type StoredServiceCard = {
   transport_included?: boolean | null;
   transport_flat_fee_php?: number | null;
   exclusive_perk_text?: string | null;
+  setnayan_gift_enabled?: boolean | null;
   primary_photo_r2_key?: string | null;
 };
 
@@ -218,6 +238,12 @@ export function snapshotFromService(
   put(fd, 'transport_flat_fee_php', card.transport_flat_fee_php);
   put(fd, 'exclusive_perk_text', card.exclusive_perk_text);
   put(fd, 'primary_photo_r2_key', card.primary_photo_r2_key);
+  // ⚠ A CHECKBOX, so a stored TRUE has to be written as the literal `'on'` and
+  // a stored FALSE must be OMITTED — see this function's header. `put` would
+  // send the string `'false'`, which reads as "not on" by accident rather than
+  // by rule and keeps reading correctly right up until somebody makes the
+  // check truthiness-based.
+  if (card.setnayan_gift_enabled) fd.append('setnayan_gift_enabled', 'on');
   if (card.crew_meal_included) fd.append('crew_meal_included', 'on');
   if (card.transport_included) fd.append('transport_included', 'on');
 

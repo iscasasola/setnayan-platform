@@ -60,6 +60,7 @@ import {
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
+import { SetnayanGiftSwitch } from './setnayan-gift-switch';
 import {
   updateCoverageServesInPlace,
   type CoverageServesResult,
@@ -579,6 +580,11 @@ export function CanvasMaker({
     for (const [name, value] of keep.fields) {
       if (name === 'title') setTitle(value);
       else if (name === 'exclusive_perk_text') setPerk(value);
+      // A checkbox that reaches the keep at all was CHECKED — an unchecked box
+      // contributes nothing to form data. Routed through state like the other
+      // controlled fields: assigning `.checked` on the node would be undone by
+      // the next render, which is the whole reason this branch exists.
+      else if (name === 'setnayan_gift_enabled') setGift(true);
       else if (name === 'coverage_id') setCoverageId(value);
       else if (name === 'category') continue; // carried above, in state
       else if (form) {
@@ -640,7 +646,25 @@ export function CanvasMaker({
   );
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? '');
+  /**
+   * The RETIRED free-text promise, carried but NEVER TYPED HERE ANY MORE.
+   *
+   * ⚖ It is state rather than a constant because the "you left a card here"
+   * restore still replays it, and because a COPY seeds it from the source card
+   * — a card that already promises something keeps promising it (owner's own
+   * rule for the two live cards). There is no input bound to it; the form
+   * posts it as a hidden field only when there is something to preserve, and
+   * an absent field leaves the stored value standing on the server.
+   */
   const [perk, setPerk] = useState(initial?.exclusivePerkText ?? '');
+  /**
+   * THE SETNAYAN GIFT — the whole of the supplier's control, a yes/no.
+   *
+   * Owner 2026-09-09: *"papic credits will be auto computed based on what they
+   * pay… (so it is either a yes or a no)"* and *"no. just max to 40%. nothing
+   * more."* ⛔ There is no amount, no slider and no top-up to build here.
+   */
+  const [gift, setGift] = useState(initial?.setnayanGiftEnabled ?? false);
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
   /**
    * How long the picked clip is, in seconds — `null` while unknown.
@@ -1164,14 +1188,16 @@ export function CanvasMaker({
             )}
           </CardRegion>
 
-          <CardRegion onClick={() => setSheet('excl')} label="Edit your Setnayan Exclusive">
+          <CardRegion onClick={() => setSheet('excl')} label="Choose whether you include the Setnayan gift">
             <span
-              key={perk.trim().length > 0 ? 'perk-set' : 'perk-empty'}
-              className={`flex items-center gap-1.5${perk.trim() ? ' sn-paint-in' : ''}`}
+              key={gift ? 'gift-on' : 'gift-off'}
+              className={`flex items-center gap-1.5${gift ? ' sn-paint-in' : ''}`}
               style={{ color: 'var(--m-orange-2)' }}
             >
               <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-              {perk.trim() ? perk.trim() : 'Add your Setnayan Exclusive'}
+              {gift
+                ? 'Setnayan gift included — free Papic photos for your couple'
+                : 'Add the Setnayan gift'}
             </span>
           </CardRegion>
 
@@ -1257,7 +1283,7 @@ export function CanvasMaker({
           <Recap k="Category" v={activeCategoryLabel || '— not chosen yet'} />
           <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
           <Recap k="Price" v={snap.hasPrice ? snap.priceLine : '— not set'} />
-          <Recap k="Setnayan Exclusive" v={perk.trim() ? 'Set' : '— not set'} />
+          <Recap k="Setnayan gift" v={gift ? 'Included' : '— not included'} />
           <Recap
             k="What couples get"
             v={
@@ -1425,8 +1451,9 @@ export function CanvasMaker({
               <li className="flex gap-2">
                 <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
                 <span>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Exclusive is why they book here.</span>{' '}
-                  One thing couples only get through Setnayan.
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Setnayan gift is why they book here.</span>{' '}
+                  Free Papic photos for their celebration — optional, and it costs
+                  you nothing until a booking is agreed.
                 </span>
               </li>
             </ul>
@@ -1730,42 +1757,24 @@ export function CanvasMaker({
 
         <CanvasSheet
           id="canvas-excl"
-          title={inPass ? 'Why book you here?' : 'Setnayan Exclusive'}
+          title={inPass ? 'Why book you here?' : 'Setnayan gift'}
           open={sheet === 'excl'}
           onClose={inPass ? leavePass : () => setSheet(null)}
           confirmLabel={inPass ? null : 'Update card'}
           guided={inPass}
           footer={passStep === 'excl' ? passFooter : null}
         >
-          <Field label="Your Setnayan Exclusive" htmlFor="exclusive_perk_text">
-            <input
-              id="exclusive_perk_text"
-              name="exclusive_perk_text"
-              value={perk}
-              onChange={(e) => setPerk(e.target.value)}
-              maxLength={500}
-              placeholder="e.g. Free engagement mini-shoot for Setnayan couples"
-              className="input-field"
-            />
-          </Field>
-          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            One thing couples only get by booking you through Setnayan. Required to{' '}
-            <span className="font-medium" style={{ color: 'var(--m-ink)' }}>publish</span> — you can
-            save a draft without it.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {['Free add-on', 'Priority date hold', 'Setnayan-only rate', 'Complimentary upgrade'].map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setPerk(c)}
-                className="min-h-[34px] rounded-full border px-3 py-1 text-xs"
-                style={{ borderColor: line, background: paper, color: 'var(--m-slate)' }}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
+          <SetnayanGiftSwitch
+            id="canvas-gift"
+            checked={gift}
+            onChange={setGift}
+            legacyPerk={perk}
+            /* The maker only ever INSERTS — a brand-new card, or a copy of one.
+               An insert has nothing behind it to preserve, so a copied card
+               that promised something has to carry that promise forward here
+               or lose it. Every OTHER screen leaves the column alone instead. */
+            carryLegacyPerk
+          />
         </CanvasSheet>
 
         <CanvasSheet

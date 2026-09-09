@@ -62,6 +62,11 @@ export type VendorServiceRow = {
   /** Never shown publicly. Revealed in-thread when the vendor token-pursues.
    *  Required to publish (is_active=true). Drafts may be null. */
   exclusive_perk_text: string | null;
+  /** The Setnayan gift, as a yes/no (migration 20271216503409). TRUE means
+   *  this card gives the couple free Papic credits, funded by 40% of the
+   *  booking fee. There is no amount here — 40% is a ceiling and the photo
+   *  count is derived from the agreed price, on the quote. */
+  setnayan_gift_enabled: boolean;
   // ── Coverage-first rework (migration 20270426250948) ────────────────────
   /** Guests the starting_price_php covers; pairs with added_pax_price_php
    *  (per-guest surcharge above this count). null = flat / not pax-priced. */
@@ -77,7 +82,7 @@ const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
 const PRICING_COLS =
   'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,showcase_photo_r2_keys';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,setnayan_gift_enabled,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -108,6 +113,7 @@ export async function fetchVendorServices(
         | 'last_minute_surcharge_pct'
         | 'daily_capacity'
         | 'exclusive_perk_text'
+        | 'setnayan_gift_enabled'
         | 'base_pax'
         | 'coverage_id'
         | 'pricing_basis'
@@ -130,6 +136,11 @@ export async function fetchVendorServices(
       last_minute_surcharge_pct: null,
       daily_capacity: null,
       exclusive_perk_text: null,
+      // The fallback runs when the FULL select is refused, so it must supply
+      // the safe value rather than the true one — FALSE is the value that
+      // charges the shop nothing, which is the only honest guess to make when
+      // the row could not be read.
+      setnayan_gift_enabled: false,
       base_pax: null,
       coverage_id: null,
       pricing_basis: 'fixed',

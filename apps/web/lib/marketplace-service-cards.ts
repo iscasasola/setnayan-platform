@@ -58,7 +58,7 @@ const SERVICE_COLS =
   'crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,' +
   'showcase_photo_r2_keys,primary_photo_r2_key,branch_id,recommended_lead_time_months,' +
   'last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,' +
-  'base_pax,coverage_id';
+  'setnayan_gift_enabled,base_pax,coverage_id';
 
 /**
  * Escape a value for a PostgREST `or=(…)` filter.

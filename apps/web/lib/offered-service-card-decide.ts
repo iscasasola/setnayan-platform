@@ -28,6 +28,8 @@ export type OfferedServiceCardData = {
   includesLine: string | null;
   notIncluded: string[];
   hasExclusive: boolean;
+  /** The supplier switched the Setnayan gift on for this card. */
+  hasSetnayanGift: boolean;
   /** Presigned cover photo, or null when the supplier never set one. */
   coverUrl: string | null;
   /** Presigned showcase clip (≤30s), or null when there is none. */
@@ -93,6 +95,7 @@ export function decideOfferedServiceCard(input: {
       includesLine: input.snapshot.includesLine,
       notIncluded: input.snapshot.notIncluded,
       hasExclusive: input.snapshot.hasExclusive,
+      hasSetnayanGift: input.snapshot.hasSetnayanGift,
       coverUrl: input.coverUrl,
       clipUrl: input.clipUrl,
     },

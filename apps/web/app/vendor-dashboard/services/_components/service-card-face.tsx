@@ -116,6 +116,32 @@ export function ServiceCardFace({
           <span>Not included: {snap.notIncluded.join(' · ')}</span>
         </p>
       ) : null}
+      {/* ── THE SETNAYAN GIFT · A PROMISE WITH NO NUMBER IN IT ──────────────
+          Owner 2026-09-09: *"papic credits will be auto computed based on what
+          they pay… so it is either a yes or a no."* The gift is 40% of the
+          booking fee spent on Papic credits, and the fee is a percentage of a
+          price that does not exist yet while a card is only advertising — so
+          the card CANNOT name a figure without risking a promise it may not be
+          able to keep. It says the thing that is true at every price, and the
+          exact photo count lands on the QUOTE, the moment a price exists.
+          ⛔ Do not put a number here. It was ruled out explicitly, and the
+          collision it was ruled out of is real: a supplier quoting below their
+          own "starts at" would owe more than the 40% ceiling allows. */}
+      {snap.hasSetnayanGift ? (
+        <p
+          className="flex items-start gap-1 rounded-md px-2 py-1 text-[11px]"
+          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
+        >
+          <Gift aria-hidden className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.75} />
+          <span>
+            <span className="font-medium">Setnayan gift included</span> — free Papic
+            photos for your celebration, sized to your booking.
+          </span>
+        </p>
+      ) : null}
+      {/* The RETIRED free-text promise. A card that already made one keeps
+          making it (owner's own rule for the two live cards); it simply cannot
+          be typed any more. */}
       {snap.hasExclusive ? (
         <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }}>
           <Lock aria-hidden className="h-3 w-3" strokeWidth={1.75} />

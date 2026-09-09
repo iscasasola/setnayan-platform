@@ -249,6 +249,46 @@ function parseExclusivePerk(formData: FormData): string | null {
 }
 
 /**
+ * Did this form NAME the retired free-text promise at all?
+ *
+ * 🔑 NAMED OR PRESERVED — the one rule that keeps the two live cards' promises
+ * alive. The editors stopped offering a box to type `exclusive_perk_text`
+ * into (owner 2026-09-09: the supplier's control is a yes/no switch), so their
+ * saves stop naming the field — and `parseExclusivePerk` cannot tell "the
+ * supplier cleared it" from "this form has no such field", because both are an
+ * absence. Writing the parsed NULL unconditionally would have blanked a
+ * promise a card is still making to couples, the first time its owner touched
+ * an unrelated field. This repo has already paid for that exact shape once, on
+ * the admin price screen, where a closed panel posted nothing and 32 of 34
+ * saves wiped a description.
+ *
+ * ⇒ Callers write the column only when this is true. Mirrored in SQL by
+ * `save_vendor_service` (`p_fields ? 'exclusive_perk_text'`, migration
+ * 20271216503409), which is the path the maker and the wizard take.
+ */
+function namesExclusivePerk(formData: FormData): boolean {
+  return formData.has('exclusive_perk_text');
+}
+
+/**
+ * The Setnayan gift, as a yes/no.
+ *
+ * A checkbox, so its currency is the literal `'on'` and an unchecked box posts
+ * NOTHING — an absence is a deliberate no, which is why this returns `false`
+ * rather than preserving anything. That asymmetry with the perk text above is
+ * on purpose: the switch is still a live control the supplier operates on
+ * every save, so "not sent" genuinely means "off"; the free text is not.
+ *
+ * ⛔ There is no amount to parse and there must never be one. 40% of the
+ * booking fee is a ceiling with no top-up (owner 2026-09-09: *"no. just max to
+ * 40%. nothing more."*), and the number of photographs is derived from the
+ * agreed price, on the quote.
+ */
+function parseSetnayanGift(formData: FormData): boolean {
+  return formData.get('setnayan_gift_enabled') === 'on';
+}
+
+/**
  * Parse the service cover photo (the <FileUpload name="primary_photo_r2_key">
  * R2 key). Returns null when blank — allowed for drafts; required to publish
  * (gated in commitVendorService). Feeds vendor_services.primary_photo_r2_key,
@@ -626,6 +666,7 @@ export async function createVendorService(formData: FormData) {
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
+  const setnayan_gift_enabled = parseSetnayanGift(formData);
   // Fixed basis WITH brackets → the "from ₱X" anchor is the lowest bracket price
   // (so Explore/budget reflect the tiers); otherwise keep parsePricingFields'.
   if (pricing.pricing_basis === 'fixed' && bracketRows.length > 0) {
@@ -797,8 +838,11 @@ export async function createVendorService(formData: FormData) {
       last_minute_surcharge_pct,
       daily_capacity,
       exclusive_perk_text,
-      // New services are created as drafts (is_active: false) so the publish gate
-      // (exclusive_perk_text required) is enforced only on the toggle action.
+      setnayan_gift_enabled,
+      // New services are created as drafts (is_active: false) so the publish
+      // gate is enforced only on the toggle action. ⚖ That gate no longer asks
+      // for a Setnayan gift at all — the owner ruled it optional 2026-09-09 —
+      // so the only thing left to satisfy there is a starting price.
       is_active: false,
     })
     .select('vendor_service_id')
@@ -951,6 +995,7 @@ export async function updateVendorService(formData: FormData) {
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
+  const setnayan_gift_enabled = parseSetnayanGift(formData);
   // Fixed basis WITH brackets → anchor = lowest bracket price (Explore/budget
   // read starting_price_php); otherwise keep parsePricingFields' anchor.
   if (pricing.pricing_basis === 'fixed' && bracketRows.length > 0) {
@@ -1072,7 +1117,12 @@ export async function updateVendorService(formData: FormData) {
       last_minute_end_months,
       last_minute_surcharge_pct,
       daily_capacity,
-      exclusive_perk_text,
+      // NAMED OR PRESERVED — see `namesExclusivePerk`. This form no longer
+      // renders a box for the retired free text, so it no longer names the
+      // field, and the key must then be ABSENT from the payload rather than
+      // present-and-null: a present null is a wipe.
+      ...(namesExclusivePerk(formData) ? { exclusive_perk_text } : {}),
+      setnayan_gift_enabled,
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)
@@ -1560,7 +1610,15 @@ export async function commitVendorService(formData: FormData) {
         formData.get('daily_capacity'),
         caps.slotsPerDay,
       ),
-      exclusive_perk_text: parseExclusivePerk(formData),
+      // NAMED OR PRESERVED — see `namesExclusivePerk`. `save_vendor_service`
+      // asks `p_fields ? 'exclusive_perk_text'`, so an absent key leaves the
+      // stored promise standing; a present null clears it. The maker's "start
+      // from this card" copy deliberately DOES name it, as a hidden field, so
+      // a copy keeps the promise its source made.
+      ...(namesExclusivePerk(formData)
+        ? { exclusive_perk_text: parseExclusivePerk(formData) }
+        : {}),
+      setnayan_gift_enabled: parseSetnayanGift(formData),
       primary_photo_r2_key: parsePrimaryPhoto(formData),
     };
   } catch (e) {
@@ -2078,8 +2136,9 @@ export async function toggleVendorServiceActive(formData: FormData) {
   // Publish gate — the SAME rule the maker's meter and the database trigger
   // ask (lib/service-publish-gate.ts). This path is the on/off switch on the
   // Services list, which can turn a long-forgotten draft live without ever
-  // opening the maker, so it has to ask the whole question and not just the
-  // half this action used to know (the Exclusive). Drafts are never judged.
+  // opening the maker, so it has to ask the whole question. ⚖ Since the owner
+  // ruled the Setnayan gift optional (2026-09-09) the whole question IS the
+  // price. Drafts are never judged.
   //
   // ⚠ A READ ERROR FAILS CLOSED. Supabase resolves with `{ error }` rather than
   // throwing, and an unread row used to reach `perk === undefined` and be
@@ -2088,7 +2147,11 @@ export async function toggleVendorServiceActive(formData: FormData) {
   if (is_active) {
     const { data: svcRow, error: readError } = await supabase
       .from('vendor_services')
-      .select('exclusive_perk_text, starting_price_php')
+      // ⚠ NAME ONLY WHAT IS READ. `exclusive_perk_text` left this select on
+      // 2026-09-09 with the requirement it fed — a column selected and never
+      // compared is how a gate quietly stops deciding anything while still
+      // looking like it does.
+      .select('starting_price_php')
       .eq('vendor_service_id', idRaw)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
@@ -2099,10 +2162,7 @@ export async function toggleVendorServiceActive(formData: FormData) {
         )}`,
       );
     }
-    const row = svcRow as {
-      exclusive_perk_text?: string | null;
-      starting_price_php?: number | null;
-    };
+    const row = svcRow as { starting_price_php?: number | null };
     const unmet = unmetPublishRequirements({
       hasPrice: priceIsSet(row.starting_price_php),
     });

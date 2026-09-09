@@ -65,7 +65,10 @@ export function PublishGateSubmit({
 
     const read = () => {
       const price = (form.elements.namedItem('starting_price_php') as HTMLInputElement | null)?.value;
-      const perk = (form.elements.namedItem('exclusive_perk_text') as HTMLInputElement | null)?.value;
+      // ⚖ The Setnayan gift used to be read here too. It left the publish gate
+      // on 2026-09-09 (owner: it is optional) and the free-text field it read
+      // no longer exists on any of these forms, so this read could only ever
+      // have returned undefined — a live control listening to a deleted input.
       // `priceIsSet` takes a number; an empty box and a non-numeric box are both
       // "no price". NaN must not read as a set price.
       const n = price === undefined || price.trim() === '' ? null : Number(price);

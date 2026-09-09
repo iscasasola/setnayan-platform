@@ -30,7 +30,14 @@ export type CanvasInitial = {
   sourceWasOtherCategory: boolean;
 
   title: string;
+  /**
+   * The RETIRED free-text promise, carried so a COPY keeps the promise its
+   * source card made. There is no box to type it into any more; the maker
+   * shows it and posts it back as a hidden field.
+   */
   exclusivePerkText: string;
+  /** The Setnayan gift switch, carried so a copy keeps the shop's choice. */
+  setnayanGiftEnabled: boolean;
   coverageId: string;
   crewSize: string;
   recommendedLeadTimeMonths: string;

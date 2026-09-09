@@ -82,6 +82,7 @@ import {
 import { PaymentScheduleEditor } from './payment-schedule-editor';
 import { fetchAddonsByService } from '@/lib/vendor-service-addons';
 import { AddonsEditor } from './addons-editor';
+import { SetnayanGiftSwitch } from './setnayan-gift-switch';
 import {
   createVendorService,
   proposeCategory,
@@ -1278,9 +1279,10 @@ export async function VendorServicesManager({
                           photosCurrent={svc.showcase_photo_r2_keys}
                           displayUrls={showcaseDisplayUrls}
                         />
-                        <ExclusivePerkField
+                        <SetnayanGiftField
                           idPrefix={svc.vendor_service_id}
-                          perkDefault={svc.exclusive_perk_text ?? undefined}
+                          defaultChecked={svc.setnayan_gift_enabled === true}
+                          legacyPerk={svc.exclusive_perk_text}
                         />
                         <div className="flex items-center justify-between">
                           {/* Trigger only — the delete ConfirmForm is a SIBLING
@@ -1746,7 +1748,7 @@ function AddServiceForm({
       <DiscountsEditor initial={[]} />
       <InclusionsEditor initial={[]} />
       <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
-      <ExclusivePerkField idPrefix={`new-${addCategory}`} />
+      <SetnayanGiftField idPrefix={`new-${addCategory}`} defaultChecked={false} />
       <div className="flex items-center justify-between">
         <Link href={basePath} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
           Cancel
@@ -1910,49 +1912,37 @@ const DISCOUNT_TYPE_LABELS: Record<string, string> = {
 // ── Child-list DB rows → editor drafts (Phase 3b) ────────────────────────────
 // The fetched rows carry ISO/number values; the editors take string-typed draft
 // rows. These map one to the other (dates → YYYY-MM-DD for <input type="date">).
-/** "Setnayan Exclusive" perk field. Required to publish; optional for drafts. */
-function ExclusivePerkField({
+/**
+ * The Setnayan gift, on the legacy inline editor.
+ *
+ * A thin stateful wrapper so the shared control can stay CONTROLLED: this list
+ * renders one form per card and every other field in it is uncontrolled, so the
+ * state has to live somewhere and here is the smallest somewhere.
+ *
+ * ⚠ THIS REPLACED A FREE-TEXT BOX, AND THE TEXT IS NOT LOST. Where a card
+ * already carries `exclusive_perk_text` the switch shows it, read-only, and
+ * this form deliberately does NOT post the field — `updateVendorService` writes
+ * the column only when a form NAMES it, so the stored promise stands. Posting
+ * it back as a hidden field would have been the obvious move and the wrong one:
+ * it hands the free-text control straight back to anyone with a devtools panel.
+ */
+function SetnayanGiftField({
   idPrefix,
-  perkDefault,
+  defaultChecked,
+  legacyPerk,
 }: {
   idPrefix: string;
-  perkDefault?: string;
+  defaultChecked: boolean;
+  legacyPerk?: string | null;
 }) {
+  const [on, setOn] = useState(defaultChecked);
   return (
-    <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}>
-      <div className="flex items-center gap-2">
-        <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
-        <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-          Setnayan Exclusive
-        </p>
-        <span
-          className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
-          style={{ background: 'var(--m-paper)', color: 'var(--m-orange-2)' }}
-        >
-          Required to publish
-        </span>
-      </div>
-      <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-        A hidden perk you offer exclusively to couples who book through Setnayan.
-        It&rsquo;s revealed in-chat only after the vendor accepts the inquiry.
-        It&rsquo;s contractually binding once revealed — so make it meaningful.
-      </p>
-      <Field
-        label="Exclusive perk"
-        htmlFor={`${idPrefix}-excl-perk`}
-        help="Cannot be blank if you want to publish (activate) this service."
-      >
-        <input
-          id={`${idPrefix}-excl-perk`}
-          name="exclusive_perk_text"
-          type="text"
-          maxLength={500}
-          placeholder="e.g. Free 1-hour extension · Complimentary styling session · Waived travel fee within 30 km"
-          defaultValue={perkDefault ?? ''}
-          className="input-field"
-        />
-      </Field>
-    </div>
+    <SetnayanGiftSwitch
+      id={`${idPrefix}-setnayan-gift`}
+      checked={on}
+      onChange={setOn}
+      legacyPerk={legacyPerk}
+    />
   );
 }
 

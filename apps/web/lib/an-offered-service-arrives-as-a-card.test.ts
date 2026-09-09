@@ -27,6 +27,7 @@ const SNAP: Snapshot = {
   includesLine: null,
   notIncluded: [],
   hasExclusive: false,
+  hasSetnayanGift: false,
   hasCover: true,
 };
 

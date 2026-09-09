@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6599
+# facts: 6611
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     584
-#   col       4850
-#   policy    898
+#   tpriv     585
+#   col       4857
+#   policy    902
 #   view      8
 #   func      255
 #
@@ -113,6 +113,7 @@ tpriv	public.event_action_log|authenticated	SIUD
 tpriv	public.event_activity_picks|authenticated	SIUD
 tpriv	public.event_appointments|anon	SIUD
 tpriv	public.event_appointments|authenticated	SIUD
+tpriv	public.event_bench_arrangement|authenticated	SIUD
 tpriv	public.event_blocked_users|authenticated	SIUD
 tpriv	public.event_build_picks|anon	SIUD
 tpriv	public.event_build_picks|authenticated	SIUD
@@ -1294,6 +1295,13 @@ col	public.event_appointments.thread_id	anon=SIU authenticated=SIU
 col	public.event_appointments.type	anon=SIU authenticated=SIU
 col	public.event_appointments.updated_at	anon=SIU authenticated=SIU
 col	public.event_appointments.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.event_bench_arrangement.created_at	anon=- authenticated=SIU
+col	public.event_bench_arrangement.event_id	anon=- authenticated=SIU
+col	public.event_bench_arrangement.position	anon=- authenticated=SIU
+col	public.event_bench_arrangement.set_by	anon=- authenticated=SIU
+col	public.event_bench_arrangement.tile	anon=- authenticated=SIU
+col	public.event_bench_arrangement.updated_at	anon=- authenticated=SIU
+col	public.event_bench_arrangement.vendor_id	anon=- authenticated=SIU
 col	public.event_blocked_users.blocked_by_user_id	anon=- authenticated=SIU
 col	public.event_blocked_users.blocked_guest_id	anon=- authenticated=SIU
 col	public.event_blocked_users.created_at	anon=- authenticated=SIU
@@ -5607,6 +5615,10 @@ policy	public.event_appointments|event_appointments_couple_update	mode=PERMISSIV
 policy	public.event_appointments|event_appointments_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
 policy	public.event_appointments|event_appointments_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.event_appointments|event_appointments_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids))) check=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)))
+policy	public.event_bench_arrangement|couple_deletes_bench_arrangement	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.event_bench_arrangement|couple_inserts_bench_arrangement	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND (set_by = auth.uid()))
+policy	public.event_bench_arrangement|couple_reads_bench_arrangement	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.event_bench_arrangement|couple_updates_bench_arrangement	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND (set_by = auth.uid()))
 policy	public.event_blocked_users|event_blocked_users_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_blocked_users.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_blocked_users.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))
 policy	public.event_build_picks|couple_deletes_event_build_picks	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) check=NULL
 policy	public.event_build_picks|couple_inserts_event_build_picks	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) AND (picked_by = auth.uid()))

@@ -304,7 +304,7 @@ export default async function CoupleThreadPage({ params }: Props) {
         backHref={`/dashboard/${eventId}/vendors`}
         backLabel="‹ Bench"
       />
-    <section className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
+    <section className="flex min-w-0 flex-1 flex-col gap-4">
       <header className="sn-tile flex items-center justify-between gap-3 p-4">
         <div className="min-w-0 space-y-0.5">
           <Link

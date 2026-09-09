@@ -178,9 +178,30 @@ test('🔑 8 · the list ranks through the shared resolver, not its own', () => 
     !/completion_status\s*===\s*'(confirmed|auto_confirmed)'/.test(builder),
     'the list inlines the completion predicate again',
   );
+  assertNamesNoRung(builder, 'supplier');
 });
 
 const ALL_STAGES: ThreadStage[] = ['inquiry', 'quoted', 'booked', 'completed', 'cancelled'];
+
+/**
+ * ⚠ THIS EXISTS BECAUSE COUNTING THE RESOLVER'S CALLS WAS NOT ENOUGH.
+ * Mutation-tested: `const stage = completed.has(id) ? 'completed' : resolveThreadStage({…})`
+ * leaves the call site intact — one call, still there — while deciding the
+ * answer before it. The count stayed at 1 and the guard stayed green through
+ * its own sabotage.
+ *
+ * A rung's NAME is the thing a private ranking cannot avoid writing. Neither
+ * builder has any business spelling one: the five words live in
+ * `THREAD_STAGE_LABEL`, and a builder's job is to hand facts to the resolver.
+ */
+function assertNamesNoRung(window: string, which: string) {
+  for (const stage of ALL_STAGES) {
+    assert.ok(
+      !window.includes(`'${stage}'`) && !window.includes(`"${stage}"`),
+      `the ${which} builder wrote the rung "${stage}" itself — that is a second ranking, whatever the resolver call below it says`,
+    );
+  }
+}
 
 test('🔑 9 · "You:" belongs to whoever is READING the column', () => {
   const fromVendor = { sender_role: 'vendor', body: 'Sending the quote now' };
@@ -316,6 +337,7 @@ test('🔑 13 · the couple’s side reads with the couple’s own session, batc
   // It ranks through the shared resolver, like the other side.
   assert.equal((couple.match(/resolveThreadStage\(/g) ?? []).length, 1);
   assert.equal((couple.match(/rowReadsCompleted\(/g) ?? []).length, 1);
+  assertNamesNoRung(couple, 'couple');
 });
 
 test('🔑 14 · a masked supplier’s real name never reaches the column', () => {
@@ -333,10 +355,19 @@ test('🔑 14 · a masked supplier’s real name never reaches the column', () =
   );
   // The column and the builder must not know what a business_name or a logo is.
   for (const rel of [COLUMN, BUILDER]) {
-    const src = read(rel);
-    for (const leak of ['business_name', 'logo_url', 'resolveVendorDisplayName']) {
-      assert.ok(!src.includes(leak), `${rel} started deciding the name itself (${leak})`);
+    // ⚠ RAW, not comment-stripped. `stripComments` would swallow a leak written
+    // beside a comment, and the point here is that these two files never touch
+    // a raw identity field at all.
+    const raw = readFileSync(join(WEB, rel), 'utf8');
+    for (const field of ['business_name', 'logo_url', 'screen_name', 'name_revealed_at']) {
+      assert.ok(!raw.includes(field), `${rel} touches a raw identity field (${field})`);
     }
+    // Naming the resolver in a docblock is documentation; CALLING it here would
+    // mean this file decides who may be named. Only the call is forbidden.
+    assert.ok(
+      !/resolveVendorDisplayName\s*\(/.test(read(rel)),
+      `${rel} started resolving the name itself`,
+    );
   }
 });
 

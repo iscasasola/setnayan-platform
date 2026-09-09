@@ -158,8 +158,18 @@ export function ConversationColumn({
                   <Link
                     href={`${hrefBase}/${r.threadId}`}
                     aria-current={active ? 'true' : undefined}
-                    className={`flex gap-2.5 border-b border-ink/[0.07] px-3 py-2.5 ${
-                      active ? 'bg-mulberry/[0.07] shadow-[inset_3px_0_0_theme(colors.mulberry)]' : 'hover:bg-ink/[0.03]'
+                    /* The prototype's active row: a soft wash plus a 3px bar
+                       down its left edge. The bar is a BORDER, not an inset
+                       shadow — this palette's colours are
+                       `rgb(var(--…) / <alpha-value>)`, so `theme(colors.mulberry)`
+                       inside an arbitrary value emits the unresolved
+                       `<alpha-value>` placeholder and the rule is dropped
+                       silently. Transparent on the inactive rows so nothing
+                       shifts by 3px when the selection moves. */
+                    className={`flex gap-2.5 border-b border-l-[3px] border-ink/[0.07] px-3 py-2.5 ${
+                      active
+                        ? 'border-l-mulberry bg-mulberry/[0.07]'
+                        : 'border-l-transparent hover:bg-ink/[0.03]'
                     }`}
                   >
                     <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-white text-[11px] font-semibold text-ink/70">

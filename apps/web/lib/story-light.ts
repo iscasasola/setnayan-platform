@@ -109,6 +109,46 @@ export const MUTED_ALPHA = 0.6;
 export const ACCENT_MIN = 4.5;
 
 /**
+ * THE CANDLE — the colour the loudest table burns.
+ *
+ * ⚖ OWNER RULING 2026-09-09: **gold**, fixed, exactly as the prototype draws it
+ * (`--candle`). This session had shipped it in the couple's own derived accent
+ * and flagged the departure, reasoning from owner lock 2 (*colours come from
+ * the host's saved mood board*). He was shown both and chose the gold.
+ *
+ * 🔑 SO THE LOUDEST TABLE IS NOT A THEMED ELEMENT. It is candlelight, and
+ * candlelight is the same colour at every wedding. Lock 2 governs the story's
+ * paper and its ink; it does not make every mark on the page a swatch.
+ * **Do not re-derive this from the palette.**
+ */
+export const CANDLE: Rgb = [217, 164, 65]; // #D9A441
+
+/**
+ * The ink that goes ON the candle — a table's own number.
+ *
+ * Fixed, and fixed is CORRECT here because what it sits on is fixed: measured
+ * at **7.74:1** on `#D9A441`, well clear of AA. White would be 2.25:1, which is
+ * the mistake this constant exists to prevent — the label follows the gold, not
+ * the stage.
+ */
+export const CANDLE_LABEL: Rgb = [27, 26, 23]; // #1B1A17
+
+/**
+ * The candle's OUTLINE, corrected against the stage's ground.
+ *
+ * 🔑 THIS IS WHAT MAKES A GOLD TABLE VISIBLE ON PALE PAPER, and it is why the
+ * prototype carries a separate `--candle-ink` at all. Measured: the fixed gold
+ * reads only **1.45–2.2:1** against the light stages — fine for a filled shape,
+ * invisible as an edge. So the fill stays the owner's gold and the RIM is
+ * nudged until it reads, deep gold on a light ground and pale gold on a dark
+ * one, exactly as `paint()` does it.
+ */
+function candleInkOn(ground: Rgb): Rgb {
+  const seed = luminanceOf(ground) < 0.3 ? [240, 200, 110] : [122, 90, 22];
+  return nudgeUntilLegible(seed as Rgb, ground, ACCENT_MIN);
+}
+
+/**
  * The floor DURING a crossfade, which is a different and lower number — and
  * this is the one place in this file where a lower number is the honest one.
  *
@@ -466,6 +506,10 @@ export type StoryLightVars = {
   '--color-terracotta': string;
   '--color-terracotta-600': string;
   '--color-terracotta-700': string;
+  /** The candle — fixed gold, the loudest table (owner ruling 2026-09-09). */
+  '--color-candle': string;
+  /** Its rim, corrected per stage so the gold reads as an edge on pale paper. */
+  '--color-candle-ink': string;
 };
 
 function channels(c: Rgb): string {
@@ -535,6 +579,10 @@ export function paintStage(a: StageColours, b: StageColours, f: number): StoryLi
     '--color-terracotta': channels(accent),
     '--color-terracotta-600': channels(accent),
     '--color-terracotta-700': channels(accent),
+    // The candle does NOT track the palette — see CANDLE. Only its rim moves,
+    // and only enough to stay visible on the ground actually present.
+    '--color-candle': channels(CANDLE),
+    '--color-candle-ink': channels(candleInkOn(ground)),
   };
 }
 

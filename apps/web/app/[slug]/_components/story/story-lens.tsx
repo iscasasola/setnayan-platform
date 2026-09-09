@@ -272,25 +272,29 @@ function RoomPlan({
       {showSeats
         ? room.tables.map((t) => {
             /*
-              ⚠ A FLAGGED DELTA FROM THE PROTOTYPE, AND IT IS OWNER LOCK 2 THAT
-              DECIDES IT. The prototype burns the loudest table in a FIXED gold
-              (`--candle`, `#D9A441`) because its own sample board is champagne
-              and gold. Lock 2 says the story's colours come from the host's
-              saved mood board — so the loudest table burns in THEIR accent,
-              already contrast-corrected by `story-light`. On a champagne board
-              that is the prototype's gold; on an orchid one a fixed gold would
-              be a colour nobody chose, sitting on a page built from colours
-              they did. Raised with the owner rather than settled quietly.
+              ⚖ GOLD — OWNER RULING 2026-09-09, and it REVERSED this session.
+
+              This had shipped in the couple's own derived accent, flagged as a
+              departure from the prototype and reasoned from owner lock 2
+              (*colours come from the host's saved mood board*). He was shown
+              both and chose the prototype's fixed gold: **"gold is fine"**.
+
+              🔑 THE LOUDEST TABLE IS CANDLELIGHT, NOT A SWATCH — the same
+              colour at every wedding. Lock 2 governs the story's paper and its
+              ink; it does not make every mark on the page track the palette.
+              **Do not re-derive this from the board.**
+
+              The RIM still moves, and has to: the fixed gold measures only
+              ~1.9:1 against the light stages, so the fill is the owner's gold
+              and `candle-ink` is corrected per stage to keep it readable as an
+              edge. The number on the table is fixed too — 7.74:1 on that gold,
+              measured; white would be 2.25:1.
             */
             const heat = heatClassOf(t.id, tables);
             const fill =
-              heat === 'hot'
-                ? 'fill-terracotta-700'
-                : heat === 'warm'
-                  ? 'fill-terracotta-700/40'
-                  : 'fill-ink/5';
-            const stroke = heat === 'cold' ? 'stroke-ink/25' : 'stroke-terracotta-700';
-            const label = heat === 'hot' ? 'fill-cream' : 'fill-ink/60';
+              heat === 'hot' ? 'fill-candle' : heat === 'warm' ? 'fill-candle/45' : 'fill-ink/5';
+            const stroke = heat === 'cold' ? 'stroke-ink/25' : 'stroke-candle-ink';
+            const label = heat === 'hot' ? 'fill-[#1B1A17]' : 'fill-ink/60';
             const cx = px(t.xPct);
             const cy = py(t.yPct);
             const wide = t.shape !== 'round' && t.shape !== 'sweetheart';

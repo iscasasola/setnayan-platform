@@ -150,6 +150,18 @@ const CLIENT_IMPORTS_ALLOWED = [
   // hand-rolled copy of its job is what `modal-a11y-adoption.test.ts` caught
   // in this file's first cut.
   /^@\/lib\/use-modal-a11y$/,
+  // The reader-position postbox. Module-level `Set` of callbacks and nothing
+  // else — no fetch, no client, no route, and the test below PROVES it rather
+  // than trusting this comment: it asserts the module imports nothing at all.
+  //
+  // 🔑 IT IS HERE BECAUSE THE ALTERNATIVE WAS WORSE. The light and the lens
+  // need exactly what the needle needs — which entry the reader has reached and
+  // how far through it. Neither can live inside this component, so without a
+  // postbox they would each open a SECOND scroll loop over the same rects: two
+  // answers to one question, and two layouts per frame on a 16,000px page.
+  // This file's own header says it — the needle, the readout and the entry
+  // being read are one fact, and splitting them is how they end up disagreeing.
+  /^@\/lib\/story-reader-position$/,
 ];
 
 test('THE DIAL’S CLIENT HALF HAS NO PATH TO A COUNT', () => {
@@ -163,6 +175,28 @@ test('THE DIAL’S CLIENT HALF HAS NO PATH TO A COUNT', () => {
     );
   }
   assert.match(CLOCK, /^'use client';/, 'it is the client half');
+});
+
+test('the reader-position postbox is as inert as the allowlist claims', () => {
+  /*
+    An allowlist entry is a hole unless the thing it lets through is checked. If
+    `story-reader-position.ts` ever grows an import, it grows a way for the
+    client half to reach whatever that import can reach — and the guard above
+    would still be green, because the SPEC is allowed.
+
+    So the exemption verifies itself: the postbox imports nothing.
+  */
+  const src = stripComments(
+    readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../../lib/story-reader-position.ts'), 'utf8'),
+  );
+  const imports = [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]!);
+  assert.deepEqual(
+    imports,
+    [],
+    `story-reader-position.ts imports ${imports.join(', ')}. It is on story-clock's allowlist ` +
+      'BECAUSE it reaches nothing; an import here re-opens the path the allowlist exists to close.',
+  );
+  assert.ok(!/fetch\(|createClient|supabase/i.test(src), 'the postbox must not reach a client');
 });
 
 // ── 5 · the keyboard ────────────────────────────────────────────────────────
@@ -300,20 +334,67 @@ test('EVERY FAILURE ARM IN THE DIAL FLATTENS IT — none of them returns the raw
  * test did exactly that, and a sabotage that deleted a lower bound left three
  * other mentions standing and went green.
  */
+/**
+ * The function body a given offset sits inside.
+ *
+ * ⚠ THE WHOLE POINT IS THAT IT IS NOT THE WHOLE FILE. "spine-data.ts mentions
+ * the day window" is the proxy this repo has already been burned by twice — a
+ * sabotage deleted ONE query's lower bound and the guard stayed green because
+ * three other mentions still stood. A bound must be proved for the query that
+ * needs it, in the function that builds it.
+ */
+function enclosingFunction(src: string, at: number): string {
+  const starts = [...src.matchAll(/\n(?:async )?function \w+/g)].map((m) => m.index!);
+  let start = 0;
+  let end = src.length;
+  for (const s of starts) {
+    if (s <= at) start = s;
+    else {
+      end = s;
+      break;
+    }
+  }
+  return src.slice(start, end);
+}
+
 test('EVERY CAPTURE READ IS BOUNDED — checked per query, not per file', () => {
-  const chunks = SPINE_DATA.split(".from('papic_photos')").slice(1);
-  assert.ok(chunks.length >= 2, `expected the capture reads, found ${chunks.length}`);
-  chunks.forEach((rest, i) => {
+  const hits = [...SPINE_DATA.matchAll(/\.from\('papic_photos'\)/g)];
+  assert.ok(hits.length >= 2, `expected the capture reads, found ${hits.length}`);
+  hits.forEach((hit, i) => {
+    const from = hit.index! + hit[0].length;
+    const rest = SPINE_DATA.slice(from);
     const q = rest.slice(0, rest.indexOf(';'));
     if (!/captured_at/.test(q)) return; // not a time read at all
+
     const beforeTheDay = /\.lt\('captured_at', window\.startIso\)/.test(q);
     const insideTheDays =
       /\.gte\('captured_at', window\.startIso\)/.test(q) &&
       /\.lt\('captured_at', window\.endIso\)/.test(q);
+
+    /*
+      THE THIRD LEGITIMATE SHAPE (S10, the lens's heat): a read bounded to a net
+      around each WRITTEN MINUTE rather than to the whole day — which is a
+      TIGHTER bound, not a looser one, since every net is clipped to the day
+      window before the clause is built.
+
+      It is only accepted when that clipping is provable IN THE SAME FUNCTION:
+      the ISO bounds parsed, and both ends of every window compared against
+      them. An `.or(` on its own proves nothing — any `.or` would pass, and
+      that is precisely the decoration this file exists to refuse.
+    */
+    const fn = enclosingFunction(SPINE_DATA, hit.index!);
+    const boundedToWrittenMinutes =
+      /\.or\(/.test(q) &&
+      /Date\.parse\(args\.window\.startIso\)/.test(fn) &&
+      /Date\.parse\(args\.window\.endIso\)/.test(fn) &&
+      /w\.to >= winFrom/.test(fn) &&
+      /w\.from <= winTo/.test(fn);
+
     assert.ok(
-      beforeTheDay || insideTheDays,
+      beforeTheDay || insideTheDays || boundedToWrittenMinutes,
       `capture read #${i + 1} in spine-data.ts is not bounded to the event's own days ` +
-        `(nor deliberately to the road before them): ${q.replace(/\s+/g, ' ').slice(0, 160)}`,
+        `(nor deliberately to the road before them, nor to the written minutes inside them): ` +
+        `${q.replace(/\s+/g, ' ').slice(0, 160)}`,
     );
   });
 });

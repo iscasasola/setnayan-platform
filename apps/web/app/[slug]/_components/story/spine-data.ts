@@ -36,6 +36,7 @@ import { plannedInstant } from '@/lib/run-of-show';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import {
   dialBucketMinutes,
+  manilaInstantAt,
   manilaMinuteOfDay,
   subtractWithheldFromBins,
   type BroadcastSession,
@@ -180,12 +181,15 @@ export function sampleSpineFacts(
 ): StorySpineFacts {
   const window = storyDayWindow(eventDate, eventEndDate);
   if (!window) return EMPTY_SPINE_FACTS;
+  const day = window.startDate;
   return {
     ...EMPTY_SPINE_FACTS,
     window,
     dayDates: storyDayList(window),
     bucketMinutes: dialBucketMinutes(window.days),
     palette: SAMPLE_PALETTE,
+    room: SAMPLE_ROOM,
+    blocks: sampleBlocks(day),
   };
 }
 
@@ -205,6 +209,70 @@ export function sampleSpineFacts(
  * here".
  */
 const SAMPLE_PALETTE = ['#E6D3B3', '#7E8B72', '#FBFBFA', '#6B4E3D', '#C5A059'];
+
+/**
+ * The sample stories' room and run of show — the prototype's own `ROOM` and
+ * `BLOCKS`, ported.
+ *
+ * 🔑 WITHOUT THESE THE LENS HAS NOWHERE TO BE SEEN. Measured against production
+ * 2026-09-09: the one PUBLISHED story is a `date` with no seating surface, and
+ * the only two events that own a room are drafts nobody but their host can
+ * open. So a lens with no fixture would ship to a page that shows "no venue"
+ * everywhere and to nothing else — unverifiable by the owner and by review.
+ *
+ * They are the prototype's numbers, not invented ones, on a page that already
+ * says *Sample story — not a real ⟨host⟩* on its cover. And they are fenced
+ * inside `sampleSpineFacts`, which by construction never touches the database,
+ * so no real celebration can inherit them.
+ *
+ * ⚠ THE SAMPLE STILL HAS NO CAPTURES, so its lens has no HEAT: the reception
+ * draws its tables cold and says no photograph of that minute came from a seat.
+ * That is the honest shape of a fixture — the room is a plan somebody drew, the
+ * heat would be a measurement nobody took.
+ */
+const SAMPLE_ROOM: StoryRoom = {
+  seatingSurface: true,
+  roaming: false,
+  seatsAssigned: true,
+  // Drawn a month before the day, as the road's "The room, in 3D" entry says.
+  drawnAtMs: null,
+  stage: { xPct: 33, yPct: 10, wPct: 34, hPct: 7 },
+  dance: { xPct: 38, yPct: 44, wPct: 24, hPct: 15 },
+  tables: [
+    { id: 's-t1', label: '1', xPct: 19, yPct: 27, shape: 'round' },
+    { id: 's-t2', label: '2', xPct: 81, yPct: 27, shape: 'round' },
+    { id: 's-t3', label: '3', xPct: 12, yPct: 52, shape: 'round' },
+    { id: 's-t4', label: '4', xPct: 27, yPct: 45, shape: 'round' },
+    { id: 's-t5', label: '5', xPct: 73, yPct: 45, shape: 'round' },
+    { id: 's-t6', label: '6', xPct: 88, yPct: 52, shape: 'round' },
+    { id: 's-t7', label: '7', xPct: 19, yPct: 75, shape: 'round' },
+    { id: 's-t8', label: '8', xPct: 36, yPct: 70, shape: 'round' },
+    { id: 's-t9', label: '9', xPct: 50, yPct: 78, shape: 'round' },
+    { id: 's-t10', label: '10', xPct: 64, yPct: 70, shape: 'round' },
+    { id: 's-t11', label: '11', xPct: 81, yPct: 75, shape: 'round' },
+    { id: 's-t12', label: 'Crew', xPct: 50, yPct: 92, shape: 'long_banquet' },
+  ],
+};
+
+/**
+ * The sample day's run of show, lifted onto the sample's own calendar day.
+ *
+ * Manila wall-clock minutes from the prototype's `BLOCKS`, turned into real
+ * instants through `manilaInstantAt` — the same conversion the real loader does
+ * with `plannedInstant`, and for the same reason: comparing a wall clock to a
+ * capture's instant is out by the venue's offset, which is how every afternoon
+ * photograph once landed in the morning's block.
+ */
+function sampleBlocks(dayDate: string): VenueBlock[] {
+  const at = (minute: number) => manilaInstantAt(dayDate, minute);
+  return [
+    { label: 'Getting ready', blockType: 'pre', startMs: at(660), endMs: at(750), location: 'the suite', vendorNames: [] },
+    { label: 'Arrivals', blockType: 'pre', startMs: at(750), endMs: at(840), location: 'the road up the hill', vendorNames: [] },
+    { label: 'Ceremony', blockType: 'ceremony', startMs: at(840), endMs: at(930), location: 'on the lawn, in rows', vendorNames: [] },
+    { label: 'Golden hour', blockType: 'cocktails', startMs: at(930), endMs: at(1050), location: 'on the lawn', vendorNames: [] },
+    { label: 'Reception', blockType: 'reception', startMs: at(1050), endMs: at(1350), location: 'at the long tables', vendorNames: [] },
+  ];
+}
 
 /**
  * Load the spine's facts.

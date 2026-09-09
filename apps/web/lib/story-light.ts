@@ -544,11 +544,6 @@ export function paintAtRest(stages: readonly StageColours[], stage: StageIndex):
   return paintStage(s, s, 0);
 }
 
-/** `paintStage`'s output as an inline `style` object, for the server render. */
-export function styleOf(vars: StoryLightVars): Record<string, string> {
-  return { ...vars };
-}
-
 /** Hex, for a test's failure message — a triple is unreadable in a diff. */
 export function describe(c: Rgb): string {
   return hexOfRgb(c);

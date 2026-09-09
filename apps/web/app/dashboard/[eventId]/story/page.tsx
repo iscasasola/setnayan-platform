@@ -386,12 +386,23 @@ export default async function EditorialEditorPage({
     }];
   });
 
-  const coverCandidates = await loadCoverCandidates({
-    eventId,
-    heroImageRef: (event.landing_page_hero_image_url as string | null) ?? null,
-    monogramText: (event.monogram_text as string | null) ?? null,
-    writtenMinutes,
-  });
+  /*
+    ⚠ BEHIND THE PROVED HOST, NOT JUST BEHIND THE RENDER. The page's own
+    RLS-scoped `events` read admits ANY event member — and a guest who scanned
+    the Papic QR is one (the desk above says so in its own comment). This read
+    uses the admin client and returns the suppliers' unpublished frames, so
+    gating it on `desk` (which is non-null only for a proved host) is the fence,
+    not the `{desk ? … : null}` in the JSX. A load that runs for a guest is a
+    leak waiting for someone to render it unconditionally.
+  */
+  const coverCandidates = desk
+    ? await loadCoverCandidates({
+        eventId,
+        heroImageRef: (event.landing_page_hero_image_url as string | null) ?? null,
+        monogramText: (event.monogram_text as string | null) ?? null,
+        writtenMinutes,
+      })
+    : { items: [], unreadable: [] };
   const savedCover = sanitizeStoryCover(event.story_cover_kind, event.story_cover_ref);
 
   /*
@@ -402,13 +413,15 @@ export default async function EditorialEditorPage({
     resolved per type from its profile rather than by naming `wake` in a list
     this screen would then have to maintain.
   */
-  const roster: NextTypeOption[] = await Promise.all(
-    (await getCreatableEventTypes()).map(async (t) => ({
-      key: t.key,
-      label: t.label,
-      solemn: (await eventWordsFor(t.key)).solemn,
-    })),
-  );
+  const roster: NextTypeOption[] = desk
+    ? await Promise.all(
+        (await getCreatableEventTypes()).map(async (t) => ({
+          key: t.key,
+          label: t.label,
+          solemn: (await eventWordsFor(t.key)).solemn,
+        })),
+      )
+    : [];
   const nextOffered = nextCandidates({
     eventDateISO: (event.event_date as string | null) ?? null,
     todayISO: new Date().toISOString().slice(0, 10),

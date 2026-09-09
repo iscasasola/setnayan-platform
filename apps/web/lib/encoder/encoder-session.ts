@@ -132,7 +132,7 @@ export function bufferMedia(
 
 export type EncoderSession = {
   /** Mints a token and calls `encoder_start`. Throws with the Rust error name. */
-  start(eventId: string, health: unknown): Promise<void>;
+  start(eventId: string): Promise<void>;
   /** Feed one config half as it arrives from the worker. */
   acceptConfig(config: ProgramConfig): void;
   /** Feed one tick's drained media. Never throws; push failures are counted. */
@@ -179,9 +179,9 @@ export function createEncoderSession(deps: EncoderSessionDeps): EncoderSession {
   }
 
   return {
-    async start(eventId, health) {
+    async start(eventId) {
       const token = await deps.mintToken(eventId);
-      await deps.invoke('encoder_start', { token, health });
+      await deps.invoke('encoder_start', { token });
       started = true;
       // A config may have arrived while the token round-trip was in flight.
       releaseIfReady();

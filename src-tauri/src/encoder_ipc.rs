@@ -58,9 +58,19 @@ use crate::encoder::reconnect::{
 use crate::encoder::tagger::{NoRecording, Pipeline, TagSink, Tagger};
 use crate::stream_key::StreamKeyState;
 use serde::{Deserialize, Serialize};
-use tauri::ipc::{Channel, InvokeBody, Request};
-use tauri::{Manager, State};
+use tauri::ipc::{InvokeBody, Request};
+use tauri::{Emitter, Manager, State};
 use tokio::sync::mpsc;
+
+/// The Tauri event the supervisor's health readings are emitted on.
+///
+/// An EVENT, not an `ipc::Channel`, for one concrete reason: the web app has no
+/// `@tauri-apps/api` dependency — it reaches Rust through the `withGlobalTauri`
+/// `window.__TAURI__` accessor that `lib/desktop-oauth.ts` already wraps, and a
+/// `Channel` is constructed by that package, not by the global. `core:event:default`
+/// is already granted in `capabilities/default.json`, and the OAuth flow already
+/// listens this way, so this adds no permission and no second pattern.
+pub const HEALTH_EVENT: &str = "encoder://health";
 
 /// The Setnayan API origin the token-verify call is made against. Hardcoded
 /// for the same reason `stream_key.rs`'s `SETNAYAN_API_ORIGIN` is: if the
@@ -286,7 +296,6 @@ pub async fn encoder_start(
     keys: State<'_, StreamKeyState>,
     app: tauri::AppHandle,
     token: String,
-    health: Channel<HealthUpdate>,
 ) -> Result<EncoderStartResult, String> {
     if token.trim().is_empty() {
         return Err("empty_token".to_string());
@@ -367,15 +376,16 @@ pub async fn encoder_start(
         // The forwarder HANDS THE CHANNEL BACK when it finishes, so the final
         // reading can be sent after `supervise` returns without requiring
         // `Channel` to be cloneable.
+        let emitter = app.clone();
         let forwarder = tokio::spawn(async move {
             let mut projection = HealthProjection::new(recording);
             if let Some(free_bytes) = disk_warning {
-                let _ = health.send(projection.apply(&HealthEvent::DiskLow { free_bytes }));
+                let _ = emitter.emit(HEALTH_EVENT, projection.apply(&HealthEvent::DiskLow { free_bytes }));
             }
             while let Some(event) = event_rx.recv().await {
-                let _ = health.send(projection.apply(&event));
+                let _ = emitter.emit(HEALTH_EVENT, projection.apply(&event));
             }
-            (health, projection)
+            (emitter, projection)
         });
 
         let outcome = supervise(
@@ -390,7 +400,7 @@ pub async fn encoder_start(
         .await;
 
         drop(events);
-        if let Ok((health, mut projection)) = forwarder.await {
+        if let Ok((emitter, mut projection)) = forwarder.await {
             // The stream is over however it ended — say so once, so a strip that
             // last heard "publishing" does not sit green over a dead socket.
             let closing = match &outcome.stop {
@@ -404,7 +414,7 @@ pub async fn encoder_start(
                     detail: detail.clone(),
                 },
             };
-            let _ = health.send(projection.apply(&closing));
+            let _ = emitter.emit(HEALTH_EVENT, projection.apply(&closing));
         }
 
         // The broadcast is over, so the state must read idle again — otherwise

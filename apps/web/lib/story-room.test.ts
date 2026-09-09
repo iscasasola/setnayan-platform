@@ -644,6 +644,29 @@ test('THE SEATING IS NEVER ON THE ROOM — it carries guest ids', () => {
     every renderer a guest roster. Two readers, and only one of them can see it.
   */
   const doc = roomSnapshotOf(A_REAL_ROOM, new Map([['guest-abc', 't1']]));
+
+  /*
+    🔴 THE WRITER IS CHECKED FIRST, AND THAT IS THE HALF THIS GUARD WAS MISSING.
+    An earlier cut asserted only on `readRoomSnapshot(doc)` — and the reader
+    REBUILDS the room from validated fields, so it strips anything smuggled in
+    and reports a clean room whatever the writer did. Measured: adding
+    `doc.room.seats = doc.seats` to `roomSnapshotOf` left the guard 26/26 GREEN
+    while guest ids went into the stored document.
+
+    *A guard that tests the reader cannot see a defect in the writer* — and here
+    the writer is what decides what is STORED, which is the claim.
+  */
+  assert.ok(
+    !Object.prototype.hasOwnProperty.call(doc.room, 'seats'),
+    'roomSnapshotOf put the seating INSIDE the room it stores',
+  );
+  assert.doesNotMatch(
+    JSON.stringify(doc.room),
+    /guest-abc/,
+    'a guest id was written into the stored room',
+  );
+  assert.equal(doc.seats?.['guest-abc'], 't1', 'the seating was not stored beside it');
+
   const room = readRoomSnapshot(doc);
   assert.ok(room, 'the room did not come back');
   /*

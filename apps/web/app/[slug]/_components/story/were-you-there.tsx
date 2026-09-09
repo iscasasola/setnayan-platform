@@ -177,7 +177,7 @@ export function WereYouThere({
           </dl>
 
           {own.tableLabel ? (
-            <p className="mt-2 text-xs leading-snug text-ink/55">
+            <p className="mt-2 text-xs leading-snug text-ink/60">
               Only you see this line. The plan everybody else reads carries table labels and no
               names at all.
             </p>
@@ -212,7 +212,7 @@ export function WereYouThere({
                 storyCardUrl={storyCard.url}
                 filenameBase={storyCard.filenameBase}
               />
-              <span className="text-xs leading-snug text-ink/55">
+              <span className="text-xs leading-snug text-ink/60">
                 1080 × 1920, in the {host}&rsquo;s own colours.
               </span>
             </div>

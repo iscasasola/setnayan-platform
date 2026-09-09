@@ -115,7 +115,7 @@ function Panel({ tab, beforeLabel }: { tab: IndexTab; beforeLabel: string }): Re
                 {e.label}
               </span>
               {e.note ? (
-                <em className="mt-1 block text-xs not-italic text-ink/55">{e.note}</em>
+                <em className="mt-1 block text-xs not-italic text-ink/60">{e.note}</em>
               ) : null}
             </li>
           ))}

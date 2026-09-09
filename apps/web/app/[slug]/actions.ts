@@ -1287,31 +1287,57 @@ export async function askToBeUnnamed(eventId: string): Promise<UnnameResult> {
   }
 
   const admin = createAdminClient();
-  let changed = 0;
-  let failed = false;
 
-  for (const table of ['photo_messages', 'guest_columns'] as const) {
-    /*
-      A REFUSED QUERY IS NOT A THROWN ERROR — the column could be missing on a
-      checkout that never ran S4's migration, and PostgREST answers that with
-      `{ error }` and no exception. Both arms are checked, and a failure on one
-      table does not stop the other: unnaming what we can is strictly better
-      than unnaming nothing.
-    */
+  /*
+    ⚠ TWO SPELLED-OUT CALLS, NOT A LOOP OVER A TABLE NAME. The obvious shape
+    here is `for (const table of [...]) admin.from(table)`, and it is the wrong
+    one: `lib/security/select-column-scan.test.ts` reads every `.from(…)` in
+    the app to check the columns a query selects against the schema, and a
+    `.from(variable)` is a select it CANNOT CHECK. Measured — the loop pushed
+    the unresolvable count to 6 over a ceiling of 5, and the ceiling is
+    deliberately not raisable ("Fix the resolver or the call site"). Two lines
+    of repetition buys a write path that stays inside the scanner.
+
+    ⚠ AND BOTH TABLES ARE WRITTEN EVEN IF THE FIRST FAILS. A guest who wrote a
+    Kwento AND a letter is one person making one decision; unnaming half of it
+    and leaving the other half bylined is worse than not offering the control.
+
+    A REFUSED QUERY IS NOT A THROWN ERROR — the column is missing on any
+    checkout that never ran S4's migration, and PostgREST answers that with
+    `{ error }` and no exception, so `.error` is the only way it is visible.
+  */
+  const unname = async (
+    write: () => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+  ): Promise<{ rows: number; failed: boolean }> => {
     try {
-      const { data, error } = await admin
-        .from(table)
-        .update({ author_named_publicly: false })
-        .eq('event_id', eventId)
-        .eq('guest_id', session.guest_id)
-        .eq('author_named_publicly', true)
-        .select('event_id');
-      if (error) failed = true;
-      else changed += data?.length ?? 0;
+      const { data, error } = await write();
+      return error ? { rows: 0, failed: true } : { rows: data?.length ?? 0, failed: false };
     } catch {
-      failed = true;
+      return { rows: 0, failed: true };
     }
-  }
+  };
+
+  const messages = await unname(() =>
+    admin
+      .from('photo_messages')
+      .update({ author_named_publicly: false })
+      .eq('event_id', eventId)
+      .eq('guest_id', session.guest_id)
+      .eq('author_named_publicly', true)
+      .select('event_id'),
+  );
+  const columns = await unname(() =>
+    admin
+      .from('guest_columns')
+      .update({ author_named_publicly: false })
+      .eq('event_id', eventId)
+      .eq('guest_id', session.guest_id)
+      .eq('author_named_publicly', true)
+      .select('event_id'),
+  );
+
+  const changed = messages.rows + columns.rows;
+  const failed = messages.failed || columns.failed;
 
   if (failed && changed === 0) {
     return { ok: false, message: 'We couldn’t change that just now. Please try again.' };

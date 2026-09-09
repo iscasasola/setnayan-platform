@@ -128,7 +128,7 @@ export function YourOwnConsent({
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 placeholder="Anything you want the person reading this to know (optional)"
-                className="rounded-lg border border-ink/25 bg-white/60 px-3 py-2 text-[15px] text-ink placeholder:text-ink/45"
+                className="rounded-lg border border-ink/25 bg-white/60 px-3 py-2 text-[15px] text-ink placeholder:text-ink/60"
               />
               <button
                 type="button"
@@ -138,7 +138,7 @@ export function YourOwnConsent({
               >
                 Ask for this one to come down
               </button>
-              <p className="text-xs leading-snug text-ink/55">
+              <p className="text-xs leading-snug text-ink/60">
                 Your tag comes off straight away. The photograph itself goes to a person, because
                 it may hold others as well as you.
               </p>
@@ -155,7 +155,7 @@ export function YourOwnConsent({
               >
                 Take my name off what I wrote
               </button>
-              <p className="text-xs leading-snug text-ink/55">
+              <p className="text-xs leading-snug text-ink/60">
                 This one happens now. Your words stay; your name and your role come off them.
               </p>
             </div>

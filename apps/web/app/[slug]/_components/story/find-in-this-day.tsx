@@ -276,7 +276,7 @@ export function FindInThisDay({
               placeholder="A minute (7:12), a shop, a word…"
               aria-label="Find in this day"
               autoComplete="off"
-              className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-ink/20 bg-white/60 px-3 text-[15px] text-ink outline-none placeholder:text-ink/45 focus-visible:border-terracotta-700"
+              className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-ink/20 bg-white/60 px-3 text-[15px] text-ink outline-none placeholder:text-ink/60 focus-visible:border-terracotta-700"
             />
             <button
               type="button"
@@ -298,7 +298,7 @@ export function FindInThisDay({
 
             {showing && canJump && jumpMinute != null ? (
               <>
-                <p className="pb-1 pt-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/55">
+                <p className="pb-1 pt-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/60">
                   Jump to
                 </p>
                 <button
@@ -323,7 +323,7 @@ export function FindInThisDay({
                   if (shown.length === 0) return null;
                   return (
                     <div key={g}>
-                      <p className="pb-1 pt-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/55">
+                      <p className="pb-1 pt-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/60">
                         {g} · {shown.length + more}
                       </p>
                       {shown.map((h) => (
@@ -349,7 +349,7 @@ export function FindInThisDay({
                         </button>
                       ))}
                       {more > 0 ? (
-                        <p className="py-2 font-serif text-[13px] italic text-ink/55">
+                        <p className="py-2 font-serif text-[13px] italic text-ink/60">
                           +{more} more in {g.toLowerCase()} — add a word to narrow it
                         </p>
                       ) : null}

@@ -99,7 +99,7 @@ export function ThreadViewSwitch({
       <div
         role="group"
         aria-label="Show"
-        className="inline-flex overflow-hidden rounded-[10px] border border-ink/15"
+        className="inline-flex overflow-hidden rounded-lg border border-ink/15"
       >
         {tab('all', 'All', null, 0)}
         {tab('decisions', 'Decisions', decisionsCount, needsYouCount)}

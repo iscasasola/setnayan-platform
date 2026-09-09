@@ -76,6 +76,7 @@ import { ConfirmForm } from '@/app/_components/confirm-form';
 import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import { SuggestMilestonesButton } from '@/app/dashboard/[eventId]/budget/_components/suggest-milestones-button';
+import { splitVendorLines } from '@/lib/agreed-total-and-its-changes';
 import {
   addLineItem,
   deleteLineItem,
@@ -525,7 +526,15 @@ function LineItemSection({
   suggestTotalPhp: number;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
-  const hasManual = lineItems.length > 0;
+  // ── A CHANGE IS SHOWN SEPARATELY (owner 2026-09-09) ──────────────────────
+  // "Both, shown separately" — the agreed total updates AND the change stays
+  // visible as its own line. A settled change-order delta shares this table
+  // with the couple's own itemisation and means the opposite thing, so it gets
+  // its own heading rather than sitting unlabelled among "Your own additions"
+  // where nothing says the supplier agreed to it.
+  const { breakdown: manualLines, changes: changeLines } = splitVendorLines(lineItems);
+  const hasManual = manualLines.length > 0;
+  const hasChanges = changeLines.length > 0;
   return (
     <section className="space-y-3 p-5">
       <header className="flex items-center gap-2">
@@ -595,7 +604,7 @@ function LineItemSection({
             </p>
           ) : null}
           <ul className="space-y-1.5">
-            {lineItems.map((li) => (
+            {manualLines.map((li) => (
               <li
                 key={li.line_item_id}
                 className="flex items-center justify-between gap-2 rounded-md bg-ink/[0.03] px-3 py-2 text-sm"
@@ -630,6 +639,41 @@ function LineItemSection({
                     </SubmitButton>
                   </ConfirmForm>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {hasChanges ? (
+        <div className="space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Changes you both agreed
+          </p>
+          <ul className="space-y-1.5">
+            {changeLines.map((li) => (
+              <li
+                key={li.line_item_id}
+                className="flex items-center justify-between gap-2 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2 text-sm"
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <p className="truncate font-medium text-ink">{li.label}</p>
+                  {li.due_date ? (
+                    <p className="inline-flex items-center gap-1 text-xs text-ink/60">
+                      <Calendar className="h-3 w-3" strokeWidth={1.75} />
+                      Due {li.due_date}
+                    </p>
+                  ) : null}
+                </div>
+                {/* NO DELETE CONTROL, DELIBERATELY. A line the couple typed is
+                    theirs to remove; a change order is a record of something the
+                    SUPPLIER also agreed to. Letting one side delete it would put
+                    the budget and the change-order trail — which keeps saying
+                    "accepted" — back into disagreement, which is the whole
+                    defect. The way to undo a change is another change. */}
+                <span className="font-mono text-sm font-semibold text-ink">
+                  {formatPhp(li.amount_php)}
+                </span>
               </li>
             ))}
           </ul>

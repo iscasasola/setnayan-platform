@@ -13,6 +13,7 @@ import {
   type BudgetLiveSummary,
 } from '@/lib/budget';
 import { resolveEventMoney, bucketLabel, type EventMoney } from '@/lib/budget-truth';
+import { splitVendorLines, sumAmountPhp } from '@/lib/agreed-total-and-its-changes';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import {
   budgetStripMoney,
@@ -260,7 +261,19 @@ export default async function BudgetPage({ params }: Props) {
       return acc;
     }
     const cost = s.vendor.total_cost_php !== null ? Number(s.vendor.total_cost_php) : 0;
-    return acc + (Number.isFinite(cost) ? cost : 0);
+    // ── AND THE CHANGES AGREED SINCE (owner 2026-09-09) ────────────────────
+    // This figure is the couple's headline agreed price per confirmed supplier.
+    // A change order accepted AFTER the lock does not move `total_cost_php` —
+    // it settles as a signed `event_vendor_line_items` row — so without this
+    // term the strip kept reporting the pre-change number while the supplier's
+    // own card (which reads `itemizedTotal`) reported the new one. TWO NUMBERS,
+    // ONE SCREEN, DISAGREEING: exactly the defect the ruling exists to end.
+    //
+    // ⚠ CHANGES ONLY, never every line. A BREAKDOWN line is an itemisation OF
+    // this headline — all 12 suppliers carrying lines in production today sum
+    // to their headline exactly — so adding those would DOUBLE each of them.
+    const changesPhp = sumAmountPhp(splitVendorLines(s.lineItems).changes);
+    return acc + (Number.isFinite(cost) ? cost : 0) + changesPhp;
   }, 0);
   const committedPhpTotal = paidOrdersTotalPhp + contractedVendorsTotalPhp;
 

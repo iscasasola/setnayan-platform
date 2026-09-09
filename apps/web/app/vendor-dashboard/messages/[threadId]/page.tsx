@@ -491,11 +491,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         />
     ),
     /*
-      ⚠ THE QUOTE SEED IS UNCHANGED ON PURPOSE. The builder opens sized to what
-      the couple ASKED for (`pax_at_inquiry`); re-seeding it from the live count
-      would quietly move the number a supplier prices against. What changes is
-      that the builder is now TOLD the live count too, so its header can name
-      BOTH instead of showing one unlabelled figure.
+      THE QUOTE OPENS AT THE LIVE COUNT (owner, 2026-09-09).
+
+      Both numbers go in and the builder seeds itself from `livePax`, falling
+      back to the inquiry count when there is no live one. The binding
+      prototype's booked frame shows that field pre-filled at the live figure,
+      and the owner ruled for it.
+
+      🔑 IT MOVES MONEY, WHICH IS WHY BOTH STILL RENDER. A quote opened at 170
+      when the couple asked with 150 is a different price, so the builder's
+      header names the seed AND the inquiry count in every state — the point of
+      this whole area is that no headcount appears without saying which one it
+      is.
     */
     'build-quote': (
         <ProposalMaker

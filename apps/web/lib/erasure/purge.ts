@@ -497,11 +497,23 @@ export async function purgeUserAuthoredChat(
 
   // Collect attachment refs BEFORE the delete — afterwards there is no row to
   // tell us which objects were theirs.
+  // ⚠ BOTH COLUMNS. Attachments moved to the private bucket on 2026-09-09 and
+  // the row now carries `attachment_r2_key`; reading only the legacy
+  // `attachment_url` would have left every file this person ever sent sitting
+  // in storage after their account was erased — an RA 10173 failure whose only
+  // symptom is silence. `.or()` rather than two queries so one delete pass
+  // still covers both shapes.
   const { data: attachments, error: readErr } = await admin
     .from('chat_messages')
-    .select('attachment_url')
-    .eq('sender_user_id', targetUserId)
-    .not('attachment_url', 'is', null);
+    .select('attachment_url, attachment_r2_key')
+    .eq('sender_user_id', targetUserId);
+  // ⚠ NO `.or()` FILTER, DELIBERATELY. The first cut narrowed this read with
+  // `.or('attachment_url.not.is.null,attachment_r2_key.not.is.null')` and it
+  // took FORTY db tests down with it — every assertion in the erasure suite,
+  // because a failing lookup here aborts the purge flow the rest of them
+  // exercise. The rows are filtered in JS below instead: an erasure sweep runs
+  // once per account and reads one person's own messages, so the narrowing was
+  // never worth a query shape the replay could not answer.
   if (readErr) await auditFail('chat-attachment-lookup', readErr.message);
 
   const { error } = await admin
@@ -511,10 +523,15 @@ export async function purgeUserAuthoredChat(
   if (error) await auditFail('chat-authored-messages', error.message);
 
   for (const row of attachments ?? []) {
-    const url = (row as { attachment_url?: string | null }).attachment_url;
-    if (typeof url !== 'string' || url.length === 0) continue;
+    const r = row as { attachment_url?: string | null; attachment_r2_key?: string | null };
+    // The private ref first — it is what every attachment written since
+    // 2026-09-09 carries. The legacy public URL is still honoured for any
+    // historical row (production never had one, but an erasure sweep is the
+    // wrong place to assume that).
+    const stored = r.attachment_r2_key ?? r.attachment_url;
+    if (typeof stored !== 'string' || stored.length === 0) continue;
     try {
-      await io.deletePublicAssetUrl(url);
+      await io.deletePublicAssetUrl(stored);
     } catch (e) {
       await auditFail('chat-attachment-r2-delete', e instanceof Error ? e.message : String(e));
     }

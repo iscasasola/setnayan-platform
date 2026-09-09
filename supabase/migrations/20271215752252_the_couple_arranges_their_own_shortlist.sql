@@ -54,7 +54,22 @@ CREATE TABLE IF NOT EXISTS public.event_bench_arrangement (
   -- and the reader (`lib/bench-arrangement.ts`) resolves that deterministically
   -- rather than the write failing and costing the couple their whole drag.
   position   INT  NOT NULL CHECK (position >= 0 AND position <= 500),
-  set_by     UUID REFERENCES auth.users(id),
+  -- WHICH host last dragged this card. An authorship stamp, nothing more: the
+  -- arrangement belongs to the CELEBRATION and every host sees it, so a host
+  -- who deletes their account must NOT take the couple's order with them —
+  -- the rail would silently re-order for everyone else who is still here.
+  --
+  -- ⚠ ON DELETE SET NULL IS LOAD-BEARING, AND WAS MISSING FOR ONE COMMIT.
+  -- Written without a clause this is NO ACTION, which REFUSES the user delete
+  -- — one couple's bench pin would have been enough to block erasing an
+  -- account. `user-delete-fk-surface.db.test.ts` caught it and names the two
+  -- honest answers; this is the first (SET NULL for an authorship stamp),
+  -- not a baseline line, because nothing here needs to outlive its author.
+  --
+  -- The pin survives with a NULL stamp, and stays editable: the UPDATE policy's
+  -- `set_by = auth.uid()` sits in its CHECK, not its USING, so another host can
+  -- re-drag an orphaned pin and the stamp simply becomes theirs.
+  set_by     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (event_id, tile, vendor_id)

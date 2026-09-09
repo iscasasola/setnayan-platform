@@ -60,6 +60,10 @@ import {
   unmetPublishRequirements,
 } from '@/lib/service-publish-gate';
 import { SERVICE_UPDATE_MATCHED_NOTHING } from '@/lib/a-write-that-matched-nothing';
+import { serviceCardTitleOrAuto } from '@/lib/service-card-auto-title';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
+import { humanizeKind } from '@/lib/service-card-kind';
+import { isVendorNameRevealed } from '@/lib/vendors';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { validatePackageDraft, type DraftItem } from '@/lib/package-authoring';
 import {
@@ -1397,6 +1401,74 @@ export async function setServicePaymentSchedule(formData: FormData) {
 }
 
 /**
+ * The name a card is saved under when its supplier left the box blank.
+ *
+ * 🔴 WHY THE SERVER DOES THIS AT ALL. Measured in production 2026-09-10: BOTH
+ * live service cards carry `title IS NULL` while `is_active = true`, so a couple
+ * reads the bare kind where the shop's name for that service should be. The
+ * auto-namer already existed and is a CLIENT-SIDE effect in `canvas-maker.tsx`
+ * gated on `initial === null` — it fires for a brand-new card and for nothing
+ * else, so no edit, no copy and no seeded row has ever been named. Naming at the
+ * WRITE covers every route that reaches this action instead of the ones somebody
+ * remembered.
+ *
+ * ⛔ NOT A PUBLISH REQUIREMENT. Owner-locked 2026-07-27: *"saving builds blank
+ * will make us autocreate a name"*. Refusing a publish for a missing title would
+ * demand the one thing we promise to write. `PUBLISH_REQUIREMENTS` is untouched.
+ *
+ * 🔒 THE SHOP NAME PASSES THE SAME ANONYMITY TEST THE MARKETPLACE USES. A stored
+ * title is rendered raw, with no anonymity filter downstream, so an unrevealed
+ * shop's real `business_name` baked into it would be published AND frozen there.
+ * When the name is hidden the card is named after its kind alone.
+ *
+ * ⚠ FAILS SOFT, ALWAYS. Every read here is wrapped: a taxonomy or profile read
+ * that hiccups degrades the WORDING (humanised kind, no shop name) and never the
+ * save. A naming helper must not be able to refuse a supplier's card — and the
+ * database trigger names anything that still arrives blank.
+ */
+async function titleForCard(
+  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
+  profile: Awaited<ReturnType<typeof ensureProfile>>['profile'],
+  category: string,
+  typed: string | null,
+): Promise<string | null> {
+  // The supplier's own words always win, and cost nothing to honour.
+  if (typed !== null && typed.trim().length > 0) return typed.trim().slice(0, 80);
+
+  const kindLabel = await cardKindLabeller()
+    .then((label) => label(category))
+    .catch(() => humanizeKind(category));
+
+  let shopName: string | null = null;
+  try {
+    const { data } = await supabase
+      .from('vendor_profiles')
+      .select('name_revealed_at,verification_state')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    const row = (data ?? null) as
+      | { name_revealed_at: string | null; verification_state: string | null }
+      | null;
+    // No row read → treat the name as HIDDEN. The safe direction: a card named
+    // after its kind is plain, a card that publishes a hidden name is a leak.
+    if (
+      row &&
+      isVendorNameRevealed({
+        name_revealed_at: row.name_revealed_at ?? null,
+        is_verified: row.verification_state === 'verified',
+        services: profile.services ?? [],
+      })
+    ) {
+      shopName = profile.business_name?.trim() || null;
+    }
+  } catch {
+    shopName = null;
+  }
+
+  return serviceCardTitleOrAuto(typed, { kindLabel, shopName });
+}
+
+/**
  * commitVendorService — the guided "create a service" flow's SINGLE save.
  *
  * Validates EVERYTHING in TypeScript (reusing the same parse* helpers the legacy
@@ -1497,10 +1569,12 @@ export async function commitVendorService(formData: FormData) {
     }
 
     const titleRaw = formData.get('title');
-    const title =
+    const typedTitle =
       typeof titleRaw === 'string' && titleRaw.trim().length > 0
         ? titleRaw.trim().slice(0, 80)
         : null;
+    // A blank box is NAMED here, not refused. See `titleForCard`.
+    const title = await titleForCard(supabase, profile, category, typedTitle);
     const branchPick = await resolveBranchId(
       supabase,
       profile.vendor_profile_id,

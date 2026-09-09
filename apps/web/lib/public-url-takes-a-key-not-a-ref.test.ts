@@ -44,21 +44,25 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { publicAssetTarget } from '@/lib/stored-asset-public-url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
 
 /**
- * Source with comments removed. Load-bearing: several docblocks legitimately
- * NAME `r2PublicUrl()` while explaining why they no longer call it, and a raw
- * substring scan would report the very files that carry the correction.
+ * Source with comments removed, through the repo's ONE string-aware stripper.
+ *
+ * Load-bearing twice over. Several docblocks legitimately NAME `r2PublicUrl()`
+ * while explaining why they no longer call it, so a raw substring scan would
+ * report the very files that carry the correction. And a hand-rolled
+ * regex stripper is worse than none here: a `//` line comment containing `/*`
+ * — `accept="image/*"`, which this codebase writes constantly — opens a block
+ * comment that never existed and blanks every line to the next real close,
+ * silently shrinking what this scan can see. `lint-one-comment-stripper`
+ * refuses a second stripper for exactly that reason, and it caught this file.
  */
 function code(abs: string): string {
-  return readFileSync(abs, 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .filter((l) => !/^\s*(\/\/|\*)/.test(l))
-    .join('\n');
+  return stripComments(readFileSync(abs, 'utf8'));
 }
 
 function walk(dir: string, out: string[] = []): string[] {

@@ -38,3 +38,14 @@ that merely names `r2PublicUrl(` correctly stays green.
 
 SPEC IMPACT: None — no schema, no migration, no price, no owner-locked
 behaviour. The cover photo renders at the address the object has always had.
+
+### Follow-up (same PR)
+
+`lint-one-comment-stripper` caught the guard's own hand-rolled comment stripper
+and was right to: a `//` line comment containing `/*` — `accept="image/*"`,
+written constantly in this codebase — opens a block comment that never existed
+and blanks every line to the next real close, silently shrinking what a source
+scan can see. The guard now uses the repo's one string-aware stripper
+(`lib/strip-comments.ts`), and a new mutation covers exactly that shape: a
+trailing `// … r2PublicUrl(bucket, key) …` after an `image/*` string stays
+green, where the naive `^\s*` anchor could not have stripped it at all.

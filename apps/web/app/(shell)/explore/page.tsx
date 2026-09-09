@@ -40,6 +40,7 @@ import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { countLiveShops } from '@/lib/live-shops';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
+import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
 import { toServiceCard } from '@/lib/service-card-view-model';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
@@ -65,7 +66,7 @@ import {
 } from '@/lib/taxonomy';
 import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayLogoUrl, displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
 import {
@@ -1566,6 +1567,41 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const serviceCards = isLandingView
     ? await fetchMarketplaceServiceCards(admin, { limit: 24 }).catch(() => null)
     : null;
+  /*
+    ═ THE CARD CARRIES ITS SHOP'S LOGO — resolved ONCE PER SHOP ═
+    Owner, 2026-09-09: the card body opens that service's details, the LOGO
+    opens the shop.
+
+    🪤 `logo_url` DOES NOT HOLD A URL. Anything uploaded through the shop editor
+    is stored as `r2://bucket/key`; a browser cannot fetch that, so it renders a
+    broken-image glyph and throws nothing. `displayLogoUrl` is the ONE shipped
+    resolver for this column — never a second one, and never `publicUrlFor`,
+    whose argument is an object KEY and which would fold the `r2://` scheme into
+    the object path.
+
+    Keyed by SHOP, not by card: the marketplace lists one row per card, so a
+    shop with four cards would otherwise be signed four times for one picture.
+    Signing is a round trip each.
+
+    A failure costs a picture, never the grid — the card falls back to the
+    initials tile, which is a real design state, not an error state.
+  */
+  const serviceCardLogoUrls = new Map<string, string | null>();
+  if (serviceCards) {
+    const byShop = new Map<string, string | null>();
+    for (const c of serviceCards) {
+      if (!byShop.has(c.vendorProfileId)) byShop.set(c.vendorProfileId, c.businessLogoRef);
+    }
+    const shops = [...byShop.entries()];
+    const resolved = await Promise.all(
+      shops.map(([, ref]) =>
+        displayLogoUrl({ logo_url: ref }).catch(() => null),
+      ),
+    );
+    shops.forEach(([vendorProfileId], i) => {
+      serviceCardLogoUrls.set(vendorProfileId, resolved[i] ?? null);
+    });
+  }
   const marketplaceIsEmpty = liveShopCount === 0;
 
   if (isLandingView && marketplaceIsEmpty) {
@@ -3460,31 +3496,29 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {serviceCards.map((c) => (
               <li key={c.row.vendor_service_id}>
-                <Link
-                  href={c.businessSlug ? `/v/${c.businessSlug}` : '/explore'}
-                  className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  <ServiceCardView
-                    card={toServiceCard(
-                      c.row,
-                      undefined,
-                      undefined,
-                      undefined,
-                      undefined,
-                      false,
-                      null,
-                      new Date(),
-                      null,
-                      null,
-                      false,
-                    )}
-                    detailsEnabled={false}
-                  />
-                  <p className="mt-1.5 truncate text-xs text-ink/55">
-                    {c.businessName}
-                    {c.locationCity ? ` · ${c.locationCity}` : ''}
-                  </p>
-                </Link>
+                <ServiceCardView
+                  card={toServiceCard(
+                    c.row,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    false,
+                    null,
+                    new Date(),
+                    null,
+                    null,
+                    false,
+                  )}
+                  detailsEnabled
+                  detailsHref={serviceCardAddress(c)}
+                  shop={{
+                    name: c.businessName,
+                    href: shopAddress(c.businessSlug),
+                    logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
+                    city: c.locationCity,
+                  }}
+                />
               </li>
             ))}
           </ul>

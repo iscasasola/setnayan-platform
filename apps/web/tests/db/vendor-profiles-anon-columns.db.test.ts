@@ -395,21 +395,24 @@ test('the catalog shows no table-level grant to anon or PUBLIC', async () => {
   );
 });
 
-// ── 5. The deliberate scoping — `authenticated` is UNTOUCHED ────────────────
-
-test('SCOPED OUT (documented hole): `authenticated` can still read tin_number', async () => {
-  // This is NOT an endorsement — it is a tripwire. api/profile/export does
-  // .select('*') on the session client for the RA 10173 data-subject export,
-  // so a column-level grant to `authenticated` would 42501 a compliance
-  // obligation. If a follow-up PR closes that hole properly (by enumerating
-  // the export first), this assertion SHOULD fail and be deleted — that is the
-  // signal the remaining exposure is finally gone.
-  const r = await db.query<{ ok: boolean }>(
-    `SELECT has_column_privilege('authenticated','public.vendor_profiles','tin_number','SELECT') AS ok`,
-  );
-  assert.equal(
-    r.rows[0]!.ok,
-    true,
-    'authenticated lost SELECT on tin_number — if this was deliberate, verify api/profile/export still works and delete this test',
-  );
-});
+// ── 5. THE TRIPWIRE FIRED, AND WAS HONOURED — 2026-09-10 ───────────────────
+//
+// A test used to sit here asserting, deliberately, that `authenticated` COULD
+// still read `tin_number`. It was not an endorsement — it was a tripwire, and
+// its own comment gave the instruction for the day it went red:
+//
+//     "If a follow-up PR closes that hole properly (by enumerating the export
+//      first), this assertion SHOULD fail and be deleted — that is the signal
+//      the remaining exposure is finally gone."
+//
+// Migration 20271217955839 closed it. The export was enumerated first, exactly
+// as that comment required: `app/api/profile/export/route.ts` moved off
+// `select('*')` on the session client to the SERVICE-ROLE client with the named
+// projection `VENDOR_PROFILE_EXPORT_SELECT`, and its tests T11 (which client
+// issues the read) and T12 (that the projection is complete) pin both halves.
+//
+// So the assertion is DELETED, not repaired — it is the one outcome the test
+// was written to produce. The eleven identity columns are now covered by
+// tests/db/a-shop-tax-identity-is-not-public.db.test.ts, which asserts the
+// denial, the shop's own read through public.vendor_profiles_self, and that
+// anon's 21-column surface pinned above did not move.

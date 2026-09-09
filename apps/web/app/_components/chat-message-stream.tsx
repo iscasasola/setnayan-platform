@@ -462,7 +462,7 @@ export function ChatMessageStream({
       contracts: [],
       handovers: [],
       chatFiles: messages
-        .filter((m) => m.attachment_name || m.attachment_url)
+        .filter((m) => m.attachment_name || m.attachment_r2_key || m.attachment_url)
         .map((m) => ({
           message_id: m.message_id,
           sender_role: m.sender_role,
@@ -470,6 +470,7 @@ export function ChatMessageStream({
           attachment_name: m.attachment_name ?? null,
           attachment_mime: m.attachment_mime ?? null,
           attachment_size_bytes: m.attachment_size_bytes ?? null,
+          attachment_r2_key: m.attachment_r2_key ?? null,
           attachment_url: m.attachment_url ?? null,
         })),
       coupleLabel: viewerRole === 'vendor' ? counterpartyLabel : 'You',

@@ -257,6 +257,8 @@ export function EditorialEditor({
   deskPercentDecided = 0,
   hasBeenPublished = false,
   publishConsentAt = null,
+  cover = null,
+  whatsNext = null,
 }: {
   eventId: string;
   slug: string | null;
@@ -328,6 +330,19 @@ export function EditorialEditor({
    */
   hasBeenPublished?: boolean;
   publishConsentAt?: string | null;
+  /**
+   * THE COVER AND WHAT'S NEXT (08 steps 1.5 + 1.7). Both are resolved on the
+   * server — the cover's candidates have already passed the screen and the
+   * consent veto, and the next-celebration candidates are DERIVED from the
+   * event's own date. Passed through rather than fetched here: this component
+   * is a browser, and neither list is a browser's to decide.
+   *
+   * OPTIONAL so the two steps simply do not render where the page could not
+   * resolve them (an unproved host, a refused read). A missing step is
+   * honest; a step full of invented options is not.
+   */
+  cover?: React.ReactNode;
+  whatsNext?: React.ReactNode;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -1357,6 +1372,22 @@ export function EditorialEditor({
         theme={theme}
         onChange={setTheme}
       />
+
+      {/*
+        COVER (08 step 1.5) then WHAT'S NEXT (08 step 1.7) — the fourth and fifth
+        of the six steps, in the order `02` §1 sets them: the desk · the story ·
+        theme · COVER · WHAT'S NEXT · publish. Both are rendered by the page and
+        handed in as slots, because each needs a server read this component must
+        not make: the cover's candidates have already been through the screen and
+        the consent veto, and the next-celebration candidates are derived from
+        the event's own date against the admin roster.
+
+        ⚠ THEY SIT ABOVE PUBLISH ON PURPOSE. A host decides what the story is
+        known by, and whether anything follows it, BEFORE they decide who may
+        read it — and the publish rung below is the last press on the page.
+      */}
+      {cover}
+      {whatsNext}
 
       {/*
         ═══ PUBLISH — 08 step 1.6 · design `02` §8 · prototype "PUBLISH" panel ══

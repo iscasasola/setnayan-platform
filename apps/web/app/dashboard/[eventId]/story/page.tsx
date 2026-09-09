@@ -31,6 +31,13 @@ import { eventNoun } from '@/lib/event-noun';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { sanitizeStoryTheme } from '@/lib/story-theme';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { sanitizeStoryCover } from '@/lib/story-cover';
+import { loadCoverCandidates, type WrittenMinute } from './_lib/load-cover-candidates';
+import { CoverStep } from './_components/cover-step';
+import { WhatsNextStep } from './_components/whats-next-step';
+import { nextCandidates, sanitizeNextAnnouncement, type NextTypeOption } from '@/lib/whats-next';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
 
@@ -64,7 +71,7 @@ export default async function EditorialEditorPage({
   const { data: event, error } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, landing_page_visibility, event_type, event_date, event_end_date, archived, role_palette, moodboard_theme_name, special_message',
+      'event_id, display_name, slug, landing_page_visibility, event_type, event_date, event_end_date, archived, role_palette, moodboard_theme_name, special_message, story_cover_kind, story_cover_ref, landing_page_hero_image_url, monogram_text, monogram_color, venue_name',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -365,6 +372,110 @@ export default async function EditorialEditorPage({
   */
   const boardColors = sanitizeRolePalette(event.role_palette).reception ?? [];
 
+  /*
+    ═══ THE COVER (08 step 1.5) ══════════════════════════════════════════════
+
+    🔑 THE CAPTURES ARE NOT RE-QUERIED. `chapterCards` above already carries
+    every capture that passed the screen, the hidden check and the consent veto
+    — `loadEditorialChaptersForEditor` runs all three. A second read here would
+    be a second opinion about who consented, and the two would drift.
+
+    "Any accepted capture from a WRITTEN minute" (`02` §6): a minute is written
+    when the host gave it a title or a write-up, which is exactly what a chapter
+    OVERRIDE records. A hidden one is not offered — the host already said no to
+    it once, and a cover is the loudest place to ignore that.
+  */
+  const overrideByLead = new Map(chapterCards.overrides.map((o) => [o.leadId, o] as const));
+  const writtenMinutes: WrittenMinute[] = chapterCards.cards.flatMap((c) => {
+    const override = overrideByLead.get(c.leadId);
+    if (!override || override.hidden) return [];
+    const title = (override.title ?? '').trim() || (override.writeUp ?? '').trim();
+    if (!title) return [];
+    return [{
+      leadId: c.leadId,
+      time: c.time || 'From the day',
+      thumbUrl: c.thumbUrl,
+      title: override.title?.trim() || c.suggestedTitle || 'A written minute',
+    }];
+  });
+
+  /*
+    ⚠ BEHIND THE PROVED HOST, NOT JUST BEHIND THE RENDER. The page's own
+    RLS-scoped `events` read admits ANY event member — and a guest who scanned
+    the Papic QR is one (the desk above says so in its own comment). This read
+    uses the admin client and returns the suppliers' unpublished frames, so
+    gating it on `desk` (which is non-null only for a proved host) is the fence,
+    not the `{desk ? … : null}` in the JSX. A load that runs for a guest is a
+    leak waiting for someone to render it unconditionally.
+  */
+  /*
+    ⚠ AND IT FAILS TO AN EMPTY LIST RATHER THAN THROWING — the SAME rule the desk
+    load above keeps, for the same reason, twenty lines further down the page:
+    *a desk that cannot load must not take the shipped editor down with it.*
+
+    🔴 THIS WAS UNGUARDED IN THE FIRST CUT. A Server Component that throws takes
+    the WHOLE route with it, so one unreadable supplier frame would have cost the
+    host their entire Story Maker — the desk, the editor, the publish ladder, all
+    of it — and the page would simply have failed. A cover step that cannot load
+    must cost the cover step.
+  */
+  let coverCandidates: Awaited<ReturnType<typeof loadCoverCandidates>> = {
+    items: [],
+    unreadable: [],
+  };
+  if (desk) {
+    try {
+      coverCandidates = await loadCoverCandidates({
+        eventId,
+        heroImageRef: (event.landing_page_hero_image_url as string | null) ?? null,
+        monogramText: (event.monogram_text as string | null) ?? null,
+        writtenMinutes,
+      });
+    } catch {
+      // The step renders with the living hero and the monogram only, which is
+      // honest: it offers what it could prove, and never invents a candidate.
+      coverCandidates = { items: [], unreadable: ['your pictures'] };
+    }
+  }
+  const savedCover = sanitizeStoryCover(event.story_cover_kind, event.story_cover_ref);
+
+  /*
+    ═══ WHAT'S NEXT (08 step 1.7) ════════════════════════════════════════════
+
+    DERIVED, NEVER CREATED. The roster is the admin's own (`event_type_vocab`),
+    so a type HQ retires stops being offered here with no deploy; `solemn` is
+    resolved per type from its profile rather than by naming `wake` in a list
+    this screen would then have to maintain.
+  */
+  /*
+    ⚠ GUARDED FOR THE SAME REASON, and this one resolves a profile PER TYPE — so
+    a single unresolvable event type would otherwise reject the whole
+    `Promise.all` and take the route down. An empty roster offers no next
+    celebration at all, which is the resting state the owner ruled is a complete
+    answer; a thrown page is not.
+  */
+  let roster: NextTypeOption[] = [];
+  if (desk) {
+    try {
+      roster = await Promise.all(
+        (await getCreatableEventTypes()).map(async (t) => ({
+          key: t.key,
+          label: t.label,
+          solemn: (await eventWordsFor(t.key)).solemn,
+        })),
+      );
+    } catch {
+      roster = [];
+    }
+  }
+  const nextOffered = nextCandidates({
+    eventDateISO: (event.event_date as string | null) ?? null,
+    todayISO: new Date().toISOString().slice(0, 10),
+    roster,
+    formatDate: formatEventDate,
+  });
+  const announced = sanitizeNextAnnouncement(draft.whatsNext, nextOffered);
+
   const initial: EditorialEditorInput = {
     headline: composed?.headline || str(draft.headline),
     deck: composed?.deck || str(draft.deck),
@@ -488,6 +599,41 @@ export default async function EditorialEditorPage({
         deskPercentDecided={desk ? percentDecided(desk.items) : 0}
         publishConsentAt={publishConsentAt}
         hasBeenPublished={hasBeenPublished}
+        /*
+          THE FOURTH AND FIFTH STEPS, rendered here and handed down as slots:
+          each needs a server read the editor must not make. They render ONLY
+          for a proved host — the same fence the desk above uses, because the
+          cover's own write is a service-role write authorised by it.
+        */
+        cover={
+          desk ? (
+            <CoverStep
+              eventId={eventId}
+              candidates={coverCandidates.items}
+              unreadable={coverCandidates.unreadable}
+              initial={savedCover}
+              displayName={(event.display_name as string) ?? ''}
+              monogramText={(event.monogram_text as string | null) ?? null}
+              monogramColor={(event.monogram_color as string | null) ?? null}
+              metaLine={[
+                event.event_date ? formatEventDate(event.event_date as string) : null,
+                (event.venue_name as string | null) ?? null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              uploadDisplayUrls={uploadDisplayUrls}
+            />
+          ) : null
+        }
+        whatsNext={
+          desk ? (
+            <WhatsNextStep
+              eventId={eventId}
+              candidates={nextOffered}
+              initialKind={announced?.kind ?? null}
+            />
+          ) : null
+        }
       />
     </div>
   );

@@ -144,8 +144,15 @@ export const CANDLE_LABEL: Rgb = [27, 26, 23]; // #1B1A17
  * one, exactly as `paint()` does it.
  */
 function candleInkOn(ground: Rgb): Rgb {
-  const seed = luminanceOf(ground) < 0.3 ? [240, 200, 110] : [122, 90, 22];
-  return nudgeUntilLegible(seed as Rgb, ground, ACCENT_MIN);
+  // ⚠ ANNOTATED, NOT CAST. `const seed = cond ? [a,b,c] : [d,e,f]` infers
+  // `number[]`, and `number[] as Rgb` is a conversion TypeScript refuses
+  // outright (TS2352) — it is not a widening, the tuple has a fixed length the
+  // array does not promise. Annotating the binding types both branches as the
+  // tuple instead, which is what was meant. Caught by CI, not locally: this
+  // worktree had no dependencies installed, so the local typecheck was resolving
+  // nothing (see the note in the CI-parity memory).
+  const seed: Rgb = luminanceOf(ground) < 0.3 ? [240, 200, 110] : [122, 90, 22];
+  return nudgeUntilLegible(seed, ground, ACCENT_MIN);
 }
 
 /**

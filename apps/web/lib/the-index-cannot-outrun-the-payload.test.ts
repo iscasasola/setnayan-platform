@@ -348,3 +348,74 @@ test('find-in-this-day · reads the DOM, and has no other source to read', () =>
     );
   }
 });
+
+// ── ZERO SUPPLIERS: A HANGOUT SHOWS NO TEAM TAB AND NO #1-MATCH TILE ────────
+//
+// `08` step 3.3 · `05_Occasions_Registers_MultiDay.md` §5: "A hangout, a date,
+// a family wake, or any event whose suppliers were hired off-platform has no
+// `event_vendors` rows… hide the team tab, the #1-match tile and the tier
+// legend when the set is empty."
+//
+// 🔑 EXTENDING S11's ONE EMPTINESS RULE, NOT WRITING A SECOND BESIDE IT. The
+// host-layer tabs already omit themselves at zero inside `buildStoryIndex`
+// (`if (teamEntries.length > 0)`), and the guest-layer tabs go through
+// `pushGuestTab`. Nothing new gates emptiness here; this PINS the behaviour so
+// the claim is measured rather than believed, because "it is already handled"
+// is exactly the kind of thing that stops being true quietly.
+
+/** The smallest input that isolates the team axis. */
+function indexWithTeam(
+  team: ReadonlyArray<{ name: string; category: string | null; isFirstPick: boolean }>,
+) {
+  return buildStoryIndex({
+    guestOpen: true,
+    anchors: ANCHORS,
+    windowMs: 15 * 60_000,
+    captures: [],
+    voices: [],
+    asked: [],
+    letters: [],
+    team,
+    films: [],
+    wall: [],
+    wallActive: false,
+    room: { tables: [], seatsAssigned: false },
+    palette: [],
+    madeWith: [],
+    numbers: [],
+    captureCount: null,
+    words: { host: 'host', occasion: 'celebration' },
+  });
+}
+
+test('a hangout with no bookings has no team tab, no #1-match tile, no tier legend', () => {
+  const tabs = indexWithTeam([]);
+  assert.equal(
+    tabs.find((t) => t.key === 'team'),
+    undefined,
+    'an event with no suppliers still shows "The team"',
+  );
+  // The #1-match tile and the tier legend are both carried BY that tab — the
+  // tile as an entry note, the legend as the tab's own note — so this asserts
+  // over every entry and note the index produced, not just the team tab. A
+  // future surface that printed either from somewhere else fails here.
+  const everything = JSON.stringify(tabs);
+  assert.ok(!everything.includes('#1 match'), 'a #1-match tile reached an event with no bookings');
+  assert.ok(
+    !everything.includes('Paying never changes'),
+    'the tier legend reached an event with no bookings',
+  );
+});
+
+test('…and a booked event still gets all three — the check can tell them apart', () => {
+  // 🪤 WITHOUT THIS, THE TEST ABOVE PASSES ON AN INDEX THAT NEVER BUILDS A TEAM
+  // TAB AT ALL. An assertion of absence is only worth what its paired presence
+  // is worth: this is the fixture on which "hide when empty" and "never show"
+  // disagree, and it is the one that would catch a fix that went too far.
+  const tabs = indexWithTeam([{ name: 'Goldenhour', category: 'Photography', isFirstPick: true }]);
+  const team = tabs.find((t) => t.key === 'team');
+  assert.ok(team, 'a booked event lost its team tab');
+  const everything = JSON.stringify(tabs);
+  assert.ok(everything.includes('#1 match'), 'the #1-match tile vanished for a booked event');
+  assert.ok(everything.includes('Paying never changes'), 'the tier legend vanished');
+});

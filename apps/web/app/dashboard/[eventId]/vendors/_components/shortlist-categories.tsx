@@ -733,7 +733,7 @@ html.dark .slcat .mrerr{color:#E39A9A}
    ornament and it is decorative -- the count is in the text, where a screen
    reader and a colour-blind reader both get it. */
 .slcat .replied{display:flex;align-items:center;gap:.6rem;border:1px solid var(--gold);
-  border-radius:12px;padding:.55rem .8rem;background:var(--card);font-size:.84rem;
+  border-radius:var(--m-r-md);padding:.55rem .8rem;background:var(--card);font-size:.84rem;
   color:var(--ink);margin:0 0 14px}
 .slcat .replied .dot{width:8px;height:8px;border-radius:50%;background:var(--gold-deep);flex:none}
 .slcat .replied b{font-weight:700}

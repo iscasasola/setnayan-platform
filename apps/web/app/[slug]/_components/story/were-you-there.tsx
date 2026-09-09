@@ -22,6 +22,7 @@
 
 import { type ReactElement } from 'react';
 import { SaveStoryCardButton } from '../../recap/_components/save-story-card-button';
+import { SMALL_COUNTS_ARE_A_VERDICT } from '@/lib/story-room';
 import type { IndexAnchor } from '@/lib/story-index';
 import type { YourOwnDay } from '../../_lib/your-own-day.server';
 import { YourOwnConsent } from './your-own-consent';
@@ -143,8 +144,18 @@ export function WereYouThere({
             </div>
           ) : null}
 
+          {/*
+            ⚖ A SMALL NUMBER IS NOT STATED HERE EITHER. Owner ruling 2026-09-09
+            — a low count "will subconsciously tell them they did not create
+            enough memories for the story". It was ruled about a table and it is
+            the same sentence aimed at a guest: "1 thing you shot" reads as *you
+            barely turned up*. Below the threshold the tile is simply absent —
+            and nothing is lost, because the minutes they are in are named in
+            full above and their own words are quoted in full below. The number
+            was the only part that was a score.
+          */}
           <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
-            {own.shot.length > 0 ? (
+            {own.shot.length >= SMALL_COUNTS_ARE_A_VERDICT ? (
               <div>
                 <dd className="font-condensed text-3xl font-extrabold leading-none tabular-nums">
                   {own.shot.length.toLocaleString('en-PH')}
@@ -154,7 +165,7 @@ export function WereYouThere({
                 </dt>
               </div>
             ) : null}
-            {own.said.length > 0 ? (
+            {own.said.length >= SMALL_COUNTS_ARE_A_VERDICT ? (
               <div>
                 <dd className="font-condensed text-3xl font-extrabold leading-none tabular-nums">
                   {own.said.length.toLocaleString('en-PH')}

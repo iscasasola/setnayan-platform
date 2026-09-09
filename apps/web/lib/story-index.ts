@@ -51,6 +51,7 @@
  * a class name in a stylesheet.
  */
 
+import { SMALL_COUNTS_ARE_A_VERDICT } from './story-room';
 import { countForLayer } from './the-guests-layer-is-theirs-until-you-publish';
 
 /** Which of the three layers (`01` §2, owner lock 1) an entry belongs to. */
@@ -179,6 +180,36 @@ export type StoryIndexInput = {
 const NO_MINUTE = '—';
 
 /**
+ * A COUNT THIS STORY WILL NOT STATE — because a small number is a verdict.
+ *
+ * ⚖ OWNER RULING 2026-09-09, relayed from the session that put it to him. He
+ * was asked whether a table with one or two photographs should show its count,
+ * as a PRIVACY question, and answered no for a different reason entirely:
+ *
+ *     "this will subconsciously tell them they did not create enough
+ *      memories for the story"
+ *
+ * 🔑 SO IT IS NOT A PRIVACY FLOOR AND IT IS NOT ABOUT SEATING. It is the rule
+ * that THE STORY NEVER PASSES JUDGEMENT ON THE DAY IT IS TELLING, and it
+ * generalises to any small number anywhere on this page — which is why the
+ * threshold is imported from `story-room.ts` rather than re-picked here. A
+ * session that reads it as k-anonymity will relax it; the reason is the
+ * load-bearing half.
+ *
+ * ⚠ THE CHIP LOSES ITS NUMBER; THE TAB KEEPS ITS ROWS. The floor plan takes a
+ * quiet table out of the room entirely, and that is right there — a faintly
+ * drawn table still says "this table barely shot anything". It is NOT right
+ * here: two letters are two letters somebody wrote, and deleting them to avoid
+ * printing "2" would take the story away to protect a feeling about it. What
+ * this withholds is the STATEMENT of the number, which is the part that reads
+ * as a verdict. The rows are the story; the chip is a score.
+ */
+function countWorthStating(n: number | null): number | null {
+  if (n == null) return null;
+  return n >= SMALL_COUNTS_ARE_A_VERDICT ? n : null;
+}
+
+/**
  * The minute an instant belongs to, or null.
  *
  * ⚠ NEAREST WITHIN A WINDOW, NEVER JUST NEAREST. `nearestBy` on the road had to
@@ -280,7 +311,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
   */
   const captureChip =
     input.captureCount != null && captureEntries.length === input.captureCount
-      ? countForLayer(input.captureCount, guestOpen)
+      ? countWorthStating(countForLayer(input.captureCount, guestOpen))
       : null;
 
   pushGuestTab(tabs, guestOpen, {
@@ -315,7 +346,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
   pushGuestTab(tabs, guestOpen, {
     key: 'voices',
     title: 'Voices',
-    count: countForLayer(voiceEntries.length, guestOpen),
+    count: countWorthStating(countForLayer(voiceEntries.length, guestOpen)),
     layer: 'guest',
     entries: voiceEntries,
     note: null,
@@ -337,7 +368,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
   pushGuestTab(tabs, guestOpen, {
     key: 'asked',
     title: 'Asked',
-    count: countForLayer(askedEntries.length, guestOpen),
+    count: countWorthStating(countForLayer(askedEntries.length, guestOpen)),
     layer: 'guest',
     entries: askedEntries,
     note:
@@ -360,7 +391,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
   pushGuestTab(tabs, guestOpen, {
     key: 'letters',
     title: 'Letters',
-    count: countForLayer(letterEntries.length, guestOpen),
+    count: countWorthStating(countForLayer(letterEntries.length, guestOpen)),
     layer: 'guest',
     entries: letterEntries,
     note: 'Letters carry a byline only if the writer agreed to be named. The role rides the same consent as the name.',
@@ -383,7 +414,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
     tabs.push({
       key: 'team',
       title: 'The team',
-      count: teamEntries.length,
+      count: countWorthStating(teamEntries.length),
       layer: 'host',
       entries: teamEntries,
       note: 'Paying never changes whether a shop is credited — only how richly.',
@@ -407,7 +438,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
     tabs.push({
       key: 'films',
       title: 'Films',
-      count: filmEntries.length,
+      count: countWorthStating(filmEntries.length),
       layer: 'host',
       entries: filmEntries,
       note: "A minute's timecode is its clock time minus the moment that session went live.",
@@ -429,7 +460,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
     pushGuestTab(tabs, guestOpen, {
       key: 'wall',
       title: 'Photo wall',
-      count: countForLayer(wallEntries.length, guestOpen),
+      count: countWorthStating(countForLayer(wallEntries.length, guestOpen)),
       layer: 'guest',
       entries: wallEntries,
       note: 'The wall as the room saw it — minus anything a guest has un-posted since.',
@@ -455,7 +486,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
     tabs.push({
       key: 'room',
       title: 'The room',
-      count: roomEntries.length,
+      count: countWorthStating(roomEntries.length),
       layer: 'host',
       entries: roomEntries,
       note: 'No names on the plan. A guest sees their own table — and only their own — on their own account.',
@@ -497,7 +528,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
     tabs.push({
       key: 'made',
       title: 'Made with',
-      count: madeEntries.length,
+      count: countWorthStating(madeEntries.length),
       layer: 'host',
       entries: madeEntries,
       note: null,

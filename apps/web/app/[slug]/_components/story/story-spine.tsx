@@ -56,6 +56,7 @@ import {
 import { STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import type { EventWords } from '../../_lib/event-words';
 import type { DayChapter, EditorialData } from '../editorial/data';
+import { SMALL_COUNTS_ARE_A_VERDICT } from '@/lib/story-room';
 import { buildStoryIndex, type IndexAnchor } from '@/lib/story-index';
 import { StoryClock, type DialBar, type DialLabel } from './story-clock';
 import { StoryLens } from './story-lens';
@@ -569,8 +570,25 @@ export function StorySpine({
       note: `Used for this ${words.occasion}.`,
       stamps: [],
     })),
+    /*
+      ⚖ THE NUMBERS TAB DROPS A SMALL NUMBER RATHER THAN STATING IT. Owner
+      ruling 2026-09-09: a small count "will subconsciously tell them they did
+      not create enough memories for the story". "1 voice" and "0 live films"
+      are that sentence, printed. The threshold is the one `story-room.ts`
+      already owns, because the ruling is house style and not a seating rule.
+
+      🔑 FLAGGED, NOT SILENTLY EXTENDED TO THE COVER. The cover's own four facts
+      render the same figures a few thousand pixels up and are S9's shipped
+      surface — "14 captures · 0 live films" is live on production today, and
+      withholding two of four changes what every story's cover looks like. That
+      is the owner's call on a designed element (`01` §3.1), not a side effect
+      of building the index, so it is raised rather than taken.
+    */
     numbers: coverFacts
-      .filter((f): f is { n: number; label: string } => f.n != null)
+      .filter(
+        (f): f is { n: number; label: string } =>
+          f.n != null && f.n >= SMALL_COUNTS_ARE_A_VERDICT,
+      )
       .map((f) => ({ value: f.n.toLocaleString('en-PH'), label: f.label, note: null })),
     captureCount: countForLayer(data.metrics.photos, guestOpen),
     words: { host: words.host, occasion: words.occasion },

@@ -41,6 +41,7 @@ import {
   redactStoryLayers,
   type LayeredStoryPayload,
 } from './the-guests-layer-is-theirs-until-you-publish';
+import { SMALL_COUNTS_ARE_A_VERDICT } from './story-room';
 import { STRANGER, type StoryViewer } from './who-can-see-your-story';
 
 const WEB_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -227,6 +228,87 @@ test('the index · every guest-layer field the index reads is emptied by the red
   }
   assert.equal(redacted.metrics.photos, null, 'the capture count survived the redaction');
   assert.equal(redacted.metrics.clips, null, 'the clip count survived the redaction');
+});
+
+test('the index · a small number is never STATED — the story does not grade the day', () => {
+  /*
+    ⚖ OWNER RULING 2026-09-09, and its REASON is the load-bearing half. He was
+    asked as a privacy question whether a table with one or two photographs
+    should show its count. He said no, for a different reason:
+
+        "this will subconsciously tell them they did not create enough
+         memories for the story"
+
+    🔑 It is therefore not a k-anonymity floor and not a seating rule — it is
+    that THE STORY NEVER PASSES JUDGEMENT ON THE DAY IT IS TELLING, and it
+    reaches any small number anywhere on this page. A session that reads it as
+    privacy will relax it the first time the numbers look safe.
+
+    The fixture is deliberately a QUIET celebration: one voice, one question,
+    one letter, two captures — a real day, and every chip on it a verdict.
+  */
+  const quiet = fullPayload();
+  quiet.audience = 'published';
+  const tabs = indexFrom(quiet, true);
+  const stated = tabs.filter((t) => t.count != null);
+
+  console.log(
+    `quiet-day tabs: ${tabs.length} · chips stating a number: ${stated.length} ` +
+      `(${stated.map((t) => `${t.title}=${t.count}`).join(', ') || 'none'})`,
+  );
+
+  assert.ok(tabs.length > 0, 'no tabs were built — this test would pass whatever the rule did');
+  for (const t of tabs) {
+    assert.ok(
+      t.entries.length < SMALL_COUNTS_ARE_A_VERDICT || t.count != null || t.key === 'captures',
+      `the "${t.title}" tab has ${t.entries.length} rows and stated no number — the rule ` +
+        'withholds SMALL counts, it does not silence every chip',
+    );
+    if (t.count == null) continue;
+    assert.ok(
+      t.count >= SMALL_COUNTS_ARE_A_VERDICT,
+      `the "${t.title}" chip stated ${t.count}, under the threshold (${SMALL_COUNTS_ARE_A_VERDICT}) — ` +
+        'a small number on a host\'s own story reads as a verdict on their day',
+    );
+  }
+
+  /*
+    AND THE ROWS ARE STILL THERE. The floor plan takes a quiet table out of the
+    room; this must NOT take the letter out of the story. Losing the rows to
+    avoid printing "1" is the failure in the other direction, and it is the one
+    a careless fix produces.
+  */
+  const letters = tabs.find((t) => t.key === 'letters');
+  assert.ok(letters, 'the letters tab vanished — the rule withholds a NUMBER, never the story');
+  assert.equal(letters!.count, null);
+  assert.ok(letters!.entries.length > 0, 'the letter itself was dropped along with its count');
+
+  /*
+    🪤 AND THE OTHER DIRECTION, WHICH IS THE ONE THAT MAKES THIS A TEST. On the
+    quiet fixture above, ZERO chips state a number — so every assertion so far
+    would also pass if `count` were hardcoded to null and the feature deleted.
+    A big day must still get its chips. Measured, not assumed.
+  */
+  const loud = fullPayload();
+  loud.audience = 'published';
+  loud.kwentoQuotes = Array.from({ length: 7 }, (_, i) => ({ body: `A wish, number ${i}` }));
+  loud.guestColumns = Array.from({ length: 4 }, (_, i) => ({
+    title: `Letter ${i}`,
+    body: 'Everyone remembers the march.',
+  }));
+  const loudTabs = indexFrom(loud, true);
+  const loudStated = loudTabs.filter((t) => t.count != null);
+  console.log(
+    `loud-day chips stating a number: ${loudStated.length} ` +
+      `(${loudStated.map((t) => `${t.title}=${t.count}`).join(', ') || 'none'})`,
+  );
+  assert.ok(
+    loudStated.length > 0,
+    'a celebration with seven voices and four letters stated no number anywhere — ' +
+      'the rule has stopped withholding SMALL counts and started withholding all of them',
+  );
+  assert.equal(loudTabs.find((t) => t.key === 'voices')?.count, 7);
+  assert.equal(loudTabs.find((t) => t.key === 'letters')?.count, 4);
 });
 
 test('find-in-this-day · reads the DOM, and has no other source to read', () => {

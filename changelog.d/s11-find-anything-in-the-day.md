@@ -78,6 +78,27 @@ The index's captures chip therefore prints the cover's number only when it holds
 cover counted, and prints nothing otherwise — a third number disagreeing with both would have been
 the same defect with one more instance.
 
+### ⚖ A small number is never STATED — the story does not grade the day
+
+Owner ruling 2026-09-09, relayed by the S10 session that put it to him. Asked as a PRIVACY question
+whether a table with one or two photographs should show its count, he said no for a different
+reason: *"this will subconsciously tell them they did not create enough memories for the story."*
+So it is not a k-anonymity floor and not a seating rule — **the story never passes judgement on the
+day it is telling**, and it reaches any small number anywhere on the page.
+
+Every index chip, and the guest's own "things you shot / things you said" tiles, now route through
+`SMALL_COUNTS_ARE_A_VERDICT` (imported from `story-room.ts`, not re-picked). ⚠ **The chip loses its
+number; the tab keeps its rows.** The floor plan takes a quiet table out of the room and that is
+right there — a faintly drawn table still says "this one barely shot anything". It is wrong here:
+two letters are two letters somebody wrote, and deleting them to avoid printing "2" would take the
+story away to protect a feeling about it.
+
+🔑 **FLAGGED, NOT SILENTLY EXTENDED TO THE COVER.** The cover's own four facts state the same
+figures — `14 captures · 0 live films · 0 voices · 19 days told` is live on production today, and
+"0 live films" is that ruling's exact sentence printed on somebody's cover. Withholding two of four
+changes what every story's cover looks like, which is the owner's call on a designed element
+(`01` §3.1), not a side effect of building the index. **Raised for him, not taken.**
+
 ### Guards — each one sabotaged, with the occurrence count printed
 
 - `lib/the-index-cannot-outrun-the-payload.test.ts` — runs the real pipeline twice, once WITHOUT
@@ -92,6 +113,10 @@ the same defect with one more instance.
   empty scan fails the floor.
 - `lib/story-find.test.ts` — 9 cases over the time grammar, `every`-not-`any` narrowing, the cap,
   the snippet and the marking.
+- the small-count arm runs a QUIET fixture and a LOUD one, because on the quiet one alone **zero
+  chips state a number** and every assertion would also pass with the feature deleted. Three
+  sabotages: stop withholding → 7 chips appear, fails; silence every chip → the loud day states
+  nothing, fails; drop the quiet TAB instead of its number → four tests fail.
 
 ⚠ **`lib/modal-a11y-adoption.test.ts` was scanning RAW source** and reported `find-in-this-day.tsx`
 — a file whose docblock explains why it deliberately does *not* claim `aria-modal`. Now routed

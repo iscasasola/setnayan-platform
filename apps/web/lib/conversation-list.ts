@@ -167,6 +167,108 @@ export function initialsFor(displayName: string): string {
 }
 
 /**
+ * WHETHER THE SERVICE TAG EARNS ITS SPOT ON THE SUPPLIER'S OWN INBOX.
+ *
+ * A tag that reads the same on every row of a list costs a line and says
+ * nothing — a caterer's whole inbox tagging every row "Catering" is the same
+ * disease as an always-shown date on a single-wedding column, just on the
+ * other side. Pass the label this vendor's OWN rows would carry, across the
+ * whole list being drawn; the tag is worth showing only when it varies.
+ *
+ * 🔑 NOT A VENDOR-PROFILE LOOKUP. What a shop *sells* and what its current
+ * inbox is *about* can differ (a multi-service vendor whose live threads
+ * happen to all be catering inquiries this week) — this asks the row's own
+ * question, "does this tag tell the row apart from its neighbours right now",
+ * not "how many categories does this business's profile list".
+ */
+export function serviceTagVaries(labelsAcrossInbox: ReadonlyArray<string | null | undefined>): boolean {
+  const distinct = new Set(labelsAcrossInbox.filter((l): l is string => !!l));
+  return distinct.size > 1;
+}
+
+/** One day, in milliseconds — the unit `isDateTagWorthShowing` measures in. */
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * WHETHER THE DATE TAG EARNS ITS SPOT.
+ *
+ * Only on the supplier's column, where every row is a different wedding —
+ * the couple's own column deliberately never shows one (every row there is
+ * the SAME wedding; see `buildCoupleConversationRows`'s labels contract). A
+ * date sixteen months out is not live context for "who am I talking to right
+ * now"; close to the day, it is. `nowMs` is injected, the same discipline
+ * `buildBenchStandings` already uses, so this stays testable without a clock.
+ */
+export function isDateTagWorthShowing(eventDateIso: string | null | undefined, nowMs: number): boolean {
+  if (!eventDateIso) return false;
+  const d = new Date(eventDateIso.length === 10 ? `${eventDateIso}T00:00:00Z` : eventDateIso);
+  if (Number.isNaN(d.getTime())) return false;
+  return Math.abs(d.getTime() - nowMs) <= 60 * MS_PER_DAY;
+}
+
+/**
+ * FACT-FIRST REPLACEMENTS FOR A BODY THIS APP WROTE.
+ *
+ * Measured in a browser (2026-09-09): the desktop column gives a preview
+ * about 32 characters before it clips, a phone about 50. A card's `body` is
+ * written for the THREAD — full sentences, a call to action — not for that
+ * column, so printing it verbatim is how *"📄 Proposal — "Intimate 50" ·
+ * ₱187,500. Tap to review and accept."* arrives on the row clipped mid-word.
+ *
+ * ⛔ ONLY messages this app authored are rewritten here. A message a PERSON
+ * typed has no shorter version of their own sentence — CSS `truncate`
+ * ellipsizes those correctly already (verified: the preview span is a
+ * `block`, so `text-overflow: ellipsis` has a width to work against), and
+ * rewriting somebody's words would be inventing what they said.
+ *
+ * Matched by the card's own body PREFIX rather than a new column: every
+ * writer below already renders a stable, code-controlled template, so the
+ * fact is already sitting in the string that was going to be truncated
+ * anyway — no extra query, no schema change, no risk of a card format
+ * drifting from what this list expects to see.
+ *
+ * ⏭ TWO EXAMPLES IN THE ORIGINAL BRIEF DO NOT EXIST AS STORED MESSAGES,
+ * measured against the shipped code: "guest count changed" is a live card
+ * computed straight from `event_vendors` in the thread page
+ * (`vendor-dashboard/messages/[threadId]/page.tsx`), never written to
+ * `chat_messages`; "deposit received" is an `emitNotification` body, not a
+ * chat message either. Neither ever reaches this column, so neither needed a
+ * pattern here — corrected rather than built against.
+ */
+const GENERATED_PREVIEW_PATTERNS: ReadonlyArray<{
+  match: RegExp;
+  short: (m: RegExpMatchArray) => string;
+}> = [
+  {
+    // `lib/proposal-send.ts` → `📄 Proposal — "Intimate 50 — your event" · ₱187,500. Tap to review and accept.`
+    match: /^📄 Proposal — [“"].+?[”"] · (.+?)\. Tap to review and accept\.$/,
+    short: (m) => `Quote ${m[1]} sent`,
+  },
+  {
+    // `app/_components/negotiation-actions.ts` → `📅 Meeting request: Venue walkthrough`
+    // The label after the colon is what a PERSON typed into the request form —
+    // only the generated wrapper shrinks; a long label still earns the ellipsis.
+    match: /^📅 Meeting request: (.+)$/,
+    short: (m) => `📅 Meeting: ${m[1]}`,
+  },
+  {
+    // `lib/chat-actions.ts` → `**Setnayan Exclusive unlocked 🎁** Free engagement shoot: <perk copy…>`
+    // The perk copy itself is marketing text with no length limit; the fact
+    // that matters on a row is WHICH exclusive unlocked, not its pitch.
+    match: /^\*\*Setnayan Exclusive unlocked 🎁\*\* (.+?): /,
+    short: (m) => `🎁 Exclusive: ${m[1]}`,
+  },
+];
+
+function shortenGeneratedBody(body: string): string {
+  for (const { match, short } of GENERATED_PREVIEW_PATTERNS) {
+    const m = body.match(match);
+    if (m) return short(m);
+  }
+  return body;
+}
+
+/**
  * The one line under a couple's name.
  *
  * ⚠ AN EMPTY THREAD IS NOT A SILENT ONE. A conversation with no messages yet
@@ -186,7 +288,8 @@ export function previewFor(
   const mine = last.sender_role === selfRole;
   const body = (last.body ?? '').replace(/\s+/g, ' ').trim();
   if (!body) return mine ? 'You sent an attachment' : 'Sent an attachment';
-  return mine ? `You: ${body}` : body;
+  const short = shortenGeneratedBody(body);
+  return mine ? `You: ${short}` : short;
 }
 
 /**

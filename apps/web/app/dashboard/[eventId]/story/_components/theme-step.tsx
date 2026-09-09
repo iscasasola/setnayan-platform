@@ -39,7 +39,7 @@ import { SwatchPopover } from '@/app/dashboard/[eventId]/studio/mood-board/_comp
 import {
   receptionSlotLabel,
   resolveStoryPalette,
-  storyLightStages,
+  storyThemeStages,
   type StoryTheme,
   type StoryThemeMode,
 } from '@/lib/story-theme';
@@ -91,7 +91,7 @@ export function ThemeStep({
     () => resolveStoryPalette(theme, { reception: boardColors }),
     [theme, boardColors],
   );
-  const stages = useMemo(() => storyLightStages(resolved.colors), [resolved.colors]);
+  const stages = useMemo(() => storyThemeStages(resolved.colors), [resolved.colors]);
 
   const hasBoard = boardColors.length > 0;
   const editable = theme.mode === 'own';

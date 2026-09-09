@@ -201,6 +201,13 @@ export type ChatMessageRow = {
    * shows an <img> thumbnail for image MIMEs and a file chip otherwise.
    */
   attachment_url?: string | null;
+  /**
+   * Stored-asset ref for a PRIVATE attachment (2026-09-09). Present instead of
+   * `attachment_url` on everything sent since. Never rendered directly — the
+   * viewer fetches `/api/chat/attachment/<message_id>`, which re-proves thread
+   * membership on every request.
+   */
+  attachment_r2_key?: string | null;
   attachment_name?: string | null;
   attachment_mime?: string | null;
   attachment_size_bytes?: number | null;
@@ -540,7 +547,7 @@ export async function fetchThreadById(
 }
 
 const MESSAGE_SELECT =
-  'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_name,attachment_mime,attachment_size_bytes';
+  'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_r2_key,attachment_name,attachment_mime,attachment_size_bytes';
 
 export async function fetchMessages(
   supabase: SupabaseClient,

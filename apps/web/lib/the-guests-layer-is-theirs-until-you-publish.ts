@@ -232,6 +232,19 @@ export type LayeredStoryPayload = {
   /** The captures index, and the photo essay drawn from the same pool. */
   galleryPhotos: unknown[];
   essayPhotos: unknown[];
+  /**
+   * The same captures with their shutter times — what the eleven index tabs
+   * file under each minute.
+   *
+   * ⚠ IT IS NAMED HERE BECAUSE IT IS THE SAME PHOTOGRAPHS. `galleryPhotos` was
+   * already taken whole; a parallel array carrying the identical pool plus a
+   * timestamp would have walked straight past a redaction that only knew about
+   * the first one. That is precisely the failure the note on this type warns
+   * about — a field added later either belongs to a layer and is named here, or
+   * it is the host's own. Optional, so the six curated samples (which carry no
+   * audience and are never redacted anyway) need no edit.
+   */
+  galleryCaptures?: unknown[];
   /** The minute sheet's source — chapters built from the Papic timeline. */
   dayChapters: unknown[];
   /** The photo wall. */
@@ -301,6 +314,7 @@ export function redactStoryLayers<T extends LayeredStoryPayload>(
     if (data.guestColumns) patch.guestColumns = [];
     patch.galleryPhotos = [];
     patch.essayPhotos = [];
+    if (data.galleryCaptures) patch.galleryCaptures = [];
     patch.dayChapters = [];
     patch.photoWallPhotos = [];
     patch.photoWallActive = false;

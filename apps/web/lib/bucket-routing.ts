@@ -80,5 +80,16 @@ export function bucketForPrefix(pathPrefix: string): R2BucketKey {
   // behind a plain URL at the moment it was created. Consent gates
   // publication; a routing default must not pre-empt it.
   if (normalized.startsWith('render-gallery/')) return 'threadFiles';
+  // Chat attachments (2026-09-09). PRIVATE, and this line is the fix for the
+  // omission the three comments above keep describing: there was no `chat/`
+  // rule, so every file a couple or a supplier shared in a conversation fell
+  // through the `media` default below and was handed a permanent public URL.
+  // A contract, a receipt, a bank slip — readable forever by anyone the link
+  // reached. Nothing about the upload looked wrong; the default was the bug.
+  //
+  // 🔑 THE DEFAULT IS THE DANGEROUS PART OF THIS FUNCTION. Every rule above is
+  // defence-in-depth for a writer that already names its bucket; this one is
+  // load-bearing on its own, because the chat writer routes BY PREFIX.
+  if (normalized.startsWith('chat/')) return 'threadFiles';
   return 'media';
 }

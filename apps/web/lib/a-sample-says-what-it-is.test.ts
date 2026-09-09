@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { stripComments } from './strip-comments';
+
 import { REAL_WEDDINGS } from './real-weddings';
 import { sampleIsSolemn, sampleShowcaseNote, withArticle } from './a-sample-says-what-it-is';
 
@@ -78,7 +80,10 @@ test('the recap route refuses a solemn register in BOTH arms', () => {
     join(process.cwd(), 'app/[slug]/recap/page.tsx'),
     'utf8',
   );
-  const stripped = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  // ONE comment stripper in this repo — `lint-one-comment-stripper` caught this
+  // file growing a second, AFTER the guard sweep had already passed. A guard run
+  // before the last edit proves nothing about the last edit.
+  const stripped = stripComments(src);
   const hits = (stripped.match(/\.solemn/g) || []).length;
   assert.ok(
     hits >= 2,

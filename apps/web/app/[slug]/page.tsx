@@ -17,6 +17,7 @@ import {
   resolveEventOwnerSlug,
 } from '@/lib/public-event-url';
 import { ogCardUrlFor } from '@/lib/a-withdrawal-reaches-every-copy';
+import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // Bare-root dispatch: a slug that isn't a renderable event may be a vendor
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
@@ -190,20 +191,14 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
     platform that re-scrapes the page, gets the current card. Same shape of limit
     as the printed keepsake, and it must be described the same honest way.
 
-    A rejected read is an ABSENCE, not a throw: `story_version_at` simply comes
-    back missing and the URL degrades to the unversioned form it has today. That
-    is the old behaviour, not a broken one.
+    🔴 AND THIS READ USED TO BE INLINE AND UNGUARDED, under a comment of mine
+    saying "a rejected read is an ABSENCE, not a throw". True of a REFUSED query;
+    silent about a network failure or a client that cannot be constructed — and
+    this runs inside `generateMetadata`, where a throw fails the WHOLE PAGE. **A
+    version stamp could have taken down a couple's wedding page.** One guarded
+    reader now owns it: a failed stamp costs the stamp, never the page.
   */
-  const { data: storyRow } = await admin
-    .from('event_editorial')
-    .select('story_version_at')
-    .eq('event_id', event.event_id)
-    .maybeSingle();
-  const ogCard = ogCardUrlFor(
-    siteUrl,
-    event.slug,
-    typeof storyRow?.story_version_at === 'string' ? storyRow.story_version_at : null,
-  );
+  const ogCard = ogCardUrlFor(siteUrl, event.slug, await readStoryVersionAt(event.event_id));
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;

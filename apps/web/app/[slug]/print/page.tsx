@@ -23,6 +23,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { storyAudienceAdmits } from '@/lib/who-can-see-your-story';
 import { printedStampLine } from '@/lib/a-withdrawal-reaches-every-copy';
+import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
@@ -268,19 +269,14 @@ export default async function EditorialPrintPage({
     the story's content, and every other reader of `EditorialData` would have had
     to carry a field it has no use for.
 
-    ⚠ A REJECTED READ IS AN ABSENCE. `story_version_at` comes back missing rather
-    than throwing, `printedStampLine` returns null for it, and the colophon then
-    prints NO stamp at all. That is the correct outcome and not a degraded one: a
-    copy we cannot date is exactly the copy printed before this shipped, and
-    stamping it with today would be the lie the whole feature exists to avoid.
+    ⚠ NO VERSION ⇒ NO STAMP, never today's date. `readStoryVersionAt` answers
+    `null` for a refused read AND for a thrown one, `printedStampLine` returns
+    null for that, and the colophon prints nothing. A copy we cannot date is
+    exactly the copy printed before this shipped; stamping it with today would
+    be the lie the whole feature exists to avoid.
   */
-  const { data: storyRow } = await createAdminClient()
-    .from('event_editorial')
-    .select('story_version_at')
-    .eq('event_id', event.event_id)
-    .maybeSingle();
   const stampLine = printedStampLine(
-    typeof storyRow?.story_version_at === 'string' ? storyRow.story_version_at : null,
+    await readStoryVersionAt(event.event_id),
     typeof event.timezone === 'string' ? event.timezone : null,
   );
 

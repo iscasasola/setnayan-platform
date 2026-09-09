@@ -335,3 +335,52 @@ test('every consent write in app/ reaches the one list', () => {
   );
   assert.equal(offenders.length, 0, `\n${offenders.join('\n')}\n`);
 });
+
+test('exactly one place reads the story version, and it cannot take a page down', () => {
+  /*
+    🔴 THE DEFECT THIS PINS WAS MINE, AND IT WAS NOT THE STAMP THAT WAS AT RISK.
+    The three surfaces each read `story_version_at` inline, under a comment I
+    wrote saying "a rejected read is an ABSENCE, not a throw." That is true of a
+    REFUSED query and silent about every other way an await fails — and one of
+    those reads sits inside `generateMetadata`, where a throw fails the WHOLE
+    PAGE. **A version stamp could have taken down a couple's wedding page.**
+
+    Two halves, because the claim has two:
+      1. no surface reads the column directly — there is ONE reader;
+      2. that reader has the arm the inline reads lacked.
+    Checking only (2) would pass a build where a fourth surface reads it inline;
+    checking only (1) would pass a build where the one reader throws.
+  */
+  const offenders: string[] = [];
+  for (const file of walk(join(WEB, 'app'))) {
+    const src = stripComments(readFileSync(file, 'utf8'));
+    if (/story_version_at/.test(src)) {
+      offenders.push(file.replace(`${WEB}/`, ''));
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `these surfaces read the story version themselves instead of through ` +
+      `readStoryVersionAt(), so a failed read costs them their page rather than ` +
+      `their stamp:\n${offenders.join('\n')}`,
+  );
+
+  const reader = stripComments(
+    readFileSync(join(WEB, 'lib', 'a-withdrawal-reaches-every-copy.server.ts'), 'utf8'),
+  );
+  const fn = reader.slice(reader.indexOf('export async function readStoryVersionAt'));
+  assert.ok(fn.length > 100, 'readStoryVersionAt has gone missing.');
+  assert.match(
+    fn,
+    /catch\s*\{[^}]*return null/,
+    'readStoryVersionAt no longer falls back on a THROWN failure — the arm the ' +
+      'inline reads were missing is the whole reason this function exists.',
+  );
+  assert.match(
+    fn,
+    /if\s*\(error\)\s*return null/,
+    'readStoryVersionAt no longer handles a REFUSED read. A rejected query is an ' +
+      'absence, not a throw, so the catch alone does not cover it.',
+  );
+});

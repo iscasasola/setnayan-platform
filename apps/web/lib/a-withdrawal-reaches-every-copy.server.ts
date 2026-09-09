@@ -95,3 +95,54 @@ export async function everyCopyIsNowStale(eventId: string): Promise<void> {
     revalidatePath(path);
   }
 }
+
+/**
+ * READ THE STORY'S VERSION — the ONE place that does, and it cannot take a page
+ * down with it.
+ *
+ * ── 🔴 THE DEFECT THIS EXISTS TO CLOSE, WHICH WAS MINE ───────────────────────
+ * The three surfaces that need this stamp each read the column inline, under a
+ * comment of mine that said: *"a rejected read is an ABSENCE, not a throw."*
+ * That sentence is TRUE OF A REFUSED QUERY and says nothing about the other
+ * ways an await fails — a network error, an aborted fetch, a client that cannot
+ * be constructed. **Correct fact, invented consequence**, which is the exact
+ * shape this repo keeps paying for, written by the session that had spent the
+ * day correcting it in somebody else's work.
+ *
+ * What it would have cost, and it is not the stamp:
+ *   · `/[slug]` reads it inside `generateMetadata` — a throw there fails the
+ *     whole page, so **a version stamp could take down a couple's wedding page**;
+ *   · `/[slug]/print` and `/[slug]/recap` read it at the top of the render.
+ *
+ * ⚖ **A FAILED STAMP MUST COST THE STAMP, NEVER THE PAGE.** That rule was
+ * already written into `everyCopyIsNowStale` above — *"by the time this is
+ * called the withdrawal is already durable"* — and then not applied twenty
+ * lines away at the read sites. Same rule, same file, applied once.
+ *
+ * 🔑 AND IT IS ONE FUNCTION SO THE RULE CANNOT BE HALF-APPLIED AGAIN. A fourth
+ * surface that wants the stamp gets the fallback for free;
+ * `a-withdrawal-reaches-every-copy.test.ts` fails if any surface reads the
+ * column directly instead.
+ *
+ * `null` means "we do not know", and every caller already treats that as the
+ * pre-S14 behaviour: no `?v=` on the card, no date on the paper. Never today's.
+ */
+export async function readStoryVersionAt(eventId: string): Promise<string | null> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from('event_editorial')
+      .select('story_version_at')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) return null;
+    const v = (data as { story_version_at?: unknown } | null)?.story_version_at;
+    return typeof v === 'string' ? v : null;
+  } catch {
+    /*
+      The arm the inline reads did not have. A thrown failure and a refused one
+      arrive differently and must end the same way: the surface loses its stamp
+      and keeps its page.
+    */
+    return null;
+  }
+}

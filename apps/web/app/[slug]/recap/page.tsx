@@ -23,6 +23,7 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from './_components/save-story-card-button';
 import { recapCardUrlFor } from '@/lib/a-withdrawal-reaches-every-copy';
+import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
 
 /**
  * GET /[slug]/recap — the public Auto-Recap "living recap" (Living Memories
@@ -190,15 +191,10 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
     carries a query string, and `…?v=123?format=story` is not a URL — it would
     have silently served the 1200×630 unfurl card as the 9:16 asset.
   */
-  const { data: storyRow } = await createAdminClient()
-    .from('event_editorial')
-    .select('story_version_at')
-    .eq('event_id', event.event_id)
-    .maybeSingle();
   const shareImage = recapCardUrlFor(
     SITE_URL,
     event.slug,
-    typeof storyRow?.story_version_at === 'string' ? storyRow.story_version_at : null,
+    await readStoryVersionAt(event.event_id),
   );
   // 1080×1920 story-sized file-asset — the IG/TikTok/Stories share path.
   const storyCardUrl = `${shareImage}${shareImage.includes('?') ? '&' : '?'}format=story`;

@@ -56,10 +56,13 @@ const WEDDING_ONLY_BY_DESIGN: Readonly<Record<string, string>> = {
     'the no-login product tour is pinned to one seeded wedding by design',
   'lib/alaala-orb.ts':
     'picks the seeded sample event for the orb; prod holds exactly one, a wedding',
-  'app/[slug]/_components/editorial/data.ts':
+  'lib/story-edition.ts':
     'edition No. counts weddings in the awards cycle — WHAT the No. counts for a ' +
-    'non-wedding story is an open owner question (see Design_Editorial_By_The_Minute_2026-09-07), ' +
-    'not a filter to flip silently',
+    'non-wedding story is open owner question Q5 (see Design_Editorial_By_The_Minute_2026-09-07), ' +
+    'not a filter to flip silently. ⚠ MOVED HERE FROM ' +
+    'app/[slug]/_components/editorial/data.ts, which no longer counts anything: the ' +
+    'number used to be recomputed on every render and is now STAMPED ONCE at ' +
+    'publish, so the filter went with the stamp',
 };
 
 function walk(dir: string, out: string[] = []): string[] {

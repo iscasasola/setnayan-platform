@@ -442,11 +442,18 @@ export type EditorialData = {
    */
   eventEndDate: string | null;
   eventDateFormatted: string | null; // en-PH long form
-  // Masthead dateline: this wedding's number within its AWARDS CYCLE (the Nth
-  // Setnayan wedding of the cycle, by date). The edition year runs Nov 18 → Nov
-  // 17; Volume (Vol. I = the Nov-18-2026 cycle) is derived from the date at
-  // render. Null when it can't be counted → falls back to No. 1.
+  /**
+   * The masthead dateline, STAMPED AT PUBLISH and never recomputed
+   * (`event_editorial.edition_no` / `edition_volume`). Null before publish, and
+   * null for a published story whose count was refused — the masthead then reads
+   * "Vol. I" alone rather than guessing a number onto a keepsake.
+   *
+   * ⚠ `editionNo` counts WEDDINGS in the awards cycle. What it should count for
+   * a debut is owner question Q5, still open — see `lib/story-edition.ts`.
+   */
   editionNo: number | null;
+  /** The stamped Volume. Null → derive it from the date (`editionVolume()`). */
+  editionVolume: number | null;
   venueName: string | null;
   venueCity: string | null;
   venueAddress: string | null;
@@ -617,6 +624,16 @@ function asString(v: unknown): string | null {
 
 function asObject(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+}
+
+/**
+ * A stored counting number, or null. Used for the stamped edition, where 0 and
+ * a non-number must both read as "no number" rather than as "No. 0" — the
+ * masthead's own rule is that the number appears only when it is real.
+ */
+function asPositiveInt(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
 }
 
 /** Pull a city-ish token out of a free-text venue name/address. */
@@ -835,31 +852,6 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // unbounded (today's pre-existing behaviour) rather than silently emptying.
   const dayWindow = storyDayWindow(eventDate, eventEndDate);
 
-  // Edition No. — this wedding's number within its AWARDS CYCLE. The edition
-  // year runs Nov 18 → Nov 17 (Vol. I = Nov 18 2026 → Nov 17 2027), so the count
-  // window starts on the cycle's Nov-18 (not Jan 1). Counts the Setnayan
-  // weddings in this cycle up to and including this date.
-  // Best-effort: a missing date / failed count → null → masthead shows No. 1.
-  let editionNo: number | null = null;
-  if (eventDate) {
-    try {
-      const [y, m, d] = eventDate.split('-').map(Number);
-      if (y && m && d) {
-        const onOrAfterCutoff = m > 11 || (m === 11 && d >= 18); // Nov 18+
-        const cycleStartYear = onOrAfterCutoff ? y : y - 1;
-        const { count } = await admin
-          .from('events')
-          .select('event_id', { count: 'exact', head: true })
-          .eq('event_type', 'wedding')
-          .gte('event_date', `${cycleStartYear}-11-18`)
-          .lte('event_date', eventDate);
-        if (typeof count === 'number' && count > 0) editionNo = count;
-      }
-    } catch {
-      editionNo = null;
-    }
-  }
-
   const venueName = asString(event.venue_name);
   const venueAddress = asString(event.venue_address);
   const venueCity = deriveCity(venueName, venueAddress);
@@ -876,7 +868,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     const { data } = await admin
       .from('event_editorial')
       .select(
-        'status, draft_json, impact_metrics, editorial_tone, hero_photo_id, essay_photo_ids, generated_at, published_at',
+        'status, draft_json, impact_metrics, editorial_tone, hero_photo_id, essay_photo_ids, generated_at, published_at, edition_volume, edition_no',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -891,6 +883,27 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // ⚠ FAILS CLOSED. An absent row, or a value this build does not recognise,
   // reads as 'draft' — show nobody — never as 'everyone'. See the module.
   const audience = storyAudienceOf(asString(editorial?.status));
+
+  /*
+    ── THE EDITION NUMBER IS READ, NOT COUNTED (`03` §2.4, fixed in 08 step 1.6)
+    🔴 THIS USED TO RECOMPUTE ON EVERY RENDER — it counted the weddings in the
+    awards cycle up to this event's date, on each load — so the number printed
+    under the words "theirs forever" MOVED whenever somebody else's wedding
+    landed in the same cycle with an earlier date. A couple published as No. 4
+    and came back to No. 5, and a keepsake printed on either day disagreed with
+    the page.
+
+    It is now stamped once, at publish, by `lib/story-edition.ts`, and the
+    database refuses to move it. Here it is only read.
+
+    ⚠ NULL IS THE HONEST ANSWER, NOT A ZERO TO PAPER OVER. A story that has never
+    been published has no number and the masthead reads "Vol. I" alone
+    (`mastheadEdition`) — which is exactly what it did before publish anyway.
+    Nothing here invents a "No. 1" for an unstamped story: that number would be
+    a guess printed on a keepsake.
+  */
+  const editionNo = asPositiveInt(editorial?.edition_no);
+  const editionVolume = asPositiveInt(editorial?.edition_volume);
 
   // 3. Guest counts (best-effort).
   let guests = 0;
@@ -2606,6 +2619,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     eventEndDate,
     eventDateFormatted: formatPhDate(eventDate),
     editionNo,
+    editionVolume,
     venueName,
     venueCity,
     venueAddress,
@@ -3113,6 +3127,7 @@ function mariaAndJuan(): EditorialData {
     eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-02-14'),
     editionNo: 1,
+    editionVolume: 1,
     venueName: 'a garden estate overlooking Taal',
     venueCity: 'Tagaytay',
     venueAddress: 'Tagaytay, Cavite',
@@ -3287,6 +3302,7 @@ function jackAndJill(): EditorialData {
     eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-04-18'),
     editionNo: 3,
+    editionVolume: 1,
     venueName: 'a west-facing cove on the Cebu coast',
     venueCity: 'Cebu',
     venueAddress: 'Cebu',
@@ -3389,6 +3405,7 @@ function johnAndJane(): EditorialData {
     eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-03-07'),
     editionNo: 2,
+    editionVolume: 1,
     venueName: 'a rooftop terrace above the Manila skyline',
     venueCity: 'Manila',
     venueAddress: 'Makati, Metro Manila',
@@ -3491,6 +3508,7 @@ function peterAndMary(): EditorialData {
     eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-05-23'),
     editionNo: 5,
+    editionVolume: 1,
     venueName: 'a ridge-top estate garden in Tagaytay',
     venueCity: 'Tagaytay',
     venueAddress: 'Tagaytay, Cavite',
@@ -3594,6 +3612,7 @@ function jackAndRose(): EditorialData {
     eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-05-09'),
     editionNo: 4,
+    editionVolume: 1,
     venueName: 'a pine-forest clearing in the Cordilleras',
     venueCity: 'Baguio',
     venueAddress: 'Baguio, Benguet',
@@ -3705,6 +3724,7 @@ function sofiaReyes(): EditorialData {
     eventEndDate: '2026-03-15',
     eventDateFormatted: formatPhDate('2026-03-14'),
     editionNo: 6,
+    editionVolume: 1,
     venueName: 'a grand ballroom in the heart of Makati',
     venueCity: 'Makati',
     venueAddress: 'Makati, Metro Manila',

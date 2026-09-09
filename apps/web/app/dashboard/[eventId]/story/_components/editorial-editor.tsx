@@ -41,6 +41,20 @@ import {
   type StoryAudience,
 } from '@/lib/who-can-see-your-story';
 import {
+  LAST_WORD_INTRO,
+  LAST_WORD_MAX,
+  mayChooseAudience,
+  publishBlockers,
+  publishBlockerSentence,
+  PUBLISH_CONSENT_FINE_PRINT,
+  PUBLISH_CONSENT_SENTENCE,
+  PUBLISH_PANEL_INTRO,
+  PUBLISH_STATE_BLURB,
+  PUBLISH_STATE_NAME,
+  PUBLISH_STATE_RUNG,
+  PUBLISH_STATE_WHO,
+} from '@/lib/publish-once-knowing-who-reads-it';
+import {
   customColumnId,
   customColumnKey,
   MAX_CUSTOM_COLUMNS,
@@ -236,6 +250,11 @@ export function EditorialEditor({
   guestColumnsOn = false,
   boardColors = [],
   boardThemeName = null,
+  deskLoaded = false,
+  deskClear = false,
+  deskOpenCount = 0,
+  deskPercentDecided = 0,
+  publishConsentAt = null,
 }: {
   eventId: string;
   slug: string | null;
@@ -276,6 +295,24 @@ export function EditorialEditor({
   boardColors?: string[];
   /** `events.moodboard_theme_name` — the name the host gave their saved theme. */
   boardThemeName?: string | null;
+  /**
+   * THE PUBLISH GATE (08 step 1.6). Resolved on the server from the same desk
+   * the page renders above, and handed down — a second count in this component
+   * would be a second opinion about whether a host may publish.
+   *
+   * ⚠ `deskLoaded` DEFAULTS TO FALSE, so a caller that forgets to pass it
+   * refuses to publish rather than quietly permitting it. Forgetting hides;
+   * forgetting must not leak.
+   */
+  deskLoaded?: boolean;
+  /** Every decidable item on the desk decided (`deskIsClear`). */
+  deskClear?: boolean;
+  /** How many things are still waiting on the host — for the refusal sentence. */
+  deskOpenCount?: number;
+  /** The desk's own meter, repeated where publishing is refused. */
+  deskPercentDecided?: number;
+  /** `event_editorial.publish_consent_at` — when the host agreed, or null. */
+  publishConsentAt?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -366,6 +403,14 @@ export function EditorialEditor({
 
   const [phase, setPhase] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  /*
+    THE PUBLISH CONSENT TICK. Starts ticked when the host has already agreed —
+    `publish_consent_at` is a record that is never cleared, so a host coming
+    back to move their story does not have to agree a second time to restore
+    what they had. Unticking withdraws their INTENT (the Published rung greys
+    out) without erasing the fact that they once agreed.
+  */
+  const [consentTicked, setConsentTicked] = useState(publishConsentAt !== null);
   // Real Stories showcase opt-in — local mirror of the per-user consent flag.
   const [featured, setFeatured] = useState(showcaseOptedIn);
   const [featuring, setFeaturing] = useState(false);
@@ -499,6 +544,18 @@ export function EditorialEditor({
         };
       });
 
+  /*
+    THE GATE, ASKED ONCE. `publishBlockers` is the same function the server
+    action calls, so the button and the fence can never drift into different
+    ideas of "ready" — the whole reason it lives in a pure module.
+  */
+  const publishFacts = {
+    deskLoaded,
+    deskClear,
+    consented: consentTicked,
+  };
+  const blockers = publishBlockers(publishFacts);
+
   const persist = async (next: StoryAudience): Promise<boolean> => {
     setPhase('saving');
     setError(null);
@@ -513,6 +570,9 @@ export function EditorialEditor({
         reviews: buildReviews(),
         theme,
         audience: next,
+        // The tick as it stands right now. The server keeps the record and
+        // re-reads it, so this is the host's live intent, not a permission slip.
+        publishConsent: consentTicked,
       });
       if (!r.ok) throw new Error(r.error);
       // Direct setForm (not `set`) so choosing an audience doesn't re-mark dirty.
@@ -1276,62 +1336,176 @@ export function EditorialEditor({
         onChange={setTheme}
       />
 
-      {/* Save bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm">
-          {phase === 'done' ? (
-            <span className="font-medium text-green-700">
-              Saved · {STORY_AUDIENCE_LABEL[form.audience].toLowerCase()} can read it.
+      {/*
+        ═══ PUBLISH — 08 step 1.6 · design `02` §8 · prototype "PUBLISH" panel ══
+
+        PORTED, NOT REDRAWN. The prototype's three rungs keep their rung word
+        (Now · Next · Last), their name, their blurb and their "Who can see it"
+        line, plus the last-word box and the consent tick with its fine print,
+        rendered in this app's own tokens.
+
+        ⚠ ONE DELIBERATE DEPARTURE, AND IT IS NOT A PORT DEFECT. The prototype
+        selects a state and then presses a separate "Publish the story" button in
+        a footer bar. Here THE RUNG IS THE PRESS — it saves the whole story AND
+        sets who may read it, which is the shipped editor's own decision and its
+        reason is stronger than the prototype's layout: "Save draft / Publish"
+        made privacy a side effect of which button you reached for, and left a
+        couple able to believe they had saved when they had only changed who
+        reads. A separate publish button re-opens exactly that gap. "Publish is
+        disabled" therefore means the Published RUNG is disabled, which is what
+        the design asked for.
+      */}
+      <section className={card} aria-labelledby="publish-heading">
+        <h2 id="publish-heading" className="font-display text-lg italic text-ink">
+          Publish
+        </h2>
+        <p className="mt-0.5 max-w-prose text-sm leading-relaxed text-ink/60">
+          {PUBLISH_PANEL_INTRO}
+        </p>
+
+        <div className="mt-4 grid gap-2.5 md:grid-cols-3">
+          {STORY_AUDIENCES.map((choice) => {
+            const chosen = form.audience === choice;
+            const allowed = mayChooseAudience(choice, publishFacts);
+            return (
+              <button
+                key={choice}
+                type="button"
+                disabled={phase === 'saving' || !allowed}
+                onClick={() => onSave(choice)}
+                aria-pressed={chosen}
+                className={`block min-h-11 rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  chosen
+                    ? 'border-ink bg-white shadow-[inset_3px_0_0_var(--color-ink,#2b2724)]'
+                    : 'border-ink/12 bg-white hover:border-ink/30'
+                }`}
+              >
+                <span className="block text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/45">
+                  {PUBLISH_STATE_RUNG[choice]}
+                </span>
+                <b className="mt-1.5 block font-display text-lg text-ink">
+                  {chosen && phase === 'saving' ? 'Saving…' : PUBLISH_STATE_NAME[choice]}
+                </b>
+                <span className="mt-1.5 block text-xs leading-relaxed text-ink/60">
+                  {PUBLISH_STATE_BLURB[choice]}
+                </span>
+                <span className="mt-2.5 block text-xs font-semibold text-ink">
+                  {PUBLISH_STATE_WHO[choice]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/*
+          WHY PUBLISHING IS REFUSED, named rather than left as a grey button. The
+          desk's own meter is repeated here because this is where a host is
+          standing when they wonder what is left — the design puts it on the rail
+          ("n% of the desk decided") and this page has no rail.
+        */}
+        {blockers.length > 0 ? (
+          <div className="mt-3 rounded-xl border border-ink/10 bg-cream/60 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">
+              Before you can publish
+            </p>
+            <ul className="mt-1.5 space-y-1">
+              {blockers.map((b) => (
+                <li key={b} className="text-sm leading-relaxed text-ink/75">
+                  {publishBlockerSentence(b, deskOpenCount)}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-ink/55">
+              {deskPercentDecided}% of the desk decided.
+            </p>
+          </div>
+        ) : null}
+
+        {/*
+          YOUR LAST WORD (design `02` §8). `events.special_message` — the SAME
+          column `/dashboard/[eventId]/website/special-message` writes, reached
+          from the screen where a host is actually thinking about how their story
+          ends. Two doors, one room, one cap (`LAST_WORD_MAX`), so the two can
+          never disagree about how long a last word may be.
+        */}
+        <div className="mt-4 rounded-xl border border-ink/10 bg-white p-4">
+          <label
+            htmlFor="story-last-word"
+            className="block text-xs font-semibold uppercase tracking-[0.12em] text-ink/45"
+          >
+            Your last word
+          </label>
+          <p className="mt-1 text-xs leading-relaxed text-ink/55">{LAST_WORD_INTRO}</p>
+          <textarea
+            id="story-last-word"
+            value={form.lastWord ?? ''}
+            maxLength={LAST_WORD_MAX}
+            onChange={(e) => set('lastWord', e.target.value)}
+            rows={3}
+            className="mt-2.5 w-full rounded-lg border border-ink/15 bg-cream/40 px-3 py-2.5 text-base leading-relaxed text-ink outline-none focus:border-burgundy"
+          />
+        </div>
+
+        {/*
+          THE CONSENT TICK — VERBATIM (`02` §8). The sentence is the RA 10173
+          record of what the host agreed to, not copy: it is quoted in the design
+          and asserted character-for-character by the guard on the pure module.
+
+          🔑 THE BOX IS THE HOST'S HAND ON THIS MOMENT; THE COLUMN IS THE RECORD.
+          Once `publish_consent_at` is written it is never cleared — they did
+          agree, on that date, and re-asking to restore what they had would put a
+          toll on a control the fine print itself offers them. So the box comes
+          back ticked on a later visit, and unticking it here withdraws the
+          host's intent (the rung greys out) without erasing the fact that they
+          once agreed.
+        */}
+        <div className="mt-4 rounded-xl border border-ink/10 bg-white p-4">
+          <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-3">
+            <input
+              type="checkbox"
+              checked={consentTicked}
+              onChange={(e) => setConsentTicked(e.target.checked)}
+              className="mt-0.5 h-5 w-5 flex-none accent-burgundy"
+            />
+            <span className="text-sm leading-relaxed text-ink">
+              {PUBLISH_CONSENT_SENTENCE}
             </span>
-          ) : phase === 'error' ? (
-            <span className="font-medium text-red-700">{error ?? 'Could not save.'}</span>
-          ) : slug ? (
+          </label>
+          <p className="mt-2.5 pl-8 text-xs leading-relaxed text-ink/55">
+            {PUBLISH_CONSENT_FINE_PRINT}
+          </p>
+        </div>
+
+        {/* Where it stands, and the way to look at it before anyone else does. */}
+        <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            {phase === 'done' ? (
+              <span className="font-medium text-green-700">
+                Saved · {STORY_AUDIENCE_LABEL[form.audience].toLowerCase()} can read it.
+              </span>
+            ) : phase === 'error' ? (
+              <span className="font-medium text-red-700">{error ?? 'Could not save.'}</span>
+            ) : (
+              /* WHAT THE CURRENT CHOICE ACTUALLY DOES, said in full — "only me"
+                 in particular has to say that it hides the story from their own
+                 guests, or somebody picks it to be safe and quietly shows it to
+                 nobody. */
+              <span className="text-xs leading-relaxed text-ink/55">
+                {STORY_AUDIENCE_NOTE[form.audience]}
+              </span>
+            )}
+          </span>
+          {slug ? (
             <Link
               href={`/${slug}?phase=editorial`}
-              className="text-ink/60 underline-offset-4 hover:text-burgundy hover:underline"
+              className="flex-none text-ink/60 underline-offset-4 hover:text-burgundy hover:underline"
               target="_blank"
             >
               Preview your editorial ↗
             </Link>
           ) : null}
         </div>
-        <div className="flex gap-3">
-          {/*
-            WHO CAN SEE IT — three answers, and SAVING IS THE SAME PRESS.
-            "Save draft / Publish" made privacy a side effect of which button you
-            reached for, and had no way to say "my guests, and nobody else". Each
-            row here saves the whole story AND sets its audience, so a couple can
-            never be left believing they saved when they only changed who reads.
-          */}
-          {STORY_AUDIENCES.map((choice) => {
-            const chosen = form.audience === choice;
-            return (
-              <button
-                key={choice}
-                type="button"
-                disabled={phase === 'saving'}
-                onClick={() => onSave(choice)}
-                aria-pressed={chosen}
-                className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm transition disabled:opacity-50 ${
-                  chosen
-                    ? 'border border-burgundy/20 bg-burgundy font-semibold text-cream hover:bg-burgundy/90'
-                    : 'border border-ink/15 bg-white font-medium text-ink/75 hover:bg-cream'
-                }`}
-              >
-                {chosen && phase === 'saving' ? 'Saving…' : STORY_AUDIENCE_LABEL[choice]}
-              </button>
-            );
-          })}
-        </div>
-        {/* WHAT THE CURRENT CHOICE ACTUALLY DOES, said in full. Three buttons
-            tell a couple there are three answers and not one word about what any
-            of them means — and "only me" in particular has to say that it hides
-            the story from their own guests, or somebody picks it to be safe and
-            quietly shows it to nobody. */}
-        <p className="mt-2 text-xs leading-relaxed text-ink/55">
-          {STORY_AUDIENCE_NOTE[form.audience]}
-        </p>
-      </div>
+      </section>
 
       {/* Share your story — shown once published. Co-locates sharing + the Real
           Stories opt-in so the couple never has to hunt for them on the privacy

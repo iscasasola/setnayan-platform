@@ -46,7 +46,12 @@ import { loadConsentVetoedPapicIds, publicKeyForCapture } from '../editorial/con
 import type { CaptureBin } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { shapeHintFor, type TableType } from '@/lib/seating';
-import { EMPTY_ROOM, type StoryRoom, type TableHeat } from '@/lib/story-room';
+import {
+  EMPTY_ROOM,
+  readRoomSnapshot,
+  type StoryRoom,
+  type TableHeat,
+} from '@/lib/story-room';
 
 /** Local string coercion — mirrors `data.ts`'s `asString`, kept dependency-free. */
 function asString(v: unknown): string | null {
@@ -613,13 +618,42 @@ export async function loadStorySpineFacts(args: {
  * by the Story Maker's own publish ladder, and reading the walk's switch here
  * would let a couple who never opened the 3D room lose the lens on a story they
  * had already published.
+ *
+ * 🔒 A PUBLISHED STORY READS ITS FROZEN ROOM, NOT THE LIVE PLAN (`03` §2.8,
+ * built in 08 step 1.6). `event_tables` has no soft delete and the seat arranger
+ * re-solves on every run, so a host tidying up after the wedding used to redraw
+ * or empty the floor plan of a story that was already told — silently. The
+ * snapshot written at publish is preferred here, and only here, so every reader
+ * of the room gets the freeze without knowing about it. An unreadable or absent
+ * snapshot falls through to the live read below, which is what every story does
+ * today: the freeze can be lost, the room cannot.
+ *
+ * ⚠ EXPORTED FOR THE WRITER, NOT FOR REUSE. `app/dashboard/[eventId]/story/
+ * actions.ts` calls it to take the snapshot at publish, so the shape that is
+ * frozen and the shape that is read are produced by ONE function. A second
+ * "read the room" in the writer is a second opinion, and the first time the two
+ * disagreed the story would be frozen as something it never was.
  */
-async function loadStoryRoom(
+export async function loadStoryRoom(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
   eventType: string | null,
 ): Promise<StoryRoom> {
   const room: StoryRoom = { ...EMPTY_ROOM, tables: [] };
+
+  try {
+    const { data, error } = await admin
+      .from('event_editorial')
+      .select('room_snapshot')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!error && data) {
+      const frozen = readRoomSnapshot((data as Record<string, unknown>).room_snapshot);
+      if (frozen) return frozen;
+    }
+  } catch {
+    /* not frozen, or unreadable — fall through to the live plan */
+  }
 
   /*
     Does this KIND of day have seating at all? Measured against production, not

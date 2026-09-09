@@ -14,9 +14,8 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { HeroMonogramData } from '@/lib/hero-monogram-data';
 import type { ComposedCopy } from '../_components/editorial/compose';
 import type { EditorialData, DayChapter } from '../_components/editorial/data';
+import { mastheadEdition } from '@/lib/story-spine';
 import {
-  editionVolume,
-  toRoman,
   nameplate,
   editionCenter,
   prettyCategory,
@@ -149,7 +148,19 @@ export function PrintSheet({
   const hasBack = needsBackPage(data);
   const { front: frontChapters, back: backChapters } = splitChapters(data, hasBack);
 
-  const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
+  /*
+    🔴 THIS PRINTED "No. 1" FOR ANY STORY WITHOUT A NUMBER (`data.editionNo ?? 1`)
+    — on the one surface a reader keeps. The edition is now stamped once at
+    publish (`03` §2.4), so an unstamped story genuinely has no number, and a
+    keepsake must say the Volume alone rather than assert a first edition that
+    nobody granted. Same rule as the masthead, one function.
+  */
+  const editionLeft = mastheadEdition(
+    data.eventDate,
+    data.editionNo,
+    data.editionNo != null,
+    data.editionVolume,
+  );
   const leadParagraphs = data.draft.leadParagraphs ?? [];
 
   // Primary vendor credits shown on the FRONT (first few); the full ledger, when

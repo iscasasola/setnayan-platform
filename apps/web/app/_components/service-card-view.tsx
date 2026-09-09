@@ -11,27 +11,6 @@ import {
 import type { ServiceCard } from '@/lib/service-card-view-model';
 
 /**
- * service-card-view.tsx — THE service card. The one a couple sees.
- *
- * ── WHY IT LEFT THE PUBLIC PROFILE (owner, 2026-09-08) ─────────────────────
- * *"there is already a template of how a service card looks like. all we want
- * is for that to show instead of this."* It did exist, and it was reachable
- * from exactly one place: `app/v/[slug]/_components/services-gallery.tsx`. A
- * vendor looking at their own shop saw a grey wrench glyph and one line of
- * text instead.
- *
- * Moved verbatim. Its only dependencies were lucide icons, `next/image` and
- * `CardRecordSection` — no page-local helper — so the public profile keeps
- * rendering exactly what it rendered before, and the vendor's list now renders
- * the same component from the same builder
- * (`lib/service-card-view-model.toServiceCard`).
- *
- * 🔑 ONE CARD, NOT TWO THAT LOOK ALIKE. The vendor-side preview
- * (`service-card-face.tsx`) still exists and is still an approximation — it
- * mirrors a form as you type, which this cannot do. It is deliberately NOT
- * captioned as what couples see; this component is what couples see.
- */
-/**
  * The shop a marketplace card belongs to — its logo, its name, and the address
  * that logo opens. Present ONLY where the card is shown away from its own shop
  * (the marketplace). The shop's own profile and the vendor's own list omit it:
@@ -56,6 +35,27 @@ export type ServiceCardShop = {
   city?: string | null;
 };
 
+/**
+ * service-card-view.tsx — THE service card. The one a couple sees.
+ *
+ * ── WHY IT LEFT THE PUBLIC PROFILE (owner, 2026-09-08) ─────────────────────
+ * *"there is already a template of how a service card looks like. all we want
+ * is for that to show instead of this."* It did exist, and it was reachable
+ * from exactly one place: `app/v/[slug]/_components/services-gallery.tsx`. A
+ * vendor looking at their own shop saw a grey wrench glyph and one line of
+ * text instead.
+ *
+ * Moved verbatim. Its only dependencies were lucide icons, `next/image` and
+ * `CardRecordSection` — no page-local helper — so the public profile keeps
+ * rendering exactly what it rendered before, and the vendor's list now renders
+ * the same component from the same builder
+ * (`lib/service-card-view-model.toServiceCard`).
+ *
+ * 🔑 ONE CARD, NOT TWO THAT LOOK ALIKE. The vendor-side preview
+ * (`service-card-face.tsx`) still exists and is still an approximation — it
+ * mirrors a form as you type, which this cannot do. It is deliberately NOT
+ * captioned as what couples see; this component is what couples see.
+ */
 export function ServiceCardView({
   card: c,
   detailsEnabled,
@@ -247,9 +247,14 @@ export function ServiceCardView({
         </p>
       ) : null}
 
-      {/* THE STRETCHED BUTTON — last child, so it covers the static content
+      {/* THE STRETCHED DOORWAY — last child, so it covers the static content
           without a z-index. The clip above carries `relative z-10` and stays
-          usable in place. */}
+          usable in place, and so does the shop row at the top: both are
+          SIBLINGS of this control, lifted above it, never nested inside it.
+
+          A LINK when the caller gave an address (the marketplace, which has to
+          navigate), a BUTTON when it gave a callback (the shop's own page,
+          which opens the sheet in place). Exactly one renders. */}
       {detailsEnabled && doorwayHref ? (
         <Link
           href={doorwayHref}

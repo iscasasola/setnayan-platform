@@ -78,11 +78,32 @@ test('ServiceCardView is flag-gated, and OFF is the byte-identical static div', 
 });
 
 test('the doorway, the affordance and the sheet are ALL behind the flag', () => {
-  // The stretched overlay button.
+  // ── THE DOORWAY IS NOW TWO CONTROLS, AND BOTH ARE BEHIND THE FLAG ────────
+  // 2026-09-09: the marketplace card body opens that service's details, so the
+  // stretched overlay became a `<Link>` there — the marketplace is a server
+  // component and cannot hand `onOpen` down. The BUTTON (the in-page sheet, the
+  // only one this flag actually gates) is unchanged.
+  //
+  // The old assertion matched the literal `{detailsEnabled ? (<button`, which a
+  // second control necessarily breaks. Replacing it with a weaker "a button
+  // exists somewhere" would have gutted the guard, so both controls are pinned
+  // instead: neither may render outside a `detailsEnabled` branch.
+  const doorway = gallery.slice(gallery.indexOf('THE STRETCHED DOORWAY'));
   assert.match(
-    gallery,
-    /\{detailsEnabled \? \(\s*<button/,
+    doorway,
+    /\{detailsEnabled && doorwayHref \? \(\s*<Link/,
+    'the stretched doorway LINK must be behind detailsEnabled',
+  );
+  assert.match(
+    doorway,
+    /\) : detailsEnabled \? \(\s*<button/,
     'the stretched doorway button must be behind detailsEnabled',
+  );
+  // Neither control may exist anywhere else in the card.
+  assert.equal(
+    (gallery.match(/absolute inset-0 rounded-xl/g) ?? []).length,
+    2,
+    'a third full-card control appeared, or one lost its gate',
   );
   // The visible "View details" affordance.
   assert.match(
@@ -233,5 +254,33 @@ test('the lock modal shows nothing new until the page hands it an ask target', (
     lockModal,
     /surchargeCentavos,/,
     'the picks summary must reuse the modal’s own "Upgrades picked" figure',
+  );
+});
+
+/**
+ * ── AND THE SHOP'S OWN PAGE NEVER HARDCODES THE FLAG ───────────────────────
+ * `ServiceCardView` can now be a doorway WITHOUT the flag (the marketplace's
+ * link half, which navigates to an address that already exists and opens no
+ * sheet). That makes it newly possible to switch the /v/[slug] sheet on by
+ * accident — `detailsEnabled` there must stay the value the SERVER read from
+ * `serviceDetailsEnabled()`, never a literal.
+ */
+test('the shop page passes the FLAG down, never a hardcoded true', () => {
+  const galleryOnly = readFileSync(join(here, 'services-gallery.tsx'), 'utf8');
+  assert.match(
+    galleryOnly,
+    /detailsEnabled=\{detailsEnabled\}/,
+    'the gallery stopped passing its own detailsEnabled to the card',
+  );
+  assert.ok(
+    !/detailsEnabled(=\{true\}|\s*=\s*true\b)/.test(galleryOnly) &&
+      !/<ServiceCardView[^>]*\bdetailsEnabled\b\s*(\/?>|\n)/.test(galleryOnly),
+    'the shop page hardcodes the details flag ON — the sheet would go live ' +
+      'without the owner flipping NEXT_PUBLIC_SERVICE_DETAILS_ENABLED',
+  );
+  const pageOnly = readFileSync(join(here, '..', 'page.tsx'), 'utf8');
+  assert.ok(
+    !/detailsEnabled=\{true\}/.test(pageOnly),
+    'the shop page hardcodes detailsEnabled true',
   );
 });

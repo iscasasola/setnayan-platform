@@ -3496,6 +3496,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {serviceCards.map((c) => (
               <li key={c.row.vendor_service_id}>
+                {/*
+                  TWO DESTINATIONS (owner, 2026-09-09): the BODY opens this
+                  service's details, the shop LOGO opens the shop. The card used
+                  to be ONE wrapping <Link> to the legacy `/v/{slug}`, which is
+                  why a second link could not simply be added inside it.
+
+                  ⚠ `detailsEnabled` (the VIEW) is true while the builder's last
+                  argument stays FALSE, and that is deliberate, not a slip. They
+                  are two different questions:
+                    · the view's flag asks "is this card a doorway?" — it is now,
+                      because it has an address to go to.
+                    · the builder's flag asks "put the details-sheet-only keys in
+                      the payload?" — no. Those exist for the in-page sheet on
+                      the shop's own page, they are gated on
+                      NEXT_PUBLIC_SERVICE_DETAILS_ENABLED, and shipping them here
+                      would break the byte-identical-payload contract that
+                      `service-details-dark.test.ts` pins.
+                  The public id the address needs is read from the DATABASE ROW,
+                  which always carries it — see `lib/service-card-address.ts`.
+                */}
                 <ServiceCardView
                   card={toServiceCard(
                     c.row,

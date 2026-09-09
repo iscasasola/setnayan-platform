@@ -384,7 +384,7 @@ function Marked({ text, query }: { text: string; query: string }) {
     <>
       {markSegments(text, query).map((seg, i) =>
         seg.hit ? (
-          <mark key={i} className="rounded-[2px] bg-gold/45 px-0.5 text-ink">
+          <mark key={i} className="rounded-sm bg-gold/45 px-0.5 text-ink">
             {seg.text}
           </mark>
         ) : (

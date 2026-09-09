@@ -247,3 +247,87 @@ test('the co-host door builds its event name through that article', () => {
     'a bare "a ${w.eventWord}" renders "a event" — use articleFor',
   );
 });
+
+// ── THE MASTHEAD NAMES ONE PERSON WHEN THE EVENT HAS ONE ────────────────────
+//
+// `08` step 3.1: "single-name masthead when `person_b` is null."
+//
+// 🔴 THE DEFECT THIS CLOSES. `splitCoupleNames` decided the WEDDING treatment —
+// two stacked lines with an italic gild joiner between them — by sniffing the
+// display name for " & " or " and ". Measured against real non-wedding names
+// before the fix, it fired on all of these:
+//
+//     "Ayala & Partners Year-End"  →  "Ayala"  &  "Partners Year-End"
+//     "Bench & Co Summer Outing"   →  "Bench"  &  "Co Summer Outing"
+//     "Mateo and Sofia"            →  "Mateo" and "Sofia"
+//
+// A corporate year-end party was rendered as a couple. The separator is a fact
+// about punctuation; whether the event has two people at its centre is a fact
+// about the EVENT TYPE, and only the second may choose the treatment.
+
+import { splitCoupleNames } from '../_components/pahina-masthead';
+
+test('twoPeople is the wedding’s alone — every other seeded type is one name', () => {
+  // Measured across all eight seed/backfill migrations: `person_b` is populated
+  // on the wedding row and NULL on every other.
+  assert.equal(eventWordsFromProfile(WEDDING_PROFILE).twoPeople, true);
+  assert.equal(eventWordsFromProfile(GENERIC_PROFILE).twoPeople, false);
+});
+
+test('a blank person_b from the admin table reads as one person, not two', () => {
+  // Same trim-guard as every other noun here: this is downstream of an
+  // admin-editable table, and "   " must not read as a second person.
+  const w = eventWordsFromProfile({
+    ...WEDDING_PROFILE,
+    terminology: { ...WEDDING_PROFILE.terminology, personB: '   ' },
+  });
+  assert.equal(w.twoPeople, false);
+});
+
+test('🔒 a wedding’s masthead splits exactly as it does today', () => {
+  const n = splitCoupleNames('Maria & Juan', true);
+  assert.deepEqual(n, { first: 'Maria', second: 'Juan', joiner: '&' });
+  // And the default is today's behaviour, so an un-wired caller cannot flatten
+  // a real couple onto one line.
+  assert.deepEqual(splitCoupleNames('Maria & Juan'), n);
+});
+
+test('a one-person event keeps its name whole, whatever punctuation it holds', () => {
+  // 🪤 THE DISCRIMINATING FIXTURE. A name with NO separator collapses to one
+  // line under both the old rule and the new one, so a test using "Lola Rosa"
+  // would pass whether or not the fix exists. Every name here CONTAINS a
+  // separator — these are the only cases where the two rules disagree.
+  for (const name of [
+    'Ayala & Partners Year-End',
+    'Bench & Co Summer Outing',
+    'Mateo and Sofia',
+    'Sampaguita & Sons Reunion',
+  ]) {
+    assert.deepEqual(
+      splitCoupleNames(name, false),
+      { first: name, second: null, joiner: null },
+      `"${name}" was split across two lines with a gild joiner — the wedding masthead`,
+    );
+  }
+});
+
+test('every masthead call site passes the event’s own twoPeople', () => {
+  // 🚨 FAILS CLOSED. A walk of the file, not a list of the four sites that
+  // exist today: a fifth `<PahinaMasthead` written without the prop silently
+  // takes the `true` default and splits a corporate name, and this reports it
+  // the day it is added.
+  const body = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), '..', '_components', 'site-body.tsx'),
+    'utf8',
+  );
+  const mounts = body.split('<PahinaMasthead').length - 1;
+  const wired = body.split('twoPeople={clientWords.twoPeople}').length - 1;
+  assert.ok(mounts > 0, 'site-body.tsx no longer mounts PahinaMasthead — has it moved?');
+  assert.equal(
+    wired,
+    mounts,
+    `site-body.tsx mounts the masthead ${mounts} times but wires twoPeople ${wired} ` +
+      'times — the unwired mount(s) fall back to splitting, which renders a ' +
+      'one-person event as a couple.',
+  );
+});

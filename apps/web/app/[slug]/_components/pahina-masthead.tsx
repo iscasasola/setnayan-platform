@@ -16,13 +16,36 @@ import { formatEventDate } from '@/lib/events';
  * its animated-SKU logic) is passed in via `monogramSlot`, untouched.
  */
 
-/** Split "Maria & Jose" / "Maria and Jose" into stacked lines. Falls back to a
- *  single line when no separator is found (solo-named events, debuts). */
-export function splitCoupleNames(displayName: string): {
+/**
+ * Split "Maria & Jose" / "Maria and Jose" into stacked lines. Falls back to a
+ * single line when no separator is found (solo-named events, debuts).
+ *
+ * `twoPeople` is the event's own fact — `terminology.person_b` is non-null, i.e.
+ * this event HAS two people at its centre (`EventWords.twoPeople`). When it is
+ * FALSE the name is one line whatever punctuation it contains, because the
+ * stacked-with-a-gild-joiner treatment is the WEDDING masthead and an ampersand
+ * in a company name is not two people:
+ *
+ *     "Ayala & Partners Year-End"  →  ONE line   (was: "Ayala" & "Partners…")
+ *     "Bench & Co Summer Outing"   →  ONE line   (was: "Bench" & "Co Summer…")
+ *     "Maria & Juan" (a wedding)   →  still split, unchanged
+ *
+ * 🔒 IT DEFAULTS TO `true`, WHICH IS TODAY'S BEHAVIOUR, and that direction is
+ * deliberate — the same reasoning as `event-words-provider.tsx`'s wedding
+ * fallback. Production is weddings; a caller that has not been wired yet must
+ * keep splitting rather than silently flattening a real couple's masthead onto
+ * one line. The invisibility that creates is closed by a guard, not by a scary
+ * default: `event-words.test.ts` asserts every call site passes the flag.
+ */
+export function splitCoupleNames(
+  displayName: string,
+  twoPeople = true,
+): {
   first: string;
   second: string | null;
   joiner: string | null;
 } {
+  if (!twoPeople) return { first: displayName, second: null, joiner: null };
   const amp = /\s*&\s*/.exec(displayName);
   if (amp) {
     const [first = '', ...rest] = displayName.split(/\s*&\s*/);
@@ -47,9 +70,13 @@ export function PahinaMasthead({
   monogramSlot,
   mediaSlot,
   mediaCaption,
+  twoPeople = true,
 }: {
   displayName: string;
   eventDate: string | null;
+  /** `EventWords.twoPeople` — false collapses the names to one line. Defaults
+   *  to today's split so an un-wired caller cannot flatten a couple. */
+  twoPeople?: boolean;
   venueName?: string | null;
   /** Eyebrow text after the chapter №. */
   eyebrow?: string;
@@ -63,7 +90,7 @@ export function PahinaMasthead({
   /** Mono caption under the cover plate (e.g. venue line). */
   mediaCaption?: string | null;
 }) {
-  const names = splitCoupleNames(displayName);
+  const names = splitCoupleNames(displayName, twoPeople);
   const dateLabel = formatEventDate(eventDate);
 
   return (

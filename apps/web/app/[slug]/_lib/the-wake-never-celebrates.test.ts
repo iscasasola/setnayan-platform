@@ -97,13 +97,30 @@ test('a missing occasion word degrades to "celebration", never to a gap', () => 
 
 // ── 3 · THE LIFECYCLE: NO SAVE-THE-DATE, NO JOYFUL RECAP ────────────────────
 
-test('a solemn event never enters the save_the_date or editorial phase', () => {
+test('a solemn event never enters the save_the_date phase', () => {
   assert.equal(solemnAdjustedPhase('save_the_date', true), 'rsvp');
-  assert.equal(solemnAdjustedPhase('editorial', true), 'rsvp');
   // The day-of layer is exactly what a wake uses — vigil schedule, a stream
   // for family abroad — so 'rsvp' and 'event' pass through.
   assert.equal(solemnAdjustedPhase('rsvp', true), 'rsvp');
   assert.equal(solemnAdjustedPhase('event', true), 'event');
+});
+
+/**
+ * ✅ THIS ASSERTION WAS REVERSED BY THE OWNER, AND THAT IS WHY IT IS STILL HERE.
+ *
+ * It read `solemnAdjustedPhase('editorial', true) === 'rsvp'` — a wake got NO
+ * STORY AT ALL. Owner ruling 2026-09-09, build arm (b), verbatim: a wake GETS a
+ * story — "no Relive, no challenges, no anniversary, no countdown, and the
+ * family's words. Filipino wake culture is served by a page that records five
+ * nights, the mass, and who came from abroad."
+ *
+ * 🔑 IT IS PINNED IN THE OPPOSITE DIRECTION RATHER THAN DELETED. A deleted
+ * assertion is a decision nobody can find again; this one names the ruling, so
+ * re-adding the demotion (the obvious "fix" for anyone who reads the old
+ * docblock) fails here with the reason attached.
+ */
+test('a wake DOES reach its story — the editorial phase no longer demotes', () => {
+  assert.equal(solemnAdjustedPhase('editorial', true), 'editorial');
 });
 
 test('a celebratory event keeps every phase it has today', () => {
@@ -303,4 +320,76 @@ test('a wedding’s new word fields are byte-identical to what shipped', () => {
     'Your tagged photos will appear here during the celebration.');
   assert.equal(`That invite is for a different ${w.occasion}`,
     'That invite is for a different celebration');
+});
+
+// ── 9 · THE STORY'S SOLEMN ARM (owner ruling 2026-09-09, arm (b)) ───────────
+//
+// A wake now REACHES its story, so the things that are wrong on one have to be
+// refused inside it. `05_Occasions_Registers_MultiDay.md` §2 lists them: no
+// Relive, no Papic challenges, no anniversary, no countdown.
+//
+// Source-pinned for the same reason §5 is: `story-spine.tsx` is a server
+// component whose import graph reaches `server-only`, so a behavioural test
+// would be testing a shim. Comments are stripped first, so the prose ABOVE
+// each gate can never be what satisfies the check about the gate.
+
+const SPINE = '_components/story/story-spine.tsx';
+
+test('▶ Relive is refused at a wake, and on the register — not on emptiness', () => {
+  const s = src(SPINE);
+  assert.match(
+    s,
+    /\{words\.solemn \? null : \(\s*<Relive /,
+    'story-spine.tsx offers the Relive player at a wake',
+  );
+  // 🪤 THE DISCRIMINATING CASE. A gate written as `reliveSlides.length > 0`
+  // would look like a fix and pass any fixture where the wake has no minutes —
+  // but a wake HAS minutes (five nights and the mass are exactly what the
+  // family files), so that gate is green on the empty story and wrong on the
+  // real one. Pinning the WORD is what separates the two.
+  assert.ok(
+    !/\{reliveSlides\.length[^}]*<Relive/.test(s),
+    'Relive is gated on how many slides there are, not on the register — a wake ' +
+      'with a full day of minutes would still be offered the highlight reel',
+  );
+});
+
+test('every challenge read in the spine goes through the solemn-aware helper', () => {
+  const s = src(SPINE);
+  // The helper itself, with its arm intact.
+  assert.match(
+    s,
+    /function challengeAnswersFor\([\s\S]{0,400}?return words\.solemn \? \[\] : data\.challengeAnswers;/,
+    'challengeAnswersFor lost its solemn arm — a wake would print the party game',
+  );
+  // 🚨 FAILS CLOSED. This is a WALK of the file, not a list of the three sites
+  // I happened to know about: any NEW read of `data.challengeAnswers` is an
+  // offender the day it is written, which is the opposite of a guard that
+  // passes because a path is not listed in it.
+  const offenders = src(SPINE)
+    .split('\n')
+    .map((line, i) => ({ line, n: i + 1 }))
+    .filter(({ line }) => line.includes('data.challengeAnswers'))
+    .filter(({ line }) => !line.includes('return words.solemn ? [] : data.challengeAnswers;'))
+    .map(({ line, n }) => `story-spine.tsx:${n}  ${line.trim().slice(0, 80)}`);
+  assert.deepEqual(
+    offenders,
+    [],
+    'these read the challenge answers directly, so a wake would show them:\n' +
+      `${offenders.join('\n')}\n\nRoute them through challengeAnswersFor(data, words).`,
+  );
+});
+
+test('all three challenge call sites are still wired — deleting one is visible', () => {
+  // The cover's voice COUNT, the "asked" index tab, and the per-minute entry.
+  // Without this, "go green by deleting the call site" is available, and the
+  // walk above would applaud it.
+  const uses = src(SPINE).split('challengeAnswersFor(data, words)').length - 1;
+  assert.equal(
+    uses,
+    3,
+    `the spine reads the challenge answers at ${uses} sites, expected 3 (cover ` +
+      'count · index tab · minute entry). If a site was genuinely removed, ' +
+      'change this number deliberately.',
+  );
 });

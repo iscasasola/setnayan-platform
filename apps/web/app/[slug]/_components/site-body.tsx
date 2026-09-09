@@ -853,6 +853,7 @@ export async function SiteBody({
              text-over-scrim banner). Monogram mount + personalization unchanged. */
           <PahinaMasthead
             displayName={event.display_name}
+            twoPeople={clientWords.twoPeople}
             eventDate={event.event_date}
             venueName={event.venue_name}
             badgeSlot={dayOfBadge}
@@ -876,6 +877,7 @@ export async function SiteBody({
                 /* Pahina masthead, text-only variant (wave A PR-2). */
                 <PahinaMasthead
                   displayName={event.display_name}
+                  twoPeople={clientWords.twoPeople}
                   eventDate={event.event_date}
                   venueName={event.venue_name}
                   badgeSlot={dayOfBadge}
@@ -1275,6 +1277,7 @@ export async function SiteBody({
                (STRUCTURAL: was text-over-scrim). HeroMonogram mount unchanged. */
             <PahinaMasthead
               displayName={event.display_name}
+              twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={event.venue_name}
               monogramSlot={
@@ -1292,6 +1295,7 @@ export async function SiteBody({
           ) : plan.body === 'normal' && plan.heroShouldRender ? (
             <PahinaMasthead
               displayName={event.display_name}
+              twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={event.venue_name}
               monogramSlot={

@@ -107,6 +107,38 @@ test('the "Deal locked" notification does not fire on an ask', () => {
   );
 });
 
+/**
+ * 🔑 THE ASYMMETRY THAT WILL BITE SOMEBODY. `fetchThreadLockHandshake` takes
+ * the client as a PARAMETER, and `event_vendors` has NO vendor SELECT policy in
+ * production — all four of its policies are couple- or moderator-scoped. A
+ * supplier-side caller that hands it their own session client reads ZERO ROWS
+ * and NOTHING THROWS: the card silently drops to the vague line and nobody can
+ * tell. `a-shop-cannot-read-its-own-booking.test.ts` cannot catch it, because
+ * the `.from('event_vendors')` lives in lib/, outside the tree that guard walks.
+ */
+test('supplier-side callers resolve the handshake with an admin client', () => {
+  const files = walk(join(APP, 'vendor-dashboard'));
+  const callers: Array<{ file: string; call: string }> = [];
+  for (const abs of files) {
+    const src = read(abs);
+    for (const m of src.matchAll(/fetchThreadLockHandshake\(\s*([A-Za-z_$][\w$]*)/g)) {
+      callers.push({ file: abs.slice(WEB.length + 1), call: m[1]! });
+    }
+  }
+  assert.ok(
+    callers.length >= 2,
+    `expected the two supplier-side callers, found ${callers.length} — the scan broke`,
+  );
+  const wrong = callers.filter((c) => !/admin/i.test(c.call));
+  assert.deepEqual(
+    wrong,
+    [],
+    `these read the booking on a supplier's own session, which returns zero rows in silence: ${wrong
+      .map((c) => `${c.file} (${c.call})`)
+      .join(', ')}`,
+  );
+});
+
 test('the supplier is told the outcome of a booking ask', () => {
   const page = read(join(APP, 'vendor-dashboard', 'page.tsx'));
   assert.match(page, /lockAgreeNotice\(/, '/vendor-dashboard does not read lock_agree');

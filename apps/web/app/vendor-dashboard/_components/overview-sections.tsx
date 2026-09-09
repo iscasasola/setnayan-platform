@@ -16,7 +16,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { waitingAge } from '@/lib/waiting-age';
-import { formatLongDate } from '@/lib/format-date';
+import { formatLongDate, monthDay } from '@/lib/format-date';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { reviewTemper, CLOSED_WINDOW_GRACE_DAYS } from '@/lib/answers-desk';
 import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
@@ -168,15 +168,6 @@ const spark = (
   />
 );
 
-/** "Jul 5" style short date. */
-function shortDate(iso: string | null): string | null {
-  if (!iso) return null;
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 /** Meta line joined with " · ", dropping empties. */
 function metaLine(parts: Array<string | null | undefined>): string {
   return parts.filter((p): p is string => Boolean(p && p.trim())).join(' · ');
@@ -257,7 +248,7 @@ export function VendorTodayFocal({
                 style={FOCAL_CHIP}
               >
                 <CalendarClock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Next · {shortDate(nextBooking.date)}
+                Next · {monthDay(nextBooking.date)}
               </span>
             ) : null}
             {earnedThisYearPhp !== null && earnedThisYearPhp > 0 ? (
@@ -828,7 +819,7 @@ function LockRequestBody({
   // same thing at 23 hours and at 3 minutes.
   const fuse = lockRequestFuseLabel(card.expiresAt, new Date());
   const detail = metaLine([
-    card.eventDate ? shortDate(card.eventDate) : null,
+    card.eventDate ? monthDay(card.eventDate) : null,
     // waitingAge returns { label, overdue } — metaLine wants strings.
     waitingAge(card.requestedAt, Date.now())?.label ?? null,
     fuse,
@@ -907,7 +898,7 @@ function DeleteRequestBody({
   declineDeletion: (formData: FormData) => void | Promise<void>;
 }) {
   const detail = metaLine([
-    card.eventDate ? shortDate(card.eventDate) : null,
+    card.eventDate ? monthDay(card.eventDate) : null,
     waitingAge(card.requestedAt, Date.now())?.label ?? null,
   ]);
   return (
@@ -999,7 +990,7 @@ function LockBody({
 }) {
   const detail = metaLine([
     'They say they have paid your downpayment',
-    card.eventDate ? shortDate(card.eventDate) : null,
+    card.eventDate ? monthDay(card.eventDate) : null,
   ]);
   // A local binding, not `card.proofUrl` inline: narrowing a nullable PROPERTY
   // inside JSX did not survive here (`string | null` reached an `href` that takes
@@ -1223,11 +1214,18 @@ function LockRequestLapsedBody({
 }: {
   card: Extract<WhatsNewCard, { kind: 'lock_request_lapsed' }>;
 }) {
+  /* 🔴 A TIMESTAMP, NOT A DATE — and it used to be rendered in whatever zone the
+     RUNTIME happened to be in. Vercel runs UTC and Manila is UTC+8, so a lock
+     that lapsed at 07:00 Manila was stamped 23:00 the PREVIOUS day and this card
+     named the wrong day to the supplier. `meetingWhen` twenty lines below
+     already zones to Asia/Manila; this is the same page agreeing with itself.
+     The locale is pinned for the reason given on `monthDay`. */
   const closed = card.expiresAt
-    ? new Date(card.expiresAt).toLocaleDateString('en-PH', {
+    ? new Intl.DateTimeFormat('en-US', {
         month: 'short',
         day: 'numeric',
-      })
+        timeZone: 'Asia/Manila',
+      }).format(new Date(card.expiresAt))
     : null;
   return (
     <>
@@ -1236,7 +1234,7 @@ function LockRequestLapsedBody({
       </p>
       <p className="mt-0.5 font-mono text-xs text-ink/60">
         {metaLine([
-          card.eventDate ? shortDate(card.eventDate) : null,
+          card.eventDate ? monthDay(card.eventDate) : null,
           closed ? `closed ${closed}` : null,
         ])}
       </p>
@@ -1288,7 +1286,7 @@ function meetingWhen(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat('en-PH', {
+  return new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -1527,9 +1525,9 @@ export function OngoingTasks({ tasks }: { tasks: OngoingTask[] }) {
 function dateBlock(iso: string): { month: string; day: string; weekday: string } {
   const d = new Date(`${iso}T00:00:00`);
   return {
-    month: d.toLocaleDateString('en-PH', { month: 'short' }).toUpperCase(),
-    day: d.toLocaleDateString('en-PH', { day: '2-digit' }),
-    weekday: d.toLocaleDateString('en-PH', { weekday: 'short' }),
+    month: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    day: d.toLocaleDateString('en-US', { day: '2-digit' }),
+    weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
   };
 }
 

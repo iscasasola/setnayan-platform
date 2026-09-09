@@ -73,7 +73,23 @@
 -- box they already ticked to restore what they had is a punishment for using a
 -- control the consent copy itself promises them.
 --
--- ═══ 4 · SAFE BY ARITHMETIC, READ OUT OF PRODUCTION 2026-09-09 ═══════════════
+-- ═══ 4 · THE EXPOSURE SURFACE WIDENS BY EXACTLY FOUR LINES ═══════════════════
+-- Regenerated in this PR. The diff is **4 added `col` lines and their two
+-- counters (6593→6597, col 4844→4848) and nothing else** — which is the check
+-- that matters, because regenerating a baseline can otherwise record a real
+-- mistake as intended. All four read `anon=- authenticated=SIU`: **a stranger
+-- cannot reach any of them.**
+--
+-- ⛔ THE `authenticated` UPDATE ON THE TWO EDITION COLUMNS IS NOT NARROWED HERE,
+-- AND THAT IS A DELIBERATE REFUSAL. Doing so would mean revoking UPDATE at TABLE
+-- level (the only thing that drops column grants) and re-granting it on all 19
+-- columns of a shipped write path — a real blast radius, on the same reasoning
+-- the desk's migration (20271214724787) gave for leaving
+-- `editorial_vendor_media`'s 14 grants alone. The trigger above is the
+-- enforcement, it refuses every caller, and `the-number-is-stamped-once.db.test.ts`
+-- attacks it with a plain UPDATE and no application code.
+
+-- ═══ 5 · SAFE BY ARITHMETIC, READ OUT OF PRODUCTION 2026-09-09 ═══════════════
 -- 7 `event_editorial` rows: 6 draft, 1 published (`movie-night`, a `date`).
 -- The one published row is BACKFILLED below with exactly the number the page
 -- renders today, so nothing anybody can see changes — it simply stops moving.

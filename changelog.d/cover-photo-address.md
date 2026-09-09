@@ -1,0 +1,40 @@
+## 2026-09-10 · fix(marketplace): the service cover photo now resolves to an address that exists
+
+Every supplier is required to upload a cover photo before a service card can be
+published, and on every couple-facing screen that photo was a broken image.
+
+`<FileUpload>` persists `r2://bucket/key` (`/api/upload` → `encodeR2Ref`), so
+`vendor_services.primary_photo_r2_key` holds the whole ref. Four couple-facing
+sites handed that string to `r2PublicUrl(bucket, KEY)`, whose second argument is
+an object key — `publicUrlFor` percent-encodes each path segment, so the scheme
+became part of the path:
+
+    https://<public-host>/r2%3A//setnayan-media/vendors/…  → 404
+    https://<public-host>/vendors/…                        → 200 image/jpeg  (220,562 bytes)
+
+Verified live on `/explore?q=saysay` before the fix, and against production: of
+the two active service cards, the one with a cover was broken on Explore, on the
+couple's vendors tab, and in the wizard's picks.
+
+**Fixed:** one new resolver, `publicUrlForStoredAsset(storedValue)` in
+`lib/uploads.ts`, over a pure `publicAssetTarget()` in
+`lib/stored-asset-public-url.ts`. It accepts either shape a write path stores —
+an `r2://` ref (`<FileUpload>`) or a bare object key (`uploadPublicAsset`) —
+passes a legacy absolute URL through untouched, and returns `null` rather than a
+broken address for a private bucket, an unknown bucket or a malformed ref.
+
+`r2PublicUrl` / `publicUrlFor` are now called from the storage layer only.
+All seven application call sites were classified: five were handed a value that
+can be an `r2://` ref (Explore, the couple's vendors tab, the wizard ×2, the
+shop's theft-watch thumbnails) and two already held a bare key (a host's manual
+vendor photo, the admin's homepage background videos). All seven were routed
+through the resolver; the two bare-key sites resolve to a byte-identical URL.
+
+**Guard:** `lib/public-url-takes-a-key-not-a-ref.test.ts` — the call-site list is
+DERIVED by walking every `.ts`/`.tsx` under `app/` and `lib/`, so a caller added
+in a file nobody thought of fails the test. Five assertions, each
+mutation-proved red with the occurrence count printed before → after; a docblock
+that merely names `r2PublicUrl(` correctly stays green.
+
+SPEC IMPACT: None — no schema, no migration, no price, no owner-locked
+behaviour. The cover photo renders at the address the object has always had.

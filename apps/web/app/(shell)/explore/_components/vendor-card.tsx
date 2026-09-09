@@ -77,7 +77,7 @@ import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
  * Row shape consumed by the card. Mirrors `VendorCardRow` in page.tsx
  * with two additions: `starting_price_php` (resolved from one of the
  * vendor's services) and `primary_photo_url` (resolved from the same
- * service's `primary_photo_r2_key` → r2PublicUrl). Both are added by
+ * service's `primary_photo_r2_key` → publicUrlForStoredAsset). Both are added by
  * the page-level enrichment pass, kept optional so the card never
  * crashes if the underlying lookup returns null.
  */

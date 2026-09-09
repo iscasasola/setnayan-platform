@@ -106,9 +106,20 @@ test('the rail is handed ONE resolve of the customer, not loose fields', () => {
   );
   // The superseded props must not creep back alongside it — two sources for
   // one fact is the defect, not the absence of a prop.
+  //
+  // ⚠ SCOPED TO THE `railProps` LITERAL, NOT TO AN INDENT. This asserted
+  // `!src.includes('    eventDate:')` — four spaces as a stand-in for "is a
+  // property of railProps". It is a proxy for the claim, not the claim, and it
+  // ACCUSED CORRECT CODE the first time anything else on this page took an
+  // `eventDate:` argument (the who-else-wants-this-date reader, indented six
+  // spaces, which contains the four-space string). The rail is what this test is
+  // about, so the rail's own object is what it now reads.
+  const railProps = src.slice(src.indexOf('const railProps = {'));
+  const railPropsBody = railProps.slice(0, railProps.indexOf('\n  };'));
+  assert.ok(railPropsBody.length > 0, 'railProps object literal not found — this guard is blind');
   for (const dead of ['eventDate:', 'paxLabel:']) {
     assert.ok(
-      !src.includes(`    ${dead}`),
+      !railPropsBody.includes(dead),
       `${dead} is back on railProps — the rail has two sources for one fact again`,
     );
   }

@@ -45,7 +45,7 @@ export default async function PrivacyEditorPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; showcase?: string }>;
 }) {
   const { eventId } = await params;
   const search = await searchParams;
@@ -70,6 +70,31 @@ export default async function PrivacyEditorPage({
     | 'invited_accounts'
     | 'private';
   const saved = search.saved === '1';
+  /* A refusal from `setShowcaseConsent`. Rendered below — a guard that refuses
+     in silence is indistinguishable from one that passed. */
+  const showcaseRefusal =
+    search.showcase === 'blocked'
+      ? 'This kind of day can’t be featured in Stories.'
+      : search.showcase === 'error'
+        ? 'We couldn’t read this celebration just now. Please try again.'
+        : null;
+
+  /**
+   * What stands between saying yes and actually appearing in Stories.
+   * `null` when nothing does. The gallery requires BOTH a public page and an
+   * address (`loadPublishedShowcases`: `landing_page_visibility = 'public'`
+   * plus a non-null slug) on top of this page's consent flag.
+   */
+  const showcaseBlocker: string | null =
+    currentVisibility !== 'public'
+      ? currentVisibility === 'unlisted'
+        ? 'your page is Unlisted'
+        : currentVisibility === 'invited_accounts'
+          ? 'your page is for guests with a Setnayan account only'
+          : 'your page is Private'
+      : !event.slug
+        ? 'your page has no address yet'
+        : null;
 
   // Launch status (read-only mirror — the controls live in the Save-the-Date
   // studio, owner 2026-06-28). Live when public/launched; otherwise scheduled or
@@ -129,6 +154,16 @@ export default async function PrivacyEditorPage({
       />
 
       {/* Saved confirmation — polite + non-dismissible (gone on next nav) */}
+      {showcaseRefusal ? (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
+          <p>{showcaseRefusal}</p>
+        </div>
+      ) : null}
+
       {saved ? (
         <div
           role="status"
@@ -332,16 +367,31 @@ export default async function PrivacyEditorPage({
           </p>
         </div>
 
+        {/*
+          🔴 "ON — ELIGIBLE TO BE FEATURED" WAS A CLAIM THIS PAGE COULD NOT
+          KEEP, AND IT CONTRADICTED A CHOICE MADE HIGHER UP THE SAME SCREEN.
+          Saying yes here records the person's CONSENT; the gallery also
+          requires the page itself to be Public and to have an address. Somebody
+          who set Private above and switched this on got a green tick and
+          waited — which is exactly how a real published story sat invisible
+          while its owner asked why it never appeared.
+          🔑 CONSENT IS NOT ELIGIBILITY. The badge now says which of the two is
+          missing, in the words of the control that fixes it.
+        */}
         <div className="flex flex-wrap items-center gap-3">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
               showcaseOptedIn
-                ? 'bg-success-50 text-success-800'
+                ? showcaseBlocker
+                  ? 'bg-amber-50 text-amber-800'
+                  : 'bg-success-50 text-success-800'
                 : 'bg-ink/5 text-ink/60'
             }`}
           >
             {showcaseOptedIn
-              ? 'On — eligible to be featured'
+              ? showcaseBlocker
+                ? `On — but ${showcaseBlocker}, so it won’t appear`
+                : 'On — eligible to be featured'
               : `Off — your ${eventNoun(event.event_type)} stays private`}
           </span>
           <form action={setShowcaseConsent}>

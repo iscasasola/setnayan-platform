@@ -32,6 +32,7 @@ import {
   type Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 import { sanitizeStoryTheme } from '@/lib/story-theme';
 import { createClient } from '@/lib/supabase/server';
 import { deskIsClear, isWaitingOnTheHost } from '@/lib/story-desk';
@@ -671,34 +672,55 @@ export async function saveEditorial(
  *
  * RA 10173: consent stays an EXPLICIT, reversible opt-in — this only flips the
  * couple's own flag when they ask. It deliberately does NOT touch
- * `landing_page_visibility`; a private page still won't surface (the
- * loadPublishedShowcases `!= 'private'` guard), and the editor surfaces that
- * caveat rather than silently making the page public.
+ * `landing_page_visibility`; a page that is not public still won't surface (the
+ * loadPublishedShowcases `landing_page_visibility = 'public'` gate), and the
+ * editor surfaces that caveat rather than silently publishing the page.
  *
- * Wedding-gated on opt-IN (server-side, behind the wedding-only UI toggle):
- * `public_summary_consent_at` is a per-USER flag and Real Stories only
- * aggregates weddings (loadPublishedShowcases filters event_type='wedding'), so
- * a non-wedding event must not be able to flip it (a direct action call would
- * otherwise set consent that affects the user's OTHER wedding events). Opt-OUT
- * is always allowed.
+ * 🔴 THE KIND GATE WAS WEDDING-ONLY AND OUTLIVED THE RULE IT ENFORCED. It
+ * refused every non-wedding celebration on opt-IN, citing "loadPublishedShowcases
+ * filters event_type='wedding'" — five filters DELETED on 2026-08-15 when the
+ * owner ruled that all sixteen kinds may be written up ("each event they create
+ * will have an editorial not just wedding"), `date` and `hangout` named out loud
+ * ("making it public will be the user's decision … so yes"). The gallery, the
+ * sitemap and the credited-vendor portfolio all moved; this door did not. So a
+ * birthday, a christening or a date night could write and publish a story here
+ * and then never be allowed to say yes to it.
+ *
+ * 🔑 AND THE GATE WAS NEVER A BOUNDARY — ITS OWN SIBLING DEFEATED IT. The
+ * privacy page's `setShowcaseConsent` writes the IDENTICAL
+ * `users.public_summary_consent_at` flag through the identical admin client with
+ * NO kind check at all. Two doors to one fact, one of them bolted. The docblock's
+ * stated fear — "a direct action call would set consent affecting the user's
+ * OTHER wedding events" — was already reachable, unguarded, one screen away, so
+ * this only ever obstructed the honest path.
+ *
+ * The kind question now has exactly ONE home (`editorialAllowsEventType`), which
+ * is what this asks. Opt-OUT is always allowed.
  */
 export async function setStoryShowcase(
   eventId: string,
   optIn: boolean,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await hostUserId(eventId);
-  if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
+  if (!userId)
+    return { ok: false, error: 'You don’t have access to this celebration.' };
 
   const admin = createAdminClient();
 
   if (optIn) {
-    const { data: ev } = await admin
+    // Fails CLOSED on an unreadable event: an unknown kind is not a consented
+    // one. The old read dropped its error and let `?? 'wedding'` answer for it,
+    // so a failed lookup was indistinguishable from a real wedding.
+    const { data: ev, error: evError } = await admin
       .from('events')
       .select('event_type')
       .eq('event_id', eventId)
       .maybeSingle();
-    if (((ev?.event_type as string | null) ?? 'wedding') !== 'wedding') {
-      return { ok: false, error: 'Stories features weddings only.' };
+    if (evError || !ev) {
+      return { ok: false, error: 'Could not update. Please try again.' };
+    }
+    if (!editorialAllowsEventType((ev.event_type as string | null) ?? 'wedding')) {
+      return { ok: false, error: 'This kind of day can’t be featured in Stories.' };
     }
   }
 

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c8debfe08",
+  "generatedFromRef": "b496e236e",
   "routeCount": 425,
-  "destinations": 907,
+  "destinations": 905,
   "actions": 631,
-  "blocks": 4346,
+  "blocks": 4349,
   "routes": {
     "/": {
       "files": [
@@ -4671,6 +4671,7 @@
         "ColourAccessResult",
         "ConfirmForm",
         "ContactCard",
+        "ContactShortlistVendorButton",
         "CoordinatorBroadcastCard",
         "CoordinatorBroadcastStub",
         "CopyButton",
@@ -5704,6 +5705,7 @@
       ],
       "blocks": [
         "FeedPageSkeleton",
+        "FollowGate",
         "Link",
         "PageMasthead",
         "SubmitButton",
@@ -7439,7 +7441,6 @@
       "destinations": [
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
-        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
@@ -7551,7 +7552,6 @@
         "ServicesTakeover",
         "ShortlistCategories",
         "SlotPickerModal",
-        "StartServiceInquiryResult",
         "SubmitButton",
         "SuccessToast",
         "TeamClearCandidates",
@@ -7637,7 +7637,6 @@
       "destinations": [
         "/dashboard/[seg]",
         "/dashboard/[seg]/contracts",
-        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=chat",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=payments",
@@ -7663,6 +7662,7 @@
         "ClaimLinkShare",
         "ColourAccessCard",
         "ColourChangeRowView",
+        "ContactShortlistVendorButton",
         "DepositReservation",
         "DetailPageSkeleton",
         "DisputeLinkButton",
@@ -7729,6 +7729,7 @@
         "removeItemFromPackage"
       ],
       "blocks": [
+        "ContactShortlistVendorButton",
         "DetailPageSkeleton",
         "Link",
         "SubmitButton",

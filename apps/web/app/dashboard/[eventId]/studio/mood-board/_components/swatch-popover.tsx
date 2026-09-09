@@ -34,10 +34,23 @@ type Props = {
   onRemove?: () => void;
   removeLabel?: string;
   slotLabel?: string;
+  /**
+   * "From your mood board" — colours to offer as a one-tap quick-pick, for
+   * callers OUTSIDE the board's own provider (the Story Maker's Theme step).
+   *
+   * 🔑 IT IS A SEPARATE PROP FROM `interactive.enabled` ON PURPOSE. On the board
+   * itself that row comes from `board.majors` and is suppressed on the majors,
+   * because a major offering itself back is not a real action. The Story Maker
+   * is the opposite case: its swatches are a DETACHED copy of the majors, so
+   * pulling a saved board colour back is the most useful thing in the popover —
+   * and it has no provider to read `majors` from. Omitted → nothing changes for
+   * any existing call site.
+   */
+  moodBoardColors?: string[];
   interactive: { enabled: boolean };
 };
 
-export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, removeLabel, slotLabel, interactive }: Props) {
+export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, removeLabel, slotLabel, moodBoardColors, interactive }: Props) {
   const board = usePaletteBoard();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -169,6 +182,27 @@ export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, remo
               )
             ) : null}
           </div>
+
+          {!interactive.enabled && moodBoardColors && moodBoardColors.length > 0 ? (
+            <div className="space-y-1 border-t border-ink/10 pt-2">
+              <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink/45">
+                From your mood board
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {moodBoardColors.map((m, i) => (
+                  <button
+                    key={`${m}-${i}`}
+                    type="button"
+                    onClick={() => onChange(m)}
+                    aria-label={`Use your ${nearestColorName(m) ?? m} board color`}
+                    className="h-6 w-6 rounded-full border border-ink/15"
+                    style={{ background: m }}
+                    title={nearestColorName(m) ?? m}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {interactive.enabled && board ? (
             <div className="space-y-2 border-t border-ink/10 pt-2">

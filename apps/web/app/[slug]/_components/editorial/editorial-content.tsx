@@ -19,7 +19,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
-import { type ReactElement, type ReactNode } from 'react';
+import { type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
 import {
   loadEditorialData,
@@ -43,11 +43,7 @@ import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  storyAudienceAdmits,
-  STRANGER,
-  type StoryViewer,
-} from '@/lib/who-can-see-your-story';
+import { storyAudienceAdmits, STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
@@ -59,15 +55,13 @@ import {
 } from '@/lib/hero-monogram-data';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { StorySpine } from '../story/story-spine';
-import {
-  loadStorySpineFacts,
-  sampleSpineFacts,
-  type StorySpineFacts,
-} from '../story/spine-data';
+import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/story-light';
+import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
 
-const SHARE_SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
-).replace(/\/$/, '');
+const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
+  /\/$/,
+  '',
+);
 
 /** The "Watch the Film" section's anchor. Named once so the section that OWNS it
  *  and the colophon link that AIMS at it cannot drift apart. */
@@ -332,6 +326,20 @@ export async function EditorialContent({
           eventDate: data.eventDate,
           eventEndDate: data.eventEndDate,
           createdAtMs: null,
+          /*
+            The minutes the story writes up, so the lens's heat is read for
+            those instants and no others (`08` step 2.3). Taken from the payload
+            the loader above already resolved — asking the database a second
+            time which minutes exist would be a second opinion about the day.
+
+            🔒 AND IT IS THE REDACTED PAYLOAD. `redactStoryLayers` has already
+            run, so a reader who may not have the guests' layer has no day
+            chapters here — which means no windows are read at all for them,
+            and the heat is empty before the gate downstream even sees it.
+          */
+          writtenMinutesMs: data.dayChapters
+            .map((c) => (c.atIso ? Date.parse(c.atIso) : Number.NaN))
+            .filter((n) => Number.isFinite(n)),
         });
   } catch {
     // Same contract as the rest of this component: it never throws. With no
@@ -340,8 +348,33 @@ export async function EditorialContent({
     spineFacts = sampleSpineFacts(data.eventDate, data.eventEndDate);
   }
 
+  /*
+    ═══ THE LIGHT ══════════════════════════════════════════════════════════
+    `01_The_Story.md` §1 + §4 · `08` step 2.2.
+
+    The six stages come from the reception palette the host saved, or the
+    neutral six when they saved none — offered as a choice, never reported as a
+    failure. Derived HERE rather than inside the spine because the element that
+    wears them is this one: the light has to reach the shipped sections under
+    the clock as well, and a page painted only down to the spine would show a
+    seam where one ground meets another.
+
+    🔑 THE PAGE IS ALREADY RIGHT BEFORE ANY SCRIPT RUNS. The wrapper is
+    server-painted with the opening stage, so with JavaScript off, in a
+    screenshot and to a crawler the story is a legible printed page that simply
+    does not change as you scroll. `StoryLight` only takes over the changing.
+
+    🔴 IT REPLACED A HARD-CODED `bg-[#e7e2d6]`. That one colour was every
+    couple's story, whatever they had saved on their own mood board.
+  */
+  const stages = spineFacts.palette.length > 0 ? deriveStages(spineFacts.palette) : neutralStages();
+
   return (
-    <div className="min-h-screen bg-[#e7e2d6] text-ink">
+    <div
+      data-story-light
+      style={paintAtRest(stages, ROAD_STAGE) as CSSProperties}
+      className="min-h-screen bg-cream text-ink"
+    >
       {/*
         ═══ THE SPINE — the page IS the event's clock ═══════════════════════
         08 step 2.1 · Design_Editorial_By_The_Minute_2026-09-07.
@@ -363,6 +396,7 @@ export async function EditorialContent({
         words={w}
         viewer={viewer}
         isSample={isSample}
+        stages={stages}
         monogram={
           mono ? (
             <HeroMonogram
@@ -402,7 +436,6 @@ export async function EditorialContent({
         <PhaseRibbon slug={data.slug} words={w} />
 
         <div className="border-t-[3px] border-double border-ink" />
-
 
         {/* Full-width hero — the cover spans the whole row. A baked boomerang
             (Living Hero) plays as a looping GIF-like banner; else the still. */}
@@ -558,7 +591,11 @@ export async function EditorialContent({
             reviews: isOn('reviews') ? (
               <div key="reviews">
                 <SectionRule title="What They Said" />
-                {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+                {data.reviews.length ? (
+                  <ReviewsWall reviews={data.reviews} />
+                ) : (
+                  <ReviewsEmptyState />
+                )}
               </div>
             ) : null,
             // Powered by Setnayan — the in-app services the couple availed.
@@ -800,7 +837,7 @@ function LeadArticle({
           key={i}
           className={
             i === 0
-              ? "first-letter:float-left first-letter:mr-2 first-letter:pt-1 first-letter:font-display first-letter:text-6xl first-letter:font-bold first-letter:leading-[0.7] first-letter:text-mulberry"
+              ? 'first-letter:float-left first-letter:mr-2 first-letter:pt-1 first-letter:font-display first-letter:text-6xl first-letter:font-bold first-letter:leading-[0.7] first-letter:text-mulberry'
               : undefined
           }
         >
@@ -829,13 +866,17 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
   // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier badge +
   // a link to their marketplace profile; others render as a plain credit.
   // (Free vendors are already filtered out in data.ts.)
-  const featured =
-    (v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom') && !!v.slug;
+  const featured = (v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom') && !!v.slug;
   return (
     <li className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0">
       {v.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={v.logoUrl} alt="" aria-hidden className="h-7 w-7 shrink-0 rounded-sm object-cover" />
+        <img
+          src={v.logoUrl}
+          alt=""
+          aria-hidden
+          className="h-7 w-7 shrink-0 rounded-sm object-cover"
+        />
       ) : (
         <span
           aria-hidden
@@ -851,7 +892,9 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
             {v.name}
           </a>
         ) : (
-          <span className="block truncate font-serif text-sm font-semibold leading-tight">{v.name}</span>
+          <span className="block truncate font-serif text-sm font-semibold leading-tight">
+            {v.name}
+          </span>
         )}
         {v.category ? (
           <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/45">
@@ -878,11 +921,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
   );
 }
 
-function TeamBehindTheDay({
-  vendors,
-}: {
-  vendors: EditorialData['vendors'];
-}): ReactElement {
+function TeamBehindTheDay({ vendors }: { vendors: EditorialData['vendors'] }): ReactElement {
   const tagged = vendors.filter(isTaggedVendor);
   const rest = vendors.filter((v) => !isTaggedVendor(v));
   // If nothing is tagged (no badges/#1-matches), fall back to showing the
@@ -920,11 +959,7 @@ function TeamBehindTheDay({
  *  recommended, led by their own endorsement. Distinct from the auto-generated
  *  Team credits: here the couple's WORDS are the headline, and a named vendor
  *  links to their marketplace profile so a reading guest can find them. */
-function VendorsWeLoved({
-  vendors,
-}: {
-  vendors: EditorialData['vendorsWeLoved'];
-}): ReactElement {
+function VendorsWeLoved({ vendors }: { vendors: EditorialData['vendorsWeLoved'] }): ReactElement {
   return (
     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
       {vendors.map((v, i) => (
@@ -940,7 +975,12 @@ function VendorsWeLoved({
           <figcaption className="mt-2 flex items-center gap-2">
             {v.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={v.logoUrl} alt="" aria-hidden className="h-6 w-6 shrink-0 rounded-sm object-cover" />
+              <img
+                src={v.logoUrl}
+                alt=""
+                aria-hidden
+                className="h-6 w-6 shrink-0 rounded-sm object-cover"
+              />
             ) : (
               <span
                 aria-hidden
@@ -966,7 +1006,13 @@ function VendorsWeLoved({
   );
 }
 
-function ByTheNumbers({ data, words: w }: { data: EditorialData; words: EventWords }): ReactElement {
+function ByTheNumbers({
+  data,
+  words: w,
+}: {
+  data: EditorialData;
+  words: EventWords;
+}): ReactElement {
   const m = data.metrics;
   // "Photos & moments" sums the day's stills + living-moment clips when either is
   // known; the photos cell reads that combined figure. "Living moments" surfaces
@@ -998,19 +1044,11 @@ function ByTheNumbers({ data, words: w }: { data: EditorialData; words: EventWor
 
       {/* M2 — first-pick hit rate */}
       {m.firstPickDen > 0 ? (
-        <Stat
-          big={`${m.firstPickNum}/${m.firstPickDen}`}
-          label="vendors that were our #1 match"
-        />
+        <Stat big={`${m.firstPickNum}/${m.firstPickDen}`} label="vendors that were our #1 match" />
       ) : null}
 
       {/* M3 — estimated time saved */}
-      <Stat
-        big={`≈${m.hoursSaved}`}
-        unit="hrs"
-        label="of planning time saved"
-        note="estimated"
-      />
+      <Stat big={`≈${m.hoursSaved}`} unit="hrs" label="of planning time saved" note="estimated" />
 
       {/* Supporting count strip (2×2). Row 1: guests · photos & moments (stills +
           living-moment clips; falls back to attending when neither is known).
@@ -1360,7 +1398,6 @@ function LivePhotoWall({
   );
 }
 
-
 /**
  * "What They Whispered" — approved Kwento guest wishes (photo_messages). Owner
  * (2026-07-04): "kwento are messages with videos or photos" — every wish shows its
@@ -1501,9 +1538,7 @@ function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
               className="aspect-[4/5] w-full bg-ink/5 object-cover"
             />
           )}
-          {a.byline ? (
-            <p className="px-4 py-3 text-xs text-ink/60">&mdash; {a.byline}</p>
-          ) : null}
+          {a.byline ? <p className="px-4 py-3 text-xs text-ink/60">&mdash; {a.byline}</p> : null}
         </li>
       ))}
     </ul>
@@ -1520,10 +1555,7 @@ function KwentoWall({
   return (
     <div className="mt-4 gap-4 [column-fill:_balance] sm:columns-2">
       {quotes.slice(0, 8).map((q, i) => (
-        <figure
-          key={i}
-          className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
-        >
+        <figure key={i} className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4">
           {q.media?.type === 'clip' ? (
             <KwentoClip url={q.media.url} posterUrl={q.media.posterUrl} names={names} />
           ) : q.media?.type === 'photo' ? (
@@ -1564,13 +1596,7 @@ function KwentoWall({
  * a youtube-nocookie embed (normalize-or-rejected in lib/panood-watch), so the
  * iframe never carries a raw pasted URL. Lazy-loaded, titled.
  */
-function WatchTheFilm({
-  embedUrl,
-  names,
-}: {
-  embedUrl: string;
-  names: string;
-}): ReactElement {
+function WatchTheFilm({ embedUrl, names }: { embedUrl: string; names: string }): ReactElement {
   return (
     <div className="mt-4">
       <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
@@ -1602,10 +1628,7 @@ function ReviewsWall({ reviews }: { reviews: EditorialData['reviews'] }): ReactE
   return (
     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
       {reviews.slice(0, 8).map((r, i) => (
-        <figure
-          key={i}
-          className="break-inside-avoid border-l-2 border-terracotta/40 pl-4"
-        >
+        <figure key={i} className="break-inside-avoid border-l-2 border-terracotta/40 pl-4">
           <blockquote className="font-serif text-base italic leading-snug text-ink/85">
             &ldquo;{r.quote}&rdquo;
           </blockquote>
@@ -1724,7 +1747,13 @@ function Colophon({
         </a>
       ) : null}
       <p className="mt-3 font-serif text-sm italic text-ink/45">
-        {hideWatermark ? names : <>Powered by Setnayan{city ? ` · ${city}` : ''} · {names}</>}
+        {hideWatermark ? (
+          names
+        ) : (
+          <>
+            Powered by Setnayan{city ? ` · ${city}` : ''} · {names}
+          </>
+        )}
       </p>
     </footer>
   );

@@ -42,6 +42,7 @@ import {
 } from '@/lib/editorial-event-types';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveStoryCover } from '@/lib/story-cover';
 import { tierCaps, isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 
@@ -193,14 +194,22 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       is_sample?: boolean | null;
       landing_page_hero_image_url?: string | null;
       landing_page_hero_video_r2_key?: string | null;
+      story_cover_kind?: string | null;
+      story_cover_ref?: string | null;
       showcase_featured_at?: string | null;
       showcase_feature_rank?: number | null;
     };
 
+    // ⚠ EVERY COLUMN NAMED HERE MUST BE ONE `authenticated` MAY SELECT — this
+    // read runs on the admin client, but `public.events` revokes table-level
+    // SELECT and re-grants a per-column allowlist, and an ungranted column
+    // makes PostgREST refuse the WHOLE query rather than omit the column.
+    // `story_cover_kind` / `story_cover_ref` were granted by their own
+    // migration (verified in prod 2026-09-09).
     const FEATURED_COLS =
-      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank';
+      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, showcase_featured_at, showcase_feature_rank';
     const LEGACY_COLS =
-      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key';
+      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref';
 
     // 3a · CONSENTED real weddings — gated on G4 (grace window) + G5 (consent),
     // featured-first. Skipped entirely when no real couple has consented yet.
@@ -426,10 +435,25 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         monogramColor: e.monogram_color ?? null,
         featured: e.showcase_featured_at != null,
         featureRank: e.showcase_feature_rank ?? null,
-        // Resolve r2:// / relative refs to a display URL; plain http passes through.
-        heroImageUrl: e.landing_page_hero_image_url
-          ? await displayUrlForStoredAsset(e.landing_page_hero_image_url)
-          : null,
+        /*
+          THE COVER LEADS THE CARD (`02` §6 · 08 step 1.5). The host's chosen
+          cover, re-checked at read time — a capture that has since been vetoed,
+          or a supplier frame that has since been withdrawn, resolves to null and
+          this falls straight back to the living hero, which is what every card
+          showed before there was a cover at all.
+
+          ⚠ `monogram` RESOLVES TO A NULL KEY ON PURPOSE. It is drawn, not
+          fetched, and the shelf card already draws the couple's mark when it has
+          no photo — so "no image URL" is exactly the right answer here.
+        */
+        heroImageUrl: await (async () => {
+          const cover = await resolveStoryCover(admin, e.event_id, e);
+          if (cover) return cover.key ? await displayUrlForStoredAsset(cover.key) : null;
+          // Resolve r2:// / relative refs to a display URL; plain http passes through.
+          return e.landing_page_hero_image_url
+            ? await displayUrlForStoredAsset(e.landing_page_hero_image_url)
+            : null;
+        })(),
         // The couple's baked "living hero" boomerang (Living Hero Studio), if set
         // — plays forward→reverse on the realstories card with the still as poster.
         // SEC-6 (D16): unscreened couple-uploaded clip — gated off public

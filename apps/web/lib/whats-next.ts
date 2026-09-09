@@ -24,6 +24,16 @@
  * so there is no second list here to disagree with the first.
  */
 
+/*
+  TYPE-ONLY IMPORT — erased at runtime, so this module pulls in no `server-only`
+  client and `whats-next.test.ts` can drive the write below with a recording
+  stand-in. Same reason `lib/plan-next-year-authz.ts` exists as its own module:
+  a test beside a `'use server'` action under `app/` is never collected by the
+  repo's unit-test glob over `lib`, so a rule that lives only in the action is a
+  rule nothing can measure.
+*/
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { anchorForType, nextAnniversary, parseISO } from './event-anchor';
 
 /**
@@ -48,6 +58,15 @@ export type NextCandidate = {
   timing: NextTiming;
   /** ISO date we can name, for `derived` only. Null everywhere else. */
   dateISO: string | null;
+  /**
+   * The same date in the house's own words, formatted by the CALLER.
+   *
+   * ⚠ IT IS A STRING, NOT A FORMATTER, AND THAT IS NOT A STYLE CHOICE. This
+   * list crosses the server/client boundary and a function cannot. Passing
+   * `formatEventDate` down as a prop throws at render; formatting here would
+   * mean a second date format on one page.
+   */
+  dateLabel: string | null;
   /** Whole days from today to `dateISO`. Null unless we can name a date. */
   inDays: number | null;
 };
@@ -122,13 +141,16 @@ export function daysBetween(fromISO: string, toISO: string): number | null {
  * @param todayISO today, passed in so the arithmetic is testable.
  * @param roster the creatable event types, from `getCreatableEventTypes`. Only
  *   types the account can actually create are ever offered.
+ * @param formatDate the caller's own date formatter — the page's
+ *   `formatEventDate`, so this screen never writes a second date format.
  */
 export function nextCandidates(args: {
   eventDateISO: string | null;
   todayISO: string;
   roster: readonly NextTypeOption[];
+  formatDate: (iso: string) => string;
 }): NextCandidate[] {
-  const { eventDateISO, todayISO, roster } = args;
+  const { eventDateISO, todayISO, roster, formatDate } = args;
 
   const out: NextCandidate[] = [
     {
@@ -136,6 +158,7 @@ export function nextCandidates(args: {
       label: 'Nothing yet',
       timing: 'you_choose',
       dateISO: null,
+      dateLabel: null,
       inDays: null,
     },
   ];
@@ -159,12 +182,20 @@ export function nextCandidates(args: {
         label: option.label,
         timing,
         dateISO: occurrence.dateISO,
+        dateLabel: formatDate(occurrence.dateISO),
         inDays: daysBetween(todayISO, occurrence.dateISO),
       });
       continue;
     }
 
-    out.push({ kind: option.key, label: option.label, timing, dateISO: null, inDays: null });
+    out.push({
+      kind: option.key,
+      label: option.label,
+      timing,
+      dateISO: null,
+      dateLabel: null,
+      inDays: null,
+    });
   }
 
   return out;
@@ -219,10 +250,10 @@ export function backCoverOf(
   const candidate = offered.find((c) => c.kind === announcement.kind);
   if (!candidate) return null;
 
-  if (candidate.timing === 'derived' && candidate.dateISO) {
+  if (candidate.timing === 'derived' && candidate.dateLabel) {
     return {
       title: candidate.label,
-      when: candidate.dateISO,
+      when: candidate.dateLabel,
       sub: candidate.inDays === null ? null : `in ${candidate.inDays} days`,
     };
   }
@@ -230,4 +261,49 @@ export function backCoverOf(
     return { title: candidate.label, when: 'The chronicle continues', sub: null };
   }
   return { title: candidate.label, when: 'A day still to choose', sub: null };
+}
+
+/**
+ * THE ONLY TABLE AN ANNOUNCEMENT MAY TOUCH.
+ *
+ * ⚖ "Announce it only" CREATES NOTHING — the owner's ruling, and the reason
+ * `event-anchor.ts` may derive a candidate at all ("an event exists only on the
+ * user's go-signal tap"). One key on a row that already exists.
+ */
+export const ANNOUNCEMENT_WRITES_TO = 'event_editorial' as const;
+
+/**
+ * Put the announcement on this story's back cover — or take it off.
+ *
+ * ⚠ READ-MODIFY-WRITE, AND THE READ'S REFUSAL IS FATAL. `draft_json` is one
+ * document holding the host's headline, deck and every chapter override.
+ * Writing `{ whatsNext }` over a document we FAILED TO READ would delete all of
+ * it — a refused read is not an empty draft. Returns false instead.
+ */
+export async function writeAnnouncement(
+  admin: SupabaseClient,
+  eventId: string,
+  value: NextAnnouncement | null,
+): Promise<boolean> {
+  const { data: existing, error: readError } = await admin
+    .from(ANNOUNCEMENT_WRITES_TO)
+    .select('draft_json')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readError) return false;
+
+  const base =
+    existing?.draft_json && typeof existing.draft_json === 'object'
+      ? (existing.draft_json as Record<string, unknown>)
+      : {};
+
+  const { error } = await admin.from(ANNOUNCEMENT_WRITES_TO).upsert(
+    {
+      event_id: eventId,
+      draft_json: { ...base, whatsNext: value },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'event_id' },
+  );
+  return !error;
 }

@@ -11,7 +11,7 @@ import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { anchorForType } from '@/lib/event-anchor';
-import { NEVER_OFFERED_AS_NEXT, NOTHING_YET } from '@/lib/whats-next';
+import { NEVER_OFFERED_AS_NEXT, NOTHING_YET, writeAnnouncement } from '@/lib/whats-next';
 import { hostUserId } from './_lib/host-authority';
 
 /**
@@ -22,9 +22,12 @@ import { hostUserId } from './_lib/host-authority';
  *
  *   `announceNext`  — puts a sentence on this story's back cover. **CREATES
  *                     NOTHING.** One `event_editorial.draft_json` key, on a row
- *                     that already exists. No `events` insert is reachable from
- *                     this function; `announce-creates-nothing.test.ts` proves
- *                     it by counting, not by reading.
+ *                     that already exists. The write itself lives in
+ *                     `lib/whats-next.ts` — not for tidiness, but because a rule
+ *                     that lives only inside a `'use server'` module is a rule
+ *                     no test can drive (the repo's unit glob never collects one
+ *                     from `app/`). `whats-next.test.ts` runs it against a
+ *                     recording client and asserts the tables it touched.
  *   `startTheNext`  — the go-signal tap. Creates ONE event, pre-filled, and
  *                     writes `previous_event_id` back to this story.
  *
@@ -39,43 +42,6 @@ export type NextActionResult = { ok: true } | { ok: false; error: string };
 
 const NO_ACCESS = 'You don’t have access to this celebration.';
 const NOT_OFFERED = 'That isn’t one of the celebrations we can follow this one with.';
-
-/**
- * Merge one key into `event_editorial.draft_json`, preserving everything else.
- * The same read-modify-write `saveEditorial` does — the story's draft is one
- * JSON document and a blind overwrite loses the words the host typed.
- */
-async function writeAnnouncement(
-  admin: ReturnType<typeof createAdminClient>,
-  eventId: string,
-  value: { kind: string } | null,
-): Promise<boolean> {
-  const { data: existing, error: readError } = await admin
-    .from('event_editorial')
-    .select('draft_json')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  // ⚠ A REFUSED READ IS NOT AN EMPTY DRAFT. Writing `{ whatsNext }` over a
-  // document we failed to read would delete the host's headline, deck and every
-  // chapter override — the exact defect the editor's own "we couldn't load the
-  // story you saved" banner exists for. Refuse instead.
-  if (readError) return false;
-
-  const base =
-    existing?.draft_json && typeof existing.draft_json === 'object'
-      ? (existing.draft_json as Record<string, unknown>)
-      : {};
-
-  const { error } = await admin.from('event_editorial').upsert(
-    {
-      event_id: eventId,
-      draft_json: { ...base, whatsNext: value },
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id' },
-  );
-  return !error;
-}
 
 /**
  * ANNOUNCE IT ONLY — the back cover gains a line. Nothing is created.

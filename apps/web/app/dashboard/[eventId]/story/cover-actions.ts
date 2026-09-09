@@ -36,6 +36,66 @@ import { resolveStoryCover, sanitizeStoryCover } from '@/lib/story-cover';
 
 export type CoverActionResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * THE THIRD JOB — the top of the story — WITHOUT TOUCHING THE STORY'S OWN TREE.
+ *
+ * 🔑 RULE 0's BEST FIND IN THIS SESSION. The story's lead image is already
+ * chosen by a four-rung ladder in the public loader: the couple's own upload
+ * (`draft_json.heroUpload`) → a curated capture (`event_editorial.hero_photo_id`)
+ * → the Papic auto-pick → the living hero. **`hero_photo_id` HAS NO WRITER** —
+ * the loader says so in its own comment ("the normal case — hero_photo_id has no
+ * writer yet"). It is a rung that has been waiting for this screen.
+ *
+ * So the cover does not need the story to learn anything new: it writes the
+ * ladder's own top rungs, and the story leads with the host's cover the moment
+ * they pick it. Two doors, one room — the same phrasing the last word already
+ * uses for `events.special_message`.
+ *
+ * ⚠ TWO OF THE FIVE KINDS CANNOT BE SAID IN THAT LADDER. A supplier's frame and
+ * the animated monogram have no rung, so for those the ladder is CLEARED and the
+ * story's own top falls back to the living hero — while the shelf card and the
+ * share card, which read `resolveStoryCover` directly, show the real choice. The
+ * cover screen says this out loud rather than letting a host find it later; the
+ * page lane teaching the story to read the cover directly is what removes the
+ * asymmetry, and this bridge with it.
+ *
+ * ⚠ AND CLEARING IS PART OF THE CHOICE, NOT A SIDE EFFECT. A host who uploaded a
+ * cover in "Your own photos" and then picks the living hero here is asking for
+ * the living hero; leaving the upload on the ladder's first rung would mean the
+ * story kept leading with the picture they just replaced. The file itself is
+ * untouched in storage.
+ */
+async function leadTheStoryWith(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  cover: { kind: string; ref: string | null } | null,
+): Promise<boolean> {
+  const { data: existing, error: readError } = await admin
+    .from('event_editorial')
+    .select('draft_json')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  // A REFUSED READ IS NOT AN EMPTY DRAFT. Writing over a document we failed to
+  // read would delete the host's headline, deck and every chapter override.
+  if (readError) return false;
+
+  const base =
+    existing?.draft_json && typeof existing.draft_json === 'object'
+      ? (existing.draft_json as Record<string, unknown>)
+      : {};
+
+  const { error } = await admin.from('event_editorial').upsert(
+    {
+      event_id: eventId,
+      draft_json: { ...base, heroUpload: cover?.kind === 'upload' ? cover.ref : '' },
+      hero_photo_id: cover?.kind === 'capture' ? cover.ref : null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'event_id' },
+  );
+  return !error;
+}
+
 const NO_ACCESS = 'You don’t have access to this celebration.';
 const NOT_ELIGIBLE =
   'That picture can’t be your cover. It’s either still being screened, or ' +
@@ -82,6 +142,16 @@ export async function setStoryCover(
     })
     .eq('event_id', eventId);
   if (error) return { ok: false, error: 'Could not save your cover. Please try again.' };
+
+  const leadOk = await leadTheStoryWith(admin, eventId, cover);
+  if (!leadOk) {
+    return {
+      ok: false,
+      error:
+        'Your cover was saved for the shelf and the share card, but the top of ' +
+        'your story didn’t change. Try picking it again.',
+    };
+  }
 
   revalidatePath(`/dashboard/${eventId}/story`);
   // The shelf card reads the cover now, so the shelf itself has to be rebuilt —

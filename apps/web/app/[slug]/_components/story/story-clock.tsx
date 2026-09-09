@@ -19,7 +19,13 @@
  */
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { DIAL_WIDTH, formatClock, nearestBarAt, percentOf } from '@/lib/story-spine';
+import {
+  DIAL_WIDTH,
+  formatClock,
+  nearestBarAt,
+  percentOf,
+  readerReached,
+} from '@/lib/story-spine';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { clearReaderPosition, publishReaderPosition } from '@/lib/story-reader-position';
 
@@ -139,15 +145,27 @@ export function StoryClock({
     const read = () => {
       frame = 0;
       const line = window.innerHeight * 0.38;
-      let current: HTMLElement | null = null;
-      let f = 0;
-      for (const el of nodes) {
-        const r = el.getBoundingClientRect();
-        if (r.top <= line) {
-          current = el;
-          f = Math.min(1, Math.max(0, (line - r.top) / Math.max(1, r.height + 140)));
-        }
-      }
+      /*
+        🔴 THE ENTRY MUST BE ON THE PAGE. A `display:none` subtree reports a top
+        of 0, which is above every read line, and it sorts LAST in document
+        order — so a tracker that simply keeps the last entry above the line
+        keeps an invisible one, from load, forever. `readerReached` skips any
+        box with no extent; the rule lives in the pure module so
+        `story-spine.test.ts` can run it against the exact shape that broke it.
+
+        Measured on the live site 2026-09-09: six entries, three of them inside
+        a `<div hidden>`, and the page painting its closing colour at scroll
+        position zero.
+      */
+      const hit = readerReached(
+        nodes.map((el) => {
+          const r = el.getBoundingClientRect();
+          return { top: r.top, height: r.height, width: r.width };
+        }),
+        line,
+      );
+      const current: HTMLElement | null = hit ? (nodes[hit.index] ?? null) : null;
+      const f = hit ? hit.progress : 0;
       if (!current) {
         setActiveX(null);
         setNow({ stamp: openingStamp, suffix: openingSuffix, label: openingLabel });

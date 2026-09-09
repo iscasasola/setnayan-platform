@@ -499,6 +499,70 @@ export function venueStateAt(atMs: number, blocks: readonly VenueBlock[]): Venue
   return atMs < first.startMs ? 'before' : 'unseated';
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   WHERE THE READER IS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** One entry's box, as `getBoundingClientRect()` hands it over. */
+export type EntryBox = { top: number; height: number; width: number };
+
+/**
+ * Is this entry actually on the page?
+ *
+ * 🔴 A `display:none` SUBTREE REPORTS `top: 0`, AND ZERO IS ABOVE THE READ LINE.
+ * That is the whole bug. A tracker that walks every `[data-story-entry]` in the
+ * document and keeps the last one whose top is above the line will, for any
+ * positive line, keep an UNRENDERED entry — because an unrendered one reports
+ * a top of exactly 0 and sorts last in document order. The reader is then
+ * pinned to whatever the final entry is, from load, forever: the needle sits at
+ * the end of the dial, the readout names the last minute, and the page paints
+ * its closing colour instead of its morning one.
+ *
+ * Observed in a real browser on the live site 2026-09-09 (S10): six entries in
+ * the DOM, three of them inside a `<div hidden>`, and the light painting the
+ * `after` stage at scroll position zero.
+ *
+ * ⚠ AND THE HIDDEN COPY IS NOT ALWAYS SOMEBODY'S MISTAKE. React's streaming
+ * SSR parks finished content in a hidden buffer before relocating it; a print
+ * view, a closed index tab and an un-opened overlay all produce the same shape.
+ * The tracker has no business knowing which; it only has to refuse to follow a
+ * box that is not being drawn.
+ *
+ * A rendered box always has SOME extent — an `<article>` with a stamp and a
+ * paragraph in it is never 0×0 — so this is the same test
+ * `getClientRects().length` makes, taken off the rect the caller already has
+ * rather than costing a second layout read per entry per frame.
+ */
+export function entryIsRendered(box: EntryBox): boolean {
+  return box.width !== 0 || box.height !== 0;
+}
+
+/**
+ * Which entry the reader has reached, and how far through it they are.
+ *
+ * `null` means they are still above the first one — on the cover — which is a
+ * real answer and not a failure: it is what puts the story in its opening light.
+ *
+ * Pure, so the rule can be exercised against the exact DOM shape that broke it
+ * rather than asserted about in a comment.
+ */
+export function readerReached(
+  boxes: readonly EntryBox[],
+  line: number,
+): { index: number; progress: number } | null {
+  let found: { index: number; progress: number } | null = null;
+  for (let i = 0; i < boxes.length; i += 1) {
+    const b = boxes[i]!;
+    if (!entryIsRendered(b)) continue;
+    if (b.top > line) continue;
+    found = {
+      index: i,
+      progress: Math.min(1, Math.max(0, (line - b.top) / Math.max(1, b.height + 140))),
+    };
+  }
+  return found;
+}
+
 // ─── The edition ────────────────────────────────────────────────────────────
 
 // Setnayan awards-cycle Volume for an event date. The edition year runs

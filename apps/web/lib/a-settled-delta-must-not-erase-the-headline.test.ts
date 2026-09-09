@@ -59,7 +59,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { computeEventMoney } from '@/lib/budget-truth';
+import {
+  computeEventMoney,
+  type LineItemMoneyRow,
+  type MoneyInputs,
+  type VendorMoneyRow,
+} from '@/lib/budget-truth';
+import type { VendorPricingLookup } from '@/lib/budget';
 import { CONFIRMED_LOCK_STATUSES, planChatLockBooking } from '@/lib/chat-lock-booking';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -68,8 +74,7 @@ const ACTIONS = join(HERE, '../app/_components/negotiation-actions.ts');
 
 const NOW = new Date('2026-06-01T00:00:00Z');
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const inputs = (over: Record<string, unknown> = {}): any => ({
+const inputs = (over: Partial<MoneyInputs> = {}): MoneyInputs => ({
   now: NOW,
   targetCentavos: null,
   vendors: [],
@@ -77,13 +82,13 @@ const inputs = (over: Record<string, unknown> = {}): any => ({
   payments: [],
   orders: [],
   costs: [],
-  pricing: new Map(),
+  pricing: new Map() as VendorPricingLookup,
   packageLockedCentavos: new Map(),
   benchmarks: [],
   ...over,
 });
 
-const vendor = (over: Record<string, unknown>): any => ({
+const vendor = (over: Partial<VendorMoneyRow> & { vendor_id: string }): VendorMoneyRow => ({
   event_id: 'e1',
   category: 'photographer',
   vendor_name: 'Kasal Studios',
@@ -102,14 +107,13 @@ const vendor = (over: Record<string, unknown>): any => ({
 });
 
 /** The one line an "accept settles the net delta" build would write. */
-const settlementLine = (amountPhp: number): any => ({
+const settlementLine = (amountPhp: number): LineItemMoneyRow => ({
   line_item_id: 'settled-1',
   vendor_id: 'a',
   label: 'Deal S89M-XXXXXXXXXX',
   amount_php: amountPhp,
   due_date: null,
 });
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 test('a settlement delta ERASES a headline-billed supplier — the reason we do not write one', () => {
   const before = computeEventMoney(

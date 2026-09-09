@@ -190,13 +190,15 @@ test('the predicate is asked by its real argument names', async () => {
   const calls: StubCall[] = [];
   await loadGuestBlurGate(stubAdmin({ calls }), 'e1', [REF]);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].fn, 'papic_captures_needing_blur');
-  assert.deepEqual(Object.keys(calls[0].args).sort(), [
+  const only = calls[0];
+  assert.ok(only, 'the predicate was never asked at all');
+  assert.equal(only.fn, 'papic_captures_needing_blur');
+  assert.deepEqual(Object.keys(only.args).sort(), [
     'p_event_id',
     'p_source_ids',
     'p_source_table',
   ]);
-  assert.equal(calls[0].args.p_source_table, 'papic_photos');
+  assert.equal(only.args.p_source_table, 'papic_photos');
 });
 
 test('a REFUSED predicate query fails the whole gate (withhold everything)', async () => {

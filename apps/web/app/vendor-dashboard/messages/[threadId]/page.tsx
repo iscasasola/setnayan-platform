@@ -3,23 +3,29 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   fetchMessages,
   fetchReturningClientFlags,
   fetchLeadTrustActivePlanner,
   fetchThreadById,
+  fetchVendorThreads,
+  formatChatTimestamp,
 } from '@/lib/chat';
 import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
 import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
 import { FOUNDER_BADGE_LABEL, FOUNDER_INQUIRY_NOTE } from '@/lib/founder-seats';
-import { inquiryCityLabel } from '@/lib/inquiry-customer.server';
+import {
+  fetchInquiryCustomerFacts,
+  inquiryCityLabel,
+} from '@/lib/inquiry-customer.server';
 import { buildCustomerEventSummary } from '@/lib/customer-event-summary';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
-import { formatLongDate } from '@/lib/format-date';
+import { formatLongDate, shortDate } from '@/lib/format-date';
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
@@ -49,6 +55,11 @@ import { SendProposalCard } from './_components/send-proposal-card';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
 import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { ThreadToolHashReveal } from './_components/reveal-thread-tool';
+import { ConversationColumn } from '@/app/_components/chat/conversation-column';
+import {
+  buildVendorConversationRows,
+  initialsFor,
+} from '@/lib/conversation-list';
 import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
@@ -515,13 +526,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // stage by definition, so there is no pipeline to derive yet. It must never
   // regain an identity meaning — that was the token wallet's lock.
   const threadIsPendingInquiry = thread.inquiry_status === 'pending';
-  const railInitials =
-    coupleLabel
-      .split(/[\s&·]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w: string) => w[0]?.toUpperCase() ?? '')
-      .join('') || 'C';
+  // ⚠ ONE derivation of a couple's two letters, shared with the conversation
+  // column. Two copies is how one screen comes to show `CI` beside another
+  // showing `C`.
+  const railInitials = initialsFor(coupleLabel);
   // Service/category of the inquiry — the first recorded interest chip (the
   // same source the interest chips + cross-sell already use on this page).
   const firstInterest = existingInterests[0];
@@ -566,6 +574,165 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     templateCount: proposalTemplates.length,
   };
 
+  /* ── THE LEFT COLUMN: every conversation, beside the one being read ────────
+     Owner 2026-09-08: "list · conversation · context".
+
+     ⚡ FOUR BATCHED READS FOR THE WHOLE LIST, not four per row. The stage
+     probes live in buildVendorConversationRows; here we gather the three things
+     a row shows that are not already on the thread row itself.
+
+     ⚠ EVERY ONE FAILS QUIET. This column is navigation, not the page — a
+     refused read must leave the conversation itself readable, so each degrades
+     to an empty map and the row falls back to what it can still say. */
+  const listThreads = await fetchVendorThreads(supabase, profile.vendor_profile_id).catch(
+    (caught: unknown) => {
+      logQueryError(
+        'VendorThreadPage.conversationList',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { vendor_profile_id: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+      return [] as Awaited<ReturnType<typeof fetchVendorThreads>>;
+    },
+  );
+  const listThreadIds = listThreads.map((t) => t.thread_id);
+  const listEventIds = [...new Set(listThreads.map((t) => t.event_id))];
+
+  const [listCustomers, lastMessageRes, listInterestRes, listReadRes] = await Promise.all([
+    // Who each couple is. A vendor's own RLS nulls `events` out on every thread,
+    // so this is the admin-scoped helper the inbox already uses — the caller's
+    // ownership proof is fetchVendorThreads above.
+    fetchInquiryCustomerFacts(paxAdmin, listEventIds),
+    // The last line of each conversation. Ordered newest-first and capped: the
+    // reducer keeps the FIRST row it sees per thread, which is that thread's
+    // latest. The cap is a ceiling on work, not on correctness — a shop past it
+    // loses the preview on its oldest conversations, never the conversation.
+    listThreadIds.length > 0
+      ? supabase
+          .from('chat_messages')
+          .select('thread_id, sender_role, body, created_at')
+          .in('thread_id', listThreadIds)
+          .order('created_at', { ascending: false })
+          .limit(600)
+      : Promise.resolve({ data: [], error: null }),
+    // The service each couple asked about — one grey tag on the row.
+    listThreadIds.length > 0
+      ? supabase
+          .from('thread_service_interests')
+          .select('thread_id, category_key, created_at')
+          .in('thread_id', listThreadIds)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    // When this viewer last opened each thread — the dot and the bold preview.
+    // ⚠ The read markers are a LATER migration than the threads themselves, so
+    // this degrades to "nothing is unread": a missing dot understates, an
+    // invented one sends a supplier into a conversation with nothing in it.
+    listThreadIds.length > 0
+      ? supabase
+          .from('chat_thread_reads')
+          .select('thread_id, last_read_at')
+          .eq('user_id', user.id)
+          .in('thread_id', listThreadIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (lastMessageRes.error) {
+    logQueryError(
+      'VendorThreadPage.lastMessages',
+      lastMessageRes.error,
+      { vendor_profile_id: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const lastMessages = new Map<string, { sender_role: string; body: string | null }>();
+  const lastMessageAt = new Map<string, string>();
+  for (const m of (lastMessageRes.data ?? []) as Array<{
+    thread_id: string;
+    sender_role: string;
+    body: string | null;
+    created_at: string;
+  }>) {
+    if (!lastMessages.has(m.thread_id)) {
+      lastMessages.set(m.thread_id, { sender_role: m.sender_role, body: m.body });
+      lastMessageAt.set(m.thread_id, m.created_at);
+    }
+  }
+
+  /* Unread = something was said after this viewer last opened the thread.
+     ⚠ A THREAD WITH NO READ MARKER IS NOT UNREAD HERE. The marker is written on
+     open, so "never opened" and "the marker table is not reachable" are the same
+     absence — and a whole column of dots on a shop that has read everything is
+     noise that trains the eye to ignore the one that matters. */
+  if (listReadRes.error) {
+    logQueryError(
+      'VendorThreadPage.listReads',
+      listReadRes.error,
+      { vendor_profile_id: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const listUnread = new Set<string>();
+  for (const r of (listReadRes.data ?? []) as Array<{
+    thread_id: string;
+    last_read_at: string | null;
+  }>) {
+    const said = lastMessageAt.get(r.thread_id);
+    if (said && r.last_read_at && new Date(said) > new Date(r.last_read_at)) {
+      listUnread.add(r.thread_id);
+    }
+  }
+
+  if (listInterestRes.error) {
+    logQueryError(
+      'VendorThreadPage.listInterests',
+      listInterestRes.error,
+      { vendor_profile_id: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const interestByThread = new Map<string, string>();
+  for (const i of (listInterestRes.data ?? []) as Array<{
+    thread_id: string;
+    category_key: string | null;
+  }>) {
+    // First interest wins — the same "what did they ask about" the rail shows.
+    if (!interestByThread.has(i.thread_id) && i.category_key) {
+      interestByThread.set(i.thread_id, interestChipLabel({ category_key: i.category_key }));
+    }
+  }
+
+  const listDisplayNames = new Map<string, string | null>();
+  const listLabels = new Map<string, string[]>();
+  for (const t of listThreads) {
+    const facts = listCustomers.get(t.event_id);
+    listDisplayNames.set(t.event_id, facts?.displayName ?? null);
+    const tags: string[] = [];
+    const service = interestByThread.get(t.thread_id);
+    if (service) tags.push(service);
+    // ⚠ `event_date` is a DATE column, so it goes through the repo's own
+    // formatter — `new Date('2026-12-18')` is the 17th west of Greenwich.
+    const day = shortDate(facts?.eventDate);
+    if (day) tags.push(day);
+    listLabels.set(t.event_id, tags);
+  }
+
+  const conversationRows = await buildVendorConversationRows({
+    supabase,
+    adminClient: paxAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    threads: listThreads.map((t) => ({
+      thread_id: t.thread_id,
+      event_id: t.event_id,
+      inquiry_status: t.inquiry_status ?? null,
+      updated_at: t.updated_at,
+    })),
+    displayNames: listDisplayNames,
+    labels: listLabels,
+    lastMessages,
+    unreadThreadIds: listUnread,
+    formatTime: formatChatTimestamp,
+  });
+
   msgTimer.flush();
 
   /* 🔴 A SHIPPED FEATURE NOBODY COULD REACH. `<VendorEventDayPrepCta>` — the
@@ -584,7 +751,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const showDayPrep = railStage === 'booked' && Boolean(event?.event_date);
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8">
+    <div className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8 xl:max-w-[86rem]">
+      {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
+          xl, where there is room for all three without squeezing the middle —
+          the whole point was to give the conversation back its space. */}
+      <ConversationColumn
+        rows={conversationRows}
+        activeThreadId={threadId}
+        side="vendor"
+        hrefBase="/vendor-dashboard/messages"
+      />
       <section className="flex min-w-0 flex-1 flex-col gap-4">
       <header className="flex items-center justify-between gap-3 sn-row p-4">
         <div className="min-w-0 space-y-0.5">

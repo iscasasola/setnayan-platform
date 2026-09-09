@@ -48,6 +48,31 @@ export function formatLongDate(value: string | null | undefined): string {
   });
 }
 
+const SHORT_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+/**
+ * A `date` column as "18 Dec" — for a chip, where the full sentence does not fit.
+ *
+ * ⚠ BUILT BY HAND, NOT BY `toLocaleDateString`. The ICU data behind `en-PH`
+ * differs between Node builds — the CI runner says "18 Dec", a Mac says
+ * "Dec 18" — and a date that renders two ways is not a fact. Same reasoning,
+ * and the same shape, as the copy in `lib/plan3d-control.ts`, which got there
+ * first; that one and `lib/save-the-date-content.ts` are left alone rather than
+ * re-pointed, because moving a date formatter under two shipped surfaces is its
+ * own change. This is the canonical home for the next caller.
+ *
+ * ⚠ Feed it a DATE, never a `timestamptz` — see {@link formatLongTimestamp}.
+ */
+export function shortDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getUTCDate()} ${SHORT_MONTHS[d.getUTCMonth()]}`;
+}
+
 /**
  * A TIMESTAMP as "June 19, 2026" — the Manila calendar day it happened on.
  *

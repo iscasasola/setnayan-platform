@@ -33,11 +33,7 @@ const config: Config = {
   // silently a no-op at runtime. It looked fine only because the heavily-used
   // files there (skeletons, sd-loader) happen to share every class with some
   // app/** file; ManualCheckoutModal, which doesn't, rendered fully unstyled.
-  content: [
-    './app/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './lib/**/*.{ts,tsx}',
-  ],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
   theme: {
     screens: {
       sm: '640px',
@@ -123,6 +119,26 @@ const config: Config = {
           700: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
           800: '#5c4726',
           900: '#3f3019',
+        },
+        /*
+          THE CANDLE — the colour the loudest table on the story's floor plan
+          burns (owner ruling 2026-09-09).
+
+          🔑 DELIBERATELY NOT DERIVED FROM THE COUPLE'S PALETTE. Candlelight is
+          the same colour at every wedding; owner lock 2 governs the story's
+          paper and its ink, not every mark on the page. Only the RIM moves —
+          `candle-ink` is corrected per light-stage so a gold table still reads
+          as an edge on pale paper (the fill measures ~1.9:1 there).
+          Both are painted by lib/story-light.ts; see its CANDLE constant.
+        */
+        candle: {
+          // The literal is the FALLBACK, not a second source of truth: these
+          // vars are painted per light-stage on the story's wrapper, and the
+          // fallback only decides what a candle looks like somewhere that
+          // wrapper is not. Keeping it here rather than in globals.css keeps
+          // the token self-contained and out of the locked :root palette.
+          DEFAULT: 'rgb(var(--color-candle, 217 164 65) / <alpha-value>)',
+          ink: 'rgb(var(--color-candle-ink, 122 90 22) / <alpha-value>)',
         },
         mulberry: {
           DEFAULT: 'rgb(var(--color-mulberry) / <alpha-value>)',

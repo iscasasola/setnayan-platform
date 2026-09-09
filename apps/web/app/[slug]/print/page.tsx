@@ -22,6 +22,7 @@ import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { storyAudienceAdmits } from '@/lib/who-can-see-your-story';
+import { printedStampLine } from '@/lib/a-withdrawal-reaches-every-copy';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
@@ -259,6 +260,30 @@ export default async function EditorialPrintPage({
     qrSvg = '';
   }
 
+  /*
+    ══ THE VERSION STAMP ON PAPER (`07` Q6, ruled 2026-09-09 · 08 step 4.1) ═══
+
+    Read HERE, and deliberately not threaded through `loadEditorialData`. This is
+    a fact about the printed ARTEFACT — when was this sheet true — not a part of
+    the story's content, and every other reader of `EditorialData` would have had
+    to carry a field it has no use for.
+
+    ⚠ A REJECTED READ IS AN ABSENCE. `story_version_at` comes back missing rather
+    than throwing, `printedStampLine` returns null for it, and the colophon then
+    prints NO stamp at all. That is the correct outcome and not a degraded one: a
+    copy we cannot date is exactly the copy printed before this shipped, and
+    stamping it with today would be the lie the whole feature exists to avoid.
+  */
+  const { data: storyRow } = await createAdminClient()
+    .from('event_editorial')
+    .select('story_version_at')
+    .eq('event_id', event.event_id)
+    .maybeSingle();
+  const stampLine = printedStampLine(
+    typeof storyRow?.story_version_at === 'string' ? storyRow.story_version_at : null,
+    typeof event.timezone === 'string' ? event.timezone : null,
+  );
+
   return (
     <main className="keepsake-root">
       <style dangerouslySetInnerHTML={{ __html: KEEPSAKE_CSS }} />
@@ -270,6 +295,7 @@ export default async function EditorialPrintPage({
         mono={mono}
         qrSvg={qrSvg}
         hideWatermark={hideWatermark}
+        stampLine={stampLine}
       />
     </main>
   );

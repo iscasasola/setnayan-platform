@@ -16,6 +16,7 @@ import {
   publicEventUrl,
   resolveEventOwnerSlug,
 } from '@/lib/public-event-url';
+import { ogCardUrlFor } from '@/lib/a-withdrawal-reaches-every-copy';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // Bare-root dispatch: a slug that isn't a renderable event may be a vendor
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
@@ -168,8 +169,41 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   // PR6 cutover: canonical + OG URL point at the nested /u/{owner}/{slug} once
   // the flag is ON (self-noops to the bare slug while OFF). Keeps the crawler's
   // canonical in lockstep with the redirect the page body issues for bare hits.
-  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
+  const admin = createAdminClient();
+  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
   const canonicalUrl = publicEventUrl(siteUrl, event.slug, ownerSlug);
+
+  /*
+    ══ THE SHARE CARD'S ADDRESS CARRIES THE MOMENT THE STORY LAST CHANGED ═════
+
+    🔴 A GUEST'S WITHDRAWAL COULD NOT REACH THE SHARE CARD, AND CALLING
+    `revalidatePath` ON IT WOULD HAVE LOOKED LIKE A FIX AND DONE NOTHING.
+    `/api/og/realstory-slug/{slug}` is a Route Handler whose response carries
+    `Cache-Control: public, max-age=3600, stale-while-revalidate=86400` — a
+    header honoured by the reader's browser, by the CDN and by every social
+    platform that has already fetched it, none of which Next can invalidate. A
+    cache keyed on a URL is busted by moving the URL, so the card's address now
+    ends in the version the story is at.
+
+    ⚠ AND IT STILL CANNOT REACH A POST SOMEBODY ALREADY SHARED — that post holds
+    the old address. What changes is that every share from here on, and every
+    platform that re-scrapes the page, gets the current card. Same shape of limit
+    as the printed keepsake, and it must be described the same honest way.
+
+    A rejected read is an ABSENCE, not a throw: `story_version_at` simply comes
+    back missing and the URL degrades to the unversioned form it has today. That
+    is the old behaviour, not a broken one.
+  */
+  const { data: storyRow } = await admin
+    .from('event_editorial')
+    .select('story_version_at')
+    .eq('event_id', event.event_id)
+    .maybeSingle();
+  const ogCard = ogCardUrlFor(
+    siteUrl,
+    event.slug,
+    typeof storyRow?.story_version_at === 'string' ? storyRow.story_version_at : null,
+  );
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;
@@ -191,7 +225,7 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
       // image. See app/api/og/realstory-slug/[slug]/route.ts.
       images: [
         {
-          url: `${siteUrl}/api/og/realstory-slug/${event.slug}`,
+          url: ogCard,
           width: 1200,
           height: 630,
           alt: `${event.display_name} · Setnayan`,

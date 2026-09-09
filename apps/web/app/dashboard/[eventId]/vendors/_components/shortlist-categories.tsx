@@ -158,6 +158,10 @@ import {
   shouldRunInlineMoreQuery,
   toggleInlineMoreTile,
 } from '@/lib/inline-more-row';
+import {
+  inlineMoreOrderNote,
+  orderInlineMoreRow,
+} from '@/lib/inline-more-order';
 import { fetchInlineMoreRow } from '../_actions/inline-more-row';
 import type { CategoryVendorResult } from '../_actions/category-search';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
@@ -1740,6 +1744,22 @@ export function ShortlistCategories({
       ? 'fit'
       : sort;
 
+  // The WORDING on the chip that is currently on — quoted verbatim in row 2's
+  // "what this is ordered by" line. Read off the chips actually rendered rather
+  // than looked up in a table, because the label differs by flag ("Best fit"
+  // with the replan flag off, "Best matches" with it on) and a sentence that
+  // quotes a different word from the button the couple just pressed replaces
+  // one small lie with another.
+  const effectiveSortLabel: string = useMemo(() => {
+    const chips: { key: BenchSort; label: string }[] = replan
+      ? [
+          ...lensChips.map((c) => ({ key: c.key as BenchSort, label: c.label })),
+          ...BENCH_PLAIN_SORTS.map((p) => ({ key: p.key as BenchSort, label: p.label })),
+        ]
+      : BENCH_SORTS;
+    return chips.find((c) => c.key === effectiveSort)?.label ?? (BENCH_SORTS[0]?.label ?? 'Best fit');
+  }, [replan, lensChips, effectiveSort]);
+
   // ── Sort persistence (§13.3) ──────────────────────────────────────────────
   // Was `useState('fit')` and nothing else, so every reload or tab-away snapped
   // the bench back to "Best fit". Stored per EVENT. Read once on mount (not
@@ -2495,13 +2515,37 @@ export function ShortlistCategories({
                   // SAME window in the same pass and cannot disagree about who
                   // fits. Everything decided is decided in `lib/inline-more-row`.
                   const moreIsOpen = moreOpen?.tile === t.tile;
-                  const moreClassified = moreIsOpen
-                    ? classifyInlineMoreRow({
-                        rows: excludeBenchVendors(
+                  // THE SORT BAR NOW REACHES THIS ROW — bottom tier only (owner
+                  // 2026-09-09, "bottom tier only"). `orderInlineMoreRow` moves
+                  // ONLY the ladder's tail; relationship depth, paid placement
+                  // and top-reviews come back at the byte-identical index they
+                  // went in at, because no other index is ever written. The
+                  // decision is in `lib/inline-more-order.ts`; this file renders.
+                  //
+                  // Ordered AFTER the exclusion so the tiers the sentence names
+                  // are the tiers still on screen, and BEFORE the classifier so
+                  // it composes exactly as row 1 does: choose the order, then
+                  // sink the date clashes as a partition over it.
+                  const moreVisible = moreIsOpen
+                    ? orderInlineMoreRow(
+                        excludeBenchVendors(
                           moreRows,
                           t.vendors.map((v) => v.marketplaceVendorId),
                           Object.keys(moreSaved),
                         ),
+                        effectiveSort,
+                      )
+                    : [];
+                  const moreOrderNote = moreIsOpen
+                    ? inlineMoreOrderNote({
+                        rows: moreVisible,
+                        mode: effectiveSort,
+                        modeLabel: effectiveSortLabel,
+                      })
+                    : null;
+                  const moreClassified = moreIsOpen
+                    ? classifyInlineMoreRow({
+                        rows: moreVisible,
                         freeDaysByProfileId: moreFreeDaysMap,
                         window: buildWindow,
                         members: teamCalendarMembers,
@@ -2821,6 +2865,16 @@ export function ShortlistCategories({
                                   {INLINE_MORE_SEE_ALL} <ArrowRight size={13} strokeWidth={2} aria-hidden />
                                 </button>
                               </div>
+                              {/* THE HONEST SENTENCE (owner 2026-09-09). The
+                                  Sort by bar sits above two rows and orders the
+                                  top of this one not at all — so this row says
+                                  what it IS ordered by, and stops the bar
+                                  appearing to govern something it does not. */}
+                              {moreOrderNote ? (
+                                <div className="mrnote">
+                                  <span>{moreOrderNote}</span>
+                                </div>
+                              ) : null}
                               {moreError ? <div className="mrerr">{moreError}</div> : null}
                               {moreLoading &&
                               moreClassified.fits.length === 0 &&

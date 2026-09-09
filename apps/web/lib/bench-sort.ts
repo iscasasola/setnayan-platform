@@ -214,6 +214,75 @@ function dimensionCopyFor(
 }
 
 /**
+ * The FACTS one card contributes to an ordering, and nothing else.
+ *
+ * Both surfaces that offer the couple a sort — the bench carousel (row 1) and
+ * the inline "More in {category}" results (row 2) — read exactly these three
+ * and no more, so the two rows cannot mean different things by the same chip.
+ * `pricePhp` is deliberately not called "totalCost": row 1 reads a quote and
+ * row 2 reads a service's "starts at". They are different facts; what the two
+ * rows share is the RULE, not the number behind it.
+ */
+export type BenchSortFacts = {
+  /** The ₱ figure "Lowest price" reads. Null = no price → sorts last, never 0. */
+  pricePhp: number | null;
+  rating: number | null;
+  /** Resolved inputs for the ONE scorer (`lib/compat-score`). */
+  compat: CompatInputs;
+};
+
+/**
+ * THE ordering rule behind every bench sort — the single definition of what a
+ * chip MEANS, shared by row 1 and row 2.
+ *
+ * It exists because the sort bar sat above two rows and governed one of them
+ * (owner 2026-09-09). The fix could not be a second comparator in row 2's
+ * module: two comparators are two definitions of "Lowest price", free to drift
+ * apart in exactly the way the couple would never be told about. So the rule
+ * moved here and both rows call it.
+ *
+ * ⚠ WHAT THIS FUNCTION DOES NOT DECIDE: **which cards may be ordered at all.**
+ * It orders what it is handed. Row 2 hands it the tail tier only — the
+ * relationship / boosted / top-reviews tiers of the owner-locked ladder are
+ * never in the array (`lib/inline-more-order.ts`), because no algorithm may
+ * move paid placement.
+ *
+ * Returns a NEW array; never mutates the input.
+ */
+export function orderByBenchSort<T>(
+  items: readonly T[],
+  mode: BenchSort,
+  factsOf: (item: T) => BenchSortFacts,
+): T[] {
+  // Resolve every card's facts ONCE, not once per comparison: `factsOf` runs a
+  // projection (and, for a lens, the scorer's inputs), and an O(n log n) number
+  // of those is both slow and a place for a non-deterministic projection to
+  // hide.
+  const rows = items.map((item) => ({ item, f: factsOf(item) }));
+  const price = (r: { f: BenchSortFacts }): number => r.f.pricePhp ?? Infinity;
+  const rating = (r: { f: BenchSortFacts }): number => r.f.rating ?? 0;
+
+  if (mode === 'price') {
+    rows.sort((a, b) => price(a) - price(b));
+    return rows.map((r) => r.item);
+  }
+  if (mode === 'rating') {
+    rows.sort((a, b) => rating(b) - rating(a));
+    return rows.map((r) => r.item);
+  }
+
+  // A ranking LENS · the composite under this lens's weights, scored once per
+  // card and then sorted on the cached score.
+  const weights = LENSES[mode].weights;
+  const scored = rows.map((r) => ({
+    ...r,
+    score: computeCompatScore(r.f.compat, weights).score,
+  }));
+  scored.sort((a, b) => b.score - a.score || rating(b) - rating(a) || price(a) - price(b));
+  return scored.map((r) => r.item);
+}
+
+/**
  * Sort a category's vendors by the active lens and attach a per-card reason.
  * Returns a NEW array (never mutates the input). The reason explains the card's
  * position under the current lens — the sort leader gets the headline label,
@@ -232,10 +301,18 @@ export function sortWithReasons(
   mode: BenchSort,
   opts?: { nowMs?: number },
 ): { v: ShortlistVendor; reason: SortReason | null }[] {
-  const arr = [...vendors];
+  // Project ONCE, then order through the shared rule. The pills below are
+  // computed from the SAME resolved inputs the order was computed from, so a
+  // card can never wear a reason that disagrees with where it was put.
+  const inputs = new Map<ShortlistVendor, CompatInputs>();
+  for (const v of vendors) inputs.set(v, benchCompatInputs(v, opts?.nowMs));
+  const arr = orderByBenchSort(vendors, mode, (v) => ({
+    pricePhp: v.totalCostPhp ?? null,
+    rating: v.rating ?? null,
+    compat: inputs.get(v) ?? benchCompatInputs(v, opts?.nowMs),
+  }));
 
   if (mode === 'price') {
-    arr.sort((a, b) => (a.totalCostPhp ?? Infinity) - (b.totalCostPhp ?? Infinity));
     return arr.map((v, i) => ({
       v,
       reason:
@@ -246,7 +323,6 @@ export function sortWithReasons(
   }
 
   if (mode === 'rating') {
-    arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     return arr.map((v, i) => ({
       v,
       reason:
@@ -270,23 +346,17 @@ export function sortWithReasons(
     { score: number; dim: CompatDimension | null; subs: Record<CompatDimension, number> }
   >();
   for (const v of arr) {
-    const inputs = benchCompatInputs(v, opts?.nowMs);
+    const vin = inputs.get(v) ?? benchCompatInputs(v, opts?.nowMs);
     scored.set(v, {
-      score: computeCompatScore(inputs, weights).score,
+      score: computeCompatScore(vin, weights).score,
       // Weight-aware (§15.6) — the pill must explain the order the couple is
       // actually looking at. Under "New here" a newcomer's reason is "New on
       // Setnayan", not "Well reviewed"; the pill and the sort can never
       // disagree because both read the same vector.
-      dim: topCompatDimension(inputs, weights),
-      subs: compatSubScores(inputs),
+      dim: topCompatDimension(vin, weights),
+      subs: compatSubScores(vin),
     });
   }
-  arr.sort(
-    (a, b) =>
-      (scored.get(b)?.score ?? 0) - (scored.get(a)?.score ?? 0) ||
-      (b.rating ?? 0) - (a.rating ?? 0) ||
-      (a.totalCostPhp ?? Infinity) - (b.totalCostPhp ?? Infinity),
-  );
 
   // Best sub-score per dimension across THIS category, so a superlative pill
   // ("Closest to your venue") is earned rather than assumed.

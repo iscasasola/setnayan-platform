@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b496e236e",
+  "generatedFromRef": "584ff9fb2",
   "routeCount": 425,
-  "destinations": 905,
+  "destinations": 907,
   "actions": 631,
-  "blocks": 4349,
+  "blocks": 4358,
   "routes": {
     "/": {
       "files": [
@@ -781,6 +781,8 @@
         "[slug]/_components/story/minute-media.tsx",
         "[slug]/_components/story/spine-data.ts",
         "[slug]/_components/story/story-clock.tsx",
+        "[slug]/_components/story/story-lens.tsx",
+        "[slug]/_components/story/story-light.tsx",
         "[slug]/_components/story/story-spine.tsx",
         "[slug]/_components/supplier-desk.tsx",
         "[slug]/_components/supplier-ribbon.tsx",
@@ -994,6 +996,7 @@
         "RoadEntry",
         "RoamWatchPicker",
         "RoomLink",
+        "RoomPlan",
         "RsvpPill",
         "RsvpWidget",
         "RunOfShowHeader",
@@ -1026,6 +1029,9 @@
         "StdTouchGlow",
         "StdViewBeacon",
         "StoryClock",
+        "StoryLens",
+        "StoryLight",
+        "StoryRoom",
         "StorySpine",
         "StorySpineFacts",
         "StripCell",
@@ -5705,7 +5711,6 @@
       ],
       "blocks": [
         "FeedPageSkeleton",
-        "FollowGate",
         "Link",
         "PageMasthead",
         "SubmitButton",
@@ -5723,6 +5728,7 @@
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
+        "/dashboard/[seg]/vendors",
         "/proposals/[seg]"
       ],
       "actions": [
@@ -5733,6 +5739,7 @@
         "ChatSafetyBanner",
         "ChatSendForm",
         "ChatThreadMenu",
+        "ConversationColumn",
         "Link",
         "NegotiationComposerMenu",
         "ReadRefusedNotice",
@@ -6283,6 +6290,7 @@
       "files": [
         "dashboard/[eventId]/story/_components/editorial-editor.tsx",
         "dashboard/[eventId]/story/_components/the-desk.tsx",
+        "dashboard/[eventId]/story/_components/theme-step.tsx",
         "dashboard/[eventId]/story/_lib/host-authority.ts",
         "dashboard/[eventId]/story/_lib/load-desk.ts",
         "dashboard/[eventId]/story/actions.ts",
@@ -6291,6 +6299,7 @@
       ],
       "destinations": [
         "/[seg]?phase=editorial",
+        "/dashboard/[seg]/studio/mood-board",
         "/dashboard/[seg]/website",
         "/dashboard/[seg]/website/living-hero",
         "/dashboard/[seg]/website/our-photos",
@@ -6313,7 +6322,10 @@
         "ProChip",
         "ProUpsellLine",
         "ShareButtons",
+        "StoryTheme",
+        "SwatchPopover",
         "TheDesk",
+        "ThemeStep",
         "WishRow"
       ]
     },
@@ -7552,6 +7564,7 @@
         "ServicesTakeover",
         "ShortlistCategories",
         "SlotPickerModal",
+        "StartServiceInquiryResult",
         "SubmitButton",
         "SuccessToast",
         "TeamClearCandidates",
@@ -10247,6 +10260,7 @@
         "ChatPrivacyNotice",
         "ChatSendForm",
         "ChatThreadMenu",
+        "ConversationColumn",
         "HTMLDetailsElement",
         "HTMLElement",
         "Icon",

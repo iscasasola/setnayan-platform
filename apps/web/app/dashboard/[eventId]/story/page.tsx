@@ -28,7 +28,7 @@ import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import type { EditorialEditorInput } from './actions';
 import { eventNoun } from '@/lib/event-noun';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import { sanitizeStoryTheme } from '@/lib/story-light';
+import { sanitizeStoryTheme } from '@/lib/story-theme';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';

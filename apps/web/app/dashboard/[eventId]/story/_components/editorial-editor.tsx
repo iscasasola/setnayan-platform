@@ -58,7 +58,7 @@ import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { ThemeStep } from './theme-step';
-import { sanitizeStoryTheme, type StoryTheme } from '@/lib/story-light';
+import { sanitizeStoryTheme, type StoryTheme } from '@/lib/story-theme';
 
 // FREE couple-uploaded editorial imagery (no Papic required).
 const GALLERY_UPLOADS_MAX = 30;

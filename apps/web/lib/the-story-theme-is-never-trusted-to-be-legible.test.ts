@@ -27,6 +27,8 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   NEUTRAL_STORY_COLORS,
   STORY_ACCENT_MIN,
@@ -37,7 +39,7 @@ import {
   resolveStoryPalette,
   sanitizeStoryTheme,
   storyLightStages,
-} from './story-light';
+} from './story-theme';
 
 /** Four boards. Three of them are illegible as saved — that is the point. */
 const PALETTES: Record<string, string[]> = {
@@ -84,7 +86,7 @@ test('every stage of every palette carries legible body, muted and accent text',
 
   // Print the occurrence count either way — a guard that cannot say how much it
   // measured cannot be told apart from a guard that measured nothing.
-  console.log(`[story-light] contrast pairs checked: ${checked}, under floor: ${failures.length}`);
+  console.log(`[story-theme] contrast pairs checked: ${checked}, under floor: ${failures.length}`);
   assert.equal(checked, Object.keys(PALETTES).length * STORY_LIGHT_STAGES.length * 3);
   assert.deepEqual(failures, [], `\n${failures.join('\n')}`);
 });
@@ -146,4 +148,36 @@ test('a hand-crafted theme cannot smuggle junk or extra slots into the story', (
   assert.equal(theme.mode, 'own');
   assert.equal(theme.colors.length, 5, 'clamped to the reception palette max');
   assert.ok(theme.colors.every((c) => /^#[0-9A-F]{6}$/.test(c)));
+});
+
+/**
+ * THE COLLAPSE GUARD — one derivation, or this fails.
+ *
+ * `lib/story-theme.ts` derives the six stages provisionally, because the Story
+ * Maker's live preview needed them before the public page's own module existed.
+ * A parallel session is building `lib/story-light.ts` with the same six stages,
+ * the same three floors and the crossfade this one omits.
+ *
+ * 🔑 A COMMENT ASKING A FUTURE SESSION TO REMEMBER IS NOT A MECHANISM. The
+ * moment that module lands on main, this test fails and says exactly what to do,
+ * so the two cannot quietly coexist and drift — which would leave the host's
+ * preview showing one set of colours and their published page another.
+ *
+ * SABOTAGE-CHECKED: creating an empty `lib/story-light.ts` made this test fail
+ * with the reconciliation instruction; removing it again restored the pass.
+ */
+test('the story maker and the public page derive the six stages ONCE', () => {
+  const publicModule = join(process.cwd(), 'lib', 'story-light.ts');
+  if (!existsSync(publicModule)) return; // not landed yet — nothing to collapse
+
+  const theme = readFileSync(join(process.cwd(), 'lib', 'story-theme.ts'), 'utf8');
+  assert.ok(
+    /from '\.\/story-light'/.test(theme),
+    'lib/story-light.ts has landed, so lib/story-theme.ts must now import its ' +
+      'deriveStages() instead of deriving the six stages a second time. Two ' +
+      'derivations means the Story Maker preview and the published page can ' +
+      'disagree about the same wedding. Delete storyLightStages() here, keep ' +
+      'sanitizeStoryTheme / resolveStoryPalette / receptionSlotLabel, and drop ' +
+      'the provisional notice at the top of the file.',
+  );
 });

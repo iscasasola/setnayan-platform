@@ -18,7 +18,7 @@ read as "present" when all that survives is a comment describing its removal.
 ported from `prototypes/story-maker.html` `#p-theme`, with the mood board's OWN
 `<SwatchPopover>` (colour name, search by colour name, and a new "from your mood
 board" quick-pick row for callers outside the board's provider). The six light
-stages repaint live underneath through `lib/story-light.ts`, which the public
+stages repaint live underneath through `lib/story-theme.ts`, which the public
 page will derive from too — one derivation, so a preview cannot drift from the
 page it previews.
 
@@ -31,6 +31,13 @@ report success while returning something illegible.
 shipped (moments · section order · own columns · featured wishes). Theme is not
 one of the four, and a test now fails if the words, the theme or the uploads are
 moved behind the gate.
+
+⚠ **The stage derivation in `lib/story-theme.ts` is provisional.** A parallel
+session is building `lib/story-light.ts` for the public page with the same six
+stages and the same floors, plus the crossfade this one omits. Two derivations
+of one thing is the drift the design warns about, so a test fails the moment
+that module lands while this one still derives its own — the collapse is
+enforced, not left as a comment.
 
 SPEC IMPACT: None. `02_The_Story_Maker.md` §5 and `08` steps 1.3/1.4 describe
 this build; nothing in the corpus changes.

@@ -1,5 +1,25 @@
 /**
- * THE STORY'S LIGHT — six stages derived from the colours the host already saved.
+ * THE STORY'S THEME — the host's choice of colours, and the six stages it makes.
+ *
+ * ⚠ THIS MODULE'S STAGE DERIVATION IS PROVISIONAL AND IS MEANT TO BE DELETED.
+ * A parallel session is building `lib/story-light.ts` for the PUBLIC page (`08`
+ * step 2.2) with the same six stages, the same three floors, and additionally
+ * the crossfade this file deliberately omits. TWO DERIVATIONS OF ONE THING IS
+ * EXACTLY THE DRIFT THE DESIGN WARNS ABOUT — a preview that stops matching the
+ * page it previews — so the moment `lib/story-light.ts` lands on main, the
+ * `storyLightStages()` below must be replaced by a call to its `deriveStages()`
+ * and this notice removed.
+ *
+ * 🔑 THAT IS NOT LEFT AS A TODO. `the-story-theme-is-never-trusted-to-be-legible
+ * .test.ts` FAILS the moment `lib/story-light.ts` exists while this file still
+ * defines its own stages, so the collapse cannot be forgotten — a comment asking
+ * a future session to remember is not a mechanism.
+ *
+ * What is NOT provisional, and belongs here whatever happens to the derivation:
+ * the host's three modes (`sanitizeStoryTheme`, `resolveStoryPalette`) and the
+ * board's own slot labels. Those are the Story Maker's, not the public page's.
+ *
+ * ── THE SIX STAGES ──────────────────────────────────────────────────────────
  *
  * `01_The_Story.md` §1 "The light" + §4 "Colour", `02_The_Story_Maker.md` §5.
  * The public page's ground moves from morning to night as the reader scrolls,

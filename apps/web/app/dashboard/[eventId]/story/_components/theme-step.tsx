@@ -42,7 +42,7 @@ import {
   storyLightStages,
   type StoryTheme,
   type StoryThemeMode,
-} from '@/lib/story-light';
+} from '@/lib/story-theme';
 
 /** The prototype's three cards, verbatim. */
 const MODES: Array<{ key: StoryThemeMode; label: string; blurb: string }> = [

@@ -30,7 +30,7 @@ import {
   type Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
-import { sanitizeStoryTheme } from '@/lib/story-light';
+import { sanitizeStoryTheme } from '@/lib/story-theme';
 import { hostUserId } from './_lib/host-authority';
 
 export type EditorialEditorInput = {

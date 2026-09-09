@@ -51,6 +51,9 @@ const MODULE = 'lib/supplier-standing.ts';
 const READER = 'lib/conversation-list.ts';
 const BENCH = 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx';
 const PAGE = 'app/dashboard/[eventId]/vendors/page.tsx';
+/** The conversation's Decisions view — renders the same sentence (2026-09-09). */
+const DECISIONS_VIEW = 'app/_components/chat-thread-views.tsx';
+const THREAD_PAGE = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const ALL_STAGES: ThreadStage[] = ['inquiry', 'quoted', 'booked', 'completed', 'cancelled'];
@@ -300,11 +303,31 @@ test('🔑 13 · the sentence is derived in ONE module and nowhere else', () => 
   for (const root of ['lib', 'app']) walk(root);
   assert.deepEqual(
     callers.sort(),
-    ['lib/conversation-list.ts', 'lib/supplier-standing.ts'],
+    [
+      // The bench's batched builder.
+      'lib/conversation-list.ts',
+      // The module itself (its `LADDER_FLOOR` probe).
+      'lib/supplier-standing.ts',
+      // ── ADDED 2026-09-09 · the conversation's Decisions view ──────────────
+      // The couple's thread page renders the standing line above the Decisions
+      // list. This is a THIRD CALL SITE OF THE ONE FUNCTION, which is what the
+      // owner's "yes, it is fine to show it twice" permits — not a third
+      // derivation, which is what this assertion exists to stop. The page
+      // computes no sentence of its own; it passes facts in and hands the
+      // result to `standingSentence`.
+      //
+      // ⚠ The SUPPLIER's thread page is deliberately NOT on this list. The
+      // sentence speaks in the couple's second person ("waiting on you" means
+      // the couple owes the answer), so it is not merely unused there — it
+      // would be backwards. See the note in that page.
+      'app/dashboard/[eventId]/messages/[threadId]/page.tsx',
+    ].sort(),
     'the sentence is being derived somewhere new. Render the one that already exists; do not compute a second.',
   );
   // And no surface hand-types the sentence's own words instead of rendering it.
-  for (const rel of [BENCH, PAGE]) {
+  // DECISIONS is on this list from the day it shipped: it is the newest place
+  // the sentence appears and therefore the likeliest to grow a hand-typed copy.
+  for (const rel of [BENCH, PAGE, DECISIONS_VIEW, THREAD_PAGE]) {
     const src = read(rel);
     for (const phrase of ['waiting on you', 'No reply ·', 'Replied yesterday', 'suppliers replied']) {
       assert.ok(

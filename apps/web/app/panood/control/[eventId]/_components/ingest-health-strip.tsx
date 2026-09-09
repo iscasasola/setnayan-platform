@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, Radio, RadioTower, Loader2, RefreshCw, WifiOff } from 'lucide-react';
 import {
   decideIngestHealth,
@@ -9,6 +9,7 @@ import {
   type EncoderHealthInput,
 } from '@/lib/live-studio-ingest-health';
 import { isTauri } from '@/lib/desktop-stream-key';
+import { readEncoderHealth, subscribeEncoderHealth } from '@/lib/encoder/encoder-health-bus';
 
 /**
  * apps/web/app/panood/control/[eventId]/_components/ingest-health-strip.tsx
@@ -97,6 +98,16 @@ export function IngestHealthStrip({
   const [, bumpTick] = useState(0);
   // `window.__TAURI__` is only known after mount (SSR always renders the
   // browser case first) — same one-frame-flash tradeoff as EncoderKeyPanel.
+  // S18 — the desktop encoder's own reading, published by `DesktopEncoderHost`.
+  // `useSyncExternalStore` rather than a `useState` + effect pair so a reading
+  // that lands between render and effect is not missed: this value changes on
+  // every RTMP transition, and a dropped `reconnecting` is the one the operator
+  // most needs to see.
+  const encoderHealth = useSyncExternalStore(
+    subscribeEncoderHealth,
+    () => readEncoderHealth(eventId),
+    () => null,
+  );
   const [desktop, setDesktop] = useState(false);
   useEffect(() => {
     setDesktop(isTauri());
@@ -149,12 +160,13 @@ export function IngestHealthStrip({
   if (mode === 'manual' && !desktop) return null;
 
   const lastOkAt = cachedRef.current.at === null ? null : Date.now() - cachedRef.current.at;
-  // ⚠ NOT WIRED YET — always null. `src-tauri/src/encoder_ipc.rs` (S5) has no
-  // Tauri `Channel<HealthEvent>` emitting from `reconnect::supervise()` (its
-  // `encoder_start` still runs a STUB byte-counter sink, by its own comment).
-  // See `lib/live-studio-ingest-health.ts`'s S9 docblock — a follow-up only
-  // has to fill in this one value; decideIngestHealth already accepts it.
-  const encoder: EncoderHealthInput | null = null;
+  // S18 — WIRED. `encoder_start` now runs `reconnect::supervise()` and pushes
+  // a `HealthUpdate` down a Tauri `Channel` for the life of the broadcast;
+  // `DesktopEncoderHost` folds that together with the worker's own drop counts
+  // and publishes it on `encoder-health-bus`. `null` here now means what it
+  // says — no desktop encoder is running for this event — rather than "nobody
+  // built the wire yet".
+  const encoder: EncoderHealthInput | null = encoderHealth;
   const decision = decideIngestHealth({
     streamStatus: cachedRef.current.streamStatus,
     healthStatus: cachedRef.current.healthStatus,

@@ -53,6 +53,14 @@ export const PUBLISH_STATE_RUNG: Record<StoryAudience, string> = {
   draft: 'Now',
   event: 'Next',
   published: 'Last',
+  /*
+    ⚠ NOT A STEP ON THE LADDER — IT IS THE WAY OFF IT. "Now · Next · Last"
+    numbers a journey the host is walking forwards; `taken_back` is the reverse,
+    only reachable once they have already reached the top, so giving it a
+    fourth ordinal would say it comes AFTER publishing in the ordinary run of
+    things. It does not, and most stories will never see it.
+  */
+  taken_back: 'Undo',
 };
 
 /**
@@ -70,6 +78,7 @@ export const PUBLISH_STATE_NAME: Record<StoryAudience, string> = {
   draft: 'Draft',
   event: 'Guests only',
   published: 'Published',
+  taken_back: 'Taken back',
 };
 
 /** What the rung does, in the design's own words. */
@@ -83,6 +92,19 @@ export const PUBLISH_STATE_BLURB: Record<StoryAudience, string> = {
   published:
     'Your story becomes public at your own address, and can appear on ' +
     'setnayan.com. It gets its edition number the moment you publish.',
+  /*
+    ⚠ THE SENTENCES A HOST IS OWED HERE ARE THE ONES ABOUT WHAT DOES *NOT*
+    HAPPEN. Naming the four surfaces is the honest version of "it comes down
+    everywhere", and the last sentence is the limit: paper cannot be recalled.
+    `07` Q6 asks for that limit to be said out loud in the copy, not only in the
+    PR — a host who believes a printed keepsake can be reached has been misled by
+    us, and they may have handed those copies out at the reception.
+  */
+  taken_back:
+    'Your story stops being public straight away — your page, the printable ' +
+    'copy and the card that shows when someone shares your link. Your edition ' +
+    'number is yours forever and you can publish again whenever you like. ' +
+    'Copies already printed on paper cannot be changed by anyone.',
 };
 
 /**
@@ -98,6 +120,7 @@ export const PUBLISH_STATE_WHO: Record<StoryAudience, string> = {
   draft: 'Who can see it: you',
   event: 'Who can see it: the people holding your Papic QR',
   published: 'Who can see it: anyone with the link',
+  taken_back: 'Who can see it: you, and nobody else any more',
 };
 
 export const LAST_WORD_INTRO =
@@ -190,4 +213,32 @@ export function publishRefusal(blockers: readonly PublishBlocker[], openCount: n
   const first = blockers[0];
   if (!first) return 'Could not publish. Please try again.';
   return publishBlockerSentence(first, openCount);
+}
+
+/**
+ * WHICH RUNGS THE LADDER OFFERS — the fourth one is not always one of them.
+ *
+ * `STORY_AUDIENCES` is every value the column may hold; this is the smaller
+ * question of what a host should be shown right now. Draft · Guests only ·
+ * Published are always offered. **Taken back is offered only to a story that has
+ * actually been published**, because "take it back" said to a story that was
+ * never out there is a rung with nothing behind it — and pressing it would move
+ * the row to a status meaning "this was public once", which would be a lie
+ * written by the product about the host's own celebration.
+ *
+ * 🔑 A ROW ALREADY AT `taken_back` ALWAYS SHOWS IT, whatever else is true. A
+ * ladder that hides the rung a story is standing on tells the host their story
+ * is in a state it is not, and there would be no way back to it. (It can only be
+ * reached from `published`, so in practice `hasBeenPublished` is true here too —
+ * this arm is the belt to that braces, and costs one comparison.)
+ *
+ * Pure and total: the caller passes the facts, so the BUTTON and any test ask
+ * the same question — the same reason the gate above is pure.
+ */
+export function rungIsOffered(
+  rung: StoryAudience,
+  facts: { hasBeenPublished: boolean; current: StoryAudience },
+): boolean {
+  if (rung !== 'taken_back') return true;
+  return facts.hasBeenPublished || facts.current === 'taken_back';
 }

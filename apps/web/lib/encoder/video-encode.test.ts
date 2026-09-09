@@ -21,6 +21,7 @@ import {
   type RingEntry,
   type VideoChunkLike,
   type VideoChunkMetadataLike,
+  drainToWire,
 } from './video-encode';
 
 /* ── GUARD: keyframe cadence — sabotage `% 60` → `% 61` must go red ────────────────────── */
@@ -165,4 +166,68 @@ test('ring: rejects a non-positive-integer capacity', () => {
   assert.throws(() => createChunkRing(0));
   assert.throws(() => createChunkRing(-1));
   assert.throws(() => createChunkRing(1.5));
+});
+
+/* ── S18 · the drain to the page ───────────────────────────────────────────── */
+
+function entry(seq: number, keyframe = false): RingEntry {
+  return {
+    keyframe,
+    timestampMicros: seq * 33_333,
+    seq,
+    data: new Uint8Array([seq & 0xff, 7, 7]),
+  };
+}
+
+// THE GUARD THIS SESSION EXISTS FOR, at the worker's end. Before S18 the video
+// ring's `drain()` had callers only in tests and the encoded programme went
+// nowhere. A drain that reports "nothing to send" while the rings are full is
+// that same defect wearing a different hat.
+test('a full ring is drained, not merely inspected', () => {
+  const video = createChunkRing(10);
+  video.push(entry(1, true));
+  video.push(entry(2));
+  const audio = createChunkRing(10);
+  audio.push(entry(3));
+
+  const first = drainToWire(video, audio);
+  assert.ok(first, 'chunks are waiting, so there is something to send');
+  assert.deepEqual(first.video.map((c) => c.seq), [1, 2]);
+  assert.deepEqual(first.audio.map((c) => c.seq), [3]);
+
+  // Emptied — a second flush on a quiet tick must not re-send the same frames.
+  assert.equal(drainToWire(video, audio), null);
+});
+
+test('a quiet tick sends nothing at all', () => {
+  assert.equal(drainToWire(createChunkRing(4), createChunkRing(4)), null);
+});
+
+// Leaving a buffer out of the transfer list does not fail — it structured-clones
+// instead, silently, thirty times a second. Only a count can catch it.
+test('every buffer reaches the transfer list', () => {
+  const video = createChunkRing(10);
+  video.push(entry(1, true));
+  video.push(entry(2));
+  const audio = createChunkRing(10);
+  audio.push(entry(3));
+  audio.push(entry(4));
+
+  const drained = drainToWire(video, audio);
+  assert.ok(drained);
+  assert.equal(drained.transfer.length, 4, 'one per chunk, video and audio alike');
+  for (const chunk of [...drained.video, ...drained.audio]) {
+    assert.ok(drained.transfer.includes(chunk.data), `chunk ${chunk.seq} was not transferred`);
+  }
+});
+
+test('the keyframe flag and timestamp survive the crossing', () => {
+  const video = createChunkRing(4);
+  video.push(entry(9, true));
+  const drained = drainToWire(video, createChunkRing(4));
+  assert.ok(drained);
+  const first = drained.video[0];
+  assert.ok(first);
+  assert.equal(first.keyframe, true);
+  assert.equal(first.timestampMicros, 9 * 33_333);
 });

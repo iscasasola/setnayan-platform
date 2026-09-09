@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
 import { revalidatePath } from 'next/cache';
+
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { deletePublicAsset } from '@/lib/storage';
 import { r2Delete } from '@/lib/r2';
@@ -675,6 +677,15 @@ export async function submitRsvp(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
+  /*
+    ⚠ BEFORE THE `redirect`, WHICH THROWS. An RSVP selfie sets this guest's
+    `photo_consent` to true, and the story's veto is built from guests who opted
+    OUT — so the answer given here can LIFT a veto, and photographs the story was
+    withholding may now be shown. A change in that direction publishes exactly as
+    urgently as one in the other, and it went through no public surface at all
+    before this.
+  */
+  await everyCopyIsNowStale(eventId);
   // `details` = their information was saved and their answer was left alone
   // (the list is final). `refused` additionally says an attempted CHANGE of
   // answer did not take — the one outcome a guest would otherwise never learn.
@@ -800,6 +811,13 @@ export async function withdrawFaceConsent(
     .eq('event_id', eventId)
     .maybeSingle();
   revalidatePath(`/dashboard/${eventId}/guests`);
+  /*
+    ⚠ BEFORE THE `redirect`, WHICH THROWS. Withdrawing face consent tombstones
+    every auto-face tag this guest carries, and those tags are what the story's
+    veto is built from — so the story, the recap, the keepsake and the share
+    card all have to be thrown away here, not on their own clocks.
+  */
+  await everyCopyIsNowStale(eventId);
   redirect(ev?.slug ? `/${ev.slug}?face_removed=1` : '/');
 }
 
@@ -876,6 +894,13 @@ export async function setGuestFaceBlock(
     .eq('event_id', eventId)
     .maybeSingle();
   revalidatePath(`/dashboard/${eventId}/guests`);
+  /*
+    ⚠ BEFORE THE `redirect`, WHICH THROWS. FaceBlock decides whether this
+    guest's face is blurred wherever it appears and hides their photo messages
+    with it — both of which the story renders — so it is a consent write like
+    any other and comes down on every copy.
+  */
+  await everyCopyIsNowStale(eventId);
   if (ev?.slug) redirect(`/${ev.slug}?faceblock=${enabled ? 'on' : 'off'}`);
 }
 
@@ -992,12 +1017,15 @@ export async function removeMyTag(
     .eq('source_id', sourceId)
     .is('removed_at', null);
 
-  const { data: ev } = await admin
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (ev?.slug) revalidatePath(`/${ev.slug}`);
+  /*
+    A DETACHED TAG IS A CONSENT FACT, AND IT WAS ONLY EVER REACHING ONE PAGE.
+    The story's RA 10173 veto (`consent-veto.ts`) is built from `photo_tags`
+    joined to opted-out guests, so removing a tag changes what the story, the
+    recap AND the print keepsake may show. This used to revalidate `/{slug}`
+    alone, which left the other two on their own five-minute clock and the share
+    card on an hour's.
+  */
+  await everyCopyIsNowStale(eventId);
 }
 
 export type TakedownResult =
@@ -1238,14 +1266,18 @@ async function wallPull(
   return { ok: true, state: res.state };
 }
 
-/** Refresh the celebration page after a guest-side change. */
+/**
+ * Refresh the celebration page after a guest-side change.
+ *
+ * 🔴 IT REFRESHED ONE PAGE OUT OF FOUR. Every caller of this helper is a consent
+ * write — a takedown request and both directions of the wall pull — and each one
+ * changes what `/{slug}/recap` and `/{slug}/print` may show as surely as it
+ * changes `/{slug}`. Those two are their own cached routes at `revalidate = 300`
+ * and the share card is cached for an hour, so a guest's withdrawal stayed up on
+ * all three after this returned. The list of everywhere now lives in one place.
+ */
 async function revalidateEventSlug(eventId: string): Promise<void> {
-  const { data: ev } = await createAdminClient()
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (ev?.slug) revalidatePath(`/${ev.slug}`);
+  await everyCopyIsNowStale(eventId);
 }
 
 export type UnnameResult = { ok: true; changed: number } | { ok: false; message: string };

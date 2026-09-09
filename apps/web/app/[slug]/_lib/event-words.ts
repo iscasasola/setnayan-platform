@@ -110,6 +110,32 @@ export type EventWords = {
    * where `celebrant` does not.
    */
   organizerIsHonoree: boolean;
+  /**
+   * DOES THIS EVENT HAVE TWO NAMED PEOPLE AT ITS CENTRE?
+   *
+   * Read from `terminology.person_a`/`person_b` — 'bride'/'groom' on the
+   * wedding profile and NULL on every other seeded type (measured across all
+   * eight seed/backfill migrations: wedding is the only row with either key
+   * populated).
+   *
+   * 🔴 WHY IT IS A FACT AND NOT A GUESS. The Pahina masthead decided this by
+   * SNIFFING THE DISPLAY NAME for " & " or " and ", then stacking the halves on
+   * two lines with an italic gild joiner between them. That treatment IS the
+   * wedding masthead. Measured against real non-wedding names, it fires on:
+   *
+   *     "Ayala & Partners Year-End"  → "Ayala"  &  "Partners Year-End"
+   *     "Bench & Co Summer Outing"   → "Bench"  &  "Co Summer Outing"
+   *     "Mateo and Sofia"            → "Mateo" and "Sofia"
+   *
+   * A corporate year-end party was being rendered as a couple. The separator is
+   * a fact about PUNCTUATION; whether the event has two people at its centre is
+   * a fact about the EVENT TYPE, and only the second one may choose the
+   * treatment.
+   *
+   * 🔒 A WEDDING IS UNAFFECTED: `personB` is 'groom', so it stays TRUE and the
+   * masthead splits exactly as it does today.
+   */
+  twoPeople: boolean;
 
   // ── THE HOST AXIS AND THE CELEBRANT AXIS (owner ruling 2026-08-27) ────────
   //
@@ -204,6 +230,10 @@ export function eventWordsFromProfile(profile: EventTypeProfile): EventWords {
     occasion,
     solemn: profile.terminology.register === 'solemn',
     organizerIsHonoree: HONOREE_NOUNS.has(organizer),
+    // `?.trim()` before the emptiness test for the same reason every other noun
+    // here is trimmed: this is downstream of an admin-editable table, and a
+    // person_b of "   " must read as "no second person", not as one.
+    twoPeople: (profile.terminology.personB?.trim() ?? '') !== '',
     ...peopleWords(profile),
   };
 }
@@ -254,13 +284,44 @@ export async function eventWordsFor(
  *    WEDDING-SHAPED announcement film ("we'll celebrate together at…", a
  *    countdown, add-to-calendar framing). The brief's words: the wake "never
  *    offers a save-the-date". Demoted to the ordinary site.
- *  · 'editorial' — the post-event recap is auto-composed in a joyful voice
- *    ("a celebration their guests won't soon forget"). Until a memorial voice
- *    exists for the composer, a wake keeps its ordinary page after the day,
- *    which reads the solemn thank-you copy instead.
  * 'rsvp' and 'event' pass through: the day-of layer (schedule, live stream,
  * the hub) is exactly what a wake uses — vigil schedule, a stream for family
  * abroad — and its strings carry their own solemn arms.
+ *
+ * ── 'editorial' NO LONGER DEMOTES, AND THAT IS AN OWNER RULING ──────────────
+ * ✅ **RULED 2026-09-09 — build the quiet arm (b).** Verbatim: a wake GETS a
+ * story — "no Relive, no challenges, no anniversary, no countdown, and the
+ * family's words. Filipino wake culture is served by a page that records five
+ * nights, the mass, and who came from abroad."
+ *
+ * 🔴 THIS DEMOTION WAS ONE GATE DOING TWO JOBS, AND THAT IS WHY IT HAD TO
+ * MOVE. It withheld the joyful AUTO-COMPOSED recap (right) by withholding the
+ * whole editorial phase (too much) — and the story lives in that phase, so a
+ * wake got no story at all. The two are now separated at the seam that
+ * actually divides them, which is AUTHORSHIP, not lifecycle:
+ *
+ *   · the STORY is written by the family — granted;
+ *   · the RECAP composes itself in a joyful voice with nobody's hand on it —
+ *     still refused, and MEASURED not to ride along with this change.
+ *
+ * 📏 THE MEASUREMENT, because "the recap is still refused" is exactly the kind
+ * of claim that is repeated until it is false. `composeCopy`'s joyful output —
+ * the `<Names> Are Married` headline, the archetype deck, the woven lede — is
+ * NOT RENDERED on the story page at all: S9's spine "replaced the masthead and
+ * the lead, it did not sit on top of them" (`editorial-content.tsx`), and the
+ * one field the story still takes from the composer is `pullQuote`, which is
+ * the host's own `special_message`. The article body under the spine reads
+ * `data.draft.leadParagraphs` falling back to the host's own prose. So every
+ * sentence a wake's story can print was TYPED BY THE FAMILY, and granting the
+ * phase resurrects nothing. The composer's joyful voice reaches a reader only
+ * through `/[slug]/recap` (which a host must deliberately publish) and the
+ * print sheet — neither of which this function gates, and neither of which
+ * this change touches.
+ *
+ * ⚠ DO NOT "SIMPLIFY" THESE BACK INTO ONE GATE. Re-adding 'editorial' here
+ * silently deletes the wake's story. And if a future change ever mounts
+ * composed prose under the spine, THIS is the comment that is then wrong —
+ * `the-wake-never-celebrates.test.ts` pins the measurement, not the prose.
  *
  * Deliberately keyed on the REGISTER, not on `surfaceEnabled(…,
  * 'save_the_date')`: the general "wedding-only parts stay home for every
@@ -272,7 +333,7 @@ export function solemnAdjustedPhase(
   solemn: boolean,
 ): LifecyclePhase {
   if (!solemn) return phase;
-  return phase === 'save_the_date' || phase === 'editorial' ? 'rsvp' : phase;
+  return phase === 'save_the_date' ? 'rsvp' : phase;
 }
 
 /**

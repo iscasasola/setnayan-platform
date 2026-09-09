@@ -6,6 +6,7 @@ import { EVENT_VISIBILITIES, type EventVisibility } from '@/lib/event-visibility
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 
 /**
  * Landing-page visibility toggle — server actions.
@@ -162,6 +163,35 @@ export async function setShowcaseConsent(formData: FormData) {
   const userId = await requireHostMembership(eventId);
 
   const admin = createAdminClient();
+
+  /*
+    🔑 THE SECOND DOOR TO ONE FACT. This writes the identical
+    `users.public_summary_consent_at` flag as the Story Maker's
+    `setStoryShowcase`, and until now only that one asked whether this KIND of
+    day may be featured — so the kind rule was enforced at one of the two doors
+    and the other was wide open. A rule written twice with one copy laxer is how
+    the laxer copy becomes the real rule.
+
+    ⚖ IT CHANGES NOTHING TODAY, BY ARITHMETIC: `EDITORIAL_EXCLUDED_EVENT_TYPES`
+    is empty by owner ruling (2026-08-15 — all sixteen kinds), so this admits
+    every celebration in production. It exists so that if the owner ever fills
+    that set, the ruling binds at BOTH doors instead of one.
+  */
+  if (optIn) {
+    // Fails CLOSED on an unreadable event: an unknown kind is not a consented one.
+    const { data: ev, error: evError } = await admin
+      .from('events')
+      .select('event_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (evError || !ev) {
+      redirect(`/dashboard/${eventId}/website/privacy?showcase=error`);
+    }
+    if (!editorialAllowsEventType((ev.event_type as string | null) ?? 'wedding')) {
+      redirect(`/dashboard/${eventId}/website/privacy?showcase=blocked`);
+    }
+  }
+
   const { error } = await admin
     .from('users')
     .update({

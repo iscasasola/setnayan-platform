@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getR2Client } from '@/lib/r2';
 import { parseStoredAsset } from '@/lib/uploads';
 import { stripPhotoMetadata } from '@/lib/papic-derivatives';
+import { loadGuestBlurGate, guestSafeKeyForCapture } from '@/lib/papic-guest-blur-gate';
 
 // "Open full size to save" for ONE of a guest's tagged Papic photos — the per-tile
 // save behind the /papic/me/[token] preview grid. Owner 2026-07-16: the save must
@@ -103,6 +104,28 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
     contentType = 'image/jpeg';
   } else {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+
+  // ── THE BLUR GATE (owner ruling 1, 2026-08-17) ──────────────────────────
+  // "Open full size to save" hands over a FILE. A guest is not the couple, so a
+  // capture tagging someone who withdrew photo consent — or any capture on a
+  // FaceBlock event — leaves here BLURRED or not at all. The question is asked
+  // once, in lib/papic-guest-blur-gate, through the same SQL predicate the
+  // venue wall and the shared pool ask; the tile that links here is gated by
+  // the same module, so a withheld photo has no link to press in the first place.
+  const blurGate = await loadGuestBlurGate(admin, eventId, [{ sourceTable, sourceId: id }]);
+  if (blurGate.failed) {
+    return NextResponse.json({ error: 'unavailable' }, { status: 503 });
+  }
+  const gatedRef = guestSafeKeyForCapture(blurGate, { sourceTable, sourceId: id }, ref, 'display');
+  if (!gatedRef) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  if (gatedRef !== ref) {
+    // The stand-in is already blurred AND already EXIF-free — re-encoding it
+    // would be a second lossy pass over a face that is gone. Its own type: the
+    // `safe_*` copies are AVIF, `wall_safe_r2_key` is JPEG.
+    ref = gatedRef;
+    needsStrip = false;
+    contentType = /\.avif$/i.test(gatedRef) ? 'image/avif' : 'image/jpeg';
   }
 
   const client = getR2Client();

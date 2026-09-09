@@ -38,6 +38,8 @@
 //! documents (`rtmps://…/live2/****`) so a later session can delete this one
 //! and depend on S6's without changing any call site's expectations.
 
+use crate::encoder::reconnect::Destinations;
+use crate::encoder::rtmp::RtmpEndpoint;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::State;
@@ -91,15 +93,20 @@ pub fn redact_url(url: &str) -> String {
 /// drop (Zeroizing) and never `Debug`/`Display`-derived, so an accidental
 /// `{:?}` in a log line cannot print it either.
 ///
-/// `key` and `source` are read today only by this module's own tests — the
-/// consumer that reads them to actually push bytes to an encoder is S5's
-/// `encoder_start`, which has not landed on this branch (see the module
-/// docblock). `#[allow(dead_code)]` says so rather than silently deleting the
-/// field a future session needs.
-#[allow(dead_code)]
+/// S18 UPDATE — `key` and `rtmps_url` are now genuinely read in production, by
+/// `StreamKeyState::destinations()` just below, which is what `encoder_start`
+/// publishes through. They are no longer test-only and the blanket
+/// `#[allow(dead_code)]` this struct used to carry has been removed with them.
+///
+/// `source` is still read only by this module's tests: nothing downstream
+/// behaves differently for a pasted key versus a hosted one — the endpoint is
+/// the endpoint. It keeps its own `#[allow]` rather than being deleted because
+/// it is what a "whose channel is this?" diagnostic would read, and because
+/// losing it would make the two setters indistinguishable after the fact.
 struct HeldStreamKey {
     key: Zeroizing<String>,
     rtmps_url: String,
+    #[allow(dead_code)]
     source: KeySource,
 }
 
@@ -112,6 +119,46 @@ enum KeySource {
 /// App state: `.manage(StreamKeyState::default())` in `lib.rs`.
 #[derive(Default)]
 pub struct StreamKeyState(Mutex<Option<HeldStreamKey>>);
+
+impl StreamKeyState {
+    /// S18 — build the publish destination WITHOUT ever handing the key out.
+    ///
+    /// This is the one reader of `HeldStreamKey.key` outside this module's own
+    /// tests, and it deliberately returns a fully-built `Destinations` rather
+    /// than the key itself: `RtmpEndpoint` owns the secret from here on and
+    /// only ever prints itself through `redacted_url()`. A `-> String` accessor
+    /// would have put the raw key back on the caller's stack, which is the
+    /// exact thing this module's threat model (see the header) exists to stop —
+    /// and once one caller has it, every future caller may.
+    ///
+    /// `None` means no key is held: the operator has not pasted one and has not
+    /// claimed a hosted channel. `encoder_start` turns that into a refusal, so a
+    /// broadcast can never begin pointed at nowhere.
+    ///
+    /// There is no backup ingest yet: `ExchangeResponse.rtmps_backup_url` is
+    /// parsed off the wire but never stored on `HeldStreamKey` (see its
+    /// `#[allow(dead_code)]`), so `Destinations::new` is the honest constructor
+    /// here. Storing it is a separate, small change to the two setters — NOT
+    /// something to fake with a guessed `?backup=1` URL, which is how you send a
+    /// wedding to a host that was never provisioned.
+    pub fn destinations(&self) -> Option<Destinations> {
+        let guard = self.0.lock().ok()?;
+        let held = guard.as_ref()?;
+        let endpoint = RtmpEndpoint::parse(&held.rtmps_url, Some(held.key.as_str())).ok()?;
+        Some(Destinations::new(endpoint))
+    }
+
+    /// The body of `stream_key_forget`, callable without a command invocation so
+    /// `encoder_stop` can do it directly (Part C's own docblock asked for this).
+    /// `Err` only on a poisoned lock — the caller decides whether that is worth
+    /// failing over; `encoder_stop` does not, because a broadcast that ended
+    /// cleanly should not report an error over a mutex.
+    pub fn forget(&self) -> Result<(), String> {
+        let mut guard = self.0.lock().map_err(|_| "state_poisoned".to_string())?;
+        *guard = None; // drops the Zeroizing<String> -> memory scrubbed
+        Ok(())
+    }
+}
 
 /// What `stream_key_claim_hosted` hands back to JS — deliberately NOT the same
 /// shape as the server's `/exchange` response. No `stream_key` field exists on
@@ -222,9 +269,7 @@ pub async fn stream_key_claim_hosted(
 /// deletes the YouTube-side stream — see `endPanoodBroadcast`).
 #[tauri::command]
 pub fn stream_key_forget(state: State<'_, StreamKeyState>) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "state_poisoned".to_string())?;
-    *guard = None; // drops the Zeroizing<String> -> memory scrubbed
-    Ok(())
+    state.forget()
 }
 
 #[cfg(test)]

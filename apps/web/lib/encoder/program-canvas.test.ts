@@ -350,6 +350,7 @@ test('onFrameCount fans out the worker\'s stats; onError its errors; stop unsubs
       videoDriftEvents: 0,
       videoDriftDrops: 0,
       videoRingDrops: 0,
+      audioRingDrops: 0,
       videoBytes: 93_750,
       videoAvgKbps: 750,
     },

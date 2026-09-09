@@ -135,6 +135,14 @@ export type ProgramCanvasStats = {
   videoDriftDrops: number;
   /** Ring entries dropped for being unconsumed, not for drift — S5's backpressure, not S4's. */
   videoRingDrops: number;
+  /**
+   * S18 — audio chunks dropped because the page stopped draining. Its own
+   * counter, and its own ring, because S5's rule is "NEVER audio": video
+   * backpressure must not be able to cost a single AAC frame, and it cannot,
+   * since the two rings do not share a budget. A non-zero value here means the
+   * PAGE stalled, which is a different fault from a congested uplink.
+   */
+  audioRingDrops: number;
   /** Bytes of H.264 payload encoded so far — `videoAvgKbps` below is derived from this. */
   videoBytes: number;
   /** `videoBytes × 8 / elapsedMs` — the evidence bar is the 2.5 Mbps target ±10%. */
@@ -158,7 +166,31 @@ export type ProgramCanvasOutbound =
    */
   | { type: 'video-config'; description: ArrayBuffer; codec: string; width: number; height: number }
   | { type: 'drift'; event: DriftEvent }
+  /**
+   * S18 · THE ENCODED MEDIA ITSELF — the message that was missing, and with it
+   * the entire reason nothing this pipeline encodes ever reached YouTube.
+   *
+   * Before this existed the worker encoded H.264 into a 180-entry ring whose
+   * `drain()` had callers only in tests, and threw every AAC chunk away at the
+   * `AudioEncoder` output callback under a comment reading "S4/S5: hand `chunk`
+   * to the IPC sender here."
+   *
+   * WHY THIS GOES TO THE PAGE AND NOT STRAIGHT TO RUST: `__TAURI_INTERNALS__`
+   * is window-only (S5.md § 6), so a worker cannot `invoke`. The bytes cross as
+   * TRANSFERRED `ArrayBuffer`s — never copied — and the page base64s them and
+   * invokes. Every `data` here is a fresh buffer the encode sink allocated per
+   * chunk, so transferring it detaches nothing anyone else holds.
+   */
+  | { type: 'media'; video: MediaChunkWire[]; audio: MediaChunkWire[] }
   | { type: 'error'; where: string; message: string };
+
+/** One encoded access unit on its way to the page. `data` is transferred, not copied. */
+export type MediaChunkWire = {
+  keyframe: boolean;
+  timestampMicros: number;
+  seq: number;
+  data: ArrayBuffer;
+};
 
 /** How often stats go back to the page, counted in TICKS — 30 ticks is one second of media. */
 export const STATS_INTERVAL_TICKS = PROGRAM_FPS;
@@ -315,6 +347,15 @@ let videoDriftDrops = 0;
  * with a fabricated timestamp — see video-encode.ts's docblock for why re-stamping is wrong.
  */
 let videoRing = createChunkRing(180); // 6s at 30fps of headroom before S5's consumer must run
+/**
+ * S18 · the audio ring. Separate from the video one ON PURPOSE — see
+ * `audioRingDrops` in the stats type. ~47 AAC frames a second, so 470 entries
+ * is ten seconds of headroom: far more than the page needs to keep up, and
+ * bounded so a stalled page costs memory that stops growing instead of memory
+ * that does not.
+ */
+let audioRing = createChunkRing(470);
+let audioSeq = 0;
 let driftGuardedRing = createDriftGuardedRing(videoRing, (event) => {
   videoDriftEvents += 1;
   videoDriftDrops += 1;
@@ -380,7 +421,21 @@ function startEncoder(): void {
           [bytes],
         );
       }
-      // S4/S5: hand `chunk` to the IPC sender here. S3 stops at "it encoded".
+      // S18 — WHERE THE AUDIO USED TO BE THROWN AWAY. This callback captured the
+      // AudioSpecificConfig above and then dropped `chunk` on the floor under a
+      // comment reading "S4/S5: hand `chunk` to the IPC sender here." A wedding
+      // encoded a full programme of AAC that no one ever heard.
+      const bytes = new Uint8Array(chunk.byteLength);
+      chunk.copyTo(bytes);
+      audioRing.push({
+        // AAC-LC has no inter-frame prediction: every frame stands alone, so
+        // the flag the video path uses to mean "safe resume point" is true for
+        // all of them. `WireGate` only ever gates on the VIDEO keyframe.
+        keyframe: true,
+        timestampMicros: chunk.timestamp,
+        seq: audioSeq++,
+        data: bytes,
+      });
     },
     error: (err: DOMException) => {
       scope.postMessage({ type: 'error', where: 'audio-encoder', message: err.message });
@@ -417,6 +472,40 @@ function makePacker() {
   });
 }
 
+/**
+ * S18 · drain both rings to the page, once per tick.
+ *
+ * Called from the clock, not from a timer of its own: the clock is the one
+ * cadence in this file and adding a second one is how a pipeline starts
+ * producing at 30 fps and shipping at 29.4.
+ *
+ * Emits nothing when both rings are empty — an empty `media` message every
+ * 33 ms costs an IPC hop and a structured clone to say "no news". Ordering
+ * within a message is ring order (production order); ACROSS the two arrays the
+ * page pushes video before audio for a given tick, which the tagger re-orders
+ * onto the wire by timestamp anyway (`rtmp::RtmpClock`).
+ */
+function flushMedia(): void {
+  const video = videoRing.drain();
+  const audio = audioRing.drain();
+  if (video.length === 0 && audio.length === 0) return;
+  const wire = (entry: RingEntry): MediaChunkWire => ({
+    keyframe: entry.keyframe,
+    timestampMicros: entry.timestampMicros,
+    seq: entry.seq,
+    // `.buffer` is the whole allocation and every entry owns a fresh one (the
+    // encode sink allocates per chunk), so this is exact — not a view into a
+    // shared arena that would transfer more than it should.
+    data: entry.data.buffer as ArrayBuffer,
+  });
+  const videoWire = video.map(wire);
+  const audioWire = audio.map(wire);
+  scope.postMessage(
+    { type: 'media', video: videoWire, audio: audioWire },
+    [...videoWire, ...audioWire].map((chunk) => chunk.data),
+  );
+}
+
 // THE MASTER CLOCK. Not a timer — see the file docblock and audio-clock.ts.
 function makeClock() {
   return createAudioMasterClock((tick) => {
@@ -438,6 +527,9 @@ function makeClock() {
       performance.now() - startedAt - (framesRendered * 1000) / AUDIO_SAMPLE_RATE,
     );
     if (driftMs > maxWallDriftMs) maxWallDriftMs = driftMs;
+    // S18 — the hop that was missing. Everything above this line encodes; this
+    // is what sends.
+    flushMedia();
     ticksSinceStats += 1;
     if (ticksSinceStats >= STATS_INTERVAL_TICKS) {
       ticksSinceStats = 0;
@@ -473,6 +565,8 @@ function resetAudio(): void {
   avccReady = false;
   videoDriftEvents = 0;
   videoDriftDrops = 0;
+  audioRing = createChunkRing(470);
+  audioSeq = 0;
   videoRing = createChunkRing(180);
   driftGuardedRing = createDriftGuardedRing(videoRing, (event) => {
     videoDriftEvents += 1;
@@ -606,6 +700,7 @@ function postStats(): void {
       videoDriftEvents,
       videoDriftDrops,
       videoRingDrops: videoRing.stats().dropped,
+      audioRingDrops: audioRing.stats().dropped,
       videoBytes,
       videoAvgKbps: elapsedMs > 0 ? (videoBytes * 8) / elapsedMs : 0,
     },

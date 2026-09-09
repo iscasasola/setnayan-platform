@@ -6,7 +6,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { canSeeTheftWatch } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
-import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { VendorTierGate } from '../_components/tier-gate';
 import {
   fetchVendorReposts,
@@ -91,19 +91,26 @@ export default async function VendorTheftWatchPage() {
         <ul className="space-y-3">
           {reposts.map((flag) => {
             const status = STATUS[flag.status];
+            // `source_r2_ref` carries whichever shape its surface stored — an
+            // `r2://` ref for a service cover, a portfolio entry for the other.
+            // Null means "not addressable"; the tile stays an empty swatch
+            // rather than a broken image, and the row still names the flag.
+            const thumbUrl = publicUrlForStoredAsset(flag.r2Ref);
             return (
               <li
                 key={flag.publicId}
                 className={`flex items-center gap-4 ${shopCardClass} p-3`}
               >
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-ink/5">
-                  <Image
-                    src={r2PublicUrl(R2_BUCKETS.media, flag.r2Ref)}
-                    alt="Your photo that was reposted"
-                    fill
-                    sizes="64px"
-                    className="object-cover"
-                  />
+                  {thumbUrl ? (
+                    <Image
+                      src={thumbUrl}
+                      alt="Your photo that was reposted"
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
+                  ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-ink">

@@ -168,6 +168,7 @@ import {
 // while NEXT_PUBLIC_PEOPLE_CONNECTIONS !== '1' — production-inert. Fed the true
 // vendor_profiles id (ev.marketplace_vendor_id), never the event_vendors PK.
 import { TrustedCircleBadge } from '../../_components/trusted-circle-badge';
+import { ContactShortlistVendorButton } from '../../_components/contact-shortlist-vendor-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   deriveBookingContractState,
@@ -1771,16 +1772,25 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               </>
             ) : (
               <>
+                {/* 🔴 THIS TOLD THE COUPLE TO SEND THE FIRST NOTE AND THEN SENT
+                    THEM WHERE THEY COULD NOT. The link went to the conversation
+                    list, where starting one means typing an email address the
+                    couple has never been shown. This branch already KNOWS the
+                    supplier is on Setnayan (`ev.marketplace_vendor_id`) and
+                    that no thread exists yet — which is exactly the shipped
+                    button's job: it resolves or creates the thread and lands on
+                    it. Dedupes on the chat_threads UNIQUE(event_id,
+                    vendor_profile_id) index, so it can never make a second. */}
                 <p className="text-xs text-ink/65">
-                  You haven&rsquo;t started a chat with {displayName} yet. Open
-                  Messages to send the first note.
+                  You haven&rsquo;t started a chat with {displayName} yet.
                 </p>
-                <Link
-                  href={`/dashboard/${eventId}/messages`}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-terracotta/30 bg-cream px-3 py-2 text-xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  Go to Messages
-                </Link>
+                <ContactShortlistVendorButton
+                  eventId={eventId}
+                  vendorId={ev.vendor_id}
+                  label="Send the first note"
+                  pendingLabel="Opening…"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-terracotta/30 bg-cream px-3 py-2 text-xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+                />
               </>
             )
           ) : (

@@ -16,6 +16,7 @@ import Link from 'next/link';
 import type { ReactElement } from 'react';
 
 import type { BackCover } from '@/lib/the-back-cover';
+import { PLATE } from '../../_lib/measures';
 
 export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactElement | null {
   if (!cover) return null;
@@ -23,7 +24,13 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
   return (
     <aside
       aria-label="What comes next"
-      className="mx-auto mt-10 max-w-2xl border-t border-ink/15 px-4 pt-8 text-center"
+      /*
+       * PLATE, not an invented width. The Event Hub has exactly FOUR measures and
+       * `measures.test.ts` exists to keep it at four — my `max-w-2xl` was a fifth,
+       * and it failed there. Imported rather than retyped so the column cannot
+       * drift from the room it sits in.
+       */
+      className={`mx-auto mt-10 ${PLATE} border-t border-ink/15 px-4 pt-8 text-center`}
     >
       {/*
         12px, not the prototype's 11 — `lint-guest-legibility` refuses anything
@@ -42,7 +49,7 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
         already inside. The back cover looks FORWARD; the pointer back is S15's
         (08 step 4.3), on the masthead of No. 2.
       */}
-      <p className="font-mono text-xs uppercase tracking-[0.32em] text-ink/50">
+      <p className="font-mono text-xs uppercase tracking-[0.32em] text-ink/60">
         What comes next
       </p>
 
@@ -51,7 +58,7 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
       </h2>
 
       <p className="mt-2 text-sm text-ink/70">{cover.when}</p>
-      {cover.sub ? <p className="mt-0.5 text-sm text-ink/55">{cover.sub}</p> : null}
+      {cover.sub ? <p className="mt-0.5 text-sm text-ink/60">{cover.sub}</p> : null}
 
       {/*
         THE DOOR IS PER READER, AND A GUEST HAS NONE.

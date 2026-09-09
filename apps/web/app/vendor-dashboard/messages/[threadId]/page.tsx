@@ -74,6 +74,8 @@ import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import {
   buildVendorConversationRows,
   initialsFor,
+  isDateTagWorthShowing,
+  serviceTagVaries,
 } from '@/lib/conversation-list';
 import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -495,11 +497,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         />
     ),
     /*
-      ⚠ THE QUOTE SEED IS UNCHANGED ON PURPOSE. The builder opens sized to what
-      the couple ASKED for (`pax_at_inquiry`); re-seeding it from the live count
-      would quietly move the number a supplier prices against. What changes is
-      that the builder is now TOLD the live count too, so its header can name
-      BOTH instead of showing one unlabelled figure.
+      THE QUOTE OPENS AT THE LIVE COUNT (owner, 2026-09-09).
+
+      Both numbers go in and the builder seeds itself from `livePax`, falling
+      back to the inquiry count when there is no live one. The binding
+      prototype's booked frame shows that field pre-filled at the live figure,
+      and the owner ruled for it.
+
+      🔑 IT MOVES MONEY, WHICH IS WHY BOTH STILL RENDER. A quote opened at 170
+      when the couple asked with 150 is a different price, so the builder's
+      header names the seed AND the inquiry count in every state — the point of
+      this whole area is that no headcount appears without saying which one it
+      is.
     */
     'build-quote': (
         <ProposalMaker
@@ -801,6 +810,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     }
   }
 
+  // ⚠ A TAG THAT NEVER CHANGES SAYS NOTHING. If this shop's whole inbox is
+  // one category, tagging every row with it (per `interestByThread` above)
+  // repeats the same word down the column and costs a line for free — the
+  // service tag earns its spot only once it actually distinguishes a row from
+  // its neighbours.
+  const showServiceTag = serviceTagVaries([...interestByThread.values()]);
+  const nowMs = Date.now();
+
   const listDisplayNames = new Map<string, string | null>();
   const listLabels = new Map<string, string[]>();
   for (const t of listThreads) {
@@ -808,11 +825,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     listDisplayNames.set(t.event_id, facts?.displayName ?? null);
     const tags: string[] = [];
     const service = interestByThread.get(t.thread_id);
-    if (service) tags.push(service);
+    if (service && showServiceTag) tags.push(service);
     // ⚠ `event_date` is a DATE column, so it goes through the repo's own
     // formatter — `new Date('2026-12-18')` is the 17th west of Greenwich.
-    const day = dayMonth(facts?.eventDate);
-    if (day) tags.push(day);
+    // And only close to the day: a wedding sixteen months out is not live
+    // context on who this row is, it's noise repeated down the column.
+    if (isDateTagWorthShowing(facts?.eventDate, nowMs)) {
+      const day = dayMonth(facts?.eventDate);
+      if (day) tags.push(day);
+    }
     listLabels.set(t.event_id, tags);
   }
 

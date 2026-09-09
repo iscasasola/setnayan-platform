@@ -55,6 +55,7 @@ import {
 } from '@/lib/hero-monogram-data';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { StorySpine } from '../story/story-spine';
+import { loadYourOwnDay } from '../../_lib/your-own-day.server';
 import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/story-light';
 import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
 
@@ -369,6 +370,19 @@ export async function EditorialContent({
   */
   const stages = spineFacts.palette.length > 0 ? deriveStages(spineFacts.palette) : neutralStages();
 
+  /*
+    ═══ WERE YOU THERE? — ONE PERSON'S OWN DAY (`01` §3.7 · `08` step 2.5) ════
+
+    🔒 THE IDENTITY IS A SIGNED SESSION AND NOTHING ELSE. Owner ruling
+    2026-09-07: there is no name field, for anyone, ever — a box that took a
+    first name let a stranger with the link learn who attended and where they
+    sat. `loadYourOwnDay` reads the guest cookie, refuses a session belonging to
+    another celebration, and returns the empty shape to everybody else. It never
+    throws, so a broken read costs one reader their own panel and nothing more.
+  */
+  let own = await loadYourOwnDay(eventId).catch(() => null);
+  own ??= { signedIn: false, appearsIn: [], shot: [], said: [], tableLabel: null };
+
   return (
     <div
       data-story-light
@@ -397,6 +411,9 @@ export async function EditorialContent({
         viewer={viewer}
         isSample={isSample}
         stages={stages}
+        eventId={eventId}
+        own={own}
+        storyCard={storyCard}
         monogram={
           mono ? (
             <HeroMonogram
@@ -1014,13 +1031,32 @@ function ByTheNumbers({
   words: EventWords;
 }): ReactElement {
   const m = data.metrics;
-  // "Photos & moments" sums the day's stills + living-moment clips when either is
-  // known; the photos cell reads that combined figure. "Living moments" surfaces
-  // the clip count on its own, and "Chapters" the number of story chapters. Each
-  // is omitted (— / hidden) when its underlying count is null, exactly like the
-  // photos stat has always been.
-  const photosAndMoments =
-    m.photos != null || m.clips != null ? (m.photos ?? 0) + (m.clips ?? 0) : null;
+  /*
+    ── TWO COUNTS OF ONE THING, ON ONE PAGE — FIXED 2026-09-09 (S11) ──────────
+
+    🔴 THE COVER SAID **14 captures** AND THIS BLOCK SAID **15 Photos & moments**,
+    on the same page, about the same fourteen photographs. Established from the
+    QUERIES and then from production, not by preferring the number that looked
+    right:
+
+      · `metrics.photos` counts `papic_photos` with NO `photo_type` filter —
+        every clean, un-hidden capture, **stills AND clips**;
+      · `metrics.clips` counts the same table filtered to `photo_type='clip'` —
+        a strict SUBSET of the first;
+      · the old line added the subset to the superset.
+
+    Measured in the one published story in production: 13 stills + 1 clip. So
+    `photos` = 14, `clips` = 1, and `14 + 1` printed 15. **The one clip was
+    counted twice.**
+
+    ⚠ THE TWO NUMBERS WERE NEVER COUNTING DIFFERENT POPULATIONS UNDER ONE WORD —
+    which was the worse possibility this was checked for. They count NESTED
+    populations, and the arithmetic was the whole defect. The fix is therefore
+    not "make one match the other": `photos` already IS "photos & moments", so
+    this cell shows it, and "Living moments" below still shows the clips on
+    their own as the subset it is.
+  */
+  const photosAndMoments = m.photos ?? (m.clips != null ? m.clips : null);
   return (
     <div className="border-2 border-ink">
       <div className="bg-ink px-2 py-2 text-center font-display text-xl font-bold text-cream">

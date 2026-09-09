@@ -517,6 +517,24 @@ export type EditorialData = {
   // who shot the day with Papic gets a real gallery even with zero manual
   // uploads. Falls back to our_photos exactly as before when Papic is empty.
   galleryPhotos: string[];
+  /**
+   * THE SAME PAPIC CAPTURES AS `galleryPhotos`, CARRYING THE SHUTTER TIME.
+   *
+   * 🔑 IT IS NOT A SECOND READ. Every row here comes from `papicRows` and
+   * `papicClipRows`, which this loader already resolved for the gallery and the
+   * timeline — the URL was being kept and the instant thrown away, exactly as
+   * `eventEndDate` was before S9. The index (`lib/story-index.ts`) files each
+   * capture under the minute it was taken and under an hour chip, and neither
+   * is answerable from a URL.
+   *
+   * ⚠ THE COUPLE'S OWN UPLOADS ARE NOT IN IT, and that is deliberate: an
+   * uploaded file carries no shutter time, so filing it under a minute would be
+   * inventing one. They still render in the gallery section below the clock.
+   *
+   * OPTIONAL so the six curated samples need no edit — absent reads as "this
+   * loader did not carry times", never as "there were none".
+   */
+  galleryCaptures?: Array<{ url: string; atMs: number | null }>;
   // "The 10 moments" / photo-essay spread. Display URLs auto-filled from the
   // day's clean Papic captures when the curated event_editorial.essay_photo_ids
   // list is empty (the normal case — it has no writer yet). A best-effort spread,
@@ -1502,6 +1520,21 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   const galleryPhotos = Array.from(
     new Set([...coupleGalleryPhotos, ...manualGalleryPhotos, ...papicGalleryUrls]),
   );
+
+  // The same Papic captures, with the instant each was SHOT — for the index's
+  // eleventh job, filing every capture under its own minute (`01` §3.6). Built
+  // from rows already in hand; nothing is queried twice. Clips come from the
+  // timeline read, which is bounded to the event's own days by design (`08`
+  // step 0.2) — so a clip shot at the prenup is in the cover's count and not in
+  // this list, and the index says how many it is showing rather than claiming
+  // the cover's number for a shorter grid.
+  const galleryCaptures: Array<{ url: string; atMs: number | null }> = [];
+  for (const r of papicRows) {
+    const url = papicUrlByPhotoId.get(r.photoId);
+    if (!url) continue;
+    const t = r.capturedAt ? Date.parse(r.capturedAt) : Number.NaN;
+    galleryCaptures.push({ url, atMs: Number.isFinite(t) ? t : null });
+  }
 
   // 6c. Live Photo Wall (events.photo_wall_photos → display URLs), surfaced
   // only when the couple availed the LIVE_WALL SKU. Same resolver as the
@@ -2650,6 +2683,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     reviews,
     servicesAvailed,
     galleryPhotos,
+    galleryCaptures,
     essayPhotos,
     dayChapters,
     song,

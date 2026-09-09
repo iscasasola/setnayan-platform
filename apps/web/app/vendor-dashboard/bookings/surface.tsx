@@ -12,6 +12,7 @@ import {
   fetchInquiryCustomerFacts,
   INQUIRY_CUSTOMER_UNKNOWN,
 } from '@/lib/inquiry-customer.server';
+import { previewFor } from '@/lib/conversation-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPreparationItemsByEvent } from '@/lib/preparation';
 import {
@@ -93,6 +94,17 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
   );
 
   // Pull latest message per thread for preview + unread inference.
+  //
+  // ⚠ BOUNDED. Measured: this used to fetch EVERY message of EVERY thread on
+  // every load of this page, with no row cap — cheap on a fresh shop, and the
+  // exact query shape that gets expensive the first time one gets busy,
+  // because it grows with total messages ever sent, not with thread count.
+  // `.order + .limit(600)` mirrors the cap `VendorThreadPage` already accepts
+  // for the identical "latest message per thread" read (`conversation-list.ts`
+  // consumers) — the reducer below keeps the FIRST row it sees per thread
+  // (newest-first order), so the cap only ever costs the preview on a shop's
+  // OLDEST live conversations once a page holds more than 600 total messages
+  // across all its threads, never a thread's existence.
   const threadIds = threads.map((t) => t.thread_id);
   const [{ data: latestMessages }, { data: unreadNotifs }] = await Promise.all([
     threadIds.length > 0
@@ -101,6 +113,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
           .select('thread_id,body,sender_role,created_at')
           .in('thread_id', threadIds)
           .order('created_at', { ascending: false })
+          .limit(600)
       : Promise.resolve({ data: [] }),
     // Vendor's unread chat-message notifications — match by related_url
     // suffix (the URL is /vendor-dashboard/messages/<threadId>).
@@ -141,7 +154,14 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     return {
       ...t,
       status,
-      lastMessagePreview: last?.body ?? null,
+      // 🔴 WAS: `last?.body ?? null` — the reader's own last word rendered
+      // identically to the couple's, so "Can we do a tasting first?" and
+      // "Deposit received" looked the same row. `previewFor` is the ONE
+      // preview builder (`lib/conversation-list.ts`, shared with the
+      // Conversations column) — it prefixes "You:" for this vendor's own
+      // messages and writes any card this app generated as a short,
+      // fact-first line instead of the full in-thread body.
+      lastMessagePreview: last ? previewFor(last, 'vendor') : null,
       lastMessageAt: last?.created_at ?? null,
       unread,
     };

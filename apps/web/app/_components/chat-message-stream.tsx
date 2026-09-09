@@ -908,9 +908,16 @@ export function ChatMessageStream({
                 {m.body ? (
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 ) : null}
-                {m.attachment_url ? (
+                {/* 🔒 NEVER THE STORED VALUE. Since 2026-09-09 the row carries a
+                    PRIVATE stored-asset ref, not a public URL, so the file is
+                    fetched through a route that re-proves this viewer is a
+                    party to the thread on every request. `attachment_url` is
+                    the legacy public column — no writer has set it since, and
+                    prod never had a row that used it, but a stored value there
+                    is still somebody's file, so it keeps a way in. */}
+                {m.attachment_r2_key || m.attachment_url ? (
                   <AttachmentBlock
-                    url={m.attachment_url}
+                    url={`/api/chat/attachment/${m.message_id}`}
                     name={m.attachment_name ?? null}
                     mime={m.attachment_mime ?? null}
                     sizeBytes={m.attachment_size_bytes ?? null}

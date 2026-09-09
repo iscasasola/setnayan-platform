@@ -22,12 +22,14 @@ import {
   CONVERSATION_FILTERS,
   COUPLE_CONVERSATION_FILTERS,
   initialsFor,
+  isDateTagWorthShowing,
   isUnanswered,
   matchesCoupleFilter,
   matchesFilter,
   matchesSearch,
   previewFor,
   rowPills,
+  serviceTagVaries,
   type ConversationFilter,
   type CoupleConversationFilter,
 } from '@/lib/conversation-list';
@@ -38,10 +40,11 @@ const COLUMN = 'app/_components/chat/conversation-column.tsx';
 const COUPLE_PAGE = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const BUILDER = 'lib/conversation-list.ts';
 const PAGE = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
+const BOOKINGS = 'app/vendor-dashboard/bookings/surface.tsx';
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 test('the scan read real files (an empty read is a green lie)', () => {
-  for (const rel of [COLUMN, BUILDER, PAGE, COUPLE_PAGE]) {
+  for (const rel of [COLUMN, BUILDER, PAGE, COUPLE_PAGE, BOOKINGS]) {
     assert.ok(read(rel).length > 500, `${rel} came back empty — the scan is not reading it`);
   }
 });
@@ -427,4 +430,122 @@ test('🔑 15 · unread is not unanswered', () => {
       `${rel} stopped comparing the last word to the read marker`,
     );
   }
+});
+
+test('🔑 16 · a generated card writes a fact-first line, a person’s own words never get rewritten', () => {
+  // Real templates, copied byte-for-byte from where each card is authored —
+  // `lib/proposal-send.ts`, `app/_components/negotiation-actions.ts`,
+  // `lib/chat-actions.ts` — so this breaks the moment a writer's wording
+  // drifts from what this column knows how to shorten.
+  assert.equal(
+    previewFor({ sender_role: 'vendor', body: '📄 Proposal — “Intimate 50 — your event” · ₱187,500. Tap to review and accept.' }),
+    'You: Quote ₱187,500 sent',
+  );
+  assert.equal(
+    previewFor(
+      { sender_role: 'vendor', body: '📄 Proposal — “Intimate 50 — your event” · Price on request. Tap to review and accept.' },
+      'couple',
+    ),
+    'Quote Price on request sent',
+  );
+  assert.equal(
+    previewFor({ sender_role: 'couple', body: '📅 Meeting request: Venue walkthrough' }, 'couple'),
+    'You: 📅 Meeting: Venue walkthrough',
+  );
+  assert.equal(
+    previewFor({
+      sender_role: 'system',
+      body: '**Setnayan Exclusive unlocked 🎁** Free engagement shoot: Book within 48 hours and the studio throws in a complimentary engagement session — offer good through the end of the month.',
+    }),
+    '🎁 Exclusive: Free engagement shoot',
+  );
+  // The whole point: the quote line fits the measured ~32-character desktop
+  // budget where the raw card body ("📄 Proposal — … Tap to review and
+  // accept.") ran to 80+. The meeting line is a shorter WRAPPER around a
+  // person-typed label — the wrapper is what shrank; a long label still gets
+  // the ellipsis, same as any other person's words.
+  assert.ok('You: Quote ₱187,500 sent'.length <= 32, 'the quote line still runs past the desktop budget');
+  assert.ok(
+    'You: 📅 Meeting: Venue walkthrough'.length < 'You: 📅 Meeting request: Venue walkthrough'.length,
+    'the meeting wrapper did not actually shrink',
+  );
+  // A message a PERSON typed is untouched, even one that starts with a digit
+  // or a symbol that could otherwise collide with a card prefix.
+  assert.equal(
+    previewFor({ sender_role: 'couple', body: 'Can we do a tasting first?' }),
+    'Can we do a tasting first?',
+  );
+  // Already-short generated bodies (the offer card, the attachment fallback)
+  // are left exactly as their own writer wrote them — nothing here re-derives
+  // what is already a fact-first line.
+  assert.equal(previewFor({ sender_role: 'vendor', body: 'Offered: Live Band' }), 'You: Offered: Live Band');
+});
+
+test('🔑 17 · a tag that never varies costs a line and says nothing', () => {
+  // The couple's own column is not asked this question — see test 13's
+  // neighbour, `buildCoupleConversationRows`'s labels contract: every row
+  // there is the SAME wedding, so a date tag is never drawn on that side at
+  // all, and the service tag legitimately varies vendor to vendor. This is
+  // the supplier's OWN inbox: one shop, many weddings.
+  assert.equal(serviceTagVaries(['Catering', 'Catering', 'Catering']), false, 'a caterer with only catering inquiries should not tag every row "Catering"');
+  assert.equal(serviceTagVaries(['Catering', null, 'Catering']), false, 'nulls must not manufacture a second value');
+  assert.equal(serviceTagVaries(['Catering', 'Photography']), true, 'a multi-service inbox is exactly when the tag distinguishes rows');
+  assert.equal(serviceTagVaries([]), false, 'an empty inbox has nothing to vary');
+  assert.equal(serviceTagVaries([null, undefined]), false);
+
+  const now = Date.parse('2026-09-09T00:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  assert.equal(isDateTagWorthShowing(null, now), false);
+  assert.equal(isDateTagWorthShowing(undefined, now), false);
+  assert.equal(isDateTagWorthShowing('not-a-date', now), false);
+  // A date-only column ('2026-12-18') must be read as UTC midnight, the same
+  // discipline `dayMonth` documents — not the machine's own timezone.
+  assert.equal(isDateTagWorthShowing(new Date(now + 10 * DAY).toISOString().slice(0, 10), now), true, '10 days out is live context');
+  assert.equal(isDateTagWorthShowing(new Date(now - 10 * DAY).toISOString().slice(0, 10), now), true, 'recently past is still live context');
+  assert.equal(isDateTagWorthShowing(new Date(now + 61 * DAY).toISOString().slice(0, 10), now), false, '61 days out is noise, not context');
+  assert.equal(isDateTagWorthShowing(new Date(now - 61 * DAY).toISOString().slice(0, 10), now), false);
+  assert.equal(isDateTagWorthShowing(new Date(now + 60 * DAY).toISOString().slice(0, 10), now), true, 'exactly 60 days is still in the window');
+
+  // Wired into the supplier's own row-tag construction — not left as a helper
+  // nobody calls.
+  const page = read(PAGE);
+  assert.ok(page.includes('serviceTagVaries('), 'the supplier page stopped asking whether its service tag varies');
+  assert.ok(page.includes('isDateTagWorthShowing('), 'the supplier page stopped gating its date tag by proximity');
+  assert.ok(
+    /if \(service && showServiceTag\)/.test(page),
+    'the service tag stopped being conditional on it actually varying',
+  );
+});
+
+test('🔑 18 · the OTHER shipped inbox gets the same preview, sender included, and a bounded fetch', () => {
+  // `app/vendor-dashboard/bookings/surface.tsx` is a second, independent list
+  // over the same threads — the one a supplier's phone nav points at and
+  // where every new-inquiry notification lands. It had its own preview logic
+  // that rendered `last?.body` raw, with no "You:" and no fact-first
+  // shortening, so a couple's question and the supplier's own reply read
+  // identically. Fixed by REUSING `previewFor`, not forking a second copy.
+  const bookings = read(BOOKINGS);
+  assert.ok(
+    bookings.includes("from '@/lib/conversation-list'") && bookings.includes('previewFor'),
+    'the bookings inbox stopped reusing the one preview builder',
+  );
+  assert.ok(
+    /lastMessagePreview:\s*last\s*\?\s*previewFor\(last, 'vendor'\)\s*:\s*null/.test(bookings),
+    'the bookings inbox stopped passing the reader’s role through previewFor',
+  );
+  // The raw, unprefixed read this replaced must actually be gone, not just
+  // shadowed — a second assignment further down would silently win.
+  assert.ok(
+    !/lastMessagePreview:\s*last\?\.body\s*\?\?\s*null/.test(bookings),
+    'the old sender-blind preview line is still there',
+  );
+  // ⚠ MEASURED: this fetched every message of every thread on every load, with
+  // no cap. `.limit(600)` mirrors the ceiling `VendorThreadPage` already
+  // accepts for the identical "latest message per thread" read.
+  const fetchBlock = bookings.slice(
+    bookings.indexOf("from('chat_messages')"),
+    bookings.indexOf("from('chat_messages')") + 400,
+  );
+  assert.ok(/\.order\(\s*'created_at'/.test(fetchBlock), 'the bookings message read lost its newest-first order');
+  assert.ok(/\.limit\(\s*600\s*\)/.test(fetchBlock), 'the bookings message read is still unbounded');
 });

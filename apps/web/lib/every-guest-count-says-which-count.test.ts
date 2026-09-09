@@ -147,27 +147,52 @@ test('the accept card renders the count AND its basis label', () => {
   );
 });
 
-test('the quote builder is told the live count without being reseeded by it', () => {
+test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry count', () => {
+  // Owner decision, 2026-09-09, matching the binding prototype's booked frame.
+  // Before it, the builder opened at `pax_at_inquiry` and this assertion said
+  // the opposite — the change is a re-pricing, so it is pinned rather than left
+  // to a prop-passing accident.
+  assert.match(threadSrc, /livePax=\{headerPax \?\? null\}/, 'the live count must reach the builder');
   assert.match(
     threadSrc,
     /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? 100\}/,
-    'THE SEED IS UNCHANGED: re-seeding from the live count moves what a supplier prices against',
+    'and so must the inquiry count — it is still named, it is just no longer the seed',
   );
-  assert.match(threadSrc, /livePax=\{headerPax \?\? null\}/);
-  // ⚠ BY COUNT, NOT BY PRESENCE. The builder header has TWO branches — "sized
-  // to their request" and "quoting X, request was Y" — and each shows the
-  // seeded figure. A `match` anywhere in the file passes while one of them has
-  // silently lost its label, which is what a first version of this assertion
-  // did: the mutation that stripped the first branch left it green.
+  assert.match(
+    makerSrc,
+    /const seedPax = livePax \?\? requestedPax;/,
+    'the seed is the LIVE count, falling back to the inquiry count when there is none',
+  );
+  assert.match(
+    makerSrc,
+    /useState\(seedPax\)/,
+    'and the editable field actually opens at it — a seed nothing reads is not a seed',
+  );
+
+  // ⚠ BY COUNT, NOT BY PRESENCE. The header has TWO branches — at-seed and
+  // edited — and each shows a figure. A `match` anywhere in the file passes
+  // while one branch has silently lost its label, which is what a first version
+  // of this assertion did: the mutation that stripped one branch left it green.
   assert.equal(
-    (makerSrc.match(/pax at inquiry/g) ?? []).length,
+    (makerSrc.match(/was \{requestedPax\} at inquiry/g) ?? []).length,
     2,
-    'both branches of the builder header must name which count they opened at',
+    'both branches must name the inquiry count the quote is being moved away from',
   );
   assert.equal(
-    (makerSrc.match(/their plan now says \{livePax\}/g) ?? []).length,
+    (makerSrc.match(/\{seedPax\} pax|their plan says \{seedPax\} now/g) ?? []).length,
     2,
-    'and both must name the live count when it differs',
+    'and both must say the figure they opened at is the current plan',
+  );
+});
+
+test('reset returns to what the builder opened at, not to the inquiry count', () => {
+  // A reset that jumped to a DIFFERENT number than the one the supplier started
+  // from would be a second, silent re-pricing dressed up as an undo.
+  assert.match(makerSrc, /const resetToSeed = \(\) => \{\s*\n\s*setPax\(seedPax\);/);
+  assert.equal(
+    (makerSrc.match(/setPax\(requestedPax\)/g) ?? []).length,
+    0,
+    'nothing may snap the field back to the inquiry count behind the supplier',
   );
 });
 

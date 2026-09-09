@@ -18,7 +18,7 @@
  * The five rules below are review findings, not preferences. Each is marked.
  */
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
   DIAL_WIDTH,
   formatClock,
@@ -63,7 +63,29 @@ export type DialBar = {
   /** The written entry this bar belongs to or sits nearest, if any. */
   nearId: string | null;
   nearLabel: string | null;
+  /**
+   * Minutes past midnight, Manila, for a bar that belongs to one of the days.
+   * NULL on the road and on `after`, which are drawn in weeks and in months.
+   *
+   * 🔑 IT EXISTS SO THE SEARCH CAN SAY "JUMP TO THAT MINUTE" (`01` §8). Somebody
+   * types `7:12` and the only honest answer is the bar for 7:12 — and the bars
+   * carry an AXIS POSITION, which is a fact about the layout, not about the
+   * clock. Deriving one from the other would put the sheet on the wrong minute
+   * the first time a day's segment changed width.
+   */
+  minuteOfDay: number | null;
 };
+
+/**
+ * The event `find-in-this-day.tsx` fires to open a minute's sheet.
+ *
+ * 🔑 THE SHEET HAS ONE OWNER AND THIS KEEPS IT THAT WAY. The search is a
+ * separate component in a separate part of the page; handing it its own copy of
+ * the sheet would put two dialogs describing the same minute on one page, able
+ * to disagree. It asks, and the clock — which already knows every bar and
+ * already manages the focus — answers.
+ */
+export const STORY_OPEN_MINUTE_EVENT = 'story:open-minute';
 
 export type DialLabel = { x: number; text: string; kind: 'segment' | 'tick' | 'mark' };
 
@@ -78,6 +100,14 @@ export type StoryClockProps = {
   openingLabel: string;
   /** Said in the sheet when the guests' layer is withheld from this reader. */
   withheldNote: string | null;
+  /**
+   * FIND IN THIS DAY, in the dial's own top row — where the prototype puts it.
+   *
+   * A slot rather than a child component so this file keeps knowing nothing
+   * about the search: the clock owns the sticky bar and the sheet, the search
+   * owns the query and the results, and neither imports the other's state.
+   */
+  find?: ReactNode;
 };
 
 const BASELINE_Y = 50;
@@ -94,6 +124,7 @@ export function StoryClock({
   openingSuffix,
   openingLabel,
   withheldNote,
+  find,
 }: StoryClockProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const needleRef = useRef<SVGLineElement | null>(null);
@@ -301,6 +332,38 @@ export function StoryClock({
   const open = useCallback((bar: DialBar) => setOpenBar(bar), []);
   const close = useCallback(() => setOpenBar(null), []);
 
+  /*
+    ── "JUMP TO THAT MINUTE" (`01` §8) ───────────────────────────────────────
+    Somebody types `7:12` into the search and the answer is this dial's own
+    sheet for 7:12. The search asks by event; the clock answers, because the
+    clock is where the bars and the focus management already live.
+
+    ⚠ IT REFUSES RATHER THAN GUESSES. Only bars that belong to a DAY carry a
+    minute, so a story whose day was never measured (or whose captures all fall
+    outside it — the state of the one published story in production) has
+    nothing to jump to, and the search says so instead of opening the sheet on
+    whatever bar happened to sort first.
+  */
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const minute = (e as CustomEvent<{ minuteOfDay?: number }>).detail?.minuteOfDay;
+      if (typeof minute !== 'number' || !Number.isFinite(minute)) return;
+      let best: DialBar | null = null;
+      let bestD = Infinity;
+      for (const b of bars) {
+        if (b.minuteOfDay == null) continue;
+        const d = Math.abs(b.minuteOfDay - minute);
+        if (d < bestD) {
+          bestD = d;
+          best = b;
+        }
+      }
+      if (best) setOpenBar(best);
+    };
+    window.addEventListener(STORY_OPEN_MINUTE_EVENT, onAsk);
+    return () => window.removeEventListener(STORY_OPEN_MINUTE_EVENT, onAsk);
+  }, [bars]);
+
   /**
    * THE WHOLE STRIP IS ONE HIT AREA AND THE NEAREST BIN WINS (review finding).
    * A five-minute bar on a phone is about 1.3 device pixels wide. Asking a
@@ -362,6 +425,7 @@ export function StoryClock({
               </b>
               <span className="truncate text-[13px] text-ink/75">{now.label}</span>
             </div>
+            {find}
           </div>
 
           <div

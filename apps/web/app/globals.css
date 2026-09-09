@@ -3995,3 +3995,21 @@ html:active-view-transition .sn-page-enter { animation: none; }
 .sn-story [data-story-scroller]::-webkit-scrollbar {
   display: none;
 }
+
+/* FIND IN THIS DAY — non-matching minutes dim (§8).
+   A PRESENTATIONAL marker and never a gate. Everything it dims is already in
+   the served HTML, which is exactly why the LAYERS this reader may not have are
+   taken out of the payload upstream instead of being hidden here: `opacity` on
+   a node whose contents were serialised into the page is the same paragraph,
+   one View Source away.
+   It is cleared when the search closes, and on unmount, so nobody is left
+   reading a greyed-out story. */
+.sn-story [data-story-entry][data-story-dim] {
+  opacity: 0.3;
+  filter: saturate(0.5);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sn-story [data-story-entry] {
+    transition-property: transform, opacity;
+  }
+}

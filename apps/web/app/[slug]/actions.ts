@@ -1247,3 +1247,76 @@ async function revalidateEventSlug(eventId: string): Promise<void> {
     .maybeSingle();
   if (ev?.slug) revalidatePath(`/${ev.slug}`);
 }
+
+export type UnnameResult = { ok: true; changed: number } | { ok: false; message: string };
+
+/**
+ * A GUEST ASKS TO BE UNNAMED — on their own words, immediately, no queue.
+ *
+ * `01_The_Story.md` §3.7 · owner gate Q2, ruled 2026-09-09: *a photo message
+ * carries a name only if the guest asked*, and **the role rides the same
+ * consent as the name** — there is exactly one maid of honour, so a role badge
+ * over an unnamed column identifies her to everybody who was at the wedding.
+ *
+ * ⚖ WHY THIS ONE DOES NOT GO TO A PERSON, WHEN "TAKE MY PHOTO DOWN" DOES.
+ * A photograph is not the guest's to delete — it was taken by somebody else and
+ * may hold four other people, which is why `askToTakeMyPhotoDown` above files a
+ * request instead of erasing anything. **Their own name on their own sentence
+ * is nobody else's.** Making them wait in a moderation queue to stop being
+ * named would be the product asking permission to keep publishing their
+ * identity.
+ *
+ * 🔑 IT CAN ONLY EVER REMOVE A NAME. There is no branch that sets
+ * `author_named_publicly` to true — the same monotone construction
+ * `redactStoryLayers` and `consent-veto.ts` use, so a bug in here cannot name
+ * somebody who asked not to be.
+ *
+ * 🔒 The signed guest session is the gate AND the identity. This page is public;
+ * the guest id comes from the cookie and never from the arguments, so nobody can
+ * unname anybody else — and nobody can unname a person at another celebration,
+ * because the event must match the session's too.
+ *
+ * ⚠ IT TOUCHES BOTH TABLES THE NAME CAN BE ON. A guest who wrote a Kwento AND a
+ * letter is one person making one decision; unnaming half of it and leaving the
+ * other half bylined would be worse than not offering the control.
+ */
+export async function askToBeUnnamed(eventId: string): Promise<UnnameResult> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId) {
+    return { ok: false, message: 'Open this from your own invitation link and we can help.' };
+  }
+
+  const admin = createAdminClient();
+  let changed = 0;
+  let failed = false;
+
+  for (const table of ['photo_messages', 'guest_columns'] as const) {
+    /*
+      A REFUSED QUERY IS NOT A THROWN ERROR — the column could be missing on a
+      checkout that never ran S4's migration, and PostgREST answers that with
+      `{ error }` and no exception. Both arms are checked, and a failure on one
+      table does not stop the other: unnaming what we can is strictly better
+      than unnaming nothing.
+    */
+    try {
+      const { data, error } = await admin
+        .from(table)
+        .update({ author_named_publicly: false })
+        .eq('event_id', eventId)
+        .eq('guest_id', session.guest_id)
+        .eq('author_named_publicly', true)
+        .select('event_id');
+      if (error) failed = true;
+      else changed += data?.length ?? 0;
+    } catch {
+      failed = true;
+    }
+  }
+
+  if (failed && changed === 0) {
+    return { ok: false, message: 'We couldn’t change that just now. Please try again.' };
+  }
+
+  await revalidateEventSlug(eventId);
+  return { ok: true, changed };
+}

@@ -56,10 +56,16 @@ import {
 import { STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import type { EventWords } from '../../_lib/event-words';
 import type { DayChapter, EditorialData } from '../editorial/data';
+import { buildStoryIndex, type IndexAnchor } from '@/lib/story-index';
 import { StoryClock, type DialBar, type DialLabel } from './story-clock';
 import { StoryLens } from './story-lens';
 import { StoryLight } from './story-light';
 import { MinuteMedia } from './minute-media';
+import { FindInThisDay } from './find-in-this-day';
+import { Relive, type ReliveSlide } from './relive';
+import { StoryIndex } from './story-index';
+import { WereYouThere } from './were-you-there';
+import type { YourOwnDay } from '../../_lib/your-own-day.server';
 import type { RoadFact, StorySpineFacts } from './spine-data';
 
 /** The tallest a bar is drawn, in axis units. `BASELINE_Y` in the clock is 50. */
@@ -113,6 +119,9 @@ export function StorySpine({
   stages,
   monogram,
   actions,
+  eventId,
+  own,
+  storyCard,
 }: {
   data: EditorialData;
   facts: StorySpineFacts;
@@ -138,6 +147,18 @@ export function StorySpine({
   monogram: ReactNode;
   /** Share / print / the host's own door — the shipped controls, unchanged. */
   actions: ReactNode;
+  /** The event this story is of — the consent controls write against it. */
+  eventId: string;
+  /**
+   * THE READER'S OWN DAY, resolved from their signed Papic session upstream.
+   *
+   * 🔒 Never a name, never a lookup — owner ruling 2026-09-07. See
+   * `_lib/your-own-day.server.ts`; a reader with no session arrives with
+   * `signedIn: false` and the panel says so.
+   */
+  own: YourOwnDay;
+  /** The shipped 9:16 card, or null until the story is published. */
+  storyCard: { url: string; filenameBase: string } | null;
 }): ReactElement {
   // A sample carries no audience and exists to be read — the same exemption the
   // shipped gate and `redactStoryLayers` both make, for the same reason.
@@ -244,6 +265,8 @@ export function StorySpine({
         unmeasured: true,
         nearId: near ? near.fact.key : null,
         nearLabel: near ? near.fact.title : null,
+        // The road is drawn in weeks. It has no minute of any day.
+        minuteOfDay: null,
       });
     }
     labels.push({ x: ROAD_BAND.x0 + 1, text: 'THE ROAD', kind: 'segment' });
@@ -305,6 +328,7 @@ export function StorySpine({
         unmeasured: false,
         nearId: near?.id ?? null,
         nearLabel: near ? minuteHeadline(near) : null,
+        minuteOfDay: m,
       });
       drewAny = true;
     }
@@ -335,6 +359,7 @@ export function StorySpine({
           unmeasured: true,
           nearId: near?.id ?? null,
           nearLabel: near ? minuteHeadline(near) : null,
+          minuteOfDay: m,
         });
       }
     }
@@ -371,6 +396,8 @@ export function StorySpine({
         unmeasured: true,
         nearId: a.fact.key,
         nearLabel: a.fact.title,
+        // `After` is drawn in months. Same reason as the road.
+        minuteOfDay: null,
       });
     });
     labels.push({ x: AFTER_BAND.x1 - 1, text: 'AFTER', kind: 'segment' });
@@ -407,6 +434,140 @@ export function StorySpine({
 
   const opening = roadPlaced[0]?.fact ?? null;
 
+  /*
+    ═══ S11 · THE INDEX, THE SEARCH, RELIVE, AND ONE PERSON'S OWN DAY ═══════
+    `01` §3.6 + §3.7 + §8 · `08` steps 2.4 + 2.5.
+
+    🔑 EVERYTHING BELOW IS DERIVED FROM WHAT THIS FILE HAS ALREADY PLACED. The
+    anchors are the minutes and road facts that are rendered a few lines down,
+    so an index item cannot point at a minute that is not on the page and the
+    search cannot offer a jump the dial cannot make. Nothing re-reads the
+    database and nothing re-asks who this reader is: `data` came in redacted.
+  */
+  const windowMs = Math.max(5, facts.bucketMinutes) * 60_000 * 3;
+
+  const anchors: IndexAnchor[] = [
+    ...roadPlaced.map((r) => ({
+      id: r.fact.key,
+      atMs: r.fact.atMs,
+      stamp: r.fact.stamp,
+      suffix: r.fact.stampSuffix,
+      label: r.fact.title,
+      hour: null,
+    })),
+    ...[...minutesByDay.values()].flat().map((m) => ({
+      id: m.id,
+      atMs: m.atMs,
+      stamp: formatClock(m.minuteOfDay).t,
+      suffix: formatClock(m.minuteOfDay).ap,
+      label: m.chapter.title ?? `${formatClock(m.minuteOfDay).t} ${formatClock(m.minuteOfDay).ap}`,
+      hour: Math.floor(m.minuteOfDay / 60),
+    })),
+    ...afterPlaced.map((a) => ({
+      id: a.fact.key,
+      atMs: a.fact.atMs,
+      stamp: a.fact.stamp,
+      suffix: a.fact.stampSuffix,
+      label: a.fact.title,
+      hour: null,
+    })),
+  ].sort((x, y) => x.atMs - y.atMs);
+
+  const msOf = (iso: string | null): number | null => {
+    if (!iso) return null;
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t : null;
+  };
+
+  const indexTabs = buildStoryIndex({
+    guestOpen,
+    anchors,
+    windowMs,
+    captures: (data.galleryCaptures ?? []).map((c) => ({
+      url: c.url,
+      atMs: c.atMs,
+      caption: null,
+    })),
+    voices: data.kwentoQuotes.map((q) => ({
+      body: q.body,
+      atMs: msOf(q.atIso),
+      author: q.author,
+      role: q.role,
+    })),
+    asked: data.challengeAnswers.map((a) => ({
+      prompt: a.prompt,
+      atMs: msOf(a.atIso),
+      byline: a.byline,
+    })),
+    letters: (data.guestColumns ?? []).map((l) => ({
+      title: l.title,
+      body: l.body,
+      author: l.author,
+      role: l.role,
+    })),
+    team: data.vendors.map((v) => ({
+      name: v.name,
+      category: v.category,
+      isFirstPick: v.isFirstPick,
+    })),
+    films: facts.broadcasts.map((b, i) => {
+      const day = manilaDayOf(new Date(b.liveAtMs).toISOString());
+      const m = manilaMinuteOfDay(new Date(b.liveAtMs).toISOString());
+      return {
+        title: `Live from ${m == null ? shortDate(day ?? '') : `${formatClock(m).t} ${formatClock(m).ap}`}`,
+        stamp: day ? shortDate(day) : `FILM ${i + 1}`,
+        atMs: b.liveAtMs,
+        // A broadcast belongs to the minute the page has written up nearest to
+        // the moment it went live — not to a minute of its own, which it has not
+        // got. Null when nothing is near enough, and the row simply does not link.
+        anchorId: nearestAnchorId(anchors, b.liveAtMs, windowMs),
+      };
+    }),
+    wall: data.photoWallPhotos.map((url) => ({ url })),
+    wallActive: data.photoWallActive,
+    room: { tables: facts.room.tables, seatsAssigned: facts.room.seatsAssigned },
+    palette: facts.palette,
+    madeWith: data.servicesAvailed.map((name) => ({
+      name,
+      note: `Used for this ${words.occasion}.`,
+      stamps: [],
+    })),
+    numbers: coverFacts
+      .filter((f): f is { n: number; label: string } => f.n != null)
+      .map((f) => ({ value: f.n.toLocaleString('en-PH'), label: f.label, note: null })),
+    captureCount: countForLayer(data.metrics.photos, guestOpen),
+    words: { host: words.host, occasion: words.occasion },
+  });
+
+  /*
+    RELIVE'S SLIDES ARE THE DAY'S WRITTEN MINUTES, and nothing else.
+
+    🔒 WHICH IS WHY A PRE-PUBLISH STRANGER GETS NO PLAYER AT ALL. `dayChapters`
+    is one of the arrays `redactStoryLayers` empties, so that reader arrives
+    here with no minutes, `slides` is empty, and `relive.tsx` renders nothing —
+    not a disabled button, not an empty overlay. The Relive player was one of
+    the six things the design review found still public in that state.
+  */
+  const reliveSlides: ReliveSlide[] = [...minutesByDay.values()]
+    .flat()
+    .sort((a, b) => a.atMs - b.atMs)
+    .map((m) => {
+      const clock = formatClock(m.minuteOfDay);
+      const block = blockAt(m.atMs, facts.blocks);
+      const said = data.kwentoQuotes.find((q) => within(q.atIso, minuteWindow(m, facts.bucketMinutes)));
+      return {
+        id: m.id,
+        stamp: clock.t,
+        suffix: clock.ap,
+        title: m.chapter.title ?? `${clock.t} ${clock.ap}`,
+        imageUrl: m.chapter.media[0]?.posterUrl ?? m.chapter.media[0]?.url ?? null,
+        caption: block?.location ?? block?.label ?? null,
+        voice: said?.body ?? null,
+        // Q2, ruled 2026-09-09: a name only where the guest asked for one.
+        voiceBy: said?.author ?? null,
+      };
+    });
+
   return (
     <div className="sn-story">
       {/* ═══════════ COVER ═══════════ */}
@@ -421,7 +582,10 @@ export function StorySpine({
               </small>
             </span>
           </div>
-          <div className="flex flex-wrap gap-2">{actions}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Relive slides={reliveSlides} label={`Relive this ${words.occasion}`} />
+            {actions}
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-2.5">
@@ -479,6 +643,7 @@ export function StorySpine({
             openingSuffix={opening?.stampSuffix ?? ''}
             openingLabel={opening?.title ?? 'The road to the day'}
             withheldNote={`What was shot at this minute is filling in for the people of this celebration. It publishes here when the ${words.host} says so.`}
+            find={<FindInThisDay occasion={words.occasion} />}
           />
         </div>
       ) : null}
@@ -568,6 +733,29 @@ export function StorySpine({
           />
         </div>
       </main>
+
+      {/*
+        ════ THE WHOLE STORY, AT ONCE ════════════════════════════════════════
+        `01` §3.6. Eleven indexes, each pointing back at its minute — and NOT a
+        second rendering of the sections below the clock, which still appear in
+        the host's own order. See `story-index.tsx`.
+      */}
+      <StoryIndex tabs={indexTabs} beforeLabel="Before the day" />
+
+      {/*
+        ════ WERE YOU THERE? ═════════════════════════════════════════════════
+        `01` §3.7. One person's own account, resolved from their signed Papic
+        session. 🔒 There is no name field, for anyone, ever.
+      */}
+      <WereYouThere
+        own={own}
+        anchors={anchors}
+        windowMs={windowMs}
+        eventId={eventId}
+        occasion={words.occasion}
+        host={words.host}
+        storyCard={storyCard}
+      />
 
       {/*
         THE LIGHT. It renders nothing — it writes three custom properties on the
@@ -926,6 +1114,24 @@ function nearestBy<T extends { x: number }>(items: readonly T[], x: number): T |
   // Only claim a mark when the bin is actually near it — otherwise every bin on
   // the road would report the same distant fact as "nearest".
   return best && bestD <= (ROAD_BAND.x1 - ROAD_BAND.x0) / 26 ? best : null;
+}
+
+/** The written entry nearest an instant, within a window. Null when none is. */
+function nearestAnchorId(
+  anchors: readonly IndexAnchor[],
+  atMs: number,
+  windowMs: number,
+): string | null {
+  let best: IndexAnchor | null = null;
+  let bestD = Infinity;
+  for (const a of anchors) {
+    const d = Math.abs(a.atMs - atMs);
+    if (d < bestD) {
+      bestD = d;
+      best = a;
+    }
+  }
+  return best && bestD <= windowMs ? best.id : null;
 }
 
 function nearestMinute(minutes: readonly Minute[], minuteOfDay: number): Minute | null {

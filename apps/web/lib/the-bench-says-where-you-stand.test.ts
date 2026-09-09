@@ -316,20 +316,20 @@ test('🔑 13 · the sentence is derived in ONE module and nowhere else', () => 
 });
 
 test('🔑 14 · a card cannot render a stage word outside the ladder’s five', () => {
-  const module = read(MODULE);
+  const moduleSrc = read(MODULE);
   const bench = read(BENCH);
 
   // The module hands out a rung, never a word: the ONLY place a stage becomes
   // English is `THREAD_STAGE_LABEL`, in the module's own formatter and in the
   // component. So a sixth word cannot reach a card without editing the ladder.
-  assert.ok(module.includes('THREAD_STAGE_LABEL['), 'the sentence stopped naming the rung from the ladder');
+  assert.ok(moduleSrc.includes('THREAD_STAGE_LABEL['), 'the sentence stopped naming the rung from the ladder');
   assert.ok(bench.includes('THREAD_STAGE_LABEL['), 'the card stopped naming the rung from the ladder');
 
   // ⚠ AND THE HUMAN WORDS THEMSELVES ARE ABSENT FROM BOTH. A hand-typed
   // "Quoted" beside a `THREAD_STAGE_LABEL` lookup is exactly the drift this
   // pins — it renders correctly on the day it ships and survives a rename of
   // the ladder that it should not have survived.
-  for (const [rel, src] of [[MODULE, module], [BENCH, bench]] as const) {
+  for (const [rel, src] of [[MODULE, moduleSrc], [BENCH, bench]] as const) {
     for (const label of Object.values(THREAD_STAGE_LABEL)) {
       assert.ok(
         !new RegExp(`['"\`]${label}['"\`]`).test(src),
@@ -357,10 +357,10 @@ test('🔑 14 · a card cannot render a stage word outside the ladder’s five',
 });
 
 test('🔑 15 · the module stays pure — no React, no fetching, no clock', () => {
-  const module = read(MODULE);
+  const moduleSrc = read(MODULE);
   for (const forbidden of ['react', 'useState', 'createClient', ".from('", 'Date.now(']) {
     assert.ok(
-      !module.includes(forbidden),
+      !moduleSrc.includes(forbidden),
       `the sentence module reached for ${forbidden} — it takes facts and returns a string`,
     );
   }

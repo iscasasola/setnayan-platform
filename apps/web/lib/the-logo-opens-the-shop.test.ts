@@ -34,6 +34,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isOptimizableImageUrl } from './optimizable-image-url';
 import { serviceCardAddress, shopAddress } from './service-card-address';
 // THE repo's one string-aware comment stripper — a small lexer, not a regex.
 // Its own docblock records the measurement: the regex version it replaced was
@@ -139,6 +140,35 @@ test('the stored ref never reaches the view — the view takes a resolved URL', 
   assert.match(block, /logoUrl: serviceCardLogoUrls\.get\(/, 'the card lost its resolved logo');
   // The prop is named for what it is, so this cannot be confused again.
   assert.match(cardView, /logoUrl: string \| null;/, 'ServiceCardShop.logoUrl changed shape');
+});
+
+test('a logo on a host next/image cannot serve falls back, never breaks', () => {
+  // The LEGACY shape: `logo_url` may hold a URL the vendor pasted, on any host.
+  // next/image answers 400 for an unlisted host and the picture is simply not
+  // there — nothing throws. It must reach the initials tile instead.
+  assert.match(
+    cardView,
+    /shop\.logoUrl && isOptimizableImageUrl\(shop\.logoUrl\) \? \(/,
+    'the logo goes to next/image unguarded; an unlisted host renders broken markup',
+  );
+  // The rule itself, and it is ONE rule — the marketplace vendor card imports
+  // the same module rather than keeping a private copy.
+  assert.equal(isOptimizableImageUrl('https://x.r2.cloudflarestorage.com/a.png'), true);
+  assert.equal(isOptimizableImageUrl('https://pub-1.r2.dev/a.png'), true);
+  assert.equal(isOptimizableImageUrl('/placeholders/vendor.webp'), true);
+  assert.equal(isOptimizableImageUrl('https://i.imgur.com/a.png'), false);
+  assert.equal(isOptimizableImageUrl('r2://setnayan-media/vendors/a.png'), false);
+  assert.equal(isOptimizableImageUrl(null), false);
+  const vendorCard = stripComments(read('../app/(shell)/explore/_components/vendor-card.tsx'));
+  assert.match(
+    vendorCard,
+    /from '@\/lib\/optimizable-image-url'/,
+    'the explore vendor card grew its own copy of the host rule again',
+  );
+  assert.ok(
+    !/function isOptimizableImageUrl/.test(vendorCard),
+    'the private copy came back — two copies of a host whitelist always drift',
+  );
 });
 
 test('the query asks for the logo, and one signature per SHOP not per card', () => {

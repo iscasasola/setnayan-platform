@@ -8,6 +8,7 @@ import {
   CardRecordSection,
   type CardRecordRating,
 } from '@/app/_components/card-record-section';
+import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 
 /**
@@ -297,7 +298,11 @@ function ShopMark({ shop }: { shop: ServiceCardShop }) {
 
   const inner = (
     <>
-      {shop.logoUrl ? (
+      {/* 🪤 A LEGACY `logo_url` IS A URL THE VENDOR PASTED, on any host, and
+          next/image answers 400 for a host that is not whitelisted — a picture
+          that is simply not there, with nothing thrown. Falls back to the
+          initials tile, which is a designed state. */}
+      {shop.logoUrl && isOptimizableImageUrl(shop.logoUrl) ? (
         <span className="relative block h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-ink/5">
           <Image src={shop.logoUrl} alt="" fill sizes="32px" className="object-cover" />
         </span>

@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DIAL_WIDTH, formatClock, nearestBarAt, percentOf } from '@/lib/story-spine';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { clearReaderPosition, publishReaderPosition } from '@/lib/story-reader-position';
 
 /** One bar, fully resolved on the server. */
 export type DialBar = {
@@ -150,6 +151,7 @@ export function StoryClock({
       if (!current) {
         setActiveX(null);
         setNow({ stamp: openingStamp, suffix: openingSuffix, label: openingLabel });
+        publishReaderPosition({ entry: null, next: null, progress: 0 });
         return;
       }
       const x = Number(current.dataset.storyX ?? '0');
@@ -162,6 +164,16 @@ export function StoryClock({
         suffix: current.dataset.storySuffix ?? '',
         label: current.dataset.storyLabel ?? openingLabel,
       });
+      /*
+        🔑 THE SAME FACT, PUBLISHED ONCE. The light on the page and the room in
+        the lens need exactly what the needle needs: which entry the reader has
+        reached and how far through it they are. Neither can live inside this
+        component — one paints the story's wrapper, the other is a sticky aside
+        beside the entries — and a second rAF loop reading these same rects
+        would give two answers to one question, plus a second layout per frame
+        on a page this long. See `lib/story-reader-position.ts`.
+      */
+      publishReaderPosition({ entry: current, next: next ?? null, progress: f });
     };
 
     const onScroll = () => {
@@ -194,6 +206,9 @@ export function StoryClock({
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       document.removeEventListener('visibilitychange', onVisible);
+      // A client-side navigation away and back would otherwise replay the
+      // PREVIOUS story's entry to a fresh lens and a fresh light.
+      clearReaderPosition();
     };
   }, [openingStamp, openingSuffix, openingLabel]);
 

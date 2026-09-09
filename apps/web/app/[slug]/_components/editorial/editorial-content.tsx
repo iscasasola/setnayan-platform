@@ -19,7 +19,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
-import { type ReactElement, type ReactNode } from 'react';
+import { type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
 import {
   loadEditorialData,
@@ -59,6 +59,7 @@ import {
 } from '@/lib/hero-monogram-data';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { StorySpine } from '../story/story-spine';
+import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/story-light';
 import {
   loadStorySpineFacts,
   sampleSpineFacts,
@@ -332,6 +333,20 @@ export async function EditorialContent({
           eventDate: data.eventDate,
           eventEndDate: data.eventEndDate,
           createdAtMs: null,
+          /*
+            The minutes the story writes up, so the lens's heat is read for
+            those instants and no others (`08` step 2.3). Taken from the payload
+            the loader above already resolved — asking the database a second
+            time which minutes exist would be a second opinion about the day.
+
+            🔒 AND IT IS THE REDACTED PAYLOAD. `redactStoryLayers` has already
+            run, so a reader who may not have the guests' layer has no day
+            chapters here — which means no windows are read at all for them,
+            and the heat is empty before the gate downstream even sees it.
+          */
+          writtenMinutesMs: data.dayChapters
+            .map((c) => (c.atIso ? Date.parse(c.atIso) : Number.NaN))
+            .filter((n) => Number.isFinite(n)),
         });
   } catch {
     // Same contract as the rest of this component: it never throws. With no
@@ -340,8 +355,33 @@ export async function EditorialContent({
     spineFacts = sampleSpineFacts(data.eventDate, data.eventEndDate);
   }
 
+  /*
+    ═══ THE LIGHT ══════════════════════════════════════════════════════════
+    `01_The_Story.md` §1 + §4 · `08` step 2.2.
+
+    The six stages come from the reception palette the host saved, or the
+    neutral six when they saved none — offered as a choice, never reported as a
+    failure. Derived HERE rather than inside the spine because the element that
+    wears them is this one: the light has to reach the shipped sections under
+    the clock as well, and a page painted only down to the spine would show a
+    seam where one ground meets another.
+
+    🔑 THE PAGE IS ALREADY RIGHT BEFORE ANY SCRIPT RUNS. The wrapper is
+    server-painted with the opening stage, so with JavaScript off, in a
+    screenshot and to a crawler the story is a legible printed page that simply
+    does not change as you scroll. `StoryLight` only takes over the changing.
+
+    🔴 IT REPLACED A HARD-CODED `bg-[#e7e2d6]`. That one colour was every
+    couple's story, whatever they had saved on their own mood board.
+  */
+  const stages = spineFacts.palette.length > 0 ? deriveStages(spineFacts.palette) : neutralStages();
+
   return (
-    <div className="min-h-screen bg-[#e7e2d6] text-ink">
+    <div
+      data-story-light
+      style={paintAtRest(stages, ROAD_STAGE) as CSSProperties}
+      className="min-h-screen bg-cream text-ink"
+    >
       {/*
         ═══ THE SPINE — the page IS the event's clock ═══════════════════════
         08 step 2.1 · Design_Editorial_By_The_Minute_2026-09-07.
@@ -363,6 +403,7 @@ export async function EditorialContent({
         words={w}
         viewer={viewer}
         isSample={isSample}
+        stages={stages}
         monogram={
           mono ? (
             <HeroMonogram

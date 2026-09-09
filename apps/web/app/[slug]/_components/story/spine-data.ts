@@ -14,7 +14,8 @@ import 'server-only';
  * logged three times (the two-lax-copies host check, the three answers to "is
  * this shop booked", the clone that inherited its twin's bug). This module adds
  * only what has no reader yet: the dial's bar heights, the road's dated facts,
- * the broadcast sessions, and the venue's state minute by minute.
+ * the broadcast sessions, the venue's state minute by minute, and — since S10 —
+ * the palette the light is derived from and the room the lens draws.
  *
  * 🔒 SERVICE-ROLE READS ARE OUTSIDE EVERY RLS RULE. `/[slug]` renders with the
  * admin client, so the app-side gate is the whole fence. Everything here is
@@ -37,6 +38,9 @@ import {
 } from '@/lib/story-spine';
 import { loadConsentVetoedPapicIds, publicKeyForCapture } from '../editorial/consent-veto';
 import type { CaptureBin } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { shapeHintFor, type TableType } from '@/lib/seating';
+import { EMPTY_ROOM, type StoryRoom, type TableHeat } from '@/lib/story-room';
 
 /** Local string coercion — mirrors `data.ts`'s `asString`, kept dependency-free. */
 function asString(v: unknown): string | null {
@@ -93,7 +97,24 @@ export type StorySpineFacts = {
    */
   bins: CaptureBin[];
   bucketMinutes: number;
+  /**
+   * The reception swatches the host saved on their mood board — the six stages
+   * of the light are derived from these (`01` §4). Empty means no theme was
+   * saved, and the story wears the neutral light as a CHOICE, not a failure.
+   */
+  palette: string[];
+  /** The room the lens draws. Never carries a name — see `loadStoryRoom`. */
+  room: StoryRoom;
+  /**
+   * Per written minute, which tables the photographs came from — the CEILING,
+   * before the viewer's layer is applied. Route through `drawnHeat()`, exactly
+   * as the bins go through `drawnBins()`.
+   */
+  heat: MinuteHeat[];
 };
+
+/** One written minute's heat, keyed by the instant the minute is stamped at. */
+export type MinuteHeat = { atMs: number; tables: TableHeat[] };
 
 export const EMPTY_SPINE_FACTS: StorySpineFacts = {
   window: null,
@@ -106,6 +127,9 @@ export const EMPTY_SPINE_FACTS: StorySpineFacts = {
   blocks: [],
   bins: [],
   bucketMinutes: 5,
+  palette: [],
+  room: EMPTY_ROOM,
+  heat: [],
 };
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -171,6 +195,17 @@ export async function loadStorySpineFacts(args: {
   eventId: string;
   eventDate: string | null;
   eventEndDate: string | null;
+  /**
+   * The instants of the minutes the story actually writes up.
+   *
+   * 🔑 THE LENS'S HEAT IS PER WRITTEN MINUTE, NOT PER BAR. The reader moves
+   * between entries, and the plan answers "which tables shot THIS minute" — so
+   * the read is bounded to a net around each of a handful of instants rather
+   * than to the day. Passed in rather than re-derived, because the caller has
+   * already resolved the day's chapters and asking a second time is a second
+   * opinion about which minutes exist.
+   */
+  writtenMinutesMs?: readonly number[];
   /** Written minutes' instants, so the road knows where to stop. */
   createdAtMs: number | null;
 }): Promise<StorySpineFacts> {
@@ -199,7 +234,7 @@ export async function loadStorySpineFacts(args: {
     const { data } = await admin
       .from('events')
       .select(
-        'created_at, mood_board_updated_at, moodboard_theme_name, moodboard_theme_description',
+        'created_at, mood_board_updated_at, moodboard_theme_name, moodboard_theme_description, role_palette, event_type',
       )
       .eq('event_id', args.eventId)
       .maybeSingle();
@@ -207,6 +242,17 @@ export async function loadStorySpineFacts(args: {
   } catch {
     eventRow = null;
   }
+
+  /*
+    THE LIGHT'S SOURCE (`01` §4). The reception palette, through the SHIPPED
+    sanitiser — never a second parse of the same JSONB. `sanitizeRolePalette`
+    already drops anything that is not a colour and holds the slot order the
+    mood board saved (Dominant · Supporting · Accent · Neutral · Accent 2), so
+    the story derives its day from exactly the swatches the couple can see on
+    their own board. An empty list is the neutral light, offered as a choice.
+  */
+  const palette = sanitizeRolePalette(eventRow?.role_palette).reception ?? [];
+  const eventType = asString(eventRow?.event_type);
 
   const dateSetMs = msOf(eventRow?.created_at) ?? args.createdAtMs;
   facts.roadStartMs = dateSetMs;
@@ -444,7 +490,349 @@ export async function loadStorySpineFacts(args: {
   facts.bucketMinutes = dialBucketMinutes(window.days);
   facts.bins = await loadDialBins(admin, args.eventId, window, facts.bucketMinutes);
 
+  // ── The room, and the light ───────────────────────────────────────────────
+  facts.palette = palette;
+  facts.room = await loadStoryRoom(admin, args.eventId, eventType);
+  facts.heat = await loadTableHeat(admin, {
+    eventId: args.eventId,
+    window,
+    minutesMs: args.writtenMinutesMs ?? [],
+    bucketMinutes: facts.bucketMinutes,
+    room: facts.room,
+  });
+
   return facts;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE ROOM
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The room, as the public plan needs it — geometry and labels, nothing else.
+ *
+ * 🔒 THERE IS NO NAME IN THIS FUNCTION AND THERE IS NOWHERE TO PUT ONE. It
+ * never touches `guests`, and the only string it takes off `event_tables` is
+ * `table_label`. `04` rule 2 is a review BLOCKER: an earlier design published
+ * 108 first names on a seating chart. A guest's own table and their tablemates
+ * are a different surface entirely — `public_venue_scene`'s token arm, which
+ * answers only to a guest holding their own QR.
+ *
+ * 🔑 IT IS NOT GATED ON `event_floor_plan.published_at`. That switch is the
+ * couple's control over the LIVE guest walk — "is my room ready for people to
+ * look at during the day". The story's plan is a different question, answered
+ * by the Story Maker's own publish ladder, and reading the walk's switch here
+ * would let a couple who never opened the 3D room lose the lens on a story they
+ * had already published.
+ */
+async function loadStoryRoom(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  eventType: string | null,
+): Promise<StoryRoom> {
+  const room: StoryRoom = { ...EMPTY_ROOM, tables: [] };
+
+  /*
+    Does this KIND of day have seating at all? Measured against production, not
+    assumed: `date`, `hangout` and `travel` carry no `'seating'` surface, and
+    `travel` is the one `layer_mode = 'roaming'` profile. A hangout with no
+    tables is not a room that failed to load — it is a day that never had one,
+    and the lens says so (`05` §4).
+  */
+  if (!eventType) return room;
+  try {
+    const { data, error } = await admin
+      .from('event_type_profiles')
+      .select('enabled_surfaces, layer_mode')
+      .eq('event_type', eventType)
+      .maybeSingle();
+    // A rejected query is an ABSENCE, not a thrown error. Treated as "no
+    // seating surface", which withholds the plan rather than inventing one.
+    if (error || !data) return room;
+    const surfaces = Array.isArray((data as Record<string, unknown>).enabled_surfaces)
+      ? ((data as Record<string, unknown>).enabled_surfaces as unknown[]).map((s) => asString(s))
+      : [];
+    room.seatingSurface = surfaces.includes('seating');
+    room.roaming = asString((data as Record<string, unknown>).layer_mode) === 'roaming';
+  } catch {
+    return room;
+  }
+  if (!room.seatingSurface || room.roaming) return room;
+
+  try {
+    const { data, error } = await admin
+      .from('event_tables')
+      .select('public_id, table_label, table_type, x_pos, y_pos, created_at')
+      .eq('event_id', eventId)
+      .order('sort_order', { ascending: true });
+    if (error) return room;
+    let drawnAtMs: number | null = null;
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+      const id = asString(r.public_id);
+      const label = asString(r.table_label);
+      const x = Number(r.x_pos);
+      const y = Number(r.y_pos);
+      const born = msOf(r.created_at);
+      if (born != null) drawnAtMs = drawnAtMs == null ? born : Math.min(drawnAtMs, born);
+      // A table with no position cannot be drawn on a plan. It is skipped
+      // rather than parked at the origin, where it would sit on top of the
+      // stage and read as a table that was really there.
+      if (!id || !label || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+      room.tables.push({
+        id,
+        label,
+        xPct: Math.max(0, Math.min(100, x)),
+        yPct: Math.max(0, Math.min(100, y)),
+        shape: shapeHintFor((asString(r.table_type) ?? 'round_10') as TableType),
+      });
+    }
+    room.drawnAtMs = drawnAtMs;
+  } catch {
+    return room;
+  }
+  if (room.tables.length === 0) return room;
+
+  try {
+    const { count, error } = await admin
+      .from('event_seat_assignments')
+      .select('assignment_id', { count: 'exact', head: true })
+      .eq('event_id', eventId);
+    if (!error) room.seatsAssigned = (count ?? 0) > 0;
+  } catch {
+    /* a drawn room nobody was seated in is `designed`, which is the truth */
+  }
+
+  try {
+    const { data, error } = await admin
+      .from('event_floor_plan')
+      .select('stage_x, stage_y, stage_w, stage_h, dance_enabled, dance_x, dance_y, dance_w, dance_h')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!error && data) {
+      const r = data as Record<string, unknown>;
+      const box = (x: unknown, y: unknown, w: unknown, h: unknown) => {
+        const nx = Number(x);
+        const ny = Number(y);
+        const nw = Number(w);
+        const nh = Number(h);
+        if (![nx, ny, nw, nh].every((n) => Number.isFinite(n))) return null;
+        if (nw <= 0 || nh <= 0) return null;
+        return { xPct: nx, yPct: ny, wPct: nw, hPct: nh };
+      };
+      room.stage = box(r.stage_x, r.stage_y, r.stage_w, r.stage_h);
+      room.dance = r.dance_enabled ? box(r.dance_x, r.dance_y, r.dance_w, r.dance_h) : null;
+    }
+  } catch {
+    /* the plan draws without its furniture */
+  }
+
+  return room;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE HEAT — which tables the photographs of a minute came from
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Per written minute, how many of that minute's photographs came from each
+ * table.
+ *
+ * ── HOW A PHOTOGRAPH IS TIED TO A TABLE, MEASURED AGAINST PRODUCTION ───────
+ * 🔴 `03` §1 NAMES ONE PATH AND IT IS THE EMPTY ONE. It says
+ * `papic_guest_captures.guest_id → event_seat_assignments → event_tables`.
+ * `papic_guest_captures` holds **zero rows in production**; every capture in the
+ * database is a `papic_photos` row, which is also the only table the dial's own
+ * counts come from. Building on the documented path would have produced a lens
+ * that can never light and a heat drawn from a different population than the
+ * bars above it — two counts of one thing on one page, the trap already flagged
+ * on this build.
+ *
+ * So the tie is resolved from `papic_photos`, by either of the two links that
+ * genuinely exist on it, whichever answers first:
+ *
+ *   1. `paparazzi_seat_id → paparazzi_seats.guest_id` — a roll camera belongs to
+ *      one guest, and that column is written by the guest-camera provisioning.
+ *   2. `captured_by_person_id → guests.person_id` (same event) — the shooter
+ *      resolved as a person, which `20271170468759_who_took_this_photo` already
+ *      established as the shipped way to ask who held the camera.
+ *
+ * ⚠ AND NEITHER RESOLVES TO A TABLE IN PRODUCTION TODAY. Measured 2026-09-09:
+ * 14 photographs, 14 with a person, **0** whose person is a guest of that event,
+ * 0 seats carrying a guest — because the one published story is a `date` with no
+ * guest list at all. The mechanism is built and tested; it has nothing real to
+ * light yet, and the lens says "no photograph of this minute came from a seat"
+ * rather than drawing a cold room as though it had measured one.
+ *
+ * ── THE TWO GATES ─────────────────────────────────────────────────────────
+ * The consent veto is applied HERE, per capture, through `publicKeyForCapture`
+ * — the same subtraction the dial does, for the same reason (`04` rule 6: a
+ * guest's veto beats the host's curation, and a vetoed capture with a baked
+ * blurred stand-in IS on the page and keeps its count). The LAYER gate is
+ * applied by the caller through `drawnHeat`, because only the caller knows the
+ * viewer. This function resolves facts; it does not decide who may read them.
+ */
+async function loadTableHeat(
+  admin: ReturnType<typeof createAdminClient>,
+  args: {
+    eventId: string;
+    window: StoryDayWindow;
+    minutesMs: readonly number[];
+    bucketMinutes: number;
+    room: StoryRoom;
+  },
+): Promise<MinuteHeat[]> {
+  if (args.room.tables.length === 0 || args.minutesMs.length === 0) return [];
+  if (!args.room.seatsAssigned) return [];
+
+  /*
+    Only the minutes the story actually writes up, and only the net around each
+    one — never the whole day. `03` §3 records why: presigning 300 URLs to throw
+    276 away is the shape that made the gallery slow, and reading a whole day's
+    timeline to count a handful of half-hours is the same mistake without the
+    presigning. Nothing here is presigned at all; these are five small columns.
+  */
+  const half = Math.max(5, args.bucketMinutes) * 60_000 * 3;
+  const windows = args.minutesMs
+    .map((ms) => ({ at: ms, from: ms - half, to: ms + half }))
+    .filter((w) => w.to >= args.window.startMs && w.from <= args.window.endMs);
+  if (windows.length === 0) return [];
+
+  const clause = windows
+    .map((w) => `and(captured_at.gte.${new Date(w.from).toISOString()},captured_at.lte.${new Date(w.to).toISOString()})`)
+    .join(',');
+
+  type Shot = { id: string; key: string | null; at: number; seatId: string | null; personId: string | null };
+  const shots: Shot[] = [];
+  try {
+    const { data, error } = await admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key, captured_at, paparazzi_seat_id, captured_by_person_id')
+      .eq('event_id', args.eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .eq('moderation_state', 'clean')
+      .or(clause);
+    if (error) return [];
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+      const id = asString(r.photo_id);
+      const at = msOf(r.captured_at);
+      if (!id || at == null) continue;
+      shots.push({
+        id,
+        key: asString(r.r2_object_key),
+        at,
+        seatId: asString(r.paparazzi_seat_id),
+        personId: asString(r.captured_by_person_id),
+      });
+    }
+  } catch {
+    return [];
+  }
+  if (shots.length === 0) return [];
+
+  // ── the veto, resolved once for the whole lens ──────────────────────────
+  let veto: Awaited<ReturnType<typeof loadConsentVetoedPapicIds>>;
+  try {
+    veto = await loadConsentVetoedPapicIds(admin, args.eventId);
+  } catch {
+    // Unresolvable ⇒ withhold everything, exactly like every other reader of
+    // this gate. A lens with no heat is the same answer the dial gives when it
+    // flattens: nothing is drawn, rather than something drawn wrongly.
+    return [];
+  }
+  if (veto.failed) return [];
+
+  const admitted = shots.filter(
+    (s) => veto.ids.size === 0 || publicKeyForCapture(veto, s.id, s.key) !== null,
+  );
+  if (admitted.length === 0) return [];
+
+  // ── shooter → seat → table ───────────────────────────────────────────────
+  const guestBySeat = new Map<string, string>();
+  const seatIds = [...new Set(admitted.map((s) => s.seatId).filter((v): v is string => Boolean(v)))];
+  if (seatIds.length > 0) {
+    try {
+      const { data } = await admin
+        .from('paparazzi_seats')
+        .select('seat_id, guest_id')
+        .eq('event_id', args.eventId)
+        .in('seat_id', seatIds);
+      for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+        const seat = asString(r.seat_id);
+        const guest = asString(r.guest_id);
+        if (seat && guest) guestBySeat.set(seat, guest);
+      }
+    } catch {
+      /* the person arm below may still answer */
+    }
+  }
+
+  const guestByPerson = new Map<string, string>();
+  const personIds = [
+    ...new Set(admitted.map((s) => s.personId).filter((v): v is string => Boolean(v))),
+  ];
+  if (personIds.length > 0) {
+    try {
+      const { data } = await admin
+        .from('guests')
+        .select('guest_id, person_id')
+        .eq('event_id', args.eventId)
+        .is('deleted_at', null)
+        .in('person_id', personIds);
+      for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+        const guest = asString(r.guest_id);
+        const person = asString(r.person_id);
+        if (guest && person) guestByPerson.set(person, guest);
+      }
+    } catch {
+      /* the seat arm above may already have answered */
+    }
+  }
+
+  const guestIds = [...new Set([...guestBySeat.values(), ...guestByPerson.values()])];
+  if (guestIds.length === 0) return [];
+
+  const tableByGuest = new Map<string, string>();
+  try {
+    const { data } = await admin
+      .from('event_seat_assignments')
+      .select('guest_id, table_id, event_tables!inner(public_id)')
+      .eq('event_id', args.eventId)
+      .in('guest_id', guestIds);
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+      const guest = asString(r.guest_id);
+      const joined = r.event_tables as Record<string, unknown> | null;
+      const tableId = asString(joined?.public_id);
+      if (guest && tableId) tableByGuest.set(guest, tableId);
+    }
+  } catch {
+    return [];
+  }
+  if (tableByGuest.size === 0) return [];
+
+  const known = new Set(args.room.tables.map((t) => t.id));
+  const out: MinuteHeat[] = [];
+  for (const w of windows) {
+    const counts = new Map<string, number>();
+    for (const s of admitted) {
+      if (s.at < w.from || s.at > w.to) continue;
+      const guest =
+        (s.seatId ? guestBySeat.get(s.seatId) : null) ??
+        (s.personId ? guestByPerson.get(s.personId) : null);
+      if (!guest) continue;
+      const table = tableByGuest.get(guest);
+      // A table the plan does not draw (no position saved) gets no heat — a
+      // number attached to nothing on screen is a number nobody can read.
+      if (!table || !known.has(table)) continue;
+      counts.set(table, (counts.get(table) ?? 0) + 1);
+    }
+    if (counts.size === 0) continue;
+    out.push({
+      atMs: w.at,
+      tables: [...counts.entries()].map(([tableId, captures]) => ({ tableId, captures })),
+    });
+  }
+  return out;
 }
 
 /**

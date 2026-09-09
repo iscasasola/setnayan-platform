@@ -43,12 +43,22 @@ import { manilaDayOf } from '@/lib/story-day-window';
 import {
   countForLayer,
   drawnBins,
+  drawnHeat,
   guestLayerAdmits,
 } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
+import {
+  AFTER_STAGE,
+  ROAD_STAGE,
+  stageOfMinute,
+  type StageColours,
+  type StageIndex,
+} from '@/lib/story-light';
 import { STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import type { EventWords } from '../../_lib/event-words';
 import type { DayChapter, EditorialData } from '../editorial/data';
 import { StoryClock, type DialBar, type DialLabel } from './story-clock';
+import { StoryLens } from './story-lens';
+import { StoryLight } from './story-light';
 import { MinuteMedia } from './minute-media';
 import type { RoadFact, StorySpineFacts } from './spine-data';
 
@@ -90,6 +100,7 @@ export function StorySpine({
   words,
   viewer = STRANGER,
   isSample,
+  stages,
   monogram,
   actions,
 }: {
@@ -103,6 +114,16 @@ export function StorySpine({
    * on a page whose entire job is to look like somebody's real wedding.
    */
   isSample: boolean;
+  /**
+   * The six stages of the light, already derived and contrast-corrected.
+   *
+   * 🔑 DERIVED BY THE CALLER, NOT HERE, because the wrapper that WEARS them is
+   * the caller's: the light has to reach the shipped sections below the spine
+   * too, and a page painted only down to the clock would show a seam where one
+   * ground meets another. Deriving in both places would be two answers to
+   * "what colour is dusk".
+   */
+  stages: StageColours[];
   /** The event's own mark, already resolved by the shipped loader. */
   monogram: ReactNode;
   /** Share / print / the host's own door — the shipped controls, unchanged. */
@@ -227,6 +248,23 @@ export function StorySpine({
     status: data.audience ?? 'published',
     viewer,
   });
+
+  /*
+    ── THE LENS'S HEAT, THROUGH THE SAME GATE AS THE BARS ──────────────────
+    🔒 A COUNT OF PHOTOGRAPHS PER TABLE IS THE GUESTS' LAYER EXACTLY AS A BAR
+    HEIGHT IS — the same fact asked per seat instead of per minute, under the
+    same Q1 ruling. Gating the dial and forgetting the floor plan would have
+    published the day's shape on the surface where it is easiest to read: a
+    stranger could not see the bars, and could see which table was loudest.
+
+    `drawnHeat` returns an EMPTY list when the layer is withheld, so the lens
+    has nothing to draw rather than a plan of tables measured at zero — and it
+    says so in words instead.
+  */
+  const heat = facts.heat.map((m) => ({
+    atMs: m.atMs,
+    tables: drawnHeat(m.tables, { status: data.audience ?? 'published', viewer }),
+  }));
   const tallest = Math.max(1, ...drawn.map((b) => b.height ?? 0));
 
   for (const day of days) {
@@ -431,7 +469,21 @@ export function StorySpine({
         </div>
       ) : null}
 
-      <main className="mx-auto max-w-5xl px-4 sm:px-6">
+      {/*
+        ════ THE STAGE ═══════════════════════════════════════════════════════
+        The entries, and beside them the room at the minute being read (`01`
+        §3.4). Two columns from 1100px — below that the lens is not shown at
+        all, because a floor plan squeezed under a phone's reading column is a
+        picture nobody can read AND the same facts are already in each minute's
+        own "In the room" line, in words, in the reading order.
+
+        The measure widens from `max-w-5xl` to `max-w-6xl` only where the
+        second column exists; the prose column itself gets NARROWER as a result,
+        which is the right direction for a page somebody reads end to end.
+      */}
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 min-[1100px]:max-w-6xl">
+        <div className="min-[1100px]:grid min-[1100px]:grid-cols-[minmax(0,1fr)_320px] min-[1100px]:items-start min-[1100px]:gap-11">
+          <div className="min-w-0">
         {/* ════ THE ROAD ════ */}
         {roadPlaced.length > 0 ? (
           <>
@@ -440,7 +492,7 @@ export function StorySpine({
               note={`${daysTold - days.length} days · how the day was made`}
             />
             {roadPlaced.map((r) => (
-              <RoadEntry key={r.fact.key} fact={r.fact} x={r.x} />
+              <RoadEntry key={r.fact.key} fact={r.fact} x={r.x} stage={ROAD_STAGE} />
             ))}
           </>
         ) : null}
@@ -487,11 +539,30 @@ export function StorySpine({
           <>
             <PartHead title="After" note="the story keeps its date" />
             {afterPlaced.map((a) => (
-              <RoadEntry key={a.fact.key} fact={a.fact} x={a.x} />
+              <RoadEntry key={a.fact.key} fact={a.fact} x={a.x} stage={AFTER_STAGE} />
             ))}
           </>
         ) : null}
+          </div>
+
+          <StoryLens
+            room={facts.room}
+            blocks={facts.blocks}
+            heat={heat}
+            heatWithheld={!guestOpen}
+            openingAtMs={facts.roadStartMs}
+          />
+        </div>
       </main>
+
+      {/*
+        THE LIGHT. It renders nothing — it writes three custom properties on the
+        wrapper as the reader moves, and every colour in this tree already
+        resolves through them. The wrapper is server-painted with the opening
+        stage (`editorial-content.tsx`), so the page is a legible printed one
+        before this mounts and with JavaScript off.
+      */}
+      <StoryLight stages={stages} />
     </div>
   );
 }
@@ -514,8 +585,23 @@ function PartHead({ title, note }: { title: string; note: string }): ReactElemen
 /**
  * A dated entry on the road, or after it. Same grammar as a minute — a big
  * stamp, a title, a paragraph — at the resolution the road is drawn in.
+ *
+ * 🔑 TWO ATTRIBUTES S10 ADDED, AND WHY THEY LIVE ON THE ENTRY. `data-story-
+ * stage` is which of the six lights this entry sits under; `data-story-at` is
+ * the instant the lens asks the room about. The server writes both, beside
+ * everything the entry already declares for the dial — so the light and the
+ * lens learn where the reader is FROM THE DOM, and never from a second copy of
+ * the layout that can disagree with the first.
  */
-function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
+function RoadEntry({
+  fact,
+  x,
+  stage,
+}: {
+  fact: RoadFact;
+  x: number;
+  stage: StageIndex;
+}): ReactElement {
   return (
     <article
       id={fact.key}
@@ -524,6 +610,8 @@ function RoadEntry({ fact, x }: { fact: RoadFact; x: number }): ReactElement {
       data-story-stamp={fact.stamp}
       data-story-suffix={fact.stampSuffix}
       data-story-label={fact.title}
+      data-story-stage={stage}
+      data-story-at={fact.atMs}
       {...(fact.layer === 'guest' ? { 'data-layer': 'guest' } : {})}
       className="scroll-mt-32 pt-7"
     >
@@ -626,6 +714,8 @@ function MinuteEntry({
       data-story-suffix={clock.ap}
       data-story-label={minute.chapter.title ?? `${clock.t} ${clock.ap}`}
       data-story-minute={minute.minuteOfDay}
+      data-story-stage={stageOfMinute(minute.minuteOfDay)}
+      data-story-at={minute.atMs}
       data-layer="guest"
       className="scroll-mt-32 pt-7"
     >

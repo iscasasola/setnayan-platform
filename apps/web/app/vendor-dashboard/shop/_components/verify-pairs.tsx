@@ -83,7 +83,10 @@ const TONE_STYLE: Record<Tone, { fg: string; bg: string }> = {
   warn: { fg: '#7A5E32', bg: '#F9F5EC' },
   // the repo's link slate-blue #3B4E67 (8.22:1 on white) on its own tint.
   wait: { fg: '#3B4E67', bg: '#EEF1F5' },
-  none: { fg: '#6E6A62', bg: 'var(--m-line-soft)' },
+  // #6E6A62 on --m-line-soft (#EDE8DE) measures 4.41:1 — a hair under AA, and
+  // `lint-label-on-fill-contrast` caught it. Fixed at the FILL, as that guard
+  // instructs, using the drawing's own muted ground: 4.73:1.
+  none: { fg: '#6E6A62', bg: '#F1F0EE' },
 };
 
 function ToneIcon({ tone }: { tone: Tone }) {

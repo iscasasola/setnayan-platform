@@ -166,13 +166,17 @@ export function IngestHealthStrip({
   // and publishes it on `encoder-health-bus`. `null` here now means what it
   // says — no desktop encoder is running for this event — rather than "nobody
   // built the wire yet".
-  const encoder: EncoderHealthInput | null = encoderHealth;
+  const encoder: EncoderHealthInput | null = encoderHealth?.input ?? null;
+  const guardSentence = encoderHealth?.note.guardSentence ?? '';
   const decision = decideIngestHealth({
     streamStatus: cachedRef.current.streamStatus,
     healthStatus: cachedRef.current.healthStatus,
     live: mode === 'broadcast' && live,
     lastOkAt,
     encoder,
+    // Provenance only. `decideIngestHealth` will not let this change `state` —
+    // see its docblock on why "not raw" must never read as a degradation.
+    transportEnvelope: encoderHealth?.note.transportEnvelope ?? null,
   });
 
   const Icon = STATE_ICON[decision.state];
@@ -188,7 +192,17 @@ export function IngestHealthStrip({
         className={`mt-px h-4 w-4 shrink-0 ${SPINNING_STATES.has(decision.state) ? 'animate-spin' : ''}`}
         strokeWidth={1.75}
       />
-      <span>{decision.sentence}</span>
+      <span>
+        {decision.sentence}
+        {/* The go-live probe's own message, when it has one — a refusal ("can't
+            send video from this computer") or a slower-than-usual note. It is
+            APPENDED rather than replacing `decision.sentence`, because the two
+            answer different questions: the decision says what YouTube and the
+            encoder report, and this says whether this computer could hand the
+            encoder anything in the first place. A refusal that hid the state
+            behind it would leave the operator unable to see both halves. */}
+        {guardSentence ? <span className="mt-1 block opacity-90">{guardSentence}</span> : null}
+      </span>
     </div>
   );
 }

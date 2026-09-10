@@ -12,6 +12,7 @@ import {
   identityUploadsSubset,
   scrubIdentityUploads,
   vendorIdentityIsPastRetention,
+  verificationRefIsInScope,
 } from '@/lib/vendor-identity-retention-core';
 
 /**
@@ -53,6 +54,28 @@ import {
  *
  * CRON-FREE ([[project_setnayan_cron_free]]): a WEEKLY `claimPeriodicJob` claim
  * fired from admin-layout `after()`. Best-effort, never throws.
+ *
+ * ─── THE DELETE IS BUCKET-CONSTRAINED ON THE COLUMN PATH (2026-09-10) ──────
+ * 🔒 `sweepVerifications` refuses any `vendor_verifications` ref that is not an
+ * `r2://setnayan-vendor-verification/…` object, counts the refusal into
+ * `assetsRefused`, and leaves BOTH the object and the pointer alone.
+ *
+ * Why: those two columns had NO writer in the whole repo, while the table
+ * carried a table-level INSERT grant to `authenticated` and a self-insert policy
+ * constraining only `vendor_profile_id`. A signed-in vendor could POST a row
+ * choosing `approved_at` (the retention clock) AND `government_id_r2_key`, and
+ * this admin-client job would then delete whatever object that string named —
+ * `parseStoredAsset` accepts all five buckets, and `setnayan-media` keys are
+ * published in our own page source inside presigned URLs. Migration
+ * 20271218766967 revoked the grant and dropped the policy; this constraint is
+ * the second lock, so a future writer of these columns still cannot turn a
+ * retention job into a general delete.
+ *
+ * ⛔ `sweepApplications` is DELIBERATELY NOT constrained the same way — see
+ * `verificationRefIsInScope` in `-core.ts` for the measurement. Its refs
+ * legitimately live in the PUBLIC media bucket as well, and they are pinned to
+ * the vendor's own folder at WRITE time by SEC-1. Making the two symmetric would
+ * strand real identity documents past their declared retention.
  */
 
 /** Kill switch. Default ON — a retention job nobody switched on is the gap. */
@@ -73,6 +96,13 @@ export type VendorIdentityRetentionSummary = {
   assetsDeleted: number;
   /** Objects left behind after a failed delete (reaped by lifecycle rules). */
   assetsFailed: number;
+  /**
+   * `vendor_verifications` refs REFUSED for naming a bucket outside
+   * `setnayan-vendor-verification`. The object is left alone AND so is the
+   * pointer — see `verificationRefIsInScope`. Non-zero means somebody wrote a
+   * ref these columns should never hold; look at the row.
+   */
+  assetsRefused: number;
   /** A read or write that errored — the row survives to the next run. */
   failed: number;
 };
@@ -86,6 +116,7 @@ function emptySummary(dryRun: boolean): VendorIdentityRetentionSummary {
     scrubbed: 0,
     assetsDeleted: 0,
     assetsFailed: 0,
+    assetsRefused: 0,
     failed: 0,
   };
 }
@@ -224,7 +255,29 @@ async function sweepVerifications(
     summary.eligible += 1;
     if (dryRun) continue;
 
-    for (const col of present) {
+    // ── DEFENCE IN DEPTH behind migration 20271218766967 ────────────────────
+    // These columns had no writer and, until that migration, a forgeable INSERT
+    // lane — so the string here could name ANY object in ANY of the five
+    // buckets, including a victim's live media object whose key is published in
+    // our own page source. A verification-retention job may only ever delete out
+    // of the verification bucket.
+    const inScope = present.filter((c) => verificationRefIsInScope(row[c] as string));
+    const refused = present.filter((c) => !verificationRefIsInScope(row[c] as string));
+
+    // 🔑 REFUSED, AND SAID SO. A refusal nobody can see is indistinguishable
+    // from a delete that happened — which is how a retention gap hides for
+    // months. The pointer is deliberately NOT cleared below: nulling it would
+    // leave the object retained past its declared period with nothing left
+    // pointing at it, which is the RA 10173 failure this job exists to fix.
+    for (const col of refused) {
+      summary.assetsRefused += 1;
+      console.warn(
+        '[vendor-identity-retention] REFUSED an out-of-scope ref — object AND pointer both kept',
+        { verificationId: row.verification_id, column: col },
+      );
+    }
+
+    for (const col of inScope) {
       try {
         if (await deleteStoredAsset(row[col] as string)) summary.assetsDeleted += 1;
       } catch (err) {
@@ -236,8 +289,12 @@ async function sweepVerifications(
       }
     }
 
+    // Every column on this row was refused — there is nothing to clear, and the
+    // row survives to the next run so the refusal keeps being reported.
+    if (inScope.length === 0) continue;
+
     const patch: Record<string, null> = {};
-    for (const col of present) patch[col] = null;
+    for (const col of inScope) patch[col] = null;
     const { error: upErr } = await admin
       .from('vendor_verifications')
       .update(patch)
@@ -277,7 +334,19 @@ export async function runVendorIdentityRetention(
       `[vendor-identity-retention] ${dryRun ? 'DRY RUN — would scrub' : 'scrubbed'} ` +
         `${dryRun ? summary.eligible : summary.scrubbed} row(s), ` +
         `${summary.assetsDeleted} object(s) deleted, ` +
-        `${summary.assetsFailed} object(s) failed, ${summary.failed} row(s) failed.`,
+        `${summary.assetsFailed} object(s) failed, ` +
+        `${summary.assetsRefused} object(s) refused, ${summary.failed} row(s) failed.`,
+    );
+  }
+
+  // Its own line, at error level, because it is not routine attrition: these
+  // columns are service_role-only since 20271218766967, so a non-zero count
+  // means a ref got in that should never have been written.
+  if (summary.assetsRefused > 0) {
+    console.error(
+      `[vendor-identity-retention] ${summary.assetsRefused} vendor_verifications ref(s) named a ` +
+        'bucket outside setnayan-vendor-verification and were REFUSED. Object and pointer both ' +
+        'kept; inspect the rows.',
     );
   }
   return summary;

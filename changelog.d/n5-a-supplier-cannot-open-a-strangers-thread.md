@@ -15,5 +15,9 @@ the RESTRICTIVE follow gate), then `INSERT INTO chat_threads` with ANY couple's
   auto-accept), and the supplier answering a thread the couple opened. No function in
   production inserts into chat_threads; no supplier browser path opens one in the app.
 - Guard: `tests/db/a-supplier-cannot-open-a-strangers-thread.db.test.ts` (11).
+- `lib/a-couple-cannot-rewrite-their-conversation.test.ts`: its "no later migration makes the
+  guard SECURITY DEFINER" scan now reads the function's own header (one statement) instead of
+  any later mention of the words — it accused this migration over a post-condition's error text.
+  Still RED when a later migration really declares the guard DEFINER (mutation-checked).
 
 SPEC IMPACT: None

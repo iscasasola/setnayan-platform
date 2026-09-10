@@ -68,6 +68,9 @@ import { StoryIndex } from './story-index';
 import { WereYouThere } from './were-you-there';
 import type { YourOwnDay } from '../../_lib/your-own-day.server';
 import type { RoadFact, StorySpineFacts } from './spine-data';
+import { ArrangedSheet } from './arranged-sheet';
+import { placeSheetsOnDays, refsOnSheets } from '@/lib/story-sheet';
+import type { DrawnSheet } from '@/lib/story-pages';
 
 /** The tallest a bar is drawn, in axis units. `BASELINE_Y` in the clock is 50. */
 const MAX_BAR = 46;
@@ -111,6 +114,18 @@ type Minute = {
   x: number;
 };
 
+/** A moment the host arranged by hand, placed on its day. */
+type SheetEntryAt = {
+  id: string;
+  sheet: DrawnSheet;
+  /** Where it sorts among the day's minutes; null = the top of the day. */
+  atMs: number | null;
+  /** The block's own start, for the stamp and the gaps. Null for a moment the host added. */
+  minuteOfDay: number | null;
+  /** Where the dial points for it — the borrowed instant for a host's own moment. */
+  x: number | null;
+};
+
 export function StorySpine({
   data,
   facts,
@@ -123,6 +138,7 @@ export function StorySpine({
   eventId,
   own,
   storyCard,
+  sheets = [],
 }: {
   data: EditorialData;
   facts: StorySpineFacts;
@@ -160,14 +176,30 @@ export function StorySpine({
   own: YourOwnDay;
   /** The shipped 9:16 card, or null until the story is published. */
   storyCard: { url: string; filenameBase: string } | null;
+  /**
+   * THE MOMENTS THE HOST ARRANGED BY HAND — step 5. Already gated by `loadStoryPages` (S3 + S14)
+   * and empty for a story in Automatic, so an unarranged story renders exactly as before.
+   */
+  sheets?: readonly DrawnSheet[];
 }): ReactElement {
   // A sample carries no audience and exists to be read — the same exemption the
   // shipped gate and `redactStoryLayers` both make, for the same reason.
   const guestOpen = data.audience ? guestLayerAdmits(data.audience, viewer) : true;
 
   // ── the days, and their minutes ───────────────────────────────────────────
+  /*
+    ONE PHOTOGRAPH, ONE PLACE — ON THE PAGE AS IN THE EDITOR. A photo the host put on a page is
+    drawn there, so the minute it was taken in leaves it out of its own media rather than showing
+    it twice, a hand's breadth apart. The minute itself stays, with its words and its layers —
+    nothing a guest said is lost because the host moved a photograph.
+  */
+  const onSheets = refsOnSheets(sheets);
   const chaptersByDay = new Map<string, DayChapter[]>();
-  for (const c of data.dayChapters) {
+  for (const raw of data.dayChapters) {
+    const c =
+      onSheets.size === 0
+        ? raw
+        : { ...raw, media: raw.media.filter((m) => !m.id || !onSheets.has(m.id.toLowerCase())) };
     const day = c.atIso ? manilaDayOf(c.atIso) : null;
     if (!day) continue;
     const list = chaptersByDay.get(day);
@@ -181,7 +213,12 @@ export function StorySpine({
       : // No usable event date ⇒ no day window. The chapters still know which
         // Manila day they are on, so the spine uses theirs rather than drawing
         // nothing: a story with a missing date is still a story.
-        Array.from(chaptersByDay.keys()).sort();
+        Array.from(
+          new Set([
+            ...chaptersByDay.keys(),
+            ...placeSheetsOnDays(sheets, []).map((p) => p.day),
+          ]),
+        ).sort();
 
   const days: SpineDay[] = layOutDays(
     dayDates.map((date) => ({
@@ -213,6 +250,24 @@ export function StorySpine({
     placed.sort((a, b) => a.atMs - b.atMs);
     minutesByDay.set(date, placed);
   }
+  // ── the pages the host arranged ─────────────────────────────────────────────
+  const sheetsByDay = new Map<string, SheetEntryAt[]>();
+  for (const p of placeSheetsOnDays(sheets, dayDates)) {
+    const day = dayByDate.get(p.day);
+    if (!day) continue;
+    const at = p.atMs === null ? null : manilaMinuteOfDay(new Date(p.atMs).toISOString());
+    const entry: SheetEntryAt = {
+      id: `moment-${p.sheet.momentId.replace(/[^A-Za-z0-9_-]/g, '-')}`,
+      sheet: p.sheet,
+      atMs: p.atMs,
+      minuteOfDay: p.timed ? at : null,
+      x: at === null ? null : dayX(day, at),
+    };
+    const list = sheetsByDay.get(p.day);
+    if (list) list.push(entry);
+    else sheetsByDay.set(p.day, [entry]);
+  }
+
   // ── the road, and after ───────────────────────────────────────────────────
   const roadStart = facts.roadStartMs;
   const roadEnd = facts.roadEndMs;
@@ -765,33 +820,42 @@ export function StorySpine({
             {/* ════ THE DAYS ════ */}
             {days.map((day) => {
               const mins = minutesByDay.get(day.date) ?? [];
+              const entries = dayEntries(mins, sheetsByDay.get(day.date) ?? []);
               return (
                 <section key={day.date} aria-label={longDate(day.date)}>
                   <PartHead
                     title={days.length > 1 ? `Day ${days.indexOf(day) + 1}` : 'The day'}
                     note={`${longDate(day.date)}${mins.length ? ' · by the minute' : ''}`}
                   />
-                  {mins.length === 0 ? (
+                  {entries.length === 0 ? (
                     <p className="py-6 font-serif text-lg italic text-ink/60">
                       {guestOpen
                         ? 'No minute of this day has been written up yet.'
                         : `The minutes of this day belong to the people who were there, until the ${words.host} publishes.`}
                     </p>
                   ) : null}
-                  {mins.map((m, i) => {
-                    const prev = mins[i - 1];
-                    const gap = prev ? gapText(prev.minuteOfDay, m.minuteOfDay) : null;
+                  {entries.map((e, i) => {
+                    const prev = entries[i - 1];
+                    const from = prev ? minuteOf(prev) : null;
+                    const to = minuteOf(e);
+                    const gap = from !== null && to !== null ? gapText(from, to) : null;
                     return (
-                      <div key={m.id}>
-                        {gap ? <Gap text={gap} blocks={gapNote(prev!, m, facts)} /> : null}
-                        <MinuteEntry
-                          minute={m}
-                          day={day}
-                          facts={facts}
-                          words={words}
-                          data={data}
-                          guestOpen={guestOpen}
-                        />
+                      <div key={e.kind === 'minute' ? e.minute.id : e.sheet.id}>
+                        {gap && prev ? (
+                          <Gap text={gap} blocks={gapNote(atOf(prev), atOf(e), facts)} />
+                        ) : null}
+                        {e.kind === 'minute' ? (
+                          <MinuteEntry
+                            minute={e.minute}
+                            day={day}
+                            facts={facts}
+                            words={words}
+                            data={data}
+                            guestOpen={guestOpen}
+                          />
+                        ) : (
+                          <SheetEntry entry={e.sheet} names={data.firstNames} words={words} />
+                        )}
                       </div>
                     );
                   })}
@@ -947,14 +1011,107 @@ function Gap({ text, blocks }: { text: string; blocks: string | null }): ReactEl
   );
 }
 
-function gapNote(from: Minute, to: Minute, facts: StorySpineFacts): string | null {
+function gapNote(fromMs: number, toMs: number, facts: StorySpineFacts): string | null {
   const names: string[] = [];
   for (const b of facts.blocks) {
-    if (b.endMs <= from.atMs || b.startMs >= to.atMs) continue;
+    if (b.endMs <= fromMs || b.startMs >= toMs) continue;
     const label = b.label?.trim();
     if (label && !names.includes(label)) names.push(label);
   }
   return names.length ? names.slice(0, 3).join(' · ') : null;
+}
+
+/**
+ * One day's entries — its written minutes and the host's arranged pages — in the order they
+ * happened. A page sorts BEFORE a minute at the same instant (the moment opens, then its minutes);
+ * a page with no instant at all opens the day. Among pages, the host's own order is kept.
+ */
+type DayEntry = { kind: 'minute'; minute: Minute } | { kind: 'sheet'; sheet: SheetEntryAt };
+
+function dayEntries(mins: readonly Minute[], sheets: readonly SheetEntryAt[]): DayEntry[] {
+  const all: Array<DayEntry & { key: number; rank: number; seq: number }> = [
+    ...sheets.map((s, i) => ({
+      kind: 'sheet' as const,
+      sheet: s,
+      key: s.atMs ?? Number.NEGATIVE_INFINITY,
+      rank: 0,
+      seq: i,
+    })),
+    ...mins.map((m, i) => ({ kind: 'minute' as const, minute: m, key: m.atMs, rank: 1, seq: i })),
+  ];
+  all.sort((a, b) => a.key - b.key || a.rank - b.rank || a.seq - b.seq);
+  return all.map((e) => (e.kind === 'minute' ? { kind: e.kind, minute: e.minute } : { kind: e.kind, sheet: e.sheet }));
+}
+
+/** The minute of the day a gap is measured from — none for a page with no time of its own. */
+function minuteOf(e: DayEntry): number | null {
+  return e.kind === 'minute' ? e.minute.minuteOfDay : e.sheet.minuteOfDay;
+}
+
+function atOf(e: DayEntry): number {
+  return e.kind === 'minute' ? e.minute.atMs : (e.sheet.atMs ?? 0);
+}
+
+/**
+ * ONE MOMENT THE HOST ARRANGED BY HAND — its stamp, its name, and its page exactly as laid out.
+ *
+ * Read-only: nothing on it is editable, and nothing on it is a control but a snippet's own sound
+ * button. Carries the same `data-story-*` attributes a minute does, so the dial's needle, the
+ * light and find-in-this-day treat it as an entry of the day. `data-layer="guest"`: every
+ * photograph on it is guest-made, and it only reaches this page through the guests' layer.
+ */
+function SheetEntry({
+  entry,
+  names,
+  words,
+}: {
+  entry: SheetEntryAt;
+  names: string;
+  words: EventWords;
+}): ReactElement {
+  const clock = entry.minuteOfDay === null ? null : formatClock(entry.minuteOfDay);
+  const name = entry.sheet.name;
+  return (
+    <article
+      id={entry.id}
+      data-story-entry
+      {...(entry.x === null ? {} : { 'data-story-x': entry.x.toFixed(1) })}
+      {...(clock ? { 'data-story-stamp': clock.t, 'data-story-suffix': clock.ap } : {})}
+      data-story-label={name ?? 'A page of the day'}
+      {...(entry.minuteOfDay === null
+        ? {}
+        : {
+            'data-story-minute': entry.minuteOfDay,
+            'data-story-stage': stageOfMinute(entry.minuteOfDay),
+          })}
+      {...(entry.atMs === null ? {} : { 'data-story-at': entry.atMs })}
+      data-layer="guest"
+      className="scroll-mt-32 pt-7"
+    >
+      {clock ? (
+        <div className="flex flex-wrap items-end gap-3.5">
+          <span className="font-condensed text-[clamp(3.5rem,13vw,7rem)] font-black uppercase leading-[0.82] tabular-nums tracking-tighter">
+            <span data-story-countup>{clock.t}</span>
+            <small className="ml-1.5 text-[0.28em] font-bold tracking-[0.1em] text-ink/60">
+              {clock.ap}
+            </small>
+          </span>
+        </div>
+      ) : null}
+      {name ? (
+        <h3 className="mt-2 font-condensed text-[clamp(1.75rem,6vw,3rem)] font-extrabold uppercase leading-[0.95] tracking-tight">
+          {name}
+        </h3>
+      ) : null}
+      <div className="mt-4">
+        <ArrangedSheet
+          sheet={entry.sheet}
+          names={names}
+          label={`${name ?? 'A page of the day'} — as the ${words.host} laid it out`}
+        />
+      </div>
+    </article>
+  );
 }
 
 function minuteHeadline(m: Minute): string {

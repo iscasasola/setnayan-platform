@@ -63,6 +63,8 @@ import type { BackCover } from '@/lib/the-back-cover';
 import { loadYourOwnDay } from '../../_lib/your-own-day.server';
 import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/story-light';
 import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
+import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
   /\/$/,
@@ -405,6 +407,25 @@ export async function EditorialContent({
     another celebration, and returns the empty shape to everybody else. It never
     throws, so a broken read costs one reader their own panel and nothing more.
   */
+  /*
+    ═══ THE PAGES THE HOST ARRANGED BY HAND (step 5 of `10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md`) ══
+
+    Each moment laid out in "Make it yours" is drawn on the day's spine as its sheet. A story in
+    Automatic — and every story nobody has arranged — gets NONE, so its page is exactly what it
+    was before this existed.
+
+    🔒 THE FENCE IS STEP 3'S, NOT THIS COMPONENT'S. This page reads with the admin client, outside
+    every RLS rule; `loadStoryPages` goes through `loadStoryArrangement`, which reads the audience
+    off the arrangement's own row (the guests' layer, S3) and builds every photograph through the
+    consent veto (S14). Nothing here reads the arrangement any other way. A sample has no
+    celebration behind it and is skipped, like every other lookup above.
+  */
+  const sheets: DrawnSheet[] = isSample
+    ? []
+    : await loadStoryPages(createAdminClient(), eventId, viewer, (key) =>
+        displayUrlForStoredAsset(key),
+      ).catch(() => []);
+
   let own = await loadYourOwnDay(eventId).catch(() => null);
   own ??= { signedIn: false, appearsIn: [], shot: [], said: [], tableLabel: null };
 
@@ -455,6 +476,7 @@ export async function EditorialContent({
         stages={stages}
         eventId={eventId}
         own={own}
+        sheets={sheets}
         storyCard={storyCard}
         monogram={
           mono ? (

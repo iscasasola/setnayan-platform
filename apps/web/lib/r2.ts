@@ -371,6 +371,79 @@ export async function r2Head(args: {
 }
 
 /**
+ * A HEAD that says WHICH failure happened.
+ *
+ * 🔑 `r2Head` above answers `null` for a missing object, a 403 AND a network
+ * blip alike — correct for its own job (a custody proof before an irreversible
+ * delete must fail closed on all three), and useless for the opposite question.
+ * The verification desk has to tell a REAL finding — *"the checklist says the
+ * permit is filed and there is no file behind it"* — from *"storage did not
+ * answer just now"*. Collapsing those two would either invent a mismatch out of
+ * an outage or hide a genuinely empty key behind a shrug.
+ *
+ * `absent` is claimed ONLY on an explicit 404/NotFound/NoSuchKey. Everything
+ * else — 403, throttling, a DNS failure, R2 not configured at all — is
+ * `unknown`, which every caller must treat as "go and look yourself".
+ */
+export type R2HeadOutcome =
+  | { kind: 'present'; head: R2HeadResult }
+  | { kind: 'absent' }
+  | { kind: 'unknown'; note: string };
+
+export async function r2HeadOutcome(args: {
+  bucket: R2BucketName;
+  key: string;
+}): Promise<R2HeadOutcome> {
+  if (!isR2Configured()) {
+    return { kind: 'unknown', note: 'storage is not configured in this environment' };
+  }
+  let client: S3Client;
+  try {
+    client = requireR2Client();
+  } catch (err) {
+    return {
+      kind: 'unknown',
+      note: err instanceof Error ? err.message : 'the storage client could not be built',
+    };
+  }
+  try {
+    const res = await client.send(
+      new HeadObjectCommand({ Bucket: args.bucket, Key: args.key }),
+    );
+    return {
+      kind: 'present',
+      head: {
+        size: typeof res.ContentLength === 'number' ? res.ContentLength : Number.NaN,
+        contentType: res.ContentType ?? null,
+        lastModified: res.LastModified ?? null,
+        etag:
+          typeof res.ETag === 'string' ? res.ETag.replace(/^"|"$/g, '') || null : null,
+      },
+    };
+  } catch (err) {
+    const e = err as {
+      name?: unknown;
+      Code?: unknown;
+      $metadata?: { httpStatusCode?: number };
+      message?: unknown;
+    };
+    const status = e?.$metadata?.httpStatusCode;
+    const name = typeof e?.name === 'string' ? e.name : '';
+    const code = typeof e?.Code === 'string' ? e.Code : '';
+    if (status === 404 || name === 'NotFound' || name === 'NoSuchKey' || code === 'NoSuchKey') {
+      return { kind: 'absent' };
+    }
+    return {
+      kind: 'unknown',
+      note:
+        typeof e?.message === 'string' && e.message
+          ? e.message
+          : `storage answered ${status ?? 'nothing'}`,
+    };
+  }
+}
+
+/**
  * Server-side COPY of one object to a new key within the SAME bucket (no byte
  * download — R2 copies internally). Object keys are UUID-pinned (api/upload) so `CopySource` needs no
  * special encoding. Throws if R2 isn't configured or the source is missing —

@@ -28,6 +28,8 @@ import { lockRequestFuseLabel, type LockRequestState } from '@/lib/lock-request-
 export type LockFreezeTone =
   /** A real booking exists. */
   | 'booked'
+  /** No price was ever saved with this Deal — nothing is frozen. */
+  | 'unpriced'
   /** Asked; nobody is booked yet. */
   | 'waiting'
   /** The ask is over and nothing was booked. */
@@ -56,6 +58,15 @@ export type LockFreezeInput = {
   viewerRole: 'couple' | 'vendor';
   /** The OTHER party's display label, as the thread already resolves it. */
   counterpartyLabel?: string | null;
+  /**
+   * Was a price actually saved with this Deal? REQUIRED, on purpose: every
+   * sentence below except the unpriced one opens with "Price agreed and frozen
+   * at this amount", and a Deal struck before any formal quote has no amount.
+   * Before 2026-09-10 such a Deal could still be "locked" with a NULL price and
+   * the card then claimed a frozen amount that did not exist. The caller knows
+   * (it computed the total); it must say so.
+   */
+  priceFrozen: boolean;
   now?: Date;
 };
 
@@ -66,8 +77,29 @@ const FROZEN = 'Price agreed and frozen at this amount.';
  * booked copy unless a booking actually exists.
  */
 export function lockFreezeLine(input: LockFreezeInput): LockFreezeLine {
-  const { state, viewerRole, expiresAt = null, counterpartyLabel, now = new Date() } = input;
+  const {
+    state,
+    viewerRole,
+    expiresAt = null,
+    counterpartyLabel,
+    priceFrozen,
+    now = new Date(),
+  } = input;
   const them = counterpartyLabel?.trim() || (viewerRole === 'couple' ? 'the supplier' : 'the couple');
+
+  // ── NO PRICE WAS SAVED. Say nothing is frozen — in EVERY state. The booking
+  // state is the thread's, not this Deal's: a supplier booked some other way
+  // does not give this Deal a price. The sentence is true whatever the handshake
+  // says, and tells each side the one thing that would fix it.
+  if (!priceFrozen) {
+    return {
+      tone: 'unpriced',
+      text:
+        viewerRole === 'couple'
+          ? `No price was saved with this deal, so nothing is frozen here. Ask ${them} to send their quote.`
+          : 'No price was saved with this deal, so nothing is frozen here. Send your proposal so the couple can lock a price.',
+    };
+  }
 
   if (state === 'locked') {
     return { tone: 'booked', text: 'Deal locked — price frozen.' };

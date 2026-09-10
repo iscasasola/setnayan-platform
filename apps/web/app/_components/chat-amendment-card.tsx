@@ -16,6 +16,7 @@ import {
 } from './negotiation-actions';
 import { AmendmentBuilder, type AmendmentBuilderRow } from './amendment-builder';
 import { lockFreezeLine, type ThreadLockHandshake } from '@/lib/lock-freeze-copy';
+import { dealLockReadiness, dealNotLockableLine } from '@/lib/deal-lock-readiness';
 import {
   ITEM_KIND_LABEL,
   isMoneyKind,
@@ -87,6 +88,11 @@ export function ChatAmendmentCard({
   const isAccepted = data.status === 'accepted';
   const meta = STATUS[data.status];
   const newTotal = newTotalPhp(data.baseTotalCentavos, items);
+  // NO PRICE, NO LOCK. A Deal struck before the supplier sent a formal quote has
+  // no total, so there is nothing to freeze and nothing to book — the Lock
+  // button is not offered, and each side is told what would make it lockable.
+  // `lockDeal` asks the SAME rule and refuses, as the backstop.
+  const readiness = dealLockReadiness(data.baseTotalCentavos, items);
 
   // ⚠ THE PRESS IS AN ASK, NOT A BOOKING (PR-H, live). This line used to be the
   // hardcoded "🔒 Deal locked — price frozen." rendered for BOTH people the
@@ -99,6 +105,9 @@ export function ChatAmendmentCard({
     expiresAt: lockHandshake?.expiresAt ?? null,
     viewerRole,
     counterpartyLabel,
+    // Whether ANY price exists for this Deal — a legacy Deal locked before a
+    // quote existed has none, and must not be told its amount is frozen.
+    priceFrozen: newTotal != null,
   });
 
   const hidden = (
@@ -226,8 +235,9 @@ export function ChatAmendmentCard({
         </p>
       ) : null}
 
-      {/* Lock — only the customer (couple) locks an ACCEPTED deal; freezes the
-          agreed price for the payment step. */}
+      {/* Lock — only the customer (couple) locks an ACCEPTED deal that has a
+          price; freezes the agreed price for the payment step. A Deal with no
+          quoted price shows a line instead of the button. */}
       {isAccepted ? (
         <div className="border-t border-ink/10 bg-ink/[0.02] px-3.5 py-2.5">
           {data.lockedAt ? (
@@ -236,8 +246,12 @@ export function ChatAmendmentCard({
                 freezeLine.tone === 'booked' ? 'text-success-700' : 'text-ink/70'
               }`}
             >
-              <span aria-hidden>🔒</span>
+              {freezeLine.tone === 'unpriced' ? null : <span aria-hidden>🔒</span>}
               <span>{freezeLine.text}</span>
+            </p>
+          ) : !readiness.lockable ? (
+            <p className="text-xs text-ink/70">
+              {dealNotLockableLine(readiness.reason, viewerRole, counterpartyLabel)}
             </p>
           ) : viewerRole === 'couple' ? (
             <form action={lockDeal}>
@@ -245,8 +259,7 @@ export function ChatAmendmentCard({
               <input type="hidden" name="amendment_id" value={data.amendment_id} />
               <input type="hidden" name="return_to" value={returnPath} />
               <button className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
-                🔒 Lock this deal
-                {newTotal != null ? ` — ₱${newTotal.toLocaleString('en-PH')}` : ''}
+                🔒 Lock this deal — ₱{readiness.totalPhp.toLocaleString('en-PH')}
               </button>
             </form>
           ) : (

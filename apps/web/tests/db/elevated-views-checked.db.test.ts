@@ -78,6 +78,13 @@ const ELEVATED_VIEWS_ALLOWED = new Map([
     'vendor_completed_events',
     'the public shop-page track record; status + fraud + self-dealing redactions are the control — pinned below and in vendor-public-view-grants',
   ],
+  [
+    'vendor_profiles_self',
+    'authenticated-only; where a shop reads its OWN tax identity after 20271217955839 took those ' +
+      'eleven columns off `authenticated` at table level. Its WHERE is an exact mirror of policies ' +
+      'vendor_profiles_owner + vendor_profiles_member_read, so it is the complete access control — ' +
+      'behaviourally pinned below, including a neutralisation test',
+  ],
 ]);
 
 test('INVENTORY · the definer views an app principal can read are exactly the registered ones', async () => {
@@ -99,6 +106,10 @@ test('INVENTORY · the definer views an app principal can read are exactly the r
   assert.ok(
     found.includes('vendor_completed_events'),
     'vendor_completed_events missing from the scan — the query is wrong',
+  );
+  assert.ok(
+    found.includes('vendor_profiles_self'),
+    'vendor_profiles_self missing from the scan — the query is wrong',
   );
 
   const unregistered = found.filter((v) => !ELEVATED_VIEWS_ALLOWED.has(v));
@@ -318,4 +329,96 @@ test('vendor_completed_events · a SHORTLISTED link is not a completed job', asy
     1,
     'the delivered flip did not surface the row — the zero above is not attributable to the status filter',
   );
+});
+
+/* ── vendor_profiles_self ─────────────────────────────────────────────────── */
+
+test('vendor_profiles_self · anon holds nothing, and an anon session is actually refused', async () => {
+  for (const verb of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
+    const { rows } = await db.query<{ ok: boolean }>(
+      `SELECT has_table_privilege('anon', 'public.vendor_profiles_self', $1) AS ok`,
+      [verb],
+    );
+    assert.equal(rows[0]?.ok, false, `anon holds ${verb} on vendor_profiles_self`);
+  }
+  await db.exec(`SET ROLE anon`);
+  let refused = false;
+  try {
+    await db.query(`SELECT vendor_profile_id FROM public.vendor_profiles_self LIMIT 1`);
+  } catch {
+    refused = true;
+  } finally {
+    await reset();
+  }
+  assert.ok(refused, 'an anon session read vendor_profiles_self despite holding no grant');
+});
+
+test('vendor_profiles_self · authenticated may only READ it — a definer view that writes is a door past RLS', async () => {
+  // A single-table view with a simple WHERE is auto-updatable in Postgres, and
+  // this one runs as its OWNER. If any write verb is granted, a team member can
+  // UPDATE straight past vendor_profiles_owner.
+  for (const verb of ['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) {
+    const { rows } = await db.query<{ ok: boolean }>(
+      `SELECT has_table_privilege('authenticated', 'public.vendor_profiles_self', $1) AS ok`,
+      [verb],
+    );
+    assert.equal(rows[0]?.ok, false, `authenticated holds ${verb} on the definer view vendor_profiles_self`);
+  }
+});
+
+test('vendor_profiles_self · the WHERE clause is the whole gate: a signed-in stranger sees zero rows', async () => {
+  const { rows: seeded } = await db.query<{ vendor_profile_id: string }>(
+    `INSERT INTO public.vendor_profiles
+       (business_name, public_visibility, verification_state, tin_number, business_owner_name, last_verified_at)
+     VALUES ('Elevated View Probe Shop', 'verified', 'verified', '123-456-789-000', 'Juana Dela Cruz', NOW())
+     RETURNING vendor_profile_id`,
+  );
+  assert.ok(seeded[0]?.vendor_profile_id, 'seeding the probe shop failed');
+
+  await db.exec(`SET ROLE authenticated`);
+  try {
+    const { rows } = await db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM public.vendor_profiles_self`,
+    );
+    assert.equal(
+      rows[0]?.n,
+      0,
+      'a signed-in caller who owns no shop can read rows through vendor_profiles_self. ' +
+        'The view bypasses RLS by design; its WHERE clause is the only gate, and it has stopped gating — ' +
+        'which would re-open every verified shop\'s TIN, registered address and owner name.',
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test('vendor_profiles_self · NEUTRALISATION: dropping the WHERE hands the stranger every shop', async () => {
+  // Proves the zero above is carried by the ownership filter and not by an
+  // empty table or an accident of the replay.
+  const { rows: def } = await db.query<{ d: string }>(
+    `SELECT pg_get_viewdef('public.vendor_profiles_self'::regclass, true) AS d`,
+  );
+  assert.match(def[0]!.d, /auth\.uid\(\)/, 'the owner filter left the view definition');
+  assert.match(def[0]!.d, /current_vendor_ids/, 'the team-member filter left the view definition');
+
+  const unfiltered = def[0]!.d.replace(/\bWHERE\b[\s\S]*$/i, '');
+  assert.notEqual(unfiltered, def[0]!.d, 'stripping the WHERE changed nothing — the sabotage did not land');
+
+  await db.exec(`BEGIN`);
+  try {
+    await db.exec(`CREATE OR REPLACE VIEW public.vendor_profiles_self AS ${unfiltered}`);
+    await db.exec(`SET ROLE authenticated`);
+    const { rows } = await db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM public.vendor_profiles_self`,
+    );
+    await db.exec(`RESET ROLE`);
+    assert.ok(
+      (rows[0]?.n ?? 0) > 0,
+      'removing the WHERE did not open the view — the earlier zero is not attributable to the filter, ' +
+        'so the test above is not guarding what it claims to guard',
+    );
+  } finally {
+    await reset();
+    await db.exec(`ROLLBACK`);
+  }
 });

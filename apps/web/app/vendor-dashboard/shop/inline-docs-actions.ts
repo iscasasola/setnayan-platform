@@ -88,7 +88,10 @@ async function fetchRegistrationNumberState(
 ): Promise<{ raw: string | null; needsReview: boolean }> {
   try {
     const { data, error } = await supabase
-      .from('vendor_profiles')
+      // `vendor_profiles_self` (migration 20271217955839), never the table —
+      // both columns are off `authenticated`'s allowlist and this probe returns
+      // defaults on ANY error, so the table would silently read "not on file".
+      .from('vendor_profiles_self')
       .select('registration_number_raw,registration_number_needs_review')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();

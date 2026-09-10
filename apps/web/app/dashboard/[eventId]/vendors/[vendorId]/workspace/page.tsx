@@ -1328,7 +1328,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               public page used to hold. Such a supplier is reached through the
               Conversation panel instead. An OFF-platform supplier has no
               in-app channel at all, so the couple's own note stays. */}
-          {!ev.marketplace_vendor_id && (ev.contact_email || ev.contact_phone) ? (
+          {isOffPlatformSupplier(ev) && (ev.contact_email || ev.contact_phone) ? (
             <div className="col-span-2 sm:col-span-1">
               <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                 Contact

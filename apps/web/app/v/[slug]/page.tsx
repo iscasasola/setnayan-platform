@@ -223,8 +223,10 @@ type PublicVendorRow = {
   hq_latitude: number | null;
   hq_longitude: number | null;
   website: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
+  // 🚪 NO contact_email / contact_phone, ON PURPOSE (2026-09-10). This page is
+  // public and signed-out-readable; a field it never fetches can never be
+  // printed, serialized into a client prop or put in structured data by a later
+  // edit. The shop keeps both in My Shop. See `lib/no-door-out-of-the-app.test.ts`.
   public_visibility: VendorPublicVisibility;
   compatible_ceremony_types: string[] | null;
   compatible_venue_settings: string[] | null;
@@ -365,9 +367,9 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,user_id';
   const legacySelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
   let { data, error } = await admin
     .from('vendor_profiles')
@@ -2247,20 +2249,21 @@ export async function renderVendorBySlug({
                 off-platform: no booking fee, no in-app record, no lock, no price
                 freeze, no protection for either side.
 
-                What stands in their place is the way IN: the same `#get-in-touch`
-                anchor every Inquire button on this page uses. Never a blank — a
-                row that silently loses two items reads as a broken page.
+                What stands in their place says HOW you reach this shop — here —
+                so the row never reads as two items that silently went missing.
+                It is deliberately a STATEMENT, not a second link: the way in is
+                the Inquire button a few centimetres below (or the hero's, or the
+                desktop rail's), and a second control to the same anchor that close
+                is the duplicate the owner already ruled out on 2026-08-06
+                (`one-inquire-button.test.ts`).
                 `lib/no-door-out-of-the-app.test.ts` fails if a contact scheme or
                 a contact field comes back to any couple-facing or public surface.
               */}
               {bookable ? (
-                <a
-                  href="#get-in-touch"
-                  className="inline-flex items-center gap-1 text-link hover:underline"
-                >
+                <span className="inline-flex items-center gap-1">
                   <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Message on Setnayan
-                </a>
+                  Replies in your Setnayan inbox
+                </span>
               ) : null}
               {vendor.website ? (
                 <a
@@ -2276,8 +2279,9 @@ export async function renderVendorBySlug({
             </div>
             {/* The shop previewing itself learns WHY its email and phone are not
                 here, instead of reading their absence as a broken page. Only the
-                owning account ever renders this line; the values stay in My Shop. */}
-            {viewerOwnsShop && (vendor.contact_email || vendor.contact_phone) ? (
+                owning account ever renders this line; the values stay in My Shop
+                (and this page no longer fetches them at all). */}
+            {viewerOwnsShop ? (
               <p className="max-w-2xl text-xs text-ink/60">
                 Only you see this note: your email and phone are not shown to couples.
                 They message you here on Setnayan, and every reply, quote and booking

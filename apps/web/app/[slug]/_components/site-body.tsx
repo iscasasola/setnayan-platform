@@ -1380,6 +1380,7 @@ export async function SiteBody({
                   capApplies={papicGuest.capApplies}
                   poolRemaining={papicGuest.poolRemaining}
                   poolLow={papicGuest.poolLow}
+                  sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
                 />

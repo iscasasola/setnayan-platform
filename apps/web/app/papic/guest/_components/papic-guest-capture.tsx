@@ -180,6 +180,10 @@ type Props = {
   poolRemaining?: number | null;
   /** True once the pot crosses its own soft-stop line. */
   poolLow?: boolean;
+  /** Her number is a sponsor's bigger share (two or three of the equal shares),
+   *  so the counter says so — otherwise a ninang reading "33 left" beside a
+   *  cousin's "11 left" has no idea why. Resolved by `fetchGuestQuota`. */
+  sponsorShare?: boolean;
   /** The event-wide look (set once by the couple at Papic setup). LOCKED — the
    *  guest can't change it; it's baked into every photo they capture. */
   eventStyle: PapicStyle;
@@ -226,6 +230,7 @@ export function PapicGuestCapture({
   capApplies,
   poolRemaining = null,
   poolLow = false,
+  sponsorShare = false,
   eventStyle,
   faceMode,
   storyToken = null,
@@ -1442,6 +1447,7 @@ export function PapicGuestCapture({
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             {low ? `Running low — ${remaining} left` : `${remaining} left`}
+            {sponsorShare ? <span className="text-cream/60">· a sponsor’s share</span> : null}
           </span>
         ) : poolLow && poolRemaining != null ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">

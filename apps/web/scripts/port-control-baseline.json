@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ad765b6441",
+  "generatedFromRef": "bcd621ff6",
   "routeCount": 427,
-  "destinations": 909,
-  "actions": 631,
-  "blocks": 4409,
+  "destinations": 910,
+  "actions": 633,
+  "blocks": 4406,
   "routes": {
     "/": {
       "files": [
@@ -812,6 +812,7 @@
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/previous-edition.server.ts",
+        "[slug]/_lib/reveal-props.ts",
         "[slug]/_lib/room-links.server.ts",
         "[slug]/_lib/room-links.ts",
         "[slug]/_lib/site-identity.ts",
@@ -1194,6 +1195,9 @@
     },
     "/[slug]/invite": {
       "files": [
+        "[slug]/invite/_components/themes/capiz.tsx",
+        "[slug]/invite/_components/themes/invite-skin.tsx",
+        "[slug]/invite/_lib/load-invite-look.ts",
         "[slug]/invite/actions.ts",
         "[slug]/invite/page.tsx"
       ],
@@ -1201,7 +1205,8 @@
       "actions": [],
       "blocks": [
         "InvalidTokenScreen",
-        "JoinFlow"
+        "JoinFlow",
+        "RevealOverlayServer"
       ]
     },
     "/[slug]/invite/enter": {
@@ -1251,6 +1256,8 @@
     },
     "/[slug]/print": {
       "files": [
+        "[slug]/print/a4-sheet.tsx",
+        "[slug]/print/keepsake-a4.css.ts",
         "[slug]/print/keepsake-layout.ts",
         "[slug]/print/keepsake.css.ts",
         "[slug]/print/page.tsx",
@@ -1262,11 +1269,15 @@
       ],
       "actions": [],
       "blocks": [
+        "A4Sheet",
+        "ArrangedPage",
         "ChapterCard",
         "Colophon",
+        "CoverPage",
         "HeroMonogram",
         "Link",
         "LockedClose",
+        "MinutePage",
         "PrintSheet",
         "PrintToolbar",
         "SectionRule",
@@ -3863,9 +3874,12 @@
         "approveVendor",
         "archiveVendor",
         "demoteVendor",
+        "grantVerificationBypass",
         "markVendorContactConfirmed",
+        "openApplicationDocument",
         "rejectApplication",
         "rejectVendor",
+        "revokeVerificationBypass",
         "runVendorDeepSearchAction",
         "saveManualDossierAction",
         "setApplicationInReview",
@@ -3879,6 +3893,8 @@
         "ApplicationsTabs",
         "Avatar",
         "CategoryMatchBadge",
+        "CheckLine",
+        "CheckResultsBlock",
         "ConfirmForm",
         "ContactChannelMark",
         "ContactConfirmationBlock",
@@ -3893,6 +3909,7 @@
         "PageMasthead",
         "SlaBadge",
         "SlotDetail",
+        "SlotDocuments",
         "StatusBadge",
         "SubmitButton",
         "SurfaceTabs",
@@ -3900,7 +3917,8 @@
         "VerifyCard",
         "VisibilityBadge",
         "VisibilitySurface",
-        "VisibilityTabs"
+        "VisibilityTabs",
+        "VouchControls"
       ]
     },
     "/admin/website": {
@@ -5508,6 +5526,7 @@
     "/dashboard/[eventId]/guests/invite": {
       "files": [
         "dashboard/[eventId]/guests/invite/_components/invite-link.tsx",
+        "dashboard/[eventId]/guests/invite/_components/invite-theme-picker.tsx",
         "dashboard/[eventId]/guests/invite/_components/regenerate-qr-button.tsx",
         "dashboard/[eventId]/guests/invite/actions.ts",
         "dashboard/[eventId]/guests/invite/page.tsx"
@@ -5516,14 +5535,19 @@
         "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
+        "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/website"
       ],
-      "actions": [],
+      "actions": [
+        "action"
+      ],
       "blocks": [
         "InviteLink",
+        "InviteThemePicker",
         "Link",
         "RegenerateInviteQrResult",
-        "RegenerateQrButton"
+        "RegenerateQrButton",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/guests/new": {
@@ -8669,6 +8693,7 @@
       ],
       "actions": [
         "action",
+        "addEventFilm",
         "addRoamZone",
         "clearControlManualAir",
         "clearControlWatchUrl",
@@ -8679,6 +8704,7 @@
         "deleteRoamZone",
         "markHighlight",
         "reissueChannelJoinLink",
+        "removeEventFilm",
         "renameRoamZone",
         "saveControlWatchUrl",
         "setControlManualAir",
@@ -8703,6 +8729,7 @@
         "DesktopEncoderHost",
         "EncoderKeyPanel",
         "EncoderSession",
+        "EventFilmRow",
         "FacebookDualStreamCard",
         "FeedMap",
         "GoLiveResult",
@@ -10451,7 +10478,7 @@
         "/vendor-dashboard/on-the-day/live/[seg]",
         "/vendor-dashboard/on-the-day?event=[seg]",
         "/vendor-dashboard/on-the-day?preview=1",
-        "/vendor-dashboard/verify"
+        "/vendor-dashboard/shop"
       ],
       "actions": [],
       "blocks": [
@@ -11374,29 +11401,8 @@
         "vendor-dashboard/verify/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "ensureDraftApplication",
-        "submitApplication",
-        "updateDocUpload",
-        "withdrawApplication"
-      ],
-      "blocks": [
-        "ApplicationProgress",
-        "ApprovedCard",
-        "DocChecklist",
-        "DocSlotCard",
-        "FileUpload",
-        "PendingReviewCard",
-        "RejectedCard",
-        "ShopNotice",
-        "SlotInputForm",
-        "StartApplicationCard",
-        "SubmitButton",
-        "SubmitCard",
-        "TypeOption",
-        "VendorDocSlotCard",
-        "VerificationStatusCard"
-      ]
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/website": {
       "files": [

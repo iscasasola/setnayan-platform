@@ -69,7 +69,7 @@ import { WereYouThere } from './were-you-there';
 import type { YourOwnDay } from '../../_lib/your-own-day.server';
 import type { RoadFact, StorySpineFacts } from './spine-data';
 import { ArrangedSheet } from './arranged-sheet';
-import { placeSheetsOnDays, refsOnSheets } from '@/lib/story-sheet';
+import { placeSheetsOnDays, refsOnSheets, withoutPlacedMedia } from '@/lib/story-sheet';
 import type { DrawnSheet } from '@/lib/story-pages';
 
 /** The tallest a bar is drawn, in axis units. `BASELINE_Y` in the clock is 50. */
@@ -196,10 +196,7 @@ export function StorySpine({
   const onSheets = refsOnSheets(sheets);
   const chaptersByDay = new Map<string, DayChapter[]>();
   for (const raw of data.dayChapters) {
-    const c =
-      onSheets.size === 0
-        ? raw
-        : { ...raw, media: raw.media.filter((m) => !m.id || !onSheets.has(m.id.toLowerCase())) };
+    const c = withoutPlacedMedia(raw, onSheets);
     const day = c.atIso ? manilaDayOf(c.atIso) : null;
     if (!day) continue;
     const list = chaptersByDay.get(day);

@@ -291,3 +291,17 @@ export function placeSheetsOnDays<S extends { startMs: number | null }>(
   });
   return out;
 }
+
+/**
+ * A minute's media without the photographs a sheet already shows — one photo, one place on the
+ * page. The minute itself is kept (its words and its layers are not the host's to lose by moving
+ * a photograph); only the repeated media leaves it. Returns the SAME object when nothing moved.
+ */
+export function withoutPlacedMedia<C extends { media: ReadonlyArray<{ id?: string | null }> }>(
+  chapter: C,
+  onSheets: ReadonlySet<string>,
+): C {
+  if (onSheets.size === 0) return chapter;
+  const media = chapter.media.filter((m) => !m.id || !onSheets.has(m.id.toLowerCase()));
+  return media.length === chapter.media.length ? chapter : { ...chapter, media };
+}

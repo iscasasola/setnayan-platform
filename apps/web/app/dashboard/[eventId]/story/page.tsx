@@ -22,6 +22,7 @@ import { loadDesk } from './_lib/load-desk';
 import { hostUserId } from './_lib/host-authority';
 import { TheDesk } from './_components/the-desk';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { siteUrl } from '@/lib/social/urls';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { EditorialEditor } from './_components/editorial-editor';
@@ -435,7 +436,9 @@ export default async function EditorialEditorPage({
     try {
       coverCandidates = await loadCoverCandidates({
         eventId,
-        heroImageRef: (event.landing_page_hero_image_url as string | null) ?? null,
+        // Couple-writable website hero: held to the public bucket before it can
+        // be signed as a cover preview (lib/site-media-ref.ts).
+        heroImageRef: siteMediaServeRef(event.landing_page_hero_image_url),
         monogramText: (event.monogram_text as string | null) ?? null,
         writtenMinutes,
       });

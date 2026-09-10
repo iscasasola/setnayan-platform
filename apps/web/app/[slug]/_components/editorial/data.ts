@@ -21,6 +21,7 @@ import { readCustomColumns, type CustomColumn } from './custom-columns';
 import { storyAudienceOf, type StoryAudience } from '@/lib/who-can-see-your-story';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { displayChallengePrompt } from '@/lib/papic-missions';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
@@ -1465,7 +1466,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // plain/relative URLs through unchanged.
   if (!heroPhotoUrl) {
     heroPhotoUrl = await displayUrlForStoredAsset(
-      asString((event as Record<string, unknown>).landing_page_hero_image_url),
+      // 🔒 Held to the public bucket before signing (lib/site-media-ref.ts).
+      siteMediaServeRef((event as Record<string, unknown>).landing_page_hero_image_url),
     );
   }
 
@@ -1488,19 +1490,18 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // so it does not reach a guest until it goes through the screen-and-seal
   // spine. The still photo (already its poster) shows instead.
   const heroVideoUrl = await displayUrlForStoredAsset(
-    heroVideoRefForGuests(
-      asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+    siteMediaServeRef(
+      heroVideoRefForGuests(
+        asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+      ),
     ),
   );
 
   // 6b. Shared photo gallery (events.our_photos → display URLs). Each ref goes
   // through displayUrlForStoredAsset (presigns r2://, passes plain/relative
   // URLs through). Best-effort.
-  const galleryRefs = Array.isArray((event as Record<string, unknown>).our_photos)
-    ? ((event as Record<string, unknown>).our_photos as unknown[]).filter(
-        (r): r is string => typeof r === 'string' && r.trim().length > 0,
-      )
-    : [];
+  // 🔒 Held to the public bucket before signing (lib/site-media-ref.ts).
+  const galleryRefs = siteMediaServeRefs((event as Record<string, unknown>).our_photos);
   const manualGalleryPhotos = (
     await Promise.all(galleryRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));

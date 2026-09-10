@@ -42,6 +42,7 @@ import {
 } from '@/lib/editorial-event-types';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { resolveStoryCover } from '@/lib/story-cover';
 import { tierCaps, isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { resolveVendorDisplayName } from '@/lib/vendors';
@@ -479,8 +480,10 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
             }
           }
           // Resolve r2:// / relative refs to a display URL; plain http passes through.
+          // 🔒 Public showcase: held to the public bucket before signing
+          // (lib/site-media-ref.ts) — never a signed link into a private one.
           return e.landing_page_hero_image_url
-            ? await displayUrlForStoredAsset(e.landing_page_hero_image_url)
+            ? await displayUrlForStoredAsset(siteMediaServeRef(e.landing_page_hero_image_url))
             : null;
         })(),
         // The couple's baked "living hero" boomerang (Living Hero Studio), if set
@@ -488,7 +491,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         // SEC-6 (D16): unscreened couple-uploaded clip — gated off public
         // surfaces until it is screened + sealed (lib/guest-hero-video.ts).
         heroVideoUrl: await displayUrlForStoredAsset(
-          heroVideoRefForGuests(e.landing_page_hero_video_r2_key),
+          siteMediaServeRef(heroVideoRefForGuests(e.landing_page_hero_video_r2_key)),
         ),
         isSample: e.is_sample === true,
         serviceCategories: Array.from(categoriesByEvent.get(e.event_id) ?? []),

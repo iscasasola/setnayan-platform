@@ -25,6 +25,7 @@ import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { SectionsPanel } from './_components/sections-panel';
 import {
   DressCodePanel,
@@ -170,7 +171,9 @@ export default async function WebsiteEditorPage({
       refs
         .filter((r): r is string => Boolean(r))
         .map(async (ref) => {
-          const url = await displayUrlForStoredAsset(ref);
+          // 🔒 Every ref here is couple-writable website media: held to the
+          // public bucket before signing (lib/site-media-ref.ts).
+          const url = await displayUrlForStoredAsset(siteMediaServeRef(ref));
           if (url) out[ref] = url;
         }),
     );

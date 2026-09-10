@@ -9,7 +9,7 @@
  *                                             picks it. What the pool lists.
  *
  * 🔑 THE TWO KEYS ARE PRODUCED BY DIFFERENT FUNCTIONS AND ARE NEVER EQUAL.
- * `renderObjectKey` (render-actions.ts) writes the first; `galleryObjectKey`
+ * `renderImageKey` (lib/moodboard-render-keys.ts) writes the first; `galleryObjectKey`
  * here writes the second, under a prefix that does not even start with the
  * same word. That is what makes "we did not accidentally mark the couple's own
  * copy" checkable rather than asserted: the marked bytes are only ever uploaded
@@ -28,10 +28,19 @@
  */
 
 import { watermarkImageBytes } from './watermark-server';
+import { renderGalleryKey } from './moodboard-render-keys';
 
-/** `render-gallery/<eventId>/<renderId>.jpg` — always .jpg; the marker outputs JPEG. */
+/**
+ * `render-gallery/<eventId>/<renderId>.jpg` — always .jpg; the marker outputs JPEG.
+ *
+ * Delegates to `renderGalleryKey` (lib/moodboard-render-keys.ts) so the writer
+ * and the database's equality CHECK derive the key ONE way — a second template
+ * here is how the two would drift, and the database would then refuse every
+ * gallery copy (ids are canonicalised to lowercase there; a URL can carry any
+ * case).
+ */
 export function galleryObjectKey(eventId: string, renderId: string): string {
-  return `render-gallery/${eventId}/${renderId}.jpg`;
+  return renderGalleryKey(eventId, renderId);
 }
 
 /**

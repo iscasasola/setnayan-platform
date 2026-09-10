@@ -40,7 +40,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
-import { stylistAssetObjectKey } from './moodboard-library-key';
+import { libraryAssetObjectKeyForAdminDelete, stylistAssetObjectKey } from './moodboard-library-key';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
@@ -82,8 +82,9 @@ const EXEMPT: Readonly<Record<string, string>> = {
     'when the row insert fails. No stored value is read.',
   'app/admin/moodboard-library/actions.ts':
     'Admin-pressed, Supabase storage (moodboard-library bucket), not R2. Rolls back a key it just ' +
-    'minted, and deletes one asset an admin chose. ⚠ KNOWN FOLLOW-UP: the admin delete still reads ' +
-    'storage_path verbatim; a stylist-forged path on a stylist row could aim it (one admin step).',
+    'minted, and deletes one asset an admin chose — the stored path held by ' +
+    'libraryAssetObjectKeyForAdminDelete (lib/moodboard-library-key.ts) to what that row’s uploader ' +
+    'could have filed, so a stylist-forged path cannot aim the admin’s press.',
   'app/vendor-dashboard/moodboard-library/actions.ts':
     'Supabase storage, not R2. Rolls back a key it just minted; the stylist self-delete is pinned ' +
     'inline to the uploader’s own folder by stylistAssetObjectKey (lib/moodboard-library-key.ts).',
@@ -251,4 +252,38 @@ test('the stylist self-delete keeps to the uploader’s own folder', () => {
   }
   assert.equal(stylistAssetObjectKey(`moodboard-library/${U}/a.jpg`, '../x'), null);
   assert.equal(stylistAssetObjectKey(null, U), null);
+});
+
+test('the admin delete of a library asset keeps to what that row’s uploader could have filed', () => {
+  const U = '0b3a1f2c-1111-4222-8333-444455556666';
+  const ROOT = 'moodboard-library/9f1c2d3e-4a5b-4c6d-8e7f-001122334455.png';
+  // A stylist's own upload — reachable whoever presses delete.
+  assert.equal(libraryAssetObjectKeyForAdminDelete(`moodboard-library/${U}/a.jpg`, U, true), `${U}/a.jpg`);
+  // An admin's own root upload — reachable only when the uploader is NOT a vendor.
+  assert.equal(libraryAssetObjectKeyForAdminDelete(ROOT, U, false), ROOT.slice('moodboard-library/'.length));
+  // 🔒 A stylist re-pointing their row at a root placeholder, or at another stylist.
+  assert.equal(libraryAssetObjectKeyForAdminDelete(ROOT, U, true), null);
+  for (const forged of [
+    'moodboard-library/someone-else/abc.jpg',
+    `moodboard-library/${U}/../someone-else/abc.jpg`,
+    'moodboard-library/not-a-uuid.png',
+    'moodboard-library/9f1c2d3e-4a5b-4c6d-8e7f-001122334455.png/x',
+    'other-bucket/9f1c2d3e-4a5b-4c6d-8e7f-001122334455.png',
+  ]) {
+    assert.equal(libraryAssetObjectKeyForAdminDelete(forged, U, false), null, forged);
+    assert.equal(libraryAssetObjectKeyForAdminDelete(forged, U, true), null, forged);
+  }
+});
+
+test('WIRING: both moodboard deletes remove only what the pinned key functions return', () => {
+  // A wiring pin, named as one: the RULES are proved by calling them above. This
+  // pins that the two actions still pass their stored path THROUGH them.
+  for (const [rel, fn] of [
+    ['app/vendor-dashboard/moodboard-library/actions.ts', 'stylistAssetObjectKey'],
+    ['app/admin/moodboard-library/actions.ts', 'libraryAssetObjectKeyForAdminDelete'],
+  ] as const) {
+    const code = stripComments(readFileSync(join(WEB, rel), 'utf8'));
+    assert.match(code, new RegExp(`const key = ${fn}\\(row\\.storage_path, row\\.uploaded_by`), `${rel} no longer plans the key`);
+    assert.doesNotMatch(code, /storage_path\.replace\(/, `${rel} reads storage_path back verbatim again`);
+  }
 });

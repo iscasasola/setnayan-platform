@@ -92,26 +92,18 @@ export function TheDesk({
       <h2 id="the-desk-heading" className="font-serif text-2xl text-ink">
         The desk
       </h2>
+      {/*
+        ⚖ OWNER 2026-09-10: "too many words … simple and efficient and easy to manage."
+        What was here: a three-sentence paragraph (including "It was four different screens; it
+        is one queue" — a sentence about OUR refactor, which is nothing to the host), a second
+        reassurance line, and a progress meter. THE METER NOW LIVES IN THE RAIL: one number
+        printed twice on one screen is two of them, and two places rendering one figure is how
+        they come to disagree. The reassurance travels with the meter, in the rail.
+      */}
       <p className="mt-2 max-w-2xl text-sm text-ink/70">
-        Everything anyone made for your day, in one place — what your <b>guests</b> sent and what
-        your <b>suppliers</b> sent. Accept it, change the words, or turn it down. It was four
-        different screens; it is one queue.
+        Everything your <b>guests</b> and <b>suppliers</b> sent. Keep it, change it, or turn it
+        down.
       </p>
-      <p className="mt-1 text-xs text-ink/50">Nothing goes into the story until you say so.</p>
-
-      {/* The meter — "n% of the desk decided" (design 02 §1). */}
-      <div className="mt-4 max-w-sm">
-        <div className="flex items-baseline gap-2">
-          <b className="font-serif text-xl text-ink">{percent}%</b>
-          <span className="text-xs text-ink/60">of the desk decided</span>
-        </div>
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/10">
-          <i
-            className="block h-full rounded-full bg-mulberry transition-all"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-      </div>
 
       {/* A source that could not be read says so. An unreadable source and an
           empty one look identical, and this desk gates publishing. */}
@@ -123,7 +115,7 @@ export function TheDesk({
       ) : null}
       {lettersDark ? (
         <p className="mt-2 text-xs text-ink/50">
-          Letters from guests are switched off for this celebration, so none appear here.
+          Letters are switched off for this celebration.
         </p>
       ) : null}
 
@@ -290,7 +282,7 @@ export function TheDesk({
       {shown.length === 0 ? (
         <p className="mt-4 rounded-xl border border-dashed border-ink/15 p-6 text-center text-sm text-ink/55">
           {items.length === 0
-            ? 'Nothing on the desk yet. Everything that arrives later lands here — the story keeps growing until you publish it.'
+            ? 'Nothing yet. Anything your guests or suppliers send lands here.'
             : 'Nothing left under this filter.'}
         </p>
       ) : null}

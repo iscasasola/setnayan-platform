@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video } from 'lucide-react';
+import { Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -1276,6 +1276,10 @@ export async function renderVendorBySlug({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  /** The shop's own account is looking at its own page. Fails CLOSED: the
+   *  fallback select carries no `user_id`, so a degraded read is a stranger. */
+  const viewerOwnsShop =
+    user !== null && typeof vendor.user_id === 'string' && vendor.user_id === user.id;
   let coupleEventId: string | null = null;
   /** The couple's intended event date (ISO YYYY-MM-DD) — drives the Booked-Out
    *  Waitlist CTA when the vendor is unavailable on it. */
@@ -2231,24 +2235,31 @@ export async function renderVendorBySlug({
                   {vendor.location_city}
                 </span>
               ) : null}
-              {/* Contact links surface only for verified (bookable) vendors —
-                  coming-soon profiles are read-only previews per 0022 § 2.1c. */}
-              {bookable && vendor.contact_email ? (
+              {/*
+                🚪 NO DOOR OUT OF THE APP (owner 2026-09-10, verbatim: "our goal is
+                to let them integrate their event with the vendor they find. not
+                to let them communicate outside the app").
+
+                This row used to print the shop's email as a `mailto:` and its
+                phone as a `tel:` — to ANYONE, signed out included — one scroll
+                above an Inquire section saying the reply comes in the Setnayan
+                inbox. A couple who found a shop here and emailed it booked
+                off-platform: no booking fee, no in-app record, no lock, no price
+                freeze, no protection for either side.
+
+                What stands in their place is the way IN: the same `#get-in-touch`
+                anchor every Inquire button on this page uses. Never a blank — a
+                row that silently loses two items reads as a broken page.
+                `lib/no-door-out-of-the-app.test.ts` fails if a contact scheme or
+                a contact field comes back to any couple-facing or public surface.
+              */}
+              {bookable ? (
                 <a
-                  href={`mailto:${vendor.contact_email}`}
-                  className="inline-flex items-center gap-1 hover:text-terracotta"
+                  href="#get-in-touch"
+                  className="inline-flex items-center gap-1 text-link hover:underline"
                 >
-                  <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {vendor.contact_email}
-                </a>
-              ) : null}
-              {bookable && vendor.contact_phone ? (
-                <a
-                  href={`tel:${vendor.contact_phone.replace(/\s/g, '')}`}
-                  className="inline-flex items-center gap-1 hover:text-terracotta"
-                >
-                  <Phone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {vendor.contact_phone}
+                  <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Message on Setnayan
                 </a>
               ) : null}
               {vendor.website ? (
@@ -2263,6 +2274,16 @@ export async function renderVendorBySlug({
                 </a>
               ) : null}
             </div>
+            {/* The shop previewing itself learns WHY its email and phone are not
+                here, instead of reading their absence as a broken page. Only the
+                owning account ever renders this line; the values stay in My Shop. */}
+            {viewerOwnsShop && (vendor.contact_email || vendor.contact_phone) ? (
+              <p className="max-w-2xl text-xs text-ink/60">
+                Only you see this note: your email and phone are not shown to couples.
+                They message you here on Setnayan, and every reply, quote and booking
+                stays with their event.
+              </p>
+            ) : null}
             {/* Primary actions (2026-07-02): Inquire (scrolls to the
                 composer) + Share. Retires the old Follow / Save-to-picks row.
                 On desktop the sticky Inquire rail carries these too.
@@ -2812,30 +2833,32 @@ export async function renderVendorBySlug({
                 vendor surfaces as e.g. "Manila Wedding Photographer"
                 instead of leaking the real name through the
                 contact-info section. */}
+            {/*
+              🚪 THIS PROSE USED TO GATE ON `vendor.contact_email` AND TO CONTRADICT
+              ITSELF. With an address on file it said "Identity stays masked until
+              you choose to share" — one scroll below a header that had already
+              printed the shop's email and phone, and a promise about the COUPLE's
+              identity that the owner retired on 2026-09-08 ("we do not need to
+              hide anything, since no more tokens" — a shop now sees who is asking).
+              Without an address it said the shop "hasn't published a contact
+              email yet", as if an email were how you reach them. It is not: both
+              composers below are in-app and never read the address. So the
+              sentence now keys on the only thing that decides whether a couple
+              can ask here — whether a composer renders — and says only what is
+              true of the in-app path.
+            */}
             {bookable ? (
-              vendor.contact_email ? (
-                showInquiryComposer || anonComposerServices.length > 0 ? (
-                  // A composer renders below — don't send them to a "dashboard"
-                  // an eventless visitor doesn't have (the contradiction the
-                  // review flagged). Speak to the composer instead.
-                  <>
-                    Send{' '}
-                    <span className="font-medium text-ink">{displayLabel}</span> an
-                    inquiry below — they&rsquo;ll reply in your Setnayan inbox.
-                    Identity stays masked until you choose to share.
-                  </>
-                ) : (
-                  <>
-                    Already a Setnayan couple? Start a thread directly with{' '}
-                    <span className="font-medium text-ink">{displayLabel}</span> from
-                    your dashboard using the contact email above. Identity stays masked
-                    until you choose to share.
-                  </>
-                )
+              showInquiryComposer || anonComposerServices.length > 0 ? (
+                <>
+                  Send <span className="font-medium text-ink">{displayLabel}</span> an
+                  inquiry below — they&rsquo;ll reply in your Setnayan inbox, and the
+                  conversation stays with your event.
+                </>
               ) : (
                 <>
-                  {displayLabel} is on Setnayan but hasn&rsquo;t published a contact
-                  email yet. Check back soon.
+                  <span className="font-medium text-ink">{displayLabel}</span>{' '}
+                  hasn&rsquo;t listed a service you can ask about yet. Check back soon —
+                  when they do, you&rsquo;ll message them right here on Setnayan.
                 </>
               )
             ) : (

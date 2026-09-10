@@ -1320,7 +1320,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               {paidSoFarFormatted ?? '—'}
             </dd>
           </div>
-          {ev.contact_email || ev.contact_phone ? (
+          {/* 🚪 ONLY THE CONTACT THE COUPLE TYPED THEMSELVES (owner 2026-09-10:
+              "not to let them communicate outside the app"). A package lock
+              COPIES the shop's own email and phone into this row
+              (vendors/packages/actions.ts), so on a marketplace-linked row this
+              cell would print a Setnayan shop's number — the door out the
+              public page used to hold. Such a supplier is reached through the
+              Conversation panel instead. An OFF-platform supplier has no
+              in-app channel at all, so the couple's own note stays. */}
+          {!ev.marketplace_vendor_id && (ev.contact_email || ev.contact_phone) ? (
             <div className="col-span-2 sm:col-span-1">
               <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                 Contact
@@ -2033,6 +2041,29 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             reviewsData={marketplaceReviewsData}
             vendorBusinessName={displayName}
             vendorProfileSlug={marketplaceProfile?.business_slug ?? null}
+            /* The in-app way to reach them, where the Contact card used to
+               offer their phone and email — the SAME two controls the
+               Conversation panel uses, so there is still one mechanism. */
+            reach={
+              chatThread ? (
+                <Link
+                  href={conversationHref}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-link hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                >
+                  <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Message {displayName}
+                </Link>
+              ) : (
+                <ContactShortlistVendorButton
+                  eventId={eventId}
+                  vendorId={ev.vendor_id}
+                  label={`Message ${displayName}`}
+                  pendingLabel="Opening…"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-link hover:underline disabled:opacity-60"
+                  wrapperClassName=""
+                />
+              )
+            }
             reviewLinkHref={
               ev.status === 'delivered' || ev.status === 'complete'
                 ? `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`

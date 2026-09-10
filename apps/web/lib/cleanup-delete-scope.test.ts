@@ -10,8 +10,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { stripComments } from './strip-comments';
 import {
   CleanupDeleteRefused,
+  bindCleanupExecutor,
+  type PlannedDelete,
   chatAttachmentScope,
   eventSiteMediaScope,
   guestSelfieScope,
@@ -243,4 +250,78 @@ test('the refusal error carries no storage key', () => {
   const err = new CleanupDeleteRefused('papic_photos:x', 'out_of_scope');
   assert.equal(err.message.includes('r2://'), false);
   assert.match(err.message, /papic_photos:x/);
+});
+
+// ─── THE EXECUTOR — only a planner-minted target ever reaches the raw delete ──
+
+function fakeRaw() {
+  const calls: string[] = [];
+  return {
+    calls,
+    raw: async (args: { bucket: string; key: string }) => {
+      calls.push(`${args.bucket}/${args.key}`);
+    },
+  };
+}
+
+test('EXECUTOR: a hand-built or spread-copied target THROWS before the raw delete is reached', async () => {
+  const f = fakeRaw();
+  const ex = bindCleanupExecutor(f.raw);
+  const forged = { bucket: 'setnayan-vendor-verification', key: `vendors/${VICTIM_VENDOR}/verification/dti.pdf`, scope: 'x' };
+  await assert.rejects(ex.executeCleanupDelete(forged as unknown as PlannedDelete), /unplanned/);
+  const d = planCleanupDelete(`r2://setnayan-media/events/${EVT}/site-music/a.mp3`, eventSiteMediaScope(EVT));
+  assert.equal(d.ok, true);
+  if (d.ok) {
+    const widened = { ...d.target, key: `vendors/${VICTIM_VENDOR}/logo/logo.png` };
+    await assert.rejects(ex.executeCleanupDelete(widened as unknown as PlannedDelete), /unplanned/);
+  }
+  await assert.rejects(ex.executeCleanupDelete(undefined as unknown as PlannedDelete), /unplanned/);
+  assert.deepEqual(f.calls, [], 'the raw delete was reached with a target the planner never minted');
+});
+
+test('EXECUTOR: a planned target is deleted at EXACTLY its proven bucket and key', async () => {
+  const f = fakeRaw();
+  const ex = bindCleanupExecutor(f.raw);
+  const d = planCleanupDelete(`r2://setnayan-media/events/${EVT}/site-music/a.mp3`, eventSiteMediaScope(EVT));
+  assert.equal(d.ok, true);
+  if (d.ok) await ex.executeCleanupDelete(d.target);
+  assert.deepEqual(f.calls, [`setnayan-media/events/${EVT}/site-music/a.mp3`]);
+});
+
+test('EXECUTOR: cleanupDelete refuses every attack AS DATA and never touches storage; its own ref is deleted', async () => {
+  const f = fakeRaw();
+  const ex = bindCleanupExecutor(f.raw);
+  for (const attack of ATTACKS) {
+    assert.equal(await ex.cleanupDelete(attack, papicSeatCaptureScope(EVT)), 'refused', attack);
+    assert.equal(await ex.cleanupDelete(attack, vendorIdentityUploadScope(VENDOR)), 'refused', attack);
+  }
+  assert.deepEqual(f.calls, []);
+  const own = `r2://setnayan-media/papic/event-${EVT}/seat-${SEAT}/u-papic-1.jpg`;
+  assert.equal(await ex.cleanupDelete(own, papicSeatCaptureScope(EVT)), 'deleted');
+  assert.deepEqual(f.calls, [`setnayan-media/papic/event-${EVT}/seat-${SEAT}/u-papic-1.jpg`]);
+});
+
+test('WIRING: the executor is bound to r2Delete in exactly one file — lib/cleanup-delete.ts', () => {
+  // Derived, not listed: every non-test source file that calls bindCleanupExecutor.
+  const HERE = dirname(fileURLToPath(import.meta.url));
+  const WEB = resolve(HERE, '..');
+  const hits: string[] = [];
+  const walk = (dir: string): void => {
+    for (const name of readdirSync(dir)) {
+      if (name === 'node_modules' || name.startsWith('.')) continue;
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(ts|tsx)$/.test(name) && !/\.test\.(ts|tsx)$/.test(name)) {
+        const code = stripComments(readFileSync(p, 'utf8'));
+        if (/\bbindCleanupExecutor\s*\(/.test(code)) hits.push(relative(WEB, p).split('\\').join('/'));
+      }
+    }
+  };
+  walk(join(WEB, 'lib'));
+  walk(join(WEB, 'app'));
+  // The DEFINITION (cleanup-delete-scope.ts) and the ONE binding (cleanup-delete.ts).
+  assert.deepEqual(hits.sort(), ['lib/cleanup-delete-scope.ts', 'lib/cleanup-delete.ts']);
+  const exec = stripComments(readFileSync(join(WEB, 'lib/cleanup-delete.ts'), 'utf8'));
+  assert.match(exec, /bindCleanupExecutor\(r2Delete\)/, 'the executor is no longer bound to the real R2 delete');
+  assert.equal((exec.match(/\br2Delete\b/g) ?? []).length, 2, 'lib/cleanup-delete.ts names r2Delete somewhere other than its import and its one binding');
 });

@@ -350,6 +350,48 @@ export function refBelongsToRow(ref: unknown, scope: CleanupScope): boolean {
   return planCleanupDelete(ref, scope).ok;
 }
 
+// ─── The executor, bound to its raw delete ─────────────────────────────────
+//
+// The executing half lives HERE, parameterised by the raw delete, so the rule
+// "only a planner-minted target reaches storage" is a unit test with a fake
+// deleter rather than a source scan. `lib/cleanup-delete.ts` binds it to
+// `r2Delete` and is the ONLY file that does (the caller scan in
+// every-cleanup-delete-is-pinned.test.ts refuses any other file naming r2Delete).
+
+/** The raw storage delete an executor is bound to — `r2Delete` in production. */
+export type RawObjectDelete = (args: { bucket: R2BucketName; key: string }) => Promise<unknown>;
+
+export type CleanupExecutor = {
+  /**
+   * Delete one object that `planCleanupDelete` already proved. Refuses anything
+   * else — a `{ bucket, key }` built by hand, or a spread copy of a real target,
+   * is not a proof — by THROWING before the raw delete is reached.
+   */
+  executeCleanupDelete(target: PlannedDelete): Promise<void>;
+  /**
+   * Plan + execute in one call. Returns `'refused'` — as DATA, never thrown —
+   * when the ref is not the row's own; the caller must count that and must not
+   * clear the pointer it refused. Throws only when an in-scope delete fails.
+   */
+  cleanupDelete(ref: unknown, scope: CleanupScope): Promise<'deleted' | 'refused'>;
+};
+
+export function bindCleanupExecutor(rawDelete: RawObjectDelete): CleanupExecutor {
+  const executeCleanupDelete = async (target: PlannedDelete): Promise<void> => {
+    if (!isPlannedDelete(target)) {
+      throw new Error('executeCleanupDelete: refused an unplanned delete target');
+    }
+    await rawDelete({ bucket: target.bucket, key: target.key });
+  };
+  const cleanupDelete = async (ref: unknown, scope: CleanupScope): Promise<'deleted' | 'refused'> => {
+    const decision = planCleanupDelete(ref, scope);
+    if (!decision.ok) return 'refused';
+    await executeCleanupDelete(decision.target);
+    return 'deleted';
+  };
+  return { executeCleanupDelete, cleanupDelete };
+}
+
 /** Thrown by adapters that must surface a refusal as an error (erasure audits it). */
 export class CleanupDeleteRefused extends Error {
   constructor(

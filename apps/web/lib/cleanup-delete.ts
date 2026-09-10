@@ -1,11 +1,6 @@
 import 'server-only';
 import { r2Delete } from '@/lib/r2';
-import {
-  isPlannedDelete,
-  planCleanupDelete,
-  type CleanupScope,
-  type PlannedDelete,
-} from '@/lib/cleanup-delete-scope';
+import { bindCleanupExecutor } from '@/lib/cleanup-delete-scope';
 
 /**
  * cleanup-delete.ts — THE ONLY PLACE A CLEANUP JOB MAY DELETE AN R2 OBJECT.
@@ -28,28 +23,14 @@ import {
  */
 
 /**
- * Delete one object that `planCleanupDelete` already proved. Refuses anything
- * else — a `{ bucket, key }` built by hand is not a proof, and the brand it
- * would need is private to the planner's module.
+ * Bound ONCE, here, to the real R2 delete. The refusal of anything the planner
+ * did not mint lives in `bindCleanupExecutor` (lib/cleanup-delete-scope.ts), so
+ * it is proved by `cleanup-delete-scope.test.ts` with a fake deleter.
  */
-export async function executeCleanupDelete(target: PlannedDelete): Promise<void> {
-  if (!isPlannedDelete(target)) {
-    throw new Error('executeCleanupDelete: refused an unplanned delete target');
-  }
-  await r2Delete({ bucket: target.bucket, key: target.key });
-}
+const executor = bindCleanupExecutor(r2Delete);
 
-/**
- * Plan + execute in one call. Returns `'refused'` — as DATA, never thrown — when
- * the ref is not the row's own; the caller must count that and must not clear
- * the pointer it refused. Throws only when an in-scope delete fails.
- */
-export async function cleanupDelete(
-  ref: unknown,
-  scope: CleanupScope,
-): Promise<'deleted' | 'refused'> {
-  const decision = planCleanupDelete(ref, scope);
-  if (!decision.ok) return 'refused';
-  await executeCleanupDelete(decision.target);
-  return 'deleted';
-}
+/** Delete one object that `planCleanupDelete` already proved; refuses anything else. */
+export const executeCleanupDelete = executor.executeCleanupDelete;
+
+/** Plan + execute; `'refused'` as data when the ref is not the row's own. */
+export const cleanupDelete = executor.cleanupDelete;

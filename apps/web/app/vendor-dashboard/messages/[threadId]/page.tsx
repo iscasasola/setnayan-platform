@@ -62,6 +62,8 @@ import {
   fetchPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
+import { confirmVendorPayment } from './pay-confirm-actions';
+import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import {
   VendorOfferService,
@@ -109,7 +111,7 @@ export const metadata = { title: 'Thread · Vendor' };
 
 type Props = {
   params: Promise<{ threadId: string }>;
-  searchParams?: Promise<{ notice?: string }>;
+  searchParams?: Promise<{ notice?: string; view?: string | string[] }>;
 };
 
 const PROPOSAL_NOTICE: Record<string, string> = {
@@ -128,7 +130,10 @@ const PROPOSAL_NOTICE: Record<string, string> = {
 
 export default async function VendorThreadPage({ params, searchParams }: Props) {
   const { threadId } = await params;
-  const noticeKey = (await searchParams)?.notice;
+  const sp = await searchParams;
+  const noticeKey = sp?.notice;
+  // Read on the server so a Decisions link paints Decisions, not the chat.
+  const initialView = parseThreadView(sp?.view);
   const proposalNotice = typeof noticeKey === 'string' ? PROPOSAL_NOTICE[noticeKey] : undefined;
   const supabase = await createClient();
   const {
@@ -1108,6 +1113,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         standing={threadStanding}
         decisionPayments={decisionPayments}
         decisionGuestCounts={decisionGuestCounts}
+        initialView={initialView}
+        // The SAME three actions this page's own sections post to — the
+        // payment-confirm row and the guest-count surcharge card below. One
+        // way to answer each request; Decisions is a second door to it.
+        supplierReplyActions={{
+          confirmPayment: confirmVendorPayment,
+          applySurcharge: acceptPaxSurcharge,
+          holdPrice: declinePaxSurcharge,
+        }}
         lockHandshake={lockHandshake}
       />
 

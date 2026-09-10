@@ -339,7 +339,7 @@ export async function signUp(formData: FormData) {
             ``,
             `What's next:`,
             accountType === 'vendor'
-              ? `• Open ${appUrl}${landingPath} and fill in your business profile — couples search by contact email to find you.`
+              ? `• Open ${appUrl}${landingPath} and fill in your business profile — couples find you on Setnayan and message you there.`
               : `• Open ${appUrl}${landingPath} and create your event.`,
             ``,
             `Need help? ${appUrl}/help`,

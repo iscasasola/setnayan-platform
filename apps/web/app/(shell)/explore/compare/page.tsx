@@ -780,7 +780,8 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                 action row at :2052 (plus a no-duplicate `cinematicHero` check),
                 sticky rail at :2701 (`premiumLayout && bookable`) — and BOTH
                 composers render without ever consulting `contact_email`; only
-                that section's prose paragraph reads it. So a contact_email
+                that section's prose paragraph read it (and since 2026-09-10 not
+                even that — the shop page no longer fetches it at all). So a contact_email
                 gate here would hide a working inquiry path from any verified
                 vendor who simply never typed an address into that box, which is
                 the hiding the owner just ruled out. Every row that reaches this

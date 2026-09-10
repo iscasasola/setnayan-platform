@@ -231,3 +231,17 @@ test('the workspace link always resolves, independent of contact_email', () => {
   );
   assert.equal(workspaceHref, '/dashboard/S89EVT-0000000001/vendors/S89VEN-0000000001/workspace');
 });
+
+test("a supplier ON SETNAYAN never has its address pre-filled — the lock copied the SHOP's email into the row", () => {
+  // Owner 2026-09-10: "our goal is to let them integrate their event with the
+  // vendor they find. not to let them communicate outside the app". A package
+  // lock copies a Setnayan shop's own email into `event_vendors.contact_email`,
+  // and the Messages page prints a prefill in plain sight. So a shop on
+  // Setnayan gets the bare index here (its real way in is the thread opener).
+  const { messagesHref } = hrefsFor(
+    { contact_email: 'shop-owner@example.com', vendor_id: 'S89VEN-0000000001', marketplace_vendor_id: 'S89VPR-1' },
+    'S89EVT-0000000001',
+  );
+  assert.equal(messagesHref, '/dashboard/S89EVT-0000000001/messages');
+  assert.ok(!messagesHref.includes('shop-owner'), "the shop's copied address reached the Messages box");
+});

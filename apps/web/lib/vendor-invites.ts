@@ -265,7 +265,7 @@ export async function fetchClaimLandingByToken(
   if (resolvedInvite.email) {
     const { data: row } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id,business_name,contact_email')
+      .select('vendor_profile_id,business_name')
       .ilike('contact_email', resolvedInvite.email)
       .limit(1)
       .maybeSingle();
@@ -448,7 +448,7 @@ export async function lookupExistingVendorByEmail(
 ): Promise<{ vendor_profile_id: string; business_name: string } | null> {
   const { data } = await supabase
     .from('vendor_profiles')
-    .select('vendor_profile_id,business_name,contact_email')
+    .select('vendor_profile_id,business_name')
     .ilike('contact_email', email.trim())
     .limit(1)
     .maybeSingle();

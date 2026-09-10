@@ -472,6 +472,38 @@ test('the couple’s card shows a change separately, and cannot delete it', () =
   );
 });
 
+test('the card prints BOTH numbers around the changes, from the same arithmetic', () => {
+  // The owner's words were "Both, shown separately": the price they agreed, the
+  // change, and what it is now. The two ends must be the resolver's own parts,
+  // never a subtraction done in the page.
+  const budgetSrc = stripComments(readFileSync(BUDGET_TS, 'utf8'));
+  assert.equal(
+    (budgetSrc.match(/agreedBeforeChanges:\s*agreed\.basePart/g) ?? []).length,
+    2,
+    'both summary builders must carry agreedBeforeChanges straight from basePart — ' +
+      'a second computation of "the price before changes" is how two numbers drift',
+  );
+  const card = stripComments(readFileSync(ITEMIZATION_CARD, 'utf8'));
+  const at = card.indexOf('Changes you both agreed');
+  assert.ok(at >= 0, 'the change section is gone — re-anchor');
+  const end = card.indexOf("{priceSource === 'manual'", at);
+  assert.ok(end > at, 'the change section no longer sits above the manual-entry block — re-anchor');
+  const section = card.slice(at, end);
+  assert.ok(
+    section.includes('Agreed price before changes') && section.includes('{formatPhp(agreedBeforeChangesPhp)}'),
+    'the agreed price before the change is no longer printed beside the change',
+  );
+  assert.ok(
+    section.includes('Agreed total now') && section.includes('{formatPhp(suggestTotalPhp)}'),
+    'the agreed total after the change is no longer printed under it',
+  );
+  assert.ok(
+    card.includes('agreedBeforeChangesPhp={agreedBeforeChanges}') &&
+      card.includes('suggestTotalPhp={itemizedTotal}'),
+    'the section is fed something other than the summary\'s own two parts',
+  );
+});
+
 // ───────────────────────────────────────────────────────────────────────────
 // 7 · AND THE SENTENCE THAT WENT WITH IT
 //

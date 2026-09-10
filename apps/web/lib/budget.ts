@@ -144,6 +144,15 @@ export type VendorBudgetSummary = {
   lineItems: LineItemRow[];
   payments: PaymentRow[];
   itemizedTotal: number;
+  /**
+   * The agreed price BEFORE any change agreed after the lock — `basePart` of
+   * `resolveAgreedTotal`, so `itemizedTotal === agreedBeforeChanges + Σ change
+   * lines` by construction (the same expression, not a second sum). The card
+   * prints it above the "Changes you both agreed" lines so a couple sees the
+   * ₱100,000 they agreed, the −₱15,000 beside it, and the ₱85,000 it now is —
+   * owner 2026-09-09, "Both, shown separately".
+   */
+  agreedBeforeChanges: number;
   paidTotal: number;
   remaining: number;
   /**
@@ -632,6 +641,7 @@ export async function fetchVendorBudgetSummary(
     lineItems: myLineItems,
     payments: myPayments,
     itemizedTotal,
+    agreedBeforeChanges: agreed.basePart,
     paidTotal,
     remaining: Math.max(0, itemizedTotal - paidTotal),
     paymentsMeasured,
@@ -777,6 +787,7 @@ export async function fetchBudgetSnapshot(
       lineItems: myLineItems,
       payments: myPayments,
       itemizedTotal,
+      agreedBeforeChanges: agreed.basePart,
       paidTotal,
       remaining: Math.max(0, itemizedTotal - paidTotal),
       // Honest BY CONSTRUCTION, not by flag: this loader THROWS on any of the

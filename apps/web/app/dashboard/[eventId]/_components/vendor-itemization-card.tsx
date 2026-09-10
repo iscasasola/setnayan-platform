@@ -77,6 +77,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import { SuggestMilestonesButton } from '@/app/dashboard/[eventId]/budget/_components/suggest-milestones-button';
 import { splitVendorLines } from '@/lib/agreed-total-and-its-changes';
+import { pesoLabel } from '@/lib/proposal-amendments';
 import {
   addLineItem,
   deleteLineItem,
@@ -125,6 +126,7 @@ export function VendorItemizationCard({
     lineItems,
     payments,
     itemizedTotal,
+    agreedBeforeChanges,
     paidTotal,
     priceSource,
     vendorControlledItems,
@@ -221,10 +223,8 @@ export function VendorItemizationCard({
           lineItems={lineItems}
           eventId={eventId}
           vendorId={vendor.vendor_id}
-          // 🚪 Only an OFF-platform supplier's couple-typed address (see prefillEmail
-          // in SupplierReachLinks below for why).
-          vendorContactEmail={vendor.marketplace_vendor_id ? null : vendor.contact_email}
           suggestTotalPhp={itemizedTotal}
+          agreedBeforeChangesPhp={agreedBeforeChanges}
         />
         <PaymentSection
           payments={payments}
@@ -529,16 +529,18 @@ function LineItemSection({
   lineItems,
   eventId,
   vendorId,
-  vendorContactEmail,
   suggestTotalPhp,
+  agreedBeforeChangesPhp,
 }: {
   priceSource: VendorPriceSource;
   vendorControlledItems: VendorControlledLineItem[];
   lineItems: LineItemRow[];
   eventId: string;
   vendorId: string;
-  vendorContactEmail: string | null;
+  /** The supplier's agreed total NOW — `itemizedTotal`, changes included. */
   suggestTotalPhp: number;
+  /** The agreed price before any change — `agreedBeforeChanges`. */
+  agreedBeforeChangesPhp: number;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
   // ── A CHANGE IS SHOWN SEPARATELY (owner 2026-09-09) ──────────────────────
@@ -597,17 +599,24 @@ function LineItemSection({
             This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear
             here once they publish it.
           </p>
-          <Link
-            href={
-              vendorContactEmail
-                ? `/dashboard/${eventId}/messages?prefill_vendor_email=${encodeURIComponent(vendorContactEmail)}`
-                : `/dashboard/${eventId}/messages`
-            }
-            className="inline-flex items-center gap-1.5 rounded-md border border-warn-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-warn-900 hover:border-warn-500 hover:text-warn-950"
-          >
-            <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Ask them for pricing
-          </Link>
+          {/* 💬 "ASK THEM" OPENS THE CONVERSATION WITH THEM (2026-09-11). It used to
+              be a link to the Messages LIST — prefilled with the supplier's
+              address only if the couple had typed one. This box renders only for
+              'pending', which is only ever a supplier ON Setnayan, and since
+              2026-09-10 such a supplier's copied address is never prefilled, so
+              the link could never reach them: it dropped the couple on a list
+              and left them to find the thread. The shipped thread opener (the
+              same one as "Message" above) opens or resumes THIS supplier's
+              conversation for this event, deduped server-side, so a tap can
+              never start a second thread. */}
+          <ContactShortlistVendorButton
+            eventId={eventId}
+            vendorId={vendorId}
+            label="Ask them for pricing"
+            pendingLabel="Opening…"
+            wrapperClassName=""
+            className="inline-flex items-center gap-1.5 rounded-md border border-warn-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-warn-900 hover:border-warn-500 hover:text-warn-950 disabled:opacity-60"
+          />
         </div>
       ) : null}
 
@@ -665,6 +674,18 @@ function LineItemSection({
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             Changes you both agreed
           </p>
+          {/* 🔢 BOTH NUMBERS, AND THE SUM BETWEEN THEM (owner 2026-09-09, "Both,
+              shown separately"). The price they agreed first, each change on its
+              own line, and what it is now — so ₱100,000, −₱15,000, ₱85,000 reads
+              as arithmetic on one screen instead of a number that silently moved.
+              Both ends come from `resolveAgreedTotal` (basePart and agreed), so
+              the three rows cannot disagree with the Budget figure above. */}
+          <div className="flex items-center justify-between gap-2 px-3 text-sm text-ink/70">
+            <span>Agreed price before changes</span>
+            <span className="font-mono text-sm font-semibold tabular-nums text-ink/70">
+              {formatPhp(agreedBeforeChangesPhp)}
+            </span>
+          </div>
           <ul className="space-y-1.5">
             {changeLines.map((li) => (
               <li
@@ -686,12 +707,18 @@ function LineItemSection({
                     the budget and the change-order trail — which keeps saying
                     "accepted" — back into disagreement, which is the whole
                     defect. The way to undo a change is another change. */}
-                <span className="font-mono text-sm font-semibold text-ink">
-                  {formatPhp(li.amount_php)}
+                <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                  {pesoLabel(Number(li.amount_php))}
                 </span>
               </li>
             ))}
           </ul>
+          <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-3 pt-2 text-sm">
+            <span className="font-medium text-ink">Agreed total now</span>
+            <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+              {formatPhp(suggestTotalPhp)}
+            </span>
+          </div>
         </div>
       ) : null}
 

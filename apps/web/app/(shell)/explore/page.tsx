@@ -652,7 +652,8 @@ type VendorCardRow = {
   location_city: string | null;
   hq_latitude: number | null;
   hq_longitude: number | null;
-  contact_email: string | null;
+  // No contact_email (2026-09-10): the marketplace never rendered it, and a
+  // public page that never fetches a shop's address can never print it.
   public_visibility: VendorPublicVisibility;
   created_at: string;
   // Iteration 0006 — sourced from vendor_market_stats view (see migration
@@ -1715,7 +1716,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // Phase C sort-leak fix: `is_setnayan_service` is now SELECTED (it was
       // only used in .order() before) so the in-memory rating/review re-sort
       // below can preserve the first-party float precedence explicitly.
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service,verification_state',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service,verification_state',
       { count: 'exact' },
     )
     .in('public_visibility', allowedVisibilities as readonly string[])

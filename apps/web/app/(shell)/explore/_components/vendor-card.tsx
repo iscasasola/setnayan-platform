@@ -93,7 +93,6 @@ export type VendorCardData = {
   location_city: string | null;
   hq_latitude: number | null;
   hq_longitude: number | null;
-  contact_email: string | null;
   public_visibility: VendorPublicVisibility;
   created_at: string;
   avg_rating_overall: number;

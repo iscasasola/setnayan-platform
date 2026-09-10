@@ -173,8 +173,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           </SubmitButton>
         </form>
         <p className="mt-2 text-xs text-ink/55">
-          The vendor must already have a Setnayan vendor account with this email on their
-          profile. New thread or resume an existing one — Setnayan keeps one per pair.
+          Works when the email you have is the one on their Setnayan shop. New thread or
+          resume an existing one — Setnayan keeps one per pair.
         </p>
       </section>
 
@@ -187,10 +187,15 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           />
           <p className="text-sm font-medium text-ink">No conversations yet.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            Start a thread with the form above. You&rsquo;ll need the vendor&rsquo;s
-            contact email — the same one they listed on their Setnayan vendor profile.
-            Already tracking a vendor on the Vendors page? Their contact email is
-            on their card.
+            {/* 🚪 Corrected 2026-09-10. This said the email is "the same one
+                they listed on their Setnayan vendor profile" and "on their
+                card" — neither shows a shop's email any more (owner: "not to let
+                them communicate outside the app"). The way to reach a shop on
+                Setnayan is its Message / Inquire button, which opens the
+                conversation here. */}
+            The easiest way to start is from the shop itself: tap Message on a
+            supplier in your Vendors list, or Inquire on any shop&rsquo;s page — the
+            conversation opens right here.
           </p>
           <div className="mt-4">
             <Link

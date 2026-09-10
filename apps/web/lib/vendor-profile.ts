@@ -113,6 +113,41 @@ export type VendorProfileRow = {
   updated_at: string;
 };
 
+/**
+ * WHERE A SHOP READS ITS OWN ROW — `public.vendor_profiles_self`, never the
+ * table (migration 20271217955839).
+ *
+ * `authenticated` no longer holds table-level SELECT on `vendor_profiles`: the
+ * eleven tax / registration / owner-identity columns are off its column
+ * allowlist, because RLS filters ROWS and can never hide a COLUMN, so every
+ * signed-in account could read every verified shop's TIN, registered address,
+ * DTI/SEC number and owner's legal name. Column privileges are ROLE-level, so
+ * the same revoke takes those columns away from the shop ITSELF.
+ *
+ * 🚨 AND THE BREAK WOULD HAVE BEEN SILENT, WHICH IS WHY THIS CONSTANT EXISTS
+ * INSTEAD OF A LITERAL. `selectVendorProfileBy` retries against
+ * LEGACY_VENDOR_PROFILE_SELECT on ANY error and back-fills
+ * `business_owner_name: null` a few lines below. Pointed at the table, a 42501
+ * on `business_owner_name` therefore does NOT surface: the FULL select fails,
+ * the LEGACY one succeeds, and the shop's own dashboard quietly reports the
+ * owner name as missing — `businessProfileChecklist` then asks the supplier to
+ * type in a name we are already holding.
+ *
+ * The view is a DEFINER view whose WHERE mirrors the two policies that govern
+ * this today, `vendor_profiles_owner` (user_id = auth.uid()) and
+ * `vendor_profiles_member_read` (current_vendor_ids('viewer')) — so it widens
+ * nothing and narrows nothing. Both filter shapes this function uses
+ * (`user_id` and `vendor_profile_id`) are projected.
+ *
+ * ⚠ ONLY VALID ON A SESSION CLIENT. The view resolves `auth.uid()`, which is
+ * NULL on the service-role client, so an admin-client caller would read ZERO
+ * rows — a silent empty, not an error. Every caller of `fetchOwnVendorProfile`
+ * was checked (131 of them, all passing the request-scoped `supabase`). If you
+ * ever need this data service-role, read `vendor_profiles` directly with an
+ * explicit owner filter, exactly as `api/profile/export/route.ts` does.
+ */
+const SELF_SOURCE = 'vendor_profiles_self';
+
 // Iteration 0043 — graceful fallback when the compatibility columns aren't
 // yet in the database (migration 20260521000000 pending push). The legacy
 // SELECT excludes them so the page can render against pre-0043 schemas;
@@ -146,7 +181,7 @@ async function selectVendorProfileBy(
   value: string,
 ): Promise<Record<string, unknown> | null> {
   const { data, error } = await supabase
-    .from('vendor_profiles')
+    .from(SELF_SOURCE)
     .select(FULL_VENDOR_PROFILE_SELECT)
     .eq(column, value)
     .maybeSingle();
@@ -165,7 +200,7 @@ async function selectVendorProfileBy(
     error_message: error.message,
   });
   const fallback = await supabase
-    .from('vendor_profiles')
+    .from(SELF_SOURCE)
     .select(LEGACY_VENDOR_PROFILE_SELECT)
     .eq(column, value)
     .maybeSingle();

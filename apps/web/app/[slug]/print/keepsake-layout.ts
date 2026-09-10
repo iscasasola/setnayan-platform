@@ -139,3 +139,64 @@ export function splitChapters(
   const back = hasBack ? withMedia.slice(FRONT_CHAPTER_CAP) : [];
   return { front, back };
 }
+
+// ============================================================================
+// A4 booklet — one page per minute of the story timeline
+// ============================================================================
+//
+// The A4 format is the OPPOSITE editorial choice from the A3 broadsheet: no
+// curation, no front/back overflow threshold, no FRONT_CHAPTER_CAP. Every
+// written minute (`EditorialData['dayChapters']`, already ordered — see
+// data.ts's own note that a chapter's `time` "places" it on the story's
+// clock) gets its own page, in order, full stop. A minute with no media still
+// gets its page (a title/writeUp-only minute is still a minute); only the
+// pagination guard test cares that the count matches exactly.
+
+import type { DayChapter } from '../_components/editorial/data';
+
+/**
+ * ── THE EXTENSION SEAM ───────────────────────────────────────────────────
+ * A future step lets a couple hand-arrange a bespoke sheet for one or more
+ * adjacent minutes (a spread that replaces the mechanical one-minute-per-page
+ * default — e.g. a hand-laid ceremony spread covering three consecutive
+ * minutes on one sheet). That step is NOT built here. What IS built is the
+ * seam it plugs into: `A4PageResolver` is the one function that turns the
+ * day's ordered minutes into pages, and `buildA4Pages` takes one as an
+ * optional argument instead of hardcoding the one-minute-per-page rule
+ * inline. The default resolver is the only one that exists today.
+ */
+export type A4PageSource =
+  | { kind: 'minute'; chapter: DayChapter }
+  | { kind: 'arranged'; sheetId: string; chapters: DayChapter[] };
+
+export interface A4PageResolver {
+  /** Turn the day's ordered minutes into the pages that get printed. The
+   *  default resolver is 1:1 — every minute is exactly one page, in order.
+   *  A resolver that hand-arranges some minutes onto a shared sheet must
+   *  still return every input chapter exactly once, across all pages, in
+   *  their original relative order — that invariant is what the pagination
+   *  guard test checks, so a future resolver is held to it automatically. */
+  resolve(chapters: readonly DayChapter[]): A4PageSource[];
+}
+
+/** The only resolver that exists today: one page per minute, in order. */
+export function defaultA4PageResolver(chapters: readonly DayChapter[]): A4PageSource[] {
+  return chapters.map((chapter) => ({ kind: 'minute', chapter }));
+}
+
+/**
+ * Build the A4 booklet's pages from the (already-gated, already-redacted)
+ * editorial data. `resolver` defaults to the mechanical one-minute-per-page
+ * rule; passing a different one is the seam a future hand-arranged-sheet step
+ * uses — nothing today passes anything else.
+ *
+ * Typed on the ONE field this needs (`dayChapters`), not the whole
+ * `EditorialData` — this is a pure layout function and a test fixture for it
+ * should not have to fabricate 60 unrelated fields to get one right.
+ */
+export function buildA4Pages(
+  data: Pick<EditorialData, 'dayChapters'>,
+  resolver: A4PageResolver = { resolve: defaultA4PageResolver },
+): A4PageSource[] {
+  return resolver.resolve(data.dayChapters);
+}

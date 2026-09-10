@@ -111,7 +111,9 @@ export function AnonInquiryComposer({
       return;
     }
     if (!signedInNoEvent && !EMAIL_RE.test(email.trim())) {
-      setError('Please enter a valid email so the vendor can reply.');
+      // The address becomes their Setnayan sign-in (it pre-fills /signup) —
+      // the shop replies in the Setnayan inbox, never to this address.
+      setError('Please enter a valid email — it becomes your Setnayan sign-in, where their reply will wait for you.');
       return;
     }
     // Only enforced when we actually asked — an empty vocab keeps the old

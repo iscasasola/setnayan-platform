@@ -29,6 +29,7 @@ import {
   type RandomMoodboardPrompt,
 } from '@/lib/higgsfield-prompts';
 import type { ColorRangeMap } from './_components/color-range-manipulator';
+import { libraryAssetObjectKeyForAdminDelete } from '@/lib/moodboard-library-key';
 
 const BUCKET = 'moodboard-library';
 
@@ -261,12 +262,28 @@ export async function deleteAsset(assetId: string): Promise<void> {
   await requireAdmin();
   const admin = createAdminClient();
 
-  // Get storage_path so we can remove the object after the row goes
+  // Get storage_path so we can remove the object after the row goes — and
+  // WHO uploaded it, because that decides which objects the path may name.
   const { data: row } = await admin
     .from('moodboard_library_assets')
-    .select('storage_path')
+    .select('storage_path, uploaded_by')
     .eq('asset_id', assetId)
     .maybeSingle();
+
+  // 🔒 The path is a column a stylist can PATCH on their own row, so it is
+  // held to what that row's uploader could legitimately have filed (2026-09-10):
+  // a stylist's own folder, or — only for a non-vendor uploader — one of the
+  // admin action's root objects. A read failure counts as "vendor", towards
+  // keeping the file. See lib/moodboard-library-key.ts.
+  let uploaderIsVendor = true;
+  if (row?.uploaded_by) {
+    const { data: uploader, error: uploaderErr } = await admin
+      .from('users')
+      .select('account_type')
+      .eq('user_id', row.uploaded_by)
+      .maybeSingle();
+    uploaderIsVendor = Boolean(uploaderErr) || !uploader || uploader.account_type === 'vendor';
+  }
 
   const { error: delErr } = await admin
     .from('moodboard_library_assets')
@@ -275,8 +292,12 @@ export async function deleteAsset(assetId: string): Promise<void> {
   if (delErr) throw new Error(`delete failed: ${delErr.message}`);
 
   if (row?.storage_path) {
-    const key = row.storage_path.replace(`${BUCKET}/`, '');
-    await admin.storage.from(BUCKET).remove([key]);
+    const key = libraryAssetObjectKeyForAdminDelete(row.storage_path, row.uploaded_by, uploaderIsVendor);
+    if (key) {
+      await admin.storage.from(BUCKET).remove([key]);
+    } else {
+      console.warn('[admin/moodboard-library] REFUSED to remove an object its row’s uploader could not have filed — kept', { assetId });
+    }
   }
 
   revalidatePath('/admin/moodboard-library');

@@ -31,7 +31,7 @@ const ALL_STATES: LockRequestState[] = [
 test('only a REAL booking may say "Deal locked"', () => {
   for (const viewerRole of ROLES) {
     for (const state of ALL_STATES) {
-      const line = lockFreezeLine({ state, viewerRole });
+      const line = lockFreezeLine({ state, viewerRole, priceFrozen: true });
       if (state === 'locked') {
         assert.match(line.text, BOOKED_WORDS, `${viewerRole}/${state} should say it`);
         assert.equal(line.tone, 'booked');
@@ -52,11 +52,13 @@ test('an ASK says nothing is booked yet, to BOTH people, in their own words', ()
     state: 'requested',
     viewerRole: 'couple',
     counterpartyLabel: 'Villa Catering',
+    priceFrozen: true,
   });
   const vendor = lockFreezeLine({
     state: 'requested',
     viewerRole: 'vendor',
     counterpartyLabel: 'Maria & Jose',
+    priceFrozen: true,
   });
 
   assert.equal(couple.tone, 'waiting');
@@ -80,12 +82,13 @@ test('an ask still running shows the supplier how long they have', () => {
     viewerRole: 'vendor',
     expiresAt: '2026-09-10T05:00:00Z',
     now,
+    priceFrozen: true,
   });
   assert.match(line.text, /5 hours left to answer/i);
 });
 
 test('no deadline read ⇒ no countdown invented', () => {
-  const line = lockFreezeLine({ state: 'requested', viewerRole: 'couple', expiresAt: null });
+  const line = lockFreezeLine({ state: 'requested', viewerRole: 'couple', expiresAt: null, priceFrozen: true });
   assert.doesNotMatch(line.text, /left to answer/i);
 });
 
@@ -94,7 +97,7 @@ test('UNKNOWN degrades to a sentence that is true everywhere, never to the lie',
   // booking row, the handshake flag off — all land here.
   for (const viewerRole of ROLES) {
     for (const state of [undefined, null] as const) {
-      const line = lockFreezeLine({ state, viewerRole });
+      const line = lockFreezeLine({ state, viewerRole, priceFrozen: true });
       assert.equal(line.tone, 'frozen');
       assert.doesNotMatch(line.text, BOOKED_WORDS);
       assert.match(line.text, /frozen/i);
@@ -103,23 +106,23 @@ test('UNKNOWN degrades to a sentence that is true everywhere, never to the lie',
 });
 
 test('a closed ask says so, and tells the couple they can move on', () => {
-  const declined = lockFreezeLine({ state: 'declined', viewerRole: 'couple' });
+  const declined = lockFreezeLine({ state: 'declined', viewerRole: 'couple', priceFrozen: true });
   assert.equal(declined.tone, 'closed');
   assert.match(declined.text, /pick someone else/i);
 
-  const expired = lockFreezeLine({ state: 'expired', viewerRole: 'couple' });
+  const expired = lockFreezeLine({ state: 'expired', viewerRole: 'couple', priceFrozen: true });
   assert.equal(expired.tone, 'closed');
   assert.match(expired.text, /ask again/i);
 
-  const cancelled = lockFreezeLine({ state: 'cancelled', viewerRole: 'vendor' });
+  const cancelled = lockFreezeLine({ state: 'cancelled', viewerRole: 'vendor', priceFrozen: true });
   assert.equal(cancelled.tone, 'closed');
   assert.match(cancelled.text, /nothing is booked/i);
 });
 
 test('with no label, each side still gets a readable noun', () => {
   assert.match(
-    lockFreezeLine({ state: 'requested', viewerRole: 'couple' }).text,
+    lockFreezeLine({ state: 'requested', viewerRole: 'couple', priceFrozen: true }).text,
     /the supplier/i,
   );
-  assert.match(lockFreezeLine({ state: 'requested', viewerRole: 'vendor' }).text, /the couple/i);
+  assert.match(lockFreezeLine({ state: 'requested', viewerRole: 'vendor', priceFrozen: true }).text, /the couple/i);
 });

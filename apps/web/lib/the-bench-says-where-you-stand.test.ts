@@ -54,6 +54,7 @@ const PAGE = 'app/dashboard/[eventId]/vendors/page.tsx';
 /** The conversation's Decisions view — renders the same sentence (2026-09-09). */
 const DECISIONS_VIEW = 'app/_components/chat-thread-views.tsx';
 const THREAD_PAGE = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
+const SUPPLIER_THREAD_PAGE = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const ALL_STAGES: ThreadStage[] = ['inquiry', 'quoted', 'booked', 'completed', 'cancelled'];
@@ -315,19 +316,21 @@ test('🔑 13 · the sentence is derived in ONE module and nowhere else', () => 
       // derivation, which is what this assertion exists to stop. The page
       // computes no sentence of its own; it passes facts in and hands the
       // result to `standingSentence`.
-      //
-      // ⚠ The SUPPLIER's thread page is deliberately NOT on this list. The
-      // sentence speaks in the couple's second person ("waiting on you" means
-      // the couple owes the answer), so it is not merely unused there — it
-      // would be backwards. See the note in that page.
       'app/dashboard/[eventId]/messages/[threadId]/page.tsx',
+      // ── ADDED 2026-09-10 · the supplier's own thread page ────────────────
+      // Kept OFF this list until the sentence could be read in the supplier's
+      // voice — rendered unchanged it said "waiting on you" about a quote the
+      // supplier was waiting on. It now passes `viewer: 'vendor'` to the SAME
+      // function; the subject turns around inside the module, so this is a
+      // fourth call site of one derivation, not a supplier copy of it.
+      'app/vendor-dashboard/messages/[threadId]/page.tsx',
     ].sort(),
     'the sentence is being derived somewhere new. Render the one that already exists; do not compute a second.',
   );
   // And no surface hand-types the sentence's own words instead of rendering it.
   // DECISIONS is on this list from the day it shipped: it is the newest place
   // the sentence appears and therefore the likeliest to grow a hand-typed copy.
-  for (const rel of [BENCH, PAGE, DECISIONS_VIEW, THREAD_PAGE]) {
+  for (const rel of [BENCH, PAGE, DECISIONS_VIEW, THREAD_PAGE, SUPPLIER_THREAD_PAGE]) {
     const src = read(rel);
     for (const phrase of ['waiting on you', 'No reply ·', 'Replied yesterday', 'suppliers replied']) {
       assert.ok(

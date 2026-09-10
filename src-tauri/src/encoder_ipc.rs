@@ -25,13 +25,18 @@
 //! `probe_ipc` (src/probe.rs) is the S0 spike harness: debug-only, prints to
 //! stdout, runs a loopback listener — a diagnostic tool, not product surface.
 //! `encoder_probe` ships in EVERY build. The go-live guard
-//! (`lib/live-studio-ingest-health.ts`'s `transportEnvelope` input, fed by
-//! `apps/web/lib/encoder/go-live-guard.ts`) calls it ONCE before
-//! `encoder_start` to record which envelope actually carried the call on this
-//! machine, right now — never to refuse go-live merely because the answer is
-//! `json` (see `Envelope::is_zero_copy`'s own docblock: a guard that refused
-//! on `JsonArray` alone would refuse every macOS user, which is the precise
-//! mistake S0 caught in this task's own original wording).
+//! (`apps/web/lib/encoder/go-live-guard.ts`, which feeds
+//! `lib/live-studio-ingest-health.ts`'s `transportEnvelope` input) calls it
+//! ONCE before `encoder_start` to record which envelope actually carried the
+//! call on this machine, right now — never to refuse go-live merely because
+//! the answer is `json` (see `Envelope::is_zero_copy`'s own docblock: a guard
+//! that refused on `JsonArray` alone would refuse every macOS user, which is
+//! the precise mistake S0 caught in this task's own original wording).
+//!
+//! ⚠ UNTIL 2026-09-10 THAT GUARD FILE DID NOT EXIST. This paragraph cited it
+//! from S5 onward while `find . -name "go-live-guard*"` returned nothing, so
+//! the transport was never probed. S19 created it at exactly this path. A
+//! docblock that names a file is a claim about the tree — check it resolves.
 //!
 //! ── ACL / TOKEN (S5.md § ACL) ────────────────────────────────────────────────
 //! `capabilities/default.json` grants `allow-encoder-{start,config,push,stop}`

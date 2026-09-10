@@ -116,7 +116,37 @@ export function ServiceCardFace({
           <span>Not included: {snap.notIncluded.join(' · ')}</span>
         </p>
       ) : null}
-      {snap.hasExclusive ? (
+      {/*
+        ⚖ TWO PROMISES, NEVER MERGED INTO ONE LINE.
+
+        `givesSetnayanGift` is the yes/no the supplier answers about the
+        SETNAYAN gift — Papic credits, sized at 40% of the booking fee and
+        charged to them (owner 2026-09-09). `hasExclusive` is the retired
+        free-text field, which two live cards still promise through: "Free
+        1-hour extension for Setnayan couples" and "FREE". Those are the
+        SUPPLIER'S own words about their OWN service and cost Setnayan nothing.
+
+        Rendering one line for both would either bill two suppliers for a gift
+        they never chose, or print the supplier's private wording as if we sized
+        it. They stay two branches, and the gift wins when a card somehow has
+        both, because it is the one Setnayan stands behind.
+
+        🔒 NO NUMBER HERE, EVER. The photo count is a function of the agreed
+        price, which does not exist while a card is being advertised — a figure
+        printed here could be broken by a lower quote and honouring it would
+        breach the 40% ceiling. The count belongs on the QUOTE (owner: "papic
+        credits will be auto computed based on what they pay"). Any future edit
+        that puts a quantity on this line is a bug, not an improvement.
+      */}
+      {snap.givesSetnayanGift ? (
+        <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }}>
+          <Gift aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+          <span>
+            Includes a Setnayan gift — free Papic photos for your celebration,
+            sized to the booking
+          </span>
+        </p>
+      ) : snap.hasExclusive ? (
         <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }}>
           <Lock aria-hidden className="h-3 w-3" strokeWidth={1.75} />
           Setnayan Exclusive inside · unlocked in chat

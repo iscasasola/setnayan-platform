@@ -300,7 +300,12 @@ export async function submitApplication(formData: FormData): Promise<void> {
   // on file. Soft-probe so a pre-migration DB degrades to "not present" rather
   // than crashing; a collided number keeps raw (needs_review) → still counts.
   const { data: regRow } = await supabase
-    .from('vendor_profiles')
+    // `vendor_profiles_self` (migration 20271217955839), never the table:
+    // `registration_number_raw` is off `authenticated`'s column allowlist and the
+    // `.then` below turns any error into `data: null`. Read off the table, this
+    // would HARD-BLOCK every shop from ever submitting verification, with a
+    // message telling them to supply a number they already supplied.
+    .from('vendor_profiles_self')
     .select('registration_number_raw')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle()

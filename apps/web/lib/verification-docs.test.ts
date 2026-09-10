@@ -28,6 +28,8 @@ import {
   documentReferenceCount,
   foldReferenceReads,
   readReferenceSource,
+  readAllReferenceSources,
+  buildVerificationDocsReportWith,
   referenceSelectColumns,
   type ReferenceQueryClient,
   type ReferenceQueryResult,
@@ -830,56 +832,13 @@ test('5 · the normal case still works — nothing above disarmed the feature', 
 // ── The server half is now FETCH ONLY ───────────────────────────────────────
 //
 // ⚠ HONEST LIMIT, stated rather than left standing as though it were a guard:
-// this ONE assertion still reads source, because "the untestable module makes no
-// decision" is a claim about ABSENCE and absence has no behaviour to call. It is
-// a structural bill, not a behavioural guard — everything the module used to
-// decide is covered by the tests above, which CALL it.
+// "the untestable module makes no decision" is a claim about ABSENCE, and
+// absence has no behaviour to call. The bill that carries it now pins that
+// module's WHOLE body rather than enumerating forbidden spellings — see
+// `R5 · the server module has NO body of its own beyond the pin` at the foot of
+// this file, and the four `R5 ·` behavioural tests beside it that CALL the pure
+// entry points the module delegates to.
 
-test('the server module decides nothing — it fetches and delegates', () => {
-  const SERVER = readFileSync(join(HERE, 'verification-docs-server.ts'), 'utf8');
-  const stripped = SERVER.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  for (const helper of [
-    'foldReferenceReads(',
-    'buildVerificationDocsReportFrom(',
-    'readReferenceSource(',
-    'VERIFICATION_REFERENCE_SOURCES',
-  ]) {
-    assert.ok(stripped.includes(helper), `${helper} must be where the decision comes from`);
-  }
-  assert.doesNotMatch(
-    stripped,
-    /typeof value === 'string'/,
-    'the string-only filter is the bug; it must not come back',
-  );
-  // 🔴 ROUND 3 · the query itself must NOT be built here any more. Both
-  // mutations that stayed green at 55/55 — the shifted range window and the
-  // deleted `.order()` — were possible only because this untestable module
-  // built its own query. It has none now, and these three absences are what
-  // keeps it that way.
-  for (const built of ['.range(', '.order(', '.select(']) {
-    assert.equal(
-      stripped.includes(built),
-      false,
-      `${built} must be built in the pure module, where a fake client can record it`,
-    );
-  }
-  assert.doesNotMatch(
-    stripped,
-    /referencesComplete: true/,
-    'completeness must be MEASURED by the paging, never asserted',
-  );
-  // 🔴 ROUND 4 · the three conditions round 3 put BACK into this file. Each was
-  // sabotaged with the suite GREEN at 72/72 before they moved out. They are
-  // `foldReferenceReads` now, which is CALLED by the four tests below this one —
-  // these absences are the structural half, never the behavioural guard.
-  for (const decided of ['if (', 'complete =', '&&']) {
-    assert.equal(
-      stripped.includes(decided),
-      false,
-      `\`${decided}\` is a decision, and a decision in this file is one nothing can guard`,
-    );
-  }
-});
 
 
 
@@ -1502,4 +1461,273 @@ test('docs-inflation · a stored LINK whose path looks like a key DOES count —
     true,
     'and a file nothing names is still deletable — the ceiling is narrow, not a hole',
   );
+});
+
+// ── ROUND 5 · THE BILL OVER THE UNTESTABLE MODULE IS DERIVED, NOT ENUMERATED ─
+//
+// 🛑 **ROUND 4'S BILL WAS A DENY-LIST OF THREE LITERALS (`if (`, `complete =`,
+// `&&`) AND TWO REVIEWERS EACH WALKED PAST IT ON THEIR FIRST TRY.** This repo's
+// own rule says a deny-list is a bill you have to keep paying, and this page has
+// now paid it four times. What got past it:
+//   · X1 — the fold's verdict destructured and re-shaped on the way out, using
+//     `||` so all three forbidden literals miss it. Needle 1 → 0, added 0 → 1,
+//     suite GREEN at 85/85.
+//   · X2 — `referencesComplete: complete` → `referencesComplete: Boolean(1)`,
+//     one token away from the exact literal `referencesComplete: true` that the
+//     bill DID forbid. Needle 1 → 0, added 0 → 1, GREEN at 85/85.
+//   · X3 — `referenceError,` → `referenceError: null,`. GREEN at 85/85.
+//   · X4 — `foldReferenceReads(reads)` → `foldReferenceReads([])`. GREEN.
+//
+// ⚖ **SO THE BILL IS NOW A WHITELIST OF THE WHOLE BODY, NOT A LIST OF FORBIDDEN
+// SPELLINGS.** The module's entire comment-stripped, whitespace-normalised text
+// is pinned against `SERVER_BODY_PIN` below. There is no "new spelling" to find:
+// ANY edit fails, and whoever makes it has to update the pin deliberately, which
+// is the point — the design rule for that file is that nothing goes in it.
+//
+// ⚠ WHAT THIS STILL CANNOT CATCH, stated rather than implied: an edit made
+// *together with* a matching edit to the pin. That is a deliberate act with a
+// diff a reviewer reads, which is the strongest thing available for a module no
+// test can load. It also does NOT prove the two calls below behave — the four
+// `R5 ·` tests underneath do that, by CALLING the pure entry points the module
+// now delegates to.
+
+/** Comment-stripped, whitespace-normalised — the shape both sides are compared in. */
+function normaliseModuleBody(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * The ENTIRE body `verification-docs-server.ts` is allowed to have.
+ *
+ * 🔑 Read it as the design rule it encodes: a client, a listing closure, and one
+ * `return` each. No loop, no condition, no destructuring, no object literal, no
+ * `try/catch`. Every one of those has been a live defect on this page.
+ */
+const SERVER_BODY_PIN = `
+import 'server-only';
+
+import { R2_BUCKETS, r2List } from '@/lib/r2';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  VERIFICATION_PREFIX,
+  buildVerificationDocsReportWith,
+  readAllReferenceSources,
+  type ReferenceQueryClient,
+  type VerificationDocsReport,
+} from '@/lib/verification-docs';
+
+export type { VerificationDocsReport };
+
+const REFERENCE_PAGE_SIZE = 500;
+
+export async function referencedVerificationKeys(): Promise<{
+  keys: Set<string>;
+  error: string | null;
+  complete: boolean;
+}> {
+  return readAllReferenceSources(createAdminClient() as unknown as ReferenceQueryClient, {
+    pageSize: REFERENCE_PAGE_SIZE,
+  });
+}
+
+export async function buildVerificationDocsReport(): Promise<VerificationDocsReport> {
+  return buildVerificationDocsReportWith({
+    client: createAdminClient() as unknown as ReferenceQueryClient,
+    listObjects: () =>
+      r2List({ bucket: R2_BUCKETS.vendorVerification, prefix: VERIFICATION_PREFIX }),
+    pageSize: REFERENCE_PAGE_SIZE,
+  });
+}
+`;
+
+test('R5 · the server module delegates — the pure entry points are named there', () => {
+  const SERVER = readFileSync(join(HERE, 'verification-docs-server.ts'), 'utf8');
+  const stripped = normaliseModuleBody(SERVER);
+  // Positive first, purely so a failure reads as a sentence before the exact
+  // pin below prints a diff of the whole file.
+  for (const helper of ['readAllReferenceSources(', 'buildVerificationDocsReportWith(']) {
+    assert.ok(stripped.includes(helper), `${helper} must be where the work comes from`);
+  }
+  // And the two shapes this page shipped broken, kept as named regressions.
+  assert.doesNotMatch(
+    stripped,
+    /typeof value === 'string'/,
+    'the string-only filter is the bug; it must not come back',
+  );
+  assert.doesNotMatch(
+    stripped,
+    /referencesComplete/,
+    'completeness must be MEASURED by the paging, never named here',
+  );
+});
+
+test('R5 · the server module has NO body of its own beyond the pin', () => {
+  const SERVER = readFileSync(join(HERE, 'verification-docs-server.ts'), 'utf8');
+  assert.equal(
+    normaliseModuleBody(SERVER),
+    normaliseModuleBody(SERVER_BODY_PIN),
+    [
+      'verification-docs-server.ts is a module no node:test can load, so its whole',
+      'body is pinned rather than a list of forbidden spellings being enumerated.',
+      'If you MEANT to change it, update SERVER_BODY_PIN in the same commit and say',
+      'in the PR what new thing that file now decides — five rounds of this page say',
+      'the answer is usually that it should live in verification-docs.ts instead.',
+    ].join(' '),
+  );
+});
+
+// ── ROUND 5 · THE LOOP AND THE ASSEMBLY, CALLED RATHER THAN READ ────────────
+
+test('R5 · EVERY reference source is actually read — the worst seam on this page', async () => {
+  // X0: `for (const source of VERIFICATION_REFERENCE_SOURCES)` →
+  // `.slice(0, 1)`, suite GREEN at 85/85, a live government ID offered for
+  // permanent deletion. Asked here as a question instead of as a string match.
+  const { client, log } = recordingClient({
+    vendor_verifications: [ALL_NULL_ROW],
+    vendor_verification_applications: [{ doc_uploads: { government_id: { r2_key: ref(GOV) } } }],
+  });
+  const read = await readAllReferenceSources(client, { pageSize: 500 });
+  const tables = log.map((entry) => entry.table).sort();
+  assert.deepEqual(
+    tables,
+    ['vendor_verification_applications', 'vendor_verifications'],
+    'a source that is never queried is a source whose documents all read left_over',
+  );
+  assert.equal(
+    tables.length,
+    VERIFICATION_REFERENCE_SOURCES.length,
+    'every declared reference source must be asked for, not a prefix of them',
+  );
+  assert.ok(read.keys.has(GOV), 'the in-progress intake source fell out of the read');
+  assert.equal(read.complete, true);
+  assert.equal(read.error, null);
+});
+
+test('R5 · dropping the in-progress source makes a LIVE government ID deletable', async () => {
+  // The harm X0 causes, driven end to end: with one legacy row carrying a real
+  // key the empty-set canary stays quiet, so nothing else catches it.
+  const rows = {
+    vendor_verifications: [{ ...ALL_NULL_ROW, dti_certificate_r2_key: ref(DTI) }],
+    vendor_verification_applications: [
+      { doc_uploads: { government_id: { r2_key: ref(GOV) } } },
+    ],
+  };
+  const both = await readAllReferenceSources(recordingClient(rows).client, { pageSize: 500 });
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: both.keys,
+      referenceError: both.error,
+      referencesComplete: both.complete,
+    }),
+    'inuse',
+    'reading both sources must protect the government ID',
+  );
+  // And the sabotage's end state, so the failure above has a stated meaning.
+  const oneOnly = foldReferenceReads([
+    await readReferenceSource(recordingClient(rows).client, VERIFICATIONS, { pageSize: 500 }),
+  ]);
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: oneOnly.keys,
+      referenceError: oneOnly.error,
+      referencesComplete: oneOnly.complete,
+    }),
+    'ok',
+    'this is the defect: one source read, the other document offered for deletion',
+  );
+});
+
+test('R5 · a source that RAISES stops the whole read, through the real loop', async () => {
+  const client: ReferenceQueryClient = {
+    from(table: string) {
+      return {
+        select() {
+          return {
+            order() {
+              return {
+                range(): PromiseLike<ReferenceQueryResult> {
+                  return Promise.resolve(
+                    table === 'vendor_verification_applications'
+                      ? { data: null, error: { message: 'permission denied' }, count: null }
+                      : { data: [ALL_NULL_ROW], error: null, count: 1 },
+                  );
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+  const read = await readAllReferenceSources(client, { pageSize: 500 });
+  assert.equal(read.complete, false);
+  assert.match(read.error ?? '', /vendor_verification_applications: permission denied/);
+  assert.equal(read.keys.size, 0, 'a refused read must return NOTHING, never a partial set');
+});
+
+test('R5 · the whole report is assembled in the pure module, listing failure included', async () => {
+  const rows = {
+    vendor_verifications: [{ ...ALL_NULL_ROW, dti_certificate_r2_key: ref(DTI) }],
+    vendor_verification_applications: [{ doc_uploads: {} }],
+  };
+  const listed = {
+    objects: [obj(GOV), obj(DTI)],
+    truncated: false,
+  };
+  const ok = await buildVerificationDocsReportWith({
+    client: recordingClient(rows).client,
+    listObjects: async () => listed,
+    pageSize: 500,
+  });
+  assert.equal(ok.referencesComplete, true, 'the normal case must still offer a cleanup');
+  assert.deepEqual(
+    ok.docs.map((d) => [d.key, d.state]),
+    [
+      [DTI, 'in_use'],
+      [GOV, 'left_over'],
+    ],
+  );
+
+  // X3/X4 lived on these lines. A listing that THROWS must switch deletion off
+  // rather than reporting an empty bucket.
+  const blocked = await buildVerificationDocsReportWith({
+    client: recordingClient(rows).client,
+    listObjects: async () => {
+      throw new Error('r2 said no');
+    },
+    pageSize: 500,
+  });
+  assert.equal(blocked.referencesComplete, false);
+  assert.equal(blocked.referenceError, LISTING_FAILED_REASON);
+  assert.equal(blocked.listingError, 'r2 said no');
+
+  // And a reference read that RAISED must beat everything, with an empty set.
+  const refused = await buildVerificationDocsReportWith({
+    client: {
+      from() {
+        return {
+          select() {
+            return {
+              order() {
+                return {
+                  range: (): PromiseLike<ReferenceQueryResult> =>
+                    Promise.resolve({ data: null, error: { message: 'nope' }, count: null }),
+                };
+              },
+            };
+          },
+        };
+      },
+    },
+    listObjects: async () => listed,
+    pageSize: 500,
+  });
+  assert.equal(refused.referencesComplete, false);
+  assert.match(refused.referenceError ?? '', /nope/);
 });

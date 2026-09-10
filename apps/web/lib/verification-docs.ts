@@ -894,6 +894,113 @@ export function buildVerificationDocsReportFrom(input: {
   };
 }
 
+/**
+ * ROUND 5 · READ **EVERY** REFERENCE SOURCE, AND FOLD THEM.
+ *
+ * 🔴 **THIS LOOP IS THE WORST SEAM THIS PAGE HAS HAD, AND IT SAT IN THE
+ * UNTESTABLE MODULE FOR FOUR ROUNDS.** `for (const source of
+ * VERIFICATION_REFERENCE_SOURCES)` lived in `verification-docs-server.ts`,
+ * which opens with `import 'server-only'` — a module no `node:test` can load —
+ * so nothing could ask whether both sources were actually read. Two independent
+ * reviewers found it. Measured, the sabotage applied and counted:
+ *   · `VERIFICATION_REFERENCE_SOURCES` → `VERIFICATION_REFERENCE_SOURCES.slice(0, 1)`
+ *     — needle 1 → 0, added 0 → 1, suite **GREEN at 85/85**.
+ * That drops `vendor_verification_applications.doc_uploads`, the in-progress
+ * intake source — **whose absence IS the original defect this whole page was
+ * built to fix.** Harm driven end to end rather than argued: with one legacy
+ * row carrying a real key (so the empty-set canary stays quiet) plus one
+ * in-progress application holding a government ID, the sabotaged build reported
+ * that government ID `left_over` with verdict `ok` and a permanent Delete
+ * beside it, against an UNVERSIONED bucket. It poisons BOTH halves at once,
+ * because the delete action re-derives through this same function and so AGREES
+ * with the wrong page instead of catching it.
+ *
+ * 🔑 **THE ANSWER TO AN UNTESTABLE MODULE IS TO SPLIT THE RULE OUT OF IT, NEVER
+ * TO MATCH A LONGER STRING** — fourth time on this page, and this time the
+ * WIRING went with the rule. The loop is here, the sources are not injectable
+ * (an override would just move the seam back one level), and a fake client
+ * records which tables were asked for. `R5 · every reference source is actually
+ * read` is that assertion.
+ */
+export async function readAllReferenceSources(
+  client: ReferenceQueryClient,
+  opts?: { pageSize?: number; maxPages?: number },
+): Promise<{ keys: Set<string>; error: string | null; complete: boolean }> {
+  const reads: ReferenceRead[] = [];
+  for (const source of VERIFICATION_REFERENCE_SOURCES) {
+    reads.push(await readReferenceSource(client, source, opts));
+  }
+  return foldReferenceReads(reads);
+}
+
+/** What the server half has to supply: a database client and a bucket listing. */
+export type VerificationDocsDeps = {
+  client: ReferenceQueryClient;
+  listObjects: () => Promise<{
+    objects: { key: string; size: number; lastModified: Date | null }[];
+    truncated: boolean;
+  }>;
+  pageSize?: number;
+  maxPages?: number;
+};
+
+/**
+ * ROUND 5 · THE WHOLE REPORT, ASSEMBLED HERE.
+ *
+ * 🛡 The server module used to hold the reference read, the listing `try/catch`
+ * and the argument object handed to `buildVerificationDocsReportFrom`. Every
+ * one of those was a decision wearing a wiring costume, and three of them were
+ * sabotaged GREEN at 85/85 by reviewers:
+ *   · `return foldReferenceReads(reads)` → destructure and re-shape it, with
+ *     `complete: folded.complete || reads.length > 0`. Needle 1 → 0, added
+ *     0 → 1. **GREEN.** The N10/N11/N12 defect class restored one level out —
+ *     and `||` misses every literal a deny-list could name.
+ *   · `referencesComplete: complete` → `referencesComplete: Boolean(1)`. Needle
+ *     1 → 0, added 0 → 1. **GREEN**, one token away from the literal
+ *     `referencesComplete: true` that round 3's bill was written to catch.
+ *   · `referenceError,` → `referenceError: null,`. Needle 1 → 0, added 0 → 1.
+ *     **GREEN.** Gate 1 never fires; only gate 2 caught it, so this one fails
+ *     closed by luck rather than by design.
+ * All three are gone: there is no destructuring, no object literal and no
+ * `try/catch` left in that file to aim at. The listing failure is turned into
+ * `listingError` HERE, where a test calls it.
+ *
+ * ⚖ `listObjects` is injected for exactly the reason `fetchPage` is: the R2
+ * client is `server-only`, so a rule kept beside it is a rule nothing can call.
+ */
+export async function buildVerificationDocsReportWith(
+  deps: VerificationDocsDeps,
+): Promise<VerificationDocsReport> {
+  const {
+    keys,
+    error: referenceError,
+    complete,
+  } = await readAllReferenceSources(deps.client, {
+    pageSize: deps.pageSize,
+    maxPages: deps.maxPages,
+  });
+
+  let objects: { key: string; size: number; lastModified: Date | null }[] = [];
+  let listingTruncated = false;
+  let listingError: string | null = null;
+  try {
+    const listed = await deps.listObjects();
+    objects = listed.objects;
+    listingTruncated = listed.truncated;
+  } catch (err) {
+    listingError = err instanceof Error ? err.message : 'the bucket could not be listed';
+  }
+
+  return buildVerificationDocsReportFrom({
+    keys,
+    referenceError,
+    referencesComplete: complete,
+    objects,
+    listingError,
+    listingTruncated,
+  });
+}
+
 /** Human bytes, matching the website-media page's phrasing. */
 export function formatDocSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

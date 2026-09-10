@@ -5,6 +5,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { publicAssetTarget } from '@/lib/stored-asset-public-url';
+import { publicBucketServeRef } from '@/lib/site-media-ref';
+import { catalogueArtPolicy, parseClientRef, type ClientRefPolicy } from '@/lib/r2-client-ref';
 import {
   R2_BUCKETS,
   type R2BucketKey,
@@ -87,11 +89,26 @@ export function encodeR2Ref(bucket: R2BucketName, key: string): string {
 
 /**
  * Resolves a stored value to a presigned GET URL suitable for `<img src>` or
- * `<a href>`.
+ * `<a href>` — FOR THE PUBLIC MEDIA BUCKET ONLY.
  *
  * Legacy values pass through unchanged. R2-backed values are signed with a
  * default 24-hour TTL — long enough for a page render + a couple of
  * navigations, short enough that a leaked URL stops working within a day.
+ *
+ * 🔒 PUBLIC-BUCKET-ONLY (N4 part 3, 2026-09-11). This used to sign an `r2://`
+ * ref in ANY bucket, with the admin R2 credentials, for whoever's page asked —
+ * and 171 call sites hand it values that a browser can write (a guest's photo,
+ * a shop's logo, an editorial draft, a dispute's evidence). One such value
+ * naming `setnayan-thread-files` (payment proofs, chat files) or
+ * `setnayan-vendor-verification` (government IDs) made the server hand the
+ * viewer a signed link to somebody else's private file. Now a private, unknown
+ * or malformed ref returns `null` — every caller already has a placeholder for
+ * null. The rule is `publicBucketServeRef` (lib/site-media-ref.ts), the same
+ * allow-list the database CHECK on the website media uses.
+ *
+ * A PRIVATE file is read through `displayUrlForPrivateStoredAsset(value,
+ * policy)` instead, whose caller must name the bucket AND the tenant folder it
+ * has already authorised.
  *
  * Surfaces that render many assets in a list (vendor portfolio, evidence
  * thumbnails) should call this in parallel via `Promise.all` rather than
@@ -101,10 +118,72 @@ export async function displayUrlForStoredAsset(
   value: string | null | undefined,
   opts: { ttlSeconds?: number } = {},
 ): Promise<string | null> {
-  const ref = parseStoredAsset(value);
+  const servable = publicBucketServeRef(value);
+  if (!servable) return null;
+  const ref = parseStoredAsset(servable);
   if (!ref) return null;
   if (ref.kind === 'legacy_url') return ref.url;
   return await presignDisplayUrl(ref.bucket, ref.key, opts.ttlSeconds);
+}
+
+/**
+ * The DEDICATED signer for a file in a PRIVATE bucket — payment proofs,
+ * dispute evidence, scanned paperwork, a shop's verification papers, the
+ * catalogue's sample art.
+ *
+ * The caller passes the `ClientRefPolicy` it has ALREADY authorised (built from
+ * the order, event or shop the session was proven to own — never from the
+ * stored value), and a ref is signed only when it names exactly that bucket and
+ * sits under one of that policy's tenant folders (`parseClientRef`: strict,
+ * case-sensitive, no `..`, no control characters). Anything else is `null`, so
+ * a browser-writable column can no longer be pointed at a stranger's receipt.
+ *
+ * A non-`r2://` legacy value passes through verbatim, exactly as the public
+ * signer's does — it is never signed. (Production, 2026-09-11: no private
+ * column holds one.)
+ *
+ * TTL defaults to the public signer's 24 h so a converted surface behaves as it
+ * did; pass `ttlSeconds` to shorten it.
+ */
+export async function displayUrlForPrivateStoredAsset(
+  value: string | null | undefined,
+  policy: ClientRefPolicy,
+  opts: { ttlSeconds?: number } = {},
+): Promise<string | null> {
+  const ref = parseStoredAsset(value);
+  if (!ref) return null;
+  if (ref.kind === 'legacy_url') return ref.url;
+  const allowed = parseClientRef(typeof value === 'string' ? value.trim() : null, policy);
+  if (!allowed) return null;
+  return await presignDisplayUrl(allowed.bucket, allowed.key, opts.ttlSeconds);
+}
+
+/**
+ * The catalogue's sample art — category tiles and onboarding refinement photos.
+ * The taxonomy studio uploads to the PRIVATE `setnayan-samples` bucket, while
+ * older rows hold a `/public` path or a media ref; all three render, and the
+ * private one only from the studio's own two roots (`catalogueArtPolicy`).
+ */
+export async function displayUrlForCatalogueArt(
+  value: string | null | undefined,
+  opts: { ttlSeconds?: number } = {},
+): Promise<string | null> {
+  return (
+    (await displayUrlForStoredAsset(value, opts)) ??
+    (await displayUrlForPrivateStoredAsset(value, catalogueArtPolicy(), opts))
+  );
+}
+
+/** `displayUrlForPrivateStoredAsset` over a list (evidence arrays); refusals dropped. */
+export async function displayUrlsForPrivateStoredAssets(
+  values: ReadonlyArray<string | null | undefined>,
+  policy: ClientRefPolicy,
+  opts: { ttlSeconds?: number } = {},
+): Promise<string[]> {
+  const resolved = await Promise.all(
+    values.map((v) => displayUrlForPrivateStoredAsset(v, policy, opts)),
+  );
+  return resolved.filter((u): u is string => u !== null);
 }
 
 /**

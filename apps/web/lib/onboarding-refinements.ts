@@ -97,10 +97,10 @@ export const getOnboardingTiles = cache(async (eventType: string = 'wedding'): P
     }
     const urlByRef = new Map<string, string | null>();
     if (r2refs.size > 0) {
-      const { displayUrlForStoredAsset } = await import('./uploads');
+      const { displayUrlForCatalogueArt } = await import('./uploads');
       const pairs = await Promise.all(
         [...r2refs].map(
-          async (ref) => [ref, await displayUrlForStoredAsset(ref).catch(() => null)] as const,
+          async (ref) => [ref, await displayUrlForCatalogueArt(ref).catch(() => null)] as const,
         ),
       );
       for (const [ref, url] of pairs) urlByRef.set(ref, url);
@@ -173,9 +173,9 @@ export const getOnboardingRefinements = cache(async (eventType: string = 'weddin
       for (const o of leaf.options) if (o.photo && o.photo.startsWith('r2://')) r2refs.add(o.photo);
     }
     if (r2refs.size > 0) {
-      const { displayUrlForStoredAsset } = await import('./uploads');
+      const { displayUrlForCatalogueArt } = await import('./uploads');
       const pairs = await Promise.all(
-        [...r2refs].map(async (ref) => [ref, await displayUrlForStoredAsset(ref).catch(() => null)] as const),
+        [...r2refs].map(async (ref) => [ref, await displayUrlForCatalogueArt(ref).catch(() => null)] as const),
       );
       const urlByRef = new Map(pairs);
       // Substitute ONLY r2:// refs (never the /public paths). A failed presign →

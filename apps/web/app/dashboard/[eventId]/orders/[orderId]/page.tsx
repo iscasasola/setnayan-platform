@@ -6,7 +6,8 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { payPath } from '@/lib/pay-path';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { paymentProofPolicy } from '@/lib/r2-client-ref';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -77,7 +78,13 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   await Promise.all(
     payments.map(async (p) => {
       if (!p.screenshot_url) return;
-      const url = await displayUrlForStoredAsset(p.screenshot_url);
+      // 🔒 Scoped to this order's own proof folders (the generic signer is
+      // public-bucket-only). The order was loaded on the session and matched to
+      // this event above, so its ids are proven, not taken from the stored ref.
+      const url = await displayUrlForPrivateStoredAsset(
+        p.screenshot_url,
+        paymentProofPolicy({ orderId: order.order_id, eventId: order.event_id ?? null, userId: order.user_id ?? null }),
+      );
       if (url) paymentScreenshotMap[p.payment_id] = url;
     }),
   );

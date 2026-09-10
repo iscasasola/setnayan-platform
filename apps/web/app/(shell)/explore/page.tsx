@@ -68,7 +68,7 @@ import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   displayLogoUrl,
-  displayUrlForStoredAsset,
+  displayUrlForCatalogueArt,
   publicUrlForStoredAsset,
 } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
@@ -4617,7 +4617,9 @@ async function CatalogView({
     if (cardsWithPhoto.length > 0) {
       const urls = await Promise.all(
         cardsWithPhoto.map(({ ref }) =>
-          displayUrlForStoredAsset(ref).catch(() => null),
+          // Catalogue art may sit in the PRIVATE samples bucket (the taxonomy
+          // studio's uploads) — signed only from its own two roots.
+          displayUrlForCatalogueArt(ref).catch(() => null),
         ),
       );
       cardsWithPhoto.forEach(({ card }, i) => {

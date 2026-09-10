@@ -12,7 +12,7 @@ import {
   markVendorPendingReview,
   revertVendorPendingReview,
 } from '@/lib/vendor-verification-state';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForPrivateStoredAsset, displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   looksLikeStorageRef,
   parseClientRef,
@@ -147,8 +147,19 @@ const LOCKED_STATUSES: ReadonlySet<ApplicationStatus> = new Set<ApplicationStatu
   'approved',
 ]);
 
-async function buildSeedDisplayUrls(docMap: DocUploadMap): Promise<Record<string, string>> {
+async function buildSeedDisplayUrls(
+  docMap: DocUploadMap,
+  vendorProfileId: string,
+): Promise<Record<string, string>> {
   const entries: Array<[string, string]> = [];
+  // 🔒 The generic signer is public-bucket-only (N4 part 3). A verification
+  // paper lives in the PRIVATE vendor-verification bucket, so it is signed
+  // through the dedicated signer — and only from THIS shop's own
+  // `vendors/<id>/verification/` folder, the same policy its writer checks. A
+  // portfolio photo in the same map is public media and keeps the public path.
+  const sign = async (ref: string) =>
+    (await displayUrlForStoredAsset(ref)) ??
+    (await displayUrlForPrivateStoredAsset(ref, vendorVerificationDocPolicy(vendorProfileId)));
   await Promise.all(
     Object.values(docMap).flatMap((entry) => {
       if (!entry) return [];
@@ -156,14 +167,14 @@ async function buildSeedDisplayUrls(docMap: DocUploadMap): Promise<Record<string
         // Only file arrays carry r2_key refs (parsePortfolioRefs skips the
         // structured client_references rows, which have no thumbnail).
         return parsePortfolioRefs(entry).map(async (ref) => {
-          const url = await displayUrlForStoredAsset(ref);
+          const url = await sign(ref);
           if (url) entries.push([ref, url]);
         });
       }
       if (typeof entry === 'object' && 'r2_key' in entry && entry.r2_key) {
         const ref = entry.r2_key as string;
         return [
-          displayUrlForStoredAsset(ref).then((url) => {
+          sign(ref).then((url) => {
             if (url) entries.push([ref, url]);
           }),
         ];
@@ -220,7 +231,7 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       status,
       editable: false,
       docMap,
-      seedDisplayUrls: await buildSeedDisplayUrls(docMap),
+      seedDisplayUrls: await buildSeedDisplayUrls(docMap, auth.vendorProfileId),
       vendorComplete: countCompleteVendorSlots(docMap),
       vendorTotal: VENDOR_TOTAL,
       allComplete: Boolean(app.docs_complete),
@@ -238,7 +249,7 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       status: 'draft',
       editable: true,
       docMap,
-      seedDisplayUrls: await buildSeedDisplayUrls(docMap),
+      seedDisplayUrls: await buildSeedDisplayUrls(docMap, auth.vendorProfileId),
       vendorComplete: countCompleteVendorSlots(docMap),
       vendorTotal: VENDOR_TOTAL,
       allComplete: Boolean(app.docs_complete),

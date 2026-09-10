@@ -405,7 +405,7 @@ const CONTACT_FIELD_RE = /\bcontact_(?:email|phone)\b/;
 
 function constantLiteral(src: string, name: string): string {
   const m = new RegExp(`\\bconst\\s+${name}\\b[^=]*=\\s*([^;]*);`).exec(src);
-  return m ? m[1] : '';
+  return m?.[1] ?? '';
 }
 
 function shopContactReads(src: string): number {
@@ -416,7 +416,7 @@ function shopContactReads(src: string): number {
     const chain = semi === -1 ? rest : rest.slice(0, semi);
     const sel = SELECT_ARG_RE.exec(chain);
     if (!sel) continue;
-    const cols = sel[3] ? constantLiteral(src, sel[3]) : sel[2];
+    const cols = sel[3] ? constantLiteral(src, sel[3]) : (sel[2] ?? '');
     if (CONTACT_FIELD_RE.test(cols)) n += 1;
   }
   return n;

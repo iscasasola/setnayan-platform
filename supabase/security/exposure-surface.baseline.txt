@@ -9,14 +9,14 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6612
+# facts: 6617
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     585
-#   col       4858
-#   policy    902
-#   view      8
+#   col       4860
+#   policy    904
+#   view      9
 #   func      255
 #
 schema	auth	usage=anon,authenticated
@@ -523,7 +523,7 @@ tpriv	public.vendor_payouts|authenticated	SIUD
 tpriv	public.vendor_portion_rules|authenticated	SIUD
 tpriv	public.vendor_profile_views|anon	SIUD
 tpriv	public.vendor_profile_views|authenticated	SIUD
-tpriv	public.vendor_profiles|authenticated	SIUD
+tpriv	public.vendor_profiles|authenticated	IUD
 tpriv	public.vendor_proposal_templates|anon	SIUD
 tpriv	public.vendor_proposal_templates|authenticated	SIUD
 tpriv	public.vendor_proposals|anon	SIUD
@@ -592,7 +592,7 @@ tpriv	public.vendor_tool_bundles|anon	SIUD
 tpriv	public.vendor_tool_bundles|authenticated	SIUD
 tpriv	public.vendor_verification_applications|anon	SD
 tpriv	public.vendor_verification_applications|authenticated	SD
-tpriv	public.vendor_verifications|authenticated	SIUD
+tpriv	public.vendor_verifications|authenticated	S
 tpriv	public.vendor_wallets|authenticated	SIUD
 tpriv	public.vendor_web_dossiers|anon	SIUD
 tpriv	public.vendor_web_dossiers|authenticated	SIUD
@@ -2097,6 +2097,7 @@ col	public.events.headcount_basis	anon=SIU authenticated=SIU
 col	public.events.honoree_dependent_id	anon=IU authenticated=IU
 col	public.events.honoree_label	anon=IU authenticated=IU
 col	public.events.id	anon=S authenticated=S
+col	public.events.invite_theme	anon=- authenticated=S
 col	public.events.is_mixed_ceremony	anon=SIU authenticated=SIU
 col	public.events.is_primary	anon=SIU authenticated=SIU
 col	public.events.is_sample	anon=S authenticated=S
@@ -4801,11 +4802,11 @@ col	public.vendor_profiles.absorbs_convenience_fee	anon=- authenticated=SIU
 col	public.vendor_profiles.ai_addon_expires_at	anon=- authenticated=SIU
 col	public.vendor_profiles.ai_addon_level	anon=- authenticated=SIU
 col	public.vendor_profiles.ai_addon_trial_used_at	anon=- authenticated=SIU
-col	public.vendor_profiles.bir_service_category	anon=- authenticated=SIU
+col	public.vendor_profiles.bir_service_category	anon=- authenticated=IU
 col	public.vendor_profiles.booth_addon_expires_at	anon=- authenticated=SIU
 col	public.vendor_profiles.booth_addon_trial_used_at	anon=- authenticated=SIU
 col	public.vendor_profiles.business_name	anon=S authenticated=SIU
-col	public.vendor_profiles.business_owner_name	anon=- authenticated=SIU
+col	public.vendor_profiles.business_owner_name	anon=- authenticated=IU
 col	public.vendor_profiles.business_owner_position	anon=- authenticated=SIU
 col	public.vendor_profiles.business_slug	anon=S authenticated=SIU
 col	public.vendor_profiles.capacity_max	anon=- authenticated=SIU
@@ -4867,13 +4868,13 @@ col	public.vendor_profiles.presentation_pattern	anon=- authenticated=SIU
 col	public.vendor_profiles.public_id	anon=S authenticated=SIU
 col	public.vendor_profiles.public_visibility	anon=S authenticated=SIU
 col	public.vendor_profiles.real_name_unlocked_at	anon=- authenticated=SIU
-col	public.vendor_profiles.registered_address	anon=- authenticated=SIU
-col	public.vendor_profiles.registered_business_name	anon=- authenticated=SIU
-col	public.vendor_profiles.registered_zip	anon=- authenticated=SIU
-col	public.vendor_profiles.registration_number_needs_review	anon=- authenticated=SIU
-col	public.vendor_profiles.registration_number_normalized	anon=- authenticated=SIU
-col	public.vendor_profiles.registration_number_raw	anon=- authenticated=SIU
-col	public.vendor_profiles.registration_number_submitted_at	anon=- authenticated=SIU
+col	public.vendor_profiles.registered_address	anon=- authenticated=IU
+col	public.vendor_profiles.registered_business_name	anon=- authenticated=IU
+col	public.vendor_profiles.registered_zip	anon=- authenticated=IU
+col	public.vendor_profiles.registration_number_needs_review	anon=- authenticated=IU
+col	public.vendor_profiles.registration_number_normalized	anon=- authenticated=IU
+col	public.vendor_profiles.registration_number_raw	anon=- authenticated=IU
+col	public.vendor_profiles.registration_number_submitted_at	anon=- authenticated=IU
 col	public.vendor_profiles.same_day_available	anon=- authenticated=SIU
 col	public.vendor_profiles.screen_name	anon=- authenticated=SIU
 col	public.vendor_profiles.screen_name_id	anon=- authenticated=SIU
@@ -4891,8 +4892,8 @@ col	public.vendor_profiles.tier_billing_cycle	anon=- authenticated=SIU
 col	public.vendor_profiles.tier_expires_at	anon=- authenticated=SIU
 col	public.vendor_profiles.tier_source	anon=- authenticated=SIU
 col	public.vendor_profiles.tier_state	anon=S authenticated=SIU
-col	public.vendor_profiles.tin_number	anon=- authenticated=SIU
-col	public.vendor_profiles.tin_type	anon=- authenticated=SIU
+col	public.vendor_profiles.tin_number	anon=- authenticated=IU
+col	public.vendor_profiles.tin_type	anon=- authenticated=IU
 col	public.vendor_profiles.updated_at	anon=- authenticated=SIU
 col	public.vendor_profiles.user_id	anon=S authenticated=SIU
 col	public.vendor_profiles.vendor_profile_id	anon=S authenticated=SIU
@@ -5205,6 +5206,7 @@ col	public.vendor_services.demo_batch_id	anon=SIU authenticated=SIU
 col	public.vendor_services.exclusive_perk_text	anon=SIU authenticated=SIU
 col	public.vendor_services.extra_hour_php	anon=SIU authenticated=SIU
 col	public.vendor_services.hour_base_php	anon=SIU authenticated=SIU
+col	public.vendor_services.includes_setnayan_gift	anon=SIU authenticated=SIU
 col	public.vendor_services.is_active	anon=SIU authenticated=SIU
 col	public.vendor_services.is_demo	anon=SIU authenticated=SIU
 col	public.vendor_services.is_linked_only	anon=SIU authenticated=SIU
@@ -5337,35 +5339,35 @@ col	public.vendor_verification_applications.status	anon=S authenticated=SIU
 col	public.vendor_verification_applications.submitted_at	anon=S authenticated=SIU
 col	public.vendor_verification_applications.updated_at	anon=S authenticated=SIU
 col	public.vendor_verification_applications.vendor_profile_id	anon=S authenticated=SIU
-col	public.vendor_verifications.approved_at	anon=- authenticated=SIU
-col	public.vendor_verifications.approved_by_admin_user_id	anon=- authenticated=SIU
-col	public.vendor_verifications.bank_account_proof_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.bir_2303_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.created_at	anon=- authenticated=SIU
-col	public.vendor_verifications.dti_certificate_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.expires_at	anon=- authenticated=SIU
-col	public.vendor_verifications.google_meet_at	anon=- authenticated=SIU
-col	public.vendor_verifications.google_meet_passed	anon=- authenticated=SIU
-col	public.vendor_verifications.government_id_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.mayors_permit_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.persona_inquiry_id	anon=- authenticated=SIU
-col	public.vendor_verifications.persona_status	anon=- authenticated=SIU
-col	public.vendor_verifications.portfolio_sample_ids	anon=- authenticated=SIU
-col	public.vendor_verifications.public_id	anon=- authenticated=SIU
-col	public.vendor_verifications.reference_calls_made	anon=- authenticated=SIU
-col	public.vendor_verifications.reference_calls_passed	anon=- authenticated=SIU
-col	public.vendor_verifications.references_json	anon=- authenticated=SIU
-col	public.vendor_verifications.rejected_at	anon=- authenticated=SIU
-col	public.vendor_verifications.rejection_reason	anon=- authenticated=SIU
-col	public.vendor_verifications.sanctions_clear	anon=- authenticated=SIU
-col	public.vendor_verifications.sanctions_screened_at	anon=- authenticated=SIU
-col	public.vendor_verifications.sku_code	anon=- authenticated=SIU
-col	public.vendor_verifications.social_media_url	anon=- authenticated=SIU
-col	public.vendor_verifications.status	anon=- authenticated=SIU
-col	public.vendor_verifications.submitted_at	anon=- authenticated=SIU
-col	public.vendor_verifications.updated_at	anon=- authenticated=SIU
-col	public.vendor_verifications.vendor_profile_id	anon=- authenticated=SIU
-col	public.vendor_verifications.verification_id	anon=- authenticated=SIU
+col	public.vendor_verifications.approved_at	anon=- authenticated=S
+col	public.vendor_verifications.approved_by_admin_user_id	anon=- authenticated=S
+col	public.vendor_verifications.bank_account_proof_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.bir_2303_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.created_at	anon=- authenticated=S
+col	public.vendor_verifications.dti_certificate_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.expires_at	anon=- authenticated=S
+col	public.vendor_verifications.google_meet_at	anon=- authenticated=S
+col	public.vendor_verifications.google_meet_passed	anon=- authenticated=S
+col	public.vendor_verifications.government_id_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.mayors_permit_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.persona_inquiry_id	anon=- authenticated=S
+col	public.vendor_verifications.persona_status	anon=- authenticated=S
+col	public.vendor_verifications.portfolio_sample_ids	anon=- authenticated=S
+col	public.vendor_verifications.public_id	anon=- authenticated=S
+col	public.vendor_verifications.reference_calls_made	anon=- authenticated=S
+col	public.vendor_verifications.reference_calls_passed	anon=- authenticated=S
+col	public.vendor_verifications.references_json	anon=- authenticated=S
+col	public.vendor_verifications.rejected_at	anon=- authenticated=S
+col	public.vendor_verifications.rejection_reason	anon=- authenticated=S
+col	public.vendor_verifications.sanctions_clear	anon=- authenticated=S
+col	public.vendor_verifications.sanctions_screened_at	anon=- authenticated=S
+col	public.vendor_verifications.sku_code	anon=- authenticated=S
+col	public.vendor_verifications.social_media_url	anon=- authenticated=S
+col	public.vendor_verifications.status	anon=- authenticated=S
+col	public.vendor_verifications.submitted_at	anon=- authenticated=S
+col	public.vendor_verifications.updated_at	anon=- authenticated=S
+col	public.vendor_verifications.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_verifications.verification_id	anon=- authenticated=S
 col	public.vendor_wallets.earned_tokens	anon=- authenticated=SIU
 col	public.vendor_wallets.purchased_tokens	anon=- authenticated=SIU
 col	public.vendor_wallets.updated_at	anon=- authenticated=SIU
@@ -5699,6 +5701,9 @@ policy	public.event_members|couple_can_add_member	mode=PERMISSIVE cmd=INSERT rol
 policy	public.event_members|couple_can_delete_member	mode=PERMISSIVE cmd=DELETE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
 policy	public.event_members|couple_can_update_member	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
 policy	public.event_members|member_reads_membership	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = auth.uid()) OR (event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
+policy	public.event_moderators|event_moderators_host_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.event_moderators|event_moderators_host_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
+policy	public.event_moderators|event_moderators_host_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_moderators|event_moderators_select_own_events	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = auth.uid()) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_moderators.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=NULL
 policy	public.event_paperwork|event_paperwork_admin_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.is_internal = true)))) check=NULL
 policy	public.event_paperwork|event_paperwork_host_delete	mode=PERMISSIVE cmd=DELETE roles=PUBLIC using=(event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.removed_at IS NULL)))) check=NULL
@@ -6346,7 +6351,6 @@ policy	public.vendor_tool_bundles|vendor_tool_bundles_self_read	mode=PERMISSIVE 
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = 'draft'::text))
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) OR is_admin()) check=NULL
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_update_draft	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = 'draft'::text)) check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = ANY (ARRAY['draft'::text, 'pending_review'::text])))
-policy	public.vendor_verifications|vendor_verifications_self_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verifications.vendor_profile_id) AND (vp.user_id = auth.uid()))))
 policy	public.vendor_verifications|vendor_verifications_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verifications.vendor_profile_id) AND (vp.user_id = auth.uid())))) check=NULL
 policy	public.vendor_web_dossiers|vendor_web_dossiers_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=is_admin() check=NULL
 policy	public.vendor_web_dossiers|vendor_web_dossiers_admin_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=is_admin()
@@ -6373,6 +6377,7 @@ view	public.vendor_active_ads	type=view owner=postgres honours_rls=yes select=an
 view	public.vendor_active_tools	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_completed_events	type=view owner=postgres honours_rls=NO select=anon,authenticated
 view	public.vendor_market_stats	type=view owner=postgres honours_rls=yes select=anon,authenticated
+view	public.vendor_profiles_self	type=view owner=postgres honours_rls=NO select=authenticated
 view	public.vendor_public_completed_events_stats	type=matview owner=postgres honours_rls=NO select=anon,authenticated
 view	public.vendor_review_stats	type=matview owner=postgres honours_rls=NO select=anon,authenticated
 view	public.vendor_trusted_review_stats	type=matview owner=postgres honours_rls=NO select=anon,authenticated

@@ -59,10 +59,17 @@ import { EditorialContent } from './editorial/editorial-content';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
+import {
+  coerceRevealTemplate,
+  revealMarkSvg,
+  revealMonogram,
+  revealSealConfig,
+  revealVeilColor,
+  revealWaxColor,
+} from '../_lib/reveal-props';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { type StdBackground } from '@/lib/std-backgrounds';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
-import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './our-story';
 
 /* The dayOfPhase → NavPhase mapping moved into `_lib/site-nav.ts` as
@@ -73,18 +80,9 @@ import { OurStory } from './our-story';
 
 import { GuestColumnCard } from './guest-column-card';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import {
-  sealColorFromPalette,
-  veilColorFromPalette,
-  stdAccentFromPalette,
-  paletteSwatches,
-} from '@/lib/site-palette';
+import { stdAccentFromPalette, paletteSwatches } from '@/lib/site-palette';
 import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
-import {
-  fallbackSeedFromPublicId,
-  sanitizeWaxSealConfig,
-  type WaxSealConfig,
-} from '@/lib/wax-seal/types';
+import { fallbackSeedFromPublicId } from '@/lib/wax-seal/types';
 import { LiveWallBlock } from './live-wall-block';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
 import { GuestHubCard } from './guest-hub-card';
@@ -131,7 +129,6 @@ import {
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { PahinaMasthead } from './pahina-masthead';
-import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -166,27 +163,8 @@ function displayNameOf(g: {
   return g.display_name?.trim() || `${g.first_name} ${g.last_name}`.trim();
 }
 
-/** Derive a short couple monogram for the reveal seal, e.g. "A & J". */
-function revealMonogram(name: string): string {
-  const parts = name
-    .split(/\s*&\s*|\s+and\s+/i)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const a = parts[0] ?? '';
-  const b = parts[1] ?? '';
-  if (a && b) return `${a.charAt(0)} & ${b.charAt(0)}`.toUpperCase();
-  return (name.trim().charAt(0) || '✦').toUpperCase();
-}
 
-/** Wax-seal colour for the reveal — the moodboard deep accent (§4). */
-function revealWaxColor(palette: unknown): string {
-  return sealColorFromPalette(sanitizeRolePalette(palette));
-}
 
-/** Veil tulle colour for the reveal — a sheer moodboard tint (§4). */
-function revealVeilColor(palette: unknown): string {
-  return veilColorFromPalette(sanitizeRolePalette(palette));
-}
 
 /** Save-the-Date film accent (button + accent marks): the couple's manual
  *  override (events.std_film_accent_hex) when set, else their Mood-Board accent
@@ -206,14 +184,6 @@ function stdAccentColor(event: EventRow): string {
   return stdAccentFromPalette(palette);
 }
 
-/**
- * The couple's monogram mark for the wax seal — their own upload outranks the
- * AI/Cipher mark (owner rule 2026-06-15); null → lettered seal fallback.
- */
-function revealMarkSvg(event: EventRow): string | null {
-  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
-  return resolveEventMonogramSvg(event);
-}
 
 /**
  * The couple's ONBOARDING lockup for the Save-the-Date film — their chosen
@@ -240,22 +210,7 @@ function stdLockupFor(event: EventRow): StdLockup {
   };
 }
 
-/** The couple's minted wax-seal recipe for the reveal (null → default levers). */
-function revealSealConfig(event: EventRow): WaxSealConfig | null {
-  return sanitizeWaxSealConfig(event.wax_seal_config);
-}
 
-/** The couple's chosen opening (events.std_reveal_template) validated to a known
- *  id, 'none' (No Reveal — the free, no-opening choice), or null → the admin
- *  house default. Validated server-side because the client RevealOverlay can't
- *  import reveal-config (it pulls the admin client). */
-function coerceRevealTemplate(v: unknown): RevealTemplateId | 'none' | null {
-  if (v === 'none') return 'none'; // NO_REVEAL — honoured even with the premium unlock
-  return typeof v === 'string' &&
-    (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
-    ? (v as RevealTemplateId)
-    : null;
-}
 
 type SiteBodyProps = {
   event: EventRow;

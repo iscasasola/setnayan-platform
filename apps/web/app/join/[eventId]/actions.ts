@@ -18,18 +18,18 @@ import { recordScan } from '@/lib/scan-trail';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import type { GuestRole } from '@/lib/guests';
-import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { inviteReplyPath } from '@/lib/invite-arrival';
 
 // Sanity ceiling on accountless self-joins per event. The QR token is the real
 // gate; this just bounds runaway spam (the couple reviews/deletes the
 // `self_added_unlisted` rows). Generous — weddings rarely exceed it.
 const SELF_JOIN_CEILING = 1000;
 
-// Iteration 0053 P2: the self-claimable roles are per event type
-// (resolveRoleSetForEvent(eventId).selfClaimableRoles). Invite/Join v2
-// (0000 ADDENDUM 2026-06-25): a CONFIDENT match INHERITS the host-assigned
-// role — the submitted role is only honored on the no-match path, where the
-// joiner self-declares from that safe subset.
+// Invite/Join v2 (0000 ADDENDUM 2026-06-25): a CONFIDENT match INHERITS the
+// host-assigned role; every other joiner is `guest` and the couple refines it.
+// Until 2026-09-10 a no-match joiner self-declared a role from the event type's
+// "safe subset" (iteration 0053 P2) — the picker the addendum removed. No role
+// is read from any form now.
 
 /** Best-effort: attach a Gmail-login avatar to a guest row (display only). */
 async function applyAvatar(
@@ -272,17 +272,17 @@ async function admitAsUnlisted(
  * provenance badge + host-controlled role + couple Delete are the safety net).
  */
 export async function joinEventAction(eventId: string, token: string, formData: FormData) {
-  const role = String(formData.get('role') ?? '') as GuestRole;
+  // 🔒 ROLE IS THE HOST'S FIELD (owner-locked 2026-06-25, built 2026-09-10). A
+  // confident match inherits the couple's role; an unlisted joiner is `guest`
+  // and the couple refines it. Any `role` a stale or crafted form still posts is
+  // IGNORED — the lock is that a guest cannot self-assign "Principal Sponsor",
+  // and a cached page must not be the way around it. `guest` is in every role
+  // set (lib/role-sets.ts), weddings and wakes alike.
+  const role: GuestRole = 'guest';
   // Cap at the input boundary — bounds the O(n·m) fuzzy match against an
   // attacker-supplied name (the client maxLength is non-authoritative).
   const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
 
-  const roleSet = await resolveRoleSetForEvent(eventId);
-  // The submitted role is only used on the no-match path (self-declared from the
-  // safe subset); a confident match inherits the host's role regardless.
-  if (!roleSet.selfClaimableRoles.includes(role)) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_role`);
-  }
   if (!presentedName) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=missing_name`);
   }
@@ -464,23 +464,21 @@ export async function joinEventAction(eventId: string, token: string, formData: 
  *
  * Reuses the SAME guest-cookie mechanism as `/[slug]/redeem` (System 1): create
  * a `guests` row via the admin client and sign the `setnayan_guest_session`
- * cookie — the joiner is then exactly like a personal-link redeemer and RSVPs
- * through the existing widget on `/[slug]`. It does NOT touch `event_members`
+ * cookie — the joiner is then exactly like a personal-link redeemer, and walks on
+ * to door 02 of the invite arrival (`/[slug]/invite/reply`, lib/invite-arrival.ts)
+ * to complete their own record — the same RSVP card `/[slug]` shows. It does NOT touch `event_members`
  * (account-only) or any RLS — the QR token + cookie are the auth. The row is
  * tagged `self_added_unlisted` (Invite/Join v2 provenance) so the couple can
  * reconcile it. (Name-matching for accountless joiners is a fast-follow.)
  */
 export async function selfJoinAction(eventId: string, token: string, formData: FormData) {
-  const role = String(formData.get('role') ?? '') as GuestRole;
+  // 🔒 Always `guest` — see joinEventAction. The door no longer offers a role.
+  const role: GuestRole = 'guest';
   const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
   // Optional: if they give an email we also email a passwordless sign-in link
   // that connects this event to a real Setnayan account (Invite/Join v2).
   const email = String(formData.get('email') ?? '').trim();
 
-  const roleSet = await resolveRoleSetForEvent(eventId);
-  if (!roleSet.selfClaimableRoles.includes(role)) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_role`);
-  }
   if (!presentedName) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=missing_name`);
   }
@@ -566,7 +564,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
       await sendEventAccountMagicLink({ eventId, guestId: existingSession.guest_id, email });
       return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
     }
-    return redirect(`/${slug}`);
+    return redirect(inviteReplyPath(slug));
   }
 
   // 4. Sanity ceiling on self-joins for this event.
@@ -633,7 +631,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
         await sendEventAccountMagicLink({ eventId, guestId: match.candidate.guestId, email });
         return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
       }
-      return redirect(`/${slug}`);
+      return redirect(inviteReplyPath(slug));
     }
   }
 
@@ -686,5 +684,5 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
   }
 
-  return redirect(`/${slug}`);
+  return redirect(inviteReplyPath(slug));
 }

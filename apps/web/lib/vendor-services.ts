@@ -58,10 +58,21 @@ export type VendorServiceRow = {
   // Discounts moved OFF vendor_services into the vendor_service_discounts table
   // (multi-discount; couples see the best they qualify for · migration
   // 20270502342558). Fetch them with fetchDiscountsByService.
-  // ── Setnayan Exclusive perk (v2.1 §7.2) ─────────────────────────────────
-  /** Never shown publicly. Revealed in-thread when the vendor token-pursues.
-   *  Required to publish (is_active=true). Drafts may be null. */
+  // ── The Setnayan Exclusive ──────────────────────────────────────────────
+  /**
+   * The RETIRED free-text perk. Never shown publicly; revealed in-thread when
+   * the vendor pursues. It was required to publish until 2026-09-09, when the
+   * owner ruled the gift optional, and it stopped being the CONTROL on the same
+   * day — but it is still DATA, and two live cards still promise through it, so
+   * it is still read and still shown back to the supplier who wrote it.
+   */
   exclusive_perk_text: string | null;
+  /**
+   * The supplier's whole say over the Setnayan gift: yes or no. The gift is
+   * Papic credits sized at 40% of the booking fee and capped at the
+   * 50,000-credit rung — no amount, no picker (owner 2026-09-09).
+   */
+  includes_setnayan_gift: boolean | null;
   // ── Coverage-first rework (migration 20270426250948) ────────────────────
   /** Guests the starting_price_php covers; pairs with added_pax_price_php
    *  (per-guest surcharge above this count). null = flat / not pax-priced. */
@@ -77,7 +88,7 @@ const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
 const PRICING_COLS =
   'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,showcase_photo_r2_keys';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,includes_setnayan_gift,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -108,6 +119,7 @@ export async function fetchVendorServices(
         | 'last_minute_surcharge_pct'
         | 'daily_capacity'
         | 'exclusive_perk_text'
+        | 'includes_setnayan_gift'
         | 'base_pax'
         | 'coverage_id'
         | 'pricing_basis'
@@ -130,6 +142,7 @@ export async function fetchVendorServices(
       last_minute_surcharge_pct: null,
       daily_capacity: null,
       exclusive_perk_text: null,
+      includes_setnayan_gift: null,
       base_pax: null,
       coverage_id: null,
       pricing_basis: 'fixed',

@@ -485,7 +485,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0002',
     status: 'live',
     category: 'digital_services',
-    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and colours, and no watermark.',
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and colours, a Pro theme for your invite link, and no watermark.',
     cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',

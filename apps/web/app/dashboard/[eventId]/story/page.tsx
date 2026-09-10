@@ -531,7 +531,7 @@ export default async function EditorialEditorPage({
     : null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1010px] px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href={`/dashboard/${eventId}/website`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
@@ -545,20 +545,13 @@ export default async function EditorialEditorPage({
       />
 
       {/*
-        THE DESK (08 step 1.2) — one queue over four sources, above the editor
-        because it is the first of the six steps and the one that gates
-        publishing. It renders ONLY for a proved host: `loadDesk` reads with the
-        admin client, so its authority cannot be left to the page's own
-        RLS-scoped event read.
+        THE DESK (08 step 1.2) — one queue over four sources, and STEP ONE of six. It is handed
+        to the editor as a SLOT rather than rendered above it: the six steps are a tab switcher,
+        and a panel living outside the switcher is a section that can never be switched away
+        from. Same slot pattern as `cover` and `whatsNext`, for the same reason — it renders
+        ONLY for a proved host, because `loadDesk` reads with the admin client and its authority
+        cannot be left to the page's own RLS-scoped event read.
       */}
-      {desk ? (
-        <TheDesk
-          eventId={eventId}
-          items={desk.items}
-          unreadable={desk.unreadable}
-          lettersDark={desk.lettersDark}
-        />
-      ) : null}
 
       {!draftMeasured ? (
         <p
@@ -613,6 +606,16 @@ export default async function EditorialEditorPage({
           for a proved host — the same fence the desk above uses, because the
           cover's own write is a service-role write authorised by it.
         */
+        desk={
+          desk ? (
+            <TheDesk
+              eventId={eventId}
+              items={desk.items}
+              unreadable={desk.unreadable}
+              lettersDark={desk.lettersDark}
+            />
+          ) : null
+        }
         cover={
           desk ? (
             <CoverStep

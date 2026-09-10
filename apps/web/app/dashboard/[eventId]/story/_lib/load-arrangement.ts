@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { belongsToThisEvent, NOBODY } from '@/app/[slug]/_lib/belongs-to-this-event';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadStoryArrangement, type LoadedArrangement } from '@/lib/story-arrangement-store';
 import { hostUserId } from './host-authority';
@@ -18,8 +19,15 @@ import { hostUserId } from './host-authority';
 export async function loadArrangementForHost(eventId: string): Promise<LoadedArrangement | null> {
   const userId = await hostUserId(eventId);
   if (!userId) return null;
+  /*
+    The host's authority is `isHost`, proved one line up — it admits them at every audience.
+    Belonging is a different question with its own ONE rule, and this surface establishes none
+    of its facts, so it asks the rule with none and gets the fail-closed answer. A literal
+    `true` here is the exact shape that once let /{slug}/print hand a stranger a restricted
+    story (`the-keepsake-is-not-a-way-around.test.ts`).
+  */
   return loadStoryArrangement(createAdminClient(), eventId, {
     isHost: true,
-    belongsToEvent: true,
+    belongsToEvent: belongsToThisEvent(NOBODY),
   });
 }

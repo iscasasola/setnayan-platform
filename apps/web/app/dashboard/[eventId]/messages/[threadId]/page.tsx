@@ -21,6 +21,7 @@ import {
   fetchLiveQuoteTotalPhp,
 } from '@/lib/thread-decision-sources.server';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
@@ -103,6 +104,14 @@ export default async function CoupleThreadPage({ params }: Props) {
   // remains SEO-friendly. The <ChatMessageStream> client component takes
   // over from here, subscribing to Supabase Realtime for new inserts/updates.
   const initialMessages = await fetchMessages(supabase, threadId);
+
+  // PR-H · the frozen-price line in this thread must not claim a booking that
+  // does not exist yet. The COUPLE reads `event_vendors` through their own
+  // session — RLS is the boundary here, and it is sufficient.
+  const lockHandshake = await fetchThreadLockHandshake(supabase, {
+    eventId: thread.event_id,
+    vendorProfileId: thread.vendor_profile_id,
+  });
 
   /**
    * ── DECISIONS · the couple's side of "where are we with this supplier?" ────
@@ -421,6 +430,7 @@ export default async function CoupleThreadPage({ params }: Props) {
         eventDate={eventDate}
         standing={threadStanding}
         decisionPayments={decisionPayments}
+        lockHandshake={lockHandshake}
       />
 
       {blockState.blockedByMe || blockState.blockedByThem ? (

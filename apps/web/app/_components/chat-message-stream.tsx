@@ -44,6 +44,7 @@ import {
   type ChatAmendmentData,
   type AmendmentItemView,
 } from './chat-amendment-card';
+import type { ThreadLockHandshake } from '@/lib/lock-freeze-copy';
 import { AmendmentSuggestChip } from './amendment-suggest-chip';
 import type { AppointmentKind } from '@/lib/appointments';
 import {
@@ -114,6 +115,18 @@ type Props = {
    */
   decisionPayments?: readonly PaymentFact[];
   decisionGuestCounts?: readonly GuestCountFact[];
+  /**
+   * PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
+   * Resolved on the SERVER by `fetchThreadLockHandshake` — it cannot be fetched
+   * here, because a supplier cannot read `event_vendors` through their own
+   * session (every policy on that table is couple- or moderator-scoped). Read
+   * only by the locked-amendment line.
+   *
+   * ⚠ ABSENT MEANS UNKNOWN, NEVER "LOCKED". A mount site that forgets this prop
+   * degrades to "Price agreed and frozen at this amount." — true everywhere —
+   * rather than claiming a booking that may not exist.
+   */
+  lockHandshake?: ThreadLockHandshake | null;
 };
 
 const TYPING_DEBOUNCE_MS = 700;
@@ -129,6 +142,7 @@ export function ChatMessageStream({
   standing = null,
   decisionPayments = [],
   decisionGuestCounts = [],
+  lockHandshake = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -848,6 +862,8 @@ export function ChatMessageStream({
                     viewerRole={viewerRole}
                     threadId={threadId}
                     returnPath={returnPathFor(m)}
+                    counterpartyLabel={counterpartyLabel}
+                    lockHandshake={lockHandshake}
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-mulberry/30 bg-mulberry/[0.06] p-3">

@@ -15,6 +15,7 @@ import {
   lockDeal,
 } from './negotiation-actions';
 import { AmendmentBuilder, type AmendmentBuilderRow } from './amendment-builder';
+import { lockFreezeLine, type ThreadLockHandshake } from '@/lib/lock-freeze-copy';
 import {
   ITEM_KIND_LABEL,
   isMoneyKind,
@@ -47,6 +48,14 @@ type Props = {
   viewerRole: 'couple' | 'vendor';
   threadId: string;
   returnPath: string;
+  /** The OTHER party's label, so the frozen-price line can name them. */
+  counterpartyLabel?: string | null;
+  /**
+   * Is the booking behind this thread actually BOOKED, or merely ASKED? Absent
+   * / null means unknown, and the line then claims no booking at all — see
+   * `lib/lock-freeze-copy.ts`. NEVER default this to "locked".
+   */
+  lockHandshake?: ThreadLockHandshake | null;
 };
 
 const STATUS: Record<AmendmentStatus, { label: string; cls: string }> = {
@@ -63,13 +72,34 @@ function amountText(kind: AmendmentItemKind, amount: number | null): string {
   return `${amount < 0 ? '−' : '+'}₱${Math.abs(amount).toLocaleString('en-PH')}`;
 }
 
-export function ChatAmendmentCard({ data, items, viewerRole, threadId, returnPath }: Props) {
+export function ChatAmendmentCard({
+  data,
+  items,
+  viewerRole,
+  threadId,
+  returnPath,
+  counterpartyLabel = null,
+  lockHandshake = null,
+}: Props) {
   const [counterOpen, setCounterOpen] = useState(false);
   const isProposer = data.raised_by === viewerRole;
   const canAct = data.status === 'proposed' && !isProposer;
   const isAccepted = data.status === 'accepted';
   const meta = STATUS[data.status];
   const newTotal = newTotalPhp(data.baseTotalCentavos, items);
+
+  // ⚠ THE PRESS IS AN ASK, NOT A BOOKING (PR-H, live). This line used to be the
+  // hardcoded "🔒 Deal locked — price frozen." rendered for BOTH people the
+  // instant `locked_at` was stamped — while the booking row was still
+  // `considering` on a 48-hour fuse and the supplier had answered nothing. The
+  // words come from `lockFreezeLine` now, which can only reach the booked
+  // sentence from a real booking. Do not put a sentence back inline.
+  const freezeLine = lockFreezeLine({
+    state: lockHandshake?.state ?? null,
+    expiresAt: lockHandshake?.expiresAt ?? null,
+    viewerRole,
+    counterpartyLabel,
+  });
 
   const hidden = (
     <>
@@ -201,8 +231,13 @@ export function ChatAmendmentCard({ data, items, viewerRole, threadId, returnPat
       {isAccepted ? (
         <div className="border-t border-ink/10 bg-ink/[0.02] px-3.5 py-2.5">
           {data.lockedAt ? (
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700">
-              🔒 Deal locked — price frozen.
+            <p
+              className={`inline-flex items-start gap-1.5 text-xs font-medium ${
+                freezeLine.tone === 'booked' ? 'text-success-700' : 'text-ink/70'
+              }`}
+            >
+              <span aria-hidden>🔒</span>
+              <span>{freezeLine.text}</span>
             </p>
           ) : viewerRole === 'couple' ? (
             <form action={lockDeal}>

@@ -341,6 +341,39 @@ export function guestSelfiePolicy(eventId: string, guestId: string): ClientRefPo
   return { prefixes: [`events/${eventId}/guest-selfies/${guestId}/`] };
 }
 
+/**
+ * A Papic seat camera's own capture — the raw, its poster frame and its web
+ * copy, as recorded by `recordSeatCapture` / `persistSeatClipWebCopy`
+ * (app/papic/actions.ts).
+ *
+ * Every live seat path presigns with `papicSeatToken`, and `/api/upload`'s seat
+ * branch then mints the key SERVER-SIDE under `papic/event-<event>/seat-<seat>/`
+ * — measured in production 2026-09-10, all 14 captures. Pinning the recorded
+ * ref to that folder is what stops a camera's claimer handing the recording
+ * action a key from somewhere else: the row is written by the SERVICE ROLE, and
+ * the full-resolution sweep later deletes whatever that key names.
+ *
+ * ⚠ `papic/seat-<seat_index>/` IS ALSO ACCEPTED, and it is NOT a tenancy: the
+ * dark-launched Camera Bridge (`lib/camera-bridge/papic-sink.ts`, visible only
+ * behind `?bridge=demo` or `NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED`) still presigns
+ * through the generic branch with that prefix, so its keys carry the seat's
+ * INDEX and no event. Accepting it keeps that path recording; it is safe only
+ * because no cleanup job will ever DELETE such a key (lib/cleanup-delete-scope.ts
+ * holds Papic deletes to `papic/event-<event>/…`). Moving the bridge onto
+ * `papicSeatToken` retires this line.
+ */
+export function papicSeatCapturePolicy(
+  eventId: string,
+  seatId: string,
+  seatIndex: number | null,
+): ClientRefPolicy {
+  const prefixes = [`papic/event-${eventId}/seat-${seatId}/`];
+  if (typeof seatIndex === 'number' && Number.isInteger(seatIndex) && seatIndex >= 0) {
+    prefixes.push(`papic/seat-${seatIndex}/`);
+  }
+  return { prefixes };
+}
+
 /** A vendor's payment QR image. */
 export function vendorPaymentQrPolicy(vendorProfileId: string): ClientRefPolicy {
   return { prefixes: [`vendors/${vendorProfileId}/payment-qr/`] };

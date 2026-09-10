@@ -47,8 +47,19 @@ import {
 } from '../_components/editorial/data';
 import { composeCopy, type ComposedCopy } from '../_components/editorial/compose';
 import { KEEPSAKE_CSS } from './keepsake.css';
+import { KEEPSAKE_A4_CSS } from './keepsake-a4.css';
 import { PrintSheet } from './print-sheet';
+import { A4Sheet } from './a4-sheet';
 import { PrintToolbar } from './print-toolbar';
+
+/** The two printable formats this route serves. `?format=a4` selects the
+ *  one-minute-per-page booklet; anything else (including no param) is the
+ *  A3 broadsheet, unchanged from before this format switch existed. */
+type PrintFormat = 'a3' | 'a4';
+
+function resolveFormat(raw: string | string[] | undefined): PrintFormat {
+  return (Array.isArray(raw) ? raw[0] : raw) === 'a4' ? 'a4' : 'a3';
+}
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
@@ -76,10 +87,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function EditorialPrintPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ format?: string | string[] }>;
 }) {
   const { slug } = await params;
+  const format = resolveFormat((await searchParams).format);
   if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const event = await fetchEvent(slug);
@@ -88,6 +102,13 @@ export default async function EditorialPrintPage({
   // Iteration 0053: the editorial is the 'website' surface — non-website event
   // types don't have one (config-driven), matching the editorial page.
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+
+  // Resolved early (depends only on event_type, not on the gated editorial
+  // data below) so both the "not ready yet" stand-in and the finished sheet
+  // apply the SAME solemn-quiet class — one signal, reused everywhere on this
+  // route, never a second "is this event solemn" check.
+  const words = await eventWordsFor(event.event_type);
+  const rootClassName = `keepsake-root${words.solemn ? ' k-solemn' : ''}`;
 
   // (1) Visibility gate — IDENTICAL to the editorial (canViewSlugEvent): a
   // private (pre-launch) page never leaks through this URL to a stranger; a
@@ -196,10 +217,10 @@ export default async function EditorialPrintPage({
   if (!data) {
     return (
       <main
-        className="keepsake-root"
+        className={rootClassName}
         style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        <style dangerouslySetInnerHTML={{ __html: KEEPSAKE_CSS }} />
+        <style dangerouslySetInnerHTML={{ __html: format === 'a4' ? KEEPSAKE_A4_CSS : KEEPSAKE_CSS }} />
         <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', color: '#e7e2d6', fontSize: 18 }}>
           This keepsake isn&rsquo;t ready to print yet.
         </p>
@@ -281,18 +302,30 @@ export default async function EditorialPrintPage({
   );
 
   return (
-    <main className="keepsake-root">
-      <style dangerouslySetInnerHTML={{ __html: KEEPSAKE_CSS }} />
-      <PrintToolbar backHref={`/${event.slug ?? slug}`} />
-      <PrintSheet
-        data={data}
-        words={await eventWordsFor(event.event_type)}
-        copy={copy}
-        mono={mono}
-        qrSvg={qrSvg}
-        hideWatermark={hideWatermark}
-        stampLine={stampLine}
-      />
+    <main className={rootClassName}>
+      <style dangerouslySetInnerHTML={{ __html: format === 'a4' ? KEEPSAKE_A4_CSS : KEEPSAKE_CSS }} />
+      <PrintToolbar backHref={`/${event.slug ?? slug}`} format={format} />
+      {format === 'a4' ? (
+        <A4Sheet
+          data={data}
+          words={words}
+          copy={copy}
+          mono={mono}
+          qrSvg={qrSvg}
+          hideWatermark={hideWatermark}
+          stampLine={stampLine}
+        />
+      ) : (
+        <PrintSheet
+          data={data}
+          words={words}
+          copy={copy}
+          mono={mono}
+          qrSvg={qrSvg}
+          hideWatermark={hideWatermark}
+          stampLine={stampLine}
+        />
+      )}
     </main>
   );
 }

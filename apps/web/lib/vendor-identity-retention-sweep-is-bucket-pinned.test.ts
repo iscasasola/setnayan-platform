@@ -1,32 +1,33 @@
 /**
- * THE RETENTION SWEEP IS NOT A GENERAL DELETE PRIMITIVE.
+ * THE IDENTITY RETENTION SWEEP IS NOT A GENERAL DELETE PRIMITIVE — proved by
+ * RUNNING the per-row behaviour, not by reading the sweep's source.
  *
- * ── WHAT THIS GUARDS ───────────────────────────────────────────────────────
- * `sweepVerifications` reads two attacker-influenced columns and hands whatever
- * it finds to an ADMIN-client delete. Migration 20271218766967 revoked the
- * INSERT grant and dropped the self-insert policy that made those columns
- * writable; this suite pins the SECOND lock, so the job stays harmless even if
- * a future writer of those columns appears or the grant is restored by a table
- * rebuild (pg_default_acl re-applies at CREATE TABLE time).
+ * ── WHAT THIS REPLACES, AND WHY (2026-09-10) ───────────────────────────────
+ * The first version of this file (PR #5401) checked that the NAME
+ * `verificationRefIsInScope` appeared in `sweepVerifications` and that a loop
+ * iterated a variable called `inScope`. A post-merge review executed the obvious
+ * sabotage — `const inScope = [...present];` — and the suite stayed GREEN
+ * (25/25) while the sweep deleted out of `setnayan-media` again and still
+ * reported `assetsRefused`. `true || verificationRefIsInScope(..)` passed too.
+ * A guard that checks a name appears is decoration.
  *
- * ── WHY SOURCE SCANNING AND NOT AN IMPORT ──────────────────────────────────
- * `lib/vendor-identity-retention.ts` starts with `import 'server-only'`, and
- * `server-only` is NOT INSTALLED in this repo — importing the module from a
- * `node:test` fails outright. This is the same split `event-media-sweep.test.ts`
- * and `event-deletion-gate.test.ts` already use: the PURE rule is imported and
- * exercised for real in `vendor-identity-retention-core.test.ts`, and the wiring
- * that decides whether the rule is actually consulted is read out of the source.
+ * It also defended a hole in writing: a test titled "THE ASYMMETRY IS
+ * DELIBERATE" asserted the APPLICATIONS sweep stays unpinned, because its refs
+ * were "tenancy-pinned at WRITE time by SEC-1". That pin lived only in the
+ * server action. The database let a vendor PATCH its own draft's `doc_uploads`
+ * through PostgREST — proven as a real `authenticated` session in the replay —
+ * and the next approve OR reject armed this job to delete another shop's
+ * seven-year permit. That test is gone; the truth it should have stated is
+ * asserted below: BOTH sweeps are pinned by TENANT (the vendor's own folder),
+ * and the reviewer's valid point — a legitimate slot can live in the public
+ * media bucket under `vendors/<own id>/` — is kept.
  *
- * ⚠ SO BE PRECISE ABOUT WHAT THIS PROVES. It proves the sweep's code still
- * CONSULTS the rule and still refuses to clear a pointer it did not act on. It
- * does NOT execute the sweep. The rule's own behaviour is proved by the imported
- * tests next door.
- *
- * 🔑 RULE 0 — the bucket-pin idea is NOT new here. `lib/event-media-sweep.ts`
- * already ships `if (bucket !== R2_BUCKETS.media) return;` for exactly this
- * reason. What this one adds is that a refusal is COUNTED and SURFACED instead
- * of returning silently, because a refusal nobody can see is indistinguishable
- * from a delete that happened.
+ * ── HOW ────────────────────────────────────────────────────────────────────
+ * The sweep (`lib/vendor-identity-retention.ts`, `server-only`) hands each row
+ * to `applyApplicationScrub` / `applyVerificationScrub` (-core.ts) with the
+ * admin client and `executeCleanupDelete` as its only I/O. These tests supply
+ * FAKE I/O that records every delete and every pointer write, feed in the
+ * reviewer's exact attack refs, and assert on what was deleted and cleared.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,139 +36,157 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
+import type { PlannedDelete } from './cleanup-delete-scope';
+import { isPlannedDelete } from './cleanup-delete-scope';
+import {
+  applyApplicationScrub,
+  applyVerificationScrub,
+} from './vendor-identity-retention-core';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SWEEP = resolve(HERE, 'vendor-identity-retention.ts');
 const MIGRATION = resolve(
   HERE,
   '../../../supabase/migrations/20271218766967_a_vendor_cannot_mint_its_own_verification.sql',
 );
 
-/**
- * Comment-stripped, always. Every claim below is about CODE — a docblock
- * quoting the very string being asserted would keep this suite green with the
- * mechanism deleted, which is how a guard becomes decoration.
- */
-const sweepSource = (): string => stripComments(readFileSync(SWEEP, 'utf8'));
+const V = '0b000000-0000-4000-8000-000000000001';
+const VICTIM = '0b000000-0000-4000-8000-00000000dead';
 
-/** The body of one `async function <name>(` … up to the next top-level `}`. */
-function functionBody(source: string, name: string): string {
-  const start = source.indexOf(`async function ${name}(`);
-  assert.notEqual(
-    start,
-    -1,
-    `${name}() is gone from the sweep. If it was renamed, re-point this guard — ` +
-      'do not delete the assertion.',
-  );
-  const rest = source.slice(start);
-  const end = rest.indexOf('\n}');
-  assert.notEqual(end, -1, `Could not find the end of ${name}()`);
-  return rest.slice(0, end);
+/** The review's refs, verbatim in shape. */
+const VICTIM_LOGO = `r2://setnayan-media/vendors/${VICTIM}/logo/logo.png`;
+const OTHER_VENDOR_DTI = `r2://setnayan-vendor-verification/vendors/${VICTIM}/dti.pdf`;
+const OWN_GOV_ID = `r2://setnayan-vendor-verification/vendors/${V}/verification/gov.png`;
+const OWN_MEDIA_SLOT = `r2://setnayan-media/vendors/${V}/portfolio/p1.jpg`;
+
+function fakeIo() {
+  const deleted: string[] = [];
+  const writes: unknown[] = [];
+  return {
+    deleted,
+    writes,
+    deleteObject: async (t: PlannedDelete) => {
+      // The executor refuses anything that is not a planner-minted target; the
+      // fake holds the sweep to the same contract.
+      assert.equal(isPlannedDelete(t), true, 'the sweep handed the executor an unplanned target');
+      deleted.push(`${t.bucket}/${t.key}`);
+    },
+    writeDocUploads: async (next: Record<string, unknown>) => {
+      writes.push(next);
+      return { ok: true };
+    },
+    clearColumns: async (patch: Record<string, null>) => {
+      writes.push(patch);
+      return { ok: true };
+    },
+  };
 }
 
-test('THE PIN: sweepVerifications consults the bucket rule before deleting', () => {
-  const body = functionBody(sweepSource(), 'sweepVerifications');
-  assert.match(
-    body,
-    /verificationRefIsInScope/,
-    'sweepVerifications no longer asks whether the ref is in scope. A forged or ' +
-      'mistaken `government_id_r2_key` naming r2://setnayan-media/<victim key> ' +
-      'would be deleted by our own admin client. That is the reported ' +
-      'vulnerability, restored.',
+test('THE REVIEW’S APPLICATION EXPLOIT: a stranger’s logo and another shop’s permit are NOT deleted', async () => {
+  const io = fakeIo();
+  const out = await applyApplicationScrub(
+    {
+      vendor_profile_id: V,
+      doc_uploads: {
+        bank_account_proof: { r2_key: VICTIM_LOGO },
+        portfolio_samples: [{ r2_key: OTHER_VENDOR_DTI }],
+      },
+    },
+    io,
   );
+  assert.deepEqual(io.deleted, [], 'our admin client would have deleted another tenant’s object');
+  assert.deepEqual(io.writes, [], 'a refused slot was scrubbed — the pointer to a kept object is gone');
+  assert.equal(out.refused, 2);
+  assert.equal(out.scrubbed, false);
 });
 
-test('the delete loop iterates the IN-SCOPE columns, never the raw set', () => {
-  const body = functionBody(sweepSource(), 'sweepVerifications');
-  assert.match(
-    body,
-    /for \(const col of inScope\) \{/,
-    'The delete loop is back on the unfiltered column list, so the scope rule ' +
-      'is computed and then ignored — a guard that runs and decides nothing.',
+test('the vendor’s OWN uploads are deleted — in either place the intake accepts — and only those slots scrubbed', async () => {
+  const io = fakeIo();
+  const out = await applyApplicationScrub(
+    {
+      vendor_profile_id: V,
+      doc_uploads: {
+        government_id: { r2_key: OWN_GOV_ID },
+        portfolio_samples: [{ r2_key: OWN_MEDIA_SLOT }],
+        dti_certificate: { r2_key: `r2://setnayan-vendor-verification/vendors/${V}/verification/dti.pdf` },
+      },
+    },
+    io,
   );
-  assert.doesNotMatch(
-    body,
-    /for \(const col of present\) \{\s*try \{/,
-    'A delete loop over `present` bypasses the filter entirely.',
-  );
+  assert.deepEqual(io.deleted.sort(), [
+    `setnayan-media/vendors/${V}/portfolio/p1.jpg`,
+    `setnayan-vendor-verification/vendors/${V}/verification/gov.png`,
+  ]);
+  assert.equal(io.writes.length, 1);
+  assert.deepEqual(Object.keys(io.writes[0] as object), ['dti_certificate'], 'the seven-year permit must survive');
+  assert.equal(out.scrubbed, true);
 });
 
-test('A REFUSED POINTER IS NEVER NULLED — the RA 10173 half', () => {
-  // 🔑 Nulling the pointer for a ref we declined to delete would leave the
-  // object retained past its declared retention period with nothing left
-  // pointing at it — a compliance failure committed in the name of security,
-  // and strictly worse than either alternative.
-  const body = functionBody(sweepSource(), 'sweepVerifications');
-  assert.match(
-    body,
-    /for \(const col of inScope\) patch\[col\] = null;/,
-    'The clear-patch is built from something other than the in-scope columns. ' +
-      'If it is built from `present`, a refused document is now unreachable AND ' +
-      'still stored.',
+test('a mixed application deletes and scrubs ONLY the own slot; the foreign slot stays exactly as it was', async () => {
+  const io = fakeIo();
+  await applyApplicationScrub(
+    {
+      vendor_profile_id: V,
+      doc_uploads: {
+        government_id: { r2_key: OWN_GOV_ID },
+        bank_account_proof: { r2_key: VICTIM_LOGO },
+      },
+    },
+    io,
   );
-  assert.doesNotMatch(
-    body,
-    /for \(const col of present\) patch\[col\] = null;/,
-    'The clear-patch nulls every column including the refused ones.',
-  );
+  assert.deepEqual(io.deleted, [`setnayan-vendor-verification/vendors/${V}/verification/gov.png`]);
+  assert.deepEqual(io.writes, [{ bank_account_proof: { r2_key: VICTIM_LOGO } }]);
 });
 
-test('a row where everything was refused is not counted as scrubbed', () => {
-  const body = functionBody(sweepSource(), 'sweepVerifications');
-  assert.match(
-    body,
-    /if \(inScope\.length === 0\) continue;/,
-    'With nothing in scope the row must be skipped before the UPDATE. Writing an ' +
-      'empty patch would stamp the row as handled and hide the refusal.',
+test('THE COLUMN EXPLOIT FROM #5401: a media ref on vendor_verifications is refused and its pointer kept', async () => {
+  const io = fakeIo();
+  const out = await applyVerificationScrub(
+    {
+      vendor_profile_id: V,
+      government_id_r2_key: 'r2://setnayan-media/vendors/8f14e45f-ceea-467a-9f2a-1c2d3e4f5a6b/logo/a-logo.png',
+      bank_account_proof_r2_key: OTHER_VENDOR_DTI,
+    },
+    io,
   );
+  assert.deepEqual(io.deleted, []);
+  assert.deepEqual(io.writes, [], 'an empty or partial patch was written for a fully-refused row');
+  assert.deepEqual([...out.refusedColumns].sort(), ['bank_account_proof_r2_key', 'government_id_r2_key']);
+  assert.equal(out.scrubbed, false, 'a fully refused row must not be counted as scrubbed');
 });
 
-test('THE REFUSAL IS COUNTED AND SAID OUT LOUD', () => {
-  // A refusal nobody can see is indistinguishable from a delete that happened.
-  const src = sweepSource();
-  assert.match(
-    src,
-    /assetsRefused: number;/,
-    'The summary no longer reports refusals, so the sweep can decline to delete ' +
-      'identity documents indefinitely and report a clean run.',
+test('a mixed verification row nulls ONLY the column whose object it deleted', async () => {
+  const io = fakeIo();
+  await applyVerificationScrub(
+    {
+      vendor_profile_id: V,
+      government_id_r2_key: `r2://setnayan-vendor-verification/vendors/${V}/id.jpg`,
+      bank_account_proof_r2_key: VICTIM_LOGO,
+    },
+    io,
   );
-  assert.match(
-    functionBody(src, 'sweepVerifications'),
-    /summary\.assetsRefused \+= 1;/,
-    'Refusals are no longer counted.',
-  );
-  assert.match(
-    src,
-    /console\.error\(\s*`\[vendor-identity-retention\] \$\{summary\.assetsRefused\}/,
-    'The loud line for a non-zero refusal count is gone. These columns are ' +
-      'service_role-only — a refusal means a ref got in that never should have.',
-  );
+  assert.deepEqual(io.deleted, [`setnayan-vendor-verification/vendors/${V}/id.jpg`]);
+  assert.deepEqual(io.writes, [{ government_id_r2_key: null }]);
 });
 
-test('THE ASYMMETRY IS DELIBERATE: the applications sweep is NOT bucket-pinned', () => {
-  // ⛔ Measured, not assumed. app/vendor-dashboard/verify/actions.ts accepts a
-  // slot ref under EITHER vendorVerificationDocPolicy (bucket
-  // setnayan-vendor-verification) OR vendorOwnedMediaPolicy — and the latter
-  // sets no `bucket`, so parseClientRef defaults it to the PUBLIC media bucket.
-  // A real application's identity slot can therefore legitimately hold
-  // r2://setnayan-media/vendors/<own-id>/…
-  //
-  // Making the two sweeps symmetric — the obvious tidy-up — would REFUSE to
-  // delete a document we promised the NPC we delete. Those refs are already
-  // tenancy-pinned at WRITE time by SEC-1; the column path has no write-time
-  // control at all, which is the whole reason it needs one here.
-  const body = functionBody(sweepSource(), 'sweepApplications');
-  assert.doesNotMatch(
-    body,
-    /verificationRefIsInScope/,
-    'sweepApplications has been given the verification bucket pin. Its refs ' +
-      'legitimately live in the public media bucket too, so this now strands ' +
-      'real identity documents past their declared retention. Read ' +
-      'verificationRefIsInScope’s docblock before changing this.',
+test('a failed pointer write is reported, never counted as scrubbed', async () => {
+  const io = fakeIo();
+  const out = await applyVerificationScrub(
+    { vendor_profile_id: V, government_id_r2_key: `r2://setnayan-vendor-verification/vendors/${V}/id.jpg` },
+    { ...io, clearColumns: async () => ({ ok: false }) },
   );
+  assert.equal(out.scrubbed, false);
+  assert.equal(out.writeFailed, true);
 });
 
-test('the migration revokes at TABLE level and drops the orphaned INSERT policy', () => {
+test('the sweep’s only delete is the executor — no raw primitive, no second road', () => {
+  // Wiring, deliberately narrow: the BEHAVIOUR is proved above. What is left to
+  // pin is that the I/O file hands those functions the real executor.
+  const sweep = stripComments(readFileSync(resolve(HERE, 'vendor-identity-retention.ts'), 'utf8'));
+  const occurrences = (sweep.match(/deleteObject:\s*executeCleanupDelete\b/g) ?? []).length;
+  assert.equal(occurrences, 2, 'both sweeps must delete through executeCleanupDelete');
+  assert.doesNotMatch(sweep, /\br2Delete\b|\bdeletePublicAsset\b/);
+});
+
+test('the #5401 migration still revokes at TABLE level and drops the orphaned INSERT policy', () => {
   const sql = stripComments(readFileSync(MIGRATION, 'utf8'));
   assert.match(
     sql,
@@ -175,16 +194,6 @@ test('the migration revokes at TABLE level and drops the orphaned INSERT policy'
     'The table-level revoke is gone. A column-by-column revoke leaves the NEXT ' +
       'column granted, and has_table_privilege() reads FALSE while it stands.',
   );
-  assert.match(
-    sql,
-    /DROP POLICY IF EXISTS vendor_verifications_self_insert/,
-    'The orphaned INSERT policy is back. With pg_default_acl re-granting INSERT ' +
-      'on any table rebuild, the policy is the only thing left refusing the write.',
-  );
-  assert.doesNotMatch(
-    sql,
-    /DROP POLICY IF EXISTS vendor_verifications_self_read/,
-    'The READ policy must survive — removing it is a wider narrowing than the ' +
-      'finding supports and is its own decision.',
-  );
+  assert.match(sql, /DROP POLICY IF EXISTS vendor_verifications_self_insert/);
+  assert.doesNotMatch(sql, /DROP POLICY IF EXISTS vendor_verifications_self_read/);
 });

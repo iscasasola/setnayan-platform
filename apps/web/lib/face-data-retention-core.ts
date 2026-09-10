@@ -23,6 +23,11 @@
  * ₱1,500 against ₱2,000 owed. If the floor moves, this moves with it.
  */
 import { FULL_RES_POST_EVENT_GRACE_DAYS } from '@/lib/papic-fullres-drop-core';
+import {
+  guestSelfieScope,
+  planCleanupDelete,
+  type CleanupDecision,
+} from '@/lib/cleanup-delete-scope';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -130,4 +135,28 @@ export function faceDataIsPastRetention(
   if (from === null) return false;
   if (!Number.isFinite(nowMs)) return false;
   return nowMs >= from;
+}
+
+/**
+ * MAY A FACE-DATA CLEANUP DELETE THE SELFIE THIS ENROLLMENT POINTS AT?
+ * (2026-09-10) — one rule for the weekly sweep, the guest's own withdrawal,
+ * the couple's "delete this guest's face data" and erasure.
+ *
+ * `guest_face_enrollments.asset_url` is not only written by the two server
+ * actions that gate it with `guestSelfiePolicy`: the table's
+ * `couple_writes_face_enrollment` policy is FOR ALL, so a couple could write any
+ * string into it through PostgREST, and this sweep — ON by default, admin
+ * client, no admin step — deleted whatever it named three months after the
+ * event. The object must sit under the enrollment's own
+ * `events/<event_id>/guest-selfies/<guest_id>/` folder, or it is not deleted.
+ *
+ * `null` means there is no selfie to consider.
+ */
+export function planFaceSelfieDelete(row: {
+  event_id: string | null;
+  guest_id: string | null;
+  asset_url: string | null;
+}): CleanupDecision | null {
+  if (typeof row.asset_url !== 'string' || row.asset_url.trim().length === 0) return null;
+  return planCleanupDelete(row.asset_url, guestSelfieScope(row.event_id, row.guest_id));
 }

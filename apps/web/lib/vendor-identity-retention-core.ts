@@ -47,6 +47,14 @@
  *   flagged gap, not a silent widening.
  */
 
+import { collectStoredAssetRefs } from '@/lib/erasure/coverage';
+import {
+  planCleanupDelete,
+  vendorIdentityUploadScope,
+  vendorVerificationRecordScope,
+  type PlannedDelete,
+} from '@/lib/cleanup-delete-scope';
+
 /** Days after the approve/reject decision before raw identity uploads go. */
 export const VENDOR_IDENTITY_RETENTION_DAYS = 90;
 
@@ -151,67 +159,200 @@ export function hasIdentityUploads(docUploads: unknown): boolean {
   return Object.keys(identityUploadsSubset(docUploads)).length > 0;
 }
 
-/**
- * The ONE bucket a `vendor_verifications` identity key may point into.
- *
- * Mirrors `R2_BUCKETS.vendorVerification`. Written as a literal on purpose:
- * this module is the PURE half and importing `lib/r2` would drag the S3 client
- * and its env into every `node:test` that touches this rule.
- * `verification-bucket-name-matches-r2.test.ts` pins the two together, so the
- * literal cannot drift from the constant it mirrors.
- */
-export const VERIFICATION_IDENTITY_BUCKET = 'setnayan-vendor-verification';
+// ============================================================================
+// THE DELETES ARE PINNED TO THE VENDOR'S OWN FOLDER — BOTH SWEEPS (2026-09-10)
+//
+// ⚠ CORRECTED. PR #5401 pinned the `vendor_verifications` column path to the
+// verification BUCKET and left the applications path unpinned on purpose, with a
+// docblock saying its refs were "already tenancy-pinned at WRITE time by SEC-1"
+// and a test titled "THE ASYMMETRY IS DELIBERATE" defending it. Both were wrong
+// about where the pin lived. SEC-1 is in the SERVER ACTION
+// (app/vendor-dashboard/verify/actions.ts); the DATABASE held no such rule —
+// `authenticated` holds column INSERT and UPDATE on `doc_uploads` and `status`,
+// the owner's draft policy constrains only who owns the row, and the table had no
+// trigger. So a vendor PATCHed its own draft through PostgREST with the public
+// anon key, naming another shop's seven-year DTI permit or a stranger's logo, and
+// moved it to pending_review. The day any admin approved OR rejected it, this
+// sweep's admin client deleted both. Proven as a real authenticated session in
+// the replay and read in production by the object before this change.
+//
+// The reviewer's point that made the bucket-only pin wrong for applications
+// stands and is kept: a legitimate slot CAN live at
+// `r2://setnayan-media/vendors/<own id>/…` (vendorOwnedMediaPolicy). So the pin
+// is by TENANT — the vendor's own folder in either bucket — not by bucket alone.
+// The write side is closed too (a restrictive policy in migration
+// 20271219262486_every_cleanup_delete_is_pinned); this is the half that holds even if
+// a future writer forgets.
+//
+// 🔒 REFUSED ⇒ COUNTED, and the pointer is KEPT. Per slot, all-or-nothing: a
+// slot holding any ref outside the vendor's folder is left exactly as it was —
+// no delete, no scrub — so the refusal is re-reported every pass instead of
+// being tidied into an unreachable file.
+// ============================================================================
+
+export type ApplicationScrubPlan = {
+  /** Objects proven to be this vendor's own identity uploads. */
+  deletes: PlannedDelete[];
+  /** Refs refused — outside the vendor's own folder. */
+  refused: number;
+  /** Identity slots left untouched because they held a refused ref. */
+  refusedSlots: string[];
+  /** Identity slots whose every ref was in scope — removed from `nextDocUploads`. */
+  scrubbedSlots: string[];
+  /** `doc_uploads` with ONLY the scrubbed slots removed. */
+  nextDocUploads: Record<string, unknown>;
+};
 
 /**
- * MAY THE SWEEP DELETE THIS `vendor_verifications` REF? — defence in depth
- * behind migration 20271218766967.
- *
- * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
- * `sweepVerifications` reads `government_id_r2_key` / `bank_account_proof_r2_key`
- * and hands whatever it finds to an ADMIN-client delete. Those columns had no
- * writer at all and, until that migration, a table-level INSERT grant plus a
- * self-insert policy that constrained only `vendor_profile_id` — so any signed-in
- * vendor could choose the string. `parseStoredAsset` accepts ALL FIVE buckets in
- * `R2_BUCKETS`, and `setnayan-media` object keys are published in our own page
- * source as presigned URLs, so the value could name a victim's live object.
- *
- * The migration is the load-bearing control. This is the second lock: a
- * retention job for VERIFICATION identity documents has no business deleting an
- * object in the public media bucket, whatever a future writer of these columns
- * decides to store. The primitive is the deeper defect — narrowing it means even
- * a restored grant cannot turn the sweep into a general delete.
- *
- * ⛔ THIS RULE IS FOR THE `vendor_verifications` COLUMNS ONLY. IT MUST NOT BE
- *    APPLIED TO `vendor_verification_applications.doc_uploads`, and that is not
- *    an oversight — it is measured. The live intake
- *    (app/vendor-dashboard/verify/actions.ts) accepts a slot ref under EITHER
- *    `vendorVerificationDocPolicy` (bucket `setnayan-vendor-verification`) OR
- *    `vendorOwnedMediaPolicy`, and the latter has no `bucket` field, so
- *    `parseClientRef` defaults it to the PUBLIC media bucket. A real
- *    application's identity slot can therefore legitimately hold
- *    `r2://setnayan-media/vendors/<own-id>/…`. Constraining that sweep to one
- *    bucket would REFUSE to delete a document we promised to delete and leave it
- *    retained past its declared retention — the RA 10173 failure, in the name of
- *    security. Those refs are already tenancy-pinned at WRITE time by SEC-1 to
- *    the vendor's own folder, which is the control this rule substitutes for on
- *    the column path, where no write-time control exists at all.
- *
- * 🔒 FAILS CLOSED, in the direction that keeps the file: anything not provably
- * an `r2://setnayan-vendor-verification/…` ref is REFUSED. A refusal must be
- * COUNTED and surfaced by the caller — a refusal nobody can see is
- * indistinguishable from a delete that happened — and the caller must NOT null
- * the pointer for a ref it refused, or the object is retained past retention
- * with nothing left pointing at it.
+ * What the 90-day sweep may do to one decided application. Pure; the sweep
+ * executes it. `vendor_profile_id` MUST be the row's own column, read by the job.
  */
-export function verificationRefIsInScope(ref: string | null | undefined): boolean {
-  if (typeof ref !== 'string') return false;
-  const trimmed = ref.trim();
-  if (trimmed.length === 0) return false;
+export function planApplicationScrub(row: {
+  vendor_profile_id: string | null;
+  doc_uploads: unknown;
+}): ApplicationScrubPlan {
+  const scope = vendorIdentityUploadScope(row.vendor_profile_id);
+  const subset = identityUploadsSubset(row.doc_uploads);
+  const deletes: PlannedDelete[] = [];
+  const refusedSlots: string[] = [];
+  const scrubbedSlots: string[] = [];
+  let refused = 0;
 
-  const prefix = `r2://${VERIFICATION_IDENTITY_BUCKET}/`;
-  if (!trimmed.startsWith(prefix)) return false;
+  for (const slot of Object.keys(subset)) {
+    // ONE pass decides both halves, so there is no separate "in scope" list to
+    // widen: a target exists only where the planner minted one, and a single
+    // refusal keeps the whole slot.
+    const targets: PlannedDelete[] = [];
+    let slotRefused = 0;
+    for (const ref of collectStoredAssetRefs(subset[slot])) {
+      const decision = planCleanupDelete(ref, scope);
+      if (decision.ok) targets.push(decision.target);
+      else slotRefused += 1;
+    }
+    if (slotRefused > 0) {
+      refused += slotRefused;
+      refusedSlots.push(slot);
+      continue;
+    }
+    deletes.push(...targets);
+    scrubbedSlots.push(slot);
+  }
 
-  // A bare `r2://bucket/` names no object. Require at least one key character,
-  // matching `parseClientRef`'s own "prefix plus something" rule.
-  return trimmed.length > prefix.length;
+  const src =
+    row.doc_uploads && typeof row.doc_uploads === 'object' && !Array.isArray(row.doc_uploads)
+      ? (row.doc_uploads as Record<string, unknown>)
+      : {};
+  const drop = new Set(scrubbedSlots);
+  const nextDocUploads: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(src)) {
+    if (!drop.has(k)) nextDocUploads[k] = v;
+  }
+  return { deletes, refused, refusedSlots, scrubbedSlots, nextDocUploads };
+}
+
+export type VerificationKeyColumn = (typeof IDENTITY_VERIFICATION_COLUMNS)[number];
+
+export type VerificationScrubPlan = {
+  deletes: PlannedDelete[];
+  /** Columns refused — the object AND the pointer are kept. */
+  refused: VerificationKeyColumn[];
+  /** Columns whose object was proven the vendor's own — the ONLY ones to null. */
+  clear: VerificationKeyColumn[];
+};
+
+/**
+ * What the sweep may do to one decided `vendor_verifications` row: the private
+ * verification bucket AND the vendor's own `vendors/<id>/` folder there.
+ */
+export function planVerificationScrub(
+  row: { vendor_profile_id: string | null } & Partial<Record<VerificationKeyColumn, string | null>>,
+): VerificationScrubPlan {
+  const scope = vendorVerificationRecordScope(row.vendor_profile_id);
+  const present = IDENTITY_VERIFICATION_COLUMNS.filter(
+    (c) => typeof row[c] === 'string' && (row[c] as string).length > 0,
+  );
+  const inScope = present.filter((c) => planCleanupDelete(row[c], scope).ok);
+  const refused = present.filter((c) => !planCleanupDelete(row[c], scope).ok);
+  const deletes: PlannedDelete[] = [];
+  for (const col of inScope) {
+    const decision = planCleanupDelete(row[col], scope);
+    if (decision.ok) deletes.push(decision.target);
+  }
+  return { deletes, refused, clear: inScope };
+}
+
+// ============================================================================
+// APPLYING A PLAN — injected I/O, so the WHOLE per-row behaviour (what is
+// deleted, what is cleared, what is counted) is a unit test with fake deps,
+// not a source scan of the sweep. `lib/vendor-identity-retention.ts` supplies
+// the admin client and `executeCleanupDelete`, and nothing else.
+// ============================================================================
+
+export type RowOutcome = {
+  deleted: number;
+  deleteFailed: number;
+  refused: number;
+  /** The pointer write ran and succeeded. */
+  scrubbed: boolean;
+  /** The pointer write ran and failed — the row survives to the next pass. */
+  writeFailed: boolean;
+};
+
+type ApplyDeps = {
+  /** Delete ONE planned target. Throws on failure. */
+  deleteObject(target: PlannedDelete): Promise<void>;
+  onDeleteError?(err: unknown): void;
+};
+
+async function deleteAll(targets: readonly PlannedDelete[], deps: ApplyDeps) {
+  let deleted = 0;
+  let failed = 0;
+  // The objects first — a cleared pointer must never orphan a file.
+  for (const target of targets) {
+    try {
+      await deps.deleteObject(target);
+      deleted += 1;
+    } catch (err) {
+      failed += 1;
+      deps.onDeleteError?.(err);
+    }
+  }
+  return { deleted, failed };
+}
+
+/** One decided application: delete its own identity uploads, then scrub only those slots. */
+export async function applyApplicationScrub(
+  row: { vendor_profile_id: string | null; doc_uploads: unknown },
+  deps: ApplyDeps & {
+    writeDocUploads(next: Record<string, unknown>): Promise<{ ok: boolean }>;
+  },
+): Promise<RowOutcome & { refusedSlots: string[] }> {
+  const plan = planApplicationScrub(row);
+  const { deleted, failed } = await deleteAll(plan.deletes, deps);
+  const base = { deleted, deleteFailed: failed, refused: plan.refused, refusedSlots: plan.refusedSlots };
+  // Every identity slot was refused — nothing to clear; the row survives to the
+  // next run so the refusal keeps being reported.
+  if (plan.scrubbedSlots.length === 0) return { ...base, scrubbed: false, writeFailed: false };
+  const { ok } = await deps.writeDocUploads(plan.nextDocUploads);
+  return { ...base, scrubbed: ok, writeFailed: !ok };
+}
+
+/** One decided `vendor_verifications` row: delete its own files, then null ONLY those columns. */
+export async function applyVerificationScrub(
+  row: { vendor_profile_id: string | null } & Partial<Record<VerificationKeyColumn, string | null>>,
+  deps: ApplyDeps & {
+    clearColumns(patch: Partial<Record<VerificationKeyColumn, null>>): Promise<{ ok: boolean }>;
+  },
+): Promise<RowOutcome & { refusedColumns: VerificationKeyColumn[] }> {
+  const plan = planVerificationScrub(row);
+  const { deleted, failed } = await deleteAll(plan.deletes, deps);
+  const base = { deleted, deleteFailed: failed, refused: plan.refused.length, refusedColumns: plan.refused };
+  // Every column on this row was refused — there is nothing to clear, and the
+  // row survives to the next run so the refusal keeps being reported.
+  if (plan.clear.length === 0) return { ...base, scrubbed: false, writeFailed: false };
+  // 🔑 Built from plan.clear ONLY: a refused column is never nulled.
+  const patch: Partial<Record<VerificationKeyColumn, null>> = {};
+  for (const col of plan.clear) patch[col] = null;
+  const { ok } = await deps.clearColumns(patch);
+  return { ...base, scrubbed: ok, writeFailed: !ok };
 }

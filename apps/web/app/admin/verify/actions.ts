@@ -19,6 +19,7 @@ import { contentDispositionAttachment } from '@/lib/content-disposition';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 import { resolveDocumentLocation } from '@/lib/verification-checks';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import { deadlineAtApproval, permitDeadlineFrom } from '@/lib/verified-badge';
 import {
   DEEP_SEARCH_MODEL,
   DEEP_SEARCH_LITE_MODEL,
@@ -327,6 +328,13 @@ type ApplicationDecisionInput = {
   applicationId: string;
   decision: 'approved' | 'rejected' | 'demoted' | 'set_in_review';
   reason: string | null;
+  /**
+   * Approve only: the Mayor's Permit's printed "valid until", as the badge
+   * deadline (end of that day, Manila) — already validated by
+   * `permitDeadlineFrom`. Null = none recorded → the one-year renewal the
+   * approval has always written.
+   */
+  permitDeadlineIso?: string | null;
 };
 
 export async function applyApplicationDecision(
@@ -376,11 +384,14 @@ export async function applyApplicationDecision(
       toState = 'verified';
       appStatus = 'approved';
       appDecision = 'approved';
-      const renewalDue = new Date(now);
-      renewalDue.setUTCFullYear(renewalDue.getUTCFullYear() + 1);
+      // 🔑 THE BADGE'S DEADLINE (owner 2026-09-11 · Q5): the Mayor's Permit's
+      // own printed date when the reviewer recorded it, so the reminder lands
+      // 60 days before THAT and the badge comes off the day it runs out. The
+      // one-year renewal stays as the fallback, byte-for-byte what this wrote
+      // before. The shop's listing and bookability never read this column.
       approveSideEffects = {
         last_verified_at: now,
-        next_renewal_due_at: renewalDue.toISOString(),
+        next_renewal_due_at: deadlineAtApproval(new Date(now), input.permitDeadlineIso ?? null),
         public_visibility: 'verified',
       };
       break;
@@ -453,6 +464,19 @@ export async function applyApplicationDecision(
     if (vendorUpdErr) return { ok: false, error: vendorUpdErr.message };
   }
 
+  // ---- Step 2b: papers approved → a vouch's papers deadline is met. ----
+  // The deadline that matters now is the permit's (written above). Clearing the
+  // vouch row's own `expires_at` stops the desk counting down a bridge the shop
+  // has already crossed. Best-effort: most shops were never vouched for, and
+  // the badge reads `next_renewal_due_at`, not this row.
+  if (input.decision === 'approved') {
+    await admin
+      .from('vendor_verification_bypasses')
+      .update({ expires_at: null, updated_at: now })
+      .eq('vendor_profile_id', vendor.vendor_profile_id)
+      .not('expires_at', 'is', null);
+  }
+
   // ---- Step 3: vendor_tier_history audit row. ----
   if (toState !== fromState) {
     const { error: historyErr } = await admin
@@ -506,7 +530,15 @@ export async function applyApplicationDecision(
     },
     reason: input.reason,
     actor_user_id: input.actor.user_id,
-    ...(evidence ? { metadata: { evidence_at_grant: evidence } } : {}),
+    ...(evidence
+      ? {
+          metadata: {
+            evidence_at_grant: evidence,
+            badge_deadline: approveSideEffects.next_renewal_due_at ?? null,
+            badge_deadline_source: input.permitDeadlineIso ? 'mayors_permit' : 'one_year_renewal',
+          },
+        }
+      : {}),
   });
   if (auditErr) return { ok: false, error: auditErr.message };
 
@@ -535,11 +567,27 @@ export async function approveApplication(formData: FormData) {
   const applicationId = readFormString(formData, 'application_id');
   if (!applicationId) throw new Error('Missing application_id.');
 
+  // The Mayor's Permit's printed "valid until", read off the paper by the
+  // reviewer. Blank = not recorded (the one-year renewal applies); anything
+  // else must be a real, current date — a permit that has already run out, or
+  // one "valid" for years, is a misread, and approving on it would start the
+  // badge's clock from a wrong day.
+  const permitRaw = readFormString(formData, 'permit_valid_until');
+  let permitDeadlineIso: string | null = null;
+  if (permitRaw) {
+    const parsed = permitDeadlineFrom(permitRaw);
+    if (!parsed.ok) {
+      redirect(`/admin/verify?error=${encodeURIComponent(parsed.error)}`);
+    }
+    permitDeadlineIso = parsed.deadlineIso;
+  }
+
   const result = await applyApplicationDecision({
     actor,
     applicationId,
     decision: 'approved',
     reason: readFormString(formData, 'reason') || null,
+    permitDeadlineIso,
   });
   if (!result.ok) {
     redirect(`/admin/verify?error=${encodeURIComponent(result.error)}`);

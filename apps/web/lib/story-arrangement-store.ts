@@ -254,6 +254,13 @@ export type LoadedArrangement = ResolvedArrangement & {
   unreadable: ArrangementSource[];
   /** The day had more captures than one read takes; the rest are not in the tray. */
   poolTruncated: boolean;
+  /**
+   * The run of show this read sorted by — handed back so the host's editor can re-derive
+   * Automatic with the SAME `resolveArrangement` and the same blocks, instead of reading them a
+   * second time and risking a second answer. Public blocks only (see `loadRunOfShowMoments`);
+   * EMPTY for a reader the guests' layer does not admit, who is not given the day's shape.
+   */
+  runOfShow: RunOfShowMoment[];
 };
 
 /**
@@ -303,7 +310,9 @@ export async function loadStoryArrangement(
     status,
     viewer,
   });
-  if (withheld.withheld) return { ...withheld, version, unreadable, poolTruncated: false };
+  if (withheld.withheld) {
+    return { ...withheld, version, unreadable, poolTruncated: false, runOfShow: [] };
+  }
 
   let window: StoryDayWindow | null = null;
   let poolReadable = true;
@@ -341,7 +350,13 @@ export async function loadStoryArrangement(
     status,
     viewer,
   });
-  return { ...resolved, version, unreadable, poolTruncated: pool.truncated };
+  return {
+    ...resolved,
+    version,
+    unreadable,
+    poolTruncated: pool.truncated,
+    runOfShow: runOfShow.moments,
+  };
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

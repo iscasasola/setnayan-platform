@@ -97,6 +97,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 
 export type VendorBadge =
   | 'new'
@@ -138,6 +139,13 @@ export type VendorBadgeInput = {
   vendor_profile_id: string;
   /** `vendor_profiles.verification_state` — only `'verified'` qualifies. */
   verification_state: string | null;
+  /**
+   * `vendor_profiles.next_renewal_due_at` — the Verified badge's deadline
+   * (owner 2026-09-11 · Q4 + Q5). Past it the `verified` badge is not drawn;
+   * the vendor stays in every pool below, because a lapsed badge leaves the
+   * shop listed and bookable. Omitted/null = no deadline (badge as before).
+   */
+  next_renewal_due_at?: string | null;
   /** `vendor_profiles.created_at` — used for the 3-month New window. */
   created_at: string | null;
   /**
@@ -330,7 +338,10 @@ export function computeVendorBadges(
     const badges: VendorBadge[] = [];
     if (isVerified(v.verification_state)) {
       if (isNewWithin90d(v.created_at, now)) badges.push('new');
-      badges.push('verified');
+      // The badge alone reads its deadline — `hasVerifiedBadge` is the one
+      // predicate. Everything else here stays on the verified STATE: a shop
+      // whose permit lapsed is still a live, bookable, rankable shop.
+      if (hasVerifiedBadge(v, new Date(now))) badges.push('verified');
       if (isCoupleTrusted(v)) badges.push('couple_trusted');
       if (mostBookingIds.has(v.vendor_profile_id)) badges.push('most_booking');
       if (topPickIds.has(v.vendor_profile_id)) badges.push('top_pick');

@@ -82,6 +82,7 @@ import {
   type VendorPriceSource,
 } from './budget';
 import { CONFIRMED_VENDOR_STATUSES } from './events';
+import { resolveAgreedTotal, splitVendorLines } from './agreed-total-and-its-changes';
 // The one definition of "due soon" / "overdue". It lives with the guard that
 // ALERTS on it (`TRIGGER_THRESHOLDS` is that file's documented home for the
 // restraint dials) and is read here by the calculator that COUNTS it, so the
@@ -112,6 +113,15 @@ export type MoneySource =
   | 'vendor_service_listing'
   /** `event_vendor_line_items.amount_php` (signed; negative = credit). */
   | 'vendor_line_item'
+  /**
+   * `event_vendor_line_items.amount_php` on a row carrying
+   * `is_change_delta = TRUE` — a settled change-order delta (signed; negative =
+   * credit). It is its OWN source, not a flavour of `vendor_line_item`, because
+   * the two behave in opposite directions: a line item stands IN PLACE OF the
+   * supplier's agreed price, and a change rides ON TOP of it. Owner 2026-09-09:
+   * "Both, shown separately."
+   */
+  | 'vendor_change_delta'
   /** `event_vendors.total_cost_php` — the legacy headline. */
   | 'vendor_headline'
   /**
@@ -326,6 +336,15 @@ export type LineItemMoneyRow = {
   label: string;
   amount_php: number | string | null;
   due_date: string | null;
+  /**
+   * `event_vendor_line_items.is_change_delta` (migration 20271218458148).
+   * TRUE = a settled change-order delta, billed ON TOP of the agreed price.
+   * FALSE/absent = an itemisation line, billed IN PLACE OF it. Optional so a
+   * fixture or a narrower select still typechecks; `splitVendorLines` reads
+   * `=== true`, so absent means BREAKDOWN — today's meaning for every row that
+   * already exists.
+   */
+  is_change_delta?: boolean | null;
 };
 
 export type PaymentMoneyRow = {
@@ -887,23 +906,47 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     //    R12 · the branch test is `!== 0`, not `> 0`. With `> 0` a credit-only
     //         manual line is silently discarded on a package vendor, and
     //         credits exceeding charges revert a vendor to their stale headline.
-    const manualC = myLineItems.reduce((acc, li) => acc + toCentavos(li.amount_php), 0);
+    // ── A CHANGE RIDES ON THE AGREED TOTAL, IT NEVER REPLACES IT ────────────
+    // Owner 2026-09-09: "Both, shown separately." A settled change-order delta
+    // and the couple's own itemisation share one table and mean opposite
+    // things — an itemisation stands IN PLACE OF the supplier's price, a change
+    // rides ON TOP of it. `is_change_delta` is what tells them apart, and
+    // `resolveAgreedTotal` is the ONE cascade (shared with `lib/budget.ts`'s
+    // two readers, which used to hand-copy it and had drifted).
+    //
+    // ⚠ `manualC` is now Σ of the BREAKDOWN lines ONLY. Feeding it every line
+    // is precisely the defect: a −₱15,000 change on a ₱100,000 supplier landed
+    // in the `manualC !== 0` branch below and reported −₱15,000.
+    const { breakdown: breakdownLines, changes: changeLines } = splitVendorLines(myLineItems);
+    const manualC = breakdownLines.reduce((acc, li) => acc + toCentavos(li.amount_php), 0);
+    const changesC = changeLines.reduce((acc, li) => acc + toCentavos(li.amount_php), 0);
     const headlineC = toCentavos(v.total_cost_php);
     const controlledC = controlled.reduce((acc, it) => acc + toCentavos(it.amount_php), 0);
     const isPackageAnchor =
       v.package_role === 'anchor' ||
       (priceSource === 'package' && Boolean(v.event_vendor_package_id));
+    const listingEstimate = priceSource === 'service' && controlledC !== 0 && !isCommitted;
 
-    let priceC = 0;
+    const agreed = resolveAgreedTotal({
+      headline: headlineC,
+      catalogue: controlledC,
+      breakdown: manualC,
+      changes: changesC,
+      isPackageAnchor,
+      packageLocked: inputs.packageLockedCentavos.get(v.event_vendor_package_id ?? '') ?? 0,
+      listingEstimate,
+    });
+
+    const priceC = agreed.pricePart;
+    const useLineItems = agreed.billBreakdown;
     let priceKind: MoneySource = 'vendor_headline';
     let priceLabel = v.vendor_name;
     let priceRef = v.vendor_id;
     let priceReadOnly = false;
-    let useLineItems = false;
 
+    // The LABELS still branch — only the arithmetic was shared out. Each arm
+    // below reproduces exactly the wording it always used.
     if (isPackageAnchor) {
-      const lockedC = inputs.packageLockedCentavos.get(v.event_vendor_package_id ?? '') ?? 0;
-      priceC = headlineC !== 0 ? headlineC : lockedC;
       priceKind = 'vendor_package';
       priceLabel = `${v.vendor_name} — package`;
       priceReadOnly = true;
@@ -916,37 +959,21 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
           bucket: bucketId,
         });
       }
-      // Manual line items on a package vendor are genuine extras / change-order
-      // credits and ride ON TOP of the agreed total. R12: `!== 0`.
-      useLineItems = manualC !== 0;
-    } else if (priceSource === 'service' && controlledC !== 0 && !isCommitted) {
+    } else if (listingEstimate) {
       // §18.1: a marketplace service's published `starting_price_php` is an
       // ESTIMATE until the vendor is contracted.
-      priceC = controlledC;
       priceKind = 'vendor_service_listing';
       priceLabel = `${v.vendor_name} — from their listed price`;
       priceRef = controlled[0]!.source_id;
       priceReadOnly = true;
-    } else if (controlledC !== 0 && manualC !== 0) {
-      priceC = controlledC;
-      priceKind = priceSource === 'service' ? 'vendor_service_listing' : 'vendor_package';
-      priceLabel = `${v.vendor_name} — from their catalogue`;
-      priceRef = controlled[0]!.source_id;
-      priceReadOnly = true;
-      useLineItems = true;
     } else if (controlledC !== 0) {
-      priceC = controlledC;
       priceKind = priceSource === 'service' ? 'vendor_service_listing' : 'vendor_package';
       priceLabel = `${v.vendor_name} — from their catalogue`;
       priceRef = controlled[0]!.source_id;
       priceReadOnly = true;
-    } else if (manualC !== 0) {
-      // R12 — `!== 0`, so a net credit is honoured instead of reverting to the
-      // stale headline.
-      useLineItems = true;
-    } else {
-      priceC = headlineC;
     }
+    // Otherwise the price is the breakdown itself (priceC === 0, no price row)
+    // or the legacy headline — both keep the defaults above.
 
     const kind: MoneyKind = isCommitted ? 'committed' : 'estimated';
     const vendorLines: WorkingLine[] = [];
@@ -972,7 +999,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
       );
     }
     if (useLineItems) {
-      for (const li of myLineItems) {
+      for (const li of breakdownLines) {
         const c = toCentavos(li.amount_php);
         if (c === 0) continue;
         vendorLines.push(
@@ -994,6 +1021,41 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
           }),
         );
       }
+    }
+
+    // ── THE CHANGE, AS ITS OWN LINE — in EVERY branch, never gated ──────────
+    // This loop is deliberately OUTSIDE `useLineItems`. That flag answers "does
+    // the couple's itemisation stand in for the price?", which has nothing to do
+    // with whether a change the two of them agreed should be shown. Gating it
+    // would drop a settled delta on a catalogue-priced or listing-priced
+    // supplier — silently, and only for some suppliers, which is the worst
+    // shape a money bug can have.
+    //
+    // 🔑 These rows ARE the second half of the owner's ruling. `agreed.agreed`
+    // is `pricePart + breakdownPart + changesPart`, so the total on screen and
+    // the lines under it are the same arithmetic — there is no second number to
+    // keep in step.
+    for (const li of changeLines) {
+      const c = toCentavos(li.amount_php);
+      if (c === 0) continue;
+      vendorLines.push(
+        pushLine({
+          costKey: `line:${li.line_item_id}`,
+          label: li.label,
+          bucket: bucketId,
+          amountC: c,
+          kind,
+          paidC: 0,
+          owedC: 0,
+          creditC: 0,
+          source: 'vendor_change_delta',
+          sourceRef: li.line_item_id,
+          vendorId: v.vendor_id,
+          vendorName: v.vendor_name,
+          readOnly: false,
+          dueDate: li.due_date,
+        }),
+      );
     }
 
     // R5 — transport + crew meals. Merkado and the checklist count these;
@@ -1403,6 +1465,11 @@ const SOURCE_META: Record<
     table: 'event_vendor_line_items',
     isEstimate: false,
   },
+  vendor_change_delta: {
+    label: 'Changes agreed after you locked',
+    table: 'event_vendor_line_items (is_change_delta)',
+    isEstimate: false,
+  },
   vendor_headline: {
     label: 'Vendor totals you recorded',
     table: 'event_vendors.total_cost_php',
@@ -1506,7 +1573,7 @@ export async function resolveEventMoney(
         .order('created_at', { ascending: true }),
       supabase
         .from('event_vendor_line_items')
-        .select('line_item_id,vendor_id,label,amount_php,due_date')
+        .select('line_item_id,vendor_id,label,amount_php,due_date,is_change_delta')
         .eq('event_id', eventId)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),

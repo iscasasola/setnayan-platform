@@ -82,6 +82,8 @@ export async function fetchInlineMoreRow(input: {
     groupId: String(input.groupId ?? ''),
     tile: String(input.tile ?? ''),
     query: input.query,
+    // H6 — the row shows what the sheet shows, so it hides what the sheet hides.
+    hideUnbookable: true,
   });
   if (search.results.length === 0) {
     return { results: [], freeDaysByProfileId: {}, noProbeWindow: true };

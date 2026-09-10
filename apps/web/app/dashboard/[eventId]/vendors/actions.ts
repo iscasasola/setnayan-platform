@@ -85,6 +85,11 @@ import {
   type ImpactVendorRow,
 } from '@/lib/lock-impact-inputs';
 import { resolveProbeWindow } from '@/lib/build-date-window';
+import {
+  agreedTotalNow,
+  CHANGE_LINES_EMBED,
+  type ChangeLineRow,
+} from '@/lib/agreed-total-and-its-changes';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
@@ -934,7 +939,13 @@ export async function finalizeVendor(
   // marketplace link being non-null.
   const { data: targetVendor, error: targetErr } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php')
+    // The change lines ride along (named-FK embed) so the downpayment below is a
+    // share of the agreed total NOW — a change order can be accepted before a
+    // lock (owner 2026-09-11, "Show the total now"). A refused embed lands in
+    // `targetErr` and the lock stops with the message, as any refused read does.
+    .select(
+      `vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php, ${CHANGE_LINES_EMBED}`,
+    )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -1275,10 +1286,10 @@ export async function finalizeVendor(
     const policy = downpaymentPolicyFromRows(rows);
     if (isProtectedPolicy(policy) && policy) {
       const dpRow = rows.find((r) => r.seq === 0) ?? null;
-      const totalCostPhp =
-        typeof targetVendor.total_cost_php === 'string'
-          ? Number(targetVendor.total_cost_php)
-          : ((targetVendor.total_cost_php as number | null) ?? null);
+      const totalCostPhp = agreedTotalNow(
+        targetVendor.total_cost_php as number | string | null,
+        (targetVendor as { change_lines?: ChangeLineRow[] | null }).change_lines,
+      );
       // Resolve the downpayment amount for the evidence snapshot when possible.
       let downpaymentAmountPhp: number | null = null;
       if (dpRow) {
@@ -2031,10 +2042,11 @@ export async function finalizeVendor(
     const planAdmin = createAdminClient();
 
     // Pull the booking total + event date for the resolution inputs.
-    const [{ data: evRow }, { data: eventRow }] = await Promise.all([
+    const [{ data: evRow, error: evRowErr }, { data: eventRow }] = await Promise.all([
       planAdmin
         .from('event_vendors')
-        .select('total_cost_php')
+        // Plan amounts are shares of the agreed total NOW (changes included).
+        .select(`total_cost_php, ${CHANGE_LINES_EMBED}`)
         .eq('event_id', eventId)
         .eq('vendor_id', vendorId)
         .maybeSingle(),
@@ -2044,8 +2056,13 @@ export async function finalizeVendor(
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
-    const totalCostPhp =
-      (evRow as { total_cost_php: number | null } | null)?.total_cost_php ?? null;
+    if (evRowErr) {
+      console.error('[lockVendor] payment-plan booking total read failed:', evRowErr.message);
+    }
+    const planRow = evRow as
+      | { total_cost_php: number | null; change_lines?: ChangeLineRow[] | null }
+      | null;
+    const totalCostPhp = agreedTotalNow(planRow?.total_cost_php ?? null, planRow?.change_lines);
     const eventDateIso =
       (eventRow as { event_date: string | null } | null)?.event_date ?? null;
     const lockDateIso = new Date().toISOString().slice(0, 10);

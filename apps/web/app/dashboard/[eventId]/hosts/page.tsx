@@ -29,6 +29,8 @@ import {
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { eventNoun } from '@/lib/event-noun';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { isOffPlatformSupplier } from '@/lib/supplier-invite-eligibility';
+import { routes } from '@/lib/routes';
 
 export const metadata = { title: 'Hosts' };
 
@@ -73,6 +75,7 @@ type BookedCoordinator = {
   vendor_id: string;
   vendor_name: string;
   contact_email: string | null;
+  marketplace_vendor_id: string | null;
 };
 
 type UserMini = {
@@ -160,9 +163,14 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         .limit(15),
       // Booked coordinators on the couple's vendor records — the one-click
       // "Promote your coordinator" path (locked doc § 3).
+      // `marketplace_vendor_id` is read so N2 (2026-09-11) can tell a
+      // genuinely off-platform coordinator (this contact_email is the only
+      // way to reach them — worth showing) from a Setnayan shop's own
+      // account (a package lock copies the SHOP's login email into this same
+      // column; that is not a couple-facing surface's to print).
       admin
         .from('event_vendors')
-        .select('vendor_id, vendor_name, contact_email')
+        .select('vendor_id, vendor_name, contact_email, marketplace_vendor_id')
         .eq('event_id', eventId)
         .eq('category', 'planner_coordinator')
         .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete']),
@@ -214,6 +222,39 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const promotable = ((coordRows ?? []) as BookedCoordinator[]).filter(
     (c) => c.contact_email && !invitedEmails.has(c.contact_email.toLowerCase()),
   );
+  // N2 (2026-09-11): `contact_email` on a marketplace-linked row is the
+  // SHOP's own Setnayan account email (a package lock copies it in) — not a
+  // business contact the shop chose to publish. An off-platform coordinator's
+  // is exactly that, so the two are split here rather than gated in the JSX,
+  // so neither branch can accidentally read the other's field.
+  const promotableOffPlatform = promotable.filter((c) => isOffPlatformSupplier(c));
+  const promotableOnPlatform = promotable.filter((c) => !isOffPlatformSupplier(c));
+
+  // The in-app delegate path for an ON-PLATFORM coordinator: their existing
+  // chat thread with the couple (they are already reachable there — no email
+  // needs to be shown or used). `autoInviteCoordinator` already auto-creates
+  // the delegate invite the moment their downpayment is marked (unless the
+  // consent gate is active), so this link is the couple's way to reach them
+  // in the meantime, never their raw contact address.
+  const onPlatformThreadByVendorId = new Map<string, string>();
+  if (promotableOnPlatform.length > 0) {
+    const vendorIds = promotableOnPlatform
+      .map((c) => c.marketplace_vendor_id)
+      .filter((id): id is string => !!id);
+    if (vendorIds.length > 0) {
+      const { data: threadRows, error: threadRowsError } = await admin
+        .from('chat_threads')
+        .select('thread_id, vendor_profile_id')
+        .eq('event_id', eventId)
+        .in('vendor_profile_id', vendorIds);
+      if (threadRowsError) {
+        logQueryError('HostsPage.coordThreads', threadRowsError, { eventId }, 'graceful_degrade');
+      }
+      for (const t of (threadRows ?? []) as { thread_id: string; vendor_profile_id: string }[]) {
+        onPlatformThreadByVendorId.set(t.vendor_profile_id, t.thread_id);
+      }
+    }
+  }
 
   // Resolve user info for accepted hosts (display_name + email).
   const userIds = accepted.map((r) => r.user_id).filter((id): id is string => !!id);
@@ -411,8 +452,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       ) : null}
 
       {/* Promote your coordinator — one-click delegate invite for booked
-          planner/coordinator vendors (feature-access program § 3). */}
-      {isCouple && promotable.length > 0 ? (
+          planner/coordinator vendors (feature-access program § 3).
+          OFF-PLATFORM only prints/uses the stored contact_email (N2,
+          2026-09-11) — for a marketplace-linked (Setnayan) coordinator that
+          column holds their own account email, copied in by a package lock,
+          never a business contact they chose to share. */}
+      {isCouple && promotableOffPlatform.length > 0 ? (
         <section className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5">
           <header className="space-y-1">
             <p className="sn-eye">
@@ -426,7 +471,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             </p>
           </header>
           <ul className="divide-y divide-ink/10">
-            {promotable.map((c) => (
+            {promotableOffPlatform.map((c) => (
               <li
                 key={c.vendor_id}
                 className="flex flex-wrap items-center justify-between gap-3 py-3"
@@ -454,6 +499,49 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                 </ConsentGatedInviteForm>
               </li>
             ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* A booked coordinator who already has a Setnayan account — routed
+          into the IN-APP delegate path (their existing conversation), never
+          shown or asked to use their account email (N2, 2026-09-11).
+          `autoInviteCoordinator` auto-creates their delegate invite the
+          moment their downpayment is marked (unless the data-privacy consent
+          gate is active); this is the couple's in-app way to reach them
+          meanwhile. */}
+      {isCouple && promotableOnPlatform.length > 0 ? (
+        <section className="space-y-3 rounded-2xl border border-ink/10 bg-ink/[0.02] p-5">
+          <header className="space-y-1">
+            <p className="sn-eye">Your coordinator is on Setnayan</p>
+            <p className="max-w-prose text-sm text-ink/65">
+              They&rsquo;re booked through Setnayan, so they&rsquo;re reachable
+              right here — no need to share their contact details.
+            </p>
+          </header>
+          <ul className="divide-y divide-ink/10">
+            {promotableOnPlatform.map((c) => {
+              const threadId = c.marketplace_vendor_id
+                ? onPlatformThreadByVendorId.get(c.marketplace_vendor_id)
+                : undefined;
+              const messageHref = threadId
+                ? routes.dashboard.messages.detail(eventId, threadId)
+                : routes.dashboard.messages.index(eventId);
+              return (
+                <li
+                  key={c.vendor_id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <p className="text-sm font-medium text-ink">{c.vendor_name}</p>
+                  <Link
+                    href={messageHref}
+                    className="rounded-md border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-ink/5"
+                  >
+                    Message them
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

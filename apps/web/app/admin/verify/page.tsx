@@ -81,6 +81,12 @@ import {
 } from '@/lib/verification-checks';
 import { BYPASS_WINDOW_DAYS, bypassState } from '@/lib/verification-bypass';
 import {
+  BADGE_REMINDER_DAYS,
+  badgeDeadline,
+  deadlineLabel,
+  defaultPermitValidUntil,
+} from '@/lib/verified-badge';
+import {
   grantVerificationBypass,
   revokeVerificationBypass,
 } from '@/app/admin/vendors/verification-bypass-actions';
@@ -142,6 +148,9 @@ type VendorVisibilityRow = {
   contact_email: string | null;
   public_visibility: VendorPublicVisibility;
   created_at: string;
+  /** Read for the badge-deadline line only (owner 2026-09-11 · Q4 + Q5). */
+  verification_state?: string | null;
+  next_renewal_due_at?: string | null;
 };
 
 type ApplicationRow = {
@@ -1584,6 +1593,22 @@ function ActionRow({
             value={application.application_id}
           />
           <input type="hidden" name="reason" value="" />
+          {/* 🔑 THE BADGE'S DEADLINE (owner 2026-09-11 · Q5). The shop is
+              reminded 60 days before this date and the Verified badge comes
+              off on it — the shop stays listed and bookable. Prefilled with
+              31 December because a Mayor's Permit runs for the calendar year;
+              the label tells the reviewer to read the paper. Blank = the
+              one-year renewal. Validated server-side (`permitDeadlineFrom`). */}
+          <label className="flex items-center gap-2 text-xs text-ink/70">
+            <span>Mayor&rsquo;s Permit valid until (as printed)</span>
+            <input
+              type="date"
+              name="permit_valid_until"
+              defaultValue={defaultPermitValidUntil()}
+              title={`The shop is reminded ${BADGE_REMINDER_DAYS} days before this date; on it the Verified badge comes off (the shop stays listed and bookable).`}
+              className="h-9 rounded-md border border-ink/20 bg-white px-2 text-xs text-ink"
+            />
+          </label>
           <SubmitButton
             pendingLabel="Approving…"
             className="button-primary h-9 px-3 text-xs"
@@ -1723,7 +1748,7 @@ async function VisibilitySurface({
   const { data, error: queryError } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,created_at',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,created_at,verification_state,next_renewal_due_at',
     )
     .in('public_visibility', statusFilter)
     .order('created_at', { ascending: false })
@@ -1876,9 +1901,9 @@ function VisibilityTabs({ current }: { current: string }) {
  * zero rows. A fix nobody can reach is no fix.
  *
  * 🔑 AND MOUNTING IT IS THE FENCE, NOT A HOLE IN ONE. Of the three ways to hand
- * out this badge, the vouch is the ONLY one that demands a written reason, sets
- * a deadline, and has a sweep that withdraws the listing when the deadline
- * passes unmet. Leaving it unreachable did not prevent vouching — it pushed
+ * out this badge, the vouch is the ONLY one that demands a written reason and
+ * sets a deadline — and past that deadline the BADGE comes off by itself while
+ * the shop stays listed and bookable (owner 2026-09-11 · Q4 + Q5). Leaving it unreachable did not prevent vouching — it pushed
  * every real vouch through the plain Approve button, which records none of that
  * and expires never. That is exactly how production ended up with two verified
  * shops and no paperwork.
@@ -1912,7 +1937,7 @@ function VouchControls({
           title={
             vouch.kind === 'satisfied'
               ? 'Vouched for, and the documents landed. The deadline no longer applies.'
-              : 'Listed on Setnayan’s word. The listing is withdrawn automatically if the documents miss the deadline.'
+              : 'Verified on Setnayan’s word. If the documents miss the deadline the Verified badge comes off by itself — the shop stays listed and bookable.'
           }
         >
           {vouch.kind === 'satisfied'
@@ -1954,7 +1979,8 @@ function VouchControls({
         <p className="text-[11px] leading-relaxed text-ink/70">
           Lists {businessName || 'this shop'} now on Setnayan&rsquo;s word, with their documents
           due in {BYPASS_WINDOW_DAYS} days. Couples see the same badge as a fully checked shop
-          — miss the deadline and the listing comes down by itself.
+          — miss the deadline and the badge comes off by itself; the shop stays listed and
+          bookable.
         </p>
         <label className="block text-xs text-ink/65">
           Why are you vouching for them?
@@ -1975,6 +2001,40 @@ function VouchControls({
         </SubmitButton>
       </form>
     </details>
+  );
+}
+
+/**
+ * Where this shop's Verified badge stands against its deadline — so the
+ * reviewer sees a lapse the day it happens, not when a supplier writes in.
+ * Says nothing when there is no deadline to speak of.
+ *
+ * ⚖ A LAPSE IS THE BADGE ONLY (owner 2026-09-11 · Q5): the line says so in the
+ * same breath, because the natural misreading of "badge off" on an admin desk
+ * is "the shop is down", and it is not.
+ */
+function BadgeDeadlineLine({
+  verificationState,
+  deadline,
+}: {
+  verificationState: string | null;
+  deadline: string | null;
+}) {
+  const state = badgeDeadline({ verification_state: verificationState, next_renewal_due_at: deadline });
+  if (state.kind === 'none' || !deadline) return null;
+  const date = deadlineLabel(deadline);
+  if (state.kind === 'lapsed') {
+    return (
+      <p className="text-xs text-warn-900">
+        Verified badge off since {date} — the shop is still listed and bookable.
+      </p>
+    );
+  }
+  return (
+    <p className={`text-xs ${state.kind === 'reminder' ? 'text-warn-900' : 'text-ink/60'}`}>
+      Verified badge until {date} ({state.daysLeft} {state.daysLeft === 1 ? 'day' : 'days'} left)
+      {state.kind === 'reminder' ? ` — inside the ${BADGE_REMINDER_DAYS}-day reminder window.` : '.'}
+    </p>
   );
 }
 
@@ -2034,6 +2094,11 @@ function VerifyCard({
       </div>
 
       <CheckResultsBlock checks={checks} />
+
+      <BadgeDeadlineLine
+        verificationState={vendor.verification_state ?? null}
+        deadline={vendor.next_renewal_due_at ?? null}
+      />
 
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
         {visibility !== 'verified' ? (

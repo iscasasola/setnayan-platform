@@ -244,3 +244,29 @@ test('top_pick — a vendor with trusted reviews outranks a raw-only peer', () =
   assert.ok((out.get('v-trusted-top') ?? []).includes('top_pick'));
   assert.ok(!(out.get('v-rawonly-top') ?? []).includes('top_pick'));
 });
+
+// ── the Verified badge's deadline (owner 2026-09-11 · Q4 + Q5) ────────────────
+
+test('Q5 · past its deadline a shop loses the Verified badge — and ONLY that badge', () => {
+  // The permit ran out a day ago. The badge is off; the shop is still a
+  // verified, listed, bookable shop, so every other badge it earned stays.
+  const lapsed = input({
+    vendor_profile_id: 'v-lapsed',
+    next_renewal_due_at: new Date(NOW - 86_400_000).toISOString(),
+    trusted_review_count: 12,
+    trusted_avg_rating: 4.9,
+  });
+  const badges = badgesFor(lapsed);
+  assert.ok(!badges.includes('verified'), `a lapsed shop still wears Verified: ${badges.join(',')}`);
+  assert.ok(badges.includes('couple_trusted'), 'the lapse took a badge the deadline does not govern');
+});
+
+test('Q5 · before its deadline, and with none recorded, the badge is exactly as before', () => {
+  const ahead = input({
+    vendor_profile_id: 'v-ahead',
+    next_renewal_due_at: new Date(NOW + 86_400_000).toISOString(),
+  });
+  const none = input({ vendor_profile_id: 'v-none' });
+  assert.deepEqual(badgesFor(ahead), ['verified']);
+  assert.deepEqual(badgesFor(none), ['verified']);
+});

@@ -46,6 +46,11 @@ import {
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { replacesSiblingsOnPin } from '@/lib/build-pick-rules';
+import {
+  agreedTotalNow,
+  CHANGE_LINES_EMBED,
+  type ChangeLineRow,
+} from '@/lib/agreed-total-and-its-changes';
 
 export type RunBuildResult =
   | { ok: true; filled: number; cleared: number; unfilled: { groupId: string; label: string }[] }
@@ -153,8 +158,10 @@ export async function proposeBuildFromQuotes(input: {
       .maybeSingle(),
     supabase
       .from('event_vendors')
+      // Change lines ride along: a quote a change order already moved is ranked
+      // at its agreed total NOW (owner 2026-09-11, "Show the total now").
       .select(
-        'vendor_id, category, status, total_cost_php, transport_php, food_allowance_php, marketplace_vendor_id',
+        `vendor_id, category, status, total_cost_php, transport_php, food_allowance_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
       )
       .eq('event_id', input.eventId),
     supabase
@@ -186,7 +193,16 @@ export async function proposeBuildFromQuotes(input: {
     transport_php: number | string | null;
     food_allowance_php: number | string | null;
     marketplace_vendor_id: string | null;
+    change_lines?: ChangeLineRow[] | null;
   };
+  if (vendorsRes.error) {
+    // Refused ≠ "no quotes": filling from an empty list would silently skip
+    // every quoted supplier. Say so instead.
+    logQueryError('proposeBuildFromQuotes (event_vendors)', vendorsRes.error, {
+      event_id: input.eventId,
+    });
+    return { ok: false, error: 'Could not load your suppliers.' };
+  }
   const vendors = (vendorsRes.data ?? []) as VRow[];
 
   // ── Setnayan-AI gate → rank mode. AI ON (flag on + assisted) ranks Auto rows
@@ -207,7 +223,9 @@ export async function proposeBuildFromQuotes(input: {
     return Number.isFinite(n) ? (n as number) : 0;
   };
   const rolled = (r: VRow) =>
-    num(r.total_cost_php) + num(r.transport_php) + num(r.food_allowance_php);
+    (agreedTotalNow(r.total_cost_php, r.change_lines) ?? 0) +
+    num(r.transport_php) +
+    num(r.food_allowance_php);
 
   // Map each VendorCategory enum → its PlanGroupId (so quoted vendors bucket the
   // same way the row sourcing does). Entry-point groups have empty categories,

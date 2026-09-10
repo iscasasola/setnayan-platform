@@ -26,6 +26,7 @@ const SNAP: Snapshot = {
   discountBadge: null,
   includesLine: null,
   notIncluded: [],
+  givesSetnayanGift: false,
   hasExclusive: false,
   hasCover: true,
 };

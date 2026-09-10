@@ -43,16 +43,38 @@
  * client bundle and the server actions can both import it.
  */
 
-/** The things a card must have before it may face a couple. */
-export const PUBLISH_REQUIREMENTS = ['price', 'exclusive'] as const;
+/**
+ * The things a card must have before it may face a couple.
+ *
+ * ⚖ THE SETNAYAN GIFT CAME OUT OF THIS LIST 2026-09-09, ON THE OWNER'S RULING
+ * ("exclusive setnayan gift then should be optional"). It was a hard publish
+ * requirement — a shop could not publish a card at all without typing one —
+ * and compulsory would not have been a feature, it would have been a RATE
+ * RISE: the gift is 40% of the booking fee charged ON TOP of it, so
+ * fee + 0.4 x fee = 1.4 x fee, taking what a shop pays us from 5% to 7% of
+ * the first PHP 100,000, and making the line we sell against 25%-commission
+ * rivals with ("we only charge 5% and 1%") untrue. Optional keeps it true and
+ * the 7% only ever applies to a shop that chose it.
+ *
+ * ⛔ Do NOT put it back without the owner. The trigger in the database is the
+ * other half of this rule (see the docblock above) and both moved together in
+ * migration 20271205512701; TypeScript alone would have left the shop pressing
+ * publish and reading a raw database sentence in a banner.
+ */
+export const PUBLISH_REQUIREMENTS = ['price'] as const;
 export type PublishRequirement = (typeof PUBLISH_REQUIREMENTS)[number];
 
-/** What the gate reads. Deliberately two booleans — see `priceIsSet`. */
+/**
+ * What the gate reads.
+ *
+ * 🔑 `hasExclusive` WAS REMOVED RATHER THAN LEFT IGNORED, deliberately: an
+ * unread field on this type would let a caller keep passing it and believe it
+ * still decided something. Deleting it makes the compiler name every call
+ * site, which is how all five were found.
+ */
 export type PublishFacts = {
   /** A real starting figure in the card's own basis. See `priceIsSet`. */
   hasPrice: boolean;
-  /** A non-blank Setnayan Exclusive. */
-  hasExclusive: boolean;
 };
 
 /**
@@ -70,7 +92,15 @@ export function priceIsSet(value: number | null | undefined): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
 
-/** Same rule for the Exclusive, so "blank" means the same thing everywhere. */
+/**
+ * Same rule for the Exclusive, so "blank" means the same thing everywhere.
+ *
+ * ⚠ THIS NO LONGER GATES ANYTHING. Since 2026-09-09 the gift is optional, so
+ * this answers only "does this card SAY it includes one" — which is what
+ * decides whether the card wears the badge (`service-card-face.tsx`) and what
+ * the health sheet reports. It is not a publish condition and must not become
+ * one again without the owner.
+ */
 export function exclusiveIsSet(value: string | null | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -83,7 +113,6 @@ export const PUBLISH_REFUSAL_MESSAGE: Record<PublishRequirement, string> = {
   price:
     'Set a starting price before you publish this card — it is how couples ' +
     'planning a budget find you. You can still save it as a draft.',
-  exclusive: 'A Setnayan Exclusive perk is required to publish this service.',
 };
 
 /**
@@ -94,7 +123,6 @@ export const PUBLISH_COACH_MESSAGE: Record<PublishRequirement, string> = {
   price:
     'Set your price — required to publish. It is how a couple’s budget finds ' +
     'this card; the real figure is still quoted in the inquiry.',
-  exclusive: 'Setnayan Exclusive: required to publish.',
 };
 
 /**
@@ -104,7 +132,6 @@ export const PUBLISH_COACH_MESSAGE: Record<PublishRequirement, string> = {
 export function unmetPublishRequirements(facts: PublishFacts): PublishRequirement[] {
   const unmet: PublishRequirement[] = [];
   if (!facts.hasPrice) unmet.push('price');
-  if (!facts.hasExclusive) unmet.push('exclusive');
   return unmet;
 }
 

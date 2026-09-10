@@ -23,7 +23,9 @@ import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
  *
  * `authed` MUST be the caller's OWN (couple) session client — RLS + the DB trigger
  * are the write boundary. `admin` is the service-role client for the verified read
- * (public RLS on vendor_profiles is verified-only) and the fee's money writes.
+ * (public RLS on vendor_profiles is verified-only) and for the one write a browser
+ * session may not make: recording a post-lock Deal as an agreed CHANGE
+ * (`record_agreed_price_change`, service-role only — see the reprice branch).
  */
 export type ChatLockBookingOutcome =
   // Off-platform / no marketplace `event_vendors` link → caller records the
@@ -225,30 +227,53 @@ export async function bookVendorAtChatLock(
   //
   // PRICE ONLY. No status flip, no `selection_match_rank`, no
   // `linked_vendor_profile_id`, no fee call — this row is already booked and none
-  // of those may move. The one column that changes is the one both sides agreed.
+  // of those may move.
   //
-  // ⚠ THE FEE BASE MOVES WITH IT, AND THAT IS THE OWNER'S DECISION (2026-09-09),
-  // not an oversight. `collectBookingFeeAtLock` reads `total_cost_php` when the
-  // VENDOR ACKNOWLEDGES THE PAYMENT, so: before that moment the fee is charged on
-  // the renegotiated price (correct — it is what they booked at); after it, the
-  // order is already minted and idempotent, so the fee does not move at all.
+  // ── AND THE NEW PRICE IS A CHANGE BESIDE THE AGREED TOTAL, NOT OVER IT ────
+  // (owner 2026-09-09, "Both, shown separately"). From #5355 until 2026-09-11
+  // this branch wrote `total_cost_php := <new total>` — an absolute overwrite,
+  // so the ₱100,000 they agreed at the lock vanished and nothing on the budget
+  // said the price had moved. `record_agreed_price_change` now leaves the agreed
+  // total where it is and records the difference as a CHANGE line
+  // (`is_change_delta`), the same row shape an accepted change order writes, so
+  // `lib/agreed-total-and-its-changes.ts` shows the total AND the change and
+  // adds them up. Measured against the price as it stands after every earlier
+  // change, so a second press of the same Deal records nothing.
+  //
+  // 🔒 WHY THE SERVICE ROLE, AND WHY THAT IS SAFE HERE. The database refuses a
+  // browser session that tries to author a change line (the heading says the
+  // SUPPLIER agreed), so the write is made by the one server function allowed
+  // to, which a browser cannot call. Its inputs are proved, never taken from
+  // the form: `lockDeal` checked this is the couple of this thread and computed
+  // `agreedTotalPhp` from the accepted amendment on the server, and the status
+  // read just above found THIS booking row through the couple's own RLS.
+  //
+  // ⚠ THE FEE BASE STILL MOVES WITH THE PRICE — THE OWNER'S 2026-09-09 RULING.
+  // `booking_fee_open_lock_charge` now reads `total_cost_php` + the change
+  // lines, so the fee charged at the supplier's payment acknowledgement is on
+  // the renegotiated price (what they booked at); after it, the order is
+  // already minted and idempotent, so the fee does not move at all.
   if (action === 'refresh_fee_only') {
-    const { data: repricedRows, error: repriceErr } = await authed
-      .from('event_vendors')
-      .update({ total_cost_php: agreedTotalPhp, updated_at: new Date().toISOString() })
-      .eq('vendor_id', eventVendorId)
-      .eq('event_id', eventId)
-      .select('vendor_id');
+    const { data: changed, error: repriceErr } = await admin.rpc('record_agreed_price_change', {
+      p_event_id: eventId,
+      p_event_vendor_id: eventVendorId,
+      p_new_total_php: agreedTotalPhp,
+    });
     if (repriceErr) {
       if (repriceErr.code === '23514' && /vendor_not_verified/.test(repriceErr.message ?? '')) {
         return { status: 'not_verified' };
       }
       return { status: 'error', message: repriceErr.message };
     }
+    // 'changed' (a change line landed) · 'unchanged' (the agreed total already
+    // IS this number) · 'priced' (no agreed total yet, so this became it) all
+    // mean the couple's budget now reads the agreed total. 'not_found' — or an
+    // unrecognised answer — must never read as a landing.
+    const status = (changed as { status?: string } | null)?.status;
     return {
       status: 'already_booked',
       feeCharged,
-      priceLanded: (repricedRows ?? []).length > 0,
+      priceLanded: status === 'changed' || status === 'unchanged' || status === 'priced',
     };
   }
 

@@ -52,18 +52,38 @@
 -- Every existing row keeps the meaning it already had, so this migration changes
 -- no number on any screen the day it lands. It changes what the NEXT accepted
 -- change order does.
+--   RE-MEASURED 2026-09-11 (read-only, prod): still 0 change orders (0 accepted,
+--   0 line items linked by settled_line_item_id) · 18 line items over 12
+--   suppliers, all 12 with Σ(lines) = total_cost_php · 0 package anchors ·
+--   0 locked deals (proposal_amendments.locked_at) · 0 locked threads. So § 5
+--   and § 6 below also move no number that exists today.
 --
 -- ⚠ GRANTS ARE TABLE-LEVEL ON THIS TABLE (verified in prod: `authenticated` and
 -- `anon` hold SELECT/INSERT/UPDATE at TABLE level, not per column), so the new
 -- column is readable the moment it exists and no allowlist has to be extended.
 -- That is NOT true of `events` — do not carry this assumption there.
 --
--- ⚖ NOT REVOKED FROM `authenticated`, deliberately. The couple's write policy on
--- this table is `FOR ALL` on their own event, and `total_cost_php` is already
--- theirs to type — this table IS the couple's own budget record, not a charge.
--- A column-level REVOKE against a TABLE-level grant is inert anyway; narrowing
--- it properly means a table revoke plus a 9-column allowlist on a live read
--- path, which is its own change and its own risk.
+-- ⚖ THE GRANT IS NOT NARROWED — A TRIGGER HOLDS THE LINE INSTEAD (§ 4 below).
+-- The couple's write policy on this table is `FOR ALL` on their own event, and
+-- a column-level REVOKE against a TABLE-level grant is inert. Narrowing it
+-- properly means a table revoke plus a 9-column allowlist on a live read path,
+-- which is its own change and its own risk. But "a couple may type their own
+-- breakdown" is NOT "a couple may author a line headed 'Changes you both
+-- agreed'" — that heading claims the SUPPLIER's agreement, and the supplier can
+-- read this table. So `guard_event_vendor_line_item_change` refuses a browser
+-- session that tries to create, re-flag, edit or delete a change line.
+--
+-- ── WHAT 2026-09-11 ADDED (B2 rework of #5390) ───────────────────────────────
+--   § 3 · a line already settled by a change order is stamped TRUE (taken from
+--         the never-committed `an_adjustment_never_erases_the_price` draft —
+--         0 rows in prod, but the column must be right on any database).
+--   § 4 · the guard above.
+--   § 5 · `record_agreed_price_change` — the POST-LOCK DEAL writes a change
+--         beside the agreed total too, instead of overwriting `total_cost_php`
+--         (the branch #5390 did not cover; it overwrote since #5355).
+--   § 6 · `booking_fee_open_lock_charge` reads the agreed total INCLUDING its
+--         changes, so the 2026-09-09 owner ruling "the fee base moves with the
+--         price" survives the price no longer moving `total_cost_php`.
 -- ============================================================================
 
 ALTER TABLE public.event_vendor_line_items
@@ -75,7 +95,9 @@ COMMENT ON COLUMN public.event_vendor_line_items.is_change_delta IS
   'base. TRUE = a CHANGE line: a settled change-order delta that RIDES ON TOP of '
   'whatever the base is, signed (negative = credit). Owner 2026-09-09, "Both, '
   'shown separately" — the agreed total updates AND the change stays its own '
-  'line. Only accept_change_order sets TRUE. Read the shared rule in '
+  'line. Only accept_change_order and record_agreed_price_change set TRUE, and '
+  'guard_event_vendor_line_item_change refuses a browser session that tries to. '
+  'Read the shared rule in '
   'apps/web/lib/agreed-total-and-its-changes.ts; never re-derive this from the '
   'label text, which a couple can type themselves.';
 
@@ -140,7 +162,7 @@ BEGIN
   END IF;
 
   -- Settle the SIGNED delta into the budget ledger (single source of truth).
-  -- The non-negative CHECK is dropped (above), so a removal stores a negative
+  -- The non-negative CHECK is dropped (20270323841750), so a removal stores a negative
   -- amount that correctly REDUCES the couple's total. The sign also lives in the
   -- label and in the audited delta_amount_php on the change-order row.
   v_label := CASE
@@ -192,3 +214,422 @@ BEGIN
   );
 END;
 $function$;
+
+COMMENT ON FUNCTION public.accept_change_order(UUID) IS
+  'Counterparty accepts a proposed change order (couple-raised -> vendor accepts; vendor-raised -> couple accepts; or admin). Serialized via SELECT FOR UPDATE + status=proposed precondition UPDATE -> single-winner; idempotent re-call returns status=already. Settles the SIGNED delta_amount_php into event_vendor_line_items as a CHANGE line (is_change_delta = TRUE, so it rides on the supplier''s agreed total instead of replacing it) and links it via settled_line_item_id — all in one transaction. No money moves; 0% commission, off-platform pay.';
+
+-- ============================================================================
+-- § 3 · A LINE ALREADY SETTLED BY A CHANGE ORDER IS A CHANGE LINE.
+--
+-- Taken from the never-committed draft `an_adjustment_never_erases_the_price`
+-- (rescued 2026-09-10): historic correctness, not a no-op waiting to happen.
+-- `settled_line_item_id` is the authoritative link from a change order to the
+-- line it wrote. ZERO rows match in production (0 change orders ever, measured
+-- 2026-09-11); the statement exists so the column is right on any database that
+-- does have them, a developer's included — otherwise such a row would keep
+-- DELETING the price it adjusts.
+-- ============================================================================
+UPDATE public.event_vendor_line_items li
+   SET is_change_delta = TRUE
+  FROM public.vendor_change_orders co
+ WHERE co.settled_line_item_id = li.line_item_id
+   AND li.is_change_delta IS DISTINCT FROM TRUE;
+
+-- ============================================================================
+-- § 4 · ONLY THE SERVER AUTHORS A CHANGE LINE.
+--
+-- The card heads these rows "Changes you both agreed" — a claim about the
+-- SUPPLIER's consent — and the supplier can read this table
+-- (`event_vendor_line_items_vendor_read`). The couple's `FOR ALL` policy would
+-- otherwise let a browser session insert a TRUE row, flip one of its own
+-- breakdown lines to TRUE (so it rides ON TOP of the price), edit the amount of
+-- a settled change, or delete it — each of which puts the budget and the
+-- change-order trail (which keeps saying "accepted") into disagreement.
+--
+-- ⚠ SECURITY INVOKER ON PURPOSE, like every sibling guard here
+-- (`guard_event_vendor_completion`, `guard_event_vendor_deposit_ack`). Inside a
+-- DEFINER function `current_user` is the owner, the role test never matches, and
+-- the guard would be permanently inert while looking correct. That is ALSO why
+-- the two legitimate authors pass: `accept_change_order` and
+-- `record_agreed_price_change` are SECURITY DEFINER, so inside them
+-- `current_user` is the owner; the service role is neither `anon` nor
+-- `authenticated`. And a cascade from deleting the supplier or the event runs
+-- as the table owner, so removing a supplier still removes its lines.
+--
+-- ⚠ A breakdown line (FALSE) is untouched by all of this — the couple's own
+-- additions stay theirs to add, edit and delete exactly as before.
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.guard_event_vendor_line_item_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') AND NOT public.is_admin() THEN
+    IF TG_OP = 'INSERT' THEN
+      -- `IS DISTINCT FROM FALSE`, not `= TRUE`: a NULL must never fail open.
+      -- The column is NOT NULL DEFAULT FALSE and a default is applied before a
+      -- BEFORE ROW trigger fires, so an ordinary insert arrives FALSE.
+      IF NEW.is_change_delta IS DISTINCT FROM FALSE THEN
+        RAISE EXCEPTION 'change_line_is_server_authored'
+          USING ERRCODE = '42501',
+                HINT = 'A change after a lock is recorded by accepting a change order or locking a new deal, never typed.';
+      END IF;
+      RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+      IF NEW.is_change_delta IS DISTINCT FROM OLD.is_change_delta THEN
+        RAISE EXCEPTION 'change_line_is_server_authored'
+          USING ERRCODE = '42501',
+                HINT = 'A line cannot be turned into, or out of, an agreed change.';
+      END IF;
+      IF OLD.is_change_delta
+         AND (NEW.amount_php IS DISTINCT FROM OLD.amount_php
+              OR NEW.label IS DISTINCT FROM OLD.label
+              OR NEW.vendor_id IS DISTINCT FROM OLD.vendor_id
+              OR NEW.event_id IS DISTINCT FROM OLD.event_id) THEN
+        RAISE EXCEPTION 'change_line_is_server_authored'
+          USING ERRCODE = '42501',
+                HINT = 'An agreed change is undone by another change, not edited.';
+      END IF;
+      RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'DELETE' AND OLD.is_change_delta THEN
+      RAISE EXCEPTION 'change_line_is_server_authored'
+        USING ERRCODE = '42501',
+              HINT = 'An agreed change is undone by another change, not deleted.';
+    END IF;
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.guard_event_vendor_line_item_change() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS event_vendor_line_items_change_guard ON public.event_vendor_line_items;
+CREATE TRIGGER event_vendor_line_items_change_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON public.event_vendor_line_items
+  FOR EACH ROW EXECUTE FUNCTION public.guard_event_vendor_line_item_change();
+
+-- ============================================================================
+-- § 5 · A NEW DEAL AFTER THE LOCK IS A CHANGE TOO — recorded beside the agreed
+--       total, never over it.
+--
+-- 🔴 THE BRANCH #5390 DID NOT COVER. Since #5355 (2026-09-09) a Deal the couple
+-- locks on an ALREADY-BOOKED supplier (`planChatLockBooking` →
+-- 'refresh_fee_only') wrote `event_vendors.total_cost_php := <new total>` — an
+-- absolute overwrite. The ₱100,000 they agreed at the lock was gone and nothing
+-- said a change had happened: exactly the REPLACE the owner ruled against on
+-- 2026-09-09 ("Both, shown separately").
+--
+-- So the reprice now leaves `total_cost_php` alone and records the difference as
+-- a CHANGE line — the same row shape `accept_change_order` writes — so the
+-- agreed total and every change agreed since are both on screen, and the shared
+-- rule (`lib/agreed-total-and-its-changes.ts`) adds them up.
+--
+-- ── WHAT THE CHANGE IS MEASURED AGAINST ─────────────────────────────────────
+--   delta = new total − (total_cost_php + Σ change lines already on it)
+-- i.e. against the price as it stands AFTER every change agreed so far. So:
+--   · a second press of the SAME Deal finds delta = 0 and writes nothing —
+--     idempotent by arithmetic, and FOR UPDATE on the booking row serialises two
+--     presses racing each other;
+--   · a Deal after a change order, or a Deal after a Deal, lands the agreed total
+--     exactly on the new number, never on the new number plus old changes.
+-- It is deliberately NOT measured against the budget's display cascade
+-- (catalogue / breakdown): the line records what the two of them CHANGED, and
+-- that is a fact about the agreement, not about how a screen chooses to price.
+--
+-- ⚠ NO AGREED TOTAL YET (NULL or 0) → there is nothing to keep beside, so the
+-- new total lands AS the agreed total (the pre-existing absolute write). A
+-- "change" of the whole price from zero would read as an extra on top of nothing.
+--
+-- 🔒 SERVICE ROLE ONLY. The new total is computed on the server from the
+-- accepted amendment (`lockDeal` → `dealLockReadiness`), and the ids are proved
+-- by the couple's own session before the call (the thread role, then an RLS read
+-- of this booking row). A browser session must not be able to call this with a
+-- number of its own choosing — that would forge "Changes you both agreed".
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.record_agreed_price_change(
+  p_event_id        UUID,
+  p_event_vendor_id UUID,
+  p_new_total_php   NUMERIC
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_headline NUMERIC(12, 2);
+  v_changes  NUMERIC(12, 2);
+  v_delta    NUMERIC(12, 2);
+  v_line_id  UUID;
+  v_label    TEXT;
+BEGIN
+  IF p_new_total_php IS NULL OR p_new_total_php < 0 THEN
+    RAISE EXCEPTION 'invalid_agreed_total' USING ERRCODE = '22023';
+  END IF;
+
+  -- The booking row is the serialisation point: two presses of one Deal queue
+  -- here, and the second re-reads the first one's change line below.
+  SELECT total_cost_php
+    INTO v_headline
+    FROM public.event_vendors
+   WHERE vendor_id = p_event_vendor_id
+     AND event_id = p_event_id
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('status', 'not_found');
+  END IF;
+
+  IF v_headline IS NULL OR v_headline = 0 THEN
+    UPDATE public.event_vendors
+       SET total_cost_php = p_new_total_php,
+           updated_at = NOW()
+     WHERE vendor_id = p_event_vendor_id
+       AND event_id = p_event_id;
+    RETURN jsonb_build_object('status', 'priced', 'agreed_total_php', p_new_total_php);
+  END IF;
+
+  SELECT COALESCE(SUM(amount_php), 0)
+    INTO v_changes
+    FROM public.event_vendor_line_items
+   WHERE vendor_id = p_event_vendor_id
+     AND event_id = p_event_id
+     AND is_change_delta;
+
+  v_delta := p_new_total_php - (v_headline + v_changes);
+
+  IF v_delta = 0 THEN
+    RETURN jsonb_build_object(
+      'status', 'unchanged',
+      'agreed_total_php', v_headline + v_changes
+    );
+  END IF;
+
+  v_label := CASE
+    WHEN v_delta < 0 THEN 'New deal agreed in chat (price lowered)'
+    ELSE 'New deal agreed in chat (price raised)'
+  END;
+
+  INSERT INTO public.event_vendor_line_items
+    (event_id, vendor_id, label, amount_php, is_change_delta)
+  VALUES
+    (p_event_id, p_event_vendor_id, v_label, v_delta, TRUE)
+  RETURNING line_item_id INTO v_line_id;
+
+  -- Bump the booking row so layout-cached vendor fields refresh — the same
+  -- bump `accept_change_order` makes. The price column is NOT touched.
+  UPDATE public.event_vendors
+     SET updated_at = NOW()
+   WHERE vendor_id = p_event_vendor_id
+     AND event_id = p_event_id;
+
+  RETURN jsonb_build_object(
+    'status', 'changed',
+    'line_item_id', v_line_id,
+    'delta_php', v_delta,
+    'agreed_before_php', v_headline + v_changes,
+    'agreed_total_php', p_new_total_php
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.record_agreed_price_change(UUID, UUID, NUMERIC) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_agreed_price_change(UUID, UUID, NUMERIC) TO service_role;
+
+COMMENT ON FUNCTION public.record_agreed_price_change(UUID, UUID, NUMERIC) IS
+  'Service-role only. A Deal locked on an ALREADY-BOOKED supplier: records (new total - (total_cost_php + existing change lines)) as a CHANGE line (is_change_delta = TRUE) beside the agreed total, never over it (owner 2026-09-09, "Both, shown separately"). Delta 0 writes nothing (idempotent); a booking with no agreed total yet is priced instead. FOR UPDATE on the booking row serialises concurrent presses.';
+
+-- ============================================================================
+-- § 6 · THE BOOKING FEE READS THE AGREED TOTAL, CHANGES INCLUDED.
+--
+-- ⚖ THIS KEEPS AN OWNER RULING, IT DOES NOT MAKE ONE. On 2026-09-09 the owner
+-- chose to reprice an already-booked supplier, and the decision log records
+-- "THE FEE BASE MOVES WITH THE PRICE, AND THAT IS THE RULING" — the fee is
+-- charged, at the supplier's payment acknowledgement, on what they booked at.
+-- It moved because `total_cost_php` moved. § 5 stops `total_cost_php` moving, so
+-- without this the fee would silently fall back to the PRE-change price.
+--
+-- ⇒ The base is now `total_cost_php + Σ change lines`, floored at zero — the
+-- same "agreed total" § 5 measures against. This ALSO means a change order
+-- accepted BEFORE the acknowledgement now moves the fee base, which it never
+-- did; by the same ruling that is right (it is what they booked at). After the
+-- acknowledgement nothing moves: the charge is minted and every re-call reuses
+-- it (the idempotent branch below is unchanged).
+--
+-- 🔢 Nothing already charged is touched: 0 change orders and 0 locked deals
+-- exist in production (measured 2026-09-11), and a minted charge is reused, not
+-- recomputed.
+--
+-- The body is the LIVE one (`pg_get_functiondef`, 2026-09-11 — identical to
+-- 20271009180000's, compared with comments stripped) with exactly ONE change:
+-- the `amount_centavos` expression.
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.booking_fee_open_lock_charge(p_event_vendor_id uuid, p_schedule_version text DEFAULT '2026-07-25-taper5-1-over-100k'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_ev          RECORD;
+  v_ledger      RECORD;
+  v_existing    RECORD;
+  v_ordinal     INTEGER;
+  v_is_free     BOOLEAN;
+  v_fee         BIGINT;
+  v_charge_amount BIGINT;
+  v_status      TEXT;
+  v_attribution TEXT;
+  v_charge_id   UUID;
+BEGIN
+  SELECT ev.marketplace_vendor_id AS vpid,
+         ev.event_id,
+         ev.status,
+         ev.package_role,
+         -- § 6 · THE ONE CHANGE: the agreed total INCLUDING the changes agreed
+         -- since (is_change_delta lines), floored at zero.
+         GREATEST(
+           COALESCE(round((
+             COALESCE(ev.total_cost_php, 0)
+             + COALESCE((SELECT SUM(li.amount_php)
+                           FROM public.event_vendor_line_items li
+                          WHERE li.vendor_id = ev.vendor_id
+                            AND li.is_change_delta), 0)
+           ) * 100)::BIGINT, 0),
+           0
+         ) AS amount_centavos
+    INTO v_ev
+    FROM public.event_vendors ev
+    WHERE ev.vendor_id = p_event_vendor_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('skipped', 'not_found');
+  END IF;
+
+  -- THE GUARD. A covered row is one service inside a package, not a booking.
+  -- Its anchor carries the money and takes the one fee.
+  IF v_ev.package_role = 'covered' THEN
+    RETURN jsonb_build_object('skipped', 'covered_row_no_fee');
+  END IF;
+
+  IF v_ev.vpid IS NULL THEN
+    RETURN jsonb_build_object('skipped', 'not_verified_vendor');
+  END IF;
+  IF v_ev.status NOT IN ('contracted', 'deposit_paid', 'delivered', 'complete') THEN
+    RETURN jsonb_build_object('skipped', 'not_contracted');
+  END IF;
+
+  v_attribution := public.booking_fee_attribution_for(v_ev.vpid, v_ev.event_id);
+
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_ev.vpid::text, 0));
+
+  INSERT INTO public.booking_fee_ledger
+    (vendor_profile_id, event_id, source, attribution, attribution_frozen_at,
+     highest_declared_centavos)
+  VALUES
+    (v_ev.vpid, v_ev.event_id, 'lock', v_attribution, NOW(), v_ev.amount_centavos)
+  ON CONFLICT (vendor_profile_id, event_id) DO UPDATE
+    SET highest_declared_centavos =
+          GREATEST(COALESCE(public.booking_fee_ledger.highest_declared_centavos, 0),
+                   EXCLUDED.highest_declared_centavos),
+        source = 'lock',
+        updated_at = NOW()
+  RETURNING * INTO v_ledger;
+
+  IF v_ledger.attribution = 'import' THEN
+    SELECT charge_id, status INTO v_existing
+      FROM public.booking_fee_charges
+      WHERE event_vendor_id = p_event_vendor_id
+        AND status IN ('pending', 'paid', 'waived_import', 'waived_free5')
+      LIMIT 1;
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'charge_id', v_existing.charge_id, 'status', v_existing.status,
+        'amount_charged_centavos', 0, 'computed_fee_centavos', 0,
+        'is_free', TRUE, 'attribution', 'import', 'reused', TRUE);
+    END IF;
+
+    INSERT INTO public.booking_fee_charges
+      (ledger_id, proposal_id, event_vendor_id, source, vendor_profile_id, event_id,
+       proposal_amount_centavos, computed_fee_centavos, amount_charged_centavos,
+       schedule_version, status)
+    VALUES
+      (v_ledger.ledger_id, NULL, p_event_vendor_id, 'lock', v_ev.vpid, v_ev.event_id,
+       v_ev.amount_centavos, 0, 0, p_schedule_version, 'waived_import')
+    RETURNING charge_id INTO v_charge_id;
+
+    RETURN jsonb_build_object(
+      'charge_id', v_charge_id, 'status', 'waived_import',
+      'amount_charged_centavos', 0, 'computed_fee_centavos', 0,
+      'is_free', TRUE, 'attribution', 'import', 'reused', FALSE);
+  END IF;
+
+  IF v_ledger.booking_ordinal IS NULL THEN
+    SELECT count(*) INTO v_ordinal
+      FROM public.booking_fee_ledger l2
+      WHERE l2.vendor_profile_id = v_ev.vpid
+        AND l2.source = 'lock'
+        AND (l2.created_at, l2.ledger_id) <= (v_ledger.created_at, v_ledger.ledger_id);
+    v_ordinal := GREATEST(v_ordinal, 1);
+    v_is_free := v_ordinal <= 5;
+    UPDATE public.booking_fee_ledger
+      SET booking_ordinal = v_ordinal, is_free_booking = v_is_free, updated_at = NOW()
+      WHERE ledger_id = v_ledger.ledger_id;
+  ELSE
+    v_ordinal := v_ledger.booking_ordinal;
+    v_is_free := v_ledger.is_free_booking;
+  END IF;
+
+  SELECT charge_id, status, amount_charged_centavos, computed_fee_centavos
+    INTO v_existing
+    FROM public.booking_fee_charges
+    WHERE event_vendor_id = p_event_vendor_id
+      AND status IN ('pending', 'paid', 'waived_import', 'waived_free5')
+    LIMIT 1;
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'charge_id', v_existing.charge_id, 'status', v_existing.status,
+      'amount_charged_centavos', v_existing.amount_charged_centavos,
+      'computed_fee_centavos', v_existing.computed_fee_centavos,
+      'booking_ordinal', v_ordinal, 'is_free', v_is_free,
+      'attribution', 'sourced', 'reused', true);
+  END IF;
+
+  v_fee := public.booking_fee_centavos(v_ev.amount_centavos);
+
+  IF v_is_free THEN
+    v_status := 'waived_free5';
+    v_charge_amount := 0;
+  ELSIF v_fee <= 0 THEN
+    v_status := 'paid';
+    v_charge_amount := 0;
+  ELSE
+    v_status := 'pending';
+    v_charge_amount := v_fee;
+  END IF;
+
+  INSERT INTO public.booking_fee_charges
+    (ledger_id, proposal_id, event_vendor_id, source, vendor_profile_id, event_id,
+     proposal_amount_centavos, computed_fee_centavos, amount_charged_centavos,
+     schedule_version, status, paid_at, expires_at)
+  VALUES
+    (v_ledger.ledger_id, NULL, p_event_vendor_id, 'lock', v_ev.vpid, v_ev.event_id,
+     v_ev.amount_centavos, v_fee, v_charge_amount, p_schedule_version, v_status,
+     CASE WHEN v_status = 'paid' THEN NOW() ELSE NULL END,
+     CASE WHEN v_status = 'pending' THEN NOW() + INTERVAL '7 days' ELSE NULL END)
+  RETURNING charge_id INTO v_charge_id;
+
+  RETURN jsonb_build_object(
+    'charge_id', v_charge_id, 'status', v_status,
+    'amount_charged_centavos', v_charge_amount, 'computed_fee_centavos', v_fee,
+    'booking_ordinal', v_ordinal, 'is_free', v_is_free,
+    'attribution', 'sourced', 'reused', false);
+END;
+$function$;
+
+-- CREATE OR REPLACE keeps the existing grants (service_role only, measured live 2026-09-11).

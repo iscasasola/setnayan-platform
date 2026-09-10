@@ -17,18 +17,25 @@
  * disagreeing, with the reassuring one on screen.** Nothing errored, nothing
  * logged; the write simply matched zero rows, which PostgREST reports as success.
  *
- * ── The fix, and why it is the price and not a budget line ──────────────────
- * `total_cost_php` is an ABSOLUTE write, so locking twice cannot double count,
- * and it is the column the budget already reads for an ordinary supplier. The
- * alternative — settling a delta into `event_vendor_line_items` — was measured
- * and REFUSED: it deletes a headline-billed supplier's price outright
+ * ── The fix, as of 2026-09-11: a CHANGE beside the agreed total ─────────────
+ * #5355 (2026-09-09) first closed this with an ABSOLUTE write of
+ * `total_cost_php`. It chose that over a budget line because a line, back then,
+ * deleted a headline-billed supplier's price outright
  * (`a-settled-delta-must-not-erase-the-headline.test.ts`, −₱15,000 not ₱85,000).
+ * The same day the owner ruled "Both, shown separately" — the agreed total AND
+ * the change, each visible — and `is_change_delta` (migration 20271218458148)
+ * made a change line safe. So the reprice now REPLACES NOTHING: it calls the
+ * service-role `record_agreed_price_change`, which leaves `total_cost_php` at
+ * what they agreed at the lock and records (new − agreed-so-far) as a change
+ * line. A second press of the same Deal finds a difference of 0 and writes
+ * nothing, so it still cannot double count. The database half of this is
+ * proved in `tests/db/a-change-after-the-lock-keeps-both-numbers.db.test.ts`.
  *
  * ⚠ THE FEE BASE MOVES WITH THE PRICE, BY OWNER DECISION (2026-09-09), not by
- * accident. `collectBookingFeeAtLock` reads `total_cost_php` when the VENDOR
- * ACKNOWLEDGES THE PAYMENT: before that the fee is charged on the renegotiated
- * price (what they actually booked at); after it the order is already minted and
- * idempotent, so nothing moves.
+ * accident. The fee is charged when the VENDOR ACKNOWLEDGES THE PAYMENT on the
+ * renegotiated price (what they actually booked at); since 2026-09-11
+ * `booking_fee_open_lock_charge` reads `total_cost_php` + the change lines, so
+ * that still holds now that the price column no longer moves.
  *
  * 🔑 THE MEASUREMENT HAS TO REACH THE RENDER. Repricing alone would not have
  * been enough — every write that claims to record a price now reports whether
@@ -36,8 +43,8 @@
  * it did not. A screen may not say "frozen" about a number that never landed.
  *
  * 🛡 Behaviour is driven through the real `bookVendorAtChatLock` against a
- * stubbed PostgREST client — the UPDATE payload is captured and asserted, not
- * inferred from the source.
+ * stubbed PostgREST client — the UPDATE payload and the RPC arguments are
+ * captured and asserted, not inferred from the source.
  */
 import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
@@ -125,8 +132,13 @@ function stubAuthed(currentStatus: string, matchedRows: number, sink: { last: Ca
   return { from: (table: string) => builder(table) } as unknown as SupabaseClient;
 }
 
-/** Admin client: the verified pre-check reads `vendor_profiles`. */
-function stubAdmin(verified: boolean) {
+type RpcCall = { fn: string; args: Record<string, unknown> };
+
+/**
+ * Admin client: the verified pre-check reads `vendor_profiles`; the post-lock
+ * reprice calls `record_agreed_price_change`, which answers `rpcStatus`.
+ */
+function stubAdmin(verified: boolean, rpcStatus = 'changed', rpcSink: { calls: RpcCall[] } = { calls: [] }) {
   const b: Record<string, unknown> = {};
   b.select = () => b;
   b.eq = () => b;
@@ -134,7 +146,13 @@ function stubAdmin(verified: boolean) {
     data: { verification_state: verified ? 'verified' : 'unverified' },
     error: null,
   });
-  return { from: () => b } as unknown as SupabaseClient;
+  return {
+    from: () => b,
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      rpcSink.calls.push({ fn, args });
+      return { data: { status: rpcStatus }, error: null };
+    },
+  } as unknown as SupabaseClient;
 }
 
 const ARGS = {
@@ -144,57 +162,90 @@ const ARGS = {
   agreedTotalPhp: 85_000,
 };
 
-test('an ALREADY-BOOKED supplier is repriced to the agreed total', async () => {
+test('an ALREADY-BOOKED supplier: the new deal is recorded BESIDE the agreed total, never over it', async () => {
   const sink: { last: Captured } = { last: null };
-  const outcome = await bookVendorAtChatLock(stubAuthed('contracted', 1, sink), stubAdmin(true), ARGS);
+  const rpc: { calls: RpcCall[] } = { calls: [] };
+  const outcome = await bookVendorAtChatLock(
+    stubAuthed('contracted', 1, sink),
+    stubAdmin(true, 'changed', rpc),
+    ARGS,
+  );
 
   assert.equal(outcome.status, 'already_booked');
   assert.equal(
     'priceLanded' in outcome && outcome.priceLanded,
     true,
-    'The reprice matched a row, so the couple may be told the price is frozen.',
+    'The change was recorded, so the couple may be told the price is frozen.',
   );
-  assert.ok(sink.last, 'No UPDATE was issued at all — this is the pre-2026-09-09 defect returning.');
-  assert.equal(sink.last!.table, 'event_vendors');
+  // THE RULING. The agreed total is not overwritten — the couple session issues
+  // NO update to event_vendors at all on this branch. Before 2026-09-11 it wrote
+  // total_cost_php := 85,000 and the ₱100,000 they locked at was gone.
   assert.equal(
-    sink.last!.payload.total_cost_php,
-    85_000,
-    'The agreed total must reach event_vendors.total_cost_php — the column /budget reads.',
+    sink.last,
+    null,
+    'The already-booked reprice overwrote the booking row again. Owner 2026-09-09: ' +
+      '"Both, shown separately" — the agreed total stays and the change sits beside it.',
   );
+  const recorded = rpc.calls.filter((c) => c.fn === 'record_agreed_price_change');
+  assert.equal(recorded.length, 1, 'The new deal was not recorded as a change at all.');
+  assert.equal(recorded[0]!.args.p_new_total_php, 85_000);
+  assert.equal(recorded[0]!.args.p_event_vendor_id, 'ev1');
+  assert.equal(recorded[0]!.args.p_event_id, 'e1');
 });
 
-test('the reprice touches the PRICE and nothing else', async () => {
+test('the reprice records the price and nothing else — no second booking path', async () => {
   const sink: { last: Captured } = { last: null };
-  await bookVendorAtChatLock(stubAuthed('deposit_paid', 1, sink), stubAdmin(true), ARGS);
+  const rpc: { calls: RpcCall[] } = { calls: [] };
+  await bookVendorAtChatLock(stubAuthed('deposit_paid', 1, sink), stubAdmin(true, 'changed', rpc), ARGS);
 
   // This row is already booked. A status flip, a first-pick stamp or a fee call
   // here would be a second booking path, which is exactly what the shared core
-  // exists to prevent.
-  for (const forbidden of ['status', 'selection_match_rank', 'linked_vendor_profile_id']) {
-    assert.equal(
-      forbidden in sink.last!.payload,
-      false,
-      `The already-booked reprice wrote '${forbidden}'. It may write the price and the timestamp, nothing else.`,
-    );
-  }
+  // exists to prevent. The couple session writes NOTHING; the one server call
+  // carries exactly the booking, the event and the agreed number.
+  assert.equal(sink.last, null, 'The couple session wrote to the booking row on an already-booked reprice.');
   assert.deepEqual(
-    Object.keys(sink.last!.payload).sort(),
-    ['total_cost_php', 'updated_at'],
-    'Exactly two columns move on a reprice.',
+    rpc.calls.map((c) => c.fn),
+    ['record_agreed_price_change'],
+    'Exactly one server call on a reprice — never a fee call or a booking write.',
+  );
+  assert.deepEqual(
+    Object.keys(rpc.calls[0]!.args).sort(),
+    ['p_event_id', 'p_event_vendor_id', 'p_new_total_php'],
+    'The reprice passes the booking, the event and the agreed total — nothing else.',
   );
 });
 
-test('a reprice that matches NO row reports priceLanded:false — it never reads as success', async () => {
-  const sink: { last: Captured } = { last: null };
-  const outcome = await bookVendorAtChatLock(stubAuthed('complete', 0, sink), stubAdmin(true), ARGS);
+test('a reprice that finds NO booking reports priceLanded:false — it never reads as success', async () => {
+  for (const answer of ['not_found', 'something_new']) {
+    const sink: { last: Captured } = { last: null };
+    const outcome = await bookVendorAtChatLock(
+      stubAuthed('complete', 0, sink),
+      stubAdmin(true, answer),
+      ARGS,
+    );
+    assert.equal(outcome.status, 'already_booked');
+    assert.equal(
+      'priceLanded' in outcome && outcome.priceLanded,
+      false,
+      `The server answered '${answer}'. If this says true, the caller will stamp the Deal ` +
+        'and tell the couple their price is frozen when nothing was recorded.',
+    );
+  }
+});
 
-  assert.equal(outcome.status, 'already_booked');
-  assert.equal(
-    'priceLanded' in outcome && outcome.priceLanded,
-    false,
-    'A zero-row UPDATE is reported as success by PostgREST. If this says true, the ' +
-      'caller will stamp the Deal and tell the couple their price is frozen when it is not.',
-  );
+test('a repeat press (the agreed total already IS the new number) still counts as landed', async () => {
+  // `record_agreed_price_change` answers 'unchanged' when the difference is 0 —
+  // the second press of the same Deal. That is a landing, not a failure: the
+  // budget already reads this number, so the couple must not be told to retry.
+  for (const answer of ['unchanged', 'priced']) {
+    const sink: { last: Captured } = { last: null };
+    const outcome = await bookVendorAtChatLock(
+      stubAuthed('contracted', 1, sink),
+      stubAdmin(true, answer),
+      ARGS,
+    );
+    assert.equal('priceLanded' in outcome && outcome.priceLanded, true, `'${answer}' must read as landed`);
+  }
 });
 
 test('a FIRST lock still books at the negotiated total and reports the landing', async () => {

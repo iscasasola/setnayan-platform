@@ -26,7 +26,7 @@
  *      and `lib/budget.ts` (pesos, twice) each used to carry a hand-copied
  *      cascade; two of the three had never inherited R12. They now share one
  *      function, and this file fails if a fourth cascade appears.
- *   6. Only the SECURITY DEFINER RPC may author a change delta, and the couple's
+ *   6. Only the two SECURITY DEFINER functions may author a change delta, and the couple’s
  *      surface shows it separately with no delete control.
  */
 import test from 'node:test';
@@ -48,6 +48,7 @@ import {
 import type { VendorPricingLookup } from '@/lib/budget';
 import { legacyCommittedVendorsPhp } from '@/lib/budget-page-money';
 import { stripComments } from '@/lib/strip-comments';
+import { lockFreezeLine } from '@/lib/lock-freeze-copy';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATION = join(
@@ -403,32 +404,43 @@ test('the budget page does not keep its own copy of that sum', () => {
 // 6 · WHO MAY AUTHOR A CHANGE, AND HOW IT IS SHOWN
 // ───────────────────────────────────────────────────────────────────────────
 
-test('only accept_change_order stamps is_change_delta', () => {
+test('only the two server functions stamp is_change_delta', () => {
   const sql = readFileSync(MIGRATION, 'utf8');
-  assert.ok(
-    /CREATE OR REPLACE FUNCTION public\.accept_change_order/.test(sql),
-    'the migration no longer re-signs accept_change_order',
-  );
-  assert.ok(
-    /is_change_delta\)\s*\n\s*VALUES[\s\S]*?TRUE\)/.test(sql),
-    'accept_change_order stopped stamping is_change_delta = TRUE. Without it a ' +
-      'settled delta reads as an itemisation and DELETES the price it adjusts.',
-  );
+  // Each author's OWN body must write TRUE — a single regex over the whole file
+  // would be satisfied by one of them alone.
+  const bodyOf = (fn: string): string => {
+    const at = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${fn}`);
+    assert.ok(at >= 0, `the migration no longer defines ${fn}`);
+    const end = sql.indexOf('$function$;', at);
+    assert.ok(end > at, `${fn} has no closing $function$ — re-anchor this guard`);
+    return sql.slice(at, end);
+  };
+  for (const fn of ['accept_change_order', 'record_agreed_price_change']) {
+    assert.ok(
+      /is_change_delta\)\s*\n\s*VALUES[\s\S]*?TRUE\)/.test(bodyOf(fn)),
+      `${fn} stopped stamping is_change_delta = TRUE. Without it a settled delta ` +
+        'reads as an itemisation and DELETES the price it adjusts.',
+    );
+  }
 
   // No application code may set it. The fact is authored by the SECURITY
-  // DEFINER function that is the only legitimate author of a settled delta;
-  // an insert path that set it from the browser would let a hand-typed line
-  // ride on top of a price the supplier never agreed to move.
+  // DEFINER functions that are the only legitimate authors of a settled delta
+  // (and the database refuses a browser session that tries — see
+  // tests/db/a-change-after-the-lock-keeps-both-numbers.db.test.ts); an insert
+  // path that set it from the app would let a hand-typed line ride on top of a
+  // price the supplier never agreed to move.
   const appWriters = [
     join(HERE, '../app/dashboard/[eventId]/budget/actions.ts'),
     join(HERE, '../app/dashboard/[eventId]/budget/cost-actions.ts'),
+    join(HERE, 'chat-lock-booking.server.ts'),
+    join(HERE, '../app/_components/negotiation-actions.ts'),
   ];
   for (const f of appWriters) {
     const src = stripComments(readFileSync(f, 'utf8'));
     assert.equal(
       (src.match(/is_change_delta/g) ?? []).length,
       0,
-      `${f} writes is_change_delta. Only accept_change_order may.`,
+      `${f} writes is_change_delta. Only the server functions may.`,
     );
   }
 });
@@ -462,9 +474,21 @@ test('the couple’s card shows a change separately, and cannot delete it', () =
 
 // ───────────────────────────────────────────────────────────────────────────
 // 7 · AND THE SENTENCE THAT WENT WITH IT
+//
+// ⚖ WHICH SENTENCE IS TRUE — decided 2026-09-11, and the test now agrees with
+// the code rather than being silenced. This branch once wrote its own inline
+// notice ("You locked this price" / "The couple locked this price"). #5393 then
+// landed `lockFreezeLine`, which READS THE BOOKING'S OWN `lock_request_state`
+// and can reach the booked sentence ("Deal locked — price frozen.") only from a
+// real booking; every other state says, in the viewer's own words, that the
+// price is frozen and nobody is booked yet. That is the TRUE one: it claims a
+// booking exactly when one exists, where the inline sentence could only ever
+// claim the press. So the card delegates to it, and this section pins that —
+// including the case this build adds (a new Deal on an already-booked
+// supplier: state 'locked', and "Deal locked" is then simply true).
 // ───────────────────────────────────────────────────────────────────────────
 
-test('the lock notice is in somebody’s voice and does not claim a booking', () => {
+test('the lock notice comes from lockFreezeLine, and only a real booking says "Deal locked"', () => {
   const src = stripComments(readFileSync(AMENDMENT_CARD, 'utf8'));
 
   // ANCHOR: if the lock block were removed or renamed, "no false claim" would
@@ -473,32 +497,50 @@ test('the lock notice is in somebody’s voice and does not claim a booking', ()
     src.includes('data.lockedAt'),
     'the amendment card no longer renders a locked state — re-anchor this guard',
   );
+  assert.equal(
+    (src.match(/lockFreezeLine\s*\(/g) ?? []).length,
+    1,
+    'the card no longer asks lockFreezeLine for its sentence — the one module that ' +
+      'knows whether a booking exists',
+  );
+  assert.ok(
+    src.includes('{freezeLine.text}'),
+    'the card computes the sentence but no longer renders it',
+  );
 
-  // 🔴 "Deal locked" claims a BOOKING. With the lock handshake ON — and it is on
-  // in production — the couple's press sends an ASK with a 48-hour fuse, and the
-  // supplier still has to say yes. `lockedAt` records a frozen PRICE, never a
-  // booking.
+  // 🔴 NO INLINE COPY OF THE MONEY CLAIM. Two sentences for one claim is how a
+  // screen ends up saying "locked" beside a request that has not been answered.
   assert.equal(
     (src.match(/Deal locked/g) ?? []).length,
     0,
-    'The card claims "Deal locked" again. It may only claim what lockedAt ' +
-      'records: the couple locked the agreed PRICE. Whether the supplier is ' +
-      'booked or merely asked is a fact this card does not have.',
+    'The card carries its own "Deal locked" again. Only lockFreezeLine may say it, ' +
+      'and only from a real booking.',
   );
+  assert.equal((src.match(/price frozen/gi) ?? []).length, 0, 'an inline frozen sentence is back');
+
+  // BEHAVIOUR, not source: every state that is NOT a booking, for both voices,
+  // with and without a saved price, must not claim one.
+  const notBooked = ['requested', 'declined', 'expired', 'cancelled', 'none', null, undefined] as const;
+  for (const state of notBooked) {
+    for (const viewerRole of ['couple', 'vendor'] as const) {
+      for (const priceFrozen of [true, false]) {
+        const line = lockFreezeLine({ state, viewerRole, priceFrozen });
+        assert.ok(
+          !line.text.includes('Deal locked'),
+          `"Deal locked" was claimed with no booking (state=${String(state)}, ${viewerRole})`,
+        );
+      }
+    }
+  }
+  // …and the one state that IS a booking says so — the post-lock Deal case.
   assert.equal(
-    (src.match(/price frozen/gi) ?? []).length,
-    0,
-    'the old sentence is back',
+    lockFreezeLine({ state: 'locked', viewerRole: 'couple', priceFrozen: true }).tone,
+    'booked',
   );
 
   // ROLE. The supplier must not read an announcement about an act they did not
-  // perform. Both voices must exist in that branch.
-  assert.ok(
-    src.includes('You locked this price'),
-    'the couple’s voice is gone from the locked notice',
-  );
-  assert.ok(
-    src.includes('The couple locked this price'),
-    'the supplier reads the couple’s voice again — the notice lost its role test',
-  );
+  // perform: an ASK reads differently to each side.
+  const toCouple = lockFreezeLine({ state: 'requested', viewerRole: 'couple', priceFrozen: true });
+  const toSupplier = lockFreezeLine({ state: 'requested', viewerRole: 'vendor', priceFrozen: true });
+  assert.notEqual(toCouple.text, toSupplier.text, 'both people read the same sentence again');
 });

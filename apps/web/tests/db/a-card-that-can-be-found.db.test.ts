@@ -113,21 +113,58 @@ test('ZERO IS NOT A PRICE — publishing at ₱0 is REFUSED', async () => {
   assert.match(err, /starting price/i);
 });
 
-test('the shipped Setnayan Exclusive gate still refuses, and is not weakened', async () => {
+test('the Setnayan Exclusive gate is GONE — a giftless card publishes', async () => {
+  // ⚖ THIS TEST ASSERTED THE EXACT OPPOSITE UNTIL 2026-09-09, when the owner
+  // ruled the gift optional: "exclusive setnayan gift then should be optional."
+  // Compulsory was never a feature, it was a RATE — the gift is 40% of the
+  // booking fee charged ON TOP of it, so requiring it took what a shop pays us
+  // from 5% to 7% of the first PHP 100,000 and made the line we sell against
+  // 25%-commission rivals with ("we only charge 5% and 1%") untrue.
+  //
+  // ⛔ PUTTING THE REFUSAL BACK IS AN OWNER DECISION, NOT A TIDY-UP.
+  //
+  // 🔑 DISTINCT PRICES, NOT 45000. These inserts SUCCEED now, and the next test
+  // counts rows at 45000 — so reusing that figure would leave this test's rows
+  // in that count and fail a test that is actually correct. That is precisely
+  // how this file broke when the gate was relaxed: nothing cleans up between
+  // tests, and a refusal that becomes an acceptance starts leaving rows behind.
   const err = await refused(
     `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php)
-     VALUES ($1, $2, true, 45000)`,
+     VALUES ($1, $2, true, 45001)`,
     [VP, CATEGORY],
   );
-  assert.ok(err, 'a card with no Setnayan Exclusive was published');
-  assert.match(err, /Setnayan Exclusive/i);
-  // Whitespace is not an Exclusive either.
+  assert.equal(err, null, `a giftless card was refused: ${err}`);
+  assert.equal(
+    await count(
+      `SELECT count(*) AS n FROM vendor_services
+        WHERE vendor_profile_id = $1 AND is_active AND starting_price_php = 45001`,
+      [VP],
+    ),
+    1,
+    'the giftless card is not in the table — refused, or never inserted',
+  );
+
+  // Whitespace is not an Exclusive, and no longer needs to be.
   const blank = await refused(
     `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text)
-     VALUES ($1, $2, true, 45000, '   ')`,
+     VALUES ($1, $2, true, 45002, '   ')`,
     [VP, CATEGORY],
   );
-  assert.ok(blank, 'a whitespace Exclusive was accepted');
+  assert.equal(blank, null, `a whitespace Exclusive was refused: ${blank}`);
+});
+
+test('the PRICE gate still bites — the requirement that did NOT move', async () => {
+  // The other half of the same ruling: exactly one publish requirement is left,
+  // and this test exists so relaxing the gift cannot be mistaken for relaxing
+  // the gate. A card with no starting price is still refused, with the sentence
+  // written for the shop rather than a raw Postgres error.
+  const err = await refused(
+    `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php)
+     VALUES ($1, $2, true, NULL)`,
+    [VP, CATEGORY],
+  );
+  assert.ok(err, 'an unpriced card was published');
+  assert.match(err, /starting price/i);
 });
 
 test('a complete card publishes — the gate is not simply refusing everything', async () => {
@@ -192,12 +229,26 @@ test('A CONTROL HONOURED ONLY ON THE WAY IN IS NOT A CONTROL — the price canno
     ),
     'a live card was stripped of its price',
   );
-  assert.ok(
+  // ⚖ AND THE ONE THAT IS NO LONGER A CONTROL. Emptying the Setnayan Exclusive
+  // on a LIVE card is allowed since 2026-09-09 — the gift is optional, so there
+  // is nothing to strip. Asserted as a VALUE in both directions, per this
+  // file's own rule: the update is accepted AND the column really is empty.
+  assert.equal(
     await refused(
       `UPDATE vendor_services SET exclusive_perk_text = '' WHERE vendor_service_id = $1`,
       [id],
     ),
-    'a live card was stripped of its Setnayan Exclusive',
+    null,
+    'a live card was refused permission to drop its now-optional gift',
+  );
+  assert.equal(
+    await count(
+      `SELECT count(*) AS n FROM vendor_services
+        WHERE vendor_service_id = $1 AND exclusive_perk_text = ''`,
+      [id],
+    ),
+    1,
+    'the Exclusive was not actually cleared',
   );
   assert.equal(
     await count(

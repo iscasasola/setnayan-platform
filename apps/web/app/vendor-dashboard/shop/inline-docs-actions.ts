@@ -41,6 +41,12 @@ import {
 } from '@/lib/vendor-verification';
 import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
 import { parseRegistrationNumber, UNIQUE_VIOLATION } from '@/lib/vendor-registration-number';
+import { PAIR_COLUMNS } from '@/lib/verification-pairs';
+import {
+  LOCKED_IDENTITY_FIELD_KEYS,
+  VERIFIED_LOCK_ERROR,
+  fetchVerifiedLock,
+} from '@/lib/vendor-corrections';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -75,6 +81,11 @@ export type InlineDocsPayload = {
   /** TRUE when the last submitted number COLLIDED with another shop's — the
    *  application is flagged for admin review (not hard-blocked). */
   registrationNumberNeedsReview: boolean;
+  /**
+   * The typed detail beside each paper — the six identity columns, soft-probed
+   * (owner 2026-09-09). All null on both production shops today.
+   */
+  identityValues: Record<string, string | null>;
 };
 
 /**
@@ -188,9 +199,12 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
     allComplete: false,
     registrationNumberRaw: null,
     registrationNumberNeedsReview: false,
+    identityValues: {},
   };
   const auth = await requireVendorId();
   if (!auth) return empty;
+
+  const identity = await loadVerificationIdentityFields();
 
   const regNumber = await fetchRegistrationNumberState(auth.supabase, auth.vendorProfileId);
 
@@ -211,6 +225,7 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       allComplete: Boolean(app.docs_complete),
       registrationNumberRaw: regNumber.raw,
       registrationNumberNeedsReview: regNumber.needsReview,
+      identityValues: identity.values,
     };
   }
 
@@ -228,6 +243,7 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       allComplete: Boolean(app.docs_complete),
       registrationNumberRaw: regNumber.raw,
       registrationNumberNeedsReview: regNumber.needsReview,
+      identityValues: identity.values,
     };
   }
 
@@ -241,6 +257,7 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       editable: true,
       registrationNumberRaw: regNumber.raw,
       registrationNumberNeedsReview: regNumber.needsReview,
+      identityValues: identity.values,
     };
   return {
     applicationId: draft.applicationId,
@@ -253,6 +270,7 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
     allComplete: false,
     registrationNumberRaw: regNumber.raw,
     registrationNumberNeedsReview: regNumber.needsReview,
+    identityValues: identity.values,
   };
 }
 
@@ -721,4 +739,117 @@ export async function submitInlineForReview(
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/admin/verify');
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// THE TYPED DETAIL BESIDE THE PAPER THAT PROVES IT (owner 2026-09-09)
+//
+// Six `vendor_profiles` columns sit beside the four papers. They already
+// existed and were never filled by anybody: measured against production
+// 2026-09-10, BOTH shops carry all six NULL. They are UPDATE-granted to
+// `authenticated` at COLUMN level and `anon` reaches none of them, so this
+// needs no migration and no grant.
+//
+// 🔑 TWO OF THE SIX ARE LOCKED THE MOMENT A SHOP IS VERIFIED, and both real
+// shops are verified: `business_owner_name` and `location_city` are on
+// `LOCKED_IDENTITY_FIELD_KEYS`. The lock is NOT re-implemented here — this
+// calls the SAME `fetchVerifiedLock` the profile editor calls, and the screen
+// asks the SAME `pairFieldLockedKey`, so a box is never drawn whose save the
+// server would refuse. A locked line gets the shipped correction door instead.
+//
+// ⛔ `registration_number_raw` is deliberately NOT writable through here. It
+// carries the anti-farm uniqueness claim (partial-UNIQUE index + the soft
+// review flag), and a second writer would be a second copy of that rule. The
+// call is delegated to `saveRegistrationNumberInline`, unchanged.
+// ---------------------------------------------------------------------------
+
+/** Length caps. The two shared with the admin correction path MIRROR it — a
+ *  value an admin can approve and this screen would reject is exactly the
+ *  drift `parseRequestedValue`'s own comment warns about. */
+const IDENTITY_FIELD_MAX: Record<string, number> = {
+  registered_business_name: 256,
+  business_owner_name: 256,
+  tin_number: 64,
+  registered_address: 512,
+  location_city: 64,
+};
+
+const IDENTITY_FIELD_WRITABLE: ReadonlySet<string> = new Set(
+  PAIR_COLUMNS.filter((c) => c !== 'registration_number_raw'),
+);
+
+export type IdentityFieldSaveResult =
+  | { ok: true }
+  | { ok: false; error: string; locked?: boolean };
+
+export async function saveVerificationIdentityField(
+  _prev: IdentityFieldSaveResult | null,
+  formData: FormData,
+): Promise<IdentityFieldSaveResult> {
+  const auth = await requireVendorId();
+  if (!auth) return { ok: false, error: 'Please sign in again.' };
+
+  const column = String(formData.get('column') ?? '').trim();
+  if (!IDENTITY_FIELD_WRITABLE.has(column)) {
+    return { ok: false, error: 'That detail can’t be edited here.' };
+  }
+
+  // The verified lock, read from the SAME helper the profile editor uses.
+  if (
+    (LOCKED_IDENTITY_FIELD_KEYS as readonly string[]).includes(column) &&
+    (await fetchVerifiedLock(auth.supabase, auth.userId))
+  ) {
+    return { ok: false, error: VERIFIED_LOCK_ERROR, locked: true };
+  }
+
+  const raw = String(formData.get('value') ?? '').trim();
+  const max = IDENTITY_FIELD_MAX[column] ?? 256;
+  const value = raw ? raw.slice(0, max) : null;
+
+  const { error } = await auth.supabase
+    .from('vendor_profiles')
+    .update({ [column]: value, updated_at: new Date().toISOString() })
+    .eq('vendor_profile_id', auth.vendorProfileId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/vendor-dashboard/shop');
+  revalidatePath('/vendor-dashboard/verify');
+  return { ok: true };
+}
+
+/**
+ * What the supplier has typed so far, for the lines beside each paper.
+ * Soft-probed as one select: a database missing any of these columns degrades
+ * to every value null (the "not sent yet" state), never to a crashed section.
+ */
+export async function loadVerificationIdentityFields(): Promise<{
+  values: Record<string, string | null>;
+}> {
+  const empty = { values: {} as Record<string, string | null> };
+  const auth = await requireVendorId();
+  if (!auth) return empty;
+  try {
+    const { data, error } = await auth.supabase
+      .from('vendor_profiles')
+      // ⚠ A LITERAL, not `PAIR_COLUMNS.join(',')` — Supabase's typed client
+      // parses this string at compile time and a template literal defeats it.
+      // `verification-pairs-wiring.test.ts` compares this literal against
+      // PAIR_COLUMNS and fails if a seventh column is added without landing
+      // here, because a column missing from the select reads as never typed.
+      .select(
+        'registered_business_name,business_owner_name,registration_number_raw,tin_number,registered_address,location_city',
+      )
+      .eq('vendor_profile_id', auth.vendorProfileId)
+      .maybeSingle();
+    if (error || !data) return empty;
+    const row = data as Record<string, unknown>;
+    const values: Record<string, string | null> = {};
+    for (const c of PAIR_COLUMNS) {
+      const v = row[c];
+      values[c] = typeof v === 'string' && v.trim() ? v : null;
+    }
+    return { values };
+  } catch {
+    return empty;
+  }
 }

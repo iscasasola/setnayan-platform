@@ -27,7 +27,29 @@ import type { EncoderHealthInput } from '../live-studio-ingest-health';
 
 type Listener = () => void;
 
-const readings = new Map<string, EncoderHealthInput>();
+/**
+ * What the desktop host publishes alongside the encoder reading itself.
+ *
+ * `transportEnvelope` is provenance for `decideIngestHealth` — which envelope
+ * carried the go-live probe. It annotates and MUST NOT gate: the base64/JSON
+ * envelope is the expected path on WebKit, so treating "not raw" as a fault
+ * would mark every macOS user broken. `decideIngestHealth` enforces that at its
+ * end too; this type only carries the value.
+ *
+ * `guardSentence` is the probe's own message when it has one — a refusal, or a
+ * "slower than usual" note. Empty when the probe was unremarkable.
+ */
+export type EncoderTransportNote = {
+  transportEnvelope: string | null;
+  guardSentence: string;
+};
+
+export type EncoderReading = {
+  input: EncoderHealthInput;
+  note: EncoderTransportNote;
+};
+
+const readings = new Map<string, EncoderReading>();
 const listeners = new Set<Listener>();
 
 /**
@@ -35,14 +57,18 @@ const listeners = new Set<Listener>();
  * Clearing matters: a strip that keeps rendering the last reading after the
  * broadcast ended is showing a measurement of nothing.
  */
-export function publishEncoderHealth(eventId: string, input: EncoderHealthInput | null): void {
+export function publishEncoderHealth(
+  eventId: string,
+  input: EncoderHealthInput | null,
+  note: EncoderTransportNote = { transportEnvelope: null, guardSentence: '' },
+): void {
   if (input === null) readings.delete(eventId);
-  else readings.set(eventId, input);
+  else readings.set(eventId, { input, note });
   for (const listener of listeners) listener();
 }
 
 /** This event's latest reading, or `null` when no desktop encoder is running. */
-export function readEncoderHealth(eventId: string): EncoderHealthInput | null {
+export function readEncoderHealth(eventId: string): EncoderReading | null {
   return readings.get(eventId) ?? null;
 }
 
